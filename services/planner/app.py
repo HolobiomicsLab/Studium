@@ -1,5 +1,8 @@
 """Planner service — FastAPI app."""
 from __future__ import annotations
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))
+
 from fastapi import FastAPI
 
 from schemas import PlanRequest, PlanResponse, PlanStatus

@@ -1,5 +1,8 @@
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+_INGEST_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _INGEST_DIR not in sys.path:
+    sys.path.insert(0, _INGEST_DIR)
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,8 +17,8 @@ FIXTURE_BIB = os.path.join(
 
 @pytest.fixture
 def client():
-    from app import app
-    return TestClient(app)
+    from ingest_app import app as _app
+    return TestClient(_app)
 
 
 def test_ingest_corpus_with_pdf_and_bib(client):

@@ -1,8 +1,10 @@
 """Ingest service — FastAPI app."""
 from __future__ import annotations
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))
+
 import uuid
 import tempfile
-import os
 from typing import Optional
 
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException
@@ -10,7 +12,7 @@ from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from pdf_extractor import extract_pdf
 from bibtex_parser import parse_bibtex
 from doi_resolver import resolve_doi
-from schemas import IngestManifest, CorpusRef
+from ingest_schemas import IngestManifest, CorpusRef
 
 app = FastAPI(title="Studium Ingest Service", version="1.0.0")
 

@@ -1,5 +1,9 @@
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+import importlib.util
+
+_PLANNER_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _PLANNER_DIR not in sys.path:
+    sys.path.insert(0, _PLANNER_DIR)
 
 import pytest
 from fastapi.testclient import TestClient
@@ -20,8 +24,8 @@ SAMPLE_REQUEST = {
 
 @pytest.fixture
 def client():
-    from app import app
-    return TestClient(app)
+    from planner_app import app as _app
+    return TestClient(_app)
 
 
 def test_plan_endpoint_returns_200(client):
