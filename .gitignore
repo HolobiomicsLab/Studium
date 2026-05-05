@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+target/
+src-tauri/target/
+*.db
+.DS_Store
