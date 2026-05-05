@@ -1,0 +1,117 @@
+{
+  "schema_version": "1.0",
+  "id": "lesson-metabolomics-001",
+  "title": "Introduction à la métabolomique non ciblée",
+  "language": "fr",
+  "learning_objectives": [
+    {
+      "id": "obj-1",
+      "description": "Définir la métabolomique et la situer dans l'omique",
+      "bloom_level": "understand"
+    },
+    {
+      "id": "obj-2",
+      "description": "Distinguer métabolomique ciblée et non ciblée",
+      "bloom_level": "analyze"
+    },
+    {
+      "id": "obj-3",
+      "description": "Évaluer la pertinence d'une réponse IA sur un concept métabolomique",
+      "bloom_level": "evaluate"
+    },
+    {
+      "id": "obj-4",
+      "description": "Identifier ses propres lacunes sur le pipeline d'analyse",
+      "bloom_level": "evaluate"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "scene-intro",
+      "type": "intro",
+      "objective_refs": ["obj-1"],
+      "modulators": [],
+      "content": {
+        "text": "La métabolomique est l'étude à grande échelle des petites molécules (métabolites) présentes dans un système biologique. Elle clôt le cycle des omiques après la génomique, la transcriptomique et la protéomique.",
+        "media": []
+      },
+      "success_criteria": "L'étudiant a parcouru l'introduction et peut citer un exemple de métabolite.",
+      "adaptation_hooks": ["on_timeout"]
+    },
+    {
+      "id": "scene-concept-targeted-vs-untargeted",
+      "type": "concept",
+      "objective_refs": ["obj-2"],
+      "modulators": ["M3", "M5"],
+      "content": {
+        "text": "En métabolomique ciblée, on quantifie un ensemble prédéfini de métabolites (ex : 30 acides aminés). En approche non ciblée, on capture l'ensemble du métabolome détectable — typiquement des milliers de features MS — sans hypothèse a priori.",
+        "key_points": [
+          "Ciblée : sensibilité élevée, couverture réduite",
+          "Non ciblée : couverture large, défi d'annotation",
+          "Choix guidé par la question biologique"
+        ]
+      },
+      "success_criteria": [
+        "L'étudiant distingue les deux approches",
+        "L'étudiant cite au moins un avantage et un inconvénient de chaque"
+      ],
+      "adaptation_hooks": ["on_low_confidence", "on_revisit"]
+    },
+    {
+      "id": "scene-quiz-pipeline",
+      "type": "quiz",
+      "objective_refs": ["obj-2"],
+      "modulators": ["M1", "M4"],
+      "content": {
+        "question": "Dans un pipeline LC-MS non ciblé, quelle étape vient immédiatement après la détection des features ?",
+        "options": [
+          "A — Annotation par spectre de référence",
+          "B — Alignement des features entre échantillons",
+          "C — Normalisation des intensités",
+          "D — Analyse statistique multivariée"
+        ],
+        "correct": "B",
+        "explanation": "L'alignement (peak alignment) est nécessaire pour comparer les features détectées indépendamment dans chaque run avant toute annotation ou normalisation."
+      },
+      "success_criteria": "Réponse correcte ou reformulation juste après feedback.",
+      "adaptation_hooks": ["on_error", "on_low_confidence", "on_high_confidence"]
+    },
+    {
+      "id": "scene-ai-critique-annotation",
+      "type": "ai_critique",
+      "objective_refs": ["obj-3"],
+      "modulators": ["M3", "M6"],
+      "content": {
+        "prompt_shown_to_student": "Un assistant IA a répondu à la question « Comment annoter un feature MS inconnu ? » avec le texte suivant : [PLACEHOLDER_AI_RESPONSE]",
+        "task": "Identifie au moins deux affirmations correctes et une affirmation suspecte ou manquante dans cette réponse. Justifie chaque jugement.",
+        "rubric": [
+          "Mention de la correspondance de masse exacte (MS1)",
+          "Mention des spectres MS2 / fragmentation",
+          "Référence à une base de données (HMDB, MetaboLights, MassBank)",
+          "Limites de l'annotation de niveau 1 vs niveau 2 (Metabolomics Standards Initiative)"
+        ]
+      },
+      "success_criteria": "L'étudiant identifie correctement au moins deux points et formule une critique argumentée.",
+      "adaptation_hooks": ["on_low_confidence", "on_timeout"]
+    },
+    {
+      "id": "scene-meta-checkpoint",
+      "type": "meta_checkpoint",
+      "objective_refs": ["obj-4"],
+      "modulators": ["M2"],
+      "content": {
+        "prompt": "Avant de continuer, prends 2 minutes pour noter : (1) ce que tu comprends bien sur la métabolomique non ciblée, (2) ce qui te semble encore flou, (3) une question que tu voudrais explorer davantage.",
+        "format": "free_text"
+      },
+      "success_criteria": "L'étudiant a soumis une réflexion non vide couvrant les trois points.",
+      "adaptation_hooks": ["on_revisit"]
+    }
+  ],
+  "metadata": {
+    "subject": "metabolomics",
+    "author": "studium-agent",
+    "created": "2026-05-05",
+    "tags": ["metabolomics", "omics", "LC-MS", "untargeted", "demo"],
+    "version": "1.0"
+  }
+}
