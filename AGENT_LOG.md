@@ -83,6 +83,41 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+---
+
+## 2026-05-05 — M1 : Pipeline auteur → plan validé
+
+### Préconditions vérifiées
+- Branche `prototype/m1-pipeline-auteur` créée depuis `main` (tag `m0-skeleton`)
+- Python : miniconda3 (3.13.2), PyMuPDF 1.27, FastAPI 0.136
+- MinerU absent → PyMuPDF fallback (ADR 008)
+- Mimosa SDK absent → LLMClient direct fallback (ADR 008)
+
+### Unités livrées
+
+| Unité | Livrable | Tests |
+|-------|---------|-------|
+| 1 | `packages/lesson-plan-schema` JSON Schema + Pydantic | 7 TS + 5 Py ✅ |
+| 2-3 | `services/ingest/pdf_extractor` PyMuPDF | 5 Py ✅ |
+| 4 | `bibtex_parser` + `doi_resolver` | 5 Py ✅ |
+| 5 | FastAPI `POST /ingest/corpus` | 3 Py ✅ |
+| 6 | `services/planner/schemas.py` Pydantic | 3 Py ✅ |
+| 7 | `mimosa_wrapper` LLMClient + audit trace (rule 002) | 4 Py ✅ |
+| 8 | `critic` agent score + annotations | 3 Py ✅ |
+| 9 | FastAPI `POST /plan` pipeline→critic | 4 Py ✅ |
+| 10 | `apps/author-web` Next.js 14 upload+éditeur+export | build ✅ typecheck ✅ |
+| 11 | Tests E2E CLI : ingest→plan→critic→export JSON validé | 3 Py ✅ |
+
+### Résumé vérification finale
+- `pnpm test` : 15/15 TS verts
+- `pytest services/ packages/lesson-plan-schema/tests_python/` : 35/35 verts
+- `pnpm --filter @studium/author-web build` : exit 0
+- Validation Pydantic active sur tous les LLM calls (rule 002) ✅
+- HITL : export JSON uniquement après validation enseignant (rule 003) ✅
+- ADR 008 : fallbacks MinerU + Mimosa documentés
+
+---
+
 ## 2026-05-05 — Unité 10 : Vérification finale M0
 
 - `pnpm test` global : 8 tests TS verts (3 lesson-schema + 3 llm-client + 2 perspicacite-client)
