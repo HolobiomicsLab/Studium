@@ -1,0 +1,19 @@
+{
+  "name": "@studium/lesson-plan-schema",
+  "version": "1.0.0",
+  "description": "Lesson plan sub-schema (v1) — JSON Schema + TypeScript types + Pydantic mirror",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0",
+    "typescript": "^5.4.5"
+  }
+}
