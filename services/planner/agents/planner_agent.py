@@ -53,6 +53,7 @@ class PlannerAgent(BaseAgent):
                 plan = LessonPlan(**data)
                 plan = self._inject_prov(plan, manifest, run_id)
                 plan = self._inject_bloom_uris(plan)
+                plan = self._enrich_from_abs(manifest, plan)
                 audit = self._audit(attempt, "ok", time.monotonic() - t0)
                 self._last_audit = audit
                 return plan, audit
@@ -101,6 +102,73 @@ class PlannerAgent(BaseAgent):
         for obj in plan.learning_objectives:
             if not obj.bloom_uri:
                 obj.bloom_uri = _BLOOM_URI_MAP.get(obj.bloom_level.value, f"urn:studium:bloom:{obj.bloom_level.value}")
+        return plan
+
+    def _enrich_from_abs(self, manifest: dict[str, Any], plan: "LessonPlan") -> "LessonPlan":
+        """Si des CorpusRef de type abs_capsule sont présents, enrichit le plan."""
+        import sys as _sys
+        _sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../services/ingest"))
+        try:
+            from abs_reader import ABSCapsuleReader
+        except ImportError:
+            return plan
+
+        for ref in manifest.get("corpus_refs", []):
+            if ref.get("ref_type") != "abs_capsule":
+                continue
+            capsule_path = ref.get("abs_capsule_path")
+            if not capsule_path:
+                continue
+            task_card_ids = ref.get("abs_task_card_ids")
+            reader = ABSCapsuleReader()
+            capsule_data = reader.read(capsule_path, task_card_ids)
+
+            # Ajouter scènes reproduction depuis task cards (en tête de liste)
+            from lesson_plan_schema import SceneOutline, SceneType
+            new_scenes = []
+            for card in capsule_data.task_cards:
+                scene_id = f"sc-abs-{card.task_id}"
+                if any(s.id == scene_id for s in plan.scene_outlines):
+                    continue
+                notes = (
+                    f"Inputs: {', '.join(card.inputs[:3])}. "
+                    f"Outputs: {', '.join(card.expected_outputs[:3])}. "
+                    f"Tools: {', '.join(card.tools[:3])}."
+                )
+                scene = SceneOutline(
+                    id=scene_id,
+                    type=SceneType.reproduction,
+                    title=card.title,
+                    objective_refs=[o.id for o in plan.learning_objectives[:1]],
+                    notes=notes,
+                    abs_task_card_id=card.task_id,
+                )
+                new_scenes.append(scene)
+            # Insérer les scènes ABS avant les scènes de reproduction existantes
+            first_repro_idx = next(
+                (i for i, s in enumerate(plan.scene_outlines) if s.type == SceneType.reproduction),
+                len(plan.scene_outlines),
+            )
+            for scene in reversed(new_scenes):
+                plan.scene_outlines.insert(first_repro_idx, scene)
+
+            # Enrichir objectives avec EDAM depuis skills
+            for skill in capsule_data.skills:
+                for obj in plan.learning_objectives:
+                    if not obj.edam_operation and skill.edam_operation:
+                        obj.edam_operation = skill.edam_operation
+                    if not obj.edam_topics and skill.edam_topics:
+                        obj.edam_topics = skill.edam_topics
+                    if not obj.skos_concept_uri and skill.edam_topics:
+                        obj.skos_concept_uri = skill.edam_topics[0]
+
+            # Ajouter ro_crate_entity_uri dans prov_derived_from
+            if capsule_data.ro_crate_entity_uri:
+                if not plan.prov_derived_from:
+                    plan.prov_derived_from = []
+                if capsule_data.ro_crate_entity_uri not in plan.prov_derived_from:
+                    plan.prov_derived_from.append(capsule_data.ro_crate_entity_uri)
+
         return plan
 
     def _mock_response(self, reason: str = "") -> str:
