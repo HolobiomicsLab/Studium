@@ -61,3 +61,99 @@ def test_critic_score_bounds():
 
     with pytest.raises(ValidationError):
         LessonPlan(**{**SAMPLE, "critic_score": 1.5})
+
+
+def test_corpus_ref_optional_ontology_fields():
+    from lesson_plan_schema import CorpusRef, RefType
+    ref = CorpusRef(
+        ref_id="ref-abs-1",
+        ref_type=RefType.abs_capsule,
+        prov_entity_uri="urn:studium:corpus:abs-1",
+        dct_source="file:///capsules/task_001",
+        abs_capsule_path="/capsules/task_001",
+        abs_task_card_ids=["task_001"],
+    )
+    assert ref.ref_type == RefType.abs_capsule
+    assert ref.prov_entity_uri == "urn:studium:corpus:abs-1"
+    assert ref.abs_capsule_path == "/capsules/task_001"
+
+
+def test_learning_objective_optional_ontology_fields():
+    from lesson_plan_schema import LearningObjective, BloomLevel
+    obj = LearningObjective(
+        id="obj-1",
+        description="Comprendre LC-MS",
+        bloom_level=BloomLevel.understand,
+        skos_concept_uri="http://edamontology.org/topic_0121",
+        esco_skill_uri="http://data.europa.eu/esco/skill/abc123",
+        bloom_uri="urn:studium:bloom:understand",
+        edam_operation="http://edamontology.org/operation_3214",
+        edam_topics=["http://edamontology.org/topic_0121"],
+    )
+    assert obj.skos_concept_uri == "http://edamontology.org/topic_0121"
+    assert obj.bloom_uri == "urn:studium:bloom:understand"
+    assert obj.edam_operation == "http://edamontology.org/operation_3214"
+
+
+def test_scene_outline_optional_ontology_fields():
+    from lesson_plan_schema import SceneOutline, SceneType
+    scene = SceneOutline(
+        id="sc-1",
+        type=SceneType.reproduction,
+        title="TP LC-MS",
+        objective_refs=["obj-1"],
+        abs_task_card_id="task_001",
+        prov_derived_from=["doi:10.1073/pnas.1319030111"],
+        dct_subject="Métabolomique",
+    )
+    assert scene.abs_task_card_id == "task_001"
+    assert scene.prov_derived_from == ["doi:10.1073/pnas.1319030111"]
+
+
+def test_lesson_plan_optional_provenance_fields():
+    from lesson_plan_schema import LessonPlan, LearningObjective, SceneOutline, BloomLevel, SceneType
+    plan = LessonPlan(
+        schema_version="1.0",
+        id="plan-test-ont",
+        title="Test ontologie",
+        language="fr",
+        target="L3",
+        duration_minutes=45,
+        learning_objectives=[
+            LearningObjective(id="obj-1", description="Comprendre", bloom_level=BloomLevel.understand)
+        ],
+        scene_outlines=[
+            SceneOutline(id="sc-1", type=SceneType.concept, title="Intro", objective_refs=["obj-1"])
+        ],
+        prov_entity_uri="urn:studium:plan:plan-test-ont",
+        prov_derived_from=["doi:10.1073/pnas.1319030111"],
+        prov_generated_by="urn:studium:activity:planner:run-xyz",
+        dct_subject="Métabolomique",
+        dct_language="fr",
+        schema_educational_level="L3",
+    )
+    assert plan.prov_entity_uri == "urn:studium:plan:plan-test-ont"
+    assert plan.dct_subject == "Métabolomique"
+    assert plan.schema_educational_level == "L3"
+
+
+def test_existing_fields_unchanged():
+    """Régression : les champs M1 existants fonctionnent encore."""
+    from lesson_plan_schema import LessonPlan, LearningObjective, SceneOutline, BloomLevel, SceneType, PlanStatus
+    plan = LessonPlan(
+        schema_version="1.0",
+        id="plan-regr",
+        title="Régression M1",
+        language="fr",
+        target="L3",
+        duration_minutes=45,
+        learning_objectives=[
+            LearningObjective(id="obj-1", description="Test", bloom_level=BloomLevel.apply)
+        ],
+        scene_outlines=[
+            SceneOutline(id="sc-1", type=SceneType.quiz, title="Quiz", objective_refs=["obj-1"])
+        ],
+        status=PlanStatus.draft,
+    )
+    assert plan.status == PlanStatus.draft
+    assert plan.prov_entity_uri is None  # nouveaux champs par défaut None

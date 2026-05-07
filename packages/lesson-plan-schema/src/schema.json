@@ -5,7 +5,7 @@
   "description": "Studium lesson plan v1 — sub-schema of lesson-schema v1 (ADR 003). Represents the author-validated plan before full scene synthesis.",
   "type": "object",
   "required": ["schema_version", "id", "title", "language", "target", "duration_minutes", "learning_objectives", "scene_outlines", "corpus_refs", "status"],
-  "additionalProperties": false,
+  "additionalProperties": true,
   "properties": {
     "schema_version": { "type": "string", "const": "1.0" },
     "id": { "type": "string", "minLength": 1 },
@@ -47,26 +47,46 @@
       "type": "string",
       "description": "Author identifier who validated the plan (required when status=approved)"
     },
-    "metadata": { "$ref": "#/$defs/Metadata" }
+    "metadata": { "$ref": "#/$defs/Metadata" },
+    "prov_entity_uri": { "type": "string" },
+    "prov_derived_from": { "type": "array", "items": { "type": "string" } },
+    "prov_generated_by": { "type": "string" },
+    "schema_course_uri": { "type": "string" },
+    "schema_educational_level": { "type": "string" },
+    "dct_subject": { "type": "string" },
+    "dct_language": { "type": "string" },
+    "esco_occupation_uri": { "type": "string" },
+    "case_framework_uri": { "type": "string" }
   },
   "$defs": {
     "LearningObjective": {
       "type": "object",
       "required": ["id", "description", "bloom_level"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "description": { "type": "string", "minLength": 1 },
         "bloom_level": {
           "type": "string",
           "enum": ["remember", "understand", "apply", "analyze", "evaluate", "create"]
-        }
+        },
+        "concept_uris": { "type": "array", "items": { "type": "string" } },
+        "skos_concept_uri": { "type": "string" },
+        "skos_broader": { "type": "string" },
+        "skos_related": { "type": "array", "items": { "type": "string" } },
+        "esco_skill_uri": { "type": "string" },
+        "esco_knowledge_uri": { "type": "string" },
+        "case_item_uri": { "type": "string" },
+        "edam_operation": { "type": "string" },
+        "edam_topics": { "type": "array", "items": { "type": "string" } },
+        "schema_alignment_uri": { "type": "string" },
+        "bloom_uri": { "type": "string" }
       }
     },
     "SceneOutline": {
       "type": "object",
       "required": ["id", "type", "title", "objective_refs"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "type": {
@@ -79,23 +99,36 @@
           "items": { "type": "string" }
         },
         "notes": { "type": "string" },
-        "duration_minutes": { "type": "integer", "minimum": 1 }
+        "duration_minutes": { "type": "integer", "minimum": 1 },
+        "skos_concept_uris": { "type": "array", "items": { "type": "string" } },
+        "dct_subject": { "type": "string" },
+        "prov_derived_from": { "type": "array", "items": { "type": "string" } },
+        "dct_references": { "type": "array", "items": { "type": "string" } },
+        "schema_educational_alignment": { "type": "array", "items": { "type": "string" } },
+        "case_item_uri": { "type": "string" },
+        "abs_task_card_id": { "type": "string" }
       }
     },
     "CorpusRef": {
       "type": "object",
       "required": ["ref_id", "ref_type"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "ref_id": { "type": "string", "minLength": 1 },
         "ref_type": {
           "type": "string",
-          "enum": ["local_file", "doi", "url", "offline"]
+          "enum": ["local_file", "doi", "url", "offline", "abs_capsule"]
         },
         "title": { "type": "string" },
         "doi": { "type": "string" },
         "file_path": { "type": "string" },
-        "resolved": { "type": "boolean" }
+        "resolved": { "type": "boolean" },
+        "prov_entity_uri": { "type": "string" },
+        "dct_source": { "type": "string" },
+        "dct_references": { "type": "array", "items": { "type": "string" } },
+        "skos_subject": { "type": "string" },
+        "abs_capsule_path": { "type": "string" },
+        "abs_task_card_ids": { "type": "array", "items": { "type": "string" } }
       }
     },
     "Metadata": {
