@@ -4,6 +4,28 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## M2 — 2026-05-07
+
+### Livré
+- `packages/lesson-plan-schema` : enrichissement ontologique (Prov-O, SKOS, ESCO, Schema.org, DCT, EDAM, REPRODUCE-ME) + `RefType.abs_capsule`
+- `services/planner/agents/` : `BaseAgent`, `PlannerAgent`, `CriticAgent`
+- `services/planner/ontology/` : `prov.py`, `jsonld.py`
+- `services/planner/schemas.py` : `CritiqueResult` (+ `llm_used` flag)
+- `services/planner/mimosa_wrapper.py` : thin wrapper compat (tests M1 verts)
+- `services/ingest/abs_reader.py` : `ABSCapsuleReader` (lecture JSON/Markdown, sans dépendance ABS)
+- `services/ingest/ingest_app.py` : endpoint `POST /ingest/abs-capsule`
+- `fixtures/m2/abs_capsule_minimal/` : fixture de test statique
+
+### Tests
+- Tous les tests M1 verts
+- Nouveaux tests M2 : test_prov_graph, test_planner_agent, test_critic_agent, test_planner_agent_abs, test_abs_reader, test_abs_endpoint
+- Total : 45 + 8 = 53/53 verts
+
+### ADR
+- ADR 009 à créer : M2 agents explicites + ontologies croisées + interface ABS
+
+---
+
 ## 2026-05-05 — Unité 0 : Init repo prototype-build
 
 - Fichiers : `CLAUDE.md`, `AGENT_LOG.md`, `tools/memory_cli.py`, `.memory/INDEX.md`
