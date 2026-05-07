@@ -1,0 +1,26 @@
+{
+  "task_id": "task_001",
+  "title": "LC-MS feature detection from mzML data",
+  "schema_version": "0.9.0",
+  "research_question": "How to detect features in LC-MS data?",
+  "finding": "MZmine3 detects 85% of expected features on benchmark dataset.",
+  "task_description": "Run MZmine3 feature detection on provided mzML file and export feature table.",
+  "inputs": ["sample.mzML"],
+  "expected_outputs": ["feature_table.csv"],
+  "expected_artifact_name": "feature_table.csv",
+  "tools": ["MZmine3"],
+  "skills": ["lc_ms_feature_detection"],
+  "workflow_description": "1. Open mzML in MZmine3. 2. Run ADAP chromatogram builder. 3. Export feature table.",
+  "methodology_summary": [
+    "Load mzML file into MZmine3",
+    "Apply ADAP chromatogram builder (min intensity 1e4)",
+    "Export feature table as CSV"
+  ],
+  "execution_profile": {
+    "compute_tier": "light",
+    "commercial_software": [],
+    "open_source_alternatives": []
+  },
+  "created_at": "2026-05-07T00:00:00Z",
+  "crossref_doi": "10.1021/acs.analchem.0c04490"
+}
