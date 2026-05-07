@@ -110,6 +110,7 @@ class ABSCapsuleReader:
                 edam_operation=fm.get("edam_operation"),
                 edam_topics=edam_topics,
                 source_paper_doi=fm.get("source_paper_doi"),
+                esco_skill_uri=fm.get("esco_skill_uri"),
             ))
         return skills
 

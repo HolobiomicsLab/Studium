@@ -46,6 +46,7 @@ class CritiqueResult(BaseModel):
     prov_activity_uri: str = Field(
         default_factory=lambda: f"urn:studium:activity:critic:{_uuid.uuid4().hex[:8]}"
     )
+    llm_used: bool = True
 
 
 __all__ = [

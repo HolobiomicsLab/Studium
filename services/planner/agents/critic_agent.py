@@ -38,6 +38,7 @@ class CriticAgent(BaseAgent):
         last_exc = None
         score = 0.75
         annotations: list[str] = []
+        llm_used = False
 
         for attempt in range(1, self.max_retries + 1):
             try:
@@ -47,6 +48,7 @@ class CriticAgent(BaseAgent):
                 if not (0.0 <= score <= 1.0):
                     raise ValueError(f"score hors range: {score}")
                 annotations = [str(a) for a in data.get("annotations", [])]
+                llm_used = True
                 break
             except Exception as exc:
                 last_exc = exc
@@ -57,6 +59,7 @@ class CriticAgent(BaseAgent):
             bloom_consistency=bloom_consistency,
             ontology_warnings=ontology_warnings,
             prov_activity_uri=prov_uri,
+            llm_used=llm_used,
         )
 
     def _check_bloom_consistency(self, plan: "LessonPlan") -> tuple[bool, list[str]]:
