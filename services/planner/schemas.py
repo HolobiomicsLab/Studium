@@ -1,6 +1,7 @@
 """Planner service Pydantic schemas — aligned with lesson-plan-schema v1 (ADR 003)."""
 from __future__ import annotations
 import sys, os
+import uuid as _uuid
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../packages/lesson-plan-schema/python"))
 
 from lesson_plan_schema import (
@@ -36,8 +37,19 @@ class PlanResponse(BaseModel):
     critic_annotations: list[str] = Field(default_factory=list)
 
 
+class CritiqueResult(BaseModel):
+    """Résultat structuré du CriticAgent (rule 002 + rule 003)."""
+    score: float = Field(ge=0.0, le=1.0)
+    annotations: list[str] = Field(default_factory=list)
+    bloom_consistency: bool = True
+    ontology_warnings: list[str] = Field(default_factory=list)
+    prov_activity_uri: str = Field(
+        default_factory=lambda: f"urn:studium:activity:critic:{_uuid.uuid4().hex[:8]}"
+    )
+
+
 __all__ = [
     "LessonPlan", "LearningObjective", "SceneOutline", "CorpusRef",
     "PlanMetadata", "BloomLevel", "SceneType", "PlanStatus", "RefType",
-    "PlanRequest", "PlanResponse",
+    "PlanRequest", "PlanResponse", "CritiqueResult",
 ]
