@@ -30,4 +30,6 @@ zeroize = { version = "1.7", features = ["derive"] }
 rusqlite = { version = "0.32", features = ["bundled-sqlcipher"] }
 keyring = "3"
 chrono = { version = "0.4", features = ["serde"] }
+zip = "2"
+dirs = "5"
 
