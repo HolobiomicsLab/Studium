@@ -201,3 +201,34 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 - Écart documenté : unité 8 (Tauri) skippée — Rust absent
 - Tag `m0-skeleton` posé
 - Branche `prototype/m0-skeleton` à pousser (remote à configurer par l'utilisateur)
+
+---
+
+## 2026-05-09 — ACD Stream A2 (résumé branche `prototype/a2-scene-synth`)
+
+Fork depuis `prototype/m3-student-runtime`. Détail A.0–A.7 dans la branche
+`prototype/c2-analytics` (commit `3bfb370`).
+
+| Unité | Cible | Tests | HEAD |
+|-------|-------|-------|------|
+| A.0–A.7 | services/scene-synth Python (sub-agents pendant absence) | 33 verts | `e23ac78` |
+| A.8 | ReproductionScene.tsx + dispatch SceneRouter | 6 vitest | `2f842d2` |
+| A.9 | AICritiqueScene.tsx + dispatch SceneRouter | 7 vitest | `2f842d2` |
+| A.10 | services/scene-synth/tests/e2e/test_full_pipeline.py + WDIO spec + tools/e2e-a10.sh | 3 pytest | `2f842d2` |
+
+A.10 design : pour ne pas dépendre d'un LLM réel, le pytest E2E utilise un
+`_FakeLLM` signature-based qui renvoie du JSON canned par scène (matché sur
+header unique du prompt Jinja2) + `_PermissiveCritic`. Couvre :
+- 6 types de scène présents dans le ZIP produit
+- skip ai_critique sur `include_critique=False`
+- warning sur unsupported scene type
+
+WDIO part (`apps/student-runtime/tests-e2e/play-bundle-from-scene-synth.test.ts`)
+livré mais bloqué tant que la build Tauri release n'est pas faite (disque plein
+sur cette session).
+
+**Tests cumulés branche** : 33 (A.0–A.7) + 13 vitest (A.8 6 + A.9 7) + 3 pytest
+(A.10 E2E pipeline) = **49**.
+
+**Reste sur A2** : aucune unité — A2 complet. Reste juste merge sur main après
+M3 mergé (Stream U humain).
