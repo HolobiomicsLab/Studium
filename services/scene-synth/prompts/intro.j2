@@ -1,0 +1,17 @@
+Tu rédiges la scène d'introduction d'une leçon.
+
+Objectif pédagogique : {{ plan_section.objective_text }}
+Concepts couverts : {{ plan_section.concept_ids | join(", ") }}
+{% if last_error %}
+Tentative précédente invalide : {{ last_error }}. Corrige le format.
+{% endif %}
+
+Réponds en JSON strict, schéma :
+{
+  "id": "s_intro_<short_id>",
+  "type": "intro",
+  "title": "<titre court, < 60 caractères>",
+  "content": {
+    "markdown": "<3-5 phrases en markdown, ton encourageant, aucune affirmation factuelle non sourçable>"
+  }
+}
