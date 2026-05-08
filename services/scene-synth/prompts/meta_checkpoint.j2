@@ -1,0 +1,31 @@
+Tu rédiges la scène ``meta_checkpoint`` qui calibre la métacognition de
+l'apprenant·e (confiance / sentiment de maîtrise) avant et après une section.
+
+Concept ciblé : {{ plan_section.concept_id }}
+Objectif pédagogique : {{ plan_section.objective_text }}
+Position du checkpoint : {{ plan_section.checkpoint_position }}
+{% if last_error %}
+Tentative précédente invalide : {{ last_error }}. Corrige le format.
+{% endif %}
+
+Rédige DEUX questions de calibration courtes (avant + après) sur le
+sentiment de maîtrise du concept, et une échelle de Likert à 5 niveaux
+(libellés croissants).
+
+Réponds en JSON strict, schéma :
+{
+  "id": "s_meta_<short_id>",
+  "type": "meta_checkpoint",
+  "title": "<titre court, < 60 caractères>",
+  "content": {
+    "pre_question": "<question avant la section>",
+    "post_question": "<question après la section>",
+    "scale_labels": [
+      "<niveau 1 — le plus faible>",
+      "<niveau 2>",
+      "<niveau 3>",
+      "<niveau 4>",
+      "<niveau 5 — le plus fort>"
+    ]
+  }
+}
