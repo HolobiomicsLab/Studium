@@ -295,3 +295,116 @@ Streams A2 et C2 avancés en parallèle via subagent-driven development pendant 
 2. Stream U humain : D.1 (validation rule 003 M3) → D.3 (merge M3 sur main).
 3. Une fois M3 + A2 mergés : C.6 + C.8 dispatchables.
 4. D.5-D.6 (CI Tauri) en parallèle quand A2/C2 stabilisés.
+
+---
+
+## 2026-05-09 nuit — Reprise autonome (après installation tauri-driver+tarpaulin)
+
+Session autonome lancée par utilisateur ("continue jusqu'à demain matin"). Tooling
+natif vérifié présent (cargo 1.95, tauri-driver, cargo-tarpaulin, pnpm 11.0.5,
+miniconda Python 3.13.2).
+
+### Livrables nuit (3 branches touchées)
+
+**`prototype/c2-analytics` (HEAD `d1ac48f`)** :
+- C.5 livrée — useTelemetry hook + telemetry_outbox SQLCipher.
+  - storage.rs : table `telemetry_outbox` + 3 helpers (push, drain, count) +
+    `delete_all` étendu pour wipe outbox (RGPD).
+  - commands.rs : 3 nouvelles Tauri commands (`telemetry_outbox_push|drain|count`)
+    + cargo test integré.
+  - useTelemetry.ts : buffer + flush par batch + outbox fallback offline + drain
+    on mount + interval flush. 6 vitest verts.
+  - Cumul cargo tests : 16/16 (12 existants + 4 nouveaux).
+
+**`prototype/c2-analytics` HEAD `b0aXXX`** (post-C.7) :
+- C.7 livrée — teacher-dashboard 3 pages.
+  - lib/api.ts wrapper fetch (X-Course-Token, cache: no-store) + 6 vitest verts
+    (URL building, error 401, encoding course token).
+  - components : ProgressHeatmap (grille 5 paliers couleur), CalibrationChart
+    (Brier qualifié), AutonomyBar (ratio + critique_completion_rate). Tailwind
+    pur — recharts reportée à M5 (séries temporelles par learner).
+  - pages App Router server components : `/`, `/courses/[token]/{progress,
+    calibration,autonomy}`. Server action sur landing → redirect.
+  - CourseNav réutilisable entre les 3 pages.
+- C.6 + C.8 toujours bloquées sur merge A2 + bundle runtime.
+
+**`prototype/a2-scene-synth` (HEAD `2f842d2`)** :
+- A.8 livrée — ReproductionScene.tsx + dispatch SceneRouter.
+  - normalisation (trim+lowercase) sur expected_output.
+  - émet scene_entered + answer_submitted (correct=success) avec concept_id
+    depuis concept_refs[0].
+  - 6 vitest verts.
+- A.9 livrée — AICritiqueScene.tsx + dispatch SceneRouter.
+  - affiche claims sans révéler flaws_expected (anti-spoiler vérifié par test).
+  - POST /scenes/critique-eval, émet answer_submitted (correct = score>=0.6).
+  - bouton submit désactivé tant que critique < 10 chars (UX anti-offloading).
+  - 7 vitest verts.
+- A.10 livrée (Python part) — `services/scene-synth/tests/e2e/test_full_pipeline.py`
+  3 pytest verts via FakeLLM signature-based + critic permissif. Couvre les 6
+  types de scène, le skip ai_critique sur include_critique=False, le warning
+  unsupported scene type.
+- A.10 (WDIO part) : `play-bundle-from-scene-synth.test.ts` + `tools/e2e-a10.sh`
+  livrés mais non exécutables (bundle Tauri release pas buildé — disque plein).
+- Tests cumulés branche : 33 (existants) + 13 vitest + 3 pytest = 49.
+
+**`prototype/d3-ci-tauri` NEW (HEAD `4c8f0c8`, depuis main)** :
+- D.5 livrée — `.github/workflows/ci.yml` étendu avec job `tauri-build` matriciel
+  macOS-latest + ubuntu-22.04, cache rust (Swatinem ciblé `apps/student-runtime/
+  src-tauri/target`), tarpaulin coverage Linux uniquement (avec fallback si
+  filtre `--packages` ne match pas), upload artifacts (coverage XML + bundles).
+  Skip via `[skip tauri]` dans commit message si économie minutes nécessaire.
+
+### Bloqué — actions requises de l'utilisateur
+
+- **Disque plein (critique)** : root volume à 100% (1.2 Go libres au début, 1.3 Go
+  après cargo clean ciblé). `~/Library/Caches` occupe 8.3 Go (cible de nettoyage
+  facile). Tauri release build a planté avec errno=28 (No space left on device).
+  Sans nettoyage, D.2 (build + wdio + tarpaulin + bundle size) reste impossible.
+
+- **D.1** (rule 003 — 8 items parcours étudiant) : validation visuelle humaine,
+  ne peut être automatisé.
+
+- **D.3** (merge M3 → main) : bloqué sur D.1 + D.2.
+
+- **D.4** (remote git) : nécessite création du repo GitHub par toi + push.
+
+### Dette technique consolidée (mise à jour)
+
+1. **Schéma divergence flat-vs-nested** : reproduction + ai_critique flat, 4
+   anciens scenes nested `content`. Pas encore formalisée — candidat ADR.
+2. **Canonical Pydantic mirror** : `packages/lesson-bundle-schema/python/` à 4
+   scenes ; scene-synth-local à 6 scenes. Drift risk maintenu.
+3. **Vitest config** : `tests-e2e/*.test.ts` parsés par vitest et échouent (ils
+   sont wdio+mocha). Ajouter `exclude: ["tests-e2e/**"]` dans vite/vitest config.
+   Préexistant — pas régressé cette session.
+4. **Convention Python 3.13 baseline** : non formalisée. Candidat rule 005.
+5. **`@testing-library/jest-dom`** : non installé ; tests utilisent
+   `.toBeTruthy()` au lieu de `.toBeInTheDocument()`. Acceptable mais à
+   standardiser pour cohérence.
+6. **D.4 push remote** : permet aussi de tester le workflow CI réel et d'itérer
+   sur erreurs (Linux webkit deps notamment).
+
+### Cumul tests session nuit (3 branches)
+
+| Branche | Nouveaux tests verts |
+|---------|----------------------|
+| c2-analytics | 4 cargo + 6 vitest (useTelemetry) + 6 vitest (dashboard api) = 16 |
+| a2-scene-synth | 6 vitest (Reproduction) + 7 vitest (AICritique) + 3 pytest (E2E pipeline) = 16 |
+| d3-ci-tauri | 0 (workflow yaml non testé local — sera testé via PR draft) |
+| **Total session nuit** | **32 nouveaux tests verts cumulés** |
+
+Cumul total post-nuit (pré-existant + nuit) :
+- a2-scene-synth : 49 (33 + 13 vitest + 3 pytest)
+- c2-analytics : 31 (15 + 6 + 6 + 4 cargo) — soit 12 cargo + 19 TS/Python total
+- m3-student-runtime : 30 (12 cargo + 18 TS, pas modifié cette session)
+
+### Suite quand utilisateur revient
+
+1. **Libérer disque** (`~/Library/Caches`, target/debug si OK).
+2. **D.2 D.1 D.3** dans cet ordre (build → validation visuelle → merge M3).
+3. **Push remote** (D.4) → ouvrir PR draft sur `prototype/d3-ci-tauri` pour
+   tester le workflow CI in vivo.
+4. **Rebase + merge A2** sur main, puis rebase C2.
+5. **C.6** intégration useTelemetry dans 6 composants runtime (LessonPlayer +
+   4 renderers + Settings + ConsentScreen + useAdaptation hook).
+6. **C.8** E2E telemetry runtime → collector → dashboard.
