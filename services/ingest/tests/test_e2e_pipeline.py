@@ -63,7 +63,7 @@ def test_e2e_ingest_to_plan_to_export(tmp_path):
     # Step 4: Export (simulate human validation)
     plan.critic_score = critic_result["score"]
     plan.critic_annotations = critic_result["annotations"]
-    from schemas import PlanStatus
+    from planner_schemas import PlanStatus
     plan.status = PlanStatus.approved
     plan.validated_by = "prof.test"
 

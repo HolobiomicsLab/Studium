@@ -1,7 +1,7 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from schemas import LessonPlan, PlanRequest, PlanResponse, CorpusRef
+from planner_schemas import LessonPlan, PlanRequest, PlanResponse, CorpusRef
 
 
 def test_plan_request_valid():

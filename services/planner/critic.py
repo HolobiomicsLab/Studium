@@ -8,7 +8,7 @@ import os
 import time
 from typing import Any
 
-from schemas import LessonPlan
+from planner_schemas import LessonPlan
 
 _LLM_MODE = os.environ.get("STUDIUM_LLM_MODE", "mock")
 _LITELLM_BASE = os.environ.get("LITELLM_BASE_URL", "http://localhost:4000")

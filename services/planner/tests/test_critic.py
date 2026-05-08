@@ -2,7 +2,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pytest
-from schemas import LessonPlan
+from planner_schemas import LessonPlan
 
 
 SAMPLE_PLAN = LessonPlan(

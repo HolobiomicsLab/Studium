@@ -20,7 +20,7 @@ SAMPLE_MANIFEST = {
 
 def test_generate_returns_lesson_plan():
     from mimosa_wrapper import generate
-    from schemas import LessonPlan
+    from planner_schemas import LessonPlan
     plan = generate(SAMPLE_MANIFEST, target="L3")
     assert isinstance(plan, LessonPlan)
     assert plan.target == "L3"
@@ -32,7 +32,7 @@ def test_generate_returns_lesson_plan():
 def test_generate_validates_pydantic():
     """Result must always pass Pydantic validation (rule 002)."""
     from mimosa_wrapper import generate
-    from schemas import LessonPlan
+    from planner_schemas import LessonPlan
     plan = generate(SAMPLE_MANIFEST, target="M1")
     # Re-validate by constructing from dict
     plan_dict = plan.model_dump()

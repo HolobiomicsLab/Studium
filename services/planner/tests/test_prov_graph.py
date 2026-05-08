@@ -59,7 +59,7 @@ def _sample_audit():
 
 
 def _sample_critique():
-    from schemas import CritiqueResult
+    from planner_schemas import CritiqueResult
     return CritiqueResult(
         score=0.8,
         annotations=["Plan cohérent"],

@@ -6,7 +6,7 @@ from ontology import CONTEXT
 
 if TYPE_CHECKING:
     from lesson_plan_schema import LessonPlan
-    from schemas import CritiqueResult
+    from planner_schemas import CritiqueResult
 
 
 def build_prov_graph(

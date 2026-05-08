@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from fastapi import FastAPI
 
-from schemas import PlanRequest, PlanResponse, PlanStatus, CritiqueResult
+from planner_schemas import PlanRequest, PlanResponse, PlanStatus, CritiqueResult
 from agents.planner_agent import PlannerAgent
 from agents.critic_agent import CriticAgent
 from ontology.prov import build_prov_graph

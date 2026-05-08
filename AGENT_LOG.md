@@ -26,6 +26,23 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-05-08 — Hotfix post-M2 : convention nommage modules services
+
+- Régression M1 e2e détectée pendant validation humaine M2.
+  `services/planner/critic.py` faisait `from schemas import LessonPlan` qui
+  résolvait vers `services/ingest/schemas.py` quand pytest mélangeait les
+  sys.path → `ImportError` sur `test_e2e_ingest_to_plan_to_export`.
+- Fix : rename `services/planner/schemas.py` → `planner_schemas.py` +
+  suppression doublons stales (`services/planner/app.py` M1 1.0.0,
+  `services/ingest/schemas.py` doublon de `ingest_schemas.py`) + 11 sites
+  d'import mis à jour.
+- Tests : 69/69 Python + 15/15 TS (avant : 67/68 + 15/15).
+- Convention de nommage à propager : un service Python `services/<svc>/`
+  expose ses modules sous `<svc>_app.py` / `<svc>_schemas.py` pour éviter
+  les collisions sys.path en pytest. Documentée dans Studium rule 004.
+
+---
+
 ## 2026-05-05 — Unité 0 : Init repo prototype-build
 
 - Fichiers : `CLAUDE.md`, `AGENT_LOG.md`, `tools/memory_cli.py`, `.memory/INDEX.md`

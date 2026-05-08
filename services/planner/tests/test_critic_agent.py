@@ -67,7 +67,7 @@ def _plan_doi_without_uri():
 
 def test_critic_agent_returns_critique_result():
     from agents.critic_agent import CriticAgent
-    from schemas import CritiqueResult
+    from planner_schemas import CritiqueResult
     agent = CriticAgent()
     result = agent.review(_sample_plan())
     assert isinstance(result, CritiqueResult)

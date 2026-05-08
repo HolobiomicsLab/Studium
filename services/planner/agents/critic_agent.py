@@ -23,7 +23,7 @@ class CriticAgent(BaseAgent):
     )
 
     def review(self, plan: "LessonPlan") -> "CritiqueResult":  # noqa: F821
-        from schemas import CritiqueResult
+        from planner_schemas import CritiqueResult
         run_id = self._run_id()
         prov_uri = f"urn:studium:activity:critic:{run_id}"
 
