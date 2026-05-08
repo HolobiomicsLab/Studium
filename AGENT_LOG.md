@@ -496,3 +496,39 @@ même schéma que le spec A.10 `play-bundle-from-scene-synth.test.ts`).
   `consent_changed`, `scene_entered`/`scene_exited` (×6 chacun),
   `quiz_answered`, `meta_answered`, `reproduction_completed`,
   `critique_submitted`, `lesson_complete` sont bien `emit()`-és.
+
+---
+
+## 2026-05-09 nuit — D.5 : CI Tauri matriciel (`prototype/d3-ci-tauri`)
+
+Branche créée depuis `main` (donc sans M3 ni A2 ni C2 — D.5 ne dépend que de la
+structure pnpm/cargo).
+
+**Goal** : Étendre `.github/workflows/ci.yml` avec un job `tauri-build` matriciel
+macOS-latest + ubuntu-22.04, cache Rust, tarpaulin coverage Linux.
+
+**Livré** :
+- Job `test` (existant) : Python deps complètes (`pydantic pytest fastapi httpx`).
+  `pnpm install --no-frozen-lockfile` (lockfile bouge avec les nouvelles deps
+  testing-library installées en C.5).
+- Job `tauri-build` :
+  - `matrix.os: [macos-latest, ubuntu-22.04]` (22.04 plutôt que latest pour
+    stabilité webkit deps).
+  - apt-get Linux : `libwebkit2gtk-4.1-dev libssl-dev libgtk-3-dev
+    libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev` (Tauri 2 modernes).
+  - `dtolnay/rust-toolchain@stable` + `Swatinem/rust-cache@v2` ciblé sur
+    `apps/student-runtime/src-tauri/target`.
+  - `pnpm tauri:build --debug` (pas de signing macOS pour CI).
+  - `cargo install cargo-tarpaulin --locked --version "^0.30"` Linux uniquement.
+  - `cargo tarpaulin --packages student-runtime --out Xml` avec fallback sans
+    filtre `--packages` (au cas où le naming change).
+  - Upload artifacts : `tarpaulin-coverage` (XML) + `tauri-bundle-{os}` (Linux
+    + macOS bundles).
+  - Skip via `[skip tauri]` dans commit message si économie minutes nécessaire.
+
+**Reste sur D.5** : itération réelle sur erreurs CI (libwebkit version, Rust
+cache miss premier run, codecov token absent — utiliser artifact upload seul).
+Bloqué tant que D.4 (push remote) pas fait : pas moyen de tester le workflow
+en condition réelle.
+
+**D.6** (badge CI README) : à faire après merge PR D.5 sur main.
