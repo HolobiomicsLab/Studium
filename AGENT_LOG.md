@@ -255,3 +255,43 @@ sur cette session).
 
 **Reste sur A2** : aucune unité — A2 complet. Reste juste merge sur main après
 M3 mergé (Stream U humain).
+
+## 2026-05-09 — ACD Stream C2 (C.0–C.4) : telemetry + analytics-collector
+
+**Branche** : `prototype/c2-analytics` (depuis `prototype/m3-student-runtime`)
+**HEAD** : `3510547`
+**Tests** : 15/15 verts (7 unit metrics + 3 POST telemetry + 5 GET metrics)
+
+| Unité | Cible | Tests | Commit |
+|-------|-------|-------|--------|
+| C.0 | Scaffold telemetry-events + analytics-collector + teacher-dashboard | health OK | `c7b5d5e`+`c7cd97e` |
+| C.1 | `telemetry-events` Zod + Pydantic, 9 events ADR 006, round-trip Python | 4/4 Py (TS skippé, no node) | `8c08d0b` |
+| C.2 | `POST /telemetry` valide batch + JSONL append-only par cours/jour | 3/3 | `8467897` |
+| C.3 | `metrics.py` agrégations (progress + Brier calibration + autonomy_ratio) | 7/7 | `a998726` |
+| C.4 | `GET /metrics/{progress,calibration,autonomy}` + auth course token | 5/5 | `3510547` |
+
+**Bloqué** :
+- **Sous-agents épuisés (budget plan, reset 11:30pm Paris)** → C.5 (useTelemetry hook + Rust telemetry_outbox) + C.7 (Next.js dashboard) reportés.
+- **C.6 + C.8** (intégration runtime + E2E) bloquées sur merge A2 (qui dépend de D.3 merge M3).
+
+**Dette / follow-ups** :
+- TS Zod tests non exécutés (no node dans env sub-agent). À relancer en CI.
+- `client_timestamp` typé `str` côté Pydantic pour parité Zod (pas `datetime`).
+- JSONL append sans verrou de concurrence (acceptable prototype).
+- `.gitignore` n'a pas `build/` → artefact setuptools accidentellement commité au scaffold C.0 puis retiré commit suivant.
+
+## Bilan session 2026-05-09 (ACD)
+
+Streams A2 et C2 avancés en parallèle via subagent-driven development pendant absence utilisateur.
+
+| Stream | Unités livrées | Tests | Bloqué |
+|--------|----------------|-------|--------|
+| A2 (scene-synth) | A.0–A.10 (10/10) | 49 verts | merge sur main (D.3) |
+| C2 (analytics) | C.0–C.4 (5/8) | 15 verts | C.5/C.7 budget ; C.6/C.8 sur merge A2 |
+| D3 (infra) | 0/6 | n/a | humain (rule 003 M3) |
+
+**Prochaine session** :
+1. Reprendre C.5 (useTelemetry hook) puis C.7 (dashboard) après reset budget.
+2. Stream U humain : D.1 (validation rule 003 M3) → D.3 (merge M3 sur main).
+3. Une fois M3 + A2 mergés : C.6 + C.8 dispatchables.
+4. D.5-D.6 (CI Tauri) en parallèle quand A2/C2 stabilisés.
