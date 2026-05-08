@@ -6,6 +6,8 @@ import type { Scene } from "@studium/lesson-bundle-schema";
 import { tauri } from "../lib/tauri";
 import { useAdaptation } from "../hooks/useAdaptation";
 import SceneRouter from "../components/scenes/SceneRouter";
+import CalibrationPanel from "../components/CalibrationPanel";
+import AdaptationButton from "../components/AdaptationButton";
 import type { Signal } from "@studium/learner-state";
 
 const BUNDLE_PATH = "fixtures/m3/demo-metabolomics-bundle.zip";
@@ -55,8 +57,15 @@ function Player({
   setSceneIdx: (i: number) => void;
   navigate: ReturnType<typeof useNavigate>;
 }) {
-  const { decision, onSignal } = useAdaptation(bundle.rules, bundle.bundle_id, initialState);
+  const { state, decision, onSignal } = useAdaptation(bundle.rules, bundle.bundle_id, initialState);
   const scene = bundle.scenes[sceneIdx] as Scene;
+  const [calibTarget, setCalibTarget] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (decision?.next_action.kind === "show_calibration_panel") {
+      setCalibTarget((decision.next_action as { kind: string; target_concept: string }).target_concept);
+    }
+  }, [decision]);
 
   const onContinue = async () => {
     await onSignal({ kind: "scene_completed", scene_id: scene.id, duration_ms: 0 });
@@ -86,6 +95,14 @@ function Player({
         onSignal={onSignal as (s: Signal) => Promise<unknown>}
         onContinue={onContinue}
       />
+      {calibTarget && (
+        <CalibrationPanel
+          conceptId={calibTarget}
+          state={state}
+          onClose={() => setCalibTarget(null)}
+        />
+      )}
+      <AdaptationButton decision={decision} />
     </main>
   );
 }
