@@ -229,6 +229,43 @@ class LessonBundle(BaseModel):
 Bundle = LessonBundle
 
 
+# ---------------------------------------------------------------------------
+# A.7 — FastAPI request/response models for the scene-synth service.
+# ---------------------------------------------------------------------------
+
+
+class SynthesizeOptions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    include_critique: bool = True
+    deterministic_seed: Optional[int] = None
+
+
+class SynthesizeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lesson_plan: dict
+    abs_capsule_uri: Optional[str] = None
+    options: Optional[SynthesizeOptions] = None
+
+
+class SynthesizeResponse(BaseModel):
+    bundle_uri: str
+    scenes_generated: int
+    prov_graph_nodes: int
+    warnings: list[str]
+
+
+class CritiqueEvalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    claims: list[Claim]
+    rubric: AICritiqueRubric
+    student_critique: str = Field(min_length=1)
+
+
+class CritiqueEvalResponse(BaseModel):
+    score: float = Field(ge=0, le=1)
+    feedback: str
+
+
 __all__ = [
     "AICritiqueRubric",
     "AICritiqueScene",
@@ -239,6 +276,8 @@ __all__ = [
     "Concept",
     "ConceptContent",
     "ConceptScene",
+    "CritiqueEvalRequest",
+    "CritiqueEvalResponse",
     "IntroContent",
     "IntroScene",
     "LessonBundle",
@@ -255,4 +294,7 @@ __all__ = [
     "Scene",
     "SceneType",
     "SceneUnion",
+    "SynthesizeOptions",
+    "SynthesizeRequest",
+    "SynthesizeResponse",
 ]
