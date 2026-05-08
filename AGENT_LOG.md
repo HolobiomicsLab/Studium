@@ -4,6 +4,42 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## M3 — 2026-05-08
+
+### Livré (13 unités TDD)
+- **U0-U5** (sessions précédentes) : LessonBundleSchema (Zod + Pydantic), SceneSchema, RuleSchema, LearnerState, SignalSchema, DecisionSchema, defaultLearnerState/defaultConceptState
+- **U6** : BetaUpdater (correct: alpha += 1+(1-w), wrong: beta += 1+w), tests TDD rouge→vert
+- **U7** : ConditionMatcher (6 opérateurs : >=, <=, !=, ==, >, <), tests 9/9
+- **U8** : AdaptationEngine (getState, onSignal, explain, firstMatch), tests 7/7
+- **U9** : bundle.rs (ZIP reader), commands.rs (8 Tauri commands), lib.rs wiré — 12/12 Rust ✅
+- **U10** : Webview Bootstrap/ConsentScreen/LibraryScreen/SettingsScreen + lib/tauri.ts wrappers typés
+- **U11** : LessonPlayer + SceneRouter + 4 renderers (Intro/Concept/Quiz/MetaCheckpoint) + useAdaptation hook
+- **U12** : CalibrationPanel (show_calibration_panel trigger) + AdaptationButton (bouton "?" M6)
+- **U13** : 8 fichiers E2E tests-e2e/ + wdio.conf.ts — **tauri-driver non installé**, tests en attente d'exécution humaine
+
+### Métriques
+- `cargo test --lib` : 12/12 verts (pseudonyme 4, keystore 2, storage 3, bundle 3)
+- `adaptation-engine` TS coverage : 91.93% statements (cible ≥70% ✅)
+- TypeScript `tsc --noEmit` : 0 erreurs sur tous les packages
+- Rust crates : rusqlite (bundled-sqlcipher), keyring 3, zip 2, dirs 5, chrono 0.4
+
+### Blocages documentés
+- **tauri-driver** : non disponible sur cette machine → 8 tests E2E créés mais non exécutés ; à lancer manuellement avec `pnpm tauri:build && pnpm wdio:run`
+- **Bundle size** : non mesuré (build release non lancé) ; cible <30 Mo
+- **cargo tarpaulin** : non installé ; Rust coverage à mesurer manuellement
+
+### ADRs concernés
+- ADR 006 : pseudonyme HMAC-SHA256, secret en SQLCipher, droit à l'oubli ✅
+- ADR 008 : validation LessonBundleSchema côté webview avant rendu ✅
+- ADR 009 : keyring v3 OS Keychain pour clé SQLCipher ✅
+
+### Sortie
+- Branche : `prototype/m3-student-runtime`
+- Tag : `m3-runtime`
+- Merge sur `main` : après validation humaine (rule 003 — parcours étudiant complet joué et observé)
+
+---
+
 ## M2 — 2026-05-07
 
 ### Livré
