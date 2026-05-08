@@ -1,0 +1,22 @@
+Tu rédiges la scène ``concept`` qui présente un concept pédagogique central.
+
+Concept ciblé : {{ plan_section.concept_id }}
+Définition courte : {{ plan_section.def_short }}
+Exemples disponibles : {{ plan_section.examples | join(", ") }}
+{% if last_error %}
+Tentative précédente invalide : {{ last_error }}. Corrige le format.
+{% endif %}
+
+Rédige une explication claire (4-8 phrases) en markdown, ton pédagogique,
+sans affirmation factuelle non sourçable.
+
+Réponds en JSON strict, schéma :
+{
+  "id": "s_concept_<short_id>",
+  "type": "concept",
+  "title": "<titre court, < 60 caractères>",
+  "content": {
+    "markdown": "<explication markdown 4-8 phrases>",
+    "image_path": null
+  }
+}
