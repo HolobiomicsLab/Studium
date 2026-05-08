@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tauri::State;
 use crate::{bundle, pseudonyme, storage};
 
@@ -16,91 +17,6 @@ pub struct ConsentRecord {
     pub level_b: bool,
     pub level_c: bool,
     pub granted_at: String,
-    pub schema_version: String,
-}
-
-#[tauri::command]
-pub fn load_bundle(zip_path: String) -> Result<String, String> {
-    let path = PathBuf::from(&zip_path);
-    bundle::read_lesson_json(&path).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn get_consent(state: State<AppState>) -> Result<Option<ConsentRecord>, String> {
-    let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare("SELECT consent_id, level_a, level_b, level_c, granted_at, schema_version FROM consent LIMIT 1")
-        .map_err(|e| e.to_string())?;
-    let mut rows = stmt
-        .query_map([], |r| {
-            Ok(ConsentRecord {
-                consent_id: r.get(0)?,
-                level_a: r.get::<_, i64>(1)? != 0,
-                level_b: r.get::<_, i64>(2)? != 0,
-                level_c: r.get::<_, i64>(3)? != 0,
-                granted_at: r.get(4)?,
-                schema_version: r.get(5)?,
-            })
-        })
-        .map_err(|e| e.to_string())?;
-    match rows.next() {
-        Some(Ok(r)) => Ok(Some(r)),
-        Some(Err(e)) => Err(e.to_string()),
-        None => Ok(None),
-    }
-}
-
-#[tauri::command]
-pub fn set_consent(
-    state: State<AppState>,
-    consent_id: String,
-    level_a: bool,
-    level_b: bool,
-    level_c: bool,
-) -> Result<(), String> {
-    let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    let now = chrono::Utc::now().to_rfc3339();
-    conn.execute(
-        "INSERT OR REPLACE INTO consent (consent_id, level_a, level_b, level_c, granted_at, schema_version)
-         VALUES (?, ?, ?, ?, ?, '1.0')",
-        params![consent_id, level_a as i64, level_b as i64, level_c as i64, now],
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[tauri::command]
-pub fn save_state(
-    state: State<AppState>,
-    lesson_id: String,
-    state_json: String,
-) -> Result<(), String> {
-    let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    let now = chrono::Utc::now().to_rfc3339();
-    conn.execute(
-        "INSERT OR REPLACE INTO learner_state (lesson_id, state_json, updated_at) VALUES (?, ?, ?)",
-        params![lesson_id, state_json, now],
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[tauri::command]
-pub fn load_state(
-    state: State<AppState>,
-    lesson_id: String,
-) -> Result<Option<String>, String> {
-    let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    let result = conn.query_row(
-        "SELECT state_json FROM learner_state WHERE lesson_id = ?",
-        params![lesson_id],
-        |r| r.get::<_, String>(0),
-    );
-    match result {
-        Ok(json) => Ok(Some(json)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(e.to_string()),
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -114,23 +30,113 @@ pub struct EventRecord {
 }
 
 #[tauri::command]
-pub fn append_event(
+pub fn load_bundle(path: String) -> Result<String, String> {
+    bundle::read_lesson_json(&PathBuf::from(&path)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_consent(state: State<AppState>) -> Result<Option<ConsentRecord>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT consent_id, level_a, level_b, level_c, granted_at FROM consent LIMIT 1",
+        )
+        .map_err(|e| e.to_string())?;
+    let mut rows = stmt
+        .query_map([], |r| {
+            Ok(ConsentRecord {
+                consent_id: r.get(0)?,
+                level_a: r.get::<_, i64>(1)? != 0,
+                level_b: r.get::<_, i64>(2)? != 0,
+                level_c: r.get::<_, i64>(3)? != 0,
+                granted_at: r.get(4)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    match rows.next() {
+        Some(Ok(r)) => Ok(Some(r)),
+        Some(Err(e)) => Err(e.to_string()),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+pub fn set_consent(state: State<AppState>, record: ConsentRecord) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO consent
+         (consent_id, level_a, level_b, level_c, granted_at, schema_version)
+         VALUES (?, ?, ?, ?, ?, '1.0')",
+        params![
+            record.consent_id,
+            record.level_a as i64,
+            record.level_b as i64,
+            record.level_c as i64,
+            record.granted_at
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn save_state(
     state: State<AppState>,
-    event_id: String,
-    session_id: String,
     lesson_id: String,
-    schema_version: String,
-    event_type: String,
-    payload_json: String,
+    state_value: Value,
 ) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+    let json = serde_json::to_string(&state_value).map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO learner_state (lesson_id, state_json, updated_at) VALUES (?, ?, ?)",
+        params![lesson_id, json, now],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn load_state(
+    state: State<AppState>,
+    lesson_id: String,
+) -> Result<Option<Value>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    let result = conn.query_row(
+        "SELECT state_json FROM learner_state WHERE lesson_id = ?",
+        params![lesson_id],
+        |r| r.get::<_, String>(0),
+    );
+    match result {
+        Ok(json) => {
+            let val: Value = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+            Ok(Some(val))
+        }
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn append_event(state: State<AppState>, event: EventRecord) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
     let pseudo_bytes = storage::load_student_secret(&conn).map_err(|e| e.to_string())?;
-    let pseudo = pseudonyme::compute_pseudonyme(&pseudo_bytes, &lesson_id);
+    let pseudo = pseudonyme::compute_pseudonyme(&pseudo_bytes, &event.lesson_id);
     let now = chrono::Utc::now().to_rfc3339();
     conn.execute(
-        "INSERT INTO events (event_id, session_id, pseudonyme, lesson_id, schema_version, timestamp, event_type, payload_json)
+        "INSERT INTO events
+         (event_id, session_id, pseudonyme, lesson_id, schema_version, timestamp, event_type, payload_json)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        params![event_id, session_id, pseudo, lesson_id, schema_version, now, event_type, payload_json],
+        params![
+            event.event_id,
+            event.session_id,
+            pseudo,
+            event.lesson_id,
+            event.schema_version,
+            now,
+            event.event_type,
+            event.payload_json
+        ],
     )
     .map_err(|e| e.to_string())?;
     Ok(())
