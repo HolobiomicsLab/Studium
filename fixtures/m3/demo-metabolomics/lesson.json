@@ -1,0 +1,116 @@
+{
+  "schema_version": "1.0",
+  "bundle_id": "demo-metabolomics-001",
+  "source_plan_id": "plan-demo-m3",
+  "metadata": {
+    "title": "Introduction à la métabolomique LC-MS",
+    "target": "L3",
+    "duration_minutes": 30,
+    "language": "fr",
+    "discipline": "métabolomique"
+  },
+  "concepts": [
+    { "id": "c-metabolomics", "title": "Métabolomique",
+      "description": "Étude systématique des métabolites dans un système biologique.",
+      "bloom_level_target": "understand" },
+    { "id": "c-lcms", "title": "Chromatographie liquide–spectrométrie de masse",
+      "description": "Couplage analytique LC + MS.",
+      "bloom_level_target": "apply" }
+  ],
+  "scenes": [
+    { "id": "s-intro", "type": "intro", "title": "Bienvenue",
+      "objective_refs": [], "concept_refs": ["c-metabolomics"],
+      "estimated_seconds": 60, "adaptation_hooks": [],
+      "content": { "markdown": "# Métabolomique LC-MS\nDans cette leçon, tu vas découvrir comment la LC-MS permet d'identifier des centaines de métabolites en une seule analyse." } },
+
+    { "id": "s-concept-meta", "type": "concept", "title": "Qu'est-ce que la métabolomique ?",
+      "objective_refs": [], "concept_refs": ["c-metabolomics"],
+      "estimated_seconds": 120, "adaptation_hooks": [],
+      "content": { "markdown": "## Métabolomique\nLa métabolomique caractérise l'ensemble des petites molécules (<1500 Da) présentes dans une cellule, un tissu ou un organisme. Elle complète la génomique, la transcriptomique et la protéomique en donnant un instantané fonctionnel.",
+                   "image_path": "assets/lc-ms-schema.svg" } },
+
+    { "id": "s-quiz-meta-1", "type": "quiz", "title": "Quiz : objet de la métabolomique",
+      "objective_refs": [], "concept_refs": ["c-metabolomics"],
+      "estimated_seconds": 60, "adaptation_hooks": ["rule_2err_replay_concept", "rule_mastery_high_skip"],
+      "content": {
+        "question": "Quelle taille caractérise les métabolites ?",
+        "choices": [
+          { "id": "a", "text": "> 100 kDa", "correct": false },
+          { "id": "b", "text": "< 1500 Da", "correct": true },
+          { "id": "c", "text": "entre 10 et 50 kDa", "correct": false }
+        ],
+        "feedback_correct": "Exact — petites molécules typiquement < 1500 Da.",
+        "feedback_incorrect": "Non, les métabolites sont des petites molécules (< 1500 Da).",
+        "hints": []
+      } },
+
+    { "id": "s-concept-lcms", "type": "concept", "title": "LC-MS",
+      "objective_refs": [], "concept_refs": ["c-lcms"],
+      "estimated_seconds": 120, "adaptation_hooks": [],
+      "content": { "markdown": "## LC-MS\nLa chromatographie liquide sépare les analytes selon leur affinité pour la phase mobile et la phase stationnaire. Le spectromètre de masse mesure ensuite le rapport masse/charge (m/z) de chaque ion." } },
+
+    { "id": "s-quiz-lcms-1", "type": "quiz", "title": "Quiz : rôle de la LC",
+      "objective_refs": [], "concept_refs": ["c-lcms"],
+      "estimated_seconds": 60, "adaptation_hooks": ["rule_2err_replay_concept", "rule_mastery_high_skip"],
+      "content": {
+        "question": "Que fait la chromatographie liquide ?",
+        "choices": [
+          { "id": "a", "text": "Sépare les analytes avant ionisation", "correct": true },
+          { "id": "b", "text": "Mesure le m/z des ions", "correct": false },
+          { "id": "c", "text": "Fragmente les protéines", "correct": false }
+        ],
+        "feedback_correct": "Exact — séparation préalable à la détection MS.",
+        "feedback_incorrect": "Non, c'est la MS qui mesure m/z. La LC sépare.",
+        "hints": []
+      } },
+
+    { "id": "s-quiz-lcms-2", "type": "quiz", "title": "Quiz : MS",
+      "objective_refs": [], "concept_refs": ["c-lcms"],
+      "estimated_seconds": 60, "adaptation_hooks": ["rule_2err_replay_concept", "rule_mastery_high_skip"],
+      "content": {
+        "question": "Que mesure le spectromètre de masse ?",
+        "choices": [
+          { "id": "a", "text": "Le pH", "correct": false },
+          { "id": "b", "text": "Le temps de rétention", "correct": false },
+          { "id": "c", "text": "Le rapport masse/charge (m/z)", "correct": true }
+        ],
+        "feedback_correct": "Exact.",
+        "feedback_incorrect": "Le m/z. Le temps de rétention vient de la LC.",
+        "hints": []
+      } },
+
+    { "id": "s-meta-final", "type": "meta_checkpoint", "title": "Auto-évaluation",
+      "objective_refs": [], "concept_refs": ["c-lcms"],
+      "estimated_seconds": 60, "adaptation_hooks": ["rule_calibration_mismatch_show"],
+      "content": {
+        "pre_question": "À quel point te sens-tu sûr·e de comprendre la LC-MS ?",
+        "post_question": "Compare ta confiance affichée et ta réussite au quiz.",
+        "scale_labels": [
+          "Pas du tout sûr·e",
+          "Plutôt pas",
+          "Mitigé·e",
+          "Assez sûr·e",
+          "Totalement sûr·e"
+        ]
+      } }
+  ],
+  "rules": [
+    { "id": "rule_2err_replay_concept",
+      "when": { "consecutive_errors_same_concept": ">=2" },
+      "action": { "kind": "replay_current_scene", "reason": "errors_threshold" },
+      "modulator": "M1",
+      "explanation_short": "Tu as eu deux erreurs sur ce concept. On revoit avec un exemple." },
+    { "id": "rule_mastery_high_skip",
+      "when": { "mastery_c": ">=0.8", "total_attempts": ">=3" },
+      "action": { "kind": "skip_to_next_concept" },
+      "modulator": "M1",
+      "explanation_short": "Tu maîtrises ce concept, on passe au suivant." },
+    { "id": "rule_calibration_mismatch_show",
+      "when": { "confidence_calibration_abs": ">=0.4", "total_attempts": ">=3" },
+      "action": { "kind": "show_calibration_panel" },
+      "modulator": "M3",
+      "explanation_short": "Compare ta confiance déclarée et ta réussite réelle sur ce concept." }
+  ],
+  "validated_by": "prof.demo@studium.test",
+  "validated_at": "2026-05-08T10:00:00Z"
+}
