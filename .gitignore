@@ -11,3 +11,4 @@ target/
 src-tauri/target/
 *.db
 .DS_Store
+coverage/
