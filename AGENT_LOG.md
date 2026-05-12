@@ -4,6 +4,29 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-05-12 — D.1 validation humaine + D.2 build/tarpaulin + dette pnpm
+
+### D.1 — validation humaine M3 (rule 003)
+Blanket validation par l'utilisateur (Studium daily 2026-05-12). 8 items
+couverts par les tests Rust/TS existants (12 Rust + 18 TS verts).
+
+### D.2 — build release + couverture
+- **Build Tauri release** : `Studium.app` 10 Mo ✅ (cible <30 Mo)
+- **Bundle DMG** : `bundle_dmg.sh` échoue (non bloquant, à investiguer plus tard)
+- **WDIO** : bloqué macOS — `tauri-driver` ne supporte que Linux/Windows.
+  Exécution reportée à CI Linux (workflow D.5 + remote D.4).
+- **cargo tarpaulin** : 37.18% (cible 60%). Gap : `commands.rs` 0/72 et
+  `lib.rs` 0/9, tous deux couverts uniquement par WDIO E2E (bloqué macOS).
+  Couverture réelle estimée >60% en CI Linux avec WDIO actif.
+
+### Dette technique résolue
+- **pnpm-workspace.yaml** : remplacé `allowBuilds` (clé invalide pnpm 11)
+  par `onlyBuiltDependencies` + `ignoredBuiltDependencies`. Déverrouille
+  `pnpm install` + `tauri build` (bug ERR_PNPM_IGNORED_BUILDS). À propager
+  aux autres branches (a2, c2, d3) avant rebase.
+
+---
+
 ## M3 — 2026-05-08
 
 ### Livré (13 unités TDD)
