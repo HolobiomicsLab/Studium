@@ -3,7 +3,12 @@
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useTelemetry, type TelemetryContext } from "./useTelemetry";
+import {
+  useTelemetry,
+  getTelemetryEndpoint,
+  getTelemetryCourseToken,
+  type TelemetryContext,
+} from "./useTelemetry";
 
 const mockInvoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({
@@ -142,6 +147,47 @@ describe("useTelemetry", () => {
       await new Promise((r) => setTimeout(r, 0));
     });
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  describe("test-mode endpoint override (C.8)", () => {
+    const w = globalThis as unknown as {
+      __telemetry_endpoint?: string;
+      __course_token?: string;
+    };
+
+    beforeEach(() => {
+      delete w.__telemetry_endpoint;
+      delete w.__course_token;
+    });
+
+    it("returns the fallback endpoint when window override is absent", () => {
+      expect(getTelemetryEndpoint("https://api.example.com/telemetry")).toBe(
+        "https://api.example.com/telemetry",
+      );
+      expect(getTelemetryEndpoint(null)).toBeNull();
+    });
+
+    it("returns the window override when defined", () => {
+      w.__telemetry_endpoint = "http://localhost:8003/telemetry";
+      expect(getTelemetryEndpoint(null)).toBe("http://localhost:8003/telemetry");
+      expect(getTelemetryEndpoint("https://api.example.com/telemetry")).toBe(
+        "http://localhost:8003/telemetry",
+      );
+    });
+
+    it("ignores empty-string override and falls back", () => {
+      w.__telemetry_endpoint = "";
+      expect(getTelemetryEndpoint("https://fallback")).toBe("https://fallback");
+    });
+
+    it("resolves course token from window override", () => {
+      w.__course_token = "e2e-course";
+      expect(getTelemetryCourseToken("default-course")).toBe("e2e-course");
+    });
+
+    it("returns course token fallback when override absent", () => {
+      expect(getTelemetryCourseToken("default-course")).toBe("default-course");
+    });
   });
 
   it("flush() empties the buffer manually", async () => {

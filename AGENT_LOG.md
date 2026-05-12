@@ -408,3 +408,40 @@ Cumul total post-nuit (pré-existant + nuit) :
 5. **C.6** intégration useTelemetry dans 6 composants runtime (LessonPlayer +
    4 renderers + Settings + ConsentScreen + useAdaptation hook).
 6. **C.8** E2E telemetry runtime → collector → dashboard.
+
+---
+
+## C.8 — E2E telemetry pipeline scripts (2026-05-12)
+
+**Livré** :
+- `tools/e2e-c2.sh` : orchestration bash collector + dashboard + tauri:build
+  + WDIO + assertion `/metrics/progress?course=e2e-course` ≥ 4 scènes.
+  Cleanup trap sur EXIT/INT/TERM. Détection plateforme (warning macOS).
+- `apps/student-runtime/tests-e2e/specs/telemetry-end-to-end.spec.ts` :
+  spec WDIO qui joue le parcours complet (Consentement A → Library →
+  LessonPlayer → 6 scènes) et asserte ≥ 30 événements émis. Compteur via
+  patch de `window.fetch` interceptant POST `/telemetry`.
+- `apps/student-runtime/src/hooks/useTelemetry.ts` : ajout additif de
+  `getTelemetryEndpoint(fallback)` et `getTelemetryCourseToken(fallback)`
+  — lecture des overrides `window.__telemetry_endpoint` /
+  `window.__course_token` pour mode test E2E. **Aucune modification des
+  composants** (territoire C.6).
+- `apps/student-runtime/src/hooks/useTelemetry.test.ts` : +5 unit tests
+  vitest sur les overrides. Total 11/11 verts.
+
+**Bloqueur exécution** :
+`tauri-driver` ne supporte que **Linux + Windows** (vérifié 2026-05-12).
+**Exécution macOS impossible.** Le script + spec sont conçus pour être
+exécutés via le workflow **CI Linux (D.5)**. Validation locale = lint
+bash (`bash -n`) + unit tests vitest sur l'override + revue du spec
+(globals `browser`/`$`/`expect` injectés par WDIO Mocha à l'exécution,
+même schéma que le spec A.10 `play-bundle-from-scene-synth.test.ts`).
+
+**Suite immédiate** :
+- Une fois C.6 mergé (useTelemetry câblé dans 6 composants), exécuter
+  `tools/e2e-c2.sh` sur runner Linux (workflow D.5) pour valider la
+  chaîne complète.
+- Si compte d'événements < 30 : vérifier que `bootstrap_complete`,
+  `consent_changed`, `scene_entered`/`scene_exited` (×6 chacun),
+  `quiz_answered`, `meta_answered`, `reproduction_completed`,
+  `critique_submitted`, `lesson_complete` sont bien `emit()`-és.

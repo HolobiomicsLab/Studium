@@ -21,6 +21,43 @@ type EmitInput = Omit<
   "event_id" | "learner_pseudonym" | "lesson_id" | "bundle_version" | "client_timestamp"
 >;
 
+export type TelemetryEmit = (partial: EmitInput) => void;
+
+/**
+ * Résout l'endpoint télémétrie effectif.
+ *
+ * Mode test E2E (C.8) : si `window.__telemetry_endpoint` est défini par le
+ * spec WDIO avant le démarrage du parcours, il prime sur l'endpoint fourni
+ * par l'app (fallback). Cela permet au runtime release de pointer vers un
+ * collector local (http://localhost:8003/telemetry) sans rebuild.
+ *
+ * Mode normal : retourne `fallback` (peut être `null` si l'apprenant n'a pas
+ * consenti niveau B — voir ConsentScreen).
+ */
+export function getTelemetryEndpoint(fallback: string | null): string | null {
+  if (typeof window !== "undefined") {
+    const w = window as unknown as { __telemetry_endpoint?: string };
+    if (typeof w.__telemetry_endpoint === "string" && w.__telemetry_endpoint.length > 0) {
+      return w.__telemetry_endpoint;
+    }
+  }
+  return fallback;
+}
+
+/**
+ * Résout le X-Course-Token effectif. Même logique d'override test que
+ * `getTelemetryEndpoint`, via `window.__course_token`.
+ */
+export function getTelemetryCourseToken(fallback: string): string {
+  if (typeof window !== "undefined") {
+    const w = window as unknown as { __course_token?: string };
+    if (typeof w.__course_token === "string" && w.__course_token.length > 0) {
+      return w.__course_token;
+    }
+  }
+  return fallback;
+}
+
 export function useTelemetry(opts: Options) {
   const buffer = useRef<TelemetryEvent[]>([]);
   const batchSize = opts.batchSize ?? 20;
