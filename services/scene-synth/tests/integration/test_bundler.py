@@ -12,9 +12,7 @@ import zipfile
 
 from bundler import build_bundle
 from scene_synth_schemas import (
-    ConceptContent,
     ConceptScene,
-    IntroContent,
     IntroScene,
     LessonBundle,
 )
@@ -56,7 +54,7 @@ def _make_scenes() -> list:
             concept_refs=[],
             estimated_seconds=60,
             adaptation_hooks=[],
-            content=IntroContent(markdown="b"),
+            markdown="b",
         ),
         ConceptScene(
             id="s1",
@@ -66,7 +64,7 @@ def _make_scenes() -> list:
             concept_refs=["c1"],
             estimated_seconds=120,
             adaptation_hooks=[],
-            content=ConceptContent(markdown="..."),
+            markdown="...",
         ),
     ]
 
@@ -108,7 +106,7 @@ def test_build_bundle_includes_prov_graph(tmp_path):
             concept_refs=[],
             estimated_seconds=60,
             adaptation_hooks=[],
-            content=IntroContent(markdown="b"),
+            markdown="b",
         )
     ]
     lesson_plan = _make_lesson_plan()

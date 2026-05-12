@@ -7,13 +7,12 @@ from scene_synth_schemas import MetaCheckpointScene
 _VALID_META_JSON = (
     '{"id": "s_meta_1", "type": "meta_checkpoint", '
     '"title": "Calibration confiance", '
-    '"content": {'
     '"pre_question": "À quel point te sens-tu prêt·e sur ce concept ?", '
     '"post_question": "Après cette section, à quel point te sens-tu prêt·e ?", '
     '"scale_labels": ['
     '"Pas du tout", "Peu", "Moyennement", "Bien", "Très bien"'
     ']'
-    '}}'
+    '}'
 )
 
 
@@ -33,8 +32,8 @@ def test_meta_checkpoint_agent_synthesizes_valid_scene():
 
     assert isinstance(scene, MetaCheckpointScene)
     assert scene.type == "meta_checkpoint"
-    assert scene.content.pre_question
-    assert scene.content.post_question
+    assert scene.pre_question
+    assert scene.post_question
 
 
 def test_meta_checkpoint_agent_retries_on_validation_error():
@@ -92,4 +91,4 @@ def test_meta_checkpoint_agent_scale_has_exactly_5_labels():
         },
         context={},
     )
-    assert len(scene.content.scale_labels) == 5
+    assert len(scene.scale_labels) == 5

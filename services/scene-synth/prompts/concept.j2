@@ -10,13 +10,11 @@ Tentative précédente invalide : {{ last_error }}. Corrige le format.
 Rédige une explication claire (4-8 phrases) en markdown, ton pédagogique,
 sans affirmation factuelle non sourçable.
 
-Réponds en JSON strict, schéma :
+Réponds en JSON strict, schéma (ADR 010 — flat) :
 {
   "id": "s_concept_<short_id>",
   "type": "concept",
   "title": "<titre court, < 60 caractères>",
-  "content": {
-    "markdown": "<explication markdown 4-8 phrases>",
-    "image_path": null
-  }
+  "markdown": "<explication markdown 4-8 phrases>",
+  "image_path": null
 }

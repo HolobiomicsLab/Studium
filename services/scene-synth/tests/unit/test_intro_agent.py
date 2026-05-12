@@ -8,7 +8,7 @@ def test_intro_agent_synthesizes_valid_scene():
     fake_llm = MagicMock()
     fake_llm.complete.return_value = (
         '{"id": "s1", "type": "intro", "title": "Bienvenue", '
-        '"content": {"markdown": "Ce cours porte sur la métabolomique."}}'
+        '"markdown": "Ce cours porte sur la métabolomique."}'
     )
     fake_critic = MagicMock()
     fake_critic.review.return_value.passed = True
@@ -19,14 +19,14 @@ def test_intro_agent_synthesizes_valid_scene():
 
     assert isinstance(scene, IntroScene)
     assert scene.type == "intro"
-    assert "métabolomique" in scene.content.markdown.lower()
+    assert "métabolomique" in scene.markdown.lower()
 
 
 def test_intro_agent_retries_on_validation_error():
     fake_llm = MagicMock()
     fake_llm.complete.side_effect = [
         '{"invalid": true}',
-        '{"id": "s1", "type": "intro", "title": "T", "content": {"markdown": "B"}}',
+        '{"id": "s1", "type": "intro", "title": "T", "markdown": "B"}',
     ]
     fake_critic = MagicMock()
     fake_critic.review.return_value.passed = True

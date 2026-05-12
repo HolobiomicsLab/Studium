@@ -19,7 +19,7 @@ export default function QuizScene({ scene, onSignal, onContinue }: Props) {
   }, []);
 
   const submit = async () => {
-    const choice = scene.content.choices.find((c) => c.id === selected);
+    const choice = scene.choices.find((c) => c.id === selected);
     const c = choice?.correct ?? false;
     setCorrect(c);
     setSubmitted(true);
@@ -38,9 +38,9 @@ export default function QuizScene({ scene, onSignal, onContinue }: Props) {
   return (
     <section className="max-w-2xl mx-auto bg-white shadow rounded-lg p-6">
       <h2 className="text-lg font-semibold mb-3">{scene.title}</h2>
-      <p className="mb-4">{scene.content.question}</p>
+      <p className="mb-4">{scene.question}</p>
       <ul className="space-y-2">
-        {scene.content.choices.map((c) => (
+        {scene.choices.map((c) => (
           <li key={c.id}>
             <label
               className={`flex items-center gap-2 p-2 rounded cursor-pointer ${selected === c.id ? "bg-blue-50" : ""}`}
@@ -71,7 +71,7 @@ export default function QuizScene({ scene, onSignal, onContinue }: Props) {
           className={`mt-4 p-3 rounded ${correct ? "bg-green-50" : "bg-red-50"}`}
           aria-live="polite"
         >
-          {correct ? scene.content.feedback_correct : scene.content.feedback_incorrect}
+          {correct ? scene.feedback_correct : scene.feedback_incorrect}
           <button
             className="ml-3 px-3 py-1 bg-blue-600 text-white rounded"
             onClick={onContinue}

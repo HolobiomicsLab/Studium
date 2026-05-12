@@ -12,20 +12,18 @@ Rédige DEUX questions de calibration courtes (avant + après) sur le
 sentiment de maîtrise du concept, et une échelle de Likert à 5 niveaux
 (libellés croissants).
 
-Réponds en JSON strict, schéma :
+Réponds en JSON strict, schéma (ADR 010 — flat) :
 {
   "id": "s_meta_<short_id>",
   "type": "meta_checkpoint",
   "title": "<titre court, < 60 caractères>",
-  "content": {
-    "pre_question": "<question avant la section>",
-    "post_question": "<question après la section>",
-    "scale_labels": [
-      "<niveau 1 — le plus faible>",
-      "<niveau 2>",
-      "<niveau 3>",
-      "<niveau 4>",
-      "<niveau 5 — le plus fort>"
-    ]
-  }
+  "pre_question": "<question avant la section>",
+  "post_question": "<question après la section>",
+  "scale_labels": [
+    "<niveau 1 — le plus faible>",
+    "<niveau 2>",
+    "<niveau 3>",
+    "<niveau 4>",
+    "<niveau 5 — le plus fort>"
+  ]
 }

@@ -41,7 +41,7 @@ SCENE_FIXTURES: dict[str, str] = {
             "concept_refs": ["c1"],
             "estimated_seconds": 60,
             "adaptation_hooks": [],
-            "content": {"markdown": "Bienvenue dans cette leçon."},
+            "markdown": "Bienvenue dans cette leçon.",
         }
     ),
     "concept": json.dumps(
@@ -53,7 +53,7 @@ SCENE_FIXTURES: dict[str, str] = {
             "concept_refs": ["c1"],
             "estimated_seconds": 180,
             "adaptation_hooks": [],
-            "content": {"markdown": "Le concept est défini comme suit..."},
+            "markdown": "Le concept est défini comme suit...",
         }
     ),
     "quiz": json.dumps(
@@ -65,16 +65,14 @@ SCENE_FIXTURES: dict[str, str] = {
             "concept_refs": ["c1"],
             "estimated_seconds": 90,
             "adaptation_hooks": [],
-            "content": {
-                "question": "Lequel décrit le mieux X ?",
-                "choices": [
-                    {"id": "a", "text": "Option A", "correct": True},
-                    {"id": "b", "text": "Option B", "correct": False},
-                ],
-                "feedback_correct": "Bien.",
-                "feedback_incorrect": "Pas exactement, voici pourquoi…",
-                "hints": ["Pensez à la définition vue plus haut."],
-            },
+            "question": "Lequel décrit le mieux X ?",
+            "choices": [
+                {"id": "a", "text": "Option A", "correct": True},
+                {"id": "b", "text": "Option B", "correct": False},
+            ],
+            "feedback_correct": "Bien.",
+            "feedback_incorrect": "Pas exactement, voici pourquoi…",
+            "hints": ["Pensez à la définition vue plus haut."],
         }
     ),
     "meta_checkpoint": json.dumps(
@@ -86,11 +84,9 @@ SCENE_FIXTURES: dict[str, str] = {
             "concept_refs": ["c1"],
             "estimated_seconds": 60,
             "adaptation_hooks": [],
-            "content": {
-                "pre_question": "Quelle est votre confiance ?",
-                "post_question": "Et après cette section ?",
-                "scale_labels": ["aucune", "faible", "moyenne", "bonne", "haute"],
-            },
+            "pre_question": "Quelle est votre confiance ?",
+            "post_question": "Et après cette section ?",
+            "scale_labels": ["aucune", "faible", "moyenne", "bonne", "haute"],
         }
     ),
     "reproduction": json.dumps(

@@ -25,7 +25,7 @@ export const BundleMetadataSchema = z.object({
 });
 
 export const LessonBundleSchema = z.object({
-  schema_version: z.literal("1.0"),
+  schema_version: z.literal("1.1"),
   bundle_id: z.string(),
   source_plan_id: z.string(),
   metadata: BundleMetadataSchema,

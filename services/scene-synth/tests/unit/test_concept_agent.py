@@ -8,7 +8,7 @@ def test_concept_agent_synthesizes_valid_scene():
     fake_llm = MagicMock()
     fake_llm.complete.return_value = (
         '{"id": "s_concept_1", "type": "concept", "title": "Spectrométrie de masse", '
-        '"content": {"markdown": "La spectrométrie de masse mesure le rapport masse/charge."}}'
+        '"markdown": "La spectrométrie de masse mesure le rapport masse/charge."}'
     )
     fake_critic = MagicMock()
     fake_critic.review.return_value.passed = True
@@ -23,14 +23,14 @@ def test_concept_agent_synthesizes_valid_scene():
 
     assert isinstance(scene, ConceptScene)
     assert scene.type == "concept"
-    assert "spectrométrie" in scene.content.markdown.lower()
+    assert "spectrométrie" in scene.markdown.lower()
 
 
 def test_concept_agent_retries_on_validation_error():
     fake_llm = MagicMock()
     fake_llm.complete.side_effect = [
         '{"invalid": true}',
-        '{"id": "s1", "type": "concept", "title": "T", "content": {"markdown": "Définition."}}',
+        '{"id": "s1", "type": "concept", "title": "T", "markdown": "Définition."}',
     ]
     fake_critic = MagicMock()
     fake_critic.review.return_value.passed = True

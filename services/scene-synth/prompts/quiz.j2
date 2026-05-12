@@ -12,21 +12,19 @@ doit avoir ``"correct": true`` ; les autres ``"correct": false``.
 Fournis un retour positif court et un retour correctif qui explique
 brièvement pourquoi la bonne réponse est bonne (sans révéler les autres).
 
-Réponds en JSON strict, schéma :
+Réponds en JSON strict, schéma (ADR 010 — flat) :
 {
   "id": "s_quiz_<short_id>",
   "type": "quiz",
   "title": "<titre court, < 60 caractères>",
-  "content": {
-    "question": "<question claire, < 200 caractères>",
-    "choices": [
-      {"id": "a", "text": "<choix>", "correct": true},
-      {"id": "b", "text": "<choix>", "correct": false},
-      {"id": "c", "text": "<choix>", "correct": false},
-      {"id": "d", "text": "<choix>", "correct": false}
-    ],
-    "feedback_correct": "<retour positif court>",
-    "feedback_incorrect": "<retour correctif explicatif>",
-    "hints": ["<indice 1 facultatif>"]
-  }
+  "question": "<question claire, < 200 caractères>",
+  "choices": [
+    {"id": "a", "text": "<choix>", "correct": true},
+    {"id": "b", "text": "<choix>", "correct": false},
+    {"id": "c", "text": "<choix>", "correct": false},
+    {"id": "d", "text": "<choix>", "correct": false}
+  ],
+  "feedback_correct": "<retour positif court>",
+  "feedback_incorrect": "<retour correctif explicatif>",
+  "hints": ["<indice 1 facultatif>"]
 }

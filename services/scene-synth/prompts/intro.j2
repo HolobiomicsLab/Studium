@@ -6,12 +6,10 @@ Concepts couverts : {{ plan_section.concept_ids | join(", ") }}
 Tentative précédente invalide : {{ last_error }}. Corrige le format.
 {% endif %}
 
-Réponds en JSON strict, schéma :
+Réponds en JSON strict, schéma (ADR 010 — flat) :
 {
   "id": "s_intro_<short_id>",
   "type": "intro",
   "title": "<titre court, < 60 caractères>",
-  "content": {
-    "markdown": "<3-5 phrases en markdown, ton encourageant, aucune affirmation factuelle non sourçable>"
-  }
+  "markdown": "<3-5 phrases en markdown, ton encourageant, aucune affirmation factuelle non sourçable>"
 }

@@ -1,15 +1,10 @@
 """Pydantic mirror de packages/lesson-bundle-schema (TS Zod).
 
+ADR 010 — flat shape : tous les types de scène ont leurs champs métier à la
+racine, sans enveloppe ``content``. schema_version bumped to 1.1.
+
 Convention rule 004 : ce module n'est jamais importé sous le nom `schemas`
 au niveau racine ; toujours `from scene_synth_schemas import ...`.
-
-Ce module reproduit le LessonBundleSchema TypeScript (cf.
-``packages/lesson-bundle-schema/src/``) côté Python pour le service
-scene-synth (A2). Il étend également le schéma avec les deux nouveaux types
-de scène introduits dans A2 :
-
-- ``reproduction`` (carte-tâche reproductible)
-- ``ai_critique`` (critique d'affirmations IA-générées)
 
 Le round-trip ``parse -> dump -> compare equal`` est vérifié par
 ``tests/unit/test_schemas_round_trip.py`` sur la fixture M3
@@ -55,11 +50,6 @@ class BundleMetadata(BaseModel):
     discipline: str
 
 
-# ---------------------------------------------------------------------------
-# Base scène — champs communs partagés par tous les types
-# ---------------------------------------------------------------------------
-
-
 class _SceneBase(BaseModel):
     """Champs partagés par toutes les scènes (cf. SceneBaseSchema TS)."""
 
@@ -72,17 +62,8 @@ class _SceneBase(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Scènes existantes M3 (content nested)
+# Scènes (ADR 010 flat shape — pas d'enveloppe `content`)
 # ---------------------------------------------------------------------------
-
-
-class IntroContent(BaseModel):
-    markdown: str
-
-
-class ConceptContent(BaseModel):
-    markdown: str
-    image_path: Optional[str] = None
 
 
 class QuizChoice(BaseModel):
@@ -91,7 +72,19 @@ class QuizChoice(BaseModel):
     correct: bool
 
 
-class QuizContent(BaseModel):
+class IntroScene(_SceneBase):
+    type: Literal["intro"]
+    markdown: str
+
+
+class ConceptScene(_SceneBase):
+    type: Literal["concept"]
+    markdown: str
+    image_path: Optional[str] = None
+
+
+class QuizScene(_SceneBase):
+    type: Literal["quiz"]
     question: str
     choices: list[QuizChoice] = Field(min_length=2, max_length=6)
     feedback_correct: str
@@ -99,35 +92,11 @@ class QuizContent(BaseModel):
     hints: list[str] = Field(default_factory=list)
 
 
-class MetaCheckpointContent(BaseModel):
+class MetaCheckpointScene(_SceneBase):
+    type: Literal["meta_checkpoint"]
     pre_question: str
     post_question: str
     scale_labels: list[str] = Field(min_length=5, max_length=5)
-
-
-class IntroScene(_SceneBase):
-    type: Literal["intro"]
-    content: IntroContent
-
-
-class ConceptScene(_SceneBase):
-    type: Literal["concept"]
-    content: ConceptContent
-
-
-class QuizScene(_SceneBase):
-    type: Literal["quiz"]
-    content: QuizContent
-
-
-class MetaCheckpointScene(_SceneBase):
-    type: Literal["meta_checkpoint"]
-    content: MetaCheckpointContent
-
-
-# ---------------------------------------------------------------------------
-# Nouvelles scènes A2 — flat shape (pas de bloc ``content`` imbriqué)
-# ---------------------------------------------------------------------------
 
 
 class ReproductionStep(BaseModel):
@@ -212,9 +181,9 @@ class AdaptationRule(BaseModel):
 
 
 class LessonBundle(BaseModel):
-    """Pydantic mirror of LessonBundleSchema (TS)."""
+    """Pydantic mirror of LessonBundleSchema (TS) — ADR 010 v1.1."""
 
-    schema_version: Literal["1.0"]
+    schema_version: Literal["1.1"]
     bundle_id: str
     source_plan_id: str
     metadata: BundleMetadata
@@ -274,18 +243,14 @@ __all__ = [
     "Bundle",
     "Claim",
     "Concept",
-    "ConceptContent",
     "ConceptScene",
     "CritiqueEvalRequest",
     "CritiqueEvalResponse",
-    "IntroContent",
     "IntroScene",
     "LessonBundle",
-    "MetaCheckpointContent",
     "MetaCheckpointScene",
     "Modulator",
     "QuizChoice",
-    "QuizContent",
     "QuizScene",
     "ReproductionScene",
     "ReproductionStep",

@@ -1,10 +1,17 @@
-"""Pydantic mirror du LessonBundle TypeScript (rule 002 — validation côté Python)."""
+"""Pydantic mirror du LessonBundle TypeScript (rule 002 — validation côté Python).
+
+ADR 010 — flat shape : tous les types de scène déclarent leurs champs métier
+à la racine, sans enveloppe `content`. schema_version bumped to 1.1.
+"""
 from __future__ import annotations
-from typing import Annotated, Optional, Literal, Union
+from typing import Annotated, Any, Optional, Literal, Union
 from pydantic import BaseModel, Field
 
 
-SceneType = Literal["intro", "concept", "quiz", "meta_checkpoint"]
+SceneType = Literal[
+    "intro", "concept", "quiz", "meta_checkpoint",
+    "reproduction", "ai_critique",
+]
 BloomLevel = Literal["remember", "understand", "apply", "analyze", "evaluate", "create"]
 Modulator = Literal["M1", "M2", "M3", "M6"]
 
@@ -24,13 +31,13 @@ class BundleMetadata(BaseModel):
     discipline: str
 
 
-class IntroContent(BaseModel):
-    markdown: str
-
-
-class ConceptContent(BaseModel):
-    markdown: str
-    image_path: Optional[str] = None
+class _SceneBase(BaseModel):
+    id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    objective_refs: list[str] = Field(default_factory=list)
+    concept_refs: list[str] = Field(default_factory=list)
+    estimated_seconds: int = Field(default=0, ge=0)
+    adaptation_hooks: list[str] = Field(default_factory=list)
 
 
 class QuizChoice(BaseModel):
@@ -39,7 +46,19 @@ class QuizChoice(BaseModel):
     correct: bool
 
 
-class QuizContent(BaseModel):
+class IntroScene(_SceneBase):
+    type: Literal["intro"]
+    markdown: str
+
+
+class ConceptScene(_SceneBase):
+    type: Literal["concept"]
+    markdown: str
+    image_path: Optional[str] = None
+
+
+class QuizScene(_SceneBase):
+    type: Literal["quiz"]
     question: str
     choices: list[QuizChoice] = Field(min_length=2, max_length=6)
     feedback_correct: str
@@ -47,57 +66,49 @@ class QuizContent(BaseModel):
     hints: list[str] = Field(default_factory=list)
 
 
-class MetaCheckpointContent(BaseModel):
+class MetaCheckpointScene(_SceneBase):
+    type: Literal["meta_checkpoint"]
     pre_question: str
     post_question: str
     scale_labels: list[str] = Field(min_length=5, max_length=5)
 
 
-class IntroScene(BaseModel):
+class ReproductionStep(BaseModel):
+    step_id: str
+    instruction: str
+    expected_input_schema: dict[str, Any]
+    expected_output: Union[str, dict[str, Any]]
+
+
+class ReproductionScene(_SceneBase):
+    type: Literal["reproduction"]
+    task_card_id: str
+    steps: list[ReproductionStep] = Field(min_length=1)
+    prov_derived_from: Optional[str] = None
+
+
+class Claim(BaseModel):
     id: str
-    type: Literal["intro"]
-    title: str
-    objective_refs: list[str] = Field(default_factory=list)
-    concept_refs: list[str] = Field(default_factory=list)
-    estimated_seconds: int = Field(ge=0)
-    adaptation_hooks: list[str] = Field(default_factory=list)
-    content: IntroContent
+    text: str
+    flaws_expected: list[str]
 
 
-class ConceptScene(BaseModel):
-    id: str
-    type: Literal["concept"]
-    title: str
-    objective_refs: list[str] = Field(default_factory=list)
-    concept_refs: list[str] = Field(default_factory=list)
-    estimated_seconds: int = Field(ge=0)
-    adaptation_hooks: list[str] = Field(default_factory=list)
-    content: ConceptContent
+class AICritiqueRubric(BaseModel):
+    completeness: float = Field(ge=0, le=1)
+    evidence_quality: float = Field(ge=0, le=1)
+    tone: float = Field(ge=0, le=1)
 
 
-class QuizScene(BaseModel):
-    id: str
-    type: Literal["quiz"]
-    title: str
-    objective_refs: list[str] = Field(default_factory=list)
-    concept_refs: list[str] = Field(default_factory=list)
-    estimated_seconds: int = Field(ge=0)
-    adaptation_hooks: list[str] = Field(default_factory=list)
-    content: QuizContent
+class AICritiqueScene(_SceneBase):
+    type: Literal["ai_critique"]
+    claims: list[Claim] = Field(min_length=1, max_length=3)
+    rubric: AICritiqueRubric
 
 
-class MetaCheckpointScene(BaseModel):
-    id: str
-    type: Literal["meta_checkpoint"]
-    title: str
-    objective_refs: list[str] = Field(default_factory=list)
-    concept_refs: list[str] = Field(default_factory=list)
-    estimated_seconds: int = Field(ge=0)
-    adaptation_hooks: list[str] = Field(default_factory=list)
-    content: MetaCheckpointContent
-
-
-SceneUnion = Union[IntroScene, ConceptScene, QuizScene, MetaCheckpointScene]
+SceneUnion = Union[
+    IntroScene, ConceptScene, QuizScene, MetaCheckpointScene,
+    ReproductionScene, AICritiqueScene,
+]
 Scene = Annotated[SceneUnion, Field(discriminator="type")]
 
 
@@ -121,7 +132,7 @@ class AdaptationRule(BaseModel):
 
 
 class LessonBundle(BaseModel):
-    schema_version: Literal["1.0"]
+    schema_version: Literal["1.1"]
     bundle_id: str
     source_plan_id: str
     metadata: BundleMetadata

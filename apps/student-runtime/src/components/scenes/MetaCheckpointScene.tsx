@@ -23,9 +23,9 @@ export default function MetaCheckpointScene({ scene, onSignal, onContinue }: Pro
   return (
     <section className="max-w-2xl mx-auto bg-white shadow rounded-lg p-6">
       <h2 className="text-lg font-semibold mb-2">{scene.title}</h2>
-      <p className="mb-4">{scene.content.pre_question}</p>
+      <p className="mb-4">{scene.pre_question}</p>
       <div className="flex justify-between mb-2">
-        {scene.content.scale_labels.map((_label, i) => (
+        {scene.scale_labels.map((_label, i) => (
           <button
             key={i}
             onClick={() => setValue(i)}
@@ -35,7 +35,7 @@ export default function MetaCheckpointScene({ scene, onSignal, onContinue }: Pro
           </button>
         ))}
       </div>
-      <p className="text-xs text-gray-500 mb-6">{scene.content.scale_labels[value]}</p>
+      <p className="text-xs text-gray-500 mb-6">{scene.scale_labels[value]}</p>
       <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={submit}>
         Continuer
       </button>

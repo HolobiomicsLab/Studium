@@ -6,7 +6,6 @@ from scene_synth_schemas import QuizScene
 
 _VALID_QUIZ_JSON = (
     '{"id": "s_quiz_1", "type": "quiz", "title": "Quiz métabolomique", '
-    '"content": {'
     '"question": "Quelle technique mesure le rapport masse/charge ?", '
     '"choices": ['
     '{"id": "a", "text": "Spectrométrie de masse", "correct": true}, '
@@ -17,7 +16,7 @@ _VALID_QUIZ_JSON = (
     '"feedback_correct": "Bravo !", '
     '"feedback_incorrect": "La spectrométrie de masse est la bonne réponse.", '
     '"hints": ["Pense à m/z"]'
-    '}}'
+    '}'
 )
 
 
@@ -37,7 +36,7 @@ def test_quiz_agent_synthesizes_valid_scene():
 
     assert isinstance(scene, QuizScene)
     assert scene.type == "quiz"
-    assert len(scene.content.choices) >= 2
+    assert len(scene.choices) >= 2
 
 
 def test_quiz_agent_retries_on_validation_error():
@@ -83,7 +82,7 @@ def test_quiz_agent_choices_have_exactly_one_correct():
         {"concept_id": "c1", "objective_text": "x", "bloom_level": "understand"},
         context={},
     )
-    correct_count = sum(1 for choice in scene.content.choices if choice.correct)
+    correct_count = sum(1 for choice in scene.choices if choice.correct)
     assert correct_count == 1, (
         f"un quiz QCM standard doit avoir exactement une bonne réponse, "
         f"trouvé {correct_count}"
