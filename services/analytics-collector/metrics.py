@@ -149,6 +149,78 @@ def compute_reasoning_depth_score(
     return {"scenes": scenes}
 
 
+def compute_ai_audit_accuracy(
+    data_dir: Path,
+    course: str,
+    pseudonyme: str | None = None,
+) -> dict:
+    """AI audit accuracy (M5.3) — score [0, 1] par scène ai_audit / ai_critique.
+
+    Formule par scène :
+        accuracy = max(0, (true_positives - false_positives) / planted_errors)
+        - planted_errors == 0 → accuracy = None (impossible à scorer)
+        - false_positives > true_positives → clampé à 0
+        - clamp strict [0, 1]
+
+    Overall = moyenne arithmétique des accuracies par scène (ignore les None).
+    Si aucune scène n'est scorable → overall_accuracy = None.
+
+    Filtre optionnel : ``pseudonyme`` (1 étudiant). Si plusieurs events
+    ``ai_audit_result`` ciblent la même (scene_id, pseudonyme), on agrège en
+    sommant les compteurs (TP/FP/planted/missed) avant de calculer l'accuracy.
+    """
+    # counters[scene_id] = {tp, fp, planted, missed}
+    counters: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"tp": 0, "fp": 0, "planted": 0, "missed": 0}
+    )
+    for ev in _iter_events(data_dir, course):
+        if ev.get("type") != "ai_audit_result":
+            continue
+        sid = ev.get("scene_id")
+        if not sid:
+            continue
+        if pseudonyme is not None and ev.get("learner_pseudonym") != pseudonyme:
+            continue
+        c = counters[sid]
+        c["tp"] += int(ev.get("true_positives", 0))
+        c["fp"] += int(ev.get("false_positives", 0))
+        c["planted"] += int(ev.get("planted_errors", 0))
+        c["missed"] += int(ev.get("missed", 0))
+
+    per_scene: list[dict] = []
+    scorable_accuracies: list[float] = []
+    for sid, c in counters.items():
+        planted = c["planted"]
+        tp = c["tp"]
+        fp = c["fp"]
+        if planted == 0:
+            accuracy: float | None = None
+        else:
+            raw = (tp - fp) / planted
+            # clamp strict [0, 1]
+            accuracy = max(0.0, min(1.0, raw))
+            scorable_accuracies.append(accuracy)
+        per_scene.append({
+            "scene_id": sid,
+            "accuracy": accuracy,
+            "true_positives": tp,
+            "false_positives": fp,
+            "planted_errors": planted,
+            "missed": c["missed"],
+        })
+
+    overall = (
+        sum(scorable_accuracies) / len(scorable_accuracies)
+        if scorable_accuracies
+        else None
+    )
+    return {
+        "overall_accuracy": overall,
+        "n_scenes": len(per_scene),
+        "per_scene": per_scene,
+    }
+
+
 def compute_autonomy(data_dir: Path, course: str) -> dict:
     """Anti-offloading metrics: autonomy_ratio + critique_completion_rate.
 

@@ -2,6 +2,7 @@ from fastapi import FastAPI, Header, HTTPException
 
 from analytics_collector_schemas import TelemetryBatch, TelemetryResponse
 from metrics import (
+    compute_ai_audit_accuracy,
     compute_autonomy,
     compute_calibration,
     compute_progress,
@@ -77,4 +78,16 @@ def get_reasoning(
     _require_course_token(x_course_token, course)
     return compute_reasoning_depth_score(
         _data_dir(), course, pseudonyme=pseudonyme, scene_id=scene_id,
+    )
+
+
+@app.get("/metrics/ai-audit")
+def get_ai_audit(
+    course: str,
+    pseudonyme: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    _require_course_token(x_course_token, course)
+    return compute_ai_audit_accuracy(
+        _data_dir(), course, pseudonyme=pseudonyme,
     )
