@@ -1,0 +1,17 @@
+Tu évalues une critique étudiante.
+
+Affirmations critiquées :
+{{ claims | tojson(indent=2) }}
+
+Grille (poids cumulés = 1.0) :
+- completeness : {{ rubric.completeness }}
+- evidence_quality : {{ rubric.evidence_quality }}
+- tone : {{ rubric.tone }}
+
+Critique de l'étudiant :
+"{{ student_critique }}"
+
+Évalue dans quelle mesure l'étudiant a identifié les défauts. Note de 0 à 1 (somme pondérée des dimensions). Donne un feedback bref (1-2 phrases).
+
+Réponds en JSON strict :
+{ "score": <float entre 0 et 1>, "feedback": "<1-2 phrases>" }

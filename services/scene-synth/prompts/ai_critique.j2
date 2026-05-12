@@ -1,0 +1,25 @@
+Tu rédiges une scène de critique pédagogique anti-offloading.
+
+Concept ciblé : {{ plan_section.concept_id }}
+Objectif : {{ plan_section.objective_text }}
+{% if last_error %}
+Tentative précédente invalide : {{ last_error }}. Corrige le format.
+{% endif %}
+
+Génère 2 à 3 affirmations imparfaites ou biaisées, **sans révéler les défauts**.
+Chaque claim a :
+- "id" : identifiant court
+- "text" : l'affirmation telle qu'un étudiant la lirait
+- "flaws_expected" : liste des biais/défauts attendus que l'étudiant devrait identifier
+
+Définis la grille de critique avec 3 dimensions de poids (somme = 1.0) :
+- completeness, evidence_quality, tone
+
+Réponds en JSON strict :
+{
+  "id": "s_aicrit_<short>",
+  "type": "ai_critique",
+  "title": "<court>",
+  "claims": [...],
+  "rubric": {"completeness": <float>, "evidence_quality": <float>, "tone": <float>}
+}

@@ -1,0 +1,26 @@
+Tu rédiges une scène de reproduction expérimentale (carte-tâche ABS).
+
+Objectif : {{ plan_section.objective_text }}
+ABS task_card_id : {{ plan_section.abs_task_card_id }}
+{% if plan_section.task_card %}
+Contexte ABS (task_card) : {{ plan_section.task_card | tojson }}
+{% endif %}
+{% if last_error %}
+Tentative précédente invalide : {{ last_error }}. Corrige le format JSON.
+{% endif %}
+
+Génère 3 à 5 étapes vérifiables. Chaque étape doit avoir :
+- ``step_id`` (str court, ex. "1")
+- ``instruction`` claire et actionnable
+- ``expected_input_schema`` : JSON Schema simple (type number/string/boolean)
+- ``expected_output`` : valeur attendue (str ou dict, regex accepté)
+
+Réponds en JSON strict (sans markdown) :
+{
+  "id": "s_repro_<short>",
+  "type": "reproduction",
+  "title": "<titre court>",
+  "task_card_id": "{{ plan_section.abs_task_card_id }}",
+  "steps": [...],
+  "prov_derived_from": "ro-crate://{{ plan_section.abs_task_card_id }}"
+}

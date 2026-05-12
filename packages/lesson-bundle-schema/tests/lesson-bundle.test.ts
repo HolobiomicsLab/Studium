@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema } from "../src/index";
 
 const VALID_BUNDLE = {
-  schema_version: "1.0",
+  schema_version: "1.1",
   bundle_id: "b-001",
   source_plan_id: "p-001",
   metadata: {
@@ -20,7 +20,7 @@ const VALID_BUNDLE = {
     { id: "s-1", type: "intro", title: "Bienvenue",
       objective_refs: [], concept_refs: ["c-001"],
       estimated_seconds: 60, adaptation_hooks: [],
-      content: { markdown: "# Bienvenue" } },
+      markdown: "# Bienvenue" },
   ],
   rules: [
     { id: "r-1", when: { mastery_c: ">=0.8" },
@@ -47,22 +47,20 @@ describe("LessonBundleSchema", () => {
     expect(() => LessonBundleSchema.parse(invalid)).toThrow();
   });
 
-  it("validates IntroScene markdown", () => {
+  it("validates IntroScene markdown (ADR 010 flat)", () => {
     const scene = { id: "s-1", type: "intro", title: "x",
       objective_refs: [], concept_refs: [], estimated_seconds: 30,
-      adaptation_hooks: [], content: { markdown: "hello" } };
+      adaptation_hooks: [], markdown: "hello" };
     expect(() => IntroSceneSchema.parse(scene)).not.toThrow();
   });
 
-  it("validates QuizScene with choices", () => {
+  it("validates QuizScene with choices (ADR 010 flat)", () => {
     const scene = { id: "s-q", type: "quiz", title: "Q1",
       objective_refs: [], concept_refs: [], estimated_seconds: 60,
       adaptation_hooks: [],
-      content: {
-        question: "?",
-        choices: [{ id: "a", text: "A", correct: true }, { id: "b", text: "B", correct: false }],
-        feedback_correct: "ok", feedback_incorrect: "non", hints: [],
-      } };
+      question: "?",
+      choices: [{ id: "a", text: "A", correct: true }, { id: "b", text: "B", correct: false }],
+      feedback_correct: "ok", feedback_incorrect: "non", hints: [] };
     expect(() => QuizSceneSchema.parse(scene)).not.toThrow();
   });
 
@@ -71,5 +69,10 @@ describe("LessonBundleSchema", () => {
       action: { kind: "skip_to_next_concept" },
       modulator: "M1", explanation_short: "x" };
     expect(() => AdaptationRuleSchema.parse(rule)).not.toThrow();
+  });
+
+  it("rejects legacy schema_version 1.0 (ADR 010 bump)", () => {
+    const invalid = { ...VALID_BUNDLE, schema_version: "1.0" };
+    expect(() => LessonBundleSchema.parse(invalid)).toThrow();
   });
 });
