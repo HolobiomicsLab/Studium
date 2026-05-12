@@ -1,7 +1,12 @@
 from fastapi import FastAPI, Header, HTTPException
 
 from analytics_collector_schemas import TelemetryBatch, TelemetryResponse
-from metrics import compute_autonomy, compute_calibration, compute_progress
+from metrics import (
+    compute_autonomy,
+    compute_calibration,
+    compute_progress,
+    compute_reasoning_depth_score,
+)
 from store import _data_dir, append_events, process_event_for_mastery
 
 
@@ -60,3 +65,16 @@ def get_calibration(
 def get_autonomy(course: str, x_course_token: str | None = Header(default=None)) -> dict:
     _require_course_token(x_course_token, course)
     return compute_autonomy(_data_dir(), course)
+
+
+@app.get("/metrics/reasoning")
+def get_reasoning(
+    course: str,
+    pseudonyme: str | None = None,
+    scene_id: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    _require_course_token(x_course_token, course)
+    return compute_reasoning_depth_score(
+        _data_dir(), course, pseudonyme=pseudonyme, scene_id=scene_id,
+    )

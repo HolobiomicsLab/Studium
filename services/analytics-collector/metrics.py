@@ -76,6 +76,79 @@ def compute_calibration(data_dir: Path, course: str, learner: str | None = None)
     return {"brier_score": brier, "n_items": len(items)}
 
 
+_REASONING_WEIGHTS: dict[str, float] = {
+    "justification": 0.25,
+    "hypothesis": 0.20,
+    "counterexample": 0.20,
+    "synthesis": 0.20,
+    "question": 0.15,
+}
+
+
+def compute_reasoning_depth_score(
+    data_dir: Path,
+    course: str,
+    pseudonyme: str | None = None,
+    scene_id: str | None = None,
+) -> dict:
+    """Reasoning depth score (M5.2) — score [0, 1] par scène.
+
+    Formule v1 (choix B — binarisé) :
+        score = sum(weight[signal] for signal in signals_present_at_least_once)
+        weights = {justification: 0.25, hypothesis: 0.20, counterexample: 0.20,
+                   synthesis: 0.20, question: 0.15}
+
+    Max théorique = 1.00 quand les 5 signaux sont présents au moins une fois
+    pour la (scene_id, pseudonyme). Aucune normalisation par fréquence : la
+    présence binaire suffit. Le ``breakdown`` retourné expose les proportions
+    par signal pour permettre au frontend d'afficher une distribution.
+
+    Si aucun event ``reasoning_signal`` n'a été reçu pour une scène, la scène
+    n'apparaît simplement pas dans le résultat (score ne distingue pas une
+    scène "pas jouée" d'une "jouée sans raisonner" côté collector — c'est au
+    consommateur de croiser avec scene_entered/scene_completed s'il veut).
+
+    Filtres optionnels : ``pseudonyme`` (1 étudiant) et ``scene_id`` (1 scène).
+    """
+    # counts[scene_id][signal] = count
+    counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for ev in _iter_events(data_dir, course):
+        if ev.get("type") != "reasoning_signal":
+            continue
+        sid = ev.get("scene_id")
+        if not sid:
+            continue
+        if scene_id is not None and sid != scene_id:
+            continue
+        if pseudonyme is not None and ev.get("learner_pseudonym") != pseudonyme:
+            continue
+        signal = ev.get("signal")
+        if signal not in _REASONING_WEIGHTS:
+            continue
+        counts[sid][signal] += 1
+
+    scenes: dict[str, dict] = {}
+    for sid, by_signal in counts.items():
+        total = sum(by_signal.values())
+        if total == 0:
+            scenes[sid] = {"score": None, "n_signals": 0, "breakdown": {}}
+            continue
+        # choix B (binarisé) : un signal présent au moins une fois compte 1 × weight.
+        score = sum(
+            weight for sig, weight in _REASONING_WEIGHTS.items() if by_signal.get(sig, 0) > 0
+        )
+        # clamp défensif (les poids somment exactement à 1.0 mais le clamp protège
+        # toute évolution future de la formule).
+        score = max(0.0, min(1.0, score))
+        breakdown = {sig: by_signal.get(sig, 0) / total for sig in _REASONING_WEIGHTS}
+        scenes[sid] = {
+            "score": score,
+            "n_signals": total,
+            "breakdown": breakdown,
+        }
+    return {"scenes": scenes}
+
+
 def compute_autonomy(data_dir: Path, course: str) -> dict:
     """Anti-offloading metrics: autonomy_ratio + critique_completion_rate.
 
