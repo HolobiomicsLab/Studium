@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Scene } from "@studium/lesson-bundle-schema";
 import type { Signal } from "@studium/learner-state";
 import type { TelemetryEmit } from "../../hooks/useTelemetry";
+import { matchClaimsAgainstCritique } from "../../lib/aiAuditMatcher";
 
 type Props = {
   scene: Extract<Scene, { type: "ai_critique" }>;
@@ -58,6 +59,15 @@ export default function AICritiqueScene({ scene, onSignal, onContinue, endpoint,
         scene_id: scene.id,
         llm_score: Math.max(0, Math.min(1, data.score)),
         completion_rate,
+      });
+      const auditResult = matchClaimsAgainstCritique(scene.claims, critique);
+      emit?.({
+        type: "ai_audit_result",
+        scene_id: scene.id,
+        planted_errors: auditResult.planted_errors,
+        true_positives: auditResult.true_positives,
+        false_positives: auditResult.false_positives,
+        missed: auditResult.missed,
       });
       await onSignal({
         kind: "answer_submitted",
