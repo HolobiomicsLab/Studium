@@ -1,0 +1,25 @@
+{
+  "name": "@studium/teacher-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start --port 3001",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "next": "^14.2",
+    "react": "^18.3",
+    "react-dom": "^18.3",
+    "recharts": "^2.12"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.46",
+    "@types/node": "^20",
+    "@types/react": "^18.3",
+    "typescript": "^5.5",
+    "vitest": "^2.0"
+  }
+}

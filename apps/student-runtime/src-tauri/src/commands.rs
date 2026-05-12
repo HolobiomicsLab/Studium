@@ -154,3 +154,50 @@ pub fn delete_all_data(state: State<AppState>) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     storage::delete_all(&conn).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn telemetry_outbox_push(state: State<AppState>, event_json: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    storage::telemetry_outbox_push(&conn, &event_json).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn telemetry_outbox_drain(state: State<AppState>) -> Result<Vec<String>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    storage::telemetry_outbox_drain(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn telemetry_outbox_count(state: State<AppState>) -> Result<i64, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    storage::telemetry_outbox_count(&conn).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+    const TEST_KEY: [u8; 32] = [42u8; 32];
+
+    fn temp_dir() -> PathBuf {
+        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let mut p = env::temp_dir();
+        p.push(format!("studium-cmds-test-{}-{}", std::process::id(), id));
+        let _ = std::fs::remove_dir_all(&p);
+        p
+    }
+
+    #[test]
+    fn telemetry_outbox_push_and_drain_via_storage() {
+        let dir = temp_dir();
+        let conn = storage::open_or_init_with_key(&dir, &TEST_KEY).expect("open");
+        storage::telemetry_outbox_push(&conn, "{\"type\":\"a\"}").unwrap();
+        storage::telemetry_outbox_push(&conn, "{\"type\":\"b\"}").unwrap();
+        let drained = storage::telemetry_outbox_drain(&conn).unwrap();
+        assert_eq!(drained.len(), 2);
+        assert_eq!(storage::telemetry_outbox_count(&conn).unwrap(), 0);
+    }
+}

@@ -127,6 +127,58 @@ describe("AICritiqueScene", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/500/);
   });
 
+  it("emits critique_submitted on successful evaluation", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ score: 0.8, feedback: "ok" }),
+    });
+    const emit = vi.fn();
+    render(
+      <AICritiqueScene
+        scene={baseScene}
+        onSignal={vi.fn().mockResolvedValue(undefined)}
+        onContinue={vi.fn()}
+        emit={emit}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/critique-textarea/), {
+      target: { value: "Cette affirmation suppose à tort..." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /soumettre/i }));
+    await waitFor(() => screen.getByTestId("critique-result"));
+    const call = emit.mock.calls.find((c) => c[0].type === "critique_submitted");
+    expect(call).toBeTruthy();
+    expect(call![0]).toEqual(
+      expect.objectContaining({
+        type: "critique_submitted",
+        scene_id: "s_critique",
+        llm_score: 0.8,
+        completion_rate: expect.any(Number),
+      }),
+    );
+  });
+
+  it("does not emit critique_submitted if evaluation fails", async () => {
+    (global.fetch as any).mockResolvedValue({ ok: false, status: 500 });
+    const emit = vi.fn();
+    render(
+      <AICritiqueScene
+        scene={baseScene}
+        onSignal={vi.fn().mockResolvedValue(undefined)}
+        onContinue={vi.fn()}
+        emit={emit}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/critique-textarea/), {
+      target: { value: "Une critique correcte." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /soumettre/i }));
+    await waitFor(() => screen.getByRole("alert"));
+    const call = emit.mock.calls.find((c) => c[0].type === "critique_submitted");
+    expect(call).toBeUndefined();
+  });
+
   it("utilise le endpoint custom si fourni", async () => {
     (global.fetch as any).mockResolvedValue({
       ok: true,

@@ -17,4 +17,7 @@ export const tauri = {
   appendEvent:   (event: object)                     => invoke<void>("append_event", { event }),
   getPseudonyme: (lessonId: string)                  => invoke<string>("get_pseudonyme", { lessonId }),
   deleteAllData: ()                                  => invoke<void>("delete_all_data"),
+  telemetryOutboxPush:  (eventJson: string)          => invoke<void>("telemetry_outbox_push", { eventJson }),
+  telemetryOutboxDrain: ()                            => invoke<string[]>("telemetry_outbox_drain"),
+  telemetryOutboxCount: ()                            => invoke<number>("telemetry_outbox_count"),
 };

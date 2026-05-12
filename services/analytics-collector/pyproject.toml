@@ -1,0 +1,20 @@
+[project]
+name = "analytics-collector"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+  "pydantic>=2.8",
+  "telemetry-events @ file:../../packages/telemetry-events",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "httpx>=0.27"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["analytics_collector_app", "analytics_collector_schemas", "store", "metrics"]

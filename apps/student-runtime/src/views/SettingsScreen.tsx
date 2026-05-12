@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { tauri } from "../lib/tauri";
+import { useTelemetry } from "../hooks/useTelemetry";
 
 const DEMO_BUNDLE_ID = "demo-metabolomics-001";
 
@@ -8,12 +9,28 @@ export default function SettingsScreen() {
   const [pseudo, setPseudo] = useState("");
   const [confirming, setConfirming] = useState(false);
   const navigate = useNavigate();
+  const { emit, flush } = useTelemetry({
+    endpoint: null,
+    courseToken: "",
+    context: {
+      learner_pseudonym: pseudo || "anonymous",
+      lesson_id: DEMO_BUNDLE_ID,
+      bundle_version: "_settings",
+    },
+  });
 
   useEffect(() => {
     tauri.getPseudonyme(DEMO_BUNDLE_ID).then(setPseudo).catch(() => {});
   }, []);
 
   const wipe = async () => {
+    // Emit + flush *before* deleting data so the forget request is recorded
+    emit({ type: "forget_requested" });
+    try {
+      await flush();
+    } catch {
+      /* swallow — best effort */
+    }
     await tauri.deleteAllData();
     navigate("/consent", { replace: true });
   };

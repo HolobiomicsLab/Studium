@@ -72,8 +72,55 @@ fn apply_schema(conn: &Connection) -> Result<(), StorageError> {
         );
         CREATE INDEX IF NOT EXISTS idx_events_lesson    ON events(lesson_id);
         CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
+        CREATE TABLE IF NOT EXISTS telemetry_outbox (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_json  TEXT NOT NULL,
+            created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_telemetry_outbox_created
+            ON telemetry_outbox(created_at);
     ")?;
     Ok(())
+}
+
+pub fn telemetry_outbox_push(conn: &Connection, event_json: &str) -> Result<(), StorageError> {
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO telemetry_outbox (event_json, created_at) VALUES (?, ?)",
+        params![event_json, now],
+    )?;
+    Ok(())
+}
+
+pub fn telemetry_outbox_drain(conn: &Connection) -> Result<Vec<String>, StorageError> {
+    let mut stmt = conn.prepare(
+        "SELECT id, event_json FROM telemetry_outbox ORDER BY id ASC",
+    )?;
+    let mut ids: Vec<i64> = Vec::new();
+    let mut events: Vec<String> = Vec::new();
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
+    for row in rows {
+        let (id, json) = row?;
+        ids.push(id);
+        events.push(json);
+    }
+    if !ids.is_empty() {
+        let placeholders: Vec<String> = (0..ids.len()).map(|_| "?".to_string()).collect();
+        let sql = format!(
+            "DELETE FROM telemetry_outbox WHERE id IN ({})",
+            placeholders.join(",")
+        );
+        let id_params: Vec<&dyn rusqlite::ToSql> = ids.iter()
+            .map(|i| i as &dyn rusqlite::ToSql)
+            .collect();
+        conn.execute(&sql, id_params.as_slice())?;
+    }
+    Ok(events)
+}
+
+pub fn telemetry_outbox_count(conn: &Connection) -> Result<i64, StorageError> {
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM telemetry_outbox", [], |r| r.get(0))?;
+    Ok(count)
 }
 
 fn ensure_student_secret(conn: &Connection) -> Result<(), StorageError> {
@@ -102,6 +149,7 @@ pub fn delete_all(conn: &Connection) -> Result<(), StorageError> {
         DELETE FROM events;
         DELETE FROM learner_state;
         DELETE FROM consent;
+        DELETE FROM telemetry_outbox;
     ")?;
     let new_secret = pseudonyme::generate_secret();
     let now = chrono::Utc::now().to_rfc3339();
@@ -159,5 +207,37 @@ mod tests {
             "SELECT state_json FROM learner_state WHERE lesson_id = ?", ["L1"], |r| r.get(0))
             .unwrap();
         assert!(json.contains("L1"));
+    }
+
+    #[test]
+    fn telemetry_outbox_round_trip() {
+        let dir = temp_dir();
+        let conn = open_or_init_with_key(&dir, &TEST_KEY).expect("open");
+        assert_eq!(telemetry_outbox_count(&conn).unwrap(), 0);
+        telemetry_outbox_push(&conn, "{\"type\":\"scene_entered\",\"scene_id\":\"s1\"}").unwrap();
+        telemetry_outbox_push(&conn, "{\"type\":\"scene_entered\",\"scene_id\":\"s2\"}").unwrap();
+        assert_eq!(telemetry_outbox_count(&conn).unwrap(), 2);
+        let drained = telemetry_outbox_drain(&conn).unwrap();
+        assert_eq!(drained.len(), 2);
+        assert!(drained[0].contains("s1"));
+        assert!(drained[1].contains("s2"));
+        assert_eq!(telemetry_outbox_count(&conn).unwrap(), 0);
+    }
+
+    #[test]
+    fn telemetry_outbox_drain_empty() {
+        let dir = temp_dir();
+        let conn = open_or_init_with_key(&dir, &TEST_KEY).expect("open");
+        let drained = telemetry_outbox_drain(&conn).unwrap();
+        assert_eq!(drained.len(), 0);
+    }
+
+    #[test]
+    fn telemetry_outbox_wiped_by_delete_all() {
+        let dir = temp_dir();
+        let conn = open_or_init_with_key(&dir, &TEST_KEY).expect("open");
+        telemetry_outbox_push(&conn, "{\"type\":\"x\"}").unwrap();
+        delete_all(&conn).unwrap();
+        assert_eq!(telemetry_outbox_count(&conn).unwrap(), 0);
     }
 }
