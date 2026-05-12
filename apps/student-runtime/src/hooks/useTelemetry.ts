@@ -16,7 +16,9 @@ type Options = {
   flushIntervalMs?: number;
 };
 
-type EmitInput = Omit<
+// Distributive Omit preserves the discriminated union (Omit<U, K> collapses it).
+type DistributiveOmit<T, K extends keyof any> = T extends unknown ? Omit<T, K> : never;
+type EmitInput = DistributiveOmit<
   TelemetryEvent,
   "event_id" | "learner_pseudonym" | "lesson_id" | "bundle_version" | "client_timestamp"
 >;

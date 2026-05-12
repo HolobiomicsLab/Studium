@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { LessonBundleSchema, type LessonBundle } from "@studium/lesson-bundle-schema";
 import { defaultLearnerState, type LearnerState } from "@studium/learner-state";
 import type { Scene } from "@studium/lesson-bundle-schema";
 import { tauri } from "../lib/tauri";
 import { useAdaptation } from "../hooks/useAdaptation";
+import { useTelemetry, getTelemetryEndpoint, getTelemetryCourseToken } from "../hooks/useTelemetry";
 import SceneRouter from "../components/scenes/SceneRouter";
 import CalibrationPanel from "../components/CalibrationPanel";
 import AdaptationButton from "../components/AdaptationButton";
@@ -57,15 +58,65 @@ function Player({
   setSceneIdx: (i: number) => void;
   navigate: ReturnType<typeof useNavigate>;
 }) {
-  const { state, decision, onSignal } = useAdaptation(bundle.rules, bundle.bundle_id, initialState);
+  const { emit } = useTelemetry({
+    endpoint: getTelemetryEndpoint(null),
+    courseToken: getTelemetryCourseToken(""),
+    context: {
+      learner_pseudonym: "anonymous",
+      lesson_id: bundle.bundle_id,
+      bundle_version: bundle.schema_version,
+    },
+  });
+  const { state, decision, onSignal } = useAdaptation(
+    bundle.rules,
+    bundle.bundle_id,
+    initialState,
+    emit,
+  );
   const scene = bundle.scenes[sceneIdx] as Scene;
   const [calibTarget, setCalibTarget] = useState<string | null>(null);
+  const startedAtRef = useRef<number>(performance.now());
+  const lessonStartedEmittedRef = useRef(false);
+  const sceneEnteredRef = useRef<string | null>(null);
+
+  // Emit lesson_started exactly once per Player mount
+  useEffect(() => {
+    if (lessonStartedEmittedRef.current) return;
+    lessonStartedEmittedRef.current = true;
+    startedAtRef.current = performance.now();
+    emit({ type: "lesson_started", bundle_uri: bundle.bundle_id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Emit scene_entered when scene changes (and on first render)
+  useEffect(() => {
+    if (sceneEnteredRef.current === scene.id) return;
+    sceneEnteredRef.current = scene.id;
+    emit({ type: "scene_entered", scene_id: scene.id, scene_type: scene.type });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene.id, scene.type]);
 
   useEffect(() => {
     if (decision?.next_action.kind === "show_calibration_panel") {
       setCalibTarget((decision.next_action as { kind: string; target_concept: string }).target_concept);
     }
   }, [decision]);
+
+  const completeLesson = () => {
+    const totalMs = Math.max(0, Math.round(performance.now() - startedAtRef.current));
+    const completed = state.scenes_completed.length;
+    const replayed = Object.values(state.scenes_replayed ?? {}).reduce(
+      (n, v) => n + (typeof v === "number" ? v : 0),
+      0,
+    );
+    const denom = completed + replayed;
+    const autonomyRatio = denom === 0 ? 1 : completed / denom;
+    emit({
+      type: "lesson_completed",
+      total_duration_ms: totalMs,
+      autonomy_ratio: Math.max(0, Math.min(1, autonomyRatio)),
+    });
+  };
 
   const onContinue = async () => {
     await onSignal({ kind: "scene_completed", scene_id: scene.id, duration_ms: 0 });
@@ -78,6 +129,7 @@ function Player({
       if (next >= 0) { setSceneIdx(next); return; }
     }
     if (sceneIdx + 1 >= bundle.scenes.length) {
+      completeLesson();
       navigate(`/lesson/${bundle.bundle_id}/summary`, { replace: true });
     } else {
       setSceneIdx(sceneIdx + 1);
@@ -94,6 +146,7 @@ function Player({
         bundlePath={bundle.bundle_id}
         onSignal={onSignal as (s: Signal) => Promise<unknown>}
         onContinue={onContinue}
+        emit={emit}
       />
       {calibTarget && (
         <CalibrationPanel

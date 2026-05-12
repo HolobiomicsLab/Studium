@@ -1,12 +1,25 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { tauri, ConsentRecord } from "../lib/tauri";
+import { useTelemetry } from "../hooks/useTelemetry";
 
 export default function ConsentScreen() {
   const [a, setA] = useState(false);
   const [b, setB] = useState(false);
   const [c, setC] = useState(false);
   const navigate = useNavigate();
+  // Pre-consent: endpoint is null (no transmission) but emit still works locally
+  // so we can record the grant intent. Once consent is set, subsequent screens
+  // build a real context.
+  const { emit } = useTelemetry({
+    endpoint: null,
+    courseToken: "",
+    context: {
+      learner_pseudonym: "anonymous",
+      lesson_id: "_consent",
+      bundle_version: "_consent",
+    },
+  });
 
   const submit = async () => {
     if (!a) return;
@@ -18,6 +31,9 @@ export default function ConsentScreen() {
       granted_at: new Date().toISOString(),
     };
     await tauri.setConsent(record);
+    if (a) emit({ type: "consent_granted", scope: "A" });
+    if (b) emit({ type: "consent_granted", scope: "B" });
+    if (c) emit({ type: "consent_granted", scope: "C" });
     navigate("/library", { replace: true });
   };
 

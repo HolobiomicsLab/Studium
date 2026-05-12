@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
 import type { Scene } from "@studium/lesson-bundle-schema";
 import type { Signal } from "@studium/learner-state";
+import type { TelemetryEmit } from "../../hooks/useTelemetry";
 
 type Props = {
   scene: Extract<Scene, { type: "quiz" }>;
   onSignal: (s: Signal) => Promise<unknown>;
   onContinue: () => void;
+  emit?: TelemetryEmit;
 };
 
-export default function QuizScene({ scene, onSignal, onContinue }: Props) {
+export default function QuizScene({ scene, onSignal, onContinue, emit }: Props) {
   const [enteredAt] = useState(performance.now());
   const [selected, setSelected] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -21,15 +23,24 @@ export default function QuizScene({ scene, onSignal, onContinue }: Props) {
   const submit = async () => {
     const choice = scene.choices.find((c) => c.id === selected);
     const c = choice?.correct ?? false;
+    const responseTimeMs = performance.now() - enteredAt;
     setCorrect(c);
     setSubmitted(true);
     const concept_id = scene.concept_refs[0] ?? "default";
+    emit?.({
+      type: "quiz_answered",
+      scene_id: scene.id,
+      item_id: selected ?? "",
+      correct: c,
+      response_time_ms: Math.max(0, Math.round(responseTimeMs)),
+      confidence: 0.5,
+    });
     await onSignal({
       kind: "answer_submitted",
       concept_id,
       scene_id: scene.id,
       correct: c,
-      time_ms: performance.now() - enteredAt,
+      time_ms: responseTimeMs,
       hint_count: 0,
       difficulty: 0.5,
     });

@@ -4,6 +4,57 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-05-12 — C.6 wiring useTelemetry dans le runtime
+
+### Livré
+Câblage du hook `useTelemetry` (déjà implémenté en C.5) dans les 6 points
+d'émission du student-runtime, avec tests d'intégration TDD vitest.
+
+**Composants câblés** :
+- `views/LessonPlayer.tsx` → `lesson_started` (1×/mount), `scene_entered`
+  (1×/scène via effet sur `scene.id`), `lesson_completed` (à la fin)
+- `components/scenes/QuizScene.tsx` → `quiz_answered` (props `emit` optionnel)
+- `components/scenes/AICritiqueScene.tsx` → `critique_submitted` (uniquement
+  si l'évaluation LLM réussit)
+- `views/ConsentScreen.tsx` → `consent_granted` (1× par scope A/B/C accordé)
+- `views/SettingsScreen.tsx` → `forget_requested` (avec `flush()` avant
+  `delete_all_data` pour préserver la trace)
+- `hooks/useAdaptation.ts` → `adaptation_applied` (uniquement quand une règle
+  matche, pas pour le fallback `advance_to_next_scene`)
+
+**Architecture** :
+- LessonPlayer instancie un unique `useTelemetry`, plumé via SceneRouter
+  → renderers (prop `emit?: TelemetryEmit`) et via `useAdaptation`
+  (4ᵉ param `onTelemetryEmit?`).
+- ConsentScreen + SettingsScreen instancient leur propre `useTelemetry`
+  (endpoint `null` en local — émission préservée pour outbox/flush local).
+- Type `TelemetryEmit` exporté depuis `useTelemetry.ts` ; `EmitInput`
+  converti en `DistributiveOmit` pour préserver l'union discriminée
+  Zod (sinon Omit collapse les variants).
+
+### Tests
+- **5 nouveaux fichiers** : `QuizScene.test.tsx` (3), `ConsentScreen.test.tsx`
+  (3), `SettingsScreen.test.tsx` (2), `useAdaptation.test.ts` (3),
+  `LessonPlayer.test.tsx` (3). +2 tests ajoutés dans `AICritiqueScene.test.tsx`
+  (telemetry emit + non-emit on failure).
+- **Total student-runtime** : 40/40 verts (vs 24 avant C.6).
+- **TypeScript `tsc --noEmit`** : 0 erreurs.
+
+### Dette technique réglée
+- `@studium/telemetry-events` ajouté en dépendance workspace de
+  `apps/student-runtime/package.json` (manquait depuis C.5 ; les tests
+  vitest passaient via résolution Vite, mais `tsc --noEmit` échouait).
+  Symlink manuel posé dans `node_modules/@studium/` en attendant le prochain
+  `pnpm install`.
+
+### Notes ADR 010
+- Schéma flat respecté : `scene.markdown`, `scene.choices`, `scene.claims`
+  (pas de `scene.content.X`).
+- `bundle_version` télémétrie = `bundle.schema_version` ("1.1") faute de
+  champ dédié dans LessonBundleSchema.
+
+---
+
 ## 2026-05-12 — D.1 validation humaine + D.2 build/tarpaulin + dette pnpm
 
 ### D.1 — validation humaine M3 (rule 003)

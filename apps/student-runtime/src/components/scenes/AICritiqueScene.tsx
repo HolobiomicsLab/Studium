@@ -1,17 +1,19 @@
 import { useEffect, useState } from "react";
 import type { Scene } from "@studium/lesson-bundle-schema";
 import type { Signal } from "@studium/learner-state";
+import type { TelemetryEmit } from "../../hooks/useTelemetry";
 
 type Props = {
   scene: Extract<Scene, { type: "ai_critique" }>;
   onSignal: (s: Signal) => Promise<unknown>;
   onContinue: () => void;
   endpoint?: string;
+  emit?: TelemetryEmit;
 };
 
 type EvalResponse = { score: number; feedback: string };
 
-export default function AICritiqueScene({ scene, onSignal, onContinue, endpoint }: Props) {
+export default function AICritiqueScene({ scene, onSignal, onContinue, endpoint, emit }: Props) {
   const [enteredAt] = useState(performance.now());
   const [critique, setCritique] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +43,22 @@ export default function AICritiqueScene({ scene, onSignal, onContinue, endpoint 
       setResult(data);
       const concept_id = scene.concept_refs[0] ?? "default";
       const passed = data.score >= 0.6;
+      const trimmed = critique.trim();
+      const claimsCount = scene.claims.length;
+      // crude completion ratio: count of claim id mentions / total claims
+      const mentioned = scene.claims.reduce(
+        (n, c) => n + (trimmed.toLowerCase().includes(c.id.toLowerCase()) ? 1 : 0),
+        0,
+      );
+      const completion_rate = claimsCount === 0
+        ? 0
+        : Math.max(0, Math.min(1, mentioned / claimsCount));
+      emit?.({
+        type: "critique_submitted",
+        scene_id: scene.id,
+        llm_score: Math.max(0, Math.min(1, data.score)),
+        completion_rate,
+      });
       await onSignal({
         kind: "answer_submitted",
         concept_id,
