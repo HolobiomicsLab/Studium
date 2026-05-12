@@ -2,7 +2,7 @@ from fastapi import FastAPI, Header, HTTPException
 
 from analytics_collector_schemas import TelemetryBatch, TelemetryResponse
 from metrics import compute_autonomy, compute_calibration, compute_progress
-from store import _data_dir, append_events
+from store import _data_dir, append_events, process_event_for_mastery
 
 
 app = FastAPI(title="analytics-collector", version="0.1.0")
@@ -28,6 +28,15 @@ def post_telemetry(
     if not x_course_token:
         raise HTTPException(status_code=401, detail="missing X-Course-Token")
     n = append_events(x_course_token, batch.events)
+    # M5.1 : snapshot maîtrise/concept si l'event porte concept_states.
+    # Aujourd'hui le schema strict TelemetryEvent ne déclare pas ce champ,
+    # donc l'appel est un no-op tant que le runtime n'aura pas été étendu.
+    # On laisse le hook en place pour limiter le diff quand C.6 ajoutera
+    # concept_states au payload.
+    for ev in batch.events:
+        process_event_for_mastery(
+            _data_dir(), x_course_token, ev.model_dump(mode="python"),
+        )
     return TelemetryResponse(accepted=n)
 
 
