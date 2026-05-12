@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" width="400" height="100">
+  <rect x="10" y="40" width="100" height="20" fill="#3b82f6"/>
+  <text x="60" y="55" text-anchor="middle" fill="white" font-size="12">LC</text>
+  <line x1="110" y1="50" x2="150" y2="50" stroke="#000" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="150" y="40" width="100" height="20" fill="#10b981"/>
+  <text x="200" y="55" text-anchor="middle" fill="white" font-size="12">MS</text>
+  <line x1="250" y1="50" x2="290" y2="50" stroke="#000" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="340" y="55" text-anchor="middle" font-size="12">Spectres m/z</text>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z"/>
+    </marker>
+  </defs>
+</svg>

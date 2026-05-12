@@ -1,0 +1,17 @@
+{
+  "name": "@studium/adaptation-engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "test": "vitest run", "test:watch": "vitest", "build": "tsc" },
+  "dependencies": {
+    "@studium/learner-state": "workspace:*",
+    "@studium/lesson-bundle-schema": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.1",
+    "@vitest/coverage-v8": "^1.6.1",
+    "typescript": "^5.5.0"
+  }
+}
