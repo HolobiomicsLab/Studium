@@ -65,6 +65,35 @@ export const ForgetRequestedSchema = BaseEventSchema.extend({
   type: z.literal("forget_requested"),
 });
 
+// ADR 006 amendment v1.1 — reasoning_signal emitted during M5.9 discussion scenes.
+// Strict: aucun texte libre transmis. Le payload ne contient qu'un label de
+// classification (signal) et des scalaires (confidence, turn_index).
+export const ReasoningSignalSchema = BaseEventSchema.extend({
+  type: z.literal("reasoning_signal"),
+  scene_id: z.string(),
+  signal: z.enum([
+    "justification",
+    "hypothesis",
+    "question",
+    "counterexample",
+    "synthesis",
+  ]),
+  confidence: z.number().min(0).max(1),
+  turn_index: z.number().int().nonnegative(),
+});
+
+// ADR 006 amendment v1.1 — ai_audit_result emitted at the end of an
+// ai_audit/ai_critique scene. Strict: aucun texte libre transmis, uniquement
+// des compteurs (planted_errors, true_positives, false_positives, missed).
+export const AIAuditResultSchema = BaseEventSchema.extend({
+  type: z.literal("ai_audit_result"),
+  scene_id: z.string(),
+  planted_errors: z.number().int().nonnegative(),
+  true_positives: z.number().int().nonnegative(),
+  false_positives: z.number().int().nonnegative(),
+  missed: z.number().int().nonnegative(),
+});
+
 export const TelemetryEventSchema = z.discriminatedUnion("type", [
   LessonStartedSchema,
   SceneEnteredSchema,
@@ -75,6 +104,8 @@ export const TelemetryEventSchema = z.discriminatedUnion("type", [
   LessonCompletedSchema,
   ConsentGrantedSchema,
   ForgetRequestedSchema,
+  ReasoningSignalSchema,
+  AIAuditResultSchema,
 ]);
 
 export type TelemetryEvent = z.infer<typeof TelemetryEventSchema>;
