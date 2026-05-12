@@ -239,3 +239,34 @@ def test_ai_audit_result_rejects_missing_field():
     }
     with pytest.raises(ValidationError):
         adapter.validate_python(raw)
+
+
+# --- M5.7 — bundle_version is optional with default "unversioned" --------
+
+def test_bundle_version_round_trip():
+    """Roundtrip vérifie que le champ bundle_version est préservé."""
+    raw = {
+        **BASE,
+        "bundle_version": "1.1:demo-metabolomics-001@2026-05-08T10:00:00Z",
+        "type": "lesson_started",
+        "bundle_uri": "file:///tmp/demo.zip",
+    }
+    event = adapter.validate_python(raw)
+    assert event.bundle_version == "1.1:demo-metabolomics-001@2026-05-08T10:00:00Z"
+    redumped = json.loads(adapter.dump_json(event))
+    assert redumped["bundle_version"] == raw["bundle_version"]
+
+
+def test_bundle_version_optional_defaults_to_unversioned():
+    """Rétro-compat (M5.7) : event ingéré sans bundle_version → "unversioned"."""
+    raw = {
+        "event_id": "01923456-7890-1234-5678-abcdef012345",
+        "learner_pseudonym": "hmac:abc",
+        "lesson_id": "demo",
+        "client_timestamp": "2026-05-09T10:00:00Z",
+        "type": "lesson_started",
+        "bundle_uri": "file:///tmp/demo.zip",
+        # no bundle_version
+    }
+    event = adapter.validate_python(raw)
+    assert event.bundle_version == "unversioned"

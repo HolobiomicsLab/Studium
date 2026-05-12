@@ -12,8 +12,17 @@ from pathlib import Path
 from typing import Iterator
 
 
-def _iter_events(data_dir: Path, course: str) -> Iterator[dict]:
-    """Yield JSON-decoded events from all JSONL files in data_dir/course/."""
+def _iter_events(
+    data_dir: Path,
+    course: str,
+    bundle_version: str | None = None,
+) -> Iterator[dict]:
+    """Yield JSON-decoded events from all JSONL files in data_dir/course/.
+
+    M5.7 : si ``bundle_version`` est fourni, ne yield que les events dont
+    le champ ``bundle_version`` matche exactement. Les events legacy sans
+    champ ``bundle_version`` sont traités comme ``"unversioned"``.
+    """
     course_dir = data_dir / course
     if not course_dir.exists():
         return
@@ -23,16 +32,25 @@ def _iter_events(data_dir: Path, course: str) -> Iterator[dict]:
             if not line:
                 continue
             try:
-                yield json.loads(line)
+                ev = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            if bundle_version is not None:
+                ev_bv = ev.get("bundle_version", "unversioned")
+                if ev_bv != bundle_version:
+                    continue
+            yield ev
 
 
-def compute_progress(data_dir: Path, course: str) -> dict:
+def compute_progress(
+    data_dir: Path,
+    course: str,
+    bundle_version: str | None = None,
+) -> dict:
     """Completion rate by scene_id, with n_learners (distinct pseudonyms)."""
     completions: dict[str, list[bool]] = defaultdict(list)
     learners: dict[str, set[str]] = defaultdict(set)
-    for ev in _iter_events(data_dir, course):
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if ev.get("type") != "scene_completed":
             continue
         sid = ev.get("scene_id")
@@ -53,14 +71,19 @@ def compute_progress(data_dir: Path, course: str) -> dict:
     }
 
 
-def compute_calibration(data_dir: Path, course: str, learner: str | None = None) -> dict:
+def compute_calibration(
+    data_dir: Path,
+    course: str,
+    learner: str | None = None,
+    bundle_version: str | None = None,
+) -> dict:
     """Brier score on quiz_answered events.
 
     Brier = mean((confidence - outcome)^2) where outcome = 1.0 if correct else 0.0.
     Lower is better-calibrated.
     """
     items = []
-    for ev in _iter_events(data_dir, course):
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if ev.get("type") != "quiz_answered":
             continue
         if learner is not None and ev.get("learner_pseudonym") != learner:
@@ -91,6 +114,7 @@ def compute_reasoning_depth_score(
     course: str,
     pseudonyme: str | None = None,
     scene_id: str | None = None,
+    bundle_version: str | None = None,
 ) -> dict:
     """Reasoning depth score (M5.2) — score [0, 1] par scène.
 
@@ -113,7 +137,7 @@ def compute_reasoning_depth_score(
     """
     # counts[scene_id][signal] = count
     counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-    for ev in _iter_events(data_dir, course):
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if ev.get("type") != "reasoning_signal":
             continue
         sid = ev.get("scene_id")
@@ -154,6 +178,7 @@ def compute_ai_audit_accuracy(
     data_dir: Path,
     course: str,
     pseudonyme: str | None = None,
+    bundle_version: str | None = None,
 ) -> dict:
     """AI audit accuracy (M5.3) — score [0, 1] par scène ai_audit / ai_critique.
 
@@ -174,7 +199,7 @@ def compute_ai_audit_accuracy(
     counters: dict[str, dict[str, int]] = defaultdict(
         lambda: {"tp": 0, "fp": 0, "planted": 0, "missed": 0}
     )
-    for ev in _iter_events(data_dir, course):
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if ev.get("type") != "ai_audit_result":
             continue
         sid = ev.get("scene_id")
@@ -256,6 +281,7 @@ def compute_hint_independence_trend(
     course: str,
     pseudonyme: str | None = None,
     window: int = 10,
+    bundle_version: str | None = None,
 ) -> float | None:
     """hint_independence_trend [0,1] (M5.4, composante de ADR 011).
 
@@ -288,7 +314,7 @@ def compute_hint_independence_trend(
     sessions_scenes: dict[str, set[str]] = defaultdict(set)
     sessions_active: set[str] = set()
 
-    for ev in _iter_events(data_dir, course):
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if pseudonyme is not None and ev.get("learner_pseudonym") != pseudonyme:
             continue
         sk = _session_key(ev)
@@ -325,10 +351,11 @@ def _active_sessions_for_pseudonyme(
     data_dir: Path,
     course: str,
     pseudonyme: str,
+    bundle_version: str | None = None,
 ) -> list[str]:
     """Liste triée des journées (YYYY-MM-DD) où le pseudonyme a été actif."""
     sessions: set[str] = set()
-    for ev in _iter_events(data_dir, course):
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if ev.get("learner_pseudonym") != pseudonyme:
             continue
         sk = _session_key(ev)
@@ -342,10 +369,11 @@ def _filter_events_to_sessions(
     course: str,
     pseudonyme: str,
     sessions: set[str],
+    bundle_version: str | None = None,
 ) -> list[dict]:
     """Charge les events du pseudonyme qui tombent dans les sessions données."""
     out: list[dict] = []
-    for ev in _iter_events(data_dir, course):
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if ev.get("learner_pseudonym") != pseudonyme:
             continue
         sk = _session_key(ev)
@@ -503,6 +531,7 @@ def compute_ai_literacy_index(
     course: str,
     pseudonyme: str,
     window: int = 10,
+    bundle_version: str | None = None,
 ) -> dict:
     """ai_literacy_index (M5.4, ADR 011).
 
@@ -539,7 +568,9 @@ def compute_ai_literacy_index(
         }
     """
     # 1. Sessions actives du pseudonyme, fenêtre = `window` plus récentes
-    all_sessions = _active_sessions_for_pseudonyme(data_dir, course, pseudonyme)
+    all_sessions = _active_sessions_for_pseudonyme(
+        data_dir, course, pseudonyme, bundle_version=bundle_version,
+    )
     window_sessions = all_sessions[-window:] if window > 0 else []
     n_sessions = len(window_sessions)
 
@@ -558,7 +589,9 @@ def compute_ai_literacy_index(
         }
 
     window_set = set(window_sessions)
-    events = _filter_events_to_sessions(data_dir, course, pseudonyme, window_set)
+    events = _filter_events_to_sessions(
+        data_dir, course, pseudonyme, window_set, bundle_version=bundle_version,
+    )
 
     ai_audit, hint_trend, critique_rate = _compute_components_from_events(
         events, data_dir, course, pseudonyme, window_sessions,
@@ -587,7 +620,11 @@ def compute_ai_literacy_index(
     }
 
 
-def compute_autonomy(data_dir: Path, course: str) -> dict:
+def compute_autonomy(
+    data_dir: Path,
+    course: str,
+    bundle_version: str | None = None,
+) -> dict:
     """Anti-offloading metrics: autonomy_ratio + critique_completion_rate.
 
     - autonomy_ratio = n_critique_submitted / (n_critique_submitted + n_hints_applied)
@@ -596,7 +633,7 @@ def compute_autonomy(data_dir: Path, course: str) -> dict:
     n_critique = 0
     sum_completion = 0.0
     n_hints = 0
-    for ev in _iter_events(data_dir, course):
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         t = ev.get("type")
         if t == "critique_submitted":
             n_critique += 1

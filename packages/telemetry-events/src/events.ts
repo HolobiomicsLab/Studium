@@ -4,7 +4,11 @@ const BaseEventSchema = z.object({
   event_id: z.string().uuid(),
   learner_pseudonym: z.string().min(1),
   lesson_id: z.string().min(1),
-  bundle_version: z.string().min(1),
+  // bundle_version (M5.7) — convention : `<schema_version>:<bundle_id>@<validated_at>`.
+  // Exemple : `"1.1:demo-metabolomics-001@2026-05-08T10:00:00Z"`.
+  // Optionnel et rétro-compatible : les events ingérés sans bundle_version
+  // sont bucketed sous `"unversioned"` côté collector.
+  bundle_version: z.string().min(1).default("unversioned"),
   client_timestamp: z.string().datetime({ offset: true }),
 });
 

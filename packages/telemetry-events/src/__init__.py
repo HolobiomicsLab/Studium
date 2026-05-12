@@ -19,7 +19,11 @@ class _Base(BaseModel):
     event_id: str
     learner_pseudonym: str
     lesson_id: str
-    bundle_version: str
+    # bundle_version (M5.7) — convention : ``<schema_version>:<bundle_id>@<validated_at>``.
+    # Exemple : ``"1.1:demo-metabolomics-001@2026-05-08T10:00:00Z"``.
+    # Optionnel et rétro-compatible : les events ingérés sans bundle_version
+    # sont bucketed sous ``"unversioned"`` côté collector.
+    bundle_version: str = "unversioned"
     client_timestamp: str
 
 

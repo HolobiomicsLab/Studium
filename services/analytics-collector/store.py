@@ -30,6 +30,38 @@ def append_events(course_token: str, events: list[BaseModel]) -> int:
     return len(events)
 
 
+def read_events_for_course(
+    data_dir: Path,
+    course: str,
+    bundle_version: Optional[str] = None,
+) -> list[dict]:
+    """Lit tous les events d'un course (M5.7).
+
+    Si ``bundle_version`` est fourni, ne retourne que les events dont le
+    champ ``bundle_version`` matche exactement. Les events legacy sans
+    champ ``bundle_version`` sont traités comme ``"unversioned"``.
+    """
+    course_dir = data_dir / course
+    if not course_dir.exists():
+        return []
+    out: list[dict] = []
+    for f in sorted(course_dir.glob("*.jsonl")):
+        for line in f.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                ev = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if bundle_version is not None:
+                ev_bv = ev.get("bundle_version", "unversioned")
+                if ev_bv != bundle_version:
+                    continue
+            out.append(ev)
+    return out
+
+
 # ----------------------------------------------------------------------------
 # concept_mastery_history (M5.1)
 # ----------------------------------------------------------------------------

@@ -22,6 +22,35 @@ def _require_course_token(x_course_token: str | None, course: str) -> None:
         raise HTTPException(status_code=403, detail="token does not match course")
 
 
+def _validate_bundle_version(bundle_version: str | None) -> str | None:
+    """Valide le format ``<schema_version>:<bundle_id>@<validated_at>`` (M5.7).
+
+    - ``None`` → pas de filtre (retourne None).
+    - ``""`` → 400 (présent mais vide via la query string).
+    - Chaîne sans ``:`` ou sans ``@`` → 400 (malformée).
+    - La valeur sentinelle ``"unversioned"`` est acceptée comme cas spécial
+      pour cibler les events legacy bucketed sous ce label.
+    """
+    if bundle_version is None:
+        return None
+    if bundle_version == "":
+        raise HTTPException(
+            status_code=400,
+            detail="bundle_version must not be empty",
+        )
+    if bundle_version == "unversioned":
+        return bundle_version
+    if ":" not in bundle_version or "@" not in bundle_version:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "bundle_version must follow "
+                "'<schema_version>:<bundle_id>@<validated_at>' (M5.7)"
+            ),
+        )
+    return bundle_version
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -48,25 +77,37 @@ def post_telemetry(
 
 
 @app.get("/metrics/progress")
-def get_progress(course: str, x_course_token: str | None = Header(default=None)) -> dict:
+def get_progress(
+    course: str,
+    bundle_version: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
     _require_course_token(x_course_token, course)
-    return compute_progress(_data_dir(), course)
+    bv = _validate_bundle_version(bundle_version)
+    return compute_progress(_data_dir(), course, bundle_version=bv)
 
 
 @app.get("/metrics/calibration")
 def get_calibration(
     course: str,
     learner: str | None = None,
+    bundle_version: str | None = None,
     x_course_token: str | None = Header(default=None),
 ) -> dict:
     _require_course_token(x_course_token, course)
-    return compute_calibration(_data_dir(), course, learner=learner)
+    bv = _validate_bundle_version(bundle_version)
+    return compute_calibration(_data_dir(), course, learner=learner, bundle_version=bv)
 
 
 @app.get("/metrics/autonomy")
-def get_autonomy(course: str, x_course_token: str | None = Header(default=None)) -> dict:
+def get_autonomy(
+    course: str,
+    bundle_version: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
     _require_course_token(x_course_token, course)
-    return compute_autonomy(_data_dir(), course)
+    bv = _validate_bundle_version(bundle_version)
+    return compute_autonomy(_data_dir(), course, bundle_version=bv)
 
 
 @app.get("/metrics/reasoning")
@@ -74,11 +115,14 @@ def get_reasoning(
     course: str,
     pseudonyme: str | None = None,
     scene_id: str | None = None,
+    bundle_version: str | None = None,
     x_course_token: str | None = Header(default=None),
 ) -> dict:
     _require_course_token(x_course_token, course)
+    bv = _validate_bundle_version(bundle_version)
     return compute_reasoning_depth_score(
         _data_dir(), course, pseudonyme=pseudonyme, scene_id=scene_id,
+        bundle_version=bv,
     )
 
 
@@ -86,11 +130,13 @@ def get_reasoning(
 def get_ai_audit(
     course: str,
     pseudonyme: str | None = None,
+    bundle_version: str | None = None,
     x_course_token: str | None = Header(default=None),
 ) -> dict:
     _require_course_token(x_course_token, course)
+    bv = _validate_bundle_version(bundle_version)
     return compute_ai_audit_accuracy(
-        _data_dir(), course, pseudonyme=pseudonyme,
+        _data_dir(), course, pseudonyme=pseudonyme, bundle_version=bv,
     )
 
 
@@ -99,6 +145,7 @@ def get_ai_literacy(
     course: str,
     pseudonyme: str,
     window: int = 10,
+    bundle_version: str | None = None,
     x_course_token: str | None = Header(default=None),
 ) -> dict:
     """ai_literacy_index (M5.4, ADR 011).
@@ -114,6 +161,8 @@ def get_ai_literacy(
             status_code=400,
             detail="pseudonyme is required (ADR 011 guardrail)",
         )
+    bv = _validate_bundle_version(bundle_version)
     return compute_ai_literacy_index(
         _data_dir(), course, pseudonyme=pseudonyme, window=window,
+        bundle_version=bv,
     )
