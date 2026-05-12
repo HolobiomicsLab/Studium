@@ -1,7 +1,8 @@
 packages:
   - "packages/*"
   - "apps/*"
-allowBuilds:
-  edgedriver: set this to true or false
-  esbuild: true
-  geckodriver: set this to true or false
+onlyBuiltDependencies:
+  - esbuild
+ignoredBuiltDependencies:
+  - edgedriver
+  - geckodriver
