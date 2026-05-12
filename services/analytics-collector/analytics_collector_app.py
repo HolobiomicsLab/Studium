@@ -3,6 +3,7 @@ from fastapi import FastAPI, Header, HTTPException
 from analytics_collector_schemas import TelemetryBatch, TelemetryResponse
 from metrics import (
     compute_ai_audit_accuracy,
+    compute_ai_literacy_index,
     compute_autonomy,
     compute_calibration,
     compute_progress,
@@ -90,4 +91,29 @@ def get_ai_audit(
     _require_course_token(x_course_token, course)
     return compute_ai_audit_accuracy(
         _data_dir(), course, pseudonyme=pseudonyme,
+    )
+
+
+@app.get("/metrics/ai-literacy")
+def get_ai_literacy(
+    course: str,
+    pseudonyme: str,
+    window: int = 10,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    """ai_literacy_index (M5.4, ADR 011).
+
+    USAGE FORMATIF UNIQUEMENT (cf. ADR 011 — non validé psychométriquement,
+    pas d'usage certificatif). Garde-fou : pseudonyme obligatoire — pas
+    d'agrégation publique non-nominale via cette endpoint pour éviter
+    un ranking inter-étudiants accidentel.
+    """
+    _require_course_token(x_course_token, course)
+    if not pseudonyme:
+        raise HTTPException(
+            status_code=400,
+            detail="pseudonyme is required (ADR 011 guardrail)",
+        )
+    return compute_ai_literacy_index(
+        _data_dir(), course, pseudonyme=pseudonyme, window=window,
     )

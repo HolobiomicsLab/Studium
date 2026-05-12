@@ -6,6 +6,7 @@ and compute on the fly. No pre-aggregation, no caching: simplicity first
 """
 
 import json
+import random
 from collections import defaultdict
 from pathlib import Path
 from typing import Iterator
@@ -218,6 +219,371 @@ def compute_ai_audit_accuracy(
         "overall_accuracy": overall,
         "n_scenes": len(per_scene),
         "per_scene": per_scene,
+    }
+
+
+def _session_key(ev: dict) -> str | None:
+    """Définit une "session" par jour (YYYY-MM-DD du client_timestamp).
+
+    Le schéma TelemetryEvent n'a pas de session_id ; le proxy le plus
+    naturel sans état serveur est la journée d'activité. C'est le
+    grain utilisé par M5.4 pour la fenêtre roulante de
+    ``ai_literacy_index``.
+    """
+    ts = ev.get("client_timestamp")
+    if not ts or len(ts) < 10:
+        return None
+    return ts[:10]
+
+
+def _linear_slope(ys: list[float]) -> float:
+    """Pente OLS sur y = slope * x + b, x = 0..n-1. Retourne 0.0 si n<2."""
+    n = len(ys)
+    if n < 2:
+        return 0.0
+    xs = list(range(n))
+    mean_x = sum(xs) / n
+    mean_y = sum(ys) / n
+    num = sum((xs[i] - mean_x) * (ys[i] - mean_y) for i in range(n))
+    den = sum((xs[i] - mean_x) ** 2 for i in range(n))
+    if den == 0:
+        return 0.0
+    return num / den
+
+
+def compute_hint_independence_trend(
+    data_dir: Path,
+    course: str,
+    pseudonyme: str | None = None,
+    window: int = 10,
+) -> float | None:
+    """hint_independence_trend [0,1] (M5.4, composante de ADR 011).
+
+    Pour chaque session de la fenêtre (les ``window`` plus récentes
+    sessions disposant d'au moins un event ``adaptation_applied``
+    signal=hint OU d'une autre activité du pseudonyme), on calcule :
+
+        independence_session = 1 - min(1, mean_hint_count / 3)
+
+    où ``mean_hint_count`` est la moyenne du nombre de hints par scène
+    sur la session. Normalisation : max théorique = 3 hints/scène
+    (au-delà, on clamp à 1).
+
+    Pente OLS simple sur les ``independence_session`` (x = index de
+    session ordonnée chronologiquement). Pente normalisée :
+        trend = clamp(0, 1, 0.5 + slope * 0.5)
+    où slope est lui-même clampé à [-1, 1] avant transformation.
+
+    - slope = 0 (constant) → 0.5
+    - slope ≈ +1 (dépendance s'effondre) → 1.0
+    - slope ≈ -1 (dépendance augmente) → 0.0
+
+    Si < 3 sessions dans la fenêtre : retourne None (signal trop court).
+    """
+    # Pour avoir une notion de "session", on doit lister les sessions
+    # actives du pseudonyme. On considère qu'une session existe si on
+    # voit n'importe quel event du pseudonyme ce jour-là, et on compte
+    # les hints (et scènes distinctes pour la moyenne).
+    sessions_hints: dict[str, int] = defaultdict(int)
+    sessions_scenes: dict[str, set[str]] = defaultdict(set)
+    sessions_active: set[str] = set()
+
+    for ev in _iter_events(data_dir, course):
+        if pseudonyme is not None and ev.get("learner_pseudonym") != pseudonyme:
+            continue
+        sk = _session_key(ev)
+        if not sk:
+            continue
+        sessions_active.add(sk)
+        sid = ev.get("scene_id")
+        if sid:
+            sessions_scenes[sk].add(sid)
+        if ev.get("type") == "adaptation_applied" and ev.get("signal") == "hint":
+            sessions_hints[sk] += 1
+
+    # Tri chronologique des sessions actives, fenêtre = les `window`
+    # plus récentes.
+    ordered = sorted(sessions_active)[-window:]
+    if len(ordered) < 3:
+        return None
+
+    independence_per_session: list[float] = []
+    for sk in ordered:
+        n_hints = sessions_hints.get(sk, 0)
+        n_scenes = max(1, len(sessions_scenes.get(sk, set())))
+        mean_hint_count = n_hints / n_scenes
+        independence = 1.0 - min(1.0, mean_hint_count / 3.0)
+        independence_per_session.append(independence)
+
+    slope = _linear_slope(independence_per_session)
+    slope_clamped = max(-1.0, min(1.0, slope))
+    trend = 0.5 + slope_clamped * 0.5
+    return max(0.0, min(1.0, trend))
+
+
+def _active_sessions_for_pseudonyme(
+    data_dir: Path,
+    course: str,
+    pseudonyme: str,
+) -> list[str]:
+    """Liste triée des journées (YYYY-MM-DD) où le pseudonyme a été actif."""
+    sessions: set[str] = set()
+    for ev in _iter_events(data_dir, course):
+        if ev.get("learner_pseudonym") != pseudonyme:
+            continue
+        sk = _session_key(ev)
+        if sk:
+            sessions.add(sk)
+    return sorted(sessions)
+
+
+def _filter_events_to_sessions(
+    data_dir: Path,
+    course: str,
+    pseudonyme: str,
+    sessions: set[str],
+) -> list[dict]:
+    """Charge les events du pseudonyme qui tombent dans les sessions données."""
+    out: list[dict] = []
+    for ev in _iter_events(data_dir, course):
+        if ev.get("learner_pseudonym") != pseudonyme:
+            continue
+        sk = _session_key(ev)
+        if sk in sessions:
+            out.append(ev)
+    return out
+
+
+def _compute_components_from_events(
+    events: list[dict],
+    data_dir: Path,
+    course: str,
+    pseudonyme: str,
+    window_sessions: list[str],
+) -> tuple[float | None, float | None, float | None]:
+    """Recalcule les 3 composantes sur la fenêtre courante (in-memory).
+
+    On garde la sémantique des fonctions existantes mais évalue
+    directement à partir d'un sous-ensemble d'events. Plus simple et
+    plus rapide que d'appeler récursivement les fonctions globales
+    (qui re-scannent tout le disque).
+    """
+    # --- ai_audit_accuracy ---
+    counters: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"tp": 0, "fp": 0, "planted": 0}
+    )
+    # --- critique_completion_rate ---
+    n_critique = 0
+    sum_completion = 0.0
+
+    for ev in events:
+        t = ev.get("type")
+        if t == "ai_audit_result":
+            sid = ev.get("scene_id")
+            if not sid:
+                continue
+            c = counters[sid]
+            c["tp"] += int(ev.get("true_positives", 0))
+            c["fp"] += int(ev.get("false_positives", 0))
+            c["planted"] += int(ev.get("planted_errors", 0))
+        elif t == "critique_submitted":
+            n_critique += 1
+            sum_completion += float(ev.get("completion_rate", 0))
+
+    scorable: list[float] = []
+    for c in counters.values():
+        if c["planted"] == 0:
+            continue
+        raw = (c["tp"] - c["fp"]) / c["planted"]
+        scorable.append(max(0.0, min(1.0, raw)))
+    ai_audit = (sum(scorable) / len(scorable)) if scorable else None
+
+    critique_rate = (sum_completion / n_critique) if n_critique else None
+
+    # --- hint_independence_trend ---
+    # On le recalcule sur la même fenêtre (ordered sessions).
+    if len(window_sessions) < 3:
+        hint_trend = None
+    else:
+        sessions_hints: dict[str, int] = defaultdict(int)
+        sessions_scenes: dict[str, set[str]] = defaultdict(set)
+        for ev in events:
+            sk = _session_key(ev)
+            if not sk:
+                continue
+            sid = ev.get("scene_id")
+            if sid:
+                sessions_scenes[sk].add(sid)
+            if ev.get("type") == "adaptation_applied" and ev.get("signal") == "hint":
+                sessions_hints[sk] += 1
+        independence: list[float] = []
+        for sk in window_sessions:
+            n_hints = sessions_hints.get(sk, 0)
+            n_scenes = max(1, len(sessions_scenes.get(sk, set())))
+            mean_hint = n_hints / n_scenes
+            independence.append(1.0 - min(1.0, mean_hint / 3.0))
+        slope = _linear_slope(independence)
+        slope_c = max(-1.0, min(1.0, slope))
+        hint_trend = max(0.0, min(1.0, 0.5 + slope_c * 0.5))
+
+    return ai_audit, hint_trend, critique_rate
+
+
+def _combine_components(
+    ai_audit: float | None,
+    hint_trend: float | None,
+    critique_rate: float | None,
+) -> tuple[float | None, bool]:
+    """Combine les 3 composantes selon ADR 011.
+
+    Returns (value, degraded). Si toutes manquent → (None, False).
+    Sinon redistribue les poids proportionnellement aux présentes.
+    """
+    weights = {
+        "ai_audit": (ai_audit, 0.4),
+        "hint_trend": (hint_trend, 0.3),
+        "critique": (critique_rate, 0.3),
+    }
+    present = [(v, w) for (v, w) in weights.values() if v is not None]
+    if not present:
+        return None, False
+    total_weight = sum(w for _, w in present)
+    if total_weight == 0:
+        return None, False
+    value = sum(v * w for v, w in present) / total_weight
+    # clamp défensif
+    value = max(0.0, min(1.0, value))
+    degraded = len(present) < 3
+    return value, degraded
+
+
+def _bootstrap_ic80(
+    events_by_session: dict[str, list[dict]],
+    window_sessions: list[str],
+    n_resamples: int = 1000,
+    seed: int = 42,
+) -> tuple[float, float] | None:
+    """Bootstrap IC 80% sur les sessions de la fenêtre (≥ 5 requis).
+
+    Resample avec remise des sessions, recalcule l'index, retourne
+    (p10, p90) sur ``n_resamples`` répétitions.
+    """
+    n = len(window_sessions)
+    if n < 5:
+        return None
+    rng = random.Random(seed)
+    values: list[float] = []
+    for _ in range(n_resamples):
+        sample = [rng.choice(window_sessions) for _ in range(n)]
+        # Sessions de l'échantillon (multiset)
+        events: list[dict] = []
+        for sk in sample:
+            events.extend(events_by_session.get(sk, []))
+        # Recalcule sur cet échantillon. Pour le trend, on lui passe
+        # la séquence ordonnée des sessions distinctes (le re-sampling
+        # ne change pas la pente si on garde l'ordre — choix v1 :
+        # on utilise les sessions du sample triées chronologiquement).
+        sample_sessions = sorted(set(sample))
+        ai, hint, crit = _compute_components_from_events(
+            events, Path("."), "", "", sample_sessions,
+        )
+        value, _ = _combine_components(ai, hint, crit)
+        if value is not None:
+            values.append(value)
+    if len(values) < 10:
+        return None
+    values.sort()
+    p10_idx = int(0.10 * (len(values) - 1))
+    p90_idx = int(0.90 * (len(values) - 1))
+    return values[p10_idx], values[p90_idx]
+
+
+def compute_ai_literacy_index(
+    data_dir: Path,
+    course: str,
+    pseudonyme: str,
+    window: int = 10,
+) -> dict:
+    """ai_literacy_index (M5.4, ADR 011).
+
+    USAGE FORMATIF UNIQUEMENT — non validé psychométriquement
+    (cf. ADR 011 §Limites). Pas de comparaison inter-étudiants.
+
+    Formule v1 :
+        index = 0.4 × ai_audit_accuracy
+              + 0.3 × hint_independence_trend
+              + 0.3 × critique_completion_rate
+
+    Calculé pour ``pseudonyme`` sur la fenêtre roulante des ``window``
+    sessions les plus récentes (défaut 10).
+
+    Cas dégradés :
+      - 1 ou 2 composantes manquantes → redistribuer les poids
+        proportionnellement aux composantes présentes, ``degraded=True``.
+      - 3 composantes manquantes → ``value=None``, ``degraded=False``.
+
+    IC 80% : bootstrap 1000 resamples si ≥ 5 sessions, sinon ``None``.
+
+    Retour :
+        {
+          "value": float | None,
+          "ic80": [low, high] | None,
+          "n_sessions": int,
+          "window": int,
+          "degraded": bool,
+          "components": {
+            "ai_audit_accuracy": float | None,
+            "hint_independence_trend": float | None,
+            "critique_completion_rate": float | None,
+          },
+        }
+    """
+    # 1. Sessions actives du pseudonyme, fenêtre = `window` plus récentes
+    all_sessions = _active_sessions_for_pseudonyme(data_dir, course, pseudonyme)
+    window_sessions = all_sessions[-window:] if window > 0 else []
+    n_sessions = len(window_sessions)
+
+    if n_sessions == 0:
+        return {
+            "value": None,
+            "ic80": None,
+            "n_sessions": 0,
+            "window": window,
+            "degraded": False,
+            "components": {
+                "ai_audit_accuracy": None,
+                "hint_independence_trend": None,
+                "critique_completion_rate": None,
+            },
+        }
+
+    window_set = set(window_sessions)
+    events = _filter_events_to_sessions(data_dir, course, pseudonyme, window_set)
+
+    ai_audit, hint_trend, critique_rate = _compute_components_from_events(
+        events, data_dir, course, pseudonyme, window_sessions,
+    )
+    value, degraded = _combine_components(ai_audit, hint_trend, critique_rate)
+
+    # IC80 bootstrap
+    events_by_session: dict[str, list[dict]] = defaultdict(list)
+    for ev in events:
+        sk = _session_key(ev)
+        if sk:
+            events_by_session[sk].append(ev)
+    ic80 = _bootstrap_ic80(events_by_session, window_sessions) if value is not None else None
+
+    return {
+        "value": value,
+        "ic80": list(ic80) if ic80 is not None else None,
+        "n_sessions": n_sessions,
+        "window": window,
+        "degraded": degraded,
+        "components": {
+            "ai_audit_accuracy": ai_audit,
+            "hint_independence_trend": hint_trend,
+            "critique_completion_rate": critique_rate,
+        },
     }
 
 
