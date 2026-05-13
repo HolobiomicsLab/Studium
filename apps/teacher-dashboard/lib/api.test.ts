@@ -9,6 +9,7 @@ import {
   getConceptMasteryHistory,
   getAILiteracy,
   getReasoningDepth,
+  getJournalStats,
 } from "./api";
 
 describe("teacher-dashboard api wrapper", () => {
@@ -154,6 +155,31 @@ describe("teacher-dashboard api wrapper", () => {
       }),
     );
     expect(result.scenes.s1.score).toBe(0.6);
+  });
+
+  it("getJournalStats hits /metrics/journal with X-Course-Token + optional filters", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        entries_total: 12,
+        mean_length: 184,
+        revision_rate: 0.25,
+        entries_by_scene: { "s-disc-1": { count: 7, mean_length: 200 } },
+      }),
+    });
+    const r = await getJournalStats("course-x", {
+      pseudonyme: "p1",
+      bundle_version: "v0.4",
+    });
+    expect(r.entries_total).toBe(12);
+    expect(r.entries_by_scene["s-disc-1"].count).toBe(7);
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toContain("/metrics/journal?");
+    expect(call[0]).toContain("course=course-x");
+    expect(call[0]).toContain("pseudonyme=p1");
+    expect(call[0]).toContain("bundle_version=v0.4");
+    expect(call[1].headers["X-Course-Token"]).toBe("course-x");
   });
 
   it("URL-encodes course token", async () => {

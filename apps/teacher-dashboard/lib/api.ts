@@ -135,3 +135,23 @@ export function getReasoningDepth(
     courseToken,
   );
 }
+
+export type JournalStatsResponse = {
+  entries_total: number;
+  mean_length: number;
+  revision_rate: number;
+  entries_by_scene: Record<string, { count: number; mean_length: number }>;
+};
+
+export function getJournalStats(
+  courseToken: string,
+  opts: { pseudonyme?: string; bundle_version?: string } = {},
+): Promise<JournalStatsResponse> {
+  const params = new URLSearchParams({ course: courseToken });
+  if (opts.pseudonyme) params.set("pseudonyme", opts.pseudonyme);
+  if (opts.bundle_version) params.set("bundle_version", opts.bundle_version);
+  return fetchJson<JournalStatsResponse>(
+    `/metrics/journal?${params.toString()}`,
+    courseToken,
+  );
+}
