@@ -14,6 +14,7 @@ from planner_schemas import (
     BibliographicRef,
 )
 from .perspicacite_mapper import select_mode, extract_refs
+from .abs_asset_extractor import extract_asset
 
 
 ELIGIBLE_TYPES = {
@@ -66,8 +67,21 @@ class EvidenceEnricher:
         except Exception:
             degraded = True
 
+        abs_asset = None
+        if self.abs_reader is not None and scene.abs_task_card_id:
+            try:
+                capsule = self.abs_reader.get_capsule()
+                abs_asset = extract_asset(
+                    scene_type=scene.type,
+                    abs_task_card_id=scene.abs_task_card_id,
+                    capsule=capsule,
+                )
+            except Exception:
+                degraded = True
+
         scene.evidence = Evidence(
             bibliographic_refs=bibliographic_refs,
+            abs_asset=abs_asset,
             enrichment_metadata=EnrichmentMetadata(
                 enricher_version=ENRICHER_VERSION,
                 perspicacite_mode_used=mode,
