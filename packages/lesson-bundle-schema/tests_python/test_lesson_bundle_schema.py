@@ -6,7 +6,7 @@ from lesson_bundle_schema import LessonBundle, IntroScene, QuizScene, Adaptation
 
 # ADR 010 — flat shape ; schema_version bumped to 1.1.
 VALID_BUNDLE = {
-    "schema_version": "1.1",
+    "schema_version": "1.2",
     "bundle_id": "b-001",
     "source_plan_id": "p-001",
     "metadata": {
@@ -90,5 +90,43 @@ def test_ai_critique_scene_validates():
 
 def test_rejects_legacy_schema_version_1_0():
     invalid = dict(VALID_BUNDLE, schema_version="1.0")
+    with pytest.raises(Exception):
+        LessonBundle(**invalid)
+
+
+def test_discussion_scene_validates():
+    scene = {
+        "id": "s-disc-1",
+        "type": "discussion",
+        "title": "Débat",
+        "objective_refs": [],
+        "concept_refs": [],
+        "estimated_seconds": 600,
+        "adaptation_hooks": [],
+        "topic": "x",
+        "seed_claim": "y",
+        "target_signals": ["justification"],
+        "max_turns": 5,
+    }
+    from lesson_bundle_schema import DiscussionScene
+    DiscussionScene(**scene)
+
+
+def test_discussion_scene_rejects_invalid_signal():
+    scene = {
+        "id": "s-disc-1", "type": "discussion", "title": "x",
+        "objective_refs": [], "concept_refs": [],
+        "estimated_seconds": 60, "adaptation_hooks": [],
+        "topic": "x", "seed_claim": "y",
+        "target_signals": ["garbage"],
+        "max_turns": 5,
+    }
+    from lesson_bundle_schema import DiscussionScene
+    with pytest.raises(Exception):
+        DiscussionScene(**scene)
+
+
+def test_rejects_legacy_schema_version_1_1():
+    invalid = dict(VALID_BUNDLE, schema_version="1.1")
     with pytest.raises(Exception):
         LessonBundle(**invalid)

@@ -31,5 +31,20 @@ export default function SceneRouter({
   if (scene.type === "meta_checkpoint") return <MetaCheckpointScene scene={scene} onSignal={onSignal} onContinue={onContinue} />;
   if (scene.type === "reproduction")    return <ReproductionScene scene={scene} onSignal={onSignal} onContinue={onContinue} />;
   if (scene.type === "ai_critique")     return <AICritiqueScene scene={scene} onSignal={onSignal} onContinue={onContinue} endpoint={critiqueEvalEndpoint} emit={emit} />;
+  if (scene.type === "discussion") {
+    return (
+      <div className="p-4 bg-yellow-50 rounded">
+        <p className="text-sm text-gray-700">
+          Discussion scene <code>{scene.id}</code> — renderer arrives in M5.9.
+        </p>
+        <button
+          className="mt-2 px-3 py-1 bg-blue-600 text-white rounded"
+          onClick={onContinue}
+        >
+          Continuer (skip)
+        </button>
+      </div>
+    );
+  }
   return null;
 }
