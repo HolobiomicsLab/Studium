@@ -744,6 +744,63 @@ def compute_cooperation_metrics(
     }
 
 
+def compute_blueprint_score(blueprint: dict, metric_fetcher) -> dict:
+    """Composite blueprint score (ADR 013).
+
+    USAGE FORMATIF UNIQUEMENT. Pas de classement nominatif.
+
+    Pure fonction : prend un blueprint (dict ``{dimensions: [...]}``) + une
+    callable ``metric_fetcher(endpoint: str, field: str) -> float | None``.
+    Aucune I/O — le routage vers les fns ``compute_*`` réelles est fait par
+    l'appelant (cf. endpoint POST /metrics/blueprint).
+
+    Composition :
+      - Par dimension : score = sum(w_i * v_i) / sum(w_i) sur les métriques
+        dont la valeur n'est pas None. Si toutes les métriques sont None,
+        ``score = None`` et ``degraded = True``.
+      - ``degraded`` vaut True si au moins une métrique a été ignorée (poids
+        redistribué) — y compris quand toutes sont None.
+      - Overall : moyenne pondérée des dimensions présentes (score non-None).
+        ``None`` si aucune dimension scorable.
+
+    Returns :
+        {
+          "dimensions": [{"id", "label", "score": float|None, "degraded": bool}],
+          "overall_weighted_score": float | None,
+        }
+    """
+    dim_results: list[dict] = []
+    overall_sum = 0.0
+    overall_weight = 0.0
+    for dim in blueprint["dimensions"]:
+        valid_metrics: list[tuple[float, float]] = []
+        for m in dim["metrics"]:
+            val = metric_fetcher(m["endpoint"], m["field"])
+            if val is not None:
+                valid_metrics.append((float(m["weight_in_dimension"]), float(val)))
+        if not valid_metrics:
+            dim_results.append({
+                "id": dim["id"],
+                "label": dim["label"],
+                "score": None,
+                "degraded": True,
+            })
+            continue
+        total_weight = sum(w for w, _ in valid_metrics)
+        score = sum(w * v for w, v in valid_metrics) / total_weight
+        degraded = len(valid_metrics) < len(dim["metrics"])
+        dim_results.append({
+            "id": dim["id"],
+            "label": dim["label"],
+            "score": round(score, 4),
+            "degraded": degraded,
+        })
+        overall_sum += float(dim["weight"]) * score
+        overall_weight += float(dim["weight"])
+    overall = round(overall_sum / overall_weight, 4) if overall_weight > 0 else None
+    return {"dimensions": dim_results, "overall_weighted_score": overall}
+
+
 def compute_autonomy(
     data_dir: Path,
     course: str,
