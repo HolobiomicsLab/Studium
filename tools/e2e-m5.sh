@@ -103,6 +103,21 @@ curl -fs "http://localhost:$COLLECTOR_PORT/health" >/dev/null || {
   exit 1
 }
 
+# Wait for dashboard readiness (max ~30s — Next.js dev compile can be slow)
+echo "[M5] waiting for dashboard readiness on :$DASH_PORT"
+for i in $(seq 1 30); do
+  if curl -fs -o /dev/null "http://localhost:$DASH_PORT" ; then
+    echo "[M5] dashboard ready (attempt $i)"
+    break
+  fi
+  if [[ $i -eq 30 ]]; then
+    echo "[M5] FATAL: dashboard not ready after 30s"
+    cat /tmp/m5-dashboard.log
+    exit 1
+  fi
+  sleep 1
+done
+
 # ── 3. Build runtime release + run WDIO (Linux/CI only) ────────────────
 if [[ "$DRY_RUN" == "--dry-run" ]]; then
   echo "[M5] --dry-run : skip tauri:build + WDIO"

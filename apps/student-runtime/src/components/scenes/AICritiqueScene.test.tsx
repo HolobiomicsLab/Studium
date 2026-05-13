@@ -211,18 +211,24 @@ describe("AICritiqueScene", () => {
       target: { value: "There is selection bias here." },
     });
     fireEvent.click(screen.getByRole("button", { name: /soumettre/i }));
-    await waitFor(() =>
-      expect(emit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: "ai_audit_result",
-          scene_id: "s_critique_1",
-          planted_errors: 1,
-          true_positives: 1,
-          false_positives: 0,
-          missed: 0,
-        }),
-      ),
+    await waitFor(() => {
+      const auditCall = emit.mock.calls.find(
+        (c) => c[0]?.type === "ai_audit_result",
+      );
+      expect(auditCall).toBeTruthy();
+    });
+    // Strict match — ADR 006 v1.1 closed vocabulary : exactly 6 keys.
+    const auditCall = emit.mock.calls.find(
+      (c) => c[0]?.type === "ai_audit_result",
     );
+    expect(auditCall?.[0]).toEqual({
+      type: "ai_audit_result",
+      scene_id: "s_critique_1",
+      planted_errors: 1,
+      true_positives: 1,
+      false_positives: 0,
+      missed: 0,
+    });
   });
 
   it("utilise le endpoint custom si fourni", async () => {

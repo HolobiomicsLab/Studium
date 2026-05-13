@@ -10,12 +10,15 @@ function colorFor(value: number | null): string {
   return "bg-red-400 text-white";
 }
 
+const fmtPct = (n: number | null): string =>
+  n === null ? "—" : `${Math.round(n * 100)}%`;
+
 type Props = { pseudonyme: string; data: AILiteracyResponse };
 
 export default function AILiteracyCard({ pseudonyme, data }: Props) {
   const pct = data.value === null ? "—" : `${Math.round(data.value * 100)}%`;
   const icText = data.ic80
-    ? `IC80 ±${(((data.ic80[1] - data.ic80[0]) / 2) * 100).toFixed(0)}%`
+    ? `IC80 [${Math.round(data.ic80[0] * 100)}%, ${Math.round(data.ic80[1] * 100)}%]`
     : "IC indispo (<5 sessions)";
   return (
     <article
@@ -38,15 +41,15 @@ export default function AILiteracyCard({ pseudonyme, data }: Props) {
         <summary className="cursor-pointer">Composantes</summary>
         <ul className="mt-1 space-y-0.5">
           <li>
-            ai_audit_accuracy : {data.components.ai_audit_accuracy ?? "—"}
+            ai_audit_accuracy : {fmtPct(data.components.ai_audit_accuracy)}
           </li>
           <li>
             hint_independence_trend :{" "}
-            {data.components.hint_independence_trend ?? "—"}
+            {fmtPct(data.components.hint_independence_trend)}
           </li>
           <li>
             critique_completion_rate :{" "}
-            {data.components.critique_completion_rate ?? "—"}
+            {fmtPct(data.components.critique_completion_rate)}
           </li>
         </ul>
       </details>

@@ -35,7 +35,7 @@ export default function ReasoningBreakdown({ data }: Props) {
             <header className="flex justify-between items-baseline mb-2">
               <code className="text-sm">{sceneId}</code>
               <span className="text-lg font-bold">
-                {entry.score === null ? "—" : `${(entry.score * 100).toFixed(0)}%`}
+                {entry.score === null ? "—" : `${Math.round(entry.score * 100)}%`}
               </span>
             </header>
             <p className="text-xs text-gray-500 mb-2">
