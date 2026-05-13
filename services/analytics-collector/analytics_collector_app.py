@@ -9,7 +9,12 @@ from metrics import (
     compute_progress,
     compute_reasoning_depth_score,
 )
-from store import _data_dir, append_events, process_event_for_mastery
+from store import (
+    _data_dir,
+    append_events,
+    process_event_for_mastery,
+    read_concept_mastery_history,
+)
 
 
 app = FastAPI(title="analytics-collector", version="0.1.0")
@@ -166,3 +171,28 @@ def get_ai_literacy(
         _data_dir(), course, pseudonyme=pseudonyme, window=window,
         bundle_version=bv,
     )
+
+
+@app.get("/metrics/concept-mastery-history")
+def get_concept_mastery_history(
+    course: str,
+    pseudonyme: str | None = None,
+    concept_id: str | None = None,
+    since: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    """concept_mastery_history (M5.1 + M5.5).
+
+    Retourne ``{concepts: {concept_id: [{date, pseudonyme, alpha, beta, mastery, n_attempts}]}}``.
+    Auth ``X-Course-Token == course`` (parité C.4).
+    """
+    from datetime import date as _date_type
+
+    _require_course_token(x_course_token, course)
+    since_date = _date_type.fromisoformat(since) if since else None
+    return {
+        "concepts": read_concept_mastery_history(
+            _data_dir(), course,
+            pseudonyme=pseudonyme, since=since_date, concept_id=concept_id,
+        )
+    }
