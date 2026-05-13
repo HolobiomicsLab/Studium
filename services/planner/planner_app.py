@@ -9,11 +9,26 @@ from planner_schemas import PlanRequest, PlanResponse, PlanStatus, CritiqueResul
 from agents.planner_agent import PlannerAgent
 from agents.critic_agent import CriticAgent
 from ontology.prov import build_prov_graph
+from evidence.enricher import EvidenceEnricher
 
 app = FastAPI(title="Studium Planner Service", version="2.0.0")
 
 _planner = PlannerAgent()
 _critic = CriticAgent()
+
+
+def _get_perspicacite_client():
+    """Factory d'injection — testable via patch.
+
+    Retourne None par défaut (Perspicacité MCP non câblé en MVP). Test mock
+    via patch("planner_app._get_perspicacite_client").
+    """
+    return None
+
+
+def _get_abs_reader():
+    """Factory d'injection ABS — None par défaut."""
+    return None
 
 
 @app.post("/plan", response_model=PlanResponse)
@@ -28,6 +43,16 @@ def plan(request: PlanRequest) -> PlanResponse:
     lesson_plan.status = PlanStatus.critic_reviewed
 
     prov_graph = build_prov_graph(lesson_plan, manifest, planner_audit, critique)
+
+    if os.getenv("STUDIUM_EVIDENCE_ENRICH") == "on":
+        perspicacite = _get_perspicacite_client()
+        abs_reader = _get_abs_reader()
+        if perspicacite is not None:
+            enricher = EvidenceEnricher(
+                perspicacite_client=perspicacite,
+                abs_reader=abs_reader,
+            )
+            lesson_plan = enricher.enrich(lesson_plan)
 
     return PlanResponse(
         lesson_plan=lesson_plan,
