@@ -59,3 +59,30 @@ export function getAutonomy(courseToken: string): Promise<AutonomyResponse> {
     courseToken,
   );
 }
+
+export type MasteryPoint = {
+  date: string;
+  pseudonyme: string;
+  alpha: number;
+  beta: number;
+  mastery: number;
+  n_attempts: number;
+};
+
+export type ConceptMasteryHistoryResponse = {
+  concepts: Record<string, MasteryPoint[]>;
+};
+
+export function getConceptMasteryHistory(
+  courseToken: string,
+  opts: { pseudonyme?: string; concept_id?: string; since?: string } = {},
+): Promise<ConceptMasteryHistoryResponse> {
+  const params = new URLSearchParams({ course: courseToken });
+  if (opts.pseudonyme) params.set("pseudonyme", opts.pseudonyme);
+  if (opts.concept_id) params.set("concept_id", opts.concept_id);
+  if (opts.since) params.set("since", opts.since);
+  return fetchJson<ConceptMasteryHistoryResponse>(
+    `/metrics/concept-mastery-history?${params.toString()}`,
+    courseToken,
+  );
+}

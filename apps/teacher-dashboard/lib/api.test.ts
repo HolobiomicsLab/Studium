@@ -2,7 +2,12 @@
  * @vitest-environment node
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getProgress, getCalibration, getAutonomy } from "./api";
+import {
+  getProgress,
+  getCalibration,
+  getAutonomy,
+  getConceptMasteryHistory,
+} from "./api";
 
 describe("teacher-dashboard api wrapper", () => {
   beforeEach(() => {
@@ -69,6 +74,37 @@ describe("teacher-dashboard api wrapper", () => {
       statusText: "Unauthorized",
     });
     await expect(getProgress("c")).rejects.toThrow(/401/);
+  });
+
+  it("getConceptMasteryHistory hits /metrics/concept-mastery-history with token", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ concepts: {} }),
+    });
+    const r = await getConceptMasteryHistory("c1");
+    expect(r.concepts).toEqual({});
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toContain("/metrics/concept-mastery-history?course=c1");
+    expect(call[1].headers["X-Course-Token"]).toBe("c1");
+  });
+
+  it("getConceptMasteryHistory includes optional filters when set", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ concepts: {} }),
+    });
+    await getConceptMasteryHistory("c1", {
+      pseudonyme: "p1",
+      concept_id: "kepler",
+      since: "2026-05-01",
+    });
+    const url = (global.fetch as any).mock.calls[0][0];
+    expect(url).toContain("course=c1");
+    expect(url).toContain("pseudonyme=p1");
+    expect(url).toContain("concept_id=kepler");
+    expect(url).toContain("since=2026-05-01");
   });
 
   it("URL-encodes course token", async () => {
