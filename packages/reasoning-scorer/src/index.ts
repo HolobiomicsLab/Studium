@@ -31,21 +31,28 @@ export async function classifyTurn(
   const timeoutMs = options.timeoutMs ?? 2000;
   const prompt = PROMPT_TEMPLATE.replace("{topic}", topic).replace("{turn}", turn);
   const llmPromise = llm.complete(prompt);
-  const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), timeoutMs));
-  const raw = await Promise.race([llmPromise, timeout]);
-  if (raw === null) return null;
+  let timerId: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<null>((resolve) => {
+    timerId = setTimeout(() => resolve(null), timeoutMs);
+  });
   try {
-    const parsed = JSON.parse(raw as string);
-    if (
-      typeof parsed.signal !== "string" ||
-      !VALID_SIGNALS.includes(parsed.signal as ReasoningSignal) ||
-      typeof parsed.confidence !== "number" ||
-      parsed.confidence < 0 || parsed.confidence > 1
-    ) {
+    const raw = await Promise.race([llmPromise, timeout]);
+    if (raw === null) return null;
+    try {
+      const parsed = JSON.parse(raw as string);
+      if (
+        typeof parsed.signal !== "string" ||
+        !VALID_SIGNALS.includes(parsed.signal as ReasoningSignal) ||
+        typeof parsed.confidence !== "number" ||
+        parsed.confidence < 0 || parsed.confidence > 1
+      ) {
+        return null;
+      }
+      return { signal: parsed.signal, confidence: parsed.confidence };
+    } catch {
       return null;
     }
-    return { signal: parsed.signal, confidence: parsed.confidence };
-  } catch {
-    return null;
+  } finally {
+    if (timerId !== null) clearTimeout(timerId);
   }
 }

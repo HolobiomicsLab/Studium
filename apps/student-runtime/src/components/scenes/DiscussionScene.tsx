@@ -3,8 +3,7 @@ import type { Scene } from "@studium/lesson-bundle-schema";
 import type { Signal } from "@studium/learner-state";
 import { classifyTurn } from "@studium/reasoning-scorer";
 import { useReasoningScorer } from "../../hooks/useReasoningScorer";
-
-type TelemetryEmit = (event: any) => void;  // matches C.6 pattern in AICritiqueScene
+import type { TelemetryEmit } from "../../hooks/useTelemetry";
 
 type Props = {
   scene: Extract<Scene, { type: "discussion" }>;

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { classifyTurn, type ClassifyResult, type LLMClient } from "./index";
+import { classifyTurn, type ClassifyResult, type LLMClient } from "./index.js";
 
 const fakeLLM: LLMClient = {
   complete: vi.fn(async () =>
@@ -40,5 +40,21 @@ describe("classifyTurn", () => {
       ))),
     };
     expect(await classifyTurn(slow, "x", "t", { timeoutMs: 100 })).toBeNull();
+  });
+
+  it("clears timeout when LLM resolves before timeout", async () => {
+    vi.useFakeTimers();
+    const fast: LLMClient = {
+      complete: vi.fn(async () =>
+        JSON.stringify({ signal: "question", confidence: 0.5 }),
+      ),
+    };
+    const promise = classifyTurn(fast, "x", "t", { timeoutMs: 5000 });
+    await vi.runOnlyPendingTimersAsync();
+    const result = await promise;
+    expect(result).toEqual({ signal: "question", confidence: 0.5 });
+    // Verify no setTimeout handle still pending — implementation should have cleared it
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
   });
 });
