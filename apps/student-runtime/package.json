@@ -17,6 +17,7 @@
     "@studium/adaptation-engine": "workspace:*",
     "@studium/learner-state": "workspace:*",
     "@studium/lesson-bundle-schema": "workspace:*",
+    "@studium/reasoning-scorer": "workspace:*",
     "@studium/telemetry-events": "workspace:*",
     "@tauri-apps/api": "^2.0.0",
     "react": "^18.3.0",

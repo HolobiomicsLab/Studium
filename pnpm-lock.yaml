@@ -60,6 +60,12 @@ importers:
       '@studium/lesson-bundle-schema':
         specifier: workspace:*
         version: link:../../packages/lesson-bundle-schema
+      '@studium/reasoning-scorer':
+        specifier: workspace:*
+        version: link:../../packages/reasoning-scorer
+      '@studium/telemetry-events':
+        specifier: workspace:*
+        version: link:../../packages/telemetry-events
       '@tauri-apps/api':
         specifier: ^2.0.0
         version: 2.11.0
@@ -267,6 +273,15 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.6.0
+        version: 1.6.1(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0)
+
+  packages/reasoning-scorer:
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0)
 
   packages/telemetry-events:
