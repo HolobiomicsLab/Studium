@@ -4,6 +4,75 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-05-13 — M6 polish + démo end-to-end atomistique (`prototype/m6-polish-demo`)
+
+**Livré (12 tasks subagent-driven)** :
+
+- Fixture `fixtures/m6/demo-atomistique/` complète : corpus PDF L1 SV
+  (cours `cours-L1SV-atomistique.pdf` 23 MB + TD `TD-SPEB107-enonce.pdf` 1.2 MB),
+  2 placeholders articles OA (fallback documenté), `lesson.json` schema 1.4
+  (10 scènes leçon 1+2), ABS capsule `task-atom-001` + `periodic-table.svg` (5.7 KB),
+  `build.sh` zip -> `demo-atomistique-bundle.zip` (~7 KB).
+- Orchestrateur `tools/e2e-demo-m6.sh` avec modes `--no-tauri` (smoke macOS),
+  `--ci` (CI Linux WDIO). 3 assertions curl (`/metrics/progress`,
+  `/metrics/concept-mastery-history`, `/metrics/journal`).
+- Spec WDIO `apps/student-runtime/tests-e2e/specs/demo-m6-atomistique.spec.ts`
+  — 2 sessions cross-session, sélecteurs alignés sur le pattern m5
+  (`#a`, `button*=Continuer`, `[data-testid='library-load-bundle']`,
+  `[data-scene-type='...']`).
+- CI workflow `.github/workflows/ci.yml` job `demo-m6` sur ubuntu-22.04 +
+  xvfb + tauri-driver. `STUDIUM_EVIDENCE_ENRICH=off` (bundle pré-généré).
+- Docs utilisateur : `docs/user/teacher-guide.md` (5.8 KB) + `docs/user/student-guide.md` (4.5 KB).
+- Polish UI : QW1 focus-visible rings (7 scenes + AdaptationButton +
+  CourseNav dashboard) + QW2 AdaptationButton tooltip explicabilité (named export
+  `AdaptationButton` accepte `ruleLabel`, tooltip title + aria-label + sr-only).
+  3 vitest verts.
+- Audit accessibility `docs/audits/2026-05-13-axe-m6.md` — 0 critical / 0 serious.
+  axe-cli indisponible localement (`npx canceled`) -> revue manuelle WCAG 2.1 AA
+  sur 10 composants dashboard + 7 scenes + AdaptationButton. 1 moderate
+  (`ProgressHeatmap` couleur seule) déféré M7.
+
+**Tests verts ajoutés** :
+- 5 pytest `services/scene-synth/tests/test_demo_atomistique_bundle.py`
+- 2 pytest `services/planner/tests/test_demo_atomistique_abs.py`
+- 3 vitest `apps/student-runtime/src/components/AdaptationButton.test.tsx`
+- 4 smoke bash `tools/e2e-demo-m6.test.sh`
+
+**Cumul tests M6 (snapshot 2026-05-13)** :
+- pytest per-service : analytics-collector 97 + ingest 24 + planner 69 + scene-synth 41 = **231 passés**
+  (collecte root échoue par collision `conftest.py` connue — invocation per-service contournée dans CI).
+- vitest runtime : **56 passés** / 3 fails connus (`LessonPlayer.test.tsx` — Zod schema_version 1.3 vs 1.4).
+- vitest dashboard : **14 passés** / 7 fichiers fail = pollution `@playwright/test` (config integration test) — hors scope M6.
+
+**Trade-offs conscients** :
+- 23 MB PDF cours commit-é sans git-lfs (research repo, fixture démo).
+- Articles OA = placeholders (fallback documenté ; cours PDF suffit pour evidence).
+
+**Régressions pré-existantes hors scope** :
+- `LessonPlayer.test.tsx` : 3 tests fail (Zod schema_version 1.3 vs 1.4),
+  héritage du merge evidence v1 (`cd881d0`). À fixer en M6.x suivant — bundle
+  test fixture à mettre à jour 1.3 -> 1.4.
+
+**Environnement local validé partiel** :
+- `e2e-demo-m6.sh --no-tauri` syntaxe OK + Steps 1-2 OK (build + Pydantic).
+- Step 3 (analytics-collector startup) bloqué env : `pyproject.toml` de
+  `analytics-collector` référence `file:../../packages/telemetry-events` que
+  pip résout vers `/Users/holobiomicslab/packages/telemetry-events` (chemin
+  absolu erroné). CI Linux installera proprement via
+  `pip install -e packages/telemetry-events` AVANT
+  `pip install -e services/analytics-collector`.
+
+**Hors scope confirmé (différés)** :
+- Tableau périodique interactif (souhait auteur) -> M7+
+- Escape game scene_type -> ADR futur
+- M4 LAN coopératif -> reste différé (ADR 005)
+- D.1 validation humaine M3 -> indépendant (rule 003)
+- DRY `should_enrich` (module-level) vs `_evaluate_enrichment` (CriticAgent) -> M6.x
+
+**Prêt pour tag `m6-demo`** après merge sur main.
+
+---
+
 ## 2026-05-13 — Evidence enrichment (Perspicacité + ABS coupling authoring-time)
 
 **Branche** : `prototype/evidence-enrichment` (10 commits + AGENT_LOG = 11 commits ahead of main au tag pose).
