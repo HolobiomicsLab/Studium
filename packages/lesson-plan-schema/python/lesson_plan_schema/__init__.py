@@ -1,6 +1,6 @@
 from __future__ import annotations
 from enum import Enum
-from typing import Optional
+from typing import Optional, Literal
 from pydantic import BaseModel, Field
 
 
@@ -59,6 +59,51 @@ class LearningObjective(BaseModel):
     bloom_uri: Optional[str] = None
 
 
+class BibliographicRef(BaseModel):
+    perspicacite_doc_id: str = Field(min_length=1)
+    doi: Optional[str] = None
+    title: str = Field(min_length=1)
+    authors: list[str]
+    year: Optional[int] = None
+    excerpt: str = Field(max_length=500)
+    relevance_score: float = Field(ge=0.0, le=1.0)
+    prov_derived_from: str = Field(min_length=1)
+
+
+class CaseStudy(BaseModel):
+    title: str = Field(min_length=1)
+    summary: str = Field(max_length=1000)
+    source_refs: list[str]
+
+
+class ABSAsset(BaseModel):
+    asset_type: Literal[
+        "spectrum_viewer_svg",
+        "code_snippet",
+        "data_csv",
+        "protocol_card_md",
+        "script_snippet",
+    ]
+    payload_inline: Optional[str] = None
+    payload_path: Optional[str] = None
+    abs_task_card_id: Optional[str] = None
+    prov_derived_from: str = Field(min_length=1)
+
+
+class EnrichmentMetadata(BaseModel):
+    enricher_version: str = Field(min_length=1)
+    perspicacite_mode_used: Literal["basic", "advanced", "profound", "agentic"]
+    timestamp: str = Field(min_length=1)
+    degraded: bool
+
+
+class Evidence(BaseModel):
+    bibliographic_refs: Optional[list[BibliographicRef]] = None
+    case_studies: Optional[list[CaseStudy]] = None
+    abs_asset: Optional[ABSAsset] = None
+    enrichment_metadata: EnrichmentMetadata
+
+
 class SceneOutline(BaseModel):
     id: str = Field(min_length=1)
     type: SceneType
@@ -66,6 +111,8 @@ class SceneOutline(BaseModel):
     objective_refs: list[str] = Field(default_factory=list)
     notes: Optional[str] = None
     duration_minutes: Optional[int] = Field(default=None, ge=1)
+    evidence: Optional[Evidence] = None
+    evidence_override: Optional[Literal["force", "skip"]] = None
     # Ontologie
     skos_concept_uris: Optional[list[str]] = None
     dct_subject: Optional[str] = None

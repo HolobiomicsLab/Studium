@@ -68,3 +68,147 @@ describe("loadSchema", () => {
     expect(s["$id"]).toBe("https://studium.dev/schemas/lesson-plan/v1");
   });
 });
+
+describe("Evidence schema (ADR 014)", () => {
+  const validRef = {
+    perspicacite_doc_id: "doc-123",
+    title: "Test paper",
+    authors: ["Smith, J."],
+    excerpt: "A relevant excerpt",
+    relevance_score: 0.85,
+    prov_derived_from: "urn:perspicacite:doc:123",
+  };
+
+  const validAsset = {
+    asset_type: "spectrum_viewer_svg",
+    payload_inline: "<svg></svg>",
+    prov_derived_from: "urn:abs:rocrate:abc",
+  };
+
+  const validMetadata = {
+    enricher_version: "1.0",
+    perspicacite_mode_used: "advanced",
+    timestamp: "2026-05-13T10:00:00Z",
+    degraded: false,
+  };
+
+  it("accepts a fully populated Evidence", () => {
+    const ev = {
+      bibliographic_refs: [validRef],
+      case_studies: [{ title: "Case A", summary: "Summary", source_refs: ["doc-123"] }],
+      abs_asset: validAsset,
+      enrichment_metadata: validMetadata,
+    };
+    const result = validatePlan({
+      schema_version: "1.0",
+      id: "plan-001",
+      title: "Test",
+      language: "en",
+      target: "L3",
+      duration_minutes: 45,
+      learning_objectives: [{ id: "obj-1", description: "x", bloom_level: "understand" }],
+      scene_outlines: [{ id: "s1", type: "concept", title: "Concept", objective_refs: [], evidence: ev }],
+      corpus_refs: [],
+      status: "draft",
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it("requires enrichment_metadata in Evidence", () => {
+    const result = validatePlan({
+      schema_version: "1.0",
+      id: "plan-001",
+      title: "Test",
+      language: "en",
+      target: "L3",
+      duration_minutes: 45,
+      learning_objectives: [{ id: "obj-1", description: "x", bloom_level: "understand" }],
+      scene_outlines: [{ id: "s1", type: "concept", title: "Concept", objective_refs: [], evidence: {} }],
+      corpus_refs: [],
+      status: "draft",
+    });
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects relevance_score out of [0,1]", () => {
+    const ev = {
+      bibliographic_refs: [{ ...validRef, relevance_score: 1.5 }],
+      enrichment_metadata: validMetadata,
+    };
+    const result = validatePlan({
+      schema_version: "1.0",
+      id: "plan-001",
+      title: "Test",
+      language: "en",
+      target: "L3",
+      duration_minutes: 45,
+      learning_objectives: [{ id: "obj-1", description: "x", bloom_level: "understand" }],
+      scene_outlines: [{ id: "s1", type: "concept", title: "Concept", objective_refs: [], evidence: ev }],
+      corpus_refs: [],
+      status: "draft",
+    });
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects unknown asset_type", () => {
+    const ev = {
+      abs_asset: { ...validAsset, asset_type: "unknown_type" },
+      enrichment_metadata: validMetadata,
+    };
+    const result = validatePlan({
+      schema_version: "1.0",
+      id: "plan-001",
+      title: "Test",
+      language: "en",
+      target: "L3",
+      duration_minutes: 45,
+      learning_objectives: [{ id: "obj-1", description: "x", bloom_level: "understand" }],
+      scene_outlines: [{ id: "s1", type: "concept", title: "Concept", objective_refs: [], evidence: ev }],
+      corpus_refs: [],
+      status: "draft",
+    });
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects unknown perspicacite_mode_used", () => {
+    const ev = {
+      enrichment_metadata: { ...validMetadata, perspicacite_mode_used: "bogus" },
+    };
+    const result = validatePlan({
+      schema_version: "1.0",
+      id: "plan-001",
+      title: "Test",
+      language: "en",
+      target: "L3",
+      duration_minutes: 45,
+      learning_objectives: [{ id: "obj-1", description: "x", bloom_level: "understand" }],
+      scene_outlines: [{ id: "s1", type: "concept", title: "Concept", objective_refs: [], evidence: ev }],
+      corpus_refs: [],
+      status: "draft",
+    });
+    expect(result.valid).toBe(false);
+  });
+
+  it("SceneOutline accepts optional evidence_override", () => {
+    const result = validatePlan({
+      schema_version: "1.0",
+      id: "plan-001",
+      title: "Test",
+      language: "en",
+      target: "L3",
+      duration_minutes: 45,
+      learning_objectives: [{ id: "obj-1", description: "x", bloom_level: "understand" }],
+      scene_outlines: [{
+        id: "s1",
+        type: "concept",
+        title: "Concept",
+        objective_refs: [],
+        evidence: { enrichment_metadata: { enricher_version: "1.0", perspicacite_mode_used: "advanced", timestamp: "2026-05-13T10:00:00Z", degraded: false } },
+        evidence_override: "force",
+      }],
+      corpus_refs: [],
+      status: "draft",
+    });
+    expect(result.valid).toBe(true);
+  });
+});

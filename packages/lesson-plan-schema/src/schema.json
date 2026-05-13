@@ -83,6 +83,77 @@
         "bloom_uri": { "type": "string" }
       }
     },
+    "BibliographicRef": {
+      "type": "object",
+      "required": ["perspicacite_doc_id", "title", "authors", "excerpt", "relevance_score", "prov_derived_from"],
+      "additionalProperties": false,
+      "properties": {
+        "perspicacite_doc_id": { "type": "string", "minLength": 1 },
+        "doi": { "type": "string" },
+        "title": { "type": "string", "minLength": 1 },
+        "authors": { "type": "array", "items": { "type": "string" } },
+        "year": { "type": "integer" },
+        "excerpt": { "type": "string", "maxLength": 500 },
+        "relevance_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "prov_derived_from": { "type": "string", "minLength": 1 }
+      }
+    },
+    "CaseStudy": {
+      "type": "object",
+      "required": ["title", "summary", "source_refs"],
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "maxLength": 1000 },
+        "source_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "ABSAsset": {
+      "type": "object",
+      "required": ["asset_type", "prov_derived_from"],
+      "additionalProperties": false,
+      "properties": {
+        "asset_type": {
+          "type": "string",
+          "enum": ["spectrum_viewer_svg", "code_snippet", "data_csv", "protocol_card_md", "script_snippet"]
+        },
+        "payload_inline": { "type": "string" },
+        "payload_path": { "type": "string" },
+        "abs_task_card_id": { "type": "string" },
+        "prov_derived_from": { "type": "string", "minLength": 1 }
+      }
+    },
+    "EnrichmentMetadata": {
+      "type": "object",
+      "required": ["enricher_version", "perspicacite_mode_used", "timestamp", "degraded"],
+      "additionalProperties": false,
+      "properties": {
+        "enricher_version": { "type": "string", "minLength": 1 },
+        "perspicacite_mode_used": {
+          "type": "string",
+          "enum": ["basic", "advanced", "profound", "agentic"]
+        },
+        "timestamp": { "type": "string", "minLength": 1 },
+        "degraded": { "type": "boolean" }
+      }
+    },
+    "Evidence": {
+      "type": "object",
+      "required": ["enrichment_metadata"],
+      "additionalProperties": false,
+      "properties": {
+        "bibliographic_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/BibliographicRef" }
+        },
+        "case_studies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/CaseStudy" }
+        },
+        "abs_asset": { "$ref": "#/$defs/ABSAsset" },
+        "enrichment_metadata": { "$ref": "#/$defs/EnrichmentMetadata" }
+      }
+    },
     "SceneOutline": {
       "type": "object",
       "required": ["id", "type", "title", "objective_refs"],
@@ -100,6 +171,8 @@
         },
         "notes": { "type": "string" },
         "duration_minutes": { "type": "integer", "minimum": 1 },
+        "evidence": { "$ref": "#/$defs/Evidence" },
+        "evidence_override": { "type": "string", "enum": ["force", "skip"] },
         "skos_concept_uris": { "type": "array", "items": { "type": "string" } },
         "dct_subject": { "type": "string" },
         "prov_derived_from": { "type": "array", "items": { "type": "string" } },
