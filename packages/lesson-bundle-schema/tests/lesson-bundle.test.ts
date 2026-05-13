@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema, DiscussionSceneSchema } from "../src/index";
+import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema, DiscussionSceneSchema, ConceptSceneSchema, ReproductionSceneSchema, SCHEMA_VERSION } from "../src/index";
 
 const VALID_BUNDLE = {
-  schema_version: "1.3",
+  schema_version: "1.4",
   bundle_id: "b-001",
   source_plan_id: "p-001",
   metadata: {
@@ -118,7 +118,7 @@ describe("LessonBundleSchema", () => {
   it("accepts bundle with assessment_blueprint (ADR 013, schema 1.3)", () => {
     const valid = {
       ...VALID_BUNDLE,
-      schema_version: "1.3",
+      schema_version: "1.4",
       assessment_blueprint: {
         dimensions: [
           {
@@ -146,7 +146,7 @@ describe("LessonBundleSchema", () => {
   it("rejects blueprint where dimensions weights do not sum to 1", () => {
     const invalid = {
       ...VALID_BUNDLE,
-      schema_version: "1.3",
+      schema_version: "1.4",
       assessment_blueprint: {
         dimensions: [
           { id: "d1", label: "D1", weight: 0.3, metrics: [{ endpoint: "progress", field: "completion_rate", weight_in_dimension: 1.0 }] },
@@ -160,7 +160,7 @@ describe("LessonBundleSchema", () => {
   it("rejects blueprint with invalid endpoint", () => {
     const invalid = {
       ...VALID_BUNDLE,
-      schema_version: "1.3",
+      schema_version: "1.4",
       assessment_blueprint: {
         dimensions: [{ id: "d1", label: "D1", weight: 1.0, metrics: [{ endpoint: "garbage", field: "x", weight_in_dimension: 1.0 }] }],
       },
@@ -171,5 +171,71 @@ describe("LessonBundleSchema", () => {
   it("rejects legacy schema_version 1.2", () => {
     const invalid = { ...VALID_BUNDLE, schema_version: "1.2" };
     expect(() => LessonBundleSchema.parse(invalid)).toThrow();
+  });
+
+  it("rejects legacy schema_version 1.3 (ADR 014 bump)", () => {
+    const invalid = { ...VALID_BUNDLE, schema_version: "1.3" };
+    expect(() => LessonBundleSchema.parse(invalid)).toThrow();
+  });
+});
+
+describe("Evidence on bundle scenes (ADR 014, schema 1.4)", () => {
+  const validEvidence = {
+    enrichment_metadata: {
+      enricher_version: "1.0",
+      perspicacite_mode_used: "advanced",
+      timestamp: "2026-05-13T10:00:00Z",
+      degraded: false,
+    },
+  };
+
+  it("SCHEMA_VERSION is bumped to 1.4", () => {
+    expect(SCHEMA_VERSION).toBe("1.4");
+  });
+
+  it("IntroScene accepts optional evidence", () => {
+    const scene = {
+      id: "s1",
+      type: "intro",
+      title: "Intro",
+      objective_refs: [],
+      concept_refs: [],
+      estimated_seconds: 30,
+      adaptation_hooks: [],
+      markdown: "# Intro",
+      evidence: validEvidence,
+    };
+    expect(() => IntroSceneSchema.parse(scene)).not.toThrow();
+  });
+
+  it("ConceptScene accepts optional evidence", () => {
+    const scene = {
+      id: "s2",
+      type: "concept",
+      title: "Concept",
+      objective_refs: [],
+      concept_refs: [],
+      estimated_seconds: 60,
+      adaptation_hooks: [],
+      markdown: "## Concept",
+      evidence: validEvidence,
+    };
+    expect(() => ConceptSceneSchema.parse(scene)).not.toThrow();
+  });
+
+  it("ReproductionScene accepts optional evidence", () => {
+    const scene = {
+      id: "s3",
+      type: "reproduction",
+      title: "Repro",
+      objective_refs: [],
+      concept_refs: [],
+      estimated_seconds: 120,
+      adaptation_hooks: [],
+      task_card_id: "tc-001",
+      steps: [{ step_id: "st1", instruction: "x", expected_input_schema: { type: "object" }, expected_output: "y" }],
+      evidence: validEvidence,
+    };
+    expect(() => ReproductionSceneSchema.parse(scene)).not.toThrow();
   });
 });

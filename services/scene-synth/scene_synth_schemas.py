@@ -2,6 +2,8 @@
 
 ADR 010 — flat shape : tous les types de scène ont leurs champs métier à la
 racine, sans enveloppe ``content``. schema_version bumped to 1.1.
+ADR 014 — Evidence fields on IntroScene/ConceptScene/ReproductionScene.
+schema_version bumped to 1.4.
 
 Convention rule 004 : ce module n'est jamais importé sous le nom `schemas`
 au niveau racine ; toujours `from scene_synth_schemas import ...`.
@@ -21,6 +23,8 @@ from pydantic import BaseModel, ConfigDict, Field
 # Primitives partagées
 # ---------------------------------------------------------------------------
 
+SCHEMA_VERSION = "1.4"
+
 SceneType = Literal[
     "intro",
     "concept",
@@ -34,6 +38,57 @@ BloomLevel = Literal[
 ]
 Modulator = Literal["M1", "M2", "M3", "M6"]
 
+
+# ---------------------------------------------------------------------------
+# ADR 014 — Evidence models
+# ---------------------------------------------------------------------------
+
+PerspicaciteMode = Literal["basic", "advanced", "profound", "agentic"]
+ABSAssetType = Literal[
+    "spectrum_viewer_svg", "code_snippet", "data_csv", "protocol_card_md", "script_snippet"
+]
+
+
+class BibliographicRef(BaseModel):
+    perspicacite_doc_id: str = Field(min_length=1)
+    doi: Optional[str] = None
+    title: str = Field(min_length=1)
+    authors: list[str]
+    year: Optional[int] = None
+    excerpt: str = Field(max_length=500)
+    relevance_score: float = Field(ge=0, le=1)
+    prov_derived_from: str = Field(min_length=1)
+
+
+class CaseStudy(BaseModel):
+    title: str = Field(min_length=1)
+    summary: str = Field(max_length=1000)
+    source_refs: list[str]
+
+
+class ABSAsset(BaseModel):
+    asset_type: ABSAssetType
+    payload_inline: Optional[str] = None
+    payload_path: Optional[str] = None
+    abs_task_card_id: Optional[str] = None
+    prov_derived_from: str = Field(min_length=1)
+
+
+class EnrichmentMetadata(BaseModel):
+    enricher_version: str = Field(min_length=1)
+    perspicacite_mode_used: PerspicaciteMode
+    timestamp: str = Field(min_length=1)
+    degraded: bool
+
+
+class Evidence(BaseModel):
+    bibliographic_refs: Optional[list[BibliographicRef]] = None
+    case_studies: Optional[list[CaseStudy]] = None
+    abs_asset: Optional[ABSAsset] = None
+    enrichment_metadata: EnrichmentMetadata
+
+
+# ---------------------------------------------------------------------------
 
 class Concept(BaseModel):
     id: str
@@ -75,12 +130,14 @@ class QuizChoice(BaseModel):
 class IntroScene(_SceneBase):
     type: Literal["intro"]
     markdown: str
+    evidence: Optional[Evidence] = None
 
 
 class ConceptScene(_SceneBase):
     type: Literal["concept"]
     markdown: str
     image_path: Optional[str] = None
+    evidence: Optional[Evidence] = None
 
 
 class QuizScene(_SceneBase):
@@ -111,6 +168,7 @@ class ReproductionScene(_SceneBase):
     task_card_id: str
     steps: list[ReproductionStep] = Field(min_length=1)
     prov_derived_from: Optional[str] = None  # URL
+    evidence: Optional[Evidence] = None
 
 
 class Claim(BaseModel):
@@ -181,9 +239,9 @@ class AdaptationRule(BaseModel):
 
 
 class LessonBundle(BaseModel):
-    """Pydantic mirror of LessonBundleSchema (TS) — ADR 012 v1.2."""
+    """Pydantic mirror of LessonBundleSchema (TS) — ADR 014 v1.4."""
 
-    schema_version: Literal["1.3"]
+    schema_version: Literal["1.4"]
     bundle_id: str
     source_plan_id: str
     metadata: BundleMetadata
@@ -236,26 +294,34 @@ class CritiqueEvalResponse(BaseModel):
 
 
 __all__ = [
+    "ABSAsset",
+    "ABSAssetType",
     "AICritiqueRubric",
     "AICritiqueScene",
     "AdaptationRule",
+    "BibliographicRef",
     "BloomLevel",
     "Bundle",
+    "CaseStudy",
     "Claim",
     "Concept",
     "ConceptScene",
     "CritiqueEvalRequest",
     "CritiqueEvalResponse",
+    "EnrichmentMetadata",
+    "Evidence",
     "IntroScene",
     "LessonBundle",
     "MetaCheckpointScene",
     "Modulator",
+    "PerspicaciteMode",
     "QuizChoice",
     "QuizScene",
     "ReproductionScene",
     "ReproductionStep",
     "RuleAction",
     "RuleActionKind",
+    "SCHEMA_VERSION",
     "Scene",
     "SceneType",
     "SceneUnion",

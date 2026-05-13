@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   getProgress,
+  getProgressMetrics,
   getCalibration,
   getAutonomy,
   getConceptMasteryHistory,
@@ -241,5 +242,19 @@ describe("teacher-dashboard api wrapper", () => {
     await getProgress("course with spaces");
     const url = (global.fetch as any).mock.calls[0][0];
     expect(url).toContain("course=course%20with%20spaces");
+  });
+
+  it("getProgressMetrics hits /metrics/progress-metrics with scenes_with_evidence", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ scenes_with_evidence: 2, scenes_total: 3 }),
+    });
+    const r = await getProgressMetrics("course-x");
+    expect(r.scenes_with_evidence).toBe(2);
+    expect(r.scenes_total).toBe(3);
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toContain("/metrics/progress-metrics?course=course-x");
+    expect(call[1].headers["X-Course-Token"]).toBe("course-x");
   });
 });

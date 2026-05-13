@@ -3,6 +3,8 @@ import { SceneSchema } from "./scenes";
 import { AdaptationRuleSchema } from "./rules";
 import { AssessmentBlueprintSchema } from "./blueprint";
 
+export const SCHEMA_VERSION = "1.4";
+
 export * from "./scenes";
 export * from "./rules";
 export * from "./blueprint";
@@ -27,7 +29,7 @@ export const BundleMetadataSchema = z.object({
 });
 
 export const LessonBundleSchema = z.object({
-  schema_version: z.literal("1.3"),
+  schema_version: z.literal("1.4"),
   bundle_id: z.string(),
   source_plan_id: z.string(),
   metadata: BundleMetadataSchema,

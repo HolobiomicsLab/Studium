@@ -7,6 +7,45 @@ export type LearningObjective = {
   bloom_level: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create";
 };
 
+export type BibliographicRef = {
+  perspicacite_doc_id: string;
+  doi?: string;
+  title: string;
+  authors: string[];
+  year?: number;
+  excerpt: string;
+  relevance_score: number;
+  prov_derived_from: string;
+};
+
+export type CaseStudy = {
+  title: string;
+  summary: string;
+  source_refs: string[];
+};
+
+export type ABSAsset = {
+  asset_type: "spectrum_viewer_svg" | "code_snippet" | "data_csv" | "protocol_card_md" | "script_snippet";
+  payload_inline?: string;
+  payload_path?: string;
+  abs_task_card_id?: string;
+  prov_derived_from: string;
+};
+
+export type EnrichmentMetadata = {
+  enricher_version: string;
+  perspicacite_mode_used: "basic" | "advanced" | "profound" | "agentic";
+  timestamp: string;
+  degraded: boolean;
+};
+
+export type Evidence = {
+  bibliographic_refs?: BibliographicRef[];
+  case_studies?: CaseStudy[];
+  abs_asset?: ABSAsset;
+  enrichment_metadata: EnrichmentMetadata;
+};
+
 export type SceneOutline = {
   id: string;
   type: "intro" | "concept" | "quiz" | "simulation" | "reproduction" | "discussion" | "meta_checkpoint" | "ai_critique";
@@ -14,6 +53,8 @@ export type SceneOutline = {
   objective_refs: string[];
   notes?: string;
   duration_minutes?: number;
+  evidence?: Evidence;
+  evidence_override?: "force" | "skip";
 };
 
 export type CorpusRef = {

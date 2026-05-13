@@ -55,3 +55,45 @@ def test_plan_endpoint_missing_target_returns_422(client):
     bad = {k: v for k, v in SAMPLE_REQUEST.items() if k != "target"}
     resp = client.post("/plan", json=bad)
     assert resp.status_code == 422
+
+
+import os
+from unittest.mock import patch, MagicMock
+
+
+def test_plan_endpoint_enrichment_off_by_default(monkeypatch):
+    """STUDIUM_EVIDENCE_ENRICH absent → pas d'evidence dans la réponse."""
+    monkeypatch.delenv("STUDIUM_EVIDENCE_ENRICH", raising=False)
+    from planner_app import app as _app
+    client = TestClient(_app)
+    response = client.post("/plan", json=SAMPLE_REQUEST)
+    assert response.status_code == 200
+    plan = response.json()["lesson_plan"]
+    for scene in plan["scene_outlines"]:
+        assert scene.get("evidence") is None
+
+
+def test_plan_endpoint_enrichment_on_enriches_eligible_scenes(monkeypatch):
+    """STUDIUM_EVIDENCE_ENRICH=on → scènes éligibles ont evidence non-null."""
+    monkeypatch.setenv("STUDIUM_EVIDENCE_ENRICH", "on")
+    fake_response = {
+        "status": "ok",
+        "docs": [
+            {"id": "d1", "title": "T", "authors": ["A"], "excerpt": "x", "relevance_score": 0.7}
+        ],
+    }
+    with patch("planner_app._get_perspicacite_client") as p:
+        client_mock = MagicMock()
+        client_mock.search.return_value = fake_response
+        p.return_value = client_mock
+        from planner_app import app as _app
+        client = TestClient(_app)
+        response = client.post("/plan", json=SAMPLE_REQUEST)
+    assert response.status_code == 200
+    plan = response.json()["lesson_plan"]
+    eligible = [
+        s for s in plan["scene_outlines"]
+        if s["type"] in ("intro", "concept", "simulation", "reproduction")
+    ]
+    assert len(eligible) > 0, "plan a au moins une scène éligible"
+    assert any(s.get("evidence") is not None for s in eligible)

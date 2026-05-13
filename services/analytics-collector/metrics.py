@@ -828,3 +828,25 @@ def compute_autonomy(
         "n_critique": n_critique,
         "n_hints": n_hints,
     }
+
+
+def compute_progress_metrics(bundle: dict | None = None) -> dict:
+    """Compute progress metrics from a bundle, counting scenes with evidence.
+
+    Counts:
+    - scenes_total: total number of scenes in the bundle
+    - scenes_with_evidence: number of scenes with non-null evidence field
+
+    If bundle is None, returns zeros.
+    """
+    scenes_with_evidence = 0
+    scenes_total = 0
+    if bundle is not None:
+        scenes = bundle.get("scenes", [])
+        scenes_total = len(scenes)
+        scenes_with_evidence = sum(1 for s in scenes if s.get("evidence") is not None)
+
+    return {
+        "scenes_with_evidence": scenes_with_evidence,
+        "scenes_total": scenes_total,
+    }

@@ -53,12 +53,17 @@ class CriticAgent(BaseAgent):
             except Exception as exc:
                 last_exc = exc
 
+        evidence_planned = [
+            s.id for s in plan.scene_outlines if self._evaluate_enrichment(s)
+        ]
+
         return CritiqueResult(
             score=score,
             annotations=annotations,
             bloom_consistency=bloom_consistency,
             ontology_warnings=ontology_warnings,
             prov_activity_uri=prov_uri,
+            evidence_planned_scene_ids=evidence_planned,
             llm_used=llm_used,
         )
 
@@ -91,6 +96,24 @@ class CriticAgent(BaseAgent):
             f"Objectifs : {objectives}\nScènes : {scenes}\n"
             f'Retourne uniquement JSON: {{"score": float, "annotations": [string, ...]}}'
         )
+
+    def _evaluate_enrichment(self, scene) -> bool:
+        """Décide si scene doit être enrichie post-critic (heuristique + override).
+
+        ADR 014 : override 'force'/'skip' gagne sur heuristique ; sinon seuls
+        intro/concept/simulation/reproduction sont éligibles.
+        """
+        from lesson_plan_schema import SceneType
+        if scene.evidence_override == "force":
+            return True
+        if scene.evidence_override == "skip":
+            return False
+        return scene.type in {
+            SceneType.intro,
+            SceneType.concept,
+            SceneType.simulation,
+            SceneType.reproduction,
+        }
 
     def _mock_response(self, reason: str = "") -> str:
         return json.dumps({

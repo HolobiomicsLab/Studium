@@ -157,3 +157,89 @@ def test_existing_fields_unchanged():
     )
     assert plan.status == PlanStatus.draft
     assert plan.prov_entity_uri is None  # nouveaux champs par défaut None
+
+
+# ADR 014 Evidence schema tests
+VALID_REF = {
+    "perspicacite_doc_id": "doc-123",
+    "title": "Test paper",
+    "authors": ["Smith, J."],
+    "excerpt": "A relevant excerpt",
+    "relevance_score": 0.85,
+    "prov_derived_from": "urn:perspicacite:doc:123",
+}
+
+VALID_ASSET = {
+    "asset_type": "spectrum_viewer_svg",
+    "payload_inline": "<svg></svg>",
+    "prov_derived_from": "urn:abs:rocrate:abc",
+}
+
+VALID_METADATA = {
+    "enricher_version": "1.0",
+    "perspicacite_mode_used": "advanced",
+    "timestamp": "2026-05-13T10:00:00Z",
+    "degraded": False,
+}
+
+
+def test_evidence_accepts_full_payload():
+    from lesson_plan_schema import (
+        BibliographicRef,
+        CaseStudy,
+        ABSAsset,
+        EnrichmentMetadata,
+        Evidence,
+    )
+    ev = Evidence(
+        bibliographic_refs=[BibliographicRef(**VALID_REF)],
+        case_studies=[CaseStudy(title="Case A", summary="S", source_refs=["doc-123"])],
+        abs_asset=ABSAsset(**VALID_ASSET),
+        enrichment_metadata=EnrichmentMetadata(**VALID_METADATA),
+    )
+    assert ev.enrichment_metadata.perspicacite_mode_used == "advanced"
+
+
+def test_evidence_requires_metadata():
+    from lesson_plan_schema import Evidence
+    with pytest.raises(ValidationError):
+        Evidence()
+
+
+def test_relevance_score_out_of_range_rejected():
+    from lesson_plan_schema import BibliographicRef
+    bad = dict(VALID_REF, relevance_score=1.5)
+    with pytest.raises(ValidationError):
+        BibliographicRef(**bad)
+
+
+def test_unknown_asset_type_rejected():
+    from lesson_plan_schema import ABSAsset
+    bad = dict(VALID_ASSET, asset_type="unknown_type")
+    with pytest.raises(ValidationError):
+        ABSAsset(**bad)
+
+
+def test_unknown_perspicacite_mode_rejected():
+    from lesson_plan_schema import EnrichmentMetadata
+    bad = dict(VALID_METADATA, perspicacite_mode_used="bogus")
+    with pytest.raises(ValidationError):
+        EnrichmentMetadata(**bad)
+
+
+def test_scene_outline_accepts_evidence_and_override():
+    from lesson_plan_schema import (
+        SceneOutline,
+        SceneType,
+        Evidence,
+        EnrichmentMetadata,
+    )
+    scene = SceneOutline(
+        id="s1",
+        type=SceneType.concept,
+        title="Concept de base",
+        evidence=Evidence(enrichment_metadata=EnrichmentMetadata(**VALID_METADATA)),
+        evidence_override="force",
+    )
+    assert scene.evidence_override == "force"
+    assert scene.evidence is not None

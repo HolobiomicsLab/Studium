@@ -114,3 +114,82 @@ def test_serialize_jsonld_returns_string():
     s = serialize_jsonld(graph)
     assert isinstance(s, str)
     assert '"@context"' in s
+
+
+def test_prov_graph_includes_enrichment_activity_when_evidence_present():
+    """Si une scène a evidence, le graphe Prov-O inclut enrichment_activity."""
+    from datetime import datetime, timezone
+    from ontology.prov import build_prov_graph
+    from lesson_plan_schema import (
+        LessonPlan, LearningObjective, SceneOutline,
+        BloomLevel, SceneType, Evidence, EnrichmentMetadata,
+    )
+
+    plan = LessonPlan(
+        schema_version="1.0",
+        id="plan-enrich-1",
+        title="T",
+        target="L3",
+        duration_minutes=45,
+        language="fr",
+        learning_objectives=[
+            LearningObjective(
+                id="o1",
+                description="comprendre",
+                bloom_level=BloomLevel.understand,
+            )
+        ],
+        scene_outlines=[
+            SceneOutline(
+                id="s1",
+                type=SceneType.concept,
+                title="c",
+                evidence=Evidence(
+                    enrichment_metadata=EnrichmentMetadata(
+                        enricher_version="1.0",
+                        perspicacite_mode_used="advanced",
+                        timestamp=datetime.now(timezone.utc).isoformat(),
+                        degraded=False,
+                    )
+                ),
+            )
+        ],
+        corpus_refs=[],
+    )
+
+    graph = build_prov_graph(plan, manifest=None, planner_audit=None, critique=None)
+    nodes_str = str(graph)
+    assert "enrichment" in nodes_str.lower()
+
+
+def test_prov_graph_no_enrichment_activity_when_no_evidence():
+    """Sans evidence → pas de node enrichment_activity."""
+    from ontology.prov import build_prov_graph
+    from lesson_plan_schema import (
+        LessonPlan, LearningObjective, SceneOutline,
+        BloomLevel, SceneType,
+    )
+
+    plan = LessonPlan(
+        schema_version="1.0",
+        id="plan-enrich-2",
+        title="T",
+        target="L3",
+        duration_minutes=45,
+        language="fr",
+        learning_objectives=[
+            LearningObjective(
+                id="o1",
+                description="comprendre",
+                bloom_level=BloomLevel.understand,
+            )
+        ],
+        scene_outlines=[
+            SceneOutline(id="s1", type=SceneType.concept, title="c")
+        ],
+        corpus_refs=[],
+    )
+
+    graph = build_prov_graph(plan, manifest=None, planner_audit=None, critique=None)
+    nodes_str = str(graph)
+    assert "enrichment" not in nodes_str.lower()

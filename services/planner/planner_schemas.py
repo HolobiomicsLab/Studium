@@ -14,6 +14,9 @@ from lesson_plan_schema import (
     SceneType,
     PlanStatus,
     RefType,
+    Evidence,
+    BibliographicRef,
+    EnrichmentMetadata,
 )
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -46,11 +49,13 @@ class CritiqueResult(BaseModel):
     prov_activity_uri: str = Field(
         default_factory=lambda: f"urn:studium:activity:critic:{_uuid.uuid4().hex[:8]}"
     )
+    evidence_planned_scene_ids: list[str] = Field(default_factory=list)
     llm_used: bool = True
 
 
 __all__ = [
     "LessonPlan", "LearningObjective", "SceneOutline", "CorpusRef",
     "PlanMetadata", "BloomLevel", "SceneType", "PlanStatus", "RefType",
+    "Evidence", "BibliographicRef", "EnrichmentMetadata",
     "PlanRequest", "PlanResponse", "CritiqueResult",
 ]
