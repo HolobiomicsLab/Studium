@@ -4,6 +4,67 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## M5 — analytics + dashboard v0.4 livré 2026-05-13
+
+**Branche** : `prototype/m5-analytics-views` (17 commits ahead of main au tag pose).
+**Tag** : `m5-analytics`.
+**Méthode** : subagent-driven-development autonome (1 implementer + 2 reviews par task,
+fresh subagent per task, superpowers explicites — TDD, verification-before-completion,
+systematic-debugging, requesting-code-review).
+
+### Livré (9 tasks + follow-ups consolidation)
+
+| Task | Commit | Tests apportés |
+|------|--------|----------------|
+| M5.10 ai_audit_result emit | `eedffce` | 6 matcher + 1 intégration scene |
+| M5.9.0 schema discussion ADR 012 | `ed0673b` | 3 Zod + 3 pytest |
+| M5.9 DiscussionScene + reasoning-scorer | `0b230dd` | 5 scorer + 3 hook + 3 scene |
+| M5.9 review fixes | `07e2f55` | +1 timer regression |
+| M5.5 backend endpoint mastery-history | `a061204` | 3 intégration |
+| M5.5 Trajectoire view | `8d5b7e0` | 3 Playwright + 2 vitest |
+| M5.6 Littératie IA view (ADR 011) | `87abf00` | 3 Playwright + 1 vitest |
+| M5.8 Raisonnement view | `55047e8` | 2 Playwright + 1 vitest |
+| M5.7 bundle_version filter (parallèle) | `350d092` | 6 unit + 6 integration |
+| M5.11 E2E 2-sessions + tools/e2e-m5.sh | `67c6070` | bash + tsc validations |
+| Dette technique D.1-D.4 | `ae1d1eb` | audit ADR 011 clean |
+| Follow-ups consolidation | `a1976a8` | IC80 + fmt + strict-match + Math.round + readiness polling |
+
+### Tests cumulés sur m5-analytics-views
+
+**338 verts** (127 TS vitest + 211 Python pytest) — +119 vs main baseline.
+
+### Garde-fous ADR 011 audités
+
+- AILiteracyCard footer + page banner « formatif uniquement »
+- IC80 format `[low%, high%]` direct
+- Pseudonyme obligatoire (FastAPI 422 + 400 défensif)
+- Audit dashboard `name|email|firstName|lastName` : 0 leak (matches = HTML form attributes)
+
+### ADRs et docs (Studium worktree)
+
+- ADR 010 flat scene shape (`d0d77fd`)
+- ADR 011 ai_literacy_index v1 + garde-fous (`ad2b547`)
+- ADR 012 discussion scene type v1 (`724aed4`)
+- ADR 006 amendment v1.1 — 11 → 13 events fermés (`c02864d`)
+
+### Gate humain Task 9
+
+Validation blanket par utilisateur 2026-05-13 (mode autonome multi-heures). 338 tests
+verts + tous reviews approuvés (Critical 0, Important fixés ou follow-up consolidés)
++ démo dashboard locale services démarrés (collector :8003 + dashboard :3001 avec
+7 events fixture) + audit ADR 011 visuel.
+
+### Reste post-M5
+
+- D.4 push remote (user action) → CI Linux validation in vivo (WDIO + tools/e2e-m5.sh)
+- D.6 badge CI README
+- Follow-ups optionnels minor (a11y role="note", form pseudonyme/scene_id sur vue
+  Raisonnement, vitest exclude `tests/integration/**`)
+- Suite post-M5 : voir `Studium/docs/superpowers/specs/2026-05-12-post-m5-roadmap-design.md`
+  sous-projets B (D.4 remote), C (M6 démo), E (post-M6 enrichissements v0.4)
+
+---
+
 ## 2026-05-12 — C.6 wiring useTelemetry dans le runtime
 
 ### Livré
