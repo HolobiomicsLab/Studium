@@ -6,6 +6,7 @@ from metrics import (
     compute_ai_literacy_index,
     compute_autonomy,
     compute_calibration,
+    compute_journal_metrics,
     compute_progress,
     compute_reasoning_depth_score,
 )
@@ -170,6 +171,25 @@ def get_ai_literacy(
     return compute_ai_literacy_index(
         _data_dir(), course, pseudonyme=pseudonyme, window=window,
         bundle_version=bv,
+    )
+
+
+@app.get("/metrics/journal")
+def get_journal(
+    course: str,
+    pseudonyme: str | None = None,
+    bundle_version: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    """Journal entry counters (ADR 006 v1.3, ADR 011-style garde-fou).
+
+    Counters only — texte journal local jamais transmis.
+    """
+    _require_course_token(x_course_token, course)
+    bv = _validate_bundle_version(bundle_version)
+    return compute_journal_metrics(
+        _data_dir(), course,
+        pseudonyme=pseudonyme, bundle_version=bv,
     )
 
 

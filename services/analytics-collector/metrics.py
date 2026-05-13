@@ -620,6 +620,55 @@ def compute_ai_literacy_index(
     }
 
 
+def compute_journal_metrics(
+    data_dir,
+    course: str,
+    pseudonyme: str | None = None,
+    bundle_version: str | None = None,
+) -> dict:
+    """Journal entry counters per (course, pseudonyme?). No text — counters only (ADR 006 v1.3).
+
+    Aggregates ``journal_entry_submitted`` events. The journal text itself
+    is never received by the server (kept local in SQLCipher on the learner
+    device) — only metadata counters are exposed here :
+
+        - entries_total     : total entries submitted
+        - mean_length       : average ``entry_length`` (rounded 1 decimal)
+        - revision_rate     : proportion of entries flagged ``is_revision``
+        - entries_by_scene  : per-scene {count, mean_length}
+
+    Filtres : ``pseudonyme`` (1 étudiant) et ``bundle_version`` (M5.7).
+    """
+    entries_by_scene: dict[str, dict] = {}
+    total = 0
+    sum_length = 0
+    revisions = 0
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
+        if ev.get("type") != "journal_entry_submitted":
+            continue
+        if pseudonyme and ev.get("learner_pseudonym") != pseudonyme:
+            continue
+        total += 1
+        length = int(ev.get("entry_length", 0))
+        sum_length += length
+        if ev.get("is_revision"):
+            revisions += 1
+        sid = ev.get("scene_id", "")
+        if sid:
+            scene_entry = entries_by_scene.setdefault(sid, {"count": 0, "sum_length": 0})
+            scene_entry["count"] += 1
+            scene_entry["sum_length"] += length
+    return {
+        "entries_total": total,
+        "mean_length": round(sum_length / total, 1) if total else 0,
+        "revision_rate": round(revisions / total, 4) if total else 0,
+        "entries_by_scene": {
+            sid: {"count": d["count"], "mean_length": round(d["sum_length"] / d["count"], 1)}
+            for sid, d in entries_by_scene.items()
+        },
+    }
+
+
 def compute_autonomy(
     data_dir: Path,
     course: str,
