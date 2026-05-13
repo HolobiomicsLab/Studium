@@ -19,7 +19,7 @@
 #   --ci          inclut WDIO E2E (CI Linux)
 #
 # Pré-requis :
-#   - `uvicorn`, `python3.13`, `pnpm`, `jq`, `curl`, `bash` ≥ 5
+#   - `uvicorn`, `python3.12`, `pnpm`, `jq`, `curl`, `bash` ≥ 5
 #   - `services/analytics-collector` installé éditable
 #   - macOS : --no-tauri obligatoire (tauri-driver Linux/Windows only)
 
@@ -44,7 +44,7 @@ Modes :
   --ci         CI Linux : inclut WDIO E2E.
 
 Pré-requis :
-  - uvicorn, python3.13, pnpm, jq, curl, bash ≥ 5
+  - uvicorn, python3.12, pnpm, jq, curl, bash ≥ 5
   - services/analytics-collector pip install -e
 EOF
 }
