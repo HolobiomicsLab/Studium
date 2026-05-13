@@ -4,6 +4,56 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-05-13 — Evidence enrichment (Perspicacité + ABS coupling authoring-time)
+
+**Branche** : `prototype/evidence-enrichment` (10 commits + AGENT_LOG = 11 commits ahead of main au tag pose).
+**Tag** : `m6-evidence-v1`.
+**Méthode** : subagent-driven-development autonome, 12 tasks bite-sized,
+TDD strict, mapping spec→codebase scene_types (intro+concept+simulation+
+reproduction).
+
+### Livré (10 commits)
+
+| # | Tâche | Commit | Focus |
+|---|---|---|---|
+| 1 | Schema bump lesson-plan v1.4 | `bc5c9a8` | Evidence type AJV+TS+Pydantic, 6+6 tests |
+| 2 | EvidenceEnricher skeleton | `cad8d8b` | should_enrich + enrich(plan), 3 tests |
+| 3 | perspicacite_mapper | `1827985` | select_mode + extract_refs, 8 tests |
+| 4 | ABS asset extractor | `28169e5` | extract_asset priorité par scene_type, 6 tests |
+| 5 | CriticAgent._evaluate_enrichment | `e7723b2` | matrice scene_type × override, 10 tests |
+| 6 | Pipeline /plan integration | `08026d5` | gated STUDIUM_EVIDENCE_ENRICH, 2 tests |
+| 7 | Prov-O enrichment_activity | `09258b8` | ADR 009 chain étendue, 2 tests |
+| 8 | Bundle schema 1.4 + scene-synth | `1b6ab70` | Zod EvidenceSchema + propagation, 19+20+36 verts |
+| 9 | Fixture demo-metabolomics E2E | `235fd62` | task-msms-001 capsule + integration E2E, 67/67 planner |
+| 10 | Métrique scenes_with_evidence | `b3ad816` | analytics + dashboard ProgressMetrics |
+
+### Garde-fous ADR 014
+
+- ✅ Formatif uniquement (hors `assessment_blueprint` ADR 013)
+- ✅ Authoring-time seul (zero impact RGPD runtime)
+- ✅ Prov-O traçable (`enrichment_activity` node)
+- ✅ Override auteur préservé (`evidence_override: force | skip`)
+- ✅ Wrapper Perspicacité M0 réutilisé (retries + cache + audit)
+- ❌ Pas de re-ranking étudiant des refs
+- ❌ Pas de scoring qualité auto-affiché étudiant
+
+### ADRs et docs (Studium worktree)
+
+- ADR 014 evidence enrichment v1
+- Amendment ADR 003 — schema 1.3 → 1.4 trace historique
+- Design : `Studium/docs/superpowers/specs/2026-05-13-evidence-enrichment-design.md`
+- Plan : `Studium/docs/superpowers/plans/2026-05-13-evidence-enrichment-implementation.md`
+
+### Reste post-M6 evidence
+
+- UI auteur evidence editing (M6.5+)
+- v2 runtime-side enrichment (déféré sous consent C élargi)
+- Widget interactif ABS embedded (iframe — déféré)
+- Override mode Perspicacité par scène (déféré)
+- DRY `should_enrich` vs `_evaluate_enrichment` (suivi M6.x)
+
+---
+
 ## Views v0.4 — Journal + Coopération + Blueprint livré 2026-05-13
 
 **Branche** : `prototype/m6-views-v0.4` (12 commits ahead of main au tag pose).
