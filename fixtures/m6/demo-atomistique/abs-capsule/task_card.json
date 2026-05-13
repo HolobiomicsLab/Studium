@@ -1,0 +1,28 @@
+{
+  "task_id": "task-atom-001",
+  "title": "Placer les éléments dans le tableau périodique à partir de la configuration électronique",
+  "discipline": "chimie atomistique",
+  "level": "L1",
+  "concepts": ["c-config-electronique", "c-tableau-periodique"],
+  "task_type": "reproduction",
+  "description": "Déduire la position (période et groupe) d'éléments dans le tableau périodique à partir de leur configuration électronique. Travail de raisonnement séquentiel, application des règles de Klechkowski + organisation du tableau.",
+  "expected_skills": [
+    "Identifier la couche de valence depuis une configuration",
+    "Compter les électrons de valence",
+    "Déterminer la période et le groupe correspondants"
+  ],
+  "assets": [
+    {
+      "filename": "periodic-table.svg",
+      "asset_type": "spectrum_viewer_svg",
+      "description": "Tableau périodique des éléments — version pédagogique avec numéros atomiques + symboles",
+      "license": "CC BY-SA 4.0 (inspiration Wikimedia Commons)",
+      "size_bytes_approx": 12000
+    }
+  ],
+  "provenance": {
+    "created_by": "studium-demo-m6",
+    "created_at": "2026-05-13T09:00:00Z",
+    "source": "ABS prototype — adapted for L1 SV atomistic chemistry"
+  }
+}
