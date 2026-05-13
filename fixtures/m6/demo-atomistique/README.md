@@ -21,6 +21,14 @@ Corpus pédagogique pour la démo end-to-end M6 (`m6-demo`).
 > ajouter des articles OA réels (CC BY/CC BY-SA, ≤ 5 Mo), remplace ces
 > placeholders et mets à jour le tableau.
 
+## Build du bundle
+
+```bash
+bash fixtures/m6/demo-atomistique/build.sh
+```
+
+Produit `fixtures/m6/demo-atomistique-bundle.zip` consommé par le Tauri runtime via Library.
+
 ## Scénario démo (4 étapes, ~15-20 min)
 
 1. **Auteur** : ingestion corpus → plan → blueprint → bundle

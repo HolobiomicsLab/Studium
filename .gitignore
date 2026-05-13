@@ -23,3 +23,4 @@ build/
 # Playwright / e2e test artifacts
 playwright-report/
 test-results/
+fixtures/m6/demo-atomistique-bundle.zip
