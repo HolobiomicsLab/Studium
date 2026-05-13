@@ -46,4 +46,5 @@ def test_bundle_has_reproduction_with_abs_asset() -> None:
     assert len(repro_with_evidence) >= 1
     abs_asset = repro_with_evidence[0].evidence.abs_asset
     assert abs_asset is not None
-    assert "periodic-table" in abs_asset.payload_path or abs_asset.asset_type
+    assert "periodic-table" in abs_asset.payload_path
+    assert abs_asset.asset_type == "spectrum_viewer_svg"
