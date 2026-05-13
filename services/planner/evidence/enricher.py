@@ -13,6 +13,7 @@ from planner_schemas import (
     EnrichmentMetadata,
     BibliographicRef,
 )
+from .perspicacite_mapper import select_mode, extract_refs
 
 
 ELIGIBLE_TYPES = {
@@ -20,13 +21,6 @@ ELIGIBLE_TYPES = {
     SceneType.concept,
     SceneType.simulation,
     SceneType.reproduction,
-}
-
-MODE_BY_TYPE: dict[SceneType, str] = {
-    SceneType.intro: "advanced",
-    SceneType.concept: "advanced",
-    SceneType.simulation: "profound",
-    SceneType.reproduction: "agentic",
 }
 
 ENRICHER_VERSION = "1.0"
@@ -59,27 +53,15 @@ class EvidenceEnricher:
         return plan
 
     def _enrich_scene(self, scene: SceneOutline) -> None:
-        mode = MODE_BY_TYPE.get(scene.type, "advanced")
+        mode = select_mode(scene.type)
         degraded = False
-
         bibliographic_refs: Optional[list[BibliographicRef]] = None
         try:
             response = self.perspicacite.search(
                 query=scene.title, mode=mode, max_results=5
             )
-            if response.get("status") == "ok":
-                bibliographic_refs = [
-                    BibliographicRef(
-                        perspicacite_doc_id=d["id"],
-                        title=d["title"],
-                        authors=d["authors"],
-                        excerpt=d["excerpt"],
-                        relevance_score=d["relevance_score"],
-                        prov_derived_from=f"urn:perspicacite:doc:{d['id']}",
-                    )
-                    for d in response.get("docs", [])
-                ]
-            else:
+            bibliographic_refs = extract_refs(response) or None
+            if not bibliographic_refs:
                 degraded = True
         except Exception:
             degraded = True
