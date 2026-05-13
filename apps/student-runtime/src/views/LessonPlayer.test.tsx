@@ -12,7 +12,7 @@ afterEach(cleanup);
 
 const { emitMock, flushMock, bundle } = vi.hoisted(() => {
   const b: LessonBundle = {
-    schema_version: "1.2",
+    schema_version: "1.3",
     bundle_id: "demo-001",
     source_plan_id: "plan-001",
     metadata: {

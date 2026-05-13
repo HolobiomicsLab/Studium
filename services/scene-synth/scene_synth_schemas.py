@@ -183,7 +183,7 @@ class AdaptationRule(BaseModel):
 class LessonBundle(BaseModel):
     """Pydantic mirror of LessonBundleSchema (TS) — ADR 012 v1.2."""
 
-    schema_version: Literal["1.2"]
+    schema_version: Literal["1.3"]
     bundle_id: str
     source_plan_id: str
     metadata: BundleMetadata

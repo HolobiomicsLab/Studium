@@ -5,7 +5,7 @@ ADR 010 — flat shape : tous les types de scène déclarent leurs champs métie
 """
 from __future__ import annotations
 from typing import Annotated, Any, Optional, Literal, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 SceneType = Literal[
@@ -142,8 +142,46 @@ class AdaptationRule(BaseModel):
     explanation_short: str
 
 
+BlueprintEndpoint = Literal[
+    "progress", "calibration", "autonomy", "ai_literacy", "reasoning", "ai_audit",
+]
+
+
+class BlueprintMetricRef(BaseModel):
+    endpoint: BlueprintEndpoint
+    field: str = Field(min_length=1)
+    weight_in_dimension: float = Field(ge=0, le=1)
+
+
+class BlueprintDimension(BaseModel):
+    id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    weight: float = Field(ge=0, le=1)
+    metrics: list[BlueprintMetricRef] = Field(min_length=1)
+
+    @field_validator("metrics")
+    @classmethod
+    def validate_metric_weights_sum(cls, v):
+        s = sum(m.weight_in_dimension for m in v)
+        if abs(s - 1.0) > 0.001:
+            raise ValueError(f"metrics weight_in_dimension must sum to 1.0 (got {s:.3f})")
+        return v
+
+
+class AssessmentBlueprint(BaseModel):
+    dimensions: list[BlueprintDimension] = Field(min_length=1)
+
+    @field_validator("dimensions")
+    @classmethod
+    def validate_dimension_weights_sum(cls, v):
+        s = sum(d.weight for d in v)
+        if abs(s - 1.0) > 0.001:
+            raise ValueError(f"dimensions weight must sum to 1.0 (got {s:.3f})")
+        return v
+
+
 class LessonBundle(BaseModel):
-    schema_version: Literal["1.2"]
+    schema_version: Literal["1.3"]
     bundle_id: str
     source_plan_id: str
     metadata: BundleMetadata
@@ -152,3 +190,4 @@ class LessonBundle(BaseModel):
     rules: list[AdaptationRule]
     validated_by: str = Field(min_length=3)
     validated_at: str
+    assessment_blueprint: AssessmentBlueprint | None = None

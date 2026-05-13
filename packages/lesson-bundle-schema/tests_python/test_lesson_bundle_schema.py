@@ -6,7 +6,7 @@ from lesson_bundle_schema import LessonBundle, IntroScene, QuizScene, Adaptation
 
 # ADR 010 — flat shape ; schema_version bumped to 1.1.
 VALID_BUNDLE = {
-    "schema_version": "1.2",
+    "schema_version": "1.3",
     "bundle_id": "b-001",
     "source_plan_id": "p-001",
     "metadata": {
@@ -128,5 +128,44 @@ def test_discussion_scene_rejects_invalid_signal():
 
 def test_rejects_legacy_schema_version_1_1():
     invalid = dict(VALID_BUNDLE, schema_version="1.1")
+    with pytest.raises(Exception):
+        LessonBundle(**invalid)
+
+
+def test_bundle_with_blueprint_valid():
+    bundle = dict(VALID_BUNDLE, schema_version="1.3", assessment_blueprint={
+        "dimensions": [
+            {"id": "d1", "label": "D1", "weight": 0.6,
+             "metrics": [{"endpoint": "ai_literacy", "field": "value", "weight_in_dimension": 1.0}]},
+            {"id": "d2", "label": "D2", "weight": 0.4,
+             "metrics": [{"endpoint": "calibration", "field": "brier_score", "weight_in_dimension": 1.0}]},
+        ],
+    })
+    LessonBundle(**bundle)
+
+
+def test_blueprint_dimensions_weights_must_sum_to_one():
+    bundle = dict(VALID_BUNDLE, schema_version="1.3", assessment_blueprint={
+        "dimensions": [
+            {"id": "d1", "label": "D1", "weight": 0.3, "metrics": [{"endpoint": "progress", "field": "completion_rate", "weight_in_dimension": 1.0}]},
+        ],
+    })
+    with pytest.raises(Exception):
+        LessonBundle(**bundle)
+
+
+def test_blueprint_invalid_endpoint_rejected():
+    bundle = dict(VALID_BUNDLE, schema_version="1.3", assessment_blueprint={
+        "dimensions": [
+            {"id": "d1", "label": "D1", "weight": 1.0,
+             "metrics": [{"endpoint": "garbage", "field": "x", "weight_in_dimension": 1.0}]},
+        ],
+    })
+    with pytest.raises(Exception):
+        LessonBundle(**bundle)
+
+
+def test_rejects_legacy_schema_version_1_2():
+    invalid = dict(VALID_BUNDLE, schema_version="1.2")
     with pytest.raises(Exception):
         LessonBundle(**invalid)
