@@ -173,6 +173,35 @@ pub fn telemetry_outbox_count(state: State<AppState>) -> Result<i64, String> {
     storage::telemetry_outbox_count(&conn).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn journal_create(
+    state: State<AppState>,
+    scene_id: String,
+    content: String,
+) -> Result<i64, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    storage::journal_create(&conn, &scene_id, &content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn journal_update(
+    state: State<AppState>,
+    entry_id: i64,
+    content: String,
+) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    storage::journal_update(&conn, entry_id, &content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn journal_list(
+    state: State<AppState>,
+    scene_id: Option<String>,
+) -> Result<Vec<storage::JournalEntry>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    storage::journal_list(&conn, scene_id.as_deref()).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

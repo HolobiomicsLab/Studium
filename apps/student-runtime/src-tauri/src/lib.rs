@@ -28,6 +28,9 @@ pub fn run() {
             commands::telemetry_outbox_push,
             commands::telemetry_outbox_drain,
             commands::telemetry_outbox_count,
+            commands::journal_create,
+            commands::journal_update,
+            commands::journal_list,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

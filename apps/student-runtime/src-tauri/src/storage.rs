@@ -1,8 +1,19 @@
 use rusqlite::{params, Connection};
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use thiserror::Error;
 use crate::keystore;
 use crate::pseudonyme;
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct JournalEntry {
+    pub id: i64,
+    pub scene_id: String,
+    pub content_encrypted: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub revision_index: i64,
+}
 
 #[derive(Debug, Error)]
 pub enum StorageError {
@@ -79,8 +90,103 @@ fn apply_schema(conn: &Connection) -> Result<(), StorageError> {
         );
         CREATE INDEX IF NOT EXISTS idx_telemetry_outbox_created
             ON telemetry_outbox(created_at);
+        CREATE TABLE IF NOT EXISTS learner_journal (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            scene_id          TEXT NOT NULL,
+            content_encrypted TEXT NOT NULL,
+            created_at        TEXT NOT NULL,
+            updated_at        TEXT NOT NULL,
+            revision_index    INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_journal_scene ON learner_journal(scene_id);
     ")?;
     Ok(())
+}
+
+pub fn journal_create(
+    conn: &Connection,
+    scene_id: &str,
+    content_encrypted: &str,
+) -> Result<i64, StorageError> {
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO learner_journal
+         (scene_id, content_encrypted, created_at, updated_at, revision_index)
+         VALUES (?, ?, ?, ?, 0)",
+        params![scene_id, content_encrypted, now, now],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn journal_update(
+    conn: &Connection,
+    entry_id: i64,
+    content_encrypted: &str,
+) -> Result<(), StorageError> {
+    let now = chrono::Utc::now().to_rfc3339();
+    let affected = conn.execute(
+        "UPDATE learner_journal
+         SET content_encrypted = ?,
+             updated_at        = ?,
+             revision_index    = revision_index + 1
+         WHERE id = ?",
+        params![content_encrypted, now, entry_id],
+    )?;
+    if affected == 0 {
+        return Err(StorageError::Sqlite(rusqlite::Error::QueryReturnedNoRows));
+    }
+    Ok(())
+}
+
+pub fn journal_list(
+    conn: &Connection,
+    scene_id: Option<&str>,
+) -> Result<Vec<JournalEntry>, StorageError> {
+    let mut entries = Vec::new();
+    match scene_id {
+        Some(sid) => {
+            let mut stmt = conn.prepare(
+                "SELECT id, scene_id, content_encrypted, created_at, updated_at, revision_index
+                 FROM learner_journal
+                 WHERE scene_id = ?
+                 ORDER BY created_at ASC, id ASC",
+            )?;
+            let rows = stmt.query_map(params![sid], |r| {
+                Ok(JournalEntry {
+                    id: r.get(0)?,
+                    scene_id: r.get(1)?,
+                    content_encrypted: r.get(2)?,
+                    created_at: r.get(3)?,
+                    updated_at: r.get(4)?,
+                    revision_index: r.get(5)?,
+                })
+            })?;
+            for row in rows {
+                entries.push(row?);
+            }
+        }
+        None => {
+            let mut stmt = conn.prepare(
+                "SELECT id, scene_id, content_encrypted, created_at, updated_at, revision_index
+                 FROM learner_journal
+                 ORDER BY created_at ASC, id ASC",
+            )?;
+            let rows = stmt.query_map([], |r| {
+                Ok(JournalEntry {
+                    id: r.get(0)?,
+                    scene_id: r.get(1)?,
+                    content_encrypted: r.get(2)?,
+                    created_at: r.get(3)?,
+                    updated_at: r.get(4)?,
+                    revision_index: r.get(5)?,
+                })
+            })?;
+            for row in rows {
+                entries.push(row?);
+            }
+        }
+    }
+    Ok(entries)
 }
 
 pub fn telemetry_outbox_push(conn: &Connection, event_json: &str) -> Result<(), StorageError> {
@@ -150,6 +256,7 @@ pub fn delete_all(conn: &Connection) -> Result<(), StorageError> {
         DELETE FROM learner_state;
         DELETE FROM consent;
         DELETE FROM telemetry_outbox;
+        DELETE FROM learner_journal;
     ")?;
     let new_secret = pseudonyme::generate_secret();
     let now = chrono::Utc::now().to_rfc3339();
@@ -239,5 +346,77 @@ mod tests {
         telemetry_outbox_push(&conn, "{\"type\":\"x\"}").unwrap();
         delete_all(&conn).unwrap();
         assert_eq!(telemetry_outbox_count(&conn).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_journal_table_created() {
+        let dir = temp_dir();
+        let conn = open_or_init_with_key(&dir, &TEST_KEY).expect("open");
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='learner_journal'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1, "learner_journal table should exist");
+    }
+
+    #[test]
+    fn test_journal_create_and_list() {
+        let dir = temp_dir();
+        let conn = open_or_init_with_key(&dir, &TEST_KEY).expect("open");
+        let id = journal_create(&conn, "scene-A", "encrypted-content-1").expect("create");
+        assert!(id > 0);
+
+        let entries = journal_list(&conn, Some("scene-A")).expect("list");
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].scene_id, "scene-A");
+        assert_eq!(entries[0].content_encrypted, "encrypted-content-1");
+        assert_eq!(entries[0].revision_index, 0);
+
+        // Non-matching scene_id returns nothing
+        let other = journal_list(&conn, Some("scene-B")).expect("list");
+        assert_eq!(other.len(), 0);
+
+        // None returns all
+        let all = journal_list(&conn, None).expect("list-all");
+        assert_eq!(all.len(), 1);
+    }
+
+    #[test]
+    fn test_journal_update_increments_revision() {
+        let dir = temp_dir();
+        let conn = open_or_init_with_key(&dir, &TEST_KEY).expect("open");
+        let id = journal_create(&conn, "scene-X", "v0").expect("create");
+
+        journal_update(&conn, id, "v1").expect("update");
+        let entries = journal_list(&conn, Some("scene-X")).expect("list");
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].content_encrypted, "v1");
+        assert_eq!(entries[0].revision_index, 1);
+
+        journal_update(&conn, id, "v2").expect("update");
+        let entries = journal_list(&conn, Some("scene-X")).expect("list");
+        assert_eq!(entries[0].content_encrypted, "v2");
+        assert_eq!(entries[0].revision_index, 2);
+
+        // Updating a non-existent id is an error
+        let err = journal_update(&conn, 99_999, "nope");
+        assert!(err.is_err(), "updating missing entry should fail");
+    }
+
+    #[test]
+    fn test_journal_wiped_by_delete_all_data() {
+        let dir = temp_dir();
+        let conn = open_or_init_with_key(&dir, &TEST_KEY).expect("open");
+        journal_create(&conn, "scene-Z", "secret").expect("create");
+        assert_eq!(journal_list(&conn, None).unwrap().len(), 1);
+        delete_all(&conn).expect("wipe");
+        assert_eq!(
+            journal_list(&conn, None).unwrap().len(),
+            0,
+            "journal should be wiped by delete_all"
+        );
     }
 }
