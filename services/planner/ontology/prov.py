@@ -38,25 +38,27 @@ def build_prov_graph(
 
     # — Activité planner
     planner_activity_uri = plan.prov_generated_by or f"urn:studium:activity:planner:unknown"
+    _audit = planner_audit or {}
     planner_node: dict[str, Any] = {
         "@id": planner_activity_uri,
         "@type": "prov:Activity",
-        "schema:provider": f"{planner_audit.get('provider', 'unknown')}/{planner_audit.get('alias', '')}",
+        "schema:provider": f"{_audit.get('provider', 'unknown')}/{_audit.get('alias', '')}",
     }
     if plan.prov_derived_from:
         planner_node["prov:used"] = [{"@id": u} for u in plan.prov_derived_from]
     nodes.append(planner_node)
 
     # — Activité critic
-    critic_uri = critique.prov_activity_uri
-    critic_node: dict[str, Any] = {
-        "@id": critic_uri,
-        "@type": "prov:Activity",
-        "prov:used": {"@id": plan_uri},
-        "skos:note": f"bloom_consistency: {critique.bloom_consistency}",
-        "schema:value": critique.score,
-    }
-    nodes.append(critic_node)
+    if critique is not None:
+        critic_uri = critique.prov_activity_uri
+        critic_node: dict[str, Any] = {
+            "@id": critic_uri,
+            "@type": "prov:Activity",
+            "prov:used": {"@id": plan_uri},
+            "skos:note": f"bloom_consistency: {critique.bloom_consistency}",
+            "schema:value": critique.score,
+        }
+        nodes.append(critic_node)
 
     # — Entités CorpusRef
     for ref in plan.corpus_refs:
@@ -104,5 +106,21 @@ def build_prov_graph(
         if scene.skos_concept_uris:
             scene_node["skos:related"] = [{"@id": u} for u in scene.skos_concept_uris]
         nodes.append(scene_node)
+
+    # ADR 014 : enrichment_activity si ≥1 scène porte evidence
+    enriched_scene_ids = [
+        s.id for s in plan.scene_outlines
+        if getattr(s, "evidence", None) is not None
+    ]
+    if enriched_scene_ids:
+        enrichment_uri = f"urn:studium:activity:enrichment:{plan.id}"
+        nodes.append({
+            "@id": enrichment_uri,
+            "@type": "prov:Activity",
+            "prov:wasInformedBy": [
+                f"urn:studium:scene:{plan.id}:{sid}" for sid in enriched_scene_ids
+            ],
+            "rdfs:label": "EvidenceEnricher activity (ADR 014)",
+        })
 
     return {"@context": CONTEXT, "@graph": nodes}
