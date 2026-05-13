@@ -55,7 +55,7 @@ export default function DiscussionScene({ scene, emit, onSignal: _onSignal, onCo
         ))}
       </ul>
       <textarea
-        className="w-full border rounded p-2 text-sm"
+        className="w-full border rounded p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         rows={3}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -64,13 +64,16 @@ export default function DiscussionScene({ scene, emit, onSignal: _onSignal, onCo
       />
       <div className="flex justify-between mt-2">
         <button
-          className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-300"
+          className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           disabled={!draft.trim() || turns.length >= scene.max_turns}
           onClick={send}
         >
           Envoyer
         </button>
-        <button className="px-4 py-2 bg-gray-200 rounded" onClick={onContinue}>
+        <button
+          className="px-4 py-2 bg-gray-200 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          onClick={onContinue}
+        >
           Continuer
         </button>
       </div>

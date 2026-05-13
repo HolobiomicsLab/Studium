@@ -62,6 +62,7 @@ export default function QuizScene({ scene, onSignal, onContinue, emit }: Props) 
                 disabled={submitted}
                 checked={selected === c.id}
                 onChange={() => setSelected(c.id)}
+                className="focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               />
               <span>{c.text}</span>
             </label>
@@ -70,7 +71,7 @@ export default function QuizScene({ scene, onSignal, onContinue, emit }: Props) 
       </ul>
       {!submitted && (
         <button
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-300"
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           disabled={!selected}
           onClick={submit}
         >
@@ -84,7 +85,7 @@ export default function QuizScene({ scene, onSignal, onContinue, emit }: Props) 
         >
           {correct ? scene.feedback_correct : scene.feedback_incorrect}
           <button
-            className="ml-3 px-3 py-1 bg-blue-600 text-white rounded"
+            className="ml-3 px-3 py-1 bg-blue-600 text-white rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             onClick={onContinue}
           >
             Continuer

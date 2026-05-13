@@ -29,14 +29,17 @@ export default function MetaCheckpointScene({ scene, onSignal, onContinue }: Pro
           <button
             key={i}
             onClick={() => setValue(i)}
-            className={`px-3 py-2 rounded text-sm ${value === i ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+            className={`px-3 py-2 rounded text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${value === i ? "bg-blue-600 text-white" : "bg-gray-200"}`}
           >
             {i}
           </button>
         ))}
       </div>
       <p className="text-xs text-gray-500 mb-6">{scene.scale_labels[value]}</p>
-      <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={submit}>
+      <button
+        className="px-4 py-2 bg-blue-600 text-white rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+        onClick={submit}
+      >
         Continuer
       </button>
     </section>

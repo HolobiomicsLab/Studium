@@ -114,7 +114,7 @@ export default function AICritiqueScene({ scene, onSignal, onContinue, endpoint,
         <textarea
           aria-label="critique-textarea"
           rows={6}
-          className="w-full border rounded p-2"
+          className="w-full border rounded p-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           value={critique}
           onChange={(e) => setCritique(e.target.value)}
           disabled={submitting || result !== null}
@@ -123,7 +123,7 @@ export default function AICritiqueScene({ scene, onSignal, onContinue, endpoint,
       </label>
       {!result && (
         <button
-          className="mt-3 px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-300"
+          className="mt-3 px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           disabled={critique.trim().length < 10 || submitting}
           onClick={submit}
         >
@@ -148,7 +148,7 @@ export default function AICritiqueScene({ scene, onSignal, onContinue, endpoint,
           </p>
           <p className="mt-1 text-sm">{result.feedback}</p>
           <button
-            className="mt-2 px-3 py-1 bg-blue-600 text-white rounded"
+            className="mt-2 px-3 py-1 bg-blue-600 text-white rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             onClick={onContinue}
           >
             Continuer

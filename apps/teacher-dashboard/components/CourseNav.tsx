@@ -35,9 +35,10 @@ export default function CourseNav({ token, active }: Props) {
             <Link
               href={`/courses/${encodeURIComponent(token)}/${t.key}`}
               className={
-                t.key === active
+                (t.key === active
                   ? "inline-block py-2 border-b-2 border-blue-600 font-semibold"
-                  : "inline-block py-2 text-gray-600 hover:text-gray-900"
+                  : "inline-block py-2 text-gray-600 hover:text-gray-900") +
+                " focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded"
               }
             >
               {t.label}
