@@ -13,8 +13,21 @@
  *  - Bundle accessible `/tmp/studium-e2e/demo-atomistique.zip`.
  *
  * Exécution macOS : impossible. CI Linux only (workflow D.5).
+ *
+ * Selectors alignés sur `m5-end-to-end.spec.ts` (id HTML `#a` pour consent,
+ * `button*=Continuer` pour navigation, `[data-testid='library-load-bundle']`
+ * pour le chargement bundle, `[data-scene-type='…']` pour le routing scène).
  */
 describe("Démo M6 atomistique — 2 sessions cross-session", () => {
+  const expectedSceneTypes = [
+    "intro",
+    "concept",
+    "quiz",
+    "meta_checkpoint",
+    "reproduction",
+    "ai_critique",
+  ];
+
   const installFetchCounter = async (): Promise<void> => {
     await browser.execute(() => {
       const w = window as unknown as {
@@ -53,7 +66,7 @@ describe("Démo M6 atomistique — 2 sessions cross-session", () => {
         } catch {
           /* swallow */
         }
-        return realFetch(input, init);
+        return realFetch(input as RequestInfo, init);
       }) as typeof fetch;
     });
   };
@@ -64,49 +77,106 @@ describe("Démo M6 atomistique — 2 sessions cross-session", () => {
       return w.__emitted_count ?? 0;
     })) as number;
 
-  const consentAndOpenLibrary = async (): Promise<void> => {
-    // Consent A obligatoire
-    const consentA = await $('[data-testid="consent-A-accept"]');
-    await consentA.waitForClickable({ timeout: 10000 });
-    await consentA.click();
-    const submit = await $('[data-testid="consent-submit"]');
-    await submit.click();
-    // Library s'ouvre
-    const library = await $('[data-testid="library-screen"]');
-    await library.waitForExist({ timeout: 5000 });
-  };
+  /**
+   * Parcours complet :
+   *   consent (1ʳᵉ session uniquement) → library load bundle → boucle scènes → fin.
+   *
+   * Selectors identiques à `m5-end-to-end.spec.ts` :
+   *   - Consent A   : `#a` (checkbox HTML id)
+   *   - Continuer   : `button*=Continuer`
+   *   - Library     : `[data-testid='library-load-bundle']`
+   *   - Player      : `[data-testid='lesson-player']`
+   *   - Scène       : `[data-scene-type='<type>']`
+   */
+  const playFullParcours = async (skipConsent = false): Promise<void> => {
+    await browser.pause(1500);
 
-  const playLessonFully = async (lessonScenes: number): Promise<void> => {
-    // Click sur le bundle dans Library
-    const bundleCard = await $('[data-testid="bundle-card"]');
-    await bundleCard.waitForClickable({ timeout: 5000 });
-    await bundleCard.click();
-
-    // Boucle de jeu : appuie sur "Suivant" jusqu'à fin leçon
-    for (let i = 0; i < lessonScenes; i++) {
-      const next = await $('[data-testid="scene-next"]');
-      await next.waitForClickable({ timeout: 15000 });
-      // Si scène quiz : sélectionne 1ère réponse arbitrairement (correct ou non)
-      const quizChoice = await $('[data-testid="quiz-choice-a"]');
-      if (await quizChoice.isExisting()) {
-        await quizChoice.click();
+    if (!skipConsent) {
+      const consentUrl = await browser.getUrl();
+      if (consentUrl.includes("/consent")) {
+        const aBox = await $("#a");
+        if (await aBox.isExisting()) {
+          await aBox.click();
+        }
+        const continueBtn = await $("button*=Continuer");
+        if (await continueBtn.isExisting()) {
+          await continueBtn.click();
+        }
+        await browser.pause(500);
       }
-      // Si discussion / reproduction : remplit champ avec réponse minimale
-      const respField = await $('[data-testid="scene-response-input"]');
-      if (await respField.isExisting()) {
-        await respField.setValue(
-          "Réponse de test E2E pour démo M6 atomistique — contenu minimal valide pour passer la scène.",
-        );
-      }
-      await next.click();
-      await browser.pause(500);
     }
+
+    const loadBtn = await $("[data-testid='library-load-bundle']");
+    await loadBtn.waitForDisplayed({ timeout: 10_000 });
+    await loadBtn.click();
+
+    const player = await $("[data-testid='lesson-player']");
+    await player.waitForDisplayed({ timeout: 10_000 });
+
+    for (const sceneType of expectedSceneTypes) {
+      const renderer = await $(`[data-scene-type='${sceneType}']`);
+      await renderer.waitForDisplayed({ timeout: 8_000 });
+
+      switch (sceneType) {
+        case "quiz": {
+          const radio = await $(
+            `[data-scene-type='quiz'] input[type='radio']`,
+          );
+          if (await radio.isExisting()) {
+            await radio.click();
+            const submit = await $("button*=Soumettre");
+            if (await submit.isExisting()) {
+              await submit.click();
+            }
+          }
+          break;
+        }
+        case "reproduction": {
+          const step1 = await $("input[aria-label='étape 1']");
+          if (await step1.isExisting()) {
+            await step1.setValue("ok");
+            const validate = await $("button*=Valider");
+            if (await validate.isExisting()) {
+              await validate.click();
+            }
+          }
+          break;
+        }
+        case "ai_critique": {
+          const textarea = await $("textarea[aria-label='critique-textarea']");
+          if (await textarea.isExisting()) {
+            await textarea.setValue(
+              "Critique de test E2E pour démo M6 atomistique — contenu minimal valide.",
+            );
+            const submit = await $("button*=Soumettre");
+            if (await submit.isExisting()) {
+              await submit.click();
+            }
+          }
+          break;
+        }
+        default:
+          break;
+      }
+
+      const next = await $("button*=Continuer");
+      if (await next.isExisting()) {
+        await next.click();
+        await browser.pause(300);
+      }
+    }
+
+    // Laisse flush() final s'exécuter + force un beforeunload best-effort
+    await browser.pause(2000);
+    await browser.execute(() => {
+      window.dispatchEvent(new Event("beforeunload"));
+    });
+    await browser.pause(500);
   };
 
   it("session 1 — Leçon 1 (6 scènes) → ≥ 30 events", async () => {
     await installFetchCounter();
-    await consentAndOpenLibrary();
-    await playLessonFully(6);
+    await playFullParcours(false);
 
     const count = await getEmittedCount();
     // eslint-disable-next-line no-console
@@ -114,15 +184,14 @@ describe("Démo M6 atomistique — 2 sessions cross-session", () => {
     expect(count).toBeGreaterThanOrEqual(30);
   });
 
-  it("session 2 — Leçon 2 (4 scènes) cross-session → ≥ 50 cumulés", async () => {
+  it("session 2 — Leçon 2 cross-session → ≥ 50 cumulés", async () => {
     // Pas de reset : la session 1 a posé l'état SQLCipher.
-    // On relance la même fenêtre Tauri (état Beta préservé).
-    await browser.refresh();
+    // On retourne à la Library pour relancer un parcours — l'état Beta
+    // (consent, profil pseudonyme) doit persister.
+    await browser.url("/library");
     await browser.pause(1000);
 
-    await installFetchCounter();
-    await consentAndOpenLibrary();
-    await playLessonFully(4);
+    await playFullParcours(true);
 
     const count = await getEmittedCount();
     // eslint-disable-next-line no-console
