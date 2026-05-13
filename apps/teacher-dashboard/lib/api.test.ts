@@ -10,6 +10,7 @@ import {
   getAILiteracy,
   getReasoningDepth,
   getJournalStats,
+  getCooperationStats,
 } from "./api";
 
 describe("teacher-dashboard api wrapper", () => {
@@ -178,6 +179,29 @@ describe("teacher-dashboard api wrapper", () => {
     expect(call[0]).toContain("/metrics/journal?");
     expect(call[0]).toContain("course=course-x");
     expect(call[0]).toContain("pseudonyme=p1");
+    expect(call[0]).toContain("bundle_version=v0.4");
+    expect(call[1].headers["X-Course-Token"]).toBe("course-x");
+  });
+
+  it("getCooperationStats hits /metrics/cooperation with X-Course-Token + bundle_version", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        n_sessions: 3,
+        convergence_quality: 0.67,
+        role_coverage_mean: 0.83,
+        disagreement_productive_ratio: 0.5,
+        votes_per_session_mean: 4.2,
+      }),
+    });
+    const r = await getCooperationStats("course-x", { bundle_version: "v0.4" });
+    expect(r.n_sessions).toBe(3);
+    expect(r.convergence_quality).toBe(0.67);
+    expect(r.votes_per_session_mean).toBe(4.2);
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toContain("/metrics/cooperation?");
+    expect(call[0]).toContain("course=course-x");
     expect(call[0]).toContain("bundle_version=v0.4");
     expect(call[1].headers["X-Course-Token"]).toBe("course-x");
   });

@@ -155,3 +155,23 @@ export function getJournalStats(
     courseToken,
   );
 }
+
+export type CooperationStatsResponse = {
+  n_sessions: number;
+  convergence_quality: number | null;
+  role_coverage_mean: number | null;
+  disagreement_productive_ratio: number | null;
+  votes_per_session_mean: number;
+};
+
+export function getCooperationStats(
+  courseToken: string,
+  opts: { bundle_version?: string } = {},
+): Promise<CooperationStatsResponse> {
+  const params = new URLSearchParams({ course: courseToken });
+  if (opts.bundle_version) params.set("bundle_version", opts.bundle_version);
+  return fetchJson<CooperationStatsResponse>(
+    `/metrics/cooperation?${params.toString()}`,
+    courseToken,
+  );
+}
