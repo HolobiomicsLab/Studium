@@ -124,3 +124,70 @@ jobs:
             apps/student-runtime/src-tauri/target/debug/bundle/
             apps/student-runtime/src-tauri/target/release/bundle/
           if-no-files-found: warn
+
+  demo-m6:
+    name: Demo M6 end-to-end atomistique
+    needs: tauri-build
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: "9"
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Python dependencies
+        run: |
+          pip install -e packages/telemetry-events
+          pip install -e services/planner
+          pip install -e services/scene-synth
+          pip install -e services/analytics-collector
+
+      - name: Install Node dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Install Tauri/webkit deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            xvfb \
+            jq
+
+      - name: Install tauri-driver
+        run: cargo install tauri-driver --locked
+
+      - name: Run e2e-demo-m6 (CI mode)
+        run: xvfb-run -a bash tools/e2e-demo-m6.sh --ci
+        env:
+          STUDIUM_EVIDENCE_ENRICH: "off"
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-m6-logs
+          path: |
+            /tmp/m6-collector.log
+            /tmp/m6-dash.log
+            /tmp/m6-wdio.log

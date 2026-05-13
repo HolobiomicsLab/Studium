@@ -66,7 +66,7 @@ export default function ReproductionScene({ scene, onSignal, onContinue }: Props
               </p>
               <input
                 aria-label={`étape ${i + 1}`}
-                className={`mt-1 w-full border rounded px-2 py-1 ${
+                className={`mt-1 w-full border rounded px-2 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                   stepFailed ? "border-red-400 bg-red-50" : ""
                 }`}
                 disabled={submitted}
@@ -87,7 +87,7 @@ export default function ReproductionScene({ scene, onSignal, onContinue }: Props
       </ol>
       {!submitted && (
         <button
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-300"
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           onClick={submit}
           disabled={Object.keys(inputs).length === 0}
         >
@@ -110,7 +110,7 @@ export default function ReproductionScene({ scene, onSignal, onContinue }: Props
             </p>
           )}
           <button
-            className="mt-2 px-3 py-1 bg-blue-600 text-white rounded"
+            className="mt-2 px-3 py-1 bg-blue-600 text-white rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
             onClick={onContinue}
           >
             Continuer

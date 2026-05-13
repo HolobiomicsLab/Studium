@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" font-family="sans-serif" font-size="11">
+  <title>Tableau périodique — version pédagogique L1 SV</title>
+  <desc>Tableau périodique simplifié des 4 premières périodes pour démo Studium M6 atomistique.</desc>
+  <style>
+    .cell { stroke: #333; stroke-width: 0.5; }
+    .alcalin { fill: #ffeb99; }
+    .alcalinoterreux { fill: #ffe066; }
+    .transition { fill: #ffd6a5; }
+    .metalloid { fill: #d0bfff; }
+    .nonmetal { fill: #b2f2bb; }
+    .halogene { fill: #ffd6e0; }
+    .gaznoble { fill: #c5cae9; }
+    .symbol { font-weight: bold; font-size: 13px; }
+    .z { font-size: 9px; fill: #555; }
+  </style>
+  <!-- Période 1 -->
+  <g>
+    <rect class="cell nonmetal" x="10" y="10" width="42" height="42"/>
+    <text class="z" x="13" y="22">1</text>
+    <text class="symbol" x="20" y="40">H</text>
+  </g>
+  <g>
+    <rect class="cell gaznoble" x="730" y="10" width="42" height="42"/>
+    <text class="z" x="733" y="22">2</text>
+    <text class="symbol" x="738" y="40">He</text>
+  </g>
+  <!-- Période 2 -->
+  <g><rect class="cell alcalin" x="10" y="60" width="42" height="42"/><text class="z" x="13" y="72">3</text><text class="symbol" x="20" y="90">Li</text></g>
+  <g><rect class="cell alcalinoterreux" x="52" y="60" width="42" height="42"/><text class="z" x="55" y="72">4</text><text class="symbol" x="62" y="90">Be</text></g>
+  <g><rect class="cell metalloid" x="514" y="60" width="42" height="42"/><text class="z" x="517" y="72">5</text><text class="symbol" x="522" y="90">B</text></g>
+  <g><rect class="cell nonmetal" x="556" y="60" width="42" height="42"/><text class="z" x="559" y="72">6</text><text class="symbol" x="565" y="90">C</text></g>
+  <g><rect class="cell nonmetal" x="598" y="60" width="42" height="42"/><text class="z" x="601" y="72">7</text><text class="symbol" x="605" y="90">N</text></g>
+  <g><rect class="cell nonmetal" x="640" y="60" width="42" height="42"/><text class="z" x="643" y="72">8</text><text class="symbol" x="647" y="90">O</text></g>
+  <g><rect class="cell halogene" x="682" y="60" width="42" height="42"/><text class="z" x="685" y="72">9</text><text class="symbol" x="688" y="90">F</text></g>
+  <g><rect class="cell gaznoble" x="730" y="60" width="42" height="42"/><text class="z" x="733" y="72">10</text><text class="symbol" x="735" y="90">Ne</text></g>
+  <!-- Période 3 -->
+  <g><rect class="cell alcalin" x="10" y="110" width="42" height="42"/><text class="z" x="13" y="122">11</text><text class="symbol" x="18" y="140">Na</text></g>
+  <g><rect class="cell alcalinoterreux" x="52" y="110" width="42" height="42"/><text class="z" x="55" y="122">12</text><text class="symbol" x="60" y="140">Mg</text></g>
+  <g><rect class="cell metalloid" x="514" y="110" width="42" height="42"/><text class="z" x="517" y="122">13</text><text class="symbol" x="521" y="140">Al</text></g>
+  <g><rect class="cell metalloid" x="556" y="110" width="42" height="42"/><text class="z" x="559" y="122">14</text><text class="symbol" x="564" y="140">Si</text></g>
+  <g><rect class="cell nonmetal" x="598" y="110" width="42" height="42"/><text class="z" x="601" y="122">15</text><text class="symbol" x="607" y="140">P</text></g>
+  <g><rect class="cell nonmetal" x="640" y="110" width="42" height="42"/><text class="z" x="643" y="122">16</text><text class="symbol" x="649" y="140">S</text></g>
+  <g><rect class="cell halogene" x="682" y="110" width="42" height="42"/><text class="z" x="685" y="122">17</text><text class="symbol" x="688" y="140">Cl</text></g>
+  <g><rect class="cell gaznoble" x="730" y="110" width="42" height="42"/><text class="z" x="733" y="122">18</text><text class="symbol" x="735" y="140">Ar</text></g>
+  <!-- Période 4 (extrait : K, Ca, Fe, Cu, Zn) -->
+  <g><rect class="cell alcalin" x="10" y="160" width="42" height="42"/><text class="z" x="13" y="172">19</text><text class="symbol" x="22" y="190">K</text></g>
+  <g><rect class="cell alcalinoterreux" x="52" y="160" width="42" height="42"/><text class="z" x="55" y="172">20</text><text class="symbol" x="60" y="190">Ca</text></g>
+  <g><rect class="cell transition" x="304" y="160" width="42" height="42"/><text class="z" x="307" y="172">26</text><text class="symbol" x="312" y="190">Fe</text></g>
+  <g><rect class="cell transition" x="388" y="160" width="42" height="42"/><text class="z" x="391" y="172">29</text><text class="symbol" x="396" y="190">Cu</text></g>
+  <g><rect class="cell transition" x="430" y="160" width="42" height="42"/><text class="z" x="433" y="172">30</text><text class="symbol" x="438" y="190">Zn</text></g>
+  <!-- Légende -->
+  <g transform="translate(10, 240)">
+    <text font-weight="bold" y="0">Légende (familles principales)</text>
+    <rect class="cell alcalin" x="0" y="10" width="20" height="20"/>
+    <text x="25" y="25">Alcalins</text>
+    <rect class="cell alcalinoterreux" x="120" y="10" width="20" height="20"/>
+    <text x="145" y="25">Alcalino-terreux</text>
+    <rect class="cell transition" x="280" y="10" width="20" height="20"/>
+    <text x="305" y="25">Métaux de transition</text>
+    <rect class="cell metalloid" x="0" y="40" width="20" height="20"/>
+    <text x="25" y="55">Métalloïdes</text>
+    <rect class="cell nonmetal" x="120" y="40" width="20" height="20"/>
+    <text x="145" y="55">Non-métaux</text>
+    <rect class="cell halogene" x="280" y="40" width="20" height="20"/>
+    <text x="305" y="55">Halogènes</text>
+    <rect class="cell gaznoble" x="420" y="40" width="20" height="20"/>
+    <text x="445" y="55">Gaz nobles</text>
+  </g>
+  <text x="10" y="380" font-style="italic" fill="#666">Studium démo M6 — Atomistique L1 SV (extrait pédagogique)</text>
+</svg>

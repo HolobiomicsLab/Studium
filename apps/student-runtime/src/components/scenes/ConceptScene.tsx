@@ -14,7 +14,10 @@ export default function ConceptScene({ scene, bundlePath: _bundlePath, onContinu
       {scene.image_path && (
         <img src={`bundle://${scene.image_path}`} alt="" className="my-4" />
       )}
-      <button className="mt-6 px-4 py-2 bg-blue-600 text-white rounded" onClick={onContinue}>
+      <button
+        className="mt-6 px-4 py-2 bg-blue-600 text-white rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+        onClick={onContinue}
+      >
         Continuer
       </button>
     </article>

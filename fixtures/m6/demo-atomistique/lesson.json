@@ -1,0 +1,338 @@
+{
+  "schema_version": "1.4",
+  "bundle_id": "demo-atomistique-001",
+  "source_plan_id": "plan-demo-m6-atomistique",
+  "metadata": {
+    "title": "Atomistique L1 Sciences de la Vie — Démo Studium",
+    "target": "L1",
+    "duration_minutes": 45,
+    "language": "fr",
+    "discipline": "chimie atomistique"
+  },
+  "concepts": [
+    {
+      "id": "c-atome-structure",
+      "title": "Structure de l'atome",
+      "description": "Noyau (protons + neutrons) et nuage électronique.",
+      "bloom_level_target": "understand"
+    },
+    {
+      "id": "c-bohr",
+      "title": "Modèle de Bohr",
+      "description": "Niveaux d'énergie quantifiés, transitions électroniques.",
+      "bloom_level_target": "apply"
+    },
+    {
+      "id": "c-config-electronique",
+      "title": "Configuration électronique",
+      "description": "Règle de Klechkowski, principe de Pauli, règle de Hund.",
+      "bloom_level_target": "apply"
+    },
+    {
+      "id": "c-tableau-periodique",
+      "title": "Tableau périodique",
+      "description": "Organisation des éléments, périodicité des propriétés.",
+      "bloom_level_target": "analyze"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s1-intro",
+      "type": "intro",
+      "title": "Bienvenue — Structure de l'atome",
+      "objective_refs": [],
+      "concept_refs": ["c-atome-structure"],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "markdown": "# Atomistique L1 — Leçon 1\nDans cette leçon, tu vas découvrir la structure de l'atome (noyau + nuage électronique) et le modèle de Bohr qui explique les transitions électroniques.",
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "atkins-physical-chem-12e",
+            "doi": "10.1093/oso/9780198769866.001.0001",
+            "title": "Atkins' Physical Chemistry, 12e — Chapter 1: The quantum mechanics of motion",
+            "authors": ["Atkins, P.", "de Paula, J."],
+            "year": 2022,
+            "excerpt": "An atom consists of a small, dense, positively charged nucleus surrounded by a much larger region occupied by electrons.",
+            "relevance_score": 0.92,
+            "prov_derived_from": "urn:perspicacite:doc:atkins-physical-chem-12e"
+          }
+        ],
+        "case_studies": [],
+        "abs_asset": null,
+        "enrichment_metadata": {
+          "enricher_version": "evidence-enricher-1.0.0",
+          "perspicacite_mode_used": "advanced",
+          "timestamp": "2026-05-13T10:00:00Z",
+          "degraded": false
+        }
+      }
+    },
+    {
+      "id": "s1-concept-atome",
+      "type": "concept",
+      "title": "Structure de l'atome",
+      "objective_refs": [],
+      "concept_refs": ["c-atome-structure"],
+      "estimated_seconds": 180,
+      "adaptation_hooks": [],
+      "markdown": "## Structure de l'atome\n\nUn atome est composé d'un **noyau** central (protons positifs + neutrons neutres) entouré d'un **nuage électronique** (électrons négatifs).\n\n- **Numéro atomique Z** = nombre de protons (définit l'élément).\n- **Nombre de masse A** = protons + neutrons.\n- L'atome neutre a autant d'électrons que de protons.\n\nLe rayon du noyau est ~10⁻¹⁵ m, celui de l'atome ~10⁻¹⁰ m : 99,9% de l'atome est vide.",
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "mahan-university-chem-4e",
+            "doi": null,
+            "title": "Mahan, University Chemistry, 4e — Chapter 2: Atomic structure",
+            "authors": ["Mahan, B.M.", "Myers, R.J."],
+            "year": 1987,
+            "excerpt": "The nucleus contains essentially all the mass of the atom, yet occupies only a tiny fraction of its volume.",
+            "relevance_score": 0.88,
+            "prov_derived_from": "urn:perspicacite:doc:mahan-university-chem-4e"
+          }
+        ],
+        "case_studies": [],
+        "abs_asset": null,
+        "enrichment_metadata": {
+          "enricher_version": "evidence-enricher-1.0.0",
+          "perspicacite_mode_used": "advanced",
+          "timestamp": "2026-05-13T10:00:01Z",
+          "degraded": false
+        }
+      }
+    },
+    {
+      "id": "s1-quiz-atome",
+      "type": "quiz",
+      "title": "Quiz : nombre atomique",
+      "objective_refs": [],
+      "concept_refs": ["c-atome-structure"],
+      "estimated_seconds": 60,
+      "adaptation_hooks": ["rule_2err_replay_concept", "rule_mastery_high_skip"],
+      "question": "Le numéro atomique Z d'un élément correspond au nombre de :",
+      "choices": [
+        { "id": "a", "text": "Protons dans le noyau", "correct": true },
+        { "id": "b", "text": "Neutrons dans le noyau", "correct": false },
+        { "id": "c", "text": "Électrons dans le nuage", "correct": false },
+        { "id": "d", "text": "Protons + neutrons", "correct": false }
+      ],
+      "feedback_correct": "Exact ! Z définit l'élément chimique.",
+      "feedback_incorrect": "Non. Z = nombre de protons. C'est ce qui définit l'élément (par exemple Z=6 → carbone, toujours).",
+      "hints": ["Pense à ce qui distingue un élément d'un autre dans le tableau périodique."]
+    },
+    {
+      "id": "s1-concept-bohr",
+      "type": "concept",
+      "title": "Modèle de Bohr",
+      "objective_refs": [],
+      "concept_refs": ["c-bohr"],
+      "estimated_seconds": 180,
+      "adaptation_hooks": [],
+      "markdown": "## Modèle de Bohr (1913)\n\nLes électrons occupent des **orbites circulaires quantifiées** autour du noyau. Chaque orbite correspond à un niveau d'énergie discret (n = 1, 2, 3, ...).\n\nUne transition électronique entre deux niveaux émet (ou absorbe) un photon dont l'énergie vaut :\n\n$$E_{photon} = h\\nu = |E_{n_2} - E_{n_1}|$$\n\nCe modèle explique les **raies spectrales** de l'hydrogène.",
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "bohr-1913-philmag",
+            "doi": "10.1080/14786441308634955",
+            "title": "Bohr (1913) — On the Constitution of Atoms and Molecules",
+            "authors": ["Bohr, N."],
+            "year": 1913,
+            "excerpt": "The dynamical equilibrium of the systems in the stationary states can be discussed by help of the ordinary mechanics.",
+            "relevance_score": 0.95,
+            "prov_derived_from": "urn:perspicacite:doc:bohr-1913-philmag"
+          }
+        ],
+        "case_studies": [],
+        "abs_asset": null,
+        "enrichment_metadata": {
+          "enricher_version": "evidence-enricher-1.0.0",
+          "perspicacite_mode_used": "advanced",
+          "timestamp": "2026-05-13T10:00:02Z",
+          "degraded": false
+        }
+      }
+    },
+    {
+      "id": "s1-concept-modeles",
+      "type": "concept",
+      "title": "Pourquoi plusieurs modèles atomiques ?",
+      "objective_refs": [],
+      "concept_refs": ["c-atome-structure", "c-bohr"],
+      "estimated_seconds": 240,
+      "adaptation_hooks": [],
+      "markdown": "## Pourquoi conserver plusieurs modèles atomiques ?\n\nLe modèle de Bohr a été remplacé par la mécanique quantique. Pourtant, on l'enseigne toujours.\n\n**Question de réflexion** : pourquoi conserver un modèle qu'on sait incomplet ?\n\n- **Utilité pédagogique** : il introduit la quantification de l'énergie de façon visuelle.\n- **Pouvoir prédictif partiel** : il prédit correctement les raies de l'hydrogène.\n- **Histoire des sciences** : il illustre comment les théories évoluent par raffinements successifs.\n\nUn modèle n'est pas « vrai » ou « faux » — il est *utile dans un domaine de validité*."
+    },
+    {
+      "id": "s1-ai-critique-bohr",
+      "type": "ai_critique",
+      "title": "Critique de réponse IA — Modèle de Bohr",
+      "objective_refs": [],
+      "concept_refs": ["c-bohr"],
+      "estimated_seconds": 180,
+      "adaptation_hooks": [],
+      "claims": [
+        {
+          "id": "claim-bohr-newton",
+          "text": "Les électrons ne tombent pas sur le noyau parce que la force de Coulomb attractive est compensée par la force centrifuge, comme pour les planètes autour du Soleil.",
+          "flaws_expected": [
+            "Analogie newtonienne incorrecte au sens quantique",
+            "Bohr postule des orbites stationnaires sans rayonnement — c'est un postulat ad-hoc, pas une compensation de force",
+            "L'électrodynamique classique prédit au contraire que l'électron devrait spiraler vers le noyau en rayonnant"
+          ]
+        }
+      ],
+      "rubric": {
+        "completeness": 0.8,
+        "evidence_quality": 0.7,
+        "tone": 0.6
+      }
+    },
+    {
+      "id": "s2-intro",
+      "type": "intro",
+      "title": "Bienvenue — Configuration électronique",
+      "objective_refs": [],
+      "concept_refs": ["c-config-electronique"],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "markdown": "# Leçon 2 — Configuration électronique\nTu vas apprendre comment se répartissent les électrons dans les orbitales atomiques (règles de Klechkowski, Pauli, Hund) et comment le tableau périodique reflète cette organisation."
+    },
+    {
+      "id": "s2-concept-config",
+      "type": "concept",
+      "title": "Règles de remplissage",
+      "objective_refs": [],
+      "concept_refs": ["c-config-electronique"],
+      "estimated_seconds": 240,
+      "adaptation_hooks": [],
+      "markdown": "## Configuration électronique\n\n**Règle de Klechkowski** : les orbitales se remplissent par énergie croissante (n + ℓ) puis par n croissant à (n+ℓ) égal.\n\nOrdre : 1s, 2s, 2p, 3s, 3p, 4s, 3d, 4p, ...\n\n**Principe de Pauli** : 2 électrons max par orbitale (spins opposés).\n\n**Règle de Hund** : remplissage spins parallèles d'abord dans une sous-couche dégénérée.\n\nExemple — Carbone (Z=6) : 1s² 2s² 2p².",
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "atkins-physical-chem-12e",
+            "doi": "10.1093/oso/9780198769866.001.0001",
+            "title": "Atkins' Physical Chemistry, 12e — Chapter 9: Atomic structure and spectra",
+            "authors": ["Atkins, P.", "de Paula, J."],
+            "year": 2022,
+            "excerpt": "The order of orbital filling is given by the Madelung rule, which states that orbitals fill in order of increasing n+l.",
+            "relevance_score": 0.90,
+            "prov_derived_from": "urn:perspicacite:doc:atkins-physical-chem-12e"
+          }
+        ],
+        "case_studies": [],
+        "abs_asset": null,
+        "enrichment_metadata": {
+          "enricher_version": "evidence-enricher-1.0.0",
+          "perspicacite_mode_used": "advanced",
+          "timestamp": "2026-05-13T10:00:03Z",
+          "degraded": false
+        }
+      }
+    },
+    {
+      "id": "s2-quiz-config",
+      "type": "quiz",
+      "title": "Quiz : configuration électronique du carbone",
+      "objective_refs": [],
+      "concept_refs": ["c-config-electronique"],
+      "estimated_seconds": 60,
+      "adaptation_hooks": ["rule_2err_replay_concept"],
+      "question": "Quelle est la configuration électronique de l'atome de carbone (Z=6) ?",
+      "choices": [
+        { "id": "a", "text": "1s² 2s² 2p²", "correct": true },
+        { "id": "b", "text": "1s² 2s⁴", "correct": false },
+        { "id": "c", "text": "1s² 2p⁴", "correct": false },
+        { "id": "d", "text": "1s⁴ 2s²", "correct": false }
+      ],
+      "feedback_correct": "Exact. 2 + 2 + 2 = 6 électrons, conforme à Z=6.",
+      "feedback_incorrect": "Non. Klechkowski : 1s → 2s → 2p. Avec 6 électrons : 1s² (2e⁻) + 2s² (2e⁻) + 2p² (2e⁻).",
+      "hints": ["Applique Klechkowski. Combien d'électrons par orbitale (Pauli) ?"]
+    },
+    {
+      "id": "s2-reproduction-tableau",
+      "type": "reproduction",
+      "title": "Reproduction : placer les éléments dans le tableau périodique",
+      "objective_refs": [],
+      "concept_refs": ["c-tableau-periodique"],
+      "estimated_seconds": 480,
+      "adaptation_hooks": [],
+      "task_card_id": "task-atom-001",
+      "steps": [
+        {
+          "step_id": "step-na",
+          "instruction": "À partir de la configuration électronique du sodium (Z=11) : 1s² 2s² 2p⁶ 3s¹, déduis sa période et son groupe dans le tableau périodique.",
+          "expected_input_schema": {
+            "type": "object",
+            "properties": {
+              "periode": { "type": "integer" },
+              "groupe": { "type": "integer" }
+            },
+            "required": ["periode", "groupe"]
+          },
+          "expected_output": { "periode": 3, "groupe": 1 }
+        },
+        {
+          "step_id": "step-s",
+          "instruction": "Soufre (Z=16) : 1s² 2s² 2p⁶ 3s² 3p⁴ — donne période et groupe.",
+          "expected_input_schema": {
+            "type": "object",
+            "properties": {
+              "periode": { "type": "integer" },
+              "groupe": { "type": "integer" }
+            },
+            "required": ["periode", "groupe"]
+          },
+          "expected_output": { "periode": 3, "groupe": 16 }
+        },
+        {
+          "step_id": "step-ca",
+          "instruction": "Calcium (Z=20) : 1s² 2s² 2p⁶ 3s² 3p⁶ 4s² — donne période et groupe.",
+          "expected_input_schema": {
+            "type": "object",
+            "properties": {
+              "periode": { "type": "integer" },
+              "groupe": { "type": "integer" }
+            },
+            "required": ["periode", "groupe"]
+          },
+          "expected_output": { "periode": 4, "groupe": 2 }
+        }
+      ],
+      "prov_derived_from": "urn:abs:task-card:task-atom-001",
+      "evidence": {
+        "bibliographic_refs": [],
+        "case_studies": [],
+        "abs_asset": {
+          "abs_task_card_id": "task-atom-001",
+          "asset_type": "spectrum_viewer_svg",
+          "payload_path": "abs-capsule/assets/task-atom-001/periodic-table.svg",
+          "payload_inline": null,
+          "prov_derived_from": "urn:abs:task-card:task-atom-001"
+        },
+        "enrichment_metadata": {
+          "enricher_version": "evidence-enricher-1.0.0",
+          "perspicacite_mode_used": "agentic",
+          "timestamp": "2026-05-13T10:00:04Z",
+          "degraded": false
+        }
+      }
+    }
+  ],
+  "rules": [
+    {
+      "id": "rule_2err_replay_concept",
+      "when": { "consecutive_errors_same_concept": ">=2" },
+      "action": { "kind": "replay_current_scene", "reason": "errors_threshold" },
+      "modulator": "M1",
+      "explanation_short": "Tu as eu deux erreurs sur ce concept. On revoit avec un exemple."
+    },
+    {
+      "id": "rule_mastery_high_skip",
+      "when": { "mastery_c": ">=0.8", "total_attempts": ">=3" },
+      "action": { "kind": "skip_to_next_concept" },
+      "modulator": "M1",
+      "explanation_short": "Tu maîtrises ce concept, on passe au suivant."
+    }
+  ],
+  "validated_by": "prof.demo@studium.test",
+  "validated_at": "2026-05-13T10:00:00Z"
+}
