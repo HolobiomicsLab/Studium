@@ -669,6 +669,81 @@ def compute_journal_metrics(
     }
 
 
+def _convergence_quality_from_distribution(dist: list) -> float:
+    """Map a Likert-5 distribution to a convergence_quality score in [0,1].
+
+    High score = most votes concentrated on high confidence labels
+    (indices 3-4). Uses a normalized weighted mean :
+        score = sum(i * count[i]) / (4 * total)
+
+    Index 0 contributes 0, index 4 contributes max — so unanimous "very
+    confident" yields 1.0, unanimous "not confident" yields 0.0.
+    """
+    total = sum(dist)
+    if total == 0:
+        return 0.0
+    weighted = sum(i * c for i, c in enumerate(dist))
+    return weighted / (4 * total)
+
+
+def compute_cooperation_metrics(
+    data_dir,
+    course: str,
+    bundle_version: str | None = None,
+) -> dict:
+    """Cooperative session aggregates (F2.1, views v0.4).
+
+    Aggregates ``cooperative_vote`` and ``cooperative_convergence`` events.
+    M4 LAN runtime that emits these events is deferred — v1 operates on
+    POST'ed fixtures only.
+
+    Returns :
+        - n_sessions : number of ``cooperative_convergence`` events
+          (each marks the close of one cooperative session).
+        - votes_per_session_mean : ``n_votes / n_sessions`` (0 if no session).
+        - convergence_quality : mean of weighted-Likert convergence scores
+          (None if no scorable convergence event).
+        - role_coverage_mean : mean of ``role_coverage`` values (None if
+          no convergence event carries one).
+        - disagreement_productive_ratio : None (v1 limitation — requires
+          M4 pre/post vote tracking, not yet emitted).
+    """
+    votes = 0
+    sessions = 0
+    convergence_scores: list[float] = []
+    role_coverages: list[float] = []
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
+        t = ev.get("type")
+        if t == "cooperative_vote":
+            votes += 1
+        elif t == "cooperative_convergence":
+            sessions += 1
+            dist = ev.get("confidence_distribution_aggregated", [])
+            if isinstance(dist, list) and len(dist) == 5:
+                convergence_scores.append(
+                    _convergence_quality_from_distribution(dist)
+                )
+            rc = ev.get("role_coverage")
+            if isinstance(rc, (int, float)):
+                role_coverages.append(float(rc))
+    return {
+        "n_sessions": sessions,
+        "votes_per_session_mean": (
+            round(votes / sessions, 2) if sessions else 0
+        ),
+        "convergence_quality": (
+            round(sum(convergence_scores) / len(convergence_scores), 4)
+            if convergence_scores else None
+        ),
+        "role_coverage_mean": (
+            round(sum(role_coverages) / len(role_coverages), 4)
+            if role_coverages else None
+        ),
+        # v1 : not calculable without pre/post vote tracking — M4 v2 feature.
+        "disagreement_productive_ratio": None,
+    }
+
+
 def compute_autonomy(
     data_dir: Path,
     course: str,

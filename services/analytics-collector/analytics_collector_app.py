@@ -6,6 +6,7 @@ from metrics import (
     compute_ai_literacy_index,
     compute_autonomy,
     compute_calibration,
+    compute_cooperation_metrics,
     compute_journal_metrics,
     compute_progress,
     compute_reasoning_depth_score,
@@ -191,6 +192,22 @@ def get_journal(
         _data_dir(), course,
         pseudonyme=pseudonyme, bundle_version=bv,
     )
+
+
+@app.get("/metrics/cooperation")
+def get_cooperation(
+    course: str,
+    bundle_version: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    """Cooperative session aggregates (F2.1, views v0.4).
+
+    M4 LAN runtime deferred — endpoint operates on POST'ed fixtures only
+    in v1. Auth via ``X-Course-Token == course`` (parité ADR 011).
+    """
+    _require_course_token(x_course_token, course)
+    bv = _validate_bundle_version(bundle_version)
+    return compute_cooperation_metrics(_data_dir(), course, bundle_version=bv)
 
 
 @app.get("/metrics/concept-mastery-history")
