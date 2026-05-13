@@ -12,6 +12,11 @@ export type ProgressResponse = {
   scenes: Record<string, { completion_rate: number; n_learners: number }>;
 };
 
+export type ProgressMetricsResponse = {
+  scenes_with_evidence?: number;
+  scenes_total?: number;
+};
+
 export type CalibrationResponse = {
   brier_score: number | null;
   n_items: number;
@@ -38,6 +43,13 @@ async function fetchJson<T>(path: string, courseToken: string): Promise<T> {
 export function getProgress(courseToken: string): Promise<ProgressResponse> {
   return fetchJson<ProgressResponse>(
     `/metrics/progress?course=${encodeURIComponent(courseToken)}`,
+    courseToken,
+  );
+}
+
+export function getProgressMetrics(courseToken: string): Promise<ProgressMetricsResponse> {
+  return fetchJson<ProgressMetricsResponse>(
+    `/metrics/progress-metrics?course=${encodeURIComponent(courseToken)}`,
     courseToken,
   );
 }

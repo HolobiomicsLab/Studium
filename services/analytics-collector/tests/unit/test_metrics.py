@@ -3,6 +3,7 @@ from pathlib import Path
 
 from metrics import (
     compute_progress, compute_calibration, compute_autonomy,
+    compute_progress_metrics,
 )
 
 
@@ -104,3 +105,22 @@ def test_compute_progress_iterates_multiple_jsonl_files(tmp_path):
     progress = compute_progress(tmp_path, "c1")
     assert progress["scenes"]["s1"]["completion_rate"] == 1.0
     assert progress["scenes"]["s1"]["n_learners"] == 2  # different learners (idx 0 and 1, mod 3)
+
+
+def test_compute_progress_metrics_counts_scenes_with_evidence():
+    """compute_progress_metrics retourne scenes_with_evidence basé sur le bundle."""
+    # Bundle fake avec 3 scènes, dont 2 avec evidence
+    bundle = {
+        "schema_version": "1.4",
+        "scenes": [
+            {"id": "s1", "type": "intro", "evidence": {"enrichment_metadata": {}}},
+            {"id": "s2", "type": "concept", "evidence": {"enrichment_metadata": {}}},
+            {"id": "s3", "type": "quiz"},
+        ],
+    }
+    # Appel simple sans events pour tester la logique du bundle
+    metrics = compute_progress_metrics(
+        bundle=bundle,
+    )
+    assert metrics["scenes_with_evidence"] == 2
+    assert metrics["scenes_total"] == 3
