@@ -8,6 +8,7 @@ import {
   getAutonomy,
   getConceptMasteryHistory,
   getAILiteracy,
+  getReasoningDepth,
 } from "./api";
 
 describe("teacher-dashboard api wrapper", () => {
@@ -134,6 +135,25 @@ describe("teacher-dashboard api wrapper", () => {
     expect(call[1].headers["X-Course-Token"]).toBe("course-x");
     expect(result.value).toBe(0.72);
     expect(result.components.ai_audit_accuracy).toBe(0.8);
+  });
+
+  it("getReasoningDepth passes filters with X-Course-Token", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        scenes: {
+          s1: { score: 0.6, n_signals: 5, breakdown: { justification: 0.4, hypothesis: 0.2 } },
+        },
+      }),
+    })) as never;
+    const result = await getReasoningDepth("course-x", { pseudonyme: "p1", scene_id: "s1" });
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/metrics/reasoning?"),
+      expect.objectContaining({
+        headers: expect.objectContaining({ "X-Course-Token": "course-x" }),
+      }),
+    );
+    expect(result.scenes.s1.score).toBe(0.6);
   });
 
   it("URL-encodes course token", async () => {

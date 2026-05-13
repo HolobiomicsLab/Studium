@@ -115,3 +115,23 @@ export function getAILiteracy(
     courseToken,
   );
 }
+
+export type ReasoningSceneEntry = {
+  score: number | null;
+  n_signals: number;
+  breakdown: Record<string, number>;
+};
+export type ReasoningResponse = { scenes: Record<string, ReasoningSceneEntry> };
+
+export function getReasoningDepth(
+  courseToken: string,
+  opts: { pseudonyme?: string; scene_id?: string } = {},
+): Promise<ReasoningResponse> {
+  const params = new URLSearchParams({ course: courseToken });
+  if (opts.pseudonyme) params.set("pseudonyme", opts.pseudonyme);
+  if (opts.scene_id) params.set("scene_id", opts.scene_id);
+  return fetchJson<ReasoningResponse>(
+    `/metrics/reasoning?${params.toString()}`,
+    courseToken,
+  );
+}
