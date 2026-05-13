@@ -7,6 +7,7 @@ import {
   getCalibration,
   getAutonomy,
   getConceptMasteryHistory,
+  getAILiteracy,
 } from "./api";
 
 describe("teacher-dashboard api wrapper", () => {
@@ -105,6 +106,34 @@ describe("teacher-dashboard api wrapper", () => {
     expect(url).toContain("pseudonyme=p1");
     expect(url).toContain("concept_id=kepler");
     expect(url).toContain("since=2026-05-01");
+  });
+
+  it("getAILiteracy passes pseudonyme + window with X-Course-Token", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        value: 0.72,
+        ic80: [0.65, 0.79],
+        n_sessions: 8,
+        window: 10,
+        degraded: false,
+        components: {
+          ai_audit_accuracy: 0.8,
+          hint_independence_trend: 0.65,
+          critique_completion_rate: 0.7,
+        },
+      }),
+    });
+    const result = await getAILiteracy("course-x", "pseudo-1", 10);
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toContain("/metrics/ai-literacy?");
+    expect(call[0]).toContain("course=course-x");
+    expect(call[0]).toContain("pseudonyme=pseudo-1");
+    expect(call[0]).toContain("window=10");
+    expect(call[1].headers["X-Course-Token"]).toBe("course-x");
+    expect(result.value).toBe(0.72);
+    expect(result.components.ai_audit_accuracy).toBe(0.8);
   });
 
   it("URL-encodes course token", async () => {

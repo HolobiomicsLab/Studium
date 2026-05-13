@@ -86,3 +86,32 @@ export function getConceptMasteryHistory(
     courseToken,
   );
 }
+
+export type AILiteracyResponse = {
+  value: number | null;
+  ic80: [number, number] | null;
+  n_sessions: number;
+  window: number;
+  degraded: boolean;
+  components: {
+    ai_audit_accuracy: number | null;
+    hint_independence_trend: number | null;
+    critique_completion_rate: number | null;
+  };
+};
+
+export function getAILiteracy(
+  courseToken: string,
+  pseudonyme: string,
+  window = 10,
+): Promise<AILiteracyResponse> {
+  const params = new URLSearchParams({
+    course: courseToken,
+    pseudonyme,
+    window: window.toString(),
+  });
+  return fetchJson<AILiteracyResponse>(
+    `/metrics/ai-literacy?${params.toString()}`,
+    courseToken,
+  );
+}
