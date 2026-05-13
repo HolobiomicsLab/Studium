@@ -76,7 +76,7 @@ def build_bundle(
     plan_id = lesson_plan.get("plan_id", lesson_id)
 
     bundle_data = {
-        "schema_version": "1.3",
+        "schema_version": "1.4",
         "bundle_id": f"bundle-{lesson_id}",
         "source_plan_id": plan_id,
         "metadata": _coerce_metadata(lesson_plan),

@@ -5,8 +5,9 @@ import pytest
 from lesson_bundle_schema import LessonBundle, IntroScene, QuizScene, AdaptationRule
 
 # ADR 010 — flat shape ; schema_version bumped to 1.1.
+# ADR 014 — evidence fields ; schema_version bumped to 1.4.
 VALID_BUNDLE = {
-    "schema_version": "1.3",
+    "schema_version": "1.4",
     "bundle_id": "b-001",
     "source_plan_id": "p-001",
     "metadata": {
@@ -133,7 +134,7 @@ def test_rejects_legacy_schema_version_1_1():
 
 
 def test_bundle_with_blueprint_valid():
-    bundle = dict(VALID_BUNDLE, schema_version="1.3", assessment_blueprint={
+    bundle = dict(VALID_BUNDLE, schema_version="1.4", assessment_blueprint={
         "dimensions": [
             {"id": "d1", "label": "D1", "weight": 0.6,
              "metrics": [{"endpoint": "ai_literacy", "field": "value", "weight_in_dimension": 1.0}]},
@@ -145,7 +146,7 @@ def test_bundle_with_blueprint_valid():
 
 
 def test_blueprint_dimensions_weights_must_sum_to_one():
-    bundle = dict(VALID_BUNDLE, schema_version="1.3", assessment_blueprint={
+    bundle = dict(VALID_BUNDLE, schema_version="1.4", assessment_blueprint={
         "dimensions": [
             {"id": "d1", "label": "D1", "weight": 0.3, "metrics": [{"endpoint": "progress", "field": "completion_rate", "weight_in_dimension": 1.0}]},
         ],
@@ -155,7 +156,7 @@ def test_blueprint_dimensions_weights_must_sum_to_one():
 
 
 def test_blueprint_invalid_endpoint_rejected():
-    bundle = dict(VALID_BUNDLE, schema_version="1.3", assessment_blueprint={
+    bundle = dict(VALID_BUNDLE, schema_version="1.4", assessment_blueprint={
         "dimensions": [
             {"id": "d1", "label": "D1", "weight": 1.0,
              "metrics": [{"endpoint": "garbage", "field": "x", "weight_in_dimension": 1.0}]},
@@ -167,5 +168,91 @@ def test_blueprint_invalid_endpoint_rejected():
 
 def test_rejects_legacy_schema_version_1_2():
     invalid = dict(VALID_BUNDLE, schema_version="1.2")
+    with pytest.raises(Exception):
+        LessonBundle(**invalid)
+
+
+def test_schema_version_bumped_to_1_4():
+    from lesson_bundle_schema import SCHEMA_VERSION
+    assert SCHEMA_VERSION == "1.4"
+
+
+def test_intro_scene_accepts_evidence():
+    from lesson_bundle_schema import IntroScene, Evidence, EnrichmentMetadata
+    scene = IntroScene(
+        type="intro",
+        id="s1",
+        title="t",
+        objective_refs=[],
+        concept_refs=[],
+        estimated_seconds=30,
+        adaptation_hooks=[],
+        markdown="x",
+        evidence=Evidence(
+            enrichment_metadata=EnrichmentMetadata(
+                enricher_version="1.0",
+                perspicacite_mode_used="advanced",
+                timestamp="2026-05-13T10:00:00Z",
+                degraded=False,
+            )
+        ),
+    )
+    assert scene.evidence is not None
+
+
+def test_concept_scene_accepts_evidence():
+    from lesson_bundle_schema import ConceptScene, Evidence, EnrichmentMetadata
+    scene = ConceptScene(
+        type="concept",
+        id="s2",
+        title="c",
+        objective_refs=[],
+        concept_refs=[],
+        estimated_seconds=60,
+        adaptation_hooks=[],
+        markdown="y",
+        evidence=Evidence(
+            enrichment_metadata=EnrichmentMetadata(
+                enricher_version="1.0",
+                perspicacite_mode_used="basic",
+                timestamp="2026-05-13T10:00:00Z",
+                degraded=False,
+            )
+        ),
+    )
+    assert scene.evidence is not None
+
+
+def test_reproduction_scene_accepts_evidence():
+    from lesson_bundle_schema import ReproductionScene, ReproductionStep, Evidence, EnrichmentMetadata
+    scene = ReproductionScene(
+        type="reproduction",
+        id="s3",
+        title="r",
+        objective_refs=[],
+        concept_refs=[],
+        estimated_seconds=120,
+        adaptation_hooks=[],
+        task_card_id="tc-001",
+        steps=[ReproductionStep(
+            step_id="st1",
+            instruction="x",
+            expected_input_schema={"type": "object"},
+            expected_output="y",
+        )],
+        evidence=Evidence(
+            enrichment_metadata=EnrichmentMetadata(
+                enricher_version="1.0",
+                perspicacite_mode_used="profound",
+                timestamp="2026-05-13T10:00:00Z",
+                degraded=False,
+            )
+        ),
+    )
+    assert scene.evidence is not None
+
+
+def test_rejects_legacy_schema_version_1_3():
+    invalid = dict(VALID_BUNDLE, schema_version="1.3")
     with pytest.raises(Exception):
         LessonBundle(**invalid)

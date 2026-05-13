@@ -1,5 +1,52 @@
 import { z } from "zod";
 
+// ADR 014 — Evidence schemas (Zod local copy ; lesson-plan-schema uses AJV, incompatible direct import)
+
+export const BibliographicRefSchema = z.object({
+  perspicacite_doc_id: z.string().min(1),
+  doi: z.string().optional(),
+  title: z.string().min(1),
+  authors: z.array(z.string()),
+  year: z.number().int().optional(),
+  excerpt: z.string().max(500),
+  relevance_score: z.number().min(0).max(1),
+  prov_derived_from: z.string().min(1),
+});
+
+export const CaseStudySchema = z.object({
+  title: z.string().min(1),
+  summary: z.string().max(1000),
+  source_refs: z.array(z.string()),
+});
+
+export const ABSAssetSchema = z.object({
+  asset_type: z.enum([
+    "spectrum_viewer_svg",
+    "code_snippet",
+    "data_csv",
+    "protocol_card_md",
+    "script_snippet",
+  ]),
+  payload_inline: z.string().optional(),
+  payload_path: z.string().optional(),
+  abs_task_card_id: z.string().optional(),
+  prov_derived_from: z.string().min(1),
+});
+
+export const EnrichmentMetadataSchema = z.object({
+  enricher_version: z.string().min(1),
+  perspicacite_mode_used: z.enum(["basic", "advanced", "profound", "agentic"]),
+  timestamp: z.string().min(1),
+  degraded: z.boolean(),
+});
+
+export const EvidenceSchema = z.object({
+  bibliographic_refs: z.array(BibliographicRefSchema).optional(),
+  case_studies: z.array(CaseStudySchema).optional(),
+  abs_asset: ABSAssetSchema.optional(),
+  enrichment_metadata: EnrichmentMetadataSchema,
+});
+
 export const SceneTypeSchema = z.enum([
   "intro", "concept", "quiz", "meta_checkpoint",
   "reproduction", "ai_critique", "discussion",
@@ -24,12 +71,14 @@ export const SceneBaseSchema = z.object({
 export const IntroSceneSchema = SceneBaseSchema.extend({
   type: z.literal("intro"),
   markdown: z.string(),
+  evidence: EvidenceSchema.optional(),
 });
 
 export const ConceptSceneSchema = SceneBaseSchema.extend({
   type: z.literal("concept"),
   markdown: z.string(),
   image_path: z.string().optional(),
+  evidence: EvidenceSchema.optional(),
 });
 
 const ChoiceSchema = z.object({
@@ -64,6 +113,7 @@ export const ReproductionSceneSchema = SceneBaseSchema.extend({
   task_card_id: z.string(),
   steps: z.array(ReproductionStepSchema).min(1),
   prov_derived_from: z.string().url().optional(),
+  evidence: EvidenceSchema.optional(),
 });
 
 export const ClaimSchema = z.object({
