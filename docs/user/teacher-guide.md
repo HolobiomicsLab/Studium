@@ -142,7 +142,7 @@ pour la formule complète et les limites psychométriques.
 
 | Symptôme | Cause probable | Solution |
 |---|---|---|
-| Dashboard vide | Collector pas démarré | `uvicorn analytics_collector.analytics_collector_app:app --port 8003` |
+| Dashboard vide | Collector pas démarré | `cd services/analytics-collector && uvicorn analytics_collector_app:app --port 8003` |
 | Bundle refusé par runtime | Schema version != 1.4 | Régénérer via scene-synth, vérifier `schema_version` |
 | Étudiant ne voit pas evidence | Bundle pré-1.4 | Régénérer avec `STUDIUM_EVIDENCE_ENRICH=on` |
 | Perspicacité MCP fail | Pas configuré | Optionnel — graceful skip dans `EvidenceEnricher` |

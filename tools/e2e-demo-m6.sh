@@ -97,11 +97,13 @@ print(f'[M6] bundle OK: {b.bundle_id} schema={b.schema_version} scenes={len(b.sc
 "
 
 echo "[M6] Step 3 — start analytics-collector port $COLLECTOR_PORT"
-ANALYTICS_DATA_DIR="$DATA_DIR" \
-  uvicorn analytics_collector.analytics_collector_app:app \
-  --host 127.0.0.1 --port "$COLLECTOR_PORT" \
-  --app-dir "$ROOT/services/analytics-collector" \
-  > /tmp/m6-collector.log 2>&1 &
+(
+  cd "$ROOT/services/analytics-collector" && \
+  ANALYTICS_DATA_DIR="$DATA_DIR" \
+    uvicorn analytics_collector_app:app \
+    --host 127.0.0.1 --port "$COLLECTOR_PORT" \
+    > /tmp/m6-collector.log 2>&1
+) &
 COLLECTOR_PID=$!
 sleep 2
 curl -fs "http://127.0.0.1:$COLLECTOR_PORT/health" > /dev/null \
