@@ -620,6 +620,187 @@ def compute_ai_literacy_index(
     }
 
 
+def compute_journal_metrics(
+    data_dir,
+    course: str,
+    pseudonyme: str | None = None,
+    bundle_version: str | None = None,
+) -> dict:
+    """Journal entry counters per (course, pseudonyme?). No text — counters only (ADR 006 v1.3).
+
+    Aggregates ``journal_entry_submitted`` events. The journal text itself
+    is never received by the server (kept local in SQLCipher on the learner
+    device) — only metadata counters are exposed here :
+
+        - entries_total     : total entries submitted
+        - mean_length       : average ``entry_length`` (rounded 1 decimal)
+        - revision_rate     : proportion of entries flagged ``is_revision``
+        - entries_by_scene  : per-scene {count, mean_length}
+
+    Filtres : ``pseudonyme`` (1 étudiant) et ``bundle_version`` (M5.7).
+    """
+    entries_by_scene: dict[str, dict] = {}
+    total = 0
+    sum_length = 0
+    revisions = 0
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
+        if ev.get("type") != "journal_entry_submitted":
+            continue
+        if pseudonyme and ev.get("learner_pseudonym") != pseudonyme:
+            continue
+        total += 1
+        length = int(ev.get("entry_length", 0))
+        sum_length += length
+        if ev.get("is_revision"):
+            revisions += 1
+        sid = ev.get("scene_id", "")
+        if sid:
+            scene_entry = entries_by_scene.setdefault(sid, {"count": 0, "sum_length": 0})
+            scene_entry["count"] += 1
+            scene_entry["sum_length"] += length
+    return {
+        "entries_total": total,
+        "mean_length": round(sum_length / total, 1) if total else 0,
+        "revision_rate": round(revisions / total, 4) if total else 0,
+        "entries_by_scene": {
+            sid: {"count": d["count"], "mean_length": round(d["sum_length"] / d["count"], 1)}
+            for sid, d in entries_by_scene.items()
+        },
+    }
+
+
+def _convergence_quality_from_distribution(dist: list) -> float:
+    """Map a Likert-5 distribution to a convergence_quality score in [0,1].
+
+    High score = most votes concentrated on high confidence labels
+    (indices 3-4). Uses a normalized weighted mean :
+        score = sum(i * count[i]) / (4 * total)
+
+    Index 0 contributes 0, index 4 contributes max — so unanimous "very
+    confident" yields 1.0, unanimous "not confident" yields 0.0.
+    """
+    total = sum(dist)
+    if total == 0:
+        return 0.0
+    weighted = sum(i * c for i, c in enumerate(dist))
+    return weighted / (4 * total)
+
+
+def compute_cooperation_metrics(
+    data_dir,
+    course: str,
+    bundle_version: str | None = None,
+) -> dict:
+    """Cooperative session aggregates (F2.1, views v0.4).
+
+    Aggregates ``cooperative_vote`` and ``cooperative_convergence`` events.
+    M4 LAN runtime that emits these events is deferred — v1 operates on
+    POST'ed fixtures only.
+
+    Returns :
+        - n_sessions : number of ``cooperative_convergence`` events
+          (each marks the close of one cooperative session).
+        - votes_per_session_mean : ``n_votes / n_sessions`` (0 if no session).
+        - convergence_quality : mean of weighted-Likert convergence scores
+          (None if no scorable convergence event).
+        - role_coverage_mean : mean of ``role_coverage`` values (None if
+          no convergence event carries one).
+        - disagreement_productive_ratio : None (v1 limitation — requires
+          M4 pre/post vote tracking, not yet emitted).
+    """
+    votes = 0
+    sessions = 0
+    convergence_scores: list[float] = []
+    role_coverages: list[float] = []
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
+        t = ev.get("type")
+        if t == "cooperative_vote":
+            votes += 1
+        elif t == "cooperative_convergence":
+            sessions += 1
+            dist = ev.get("confidence_distribution_aggregated", [])
+            if isinstance(dist, list) and len(dist) == 5:
+                convergence_scores.append(
+                    _convergence_quality_from_distribution(dist)
+                )
+            rc = ev.get("role_coverage")
+            if isinstance(rc, (int, float)):
+                role_coverages.append(float(rc))
+    return {
+        "n_sessions": sessions,
+        "votes_per_session_mean": (
+            round(votes / sessions, 2) if sessions else 0
+        ),
+        "convergence_quality": (
+            round(sum(convergence_scores) / len(convergence_scores), 4)
+            if convergence_scores else None
+        ),
+        "role_coverage_mean": (
+            round(sum(role_coverages) / len(role_coverages), 4)
+            if role_coverages else None
+        ),
+        # v1 : not calculable without pre/post vote tracking — M4 v2 feature.
+        "disagreement_productive_ratio": None,
+    }
+
+
+def compute_blueprint_score(blueprint: dict, metric_fetcher) -> dict:
+    """Composite blueprint score (ADR 013).
+
+    USAGE FORMATIF UNIQUEMENT. Pas de classement nominatif.
+
+    Pure fonction : prend un blueprint (dict ``{dimensions: [...]}``) + une
+    callable ``metric_fetcher(endpoint: str, field: str) -> float | None``.
+    Aucune I/O — le routage vers les fns ``compute_*`` réelles est fait par
+    l'appelant (cf. endpoint POST /metrics/blueprint).
+
+    Composition :
+      - Par dimension : score = sum(w_i * v_i) / sum(w_i) sur les métriques
+        dont la valeur n'est pas None. Si toutes les métriques sont None,
+        ``score = None`` et ``degraded = True``.
+      - ``degraded`` vaut True si au moins une métrique a été ignorée (poids
+        redistribué) — y compris quand toutes sont None.
+      - Overall : moyenne pondérée des dimensions présentes (score non-None).
+        ``None`` si aucune dimension scorable.
+
+    Returns :
+        {
+          "dimensions": [{"id", "label", "score": float|None, "degraded": bool}],
+          "overall_weighted_score": float | None,
+        }
+    """
+    dim_results: list[dict] = []
+    overall_sum = 0.0
+    overall_weight = 0.0
+    for dim in blueprint["dimensions"]:
+        valid_metrics: list[tuple[float, float]] = []
+        for m in dim["metrics"]:
+            val = metric_fetcher(m["endpoint"], m["field"])
+            if val is not None:
+                valid_metrics.append((float(m["weight_in_dimension"]), float(val)))
+        if not valid_metrics:
+            dim_results.append({
+                "id": dim["id"],
+                "label": dim["label"],
+                "score": None,
+                "degraded": True,
+            })
+            continue
+        total_weight = sum(w for w, _ in valid_metrics)
+        score = sum(w * v for w, v in valid_metrics) / total_weight
+        degraded = len(valid_metrics) < len(dim["metrics"])
+        dim_results.append({
+            "id": dim["id"],
+            "label": dim["label"],
+            "score": round(score, 4),
+            "degraded": degraded,
+        })
+        overall_sum += float(dim["weight"]) * score
+        overall_weight += float(dim["weight"])
+    overall = round(overall_sum / overall_weight, 4) if overall_weight > 0 else None
+    return {"dimensions": dim_results, "overall_weighted_score": overall}
+
+
 def compute_autonomy(
     data_dir: Path,
     course: str,

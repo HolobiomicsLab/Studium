@@ -1,11 +1,15 @@
 from fastapi import FastAPI, Header, HTTPException
+from pydantic import BaseModel as _PydanticBase
 
 from analytics_collector_schemas import TelemetryBatch, TelemetryResponse
 from metrics import (
     compute_ai_audit_accuracy,
     compute_ai_literacy_index,
     compute_autonomy,
+    compute_blueprint_score,
     compute_calibration,
+    compute_cooperation_metrics,
+    compute_journal_metrics,
     compute_progress,
     compute_reasoning_depth_score,
 )
@@ -171,6 +175,110 @@ def get_ai_literacy(
         _data_dir(), course, pseudonyme=pseudonyme, window=window,
         bundle_version=bv,
     )
+
+
+@app.get("/metrics/journal")
+def get_journal(
+    course: str,
+    pseudonyme: str | None = None,
+    bundle_version: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    """Journal entry counters (ADR 006 v1.3, ADR 011-style garde-fou).
+
+    Counters only — texte journal local jamais transmis.
+    """
+    _require_course_token(x_course_token, course)
+    bv = _validate_bundle_version(bundle_version)
+    return compute_journal_metrics(
+        _data_dir(), course,
+        pseudonyme=pseudonyme, bundle_version=bv,
+    )
+
+
+@app.get("/metrics/cooperation")
+def get_cooperation(
+    course: str,
+    bundle_version: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    """Cooperative session aggregates (F2.1, views v0.4).
+
+    M4 LAN runtime deferred — endpoint operates on POST'ed fixtures only
+    in v1. Auth via ``X-Course-Token == course`` (parité ADR 011).
+    """
+    _require_course_token(x_course_token, course)
+    bv = _validate_bundle_version(bundle_version)
+    return compute_cooperation_metrics(_data_dir(), course, bundle_version=bv)
+
+
+class BlueprintRequest(_PydanticBase):
+    course: str
+    pseudonyme: str
+    bundle_version: str | None = None
+    blueprint: dict  # loose validation v1 — author trust côté serveur
+
+
+@app.post("/metrics/blueprint")
+def post_blueprint(
+    body: BlueprintRequest,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    """Composite blueprint score (ADR 013).
+
+    USAGE FORMATIF UNIQUEMENT. Pas de classement nominatif.
+
+    POST body avec blueprint inline (pas de cache de bundles côté collector
+    v1). ``metric_fetcher`` route en in-process vers les 6 endpoints metrics
+    existants. Garde-fou ADR 013 : ``pseudonyme`` requis dans le body +
+    ``X-Course-Token`` doit matcher ``body.course``.
+    """
+    _require_course_token(x_course_token, body.course)
+    bv = _validate_bundle_version(body.bundle_version)
+
+    def fetcher(endpoint: str, field: str):
+        # In-process routage vers les fns compute_* existantes.
+        if endpoint == "ai_literacy":
+            result = compute_ai_literacy_index(
+                _data_dir(), body.course,
+                pseudonyme=body.pseudonyme, bundle_version=bv,
+            )
+            return result.get(field)
+        elif endpoint == "calibration":
+            result = compute_calibration(
+                _data_dir(), body.course,
+                learner=body.pseudonyme, bundle_version=bv,
+            )
+            return result.get(field)
+        elif endpoint == "autonomy":
+            result = compute_autonomy(_data_dir(), body.course, bundle_version=bv)
+            return result.get(field)
+        elif endpoint == "progress":
+            result = compute_progress(_data_dir(), body.course, bundle_version=bv)
+            scenes = result.get("scenes", {})
+            if not scenes:
+                return None
+            if field == "completion_rate":
+                values = [s["completion_rate"] for s in scenes.values()]
+                return sum(values) / len(values) if values else None
+            return None
+        elif endpoint == "reasoning":
+            result = compute_reasoning_depth_score(
+                _data_dir(), body.course,
+                pseudonyme=body.pseudonyme, bundle_version=bv,
+            )
+            scenes = result.get("scenes", {})
+            scores = [s["score"] for s in scenes.values() if s.get("score") is not None]
+            return sum(scores) / len(scores) if scores else None
+        elif endpoint == "ai_audit":
+            result = compute_ai_audit_accuracy(
+                _data_dir(), body.course,
+                pseudonyme=body.pseudonyme, bundle_version=bv,
+            )
+            return result.get(field) if field == "overall_accuracy" else None
+        return None
+
+    return compute_blueprint_score(body.blueprint, fetcher)
 
 
 @app.get("/metrics/concept-mastery-history")

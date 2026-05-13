@@ -135,3 +135,87 @@ export function getReasoningDepth(
     courseToken,
   );
 }
+
+export type JournalStatsResponse = {
+  entries_total: number;
+  mean_length: number;
+  revision_rate: number;
+  entries_by_scene: Record<string, { count: number; mean_length: number }>;
+};
+
+export function getJournalStats(
+  courseToken: string,
+  opts: { pseudonyme?: string; bundle_version?: string } = {},
+): Promise<JournalStatsResponse> {
+  const params = new URLSearchParams({ course: courseToken });
+  if (opts.pseudonyme) params.set("pseudonyme", opts.pseudonyme);
+  if (opts.bundle_version) params.set("bundle_version", opts.bundle_version);
+  return fetchJson<JournalStatsResponse>(
+    `/metrics/journal?${params.toString()}`,
+    courseToken,
+  );
+}
+
+export type CooperationStatsResponse = {
+  n_sessions: number;
+  convergence_quality: number | null;
+  role_coverage_mean: number | null;
+  disagreement_productive_ratio: number | null;
+  votes_per_session_mean: number;
+};
+
+export function getCooperationStats(
+  courseToken: string,
+  opts: { bundle_version?: string } = {},
+): Promise<CooperationStatsResponse> {
+  const params = new URLSearchParams({ course: courseToken });
+  if (opts.bundle_version) params.set("bundle_version", opts.bundle_version);
+  return fetchJson<CooperationStatsResponse>(
+    `/metrics/cooperation?${params.toString()}`,
+    courseToken,
+  );
+}
+
+export type BlueprintScoreResponse = {
+  dimensions: Array<{ id: string; label: string; score: number | null; degraded: boolean }>;
+  overall_weighted_score: number | null;
+};
+
+export type AssessmentBlueprintInput = {
+  dimensions: Array<{
+    id: string;
+    label: string;
+    weight: number;
+    metrics: Array<{
+      endpoint: "progress" | "calibration" | "autonomy" | "ai_literacy" | "reasoning" | "ai_audit";
+      field: string;
+      weight_in_dimension: number;
+    }>;
+  }>;
+};
+
+export async function postBlueprintScore(
+  courseToken: string,
+  pseudonyme: string,
+  blueprint: AssessmentBlueprintInput,
+  bundle_version?: string,
+): Promise<BlueprintScoreResponse> {
+  const r = await fetch(`${BASE}/metrics/blueprint`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Course-Token": courseToken,
+    },
+    body: JSON.stringify({
+      course: courseToken,
+      pseudonyme,
+      bundle_version: bundle_version ?? null,
+      blueprint,
+    }),
+  });
+  if (!r.ok) {
+    throw new Error(`Analytics API /metrics/blueprint failed: ${r.status} ${r.statusText}`);
+  }
+  return r.json() as Promise<BlueprintScoreResponse>;
+}

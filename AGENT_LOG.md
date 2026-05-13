@@ -4,6 +4,64 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## Views v0.4 — Journal + Coopération + Blueprint livré 2026-05-13
+
+**Branche** : `prototype/m6-views-v0.4` (12 commits ahead of main au tag pose).
+**Tag** : `m6-views-v0.4`.
+**Méthode** : subagent-driven-development autonome, 14 tasks bite-sized,
+TDD strict, 4 phases (foundation → backends F1/F2/F3 → 3 vues → closure).
+
+### Livré (12 commits + closure)
+
+| # | Tâche | Commit | Focus |
+|---|---|---|---|
+| 1-2 | ADRs 006 v1.3 + 013 (Studium) | `d05257c` | 13 → 16 events fermés + blueprint composite |
+| 3 | telemetry-events v0.4 | `135f1c7` | 3 events Zod + Pydantic + 38 tests round-trip |
+| 4 | F1.1 SQLCipher learner_journal | `20f1d79` | table + 3 Tauri commands + 4 cargo tests |
+| 5 | F1.2 JournalEntry component | `12606e0` | React + tauri.ts wrappers + 3 vitest |
+| 6 | F1.3 GET /metrics/journal | `91e2e0a` | endpoint counters only + 7 tests |
+| 7 | F2.1 GET /metrics/cooperation | `e8393bd` | endpoint analytics-only + 6 tests |
+| 8 | F3.1 schema 1.3 + AssessmentBlueprint | `b9841c4` | Zod + Pydantic + sum-to-one validation |
+| 9 | F3.2 POST /metrics/blueprint | `c1e9b05` | composite scoring + 7 tests |
+| 10 | F1.4 Vue Journal | `f519ead` | 3 KPI + per-scene + ADR 006 disclaimer + 9-tab nav |
+| 11 | F2.2 Vue Coopération | `eee1830` | 4 KPI + M4 deferred disclaimer + 3 Playwright |
+| 12 | F3.3 Vue Blueprint | `251ec93` | recharts RadarChart + ADR 013 disclaimer |
+| 13 | Régression + AGENT_LOG | (this commit) | 430 tests verts cumulés |
+
+### Tests cumulés sur prototype/m6-views-v0.4
+
+**430 verts** (158 TS + 252 Python + 20 Rust) — +92 vs main `m5-analytics` baseline (338).
+
+| Suite | Tests | Delta |
+|-------|-------|-------|
+| TS vitest | 158 | +31 (telemetry-events +21, lesson-bundle-schema +4, teacher-dashboard +3 + 1 par vue × 3) |
+| Python pytest | 252 | +41 (lesson-bundle-schema +4, analytics-collector +20 — journal/coopération/blueprint, telemetry-events +17) |
+| Rust cargo | 20 | +4 (journal CRUD + wipe) |
+
+### Garde-fous ADR 006 v1.3 + ADR 013 audités
+
+- ✅ Aucun texte étudiant transmis (journal counters only, cooperative aggregate_only)
+- ✅ Disclaimer "formatif uniquement" sur vue Blueprint
+- ✅ Disclaimer "texte journaux reste local" sur vue Journal
+- ✅ Disclaimer "En attente de M4" sur vue Coopération
+- ✅ Audit grep dashboard : 3 matches `name=` HTML form attributes only (courseToken + 2× pseudonyme), aucun leak nominatif
+
+### ADRs et docs (Studium worktree)
+
+- ADR 006 amendment v1.3 (`d05257c`) — 16 events fermés
+- ADR 013 (`d05257c`) — assessment_blueprint v1
+- Design : `Studium/docs/superpowers/specs/2026-05-13-views-v0.4-design.md`
+- Plan : `Studium/docs/superpowers/plans/2026-05-13-views-v0.4-implementation.md`
+
+### Reste post Views v0.4
+
+- M4 LAN runtime (cooperative deferred)
+- M1 UI auteur blueprint (reporté à M6.5+)
+- M6 polish + démo end-to-end (sous-projet C brainstorm post-M5)
+- Follow-ups review minors : Task 5 TelemetryEmit type + module style, Task 8 stale docstrings v1.2, etc.
+
+---
+
 ## M5 — analytics + dashboard v0.4 livré 2026-05-13
 
 **Branche** : `prototype/m5-analytics-views` (17 commits ahead of main au tag pose).

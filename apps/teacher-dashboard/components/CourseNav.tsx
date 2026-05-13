@@ -8,7 +8,10 @@ type Props = {
     | "autonomy"
     | "trajectory"
     | "ai-literacy"
-    | "reasoning";
+    | "reasoning"
+    | "journal"
+    | "cooperation"
+    | "blueprint";
 };
 
 const TABS: { key: Props["active"]; label: string }[] = [
@@ -18,6 +21,9 @@ const TABS: { key: Props["active"]; label: string }[] = [
   { key: "trajectory", label: "Trajectoire" },
   { key: "ai-literacy", label: "Littératie IA" },
   { key: "reasoning", label: "Raisonnement" },
+  { key: "journal", label: "Journal" },
+  { key: "cooperation", label: "Coopération" },
+  { key: "blueprint", label: "Blueprint" },
 ];
 
 export default function CourseNav({ token, active }: Props) {

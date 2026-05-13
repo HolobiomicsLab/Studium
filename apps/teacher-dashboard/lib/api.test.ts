@@ -9,6 +9,9 @@ import {
   getConceptMasteryHistory,
   getAILiteracy,
   getReasoningDepth,
+  getJournalStats,
+  getCooperationStats,
+  postBlueprintScore,
 } from "./api";
 
 describe("teacher-dashboard api wrapper", () => {
@@ -154,6 +157,79 @@ describe("teacher-dashboard api wrapper", () => {
       }),
     );
     expect(result.scenes.s1.score).toBe(0.6);
+  });
+
+  it("getJournalStats hits /metrics/journal with X-Course-Token + optional filters", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        entries_total: 12,
+        mean_length: 184,
+        revision_rate: 0.25,
+        entries_by_scene: { "s-disc-1": { count: 7, mean_length: 200 } },
+      }),
+    });
+    const r = await getJournalStats("course-x", {
+      pseudonyme: "p1",
+      bundle_version: "v0.4",
+    });
+    expect(r.entries_total).toBe(12);
+    expect(r.entries_by_scene["s-disc-1"].count).toBe(7);
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toContain("/metrics/journal?");
+    expect(call[0]).toContain("course=course-x");
+    expect(call[0]).toContain("pseudonyme=p1");
+    expect(call[0]).toContain("bundle_version=v0.4");
+    expect(call[1].headers["X-Course-Token"]).toBe("course-x");
+  });
+
+  it("getCooperationStats hits /metrics/cooperation with X-Course-Token + bundle_version", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        n_sessions: 3,
+        convergence_quality: 0.67,
+        role_coverage_mean: 0.83,
+        disagreement_productive_ratio: 0.5,
+        votes_per_session_mean: 4.2,
+      }),
+    });
+    const r = await getCooperationStats("course-x", { bundle_version: "v0.4" });
+    expect(r.n_sessions).toBe(3);
+    expect(r.convergence_quality).toBe(0.67);
+    expect(r.votes_per_session_mean).toBe(4.2);
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toContain("/metrics/cooperation?");
+    expect(call[0]).toContain("course=course-x");
+    expect(call[0]).toContain("bundle_version=v0.4");
+    expect(call[1].headers["X-Course-Token"]).toBe("course-x");
+  });
+
+  it("postBlueprintScore POSTs blueprint with X-Course-Token", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        dimensions: [{ id: "d1", label: "D1", score: 0.7, degraded: false }],
+        overall_weighted_score: 0.7,
+      }),
+    })) as never;
+    const blueprint = {
+      dimensions: [{
+        id: "d1", label: "D1", weight: 1.0,
+        metrics: [{ endpoint: "ai_literacy" as const, field: "value", weight_in_dimension: 1.0 }],
+      }],
+    };
+    const result = await postBlueprintScore("course-x", "pseudo-1", blueprint);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/metrics/blueprint"),
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ "X-Course-Token": "course-x" }),
+      }),
+    );
+    expect(result.dimensions[0].score).toBe(0.7);
   });
 
   it("URL-encodes course token", async () => {

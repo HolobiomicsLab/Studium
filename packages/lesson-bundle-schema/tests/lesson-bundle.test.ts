@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema, DiscussionSceneSchema } from "../src/index";
 
 const VALID_BUNDLE = {
-  schema_version: "1.2",
+  schema_version: "1.3",
   bundle_id: "b-001",
   source_plan_id: "p-001",
   metadata: {
@@ -112,6 +112,64 @@ describe("LessonBundleSchema", () => {
 
   it("rejects legacy schema_version 1.1 (ADR 012 bump)", () => {
     const invalid = { ...VALID_BUNDLE, schema_version: "1.1" };
+    expect(() => LessonBundleSchema.parse(invalid)).toThrow();
+  });
+
+  it("accepts bundle with assessment_blueprint (ADR 013, schema 1.3)", () => {
+    const valid = {
+      ...VALID_BUNDLE,
+      schema_version: "1.3",
+      assessment_blueprint: {
+        dimensions: [
+          {
+            id: "critical_thinking",
+            label: "Pensée critique",
+            weight: 0.5,
+            metrics: [
+              { endpoint: "ai_literacy", field: "value", weight_in_dimension: 1.0 },
+            ],
+          },
+          {
+            id: "metacognition",
+            label: "Métacognition",
+            weight: 0.5,
+            metrics: [
+              { endpoint: "calibration", field: "brier_score", weight_in_dimension: 1.0 },
+            ],
+          },
+        ],
+      },
+    };
+    expect(() => LessonBundleSchema.parse(valid)).not.toThrow();
+  });
+
+  it("rejects blueprint where dimensions weights do not sum to 1", () => {
+    const invalid = {
+      ...VALID_BUNDLE,
+      schema_version: "1.3",
+      assessment_blueprint: {
+        dimensions: [
+          { id: "d1", label: "D1", weight: 0.3, metrics: [{ endpoint: "progress", field: "completion_rate", weight_in_dimension: 1.0 }] },
+          { id: "d2", label: "D2", weight: 0.3, metrics: [{ endpoint: "progress", field: "completion_rate", weight_in_dimension: 1.0 }] },
+        ],
+      },
+    };
+    expect(() => LessonBundleSchema.parse(invalid)).toThrow();
+  });
+
+  it("rejects blueprint with invalid endpoint", () => {
+    const invalid = {
+      ...VALID_BUNDLE,
+      schema_version: "1.3",
+      assessment_blueprint: {
+        dimensions: [{ id: "d1", label: "D1", weight: 1.0, metrics: [{ endpoint: "garbage", field: "x", weight_in_dimension: 1.0 }] }],
+      },
+    };
+    expect(() => LessonBundleSchema.parse(invalid)).toThrow();
+  });
+
+  it("rejects legacy schema_version 1.2", () => {
+    const invalid = { ...VALID_BUNDLE, schema_version: "1.2" };
     expect(() => LessonBundleSchema.parse(invalid)).toThrow();
   });
 });

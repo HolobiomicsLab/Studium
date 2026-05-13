@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   TelemetryEventSchema, LessonStartedSchema, QuizAnsweredSchema,
   ReasoningSignalSchema, AIAuditResultSchema,
+  JournalEntrySubmittedSchema, CooperativeVoteSchema,
+  CooperativeConvergenceSchema,
 } from "../src/events";
 
 const BASE = {
@@ -142,6 +144,143 @@ describe("telemetry-events Zod schemas", () => {
     it("rejects missing field", () => {
       const { missed, ...rest } = valid;
       expect(() => AIAuditResultSchema.parse(rest)).toThrow();
+    });
+  });
+
+  describe("journal_entry_submitted (v0.4)", () => {
+    const valid = {
+      ...BASE,
+      type: "journal_entry_submitted" as const,
+      scene_id: "s_journal_1",
+      entry_length: 420,
+      revision_count: 1,
+      is_revision: true,
+    };
+
+    it("parses a valid journal_entry_submitted", () => {
+      const parsed = JournalEntrySubmittedSchema.parse(valid);
+      expect(parsed.type).toBe("journal_entry_submitted");
+      expect(parsed.entry_length).toBe(420);
+      expect(parsed.revision_count).toBe(1);
+      expect(parsed.is_revision).toBe(true);
+    });
+
+    it("parses via the discriminated union", () => {
+      const ev = TelemetryEventSchema.parse(valid);
+      expect(ev.type).toBe("journal_entry_submitted");
+    });
+
+    it("rejects negative entry_length", () => {
+      expect(() => JournalEntrySubmittedSchema.parse({ ...valid, entry_length: -1 })).toThrow();
+    });
+
+    it("rejects negative revision_count", () => {
+      expect(() => JournalEntrySubmittedSchema.parse({ ...valid, revision_count: -1 })).toThrow();
+    });
+
+    it("rejects non-integer counters", () => {
+      expect(() => JournalEntrySubmittedSchema.parse({ ...valid, entry_length: 1.5 })).toThrow();
+      expect(() => JournalEntrySubmittedSchema.parse({ ...valid, revision_count: 1.5 })).toThrow();
+    });
+
+    it("rejects missing field", () => {
+      const { is_revision, ...rest } = valid;
+      expect(() => JournalEntrySubmittedSchema.parse(rest)).toThrow();
+    });
+  });
+
+  describe("cooperative_vote (v0.4)", () => {
+    const valid = {
+      ...BASE,
+      type: "cooperative_vote" as const,
+      question_id: "q_vote_1",
+      group_size: 4,
+      aggregate_only: true,
+    };
+
+    it("parses a valid cooperative_vote", () => {
+      const parsed = CooperativeVoteSchema.parse(valid);
+      expect(parsed.type).toBe("cooperative_vote");
+      expect(parsed.group_size).toBe(4);
+      expect(parsed.aggregate_only).toBe(true);
+    });
+
+    it("parses via the discriminated union", () => {
+      const ev = TelemetryEventSchema.parse(valid);
+      expect(ev.type).toBe("cooperative_vote");
+    });
+
+    it("accepts group_size at boundaries [2,6]", () => {
+      expect(CooperativeVoteSchema.parse({ ...valid, group_size: 2 }).group_size).toBe(2);
+      expect(CooperativeVoteSchema.parse({ ...valid, group_size: 6 }).group_size).toBe(6);
+    });
+
+    it("rejects group_size below 2", () => {
+      expect(() => CooperativeVoteSchema.parse({ ...valid, group_size: 1 })).toThrow();
+    });
+
+    it("rejects group_size above 6", () => {
+      expect(() => CooperativeVoteSchema.parse({ ...valid, group_size: 7 })).toThrow();
+    });
+
+    it("rejects non-integer group_size", () => {
+      expect(() => CooperativeVoteSchema.parse({ ...valid, group_size: 3.5 })).toThrow();
+    });
+
+    it("rejects missing question_id", () => {
+      const { question_id, ...rest } = valid;
+      expect(() => CooperativeVoteSchema.parse(rest)).toThrow();
+    });
+  });
+
+  describe("cooperative_convergence (v0.4)", () => {
+    const valid = {
+      ...BASE,
+      type: "cooperative_convergence" as const,
+      synthesis_id: "syn_1",
+      group_size: 4,
+      confidence_distribution_aggregated: [0, 1, 2, 1, 0],
+      role_coverage: 0.75,
+    };
+
+    it("parses a valid cooperative_convergence", () => {
+      const parsed = CooperativeConvergenceSchema.parse(valid);
+      expect(parsed.type).toBe("cooperative_convergence");
+      expect(parsed.confidence_distribution_aggregated).toHaveLength(5);
+      expect(parsed.role_coverage).toBeCloseTo(0.75);
+    });
+
+    it("parses via the discriminated union", () => {
+      const ev = TelemetryEventSchema.parse(valid);
+      expect(ev.type).toBe("cooperative_convergence");
+    });
+
+    it("rejects group_size out of [2,6]", () => {
+      expect(() => CooperativeConvergenceSchema.parse({ ...valid, group_size: 1 })).toThrow();
+      expect(() => CooperativeConvergenceSchema.parse({ ...valid, group_size: 7 })).toThrow();
+    });
+
+    it("rejects confidence_distribution wrong length", () => {
+      expect(() => CooperativeConvergenceSchema.parse({ ...valid, confidence_distribution_aggregated: [0, 1, 2, 1] })).toThrow();
+      expect(() => CooperativeConvergenceSchema.parse({ ...valid, confidence_distribution_aggregated: [0, 1, 2, 1, 0, 0] })).toThrow();
+    });
+
+    it("rejects negative values in confidence_distribution", () => {
+      expect(() => CooperativeConvergenceSchema.parse({ ...valid, confidence_distribution_aggregated: [0, 1, -1, 1, 0] })).toThrow();
+    });
+
+    it("rejects non-integer values in confidence_distribution", () => {
+      expect(() => CooperativeConvergenceSchema.parse({ ...valid, confidence_distribution_aggregated: [0, 1, 1.5, 1, 0] })).toThrow();
+    });
+
+    it("rejects role_coverage out of [0,1]", () => {
+      expect(() => CooperativeConvergenceSchema.parse({ ...valid, role_coverage: 1.1 })).toThrow();
+      expect(() => CooperativeConvergenceSchema.parse({ ...valid, role_coverage: -0.1 })).toThrow();
+    });
+
+    it("rejects missing synthesis_id", () => {
+      const { synthesis_id, ...rest } = valid;
+      expect(() => CooperativeConvergenceSchema.parse(rest)).toThrow();
     });
   });
 });

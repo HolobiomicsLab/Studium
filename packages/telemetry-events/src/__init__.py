@@ -1,12 +1,17 @@
 """Pydantic mirror of TS Zod telemetry-events.
 
-Common base + 11 event types. Discriminated union via `type` field.
+Common base + 14 event types. Discriminated union via `type` field.
 Convention rule 004: never imported as `events` at root level.
 
 ADR 006 amendment v1.1 adds `reasoning_signal` (M5.9 discussion scenes)
-and `ai_audit_result` (ai_audit / ai_critique scenes). Both events are
-strict: no free text transmitted — only counters and a classification
-label.
+and `ai_audit_result` (ai_audit / ai_critique scenes).
+
+ADR 006 amendment v1.3 (views v0.4) adds `journal_entry_submitted`
+(reflective writing), `cooperative_vote` (per-vote emission, aggregate
+only) and `cooperative_convergence` (cooperative synthesis recap).
+
+All v1.1/v1.3 events are strict: no free text transmitted — only counters,
+labels and aggregated histograms.
 """
 
 from typing import Annotated, Literal, Union
@@ -107,11 +112,37 @@ class AIAuditResult(_Base):
     missed: int = Field(ge=0)
 
 
+class JournalEntrySubmitted(_Base):
+    type: Literal["journal_entry_submitted"]
+    scene_id: str
+    entry_length: int = Field(ge=0)
+    revision_count: int = Field(ge=0)
+    is_revision: bool
+
+
+class CooperativeVote(_Base):
+    type: Literal["cooperative_vote"]
+    question_id: str
+    group_size: int = Field(ge=2, le=6)
+    aggregate_only: bool
+
+
+class CooperativeConvergence(_Base):
+    type: Literal["cooperative_convergence"]
+    synthesis_id: str
+    group_size: int = Field(ge=2, le=6)
+    confidence_distribution_aggregated: list[Annotated[int, Field(ge=0)]] = Field(
+        min_length=5, max_length=5
+    )
+    role_coverage: float = Field(ge=0, le=1)
+
+
 TelemetryEvent = Annotated[
     Union[LessonStarted, SceneEntered, SceneCompleted, QuizAnswered,
           AdaptationApplied, CritiqueSubmitted, LessonCompleted,
           ConsentGranted, ForgetRequested,
-          ReasoningSignal, AIAuditResult],
+          ReasoningSignal, AIAuditResult,
+          JournalEntrySubmitted, CooperativeVote, CooperativeConvergence],
     Field(discriminator="type"),
 ]
 
@@ -121,4 +152,5 @@ __all__ = [
     "AdaptationApplied", "CritiqueSubmitted", "LessonCompleted",
     "ConsentGranted", "ForgetRequested",
     "ReasoningSignal", "AIAuditResult",
+    "JournalEntrySubmitted", "CooperativeVote", "CooperativeConvergence",
 ]

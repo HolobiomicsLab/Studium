@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { SceneSchema } from "./scenes";
 import { AdaptationRuleSchema } from "./rules";
+import { AssessmentBlueprintSchema } from "./blueprint";
 
 export * from "./scenes";
 export * from "./rules";
+export * from "./blueprint";
 
 export const BloomLevelSchema = z.enum([
   "remember", "understand", "apply", "analyze", "evaluate", "create",
@@ -25,7 +27,7 @@ export const BundleMetadataSchema = z.object({
 });
 
 export const LessonBundleSchema = z.object({
-  schema_version: z.literal("1.2"),
+  schema_version: z.literal("1.3"),
   bundle_id: z.string(),
   source_plan_id: z.string(),
   metadata: BundleMetadataSchema,
@@ -34,6 +36,7 @@ export const LessonBundleSchema = z.object({
   rules: z.array(AdaptationRuleSchema),
   validated_by: z.string().min(3),
   validated_at: z.string().datetime(),
+  assessment_blueprint: AssessmentBlueprintSchema.optional(),
 });
 
 export type LessonBundle = z.infer<typeof LessonBundleSchema>;

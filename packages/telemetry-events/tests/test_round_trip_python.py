@@ -270,3 +270,269 @@ def test_bundle_version_optional_defaults_to_unversioned():
     }
     event = adapter.validate_python(raw)
     assert event.bundle_version == "unversioned"
+
+
+# --- v0.4 — journal_entry_submitted ------------------------------------------
+
+def test_journal_entry_submitted_round_trip():
+    raw = {
+        **BASE,
+        "type": "journal_entry_submitted",
+        "scene_id": "s_journal_1",
+        "entry_length": 420,
+        "revision_count": 1,
+        "is_revision": True,
+    }
+    event = adapter.validate_python(raw)
+    assert event.type == "journal_entry_submitted"
+    assert event.entry_length == 420
+    assert event.revision_count == 1
+    assert event.is_revision is True
+    redumped = json.loads(adapter.dump_json(event))
+    assert redumped == raw
+
+
+def test_journal_entry_submitted_rejects_negative_entry_length():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "journal_entry_submitted",
+        "scene_id": "s_j",
+        "entry_length": -1,
+        "revision_count": 0,
+        "is_revision": False,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
+
+
+def test_journal_entry_submitted_rejects_negative_revision_count():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "journal_entry_submitted",
+        "scene_id": "s_j",
+        "entry_length": 100,
+        "revision_count": -1,
+        "is_revision": False,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
+
+
+def test_journal_entry_submitted_rejects_non_integer_counters():
+    import pytest
+    from pydantic import ValidationError
+    base = {
+        **BASE,
+        "type": "journal_entry_submitted",
+        "scene_id": "s_j",
+        "is_revision": False,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python({**base, "entry_length": 1.5, "revision_count": 0})
+    with pytest.raises(ValidationError):
+        adapter.validate_python({**base, "entry_length": 0, "revision_count": 1.5})
+
+
+def test_journal_entry_submitted_rejects_missing_field():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "journal_entry_submitted",
+        "scene_id": "s_j",
+        "entry_length": 100,
+        "revision_count": 0,
+        # missing is_revision
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
+
+
+# --- v0.4 — cooperative_vote -------------------------------------------------
+
+def test_cooperative_vote_round_trip():
+    raw = {
+        **BASE,
+        "type": "cooperative_vote",
+        "question_id": "q_vote_1",
+        "group_size": 4,
+        "aggregate_only": True,
+    }
+    event = adapter.validate_python(raw)
+    assert event.type == "cooperative_vote"
+    assert event.group_size == 4
+    assert event.aggregate_only is True
+    redumped = json.loads(adapter.dump_json(event))
+    assert redumped == raw
+
+
+def test_cooperative_vote_group_size_boundaries():
+    for gs in [2, 6]:
+        raw = {
+            **BASE,
+            "type": "cooperative_vote",
+            "question_id": "q",
+            "group_size": gs,
+            "aggregate_only": True,
+        }
+        event = adapter.validate_python(raw)
+        assert event.group_size == gs
+
+
+def test_cooperative_vote_rejects_group_size_out_of_range():
+    import pytest
+    from pydantic import ValidationError
+    base = {
+        **BASE,
+        "type": "cooperative_vote",
+        "question_id": "q",
+        "aggregate_only": True,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python({**base, "group_size": 1})
+    with pytest.raises(ValidationError):
+        adapter.validate_python({**base, "group_size": 7})
+
+
+def test_cooperative_vote_rejects_non_integer_group_size():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "cooperative_vote",
+        "question_id": "q",
+        "group_size": 3.5,
+        "aggregate_only": True,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
+
+
+def test_cooperative_vote_rejects_missing_field():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "cooperative_vote",
+        "group_size": 4,
+        "aggregate_only": True,
+        # missing question_id
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
+
+
+# --- v0.4 — cooperative_convergence ------------------------------------------
+
+def test_cooperative_convergence_round_trip():
+    raw = {
+        **BASE,
+        "type": "cooperative_convergence",
+        "synthesis_id": "syn_1",
+        "group_size": 4,
+        "confidence_distribution_aggregated": [0, 1, 2, 1, 0],
+        "role_coverage": 0.75,
+    }
+    event = adapter.validate_python(raw)
+    assert event.type == "cooperative_convergence"
+    assert len(event.confidence_distribution_aggregated) == 5
+    assert event.role_coverage == 0.75
+    redumped = json.loads(adapter.dump_json(event))
+    assert redumped == raw
+
+
+def test_cooperative_convergence_rejects_group_size_out_of_range():
+    import pytest
+    from pydantic import ValidationError
+    base = {
+        **BASE,
+        "type": "cooperative_convergence",
+        "synthesis_id": "syn",
+        "confidence_distribution_aggregated": [0, 0, 0, 0, 0],
+        "role_coverage": 0.5,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python({**base, "group_size": 1})
+    with pytest.raises(ValidationError):
+        adapter.validate_python({**base, "group_size": 7})
+
+
+def test_cooperative_convergence_rejects_distribution_wrong_length():
+    import pytest
+    from pydantic import ValidationError
+    base = {
+        **BASE,
+        "type": "cooperative_convergence",
+        "synthesis_id": "syn",
+        "group_size": 4,
+        "role_coverage": 0.5,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python({**base, "confidence_distribution_aggregated": [0, 1, 2, 1]})
+    with pytest.raises(ValidationError):
+        adapter.validate_python({**base, "confidence_distribution_aggregated": [0, 1, 2, 1, 0, 0]})
+
+
+def test_cooperative_convergence_rejects_negative_distribution_values():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "cooperative_convergence",
+        "synthesis_id": "syn",
+        "group_size": 4,
+        "confidence_distribution_aggregated": [0, 1, -1, 1, 0],
+        "role_coverage": 0.5,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
+
+
+def test_cooperative_convergence_rejects_non_integer_distribution_values():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "cooperative_convergence",
+        "synthesis_id": "syn",
+        "group_size": 4,
+        "confidence_distribution_aggregated": [0, 1, 1.5, 1, 0],
+        "role_coverage": 0.5,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
+
+
+def test_cooperative_convergence_rejects_role_coverage_out_of_range():
+    import pytest
+    from pydantic import ValidationError
+    base = {
+        **BASE,
+        "type": "cooperative_convergence",
+        "synthesis_id": "syn",
+        "group_size": 4,
+        "confidence_distribution_aggregated": [0, 0, 0, 0, 0],
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python({**base, "role_coverage": 1.1})
+    with pytest.raises(ValidationError):
+        adapter.validate_python({**base, "role_coverage": -0.1})
+
+
+def test_cooperative_convergence_rejects_missing_field():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "cooperative_convergence",
+        "group_size": 4,
+        "confidence_distribution_aggregated": [0, 0, 0, 0, 0],
+        "role_coverage": 0.5,
+        # missing synthesis_id
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
