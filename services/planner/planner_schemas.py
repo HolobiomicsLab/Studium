@@ -14,6 +14,9 @@ from lesson_plan_schema import (
     SceneType,
     PlanStatus,
     RefType,
+    Evidence,
+    BibliographicRef,
+    EnrichmentMetadata,
 )
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -52,5 +55,6 @@ class CritiqueResult(BaseModel):
 __all__ = [
     "LessonPlan", "LearningObjective", "SceneOutline", "CorpusRef",
     "PlanMetadata", "BloomLevel", "SceneType", "PlanStatus", "RefType",
+    "Evidence", "BibliographicRef", "EnrichmentMetadata",
     "PlanRequest", "PlanResponse", "CritiqueResult",
 ]
