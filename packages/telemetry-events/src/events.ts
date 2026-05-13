@@ -98,6 +98,42 @@ export const AIAuditResultSchema = BaseEventSchema.extend({
   missed: z.number().int().nonnegative(),
 });
 
+// ADR 006 amendment v1.3 — journal_entry_submitted emitted when a learner
+// submits a journal entry (reflective writing). Strict: aucun texte libre
+// transmis — uniquement la longueur (compteur) et des métadonnées de révision.
+export const JournalEntrySubmittedSchema = BaseEventSchema.extend({
+  type: z.literal("journal_entry_submitted"),
+  scene_id: z.string(),
+  entry_length: z.number().int().nonnegative(),
+  revision_count: z.number().int().nonnegative(),
+  is_revision: z.boolean(),
+});
+
+// ADR 006 amendment v1.3 — cooperative_vote emitted per individual vote
+// during a cooperative scene. Strict: aucun contenu de vote ni identité
+// individuelle — uniquement question_id, taille de groupe et flag
+// aggregate_only (v1 = true ; anti-attribution individuelle).
+export const CooperativeVoteSchema = BaseEventSchema.extend({
+  type: z.literal("cooperative_vote"),
+  question_id: z.string(),
+  group_size: z.number().int().min(2).max(6),
+  aggregate_only: z.boolean(),
+});
+
+// ADR 006 amendment v1.3 — cooperative_convergence emitted at the end of a
+// cooperative synthesis. Strict: aucun texte transmis — uniquement la
+// distribution de confiance agrégée (histogramme à 5 bins) et la couverture
+// des rôles (ratio).
+export const CooperativeConvergenceSchema = BaseEventSchema.extend({
+  type: z.literal("cooperative_convergence"),
+  synthesis_id: z.string(),
+  group_size: z.number().int().min(2).max(6),
+  confidence_distribution_aggregated: z
+    .array(z.number().int().nonnegative())
+    .length(5),
+  role_coverage: z.number().min(0).max(1),
+});
+
 export const TelemetryEventSchema = z.discriminatedUnion("type", [
   LessonStartedSchema,
   SceneEnteredSchema,
@@ -110,6 +146,9 @@ export const TelemetryEventSchema = z.discriminatedUnion("type", [
   ForgetRequestedSchema,
   ReasoningSignalSchema,
   AIAuditResultSchema,
+  JournalEntrySubmittedSchema,
+  CooperativeVoteSchema,
+  CooperativeConvergenceSchema,
 ]);
 
 export type TelemetryEvent = z.infer<typeof TelemetryEventSchema>;
