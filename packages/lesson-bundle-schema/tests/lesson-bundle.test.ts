@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema } from "../src/index";
+import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema, DiscussionSceneSchema } from "../src/index";
 
 const VALID_BUNDLE = {
-  schema_version: "1.1",
+  schema_version: "1.2",
   bundle_id: "b-001",
   source_plan_id: "p-001",
   metadata: {
@@ -43,7 +43,7 @@ describe("LessonBundleSchema", () => {
 
   it("rejects unknown scene_type", () => {
     const invalid = { ...VALID_BUNDLE,
-      scenes: [{ ...VALID_BUNDLE.scenes[0], type: "discussion" }] };
+      scenes: [{ ...VALID_BUNDLE.scenes[0], type: "nonsense_scene_type" }] };
     expect(() => LessonBundleSchema.parse(invalid)).toThrow();
   });
 
@@ -73,6 +73,45 @@ describe("LessonBundleSchema", () => {
 
   it("rejects legacy schema_version 1.0 (ADR 010 bump)", () => {
     const invalid = { ...VALID_BUNDLE, schema_version: "1.0" };
+    expect(() => LessonBundleSchema.parse(invalid)).toThrow();
+  });
+
+  it("validates DiscussionScene (ADR 012 v1.2)", () => {
+    const scene = {
+      id: "s-disc-1",
+      type: "discussion",
+      title: "Débat LC-MS",
+      objective_refs: [],
+      concept_refs: [],
+      estimated_seconds: 600,
+      adaptation_hooks: [],
+      topic: "La métabolomique remplacera-t-elle la protéomique ?",
+      seed_claim: "La métabolomique est plus rapide donc supérieure.",
+      target_signals: ["justification", "counterexample", "synthesis"],
+      max_turns: 12,
+    };
+    expect(() => DiscussionSceneSchema.parse(scene)).not.toThrow();
+  });
+
+  it("rejects DiscussionScene with invalid target_signal", () => {
+    const scene = {
+      id: "s-disc-1",
+      type: "discussion",
+      title: "x",
+      objective_refs: [],
+      concept_refs: [],
+      estimated_seconds: 60,
+      adaptation_hooks: [],
+      topic: "x",
+      seed_claim: "y",
+      target_signals: ["invalid_signal"],
+      max_turns: 5,
+    };
+    expect(() => DiscussionSceneSchema.parse(scene)).toThrow();
+  });
+
+  it("rejects legacy schema_version 1.1 (ADR 012 bump)", () => {
+    const invalid = { ...VALID_BUNDLE, schema_version: "1.1" };
     expect(() => LessonBundleSchema.parse(invalid)).toThrow();
   });
 });

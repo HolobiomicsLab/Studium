@@ -2,7 +2,11 @@ import { z } from "zod";
 
 export const SceneTypeSchema = z.enum([
   "intro", "concept", "quiz", "meta_checkpoint",
-  "reproduction", "ai_critique",
+  "reproduction", "ai_critique", "discussion",
+]);
+
+export const ReasoningSignalEnum = z.enum([
+  "justification", "hypothesis", "question", "counterexample", "synthesis",
 ]);
 
 export const SceneBaseSchema = z.object({
@@ -80,6 +84,14 @@ export const AICritiqueSceneSchema = SceneBaseSchema.extend({
   rubric: AICritiqueRubricSchema,
 });
 
+export const DiscussionSceneSchema = SceneBaseSchema.extend({
+  type: z.literal("discussion"),
+  topic: z.string().min(1),
+  seed_claim: z.string().min(1),
+  target_signals: z.array(ReasoningSignalEnum).min(1),
+  max_turns: z.number().int().positive().max(50),
+});
+
 export const SceneSchema = z.discriminatedUnion("type", [
   IntroSceneSchema,
   ConceptSceneSchema,
@@ -87,6 +99,7 @@ export const SceneSchema = z.discriminatedUnion("type", [
   MetaCheckpointSceneSchema,
   ReproductionSceneSchema,
   AICritiqueSceneSchema,
+  DiscussionSceneSchema,
 ]);
 
 export type Scene = z.infer<typeof SceneSchema>;

@@ -72,3 +72,201 @@ def test_unknown_type_rejected():
     from pydantic import ValidationError
     with pytest.raises(ValidationError):
         adapter.validate_python(raw)
+
+
+BASE = {
+    "event_id": "01923456-7890-1234-5678-abcdef012345",
+    "learner_pseudonym": "hmac:abc",
+    "lesson_id": "demo",
+    "bundle_version": "1.0.0",
+    "client_timestamp": "2026-05-09T10:00:00Z",
+}
+
+
+def test_reasoning_signal_round_trip():
+    raw = {
+        **BASE,
+        "type": "reasoning_signal",
+        "scene_id": "s_discuss_1",
+        "signal": "justification",
+        "confidence": 0.82,
+        "turn_index": 3,
+    }
+    event = adapter.validate_python(raw)
+    assert event.type == "reasoning_signal"
+    assert event.signal == "justification"
+    redumped = json.loads(adapter.dump_json(event))
+    assert redumped == raw
+
+
+def test_reasoning_signal_all_signal_labels():
+    for signal in ["justification", "hypothesis", "question", "counterexample", "synthesis"]:
+        raw = {
+            **BASE,
+            "type": "reasoning_signal",
+            "scene_id": "s_d",
+            "signal": signal,
+            "confidence": 0.5,
+            "turn_index": 0,
+        }
+        event = adapter.validate_python(raw)
+        assert event.signal == signal
+
+
+def test_reasoning_signal_rejects_invalid_signal():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "reasoning_signal",
+        "scene_id": "s_d",
+        "signal": "nope",
+        "confidence": 0.5,
+        "turn_index": 0,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
+
+
+def test_reasoning_signal_rejects_confidence_out_of_range():
+    import pytest
+    from pydantic import ValidationError
+    base = {
+        **BASE,
+        "type": "reasoning_signal",
+        "scene_id": "s_d",
+        "signal": "justification",
+        "turn_index": 0,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python({**base, "confidence": 1.1})
+    with pytest.raises(ValidationError):
+        adapter.validate_python({**base, "confidence": -0.01})
+
+
+def test_reasoning_signal_rejects_negative_turn_index():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "reasoning_signal",
+        "scene_id": "s_d",
+        "signal": "justification",
+        "confidence": 0.5,
+        "turn_index": -1,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
+
+
+def test_reasoning_signal_rejects_missing_field():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "reasoning_signal",
+        "scene_id": "s_d",
+        "signal": "justification",
+        "confidence": 0.5,
+        # missing turn_index
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
+
+
+def test_ai_audit_result_round_trip():
+    raw = {
+        **BASE,
+        "type": "ai_audit_result",
+        "scene_id": "s_audit_1",
+        "planted_errors": 5,
+        "true_positives": 3,
+        "false_positives": 1,
+        "missed": 2,
+    }
+    event = adapter.validate_python(raw)
+    assert event.type == "ai_audit_result"
+    assert event.planted_errors == 5
+    assert event.missed == 2
+    redumped = json.loads(adapter.dump_json(event))
+    assert redumped == raw
+
+
+def test_ai_audit_result_rejects_negative_counters():
+    import pytest
+    from pydantic import ValidationError
+    base = {
+        **BASE,
+        "type": "ai_audit_result",
+        "scene_id": "s_a",
+        "planted_errors": 5,
+        "true_positives": 3,
+        "false_positives": 1,
+        "missed": 2,
+    }
+    for field in ["planted_errors", "true_positives", "false_positives", "missed"]:
+        with pytest.raises(ValidationError):
+            adapter.validate_python({**base, field: -1})
+
+
+def test_ai_audit_result_rejects_non_integer():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "ai_audit_result",
+        "scene_id": "s_a",
+        "planted_errors": 5,
+        "true_positives": 3.5,
+        "false_positives": 1,
+        "missed": 2,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
+
+
+def test_ai_audit_result_rejects_missing_field():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "ai_audit_result",
+        "scene_id": "s_a",
+        "planted_errors": 5,
+        "true_positives": 3,
+        "false_positives": 1,
+        # missing missed
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
+
+
+# --- M5.7 — bundle_version is optional with default "unversioned" --------
+
+def test_bundle_version_round_trip():
+    """Roundtrip vérifie que le champ bundle_version est préservé."""
+    raw = {
+        **BASE,
+        "bundle_version": "1.1:demo-metabolomics-001@2026-05-08T10:00:00Z",
+        "type": "lesson_started",
+        "bundle_uri": "file:///tmp/demo.zip",
+    }
+    event = adapter.validate_python(raw)
+    assert event.bundle_version == "1.1:demo-metabolomics-001@2026-05-08T10:00:00Z"
+    redumped = json.loads(adapter.dump_json(event))
+    assert redumped["bundle_version"] == raw["bundle_version"]
+
+
+def test_bundle_version_optional_defaults_to_unversioned():
+    """Rétro-compat (M5.7) : event ingéré sans bundle_version → "unversioned"."""
+    raw = {
+        "event_id": "01923456-7890-1234-5678-abcdef012345",
+        "learner_pseudonym": "hmac:abc",
+        "lesson_id": "demo",
+        "client_timestamp": "2026-05-09T10:00:00Z",
+        "type": "lesson_started",
+        "bundle_uri": "file:///tmp/demo.zip",
+        # no bundle_version
+    }
+    event = adapter.validate_python(raw)
+    assert event.bundle_version == "unversioned"

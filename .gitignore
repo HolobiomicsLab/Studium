@@ -12,3 +12,14 @@ src-tauri/target/
 *.db
 .DS_Store
 coverage/
+
+# Next.js build output
+.next/
+apps/teacher-dashboard/.next/
+
+# Generic build artifacts
+build/
+
+# Playwright / e2e test artifacts
+playwright-report/
+test-results/

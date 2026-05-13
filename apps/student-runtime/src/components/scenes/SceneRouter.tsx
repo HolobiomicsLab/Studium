@@ -7,6 +7,7 @@ import QuizScene from "./QuizScene";
 import MetaCheckpointScene from "./MetaCheckpointScene";
 import ReproductionScene from "./ReproductionScene";
 import AICritiqueScene from "./AICritiqueScene";
+import DiscussionScene from "./DiscussionScene";
 
 type Props = {
   scene: Scene;
@@ -31,5 +32,8 @@ export default function SceneRouter({
   if (scene.type === "meta_checkpoint") return <MetaCheckpointScene scene={scene} onSignal={onSignal} onContinue={onContinue} />;
   if (scene.type === "reproduction")    return <ReproductionScene scene={scene} onSignal={onSignal} onContinue={onContinue} />;
   if (scene.type === "ai_critique")     return <AICritiqueScene scene={scene} onSignal={onSignal} onContinue={onContinue} endpoint={critiqueEvalEndpoint} emit={emit} />;
+  if (scene.type === "discussion") {
+    return <DiscussionScene scene={scene} emit={emit} onSignal={onSignal} onContinue={onContinue} />;
+  }
   return null;
 }

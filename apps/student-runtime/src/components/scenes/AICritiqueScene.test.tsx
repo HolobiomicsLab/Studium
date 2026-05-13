@@ -179,6 +179,58 @@ describe("AICritiqueScene", () => {
     expect(call).toBeUndefined();
   });
 
+  it("emits ai_audit_result event when critique submitted (M5.10)", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ score: 0.8, feedback: "ok" }),
+    });
+    const emit = vi.fn();
+    const scene: Extract<Scene, { type: "ai_critique" }> = {
+      id: "s_critique_1",
+      type: "ai_critique",
+      title: "Critique",
+      objective_refs: [],
+      concept_refs: [],
+      estimated_seconds: 120,
+      adaptation_hooks: [],
+      claims: [
+        { id: "c1", text: "...", flaws_expected: ["selection_bias"] },
+      ],
+      rubric: { completeness: 0.5, evidence_quality: 0.5, tone: 0.5 },
+    };
+    render(
+      <AICritiqueScene
+        scene={scene}
+        onSignal={vi.fn().mockResolvedValue(undefined)}
+        onContinue={vi.fn()}
+        emit={emit}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/critique-textarea/), {
+      target: { value: "There is selection bias here." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /soumettre/i }));
+    await waitFor(() => {
+      const auditCall = emit.mock.calls.find(
+        (c) => c[0]?.type === "ai_audit_result",
+      );
+      expect(auditCall).toBeTruthy();
+    });
+    // Strict match — ADR 006 v1.1 closed vocabulary : exactly 6 keys.
+    const auditCall = emit.mock.calls.find(
+      (c) => c[0]?.type === "ai_audit_result",
+    );
+    expect(auditCall?.[0]).toEqual({
+      type: "ai_audit_result",
+      scene_id: "s_critique_1",
+      planted_errors: 1,
+      true_positives: 1,
+      false_positives: 0,
+      missed: 0,
+    });
+  });
+
   it("utilise le endpoint custom si fourni", async () => {
     (global.fetch as any).mockResolvedValue({
       ok: true,

@@ -10,7 +10,10 @@ from pydantic import BaseModel, Field
 
 SceneType = Literal[
     "intro", "concept", "quiz", "meta_checkpoint",
-    "reproduction", "ai_critique",
+    "reproduction", "ai_critique", "discussion",
+]
+ReasoningSignalEnum = Literal[
+    "justification", "hypothesis", "question", "counterexample", "synthesis",
 ]
 BloomLevel = Literal["remember", "understand", "apply", "analyze", "evaluate", "create"]
 Modulator = Literal["M1", "M2", "M3", "M6"]
@@ -105,9 +108,17 @@ class AICritiqueScene(_SceneBase):
     rubric: AICritiqueRubric
 
 
+class DiscussionScene(_SceneBase):
+    type: Literal["discussion"]
+    topic: str = Field(min_length=1)
+    seed_claim: str = Field(min_length=1)
+    target_signals: list[ReasoningSignalEnum] = Field(min_length=1)
+    max_turns: int = Field(gt=0, le=50)
+
+
 SceneUnion = Union[
     IntroScene, ConceptScene, QuizScene, MetaCheckpointScene,
-    ReproductionScene, AICritiqueScene,
+    ReproductionScene, AICritiqueScene, DiscussionScene,
 ]
 Scene = Annotated[SceneUnion, Field(discriminator="type")]
 
@@ -132,7 +143,7 @@ class AdaptationRule(BaseModel):
 
 
 class LessonBundle(BaseModel):
-    schema_version: Literal["1.1"]
+    schema_version: Literal["1.2"]
     bundle_id: str
     source_plan_id: str
     metadata: BundleMetadata

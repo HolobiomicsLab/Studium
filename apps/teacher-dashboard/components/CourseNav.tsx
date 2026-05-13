@@ -1,11 +1,23 @@
 import Link from "next/link";
 
-type Props = { token: string; active: "progress" | "calibration" | "autonomy" };
+type Props = {
+  token: string;
+  active:
+    | "progress"
+    | "calibration"
+    | "autonomy"
+    | "trajectory"
+    | "ai-literacy"
+    | "reasoning";
+};
 
 const TABS: { key: Props["active"]; label: string }[] = [
   { key: "progress", label: "Progression" },
   { key: "calibration", label: "Calibration" },
   { key: "autonomy", label: "Autonomie" },
+  { key: "trajectory", label: "Trajectoire" },
+  { key: "ai-literacy", label: "Littératie IA" },
+  { key: "reasoning", label: "Raisonnement" },
 ];
 
 export default function CourseNav({ token, active }: Props) {
