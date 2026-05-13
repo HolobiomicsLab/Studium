@@ -1,0 +1,16 @@
+{
+  "task_id": "task-msms-001",
+  "title": "Annotation pic m/z 286.1 E. coli stress response",
+  "task_description": "Annoter le pic m/z 286.1 observé dans le spectre MS/MS d'un extrait E. coli BL21 (DE3) en stress oxydatif.",
+  "inputs": ["MS/MS spectrum file (mgf)"],
+  "expected_outputs": ["Compound annotation", "Confidence score"],
+  "tools": ["MZmine", "matchms"],
+  "methodology_summary": [
+    "Charger le spectre dans MZmine",
+    "Cross-référence avec GNPS+MoNA",
+    "Annotation manuelle si pas de match automatique"
+  ],
+  "execution_profile": {"runtime_estimated_minutes": 30},
+  "crossref_doi": "10.1234/example.metabolomics.2025",
+  "linked_skills": ["msms-annotation"]
+}
