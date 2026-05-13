@@ -11,6 +11,7 @@ import {
   getReasoningDepth,
   getJournalStats,
   getCooperationStats,
+  postBlueprintScore,
 } from "./api";
 
 describe("teacher-dashboard api wrapper", () => {
@@ -204,6 +205,31 @@ describe("teacher-dashboard api wrapper", () => {
     expect(call[0]).toContain("course=course-x");
     expect(call[0]).toContain("bundle_version=v0.4");
     expect(call[1].headers["X-Course-Token"]).toBe("course-x");
+  });
+
+  it("postBlueprintScore POSTs blueprint with X-Course-Token", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        dimensions: [{ id: "d1", label: "D1", score: 0.7, degraded: false }],
+        overall_weighted_score: 0.7,
+      }),
+    })) as never;
+    const blueprint = {
+      dimensions: [{
+        id: "d1", label: "D1", weight: 1.0,
+        metrics: [{ endpoint: "ai_literacy" as const, field: "value", weight_in_dimension: 1.0 }],
+      }],
+    };
+    const result = await postBlueprintScore("course-x", "pseudo-1", blueprint);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/metrics/blueprint"),
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ "X-Course-Token": "course-x" }),
+      }),
+    );
+    expect(result.dimensions[0].score).toBe(0.7);
   });
 
   it("URL-encodes course token", async () => {

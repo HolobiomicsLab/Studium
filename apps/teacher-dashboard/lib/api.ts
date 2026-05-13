@@ -175,3 +175,47 @@ export function getCooperationStats(
     courseToken,
   );
 }
+
+export type BlueprintScoreResponse = {
+  dimensions: Array<{ id: string; label: string; score: number | null; degraded: boolean }>;
+  overall_weighted_score: number | null;
+};
+
+export type AssessmentBlueprintInput = {
+  dimensions: Array<{
+    id: string;
+    label: string;
+    weight: number;
+    metrics: Array<{
+      endpoint: "progress" | "calibration" | "autonomy" | "ai_literacy" | "reasoning" | "ai_audit";
+      field: string;
+      weight_in_dimension: number;
+    }>;
+  }>;
+};
+
+export async function postBlueprintScore(
+  courseToken: string,
+  pseudonyme: string,
+  blueprint: AssessmentBlueprintInput,
+  bundle_version?: string,
+): Promise<BlueprintScoreResponse> {
+  const r = await fetch(`${BASE}/metrics/blueprint`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Course-Token": courseToken,
+    },
+    body: JSON.stringify({
+      course: courseToken,
+      pseudonyme,
+      bundle_version: bundle_version ?? null,
+      blueprint,
+    }),
+  });
+  if (!r.ok) {
+    throw new Error(`Analytics API /metrics/blueprint failed: ${r.status} ${r.statusText}`);
+  }
+  return r.json() as Promise<BlueprintScoreResponse>;
+}
