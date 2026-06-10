@@ -140,6 +140,17 @@ export class LessonSession {
   protected successOf(signal: Signal): boolean {
     return signal.kind === "answer_submitted" ? signal.correct : true;
   }
+
+  async submitTurn(text: string): Promise<void> {
+    this.assertStarted();
+    const scene = this.scene();
+    if (scene.type !== "discussion") return;            // no-op outside discussion
+    if (this.discussionTurnIdx >= scene.max_turns) return;
+    const turnIndex = this.discussionTurnIdx++;
+    const result = await this.deps.reasoningScorer.score(text, scene.topic);
+    if (result === null) return;                        // graceful degradation
+    this.emit({ type: "reasoning_signal", scene_id: scene.id, signal: result.signal, confidence: result.confidence, turn_index: turnIndex });
+  }
 }
 
 function decisionValue(signal: Signal): number {
