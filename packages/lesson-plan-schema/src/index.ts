@@ -34,7 +34,7 @@ export type ABSAsset = {
 
 export type EnrichmentMetadata = {
   enricher_version: string;
-  perspicacite_mode_used: "basic" | "advanced" | "profound" | "agentic";
+  perspicacite_mode_used: "basic" | "advanced" | "profound" | "agentic" | "passages";
   timestamp: string;
   degraded: boolean;
 };

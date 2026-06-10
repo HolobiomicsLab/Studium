@@ -35,7 +35,7 @@ export const ABSAssetSchema = z.object({
 
 export const EnrichmentMetadataSchema = z.object({
   enricher_version: z.string().min(1),
-  perspicacite_mode_used: z.enum(["basic", "advanced", "profound", "agentic"]),
+  perspicacite_mode_used: z.enum(["basic", "advanced", "profound", "agentic", "passages"]),
   timestamp: z.string().min(1),
   degraded: z.boolean(),
 });

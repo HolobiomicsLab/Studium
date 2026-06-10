@@ -92,7 +92,7 @@ class ABSAsset(BaseModel):
 
 class EnrichmentMetadata(BaseModel):
     enricher_version: str = Field(min_length=1)
-    perspicacite_mode_used: Literal["basic", "advanced", "profound", "agentic"]
+    perspicacite_mode_used: Literal["basic", "advanced", "profound", "agentic", "passages"]
     timestamp: str = Field(min_length=1)
     degraded: bool
 
