@@ -131,7 +131,7 @@
         "enricher_version": { "type": "string", "minLength": 1 },
         "perspicacite_mode_used": {
           "type": "string",
-          "enum": ["basic", "advanced", "profound", "agentic"]
+          "enum": ["basic", "advanced", "profound", "agentic", "passages"]
         },
         "timestamp": { "type": "string", "minLength": 1 },
         "degraded": { "type": "boolean" }

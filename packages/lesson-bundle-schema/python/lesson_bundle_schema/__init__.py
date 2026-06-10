@@ -15,7 +15,7 @@ SCHEMA_VERSION = "1.4"
 # ADR 014 — Evidence models (Pydantic mirror of Zod EvidenceSchema)
 # ---------------------------------------------------------------------------
 
-PerspicaciteMode = Literal["basic", "advanced", "profound", "agentic"]
+PerspicaciteMode = Literal["basic", "advanced", "profound", "agentic", "passages"]
 ABSAssetType = Literal[
     "spectrum_viewer_svg", "code_snippet", "data_csv", "protocol_card_md", "script_snippet"
 ]

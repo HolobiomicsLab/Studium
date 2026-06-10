@@ -43,7 +43,7 @@ Modulator = Literal["M1", "M2", "M3", "M6"]
 # ADR 014 — Evidence models
 # ---------------------------------------------------------------------------
 
-PerspicaciteMode = Literal["basic", "advanced", "profound", "agentic"]
+PerspicaciteMode = Literal["basic", "advanced", "profound", "agentic", "passages"]
 ABSAssetType = Literal[
     "spectrum_viewer_svg", "code_snippet", "data_csv", "protocol_card_md", "script_snippet"
 ]
