@@ -79,9 +79,6 @@ importers:
 
   apps/lesson-server:
     dependencies:
-      '@studium/lesson-bundle-schema':
-        specifier: workspace:*
-        version: link:../../packages/lesson-bundle-schema
       '@studium/lesson-session':
         specifier: workspace:*
         version: link:../../packages/lesson-session
