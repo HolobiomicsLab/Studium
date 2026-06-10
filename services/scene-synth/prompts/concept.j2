@@ -10,6 +10,13 @@ Tentative précédente invalide : {{ last_error }}. Corrige le format.
 Rédige une explication claire (4-8 phrases) en markdown, ton pédagogique,
 sans affirmation factuelle non sourçable.
 
+{% if evidence_block %}
+{{ evidence_block }}
+
+Ancre ton explication dans ces Sources et cite en ligne par [n]. N'affirme que ce
+que les Sources soutiennent ; si un fait nécessaire n'y figure pas, omets-le ou
+signale-le — ne fabrique pas.
+{% endif %}
 Réponds en JSON strict, schéma (ADR 010 — flat) :
 {
   "id": "s_concept_<short_id>",
