@@ -84,7 +84,7 @@ class EvidenceEnricher:
             abs_asset=abs_asset,
             enrichment_metadata=EnrichmentMetadata(
                 enricher_version=ENRICHER_VERSION,
-                perspicacite_mode_used=mode,
+                perspicacite_mode_used="passages",  # M1: get_relevant_passages (mode reserved for M2 generate_report)
                 timestamp=datetime.now(timezone.utc).isoformat(),
                 degraded=degraded,
             ),

@@ -18,12 +18,16 @@ _critic = CriticAgent()
 
 
 def _get_perspicacite_client():
-    """Factory d'injection — testable via patch.
-
-    Retourne None par défaut (Perspicacité MCP non câblé en MVP). Test mock
-    via patch("planner_app._get_perspicacite_client").
-    """
-    return None
+    """Factory d'injection. Retourne le client MCP Perspicacité live si activé
+    (STUDIUM_PERSPICACITE_ENABLED=on), sinon None (enrichissement skippé).
+    Testable via patch("planner_app._get_perspicacite_client")."""
+    import sys, os as _os
+    _here = _os.path.dirname(__file__)
+    _p = _os.path.join(_here, "../../packages/perspicacite-client/python")
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+    from perspicacite_mcp.client import make_perspicacite_client
+    return make_perspicacite_client()
 
 
 def _get_abs_reader():
