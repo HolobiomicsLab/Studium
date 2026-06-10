@@ -1,4 +1,4 @@
-// apps/lesson-server/src/bundle-resolver.ts
+// packages/lesson-session-host/src/bundle-resolver.ts  (moved verbatim)
 import { readFile } from "node:fs/promises";
 import { resolve, relative, isAbsolute } from "node:path";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";

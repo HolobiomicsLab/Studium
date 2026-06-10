@@ -1,12 +1,8 @@
-// apps/lesson-server/src/registry.ts
+// packages/lesson-session-host/src/registry.ts
 import type { LessonSession, SessionDeps } from "@studium/lesson-session";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
 
-export interface SessionEntry {
-  session: LessonSession;
-  deps: SessionDeps;
-  bundle: LessonBundle;
-}
+export interface SessionEntry { session: LessonSession; deps: SessionDeps; bundle: LessonBundle; }
 
 export class SessionRegistry {
   private readonly map = new Map<string, SessionEntry>();

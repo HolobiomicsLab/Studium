@@ -1,4 +1,4 @@
-// apps/lesson-server/src/server-deps.ts
+// packages/lesson-session-host/src/deps.ts  (moved from server-deps.ts; renamed buildServerDeps → buildHostDeps)
 import type { SessionDeps } from "@studium/lesson-session";
 import {
   SystemClock, RandomIdGen, HmacPseudonymProvider,
@@ -8,7 +8,7 @@ import {
 } from "@studium/lesson-session/node";
 
 /** Each session gets its OWN in-memory stores (session isolation). */
-export function buildServerDeps(live: boolean): SessionDeps {
+export function buildHostDeps(live: boolean): SessionDeps {
   return {
     stateStore: new InMemoryStateStore(),
     eventLog: new InMemoryEventLog(),

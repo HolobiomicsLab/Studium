@@ -1,4 +1,4 @@
-// apps/lesson-server/src/bundle-resolver.test.ts
+// packages/lesson-session-host/src/bundle-resolver.test.ts
 import { describe, it, expect, afterEach } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

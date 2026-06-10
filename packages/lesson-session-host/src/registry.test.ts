@@ -1,12 +1,12 @@
-// apps/lesson-server/src/registry.test.ts
+// packages/lesson-session-host/src/registry.test.ts
 import { describe, it, expect } from "vitest";
-import { buildServerDeps } from "./server-deps.js";
+import { buildHostDeps } from "./deps.js";
 import { SessionRegistry } from "./registry.js";
 import { InMemoryStateStore } from "@studium/lesson-session/node";
 
-describe("server-deps + registry", () => {
-  it("buildServerDeps(false) wires in-memory + stub adapters", () => {
-    const d = buildServerDeps(false);
+describe("buildHostDeps + registry", () => {
+  it("buildHostDeps(false) wires in-memory + stub adapters", () => {
+    const d = buildHostDeps(false);
     expect(d.stateStore).toBeInstanceOf(InMemoryStateStore);
     expect(typeof d.clock.now()).toBe("string");
     expect(typeof d.idGen.uuid()).toBe("string");

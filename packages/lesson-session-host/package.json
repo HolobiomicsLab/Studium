@@ -1,0 +1,15 @@
+{
+  "name": "@studium/lesson-session-host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "test": "vitest run", "test:watch": "vitest", "build": "tsc" },
+  "dependencies": {
+    "@studium/lesson-session": "workspace:*",
+    "@studium/lesson-bundle-schema": "workspace:*",
+    "@studium/learner-state": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": { "@types/node": "^20", "vitest": "^1.6.1", "typescript": "^5.5.0" }
+}
