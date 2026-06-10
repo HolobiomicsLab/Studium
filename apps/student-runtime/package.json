@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@studium/adaptation-engine": "workspace:*",
+    "@studium/lesson-session": "workspace:*",
     "@studium/learner-state": "workspace:*",
     "@studium/lesson-bundle-schema": "workspace:*",
     "@studium/reasoning-scorer": "workspace:*",
