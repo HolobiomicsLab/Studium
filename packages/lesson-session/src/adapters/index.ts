@@ -6,3 +6,4 @@ export { JsonlTelemetrySink, HttpTelemetrySink } from "./telemetry-sink.js";
 export { loadBundleZip, loadBundleJson } from "./bundle-loader.js";
 export { LiteLLMReasoningScorer, StubReasoningScorer } from "./reasoning-scorer.js";
 export { HttpCritiqueEvaluator, StubCritiqueEvaluator } from "./critique-evaluator.js";
+export { InMemoryStateStore, InMemoryEventLog, InMemoryTelemetrySink } from "./in-memory.js";
