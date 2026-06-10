@@ -1,0 +1,10 @@
+[
+  { "respond": { "kind": "ack" } },
+  { "respond": { "kind": "ack" } },
+  { "respond": { "kind": "quiz_choice", "choiceId": "b" } },
+  { "respond": { "kind": "critique", "text": "claim_a repose sur un small sample non contrôlé" } },
+  { "turns": ["parce que les données montrent X", "mais un contre-exemple existe"], "respond": { "kind": "ack" } },
+  { "respond": { "kind": "ack" } },
+  { "respond": { "kind": "ack" } },
+  { "respond": { "kind": "confidence", "value": 3 } }
+]
