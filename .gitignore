@@ -27,3 +27,6 @@ fixtures/m6/demo-atomistique-bundle.zip
 
 # pnpm local content-addressable store (regenerable)
 .pnpm-store/
+
+# Perspicacité search cache (on-disk, reproducible re-gen)
+.cache/

@@ -4,6 +4,7 @@ import json, os
 from typing import Any, Protocol
 
 from .session import _MCPSession
+from . import cache as _cache
 
 
 class PerspicaciteClient(Protocol):
@@ -69,13 +70,19 @@ class LivePerspicaciteClient:
     def search(self, *, query: str, mode: str, max_results: int,
                kb_names: list[str] | None = None) -> dict:
         kbs = kb_names or ([self._default_kb] if self._default_kb else [])
+        cached = _cache.get(kbs, query, max_results)
+        if cached is not None:
+            return cached
         # M1 evidence: passage-level retrieval (skill: prefer get_relevant_passages over
         # generate_report). `mode` is accepted for interface compat / future M2 grounding.
         payload = self._session.call_tool(
             tool_name="get_relevant_passages",
             arguments={"query": query, "kb_names": kbs, "k": max_results, "adaptive": True},
         )
-        return _normalize(_unwrap(payload))
+        out = _normalize(_unwrap(payload))
+        if out.get("status") == "ok":          # only cache successful retrievals
+            _cache.put(kbs, query, max_results, out)
+        return out
 
     def ensure_course_kb(self, *, course_id: str, corpus_refs: list[dict],
                          keywords: str | None) -> dict:
