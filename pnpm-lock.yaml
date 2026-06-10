@@ -251,6 +251,49 @@ importers:
         specifier: ^1.6.0
         version: 1.6.1(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0)
 
+  packages/lesson-session:
+    dependencies:
+      '@studium/adaptation-engine':
+        specifier: workspace:*
+        version: link:../adaptation-engine
+      '@studium/learner-state':
+        specifier: workspace:*
+        version: link:../learner-state
+      '@studium/lesson-bundle-schema':
+        specifier: workspace:*
+        version: link:../lesson-bundle-schema
+      '@studium/llm-client':
+        specifier: workspace:*
+        version: link:../llm-client
+      '@studium/reasoning-scorer':
+        specifier: workspace:*
+        version: link:../reasoning-scorer
+      '@studium/telemetry-events':
+        specifier: workspace:*
+        version: link:../telemetry-events
+      fflate:
+        specifier: ^0.8.2
+        version: 0.8.3
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.39
+      '@vitest/coverage-v8':
+        specifier: ^1.6.1
+        version: 1.6.1(vitest@1.6.1(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0))
+      tsx:
+        specifier: ^4.16.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0)
+
   packages/llm-client:
     devDependencies:
       '@types/node':
@@ -2495,6 +2538,9 @@ packages:
 
   fd-slicer@1.1.0:
     resolution: {integrity: sha512-cE1qsB/VwyQozZ+q1dGxR8LBYNZeofhEdUNGSMbQD3Gw2lAzX9Zb3uIU6Ebc/Fmyjo9AWWfnn0AUCHqtevs/8g==}
+
+  fflate@0.8.3:
+    resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
 
   figures@6.1.0:
     resolution: {integrity: sha512-d+l3qxjSesT4V7v2fh+QnmFnUWv9lSpjarhShNTgBOfA0ttejbQUAlHLitbjkoRiDulW0OPoQPYIGhIC8ohejg==}
@@ -6504,6 +6550,8 @@ snapshots:
   fd-slicer@1.1.0:
     dependencies:
       pend: 1.2.0
+
+  fflate@0.8.3: {}
 
   figures@6.1.0:
     dependencies:
