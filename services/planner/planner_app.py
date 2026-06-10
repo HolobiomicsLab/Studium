@@ -52,9 +52,20 @@ def plan(request: PlanRequest) -> PlanResponse:
         perspicacite = _get_perspicacite_client()
         abs_reader = _get_abs_reader()
         if perspicacite is not None:
+            import logging as _logging
+            kb = perspicacite.ensure_course_kb(
+                course_id=request.manifest_id,
+                corpus_refs=[r.model_dump() for r in request.corpus_refs],
+                keywords=request.keywords,
+            )
+            _logging.getLogger(__name__).info(
+                "course KB %s: %s", kb.get("kb_name"), kb.get("status")
+            )
+            lesson_plan.source_manifest_id = request.manifest_id
             enricher = EvidenceEnricher(
                 perspicacite_client=perspicacite,
                 abs_reader=abs_reader,
+                domain_kb=os.getenv("PERSPICACITE_DOMAIN_KB", ""),
             )
             lesson_plan = enricher.enrich(lesson_plan)
 
