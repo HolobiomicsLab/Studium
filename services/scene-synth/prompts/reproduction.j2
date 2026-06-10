@@ -15,6 +15,12 @@ Génère 3 à 5 étapes vérifiables. Chaque étape doit avoir :
 - ``expected_input_schema`` : JSON Schema simple (type number/string/boolean)
 - ``expected_output`` : valeur attendue (str ou dict, regex accepté)
 
+{% if evidence_block %}
+{{ evidence_block }}
+
+Ancre les étapes du protocole dans ces Sources (méthode réelle, pas inventée) et
+cite en ligne par [n]. N'affirme que ce qu'elles soutiennent ; ne fabrique pas d'étape.
+{% endif %}
 Réponds en JSON strict (sans markdown) :
 {
   "id": "s_repro_<short>",

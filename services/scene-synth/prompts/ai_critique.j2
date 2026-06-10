@@ -15,6 +15,13 @@ Chaque claim a :
 Définis la grille de critique avec 3 dimensions de poids (somme = 1.0) :
 - completeness, evidence_quality, tone
 
+{% if evidence_block %}
+{{ evidence_block }}
+
+Fonde les affirmations (claims) sur ces Sources réelles et cite par [n]. Les erreurs
+plausibles-mais-fausses à auditer doivent être introduites PAR-DESSUS des claims ancrés
+(subtiles, crédibles) — pas des hallucinations grossières.
+{% endif %}
 Réponds en JSON strict :
 {
   "id": "s_aicrit_<short>",
