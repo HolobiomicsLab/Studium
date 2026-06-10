@@ -1,0 +1,9 @@
+// packages/lesson-session-host/src/response-input-schema.ts  (shared zod for ResponseInput — DRY across drivers)
+import { z } from "zod";
+
+export const ResponseInputSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("ack") }),
+  z.object({ kind: z.literal("quiz_choice"), choiceId: z.string() }),
+  z.object({ kind: z.literal("confidence"), value: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4)]) }),
+  z.object({ kind: z.literal("critique"), text: z.string() }),
+]);

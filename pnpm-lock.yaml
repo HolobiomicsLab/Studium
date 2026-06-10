@@ -325,6 +325,31 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0)
 
+  packages/lesson-session-host:
+    dependencies:
+      '@studium/learner-state':
+        specifier: workspace:*
+        version: link:../learner-state
+      '@studium/lesson-bundle-schema':
+        specifier: workspace:*
+        version: link:../lesson-bundle-schema
+      '@studium/lesson-session':
+        specifier: workspace:*
+        version: link:../lesson-session
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.39
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0)
+
   packages/llm-client:
     devDependencies:
       '@types/node':

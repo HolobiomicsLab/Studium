@@ -1,0 +1,14 @@
+// packages/lesson-session-host/src/registry.ts
+import type { LessonSession, SessionDeps } from "@studium/lesson-session";
+import type { LessonBundle } from "@studium/lesson-bundle-schema";
+
+export interface SessionEntry { session: LessonSession; deps: SessionDeps; bundle: LessonBundle; }
+
+export class SessionRegistry {
+  private readonly map = new Map<string, SessionEntry>();
+  create(id: string, entry: SessionEntry): void { this.map.set(id, entry); }
+  get(id: string): SessionEntry | undefined { return this.map.get(id); }
+  has(id: string): boolean { return this.map.has(id); }
+  delete(id: string): boolean { return this.map.delete(id); }
+  get size(): number { return this.map.size; }
+}
