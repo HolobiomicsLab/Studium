@@ -14,6 +14,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   const app = Fastify({ logger: false });
   const registry = new SessionRegistry();
 
+  app.setErrorHandler((error, _req, reply) => {
+    reply.code(error.statusCode ?? 500).send(err(error.message));
+  });
+
   app.post("/sessions", async (req, reply) => {
     const parsed = CreateSessionBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send(err(`invalid body: ${parsed.error.message}`));
@@ -47,6 +51,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     }
   });
 
+  // Note: the reasoning_signal (if any) is emitted to the telemetry sink, not returned in the HTTP body (spec §11 prose vs v1 impl).
   app.post<{ Params: { id: string } }>("/sessions/:id/turns", async (req, reply) => {
     const entry = registry.get(req.params.id);
     if (!entry) return reply.code(404).send(err("session not found"));

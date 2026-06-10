@@ -43,4 +43,12 @@ describe("POST /sessions/:id/respond + /turns", () => {
     expect(res.statusCode).toBe(404);
     await app.close();
   });
+  it("404 turns on unknown session", async () => {
+    const { root, ref } = writeMiniBundle();
+    const app = buildServer({ bundlesRoot: root, live: false });
+    const res = await app.inject({ method: "POST", url: `/sessions/nope/turns`, payload: { text: "hello" } });
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toMatchObject({ success: false });
+    await app.close();
+  });
 });

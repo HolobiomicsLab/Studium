@@ -36,4 +36,16 @@ describe("POST /sessions + GET /sessions/:id", () => {
     expect(res.json().success).toBe(false);
     await app.close();
   });
+  it("400 + err envelope for malformed JSON body", async () => {
+    const app = buildServer({ bundlesRoot: ".", live: false });
+    const res = await app.inject({
+      method: "POST",
+      url: "/sessions",
+      headers: { "content-type": "application/json" },
+      payload: "{not valid json",
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ success: false, ok: false });
+    await app.close();
+  });
 });
