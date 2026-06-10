@@ -14,6 +14,8 @@ from pathlib import Path
 from jinja2 import Template
 from pydantic import BaseModel, ValidationError
 
+from evidence_prompt import render_evidence_block
+
 
 class SceneSynthError(Exception):
     """Erreur levée quand la synthèse échoue après 3 tentatives."""
@@ -43,7 +45,10 @@ class SceneAgent(ABC):
         last_error: str | None = None
         for _attempt in range(3):
             prompt = self._template.render(
-                plan_section=plan_section, context=context, last_error=last_error
+                plan_section=plan_section,
+                context=context,
+                last_error=last_error,
+                evidence_block=render_evidence_block(plan_section.get("evidence")),
             )
             raw = self.llm.complete(prompt)
             try:
