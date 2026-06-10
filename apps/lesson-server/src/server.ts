@@ -34,7 +34,29 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return reply.send(ok({ presentation: entry.session.currentPresentation() }));
   });
 
-  // routes added in Tasks 7–8 (respond, turns, state, delete) go here
+  app.post<{ Params: { id: string } }>("/sessions/:id/respond", async (req, reply) => {
+    const entry = registry.get(req.params.id);
+    if (!entry) return reply.code(404).send(err("session not found"));
+    const parsed = RespondBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(err(`invalid input: ${parsed.error.message}`));
+    try {
+      const transition = await entry.session.respond(parsed.data.input as ResponseInput);
+      return reply.send(ok({ transition }));
+    } catch (e) {
+      return reply.code(409).send(err((e as Error).message)); // SceneGradingError / AlreadyComplete
+    }
+  });
+
+  app.post<{ Params: { id: string } }>("/sessions/:id/turns", async (req, reply) => {
+    const entry = registry.get(req.params.id);
+    if (!entry) return reply.code(404).send(err("session not found"));
+    const parsed = TurnBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(err(`invalid body: ${parsed.error.message}`));
+    await entry.session.submitTurn(parsed.data.text);
+    return reply.send(ok({ accepted: true }));
+  });
+
+  // routes added in Task 8 (state, delete) go here
 
   return app;
 }
