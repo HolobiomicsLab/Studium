@@ -107,6 +107,7 @@ export class LessonSession {
       const next = this.bundle.scenes.findIndex((s, i) =>
         i > this.idx && ("concept_refs" in s ? (s.concept_refs[0] ?? "") : "") !== currentConcept);
       if (next >= 0) { this.idx = next; this.enterScene(); return { kind: "next", presentation: this.currentPresentation() }; }
+      // no later scene with a different concept — fall through to advance/complete
     }
     if (action.kind === "show_calibration_panel") {
       const target = action.target_concept;

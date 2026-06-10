@@ -20,7 +20,24 @@ function bundleWith(scenes: unknown[], rules: unknown[]): LessonBundle {
   } as unknown as LessonBundle;
 }
 
+const skipRuleC1Only = { id: "rule_skip", when: { mastery_c: ">=0", total_attempts: ">=1" }, action: { kind: "skip_to_next_concept" }, modulator: "M1", explanation_short: "skip" };
+
 describe("LessonSession.respond — adaptation branches", () => {
+  it("skip_to_next_concept with no later different-concept scene falls through to advance", async () => {
+    // Two quiz scenes BOTH concept "c1" — skip_to_next_concept has no target, falls through to advance
+    const deps = buildTestDeps();
+    const s = new LessonSession(
+      bundleWith([quizScene("q1"), quizScene("q2")], [skipRuleC1Only]),
+      deps,
+    );
+    await s.start();
+    // Answer scene 0 (q1); rule fires (mastery_c>=0 + total_attempts>=1) → skip_to_next_concept
+    // No later scene with a different concept → fall through → advance to q2
+    const t = await s.respond({ kind: "quiz_choice", choiceId: "b" });
+    expect(t.kind).toBe("next");
+    if (t.kind === "next") expect(t.presentation.scene.id).toBe("q2");
+  });
+
   it("2 consecutive wrong answers → replay_current_scene + adaptation_applied emitted", async () => {
     const deps = buildTestDeps();
     const s = new LessonSession(bundleWith([quizScene("q1"), quizScene("q2")], [replayRule]), deps);
