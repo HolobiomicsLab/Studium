@@ -177,3 +177,5 @@ class LessonPlan(BaseModel):
     # Compétences cibles
     esco_occupation_uri: Optional[str] = None
     case_framework_uri: Optional[str] = None
+    # Manifest source (set by planner from PlanRequest.manifest_id; used for per-course KB routing)
+    source_manifest_id: Optional[str] = None
