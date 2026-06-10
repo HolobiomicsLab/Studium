@@ -1,6 +1,10 @@
 packages:
   - "packages/*"
   - "apps/*"
+# pnpm 11 aborts `pnpm --filter <pkg> <script>` with ERR_PNPM_IGNORED_BUILDS
+# (edgedriver/geckodriver build scripts intentionally unapproved). Disable the
+# pre-run deps check so filtered scripts run directly (tech-debt #1).
+verifyDepsBeforeRun: false
 onlyBuiltDependencies:
   - esbuild
 ignoredBuiltDependencies:
