@@ -56,7 +56,29 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return reply.send(ok({ accepted: true }));
   });
 
-  // routes added in Task 8 (state, delete) go here
+  app.get<{ Params: { id: string } }>("/sessions/:id/state", async (req, reply) => {
+    const entry = registry.get(req.params.id);
+    if (!entry) return reply.code(404).send(err("session not found"));
+    return reply.send(ok({ state: entry.session.getState() }));
+  });
+
+  app.delete<{ Params: { id: string } }>("/sessions/:id", async (req, reply) => {
+    const entry = registry.get(req.params.id);
+    if (!entry) return reply.code(404).send(err("session not found"));
+    // right-to-be-forgotten hook: emit forget_requested, then drop the session's state.
+    const lessonId = entry.session.getState().lesson_id;
+    const pseudonym = await entry.deps.pseudonym.get(lessonId);
+    entry.deps.telemetry.emit(
+      enrichEvent(
+        { type: "forget_requested" },
+        { learnerPseudonym: pseudonym, lessonId, bundleVersion: bundleVersionOf(entry.bundle) },
+        entry.deps.clock, entry.deps.idGen,
+      ),
+    );
+    await entry.deps.telemetry.flush();
+    registry.delete(req.params.id);
+    return reply.send(ok({ forgotten: true }));
+  });
 
   return app;
 }
