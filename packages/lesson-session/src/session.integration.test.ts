@@ -23,9 +23,9 @@ describe("full playthrough (all scene types, stub LLM)", () => {
     }
     expect(last?.kind).toBe("complete");
     if (last?.kind === "complete") expect(last.summary.scenesCompleted).toBeGreaterThanOrEqual(8);
-    const types = new Set((deps.telemetry as InMemoryTelemetrySink).events.map((e) => e.type));
-    for (const t of ["lesson_started", "scene_entered", "quiz_answered", "critique_submitted", "ai_audit_result", "reasoning_signal", "scene_completed", "lesson_completed"]) {
-      expect(types.has(t)).toBe(true);
+    const types = (deps.telemetry as InMemoryTelemetrySink).events.map((e) => e.type);
+    for (const t of ["lesson_started", "scene_entered", "quiz_answered", "critique_submitted", "ai_audit_result", "reasoning_signal", "scene_completed", "lesson_completed"] as const) {
+      expect(types).toContain(t);
     }
   });
 });
