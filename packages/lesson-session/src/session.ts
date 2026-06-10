@@ -1,0 +1,161 @@
+import type { LessonBundle, Scene } from "@studium/lesson-bundle-schema";
+import { AdaptationEngine } from "@studium/adaptation-engine";
+import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type Decision } from "@studium/learner-state";
+import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary } from "./types.js";
+import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
+import { SessionNotStartedError, SessionAlreadyCompleteError } from "./errors.js";
+import { grade } from "./grading/index.js";
+
+export class LessonSession {
+  private engine!: AdaptationEngine;
+  private idx = 0;
+  private started = false;
+  private completed = false;
+  private startIso = "";
+  private ctx!: TelemetryContext;
+  private sessionId = "";
+  private pseudonym = "";
+  protected discussionTurnIdx = 0;
+
+  constructor(
+    private readonly bundle: LessonBundle,
+    private readonly deps: SessionDeps,
+    private state: LearnerState = defaultLearnerState(bundle.bundle_id),
+  ) {}
+
+  async start(): Promise<Presentation> {
+    this.sessionId = this.deps.idGen.uuid();
+    this.pseudonym = await this.deps.pseudonym.get(this.bundle.bundle_id);
+    this.ctx = { learnerPseudonym: this.pseudonym, lessonId: this.bundle.bundle_id, bundleVersion: bundleVersionOf(this.bundle) };
+    this.engine = new AdaptationEngine(this.bundle.rules, this.state);
+    this.state = this.engine.getState();
+    this.startIso = this.deps.clock.now();
+    this.started = true;
+    this.emit({ type: "lesson_started", bundle_uri: this.bundle.bundle_id });
+    this.emit({ type: "scene_entered", scene_id: this.scene().id, scene_type: this.scene().type });
+    return this.currentPresentation();
+  }
+
+  currentPresentation(): Presentation {
+    this.assertStarted();
+    return {
+      scene: this.scene(),
+      index: this.idx,
+      total: this.bundle.scenes.length,
+      lastDecision: this.state.last_decision,
+      explanation: this.explainLast(),
+      learnerSnapshot: this.snapshot(),
+    };
+  }
+
+  explainLast(): Explanation | null { return this.started ? this.engine.explain() : null; }
+  getState(): LearnerState { return this.started ? this.engine.getState() : this.state; }
+
+  // --- protected helpers shared with respond()/submitTurn() (Tasks 8–10) ---
+  protected scene(): Scene { return this.bundle.scenes[this.idx] as Scene; }
+  protected assertStarted(): void { if (!this.started) throw new SessionNotStartedError(); }
+  protected emit(partial: EmitInput): void {
+    this.deps.telemetry.emit(enrichEvent(partial, this.ctx, this.deps.clock, this.deps.idGen));
+  }
+  private snapshot(): LearnerSnapshot {
+    const conceptMastery: Record<string, number> = {};
+    for (const [id, cs] of Object.entries(this.state.concept_states)) conceptMastery[id] = masteryOf(cs);
+    return { conceptMastery, scenesCompleted: this.state.scenes_completed.length };
+  }
+
+  async respond(input: ResponseInput): Promise<Transition> {
+    this.assertStarted();
+    if (this.completed) throw new SessionAlreadyCompleteError();
+    const scene = this.scene();
+    const { signal, telemetry } = await grade(scene, input, { critiqueEvaluator: this.deps.critiqueEvaluator });
+    for (const ev of telemetry) this.emit(ev);
+    const decision = await this.applySignal(signal);                 // drives navigation
+    if (signal.kind !== "scene_completed") {
+      await this.applySignal({ kind: "scene_completed", scene_id: scene.id, duration_ms: 0 }); // bookkeeping only
+    }
+    this.emit({ type: "scene_completed", scene_id: scene.id, duration_ms: 0, success: this.successOf(signal) });
+    return this.navigate(decision, scene);
+  }
+
+  protected async applySignal(signal: Signal): Promise<Decision> {
+    const decision = this.engine.onSignal(signal);
+    this.state = this.engine.getState();
+    await this.deps.stateStore.save(this.bundle.bundle_id, this.state);
+    await this.deps.eventLog.append({
+      event_id: this.deps.idGen.uuid(),
+      session_id: this.sessionId,
+      pseudonyme: this.pseudonym,
+      lesson_id: this.bundle.bundle_id,
+      schema_version: "1.0",
+      timestamp: this.deps.clock.now(),
+      event_type: signal.kind,
+      payload: { ...signal, decision: { rule_id: decision.rule_id, modulator: decision.modulator, action: decision.next_action } },
+    });
+    if (decision.rule_id && decision.modulator) {
+      this.emit({ type: "adaptation_applied", rule_id: decision.rule_id, signal: signal.kind, modulator: decision.modulator, value: decisionValue(signal) });
+    }
+    return decision;
+  }
+
+  protected navigate(decision: Decision, scene: Scene): Transition {
+    const action = decision.next_action;
+    if (action.kind === "replay_current_scene") {
+      return { kind: "replay", reason: action.reason, presentation: this.currentPresentation() };
+    }
+    if (action.kind === "skip_to_next_concept") {
+      const currentConcept = "concept_refs" in scene ? (scene.concept_refs[0] ?? "") : "";
+      const next = this.bundle.scenes.findIndex((s, i) =>
+        i > this.idx && ("concept_refs" in s ? (s.concept_refs[0] ?? "") : "") !== currentConcept);
+      if (next >= 0) { this.idx = next; this.enterScene(); return { kind: "next", presentation: this.currentPresentation() }; }
+      // no later scene with a different concept — fall through to advance/complete
+    }
+    if (action.kind === "show_calibration_panel") {
+      const target = action.target_concept;
+      if (this.idx + 1 >= this.bundle.scenes.length) return this.complete();
+      this.idx += 1; this.enterScene();
+      return { kind: "calibration", targetConcept: target, presentation: this.currentPresentation() };
+    }
+    // advance_to_next_scene | show_explanation_panel | fallback
+    if (this.idx + 1 >= this.bundle.scenes.length) return this.complete();
+    this.idx += 1; this.enterScene();
+    return { kind: "next", presentation: this.currentPresentation() };
+  }
+
+  protected enterScene(): void {
+    this.discussionTurnIdx = 0;
+    this.emit({ type: "scene_entered", scene_id: this.scene().id, scene_type: this.scene().type });
+  }
+
+  protected complete(): Transition {
+    this.completed = true;
+    const totalDurationMs = Math.max(0, Date.parse(this.deps.clock.now()) - Date.parse(this.startIso));
+    const completed = this.state.scenes_completed.length;
+    const replayed = Object.values(this.state.scenes_replayed ?? {}).reduce((n, v) => n + (typeof v === "number" ? v : 0), 0);
+    const denom = completed + replayed;
+    const autonomyRatio = denom === 0 ? 1 : Math.max(0, Math.min(1, completed / denom));
+    const summary: CompletionSummary = { totalDurationMs, autonomyRatio, scenesCompleted: completed, finalState: this.engine.getState() };
+    this.emit({ type: "lesson_completed", total_duration_ms: totalDurationMs, autonomy_ratio: autonomyRatio });
+    return { kind: "complete", summary };
+  }
+
+  protected successOf(signal: Signal): boolean {
+    return signal.kind === "answer_submitted" ? signal.correct : true;
+  }
+
+  async submitTurn(text: string): Promise<void> {
+    this.assertStarted();
+    const scene = this.scene();
+    if (scene.type !== "discussion") return;            // no-op outside discussion
+    if (this.discussionTurnIdx >= scene.max_turns) return;
+    const turnIndex = this.discussionTurnIdx++;
+    const result = await this.deps.reasoningScorer.score(text, scene.topic);
+    if (result === null) return;                        // graceful degradation
+    this.emit({ type: "reasoning_signal", scene_id: scene.id, signal: result.signal, confidence: result.confidence, turn_index: turnIndex });
+  }
+}
+
+function decisionValue(signal: Signal): number {
+  if (signal.kind === "answer_submitted") return signal.difficulty;
+  if (signal.kind === "confidence_declared") return signal.value;
+  return 0;
+}

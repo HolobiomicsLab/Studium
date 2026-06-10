@@ -3,6 +3,7 @@ export const LLM_ALIASES = [
   'studium/scene-synth',
   'studium/critic',
   'studium/teacher-review',
+  'studium/runtime-tutor',
 ] as const;
 
 export type LLMAlias = (typeof LLM_ALIASES)[number];
