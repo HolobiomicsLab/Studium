@@ -60,6 +60,9 @@ importers:
       '@studium/lesson-bundle-schema':
         specifier: workspace:*
         version: link:../../packages/lesson-bundle-schema
+      '@studium/lesson-session':
+        specifier: workspace:*
+        version: link:../../packages/lesson-session
       '@studium/reasoning-scorer':
         specifier: workspace:*
         version: link:../../packages/reasoning-scorer
