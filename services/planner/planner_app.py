@@ -66,6 +66,7 @@ def plan(request: PlanRequest) -> PlanResponse:
                 perspicacite_client=perspicacite,
                 abs_reader=abs_reader,
                 domain_kb=os.getenv("PERSPICACITE_DOMAIN_KB", ""),
+                course_kb_ready=(kb.get("status") == "ready"),
             )
             lesson_plan = enricher.enrich(lesson_plan)
 

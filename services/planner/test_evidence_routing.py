@@ -121,7 +121,7 @@ def test_enricher_uses_course_kb_from_source_manifest_id():
 
 
 def test_enricher_no_domain_kb_falls_back_to_empty_list_for_intro():
-    """When domain_kb is empty, intro routes to [] (Perspicacité default behaviour)."""
+    """When domain_kb is empty, intro routes to [""] (Perspicacité default behaviour)."""
     plan = _make_plan_with_intro_and_concept()
     plan.scene_outlines = [
         SceneOutline(
@@ -139,3 +139,51 @@ def test_enricher_no_domain_kb_falls_back_to_empty_list_for_intro():
     )
     enricher.enrich(plan)
     assert spy.kb_seen[0] == [""]
+
+
+def test_enricher_degraded_course_kb_routes_concept_to_domain_kb():
+    """spec §4: when course_kb_ready=False, content scenes fall back to domain KB."""
+    plan = _make_plan_with_intro_and_concept()
+    plan.scene_outlines = [
+        SceneOutline(
+            id="s-concept",
+            type=SceneType.concept,
+            title="Concepts clés",
+            objective_refs=["o1"],
+        )
+    ]
+    spy = _SpyClient()
+    enricher = EvidenceEnricher(
+        perspicacite_client=spy,
+        abs_reader=None,
+        domain_kb="domain-science",
+        course_kb_ready=False,
+    )
+    enricher.enrich(plan)
+    assert spy.kb_seen[0] == ["domain-science"], (
+        f"degraded course KB: concept scene should fall back to domain KB, got {spy.kb_seen[0]}"
+    )
+
+
+def test_enricher_ready_course_kb_routes_concept_to_course_kb():
+    """spec §4: when course_kb_ready=True (default), content scenes use the course KB."""
+    plan = _make_plan_with_intro_and_concept()
+    plan.scene_outlines = [
+        SceneOutline(
+            id="s-concept",
+            type=SceneType.concept,
+            title="Concepts clés",
+            objective_refs=["o1"],
+        )
+    ]
+    spy = _SpyClient()
+    enricher = EvidenceEnricher(
+        perspicacite_client=spy,
+        abs_reader=None,
+        domain_kb="domain-science",
+        course_kb_ready=True,
+    )
+    enricher.enrich(plan)
+    assert spy.kb_seen[0] == ["studium-course-m1"], (
+        f"ready course KB: concept scene should use course KB, got {spy.kb_seen[0]}"
+    )

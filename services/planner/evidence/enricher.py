@@ -54,18 +54,21 @@ class EvidenceEnricher:
     """Orchestrateur Perspicacité + ABS asset → SceneOutline.evidence."""
 
     def __init__(self, perspicacite_client: Any, abs_reader: Any,
-                 domain_kb: str = "") -> None:
+                 domain_kb: str = "", course_kb_ready: bool = True) -> None:
         self.perspicacite = perspicacite_client
         self.abs_reader = abs_reader
         self._domain_kb = domain_kb
+        self._course_kb_ready = course_kb_ready
 
     def enrich(self, plan: LessonPlan) -> LessonPlan:
         """Enrichit chaque scène éligible et retourne un plan modifié (in-place)."""
         course_kb = f"studium-course-{plan.source_manifest_id}" if plan.source_manifest_id else ""
+        # spec §4: when per-course KB build is degraded, content scenes fall back to domain KB
+        effective_course_kb = course_kb if self._course_kb_ready else self._domain_kb
         for scene in plan.scene_outlines:
             if not should_enrich(scene):
                 continue
-            self._enrich_scene(scene, course_kb=course_kb)
+            self._enrich_scene(scene, course_kb=effective_course_kb)
         return plan
 
     def _enrich_scene(self, scene: SceneOutline, course_kb: str = "") -> None:
