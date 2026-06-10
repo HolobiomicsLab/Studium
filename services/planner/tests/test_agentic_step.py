@@ -46,3 +46,44 @@ def test_make_insight_shape():
     assert i["claim"].startswith("FFT requires") and i["evidence"][0]["doi"]
     assert i["id"] == "edge-fft-fourier"
     assert ASTRA_SCHEMA_VERSION == "0.0.10"
+
+
+from agentic.step import run_agentic_step, AgenticStepResult
+from agentic.telemetry import InMemoryTelemetrySink
+
+
+def _heuristic_ok(_c): return (0.9, [])
+def _heuristic_weak(_c): return (0.3, ["weakly grounded"])
+
+
+def test_step_admits_and_emits_decision_and_telemetry():
+    sink = InMemoryTelemetrySink()
+    res = run_agentic_step(
+        step_id="edge-fft-fourier",
+        label="Is FFT a prerequisite of Fourier basics?",
+        rationale="sequencing",
+        options=[{"id": "yes", "label": "Yes"}, {"id": "no", "label": "No"}],
+        chosen_option_id="yes",
+        candidate={"relation": "prerequisite_for"},
+        heuristic=_heuristic_ok,
+        telemetry=sink,
+        created_at="2026-06-10T00:00:00+00:00",
+    )
+    assert isinstance(res, AgenticStepResult)
+    assert res.admission.admitted is True and res.quality_flags == []
+    assert res.decision["id"] == "edge-fft-fourier" and res.decision["default"] == "yes"
+    assert len(sink.records) == 1 and sink.records[0]["event"] == "agentic_step"
+    assert sink.records[0]["admitted"] is True
+
+
+def test_step_weak_candidate_kept_with_quality_flags():
+    sink = InMemoryTelemetrySink()
+    res = run_agentic_step(
+        step_id="edge-x", label="x?", rationale="r",
+        options=[{"id": "yes", "label": "Yes"}], chosen_option_id="yes",
+        candidate={}, heuristic=_heuristic_weak, telemetry=sink,
+        created_at="2026-06-10T00:00:00+00:00",
+    )
+    assert res.admission.flagged_for_review is True
+    assert res.quality_flags == ["weakly grounded"]
+    assert sink.records[0]["quality_flags"] == ["weakly grounded"]
