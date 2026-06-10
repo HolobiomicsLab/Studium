@@ -9,6 +9,8 @@ from .session import _MCPSession
 class PerspicaciteClient(Protocol):
     def search(self, *, query: str, mode: str, max_results: int,
                kb_names: list[str] | None = None) -> dict: ...
+    def ensure_course_kb(self, *, course_id: str, corpus_refs: list[dict],
+                         keywords: str | None) -> dict: ...
 
 
 def _unwrap(payload: dict | None) -> dict | None:
@@ -61,6 +63,9 @@ class LivePerspicaciteClient:
         self._session = session
         self._default_kb = default_kb
 
+    def _inner(self, tool_name: str, arguments: dict) -> dict | None:
+        return _unwrap(self._session.call_tool(tool_name=tool_name, arguments=arguments))
+
     def search(self, *, query: str, mode: str, max_results: int,
                kb_names: list[str] | None = None) -> dict:
         kbs = kb_names or ([self._default_kb] if self._default_kb else [])
@@ -71,6 +76,29 @@ class LivePerspicaciteClient:
             arguments={"query": query, "kb_names": kbs, "k": max_results, "adaptive": True},
         )
         return _normalize(_unwrap(payload))
+
+    def ensure_course_kb(self, *, course_id: str, corpus_refs: list[dict],
+                         keywords: str | None) -> dict:
+        kb_name = f"studium-course-{course_id}"
+        try:
+            listing = self._inner("list_knowledge_bases", {}) or {}
+            existing = {kb.get("name") for kb in (listing.get("knowledge_bases") or [])}
+            if kb_name in existing:
+                return {"kb_name": kb_name, "status": "ready", "added": -1}  # -1 = pre-existing
+            if not (self._inner("create_knowledge_base", {"name": kb_name}) or {}).get("success"):
+                return {"kb_name": kb_name, "status": "degraded", "added": 0}
+            dois = [r["doi"] for r in corpus_refs if r.get("ref_type") == "doi" and r.get("doi")]
+            paths = [r["ref_id"] for r in corpus_refs if r.get("ref_type") == "local_file" and r.get("ref_id")]
+            added = 0
+            if dois:
+                added += int((self._inner("add_dois_to_kb", {"kb_name": kb_name, "dois": dois}) or {}).get("added") or 0)
+            if paths:
+                added += int((self._inner("add_local_papers_to_kb", {"kb_name": kb_name, "paths": paths}) or {}).get("added") or 0)
+            if added == 0 and keywords:
+                added += int((self._inner("build_kb_from_search", {"kb_name": kb_name, "query": keywords}) or {}).get("added") or 0)
+            return {"kb_name": kb_name, "status": "ready" if added >= 1 else "degraded", "added": added}
+        except Exception:
+            return {"kb_name": kb_name, "status": "degraded", "added": 0}
 
 
 class MockPerspicaciteClient:
@@ -84,6 +112,10 @@ class MockPerspicaciteClient:
             "authors": ["Wikoff WR", "Anfora AT"], "year": 2014,
             "excerpt": f"[mock excerpt for: {query[:60]}]", "relevance_score": 0.8,
         }]}
+
+    def ensure_course_kb(self, *, course_id: str, corpus_refs: list[dict],
+                         keywords: str | None) -> dict:
+        return {"kb_name": f"studium-course-{course_id}", "status": "ready", "added": len(corpus_refs)}
 
 
 def make_perspicacite_client() -> PerspicaciteClient | None:
