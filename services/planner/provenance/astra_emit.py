@@ -29,11 +29,11 @@ def emit_astra(
 
 
 def baseline_universe(decisions: list[dict[str, Any]]) -> dict[str, Any]:
-    """The baseline Universe: each decision's default option."""
+    """The baseline Universe: each decision's default option (ASTRA flat map shape)."""
     return {
         "id": "baseline",
         "description": "Default option per decision across the analysis.",
-        "decisions": [{"decision_id": d["id"], "option_id": d["default"]} for d in decisions],
+        "decisions": {d["id"]: d["default"] for d in decisions},
     }
 
 

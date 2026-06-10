@@ -27,7 +27,7 @@ LWG = {
 def test_emits_jsonld_with_context_and_graph():
     doc = graph_to_claims(LWG, asserted_by="urn:studium:graphagent:run-7f3a")
     assert "@context" in doc and "@graph" in doc
-    assert doc["@context"]["asb"].startswith("https://w3id.org/asb")
+    assert doc["@context"]["asb"] == "https://asb.holobiomics.org/ns/asb#"
 
 
 def test_prerequisite_edge_dual_carry_and_draft_status():
@@ -55,3 +55,14 @@ def test_evidence_node_links_to_claim_with_artifact():
     assert ev["supports_claim"] == "urn:studium:edge:e1"
     assert ev["of_source"] == "teacher-doc:lecture2.pdf#sec.2"
     assert ev["confidence"] == 0.72
+
+
+def test_doi_evidence_is_citation_typed():
+    g = {"schema_version": "1.0", "course_id": "c", "nodes": [], "edges": [
+        {"id": "e9", "relation": "prerequisite_for", "source": "a", "target": "b",
+         "evidence": [{"doi": "10.1234/test", "confidence": 0.9}]}]}
+    doc = graph_to_claims(g, asserted_by="x")
+    ev = next(n for n in doc["@graph"] if n.get("@type") == "sepio:0000002")
+    assert ev["doi"] == "10.1234/test"
+    assert ev["evidence_type"] == "citation"
+    assert "of_source" not in ev

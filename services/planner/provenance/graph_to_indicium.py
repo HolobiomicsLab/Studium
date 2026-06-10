@@ -7,7 +7,7 @@ from typing import Any
 from .education_adapter import route_qualifier
 
 _CONTEXT = {
-    "asb": "https://w3id.org/asb#",
+    "asb": "https://asb.holobiomics.org/ns/asb#",
     "prov": "http://www.w3.org/ns/prov#",
     "sepio": "http://purl.obolibrary.org/obo/SEPIO_",
     "eco": "http://purl.obolibrary.org/obo/ECO_",

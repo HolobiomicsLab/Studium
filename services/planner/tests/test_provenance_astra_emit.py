@@ -27,8 +27,7 @@ def test_emit_astra_shape():
 def test_baseline_universe_picks_defaults():
     u = baseline_universe(_decisions())
     assert u["id"] == "baseline"
-    sel = {d["decision_id"]: d["option_id"] for d in u["decisions"]}
-    assert sel == {"e1": "yes", "difficulty": "standard"}
+    assert u["decisions"] == {"e1": "yes", "difficulty": "standard"}
 
 
 def test_write_astra_and_universe_yaml(tmp_path):
@@ -41,3 +40,5 @@ def test_write_astra_and_universe_yaml(tmp_path):
     import yaml
     loaded = yaml.safe_load((tmp_path / "astra.yaml").read_text())
     assert loaded["version"] == "0.0.10"
+    loaded_u = yaml.safe_load((tmp_path / "universes" / "baseline.yaml").read_text())
+    assert loaded_u["decisions"] == {"e1": "yes", "difficulty": "standard"}
