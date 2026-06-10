@@ -117,7 +117,15 @@ Métrique calculée par `compute_progress_metrics` : `N/M` scènes ont au moins
 
 **Comment l'interpréter** : ratio élevé = leçon bien sourcée, étudiants
 exposés à des contenus traçables. Ratio faible = bundle peut être enrichi
-via `STUDIUM_EVIDENCE_ENRICH=on` au prochain `/plan`.
+au prochain `/plan` en activant l'enrichissement evidence.
+
+**Activer l'enrichissement Perspicacité (live KB)** — deux drapeaux sont requis :
+`STUDIUM_EVIDENCE_ENRICH=on` (active l'étape d'enrichissement) **et**
+`STUDIUM_PERSPICACITE_ENABLED=on` (active le client MCP Perspicacité live).
+Configurer aussi `PERSPICACITE_MCP_URL` (défaut `http://localhost:8000/mcp`) et
+`PERSPICACITE_DOMAIN_KB` (la KB de domaine interrogée). Sans le second drapeau,
+l'étape d'enrichissement tourne mais n'attache aucune référence (client = `None`).
+Mettre `STUDIUM_PERSPICACITE_MODE=mock` pour un enrichissement déterministe hors-ligne.
 
 ## 4. Interprétation pédagogique
 
