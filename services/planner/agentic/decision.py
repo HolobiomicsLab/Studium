@@ -40,7 +40,7 @@ def make_evidence(
     decision_context: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     """An ASTRA Evidence: exactly one of doi/artifact (W3C-aligned selectors)."""
-    if bool(doi) == bool(artifact):
+    if (doi is None) == (artifact is None):
         raise ValueError("Evidence requires exactly one of doi/artifact")
     ev: dict[str, Any] = {}
     if doi:

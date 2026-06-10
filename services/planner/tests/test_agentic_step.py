@@ -49,7 +49,6 @@ def test_make_insight_shape():
 
 
 from agentic.step import run_agentic_step, AgenticStepResult
-from agentic.telemetry import InMemoryTelemetrySink
 
 
 def _heuristic_ok(_c): return (0.9, [])
@@ -74,6 +73,7 @@ def test_step_admits_and_emits_decision_and_telemetry():
     assert res.decision["id"] == "edge-fft-fourier" and res.decision["default"] == "yes"
     assert len(sink.records) == 1 and sink.records[0]["event"] == "agentic_step"
     assert sink.records[0]["admitted"] is True
+    assert sink.records[0]["chosen_option_id"] == "yes"
 
 
 def test_step_weak_candidate_kept_with_quality_flags():

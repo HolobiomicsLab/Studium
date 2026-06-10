@@ -31,3 +31,15 @@ def test_mid_score_llm_rescue_admits():
 def test_mid_score_llm_reject_lenient_flags():
     r = admit({}, heuristic=_mid, llm_judge=lambda _c: (False, "still vague"))
     assert r.admitted is True and r.flagged_for_review is True and r.path == "llm_judge"
+
+
+def test_rescue_budget_exhaustion_falls_to_lenient_fallback():
+    budget = [0]
+    called = []
+    def _judge(_c):
+        called.append(True)
+        return (True, "ok")
+    r = admit({}, heuristic=_mid, llm_judge=_judge, rescue_budget=budget)
+    assert r.admitted is True and r.path == "fallback" and r.flagged_for_review is True
+    assert budget[0] == 0          # not decremented
+    assert called == []            # judge never invoked when budget exhausted

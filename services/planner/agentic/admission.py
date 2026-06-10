@@ -9,6 +9,7 @@ HeuristicFn = Callable[[dict], tuple[float, list[str]]]   # candidate -> (score 
 LlmJudgeFn = Callable[[dict], tuple[bool, Optional[str]]]  # candidate -> (admit?, reason)
 
 Path = Literal["heuristic", "semantic_high", "llm_judge", "llm_rescue", "fallback"]
+# "semantic_high" is reserved for the pluggable semantic-judge tier (Phase 2); not emitted yet.
 Tier = Literal["pass", "rescue", "fail"]
 
 

@@ -40,6 +40,7 @@ def run_agentic_step(
                    rescue_budget=rescue_budget, strict=strict)
     decision = make_decision(decision_id=step_id, label=label, rationale=rationale,
                              options=options, default=chosen_option_id)
+    # propagate admission reasons as quality flags only when the step is non-clean
     quality_flags = result.reasons if (result.flagged_for_review or not result.admitted) else []
     telemetry.emit({
         "ts": created_at,
@@ -51,6 +52,7 @@ def run_agentic_step(
         "tier": result.tier,
         "flagged_for_review": result.flagged_for_review,
         "quality_flags": quality_flags,
+        "chosen_option_id": chosen_option_id,
     })
     return AgenticStepResult(output=candidate, admission=result, decision=decision,
                              insight=insight, quality_flags=quality_flags)
