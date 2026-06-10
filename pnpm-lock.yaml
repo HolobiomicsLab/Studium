@@ -57,6 +57,9 @@ importers:
       '@studium/lesson-session':
         specifier: workspace:*
         version: link:../../packages/lesson-session
+      '@studium/lesson-session-host':
+        specifier: workspace:*
+        version: link:../../packages/lesson-session-host
       fastify:
         specifier: ^4.28.1
         version: 4.29.1

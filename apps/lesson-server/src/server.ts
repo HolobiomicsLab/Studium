@@ -1,18 +1,15 @@
 // apps/lesson-server/src/server.ts
 import Fastify, { type FastifyInstance } from "fastify";
-import { LessonSession, enrichEvent, bundleVersionOf, type ResponseInput } from "@studium/lesson-session";
-import { randomUUID } from "node:crypto";
+import type { ResponseInput } from "@studium/lesson-session";
+import { SessionHost, SessionHostNotFoundError } from "@studium/lesson-session-host";
 import { ok, err } from "./envelope.js";
-import { resolveBundle } from "./bundle-resolver.js";
-import { buildServerDeps } from "./server-deps.js";
-import { SessionRegistry } from "./registry.js";
 import { CreateSessionBody, RespondBody, TurnBody } from "./schemas.js";
 
 export interface ServerOptions { bundlesRoot: string; live: boolean; }
 
 export function buildServer(opts: ServerOptions): FastifyInstance {
   const app = Fastify({ logger: false });
-  const registry = new SessionRegistry();
+  const host = new SessionHost({ bundlesRoot: opts.bundlesRoot, live: opts.live });
 
   app.setErrorHandler((error, _req, reply) => {
     reply.code(error.statusCode ?? 500).send(err(error.message));
@@ -21,69 +18,48 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   app.post("/sessions", async (req, reply) => {
     const parsed = CreateSessionBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send(err(`invalid body: ${parsed.error.message}`));
-    let bundle;
-    try { bundle = await resolveBundle(opts.bundlesRoot, parsed.data.bundle_ref); }
-    catch (e) { return reply.code(400).send(err((e as Error).message)); }
-    const deps = buildServerDeps(opts.live);
-    const session = new LessonSession(bundle, deps);
-    const presentation = await session.start();
-    const session_id = randomUUID();
-    registry.create(session_id, { session, deps, bundle });
-    return reply.code(201).send(ok({ session_id, presentation }));
+    try {
+      const { sessionId, presentation } = await host.create(parsed.data.bundle_ref, parsed.data.learner_id);
+      return reply.code(201).send(ok({ session_id: sessionId, presentation }));
+    } catch (e) {
+      return reply.code(400).send(err((e as Error).message)); // bad bundle_ref / load failure
+    }
   });
 
   app.get<{ Params: { id: string } }>("/sessions/:id", async (req, reply) => {
-    const entry = registry.get(req.params.id);
-    if (!entry) return reply.code(404).send(err("session not found"));
-    return reply.send(ok({ presentation: entry.session.currentPresentation() }));
+    try { return reply.send(ok({ presentation: host.currentPresentation(req.params.id) })); }
+    catch (e) { return reply.code(notFound(e)).send(err((e as Error).message)); }
   });
 
   app.post<{ Params: { id: string } }>("/sessions/:id/respond", async (req, reply) => {
-    const entry = registry.get(req.params.id);
-    if (!entry) return reply.code(404).send(err("session not found"));
     const parsed = RespondBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send(err(`invalid input: ${parsed.error.message}`));
-    try {
-      const transition = await entry.session.respond(parsed.data.input as ResponseInput);
-      return reply.send(ok({ transition }));
-    } catch (e) {
-      return reply.code(409).send(err((e as Error).message)); // SceneGradingError / AlreadyComplete
+    try { return reply.send(ok({ transition: await host.respond(req.params.id, parsed.data.input as ResponseInput) })); }
+    catch (e) {
+      if (e instanceof SessionHostNotFoundError) return reply.code(404).send(err(e.message));
+      return reply.code(409).send(err((e as Error).message)); // grading / already-complete
     }
   });
 
   // Note: the reasoning_signal (if any) is emitted to the telemetry sink, not returned in the HTTP body (spec §11 prose vs v1 impl).
   app.post<{ Params: { id: string } }>("/sessions/:id/turns", async (req, reply) => {
-    const entry = registry.get(req.params.id);
-    if (!entry) return reply.code(404).send(err("session not found"));
     const parsed = TurnBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send(err(`invalid body: ${parsed.error.message}`));
-    await entry.session.submitTurn(parsed.data.text);
-    return reply.send(ok({ accepted: true }));
+    try { await host.submitTurn(req.params.id, parsed.data.text); return reply.send(ok({ accepted: true })); }
+    catch (e) { return reply.code(notFound(e)).send(err((e as Error).message)); }
   });
 
   app.get<{ Params: { id: string } }>("/sessions/:id/state", async (req, reply) => {
-    const entry = registry.get(req.params.id);
-    if (!entry) return reply.code(404).send(err("session not found"));
-    return reply.send(ok({ state: entry.session.getState() }));
+    try { return reply.send(ok({ state: host.getState(req.params.id) })); }
+    catch (e) { return reply.code(notFound(e)).send(err((e as Error).message)); }
   });
 
   app.delete<{ Params: { id: string } }>("/sessions/:id", async (req, reply) => {
-    const entry = registry.get(req.params.id);
-    if (!entry) return reply.code(404).send(err("session not found"));
-    // right-to-be-forgotten hook: emit forget_requested, then drop the session's state.
-    const lessonId = entry.session.getState().lesson_id;
-    const pseudonym = await entry.deps.pseudonym.get(lessonId);
-    entry.deps.telemetry.emit(
-      enrichEvent(
-        { type: "forget_requested" },
-        { learnerPseudonym: pseudonym, lessonId, bundleVersion: bundleVersionOf(entry.bundle) },
-        entry.deps.clock, entry.deps.idGen,
-      ),
-    );
-    await entry.deps.telemetry.flush();
-    registry.delete(req.params.id);
-    return reply.send(ok({ forgotten: true }));
+    try { await host.forget(req.params.id); return reply.send(ok({ forgotten: true })); }
+    catch (e) { return reply.code(notFound(e)).send(err((e as Error).message)); }
   });
 
   return app;
 }
+
+function notFound(e: unknown): number { return e instanceof SessionHostNotFoundError ? 404 : 500; }
