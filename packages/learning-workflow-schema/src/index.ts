@@ -8,10 +8,12 @@ export type BloomLevel = z.infer<typeof BloomLevelSchema>;
 export const KnowledgeDimensionSchema = z.enum([
   "factual", "conceptual", "procedural", "metacognitive",
 ]);
+export type KnowledgeDimension = z.infer<typeof KnowledgeDimensionSchema>;
 
 export const SceneTypeSchema = z.enum([
   "intro", "concept", "quiz", "simulation", "reproduction", "discussion", "meta_checkpoint", "ai_critique",
 ]);
+export type SceneType = z.infer<typeof SceneTypeSchema>;
 
 export const EdgeRelationSchema = z.enum([
   "prerequisite_for", "part_of", "decomposes_into", "assesses", "aligns_with",
@@ -21,7 +23,10 @@ export type EdgeRelation = z.infer<typeof EdgeRelationSchema>;
 export const ReproducibilityTierSchema = z.enum([
   "certified", "type-checked", "bypassed", "manual-only", "experimental",
 ]);
+export type ReproducibilityTier = z.infer<typeof ReproducibilityTierSchema>;
+
 export const TaskOpennessSchema = z.enum(["closed", "open", "mixed"]);
+export type TaskOpenness = z.infer<typeof TaskOpennessSchema>;
 
 export const SuterAxesSchema = z.object({
   coupling: z.enum(["tight", "loose", "ad_hoc"]),
@@ -30,6 +35,7 @@ export const SuterAxesSchema = z.object({
   orchestration_planning: z.enum(["static", "dynamic", "event_driven"]),
   data_transport: z.enum(["file", "streaming", "in_memory"]),
 });
+export type SuterAxes = z.infer<typeof SuterAxesSchema>;
 
 export const WorkflowCharacterizationSchema = z.object({
   suter: SuterAxesSchema,
@@ -37,6 +43,7 @@ export const WorkflowCharacterizationSchema = z.object({
   task_openness: TaskOpennessSchema,
   scaffolding_level: z.enum(["light", "moderate", "heavy", "exploratory"]).optional(),
 });
+export type WorkflowCharacterization = z.infer<typeof WorkflowCharacterizationSchema>;
 
 export const ConceptNodeSchema = z.object({
   id: z.string().min(1),
@@ -46,6 +53,7 @@ export const ConceptNodeSchema = z.object({
   knowledge_dimension: KnowledgeDimensionSchema.optional(),
   description: z.string().optional(),
 });
+export type ConceptNode = z.infer<typeof ConceptNodeSchema>;
 
 export const TaskNodeSchema = z.object({
   id: z.string().min(1),
@@ -55,6 +63,7 @@ export const TaskNodeSchema = z.object({
   objective_refs: z.array(z.string()).optional(),
   characterization: WorkflowCharacterizationSchema.optional(),
 });
+export type TaskNode = z.infer<typeof TaskNodeSchema>;
 
 export const GraphNodeSchema = z.discriminatedUnion("node_kind", [
   ConceptNodeSchema, TaskNodeSchema,

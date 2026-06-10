@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateGraph, type LearningWorkflowGraph } from "./index";
+import { validateGraph, type LearningWorkflowGraph, ConceptNodeSchema, GraphEdgeSchema, LearningWorkflowGraphSchema } from "./index";
 
 const FIXTURE: LearningWorkflowGraph = {
   schema_version: "1.0",
@@ -32,5 +32,32 @@ describe("validateGraph", () => {
     const bad = { ...FIXTURE, nodes: [{ id: "x", node_kind: "module", title: "X" }] };
     const r = validateGraph(bad);
     expect(r.valid).toBe(false);
+  });
+
+  // FIX M2 — constraint tests
+  it("rejects an edge with confidence out of 0..1 range", () => {
+    const r = GraphEdgeSchema.safeParse({
+      id: "e-bad", relation: "prerequisite_for", source: "a", target: "b", confidence: 1.5,
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects a node with empty id", () => {
+    const r = ConceptNodeSchema.safeParse({
+      id: "", node_kind: "concept", title: "X", bloom_level: "understand",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects a concept node with invalid bloom_level 'mastery'", () => {
+    const r = ConceptNodeSchema.safeParse({
+      id: "c1", node_kind: "concept", title: "X", bloom_level: "mastery",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects a graph with wrong schema_version '2.0'", () => {
+    const r = LearningWorkflowGraphSchema.safeParse({ ...FIXTURE, schema_version: "2.0" });
+    expect(r.success).toBe(false);
   });
 });

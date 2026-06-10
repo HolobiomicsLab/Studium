@@ -4,11 +4,10 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
-    "exactOptionalPropertyTypes": true,
-    "noUncheckedIndexedAccess": true,
-    "declaration": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
     "outDir": "dist",
-    "skipLibCheck": true
+    "declaration": true
   },
-  "include": ["src"]
+  "include": ["src/**/*"]
 }

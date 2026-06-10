@@ -62,7 +62,7 @@ class GraphEdge(BaseModel):
 
 
 class LearningWorkflowGraph(BaseModel):
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: Literal["1.0"]
     course_id: str = Field(min_length=1)
     nodes: list[GraphNode]
     edges: list[GraphEdge]
