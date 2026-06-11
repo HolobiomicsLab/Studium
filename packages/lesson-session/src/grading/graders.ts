@@ -36,7 +36,9 @@ const quizGrader: Grader = async (scene, input, deps) => {
 const metaGrader: Grader = async (scene, input) => {
   if (scene.type !== "meta_checkpoint") throw new SceneGradingError(scene.type, "metaGrader on non-meta_checkpoint");
   if (input.kind !== "confidence") throw new SceneGradingError(scene.type, `expected confidence, got ${input.kind}`);
-  return { signal: { kind: "confidence_declared", scene_id: scene.id, value: input.value }, telemetry: [] };
+  // M3: tie the declared confidence to the meta scene's concept so the engine can compare it
+  // against that concept's actual accumulated mastery (calibration loop).
+  return { signal: { kind: "confidence_declared", scene_id: scene.id, value: input.value, concept_id: conceptOf(scene) }, telemetry: [] };
 };
 
 const critiqueGrader: Grader = async (scene, input, deps) => {

@@ -1,5 +1,5 @@
 import type { LearnerState, ConceptState, Signal, Decision } from "@studium/learner-state";
-import { defaultConceptState } from "@studium/learner-state";
+import { defaultConceptState, updateCalibration } from "@studium/learner-state";
 import type { AdaptationRule } from "@studium/lesson-bundle-schema";
 import { updateBeta } from "./beta-updater";
 import { matchesCondition } from "./condition-matcher";
@@ -30,14 +30,28 @@ function buildContext(state: LearnerState, signal: Signal): Record<string, numbe
   }
   if (signal.kind === "confidence_declared") {
     ctx.confidence_pre = signal.value;
+    // M3: when the meta scene names a concept, expose its FRESHLY-updated calibration so the
+    // calibration rule can match on the same turn. updateCalibration has already run in onSignal.
+    if (signal.concept_id) {
+      const cs = state.concept_states[signal.concept_id] ?? defaultConceptState(signal.concept_id);
+      ctx.confidence_calibration = cs.confidence_calibration;             // signed (direction-specific rules)
+      ctx.confidence_calibration_abs = Math.abs(cs.confidence_calibration);
+      ctx.total_attempts = cs.total_attempts;
+      ctx.mastery_c = masteryOf(cs);
+    }
   }
   return ctx;
 }
 
 function applyAction(rule: AdaptationRule, signal: Signal): Decision["next_action"] {
   const a = rule.action;
-  if (a.kind === "show_calibration_panel" && signal.kind === "answer_submitted") {
-    return { kind: "show_calibration_panel", target_concept: signal.concept_id };
+  if (a.kind === "show_calibration_panel") {
+    if (signal.kind === "answer_submitted") {
+      return { kind: "show_calibration_panel", target_concept: signal.concept_id };
+    }
+    if (signal.kind === "confidence_declared" && signal.concept_id) {
+      return { kind: "show_calibration_panel", target_concept: signal.concept_id };
+    }
   }
   return a as Decision["next_action"];
 }
@@ -54,6 +68,13 @@ export class AdaptationEngine {
     if (signal.kind === "answer_submitted") {
       const cs = ensureConceptState(this.state, signal.concept_id);
       this.state.concept_states[signal.concept_id] = updateBeta(cs, signal);
+    }
+    if (signal.kind === "confidence_declared" && signal.concept_id) {
+      // M3: compare declared confidence against the concept's accumulated competence and
+      // fold the signed gap into confidence_calibration. Runs BEFORE buildContext so the
+      // freshly-written value is visible to the calibration rule on this same turn.
+      const cs = ensureConceptState(this.state, signal.concept_id);
+      this.state.concept_states[signal.concept_id] = updateCalibration(cs, signal.value);
     }
     if (signal.kind === "scene_completed") {
       if (!this.state.scenes_completed.includes(signal.scene_id)) {

@@ -32,7 +32,7 @@ describe("grade() — simple graders", () => {
   it("meta_checkpoint → confidence_declared", async () => {
     const meta = { id: "m", type: "meta_checkpoint", title: "t", objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [], pre_question: "p", post_question: "q", scale_labels: ["1","2","3","4","5"] } as Extract<Scene, { type: "meta_checkpoint" }>;
     const r = await grade(meta, { kind: "confidence", value: 3 }, deps);
-    expect(r.signal).toEqual({ kind: "confidence_declared", scene_id: "m", value: 3 });
+    expect(r.signal).toEqual({ kind: "confidence_declared", scene_id: "m", value: 3, concept_id: "c1" });
   });
   it("wrong input kind → SceneGradingError", async () => {
     await expect(grade(quiz, { kind: "ack" }, deps)).rejects.toThrow(/quiz/);
