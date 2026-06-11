@@ -30,6 +30,34 @@ def test_plan_writes_lwg_artifacts(monkeypatch, tmp_path):
     assert remedial["decisions"]["scaffolding"] == "heavy"
 
 
+def test_plan_lwg_includes_abs_repro_nodes_when_capsule_ref_present(monkeypatch, tmp_path):
+    import os
+    from lesson_plan_schema import CorpusRef
+
+    fixture = os.path.join(os.path.dirname(__file__), "fixtures", "abs_capsule")
+    monkeypatch.setenv("STUDIUM_LWG_BUILD", "on")
+    monkeypatch.setenv("STUDIUM_LWG_OUT_DIR", str(tmp_path))
+    monkeypatch.delenv("STUDIUM_EVIDENCE_ENRICH", raising=False)
+    monkeypatch.setattr(planner_app, "_get_perspicacite_client", lambda: None)
+
+    _orig = planner_app._planner.generate
+    def _gen(manifest, target, **kw):
+        plan, audit = _orig(manifest, target, **kw)
+        plan.corpus_refs = list(plan.corpus_refs or []) + [
+            CorpusRef(ref_id="cap1", ref_type="abs_capsule", abs_capsule_path=fixture)
+        ]
+        return plan, audit
+    monkeypatch.setattr(planner_app._planner, "generate", _gen)
+
+    client = TestClient(planner_app.app)
+    resp = client.post("/plan", json={"manifest_id": "sp1", "target": "L3"})
+    assert resp.status_code == 200
+
+    indicium = json.loads((tmp_path / "sp1" / "lwg.indicium.jsonld").read_text())
+    subjects = {n.get("subject") for n in indicium["@graph"] if n.get("@type") == "asb:Claim"}
+    assert "task:abs:task_001" in subjects
+
+
 def test_plan_lwg_off_by_default(monkeypatch, tmp_path):
     monkeypatch.setenv("STUDIUM_LWG_OUT_DIR", str(tmp_path))
     monkeypatch.delenv("STUDIUM_LWG_BUILD", raising=False)

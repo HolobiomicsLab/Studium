@@ -1,0 +1,13 @@
+{
+  "workflow_id": "demo_workflow",
+  "graded": false,
+  "structural": { "step_count": 2, "task_openness": "closed" },
+  "workflow_characteristics": {
+    "coupling": "loose",
+    "composition_modularity": "flat",
+    "abstraction_level": "intermediate",
+    "orchestration_planning": "static",
+    "data_transport": "file",
+    "characterisation_confidence": "inferred"
+  }
+}

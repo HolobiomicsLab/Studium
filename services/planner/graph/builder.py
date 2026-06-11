@@ -14,6 +14,7 @@ from agentic.decision import make_insight, make_evidence
 from agentic.telemetry import InMemoryTelemetrySink
 from graph.derive import derive_base_graph
 from graph.cycle import would_create_cycle
+from abs.capsule_import import import_reproduction_subgraph
 
 _EXCERPT_MAX = 500
 # Heuristic score for an ungrounded prerequisite edge. MUST stay in
@@ -132,6 +133,25 @@ class GraphBuilder:
             "nodes": nodes,
             "edges": base_edges + prereq_edges,
         }
+
+        # --- Mode B: merge reproduction subgraphs from ASB capsule corpus_refs (best-effort) ---
+        # NOTE (v1): two capsules with the same workflow_id would emit duplicate
+        # concept:abs:<id> nodes; dedup is deferred (single-capsule prototype).
+        for ref in (getattr(plan, "corpus_refs", None) or []):
+            if getattr(ref, "ref_type", None) != "abs_capsule":
+                continue
+            path = getattr(ref, "abs_capsule_path", None)
+            if not path:
+                continue
+            try:
+                abs_nodes, abs_edges = import_reproduction_subgraph(path)
+            except Exception:
+                self._telemetry.emit({"ts": created_at, "event": "abs_import_failed",
+                                      "ref_id": getattr(ref, "ref_id", None)})
+                continue
+            graph["nodes"].extend(abs_nodes)
+            graph["edges"].extend(abs_edges)
+
         records = getattr(self._telemetry, "records", [])
         return GraphBuildResult(graph=graph, decisions=decisions, findings=findings,
                                 telemetry=list(records))
