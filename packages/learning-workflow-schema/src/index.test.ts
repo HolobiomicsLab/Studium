@@ -60,4 +60,14 @@ describe("validateGraph", () => {
     const r = LearningWorkflowGraphSchema.safeParse({ ...FIXTURE, schema_version: "2.0" });
     expect(r.success).toBe(false);
   });
+
+  it("accepts an edge carrying flat evidence", () => {
+    const g = { ...FIXTURE, edges: [{ id: "e1", relation: "prerequisite_for", source: "concept:fft", target: "concept:fourier-basics", confidence: 0.7, evidence: [{ artifact: "plan:p1#objectives", page: 2, confidence: 0.7 }] }] };
+    expect(validateGraph(g).valid).toBe(true);
+  });
+
+  it("rejects edge evidence with out-of-range confidence", () => {
+    const g = { ...FIXTURE, edges: [{ id: "e1", relation: "prerequisite_for", source: "a", target: "b", evidence: [{ artifact: "x", confidence: 2 }] }] };
+    expect(validateGraph(g).valid).toBe(false);
+  });
 });
