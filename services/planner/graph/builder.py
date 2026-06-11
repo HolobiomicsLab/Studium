@@ -16,6 +16,14 @@ from graph.derive import derive_base_graph
 from graph.cycle import would_create_cycle
 
 _EXCERPT_MAX = 500
+# Heuristic score for an ungrounded prerequisite edge. MUST stay in
+# [admission.rescue_threshold (0.4), admission.pass_threshold (0.6)) so the edge is
+# KEPT-with-quality_flags (flagged_for_review), never auto-passed and never dropped.
+_UNGROUNDED_SCORE = 0.5
+# Confidence stamped on a grounded passage when Perspicacité returns no relevance_score.
+_DEFAULT_PASSAGE_CONF = 0.6
+# Confidence for the plan-artifact fallback evidence (no supporting passage at all).
+_ARTIFACT_FALLBACK_CONF = 0.4
 
 
 def _default_clock() -> str:
@@ -82,7 +90,7 @@ class GraphBuilder:
             flat_ev, astra_ev, grounded = self._ground(plan, src, tgt, concept_title)
 
             def _heuristic(_c: dict, _grounded: bool = grounded) -> tuple[float, list[str]]:
-                return (1.0, []) if _grounded else (0.5, ["no supporting passage"])
+                return (1.0, []) if _grounded else (_UNGROUNDED_SCORE, ["no supporting passage"])
 
             insight = make_insight(
                 insight_id=edge_id,
@@ -141,7 +149,7 @@ class GraphBuilder:
                 docs = resp.get("docs") if isinstance(resp, dict) else None
                 if resp.get("status") == "ok" and docs:
                     d = docs[0]
-                    conf = float(d.get("relevance_score") or 0.6)
+                    conf = float(d.get("relevance_score") or _DEFAULT_PASSAGE_CONF)
                     excerpt = (d.get("excerpt") or "")[:_EXCERPT_MAX]
                     if d.get("doi"):
                         flat = {"doi": d["doi"], "quote": excerpt, "confidence": conf}
@@ -154,6 +162,6 @@ class GraphBuilder:
             except Exception:
                 pass
         ref = f"plan:{plan.id}#objectives"
-        flat = {"artifact": ref, "confidence": 0.4}
-        astra = make_evidence(artifact=ref, confidence=0.4)
+        flat = {"artifact": ref, "confidence": _ARTIFACT_FALLBACK_CONF}
+        astra = make_evidence(artifact=ref, confidence=_ARTIFACT_FALLBACK_CONF)
         return flat, astra, False

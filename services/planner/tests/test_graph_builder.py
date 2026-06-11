@@ -74,3 +74,30 @@ def test_grounded_edge_uses_perspicacite_passage():
     edge = next(e for e in res.graph["edges"] if e["relation"] == "prerequisite_for")
     assert edge["evidence"][0]["doi"] == "10.1/x"
     assert not edge.get("quality_flags")
+
+
+def test_transitive_cycle_proposal_is_dropped_inside_builder():
+    # Stub proposes A->B, B->C, C->A; the third closes a cycle and must be dropped,
+    # while the first two are kept. Concepts must exist, so use the two plan concepts
+    # plus a third via an extra objective.
+    from lesson_plan_schema import LessonPlan, LearningObjective, SceneOutline
+    plan = LessonPlan(
+        id="p2", title="T", language="fr", target="L3", duration_minutes=45, source_manifest_id="sp2",
+        learning_objectives=[
+            LearningObjective(id="a", description="A", bloom_level="understand"),
+            LearningObjective(id="b", description="B", bloom_level="understand"),
+            LearningObjective(id="c", description="C", bloom_level="apply"),
+        ],
+        scene_outlines=[SceneOutline(id="s1", type="concept", title="s", objective_refs=["a"])],
+    )
+    agent = _StubAgent([
+        {"source": "concept:a", "target": "concept:b"},
+        {"source": "concept:b", "target": "concept:c"},
+        {"source": "concept:c", "target": "concept:a"},  # closes the cycle
+    ])
+    res = _builder(agent).build(plan)
+    prereqs = {(e["source"], e["target"]) for e in res.graph["edges"] if e["relation"] == "prerequisite_for"}
+    assert ("concept:a", "concept:b") in prereqs
+    assert ("concept:b", "concept:c") in prereqs
+    assert ("concept:c", "concept:a") not in prereqs
+    assert any(r.get("event") == "dropped_edge" and r.get("reason") == "cycle" for r in res.telemetry)

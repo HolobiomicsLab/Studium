@@ -34,3 +34,17 @@ def test_malformed_llm_output_yields_no_edges(monkeypatch):
     agent = GraphAgent()
     monkeypatch.setattr(agent, "_call_llm", lambda msg: "not json")
     assert agent.propose_prerequisites(CONCEPTS) == []
+
+
+def test_edges_not_a_list_yields_empty(monkeypatch):
+    import json as _json
+    agent = GraphAgent()
+    monkeypatch.setattr(agent, "_call_llm", lambda msg: _json.dumps({"edges": "nope"}))
+    assert agent.propose_prerequisites(CONCEPTS) == []
+
+
+def test_bare_list_json_yields_empty(monkeypatch):
+    import json as _json
+    agent = GraphAgent()
+    monkeypatch.setattr(agent, "_call_llm", lambda msg: _json.dumps([1, 2, 3]))
+    assert agent.propose_prerequisites(CONCEPTS) == []
