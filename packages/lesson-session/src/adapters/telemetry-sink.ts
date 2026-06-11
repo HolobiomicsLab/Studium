@@ -1,4 +1,4 @@
-import { appendFile, mkdir } from "node:fs/promises";
+import { appendFile, mkdir, rm } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { TelemetryEvent } from "@studium/telemetry-events";
 import type { TelemetrySink } from "../ports.js";
@@ -12,6 +12,13 @@ export class JsonlTelemetrySink implements TelemetrySink {
     const events = this.buffer; this.buffer = [];
     await mkdir(dirname(this.file), { recursive: true });
     await appendFile(this.file, events.map((e) => JSON.stringify(e)).join("\n") + "\n", "utf8");
+  }
+  /** RGPD erasure (#4): clear the in-memory buffer AND delete the telemetry file on disk.
+   * The per-session file carries the learner's pseudonym + event refs — erase it for real.
+   * Mirrors JsonlEventLog.purge; `force` makes a missing file a no-op. */
+  async purge(): Promise<void> {
+    this.buffer = [];
+    await rm(this.file, { force: true });
   }
 }
 

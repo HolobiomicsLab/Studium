@@ -146,6 +146,92 @@ describe("SessionHost — per-learner pseudonym + RGPD erasure (#4)", () => {
       else process.env["STUDIUM_PSEUDO_SECRET"] = prev;
     }
   });
+
+  it("fail-closed: NODE_ENV=production with no secret THROWS even when live=false", async () => {
+    const prevSecret = process.env["STUDIUM_PSEUDO_SECRET"];
+    const prevNode = process.env["NODE_ENV"];
+    delete process.env["STUDIUM_PSEUDO_SECRET"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      const host = new SessionHost({ bundlesRoot: bundlesDir(), live: false });
+      await expect(host.create("mini.json", "alice")).rejects.toThrow(/STUDIUM_PSEUDO_SECRET/);
+    } finally {
+      if (prevSecret === undefined) delete process.env["STUDIUM_PSEUDO_SECRET"];
+      else process.env["STUDIUM_PSEUDO_SECRET"] = prevSecret;
+      if (prevNode === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = prevNode;
+    }
+  });
+
+  it("fail-closed: NODE_ENV=production with dev-secret THROWS", async () => {
+    const prevSecret = process.env["STUDIUM_PSEUDO_SECRET"];
+    const prevNode = process.env["NODE_ENV"];
+    process.env["STUDIUM_PSEUDO_SECRET"] = "dev-secret";
+    process.env["NODE_ENV"] = "production";
+    try {
+      const host = new SessionHost({ bundlesRoot: bundlesDir(), live: false });
+      await expect(host.create("mini.json", "alice")).rejects.toThrow(/STUDIUM_PSEUDO_SECRET/);
+    } finally {
+      if (prevSecret === undefined) delete process.env["STUDIUM_PSEUDO_SECRET"];
+      else process.env["STUDIUM_PSEUDO_SECRET"] = prevSecret;
+      if (prevNode === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = prevNode;
+    }
+  });
+
+  it("fail-closed: STUDIUM_ENV=production with no secret THROWS even when live=false", async () => {
+    const prevSecret = process.env["STUDIUM_PSEUDO_SECRET"];
+    const prevStudium = process.env["STUDIUM_ENV"];
+    delete process.env["STUDIUM_PSEUDO_SECRET"];
+    process.env["STUDIUM_ENV"] = "production";
+    try {
+      const host = new SessionHost({ bundlesRoot: bundlesDir(), live: false });
+      await expect(host.create("mini.json", "alice")).rejects.toThrow(/STUDIUM_PSEUDO_SECRET/);
+    } finally {
+      if (prevSecret === undefined) delete process.env["STUDIUM_PSEUDO_SECRET"];
+      else process.env["STUDIUM_PSEUDO_SECRET"] = prevSecret;
+      if (prevStudium === undefined) delete process.env["STUDIUM_ENV"];
+      else process.env["STUDIUM_ENV"] = prevStudium;
+    }
+  });
+
+  it("fail-closed: production-ish signal with an explicit real secret is allowed", async () => {
+    const prevSecret = process.env["STUDIUM_PSEUDO_SECRET"];
+    const prevNode = process.env["NODE_ENV"];
+    process.env["STUDIUM_PSEUDO_SECRET"] = "a-real-production-secret";
+    process.env["NODE_ENV"] = "production";
+    try {
+      const host = new SessionHost({ bundlesRoot: bundlesDir(), live: false });
+      const { presentation } = await host.create("mini.json", "alice");
+      expect(presentation.scene.id).toBe("s0");
+    } finally {
+      if (prevSecret === undefined) delete process.env["STUDIUM_PSEUDO_SECRET"];
+      else process.env["STUDIUM_PSEUDO_SECRET"] = prevSecret;
+      if (prevNode === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = prevNode;
+    }
+  });
+
+  it("permissive: neither prod signal nor live=false uses dev-secret default (no throw)", async () => {
+    const prevSecret = process.env["STUDIUM_PSEUDO_SECRET"];
+    const prevNode = process.env["NODE_ENV"];
+    const prevStudium = process.env["STUDIUM_ENV"];
+    delete process.env["STUDIUM_PSEUDO_SECRET"];
+    delete process.env["NODE_ENV"];
+    delete process.env["STUDIUM_ENV"];
+    try {
+      const host = new SessionHost({ bundlesRoot: bundlesDir(), live: false });
+      const { presentation } = await host.create("mini.json", "alice");
+      expect(presentation.scene.id).toBe("s0");
+    } finally {
+      if (prevSecret === undefined) delete process.env["STUDIUM_PSEUDO_SECRET"];
+      else process.env["STUDIUM_PSEUDO_SECRET"] = prevSecret;
+      if (prevNode === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = prevNode;
+      if (prevStudium === undefined) delete process.env["STUDIUM_ENV"];
+      else process.env["STUDIUM_ENV"] = prevStudium;
+    }
+  });
 });
 
 describe("SessionHost — mastery sink flush on completion", () => {

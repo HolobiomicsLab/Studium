@@ -8,13 +8,21 @@ import {
   HttpCritiqueEvaluator, StubCritiqueEvaluator,
 } from "@studium/lesson-session/node";
 
-/** #4 fail-closed: in live/production mode the pseudonym secret MUST be set and MUST NOT be the
- * "dev-secret" default — otherwise every deployment would share a guessable HMAC key, defeating
- * pseudonymisation. dev/test (live=false) keep the "dev-secret" default for convenience. */
+/** #4 fail-closed: refuse a missing/empty/"dev-secret" secret whenever ANY production-ish signal
+ * is present — i.e. when `live === true` (LiteLLM wired) OR `NODE_ENV === "production"` OR
+ * `STUDIUM_ENV === "production"`. This prevents a real production deployment that doesn't use
+ * LiteLLM from silently falling back to the shared guessable HMAC key.
+ * dev/test: permissive — default to "dev-secret" only when none of those signals are set. */
 function resolvePseudoSecret(live: boolean): string {
   const env = process.env["STUDIUM_PSEUDO_SECRET"];
-  if (live && (!env || env === "dev-secret")) {
-    throw new Error("STUDIUM_PSEUDO_SECRET must be set (and not 'dev-secret') in live mode");
+  const isProd = live
+    || process.env["NODE_ENV"] === "production"
+    || process.env["STUDIUM_ENV"] === "production";
+  if (isProd && (!env || env === "dev-secret")) {
+    throw new Error(
+      "STUDIUM_PSEUDO_SECRET must be set (and not 'dev-secret') in production mode " +
+      "(live=true, NODE_ENV=production, or STUDIUM_ENV=production)",
+    );
   }
   return env ?? "dev-secret";
 }

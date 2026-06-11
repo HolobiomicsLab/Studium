@@ -75,4 +75,28 @@ describe("persistence adapters — RGPD erasure (#4)", () => {
     await log.purge();
     expect(existsSync(file)).toBe(false);
   });
+
+  it("JsonlTelemetrySink.purge deletes the telemetry file AND clears the buffer", async () => {
+    const dir = tmp();
+    const file = join(dir, "telemetry.jsonl");
+    const sink = new JsonlTelemetrySink(file);
+    sink.emit({ type: "lesson_started" } as never);
+    await sink.flush();                                          // writes the file
+    expect(existsSync(file)).toBe(true);
+    // emit another event into the buffer (not yet flushed)
+    sink.emit({ type: "scene_entered" } as never);
+    await sink.purge();
+    expect(existsSync(file)).toBe(false);                       // file is gone
+    // buffer is also cleared — a subsequent flush must not re-create the file
+    await sink.flush();
+    expect(existsSync(file)).toBe(false);
+  });
+
+  it("JsonlTelemetrySink.purge is a no-op when the file never existed (force)", async () => {
+    const dir = tmp();
+    const file = join(dir, "telemetry.jsonl");
+    const sink = new JsonlTelemetrySink(file);
+    await expect(sink.purge()).resolves.toBeUndefined();
+    expect(existsSync(file)).toBe(false);
+  });
 });
