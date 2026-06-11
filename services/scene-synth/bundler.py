@@ -58,7 +58,7 @@ def build_bundle(
     lesson_plan:
         Plan d'entrée (cf. fixtures M3). Champs lus :
         ``lesson_id`` (requis), ``plan_id``, ``title``, ``metadata``,
-        ``concepts``, ``rules``.
+        ``concepts``, ``rules``, ``learning_workflow_graph``.
     scenes:
         Liste de scènes synthétisées (instances ``Scene`` Pydantic ou dicts).
     output_path:

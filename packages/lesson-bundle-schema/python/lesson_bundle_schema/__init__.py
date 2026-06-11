@@ -6,7 +6,7 @@ ADR 014 — Evidence : champs evidence optionnels sur IntroScene, ConceptScene,
 ReproductionScene. schema_version bumped to 1.4.
 """
 from __future__ import annotations
-from typing import Annotated, Any, Optional, Literal, Union  # Any already imported
+from typing import Annotated, Any, Optional, Literal, Union
 from pydantic import BaseModel, Field, field_validator
 
 SCHEMA_VERSION = "1.4"

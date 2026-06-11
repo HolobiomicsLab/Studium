@@ -45,4 +45,24 @@ describe("GraphRouter", () => {
   it("ignores non-concept nodes", () => {
     expect(availableConcepts(LWG, {}, 0.8)).not.toContain("task:s1");
   });
+
+  it("nextConcept returns null when every concept is mastered", () => {
+    const allMastered = { "concept:fourier": 0.9, "concept:fft": 0.9, "concept:spectral": 0.9 };
+    expect(nextConcept(LWG, allMastered, 0.8, [])).toBeNull();
+  });
+
+  it("remediationTarget picks the weakest among multiple unmet prerequisites", () => {
+    // a concept requiring BOTH fourier and fft; both unmet, fourier weaker
+    const g = {
+      ...LWG,
+      nodes: [...LWG.nodes, { id: "concept:adv", node_kind: "concept", title: "Adv", bloom_level: "evaluate" }],
+      edges: [
+        ...LWG.edges,
+        { id: "e4", relation: "prerequisite_for", source: "concept:adv", target: "concept:fourier" },
+        { id: "e5", relation: "prerequisite_for", source: "concept:adv", target: "concept:fft" },
+      ],
+    };
+    const weakest = remediationTarget(g as typeof LWG, "concept:adv", { "concept:fourier": 0.2, "concept:fft": 0.5 }, 0.8);
+    expect(weakest).toBe("concept:fourier"); // 0.2 < 0.5
+  });
 });
