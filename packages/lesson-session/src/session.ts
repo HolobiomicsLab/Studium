@@ -130,7 +130,7 @@ export class LessonSession {
     // advance_to_next_scene | show_explanation_panel | fallback
     const lwg = this.bundle.learning_workflow_graph;
     if (lwg) {
-      const nextIdx = graphAwareNextIndex(
+      const { index: nextIdx } = graphAwareNextIndex(
         this.bundle.scenes, this.idx, lwg,
         buildLwgMastery(this.state.concept_states), this.theta,
       );

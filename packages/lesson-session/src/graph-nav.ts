@@ -35,29 +35,45 @@ export function firstAnswerGradedSceneForConcept(
   return scenes.findIndex((s) => sceneConceptId(s) === conceptId && ANSWER_GRADED_TYPES.has(s.type ?? ""));
 }
 
-/** Choose the next scene index (graph-aware). Used only when the bundle carries an LWG.
- * - candidate = currentIdx+1; beyond the end => null (caller completes).
- * - candidate has no concept, or its concept's prerequisites are all met (>= theta) => advance to it.
- * - candidate's concept is LOCKED => route to an answer-graded scene teaching the weakest unmet
- *   prerequisite (remediation; mastery improves on replay, so it converges); if no answer-graded
- *   scene exists for that concept, advance to the candidate anyway (cannot improve mastery by
- *   remediation, so don't loop). */
+export type GraphNavReason = "advance" | "remediate" | "skip_mastered";
+export interface GraphNavResult {
+  index: number | null; // null => no scene to advance to (caller completes)
+  reason: GraphNavReason;
+}
+
+/** Choose the next scene (graph-aware). Used only when the bundle carries an LWG.
+ * - skipMastered (pacing=skip_on_mastery): skip forward over scenes whose concept is already
+ *   mastered (>= theta), stopping at the first concept-less or unmastered scene.
+ * - landed candidate available (or concept-less) => advance there.
+ * - landed candidate LOCKED => remediate to an answer-graded scene for the weakest unmet prereq
+ *   (mastery rises on replay -> converges); if none exists, advance to the candidate (no loop). */
 export function graphAwareNextIndex(
   scenes: { concept_refs?: string[]; type?: string }[],
   currentIdx: number,
   lwg: LearningWorkflowGraph,
   mastery: Mastery,
   theta: number = DEFAULT_THETA,
-): number | null {
-  const candidate = currentIdx + 1;
-  // at end of scenes -> complete, regardless of unmet prereqs.
-  if (candidate >= scenes.length) return null;
+  skipMastered = false,
+): GraphNavResult {
+  let candidate = currentIdx + 1;
+  let skipped = false;
+  if (skipMastered) {
+    while (candidate < scenes.length) {
+      const c = sceneConceptId(scenes[candidate]!);
+      if (c === null || (mastery[c] ?? 0) < theta) break; // stop at concept-less or unmastered
+      candidate += 1;
+      skipped = true;
+    }
+  }
+  if (candidate >= scenes.length) return { index: null, reason: "advance" };
   const cid = sceneConceptId(scenes[candidate]!);
-  if (cid === null || isAvailable(lwg, cid, mastery, theta)) return candidate;
+  if (cid === null || isAvailable(lwg, cid, mastery, theta)) {
+    return { index: candidate, reason: skipped ? "skip_mastered" : "advance" };
+  }
   const remedial = remediationTarget(lwg, cid, mastery, theta);
   if (remedial) {
     const ri = firstAnswerGradedSceneForConcept(scenes, remedial);
-    if (ri >= 0) return ri;   // route to an assessed scene for the unmet prereq (mastery can rise -> converges)
+    if (ri >= 0) return { index: ri, reason: "remediate" };
   }
-  return candidate; // no answer-graded remediation scene -> cannot remediate -> advance (no infinite loop)
+  return { index: candidate, reason: skipped ? "skip_mastered" : "advance" };
 }
