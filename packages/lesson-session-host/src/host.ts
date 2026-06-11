@@ -6,7 +6,7 @@ import {
 } from "@studium/lesson-session";
 import type { LearnerState } from "@studium/learner-state";
 import { SessionRegistry, type SessionEntry } from "./registry.js";
-import { buildHostDeps } from "./deps.js";
+import { buildHostDeps, durableDataDir, durableScopeDir } from "./deps.js";
 import { resolveBundle } from "./bundle-resolver.js";
 
 export class SessionHostNotFoundError extends Error {
@@ -22,10 +22,32 @@ export class SessionHost {
 
   async create(bundleRef: string, learnerId = "anonymous"): Promise<{ sessionId: string; presentation: Presentation }> {
     const bundle = await resolveBundle(this.opts.bundlesRoot, bundleRef);
-    const deps = buildHostDeps(this.opts.live);
+    // #3 DURABLE mode (gated by STUDIUM_DATA_DIR): scope the File* stores under a per-learner dir
+    // keyed by the RGPD-safe pseudonym (never the raw learnerId). We derive the pseudonym with the
+    // SAME provider+secret+bundle_id the session uses in start() (session.ts), guaranteeing the
+    // host dir pseudonym === session pseudonym (no salt drift / split-brain).
+    const dataDir = durableDataDir();
+    let deps;
+    let prior: LearnerState | null = null;
+    if (dataDir) {
+      // Build deps once to obtain the (fail-closed) pseudonym provider, derive the scope dir, then
+      // rebuild the deps with File* stores rooted at that dir. resolvePseudoSecret runs in
+      // buildHostDeps, so a misconfigured prod still throws BEFORE any dir is touched.
+      const probe = buildHostDeps(this.opts.live);
+      const pseudonym = await probe.pseudonym.get(learnerId, bundle.bundle_id);
+      const scopeDir = durableScopeDir(dataDir, pseudonym, bundle.bundle_id);
+      deps = buildHostDeps(this.opts.live, scopeDir);
+      // #3 RESUME: load any prior LearnerState for this (pseudonym, bundle_id). FileStateStore.load
+      // returns null on missing/parse-error, so a fresh learner falls back to defaultLearnerState.
+      prior = await deps.stateStore.load(bundle.bundle_id);
+    } else {
+      deps = buildHostDeps(this.opts.live);
+    }
     // #4: thread the learnerId so the pseudonym is salted per learner (distinct learners on the
     // same lesson resolve to distinct pseudonyms). Previously discarded as `_learnerId`.
-    const session = new LessonSession(bundle, deps, undefined, learnerId);
+    // #3: pass the loaded prior state so the engine resumes prior concept_states/mastery; in
+    // in-memory mode `prior` is null ⇒ collapses to the existing defaultLearnerState path.
+    const session = new LessonSession(bundle, deps, prior ?? undefined, learnerId);
     const presentation = await session.start();
     const sessionId = randomUUID();
     this.registry.create(sessionId, { session, deps, bundle });
