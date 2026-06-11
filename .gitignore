@@ -30,3 +30,10 @@ fixtures/m6/demo-atomistique-bundle.zip
 
 # Perspicacité search cache (on-disk, reproducible re-gen)
 .cache/
+
+# Eval corpus — third-party OER teaching material (some all-rights-reserved); kept local, re-fetchable from eval/corpus/manifest.json
+eval/corpus/
+
+# Runtime/author-time local artifacts — NEVER commit
+.lwg/          # planner LWG output (lwg.indicium.jsonld, astra.yaml, universes/)
+.mastery/      # RGPD: local learner mastery claims (demonstrates_mastery_of) — personal data, must never be pushed
