@@ -92,3 +92,11 @@ def test_dangling_input_from_is_dropped(tmp_path):
     nodes, edges = import_reproduction_subgraph(str(tmp_path))
     assert "task:abs:task_x" in {n["id"] for n in nodes}
     assert not any(e["relation"] == "prerequisite_for" for e in edges)  # ghost dropped
+
+
+def test_workflow_concept_has_description_from_task_titles():
+    nodes, _edges = import_reproduction_subgraph(_FIXTURE)
+    wf = next(n for n in nodes if n["node_kind"] == "concept" and n["id"].startswith("concept:abs:"))
+    assert "description" in wf and isinstance(wf["description"], str) and len(wf["description"]) > 0
+    # description mentions the workflow id
+    assert wf["id"].split(":")[-1] in wf["description"]
