@@ -24,6 +24,19 @@ from prov import build_prov_graph
 from scene_synth_schemas import LessonBundle
 
 
+def _utc_now_z() -> str:
+    """UTC timestamp with a trailing 'Z' (no numeric offset).
+
+    The TS runtime loader validates ``validated_at`` with Zod
+    ``z.string().datetime()``, whose default grammar REQUIRES a 'Z' suffix and
+    REJECTS the ``+00:00`` offset that ``datetime.isoformat()`` emits. Emitting
+    a 'Z'-suffixed timestamp lets authored bundles load in TS without any
+    Z-normalization workaround. Pydantic still accepts the 'Z' form, so Python
+    round-trips remain valid.
+    """
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _coerce_metadata(lesson_plan: dict) -> dict:
     """Construit un BundleMetadata depuis le plan, avec fallbacks raisonnables."""
     md = lesson_plan.get("metadata") or {}
@@ -84,7 +97,7 @@ def build_bundle(
         "scenes": [_scene_to_dict(s) for s in scenes],
         "rules": list(lesson_plan.get("rules", [])),
         "validated_by": prov_seed.get("validator", "scene-synth"),
-        "validated_at": datetime.now(timezone.utc).isoformat(),
+        "validated_at": _utc_now_z(),
         "learning_workflow_graph": lesson_plan.get("learning_workflow_graph"),
         "universes": lesson_plan.get("universes"),
     }

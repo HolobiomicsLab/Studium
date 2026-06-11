@@ -50,9 +50,34 @@ def plan(request: PlanRequest) -> PlanResponse:
 
     if os.getenv("STUDIUM_LWG_BUILD") == "on":
         import logging as _logging
+        import re as _re
+
+        _log = _logging.getLogger(__name__)
+        # Deterministic, single-segment output dir — computed FIRST so the failure
+        # marker path is always known even if the build raises before we get there.
+        _safe_id = _re.sub(r"[^A-Za-z0-9_-]", "_", request.manifest_id) or "course"
+        _out_dir = os.path.join(os.getenv("STUDIUM_LWG_OUT_DIR", ".lwg"), _safe_id)
+
+        def _emit_lwg_failure(reason: str, *, errors: list | None = None) -> None:
+            """Make an LWG-build failure OBSERVABLE: append a telemetry marker.
+
+            Best-effort itself — emitting the marker must never raise out of the
+            best-effort block. Paired with a logged ERROR at the call site.
+            """
+            try:
+                from agentic.telemetry import JsonlTelemetrySink
+                os.makedirs(_out_dir, exist_ok=True)
+                JsonlTelemetrySink(os.path.join(_out_dir, "lwg_build.telemetry.jsonl")).emit({
+                    "event": "lwg_build_failed",
+                    "manifest_id": request.manifest_id,
+                    "reason": reason,
+                    "errors": errors or [],
+                })
+            except Exception:  # marker emission must not mask the original failure
+                _log.exception("failed to emit LWG-failure telemetry marker")
+
         try:
             import json as _json
-            import re as _re
             from graph.builder import GraphBuilder
             from agents.graph_agent import GraphAgent
             from provenance.graph_to_indicium import graph_to_claims
@@ -60,8 +85,8 @@ def plan(request: PlanRequest) -> PlanResponse:
                 emit_astra, baseline_universe, write_astra_yaml, write_universe_yaml,
             )
             from provenance.universes import pedagogical_decisions, remedial_universe
+            from learning_workflow_schema import validate_graph
 
-            _safe_id = _re.sub(r"[^A-Za-z0-9_-]", "_", request.manifest_id) or "course"
             lesson_plan.source_manifest_id = lesson_plan.source_manifest_id or request.manifest_id
             _persp = _get_perspicacite_client()  # may be None — grounding falls back to the plan
             _builder = GraphBuilder(
@@ -71,36 +96,50 @@ def plan(request: PlanRequest) -> PlanResponse:
                 asserted_by=f"urn:studium:graphagent:{request.manifest_id}",
             )
             _res = _builder.build(lesson_plan)
-            lesson_plan.learning_workflow_graph = _res.graph
 
-            _ped = pedagogical_decisions()
-            lesson_plan.universes = {
-                "variants": [baseline_universe(_ped), remedial_universe(_ped)],
-                "active": "baseline",
-            }
-            # decisions = per-edge agentic decisions (from GraphBuilder) ++ course-level pedagogical decisions
-            _analysis = emit_astra(
-                analysis_id=f"{_res.graph['course_id']}-analysis",
-                name=lesson_plan.title,
-                decisions=_res.decisions + _ped,
-                prior_insights=[],
-                findings=_res.findings,
-                outputs=[{"id": "lwg", "type": "data"}],
-            )
-            _out_dir = os.path.join(os.getenv("STUDIUM_LWG_OUT_DIR", ".lwg"), _safe_id)
-            os.makedirs(_out_dir, exist_ok=True)
-            with open(os.path.join(_out_dir, "lwg.indicium.jsonld"), "w", encoding="utf-8") as _f:
-                _json.dump(graph_to_claims(_res.graph, asserted_by=_builder.asserted_by), _f,
-                           ensure_ascii=False, indent=2)
-            write_astra_yaml(_analysis, _out_dir)
-            write_universe_yaml(baseline_universe(_ped), _out_dir)
-            write_universe_yaml(remedial_universe(_ped), _out_dir)
-            _logging.getLogger(__name__).info(
-                "LWG built: %d nodes, %d edges -> %s",
-                len(_res.graph["nodes"]), len(_res.graph["edges"]), _out_dir,
-            )
+            # VALIDATE before attaching/serializing — out-of-vocab or structurally
+            # broken graphs must NOT be attached to the plan nor written to disk
+            # (otherwise they detonate downstream at bundle-load).
+            _validation = validate_graph(_res.graph)
+            if not _validation["valid"]:
+                _log.error(
+                    "LWG build produced an INVALID graph — skipping attach + write: %s",
+                    _validation["errors"],
+                )
+                _emit_lwg_failure("invalid_graph", errors=_validation["errors"])
+            else:
+                lesson_plan.learning_workflow_graph = _res.graph
+
+                _ped = pedagogical_decisions()
+                lesson_plan.universes = {
+                    "variants": [baseline_universe(_ped), remedial_universe(_ped)],
+                    "active": "baseline",
+                }
+                # decisions = per-edge agentic decisions (from GraphBuilder) ++ course-level pedagogical decisions
+                _analysis = emit_astra(
+                    analysis_id=f"{_res.graph['course_id']}-analysis",
+                    name=lesson_plan.title,
+                    decisions=_res.decisions + _ped,
+                    prior_insights=[],
+                    findings=_res.findings,
+                    outputs=[{"id": "lwg", "type": "data"}],
+                )
+                os.makedirs(_out_dir, exist_ok=True)
+                with open(os.path.join(_out_dir, "lwg.indicium.jsonld"), "w", encoding="utf-8") as _f:
+                    _json.dump(graph_to_claims(_res.graph, asserted_by=_builder.asserted_by), _f,
+                               ensure_ascii=False, indent=2)
+                write_astra_yaml(_analysis, _out_dir)
+                write_universe_yaml(baseline_universe(_ped), _out_dir)
+                write_universe_yaml(remedial_universe(_ped), _out_dir)
+                _log.info(
+                    "LWG built: %d nodes, %d edges -> %s",
+                    len(_res.graph["nodes"]), len(_res.graph["edges"]), _out_dir,
+                )
         except Exception:
-            _logging.getLogger(__name__).exception("LWG build failed — skipping artifact write")
+            # Best-effort: a failed LWG build must NOT 500 the /plan response — but
+            # make it LOUD (logged ERROR + telemetry marker), never a silent swallow.
+            _log.exception("LWG build failed — skipping artifact write")
+            _emit_lwg_failure("exception")
 
     if os.getenv("STUDIUM_EVIDENCE_ENRICH") == "on":
         perspicacite = _get_perspicacite_client()
