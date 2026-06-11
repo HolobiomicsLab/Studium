@@ -247,3 +247,4 @@ class LessonBundle(BaseModel):
     validated_at: str
     assessment_blueprint: Optional[AssessmentBlueprint] = None
     learning_workflow_graph: Optional[dict[str, Any]] = None
+    universes: Optional[dict[str, Any]] = None

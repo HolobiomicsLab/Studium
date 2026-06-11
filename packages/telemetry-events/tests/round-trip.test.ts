@@ -283,4 +283,11 @@ describe("telemetry-events Zod schemas", () => {
       expect(() => CooperativeConvergenceSchema.parse(rest)).toThrow();
     });
   });
+
+  it("validates universe_selected (refs + option map only)", () => {
+    const ev = { event_id: "11111111-1111-1111-1111-111111111111", learner_pseudonym: "p", lesson_id: "L1",
+      bundle_version: "1.4:L1", client_timestamp: "2026-06-11T00:00:00+00:00",
+      type: "universe_selected", universe_id: "remedial", active_decisions: { prereq_strictness: "lenient" } };
+    expect(() => TelemetryEventSchema.parse(ev)).not.toThrow();
+  });
 });

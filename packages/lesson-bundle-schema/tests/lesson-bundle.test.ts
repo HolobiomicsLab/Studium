@@ -211,6 +211,26 @@ describe("LessonBundleSchema", () => {
   });
 });
 
+const _UNIV = {
+  variants: [
+    { id: "baseline", description: "d", decisions: { prereq_strictness: "standard", scaffolding: "standard", pacing: "standard" } },
+    { id: "remedial", description: "d", decisions: { prereq_strictness: "lenient", scaffolding: "heavy", pacing: "standard" } },
+  ],
+  active: "baseline",
+};
+describe("LessonBundle universes", () => {
+  it("accepts a bundle with a universes projection", () => {
+    expect(LessonBundleSchema.safeParse({ ..._minimalBundle(), universes: _UNIV }).success).toBe(true);
+  });
+  it("accepts a bundle without universes (and null)", () => {
+    expect(LessonBundleSchema.safeParse(_minimalBundle()).success).toBe(true);
+    expect(LessonBundleSchema.safeParse({ ..._minimalBundle(), universes: null }).success).toBe(true);
+  });
+  it("rejects a universes projection missing active", () => {
+    expect(LessonBundleSchema.safeParse({ ..._minimalBundle(), universes: { variants: _UNIV.variants } }).success).toBe(false);
+  });
+});
+
 describe("Evidence on bundle scenes (ADR 014, schema 1.4)", () => {
   const validEvidence = {
     enrichment_metadata: {
