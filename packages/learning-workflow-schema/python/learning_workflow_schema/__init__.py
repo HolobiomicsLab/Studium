@@ -48,6 +48,15 @@ class TaskNode(BaseModel):
 GraphNode = Annotated[Union[ConceptNode, TaskNode], Field(discriminator="node_kind")]
 
 
+class GraphEvidence(BaseModel):
+    doi: Optional[str] = None
+    artifact: Optional[str] = None
+    quote: Optional[str] = None
+    page: Optional[int] = None
+    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    decision_context: Optional[list[str]] = None
+
+
 class GraphEdge(BaseModel):
     id: str = Field(min_length=1)
     relation: EdgeRelation
@@ -59,6 +68,7 @@ class GraphEdge(BaseModel):
     confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     quality_flags: Optional[list[str]] = None
     astra_insight_ref: Optional[str] = None
+    evidence: Optional[list[GraphEvidence]] = None
 
 
 class LearningWorkflowGraph(BaseModel):

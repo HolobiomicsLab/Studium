@@ -70,6 +70,16 @@ export const GraphNodeSchema = z.discriminatedUnion("node_kind", [
 ]);
 export type GraphNode = z.infer<typeof GraphNodeSchema>;
 
+export const GraphEvidenceSchema = z.object({
+  doi: z.string().optional(),
+  artifact: z.string().optional(),
+  quote: z.string().optional(),
+  page: z.number().int().optional(),
+  confidence: z.number().min(0).max(1).optional(),
+  decision_context: z.array(z.string()).optional(),
+});
+export type GraphEvidence = z.infer<typeof GraphEvidenceSchema>;
+
 export const GraphEdgeSchema = z.object({
   id: z.string().min(1),
   relation: EdgeRelationSchema,
@@ -81,6 +91,7 @@ export const GraphEdgeSchema = z.object({
   confidence: z.number().min(0).max(1).optional(),
   quality_flags: z.array(z.string()).optional(),
   astra_insight_ref: z.string().optional(),
+  evidence: z.array(GraphEvidenceSchema).optional(),
 });
 export type GraphEdge = z.infer<typeof GraphEdgeSchema>;
 

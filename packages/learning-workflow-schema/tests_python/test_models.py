@@ -69,3 +69,16 @@ def test_rejects_wrong_schema_version():
     bad = {**FIXTURE, "schema_version": "2.0"}
     with pytest.raises(ValidationError):
         LearningWorkflowGraph.model_validate(bad)
+
+
+def test_accepts_edge_with_flat_evidence():
+    g = {**FIXTURE, "edges": [{"id": "e1", "relation": "prerequisite_for",
+        "source": "concept:fft", "target": "concept:fourier-basics", "confidence": 0.7,
+        "evidence": [{"artifact": "plan:p1#objectives", "page": 2, "confidence": 0.7}]}]}
+    LearningWorkflowGraph.model_validate(g)
+
+def test_rejects_edge_evidence_bad_confidence():
+    g = {**FIXTURE, "edges": [{"id": "e1", "relation": "prerequisite_for",
+        "source": "a", "target": "b", "evidence": [{"artifact": "x", "confidence": 2.0}]}]}
+    with pytest.raises(ValidationError):
+        LearningWorkflowGraph.model_validate(g)
