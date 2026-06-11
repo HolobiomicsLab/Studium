@@ -1,6 +1,7 @@
 import type { TelemetryEvent } from "@studium/telemetry-events";
 import type { LearnerState } from "@studium/learner-state";
-import type { StateStore, EventLog, EventLogRecord, TelemetrySink } from "../ports.js";
+import type { StateStore, EventLog, EventLogRecord, TelemetrySink, MasteryClaimSink } from "../ports.js";
+import type { MasteryClaimsDoc } from "../mastery-claims.js";
 
 export class InMemoryStateStore implements StateStore {
   readonly saved = new Map<string, LearnerState>();
@@ -16,5 +17,11 @@ export class InMemoryEventLog implements EventLog {
 export class InMemoryTelemetrySink implements TelemetrySink {
   readonly events: TelemetryEvent[] = [];
   emit(e: TelemetryEvent): void { this.events.push(e); }
+  async flush(): Promise<void> {}
+}
+
+export class InMemoryMasteryClaimSink implements MasteryClaimSink {
+  readonly docs: MasteryClaimsDoc[] = [];
+  emit(doc: MasteryClaimsDoc): void { this.docs.push(doc); }
   async flush(): Promise<void> {}
 }
