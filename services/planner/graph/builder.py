@@ -25,6 +25,9 @@ _UNGROUNDED_SCORE = 0.5
 _DEFAULT_PASSAGE_CONF = 0.6
 # Confidence for the plan-artifact fallback evidence (no supporting passage at all).
 _ARTIFACT_FALLBACK_CONF = 0.4
+# Doc<->reproduction semantic linking (sub-project C).
+_LINK_THRESHOLD = 0.5
+_LINK_TOP_N = 3
 
 
 def _default_clock() -> str:
@@ -215,12 +218,82 @@ class GraphBuilder:
         return self._semantic_links(plan, wf_concept, concept_ids, concept_title,
                                     analysis_id, created_at, cycle_basis)
 
-    def _semantic_links(self, plan: Any, wf_concept: dict[str, Any], concept_ids: set[str],
-                        concept_title: dict[str, str], analysis_id: str, created_at: str,
-                        cycle_basis: list[dict[str, Any]],
-                        ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
-        """Placeholder filled in Task C4: returns empty until the semantic fallback lands."""
-        return [], [], []
+    def _semantic_links(
+        self, plan: Any, wf_concept: dict[str, Any], concept_ids: set[str],
+        concept_title: dict[str, str], analysis_id: str, created_at: str,
+        cycle_basis: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+        """Best-effort: score each document concept against the reproduction description via
+        Perspicacité; link the top-N above threshold as auto_linked prerequisite_for edges.
+        Perspicacité absent / no match -> no edge (honest, no fabricated link)."""
+        if self._persp is None:
+            return [], [], []
+        wf_id = wf_concept["id"]
+        wf_short = wf_id.split(":")[-1]
+        query_base = wf_concept.get("description") or wf_concept.get("title") or wf_id
+        scored: list[tuple[str, float, dict[str, Any]]] = []
+        for doc_id in sorted(concept_ids):
+            title = concept_title.get(doc_id, doc_id)
+            try:
+                resp = self._persp.search(
+                    query=f"relationship between {query_base} and {title}",
+                    mode="passages", max_results=1,
+                    kb_names=[self._course_kb] if self._course_kb else None,
+                )
+            except Exception:
+                continue
+            docs = resp.get("docs") if isinstance(resp, dict) else None
+            if resp.get("status") != "ok" or not docs:
+                continue
+            d = docs[0]
+            score = float(d.get("relevance_score") or 0.0)
+            if score >= _LINK_THRESHOLD:
+                scored.append((doc_id, score, d))
+        scored.sort(key=lambda t: t[1], reverse=True)
+
+        edges: list[dict[str, Any]] = []
+        decisions: list[dict[str, Any]] = []
+        findings: list[dict[str, Any]] = []
+        for doc_id, score, d in scored[:_LINK_TOP_N]:
+            if would_create_cycle(cycle_basis + edges, wf_id, doc_id):
+                self._telemetry.emit({"ts": created_at, "event": "dropped_edge",
+                                      "reason": "cycle", "source": wf_id, "target": doc_id})
+                continue
+            edge_id = f"linkauto:{wf_short}:{doc_id.split(':')[-1]}"
+            excerpt = (d.get("excerpt") or "")[:_EXCERPT_MAX]
+            astra_ev = (make_evidence(doi=d["doi"], quote=excerpt, confidence=score)
+                        if d.get("doi") else
+                        make_evidence(artifact=f"perspicacite:{d.get('id', 'doc')}", quote=excerpt, confidence=score))
+            flat_ev = ({"doi": d["doi"], "quote": excerpt, "confidence": score}
+                       if d.get("doi") else
+                       {"artifact": f"perspicacite:{d.get('id', 'doc')}", "quote": excerpt, "confidence": score})
+            insight = make_insight(
+                insight_id=edge_id,
+                claim=f"{wf_concept.get('title', wf_id)} requires {concept_title.get(doc_id, doc_id)}",
+                created_at=created_at,
+                evidence=[astra_ev],
+            )
+            result = run_agentic_step(
+                step_id=edge_id,
+                label=f"Does reproduction {wf_short} require {concept_title.get(doc_id, doc_id)}?",
+                rationale="semantic match (Perspicacité passage)",
+                options=[{"id": "include", "label": "Include"}, {"id": "omit", "label": "Omit"}],
+                chosen_option_id="include",
+                candidate={"source": wf_id, "target": doc_id},
+                heuristic=lambda _c, _s=score: (_s, []),
+                telemetry=self._telemetry, created_at=created_at, insight=insight,
+            )
+            edge: dict[str, Any] = {
+                "id": edge_id, "relation": "prerequisite_for", "source": wf_id, "target": doc_id,
+                "confidence": score, "evidence": [flat_ev],
+                "astra_insight_ref": f"{analysis_id}/{edge_id}",
+                "quality_flags": ["auto_linked"] + list(result.quality_flags or []),
+            }
+            edges.append(edge)
+            decisions.append(result.decision)
+            if result.insight is not None:
+                findings.append(result.insight)
+        return edges, decisions, findings
 
     def _ground(self, plan: Any, src: str, tgt: str, titles: dict[str, str]
                 ) -> tuple[dict[str, Any], dict[str, Any], bool]:
