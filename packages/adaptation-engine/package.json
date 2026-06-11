@@ -7,7 +7,8 @@
   "scripts": { "test": "vitest run", "test:watch": "vitest", "build": "tsc" },
   "dependencies": {
     "@studium/learner-state": "workspace:*",
-    "@studium/lesson-bundle-schema": "workspace:*"
+    "@studium/lesson-bundle-schema": "workspace:*",
+    "@studium/learning-workflow-schema": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^1.6.1",

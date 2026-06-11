@@ -238,6 +238,9 @@ importers:
       '@studium/learner-state':
         specifier: workspace:*
         version: link:../learner-state
+      '@studium/learning-workflow-schema':
+        specifier: workspace:*
+        version: link:../learning-workflow-schema
       '@studium/lesson-bundle-schema':
         specifier: workspace:*
         version: link:../lesson-bundle-schema
