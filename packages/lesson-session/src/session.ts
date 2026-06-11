@@ -161,7 +161,7 @@ export class LessonSession {
     this.lastGraphExplanation = null;
     const action = decision.next_action;
     if (action.kind === "replay_current_scene") {
-      this.hintsUsed = 0;
+      this.hintsUsed = 0; // hints are per-scene-visit: a replay grants a fresh budget. Farming (hint then deliberate-wrong then replay then unhinted-correct) is self-defeating — the wrong answer's beta penalty dominates the dodged discount.
       return { kind: "replay", reason: action.reason, presentation: this.currentPresentation() };
     }
     if (action.kind === "skip_to_next_concept") {
