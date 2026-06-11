@@ -20,10 +20,12 @@ export class SessionHost {
   private readonly registry = new SessionRegistry();
   constructor(private readonly opts: SessionHostOptions) {}
 
-  async create(bundleRef: string, _learnerId?: string): Promise<{ sessionId: string; presentation: Presentation }> {
+  async create(bundleRef: string, learnerId = "anonymous"): Promise<{ sessionId: string; presentation: Presentation }> {
     const bundle = await resolveBundle(this.opts.bundlesRoot, bundleRef);
     const deps = buildHostDeps(this.opts.live);
-    const session = new LessonSession(bundle, deps);
+    // #4: thread the learnerId so the pseudonym is salted per learner (distinct learners on the
+    // same lesson resolve to distinct pseudonyms). Previously discarded as `_learnerId`.
+    const session = new LessonSession(bundle, deps, undefined, learnerId);
     const presentation = await session.start();
     const sessionId = randomUUID();
     this.registry.create(sessionId, { session, deps, bundle });
@@ -54,13 +56,17 @@ export class SessionHost {
   async forget(id: string): Promise<void> {
     const e = this.require(id);
     const lessonId = e.session.getState().lesson_id;
-    const pseudonym = await e.deps.pseudonym.get(lessonId);
+    // reuse the session's already-salted pseudonym (no re-derivation / no stored learnerId needed).
+    const pseudonym = e.session.getPseudonym();
     e.deps.telemetry.emit(
       enrichEvent({ type: "forget_requested" },
         { learnerPseudonym: pseudonym, lessonId, bundleVersion: bundleVersionOf(e.bundle) },
         e.deps.clock, e.deps.idGen),
     );
     await e.deps.telemetry.flush();
+    // #4 REAL erasure: purge the learner's state + mastery .jsonld + event log + telemetry. Then
+    // drop the registry entry. forget() used to be a no-op (only the event + registry delete).
+    await e.session.erase();
     this.registry.delete(id);
   }
 }

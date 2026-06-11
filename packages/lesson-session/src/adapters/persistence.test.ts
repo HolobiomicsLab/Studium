@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defaultLearnerState } from "@studium/learner-state";
@@ -49,5 +49,30 @@ describe("persistence adapters", () => {
     const call = fetchMock.mock.calls[0]!;
     expect(String(call[0])).toContain("/telemetry");
     expect(call[1]?.method).toBe("POST");
+  });
+});
+
+describe("persistence adapters — RGPD erasure (#4)", () => {
+  it("FileStateStore.delete removes the state-<lessonId>.json file", async () => {
+    const dir = tmp();
+    const store = new FileStateStore(dir);
+    await store.save("L1", defaultLearnerState("L1"));
+    expect(existsSync(join(dir, "state-L1.json"))).toBe(true);
+    await store.delete("L1");
+    expect(existsSync(join(dir, "state-L1.json"))).toBe(false);
+    expect(await store.load("L1")).toBeNull();
+  });
+  it("FileStateStore.delete is a no-op when nothing was written (force)", async () => {
+    const dir = tmp();
+    await expect(new FileStateStore(dir).delete("missing")).resolves.toBeUndefined();
+  });
+  it("JsonlEventLog.purge deletes the whole log file (per-session isolation)", async () => {
+    const dir = tmp();
+    const file = join(dir, "events.jsonl");
+    const log = new JsonlEventLog(file);
+    await log.append({ event_id: "e1", session_id: "s", pseudonyme: "p", lesson_id: "L1", schema_version: "1.0", timestamp: "t", event_type: "scene_completed", payload: {} });
+    expect(existsSync(file)).toBe(true);
+    await log.purge();
+    expect(existsSync(file)).toBe(false);
   });
 });

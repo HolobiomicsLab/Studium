@@ -8,13 +8,24 @@ import {
   HttpCritiqueEvaluator, StubCritiqueEvaluator,
 } from "@studium/lesson-session/node";
 
+/** #4 fail-closed: in live/production mode the pseudonym secret MUST be set and MUST NOT be the
+ * "dev-secret" default — otherwise every deployment would share a guessable HMAC key, defeating
+ * pseudonymisation. dev/test (live=false) keep the "dev-secret" default for convenience. */
+function resolvePseudoSecret(live: boolean): string {
+  const env = process.env["STUDIUM_PSEUDO_SECRET"];
+  if (live && (!env || env === "dev-secret")) {
+    throw new Error("STUDIUM_PSEUDO_SECRET must be set (and not 'dev-secret') in live mode");
+  }
+  return env ?? "dev-secret";
+}
+
 /** Each session gets its OWN in-memory stores (session isolation). */
 export function buildHostDeps(live: boolean): SessionDeps {
   return {
     stateStore: new InMemoryStateStore(),
     eventLog: new InMemoryEventLog(),
     telemetry: new InMemoryTelemetrySink(),
-    pseudonym: new HmacPseudonymProvider(process.env["STUDIUM_PSEUDO_SECRET"] ?? "dev-secret"),
+    pseudonym: new HmacPseudonymProvider(resolvePseudoSecret(live)),
     clock: new SystemClock(),
     idGen: new RandomIdGen(),
     reasoningScorer: live

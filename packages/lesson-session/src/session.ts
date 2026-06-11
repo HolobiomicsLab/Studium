@@ -36,11 +36,15 @@ export class LessonSession {
     private readonly bundle: LessonBundle,
     private readonly deps: SessionDeps,
     private state: LearnerState = defaultLearnerState(bundle.bundle_id),
+    /** RGPD (#4): salts the pseudonym so distinct learners on the same lesson get distinct
+     * pseudonyms. Defaults to "anonymous" so callers/tests that omit it still compile and stay
+     * deterministic. */
+    private readonly learnerId: string = "anonymous",
   ) {}
 
   async start(): Promise<Presentation> {
     this.sessionId = this.deps.idGen.uuid();
-    this.pseudonym = await this.deps.pseudonym.get(this.bundle.bundle_id);
+    this.pseudonym = await this.deps.pseudonym.get(this.learnerId, this.bundle.bundle_id);
     this.ctx = { learnerPseudonym: this.pseudonym, lessonId: this.bundle.bundle_id, bundleVersion: bundleVersionOf(this.bundle) };
     this.engine = new AdaptationEngine(this.bundle.rules, this.state);
     this.state = this.engine.getState();
@@ -78,6 +82,20 @@ export class LessonSession {
     return this.lastGraphExplanation ?? this.engine.explain();
   }
   getState(): LearnerState { return this.started ? this.engine.getState() : this.state; }
+
+  /** The session's resolved pseudonym (salted on learnerId+lessonId). Empty until start(). Used by
+   * the host to label the forget_requested event without re-deriving the salt. */
+  getPseudonym(): string { return this.pseudonym; }
+
+  /** RGPD erasure (#4): purge every store this session wrote the learner's personal data to —
+   * StateStore (BKT mastery), MasteryClaimSink (.jsonld), EventLog (append log), Telemetry.
+   * Optional port methods are `?.`-guarded so adapters that don't implement them are skipped. */
+  async erase(): Promise<void> {
+    await this.deps.stateStore.delete?.(this.bundle.bundle_id);
+    await this.deps.masteryClaimSink?.erase?.();
+    await this.deps.eventLog.purge?.();
+    await this.deps.telemetry.purge?.();
+  }
 
   /** Pull the next authored hint for the current quiz scene (scaffolding-gated).
    * standard -> at most 1 hint; heavy -> all authored hints. Returns null when not a

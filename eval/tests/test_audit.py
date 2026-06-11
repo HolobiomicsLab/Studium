@@ -75,6 +75,10 @@ def _write_persona(run_dir: Path, persona: str, transition_kinds, rules_fired, a
     sub.mkdir(parents=True, exist_ok=True)
     result = {
         "persona": persona,
+        "learner_id": persona,
+        # #4: distinct learners on one lesson get distinct salted pseudonyms — derive a per-persona
+        # stand-in so the rgpd audit measures the per-learner property.
+        "learner_pseudonym": f"pseudo-{persona}",
         "completed": True,
         "n_turns": len(transition_kinds),
         "transition_kinds": transition_kinds,
@@ -141,6 +145,41 @@ def test_autonomy_always_one_despite_replays_flagged(tmp_path):
     audit = heuristic_audit(tmp_path)
     refs = {f["backlog_ref"] for f in audit["findings"] if f["dimension"] == "anti_offloading"}
     assert "#important-autonomy" in refs
+
+
+def test_rgpd_full_when_per_learner_pseudonyms_are_distinct(tmp_path):
+    # #4: two personas (= two learners) on one lesson, each with a distinct salted pseudonym.
+    _write_bundle(tmp_path, with_lwg=True)
+    _provenance(tmp_path)
+    _write_persona(tmp_path, "proficient", ["next", "complete"], ["graph_prereq_gate"])
+    _write_persona(tmp_path, "struggling", ["next", "replay", "complete"], ["graph_prereq_gate"])
+    audit = heuristic_audit(tmp_path)
+    assert audit["dimension_scores"]["rgpd"] == 1.0
+    rgpd = [f for f in audit["findings"] if f["dimension"] == "rgpd"]
+    assert any("DISTINCT pseudonyms" in f["summary"] for f in rgpd)
+    assert any("REAL erasure" in f["summary"] for f in rgpd)
+    assert all(f["severity"] != "high" for f in rgpd)
+
+
+def test_rgpd_flags_collision_when_pseudonyms_share(tmp_path):
+    # regression guard: if the salt ever stops distinguishing learners, the audit must dock rgpd.
+    _write_bundle(tmp_path, with_lwg=True)
+    _provenance(tmp_path)
+    for persona in ("proficient", "struggling"):
+        sub = tmp_path / "sessions" / persona
+        sub.mkdir(parents=True, exist_ok=True)
+        (sub / "driver_result.json").write_text(json.dumps({
+            "persona": persona, "learner_id": persona,
+            "learner_pseudonym": "SHARED",          # collision
+            "completed": True, "n_turns": 1, "transition_kinds": ["complete"],
+            "summary": {"autonomyRatio": 1.0, "scenesCompleted": 1, "totalDurationMs": 1},
+            "final_concept_mastery": {}, "final_state": {"lesson_id": "bundle-x", "concept_states": {}},
+            "transcript": [],
+        }))
+        (sub / "telemetry.jsonl").write_text(json.dumps({"type": "lesson_started"}))
+    audit = heuristic_audit(tmp_path)
+    assert audit["dimension_scores"]["rgpd"] < 1.0
+    assert any(f["dimension"] == "rgpd" and f["severity"] == "high" for f in audit["findings"])
 
 
 def test_report_renders_and_maps_backlog(tmp_path):
