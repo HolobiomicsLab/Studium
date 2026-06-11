@@ -2,6 +2,7 @@ import { z } from "zod";
 import { SceneSchema } from "./scenes";
 import { AdaptationRuleSchema } from "./rules";
 import { AssessmentBlueprintSchema } from "./blueprint";
+import { LearningWorkflowGraphSchema } from "@studium/learning-workflow-schema";
 
 export const SCHEMA_VERSION = "1.4";
 
@@ -39,6 +40,7 @@ export const LessonBundleSchema = z.object({
   validated_by: z.string().min(3),
   validated_at: z.string().datetime(),
   assessment_blueprint: AssessmentBlueprintSchema.optional(),
+  learning_workflow_graph: LearningWorkflowGraphSchema.nullish(),
 });
 
 export type LessonBundle = z.infer<typeof LessonBundleSchema>;

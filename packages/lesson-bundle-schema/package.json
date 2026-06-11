@@ -12,7 +12,8 @@
     "build": "tsc"
   },
   "dependencies": {
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@studium/learning-workflow-schema": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^1.6.1",

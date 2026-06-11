@@ -238,6 +238,9 @@ importers:
       '@studium/learner-state':
         specifier: workspace:*
         version: link:../learner-state
+      '@studium/learning-workflow-schema':
+        specifier: workspace:*
+        version: link:../learning-workflow-schema
       '@studium/lesson-bundle-schema':
         specifier: workspace:*
         version: link:../lesson-bundle-schema
@@ -280,6 +283,9 @@ importers:
 
   packages/lesson-bundle-schema:
     dependencies:
+      '@studium/learning-workflow-schema':
+        specifier: workspace:*
+        version: link:../learning-workflow-schema
       zod:
         specifier: ^3.23.8
         version: 3.25.76

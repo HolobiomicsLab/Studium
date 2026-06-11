@@ -250,6 +250,7 @@ class LessonBundle(BaseModel):
     rules: list[AdaptationRule]
     validated_by: str = Field(min_length=3)
     validated_at: str
+    learning_workflow_graph: Optional[dict[str, Any]] = None
 
 
 # Alias court demandé par la spec A.1 (les tests importent ``Bundle``)

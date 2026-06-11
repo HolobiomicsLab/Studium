@@ -58,7 +58,7 @@ def build_bundle(
     lesson_plan:
         Plan d'entrée (cf. fixtures M3). Champs lus :
         ``lesson_id`` (requis), ``plan_id``, ``title``, ``metadata``,
-        ``concepts``, ``rules``.
+        ``concepts``, ``rules``, ``learning_workflow_graph``.
     scenes:
         Liste de scènes synthétisées (instances ``Scene`` Pydantic ou dicts).
     output_path:
@@ -85,6 +85,7 @@ def build_bundle(
         "rules": list(lesson_plan.get("rules", [])),
         "validated_by": prov_seed.get("validator", "scene-synth"),
         "validated_at": datetime.now(timezone.utc).isoformat(),
+        "learning_workflow_graph": lesson_plan.get("learning_workflow_graph"),
     }
 
     # Validation stricte (lève si le bundle ne round-trip pas).

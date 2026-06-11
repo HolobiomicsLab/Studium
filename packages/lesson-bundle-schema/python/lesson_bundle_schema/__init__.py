@@ -246,3 +246,4 @@ class LessonBundle(BaseModel):
     validated_by: str = Field(min_length=3)
     validated_at: str
     assessment_blueprint: Optional[AssessmentBlueprint] = None
+    learning_workflow_graph: Optional[dict[str, Any]] = None

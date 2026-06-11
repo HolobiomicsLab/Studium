@@ -71,6 +71,7 @@ def plan(request: PlanRequest) -> PlanResponse:
                 asserted_by=f"urn:studium:graphagent:{request.manifest_id}",
             )
             _res = _builder.build(lesson_plan)
+            lesson_plan.learning_workflow_graph = _res.graph
 
             _ped = pedagogical_decisions()
             # decisions = per-edge agentic decisions (from GraphBuilder) ++ course-level pedagogical decisions

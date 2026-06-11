@@ -256,3 +256,19 @@ def test_rejects_legacy_schema_version_1_3():
     invalid = dict(VALID_BUNDLE, schema_version="1.3")
     with pytest.raises(Exception):
         LessonBundle(**invalid)
+
+
+def _minimal_bundle_dict() -> dict:
+    return dict(VALID_BUNDLE)
+
+
+def test_bundle_carries_optional_lwg():
+    d = _minimal_bundle_dict()
+    d["learning_workflow_graph"] = {"schema_version": "1.0", "course_id": "c", "nodes": [], "edges": []}
+    b = LessonBundle.model_validate(d)
+    assert b.learning_workflow_graph["course_id"] == "c"
+
+
+def test_bundle_without_lwg_is_valid():
+    b = LessonBundle.model_validate(_minimal_bundle_dict())
+    assert b.learning_workflow_graph is None

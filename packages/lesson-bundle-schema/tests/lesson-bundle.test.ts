@@ -1,6 +1,38 @@
 import { describe, it, expect } from "vitest";
 import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema, DiscussionSceneSchema, ConceptSceneSchema, ReproductionSceneSchema, SCHEMA_VERSION } from "../src/index";
 
+function _minimalBundle() {
+  return {
+    schema_version: "1.4",
+    bundle_id: "b-min",
+    source_plan_id: "p-min",
+    metadata: { title: "Min", target: "L3", duration_minutes: 10, language: "fr", discipline: "test" },
+    concepts: [{ id: "c1", title: "C1", description: "d", bloom_level_target: "understand" }],
+    scenes: [{ id: "s1", type: "intro", title: "S1", objective_refs: [], concept_refs: [], estimated_seconds: 30, adaptation_hooks: [], markdown: "hi" }],
+    rules: [],
+    validated_by: "tst",
+    validated_at: "2026-06-11T00:00:00Z",
+  };
+}
+
+const _LWG = { schema_version: "1.0", course_id: "c1",
+  nodes: [{ id: "concept:a", node_kind: "concept", title: "A", bloom_level: "understand" }], edges: [] };
+
+describe("LessonBundle learning_workflow_graph", () => {
+  it("accepts a bundle WITHOUT an LWG", () => {
+    expect(LessonBundleSchema.safeParse(_minimalBundle()).success).toBe(true);
+  });
+  it("accepts a bundle WITH a valid LWG", () => {
+    expect(LessonBundleSchema.safeParse({ ..._minimalBundle(), learning_workflow_graph: _LWG }).success).toBe(true);
+  });
+  it("accepts learning_workflow_graph: null", () => {
+    expect(LessonBundleSchema.safeParse({ ..._minimalBundle(), learning_workflow_graph: null }).success).toBe(true);
+  });
+  it("rejects a malformed LWG", () => {
+    expect(LessonBundleSchema.safeParse({ ..._minimalBundle(), learning_workflow_graph: { nodes: "nope" } }).success).toBe(false);
+  });
+});
+
 const VALID_BUNDLE = {
   schema_version: "1.4",
   bundle_id: "b-001",

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from enum import Enum
-from typing import Optional, Literal
+from typing import Any, Optional, Literal
 from pydantic import BaseModel, Field
 
 
@@ -179,3 +179,4 @@ class LessonPlan(BaseModel):
     case_framework_uri: Optional[str] = None
     # Manifest source (set by planner from PlanRequest.manifest_id; used for per-course KB routing)
     source_manifest_id: Optional[str] = None
+    learning_workflow_graph: Optional[dict[str, Any]] = None
