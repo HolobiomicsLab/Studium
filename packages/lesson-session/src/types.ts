@@ -3,7 +3,7 @@ import type { Scene, LessonBundle } from "@studium/lesson-bundle-schema";
 import type { LearnerState, Decision } from "@studium/learner-state";
 import type {
   StateStore, EventLog, TelemetrySink, PseudonymProvider,
-  ReasoningScorer, CritiqueEvaluator, Clock, IdGen,
+  ReasoningScorer, CritiqueEvaluator, Clock, IdGen, MasteryClaimSink,
 } from "./ports.js";
 
 export interface Explanation { rule_id: string; explanation_short: string; modulator: string; }
@@ -48,4 +48,5 @@ export interface SessionDeps {
   clock: Clock;
   idGen: IdGen;
   activeUniverseSelector?: (bundle: LessonBundle) => string;
+  masteryClaimSink?: MasteryClaimSink;
 }

@@ -4,8 +4,8 @@ import type {
   ReasoningScorer, CritiqueEvaluator, CritiqueEvaluation, Clock, IdGen,
 } from "./ports.js";
 import type { SessionDeps } from "./types.js";
-import { InMemoryStateStore, InMemoryEventLog, InMemoryTelemetrySink } from "./adapters/in-memory.js";
-export { InMemoryStateStore, InMemoryEventLog, InMemoryTelemetrySink } from "./adapters/in-memory.js";
+import { InMemoryStateStore, InMemoryEventLog, InMemoryTelemetrySink, InMemoryMasteryClaimSink } from "./adapters/in-memory.js";
+export { InMemoryStateStore, InMemoryEventLog, InMemoryTelemetrySink, InMemoryMasteryClaimSink } from "./adapters/in-memory.js";
 
 export class StaticPseudonym implements PseudonymProvider {
   constructor(private readonly value = "anon-test") {}

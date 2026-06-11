@@ -7,8 +7,10 @@ import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } f
 import { SessionNotStartedError, SessionAlreadyCompleteError } from "./errors.js";
 import { grade } from "./grading/index.js";
 import { thetaForVariant, resolveActiveVariant } from "./universe.js";
+import { buildMasteryClaims } from "./mastery-claims.js";
 
 const ESCALATE_AFTER = 2; // graph remediations in a session before baseline -> remedial escalation
+const MASTERY_CLAIM_THRESHOLD = 0.8; // fixed mastery-CLAIM bar (NOT the lowerable navigation theta)
 const BASELINE_UNIVERSE_ID = "baseline";
 const REMEDIAL_UNIVERSE_ID = "remedial";
 
@@ -220,6 +222,16 @@ export class LessonSession {
     const autonomyRatio = denom === 0 ? 1 : Math.max(0, Math.min(1, completed / denom));
     const summary: CompletionSummary = { totalDurationMs, autonomyRatio, scenesCompleted: completed, finalState: this.engine.getState() };
     this.emit({ type: "lesson_completed", total_duration_ms: totalDurationMs, autonomy_ratio: autonomyRatio });
+    if (this.deps.masteryClaimSink) {
+      const doc = buildMasteryClaims(this.engine.getState(), {
+        pseudonym: this.pseudonym,
+        sessionId: this.sessionId,
+        bundleId: this.bundle.bundle_id,
+        activeUniverseId: this.activeUniverseId,
+        threshold: MASTERY_CLAIM_THRESHOLD,
+      });
+      if (doc["@graph"].length > 0) this.deps.masteryClaimSink.emit(doc);
+    }
     return { kind: "complete", summary };
   }
 

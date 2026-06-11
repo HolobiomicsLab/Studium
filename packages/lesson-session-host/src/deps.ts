@@ -3,6 +3,7 @@ import type { SessionDeps } from "@studium/lesson-session";
 import {
   SystemClock, RandomIdGen, HmacPseudonymProvider,
   InMemoryStateStore, InMemoryEventLog, InMemoryTelemetrySink,
+  InMemoryMasteryClaimSink, FileMasteryClaimSink,
   LiteLLMReasoningScorer, StubReasoningScorer,
   HttpCritiqueEvaluator, StubCritiqueEvaluator,
 } from "@studium/lesson-session/node";
@@ -24,5 +25,8 @@ export function buildHostDeps(live: boolean): SessionDeps {
         })
       : new StubReasoningScorer(),
     critiqueEvaluator: live ? new HttpCritiqueEvaluator() : new StubCritiqueEvaluator(),
+    masteryClaimSink: process.env["STUDIUM_MASTERY_DIR"]
+      ? new FileMasteryClaimSink(process.env["STUDIUM_MASTERY_DIR"])
+      : new InMemoryMasteryClaimSink(),
   };
 }

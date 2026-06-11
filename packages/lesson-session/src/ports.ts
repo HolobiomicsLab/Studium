@@ -1,6 +1,7 @@
 // packages/lesson-session/src/ports.ts
 import type { LearnerState } from "@studium/learner-state";
 import type { TelemetryEvent } from "@studium/telemetry-events";
+import type { MasteryClaimsDoc } from "./mastery-claims.js";
 import type { ClassifyResult } from "@studium/reasoning-scorer";
 import type { Scene } from "@studium/lesson-bundle-schema";
 
@@ -41,3 +42,10 @@ export interface CritiqueEvaluator {
 
 export interface Clock { now(): string; }   // ISO 8601 string
 export interface IdGen { uuid(): string; }
+
+/** Local-only sink for learner mastery claims (RGPD: personal data — there is intentionally NO
+ * HTTP/forwarding implementation of this port; only in-memory + file). */
+export interface MasteryClaimSink {
+  emit(doc: MasteryClaimsDoc): void;
+  flush(): Promise<void>;
+}
