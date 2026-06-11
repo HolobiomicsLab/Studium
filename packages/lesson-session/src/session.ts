@@ -9,6 +9,8 @@ import { grade } from "./grading/index.js";
 import { thetaForVariant, resolveActiveVariant } from "./universe.js";
 
 const ESCALATE_AFTER = 2; // graph remediations in a session before baseline -> remedial escalation
+const BASELINE_UNIVERSE_ID = "baseline";
+const REMEDIAL_UNIVERSE_ID = "remedial";
 
 export class LessonSession {
   private engine!: AdaptationEngine;
@@ -23,7 +25,7 @@ export class LessonSession {
   private skipMastered = false;
   private lastGraphExplanation: Explanation | null = null;
   private remediationCount = 0;
-  private activeUniverseId = "baseline";
+  private activeUniverseId = BASELINE_UNIVERSE_ID;
   protected discussionTurnIdx = 0;
 
   constructor(
@@ -41,7 +43,7 @@ export class LessonSession {
     this.startIso = this.deps.clock.now();
     this.started = true;
     const u = this.bundle.universes ?? null;
-    const activeId = this.deps.activeUniverseSelector?.(this.bundle) ?? u?.active ?? "baseline";
+    const activeId = this.deps.activeUniverseSelector?.(this.bundle) ?? u?.active ?? BASELINE_UNIVERSE_ID;
     const variant = resolveActiveVariant(u, activeId);
     this.theta = thetaForVariant(variant);
     this.skipMastered = variant?.decisions?.["pacing"] === "skip_on_mastery";
@@ -88,11 +90,12 @@ export class LessonSession {
    * baseline -> remedial (lower theta, more support). Never de-escalates. */
   private maybeEscalateUniverse(): void {
     if (this.remediationCount < ESCALATE_AFTER) return;
-    if (this.activeUniverseId !== "baseline") return;
-    const remedial = resolveActiveVariant(this.bundle.universes ?? null, "remedial");
+    if (this.activeUniverseId !== BASELINE_UNIVERSE_ID) return;
+    const remedial = resolveActiveVariant(this.bundle.universes ?? null, REMEDIAL_UNIVERSE_ID);
     if (!remedial) return;
-    this.activeUniverseId = "remedial";
+    this.activeUniverseId = REMEDIAL_UNIVERSE_ID;
     this.theta = thetaForVariant(remedial);
+    // the remedial variant may set its own pacing (e.g. could enable skip) — recompute on switch
     this.skipMastered = remedial.decisions?.["pacing"] === "skip_on_mastery";
     this.lastGraphExplanation = { rule_id: "graph_universe_escalated", explanation_short: "repeated remediation — escalated to the remedial universe", modulator: "M6" };
     this.emit({ type: "universe_selected", universe_id: remedial.id, active_decisions: remedial.decisions });
