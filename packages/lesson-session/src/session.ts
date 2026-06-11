@@ -1,6 +1,7 @@
 import type { LessonBundle, Scene } from "@studium/lesson-bundle-schema";
-import { AdaptationEngine } from "@studium/adaptation-engine";
+import { AdaptationEngine, DEFAULT_THETA } from "@studium/adaptation-engine";
 import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type Decision } from "@studium/learner-state";
+import { buildLwgMastery, graphAwareNextIndex } from "./graph-nav.js";
 import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary } from "./types.js";
 import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
 import { SessionNotStartedError, SessionAlreadyCompleteError } from "./errors.js";
@@ -103,6 +104,7 @@ export class LessonSession {
       return { kind: "replay", reason: action.reason, presentation: this.currentPresentation() };
     }
     if (action.kind === "skip_to_next_concept") {
+      // NOTE: engine-fired explicit actions (skip/calibration) take priority over LWG prereq gating.
       const currentConcept = "concept_refs" in scene ? (scene.concept_refs[0] ?? "") : "";
       const next = this.bundle.scenes.findIndex((s, i) =>
         i > this.idx && ("concept_refs" in s ? (s.concept_refs[0] ?? "") : "") !== currentConcept);
@@ -110,12 +112,28 @@ export class LessonSession {
       // no later scene with a different concept — fall through to advance/complete
     }
     if (action.kind === "show_calibration_panel") {
+      // NOTE: engine-fired explicit actions (skip/calibration) take priority over LWG prereq gating.
       const target = action.target_concept;
       if (this.idx + 1 >= this.bundle.scenes.length) return this.complete();
       this.idx += 1; this.enterScene();
       return { kind: "calibration", targetConcept: target, presentation: this.currentPresentation() };
     }
     // advance_to_next_scene | show_explanation_panel | fallback
+    const lwg = this.bundle.learning_workflow_graph;
+    if (lwg) {
+      const nextIdx = graphAwareNextIndex(
+        this.bundle.scenes, this.idx, lwg,
+        buildLwgMastery(this.state.concept_states), DEFAULT_THETA,
+      );
+      if (nextIdx === null) return this.complete();
+      const gated = nextIdx !== this.idx + 1;
+      this.idx = nextIdx;
+      this.enterScene();
+      if (gated) {
+        this.emit({ type: "adaptation_applied", rule_id: "graph_prereq_gate", signal: "navigate", modulator: "M6", value: 0 });
+      }
+      return { kind: "next", presentation: this.currentPresentation() };
+    }
     if (this.idx + 1 >= this.bundle.scenes.length) return this.complete();
     this.idx += 1; this.enterScene();
     return { kind: "next", presentation: this.currentPresentation() };
