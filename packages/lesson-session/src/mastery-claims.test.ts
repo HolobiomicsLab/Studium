@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { buildMasteryClaims } from "./mastery-claims";
+import { MIN_MASTERY_ATTEMPTS } from "./graph-nav";
 import type { LearnerState } from "@studium/learner-state";
 
-function cs(alpha: number, beta: number) {
-  return { concept_id: "x", alpha, beta, consecutive_errors: 0, total_attempts: 3, total_correct: 2, confidence_calibration: 0.1 };
+function cs(alpha: number, beta: number, total_attempts = 3) {
+  return { concept_id: "x", alpha, beta, consecutive_errors: 0, total_attempts, total_correct: 2, confidence_calibration: 0.1 };
 }
 function state(concept_states: Record<string, ReturnType<typeof cs>>): LearnerState {
   return { lesson_id: "L1", schema_version: "1.0", concept_states, scenes_completed: [], scenes_replayed: {}, history: [], session_started_at: "2026-06-11T00:00:00Z", last_decision: null } as unknown as LearnerState;
@@ -37,5 +38,17 @@ describe("buildMasteryClaims", () => {
   });
   it("returns an empty @graph for empty concept_states", () => {
     expect(buildMasteryClaims(state({}), OPTS)["@graph"]).toEqual([]);
+  });
+
+  it("emits NO claim for a concept at/above threshold but below the attempts floor", () => {
+    // mastery 0.8 >= threshold but only 2 attempts < MIN_MASTERY_ATTEMPTS -> not yet mastered -> no claim
+    const doc = buildMasteryClaims(state({ shallow: cs(4, 1, MIN_MASTERY_ATTEMPTS - 1) }), OPTS);
+    expect(doc["@graph"]).toEqual([]);
+  });
+
+  it("emits a claim once a threshold-meeting concept reaches the attempts floor", () => {
+    const doc = buildMasteryClaims(state({ solid: cs(4, 1, MIN_MASTERY_ATTEMPTS) }), OPTS);
+    const claims = doc["@graph"].filter((n: any) => n["@type"] === "asb:Claim");
+    expect(claims.map((c: any) => c.object)).toEqual(["solid"]);
   });
 });
