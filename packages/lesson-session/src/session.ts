@@ -18,6 +18,8 @@ export class LessonSession {
   private sessionId = "";
   private pseudonym = "";
   private theta = DEFAULT_THETA;
+  private skipMastered = false;
+  private lastGraphExplanation: Explanation | null = null;
   protected discussionTurnIdx = 0;
 
   constructor(
@@ -38,6 +40,7 @@ export class LessonSession {
     const activeId = this.deps.activeUniverseSelector?.(this.bundle) ?? u?.active ?? "baseline";
     const variant = resolveActiveVariant(u, activeId);
     this.theta = thetaForVariant(variant);
+    this.skipMastered = variant?.decisions?.["pacing"] === "skip_on_mastery";
     if (variant) {
       this.emit({ type: "universe_selected", universe_id: variant.id, active_decisions: variant.decisions });
     }
@@ -58,7 +61,10 @@ export class LessonSession {
     };
   }
 
-  explainLast(): Explanation | null { return this.started ? this.engine.explain() : null; }
+  explainLast(): Explanation | null {
+    if (!this.started) return null;
+    return this.lastGraphExplanation ?? this.engine.explain();
+  }
   getState(): LearnerState { return this.started ? this.engine.getState() : this.state; }
 
   // --- protected helpers shared with respond()/submitTurn() (Tasks 8–10) ---
@@ -108,6 +114,7 @@ export class LessonSession {
   }
 
   protected navigate(decision: Decision, scene: Scene): Transition {
+    this.lastGraphExplanation = null;
     const action = decision.next_action;
     if (action.kind === "replay_current_scene") {
       return { kind: "replay", reason: action.reason, presentation: this.currentPresentation() };
@@ -130,16 +137,19 @@ export class LessonSession {
     // advance_to_next_scene | show_explanation_panel | fallback
     const lwg = this.bundle.learning_workflow_graph;
     if (lwg) {
-      const { index: nextIdx } = graphAwareNextIndex(
+      const { index: nextIdx, reason } = graphAwareNextIndex(
         this.bundle.scenes, this.idx, lwg,
-        buildLwgMastery(this.state.concept_states), this.theta,
+        buildLwgMastery(this.state.concept_states), this.theta, this.skipMastered,
       );
       if (nextIdx === null) return this.complete();
-      const gated = nextIdx !== this.idx + 1;
       this.idx = nextIdx;
       this.enterScene();
-      if (gated) {
+      if (reason === "remediate") {
+        this.lastGraphExplanation = { rule_id: "graph_prereq_gate", explanation_short: "prerequisite not yet mastered — routed to remediation", modulator: "M6" };
         this.emit({ type: "adaptation_applied", rule_id: "graph_prereq_gate", signal: "navigate", modulator: "M6", value: 0 });
+      } else if (reason === "skip_mastered") {
+        this.lastGraphExplanation = { rule_id: "graph_skip_mastered", explanation_short: "concept already mastered — skipped", modulator: "M1" };
+        this.emit({ type: "adaptation_applied", rule_id: "graph_skip_mastered", signal: "navigate", modulator: "M1", value: 0 });
       }
       return { kind: "next", presentation: this.currentPresentation() };
     }
