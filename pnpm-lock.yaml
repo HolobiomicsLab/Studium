@@ -280,6 +280,9 @@ importers:
 
   packages/lesson-bundle-schema:
     dependencies:
+      '@studium/learning-workflow-schema':
+        specifier: workspace:*
+        version: link:../learning-workflow-schema
       zod:
         specifier: ^3.23.8
         version: 3.25.76

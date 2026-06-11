@@ -6,7 +6,7 @@ ADR 014 — Evidence : champs evidence optionnels sur IntroScene, ConceptScene,
 ReproductionScene. schema_version bumped to 1.4.
 """
 from __future__ import annotations
-from typing import Annotated, Any, Optional, Literal, Union
+from typing import Annotated, Any, Optional, Literal, Union  # Any already imported
 from pydantic import BaseModel, Field, field_validator
 
 SCHEMA_VERSION = "1.4"
@@ -246,3 +246,4 @@ class LessonBundle(BaseModel):
     validated_by: str = Field(min_length=3)
     validated_at: str
     assessment_blueprint: Optional[AssessmentBlueprint] = None
+    learning_workflow_graph: Optional[dict[str, Any]] = None
