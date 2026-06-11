@@ -3,7 +3,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
 
 import pytest
 from pydantic import ValidationError
-from learning_workflow_schema import LearningWorkflowGraph, ConceptNode, GraphEdge
+from learning_workflow_schema import LearningWorkflowGraph, ConceptNode, GraphEdge, validate_graph
 
 FIXTURE = {
     "schema_version": "1.0",
@@ -82,3 +82,46 @@ def test_rejects_edge_evidence_bad_confidence():
         "source": "a", "target": "b", "evidence": [{"artifact": "x", "confidence": 2.0}]}]}
     with pytest.raises(ValidationError):
         LearningWorkflowGraph.model_validate(g)
+
+
+# BUG 2 regression: duplicate id uniqueness constraints
+
+def test_rejects_graph_with_duplicate_edge_ids():
+    """Two edges with the same id must be rejected."""
+    bad = {**FIXTURE, "edges": [
+        {"id": "dup-edge", "relation": "prerequisite_for", "source": "concept:fft", "target": "concept:fourier-basics"},
+        {"id": "dup-edge", "relation": "assesses", "source": "task:quiz-fft", "target": "concept:fft"},
+    ]}
+    with pytest.raises(ValidationError) as exc_info:
+        LearningWorkflowGraph.model_validate(bad)
+    assert "duplicate edge id" in str(exc_info.value)
+
+
+def test_rejects_graph_with_duplicate_node_ids():
+    """Two nodes with the same id must be rejected."""
+    bad = {**FIXTURE, "nodes": [
+        {"id": "dup-node", "node_kind": "concept", "title": "A", "bloom_level": "understand"},
+        {"id": "dup-node", "node_kind": "concept", "title": "B", "bloom_level": "apply"},
+        {"id": "task:quiz-fft", "node_kind": "task", "title": "FFT quiz", "scene_type": "quiz"},
+    ]}
+    with pytest.raises(ValidationError) as exc_info:
+        LearningWorkflowGraph.model_validate(bad)
+    assert "duplicate node id" in str(exc_info.value)
+
+
+def test_validate_graph_helper_rejects_duplicate_edge_ids():
+    """validate_graph() returns valid=False with a helpful error message."""
+    bad = {**FIXTURE, "edges": [
+        {"id": "dup", "relation": "prerequisite_for", "source": "concept:fft", "target": "concept:fourier-basics"},
+        {"id": "dup", "relation": "assesses", "source": "task:quiz-fft", "target": "concept:fft"},
+    ]}
+    result = validate_graph(bad)
+    assert result["valid"] is False
+    assert any("duplicate edge id" in e for e in result["errors"])
+
+
+def test_validate_graph_helper_accepts_valid_graph():
+    """validate_graph() returns valid=True for the well-formed fixture."""
+    result = validate_graph(FIXTURE)
+    assert result["valid"] is True
+    assert result["errors"] == []

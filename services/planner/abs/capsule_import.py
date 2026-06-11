@@ -18,6 +18,17 @@ _SCAFFOLD_BY_TIER = {
 }
 _DEFAULT_SCAFFOLD = "moderate"
 
+_DESC_MAX = 500
+
+
+def _workflow_description(workflow_id: str, cards: list[dict[str, Any]]) -> str:
+    titles = [str(c.get("title") or c.get("task_id") or "") for c in cards if c.get("task_id")]
+    titles = [t for t in titles if t]
+    body = "; ".join(titles)
+    text = f"Reproduction workflow {workflow_id}" + (f": {body}" if body else "")
+    return text[:_DESC_MAX]
+
+
 _SUTER_AXES = (
     "coupling", "composition_modularity", "abstraction_level",
     "orchestration_planning", "data_transport",
@@ -70,6 +81,7 @@ def import_reproduction_subgraph(capsule_dir: str) -> tuple[list[dict[str, Any]]
         "id": concept_id,
         "node_kind": "concept",
         "title": f"Reproduction workflow: {workflow_id}",
+        "description": _workflow_description(workflow_id, cards),
         "bloom_level": "apply",
     }]
     edges: list[dict[str, Any]] = []

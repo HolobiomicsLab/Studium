@@ -264,3 +264,15 @@ def test_lesson_plan_concepts_defaults_empty():
         scene_outlines=[{"id": "s1", "type": "intro", "title": "I", "objective_refs": []}],
     )
     assert plan.concepts == []
+
+
+def test_corpus_ref_accepts_aligns_concept_ids():
+    from lesson_plan_schema import CorpusRef
+    r = CorpusRef(ref_id="cap1", ref_type="abs_capsule", abs_capsule_path="/x", aligns_concept_ids=["obj-1", "obj-2"])
+    assert r.aligns_concept_ids == ["obj-1", "obj-2"]
+
+
+def test_corpus_ref_aligns_concept_ids_defaults_none():
+    from lesson_plan_schema import CorpusRef
+    r = CorpusRef(ref_id="cap1", ref_type="abs_capsule")
+    assert r.aligns_concept_ids is None

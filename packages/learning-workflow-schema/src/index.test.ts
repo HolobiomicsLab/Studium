@@ -70,4 +70,38 @@ describe("validateGraph", () => {
     const g = { ...FIXTURE, edges: [{ id: "e1", relation: "prerequisite_for", source: "a", target: "b", evidence: [{ artifact: "x", confidence: 2 }] }] };
     expect(validateGraph(g).valid).toBe(false);
   });
+
+  // BUG 2 regression: duplicate id uniqueness constraints
+  it("rejects a graph with two edges sharing the same id", () => {
+    const g = {
+      ...FIXTURE,
+      edges: [
+        { id: "dup-edge", relation: "prerequisite_for", source: "concept:fft", target: "concept:fourier-basics" },
+        { id: "dup-edge", relation: "assesses", source: "task:quiz-fft", target: "concept:fft" },
+      ],
+    };
+    const r = validateGraph(g);
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => e.includes("duplicate edge id"))).toBe(true);
+  });
+
+  it("rejects a graph with two nodes sharing the same id", () => {
+    const g = {
+      ...FIXTURE,
+      nodes: [
+        { id: "dup-node", node_kind: "concept" as const, title: "A", bloom_level: "understand" as const },
+        { id: "dup-node", node_kind: "concept" as const, title: "B", bloom_level: "apply" as const },
+        { id: "task:quiz-fft", node_kind: "task" as const, title: "FFT quiz", scene_type: "quiz" as const },
+      ],
+    };
+    const r = validateGraph(g);
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => e.includes("duplicate node id"))).toBe(true);
+  });
+
+  it("accepts a valid graph with all unique node and edge ids", () => {
+    const r = validateGraph(FIXTURE);
+    expect(r.valid).toBe(true);
+    expect(r.errors).toEqual([]);
+  });
 });
