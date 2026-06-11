@@ -37,7 +37,15 @@ export class SessionHost {
   }
 
   currentPresentation(id: string): Presentation { return this.require(id).session.currentPresentation(); }
-  async respond(id: string, input: ResponseInput): Promise<Transition> { return this.require(id).session.respond(input); }
+  async respond(id: string, input: ResponseInput): Promise<Transition> {
+    const e = this.require(id);
+    const transition = await e.session.respond(input);
+    // Persist local mastery claims when the lesson completes (no-op for the in-memory sink;
+    // writes the .jsonld for FileMasteryClaimSink). NOT flushed on forget() — that is the
+    // RGPD-delete path.
+    if (transition.kind === "complete") await e.deps.masteryClaimSink?.flush();
+    return transition;
+  }
   async submitTurn(id: string, text: string): Promise<void> { await this.require(id).session.submitTurn(text); }
   explainLast(id: string): Explanation | null { return this.require(id).session.explainLast(); }
   getState(id: string): LearnerState { return this.require(id).session.getState(); }
