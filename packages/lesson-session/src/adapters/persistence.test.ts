@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { mkdtempSync, rmSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, existsSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defaultLearnerState } from "@studium/learner-state";
@@ -49,6 +49,56 @@ describe("persistence adapters", () => {
     const call = fetchMock.mock.calls[0]!;
     expect(String(call[0])).toContain("/telemetry");
     expect(call[1]?.method).toBe("POST");
+  });
+});
+
+describe("FileStateStore — path-traversal hardening (#3 durable host security)", () => {
+  it("a `../`-laden lessonId/bundle_id round-trips and writes NOTHING outside the store dir", async () => {
+    const dir = tmp();
+    const store = new FileStateStore(dir);
+    // A crafted bundle_id with parent-dir segments. On the OLD code this escaped `dir`:
+    //   join(dir, "state-../../../../etc/evil.json") -> resolves OUTSIDE dir.
+    const evil = "../../../../etc/evil";
+    const st = defaultLearnerState(evil);
+    await store.save(evil, st);
+    // round-trips (load + save agree on the sanitized filename)
+    const loaded = await store.load(evil);
+    expect(loaded?.lesson_id).toBe(evil);
+    // the sentinel path the traversal WOULD have hit must NOT exist
+    expect(existsSync(join(dir, "..", "..", "..", "..", "etc", "evil"))).toBe(false);
+    expect(existsSync(join(dir, "..", "..", "..", "..", "etc", "evil.json"))).toBe(false);
+    // every file the store created lives directly under `dir` (no escape, no subdirs)
+    const entries = readdirSync(dir, { withFileTypes: true });
+    expect(entries.every((e) => e.isFile())).toBe(true);
+    expect(entries.every((e) => existsSync(join(dir, e.name)))).toBe(true);
+  });
+
+  it("two distinct crafted lessonIds that both escaped the store dir now map to DISTINCT in-dir files (no cross-learner bleed)", async () => {
+    const dir = tmp();
+    const store = new FileStateStore(dir);
+    // On the OLD code both escaped `dir` via the leading `../`; the danger was that crafted ids
+    // collided onto ONE shared escaped file (cross-learner bleed). Distinct ids must stay distinct
+    // AND stay inside `dir`.
+    const a = "../../leak/learner-a";
+    const b = "../../leak/learner-b";
+    await store.save(a, defaultLearnerState("learner-A"));
+    await store.save(b, defaultLearnerState("learner-B"));
+    expect((await store.load(a))?.lesson_id).toBe("learner-A");
+    expect((await store.load(b))?.lesson_id).toBe("learner-B");
+    const files = readdirSync(dir).filter((f) => f.startsWith("state-"));
+    expect(new Set(files).size).toBe(2);
+    // and the would-be escape target dir does not exist
+    expect(existsSync(join(dir, "..", "..", "leak"))).toBe(false);
+  });
+
+  it("a lessonId containing a path separator does NOT throw (no ENOENT) and round-trips", async () => {
+    const dir = tmp();
+    const store = new FileStateStore(dir);
+    const sep = "course:001/unit/2"; // ':' and '/' — would create missing parent dirs on old code
+    await expect(store.save(sep, defaultLearnerState(sep))).resolves.toBeUndefined();
+    expect((await store.load(sep))?.lesson_id).toBe(sep);
+    // file is a single flat segment under dir, not nested
+    expect(readdirSync(dir).some((f) => f.startsWith("state-") && f.endsWith(".json"))).toBe(true);
   });
 });
 
