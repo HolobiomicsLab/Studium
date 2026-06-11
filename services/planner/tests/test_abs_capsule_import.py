@@ -52,3 +52,29 @@ def test_subgraph_validates_as_lwg_fragment():
 def test_missing_capsule_returns_empty():
     nodes, edges = import_reproduction_subgraph("/no/such/dir")
     assert nodes == [] and edges == []
+
+
+def test_bad_card_json_skips_sibling_and_keeps_good(tmp_path):
+    import json
+    (tmp_path / "capsules" / "task_g").mkdir(parents=True)
+    (tmp_path / "capsules" / "task_b").mkdir(parents=True)
+    (tmp_path / "workflow_score.json").write_text(json.dumps({
+        "workflow_id": "w", "structural": {"task_openness": "open"},
+        "workflow_characteristics": {"coupling": "tight"}}))
+    (tmp_path / "capsules" / "task_g" / "task_card.json").write_text(json.dumps({
+        "task_id": "task_g", "title": "Good", "reproducibility_tier": "manual-only"}))
+    (tmp_path / "capsules" / "task_b" / "task_card.json").write_text("{ not valid json")
+    nodes, edges = import_reproduction_subgraph(str(tmp_path))
+    ids = {n["id"] for n in nodes}
+    assert "task:abs:task_g" in ids and "task:abs:task_b" not in ids
+    g = next(n for n in nodes if n["id"] == "task:abs:task_g")
+    assert g["characterization"]["scaffolding_level"] == "heavy"        # manual-only
+    assert g["characterization"]["suter"]["coupling"] == "tight"        # present axis preserved
+    assert g["characterization"]["suter"]["data_transport"] == "file"   # missing axis -> fallback
+    assert g["characterization"]["task_openness"] == "open"
+
+
+def test_non_dict_score_returns_empty(tmp_path):
+    import json
+    (tmp_path / "workflow_score.json").write_text(json.dumps([1, 2, 3]))
+    assert import_reproduction_subgraph(str(tmp_path)) == ([], [])

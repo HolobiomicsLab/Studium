@@ -46,3 +46,9 @@ def test_missing_capsule_path_is_best_effort():
     plan = _plan([CorpusRef(ref_id="cap1", ref_type="abs_capsule", abs_capsule_path="/no/such/dir")])
     res = _builder().build(plan)
     assert not any(n["id"].startswith("concept:abs:") for n in res.graph["nodes"])
+
+
+def test_capsule_ref_with_none_path_is_skipped():
+    plan = _plan([CorpusRef(ref_id="cap1", ref_type="abs_capsule", abs_capsule_path=None)])
+    res = _builder().build(plan)  # must not raise
+    assert not any(n["id"].startswith("concept:abs:") for n in res.graph["nodes"])

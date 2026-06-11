@@ -31,9 +31,7 @@ def test_plan_writes_lwg_artifacts(monkeypatch, tmp_path):
 
 
 def test_plan_lwg_includes_abs_repro_nodes_when_capsule_ref_present(monkeypatch, tmp_path):
-    import os, json
-    import planner_app
-    from fastapi.testclient import TestClient
+    import os
     from lesson_plan_schema import CorpusRef
 
     fixture = os.path.join(os.path.dirname(__file__), "fixtures", "abs_capsule")

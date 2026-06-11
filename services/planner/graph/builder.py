@@ -135,6 +135,8 @@ class GraphBuilder:
         }
 
         # --- Mode B: merge reproduction subgraphs from ASB capsule corpus_refs (best-effort) ---
+        # NOTE (v1): two capsules with the same workflow_id would emit duplicate
+        # concept:abs:<id> nodes; dedup is deferred (single-capsule prototype).
         for ref in (getattr(plan, "corpus_refs", None) or []):
             if getattr(ref, "ref_type", None) != "abs_capsule":
                 continue

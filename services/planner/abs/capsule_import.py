@@ -46,6 +46,8 @@ def import_reproduction_subgraph(capsule_dir: str) -> tuple[list[dict[str, Any]]
         score = _read_json(score_path)
     except (ValueError, OSError):
         return [], []
+    if not isinstance(score, dict):
+        return [], []
 
     workflow_id = score.get("workflow_id") or "workflow"
     openness = (score.get("structural") or {}).get("task_openness") or "closed"
@@ -78,7 +80,7 @@ def import_reproduction_subgraph(capsule_dir: str) -> tuple[list[dict[str, Any]]
             "title": card.get("title") or task_id,
             "scene_type": "reproduction",
             "characterization": {
-                "suter": suter,
+                "suter": dict(suter),
                 "reproducibility_tier": tier,
                 "task_openness": openness,
                 "scaffolding_level": tier_to_scaffolding(tier),
