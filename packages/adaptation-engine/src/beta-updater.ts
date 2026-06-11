@@ -7,7 +7,7 @@ export function updateBeta(state: ConceptState, signal: AnswerSubmitted): Concep
   if (signal.correct) {
     return {
       ...state,
-      alpha: state.alpha + (1 - w) + 1,
+      alpha: state.alpha + ((1 - w) + 1) / (1 + signal.hint_count),   // hint discount: 0 hints -> full; M5 anti-offloading
       consecutive_errors: 0,
       total_attempts: state.total_attempts + 1,
       total_correct: state.total_correct + 1,

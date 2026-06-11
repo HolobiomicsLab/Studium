@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { defaultConceptState } from "@studium/learner-state";
 import { updateBeta } from "../src/beta-updater";
+import type { ConceptState } from "@studium/learner-state";
 
 describe("updateBeta", () => {
   it("correct easy answer (difficulty=0.2) → alpha increases by ~1.8", () => {
@@ -46,5 +47,29 @@ describe("updateBeta", () => {
         scene_id: "s", correct: true, time_ms: 0, hint_count: 0, difficulty: 0.2 });
     }
     expect(s.alpha / (s.alpha + s.beta)).toBeGreaterThanOrEqual(0.9);
+  });
+});
+
+function cs(): ConceptState {
+  return { concept_id: "c", alpha: 1, beta: 1, consecutive_errors: 0, total_attempts: 0, total_correct: 0, confidence_calibration: 0 };
+}
+const sig = (correct: boolean, hint_count: number) =>
+  ({ kind: "answer_submitted", concept_id: "c", scene_id: "s", correct, time_ms: 0, hint_count, difficulty: 0.5 }) as const;
+
+describe("updateBeta — hint discount (anti-offloading)", () => {
+  it("correct with 0 hints: full alpha credit (1.5)", () => {
+    expect(updateBeta(cs(), sig(true, 0)).alpha).toBeCloseTo(1 + 1.5);     // 2.5
+  });
+  it("correct with 1 hint: half credit (0.75)", () => {
+    expect(updateBeta(cs(), sig(true, 1)).alpha).toBeCloseTo(1 + 0.75);    // 1.75
+  });
+  it("correct with 2 hints: third credit (0.5)", () => {
+    expect(updateBeta(cs(), sig(true, 2)).alpha).toBeCloseTo(1 + 0.5);     // 1.5
+  });
+  it("incorrect is unchanged by hint_count (full penalty)", () => {
+    const a = updateBeta(cs(), sig(false, 0)).beta;
+    const b = updateBeta(cs(), sig(false, 3)).beta;
+    expect(a).toBeCloseTo(1 + 1.5);   // beta += w+1 = 1.5
+    expect(b).toBeCloseTo(1 + 1.5);   // identical regardless of hints
   });
 });
