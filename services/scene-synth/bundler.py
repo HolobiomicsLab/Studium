@@ -85,6 +85,7 @@ def build_bundle(
         "rules": list(lesson_plan.get("rules", [])),
         "validated_by": prov_seed.get("validator", "scene-synth"),
         "validated_at": datetime.now(timezone.utc).isoformat(),
+        "learning_workflow_graph": lesson_plan.get("learning_workflow_graph"),
     }
 
     # Validation stricte (lève si le bundle ne round-trip pas).
