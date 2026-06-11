@@ -48,6 +48,49 @@ def plan(request: PlanRequest) -> PlanResponse:
 
     prov_graph = build_prov_graph(lesson_plan, manifest, planner_audit, critique)
 
+    if os.getenv("STUDIUM_LWG_BUILD") == "on":
+        import json as _json
+        import logging as _logging
+        from graph.builder import GraphBuilder
+        from agents.graph_agent import GraphAgent
+        from provenance.graph_to_indicium import graph_to_claims
+        from provenance.astra_emit import (
+            emit_astra, baseline_universe, write_astra_yaml, write_universe_yaml,
+        )
+        from provenance.universes import pedagogical_decisions, remedial_universe
+
+        lesson_plan.source_manifest_id = lesson_plan.source_manifest_id or request.manifest_id
+        _persp = _get_perspicacite_client()  # may be None — grounding falls back to the plan
+        _builder = GraphBuilder(
+            graph_agent=GraphAgent(),
+            perspicacite=_persp,
+            course_kb=f"studium-course-{request.manifest_id}",
+            asserted_by=f"urn:studium:graphagent:{request.manifest_id}",
+        )
+        _res = _builder.build(lesson_plan)
+
+        _ped = pedagogical_decisions()
+        _analysis = emit_astra(
+            analysis_id=f"{_res.graph['course_id']}-analysis",
+            name=lesson_plan.title,
+            decisions=_res.decisions + _ped,
+            prior_insights=[],
+            findings=_res.findings,
+            outputs=[{"id": "lwg", "type": "data"}],
+        )
+        _out_dir = os.path.join(os.getenv("STUDIUM_LWG_OUT_DIR", ".lwg"), request.manifest_id)
+        os.makedirs(_out_dir, exist_ok=True)
+        with open(os.path.join(_out_dir, "lwg.indicium.jsonld"), "w", encoding="utf-8") as _f:
+            _json.dump(graph_to_claims(_res.graph, asserted_by=_builder.asserted_by), _f,
+                       ensure_ascii=False, indent=2)
+        write_astra_yaml(_analysis, _out_dir)
+        write_universe_yaml(baseline_universe(_ped), _out_dir)
+        write_universe_yaml(remedial_universe(_ped), _out_dir)
+        _logging.getLogger(__name__).info(
+            "LWG built: %d nodes, %d edges -> %s",
+            len(_res.graph["nodes"]), len(_res.graph["edges"]), _out_dir,
+        )
+
     if os.getenv("STUDIUM_EVIDENCE_ENRICH") == "on":
         perspicacite = _get_perspicacite_client()
         abs_reader = _get_abs_reader()
