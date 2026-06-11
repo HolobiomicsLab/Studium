@@ -54,7 +54,18 @@ def import_reproduction_subgraph(capsule_dir: str) -> tuple[list[dict[str, Any]]
     wc = score.get("workflow_characteristics") or {}
     suter = {axis: wc.get(axis) or _SUTER_FALLBACK[axis] for axis in _SUTER_AXES}
 
+    # Pass 1: collect valid cards (a card needs a task_id).
+    cards: list[dict[str, Any]] = []
+    for cp in sorted(glob.glob(os.path.join(capsule_dir, "capsules", "*", "task_card.json"))):
+        try:
+            card = _read_json(cp)
+        except (ValueError, OSError):
+            continue
+        if isinstance(card, dict) and card.get("task_id"):
+            cards.append(card)
+
     concept_id = f"concept:abs:{workflow_id}"
+    known_ids = {f"task:abs:{c['task_id']}" for c in cards}
     nodes: list[dict[str, Any]] = [{
         "id": concept_id,
         "node_kind": "concept",
@@ -63,15 +74,9 @@ def import_reproduction_subgraph(capsule_dir: str) -> tuple[list[dict[str, Any]]
     }]
     edges: list[dict[str, Any]] = []
 
-    card_paths = sorted(glob.glob(os.path.join(capsule_dir, "capsules", "*", "task_card.json")))
-    for cp in card_paths:
-        try:
-            card = _read_json(cp)
-        except (ValueError, OSError):
-            continue
-        task_id = card.get("task_id")
-        if not task_id:
-            continue
+    # Pass 2: emit task nodes + part_of, then prerequisite_for from normalized input_from.
+    for card in cards:
+        task_id = card["task_id"]
         node_id = f"task:abs:{task_id}"
         tier = card.get("reproducibility_tier") or "type-checked"
         nodes.append({
@@ -92,11 +97,16 @@ def import_reproduction_subgraph(capsule_dir: str) -> tuple[list[dict[str, Any]]
             "source": node_id,
             "target": concept_id,
         })
-        for upstream in (card.get("input_from") or []):
+        raw_upstream = card.get("input_from")
+        upstreams = [raw_upstream] if isinstance(raw_upstream, str) else (raw_upstream or [])
+        for upstream in upstreams:
+            target = f"task:abs:{upstream}"
+            if target not in known_ids:
+                continue  # drop dangling prerequisite (upstream has no card)
             edges.append({
                 "id": f"prereq:abs:{task_id}:{upstream}",
                 "relation": "prerequisite_for",
                 "source": node_id,
-                "target": f"task:abs:{upstream}",
+                "target": target,
             })
     return nodes, edges

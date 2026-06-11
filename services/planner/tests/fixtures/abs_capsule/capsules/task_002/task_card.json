@@ -3,7 +3,7 @@
   "title": "PQN normalization",
   "task_kind": "reproduction",
   "reproducibility_tier": "bypassed",
-  "input_from": ["task_001"],
+  "input_from": "task_001",
   "methodology_summary": ["Normalize intensities with PQN"],
   "expected_outputs": ["normalized_table.csv"]
 }

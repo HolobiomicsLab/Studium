@@ -42,6 +42,9 @@ def test_part_of_and_prerequisite_edges():
     assert ("part_of", "task:abs:task_001", "concept:abs:demo_workflow") in rels
     assert ("part_of", "task:abs:task_002", "concept:abs:demo_workflow") in rels
     assert ("prerequisite_for", "task:abs:task_002", "task:abs:task_001") in rels
+    prereqs = [e for e in edges if e["relation"] == "prerequisite_for"]
+    assert len(prereqs) == 1
+    assert prereqs[0]["source"] == "task:abs:task_002" and prereqs[0]["target"] == "task:abs:task_001"
 
 
 def test_subgraph_validates_as_lwg_fragment():
@@ -78,3 +81,14 @@ def test_non_dict_score_returns_empty(tmp_path):
     import json
     (tmp_path / "workflow_score.json").write_text(json.dumps([1, 2, 3]))
     assert import_reproduction_subgraph(str(tmp_path)) == ([], [])
+
+
+def test_dangling_input_from_is_dropped(tmp_path):
+    import json
+    (tmp_path / "capsules" / "task_x").mkdir(parents=True)
+    (tmp_path / "workflow_score.json").write_text(json.dumps({"workflow_id": "w"}))
+    (tmp_path / "capsules" / "task_x" / "task_card.json").write_text(json.dumps({
+        "task_id": "task_x", "title": "X", "reproducibility_tier": "certified", "input_from": "ghost"}))
+    nodes, edges = import_reproduction_subgraph(str(tmp_path))
+    assert "task:abs:task_x" in {n["id"] for n in nodes}
+    assert not any(e["relation"] == "prerequisite_for" for e in edges)  # ghost dropped
