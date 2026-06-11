@@ -27,9 +27,12 @@ describe("buildMasteryClaims", () => {
     const ev = doc["@graph"].find((n: any) => n["@type"] === "sepio:0000002") as any;
     expect(ev.supports_claim).toBe(c.id);
     expect(ev.evidence_type).toBe("inference");
+    expect(ev.eco_code).toBe("computational_evidence"); // runtime-derived, legal indicium slot
     expect(ev.confidence).toBeCloseTo(0.8);
-    expect(ev.total_attempts).toBe(3);
-    expect(ev.active_universe).toBe("baseline");
+    // learner counts now live in the legal free-text `quote_location`, not as
+    // illegal top-level slots; active universe -> dotted decision_context tag.
+    expect(ev.quote_location).toContain("attempts=3");
+    expect(ev.decision_context).toEqual(["universe.baseline"]);
   });
   it("returns an empty @graph when no concept reaches the threshold", () => {
     const doc = buildMasteryClaims(state({ weak: cs(2.5, 1) }), OPTS);

@@ -56,10 +56,17 @@ def _evidence_nodes(edge: dict[str, Any], claim_id: str) -> list[dict[str, Any]]
             "evidence_type": "citation" if ev.get("doi") else "inference",
             "source_type": "text",
         }
+        # DOI is NOT a legal Evidence slot in indicium (it lives on Source —
+        # indicium.yaml:271-278 / model.py:411). Wrap it in an inlined Source.
         if ev.get("doi"):
-            node["doi"] = ev["doi"]
-        if ev.get("artifact"):
-            node["of_source"] = ev["artifact"]
+            node["of_source"] = {
+                "identifier": f"https://doi.org/{ev['doi']}",
+                "doi": ev["doi"],
+            }
+        elif ev.get("artifact"):
+            # `of_source` range is Source (a structured object), not a bare
+            # string (indicium.yaml:265, Evidence.of_source -> range Source).
+            node["of_source"] = {"identifier": ev["artifact"]}
         if ev.get("quote"):
             node["quote"] = ev["quote"]
         if ev.get("page") is not None:
