@@ -2,7 +2,7 @@ import type { LessonBundle, Scene } from "@studium/lesson-bundle-schema";
 import { AdaptationEngine, DEFAULT_THETA } from "@studium/adaptation-engine";
 import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type Decision } from "@studium/learner-state";
 import { buildLwgMastery, graphAwareNextIndex } from "./graph-nav.js";
-import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary } from "./types.js";
+import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary, HintResult } from "./types.js";
 import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
 import { SessionNotStartedError, SessionAlreadyCompleteError } from "./errors.js";
 import { grade } from "./grading/index.js";
@@ -23,6 +23,8 @@ export class LessonSession {
   private pseudonym = "";
   private theta = DEFAULT_THETA;
   private skipMastered = false;
+  private scaffolding: "standard" | "heavy" = "standard";
+  private hintsUsed = 0;
   private lastGraphExplanation: Explanation | null = null;
   private remediationCount = 0;
   private activeUniverseId = BASELINE_UNIVERSE_ID;
@@ -47,6 +49,7 @@ export class LessonSession {
     const variant = resolveActiveVariant(u, activeId);
     this.theta = thetaForVariant(variant);
     this.skipMastered = variant?.decisions?.["pacing"] === "skip_on_mastery";
+    this.scaffolding = variant?.decisions?.["scaffolding"] === "heavy" ? "heavy" : "standard";
     this.activeUniverseId = activeId;
     if (variant) {
       this.emit({ type: "universe_selected", universe_id: variant.id, active_decisions: variant.decisions });
@@ -74,6 +77,23 @@ export class LessonSession {
   }
   getState(): LearnerState { return this.started ? this.engine.getState() : this.state; }
 
+  /** Pull the next authored hint for the current quiz scene (scaffolding-gated).
+   * standard -> at most 1 hint; heavy -> all authored hints. Returns null when not a
+   * quiz, no hints, or the cap is reached. Each hint increments hint_count, which
+   * discounts mastery credit on the eventual answer (M5 anti-offloading). */
+  requestHint(): HintResult | null {
+    this.assertStarted();
+    const scene = this.scene();
+    if (scene.type !== "quiz" || scene.hints.length === 0) return null;
+    const cap = this.scaffolding === "heavy" ? scene.hints.length : Math.min(1, scene.hints.length);
+    if (this.hintsUsed >= cap) return null;
+    const index = this.hintsUsed;
+    const hint = scene.hints[index]!;
+    this.emit({ type: "hint_requested", scene_id: scene.id, hint_index: index });
+    this.hintsUsed += 1;
+    return { hint, index, remaining: cap - this.hintsUsed };
+  }
+
   // --- protected helpers shared with respond()/submitTurn() (Tasks 8–10) ---
   protected scene(): Scene { return this.bundle.scenes[this.idx] as Scene; }
   protected assertStarted(): void { if (!this.started) throw new SessionNotStartedError(); }
@@ -97,6 +117,7 @@ export class LessonSession {
     this.theta = thetaForVariant(remedial);
     // the remedial variant may set its own pacing (e.g. could enable skip) — recompute on switch
     this.skipMastered = remedial.decisions?.["pacing"] === "skip_on_mastery";
+    this.scaffolding = remedial.decisions?.["scaffolding"] === "heavy" ? "heavy" : "standard";
     this.lastGraphExplanation = { rule_id: "graph_universe_escalated", explanation_short: "repeated remediation — escalated to the remedial universe", modulator: "M6" };
     this.emit({ type: "universe_selected", universe_id: remedial.id, active_decisions: remedial.decisions });
     this.emit({ type: "adaptation_applied", rule_id: "graph_universe_escalated", signal: "navigate", modulator: "M6", value: 0 });
@@ -106,7 +127,7 @@ export class LessonSession {
     this.assertStarted();
     if (this.completed) throw new SessionAlreadyCompleteError();
     const scene = this.scene();
-    const { signal, telemetry } = await grade(scene, input, { critiqueEvaluator: this.deps.critiqueEvaluator });
+    const { signal, telemetry } = await grade(scene, input, { critiqueEvaluator: this.deps.critiqueEvaluator, hintCount: this.hintsUsed });
     for (const ev of telemetry) this.emit(ev);
     const decision = await this.applySignal(signal);                 // drives navigation
     if (signal.kind !== "scene_completed") {
@@ -140,6 +161,7 @@ export class LessonSession {
     this.lastGraphExplanation = null;
     const action = decision.next_action;
     if (action.kind === "replay_current_scene") {
+      this.hintsUsed = 0;
       return { kind: "replay", reason: action.reason, presentation: this.currentPresentation() };
     }
     if (action.kind === "skip_to_next_concept") {
@@ -185,6 +207,7 @@ export class LessonSession {
 
   protected enterScene(): void {
     this.discussionTurnIdx = 0;
+    this.hintsUsed = 0;
     this.emit({ type: "scene_entered", scene_id: this.scene().id, scene_type: this.scene().type });
   }
 
