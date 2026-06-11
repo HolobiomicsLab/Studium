@@ -28,6 +28,58 @@ function bundle(active: string): LessonBundle {
   } as unknown as LessonBundle;
 }
 
+describe("LessonSession — dynamic universe escalation (one-way, repeated remediation)", () => {
+  // baseline active; LWG fft requires fourier; remedial variant present (prereq_strictness lenient).
+  // scenes: [q-fourier, q-fft]. Start at q-fourier (idx 0). Each wrong answer on q-fourier:
+  // navigate candidate=q-fft (concept:fft) locked (fourier mastery low) -> remediate to q-fourier.
+  // After ESCALATE_AFTER=2 remediations, escalate baseline->remedial.
+  function escBundle(): LessonBundle {
+    return {
+      schema_version: "1.4", bundle_id: "L1", source_plan_id: "p1",
+      metadata: { title: "T", target: "L1", duration_minutes: 10, language: "fr", discipline: "x" },
+      concepts: [
+        { id: "fourier", title: "F", description: "d", bloom_level_target: "understand" },
+        { id: "fft", title: "FFT", description: "d", bloom_level_target: "apply" },
+      ],
+      scenes: [quiz("q-fourier", "fourier"), quiz("q-fft", "fft")],
+      rules: [], validated_by: "teacher", validated_at: "2026-06-11T00:00:00Z",
+      learning_workflow_graph: LWG,
+      universes: { variants: [
+        { id: "baseline", description: "d", decisions: { prereq_strictness: "standard", pacing: "standard" } },
+        { id: "remedial", description: "d", decisions: { prereq_strictness: "lenient", pacing: "standard" } },
+      ], active: "baseline" },
+    } as unknown as LessonBundle;
+  }
+
+  it("escalates baseline->remedial after ESCALATE_AFTER remediations, re-emitting universe_selected", async () => {
+    const deps = buildTestDeps();
+    const s = new LessonSession(escBundle(), deps);
+    await s.start();                                    // q-fourier (idx0)
+    // Each WRONG answer on q-fourier: navigate candidate=q-fft (fft) locked (fourier low) -> remediate to q-fourier.
+    // 2 such remediations -> escalate to remedial.
+    await s.respond({ kind: "quiz_choice", choiceId: "a" }); // remediation #1
+    await s.respond({ kind: "quiz_choice", choiceId: "a" }); // remediation #2 -> escalate
+    const sink = deps.telemetry as import("./testing").InMemoryTelemetrySink;
+    const universeEvents = sink.events.filter((e) => e.type === "universe_selected");
+    expect(universeEvents.map((e: any) => e.universe_id)).toEqual(["baseline", "remedial"]); // start + escalation
+    const esc = sink.events.find((e: any) => e.type === "adaptation_applied" && e.rule_id === "graph_universe_escalated");
+    expect(esc).toBeDefined();
+    expect(s.explainLast()?.rule_id).toBe("graph_universe_escalated");
+  });
+
+  it("does not escalate without a remedial variant (one-way + guarded)", async () => {
+    const deps = buildTestDeps();
+    const b = escBundle();
+    (b as any).universes.variants = (b as any).universes.variants.filter((v: any) => v.id === "baseline");
+    const s = new LessonSession(b, deps);
+    await s.start();
+    await s.respond({ kind: "quiz_choice", choiceId: "a" });
+    await s.respond({ kind: "quiz_choice", choiceId: "a" });
+    const sink = deps.telemetry as import("./testing").InMemoryTelemetrySink;
+    expect(sink.events.filter((e) => e.type === "universe_selected").length).toBe(1); // only the start emit
+  });
+});
+
 describe("LessonSession — universe-driven theta", () => {
   it("emits universe_selected with the active variant's decisions", async () => {
     const deps = buildTestDeps();

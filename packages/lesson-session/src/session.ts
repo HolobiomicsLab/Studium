@@ -8,6 +8,8 @@ import { SessionNotStartedError, SessionAlreadyCompleteError } from "./errors.js
 import { grade } from "./grading/index.js";
 import { thetaForVariant, resolveActiveVariant } from "./universe.js";
 
+const ESCALATE_AFTER = 2; // graph remediations in a session before baseline -> remedial escalation
+
 export class LessonSession {
   private engine!: AdaptationEngine;
   private idx = 0;
@@ -20,6 +22,8 @@ export class LessonSession {
   private theta = DEFAULT_THETA;
   private skipMastered = false;
   private lastGraphExplanation: Explanation | null = null;
+  private remediationCount = 0;
+  private activeUniverseId = "baseline";
   protected discussionTurnIdx = 0;
 
   constructor(
@@ -41,6 +45,7 @@ export class LessonSession {
     const variant = resolveActiveVariant(u, activeId);
     this.theta = thetaForVariant(variant);
     this.skipMastered = variant?.decisions?.["pacing"] === "skip_on_mastery";
+    this.activeUniverseId = activeId;
     if (variant) {
       this.emit({ type: "universe_selected", universe_id: variant.id, active_decisions: variant.decisions });
     }
@@ -77,6 +82,21 @@ export class LessonSession {
     const conceptMastery: Record<string, number> = {};
     for (const [id, cs] of Object.entries(this.state.concept_states)) conceptMastery[id] = masteryOf(cs);
     return { conceptMastery, scenesCompleted: this.state.scenes_completed.length };
+  }
+
+  /** One-way escalation: after repeated prerequisite remediation, switch the active universe
+   * baseline -> remedial (lower theta, more support). Never de-escalates. */
+  private maybeEscalateUniverse(): void {
+    if (this.remediationCount < ESCALATE_AFTER) return;
+    if (this.activeUniverseId !== "baseline") return;
+    const remedial = resolveActiveVariant(this.bundle.universes ?? null, "remedial");
+    if (!remedial) return;
+    this.activeUniverseId = "remedial";
+    this.theta = thetaForVariant(remedial);
+    this.skipMastered = remedial.decisions?.["pacing"] === "skip_on_mastery";
+    this.lastGraphExplanation = { rule_id: "graph_universe_escalated", explanation_short: "repeated remediation — escalated to the remedial universe", modulator: "M6" };
+    this.emit({ type: "universe_selected", universe_id: remedial.id, active_decisions: remedial.decisions });
+    this.emit({ type: "adaptation_applied", rule_id: "graph_universe_escalated", signal: "navigate", modulator: "M6", value: 0 });
   }
 
   async respond(input: ResponseInput): Promise<Transition> {
@@ -147,6 +167,8 @@ export class LessonSession {
       if (reason === "remediate") {
         this.lastGraphExplanation = { rule_id: "graph_prereq_gate", explanation_short: "prerequisite not yet mastered — routed to remediation", modulator: "M6" };
         this.emit({ type: "adaptation_applied", rule_id: "graph_prereq_gate", signal: "navigate", modulator: "M6", value: 0 });
+        this.remediationCount += 1;
+        this.maybeEscalateUniverse();
       } else if (reason === "skip_mastered") {
         this.lastGraphExplanation = { rule_id: "graph_skip_mastered", explanation_short: "concept already mastered — skipped", modulator: "M1" };
         this.emit({ type: "adaptation_applied", rule_id: "graph_skip_mastered", signal: "navigate", modulator: "M1", value: 0 });
