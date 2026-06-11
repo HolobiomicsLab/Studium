@@ -100,6 +100,12 @@ export const LearningWorkflowGraphSchema = z.object({
   course_id: z.string().min(1),
   nodes: z.array(GraphNodeSchema),
   edges: z.array(GraphEdgeSchema),
+}).superRefine((g, ctx) => {
+  const dup = (ids: string[]) => { const s = new Set<string>(); return ids.find((x) => s.size === s.add(x).size); };
+  const ndup = dup(g.nodes.map((n) => n.id));
+  if (ndup) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `duplicate node id: ${ndup}`, path: ["nodes"] });
+  const edup = dup(g.edges.map((e) => e.id));
+  if (edup) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `duplicate edge id: ${edup}`, path: ["edges"] });
 });
 export type LearningWorkflowGraph = z.infer<typeof LearningWorkflowGraphSchema>;
 

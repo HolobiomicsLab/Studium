@@ -158,7 +158,7 @@ class GraphBuilder:
                                if n.get("node_kind") == "concept" and str(n.get("id", "")).startswith("concept:abs:")), None)
             if wf_concept is not None:
                 link_edges, link_decisions, link_findings = self._link_reproduction(
-                    plan, ref, wf_concept, concept_ids, concept_title, analysis_id, created_at, graph["edges"])
+                    ref, wf_concept, concept_ids, concept_title, analysis_id, created_at, graph["edges"])
                 graph["edges"].extend(link_edges)
                 decisions.extend(link_decisions)
                 findings.extend(link_findings)
@@ -168,7 +168,7 @@ class GraphBuilder:
                                 telemetry=list(records))
 
     def _link_reproduction(
-        self, plan: Any, ref: Any, wf_concept: dict[str, Any],
+        self, ref: Any, wf_concept: dict[str, Any],
         concept_ids: set[str], concept_title: dict[str, str],
         analysis_id: str, created_at: str, prereq_edges_so_far: list[dict[str, Any]],
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
@@ -183,7 +183,7 @@ class GraphBuilder:
         findings: list[dict[str, Any]] = []
         cycle_basis = [e for e in prereq_edges_so_far if e.get("relation") == "prerequisite_for"]
 
-        annotated = list(getattr(ref, "aligns_concept_ids", None) or [])
+        annotated = list(dict.fromkeys(getattr(ref, "aligns_concept_ids", None) or []))
         if annotated:
             for cid in annotated:
                 doc_id = f"concept:{cid}"
@@ -215,11 +215,11 @@ class GraphBuilder:
             return edges, decisions, findings
 
         # No annotation -> semantic fallback (Task C4).
-        return self._semantic_links(plan, wf_concept, concept_ids, concept_title,
+        return self._semantic_links(wf_concept, concept_ids, concept_title,
                                     analysis_id, created_at, cycle_basis)
 
     def _semantic_links(
-        self, plan: Any, wf_concept: dict[str, Any], concept_ids: set[str],
+        self, wf_concept: dict[str, Any], concept_ids: set[str],
         concept_title: dict[str, str], analysis_id: str, created_at: str,
         cycle_basis: list[dict[str, Any]],
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:

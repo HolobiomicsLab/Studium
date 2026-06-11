@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Annotated, Literal, Optional, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 BloomLevel = Literal["remember", "understand", "apply", "analyze", "evaluate", "create"]
 KnowledgeDimension = Literal["factual", "conceptual", "procedural", "metacognitive"]
@@ -76,3 +76,29 @@ class LearningWorkflowGraph(BaseModel):
     course_id: str = Field(min_length=1)
     nodes: list[GraphNode]
     edges: list[GraphEdge]
+
+    @model_validator(mode="after")
+    def _unique_ids(self) -> "LearningWorkflowGraph":
+        node_ids = [n.id for n in self.nodes]
+        seen: set[str] = set()
+        for nid in node_ids:
+            if nid in seen:
+                raise ValueError(f"duplicate node id: {nid}")
+            seen.add(nid)
+        edge_ids = [e.id for e in self.edges]
+        seen = set()
+        for eid in edge_ids:
+            if eid in seen:
+                raise ValueError(f"duplicate edge id: {eid}")
+            seen.add(eid)
+        return self
+
+
+def validate_graph(data: dict) -> dict:
+    """Validate a graph dict. Returns {'valid': bool, 'errors': list[str]}."""
+    from pydantic import ValidationError
+    try:
+        LearningWorkflowGraph.model_validate(data)
+        return {"valid": True, "errors": []}
+    except ValidationError as exc:
+        return {"valid": False, "errors": [str(e["msg"]) for e in exc.errors()]}

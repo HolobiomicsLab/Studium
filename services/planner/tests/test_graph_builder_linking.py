@@ -187,3 +187,28 @@ def test_semantic_fallback_caps_at_top_3():
              and e["source"] == wf["id"]
              and not e["target"].startswith("concept:abs:")]
     assert len(links) <= 3
+
+
+# ---------------------------------------------------------------------------
+# BUG 1 regression: duplicate aligns_concept_ids must emit exactly ONE edge
+# ---------------------------------------------------------------------------
+
+def test_annotation_dedups_duplicate_concept_ids():
+    """aligns_concept_ids=['obj-1','obj-1'] must produce exactly ONE prerequisite_for link
+    to concept:obj-1 (no duplicate edge ids)."""
+    plan = _plan_with_concept_and_ref("obj-1", aligns_concept_ids=["obj-1", "obj-1"])
+    res = _builder().build(plan)
+    wf = next(
+        n for n in res.graph["nodes"]
+        if n["node_kind"] == "concept" and n["id"].startswith("concept:abs:")
+    )
+    links = [
+        e for e in res.graph["edges"]
+        if e["relation"] == "prerequisite_for"
+        and e["source"] == wf["id"]
+        and e["target"] == "concept:obj-1"
+    ]
+    assert len(links) == 1
+    # Edge ids must also be unique across the whole graph
+    all_edge_ids = [e["id"] for e in res.graph["edges"]]
+    assert len(all_edge_ids) == len(set(all_edge_ids)), "duplicate edge ids detected"
