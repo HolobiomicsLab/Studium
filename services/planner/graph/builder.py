@@ -151,10 +151,76 @@ class GraphBuilder:
                 continue
             graph["nodes"].extend(abs_nodes)
             graph["edges"].extend(abs_edges)
+            wf_concept = next((n for n in abs_nodes
+                               if n.get("node_kind") == "concept" and str(n.get("id", "")).startswith("concept:abs:")), None)
+            if wf_concept is not None:
+                link_edges, link_decisions, link_findings = self._link_reproduction(
+                    plan, ref, wf_concept, concept_ids, concept_title, analysis_id, created_at, graph["edges"])
+                graph["edges"].extend(link_edges)
+                decisions.extend(link_decisions)
+                findings.extend(link_findings)
 
         records = getattr(self._telemetry, "records", [])
         return GraphBuildResult(graph=graph, decisions=decisions, findings=findings,
                                 telemetry=list(records))
+
+    def _link_reproduction(
+        self, plan: Any, ref: Any, wf_concept: dict[str, Any],
+        concept_ids: set[str], concept_title: dict[str, str],
+        analysis_id: str, created_at: str, prereq_edges_so_far: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+        """Link a reproduction workflow concept to document concept(s) it requires.
+        Annotation path (deterministic) when ref.aligns_concept_ids is set; otherwise a
+        best-effort Perspicacité semantic fallback (added in Task C4). Returns
+        (edges, decisions, findings)."""
+        wf_id = wf_concept["id"]
+        wf_short = wf_id.split(":")[-1]
+        edges: list[dict[str, Any]] = []
+        decisions: list[dict[str, Any]] = []
+        findings: list[dict[str, Any]] = []
+        cycle_basis = [e for e in prereq_edges_so_far if e.get("relation") == "prerequisite_for"]
+
+        annotated = list(getattr(ref, "aligns_concept_ids", None) or [])
+        if annotated:
+            for cid in annotated:
+                doc_id = f"concept:{cid}"
+                if doc_id not in concept_ids:
+                    self._telemetry.emit({"ts": created_at, "event": "dropped_edge",
+                                          "reason": "unknown_concept", "source": wf_id, "target": doc_id})
+                    continue
+                if would_create_cycle(cycle_basis + edges, wf_id, doc_id):
+                    self._telemetry.emit({"ts": created_at, "event": "dropped_edge",
+                                          "reason": "cycle", "source": wf_id, "target": doc_id})
+                    continue
+                edge_id = f"link:{wf_short}:{cid}"
+                insight = make_insight(
+                    insight_id=edge_id,
+                    claim=f"{wf_concept.get('title', wf_id)} requires {concept_title.get(doc_id, doc_id)}",
+                    created_at=created_at,
+                    evidence=[make_evidence(artifact=f"annotation:{getattr(ref, 'ref_id', 'ref')}", confidence=1.0)],
+                )
+                edges.append({
+                    "id": edge_id,
+                    "relation": "prerequisite_for",
+                    "source": wf_id,
+                    "target": doc_id,
+                    "confidence": 1.0,
+                    "evidence": [{"artifact": f"annotation:{getattr(ref, 'ref_id', 'ref')}", "confidence": 1.0}],
+                    "astra_insight_ref": f"{analysis_id}/{edge_id}",
+                })
+                findings.append(insight)
+            return edges, decisions, findings
+
+        # No annotation -> semantic fallback (Task C4).
+        return self._semantic_links(plan, wf_concept, concept_ids, concept_title,
+                                    analysis_id, created_at, cycle_basis)
+
+    def _semantic_links(self, plan: Any, wf_concept: dict[str, Any], concept_ids: set[str],
+                        concept_title: dict[str, str], analysis_id: str, created_at: str,
+                        cycle_basis: list[dict[str, Any]],
+                        ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+        """Placeholder filled in Task C4: returns empty until the semantic fallback lands."""
+        return [], [], []
 
     def _ground(self, plan: Any, src: str, tgt: str, titles: dict[str, str]
                 ) -> tuple[dict[str, Any], dict[str, Any], bool]:
