@@ -8,7 +8,7 @@ import { matchClaimsAgainstCritique } from "./ai-audit-matcher.js";
 import { SceneGradingError } from "../errors.js";
 
 export interface GradeResult { signal: Signal; telemetry: EmitInput[]; }
-export interface GradeDeps { critiqueEvaluator: CritiqueEvaluator; }
+export interface GradeDeps { critiqueEvaluator: CritiqueEvaluator; hintCount?: number; }
 type Grader = (scene: Scene, input: ResponseInput, deps: GradeDeps) => Promise<GradeResult>;
 
 const DIFFICULTY = { quiz: 0.5, ai_critique: 0.7 } as const;
@@ -22,13 +22,13 @@ const ackGrader: Grader = async (scene) => ({
   telemetry: [],
 });
 
-const quizGrader: Grader = async (scene, input) => {
+const quizGrader: Grader = async (scene, input, deps) => {
   if (scene.type !== "quiz") throw new SceneGradingError(scene.type, "quizGrader on non-quiz");
   if (input.kind !== "quiz_choice") throw new SceneGradingError(scene.type, `expected quiz_choice, got ${input.kind}`);
   const choice = scene.choices.find((c) => c.id === input.choiceId);
   const correct = choice?.correct ?? false;
   return {
-    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct, time_ms: 0, hint_count: 0, difficulty: DIFFICULTY.quiz },
+    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct, time_ms: 0, hint_count: deps.hintCount ?? 0, difficulty: DIFFICULTY.quiz },
     telemetry: [{ type: "quiz_answered", scene_id: scene.id, item_id: input.choiceId, correct, response_time_ms: 0, confidence: 0.5 }],
   };
 };
