@@ -140,6 +140,15 @@ export const UniverseSelectedSchema = BaseEventSchema.extend({
   active_decisions: z.record(z.string(), z.string().max(64)),   // decision_id -> option_id (refs only, RGPD-safe; max 64 chars defense-in-depth)
 });
 
+// hint_requested — emitted when a learner pulls an authored hint (scaffolding). Strict:
+// refs + scalar only (scene_id + hint_index); the hint TEXT is never transmitted (it is a
+// requestHint() API return, not telemetry).
+export const HintRequestedSchema = BaseEventSchema.extend({
+  type: z.literal("hint_requested"),
+  scene_id: z.string(),
+  hint_index: z.number().int().nonnegative(),
+});
+
 export const TelemetryEventSchema = z.discriminatedUnion("type", [
   LessonStartedSchema,
   SceneEnteredSchema,
@@ -156,6 +165,7 @@ export const TelemetryEventSchema = z.discriminatedUnion("type", [
   CooperativeVoteSchema,
   CooperativeConvergenceSchema,
   UniverseSelectedSchema,
+  HintRequestedSchema,
 ]);
 
 export type TelemetryEvent = z.infer<typeof TelemetryEventSchema>;
