@@ -146,6 +146,10 @@ class CorpusRef(BaseModel):
     # ABS capsule
     abs_capsule_path: Optional[str] = None
     abs_task_card_ids: Optional[list[str]] = None
+    # Doc-concept linking (sub-project C): document concept ids this capsule's reproduction
+    # applies/requires (without the `concept:` prefix; the GraphBuilder prefixes). Deterministic
+    # link source when present; absent -> GraphBuilder may fall back to semantic matching.
+    aligns_concept_ids: Optional[list[str]] = None
 
 
 class PlanMetadata(BaseModel):
