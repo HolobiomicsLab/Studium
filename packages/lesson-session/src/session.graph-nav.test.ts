@@ -11,6 +11,11 @@ function quiz(id: string, conceptRef: string) {
     feedback_correct: "ok", feedback_incorrect: "no", hints: [] };
 }
 
+function intro(id: string, conceptRef: string) {
+  return { id, type: "intro", title: id, objective_refs: [conceptRef], concept_refs: [conceptRef],
+    estimated_seconds: 0, adaptation_hooks: [], markdown: "intro text" };
+}
+
 const LWG = {
   schema_version: "1.0", course_id: "c",
   nodes: [
@@ -20,7 +25,10 @@ const LWG = {
   edges: [{ id: "e1", relation: "prerequisite_for", source: "concept:fft", target: "concept:fourier" }],
 };
 
-function bundle(withGraph: boolean): LessonBundle {
+function bundle(withGraph: boolean, withIntro = false): LessonBundle {
+  const scenes = withIntro
+    ? [intro("i-fourier", "fourier"), quiz("q-fourier", "fourier"), quiz("q-fft", "fft")]
+    : [quiz("q-fourier", "fourier"), quiz("q-fft", "fft")];
   return {
     schema_version: "1.4", bundle_id: "L1", source_plan_id: "p1",
     metadata: { title: "T", target: "L1", duration_minutes: 10, language: "fr", discipline: "x" },
@@ -28,7 +36,7 @@ function bundle(withGraph: boolean): LessonBundle {
       { id: "fourier", title: "Fourier", description: "d", bloom_level_target: "understand" },
       { id: "fft", title: "FFT", description: "d", bloom_level_target: "apply" },
     ],
-    scenes: [quiz("q-fourier", "fourier"), quiz("q-fft", "fft")],
+    scenes,
     rules: [], validated_by: "teacher", validated_at: "2026-06-11T00:00:00Z",
     ...(withGraph ? { learning_workflow_graph: LWG } : {}),
   } as unknown as LessonBundle;
@@ -63,5 +71,30 @@ describe("LessonSession — graph-aware navigation", () => {
     const sink = (deps.telemetry as InMemoryTelemetrySink);
     const entered = sink.events.filter((e: any) => e.type === "scene_entered").map((e: any) => e.scene_id);
     expect(entered).toContain("q-fft");
+  });
+
+  it("no infinite loop: intro(fourier)+quiz(fourier)+quiz(fft) — session completes within bound", async () => {
+    // Regression for C1: prereq has an ack-graded intro AND an answer-graded quiz.
+    // Without the fix, remediation routes to the intro (ack-graded) -> mastery never rises -> loop.
+    // With the fix, remediation routes to the quiz -> mastery rises -> q-fft unlocks -> complete.
+    const s = new LessonSession(bundle(true, true), buildTestDeps());
+    await s.start(); // at i-fourier (intro)
+
+    // Ack the intro -> advances to q-fourier (fourier has no prereqs -> always available)
+    let t: any = await s.respond({ kind: "ack" });
+    expect(t.kind).toBe("next");
+    expect(t.presentation.scene.id).toBe("q-fourier");
+
+    // Answer q-fourier correctly to raise fourier mastery past theta=0.8.
+    // Initial state: alpha=1, beta=1 (mastery=0.5). Each correct answer (difficulty=0.5) adds 1.5 to alpha.
+    // After 2 correct answers: alpha=4, beta=1 -> mastery=4/5=0.8 >= theta -> q-fft unlocks.
+    // While fourier is below theta: candidate=q-fft locked -> remediate to q-fourier (answer-graded) -> stay.
+    let calls = 1; // the ack above
+    while (t.kind !== "complete" && calls < 12) {
+      t = await s.respond({ kind: "quiz_choice", choiceId: "b" }); // always correct
+      calls++;
+    }
+    expect(t.kind).toBe("complete"); // session must terminate, not loop
+    expect(calls).toBeLessThanOrEqual(12);
   });
 });

@@ -104,6 +104,7 @@ export class LessonSession {
       return { kind: "replay", reason: action.reason, presentation: this.currentPresentation() };
     }
     if (action.kind === "skip_to_next_concept") {
+      // NOTE: engine-fired explicit actions (skip/calibration) take priority over LWG prereq gating.
       const currentConcept = "concept_refs" in scene ? (scene.concept_refs[0] ?? "") : "";
       const next = this.bundle.scenes.findIndex((s, i) =>
         i > this.idx && ("concept_refs" in s ? (s.concept_refs[0] ?? "") : "") !== currentConcept);
@@ -111,6 +112,7 @@ export class LessonSession {
       // no later scene with a different concept — fall through to advance/complete
     }
     if (action.kind === "show_calibration_panel") {
+      // NOTE: engine-fired explicit actions (skip/calibration) take priority over LWG prereq gating.
       const target = action.target_concept;
       if (this.idx + 1 >= this.bundle.scenes.length) return this.complete();
       this.idx += 1; this.enterScene();
