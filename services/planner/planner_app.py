@@ -74,6 +74,10 @@ def plan(request: PlanRequest) -> PlanResponse:
             lesson_plan.learning_workflow_graph = _res.graph
 
             _ped = pedagogical_decisions()
+            lesson_plan.universes = {
+                "variants": [baseline_universe(_ped), remedial_universe(_ped)],
+                "active": "baseline",
+            }
             # decisions = per-edge agentic decisions (from GraphBuilder) ++ course-level pedagogical decisions
             _analysis = emit_astra(
                 analysis_id=f"{_res.graph['course_id']}-analysis",

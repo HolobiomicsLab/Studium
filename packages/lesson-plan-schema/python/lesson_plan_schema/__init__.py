@@ -188,3 +188,4 @@ class LessonPlan(BaseModel):
     # Manifest source (set by planner from PlanRequest.manifest_id; used for per-course KB routing)
     source_manifest_id: Optional[str] = None
     learning_workflow_graph: Optional[dict[str, Any]] = None
+    universes: Optional[dict[str, Any]] = None
