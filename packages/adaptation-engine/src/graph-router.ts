@@ -9,6 +9,9 @@ function conceptIds(lwg: LearningWorkflowGraph): string[] {
   return lwg.nodes.filter((n) => n.node_kind === "concept").map((n) => n.id);
 }
 
+// Convention: a `prerequisite_for` edge has source = the dependent concept and
+// target = its prerequisite. So prereqsOf(X) = the concepts X depends on (its targets),
+// and X is available once every such target's mastery >= theta.
 /** The prerequisite concept ids of `conceptId` (targets of its prerequisite_for edges). */
 function prereqsOf(lwg: LearningWorkflowGraph, conceptId: string): string[] {
   return lwg.edges

@@ -137,7 +137,7 @@ export const CooperativeConvergenceSchema = BaseEventSchema.extend({
 export const UniverseSelectedSchema = BaseEventSchema.extend({
   type: z.literal("universe_selected"),
   universe_id: z.string(),
-  active_decisions: z.record(z.string(), z.string()),   // decision_id -> option_id (refs only, RGPD-safe)
+  active_decisions: z.record(z.string(), z.string().max(64)),   // decision_id -> option_id (refs only, RGPD-safe; max 64 chars defense-in-depth)
 });
 
 export const TelemetryEventSchema = z.discriminatedUnion("type", [
