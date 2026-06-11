@@ -1,4 +1,5 @@
 import { masteryOf, type LearnerState } from "@studium/learner-state";
+import { MIN_MASTERY_ATTEMPTS } from "./graph-nav.js";
 
 /** A local-only JSON-LD doc of learner mastery claims (indicium Bucur 5-slot + SEPIO evidence).
  * Mirrors the Python graph_to_claims shape. RGPD: subject is a pseudonym; this doc is LOCAL-ONLY. */
@@ -25,10 +26,12 @@ const _CONTEXT: Record<string, string> = {
 };
 
 /** Build the local mastery-claims doc: one asb:Claim + SEPIO Evidence per concept whose
- * mastery >= threshold. Pure; no I/O. Concepts below threshold produce no claim (anti-fabrication). */
+ * mastery >= threshold AND total_attempts >= MIN_MASTERY_ATTEMPTS. Pure; no I/O. Concepts below
+ * the threshold OR below the minimum-attempts floor produce no claim (anti-fabrication). */
 export function buildMasteryClaims(state: LearnerState, opts: BuildMasteryClaimsOptions): MasteryClaimsDoc {
   const graph: Array<Record<string, unknown>> = [];
   for (const [cid, csv] of Object.entries(state.concept_states)) {
+    if (csv.total_attempts < MIN_MASTERY_ATTEMPTS) continue; // minimum-attempts floor: 2 lucky answers don't certify mastery
     const mastery = masteryOf(csv);
     if (mastery < opts.threshold) continue;
     const claimId = `urn:studium:mastery:${opts.sessionId}:${cid}`;

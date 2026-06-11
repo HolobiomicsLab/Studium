@@ -2,12 +2,26 @@ import type { LearningWorkflowGraph } from "@studium/learning-workflow-schema";
 import { isAvailable, remediationTarget, DEFAULT_THETA, type Mastery } from "@studium/adaptation-engine";
 import { masteryOf, type ConceptState } from "@studium/learner-state";
 
+/** Minimum total_attempts a concept must accumulate before its mastery can count as MASTERED.
+ * Without this floor, mastery is trivially cheap: 2 correct quiz answers push alpha/(alpha+beta)
+ * to 0.8 (= default theta), so prereq-gating, nextConcept and demonstrates_mastery_of Claims all
+ * fire on just 2 answers. Below the floor a concept is treated as not-mastered (locked / no claim). */
+export const MIN_MASTERY_ATTEMPTS = 3;
+
 /** Build a GraphRouter mastery map from learner concept_states.
  * concept_states keys are grading concept_ids == objective ids (post concept-id alignment);
- * LWG concept node ids are `concept:<objective id>` — so we re-prefix. */
-export function buildLwgMastery(conceptStates: Record<string, ConceptState>): Mastery {
+ * LWG concept node ids are `concept:<objective id>` — so we re-prefix.
+ * A concept is included ONLY once it has been attempted at least `minAttempts` times; below the
+ * floor it is OMITTED so GraphRouter treats it as not-mastered/locked (minimum-attempts floor). */
+export function buildLwgMastery(
+  conceptStates: Record<string, ConceptState>,
+  minAttempts: number = MIN_MASTERY_ATTEMPTS,
+): Mastery {
   const m: Mastery = {};
-  for (const [cid, cs] of Object.entries(conceptStates)) m[`concept:${cid}`] = masteryOf(cs);
+  for (const [cid, cs] of Object.entries(conceptStates)) {
+    if (cs.total_attempts < minAttempts) continue; // below the floor -> not yet masterable -> omit
+    m[`concept:${cid}`] = masteryOf(cs);
+  }
   return m;
 }
 

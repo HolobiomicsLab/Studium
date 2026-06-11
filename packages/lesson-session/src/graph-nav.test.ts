@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildLwgMastery, sceneConceptId, firstSceneForConcept, firstAnswerGradedSceneForConcept, graphAwareNextIndex } from "./graph-nav";
+import { buildLwgMastery, sceneConceptId, firstSceneForConcept, firstAnswerGradedSceneForConcept, graphAwareNextIndex, MIN_MASTERY_ATTEMPTS } from "./graph-nav";
 import type { LearningWorkflowGraph } from "@studium/learning-workflow-schema";
 
 const LWG: LearningWorkflowGraph = {
@@ -17,14 +17,39 @@ const scenes = [
   { id: "s2", type: "quiz", concept_refs: ["fft"] },
 ] as any[];
 
-function cs(alpha: number, beta: number) {
-  return { concept_id: "x", alpha, beta, consecutive_errors: 0, total_attempts: 0, total_correct: 0, confidence_calibration: 0 };
+function cs(alpha: number, beta: number, total_attempts = MIN_MASTERY_ATTEMPTS) {
+  return { concept_id: "x", alpha, beta, consecutive_errors: 0, total_attempts, total_correct: 0, confidence_calibration: 0 };
 }
 
 describe("graph-nav helpers", () => {
   it("buildLwgMastery re-prefixes concept_states keys to LWG concept ids", () => {
     const m = buildLwgMastery({ fourier: cs(9, 1) });
     expect(m["concept:fourier"]).toBeCloseTo(0.9);
+  });
+
+  it("MIN_MASTERY_ATTEMPTS is 3 (minimum-attempts floor before a concept can count as mastered)", () => {
+    expect(MIN_MASTERY_ATTEMPTS).toBe(3);
+  });
+
+  it("buildLwgMastery OMITS a concept below the attempts floor (high mastery but too few attempts)", () => {
+    // alpha=4,beta=1 -> mastery 0.8 (>= theta) but only 2 attempts -> NOT yet mastered -> omitted
+    const m = buildLwgMastery({ fourier: cs(4, 1, 2) });
+    expect("concept:fourier" in m).toBe(false);
+  });
+
+  it("buildLwgMastery INCLUDES a concept once it reaches the attempts floor", () => {
+    const m = buildLwgMastery({ fourier: cs(4, 1, MIN_MASTERY_ATTEMPTS) });
+    expect(m["concept:fourier"]).toBeCloseTo(0.8);
+  });
+
+  it("buildLwgMastery omits a concept exactly one attempt short of the floor", () => {
+    const m = buildLwgMastery({ fourier: cs(9, 1, MIN_MASTERY_ATTEMPTS - 1) });
+    expect("concept:fourier" in m).toBe(false);
+  });
+
+  it("buildLwgMastery honors a custom minAttempts argument", () => {
+    expect("concept:fourier" in buildLwgMastery({ fourier: cs(9, 1, 1) }, 2)).toBe(false);
+    expect(buildLwgMastery({ fourier: cs(9, 1, 2) }, 2)["concept:fourier"]).toBeCloseTo(0.9);
   });
   it("sceneConceptId prefixes concept_refs[0]; null when none", () => {
     expect(sceneConceptId(scenes[1])).toBe("concept:fourier");

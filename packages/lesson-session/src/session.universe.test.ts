@@ -18,7 +18,10 @@ function bundle(active: string): LessonBundle {
     metadata: { title: "T", target: "L1", duration_minutes: 10, language: "fr", discipline: "x" },
     concepts: [{ id: "fourier", title: "F", description: "d", bloom_level_target: "understand" },
                { id: "fft", title: "FFT", description: "d", bloom_level_target: "apply" }],
-    scenes: [quiz("q-fourier", "fourier"), quiz("q-fft", "fft")],
+    // Three fourier quizzes so the learner can clear the MIN_MASTERY_ATTEMPTS floor by plain advances
+    // (same-concept, always-available) WITHOUT triggering prereq remediation/escalation — that lets the
+    // theta divergence (baseline 0.8 vs remedial 0.6) be observed in isolation at the fft gate.
+    scenes: [quiz("q-fourier", "fourier"), quiz("q-fourier-2", "fourier"), quiz("q-fourier-3", "fourier"), quiz("q-fft", "fft")],
     rules: [], validated_by: "teacher", validated_at: "2026-06-11T00:00:00Z",
     learning_workflow_graph: LWG,
     universes: { variants: [
@@ -92,19 +95,26 @@ describe("LessonSession — universe-driven theta", () => {
   });
 
   it("remedial universe (theta 0.6) unlocks the dependent earlier than baseline (theta 0.8)", async () => {
-    // Mastery math: initial alpha=1, beta=1 -> mastery=0.5
-    // After 1 correct (difficulty=0.5): alpha += (1-0.5)+1 = 1.5 -> alpha=2.5, beta=1 -> mastery=2.5/3.5 ≈ 0.714
-    // 0.714 >= 0.6 (remedial theta) but < 0.8 (baseline theta)
-    // Baseline: concept:fourier mastery ~0.714 < 0.8 -> concept:fft still locked -> routed back to q-fourier (index 0)
-    // Remedial: concept:fourier mastery ~0.714 >= 0.6 -> concept:fft unlocked -> advance to q-fft (index 1)
+    // Now gated by the MIN_MASTERY_ATTEMPTS=3 floor (#1a): a concept counts as mastered only once it has
+    // >= 3 attempts AND mastery >= theta. So drive 3 fourier attempts (C, C, W over the three fourier
+    // quizzes — same-concept advances, no remediation/escalation) to clear the floor, landing mastery in
+    // the band that separates the two thetas:
+    //   initial alpha=1, beta=1; each correct (difficulty=0.5) adds 1.5 to alpha, each wrong adds 1.5 to beta
+    //   after C,C,W: alpha=4, beta=2.5 -> mastery=4/6.5 ≈ 0.615  (>= 0.6 remedial, < 0.8 baseline), attempts=3
+    // Baseline: 0.615 < 0.8 -> concept:fft still locked -> routed back to a fourier quiz (q-fourier)
+    // Remedial: 0.615 >= 0.6 -> concept:fft unlocked -> advance to q-fft
     const sB = new LessonSession(bundle("baseline"), buildTestDeps());
     await sB.start();
-    const tB = await sB.respond({ kind: "quiz_choice", choiceId: "b" }); // correct on fourier (~0.714)
-    expect((tB as any).presentation.scene.id).toBe("q-fourier"); // baseline: fft still locked -> remediate to fourier
+    await sB.respond({ kind: "quiz_choice", choiceId: "b" }); // C: q-fourier -> q-fourier-2 (advance, same concept)
+    await sB.respond({ kind: "quiz_choice", choiceId: "b" }); // C: q-fourier-2 -> q-fourier-3 (advance)
+    const tB = await sB.respond({ kind: "quiz_choice", choiceId: "a" }); // W: 3 attempts, ~0.615 -> fft locked
+    expect((tB as any).presentation.scene.id).toBe("q-fourier"); // baseline: fft locked -> remediate to fourier
 
     const sR = new LessonSession(bundle("remedial"), buildTestDeps());
     await sR.start();
-    const tR = await sR.respond({ kind: "quiz_choice", choiceId: "b" }); // correct on fourier (~0.714)
-    expect((tR as any).presentation.scene.id).toBe("q-fft");      // remedial: 0.714 >= 0.6 -> fft unlocked
+    await sR.respond({ kind: "quiz_choice", choiceId: "b" }); // C
+    await sR.respond({ kind: "quiz_choice", choiceId: "b" }); // C
+    const tR = await sR.respond({ kind: "quiz_choice", choiceId: "a" }); // W: 3 attempts, ~0.615
+    expect((tR as any).presentation.scene.id).toBe("q-fft");      // remedial: 0.615 >= 0.6 -> fft unlocked
   });
 });
