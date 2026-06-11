@@ -35,17 +35,22 @@ describe("graph-nav helpers", () => {
     expect(firstSceneForConcept(scenes, "concept:nope")).toBe(-1);
   });
   it("advances normally when the next scene's concept is available", () => {
-    expect(graphAwareNextIndex(scenes, 1, LWG, { "concept:fourier": 0.9 }, 0.8)).toBe(2);
+    const r = graphAwareNextIndex(scenes, 1, LWG, { "concept:fourier": 0.9 }, 0.8);
+    expect(r.index).toBe(2);
+    expect(r.reason).toBe("advance");
   });
   it("advances to a concept-less scene without gating", () => {
-    expect(graphAwareNextIndex(scenes, -1, LWG, {}, 0.8)).toBe(0);
+    const r = graphAwareNextIndex(scenes, -1, LWG, {}, 0.8);
+    expect(r.index).toBe(0);
   });
   it("advances to candidate when locked prereq has no answer-graded scene (no loop)", () => {
     // s1 is type:"concept" (ack-graded), so no answer-graded fourier scene -> advance to candidate (2)
-    expect(graphAwareNextIndex(scenes, 1, LWG, { "concept:fourier": 0.3 }, 0.8)).toBe(2);
+    const r = graphAwareNextIndex(scenes, 1, LWG, { "concept:fourier": 0.3 }, 0.8);
+    expect(r.index).toBe(2);
   });
   it("returns null at end of scenes", () => {
-    expect(graphAwareNextIndex(scenes, 2, LWG, { "concept:fourier": 0.9 }, 0.8)).toBeNull();
+    const r = graphAwareNextIndex(scenes, 2, LWG, { "concept:fourier": 0.9 }, 0.8);
+    expect(r.index).toBeNull();
   });
 });
 
@@ -67,7 +72,9 @@ describe("graph-nav remediation is answer-graded", () => {
       { id: "s1", type: "quiz", concept_refs: ["fourier"] },
       { id: "s2", type: "quiz", concept_refs: ["fft"] },
     ] as any[];
-    expect(graphAwareNextIndex(scenesAG, 1, lwg, { "concept:fourier": 0.2 }, 0.8)).toBe(1);
+    const r = graphAwareNextIndex(scenesAG, 1, lwg, { "concept:fourier": 0.2 }, 0.8);
+    expect(r.index).toBe(1);
+    expect(r.reason).toBe("remediate");
   });
 
   it("firstAnswerGradedSceneForConcept skips ack scenes, returns quiz index", () => {
@@ -84,6 +91,48 @@ describe("graph-nav remediation is answer-graded", () => {
       { id: "s0", type: "intro", concept_refs: ["fourier"] },
       { id: "s1", type: "quiz", concept_refs: ["fft"] },
     ] as any[];
-    expect(graphAwareNextIndex(scenesAck, 0, lwg, { "concept:fourier": 0.2 }, 0.8)).toBe(1);
+    const r = graphAwareNextIndex(scenesAck, 0, lwg, { "concept:fourier": 0.2 }, 0.8);
+    expect(r.index).toBe(1);
+  });
+});
+
+describe("graphAwareNextIndex — skipMastered (pacing)", () => {
+  // s0 concept(fourier), s1 quiz(fourier), s2 quiz(fft); fft requires fourier
+  const scenes = [
+    { id: "s0", type: "concept", concept_refs: ["fourier"] },
+    { id: "s1", type: "quiz", concept_refs: ["fourier"] },
+    { id: "s2", type: "quiz", concept_refs: ["fft"] },
+  ] as any[];
+
+  it("skips a mastered-concept scene and advances to the next unmastered+available scene", () => {
+    // fourier mastered (0.9) so s1 (also fourier) is skipped; fft available (prereq fourier met) -> s2
+    const r = graphAwareNextIndex(scenes, 0, LWG, { "concept:fourier": 0.9 }, 0.8, true);
+    expect(r.index).toBe(2);
+    expect(r.reason).toBe("skip_mastered");
+  });
+
+  it("does not skip when skipMastered=false (today's behavior)", () => {
+    const r = graphAwareNextIndex(scenes, 0, LWG, { "concept:fourier": 0.9 }, 0.8, false);
+    expect(r.index).toBe(1);          // advances to s1 (no skip)
+    expect(r.reason).toBe("advance");
+  });
+
+  it("does not skip a concept-less scene", () => {
+    const sc = [{ id: "x", type: "intro", concept_refs: [] }, { id: "y", type: "quiz", concept_refs: ["fourier"] }] as any[];
+    const r = graphAwareNextIndex(sc, -1, LWG, {}, 0.8, true);
+    expect(r.index).toBe(0);          // concept-less s0 is NOT mastered -> not skipped
+    expect(r.reason).toBe("advance");
+  });
+
+  it("returns null when all remaining scenes are mastered", () => {
+    const r = graphAwareNextIndex(scenes, 1, LWG, { "concept:fourier": 0.9, "concept:fft": 0.9 }, 0.8, true);
+    expect(r.index).toBeNull();
+  });
+
+  it("remediation still fires under skipMastered when an unmastered prereq gate is hit", () => {
+    // from s1, candidate s2 (fft) locked (fourier 0.3) -> remediate to the fourier QUIZ (s1)
+    const r = graphAwareNextIndex(scenes, 1, LWG, { "concept:fourier": 0.3 }, 0.8, true);
+    expect(r.index).toBe(1);
+    expect(r.reason).toBe("remediate");
   });
 });
