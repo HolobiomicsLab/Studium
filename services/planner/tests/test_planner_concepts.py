@@ -11,3 +11,4 @@ def test_generate_derives_concepts_from_objectives():
         c = by_id[o.id]
         assert c.bloom_level_target == o.bloom_level
         assert c.description == o.description
+        assert c.title == o.description

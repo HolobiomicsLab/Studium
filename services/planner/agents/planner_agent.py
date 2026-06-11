@@ -10,7 +10,7 @@ from typing import Any
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../packages/lesson-plan-schema/python"))
 
 from agents.base import BaseAgent
-from lesson_plan_schema import LessonPlan, CorpusRef, RefType
+from lesson_plan_schema import LessonPlan, CorpusRef, RefType, Concept
 
 
 _BLOOM_URI_MAP = {
@@ -55,7 +55,6 @@ class PlannerAgent(BaseAgent):
                 plan = self._inject_bloom_uris(plan)
                 plan = self._enrich_from_abs(manifest, plan)
                 if not plan.concepts:
-                    from lesson_plan_schema import Concept
                     plan.concepts = [
                         Concept(
                             id=o.id,

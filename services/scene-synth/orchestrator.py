@@ -97,7 +97,7 @@ class SceneSynthOrchestrator:
             scene = agent.synthesize(outline, context)
             _orefs = list(outline.get("objective_refs") or [])
             scene.objective_refs = _orefs
-            scene.concept_refs = _orefs   # concept id-space == objective id-space (LWG concept:<obj.id>)
+            scene.concept_refs = list(_orefs)   # concept id-space == objective id-space (LWG concept:<obj.id>)
             scenes.append(scene)
 
         # Reconcile ``id`` (M2 LessonPlan) ↔ ``lesson_id`` (bundler input).
