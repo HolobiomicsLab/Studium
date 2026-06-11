@@ -1,0 +1,9 @@
+{
+  "task_id": "task_001",
+  "title": "LC-HRMS peak detection",
+  "task_kind": "reproduction",
+  "reproducibility_tier": "type-checked",
+  "input_from": null,
+  "methodology_summary": ["Convert raw files to mzXML", "Detect peaks with centWave"],
+  "expected_outputs": ["peak_table.csv"]
+}
