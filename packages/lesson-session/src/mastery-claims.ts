@@ -67,7 +67,13 @@ export function buildMasteryClaims(state: LearnerState, opts: BuildMasteryClaims
       quote_location: `attempts=${csv.total_attempts};correct=${csv.total_correct};calibration=${csv.confidence_calibration}`,
     };
     if (opts.activeUniverseId) {
-      ev.decision_context = [`universe.${opts.activeUniverseId}`];
+      // Sanitize the universe segment so the result always matches the indicium
+      // decision_context pattern: ^[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*$
+      // Raw ids like "remedial-v2" or "2024-cohort" would fail — replace illegal
+      // chars and ensure the segment starts with a letter or underscore.
+      let seg = opts.activeUniverseId.replace(/[^a-zA-Z0-9_]/g, "_");
+      if (!/^[a-zA-Z_]/.test(seg)) seg = "_" + seg; // leading digit -> prepend "_"
+      ev.decision_context = [`universe.${seg}`];
     }
     graph.push(ev);
   }

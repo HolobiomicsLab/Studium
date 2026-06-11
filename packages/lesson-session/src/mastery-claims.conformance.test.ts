@@ -52,4 +52,43 @@ describe("buildMasteryClaims indicium conformance", () => {
     expect(ev.evidence_type).toBe("inference");
     expect(ev.eco_code).toBe("computational_evidence");
   });
+
+  // ---- breaking universe ids: sanitize-or-fail conformance guard ----
+  const DECISION_CONTEXT_RE = /^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/;
+
+  it("universe id with hyphens (remedial-v2) is sanitized to a valid dotted tag", () => {
+    const opts = { ...OPTS, activeUniverseId: "remedial-v2" };
+    const doc = buildMasteryClaims(state({ mastered: cs(4, 1) }), opts);
+    const ev = doc["@graph"].find((n) => n["@type"] === "sepio:0000002") as Record<string, unknown>;
+    const dc = ev.decision_context as string[];
+    expect(dc).toHaveLength(1);
+    expect(DECISION_CONTEXT_RE.test(dc[0]!)).toBe(true);
+    // hyphens replaced with underscores
+    expect(dc[0]).toBe("universe.remedial_v2");
+    // the whole Evidence node must still be conformant
+    assertEvidenceConformant(ev);
+  });
+
+  it("universe id with leading digit (2024-cohort) is sanitized to a valid dotted tag", () => {
+    const opts = { ...OPTS, activeUniverseId: "2024-cohort" };
+    const doc = buildMasteryClaims(state({ mastered: cs(4, 1) }), opts);
+    const ev = doc["@graph"].find((n) => n["@type"] === "sepio:0000002") as Record<string, unknown>;
+    const dc = ev.decision_context as string[];
+    expect(dc).toHaveLength(1);
+    expect(DECISION_CONTEXT_RE.test(dc[0]!)).toBe(true);
+    // hyphens -> underscores + leading digit -> prepended underscore
+    expect(dc[0]).toBe("universe._2024_cohort");
+    // the whole Evidence node must still be conformant
+    assertEvidenceConformant(ev);
+  });
+
+  it("universe id with a space (baseline 1) is sanitized to a valid dotted tag", () => {
+    const opts = { ...OPTS, activeUniverseId: "baseline 1" };
+    const doc = buildMasteryClaims(state({ mastered: cs(4, 1) }), opts);
+    const ev = doc["@graph"].find((n) => n["@type"] === "sepio:0000002") as Record<string, unknown>;
+    const dc = ev.decision_context as string[];
+    expect(dc).toHaveLength(1);
+    expect(DECISION_CONTEXT_RE.test(dc[0]!)).toBe(true);
+    assertEvidenceConformant(ev);
+  });
 });

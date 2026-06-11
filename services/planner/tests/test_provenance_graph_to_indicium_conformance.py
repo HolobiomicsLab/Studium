@@ -98,6 +98,59 @@ def test_context_iris_match_canonical_indicium():
     assert ctx["prov"] == "http://www.w3.org/ns/prov#"
 
 
+# --- decision_context guard: non-conformant tags are dropped, not emitted ----
+def test_decision_context_nonconformant_tags_are_dropped():
+    """The _DECISION_CONTEXT_RE guard in _evidence_nodes must silently drop any
+    tag that doesn't match the dotted pattern, rather than forwarding it and
+    producing invalid Evidence."""
+    lwg_dc = {
+        "schema_version": "1.0",
+        "course_id": "guard-test",
+        "nodes": [],
+        "edges": [
+            {
+                "id": "dc1",
+                "relation": "prerequisite_for",
+                "source": "a",
+                "target": "b",
+                "evidence": [{
+                    "artifact": "test-artifact",
+                    # mix of one good tag + two bad (hyphen, bare word, numeric start)
+                    "decision_context": ["astra.analysis", "bad-tag", "also_bad", "1bad.tag"],
+                }],
+            }
+        ],
+    }
+    from provenance.indicium_schema_vendored import assert_evidence_conformant
+    doc = graph_to_claims(lwg_dc, asserted_by="urn:test")
+    ev = next(n for n in doc["@graph"] if n.get("@type") == "sepio:0000002")
+    # Must be conformant overall
+    assert_evidence_conformant(ev)
+    # Only the valid tag survives
+    assert ev["decision_context"] == ["astra.analysis"]
+
+
+def test_decision_context_all_nonconformant_tags_omitted():
+    """When every tag is illegal the decision_context key must be absent."""
+    lwg_dc = {
+        "schema_version": "1.0",
+        "course_id": "guard-test",
+        "nodes": [],
+        "edges": [
+            {
+                "id": "dc2",
+                "relation": "prerequisite_for",
+                "source": "a",
+                "target": "b",
+                "evidence": [{"artifact": "test-artifact", "decision_context": ["bad-tag", "1bad.tag"]}],
+            }
+        ],
+    }
+    doc = graph_to_claims(lwg_dc, asserted_by="urn:test")
+    ev = next(n for n in doc["@graph"] if n.get("@type") == "sepio:0000002")
+    assert "decision_context" not in ev
+
+
 # --- Gated round-trip against the REAL generated Pydantic model ----------
 def test_roundtrip_through_real_indicium_model_when_available():
     indicium_model = pytest.importorskip("indicium.generated.model")

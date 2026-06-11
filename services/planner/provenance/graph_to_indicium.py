@@ -2,7 +2,14 @@
 Bucur 5-slot Claim; each edge.evidence[] -> a SEPIO Evidence node linked via
 supports_claim. Follows indicium.yaml shape; emits plain dicts (no indicium import)."""
 from __future__ import annotations
+import re
 from typing import Any
+
+# indicium decision_context pattern (indicium.yaml:333-338):
+# two dotted identifier segments, each ^[a-zA-Z_][a-zA-Z0-9_]*$
+_DECISION_CONTEXT_RE = re.compile(
+    r"^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$"
+)
 
 from .education_adapter import route_qualifier
 
@@ -74,7 +81,14 @@ def _evidence_nodes(edge: dict[str, Any], claim_id: str) -> list[dict[str, Any]]
         if ev.get("confidence") is not None:
             node["confidence"] = ev["confidence"]
         if ev.get("decision_context"):
-            node["decision_context"] = ev["decision_context"]
+            # Defensive guard: only pass through entries that match the indicium
+            # dotted pattern — drop non-conformant tags rather than emit illegal.
+            valid_dc = [
+                tag for tag in ev["decision_context"]
+                if _DECISION_CONTEXT_RE.match(str(tag))
+            ]
+            if valid_dc:
+                node["decision_context"] = valid_dc
         nodes.append(node)
     return nodes
 

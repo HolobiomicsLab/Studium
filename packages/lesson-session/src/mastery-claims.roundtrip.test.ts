@@ -37,10 +37,9 @@ const OPTS = { pseudonym: "anon-7", sessionId: "sess-1", bundleId: "L1", activeU
 
 const RUN = indiciumImportable();
 
-describe.skipIf(!RUN)("buildMasteryClaims round-trips through the real indicium model", () => {
-  it("Claim + Evidence nodes pass model_validate", () => {
-    const doc = buildMasteryClaims(state({ mastered: cs(4, 1) }), OPTS);
-    const py = `
+const DECISION_CONTEXT_RE = /^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/;
+
+const VALIDATE_PY = `
 import sys, json
 from indicium.generated.model import Claim, Evidence
 doc = json.load(sys.stdin)
@@ -52,7 +51,35 @@ for node in doc["@graph"]:
         Evidence.model_validate(body)
 print("OK")
 `;
-    const out = execFileSync(INDICIUM_PYTHON, ["-c", py], { input: JSON.stringify(doc) }).toString();
+
+describe.skipIf(!RUN)("buildMasteryClaims round-trips through the real indicium model", () => {
+  it("Claim + Evidence nodes pass model_validate", () => {
+    const doc = buildMasteryClaims(state({ mastered: cs(4, 1) }), OPTS);
+    const out = execFileSync(INDICIUM_PYTHON, ["-c", VALIDATE_PY], { input: JSON.stringify(doc) }).toString();
+    expect(out.trim()).toBe("OK");
+  });
+
+  it("breaking universe id 'remedial-v2' is sanitized and still validates against real indicium model", () => {
+    const opts = { ...OPTS, activeUniverseId: "remedial-v2" };
+    const doc = buildMasteryClaims(state({ mastered: cs(4, 1) }), opts);
+    // Check the dotted pattern first (catches the bug immediately)
+    const ev = doc["@graph"].find((n) => (n as Record<string, unknown>)["@type"] === "sepio:0000002") as Record<string, unknown>;
+    const dc = ev.decision_context as string[];
+    expect(dc).toBeDefined();
+    expect(DECISION_CONTEXT_RE.test(dc[0]!)).toBe(true);
+    // Then pass through the real Pydantic model
+    const out = execFileSync(INDICIUM_PYTHON, ["-c", VALIDATE_PY], { input: JSON.stringify(doc) }).toString();
+    expect(out.trim()).toBe("OK");
+  });
+
+  it("breaking universe id '2024-cohort' (leading digit) is sanitized and still validates against real indicium model", () => {
+    const opts = { ...OPTS, activeUniverseId: "2024-cohort" };
+    const doc = buildMasteryClaims(state({ mastered: cs(4, 1) }), opts);
+    const ev = doc["@graph"].find((n) => (n as Record<string, unknown>)["@type"] === "sepio:0000002") as Record<string, unknown>;
+    const dc = ev.decision_context as string[];
+    expect(dc).toBeDefined();
+    expect(DECISION_CONTEXT_RE.test(dc[0]!)).toBe(true);
+    const out = execFileSync(INDICIUM_PYTHON, ["-c", VALIDATE_PY], { input: JSON.stringify(doc) }).toString();
     expect(out.trim()).toBe("OK");
   });
 });
