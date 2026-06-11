@@ -1,0 +1,9 @@
+# Eval run outputs — bundles, transcripts, audits, reports. Regenerable; some
+# carry corpus-derived content + per-learner mastery state (RGPD). Never commit.
+# Keep the directory itself (via .gitkeep) but ignore everything generated in it.
+reports/*
+!reports/.gitkeep
+
+# Local-only workspace symlink so the Node driver resolves @studium/* (gitignored
+# globally too, but be explicit).
+harness/node_modules/
