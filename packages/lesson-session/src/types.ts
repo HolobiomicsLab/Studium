@@ -1,5 +1,5 @@
 // packages/lesson-session/src/types.ts
-import type { Scene } from "@studium/lesson-bundle-schema";
+import type { Scene, LessonBundle } from "@studium/lesson-bundle-schema";
 import type { LearnerState, Decision } from "@studium/learner-state";
 import type {
   StateStore, EventLog, TelemetrySink, PseudonymProvider,
@@ -46,4 +46,5 @@ export interface SessionDeps {
   critiqueEvaluator: CritiqueEvaluator;
   clock: Clock;
   idGen: IdGen;
+  activeUniverseSelector?: (bundle: LessonBundle) => string;
 }

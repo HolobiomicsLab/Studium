@@ -6,6 +6,7 @@ import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseI
 import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
 import { SessionNotStartedError, SessionAlreadyCompleteError } from "./errors.js";
 import { grade } from "./grading/index.js";
+import { thetaForVariant, resolveActiveVariant } from "./universe.js";
 
 export class LessonSession {
   private engine!: AdaptationEngine;
@@ -16,6 +17,7 @@ export class LessonSession {
   private ctx!: TelemetryContext;
   private sessionId = "";
   private pseudonym = "";
+  private theta = DEFAULT_THETA;
   protected discussionTurnIdx = 0;
 
   constructor(
@@ -32,6 +34,13 @@ export class LessonSession {
     this.state = this.engine.getState();
     this.startIso = this.deps.clock.now();
     this.started = true;
+    const u = this.bundle.universes ?? null;
+    const activeId = this.deps.activeUniverseSelector?.(this.bundle) ?? u?.active ?? "baseline";
+    const variant = resolveActiveVariant(u, activeId);
+    this.theta = thetaForVariant(variant);
+    if (variant) {
+      this.emit({ type: "universe_selected", universe_id: variant.id, active_decisions: variant.decisions });
+    }
     this.emit({ type: "lesson_started", bundle_uri: this.bundle.bundle_id });
     this.emit({ type: "scene_entered", scene_id: this.scene().id, scene_type: this.scene().type });
     return this.currentPresentation();
@@ -123,7 +132,7 @@ export class LessonSession {
     if (lwg) {
       const nextIdx = graphAwareNextIndex(
         this.bundle.scenes, this.idx, lwg,
-        buildLwgMastery(this.state.concept_states), DEFAULT_THETA,
+        buildLwgMastery(this.state.concept_states), this.theta,
       );
       if (nextIdx === null) return this.complete();
       const gated = nextIdx !== this.idx + 1;
