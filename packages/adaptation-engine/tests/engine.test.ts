@@ -69,6 +69,45 @@ describe("AdaptationEngine", () => {
     expect((d.next_action as any).target_concept).toBe("c1");
   });
 
+  it("confidence_declared WRITES calibration and fires the M3 rule on the meta turn (overconfident)", () => {
+    // concept already has low mastery from prior quizzes (alpha=1, beta~2.57 → ~0.28), 3 attempts
+    let state = defaultLearnerState("L1");
+    state.concept_states["c1"] = { ...defaultConceptState("c1"),
+      alpha: 1, beta: 2.57, total_attempts: 3, total_correct: 0 };
+    const engine = new AdaptationEngine([RULE_CALIB], state);
+    // declares max confidence (value 4) while actually struggling → overconfident
+    const d = engine.onSignal({ kind: "confidence_declared", scene_id: "m", value: 4, concept_id: "c1" });
+    // calibration is now real & positive in state
+    const cs = engine.getState().concept_states["c1"];
+    expect(cs.confidence_calibration).toBeGreaterThan(0.4);
+    // and the M3 panel fires, targeting the concept
+    expect(d.next_action.kind).toBe("show_calibration_panel");
+    expect((d.next_action as any).target_concept).toBe("c1");
+    expect(d.rule_id).toBe("rule_calibration_mismatch_show");
+    expect(d.modulator).toBe("M3");
+  });
+
+  it("confidence_declared with calibrated-low confidence does NOT fire the M3 rule (struggling persona)", () => {
+    let state = defaultLearnerState("L1");
+    state.concept_states["c1"] = { ...defaultConceptState("c1"),
+      alpha: 1, beta: 2.57, total_attempts: 3, total_correct: 0 };
+    const engine = new AdaptationEngine([RULE_CALIB], state);
+    // declares low confidence (value 1 → 0.25) ≈ actual ~0.28 → well calibrated
+    const d = engine.onSignal({ kind: "confidence_declared", scene_id: "m", value: 1, concept_id: "c1" });
+    const cs = engine.getState().concept_states["c1"];
+    expect(Math.abs(cs.confidence_calibration)).toBeLessThan(0.4);
+    expect(d.next_action.kind).toBe("advance_to_next_scene");
+    expect(d.rule_id).toBeNull();
+  });
+
+  it("confidence_declared without concept_id is inert (backward-compat no-op)", () => {
+    let state = defaultLearnerState("L1");
+    const engine = new AdaptationEngine([RULE_CALIB], state);
+    const d = engine.onSignal({ kind: "confidence_declared", scene_id: "m", value: 4 } as any);
+    expect(d.next_action.kind).toBe("advance_to_next_scene");
+    expect(Object.keys(engine.getState().concept_states)).toHaveLength(0);
+  });
+
   it("rule order matters — first match wins", () => {
     let state = defaultLearnerState("L1");
     state.concept_states["c1"] = { ...defaultConceptState("c1"),

@@ -19,7 +19,10 @@ export const SignalSchema = z.discriminatedUnion("kind", [
     hint_count: z.number().int().nonnegative(),
     difficulty: z.number().min(0).max(1) }),
   z.object({ kind: z.literal("confidence_declared"),
-    scene_id: z.string(), value: z.number().int().min(0).max(4) }),
+    scene_id: z.string(), value: z.number().int().min(0).max(4),
+    // M3: the concept this self-assessment is about. Optional for backward-compat —
+    // when absent, the calibration loop is a no-op (no concept to attach the gap to).
+    concept_id: z.string().optional() }),
   z.object({ kind: z.literal("scene_entered"), scene_id: z.string() }),
   z.object({ kind: z.literal("scene_completed"),
     scene_id: z.string(), duration_ms: z.number().nonnegative() }),
@@ -66,6 +69,25 @@ export type LearnerState = z.infer<typeof LearnerStateSchema>;
 
 export function masteryOf(s: ConceptState): number {
   return s.alpha / (s.alpha + s.beta);
+}
+
+/** M3 metacognitive calibration smoothing factor. λ=1.0 means a single meta_checkpoint
+ * fully reflects the fresh declared-vs-actual gap (no Brier history needed for one checkpoint);
+ * lower values blend with the prior. Kept at 1.0 so one observation produces a signal large
+ * enough to trip the calibration rule (|gap|≥0.4 ⇒ |calibration|≥0.4). */
+export const CALIBRATION_LAMBDA = 1.0;
+
+/** M3: update a concept's confidence_calibration from a declared confidence (0..4) compared
+ * against the concept's ACTUAL accumulated competence (masteryOf). Pure; touches only
+ * confidence_calibration. Sign convention: POSITIVE = overconfident (declared > actual),
+ * NEGATIVE = underconfident. EWMA-smoothed and clamped to [-1, 1]. */
+export function updateCalibration(cs: ConceptState, declared0to4: number): ConceptState {
+  const actual = masteryOf(cs);
+  const declaredNorm = declared0to4 / 4;
+  const signedError = declaredNorm - actual;
+  const blended = (1 - CALIBRATION_LAMBDA) * cs.confidence_calibration + CALIBRATION_LAMBDA * signedError;
+  const clamped = Math.max(-1, Math.min(1, blended));
+  return { ...cs, confidence_calibration: clamped };
 }
 
 export function defaultConceptState(concept_id: string): ConceptState {

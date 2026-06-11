@@ -38,6 +38,69 @@ describe("LessonSession.respond — adaptation branches", () => {
     if (t.kind === "next") expect(t.presentation.scene.id).toBe("q2");
   });
 
+  // M3 calibration scenes: a quiz on c1 followed by a meta_checkpoint on c1, plus a trailing scene
+  // so the meta turn can advance (not just complete). The calibration rule keys on c1's mastery
+  // accumulated from the quiz turn.
+  function metaScene(id: string) {
+    return { id, type: "meta_checkpoint", title: "Auto-éval", objective_refs: [], concept_refs: ["c1"],
+      estimated_seconds: 0, adaptation_hooks: ["rule_calibration_mismatch_show"],
+      pre_question: "p", post_question: "q", scale_labels: ["1", "2", "3", "4", "5"] };
+  }
+  const calibRule = { id: "rule_calibration_mismatch_show",
+    when: { confidence_calibration_abs: ">=0.4", total_attempts: ">=3" },
+    action: { kind: "show_calibration_panel" }, modulator: "M3",
+    explanation_short: "Compare ta confiance et ta réussite." };
+
+  // Drive a quiz→quiz→quiz→meta trajectory: 3 WRONG quiz answers (mastery stays low ~0.28, 3 attempts),
+  // then declare `confidence` at the meta_checkpoint. Returns the meta-turn transition + telemetry.
+  async function runWrongThenConfidence(confidenceValue: 0 | 1 | 2 | 3 | 4) {
+    const deps = buildTestDeps();
+    const s = new LessonSession(
+      bundleWith([quizScene("q1"), quizScene("q2"), quizScene("q3"), metaScene("m1"), quizScene("q4")], [calibRule]),
+      deps,
+    );
+    await s.start();
+    await s.respond({ kind: "quiz_choice", choiceId: "a" }); // wrong
+    await s.respond({ kind: "quiz_choice", choiceId: "a" }); // wrong
+    await s.respond({ kind: "quiz_choice", choiceId: "a" }); // wrong → 3 attempts on c1, low mastery
+    const t = await s.respond({ kind: "confidence", value: confidenceValue });
+    return { t, deps };
+  }
+
+  it("M3 PERSONA-COLLAPSE RESOLVED: overconfident (declare 4 + wrong) DIVERGES from low-confidence (declare 1 + wrong)", async () => {
+    const over = await runWrongThenConfidence(4);   // overconfident
+    const under = await runWrongThenConfidence(1);   // calibrated-low / struggling
+
+    // (1) Trajectory diverges at the meta_checkpoint
+    expect(over.t.kind).toBe("calibration");
+    expect(under.t.kind).not.toBe("calibration");
+    expect(over.t.kind).not.toBe(under.t.kind);
+    if (over.t.kind === "calibration") expect(over.t.targetConcept).toBe("c1");
+
+    // (2) Only the overconfident persona emits an M3 adaptation_applied event
+    const overApplied = (over.deps.telemetry as InMemoryTelemetrySink).events
+      .filter((e) => e.type === "adaptation_applied" && (e as any).modulator === "M3");
+    const underApplied = (under.deps.telemetry as InMemoryTelemetrySink).events
+      .filter((e) => e.type === "adaptation_applied" && (e as any).modulator === "M3");
+    expect(overApplied.length).toBeGreaterThanOrEqual(1);
+    expect(overApplied.at(-1)).toMatchObject({ rule_id: "rule_calibration_mismatch_show", modulator: "M3" });
+    expect(underApplied.length).toBe(0);
+  });
+
+  it("M3 confidence_calibration is WRITTEN (non-zero, correct sign) into concept state", async () => {
+    const over = await runWrongThenConfidence(4);
+    const overState = await over.deps.stateStore.load("L1");
+    const overCs = overState?.concept_states["c1"];
+    expect(overCs).toBeDefined();
+    expect(overCs!.confidence_calibration).toBeGreaterThan(0.4); // overconfident → positive, trips rule
+
+    const under = await runWrongThenConfidence(1);
+    const underState = await under.deps.stateStore.load("L1");
+    const underCs = underState?.concept_states["c1"];
+    expect(underCs).toBeDefined();
+    expect(Math.abs(underCs!.confidence_calibration)).toBeLessThan(0.4); // calibrated → near zero
+  });
+
   it("2 consecutive wrong answers → replay_current_scene + adaptation_applied emitted", async () => {
     const deps = buildTestDeps();
     const s = new LessonSession(bundleWith([quizScene("q1"), quizScene("q2")], [replayRule]), deps);
