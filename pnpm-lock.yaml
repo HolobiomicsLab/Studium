@@ -265,6 +265,19 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0)
 
+  packages/learning-workflow-schema:
+    dependencies:
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0)
+
   packages/lesson-bundle-schema:
     dependencies:
       zod:
