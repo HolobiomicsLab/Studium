@@ -37,3 +37,9 @@ eval/corpus/
 # Runtime/author-time local artifacts — NEVER commit
 .lwg/          # planner LWG output (lwg.indicium.jsonld, astra.yaml, universes/)
 .mastery/      # RGPD: local learner mastery claims (demonstrates_mastery_of) — personal data, must never be pushed
+
+# TypeScript emitted artifacts inside src/ — never commit (npx tsc / tsx run leave these)
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts.map

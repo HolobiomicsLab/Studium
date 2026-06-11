@@ -47,17 +47,35 @@ export function buildMasteryClaims(state: LearnerState, opts: BuildMasteryClaims
       asserted_by: `urn:studium:lesson-session:${opts.sessionId}`,
       domain_qualifier: "demonstrates_mastery_of",
     });
-    graph.push({
+    // indicium-conformant Evidence (sepio:0000002). Mapping of the learner
+    // performance signal to LEGAL LinkML slots (indicium.yaml:510-516):
+    //  - source_type:"performance" is NOT a SourceType member (text/figure/
+    //    table/image/code/data) -> dropped; the runtime origin is conveyed by
+    //    eco_code:"computational_evidence" (ECO:0000251 — derived from pipeline/
+    //    runtime output, indicium.yaml:168).
+    //  - total_attempts/total_correct/confidence_calibration are NOT slots ->
+    //    folded into the free-text `quote_location` locator (lossy but legal;
+    //    a typed learner-evidence numeric bag is an upstream indicium backlog).
+    //  - active_universe -> `decision_context` as a dotted `universe.<id>` tag
+    //    (bare values fail the decision_context pattern). Omitted when empty.
+    const ev: Record<string, unknown> = {
       "@type": "sepio:0000002",
       supports_claim: claimId,
       evidence_type: "inference",
-      source_type: "performance",
+      eco_code: "computational_evidence",
       confidence: mastery,
-      total_attempts: csv.total_attempts,
-      total_correct: csv.total_correct,
-      confidence_calibration: csv.confidence_calibration,
-      active_universe: opts.activeUniverseId,
-    });
+      quote_location: `attempts=${csv.total_attempts};correct=${csv.total_correct};calibration=${csv.confidence_calibration}`,
+    };
+    if (opts.activeUniverseId) {
+      // Sanitize the universe segment so the result always matches the indicium
+      // decision_context pattern: ^[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*$
+      // Raw ids like "remedial-v2" or "2024-cohort" would fail — replace illegal
+      // chars and ensure the segment starts with a letter or underscore.
+      let seg = opts.activeUniverseId.replace(/[^a-zA-Z0-9_]/g, "_");
+      if (!/^[a-zA-Z_]/.test(seg)) seg = "_" + seg; // leading digit -> prepend "_"
+      ev.decision_context = [`universe.${seg}`];
+    }
+    graph.push(ev);
   }
   return {
     "@context": { ..._CONTEXT },

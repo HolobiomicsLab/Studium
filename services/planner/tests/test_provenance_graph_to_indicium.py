@@ -53,7 +53,9 @@ def test_evidence_node_links_to_claim_with_artifact():
     doc = graph_to_claims(LWG, asserted_by="x")
     ev = next(n for n in doc["@graph"] if n.get("@type") == "sepio:0000002")
     assert ev["supports_claim"] == "urn:studium:edge:e1"
-    assert ev["of_source"] == "teacher-doc:lecture2.pdf#sec.2"
+    # of_source is an inlined indicium Source object (range Source), not a bare
+    # string — the artifact id is its `identifier`.
+    assert ev["of_source"] == {"identifier": "teacher-doc:lecture2.pdf#sec.2"}
     assert ev["confidence"] == 0.72
 
 
@@ -63,6 +65,8 @@ def test_doi_evidence_is_citation_typed():
          "evidence": [{"doi": "10.1234/test", "confidence": 0.9}]}]}
     doc = graph_to_claims(g, asserted_by="x")
     ev = next(n for n in doc["@graph"] if n.get("@type") == "sepio:0000002")
-    assert ev["doi"] == "10.1234/test"
+    # DOI is NOT an Evidence slot in indicium — it lives on the inlined Source.
+    assert "doi" not in ev
+    assert ev["of_source"]["doi"] == "10.1234/test"
+    assert ev["of_source"]["identifier"] == "https://doi.org/10.1234/test"
     assert ev["evidence_type"] == "citation"
-    assert "of_source" not in ev
