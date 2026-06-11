@@ -243,3 +243,24 @@ def test_scene_outline_accepts_evidence_and_override():
     )
     assert scene.evidence_override == "force"
     assert scene.evidence is not None
+
+
+def test_lesson_plan_accepts_concepts():
+    from lesson_plan_schema import LessonPlan, Concept
+    plan = LessonPlan(
+        id="p1", title="T", language="fr", target="L3", duration_minutes=45,
+        learning_objectives=[{"id": "obj-1", "description": "Understand X", "bloom_level": "understand"}],
+        scene_outlines=[{"id": "s1", "type": "intro", "title": "I", "objective_refs": ["obj-1"]}],
+        concepts=[Concept(id="obj-1", title="Understand X", description="Understand X", bloom_level_target="understand")],
+    )
+    assert plan.concepts[0].id == "obj-1" and plan.concepts[0].bloom_level_target == "understand"
+
+
+def test_lesson_plan_concepts_defaults_empty():
+    from lesson_plan_schema import LessonPlan
+    plan = LessonPlan(
+        id="p1", title="T", language="fr", target="L3", duration_minutes=45,
+        learning_objectives=[{"id": "o", "description": "d", "bloom_level": "understand"}],
+        scene_outlines=[{"id": "s1", "type": "intro", "title": "I", "objective_refs": []}],
+    )
+    assert plan.concepts == []

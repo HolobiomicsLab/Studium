@@ -38,6 +38,13 @@ class RefType(str, Enum):
     abs_capsule = "abs_capsule"
 
 
+class Concept(BaseModel):
+    id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    bloom_level_target: BloomLevel
+
+
 class LearningObjective(BaseModel):
     id: str = Field(min_length=1)
     description: str = Field(min_length=1)
@@ -159,6 +166,7 @@ class LessonPlan(BaseModel):
     duration_minutes: int = Field(ge=1)
     learning_objectives: list[LearningObjective] = Field(min_length=1)
     scene_outlines: list[SceneOutline] = Field(min_length=1)
+    concepts: list[Concept] = Field(default_factory=list)
     corpus_refs: list[CorpusRef] = Field(default_factory=list)
     critic_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     critic_annotations: Optional[list[str]] = None
