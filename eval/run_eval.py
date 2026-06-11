@@ -59,8 +59,11 @@ def _run_personas(bundle_path: Path, run_dir: Path, personas: list[str], live: b
             persona=persona,
             out_dir=out,
             live=live,
-            # per-persona namespace + distinct secret-derived isolation (design risk #6)
-            pseudo_secret=f"{PSEUDO_SECRET}:{persona}",
+            # #4: a SHARED secret across personas + a distinct learner_id per persona. The pseudonym
+            # is now salted HMAC(secret, learnerId:lessonId), so distinct learners get distinct
+            # pseudonyms from the SALT (not from a per-persona secret) — the real per-learner fix.
+            pseudo_secret=PSEUDO_SECRET,
+            learner_id=persona,
             model=model,
         )
         print(

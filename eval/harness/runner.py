@@ -54,9 +54,16 @@ def run_session(
     pseudo_secret: str | None = None,
     persona_prompt: str | None = None,
     model: str | None = None,
+    learner_id: str | None = None,
     timeout_s: int = 600,
 ) -> dict:
-    """Run one persona playthrough; returns the parsed driver_result.json."""
+    """Run one persona playthrough; returns the parsed driver_result.json.
+
+    #4: `learner_id` is threaded into LessonSession so the pseudonym is salted per learner
+    (HMAC(secret, learnerId:lessonId)). Passing a distinct learner_id per persona lets the audit
+    MEASURE that distinct learners on the same lesson get distinct pseudonyms — the proper fix that
+    replaces the old per-persona-secret isolation workaround.
+    """
     ensure_workspace_symlink()
     tsx = _find_tsx()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -69,6 +76,8 @@ def run_session(
     }
     if pseudo_secret:
         args["pseudoSecret"] = pseudo_secret
+    if learner_id:
+        args["learnerId"] = learner_id
     if persona_prompt:
         args["personaPrompt"] = persona_prompt
     if model:

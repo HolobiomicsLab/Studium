@@ -83,7 +83,10 @@ async function main() {
   const bundle = await loadBundle(bundlePath);
   const deps = buildDeps(outDir, live, pseudoSecret);
   const policy = getPolicy(persona, { personaPrompt: args.personaPrompt, model: args.model });
-  const session = new LessonSession(bundle, deps);
+  // #4: thread a per-learner id (defaults to the persona name — a natural distinct learner id) so
+  // the pseudonym is SALTED per learner. The 3rd ctor arg is `state` (undefined → default).
+  const learnerId = args.learnerId ?? persona;
+  const session = new LessonSession(bundle, deps, undefined, learnerId);
 
   const transcript = [];
   const transitions = [];
@@ -125,6 +128,11 @@ async function main() {
   const finalState = session.getState();
   const result = {
     persona,
+    learner_id: learnerId,
+    // #4: the salted pseudonym actually used for this run, so the audit can assert that distinct
+    // learners on the same lesson got DISTINCT pseudonyms. (Telemetry only ever carries the
+    // pseudonym, never the raw learner_id.)
+    learner_pseudonym: session.getPseudonym(),
     live,
     completed,
     degraded_turns: degraded,

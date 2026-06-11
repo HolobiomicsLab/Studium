@@ -12,6 +12,9 @@ export type AICritiqueRubric = AICritiqueScene["rubric"];
 export interface StateStore {
   load(lessonId: string): Promise<LearnerState | null>;
   save(lessonId: string, state: LearnerState): Promise<void>;
+  /** RGPD erasure (#4): remove the persisted learner state for this lesson. Optional so existing
+   * adapters/tests that predate erasure stay valid; callers guard with `?.`. */
+  delete?(lessonId: string): Promise<void>;
 }
 
 export interface EventLogRecord {
@@ -24,14 +27,23 @@ export interface EventLogRecord {
   event_type: string;
   payload: unknown;
 }
-export interface EventLog { append(record: EventLogRecord): Promise<void>; }
+export interface EventLog {
+  append(record: EventLogRecord): Promise<void>;
+  /** RGPD erasure (#4): drop this session's appended records. The host gives each session its own
+   * log, so purging the whole log is this learner's data only. Optional + `?.`-guarded. */
+  purge?(): Promise<void>;
+}
 
 export interface TelemetrySink {
   emit(event: TelemetryEvent): void;
   flush(): Promise<void>;
+  /** RGPD erasure (#4): drop buffered/recorded telemetry (pseudonymous, but erased for completeness). */
+  purge?(): Promise<void>;
 }
 
-export interface PseudonymProvider { get(lessonId: string): Promise<string>; }
+/** Per-learner SALTED pseudonym (#4): HMAC(secret, learnerId + ':' + lessonId). The learnerId salt
+ * makes distinct learners on the same lesson resolve to distinct pseudonyms. */
+export interface PseudonymProvider { get(learnerId: string, lessonId: string): Promise<string>; }
 
 export interface ReasoningScorer { score(turn: string, topic: string): Promise<ClassifyResult | null>; }
 
@@ -48,4 +60,7 @@ export interface IdGen { uuid(): string; }
 export interface MasteryClaimSink {
   emit(doc: MasteryClaimsDoc): void;
   flush(): Promise<void>;
+  /** RGPD erasure (#4): drop any unflushed buffer AND remove this session's already-flushed
+   * mastery .jsonld (the personal-data sink). Optional + `?.`-guarded. */
+  erase?(): Promise<void>;
 }

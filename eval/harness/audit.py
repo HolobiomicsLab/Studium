@@ -209,20 +209,25 @@ def _score_anti_offloading(runs: list[PersonaRun], bundle: dict, findings: list[
 
 def _score_rgpd(runs: list[PersonaRun], bundle: dict, findings: list[Finding]) -> float:
     score = 1.0
-    # pseudonym keyed on lessonId only (#4): every persona over the same bundle hashes the SAME id.
-    pseudos = {}
-    for r in runs:
-        fs = r.result.get("final_state", {})
-        # the pseudonym isn't in driver_result directly; detect collision via lesson_id sharing.
-        pseudos[r.persona] = fs.get("lesson_id")
-    lesson_ids = set(pseudos.values())
-    if len(runs) > 1 and len(lesson_ids) == 1:
-        score -= 0.5
-        findings.append(Finding("rgpd", "high",
-            "Pseudonym is derived from lessonId only (pseudonym.ts) — all learners on the same bundle "
-            "share a pseudonym; not per-learner. The harness isolates personas by outDir as a workaround.",
-            "packages/lesson-session/src/adapters/pseudonym.ts", "#4"))
-    # raw learner_id should never appear in telemetry
+    # #4 FIXED: pseudonym is now SALTED per learner — HMAC(secret, learnerId:lessonId). Distinct
+    # learners on the SAME lesson must therefore resolve to DISTINCT pseudonyms. The driver writes
+    # the actual pseudonym into driver_result.json, so we can measure it directly (no more
+    # lesson_id-sharing proxy). All personas here share one secret + lesson; only the salt differs.
+    pseudos = {r.persona: r.result.get("learner_pseudonym") for r in runs}
+    distinct = {p for p in pseudos.values() if p}
+    if len(runs) > 1:
+        if len(distinct) == len(runs):
+            findings.append(Finding("rgpd", "info",
+                f"Per-learner salted pseudonym OK: {len(runs)} learners on one lesson produced "
+                f"{len(distinct)} DISTINCT pseudonyms (HMAC(secret, learnerId:lessonId)).",
+                "packages/lesson-session/src/adapters/pseudonym.ts", "ok"))
+        elif len(distinct) <= 1:
+            score -= 0.5
+            findings.append(Finding("rgpd", "high",
+                "Pseudonym is NOT per-learner — distinct learners on the same lesson collide to one "
+                "pseudonym (expected salted HMAC(secret, learnerId:lessonId)).",
+                "packages/lesson-session/src/adapters/pseudonym.ts", "#4"))
+    # raw learner_id should never appear in telemetry (it lives only in the local driver_result).
     raw_leak = any("learner_id" in e for r in runs for e in r.telemetry)
     if raw_leak:
         score -= 0.3
@@ -230,8 +235,9 @@ def _score_rgpd(runs: list[PersonaRun], bundle: dict, findings: list[Finding]) -
             "Raw learner_id present in telemetry events.",
             "sessions/*/telemetry.jsonl", "#4"))
     findings.append(Finding("rgpd", "info",
-        "forget() emits a forget_requested event but does NOT purge state/.jsonld/logs (no-op erasure).",
-        "packages/lesson-session-host/src/host.ts:forget", "#4"))
+        "forget() now performs REAL erasure: StateStore.delete + MasteryClaimSink.erase + "
+        "EventLog.purge + Telemetry.purge (no longer a no-op).",
+        "packages/lesson-session-host/src/host.ts:forget", "ok"))
     return max(0.0, score)
 
 

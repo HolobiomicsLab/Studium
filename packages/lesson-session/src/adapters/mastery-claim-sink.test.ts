@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mkdtemp, readFile, readdir } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FileMasteryClaimSink } from "./mastery-claim-sink";
@@ -22,5 +22,31 @@ describe("FileMasteryClaimSink", () => {
     // dir may not exist or be empty; either is fine
     const files = await readdir(dir).catch(() => []);
     expect(files).toEqual([]);
+  });
+});
+
+describe("FileMasteryClaimSink — RGPD erasure (#4)", () => {
+  it("erase() removes ONLY this session's flushed .jsonld and leaves other learners' files intact", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "mastery-"));
+    // a foreign learner's file already living in the shared mastery dir
+    await writeFile(join(dir, "urn_studium_mastery-set_L1_other-sess.jsonld"), "{}", "utf8");
+    const sink = new FileMasteryClaimSink(dir);
+    sink.emit({ "@context": {}, "@id": "urn:studium:mastery-set:L1:my-sess", "@graph": [{ "@type": "asb:Claim" }] } as any);
+    await sink.flush();
+    expect((await readdir(dir)).sort()).toEqual([
+      "urn_studium_mastery-set_L1_my-sess.jsonld",
+      "urn_studium_mastery-set_L1_other-sess.jsonld",
+    ]);
+    await sink.erase();
+    // only my file removed; the foreign learner's file survives (no cross-learner data loss)
+    expect(await readdir(dir)).toEqual(["urn_studium_mastery-set_L1_other-sess.jsonld"]);
+  });
+  it("erase() drops the unflushed buffer so a later flush writes nothing", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "mastery-"));
+    const sink = new FileMasteryClaimSink(dir);
+    sink.emit({ "@context": {}, "@id": "urn:studium:mastery-set:L1:buffered", "@graph": [{ "@type": "asb:Claim" }] } as any);
+    await sink.erase();          // before any flush
+    await sink.flush();          // should be a no-op now
+    expect(await readdir(dir).catch(() => [])).toEqual([]);
   });
 });

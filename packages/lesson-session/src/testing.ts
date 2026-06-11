@@ -9,7 +9,8 @@ export { InMemoryStateStore, InMemoryEventLog, InMemoryTelemetrySink, InMemoryMa
 
 export class StaticPseudonym implements PseudonymProvider {
   constructor(private readonly value = "anon-test") {}
-  async get(): Promise<string> { return this.value; }
+  // accepts (learnerId, lessonId) per the salted port; the static double ignores both.
+  async get(_learnerId?: string, _lessonId?: string): Promise<string> { return this.value; }
 }
 export class StubReasoningScorer implements ReasoningScorer {
   calls: Array<{ turn: string; topic: string }> = [];
