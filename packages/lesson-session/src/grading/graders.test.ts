@@ -38,3 +38,22 @@ describe("grade() — simple graders", () => {
     await expect(grade(quiz, { kind: "ack" }, deps)).rejects.toThrow(/quiz/);
   });
 });
+
+const quizWithHints: Extract<Scene, { type: "quiz" }> = {
+  id: "q1", type: "quiz", title: "Q", objective_refs: ["c"], concept_refs: ["c"], estimated_seconds: 0,
+  adaptation_hooks: [], question: "?", choices: [{ id: "a", text: "A", correct: true }], feedback_correct: "ok",
+  feedback_incorrect: "no", hints: ["h1"],
+};
+const stubDeps = { critiqueEvaluator: new StubCritiqueEvaluator() };
+
+describe("quizGrader — hintCount in GradeDeps", () => {
+  it("quizGrader forwards GradeDeps.hintCount into the signal", async () => {
+    const { signal } = await grade(quizWithHints, { kind: "quiz_choice", choiceId: "a" }, { ...stubDeps, hintCount: 2 });
+    expect(signal.kind).toBe("answer_submitted");
+    expect((signal as any).hint_count).toBe(2);
+  });
+  it("quizGrader defaults hint_count to 0 when not provided", async () => {
+    const { signal } = await grade(quizWithHints, { kind: "quiz_choice", choiceId: "a" }, stubDeps);
+    expect((signal as any).hint_count).toBe(0);
+  });
+});

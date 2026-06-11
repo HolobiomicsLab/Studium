@@ -27,6 +27,7 @@ export type {
   Explanation,
   LearnerSnapshot,
   SessionDeps,
+  HintResult,
 } from "./types.js";
 
 // Types — ports.ts

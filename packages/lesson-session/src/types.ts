@@ -7,6 +7,7 @@ import type {
 } from "./ports.js";
 
 export interface Explanation { rule_id: string; explanation_short: string; modulator: string; }
+export interface HintResult { hint: string; index: number; remaining: number; }
 export interface LearnerSnapshot { conceptMastery: Record<string, number>; scenesCompleted: number; }
 
 export interface Presentation {

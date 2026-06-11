@@ -290,4 +290,17 @@ describe("telemetry-events Zod schemas", () => {
       type: "universe_selected", universe_id: "remedial", active_decisions: { prereq_strictness: "lenient" } };
     expect(() => TelemetryEventSchema.parse(ev)).not.toThrow();
   });
+
+  it("validates hint_requested (refs + scalar only)", () => {
+    const ev = { event_id: "11111111-1111-1111-1111-111111111111", learner_pseudonym: "p", lesson_id: "L1",
+      bundle_version: "1.4:L1", client_timestamp: "2026-06-11T00:00:00+00:00",
+      type: "hint_requested", scene_id: "q1", hint_index: 0 };
+    expect(() => TelemetryEventSchema.parse(ev)).not.toThrow();
+  });
+  it("rejects hint_requested with a negative hint_index", () => {
+    const ev = { event_id: "11111111-1111-1111-1111-111111111111", learner_pseudonym: "p", lesson_id: "L1",
+      bundle_version: "1.4:L1", client_timestamp: "2026-06-11T00:00:00+00:00",
+      type: "hint_requested", scene_id: "q1", hint_index: -1 };
+    expect(() => TelemetryEventSchema.parse(ev)).toThrow();
+  });
 });
