@@ -134,6 +134,12 @@ export const CooperativeConvergenceSchema = BaseEventSchema.extend({
   role_coverage: z.number().min(0).max(1),
 });
 
+export const UniverseSelectedSchema = BaseEventSchema.extend({
+  type: z.literal("universe_selected"),
+  universe_id: z.string(),
+  active_decisions: z.record(z.string(), z.string()),   // decision_id -> option_id (refs only, RGPD-safe)
+});
+
 export const TelemetryEventSchema = z.discriminatedUnion("type", [
   LessonStartedSchema,
   SceneEnteredSchema,
@@ -149,6 +155,7 @@ export const TelemetryEventSchema = z.discriminatedUnion("type", [
   JournalEntrySubmittedSchema,
   CooperativeVoteSchema,
   CooperativeConvergenceSchema,
+  UniverseSelectedSchema,
 ]);
 
 export type TelemetryEvent = z.infer<typeof TelemetryEventSchema>;

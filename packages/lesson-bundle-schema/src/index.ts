@@ -29,6 +29,18 @@ export const BundleMetadataSchema = z.object({
   discipline: z.string(),
 });
 
+export const UniverseVariantSchema = z.object({
+  id: z.string().min(1),
+  description: z.string(),
+  decisions: z.record(z.string(), z.string()),   // decision_id -> option_id
+});
+export const UniversesSchema = z.object({
+  variants: z.array(UniverseVariantSchema).min(1),
+  active: z.string().min(1),
+});
+export type UniverseVariant = z.infer<typeof UniverseVariantSchema>;
+export type Universes = z.infer<typeof UniversesSchema>;
+
 export const LessonBundleSchema = z.object({
   schema_version: z.literal("1.4"),
   bundle_id: z.string(),
@@ -41,6 +53,7 @@ export const LessonBundleSchema = z.object({
   validated_at: z.string().datetime(),
   assessment_blueprint: AssessmentBlueprintSchema.optional(),
   learning_workflow_graph: LearningWorkflowGraphSchema.nullish(),
+  universes: UniversesSchema.nullish(),
 });
 
 export type LessonBundle = z.infer<typeof LessonBundleSchema>;

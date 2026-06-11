@@ -262,6 +262,13 @@ def _minimal_bundle_dict() -> dict:
     return dict(VALID_BUNDLE)
 
 
+def test_bundle_accepts_universes():
+    d = _minimal_bundle_dict()
+    d["universes"] = {"variants": [{"id": "baseline", "description": "d", "decisions": {"prereq_strictness": "standard"}}], "active": "baseline"}
+    b = LessonBundle.model_validate(d)
+    assert b.universes["active"] == "baseline"
+
+
 def test_bundle_carries_optional_lwg():
     d = _minimal_bundle_dict()
     d["learning_workflow_graph"] = {"schema_version": "1.0", "course_id": "c", "nodes": [], "edges": []}
