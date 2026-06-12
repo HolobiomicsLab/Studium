@@ -1,0 +1,3 @@
+# Grounding-relevance run artifacts — generated, not versioned.
+*.json
+!.gitignore
