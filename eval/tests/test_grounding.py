@@ -76,3 +76,16 @@ def test_ground_bundle_degraded_client_stays_honest():
     assert summary["edges_grounded"] == 0 and summary["scenes_enriched"] == 0
     assert "ungrounded" in lwg["edges"][0]["quality_flags"], "honest: still flagged ungrounded"
     assert "evidence" not in scenes[0], "honest: no fake scene evidence"
+
+
+def test_make_client_from_env_routes_literature_mode(monkeypatch):
+    import importlib
+    from harness import grounding as G
+    from harness.literature_client import LiteratureSearchClient
+    monkeypatch.setenv("STUDIUM_PERSPICACITE_ENABLED", "on")
+    monkeypatch.setenv("STUDIUM_PERSPICACITE_MODE", "literature")
+    monkeypatch.setenv("PERSPICACITE_MCP_URL", "http://localhost:8002/mcp")
+    client = G.make_client_from_env()
+    assert isinstance(client, LiteratureSearchClient)
+    monkeypatch.delenv("STUDIUM_PERSPICACITE_ENABLED")
+    assert G.make_client_from_env() is None

@@ -93,12 +93,22 @@ def ground_bundle(scenes: list[dict], lwg: Optional[dict], client: Any,
 
 
 def make_client_from_env() -> Optional[Any]:
-    """Build a PerspicaciteClient from env (None when STUDIUM_PERSPICACITE_ENABLED != 'on').
+    """Build a grounding client from env (None when STUDIUM_PERSPICACITE_ENABLED != 'on').
 
-    Step A (mock):  STUDIUM_PERSPICACITE_ENABLED=on STUDIUM_PERSPICACITE_MODE=mock
-    Step B (live):  STUDIUM_PERSPICACITE_ENABLED=on PERSPICACITE_MCP_URL=http://localhost:8002/mcp
+    Step A (mock):       STUDIUM_PERSPICACITE_ENABLED=on STUDIUM_PERSPICACITE_MODE=mock
+    Step B (literature): STUDIUM_PERSPICACITE_ENABLED=on STUDIUM_PERSPICACITE_MODE=literature
+                         PERSPICACITE_MCP_URL=http://localhost:8002/mcp   (KB-less, real citations)
+    Default live:        STUDIUM_PERSPICACITE_ENABLED=on  (get_relevant_passages; needs a KB)
     """
+    import os
     from harness.paths import ensure_perspicacite_importable
     ensure_perspicacite_importable()
+    if os.getenv("STUDIUM_PERSPICACITE_ENABLED") != "on":
+        return None
+    if os.getenv("STUDIUM_PERSPICACITE_MODE") == "literature":
+        from perspicacite_mcp.session import _MCPSession
+        from harness.literature_client import LiteratureSearchClient
+        mcp_url = os.getenv("PERSPICACITE_MCP_URL", "http://localhost:8002/mcp")
+        return LiteratureSearchClient(session=_MCPSession(mcp_url))
     from perspicacite_mcp.client import make_perspicacite_client
     return make_perspicacite_client()
