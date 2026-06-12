@@ -227,7 +227,9 @@ export class LessonSession {
     if (action.kind === "show_calibration_panel") {
       // NOTE: engine-fired explicit actions (skip/calibration) take priority over LWG prereq gating.
       const target = action.target_concept;
-      if (this.idx + 1 >= this.bundle.scenes.length) return this.complete();
+      // End-of-lesson self-check: no next scene to host a standalone calibration
+      // transition, so surface the M3 feedback on the completion instead of dropping it.
+      if (this.idx + 1 >= this.bundle.scenes.length) return this.complete({ targetConcept: target });
       this.idx += 1; this.enterScene();
       return { kind: "calibration", targetConcept: target, presentation: this.currentPresentation() };
     }
@@ -264,7 +266,7 @@ export class LessonSession {
     this.emit({ type: "scene_entered", scene_id: this.scene().id, scene_type: this.scene().type });
   }
 
-  protected complete(): Transition {
+  protected complete(calibration?: { targetConcept: string }): Transition {
     this.completed = true;
     const totalDurationMs = Math.max(0, Date.parse(this.deps.clock.now()) - Date.parse(this.startIso));
     const completed = this.state.scenes_completed.length;
@@ -292,7 +294,7 @@ export class LessonSession {
       });
       if (doc["@graph"].length > 0) this.deps.masteryClaimSink.emit(doc);
     }
-    return { kind: "complete", summary };
+    return { kind: "complete", summary, ...(calibration ? { calibration } : {}) };
   }
 
   protected successOf(signal: Signal): boolean {

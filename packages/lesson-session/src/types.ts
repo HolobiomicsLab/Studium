@@ -37,7 +37,11 @@ export type Transition =
   | { kind: "replay"; reason: string; presentation: Presentation }
   | { kind: "remediate_alt"; reason: string; presentation: Presentation }
   | { kind: "calibration"; targetConcept: string; presentation: Presentation }
-  | { kind: "complete"; summary: CompletionSummary };
+  // `calibration` rides on completion when a show_calibration_panel action fires on
+  // the LAST scene (end-of-lesson self-check): there is no next scene to attach a
+  // standalone `calibration` transition to, so the M3 feedback is surfaced here
+  // instead of being silently dropped.
+  | { kind: "complete"; summary: CompletionSummary; calibration?: { targetConcept: string } };
 
 export interface SessionDeps {
   stateStore: StateStore;

@@ -101,6 +101,42 @@ describe("LessonSession.respond — adaptation branches", () => {
     expect(Math.abs(underCs!.confidence_calibration)).toBeLessThan(0.4); // calibrated → near zero
   });
 
+  // M3b: when the meta_checkpoint is the LAST scene (the NATURAL place for an
+  // end-of-lesson calibration self-check), there is no next scene to attach the
+  // calibration transition to. Previously show_calibration_panel returned a plain
+  // complete() and the M3 "cognitive mirror" feedback was SILENTLY DROPPED exactly
+  // where it matters most. The fix surfaces it as a `calibration` annotation riding
+  // on the completion transition.
+  async function runWrongThenConfidenceEndOfLesson(confidenceValue: 0 | 1 | 2 | 3 | 4) {
+    const deps = buildTestDeps();
+    const s = new LessonSession(
+      // meta_checkpoint is the LAST scene (no trailing q4)
+      bundleWith([quizScene("q1"), quizScene("q2"), quizScene("q3"), metaScene("m1")], [calibRule]),
+      deps,
+    );
+    await s.start();
+    await s.respond({ kind: "quiz_choice", choiceId: "a" }); // wrong
+    await s.respond({ kind: "quiz_choice", choiceId: "a" }); // wrong
+    await s.respond({ kind: "quiz_choice", choiceId: "a" }); // wrong → 3 attempts, low mastery
+    const t = await s.respond({ kind: "confidence", value: confidenceValue });
+    return { t, deps };
+  }
+
+  it("M3b: end-of-lesson calibration (meta is last scene) rides on completion, not dropped", async () => {
+    const over = await runWrongThenConfidenceEndOfLesson(4); // overconfident → rule trips
+    expect(over.t.kind).toBe("complete");
+    if (over.t.kind === "complete") expect(over.t.calibration?.targetConcept).toBe("c1");
+    // the M3 adaptation is still recorded in telemetry
+    const applied = (over.deps.telemetry as InMemoryTelemetrySink).events
+      .filter((e) => e.type === "adaptation_applied" && (e as any).modulator === "M3");
+    expect(applied.length).toBeGreaterThanOrEqual(1);
+
+    // a calibrated learner completes WITHOUT a calibration annotation
+    const under = await runWrongThenConfidenceEndOfLesson(1);
+    expect(under.t.kind).toBe("complete");
+    if (under.t.kind === "complete") expect(under.t.calibration).toBeUndefined();
+  });
+
   it("2 consecutive wrong answers → replay_current_scene + adaptation_applied emitted", async () => {
     const deps = buildTestDeps();
     const s = new LessonSession(bundleWith([quizScene("q1"), quizScene("q2")], [replayRule]), deps);
