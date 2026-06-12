@@ -43,7 +43,12 @@ $PY eval/validity/kt_calibration/run_calibration.py --synth --seed 1
 $PY eval/validity/kt_calibration/run_calibration.py \
     --students 80 --skills 8 --attempts 25 --seed 7
 
-# plug in a REAL KT dataset (EdNet / ASSISTments / ...)
+# EXTERNAL benchmark: fetch ASSISTments 2009, then run on it (see result below)
+$PY eval/validity/kt_calibration/fetch_assistments.py
+$PY eval/validity/kt_calibration/run_calibration.py \
+    --csv eval/validity/kt_calibration/data/assistments09_canonical.csv
+
+# or plug in any other real KT dataset (EdNet / ASSISTments-2012 / ...)
 $PY eval/validity/kt_calibration/run_calibration.py --csv path/to/interactions.csv
 ```
 
@@ -89,13 +94,31 @@ load_interactions_csv(
 `order` must sort each `(student, skill)` stream chronologically (timestamp or
 attempt index). No dataset is shipped — synthetic is the default.
 
+## External benchmark result (ASSISTments 2009) — ✅ shipped
+
+Online next-step prediction (predict-before-update, leakage-free by construction)
+over **278,336 interactions / 3,114 students / 149 skills**, p(correct)=0.659.
+Full provenance + caveats in [`external_result.json`](external_result.json).
+
+| model | Brier ↓ | AUC ↑ | Acc ↑ |
+|---|---|---|---|
+| **beta (ADR 004)** | **0.2090** | **0.6982** | **0.6860** |
+| bkt (fixed) | 0.2178 | 0.6776 | 0.6629 |
+| running_mean (floor) | 0.2155 | 0.6933 | 0.6845 |
+
+**Beta beats BOTH BKT and the floor on Brier, AUC AND accuracy** (and again in the
+leak-free `--running-difficulty` variant: Beta Brier 0.2082 / AUC 0.6981). This
+**reverses the synthetic finding** (where BKT edged Beta) and defends the
+"simple + explainable" model choice with an *external* number. Honest framing:
+AUC ~0.70 is the expected band for simple models here — DKT/SAKT reach ~0.75-0.80
+with far more parameters — so the claim is **competitiveness + explainability**,
+not SOTA. Strengthen generality by adding EdNet via `loader.py` (one more CSV).
+
 ## ⚠️ Synthetic-vs-real caveat (read before quoting numbers)
 
 - **Synthetic data validates the HARNESS** and gives a *relative* Beta-vs-baseline
-  signal under known ground truth. It is **not** an external benchmark number.
-- The headline external claim for EV-4 requires a **real KT dataset**
-  (EdNet / ASSISTments) plugged in via `loader.py`. Until then, treat the Beta /
-  BKT / RunningMean comparison as a sanity check, not a published result.
+  signal under known ground truth. It is **not** an external benchmark number — the
+  external claim now comes from ASSISTments 2009 (above).
 - **BKT here uses FIXED params** (`L0=0.3, T=0.1, G=0.2, S=0.1`), not EM-fit ones.
   It is a *reference*, not a tuned ceiling — a fit BKT would likely score higher.
   EM-fitting is a documented future refinement.
@@ -107,6 +130,9 @@ attempt index). No dataset is shipped — synthetic is the default.
 - `metrics.py` — `brier`, `auc` (tie-aware Mann-Whitney), `accuracy` — pure Python.
 - `synth.py` — deterministic Rasch/IRT generator (`generate_synthetic`).
 - `loader.py` — real-dataset CSV plug-in (`load_interactions_csv`).
+- `fetch_assistments.py` — fetch + preprocess ASSISTments 2009 to canonical schema.
+- `external_result.json` — committed snapshot of the external benchmark numbers.
 - `run_calibration.py` — calibration protocol + CLI (`evaluate_models`, `replay`).
 - `tests/` — TDD test suite.
+- `data/` — fetched datasets (git-ignored; never committed).
 - `reports/` — generated run artifacts (git-ignored).

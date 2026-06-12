@@ -1,0 +1,41 @@
+{
+  "_comment": "Snapshot of the EV-4 EXTERNAL benchmark result. The dataset is NOT shipped (see fetch_assistments.py + data/.gitignore); this captures the measured numbers + provenance so the result lives in-repo. Reproduce with the commands below.",
+  "validity_item": "EV-4",
+  "measured_on": "2026-06-12",
+  "dataset": {
+    "name": "ASSISTments 2009 skill-builder (preprocessed)",
+    "source": "https://github.com/theophilee/learner-performance-prediction (data/assistments09/preprocessed_data.csv)",
+    "reference": "Choffin et al., Best Practices for Knowledge Tracing",
+    "n_interactions": 278336,
+    "n_students": 3114,
+    "n_skills": 149,
+    "p_correct": 0.659
+  },
+  "reproduce": [
+    "python eval/validity/kt_calibration/fetch_assistments.py",
+    "python eval/validity/kt_calibration/run_calibration.py --csv eval/validity/kt_calibration/data/assistments09_canonical.csv",
+    "# leak-free variant: add --running-difficulty"
+  ],
+  "results": {
+    "global_difficulty": {
+      "beta":         {"brier": 0.2090, "auc": 0.6982, "accuracy": 0.6860},
+      "bkt":          {"brier": 0.2178, "auc": 0.6776, "accuracy": 0.6629},
+      "running_mean": {"brier": 0.2155, "auc": 0.6933, "accuracy": 0.6845}
+    },
+    "running_difficulty_causal": {
+      "beta":         {"brier": 0.2082, "auc": 0.6981, "accuracy": 0.6868},
+      "bkt":          {"brier": 0.2178, "auc": 0.6776, "accuracy": 0.6629},
+      "running_mean": {"brier": 0.2155, "auc": 0.6933, "accuracy": 0.6845}
+    }
+  },
+  "verdict": {
+    "beta_beats_running_mean": true,
+    "beta_beats_bkt": true,
+    "summary": "On the real ASSISTments 2009 benchmark the production Beta learner model (ADR 004) beats BOTH the BKT baseline and the RunningMean floor on Brier, AUC AND accuracy, in both the global- and causal-difficulty configurations. This REVERSES the synthetic finding (where BKT edged Beta), and defends the 'simple + explainable' model choice with an external number.",
+    "caveats": [
+      "AUC ~0.698 is in the expected range for simple models on ASSISTments 2009 (DKT/SAKT reach ~0.75-0.80 with far more parameters); the claim is competitiveness + explainability, not SOTA.",
+      "No train/test split: this is an online next-step prediction protocol (predict-before-update), which is leakage-free by construction; the --running-difficulty variant additionally removes the global-difficulty train-on-all estimate.",
+      "Single dataset; EdNet/ASSISTments-2012 would strengthen generality (loader.py accepts any canonical CSV)."
+    ]
+  }
+}
