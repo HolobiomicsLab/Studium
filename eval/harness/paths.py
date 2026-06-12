@@ -36,3 +36,14 @@ def ensure_scene_synth_importable() -> None:
     p = str(SCENE_SYNTH_DIR)
     if p not in sys.path:
         sys.path.insert(0, p)
+
+
+PERSPICACITE_DIR = REPO_ROOT / "packages" / "perspicacite-client" / "python"
+
+
+def ensure_perspicacite_importable() -> None:
+    """Put packages/perspicacite-client/python on sys.path (mirrors scene-synth)."""
+    import sys
+    p = str(PERSPICACITE_DIR)
+    if p not in sys.path:
+        sys.path.insert(0, p)
