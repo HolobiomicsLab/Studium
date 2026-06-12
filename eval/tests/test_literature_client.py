@@ -33,10 +33,19 @@ def test_maps_search_literature_papers_to_docs():
     assert out["status"] == "ok" and len(out["docs"]) == 2
     assert sess.calls[0][0] == "search_literature"
     assert sess.calls[0][1]["query"] == "Eukaryotic Cells"
+    assert sess.calls[0][1]["min_relevance"] == 0.3
+    assert sess.calls[0][1]["relevance_method"] == "rerank"
     d0 = out["docs"][0]
     assert d0["doi"] == "10.1/x" and d0["title"] == "Cell theory" and d0["authors"] == ["Doe J", "Roe K"]
     assert out["docs"][1]["excerpt"] == "x" * 500  # abstract truncated to 500
     assert out["docs"][1]["id"] == "No DOI paper"  # falls back to title when no doi/id
+
+
+def test_min_relevance_is_configurable():
+    sess = _FakeSession({"success": True, "papers": []})
+    LiteratureSearchClient(session=sess, min_relevance=0.7).search(
+        query="q", mode="passages", max_results=3, kb_names=[])
+    assert sess.calls[0][1]["min_relevance"] == 0.7
 
 
 def test_empty_or_failed_search_is_offline():

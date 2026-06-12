@@ -11,9 +11,11 @@ _DATABASES = ["semantic_scholar", "openalex", "arxiv"]
 class LiteratureSearchClient:
     """`.search()` over the live `search_literature` MCP tool (no knowledge base)."""
 
-    def __init__(self, *, session: Any, databases: Optional[list[str]] = None) -> None:
+    def __init__(self, *, session: Any, databases: Optional[list[str]] = None,
+                 min_relevance: float = 0.3) -> None:
         self._session = session
         self._databases = databases or _DATABASES
+        self._min_relevance = min_relevance
 
     def search(self, *, query: str, mode: str, max_results: int,
                kb_names: list[str] | None = None) -> dict:
@@ -22,7 +24,10 @@ class LiteratureSearchClient:
         try:
             inner = _unwrap(self._session.call_tool(
                 tool_name="search_literature",
-                arguments={"query": query, "databases": self._databases, "max_results": max_results},
+                arguments={"query": query, "databases": self._databases,
+                           "max_results": max_results,
+                           "min_relevance": self._min_relevance,
+                           "relevance_method": "rerank"},
             ))
         except Exception:
             return {"status": "offline", "docs": []}
