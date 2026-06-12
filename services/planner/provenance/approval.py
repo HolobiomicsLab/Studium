@@ -37,10 +37,16 @@ from typing import Any, Optional
 from provenance.indicium_schema_vendored import assert_claim_conformant
 
 LWG_JSONLD = "lwg.indicium.jsonld"
+LWG_GRAPH_JSON = "lwg.graph.json"
 APPROVAL_JSON = "approval.json"
 ASTRA_YAML = "astra.yaml"
 AUDIT_JSON = "course_audit_report.json"
 AUDIT_MD = "course_audit_report.md"
+
+# An edge whose confidence is below this is flagged for teacher scrutiny even when it
+# carries no quality_flags. Mirrors GraphBuilder admission: a grounded edge gets >=0.6;
+# the ungrounded plan-artifact fallback gets 0.4, so 0.5 catches the weak ones.
+_LOW_CONFIDENCE_THRESHOLD = 0.5
 
 _CLAIM_TYPE = "asb:Claim"
 _EVIDENCE_TYPE = "sepio:0000002"
@@ -85,6 +91,43 @@ def _load_yaml_if_present(path: str) -> Optional[dict[str, Any]]:
     import yaml
     with open(path, encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+def _load_raw_graph_if_present(course_dir: str) -> Optional[dict[str, Any]]:
+    """The RAW internal LWG graph (lwg.graph.json) carries edge-level quality_flags +
+    confidence that the indicium JSON-LD drops (Claim is extra=forbid). Absent for
+    older courses — return None and the report degrades gracefully (no flags section)."""
+    path = os.path.join(course_dir, LWG_GRAPH_JSON)
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _flagged_edges(raw_graph: Optional[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Project the raw-graph edges a teacher must scrutinize: any edge with non-empty
+    quality_flags OR confidence below _LOW_CONFIDENCE_THRESHOLD. Graph order preserved
+    (deterministic). Returns [] when no raw graph is available."""
+    if not raw_graph:
+        return []
+    out: list[dict[str, Any]] = []
+    for edge in raw_graph.get("edges", []):
+        flags = edge.get("quality_flags") or []
+        conf = edge.get("confidence")
+        low_conf = isinstance(conf, (int, float)) and conf < _LOW_CONFIDENCE_THRESHOLD
+        if not flags and not low_conf:
+            continue
+        out.append({
+            "id": edge.get("id"),
+            "relation": edge.get("relation"),
+            "source": edge.get("source"),
+            "target": edge.get("target"),
+            "confidence": conf,
+            "quality_flags": list(flags),
+            "low_confidence": bool(low_conf),
+            "astra_insight_ref": edge.get("astra_insight_ref"),
+        })
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -237,6 +280,8 @@ def build_course_audit_report(
     claims = _claim_nodes(doc)
     evidence = _evidence_nodes(doc)
     astra = _load_yaml_if_present(os.path.join(course_dir, ASTRA_YAML))
+    raw_graph = _load_raw_graph_if_present(course_dir)
+    flagged_edges = _flagged_edges(raw_graph)
 
     universes: dict[str, Any] = {}
     universes_dir = os.path.join(course_dir, "universes")
@@ -298,6 +343,7 @@ def build_course_audit_report(
         "course_dir_id": os.path.basename(os.path.normpath(course_dir)),
         "generated_from": {
             LWG_JSONLD: True,
+            LWG_GRAPH_JSON: raw_graph is not None,
             ASTRA_YAML: astra is not None,
             "universes": sorted(universes.keys()),
         },
@@ -309,10 +355,12 @@ def build_course_audit_report(
             "draft_count": draft_count,
             "evidence_count": len(evidence),
             "flagged_count": flagged_count,
+            "flagged_edge_count": len(flagged_edges),
             "grounded_count": grounded_count,
             "decision_count": len((astra or {}).get("decisions") or {}),
         },
         "claims": claim_views,
+        "flagged_edges": flagged_edges,
         "universes": universes,
         "decisions": (astra or {}).get("decisions") or {},
     }
@@ -354,6 +402,30 @@ def _render_markdown(report: dict[str, Any]) -> str:
     lines.append(f"| {s['claim_count']} | {s['verified_count']} | {s['draft_count']} "
                  f"| {s['grounded_count']} | {s['flagged_count']} | {s['decision_count']} |")
     lines.append("")
+    # Edge-level fidelity (GAP #8): the raw LWG graph carries quality_flags + confidence
+    # the indicium JSON-LD drops. Surface the edges a teacher must scrutinize. Only
+    # rendered when lwg.graph.json is present + has something to flag (graceful degrade).
+    flagged_edges = report.get("flagged_edges") or []
+    if flagged_edges:
+        lines.append("## Flagged / low-confidence edges")
+        lines.append("")
+        lines.append("> Edges from the raw learning-workflow graph with quality flags "
+                     "or confidence below threshold — review these before approving.")
+        lines.append("")
+        lines.append("| Edge | Relation | Source → Target | Confidence | Flags |")
+        lines.append("|---|---|---|---|---|")
+        for e in flagged_edges:
+            conf = e.get("confidence")
+            conf_s = f"{conf:.2f}" if isinstance(conf, (int, float)) else "—"
+            flags = ", ".join(e.get("quality_flags") or [])
+            if e.get("low_confidence") and "low_confidence" not in flags:
+                flags = (flags + ", " if flags else "") + "low_confidence"
+            flags = flags or "—"
+            lines.append(
+                f"| `{e.get('id')}` | {e.get('relation')} | "
+                f"{e.get('source')} → {e.get('target')} | {conf_s} | {flags} |"
+            )
+        lines.append("")
     lines.append("## Claims")
     lines.append("")
     for c in report["claims"]:

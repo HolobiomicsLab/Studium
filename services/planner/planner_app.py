@@ -128,6 +128,14 @@ def plan(request: PlanRequest) -> PlanResponse:
                 with open(os.path.join(_out_dir, "lwg.indicium.jsonld"), "w", encoding="utf-8") as _f:
                     _json.dump(graph_to_claims(_res.graph, asserted_by=_builder.asserted_by), _f,
                                ensure_ascii=False, indent=2)
+                # Persist the RAW internal LWG graph too. graph_to_claims drops the
+                # edge-level quality_flags + confidence (the indicium Claim is
+                # extra=forbid), so they are lost from lwg.indicium.jsonld. The raw
+                # graph is NOT indicium-constrained, so a teacher reviewing the course
+                # for HITL approval can still see which edges are flagged_for_review /
+                # ungrounded / low-confidence (build_course_audit_report reads this).
+                with open(os.path.join(_out_dir, "lwg.graph.json"), "w", encoding="utf-8") as _f:
+                    _json.dump(_res.graph, _f, ensure_ascii=False, indent=2)
                 write_astra_yaml(_analysis, _out_dir)
                 write_universe_yaml(baseline_universe(_ped), _out_dir)
                 write_universe_yaml(remedial_universe(_ped), _out_dir)
