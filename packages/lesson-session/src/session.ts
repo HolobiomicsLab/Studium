@@ -29,6 +29,11 @@ export class LessonSession {
   private hintsUsed = 0;
   private lastGraphExplanation: Explanation | null = null;
   private remediationCount = 0;
+  /** Cumulative count of scaffolding events the learner leaned on across the whole session:
+   * +1 per hint dispensed, +1 per scene replay, +1 per prerequisite remediation. Unlike
+   * `hintsUsed` (reset per scene-visit) and `state.scenes_replayed` (never written by the engine),
+   * this is the session-lifetime denominator for autonomyRatio. */
+  private scaffoldingEvents = 0;
   private activeUniverseId = BASELINE_UNIVERSE_ID;
   protected discussionTurnIdx = 0;
 
@@ -111,6 +116,7 @@ export class LessonSession {
     const hint = scene.hints[index]!;
     this.emit({ type: "hint_requested", scene_id: scene.id, hint_index: index });
     this.hintsUsed += 1;
+    this.scaffoldingEvents += 1; // each dispensed hint is a unit of scaffolding the learner consumed
     return { hint, index, remaining: cap - this.hintsUsed };
   }
 
@@ -189,6 +195,10 @@ export class LessonSession {
     const action = decision.next_action;
     if (action.kind === "replay_current_scene") {
       this.hintsUsed = 0; // hints are per-scene-visit: a replay grants a fresh budget. Farming (hint then deliberate-wrong then replay then unhinted-correct) is self-defeating — the wrong answer's beta penalty dominates the dodged discount.
+      // Record the replay both per-scene (state.scenes_replayed — previously never written) and in the
+      // session-lifetime scaffolding tally that feeds autonomyRatio.
+      this.state.scenes_replayed[scene.id] = (this.state.scenes_replayed[scene.id] ?? 0) + 1;
+      this.scaffoldingEvents += 1;
       return { kind: "replay", reason: action.reason, presentation: this.currentPresentation() };
     }
     if (action.kind === "skip_to_next_concept") {
@@ -220,6 +230,7 @@ export class LessonSession {
         this.lastGraphExplanation = { rule_id: "graph_prereq_gate", explanation_short: "prerequisite not yet mastered — routed to remediation", modulator: "M6" };
         this.emit({ type: "adaptation_applied", rule_id: "graph_prereq_gate", signal: "navigate", modulator: "M6", value: 0 });
         this.remediationCount += 1;
+        this.scaffoldingEvents += 1; // a prerequisite remediation detour is scaffolding the learner relied on
         this.maybeEscalateUniverse();
       } else if (reason === "skip_mastered") {
         this.lastGraphExplanation = { rule_id: "graph_skip_mastered", explanation_short: "concept already mastered — skipped", modulator: "M1" };
@@ -242,8 +253,17 @@ export class LessonSession {
     this.completed = true;
     const totalDurationMs = Math.max(0, Date.parse(this.deps.clock.now()) - Date.parse(this.startIso));
     const completed = this.state.scenes_completed.length;
-    const replayed = Object.values(this.state.scenes_replayed ?? {}).reduce((n, v) => n + (typeof v === "number" ? v : 0), 0);
-    const denom = completed + replayed;
+    // autonomyRatio measures how much the learner completed WITHOUT leaning on scaffolding.
+    // Formula: completed / (completed + scaffoldingEvents), clamped to [0,1].
+    //   scaffoldingEvents = #hints dispensed + #scene replays + #prerequisite remediations
+    //     (cumulative over the whole session; see `this.scaffoldingEvents`).
+    //   - no scaffolding            → completed/completed            = 1.0  (fully independent)
+    //   - more scaffolding consumed → larger denominator             → strictly lower, monotone
+    //   - bounded in [0,1]; denom==0 (degenerate empty session)      → 1.0
+    // Previously this read state.scenes_replayed (NEVER written → always 0) and ignored hints +
+    // remediations entirely, so it pinned to 1.0 for every learner — the bug this fix removes.
+    const scaffolding = this.scaffoldingEvents;
+    const denom = completed + scaffolding;
     const autonomyRatio = denom === 0 ? 1 : Math.max(0, Math.min(1, completed / denom));
     const summary: CompletionSummary = { totalDurationMs, autonomyRatio, scenesCompleted: completed, finalState: this.engine.getState() };
     this.emit({ type: "lesson_completed", total_duration_ms: totalDurationMs, autonomy_ratio: autonomyRatio });
