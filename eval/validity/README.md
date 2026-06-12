@@ -28,9 +28,14 @@ $PY eval/validity/kt_calibration/run_calibration.py --synth --seed 1
 $PY eval/validity/persona_validation/run_validation.py --corpus 01
 $PY eval/validity/grounding_relevance/run_relevance.py --run-dir eval/reports/<a-grounded-run>
 
-# all three at once
+# all three at once (kt step auto-uses the REAL ASSISTments 2009 number once fetched)
+$PY eval/validity/kt_calibration/fetch_assistments.py   # one-time: enables the external number
 $PY eval/validity/run_all.py --corpus 01
 ```
+
+`run_all.py`'s kt step reports the **external** ASSISTments 2009 result when
+`kt_calibration/data/assistments09_canonical.csv` exists (see
+`kt_calibration/external_result.json`), else falls back to synthetic.
 
 ## What this suite does NOT do
 - It does **not** establish *learning efficacy* — that needs a **Tier-3 pilot RCT** with a

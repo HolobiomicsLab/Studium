@@ -41,10 +41,21 @@ def main(argv: list[str]) -> int:
 
     codes: dict[str, int] = {}
 
-    codes["kt_calibration"] = _run(
-        "kt_calibration (EV-4)",
-        [PY, "eval/validity/kt_calibration/run_calibration.py", "--synth", "--seed", args.seed],
-    )
+    # Prefer the REAL external benchmark if it has been fetched
+    # (eval/validity/kt_calibration/fetch_assistments.py); else synthetic.
+    real_csv = os.path.join(HERE, "kt_calibration", "data", "assistments09_canonical.csv")
+    if os.path.isfile(real_csv):
+        kt_label = "kt_calibration (EV-4, REAL ASSISTments 2009)"
+        kt_argv = [PY, "eval/validity/kt_calibration/run_calibration.py", "--csv", real_csv]
+    else:
+        kt_label = (
+            "kt_calibration (EV-4, synthetic — run "
+            "eval/validity/kt_calibration/fetch_assistments.py for the external number)"
+        )
+        kt_argv = [
+            PY, "eval/validity/kt_calibration/run_calibration.py", "--synth", "--seed", args.seed
+        ]
+    codes["kt_calibration"] = _run(kt_label, kt_argv)
 
     run_dir = args.run_dir
     persona_argv = [PY, "eval/validity/persona_validation/run_validation.py"]
