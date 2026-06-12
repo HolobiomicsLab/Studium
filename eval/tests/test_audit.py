@@ -18,7 +18,7 @@ from harness.audit import heuristic_audit, run_audit  # noqa: E402
 from harness.report import render_report  # noqa: E402
 
 
-def _write_bundle(run_dir: Path, with_lwg: bool) -> None:
+def _write_bundle(run_dir: Path, with_lwg: bool, grounded: bool = False) -> None:
     lwg = None
     universes = None
     if with_lwg:
@@ -64,6 +64,24 @@ def _write_bundle(run_dir: Path, with_lwg: bool) -> None:
         "learning_workflow_graph": lwg,
         "universes": universes,
     }
+    if grounded and with_lwg:
+        bundle["learning_workflow_graph"]["edges"][0]["quality_flags"] = ["structural_inference"]
+        bundle["learning_workflow_graph"]["edges"][0]["evidence"] = [
+            {"doi": "10.1073/pnas.1319030111", "quote": "grounded quote", "confidence": 0.8}
+        ]
+        intro = next(s for s in bundle["scenes"] if s["type"] == "intro")
+        intro["evidence"] = {
+            "bibliographic_refs": [{
+                "perspicacite_doc_id": "mock-doc-1", "doi": "10.1073/pnas.1319030111",
+                "title": "A grounded source", "authors": ["Doe J"], "year": 2014,
+                "excerpt": "supporting passage", "relevance_score": 0.8,
+                "prov_derived_from": "test",
+            }],
+            "enrichment_metadata": {
+                "enricher_version": "test-1.0", "perspicacite_mode_used": "passages",
+                "timestamp": "2026-06-12T00:00:00Z", "degraded": False,
+            },
+        }
     bz = run_dir / "x-bundle.zip"
     with zipfile.ZipFile(bz, "w") as zf:
         zf.writestr("lesson.json", json.dumps(bundle))
@@ -135,6 +153,17 @@ def test_ungrounded_lwg_is_flagged_to_backlog_7(tmp_path):
     assert audit["dimension_scores"]["grounding_citations"] < 0.5
     refs = {f["backlog_ref"] for f in audit["findings"] if f["dimension"] == "grounding_citations"}
     assert "#7" in refs
+
+
+def test_grounded_bundle_scores_grounding_full(tmp_path):
+    _write_bundle(tmp_path, with_lwg=True, grounded=True)
+    _provenance(tmp_path)
+    _write_persona(tmp_path, "proficient", ["next", "complete"], ["graph_prereq_gate"])
+    _write_persona(tmp_path, "struggling", ["next", "replay", "complete"], ["graph_prereq_gate"])
+    audit = heuristic_audit(tmp_path)
+    assert audit["dimension_scores"]["grounding_citations"] == 1.0
+    refs = {f["backlog_ref"] for f in audit["findings"] if f["dimension"] == "grounding_citations"}
+    assert "#7" not in refs
 
 
 def test_autonomy_always_one_despite_replays_flagged(tmp_path):
