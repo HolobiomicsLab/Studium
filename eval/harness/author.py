@@ -373,7 +373,11 @@ def order_scenes(material: CorpusMaterial, concepts: list[dict], scene_content: 
                 "markdown": cc["concept_markdown"],
             }
         )
-        scenes.append(_quiz_scene(cid, 1, cc["quiz"]))
+        # 3 items/concept -> distinct quiz scenes s-quiz-{cid}-{1..N}; the runtime
+        # remediates a 2nd error with the next UNSEEN item (remediate_alt, #1).
+        quizzes = cc["quiz"] if isinstance(cc["quiz"], list) else [cc["quiz"]]
+        for j, item in enumerate(quizzes, start=1):
+            scenes.append(_quiz_scene(cid, j, item))
     # ai_critique anchored on the LAST concept (answer-graded -> moves mastery)
     crit = scene_content["critique"]
     scenes.append(
@@ -422,24 +426,57 @@ def _deterministic_content(material: CorpusMaterial, concepts: list[dict]) -> di
         sec: Section = c["_section"]
         # concept markdown = verbatim section prose (corpus-faithful)
         md = f"## {c['title']}\n\n{sec.body[:1800]}".strip()
-        # templated quiz — flagged synthetic. Correct answer references the section title.
+        # templated quiz — flagged synthetic. 3 substantively-different items per
+        # concept so the runtime's 2nd-error remediation (remediate_alt) always has
+        # a fresh, unseen item to draw from (#1); not paraphrases — different stems
+        # AND non-overlapping distractors.
+        sec_sentence = _first_sentence(sec.first_paragraph)
         per_concept[c["id"]] = {
             "concept_markdown": md,
-            "quiz": {
-                "title": f"Quiz: {c['title']}"[:120],
-                "question": (
-                    f"Which statement best reflects the section “{c['title']}” "
-                    f"of {material.title}?"
-                ),
-                "choices": [
-                    {"text": _first_sentence(sec.first_paragraph), "correct": True},
-                    {"text": f"{c['title']} is unrelated to {material.discipline}.", "correct": False},
-                    {"text": "None of the above applies to this material.", "correct": False},
-                ],
-                "feedback_correct": "Correct — that paraphrases the source section.",
-                "feedback_incorrect": f"Re-read the section on {c['title']}.",
-                "hints": [f"Look at how the source defines {c['title']}."],
-            },
+            "quiz": [
+                {
+                    "title": f"Quiz: {c['title']}"[:120],
+                    "question": (
+                        f"Which statement best reflects the section “{c['title']}” "
+                        f"of {material.title}?"
+                    ),
+                    "choices": [
+                        {"text": sec_sentence, "correct": True},
+                        {"text": f"{c['title']} is unrelated to {material.discipline}.", "correct": False},
+                        {"text": "None of the above applies to this material.", "correct": False},
+                    ],
+                    "feedback_correct": "Correct — that paraphrases the source section.",
+                    "feedback_incorrect": f"Re-read the section on {c['title']}.",
+                    "hints": [f"Look at how the source defines {c['title']}."],
+                },
+                {
+                    "title": f"Check: {c['title']}"[:120],
+                    "question": f"What role does “{c['title']}” play within {material.title}?",
+                    "choices": [
+                        {"text": f"It is a key idea developed in the “{c['title']}” section.", "correct": True},
+                        {"text": f"It only appears in the conclusion of {material.title}.", "correct": False},
+                        {"text": f"It contradicts the rest of {material.title}.", "correct": False},
+                    ],
+                    "feedback_correct": "Correct — it is central to this section.",
+                    "feedback_incorrect": f"Revisit what “{c['title']}” contributes to the lesson.",
+                    "hints": [f"Think about why {c['title']} is taught here."],
+                },
+                {
+                    "title": f"Apply: {c['title']}"[:120],
+                    "question": (
+                        f"Which is the best way to recognize “{c['title']}” when you "
+                        f"encounter it in {material.discipline}?"
+                    ),
+                    "choices": [
+                        {"text": f"By the characteristics described in the “{c['title']}” section.", "correct": True},
+                        {"text": f"By assuming it is identical to {material.title} as a whole.", "correct": False},
+                        {"text": "It cannot be recognized from this lesson.", "correct": False},
+                    ],
+                    "feedback_correct": "Correct — apply the section's defining features.",
+                    "feedback_incorrect": f"Look again at how “{c['title']}” is characterized.",
+                    "hints": [f"Recall the defining features of {c['title']}."],
+                },
+            ],
         }
     # ai_critique: two planted claims with flaws lifted from concept titles so
     # the ai-audit-matcher can detect a thorough critique.
@@ -522,18 +559,44 @@ Return STRICT JSON with this shape (no markdown fences):
   "concepts": {{
     "<concept id>": {{
       "concept_markdown": "<150-300 word markdown explainer for this concept, grounded in the source>",
-      "quiz": {{
-        "title": "<short quiz title>",
-        "question": "<one factual multiple-choice question answerable from the source>",
-        "choices": [
-          {{"text": "<correct answer>", "correct": true}},
-          {{"text": "<plausible distractor>", "correct": false}},
-          {{"text": "<plausible distractor>", "correct": false}}
-        ],
-        "feedback_correct": "<one sentence>",
-        "feedback_incorrect": "<one sentence>",
-        "hints": ["<one helpful hint>"]
-      }}
+      "quiz": [
+        {{
+          "title": "<short quiz title>",
+          "question": "<a factual multiple-choice question answerable from the source>",
+          "choices": [
+            {{"text": "<correct answer>", "correct": true}},
+            {{"text": "<plausible distractor>", "correct": false}},
+            {{"text": "<plausible distractor>", "correct": false}}
+          ],
+          "feedback_correct": "<one sentence>",
+          "feedback_incorrect": "<one sentence>",
+          "hints": ["<one helpful hint>"]
+        }},
+        {{
+          "title": "<short quiz title>",
+          "question": "<a SUBSTANTIVELY DIFFERENT question (not a paraphrase; non-overlapping distractors) answerable from the source>",
+          "choices": [
+            {{"text": "<correct answer>", "correct": true}},
+            {{"text": "<plausible distractor>", "correct": false}},
+            {{"text": "<plausible distractor>", "correct": false}}
+          ],
+          "feedback_correct": "<one sentence>",
+          "feedback_incorrect": "<one sentence>",
+          "hints": ["<one helpful hint>"]
+        }},
+        {{
+          "title": "<short quiz title>",
+          "question": "<a THIRD SUBSTANTIVELY DIFFERENT question (not a paraphrase; non-overlapping distractors) answerable from the source>",
+          "choices": [
+            {{"text": "<correct answer>", "correct": true}},
+            {{"text": "<plausible distractor>", "correct": false}},
+            {{"text": "<plausible distractor>", "correct": false}}
+          ],
+          "feedback_correct": "<one sentence>",
+          "feedback_incorrect": "<one sentence>",
+          "hints": ["<one helpful hint>"]
+        }}
+      ]
     }}
   }},
   "critique": {{
@@ -545,7 +608,7 @@ Return STRICT JSON with this shape (no markdown fences):
   }}
 }}
 
-Rules: exactly one choice per quiz has correct=true; provide a quiz for EVERY concept id; 1-3 claims; flaws_expected are 1-4 lowercase keyword phrases that would literally appear in a good critique."""
+Rules: exactly one choice per quiz item has correct=true; provide a quiz for EVERY concept id; provide AT LEAST 3 substantively different quiz items per concept (different stems, non-overlapping distractors — NOT paraphrases of each other); 1-3 claims; flaws_expected are 1-4 lowercase keyword phrases that would literally appear in a good critique."""
     data = cli.complete_json(prompt, system=_AUTHOR_SYSTEM)
     if not isinstance(data, dict):
         raise ValueError("Claude author did not return a JSON object")
@@ -558,14 +621,35 @@ Rules: exactly one choice per quiz has correct=true; provide a quiz for EVERY co
     data["concepts"] = out_concepts
     data.setdefault("intro_markdown", det["intro_markdown"])
     data.setdefault("critique", det["critique"])
-    # Ensure each quiz has exactly one correct choice (model drift guard).
+
+    # Validate quiz items (model drift guard) and guarantee >=3 valid items per
+    # concept so the runtime's unseen-item remediation always has a fresh item (#1).
+    # Each valid item: exactly one correct=true choice, >=2 choices. Invalid or
+    # missing items are backfilled per-slot from the deterministic 3-item list.
+    def _valid_item(item: object) -> bool:
+        if not isinstance(item, dict):
+            return False
+        choices = item.get("choices") or []
+        return sum(1 for ch in choices if ch.get("correct")) == 1 and len(choices) >= 2
+
     for cid, cc in data["concepts"].items():
-        quiz = cc.get("quiz") or det["concepts"][cid]["quiz"]
-        choices = quiz.get("choices") or []
-        if sum(1 for ch in choices if ch.get("correct")) != 1 or len(choices) < 2:
-            cc["quiz"] = det["concepts"][cid]["quiz"]
-        else:
-            cc["quiz"] = quiz
+        det_items = det["concepts"][cid]["quiz"]  # always a list of 3 deterministic items
+        raw = cc.get("quiz")
+        if isinstance(raw, dict):  # tolerate a single-object return from the model
+            raw = [raw]
+        elif not isinstance(raw, list):
+            raw = []
+        # keep only valid model items
+        valid = [item for item in raw if _valid_item(item)]
+        # pad from the deterministic list until we have >=3
+        for det_item in det_items:
+            if len(valid) >= 3:
+                break
+            valid.append(det_item)
+        # final safety: if det_items were somehow short, ensure >=3 by repeating det
+        while len(valid) < 3 and det_items:
+            valid.append(det_items[len(valid) % len(det_items)])
+        cc["quiz"] = valid
     return data
 
 
