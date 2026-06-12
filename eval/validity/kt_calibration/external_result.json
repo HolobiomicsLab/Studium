@@ -47,7 +47,7 @@
     "caveats": [
       "AUC ~0.63-0.82 is the expected band for simple models on these datasets; DKT/SAKT reach higher with far more parameters and tuning. The claim is competitiveness + explainability, not SOTA.",
       "BKT uses FIXED params, not EM-fit; a tuned BKT would likely score higher — it is a reference, not a ceiling.",
-      "Global difficulty estimate is train-on-all; the --running-difficulty variant is causal/leak-free and gives near-identical Beta numbers on assistments09 (Brier 0.2082 / AUC 0.6981)."
+      "Global difficulty estimate is train-on-all; the --running-difficulty variant is causal/leak-free and gives near-identical Beta numbers AND the same 3/4 verdict across ALL FOUR datasets (e.g. assistments09 Brier 0.2082 / AUC 0.6981; spanish 0.1420 / 0.8252; bridge 0.1296 / 0.7360; statics 0.1808 / 0.6358) — so the result is not inflated by difficulty leakage."
     ]
   }
 }
