@@ -278,15 +278,21 @@ STUDIUM_PERSPICACITE_ENABLED=on STUDIUM_PERSPICACITE_MODE=mock \
 Lifts `grounding_citations` 0.30 → 1.0 (verified on corpora 01–03: edges 2/2, scenes 4/4).
 Citations are mock fixtures — this proves the wiring and gives a deterministic regression signal.
 
-**Step B — live KB-less (`:8002`):** currently a no-op.
+**Step B — live KB-less literature (`:8002`):** real citations, no knowledge base.
 ```bash
-STUDIUM_PERSPICACITE_ENABLED=on PERSPICACITE_MCP_URL=http://localhost:8002/mcp \
+STUDIUM_PERSPICACITE_ENABLED=on STUDIUM_PERSPICACITE_MODE=literature \
+  PERSPICACITE_MCP_URL=http://localhost:8002/mcp \
   .venv/bin/python eval/run_eval.py --corpus 04
 ```
-The live client calls `get_relevant_passages`, which **requires a knowledge base**, and we
-intentionally pass `kb_names=[]` (no per-course KB — the no-KGmemory constraint). So retrieval
-returns nothing and the honesty contract leaves edges ungrounded → grounding stays 0.30.
+`STUDIUM_PERSPICACITE_MODE=literature` routes grounding through `search_literature`
+(live database search, **no KB** — the no-KGmemory constraint) with server-side rerank
+filtering, so scenes get **topically-relevant** citations or **honestly degrade** (no
+fake evidence). Env knobs: `STUDIUM_GROUNDING_MIN_RELEVANCE` (default `0.3`),
+`STUDIUM_PERSPICACITE_TIMEOUT` (default `120`s — each `search_literature` call is ~24s).
+Verified on corpus 01: grounding 0.30 → 1.0, e.g. *Peroxisomes* → real peroxisome-biology
+DOIs, while a generic *Introduction* scene degrades honestly.
 
-**Follow-up for real KB-less citations:** add a live path that uses `search_literature`
-(live database search, no KB) instead of `get_relevant_passages`, mapping returned papers →
-evidence (doi/title/authors/year/abstract→excerpt/relevance). Do **not** build a per-course KB.
+Note: the **default** live mode (no `STUDIUM_PERSPICACITE_MODE`) uses `get_relevant_passages`,
+which **requires a KB** — with `kb_names=[]` it returns nothing (grounding stays 0.30). Use
+`literature` mode for the KB-less path. (Caveat: the auditor scores evidence *presence*, not
+relevance; the rerank filter is what keeps live citations on-topic.)
