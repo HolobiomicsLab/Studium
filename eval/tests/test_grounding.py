@@ -50,6 +50,22 @@ def test_ground_bundle_grounds_edges_and_enriches_scenes():
     assert summary["scenes_enriched"] == 2
 
 
+def test_ground_bundle_clamps_relevance_score_for_live_passages():
+    class _OverScore:
+        def search(self, **kw):
+            return {"status": "ok", "docs": [
+                {"id": "d1", "title": "T", "excerpt": "e", "relevance_score": 1.7},
+            ]}
+
+    scenes, lwg = _fixture()
+    ground_bundle(scenes, lwg, _OverScore())
+
+    concept = next(s for s in scenes if s["type"] == "concept")
+    ref = concept["evidence"]["bibliographic_refs"][0]
+    assert ref["relevance_score"] == 1.0, "out-of-range score must be clamped to 1.0"
+    Evidence.model_validate(concept["evidence"])
+
+
 def test_ground_bundle_degraded_client_stays_honest():
     class _Offline:
         def search(self, **kw):

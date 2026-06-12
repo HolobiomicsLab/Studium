@@ -27,7 +27,7 @@ def _to_ref(doc: dict) -> dict:
         "authors": list(doc.get("authors") or []),
         "year": doc.get("year"),
         "excerpt": excerpt,
-        "relevance_score": float(doc.get("relevance_score") or 0.0),
+        "relevance_score": max(0.0, min(1.0, float(doc.get("relevance_score") or 0.0))),
         "prov_derived_from": "eval-harness-grounding:passages",
     }
 
@@ -57,6 +57,8 @@ def ground_bundle(scenes: list[dict], lwg: Optional[dict], client: Any,
         if not docs:
             continue
         d = docs[0]
+        # LWG is dict[str, Any] (loose) -> ad-hoc evidence shape is fine here;
+        # scene evidence below is strict (scene_synth_schemas.Evidence).
         edge["evidence"] = [{
             "doi": d.get("doi"),
             "quote": str(d.get("excerpt") or "")[:240],
