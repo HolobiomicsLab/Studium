@@ -224,7 +224,9 @@ def test_six_scene_types_produced_in_bundle(tmp_path, fixture_dir):
 
     result = orch.synthesize_lesson(plan, options={"include_critique": True})
 
-    assert result["scenes_generated"] == 6, result
+    # 5 single-scene outlines + 1 quiz outline expanded to 3 items (product
+    # parity with the eval harness) = 8 scenes.
+    assert result["scenes_generated"] == 8, result
     assert result["warnings"] == [], result["warnings"]
 
     bundle_path = Path(result["bundle_uri"].replace("file://", ""))
@@ -243,6 +245,9 @@ def test_six_scene_types_produced_in_bundle(tmp_path, fixture_dir):
             "reproduction",
             "ai_critique",
         }
+        quiz_ids = [s["id"] for s in lesson["scenes"] if s["type"] == "quiz"]
+        assert len(quiz_ids) == 3, quiz_ids
+        assert len(set(quiz_ids)) == 3, quiz_ids
 
 
 def test_include_critique_false_skips_ai_critique(tmp_path, fixture_dir):
@@ -255,7 +260,9 @@ def test_include_critique_false_skips_ai_critique(tmp_path, fixture_dir):
     )
     plan = _lesson_plan_six_types()
     result = orch.synthesize_lesson(plan, options={"include_critique": False})
-    assert result["scenes_generated"] == 5
+    # 4 single-scene outlines (ai_critique skipped) + 1 quiz outline expanded
+    # to 3 items = 7 scenes.
+    assert result["scenes_generated"] == 7
     assert any("ai_critique" in w for w in result["warnings"])
     bundle_path = Path(result["bundle_uri"].replace("file://", ""))
     with zipfile.ZipFile(bundle_path) as zf:

@@ -94,6 +94,22 @@ class SceneSynthOrchestrator:
                     "ai_critique scene skipped (include_critique=False)"
                 )
                 continue
+            if scene_type == "quiz":
+                # Product parity with the eval harness: emit N distinct quiz
+                # items per concept (same concept_refs, distinct ids) so the
+                # runtime has unseen items for remediation.
+                n_items = int(options.get("questions_per_concept", 3))
+                _orefs = list(outline.get("objective_refs") or [])
+                base = outline.get("id") or (
+                    f"s-quiz-{(_orefs[0] if _orefs else 'x')}"
+                )
+                for i in range(1, n_items + 1):
+                    qs = agent.synthesize({**outline, "variant_idx": i}, context)
+                    qs.id = f"{base}-{i}"
+                    qs.objective_refs = _orefs
+                    qs.concept_refs = list(_orefs)
+                    scenes.append(qs)
+                continue
             scene = agent.synthesize(outline, context)
             _orefs = list(outline.get("objective_refs") or [])
             scene.objective_refs = _orefs

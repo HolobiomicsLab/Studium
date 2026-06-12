@@ -55,4 +55,10 @@ def test_synthesized_scene_concept_refs_equal_objective_refs(tmp_path):
     by_id = {s.id: s for s in captured["scenes"]}
     assert by_id["s1"].objective_refs == ["obj-1"]
     assert by_id["s1"].concept_refs == ["obj-1"]
-    assert by_id["s2"].concept_refs == ["obj-1", "obj-2"]
+    # The quiz outline ``s2`` now expands to N=3 distinct quiz items
+    # (``s2-1``..``s2-3``), each carrying the concept's concept_refs.
+    # Product parity with the eval harness — see test_orchestrator_multi_quiz.
+    quiz_items = [s for s in captured["scenes"] if s.id.startswith("s2-")]
+    assert len(quiz_items) == 3
+    for qs in quiz_items:
+        assert qs.concept_refs == ["obj-1", "obj-2"]

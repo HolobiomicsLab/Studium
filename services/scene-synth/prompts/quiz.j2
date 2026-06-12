@@ -11,6 +11,9 @@ Rédige UNE question fermée et 4 choix de réponse. Exactement UNE choix
 doit avoir ``"correct": true`` ; les autres ``"correct": false``.
 Fournis un retour positif court et un retour correctif qui explique
 brièvement pourquoi la bonne réponse est bonne (sans révéler les autres).
+{% if plan_section.variant_idx and plan_section.variant_idx > 1 %}
+Ceci est l'item n°{{ plan_section.variant_idx }} pour ce concept : rédige une question SUBSTANTIELLEMENT DIFFÉRENTE des items frères (stem et distracteurs distincts, pas une paraphrase).
+{% endif %}
 
 Réponds en JSON strict, schéma (ADR 010 — flat) :
 {
