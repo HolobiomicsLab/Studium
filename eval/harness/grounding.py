@@ -109,6 +109,9 @@ def make_client_from_env() -> Optional[Any]:
         from perspicacite_mcp.session import _MCPSession
         from harness.literature_client import LiteratureSearchClient
         mcp_url = os.getenv("PERSPICACITE_MCP_URL", "http://localhost:8002/mcp")
-        return LiteratureSearchClient(session=_MCPSession(mcp_url))
+        # search_literature is slow (live multi-DB + LLM query-rewrite + rerank,
+        # ~24s measured); the _MCPSession default 10s timeout always times out.
+        timeout = float(os.getenv("STUDIUM_PERSPICACITE_TIMEOUT", "120"))
+        return LiteratureSearchClient(session=_MCPSession(mcp_url, timeout=timeout))
     from perspicacite_mcp.client import make_perspicacite_client
     return make_perspicacite_client()
