@@ -27,6 +27,14 @@ function wrongChoiceId(scene) {
   const c = scene.choices.find((x) => !x.correct);
   return c ? c.id : scene.choices[0].id;
 }
+// Struggling/overconfident converge per CONCEPT (across different items), not per
+// scene id: with multi-item remediation each error routes to a DIFFERENT unseen
+// item, so a per-scene counter would reset every time and never reach "then
+// correct" (infinite loop). Keying by concept models a learner who masters the
+// idea after N attempts regardless of which item — and lets the run progress.
+function conceptKey(scene) {
+  return scene.concept_refs?.[0] ?? scene.id;
+}
 
 // A thorough critique that names every planted claim id AND echoes each
 // flaws_expected phrase (so ai-audit-matcher scores true positives).
@@ -72,22 +80,24 @@ const proficient = {
 // as the long replay streak in the transcript; without an eventual correct the
 // session never advances at all, which the harness reports as a finding).
 function makeStruggling(failsBefore = 2) {
-  const seen = new Map(); // scene_id -> attempts
+  const seen = new Map(); // concept_key -> attempts (converge per-concept across items)
   return {
     name: "struggling",
     pick(scene) {
       switch (scene.type) {
         case "quiz": {
-          const n = seen.get(scene.id) ?? 0;
-          seen.set(scene.id, n + 1);
+          const k = conceptKey(scene);
+          const n = seen.get(k) ?? 0;
+          seen.set(k, n + 1);
           const choiceId = n < failsBefore ? wrongChoiceId(scene) : correctChoiceId(scene);
           return { input: { kind: "quiz_choice", choiceId } };
         }
         case "meta_checkpoint":
           return { input: { kind: "confidence", value: 1 } }; // low, calibrated to low correctness
         case "ai_critique": {
-          const n = seen.get(scene.id) ?? 0;
-          seen.set(scene.id, n + 1);
+          const k = conceptKey(scene);
+          const n = seen.get(k) ?? 0;
+          seen.set(k, n + 1);
           const text = n < failsBefore ? shallowCritique(scene) : thoroughCritique(scene);
           return { input: { kind: "critique", text } };
         }
@@ -111,16 +121,18 @@ function makeOverconfident(failsBefore = 2) {
     pick(scene) {
       switch (scene.type) {
         case "quiz": {
-          const n = seen.get(scene.id) ?? 0;
-          seen.set(scene.id, n + 1);
+          const k = conceptKey(scene);
+          const n = seen.get(k) ?? 0;
+          seen.set(k, n + 1);
           const choiceId = n < failsBefore ? wrongChoiceId(scene) : correctChoiceId(scene);
           return { input: { kind: "quiz_choice", choiceId } };
         }
         case "meta_checkpoint":
           return { input: { kind: "confidence", value: 4 } }; // maximally confident (miscalibrated)
         case "ai_critique": {
-          const n = seen.get(scene.id) ?? 0;
-          seen.set(scene.id, n + 1);
+          const k = conceptKey(scene);
+          const n = seen.get(k) ?? 0;
+          seen.set(k, n + 1);
           const text = n < failsBefore ? shallowCritique(scene) : thoroughCritique(scene);
           return { input: { kind: "critique", text } };
         }
