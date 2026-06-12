@@ -22,6 +22,11 @@ def mastery_vector(rec: PersonaRecord, concepts: List[str]) -> List[float]:
     return [float(rec.mastery.get(c, 0.0)) for c in concepts]
 
 
+def calibration_vector(rec: PersonaRecord, concepts: List[str]) -> List[float]:
+    """confidence_calibration ([-1,1]) aligned over concepts (missing -> 0.0)."""
+    return [float(rec.calibration.get(c, 0.0)) for c in concepts]
+
+
 def l1_distance(a: List[float], b: List[float]) -> float:
     """Sum of absolute differences. Shorter vector is zero-padded."""
     n = max(len(a), len(b))
@@ -88,19 +93,30 @@ def collapse_score(
       normalized term is in [0,1]).
     * transition similarity = 1 − transition_distribution_distance.
 
-    The score is the MINIMUM of the two similarities — collapse only when the
-    personas agree on BOTH axes; differing on either axis pulls the score down.
+    * calibration similarity = 1 − (L1(cal_a, cal_b) / (2·|concepts|))
+      (confidence_calibration is in [−1,1], so per-concept |diff| ≤ 2). This is
+      the axis overconfident vs struggling diverge on (same answers, different
+      declared confidence) — without it they false-flag as collapsed.
+
+    The score is the MINIMUM of the three similarities — collapse only when the
+    personas agree on ALL of mastery, runtime behaviour AND calibration;
+    differing on any axis pulls the score down.
     """
     n = len(concepts)
     if n > 0:
         va = mastery_vector(rec_a, concepts)
         vb = mastery_vector(rec_b, concepts)
         mastery_sim = 1.0 - (l1_distance(va, vb) / n)
+        ca = calibration_vector(rec_a, concepts)
+        cb = calibration_vector(rec_b, concepts)
+        calibration_sim = 1.0 - (l1_distance(ca, cb) / (2.0 * n))
     else:
         mastery_sim = 1.0
+        calibration_sim = 1.0
     mastery_sim = max(0.0, min(1.0, mastery_sim))
+    calibration_sim = max(0.0, min(1.0, calibration_sim))
 
     transition_sim = 1.0 - transition_distribution_distance(rec_a, rec_b)
     transition_sim = max(0.0, min(1.0, transition_sim))
 
-    return min(mastery_sim, transition_sim)
+    return min(mastery_sim, transition_sim, calibration_sim)

@@ -92,3 +92,19 @@ def test_collapse_score_in_unit_interval():
     b = _rec("b", {"c-a": 0.3}, ["remediate_alt"])
     s = collapse_score(a, b, ["c-a"])
     assert 0.0 <= s <= 1.0
+
+
+def test_collapse_score_distinguishes_by_calibration():
+    # overconfident vs struggling: identical mastery + transitions, DIFFERENT
+    # confidence_calibration -> must NOT be flagged as collapsed.
+    from eval.validity.persona_validation.loader import PersonaRecord
+    from eval.validity.persona_validation.metrics import collapse_score, COLLAPSE_THRESHOLD
+    concepts = ["c0", "c1"]
+    base = dict(completed=True, n_turns=10, transition_kinds=["next", "next"],
+                transition_counts={"next": 2}, mastery={"c0": 0.6, "c1": 0.6}, autonomy_ratio=1.0)
+    a = PersonaRecord(persona="struggling", calibration={"c0": -0.2, "c1": -0.2}, **base)
+    b = PersonaRecord(persona="overconfident", calibration={"c0": 0.55, "c1": 0.55}, **base)
+    assert collapse_score(a, b, concepts) < COLLAPSE_THRESHOLD
+    # identical on ALL three axes (incl. calibration) -> collapsed
+    c = PersonaRecord(persona="x", calibration={"c0": -0.2, "c1": -0.2}, **base)
+    assert collapse_score(a, c, concepts) >= COLLAPSE_THRESHOLD

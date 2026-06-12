@@ -31,6 +31,7 @@ class PersonaRecord:
     mastery: Dict[str, float]  # concept_id -> alpha/(alpha+beta) in [0,1]
     autonomy_ratio: float
     rules_fired: Set[str] = field(default_factory=set)
+    calibration: Dict[str, float] = field(default_factory=dict)  # concept_id -> confidence_calibration in [-1,1]
 
 
 def _safe_load_json(path: str):
@@ -66,6 +67,26 @@ def _mastery_from_concept_states(concept_states: dict) -> Dict[str, float]:
             continue
         denom = alpha + beta
         out[str(cid)] = (alpha / denom) if denom > 0 else 0.0
+    return out
+
+
+def _calibration_from_concept_states(concept_states: dict) -> Dict[str, float]:
+    """Extract concept -> confidence_calibration ([-1,1]) from concept_states.
+
+    confidence_calibration is the axis overconfident/struggling diverge on (same
+    answers, different declared confidence) — so collapse detection must weigh it,
+    else two behaviourally-identical-but-differently-calibrated personas false-flag.
+    """
+    out: Dict[str, float] = {}
+    if not isinstance(concept_states, dict):
+        return out
+    for cid, st in concept_states.items():
+        if not isinstance(st, dict) or "confidence_calibration" not in st:
+            continue
+        try:
+            out[str(cid)] = float(st.get("confidence_calibration", 0.0))
+        except (TypeError, ValueError):
+            continue
     return out
 
 
@@ -130,6 +151,7 @@ def _record_from_session(session_dir: str, persona: str) -> PersonaRecord:
         autonomy_ratio = 0.0
 
     rules_fired = _collect_rules_fired(os.path.join(session_dir, "telemetry.jsonl"))
+    calibration = _calibration_from_concept_states(final_state.get("concept_states") or {})
 
     return PersonaRecord(
         persona=persona_name,
@@ -140,6 +162,7 @@ def _record_from_session(session_dir: str, persona: str) -> PersonaRecord:
         mastery=mastery,
         autonomy_ratio=autonomy_ratio,
         rules_fired=rules_fired,
+        calibration=calibration,
     )
 
 
