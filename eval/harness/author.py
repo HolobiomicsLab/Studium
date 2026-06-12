@@ -618,6 +618,18 @@ def author_bundle(
     assert not missing, f"scene concept_refs not in LWG concepts (alignment broken): {missing}"
     assert lesson_plan["universes"]["variants"], "universes must be present (#6 adaptivity)"
 
+    # --- grounding (REVIEW-FINDINGS #7 / ADR 014): attach citable evidence when a
+    # Perspicacité client is configured. None => unchanged 0.30 path (key-free default).
+    from harness.grounding import ground_bundle, make_client_from_env
+
+    _gclient = make_client_from_env()
+    grounding_summary = None
+    if _gclient is not None:
+        grounding_summary = ground_bundle(scenes, lesson_plan["learning_workflow_graph"], _gclient)
+        print(f"  -> grounded edges={grounding_summary['edges_grounded']}/"
+              f"{grounding_summary['edges_total']} scenes={grounding_summary['scenes_enriched']}/"
+              f"{grounding_summary['scenes_total']}", flush=True)
+
     out_dir.mkdir(parents=True, exist_ok=True)
     bundle_path = out_dir / f"{material.id}-bundle.zip"
     prov_seed = {"agent": "eval-harness-author", "version": "0.1.0", "validator": f"eval-harness:{author_label}"}
@@ -664,6 +676,7 @@ def author_bundle(
         "lwg_nodes": len(lwg["nodes"]),
         "lwg_edges": len(lwg["edges"]),
         "universe_variants": [v["id"] for v in lesson_plan["universes"]["variants"]],
+        "grounding": grounding_summary,  # None when disabled; else the ground_bundle summary
         "schema_version": bundle_dict["schema_version"],
         "warning": (
             "OFFLINE deterministic author: quiz items are templated (synthetic_assessment=true) "
