@@ -86,13 +86,15 @@ def test_author_quiz_has_exactly_one_correct_choice(tmp_path):
 
 
 def test_author_validated_at_is_zod_strict_datetime(tmp_path):
-    """The TS loader (Zod z.string().datetime()) rejects numeric offsets; the
-    harness normalises validated_at to a Z suffix and flags the bundler defect."""
+    """The TS loader (Zod z.string().datetime()) requires a Z suffix. The bundler now
+    emits Z natively (fixed upstream — bundler.py _utc_now_z), so validated_at is Z-strict
+    AND the harness's defensive normaliser finds NO offset defect to fix."""
     m = _first_material()
     res = author_bundle(m, tmp_path, mode="deterministic")
     ts = res.bundle_dict["validated_at"]
     assert ts.endswith("Z"), f"validated_at must be Z-suffixed for the TS loader, got {ts!r}"
-    assert res.provenance["bundler_validated_at_offset_defect"] is True
+    # bundler now emits Z upstream → no offset defect for the harness to normalise.
+    assert res.provenance["bundler_validated_at_offset_defect"] is False
 
 
 def test_author_bloom_progression_is_coherent_and_monotone(tmp_path):

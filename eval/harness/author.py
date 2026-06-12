@@ -632,14 +632,11 @@ def author_bundle(
         bundle_dict = json.loads(zf.read("lesson.json"))
     LessonBundle.model_validate(bundle_dict)  # raises on any drift
 
-    # HARNESS-DISCOVERED INTEROP DEFECT: bundler.py emits validated_at via
-    # datetime.now(timezone.utc).isoformat() -> "...+00:00", but the TS loader
-    # (bundle-loader.ts -> LessonBundleSchema) uses Zod z.string().datetime()
-    # which by default REJECTS numeric offsets (only accepts "...Z"). The
-    # Pydantic mirror accepts both, so the round-trip passes Python yet the
-    # runtime refuses to load the bundle. We normalise to a Z suffix so the
-    # session can run, and flag it for the audit (maps to the schema
-    # single-source-of-truth IMPORTANT cluster item).
+    # DEFENSIVE NORMALISER (interop): the TS loader (bundle-loader.ts -> LessonBundleSchema)
+    # uses Zod z.string().datetime() which REJECTS numeric offsets (only "...Z"). This was a
+    # real bundler defect the harness discovered; it is now FIXED UPSTREAM (bundler.py
+    # _utc_now_z emits Z natively), so ts_was_offset is normally False. We keep this normaliser
+    # as a cheap safety net against any future regression to a "+00:00" emit.
     normalized_ts, ts_was_offset = _normalize_validated_at(bundle_dict.get("validated_at", ""))
     if ts_was_offset:
         bundle_dict["validated_at"] = normalized_ts
