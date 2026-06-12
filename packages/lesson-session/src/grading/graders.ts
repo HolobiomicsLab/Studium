@@ -1,5 +1,5 @@
 // packages/lesson-session/src/grading/graders.ts
-import type { Scene } from "@studium/lesson-bundle-schema";
+import type { Scene, BloomLevel } from "@studium/lesson-bundle-schema";
 import type { Signal } from "@studium/learner-state";
 import type { ResponseInput } from "../types.js";
 import type { EmitInput } from "../telemetry.js";
@@ -8,10 +8,24 @@ import { matchClaimsAgainstCritique } from "./ai-audit-matcher.js";
 import { SceneGradingError } from "../errors.js";
 
 export interface GradeResult { signal: Signal; telemetry: EmitInput[]; }
-export interface GradeDeps { critiqueEvaluator: CritiqueEvaluator; hintCount?: number; }
+export interface GradeDeps { critiqueEvaluator: CritiqueEvaluator; hintCount?: number; bloomLevel?: BloomLevel; }
 type Grader = (scene: Scene, input: ResponseInput, deps: GradeDeps) => Promise<GradeResult>;
 
 const DIFFICULTY = { quiz: 0.5, ai_critique: 0.7 } as const;
+
+// M1: item difficulty (the IRT weight `w` fed to beta-updater) derives from the scene
+// concept's Bloom level via this monotone map. ANCHOR: `understand` -> 0.5 == the legacy
+// flat quiz default, so bundles whose concepts are `understand` (and the absent-bloom
+// fallback) behave EXACTLY as before. Higher Bloom -> higher w -> a correct answer earns
+// less alpha ((1-w)+1 shrinks) and a wrong answer adds more beta — i.e. mastering an
+// `analyze` concept is genuinely harder to certify than a `remember` one.
+const BLOOM_DIFFICULTY: Record<BloomLevel, number> = {
+  remember: 0.3, understand: 0.5, apply: 0.6, analyze: 0.7, evaluate: 0.8, create: 0.9,
+};
+
+function difficultyForBloom(bloom: BloomLevel | undefined, fallback: number): number {
+  return bloom ? BLOOM_DIFFICULTY[bloom] : fallback;
+}
 
 function conceptOf(scene: Scene): string {
   return ("concept_refs" in scene ? scene.concept_refs[0] : undefined) ?? "default";
@@ -28,7 +42,7 @@ const quizGrader: Grader = async (scene, input, deps) => {
   const choice = scene.choices.find((c) => c.id === input.choiceId);
   const correct = choice?.correct ?? false;
   return {
-    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct, time_ms: 0, hint_count: deps.hintCount ?? 0, difficulty: DIFFICULTY.quiz },
+    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct, time_ms: 0, hint_count: deps.hintCount ?? 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.quiz) },
     telemetry: [{ type: "quiz_answered", scene_id: scene.id, item_id: input.choiceId, correct, response_time_ms: 0, confidence: 0.5 }],
   };
 };
@@ -51,7 +65,7 @@ const critiqueGrader: Grader = async (scene, input, deps) => {
   const completion_rate = scene.claims.length === 0 ? 0 : Math.max(0, Math.min(1, mentioned / scene.claims.length));
   const audit = matchClaimsAgainstCritique(scene.claims, input.text);
   return {
-    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: DIFFICULTY.ai_critique },
+    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.ai_critique) },
     telemetry: [
       { type: "critique_submitted", scene_id: scene.id, llm_score: Math.max(0, Math.min(1, score)), completion_rate },
       { type: "ai_audit_result", scene_id: scene.id, planted_errors: audit.planted_errors, true_positives: audit.true_positives, false_positives: audit.false_positives, missed: audit.missed },

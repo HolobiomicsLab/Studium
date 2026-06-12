@@ -7,6 +7,7 @@ Run:  /Users/holobiomicslab/git/prototype-build/.venv/bin/python -m pytest eval/
 from __future__ import annotations
 
 import json
+import re
 import sys
 import zipfile
 from pathlib import Path
@@ -92,6 +93,30 @@ def test_author_validated_at_is_zod_strict_datetime(tmp_path):
     ts = res.bundle_dict["validated_at"]
     assert ts.endswith("Z"), f"validated_at must be Z-suffixed for the TS loader, got {ts!r}"
     assert res.provenance["bundler_validated_at_offset_defect"] is True
+
+
+def test_author_bloom_progression_is_coherent_and_monotone(tmp_path):
+    """M1: concept Bloom targets must be (a) monotonically non-decreasing across the
+    concept order (so the audit monotonicity lever never fires) AND (b) content-coherent
+    — a consolidation/summary concept must NOT be stamped with the highest cognitive verb
+    (`analyze`/`evaluate`/`create`). The deterministic author previously force-tagged the
+    last-chosen section (frequently a `Summary`) `analyze`."""
+    m = _first_material()
+    res = author_bundle(m, tmp_path, mode="deterministic")
+    concepts = res.bundle_dict["concepts"]
+    ladder = ["remember", "understand", "apply", "analyze", "evaluate", "create"]
+    idxs = [ladder.index(c["bloom_level_target"]) for c in concepts]
+    # (a) monotone non-decreasing
+    assert idxs == sorted(idxs), f"Bloom targets are not monotone: {[c['bloom_level_target'] for c in concepts]}"
+    # (b) no consolidation/summary concept carries a high-order Bloom verb
+    recap_re = re.compile(r"summary|conclusion|recap|review|overview", re.IGNORECASE)
+    high_order = {"analyze", "evaluate", "create"}
+    for c in concepts:
+        if recap_re.search(c["title"]):
+            assert c["bloom_level_target"] not in high_order, (
+                f"consolidation concept {c['title']!r} stamped high-order Bloom "
+                f"{c['bloom_level_target']!r} (content-incoherent)"
+            )
 
 
 def test_author_refuses_unknown_mode(tmp_path):

@@ -118,14 +118,35 @@ def _title_of(body: str, fallback: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+# Consolidation / recap sections summarise prior content; tagging them with a high-order
+# Bloom verb (analyze/evaluate/create) is content-incoherent (M1). We avoid selecting them
+# as concepts so the chosen triple is genuinely substantive AND the positional Bloom ladder
+# (understand -> apply -> analyze) lands coherently on real content sections.
+_CONSOLIDATION_RE = re.compile(r"summary|conclusion|recap|review|overview|objectives?", re.IGNORECASE)
+
+
+def _is_consolidation(title: str) -> bool:
+    return bool(_CONSOLIDATION_RE.search(title or ""))
+
+
 def _pick_concept_sections(sections: list[Section], material: CorpusMaterial) -> list[Section]:
     """Choose 2–3 sections to become concepts. Two minimum so we can author a
-    prerequisite_for edge (concept B requires concept A) and exercise gating."""
+    prerequisite_for edge (concept B requires concept A) and exercise gating.
+
+    M1 coherence: a consolidation/recap section (Summary, Conclusion, Overview, Learning
+    Objectives) is NOT a substantive concept — the positional Bloom ladder would force the
+    LAST concept to `analyze`, stamping a recap with the highest cognitive verb. So we draw
+    concepts from substantive (non-consolidation) sections, falling back to the raw list
+    only if filtering would leave too few.
+    """
     if len(sections) >= 2:
-        # spread across the doc: first, middle, last-ish
-        if len(sections) >= 3:
-            return [sections[0], sections[len(sections) // 2], sections[-1]]
-        return sections[:2]
+        substantive = [s for s in sections if not _is_consolidation(s.title)]
+        # keep >= the minimum (2) and prefer substantive sections; fall back if filtering is too aggressive
+        pool = substantive if len(substantive) >= min(3, len(sections)) else sections
+        # spread across the doc: first, middle, last-ish (of the substantive pool)
+        if len(pool) >= 3:
+            return [pool[0], pool[len(pool) // 2], pool[-1]]
+        return pool[:2]
     # degenerate: synthesise two sub-concepts from the single section / summary
     only = sections[0] if sections else Section(material.title, material.summary)
     halves = only.body.split("\n\n")

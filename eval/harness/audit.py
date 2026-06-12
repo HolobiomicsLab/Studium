@@ -114,9 +114,15 @@ def _score_pedagogical_soundness(bundle: dict, runs: list[PersonaRun], findings:
             f"Remediation replays the SAME scene ({replay_streaks} replay transitions across personas) "
             "rather than presenting a DIFFERENT item — same-item remediation.",
             "sessions/*/driver_result.json:transition_kinds", "#1"))
-    # difficulty never modulates by Bloom (M1): quiz difficulty is a fixed 0.5 in graders.
+    # M1 FIXED: item difficulty (the IRT weight w fed to beta-updater) now derives from the
+    # scene concept's Bloom level via a monotone map (graders.ts BLOOM_DIFFICULTY), threaded
+    # from bundle.concepts[].bloom_level_target through GradeDeps.bloomLevel. `understand`
+    # anchors at 0.5 (the legacy flat default), so a remember-quiz and an analyze-quiz are no
+    # longer mathematically identical to the learner model.
     findings.append(Finding("pedagogical_soundness", "info",
-        "Quiz difficulty is fixed (graders.ts DIFFICULTY.quiz=0.5); Bloom level does not modulate it.",
+        "Quiz difficulty now MODULATES by Bloom (graders.ts BLOOM_DIFFICULTY: remember 0.3 .. "
+        "create 0.9, understand=0.5 anchor); higher-Bloom items earn less alpha per correct, "
+        "making high-order mastery genuinely harder to certify.",
         "packages/lesson-session/src/grading/graders.ts", "M1-bloom-difficulty"))
     return max(0.0, score)
 

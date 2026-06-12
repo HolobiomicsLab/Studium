@@ -147,7 +147,14 @@ export class LessonSession {
     this.assertStarted();
     if (this.completed) throw new SessionAlreadyCompleteError();
     const scene = this.scene();
-    const { signal, telemetry } = await grade(scene, input, { critiqueEvaluator: this.deps.critiqueEvaluator, hintCount: this.hintsUsed });
+    // M1: look up the scene concept's Bloom target from the bundle so grade() can derive
+    // the IRT difficulty `w` from it (mirrors how hintCount is threaded). Absent -> grader fallback.
+    const conceptId = "concept_refs" in scene ? scene.concept_refs[0] : undefined;
+    const bloomLevel = conceptId ? this.bundle.concepts.find((c) => c.id === conceptId)?.bloom_level_target : undefined;
+    const { signal, telemetry } = await grade(scene, input, {
+      critiqueEvaluator: this.deps.critiqueEvaluator, hintCount: this.hintsUsed,
+      ...(bloomLevel ? { bloomLevel } : {}),
+    });
     for (const ev of telemetry) this.emit(ev);
     const decision = await this.applySignal(signal);                 // drives navigation
     if (signal.kind !== "scene_completed") {
