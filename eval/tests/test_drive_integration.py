@@ -49,9 +49,11 @@ def test_personas_branch_and_adaptivity_fires(tmp_path):
                        live=False, pseudo_secret="t:struggling", max_turns=60)
 
     assert prof["completed"] and strg["completed"]
-    # personas must branch: struggling needs strictly more turns (replays) than proficient
+    # personas must branch: struggling needs strictly more turns (remediations) than proficient
     assert strg["n_turns"] > prof["n_turns"], (prof["n_turns"], strg["n_turns"])
-    assert "replay" in strg["transition_kinds"]
+    # different-item remediation: struggling is routed to UNSEEN alternate items (#1 fix),
+    # so it shows `remediate_alt` rather than same-item `replay`.
+    assert "remediate_alt" in strg["transition_kinds"]
     assert "replay" not in prof["transition_kinds"]
 
 

@@ -222,3 +222,15 @@ def test_report_renders_and_maps_backlog(tmp_path):
     assert "Dimension scores" in md
     assert "backlog_ref" in md or "backlog" in md
     assert (tmp_path / "audit.json").exists()
+
+
+def test_remediation_via_unseen_item_scores_full(tmp_path):
+    # different-item remediation emits 'remediate_alt' (never 'replay') -> #1 not flagged
+    _write_bundle(tmp_path, with_lwg=True)
+    _provenance(tmp_path)
+    _write_persona(tmp_path, "proficient", ["next", "complete"], ["graph_prereq_gate"])
+    _write_persona(tmp_path, "struggling", ["next", "remediate_alt", "next", "complete"], ["graph_prereq_gate"])
+    audit = heuristic_audit(tmp_path)
+    assert audit["dimension_scores"]["pedagogical_soundness"] == 1.0
+    refs = {f["backlog_ref"] for f in audit["findings"] if f["dimension"] == "pedagogical_soundness"}
+    assert "#1" not in refs
