@@ -117,4 +117,45 @@ describe("LessonSession.respond — adaptation branches", () => {
     expect(applied.length).toBeGreaterThanOrEqual(1);
     expect(applied.at(-1)).toMatchObject({ rule_id: "rule_2err", modulator: "M1" });
   });
+
+  // ---- Task 1: unseen-item remediation (remediate_alt) ----
+  // A quiz scene on an arbitrary concept (choice "a" wrong, "b" correct). Mirrors quizScene above
+  // but parameterizes the concept so we can build TWO answer-graded items sharing one concept.
+  function quizSceneFor(id: string, concept: string) {
+    return { id, type: "quiz", title: "Q", objective_refs: [], concept_refs: [concept], estimated_seconds: 0, adaptation_hooks: [],
+      question: "?", choices: [{ id: "a", text: "A", correct: false }, { id: "b", text: "B", correct: true }], feedback_correct: "ok", feedback_incorrect: "no", hints: [] };
+  }
+  // Fire replay_current_scene on the FIRST wrong answer (consecutive_errors=1) so the session stays
+  // ON the first c0 item — leaving the second c0 item still UNSEEN when remediation routes.
+  const replayOn1Err = { id: "rule_2err_replay_concept", when: { consecutive_errors_same_concept: ">=1" }, action: { kind: "replay_current_scene", reason: "errors_threshold" }, modulator: "M1", explanation_short: "revoir" };
+
+  it("remediates to an UNSEEN alternate item (remediate_alt), not a replay", async () => {
+    const deps = buildTestDeps();
+    // c0 has TWO answer-graded quiz items; both concept_refs:["c0"]. A trailing c1 item gives the
+    // session somewhere to go after, but the remediation must route to the unseen c0 alternate.
+    const s = new LessonSession(
+      bundleWith([quizSceneFor("s-quiz-c0-1", "c0"), quizSceneFor("s-quiz-c0-2", "c0"), quizScene("q-c1")], [replayOn1Err]),
+      deps,
+    );
+    await s.start();
+    // One wrong answer on s-quiz-c0-1 trips rule_2err_replay_concept → replay_current_scene.
+    // Runtime routes to the UNSEEN alternate item s-quiz-c0-2 instead of re-presenting s-quiz-c0-1.
+    const t = await s.respond({ kind: "quiz_choice", choiceId: "a" });
+    expect(t.kind).toBe("remediate_alt");
+    if (t.kind === "remediate_alt") expect(t.presentation.scene.id).toBe("s-quiz-c0-2");
+  });
+
+  it("falls back to replay when no unseen alternate item exists", async () => {
+    const deps = buildTestDeps();
+    // c0 has ONLY s-quiz-c0-1 (the trailing item is a DIFFERENT concept c1) → no unseen c0
+    // alternate → honest fallback to same-item replay.
+    const s = new LessonSession(
+      bundleWith([quizSceneFor("s-quiz-c0-1", "c0"), quizScene("q-c1")], [replayOn1Err]),
+      deps,
+    );
+    await s.start();
+    const t = await s.respond({ kind: "quiz_choice", choiceId: "a" });
+    expect(t.kind).toBe("replay");
+    if (t.kind === "replay") expect(t.presentation.scene.id).toBe("s-quiz-c0-1");
+  });
 });

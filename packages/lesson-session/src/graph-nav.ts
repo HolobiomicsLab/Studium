@@ -49,6 +49,17 @@ export function firstAnswerGradedSceneForConcept(
   return scenes.findIndex((s) => sceneConceptId(s) === conceptId && ANSWER_GRADED_TYPES.has(s.type ?? ""));
 }
 
+/** Index of the first ANSWER-GRADED scene for `conceptId` whose id is NOT in `seen`, or -1. */
+export function firstUnseenAnswerGradedSceneForConcept(
+  scenes: { id?: string; concept_refs?: string[]; type?: string }[],
+  conceptId: string,
+  seen: Set<string>,
+): number {
+  return scenes.findIndex(
+    (s) => sceneConceptId(s) === conceptId && ANSWER_GRADED_TYPES.has(s.type ?? "") && !seen.has(s.id ?? ""),
+  );
+}
+
 export type GraphNavReason = "advance" | "remediate" | "skip_mastered";
 export interface GraphNavResult {
   index: number | null; // null => no scene to advance to (caller completes)

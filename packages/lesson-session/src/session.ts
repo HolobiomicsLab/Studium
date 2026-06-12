@@ -1,7 +1,7 @@
 import type { LessonBundle, Scene } from "@studium/lesson-bundle-schema";
 import { AdaptationEngine, DEFAULT_THETA } from "@studium/adaptation-engine";
 import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type Decision } from "@studium/learner-state";
-import { buildLwgMastery, graphAwareNextIndex } from "./graph-nav.js";
+import { buildLwgMastery, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept } from "./graph-nav.js";
 import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary, HintResult } from "./types.js";
 import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
 import { SessionNotStartedError, SessionAlreadyCompleteError } from "./errors.js";
@@ -195,6 +195,21 @@ export class LessonSession {
     const action = decision.next_action;
     if (action.kind === "replay_current_scene") {
       this.hintsUsed = 0; // hints are per-scene-visit: a replay grants a fresh budget. Farming (hint then deliberate-wrong then replay then unhinted-correct) is self-defeating — the wrong answer's beta penalty dominates the dodged discount.
+      // Prefer routing remediation to an UNSEEN alternate item for the same concept (#1: avoids the
+      // penalized same-scene replay). sceneConceptId() returns the `concept:`-prefixed LWG node id,
+      // so prefix the scene's first concept_ref to match. scenes_completed already includes the
+      // just-answered scene, so the current item never counts as "unseen".
+      const concept = "concept_refs" in scene ? `concept:${scene.concept_refs[0] ?? ""}` : "";
+      const seen = new Set(this.state.scenes_completed);
+      const altIdx = firstUnseenAnswerGradedSceneForConcept(this.bundle.scenes, concept, seen);
+      if (altIdx >= 0) {
+        // present an UNSEEN alternate item for the same concept (different-item remediation)
+        this.scaffoldingEvents += 1; // remediation is still a scaffold the learner relied on
+        this.idx = altIdx;
+        this.enterScene();
+        return { kind: "remediate_alt", reason: action.reason, presentation: this.currentPresentation() };
+      }
+      // no unseen alternate -> honest fallback: replay the same item.
       // Record the replay both per-scene (state.scenes_replayed — previously never written) and in the
       // session-lifetime scaffolding tally that feeds autonomyRatio.
       this.state.scenes_replayed[scene.id] = (this.state.scenes_replayed[scene.id] ?? 0) + 1;

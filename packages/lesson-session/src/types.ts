@@ -35,6 +35,7 @@ export interface CompletionSummary {
 export type Transition =
   | { kind: "next"; presentation: Presentation }
   | { kind: "replay"; reason: string; presentation: Presentation }
+  | { kind: "remediate_alt"; reason: string; presentation: Presentation }
   | { kind: "calibration"; targetConcept: string; presentation: Presentation }
   | { kind: "complete"; summary: CompletionSummary };
 
