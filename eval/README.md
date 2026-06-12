@@ -261,3 +261,32 @@ eval/
 > `harness/node_modules/@studium/lesson-session -> ../../../../packages/lesson-session`
 > idempotently at run time. It is gitignored (local-only convenience).
 > Requires `pnpm install` to have been run at the repo root.
+
+---
+
+## Grounding (`grounding_citations` dimension, REVIEW-FINDINGS #7)
+
+The harness attaches citable evidence to LWG edges + intro/concept scenes via
+`harness/grounding.py::ground_bundle`, wired into `author_bundle` and gated by
+`STUDIUM_PERSPICACITE_ENABLED` (off by default → the unchanged 0.30 path).
+
+**Step A — mock (deterministic, key-free, CI/regression):**
+```bash
+STUDIUM_PERSPICACITE_ENABLED=on STUDIUM_PERSPICACITE_MODE=mock \
+  .venv/bin/python eval/run_eval.py --corpus 04
+```
+Lifts `grounding_citations` 0.30 → 1.0 (verified on corpora 01–03: edges 2/2, scenes 4/4).
+Citations are mock fixtures — this proves the wiring and gives a deterministic regression signal.
+
+**Step B — live KB-less (`:8002`):** currently a no-op.
+```bash
+STUDIUM_PERSPICACITE_ENABLED=on PERSPICACITE_MCP_URL=http://localhost:8002/mcp \
+  .venv/bin/python eval/run_eval.py --corpus 04
+```
+The live client calls `get_relevant_passages`, which **requires a knowledge base**, and we
+intentionally pass `kb_names=[]` (no per-course KB — the no-KGmemory constraint). So retrieval
+returns nothing and the honesty contract leaves edges ungrounded → grounding stays 0.30.
+
+**Follow-up for real KB-less citations:** add a live path that uses `search_literature`
+(live database search, no KB) instead of `get_relevant_passages`, mapping returned papers →
+evidence (doi/title/authors/year/abstract→excerpt/relevance). Do **not** build a per-course KB.
