@@ -94,25 +94,32 @@ load_interactions_csv(
 `order` must sort each `(student, skill)` stream chronologically (timestamp or
 attempt index). No dataset is shipped — synthetic is the default.
 
-## External benchmark result (ASSISTments 2009) — ✅ shipped
+## External benchmark results (4 public KT datasets) — ✅ shipped
 
 Online next-step prediction (predict-before-update, leakage-free by construction)
-over **278,336 interactions / 3,114 students / 149 skills**, p(correct)=0.659.
-Full provenance + caveats in [`external_result.json`](external_result.json).
+across **four** real KT datasets from the Choffin et al. benchmark collection.
+Full per-dataset numbers + provenance + caveats in
+[`external_result.json`](external_result.json). Beta Brier/AUC (↓ / ↑):
 
-| model | Brier ↓ | AUC ↑ | Acc ↑ |
-|---|---|---|---|
-| **beta (ADR 004)** | **0.2090** | **0.6982** | **0.6860** |
-| bkt (fixed) | 0.2178 | 0.6776 | 0.6629 |
-| running_mean (floor) | 0.2155 | 0.6933 | 0.6845 |
+| dataset | n | p(corr) | Beta Brier ↓ | Beta AUC ↑ | beats floor? | beats BKT? |
+|---|--:|--:|--:|--:|:--:|:--:|
+| assistments09 | 278K | .659 | **0.2090** | **0.6982** | ✅ | ✅ |
+| statics | 189K | .765 | 0.1806 | 0.6350 | ✖¹ | ✅ |
+| spanish | 579K | .773 | 0.1434 | 0.8246 | ✅ | ✖² |
+| bridge_algebra06 | 1.8M | .832 | 0.1295 | 0.7363 | ✅ | ✅ |
 
-**Beta beats BOTH BKT and the floor on Brier, AUC AND accuracy** (and again in the
-leak-free `--running-difficulty` variant: Beta Brier 0.2082 / AUC 0.6981). This
-**reverses the synthetic finding** (where BKT edged Beta) and defends the
-"simple + explainable" model choice with an *external* number. Honest framing:
-AUC ~0.70 is the expected band for simple models here — DKT/SAKT reach ~0.75-0.80
-with far more parameters — so the claim is **competitiveness + explainability**,
-not SOTA. Strengthen generality by adding EdNet via `loader.py` (one more CSV).
+**Beta beats the trivial RunningMean floor on 3/4 and the fixed-param BKT on 3/4**,
+while being far simpler and fully explainable. It is **NOT uniformly dominant** — an
+honest result. On `assistments09` this even **reverses the synthetic finding** (where
+BKT edged Beta). Honest framing: AUC ~0.63-0.82 is the expected band for *simple*
+models here (DKT/SAKT reach higher with far more params + tuning) → the claim is
+**competitiveness + explainability**, not SOTA.
+
+¹ statics: Beta has *lower Brier* than the floor (better calibrated) but AUC ties it
+(0.6350 vs 0.6397) — small, high-p engineering data where simple models rank poorly.
+² spanish: Beta beats the floor, but fixed-param BKT edges Beta (high-volume vocab
+data favours BKT's mastery-transition model). Leak-free `--running-difficulty` gives
+near-identical Beta numbers (assistments09: Brier 0.2082 / AUC 0.6981).
 
 ## ⚠️ Synthetic-vs-real caveat (read before quoting numbers)
 

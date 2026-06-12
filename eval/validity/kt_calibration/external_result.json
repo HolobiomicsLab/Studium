@@ -1,41 +1,53 @@
 {
-  "_comment": "Snapshot of the EV-4 EXTERNAL benchmark result. The dataset is NOT shipped (see fetch_assistments.py + data/.gitignore); this captures the measured numbers + provenance so the result lives in-repo. Reproduce with the commands below.",
+  "_comment": "Snapshot of the EV-4 EXTERNAL benchmark results across FOUR public KT datasets. Datasets are NOT shipped (see fetch_assistments.py + data/.gitignore); this captures the measured numbers + provenance so the result lives in-repo. Reproduce per-dataset with the commands below.",
   "validity_item": "EV-4",
   "measured_on": "2026-06-12",
-  "dataset": {
-    "name": "ASSISTments 2009 skill-builder (preprocessed)",
-    "source": "https://github.com/theophilee/learner-performance-prediction (data/assistments09/preprocessed_data.csv)",
-    "reference": "Choffin et al., Best Practices for Knowledge Tracing",
-    "n_interactions": 278336,
-    "n_students": 3114,
-    "n_skills": 149,
-    "p_correct": 0.659
-  },
+  "protocol": "Online next-step prediction: predict-before-update over the in-order stream (leakage-free by construction). Difficulty w = 1 - p_correct(skill), global estimate. BKT uses FIXED params (not EM-fit). Metrics over ALL predictions.",
+  "source_repo": "https://github.com/theophilee/learner-performance-prediction (Choffin et al., Best Practices for KT)",
   "reproduce": [
-    "python eval/validity/kt_calibration/fetch_assistments.py",
-    "python eval/validity/kt_calibration/run_calibration.py --csv eval/validity/kt_calibration/data/assistments09_canonical.csv",
-    "# leak-free variant: add --running-difficulty"
+    "python eval/validity/kt_calibration/fetch_assistments.py --dataset <name>",
+    "python eval/validity/kt_calibration/run_calibration.py --csv eval/validity/kt_calibration/data/<name>_canonical.csv"
   ],
-  "results": {
-    "global_difficulty": {
+  "datasets": {
+    "assistments09": {
+      "n_interactions": 278336, "n_students": 3114, "n_skills": 149, "p_correct": 0.659,
       "beta":         {"brier": 0.2090, "auc": 0.6982, "accuracy": 0.6860},
       "bkt":          {"brier": 0.2178, "auc": 0.6776, "accuracy": 0.6629},
-      "running_mean": {"brier": 0.2155, "auc": 0.6933, "accuracy": 0.6845}
+      "running_mean": {"brier": 0.2155, "auc": 0.6933, "accuracy": 0.6845},
+      "beta_beats_floor": true, "beta_beats_bkt": true
     },
-    "running_difficulty_causal": {
-      "beta":         {"brier": 0.2082, "auc": 0.6981, "accuracy": 0.6868},
-      "bkt":          {"brier": 0.2178, "auc": 0.6776, "accuracy": 0.6629},
-      "running_mean": {"brier": 0.2155, "auc": 0.6933, "accuracy": 0.6845}
+    "statics": {
+      "n_interactions": 189297, "n_students": 282, "n_skills": 98, "p_correct": 0.765,
+      "beta":         {"brier": 0.1806, "auc": 0.6350, "accuracy": 0.7568},
+      "bkt":          {"brier": 0.1984, "auc": 0.5468, "accuracy": 0.7126},
+      "running_mean": {"brier": 0.1840, "auc": 0.6397, "accuracy": 0.7547},
+      "beta_beats_floor": false, "beta_beats_bkt": true,
+      "note": "Beta has LOWER Brier than the floor (better calibrated) but marginally lower AUC (0.6350 vs 0.6397) — does not cleanly beat the floor on ranking. statics is a small, high-p engineering dataset where simple models rank poorly."
+    },
+    "spanish": {
+      "n_interactions": 578726, "n_students": 182, "n_skills": 221, "p_correct": 0.773,
+      "beta":         {"brier": 0.1434, "auc": 0.8246, "accuracy": 0.7832},
+      "bkt":          {"brier": 0.1286, "auc": 0.8249, "accuracy": 0.8241},
+      "running_mean": {"brier": 0.1567, "auc": 0.8152, "accuracy": 0.7731},
+      "beta_beats_floor": true, "beta_beats_bkt": false,
+      "note": "Beta beats the floor, but the fixed-param BKT edges Beta here (high-volume per-student vocab data favours BKT's mastery-transition model)."
+    },
+    "bridge_algebra06": {
+      "n_interactions": 1817393, "n_students": 1130, "n_skills": 550, "p_correct": 0.832,
+      "beta":         {"brier": 0.1295, "auc": 0.7363, "accuracy": 0.8284},
+      "bkt":          {"brier": 0.1342, "auc": 0.6788, "accuracy": 0.8156},
+      "running_mean": {"brier": 0.1351, "auc": 0.7356, "accuracy": 0.8253},
+      "beta_beats_floor": true, "beta_beats_bkt": true
     }
   },
   "verdict": {
-    "beta_beats_running_mean": true,
-    "beta_beats_bkt": true,
-    "summary": "On the real ASSISTments 2009 benchmark the production Beta learner model (ADR 004) beats BOTH the BKT baseline and the RunningMean floor on Brier, AUC AND accuracy, in both the global- and causal-difficulty configurations. This REVERSES the synthetic finding (where BKT edged Beta), and defends the 'simple + explainable' model choice with an external number.",
+    "beta_beats_floor_count": "3 of 4 (assistments09, spanish, bridge_algebra06; statics: lower Brier but AUC ties the floor)",
+    "beta_beats_bkt_count": "3 of 4 (assistments09, statics, bridge_algebra06; spanish: BKT edges Beta)",
+    "summary": "Across FOUR real KT datasets the production Beta learner model (ADR 004) is COMPETITIVE: it beats the trivial RunningMean floor on 3/4 and the fixed-param BKT baseline on 3/4, while being far simpler and fully explainable. It is NOT uniformly dominant — an honest result. This defends the 'simple + explainable' model choice with external numbers without overclaiming.",
     "caveats": [
-      "AUC ~0.698 is in the expected range for simple models on ASSISTments 2009 (DKT/SAKT reach ~0.75-0.80 with far more parameters); the claim is competitiveness + explainability, not SOTA.",
-      "No train/test split: this is an online next-step prediction protocol (predict-before-update), which is leakage-free by construction; the --running-difficulty variant additionally removes the global-difficulty train-on-all estimate.",
-      "Single dataset; EdNet/ASSISTments-2012 would strengthen generality (loader.py accepts any canonical CSV)."
+      "AUC ~0.63-0.82 is the expected band for simple models on these datasets; DKT/SAKT reach higher with far more parameters and tuning. The claim is competitiveness + explainability, not SOTA.",
+      "BKT uses FIXED params, not EM-fit; a tuned BKT would likely score higher — it is a reference, not a ceiling.",
+      "Global difficulty estimate is train-on-all; the --running-difficulty variant is causal/leak-free and gives near-identical Beta numbers on assistments09 (Brier 0.2082 / AUC 0.6981)."
     ]
   }
 }

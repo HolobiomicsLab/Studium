@@ -1,24 +1,28 @@
-"""fetch_assistments.py — fetch + preprocess a REAL KT benchmark for EV-4.
+"""fetch_assistments.py — fetch + preprocess REAL KT benchmarks for EV-4.
 
-Downloads the canonical *preprocessed* ASSISTments 2009 skill-builder logs and
-rewrites them into the loader's canonical schema (student/skill/correct/order)
-so `run_calibration.py --csv` can produce the **external** Brier/AUC number for
-the Beta learner model (ADR 004) vs BKT / RunningMean.
+Downloads a canonical *preprocessed* KT benchmark (default ASSISTments 2009;
+``--dataset`` selects others) and rewrites it into the loader's canonical schema
+(student/skill/correct/order) so ``run_calibration.py --csv`` can produce the
+**external** Brier/AUC number for the Beta learner model (ADR 004) vs BKT /
+RunningMean.
 
 Source (tab-separated `user_id item_id timestamp correct skill_id`):
     https://github.com/theophilee/learner-performance-prediction
-    (Choffin et al., "Best Practices for KT" — a standard public KT benchmark)
+    (Choffin et al., "Best Practices for KT" — a standard public KT benchmark
+    collection: assistments09/12/15/17, bridge_algebra06, spanish, statics)
 
-The dataset is NOT shipped with the harness (see loader.py). This script fetches
-it on demand into `data/` (gitignored). Reproduce the external number with::
+Datasets are NOT shipped with the harness (see loader.py). This script fetches
+them on demand into `data/` (gitignored). Reproduce the external numbers with::
 
-    python eval/validity/kt_calibration/fetch_assistments.py
+    python eval/validity/kt_calibration/fetch_assistments.py                    # assistments09
+    python eval/validity/kt_calibration/fetch_assistments.py --dataset spanish  # generality
     python eval/validity/kt_calibration/run_calibration.py \
         --csv eval/validity/kt_calibration/data/assistments09_canonical.csv
 
-`--from-file PATH` preprocesses an already-downloaded copy (offline / CI).
-Rows preserve file order, which the source has already sorted chronologically
-per student — the replay protocol relies on within-(student,skill) order.
+See `external_result.json` for the committed multi-dataset numbers. `--from-file
+PATH` preprocesses an already-downloaded copy (offline / CI). Rows preserve file
+order, which the source has already sorted chronologically per student — the
+replay protocol relies on within-(student,skill) order.
 """
 
 from __future__ import annotations
@@ -29,9 +33,19 @@ import os
 import sys
 from typing import Dict, Iterable, List, Optional
 
-SOURCE_URL = (
+SOURCE_URL_TEMPLATE = (
     "https://raw.githubusercontent.com/theophilee/"
-    "learner-performance-prediction/master/data/assistments09/preprocessed_data.csv"
+    "learner-performance-prediction/master/data/{dataset}/preprocessed_data.csv"
+)
+# Datasets in the benchmark repo sharing the user_id/item_id/timestamp/correct/skill_id schema.
+KNOWN_DATASETS = (
+    "assistments09",
+    "assistments12",
+    "assistments15",
+    "assistments17",
+    "bridge_algebra06",
+    "spanish",
+    "statics",
 )
 
 # source column -> canonical column
@@ -107,29 +121,35 @@ def _download(url: str, dest: str) -> None:
 def main(argv: Optional[List[str]] = None) -> int:
     here = os.path.dirname(os.path.abspath(__file__))
     data_dir = os.path.join(here, "data")
-    parser = argparse.ArgumentParser(description="fetch+preprocess ASSISTments for EV-4")
+    parser = argparse.ArgumentParser(description="fetch+preprocess a KT benchmark for EV-4")
+    parser.add_argument(
+        "--dataset",
+        default="assistments09",
+        help=f"benchmark dataset name (known: {', '.join(KNOWN_DATASETS)})",
+    )
     parser.add_argument(
         "--from-file", default=None, help="preprocess an already-downloaded source file"
     )
     parser.add_argument(
         "--out",
-        default=os.path.join(data_dir, "assistments09_canonical.csv"),
-        help="canonical CSV output path",
+        default=None,
+        help="canonical CSV output path (default: data/<dataset>_canonical.csv)",
     )
     args = parser.parse_args(argv)
 
+    out_path = args.out or os.path.join(data_dir, f"{args.dataset}_canonical.csv")
     src_path = args.from_file
     if not src_path:
-        src_path = os.path.join(data_dir, "assistments09_source.csv")
+        src_path = os.path.join(data_dir, f"{args.dataset}_source.csv")
         if not os.path.isfile(src_path):
-            _download(SOURCE_URL, src_path)
+            _download(SOURCE_URL_TEMPLATE.format(dataset=args.dataset), src_path)
 
     rows = _read_source(src_path)
     records = preprocess_rows(rows)
     if not records:
         print("No valid interactions after preprocessing.", file=sys.stderr)
         return 1
-    write_canonical(records, args.out)
+    write_canonical(records, out_path)
 
     students = len({r["student"] for r in records})
     skills = len({r["skill"] for r in records})
@@ -137,7 +157,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     print(
         f"Wrote {len(records)} interactions "
         f"({students} students, {skills} skills, {pos / len(records):.3f} p(correct)) "
-        f"-> {args.out}"
+        f"-> {out_path}"
     )
     return 0
 
