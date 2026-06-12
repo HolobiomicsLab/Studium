@@ -79,7 +79,6 @@ def test_ground_bundle_degraded_client_stays_honest():
 
 
 def test_make_client_from_env_routes_literature_mode(monkeypatch):
-    import importlib
     from harness import grounding as G
     from harness.literature_client import LiteratureSearchClient
     monkeypatch.setenv("STUDIUM_PERSPICACITE_ENABLED", "on")
