@@ -279,3 +279,98 @@ def test_audit_report_respects_out_dir(tmp_path):
     json_path, md_path = build_course_audit_report(str(course_dir), out_dir=str(out))
     assert json_path.startswith(str(out))
     assert md_path.startswith(str(out))
+
+
+# --- (b) flagged / low-confidence edges from the RAW LWG graph (GAP #8 fidelity) ---
+# The indicium Claim is extra=forbid, so quality_flags can NOT live in
+# lwg.indicium.jsonld. planner_app now also persists the RAW graph to lwg.graph.json
+# (edges carry quality_flags + confidence). build_course_audit_report reads it and
+# surfaces, per edge, its quality_flags + confidence so the teacher sees exactly which
+# edges to scrutinize.
+LWG_GRAPH_JSON = "lwg.graph.json"
+
+
+def _write_raw_graph(course_dir, graph=None):
+    (course_dir / LWG_GRAPH_JSON).write_text(
+        json.dumps(graph if graph is not None else _LWG, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def test_audit_report_surfaces_flagged_edges_from_raw_graph(tmp_path):
+    course_dir = _make_course_dir(tmp_path)
+    _write_raw_graph(course_dir)  # _LWG has prereq1 with quality_flags + low confidence
+
+    json_path, md_path = build_course_audit_report(str(course_dir))
+    rep = json.loads(open(json_path).read())
+
+    # report records the raw graph as a source
+    assert rep["generated_from"][LWG_GRAPH_JSON] is True
+    assert "flagged_edge_count" in rep["summary"]
+
+    flagged = rep["flagged_edges"]
+    ids = {e["id"] for e in flagged}
+    # prereq1: non-empty quality_flags AND confidence 0.4 (< threshold) → flagged
+    assert "prereq1" in ids
+    # prereq0: confidence 0.81, no quality_flags → NOT flagged
+    assert "prereq0" not in ids
+    # assess0: no confidence, no quality_flags → NOT flagged
+    assert "assess0" not in ids
+
+    p1 = next(e for e in flagged if e["id"] == "prereq1")
+    assert p1["quality_flags"] == ["flagged_for_review"]
+    assert p1["confidence"] == 0.4
+    assert p1["relation"] == "prerequisite_for"
+    assert p1["source"] == "concept:fft"
+    assert p1["target"] == "concept:quiz"
+    assert rep["summary"]["flagged_edge_count"] == len(flagged) == 1
+
+    # .md surfaces a flagged-edges section the teacher can read
+    md = open(md_path).read()
+    assert "Flagged" in md  # e.g. "## Flagged / low-confidence edges"
+    assert "prereq1" in md
+    assert "flagged_for_review" in md
+
+
+def test_audit_report_low_confidence_edge_without_quality_flags_is_flagged(tmp_path):
+    """A low-confidence edge with NO quality_flags must still surface (confidence below
+    threshold is itself a reason to scrutinize)."""
+    course_dir = _make_course_dir(tmp_path)
+    graph = {
+        "schema_version": "1.0",
+        "course_id": "sig-101",
+        "nodes": _LWG["nodes"],
+        "edges": [
+            {"id": "lowconf", "relation": "prerequisite_for",
+             "source": "concept:fft", "target": "concept:fourier",
+             "confidence": 0.3, "evidence": [{"artifact": "plan:x", "confidence": 0.3}],
+             "astra_insight_ref": "sig-101-analysis/lowconf"},
+            {"id": "strong", "relation": "prerequisite_for",
+             "source": "concept:fft", "target": "concept:fourier",
+             "confidence": 0.9, "evidence": [], "astra_insight_ref": "sig-101-analysis/strong"},
+        ],
+    }
+    _write_raw_graph(course_dir, graph)
+    json_path, _ = build_course_audit_report(str(course_dir))
+    rep = json.loads(open(json_path).read())
+    ids = {e["id"] for e in rep["flagged_edges"]}
+    assert ids == {"lowconf"}
+    lc = rep["flagged_edges"][0]
+    assert lc["quality_flags"] == []
+    assert lc["confidence"] == 0.3
+
+
+def test_audit_report_degrades_gracefully_without_raw_graph(tmp_path):
+    """Older courses have no lwg.graph.json — the report must NOT crash and must NOT
+    emit a flagged-edges section (no fabricated data)."""
+    course_dir = _make_course_dir(tmp_path)
+    assert not (course_dir / LWG_GRAPH_JSON).exists()
+
+    json_path, md_path = build_course_audit_report(str(course_dir))
+    rep = json.loads(open(json_path).read())
+    assert rep["generated_from"][LWG_GRAPH_JSON] is False
+    assert rep["flagged_edges"] == []
+    assert rep["summary"]["flagged_edge_count"] == 0
+    # md must render without the flagged section but without crashing
+    md = open(md_path).read()
+    assert "# Course Audit Report" in md
