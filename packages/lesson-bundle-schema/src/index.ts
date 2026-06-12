@@ -13,6 +13,7 @@ export * from "./blueprint";
 export const BloomLevelSchema = z.enum([
   "remember", "understand", "apply", "analyze", "evaluate", "create",
 ]);
+export type BloomLevel = z.infer<typeof BloomLevelSchema>;
 
 export const ConceptSchema = z.object({
   id: z.string(),
