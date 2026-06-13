@@ -125,8 +125,6 @@ def score_move(move: TutorMoveRecord) -> dict:
             "source": move.source, "dims": dims, "summative_safe": (not revealed and not tone_red)}
 
 
-from eval.validity.bea_tutor.loaders import authored_scaffolding_moves
-
 _HONEST_NOTE = (
     "BEA dims #3 (revealing-answer) and #5 (actionability), the lexical floors on "
     "#1/#2/#4/#6 and the #7 tone red-flag screen are DETERMINISTIC and summative-safe. "
@@ -139,6 +137,9 @@ _HONEST_NOTE = (
 
 def score_bundle(bundle: dict) -> dict:
     """Score a bundle's authored scaffolding. Returns cards + aggregate reveal_rate."""
+    # lazy import: loaders imports TutorMoveRecord from this module, so a module-level
+    # import here would be a circular import (bites on some isolated test-collection orders).
+    from eval.validity.bea_tutor.loaders import authored_scaffolding_moves
     moves = authored_scaffolding_moves(bundle)
     cards = [score_move(m) for m in moves]
     n = len(cards)

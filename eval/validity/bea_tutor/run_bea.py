@@ -6,14 +6,33 @@ _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..",
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 from eval.validity.grounding_relevance.analyze import load_bundle  # noqa: E402
-from eval.validity.bea_tutor.bea import score_bundle  # noqa: E402
+from eval.validity.bea_tutor.bea import score_bundle, score_move  # noqa: E402
+from eval.validity.bea_tutor.loaders import live_tutor_moves  # noqa: E402
+
+
+def _aggregate(cards: list, note: str) -> dict:
+    """Same aggregate shape as score_bundle, over an arbitrary list of BeaCards."""
+    n = len(cards)
+    reveals = sum(1 for c in cards if c["dims"]["revealing_answer"]["revealed"])
+    actionable = sum(1 for c in cards if c["dims"]["actionability"]["score"] == 1.0)
+    return {"n_moves": n, "reveal_rate": (reveals / n) if n else 0.0,
+            "actionability_rate": (actionable / n) if n else 0.0,
+            "summative_safe_rate": (sum(1 for c in cards if c["summative_safe"]) / n) if n else 0.0,
+            "cards": cards, "note": note}
+
+
+_LIVE_NOTE = (
+    "LIVE tutor turns from a --log-tutor-text sidecar (runtime Socratic tutor). Scored on the "
+    "same BEA rubric as authored scaffolding; deterministic dims (#3 reveal, #5 actionability) are "
+    "summative-safe. banned answer strings come from the bundle (quiz answers + discussion seed_claims)."
+)
 
 def _find_bundle(run_dir: str) -> Optional[str]:
     m = sorted(glob.glob(os.path.join(run_dir, "*-bundle.zip")))
     return m[0] if m else None
 
 def _fmt(rep: dict, source: str) -> str:
-    L = ["", "=" * 72, "BEA TUTOR-MOVE SCORECARD (authored scaffolding)", "=" * 72, f"bundle: {source}",
+    L = ["", "=" * 72, "BEA TUTOR-MOVE SCORECARD", "=" * 72, f"source: {source}",
          f"moves scored: {rep['n_moves']}", f"reveal_rate (lower better): {rep['reveal_rate']:.3f}",
          f"actionability_rate: {rep['actionability_rate']:.3f}",
          f"summative_safe_rate: {rep['summative_safe_rate']:.3f}", ""]
@@ -29,6 +48,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(description="BEA tutor-move scorecard (authored scaffolding)")
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--bundle"); g.add_argument("--run-dir")
+    p.add_argument("--tutor-texts", help="score LIVE tutor turns from a --log-tutor-text sidecar instead of authored scaffolding")
     p.add_argument("--no-report", action="store_true")
     a = p.parse_args(argv)
     path = a.bundle or _find_bundle(a.run_dir)
@@ -37,8 +57,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     bundle = load_bundle(path)
     if bundle is None:
         print(f"could not load bundle: {path}", file=sys.stderr); return 2
-    rep = score_bundle(bundle)
-    print(_fmt(rep, path))
+    if a.tutor_texts:
+        moves = live_tutor_moves(a.tutor_texts, bundle)
+        rep = _aggregate([score_move(m) for m in moves], _LIVE_NOTE)
+        source = f"{a.tutor_texts} (LIVE, bundle={path})"
+    else:
+        rep = score_bundle(bundle)
+        source = path
+    print(_fmt(rep, source))
     if not a.no_report:
         d = os.path.join(os.path.dirname(__file__), "reports"); os.makedirs(d, exist_ok=True)
         base = os.path.basename(os.path.normpath(path))
