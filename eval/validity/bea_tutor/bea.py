@@ -72,3 +72,46 @@ def score_tone(text: str) -> dict:
     if _INSULTS.search(text or "") or shouting:
         return {"dim": "tone", "mode": "deterministic", "score": 0.0, "red_flag": True}
     return {"dim": "tone", "mode": "llm_formative", "gated": "EV-5", "score": None}
+
+
+from dataclasses import dataclass, field
+
+# The 8 BEA dimensions, VERBATIM (never rename — benchmarkable vs MRBench/MathTutorBench).
+BEA_DIMENSIONS = [
+    "mistake_identification", "mistake_location", "revealing_answer", "guidance",
+    "actionability", "coherence", "tone", "human_likeness",
+]
+
+
+@dataclass
+class TutorMoveRecord:
+    text: str
+    move_kind: str
+    in_reply_to_signal: Optional[str] = None
+    learner_turn: Optional[str] = None
+    banned: List[str] = field(default_factory=list)
+    source: str = "authored"          # "authored" | "live"
+    reveal_blocked: Optional[bool] = None
+
+
+def score_move(move: TutorMoveRecord) -> dict:
+    """Assemble the per-move BeaCard over all 8 verbatim BEA dimensions.
+
+    Deterministic dims (#3, #5, #7-redflag) carry a real score; LLM-gated dims carry
+    score=None + a deterministic floor. ``summative_safe`` is True iff the move did
+    NOT reveal and did NOT trip the tone red-flag — the only claims defensible today.
+    """
+    dims = {
+        "mistake_identification": score_mistake_identification(move.text, move.learner_turn),
+        "mistake_location": score_mistake_location(move.text, move.learner_turn),
+        "revealing_answer": score_revealing_answer(move.text, move.banned),
+        "guidance": score_guidance(move.text, move.banned),
+        "actionability": score_actionability(move.text),
+        "coherence": score_coherence(move.text, move.learner_turn),
+        "tone": score_tone(move.text),
+        "human_likeness": {"dim": "human_likeness", "mode": "llm_formative", "gated": "EV-5", "score": None},
+    }
+    revealed = dims["revealing_answer"]["revealed"]
+    tone_red = dims["tone"].get("red_flag", False)
+    return {"move_kind": move.move_kind, "in_reply_to_signal": move.in_reply_to_signal,
+            "source": move.source, "dims": dims, "summative_safe": (not revealed and not tone_red)}
