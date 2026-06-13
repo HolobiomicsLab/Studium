@@ -6,10 +6,18 @@ from typing import List, Optional
 
 from eval.validity.bea_tutor.reveal_rule import jaccard, reveals_answer, tokenize
 
-# Imperative/next-step cues (FR + EN) for actionability (#5).
+# Imperative/next-step + guiding-interrogative cues (FR + EN) for actionability (#5).
+# The interrogatives + "?" were ADDED after the EV-8a MathDial audit: the imperative-only
+# detector had recall 0.071 on guiding moves because guiding QUESTIONS (which dominate the
+# 'probing' gold move) carry no imperative verb. Adding the domain-neutral interrogative set
+# (gate: domain_neutral=True) lifted held-out F1 0.126 -> 0.774 (recall -> 0.839). A guiding
+# question IS actionable — it directs the learner's next thinking step.
+# Evidence: eval/validity/bea_external/external_result.json.
 _NEXT_STEP = re.compile(
     r"\b(essaie|essaye|consid[eè]re|teste|compare|v[eé]rifie|imagine|reformule|montre|"
-    r"try|consider|test|compare|check|imagine|explain|describe|list)\b|et si\b|what if\b",
+    r"try|consider|test|compare|check|imagine|explain|describe|list|"
+    r"how|why|what|which|where|who|when|"
+    r"comment|pourquoi|combien|quel|quelle|quand)\b|et si\b|what if\b|\?",
     re.IGNORECASE,
 )
 
