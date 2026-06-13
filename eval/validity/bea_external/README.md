@@ -79,3 +79,59 @@ Unit tests:
 ```bash
 .venv/bin/python -m pytest eval/validity/bea_external -q
 ```
+
+---
+
+# EV-8b — LLM-judge validation against MathDial gold
+
+This extends EV-8a with an **LLM judge** for a single gold-mappable formative BEA
+dimension — **"providing guidance"** — and validates it against MathDial's
+human-annotated guiding-vs-direct gold, side by side with the shipped
+deterministic detector. It is the **EV-5 LLM-judge dry-run** on a silver
+standard, executed at near-zero cost and **circularity-free by construction**.
+
+## What it validates
+
+The judge scores each tutor turn on the BEA **"providing guidance"** rubric
+(reused **verbatim**) → ordinal `{1, 0.5, 0}`. The scores are binarised at
+`>= 0.5` and compared to MathDial's `is_guiding`
+(`probing`/`focus` = guiding, `telling`/`generic` = direct) gold, reporting:
+
+- **binary** precision / recall / F1 / Cohen's κ against the gold, and
+- **ordinal** quadratic weighted kappa (QWK) over the 3-point scale.
+
+The **same sample** is scored by the shipped deterministic
+`score_actionability` detector so the LLM judge and the heuristic are reported
+**head to head** against identical gold.
+
+## No circularity
+
+The judge is **not** scoring our own tutor — MathDial turns are **human-written**.
+Judge ≠ tutor here, so there is no self-grading loop. This is precisely the EV-5
+LLM-judge methodology, dry-run against a human silver standard.
+
+## Running the real validation (operator-driven)
+
+The default run makes **one real `claude` call per sampled turn** (it costs
+inference), so it is **not** run in CI and **not** exercised by any unit test
+(tests inject a `StubJudge`). After merge, the operator runs it and commits the
+result artifact `external_result_llm.json`:
+
+```bash
+# default: 25 turns × 4 move types = 100 live `claude` judge calls
+.venv/bin/python eval/validity/bea_external/run_llm_judge.py --n-per-move 25
+#   or point at an existing CSV / pin a model:
+.venv/bin/python eval/validity/bea_external/run_llm_judge.py --csv /path/to/train.csv --model <id>
+```
+
+**Cost note.** One Claude call per sampled turn (`n_per_move × 4` calls total).
+Use `--no-report` to skip writing `external_result_llm.json`.
+
+## Scope
+
+This validates **only** the gold-mappable guidance construct. It does **not**
+replace the EV-5 human study for the non-mappable BEA dimensions
+(mistake-identification / mistake-location / coherence / tone / humanlikeness),
+for which MathDial carries no gold. The `revealing-answer` (#3) dimension is also
+out of scope here — MathDial `telling` ≠ reveal (the EV-8a construct finding), so
+it remains human-gated.
