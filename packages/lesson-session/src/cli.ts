@@ -10,14 +10,14 @@ import { FileStateStore } from "./adapters/state-store.js";
 import { JsonlEventLog } from "./adapters/event-log.js";
 import { JsonlTelemetrySink } from "./adapters/telemetry-sink.js";
 import { StubReasoningScorer, LiteLLMReasoningScorer } from "./adapters/reasoning-scorer.js";
-import { LiteLLMSocraticTutor } from "./adapters/socratic-tutor.js";
+import { LiteLLMSocraticTutor, StubSocraticTutor } from "./adapters/socratic-tutor.js";
 import { StubCritiqueEvaluator, HttpCritiqueEvaluator } from "./adapters/critique-evaluator.js";
 
 export interface ScriptStep { respond?: ResponseInput; turns?: string[]; }
-export interface PlaythroughOptions { bundlePath: string; script: ScriptStep[]; outDir: string; live?: boolean; liveTutor?: boolean; logTutorText?: boolean; }
+export interface PlaythroughOptions { bundlePath: string; script: ScriptStep[]; outDir: string; live?: boolean; liveTutor?: boolean; stubTutor?: boolean; logTutorText?: boolean; }
 export interface PlaythroughResult { completed: boolean; summary: CompletionSummary | null; transitions: Transition[]; }
 
-export function buildNodeDeps(outDir: string, live: boolean, liveTutor = false): SessionDeps {
+export function buildNodeDeps(outDir: string, live: boolean, liveTutor = false, stubTutor = false): SessionDeps {
   const deps: SessionDeps = {
     stateStore: new FileStateStore(outDir),
     eventLog: new JsonlEventLog(`${outDir}/events.jsonl`),
@@ -32,6 +32,10 @@ export function buildNodeDeps(outDir: string, live: boolean, liveTutor = false):
   };
   if (live && liveTutor) {
     deps.socraticTutor = new LiteLLMSocraticTutor({ mode: "litellm", baseUrl: process.env["LITELLM_BASE_URL"] ?? "", ...(process.env["LITELLM_API_KEY"] !== undefined ? { apiKey: process.env["LITELLM_API_KEY"] } : {}) });
+  } else if (stubTutor) {
+    // deterministic Socratic tutor (no LLM/LiteLLM) — for CI + generating tutor_move telemetry
+    // and a --log-tutor-text sidecar that the EV-3b BEA scorer can grade end-to-end.
+    deps.socraticTutor = new StubSocraticTutor();
   }
   return deps;
 }
@@ -43,7 +47,7 @@ async function loadBundleAuto(path: string): Promise<LessonBundle> {
 
 export async function runPlaythrough(opts: PlaythroughOptions): Promise<PlaythroughResult> {
   const bundle = await loadBundleAuto(opts.bundlePath);
-  const deps = buildNodeDeps(opts.outDir, opts.live ?? false, opts.liveTutor ?? false);
+  const deps = buildNodeDeps(opts.outDir, opts.live ?? false, opts.liveTutor ?? false, opts.stubTutor ?? false);
   const session = new LessonSession(bundle, deps);
   await session.start();
   const transitions: Transition[] = [];
@@ -81,15 +85,16 @@ export async function main(argv: string[]): Promise<number> {
   const bundlePath = argv[0];
   const scriptPath = argv[1];
   if (!bundlePath || !scriptPath) {
-    console.error("usage: studium-lesson-play <bundle.zip|.json> <script.json> [--out dir] [--live-llm] [--live-tutor] [--log-tutor-text]");
+    console.error("usage: studium-lesson-play <bundle.zip|.json> <script.json> [--out dir] [--live-llm] [--live-tutor] [--stub-tutor] [--log-tutor-text]");
     return 2;
   }
   const outDir = argFlag(argv, "--out") ?? "./.playthrough";
   const live = argv.includes("--live-llm");
   const liveTutor = argv.includes("--live-tutor");
+  const stubTutor = argv.includes("--stub-tutor");
   const logTutorText = argv.includes("--log-tutor-text");
   const script = JSON.parse(await readFile(scriptPath, "utf8")) as ScriptStep[];
-  const res = await runPlaythrough({ bundlePath, script, outDir, live, liveTutor, logTutorText });
+  const res = await runPlaythrough({ bundlePath, script, outDir, live, liveTutor, stubTutor, logTutorText });
   console.log(JSON.stringify({ completed: res.completed, summary: res.summary }, null, 2));
   return res.completed ? 0 : 1;
 }
