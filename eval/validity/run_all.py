@@ -88,6 +88,14 @@ def main(argv: list[str]) -> int:
     else:
         print("\n[bea_tutor] skipped (no run dir)", flush=True)
 
+    if run_dir:
+        codes["reasoning_depth"] = _run(
+            "reasoning_depth (EV-3c, hybrid scorecard)",
+            [PY, "eval/validity/reasoning_depth/run_reasoning_depth.py", "--run-dir", run_dir],
+        )
+    else:
+        print("\n[reasoning_depth] skipped (no run dir)", flush=True)
+
     print(f"\n{'=' * 70}\nVALIDITY SUITE SUMMARY\n{'=' * 70}")
     for k, v in codes.items():
         print(f"  {k:22s} exit={v}  ({'ok' if v == 0 else 'FLAGS/ERROR'})")
