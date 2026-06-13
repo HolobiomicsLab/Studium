@@ -1,0 +1,7 @@
+[
+  { "text": "En fait la réponse est le peroxysome", "banned": ["le peroxysome"], "revealed": true },
+  { "text": "oxydation catalase peroxysome ensemble", "banned": ["peroxysome catalase oxydation"], "revealed": true },
+  { "text": "Qu'observerais-tu si c'était vrai ?", "banned": ["le peroxysome catalase oxydation"], "revealed": false },
+  { "text": "Quel est le maillon le plus faible ?", "banned": ["mitochondrie centrale énergétique"], "revealed": false },
+  { "text": "The powerhouse of the cell is the mitochondrion", "banned": ["the mitochondrion"], "revealed": true }
+]
