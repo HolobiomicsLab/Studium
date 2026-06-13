@@ -135,3 +135,23 @@ replace the EV-5 human study for the non-mappable BEA dimensions
 for which MathDial carries no gold. The `revealing-answer` (#3) dimension is also
 out of scope here — MathDial `telling` ≠ reveal (the EV-8a construct finding), so
 it remains human-gated.
+
+## EV-8b result — LLM guidance-judge vs MathDial gold (real run, n=100)
+
+`external_result_llm.json` (seed 0, default Claude judge, 25×4 stratified, 0 null judgments):
+
+| rater | F1 | precision | recall | κ | QWK |
+|---|---|---|---|---|---|
+| LLM judge (BEA guidance) | 0.732 | 0.616 | 0.900 | 0.340 | **0.391** |
+| deterministic (improved) | 0.741 | 0.652 | 0.860 | 0.400 | — |
+
+**Honest conclusions (the EV-5 LLM-judge dry-run):**
+1. **QWK 0.39 < the EV-5 pre-registered gate (0.60)** → the LLM guidance judge is **formative-only**, not
+   certificative-eligible. Consistent with the field's modest LLM-judge reliability (EV-5 §1).
+2. The LLM judge **does not beat the cheap deterministic detector** (F1/κ tied) → for the *guidance* dim
+   the free, explainable heuristic suffices; the LLM doesn't justify its inference cost here.
+3. High recall (0.90) / lower precision (0.62) = **leniency bias** (over-calls "guiding") — a Zheng-2023
+   bias the full EV-5 study probes formally.
+
+This validates only the gold-mappable *guidance* dim on a math silver standard; the non-mappable dims
+(mistake-id/location/coherence/tone/humanlikeness) and certificative use still require the **EV-5 human study**.
