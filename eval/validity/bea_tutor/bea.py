@@ -115,3 +115,28 @@ def score_move(move: TutorMoveRecord) -> dict:
     tone_red = dims["tone"].get("red_flag", False)
     return {"move_kind": move.move_kind, "in_reply_to_signal": move.in_reply_to_signal,
             "source": move.source, "dims": dims, "summative_safe": (not revealed and not tone_red)}
+
+
+from eval.validity.bea_tutor.loaders import authored_scaffolding_moves
+
+_HONEST_NOTE = (
+    "BEA dims #3 (revealing-answer) and #5 (actionability), the lexical floors on "
+    "#1/#2/#4/#6 and the #7 tone red-flag screen are DETERMINISTIC and summative-safe. "
+    "The quality halves of #1/#2/#4/#6, positive #7 and all of #8 are LLM-judged and "
+    "FORMATIVE-ONLY until the EV-5/D16 human-agreement study. Dimension names are "
+    "verbatim BEA (MRBench/MathTutorBench-comparable). reveal uses a lexical proxy "
+    "(shared with the TS runtime guardrail), not a semantic match."
+)
+
+
+def score_bundle(bundle: dict) -> dict:
+    """Score a bundle's authored scaffolding. Returns cards + aggregate reveal_rate."""
+    moves = authored_scaffolding_moves(bundle)
+    cards = [score_move(m) for m in moves]
+    n = len(cards)
+    reveals = sum(1 for c in cards if c["dims"]["revealing_answer"]["revealed"])
+    actionable = sum(1 for c in cards if c["dims"]["actionability"]["score"] == 1.0)
+    return {"n_moves": n, "reveal_rate": (reveals / n) if n else 0.0,
+            "actionability_rate": (actionable / n) if n else 0.0,
+            "summative_safe_rate": (sum(1 for c in cards if c["summative_safe"]) / n) if n else 0.0,
+            "cards": cards, "note": _HONEST_NOTE}
