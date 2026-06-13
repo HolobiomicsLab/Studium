@@ -4,6 +4,7 @@ import type { TelemetryEvent } from "@studium/telemetry-events";
 import type { MasteryClaimsDoc } from "./mastery-claims.js";
 import type { ClassifyResult } from "@studium/reasoning-scorer";
 import type { Scene } from "@studium/lesson-bundle-schema";
+import type { TutorMove, TutorInput } from "./socratic-tutor/types.js";
 
 type AICritiqueScene = Extract<Scene, { type: "ai_critique" }>;
 export type Claim = AICritiqueScene["claims"][number];
@@ -46,6 +47,8 @@ export interface TelemetrySink {
 export interface PseudonymProvider { get(learnerId: string, lessonId: string): Promise<string>; }
 
 export interface ReasoningScorer { score(turn: string, topic: string): Promise<ClassifyResult | null>; }
+
+export interface SocraticTutor { respond(input: TutorInput): Promise<TutorMove | null>; }
 
 export interface CritiqueEvaluation { score: number; feedback: string; }
 export interface CritiqueEvaluator {
