@@ -149,6 +149,25 @@ export const HintRequestedSchema = BaseEventSchema.extend({
   hint_index: z.number().int().nonnegative(),
 });
 
+// EV-3a — tutor_move emitted per live Socratic-tutor reply during discussion scenes.
+// Strict: aucun texte libre transmis. move_kind + in_reply_to_signal sont des labels ;
+// revealed/reveal_blocked/turn_index sont des scalaires. Le texte de la réponse n'est
+// JAMAIS dans la télémétrie (capturé hors-bande via --log-tutor-text en dev seulement).
+export const TutorMoveSchema = BaseEventSchema.extend({
+  type: z.literal("tutor_move"),
+  scene_id: z.string(),
+  move_kind: z.enum([
+    "invite_test", "acknowledge_extend", "redirect_question",
+    "probe_justification", "probe_synthesis", "scaffold_hint",
+  ]),
+  in_reply_to_signal: z.enum([
+    "justification", "hypothesis", "question", "counterexample", "synthesis",
+  ]),
+  revealed: z.boolean(),       // the LLM's original move revealed the answer (deterministic flag)
+  reveal_blocked: z.boolean(), // runtime swapped in a faded fallback so the learner never saw it
+  turn_index: z.number().int().nonnegative(),
+});
+
 export const TelemetryEventSchema = z.discriminatedUnion("type", [
   LessonStartedSchema,
   SceneEnteredSchema,
@@ -166,6 +185,7 @@ export const TelemetryEventSchema = z.discriminatedUnion("type", [
   CooperativeConvergenceSchema,
   UniverseSelectedSchema,
   HintRequestedSchema,
+  TutorMoveSchema,
 ]);
 
 export type TelemetryEvent = z.infer<typeof TelemetryEventSchema>;
