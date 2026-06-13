@@ -1,0 +1,78 @@
+{
+  "n_turns": 14908,
+  "move_distribution": {
+    "probing": 3300,
+    "generic": 3566,
+    "telling": 2493,
+    "focus": 5549
+  },
+  "guiding_detector_wholeset": {
+    "n": 14908,
+    "tp": 625,
+    "fp": 449,
+    "fn": 8224,
+    "tn": 5610,
+    "precision": 0.5819366852886406,
+    "recall": 0.07062944965532829,
+    "f1": 0.12596996875944774,
+    "accuracy": 0.41823182184062246,
+    "kappa": -0.0028904684257209383
+  },
+  "improve": {
+    "baseline": {
+      "n": 4512,
+      "tp": 171,
+      "fp": 141,
+      "fn": 2523,
+      "tn": 1677,
+      "precision": 0.5480769230769231,
+      "recall": 0.06347438752783964,
+      "f1": 0.11377245508982035,
+      "accuracy": 0.4095744680851064,
+      "kappa": -0.011610151004677981
+    },
+    "improved": {
+      "n": 4512,
+      "tp": 2254,
+      "fp": 877,
+      "fn": 440,
+      "tn": 941,
+      "precision": 0.7198977962312361,
+      "recall": 0.8366740905716407,
+      "f1": 0.7739055793991416,
+      "accuracy": 0.7081117021276596,
+      "kappa": 0.36868435109978454
+    },
+    "chosen_extra_terms": [
+      "how",
+      "why",
+      "what",
+      "which",
+      "where",
+      "?"
+    ],
+    "domain_neutral": true,
+    "n_train": 10396,
+    "n_test": 4512,
+    "note": "Lexicon additions are tuned on MATH-only MathDial; before adopting them in the shipped bea_tutor detector, confirm they are domain-NEUTRAL (generic interrogatives / imperatives, not math vocabulary). This report SURFACES the recommendation; it does not auto-edit bea_tutor."
+  },
+  "reveal_rate_by_move": {
+    "probing": {
+      "n": 3300,
+      "reveal_rate": 0.014545454545454545
+    },
+    "generic": {
+      "n": 3566,
+      "reveal_rate": 0.0011217049915872126
+    },
+    "telling": {
+      "n": 2493,
+      "reveal_rate": 0.03289209787404733
+    },
+    "focus": {
+      "n": 5549,
+      "reveal_rate": 0.010452333753829519
+    }
+  },
+  "reveal_note": "MathDial's `telling` label is BROADER than BEA #3 revealing-answer: telling turns mostly confirm intermediate steps or give corrective feedback and rarely state the final answer. So we report reveal firing rate by move DESCRIPTIVELY and do NOT treat `telling` as reveal gold (that construct needs EV-5 human ratings). The validated dim here is guiding-vs-direct."
+}
