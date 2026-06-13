@@ -80,6 +80,14 @@ def main(argv: list[str]) -> int:
     else:
         print("\n[grounding_relevance] skipped (no run dir)", flush=True)
 
+    if run_dir:
+        codes["bea_tutor"] = _run(
+            "bea_tutor (EV-3b, authored scaffolding)",
+            [PY, "eval/validity/bea_tutor/run_bea.py", "--run-dir", run_dir],
+        )
+    else:
+        print("\n[bea_tutor] skipped (no run dir)", flush=True)
+
     print(f"\n{'=' * 70}\nVALIDITY SUITE SUMMARY\n{'=' * 70}")
     for k, v in codes.items():
         print(f"  {k:22s} exit={v}  ({'ok' if v == 0 else 'FLAGS/ERROR'})")
