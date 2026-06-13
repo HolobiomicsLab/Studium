@@ -1,4 +1,6 @@
 // reveal.ts — TS mirror of grounding_relevance/relevance.py (tokenize/jaccard).
+import type { LessonBundle, Scene } from "@studium/lesson-bundle-schema";
+
 const STOPWORDS: ReadonlySet<string> = new Set([
   "the", "and", "for", "are", "but", "not", "you", "all", "any", "can",
   "her", "was", "one", "our", "out", "had", "has", "have", "with",
@@ -56,4 +58,22 @@ export function revealsAnswer(
     if (jaccard(textToks, tokenize(b)) >= theta) return true;
   }
   return false;
+}
+
+/** Answer strings a tutor must not reveal during a discussion scene: the discussion's
+ * own seed_claim, plus the correct-choice text and feedback_correct of every quiz
+ * scene sharing a concept_ref with it. */
+export function collectBannedAnswers(bundle: LessonBundle, scene: Scene): string[] {
+  const banned: string[] = [];
+  const seed = (scene as { seed_claim?: string }).seed_claim;
+  if (seed) banned.push(seed);
+  const concepts = new Set(scene.concept_refs ?? []);
+  for (const s of bundle.scenes) {
+    if (s.id === scene.id || s.type !== "quiz") continue;
+    if (!(s.concept_refs ?? []).some((c) => concepts.has(c))) continue;
+    const q = s as Extract<Scene, { type: "quiz" }>;
+    for (const ch of q.choices) if (ch.correct && ch.text) banned.push(ch.text);
+    if (q.feedback_correct) banned.push(q.feedback_correct);
+  }
+  return banned;
 }
