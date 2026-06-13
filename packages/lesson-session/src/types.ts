@@ -3,7 +3,7 @@ import type { Scene, LessonBundle } from "@studium/lesson-bundle-schema";
 import type { LearnerState, Decision } from "@studium/learner-state";
 import type {
   StateStore, EventLog, TelemetrySink, PseudonymProvider,
-  ReasoningScorer, CritiqueEvaluator, Clock, IdGen, MasteryClaimSink,
+  ReasoningScorer, CritiqueEvaluator, Clock, IdGen, MasteryClaimSink, SocraticTutor,
 } from "./ports.js";
 
 export interface Explanation { rule_id: string; explanation_short: string; modulator: string; }
@@ -49,6 +49,7 @@ export interface SessionDeps {
   telemetry: TelemetrySink;
   pseudonym: PseudonymProvider;
   reasoningScorer: ReasoningScorer;
+  socraticTutor?: SocraticTutor;   // EV-3a: optional = the flag. Absent → no tutor (default).
   critiqueEvaluator: CritiqueEvaluator;
   clock: Clock;
   idGen: IdGen;

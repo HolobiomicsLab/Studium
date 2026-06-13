@@ -8,6 +8,9 @@ import { SessionNotStartedError, SessionAlreadyCompleteError } from "./errors.js
 import { grade } from "./grading/index.js";
 import { thetaForVariant, resolveActiveVariant } from "./universe.js";
 import { buildMasteryClaims } from "./mastery-claims.js";
+import type { TutorMove } from "./socratic-tutor/types.js";
+import { collectBannedAnswers, revealsAnswer } from "./socratic-tutor/reveal.js";
+import { FADED_FALLBACK } from "./socratic-tutor/contingency.js";
 
 const ESCALATE_AFTER = 2; // graph remediations in a session before baseline -> remedial escalation
 const MASTERY_CLAIM_THRESHOLD = 0.8; // fixed mastery-CLAIM bar (NOT the lowerable navigation theta)
@@ -36,6 +39,8 @@ export class LessonSession {
   private scaffoldingEvents = 0;
   private activeUniverseId = BASELINE_UNIVERSE_ID;
   protected discussionTurnIdx = 0;
+  protected discussionHistory: { role: "learner" | "tutor"; text: string }[] = [];
+  protected lastTutorMove: TutorMove | null = null;
 
   constructor(
     private readonly bundle: LessonBundle,
@@ -262,6 +267,7 @@ export class LessonSession {
 
   protected enterScene(): void {
     this.discussionTurnIdx = 0;
+    this.discussionHistory = [];
     this.hintsUsed = 0;
     this.emit({ type: "scene_entered", scene_id: this.scene().id, scene_type: this.scene().type });
   }
@@ -301,6 +307,9 @@ export class LessonSession {
     return signal.kind === "answer_submitted" ? signal.correct : true;
   }
 
+  /** The last tutor reply the LEARNER saw (faded fallback if a reveal was blocked), or null. */
+  getLastTutorMove(): TutorMove | null { return this.lastTutorMove; }
+
   async submitTurn(text: string): Promise<void> {
     this.assertStarted();
     const scene = this.scene();
@@ -310,6 +319,27 @@ export class LessonSession {
     const result = await this.deps.reasoningScorer.score(text, scene.topic);
     if (result === null) return;                        // graceful degradation
     this.emit({ type: "reasoning_signal", scene_id: scene.id, signal: result.signal, confidence: result.confidence, turn_index: turnIndex });
+
+    // EV-3a: live Socratic tutor (optional dep = flag). Telemetry-only; submitTurn stays void.
+    if (!this.deps.socraticTutor) return;
+    this.discussionHistory.push({ role: "learner", text });
+    const move = await this.deps.socraticTutor.respond({
+      topic: scene.topic, seedClaim: scene.seed_claim, learnerTurn: text,
+      signal: result.signal, confidence: result.confidence, history: this.discussionHistory,
+    });
+    if (move === null) return;
+    const banned = collectBannedAnswers(this.bundle, scene);
+    const lowConfViolation = result.confidence < 0.4 && move.move_kind !== "scaffold_hint";
+    const revealed = move.revealed || revealsAnswer(move.text, banned) || lowConfViolation;
+    const safe = revealed ? FADED_FALLBACK[result.signal] : move;
+    this.discussionHistory.push({ role: "tutor", text: safe.text });
+    this.lastTutorMove = safe; // the learner-facing move
+    this.emit({
+      type: "tutor_move", scene_id: scene.id,
+      move_kind: move.move_kind,          // ORIGINAL move (eval honesty)
+      in_reply_to_signal: result.signal,
+      revealed, reveal_blocked: revealed, turn_index: turnIndex,
+    });
   }
 }
 
