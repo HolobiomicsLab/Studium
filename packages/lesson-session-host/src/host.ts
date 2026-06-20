@@ -2,9 +2,10 @@
 import { randomUUID } from "node:crypto";
 import {
   LessonSession, enrichEvent, bundleVersionOf,
-  type Presentation, type ResponseInput, type Transition, type Explanation,
+  type Presentation, type ResponseInput, type Transition, type Explanation, type HintResult,
 } from "@studium/lesson-session";
 import type { LearnerState } from "@studium/learner-state";
+import { sceneRenderAssets, type RenderAsset } from "@studium/lesson-bundle-schema";
 import { SessionRegistry, type SessionEntry } from "./registry.js";
 import { buildHostDeps, durableDataDir, durableScopeDir } from "./deps.js";
 import { resolveBundle } from "./bundle-resolver.js";
@@ -61,16 +62,39 @@ export class SessionHost {
   }
 
   currentPresentation(id: string): Presentation { return this.require(id).session.currentPresentation(); }
+  /** The normalized render manifest for the current scene — the artifacts a UI pairs with this
+   * scene (figure, equation, interactive plot, executed reference run, …). Empty for a plain quiz. */
+  sceneArtifacts(id: string): RenderAsset[] {
+    return sceneRenderAssets(this.require(id).session.currentPresentation().scene);
+  }
   async respond(id: string, input: ResponseInput): Promise<Transition> {
     const e = this.require(id);
     const transition = await e.session.respond(input);
     // Persist local mastery claims when the lesson completes (no-op for the in-memory sink;
     // writes the .jsonld for FileMasteryClaimSink). NOT flushed on forget() — that is the
     // RGPD-delete path.
-    if (transition.kind === "complete") await e.deps.masteryClaimSink?.flush();
+    if (transition.kind === "complete") {
+      await e.deps.masteryClaimSink?.flush();
+      // Flush consented telemetry to its durable sink at end-of-lesson (no-op for the in-memory
+      // sink). With a JsonlTelemetrySink (consent path, see deps.ts) this writes the pseudonymized
+      // ADR-006 event stream a teacher's class_report can later aggregate. forget() flush+purges.
+      await e.deps.telemetry.flush();
+    }
     return transition;
   }
+  /** Pull the next authored hint for the current quiz scene (scaffolding-gated, M5 discount).
+   * Returns null when the scene is not a quiz, has no hints, or the per-visit cap is reached. */
+  requestHint(id: string): HintResult | null { return this.require(id).session.requestHint(); }
   async submitTurn(id: string, text: string): Promise<void> { await this.require(id).session.submitTurn(text); }
+  /** The Socratic tutor move generated on the last discussion turn (null outside a discussion
+   * or when no tutor is wired). */
+  lastTutorMove(id: string): { text: string; move_kind: string; revealed: boolean } | null {
+    return this.require(id).session.getLastTutorMove();
+  }
+  /** The reasoning signal scored on the last discussion turn (null if none yet). */
+  lastReasoning(id: string): { signal: string; confidence: number } | null {
+    return this.require(id).session.getLastReasoning();
+  }
   explainLast(id: string): Explanation | null { return this.require(id).session.explainLast(); }
   getState(id: string): LearnerState { return this.require(id).session.getState(); }
   has(id: string): boolean { return this.registry.has(id); }

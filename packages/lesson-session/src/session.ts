@@ -13,7 +13,11 @@ import { collectBannedAnswers, revealsAnswer } from "./socratic-tutor/reveal.js"
 import { FADED_FALLBACK } from "./socratic-tutor/contingency.js";
 
 const ESCALATE_AFTER = 2; // graph remediations in a session before baseline -> remedial escalation
-const MASTERY_CLAIM_THRESHOLD = 0.8; // fixed mastery-CLAIM bar (NOT the lowerable navigation theta)
+// Mastery-CERTIFICATION bar — deliberately ABOVE the navigation theta (DEFAULT_THETA=0.8). Passing
+// the gate (provisional, lowerable per universe) is NOT the same as certifying mastery: a
+// `demonstrates_mastery_of` claim requires a stronger posterior (0.85) AND the MIN_MASTERY_ATTEMPTS
+// floor AND distinct items. Two clean answers (alpha=4 -> 0.8) unlock the next concept but do NOT certify.
+const MASTERY_CLAIM_THRESHOLD = 0.85;
 const BASELINE_UNIVERSE_ID = "baseline";
 const REMEDIAL_UNIVERSE_ID = "remedial";
 
@@ -41,6 +45,7 @@ export class LessonSession {
   protected discussionTurnIdx = 0;
   protected discussionHistory: { role: "learner" | "tutor"; text: string }[] = [];
   protected lastTutorMove: TutorMove | null = null;
+  protected lastReasoning: { signal: string; confidence: number } | null = null;
 
   constructor(
     private readonly bundle: LessonBundle,
@@ -309,6 +314,7 @@ export class LessonSession {
 
   /** The last tutor reply the LEARNER saw (faded fallback if a reveal was blocked), or null. */
   getLastTutorMove(): TutorMove | null { return this.lastTutorMove; }
+  getLastReasoning(): { signal: string; confidence: number } | null { return this.lastReasoning; }
 
   async submitTurn(text: string): Promise<void> {
     this.assertStarted();
@@ -318,6 +324,7 @@ export class LessonSession {
     const turnIndex = this.discussionTurnIdx++;
     const result = await this.deps.reasoningScorer.score(text, scene.topic);
     if (result === null) return;                        // graceful degradation
+    this.lastReasoning = { signal: result.signal, confidence: result.confidence };
     this.emit({ type: "reasoning_signal", scene_id: scene.id, signal: result.signal, confidence: result.confidence, turn_index: turnIndex });
 
     // EV-3a: live Socratic tutor (optional dep = flag). Telemetry-only; submitTurn stays void.

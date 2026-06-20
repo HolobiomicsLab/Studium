@@ -57,13 +57,45 @@ export function buildMcpServer(host: SessionHost): McpServer {
   );
 
   server.registerTool(
+    "get_scene_artifacts",
+    {
+      description: "Get the normalized render manifest (scene_assets[]) for the current scene — the " +
+        "artifacts a UI pairs with this scene: {kind: image|svg|equation_latex|plot_spec|code|data_csv|" +
+        "protocol_md|executed_result, title?, payload?, path?, meta?}. Empty for a plain quiz. A webview " +
+        "calls this each turn to repaint the artifact pane in lockstep with the lesson.",
+      inputSchema: { session_id: z.string() },
+    },
+    async ({ session_id }) => {
+      try { return text({ scene_assets: host.sceneArtifacts(session_id) }); }
+      catch (e) { return fail((e as Error).message); }
+    },
+  );
+
+  server.registerTool(
+    "request_hint",
+    {
+      description: "Request the next authored hint for the current quiz scene. Returns {hint, index, remaining} " +
+        "or {hint: null} when the scene is not a quiz, has no hints, or the per-visit hint cap is reached. " +
+        "Each hint discounts the mastery credit of the eventual answer (M5 anti-offloading).",
+      inputSchema: { session_id: z.string() },
+    },
+    async ({ session_id }) => {
+      try { return text({ hint: host.requestHint(session_id) }); }
+      catch (e) { return fail((e as Error).message); }
+    },
+  );
+
+  server.registerTool(
     "submit_turn",
     {
-      description: "Submit a discussion turn; the reasoning signal is scored and recorded in telemetry.",
+      description: "Submit a free-text discussion turn; returns the scored reasoning signal and the Socratic tutor's reply move (so the client can render the dialogue turn-by-turn).",
       inputSchema: { session_id: z.string(), text: z.string() },
     },
     async ({ session_id, text: turn }) => {
-      try { await host.submitTurn(session_id, turn); return text({ accepted: true }); }
+      try {
+        await host.submitTurn(session_id, turn);
+        return text({ accepted: true, reasoning: host.lastReasoning(session_id), tutor: host.lastTutorMove(session_id) });
+      }
       catch (e) { return fail((e as Error).message); }
     },
   );

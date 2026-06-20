@@ -5,7 +5,9 @@ import {
   SystemClock, RandomIdGen, HmacPseudonymProvider,
   InMemoryStateStore, InMemoryEventLog, InMemoryTelemetrySink,
   InMemoryMasteryClaimSink, FileMasteryClaimSink, FileStateStore, JsonlEventLog,
+  JsonlTelemetrySink,
   LiteLLMReasoningScorer, StubReasoningScorer,
+  LiteLLMSocraticTutor, StubSocraticTutor,
   HttpCritiqueEvaluator, StubCritiqueEvaluator,
 } from "@studium/lesson-session/node";
 
@@ -46,6 +48,18 @@ export function durableDataDir(): string | null {
   return d ? d : null;
 }
 
+/** Teacher analytics consent gate (ADR-006). Telemetry is collected to a durable, aggregatable
+ * sink ONLY when the learner/teacher has explicitly opted in via STUDIUM_TELEMETRY_CONSENT
+ * (truthy: "1"/"true"/"granted"/"yes"). Default = OFF: the in-memory sink is used and NOTHING is
+ * persisted. Even when granted, only the pseudonymized refs/scalars ADR-006 already permits are
+ * written (no free text; mastery stays in the local state store, never in telemetry). The sink is
+ * written under the per-learner pseudonymized scope dir, so it requires durable mode (a scopeDir)
+ * to have somewhere to land — without STUDIUM_DATA_DIR the consent flag is inert. */
+export function telemetryConsentGranted(): boolean {
+  const v = (process.env["STUDIUM_TELEMETRY_CONSENT"] ?? "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "granted" || v === "yes";
+}
+
 /** Each session gets its OWN stores (session isolation).
  *
  * #3 durable mode: when `scopeDir` is provided (the host derives it from the pseudonym + bundle_id,
@@ -61,10 +75,16 @@ export function durableDataDir(): string | null {
 export function buildHostDeps(live: boolean, scopeDir?: string): SessionDeps {
   const pseudonym = new HmacPseudonymProvider(resolvePseudoSecret(live));
   const durable = scopeDir !== undefined;
+  // Consented telemetry: durable mode + explicit opt-in → write the pseudonymized ADR-006 event
+  // stream to telemetry.jsonl under the per-learner scope dir (a teacher's class_report aggregates
+  // it). Otherwise the in-memory sink (nothing persisted) — the privacy-preserving default.
+  const telemetry = durable && telemetryConsentGranted()
+    ? new JsonlTelemetrySink(join(scopeDir, "telemetry.jsonl"))
+    : new InMemoryTelemetrySink();
   return {
     stateStore: durable ? new FileStateStore(scopeDir) : new InMemoryStateStore(),
     eventLog: durable ? new JsonlEventLog(join(scopeDir, "events.jsonl")) : new InMemoryEventLog(),
-    telemetry: new InMemoryTelemetrySink(),
+    telemetry,
     pseudonym,
     clock: new SystemClock(),
     idGen: new RandomIdGen(),
@@ -73,9 +93,19 @@ export function buildHostDeps(live: boolean, scopeDir?: string): SessionDeps {
           mode: "litellm",
           baseUrl: process.env["LITELLM_BASE_URL"] ?? "",
           ...(process.env["LITELLM_API_KEY"] !== undefined ? { apiKey: process.env["LITELLM_API_KEY"] } : {}),
-        })
+        }, Number(process.env["STUDIUM_LLM_TIMEOUT_MS"] ?? 20000))
       : new StubReasoningScorer(),
     critiqueEvaluator: live ? new HttpCritiqueEvaluator() : new StubCritiqueEvaluator(),
+    // EV-3a: Socratic tutor for discussion scenes. Offline (live=false) wires the
+    // deterministic, never-revealing StubSocraticTutor so the narrative free-text dialogue
+    // works without an LLM; live mode swaps in the LiteLLM tutor (same opts as the scorer).
+    socraticTutor: live
+      ? new LiteLLMSocraticTutor({
+          mode: "litellm",
+          baseUrl: process.env["LITELLM_BASE_URL"] ?? "",
+          ...(process.env["LITELLM_API_KEY"] !== undefined ? { apiKey: process.env["LITELLM_API_KEY"] } : {}),
+        }, Number(process.env["STUDIUM_LLM_TIMEOUT_MS"] ?? 20000))
+      : new StubSocraticTutor(),
     // In durable mode mastery is co-located under the per-learner dir (overrides STUDIUM_MASTERY_DIR).
     masteryClaimSink: durable
       ? new FileMasteryClaimSink(join(scopeDir, "mastery"))
