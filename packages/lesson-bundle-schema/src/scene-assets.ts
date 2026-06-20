@@ -5,31 +5,17 @@
 // shouldn't have to know each field's home — `sceneRenderAssets(scene)` flattens them into a
 // single typed `RenderAsset[]`, so the client renders strictly BY KIND. This is what a webview /
 // VS Code panel consumes to draw the artifact paired with the current scene, pair by pair.
-import { z } from "zod";
 import type { Scene } from "./scenes";
+import {
+  RenderAssetKindSchema,
+  RenderAssetSchema,
+  type RenderAssetKind,
+  type RenderAsset,
+} from "./render-asset";
 
-export const RenderAssetKindSchema = z.enum([
-  "image",            // a rendered figure (path)
-  "svg",              // inline SVG markup (e.g. a spectrum viewer)
-  "equation_latex",   // a LaTeX string → KaTeX/MathJax
-  "plot_spec",        // a Vega-Lite / Plotly JSON spec → interactive plot
-  "code",             // a code/script snippet
-  "data_csv",         // tabular data → a table
-  "protocol_md",      // a protocol card in markdown
-  "executed_result",  // the graded output of a reference run (figure + checks + landmark)
-]);
-export type RenderAssetKind = z.infer<typeof RenderAssetKindSchema>;
-
-export const RenderAssetSchema = z.object({
-  kind: RenderAssetKindSchema,
-  title: z.string().optional(),
-  payload: z.string().optional(),   // inline content (latex, vega/plotly json, svg, code, csv, md)
-  path: z.string().optional(),      // a file path (image / figure)
-  language: z.string().optional(),  // for `code`
-  provenance: z.string().optional(),
-  meta: z.record(z.unknown()).optional(), // e.g. executed_result {passed, landmark, checks}
-});
-export type RenderAsset = z.infer<typeof RenderAssetSchema>;
+// Re-exported for back-compat: consumers import these from "./scene-assets" (and via the package index).
+export { RenderAssetKindSchema, RenderAssetSchema };
+export type { RenderAssetKind, RenderAsset };
 
 const ABS_KIND: Record<string, RenderAssetKind> = {
   spectrum_viewer_svg: "svg",
@@ -39,12 +25,21 @@ const ABS_KIND: Record<string, RenderAssetKind> = {
   protocol_card_md: "protocol_md",
   plot_spec: "plot_spec",
   equation_latex: "equation_latex",
+  orbital_viewer_3d: "orbital",
+  molecule_3d: "mol_3d",
+  spectrum_data: "spectrum",
 };
 
 /** Flatten a scene's renderable payloads into a single ordered manifest (prose markdown excluded —
  * it is the scene body the tutor surface already shows; this manifest is the *artifact* pane). */
 export function sceneRenderAssets(scene: Scene): RenderAsset[] {
   const out: RenderAsset[] = [];
+
+  // 0) explicit typed assets the author attached to the scene (interactive orbital / spectrum /
+  //    equation / plot rendered pair-by-pair with the cell). These are the primary artifacts.
+  if ("render_assets" in scene && scene.render_assets) {
+    out.push(...scene.render_assets);
+  }
 
   // 1) a static figure on a concept/reproduction scene
   if ("image_path" in scene && scene.image_path) {

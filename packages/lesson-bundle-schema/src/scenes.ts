@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RenderAssetSchema } from "./render-asset";
 
 // ADR 014 — Evidence schemas (Zod local copy ; lesson-plan-schema uses AJV, incompatible direct import)
 
@@ -29,6 +30,9 @@ export const ABSAssetSchema = z.object({
     // interactive / first-class rich types (rendered client-side):
     "plot_spec",       // payload_inline = a Vega-Lite or Plotly JSON spec (zoom/hover)
     "equation_latex",  // payload_inline = a LaTeX string, rendered with KaTeX/MathJax
+    "orbital_viewer_3d", // payload_path = a .cube volumetric, rendered with 3Dmol.js
+    "molecule_3d",       // payload_path/inline = xyz/mol/pdb/SMILES, rendered with 3Dmol.js / RDKit.js
+    "spectrum_data",     // payload_inline = a Vega-Lite spec of spectral lines (λ / m·z⁻¹ vs intensity)
   ]),
   payload_inline: z.string().optional(),
   payload_path: z.string().optional(),
@@ -67,6 +71,9 @@ export const SceneBaseSchema = z.object({
   concept_refs: z.array(z.string()),
   estimated_seconds: z.number().int().nonnegative(),
   adaptation_hooks: z.array(z.string()),
+  // explicit typed artifacts shown pair-by-pair with this scene/cell (orbital, spectrum, equation,
+  // plot…). Flattened into the render manifest by sceneRenderAssets(); optional + back-compatible.
+  render_assets: z.array(RenderAssetSchema).optional(),
 });
 
 // ADR 010 — flat shape : champs métier à la racine, pas d'enveloppe `content`.

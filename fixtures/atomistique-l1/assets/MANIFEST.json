@@ -1,0 +1,46 @@
+{
+  "generator": "generate_assets.py",
+  "deterministic": true,
+  "assets": [
+    {
+      "path": "assets/orbitals/2pz.cube",
+      "kind": "orbital",
+      "iso": 0.18,
+      "bytes": 843526
+    },
+    {
+      "path": "assets/orbitals/3dz2.cube",
+      "kind": "orbital",
+      "iso": 0.18,
+      "bytes": 1456455
+    },
+    {
+      "path": "assets/spectra/H_balmer.spectrum.json",
+      "kind": "spectrum",
+      "lines": [
+        656.5,
+        486.3,
+        434.2,
+        410.3
+      ]
+    },
+    {
+      "path": "assets/plots/ionisation_periode2.plot.json",
+      "kind": "plot_spec"
+    },
+    {
+      "path": "assets/plots/rayon_periode2.plot.json",
+      "kind": "plot_spec"
+    },
+    {
+      "path": "assets/molecules/CH4.xyz",
+      "kind": "mol_3d",
+      "format": "xyz"
+    },
+    {
+      "path": "assets/molecules/H2O.xyz",
+      "kind": "mol_3d",
+      "format": "xyz"
+    }
+  ]
+}

@@ -45,8 +45,34 @@ Modulator = Literal["M1", "M2", "M3", "M6"]
 
 PerspicaciteMode = Literal["basic", "advanced", "profound", "agentic", "passages"]
 ABSAssetType = Literal[
-    "spectrum_viewer_svg", "code_snippet", "data_csv", "protocol_card_md", "script_snippet"
+    "spectrum_viewer_svg", "code_snippet", "data_csv", "protocol_card_md", "script_snippet",
+    # interactive / first-class rich types (rendered client-side):
+    "plot_spec", "equation_latex", "orbital_viewer_3d", "molecule_3d", "spectrum_data",
 ]
+
+# ---------------------------------------------------------------------------
+# Normalized render manifest — mirror of packages/lesson-bundle-schema render-asset.ts
+# ---------------------------------------------------------------------------
+
+RenderAssetKind = Literal[
+    "image", "svg", "equation_latex", "plot_spec", "code", "data_csv",
+    "protocol_md", "executed_result",
+    # interactive scientific kinds (3Dmol.js / RDKit.js / Vega-Lite):
+    "orbital", "mol_3d", "spectrum",
+]
+
+
+class RenderAsset(BaseModel):
+    """A normalized, render-by-kind artifact shown pair-by-pair with a scene/cell."""
+
+    kind: RenderAssetKind
+    title: Optional[str] = None
+    payload: Optional[str] = None  # inline (latex, vega/plotly json, svg, code, csv, md, xyz, cube)
+    path: Optional[str] = None  # file path (image / figure / .cube)
+    language: Optional[str] = None  # for `code`
+    format: Optional[str] = None  # renderer hint: "cube" | "xyz" | "smiles" | "vega-lite"
+    provenance: Optional[str] = None
+    meta: Optional[dict[str, Any]] = None
 
 
 class BibliographicRef(BaseModel):
@@ -114,6 +140,9 @@ class _SceneBase(BaseModel):
     concept_refs: list[str] = Field(default_factory=list)
     estimated_seconds: int = Field(default=0, ge=0)
     adaptation_hooks: list[str] = Field(default_factory=list)
+    # explicit typed artifacts rendered pair-by-pair with this scene/cell (orbital, spectrum,
+    # equation, plot…). Flattened client-side by sceneRenderAssets(); optional + back-compatible.
+    render_assets: Optional[list[RenderAsset]] = None
 
 
 # ---------------------------------------------------------------------------

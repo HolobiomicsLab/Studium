@@ -23,8 +23,9 @@
 
   function badge(kind) {
     const labels = {
-      image: "figure", svg: "spectrum", equation_latex: "equation", plot_spec: "interactive plot",
+      image: "figure", svg: "diagram", equation_latex: "equation", plot_spec: "interactive plot",
       code: "code", data_csv: "table", protocol_md: "protocol", executed_result: "executed ✓",
+      orbital: "orbital (3D)", mol_3d: "molecule (3D)", spectrum: "spectrum",
     };
     return el("span", { class: "badge badge-" + kind }, labels[kind] || kind);
   }
@@ -121,9 +122,43 @@
     return card;
   }
 
+  // --- interactive scientific renderers (3Dmol for orbital/molecule; Vega for spectrum) --------
+  // 3Dmol needs the container attached + sized before createViewer, so defer to a microtask and
+  // give the host an explicit height. Degrades to the raw payload when $3Dmol is absent.
+  function render3D(a, kind) {
+    const host = el("div", { class: "mol3d" });
+    const lib = window.$3Dmol;
+    if (!lib || !a.payload) {
+      host.append(el("pre", { class: "code" }, a.payload ? "(3Dmol not loaded — set studium.assets)" : "(no data)"));
+      return host;
+    }
+    setTimeout(() => {
+      try {
+        const viewer = lib.createViewer(host, { backgroundColor: "white" });
+        if (kind === "orbital") {
+          const iso = (a.meta && typeof a.meta.iso === "number") ? a.meta.iso : 0.02;
+          viewer.addModel(a.payload, "cube");                 // the nucleus (cube carries 1 atom)
+          viewer.setStyle({}, { sphere: { scale: 0.18, color: "0x444444" } });
+          viewer.addVolumetricData(a.payload, "cube", { isoval: iso, color: "blue", opacity: 0.85 });
+          viewer.addVolumetricData(a.payload, "cube", { isoval: -iso, color: "red", opacity: 0.85 });
+        } else {
+          viewer.addModel(a.payload, a.format || "xyz");
+          viewer.setStyle({}, { stick: { radius: 0.13 }, sphere: { scale: 0.27 } });
+        }
+        viewer.zoomTo();
+        viewer.resize();   // ensure the WebGL viewport matches the (now sized) container before drawing
+        viewer.render();
+      } catch (e) { host.append(el("pre", { class: "code" }, "3Dmol error: " + (e && e.message))); }
+    }, 0);
+    return host;
+  }
+  function renderOrbital(a) { return render3D(a, "orbital"); }
+  function renderMol3d(a) { return render3D(a, "mol_3d"); }
+
   const RENDERERS = {
     image: renderImage, svg: renderSvg, equation_latex: renderEquation, plot_spec: renderPlot,
     code: renderCode, data_csv: renderCsv, protocol_md: renderProtocol, executed_result: renderExecuted,
+    orbital: renderOrbital, mol_3d: renderMol3d, spectrum: renderPlot, // spectrum = a Vega-Lite spec
   };
 
   function renderAsset(a) {

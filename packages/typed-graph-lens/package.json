@@ -1,0 +1,25 @@
+{
+  "name": "@studium/typed-graph-lens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./adapters/studium": "./src/adapters/studium.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "zod": "^3.23.8",
+    "@studium/learning-workflow-schema": "workspace:*",
+    "@studium/adaptation-engine": "workspace:*",
+    "@studium/learner-state": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.1",
+    "typescript": "^5.5.0"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Rayon atomique (periode 2)",
+  "width": 360,
+  "height": 170,
+  "data": {
+    "values": [
+      {
+        "element": "Li",
+        "y": 167
+      },
+      {
+        "element": "Be",
+        "y": 112
+      },
+      {
+        "element": "B",
+        "y": 87
+      },
+      {
+        "element": "C",
+        "y": 67
+      },
+      {
+        "element": "N",
+        "y": 56
+      },
+      {
+        "element": "O",
+        "y": 48
+      },
+      {
+        "element": "F",
+        "y": 42
+      },
+      {
+        "element": "Ne",
+        "y": 38
+      }
+    ]
+  },
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": true
+      },
+      "encoding": {
+        "x": {
+          "field": "element",
+          "type": "nominal",
+          "sort": null,
+          "title": "element (periode 2)"
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "title": "rayon (pm)"
+        },
+        "tooltip": [
+          {
+            "field": "element"
+          },
+          {
+            "field": "y",
+            "title": "rayon (pm)"
+          }
+        ]
+      }
+    }
+  ]
+}

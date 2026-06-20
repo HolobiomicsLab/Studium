@@ -113,6 +113,21 @@ export function buildMcpServer(host: SessionHost): McpServer {
   );
 
   server.registerTool(
+    "get_workflow_graph",
+    {
+      description: "Get the Learning Workflow Graph for the session as a normalized GraphView with " +
+        "LIVE per-concept state (mastered/current/available/locked) from the learner's running mastery. " +
+        "Shape: {schema, domain, title?, nodes:[{id,type,label,group?,state?,value?}], edges:[{id,source,target,type}], focus?, legend?}. " +
+        "A graph webview repaints this each turn; the same payload drives a teacher (full) or student (ego) view. null when the bundle has no LWG.",
+      inputSchema: { session_id: z.string() },
+    },
+    async ({ session_id }) => {
+      try { return text({ graph: host.workflowGraph(session_id) }); }
+      catch (e) { return fail((e as Error).message); }
+    },
+  );
+
+  server.registerTool(
     "get_session_state",
     {
       description: "Get the learner state (concept mastery, completed scenes, history) for a session.",

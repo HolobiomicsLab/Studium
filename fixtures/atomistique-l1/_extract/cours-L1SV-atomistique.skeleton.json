@@ -1,0 +1,133 @@
+{
+  "label": "cours-L1SV-atomistique",
+  "path": "fixtures/m6/demo-atomistique/corpus/cours-L1SV-atomistique.pdf",
+  "pages": 183,
+  "title": "cours-L1SV-atomistique_new",
+  "author": "Mimosa",
+  "embedded_toc_entries": 0,
+  "toc": [],
+  "heading_candidates": [
+    "5 CMs et 6 TDs",
+    "Chapitre 1 : les atomes",
+    "Chapitre 1 : gammes d’échelles et de temps",
+    "Chapitre 1 : éléments indispensables à la vie",
+    "Chapitre 1 : éléments indispensables à la vie",
+    "Chapitre 1 : particules constitutives des atomes",
+    "Chapitre 1 : rappels sur les atomes",
+    "Chapitre 1 : nombres quantiques et orbitales atomiques",
+    "Chapitre 1 : quan;ﬁca;on des niveaux d’énergie",
+    "Chapitre 1 : reconnaitre un gaz inconnu",
+    "Chapitre 1 : énergies d’ionisa;on",
+    "Chapitre 1 : niveaux d'énergie électronique - généralisa;on",
+    "Chapitre 1 : fonction d’onde et coordonées sphériques",
+    "Chapitre 1 : nombres quantiques",
+    "Chapitre 1 : associa;on entre nombres quan;ques et OAs",
+    "Chapitre 1 : forme des orbitales atomiques d",
+    "Chapitre 1 : Règles de remplissage des OAs",
+    "Chapitre 1 : forme et nomenclature des OAs",
+    "6 électrons par orbitale p, 10 électrons par orbitale d,",
+    "14 par orbitale f.",
+    "Chapitre 1 : lien avec le TD1",
+    "Chapitre 1 : conﬁgura;on électronique d’un atome",
+    "Chapitre 1 : configuration électronique, séparation coeur / valence",
+    "Chapitre 1 : configuration électronique, séparation coeur / valence",
+    "Chapitre 1 : configuration électronique, séparation coeur / valence",
+    "Chapitre 1 : propriétés des atomes et tableau périodique",
+    "Chapitre 1 : poten;el de première ionisa;on",
+    "Chapitre 1 : propriétés des atomes et tableau périodique",
+    "Chapitre 1 : rayon atomique",
+    "Chapitre 1 : rayon atomique",
+    "Chapitre 1 : contrac;on des OAs et énergie",
+    "Chapitre 1 : CQFR sur les orbitales atomiques",
+    "Chapitre 2 : propriétés des atomes et tableau périodique.",
+    "Chapitre 2 : vers les pe;tes molécules",
+    "Chapitre 2 : rappels sur le cours 1",
+    "3 nombres quantiques : n, l, m ou ml dont les valeurs vérifient:",
+    "Partie angulaire,",
+    "Chapitre 2 : rappels sur le cours 1",
+    "3 nombres quantiques : n, l, m ou ml dont les valeurs vérifient:",
+    "Partie angulaire,",
+    "Partie radiale",
+    "Chapitre 2 : associa;on entre n,l,ml et les OAs",
+    "Chapitre 2 : famille des halogènes",
+    "Chapitre 2 : famille des halogènes",
+    "7 électrons sur la couche de valence pour tous ces atomes.",
+    "Chapitre 2 : famille des alcalins",
+    "Chapitre 2 : Représentation de Lewis des ions",
+    "Chapitre 2 : propriétés des atomes et tableau périodique",
+    "Chapitre 2 : modèle de Lewis et liaison chimique",
+    "Chapitre 2 : lien entre électronéga;vité et polarité des liaisons",
+    "Chapitre 2 : Méthode d’obten;on des structures de Lewis",
+    "1) Faire un décompte des électrons de valence et les a_ribuer",
+    "2) Former les liaisons en suivant la règle de l’octet (2 pour H, 8 pour C)",
+    "3) Appliquer la méthode VSEPR pour determiner la géométrie des molecules",
+    "4) Éventuellement simpliﬁer la representa@on (on omet les carbones)",
+    "Chapitre 2 : nombre d’insaturations",
+    "Chapitre 2 : Alcanes, alcènes, alcynes",
+    "Chapitre 2 : Alcanes, alcènes, alcynes",
+    "Chapitre 2 : oxygène et azote",
+    "Chapitre 2 : oxygène et azote"
+  ],
+  "n_figures": 452,
+  "figures_by_page_head": [
+    [
+      53,
+      13
+    ],
+    [
+      1,
+      9
+    ],
+    [
+      67,
+      9
+    ],
+    [
+      92,
+      9
+    ],
+    [
+      38,
+      8
+    ],
+    [
+      76,
+      8
+    ],
+    [
+      106,
+      8
+    ],
+    [
+      96,
+      7
+    ]
+  ],
+  "term_frequency": {
+    "liaison": 138,
+    "électron": 112,
+    "orbitale": 69,
+    "énergie": 46,
+    "Lewis": 20,
+    "périodique": 18,
+    "quantique": 17,
+    "dipôl": 11,
+    "hybridation": 10,
+    "spin": 10,
+    "configuration": 9,
+    "onde": 9,
+    "nombre quantique": 6,
+    "électronégativ": 5,
+    "probabilité": 4,
+    "Schrödinger": 3,
+    "Pauli": 3,
+    "Hund": 3,
+    "isotope": 3,
+    "mole": 2,
+    "Bohr": 1,
+    "Klechkowski": 1,
+    "sous-couche": 1,
+    "spectre": 1
+  },
+  "chars": 62919
+}

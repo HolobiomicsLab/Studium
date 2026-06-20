@@ -1,0 +1,54 @@
+{
+  "label": "TD-SPEB107-enonce",
+  "path": "fixtures/m6/demo-atomistique/corpus/TD-SPEB107-enonce.pdf",
+  "pages": 12,
+  "title": "TD-SPEB107-enonce-2526",
+  "author": "Mimosa",
+  "embedded_toc_entries": 0,
+  "toc": [],
+  "heading_candidates": [
+    "1. Indiquer les parMcules consMtuant cet atome et leurs nombres respecMfs.",
+    "2. Quels ions stables forment ces éléments ? Pourquoi ?",
+    "2. Quels sont ceux qui en possèdent 3 ?",
+    "3. Quels sont ceux qui en possèdent 5 ?",
+    "5. On considère l’atome de numéro atomique Z=26.",
+    "1. Rappeler les valeurs possibles des différents nombres quantiques.",
+    "2. Considérons un électron caractérisé par une fonction d’onde 4f.",
+    "3.  Pour les questions suivantes, on considère l=2.",
+    "1) Représenter dans l’espace l’une de ces trois molécules en indiquant :"
+  ],
+  "n_figures": 4,
+  "figures_by_page_head": [
+    [
+      9,
+      2
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      11,
+      1
+    ]
+  ],
+  "term_frequency": {
+    "électron": 51,
+    "orbitale": 19,
+    "Lewis": 13,
+    "liaison": 13,
+    "quantique": 10,
+    "configuration": 7,
+    "périodique": 5,
+    "onde": 5,
+    "isotope": 4,
+    "hybridation": 3,
+    "énergie": 3,
+    "spin": 2,
+    "sous-couche": 2,
+    "nombre quantique": 1,
+    "mésomér": 1,
+    "spectre": 1
+  },
+  "chars": 21974
+}

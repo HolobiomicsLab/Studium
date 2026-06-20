@@ -1,0 +1,4 @@
+# Private raw course text — extracted LOCALLY for grounding, never committed/published.
+# (cours-L1SV-atomistique.pdf is "Privé — usage démo interne".)
+_extract/*.text.txt
+.crossmbp-backup/

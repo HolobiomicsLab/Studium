@@ -10,6 +10,8 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
+import { registerStudiumNotebook } from "./notebook.js";
 
 type Json = Record<string, any>;
 
@@ -17,6 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("studium.openLesson", () => openLesson(context)),
   );
+  registerStudiumNotebook(context);
 }
 export function deactivate() {}
 
@@ -48,7 +51,10 @@ async function openLesson(context: vscode.ExtensionContext) {
   const transport = new StdioClientTransport({ command: tsx, args: ["src/index.ts"], cwd: mcpDir, env, stderr: "ignore" });
   const client = new Client({ name: "studium-vscode", version: "0.1.0" });
   await client.connect(transport);
-  panel.onDidDispose(() => client.close().catch(() => {}));
+  // Track disposal so async callbacks (which may resume after the user closes the panel) never
+  // postMessage to a dead webview.
+  let panelDisposed = false;
+  panel.onDidDispose(() => { panelDisposed = true; client.close().catch(() => {}); });
 
   const call = async (name: string, args: Json): Promise<Json> => {
     const res: any = await client.callTool({ name, arguments: args });
@@ -57,7 +63,39 @@ async function openLesson(context: vscode.ExtensionContext) {
     return data;
   };
 
+  let sid = "";
+
+  // Companion live GRAPH panel (typed-graph-lens). The extension turns the GraphView from
+  // get_workflow_graph into Cytoscape elements + a stylesheet (same package the host used to build
+  // it) and posts them; graph-pane.js just lays out + renders. Repainted each turn, in lockstep.
+  const showGraph = cfg<boolean>("showGraph", true);
+  const graphMode = cfg<"student" | "teacher">("graphView", "student");
+  let graphPanel: vscode.WebviewPanel | undefined;
+  if (showGraph) {
+    const gp = vscode.window.createWebviewPanel(
+      "studiumGraph", "Studium — Graph", vscode.ViewColumn.Beside,
+      { enableScripts: true, localResourceRoots: [vscode.Uri.file(join(context.extensionPath, "media"))], retainContextWhenHidden: true },
+    );
+    gp.webview.html = graphHtml(gp.webview, context.extensionPath, assets);
+    gp.onDidDispose(() => { if (graphPanel === gp) graphPanel = undefined; });
+    graphPanel = gp;
+  }
+  panel.onDidDispose(() => { try { graphPanel?.dispose(); } catch { /* already gone */ } });
+  const pushGraph = async () => {
+    if (!graphPanel || !sid) return;
+    try {
+      const g = (await call("get_workflow_graph", { session_id: sid })).graph as GraphView | null;
+      if (!g || !graphPanel) return; // graphPanel may have been disposed during the await
+      const view = graphMode === "student" ? egoFilter(g) : g;
+      graphPanel.webview.postMessage({
+        type: "graph", elements: toCytoscape(view), style: buildStylesheet(),
+        title: g.title ?? "", legend: g.legend ?? [], focus: g.focus ?? null, mode: graphMode,
+      });
+    } catch { /* the graph is best-effort; never let it break the lesson */ }
+  };
+
   // Resolve a figure path on disk into a webview-safe data URI so <img> renders under the CSP.
+  // (Text artifacts — orbital .cube, spectrum, molecule — are inlined server-side by get_scene_artifacts.)
   const inlineImage = (a: Json) => {
     if (!a.path || a.kind !== "image" && a.kind !== "executed_result") return a;
     try {
@@ -67,9 +105,9 @@ async function openLesson(context: vscode.ExtensionContext) {
     } catch { return a; }
   };
 
-  let sid = "";
   const pushScene = async (presentation: Json, explanation?: Json) => {
     const artifacts = (await call("get_scene_artifacts", { session_id: sid })).scene_assets || [];
+    if (panelDisposed) return;
     panel.webview.postMessage({
       type: "render",
       scene: presentation.scene,
@@ -78,6 +116,7 @@ async function openLesson(context: vscode.ExtensionContext) {
       mastery: presentation.learnerSnapshot?.conceptMastery ?? {},
       explanation: explanation ?? presentation.explanation ?? null,
     });
+    await pushGraph();
   };
 
   // 2) learner actions from the pane → MCP calls → next render (pair by pair)
@@ -85,11 +124,12 @@ async function openLesson(context: vscode.ExtensionContext) {
     try {
       if (msg.type === "hint") {
         const h = (await call("request_hint", { session_id: sid })).hint;
-        panel.webview.postMessage({ type: "hint", hint: h?.hint ?? null, remaining: h?.remaining });
+        if (!panelDisposed) panel.webview.postMessage({ type: "hint", hint: h?.hint ?? null, remaining: h?.remaining });
         return;
       }
       if (msg.type === "respond") {
         const t = (await call("submit_response", { session_id: sid, input: msg.input })).transition;
+        if (panelDisposed) return;
         if (t.kind === "complete") {
           panel.webview.postMessage({ type: "done", message: `Lesson complete — ${t.summary.scenesCompleted} scenes, autonomy ${t.summary.autonomyRatio.toFixed(2)}` });
           return;
@@ -131,8 +171,10 @@ function paneHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "
   const katexCss = cdn ? "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" : media("vendor/katex/katex.min.css");
   const libs = (cdn
     ? ["https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js",
-       "https://cdn.jsdelivr.net/npm/vega@5", "https://cdn.jsdelivr.net/npm/vega-lite@5", "https://cdn.jsdelivr.net/npm/vega-embed@6"]
-    : [media("vendor/katex/katex.min.js"), media("vendor/vega.min.js"), media("vendor/vega-lite.min.js"), media("vendor/vega-embed.min.js")]
+       "https://cdn.jsdelivr.net/npm/vega@5", "https://cdn.jsdelivr.net/npm/vega-lite@5", "https://cdn.jsdelivr.net/npm/vega-embed@6",
+       "https://cdn.jsdelivr.net/npm/3dmol@2.5.5/build/3Dmol-min.js"]
+    : [media("vendor/katex/katex.min.js"), media("vendor/vega.min.js"), media("vendor/vega-lite.min.js"), media("vendor/vega-embed.min.js"),
+       media("vendor/3Dmol-min.js")]
   ).map((src) => `<script defer nonce="${n}" src="${src}"></script>`).join("\n");
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
@@ -141,5 +183,34 @@ function paneHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "
 ${libs}
 </head><body><div id="pane"></div>
 <script nonce="${n}" src="${media("artifact-pane.js")}"></script>
+</body></html>`;
+}
+
+// The companion GRAPH webview: Cytoscape + dagre (+ the cytoscape-dagre adapter). The elements and
+// stylesheet are computed host-side from the GraphView; graph-pane.js only lays out + renders.
+function graphHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "cdn"): string {
+  const media = (f: string) => webview.asWebviewUri(vscode.Uri.file(join(extPath, "media", f)));
+  const n = nonce();
+  const cdn = assets === "cdn";
+  const origin = cdn ? "https://cdn.jsdelivr.net" : "";
+  const csp = [
+    `default-src 'none'`,
+    `img-src ${webview.cspSource} data:`,
+    `style-src ${webview.cspSource} 'unsafe-inline'`,
+    `font-src ${webview.cspSource}`,
+    `script-src 'nonce-${n}' ${origin}`,
+  ].join("; ");
+  const libs = (cdn
+    ? ["https://cdn.jsdelivr.net/npm/cytoscape@3.34.0/dist/cytoscape.min.js",
+       "https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js",
+       "https://cdn.jsdelivr.net/npm/cytoscape-dagre@4.0.0/dist/cytoscape-dagre.js"]
+    : [media("vendor/cytoscape.min.js"), media("vendor/dagre.min.js"), media("vendor/cytoscape-dagre.js")]
+  ).map((src) => `<script defer nonce="${n}" src="${src}"></script>`).join("\n");
+  return `<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<link rel="stylesheet" href="${media("graph-pane.css")}">
+${libs}
+</head><body><div id="graph"></div><div id="legend"></div>
+<script nonce="${n}" src="${media("graph-pane.js")}"></script>
 </body></html>`;
 }

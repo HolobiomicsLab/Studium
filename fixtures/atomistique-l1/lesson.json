@@ -1,0 +1,832 @@
+{
+  "schema_version": "1.4",
+  "bundle_id": "atomistique-l1-chap1",
+  "source_plan_id": "plan-atomistique-l1",
+  "metadata": {
+    "title": "Atomistique L1 — Chapitre 1 (atomes, orbitales, périodicité)",
+    "target": "L1",
+    "duration_minutes": 60,
+    "language": "fr",
+    "discipline": "chimie atomistique"
+  },
+  "concepts": [
+    {
+      "id": "c-particules",
+      "title": "Particules de l'atome",
+      "description": "Protons, neutrons, électrons ; Z, A, isotopes.",
+      "bloom_level_target": "understand"
+    },
+    {
+      "id": "c-nombres-quantiques",
+      "title": "Nombres quantiques",
+      "description": "n, ℓ, mℓ, ms et leurs valeurs autorisées.",
+      "bloom_level_target": "understand"
+    },
+    {
+      "id": "c-orbitales-formes",
+      "title": "Forme des orbitales atomiques",
+      "description": "Orbitales s, p, d : forme, nœuds, nomenclature.",
+      "bloom_level_target": "understand"
+    },
+    {
+      "id": "c-spectres",
+      "title": "Quantification et spectres",
+      "description": "Niveaux quantifiés, E=hν, raies d'émission (série de Balmer).",
+      "bloom_level_target": "apply"
+    },
+    {
+      "id": "c-remplissage",
+      "title": "Règles de remplissage",
+      "description": "Klechkowski (n+ℓ), principe de Pauli, règle de Hund.",
+      "bloom_level_target": "apply"
+    },
+    {
+      "id": "c-configuration",
+      "title": "Configuration électronique",
+      "description": "Configuration, séparation cœur / valence.",
+      "bloom_level_target": "apply"
+    },
+    {
+      "id": "c-periodicite",
+      "title": "Périodicité des propriétés",
+      "description": "Énergie d'ionisation et rayon atomique le long d'une période.",
+      "bloom_level_target": "analyze"
+    },
+    {
+      "id": "c-geometrie",
+      "title": "Géométrie des molécules",
+      "description": "VSEPR, hybridation, géométrie 3D (CH4, H2O).",
+      "bloom_level_target": "analyze"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s0-intro",
+      "type": "intro",
+      "title": "Chapitre 1 — Atomes et orbitales",
+      "objective_refs": [],
+      "concept_refs": [],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "markdown": "# Atomistique L1 — Chapitre 1\nDe la structure de l'atome aux **orbitales atomiques**, à la **configuration électronique**, puis à la **périodicité** des propriétés et à la **géométrie** des molécules. Chaque notion s'appuie sur des objets que tu peux manipuler : une orbitale 3D que l'on fait tourner, un spectre d'émission, une molécule."
+    },
+    {
+      "id": "s1-concept-particules",
+      "type": "concept",
+      "title": "Particules constitutives de l'atome",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-particules"
+      ],
+      "estimated_seconds": 180,
+      "adaptation_hooks": [],
+      "markdown": "## Particules et identité de l'atome\n\nUn atome = **noyau** (protons + neutrons) + **nuage électronique**.\n\n- **Z** (numéro atomique) = nombre de protons → définit l'élément.\n- **A** (nombre de masse) = Z + N (N = neutrons).\n- **Isotopes** : même Z, A différent.\n\nLe noyau (~10⁻¹⁵ m) est 10⁵ fois plus petit que l'atome (~10⁻¹⁰ m).",
+      "render_assets": [
+        {
+          "kind": "equation_latex",
+          "title": "Nombre de masse",
+          "payload": "A = Z + N"
+        }
+      ]
+    },
+    {
+      "id": "s1-quiz-fer",
+      "type": "quiz",
+      "title": "Quiz : l'atome de fer (Z=26)",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-particules"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "question": "L'isotope ⁵⁶Fe a Z=26. Combien contient-il de neutrons ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "26",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "30",
+          "correct": true
+        },
+        {
+          "id": "c",
+          "text": "56",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "82",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : N = A − Z = 56 − 26 = 30.",
+      "feedback_incorrect": "N = A − Z. Ici 56 − 26 = 30 neutrons.",
+      "hints": [
+        "A = Z + N, donc N = A − Z."
+      ]
+    },
+    {
+      "id": "s2-concept-nombres-quantiques",
+      "type": "concept",
+      "title": "Les nombres quantiques",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-nombres-quantiques"
+      ],
+      "estimated_seconds": 210,
+      "adaptation_hooks": [],
+      "markdown": "## Quatre nombres quantiques\n\nUn électron est décrit par :\n\n- **n** (principal) : 1, 2, 3, … → la couche.\n- **ℓ** (azimutal) : 0 … n−1 → la sous-couche (0=s, 1=p, 2=d, 3=f).\n- **mℓ** (magnétique) : −ℓ … +ℓ → l'orbitale dans la sous-couche.\n- **ms** (spin) : −½ ou +½.\n\nUne sous-couche ℓ contient (2ℓ+1) orbitales, soit 2(2ℓ+1) électrons.",
+      "render_assets": [
+        {
+          "kind": "equation_latex",
+          "title": "Valeurs autorisées",
+          "payload": "\\ell \\in \\{0,1,\\dots,n-1\\}\\quad m_\\ell \\in \\{-\\ell,\\dots,+\\ell\\}\\quad m_s = \\pm\\tfrac{1}{2}"
+        }
+      ]
+    },
+    {
+      "id": "s2-quiz-4f",
+      "type": "quiz",
+      "title": "Quiz : la sous-couche 4f",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-nombres-quantiques"
+      ],
+      "estimated_seconds": 75,
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "question": "Combien d'orbitales (valeurs de mℓ) la sous-couche 4f (n=4, ℓ=3) compte-t-elle ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "3",
+          "correct": false
+        },
+        {
+          "id": "b",
+          "text": "5",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "7",
+          "correct": true
+        },
+        {
+          "id": "d",
+          "text": "14",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : mℓ va de −3 à +3, soit 2ℓ+1 = 7 orbitales (donc 14 électrons).",
+      "feedback_incorrect": "mℓ ∈ {−ℓ … +ℓ}. Pour ℓ=3 : −3,−2,−1,0,1,2,3 → 7 orbitales.",
+      "hints": [
+        "Nombre d'orbitales = 2ℓ+1.",
+        "ℓ vaut 3 pour une sous-couche f."
+      ]
+    },
+    {
+      "id": "s3-concept-orbitales",
+      "type": "concept",
+      "title": "Forme des orbitales atomiques",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-orbitales-formes"
+      ],
+      "estimated_seconds": 240,
+      "adaptation_hooks": [],
+      "markdown": "## Forme des orbitales — fais-les tourner\n\nUne orbitale est la région où la probabilité de présence de l'électron est élevée. La **2p** a deux lobes de **signe opposé** séparés par un plan nodal ; la **3d_z²** a un lobe axial et une couronne équatoriale.\n\nFais tourner les orbitales ci-contre : les deux isosurfaces (+ / −) sont les deux signes de la fonction d'onde.",
+      "render_assets": [
+        {
+          "kind": "orbital",
+          "title": "Orbitale 2p_z",
+          "path": "assets/orbitals/2pz.cube",
+          "format": "cube",
+          "provenance": "analytic hydrogenic wavefunction (generate_assets.py)",
+          "meta": {
+            "iso": 0.18,
+            "signed": true
+          }
+        },
+        {
+          "kind": "orbital",
+          "title": "Orbitale 3d_z²",
+          "path": "assets/orbitals/3dz2.cube",
+          "format": "cube",
+          "provenance": "analytic hydrogenic wavefunction (generate_assets.py)",
+          "meta": {
+            "iso": 0.18,
+            "signed": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "s3-quiz-noeuds",
+      "type": "quiz",
+      "title": "Quiz : nœuds de la 2p",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-orbitales-formes"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [
+        "rule_2err_replay_concept",
+        "rule_mastery_high_skip"
+      ],
+      "question": "Combien de nœuds RADIAUX possède une orbitale 2p ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "0",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "1",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "2",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : nœuds radiaux = n − ℓ − 1 = 2 − 1 − 1 = 0 (le plan nodal de la 2p est angulaire).",
+      "feedback_incorrect": "Nœuds radiaux = n − ℓ − 1. Pour la 2p : 2 − 1 − 1 = 0.",
+      "hints": [
+        "Distingue nœud radial (sphère) et nœud angulaire (plan).",
+        "n − ℓ − 1."
+      ]
+    },
+    {
+      "id": "s4-concept-spectres",
+      "type": "concept",
+      "title": "Quantification et spectres d'émission",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-spectres"
+      ],
+      "estimated_seconds": 240,
+      "adaptation_hooks": [],
+      "markdown": "## Reconnaître un gaz à ses raies\n\nLes niveaux d'énergie sont **quantifiés**. Une transition de n₂ vers n₁ émet un photon d'énergie E = hν. Pour l'hydrogène, les transitions vers n=2 donnent la **série de Balmer**, dans le visible — la signature qui permet de *reconnaître un gaz inconnu*.",
+      "render_assets": [
+        {
+          "kind": "equation_latex",
+          "title": "Énergie d'un photon émis",
+          "payload": "E_{photon} = h\\nu = \\left| E_{n_2} - E_{n_1} \\right|"
+        },
+        {
+          "kind": "spectrum",
+          "title": "Série de Balmer de l'hydrogène",
+          "payload": "{\n  \"$schema\": \"https://vega.github.io/schema/vega-lite/v5.json\",\n  \"description\": \"Serie de Balmer de l'hydrogene (raies d'emission visibles)\",\n  \"width\": 360,\n  \"height\": 170,\n  \"data\": {\n    \"values\": [\n      {\n        \"lambda\": 656.5,\n        \"I\": 100,\n        \"raie\": \"Hα (n=3→2)\"\n      },\n      {\n        \"lambda\": 486.3,\n        \"I\": 42,\n        \"raie\": \"Hβ (n=4→2)\"\n      },\n      {\n        \"lambda\": 434.2,\n        \"I\": 23,\n        \"raie\": \"Hγ (n=5→2)\"\n      },\n      {\n        \"lambda\": 410.3,\n        \"I\": 12,\n        \"raie\": \"Hδ (n=6→2)\"\n      }\n    ]\n  },\n  \"mark\": {\n    \"type\": \"bar\",\n    \"size\": 4\n  },\n  \"encoding\": {\n    \"x\": {\n      \"field\": \"lambda\",\n      \"type\": \"quantitative\",\n      \"scale\": {\n        \"domain\": [\n          395,\n          670\n        ]\n      },\n      \"title\": \"longueur d'onde λ (nm)\"\n    },\n    \"y\": {\n      \"field\": \"I\",\n      \"type\": \"quantitative\",\n      \"title\": \"intensite relative\"\n    },\n    \"color\": {\n      \"field\": \"raie\",\n      \"type\": \"nominal\",\n      \"legend\": {\n        \"title\": \"raie\"\n      }\n    },\n    \"tooltip\": [\n      {\n        \"field\": \"raie\"\n      },\n      {\n        \"field\": \"lambda\",\n        \"title\": \"λ (nm)\"\n      }\n    ]\n  }\n}",
+          "format": "vega-lite",
+          "provenance": "Rydberg formula (generate_assets.py)"
+        }
+      ]
+    },
+    {
+      "id": "s4-quiz-balmer",
+      "type": "quiz",
+      "title": "Quiz : la raie Hα",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-spectres"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "question": "À quelle transition correspond la raie Hα (rouge, ~656 nm) ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "n = 3 → n = 2",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "n = 2 → n = 1",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "n = 4 → n = 2",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "n = 1 → n = 3",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : Hα = première raie de Balmer, n=3 → n=2.",
+      "feedback_incorrect": "Balmer = transitions vers n=2. La plus proche (n=3→2) est Hα, la plus rouge.",
+      "hints": [
+        "La série de Balmer arrive sur n=2.",
+        "Hα est la transition la plus basse en énergie de la série."
+      ]
+    },
+    {
+      "id": "s5-concept-remplissage",
+      "type": "concept",
+      "title": "Règles de remplissage",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-remplissage"
+      ],
+      "estimated_seconds": 210,
+      "adaptation_hooks": [],
+      "markdown": "## Remplir les orbitales\n\n- **Klechkowski** : énergie croissante de (n+ℓ), puis n croissant à (n+ℓ) égal → 1s, 2s, 2p, 3s, 3p, **4s, 3d**, 4p, …\n- **Pauli** : 2 électrons max par orbitale (spins opposés).\n- **Hund** : on remplit d'abord à spins parallèles dans une sous-couche dégénérée.",
+      "render_assets": [
+        {
+          "kind": "equation_latex",
+          "title": "Règle de Klechkowski",
+          "payload": "\\text{ordre} : (n+\\ell)\\ \\nearrow,\\ \\text{puis } n\\ \\nearrow"
+        }
+      ]
+    },
+    {
+      "id": "s5-quiz-carbone",
+      "type": "quiz",
+      "title": "Quiz : configuration du carbone",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-remplissage",
+        "c-configuration"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "question": "Quelle est la configuration électronique du carbone (Z=6) ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "1s² 2s² 2p²",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "1s² 2s⁴",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "1s² 2p⁴",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "1s⁴ 2s²",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : 2 + 2 + 2 = 6 électrons (Z=6).",
+      "feedback_incorrect": "Klechkowski : 1s → 2s → 2p. Avec 6 e⁻ : 1s² 2s² 2p².",
+      "hints": [
+        "Ordre 1s, 2s, 2p.",
+        "2 électrons max par orbitale (Pauli)."
+      ]
+    },
+    {
+      "id": "s6-concept-periodicite",
+      "type": "concept",
+      "title": "Périodicité : ionisation et rayon",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-periodicite"
+      ],
+      "estimated_seconds": 240,
+      "adaptation_hooks": [],
+      "markdown": "## Tendances le long d'une période\n\nDe gauche à droite (période 2, Li→Ne), la charge nucléaire augmente à couche constante : les électrons sont plus attirés.\n\n- **Énergie de première ionisation** : globalement ↑.\n- **Rayon atomique** : ↓.\n\nLes deux courbes ci-contre rendent la tendance visible (et ses irrégularités, ex. B et O).",
+      "render_assets": [
+        {
+          "kind": "plot_spec",
+          "title": "E. de 1ʳᵉ ionisation (période 2)",
+          "payload": "{\n  \"$schema\": \"https://vega.github.io/schema/vega-lite/v5.json\",\n  \"description\": \"Energie de premiere ionisation (periode 2)\",\n  \"width\": 360,\n  \"height\": 170,\n  \"data\": {\n    \"values\": [\n      {\n        \"element\": \"Li\",\n        \"y\": 520\n      },\n      {\n        \"element\": \"Be\",\n        \"y\": 899\n      },\n      {\n        \"element\": \"B\",\n        \"y\": 801\n      },\n      {\n        \"element\": \"C\",\n        \"y\": 1086\n      },\n      {\n        \"element\": \"N\",\n        \"y\": 1402\n      },\n      {\n        \"element\": \"O\",\n        \"y\": 1314\n      },\n      {\n        \"element\": \"F\",\n        \"y\": 1681\n      },\n      {\n        \"element\": \"Ne\",\n        \"y\": 2081\n      }\n    ]\n  },\n  \"layer\": [\n    {\n      \"mark\": {\n        \"type\": \"line\",\n        \"point\": true\n      },\n      \"encoding\": {\n        \"x\": {\n          \"field\": \"element\",\n          \"type\": \"nominal\",\n          \"sort\": null,\n          \"title\": \"element (periode 2)\"\n        },\n        \"y\": {\n          \"field\": \"y\",\n          \"type\": \"quantitative\",\n          \"title\": \"E.I.1 (kJ/mol)\"\n        },\n        \"tooltip\": [\n          {\n            \"field\": \"element\"\n          },\n          {\n            \"field\": \"y\",\n            \"title\": \"E.I.1 (kJ/mol)\"\n          }\n        ]\n      }\n    }\n  ]\n}",
+          "format": "vega-lite",
+          "provenance": "CRC / Clementi reference values (generate_assets.py)"
+        },
+        {
+          "kind": "plot_spec",
+          "title": "Rayon atomique (période 2)",
+          "payload": "{\n  \"$schema\": \"https://vega.github.io/schema/vega-lite/v5.json\",\n  \"description\": \"Rayon atomique (periode 2)\",\n  \"width\": 360,\n  \"height\": 170,\n  \"data\": {\n    \"values\": [\n      {\n        \"element\": \"Li\",\n        \"y\": 167\n      },\n      {\n        \"element\": \"Be\",\n        \"y\": 112\n      },\n      {\n        \"element\": \"B\",\n        \"y\": 87\n      },\n      {\n        \"element\": \"C\",\n        \"y\": 67\n      },\n      {\n        \"element\": \"N\",\n        \"y\": 56\n      },\n      {\n        \"element\": \"O\",\n        \"y\": 48\n      },\n      {\n        \"element\": \"F\",\n        \"y\": 42\n      },\n      {\n        \"element\": \"Ne\",\n        \"y\": 38\n      }\n    ]\n  },\n  \"layer\": [\n    {\n      \"mark\": {\n        \"type\": \"line\",\n        \"point\": true\n      },\n      \"encoding\": {\n        \"x\": {\n          \"field\": \"element\",\n          \"type\": \"nominal\",\n          \"sort\": null,\n          \"title\": \"element (periode 2)\"\n        },\n        \"y\": {\n          \"field\": \"y\",\n          \"type\": \"quantitative\",\n          \"title\": \"rayon (pm)\"\n        },\n        \"tooltip\": [\n          {\n            \"field\": \"element\"\n          },\n          {\n            \"field\": \"y\",\n            \"title\": \"rayon (pm)\"\n          }\n        ]\n      }\n    }\n  ]\n}",
+          "format": "vega-lite",
+          "provenance": "CRC / Clementi reference values (generate_assets.py)"
+        }
+      ]
+    },
+    {
+      "id": "s6-quiz-tendance",
+      "type": "quiz",
+      "title": "Quiz : sens des tendances",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-periodicite"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "question": "Le long d'une période (→), comment varient énergie d'ionisation et rayon atomique ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Ionisation ↑, rayon ↓",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Ionisation ↓, rayon ↑",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Les deux ↑",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "Les deux ↓",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : charge nucléaire ↑ à couche constante → électrons plus liés (ionisation ↑, rayon ↓).",
+      "feedback_incorrect": "À couche constante, Z↑ attire plus les électrons : ionisation ↑ et rayon ↓.",
+      "hints": [
+        "Que fait la charge nucléaire effective le long d'une période ?"
+      ]
+    },
+    {
+      "id": "s7-concept-geometrie",
+      "type": "concept",
+      "title": "Géométrie : VSEPR et hybridation",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-geometrie"
+      ],
+      "estimated_seconds": 240,
+      "adaptation_hooks": [],
+      "markdown": "## Représenter une molécule dans l'espace\n\nLa théorie **VSEPR** prédit la géométrie à partir des doublets autour de l'atome central :\n\n- **CH₄** : 4 doublets liants → **tétraédrique**, 109,5° (hybridation sp³).\n- **H₂O** : 2 liants + 2 non liants → **coudée**, 104,5°.\n\nFais tourner les deux molécules ci-contre pour comparer les géométries.",
+      "render_assets": [
+        {
+          "kind": "mol_3d",
+          "title": "Méthane CH₄ (tétraédrique)",
+          "payload": "5\nMethane CH4 — geometrie tetraedrique (VSEPR / hybridation sp3)\nC      0.000000     0.000000     0.000000\nH      0.629312     0.629312     0.629312\nH      0.629312    -0.629312    -0.629312\nH     -0.629312     0.629312    -0.629312\nH     -0.629312    -0.629312     0.629312\n",
+          "format": "xyz",
+          "provenance": "idealized VSEPR geometry (generate_assets.py)"
+        },
+        {
+          "kind": "mol_3d",
+          "title": "Eau H₂O (coudée)",
+          "payload": "3\nEau H2O — coudee 104.5 deg (VSEPR, 2 doublets non liants)\nO      0.000000     0.000000     0.000000\nH      0.759062     0.000000     0.587729\nH     -0.759062     0.000000     0.587729\n",
+          "format": "xyz",
+          "provenance": "idealized VSEPR geometry (generate_assets.py)"
+        }
+      ]
+    },
+    {
+      "id": "s7-meta",
+      "type": "meta_checkpoint",
+      "title": "Auto-évaluation — chapitre 1",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-geometrie",
+        "c-periodicite"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "pre_question": "Avant ce chapitre, à quel point te sentais-tu à l'aise pour relier orbitales, configuration et propriétés ?",
+      "post_question": "Et maintenant ?",
+      "scale_labels": [
+        "Pas du tout",
+        "Un peu",
+        "Moyennement",
+        "Bien",
+        "Très à l'aise"
+      ]
+    },
+    {
+      "id": "s8-reproduction-periodique",
+      "type": "reproduction",
+      "title": "Reproduction : placer les éléments dans le tableau périodique",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-configuration",
+        "c-periodicite"
+      ],
+      "estimated_seconds": 420,
+      "adaptation_hooks": [],
+      "task_card_id": "task-atom-l1-periodic",
+      "steps": [
+        {
+          "step_id": "na",
+          "instruction": "Sodium (Z=11) : 1s² 2s² 2p⁶ 3s¹ → période et groupe ?",
+          "expected_input_schema": {
+            "type": "object",
+            "properties": {
+              "periode": {
+                "type": "integer"
+              },
+              "groupe": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "periode",
+              "groupe"
+            ]
+          },
+          "expected_output": {
+            "periode": 3,
+            "groupe": 1
+          }
+        },
+        {
+          "step_id": "s",
+          "instruction": "Soufre (Z=16) : 1s² 2s² 2p⁶ 3s² 3p⁴ → période et groupe ?",
+          "expected_input_schema": {
+            "type": "object",
+            "properties": {
+              "periode": {
+                "type": "integer"
+              },
+              "groupe": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "periode",
+              "groupe"
+            ]
+          },
+          "expected_output": {
+            "periode": 3,
+            "groupe": 16
+          }
+        },
+        {
+          "step_id": "ca",
+          "instruction": "Calcium (Z=20) : 1s² 2s² 2p⁶ 3s² 3p⁶ 4s² → période et groupe ?",
+          "expected_input_schema": {
+            "type": "object",
+            "properties": {
+              "periode": {
+                "type": "integer"
+              },
+              "groupe": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "periode",
+              "groupe"
+            ]
+          },
+          "expected_output": {
+            "periode": 4,
+            "groupe": 2
+          }
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "rule_2err_replay_concept",
+      "when": {
+        "consecutive_errors_same_concept": ">=2"
+      },
+      "action": {
+        "kind": "replay_current_scene",
+        "reason": "errors_threshold"
+      },
+      "modulator": "M1",
+      "explanation_short": "Deux erreurs sur ce concept : on le revoit avec un appui."
+    },
+    {
+      "id": "rule_mastery_high_skip",
+      "when": {
+        "mastery_c": ">=0.8",
+        "total_attempts": ">=3"
+      },
+      "action": {
+        "kind": "skip_to_next_concept"
+      },
+      "modulator": "M1",
+      "explanation_short": "Concept maîtrisé : on passe au suivant."
+    }
+  ],
+  "learning_workflow_graph": {
+    "schema_version": "1.0",
+    "course_id": "atomistique-l1",
+    "nodes": [
+      {
+        "id": "concept:c-particules",
+        "node_kind": "concept",
+        "title": "Particules de l'atome",
+        "bloom_level": "understand"
+      },
+      {
+        "id": "concept:c-nombres-quantiques",
+        "node_kind": "concept",
+        "title": "Nombres quantiques",
+        "bloom_level": "understand"
+      },
+      {
+        "id": "concept:c-orbitales-formes",
+        "node_kind": "concept",
+        "title": "Forme des orbitales atomiques",
+        "bloom_level": "understand"
+      },
+      {
+        "id": "concept:c-spectres",
+        "node_kind": "concept",
+        "title": "Quantification et spectres",
+        "bloom_level": "apply"
+      },
+      {
+        "id": "concept:c-remplissage",
+        "node_kind": "concept",
+        "title": "Règles de remplissage",
+        "bloom_level": "apply"
+      },
+      {
+        "id": "concept:c-configuration",
+        "node_kind": "concept",
+        "title": "Configuration électronique",
+        "bloom_level": "apply"
+      },
+      {
+        "id": "concept:c-periodicite",
+        "node_kind": "concept",
+        "title": "Périodicité des propriétés",
+        "bloom_level": "analyze"
+      },
+      {
+        "id": "concept:c-geometrie",
+        "node_kind": "concept",
+        "title": "Géométrie des molécules",
+        "bloom_level": "analyze"
+      },
+      {
+        "id": "task:s1-quiz-fer",
+        "node_kind": "task",
+        "title": "s1-quiz-fer",
+        "scene_type": "quiz"
+      },
+      {
+        "id": "task:s2-quiz-4f",
+        "node_kind": "task",
+        "title": "s2-quiz-4f",
+        "scene_type": "quiz"
+      },
+      {
+        "id": "task:s3-quiz-noeuds",
+        "node_kind": "task",
+        "title": "s3-quiz-noeuds",
+        "scene_type": "quiz"
+      },
+      {
+        "id": "task:s4-quiz-balmer",
+        "node_kind": "task",
+        "title": "s4-quiz-balmer",
+        "scene_type": "quiz"
+      },
+      {
+        "id": "task:s5-quiz-carbone",
+        "node_kind": "task",
+        "title": "s5-quiz-carbone",
+        "scene_type": "quiz"
+      },
+      {
+        "id": "task:s6-quiz-tendance",
+        "node_kind": "task",
+        "title": "s6-quiz-tendance",
+        "scene_type": "quiz"
+      },
+      {
+        "id": "task:s8-reproduction-periodique",
+        "node_kind": "task",
+        "title": "s8-reproduction-periodique",
+        "scene_type": "reproduction"
+      }
+    ],
+    "edges": [
+      {
+        "id": "e-prereq-0",
+        "relation": "prerequisite_for",
+        "source": "concept:c-nombres-quantiques",
+        "target": "concept:c-particules",
+        "confidence": 0.9
+      },
+      {
+        "id": "e-prereq-1",
+        "relation": "prerequisite_for",
+        "source": "concept:c-orbitales-formes",
+        "target": "concept:c-nombres-quantiques",
+        "confidence": 0.9
+      },
+      {
+        "id": "e-prereq-2",
+        "relation": "prerequisite_for",
+        "source": "concept:c-spectres",
+        "target": "concept:c-nombres-quantiques",
+        "confidence": 0.9
+      },
+      {
+        "id": "e-prereq-3",
+        "relation": "prerequisite_for",
+        "source": "concept:c-remplissage",
+        "target": "concept:c-nombres-quantiques",
+        "confidence": 0.9
+      },
+      {
+        "id": "e-prereq-4",
+        "relation": "prerequisite_for",
+        "source": "concept:c-remplissage",
+        "target": "concept:c-orbitales-formes",
+        "confidence": 0.9
+      },
+      {
+        "id": "e-prereq-5",
+        "relation": "prerequisite_for",
+        "source": "concept:c-configuration",
+        "target": "concept:c-remplissage",
+        "confidence": 0.9
+      },
+      {
+        "id": "e-prereq-6",
+        "relation": "prerequisite_for",
+        "source": "concept:c-periodicite",
+        "target": "concept:c-configuration",
+        "confidence": 0.9
+      },
+      {
+        "id": "e-prereq-7",
+        "relation": "prerequisite_for",
+        "source": "concept:c-periodicite",
+        "target": "concept:c-spectres",
+        "confidence": 0.9
+      },
+      {
+        "id": "e-prereq-8",
+        "relation": "prerequisite_for",
+        "source": "concept:c-geometrie",
+        "target": "concept:c-configuration",
+        "confidence": 0.9
+      },
+      {
+        "id": "e-assess-0",
+        "relation": "assesses",
+        "source": "task:s1-quiz-fer",
+        "target": "concept:c-particules"
+      },
+      {
+        "id": "e-assess-1",
+        "relation": "assesses",
+        "source": "task:s2-quiz-4f",
+        "target": "concept:c-nombres-quantiques"
+      },
+      {
+        "id": "e-assess-2",
+        "relation": "assesses",
+        "source": "task:s3-quiz-noeuds",
+        "target": "concept:c-orbitales-formes"
+      },
+      {
+        "id": "e-assess-3",
+        "relation": "assesses",
+        "source": "task:s4-quiz-balmer",
+        "target": "concept:c-spectres"
+      },
+      {
+        "id": "e-assess-4",
+        "relation": "assesses",
+        "source": "task:s5-quiz-carbone",
+        "target": "concept:c-configuration"
+      },
+      {
+        "id": "e-assess-5",
+        "relation": "assesses",
+        "source": "task:s6-quiz-tendance",
+        "target": "concept:c-periodicite"
+      },
+      {
+        "id": "e-assess-6",
+        "relation": "assesses",
+        "source": "task:s8-reproduction-periodique",
+        "target": "concept:c-periodicite"
+      }
+    ]
+  },
+  "validated_by": "louisfelix.nothias@univ-cotedazur.fr",
+  "validated_at": "2026-06-20T00:00:00Z"
+}

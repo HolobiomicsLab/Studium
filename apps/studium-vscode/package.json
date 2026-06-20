@@ -11,13 +11,31 @@
     "Education",
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onNotebook:studium-lesson",
+    "onCommand:studium.openLessonNotebook"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "studium.openLesson",
         "title": "Studium: Open Lesson"
+      },
+      {
+        "command": "studium.openLessonNotebook",
+        "title": "Studium: Open Lesson as Notebook"
+      }
+    ],
+    "notebooks": [
+      {
+        "type": "studium-lesson",
+        "displayName": "Studium Lesson",
+        "selector": [
+          {
+            "filenamePattern": "*.studium-lesson"
+          }
+        ]
       }
     ],
     "configuration": {
@@ -56,6 +74,20 @@
           "type": "boolean",
           "default": false,
           "description": "Opt in to consented, pseudonymized class telemetry (STUDIUM_TELEMETRY_CONSENT)."
+        },
+        "studium.showGraph": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open a companion live Learning-Workflow-Graph panel that repaints each turn (typed-graph-lens)."
+        },
+        "studium.graphView": {
+          "type": "string",
+          "enum": [
+            "student",
+            "teacher"
+          ],
+          "default": "student",
+          "description": "Graph scope: 'student' (ego-graph around the current frontier) or 'teacher' (the whole graph)."
         }
       }
     }
@@ -63,14 +95,19 @@
   "scripts": {
     "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js",
     "watch": "pnpm build --watch",
-    "vendor": "mkdir -p media/vendor/katex && cp node_modules/katex/dist/katex.min.js node_modules/katex/dist/katex.min.css media/vendor/katex/ && cp -R node_modules/katex/dist/fonts media/vendor/katex/fonts && cp node_modules/vega/build/vega.min.js node_modules/vega-lite/build/vega-lite.min.js node_modules/vega-embed/build/vega-embed.min.js media/vendor/"
+    "vendor": "mkdir -p media/vendor/katex && cp node_modules/katex/dist/katex.min.js node_modules/katex/dist/katex.min.css media/vendor/katex/ && cp -R node_modules/katex/dist/fonts media/vendor/katex/fonts && cp node_modules/vega/build/vega.min.js node_modules/vega-lite/build/vega-lite.min.js node_modules/vega-embed/build/vega-embed.min.js media/vendor/ && cp node_modules/cytoscape/dist/cytoscape.min.js node_modules/dagre/dist/dagre.min.js node_modules/cytoscape-dagre/dist/cytoscape-dagre.js node_modules/3dmol/build/3Dmol-min.js media/vendor/"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@studium/typed-graph-lens": "workspace:*"
   },
   "devDependencies": {
+    "3dmol": "^2.5.5",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.90.0",
+    "cytoscape": "^3.34.0",
+    "cytoscape-dagre": "^4.0.0",
+    "dagre": "^0.8.5",
     "esbuild": "^0.21.0",
     "katex": "0.16.9",
     "vega": "^5.33.1",

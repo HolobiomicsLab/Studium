@@ -1,0 +1,72 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Energie de premiere ionisation (periode 2)",
+  "width": 360,
+  "height": 170,
+  "data": {
+    "values": [
+      {
+        "element": "Li",
+        "y": 520
+      },
+      {
+        "element": "Be",
+        "y": 899
+      },
+      {
+        "element": "B",
+        "y": 801
+      },
+      {
+        "element": "C",
+        "y": 1086
+      },
+      {
+        "element": "N",
+        "y": 1402
+      },
+      {
+        "element": "O",
+        "y": 1314
+      },
+      {
+        "element": "F",
+        "y": 1681
+      },
+      {
+        "element": "Ne",
+        "y": 2081
+      }
+    ]
+  },
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": true
+      },
+      "encoding": {
+        "x": {
+          "field": "element",
+          "type": "nominal",
+          "sort": null,
+          "title": "element (periode 2)"
+        },
+        "y": {
+          "field": "y",
+          "type": "quantitative",
+          "title": "E.I.1 (kJ/mol)"
+        },
+        "tooltip": [
+          {
+            "field": "element"
+          },
+          {
+            "field": "y",
+            "title": "E.I.1 (kJ/mol)"
+          }
+        ]
+      }
+    }
+  ]
+}

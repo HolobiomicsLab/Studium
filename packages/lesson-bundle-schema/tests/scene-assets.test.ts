@@ -43,6 +43,27 @@ describe("scene-assets render manifest", () => {
     expect((exec!.meta as Record<string, unknown>).landmark).toBe("k=0.42");
   });
 
+  it("accepts the interactive scientific kinds (orbital / mol_3d / spectrum)", () => {
+    for (const kind of ["orbital", "mol_3d", "spectrum"] as const) {
+      expect(RenderAssetSchema.safeParse({ kind, path: "a.cube", format: "cube" }).success).toBe(true);
+    }
+    expect(ABSAssetSchema.safeParse({ asset_type: "orbital_viewer_3d", payload_path: "2pz.cube", prov_derived_from: "x" }).success).toBe(true);
+  });
+
+  it("puts explicit render_assets first in the manifest, ahead of derived ones", () => {
+    const scene = base({
+      type: "concept", markdown: "forme du 2p", image_path: "/tmp/fig.png",
+      render_assets: [
+        { kind: "orbital", title: "OA 2p_z", path: "assets/orbitals/2pz.cube", format: "cube", meta: { iso: 0.02 } },
+        { kind: "spectrum", title: "Raies H", payload: "{}", format: "vega-lite" },
+      ],
+    }) as never;
+    const assets = sceneRenderAssets(scene);
+    expect(assets.map(a => a.kind)).toEqual(["orbital", "spectrum", "image"]);
+    expect(assets[0]!.format).toBe("cube");
+    for (const a of assets) expect(RenderAssetSchema.safeParse(a).success).toBe(true);
+  });
+
   it("returns an empty manifest for a plain quiz (no artifacts)", () => {
     const scene = base({ type: "quiz", question: "?", choices: [{ id: "a", text: "A", correct: true }, { id: "b", text: "B", correct: false }], feedback_correct: "y", feedback_incorrect: "n", hints: [] }) as never;
     expect(sceneRenderAssets(scene)).toEqual([]);

@@ -1,14 +1,52 @@
 // packages/lesson-session-host/src/host.ts
 import { randomUUID } from "node:crypto";
+import { readFileSync, realpathSync } from "node:fs";
+import { join, isAbsolute, relative } from "node:path";
 import {
   LessonSession, enrichEvent, bundleVersionOf,
   type Presentation, type ResponseInput, type Transition, type Explanation, type HintResult,
 } from "@studium/lesson-session";
-import type { LearnerState } from "@studium/learner-state";
+import { masteryOf, type LearnerState } from "@studium/learner-state";
 import { sceneRenderAssets, type RenderAsset } from "@studium/lesson-bundle-schema";
+import type { GraphView } from "@studium/typed-graph-lens";
+import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
 import { SessionRegistry, type SessionEntry } from "./registry.js";
 import { buildHostDeps, durableDataDir, durableScopeDir } from "./deps.js";
-import { resolveBundle } from "./bundle-resolver.js";
+import { resolveBundle, assetBaseDir } from "./bundle-resolver.js";
+
+// Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /
+// notebook gets the content directly — no client-side file access, CSP-safe). Images stay as paths
+// (the driver converts those to data URIs). A .cube orbital and an .xyz molecule are plain text.
+const TEXT_INLINE_KINDS = new Set<RenderAsset["kind"]>([
+  "orbital", "mol_3d", "spectrum", "code", "data_csv", "protocol_md", "svg",
+]);
+
+/** If an asset references a text file by relative path (and carries no inline payload), read it from
+ * the bundle dir and inline it as `payload`. Confined to baseDir, with the canonical (symlink-
+ * resolved) path re-validated so a malicious bundle can't symlink-escape and leak host files. The
+ * per-session `cache` (keyed by resolved path) avoids re-reading the same .cube on every turn.
+ * Exported for unit testing. */
+export function inlineFileAsset(a: RenderAsset, baseDir: string, cache: Map<string, string>): RenderAsset {
+  if (a.payload || !a.path || !baseDir || !TEXT_INLINE_KINDS.has(a.kind)) return a;
+  const abs = isAbsolute(a.path) ? a.path : join(baseDir, a.path);
+  if (escapes(baseDir, abs)) return a;
+  const cached = cache.get(abs);
+  if (cached !== undefined) return { ...a, payload: cached };
+  try {
+    // resolve symlinks and re-check the canonical path still lives inside the bundle dir
+    const realBase = realpathSync(baseDir);
+    const realAbs = realpathSync(abs);
+    if (escapes(realBase, realAbs)) return a;
+    const payload = readFileSync(realAbs, "utf8");
+    cache.set(abs, payload);
+    return { ...a, payload };
+  } catch { return a; }
+}
+
+function escapes(base: string, target: string): boolean {
+  const rel = relative(base, target);
+  return rel.startsWith("..") || isAbsolute(rel);
+}
 
 export class SessionHostNotFoundError extends Error {
   constructor(id: string) { super(`session not found: ${id}`); this.name = "SessionHostNotFoundError"; }
@@ -55,7 +93,8 @@ export class SessionHost {
     const session = new LessonSession(bundle, deps, prior ?? undefined, learnerId);
     const presentation = await session.start();
     const sessionId = randomUUID();
-    this.registry.create(sessionId, { session, deps, bundle });
+    const baseDir = assetBaseDir(this.opts.bundlesRoot, bundleRef);
+    this.registry.create(sessionId, { session, deps, bundle, baseDir, assetCache: new Map() });
     return { sessionId, presentation };
   }
 
@@ -69,7 +108,8 @@ export class SessionHost {
   /** The normalized render manifest for the current scene — the artifacts a UI pairs with this
    * scene (figure, equation, interactive plot, executed reference run, …). Empty for a plain quiz. */
   sceneArtifacts(id: string): RenderAsset[] {
-    return sceneRenderAssets(this.require(id).session.currentPresentation().scene);
+    const e = this.require(id);
+    return sceneRenderAssets(e.session.currentPresentation().scene).map((a) => inlineFileAsset(a, e.baseDir, e.assetCache));
   }
   async respond(id: string, input: ResponseInput): Promise<Transition> {
     const e = this.require(id);
@@ -101,6 +141,22 @@ export class SessionHost {
   }
   explainLast(id: string): Explanation | null { return this.require(id).session.explainLast(); }
   getState(id: string): LearnerState { return this.require(id).session.getState(); }
+  /** The bundle's Learning Workflow Graph as a normalized GraphView, with LIVE per-concept state
+   * (mastered / current / available / locked) derived from the learner's running mastery. This is
+   * the state channel the graph view repaints each turn. null when the bundle carries no LWG. */
+  workflowGraph(id: string): GraphView | null {
+    const e = this.require(id);
+    const lwg = e.bundle.learning_workflow_graph;
+    if (!lwg) return null;
+    const state = e.session.getState();
+    // concept_states are keyed by bare concept id (e.g. "c-particules"); LWG node ids are
+    // "concept:<id>" — re-prefix so the adapter's status lookup matches the node ids.
+    const statuses: Record<string, { mastery: number; attempts: number }> = {};
+    for (const [cid, cs] of Object.entries(state.concept_states)) {
+      statuses[`concept:${cid}`] = { mastery: masteryOf(cs), attempts: cs.total_attempts };
+    }
+    return lwgToGraphView(lwg, statuses, { title: e.bundle.metadata.title });
+  }
   has(id: string): boolean { return this.registry.has(id); }
 
   async forget(id: string): Promise<void> {

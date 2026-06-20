@@ -1,0 +1,68 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Serie de Balmer de l'hydrogene (raies d'emission visibles)",
+  "width": 360,
+  "height": 170,
+  "data": {
+    "values": [
+      {
+        "lambda": 656.5,
+        "I": 100,
+        "raie": "Hα (n=3→2)"
+      },
+      {
+        "lambda": 486.3,
+        "I": 42,
+        "raie": "Hβ (n=4→2)"
+      },
+      {
+        "lambda": 434.2,
+        "I": 23,
+        "raie": "Hγ (n=5→2)"
+      },
+      {
+        "lambda": 410.3,
+        "I": 12,
+        "raie": "Hδ (n=6→2)"
+      }
+    ]
+  },
+  "mark": {
+    "type": "bar",
+    "size": 4
+  },
+  "encoding": {
+    "x": {
+      "field": "lambda",
+      "type": "quantitative",
+      "scale": {
+        "domain": [
+          395,
+          670
+        ]
+      },
+      "title": "longueur d'onde λ (nm)"
+    },
+    "y": {
+      "field": "I",
+      "type": "quantitative",
+      "title": "intensite relative"
+    },
+    "color": {
+      "field": "raie",
+      "type": "nominal",
+      "legend": {
+        "title": "raie"
+      }
+    },
+    "tooltip": [
+      {
+        "field": "raie"
+      },
+      {
+        "field": "lambda",
+        "title": "λ (nm)"
+      }
+    ]
+  }
+}

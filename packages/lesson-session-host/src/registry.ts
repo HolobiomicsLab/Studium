@@ -2,7 +2,16 @@
 import type { LessonSession, SessionDeps } from "@studium/lesson-session";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
 
-export interface SessionEntry { session: LessonSession; deps: SessionDeps; bundle: LessonBundle; }
+export interface SessionEntry {
+  session: LessonSession;
+  deps: SessionDeps;
+  bundle: LessonBundle;
+  /** dir that relative render-asset paths resolve against (holds lesson.json); "" for a .zip bundle */
+  baseDir: string;
+  /** per-session cache of inlined text-asset payloads, keyed by resolved path (files are static for
+   * the session) — avoids re-reading a big .cube on every get_scene_artifacts turn. */
+  assetCache: Map<string, string>;
+}
 
 export class SessionRegistry {
   private readonly map = new Map<string, SessionEntry>();

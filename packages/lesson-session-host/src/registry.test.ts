@@ -13,7 +13,7 @@ describe("buildHostDeps + registry", () => {
   });
   it("registry create/get/has/delete", () => {
     const r = new SessionRegistry();
-    const entry = { session: {} as never, deps: {} as never, bundle: {} as never };
+    const entry = { session: {} as never, deps: {} as never, bundle: {} as never, baseDir: "", assetCache: new Map<string, string>() };
     r.create("id1", entry);
     expect(r.has("id1")).toBe(true);
     expect(r.get("id1")).toBe(entry);
