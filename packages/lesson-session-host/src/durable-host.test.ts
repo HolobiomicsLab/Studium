@@ -32,6 +32,16 @@ function mastery3BundlesDir(): string {
 }
 function dataDir(): string { const d = mkdtempSync(join(tmpdir(), "durable-data-")); dirs.push(d); return d; }
 
+/** Submit the CURRENT quiz's correct choice — robust to the load-time choice shuffle in
+ * resolveBundle (which permutes + re-letters ids). */
+function correctChoice(h: SessionHost, sid: string) {
+  const scene = h.currentPresentation(sid).scene;
+  if (scene.type !== "quiz") throw new Error(`expected quiz scene, got ${scene.type}`);
+  const choice = scene.choices.find((c) => c.correct);
+  if (!choice) throw new Error("quiz scene has no correct choice");
+  return { kind: "quiz_choice" as const, choiceId: choice.id };
+}
+
 const SECRET = "durable-test-secret";
 const BUNDLE_ID = "mastery-test-003";
 function pseudonymOf(learnerId: string, lessonId = BUNDLE_ID): string {
@@ -63,9 +73,9 @@ describe("SessionHost — durable + learner-scoped + resumable (#3)", () => {
       // First "process": complete the lesson, accumulating BKT mastery on c1.
       const host1 = new SessionHost({ bundlesRoot: bundles, live: false });
       const { sessionId } = await host1.create("mastery3.json", "alice");
-      await host1.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
-      await host1.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
-      const done = await host1.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
+      await host1.respond(sessionId, correctChoice(host1, sessionId));
+      await host1.respond(sessionId, correctChoice(host1, sessionId));
+      const done = await host1.respond(sessionId, correctChoice(host1, sessionId));
       expect(done.kind).toBe("complete");
       const state1 = host1.getState(sessionId);
       expect(state1.concept_states["c1"]).toBeDefined();
@@ -89,9 +99,9 @@ describe("SessionHost — durable + learner-scoped + resumable (#3)", () => {
     await withDataEnv(data, async () => {
       const host = new SessionHost({ bundlesRoot: bundles, live: false });
       const a = await host.create("mastery3.json", "alice");
-      await host.respond(a.sessionId, { kind: "quiz_choice", choiceId: "b" });
+      await host.respond(a.sessionId, correctChoice(host, a.sessionId));
       const b = await host.create("mastery3.json", "bob");
-      await host.respond(b.sessionId, { kind: "quiz_choice", choiceId: "b" });
+      await host.respond(b.sessionId, correctChoice(host, b.sessionId));
 
       const aliceP = pseudonymOf("alice");
       const bobP = pseudonymOf("bob");
@@ -113,9 +123,9 @@ describe("SessionHost — durable + learner-scoped + resumable (#3)", () => {
     await withDataEnv(undefined, async () => {
       const host1 = new SessionHost({ bundlesRoot: bundles, live: false });
       const { sessionId } = await host1.create("mastery3.json", "alice");
-      await host1.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
-      await host1.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
-      const done = await host1.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
+      await host1.respond(sessionId, correctChoice(host1, sessionId));
+      await host1.respond(sessionId, correctChoice(host1, sessionId));
+      const done = await host1.respond(sessionId, correctChoice(host1, sessionId));
       expect(done.kind).toBe("complete");
 
       // A fresh host (no dataDir) must NOT resume — defaultLearnerState (empty concept_states).
@@ -133,7 +143,7 @@ describe("SessionHost — durable + learner-scoped + resumable (#3)", () => {
     await withDataEnv(data, async () => {
       const host = new SessionHost({ bundlesRoot: bundles, live: false });
       const { sessionId } = await host.create("mastery3.json", "alice");
-      await host.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
+      await host.respond(sessionId, correctChoice(host, sessionId));
       const aliceP = pseudonymOf("alice");
       const scopeDir = join(data, aliceP, BUNDLE_ID);
       expect(existsSync(join(scopeDir, `state-${BUNDLE_ID}.json`))).toBe(true);
@@ -153,9 +163,9 @@ describe("SessionHost — durable + learner-scoped + resumable (#3)", () => {
     await withDataEnv(data, async () => {
       const host = new SessionHost({ bundlesRoot: bundles, live: false });
       const { sessionId } = await host.create("mastery3.json", "alice");
-      await host.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
-      await host.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
-      const done = await host.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
+      await host.respond(sessionId, correctChoice(host, sessionId));
+      await host.respond(sessionId, correctChoice(host, sessionId));
+      const done = await host.respond(sessionId, correctChoice(host, sessionId));
       expect(done.kind).toBe("complete");
       const masteryDir = join(data, pseudonymOf("alice"), BUNDLE_ID, "mastery");
       expect(readdirSync(masteryDir).filter(f => f.endsWith(".jsonld")).length).toBeGreaterThan(0);

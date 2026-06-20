@@ -36,6 +36,17 @@ const MASTERY_BUNDLE_3 = {
 };
 function mastery3BundlesDir(): string { const d = mkdtempSync(join(tmpdir(), "host-mastery3-")); dirs.push(d); writeFileSync(join(d, "mastery3.json"), JSON.stringify(MASTERY_BUNDLE_3)); return d; }
 
+/** Submit the CURRENT quiz's correct choice. Robust to the load-time choice shuffle in
+ * resolveBundle (which permutes + re-letters ids), so these tests assert behavior, not a
+ * hardcoded answer letter. */
+function correctChoice(h: SessionHost, sid: string) {
+  const scene = h.currentPresentation(sid).scene;
+  if (scene.type !== "quiz") throw new Error(`expected quiz scene, got ${scene.type}`);
+  const choice = scene.choices.find((c) => c.correct);
+  if (!choice) throw new Error("quiz scene has no correct choice");
+  return { kind: "quiz_choice" as const, choiceId: choice.id };
+}
+
 describe("SessionHost", () => {
   it("creates a session and advances via respond", async () => {
     const host = new SessionHost({ bundlesRoot: bundlesDir(), live: false });
@@ -105,9 +116,9 @@ describe("SessionHost — per-learner pseudonym + RGPD erasure (#4)", () => {
       const eventFile = join(outDir, "events.jsonl");
       e.deps.stateStore = new FileStateStore(stateDir);
       e.deps.eventLog = new JsonlEventLog(eventFile);
-      await host.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
-      await host.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
-      const t = await host.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
+      await host.respond(sessionId, correctChoice(host, sessionId));
+      await host.respond(sessionId, correctChoice(host, sessionId));
+      const t = await host.respond(sessionId, correctChoice(host, sessionId));
       expect(t.kind).toBe("complete");                          // flush writes the .jsonld (3 attempts ≥ floor)
       const masteryFiles = readdirSync(outDir).filter(f => f.endsWith(".jsonld"));
       expect(masteryFiles.length).toBeGreaterThan(0);
@@ -245,11 +256,11 @@ describe("SessionHost — mastery sink flush on completion", () => {
       const { sessionId } = await host.create("mastery3.json");
       // Three correct quizzes clear the MIN_MASTERY_ATTEMPTS=3 floor (α=5.5, β=1 → mastery≈0.846
       // ≥ 0.8 threshold). Two attempts is below the floor and emits NO claim — hence three.
-      const t1 = await host.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
+      const t1 = await host.respond(sessionId, correctChoice(host, sessionId));
       expect(t1.kind).toBe("next");
-      const t2 = await host.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
+      const t2 = await host.respond(sessionId, correctChoice(host, sessionId));
       expect(t2.kind).toBe("next");
-      const t3 = await host.respond(sessionId, { kind: "quiz_choice", choiceId: "b" });
+      const t3 = await host.respond(sessionId, correctChoice(host, sessionId));
       expect(t3.kind).toBe("complete");
       // The FileMasteryClaimSink.flush() must have been called: a .jsonld file should exist
       const files = readdirSync(masteryDir).filter(f => f.endsWith(".jsonld"));
@@ -263,5 +274,61 @@ describe("SessionHost — mastery sink flush on completion", () => {
       if (prev === undefined) delete process.env["STUDIUM_MASTERY_DIR"];
       else process.env["STUDIUM_MASTERY_DIR"] = prev;
     }
+  });
+});
+
+describe("SessionHost — consented telemetry sink (ADR-006)", () => {
+  function withEnv(vars: Record<string, string | undefined>, fn: () => Promise<void>): Promise<void> {
+    const prev: Record<string, string | undefined> = {};
+    for (const k of Object.keys(vars)) { prev[k] = process.env[k]; if (vars[k] === undefined) delete process.env[k]; else process.env[k] = vars[k]; }
+    return fn().finally(() => { for (const k of Object.keys(vars)) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; } });
+  }
+  async function runToCompletion(host: SessionHost): Promise<void> {
+    const { sessionId } = await host.create("mastery3.json", "alice");
+    await host.respond(sessionId, correctChoice(host, sessionId));
+    await host.respond(sessionId, correctChoice(host, sessionId));
+    const t = await host.respond(sessionId, correctChoice(host, sessionId));
+    expect(t.kind).toBe("complete");
+  }
+
+  it("durable + STUDIUM_TELEMETRY_CONSENT writes a pseudonymized telemetry.jsonl with quiz_answered events", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "host-telem-")); dirs.push(dataDir);
+    await withEnv({ STUDIUM_DATA_DIR: dataDir, STUDIUM_TELEMETRY_CONSENT: "granted" }, async () => {
+      const host = new SessionHost({ bundlesRoot: mastery3BundlesDir(), live: false });
+      await runToCompletion(host);
+      const files = readdirSync(dataDir, { recursive: true }) as string[];
+      const telem = files.filter(f => String(f).endsWith("telemetry.jsonl"));
+      expect(telem.length).toBe(1);
+      const lines = readFileSync(join(dataDir, String(telem[0])), "utf8").trim().split("\n").map(l => JSON.parse(l));
+      expect(lines.some(e => e.type === "quiz_answered")).toBe(true);
+      // ADR-006: pseudonymized — a pseudonym ref present, raw learner id "alice" absent everywhere.
+      const blob = JSON.stringify(lines);
+      expect(blob).not.toContain("alice");
+    });
+  });
+
+  it("durable WITHOUT consent persists NO telemetry.jsonl (privacy-preserving default)", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "host-telem-off-")); dirs.push(dataDir);
+    await withEnv({ STUDIUM_DATA_DIR: dataDir, STUDIUM_TELEMETRY_CONSENT: undefined }, async () => {
+      const host = new SessionHost({ bundlesRoot: mastery3BundlesDir(), live: false });
+      await runToCompletion(host);
+      const files = readdirSync(dataDir, { recursive: true }) as string[];
+      expect(files.filter(f => String(f).endsWith("telemetry.jsonl")).length).toBe(0);
+    });
+  });
+
+  it("requestHint() returns an authored hint then null at the per-visit cap", async () => {
+    const d = mkdtempSync(join(tmpdir(), "host-hint-")); dirs.push(d);
+    const HINTED = { ...MINI, bundle_id: "hinted-001", scenes: [
+      MINI.scenes[0],
+      { ...MINI.scenes[1], hints: ["re-read the prompt"] },
+    ] };
+    writeFileSync(join(d, "hinted.json"), JSON.stringify(HINTED));
+    const host = new SessionHost({ bundlesRoot: d, live: false });
+    const { sessionId } = await host.create("hinted.json", "bob");
+    await host.respond(sessionId, { kind: "ack" });          // intro → quiz
+    const h1 = host.requestHint(sessionId);
+    expect(h1?.hint).toBe("re-read the prompt");
+    expect(host.requestHint(sessionId)).toBeNull();          // standard cap = 1
   });
 });
