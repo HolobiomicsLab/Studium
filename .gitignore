@@ -53,3 +53,6 @@ apps/studium-vscode/media/vendor/
 
 # Local symlink to the eval corpus repo (~/git/studium_eval/corpus) — machine-specific, never commit
 eval/corpus
+
+# runtime telemetry from the VS Code demo (studium.telemetryConsent)
+fixtures/data/

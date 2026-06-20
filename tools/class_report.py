@@ -45,8 +45,14 @@ def _scene_to_concept(run_dir: Path, bundle_path: Path | None = None) -> dict[st
     bz = bundle_path or next(run_dir.glob("*-bundle.zip"), None)
     if not bz or not Path(bz).exists():
         return {}
+    p = Path(bz)
     try:
-        bundle = json.loads(zipfile.ZipFile(bz).read("lesson.json"))
+        if p.is_dir():                       # directory bundle: <dir>/lesson.json
+            bundle = json.loads((p / "lesson.json").read_text(encoding="utf-8"))
+        elif p.suffix == ".json":            # a lesson.json passed directly
+            bundle = json.loads(p.read_text(encoding="utf-8"))
+        else:                                 # a *-bundle.zip
+            bundle = json.loads(zipfile.ZipFile(bz).read("lesson.json"))
     except Exception:
         return {}
     out = {}
