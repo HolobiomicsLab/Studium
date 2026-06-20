@@ -88,6 +88,11 @@
           ],
           "default": "student",
           "description": "Graph scope: 'student' (ego-graph around the current frontier) or 'teacher' (the whole graph)."
+        },
+        "studium.showMastery": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show the live per-concept mastery bar in the lesson pane. OFF by default: it is a teacher/model signal, and showing it to a learner during a quiz can leak the answer (try options, watch which raises mastery). Turn on only for teacher demos."
         }
       }
     }

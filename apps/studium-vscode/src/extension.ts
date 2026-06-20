@@ -72,6 +72,9 @@ async function openLesson(context: vscode.ExtensionContext) {
   // it) and posts them; graph-pane.js just lays out + renders. Repainted each turn, in lockstep.
   const showGraph = cfg<boolean>("showGraph", true);
   const graphMode = cfg<"student" | "teacher">("graphView", "student");
+  // Live per-concept mastery is a learner-model / teacher signal: showing it to the student during a
+  // quiz leaks the answer (click options, watch which raises mastery). Off by default; on for demos.
+  const showMastery = cfg<boolean>("showMastery", false);
   let graphPanel: vscode.WebviewPanel | undefined;
   if (showGraph) {
     const gp = vscode.window.createWebviewPanel(
@@ -115,7 +118,7 @@ async function openLesson(context: vscode.ExtensionContext) {
       scene: presentation.scene,
       scene_assets: artifacts.map(inlineImage),
       progress: { index: (presentation.index ?? 0) + 1, total: presentation.total },
-      mastery: presentation.learnerSnapshot?.conceptMastery ?? {},
+      mastery: showMastery ? (presentation.learnerSnapshot?.conceptMastery ?? {}) : {},
       explanation: explanation ?? presentation.explanation ?? null,
     });
     await pushGraph();

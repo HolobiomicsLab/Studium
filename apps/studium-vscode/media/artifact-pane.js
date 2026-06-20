@@ -194,7 +194,7 @@
     root.append(renderControls(sc));
     const hint = el("div", { id: "hint", class: "hint" }); root.append(hint);
 
-    if (state.mastery) {
+    if (state.mastery && Object.keys(state.mastery).length) {
       const bar = el("div", { class: "mastery" });
       Object.entries(state.mastery).forEach(([k, v]) => {
         bar.append(el("div", { class: "mrow" },
