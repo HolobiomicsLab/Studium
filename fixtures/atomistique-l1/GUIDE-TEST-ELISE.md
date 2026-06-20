@@ -47,16 +47,15 @@ Une **deuxième fenêtre** s'ouvre : c'est l'environnement de test de l'extensio
 
 ---
 
-## 3. Pointer vers le cours d'atomistique (2 réglages)
+## 3. (Optionnel) Réglages
 
-Dans la **nouvelle fenêtre** : `Cmd+,` (réglages) → en haut à droite, icône *« Open User Settings
-(JSON) »* → ajoutez ces deux lignes (adaptez le chemin) :
+**Aucun réglage n'est nécessaire** : la démo pointe par défaut sur le cours d'atomistique
+(`fixtures/atomistique-l1/lesson.json` du dépôt). Passez directement à l'étape 4.
 
-```jsonc
-"studium.bundlesRoot": "CHEMIN/prototype-build/fixtures",
-"studium.bundleRef": "atomistique-l1/lesson.json"
-// déjà par défaut : studium.assets = "vendor", studium.showGraph = true, studium.graphView = "student"
-```
+Pour pointer vers un autre cours, ouvrez les réglages (`Cmd+,`) et cherchez « studium » :
+`studium.bundleRef` (le cours) et `studium.bundlesRoot` (vide = le dossier `fixtures/` du dépôt).
+Les autres réglages utiles : `studium.assets = "vendor"` (hors-ligne, par défaut),
+`studium.showGraph = true`, `studium.graphView = "student"` ou `"teacher"`.
 
 ---
 

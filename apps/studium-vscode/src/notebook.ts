@@ -6,7 +6,7 @@
 // VS Code's built-in notebook renderer). Interactive 3D (orbital/molecule) is surfaced as a note +
 // served by the companion artifact pane; a dedicated NotebookRenderer is the documented next step.
 import * as vscode from "vscode";
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
@@ -60,8 +60,8 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
     const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
     const tsx = resolve(repoRoot, "node_modules/.pnpm/node_modules/.bin/tsx");
     const mcpDir = resolve(repoRoot, "apps/lesson-mcp");
-    const bundlesRoot = cfg<string>("bundlesRoot", "/tmp/studium_live");
-    const bundleRef = (notebook.metadata?.bundle_ref as string) || cfg<string>("bundleRef", "11-enriched.json");
+    const bundlesRoot = cfg<string>("bundlesRoot", join(repoRoot, "fixtures"));
+    const bundleRef = (notebook.metadata?.bundle_ref as string) || cfg<string>("bundleRef", "atomistique-l1/lesson.json");
     const learnerId = (notebook.metadata?.learner_id as string) || cfg<string>("learnerId", "vscode-learner");
     const env: Record<string, string> = { ...process.env as any, BUNDLES_ROOT: bundlesRoot };
     const transport = new StdioClientTransport({ command: tsx, args: ["src/index.ts"], cwd: mcpDir, env, stderr: "ignore" });
@@ -192,7 +192,7 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
 
   const openCmd = vscode.commands.registerCommand("studium.openLessonNotebook", async () => {
     const data = new vscode.NotebookData(driverCells());
-    data.metadata = { bundle_ref: cfg<string>("bundleRef", "11-enriched.json"), learner_id: cfg<string>("learnerId", "vscode-learner") };
+    data.metadata = { bundle_ref: cfg<string>("bundleRef", "atomistique-l1/lesson.json"), learner_id: cfg<string>("learnerId", "vscode-learner") };
     const nb = await vscode.workspace.openNotebookDocument(NB_TYPE, data);
     await vscode.window.showNotebookDocument(nb);
   });

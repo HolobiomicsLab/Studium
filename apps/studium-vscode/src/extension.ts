@@ -33,8 +33,10 @@ async function openLesson(context: vscode.ExtensionContext) {
   const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
   const tsx = resolve(repoRoot, "node_modules/.pnpm/node_modules/.bin/tsx");
   const mcpDir = resolve(repoRoot, "apps/lesson-mcp");
-  const bundlesRoot = cfg<string>("bundlesRoot", "/tmp/studium_live");
-  const bundleRef = cfg<string>("bundleRef", "11-bundle.zip");
+  // Default to the repo's own fixtures/ + the atomistique bundle, so it runs zero-config from any
+  // clone. Override studium.bundlesRoot / studium.bundleRef to point elsewhere.
+  const bundlesRoot = cfg<string>("bundlesRoot", join(repoRoot, "fixtures"));
+  const bundleRef = cfg<string>("bundleRef", "atomistique-l1/lesson.json");
   const learnerId = cfg<string>("learnerId", "vscode-learner");
   const consent = cfg<boolean>("telemetryConsent", false);
 

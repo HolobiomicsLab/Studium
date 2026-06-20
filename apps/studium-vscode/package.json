@@ -48,13 +48,13 @@
         },
         "studium.bundlesRoot": {
           "type": "string",
-          "default": "/tmp/studium_live",
-          "description": "Directory the lesson-mcp server resolves bundle_ref against (BUNDLES_ROOT)."
+          "default": "",
+          "description": "Directory the lesson-mcp server resolves bundle_ref against (BUNDLES_ROOT). Leave empty to use the repo's own fixtures/ folder."
         },
         "studium.bundleRef": {
           "type": "string",
-          "default": "11-enriched.json",
-          "description": "The bundle to open (relative to bundlesRoot). 11-enriched.json carries live artifacts (equation, plot, executed run)."
+          "default": "atomistique-l1/lesson.json",
+          "description": "The bundle to open (relative to bundlesRoot). Defaults to the L1 atomistique demo."
         },
         "studium.assets": {
           "type": "string",
