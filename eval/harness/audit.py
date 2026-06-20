@@ -195,7 +195,7 @@ def _score_adaptivity(runs: list[PersonaRun], bundle: dict, findings: list[Findi
 def _score_anti_offloading(runs: list[PersonaRun], bundle: dict, findings: list[Finding]) -> float:
     score = 1.0
     # autonomyRatio always 1.0 (IMPORTANT cluster): replays should depress it but don't.
-    ratios = {r.persona: r.result.get("summary", {}).get("autonomyRatio") for r in runs}
+    ratios = {r.persona: (r.result.get("summary") or {}).get("autonomyRatio") for r in runs}
     had_replays = any(k == "replay" for r in runs for k in r.result.get("transition_kinds", []))
     if had_replays and all(v == 1 for v in ratios.values() if v is not None):
         score -= 0.4
@@ -203,6 +203,29 @@ def _score_anti_offloading(runs: list[PersonaRun], bundle: dict, findings: list[
             f"autonomyRatio is 1.0 for every persona ({ratios}) despite replay remediation — "
             "the autonomy metric does not reflect scaffolding dependence.",
             "sessions/*/driver_result.json:summary.autonomyRatio", "#important-autonomy"))
+    # M5 hint-discount verification (P1): a persona that leaned on scaffolding (autonomyRatio<0.9)
+    # MUST earn mastery less cheaply than a no-hint persona. If a hint-reliant persona still reached
+    # mastery in <=2 attempts, the discount did not slow certification -> offloading went unchecked.
+    def _min_attempts_at_mastery(r: PersonaRun) -> int | None:
+        xs = [cs.get("total_attempts", 0)
+              for cs in r.result.get("final_state", {}).get("concept_states", {}).values()
+              if (cs.get("alpha", 1) / (cs.get("alpha", 1) + cs.get("beta", 1))) >= 0.85]
+        return min(xs) if xs else None
+    hinted = [r for r in runs if (ratios.get(r.persona) or 1) < 0.9]
+    if hinted:
+        cheap = [r for r in hinted if (_min_attempts_at_mastery(r) or 99) <= 2]
+        if cheap:
+            score -= 0.3
+            findings.append(Finding("anti_offloading", "high",
+                f"{len(cheap)} scaffolding-reliant persona(s) reached mastery in <=2 attempts DESPITE "
+                "using hints — the M5 hint-discount did not slow certification (offloading unchecked).",
+                "sessions/*/final_state + summary.autonomyRatio", "#important-autonomy"))
+        else:
+            findings.append(Finding("anti_offloading", "info",
+                f"M5 OK: {len(hinted)} hint-reliant persona(s) earned mastery more slowly than a no-hint "
+                "run (discount fired); autonomyRatio reflects scaffolding dependence "
+                f"({ {p: round(v, 2) for p, v in ratios.items() if v is not None} }).",
+                "sessions/*/final_state", "ok"))
     # ai_critique audit: did true/false positives get scored?
     audit_events = [e for r in runs for e in r.telemetry if e.get("type") == "ai_audit_result"]
     if audit_events:
@@ -254,21 +277,111 @@ def _score_mastery_validity(runs: list[PersonaRun], bundle: dict, findings: list
         for cid, cs in r.result.get("final_state", {}).get("concept_states", {}).items():
             attempts = cs.get("total_attempts", 0)
             mastery = cs.get("alpha", 1) / (cs.get("alpha", 1) + cs.get("beta", 1))
-            if mastery >= 0.8 and attempts <= 2:
+            # Aligned with the engine CERTIFICATION rule (session.ts MASTERY_CLAIM_THRESHOLD=0.85 +
+            # graph-nav MIN_MASTERY_ATTEMPTS=3): a certification-worthy posterior (>=0.85) reached in
+            # <3 attempts would be too cheap. Provisional gating at theta=0.8 (2 clean answers) is NOT
+            # certification and is no longer flagged.
+            if mastery >= 0.85 and attempts < 3:
                 score -= 0.3
                 findings.append(Finding("mastery_validity", "high",
-                    f"[{r.persona}] concept {cid} reached mastery {mastery:.2f}>=theta in only "
-                    f"{attempts} attempts (no min-attempts/distinct-item floor — beta-updater.ts).",
+                    f"[{r.persona}] concept {cid} reached CERTIFICATION mastery {mastery:.2f}>=0.85 in only "
+                    f"{attempts} attempts (below the min-attempts floor).",
                     "sessions/*/driver_result.json:final_state.concept_states", "#1"))
                 break
         else:
             continue
         break
     findings.append(Finding("mastery_validity", "info",
-        "Mastery CLAIM threshold (0.8) equals the navigation theta default; remediation can drive "
-        "mastery to exactly theta via repeats on the SAME item.",
-        "packages/lesson-session/src/session.ts:MASTERY_CLAIM_THRESHOLD", "#1"))
+        "Certification DECOUPLED from gating: MASTERY_CLAIM_THRESHOLD=0.85 (> navigation theta 0.8) + "
+        "MIN_MASTERY_ATTEMPTS=3 — a claim needs a stronger posterior than the provisional unlock.",
+        "packages/lesson-session/src/session.ts:MASTERY_CLAIM_THRESHOLD", "ok"))
     return max(0.0, score)
+
+
+def _score_assessment_quality(bundle: dict, prov: dict, findings: list[Finding]) -> float:
+    """R1 — does the assessment DISCRIMINATE authoring quality? Scores quiz-item craft
+    (distinct stems, distinct distractors, >=3 items/concept, exactly-one-correct) and
+    penalises synthetic/templated items. Built to VARY by author mode: the 6 legacy dims
+    saturate (deterministic and claude authors previously scored identically on all of them)."""
+    scenes = bundle.get("scenes", [])
+    quizzes = [s for s in scenes if s.get("type") == "quiz"]
+    if not quizzes:
+        findings.append(Finding("assessment_quality", "blocker",
+            "No quiz scenes — assessment quality untestable.", "bundle:scenes[type=quiz]", "R1"))
+        return 0.0
+    bad = [q for q in quizzes if sum(1 for c in q.get("choices", []) if c.get("correct")) != 1]
+    distractors = [(c.get("text") or "").strip().lower()
+                   for q in quizzes for c in q.get("choices", []) if not c.get("correct")]
+    stems = [(q.get("question") or "").strip().lower() for q in quizzes]
+    d_div = len(set(distractors)) / len(distractors) if distractors else 0.0
+    s_div = len(set(stems)) / len(stems) if stems else 0.0
+    per: dict[str, int] = {}
+    for q in quizzes:
+        cid = (q.get("concept_refs") or ["?"])[0]
+        per[cid] = per.get(cid, 0) + 1
+    cov = min(1.0, min(per.values()) / 3.0) if per else 0.0
+    score = 0.35 * d_div + 0.35 * s_div + 0.30 * cov
+    if bad:
+        score -= 0.2
+        findings.append(Finding("assessment_quality", "high",
+            f"{len(bad)} quiz item(s) lack exactly one correct choice.",
+            "bundle:scenes[type=quiz].choices", "R1"))
+    if d_div < 0.7:
+        findings.append(Finding("assessment_quality", "medium",
+            f"Distractor diversity low ({d_div:.2f}) — incorrect options repeat across items (templated).",
+            "bundle:scenes[type=quiz].choices", "R1"))
+    if prov.get("synthetic_assessment"):
+        score *= 0.7
+        findings.append(Finding("assessment_quality", "medium",
+            "synthetic_assessment=true — items are templated, not authored from the corpus; capped.",
+            "author_provenance.json:synthetic_assessment", "R1"))
+    else:
+        findings.append(Finding("assessment_quality", "info",
+            f"Authored items: distractor_div={d_div:.2f} stem_div={s_div:.2f} "
+            f"min_items/concept={min(per.values()) if per else 0}.", "bundle:scenes", "R1"))
+    return max(0.0, min(1.0, score))
+
+
+def _score_retention(runs: list[PersonaRun], bundle: dict, findings: list[Finding]) -> float:
+    """R2 — retention after a simulated gap (FSRS). Of the mastery the learners earned, how much
+    survives a 7-day gap? A learning-proxy the 6 structural dims lack. Stability grows with the
+    number of successful reviews; retrievability uses the FSRS-4.5 power-forgetting curve
+    (mirror of packages/adaptation-engine/src/fsrs.ts)."""
+    GAP_DAYS = 7.0
+    DECAY, FACTOR = -0.5, 19 / 81
+
+    def retrievability(total_correct: int) -> float:
+        if total_correct <= 0:
+            return 0.0
+        stability = 2.4  # FSRS initial 'good' stability (days)
+        for _ in range(total_correct - 1):
+            stability *= 1.6  # each extra successful review ~ spacing-driven growth
+        return (1 + FACTOR * (GAP_DAYS / stability)) ** DECAY
+
+    weighted, total_w, seen = 0.0, 0.0, 0
+    for r in runs:
+        for _cid, cs in r.result.get("final_state", {}).get("concept_states", {}).items():
+            a, b = cs.get("alpha", 1), cs.get("beta", 1)
+            mastery = a / (a + b)
+            weighted += mastery * retrievability(cs.get("total_correct", 0))
+            total_w += mastery
+            seen += 1
+    if seen == 0 or total_w == 0:
+        findings.append(Finding("retention", "medium",
+            "No per-concept mastery to project retention from.",
+            "sessions/*/driver_result.json:final_state", "R2"))
+        return 0.0
+    score = round(weighted / total_w, 3)
+    if score < 0.6:
+        findings.append(Finding("retention", "high",
+            f"Projected {GAP_DAYS:.0f}-day retention low ({score:.2f}): mastery earned in too few "
+            "successful reviews to be durable (no reinforcement scheduling in the runtime yet — fsrs.ts).",
+            "packages/adaptation-engine/src/fsrs.ts", "R2"))
+    else:
+        findings.append(Finding("retention", "info",
+            f"Projected {GAP_DAYS:.0f}-day retention {score:.2f} (mastery-weighted FSRS retrievability).",
+            "sessions/*/final_state", "R2"))
+    return score
 
 
 # ---------------------------------------------------------------------------
@@ -289,6 +402,8 @@ def heuristic_audit(run_dir: Path) -> dict:
         "anti_offloading": _score_anti_offloading(runs, bundle, findings),
         "rgpd": _score_rgpd(runs, bundle, findings),
         "mastery_validity": _score_mastery_validity(runs, bundle, findings),
+        "assessment_quality": _score_assessment_quality(bundle, prov, findings),  # R1 (discriminating)
+        "retention": _score_retention(runs, bundle, findings),                    # R2 (FSRS gap)
     }
     # Declared NON-GOALS so the auditor never scores them as broken.
     non_goals = [

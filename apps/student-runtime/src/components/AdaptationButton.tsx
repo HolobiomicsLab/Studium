@@ -44,7 +44,7 @@ export default function AdaptationButtonOverlay({
     <>
       <button
         aria-label="Pourquoi cette adaptation ?"
-        title={decision.explanation_short}
+        title={decision.explanation_short ?? undefined}
         className="fixed bottom-4 right-4 w-10 h-10 rounded-full bg-blue-600 text-white shadow-lg z-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2"
         onClick={() => setOpen(true)}
       >

@@ -26,6 +26,7 @@ USAGE
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import sys
 import time
@@ -41,7 +42,7 @@ from harness.paths import FIXTURES_DIR, REPORTS_DIR  # noqa: E402
 from harness.report import write_report  # noqa: E402
 from harness.runner import run_session  # noqa: E402
 
-DEFAULT_PERSONAS = ["proficient", "struggling", "overconfident"]
+DEFAULT_PERSONAS = ["proficient", "struggling", "overconfident", "hint_reliant", "misconception"]
 PSEUDO_SECRET = "eval-harness-secret"  # non-default (host/cli default 'dev-secret' is an RGPD defect)
 
 
@@ -80,26 +81,29 @@ def run_full(
     live: bool,
     audit_llm: bool,
     model: str | None,
+    audit_model: str | None = None,
+    refine_from: str | None = None,
 ) -> Path:
     material = get_material(corpus_id)
     run_dir = REPORTS_DIR / f"{corpus_id}-{author_mode}-{_ts()}"
     run_dir.mkdir(parents=True, exist_ok=True)
     print(f"[author] corpus={corpus_id} ({material.title!r}) mode={author_mode}", flush=True)
-    res = author_bundle(material, run_dir, mode=author_mode, model=model)
+    res = author_bundle(material, run_dir, mode=author_mode, model=model, refine_from=refine_from)
     print(f"  -> bundle={res.bundle_path.name} scenes={res.provenance['scene_types']}", flush=True)
     print(f"  -> lwg edges={res.provenance['lwg_edges']} universes={res.provenance['universe_variants']}", flush=True)
 
     _run_personas(res.bundle_path, run_dir, personas, live, model)
 
     print("[audit] scoring course + run ...", flush=True)
-    audit = run_audit(run_dir, use_llm=audit_llm, model=model)
+    audit = run_audit(run_dir, use_llm=audit_llm, model=audit_model or model)
     report = write_report(audit, run_dir)
     print(f"[report] overall={audit['overall_score']} -> {report}", flush=True)
     print(f"  dimension_scores={audit['dimension_scores']}", flush=True)
     return run_dir
 
 
-def run_smoke(personas: list[str], live: bool, audit_llm: bool, model: str | None) -> Path:
+def run_smoke(personas: list[str], live: bool, audit_llm: bool, model: str | None,
+              audit_model: str | None = None) -> Path:
     """Offline smoke: drive the committed m3 fixture (no author step, no keys),
     audit + report. Proves the harness plumbing end to end without authoring.
 
@@ -124,7 +128,7 @@ def run_smoke(personas: list[str], live: bool, audit_llm: bool, model: str | Non
         encoding="utf-8",
     )
     _run_personas(bundle_path, run_dir, personas, live, model)
-    audit = run_audit(run_dir, use_llm=audit_llm, model=model)
+    audit = run_audit(run_dir, use_llm=audit_llm, model=audit_model or model)
     report = write_report(audit, run_dir)
     print(f"[smoke] overall={audit['overall_score']} -> {report}", flush=True)
     return run_dir
@@ -143,8 +147,54 @@ def build_parser() -> argparse.ArgumentParser:
                    help=f"student personas to drive (default: {DEFAULT_PERSONAS})")
     p.add_argument("--live", action="store_true", help="drive with live LLM scorers (LiteLLM/Http) instead of stubs")
     p.add_argument("--audit-llm", action="store_true", help="augment the heuristic audit with a Claude auditor pass")
-    p.add_argument("--model", default=None, help="model id for claude author/student/auditor (optional)")
+    p.add_argument("--model", default=None, help="model id for claude author/student (optional)")
+    p.add_argument("--audit-model", default=None,
+                   help="A1: model id for the Claude AUDITOR, distinct from --model, to break the "
+                        "shared-blind-spot bias (same model authoring AND auditing). e.g. --author claude "
+                        "--model opus --audit-model sonnet. Falls back to --model when unset.")
+    p.add_argument("--refine-from", default=None,
+                   help="#3 audit->author loop: re-author (claude) using the LLM-addressable feedback "
+                        "from a PRIOR run dir's audit.json. e.g. --author claude --refine-from "
+                        "eval/reports/04-claude-<ts>. Closes the auditing-studio -> author loop.")
+    p.add_argument("--ground", choices=["auto", "off", "mock", "literature", "corpus"], default="auto",
+                   help="Perspicacité grounding (G1): auto=real literature if MCP :8002 up (falls back "
+                        "to corpus when its backend is offline) else corpus; corpus=cite the course's "
+                        "own source passages (honest, always available); literature=live :8002 only; "
+                        "mock=offline PRESENCE_ONLY; off=ungrounded 0.30 baseline. Default auto never fakes.")
     return p
+
+
+def _resolve_grounding(mode: str) -> str:
+    """Set STUDIUM_PERSPICACITE_* env for the author's grounding step; return the effective mode.
+
+    auto: probe the Perspicacité MCP; if it answers, use real `literature` grounding WITH a
+    corpus fallback (the backend may be offline behind the MCP shell); if the MCP is down, ground
+    against the corpus directly. Either way auto produces real, honest grounding — never mock,
+    never a dead 0.30 when the corpus itself can ground the edges.
+    """
+    import urllib.error
+    import urllib.request
+
+    fallback = False
+    if mode == "auto":
+        url = os.getenv("PERSPICACITE_MCP_URL", "http://localhost:8000/mcp")
+        try:
+            urllib.request.urlopen(url, timeout=3)
+            up = True
+        except urllib.error.HTTPError:
+            up = True  # server answered (e.g. 406) → MCP shell is up
+        except Exception:
+            up = False
+        mode, fallback = ("literature", True) if up else ("corpus", False)
+    os.environ.pop("STUDIUM_GROUNDING_CORPUS_FALLBACK", None)
+    if mode == "off":
+        os.environ.pop("STUDIUM_PERSPICACITE_ENABLED", None)
+    else:
+        os.environ["STUDIUM_PERSPICACITE_ENABLED"] = "on"
+        os.environ["STUDIUM_PERSPICACITE_MODE"] = mode
+        if fallback:
+            os.environ["STUDIUM_GROUNDING_CORPUS_FALLBACK"] = "1"
+    return mode
 
 
 def main(argv: list[str]) -> int:
@@ -156,20 +206,25 @@ def main(argv: list[str]) -> int:
             print(f"{m.id:>3}  [{m.branch}] {m.discipline} — {m.title}")
         return 0
 
+    gmode = _resolve_grounding(args.ground)
+    note = "  (PRESENCE_ONLY — mock citations, not relevance-checked)" if gmode == "mock" else ""
+    print(f"[grounding] mode={gmode}{note}", flush=True)
+
     if args.smoke:
-        run_smoke(args.personas, args.live, args.audit_llm, args.model)
+        run_smoke(args.personas, args.live, args.audit_llm, args.model, args.audit_model)
         return 0
 
     if args.all:
         for m in load_manifest():
             print(f"\n===== corpus {m.id} =====")
             try:
-                run_full(m.id, args.author, args.personas, args.live, args.audit_llm, args.model)
+                run_full(m.id, args.author, args.personas, args.live, args.audit_llm, args.model, args.audit_model)
             except Exception as exc:  # keep going across the corpus; report the failure
                 print(f"  [FAIL] corpus {m.id}: {exc}", flush=True)
         return 0
 
-    run_full(args.corpus, args.author, args.personas, args.live, args.audit_llm, args.model)
+    run_full(args.corpus, args.author, args.personas, args.live, args.audit_llm, args.model,
+             args.audit_model, args.refine_from)
     return 0
 
 

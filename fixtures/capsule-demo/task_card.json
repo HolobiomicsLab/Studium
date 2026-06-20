@@ -1,0 +1,26 @@
+{
+  "task_id": "demo-decay-fit",
+  "schema_version": "asb-taskcard/1",
+  "title": "Estimate a first-order rate constant from noisy decay data",
+  "domain": "chemistry",
+  "primary_domain": "physical chemistry",
+  "research_question": "What is the rate constant k (and half-life) of a first-order decay observed as a noisy time series?",
+  "task_objective": "Fit a first-order kinetic model to the provided signal and report k and the half-life, with a figure of data + fit.",
+  "reproducibility_tier": "executable",
+  "execution_profile": { "compute_tier": "light", "commercial_software": [], "open_source_alternatives": [] },
+  "executable": { "cmd": ["python", "scripts/run.py"], "env": {}, "timeout_s": 60, "working_dir": null },
+  "tools": ["numpy", "matplotlib"],
+  "expected_artifact_name": "stats.csv",
+  "expected_outputs": [
+    "outputs/stats.csv containing k_fit and half_life",
+    "figures/decay.png showing the data points and the fitted curve"
+  ],
+  "evaluation_strategy": {
+    "direct_checks": [
+      "verify file exists: outputs/stats.csv",
+      "verify file exists: figures/decay.png"
+    ]
+  },
+  "crossref_doi": "10.0000/demo.decay-fit",
+  "task_description": "A reproduction task: load the signal, fit a first-order decay, report k and half-life."
+}

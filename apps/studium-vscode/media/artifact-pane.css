@@ -1,0 +1,77 @@
+/* artifact-pane.css — themed for the VS Code webview (var(--vscode-*)) with standalone fallbacks. */
+:root {
+  --bg: var(--vscode-editor-background, #1e1e1e);
+  --fg: var(--vscode-editor-foreground, #d4d4d4);
+  --muted: var(--vscode-descriptionForeground, #9aa0a6);
+  --accent: var(--vscode-textLink-foreground, #4ea1ff);
+  --border: var(--vscode-panel-border, #333);
+  --card: var(--vscode-editorWidget-background, #252526);
+  --ok: #4ec9a8; --no: #f48771;
+  --font: var(--vscode-font-family, -apple-system, system-ui, sans-serif);
+  --mono: var(--vscode-editor-font-family, ui-monospace, "SF Mono", Menlo, monospace);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 13px; line-height: 1.5; }
+#pane { padding: 14px 16px; max-width: 720px; margin: 0 auto; }
+
+.scene-head { border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px; }
+.crumbs { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.stype { color: var(--accent); font-weight: 600; }
+.scene-title { margin: 4px 0 0; font-size: 17px; }
+.adapt { margin-top: 6px; color: var(--accent); font-size: 12px; }
+
+.prose { margin: 8px 0 14px; }
+.prose code, .imath { font-family: var(--mono); background: rgba(127,127,127,.14); padding: .5px 4px; border-radius: 3px; }
+.imath { color: var(--accent); }
+
+.pane-label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 16px 0 6px; }
+.empty { color: var(--muted); font-style: italic; padding: 8px 0; }
+
+.asset { background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin: 10px 0; overflow: hidden; }
+.asset-head { display: flex; gap: 8px; align-items: center; padding: 7px 10px; border-bottom: 1px solid var(--border); background: rgba(127,127,127,.06); }
+.asset-title { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+.asset-body { padding: 12px; overflow-x: auto; }
+.badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 7px; border-radius: 10px; background: var(--accent); color: #06121f; }
+.badge-executed_result { background: var(--ok); }
+.badge-equation_latex { background: #c586c0; color: #1a0a18; }
+.badge-plot_spec { background: #dcdcaa; color: #20200a; }
+
+.figure { max-width: 100%; border-radius: 6px; display: block; background: #fff; }
+.eq { text-align: center; font-size: 16px; padding: 6px 0; }
+.eq-fallback { font-family: var(--mono); color: var(--accent); }
+.plot { min-height: 120px; }
+.barchart { width: 100%; height: auto; }
+.barchart .bar { fill: var(--accent); }
+.barchart .axis { stroke: var(--border); }
+.barchart .tick { fill: var(--muted); font-size: 9px; text-anchor: middle; font-family: var(--mono); }
+.code { font-family: var(--mono); font-size: 12px; white-space: pre; margin: 0; }
+.csv { border-collapse: collapse; font-size: 12px; }
+.csv th, .csv td { border: 1px solid var(--border); padding: 3px 8px; text-align: right; }
+.csv th { background: rgba(127,127,127,.1); }
+.svgwrap svg { max-width: 100%; height: auto; }
+
+.exec { border-left: 3px solid var(--ok); padding-left: 10px; }
+.exec-fail { border-left-color: var(--no); }
+.exec-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.exec-dot { color: var(--ok); font-weight: 800; }
+.exec-fail .exec-dot { color: var(--no); }
+.exec-landmark, .exec-cmd, .prov { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+.exec-cmd { color: var(--accent); }
+.checks { list-style: none; padding: 0; margin: 8px 0 0; font-size: 12px; }
+.checks .ok { color: var(--ok); } .checks .no { color: var(--no); }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 6px; }
+.controls button { font-family: var(--font); font-size: 12px; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--fg); cursor: pointer; }
+.controls button:hover { border-color: var(--accent); }
+.controls .primary { background: var(--accent); color: #06121f; border-color: var(--accent); font-weight: 600; }
+.controls .choice { text-align: left; }
+.controls .ghost { color: var(--muted); }
+.critique { width: 100%; min-height: 64px; font-family: var(--font); font-size: 12px; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
+.hint { color: #c586c0; font-size: 12px; min-height: 16px; margin: 4px 0; }
+.done { font-size: 18px; color: var(--ok); text-align: center; padding: 40px 0; }
+.mastery { display: flex; flex-direction: column; gap: 5px; }
+.mrow { display: grid; grid-template-columns: 160px 1fr 36px; gap: 8px; align-items: center; font-size: 11px; }
+.mk { color: var(--muted); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mbar { height: 7px; background: rgba(127,127,127,.18); border-radius: 4px; overflow: hidden; }
+.mfill { display: block; height: 100%; background: var(--ok); }
+.mv { text-align: right; font-family: var(--mono); }

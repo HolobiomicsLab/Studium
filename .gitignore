@@ -43,3 +43,13 @@ packages/*/src/**/*.js
 packages/*/src/**/*.d.ts
 packages/*/src/**/*.js.map
 packages/*/src/**/*.d.ts.map
+apps/*/src/**/*.js
+apps/*/src/**/*.d.ts
+apps/*/src/**/*.js.map
+apps/*/src/**/*.d.ts.map
+
+# Vendored third-party libs for the VS Code extension — regenerate with `pnpm --filter studium-vscode vendor`
+apps/studium-vscode/media/vendor/
+
+# Local symlink to the eval corpus repo (~/git/studium_eval/corpus) — machine-specific, never commit
+eval/corpus

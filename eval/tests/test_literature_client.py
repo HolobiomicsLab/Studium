@@ -48,8 +48,11 @@ def test_min_relevance_is_configurable():
     assert sess.calls[0][1]["min_relevance"] == 0.7
 
 
-def test_empty_or_failed_search_is_offline():
+def test_search_status_distinguishes_failure_modes():
+    # tool RAN but reported failure -> "error" (not the same as unreachable)
     assert LiteratureSearchClient(session=_FakeSession({"success": False})).search(
-        query="q", mode="passages", max_results=3, kb_names=[])["status"] == "offline"
+        query="q", mode="passages", max_results=3, kb_names=[])["status"] == "error"
+    # success but ZERO papers -> "empty": the search ran and the DBs returned nothing; this must
+    # NOT be conflated with "offline" (an unreachable backend), or it misdirects diagnosis.
     assert LiteratureSearchClient(session=_FakeSession({"success": True, "papers": []})).search(
-        query="q", mode="passages", max_results=3, kb_names=[])["status"] == "offline"
+        query="q", mode="passages", max_results=3, kb_names=[])["status"] == "empty"

@@ -540,12 +540,22 @@ _AUTHOR_SYSTEM = (
 )
 
 
-def _claude_content(material: CorpusMaterial, concepts: list[dict], body: str, cli: ClaudeCli) -> dict:
+def _claude_content(material: CorpusMaterial, concepts: list[dict], body: str, cli: ClaudeCli,
+                    refinement: list[str] | None = None) -> dict:
     concept_brief = [
         {"id": c["id"], "title": c["title"], "bloom_level_target": c["bloom_level_target"]}
         for c in concepts
     ]
-    prompt = f"""SOURCE MATERIAL (title: {material.title}, discipline: {material.discipline}):
+    refine_block = ""
+    if refinement:
+        items = "\n".join(f"- {r}" for r in refinement[:12])
+        refine_block = (
+            "PRIOR AUDIT FEEDBACK — a previous version of this lesson was reviewed by an independent "
+            "auditor. Address EACH issue below in your authoring (sharpen prose accuracy/clarity, raise "
+            "quiz-item quality and distractor plausibility, and improve the critique claims):\n"
+            f"{items}\n\n"
+        )
+    prompt = refine_block + f"""SOURCE MATERIAL (title: {material.title}, discipline: {material.discipline}):
 \"\"\"
 {body[:9000]}
 \"\"\"
@@ -658,11 +668,95 @@ Rules: exactly one choice per quiz item has correct=true; provide a quiz for EVE
 # ---------------------------------------------------------------------------
 
 
+def _load_refinement(run_dir: str | Path) -> list[str]:
+    """#3 audit->author loop: pull LLM-addressable feedback from a prior run's audit.json so the
+    claude author can correct it on re-author. Only dimensions the author actually controls
+    (prose / quiz items / critique) — NOT structural ones (Bloom labels, LWG edges) that come
+    from the deterministic scaffold."""
+    p = Path(run_dir) / "audit.json"
+    if not p.exists():
+        return []
+    audit = json.loads(p.read_text(encoding="utf-8"))
+    addressable = {"pedagogical_soundness", "assessment_quality", "grounding_citations"}
+    out: list[str] = []
+    ca = audit.get("claude_audit") or {}
+    out.extend(str(x) for x in (ca.get("course_refinement") or []))
+    out.extend(str(f["summary"]) for f in (ca.get("extra_findings") or [])
+               if f.get("dimension") in addressable and f.get("summary"))
+    out.extend(str(f["summary"]) for f in (audit.get("findings") or [])
+               if f.get("severity") in ("high", "medium")
+               and f.get("dimension") in addressable and f.get("summary"))
+    seen: set[str] = set()
+    return [s for s in out if not (s in seen or seen.add(s))]
+
+
+_BLOOM_LADDER = ["remember", "understand", "apply", "analyze", "evaluate", "create"]
+_STRUCT_KW = ("bloom", "lwg", "edge", "linear", "prerequisite", "graph", "scaffold", "bypass")
+
+
+def _load_structural(run_dir: str | Path) -> list[str]:
+    """#25: pull STRUCTURAL findings (Bloom labels, LWG edges/topology) from a prior audit —
+    the ones the deterministic scaffold owns, so a re-author can correct the scaffold itself."""
+    p = Path(run_dir) / "audit.json"
+    if not p.exists():
+        return []
+    audit = json.loads(p.read_text(encoding="utf-8"))
+    ca = audit.get("claude_audit") or {}
+    pool = (
+        [(f.get("summary") or "") for f in (ca.get("extra_findings") or [])]
+        + [str(x) for x in (ca.get("course_refinement") or [])]
+        + [(f.get("summary") or "") for f in (audit.get("findings") or [])
+           if f.get("dimension") in ("adaptivity", "pedagogical_soundness")]
+    )
+    seen: set[str] = set()
+    return [s for s in pool if s and any(k in s.lower() for k in _STRUCT_KW)
+            and not (s in seen or seen.add(s))]
+
+
+def _refine_scaffold(concepts: list[dict], material: CorpusMaterial,
+                     structural: list[str], cli: ClaudeCli) -> dict:
+    """#25: ask the auditor's structural findings to correct the scaffold — propose corrected Bloom
+    levels per concept + extra LWG edges (to break the strictly-linear chain). Validated + clamped
+    so a bad model turn can never produce an invalid scaffold."""
+    brief = [{"id": c["id"], "title": c["title"], "bloom": c["bloom_level_target"]} for c in concepts]
+    prompt = (
+        "A prior audit raised STRUCTURAL issues with this lesson's scaffold. Propose corrections.\n"
+        f"Concepts: {json.dumps(brief)}\n"
+        f"Bloom ladder (low→high): {_BLOOM_LADDER}\n"
+        "Audit structural findings:\n" + "\n".join(f"- {f}" for f in structural[:10]) + "\n\n"
+        "Return STRICT JSON (no fences): "
+        '{"bloom": {"<concept id>": "<corrected bloom level from the ladder>"}, '
+        '"extra_edges": [{"source": "<concept id>", "target": "<concept id>", "relation": "prerequisite_for"}]}\n'
+        "Rules: use ONLY the given concept ids; bloom values from the ladder; extra_edges connect "
+        "DISTINCT existing concepts to enrich the (currently linear) graph (e.g. a high-mastery bypass "
+        "or a cross-link); 0-4 extra edges; omit a concept from \"bloom\" to leave it unchanged."
+    )
+    try:
+        data = cli.complete_json(prompt, system=_AUTHOR_SYSTEM)
+    except Exception:
+        return {"bloom": {}, "extra_edges": []}
+    if not isinstance(data, dict):  # complete_json may return a list; ignore non-object turns
+        return {"bloom": {}, "extra_edges": []}
+    ids = {c["id"] for c in concepts}
+    bloom = {k: v for k, v in (data.get("bloom") or {}).items() if k in ids and v in _BLOOM_LADDER}
+    edges: list[dict] = []
+    for e in (data.get("extra_edges") or []):
+        if not isinstance(e, dict):
+            continue
+        s, t = str(e.get("source") or ""), str(e.get("target") or "")
+        s = s if s.startswith("concept:") else f"concept:{s}"
+        t = t if t.startswith("concept:") else f"concept:{t}"
+        if s != t and s.removeprefix("concept:") in ids and t.removeprefix("concept:") in ids:
+            edges.append({"source": s, "target": t, "relation": e.get("relation") or "prerequisite_for"})
+    return {"bloom": bloom, "extra_edges": edges[:4]}
+
+
 def author_bundle(
     material: CorpusMaterial,
     out_dir: Path,
     mode: str = "deterministic",
     model: str | None = None,
+    refine_from: str | Path | None = None,
 ) -> AuthorResult:
     """Author a schema-valid LessonBundle ZIP for `material`.
 
@@ -676,10 +770,22 @@ def author_bundle(
     body = material.read_body()
     scaffold = build_scaffold(material, body)
     concepts = scaffold["concepts"]
+    refinement = _load_refinement(refine_from) if refine_from else None
+    structural = _load_structural(refine_from) if refine_from else None
+    scaffold_patch: dict | None = None
 
     if mode == "claude":
         cli = ClaudeCli(model=model)
-        content = _claude_content(material, concepts, body, cli)
+        if structural:
+            scaffold_patch = _refine_scaffold(concepts, material, structural, cli)
+            for c in concepts:
+                if c["id"] in scaffold_patch["bloom"]:
+                    c["bloom_level_target"] = scaffold_patch["bloom"][c["id"]]
+            print(f"  -> scaffold refinement: {len(scaffold_patch['bloom'])} bloom fix(es), "
+                  f"{len(scaffold_patch['extra_edges'])} extra edge(s)", flush=True)
+        content = _claude_content(material, concepts, body, cli, refinement=refinement)
+        if refinement:
+            print(f"  -> re-authoring from prior audit ({len(refinement)} feedback items)", flush=True)
         author_label = "claude-cli"
         synthetic_assessment = False  # LLM authored the questions
     elif mode == "deterministic":
@@ -696,6 +802,16 @@ def author_bundle(
     lwg = lesson_plan["learning_workflow_graph"]
     assert lwg and lwg["nodes"], "LWG must be present and non-empty (REVIEW-FINDINGS #2)"
     assert lwg["edges"], "LWG must carry >=1 prerequisite_for edge so gating can fire (#6)"
+    # #25: graft the scaffold-refiner's extra edges onto the LWG (de-linearises the chain).
+    if scaffold_patch and scaffold_patch.get("extra_edges"):
+        _existing = {(e.get("source"), e.get("target")) for e in lwg["edges"]}
+        for _i, _e in enumerate(scaffold_patch["extra_edges"]):
+            if (_e["source"], _e["target"]) not in _existing:
+                lwg["edges"].append({
+                    "id": f"e-refine-{_i}", "relation": _e["relation"],
+                    "source": _e["source"], "target": _e["target"],
+                    "confidence": 0.6, "quality_flags": ["refinement_inferred"],
+                })
     scene_concept_ids = {cr for s in scenes for cr in s.get("concept_refs", [])}
     lwg_concept_ids = {n["id"].removeprefix("concept:") for n in lwg["nodes"]}
     missing = scene_concept_ids - lwg_concept_ids
@@ -706,13 +822,30 @@ def author_bundle(
     # Perspicacité client is configured. None => unchanged 0.30 path (key-free default).
     from harness.grounding import ground_bundle, make_client_from_env
 
-    _gclient = make_client_from_env()
+    import os as _os
+    _mode = _os.getenv("STUDIUM_PERSPICACITE_MODE", "")
+    _enabled = _os.getenv("STUDIUM_PERSPICACITE_ENABLED") == "on"
     grounding_summary = None
+    _lwg = lesson_plan["learning_workflow_graph"]
+    if _enabled and _mode == "corpus":
+        from harness.grounding import make_corpus_client
+        _gclient = make_corpus_client(material, body)
+    else:
+        _gclient = make_client_from_env()
     if _gclient is not None:
-        grounding_summary = ground_bundle(scenes, lesson_plan["learning_workflow_graph"], _gclient)
+        grounding_summary = ground_bundle(scenes, _lwg, _gclient)
+        grounding_summary["mode"] = _mode or "literature"
+        # G1b auto-fallback: literature backend offline (0 grounded) -> ground against the corpus.
+        if (_enabled and _mode != "corpus"
+                and grounding_summary["edges_grounded"] == 0 and grounding_summary["scenes_enriched"] == 0
+                and _os.getenv("STUDIUM_GROUNDING_CORPUS_FALLBACK") == "1"):
+            from harness.grounding import make_corpus_client
+            print("  -> literature retrieval empty (backend offline?); falling back to corpus grounding", flush=True)
+            grounding_summary = ground_bundle(scenes, _lwg, make_corpus_client(material, body))
+            grounding_summary["mode"] = "corpus(fallback)"
         print(f"  -> grounded edges={grounding_summary['edges_grounded']}/"
               f"{grounding_summary['edges_total']} scenes={grounding_summary['scenes_enriched']}/"
-              f"{grounding_summary['scenes_total']}", flush=True)
+              f"{grounding_summary['scenes_total']} via={grounding_summary['mode']}", flush=True)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     bundle_path = out_dir / f"{material.id}-bundle.zip"
@@ -749,6 +882,10 @@ def author_bundle(
         "author_label": author_label,
         "model": model or ("claude-cli-default" if mode == "claude" else None),
         "synthetic_assessment": synthetic_assessment,
+        "refined_from": str(refine_from) if refine_from else None,
+        "refinement_items": len(refinement) if refinement else 0,
+        "scaffold_bloom_fixes": len(scaffold_patch["bloom"]) if scaffold_patch else 0,
+        "scaffold_edges_added": len(scaffold_patch["extra_edges"]) if scaffold_patch else 0,
         "corpus_id": material.id,
         "corpus_title": material.title,
         "corpus_source_url": material.source_url,

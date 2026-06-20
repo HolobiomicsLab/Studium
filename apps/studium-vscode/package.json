@@ -1,0 +1,80 @@
+{
+  "name": "studium-vscode",
+  "displayName": "Studium",
+  "description": "Run a Studium adaptive lesson in VS Code: a tutoring loop driven over the lesson-mcp server, with an artifact pane that renders each scene's figures, equations, interactive plots, and executed reference runs — pair by pair.",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Education",
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "studium.openLesson",
+        "title": "Studium: Open Lesson"
+      }
+    ],
+    "configuration": {
+      "title": "Studium",
+      "properties": {
+        "studium.repoRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the prototype-build monorepo (defaults to the extension's own monorepo root)."
+        },
+        "studium.bundlesRoot": {
+          "type": "string",
+          "default": "/tmp/studium_live",
+          "description": "Directory the lesson-mcp server resolves bundle_ref against (BUNDLES_ROOT)."
+        },
+        "studium.bundleRef": {
+          "type": "string",
+          "default": "11-enriched.json",
+          "description": "The bundle to open (relative to bundlesRoot). 11-enriched.json carries live artifacts (equation, plot, executed run)."
+        },
+        "studium.assets": {
+          "type": "string",
+          "enum": [
+            "vendor",
+            "cdn"
+          ],
+          "default": "vendor",
+          "description": "Where the webview loads KaTeX/Vega from: 'vendor' (offline, bundled in media/vendor — air-gap safe) or 'cdn' (jsdelivr)."
+        },
+        "studium.learnerId": {
+          "type": "string",
+          "default": "vscode-learner",
+          "description": "Learner id (salts the RGPD pseudonym)."
+        },
+        "studium.telemetryConsent": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt in to consented, pseudonymized class telemetry (STUDIUM_TELEMETRY_CONSENT)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js",
+    "watch": "pnpm build --watch",
+    "vendor": "mkdir -p media/vendor/katex && cp node_modules/katex/dist/katex.min.js node_modules/katex/dist/katex.min.css media/vendor/katex/ && cp -R node_modules/katex/dist/fonts media/vendor/katex/fonts && cp node_modules/vega/build/vega.min.js node_modules/vega-lite/build/vega-lite.min.js node_modules/vega-embed/build/vega-embed.min.js media/vendor/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "esbuild": "^0.21.0",
+    "katex": "0.16.9",
+    "vega": "^5.33.1",
+    "vega-embed": "^6.29.0",
+    "vega-lite": "^5.23.0"
+  }
+}

@@ -5,7 +5,7 @@ import type { LessonBundle } from "@studium/lesson-bundle-schema";
 import { loadBundleZip, loadBundleJson } from "@studium/lesson-session/node";
 import { shuffleQuizChoices } from "./shuffle-choices.js";
 
-export async function resolveBundle(bundlesRoot: string, ref: string): Promise<LessonBundle> {
+export async function resolveBundle(bundlesRoot: string, ref: string, seedSalt = ""): Promise<LessonBundle> {
   const root = resolve(bundlesRoot);
   const full = resolve(root, ref);
   const rel = relative(root, full);
@@ -16,6 +16,7 @@ export async function resolveBundle(bundlesRoot: string, ref: string): Promise<L
     ? loadBundleJson(JSON.parse(await readFile(full, "utf8")))
     : await loadBundleZip(full);
   // Anti-leak: permute + re-letter quiz choices so the correct answer is not always first/"a".
-  // Deterministic per scene id, so grading and replay stay reproducible. See shuffle-choices.ts.
-  return shuffleQuizChoices(bundle);
+  // Deterministic per scene id (+ optional per-learner salt), so grading and replay stay
+  // reproducible. See shuffle-choices.ts.
+  return shuffleQuizChoices(bundle, seedSalt);
 }

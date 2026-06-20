@@ -110,6 +110,21 @@ async function main() {
       turnRec.discussion_turns = decision.turns.length;
     }
     turnRec.input = decision.input;
+    // P1: a hint-seeking persona requests authored hints before answering. requestHint() is
+    // scaffolding-gated (returns null past the cap) and bumps hint_count -> the M5 anti-offloading
+    // discount + a sub-1.0 autonomyRatio. Only meaningful on quiz scenes.
+    if (decision.hints && presentation.scene?.type === "quiz") {
+      turnRec.hints_requested = 0;
+      for (let h = 0; h < decision.hints; h++) {
+        try {
+          const hint = session.requestHint();
+          if (!hint) break;
+          turnRec.hints_requested += 1;
+        } catch {
+          break;
+        }
+      }
+    }
     const tr = await session.respond(decision.input);
     turnRec.transition_kind = tr.kind;
     if (tr.kind !== "complete") turnRec.next = sceneDigest(tr.presentation);

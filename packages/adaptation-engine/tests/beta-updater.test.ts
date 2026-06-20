@@ -60,11 +60,11 @@ describe("updateBeta — hint discount (anti-offloading)", () => {
   it("correct with 0 hints: full alpha credit (1.5)", () => {
     expect(updateBeta(cs(), sig(true, 0)).alpha).toBeCloseTo(1 + 1.5);     // 2.5
   });
-  it("correct with 1 hint: half credit (0.75)", () => {
-    expect(updateBeta(cs(), sig(true, 1)).alpha).toBeCloseTo(1 + 0.75);    // 1.75
+  it("correct with 1 hint: 1/3 credit (0.5) — strengthened discount /(1+2h)", () => {
+    expect(updateBeta(cs(), sig(true, 1)).alpha).toBeCloseTo(1 + 0.5);     // 1.5 / 3
   });
-  it("correct with 2 hints: third credit (0.5)", () => {
-    expect(updateBeta(cs(), sig(true, 2)).alpha).toBeCloseTo(1 + 0.5);     // 1.5
+  it("correct with 2 hints: 1/5 credit (0.3)", () => {
+    expect(updateBeta(cs(), sig(true, 2)).alpha).toBeCloseTo(1 + 0.3);     // 1.5 / 5
   });
   it("incorrect is unchanged by hint_count (full penalty)", () => {
     const a = updateBeta(cs(), sig(false, 0)).beta;

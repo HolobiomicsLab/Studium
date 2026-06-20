@@ -5,7 +5,10 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-_DATABASES = ["semantic_scholar", "openalex", "arxiv"]
+# None = let Perspicacité fan out to ALL its domain-appropriate providers (pubmed, europepmc,
+# core, google_scholar, scilex, ...). Restricting to a fixed 3 routed everything to a SciLEx-only
+# path that found papers but returned 0; unrestricted, the aggregator returns relevant hits.
+_DATABASES: Optional[list[str]] = None
 
 
 class LiteratureSearchClient:
@@ -30,9 +33,9 @@ class LiteratureSearchClient:
                            "relevance_method": "rerank"},
             ))
         except Exception:
-            return {"status": "offline", "docs": []}
+            return {"status": "offline", "docs": []}  # the MCP call itself failed (unreachable)
         if not isinstance(inner, dict) or not inner.get("success"):
-            return {"status": "offline", "docs": []}
+            return {"status": "error", "docs": []}    # tool ran but reported failure
         docs = []
         for p in inner.get("papers") or []:
             docs.append({
@@ -44,7 +47,10 @@ class LiteratureSearchClient:
                 "excerpt": str(p.get("abstract") or "")[:500],
                 "relevance_score": float(p.get("relevance_score") or 0.5),
             })
-        return {"status": "ok" if docs else "offline", "docs": docs}
+        # success but 0 papers is NOT "offline" — the search ran and the DBs returned nothing
+        # (e.g. Semantic Scholar 429 + the reranker/min_relevance dropping the rest). Label it
+        # "empty" so diagnostics don't mistake a degraded retrieval for an unreachable backend.
+        return {"status": "ok" if docs else "empty", "docs": docs}
 
     def ensure_course_kb(self, **kw) -> dict:  # Protocol compat; unused (no KB built)
         return {"kb_name": "", "status": "skipped", "added": 0}

@@ -12,9 +12,11 @@ const MINI = {
   metadata: { title: "M", target: "L1", duration_minutes: 5, language: "fr", discipline: "x" },
   concepts: [{ id: "c1", title: "C1", description: "d", bloom_level_target: "understand" }],
   scenes: [
-    { id: "s0", type: "intro", title: "I", objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [], markdown: "hi" },
+    { id: "s0", type: "intro", title: "I", objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [], markdown: "hi",
+      evidence: { abs_asset: { asset_type: "equation_latex", payload_inline: "\\cos\\theta", prov_derived_from: "doi:x" },
+        enrichment_metadata: { enricher_version: "1", perspicacite_mode_used: "basic", timestamp: "t", degraded: false } } },
     { id: "s1", type: "quiz", title: "Q", objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [],
-      question: "?", choices: [{ id: "a", text: "A", correct: false }, { id: "b", text: "B", correct: true }], feedback_correct: "y", feedback_incorrect: "n", hints: [] },
+      question: "?", choices: [{ id: "a", text: "A", correct: false }, { id: "b", text: "B", correct: true }], feedback_correct: "y", feedback_incorrect: "n", hints: ["look again at the prompt"] },
   ],
   rules: [], validated_by: "teacher", validated_at: "2026-06-10T08:00:00Z",
 };
@@ -42,9 +44,32 @@ describe("lesson-mcp tools", () => {
   it("lists the lesson tools", async () => {
     const client = await connect(bundlesDir());
     const names = (await client.listTools()).tools.map((t) => t.name);
-    for (const n of ["start_lesson_session", "get_current_scene", "submit_response", "submit_turn", "explain_last_adaptation", "get_session_state", "end_session"]) {
+    for (const n of ["start_lesson_session", "get_current_scene", "submit_response", "get_scene_artifacts", "request_hint", "submit_turn", "explain_last_adaptation", "get_session_state", "end_session"]) {
       expect(names).toContain(n);
     }
+  });
+  it("get_scene_artifacts returns the normalized render manifest for the current scene", async () => {
+    const client = await connect(bundlesDir());
+    const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json" } }) as never);
+    const sid = started["session_id"] as string;
+    const a = parse(await client.callTool({ name: "get_scene_artifacts", arguments: { session_id: sid } }) as never);
+    const assets = a["scene_assets"] as Array<{ kind: string; payload?: string }>;
+    expect(assets.length).toBe(1);
+    expect(assets[0]!.kind).toBe("equation_latex");
+    expect(assets[0]!.payload).toBe("\\cos\\theta");
+  });
+  it("request_hint returns an authored hint on a quiz, then null once the per-visit cap is reached", async () => {
+    const client = await connect(bundlesDir());
+    const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json" } }) as never);
+    const sid = started["session_id"] as string;
+    // advance intro → quiz, then pull a hint
+    await client.callTool({ name: "submit_response", arguments: { session_id: sid, input: { kind: "ack" } } });
+    const h1 = parse(await client.callTool({ name: "request_hint", arguments: { session_id: sid } }) as never);
+    expect((h1["hint"] as { hint: string; index: number }).hint).toBe("look again at the prompt");
+    expect((h1["hint"] as { index: number }).index).toBe(0);
+    // standard scaffolding caps at 1 hint per visit → second request yields null
+    const h2 = parse(await client.callTool({ name: "request_hint", arguments: { session_id: sid } }) as never);
+    expect(h2["hint"]).toBeNull();
   });
   it("drives intro → quiz to a next transition and reads state", async () => {
     const client = await connect(bundlesDir());

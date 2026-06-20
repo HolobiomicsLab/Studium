@@ -20,9 +20,10 @@ const dirs: string[] = [];
 function bundlesDir(): string { const d = mkdtempSync(join(tmpdir(), "host-")); dirs.push(d); writeFileSync(join(d, "mini.json"), JSON.stringify(MINI)); return d; }
 afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
 
-/** Three-quiz bundle on one concept. Three correct answers (difficulty 0.5, 0 hints) clear the
- * MIN_MASTERY_ATTEMPTS=3 floor: α = 1 + 1.5·3 = 5.5, β = 1 → mastery ≈ 0.846 ≥ 0.8 threshold, so a
- * real mastery .jsonld IS written on completion (two attempts is below the floor → no claim). */
+/** Three-quiz bundle on one `remember`-level concept (w=0.3). Three correct answers (0 hints)
+ * clear the MIN_MASTERY_ATTEMPTS=3 floor AND the 0.85 claim bar: α = 1 + (1+0.7)·3 = 6.1, β = 1 →
+ * mastery ≈ 0.859 ≥ 0.85, so a real mastery .jsonld IS written on completion. (An `understand`
+ * concept at w=0.5 gives 0.846 < 0.85 and would need a 4th clean answer to certify.) */
 function quizScene(id: string) {
   return { id, type: "quiz", title: id.toUpperCase(), objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [],
     question: "?", choices: [{ id: "a", text: "A", correct: false }, { id: "b", text: "B", correct: true }], feedback_correct: "y", feedback_incorrect: "n", hints: [] };
@@ -30,7 +31,7 @@ function quizScene(id: string) {
 const MASTERY_BUNDLE_3 = {
   schema_version: "1.4", bundle_id: "mastery-test-003", source_plan_id: "p",
   metadata: { title: "Mastery3", target: "L1", duration_minutes: 5, language: "fr", discipline: "x" },
-  concepts: [{ id: "c1", title: "C1", description: "d", bloom_level_target: "understand" }],
+  concepts: [{ id: "c1", title: "C1", description: "d", bloom_level_target: "remember" }],
   scenes: [quizScene("q1"), quizScene("q2"), quizScene("q3")],
   rules: [], validated_by: "teacher", validated_at: "2026-06-11T00:00:00Z",
 };

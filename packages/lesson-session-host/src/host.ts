@@ -22,7 +22,11 @@ export class SessionHost {
   constructor(private readonly opts: SessionHostOptions) {}
 
   async create(bundleRef: string, learnerId = "anonymous"): Promise<{ sessionId: string; presentation: Presentation }> {
-    const bundle = await resolveBundle(this.opts.bundlesRoot, bundleRef);
+    // Quiz-choice order is shuffled per scene id (same for all learners → aligned item analytics).
+    // Opt in to PER-LEARNER answer order (anti answer-sharing) with STUDIUM_PER_LEARNER_SHUFFLE:
+    // the learnerId salts the permutation so each learner gets a distinct-but-reproducible order.
+    const shuffleSalt = process.env["STUDIUM_PER_LEARNER_SHUFFLE"] ? learnerId : "";
+    const bundle = await resolveBundle(this.opts.bundlesRoot, bundleRef, shuffleSalt);
     // #3 DURABLE mode (gated by STUDIUM_DATA_DIR): scope the File* stores under a per-learner dir
     // keyed by the RGPD-safe pseudonym (never the raw learnerId). We derive the pseudonym with the
     // SAME provider+secret+bundle_id the session uses in start() (session.ts), guaranteeing the

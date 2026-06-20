@@ -9,8 +9,9 @@ import { join } from "node:path";
 import { createHmac } from "node:crypto";
 import { SessionHost } from "./host.js";
 
-// Three-quiz bundle on one concept (mirrors host.test.ts): three correct answers clear the
-// MIN_MASTERY_ATTEMPTS=3 floor so concept_states accumulate real BKT mastery.
+// Three-quiz bundle on one `remember`-level concept (w=0.3, mirrors host.test.ts): three correct
+// answers clear the MIN_MASTERY_ATTEMPTS=3 floor AND the 0.85 claim bar (α=1+1.7·3=6.1, β=1 →
+// ≈0.859) so concept_states accumulate real BKT mastery and a mastery .jsonld is certified.
 function quizScene(id: string) {
   return { id, type: "quiz", title: id.toUpperCase(), objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [],
     question: "?", choices: [{ id: "a", text: "A", correct: false }, { id: "b", text: "B", correct: true }], feedback_correct: "y", feedback_incorrect: "n", hints: [] };
@@ -18,7 +19,7 @@ function quizScene(id: string) {
 const MASTERY_BUNDLE_3 = {
   schema_version: "1.4", bundle_id: "mastery-test-003", source_plan_id: "p",
   metadata: { title: "Mastery3", target: "L1", duration_minutes: 5, language: "fr", discipline: "x" },
-  concepts: [{ id: "c1", title: "C1", description: "d", bloom_level_target: "understand" }],
+  concepts: [{ id: "c1", title: "C1", description: "d", bloom_level_target: "remember" }],
   scenes: [quizScene("q1"), quizScene("q2"), quizScene("q3")],
   rules: [], validated_by: "teacher", validated_at: "2026-06-11T00:00:00Z",
 };

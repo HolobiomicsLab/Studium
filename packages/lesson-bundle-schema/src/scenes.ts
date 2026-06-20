@@ -26,6 +26,9 @@ export const ABSAssetSchema = z.object({
     "data_csv",
     "protocol_card_md",
     "script_snippet",
+    // interactive / first-class rich types (rendered client-side):
+    "plot_spec",       // payload_inline = a Vega-Lite or Plotly JSON spec (zoom/hover)
+    "equation_latex",  // payload_inline = a LaTeX string, rendered with KaTeX/MathJax
   ]),
   payload_inline: z.string().optional(),
   payload_path: z.string().optional(),
@@ -108,11 +111,29 @@ export const ReproductionStepSchema = z.object({
   expected_output: z.union([z.string(), z.record(z.unknown())]),
 });
 
+// The result of executing the capsule once at author time (the "reference run"), so a learner
+// sees a real, graded analysis rather than only step text. Populated by tools/capsule_runner.py;
+// absent when the capsule is heavy/deferred or type-checked-only.
+export const ReferenceRunSchema = z.object({
+  ran: z.boolean(),
+  passed: z.boolean(),
+  landmark: z.string().nullable(),
+  figure_path: z.string().nullable(),
+  checks: z.array(z.object({ check: z.string(), passed: z.boolean() })),
+  provenance: z.object({
+    capsule_doi: z.string().nullable(),
+    cmd: z.array(z.string()),
+    env: z.string(),
+  }),
+});
+
 export const ReproductionSceneSchema = SceneBaseSchema.extend({
   type: z.literal("reproduction"),
   task_card_id: z.string(),
   steps: z.array(ReproductionStepSchema).min(1),
   prov_derived_from: z.string().url().optional(),
+  image_path: z.string().optional(),         // rendered figure from the reference run
+  reference_result: ReferenceRunSchema.optional(),
   evidence: EvidenceSchema.optional(),
 });
 

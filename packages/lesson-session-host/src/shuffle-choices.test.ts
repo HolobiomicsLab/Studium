@@ -55,6 +55,17 @@ describe("shuffleQuizChoices", () => {
     expect(texts(a)).toEqual(texts(b));
   });
 
+  it("seedSalt: same salt is reproducible; different salts can diverge (per-learner order)", () => {
+    const texts = (x: LessonBundle) => x.scenes.map((s: any) => s.choices.map((c: any) => c.text).join(","));
+    const alice1 = texts(shuffleQuizChoices(bundleWithLeakyQuizzes(30), "alice"));
+    const alice2 = texts(shuffleQuizChoices(bundleWithLeakyQuizzes(30), "alice"));
+    const bob = texts(shuffleQuizChoices(bundleWithLeakyQuizzes(30), "bob"));
+    const noSalt = texts(shuffleQuizChoices(bundleWithLeakyQuizzes(30)));
+    expect(alice1).toEqual(alice2);                         // same salt → reproducible
+    expect(alice1.some((q, i) => q !== bob[i])).toBe(true); // different learners → at least one differs
+    expect(alice1.some((q, i) => q !== noSalt[i])).toBe(true); // salted differs from the default order
+  });
+
   it("leaves non-quiz scenes and the rest of the bundle untouched", () => {
     const bundle = {
       bundle_id: "x",

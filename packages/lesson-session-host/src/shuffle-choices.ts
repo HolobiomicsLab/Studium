@@ -44,14 +44,19 @@ function mulberry32(seed: number): () => number {
  *   - display labels remain clean sequential a/b/c for any client.
  *
  * Returns a new bundle; the input is not mutated.
+ *
+ * `seedSalt` mixes into the per-scene seed. Default "" → the permutation is the SAME for every
+ * learner (so per-question item analytics stay aligned across a class). Pass a per-learner value
+ * (e.g. the learnerId) to give each learner a distinct-but-reproducible order — more resistant to
+ * answer-sharing in a co-located class, at the cost of cross-learner answer-position alignment.
  */
-export function shuffleQuizChoices(bundle: LessonBundle): LessonBundle {
+export function shuffleQuizChoices(bundle: LessonBundle, seedSalt = ""): LessonBundle {
   const scenes = bundle.scenes.map((scene) => {
     if (scene.type !== "quiz" || !Array.isArray(scene.choices) || scene.choices.length < 2) {
       return scene;
     }
     const order = [...scene.choices];
-    const rand = mulberry32(seedFrom(scene.id));
+    const rand = mulberry32(seedFrom(scene.id + seedSalt));
     // Fisher–Yates with the seeded PRNG.
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(rand() * (i + 1));

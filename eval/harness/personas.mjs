@@ -145,6 +145,77 @@ function makeOverconfident(failsBefore = 2) {
   };
 }
 
+// HINT_RELIANT (P1): offloads onto scaffolding — answers a quiz WRONG once (to unlock
+// heavy-scaffolding hints under remedial), then consumes every authored hint before
+// answering correctly. The `hints` field tells the driver to call session.requestHint()
+// before responding, which raises hint_count -> the M5 anti-offloading discount fires and
+// autonomyRatio drops below 1.0 (the metric finally reflects scaffolding dependence).
+function makeHintReliant(failsBefore = 0) {
+  const seen = new Map();
+  return {
+    name: "hint_reliant",
+    pick(scene) {
+      switch (scene.type) {
+        case "quiz": {
+          const k = conceptKey(scene);
+          const n = seen.get(k) ?? 0;
+          seen.set(k, n + 1);
+          const choiceId = n < failsBefore ? wrongChoiceId(scene) : correctChoiceId(scene);
+          // Leans on hints for the FIRST couple of correct answers, then INTERNALISES and answers
+          // autonomously: autonomyRatio stays <1 (exercises the M5 discount) but the autonomous
+          // answers accumulate enough alpha to reach mastery -> the persona COMPLETES (a usable
+          // EV-9 instrument), instead of offloading forever and hitting the turn cap.
+          const wantsHint = n >= failsBefore && n < failsBefore + 2;
+          return { input: { kind: "quiz_choice", choiceId }, hints: wantsHint ? (scene.hints?.length ?? 0) : 0 };
+        }
+        case "meta_checkpoint":
+          return { input: { kind: "confidence", value: 2 } };
+        case "ai_critique":
+          return { input: { kind: "critique", text: shallowCritique(scene) } };
+        case "discussion":
+          return { turns: ["Can I get a hint?"], input: { kind: "ack" } };
+        default:
+          return { input: { kind: "ack" } };
+      }
+    },
+  };
+}
+
+// MISCONCEPTION (M1): a learner with a STABLE misconception — repeatedly picks the SAME wrong
+// distractor (the attractor = the last incorrect choice) before eventually correcting. Adds a
+// distinct wrong-answer signature (vs struggling's "first wrong"), and is the consumer for the
+// future misconception-tagged-distractor work (Eedi-style attractor mapping).
+function makeMisconception(failsBefore = 2) {
+  const seen = new Map();
+  function attractorId(scene) {
+    const wrongs = scene.choices.filter((x) => !x.correct);
+    return wrongs.length ? wrongs[wrongs.length - 1].id : scene.choices[0].id;
+  }
+  return {
+    name: "misconception",
+    pick(scene) {
+      switch (scene.type) {
+        case "quiz": {
+          const k = conceptKey(scene);
+          const n = seen.get(k) ?? 0;
+          seen.set(k, n + 1);
+          const choiceId = n < failsBefore ? attractorId(scene) : correctChoiceId(scene);
+          // asks for a hint WHILE stuck on the misconception (not once it clicks) -> sub-1.0 autonomy.
+          return { input: { kind: "quiz_choice", choiceId }, hints: n < failsBefore ? 1 : 0 };
+        }
+        case "meta_checkpoint":
+          return { input: { kind: "confidence", value: 3 } }; // confident in the misconception
+        case "ai_critique":
+          return { input: { kind: "critique", text: shallowCritique(scene) } };
+        case "discussion":
+          return { turns: ["I think it works the other way around."], input: { kind: "ack" } };
+        default:
+          return { input: { kind: "ack" } };
+      }
+    },
+  };
+}
+
 // --- Live Claude student (shells the CLI per turn) ---
 function renderScene(scene, snapshot) {
   const lines = [`SCENE TYPE: ${scene.type}`, `TITLE: ${scene.title}`];
@@ -225,7 +296,15 @@ export function getPolicy(name, opts = {}) {
     case "struggling":
       return makeStruggling(opts.failsBefore ?? 2);
     case "overconfident":
-      return makeOverconfident(opts.failsBefore ?? 2);
+      // distinct trajectory (#1): commits confidently and self-corrects fast (1 error) — so its
+      // run profile differs from struggling (2) and misconception (3); the auditor flagged collapse.
+      return makeOverconfident(opts.failsBefore ?? 1);
+    case "hint_reliant":
+      return makeHintReliant(opts.failsBefore ?? 0);
+    case "misconception":
+      // a confused learner: holds the SAME wrong attractor and asks for a hint while stuck — so its
+      // autonomyRatio is sub-1.0 (distinct from struggling's), giving a different run profile.
+      return makeMisconception(opts.failsBefore ?? 2);
     case "claude":
       return claudeStudent(
         opts.personaPrompt ?? "Behave like a diligent average undergraduate.",
@@ -236,4 +315,6 @@ export function getPolicy(name, opts = {}) {
   }
 }
 
-export const DETERMINISTIC_PERSONAS = ["proficient", "struggling", "overconfident"];
+export const DETERMINISTIC_PERSONAS = [
+  "proficient", "struggling", "overconfident", "hint_reliant", "misconception",
+];
