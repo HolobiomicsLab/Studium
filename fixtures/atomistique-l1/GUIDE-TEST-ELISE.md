@@ -24,36 +24,92 @@ extrait reste **en local** (voir « Confidentialité »).
 
 ---
 
-# Partie 0 — Installation (une fois)
+# Partie 0 — Pré-requis et dépendances
 
-- **VS Code**, **Node 20+**, **pnpm** et **Python 3** installés.
-- Le dépôt **`prototype-build`** présent sur la machine. Remplacez partout `CHEMIN` par son
-  emplacement réel (ex. `~/git/prototype-build`).
+## Ce qu'il faut sur la machine
+- **macOS**, **VS Code**, **Node 20+**, **pnpm**, **Python 3**.
+- Le dépôt **`prototype-build`** (un seul dépôt suffit — voir « Dépendances »). Récupérez-le (une
+  fois l'accès collaborateur accordé) dans le Terminal :
+
+  ```bash
+  git clone https://github.com/HolobiomicsLab/studium.git prototype-build
+  ```
+
+  *(le mot `prototype-build` à la fin nomme le dossier, pour que les chemins de ce guide collent.)*
+- Remplacez partout `CHEMIN` par l'endroit où vous l'avez cloné. *(Sur Mac, `~` = votre dossier
+  personnel : `~/git/prototype-build` = `/Users/VotreNom/git/prototype-build`.)*
+
+## Dépendances : la démo est autonome
+**Pour tester le cours d'atomistique, il suffit de `prototype-build`** — rien d'autre à cloner. Le
+serveur de leçon tourne **en local**, lancé automatiquement par l'extension ; **aucun service
+externe**. En particulier, **Perspicacité** et **indicium** ne sont **pas nécessaires** :
+- *indicium* (claims typés) est **embarqué** dans le code (schéma vendorisé) — rien à installer ;
+- *Perspicacité* (ancrage bibliographique) est une brique d'**auteur** (créer un cours), pas de
+  **lecture** — la leçon est déjà rédigée et autonome.
+
+> Pour *créer un nouveau cours* avec ancrage + LLM, il faudrait lancer Perspicacité (service Python,
+> API `:8000`) + une clé LLM. **Hors périmètre de ce test.**
+
+## Préparer (une fois) — dans le Terminal
+Ouvrez l'app **Terminal** (`Cmd+Espace`, tapez « Terminal », `Entrée`).
+
+**1) Vérifiez les outils** — tapez ces 3 lignes (une à la fois, `Entrée` après chacune) :
+
+```bash
+node --version       # doit afficher v20 ou plus
+pnpm --version       # doit afficher 9 ou plus
+python3 --version    # doit afficher 3.x
+```
+
+Si l'une répond « command not found » : `pnpm` → `npm install -g pnpm` ; `node` → installez Node 20+
+depuis nodejs.org ; `python3` → depuis python.org (ou `brew install python3`).
+
+**2) Installez et compilez** — tapez ces lignes une par une ; après chaque `Entrée`, **attendez que
+la commande finisse** (le `$` réapparaît) avant la suivante :
 
 ```bash
 cd CHEMIN/prototype-build
-pnpm install                              # dépendances
-pnpm --filter studium-vscode vendor       # bibliothèques hors-ligne (orbitales 3D, graphe, équations)
-pnpm --filter studium-vscode build        # compile l'extension
+pnpm install
+pnpm --filter studium-vscode vendor
+pnpm --filter studium-vscode build
 ```
 
-> `pnpm` manquant ? `npm install -g pnpm`. — Attention à ne pas mettre de point final aux commandes.
+*(`--filter studium-vscode` = « ne traite que ce sous-projet » ; copiez la commande telle quelle.)*
 
 ---
 
-# Partie 1 — Lancer l'extension
+# Partie 1 — Ouvrir VS Code et lancer l'extension (pas à pas)
 
-```bash
-code CHEMIN/prototype-build/apps/studium-vscode
-```
+> Pas besoin de la commande `code` : on passe par l'**application** VS Code.
 
-Puis **F5** (ou *Run ▸ « Run Studium Extension »*). Une **deuxième fenêtre** s'ouvre, intitulée
-**`[Extension Development Host]`** : c'est là que l'extension tourne.
+1. **Ouvrir VS Code** : `Cmd+Espace`, « Visual Studio Code », `Entrée`.
+   *(Pas installé ? code.visualstudio.com → glissez-le dans Applications.)*
+2. **Ouvrir le dossier** : menu **File ▸ Open Folder…**. Dans la fenêtre qui s'ouvre, faites
+   **`Cmd+Shift+G`** pour **taper un chemin**, collez `CHEMIN/prototype-build/apps/studium-vscode`,
+   `Entrée`, puis bouton **Open**. *(Le bon dossier contient un fichier `package.json` et un dossier
+   `.vscode`.)*
+3. **(1ʳᵉ fois)** S'il demande la confiance dans le dossier → **« Yes, I trust the authors »**.
+4. **Lancer l'extension** — au choix :
+   - **Clavier** : touche **F5**. *(Sur Mac, si F5 règle le son/la luminosité, faites **fn + F5**.)*
+   - **Souris** (sans surprise) : dans la **barre d'icônes verticale à gauche**, cliquez l'icône
+     **Run and Debug** (un **▷** avec un petit insecte) ; un panneau s'ouvre, choisissez en haut
+     **« Run Studium Extension »** dans la liste, puis cliquez le **▷ vert**.
+5. Une **2ᵉ fenêtre** s'ouvre, titre **`[Extension Development Host]`** : **c'est là qu'on teste**.
+   ⚠️ **Ne fermez pas la 1ʳᵉ fenêtre** (c'est le « moteur » ; gardez les deux ouvertes).
+6. **Lancer la leçon** : dans la **2ᵉ fenêtre**, ouvrez la *palette de commandes* (un champ où
+   chercher les commandes) — **`Cmd+Shift+P`** (ou **View ▸ Command Palette…**) — tapez
+   **`Studium: Open Lesson`**, `Entrée`. Les deux panneaux s'ouvrent.
+7. **Arrêter** : dans la **1ʳᵉ fenêtre**, menu **Run ▸ Stop Debugging** (ou `Shift+F5`). **Relancer** :
+   F5. **Recharger après un changement de réglage** : dans la **2ᵉ fenêtre**, `Cmd+R` (ou palette de
+   commandes → **« Developer: Reload Window »**).
 
-> Pas de réglage à faire : la démo pointe par défaut sur le cours d'atomistique du dépôt.
+> **Aucun réglage requis pour démarrer** : la démo pointe par défaut sur le cours d'atomistique.
 
-Pour ouvrir/modifier les réglages plus tard : dans cette fenêtre, menu **Code ▸ Settings ▸ Settings**
-(ou `Cmd+,`), puis tapez **`studium`** dans la barre de recherche en haut.
+## Où sont les réglages (pour la Partie 3) ?
+Dans la fenêtre `[Extension Development Host]`, appuyez sur **`Cmd+,`** (ou menu **Code ▸ Settings**).
+La page « Settings » s'ouvre ; dans la **barre de recherche en haut**, tapez **`studium`**. Les
+réglages apparaissent (cases, listes, champs), nommés « **Studium: …** ». Pour les éditer en texte :
+icône **`{}`** en haut à droite (« Open Settings (JSON) »).
 
 ---
 
