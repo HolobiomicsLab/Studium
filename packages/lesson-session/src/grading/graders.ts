@@ -67,7 +67,7 @@ const critiqueGrader: Grader = async (scene, input, deps) => {
   return {
     signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.ai_critique) },
     telemetry: [
-      { type: "critique_submitted", scene_id: scene.id, llm_score: Math.max(0, Math.min(1, score)), completion_rate },
+      { type: "critique_submitted", scene_id: scene.id, scene_type: "ai_critique", llm_score: Math.max(0, Math.min(1, score)), completion_rate },
       { type: "ai_audit_result", scene_id: scene.id, planted_errors: audit.planted_errors, true_positives: audit.true_positives, false_positives: audit.false_positives, missed: audit.missed },
     ],
   };
@@ -88,7 +88,7 @@ const flawGrader: Grader = async (scene, input, deps) => {
   return {
     signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.spot_the_flaw) },
     telemetry: [
-      { type: "critique_submitted", scene_id: scene.id, llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
+      { type: "critique_submitted", scene_id: scene.id, scene_type: "spot_the_flaw", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
       { type: "ai_audit_result", scene_id: scene.id, planted_errors: audit.planted_errors, true_positives: audit.true_positives, false_positives: audit.false_positives, missed: audit.missed },
     ],
   };
@@ -108,7 +108,7 @@ const explainBackGrader: Grader = async (scene, input, deps) => {
   return {
     signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.explain_back) },
     telemetry: [
-      { type: "critique_submitted", scene_id: scene.id, llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
+      { type: "critique_submitted", scene_id: scene.id, scene_type: "explain_back", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
     ],
   };
 };

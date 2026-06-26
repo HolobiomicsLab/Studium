@@ -13,11 +13,13 @@ import { collectBannedAnswers, revealsAnswer } from "./socratic-tutor/reveal.js"
 import { FADED_FALLBACK } from "./socratic-tutor/contingency.js";
 
 const ESCALATE_AFTER = 2; // graph remediations in a session before baseline -> remedial escalation
-// Mastery-CERTIFICATION bar — deliberately ABOVE the navigation theta (DEFAULT_THETA=0.8). Passing
-// the gate (provisional, lowerable per universe) is NOT the same as certifying mastery: a
-// `demonstrates_mastery_of` claim requires a stronger posterior (0.85) AND the MIN_MASTERY_ATTEMPTS
-// floor AND distinct items. Two clean answers (alpha=4 -> 0.8) unlock the next concept but do NOT certify.
-const MASTERY_CLAIM_THRESHOLD = 0.85;
+// Mastery-CERTIFICATION bar — the posterior a concept must reach before a `demonstrates_mastery_of`
+// claim is emitted. Set to the navigation theta (DEFAULT_THETA=0.8), consistent with the
+// buildMasteryClaims unit tests. What separates certification from merely unlocking the next concept
+// is NOT a higher posterior but the MIN_MASTERY_ATTEMPTS floor: two clean answers reach alpha-driven
+// 0.8 but at only 2 attempts (< floor) so they unlock the next scene WITHOUT certifying mastery. The
+// floor (>= 3 distinct attempts) is the anti-fabrication guard; mastery itself certifies at >= 0.8.
+const MASTERY_CLAIM_THRESHOLD = DEFAULT_THETA;
 const BASELINE_UNIVERSE_ID = "baseline";
 const REMEDIAL_UNIVERSE_ID = "remedial";
 

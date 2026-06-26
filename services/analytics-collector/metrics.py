@@ -42,6 +42,25 @@ def _iter_events(
             yield ev
 
 
+# ADR 006 amendment v1.4 (RC-2) — anti-offloading scope.
+# `critique_submitted` is reused by three active-learning scene types. The
+# autonomy / AI-literacy aggregates are defined as an AI-CRITIQUE signal, so we
+# count ai_critique and its auditor variant spot_the_flaw (learner-as-auditor of
+# deliberately-flawed AI content — same anti-offloading construct), but NOT
+# explain_back (teach-back is a comprehension signal, not AI-critique). Legacy
+# untagged events predate the discriminator → treated as ai_critique (back-compat).
+_AUTONOMY_CRITIQUE_SCENE_TYPES = frozenset({"ai_critique", "spot_the_flaw"})
+
+
+def _is_autonomy_critique(ev: dict) -> bool:
+    """True if a ``critique_submitted`` event counts toward the anti-offloading
+    (autonomy / AI-literacy) aggregates. Untagged legacy events → ai_critique."""
+    scene_type = ev.get("scene_type")
+    if scene_type is None:
+        return True  # back-compat: pre-v1.4 events bucket as ai_critique
+    return scene_type in _AUTONOMY_CRITIQUE_SCENE_TYPES
+
+
 def compute_progress(
     data_dir: Path,
     course: str,
@@ -415,6 +434,8 @@ def _compute_components_from_events(
             c["fp"] += int(ev.get("false_positives", 0))
             c["planted"] += int(ev.get("planted_errors", 0))
         elif t == "critique_submitted":
+            if not _is_autonomy_critique(ev):
+                continue  # RC-2: gate AI-literacy critique_completion_rate to AI-critique
             n_critique += 1
             sum_completion += float(ev.get("completion_rate", 0))
 
@@ -817,6 +838,8 @@ def compute_autonomy(
     for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         t = ev.get("type")
         if t == "critique_submitted":
+            if not _is_autonomy_critique(ev):
+                continue  # RC-2: explain_back (teach-back) is not an AI-critique signal
             n_critique += 1
             sum_completion += float(ev.get("completion_rate", 0))
         elif t == "adaptation_applied" and ev.get("signal") == "hint":

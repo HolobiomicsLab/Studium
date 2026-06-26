@@ -116,12 +116,16 @@ fixes the pre-existing gap where `ai_critique` was invisible to teachers). The f
 **calibration-neutral** (these items have no self-rated confidence, so `conf_sum` gets the binary
 pass, not the raw score) and does not dilute `mean_time_s` (divided by *timed* quiz attempts only).
 
-**Known limitation (deferred — RC-2):** because the new scenes reuse the `critique_submitted` event
-with no scene-type discriminator, the `services/analytics-collector` aggregates `autonomy_ratio` and
-the AI-literacy index — which were defined as *AI-critique* (anti-offloading) signals — now also count
-`explain_back` (teach-back) and `spot_the_flaw`. The per-concept class report above is unaffected;
-only those collector aggregates conflate the three. Proper fix = add a `kind`/`scene_type` tag to the
-event and gate `compute_autonomy` to `ai_critique`. Tracked separately.
+**Resolved (RC-2 — ADR 006 amendment v1.4):** the `critique_submitted` event now carries an
+optional `scene_type` discriminator (`ai_critique` | `spot_the_flaw` | `explain_back`), set by the
+three graders. The `services/analytics-collector` anti-offloading aggregates — `compute_autonomy`
+(`autonomy_ratio`, `critique_completion_rate`) and the AI-literacy index's `critique_completion_rate`
+component — are gated to count **`ai_critique` and `spot_the_flaw`** (its learner-as-auditor variant
+is the same anti-offloading construct) and to **exclude `explain_back`** (teach-back is a
+comprehension signal, not AI-critique). Back-compat: legacy untagged events (pre-v1.4) bucket as
+`ai_critique`, so historical aggregates are unchanged. The per-concept class report (`class_report.py`,
+§above) still folds in **all three** scene types — that is intended (teacher-facing per-concept
+accuracy), and is deliberately left untouched.
 
 ## 7. Atomistique examples (`fixtures/atomistique-l1`)
 

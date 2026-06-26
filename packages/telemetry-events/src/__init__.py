@@ -10,7 +10,11 @@ ADR 006 amendment v1.3 (views v0.4) adds `journal_entry_submitted`
 (reflective writing), `cooperative_vote` (per-vote emission, aggregate
 only) and `cooperative_convergence` (cooperative synthesis recap).
 
-All v1.1/v1.3 events are strict: no free text transmitted — only counters,
+ADR 006 amendment v1.4 (RC-2) adds an optional `scene_type` discriminator on
+`critique_submitted` so the collector can gate anti-offloading aggregates to
+genuine AI-critique scenes (back-compat: untagged → ai_critique).
+
+All v1.1/v1.3/v1.4 events are strict: no free text transmitted — only counters,
 labels and aggregated histograms.
 """
 
@@ -72,6 +76,12 @@ class CritiqueSubmitted(_Base):
     scene_id: str
     llm_score: float = Field(ge=0, le=1)
     completion_rate: float = Field(ge=0, le=1)
+    # ADR 006 amendment v1.4 (RC-2) — optional scene-type discriminator. The
+    # active-learning scenes (spot_the_flaw, explain_back) reuse this event;
+    # without the tag the collector's anti-offloading aggregates conflate
+    # teach-back with AI-critique. Back-compatible: old untagged events are
+    # bucketed as "ai_critique" collector-side.
+    scene_type: Literal["ai_critique", "spot_the_flaw", "explain_back"] | None = None
 
 
 class LessonCompleted(_Base):

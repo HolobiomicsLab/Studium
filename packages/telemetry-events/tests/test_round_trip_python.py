@@ -536,3 +536,54 @@ def test_cooperative_convergence_rejects_missing_field():
     }
     with pytest.raises(ValidationError):
         adapter.validate_python(raw)
+
+
+# --- v0.5 — critique_submitted scene_type (RC-2) -----------------------------
+
+def test_critique_submitted_untagged_round_trip():
+    """Legacy back-compat: scene_type is optional; an untagged event still parses."""
+    raw = {
+        **BASE,
+        "type": "critique_submitted",
+        "scene_id": "s_crit_1",
+        "llm_score": 0.8,
+        "completion_rate": 1.0,
+    }
+    event = adapter.validate_python(raw)
+    assert event.type == "critique_submitted"
+    assert event.scene_type is None
+    redumped = json.loads(adapter.dump_json(event))
+    # scene_type is omitted-or-null when untagged; the other fields round-trip exactly.
+    assert redumped.get("scene_type") is None
+    assert {k: v for k, v in redumped.items() if k != "scene_type"} == raw
+
+
+def test_critique_submitted_tagged_round_trip():
+    for st in ["ai_critique", "spot_the_flaw", "explain_back"]:
+        raw = {
+            **BASE,
+            "type": "critique_submitted",
+            "scene_id": "s_crit_1",
+            "llm_score": 0.8,
+            "completion_rate": 1.0,
+            "scene_type": st,
+        }
+        event = adapter.validate_python(raw)
+        assert event.scene_type == st
+        redumped = json.loads(adapter.dump_json(event))
+        assert redumped == raw
+
+
+def test_critique_submitted_rejects_invalid_scene_type():
+    import pytest
+    from pydantic import ValidationError
+    raw = {
+        **BASE,
+        "type": "critique_submitted",
+        "scene_id": "s_crit_1",
+        "llm_score": 0.8,
+        "completion_rate": 1.0,
+        "scene_type": "quiz",
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)

@@ -10,8 +10,8 @@ import { createHmac } from "node:crypto";
 import { SessionHost } from "./host.js";
 
 // Three-quiz bundle on one `remember`-level concept (w=0.3, mirrors host.test.ts): three correct
-// answers clear the MIN_MASTERY_ATTEMPTS=3 floor AND the 0.85 claim bar (α=1+1.7·3=6.1, β=1 →
-// ≈0.859) so concept_states accumulate real BKT mastery and a mastery .jsonld is certified.
+// answers clear the MIN_MASTERY_ATTEMPTS=3 floor AND the 0.8 (=DEFAULT_THETA) claim bar (α=1+1.7·3=6.1,
+// β=1 → ≈0.859) so concept_states accumulate real BKT mastery and a mastery .jsonld is certified.
 function quizScene(id: string) {
   return { id, type: "quiz", title: id.toUpperCase(), objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [],
     question: "?", choices: [{ id: "a", text: "A", correct: false }, { id: "b", text: "B", correct: true }], feedback_correct: "y", feedback_incorrect: "n", hints: [] };

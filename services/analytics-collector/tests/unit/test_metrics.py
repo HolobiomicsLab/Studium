@@ -81,6 +81,29 @@ def test_compute_autonomy(tmp_path):
     assert a["n_hints"] == 1
 
 
+def test_compute_autonomy_scopes_to_ai_critique(tmp_path):
+    """RC-2 (ADR 006 v1.4): the anti-offloading aggregates count ai_critique and
+    its auditor variant spot_the_flaw, treat untagged legacy events as ai_critique,
+    but EXCLUDE explain_back (teach-back is not an AI-critique signal)."""
+    events = [
+        # legacy untagged → counts as ai_critique (back-compat)
+        {**_base(0), "type": "critique_submitted", "scene_id": "s0", "llm_score": 0.7, "completion_rate": 1.0},
+        {**_base(1), "type": "critique_submitted", "scene_id": "s1", "scene_type": "ai_critique", "llm_score": 0.7, "completion_rate": 1.0},
+        {**_base(2), "type": "critique_submitted", "scene_id": "s2", "scene_type": "spot_the_flaw", "llm_score": 0.6, "completion_rate": 1.0},
+        # explain_back must NOT count
+        {**_base(0), "type": "critique_submitted", "scene_id": "s3", "scene_type": "explain_back", "llm_score": 0.6, "completion_rate": 0.0},
+    ]
+    data_dir = _write_events(tmp_path, "c1", events)
+    a = compute_autonomy(data_dir, "c1")
+    # 3 counted (untagged + ai_critique + spot_the_flaw); explain_back dropped.
+    assert a["n_critique"] == 3
+    assert a["n_hints"] == 0
+    assert a["autonomy_ratio"] == 1.0
+    # completion_rate mean over the 3 counted events (all 1.0); the 0.0 from
+    # explain_back is excluded, so the mean is exactly 1.0 (not diluted).
+    assert abs(a["critique_completion_rate"] - 1.0) < 1e-9
+
+
 def test_compute_autonomy_zero_division_guard(tmp_path):
     a = compute_autonomy(tmp_path, "c-empty")
     assert a["critique_completion_rate"] == 0

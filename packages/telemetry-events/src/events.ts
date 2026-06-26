@@ -47,11 +47,17 @@ export const AdaptationAppliedSchema = BaseEventSchema.extend({
   value: z.number(),
 });
 
+// ADR 006 amendment v1.4 (RC-2) — scene_type discriminator on critique_submitted.
+// The active-learning scenes (spot_the_flaw, explain_back) reuse this event; without a
+// scene-type tag the collector's anti-offloading aggregates (autonomy_ratio, AI-literacy
+// index) conflate teach-back (explain_back) with genuine AI-critique. OPTIONAL and
+// back-compatible: old untagged events are bucketed as "ai_critique" collector-side.
 export const CritiqueSubmittedSchema = BaseEventSchema.extend({
   type: z.literal("critique_submitted"),
   scene_id: z.string(),
   llm_score: z.number().min(0).max(1),
   completion_rate: z.number().min(0).max(1),
+  scene_type: z.enum(["ai_critique", "spot_the_flaw", "explain_back"]).optional(),
 });
 
 export const LessonCompletedSchema = BaseEventSchema.extend({
