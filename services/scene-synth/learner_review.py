@@ -28,10 +28,17 @@ from typing import Optional
 
 from bundler import build_bundle
 from learner_items_store import (
+    IllegalTransitionError,
     LAItemEnvelope,
+    LAPeerSignals,
     LAReviewNoteCode,
     LearnerItemsStore,
 )
+
+# k-anonymity floor for any teacher-facing peer-signal read, mirroring
+# tools/class_report.py's --min-learners: below this many ratings a per-item
+# aggregate could re-identify the handful of peers who rated it.
+DEFAULT_MIN_RATERS = 3
 
 # Decisions accepted by the teacher-facing gate. Distinct from the raw ledger
 # transition vocabulary: ``approve`` fans out to approved→published.
@@ -85,6 +92,113 @@ def _synthesize_single_concept_plan(
         "concepts": concepts,
         "scenes": [scene_dict],
         "rules": [],
+    }
+
+
+# --------------------------------------------------------------------------- #
+# P3 — peer-review loop.
+#
+# A peer (a DIFFERENT learner) tests a learner-authored item and rates it. The
+# review is reduced to SCALARS the instant it arrives (passed / rating 1-5 /
+# helpful) and folded into the ledger envelope's ``peer_signals`` aggregate. No
+# per-peer identity and no free text are ever persisted; the aggregate stays
+# ledger-only and is NEVER routed to telemetry. Peer testing of a ``submitted``
+# item opens the ``peer_review`` state; ``decide_item`` still approves from there.
+# --------------------------------------------------------------------------- #
+
+
+def record_peer_review(
+    store: LearnerItemsStore,
+    item_id: str,
+    *,
+    passed: bool,
+    rating: int,
+    helpful: bool,
+    peer_pseudonym: Optional[str] = None,
+) -> LAItemEnvelope:
+    """Fold ONE peer test+rating into the item's ``peer_signals`` aggregate.
+
+    Parameters
+    ----------
+    passed:
+        Whether the peer's self-test of the item passed (a ``test`` counts
+        toward ``n_tests``).
+    rating:
+        Integer 1-5 quality rating (raises ``ValueError`` outside the range).
+    helpful:
+        Whether the peer marked the item helpful (folds into ``helpful_votes``).
+    peer_pseudonym:
+        Accepted for caller symmetry but DELIBERATELY DISCARDED — no per-peer
+        identity is ever persisted; only the four aggregate scalars are stored.
+
+    Returns the updated latest snapshot. The first peer review of a ``submitted``
+    item opens ``peer_review``; later reviews keep that state.
+    """
+    if not isinstance(rating, int) or isinstance(rating, bool) or not (1 <= rating <= 5):
+        raise ValueError(f"rating must be an integer in 1..5, got {rating!r}")
+    # NOTE: peer_pseudonym is intentionally NOT read past here.
+    del peer_pseudonym
+
+    current = store.get_item(item_id)
+    if current is None:
+        raise ValueError(f"unknown item {item_id!r}")
+
+    prior = current.peer_signals
+    # Every call is one peer "test" (its outcome is ``passed``) that also supplies
+    # one rating, so n_tests and n_ratings both increment by one.
+    n_tests = (prior.n_tests if prior else 0) + 1
+    n_ratings = (prior.n_ratings if prior else 0) + 1
+    prior_sum = (prior.mean_rating * prior.n_ratings) if prior else 0.0
+    mean_rating = (prior_sum + rating) / n_ratings
+    helpful_votes = (prior.helpful_votes if prior else 0) + (1 if helpful else 0)
+
+    aggregate = LAPeerSignals(
+        n_tests=n_tests,
+        n_ratings=n_ratings,
+        mean_rating=mean_rating,
+        helpful_votes=helpful_votes,
+    )
+    try:
+        return store.update_peer_signals(item_id, aggregate)
+    except IllegalTransitionError as exc:
+        # surface non-peer-testable states as a plain ValueError for the caller.
+        raise ValueError(str(exc)) from exc
+
+
+def peer_signals_view(
+    store: LearnerItemsStore,
+    item_id: str,
+    *,
+    min_raters: int = DEFAULT_MIN_RATERS,
+) -> dict:
+    """Teacher-facing, K-SUPPRESSED read of an item's peer-signal aggregate.
+
+    Mirrors tools/class_report.py: below ``min_raters`` ratings the aggregate
+    scalars are WITHHELD (a tiny rater pool could re-identify the peers), and the
+    view returns only ``status='suppressed'`` plus the floor and the rater count.
+    At/above the floor the four aggregate scalars are returned.
+    """
+    current = store.get_item(item_id)
+    signals = current.peer_signals if current is not None else None
+    n_ratings = signals.n_ratings if signals else 0
+
+    if signals is None or n_ratings < min_raters:
+        return {
+            "status": "suppressed",
+            "n_ratings": n_ratings,
+            "min_raters": min_raters,
+            "reason": (
+                f"k-anonymity floor: need >= {min_raters} peer ratings before an "
+                f"item-level aggregate can be shown (have {n_ratings})."
+            ),
+        }
+    return {
+        "status": "ok",
+        "n_tests": signals.n_tests,
+        "n_ratings": signals.n_ratings,
+        "mean_rating": round(signals.mean_rating, 3),
+        "helpful_votes": signals.helpful_votes,
+        "min_raters": min_raters,
     }
 
 
@@ -231,4 +345,9 @@ def _assert_pseudonym_scrubbed(bundle_path: Path, pseudonym: str) -> None:
                 )
 
 
-__all__ = ["decide_item"]
+__all__ = [
+    "decide_item",
+    "record_peer_review",
+    "peer_signals_view",
+    "DEFAULT_MIN_RATERS",
+]

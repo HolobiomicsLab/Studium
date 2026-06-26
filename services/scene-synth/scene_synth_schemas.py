@@ -450,6 +450,39 @@ class LearnerItemsListResponse(BaseModel):
     items: list[LearnerItemView]
 
 
+# ---------------------------------------------------------------------------
+# Learner-as-author (P3) peer-review request/response models.
+#
+# A peer records a test+rating with SCALARS ONLY — no free text, no peer
+# identity in the body. The peer-signals read is the K-SUPPRESSED teacher view
+# (a discriminated status, mirroring class_report's suppressed/ok shape).
+# ---------------------------------------------------------------------------
+
+
+class LearnerPeerReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    passed: bool  # did the peer's self-test of the item pass?
+    rating: int = Field(ge=1, le=5)  # 1-5 quality rating.
+    helpful: bool  # did the peer mark the item helpful?
+    # NO free text, NO peer identity — deliberately absent (extra='forbid').
+
+
+class LearnerPeerSignalsView(BaseModel):
+    """K-suppressed teacher view of an item's peer aggregate.
+
+    ``status='suppressed'`` below the min-raters floor returns only the count +
+    floor; ``status='ok'`` returns the four aggregate scalars. Optional fields
+    keep one response shape for both branches."""
+
+    status: Literal["ok", "suppressed"]
+    n_ratings: int
+    min_raters: int
+    n_tests: Optional[int] = None
+    mean_rating: Optional[float] = None
+    helpful_votes: Optional[int] = None
+    reason: Optional[str] = None
+
+
 __all__ = [
     "ABSAsset",
     "ABSAssetType",
@@ -478,6 +511,8 @@ __all__ = [
     "LearnerDecideRequest",
     "LearnerItemView",
     "LearnerItemsListResponse",
+    "LearnerPeerReviewRequest",
+    "LearnerPeerSignalsView",
     "LearnerSubmitRequest",
     "LearnerValidateRequest",
     "LearnerValidateResponse",

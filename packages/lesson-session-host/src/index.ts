@@ -3,5 +3,6 @@ export { SessionHost, SessionHostNotFoundError, type SessionHostOptions } from "
 export { SessionRegistry, type SessionEntry } from "./registry.js";
 export { buildHostDeps, durableDataDir, durableScopeDir, telemetryConsentGranted } from "./deps.js";
 export { resolveBundle } from "./bundle-resolver.js";
+export { discoverCommunityBundles, COMMUNITY_DIR } from "./community-bundles.js";
 export { shuffleQuizChoices } from "./shuffle-choices.js";
 export { ResponseInputSchema } from "./response-input-schema.js";

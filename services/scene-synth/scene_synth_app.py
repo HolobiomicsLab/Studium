@@ -30,7 +30,7 @@ from agents.base import SceneSynthError
 from agents.critique_evaluator import CritiqueEvaluator
 from bundler import validate_scene
 from learner_items_store import LAItemEnvelope, LearnerItemsStore
-from learner_review import decide_item
+from learner_review import decide_item, peer_signals_view, record_peer_review
 from orchestrator import SceneSynthOrchestrator
 from scene_synth_schemas import (
     CritiqueEvalRequest,
@@ -38,6 +38,8 @@ from scene_synth_schemas import (
     LearnerDecideRequest,
     LearnerItemView,
     LearnerItemsListResponse,
+    LearnerPeerReviewRequest,
+    LearnerPeerSignalsView,
     LearnerSubmitRequest,
     LearnerValidateRequest,
     LearnerValidateResponse,
@@ -251,6 +253,54 @@ def learner_decide(item_id: str, req: LearnerDecideRequest) -> LearnerItemView:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return _to_view(env)
+
+
+# --------------------------------------------------------------------------- #
+# Learner-as-author peer-review loop (plan §"P3").
+# --------------------------------------------------------------------------- #
+
+
+@app.post("/learner-items/{item_id}/peer-review", response_model=LearnerItemView)
+def learner_peer_review(
+    item_id: str, req: LearnerPeerReviewRequest
+) -> LearnerItemView:
+    """Record ONE peer test+rating (scalars only) into the item's aggregate.
+
+    The body carries NO free text and NO peer identity (``extra='forbid'``); only
+    passed / rating / helpful. The aggregate lives in the ledger envelope's
+    ``peer_signals`` and is NEVER routed to telemetry. A first review of a
+    ``submitted`` item opens ``peer_review``; a non-peer-testable item is 400, an
+    unknown item is 404.
+    """
+    if _learner_store.get_item(item_id) is None:
+        raise HTTPException(status_code=404, detail=f"unknown item {item_id!r}")
+    try:
+        env = record_peer_review(
+            _learner_store,
+            item_id,
+            passed=req.passed,
+            rating=req.rating,
+            helpful=req.helpful,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return _to_view(env)
+
+
+@app.get(
+    "/learner-items/{item_id}/peer-signals", response_model=LearnerPeerSignalsView
+)
+def learner_peer_signals(item_id: str) -> LearnerPeerSignalsView:
+    """K-suppressed teacher read of an item's peer-signal aggregate.
+
+    Returns ``status='suppressed'`` (count + floor only) below the min-raters
+    floor (mirroring tools/class_report.py k-anonymity); the four aggregate
+    scalars otherwise. An unknown item is 404.
+    """
+    if _learner_store.get_item(item_id) is None:
+        raise HTTPException(status_code=404, detail=f"unknown item {item_id!r}")
+    view = peer_signals_view(_learner_store, item_id)
+    return LearnerPeerSignalsView(**view)
 
 
 __all__ = ["app"]

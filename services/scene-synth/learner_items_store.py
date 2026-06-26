@@ -235,6 +235,47 @@ class LearnerItemsStore:
         self._append_line(new_env)
         return new_env
 
+    def update_peer_signals(
+        self, item_id: str, peer_signals: LAPeerSignals
+    ) -> LAItemEnvelope:
+        """Append a snapshot carrying an updated peer-review aggregate (P3).
+
+        Peer testing of a ``submitted`` item OPENS the ``peer_review`` state
+        (``submitted -> peer_review``); a further peer test while already in
+        ``peer_review`` re-appends the SAME state with the new aggregate (an
+        idempotent self-edge, allowed ONLY for peer-signal updates, never a
+        lifecycle move). All other states are not peer-testable and raise.
+
+        Only the four aggregate SCALARS are stored — never a per-peer identity,
+        never free text. The aggregate stays ledger-only (no telemetry).
+
+        PRIVACY NOTE: because the ledger is append-only, consecutive ``mean_rating``
+        snapshots let a server-side reader reconstruct the SEQUENCE of individual
+        rating values by differencing. This is acceptable by design: no per-peer
+        identity is ever attached to any snapshot, so a recovered value (e.g. "a 3
+        was given") can never be attributed to a peer. Re-identification, not the
+        rating values themselves, is what ADR-006 protects — and the teacher-facing
+        read (``peer_signals_view``) is additionally k-suppressed below the floor.
+        """
+        current = self._latest.get(item_id)
+        if current is None:
+            raise IllegalTransitionError(f"unknown item {item_id!r}")
+        if current.review_state == "submitted":
+            to_state: LAReviewState = "peer_review"
+        elif current.review_state == "peer_review":
+            to_state = "peer_review"  # in-state aggregate update (self-edge)
+        else:
+            raise IllegalTransitionError(
+                f"item {item_id!r} is {current.review_state!r}; only "
+                f"'submitted'/'peer_review' items can be peer-tested"
+            )
+        data = current.model_dump(exclude_none=True)
+        data["review_state"] = to_state
+        data["peer_signals"] = peer_signals.model_dump()
+        new_env = LAItemEnvelope.model_validate(data)
+        self._append_line(new_env)
+        return new_env
+
     def get_item(self, item_id: str) -> Optional[LAItemEnvelope]:
         """Latest snapshot for ``item_id`` (or ``None``)."""
         return self._latest.get(item_id)
