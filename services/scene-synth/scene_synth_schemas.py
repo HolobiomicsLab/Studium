@@ -39,6 +39,8 @@ SceneType = Literal[
     "comparison",
     "summary_audit",
     "prompt_practice",
+    # active-learning wave-2 (D2): simulate a professional communication situation.
+    "communication_sim",
 ]
 BloomLevel = Literal[
     "remember", "understand", "apply", "analyze", "evaluate", "create"
@@ -314,6 +316,23 @@ class PromptPracticeScene(_SceneBase):
     rubric: AICritiqueRubric
 
 
+class CommunicationSimScene(_SceneBase):
+    """Professional communication simulation (Dubas): the learner is placed in a
+    professional situation (scenario = the situation + the learner's role + the
+    audience) and must communicate a target message (prompt), scored by how well
+    the response hits the authored communication objectives (key_points).
+
+    `key_points` (answer key) and `model_response` (reference) are reveals, never
+    rendered before the learner responds. Reuses KeyPoint + AICritiqueRubric."""
+
+    type: Literal["communication_sim"]
+    scenario: str = Field(min_length=1)
+    prompt: str = Field(min_length=1)
+    key_points: list[KeyPoint] = Field(min_length=1)
+    model_response: str = Field(min_length=1)
+    rubric: AICritiqueRubric
+
+
 # ---------------------------------------------------------------------------
 # Discriminated union
 # ---------------------------------------------------------------------------
@@ -331,6 +350,7 @@ SceneUnion = Union[
     ComparisonScene,
     SummaryAuditScene,
     PromptPracticeScene,
+    CommunicationSimScene,
 ]
 Scene = Annotated[SceneUnion, Field(discriminator="type")]
 
@@ -550,6 +570,7 @@ __all__ = [
     "Bundle",
     "CaseStudy",
     "Claim",
+    "CommunicationSimScene",
     "ComparisonScene",
     "Concept",
     "ConceptScene",

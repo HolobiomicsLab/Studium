@@ -300,7 +300,7 @@ describe("telemetry-events Zod schemas", () => {
     });
 
     it("parses + round-trips each tagged scene_type via the union", () => {
-      for (const st of ["ai_critique", "spot_the_flaw", "explain_back"] as const) {
+      for (const st of ["ai_critique", "spot_the_flaw", "explain_back", "comparison", "summary_audit", "prompt_practice", "communication_sim"] as const) {
         const parsed = CritiqueSubmittedSchema.parse({ ...valid, scene_type: st });
         expect(parsed.scene_type).toBe(st);
         expect(TelemetryEventSchema.parse({ ...valid, scene_type: st }).type).toBe("critique_submitted");

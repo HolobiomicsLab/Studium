@@ -61,6 +61,8 @@ export const SceneTypeSchema = z.enum([
   "spot_the_flaw", "explain_back",
   // active-learning wave-1: compare AI vs teacher output / audit an AI summary / craft & refine prompts.
   "comparison", "summary_audit", "prompt_practice",
+  // active-learning wave-2 (D2): simulate a professional communication situation.
+  "communication_sim",
 ]);
 
 export const ReasoningSignalEnum = z.enum([
@@ -259,6 +261,21 @@ export const PromptPracticeSceneSchema = SceneBaseSchema.extend({
   rubric: AICritiqueRubricSchema,
 });
 
+// communication_sim — Dubas "simuler des situations de communication professionnelle": the learner is placed in
+// a professional communication SITUATION (scenario = the situation + the learner's role + the audience) and must
+// communicate a target message (prompt). Scored explainBack-style on how well the response hits the authored
+// communication objectives (key_points: clarity-for-non-expert / addresses-the-audience / accurate / actionable).
+// key_points (answer key, mapped to claim-shape at grade time so the SAME evaluator/matcher scores coverage) and
+// model_response (reference reveal) are NEVER rendered pre-answer. Reuses KeyPoint + AICritiqueRubricSchema.
+export const CommunicationSimSceneSchema = SceneBaseSchema.extend({
+  type: z.literal("communication_sim"),
+  scenario: z.string().min(1),
+  prompt: z.string().min(1),
+  key_points: z.array(KeyPointSchema).min(1),
+  model_response: z.string().min(1),
+  rubric: AICritiqueRubricSchema,
+});
+
 export const SceneSchema = z.discriminatedUnion("type", [
   IntroSceneSchema,
   ConceptSceneSchema,
@@ -272,6 +289,7 @@ export const SceneSchema = z.discriminatedUnion("type", [
   ComparisonSceneSchema,
   SummaryAuditSceneSchema,
   PromptPracticeSceneSchema,
+  CommunicationSimSceneSchema,
 ]);
 
 export type Scene = z.infer<typeof SceneSchema>;

@@ -11,4 +11,5 @@ export const ResponseInputSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("comparison"), text: z.string() }),    // comparison
   z.object({ kind: z.literal("summary_audit"), text: z.string() }), // summary_audit
   z.object({ kind: z.literal("prompt_submission"), text: z.string() }), // prompt_practice
+  z.object({ kind: z.literal("communication"), text: z.string() }),     // communication_sim
 ]);

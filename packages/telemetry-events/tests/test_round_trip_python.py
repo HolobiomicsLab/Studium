@@ -559,7 +559,10 @@ def test_critique_submitted_untagged_round_trip():
 
 
 def test_critique_submitted_tagged_round_trip():
-    for st in ["ai_critique", "spot_the_flaw", "explain_back"]:
+    for st in [
+        "ai_critique", "spot_the_flaw", "explain_back",
+        "comparison", "summary_audit", "prompt_practice", "communication_sim",
+    ]:
         raw = {
             **BASE,
             "type": "critique_submitted",

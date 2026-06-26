@@ -170,6 +170,42 @@ describe("summary_audit grader", () => {
   });
 });
 
+const communicationSimScene: Extract<Scene, { type: "communication_sim" }> = {
+  id: "com1", type: "communication_sim", title: "t", objective_refs: [], concept_refs: ["c1"],
+  estimated_seconds: 60, adaptation_hooks: [],
+  scenario: "Un camarade de TD pas au point te demande de l'aide.",
+  prompt: "Explique pourquoi la 2p a deux lobes, sans jargon.",
+  key_points: [
+    { id: "kp1", text: "deux zones", cues: ["deux zones"] },
+    { id: "kp2", text: "sans jargon", cues: ["sans"] },
+    { id: "kp3", text: "couloir vide", cues: ["ne passe jamais"] },
+    { id: "kp4", text: "analogie", cues: ["comme"] },
+  ],
+  model_response: "Deux zones comme deux pièces, et au milieu l'électron ne passe jamais, sans formule.",
+  rubric: { completeness: 0.6, evidence_quality: 0.2, tone: 0.2 },
+};
+
+describe("communication_sim grader", () => {
+  it("full cue coverage + passing score → correct; critique_submitted only (no ai_audit_result)", async () => {
+    const r = await grade(communicationSimScene, { kind: "communication", text: "deux zones, comme deux pièces, où l'électron ne passe jamais au milieu, et tout ça sans formule" }, { critiqueEvaluator: pass });
+    expect(r.signal).toMatchObject({ kind: "answer_submitted", concept_id: "c1", correct: true, difficulty: 0.7 });
+    expect(r.telemetry.map((e) => e.type)).toEqual(["critique_submitted"]);
+    expect(r.telemetry[0]).toMatchObject({ scene_type: "communication_sim", llm_score: 0.8, completion_rate: 1 }); // 4/4 cues
+  });
+
+  it("offline (Stub) scores by cue coverage: half covered → 0.5 < 0.6 → correct:false", async () => {
+    const r = await grade(communicationSimScene, { kind: "communication", text: "il y a deux zones, comme deux pièces" }, { critiqueEvaluator: new StubCritiqueEvaluator() });
+    expect(r.telemetry[0]).toMatchObject({ completion_rate: 0.5 }); // "deux zones" + "comme" = 2/4
+    expect(r.signal).toMatchObject({ correct: false });
+  });
+
+  it("fail evaluator → correct:false even if coverage is high; rejects the wrong input kind", async () => {
+    const r = await grade(communicationSimScene, { kind: "communication", text: "deux zones comme ne passe jamais sans" }, { critiqueEvaluator: fail });
+    expect(r.signal).toMatchObject({ correct: false });
+    await expect(grade(communicationSimScene, { kind: "explanation", text: "x" }, { critiqueEvaluator: pass })).rejects.toThrow();
+  });
+});
+
 describe("prompt_practice grader", () => {
   it("full cue coverage + passing score → correct; critique_submitted only (no ai_audit_result)", async () => {
     const r = await grade(promptPracticeScene, { kind: "prompt_submission", text: "consigne claire, contexte donné, contrainte de longueur, format markdown" }, { critiqueEvaluator: pass });

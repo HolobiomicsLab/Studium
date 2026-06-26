@@ -407,6 +407,68 @@
       ]
     },
     {
+      "id": "s3d-communicate-2p",
+      "type": "communication_sim",
+      "title": "Communique — explique la 2p à un·e camarade, sans jargon",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-orbitales-formes"
+      ],
+      "estimated_seconds": 240,
+      "adaptation_hooks": [],
+      "scenario": "**Situation.** C'est la fin du TD. Un·e **camarade** qui a manqué le début te demande de l'aide : il/elle n'est **pas encore au point** sur les orbitales et n'a **jamais entendu** les mots « fonction d'onde » ou « plan nodal ». **Ton rôle** : jouer le/la pair·e qui réexplique. **Ton public** : un·e étudiant·e de L1 qui veut juste *comprendre l'image*, pas une démonstration.",
+      "prompt": "**Explique-lui, à l'oral et sans aucun jargon, pourquoi la 2p a deux lobes** — pas de « fonction d'onde », pas de « plan nodal », pas de formule. Sers-toi d'une **image simple** et, si tu peux, d'une **analogie** du quotidien. Reste **court et clair**.",
+      "key_points": [
+        {
+          "id": "kp-clair",
+          "text": "Décrit les deux lobes en mots simples : deux zones où l'électron a des chances de se trouver",
+          "cues": [
+            "deux zones"
+          ]
+        },
+        {
+          "id": "kp-public",
+          "text": "Reste accessible : passe par une image simple plutôt que par le jargon",
+          "cues": [
+            "image"
+          ]
+        },
+        {
+          "id": "kp-exact",
+          "text": "Reste juste : entre les deux zones, il y a un endroit où l'électron ne passe jamais",
+          "cues": [
+            "ne passe jamais"
+          ]
+        },
+        {
+          "id": "kp-analogie",
+          "text": "Donne une analogie concrète du quotidien (ex. des pièces et un couloir)",
+          "cues": [
+            "couloir"
+          ]
+        }
+      ],
+      "model_response": "« Imagine l'électron de la 2p comme quelqu'un qui a **deux zones** préférées de chaque côté du noyau, **comme** deux pièces séparées par un couloir. Entre les deux, il y a un endroit qu'il **ne passe jamais** : c'est pour ça que tu vois **deux** régions distinctes (les deux lobes) et pas une seule. Je te dis tout ça **sans** te noyer dans les formules : retiens juste l'image des deux zones et du couloir vide au milieu. »",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.2,
+        "tone": 0.2
+      },
+      "render_assets": [
+        {
+          "kind": "orbital",
+          "title": "Orbitale 2p_z (les deux lobes)",
+          "path": "assets/orbitals/2pz.cube",
+          "format": "cube",
+          "provenance": "analytic hydrogenic wavefunction (generate_assets.py)",
+          "meta": {
+            "iso": 0.18,
+            "signed": true
+          }
+        }
+      ]
+    },
+    {
       "id": "s4-concept-spectres",
       "type": "concept",
       "title": "Quantification et spectres d'émission",
@@ -1075,6 +1137,12 @@
         "scene_type": "comparison"
       },
       {
+        "id": "task:s3d-communicate-2p",
+        "node_kind": "task",
+        "title": "s3d-communicate-2p",
+        "scene_type": "communication_sim"
+      },
+      {
         "id": "task:s4-quiz-balmer",
         "node_kind": "task",
         "title": "s4-quiz-balmer",
@@ -1232,53 +1300,59 @@
       {
         "id": "e-assess-6",
         "relation": "assesses",
-        "source": "task:s4-quiz-balmer",
-        "target": "concept:c-spectres"
+        "source": "task:s3d-communicate-2p",
+        "target": "concept:c-orbitales-formes"
       },
       {
         "id": "e-assess-7",
         "relation": "assesses",
-        "source": "task:s4b-audit-spectres",
+        "source": "task:s4-quiz-balmer",
         "target": "concept:c-spectres"
       },
       {
         "id": "e-assess-8",
         "relation": "assesses",
+        "source": "task:s4b-audit-spectres",
+        "target": "concept:c-spectres"
+      },
+      {
+        "id": "e-assess-9",
+        "relation": "assesses",
         "source": "task:s5-quiz-carbone",
         "target": "concept:c-configuration"
       },
       {
-        "id": "e-assess-9",
+        "id": "e-assess-10",
         "relation": "assesses",
         "source": "task:s5b-spot-azote",
         "target": "concept:c-remplissage"
       },
       {
-        "id": "e-assess-10",
+        "id": "e-assess-11",
         "relation": "assesses",
         "source": "task:s5c-compare-remplissage",
         "target": "concept:c-remplissage"
       },
       {
-        "id": "e-assess-11",
+        "id": "e-assess-12",
         "relation": "assesses",
         "source": "task:s5d-prompt-hund",
         "target": "concept:c-remplissage"
       },
       {
-        "id": "e-assess-12",
+        "id": "e-assess-13",
         "relation": "assesses",
         "source": "task:s6b-prompt-configuration",
         "target": "concept:c-configuration"
       },
       {
-        "id": "e-assess-13",
+        "id": "e-assess-14",
         "relation": "assesses",
         "source": "task:s6-quiz-tendance",
         "target": "concept:c-periodicite"
       },
       {
-        "id": "e-assess-14",
+        "id": "e-assess-15",
         "relation": "assesses",
         "source": "task:s8-reproduction-periodique",
         "target": "concept:c-periodicite"

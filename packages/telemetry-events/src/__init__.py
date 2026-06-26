@@ -84,6 +84,7 @@ class CritiqueSubmitted(_Base):
     scene_type: Literal[
         "ai_critique", "spot_the_flaw", "explain_back",
         "comparison", "summary_audit", "prompt_practice",
+        "communication_sim",
     ] | None = None
 
 

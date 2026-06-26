@@ -137,6 +137,23 @@ def _prompt_practice(*, concept_refs=None) -> dict:
     }
 
 
+def _communication_sim(*, concept_refs=None) -> dict:
+    return {
+        "id": "com1",
+        "type": "communication_sim",
+        "title": "Explique à un·e camarade, sans jargon",
+        "objective_refs": [],
+        "concept_refs": ["c1"] if concept_refs is None else concept_refs,
+        "estimated_seconds": 120,
+        "adaptation_hooks": [],
+        "scenario": "Fin du TD ; un·e camarade pas au point te demande de l'aide.",
+        "prompt": "Explique-lui pourquoi la 2p a deux lobes, sans jargon.",
+        "key_points": [{"id": "kp1", "text": "deux zones", "cues": ["deux zones"]}],
+        "model_response": "Imagine deux zones séparées par un couloir vide.",
+        "rubric": {"completeness": 1.0, "evidence_quality": 1.0, "tone": 1.0},
+    }
+
+
 _COURSE = ["c1", "c2"]
 
 
@@ -182,6 +199,19 @@ def test_valid_prompt_practice_passes():
     assert res["errors"] == []
 
 
+def test_valid_communication_sim_passes():
+    res = validate_scene(_communication_sim(), course_concept_ids=_COURSE)
+    assert res["ok"] is True
+    assert res["errors"] == []
+
+
+def test_communication_sim_rejects_empty_cues():
+    bad = _communication_sim()
+    bad["key_points"] = [{"id": "k", "text": "t", "cues": []}]
+    res = validate_scene(bad, course_concept_ids=_COURSE)
+    assert res["ok"] is False
+
+
 def test_summary_audit_rejects_empty_flaws_expected():
     bad = _summary_audit()
     bad["claims"] = [{"id": "o", "text": "t", "flaws_expected": []}]
@@ -203,7 +233,7 @@ def test_prompt_practice_starter_prompt_optional():
 
 
 def test_wave1_dangling_concept_ref_fails():
-    for builder in (_comparison, _summary_audit, _prompt_practice):
+    for builder in (_comparison, _summary_audit, _prompt_practice, _communication_sim):
         res = validate_scene(builder(concept_refs=["ghost"]), course_concept_ids=_COURSE)
         assert res["ok"] is False
         assert any("ghost" in e for e in res["errors"])

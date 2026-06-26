@@ -384,7 +384,7 @@ export class SessionHost {
     // "bien calibré" verdict. Gate on the history (where confidence_declared lives), not total_attempts.
     const declared = new Set(
       state.history.flatMap((h) =>
-        h.kind === "confidence_declared" && h.concept_id ? [h.concept_id] : []),
+        h.signal.kind === "confidence_declared" && h.signal.concept_id ? [h.signal.concept_id] : []),
     );
     const entries = concept_id
       ? (declared.has(concept_id) && state.concept_states[concept_id] ? [state.concept_states[concept_id]] : [])

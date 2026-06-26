@@ -6,6 +6,12 @@ import type {
   ReasoningScorer, CritiqueEvaluator, Clock, IdGen, MasteryClaimSink, SocraticTutor,
 } from "./ports.js";
 
+/** A client-safe projection of a Scene: structurally a Scene with the answer-bearing fields
+ * (quiz `correct` flags, `claims`, `key_points`, `model_*` reveals) removed by the host's
+ * `publicScene` redaction before the scene leaves the server. The learner-facing fields the
+ * webview renders are a subset of Scene, so a partial Scene types it without naming each variant. */
+export type PublicScene = Partial<Scene>;
+
 export interface Explanation { rule_id: string; explanation_short: string; modulator: string; }
 export interface HintResult { hint: string; index: number; remaining: number; }
 export interface LearnerSnapshot { conceptMastery: Record<string, number>; scenesCompleted: number; }
@@ -28,7 +34,8 @@ export type ResponseInput =
   | { kind: "explanation"; text: string }    // explain_back: the learner's teach-back
   | { kind: "comparison"; text: string }     // comparison: the learner's named differences / added value
   | { kind: "summary_audit"; text: string }  // summary_audit: the learner's named omissions / distortions
-  | { kind: "prompt_submission"; text: string }; // prompt_practice: the learner's authored/refined prompt
+  | { kind: "prompt_submission"; text: string } // prompt_practice: the learner's authored/refined prompt
+  | { kind: "communication"; text: string };     // communication_sim: the learner's professional communication
 
 export interface CompletionSummary {
   totalDurationMs: number;
