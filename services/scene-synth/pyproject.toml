@@ -19,7 +19,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["scene_synth_app", "scene_synth_schemas", "abs_loader", "bundler", "orchestrator", "prov"]
+py-modules = ["scene_synth_app", "scene_synth_schemas", "abs_loader", "bundler", "orchestrator", "prov", "learner_items_store"]
 
 [tool.setuptools.packages.find]
 include = ["agents*"]

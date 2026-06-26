@@ -279,3 +279,88 @@ class LessonBundle(BaseModel):
     assessment_blueprint: Optional[AssessmentBlueprint] = None
     learning_workflow_graph: Optional[dict[str, Any]] = None
     universes: Optional[dict[str, Any]] = None
+
+
+# ---------------------------------------------------------------------------
+# LAItemEnvelope — "learner-as-author" governance wrapper.
+# Pydantic mirror of packages/lesson-bundle-schema/src/learner-item.ts
+# (dual-path, rule 002). Keep in PARITY with the Zod definitions.
+#
+# CORE INVARIANT: `scene` is a SCHEMA-PURE member of the `Scene` discriminated
+# union — no learner/governance/peer key may leak into the scene body. All such
+# metadata lives at the envelope level.
+# PRIVACY: `author_pseudonym` is an HMAC, SERVER-ONLY; it MUST NEVER appear in
+# any emitted bundle (survives only as `prior_author` in the ledger).
+# `peer_signals` are ledger-only and k-suppressed in any view.
+# ---------------------------------------------------------------------------
+
+# Forward-only lifecycle. Learner endpoints can ONLY write `submitted`.
+LAReviewState = Literal[
+    "submitted",
+    "peer_review",
+    "revision_requested",
+    "approved",
+    "published",
+    "rejected",
+]
+
+# Coarse, enum-only moderation reason (free text never leaves the backend).
+LAReviewNoteCode = Literal[
+    "factual_error",
+    "ambiguous_distractor",
+    "off_topic",
+    "ok",
+]
+
+
+class LAValidation(BaseModel):
+    """Mirror of scene-synth ``validate_scene()`` verdict."""
+
+    ok: bool
+    validator_version: str = Field(min_length=1)
+    errors: list[str] = Field(default_factory=list)
+
+
+class LAPeerSignals(BaseModel):
+    """RESERVED for the P3 peer-review loop. Ledger-only; k-suppressed in views."""
+
+    n_tests: int = Field(ge=0)
+    n_ratings: int = Field(ge=0)
+    mean_rating: float
+    helpful_votes: int = Field(ge=0)
+
+
+class LAItemEnvelope(BaseModel):
+    item_id: str = Field(min_length=1)
+    course_id: str = Field(min_length=1)
+    target_bundle_ref: str = Field(min_length=1)
+    schema_version: Literal["1.4"] = "1.4"
+    # SCHEMA-PURE: a verbatim member of the Scene discriminated union.
+    scene: Scene
+    # HMAC, SERVER-ONLY — NEVER distributed in any emitted bundle.
+    author_pseudonym: str = Field(min_length=1)
+    prior_author: Optional[str] = None
+    created_at: str = Field(min_length=1)  # ISO-Z, passed-in (never now())
+    review_state: LAReviewState
+    reviewed_by: Optional[str] = None  # teacher IRI
+    reviewed_at: Optional[str] = None  # ISO-Z, passed-in
+    review_note_code: Optional[LAReviewNoteCode] = None
+    validation: LAValidation
+    peer_signals: Optional[LAPeerSignals] = None  # RESERVED (P3); ledger-only
+    published_bundle_ref: Optional[str] = None  # file:// of emitted community bundle
+
+    @field_validator("created_at")
+    @classmethod
+    def _created_at_iso(cls, v: str) -> str:
+        # parity with the Zod mirror's z.string().datetime()
+        from datetime import datetime
+        datetime.fromisoformat(v.replace("Z", "+00:00"))
+        return v
+
+    @field_validator("reviewed_at")
+    @classmethod
+    def _reviewed_at_iso(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            from datetime import datetime
+            datetime.fromisoformat(v.replace("Z", "+00:00"))
+        return v
