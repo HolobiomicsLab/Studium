@@ -14,6 +14,8 @@ export const SceneTypeSchema = z.enum([
   "intro", "concept", "quiz", "simulation", "reproduction", "discussion", "meta_checkpoint", "ai_critique",
   // active-learning task nodes (assess the learner via a free-response active scene):
   "spot_the_flaw", "explain_back",
+  // active-learning wave-1: compare AI vs teacher output / audit an AI summary / craft & refine prompts.
+  "comparison", "summary_audit", "prompt_practice",
 ]);
 export type SceneType = z.infer<typeof SceneTypeSchema>;
 

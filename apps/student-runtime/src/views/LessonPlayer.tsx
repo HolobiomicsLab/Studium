@@ -8,6 +8,8 @@ import { useAdaptation } from "../hooks/useAdaptation";
 import { useTelemetry, getTelemetryEndpoint, getTelemetryCourseToken } from "../hooks/useTelemetry";
 import SceneRouter from "../components/scenes/SceneRouter";
 import CalibrationPanel from "../components/CalibrationPanel";
+import CalibrationFeedback from "../components/CalibrationFeedback";
+import ReviewDueIndicator from "../components/ReviewDueIndicator";
 import AdaptationButton from "../components/AdaptationButton";
 import type { Signal } from "@studium/learner-state";
 
@@ -75,6 +77,10 @@ function Player({
   );
   const scene = bundle.scenes[sceneIdx] as Scene;
   const [calibTarget, setCalibTarget] = useState<string | null>(null);
+  // Learner-facing, NUMBER-FREE calibration feedback, shown specifically after a meta_checkpoint
+  // (a confidence self-assessment). Distinct from the numeric CalibrationPanel: it surfaces the
+  // qualitative "ta confiance était bien/sur/sous-calibrée" verdict without leaking mastery.
+  const [calibFeedbackTarget, setCalibFeedbackTarget] = useState<string | null>(null);
   const startedAtRef = useRef<number>(performance.now());
   const lessonStartedEmittedRef = useRef(false);
   const sceneEnteredRef = useRef<string | null>(null);
@@ -98,9 +104,14 @@ function Player({
 
   useEffect(() => {
     if (decision?.next_action.kind === "show_calibration_panel") {
-      setCalibTarget((decision.next_action as { kind: string; target_concept: string }).target_concept);
+      const target = (decision.next_action as { kind: string; target_concept: string }).target_concept;
+      // After a meta_checkpoint (a confidence self-assessment), give the learner the qualitative,
+      // number-free calibration verdict. The numeric CalibrationPanel stays for the non-meta path
+      // (e.g. an answer-driven calibration nudge) so we don't change that behavior.
+      if (scene.type === "meta_checkpoint") setCalibFeedbackTarget(target);
+      else setCalibTarget(target);
     }
-  }, [decision]);
+  }, [decision, scene.type]);
 
   const completeLesson = () => {
     const totalMs = Math.max(0, Math.round(performance.now() - startedAtRef.current));
@@ -138,8 +149,11 @@ function Player({
 
   return (
     <main className="min-h-screen p-6 bg-gray-50">
-      <div className="max-w-3xl mx-auto mb-4 text-sm text-gray-500">
-        Scène {sceneIdx + 1} / {bundle.scenes.length}
+      <div className="max-w-3xl mx-auto mb-4 flex items-center justify-between gap-3">
+        <span className="text-sm text-gray-500">
+          Scène {sceneIdx + 1} / {bundle.scenes.length}
+        </span>
+        <ReviewDueIndicator state={state} />
       </div>
       <SceneRouter
         scene={scene}
@@ -153,6 +167,13 @@ function Player({
           conceptId={calibTarget}
           state={state}
           onClose={() => setCalibTarget(null)}
+        />
+      )}
+      {calibFeedbackTarget && (
+        <CalibrationFeedback
+          conceptId={calibFeedbackTarget}
+          state={state}
+          onClose={() => setCalibFeedbackTarget(null)}
         />
       )}
       <AdaptationButton decision={decision} />

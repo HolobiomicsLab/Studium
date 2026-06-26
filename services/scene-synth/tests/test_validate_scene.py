@@ -86,6 +86,57 @@ def _explain_back(*, concept_refs=None) -> dict:
     }
 
 
+def _comparison(*, concept_refs=None) -> dict:
+    return {
+        "id": "cmp1",
+        "type": "comparison",
+        "title": "Cours IA vs enseignant",
+        "objective_refs": [],
+        "concept_refs": ["c1"] if concept_refs is None else concept_refs,
+        "estimated_seconds": 120,
+        "adaptation_hooks": [],
+        "prompt": "Relève la valeur ajoutée.",
+        "artifact_a": "Cours IA.",
+        "artifact_b": "Cours enseignant.",
+        "key_points": [{"id": "kp1", "text": "exemple", "cues": ["exemple"]}],
+        "model_answer": "L'enseignant ajoute un exemple ancré.",
+        "rubric": {"completeness": 1.0, "evidence_quality": 1.0, "tone": 1.0},
+    }
+
+
+def _summary_audit(*, concept_refs=None) -> dict:
+    return {
+        "id": "aud1",
+        "type": "summary_audit",
+        "title": "Audit du résumé IA",
+        "objective_refs": [],
+        "concept_refs": ["c1"] if concept_refs is None else concept_refs,
+        "estimated_seconds": 120,
+        "adaptation_hooks": [],
+        "source_content": "Texte source complet.",
+        "ai_summary": "Résumé qui omet un point.",
+        "claims": [{"id": "o1", "text": "omission", "flaws_expected": ["hund"]}],
+        "model_correction": "Le résumé omet la règle de Hund.",
+        "rubric": {"completeness": 1.0, "evidence_quality": 1.0, "tone": 1.0},
+    }
+
+
+def _prompt_practice(*, concept_refs=None) -> dict:
+    return {
+        "id": "pp1",
+        "type": "prompt_practice",
+        "title": "Affine ton prompt",
+        "objective_refs": [],
+        "concept_refs": ["c1"] if concept_refs is None else concept_refs,
+        "estimated_seconds": 120,
+        "adaptation_hooks": [],
+        "task": "Rédige un prompt.",
+        "key_points": [{"id": "kp1", "text": "consigne", "cues": ["consigne"]}],
+        "model_prompt": "Tu es un tuteur. Consigne claire.",
+        "rubric": {"completeness": 1.0, "evidence_quality": 1.0, "tone": 1.0},
+    }
+
+
 _COURSE = ["c1", "c2"]
 
 
@@ -111,6 +162,51 @@ def test_valid_explain_back_passes():
     res = validate_scene(_explain_back(), course_concept_ids=_COURSE)
     assert res["ok"] is True
     assert res["errors"] == []
+
+
+def test_valid_comparison_passes():
+    res = validate_scene(_comparison(), course_concept_ids=_COURSE)
+    assert res["ok"] is True
+    assert res["errors"] == []
+
+
+def test_valid_summary_audit_passes():
+    res = validate_scene(_summary_audit(), course_concept_ids=_COURSE)
+    assert res["ok"] is True
+    assert res["errors"] == []
+
+
+def test_valid_prompt_practice_passes():
+    res = validate_scene(_prompt_practice(), course_concept_ids=_COURSE)
+    assert res["ok"] is True
+    assert res["errors"] == []
+
+
+def test_summary_audit_rejects_empty_flaws_expected():
+    bad = _summary_audit()
+    bad["claims"] = [{"id": "o", "text": "t", "flaws_expected": []}]
+    res = validate_scene(bad, course_concept_ids=_COURSE)
+    assert res["ok"] is False
+
+
+def test_comparison_rejects_empty_cues():
+    bad = _comparison()
+    bad["key_points"] = [{"id": "k", "text": "t", "cues": []}]
+    res = validate_scene(bad, course_concept_ids=_COURSE)
+    assert res["ok"] is False
+
+
+def test_prompt_practice_starter_prompt_optional():
+    with_starter = _prompt_practice()
+    with_starter["starter_prompt"] = "Explique Hund."
+    assert validate_scene(with_starter, course_concept_ids=_COURSE)["ok"] is True
+
+
+def test_wave1_dangling_concept_ref_fails():
+    for builder in (_comparison, _summary_audit, _prompt_practice):
+        res = validate_scene(builder(concept_refs=["ghost"]), course_concept_ids=_COURSE)
+        assert res["ok"] is False
+        assert any("ghost" in e for e in res["errors"])
 
 
 # --------------------------------------------------------------------------- #

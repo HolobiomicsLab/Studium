@@ -16,6 +16,10 @@ export default function MetaCheckpointScene({ scene, onSignal, onContinue }: Pro
       kind: "confidence_declared",
       scene_id: scene.id,
       value: value as 0 | 1 | 2 | 3 | 4,
+      // Attach the concept this self-assessment is about so the engine can compute calibration and
+      // the learner gets the qualitative "ta confiance était bien/sur/sous-calibrée" feedback. When
+      // a meta_checkpoint carries no concept_ref, the calibration loop stays a no-op (back-compat).
+      ...(scene.concept_refs[0] ? { concept_id: scene.concept_refs[0] } : {}),
     });
     onContinue();
   };

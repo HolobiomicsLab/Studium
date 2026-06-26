@@ -9,6 +9,7 @@ import * as vscode from "vscode";
 import { resolve, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 
 type Json = Record<string, any>;
 const NB_TYPE = "studium-lesson";
@@ -91,7 +92,14 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
   // are ALTERNATIVE representations of the same thing — used here so a plot prefers the Vega-Lite
   // renderer and falls back to a markdown note when no Vega renderer is installed.
   async function buildSceneOutputs(sess: Sess, presentation: Json, transition: Json | null): Promise<vscode.NotebookCellOutput[]> {
-    const arts = (await sess.call("get_scene_artifacts", { session_id: sess.sid })).scene_assets || [];
+    // Modality-adaptive: reorder the assets toward the learner's preferred modality (same pure pass
+    // the lesson pane uses). 'balanced' (default) leaves the authored order untouched. The notebook
+    // surface still emits EVERY asset — it only changes which modality is listed first.
+    const modalityPref = cfg<ModalityPreference>("modalityPreference", "balanced");
+    const arts = selectRenderOrder(
+      (await sess.call("get_scene_artifacts", { session_id: sess.sid })).scene_assets || [],
+      modalityPref,
+    );
     const sc = presentation.scene || {};
     const outs: vscode.NotebookCellOutput[] = [];
     let head = `### ${sc.title || sc.type}\n`;

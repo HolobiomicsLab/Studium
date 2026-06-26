@@ -25,6 +25,14 @@ describe("Calibration mismatch panel", () => {
       await browser.pause(400);
     }
 
+    // After the meta_checkpoint, the learner now gets a qualitative, number-free calibration
+    // feedback modal (CalibrationFeedback). Dismiss it before continuing to the quiz.
+    const feedback = await $('div[aria-label="Retour sur ta calibration"]');
+    if (await feedback.isExisting()) {
+      await $("button*=OK").then((b) => b.click());
+      await browser.pause(200);
+    }
+
     // Answer next quiz wrong 3 times to create mismatch
     for (let i = 0; i < 3; i++) {
       const isQuiz = await $("button*=Soumettre").isExisting();

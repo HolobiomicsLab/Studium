@@ -86,3 +86,107 @@ describe("explain_back grader", () => {
     await expect(grade(explainScene, { kind: "quiz_choice", choiceId: "a" }, { critiqueEvaluator: pass })).rejects.toThrow();
   });
 });
+
+// --- wave-1 active-learning scenes -----------------------------------------
+
+const comparisonScene: Extract<Scene, { type: "comparison" }> = {
+  id: "cmp1", type: "comparison", title: "t", objective_refs: [], concept_refs: ["c1"],
+  estimated_seconds: 60, adaptation_hooks: [],
+  prompt: "Relève la valeur ajoutée du cours enseignant.",
+  artifact_a: "Cours IA.", artifact_b: "Cours enseignant.",
+  key_points: [
+    { id: "kp1", text: "exemple ancré", cues: ["exemple"] },
+    { id: "kp2", text: "fil pédagogique", cues: ["fil"] },
+  ],
+  model_answer: "L'enseignant ajoute un exemple ancré et un fil.",
+  rubric: { completeness: 0.6, evidence_quality: 0.2, tone: 0.2 },
+};
+
+const summaryAuditScene: Extract<Scene, { type: "summary_audit" }> = {
+  id: "aud1", type: "summary_audit", title: "t", objective_refs: [], concept_refs: ["c1"],
+  estimated_seconds: 60, adaptation_hooks: [],
+  source_content: "Le texte source mentionne la règle de Hund et le spin.",
+  ai_summary: "Résumé qui oublie Hund.",
+  claims: [
+    { id: "o-hund", text: "omet Hund", flaws_expected: ["hund"] },
+    { id: "o-spin", text: "omet le spin", flaws_expected: ["spin"] },
+  ],
+  model_correction: "Le résumé omet la règle de Hund et le spin.",
+  rubric: { completeness: 0.6, evidence_quality: 0.3, tone: 0.1 },
+};
+
+const promptPracticeScene: Extract<Scene, { type: "prompt_practice" }> = {
+  id: "pp1", type: "prompt_practice", title: "t", objective_refs: [], concept_refs: ["c1"],
+  estimated_seconds: 60, adaptation_hooks: [],
+  task: "Rédige un prompt pour expliquer Hund.",
+  key_points: [
+    { id: "kp1", text: "consigne claire", cues: ["consigne"] },
+    { id: "kp2", text: "contexte", cues: ["contexte"] },
+    { id: "kp3", text: "contrainte", cues: ["contrainte"] },
+    { id: "kp4", text: "format de sortie", cues: ["format"] },
+  ],
+  model_prompt: "Tu es un tuteur. Consigne, contexte, contrainte, format.",
+  rubric: { completeness: 0.6, evidence_quality: 0.2, tone: 0.2 },
+};
+
+describe("comparison grader", () => {
+  it("full coverage + passing score → correct; critique_submitted only (no ai_audit_result)", async () => {
+    const r = await grade(comparisonScene, { kind: "comparison", text: "il ajoute un exemple ancré et un fil pédagogique" }, { critiqueEvaluator: pass });
+    expect(r.signal).toMatchObject({ kind: "answer_submitted", concept_id: "c1", correct: true, difficulty: 0.7 });
+    expect(r.telemetry.map((e) => e.type)).toEqual(["critique_submitted"]);
+    expect(r.telemetry[0]).toMatchObject({ scene_type: "comparison", llm_score: 0.8, completion_rate: 1 }); // 2/2 covered
+  });
+
+  it("offline (Stub) scores by key-point coverage: half covered → 0.5 < 0.6 → correct:false", async () => {
+    const r = await grade(comparisonScene, { kind: "comparison", text: "juste un exemple" }, { critiqueEvaluator: new StubCritiqueEvaluator() });
+    expect(r.telemetry[0]).toMatchObject({ completion_rate: 0.5 }); // exemple = 1/2
+    expect(r.signal).toMatchObject({ correct: false });
+  });
+
+  it("Bloom level overrides the difficulty fallback; rejects the wrong input kind", async () => {
+    const r = await grade(comparisonScene, { kind: "comparison", text: "exemple fil" }, { critiqueEvaluator: pass, bloomLevel: "evaluate" });
+    expect(r.signal).toMatchObject({ difficulty: 0.8 });
+    await expect(grade(comparisonScene, { kind: "explanation", text: "x" }, { critiqueEvaluator: pass })).rejects.toThrow();
+  });
+});
+
+describe("summary_audit grader", () => {
+  it("all omissions named + passing score → correct; critique_submitted + ai_audit_result", async () => {
+    const r = await grade(summaryAuditScene, { kind: "summary_audit", text: "le résumé oublie la règle de hund et le spin" }, { critiqueEvaluator: pass });
+    expect(r.signal).toMatchObject({ kind: "answer_submitted", concept_id: "c1", correct: true, difficulty: 0.7 });
+    expect(r.telemetry.map((e) => e.type)).toEqual(["critique_submitted", "ai_audit_result"]);
+    expect(r.telemetry[0]).toMatchObject({ scene_type: "summary_audit", llm_score: 0.8, completion_rate: 1 }); // 2/2 caught
+    expect(r.telemetry[1]).toMatchObject({ planted_errors: 2, true_positives: 2, missed: 0 });
+  });
+
+  it("offline (Stub) is deterministic: empty answer → no catches → correct:false", async () => {
+    const r = await grade(summaryAuditScene, { kind: "summary_audit", text: "rien à signaler" }, { critiqueEvaluator: new StubCritiqueEvaluator() });
+    expect(r.signal).toMatchObject({ correct: false });
+    expect(r.telemetry[1]).toMatchObject({ true_positives: 0, missed: 2 });
+  });
+
+  it("rejects the wrong input kind", async () => {
+    await expect(grade(summaryAuditScene, { kind: "flaw_report", text: "x" }, { critiqueEvaluator: pass })).rejects.toThrow();
+  });
+});
+
+describe("prompt_practice grader", () => {
+  it("full cue coverage + passing score → correct; critique_submitted only (no ai_audit_result)", async () => {
+    const r = await grade(promptPracticeScene, { kind: "prompt_submission", text: "consigne claire, contexte donné, contrainte de longueur, format markdown" }, { critiqueEvaluator: pass });
+    expect(r.signal).toMatchObject({ kind: "answer_submitted", concept_id: "c1", correct: true, difficulty: 0.7 });
+    expect(r.telemetry.map((e) => e.type)).toEqual(["critique_submitted"]);
+    expect(r.telemetry[0]).toMatchObject({ scene_type: "prompt_practice", llm_score: 0.8, completion_rate: 1 }); // 4/4 cues
+  });
+
+  it("offline (Stub) scores by cue coverage: half covered → 0.5 < 0.6 → correct:false", async () => {
+    const r = await grade(promptPracticeScene, { kind: "prompt_submission", text: "une consigne et un contexte" }, { critiqueEvaluator: new StubCritiqueEvaluator() });
+    expect(r.telemetry[0]).toMatchObject({ completion_rate: 0.5 }); // consigne + contexte = 2/4
+    expect(r.signal).toMatchObject({ correct: false });
+  });
+
+  it("fail evaluator → correct:false even if coverage is high; rejects the wrong input kind", async () => {
+    const r = await grade(promptPracticeScene, { kind: "prompt_submission", text: "consigne contexte contrainte format" }, { critiqueEvaluator: fail });
+    expect(r.signal).toMatchObject({ correct: false });
+    await expect(grade(promptPracticeScene, { kind: "critique", text: "x" }, { critiqueEvaluator: pass })).rejects.toThrow();
+  });
+});

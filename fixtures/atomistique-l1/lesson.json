@@ -131,6 +131,42 @@
       ]
     },
     {
+      "id": "s1b-audit-particules",
+      "type": "summary_audit",
+      "title": "Audite le résumé IA — particules de l'atome",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-particules"
+      ],
+      "estimated_seconds": 180,
+      "adaptation_hooks": [],
+      "source_content": "**Source.** Un atome est formé d'un **noyau** (protons + neutrons) entouré d'un **nuage électronique**. Le **numéro atomique Z** est le nombre de **protons** : c'est lui qui **définit l'élément** chimique (changer Z, c'est changer d'élément). Le **nombre de masse A** vaut Z + N, où N est le nombre de neutrons. Deux atomes de **même Z mais de A différent** sont des **isotopes** du même élément. Le noyau (~10⁻¹⁵ m) est environ 10⁵ fois plus petit que l'atome (~10⁻¹⁰ m), si bien que l'atome est essentiellement **vide**.",
+      "ai_summary": "**Résumé IA.** Un atome a un noyau avec des protons et des neutrons, et des électrons autour. Le nombre de masse A est la somme des protons et des neutrons. L'atome est très petit.",
+      "claims": [
+        {
+          "id": "o-z",
+          "text": "Le résumé ne dit pas que Z (le nombre de protons) DÉFINIT l'élément",
+          "flaws_expected": [
+            "definit",
+            "element"
+          ]
+        },
+        {
+          "id": "o-isotopes",
+          "text": "Le résumé omet la définition des ISOTOPES (même Z, A différent)",
+          "flaws_expected": [
+            "isotope"
+          ]
+        }
+      ],
+      "model_correction": "Le résumé IA garde le squelette mais **supprime deux points essentiels** : (1) il ne dit pas que **Z** — le nombre de **protons** — **définit l'élément** chimique (c'est *le* critère d'identité de l'atome) ; (2) il omet entièrement la notion d'**isotopes** (même Z, A différent), pourtant centrale. Un résumé fidèle doit conserver ces deux idées, sans quoi on ne peut plus distinguer deux éléments ni deux isotopes.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      }
+    },
+    {
       "id": "s2-concept-nombres-quantiques",
       "type": "concept",
       "title": "Les nombres quantiques",
@@ -314,6 +350,63 @@
       }
     },
     {
+      "id": "s3c-compare-noeuds",
+      "type": "comparison",
+      "title": "Compare — cours IA vs cours de l'enseignant (nœuds radiaux)",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-orbitales-formes"
+      ],
+      "estimated_seconds": 210,
+      "adaptation_hooks": [],
+      "prompt": "Voici **deux explications** des **nœuds radiaux** d'une orbitale : l'une rédigée par une **IA**, l'autre par ton **enseignant**. Les deux sont justes. **Relève la valeur ajoutée de la version de l'enseignant** : qu'apporte-t-elle que la version IA n'a pas ?",
+      "artifact_a": "**Version A (IA).** Le nombre de nœuds radiaux d'une orbitale vaut n − ℓ − 1. Pour la 2p (n=2, ℓ=1) cela donne 2 − 1 − 1 = 0 nœud radial ; pour la 3p (n=3, ℓ=1) cela donne 3 − 1 − 1 = 1 nœud radial. Le nombre total de nœuds vaut n − 1.",
+      "artifact_b": "**Version B (enseignant).** Même formule n − ℓ − 1 — mais **distingue bien deux familles** de nœuds : le nœud **radial** est une **sphère** où la fonction d'onde s'annule *en s'éloignant* du noyau, alors que le nœud **angulaire** est un **plan** (les deux lobes de la 2p). Sur l'orbitale 3D que tu fais tourner, le plan entre les lobes + et − est **angulaire**, pas radial : c'est pourquoi la 2p a **0** nœud radial malgré ses deux lobes. La formule compte les nœuds radiaux ; n − 1 compte le **total** (radiaux **+** angulaires).",
+      "key_points": [
+        {
+          "id": "kp-distinction",
+          "text": "L'enseignant distingue nœud radial (sphère) et nœud angulaire (plan)",
+          "cues": [
+            "radial",
+            "angulaire"
+          ]
+        },
+        {
+          "id": "kp-visuel",
+          "text": "L'enseignant relie la formule à l'orbitale 3D que l'on fait tourner",
+          "cues": [
+            "3d"
+          ]
+        },
+        {
+          "id": "kp-total",
+          "text": "L'enseignant explique pourquoi 2p a 0 nœud radial malgré ses deux lobes",
+          "cues": [
+            "deux lobes"
+          ]
+        }
+      ],
+      "model_answer": "La version IA est **correcte mais plate** : elle applique la formule n − ℓ − 1. La version de l'enseignant **ajoute la compréhension** : (1) elle **distingue** le nœud **radial** (une **sphère**) du nœud **angulaire** (un **plan**), que la formule seule confond ; (2) elle relie le calcul à l'**orbitale 3D** : le plan entre les **deux lobes** de la 2p est *angulaire*, ce qui explique pourquoi la 2p a **0** nœud radial ; (3) elle clarifie que n − 1 est le **total** (radiaux + angulaires). C'est cette levée d'ambiguïté qui distingue un cours qui *fait comprendre* d'un cours qui *récite la formule*.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.2,
+        "tone": 0.2
+      },
+      "render_assets": [
+        {
+          "kind": "orbital",
+          "title": "Orbitale 2p_z (plan nodal angulaire)",
+          "path": "assets/orbitals/2pz.cube",
+          "format": "cube",
+          "provenance": "analytic hydrogenic wavefunction (generate_assets.py)",
+          "meta": {
+            "iso": 0.18,
+            "signed": true
+          }
+        }
+      ]
+    },
+    {
       "id": "s4-concept-spectres",
       "type": "concept",
       "title": "Quantification et spectres d'émission",
@@ -479,6 +572,143 @@
       }
     },
     {
+      "id": "s5d-prompt-hund",
+      "type": "prompt_practice",
+      "title": "Écris ton prompt — faire expliquer la règle de Hund par une IA",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-remplissage"
+      ],
+      "estimated_seconds": 210,
+      "adaptation_hooks": [],
+      "task": "Tu veux qu'une IA t'explique **la règle de Hund** (pourquoi, dans une sous-couche dégénérée, on place d'abord un électron par orbitale à spins parallèles). Le brouillon ci-dessous est trop vague. **Réécris un prompt de qualité** : donne une **consigne claire**, le **contexte** (ton niveau, ce que tu sais déjà), demande un **exemple concret** (ex. l'azote 2p³), et précise le **format de sortie** attendu.",
+      "starter_prompt": "c'est quoi la règle de Hund",
+      "key_points": [
+        {
+          "id": "kp-consigne",
+          "text": "Une consigne explicite (verbe d'action : explique / justifie)",
+          "cues": [
+            "explique"
+          ]
+        },
+        {
+          "id": "kp-contexte",
+          "text": "Le contexte : niveau L1 et prérequis connus (Klechkowski, Pauli)",
+          "cues": [
+            "l1"
+          ]
+        },
+        {
+          "id": "kp-exemple",
+          "text": "La demande d'un exemple concret (ex. azote 2p³ ou carbone)",
+          "cues": [
+            "exemple"
+          ]
+        },
+        {
+          "id": "kp-format",
+          "text": "Le format de sortie demandé (étapes, schéma de cases quantiques)",
+          "cues": [
+            "schema"
+          ]
+        }
+      ],
+      "model_prompt": "« Tu es un tuteur de chimie pour un **étudiant de L1**. **Contexte** : je connais Klechkowski et Pauli, mais pas bien la règle de Hund. **Consigne** : explique **pourquoi** on remplit d'abord une orbitale par électron à **spins parallèles** dans une sous-couche dégénérée. **Exemple** : illustre avec l'**azote (2p³)** en montrant le remplissage. **Format de sortie** : (1) l'énoncé de la règle, (2) la raison physique (répulsion minimisée), (3) un **schéma de cases quantiques** pour 2p³, en trois points. » — un bon prompt rend la **consigne**, le **contexte**, l'**exemple** demandé et le **format** explicites.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.2,
+        "tone": 0.2
+      }
+    },
+    {
+      "id": "s5c-compare-remplissage",
+      "type": "comparison",
+      "title": "Compare — cours IA vs cours de l'enseignant (remplissage)",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-remplissage"
+      ],
+      "estimated_seconds": 210,
+      "adaptation_hooks": [],
+      "prompt": "Voici **deux versions** d'un mini-cours sur l'ordre de remplissage des orbitales : l'une rédigée par une **IA**, l'autre par ton **enseignant**. Les deux sont justes. **Relève la valeur ajoutée de la version de l'enseignant** : qu'apporte-t-elle que la version IA n'a pas ?",
+      "artifact_a": "**Version A (IA).** L'ordre de remplissage suit la règle de Klechkowski : on remplit par (n+ℓ) croissant, puis par n croissant à (n+ℓ) égal. La séquence est 1s, 2s, 2p, 3s, 3p, 4s, 3d, 4p, etc. Chaque orbitale contient au plus deux électrons (Pauli) et une sous-couche dégénérée se remplit d'abord à spins parallèles (Hund).",
+      "artifact_b": "**Version B (enseignant).** Même règle de Klechkowski — mais attention au **piège** : le **4s se remplit avant le 3d** (car (4+0) < (3+2)), et pourtant, une fois rempli, le 4s **s'ionise le premier**. *Contre-exemple à connaître :* le **chrome** (Cr, [Ar]4s¹3d⁵) **viole** l'ordre naïf parce qu'une sous-couche d à demi-remplie est plus stable. La règle est un guide, pas une loi.",
+      "key_points": [
+        {
+          "id": "kp-piege",
+          "text": "L'enseignant signale le piège 4s avant 3d",
+          "cues": [
+            "4s",
+            "3d"
+          ]
+        },
+        {
+          "id": "kp-exception",
+          "text": "L'enseignant donne un contre-exemple (chrome) qui viole la règle",
+          "cues": [
+            "chrome"
+          ]
+        },
+        {
+          "id": "kp-nuance",
+          "text": "L'enseignant nuance : la règle est un guide, pas une loi absolue",
+          "cues": [
+            "guide"
+          ]
+        }
+      ],
+      "model_answer": "La version IA est **correcte mais plate** : elle énonce la règle. La version de l'enseignant **ajoute la valeur pédagogique** : (1) elle signale le **piège 4s/3d** (ordre de remplissage ≠ ordre d'ionisation), (2) elle donne un **contre-exemple mémorable** (le **chrome**, [Ar]4s¹3d⁵) qui *viole* l'ordre naïf, et (3) elle **nuance** le statut de la règle (un **guide**, pas une loi). C'est cette mise en garde contre les exceptions qui distingue un cours qui *fait comprendre* d'un cours qui *récite*.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.2,
+        "tone": 0.2
+      }
+    },
+    {
+      "id": "s4b-audit-spectres",
+      "type": "summary_audit",
+      "title": "Audite le résumé IA — spectres d'émission",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-spectres"
+      ],
+      "estimated_seconds": 180,
+      "adaptation_hooks": [],
+      "source_content": "**Source.** Les niveaux d'énergie d'un atome sont **quantifiés**. Lorsqu'un électron passe d'un niveau n₂ à un niveau n₁ inférieur, l'atome **émet un photon** d'énergie E = hν = |E(n₂) − E(n₁)|. Pour l'hydrogène, les transitions qui **arrivent sur n=2** forment la **série de Balmer**, située dans le **visible** : c'est elle qui rend les raies observables à l'œil et permet de **reconnaître un gaz** à sa signature spectrale. Les transitions vers n=1 (série de Lyman) sont, elles, dans l'**ultraviolet**.",
+      "ai_summary": "**Résumé IA.** Les atomes émettent de la lumière quand leurs électrons changent de niveau. L'hydrogène produit une série de raies appelée série de Balmer. C'est utile en astronomie.",
+      "claims": [
+        {
+          "id": "o-quant",
+          "text": "Le résumé omet que les niveaux sont QUANTIFIÉS (discrets)",
+          "flaws_expected": [
+            "quantif"
+          ]
+        },
+        {
+          "id": "o-photon",
+          "text": "Le résumé omet la relation énergie–fréquence du photon (E = hν)",
+          "flaws_expected": [
+            "energie",
+            "photon"
+          ]
+        },
+        {
+          "id": "o-balmer",
+          "text": "Le résumé ne dit pas que Balmer = transitions vers n=2 (et est dans le visible)",
+          "flaws_expected": [
+            "balmer",
+            "visible"
+          ]
+        }
+      ],
+      "model_correction": "Le résumé IA garde l'idée générale mais **supprime l'essentiel quantitatif** : (1) il ne dit pas que les niveaux sont **quantifiés** (c'est *pourquoi* le spectre est fait de raies discrètes et non continu) ; (2) il omet la relation d'**énergie** du **photon** (E = hν) qui relie la transition à la couleur ; (3) il ne précise pas que la série de **Balmer** correspond aux transitions vers n=2, dans le **visible** — la raison même pour laquelle ces raies sont observables. Un résumé fidèle doit conserver ces trois points.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      }
+    },
+    {
       "id": "s6-concept-periodicite",
       "type": "concept",
       "title": "Périodicité : ionisation et rayon",
@@ -574,6 +804,55 @@
           "provenance": "idealized VSEPR geometry (generate_assets.py)"
         }
       ]
+    },
+    {
+      "id": "s6b-prompt-configuration",
+      "type": "prompt_practice",
+      "title": "Affine ton prompt — faire expliquer une configuration par une IA",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-configuration"
+      ],
+      "estimated_seconds": 210,
+      "adaptation_hooks": [],
+      "task": "Tu veux qu'une IA t'explique **pourquoi le cuivre (Cu, Z=29) a la configuration [Ar]4s¹3d¹⁰** et non [Ar]4s²3d⁹. Le brouillon ci-dessous donne une réponse vague. **Réécris un prompt de qualité** : donne une **consigne claire**, le **contexte** (ton niveau, ce que tu sais déjà), des **contraintes** (longueur, pas de jargon non défini) et le **format de sortie** attendu.",
+      "starter_prompt": "explique moi le cuivre",
+      "key_points": [
+        {
+          "id": "kp-consigne",
+          "text": "Une consigne explicite (verbe d'action : explique / compare / justifie)",
+          "cues": [
+            "explique"
+          ]
+        },
+        {
+          "id": "kp-contexte",
+          "text": "Le contexte : niveau de l'apprenant et prérequis connus",
+          "cues": [
+            "l1"
+          ]
+        },
+        {
+          "id": "kp-contrainte",
+          "text": "Des contraintes : longueur, vocabulaire, étapes attendues",
+          "cues": [
+            "mots"
+          ]
+        },
+        {
+          "id": "kp-format",
+          "text": "Le format de sortie demandé (liste, étapes, exemple)",
+          "cues": [
+            "points"
+          ]
+        }
+      ],
+      "model_prompt": "« Tu es un tuteur de chimie pour un **étudiant de L1**. **Contexte** : je connais les règles de Klechkowski, Pauli et Hund, mais pas les exceptions. **Consigne** : explique **pourquoi** le cuivre (Z=29) adopte [Ar]4s¹3d¹⁰ plutôt que [Ar]4s²3d⁹. **Contraintes** : reste sous 150 mots, ne suppose aucun prérequis au-delà de L1, et définis tout terme technique. **Format de sortie** : (1) la règle naïve attendue, (2) l'exception observée, (3) la raison (stabilité de la sous-couche d pleine), en trois points numérotés. » — un bon prompt rend la **consigne**, le **contexte**, les **contraintes** et le **format** explicites.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.2,
+        "tone": 0.2
+      }
     },
     {
       "id": "s7-meta",
@@ -766,6 +1045,12 @@
         "scene_type": "quiz"
       },
       {
+        "id": "task:s1b-audit-particules",
+        "node_kind": "task",
+        "title": "s1b-audit-particules",
+        "scene_type": "summary_audit"
+      },
+      {
         "id": "task:s2-quiz-4f",
         "node_kind": "task",
         "title": "s2-quiz-4f",
@@ -784,10 +1069,22 @@
         "scene_type": "explain_back"
       },
       {
+        "id": "task:s3c-compare-noeuds",
+        "node_kind": "task",
+        "title": "s3c-compare-noeuds",
+        "scene_type": "comparison"
+      },
+      {
         "id": "task:s4-quiz-balmer",
         "node_kind": "task",
         "title": "s4-quiz-balmer",
         "scene_type": "quiz"
+      },
+      {
+        "id": "task:s4b-audit-spectres",
+        "node_kind": "task",
+        "title": "s4b-audit-spectres",
+        "scene_type": "summary_audit"
       },
       {
         "id": "task:s5-quiz-carbone",
@@ -800,6 +1097,24 @@
         "node_kind": "task",
         "title": "s5b-spot-azote",
         "scene_type": "spot_the_flaw"
+      },
+      {
+        "id": "task:s5c-compare-remplissage",
+        "node_kind": "task",
+        "title": "s5c-compare-remplissage",
+        "scene_type": "comparison"
+      },
+      {
+        "id": "task:s5d-prompt-hund",
+        "node_kind": "task",
+        "title": "s5d-prompt-hund",
+        "scene_type": "prompt_practice"
+      },
+      {
+        "id": "task:s6b-prompt-configuration",
+        "node_kind": "task",
+        "title": "s6b-prompt-configuration",
+        "scene_type": "prompt_practice"
       },
       {
         "id": "task:s6-quiz-tendance",
@@ -887,47 +1202,83 @@
       {
         "id": "e-assess-1",
         "relation": "assesses",
+        "source": "task:s1b-audit-particules",
+        "target": "concept:c-particules"
+      },
+      {
+        "id": "e-assess-2",
+        "relation": "assesses",
         "source": "task:s2-quiz-4f",
         "target": "concept:c-nombres-quantiques"
       },
       {
-        "id": "e-assess-2",
+        "id": "e-assess-3",
         "relation": "assesses",
         "source": "task:s3-quiz-noeuds",
         "target": "concept:c-orbitales-formes"
       },
       {
-        "id": "e-assess-3",
+        "id": "e-assess-4",
         "relation": "assesses",
         "source": "task:s3b-explain-2p",
         "target": "concept:c-orbitales-formes"
       },
       {
-        "id": "e-assess-4",
+        "id": "e-assess-5",
+        "relation": "assesses",
+        "source": "task:s3c-compare-noeuds",
+        "target": "concept:c-orbitales-formes"
+      },
+      {
+        "id": "e-assess-6",
         "relation": "assesses",
         "source": "task:s4-quiz-balmer",
         "target": "concept:c-spectres"
       },
       {
-        "id": "e-assess-5",
+        "id": "e-assess-7",
+        "relation": "assesses",
+        "source": "task:s4b-audit-spectres",
+        "target": "concept:c-spectres"
+      },
+      {
+        "id": "e-assess-8",
         "relation": "assesses",
         "source": "task:s5-quiz-carbone",
         "target": "concept:c-configuration"
       },
       {
-        "id": "e-assess-6",
+        "id": "e-assess-9",
         "relation": "assesses",
         "source": "task:s5b-spot-azote",
         "target": "concept:c-remplissage"
       },
       {
-        "id": "e-assess-7",
+        "id": "e-assess-10",
+        "relation": "assesses",
+        "source": "task:s5c-compare-remplissage",
+        "target": "concept:c-remplissage"
+      },
+      {
+        "id": "e-assess-11",
+        "relation": "assesses",
+        "source": "task:s5d-prompt-hund",
+        "target": "concept:c-remplissage"
+      },
+      {
+        "id": "e-assess-12",
+        "relation": "assesses",
+        "source": "task:s6b-prompt-configuration",
+        "target": "concept:c-configuration"
+      },
+      {
+        "id": "e-assess-13",
         "relation": "assesses",
         "source": "task:s6-quiz-tendance",
         "target": "concept:c-periodicite"
       },
       {
-        "id": "e-assess-8",
+        "id": "e-assess-14",
         "relation": "assesses",
         "source": "task:s8-reproduction-periodique",
         "target": "concept:c-periodicite"

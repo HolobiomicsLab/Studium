@@ -11,7 +11,7 @@ export interface GradeResult { signal: Signal; telemetry: EmitInput[]; }
 export interface GradeDeps { critiqueEvaluator: CritiqueEvaluator; hintCount?: number; bloomLevel?: BloomLevel; }
 type Grader = (scene: Scene, input: ResponseInput, deps: GradeDeps) => Promise<GradeResult>;
 
-const DIFFICULTY = { quiz: 0.5, ai_critique: 0.7, spot_the_flaw: 0.7, explain_back: 0.7 } as const;
+const DIFFICULTY = { quiz: 0.5, ai_critique: 0.7, spot_the_flaw: 0.7, explain_back: 0.7, comparison: 0.7, summary_audit: 0.7, prompt_practice: 0.7 } as const;
 
 // M1: item difficulty (the IRT weight `w` fed to beta-updater) derives from the scene
 // concept's Bloom level via this monotone map. ANCHOR: `understand` -> 0.5 == the legacy
@@ -113,6 +113,66 @@ const explainBackGrader: Grader = async (scene, input, deps) => {
   };
 };
 
+// comparison — "AI course vs teacher course": the learner names the differences / added value; we score how
+// well the answer covers the authored key_points. Mapped key_points -> claim-shape ({id, text, flaws_expected:
+// cues}) so the SAME evaluator/matcher scores coverage with no new port. Coverage-graded like explain_back; no
+// ai_audit_result (nothing is "planted"). Emits critique_submitted with scene_type "comparison".
+const comparisonGrader: Grader = async (scene, input, deps) => {
+  if (scene.type !== "comparison") throw new SceneGradingError(scene.type, "comparisonGrader on non-comparison");
+  if (input.kind !== "comparison") throw new SceneGradingError(scene.type, `expected comparison, got ${input.kind}`);
+  const claims = scene.key_points.map((k) => ({ id: k.id, text: k.text, flaws_expected: k.cues }));
+  const { score } = await deps.critiqueEvaluator.evaluate({ claims, rubric: scene.rubric, critique: input.text });
+  const passed = score >= 0.6;
+  const cover = matchClaimsAgainstCritique(claims, input.text);
+  const completion_rate = cover.planted_errors === 0 ? 0 : cover.true_positives / cover.planted_errors;
+  return {
+    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.comparison) },
+    telemetry: [
+      { type: "critique_submitted", scene_id: scene.id, scene_type: "comparison", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
+    ],
+  };
+};
+
+// summary_audit — learner-as-auditor of an AI summary: the scene embeds source_content + ai_summary and the
+// answer-key claims (the omissions/distortions the summary planted); the learner names them (free text). Same
+// CritiqueEvaluator + flaw matcher as spot_the_flaw, so scoring degrades offline to deterministic coverage
+// (true_positives / planted_errors). Emits critique_submitted (scene_type "summary_audit") + ai_audit_result.
+const summaryAuditGrader: Grader = async (scene, input, deps) => {
+  if (scene.type !== "summary_audit") throw new SceneGradingError(scene.type, "summaryAuditGrader on non-summary_audit");
+  if (input.kind !== "summary_audit") throw new SceneGradingError(scene.type, `expected summary_audit, got ${input.kind}`);
+  const { score } = await deps.critiqueEvaluator.evaluate({ claims: scene.claims, rubric: scene.rubric, critique: input.text });
+  const passed = score >= 0.6;
+  const audit = matchClaimsAgainstCritique(scene.claims, input.text);
+  const completion_rate = audit.planted_errors === 0 ? 0 : audit.true_positives / audit.planted_errors;
+  return {
+    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.summary_audit) },
+    telemetry: [
+      { type: "critique_submitted", scene_id: scene.id, scene_type: "summary_audit", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
+      { type: "ai_audit_result", scene_id: scene.id, planted_errors: audit.planted_errors, true_positives: audit.true_positives, false_positives: audit.false_positives, missed: audit.missed },
+    ],
+  };
+};
+
+// prompt_practice — the learner writes/refines a prompt for the authored task; we score how many prompt-quality
+// cues (clear instruction / context / constraints / output format) it hits. key_points -> claim-shape mapping
+// reuses the SAME evaluator/matcher. Coverage-graded; no ai_audit_result. Emits critique_submitted with
+// scene_type "prompt_practice".
+const promptPracticeGrader: Grader = async (scene, input, deps) => {
+  if (scene.type !== "prompt_practice") throw new SceneGradingError(scene.type, "promptPracticeGrader on non-prompt_practice");
+  if (input.kind !== "prompt_submission") throw new SceneGradingError(scene.type, `expected prompt_submission, got ${input.kind}`);
+  const claims = scene.key_points.map((k) => ({ id: k.id, text: k.text, flaws_expected: k.cues }));
+  const { score } = await deps.critiqueEvaluator.evaluate({ claims, rubric: scene.rubric, critique: input.text });
+  const passed = score >= 0.6;
+  const cover = matchClaimsAgainstCritique(claims, input.text);
+  const completion_rate = cover.planted_errors === 0 ? 0 : cover.true_positives / cover.planted_errors;
+  return {
+    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.prompt_practice) },
+    telemetry: [
+      { type: "critique_submitted", scene_id: scene.id, scene_type: "prompt_practice", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
+    ],
+  };
+};
+
 export const GRADERS: Record<Scene["type"], Grader> = {
   intro: ackGrader,
   concept: ackGrader,
@@ -123,6 +183,9 @@ export const GRADERS: Record<Scene["type"], Grader> = {
   ai_critique: critiqueGrader,
   spot_the_flaw: flawGrader,
   explain_back: explainBackGrader,
+  comparison: comparisonGrader,
+  summary_audit: summaryAuditGrader,
+  prompt_practice: promptPracticeGrader,
 };
 
 export async function grade(scene: Scene, input: ResponseInput, deps: GradeDeps): Promise<GradeResult> {

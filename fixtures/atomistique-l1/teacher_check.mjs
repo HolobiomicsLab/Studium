@@ -27,6 +27,9 @@ async function runOne(learnerId, beGood) {
     // markers the offline matcher recognises); a "weak" learner does not.
     else if (sc.type === "spot_the_flaw") input = { kind: "flaw_report", text: beGood ? "viole la regle de hund, trois electrons celibataires a spins paralleles, la bonne configuration est 2p3" : "rien a signaler" };
     else if (sc.type === "explain_back") input = { kind: "explanation", text: beGood ? "la fonction d'onde change de signe oppose d'un lobe a l'autre, separes par un plan nodal ou la probabilite de presence est nulle" : "je ne sais pas" };
+    else if (sc.type === "comparison") input = { kind: "comparison", text: beGood ? "l'enseignant distingue le noeud radial spherique du noeud angulaire qui est un plan, il signale le piege 4s avant 3d et le contre-exemple du chrome, et nuance que la regle est un guide ; il ajoute un exemple concret avec deux lobes" : "les deux disent la meme chose" };
+    else if (sc.type === "summary_audit") input = { kind: "summary_audit", text: beGood ? "le resume oublie que z le nombre de protons definit l'element, il omet la definition des isotopes, et pour les spectres il oublie la quantification, l'energie du photon et que balmer est dans le visible" : "le resume est bon" };
+    else if (sc.type === "prompt_practice") input = { kind: "prompt_submission", text: beGood ? "explique pourquoi, pour un niveau l1, en moins de 150 mots, avec un exemple comme l'azote, un schema de cases quantiques, et la reponse en trois points numerotes" : "explique" };
     else input = { kind: "ack" };
     const t = await host.respond(sessionId, input);
     if (t.kind === "complete") return true;

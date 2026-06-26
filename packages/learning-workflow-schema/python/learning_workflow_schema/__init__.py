@@ -8,6 +8,8 @@ SceneType = Literal[
     "intro", "concept", "quiz", "simulation", "reproduction", "discussion", "meta_checkpoint", "ai_critique",
     # active-learning task nodes:
     "spot_the_flaw", "explain_back",
+    # active-learning wave-1: comparison / summary_audit / prompt_practice.
+    "comparison", "summary_audit", "prompt_practice",
 ]
 EdgeRelation = Literal["prerequisite_for", "part_of", "decomposes_into", "assesses", "aligns_with"]
 ReproducibilityTier = Literal["certified", "type-checked", "bypassed", "manual-only", "experimental"]

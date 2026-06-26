@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema, DiscussionSceneSchema, ConceptSceneSchema, ReproductionSceneSchema, SpotTheFlawSceneSchema, ExplainBackSceneSchema, SCHEMA_VERSION } from "../src/index";
+import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema, DiscussionSceneSchema, ConceptSceneSchema, ReproductionSceneSchema, SpotTheFlawSceneSchema, ExplainBackSceneSchema, ComparisonSceneSchema, SummaryAuditSceneSchema, PromptPracticeSceneSchema, SCHEMA_VERSION } from "../src/index";
 
 function _minimalBundle() {
   return {
@@ -197,6 +197,82 @@ describe("LessonBundleSchema", () => {
     };
     expect(() => ExplainBackSceneSchema.parse({ ...base, key_points: [] })).toThrow();
     expect(() => ExplainBackSceneSchema.parse({ ...base, key_points: [{ id: "k", text: "t", cues: [] }] })).toThrow();
+  });
+
+  it("validates ComparisonScene (active-learning wave-1)", () => {
+    const scene = {
+      id: "s-cmp-1", type: "comparison", title: "Cours IA vs cours enseignant",
+      objective_refs: [], concept_refs: ["c-remplissage"], estimated_seconds: 180, adaptation_hooks: [],
+      prompt: "Relève la valeur ajoutée du cours de l'enseignant.",
+      artifact_a: "Cours rédigé par une IA…",
+      artifact_b: "Cours rédigé par l'enseignant…",
+      key_points: [{ id: "kp1", text: "exemple ancré", cues: ["exemple"] }],
+      model_answer: "L'enseignant ajoute des exemples ancrés et un fil pédagogique.",
+      rubric: { completeness: 0.6, evidence_quality: 0.2, tone: 0.2 },
+    };
+    expect(() => ComparisonSceneSchema.parse(scene)).not.toThrow();
+    expect(() => LessonBundleSchema.parse({ ...VALID_BUNDLE, scenes: [VALID_BUNDLE.scenes[0], scene] })).not.toThrow();
+  });
+
+  it("rejects ComparisonScene without key_points / with empty cues (RC-1)", () => {
+    const base = {
+      id: "s-cmp-2", type: "comparison", title: "x",
+      objective_refs: [], concept_refs: [], estimated_seconds: 60, adaptation_hooks: [],
+      prompt: "p", artifact_a: "a", artifact_b: "b", model_answer: "m",
+      rubric: { completeness: 0.5, evidence_quality: 0.5, tone: 0.5 },
+    };
+    expect(() => ComparisonSceneSchema.parse({ ...base, key_points: [] })).toThrow();
+    expect(() => ComparisonSceneSchema.parse({ ...base, key_points: [{ id: "k", text: "t", cues: [] }] })).toThrow();
+  });
+
+  it("validates SummaryAuditScene (active-learning wave-1)", () => {
+    const scene = {
+      id: "s-aud-1", type: "summary_audit", title: "Audit du résumé IA",
+      objective_refs: [], concept_refs: ["c-remplissage"], estimated_seconds: 180, adaptation_hooks: [],
+      source_content: "Texte source complet…",
+      ai_summary: "Résumé IA qui omet un point clé…",
+      claims: [{ id: "o1", text: "omission de la règle de Hund", flaws_expected: ["hund"] }],
+      model_correction: "Le résumé omet la règle de Hund.",
+      rubric: { completeness: 0.6, evidence_quality: 0.3, tone: 0.1 },
+    };
+    expect(() => SummaryAuditSceneSchema.parse(scene)).not.toThrow();
+    expect(() => LessonBundleSchema.parse({ ...VALID_BUNDLE, scenes: [VALID_BUNDLE.scenes[0], scene] })).not.toThrow();
+  });
+
+  it("rejects SummaryAuditScene without claims / with empty flaws_expected (RC-1)", () => {
+    const base = {
+      id: "s-aud-2", type: "summary_audit", title: "x",
+      objective_refs: [], concept_refs: [], estimated_seconds: 60, adaptation_hooks: [],
+      source_content: "s", ai_summary: "a", model_correction: "m",
+      rubric: { completeness: 0.5, evidence_quality: 0.5, tone: 0.5 },
+    };
+    expect(() => SummaryAuditSceneSchema.parse({ ...base, claims: [] })).toThrow();
+    expect(() => SummaryAuditSceneSchema.parse({ ...base, claims: [{ id: "f", text: "t", flaws_expected: [] }] })).toThrow();
+  });
+
+  it("validates PromptPracticeScene (active-learning wave-1); starter_prompt optional", () => {
+    const scene = {
+      id: "s-pp-1", type: "prompt_practice", title: "Affine ton prompt",
+      objective_refs: [], concept_refs: ["c-remplissage"], estimated_seconds: 180, adaptation_hooks: [],
+      task: "Rédige un prompt pour faire expliquer la règle de Hund.",
+      key_points: [{ id: "kp1", text: "consigne claire", cues: ["consigne"] }],
+      model_prompt: "Tu es un tuteur. Explique la règle de Hund avec un exemple…",
+      rubric: { completeness: 0.6, evidence_quality: 0.2, tone: 0.2 },
+    };
+    expect(() => PromptPracticeSceneSchema.parse(scene)).not.toThrow();
+    expect(() => PromptPracticeSceneSchema.parse({ ...scene, starter_prompt: "Explique Hund." })).not.toThrow();
+    expect(() => LessonBundleSchema.parse({ ...VALID_BUNDLE, scenes: [VALID_BUNDLE.scenes[0], scene] })).not.toThrow();
+  });
+
+  it("rejects PromptPracticeScene without key_points / with empty cues (RC-1)", () => {
+    const base = {
+      id: "s-pp-2", type: "prompt_practice", title: "x",
+      objective_refs: [], concept_refs: [], estimated_seconds: 60, adaptation_hooks: [],
+      task: "t", model_prompt: "m",
+      rubric: { completeness: 0.5, evidence_quality: 0.5, tone: 0.5 },
+    };
+    expect(() => PromptPracticeSceneSchema.parse({ ...base, key_points: [] })).toThrow();
+    expect(() => PromptPracticeSceneSchema.parse({ ...base, key_points: [{ id: "k", text: "t", cues: [] }] })).toThrow();
   });
 
   it("rejects legacy schema_version 1.1 (ADR 012 bump)", () => {
