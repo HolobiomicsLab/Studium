@@ -35,6 +35,30 @@ from learner_items_store import (
     LearnerItemsStore,
 )
 
+# A3 — emit/discover PATH reconciliation. The TS runtime's
+# discoverCommunityBundles(courseRoot) (packages/lesson-session-host/src/
+# community-bundles.ts) scans ``<courseRoot>/community`` for ``community-<id>.zip``.
+# So the emit side must write into the SAME ``community/`` subdir of the course
+# root, never into the course root itself (that would risk colliding with /
+# mutating the canonical ``lesson.json``). This constant MIRRORS the TS
+# ``COMMUNITY_DIR`` export; ``community_emit_dir(courseRoot)`` is the single helper
+# every caller (the FastAPI app, the e2e driver) uses to hand ``decide_item`` the
+# right directory, so both ends agree by construction.
+COMMUNITY_DIR = "community"
+
+
+def community_emit_dir(course_bundles_root: str | Path) -> Path:
+    """The directory an approved community bundle is emitted into for a course.
+
+    Given the COURSE bundles root (the dir holding the immutable canonical
+    ``lesson.json``), return ``<root>/community`` — exactly where the TS
+    ``discoverCommunityBundles(course_bundles_root)`` scans. Pass the result as
+    ``decide_item(..., bundles_root=...)`` so the emitted ``community-<id>.zip``
+    is DISCOVERABLE without ever touching the canonical course.
+    """
+    return Path(course_bundles_root) / COMMUNITY_DIR
+
+
 # k-anonymity floor for any teacher-facing peer-signal read, mirroring
 # tools/class_report.py's --min-learners: below this many ratings a per-item
 # aggregate could re-identify the handful of peers who rated it.
@@ -350,4 +374,6 @@ __all__ = [
     "record_peer_review",
     "peer_signals_view",
     "DEFAULT_MIN_RATERS",
+    "COMMUNITY_DIR",
+    "community_emit_dir",
 ]
