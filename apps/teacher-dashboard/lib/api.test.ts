@@ -13,6 +13,9 @@ import {
   getJournalStats,
   getCooperationStats,
   postBlueprintScore,
+  getLearnerItems,
+  decideLearnerItem,
+  teacherIriForToken,
 } from "./api";
 
 describe("teacher-dashboard api wrapper", () => {
@@ -242,6 +245,132 @@ describe("teacher-dashboard api wrapper", () => {
     await getProgress("course with spaces");
     const url = (global.fetch as any).mock.calls[0][0];
     expect(url).toContain("course=course%20with%20spaces");
+  });
+
+  // -------------------------------------------------------------------------
+  // Learner-as-author moderation queue (scene-synth :8002).
+  // -------------------------------------------------------------------------
+
+  const SAMPLE_ITEM = {
+    item_id: "it-1",
+    course_id: "atomistique-l1",
+    target_bundle_ref: "file://bundles/atomistique-l1/lesson.json",
+    schema_version: "1.4",
+    scene: {
+      id: "s-learner-1",
+      type: "quiz",
+      title: "Noeuds radiaux",
+      question: "Combien de noeuds radiaux pour 3s ?",
+      choices: [
+        { id: "a", text: "0", correct: false },
+        { id: "b", text: "2", correct: true },
+      ],
+      feedback_correct: "Oui, n-l-1 = 2.",
+      feedback_incorrect: "Revois n-l-1.",
+      hints: [],
+    },
+    review_state: "submitted",
+    validation: { ok: true, validator_version: "v1", errors: [] },
+    created_at: "2026-06-26T10:00:00Z",
+  };
+
+  it("getLearnerItems hits scene-synth /learner-items with course+state+token", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ items: [SAMPLE_ITEM] }),
+    });
+    const r = await getLearnerItems("atomistique-l1", "submitted");
+    expect(r.items[0].item_id).toBe("it-1");
+    // answer key must survive the wire — the teacher sees `correct`.
+    expect(r.items[0].scene.choices?.[1].correct).toBe(true);
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toContain("http://localhost:8002/learner-items?");
+    expect(call[0]).toContain("course=atomistique-l1");
+    expect(call[0]).toContain("state=submitted");
+    expect(call[1].headers["X-Course-Token"]).toBe("atomistique-l1");
+    expect(call[1].cache).toBe("no-store");
+  });
+
+  it("getLearnerItems defaults state to submitted", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ items: [] }),
+    });
+    await getLearnerItems("atomistique-l1");
+    expect((global.fetch as any).mock.calls[0][0]).toContain("state=submitted");
+  });
+
+  it("getLearnerItems throws on non-2xx", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+    });
+    await expect(getLearnerItems("atomistique-l1")).rejects.toThrow(/404/);
+  });
+
+  it("decideLearnerItem POSTs decision + reviewer + reviewed_at + token", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ...SAMPLE_ITEM, review_state: "published" }),
+    });
+    const result = await decideLearnerItem("atomistique-l1", "it-1", {
+      decision: "approve",
+      reviewer: "urn:studium:teacher:atomistique-l1",
+      reviewed_at: "2026-06-26T12:00:00Z",
+    });
+    expect(result.review_state).toBe("published");
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toBe("http://localhost:8002/learner-items/it-1/decide");
+    expect(call[1].method).toBe("POST");
+    expect(call[1].headers["X-Course-Token"]).toBe("atomistique-l1");
+    expect(call[1].headers["Content-Type"]).toBe("application/json");
+    const sent = JSON.parse(call[1].body);
+    expect(sent.decision).toBe("approve");
+    expect(sent.reviewer).toBe("urn:studium:teacher:atomistique-l1");
+    expect(sent.reviewed_at).toBe("2026-06-26T12:00:00Z");
+    // no note_code key when not provided
+    expect("note_code" in sent).toBe(false);
+  });
+
+  it("decideLearnerItem includes note_code for reject/request_revision", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ...SAMPLE_ITEM, review_state: "rejected" }),
+    });
+    await decideLearnerItem("atomistique-l1", "it-1", {
+      decision: "reject",
+      reviewer: "urn:studium:teacher:atomistique-l1",
+      reviewed_at: "2026-06-26T12:00:00Z",
+      note_code: "factual_error",
+    });
+    const sent = JSON.parse((global.fetch as any).mock.calls[0][1].body);
+    expect(sent.note_code).toBe("factual_error");
+  });
+
+  it("decideLearnerItem throws on non-2xx (e.g. empty reviewer rejected)", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+    });
+    await expect(
+      decideLearnerItem("atomistique-l1", "it-1", {
+        decision: "approve",
+        reviewer: "",
+        reviewed_at: "2026-06-26T12:00:00Z",
+      }),
+    ).rejects.toThrow(/400/);
+  });
+
+  it("teacherIriForToken derives a stable IRI from the course token", () => {
+    expect(teacherIriForToken("atomistique-l1")).toBe(
+      "urn:studium:teacher:atomistique-l1",
+    );
   });
 
   it("getProgressMetrics hits /metrics/progress-metrics with scenes_with_evidence", async () => {

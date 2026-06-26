@@ -50,11 +50,14 @@ from scene_synth_schemas import (
 
 app = FastAPI(title="scene-synth", version="0.1.0")
 
-# CORS for the deferred author-web (:3000) form. Confirmed absent before this
-# pass; learner endpoints are browser-driven from that origin.
+# CORS for the browser-driven learner-as-author UIs:
+#   - author-web (:3000) — the learner authoring form (GET/POST validate + submit)
+#   - teacher-dashboard (:3001) — the moderation queue (GET list + POST decide)
+# Both call these endpoints directly from the browser, so each origin must be
+# allowlisted explicitly.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
