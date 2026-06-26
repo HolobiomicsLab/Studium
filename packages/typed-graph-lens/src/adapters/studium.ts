@@ -16,7 +16,7 @@ export interface ConceptStatus {
 export interface LwgViewOptions {
   theta?: number; // availability threshold (default 0.8)
   minAttempts?: number; // certification floor (default 3) — mastered needs posterior AND attempts
-  masteredPosterior?: number; // default 0.85
+  masteredPosterior?: number; // default DEFAULT_THETA (0.8) — mirrors the engine's mastery certification
   title?: string;
 }
 
@@ -34,7 +34,7 @@ export function lwgToGraphView(
 ): GraphView {
   const theta = opts.theta ?? DEFAULT_THETA;
   const minAtt = opts.minAttempts ?? 3;
-  const masteredP = opts.masteredPosterior ?? 0.85;
+  const masteredP = opts.masteredPosterior ?? DEFAULT_THETA;
 
   // Apply the engine's minimum-attempts floor when building the availability map, so the graph's
   // locked/available gating matches the navigator (a concept below the floor counts as not-mastered).

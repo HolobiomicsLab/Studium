@@ -3,7 +3,7 @@ import {
   TelemetryEventSchema, LessonStartedSchema, QuizAnsweredSchema,
   ReasoningSignalSchema, AIAuditResultSchema,
   JournalEntrySubmittedSchema, CooperativeVoteSchema,
-  CooperativeConvergenceSchema,
+  CooperativeConvergenceSchema, CritiqueSubmittedSchema,
 } from "../src/events";
 
 const BASE = {
@@ -281,6 +281,34 @@ describe("telemetry-events Zod schemas", () => {
     it("rejects missing synthesis_id", () => {
       const { synthesis_id, ...rest } = valid;
       expect(() => CooperativeConvergenceSchema.parse(rest)).toThrow();
+    });
+  });
+
+  describe("critique_submitted scene_type (RC-2 / v0.5)", () => {
+    const valid = {
+      ...BASE,
+      type: "critique_submitted" as const,
+      scene_id: "s_crit_1",
+      llm_score: 0.8,
+      completion_rate: 1,
+    };
+
+    it("parses untagged events (scene_type optional — legacy back-compat)", () => {
+      const parsed = CritiqueSubmittedSchema.parse(valid);
+      expect(parsed.type).toBe("critique_submitted");
+      expect(parsed.scene_type).toBeUndefined();
+    });
+
+    it("parses + round-trips each tagged scene_type via the union", () => {
+      for (const st of ["ai_critique", "spot_the_flaw", "explain_back"] as const) {
+        const parsed = CritiqueSubmittedSchema.parse({ ...valid, scene_type: st });
+        expect(parsed.scene_type).toBe(st);
+        expect(TelemetryEventSchema.parse({ ...valid, scene_type: st }).type).toBe("critique_submitted");
+      }
+    });
+
+    it("rejects an invalid scene_type", () => {
+      expect(() => CritiqueSubmittedSchema.parse({ ...valid, scene_type: "quiz" })).toThrow();
     });
   });
 

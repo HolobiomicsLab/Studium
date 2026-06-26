@@ -41,7 +41,7 @@ describe("spot_the_flaw grader", () => {
     const r = await grade(flawScene, { kind: "flaw_report", text: "viole la regle de hund, spin paralleles, 2p3" }, { critiqueEvaluator: pass });
     expect(r.signal).toMatchObject({ kind: "answer_submitted", concept_id: "c1", correct: true, difficulty: 0.7 });
     expect(r.telemetry.map((e) => e.type)).toEqual(["critique_submitted", "ai_audit_result"]);
-    expect(r.telemetry[0]).toMatchObject({ llm_score: 0.8, completion_rate: 1 }); // 3/3 flaws matched
+    expect(r.telemetry[0]).toMatchObject({ scene_type: "spot_the_flaw", llm_score: 0.8, completion_rate: 1 }); // 3/3 flaws matched
     expect(r.telemetry[1]).toMatchObject({ planted_errors: 3, true_positives: 3, missed: 0 });
   });
 
@@ -66,7 +66,7 @@ describe("explain_back grader", () => {
     const r = await grade(explainScene, { kind: "explanation", text: "la fonction d'onde change de signe, plan nodal, probabilite nulle" }, { critiqueEvaluator: pass });
     expect(r.signal).toMatchObject({ kind: "answer_submitted", concept_id: "c1", correct: true, difficulty: 0.7 });
     expect(r.telemetry.map((e) => e.type)).toEqual(["critique_submitted"]);
-    expect(r.telemetry[0]).toMatchObject({ llm_score: 0.8, completion_rate: 1 }); // 4/4 key points covered
+    expect(r.telemetry[0]).toMatchObject({ scene_type: "explain_back", llm_score: 0.8, completion_rate: 1 }); // 4/4 key points covered
   });
 
   it("offline (Stub) scores by key-point coverage: half covered → 0.5 < 0.6 → correct:false", async () => {

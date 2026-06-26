@@ -20,7 +20,7 @@ describe("ai_critique grader", () => {
     expect(r.signal).toMatchObject({ kind: "answer_submitted", correct: true, difficulty: 0.7 });
     const types = r.telemetry.map((e) => e.type);
     expect(types).toEqual(["critique_submitted", "ai_audit_result"]);
-    expect(r.telemetry[0]).toMatchObject({ llm_score: 0.8, completion_rate: 1 }); // claim_a mentioned → 1/1
+    expect(r.telemetry[0]).toMatchObject({ scene_type: "ai_critique", llm_score: 0.8, completion_rate: 1 }); // claim_a mentioned → 1/1
     expect(r.telemetry[1]).toMatchObject({ planted_errors: 1, true_positives: 1, missed: 0 });
   });
   it("score<0.6 → correct:false", async () => {

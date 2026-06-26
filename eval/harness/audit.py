@@ -209,7 +209,7 @@ def _score_anti_offloading(runs: list[PersonaRun], bundle: dict, findings: list[
     def _min_attempts_at_mastery(r: PersonaRun) -> int | None:
         xs = [cs.get("total_attempts", 0)
               for cs in r.result.get("final_state", {}).get("concept_states", {}).values()
-              if (cs.get("alpha", 1) / (cs.get("alpha", 1) + cs.get("beta", 1))) >= 0.85]
+              if (cs.get("alpha", 1) / (cs.get("alpha", 1) + cs.get("beta", 1))) >= 0.8]
         return min(xs) if xs else None
     hinted = [r for r in runs if (ratios.get(r.persona) or 1) < 0.9]
     if hinted:
@@ -277,14 +277,14 @@ def _score_mastery_validity(runs: list[PersonaRun], bundle: dict, findings: list
         for cid, cs in r.result.get("final_state", {}).get("concept_states", {}).items():
             attempts = cs.get("total_attempts", 0)
             mastery = cs.get("alpha", 1) / (cs.get("alpha", 1) + cs.get("beta", 1))
-            # Aligned with the engine CERTIFICATION rule (session.ts MASTERY_CLAIM_THRESHOLD=0.85 +
-            # graph-nav MIN_MASTERY_ATTEMPTS=3): a certification-worthy posterior (>=0.85) reached in
-            # <3 attempts would be too cheap. Provisional gating at theta=0.8 (2 clean answers) is NOT
-            # certification and is no longer flagged.
-            if mastery >= 0.85 and attempts < 3:
+            # Aligned with the engine CERTIFICATION rule (session.ts MASTERY_CLAIM_THRESHOLD=0.8 =
+            # DEFAULT_THETA + graph-nav MIN_MASTERY_ATTEMPTS=3): what makes certification harder than
+            # provisional gating is the min-attempts FLOOR, not a higher posterior. A certification-worthy
+            # posterior (>=0.8) reached in <3 attempts (e.g. 2 clean same-item answers) would be too cheap.
+            if mastery >= 0.8 and attempts < 3:
                 score -= 0.3
                 findings.append(Finding("mastery_validity", "high",
-                    f"[{r.persona}] concept {cid} reached CERTIFICATION mastery {mastery:.2f}>=0.85 in only "
+                    f"[{r.persona}] concept {cid} reached CERTIFICATION mastery {mastery:.2f}>=0.8 in only "
                     f"{attempts} attempts (below the min-attempts floor).",
                     "sessions/*/driver_result.json:final_state.concept_states", "#1"))
                 break
@@ -292,8 +292,8 @@ def _score_mastery_validity(runs: list[PersonaRun], bundle: dict, findings: list
             continue
         break
     findings.append(Finding("mastery_validity", "info",
-        "Certification DECOUPLED from gating: MASTERY_CLAIM_THRESHOLD=0.85 (> navigation theta 0.8) + "
-        "MIN_MASTERY_ATTEMPTS=3 — a claim needs a stronger posterior than the provisional unlock.",
+        "Certification gated by the ATTEMPTS FLOOR: MASTERY_CLAIM_THRESHOLD=0.8 (= navigation theta) + "
+        "MIN_MASTERY_ATTEMPTS=3 — a claim needs >=3 distinct attempts, not just 2 clean same-item answers.",
         "packages/lesson-session/src/session.ts:MASTERY_CLAIM_THRESHOLD", "ok"))
     return max(0.0, score)
 

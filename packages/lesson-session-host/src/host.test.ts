@@ -21,9 +21,10 @@ function bundlesDir(): string { const d = mkdtempSync(join(tmpdir(), "host-")); 
 afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
 
 /** Three-quiz bundle on one `remember`-level concept (w=0.3). Three correct answers (0 hints)
- * clear the MIN_MASTERY_ATTEMPTS=3 floor AND the 0.85 claim bar: α = 1 + (1+0.7)·3 = 6.1, β = 1 →
- * mastery ≈ 0.859 ≥ 0.85, so a real mastery .jsonld IS written on completion. (An `understand`
- * concept at w=0.5 gives 0.846 < 0.85 and would need a 4th clean answer to certify.) */
+ * clear the MIN_MASTERY_ATTEMPTS=3 floor AND the 0.8 (=DEFAULT_THETA) claim bar: α = 1 + (1+0.7)·3 = 6.1,
+ * β = 1 → mastery ≈ 0.859 ≥ 0.8, so a real mastery .jsonld IS written on completion. (The
+ * anti-fabrication guard is the MIN_MASTERY_ATTEMPTS=3 floor — not a higher posterior — so 2 lucky
+ * answers never certify.) */
 function quizScene(id: string) {
   return { id, type: "quiz", title: id.toUpperCase(), objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [],
     question: "?", choices: [{ id: "a", text: "A", correct: false }, { id: "b", text: "B", correct: true }], feedback_correct: "y", feedback_incorrect: "n", hints: [] };
