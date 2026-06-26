@@ -138,15 +138,25 @@ Deux panneaux s'ouvrent côte à côte :
 | 4 | **Quiz** : sous-couche 4f | 2ℓ+1 = 7 orbitales (→ 14 e⁻) | bon réflexe ? |
 | 5 | **Forme des orbitales** ⭐ | **2p_z et 3d_z² en 3D — à faire tourner** | forme, plan nodal |
 | 6 | **Quiz** : nœuds de la 2p | nœuds radiaux = n − ℓ − 1 = 0 | rigueur |
-| 7 | Quantification & spectres | E = hν + **spectre de Balmer interactif** | raies, λ |
-| 8 | **Quiz** : raie Hα | transition n=3 → n=2 (~656 nm) | exactitude |
-| 9 | Règles de remplissage | Klechkowski (n+ℓ), Pauli, Hund | ordre 4s/3d |
-| 10 | **Quiz** : carbone (Z=6) | 1s² 2s² 2p² | feedback |
-| 11 | Périodicité | **courbes ionisation + rayon (période 2)** | tendances, B/O |
-| 12 | **Quiz** : sens des tendances | ionisation ↑, rayon ↓ | — |
-| 13 | Géométrie (VSEPR) | **CH₄ et H₂O en 3D** (109,5° / 104,5°) | géométries |
-| 14 | Auto-évaluation | confiance avant/après | — |
-| 15 | Reproduction | placer Na, S, Ca dans le tableau | énoncés |
+| 7 | **Explique** 🆕 *(teach-back)* | « Pourquoi la 2p a-t-elle deux lobes ? » → l'étudiant·e rédige | pertinence des attendus |
+| 8 | Quantification & spectres | E = hν + **spectre de Balmer interactif** | raies, λ |
+| 9 | **Quiz** : raie Hα | transition n=3 → n=2 (~656 nm) | exactitude |
+| 10 | Règles de remplissage | Klechkowski (n+ℓ), Pauli, Hund | ordre 4s/3d |
+| 11 | **Quiz** : carbone (Z=6) | 1s² 2s² 2p² | feedback |
+| 12 | **Repère l'erreur** 🆕 *(cours biaisé)* | un cours **volontairement faux** sur l'azote à corriger | erreurs plantées + correction |
+| 13 | Périodicité | **courbes ionisation + rayon (période 2)** | tendances, B/O |
+| 14 | **Quiz** : sens des tendances | ionisation ↑, rayon ↓ | — |
+| 15 | Géométrie (VSEPR) | **CH₄ et H₂O en 3D** (109,5° / 104,5°) | géométries |
+| 16 | Auto-évaluation | confiance avant/après | — |
+| 17 | Reproduction | placer Na, S, Ca dans le tableau | énoncés |
+
+> **Nouveau — deux scènes « apprentissage actif »** (🆕 lignes 7 et 12), inspirées du board de
+> co-conception : **« Explique »** (l'étudiant·e *devient prof* et reformule une notion ; on évalue la
+> transmission, pas la restitution) et **« Repère l'erreur »** (un *cours biaisé* à débusquer, puis la
+> version corrigée — « relever les biais et proposer un cours amélioré »). On y **écrit du texte** (zone
+> de saisie + bouton, ou la cellule en mode notebook). La correction/le corrigé n'apparaissent **jamais
+> avant** la réponse, et la note est calculée **hors-ligne** (couverture des points-clés / erreurs
+> trouvées), donc **aucune clé API n'est requise**.
 
 > **Le « palier de maîtrise »** : il faut répondre **correctement ~3 fois** au quiz d'un concept
 > avant que le suivant ne se débloque (mécanisme anti-triche, voulu). Regardez le **graphe de droite**
@@ -164,8 +174,8 @@ orbitales hydrogénoïdes analytiques, pas des images figées).
 ### Variante « notebook »
 `Cmd+Shift+P` → **« Studium: Open Lesson as Notebook »**. Exécutez la cellule (▶) ; pour avancer,
 tapez dans la cellule puis ré-exécutez (`a`/`b`… pour un quiz, vide pour continuer, `0`–`4` pour la
-confiance). Les graphiques s'affichent dans la sortie ; le panneau *Lesson* reste la surface
-complète (orbitales 3D, équations).
+confiance, **du texte libre pour « Explique » / « Repère l'erreur »**). Les graphiques s'affichent dans
+la sortie ; le panneau *Lesson* reste la surface complète (orbitales 3D, équations).
 
 ---
 
@@ -281,7 +291,7 @@ pas l'appareil de l'élève.
 
 **8 concepts** : particules de l'atome · nombres quantiques · forme des orbitales · quantification &
 spectres · règles de remplissage · configuration électronique · périodicité · géométrie (VSEPR).
-**16 scènes** (intro, concepts, quiz, auto-évaluation, reproduction). Les items « fer Z=26 » et
-« 4f » reprennent vos TD1/TD2.
+**18 scènes** (intro, concepts, quiz, **« Explique » (teach-back)**, **« Repère l'erreur » (cours
+biaisé)**, auto-évaluation, reproduction). Les items « fer Z=26 » et « 4f » reprennent vos TD1/TD2.
 
 *Cette démo couvre le chapitre 1. La suite naturelle : liaison, Lewis, mésomérie, hybridation…*

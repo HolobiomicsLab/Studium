@@ -170,6 +170,32 @@ def build_scenes() -> list[dict]:
         "hints": ["Distingue nœud radial (sphère) et nœud angulaire (plan).", "n − ℓ − 1."],
     })
 
+    # explain_back — teach-back on orbital shape. key_points.cues are ACCENT-FREE substrings (the offline
+    # matcher is literal: "probab" ⊂ "probabilité", "fonction" ⊂ "fonction d'onde") so a real French answer
+    # scores without an API key; the live evaluator does the nuanced grading when available.
+    S.append({
+        "id": "s3b-explain-2p", "type": "explain_back", "title": "Explique — pourquoi la 2p a deux lobes",
+        "objective_refs": [], "concept_refs": concept_refs("c-orbitales-formes"),
+        "estimated_seconds": 180, "adaptation_hooks": [],
+        "prompt": "Tu viens de faire tourner l'orbitale **2p** en 3D : deux lobes de signe opposé séparés par "
+                  "un plan. **Explique, avec tes propres mots, pourquoi la 2p a deux lobes et ce que représente "
+                  "le plan qui les sépare** (pense à la fonction d'onde et à la probabilité de présence).",
+        # cues are MULTI-TOKEN so a keyword-stuffed wrong answer can't trivially score; the matcher folds
+        # accents/apostrophes (normalize()), so a real French answer ("fonction d'onde", "signes opposés",
+        # "probabilité de présence") matches these accent-free forms via the token-AND fallback.
+        "key_points": [
+            {"id": "kp-fonction", "text": "La forme découle de la fonction d'onde de l'électron", "cues": ["fonction d onde"]},
+            {"id": "kp-signe", "text": "Les deux lobes ont des signes opposés", "cues": ["signe oppose"]},
+            {"id": "kp-nodal", "text": "Le plan séparateur est un plan nodal", "cues": ["plan nodal"]},
+            {"id": "kp-probab", "text": "Les lobes sont les régions de forte probabilité de présence", "cues": ["probabilite presence"]},
+        ],
+        "model_explanation": "La 2p est décrite par une **fonction d'onde** qui change de **signe** d'un lobe à "
+                             "l'autre. Le plan qui les sépare est un **plan nodal** : la fonction d'onde y est nulle, "
+                             "donc la **probabilité** de présence de l'électron y est nulle. Les deux lobes (signes + et −) "
+                             "sont les régions où cette probabilité est élevée.",
+        "rubric": {"completeness": 0.6, "evidence_quality": 0.2, "tone": 0.2},
+    })
+
     S.append({
         "id": "s4-concept-spectres", "type": "concept", "title": "Quantification et spectres d'émission",
         "objective_refs": [], "concept_refs": concept_refs("c-spectres"),
@@ -225,6 +251,32 @@ def build_scenes() -> list[dict]:
         "feedback_correct": "Exact : 2 + 2 + 2 = 6 électrons (Z=6).",
         "feedback_incorrect": "Klechkowski : 1s → 2s → 2p. Avec 6 e⁻ : 1s² 2s² 2p².",
         "hints": ["Ordre 1s, 2s, 2p.", "2 électrons max par orbitale (Pauli)."],
+    })
+
+    # spot_the_flaw — Risso's "cours biaisé": a deliberately-WRONG statement about nitrogen. claims hold the
+    # answer key (flaws_expected = accent-free markers a correct answer contains: "hund", "spin", "2p3");
+    # flawed_content is shown, model_correction is the "cours amélioré" (revealed/graded-against, never leaked).
+    S.append({
+        "id": "s5b-spot-azote", "type": "spot_the_flaw", "title": "Repère l'erreur — configuration de l'azote",
+        "objective_refs": [], "concept_refs": concept_refs("c-remplissage"),
+        "estimated_seconds": 150, "adaptation_hooks": [],
+        "flawed_content": "L'azote (Z=7) a pour configuration électronique **1s² 2s² 2p⁴**. Dans la sous-couche 2p, "
+                          "les électrons s'**apparient** deux par deux dans la même orbitale pour minimiser leur "
+                          "énergie, si bien que l'azote ne possède **aucun électron célibataire**.",
+        # flaws_expected are DISCRIMINATING markers a learner only writes if they understand (the rule
+        # name "hund", the unpaired electrons "célibataires", the correct config "2p3" — accents/superscripts
+        # are folded by normalize(), so "2p³" and "célibataires" match these forms).
+        "claims": [
+            {"id": "f-hund", "text": "Les électrons 2p s'apparient au lieu d'occuper des orbitales séparées (viole Hund)",
+             "flaws_expected": ["hund", "celibataires"]},
+            {"id": "f-count", "text": "Le décompte des électrons est faux (2+2+4 = 8 ≠ 7)",
+             "flaws_expected": ["2p3"]},
+        ],
+        "model_correction": "La configuration correcte est **1s² 2s² 2p³** (7 électrons au total). Règle de **Hund** : "
+                            "les **trois** électrons 2p occupent chacun une orbitale différente avec des **spins "
+                            "parallèles** → l'azote a **3 électrons célibataires**, et non 0. (La version fausse donnait "
+                            "aussi 8 électrons au lieu de 7.)",
+        "rubric": {"completeness": 0.6, "evidence_quality": 0.3, "tone": 0.1},
     })
 
     S.append({
@@ -330,8 +382,10 @@ def build_lwg() -> dict:
         "s1-quiz-fer": ("c-particules", "quiz"),
         "s2-quiz-4f": ("c-nombres-quantiques", "quiz"),
         "s3-quiz-noeuds": ("c-orbitales-formes", "quiz"),
+        "s3b-explain-2p": ("c-orbitales-formes", "explain_back"),
         "s4-quiz-balmer": ("c-spectres", "quiz"),
         "s5-quiz-carbone": ("c-configuration", "quiz"),
+        "s5b-spot-azote": ("c-remplissage", "spot_the_flaw"),
         "s6-quiz-tendance": ("c-periodicite", "quiz"),
         "s8-reproduction-periodique": ("c-periodicite", "reproduction"),
     }

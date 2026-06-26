@@ -63,6 +63,8 @@ class Evidence(BaseModel):
 SceneType = Literal[
     "intro", "concept", "quiz", "meta_checkpoint",
     "reproduction", "ai_critique", "discussion",
+    # active-learning scenes (learner-as-active-agent):
+    "spot_the_flaw", "explain_back",
 ]
 ReasoningSignalEnum = Literal[
     "justification", "hypothesis", "question", "counterexample", "synthesis",
@@ -171,9 +173,38 @@ class DiscussionScene(_SceneBase):
     max_turns: int = Field(gt=0, le=50)
 
 
+class FlawClaim(Claim):
+    """A spot_the_flaw claim: flaws_expected MUST be non-empty (stricter than ai_critique's Claim)."""
+
+    flaws_expected: list[str] = Field(min_length=1)
+
+
+class SpotTheFlawScene(_SceneBase):
+    type: Literal["spot_the_flaw"]
+    flawed_content: str = Field(min_length=1)
+    claims: list[FlawClaim] = Field(min_length=1, max_length=5)
+    model_correction: str = Field(min_length=1)
+    rubric: AICritiqueRubric
+
+
+class KeyPoint(BaseModel):
+    id: str
+    text: str
+    cues: list[str] = Field(min_length=1)
+
+
+class ExplainBackScene(_SceneBase):
+    type: Literal["explain_back"]
+    prompt: str = Field(min_length=1)
+    key_points: list[KeyPoint] = Field(min_length=1, max_length=6)
+    model_explanation: str = Field(min_length=1)
+    rubric: AICritiqueRubric
+
+
 SceneUnion = Union[
     IntroScene, ConceptScene, QuizScene, MetaCheckpointScene,
     ReproductionScene, AICritiqueScene, DiscussionScene,
+    SpotTheFlawScene, ExplainBackScene,
 ]
 Scene = Annotated[SceneUnion, Field(discriminator="type")]
 

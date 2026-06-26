@@ -31,6 +31,8 @@ for (let step = 0; step < 80 && !foundOrbital; step++) {
     input = { kind: "quiz_choice", choiceId: c.id };
   } else if (sc.type === "meta_checkpoint") input = { kind: "confidence", value: 3 };
   else if (sc.type === "ai_critique") input = { kind: "critique", text: "ok" };
+  else if (sc.type === "spot_the_flaw") input = { kind: "flaw_report", text: "viole la regle de hund, trois electrons celibataires a spins paralleles, la bonne configuration est 2p3" };
+  else if (sc.type === "explain_back") input = { kind: "explanation", text: "la fonction d'onde change de signe oppose d'un lobe a l'autre, separes par un plan nodal ou la probabilite de presence est nulle" };
   else input = { kind: "ack" };
   const t = await host.respond(sessionId, input);
   console.log(`  step ${step}: ${sc.id} (${sc.type}) → ${t.kind}${t.presentation ? " → " + t.presentation.scene.id : ""}`);

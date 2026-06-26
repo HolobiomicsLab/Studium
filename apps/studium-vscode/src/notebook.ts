@@ -80,6 +80,8 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
     if (scene.type === "quiz") return { kind: "quiz_choice", choiceId: /^[a-f]$/.test(d) ? d : (scene.choices?.[0]?.id ?? "a") };
     if (scene.type === "meta_checkpoint") { const v = parseInt(d, 10); return { kind: "confidence", value: Number.isNaN(v) ? 2 : Math.max(0, Math.min(4, v)) }; }
     if (scene.type === "ai_critique") return { kind: "critique", text: d || "(no critique)" };
+    if (scene.type === "spot_the_flaw") return { kind: "flaw_report", text: d || "(no answer)" };
+    if (scene.type === "explain_back") return { kind: "explanation", text: d || "(no answer)" };
     return { kind: "ack" };
   }
 
@@ -96,6 +98,9 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
     if (presentation.total) head += `*scene ${(presentation.index ?? 0) + 1} / ${presentation.total}*\n\n`;
     if (transition && (transition.kind === "replay" || transition.kind === "remediate_alt")) head += `> ⟳ ${transition.reason}\n\n`;
     if (sc.markdown) head += sc.markdown + "\n";
+    // active-learning bodies (answer keys + model_* reveals are never included):
+    if (sc.type === "spot_the_flaw" && sc.flawed_content) head += `\n> ⚠️ **Ce passage contient des erreurs — repère-les :**\n\n${sc.flawed_content}\n`;
+    if (sc.type === "explain_back" && sc.prompt) head += `\n${sc.prompt}\n`;
     outs.push(new vscode.NotebookCellOutput([md(head)]));
 
     for (const a of arts as Json[]) {
@@ -122,6 +127,10 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       outs.push(new vscode.NotebookCellOutput([md(`*${sc.pre_question}* — type \`0\`–\`4\` and re-run.`)]));
     } else if (sc.type === "ai_critique") {
       outs.push(new vscode.NotebookCellOutput([md(`*Write your critique in the cell above and re-run.*`)]));
+    } else if (sc.type === "spot_the_flaw") {
+      outs.push(new vscode.NotebookCellOutput([md(`*Décris les erreurs (avec justification) dans la cellule ci-dessus et relance.*`)]));
+    } else if (sc.type === "explain_back") {
+      outs.push(new vscode.NotebookCellOutput([md(`*Écris ton explication dans la cellule ci-dessus et relance.*`)]));
     }
 
     const mastery = presentation.learnerSnapshot?.conceptMastery || {};

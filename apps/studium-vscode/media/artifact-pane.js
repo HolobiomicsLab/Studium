@@ -182,6 +182,18 @@
     root.append(head);
 
     if (sc.markdown) root.append(el("div", { class: "prose", html: mdLite(sc.markdown) }));
+    // spot_the_flaw shows the deliberately-flawed lesson (find the errors); explain_back shows the
+    // prompt. NOTE: the full scene object (incl. the answer keys claims/key_points + the model_*
+    // reveals) IS sent to the webview — same posture as quiz choices' `correct` flags — but those
+    // fields are never DRAWN to the DOM before the learner answers. Transport-level redaction would
+    // need a host-side publicScene projection (applies repo-wide, incl. quizzes; tracked as follow-up).
+    if (sc.type === "spot_the_flaw" && sc.flawed_content) {
+      root.append(el("div", { class: "pane-label" }, "⚠️ Ce passage contient des erreurs — repère-les"));
+      root.append(el("div", { class: "prose flawed", html: mdLite(sc.flawed_content) }));
+    }
+    if (sc.type === "explain_back" && sc.prompt) {
+      root.append(el("div", { class: "prose", html: mdLite(sc.prompt) }));
+    }
 
     const assets = state.scene_assets || [];
     if (assets.length) {
@@ -223,6 +235,14 @@
     } else if (sc.type === "ai_critique") {
       const ta = el("textarea", { class: "critique", placeholder: "Write your critique…" });
       const b = el("button", { class: "primary" }, "Submit critique"); b.addEventListener("click", () => window.__send && window.__send({ type: "respond", input: { kind: "critique", text: ta.value } }));
+      wrap.append(ta, b);
+    } else if (sc.type === "spot_the_flaw") {
+      const ta = el("textarea", { class: "critique", placeholder: "Quelles sont les erreurs ? Justifie…" });
+      const b = el("button", { class: "primary" }, "Soumettre les erreurs"); b.addEventListener("click", () => window.__send && window.__send({ type: "respond", input: { kind: "flaw_report", text: ta.value } }));
+      wrap.append(ta, b);
+    } else if (sc.type === "explain_back") {
+      const ta = el("textarea", { class: "critique", placeholder: "Explique avec tes propres mots…" });
+      const b = el("button", { class: "primary" }, "Soumettre l'explication"); b.addEventListener("click", () => window.__send && window.__send({ type: "respond", input: { kind: "explanation", text: ta.value } }));
       wrap.append(ta, b);
     } else {
       const b = el("button", { class: "primary" }, "Continue ▸"); b.addEventListener("click", send({ type: "respond", input: { kind: "ack" } })); wrap.append(b);

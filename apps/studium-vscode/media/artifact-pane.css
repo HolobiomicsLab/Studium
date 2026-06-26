@@ -21,6 +21,7 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--fo
 .adapt { margin-top: 6px; color: var(--accent); font-size: 12px; }
 
 .prose { margin: 8px 0 14px; }
+.prose.flawed { border-left: 3px solid #d9822b; padding-left: 10px; background: rgba(217,130,43,.07); border-radius: 0 6px 6px 0; }
 .prose code, .imath { font-family: var(--mono); background: rgba(127,127,127,.14); padding: .5px 4px; border-radius: 3px; }
 .imath { color: var(--accent); }
 
