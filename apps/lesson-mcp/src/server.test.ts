@@ -81,6 +81,70 @@ describe("lesson-mcp tools", () => {
     const st = parse(await client.callTool({ name: "get_session_state", arguments: { session_id: sid } }) as never);
     expect((st["state"] as { lesson_id: string }).lesson_id).toBe("mini-001");
   });
+  it("redacts the answer key from the quiz scene shipped to the client, yet still grades a submit server-side", async () => {
+    const client = await connect(bundlesDir());
+    const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json" } }) as never);
+    const sid = started["session_id"] as string;
+    // advance intro → quiz, then read the client-facing presentation
+    await client.callTool({ name: "submit_response", arguments: { session_id: sid, input: { kind: "ack" } } });
+    const cur = parse(await client.callTool({ name: "get_current_scene", arguments: { session_id: sid } }) as never);
+    const scene = (cur["presentation"] as { scene: Record<string, unknown> }).scene;
+    expect(scene["type"]).toBe("quiz");
+    // choices keep id + text but NOT the correct flag
+    const choices = scene["choices"] as Array<Record<string, unknown>>;
+    expect(choices.map((c) => c["text"])).toEqual(["A", "B"]);
+    for (const c of choices) expect("correct" in c).toBe(false);
+    // no answer-bearing field anywhere in the serialized transport
+    const wire = JSON.stringify(cur);
+    expect(wire).not.toContain("\"correct\"");
+    // the server still grades the (correct) choice server-side (quiz is the last scene → complete)
+    const t = parse(await client.callTool({ name: "submit_response", arguments: { session_id: sid, input: { kind: "quiz_choice", choiceId: "b" } } }) as never);
+    expect((t["transition"] as { kind: string }).kind).toBe("complete");
+    const st = parse(await client.callTool({ name: "get_session_state", arguments: { session_id: sid } }) as never);
+    // c1 was answered (graded server-side from the full scene's `correct` flag) → recorded attempt
+    const cs = (st["state"] as { concept_states: Record<string, { total_attempts: number }> }).concept_states;
+    expect(cs["c1"]?.total_attempts).toBeGreaterThanOrEqual(1);
+  });
+
+  it("redacts claims / key_points / model_* from active-learning scenes on the client transport", async () => {
+    // A bundle whose scenes carry every answer-bearing field family.
+    const ACTIVE = {
+      ...MINI, bundle_id: "active-001",
+      scenes: [
+        { id: "f0", type: "spot_the_flaw", title: "F", objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [],
+          flawed_content: "N is 1s2 2s2 2p4", claims: [{ id: "k1", text: "wrong", flaws_expected: ["hund"] }],
+          model_correction: "N is 1s2 2s2 2p3", rubric: { completeness: 1, evidence_quality: 1, tone: 1 } },
+        { id: "e0", type: "explain_back", title: "E", objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [],
+          prompt: "Explain it", key_points: [{ id: "k1", text: "x", cues: ["node"] }],
+          model_explanation: "reveal", rubric: { completeness: 1, evidence_quality: 1, tone: 1 } },
+      ],
+    };
+    const d = mkdtempSync(join(tmpdir(), "mcp-")); dirs.push(d); writeFileSync(join(d, "active.json"), JSON.stringify(ACTIVE));
+    const client = await connect(d);
+    const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "active.json" } }) as never);
+    const sid = started["session_id"] as string;
+    // first scene (spot_the_flaw) is shipped in the start presentation
+    const scene = (started["presentation"] as { scene: Record<string, unknown> }).scene;
+    expect(scene["type"]).toBe("spot_the_flaw");
+    expect(scene["flawed_content"]).toBe("N is 1s2 2s2 2p4"); // attemptable field kept
+    expect("claims" in scene).toBe(false);
+    expect("model_correction" in scene).toBe(false);
+    const wire0 = JSON.stringify(started);
+    expect(wire0).not.toContain("model_correction");
+    expect(wire0).not.toContain("flaws_expected");
+    expect(wire0).not.toContain("hund"); // the matcher cue never reaches the client
+    // submit grades server-side and advances to the explain_back scene (also redacted)
+    const t = parse(await client.callTool({ name: "submit_response", arguments: { session_id: sid, input: { kind: "flaw_report", text: "the 2p filling violates hund's rule" } } }) as never);
+    const next = (t["transition"] as { presentation: { scene: Record<string, unknown> } }).presentation.scene;
+    expect(next["type"]).toBe("explain_back");
+    expect(next["prompt"]).toBe("Explain it");
+    expect("key_points" in next).toBe(false);
+    expect("model_explanation" in next).toBe(false);
+    const wire1 = JSON.stringify(t);
+    expect(wire1).not.toContain("model_explanation");
+    expect(wire1).not.toContain("\"cues\"");
+  });
+
   it("end_session forgets the session", async () => {
     const client = await connect(bundlesDir());
     const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json" } }) as never);

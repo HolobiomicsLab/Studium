@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from scene_synth_schemas import (
     AICritiqueScene,
     Bundle,
+    CommunicationSimScene,
     ComparisonScene,
     ConceptScene,
     ExplainBackScene,
@@ -212,6 +213,36 @@ def test_comparison_rejects_empty_cues():
         ComparisonScene.model_validate(raw)
 
 
+def test_communication_sim_scene_minimal():
+    raw = {
+        "id": "s9",
+        "type": "communication_sim",
+        "title": "Explique à un·e camarade, sans jargon",
+        "concept_refs": ["c-orbitales-formes"],
+        "scenario": "Fin du TD ; un·e camarade pas au point te demande de l'aide.",
+        "prompt": "Explique-lui pourquoi la 2p a deux lobes, sans jargon.",
+        "key_points": [{"id": "kp1", "text": "deux zones", "cues": ["deux zones"]}],
+        "model_response": "Imagine deux zones de chaque côté, séparées par un couloir vide.",
+        "rubric": {"completeness": 0.6, "evidence_quality": 0.2, "tone": 0.2},
+    }
+    scene = CommunicationSimScene.model_validate(raw)
+    assert scene.type == "communication_sim"
+    assert scene.scenario.startswith("Fin du TD")
+    assert scene.model_response  # reveal field present
+
+
+def test_communication_sim_rejects_empty_cues():
+    raw = {
+        "id": "s", "type": "communication_sim", "title": "t", "concept_refs": ["c"],
+        "scenario": "s", "prompt": "p",
+        "key_points": [{"id": "k", "text": "t", "cues": []}],
+        "model_response": "m",
+        "rubric": {"completeness": 0.5, "evidence_quality": 0.5, "tone": 0.5},
+    }
+    with pytest.raises(ValidationError):
+        CommunicationSimScene.model_validate(raw)
+
+
 def test_atomistique_bundle_with_active_learning_scenes(fixture_dir):
     """The authored atomistique-l1 bundle (with spot_the_flaw + explain_back) round-trips."""
     lesson_path = fixture_dir / "atomistique-l1" / "lesson.json"
@@ -223,6 +254,7 @@ def test_atomistique_bundle_with_active_learning_scenes(fixture_dir):
     assert "comparison" in types
     assert "summary_audit" in types
     assert "prompt_practice" in types
+    assert "communication_sim" in types
 
 
 def test_scene_aliases_exist():

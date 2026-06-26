@@ -11,7 +11,7 @@ export interface GradeResult { signal: Signal; telemetry: EmitInput[]; }
 export interface GradeDeps { critiqueEvaluator: CritiqueEvaluator; hintCount?: number; bloomLevel?: BloomLevel; }
 type Grader = (scene: Scene, input: ResponseInput, deps: GradeDeps) => Promise<GradeResult>;
 
-const DIFFICULTY = { quiz: 0.5, ai_critique: 0.7, spot_the_flaw: 0.7, explain_back: 0.7, comparison: 0.7, summary_audit: 0.7, prompt_practice: 0.7 } as const;
+const DIFFICULTY = { quiz: 0.5, ai_critique: 0.7, spot_the_flaw: 0.7, explain_back: 0.7, comparison: 0.7, summary_audit: 0.7, prompt_practice: 0.7, communication_sim: 0.7 } as const;
 
 // M1: item difficulty (the IRT weight `w` fed to beta-updater) derives from the scene
 // concept's Bloom level via this monotone map. ANCHOR: `understand` -> 0.5 == the legacy
@@ -173,6 +173,27 @@ const promptPracticeGrader: Grader = async (scene, input, deps) => {
   };
 };
 
+// communication_sim — Dubas "simuler des situations de communication professionnelle": the learner communicates a
+// target message in a professional situation (role + audience); we score how well the response hits the authored
+// communication objectives (key_points). key_points -> claim-shape mapping reuses the SAME evaluator/matcher with no
+// new port. Coverage-graded like explain_back; no ai_audit_result (nothing is "planted"). Emits critique_submitted
+// with scene_type "communication_sim".
+const communicationSimGrader: Grader = async (scene, input, deps) => {
+  if (scene.type !== "communication_sim") throw new SceneGradingError(scene.type, "communicationSimGrader on non-communication_sim");
+  if (input.kind !== "communication") throw new SceneGradingError(scene.type, `expected communication, got ${input.kind}`);
+  const claims = scene.key_points.map((k) => ({ id: k.id, text: k.text, flaws_expected: k.cues }));
+  const { score } = await deps.critiqueEvaluator.evaluate({ claims, rubric: scene.rubric, critique: input.text });
+  const passed = score >= 0.6;
+  const cover = matchClaimsAgainstCritique(claims, input.text);
+  const completion_rate = cover.planted_errors === 0 ? 0 : cover.true_positives / cover.planted_errors;
+  return {
+    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.communication_sim) },
+    telemetry: [
+      { type: "critique_submitted", scene_id: scene.id, scene_type: "communication_sim", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
+    ],
+  };
+};
+
 export const GRADERS: Record<Scene["type"], Grader> = {
   intro: ackGrader,
   concept: ackGrader,
@@ -186,6 +207,7 @@ export const GRADERS: Record<Scene["type"], Grader> = {
   comparison: comparisonGrader,
   summary_audit: summaryAuditGrader,
   prompt_practice: promptPracticeGrader,
+  communication_sim: communicationSimGrader,
 };
 
 export async function grade(scene: Scene, input: ResponseInput, deps: GradeDeps): Promise<GradeResult> {

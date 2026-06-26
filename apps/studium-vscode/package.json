@@ -13,7 +13,8 @@
   ],
   "activationEvents": [
     "onNotebook:studium-lesson",
-    "onCommand:studium.openLessonNotebook"
+    "onCommand:studium.openLessonNotebook",
+    "onCommand:studium.communityContributions"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -25,6 +26,10 @@
       {
         "command": "studium.openLessonNotebook",
         "title": "Studium: Open Lesson as Notebook"
+      },
+      {
+        "command": "studium.communityContributions",
+        "title": "Studium: Contributions de la classe / Community contributions"
       }
     ],
     "notebooks": [
@@ -55,6 +60,11 @@
           "type": "string",
           "default": "atomistique-l1/lesson.json",
           "description": "The bundle to open (relative to bundlesRoot). Defaults to the L1 atomistique demo."
+        },
+        "studium.communityBundlesRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Root the 'Contributions de la classe / Community contributions' command discovers approved learner-authored bundles against (the course bundles root the scene-synth decide_item path emits <courseRoot>/community/*.zip into). Leave empty to reuse studium.bundlesRoot. The canonical course is never mutated; community items are additive."
         },
         "studium.assets": {
           "type": "string",

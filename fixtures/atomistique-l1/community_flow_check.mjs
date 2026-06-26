@@ -53,7 +53,7 @@ import json, sys
 sys.path.insert(0, ${JSON.stringify(SCENE_SYNTH)})
 from bundler import validate_scene
 from learner_items_store import LAItemEnvelope, LearnerItemsStore
-from learner_review import decide_item, record_peer_review
+from learner_review import decide_item, record_peer_review, community_emit_dir
 
 root = ${JSON.stringify(root)}
 concepts = json.load(open(${JSON.stringify(CANONICAL)}, encoding="utf-8"))["concepts"]
@@ -88,11 +88,14 @@ store.append_new(LAItemEnvelope(
 ))
 # peer rates (P3) -> opens peer_review
 record_peer_review(store, ${JSON.stringify(ITEM_ID)}, passed=True, rating=5, helpful=True)
-# teacher approves (rule-003) -> emits community/community-<item>.zip
+# teacher approves (rule-003) -> emits community/community-<item>.zip.
+# A3 PATH RECONCILIATION: we hand decide_item the SHARED community_emit_dir(courseRoot) helper
+# (== <root>/community), the exact dir the TS discoverCommunityBundles(root) scans — so the
+# emit side and the discover side agree by construction, without the bridge hardcoding the subdir.
 pub = decide_item(
   store, ${JSON.stringify(ITEM_ID)}, decision="approve",
   reviewer=${JSON.stringify(TEACHER)}, reviewed_at="2026-06-26T15:30:00Z",
-  bundles_root=root + "/" + ${JSON.stringify(COMMUNITY_DIR)}, course_concepts=concepts, note_code="ok",
+  bundles_root=community_emit_dir(root), course_concepts=concepts, note_code="ok",
 )
 assert pub.review_state == "published", pub.review_state
 print(pub.published_bundle_ref)

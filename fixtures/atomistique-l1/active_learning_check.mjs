@@ -15,6 +15,7 @@ const GOOD = {
   comparison: "le cours de l'enseignant signale le piege 4s avant 3d, donne le contre-exemple du chrome qui viole la regle, et nuance que c'est un guide",
   summary_audit: "le resume oublie que les niveaux sont quantifies, omet la relation d'energie du photon, et ne dit pas que balmer est dans le visible",
   prompt_practice: "explique pourquoi, en restant pour un niveau l1, en moins de 150 mots, et donne la reponse en trois points numerotes",
+  communication_sim: "je te fais une image simple : deux zones de chaque cote du noyau, comme deux pieces separees par un couloir, avec au milieu un endroit ou l'electron ne passe jamais",
 };
 // Per-scene overrides: a type can have SEVERAL instances with DIFFERENT cue sets (Wave1-C added a
 // comparison/summary_audit/prompt_practice on other concepts), so a type-level answer no longer fits
@@ -35,40 +36,68 @@ const AL_INPUT_KIND = {
   comparison: "comparison",
   summary_audit: "summary_audit",
   prompt_practice: "prompt_submission",
+  communication_sim: "communication",
 };
 const masteryOf = (pres, cid) => (pres.learnerSnapshot?.conceptMastery || {})[cid];
 
-let pres = presentation;
-const seen = [];
-for (let step = 0; step < 200; step++) {
-  const sc = pres.scene;
-  let input;
-  if (sc.type === "quiz") { const c = (sc.choices || []).find((x) => x.correct) || sc.choices[0]; input = { kind: "quiz_choice", choiceId: c.id }; }
-  else if (sc.type === "meta_checkpoint") input = { kind: "confidence", value: 3 };
-  else if (sc.type === "ai_critique") input = { kind: "critique", text: "ok" };
-  else if (AL_INPUT_KIND[sc.type]) input = { kind: AL_INPUT_KIND[sc.type], text: goodFor(sc) };
-  else input = { kind: "ack" };
+// Drive a session to completion. `weakBefore` (optional set of scene ids) get a deliberately WEAK answer
+// so the concept does not certify (mastery_c >= 0.8 → skip_to_next_concept) before a later same-concept
+// scene is reached — this is how the second pass reaches communication_sim, which the default GOOD walk
+// skips once c-orbitales-formes is mastered by the quiz+explain_back+comparison trio that precedes it.
+async function walk(sessionId, presentation, { weakBefore = new Set() } = {}) {
+  let pres = presentation;
+  const seen = [];
+  for (let step = 0; step < 200; step++) {
+    const sc = pres.scene;
+    const weak = weakBefore.has(sc.id);
+    let input;
+    if (sc.type === "quiz") {
+      const c = weak ? (sc.choices || []).find((x) => !x.correct) : (sc.choices || []).find((x) => x.correct);
+      input = { kind: "quiz_choice", choiceId: (c || sc.choices[0]).id };
+    }
+    else if (sc.type === "meta_checkpoint") input = { kind: "confidence", value: 3 };
+    else if (sc.type === "ai_critique") input = { kind: "critique", text: "ok" };
+    else if (AL_INPUT_KIND[sc.type]) input = { kind: AL_INPUT_KIND[sc.type], text: weak ? "je ne sais pas" : goodFor(sc) };
+    else input = { kind: "ack" };
 
-  const isAL = Boolean(AL_INPUT_KIND[sc.type]);
-  const cid = sc.concept_refs?.[0];
-  const before = isAL ? masteryOf(pres, cid) : undefined;
+    const isAL = Boolean(AL_INPUT_KIND[sc.type]);
+    const cid = sc.concept_refs?.[0];
+    const before = isAL ? masteryOf(pres, cid) : undefined;
 
-  const t = await host.respond(sessionId, input);
+    const t = await host.respond(sessionId, input);
 
-  if (isAL) {
-    const after = t.presentation ? masteryOf(t.presentation, cid) : masteryOf(pres, cid);
-    const body = sc.flawed_content ?? sc.prompt ?? sc.source_content ?? sc.task;
-    seen.push({ id: sc.id, type: sc.type, concept: cid, before, after });
-    console.log(`\n● ${sc.type}  (${sc.id})  → concept ${cid}`);
-    console.log(`  body: ${String(body).slice(0, 72)}…`);
-    console.log(`  answered GOOD → transition ${t.kind};  mastery[${cid}] ${before?.toFixed?.(3) ?? "—"} → ${after?.toFixed?.(3) ?? "—"}`);
+    if (isAL && !weak) {
+      const after = t.presentation ? masteryOf(t.presentation, cid) : masteryOf(pres, cid);
+      const body = sc.flawed_content ?? sc.prompt ?? sc.source_content ?? sc.task;
+      seen.push({ id: sc.id, type: sc.type, concept: cid, before, after });
+      console.log(`\n● ${sc.type}  (${sc.id})  → concept ${cid}`);
+      console.log(`  body: ${String(body).slice(0, 72)}…`);
+      console.log(`  answered GOOD → transition ${t.kind};  mastery[${cid}] ${before?.toFixed?.(3) ?? "—"} → ${after?.toFixed?.(3) ?? "—"}`);
+    }
+    if (t.kind === "complete") { console.log(`\nlesson completed at step ${step}.`); break; }
+    pres = t.presentation;
   }
-  if (t.kind === "complete") { console.log(`\nlesson completed at step ${step}.`); break; }
-  pres = t.presentation;
+  return seen;
+}
+
+const seen = await walk(sessionId, presentation);
+
+// Second pass — the communication_sim scene (s3d-communicate-2p) sits 4th on c-orbitales-formes, AFTER the
+// quiz+explain_back+comparison trio: the comparison is the 3rd answer-graded attempt, which tips mastery_c
+// >= 0.8 (total_attempts >= 3) and fires rule_mastery_high_skip (skip_to_next_concept), so the default GOOD
+// walk skips it. Reach it with a fresh session where ONLY the immediately-preceding comparison gets a WEAK
+// answer (one error → no replay loop; mastery_c stays < 0.8 → no skip), then answer communication_sim GOOD
+// and assert it feeds the concept's mastery — the same end-to-end property asserted for the other scenes.
+const COMM_WEAK_BEFORE = new Set(["s3c-compare-noeuds"]);
+{
+  const r2 = await host.create("atomistique-l1/lesson.json", "comm-tester");
+  const seen2 = await walk(r2.sessionId, r2.presentation, { weakBefore: COMM_WEAK_BEFORE });
+  const comm = seen2.find((s) => s.type === "communication_sim");
+  if (comm) seen.push(comm);
 }
 
 const types = seen.map((s) => s.type);
-const REQUIRED = ["spot_the_flaw", "explain_back", "comparison", "summary_audit", "prompt_practice"];
+const REQUIRED = ["spot_the_flaw", "explain_back", "comparison", "summary_audit", "prompt_practice", "communication_sim"];
 const missing = REQUIRED.filter((t) => !types.includes(t));
 if (missing.length) {
   console.error("FAIL: did not encounter all active-learning scenes; missing:", missing, "saw:", types);

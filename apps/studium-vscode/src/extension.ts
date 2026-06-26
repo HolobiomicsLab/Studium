@@ -14,12 +14,14 @@ import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studiu
 import { registerStudiumNotebook } from "./notebook.js";
 import { reviewDueConcepts } from "./review-fsrs.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
+import { discoverCommunityBundles, toPickItems } from "./community.js";
 
 type Json = Record<string, any>;
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("studium.openLesson", () => openLesson(context)),
+    vscode.commands.registerCommand("studium.communityContributions", () => openCommunityContribution(context)),
   );
   registerStudiumNotebook(context);
 }
@@ -30,15 +32,69 @@ function cfg<T>(key: string, fallback: T): T {
   return v === undefined || v === "" ? fallback : v;
 }
 
-async function openLesson(context: vscode.ExtensionContext) {
+/** Resolve the runtime BUNDLES_ROOT exactly as openLesson does, so discovery and lesson-open agree
+ * on the same root. The community-bundles root override (studium.communityBundlesRoot) lets a
+ * deployment point discovery at the COURSE bundles root the scene-synth emit path writes into, when
+ * that differs from the lesson BUNDLES_ROOT. */
+function resolveBundlesRoot(context: vscode.ExtensionContext): string {
+  const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
+  const lessonBundlesRoot = cfg<string>("bundlesRoot", join(repoRoot, "fixtures"));
+  return cfg<string>("communityBundlesRoot", lessonBundlesRoot);
+}
+
+/**
+ * "Contributions de la classe / Community contributions" — discover the approved, learner-authored
+ * community bundles sitting in the bound course's community/ subdir (emitted by the scene-synth
+ * decide_item approve path, packages/lesson-session-host/src/community-bundles.ts contract) and let
+ * the learner pick one to open. A chosen community bundle opens through the SAME open-lesson path as
+ * the canonical bundle (openLesson with the community ref) — the canonical course stays immutable;
+ * community items are purely additive. No author identity is ever shown (the emitted bundle is
+ * pseudonym-scrubbed; the picker shows only the neutral item id).
+ */
+async function openCommunityContribution(context: vscode.ExtensionContext) {
+  const bundlesRoot = resolveBundlesRoot(context);
+  const canonicalRef = cfg<string>("bundleRef", "atomistique-l1/lesson.json");
+  let bundles;
+  try {
+    bundles = discoverCommunityBundles(bundlesRoot, canonicalRef);
+  } catch (e: any) {
+    vscode.window.showErrorMessage(`Studium: could not scan community contributions — ${e.message}`);
+    return;
+  }
+  if (bundles.length === 0) {
+    vscode.window.showInformationMessage(
+      "Studium: aucune contribution de la classe pour ce cours pour l'instant (no community contributions yet).",
+    );
+    return;
+  }
+  const picks = toPickItems(bundles);
+  const chosen = await vscode.window.showQuickPick(picks, {
+    title: "Contributions de la classe / Community contributions",
+    placeHolder: "Choisis une contribution d'un·e camarade à étudier (approuvée par l'enseignant·e)",
+    matchOnDescription: true,
+  });
+  if (!chosen) return; // dismissed
+  // Open the chosen community bundle EXACTLY like the canonical one — reuse openLesson with the
+  // community ref as the bundleRef override. resolveBundle / start_lesson_session load it unchanged.
+  await openLesson(context, chosen.ref);
+}
+
+async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: string) {
   // The extension ships inside the monorepo (apps/studium-vscode); default repoRoot = ../../ .
   const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
   const tsx = resolve(repoRoot, "node_modules/.pnpm/node_modules/.bin/tsx");
   const mcpDir = resolve(repoRoot, "apps/lesson-mcp");
   // Default to the repo's own fixtures/ + the atomistique bundle, so it runs zero-config from any
-  // clone. Override studium.bundlesRoot / studium.bundleRef to point elsewhere.
-  const bundlesRoot = cfg<string>("bundlesRoot", join(repoRoot, "fixtures"));
-  const bundleRef = cfg<string>("bundleRef", "atomistique-l1/lesson.json");
+  // clone. Override studium.bundlesRoot / studium.bundleRef to point elsewhere. A community bundle
+  // opened via "Contributions de la classe" passes its ref as bundleRefOverride — it loads through
+  // this SAME path as the canonical bundle (the course stays immutable; community items are additive).
+  // When opening a community bundle, root BUNDLES_ROOT at the SAME root discovery used
+  // (resolveBundlesRoot — honours studium.communityBundlesRoot) so the community ref resolves; a
+  // canonical open keeps the plain lesson bundlesRoot.
+  const bundlesRoot = bundleRefOverride
+    ? resolveBundlesRoot(context)
+    : cfg<string>("bundlesRoot", join(repoRoot, "fixtures"));
+  const bundleRef = bundleRefOverride ?? cfg<string>("bundleRef", "atomistique-l1/lesson.json");
   const learnerId = cfg<string>("learnerId", "vscode-learner");
   const consent = cfg<boolean>("telemetryConsent", false);
 

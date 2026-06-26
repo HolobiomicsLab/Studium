@@ -67,6 +67,8 @@ SceneType = Literal[
     "spot_the_flaw", "explain_back",
     # active-learning wave-1: comparison / summary_audit / prompt_practice.
     "comparison", "summary_audit", "prompt_practice",
+    # active-learning wave-2 (D2): simulate a professional communication situation.
+    "communication_sim",
 ]
 ReasoningSignalEnum = Literal[
     "justification", "hypothesis", "question", "counterexample", "synthesis",
@@ -231,11 +233,21 @@ class PromptPracticeScene(_SceneBase):
     rubric: AICritiqueRubric
 
 
+class CommunicationSimScene(_SceneBase):
+    type: Literal["communication_sim"]
+    scenario: str = Field(min_length=1)
+    prompt: str = Field(min_length=1)
+    key_points: list[KeyPoint] = Field(min_length=1)
+    model_response: str = Field(min_length=1)
+    rubric: AICritiqueRubric
+
+
 SceneUnion = Union[
     IntroScene, ConceptScene, QuizScene, MetaCheckpointScene,
     ReproductionScene, AICritiqueScene, DiscussionScene,
     SpotTheFlawScene, ExplainBackScene,
     ComparisonScene, SummaryAuditScene, PromptPracticeScene,
+    CommunicationSimScene,
 ]
 Scene = Annotated[SceneUnion, Field(discriminator="type")]
 

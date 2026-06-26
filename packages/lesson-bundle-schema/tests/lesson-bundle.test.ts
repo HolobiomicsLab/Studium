@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema, DiscussionSceneSchema, ConceptSceneSchema, ReproductionSceneSchema, SpotTheFlawSceneSchema, ExplainBackSceneSchema, ComparisonSceneSchema, SummaryAuditSceneSchema, PromptPracticeSceneSchema, SCHEMA_VERSION } from "../src/index";
+import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema, DiscussionSceneSchema, ConceptSceneSchema, ReproductionSceneSchema, SpotTheFlawSceneSchema, ExplainBackSceneSchema, ComparisonSceneSchema, SummaryAuditSceneSchema, PromptPracticeSceneSchema, CommunicationSimSceneSchema, SCHEMA_VERSION } from "../src/index";
 
 function _minimalBundle() {
   return {
@@ -273,6 +273,31 @@ describe("LessonBundleSchema", () => {
     };
     expect(() => PromptPracticeSceneSchema.parse({ ...base, key_points: [] })).toThrow();
     expect(() => PromptPracticeSceneSchema.parse({ ...base, key_points: [{ id: "k", text: "t", cues: [] }] })).toThrow();
+  });
+
+  it("validates CommunicationSimScene (active-learning wave-2 D2)", () => {
+    const scene = {
+      id: "s-com-1", type: "communication_sim", title: "Explique à un·e camarade, sans jargon",
+      objective_refs: [], concept_refs: ["c-orbitales-formes"], estimated_seconds: 240, adaptation_hooks: [],
+      scenario: "Fin du TD ; un·e camarade pas au point te demande de l'aide. Ton rôle : pair·e. Public : L1.",
+      prompt: "Explique-lui pourquoi la 2p a deux lobes, sans jargon.",
+      key_points: [{ id: "kp1", text: "deux zones simples", cues: ["deux zones"] }],
+      model_response: "Imagine deux zones de chaque côté, séparées par un couloir vide.",
+      rubric: { completeness: 0.6, evidence_quality: 0.2, tone: 0.2 },
+    };
+    expect(() => CommunicationSimSceneSchema.parse(scene)).not.toThrow();
+    expect(() => LessonBundleSchema.parse({ ...VALID_BUNDLE, scenes: [VALID_BUNDLE.scenes[0], scene] })).not.toThrow();
+  });
+
+  it("rejects CommunicationSimScene without key_points / with empty cues (RC-1)", () => {
+    const base = {
+      id: "s-com-2", type: "communication_sim", title: "x",
+      objective_refs: [], concept_refs: [], estimated_seconds: 60, adaptation_hooks: [],
+      scenario: "s", prompt: "p", model_response: "m",
+      rubric: { completeness: 0.5, evidence_quality: 0.5, tone: 0.5 },
+    };
+    expect(() => CommunicationSimSceneSchema.parse({ ...base, key_points: [] })).toThrow();
+    expect(() => CommunicationSimSceneSchema.parse({ ...base, key_points: [{ id: "k", text: "t", cues: [] }] })).toThrow();
   });
 
   it("rejects legacy schema_version 1.1 (ADR 012 bump)", () => {

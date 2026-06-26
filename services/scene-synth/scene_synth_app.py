@@ -30,7 +30,12 @@ from agents.base import SceneSynthError
 from agents.critique_evaluator import CritiqueEvaluator
 from bundler import validate_scene
 from learner_items_store import LAItemEnvelope, LearnerItemsStore
-from learner_review import decide_item, peer_signals_view, record_peer_review
+from learner_review import (
+    community_emit_dir,
+    decide_item,
+    peer_signals_view,
+    record_peer_review,
+)
 from orchestrator import SceneSynthOrchestrator
 from scene_synth_schemas import (
     CritiqueEvalRequest,
@@ -74,7 +79,20 @@ _LEARNER_DATA_ROOT = Path(
 _learner_store: LearnerItemsStore = LearnerItemsStore(
     _LEARNER_DATA_ROOT / "learner_items.jsonl"
 )
-_learner_bundles_root: Path = _LEARNER_DATA_ROOT / "community-bundles"
+
+# A3 — emit/discover PATH reconciliation. An approved community bundle must land
+# where the TS runtime's discoverCommunityBundles(courseRoot) scans:
+# ``<courseRoot>/community``. ``COMMUNITY_BUNDLES_ROOT`` is the COURSE bundles root
+# (the dir holding the canonical, immutable ``lesson.json`` a SessionHost is rooted
+# at). The emit dir is its ``community/`` subdir, so a decide on the running server
+# is DISCOVERABLE by a live student runtime rooted at the same course — additively,
+# without ever mutating the canonical course. When unset we fall back to
+# LEARNER_DATA_ROOT so the legacy standalone behaviour (a self-contained bundles
+# root) keeps working; tests monkeypatch ``_learner_bundles_root`` directly.
+_COMMUNITY_BUNDLES_ROOT = Path(
+    os.environ.get("COMMUNITY_BUNDLES_ROOT", str(_LEARNER_DATA_ROOT))
+)
+_learner_bundles_root: Path = community_emit_dir(_COMMUNITY_BUNDLES_ROOT)
 
 # Demo course context (plan §"Minor defaults": hardcoded to atomistique-l1).
 # The single course concept a learner quiz on radial nodes references.

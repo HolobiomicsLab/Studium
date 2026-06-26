@@ -271,6 +271,47 @@ def build_scenes() -> list[dict]:
         "render_assets": [orbital("assets/orbitals/2pz.cube", "Orbitale 2p_z (plan nodal angulaire)")],
     })
 
+    # communication_sim — Dubas "simuler des situations de communication professionnelle" (Wave2-D2). The learner is
+    # placed in a real communication situation: explain to a peer (a TD classmate not yet up to speed) WHY the 2p has
+    # two lobes, WITHOUT jargon. scenario = the situation + the learner's role + the audience; prompt = what to
+    # communicate. key_points = the content cues a good LAY explanation contains (a plain image of the two regions /
+    # the in-between zone the electron never visits / a relatable analogy / explicitly avoiding the jargon word). cues
+    # are accent-free substrings the matcher folds (normalize()); the model_response self-covers every cue. Neither
+    # key_points nor model_response is rendered pre-answer. Grounded by the same 2p_z cube the learner just rotated.
+    S.append({
+        "id": "s3d-communicate-2p", "type": "communication_sim",
+        "title": "Communique — explique la 2p à un·e camarade, sans jargon",
+        "objective_refs": [], "concept_refs": concept_refs("c-orbitales-formes"),
+        "estimated_seconds": 240, "adaptation_hooks": [],
+        "scenario": "**Situation.** C'est la fin du TD. Un·e **camarade** qui a manqué le début te demande de l'aide : "
+                    "il/elle n'est **pas encore au point** sur les orbitales et n'a **jamais entendu** les mots "
+                    "« fonction d'onde » ou « plan nodal ». **Ton rôle** : jouer le/la pair·e qui réexplique. **Ton "
+                    "public** : un·e étudiant·e de L1 qui veut juste *comprendre l'image*, pas une démonstration.",
+        "prompt": "**Explique-lui, à l'oral et sans aucun jargon, pourquoi la 2p a deux lobes** — pas de « fonction "
+                  "d'onde », pas de « plan nodal », pas de formule. Sers-toi d'une **image simple** et, si tu peux, "
+                  "d'une **analogie** du quotidien. Reste **court et clair**.",
+        # cues = CONTENT a good NON-EXPERT explanation contains (accent-free, NO stopwords — keyword-stuffing fails).
+        # Self-covered by the model_response below: "deux zones" (simple description), "image" (uses an image →
+        # accessible), "ne passe jamais" (the node in plain words), "couloir" (the everyday analogy).
+        "key_points": [
+            {"id": "kp-clair", "text": "Décrit les deux lobes en mots simples : deux zones où l'électron a des chances de se trouver",
+             "cues": ["deux zones"]},
+            {"id": "kp-public", "text": "Reste accessible : passe par une image simple plutôt que par le jargon",
+             "cues": ["image"]},
+            {"id": "kp-exact", "text": "Reste juste : entre les deux zones, il y a un endroit où l'électron ne passe jamais",
+             "cues": ["ne passe jamais"]},
+            {"id": "kp-analogie", "text": "Donne une analogie concrète du quotidien (ex. des pièces et un couloir)",
+             "cues": ["couloir"]},
+        ],
+        "model_response": "« Imagine l'électron de la 2p comme quelqu'un qui a **deux zones** préférées de chaque côté "
+                          "du noyau, **comme** deux pièces séparées par un couloir. Entre les deux, il y a un endroit "
+                          "qu'il **ne passe jamais** : c'est pour ça que tu vois **deux** régions distinctes (les deux "
+                          "lobes) et pas une seule. Je te dis tout ça **sans** te noyer dans les formules : retiens "
+                          "juste l'image des deux zones et du couloir vide au milieu. »",
+        "rubric": {"completeness": 0.6, "evidence_quality": 0.2, "tone": 0.2},
+        "render_assets": [orbital("assets/orbitals/2pz.cube", "Orbitale 2p_z (les deux lobes)")],
+    })
+
     S.append({
         "id": "s4-concept-spectres", "type": "concept", "title": "Quantification et spectres d'émission",
         "objective_refs": [], "concept_refs": concept_refs("c-spectres"),
@@ -601,6 +642,7 @@ def build_lwg() -> dict:
         "s3-quiz-noeuds": ("c-orbitales-formes", "quiz"),
         "s3b-explain-2p": ("c-orbitales-formes", "explain_back"),
         "s3c-compare-noeuds": ("c-orbitales-formes", "comparison"),
+        "s3d-communicate-2p": ("c-orbitales-formes", "communication_sim"),
         "s4-quiz-balmer": ("c-spectres", "quiz"),
         "s4b-audit-spectres": ("c-spectres", "summary_audit"),
         "s5-quiz-carbone": ("c-configuration", "quiz"),

@@ -57,7 +57,7 @@ export const CritiqueSubmittedSchema = BaseEventSchema.extend({
   scene_id: z.string(),
   llm_score: z.number().min(0).max(1),
   completion_rate: z.number().min(0).max(1),
-  scene_type: z.enum(["ai_critique", "spot_the_flaw", "explain_back", "comparison", "summary_audit", "prompt_practice"]).optional(),
+  scene_type: z.enum(["ai_critique", "spot_the_flaw", "explain_back", "comparison", "summary_audit", "prompt_practice", "communication_sim"]).optional(),
 });
 
 export const LessonCompletedSchema = BaseEventSchema.extend({

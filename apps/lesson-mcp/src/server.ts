@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { SessionHost, ResponseInputSchema } from "@studium/lesson-session-host";
+import { SessionHost, ResponseInputSchema, publicPresentation, publicTransition } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
@@ -27,7 +27,9 @@ export function buildMcpServer(host: SessionHost): McpServer {
     async ({ bundle_ref, learner_id }) => {
       try {
         const r = await host.create(bundle_ref, learner_id);
-        return text({ session_id: r.sessionId, presentation: r.presentation });
+        // Redact the answer key (quiz `correct`, claims/key_points/cues, model_* reveals) at the
+        // client boundary — the server keeps the full scene; only this projection ships.
+        return text({ session_id: r.sessionId, presentation: publicPresentation(r.presentation) });
       } catch (e) { return fail((e as Error).message); }
     },
   );
@@ -39,7 +41,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
       inputSchema: { session_id: z.string() },
     },
     async ({ session_id }) => {
-      try { return text({ presentation: host.currentPresentation(session_id) }); }
+      try { return text({ presentation: publicPresentation(host.currentPresentation(session_id)) }); }
       catch (e) { return fail((e as Error).message); }
     },
   );
@@ -51,7 +53,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
       inputSchema: { session_id: z.string(), input: ResponseInputSchema },
     },
     async ({ session_id, input }) => {
-      try { return text({ transition: await host.respond(session_id, input as ResponseInput) }); }
+      try { return text({ transition: publicTransition(await host.respond(session_id, input as ResponseInput)) }); }
       catch (e) { return fail((e as Error).message); }
     },
   );

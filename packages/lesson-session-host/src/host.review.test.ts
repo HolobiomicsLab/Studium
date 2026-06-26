@@ -217,12 +217,15 @@ describe("SessionHost.reviewQueue / calibrationFor (integration)", () => {
     expect(later.find((i) => i.concept_id === "c1")?.due).toBe(true);
   });
 
-  it("calibrationFor scopes to a concept and never returns a leaked number", async () => {
+  it("calibrationFor returns NO verdict for a concept answered but never self-assessed (no fabrication)", async () => {
     const host = new SessionHost({ bundlesRoot: bundlesDir(), live: false });
     const { sessionId } = await host.create("mini.json");
     await host.respond(sessionId, correctChoice(host, sessionId));
-    // no confidence_declared yet ⇒ calibration is 0 ⇒ "bien" (or empty if attempts gate it)
+    // The learner answered but never declared a confidence → confidence_calibration is its default 0,
+    // which must NOT become a fabricated "bien calibré" verdict. The gate keys on the
+    // confidence_declared history (h.signal.kind), so the result is empty — and never leaks a number.
     const verdicts = host.calibrationFor(sessionId, "c1");
+    expect(verdicts).toHaveLength(0);
     for (const v of verdicts) expect(v.message).not.toMatch(/[0-9]/);
   });
 });
