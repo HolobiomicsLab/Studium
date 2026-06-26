@@ -23,7 +23,9 @@ export type ResponseInput =
   | { kind: "ack" }
   | { kind: "quiz_choice"; choiceId: string }
   | { kind: "confidence"; value: 0 | 1 | 2 | 3 | 4 }
-  | { kind: "critique"; text: string };
+  | { kind: "critique"; text: string }
+  | { kind: "flaw_report"; text: string }    // spot_the_flaw: the learner's named flaws
+  | { kind: "explanation"; text: string };   // explain_back: the learner's teach-back
 
 export interface CompletionSummary {
   totalDurationMs: number;

@@ -5,7 +5,9 @@ from pydantic import BaseModel, Field, model_validator
 BloomLevel = Literal["remember", "understand", "apply", "analyze", "evaluate", "create"]
 KnowledgeDimension = Literal["factual", "conceptual", "procedural", "metacognitive"]
 SceneType = Literal[
-    "intro", "concept", "quiz", "simulation", "reproduction", "discussion", "meta_checkpoint", "ai_critique"
+    "intro", "concept", "quiz", "simulation", "reproduction", "discussion", "meta_checkpoint", "ai_critique",
+    # active-learning task nodes:
+    "spot_the_flaw", "explain_back",
 ]
 EdgeRelation = Literal["prerequisite_for", "part_of", "decomposes_into", "assesses", "aligns_with"]
 ReproducibilityTier = Literal["certified", "type-checked", "bypassed", "manual-only", "experimental"]

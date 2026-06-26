@@ -19,4 +19,13 @@ describe("matchClaimsAgainstCritique", () => {
       planted_errors: 0, true_positives: 0, false_positives: 0, missed: 0,
     });
   });
+  // folds diacritics + superscripts + apostrophes so accent-free authored keys match French free text
+  it("folds superscripts: cue '2p3' matches a learner's '2p³'", () => {
+    expect(matchClaimsAgainstCritique([{ id: "c", flaws_expected: ["2p3"] }], "la bonne config est 2p³").true_positives).toBe(1);
+  });
+  it("folds diacritics + apostrophes: cues match accented/curly-quote answers", () => {
+    const c = [{ id: "c", flaws_expected: ["probabilite presence", "fonction d onde"] }];
+    const r = matchClaimsAgainstCritique(c, "la fonction d’onde donne la probabilité de présence");
+    expect(r).toMatchObject({ planted_errors: 2, true_positives: 2, missed: 0 });
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema, DiscussionSceneSchema, ConceptSceneSchema, ReproductionSceneSchema, SCHEMA_VERSION } from "../src/index";
+import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema, DiscussionSceneSchema, ConceptSceneSchema, ReproductionSceneSchema, SpotTheFlawSceneSchema, ExplainBackSceneSchema, SCHEMA_VERSION } from "../src/index";
 
 function _minimalBundle() {
   return {
@@ -140,6 +140,63 @@ describe("LessonBundleSchema", () => {
       max_turns: 5,
     };
     expect(() => DiscussionSceneSchema.parse(scene)).toThrow();
+  });
+
+  it("validates SpotTheFlawScene (active-learning)", () => {
+    const scene = {
+      id: "s-spot-1", type: "spot_the_flaw", title: "Repère l'erreur",
+      objective_refs: [], concept_refs: ["c-remplissage"], estimated_seconds: 120, adaptation_hooks: [],
+      flawed_content: "L'azote est 1s² 2s² 2p⁴ avec des électrons appariés.",
+      claims: [{ id: "f1", text: "config fausse", flaws_expected: ["hund", "2p3"] }],
+      model_correction: "L'azote est 1s² 2s² 2p³ (règle de Hund).",
+      rubric: { completeness: 0.6, evidence_quality: 0.3, tone: 0.1 },
+    };
+    expect(() => SpotTheFlawSceneSchema.parse(scene)).not.toThrow();
+    expect(() => LessonBundleSchema.parse({ ...VALID_BUNDLE, scenes: [VALID_BUNDLE.scenes[0], scene] })).not.toThrow();
+  });
+
+  it("validates ExplainBackScene (active-learning)", () => {
+    const scene = {
+      id: "s-exp-1", type: "explain_back", title: "Explique",
+      objective_refs: [], concept_refs: ["c-orbitales-formes"], estimated_seconds: 180, adaptation_hooks: [],
+      prompt: "Pourquoi la 2p a-t-elle deux lobes ?",
+      key_points: [{ id: "kp1", text: "fonction d'onde", cues: ["fonction"] }],
+      model_explanation: "La 2p change de signe : plan nodal.",
+      rubric: { completeness: 0.6, evidence_quality: 0.2, tone: 0.2 },
+    };
+    expect(() => ExplainBackSceneSchema.parse(scene)).not.toThrow();
+    expect(() => LessonBundleSchema.parse({ ...VALID_BUNDLE, scenes: [VALID_BUNDLE.scenes[0], scene] })).not.toThrow();
+  });
+
+  it("rejects SpotTheFlawScene without claims", () => {
+    const invalid = {
+      id: "s-spot-2", type: "spot_the_flaw", title: "x",
+      objective_refs: [], concept_refs: [], estimated_seconds: 60, adaptation_hooks: [],
+      flawed_content: "x", claims: [], model_correction: "y",
+      rubric: { completeness: 0.5, evidence_quality: 0.5, tone: 0.5 },
+    };
+    expect(() => SpotTheFlawSceneSchema.parse(invalid)).toThrow();
+  });
+
+  it("rejects SpotTheFlawScene whose claim has empty flaws_expected (RC-1)", () => {
+    const invalid = {
+      id: "s-spot-3", type: "spot_the_flaw", title: "x",
+      objective_refs: [], concept_refs: [], estimated_seconds: 60, adaptation_hooks: [],
+      flawed_content: "x", claims: [{ id: "f", text: "t", flaws_expected: [] }], model_correction: "y",
+      rubric: { completeness: 0.5, evidence_quality: 0.5, tone: 0.5 },
+    };
+    expect(() => SpotTheFlawSceneSchema.parse(invalid)).toThrow();
+  });
+
+  it("rejects ExplainBackScene without key_points and with empty cues (RC-1)", () => {
+    const base = {
+      id: "s-exp-2", type: "explain_back", title: "x",
+      objective_refs: [], concept_refs: [], estimated_seconds: 60, adaptation_hooks: [],
+      prompt: "p", model_explanation: "m",
+      rubric: { completeness: 0.5, evidence_quality: 0.5, tone: 0.5 },
+    };
+    expect(() => ExplainBackSceneSchema.parse({ ...base, key_points: [] })).toThrow();
+    expect(() => ExplainBackSceneSchema.parse({ ...base, key_points: [{ id: "k", text: "t", cues: [] }] })).toThrow();
   });
 
   it("rejects legacy schema_version 1.1 (ADR 012 bump)", () => {

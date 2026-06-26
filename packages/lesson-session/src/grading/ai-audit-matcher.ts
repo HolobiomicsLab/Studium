@@ -9,7 +9,14 @@ export type MatchResult = {
 type ClaimLike = { id: string; flaws_expected: string[] };
 
 function normalize(text: string): string {
-  return text.toLowerCase().replace(/[_-]/g, " ");
+  // Fold so French free-text answers match accent-free authored keywords:
+  //  - NFKD + strip combining marks: diacritics (é→e, è→e, ç→c) AND super/subscripts (2p³→2p3, H₂O→h2o);
+  //  - treat _, -, and apostrophes (straight + curly) as spaces (fonction d'onde → "fonction d onde").
+  return text
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[_\-'’]/g, " ");
 }
 function tokens(text: string): string[] {
   return normalize(text).split(/\s+/).filter((t) => t.length > 0);

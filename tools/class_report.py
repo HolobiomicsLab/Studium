@@ -71,7 +71,7 @@ def build_report(run_dir: Path, min_learners: int = 5, bundle_path: Path | None 
     # per-concept accumulators (aggregated across learners)
     by_concept: dict[str, dict] = defaultdict(lambda: {
         "attempts": 0, "correct": 0, "hint_requests": 0, "conf_sum": 0.0,
-        "overconfident": 0, "underconfident": 0, "time_ms": 0,
+        "overconfident": 0, "underconfident": 0, "time_ms": 0, "timed": 0,
     })
     rule_counts: Counter = Counter()
     n_started = n_completed = 0
@@ -105,6 +105,20 @@ def build_report(run_dir: Path, min_learners: int = 5, bundle_path: Path | None 
                 if conf <= 0.4 and e.get("correct"):
                     a["underconfident"] += 1
                 a["time_ms"] += int(e.get("response_time_ms") or 0)
+                a["timed"] += 1
+            elif t == "critique_submitted":
+                # Scored free-response scenes (ai_critique / spot_the_flaw / explain_back) roll up
+                # into the SAME per-concept accuracy as quizzes: a pass is llm_score >= 0.6. These
+                # items carry NO self-rated confidence, so they must stay CALIBRATION-NEUTRAL: conf_sum
+                # gets the SAME binary as `correct` (1.0 on pass else 0.0), making their contribution to
+                # calibration_gap exactly 0 (conf == accuracy). Adding the raw score instead would falsely
+                # shift the gap on concepts that mix quizzes and critiques. No response_time → not `timed`.
+                c = s2c.get(e.get("scene_id"), e.get("scene_id"))
+                a = by_concept[c]
+                a["attempts"] += 1
+                passed = float(e.get("llm_score") or 0.0) >= 0.6
+                a["correct"] += 1 if passed else 0
+                a["conf_sum"] += 1.0 if passed else 0.0
             elif t == "hint_requested":
                 c = s2c.get(e.get("scene_id"), e.get("scene_id"))
                 by_concept[c]["hint_requests"] += 1
@@ -129,7 +143,7 @@ def build_report(run_dir: Path, min_learners: int = 5, bundle_path: Path | None 
             "hint_reliance": round(a["hint_requests"] / n, 3),
             "calibration_gap": round((a["conf_sum"] / n) - (a["correct"] / n), 3),  # + = overconfident
             "overconfidence_rate": round(a["overconfident"] / n, 3),
-            "mean_time_s": round(a["time_ms"] / n / 1000, 1),
+            "mean_time_s": round(a["time_ms"] / (a["timed"] or 1) / 1000, 1),  # only timed (quiz) items
         })
     # surface the concepts most in need of re-teaching: low accuracy, then high hint-reliance
     concepts.sort(key=lambda x: (x["accuracy"], -x["hint_reliance"]))

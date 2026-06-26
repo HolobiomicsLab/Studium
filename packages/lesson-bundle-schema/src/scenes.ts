@@ -57,6 +57,8 @@ export const EvidenceSchema = z.object({
 export const SceneTypeSchema = z.enum([
   "intro", "concept", "quiz", "meta_checkpoint",
   "reproduction", "ai_critique", "discussion",
+  // active-learning scenes (learner-as-active-agent): find planted errors / teach back.
+  "spot_the_flaw", "explain_back",
 ]);
 
 export const ReasoningSignalEnum = z.enum([
@@ -170,6 +172,48 @@ export const DiscussionSceneSchema = SceneBaseSchema.extend({
   max_turns: z.number().int().positive().max(50),
 });
 
+// A spot_the_flaw claim MUST carry at least one expected-flaw keyword: a planted assertion with
+// nothing to spot is meaningless, and (since the offline scorer derives the pass/score from the flaw
+// COUNT) an all-empty answer key would silently fail every learner. This differs from ai_critique's
+// ClaimSchema, which legitimately allows a sound distractor claim with no flaws.
+export const FlawClaimSchema = ClaimSchema.extend({
+  flaws_expected: z.array(z.string()).min(1),
+});
+
+// spot_the_flaw — the learner reads a deliberately-FLAWED mini-lesson (flawed_content), names what
+// is wrong (free text), and is scored on how many planted flaws they catch. `claims` is the answer
+// key (the flawed assertions + the flaws_expected keywords the scorer matches) and is NEVER rendered
+// pre-answer; `model_correction` is the corrected reference ("cours amélioré"), a reveal — also not
+// shown before the learner responds. Reuses FlawClaim + AICritiqueRubricSchema so the existing
+// CritiqueEvaluator grades it unchanged.
+export const SpotTheFlawSceneSchema = SceneBaseSchema.extend({
+  type: z.literal("spot_the_flaw"),
+  flawed_content: z.string().min(1),
+  claims: z.array(FlawClaimSchema).min(1).max(5),
+  model_correction: z.string().min(1),
+  rubric: AICritiqueRubricSchema,
+});
+
+// A key idea a good explanation should contain. `cues` (>=1) are the phrases the offline coverage
+// scorer matches against (mapped to Claim.flaws_expected at grade time); a key point with no cues
+// could never be covered, so it is forbidden.
+export const KeyPointSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  cues: z.array(z.string()).min(1),
+});
+
+// explain_back — teach-back / Feynman: the learner explains a concept (prompt) in their own words and
+// is scored by how well the explanation covers the authored key_points. `key_points` (answer key) and
+// `model_explanation` (reference reveal) are NEVER rendered pre-answer.
+export const ExplainBackSceneSchema = SceneBaseSchema.extend({
+  type: z.literal("explain_back"),
+  prompt: z.string().min(1),
+  key_points: z.array(KeyPointSchema).min(1).max(6),
+  model_explanation: z.string().min(1),
+  rubric: AICritiqueRubricSchema,
+});
+
 export const SceneSchema = z.discriminatedUnion("type", [
   IntroSceneSchema,
   ConceptSceneSchema,
@@ -178,6 +222,8 @@ export const SceneSchema = z.discriminatedUnion("type", [
   ReproductionSceneSchema,
   AICritiqueSceneSchema,
   DiscussionSceneSchema,
+  SpotTheFlawSceneSchema,
+  ExplainBackSceneSchema,
 ]);
 
 export type Scene = z.infer<typeof SceneSchema>;

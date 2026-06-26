@@ -32,6 +32,9 @@ SceneType = Literal[
     "meta_checkpoint",
     "reproduction",
     "ai_critique",
+    # active-learning scenes (learner-as-active-agent):
+    "spot_the_flaw",
+    "explain_back",
 ]
 BloomLevel = Literal[
     "remember", "understand", "apply", "analyze", "evaluate", "create"
@@ -218,6 +221,46 @@ class AICritiqueScene(_SceneBase):
     rubric: AICritiqueRubric
 
 
+class FlawClaim(Claim):
+    """A spot_the_flaw claim: flaws_expected MUST be non-empty (an assertion with nothing
+    to spot would silently fail every learner offline). Stricter than ai_critique's Claim."""
+
+    flaws_expected: list[str] = Field(min_length=1)
+
+
+class SpotTheFlawScene(_SceneBase):
+    """Learner reads a deliberately-flawed mini-lesson and names what is wrong.
+
+    `claims` is the answer key (flawed assertions + flaws_expected keywords) and
+    `model_correction` is the corrected reference — both reveals, never rendered
+    before the learner responds. Reuses FlawClaim + AICritiqueRubric (mirror of TS)."""
+
+    type: Literal["spot_the_flaw"]
+    flawed_content: str = Field(min_length=1)
+    claims: list[FlawClaim] = Field(min_length=1, max_length=5)
+    model_correction: str = Field(min_length=1)
+    rubric: AICritiqueRubric
+
+
+class KeyPoint(BaseModel):
+    id: str
+    text: str
+    cues: list[str] = Field(min_length=1)
+
+
+class ExplainBackScene(_SceneBase):
+    """Teach-back: the learner explains a concept, scored by key-point coverage.
+
+    `key_points` (answer key) and `model_explanation` (reference) are reveals,
+    never rendered before the learner responds."""
+
+    type: Literal["explain_back"]
+    prompt: str = Field(min_length=1)
+    key_points: list[KeyPoint] = Field(min_length=1, max_length=6)
+    model_explanation: str = Field(min_length=1)
+    rubric: AICritiqueRubric
+
+
 # ---------------------------------------------------------------------------
 # Discriminated union
 # ---------------------------------------------------------------------------
@@ -230,6 +273,8 @@ SceneUnion = Union[
     MetaCheckpointScene,
     ReproductionScene,
     AICritiqueScene,
+    SpotTheFlawScene,
+    ExplainBackScene,
 ]
 Scene = Annotated[SceneUnion, Field(discriminator="type")]
 
@@ -341,7 +386,10 @@ __all__ = [
     "CritiqueEvalResponse",
     "EnrichmentMetadata",
     "Evidence",
+    "ExplainBackScene",
+    "FlawClaim",
     "IntroScene",
+    "KeyPoint",
     "LessonBundle",
     "MetaCheckpointScene",
     "Modulator",
@@ -356,6 +404,7 @@ __all__ = [
     "Scene",
     "SceneType",
     "SceneUnion",
+    "SpotTheFlawScene",
     "SynthesizeOptions",
     "SynthesizeRequest",
     "SynthesizeResponse",

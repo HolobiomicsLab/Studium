@@ -12,6 +12,8 @@ export type KnowledgeDimension = z.infer<typeof KnowledgeDimensionSchema>;
 
 export const SceneTypeSchema = z.enum([
   "intro", "concept", "quiz", "simulation", "reproduction", "discussion", "meta_checkpoint", "ai_critique",
+  // active-learning task nodes (assess the learner via a free-response active scene):
+  "spot_the_flaw", "explain_back",
 ]);
 export type SceneType = z.infer<typeof SceneTypeSchema>;
 
