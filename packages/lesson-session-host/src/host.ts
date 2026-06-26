@@ -13,6 +13,7 @@ import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
 import { SessionRegistry, type SessionEntry } from "./registry.js";
 import { buildHostDeps, durableDataDir, durableScopeDir } from "./deps.js";
 import { resolveBundle, assetBaseDir } from "./bundle-resolver.js";
+import { discoverCommunityBundles } from "./community-bundles.js";
 
 // Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /
 // notebook gets the content directly — no client-side file access, CSP-safe). Images stay as paths
@@ -96,6 +97,14 @@ export class SessionHost {
     const baseDir = assetBaseDir(this.opts.bundlesRoot, bundleRef);
     this.registry.create(sessionId, { session, deps, bundle, baseDir, assetCache: new Map() });
     return { sessionId, presentation };
+  }
+
+  /** Discover the community (learner-authored, approved) bundle refs sitting alongside the
+   * canonical bundle in this host's bundles root. Each returned ref loads through `create()`
+   * exactly like the canonical bundle (community-<item_id>.zip → resolveBundle). The canonical
+   * course is never mutated; a canonical-only root returns []. */
+  async listCommunityBundles(): Promise<string[]> {
+    return discoverCommunityBundles(this.opts.bundlesRoot);
   }
 
   private require(id: string): SessionEntry {

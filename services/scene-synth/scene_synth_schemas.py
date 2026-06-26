@@ -369,6 +369,120 @@ class CritiqueEvalResponse(BaseModel):
     feedback: str
 
 
+# ---------------------------------------------------------------------------
+# Learner-as-author (P2) request/response models.
+#
+# These are TRANSPORT shapes for the scene-synth endpoints. The CANONICAL
+# envelope (LAItemEnvelope) + lifecycle live in learner_items_store.py (the
+# Pydantic mirror of packages/lesson-bundle-schema/.../learner-item). The
+# CLIENT-SAFE view here deliberately OMITS author_pseudonym — it must never be
+# emitted in any response. The review-state / note-code literals mirror the
+# envelope's LAReviewState / LAReviewNoteCode.
+# ---------------------------------------------------------------------------
+
+LAReviewStateLiteral = Literal[
+    "submitted",
+    "peer_review",
+    "revision_requested",
+    "approved",
+    "published",
+    "rejected",
+]
+LAReviewNoteCodeLiteral = Literal[
+    "factual_error", "ambiguous_distractor", "off_topic", "ok"
+]
+LADecisionLiteral = Literal["approve", "reject", "request_revision"]
+
+
+class LAValidationView(BaseModel):
+    ok: bool
+    validator_version: str = Field(min_length=1)
+    errors: list[str] = Field(default_factory=list)
+
+
+class LearnerValidateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    scene: dict  # schema-pure Scene dict; validated by validate_scene().
+    course_id: str = Field(min_length=1)
+
+
+class LearnerValidateResponse(BaseModel):
+    ok: bool
+    validator_version: str = Field(min_length=1)
+    errors: list[str] = Field(default_factory=list)
+
+
+class LearnerSubmitRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    course_id: str = Field(min_length=1)
+    target_bundle_ref: str = Field(min_length=1)
+    scene: dict  # schema-pure Scene dict.
+    author_handle: str = Field(min_length=1)  # hashed server-side; never stored raw.
+    created_at: str = Field(min_length=1)  # ISO-Z, passed-in (never now()).
+
+
+class LearnerDecideRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: LADecisionLiteral
+    reviewer: str = ""  # teacher IRI; emptiness is rejected by decide_item (4xx).
+    reviewed_at: str = ""  # ISO-Z, passed-in; emptiness rejected on approve.
+    note_code: Optional[LAReviewNoteCodeLiteral] = None
+
+
+class LearnerItemView(BaseModel):
+    """CLIENT-SAFE projection of an LAItemEnvelope — author_pseudonym OMITTED."""
+
+    item_id: str
+    course_id: str
+    target_bundle_ref: str
+    schema_version: str
+    scene: Scene
+    review_state: LAReviewStateLiteral
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[str] = None
+    review_note_code: Optional[LAReviewNoteCodeLiteral] = None
+    validation: LAValidationView
+    created_at: str
+    published_bundle_ref: Optional[str] = None
+
+
+class LearnerItemsListResponse(BaseModel):
+    items: list[LearnerItemView]
+
+
+# ---------------------------------------------------------------------------
+# Learner-as-author (P3) peer-review request/response models.
+#
+# A peer records a test+rating with SCALARS ONLY — no free text, no peer
+# identity in the body. The peer-signals read is the K-SUPPRESSED teacher view
+# (a discriminated status, mirroring class_report's suppressed/ok shape).
+# ---------------------------------------------------------------------------
+
+
+class LearnerPeerReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    passed: bool  # did the peer's self-test of the item pass?
+    rating: int = Field(ge=1, le=5)  # 1-5 quality rating.
+    helpful: bool  # did the peer mark the item helpful?
+    # NO free text, NO peer identity — deliberately absent (extra='forbid').
+
+
+class LearnerPeerSignalsView(BaseModel):
+    """K-suppressed teacher view of an item's peer aggregate.
+
+    ``status='suppressed'`` below the min-raters floor returns only the count +
+    floor; ``status='ok'`` returns the four aggregate scalars. Optional fields
+    keep one response shape for both branches."""
+
+    status: Literal["ok", "suppressed"]
+    n_ratings: int
+    min_raters: int
+    n_tests: Optional[int] = None
+    mean_rating: Optional[float] = None
+    helpful_votes: Optional[int] = None
+    reason: Optional[str] = None
+
+
 __all__ = [
     "ABSAsset",
     "ABSAssetType",
@@ -390,6 +504,18 @@ __all__ = [
     "FlawClaim",
     "IntroScene",
     "KeyPoint",
+    "LADecisionLiteral",
+    "LAReviewNoteCodeLiteral",
+    "LAReviewStateLiteral",
+    "LAValidationView",
+    "LearnerDecideRequest",
+    "LearnerItemView",
+    "LearnerItemsListResponse",
+    "LearnerPeerReviewRequest",
+    "LearnerPeerSignalsView",
+    "LearnerSubmitRequest",
+    "LearnerValidateRequest",
+    "LearnerValidateResponse",
     "LessonBundle",
     "MetaCheckpointScene",
     "Modulator",
