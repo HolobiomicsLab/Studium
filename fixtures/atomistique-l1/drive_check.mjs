@@ -33,6 +33,9 @@ for (let step = 0; step < 80 && !foundOrbital; step++) {
   else if (sc.type === "ai_critique") input = { kind: "critique", text: "ok" };
   else if (sc.type === "spot_the_flaw") input = { kind: "flaw_report", text: "viole la regle de hund, trois electrons celibataires a spins paralleles, la bonne configuration est 2p3" };
   else if (sc.type === "explain_back") input = { kind: "explanation", text: "la fonction d'onde change de signe oppose d'un lobe a l'autre, separes par un plan nodal ou la probabilite de presence est nulle" };
+  else if (sc.type === "comparison") input = { kind: "comparison", text: "l'enseignant distingue le noeud radial spherique du noeud angulaire qui est un plan, il signale le piege 4s avant 3d et le contre-exemple du chrome, et nuance que la regle est un guide ; il ajoute aussi un exemple concret avec deux lobes" };
+  else if (sc.type === "summary_audit") input = { kind: "summary_audit", text: "le resume oublie que z le nombre de protons definit l'element, il omet la definition des isotopes, et pour les spectres il oublie la quantification, l'energie du photon et que balmer est dans le visible" };
+  else if (sc.type === "prompt_practice") input = { kind: "prompt_submission", text: "explique pourquoi, pour un niveau l1, en moins de 150 mots, avec un exemple comme l'azote, un schema de cases quantiques, et la reponse en trois points numerotes" };
   else input = { kind: "ack" };
   const t = await host.respond(sessionId, input);
   console.log(`  step ${step}: ${sc.id} (${sc.type}) → ${t.kind}${t.presentation ? " → " + t.presentation.scene.id : ""}`);

@@ -81,7 +81,10 @@ class CritiqueSubmitted(_Base):
     # without the tag the collector's anti-offloading aggregates conflate
     # teach-back with AI-critique. Back-compatible: old untagged events are
     # bucketed as "ai_critique" collector-side.
-    scene_type: Literal["ai_critique", "spot_the_flaw", "explain_back"] | None = None
+    scene_type: Literal[
+        "ai_critique", "spot_the_flaw", "explain_back",
+        "comparison", "summary_audit", "prompt_practice",
+    ] | None = None
 
 
 class LessonCompleted(_Base):

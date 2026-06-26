@@ -162,10 +162,23 @@
   };
 
   function renderAsset(a) {
-    const card = el("section", { class: "asset asset-" + a.kind });
-    card.append(el("header", { class: "asset-head" }, badge(a.kind), el("span", { class: "asset-title" }, a.title || a.kind)));
+    // emphasis ('expanded' | 'normal' | 'compact') comes from the host's modality-adaptive
+    // selectRenderOrder: the learner's preferred modality is 'expanded' (lead, full size), the other
+    // is 'compact' (collapsed by default — content kept, never hidden, the learner can open it).
+    const emph = a.emphasis || "normal";
+    const card = el("section", { class: "asset asset-" + a.kind + " emph-" + emph });
+    const head = el("header", { class: "asset-head" }, badge(a.kind), el("span", { class: "asset-title" }, a.title || a.kind));
     const body = (RENDERERS[a.kind] || ((x) => el("pre", { class: "code" }, JSON.stringify(x, null, 2))))(a);
-    card.append(el("div", { class: "asset-body" }, body));
+    if (emph === "compact") {
+      // de-emphasized modality → a <details> the learner can expand; content fully preserved.
+      const det = el("details", { class: "asset-collapse" });
+      det.append(el("summary", {}, head));
+      det.append(el("div", { class: "asset-body" }, body));
+      card.append(det);
+    } else {
+      card.append(head);
+      card.append(el("div", { class: "asset-body" }, body));
+    }
     return card;
   }
 
@@ -179,6 +192,14 @@
       state.progress ? el("span", { class: "prog" }, `${state.progress.index}/${state.progress.total}`) : ""));
     head.append(el("h2", { class: "scene-title" }, sc.title || ""));
     if (state.explanation) head.append(el("div", { class: "adapt" }, "⟳ " + state.explanation.rule_id + " — " + state.explanation.explanation_short));
+    // "À réviser / Due for review": concepts whose retrievability has decayed past threshold per the
+    // FSRS scheduler (computed host-side, posted as reviewDue[]). A recall-timing cue, not a score.
+    const due = Array.isArray(state.reviewDue) ? state.reviewDue : [];
+    if (due.length) {
+      const n = due.length;
+      head.append(el("div", { class: "review-due", title: due.join(", ") },
+        "🔁 À réviser / Due for review : " + n + " concept" + (n > 1 ? "s" : "")));
+    }
     root.append(head);
 
     if (sc.markdown) root.append(el("div", { class: "prose", html: mdLite(sc.markdown) }));
@@ -197,7 +218,14 @@
 
     const assets = state.scene_assets || [];
     if (assets.length) {
-      root.append(el("div", { class: "pane-label" }, "Artifacts paired with this scene"));
+      // Modality-adaptive cue: when a non-'balanced' preference is active, tell the learner the
+      // pane is leading with their preferred modality (and that nothing is hidden — the other
+      // modality is collapsed below, openable).
+      const pref = state.modalityPreference;
+      const prefLabel = pref === "visual" ? "🎨 Vue visuelle — figures & 3D en premier"
+        : pref === "textual" ? "📝 Vue textuelle — équations & texte en premier" : null;
+      root.append(el("div", { class: "pane-label" },
+        prefLabel ? "Artifacts paired with this scene · " + prefLabel : "Artifacts paired with this scene"));
       assets.forEach((a) => root.append(renderAsset(a)));
     } else {
       root.append(el("div", { class: "empty" }, "— no artifact for this scene —"));

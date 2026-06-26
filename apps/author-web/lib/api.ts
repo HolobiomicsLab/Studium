@@ -98,36 +98,84 @@ export async function generatePlan(manifest: IngestManifest): Promise<PlanRespon
 // --------------------------------------------------------------------------- //
 // Learner-as-author (Workflow C) — scene-synth :8002.
 //
-// The learner authors EXACTLY ONE schema-pure QuizScene (an unmodified member
-// of the Scene discriminated union). The two functions below are the ONLY
-// network calls the /studio form makes:
+// The learner authors EXACTLY ONE schema-pure Scene — an unmodified member of
+// the canonical Scene discriminated union. The /studio form supports the three
+// active-learning scene types a learner can author: quiz | spot_the_flaw |
+// explain_back. The network calls below are the ONLY ones the form makes:
 //   - validateLearnerScene -> POST /learner-items/validate (no write; badge)
 //   - submitLearnerItem     -> POST /learner-items (creates a 'submitted' item)
+//   - submitPeerReview      -> POST /learner-items/{id}/peer-review (Workflow B)
 //
-// PRIVACY: free text (question/choices/feedback) stays on-device until the
-// learner's explicit Submit; only then is it routed to the moderation backend.
-// The form NEVER publishes — review_state stays 'submitted'; publishing happens
-// ONLY through the teacher's approve in the moderation queue (rule-003).
+// PRIVACY: free text (question/choices/flawed content/key points/feedback) is sent to scene-synth on a
+// debounced VALIDATE (for the badge) and on the explicit Submit; no learner-item is CREATED until
+// Submit, and it is never routed to telemetry — only to validation + the moderation queue.
+// The form NEVER publishes — review_state stays 'submitted';
+// publishing happens ONLY through the teacher's approve in the moderation queue
+// (rule-003).
 // --------------------------------------------------------------------------- //
 
 export type QuizChoice = { id: string; text: string; correct: boolean };
 
-// Schema-pure QuizScene (mirrors QuizSceneSchema in @studium/lesson-bundle-schema).
-// exactly-one-correct is NOT in the schema — enforced client-side (see studio).
-export type QuizScene = {
+// Shared rubric (AICritiqueRubric mirror) used by the active-learning scenes.
+export type Rubric = {
+  completeness: number;
+  evidence_quality: number;
+  tone: number;
+};
+
+// Common fields every scene carries (mirror of SceneBaseSchema, minus the
+// optional render_assets the form does not author).
+type SceneBase = {
   id: string;
-  type: "quiz";
   title: string;
   objective_refs: string[];
   concept_refs: string[];
   estimated_seconds: number;
   adaptation_hooks: string[];
+};
+
+// Schema-pure QuizScene (mirrors QuizSceneSchema in @studium/lesson-bundle-schema).
+// exactly-one-correct is NOT in the schema — enforced client-side (see studio).
+export type QuizScene = SceneBase & {
+  type: "quiz";
   question: string;
   choices: QuizChoice[];
   feedback_correct: string;
   feedback_incorrect: string;
   hints: string[];
 };
+
+// A planted (flawed) assertion + the >=1 expected-flaw keywords the scorer
+// matches (FlawClaim). The answer key — never rendered pre-answer.
+export type FlawClaim = { id: string; text: string; flaws_expected: string[] };
+
+// spot_the_flaw — learner reads a deliberately-flawed mini-lesson and names what
+// is wrong. `claims` + `model_correction` are reveals (post-answer only).
+export type SpotTheFlawScene = SceneBase & {
+  type: "spot_the_flaw";
+  flawed_content: string;
+  claims: FlawClaim[];
+  model_correction: string;
+  rubric: Rubric;
+};
+
+// A key idea + the >=1 cue phrases the coverage scorer matches (KeyPoint).
+export type KeyPoint = { id: string; text: string; cues: string[] };
+
+// explain_back — teach-back: learner explains a concept in their own words.
+// `key_points` + `model_explanation` are reveals (post-answer only).
+export type ExplainBackScene = SceneBase & {
+  type: "explain_back";
+  prompt: string;
+  key_points: KeyPoint[];
+  model_explanation: string;
+  rubric: Rubric;
+};
+
+// The Scene union the form can author + submit. The backend accepts the FULL
+// canonical Scene union; the form exposes the three learner-authorable types.
+export type Scene = QuizScene | SpotTheFlawScene | ExplainBackScene;
+export type SceneType = Scene["type"];
 
 export type ValidateResponse = {
   ok: boolean;
@@ -141,7 +189,7 @@ export type LearnerItemView = {
   course_id: string;
   target_bundle_ref: string;
   schema_version: string;
-  scene: QuizScene;
+  scene: Scene;
   review_state:
     | "submitted"
     | "peer_review"
@@ -158,7 +206,7 @@ export type LearnerItemView = {
 };
 
 export async function validateLearnerScene(
-  scene: QuizScene,
+  scene: Scene,
   courseId: string
 ): Promise<ValidateResponse> {
   const resp = await fetch(`${SCENE_SYNTH_URL}/learner-items/validate`, {
@@ -175,7 +223,7 @@ export async function submitLearnerItem(args: {
   targetBundleRef: string;
   authorHandle: string;
   createdAt: string;
-  scene: QuizScene;
+  scene: Scene;
 }): Promise<LearnerItemView> {
   const resp = await fetch(`${SCENE_SYNTH_URL}/learner-items`, {
     method: "POST",
@@ -189,5 +237,57 @@ export async function submitLearnerItem(args: {
     }),
   });
   if (!resp.ok) throw new Error(`Submit failed: ${resp.status} ${await resp.text()}`);
+  return resp.json();
+}
+
+// Workflow B — a peer rating on a submitted item. course_id MUST be the demo
+// course. passed=did the peer judge the item usable; rating 1..5; helpful=free
+// signal. The backend owns the aggregation/promotion; this is a thin POST.
+export type PeerReviewResponse = {
+  item_id: string;
+  review_count: number;
+  review_state: LearnerItemView["review_state"];
+};
+
+// Workflow B — discovery: the peer-testing queue. Lists the items a classmate
+// may TAKE and rate. The peer only ever sees 'submitted' items, never the
+// author identity (the server returns the client-safe LearnerItemView, which
+// OMITS author_pseudonym). course MUST be the demo course.
+export async function listSubmittedItems(args: {
+  course: string;
+  state?: LearnerItemView["review_state"];
+}): Promise<LearnerItemView[]> {
+  const params = new URLSearchParams({ course: args.course });
+  // The peer queue is the 'submitted' state; callers may override (e.g. for a
+  // wider discovery view) but default to the moderation-pending set.
+  params.set("state", args.state ?? "submitted");
+  const resp = await fetch(
+    `${SCENE_SYNTH_URL}/learner-items?${params.toString()}`,
+    { method: "GET" }
+  );
+  if (!resp.ok) throw new Error(`List failed: ${resp.status} ${await resp.text()}`);
+  const body = (await resp.json()) as { items: LearnerItemView[] };
+  return body.items;
+}
+
+export async function submitPeerReview(args: {
+  itemId: string;
+  passed: boolean;
+  rating: 1 | 2 | 3 | 4 | 5;
+  helpful: boolean;
+}): Promise<PeerReviewResponse> {
+  const resp = await fetch(
+    `${SCENE_SYNTH_URL}/learner-items/${encodeURIComponent(args.itemId)}/peer-review`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        passed: args.passed,
+        rating: args.rating,
+        helpful: args.helpful,
+      }),
+    }
+  );
+  if (!resp.ok) throw new Error(`Peer review failed: ${resp.status} ${await resp.text()}`);
   return resp.json();
 }

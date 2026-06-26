@@ -2,12 +2,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QuizSceneSchema, type QuizScene } from "@/lib/quiz-scene";
 import {
+  SpotTheFlawSceneSchema,
+  ExplainBackSceneSchema,
+  DEFAULT_RUBRIC,
+  type SpotTheFlawScene,
+  type ExplainBackScene,
+} from "@/lib/scenes";
+import {
   validateLearnerScene,
   submitLearnerItem,
+  type Scene,
+  type SceneType,
   type ValidateResponse,
   type LearnerItemView,
 } from "@/lib/api";
 import { SelfTestPanel } from "./SelfTestPanel";
+import { SpotTheFlawRevealPanel, ExplainBackRevealPanel } from "./RevealPanel";
+import {
+  SpotTheFlawEditor,
+  initialSpotTheFlawDraft,
+  type SpotTheFlawDraft,
+} from "./SpotTheFlawEditor";
+import {
+  ExplainBackEditor,
+  initialExplainBackDraft,
+  type ExplainBackDraft,
+} from "./ExplainBackEditor";
 
 // Demo course context (backend hardcodes these; see plan §"Minor defaults").
 const COURSE_ID = "atomistique-l1";
@@ -20,31 +40,95 @@ function emptyChoice(id: string): ChoiceDraft {
   return { id, text: "", correct: false };
 }
 
-// Build the schema-pure QuizScene from the form draft. concept_refs is fixed to
-// the single demo concept; objective_refs/adaptation_hooks/render_assets stay
-// empty (governance/authoring metadata lives OUTSIDE the scene).
-function draftToScene(d: {
+// Shared scene metadata authored once and stamped onto whichever scene type is
+// built. concept_refs is fixed to the single demo concept; objective_refs /
+// adaptation_hooks stay empty (governance/authoring metadata lives OUTSIDE the
+// scene).
+function sceneBase(title: string, estimatedSeconds: number) {
+  return {
+    title,
+    objective_refs: [] as string[],
+    concept_refs: [CONCEPT_ID],
+    estimated_seconds: estimatedSeconds,
+    adaptation_hooks: [] as string[],
+  };
+}
+
+function buildQuizScene(args: {
   title: string;
+  estimatedSeconds: number;
   question: string;
   choices: ChoiceDraft[];
   feedbackCorrect: string;
   feedbackIncorrect: string;
   hints: string[];
-  estimatedSeconds: number;
 }): QuizScene {
   return {
     id: "la-quiz-draft",
     type: "quiz",
-    title: d.title,
-    objective_refs: [],
-    concept_refs: [CONCEPT_ID],
-    estimated_seconds: d.estimatedSeconds,
-    adaptation_hooks: [],
-    question: d.question,
-    choices: d.choices.map((c) => ({ id: c.id, text: c.text, correct: c.correct })),
-    feedback_correct: d.feedbackCorrect,
-    feedback_incorrect: d.feedbackIncorrect,
-    hints: d.hints.filter((h) => h.trim().length > 0),
+    ...sceneBase(args.title, args.estimatedSeconds),
+    question: args.question,
+    choices: args.choices.map((c) => ({ id: c.id, text: c.text, correct: c.correct })),
+    feedback_correct: args.feedbackCorrect,
+    feedback_incorrect: args.feedbackIncorrect,
+    hints: args.hints.filter((h) => h.trim().length > 0),
+  };
+}
+
+function buildSpotTheFlawScene(
+  title: string,
+  estimatedSeconds: number,
+  d: SpotTheFlawDraft
+): SpotTheFlawScene {
+  return {
+    id: "la-spot-the-flaw-draft",
+    type: "spot_the_flaw",
+    ...sceneBase(title, estimatedSeconds),
+    flawed_content: d.flawed_content,
+    claims: d.claims.map((c) => ({
+      id: c.id,
+      text: c.text,
+      flaws_expected: c.flaws_expected.map((f) => f.trim()).filter((f) => f.length > 0),
+    })),
+    model_correction: d.model_correction,
+    rubric: DEFAULT_RUBRIC,
+  };
+}
+
+function buildExplainBackScene(
+  title: string,
+  estimatedSeconds: number,
+  d: ExplainBackDraft
+): ExplainBackScene {
+  return {
+    id: "la-explain-back-draft",
+    type: "explain_back",
+    ...sceneBase(title, estimatedSeconds),
+    prompt: d.prompt,
+    key_points: d.key_points.map((k) => ({
+      id: k.id,
+      text: k.text,
+      cues: k.cues.map((q) => q.trim()).filter((q) => q.length > 0),
+    })),
+    model_explanation: d.model_explanation,
+    rubric: DEFAULT_RUBRIC,
+  };
+}
+
+// Client-side schema gate per scene type (incl. quiz's exactly-one-correct, and
+// the .min(1) flaws/cues invariants). Returns the same {success, errors} shape
+// regardless of type so the badge logic is uniform.
+function parseScene(scene: Scene): { success: boolean; errors: string[] } {
+  const res =
+    scene.type === "quiz"
+      ? QuizSceneSchema.safeParse(scene)
+      : scene.type === "spot_the_flaw"
+        ? SpotTheFlawSceneSchema.safeParse(scene)
+        : ExplainBackSceneSchema.safeParse(scene);
+  if (res.success) return { success: true, errors: [] };
+  return {
+    success: false,
+    errors: res.error.issues.map((i) => `${i.path.join(".") || "(racine)"}: ${i.message}`),
   };
 }
 
@@ -60,16 +144,22 @@ export function StudioForm({
   submitFn = submitLearnerItem,
   debounceMs = 400,
 }: StudioFormProps) {
+  const [sceneType, setSceneType] = useState<SceneType>("quiz");
+
+  // Shared metadata.
   const [title, setTitle] = useState("");
+  const [estimatedSeconds, setEstimatedSeconds] = useState(30);
+
+  // quiz-specific.
   const [question, setQuestion] = useState("");
-  const [choices, setChoices] = useState<ChoiceDraft[]>([
-    emptyChoice("a"),
-    emptyChoice("b"),
-  ]);
+  const [choices, setChoices] = useState<ChoiceDraft[]>([emptyChoice("a"), emptyChoice("b")]);
   const [feedbackCorrect, setFeedbackCorrect] = useState("");
   const [feedbackIncorrect, setFeedbackIncorrect] = useState("");
   const [hints, setHints] = useState<string[]>([]);
-  const [estimatedSeconds, setEstimatedSeconds] = useState(30);
+
+  // spot_the_flaw + explain_back drafts.
+  const [spotDraft, setSpotDraft] = useState<SpotTheFlawDraft>(initialSpotTheFlawDraft);
+  const [explainDraft, setExplainDraft] = useState<ExplainBackDraft>(initialExplainBackDraft);
 
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -80,26 +170,39 @@ export function StudioForm({
   const [serverValidation, setServerValidation] = useState<ValidateResponse | null>(null);
   const [validating, setValidating] = useState(false);
 
-  const scene = useMemo(
-    () =>
-      draftToScene({
+  // Build the active scene from whichever editor is selected.
+  const scene = useMemo<Scene>(() => {
+    if (sceneType === "quiz") {
+      return buildQuizScene({
         title,
+        estimatedSeconds,
         question,
         choices,
         feedbackCorrect,
         feedbackIncorrect,
         hints,
-        estimatedSeconds,
-      }),
-    [title, question, choices, feedbackCorrect, feedbackIncorrect, hints, estimatedSeconds]
-  );
+      });
+    }
+    if (sceneType === "spot_the_flaw") {
+      return buildSpotTheFlawScene(title, estimatedSeconds, spotDraft);
+    }
+    return buildExplainBackScene(title, estimatedSeconds, explainDraft);
+  }, [
+    sceneType,
+    title,
+    estimatedSeconds,
+    question,
+    choices,
+    feedbackCorrect,
+    feedbackIncorrect,
+    hints,
+    spotDraft,
+    explainDraft,
+  ]);
 
-  // Client-side schema gate (incl. exactly-one-correct). Cheap, synchronous.
-  const local = useMemo(() => QuizSceneSchema.safeParse(scene), [scene]);
+  const local = useMemo(() => parseScene(scene), [scene]);
   const localOk = local.success;
-  const localErrors = local.success
-    ? []
-    : local.error.issues.map((i) => `${i.path.join(".") || "(racine)"}: ${i.message}`);
+  const localErrors = local.errors;
 
   // Debounced server validation: only fire when the draft is locally valid, so
   // the badge reflects the backend's verdict on a well-formed scene.
@@ -173,55 +276,105 @@ export function StudioForm({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: 640 }}>
       <p style={{ color: "#555" }}>
-        Rédige UN quiz pour le concept <strong>{CONCEPT_ID}</strong>. Ton texte reste sur ton
-        appareil tant que tu n&apos;as pas cliqué « Soumettre ». Rien n&apos;est publié : un
-        enseignant doit approuver ta proposition.
+        Rédige UNE scène d&apos;apprentissage actif pour le concept{" "}
+        <strong>{CONCEPT_ID}</strong>. Ton texte reste sur ton appareil tant que tu n&apos;as
+        pas cliqué « Soumettre ». Rien n&apos;est publié : un enseignant doit approuver ta
+        proposition.
       </p>
+
+      <label>
+        Type de scène
+        <select
+          aria-label="type de scène"
+          value={sceneType}
+          onChange={(e) => {
+            setSceneType(e.target.value as SceneType);
+            // a type switch invalidates the previous badge.
+            setServerValidation(null);
+          }}
+          style={inputStyle}
+        >
+          <option value="quiz">Quiz (QCM)</option>
+          <option value="spot_the_flaw">Repérer l&apos;erreur (spot the flaw)</option>
+          <option value="explain_back">Ré-expliquer (explain back)</option>
+        </select>
+      </label>
 
       <label>
         Titre
         <input value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} />
       </label>
-      <label>
-        Question
-        <textarea value={question} onChange={(e) => setQuestion(e.target.value)} style={inputStyle} rows={2} />
-      </label>
 
-      <fieldset style={{ border: "1px solid #ddd", borderRadius: 6 }}>
-        <legend>Choix (2 à 6, exactement un correct)</legend>
-        {choices.map((c, i) => (
-          <div key={c.id} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
-            <input
-              type="radio"
-              name="correct-choice"
-              aria-label={`marquer le choix ${c.id} correct`}
-              checked={c.correct}
-              onChange={() => markCorrect(i)}
+      {/* ----- quiz editor ----- */}
+      {sceneType === "quiz" && (
+        <>
+          <label>
+            Question
+            <textarea
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              style={inputStyle}
+              rows={2}
             />
-            <input
-              aria-label={`texte du choix ${c.id}`}
-              value={c.text}
-              onChange={(e) => updateChoice(i, { text: e.target.value })}
-              style={{ flex: 1, padding: "4px 8px" }}
-            />
-            <button type="button" onClick={() => removeChoice(i)} disabled={choices.length <= 2}>
-              −
+          </label>
+
+          <fieldset style={{ border: "1px solid #ddd", borderRadius: 6 }}>
+            <legend>Choix (2 à 6, exactement un correct)</legend>
+            {choices.map((c, i) => (
+              <div key={c.id} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                <input
+                  type="radio"
+                  name="correct-choice"
+                  aria-label={`marquer le choix ${c.id} correct`}
+                  checked={c.correct}
+                  onChange={() => markCorrect(i)}
+                />
+                <input
+                  aria-label={`texte du choix ${c.id}`}
+                  value={c.text}
+                  onChange={(e) => updateChoice(i, { text: e.target.value })}
+                  style={{ flex: 1, padding: "4px 8px" }}
+                />
+                <button type="button" onClick={() => removeChoice(i)} disabled={choices.length <= 2}>
+                  −
+                </button>
+              </div>
+            ))}
+            <button type="button" onClick={addChoice} disabled={choices.length >= 6}>
+              + Ajouter un choix
             </button>
-          </div>
-        ))}
-        <button type="button" onClick={addChoice} disabled={choices.length >= 6}>
-          + Ajouter un choix
-        </button>
-      </fieldset>
+          </fieldset>
 
-      <label>
-        Feedback si correct
-        <input value={feedbackCorrect} onChange={(e) => setFeedbackCorrect(e.target.value)} style={inputStyle} />
-      </label>
-      <label>
-        Feedback si incorrect
-        <input value={feedbackIncorrect} onChange={(e) => setFeedbackIncorrect(e.target.value)} style={inputStyle} />
-      </label>
+          <label>
+            Feedback si correct
+            <input value={feedbackCorrect} onChange={(e) => setFeedbackCorrect(e.target.value)} style={inputStyle} />
+          </label>
+          <label>
+            Feedback si incorrect
+            <input value={feedbackIncorrect} onChange={(e) => setFeedbackIncorrect(e.target.value)} style={inputStyle} />
+          </label>
+          <label>
+            Indices (un par ligne)
+            <textarea
+              value={hints.join("\n")}
+              onChange={(e) => setHints(e.target.value.split("\n"))}
+              style={inputStyle}
+              rows={2}
+            />
+          </label>
+        </>
+      )}
+
+      {/* ----- spot_the_flaw editor ----- */}
+      {sceneType === "spot_the_flaw" && (
+        <SpotTheFlawEditor draft={spotDraft} onChange={setSpotDraft} />
+      )}
+
+      {/* ----- explain_back editor ----- */}
+      {sceneType === "explain_back" && (
+        <ExplainBackEditor draft={explainDraft} onChange={setExplainDraft} />
+      )}
+
       <label>
         Durée estimée (s)
         <input
@@ -230,15 +383,6 @@ export function StudioForm({
           value={estimatedSeconds}
           onChange={(e) => setEstimatedSeconds(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
           style={inputStyle}
-        />
-      </label>
-      <label>
-        Indices (un par ligne)
-        <textarea
-          value={hints.join("\n")}
-          onChange={(e) => setHints(e.target.value.split("\n"))}
-          style={inputStyle}
-          rows={2}
         />
       </label>
 
@@ -276,8 +420,12 @@ export function StudioForm({
         )}
       </div>
 
-      {/* Key-free self-test: only meaningful once the scene is locally valid. */}
-      {localOk && <SelfTestPanel scene={scene} />}
+      {/* Key-free preview: only meaningful once the scene is locally valid. The
+          quiz uses the answer-driven SelfTestPanel; the new types use a
+          reveal-AFTER-a-mock-answer panel (no answer key shown until acted). */}
+      {localOk && scene.type === "quiz" && <SelfTestPanel scene={scene} />}
+      {localOk && scene.type === "spot_the_flaw" && <SpotTheFlawRevealPanel scene={scene} />}
+      {localOk && scene.type === "explain_back" && <ExplainBackRevealPanel scene={scene} />}
 
       <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
         <input
@@ -287,7 +435,7 @@ export function StudioForm({
           aria-label="consentement"
         />
         <span>
-          Je consens à soumettre ce quiz à la modération de l&apos;enseignant. Mon identité
+          Je consens à soumettre cette scène à la modération de l&apos;enseignant. Mon identité
           n&apos;est jamais montrée aux autres apprenants.
         </span>
       </label>

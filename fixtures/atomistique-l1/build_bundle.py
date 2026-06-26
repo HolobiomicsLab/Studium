@@ -113,6 +113,40 @@ def build_scenes() -> list[dict]:
         "hints": ["A = Z + N, donc N = A − Z."],
     })
 
+    # summary_audit — AI summary of "particules de l'atome" with a PLANTED OMISSION (Wave1-C). The learner reads
+    # the full source (Z/A/isotopes + the nucleus/atom scale) and an AI summary that DROPS the defining role of Z
+    # and the isotope definition, then names what is missing. claims = the omissions (answer key; flaws_expected
+    # accent-free); model_correction is the reference reveal — neither claims nor model_correction is rendered
+    # pre-answer. Graded flawGrader-style (true_positives / planted_errors), offline-deterministic.
+    S.append({
+        "id": "s1b-audit-particules", "type": "summary_audit",
+        "title": "Audite le résumé IA — particules de l'atome",
+        "objective_refs": [], "concept_refs": concept_refs("c-particules"),
+        "estimated_seconds": 180, "adaptation_hooks": [],
+        "source_content": "**Source.** Un atome est formé d'un **noyau** (protons + neutrons) entouré d'un **nuage "
+                          "électronique**. Le **numéro atomique Z** est le nombre de **protons** : c'est lui qui "
+                          "**définit l'élément** chimique (changer Z, c'est changer d'élément). Le **nombre de masse A** "
+                          "vaut Z + N, où N est le nombre de neutrons. Deux atomes de **même Z mais de A différent** sont "
+                          "des **isotopes** du même élément. Le noyau (~10⁻¹⁵ m) est environ 10⁵ fois plus petit que "
+                          "l'atome (~10⁻¹⁰ m), si bien que l'atome est essentiellement **vide**.",
+        "ai_summary": "**Résumé IA.** Un atome a un noyau avec des protons et des neutrons, et des électrons autour. "
+                      "Le nombre de masse A est la somme des protons et des neutrons. L'atome est très petit.",
+        # the summary omits: (1) that Z (le nombre de protons) DÉFINIT l'élément ; (2) la définition des isotopes
+        # (même Z, A différent). flaws_expected = accent-free markers a correct audit contains (matcher folds accents).
+        "claims": [
+            {"id": "o-z", "text": "Le résumé ne dit pas que Z (le nombre de protons) DÉFINIT l'élément",
+             "flaws_expected": ["definit", "element"]},
+            {"id": "o-isotopes", "text": "Le résumé omet la définition des ISOTOPES (même Z, A différent)",
+             "flaws_expected": ["isotope"]},
+        ],
+        "model_correction": "Le résumé IA garde le squelette mais **supprime deux points essentiels** : (1) il ne dit "
+                            "pas que **Z** — le nombre de **protons** — **définit l'élément** chimique (c'est *le* "
+                            "critère d'identité de l'atome) ; (2) il omet entièrement la notion d'**isotopes** (même Z, "
+                            "A différent), pourtant centrale. Un résumé fidèle doit conserver ces deux idées, sans quoi "
+                            "on ne peut plus distinguer deux éléments ni deux isotopes.",
+        "rubric": {"completeness": 0.6, "evidence_quality": 0.3, "tone": 0.1},
+    })
+
     S.append({
         "id": "s2-concept-nombres-quantiques", "type": "concept", "title": "Les nombres quantiques",
         "objective_refs": [], "concept_refs": concept_refs("c-nombres-quantiques"),
@@ -194,6 +228,47 @@ def build_scenes() -> list[dict]:
                              "donc la **probabilité** de présence de l'électron y est nulle. Les deux lobes (signes + et −) "
                              "sont les régions où cette probabilité est élevée.",
         "rubric": {"completeness": 0.6, "evidence_quality": 0.2, "tone": 0.2},
+    })
+
+    # comparison — AI-vs-teacher explanation of orbital RADIAL NODES (Wave1-C). Two correct write-ups of the
+    # SAME notion (radial nodes of the 2p / 3d): one AI-generated (gives the formula, flat), one teacher-authored
+    # (formula + the visual reading of the 3D orbital + the radial/angular distinction). The learner names the
+    # teacher's ADDED VALUE. key_points = those differences (cues accent-free for the offline matcher); model_answer
+    # is the reference reveal — neither key_points nor model_answer is rendered pre-answer. Grounded by the 2p_z cube.
+    S.append({
+        "id": "s3c-compare-noeuds", "type": "comparison",
+        "title": "Compare — cours IA vs cours de l'enseignant (nœuds radiaux)",
+        "objective_refs": [], "concept_refs": concept_refs("c-orbitales-formes"),
+        "estimated_seconds": 210, "adaptation_hooks": [],
+        "prompt": "Voici **deux explications** des **nœuds radiaux** d'une orbitale : l'une rédigée par une **IA**, "
+                  "l'autre par ton **enseignant**. Les deux sont justes. **Relève la valeur ajoutée de la version de "
+                  "l'enseignant** : qu'apporte-t-elle que la version IA n'a pas ?",
+        "artifact_a": "**Version A (IA).** Le nombre de nœuds radiaux d'une orbitale vaut n − ℓ − 1. Pour la 2p "
+                      "(n=2, ℓ=1) cela donne 2 − 1 − 1 = 0 nœud radial ; pour la 3p (n=3, ℓ=1) cela donne 3 − 1 − 1 = 1 "
+                      "nœud radial. Le nombre total de nœuds vaut n − 1.",
+        "artifact_b": "**Version B (enseignant).** Même formule n − ℓ − 1 — mais **distingue bien deux familles** de "
+                      "nœuds : le nœud **radial** est une **sphère** où la fonction d'onde s'annule *en s'éloignant* du "
+                      "noyau, alors que le nœud **angulaire** est un **plan** (les deux lobes de la 2p). Sur l'orbitale "
+                      "3D que tu fais tourner, le plan entre les lobes + et − est **angulaire**, pas radial : c'est "
+                      "pourquoi la 2p a **0** nœud radial malgré ses deux lobes. La formule compte les nœuds radiaux ; "
+                      "n − 1 compte le **total** (radiaux **+** angulaires).",
+        # cues are accent-free substrings the matcher folds (normalize()); multi-token where useful so keyword-stuffing fails.
+        "key_points": [
+            {"id": "kp-distinction", "text": "L'enseignant distingue nœud radial (sphère) et nœud angulaire (plan)",
+             "cues": ["radial", "angulaire"]},
+            {"id": "kp-visuel", "text": "L'enseignant relie la formule à l'orbitale 3D que l'on fait tourner", "cues": ["3d"]},
+            {"id": "kp-total", "text": "L'enseignant explique pourquoi 2p a 0 nœud radial malgré ses deux lobes",
+             "cues": ["deux lobes"]},
+        ],
+        "model_answer": "La version IA est **correcte mais plate** : elle applique la formule n − ℓ − 1. La version de "
+                        "l'enseignant **ajoute la compréhension** : (1) elle **distingue** le nœud **radial** (une "
+                        "**sphère**) du nœud **angulaire** (un **plan**), que la formule seule confond ; (2) elle relie "
+                        "le calcul à l'**orbitale 3D** : le plan entre les **deux lobes** de la 2p est *angulaire*, ce qui "
+                        "explique pourquoi la 2p a **0** nœud radial ; (3) elle clarifie que n − 1 est le **total** "
+                        "(radiaux + angulaires). C'est cette levée d'ambiguïté qui distingue un cours qui *fait "
+                        "comprendre* d'un cours qui *récite la formule*.",
+        "rubric": {"completeness": 0.6, "evidence_quality": 0.2, "tone": 0.2},
+        "render_assets": [orbital("assets/orbitals/2pz.cube", "Orbitale 2p_z (plan nodal angulaire)")],
     })
 
     S.append({
@@ -279,6 +354,113 @@ def build_scenes() -> list[dict]:
         "rubric": {"completeness": 0.6, "evidence_quality": 0.3, "tone": 0.1},
     })
 
+    # prompt_practice — "écris un prompt pour obtenir une explication de la règle de Hund" (Wave1-C), on c-remplissage.
+    # The learner crafts a prompt that would make an AI tutor explain Hund's rule WELL. starter_prompt IS shown (the
+    # weak draft to refine — an affordance, not an answer key). key_points = prompt-quality cues (clear instruction /
+    # context / a concrete example to request / expected output format); model_prompt is the reference reveal —
+    # neither key_points nor model_prompt is rendered pre-answer. Coverage-graded, offline-deterministic.
+    S.append({
+        "id": "s5d-prompt-hund", "type": "prompt_practice",
+        "title": "Écris ton prompt — faire expliquer la règle de Hund par une IA",
+        "objective_refs": [], "concept_refs": concept_refs("c-remplissage"),
+        "estimated_seconds": 210, "adaptation_hooks": [],
+        "task": "Tu veux qu'une IA t'explique **la règle de Hund** (pourquoi, dans une sous-couche dégénérée, on place "
+                "d'abord un électron par orbitale à spins parallèles). Le brouillon ci-dessous est trop vague. "
+                "**Réécris un prompt de qualité** : donne une **consigne claire**, le **contexte** (ton niveau, ce que "
+                "tu sais déjà), demande un **exemple concret** (ex. l'azote 2p³), et précise le **format de sortie** attendu.",
+        "starter_prompt": "c'est quoi la règle de Hund",
+        # cues are CONTENT words a real good prompt actually writes (the instruction verb, the level, the
+        # requested example/output) — NOT the dimension labels "consigne/contexte/format", which a natural
+        # prompt never spells out. Each self-covers in model_prompt (100% self-cover); accent-free (the
+        # matcher folds é/³). This makes a genuine good prompt score, not just a label-stuffed one.
+        "key_points": [
+            {"id": "kp-consigne", "text": "Une consigne explicite (verbe d'action : explique / justifie)", "cues": ["explique"]},
+            {"id": "kp-contexte", "text": "Le contexte : niveau L1 et prérequis connus (Klechkowski, Pauli)", "cues": ["l1"]},
+            {"id": "kp-exemple", "text": "La demande d'un exemple concret (ex. azote 2p³ ou carbone)", "cues": ["exemple"]},
+            {"id": "kp-format", "text": "Le format de sortie demandé (étapes, schéma de cases quantiques)", "cues": ["schema"]},
+        ],
+        "model_prompt": "« Tu es un tuteur de chimie pour un **étudiant de L1**. **Contexte** : je connais Klechkowski et "
+                        "Pauli, mais pas bien la règle de Hund. **Consigne** : explique **pourquoi** on remplit d'abord "
+                        "une orbitale par électron à **spins parallèles** dans une sous-couche dégénérée. **Exemple** : "
+                        "illustre avec l'**azote (2p³)** en montrant le remplissage. **Format de sortie** : (1) l'énoncé "
+                        "de la règle, (2) la raison physique (répulsion minimisée), (3) un **schéma de cases quantiques** "
+                        "pour 2p³, en trois points. » — un bon prompt rend la **consigne**, le **contexte**, l'**exemple** "
+                        "demandé et le **format** explicites.",
+        "rubric": {"completeness": 0.6, "evidence_quality": 0.2, "tone": 0.2},
+    })
+
+    # comparison — Rapetti's "cours IA vs cours enseignant" : two write-ups of the SAME notion (remplissage),
+    # one AI-generated (correct but flat), one teacher-authored (correct + adds the pedagogical value). The
+    # learner names the ADDED VALUE. key_points are those differences (cues accent-free for the offline matcher);
+    # model_answer is the reference reveal — neither rendered pre-answer.
+    S.append({
+        "id": "s5c-compare-remplissage", "type": "comparison",
+        "title": "Compare — cours IA vs cours de l'enseignant (remplissage)",
+        "objective_refs": [], "concept_refs": concept_refs("c-remplissage"),
+        "estimated_seconds": 210, "adaptation_hooks": [],
+        "prompt": "Voici **deux versions** d'un mini-cours sur l'ordre de remplissage des orbitales : l'une rédigée "
+                  "par une **IA**, l'autre par ton **enseignant**. Les deux sont justes. **Relève la valeur ajoutée "
+                  "de la version de l'enseignant** : qu'apporte-t-elle que la version IA n'a pas ?",
+        "artifact_a": "**Version A (IA).** L'ordre de remplissage suit la règle de Klechkowski : on remplit par "
+                      "(n+ℓ) croissant, puis par n croissant à (n+ℓ) égal. La séquence est 1s, 2s, 2p, 3s, 3p, 4s, "
+                      "3d, 4p, etc. Chaque orbitale contient au plus deux électrons (Pauli) et une sous-couche "
+                      "dégénérée se remplit d'abord à spins parallèles (Hund).",
+        "artifact_b": "**Version B (enseignant).** Même règle de Klechkowski — mais attention au **piège** : le **4s "
+                      "se remplit avant le 3d** (car (4+0) < (3+2)), et pourtant, une fois rempli, le 4s **s'ionise "
+                      "le premier**. *Contre-exemple à connaître :* le **chrome** (Cr, [Ar]4s¹3d⁵) **viole** l'ordre "
+                      "naïf parce qu'une sous-couche d à demi-remplie est plus stable. La règle est un guide, pas une loi.",
+        # cues are accent-free substrings the matcher folds (normalize()), multi-token so keyword-stuffing fails.
+        "key_points": [
+            {"id": "kp-piege", "text": "L'enseignant signale le piège 4s avant 3d", "cues": ["4s", "3d"]},
+            {"id": "kp-exception", "text": "L'enseignant donne un contre-exemple (chrome) qui viole la règle", "cues": ["chrome"]},
+            {"id": "kp-nuance", "text": "L'enseignant nuance : la règle est un guide, pas une loi absolue", "cues": ["guide"]},
+        ],
+        "model_answer": "La version IA est **correcte mais plate** : elle énonce la règle. La version de l'enseignant "
+                        "**ajoute la valeur pédagogique** : (1) elle signale le **piège 4s/3d** (ordre de remplissage ≠ "
+                        "ordre d'ionisation), (2) elle donne un **contre-exemple mémorable** (le **chrome**, [Ar]4s¹3d⁵) "
+                        "qui *viole* l'ordre naïf, et (3) elle **nuance** le statut de la règle (un **guide**, pas une loi). "
+                        "C'est cette mise en garde contre les exceptions qui distingue un cours qui *fait comprendre* d'un "
+                        "cours qui *récite*.",
+        "rubric": {"completeness": 0.6, "evidence_quality": 0.2, "tone": 0.2},
+    })
+
+    # summary_audit — Fargier's "résumé IA : apprécier ce qui est conservé/supprimé". The learner reads the full
+    # source (spectres) + an AI summary that DROPS/DISTORTS key points, then names the omissions. claims = the
+    # omissions/distortions (answer key; flaws_expected accent-free); model_correction is the reference reveal.
+    S.append({
+        "id": "s4b-audit-spectres", "type": "summary_audit",
+        "title": "Audite le résumé IA — spectres d'émission",
+        "objective_refs": [], "concept_refs": concept_refs("c-spectres"),
+        "estimated_seconds": 180, "adaptation_hooks": [],
+        "source_content": "**Source.** Les niveaux d'énergie d'un atome sont **quantifiés**. Lorsqu'un électron passe "
+                          "d'un niveau n₂ à un niveau n₁ inférieur, l'atome **émet un photon** d'énergie E = hν = |E(n₂) − "
+                          "E(n₁)|. Pour l'hydrogène, les transitions qui **arrivent sur n=2** forment la **série de Balmer**, "
+                          "située dans le **visible** : c'est elle qui rend les raies observables à l'œil et permet de "
+                          "**reconnaître un gaz** à sa signature spectrale. Les transitions vers n=1 (série de Lyman) sont, "
+                          "elles, dans l'**ultraviolet**.",
+        "ai_summary": "**Résumé IA.** Les atomes émettent de la lumière quand leurs électrons changent de niveau. "
+                      "L'hydrogène produit une série de raies appelée série de Balmer. C'est utile en astronomie.",
+        # the summary omits: quantification (discret), the photon-energy relation E=hν, the n=2 arrival defining
+        # Balmer + visible domain. flaws_expected = accent-free markers a correct audit contains.
+        # flaws_expected are accent-free markers the matcher folds (normalize()). They avoid the Greek ν, which
+        # NFKD does NOT decompose to "nu" — so cues stay matchable for a real French answer AND the model reveal.
+        "claims": [
+            {"id": "o-quant", "text": "Le résumé omet que les niveaux sont QUANTIFIÉS (discrets)",
+             "flaws_expected": ["quantif"]},
+            {"id": "o-photon", "text": "Le résumé omet la relation énergie–fréquence du photon (E = hν)",
+             "flaws_expected": ["energie", "photon"]},
+            {"id": "o-balmer", "text": "Le résumé ne dit pas que Balmer = transitions vers n=2 (et est dans le visible)",
+             "flaws_expected": ["balmer", "visible"]},
+        ],
+        "model_correction": "Le résumé IA garde l'idée générale mais **supprime l'essentiel quantitatif** : (1) il ne dit "
+                            "pas que les niveaux sont **quantifiés** (c'est *pourquoi* le spectre est fait de raies discrètes "
+                            "et non continu) ; (2) il omet la relation d'**énergie** du **photon** (E = hν) qui relie la "
+                            "transition à la couleur ; (3) il ne précise pas que la série de **Balmer** correspond aux "
+                            "transitions vers n=2, dans le **visible** — la raison même pour laquelle ces raies sont "
+                            "observables. Un résumé fidèle doit conserver ces trois points.",
+        "rubric": {"completeness": 0.6, "evidence_quality": 0.3, "tone": 0.1},
+    })
+
     S.append({
         "id": "s6-concept-periodicite", "type": "concept", "title": "Périodicité : ionisation et rayon",
         "objective_refs": [], "concept_refs": concept_refs("c-periodicite"),
@@ -321,6 +503,40 @@ def build_scenes() -> list[dict]:
             mol("assets/molecules/CH4.xyz", "Méthane CH₄ (tétraédrique)"),
             mol("assets/molecules/H2O.xyz", "Eau H₂O (coudée)"),
         ],
+    })
+
+    # prompt_practice — Ciussi's "exercices de prompt : analyse / affinage". The learner crafts a prompt that
+    # would make an AI tutor explain a configuration WELL. key_points = prompt-quality cues (clear instruction /
+    # context / constraints / output format); starter_prompt IS shown (the weak draft to refine); model_prompt
+    # is the reference reveal. cues accent-free for the offline matcher.
+    S.append({
+        "id": "s6b-prompt-configuration", "type": "prompt_practice",
+        "title": "Affine ton prompt — faire expliquer une configuration par une IA",
+        "objective_refs": [], "concept_refs": concept_refs("c-configuration"),
+        "estimated_seconds": 210, "adaptation_hooks": [],
+        "task": "Tu veux qu'une IA t'explique **pourquoi le cuivre (Cu, Z=29) a la configuration [Ar]4s¹3d¹⁰** et "
+                "non [Ar]4s²3d⁹. Le brouillon ci-dessous donne une réponse vague. **Réécris un prompt de qualité** : "
+                "donne une **consigne claire**, le **contexte** (ton niveau, ce que tu sais déjà), des **contraintes** "
+                "(longueur, pas de jargon non défini) et le **format de sortie** attendu.",
+        "starter_prompt": "explique moi le cuivre",
+        # cues are CONTENT words a real good prompt actually writes (the instruction verb, the level, the
+        # length constraint "mots", the numbered output "points") — NOT the dimension labels
+        # "consigne/contexte/contrainte/format". Each self-covers in model_prompt (100% self-cover);
+        # accent-free (matcher folds). Scores a genuine good prompt, not a label-stuffed one.
+        "key_points": [
+            {"id": "kp-consigne", "text": "Une consigne explicite (verbe d'action : explique / compare / justifie)", "cues": ["explique"]},
+            {"id": "kp-contexte", "text": "Le contexte : niveau de l'apprenant et prérequis connus", "cues": ["l1"]},
+            {"id": "kp-contrainte", "text": "Des contraintes : longueur, vocabulaire, étapes attendues", "cues": ["mots"]},
+            {"id": "kp-format", "text": "Le format de sortie demandé (liste, étapes, exemple)", "cues": ["points"]},
+        ],
+        "model_prompt": "« Tu es un tuteur de chimie pour un **étudiant de L1**. **Contexte** : je connais les règles de "
+                        "Klechkowski, Pauli et Hund, mais pas les exceptions. **Consigne** : explique **pourquoi** le "
+                        "cuivre (Z=29) adopte [Ar]4s¹3d¹⁰ plutôt que [Ar]4s²3d⁹. **Contraintes** : reste sous 150 mots, "
+                        "ne suppose aucun prérequis au-delà de L1, et définis tout terme technique. **Format de sortie** : "
+                        "(1) la règle naïve attendue, (2) l'exception observée, (3) la raison (stabilité de la sous-couche d "
+                        "pleine), en trois points numérotés. » — un bon prompt rend la **consigne**, le **contexte**, les "
+                        "**contraintes** et le **format** explicites.",
+        "rubric": {"completeness": 0.6, "evidence_quality": 0.2, "tone": 0.2},
     })
 
     S.append({
@@ -380,12 +596,18 @@ def build_lwg() -> dict:
         nodes.append({"id": f"concept:{cid}", "node_kind": "concept", "title": title, "bloom_level": bloom})
     task_assess = {
         "s1-quiz-fer": ("c-particules", "quiz"),
+        "s1b-audit-particules": ("c-particules", "summary_audit"),
         "s2-quiz-4f": ("c-nombres-quantiques", "quiz"),
         "s3-quiz-noeuds": ("c-orbitales-formes", "quiz"),
         "s3b-explain-2p": ("c-orbitales-formes", "explain_back"),
+        "s3c-compare-noeuds": ("c-orbitales-formes", "comparison"),
         "s4-quiz-balmer": ("c-spectres", "quiz"),
+        "s4b-audit-spectres": ("c-spectres", "summary_audit"),
         "s5-quiz-carbone": ("c-configuration", "quiz"),
         "s5b-spot-azote": ("c-remplissage", "spot_the_flaw"),
+        "s5c-compare-remplissage": ("c-remplissage", "comparison"),
+        "s5d-prompt-hund": ("c-remplissage", "prompt_practice"),
+        "s6b-prompt-configuration": ("c-configuration", "prompt_practice"),
         "s6-quiz-tendance": ("c-periodicite", "quiz"),
         "s8-reproduction-periodique": ("c-periodicite", "reproduction"),
     }

@@ -59,6 +59,8 @@ export const SceneTypeSchema = z.enum([
   "reproduction", "ai_critique", "discussion",
   // active-learning scenes (learner-as-active-agent): find planted errors / teach back.
   "spot_the_flaw", "explain_back",
+  // active-learning wave-1: compare AI vs teacher output / audit an AI summary / craft & refine prompts.
+  "comparison", "summary_audit", "prompt_practice",
 ]);
 
 export const ReasoningSignalEnum = z.enum([
@@ -214,6 +216,49 @@ export const ExplainBackSceneSchema = SceneBaseSchema.extend({
   rubric: AICritiqueRubricSchema,
 });
 
+// comparison — the learner is shown TWO artifacts (artifact_a / artifact_b, e.g. an AI-written course vs a
+// teacher-written one) and must name the differences / added value. `key_points` are those differences (the
+// answer key, mapped to claim-shape at grade time so the SAME evaluator/matcher scores coverage); `model_answer`
+// is the reference reveal. key_points + model_answer are NEVER rendered pre-answer. Graded explainBack-style
+// (coverage over key_points). Reuses KeyPoint + AICritiqueRubricSchema.
+export const ComparisonSceneSchema = SceneBaseSchema.extend({
+  type: z.literal("comparison"),
+  prompt: z.string().min(1),
+  artifact_a: z.string().min(1),
+  artifact_b: z.string().min(1),
+  key_points: z.array(KeyPointSchema).min(1),
+  model_answer: z.string().min(1),
+  rubric: AICritiqueRubricSchema,
+});
+
+// summary_audit — the learner reads a source (source_content) and an AI summary of it (ai_summary), then audits
+// what the summary omitted or distorted. `claims` are the omissions/distortions to catch (FlawClaim answer key,
+// each flaws_expected non-empty); `model_correction` is the reference reveal. claims + model_correction are NEVER
+// rendered pre-answer. This is a learner-as-auditor variant of spot_the_flaw, so it is graded flawGrader-style
+// (true_positives / planted_errors). Reuses FlawClaim + AICritiqueRubricSchema.
+export const SummaryAuditSceneSchema = SceneBaseSchema.extend({
+  type: z.literal("summary_audit"),
+  source_content: z.string().min(1),
+  ai_summary: z.string().min(1),
+  claims: z.array(FlawClaimSchema).min(1).max(5),
+  model_correction: z.string().min(1),
+  rubric: AICritiqueRubricSchema,
+});
+
+// prompt_practice — the learner writes (or refines a starter_prompt for) a prompt for the authored `task`, scored
+// on how many prompt-quality cues it hits (clear instruction / context / constraints / output format). `key_points`
+// are those cues (answer key, mapped to claim-shape at grade time); `model_prompt` is the reference reveal.
+// key_points + model_prompt are NEVER rendered pre-answer. Graded coverage-style over key_points. `starter_prompt`
+// (optional) IS shown — it is the affordance the learner refines, not an answer key.
+export const PromptPracticeSceneSchema = SceneBaseSchema.extend({
+  type: z.literal("prompt_practice"),
+  task: z.string().min(1),
+  starter_prompt: z.string().optional(),
+  key_points: z.array(KeyPointSchema).min(1),
+  model_prompt: z.string().min(1),
+  rubric: AICritiqueRubricSchema,
+});
+
 export const SceneSchema = z.discriminatedUnion("type", [
   IntroSceneSchema,
   ConceptSceneSchema,
@@ -224,6 +269,9 @@ export const SceneSchema = z.discriminatedUnion("type", [
   DiscussionSceneSchema,
   SpotTheFlawSceneSchema,
   ExplainBackSceneSchema,
+  ComparisonSceneSchema,
+  SummaryAuditSceneSchema,
+  PromptPracticeSceneSchema,
 ]);
 
 export type Scene = z.infer<typeof SceneSchema>;

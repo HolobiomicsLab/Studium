@@ -65,6 +65,8 @@ SceneType = Literal[
     "reproduction", "ai_critique", "discussion",
     # active-learning scenes (learner-as-active-agent):
     "spot_the_flaw", "explain_back",
+    # active-learning wave-1: comparison / summary_audit / prompt_practice.
+    "comparison", "summary_audit", "prompt_practice",
 ]
 ReasoningSignalEnum = Literal[
     "justification", "hypothesis", "question", "counterexample", "synthesis",
@@ -201,10 +203,39 @@ class ExplainBackScene(_SceneBase):
     rubric: AICritiqueRubric
 
 
+class ComparisonScene(_SceneBase):
+    type: Literal["comparison"]
+    prompt: str = Field(min_length=1)
+    artifact_a: str = Field(min_length=1)
+    artifact_b: str = Field(min_length=1)
+    key_points: list[KeyPoint] = Field(min_length=1)
+    model_answer: str = Field(min_length=1)
+    rubric: AICritiqueRubric
+
+
+class SummaryAuditScene(_SceneBase):
+    type: Literal["summary_audit"]
+    source_content: str = Field(min_length=1)
+    ai_summary: str = Field(min_length=1)
+    claims: list[FlawClaim] = Field(min_length=1, max_length=5)
+    model_correction: str = Field(min_length=1)
+    rubric: AICritiqueRubric
+
+
+class PromptPracticeScene(_SceneBase):
+    type: Literal["prompt_practice"]
+    task: str = Field(min_length=1)
+    starter_prompt: Optional[str] = None
+    key_points: list[KeyPoint] = Field(min_length=1)
+    model_prompt: str = Field(min_length=1)
+    rubric: AICritiqueRubric
+
+
 SceneUnion = Union[
     IntroScene, ConceptScene, QuizScene, MetaCheckpointScene,
     ReproductionScene, AICritiqueScene, DiscussionScene,
     SpotTheFlawScene, ExplainBackScene,
+    ComparisonScene, SummaryAuditScene, PromptPracticeScene,
 ]
 Scene = Annotated[SceneUnion, Field(discriminator="type")]
 

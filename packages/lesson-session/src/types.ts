@@ -25,7 +25,10 @@ export type ResponseInput =
   | { kind: "confidence"; value: 0 | 1 | 2 | 3 | 4 }
   | { kind: "critique"; text: string }
   | { kind: "flaw_report"; text: string }    // spot_the_flaw: the learner's named flaws
-  | { kind: "explanation"; text: string };   // explain_back: the learner's teach-back
+  | { kind: "explanation"; text: string }    // explain_back: the learner's teach-back
+  | { kind: "comparison"; text: string }     // comparison: the learner's named differences / added value
+  | { kind: "summary_audit"; text: string }  // summary_audit: the learner's named omissions / distortions
+  | { kind: "prompt_submission"; text: string }; // prompt_practice: the learner's authored/refined prompt
 
 export interface CompletionSummary {
   totalDurationMs: number;

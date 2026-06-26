@@ -13,13 +13,16 @@ from pydantic import ValidationError
 from scene_synth_schemas import (
     AICritiqueScene,
     Bundle,
+    ComparisonScene,
     ConceptScene,
     ExplainBackScene,
     IntroScene,
     MetaCheckpointScene,
+    PromptPracticeScene,
     QuizScene,
     ReproductionScene,
     SpotTheFlawScene,
+    SummaryAuditScene,
 )
 
 
@@ -130,6 +133,85 @@ def test_explain_back_rejects_empty_cues():
         ExplainBackScene.model_validate(raw)
 
 
+def test_comparison_scene_minimal():
+    raw = {
+        "id": "s5",
+        "type": "comparison",
+        "title": "Cours IA vs enseignant",
+        "concept_refs": ["c-remplissage"],
+        "prompt": "Relève la valeur ajoutée.",
+        "artifact_a": "Cours IA.",
+        "artifact_b": "Cours enseignant.",
+        "key_points": [{"id": "kp1", "text": "exemple", "cues": ["exemple"]}],
+        "model_answer": "L'enseignant ajoute un exemple ancré.",
+        "rubric": {"completeness": 0.6, "evidence_quality": 0.2, "tone": 0.2},
+    }
+    scene = ComparisonScene.model_validate(raw)
+    assert scene.type == "comparison"
+    assert scene.artifact_a == "Cours IA."
+    assert scene.key_points[0].cues == ["exemple"]
+
+
+def test_summary_audit_scene_minimal():
+    raw = {
+        "id": "s6",
+        "type": "summary_audit",
+        "title": "Audit du résumé IA",
+        "concept_refs": ["c-remplissage"],
+        "source_content": "Texte source.",
+        "ai_summary": "Résumé qui omet un point.",
+        "claims": [{"id": "o1", "text": "omission", "flaws_expected": ["hund"]}],
+        "model_correction": "Le résumé omet la règle de Hund.",
+        "rubric": {"completeness": 0.6, "evidence_quality": 0.3, "tone": 0.1},
+    }
+    scene = SummaryAuditScene.model_validate(raw)
+    assert scene.type == "summary_audit"
+    assert len(scene.claims) == 1
+    assert scene.ai_summary.startswith("Résumé")
+
+
+def test_prompt_practice_scene_minimal_starter_optional():
+    raw = {
+        "id": "s7",
+        "type": "prompt_practice",
+        "title": "Affine ton prompt",
+        "concept_refs": ["c-remplissage"],
+        "task": "Rédige un prompt.",
+        "key_points": [{"id": "kp1", "text": "consigne", "cues": ["consigne"]}],
+        "model_prompt": "Tu es un tuteur. Consigne claire.",
+        "rubric": {"completeness": 0.6, "evidence_quality": 0.2, "tone": 0.2},
+    }
+    scene = PromptPracticeScene.model_validate(raw)
+    assert scene.type == "prompt_practice"
+    assert scene.starter_prompt is None
+    scene2 = PromptPracticeScene.model_validate({**raw, "starter_prompt": "Explique Hund."})
+    assert scene2.starter_prompt == "Explique Hund."
+
+
+def test_summary_audit_rejects_empty_flaws_expected():
+    raw = {
+        "id": "s", "type": "summary_audit", "title": "t", "concept_refs": ["c"],
+        "source_content": "s", "ai_summary": "a",
+        "claims": [{"id": "o", "text": "t", "flaws_expected": []}],
+        "model_correction": "m",
+        "rubric": {"completeness": 0.5, "evidence_quality": 0.5, "tone": 0.5},
+    }
+    with pytest.raises(ValidationError):
+        SummaryAuditScene.model_validate(raw)
+
+
+def test_comparison_rejects_empty_cues():
+    raw = {
+        "id": "s", "type": "comparison", "title": "t", "concept_refs": ["c"],
+        "prompt": "p", "artifact_a": "a", "artifact_b": "b",
+        "key_points": [{"id": "k", "text": "t", "cues": []}],
+        "model_answer": "m",
+        "rubric": {"completeness": 0.5, "evidence_quality": 0.5, "tone": 0.5},
+    }
+    with pytest.raises(ValidationError):
+        ComparisonScene.model_validate(raw)
+
+
 def test_atomistique_bundle_with_active_learning_scenes(fixture_dir):
     """The authored atomistique-l1 bundle (with spot_the_flaw + explain_back) round-trips."""
     lesson_path = fixture_dir / "atomistique-l1" / "lesson.json"
@@ -138,6 +220,9 @@ def test_atomistique_bundle_with_active_learning_scenes(fixture_dir):
     types = {s.type for s in bundle.scenes}
     assert "spot_the_flaw" in types
     assert "explain_back" in types
+    assert "comparison" in types
+    assert "summary_audit" in types
+    assert "prompt_practice" in types
 
 
 def test_scene_aliases_exist():

@@ -35,6 +35,10 @@ SceneType = Literal[
     # active-learning scenes (learner-as-active-agent):
     "spot_the_flaw",
     "explain_back",
+    # active-learning wave-1: comparison / summary_audit / prompt_practice.
+    "comparison",
+    "summary_audit",
+    "prompt_practice",
 ]
 BloomLevel = Literal[
     "remember", "understand", "apply", "analyze", "evaluate", "create"
@@ -261,6 +265,55 @@ class ExplainBackScene(_SceneBase):
     rubric: AICritiqueRubric
 
 
+class ComparisonScene(_SceneBase):
+    """AI-vs-teacher comparison: the learner reads two artifacts and names the
+    differences / added value, scored by key-point coverage.
+
+    `key_points` (answer key) and `model_answer` (reference) are reveals, never
+    rendered before the learner responds. Reuses KeyPoint + AICritiqueRubric."""
+
+    type: Literal["comparison"]
+    prompt: str = Field(min_length=1)
+    artifact_a: str = Field(min_length=1)
+    artifact_b: str = Field(min_length=1)
+    key_points: list[KeyPoint] = Field(min_length=1)
+    model_answer: str = Field(min_length=1)
+    rubric: AICritiqueRubric
+
+
+class SummaryAuditScene(_SceneBase):
+    """AI-summary audit: the learner reads a source + its AI summary and names the
+    omissions/distortions (learner-as-auditor variant of spot_the_flaw).
+
+    `claims` (answer key, each flaws_expected non-empty) and `model_correction`
+    (reference) are reveals, never rendered before the learner responds. Reuses
+    FlawClaim + AICritiqueRubric."""
+
+    type: Literal["summary_audit"]
+    source_content: str = Field(min_length=1)
+    ai_summary: str = Field(min_length=1)
+    claims: list[FlawClaim] = Field(min_length=1, max_length=5)
+    model_correction: str = Field(min_length=1)
+    rubric: AICritiqueRubric
+
+
+class PromptPracticeScene(_SceneBase):
+    """Prompt-engineering exercise: the learner writes/refines a prompt for the
+    authored task, scored on prompt-quality cue coverage.
+
+    `key_points` (answer key) and `model_prompt` (reference) are reveals, never
+    rendered before the learner responds. `starter_prompt` (optional) IS shown —
+    it is the affordance the learner refines, not an answer key. Reuses KeyPoint +
+    AICritiqueRubric."""
+
+    type: Literal["prompt_practice"]
+    task: str = Field(min_length=1)
+    starter_prompt: Optional[str] = None
+    key_points: list[KeyPoint] = Field(min_length=1)
+    model_prompt: str = Field(min_length=1)
+    rubric: AICritiqueRubric
+
+
 # ---------------------------------------------------------------------------
 # Discriminated union
 # ---------------------------------------------------------------------------
@@ -275,6 +328,9 @@ SceneUnion = Union[
     AICritiqueScene,
     SpotTheFlawScene,
     ExplainBackScene,
+    ComparisonScene,
+    SummaryAuditScene,
+    PromptPracticeScene,
 ]
 Scene = Annotated[SceneUnion, Field(discriminator="type")]
 
@@ -494,6 +550,7 @@ __all__ = [
     "Bundle",
     "CaseStudy",
     "Claim",
+    "ComparisonScene",
     "Concept",
     "ConceptScene",
     "CritiqueEvalRequest",
@@ -520,6 +577,7 @@ __all__ = [
     "MetaCheckpointScene",
     "Modulator",
     "PerspicaciteMode",
+    "PromptPracticeScene",
     "QuizChoice",
     "QuizScene",
     "ReproductionScene",
@@ -531,6 +589,7 @@ __all__ = [
     "SceneType",
     "SceneUnion",
     "SpotTheFlawScene",
+    "SummaryAuditScene",
     "SynthesizeOptions",
     "SynthesizeRequest",
     "SynthesizeResponse",

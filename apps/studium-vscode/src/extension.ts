@@ -12,6 +12,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
+import { reviewDueConcepts } from "./review-fsrs.js";
+import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 
 type Json = Record<string, any>;
 
@@ -75,6 +77,11 @@ async function openLesson(context: vscode.ExtensionContext) {
   // Live per-concept mastery is a learner-model / teacher signal: showing it to the student during a
   // quiz leaks the answer (click options, watch which raises mastery). Off by default; on for demos.
   const showMastery = cfg<boolean>("showMastery", false);
+  // Modality-adaptive rendering (Ciussi, "comment mieux apprendre si je suis visuel"): the learner
+  // declares whether they learn better VISUALLY or TEXTUALLY, and the SAME scene's artifacts are
+  // reordered + emphasized to lead with that modality. 'balanced' = current behaviour. Content-
+  // preserving — selectRenderOrder only permutes + tags, never drops an artifact.
+  const modalityPref = cfg<ModalityPreference>("modalityPreference", "balanced");
   let graphPanel: vscode.WebviewPanel | undefined;
   if (showGraph) {
     const gp = vscode.window.createWebviewPanel(
@@ -113,12 +120,26 @@ async function openLesson(context: vscode.ExtensionContext) {
   const pushScene = async (presentation: Json, explanation?: Json) => {
     const artifacts = (await call("get_scene_artifacts", { session_id: sid })).scene_assets || [];
     if (panelDisposed) return;
+    // Spaced-repetition: which concepts are DUE for review (per the FSRS scheduler in
+    // packages/adaptation-engine/src/fsrs.ts). Derived from the learner state get_session_state
+    // already exposes. Best-effort — never let it break the lesson; it is a recall-timing cue, not
+    // a mastery score, so it is always shown to the learner (no answer leak).
+    let reviewDue: string[] = [];
+    try {
+      const st = (await call("get_session_state", { session_id: sid })).state;
+      reviewDue = reviewDueConcepts(st);
+    } catch { /* best-effort */ }
+    if (panelDisposed) return;
     panel.webview.postMessage({
       type: "render",
+      // Modality-adaptive: reorder + emphasis-tag the (image-inlined) assets for the learner's
+      // preference before posting. 'balanced' returns the authored order unchanged, all 'normal'.
+      scene_assets: selectRenderOrder(artifacts.map(inlineImage), modalityPref),
+      modalityPreference: modalityPref,
       scene: presentation.scene,
-      scene_assets: artifacts.map(inlineImage),
       progress: { index: (presentation.index ?? 0) + 1, total: presentation.total },
       mastery: showMastery ? (presentation.learnerSnapshot?.conceptMastery ?? {}) : {},
+      reviewDue,
       explanation: explanation ?? presentation.explanation ?? null,
     });
     await pushGraph();
