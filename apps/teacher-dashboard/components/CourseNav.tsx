@@ -11,7 +11,8 @@ type Props = {
     | "reasoning"
     | "journal"
     | "cooperation"
-    | "blueprint";
+    | "blueprint"
+    | "submissions";
 };
 
 const TABS: { key: Props["active"]; label: string }[] = [
@@ -24,6 +25,7 @@ const TABS: { key: Props["active"]; label: string }[] = [
   { key: "journal", label: "Journal" },
   { key: "cooperation", label: "Coopération" },
   { key: "blueprint", label: "Blueprint" },
+  { key: "submissions", label: "Soumissions" },
 ];
 
 export default function CourseNav({ token, active }: Props) {
