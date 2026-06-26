@@ -1,5 +1,5 @@
 // packages/lesson-session-host/src/index.ts
-export { SessionHost, SessionHostNotFoundError, type SessionHostOptions } from "./host.js";
+export { SessionHost, SessionHostNotFoundError, PeerRoomError, type SessionHostOptions } from "./host.js";
 export { SessionRegistry, type SessionEntry } from "./registry.js";
 export { buildHostDeps, durableDataDir, durableScopeDir, telemetryConsentGranted } from "./deps.js";
 export { resolveBundle } from "./bundle-resolver.js";
@@ -9,3 +9,7 @@ export { ResponseInputSchema } from "./response-input-schema.js";
 export {
   publicScene, publicPresentation, publicTransition, REDACTED_SCENE_FIELDS, type PublicScene,
 } from "./public-scene.js";
+export {
+  aggregateRatings, ROOM_K_FLOOR,
+  type PeerRating, type RoomEntry, type TargetAggregate, type RoomState,
+} from "./room.js";

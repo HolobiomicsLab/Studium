@@ -14,6 +14,10 @@ import { SessionRegistry, type SessionEntry } from "./registry.js";
 import { buildHostDeps, durableDataDir, durableScopeDir } from "./deps.js";
 import { resolveBundle, assetBaseDir } from "./bundle-resolver.js";
 import { discoverCommunityBundles } from "./community-bundles.js";
+import {
+  aggregateRatings, ROOM_K_FLOOR,
+  type PeerRating, type RoomEntry, type RoomState,
+} from "./room.js";
 
 // Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /
 // notebook gets the content directly — no client-side file access, CSP-safe). Images stay as paths
@@ -253,9 +257,16 @@ export function calibrationVerdict(cs: ConceptState): CalibrationVerdict | null 
 
 export interface SessionHostOptions { bundlesRoot: string; live: boolean; }
 
+export class PeerRoomError extends Error {
+  constructor(msg: string) { super(msg); this.name = "PeerRoomError"; }
+}
+
 /** Multi-session host shared by the HTTP and MCP drivers. */
 export class SessionHost {
   private readonly registry = new SessionRegistry();
+  // D1 PeerStudio: ephemeral rooms indexed by id and by join_code.
+  private readonly rooms = new Map<string, RoomEntry>();
+  private readonly joinCodeIndex = new Map<string, string>(); // join_code → room_id
   constructor(private readonly opts: SessionHostOptions) {}
 
   async create(bundleRef: string, learnerId = "anonymous"): Promise<{ sessionId: string; presentation: Presentation }> {
@@ -393,6 +404,91 @@ export class SessionHost {
   }
 
   has(id: string): boolean { return this.registry.has(id); }
+
+  // ---------------------------------------------------------------------------
+  // D1 PeerStudio — ephemeral room API (teacher-gated)
+  // ---------------------------------------------------------------------------
+
+  /** Teacher creates a Room; returns an opaque teacher_key and a human-typable join_code. */
+  openRoom(bundleRef: string): { room_id: string; join_code: string; teacher_key: string } {
+    const room_id = randomUUID();
+    const teacher_key = randomUUID();
+    const join_code = room_id.replace(/-/g, "").slice(0, 6).toUpperCase();
+    const room: RoomEntry = {
+      id: room_id, teacher_key, bundle_ref: bundleRef,
+      join_code, session_ids: new Set(), ratings: [],
+      created_at: Date.now(), closed: false,
+    };
+    this.rooms.set(room_id, room);
+    this.joinCodeIndex.set(join_code, room_id);
+    return { room_id, join_code, teacher_key };
+  }
+
+  /** Learner joins an open Room by its human-typable join_code, linking their session into it. */
+  joinRoom(joinCode: string, sessionId: string): { room_id: string; session_count: number } {
+    const room_id = this.joinCodeIndex.get(joinCode.toUpperCase());
+    if (!room_id) throw new PeerRoomError(`unknown join code: ${joinCode}`);
+    const room = this.rooms.get(room_id)!;
+    if (room.closed) throw new PeerRoomError("room is already closed");
+    room.session_ids.add(sessionId);
+    return { room_id, session_count: room.session_ids.size };
+  }
+
+  /** Learner submits a peer rating for another session's response.
+   *  Returns whether the target is still k-suppressed after this rating. */
+  submitRoomRating(
+    roomId: string,
+    raterSessionId: string,
+    targetSessionId: string,
+    rating: { passed: boolean; rating: number; helpful: boolean },
+  ): { suppressed: boolean; k: number } {
+    const room = this.rooms.get(roomId);
+    if (!room) throw new PeerRoomError(`unknown room: ${roomId}`);
+    if (room.closed) throw new PeerRoomError("room is already closed");
+    if (raterSessionId === targetSessionId) throw new PeerRoomError("cannot rate your own response");
+    if (rating.rating < 1 || rating.rating > 5) throw new PeerRoomError("rating must be 1–5");
+    room.ratings.push({
+      rater_session_id: raterSessionId,
+      target_session_id: targetSessionId,
+      ...rating,
+      ts: Date.now(),
+    });
+    const k = room.ratings.filter((r) => r.target_session_id === targetSessionId).length;
+    return { suppressed: k < ROOM_K_FLOOR, k };
+  }
+
+  /** Teacher reads the current Room state (session count, rating count, k-suppressed aggregates).
+   *  Gated by the teacher_key so only the teacher sees the live aggregates. */
+  getRoomState(roomId: string, teacherKey: string): RoomState {
+    const room = this.rooms.get(roomId);
+    if (!room) throw new PeerRoomError(`unknown room: ${roomId}`);
+    if (room.teacher_key !== teacherKey) throw new PeerRoomError("invalid teacher key");
+    return {
+      room_id: roomId,
+      bundle_ref: room.bundle_ref,
+      session_count: room.session_ids.size,
+      rating_count: room.ratings.length,
+      closed: room.closed,
+      aggregates: aggregateRatings(room.ratings),
+    };
+  }
+
+  /** Teacher closes the Room; returns the final k-suppressed aggregates for decide_item routing. */
+  closeRoom(roomId: string, teacherKey: string): RoomState {
+    const room = this.rooms.get(roomId);
+    if (!room) throw new PeerRoomError(`unknown room: ${roomId}`);
+    if (room.teacher_key !== teacherKey) throw new PeerRoomError("invalid teacher key");
+    room.closed = true;
+    this.joinCodeIndex.delete(room.join_code);
+    return {
+      room_id: roomId,
+      bundle_ref: room.bundle_ref,
+      session_count: room.session_ids.size,
+      rating_count: room.ratings.length,
+      closed: true,
+      aggregates: aggregateRatings(room.ratings),
+    };
+  }
 
   async forget(id: string): Promise<void> {
     const e = this.require(id);
