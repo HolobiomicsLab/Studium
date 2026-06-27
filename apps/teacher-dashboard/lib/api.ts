@@ -15,6 +15,10 @@ const BASE = process.env.ANALYTICS_BASE_URL ?? "http://localhost:8003";
 const SCENE_SYNTH_BASE =
   process.env.SCENE_SYNTH_BASE_URL ?? "http://localhost:8002";
 
+// lesson-server hosts the PeerStudio Room endpoints.
+const LESSON_SERVER_BASE =
+  process.env.LESSON_SERVER_BASE_URL ?? "http://localhost:8010";
+
 export type ProgressResponse = {
   scenes: Record<string, { completion_rate: number; n_learners: number }>;
 };
@@ -382,4 +386,52 @@ export async function decideLearnerItem(
  */
 export function teacherIriForToken(courseToken: string): string {
   return `urn:studium:teacher:${encodeURIComponent(courseToken)}`;
+}
+
+// ---------------------------------------------------------------------------
+// PeerStudio Room API (lesson-server :8010)
+// ---------------------------------------------------------------------------
+
+export type TargetAggregate = {
+  target_session_id: string;
+  k: number;
+  passed_rate: number;
+  avg_rating: number;
+  avg_helpful: number;
+};
+
+export type RoomState = {
+  room_id: string;
+  bundle_ref: string;
+  session_count: number;
+  rating_count: number;
+  closed: boolean;
+  aggregates: TargetAggregate[];
+};
+
+async function roomFetch<T>(path: string, opts?: RequestInit): Promise<T> {
+  const r = await fetch(`${LESSON_SERVER_BASE}${path}`, {
+    ...opts,
+    headers: { "Content-Type": "application/json", ...opts?.headers },
+    cache: "no-store",
+  });
+  const json = (await r.json()) as Record<string, unknown>;
+  if (!r.ok) throw new Error(`lesson-server ${path} failed: ${r.status} — ${String(json["error"] ?? json["message"] ?? "")}`);
+  return json as T;
+}
+
+export async function openRoom(bundleRef: string): Promise<{ room_id: string; join_code: string; teacher_key: string }> {
+  return roomFetch("/rooms", { method: "POST", body: JSON.stringify({ bundle_ref: bundleRef }) });
+}
+
+export async function joinRoom(joinCode: string, sessionId: string): Promise<{ room_id: string; session_count: number }> {
+  return roomFetch("/rooms/join", { method: "POST", body: JSON.stringify({ join_code: joinCode, session_id: sessionId }) });
+}
+
+export async function getRoomState(roomId: string, teacherKey: string): Promise<RoomState> {
+  return roomFetch(`/rooms/${roomId}?teacher_key=${encodeURIComponent(teacherKey)}`);
+}
+
+export async function closeRoom(roomId: string, teacherKey: string): Promise<RoomState> {
+  return roomFetch(`/rooms/${roomId}/close`, { method: "POST", body: JSON.stringify({ teacher_key: teacherKey }) });
 }

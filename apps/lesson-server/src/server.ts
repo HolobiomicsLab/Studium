@@ -1,9 +1,12 @@
 // apps/lesson-server/src/server.ts
 import Fastify, { type FastifyInstance } from "fastify";
 import type { ResponseInput } from "@studium/lesson-session";
-import { SessionHost, SessionHostNotFoundError } from "@studium/lesson-session-host";
+import { SessionHost, SessionHostNotFoundError, PeerRoomError } from "@studium/lesson-session-host";
 import { ok, err } from "./envelope.js";
-import { CreateSessionBody, RespondBody, TurnBody } from "./schemas.js";
+import {
+  CreateSessionBody, RespondBody, TurnBody,
+  OpenRoomBody, JoinRoomBody, SubmitRatingBody, CloseRoomBody,
+} from "./schemas.js";
 
 export interface ServerOptions { bundlesRoot: string; live: boolean; }
 
@@ -59,7 +62,49 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     catch (e) { return reply.code(notFound(e)).send(err((e as Error).message)); }
   });
 
+  // -------------------------------------------------------------------------
+  // D1 PeerStudio room routes
+  // -------------------------------------------------------------------------
+
+  app.post("/rooms", async (req, reply) => {
+    const parsed = OpenRoomBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(err(`invalid body: ${parsed.error.message}`));
+    return reply.code(201).send(ok(host.openRoom(parsed.data.bundle_ref)));
+  });
+
+  app.post("/rooms/join", async (req, reply) => {
+    const parsed = JoinRoomBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(err(`invalid body: ${parsed.error.message}`));
+    try { return reply.send(ok(host.joinRoom(parsed.data.join_code, parsed.data.session_id))); }
+    catch (e) { return reply.code(roomErr(e)).send(err((e as Error).message)); }
+  });
+
+  app.post<{ Params: { id: string } }>("/rooms/:id/ratings", async (req, reply) => {
+    const parsed = SubmitRatingBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(err(`invalid body: ${parsed.error.message}`));
+    try {
+      const { rater_session_id, target_session_id, ...rating } = parsed.data;
+      return reply.send(ok(host.submitRoomRating(req.params.id, rater_session_id, target_session_id, rating)));
+    }
+    catch (e) { return reply.code(roomErr(e)).send(err((e as Error).message)); }
+  });
+
+  app.get<{ Params: { id: string }; Querystring: { teacher_key?: string } }>("/rooms/:id", async (req, reply) => {
+    const teacherKey = req.query.teacher_key ?? "";
+    if (!teacherKey) return reply.code(400).send(err("teacher_key query param required"));
+    try { return reply.send(ok(host.getRoomState(req.params.id, teacherKey))); }
+    catch (e) { return reply.code(roomErr(e)).send(err((e as Error).message)); }
+  });
+
+  app.post<{ Params: { id: string } }>("/rooms/:id/close", async (req, reply) => {
+    const parsed = CloseRoomBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(err(`invalid body: ${parsed.error.message}`));
+    try { return reply.send(ok(host.closeRoom(req.params.id, parsed.data.teacher_key))); }
+    catch (e) { return reply.code(roomErr(e)).send(err((e as Error).message)); }
+  });
+
   return app;
 }
 
 function notFound(e: unknown): number { return e instanceof SessionHostNotFoundError ? 404 : 500; }
+function roomErr(e: unknown): number { return e instanceof PeerRoomError ? 400 : 500; }
