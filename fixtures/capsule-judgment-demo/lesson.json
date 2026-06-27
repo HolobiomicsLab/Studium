@@ -1,0 +1,165 @@
+{
+  "schema_version": "1.4",
+  "bundle_id": "capsule-judgment-demo",
+  "source_plan_id": "plan-capsule-judgment",
+  "metadata": {
+    "title": "Capsule-grounded judgment (decay fit)",
+    "target": "grad",
+    "duration_minutes": 15,
+    "language": "fr",
+    "discipline": "chemistry"
+  },
+  "concepts": [
+    {
+      "id": "c-kinetics",
+      "title": "Cinetique du premier ordre",
+      "description": "Constante de vitesse k et demi-vie",
+      "bloom_level_target": "evaluate"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s-intro",
+      "type": "intro",
+      "title": "Auditer une lecture IA d'un run reel",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-kinetics"
+      ],
+      "estimated_seconds": 20,
+      "adaptation_hooks": [],
+      "markdown": "# Auditer une lecture IA\n\nTu vas auditer la lecture, par une IA, d'un resultat scientifique REELLEMENT execute (un ajustement de decroissance du premier ordre). Repere ce qui cloche dans son interpretation."
+    },
+    {
+      "id": "s-flaw-subtle",
+      "title": "Audit d'une lecture IA (subtle)",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-kinetics"
+      ],
+      "estimated_seconds": 0,
+      "adaptation_hooks": [],
+      "type": "spot_the_flaw",
+      "flawed_content": "Lecture IA du resultat reel (LANDMARK k_fit=0.4212 half_life=1.6457). La demi-vie depasse une heure.",
+      "claims": [
+        {
+          "id": "f1",
+          "text": "La demi-vie depasse une heure.",
+          "flaws_expected": [
+            "demi-vie",
+            "unites"
+          ]
+        }
+      ],
+      "model_correction": "Lecture correcte ancree sur LANDMARK k_fit=0.4212 half_life=1.6457 : k est un taux (1/temps) ; la demi-vie vaut ln2/k (~1.65 unite de temps), pas une heure.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      },
+      "reference_result": {
+        "ran": true,
+        "passed": true,
+        "landmark": "LANDMARK k_fit=0.4212 half_life=1.6457",
+        "figure_path": "decay.png",
+        "checks": [
+          {
+            "check": "file exists: outputs/stats.csv",
+            "passed": true
+          },
+          {
+            "check": "file exists: figures/decay.png",
+            "passed": true
+          },
+          {
+            "check": "expected artifact: stats.csv",
+            "passed": true
+          }
+        ],
+        "provenance": {
+          "capsule_doi": "10.0000/demo.decay-fit",
+          "cmd": [
+            "python",
+            "scripts/run.py"
+          ],
+          "env": "isolated uv venv (python 3.13)"
+        }
+      }
+    },
+    {
+      "id": "s-flaw-blatant",
+      "title": "Audit d'une lecture IA (blatant)",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-kinetics"
+      ],
+      "estimated_seconds": 0,
+      "adaptation_hooks": [],
+      "type": "spot_the_flaw",
+      "flawed_content": "Lecture IA du resultat reel (LANDMARK k_fit=0.4212 half_life=1.6457). La demi-vie depasse une heure. k est un nombre sans dimension. Le bruit prouve une cinetique d ordre deux.",
+      "claims": [
+        {
+          "id": "f1",
+          "text": "La demi-vie depasse une heure.",
+          "flaws_expected": [
+            "demi-vie",
+            "unites"
+          ]
+        },
+        {
+          "id": "f2",
+          "text": "k est un nombre sans dimension.",
+          "flaws_expected": [
+            "unites",
+            "dimension"
+          ]
+        },
+        {
+          "id": "f3",
+          "text": "Le bruit prouve une cinetique d ordre deux.",
+          "flaws_expected": [
+            "ordre",
+            "sur-interpretation"
+          ]
+        }
+      ],
+      "model_correction": "Lecture correcte ancree sur LANDMARK k_fit=0.4212 half_life=1.6457 : k est un taux (1/temps) ; la demi-vie vaut ln2/k (~1.65 unite de temps), pas une heure.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      },
+      "reference_result": {
+        "ran": true,
+        "passed": true,
+        "landmark": "LANDMARK k_fit=0.4212 half_life=1.6457",
+        "figure_path": "decay.png",
+        "checks": [
+          {
+            "check": "file exists: outputs/stats.csv",
+            "passed": true
+          },
+          {
+            "check": "file exists: figures/decay.png",
+            "passed": true
+          },
+          {
+            "check": "expected artifact: stats.csv",
+            "passed": true
+          }
+        ],
+        "provenance": {
+          "capsule_doi": "10.0000/demo.decay-fit",
+          "cmd": [
+            "python",
+            "scripts/run.py"
+          ],
+          "env": "isolated uv venv (python 3.13)"
+        }
+      }
+    }
+  ],
+  "rules": [],
+  "validated_by": "capsule-judgment-demo",
+  "validated_at": "2026-06-27T08:00:00Z"
+}

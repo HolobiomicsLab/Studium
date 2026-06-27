@@ -4,6 +4,23 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-27 — Canal de session agentique fichier (`.studium-session/`) — outsourcing exécution/rendu
+
+**Vision** : la leçon capsule-backed n'embarque PAS son propre sandbox d'exécution ni sa pile de rendu ; elle les délègue à l'**hôte VS Code** + un **opérateur agentique enfichable** (Copilot / Claude Code / Codex / opencode). Studium reste le *cerveau* (routage adaptatif, maîtrise, calibration, scènes de jugement + ancrage). Deux canaux : **MCP** (déjà existant, `apps/lesson-mcp`, déjà rédacté) et **fichiers** (nouveau, universel).
+
+**Construit (branche `feat/capsule-judgment-slice`)** :
+- `packages/lesson-session-host/src/session-workspace.ts` — conducteur `SessionWorkspace` du protocole `.studium-session/` : `writeStep()` écrit un `task.md` RÉDACTÉ (via `publicScene`) + le résultat réellement exécuté (landmark/figure, allowlist) + `index.json` (mémoire/log) ; `readResponse()` mappe `response.json` → ResponseInput (coercition du `kind`) ; `ingest()` note via le vrai grader, écrit `feedback.md`, avance. **Self-heal** : une `response.json` invalide/mal typée est consommée + `feedback.md` correctif (le canal ne se bloque pas).
+- `tools/build_capsule_judgment_demo.py` émet aussi `fixtures/capsule-judgment-demo/lesson.json` (bundle chargeable : intro + 2 `spot_the_flaw` ancrés, rules:[] → avance linéaire).
+- `docs/agentic-session-protocol.md` — les deux canaux + layout `.studium-session/` + quick-start opérateur (n'importe quel assistant) + garantie de rédaction.
+
+**Invariant clé (vérifié)** : la clé de réponse (claims/flaws_expected/model_*) n'atteint JAMAIS l'opérateur via task.md/feedback.md/index.json. `publicScene` rédacte les champs de scène ; `renderTask` ne surface QUE l'asset `executed_result` + une allowlist de meta (landmark/path/cmd/passed), car `host.sceneArtifacts` n'est pas rédacté (asymétrie connue, commentée).
+
+**Vérification** : lesson-session-host tsc + **180 vitest** (3 nouveaux : round-trip ancré rédacté · self-heal · no-leak-toutes-scènes) ; lesson-mcp build ; 200 assertions drivers studium-vscode (aucune régression). Revue adverse (2 lentilles × Opus) = ship-with-fixes ; **2 must-fix corrigés** (self-heal anti-blocage ; cette entrée AGENT_LOG) + 4 should-fix (allowlist commentée · écriture atomique documentée · prose rendu-natif resserrée · clause quick-start « pas de harnais opérateur »).
+
+**NON construit (suivi honnête)** : rendu inline de la figure `executed_result` dans le notebook (aujourd'hui une note de référence ; le contrôleur n'a pas de cas `executed_result`) ; harnais opérateur réel (Claude Code/Copilot) ; intégration du `work/` opérateur dans l'évaluation de processus.
+
+---
+
 ## 2026-06-27 — Slice « capsule-backed judgment » (vision capsule-backed lessons, tranche 1)
 
 **Vision (verrouillée en discussion ; mémoire `studium-capsule-backed-lessons`)** : l'opération scientifique réelle est le *véhicule*, le jugement calibré est la *destination*. Première tranche de dé-risquage : prouver qu'un composeur agentique peut produire une scène de jugement ANCRÉE sur une exécution réelle.

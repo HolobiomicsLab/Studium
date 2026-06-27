@@ -151,6 +151,41 @@ def main(live: bool = False) -> int:
         json.dumps(scenes, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     print(f"wrote {len(scenes)} grounded spot_the_flaw scenes -> {OUT / 'scenes.json'}")
+
+    # also emit a loadable LessonBundle so a SessionHost (and the .studium-session/ file channel)
+    # can run these scenes end-to-end. rules:[] => linear advance (no adaptive gating needed here).
+    intro = {
+        "id": "s-intro", "type": "intro",
+        "title": "Auditer une lecture IA d'un run reel",
+        "objective_refs": [], "concept_refs": ["c-kinetics"],
+        "estimated_seconds": 20, "adaptation_hooks": [],
+        "markdown": (
+            "# Auditer une lecture IA\n\nTu vas auditer la lecture, par une IA, d'un resultat "
+            "scientifique REELLEMENT execute (un ajustement de decroissance du premier ordre). "
+            "Repere ce qui cloche dans son interpretation."
+        ),
+    }
+    bundle = {
+        "schema_version": "1.4",
+        "bundle_id": "capsule-judgment-demo",
+        "source_plan_id": "plan-capsule-judgment",
+        "metadata": {
+            "title": "Capsule-grounded judgment (decay fit)", "target": "grad",
+            "duration_minutes": 15, "language": "fr", "discipline": "chemistry",
+        },
+        "concepts": [{
+            "id": "c-kinetics", "title": "Cinetique du premier ordre",
+            "description": "Constante de vitesse k et demi-vie", "bloom_level_target": "evaluate",
+        }],
+        "scenes": [intro, *scenes],
+        "rules": [],
+        "validated_by": "capsule-judgment-demo",
+        "validated_at": "2026-06-27T08:00:00Z",
+    }
+    (OUT / "lesson.json").write_text(
+        json.dumps(bundle, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    print(f"wrote loadable bundle ({len(bundle['scenes'])} scenes) -> {OUT / 'lesson.json'}")
     print(f"REAL landmark: {res.get('landmark')}   figure: {OUT / 'decay.png'}")
     for s in scenes:
         print(f"  - {s['id']}: {len(s['claims'])} planted flaw(s); grounded={'reference_result' in s}")

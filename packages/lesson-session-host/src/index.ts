@@ -10,6 +10,9 @@ export {
   publicScene, publicPresentation, publicTransition, REDACTED_SCENE_FIELDS, type PublicScene,
 } from "./public-scene.js";
 export {
+  SessionWorkspace, type WorkspaceIndex, type WorkspaceStepEntry,
+} from "./session-workspace.js";
+export {
   aggregateRatings, ROOM_K_FLOOR,
   type PeerRating, type RoomEntry, type TargetAggregate, type RoomState,
 } from "./room.js";
