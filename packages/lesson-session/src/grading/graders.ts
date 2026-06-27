@@ -85,8 +85,22 @@ const flawGrader: Grader = async (scene, input, deps) => {
   const passed = score >= 0.6;
   const audit = matchClaimsAgainstCritique(scene.claims, input.text);
   const completion_rate = audit.planted_errors === 0 ? 0 : audit.true_positives / audit.planted_errors;
+  // JUDGMENT-OVER-ARTIFACT (the north-star destination): when the scene is GROUNDED in a real executed
+  // result (carries a reference_result), the audit breakdown is a TRUST-calibration signal the engine
+  // folds into trust_calibration — missed planted flaws = over-trust (credulous of a wrong AI reading),
+  // false positives = over-distrust. Attached ONLY when grounded; an ungrounded spot_the_flaw (no real
+  // artifact to calibrate trust against) never feeds the trust dimension.
+  // NOTE: audit.false_positives is 0 from the matcher today (it has the planted-flaw answer key, not the
+  // sound claims), so only the OVER-TRUST direction is measured live — see the trust_calibration boundary.
+  const grounded = scene.reference_result != null;
   return {
-    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.spot_the_flaw) },
+    signal: {
+      kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0,
+      difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.spot_the_flaw),
+      ...(grounded
+        ? { judgment_audit: { grounded: true as const, planted: audit.planted_errors, caught: audit.true_positives, false_positives: audit.false_positives } }
+        : {}),
+    },
     telemetry: [
       { type: "critique_submitted", scene_id: scene.id, scene_type: "spot_the_flaw", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
       { type: "ai_audit_result", scene_id: scene.id, planted_errors: audit.planted_errors, true_positives: audit.true_positives, false_positives: audit.false_positives, missed: audit.missed },

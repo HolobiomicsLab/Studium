@@ -1,4 +1,4 @@
-import { masteryOf, isOverconfident, type LearnerState } from "@studium/learner-state";
+import { masteryOf, isOverconfident, isOverTrusting, type LearnerState } from "@studium/learner-state";
 import { MIN_MASTERY_ATTEMPTS } from "./graph-nav.js";
 
 /** A local-only JSON-LD doc of learner mastery claims (indicium Bucur 5-slot + SEPIO evidence).
@@ -41,6 +41,12 @@ export function buildMasteryClaims(state: LearnerState, opts: BuildMasteryClaims
     // signal into a competence penalty. Unmeasured concepts are unaffected (never self-assessed ⇒ never
     // withheld). The SKIP gate (graph-nav) stays symmetric — replaying to recalibrate is a low-cost nudge.
     if (isOverconfident(csv)) continue;
+    // TRUST-CALIBRATION GATE (OVER-TRUST-ONLY, the north-star destination). Withhold certification from a
+    // measured OVER-TRUSTING learner — one who systematically failed to catch flaws in AI readings of REAL
+    // executed results (credulous of wrong output). In an AI-operated science world calibrated trust IS the
+    // assessed destination, so competence alone does not certify. Over-DIStrust (skepticism) is NOT withheld
+    // (mirrors the overconfidence-only direction); unmeasured concepts are unaffected.
+    if (isOverTrusting(csv)) continue;
     const claimId = `urn:studium:mastery:${opts.sessionId}:${cid}`;
     graph.push({
       "@type": "asb:Claim",
