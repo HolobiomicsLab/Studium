@@ -449,6 +449,12 @@ class SynthesizeOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
     include_critique: bool = True
     deterministic_seed: Optional[int] = None
+    # Trustworthiness dial for capsule-grounded spot_the_flaw judgment scenes. The number /
+    # subtlety of planted flaws is an AUTHORED parameter (not hardcoded) so a composer can
+    # deliberately vary output trustworthiness — what makes a learner's calibration measurable.
+    judgment_n_flaws: int = Field(default=1, ge=1, le=5)
+    judgment_level: str = "subtle"
+    judgment_guidance: str = "subtils et crédibles"
 
 
 class SynthesizeRequest(BaseModel):

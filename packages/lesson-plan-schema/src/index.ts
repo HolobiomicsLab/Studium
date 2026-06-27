@@ -48,7 +48,7 @@ export type Evidence = {
 
 export type SceneOutline = {
   id: string;
-  type: "intro" | "concept" | "quiz" | "simulation" | "reproduction" | "discussion" | "meta_checkpoint" | "ai_critique";
+  type: "intro" | "concept" | "quiz" | "simulation" | "reproduction" | "discussion" | "meta_checkpoint" | "ai_critique" | "spot_the_flaw";
   title: string;
   objective_refs: string[];
   notes?: string;
