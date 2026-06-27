@@ -221,6 +221,10 @@
     root.append(head);
 
     if (sc.markdown) root.append(el("div", { class: "prose", html: mdLite(sc.markdown) }));
+    // quiz / meta_checkpoint carry their prompt in `question` / `pre_question` (NOT markdown) — draw
+    // it so the learner sees what they're answering (the choice buttons live in renderControls).
+    if (sc.type === "quiz" && sc.question) root.append(el("div", { class: "prose question", html: mdLite(sc.question) }));
+    if (sc.type === "meta_checkpoint" && sc.pre_question) root.append(el("div", { class: "prose question", html: mdLite(sc.pre_question) }));
     // spot_the_flaw shows the deliberately-flawed lesson (find the errors); explain_back shows the
     // prompt. NOTE: the full scene object (incl. the answer keys claims/key_points + the model_*
     // reveals) IS sent to the webview — same posture as quiz choices' `correct` flags — but those
@@ -325,7 +329,8 @@
       });
       const hb = el("button", { class: "ghost" }, "💡 Hint"); hb.addEventListener("click", send({ type: "hint" })); wrap.append(hb);
     } else if (sc.type === "meta_checkpoint") {
-      [0, 1, 2, 3, 4].forEach((v) => { const b = el("button", { class: "choice" }, "conf " + v); b.addEventListener("click", send({ type: "respond", input: { kind: "confidence", value: v } })); wrap.append(b); });
+      const labels = Array.isArray(sc.scale_labels) ? sc.scale_labels : [];
+      [0, 1, 2, 3, 4].forEach((v) => { const b = el("button", { class: "choice" }, labels[v] != null ? `${v} · ${labels[v]}` : "conf " + v); b.addEventListener("click", send({ type: "respond", input: { kind: "confidence", value: v } })); wrap.append(b); });
     } else if (sc.type === "discussion") {
       // multi-turn: each "Envoyer" posts a {type:"turn"} (scored reasoning + Socratic reply, appended
       // to the transcript) WITHOUT advancing; "Terminer" advances the scene with an ack.

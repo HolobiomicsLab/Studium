@@ -45,8 +45,8 @@ for (const kind of new Set(Object.values(EXPECTED))) {
 }
 expect(/type:\s*"turn"/.test(pane), `artifact-pane.js posts a {type:"turn"} discussion message`);
 expect(/type:\s*"end"/.test(pane), `artifact-pane.js posts a {type:"end"} forget message`);
-// the pane must render the previously-dropped distinguishing fields
-for (const field of ["artifact_a", "artifact_b", "source_content", "ai_summary", "scenario", "seed_claim", "steps"]) {
+// the pane must render the previously-dropped distinguishing fields (incl. the quiz/meta prompts)
+for (const field of ["artifact_a", "artifact_b", "source_content", "ai_summary", "scenario", "seed_claim", "steps", "question", "pre_question", "scale_labels"]) {
   expect(pane.includes(field), `artifact-pane.js renders scene field "${field}"`);
 }
 

@@ -27,7 +27,7 @@ function driverCells(): vscode.NotebookCellData[] {
     vscode.NotebookCellKind.Markup,
     "# Studium lesson\nRun the cell below to **start**. To advance, re-run it:\n" +
     "- empty or `next` → continue\n- a quiz choice id (`a`, `b`, …) → answer\n- `0`–`4` → a confidence checkpoint\n" +
-    "- free text → answer an active-learning scene (critique / errors / explanation / comparison / audit / prompt / message / discussion turn)\n- `forget` → erase your session data (right to be forgotten)\n\n" +
+    "- free text → answer an active-learning scene (critique / errors / explanation / comparison / audit / prompt / message / discussion turn)\n- `hint` → ask for a hint\n- `forget` → erase your session data (right to be forgotten)\n\n" +
     "Spectra and plots render inline (with a Vega-capable notebook renderer). The companion " +
     "**Studium — Lesson** pane is the full-fidelity surface: rotatable 3D orbitals/molecules and KaTeX equations.",
     "markdown",
@@ -112,6 +112,8 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
     let head = `### ${sc.title || sc.type}\n`;
     if (presentation.total) head += `*scene ${(presentation.index ?? 0) + 1} / ${presentation.total}*\n\n`;
     if (transition && (transition.kind === "replay" || transition.kind === "remediate_alt")) head += `> ⟳ ${transition.reason}\n\n`;
+    // adaptation rationale (parity with the lesson pane): why the engine routed here this turn.
+    else if (presentation.explanation) head += `> ⟳ ${presentation.explanation.rule_id} — ${presentation.explanation.explanation_short}\n\n`;
     if (sc.markdown) head += sc.markdown + "\n";
     // active-learning bodies (answer keys + model_* reveals are never included):
     if (sc.type === "spot_the_flaw" && sc.flawed_content) head += `\n> ⚠️ **Ce passage contient des erreurs — repère-les :**\n\n${sc.flawed_content}\n`;
@@ -220,6 +222,18 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       const cur = await sess.call("get_current_scene", { session_id: sess.sid });
       const scene = cur.presentation.scene;
       const directive = cell.document.getText().trim();
+      // `hint` / `indice` asks the tutor for a hint WITHOUT advancing (parity with the pane's Hint
+      // button). Wrapped so a hintless scene is a no-op note, not a session reset.
+      if (/^(hint|indice)$/i.test(directive)) {
+        let hintText = "*(pas d'indice pour cette scène)*";
+        try {
+          const h = (await sess.call("request_hint", { session_id: sess.sid })).hint;
+          if (h?.hint) hintText = `💡 ${h.hint}${h.remaining != null ? `  (${h.remaining} restant·s)` : ""}`;
+        } catch { /* no hint available for this scene */ }
+        exec.replaceOutput([new vscode.NotebookCellOutput([md(hintText)])]);
+        exec.end(true, Date.now());
+        return;
+      }
       // Right to be forgotten: `forget` / `oublier` ends the session (purges the durable per-learner
       // state) and drops it. Closing the notebook alone only tears down the transport, so saved
       // progress survives for a resume — only this explicit directive erases it.

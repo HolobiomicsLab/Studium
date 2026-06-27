@@ -83,15 +83,29 @@ function submitFreeText(scene: any, answer: string) {
   }
 }
 
-// --- 2) quiz still works (regression): choice buttons post quiz_choice with the id ----------------
+// --- 2) quiz: the QUESTION STEM is rendered + choice buttons post quiz_choice with the id ----------
 {
   const m = mount();
-  m.render(baseState({ type: "quiz", title: "Q", question: "2+2?", choices: [{ id: "a", text: "3" }, { id: "b", text: "4" }] }));
+  m.render(baseState({ type: "quiz", title: "Quiz titre", question: "QUESTION_STEM_TEXT", choices: [{ id: "a", text: "3" }, { id: "b", text: "4" }] }));
+  expect(m.text().includes("QUESTION_STEM_TEXT"), "quiz renders the question stem (not just the title)");
   const choiceBtns = m.$all(".controls .choice");
   expect(choiceBtns.length === 2, `quiz renders 2 choice buttons (got ${choiceBtns.length})`);
   m.click(choiceBtns[1]);
   const r = m.sent.find((x) => x.type === "respond");
   expect(!!r && r.input?.kind === "quiz_choice" && r.input?.choiceId === "b", "quiz posts quiz_choice with chosen id");
+}
+
+// --- 2b) meta_checkpoint: pre_question rendered + scale_labels on buttons + confidence value -------
+{
+  const m = mount();
+  m.render(baseState({ type: "meta_checkpoint", title: "Auto-éval", pre_question: "PRE_QUESTION_TEXT", scale_labels: ["Pas du tout", "Un peu", "Moyen", "Bien", "Très à l'aise"] }));
+  expect(m.text().includes("PRE_QUESTION_TEXT"), "meta_checkpoint renders the pre_question");
+  expect(m.text().includes("Très à l'aise"), "meta_checkpoint shows the scale_labels on the buttons");
+  const confBtns = m.$all(".controls .choice");
+  expect(confBtns.length === 5, `meta_checkpoint renders 5 confidence buttons (got ${confBtns.length})`);
+  m.click(confBtns[3]);
+  const r = m.sent.find((x) => x.type === "respond");
+  expect(!!r && r.input?.kind === "confidence" && r.input?.value === 3, "meta_checkpoint posts confidence with the value");
 }
 
 // --- 3) discussion turn loop: topic/seed rendered, Envoyer posts a turn, turn_result appends ------
