@@ -7,10 +7,12 @@
 // served by the companion artifact pane; a dedicated NotebookRenderer is the documented next step.
 import * as vscode from "vscode";
 import { resolve, join } from "node:path";
+import { readFile } from "node:fs/promises";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 import { freeTextInput } from "./scene-io.js";
+import { assetPathFor, imageMime } from "./asset-path.js";
 
 type Json = Record<string, any>;
 const NB_TYPE = "studium-lesson";
@@ -20,7 +22,7 @@ function cfg<T>(key: string, fallback: T): T {
   return v === undefined || v === "" ? fallback : v;
 }
 
-interface Sess { client: Client; sid: string; bundleRef: string; learnerId: string; call: (n: string, a: Json) => Promise<Json>; }
+interface Sess { client: Client; sid: string; bundleRef: string; learnerId: string; bundlesRoot: string; call: (n: string, a: Json) => Promise<Json>; }
 
 function driverCells(): vscode.NotebookCellData[] {
   const intro = new vscode.NotebookCellData(
@@ -76,7 +78,7 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       if (r.isError) throw new Error(`${n}: ${data.error}`);
       return data;
     };
-    return { client, sid: "", bundleRef, learnerId, call };
+    return { client, sid: "", bundleRef, learnerId, bundlesRoot, call };
   }
 
   // `d` is the RAW (untrimmed-of-case) cell text so free-text answers keep their casing; only the
@@ -157,6 +159,20 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
         outs.push(new vscode.NotebookCellOutput(items));
       } else if (a.kind === "orbital" || a.kind === "mol_3d") {
         outs.push(new vscode.NotebookCellOutput([md(`🧬 **${a.title || a.kind}** — rotate it in the *Studium — Lesson* pane (${a.format || a.kind}).`)]));
+      } else if ((a.kind === "executed_result" || a.kind === "image") && a.path) {
+        // render the REAL figure INLINE (executed_result = a capsule run's figure; image = a scene
+        // figure): read the file from the bundle dir and emit a native image output + a caption.
+        const items: vscode.NotebookCellOutputItem[] = [];
+        try {
+          const fp = assetPathFor(sess.bundlesRoot, sess.bundleRef, String(a.path));
+          items.push(new vscode.NotebookCellOutputItem(await readFile(fp), imageMime(fp)));
+        } catch { /* unreadable figure — fall back to the caption only */ }
+        const m = (a.meta || {}) as Json;
+        const cap = a.kind === "executed_result"
+          ? `🔬 **${a.title || "Reference run"}**${m.landmark ? ` — \`${m.landmark}\`` : ""}${m.passed != null ? ` · checks ${m.passed ? "✓" : "✗"}` : ""}`
+          : `🖼️ *${a.title || "Figure"}*`;
+        items.push(md(cap));
+        outs.push(new vscode.NotebookCellOutput(items));
       } else if (a.title) {
         outs.push(new vscode.NotebookCellOutput([md(`📎 *${a.kind}* — ${a.title}`)]));
       }

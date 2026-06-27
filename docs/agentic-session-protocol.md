@@ -80,10 +80,9 @@ Operators (`@studium/lesson-session-host`): `stubOperator` (deterministic placeh
   `tools/capsule_runner.py` still runs the *author-time* reference run once (to ground a scene); the
   *learner-time* runs are the host's.
 - **Rendering**: native VS Code — notebook outputs, image/plot viewers. The `executed_result` asset
-  carries a figure **path**; the file channel emits that reference, and inline native rendering of it
-  (a notebook **image** output — the notebook controller has no `executed_result` case yet) is a
-  follow-up, not implemented today. The bespoke webview shrinks to the pedagogy panel (calibration
-  verdict, next-step, judgment submission).
+  carries a figure **path**; the notebook controller now renders it **inline as a native image** (with
+  a landmark/checks caption), and the file channel emits the same reference. The bespoke webview
+  shrinks to the pedagogy panel (calibration verdict, next-step, judgment submission).
 
 ## Status
 
@@ -92,6 +91,4 @@ Operators (`@studium/lesson-session-host`): `stubOperator` (deterministic placeh
   mastery, answer key provably absent from `task.md` for every scene; plus the runnable harness
   (`runStudiumSession` + `stubOperator`/`watchOperator` + the CLI).
 - **Already existed**: the MCP channel (`apps/lesson-mcp`) with the same redaction.
-- **Follow-ups**: render the `executed_result` figure as an inline notebook **image** (today it is a
-  reference note — the notebook controller has no `executed_result` case yet); wiring the operator's
-  `work/` scratch into process-level assessment.
+- **Follow-ups**: wiring the operator's `work/` scratch into process-level assessment.
