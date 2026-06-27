@@ -15,6 +15,7 @@ import { registerStudiumNotebook } from "./notebook.js";
 import { reviewDueConcepts } from "./review-fsrs.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 import { discoverCommunityBundles, toPickItems } from "./community.js";
+import { calibrationVerdicts, type CalibrationVerdict } from "./calibration.js";
 
 type Json = Record<string, any>;
 
@@ -181,9 +182,13 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
     // already exposes. Best-effort — never let it break the lesson; it is a recall-timing cue, not
     // a mastery score, so it is always shown to the learner (no answer leak).
     let reviewDue: string[] = [];
+    let calibration: CalibrationVerdict[] = [];
     try {
       const st = (await call("get_session_state", { session_id: sid })).state;
       reviewDue = reviewDueConcepts(st);
+      // Metacognitive calibration mirror (B1): a NUMBER-FREE "bien/sur/sous calibré·e" verdict per
+      // concept, derived from the same state. Safe to show — it never exposes mastery or the raw gap.
+      calibration = calibrationVerdicts(st);
     } catch { /* best-effort */ }
     if (panelDisposed) return;
     panel.webview.postMessage({
@@ -196,6 +201,7 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
       progress: { index: (presentation.index ?? 0) + 1, total: presentation.total },
       mastery: showMastery ? (presentation.learnerSnapshot?.conceptMastery ?? {}) : {},
       reviewDue,
+      calibration,
       explanation: explanation ?? presentation.explanation ?? null,
     });
     await pushGraph();
@@ -207,6 +213,28 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
       if (msg.type === "hint") {
         const h = (await call("request_hint", { session_id: sid })).hint;
         if (!panelDisposed) panel.webview.postMessage({ type: "hint", hint: h?.hint ?? null, remaining: h?.remaining });
+        return;
+      }
+      if (msg.type === "end") {
+        // Right to be forgotten: end_session emits forget_requested and PURGES the durable per-learner
+        // state on disk (in consented/durable mode). Irreversible, so confirm first; closing the panel
+        // alone only drops the transport and leaves the saved state intact (so a learner can resume).
+        const ok = await vscode.window.showWarningMessage(
+          "Effacer définitivement vos données de cette session (droit à l'oubli) ? Cette action est irréversible.",
+          { modal: true }, "Effacer",
+        );
+        if (ok === "Effacer") {
+          try { await call("end_session", { session_id: sid }); } catch { /* already gone */ }
+          panel.dispose();
+        }
+        return;
+      }
+      if (msg.type === "turn") {
+        // a discussion turn: score it (reasoning signal) + get the Socratic tutor's reply, WITHOUT
+        // advancing the scene. The pane appends both to the transcript; the learner ends the scene
+        // with the "Terminer" ack (a normal respond). After max_turns the server no-ops the turn.
+        const r = await call("submit_turn", { session_id: sid, text: String(msg.text ?? "") });
+        if (!panelDisposed) panel.webview.postMessage({ type: "turn_result", reasoning: r.reasoning ?? null, tutor: r.tutor ?? null });
         return;
       }
       if (msg.type === "respond") {

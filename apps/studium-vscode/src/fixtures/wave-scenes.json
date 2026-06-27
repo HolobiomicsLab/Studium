@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.4",
+  "bundle_id": "wave-scenes-001",
+  "source_plan_id": "plan-wave",
+  "metadata": { "title": "Active-learning scene types (Wave 1-3)", "target": "L1 SV", "duration_minutes": 20, "language": "fr", "discipline": "test" },
+  "concepts": [
+    { "id": "c1", "title": "Concept 1", "description": "d1", "bloom_level_target": "understand" }
+  ],
+  "scenes": [
+    { "id": "s-intro", "type": "intro", "title": "Intro", "objective_refs": [], "concept_refs": ["c1"], "estimated_seconds": 30, "adaptation_hooks": [], "markdown": "# Bienvenue" },
+    { "id": "s-concept", "type": "concept", "title": "Concept", "objective_refs": [], "concept_refs": ["c1"], "estimated_seconds": 60, "adaptation_hooks": [], "markdown": "## Notions" },
+    { "id": "s-flaw", "type": "spot_the_flaw", "title": "Repère les erreurs", "objective_refs": [], "concept_refs": ["c1"], "estimated_seconds": 120, "adaptation_hooks": [], "flawed_content": "Un atome neutre a plus d'électrons que de protons.", "claims": [{ "id": "f1", "text": "neutre => plus d'électrons", "flaws_expected": ["neutralite"] }], "model_correction": "Un atome neutre a autant d'électrons que de protons.", "rubric": { "completeness": 0.5, "evidence_quality": 0.5, "tone": 0.5 } },
+    { "id": "s-explain", "type": "explain_back", "title": "Explique", "objective_refs": [], "concept_refs": ["c1"], "estimated_seconds": 120, "adaptation_hooks": [], "prompt": "Explique la structure de l'atome.", "key_points": [{ "id": "k1", "text": "noyau", "cues": ["noyau"] }, { "id": "k2", "text": "électrons", "cues": ["electrons"] }], "model_explanation": "Le noyau contient protons et neutrons, les électrons gravitent autour.", "rubric": { "completeness": 0.5, "evidence_quality": 0.5, "tone": 0.5 } },
+    { "id": "s-comparison", "type": "comparison", "title": "Compare", "objective_refs": [], "concept_refs": ["c1"], "estimated_seconds": 120, "adaptation_hooks": [], "prompt": "Compare les deux explications.", "artifact_a": "Explication IA de l'atome.", "artifact_b": "Explication de l'enseignant·e.", "key_points": [{ "id": "k1", "text": "rigueur", "cues": ["rigueur"] }], "model_answer": "B est plus rigoureux sur la neutralité.", "rubric": { "completeness": 0.5, "evidence_quality": 0.5, "tone": 0.5 } },
+    { "id": "s-audit", "type": "summary_audit", "title": "Audite le résumé", "objective_refs": [], "concept_refs": ["c1"], "estimated_seconds": 120, "adaptation_hooks": [], "source_content": "L'atome est composé d'un noyau et d'électrons.", "ai_summary": "L'atome est uniquement un noyau.", "claims": [{ "id": "a1", "text": "omet les électrons", "flaws_expected": ["electrons"] }], "model_correction": "Le résumé omet les électrons.", "rubric": { "completeness": 0.5, "evidence_quality": 0.5, "tone": 0.5 } },
+    { "id": "s-prompt", "type": "prompt_practice", "title": "Écris un prompt", "objective_refs": [], "concept_refs": ["c1"], "estimated_seconds": 120, "adaptation_hooks": [], "task": "Rédige un prompt pour expliquer l'atome à un·e élève.", "starter_prompt": "Explique l'atome", "key_points": [{ "id": "k1", "text": "contexte", "cues": ["contexte"] }, { "id": "k2", "text": "format", "cues": ["format"] }], "model_prompt": "Explique l'atome à un élève de L1 en donnant le contexte et le format de réponse.", "rubric": { "completeness": 0.5, "evidence_quality": 0.5, "tone": 0.5 } },
+    { "id": "s-comm", "type": "communication_sim", "title": "Communique", "objective_refs": [], "concept_refs": ["c1"], "estimated_seconds": 120, "adaptation_hooks": [], "scenario": "Tu expliques l'atome à un public non-expert.", "prompt": "Rédige ton message.", "key_points": [{ "id": "k1", "text": "clarté", "cues": ["clarte"] }, { "id": "k2", "text": "audience", "cues": ["audience"] }], "model_response": "Un message clair, adapté à l'audience non-experte.", "rubric": { "completeness": 0.5, "evidence_quality": 0.5, "tone": 0.5 } }
+  ],
+  "rules": [],
+  "validated_by": "wave-test",
+  "validated_at": "2026-06-27T08:00:00Z"
+}

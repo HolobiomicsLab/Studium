@@ -10,6 +10,7 @@ import { resolve, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
+import { freeTextInput } from "./scene-io.js";
 
 type Json = Record<string, any>;
 const NB_TYPE = "studium-lesson";
@@ -25,7 +26,8 @@ function driverCells(): vscode.NotebookCellData[] {
   const intro = new vscode.NotebookCellData(
     vscode.NotebookCellKind.Markup,
     "# Studium lesson\nRun the cell below to **start**. To advance, re-run it:\n" +
-    "- empty or `next` → continue\n- a quiz choice id (`a`, `b`, …) → answer\n- `0`–`4` → a confidence checkpoint\n\n" +
+    "- empty or `next` → continue\n- a quiz choice id (`a`, `b`, …) → answer\n- `0`–`4` → a confidence checkpoint\n" +
+    "- free text → answer an active-learning scene (critique / errors / explanation / comparison / audit / prompt / message / discussion turn)\n- `forget` → erase your session data (right to be forgotten)\n\n" +
     "Spectra and plots render inline (with a Vega-capable notebook renderer). The companion " +
     "**Studium — Lesson** pane is the full-fidelity surface: rotatable 3D orbitals/molecules and KaTeX equations.",
     "markdown",
@@ -77,12 +79,17 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
     return { client, sid: "", bundleRef, learnerId, call };
   }
 
+  // `d` is the RAW (untrimmed-of-case) cell text so free-text answers keep their casing; only the
+  // quiz choice id and the confidence digit are parsed case-insensitively.
   function directiveToInput(d: string, scene: Json): Json {
-    if (scene.type === "quiz") return { kind: "quiz_choice", choiceId: /^[a-f]$/.test(d) ? d : (scene.choices?.[0]?.id ?? "a") };
-    if (scene.type === "meta_checkpoint") { const v = parseInt(d, 10); return { kind: "confidence", value: Number.isNaN(v) ? 2 : Math.max(0, Math.min(4, v)) }; }
-    if (scene.type === "ai_critique") return { kind: "critique", text: d || "(no critique)" };
-    if (scene.type === "spot_the_flaw") return { kind: "flaw_report", text: d || "(no answer)" };
-    if (scene.type === "explain_back") return { kind: "explanation", text: d || "(no answer)" };
+    const lc = d.toLowerCase();
+    if (scene.type === "quiz") return { kind: "quiz_choice", choiceId: /^[a-f]$/.test(lc) ? lc : (scene.choices?.[0]?.id ?? "a") };
+    if (scene.type === "meta_checkpoint") { const v = parseInt(lc, 10); return { kind: "confidence", value: Number.isNaN(v) ? 2 : Math.max(0, Math.min(4, v)) }; }
+    // every single-submit free-text active-learning scene (ai_critique / spot_the_flaw / explain_back /
+    // comparison / summary_audit / prompt_practice / communication_sim) maps to the kind its grader
+    // requires — see scene-io.ts. Anything else (intro / concept / reproduction / discussion) is ack.
+    const ft = freeTextInput(scene.type, d || "(no answer)");
+    if (ft) return ft as Json;
     return { kind: "ack" };
   }
 
@@ -109,6 +116,31 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
     // active-learning bodies (answer keys + model_* reveals are never included):
     if (sc.type === "spot_the_flaw" && sc.flawed_content) head += `\n> ⚠️ **Ce passage contient des erreurs — repère-les :**\n\n${sc.flawed_content}\n`;
     if (sc.type === "explain_back" && sc.prompt) head += `\n${sc.prompt}\n`;
+    if (sc.type === "comparison") {
+      if (sc.prompt) head += `\n${sc.prompt}\n`;
+      if (sc.artifact_a) head += `\n**A.**\n\n${sc.artifact_a}\n`;
+      if (sc.artifact_b) head += `\n**B.**\n\n${sc.artifact_b}\n`;
+    }
+    if (sc.type === "summary_audit") {
+      if (sc.source_content) head += `\n**Source :**\n\n${sc.source_content}\n`;
+      if (sc.ai_summary) head += `\n**Résumé IA à auditer :**\n\n${sc.ai_summary}\n`;
+    }
+    if (sc.type === "prompt_practice" && sc.task) {
+      head += `\n**Tâche :** ${sc.task}\n`;
+      if (sc.starter_prompt) head += `\n> prompt de départ à affiner :\n>\n> ${String(sc.starter_prompt).replace(/\n/g, "\n> ")}\n`;
+    }
+    if (sc.type === "communication_sim") {
+      if (sc.scenario) head += `\n**Situation :** ${sc.scenario}\n`;
+      if (sc.prompt) head += `\n${sc.prompt}\n`;
+    }
+    if (sc.type === "discussion") {
+      if (sc.topic) head += `\n**Discussion :** ${sc.topic}\n`;
+      if (sc.seed_claim) head += `\n> ${sc.seed_claim}\n`;
+    }
+    if (sc.type === "reproduction" && Array.isArray(sc.steps)) {
+      head += `\n**Protocole${sc.task_card_id ? ` — ${sc.task_card_id}` : ""} :**\n` +
+        (sc.steps as Json[]).map((s, i) => `${i + 1}. ${s.instruction ?? ""}`).join("\n") + "\n";
+    }
     outs.push(new vscode.NotebookCellOutput([md(head)]));
 
     for (const a of arts as Json[]) {
@@ -139,6 +171,16 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       outs.push(new vscode.NotebookCellOutput([md(`*Décris les erreurs (avec justification) dans la cellule ci-dessus et relance.*`)]));
     } else if (sc.type === "explain_back") {
       outs.push(new vscode.NotebookCellOutput([md(`*Écris ton explication dans la cellule ci-dessus et relance.*`)]));
+    } else if (sc.type === "comparison") {
+      outs.push(new vscode.NotebookCellOutput([md(`*Décris les différences / la valeur ajoutée entre A et B dans la cellule ci-dessus et relance.*`)]));
+    } else if (sc.type === "summary_audit") {
+      outs.push(new vscode.NotebookCellOutput([md(`*Quelles omissions ou distorsions le résumé contient-il ? Écris-les (avec justification) dans la cellule ci-dessus et relance.*`)]));
+    } else if (sc.type === "prompt_practice") {
+      outs.push(new vscode.NotebookCellOutput([md(`*Écris (ou affine) ton prompt dans la cellule ci-dessus et relance.*`)]));
+    } else if (sc.type === "communication_sim") {
+      outs.push(new vscode.NotebookCellOutput([md(`*Rédige ta communication professionnelle dans la cellule ci-dessus et relance.*`)]));
+    } else if (sc.type === "discussion") {
+      outs.push(new vscode.NotebookCellOutput([md(`*Réponds à l'affirmation dans la cellule ci-dessus et relance pour dialoguer (le tuteur te répond). Laisse vide ou tape \`next\` pour terminer la discussion et avancer.*`)]));
     }
 
     const mastery = presentation.learnerSnapshot?.conceptMastery || {};
@@ -176,7 +218,33 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
         return;
       }
       const cur = await sess.call("get_current_scene", { session_id: sess.sid });
-      const input = directiveToInput(cell.document.getText().trim().toLowerCase(), cur.presentation.scene);
+      const scene = cur.presentation.scene;
+      const directive = cell.document.getText().trim();
+      // Right to be forgotten: `forget` / `oublier` ends the session (purges the durable per-learner
+      // state) and drops it. Closing the notebook alone only tears down the transport, so saved
+      // progress survives for a resume — only this explicit directive erases it.
+      if (/^(forget|oublier)$/i.test(directive)) {
+        await sess.call("end_session", { session_id: sess.sid });
+        sess.client.close().catch(() => {});
+        sessions.delete(key);
+        exec.replaceOutput([new vscode.NotebookCellOutput([md("🗑 **Données effacées** — session oubliée (droit à l'oubli). Relance la cellule pour recommencer.")])]);
+        exec.end(true, Date.now());
+        return;
+      }
+      // discussion is multi-turn: a non-empty cell that isn't `next`/`continue` is a dialogue TURN
+      // (scored reasoning + Socratic reply, via submit_turn) that does NOT advance; an empty cell or
+      // `next` ends the discussion with an ack. After max_turns the server no-ops the turn.
+      if (scene.type === "discussion" && directive && !/^(next|continue|done|fin)$/i.test(directive)) {
+        const r = await sess.call("submit_turn", { session_id: sess.sid, text: directive });
+        const parts = [`**Toi :** ${directive}`];
+        if (r.reasoning) parts.push(`*signal de raisonnement : ${r.reasoning.signal}${r.reasoning.confidence != null ? ` (${r.reasoning.confidence.toFixed(2)})` : ""}*`);
+        if (r.tutor && r.tutor.text) parts.push(`**Tuteur :** ${r.tutor.text}`);
+        parts.push(`*(continue en tapant une autre réponse, ou laisse vide / \`next\` pour avancer)*`);
+        exec.replaceOutput([new vscode.NotebookCellOutput([md(parts.join("\n\n"))])]);
+        exec.end(true, Date.now());
+        return;
+      }
+      const input = directiveToInput(directive, scene);
       const t = (await sess.call("submit_response", { session_id: sess.sid, input })).transition;
       if (t.kind === "complete") {
         exec.replaceOutput([new vscode.NotebookCellOutput([md(`✔ **Lesson complete** — ${t.summary.scenesCompleted} scenes, autonomy ${(t.summary.autonomyRatio ?? 0).toFixed(2)}`)])]);

@@ -187,11 +187,29 @@
     const root = $("#pane"); root.innerHTML = "";
     const sc = state.scene || {};
     const head = el("div", { class: "scene-head" });
-    head.append(el("div", { class: "crumbs" },
+    const crumbs = el("div", { class: "crumbs" },
       el("span", { class: "stype" }, sc.type || ""),
-      state.progress ? el("span", { class: "prog" }, `${state.progress.index}/${state.progress.total}`) : ""));
+      state.progress ? el("span", { class: "prog" }, `${state.progress.index}/${state.progress.total}`) : "");
+    // Right to be forgotten: a subtle, always-available control that asks the host to end_session
+    // (purges the durable per-learner state). The host confirms before erasing.
+    const forget = el("button", { class: "ghost forget", title: "Effacer mes données de session (droit à l'oubli)" }, "🗑 M'oublier");
+    forget.addEventListener("click", () => window.__send && window.__send({ type: "end" }));
+    crumbs.append(forget);
+    head.append(crumbs);
     head.append(el("h2", { class: "scene-title" }, sc.title || ""));
     if (state.explanation) head.append(el("div", { class: "adapt" }, "⟳ " + state.explanation.rule_id + " — " + state.explanation.explanation_short));
+    // Calibration mirror (B1): the metacognitive "am I as sure as I should be?" verdict per concept,
+    // computed host-side (calibration[]). Show only the ACTIONABLE bands (sur/sous) to avoid noise —
+    // number-free, never a mastery score, so safe to show. Capped to keep the header compact.
+    const calib = (Array.isArray(state.calibration) ? state.calibration : []).filter((c) => c && c.band !== "bien");
+    if (calib.length) {
+      const box = el("div", { class: "calibration" });
+      calib.slice(0, 3).forEach((c) => box.append(el("div", { class: "calib calib-" + c.band },
+        el("span", { class: "calib-chip" }, c.band === "sur" ? "Surconfiance" : "Sous-confiance"),
+        el("span", { class: "calib-msg" }, c.message))));
+      head.append(el("div", { class: "pane-label" }, "🎯 Calibration"));
+      head.append(box);
+    }
     // "À réviser / Due for review": concepts whose retrievability has decayed past threshold per the
     // FSRS scheduler (computed host-side, posted as reviewDue[]). A recall-timing cue, not a score.
     const due = Array.isArray(state.reviewDue) ? state.reviewDue : [];
@@ -214,6 +232,41 @@
     }
     if (sc.type === "explain_back" && sc.prompt) {
       root.append(el("div", { class: "prose", html: mdLite(sc.prompt) }));
+    }
+    // Wave-1 active-learning scenes — render only the learner-facing fields (key_points/claims/model_*
+    // answer keys are stripped server-side by publicScene, so there is nothing to leak here).
+    if (sc.type === "comparison") {
+      if (sc.prompt) root.append(el("div", { class: "prose", html: mdLite(sc.prompt) }));
+      if (sc.artifact_a) { root.append(el("div", { class: "pane-label" }, "A")); root.append(el("div", { class: "prose", html: mdLite(sc.artifact_a) })); }
+      if (sc.artifact_b) { root.append(el("div", { class: "pane-label" }, "B")); root.append(el("div", { class: "prose", html: mdLite(sc.artifact_b) })); }
+    }
+    if (sc.type === "summary_audit") {
+      if (sc.source_content) { root.append(el("div", { class: "pane-label" }, "Source")); root.append(el("div", { class: "prose", html: mdLite(sc.source_content) })); }
+      if (sc.ai_summary) { root.append(el("div", { class: "pane-label" }, "Résumé IA à auditer")); root.append(el("div", { class: "prose ai-summary", html: mdLite(sc.ai_summary) })); }
+    }
+    if (sc.type === "prompt_practice" && sc.task) {
+      root.append(el("div", { class: "pane-label" }, "Tâche"));
+      root.append(el("div", { class: "prose", html: mdLite(sc.task) }));
+    }
+    if (sc.type === "communication_sim") {
+      if (sc.scenario) { root.append(el("div", { class: "pane-label" }, "Situation")); root.append(el("div", { class: "prose", html: mdLite(sc.scenario) })); }
+      if (sc.prompt) root.append(el("div", { class: "prose", html: mdLite(sc.prompt) }));
+    }
+    // reproduction — the protocol the learner reproduces. Show the ordered step instructions (the
+    // executed reference run, when present, arrives as a separate executed_result render asset).
+    // expected_output is NOT drawn (it is the per-step answer).
+    if (sc.type === "reproduction" && Array.isArray(sc.steps)) {
+      root.append(el("div", { class: "pane-label" }, "Protocole" + (sc.task_card_id ? " — " + sc.task_card_id : "")));
+      const ol = el("ol", { class: "steps" });
+      sc.steps.forEach((s) => ol.append(el("li", {}, (s && s.instruction) || "")));
+      root.append(ol);
+    }
+    // discussion — a multi-turn Socratic dialogue. Render the topic + seed_claim and an (initially
+    // empty) transcript the turn loop appends to (learner turn on send, tutor reply on turn_result).
+    if (sc.type === "discussion") {
+      if (sc.topic) root.append(el("div", { class: "pane-label" }, "Discussion : " + sc.topic));
+      if (sc.seed_claim) root.append(el("div", { class: "prose", html: mdLite(sc.seed_claim) }));
+      root.append(el("div", { id: "turns", class: "turns" }));
     }
 
     const assets = state.scene_assets || [];
@@ -247,6 +300,19 @@
     }
   }
 
+  // free-text active-learning scenes → { kind submitted, button label, placeholder, optional scene
+  // field to prefill the textarea }. The kinds MUST match src/scene-io.ts FREE_TEXT_KIND (and the
+  // server-side graders, which reject a mismatched kind); scene-io.driver.ts asserts the parity.
+  const FREE_TEXT = {
+    ai_critique:       { kind: "critique",         label: "Submit critique",          placeholder: "Write your critique…" },
+    spot_the_flaw:     { kind: "flaw_report",      label: "Soumettre les erreurs",    placeholder: "Quelles sont les erreurs ? Justifie…" },
+    explain_back:      { kind: "explanation",      label: "Soumettre l'explication",  placeholder: "Explique avec tes propres mots…" },
+    comparison:        { kind: "comparison",       label: "Soumettre la comparaison", placeholder: "Quelles différences / quelle valeur ajoutée entre A et B ?…" },
+    summary_audit:     { kind: "summary_audit",    label: "Soumettre l'audit",        placeholder: "Quelles omissions / distorsions dans le résumé ? Justifie…" },
+    prompt_practice:   { kind: "prompt_submission", label: "Soumettre le prompt",     placeholder: "Écris (ou affine) ton prompt…", prefill: "starter_prompt" },
+    communication_sim: { kind: "communication",    label: "Soumettre",                placeholder: "Rédige ta communication professionnelle…" },
+  };
+
   // interactive controls the learner uses to advance — posts back to the extension host.
   function renderControls(sc) {
     const wrap = el("div", { class: "controls" });
@@ -260,22 +326,44 @@
       const hb = el("button", { class: "ghost" }, "💡 Hint"); hb.addEventListener("click", send({ type: "hint" })); wrap.append(hb);
     } else if (sc.type === "meta_checkpoint") {
       [0, 1, 2, 3, 4].forEach((v) => { const b = el("button", { class: "choice" }, "conf " + v); b.addEventListener("click", send({ type: "respond", input: { kind: "confidence", value: v } })); wrap.append(b); });
-    } else if (sc.type === "ai_critique") {
-      const ta = el("textarea", { class: "critique", placeholder: "Write your critique…" });
-      const b = el("button", { class: "primary" }, "Submit critique"); b.addEventListener("click", () => window.__send && window.__send({ type: "respond", input: { kind: "critique", text: ta.value } }));
-      wrap.append(ta, b);
-    } else if (sc.type === "spot_the_flaw") {
-      const ta = el("textarea", { class: "critique", placeholder: "Quelles sont les erreurs ? Justifie…" });
-      const b = el("button", { class: "primary" }, "Soumettre les erreurs"); b.addEventListener("click", () => window.__send && window.__send({ type: "respond", input: { kind: "flaw_report", text: ta.value } }));
-      wrap.append(ta, b);
-    } else if (sc.type === "explain_back") {
-      const ta = el("textarea", { class: "critique", placeholder: "Explique avec tes propres mots…" });
-      const b = el("button", { class: "primary" }, "Soumettre l'explication"); b.addEventListener("click", () => window.__send && window.__send({ type: "respond", input: { kind: "explanation", text: ta.value } }));
+    } else if (sc.type === "discussion") {
+      // multi-turn: each "Envoyer" posts a {type:"turn"} (scored reasoning + Socratic reply, appended
+      // to the transcript) WITHOUT advancing; "Terminer" advances the scene with an ack.
+      const ta = el("textarea", { class: "critique", placeholder: "Ta réponse à l'affirmation…" });
+      const sendBtn = el("button", { class: "primary" }, "Envoyer");
+      sendBtn.addEventListener("click", () => {
+        const t = ta.value.trim(); if (!t || !window.__send) return;
+        appendTurn("learner", t); ta.value = "";
+        window.__send({ type: "turn", text: t });
+      });
+      const fin = el("button", { class: "ghost" }, "Terminer la discussion ▸");
+      fin.addEventListener("click", send({ type: "respond", input: { kind: "ack" } }));
+      wrap.append(ta, sendBtn, fin);
+    } else if (FREE_TEXT[sc.type]) {
+      // every single-submit free-text active-learning scene → a textarea posting the kind its grader
+      // requires (kinds mirror src/scene-io.ts FREE_TEXT_KIND; scene-io.driver.ts guards the parity).
+      const f = FREE_TEXT[sc.type];
+      const ta = el("textarea", { class: "critique", placeholder: f.placeholder });
+      if (f.prefill && sc[f.prefill]) ta.value = sc[f.prefill];
+      const b = el("button", { class: "primary" }, f.label);
+      b.addEventListener("click", () => window.__send && window.__send({ type: "respond", input: { kind: f.kind, text: ta.value } }));
       wrap.append(ta, b);
     } else {
       const b = el("button", { class: "primary" }, "Continue ▸"); b.addEventListener("click", send({ type: "respond", input: { kind: "ack" } })); wrap.append(b);
     }
     return wrap;
+  }
+
+  // append one dialogue turn to the discussion transcript (#turns). `meta` is an optional
+  // reasoning-signal note shown under a tutor reply. No-op if the transcript box is absent.
+  function appendTurn(role, text, meta) {
+    const box = document.getElementById("turns");
+    if (!box) return;
+    const line = el("div", { class: "turn turn-" + role });
+    line.append(el("span", { class: "turn-who" }, (role === "learner" ? "Toi" : "Tuteur") + " : "));
+    line.append(el("span", { class: "turn-text", html: mdLite(text) }));
+    if (meta) line.append(el("div", { class: "turn-meta" }, meta));
+    box.append(line);
   }
 
   // tiny markdown (bold/italic/code/headings/paragraphs) — no deps
@@ -299,6 +387,12 @@
     const d = ev.data || {};
     if (d.type === "render") renderPane(d);
     else if (d.type === "hint") { const h = document.getElementById("hint"); if (h) h.textContent = d.hint ? ("💡 " + d.hint + (d.remaining != null ? "  (" + d.remaining + " left)" : "")) : "(no more hints)"; }
+    else if (d.type === "turn_result") {
+      // the Socratic tutor's reply to the last discussion turn (+ the scored reasoning signal).
+      const meta = d.reasoning ? ("signal : " + d.reasoning.signal + (d.reasoning.confidence != null ? " (" + d.reasoning.confidence.toFixed(2) + ")" : "")) : "";
+      if (d.tutor && d.tutor.text) appendTurn("tutor", d.tutor.text, meta);
+      else if (meta) { const box = document.getElementById("turns"); if (box) box.append(el("div", { class: "turn-meta" }, meta)); }
+    }
     else if (d.type === "done") { const r = $("#pane"); r.innerHTML = ""; r.append(el("div", { class: "done" }, "✔ " + (d.message || "Lesson complete"))); }
   });
   window.__render = renderPane;

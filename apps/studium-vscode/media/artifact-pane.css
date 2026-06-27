@@ -87,3 +87,30 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--fo
 .mbar { height: 7px; background: rgba(127,127,127,.18); border-radius: 4px; overflow: hidden; }
 .mfill { display: block; height: 100%; background: var(--ok); }
 .mv { text-align: right; font-family: var(--mono); }
+
+/* discussion transcript (turn-by-turn Socratic dialogue) */
+.turns { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.turn { font-size: 13px; line-height: 1.5; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border); }
+.turn-learner { background: rgba(127,127,127,.08); }
+.turn-tutor { background: var(--card); border-left: 3px solid var(--accent); }
+.turn-who { font-weight: 600; color: var(--muted); }
+.turn-meta { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+/* reproduction protocol steps */
+.steps { margin: 6px 0 12px; padding-left: 22px; font-size: 13px; line-height: 1.55; }
+.steps li { margin: 3px 0; }
+
+/* metacognitive calibration verdict (number-free; only sur/sous shown) */
+.calibration { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 6px; }
+.calib { display: flex; gap: 8px; align-items: baseline; font-size: 12px; padding: 6px 9px; border-radius: 6px; border: 1px solid var(--border); }
+.calib-sur { border-left: 3px solid var(--no); }
+.calib-sous { border-left: 3px solid var(--accent); }
+.calib-chip { flex: none; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+.calib-sur .calib-chip { color: var(--no); }
+.calib-sous .calib-chip { color: var(--accent); }
+.calib-msg { color: var(--fg); }
+
+/* right-to-be-forgotten control in the scene header */
+.crumbs { display: flex; align-items: center; gap: 8px; }
+.crumbs .forget { margin-left: auto; font-size: 10px; padding: 2px 8px; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; }
+.crumbs .forget:hover { border-color: var(--no); color: var(--no); }
