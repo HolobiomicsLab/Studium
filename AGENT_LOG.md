@@ -4,6 +4,18 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-27 — Tap de confiance per-réponse + EWMA glissant (calibration continue LIVE)
+
+Ferme le follow-up de la tranche #3 : la capture de calibration per-réponse passe de « prête » à **LIVE** dans les deux surfaces.
+- **Webview** (`media/artifact-pane.js` + `.css`) : sélecteur « Ta confiance : 0–4 » sur les scènes quiz + free-text ; la confiance tapée chevauche l'input soumis (`withConf`). Omise si non tapée.
+- **Notebook** (`src/notebook.ts`) : token optionnel `conf:N` (0–4) en fin de cellule → extrait par `extractConfidence` (pur, testable, dans `scene-io.ts`) et attaché à l'input ; aide d'intro mise à jour ; un chiffre nu (meta_checkpoint) n'est PAS un token.
+- **Moteur** (`learner-state` + `adaptation-engine`) : `CALIBRATION_ANSWER_LAMBDA=0.4` ; la voie per-réponse utilise λ<1 → MOYENNE GLISSANTE (plus last-write-wins) ; la voie `meta_checkpoint` reste λ=1.0 (auto-jugement délibéré = signal plein, déclenche la règle 0.4). `updateCalibration`/`recordConfidenceSample` prennent un λ.
+- `ResponseInput` (scene-io.ts) gagne `confidence?` sur les kinds-réponses.
+
+**Vérification** : tsc ; learner-state 18 (test EWMA glissant vs last-write-wins) · adaptation-engine 47 · studium-vscode scene-io 51 (extractConfidence + parité) · webview-pane 68 (tap → `input.confidence` dans les 2 surfaces) ; zéro régression (lesson-session 408, lesson-session-host 188, lesson-mcp tsc). La calibration-gating est désormais alimentée en continu PAR RÉPONSE, plus seulement au meta_checkpoint.
+
+---
+
 ## 2026-06-27 — Calibration-gating : calibration = dimension de première classe, évaluée + GATING
 
 **Tranche #3 de la pivot capsule-backed (décision verrouillée).** `confidence_calibration` devient une dimension SAMPLE-COMPTÉE qui GATE ; capture per-réponse plumbée bout-en-bout (prête, pas encore alimentée par UI).

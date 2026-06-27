@@ -1,5 +1,5 @@
 import type { LearnerState, ConceptState, Signal, Decision } from "@studium/learner-state";
-import { defaultConceptState, recordConfidenceSample } from "@studium/learner-state";
+import { defaultConceptState, recordConfidenceSample, CALIBRATION_ANSWER_LAMBDA } from "@studium/learner-state";
 import type { AdaptationRule } from "@studium/lesson-bundle-schema";
 import { updateBeta } from "./beta-updater";
 import { matchesCondition } from "./condition-matcher";
@@ -68,12 +68,14 @@ export class AdaptationEngine {
     if (signal.kind === "answer_submitted") {
       const cs = ensureConceptState(this.state, signal.concept_id);
       const afterBeta = updateBeta(cs, signal);
-      // PER-ANSWER calibration capture (the path to CONTINUOUS): when the answer carries a self-rated
-      // confidence, fold it into calibration (+ count the sample) against the POST-answer mastery — the
-      // competence the answer just demonstrated. CAPTURE-READY but currently UNFED (no UI supplies a
-      // per-answer confidence yet), so today the only live calibration input is the meta_checkpoint.
+      // PER-ANSWER (CONTINUOUS) calibration capture: when the answer carries a self-rated confidence
+      // (fed by the confidence-tap UI), fold it into calibration against the POST-answer mastery — the
+      // competence the answer just demonstrated — using CALIBRATION_ANSWER_LAMBDA (<1) so accumulated
+      // per-answer samples form a RUNNING AVERAGE (not last-write-wins). + counts a sample.
       this.state.concept_states[signal.concept_id] =
-        signal.confidence !== undefined ? recordConfidenceSample(afterBeta, signal.confidence) : afterBeta;
+        signal.confidence !== undefined
+          ? recordConfidenceSample(afterBeta, signal.confidence, CALIBRATION_ANSWER_LAMBDA)
+          : afterBeta;
     }
     if (signal.kind === "confidence_declared" && signal.concept_id) {
       // M3: compare declared confidence against the concept's accumulated competence and

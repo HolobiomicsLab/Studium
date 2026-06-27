@@ -165,6 +165,39 @@ function submitFreeText(scene: any, answer: string) {
   expect(!!m.sent.find((x) => x.type === "end"), "forget posts {type:'end'}");
 }
 
+// --- 7) per-answer confidence tap: the tapped 0-4 rides on the submitted input -------------------
+{
+  // quiz: tap confidence 3, then choose b → the respond input carries confidence 3
+  const m = mount();
+  m.render(baseState({ type: "quiz", title: "Q", question: "?", choices: [{ id: "a", text: "A" }, { id: "b", text: "B" }] }));
+  const confBtns = m.$all(".confrow .conf");
+  expect(confBtns.length === 5, `quiz renders a 0-4 confidence tap (got ${confBtns.length})`);
+  m.click(confBtns[3]);                              // confidence = 3
+  m.click(m.$all(".controls .choice")[1]);           // choose b
+  const r = m.sent.find((x) => x.type === "respond");
+  expect(!!r && r.input?.kind === "quiz_choice" && r.input?.choiceId === "b" && r.input?.confidence === 3,
+    "quiz submit carries the tapped confidence");
+}
+{
+  // free-text: tap confidence 1, then submit → the input carries confidence 1
+  const m = mount();
+  m.render(baseState({ type: "spot_the_flaw", title: "F", flawed_content: "FLAWED" }));
+  expect(m.$all(".confrow .conf").length === 5, "free-text renders a 0-4 confidence tap");
+  m.click(m.$all(".confrow .conf")[1]);              // confidence = 1
+  const ta = m.$("textarea"); if (ta) (ta as any).value = "mes erreurs";
+  m.click(m.$(".controls .primary"));
+  const r = m.sent.find((x) => x.type === "respond");
+  expect(!!r && r.input?.kind === "flaw_report" && r.input?.confidence === 1, "free-text submit carries the tapped confidence");
+}
+{
+  // not tapping → the input has NO confidence field (optional, omitted)
+  const m = mount();
+  m.render(baseState({ type: "quiz", title: "Q", question: "?", choices: [{ id: "a", text: "A" }] }));
+  m.click(m.$all(".controls .choice")[0]);
+  const r = m.sent.find((x) => x.type === "respond");
+  expect(!!r && r.input?.confidence === undefined, "no tap → no confidence on the submitted input");
+}
+
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} webview-pane assertions failed:`);
   for (const f of failures) console.error("  - " + f);

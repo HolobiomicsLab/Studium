@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   defaultConceptState, recordConfidenceSample,
-  isCalibrated, isMiscalibrated, isOverconfident, CALIBRATION_WELL_BAND, type ConceptState,
+  isCalibrated, isMiscalibrated, isOverconfident, CALIBRATION_WELL_BAND, CALIBRATION_ANSWER_LAMBDA,
+  type ConceptState,
 } from "./index.js";
 
 const cs = (over: Partial<ConceptState> = {}): ConceptState => ({ ...defaultConceptState("c"), ...over });
@@ -36,12 +37,21 @@ describe("calibration samples + gate predicates", () => {
     expect(isOverconfident(cs({ calibration_samples: 1, confidence_calibration: 0.1 }))).toBe(false);  // in band
   });
 
-  it("confidence_calibration is last-write-wins (lambda=1.0): the stored gap is the LATEST sample's", () => {
+  it("the meta path (lambda=1.0) is last-write-wins: the stored gap is the LATEST sample's", () => {
     // first sample: declared 4 (1.0) vs actual 0.5 -> +0.5 ; second: declared 2 (0.5) vs actual 0.5 -> 0.0
     const c1 = recordConfidenceSample(cs({ alpha: 1, beta: 1 }), 4);
     const c2 = recordConfidenceSample(c1, 2);
     expect(c2.calibration_samples).toBe(2);            // samples accumulate (a measured-count flag)
     expect(c2.confidence_calibration).toBeCloseTo(0, 5); // ...but the gap reflects only the LATEST sample
+  });
+
+  it("the per-answer path (lambda<1) forms a RUNNING AVERAGE, not last-write-wins", () => {
+    const c0 = cs({ alpha: 1, beta: 1 });                                   // mastery 0.5
+    const c1 = recordConfidenceSample(c0, 4, CALIBRATION_ANSWER_LAMBDA);     // gap +0.5 -> 0.4*0.5 = 0.2
+    expect(c1.confidence_calibration).toBeCloseTo(0.2, 5);
+    const c2 = recordConfidenceSample(c1, 2, CALIBRATION_ANSWER_LAMBDA);     // gap 0.0 -> 0.6*0.2 + 0.4*0 = 0.12
+    expect(c2.confidence_calibration).toBeCloseTo(0.12, 5);                  // NOT 0 (last-write-wins would be 0)
+    expect(c2.calibration_samples).toBe(2);
   });
 
   it("an unmeasured concept is NEITHER calibrated nor miscalibrated (no trivial gate bypass)", () => {

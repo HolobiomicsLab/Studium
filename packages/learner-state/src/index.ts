@@ -86,12 +86,10 @@ export function masteryOf(s: ConceptState): number {
  * lower values blend with the prior. Kept at 1.0 so one observation produces a signal large
  * enough to trip the calibration rule (|gap|≥0.4 ⇒ |calibration|≥0.4).
  *
- * NOTE (continuous capture): because λ=1.0 is LAST-WRITE-WINS, confidence_calibration reflects only
- * the MOST RECENT confidence sample — not a running average over calibration_samples. So
- * calibration_samples is a MEASURED/unmeasured flag, NOT an averaging weight. A genuine running EWMA
- * (λ<1) over accumulated samples is a deliberate DEFERRED upgrade: lowering λ would shrink the
- * single-checkpoint signal below the rule's 0.4 trip, so it ships WITH the per-answer confidence UI,
- * not before it. */
+ * The two capture paths use DIFFERENT λ: the deliberate meta_checkpoint keeps λ=1.0 (one self-assessment
+ * = full signal, tripping the rule), while PER-ANSWER capture uses CALIBRATION_ANSWER_LAMBDA (<1) so its
+ * accumulated samples form a genuine RUNNING AVERAGE — not last-write-wins. calibration_samples remains
+ * the MEASURED/unmeasured flag the gates key on. */
 export const CALIBRATION_LAMBDA = 1.0;
 
 /** M3: update a concept's confidence_calibration from a declared confidence (0..4) compared
@@ -99,14 +97,19 @@ export const CALIBRATION_LAMBDA = 1.0;
  * confidence_calibration. Sign convention: POSITIVE = overconfident (declared > actual),
  * NEGATIVE = underconfident. Blended by CALIBRATION_LAMBDA (currently 1.0 ⇒ last-write-wins: the
  * stored gap is the LATEST observation's, not a running average) and clamped to [-1, 1]. */
-export function updateCalibration(cs: ConceptState, declared0to4: number): ConceptState {
+export function updateCalibration(cs: ConceptState, declared0to4: number, lambda: number = CALIBRATION_LAMBDA): ConceptState {
   const actual = masteryOf(cs);
   const declaredNorm = declared0to4 / 4;
   const signedError = declaredNorm - actual;
-  const blended = (1 - CALIBRATION_LAMBDA) * cs.confidence_calibration + CALIBRATION_LAMBDA * signedError;
+  const blended = (1 - lambda) * cs.confidence_calibration + lambda * signedError;
   const clamped = Math.max(-1, Math.min(1, blended));
   return { ...cs, confidence_calibration: clamped };
 }
+
+/** EWMA factor for PER-ANSWER (continuous) capture: <1 so accumulated per-answer samples form a genuine
+ * RUNNING AVERAGE of the declared-vs-actual gap (not last-write-wins). Distinct from the meta-checkpoint
+ * path, which stays λ=1.0 (a single deliberate self-assessment = full signal, tripping the 0.4 rule). */
+export const CALIBRATION_ANSWER_LAMBDA = 0.4;
 
 /** The calibration "well" band (mirrors host.ts calibrationVerdict): |confidence_calibration| within
  * this is well-calibrated; beyond it (in either direction) is miscalibrated. */
@@ -116,8 +119,8 @@ export const CALIBRATION_WELL_BAND = 0.4;
  * declared-vs-actual gap) AND increment calibration_samples. The sample count is what makes the
  * gates honest — see calibration_samples. Use this (not bare updateCalibration) wherever a confidence
  * is captured, so every gate can trust that "calibrated" means "measured AND in band". */
-export function recordConfidenceSample(cs: ConceptState, declared0to4: number): ConceptState {
-  const updated = updateCalibration(cs, declared0to4);
+export function recordConfidenceSample(cs: ConceptState, declared0to4: number, lambda: number = CALIBRATION_LAMBDA): ConceptState {
+  const updated = updateCalibration(cs, declared0to4, lambda);
   return { ...updated, calibration_samples: (cs.calibration_samples ?? 0) + 1 };
 }
 

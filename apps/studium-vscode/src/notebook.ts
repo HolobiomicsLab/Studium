@@ -11,7 +11,7 @@ import { readFile } from "node:fs/promises";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
-import { freeTextInput } from "./scene-io.js";
+import { freeTextInput, extractConfidence } from "./scene-io.js";
 import { assetPathFor, imageMime } from "./asset-path.js";
 
 type Json = Record<string, any>;
@@ -29,7 +29,8 @@ function driverCells(): vscode.NotebookCellData[] {
     vscode.NotebookCellKind.Markup,
     "# Studium lesson\nRun the cell below to **start**. To advance, re-run it:\n" +
     "- empty or `next` → continue\n- a quiz choice id (`a`, `b`, …) → answer\n- `0`–`4` → a confidence checkpoint\n" +
-    "- free text → answer an active-learning scene (critique / errors / explanation / comparison / audit / prompt / message / discussion turn)\n- `hint` → ask for a hint\n- `forget` → erase your session data (right to be forgotten)\n\n" +
+    "- free text → answer an active-learning scene (critique / errors / explanation / comparison / audit / prompt / message / discussion turn)\n" +
+    "- end a quiz / free-text answer with `conf:N` (0–4) → rate your confidence (calibration)\n- `hint` → ask for a hint\n- `forget` → erase your session data (right to be forgotten)\n\n" +
     "Spectra and plots render inline (with a Vega-capable notebook renderer). The companion " +
     "**Studium — Lesson** pane is the full-fidelity surface: rotatable 3D orbitals/molecules and KaTeX equations.",
     "markdown",
@@ -84,14 +85,18 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
   // `d` is the RAW (untrimmed-of-case) cell text so free-text answers keep their casing; only the
   // quiz choice id and the confidence digit are parsed case-insensitively.
   function directiveToInput(d: string, scene: Json): Json {
-    const lc = d.toLowerCase();
-    if (scene.type === "quiz") return { kind: "quiz_choice", choiceId: /^[a-f]$/.test(lc) ? lc : (scene.choices?.[0]?.id ?? "a") };
-    if (scene.type === "meta_checkpoint") { const v = parseInt(lc, 10); return { kind: "confidence", value: Number.isNaN(v) ? 2 : Math.max(0, Math.min(4, v)) }; }
+    // an optional trailing `conf:N` (0-4) is the per-answer confidence tap (calibration); strip it off
+    // the answer and attach it to the input. A meta_checkpoint's bare digit is NOT a token (left as-is).
+    const { confidence, rest } = extractConfidence(d);
+    const withConf = (input: Json): Json => (confidence === undefined ? input : { ...input, confidence });
+    const lc = rest.toLowerCase();
+    if (scene.type === "quiz") return withConf({ kind: "quiz_choice", choiceId: /^[a-f]$/.test(lc) ? lc : (scene.choices?.[0]?.id ?? "a") });
+    if (scene.type === "meta_checkpoint") { const v = parseInt(d.trim(), 10); return { kind: "confidence", value: Number.isNaN(v) ? 2 : Math.max(0, Math.min(4, v)) }; }
     // every single-submit free-text active-learning scene (ai_critique / spot_the_flaw / explain_back /
     // comparison / summary_audit / prompt_practice / communication_sim) maps to the kind its grader
     // requires — see scene-io.ts. Anything else (intro / concept / reproduction / discussion) is ack.
-    const ft = freeTextInput(scene.type, d || "(no answer)");
-    if (ft) return ft as Json;
+    const ft = freeTextInput(scene.type, rest || "(no answer)");
+    if (ft) return withConf(ft as Json);
     return { kind: "ack" };
   }
 

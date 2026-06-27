@@ -114,3 +114,10 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--fo
 .crumbs { display: flex; align-items: center; gap: 8px; }
 .crumbs .forget { margin-left: auto; font-size: 10px; padding: 2px 8px; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; }
 .crumbs .forget:hover { border-color: var(--no); color: var(--no); }
+
+/* per-answer confidence tap (0..4) — the continuous calibration capture */
+.confrow { display: flex; align-items: center; gap: 6px; margin: 6px 0; flex-wrap: wrap; }
+.confrow .conf-label { font-size: 11px; color: var(--muted); margin-right: 2px; }
+.confrow .conf { min-width: 26px; padding: 2px 8px; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; }
+.confrow .conf:hover { border-color: var(--fg); color: var(--fg); }
+.confrow .conf.sel { background: var(--ok, #3a7); border-color: var(--ok, #3a7); color: #fff; }

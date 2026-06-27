@@ -7,17 +7,19 @@
 // the same kinds by hand — scene-io.driver.ts guards that parity by asserting each kind appears in
 // artifact-pane.js. Keep this list and the grader's GRADERS map in lock-step.
 
+// `confidence?` (0..4) is the optional per-answer self-rating — the per-answer calibration capture
+// (mirrors the host ResponseInputSchema); the engine folds it into confidence_calibration that turn.
 export type ResponseInput =
   | { kind: "ack" }
-  | { kind: "quiz_choice"; choiceId: string }
+  | { kind: "quiz_choice"; choiceId: string; confidence?: 0 | 1 | 2 | 3 | 4 }
   | { kind: "confidence"; value: 0 | 1 | 2 | 3 | 4 }
-  | { kind: "critique"; text: string }            // ai_critique
-  | { kind: "flaw_report"; text: string }         // spot_the_flaw
-  | { kind: "explanation"; text: string }         // explain_back
-  | { kind: "comparison"; text: string }          // comparison
-  | { kind: "summary_audit"; text: string }       // summary_audit
-  | { kind: "prompt_submission"; text: string }   // prompt_practice
-  | { kind: "communication"; text: string };      // communication_sim
+  | { kind: "critique"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }            // ai_critique
+  | { kind: "flaw_report"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }         // spot_the_flaw
+  | { kind: "explanation"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }         // explain_back
+  | { kind: "comparison"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }          // comparison
+  | { kind: "summary_audit"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }       // summary_audit
+  | { kind: "prompt_submission"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }   // prompt_practice
+  | { kind: "communication"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 };      // communication_sim
 
 export type FreeTextKind =
   | "critique" | "flaw_report" | "explanation"
@@ -53,4 +55,17 @@ export function freeTextInput(sceneType: string, text: string): ResponseInput | 
   const kind = FREE_TEXT_KIND[sceneType];
   if (!kind) return null;
   return { kind, text } as ResponseInput;
+}
+
+/**
+ * Pull an OPTIONAL trailing confidence token (0..4) off a free-text / quiz cell — the per-answer
+ * calibration tap for the (text-only) notebook surface. Canonical form: end the cell with `conf:N`
+ * (also accepts `conf=N`, `conf N`, `confidence:N`). A bare digit is NOT a token (so a meta_checkpoint's
+ * `3` is untouched). Returns the parsed confidence + the answer text with the token removed; no token ⇒
+ * { confidence: undefined, rest: raw }.
+ */
+export function extractConfidence(raw: string): { confidence?: 0 | 1 | 2 | 3 | 4; rest: string } {
+  const m = raw.match(/[\s.;,]*\b(?:confidence|conf)\b\s*[:=]?\s*([0-4])\s*$/i);
+  if (!m) return { confidence: undefined, rest: raw };
+  return { confidence: Number(m[1]) as 0 | 1 | 2 | 3 | 4, rest: raw.slice(0, m.index).trimEnd() };
 }

@@ -317,14 +317,36 @@
     communication_sim: { kind: "communication",    label: "Soumettre",                placeholder: "Rédige ta communication professionnelle…" },
   };
 
+  // optional per-answer confidence tap (0..4) — the CONTINUOUS calibration capture: the learner may
+  // rate how sure they are, and it rides on the submitted input as `confidence`. Returns { node, get }.
+  function confidenceRow() {
+    let value;
+    const row = el("div", { class: "confrow" });
+    row.append(el("span", { class: "conf-label" }, "Ta confiance :"));
+    const btns = [];
+    const titles = ["Pas sûr·e", "Peu sûr·e", "Moyen", "Plutôt sûr·e", "Très sûr·e"];
+    [0, 1, 2, 3, 4].forEach((v) => {
+      const b = el("button", { class: "conf", type: "button", title: titles[v] }, String(v));
+      b.addEventListener("click", () => {
+        value = value === v ? undefined : v;                 // re-click toggles off (optional)
+        btns.forEach((x, i) => x.classList.toggle("sel", value === i));
+      });
+      btns.push(b); row.append(b);
+    });
+    return { node: row, get: () => value };
+  }
+  // attach the tapped confidence to a submitted input (omitted when the learner didn't rate).
+  function withConf(input, cr) { const v = cr && cr.get(); return v == null ? input : Object.assign({}, input, { confidence: v }); }
+
   // interactive controls the learner uses to advance — posts back to the extension host.
   function renderControls(sc) {
     const wrap = el("div", { class: "controls" });
     const send = (msg) => () => (window.__send ? window.__send(msg) : null);
     if (sc.type === "quiz") {
+      const cr = confidenceRow(); wrap.append(cr.node);
       (sc.choices || []).forEach((c) => {
         const b = el("button", { class: "choice" }, c.id + ") " + c.text);
-        b.addEventListener("click", send({ type: "respond", input: { kind: "quiz_choice", choiceId: c.id } }));
+        b.addEventListener("click", () => window.__send && window.__send({ type: "respond", input: withConf({ kind: "quiz_choice", choiceId: c.id }, cr) }));
         wrap.append(b);
       });
       const hb = el("button", { class: "ghost" }, "💡 Hint"); hb.addEventListener("click", send({ type: "hint" })); wrap.append(hb);
@@ -350,9 +372,10 @@
       const f = FREE_TEXT[sc.type];
       const ta = el("textarea", { class: "critique", placeholder: f.placeholder });
       if (f.prefill && sc[f.prefill]) ta.value = sc[f.prefill];
+      const cr = confidenceRow();
       const b = el("button", { class: "primary" }, f.label);
-      b.addEventListener("click", () => window.__send && window.__send({ type: "respond", input: { kind: f.kind, text: ta.value } }));
-      wrap.append(ta, b);
+      b.addEventListener("click", () => window.__send && window.__send({ type: "respond", input: withConf({ kind: f.kind, text: ta.value }, cr) }));
+      wrap.append(ta, cr.node, b);
     } else {
       const b = el("button", { class: "primary" }, "Continue ▸"); b.addEventListener("click", send({ type: "respond", input: { kind: "ack" } })); wrap.append(b);
     }
