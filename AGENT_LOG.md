@@ -4,6 +4,21 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-28 — Boucle opération→jugement : ancrer un jugement sur le run de l'APPRENANT
+
+Ferme la boucle nord-star : l'apprenant lance la capsule lui-même (protocole de run), PUIS audite une lecture IA défectueuse de SON PROPRE résultat exécuté — et ce jugement alimente `trust_calibration`. « Opération réelle = véhicule ; jugement calibré d'un artefact réel = destination. »
+
+- `lesson-bundle-schema` (TS + mirror Python) : `spot_the_flaw` gagne un champ optionnel `reference_from_run` (un task_card_id) — le jugement est ancré sur le run capturé de l'apprenant. + export du type `ReferenceRun`.
+- `lesson-session` : `recordLearnerRun(taskCardId, run)` mémorise le run de l'apprenant ; le SEUL point d'injection est `scene()` (accesseur unique présentation+notation) : pour un `spot_the_flaw` avec `reference_from_run` ET un run enregistré, renvoie une copie avec `reference_result` = le run de l'apprenant — donc l'évidence affichée ET le `flawGrader` (qui pose `judgment_audit` quand reference_result≠null → `trust_calibration`) voient le run de l'apprenant. Aucun run → scène d'auteur inchangée (non-ancrée, pas de fabrication).
+- `lesson-session-host` : `host.recordLearnerRun` ; `SessionWorkspace.ingestRun` projette le `run_result` de l'opérateur en `ReferenceRun` (`runResultToReferenceRun`) et l'enregistre sous le task_card_id de la scène run AVANT d'avancer.
+- Fixture `fixtures/capsule-loop-demo` (intro → reproduction(run_manifest) → spot_the_flaw(reference_from_run)).
+
+HONNÊTETÉ : les défauts plantés (claims) supposent un résultat CANONIQUE ; l'ancrage sur le run de l'apprenant n'est sain que pour une capsule DÉTERMINISTE (même landmark à chaque run) — vrai pour `capsule-demo` (seed fixe).
+
+**Vérification** : lesson-session 3 (overlay ancré→reference_result injecté ; sans run→non-ancré ; notation→trust_calibration) + lesson-session-host e2e 1 (run → tâche jugement affiche le landmark de l'APPRENANT → noté → trust alimenté) ; lesson-session 213 · lesson-session-host 102 · lesson-bundle-schema 59 · scene-synth 206 ; `tsc --noEmit` 3 packages ; suite TS complète exit 0. Revue adverse (Opus) en cours.
+
+---
+
 ## 2026-06-28 — Exécution PAR L'APPRENANT : protocole de run (délégation agentique pure)
 
 Ferme le gap « no-host-learner-time-execution » : l'apprenant provisionne + exécute lui-même la capsule (via l'opérateur agentique dans l'espace de travail VS Code), Studium n'exécute JAMAIS (brain-only, pas de sandbox Studium). « Opération réelle = véhicule. » Décision utilisateur : DÉLÉGATION AGENTIQUE PURE (Studium émet un manifeste, l'opérateur installe + lance).

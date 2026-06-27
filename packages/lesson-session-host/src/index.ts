@@ -12,7 +12,7 @@ export {
 export {
   SessionWorkspace, type WorkspaceIndex, type WorkspaceStepEntry,
 } from "./session-workspace.js";
-export { RunResultSchema, parseRunResult, type RunResult } from "./run-result.js";
+export { RunResultSchema, parseRunResult, runResultToReferenceRun, type RunResult } from "./run-result.js";
 export {
   runStudiumSession, stubOperator, watchOperator, writeResponse,
   type Operator, type OperatorCtx, type SessionRunResult,

@@ -7,7 +7,7 @@ import {
   type Presentation, type ResponseInput, type Transition, type Explanation, type HintResult,
 } from "@studium/lesson-session";
 import { masteryOf, type ConceptState, type LearnerState } from "@studium/learner-state";
-import { sceneRenderAssets, type RenderAsset } from "@studium/lesson-bundle-schema";
+import { sceneRenderAssets, type RenderAsset, type ReferenceRun } from "@studium/lesson-bundle-schema";
 import type { GraphView } from "@studium/typed-graph-lens";
 import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
 import { SessionRegistry, type SessionEntry } from "./registry.js";
@@ -332,6 +332,13 @@ export class SessionHost {
     const e = this.require(id);
     return sceneRenderAssets(e.session.currentPresentation().scene).map((a) => inlineFileAsset(a, e.baseDir, e.assetCache));
   }
+  /** Record a learner-time capsule run (the learner's OWN executed result) on the session, keyed by
+   * task_card_id, so a later spot_the_flaw with `reference_from_run` grounds on it. Called after the
+   * host ingests the operator's run_result.json (run protocol) — closes the operation→judgment loop. */
+  recordLearnerRun(id: string, taskCardId: string, run: ReferenceRun): void {
+    this.require(id).session.recordLearnerRun(taskCardId, run);
+  }
+
   async respond(id: string, input: ResponseInput): Promise<Transition> {
     const e = this.require(id);
     const transition = await e.session.respond(input);

@@ -139,6 +139,7 @@ export const ReferenceRunSchema = z.object({
     env: z.string(),
   }),
 });
+export type ReferenceRun = z.infer<typeof ReferenceRunSchema>;
 
 // LEARNER-TIME provisioning + run manifest. Studium emits it (from the capsule's runnable contract)
 // so a PLUGGABLE AGENTIC OPERATOR provisions the env, installs deps, and runs the capsule IN THE VS CODE
@@ -225,6 +226,21 @@ export const SpotTheFlawSceneSchema = SceneBaseSchema.extend({
   // carrier reproduction uses. The run carries no answer key (the flaws live in `claims`), so showing
   // it is the evidence the learner reasons from, not a leak.
   reference_result: ReferenceRunSchema.optional(),
+  // OPTIONAL learner-run grounding (closes the operation→judgment loop): a task_card_id whose
+  // LEARNER-TIME run (the learner's OWN executed result, captured via the run protocol) grounds this
+  // judgment — the learner audits a flawed AI reading of the result THEY produced. At session time the
+  // host injects the recorded run as `reference_result` (so both the evidence shown AND the grading
+  // feed off the learner's run). Falls back to the authored `reference_result` (or ungrounded) when no
+  // learner run was captured. Non-answer-bearing — it is just a reference to which run to ground on.
+  //
+  // SOUNDNESS REQUIREMENT — DETERMINISTIC CAPSULES ONLY: the authored `claims`/`flaws_expected` (the
+  // answer key the grader scores against) are written for a CANONICAL result and are NOT regenerated
+  // from the learner's run. So `reference_from_run` is only sound when the capsule is DETERMINISTIC
+  // (the landmark is stable across runs — e.g. a fixed seed). For a stochastic capsule the learner
+  // would see their real landmark while being graded against flaws written for different numbers. Only
+  // author `reference_from_run` against a deterministic capsule; for stochastic ones keep a pre-baked
+  // author `reference_result` (or regenerate the flaws per-run — a deferred enhancement).
+  reference_from_run: z.string().optional(),
 });
 
 // A key idea a good explanation should contain. `cues` (>=1) are the phrases the offline coverage

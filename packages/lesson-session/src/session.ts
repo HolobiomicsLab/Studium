@@ -1,4 +1,4 @@
-import type { LessonBundle, Scene } from "@studium/lesson-bundle-schema";
+import type { LessonBundle, Scene, ReferenceRun } from "@studium/lesson-bundle-schema";
 import { AdaptationEngine, DEFAULT_THETA } from "@studium/adaptation-engine";
 import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type Decision } from "@studium/learner-state";
 import { buildLwgMastery, buildLwgCalibration, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept } from "./graph-nav.js";
@@ -48,6 +48,10 @@ export class LessonSession {
   protected discussionHistory: { role: "learner" | "tutor"; text: string }[] = [];
   protected lastTutorMove: TutorMove | null = null;
   protected lastReasoning: { signal: string; confidence: number } | null = null;
+  /** LEARNER-TIME runs captured this session, keyed by task_card_id. A spot_the_flaw scene with
+   * `reference_from_run` is grounded on the learner's OWN run (injected by scene()), closing the
+   * operation→judgment loop: the learner audits a flawed AI reading of the result THEY produced. */
+  private learnerRuns = new Map<string, ReferenceRun>();
 
   constructor(
     private readonly bundle: LessonBundle,
@@ -132,8 +136,25 @@ export class LessonSession {
     return { hint, index, remaining: cap - this.hintsUsed };
   }
 
+  /** Record a learner-time run (the learner's OWN executed result) for a capsule, keyed by task_card_id.
+   * A later spot_the_flaw scene with `reference_from_run === taskCardId` is then grounded on it. Called
+   * by the host after it ingests the operator's run_result.json (the run protocol). */
+  recordLearnerRun(taskCardId: string, run: ReferenceRun): void {
+    this.learnerRuns.set(taskCardId, run);
+  }
+
   // --- protected helpers shared with respond()/submitTurn() (Tasks 8–10) ---
-  protected scene(): Scene { return this.bundle.scenes[this.idx] as Scene; }
+  protected scene(): Scene {
+    const s = this.bundle.scenes[this.idx] as Scene;
+    // LEARNER-RUN GROUNDING: a spot_the_flaw with reference_from_run audits a flawed reading of the
+    // learner's OWN run — inject the recorded run as reference_result so BOTH the surfaced evidence AND
+    // the grader (judgment_audit -> trust_calibration) see the learner's result. No run -> authored scene.
+    if (s.type === "spot_the_flaw" && s.reference_from_run) {
+      const run = this.learnerRuns.get(s.reference_from_run);
+      if (run) return { ...s, reference_result: run };
+    }
+    return s;
+  }
   protected assertStarted(): void { if (!this.started) throw new SessionNotStartedError(); }
   protected emit(partial: EmitInput): void {
     this.deps.telemetry.emit(enrichEvent(partial, this.ctx, this.deps.clock, this.deps.idGen));

@@ -297,6 +297,11 @@ class SpotTheFlawScene(_SceneBase):
     # carries that run so the learner audits the AI interpretation AGAINST the real output. The run
     # holds no answer key (flaws live in ``claims``), so it is evidence, not a leak.
     reference_result: Optional[ReferenceRun] = None
+    # OPTIONAL learner-run grounding (mirror of TS): a task_card_id whose LEARNER-TIME run grounds this
+    # judgment (the host injects the recorded run as reference_result at session time — audit YOUR OWN run).
+    # SOUNDNESS: DETERMINISTIC capsules only — the authored claims/flaws are NOT regenerated from the
+    # learner's run, so a stable landmark across runs is required (see SpotTheFlawSceneSchema TS).
+    reference_from_run: Optional[str] = None
 
 
 class KeyPoint(BaseModel):

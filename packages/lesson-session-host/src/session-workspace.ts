@@ -22,7 +22,7 @@ import { mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { SessionHost } from "./host.js";
 import { publicScene, publicTransition } from "./public-scene.js";
-import { parseRunResult, type RunResult } from "./run-result.js";
+import { parseRunResult, runResultToReferenceRun, type RunResult } from "./run-result.js";
 
 const FILES = {
   task: "task.md", response: "response.json", feedback: "feedback.md", index: "index.json",
@@ -194,6 +194,10 @@ export class SessionWorkspace {
       return { done: false, transition: "run_failed_checks" };
     }
     // ran && passed -> record the learner's own run, then advance (reproduction = lightly graded via ack).
+    // Ground a LATER judgment on it: store it on the session keyed by this capsule's task_card_id, so a
+    // spot_the_flaw with reference_from_run audits a flawed reading of the result the LEARNER produced.
+    const taskCardId = (this.host.currentPresentation(sessionId) as { scene: { task_card_id?: string } }).scene.task_card_id;
+    if (taskCardId) this.host.recordLearnerRun(sessionId, taskCardId, runResultToReferenceRun(result));
     await this.markRan(sessionId, result);
     let t: Record<string, unknown>;
     try { t = publicTransition(await this.host.respond(sessionId, { kind: "ack" } as never)) as Record<string, unknown>; }
