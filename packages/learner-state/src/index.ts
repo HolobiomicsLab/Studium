@@ -8,6 +8,11 @@ export const ConceptStateSchema = z.object({
   total_attempts: z.number().int().nonnegative(),
   total_correct: z.number().int().nonnegative(),
   confidence_calibration: z.number().min(-1).max(1),
+  // How many confidence observations have fed confidence_calibration. Optional + back-compatible
+  // (absent ⇒ 0 ⇒ "never measured"). This is what lets a calibration GATE tell a well-calibrated
+  // concept (gap small AND measured) apart from an unmeasured one (gap defaults to 0) — so a gate
+  // cannot be passed trivially by never declaring confidence.
+  calibration_samples: z.number().int().nonnegative().optional(),
 });
 
 export type ConceptState = z.infer<typeof ConceptStateSchema>;
@@ -17,7 +22,12 @@ export const SignalSchema = z.discriminatedUnion("kind", [
     concept_id: z.string(), scene_id: z.string(),
     correct: z.boolean(), time_ms: z.number().nonnegative(),
     hint_count: z.number().int().nonnegative(),
-    difficulty: z.number().min(0).max(1) }),
+    difficulty: z.number().min(0).max(1),
+    // optional per-answer self-rated confidence (0..4) — the path toward CONTINUOUS calibration.
+    // CAPTURE-READY but currently UNFED: no UI supplies per-answer confidence yet, so the only LIVE
+    // calibration input today is the confidence_declared meta-checkpoint. When present, the engine
+    // folds it into confidence_calibration on this answer + counts a sample.
+    confidence: z.number().int().min(0).max(4).optional() }),
   z.object({ kind: z.literal("confidence_declared"),
     scene_id: z.string(), value: z.number().int().min(0).max(4),
     // M3: the concept this self-assessment is about. Optional for backward-compat —
@@ -74,13 +84,21 @@ export function masteryOf(s: ConceptState): number {
 /** M3 metacognitive calibration smoothing factor. λ=1.0 means a single meta_checkpoint
  * fully reflects the fresh declared-vs-actual gap (no Brier history needed for one checkpoint);
  * lower values blend with the prior. Kept at 1.0 so one observation produces a signal large
- * enough to trip the calibration rule (|gap|≥0.4 ⇒ |calibration|≥0.4). */
+ * enough to trip the calibration rule (|gap|≥0.4 ⇒ |calibration|≥0.4).
+ *
+ * NOTE (continuous capture): because λ=1.0 is LAST-WRITE-WINS, confidence_calibration reflects only
+ * the MOST RECENT confidence sample — not a running average over calibration_samples. So
+ * calibration_samples is a MEASURED/unmeasured flag, NOT an averaging weight. A genuine running EWMA
+ * (λ<1) over accumulated samples is a deliberate DEFERRED upgrade: lowering λ would shrink the
+ * single-checkpoint signal below the rule's 0.4 trip, so it ships WITH the per-answer confidence UI,
+ * not before it. */
 export const CALIBRATION_LAMBDA = 1.0;
 
 /** M3: update a concept's confidence_calibration from a declared confidence (0..4) compared
  * against the concept's ACTUAL accumulated competence (masteryOf). Pure; touches only
  * confidence_calibration. Sign convention: POSITIVE = overconfident (declared > actual),
- * NEGATIVE = underconfident. EWMA-smoothed and clamped to [-1, 1]. */
+ * NEGATIVE = underconfident. Blended by CALIBRATION_LAMBDA (currently 1.0 ⇒ last-write-wins: the
+ * stored gap is the LATEST observation's, not a running average) and clamped to [-1, 1]. */
 export function updateCalibration(cs: ConceptState, declared0to4: number): ConceptState {
   const actual = masteryOf(cs);
   const declaredNorm = declared0to4 / 4;
@@ -88,6 +106,43 @@ export function updateCalibration(cs: ConceptState, declared0to4: number): Conce
   const blended = (1 - CALIBRATION_LAMBDA) * cs.confidence_calibration + CALIBRATION_LAMBDA * signedError;
   const clamped = Math.max(-1, Math.min(1, blended));
   return { ...cs, confidence_calibration: clamped };
+}
+
+/** The calibration "well" band (mirrors host.ts calibrationVerdict): |confidence_calibration| within
+ * this is well-calibrated; beyond it (in either direction) is miscalibrated. */
+export const CALIBRATION_WELL_BAND = 0.4;
+
+/** Record ONE confidence observation against a concept: update confidence_calibration (the signed
+ * declared-vs-actual gap) AND increment calibration_samples. The sample count is what makes the
+ * gates honest — see calibration_samples. Use this (not bare updateCalibration) wherever a confidence
+ * is captured, so every gate can trust that "calibrated" means "measured AND in band". */
+export function recordConfidenceSample(cs: ConceptState, declared0to4: number): ConceptState {
+  const updated = updateCalibration(cs, declared0to4);
+  return { ...updated, calibration_samples: (cs.calibration_samples ?? 0) + 1 };
+}
+
+/** True once a concept has ≥1 confidence observation AND its gap is within the well band. A concept
+ * with NO observation is NOT "calibrated" for gating — it is simply unmeasured. */
+export function isCalibrated(cs: ConceptState, band: number = CALIBRATION_WELL_BAND): boolean {
+  return (cs.calibration_samples ?? 0) >= 1 && Math.abs(cs.confidence_calibration) <= band;
+}
+
+/** True ONLY when calibration was MEASURED (≥1 sample) AND is out of the well band (EITHER direction).
+ * Distinct from "not isCalibrated": an UNMEASURED concept is neither calibrated nor miscalibrated, so a
+ * gate keyed on isMiscalibrated never penalizes a concept the learner was never asked to self-assess.
+ * Used by the SKIP gate (a recalibration replay is a low-cost nudge in either direction). */
+export function isMiscalibrated(cs: ConceptState, band: number = CALIBRATION_WELL_BAND): boolean {
+  return (cs.calibration_samples ?? 0) >= 1 && Math.abs(cs.confidence_calibration) > band;
+}
+
+/** True ONLY when calibration was MEASURED (≥1 sample) AND the learner is OVERconfident beyond the band
+ * (declared > actual). Used by the CERTIFICATION gate: withholding a mastery claim is reserved for the
+ * DANGEROUS direction (overconfidence) — never for an underconfident-but-proven master, which would
+ * turn a metacognition signal into a competence penalty. (For a genuinely-mastered concept, actual≥θ
+ * caps the overconfident gap below the band, so this gate is by-design inert there and only bites a
+ * non-mastered overconfident learner — i.e. it never withholds a real master's claim.) */
+export function isOverconfident(cs: ConceptState, band: number = CALIBRATION_WELL_BAND): boolean {
+  return (cs.calibration_samples ?? 0) >= 1 && cs.confidence_calibration > band;
 }
 
 export function defaultConceptState(concept_id: string): ConceptState {

@@ -1,7 +1,7 @@
 import type { LessonBundle, Scene } from "@studium/lesson-bundle-schema";
 import { AdaptationEngine, DEFAULT_THETA } from "@studium/adaptation-engine";
 import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type Decision } from "@studium/learner-state";
-import { buildLwgMastery, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept } from "./graph-nav.js";
+import { buildLwgMastery, buildLwgCalibration, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept } from "./graph-nav.js";
 import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary, HintResult } from "./types.js";
 import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
 import { SessionNotStartedError, SessionAlreadyCompleteError } from "./errors.js";
@@ -251,6 +251,7 @@ export class LessonSession {
       const { index: nextIdx, reason } = graphAwareNextIndex(
         this.bundle.scenes, this.idx, lwg,
         buildLwgMastery(this.state.concept_states), this.theta, this.skipMastered,
+        buildLwgCalibration(this.state.concept_states),
       );
       if (nextIdx === null) return this.complete();
       this.idx = nextIdx;

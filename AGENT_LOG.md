@@ -4,6 +4,23 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-27 — Calibration-gating : calibration = dimension de première classe, évaluée + GATING
+
+**Tranche #3 de la pivot capsule-backed (décision verrouillée).** `confidence_calibration` devient une dimension SAMPLE-COMPTÉE qui GATE ; capture per-réponse plumbée bout-en-bout (prête, pas encore alimentée par UI).
+
+- `packages/learner-state` : `ConceptState.calibration_samples` (optionnel, rétro-compatible) ; `CALIBRATION_WELL_BAND=0.4` ; `recordConfidenceSample` (updateCalibration + samples++) ; `isCalibrated` / `isMiscalibrated` (mesuré + bande, symétrique) / `isOverconfident` (mesuré + sur-confiance seule). `answer_submitted` gagne `confidence?` optionnel.
+- `packages/adaptation-engine/engine.ts` : `confidence_declared` → `recordConfidenceSample` (compte les samples) ; un `answer_submitted` portant un `confidence` capture aussi (per-réponse, contre la maîtrise POST-réponse).
+- **GATE certification** (`mastery-claims.ts`) : OVERCONFIANCE-SEULE (`isOverconfident`) — on ne retient JAMAIS la claim d'un maître sous-confiant (par l'arithmétique, pour actual≥θ seule la sous-confiance dépasse la bande ⇒ un gate symétrique ne frapperait que les maîtres sous-confiants = pénalité de compétence). Inerte pour un vrai maître ; ne mord qu'une sur-confiance.
+- **GATE skip** (`graph-nav.ts` `buildLwgCalibration` + param `calibrated` ; câblé `session.ts`) : SYMÉTRIQUE — skip-on-mastery ne saute PAS un concept maîtrisé-mais-mal-calibré (replay = nudge de recalibration peu coûteux). Conservateur : ne bloque jamais (au pire, atterrit SUR la scène).
+- `ResponseInput` (types.ts + response-input-schema.ts) + `grade()` : portent un `confidence?` optionnel de l'entrée → signal.
+- Cohérence « mesuré » : `host.ts calibrationVerdict` (+ port studium-vscode) renvoie `null` sans sample (sinon « bien calibrée » fabriqué pour un concept jamais auto-évalué).
+
+**Vérification** : tsc 5 packages ; learner-state 17 · adaptation-engine 47 · lesson-session 408 · lesson-session-host 188 · 209 assertions drivers studium-vscode (e2e lesson-walk inclus) ; zéro régression (~660 tests back-end). Revue adverse (2 lentilles × Opus) = ship-with-fixes ; **2 must-fix corrigés** (le verdict learner-facing partage la déf « mesuré » ; gate certification overconfiance-seule + documenté) + should-fix (commentaires « continu » honnêtes ; λ=1.0 = last-write-wins documenté, pas EWMA).
+
+**NON construit (suivi honnête)** : l'affordance UI du tap de confiance per-réponse (plumbing prêt+testé mais aucune UI ne l'alimente — seul le `meta_checkpoint` alimente la calibration en vrai aujourd'hui) ; EWMA glissant (λ<1) lié à cette UI ; diagnostic auditable des concepts retenus-pour-calibration.
+
+---
+
 ## 2026-06-27 — Rendu inline de la figure `executed_result` (notebook)
 
 Le contrôleur notebook (`apps/studium-vscode/src/notebook.ts`) rend désormais les assets `executed_result` (et `image`) comme **image native inline** — lecture du fichier depuis le dossier du bundle + légende (landmark / checks) — au lieu d'une simple note `📎`. La logique pure chemin+MIME est extraite dans `src/asset-path.ts` (testable) ; le câblage `vscode.*` reste tsc-only (Extension Host). Nouveau driver `asset-path` (8 assertions) ajouté au runner. Ferme le follow-up « rendu natif » du canal `.studium-session/`. Vérif : tsc + **208 assertions** drivers studium-vscode.

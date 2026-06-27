@@ -229,7 +229,10 @@ export function reviewQueueFromState(
  * Never leaks mastery or the raw gap. Exported + pure for reuse across the runtime + a unit test. */
 export function calibrationVerdict(cs: ConceptState): CalibrationVerdict | null {
   const gap = cs.confidence_calibration;
-  if (cs.total_attempts === 0) return null;
+  // "measured" = a confidence was actually observed. Without a sample, confidence_calibration defaults
+  // to 0 (in-band) and a "bien calibrée" verdict would be a FABRICATED reassurance — so gate on the
+  // sample count, sharing ONE definition of measured with isCalibrated/isMiscalibrated (learner-state).
+  if (cs.total_attempts === 0 || (cs.calibration_samples ?? 0) === 0) return null;
   if (Math.abs(gap) < CALIBRATION_WELL_BAND) {
     return {
       concept_id: cs.concept_id,

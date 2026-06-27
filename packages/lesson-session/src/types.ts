@@ -25,17 +25,20 @@ export interface Presentation {
   learnerSnapshot: LearnerSnapshot;
 }
 
+// `confidence?` (0..4) is the optional per-answer self-rating — the path to CONTINUOUS calibration
+// (capture-ready but currently UNFED by any UI; the live calibration input today is the meta-checkpoint).
+// When present the engine folds it into the concept's confidence_calibration on that graded answer.
 export type ResponseInput =
   | { kind: "ack" }
-  | { kind: "quiz_choice"; choiceId: string }
+  | { kind: "quiz_choice"; choiceId: string; confidence?: 0 | 1 | 2 | 3 | 4 }
   | { kind: "confidence"; value: 0 | 1 | 2 | 3 | 4 }
-  | { kind: "critique"; text: string }
-  | { kind: "flaw_report"; text: string }    // spot_the_flaw: the learner's named flaws
-  | { kind: "explanation"; text: string }    // explain_back: the learner's teach-back
-  | { kind: "comparison"; text: string }     // comparison: the learner's named differences / added value
-  | { kind: "summary_audit"; text: string }  // summary_audit: the learner's named omissions / distortions
-  | { kind: "prompt_submission"; text: string } // prompt_practice: the learner's authored/refined prompt
-  | { kind: "communication"; text: string };     // communication_sim: the learner's professional communication
+  | { kind: "critique"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }
+  | { kind: "flaw_report"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }    // spot_the_flaw
+  | { kind: "explanation"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }    // explain_back
+  | { kind: "comparison"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }     // comparison
+  | { kind: "summary_audit"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }  // summary_audit
+  | { kind: "prompt_submission"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 } // prompt_practice
+  | { kind: "communication"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 };     // communication_sim
 
 export interface CompletionSummary {
   totalDurationMs: number;

@@ -113,11 +113,16 @@ describe("reviewQueueFromState (FSRS review queue surface)", () => {
 
 describe("calibrationVerdict (learner-facing, NUMBER-FREE)", () => {
   function cs(partial: Partial<ConceptState>): ConceptState {
-    return { ...defaultConceptState("c1"), total_attempts: 3, ...partial };
+    return { ...defaultConceptState("c1"), total_attempts: 3, calibration_samples: 1, ...partial };
   }
 
   it("returns null before any attempt (nothing to reflect on yet)", () => {
     expect(calibrationVerdict(cs({ total_attempts: 0, confidence_calibration: 0 }))).toBeNull();
+  });
+
+  it("returns null until calibration is MEASURED (attempts, but no confidence sample yet)", () => {
+    // default-0 gap is in-band, so without this guard the learner would get a fabricated "bien calibrée"
+    expect(calibrationVerdict(cs({ calibration_samples: 0, confidence_calibration: 0.6 }))).toBeNull();
   });
 
   it("near-zero gap ⇒ 'bien' calibrée", () => {

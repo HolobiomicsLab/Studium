@@ -211,5 +211,12 @@ export const GRADERS: Record<Scene["type"], Grader> = {
 };
 
 export async function grade(scene: Scene, input: ResponseInput, deps: GradeDeps): Promise<GradeResult> {
-  return GRADERS[scene.type](scene, input, deps);
+  const r = await GRADERS[scene.type](scene, input, deps);
+  // PER-ANSWER calibration capture (capture-ready; no UI feeds confidence yet): carry an optional
+  // per-answer self-rated confidence from the input onto the answer_submitted signal, so the engine
+  // can fold it into calibration when supplied.
+  if (r.signal.kind === "answer_submitted" && "confidence" in input && typeof input.confidence === "number") {
+    return { ...r, signal: { ...r.signal, confidence: input.confidence } };
+  }
+  return r;
 }

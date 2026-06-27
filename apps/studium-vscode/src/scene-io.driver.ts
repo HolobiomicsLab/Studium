@@ -50,12 +50,14 @@ for (const field of ["artifact_a", "artifact_b", "source_content", "ai_summary",
   expect(pane.includes(field), `artifact-pane.js renders scene field "${field}"`);
 }
 
-// 3) calibration verdict — verbatim port of host.ts. Band thresholds + null-before-attempt.
-expect(calibrationVerdict({ concept_id: "c", total_attempts: 0, confidence_calibration: 0.9 }) === null, "no attempt → null");
-expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.1 })?.band === "bien", "|gap|<0.4 → bien");
-expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.5 })?.band === "sur", "gap>0.4 → sur (overconfident)");
-expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: -0.5 })?.band === "sous", "gap<-0.4 → sous (underconfident)");
-expect((calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.5 })?.message || "").includes("surconfiant"), "sur message wording preserved");
+// 3) calibration verdict — verbatim port of host.ts. Band thresholds + null until MEASURED.
+expect(calibrationVerdict({ concept_id: "c", total_attempts: 0, confidence_calibration: 0.9, calibration_samples: 0 }) === null, "no attempt → null");
+// MEASURED guard: attempts>0 but NO confidence sample → null (never fabricate a "bien calibrée" verdict)
+expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.1 }) === null, "attempts but no calibration sample → null");
+expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.1, calibration_samples: 1 })?.band === "bien", "|gap|<0.4 → bien");
+expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.5, calibration_samples: 1 })?.band === "sur", "gap>0.4 → sur (overconfident)");
+expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: -0.5, calibration_samples: 1 })?.band === "sous", "gap<-0.4 → sous (underconfident)");
+expect((calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.5, calibration_samples: 1 })?.message || "").includes("surconfiant"), "sur message wording preserved");
 
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} scene-io assertions failed:`);

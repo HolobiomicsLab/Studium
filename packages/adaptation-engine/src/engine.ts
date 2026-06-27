@@ -1,5 +1,5 @@
 import type { LearnerState, ConceptState, Signal, Decision } from "@studium/learner-state";
-import { defaultConceptState, updateCalibration } from "@studium/learner-state";
+import { defaultConceptState, recordConfidenceSample } from "@studium/learner-state";
 import type { AdaptationRule } from "@studium/lesson-bundle-schema";
 import { updateBeta } from "./beta-updater";
 import { matchesCondition } from "./condition-matcher";
@@ -67,14 +67,21 @@ export class AdaptationEngine {
   onSignal(signal: Signal): Decision {
     if (signal.kind === "answer_submitted") {
       const cs = ensureConceptState(this.state, signal.concept_id);
-      this.state.concept_states[signal.concept_id] = updateBeta(cs, signal);
+      const afterBeta = updateBeta(cs, signal);
+      // PER-ANSWER calibration capture (the path to CONTINUOUS): when the answer carries a self-rated
+      // confidence, fold it into calibration (+ count the sample) against the POST-answer mastery — the
+      // competence the answer just demonstrated. CAPTURE-READY but currently UNFED (no UI supplies a
+      // per-answer confidence yet), so today the only live calibration input is the meta_checkpoint.
+      this.state.concept_states[signal.concept_id] =
+        signal.confidence !== undefined ? recordConfidenceSample(afterBeta, signal.confidence) : afterBeta;
     }
     if (signal.kind === "confidence_declared" && signal.concept_id) {
       // M3: compare declared confidence against the concept's accumulated competence and
-      // fold the signed gap into confidence_calibration. Runs BEFORE buildContext so the
+      // fold the signed gap into confidence_calibration (+ count the sample, so a calibration GATE
+      // can tell measured-and-calibrated from never-measured). Runs BEFORE buildContext so the
       // freshly-written value is visible to the calibration rule on this same turn.
       const cs = ensureConceptState(this.state, signal.concept_id);
-      this.state.concept_states[signal.concept_id] = updateCalibration(cs, signal.value);
+      this.state.concept_states[signal.concept_id] = recordConfidenceSample(cs, signal.value);
     }
     if (signal.kind === "scene_completed") {
       if (!this.state.scenes_completed.includes(signal.scene_id)) {

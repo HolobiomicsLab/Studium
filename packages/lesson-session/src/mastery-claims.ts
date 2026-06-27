@@ -1,4 +1,4 @@
-import { masteryOf, type LearnerState } from "@studium/learner-state";
+import { masteryOf, isOverconfident, type LearnerState } from "@studium/learner-state";
 import { MIN_MASTERY_ATTEMPTS } from "./graph-nav.js";
 
 /** A local-only JSON-LD doc of learner mastery claims (indicium Bucur 5-slot + SEPIO evidence).
@@ -34,6 +34,13 @@ export function buildMasteryClaims(state: LearnerState, opts: BuildMasteryClaims
     if (csv.total_attempts < MIN_MASTERY_ATTEMPTS) continue; // minimum-attempts floor: 2 lucky answers don't certify mastery
     const mastery = masteryOf(csv);
     if (mastery < opts.threshold) continue;
+    // CALIBRATION GATE (OVERCONFIDENCE-ONLY, deliberate). Withhold certification only for the DANGEROUS
+    // direction — a measured-OVERconfident learner. We do NOT withhold from an underconfident-but-proven
+    // master: a symmetric gate would, arithmetically, fire ONLY against underconfident masters (for a
+    // mastered concept actual≥θ caps the overconfident gap below the band), turning a metacognition
+    // signal into a competence penalty. Unmeasured concepts are unaffected (never self-assessed ⇒ never
+    // withheld). The SKIP gate (graph-nav) stays symmetric — replaying to recalibrate is a low-cost nudge.
+    if (isOverconfident(csv)) continue;
     const claimId = `urn:studium:mastery:${opts.sessionId}:${cid}`;
     graph.push({
       "@type": "asb:Claim",
