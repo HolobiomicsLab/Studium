@@ -20,15 +20,21 @@ import { SessionWorkspace } from "./session-workspace.js";
 
 const TASK = "task.md";
 const RESPONSE = "response.json";
+const RUN_RESULT = "run_result.json";
 
 export interface OperatorCtx {
   dir: string;
   sessionId: string;
   sceneType: string;
   step: number;
+  // "run" => this is a LEARNER-TIME RUN scene: the operator PROVISIONS + RUNS the capsule in the
+  // workspace and writes `run_result.json` (not `response.json`). Studium never executes — see run.json.
+  // Optional + back-compatible: absent ⇒ treated as "response" (the default channel).
+  expects?: "response" | "run";
 }
 
-/** An operator's job: ensure a valid `response.json` exists in ctx.dir for the current task. */
+/** An operator's job: ensure a valid `response.json` (or `run_result.json` when ctx.expects==="run")
+ * exists in ctx.dir for the current task. */
 export type Operator = (taskMarkdown: string, ctx: OperatorCtx) => Promise<void>;
 
 export interface SessionRunResult {
@@ -44,6 +50,15 @@ export async function writeResponse(dir: string, response: Record<string, unknow
   const tmp = join(dir, RESPONSE + ".tmp");
   await writeFile(tmp, JSON.stringify(response), "utf8");
   await rename(tmp, join(dir, RESPONSE));
+}
+
+/** Atomically write run_result.json — what a learner-time-run operator writes after provisioning + running
+ * the capsule in the workspace (Studium never executes). Atomic (tmp + rename) so a reader never sees a
+ * half-written file. */
+export async function writeRunResult(dir: string, result: Record<string, unknown>): Promise<void> {
+  const tmp = join(dir, RUN_RESULT + ".tmp");
+  await writeFile(tmp, JSON.stringify(result), "utf8");
+  await rename(tmp, join(dir, RUN_RESULT));
 }
 
 /** Drive a session from `bundleRef` to completion, one operator turn per scene. */
@@ -62,9 +77,10 @@ export async function runStudiumSession(
   await ws.writeStep(sessionId);
   let step = 0;
   for (; step < maxSteps; step++) {
-    const pres = host.currentPresentation(sessionId) as { scene: { type: string } };
+    const pres = host.currentPresentation(sessionId) as { scene: { type: string; run_manifest?: unknown } };
     const task = await readFile(join(dir, TASK), "utf8");
-    await operator(task, { dir, sessionId, sceneType: pres.scene.type, step });
+    const expects = pres.scene.run_manifest ? ("run" as const) : ("response" as const);
+    await operator(task, { dir, sessionId, sceneType: pres.scene.type, step, expects });
     const r = await ws.ingest(sessionId);
     transitions.push(r.transition);
     if (r.done) return { sessionId, steps: step + 1, transitions, completed: true };
@@ -80,6 +96,20 @@ export async function runStudiumSession(
  * genuine answer. The stub exists so the harness/round-trip runs reproducibly without a model.
  */
 export const stubOperator: Operator = async (_task, ctx) => {
+  if (ctx.expects === "run") {
+    // PLACEHOLDER: the REAL agentic operator provisions + runs the capsule in the workspace and reports the
+    // genuine result. The stub fakes a passing run (no real execution) so the key-free harness completes.
+    await writeRunResult(ctx.dir, {
+      ran: true, passed: true, landmark: "LANDMARK k_fit=0.4212 half_life=1.6457",
+      artifacts: ["outputs/stats.csv", "figures/decay.png"],
+      checks: [
+        { check: "file exists: outputs/stats.csv", passed: true },
+        { check: "file exists: figures/decay.png", passed: true },
+      ],
+      provenance: { cmd: ["python", "scripts/run.py"], env: "operator workspace (stub)" },
+    });
+    return;
+  }
   const t = ctx.sceneType;
   let resp: Record<string, unknown>;
   if (t === "spot_the_flaw" || t === "summary_audit" || t === "ai_critique") {
@@ -105,7 +135,9 @@ export function watchOperator(opts: { pollMs?: number; timeoutMs?: number } = {}
   const pollMs = opts.pollMs ?? 500;
   const timeoutMs = opts.timeoutMs ?? 0; // 0 = wait forever
   return async (_task, ctx) => {
-    const path = join(ctx.dir, RESPONSE);
+    // a learner-time RUN scene waits for run_result.json (the operator ran it in the workspace);
+    // any other scene waits for response.json. Studium never produces either — the operator does.
+    const path = join(ctx.dir, ctx.expects === "run" ? RUN_RESULT : RESPONSE);
     const start = Date.now();
     for (;;) {
       try {

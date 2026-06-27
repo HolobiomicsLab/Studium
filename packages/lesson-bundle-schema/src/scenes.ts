@@ -140,6 +140,23 @@ export const ReferenceRunSchema = z.object({
   }),
 });
 
+// LEARNER-TIME provisioning + run manifest. Studium emits it (from the capsule's runnable contract)
+// so a PLUGGABLE AGENTIC OPERATOR provisions the env, installs deps, and runs the capsule IN THE VS CODE
+// WORKSPACE — Studium NEVER executes (no per-learner sandbox). Deliberately NON-answer-bearing: it carries
+// only HOW to run (capsule ref / cmd / install / produced file NAMES / file-existence checks), and NEVER
+// the expected values or the author's landmark — the learner produces those by actually running it.
+export const RunManifestSchema = z.object({
+  capsule_ref: z.string().min(1),                  // where the capsule lives / how to obtain it (path or DOI)
+  cmd: z.array(z.string()).min(1),                 // the command the operator runs in the workspace
+  working_dir: z.string().nullable().optional(),
+  timeout_s: z.number().positive().optional(),
+  requirements: z.array(z.string()).optional(),    // pip deps to install (or a requirements.txt at capsule_ref)
+  expected_outputs: z.array(z.string()),           // file NAMES the run should produce (not their values)
+  verify_checks: z.array(z.string()),              // human-readable file-existence checks (no answer values)
+  research_question: z.string().optional(),
+});
+export type RunManifest = z.infer<typeof RunManifestSchema>;
+
 export const ReproductionSceneSchema = SceneBaseSchema.extend({
   type: z.literal("reproduction"),
   task_card_id: z.string(),
@@ -147,6 +164,9 @@ export const ReproductionSceneSchema = SceneBaseSchema.extend({
   prov_derived_from: z.string().url().optional(),
   image_path: z.string().optional(),         // rendered figure from the reference run
   reference_result: ReferenceRunSchema.optional(),
+  // OPTIONAL learner-time run: when present, the scene is reproduced BY THE LEARNER at session time
+  // (the host/operator provisions + runs it), not merely shown as a pre-baked author run.
+  run_manifest: RunManifestSchema.optional(),
   evidence: EvidenceSchema.optional(),
 });
 

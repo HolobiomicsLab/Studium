@@ -27,11 +27,16 @@ edge (MCP) and the file edge (`task.md`) alike.
 
 ```
 .studium-session/
-  task.md        Studium -> operator : the current step, REDACTED. What to do + the real artifact ref.
-  response.json  operator -> Studium : the learner's submission, e.g. {"kind":"flaw_report","text":"…"}
-                                       (or just {"text":"…"} — Studium maps it to the scene's kind).
-  feedback.md    Studium -> operator : graded outcome + whether it advanced.
-  index.json     shared memory/log   : one entry per step {step, scene_id, scene_type, status}.
+  task.md         Studium -> operator : the current step, REDACTED. What to do + the real artifact ref.
+  response.json   operator -> Studium : the learner's submission, e.g. {"kind":"flaw_report","text":"…"}
+                                        (or just {"text":"…"} — Studium maps it to the scene's kind).
+  run.json        Studium -> operator : a LEARNER-TIME RUN manifest (capsule ref / install / cmd / produced
+                                        file names / file-existence checks). NON-answer-bearing; emitted for
+                                        a reproduction scene with a run_manifest.
+  run_result.json operator -> Studium : {"ran":true,"passed":true,"landmark":"…","artifacts":[…],"checks":[…]}
+                                        — written AFTER the operator provisions + runs the capsule itself.
+  feedback.md     Studium -> operator : graded outcome + whether it advanced.
+  index.json      shared memory/log   : one entry per step {step, scene_id, scene_type, status}.
 ```
 
 **The loop** (driven by `SessionWorkspace` in `@studium/lesson-session-host`):
@@ -74,11 +79,26 @@ Operators (`@studium/lesson-session-host`): `stubOperator` (deterministic placeh
 "any assistant drives it" mode; Studium never calls a model), or your own LLM-backed operator. The
 `--stub` run completes the `capsule-judgment-demo` bundle in 3 steps (`next → next → complete`).
 
+## Learner-time runs — per-learner provisioning + execution (pure agentic delegation)
+
+A `reproduction` scene can carry a **`run_manifest`** (capsule ref / install / cmd / produced file
+names / file-existence checks — **never** the expected values or the author's landmark). When Studium
+reaches such a scene it writes **`run.json`** (the manifest) and a *provision-&-run* `task.md`, and logs
+the step `status:"awaiting_run"`. The operator then **provisions the environment, installs the deps, and
+runs the capsule IN THE WORKSPACE itself** — Studium never executes (no per-learner sandbox) — and writes
+**`run_result.json`**. Studium `ingest()`s it as the learner's *own* executed result: a `ran && passed`
+run records the step `status:"ran"` (with the learner's landmark/artifacts) and advances ("you actually
+ran it"); a missing/partial result waits, and a `ran:false` / failed-checks result is consumed with a
+corrective `feedback.md` (self-heal, no wedge) so the operator can fix + rerun. The author's landmark is
+withheld so the learner produces a *fresh* result. The same run-aware harness drives it: a run scene
+routes to `run_result.json` (`watchOperator` waits for it; `stubOperator` writes a placeholder passing
+run — it does not actually execute).
+
 ## Execution + rendering belong to the host
 
 - **Execution**: the workspace terminal / notebook kernel, driven by the operator. Studium's
   `tools/capsule_runner.py` still runs the *author-time* reference run once (to ground a scene); the
-  *learner-time* runs are the host's.
+  *learner-time* runs are the host's, requested via `run.json` and reported via `run_result.json`.
 - **Rendering**: native VS Code — notebook outputs, image/plot viewers. The `executed_result` asset
   carries a figure **path**; the notebook controller now renders it **inline as a native image** (with
   a landmark/checks caption), and the file channel emits the same reference. The bespoke webview
@@ -90,5 +110,11 @@ Operators (`@studium/lesson-session-host`): `stubOperator` (deterministic placeh
   `fixtures/capsule-judgment-demo` bundle — intro ack → grounded `spot_the_flaw` audit, graded into
   mastery, answer key provably absent from `task.md` for every scene; plus the runnable harness
   (`runStudiumSession` + `stubOperator`/`watchOperator` + the CLI).
+- **Built + tested** (learner-time runs): the `run.json` / `run_result.json` round-trip on the real
+  `fixtures/capsule-run-demo` bundle (intro → reproduction-with-`run_manifest`) — non-answer-bearing
+  manifest, author landmark withheld, `ran && passed` advances + records the learner's run, failed/missing
+  runs self-heal; the run-aware `runStudiumSession` + `stubOperator` complete it key-free.
 - **Already existed**: the MCP channel (`apps/lesson-mcp`) with the same redaction.
-- **Follow-ups**: wiring the operator's `work/` scratch into process-level assessment.
+- **Follow-ups**: MCP-channel parity for run.json/run_result.json (the file channel ships first, "for
+  agentic use"); feeding a learner's executed result forward to GROUND a later judgment scene (audit YOUR
+  OWN result); the studium-vscode extension surfacing run.json natively (terminal/tasks).

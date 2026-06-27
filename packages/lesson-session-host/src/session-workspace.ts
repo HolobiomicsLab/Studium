@@ -22,8 +22,13 @@ import { mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { SessionHost } from "./host.js";
 import { publicScene, publicTransition } from "./public-scene.js";
+import { parseRunResult, type RunResult } from "./run-result.js";
 
-const FILES = { task: "task.md", response: "response.json", feedback: "feedback.md", index: "index.json" } as const;
+const FILES = {
+  task: "task.md", response: "response.json", feedback: "feedback.md", index: "index.json",
+  // LEARNER-TIME RUN channel: Studium emits the manifest, the operator runs + writes the result back.
+  run: "run.json", runResult: "run_result.json",
+} as const;
 
 // scene type -> the free-text ResponseInput kind its grader requires (mirror of studium-vscode
 // scene-io.ts + lesson-session graders.ts). Operators may instead write an explicit {kind,...};
@@ -47,7 +52,11 @@ export interface WorkspaceStepEntry {
   step: number;
   scene_id: string;
   scene_type: string;
-  status: "awaiting_response" | "graded" | "complete";
+  status: "awaiting_response" | "graded" | "complete" | "awaiting_run" | "ran";
+  // recorded for a learner-time run step (status "ran"): the learner's OWN executed result summary.
+  landmark?: string | null;
+  passed?: boolean;
+  artifacts?: string[];
 }
 export interface WorkspaceIndex {
   session_id: string;
@@ -63,12 +72,27 @@ export class SessionWorkspace {
   private step = 0;
   constructor(private readonly host: SessionHost, private readonly dir: string) {}
 
-  /** Studium -> operator: write the REDACTED current task + real-artifact reference; log "awaiting". */
+  /** Studium -> operator: write the REDACTED current task + real-artifact reference; log "awaiting".
+   * A scene carrying a `run_manifest` is a LEARNER-TIME RUN: Studium emits a non-answer-bearing
+   * `run.json` + a provision-&-run task and WITHHOLDS the author landmark (the learner produces a
+   * fresh result by running it). Execution is the host/operator's job — Studium never runs it. */
   async writeStep(sessionId: string): Promise<void> {
     const pres = this.host.currentPresentation(sessionId) as { scene: Record<string, unknown> };
     const scene = publicScene(pres.scene as never) as Record<string, unknown>; // answer key stripped HERE
-    const assets = this.host.sceneArtifacts(sessionId) as Array<Record<string, unknown>>;
     await mkdir(this.dir, { recursive: true });
+    const manifest = scene.run_manifest as Record<string, unknown> | undefined;
+    if (manifest) {
+      await rm(join(this.dir, FILES.runResult), { force: true }); // fresh run scene: no stale result
+      await writeFile(join(this.dir, FILES.run), JSON.stringify(manifest, null, 2), "utf8");
+      await writeFile(join(this.dir, FILES.task), renderRunTask(scene, manifest, this.step), "utf8");
+      await this.append(sessionId, {
+        step: this.step, scene_id: String(scene.id ?? ""), scene_type: String(scene.type ?? ""),
+        status: "awaiting_run",
+      });
+      return;
+    }
+    await rm(join(this.dir, FILES.run), { force: true }); // leaving a run scene: clear the stale manifest
+    const assets = this.host.sceneArtifacts(sessionId) as Array<Record<string, unknown>>;
     await writeFile(join(this.dir, FILES.task), renderTask(scene, assets, this.step), "utf8");
     await this.append(sessionId, {
       step: this.step,
@@ -103,7 +127,8 @@ export class SessionWorkspace {
    * input is CONSUMED + a corrective feedback.md is written so the operator can retry — the channel
    * self-heals instead of deadlocking on an un-consumed bad response.json. */
   async ingest(sessionId: string): Promise<{ done: boolean; transition: string }> {
-    const pres = this.host.currentPresentation(sessionId) as { scene: { type: string } };
+    const pres = this.host.currentPresentation(sessionId) as { scene: { type: string; run_manifest?: unknown } };
+    if (pres.scene.run_manifest) return this.ingestRun(sessionId); // learner-time run scene
     const sceneType = pres.scene.type;
     const input = await this.readResponse(sceneType);
     if (!input) {                                                        // no valid response yet — don't wedge
@@ -133,6 +158,80 @@ export class SessionWorkspace {
     this.step += 1;
     await this.writeStep(sessionId);
     return { done: false, transition: String(t.kind) };
+  }
+
+  /** operator -> Studium for a LEARNER-TIME RUN scene: read run_result.json (the operator's run output),
+   * record the learner's OWN executed result, and gate "you actually ran it" on `ran && passed`. Studium
+   * never executes — it only validates + records + advances. Self-heals like the response channel:
+   * missing/partial waits; a non-completed/failed run is consumed with a corrective note, no wedge. */
+  private async ingestRun(sessionId: string): Promise<{ done: boolean; transition: string }> {
+    let raw: string;
+    try { raw = await readFile(join(this.dir, FILES.runResult), "utf8"); }
+    catch {
+      await this.writeRunFeedback(
+        "⚠️ Pas de `run_result.json`. Provisionne l'environnement, lance la commande de `run.json` " +
+        "dans CET espace de travail, puis ecris `run_result.json`.");
+      return { done: false, transition: "awaiting_run" };
+    }
+    const result = parseRunResult(raw);
+    if (!result) { // partial / invalid write — keep the file, the atomic writer will complete it
+      await this.writeRunFeedback("⚠️ `run_result.json` invalide ou partiel. Reecris-le (ecriture atomique).");
+      return { done: false, transition: "awaiting_run" };
+    }
+    if (!result.ran) {
+      await rm(join(this.dir, FILES.runResult), { force: true });
+      await this.writeRunFeedback(
+        "⚠️ Le run n'a pas abouti (`ran:false`). Provisionne l'env (installe les dependances de " +
+        "`run.json`), relance la commande, puis reecris `run_result.json`.");
+      return { done: false, transition: "run_incomplete" };
+    }
+    if (!result.passed) {
+      const failing = result.checks.filter((c) => !c.passed).map((c) => c.check);
+      await rm(join(this.dir, FILES.runResult), { force: true });
+      await this.writeRunFeedback(
+        `⚠️ Run produit mais verifications echouees : ${failing.join(" ; ") || "voir expected_outputs"}. ` +
+        "Corrige et relance.");
+      return { done: false, transition: "run_failed_checks" };
+    }
+    // ran && passed -> record the learner's own run, then advance (reproduction = lightly graded via ack).
+    await this.markRan(sessionId, result);
+    let t: Record<string, unknown>;
+    try { t = publicTransition(await this.host.respond(sessionId, { kind: "ack" } as never)) as Record<string, unknown>; }
+    catch (e) {
+      await rm(join(this.dir, FILES.runResult), { force: true });
+      await this.writeRunFeedback(`⚠️ Run ingere mais l'avancement a echoue (${(e as Error).message}).`);
+      return { done: false, transition: "invalid_run" };
+    }
+    await rm(join(this.dir, FILES.runResult), { force: true }); // consume: next scene starts fresh
+    await writeFile(join(this.dir, FILES.feedback), renderRunFeedback(result, t), "utf8");
+    if (t.kind === "complete") {
+      await rm(join(this.dir, FILES.run), { force: true }); // session over: clear the stale manifest too
+      this.step += 1;
+      await this.append(sessionId, { step: this.step, scene_id: "", scene_type: "", status: "complete" });
+      return { done: true, transition: "complete" };
+    }
+    this.step += 1;
+    await this.writeStep(sessionId);
+    return { done: false, transition: String(t.kind) };
+  }
+
+  private async writeRunFeedback(body: string): Promise<void> {
+    await writeFile(join(this.dir, FILES.feedback), `# Feedback\n\n${body}\n`, "utf8");
+  }
+
+  /** Mark the latest awaiting_run step "ran" and record the learner's executed-result summary (auditable). */
+  private async markRan(sessionId: string, result: RunResult): Promise<void> {
+    const idx = await this.readIndex(sessionId);
+    for (let i = idx.entries.length - 1; i >= 0; i--) {
+      if (idx.entries[i]!.status === "awaiting_run") {
+        idx.entries[i]!.status = "ran";
+        idx.entries[i]!.landmark = result.landmark ?? null;
+        idx.entries[i]!.passed = result.passed;
+        idx.entries[i]!.artifacts = result.artifacts;
+        break;
+      }
+    }
+    await writeFile(join(this.dir, FILES.index), JSON.stringify(idx, null, 2), "utf8");
   }
 
   private async readIndex(sessionId: string): Promise<WorkspaceIndex> {
@@ -222,4 +321,46 @@ function renderFeedback(t: Record<string, unknown>): string {
     }
     default: return `# Feedback\n\n(${String(t.kind)})\n`;
   }
+}
+
+/** Render the provision-&-run task for a learner-time reproduction scene. Surfaces ONLY how to run
+ * (capsule ref / install / cmd / produced file names / file-existence checks) — NEVER the expected
+ * values or the author's landmark. The host/operator owns env + install + execution; Studium never runs. */
+function renderRunTask(scene: Record<string, unknown>, manifest: Record<string, unknown>, step: number): string {
+  const s = scene as Record<string, string | undefined>;
+  const m = manifest;
+  const L: string[] = [];
+  L.push(`# Studium — etape ${step} : ${s.title || s.type} (reproduction)`, "");
+  L.push("**Type de scene :** `reproduction` — execution PAR L'APPRENANT (l'hote provisionne, tu lances).", "");
+  if (s.markdown) L.push(s.markdown, "");
+  L.push("## Provisionne et lance (dans CET espace de travail)", "");
+  if (m.research_question) L.push(`**Question :** ${String(m.research_question)}`, "");
+  L.push(`- **Capsule :** \`${String(m.capsule_ref ?? "")}\``);
+  const reqs = Array.isArray(m.requirements) ? (m.requirements as string[]) : [];
+  if (reqs.length) L.push(`- **Installe :** ${reqs.join(", ")}`);
+  const cmd = Array.isArray(m.cmd) ? (m.cmd as string[]).join(" ") : String(m.cmd ?? "");
+  L.push(`- **Lance :** \`${cmd}\`${m.working_dir ? ` (dans \`${String(m.working_dir)}\`)` : ""}`);
+  const outs = Array.isArray(m.expected_outputs) ? (m.expected_outputs as string[]) : [];
+  if (outs.length) L.push(`- **Sorties attendues :** ${outs.map((o) => `\`${o}\``).join(", ")}`);
+  const checks = Array.isArray(m.verify_checks) ? (m.verify_checks as string[]) : [];
+  if (checks.length) { L.push("- **Verifie :**"); for (const c of checks) L.push(`  - ${c}`); }
+  L.push("");
+  L.push("## Rends compte du run", "Quand le run a produit les sorties, ecris `run_result.json` (ce dossier) :", "```json");
+  L.push(JSON.stringify({
+    ran: true, passed: true,
+    landmark: "<la mesure que TON run a produite, depuis stdout>",
+    artifacts: outs,
+    checks: checks.map((c) => ({ check: c, passed: true })),
+  }, null, 2));
+  L.push("```", "_(Studium ne lance rien : c'est TON run reel dans l'espace de travail qui fait foi.)_");
+  return L.join("\n") + "\n";
+}
+
+function renderRunFeedback(result: RunResult, t: Record<string, unknown>): string {
+  const lm = result.landmark ? ` (mesure : \`${result.landmark}\`)` : "";
+  if (t.kind === "complete") {
+    const n = (t.summary as Record<string, unknown> | undefined)?.scenesCompleted;
+    return `# Feedback\n\n✔ Run ingere${lm} — lecon terminee (${n ?? "?"} scenes).\n`;
+  }
+  return `# Feedback\n\n✓ Run ingere${lm} — tu as reproduit le resultat toi-meme. Etape suivante (\`task.md\` mis a jour).\n`;
 }

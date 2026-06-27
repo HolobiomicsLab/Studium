@@ -226,6 +226,22 @@ class ReferenceRun(BaseModel):
     provenance: ReferenceRunProvenance
 
 
+class RunManifest(BaseModel):
+    """Mirror of RunManifestSchema (TS, scenes.ts): a learner-time provisioning + run manifest. Studium
+    emits it so a pluggable agentic operator provisions the env + installs + runs the capsule IN THE HOST
+    WORKSPACE (Studium never executes). NON-answer-bearing — carries only how to RUN (capsule ref / cmd /
+    install / produced file names / file-existence checks), never the expected values or author landmark."""
+
+    capsule_ref: str = Field(min_length=1)
+    cmd: list[str] = Field(min_length=1)
+    working_dir: Optional[str] = None
+    timeout_s: Optional[float] = Field(default=None, gt=0)
+    requirements: Optional[list[str]] = None
+    expected_outputs: list[str]
+    verify_checks: list[str]
+    research_question: Optional[str] = None
+
+
 class ReproductionScene(_SceneBase):
     type: Literal["reproduction"]
     task_card_id: str
@@ -233,6 +249,9 @@ class ReproductionScene(_SceneBase):
     prov_derived_from: Optional[str] = None  # URL
     image_path: Optional[str] = None  # rendered figure from the reference run (parity with TS)
     reference_result: Optional[ReferenceRun] = None  # executed reference run (parity with TS)
+    # OPTIONAL learner-time run (parity with TS): when present, the learner reproduces the capsule at
+    # session time (host/operator provisions + runs), not merely views a pre-baked author run.
+    run_manifest: Optional[RunManifest] = None
     evidence: Optional[Evidence] = None
 
 
@@ -642,6 +661,7 @@ __all__ = [
     "ReferenceCheck",
     "ReferenceRun",
     "ReproductionScene",
+    "RunManifest",
     "ReproductionStep",
     "RuleAction",
     "RuleActionKind",
