@@ -3,7 +3,7 @@ from pathlib import Path
 
 from metrics import (
     compute_progress, compute_calibration, compute_autonomy,
-    compute_progress_metrics,
+    compute_progress_metrics, compute_scene_type_breakdown,
 )
 
 
@@ -128,6 +128,43 @@ def test_compute_progress_iterates_multiple_jsonl_files(tmp_path):
     progress = compute_progress(tmp_path, "c1")
     assert progress["scenes"]["s1"]["completion_rate"] == 1.0
     assert progress["scenes"]["s1"]["n_learners"] == 2  # different learners (idx 0 and 1, mod 3)
+
+
+def test_compute_scene_type_breakdown_groups_by_scene_type(tmp_path):
+    """RC-2: breakdown groups critique_submitted by scene_type with correct n and mean_completion_rate."""
+    events = [
+        {**_base(0), "type": "critique_submitted", "scene_type": "spot_the_flaw", "completion_rate": 1.0},
+        {**_base(1), "type": "critique_submitted", "scene_type": "spot_the_flaw", "completion_rate": 0.5},
+        {**_base(2), "type": "critique_submitted", "scene_type": "explain_back", "completion_rate": 0.8},
+        {**_base(3), "type": "critique_submitted", "scene_type": "comparison", "completion_rate": 0.6},
+        {**_base(4), "type": "scene_completed", "scene_id": "s1"},  # ignored — not critique_submitted
+    ]
+    data_dir = _write_events(tmp_path, "c1", events)
+    bd = compute_scene_type_breakdown(data_dir, "c1")
+    assert set(bd.keys()) == {"spot_the_flaw", "explain_back", "comparison"}
+    assert bd["spot_the_flaw"]["n"] == 2
+    assert abs(bd["spot_the_flaw"]["mean_completion_rate"] - 0.75) < 1e-4
+    assert bd["explain_back"]["n"] == 1
+    assert bd["comparison"]["n"] == 1
+
+
+def test_compute_scene_type_breakdown_untagged_legacy(tmp_path):
+    """RC-2: events without scene_type bucket under 'untagged' (back-compat)."""
+    events = [
+        {**_base(0), "type": "critique_submitted", "completion_rate": 0.9},  # no scene_type
+        {**_base(1), "type": "critique_submitted", "scene_type": "spot_the_flaw", "completion_rate": 1.0},
+    ]
+    data_dir = _write_events(tmp_path, "c1", events)
+    bd = compute_scene_type_breakdown(data_dir, "c1")
+    assert "untagged" in bd
+    assert bd["untagged"]["n"] == 1
+    assert bd["spot_the_flaw"]["n"] == 1
+
+
+def test_compute_scene_type_breakdown_empty(tmp_path):
+    """RC-2: empty course → empty dict (no zero-division)."""
+    bd = compute_scene_type_breakdown(tmp_path, "c-empty")
+    assert bd == {}
 
 
 def test_compute_progress_metrics_counts_scenes_with_evidence():

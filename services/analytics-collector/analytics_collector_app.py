@@ -12,6 +12,7 @@ from metrics import (
     compute_journal_metrics,
     compute_progress,
     compute_reasoning_depth_score,
+    compute_scene_type_breakdown,
 )
 from store import (
     _data_dir,
@@ -117,6 +118,20 @@ def get_autonomy(
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
     return compute_autonomy(_data_dir(), course, bundle_version=bv)
+
+
+@app.get("/metrics/scene-breakdown")
+def get_scene_breakdown(
+    course: str,
+    bundle_version: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    """RC-2 telemetry scoping: per scene_type engagement counts + mean completion_rate.
+    Covers all active-learning types (spot_the_flaw, explain_back, comparison,
+    summary_audit, prompt_practice, communication_sim, ai_critique, untagged)."""
+    _require_course_token(x_course_token, course)
+    bv = _validate_bundle_version(bundle_version)
+    return compute_scene_type_breakdown(_data_dir(), course, bundle_version=bv)
 
 
 @app.get("/metrics/reasoning")

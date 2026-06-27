@@ -853,6 +853,34 @@ def compute_autonomy(
     }
 
 
+def compute_scene_type_breakdown(
+    data_dir: Path,
+    course: str,
+    bundle_version: str | None = None,
+) -> dict:
+    """RC-2 telemetry scoping: per scene_type engagement from critique_submitted events.
+
+    Returns a dict keyed by scene_type (str) → { n, mean_completion_rate }.
+    Covers all active-learning scene types (spot_the_flaw, explain_back, comparison,
+    summary_audit, prompt_practice, communication_sim, ai_critique).
+    Untagged legacy events bucket under the key "untagged".
+    """
+    buckets: dict[str, list[float]] = {}
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
+        if ev.get("type") != "critique_submitted":
+            continue
+        key = ev.get("scene_type") or "untagged"
+        rate = float(ev.get("completion_rate", 0))
+        buckets.setdefault(key, []).append(rate)
+    result: dict[str, dict] = {}
+    for scene_type, rates in sorted(buckets.items()):
+        result[scene_type] = {
+            "n": len(rates),
+            "mean_completion_rate": round(sum(rates) / len(rates), 4),
+        }
+    return result
+
+
 def compute_progress_metrics(bundle: dict | None = None) -> dict:
     """Compute progress metrics from a bundle, counting scenes with evidence.
 

@@ -13,8 +13,17 @@ Il est piloté par le workspace de préparation `../Studium/`.
 
 ## Milestone active
 
-M1 — Pipeline auteur (`prototype/m1-pipeline-auteur`) — **TERMINÉE, mergée sur main**
-Prochaine : M2 — voir `../Studium/docs/handoffs/m2-*.md` (à créer).
+**Roadmap complet livré sur `main` (2026-06-27, commit `e227cb5`).** 11/11 features mergées :
+
+| Wave | Features |
+|---|---|
+| Learner-as-author | A1 `/studio` multi-type · A2 `/peer` UI · A3 community bundle runtime · A4 publicScene redaction |
+| FSRS / modality | B1 review queue + calibration surface · B2 modality preference (VS Code) |
+| Wave 1 scenes | C1 comparison · C2 summary_audit · C3 prompt_practice |
+| Wave 2 scenes | D2 communication_sim |
+| PeerStudio | D1 Room registry · HTTP API (lesson-server) · teacher-dashboard /room · spec doc |
+
+Prochaine étape : M2 — voir `../Studium/docs/handoffs/m2-active-learning-peerstudio.md`.
 
 ## Toolchain requise
 

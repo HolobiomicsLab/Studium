@@ -4,6 +4,68 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-27 — Roadmap complet : active learning, learner-as-author, PeerStudio
+
+**Branches** : `feat/learner-as-author`, `feat/roadmap-wave1`, `feat/roadmap-wave2`, `feat/roadmap-d1-peerstudio`, `feat/d1-teacher-ui` — toutes mergées sur `main` à `e227cb5`.
+
+**Méthode** : parallel workflow orchestration (Workflow tool + file-area partitioning), TDD strict (tests écrits avant ou en même temps que le code), revue adverse à chaque merge.
+
+### Learner-as-author (A1–A4 + Workflows A/B/C)
+
+| Feature | Commits clés | Description |
+|---|---|---|
+| A — backend | `b3782eb` | LAItemEnvelope schema-pure, append-only JSONL ledger, decide_item (rule-003 gate), HMAC author_pseudonym server-only |
+| B — peer loop | `058adce` | record_peer_review → k-suppressed peer_signals → decide_item; discoverCommunityBundles |
+| C — UIs | `7bd039e` | /studio (StudioForm + validate badge + SelfTestPanel + consent) ; /submissions (SubmissionsQueue moderation) |
+| A3 — runtime | `8a4d366` | community-bundle live (lesson-mcp + VS Code extension wire) |
+| A4 — redaction | `d19f2bd` | publicScene/publicPresentation/publicTransition (REDACTED_SCENE_FIELDS) ; calibrationFor fix (h.kind → h.signal.kind) |
+
+### Wave 1 — Nouveaux types de scènes (C1–C3) + surfaces (B1–B2)
+
+| Feature | Description |
+|---|---|
+| C1 comparison | artifact_a/artifact_b, key_points, comparisonGrader |
+| C2 summary_audit | source_content + ai_summary, flaws_expected, summaryAuditGrader |
+| C3 prompt_practice | task + key_points, promptPracticeGrader |
+| B1 FSRS | reviewQueueFromState + calibrationFor surfacés ; host.review.test (no-fabrication guard) ; FSRS inline copy + 7/7 parity test |
+| B2 modalité | selectRenderOrder(assets, pref) ; studium.modalityPreference config VS Code |
+| A1 /studio | SpotTheFlawEditor, ExplainBackEditor, RevealPanel ; tous types authoriables |
+| A2 /peer | PeerBoard + PeerTakePanel + PeerRatePanel ; rating scalaire {passed, rating 1–5, helpful} ; auteur jamais affiché |
+
+### Wave 2 — communication_sim (D2) + correctifs
+
+| Feature | Description |
+|---|---|
+| D2 communication_sim | scenario + prompt + key_points + model_response ; communicationSimGrader ; publicScene inclut model_response dans REDACTED_SCENE_FIELDS |
+| MASTERY_CLAIM_THRESHOLD | bug : 0.85 → DEFAULT_THETA (0.8) ; 3 bonnes réponses → posterior 0.846 → mastery claim |
+| calibrationFor | bug : h.kind → h.signal.kind ; no-fabrication regression test |
+| cues stopwords | s3d-communicate-2p : "sans"→"image", "comme"→"couloir" |
+
+### D1 PeerStudio — Substrat multi-apprenants
+
+| Feature | Description |
+|---|---|
+| Room backend | room.ts types + aggregateRatings (k-floor=3) ; host.ts openRoom/joinRoom/submitRoomRating/getRoomState/closeRoom ; PeerRoomError |
+| MCP tools | 5 outils (open/join/submit/get/close_peer_room) |
+| HTTP API | 5 routes Fastify (lesson-server) + Zod schemas |
+| Teacher dashboard | /room route + PeerRoomPanel : open form → join-code display → état live → close |
+| Spec doc | docs/specs/peerstudio-d1.md |
+
+**Tests au moment du merge final** :
+- lesson-session-host : **87 passés** (11 fichiers) dont 15 room + 7 FSRS parity + 12 review
+- lesson-session : **392 passés** | 8 skippés (API-key gated)
+- lesson-mcp : **8 passés**
+- lesson-server : **27 passés** (7 fichiers) dont 11 room routes
+- teacher-dashboard : **39 passés** (3 fichiers) dont 9 PeerRoomPanel
+- lesson-bundle-schema : **55 passés** ; adaptation-engine : **44** ; typed-graph-lens : **7** ; student-runtime : **70**
+- analytics-collector (Python) : **189 passés** (scene-synth)
+
+**Bug de fond corrigé** : stale `.js`/`.d.ts`/`.map` compiled files dans `lesson-server/src/` (33 fichiers) shadowaient les `.ts` mis à jour sous vitest → supprimés.
+
+**Régressions pré-existantes hors scope** : D.5 CI Tauri (bloqué sans push remote).
+
+---
+
 ## 2026-05-13 — M6 polish + démo end-to-end atomistique (`prototype/m6-polish-demo`)
 
 **Livré (12 tasks subagent-driven)** :
