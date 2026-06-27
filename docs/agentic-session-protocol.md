@@ -52,9 +52,27 @@ edge (MCP) and the file edge (`task.md`) alike.
 > if there's a new `task.md`, continue. Never look for the answer key — it isn't here by design.
 >
 > _Write `response.json` **atomically** (write `response.json.tmp`, then rename) so Studium never reads
-> a half-written file. This is a **hand-followable protocol** — no operator harness ships yet (a thin
-> reference harness for Claude Code / Copilot is a follow-up). A bad/mismatched `response.json` is not
-> fatal: Studium consumes it and writes a corrective `feedback.md` so you can retry._
+> a half-written file. A bad/mismatched `response.json` is not fatal: Studium consumes it and writes a
+> corrective `feedback.md` so you can retry. A runnable harness drives this loop — see **Run it**._
+
+## Run it — the operator harness
+
+`runStudiumSession(host, bundleRef, dir, operator)` (in `@studium/lesson-session-host`) drives the loop
+to completion with a **pluggable** operator. A runnable CLI:
+
+```bash
+# --watch (default): Studium writes .studium-session/task.md and WAITS for you / an assistant in this
+# workspace to write response.json. Studium ingests + writes the next task. The lesson brain stays here.
+tsx apps/lesson-mcp/src/session-runner-cli.ts capsule-judgment-demo/lesson.json --dir=.studium-session
+
+# --stub: a key-free placeholder operator self-drives the loop (quick smoke demo).
+tsx apps/lesson-mcp/src/session-runner-cli.ts capsule-judgment-demo/lesson.json --stub --dir=/tmp/s
+```
+
+Operators (`@studium/lesson-session-host`): `stubOperator` (deterministic placeholder, key-free),
+`watchOperator({pollMs,timeoutMs})` (waits for an **external** agent to write `response.json` — the real
+"any assistant drives it" mode; Studium never calls a model), or your own LLM-backed operator. The
+`--stub` run completes the `capsule-judgment-demo` bundle in 3 steps (`next → next → complete`).
 
 ## Execution + rendering belong to the host
 
@@ -69,10 +87,11 @@ edge (MCP) and the file edge (`task.md`) alike.
 
 ## Status
 
-- **Built + tested** (`SessionWorkspace`, `src/session-workspace.test.ts`): the full file round-trip
-  on the real `fixtures/capsule-judgment-demo` bundle — intro ack → grounded `spot_the_flaw` audit,
-  graded into mastery, answer key provably absent from `task.md` for every scene.
+- **Built + tested** (`SessionWorkspace` + `session-runner`): the full file round-trip on the real
+  `fixtures/capsule-judgment-demo` bundle — intro ack → grounded `spot_the_flaw` audit, graded into
+  mastery, answer key provably absent from `task.md` for every scene; plus the runnable harness
+  (`runStudiumSession` + `stubOperator`/`watchOperator` + the CLI).
 - **Already existed**: the MCP channel (`apps/lesson-mcp`) with the same redaction.
 - **Follow-ups**: render the `executed_result` figure as an inline notebook **image** (today it is a
-  reference note); a thin reference "operator harness" for Claude Code / Copilot; wiring the operator's
+  reference note — the notebook controller has no `executed_result` case yet); wiring the operator's
   `work/` scratch into process-level assessment.

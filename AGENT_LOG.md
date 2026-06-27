@@ -4,6 +4,17 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-27 — Harnais opérateur de session (`runStudiumSession` + CLI)
+
+**Suite du canal `.studium-session/`** : un harnais *runnable* qui pilote une session complète avec un opérateur ENFICHABLE — le canal fichier devient utilisable, pas seulement testé.
+- `packages/lesson-session-host/src/session-runner.ts` — `runStudiumSession(host, bundleRef, dir, operator)` boucle `writeStep → operator → ingest` jusqu'à `complete`. Opérateurs : `stubOperator` (placeholder déterministe sans clé, pour démos/tests), `watchOperator({pollMs,timeoutMs})` (ATTEND qu'un agent EXTERNE — Claude Code / Copilot / Codex / humain — écrive `response.json` ; Studium n'appelle aucun modèle), `writeResponse` (écriture atomique tmp+rename). La rédaction de la clé de réponse est héritée de `SessionWorkspace`.
+- `apps/lesson-mcp/src/session-runner-cli.ts` — CLI : `tsx … <bundleRef> [--dir=] [--bundles-root=] [--stub]`. Défaut `--watch` (l'assistant du workspace pilote).
+- `docs/agentic-session-protocol.md` — section « Run it » ; le harnais passe de follow-up à **livré**.
+
+**Vérification** : lesson-session-host tsc + lesson-mcp tsc + **186 vitest** (3 nouveaux session-runner : session-stub-complète-avec-rédaction-tenue · watch-retourne-sur-réponse-externe · watch-timeout). **Run live** : la CLI `--stub` déroule `capsule-judgment-demo` jusqu'au bout (`next → next → complete`, 3 étapes) en laissant un vrai `.studium-session/` (task.md/feedback.md/index.json ; log : intro graded → 2× spot_the_flaw graded → complete).
+
+---
+
 ## 2026-06-27 — Canal de session agentique fichier (`.studium-session/`) — outsourcing exécution/rendu
 
 **Vision** : la leçon capsule-backed n'embarque PAS son propre sandbox d'exécution ni sa pile de rendu ; elle les délègue à l'**hôte VS Code** + un **opérateur agentique enfichable** (Copilot / Claude Code / Codex / opencode). Studium reste le *cerveau* (routage adaptatif, maîtrise, calibration, scènes de jugement + ancrage). Deux canaux : **MCP** (déjà existant, `apps/lesson-mcp`, déjà rédacté) et **fichiers** (nouveau, universel).

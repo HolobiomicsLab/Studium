@@ -13,6 +13,10 @@ export {
   SessionWorkspace, type WorkspaceIndex, type WorkspaceStepEntry,
 } from "./session-workspace.js";
 export {
+  runStudiumSession, stubOperator, watchOperator, writeResponse,
+  type Operator, type OperatorCtx, type SessionRunResult,
+} from "./session-runner.js";
+export {
   aggregateRatings, ROOM_K_FLOOR,
   type PeerRating, type RoomEntry, type TargetAggregate, type RoomState,
 } from "./room.js";
