@@ -196,6 +196,15 @@ export const SpotTheFlawSceneSchema = SceneBaseSchema.extend({
   claims: z.array(FlawClaimSchema).min(1).max(5),
   model_correction: z.string().min(1),
   rubric: AICritiqueRubricSchema,
+  // OPTIONAL grounding in a REAL capsule execution. When `flawed_content` is a deliberately-flawed
+  // AI reading of a genuine executed result (the capsule "reference run"), the scene carries that run
+  // so the learner audits the AI interpretation AGAINST the real output (figure + landmark + graded
+  // checks) — "real operation as the vehicle, judgment as the destination". Populated at author time
+  // by tools/ground_judgment.py (which gets it from tools/capsule_runner.py); absent for a purely
+  // hand-authored flaw. Surfaced as an `executed_result` render-asset by sceneRenderAssets — the SAME
+  // carrier reproduction uses. The run carries no answer key (the flaws live in `claims`), so showing
+  // it is the evidence the learner reasons from, not a leak.
+  reference_result: ReferenceRunSchema.optional(),
 });
 
 // A key idea a good explanation should contain. `cues` (>=1) are the phrases the offline coverage

@@ -1,0 +1,44 @@
+Tu rédiges une scène pédagogique « spot_the_flaw » ANCRÉE sur une exécution scientifique RÉELLE.
+
+Concept ciblé : {{ plan_section.concept_id }}
+Objectif : {{ plan_section.objective_text }}
+{% if last_error %}
+Tentative précédente invalide : {{ last_error }}. Corrige le format.
+{% endif %}
+{% if plan_section.reference_run %}
+Exécution réelle (capsule reproduite — ces valeurs sont VÉRIFIÉES, ne les invente ni ne les modifie) :
+- Tâche : {{ plan_section.reference_run.title }}
+- Question : {{ plan_section.reference_run.research_question }}
+- Résultat mesuré (landmark) : {{ plan_section.reference_run.landmark }}
+- Vérifications passées : {{ plan_section.reference_run.checks }}
+{% endif %}
+
+Rédige `flawed_content` : une LECTURE de type IA, plausible mais DÉFECTUEUSE, de ce résultat réel
+— p.ex. mauvaise unité pour la constante, demi-vie mal déduite du k mesuré, conclusion trop
+confiante, sur- ou sous-interprétation du bruit. **NE RÉVÈLE PAS les défauts** dans `flawed_content`.
+
+Cadran de fiabilité : niveau « {{ plan_section.trustworthiness.level | default('subtle') }} » —
+introduis EXACTEMENT {{ plan_section.trustworthiness.n_flaws | default(1) }} défaut(s)
+({{ plan_section.trustworthiness.guidance | default('subtils et crédibles') }}).
+
+Chaque claim est la RÉPONSE-CLÉ (jamais montrée avant la réponse de l'étudiant) :
+- "id" : identifiant court
+- "text" : l'assertion défectueuse telle qu'elle apparaît dans la lecture IA
+- "flaws_expected" : liste NON VIDE de mots-clés des défauts que l'étudiant doit repérer
+
+`model_correction` : la lecture CORRECTE, explicitement ancrée sur le landmark réel
+({{ plan_section.reference_run.landmark if plan_section.reference_run else "le résultat mesuré" }}).
+
+Définis la grille (somme = 1.0) : completeness, evidence_quality, tone.
+
+Réponds en JSON strict :
+{
+  "id": "s_flaw_<short>",
+  "type": "spot_the_flaw",
+  "title": "<court>",
+  "concept_refs": {{ plan_section.concept_refs | default([]) | tojson }},
+  "flawed_content": "<lecture IA défectueuse, défauts non révélés>",
+  "claims": [ {"id": "f1", "text": "...", "flaws_expected": ["..."]} ],
+  "model_correction": "<lecture correcte ancrée sur le landmark réel>",
+  "rubric": {"completeness": <float>, "evidence_quality": <float>, "tone": <float>}
+}

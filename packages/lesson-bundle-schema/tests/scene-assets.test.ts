@@ -43,6 +43,29 @@ describe("scene-assets render manifest", () => {
     expect((exec!.meta as Record<string, unknown>).landmark).toBe("k=0.42");
   });
 
+  it("surfaces a spot_the_flaw's grounding reference_result as an executed_result asset", () => {
+    // the judgment scene whose flawed_content interprets a REAL capsule run carries that run via the
+    // SAME carrier as reproduction; the learner audits the AI reading against the genuine output.
+    const scene = base({
+      type: "spot_the_flaw",
+      flawed_content: "The fit gives k≈0.66, so the reaction is slow with a half-life over an hour.",
+      claims: [{ id: "f1", text: "slow / long half-life", flaws_expected: ["half-life", "units"] }],
+      model_correction: "k≈0.66 per time-unit → half-life ≈1.05 time-units, not over an hour.",
+      rubric: { completeness: 0.6, evidence_quality: 0.3, tone: 0.1 },
+      reference_result: {
+        ran: true, passed: true, landmark: "LANDMARK k_fit=0.6612 half_life=1.0483",
+        figure_path: "/tmp/decay.png", checks: [{ check: "file exists: outputs/stats.csv", passed: true }],
+        provenance: { capsule_doi: "10.0000/demo.decay-fit", cmd: ["python", "scripts/run.py"], env: "isolated uv venv (python 3.13)" },
+      },
+    }) as never;
+    const assets = sceneRenderAssets(scene);
+    const exec = assets.find(a => a.kind === "executed_result");
+    expect(exec).toBeDefined();
+    expect(exec!.path).toBe("/tmp/decay.png");
+    expect((exec!.meta as Record<string, unknown>).landmark).toBe("LANDMARK k_fit=0.6612 half_life=1.0483");
+    for (const a of assets) expect(RenderAssetSchema.safeParse(a).success).toBe(true);
+  });
+
   it("accepts the interactive scientific kinds (orbital / mol_3d / spectrum)", () => {
     for (const kind of ["orbital", "mol_3d", "spectrum"] as const) {
       expect(RenderAssetSchema.safeParse({ kind, path: "a.cube", format: "cube" }).success).toBe(true);

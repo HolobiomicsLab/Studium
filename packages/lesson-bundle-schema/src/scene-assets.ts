@@ -62,8 +62,11 @@ export function sceneRenderAssets(scene: Scene): RenderAsset[] {
     }
   }
 
-  // 3) the executed reference run on a reproduction scene (figure + graded checks)
-  if (scene.type === "reproduction" && scene.reference_result?.ran) {
+  // 3) the executed reference run (figure + graded checks) on ANY scene grounded in a real capsule
+  //    execution: the `reproduction` scene (authenticity) OR a judgment scene (`spot_the_flaw`) whose
+  //    flawed_content interprets that genuine output. Same `executed_result` asset for both — the
+  //    `"reference_result" in scene` guard narrows the union to exactly the types that carry it.
+  if ("reference_result" in scene && scene.reference_result?.ran) {
     const rr = scene.reference_result;
     out.push({
       kind: "executed_result",

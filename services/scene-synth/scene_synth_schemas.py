@@ -201,11 +201,38 @@ class ReproductionStep(BaseModel):
     expected_output: Union[str, dict[str, Any]]
 
 
+class ReferenceCheck(BaseModel):
+    check: str
+    passed: bool
+
+
+class ReferenceRunProvenance(BaseModel):
+    capsule_doi: Optional[str] = None
+    cmd: list[str] = Field(default_factory=list)
+    env: str
+
+
+class ReferenceRun(BaseModel):
+    """Mirror of ReferenceRunSchema (TS, scenes.ts): the result of executing a capsule once at
+    author time. Carried by ``reproduction`` (authenticity) AND ``spot_the_flaw`` (a judgment
+    scene whose flawed_content interprets this real run). Populated by tools/capsule_runner.py;
+    surfaced as an ``executed_result`` render asset client-side."""
+
+    ran: bool
+    passed: bool
+    landmark: Optional[str] = None
+    figure_path: Optional[str] = None
+    checks: list[ReferenceCheck] = Field(default_factory=list)
+    provenance: ReferenceRunProvenance
+
+
 class ReproductionScene(_SceneBase):
     type: Literal["reproduction"]
     task_card_id: str
     steps: list[ReproductionStep] = Field(min_length=1)
     prov_derived_from: Optional[str] = None  # URL
+    image_path: Optional[str] = None  # rendered figure from the reference run (parity with TS)
+    reference_result: Optional[ReferenceRun] = None  # executed reference run (parity with TS)
     evidence: Optional[Evidence] = None
 
 
@@ -246,6 +273,11 @@ class SpotTheFlawScene(_SceneBase):
     claims: list[FlawClaim] = Field(min_length=1, max_length=5)
     model_correction: str = Field(min_length=1)
     rubric: AICritiqueRubric
+    # OPTIONAL grounding in a REAL capsule execution (mirror of SpotTheFlawSceneSchema TS): when
+    # flawed_content is a deliberately-flawed AI reading of a genuine executed result, the scene
+    # carries that run so the learner audits the AI interpretation AGAINST the real output. The run
+    # holds no answer key (flaws live in ``claims``), so it is evidence, not a leak.
+    reference_result: Optional[ReferenceRun] = None
 
 
 class KeyPoint(BaseModel):
@@ -601,6 +633,8 @@ __all__ = [
     "PromptPracticeScene",
     "QuizChoice",
     "QuizScene",
+    "ReferenceCheck",
+    "ReferenceRun",
     "ReproductionScene",
     "ReproductionStep",
     "RuleAction",

@@ -1,8 +1,8 @@
 """SceneSynthOrchestrator (A.7).
 
-Wires the six SceneAgents (intro, concept, quiz, meta_checkpoint,
-reproduction, ai_critique) to the bundler and returns the result of
-``synthesize_lesson`` in the shape expected by the FastAPI endpoint
+Wires the seven SceneAgents (intro, concept, quiz, meta_checkpoint,
+reproduction, ai_critique, spot_the_flaw) to the bundler and returns the result
+of ``synthesize_lesson`` in the shape expected by the FastAPI endpoint
 ``POST /scenes/synthesize``.
 
 Design choices:
@@ -34,6 +34,7 @@ from agents.intro_agent import IntroAgent
 from agents.meta_checkpoint_agent import MetaCheckpointAgent
 from agents.quiz_agent import QuizAgent
 from agents.reproduction_agent import ReproductionAgent
+from agents.spot_the_flaw_agent import SpotTheFlawAgent
 from bundler import build_bundle
 
 
@@ -61,6 +62,9 @@ class SceneSynthOrchestrator:
                 llm_client, critic, abs_capsule_root=abs_capsule_root
             ),
             "ai_critique": AICritiqueAgent(llm_client, critic),
+            # capsule-grounded judgment scene: a flawed AI reading of a REAL executed result,
+            # graded by flawGrader. Was schema-only (orchestrator skipped it) — now generative.
+            "spot_the_flaw": SpotTheFlawAgent(llm_client, critic),
         }
         self.output_dir = Path(output_dir)
         self.prov_seed = prov_seed or {
