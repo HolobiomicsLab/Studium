@@ -2,7 +2,8 @@
 export { SessionHost, SessionHostNotFoundError, PeerRoomError, type SessionHostOptions } from "./host.js";
 export {
   reviewQueueFromState, conceptMemoryFromState, nextReinforcementFromState, reinforcementSceneFromState,
-  type ReviewQueueItem, type ReinforcementTarget,
+  dueReinforcementTargetsFromMemory,
+  type ReviewQueueItem, type ReinforcementTarget, type CourseStep,
 } from "./host.js";
 export { SessionRegistry, type SessionEntry } from "./registry.js";
 export { buildHostDeps, durableDataDir, durableScopeDir, telemetryConsentGranted } from "./deps.js";

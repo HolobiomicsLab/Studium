@@ -4,6 +4,17 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-28 — FSRS CROSS-LESSON : persistance de la mémoire + AUTO-ROUTAGE du prochain pas
+
+Deux moitiés couplées qui font franchir les leçons à la répétition espacée ET piloter le prochain pas. Lève le TODO de `fsrs.ts` (« persist concept_memory beside concept_states »).
+
+- **PERSISTANCE** : `learner-state` — `ConceptMemoryStateSchema` (miroir zod de l'interface `adaptation-engine/fsrs.ts` ; learner-state ne peut PAS importer le moteur, c'est l'inverse) + `LearnerProfile.concept_memory?` + `mergeConceptMemoryIntoProfile` pur (latest-wins, **SKIP des entrées reps===0** pour ne JAMAIS écraser une vraie mémoire portée d'une leçon antérieure par un défaut « non-vu »). `lesson-session-host` — la branche `respond(complete)` persiste aussi `conceptMemoryFromState(state)` dans le profil ; `dueReinforcementTargetsFromMemory` pur + `host.dueReinforcements(learnerId, nowMs)` (routeur CROSS-LESSON lisant la mémoire accumulée du profil — pas de session vivante requise).
+- **AUTO-ROUTAGE** : `host.nextCourseStep(course, learnerId, nowMs) → CourseStep` (reinforce | advance | done | **blocked**). Un renforcement DÛ (concept maîtrisé en leçon antérieure dont le rappel a décliné) PRÉEMPTE l'avancement → la répétition espacée pilote vraiment le prochain pas. Profil chargé UNE fois ; `done` vs `blocked` désambiguïsé via `isCourseComplete` (spine épuisée vs prérequis non-satisfait/cyclique).
+
+**Vérification** : learner-state 36 (6 neufs dont garde-clobber) + lesson-session-host 132 (8 neufs dont régression-clobber + blocked) ; dépendants verts (adaptation-engine 51, lesson-session 214, lesson-mcp 13, lesson-server 31) ; `tsc` propre. Revue adverse (workflow 4 lentilles + réfutation) → **1 must-fix / 1 should-fix / 1 nit** repliés : (must) la mémoire cross-lesson était ÉCRASÉE quand une leçon ultérieure DÉCLARE (warm-seed) un concept partagé sans le ré-répondre (replay reps:0 → écrasait la vraie mémoire) — VÉRIFIÉ par repro runtime du reviewer, corrigé par le skip reps===0 + re-vérifié par un agent adverse (chemin complètement fermé, skip non sur-agressif, writer unique) ; (should) `nextCourseStep` confondait spine-bloquée et cours-terminé → variante `blocked` + `isCourseComplete` ; (nit) caveat docstring sur le cap d'historique à 50.
+
+---
+
 ## 2026-06-28 — studium-vscode : `run.json` comme TÂCHE VS Code native
 
 Concrétise « laisser VS Code gérer l'environnement et l'install pour l'usage agentique » : le manifeste de run learner-time est surfacé comme une TÂCHE VS Code native. Le protocole reste de la délégation PURE — Studium (host/MCP) N'EXÉCUTE JAMAIS ; c'est l'environnement de l'opérateur (= le workspace de l'utilisateur) qui exécute.

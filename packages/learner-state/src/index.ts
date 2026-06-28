@@ -248,6 +248,24 @@ export function defaultConceptState(concept_id: string): ConceptState {
 // session's working state; the profile is the longitudinal carry-forward seeded in / merged out by the host.
 // ---------------------------------------------------------------------------
 
+// FSRS per-concept memory, persisted on the cross-lesson profile (NOT on the per-bundle LearnerState,
+// where it is derived by replaying answer history). Mirrors ConceptMemoryState in
+// @studium/adaptation-engine/src/fsrs.ts — kept structurally identical (learner-state can't import the
+// engine: the engine depends on learner-state, not the reverse). Persisting it here lets spaced-
+// repetition routing see a concept reviewed in lesson A while the learner is in lesson B.
+export const ConceptMemoryStateSchema = z.object({
+  concept_id: z.string(),
+  /** Memory stability in DAYS; 0 = unseen. */
+  stability: z.number(),
+  /** Item difficulty in [1,10]; 0 = unseen. */
+  difficulty: z.number(),
+  /** Epoch ms of the last review; null = unseen. */
+  last_reviewed_at: z.number().nullable(),
+  reps: z.number().int().nonnegative(),
+  lapses: z.number().int().nonnegative(),
+});
+export type ConceptMemoryState = z.infer<typeof ConceptMemoryStateSchema>;
+
 export const LearnerProfileSchema = z.object({
   pseudonym: z.string(),
   schema_version: z.literal("1.0"),
@@ -255,6 +273,9 @@ export const LearnerProfileSchema = z.object({
   // lesson_ids (== bundle_ids) the learner has COMPLETED — the course spine routes the next lesson off
   // this. Optional + back-compatible (absent ⇒ none completed yet).
   completed_lessons: z.array(z.string()).optional(),
+  // Cross-lesson FSRS memory per concept (the spaced-repetition retention state carried across lessons).
+  // Optional + back-compatible (absent ⇒ no cross-lesson memory yet).
+  concept_memory: z.record(z.string(), ConceptMemoryStateSchema).optional(),
   updated_at: z.string(),
 });
 export type LearnerProfile = z.infer<typeof LearnerProfileSchema>;
@@ -294,6 +315,26 @@ export function mergeConceptStatesIntoProfile(
   const merged: Record<string, ConceptState> = { ...profile.concept_states };
   for (const [cid, cs] of Object.entries(state.concept_states)) merged[cid] = { ...cs };
   return { ...profile, concept_states: merged, updated_at: nowIso };
+}
+
+/** CARRY-FORWARD the FSRS memory: fold a session's per-concept memory map (the host derives it by
+ * replaying answer history) into the learner profile's `concept_memory`, latest-wins per concept — so a
+ * concept reviewed in this lesson updates the cross-lesson retention state. Pure, non-mutating; `nowIso`
+ * stamps updated_at. An empty map is a no-op on the memory (still re-stamps time).
+ *
+ * CRITICAL: an UNSEEN incoming entry (reps === 0) is SKIPPED — it must never overwrite a real memory
+ * carried from an earlier lesson. (The host warm-seeds every concept a bundle DECLARES into the session
+ * state; one the learner never answers in this lesson replays to a reps=0 default, which is identical to
+ * "absent" for FSRS and would otherwise clobber the earlier lesson's genuine memory.) */
+export function mergeConceptMemoryIntoProfile(
+  profile: LearnerProfile, memory: Record<string, ConceptMemoryState>, nowIso: string,
+): LearnerProfile {
+  const merged: Record<string, ConceptMemoryState> = { ...(profile.concept_memory ?? {}) };
+  for (const [cid, m] of Object.entries(memory)) {
+    if (m.reps === 0) continue; // unseen this session ⇒ no real memory to carry; never regress the profile
+    merged[cid] = { ...m };
+  }
+  return { ...profile, concept_memory: merged, updated_at: nowIso };
 }
 
 export function defaultLearnerState(lesson_id: string): LearnerState {

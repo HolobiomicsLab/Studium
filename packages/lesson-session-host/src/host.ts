@@ -8,7 +8,7 @@ import {
 } from "@studium/lesson-session";
 import {
   masteryOf, defaultLearnerState, defaultLearnerProfile,
-  seedConceptStatesFromProfile, mergeConceptStatesIntoProfile, recordCompletedLesson,
+  seedConceptStatesFromProfile, mergeConceptStatesIntoProfile, mergeConceptMemoryIntoProfile, recordCompletedLesson,
   type ConceptState, type LearnerState,
 } from "@studium/learner-state";
 import {
@@ -16,7 +16,7 @@ import {
 } from "./learner-profile-store.js";
 import type { JudgmentGenerator } from "./judgment-generator.js";
 import {
-  sceneRenderAssets, nextCourseLesson,
+  sceneRenderAssets, nextCourseLesson, isCourseComplete,
   type RenderAsset, type ReferenceRun, type RunManifest, type Course, type CourseLesson, type LessonBundle,
 } from "@studium/lesson-bundle-schema";
 import { runResultToReferenceRun, type RunResult } from "./run-result.js";
@@ -266,9 +266,20 @@ export interface ReinforcementTarget {
   retrievability: number;
 }
 
+/** The next step a learner should take in a course, auto-routed by FSRS: reinforce a decayed concept,
+ * advance to the next lesson, the course is done, or it's blocked (lessons remain but none is unlocked —
+ * a mis-authored unmet/cyclic prereq). `reinforce` PREEMPTS `advance` (spaced repetition first). */
+export type CourseStep =
+  | ({ kind: "reinforce" } & ReinforcementTarget)
+  | { kind: "advance"; lesson: CourseLesson }
+  | { kind: "done" }
+  | { kind: "blocked" };
+
 /** Build the FULL per-concept FSRS memory map for a LearnerState by replaying each seen concept's
  * answer history. Pure; exported so the router and a unit test can reuse it (the same replay that
- * feeds reviewQueueFromState). */
+ * feeds reviewQueueFromState). CAVEAT: `state.history` is a rolling window capped at 50 entries, so for
+ * a lesson with >50 total signals the earliest answers are evicted and reps/stability under-count — a
+ * pre-existing limit of the replay-from-history design, now also reflected in the persisted profile. */
 export function conceptMemoryFromState(state: LearnerState): Record<string, ConceptMemoryState> {
   const out: Record<string, ConceptMemoryState> = {};
   for (const concept_id of Object.keys(state.concept_states)) {
@@ -323,6 +334,23 @@ export function reinforcementSceneFromState(
   const scene = bundle.scenes.find((s) => covers(s) && RETRIEVAL_SCENE_TYPES.has(s.type)) ??
     bundle.scenes.find(covers);
   return scene?.id ?? null;
+}
+
+/** CROSS-LESSON reinforcement router: every concept DUE for reinforcement now, most-urgent first, from a
+ * PERSISTED FSRS memory map (the learner profile's `concept_memory`, accumulated across lessons) + a
+ * per-concept mastery map. Unlike nextReinforcementFromState (which replays ONE session's history), this
+ * spans lessons — a concept mastered + reviewed in lesson A can surface as due while the learner is
+ * elsewhere. Pure; `nowMs` injected. */
+export function dueReinforcementTargetsFromMemory(
+  memory: Record<string, ConceptMemoryState>,
+  mastery: Record<string, number>,
+  nowMs: number,
+  opts: { requestRetention?: number; minMastery?: number } = {},
+): ReinforcementTarget[] {
+  return fsrsDueForReinforcement(memory, mastery, nowMs, opts).map((cid) => {
+    const m = memory[cid] as ConceptMemoryState;
+    return { concept_id: cid, due_at: fsrsDueAt(m, opts.requestRetention), retrievability: fsrsRetrievability(m, nowMs) };
+  });
 }
 
 /** Map a concept's hidden `confidence_calibration` to a learner-facing, NUMBER-FREE verdict. Returns
@@ -443,6 +471,43 @@ export class SessionHost {
     return nextCourseLesson(course, profile?.completed_lessons ?? []);
   }
 
+  /** CROSS-LESSON spaced-repetition router (no live session needed): the concepts the learner is DUE to
+   * reinforce now, most-urgent first, from the PERSISTED `concept_memory` in their profile (accumulated
+   * as lessons complete) + mastery from the profile's concept_states. Empty when no profile / no memory.
+   * `nowMs` injected for deterministic review scheduling. */
+  async dueReinforcements(learnerId = "anonymous", nowMs: number = Date.now()): Promise<ReinforcementTarget[]> {
+    const profilePseudonym = await buildHostDeps(this.opts.live).pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
+    const profile = await this.profileStore.load(profilePseudonym);
+    if (!profile?.concept_memory) return [];
+    const mastery: Record<string, number> = {};
+    for (const [cid, cs] of Object.entries(profile.concept_states)) mastery[cid] = masteryOf(cs);
+    return dueReinforcementTargetsFromMemory(profile.concept_memory, mastery, nowMs);
+  }
+
+  /** The learner's NEXT course step, AUTO-ROUTED by FSRS: a DUE reinforcement (a concept mastered in an
+   * earlier lesson whose recall has decayed) PREEMPTS advancing to new material — so spaced repetition
+   * actually drives the course, not just a readout a driver may ignore. When nothing is due, advance the
+   * course spine (next not-done lesson whose prereqs are met). When no lesson is left to advance, the
+   * course is either `done` (every lesson completed) or `blocked` (lessons remain but none is unlocked —
+   * a mis-authored unmet/cyclic prereq) — disambiguated via isCourseComplete. A still-due concept keeps
+   * surfacing `reinforce` even past the last lesson (review never stops). Loads the profile ONCE.
+   * `nowMs` injected for deterministic scheduling. */
+  async nextCourseStep(course: Course, learnerId = "anonymous", nowMs: number = Date.now()): Promise<CourseStep> {
+    const profilePseudonym = await buildHostDeps(this.opts.live).pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
+    const profile = await this.profileStore.load(profilePseudonym);
+    if (profile?.concept_memory) {
+      const mastery: Record<string, number> = {};
+      for (const [cid, cs] of Object.entries(profile.concept_states)) mastery[cid] = masteryOf(cs);
+      const top = dueReinforcementTargetsFromMemory(profile.concept_memory, mastery, nowMs)[0];
+      if (top) return { kind: "reinforce", concept_id: top.concept_id, due_at: top.due_at, retrievability: top.retrievability };
+    }
+    const completed = profile?.completed_lessons ?? [];
+    const next = nextCourseLesson(course, completed);
+    if (next) return { kind: "advance", lesson: next };
+    // nextCourseLesson returns null for BOTH "all done" and "stuck (nothing unlocked)" — disambiguate.
+    return isCourseComplete(course, completed) ? { kind: "done" } : { kind: "blocked" };
+  }
+
   /** Discover the community (learner-authored, approved) bundle refs sitting alongside the
    * canonical bundle in this host's bundles root. Each returned ref loads through `create()`
    * exactly like the canonical bundle (community-<item_id>.zip → resolveBundle). The canonical
@@ -548,8 +613,12 @@ export class SessionHost {
         const now = e.deps.clock.now();
         const st = e.session.getState();
         const base = (await this.profileStore.load(e.profilePseudonym)) ?? defaultLearnerProfile(e.profilePseudonym, now);
-        // carry the concepts forward AND mark this lesson completed (the course spine routes off it).
-        const merged = recordCompletedLesson(mergeConceptStatesIntoProfile(base, st, now), st.lesson_id);
+        // carry the concepts forward, persist this lesson's FSRS memory (replayed from its history) for
+        // CROSS-LESSON spaced repetition, AND mark this lesson completed (the course spine routes off it).
+        const merged = recordCompletedLesson(
+          mergeConceptMemoryIntoProfile(mergeConceptStatesIntoProfile(base, st, now), conceptMemoryFromState(st), now),
+          st.lesson_id,
+        );
         await this.profileStore.save(merged);
       }
     }
