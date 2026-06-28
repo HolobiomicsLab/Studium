@@ -4,6 +4,18 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-28 — Profil apprenant CROSS-LESSON : démarrage à chaud entre leçons
+
+Ferme un blocker original de l'analyse de gaps : l'état était keyé par (pseudonyme, bundle) → un concept maîtrisé en leçon A repartait À FROID en leçon B. Un PROFIL apprenant (niveau-apprenant) agrège l'état des concepts entre bundles.
+
+- `learner-state` : `LearnerProfile` (concept_states keyés par concept_id + pseudonyme + updated_at) + helpers PURS `seedConceptStatesFromProfile` (warm-start : copie l'état du profil pour les concepts du bundle ABSENTS de l'état per-bundle — le per-bundle a la PRIORITÉ, jamais écrasé) + `mergeConceptStatesIntoProfile` (carry-forward latest-wins, non-mutant).
+- `lesson-session-host` : `LearnerProfileStore` (InMemory par défaut — persiste entre sessions d'une instance host ; `FileLearnerProfileStore` = `<dataDir>/<pseudonyme>/profile.json` en mode durable). Le pseudonyme du PROFIL est salé par un scope FIXE (`__learner_profile__`), donc STABLE entre leçons (le pseudonyme per-bundle est salé par bundle_id). `host.create` SEED l'état initial depuis le profil (avant `session.start`) ; `host.respond` (complete) MERGE l'état de la leçon dans le profil ; `host.forget` (RGPD) efface AUSSI le profil cross-lesson.
+- HYPOTHÈSE documentée : un concept de même id entre bundles EST le même concept (espace de concepts partagé — le composeur de cours assigne des ids partagés) ; si les ids sont locaux au bundle, ça ne seed simplement pas.
+
+**Vérification** : learner-state 30 (seed/merge purs : warm/cold, précédence per-bundle, non-mutation, round-trip) + lesson-session-host 109 (e2e : concept travaillé en A → chaud en B ; non-apparenté reste froid ; isolation par apprenant ; forget efface le profil) ; `tsc` host ; suite TS complète exit 0. Revue adverse (workflow 3 lentilles + réfutation).
+
+---
+
 ## 2026-06-28 — Opérateur agentique RÉEL (LLM-backed) + démo bout-en-bout
 
 L'opérateur n'est plus seulement stub/watch : un VRAI opérateur LLM pilote une leçon complète run+jugement. Il POSSÈDE l'exécution — Studium n'exécute jamais.

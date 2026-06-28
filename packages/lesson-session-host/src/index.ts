@@ -14,6 +14,9 @@ export {
 } from "./session-workspace.js";
 export { RunResultSchema, parseRunResult, runResultToReferenceRun, type RunResult } from "./run-result.js";
 export {
+  PROFILE_PSEUDONYM_SCOPE, FileLearnerProfileStore, InMemoryLearnerProfileStore, type LearnerProfileStore,
+} from "./learner-profile-store.js";
+export {
   runStudiumSession, stubOperator, watchOperator, makeLlmOperator, writeResponse, writeRunResult,
   type Operator, type OperatorCtx, type OperatorLlm, type SessionRunResult,
 } from "./session-runner.js";

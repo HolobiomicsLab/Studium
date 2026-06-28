@@ -241,6 +241,50 @@ export function defaultConceptState(concept_id: string): ConceptState {
   };
 }
 
+// ---------------------------------------------------------------------------
+// CROSS-LESSON learner profile — a pseudonym-level (NOT per-bundle) aggregate of concept state, so a
+// concept mastered in lesson A starts WARM in lesson B. Keyed by concept_id (the shared concept space:
+// a concept with the same id across bundles is the same concept). The per-bundle LearnerState stays the
+// session's working state; the profile is the longitudinal carry-forward seeded in / merged out by the host.
+// ---------------------------------------------------------------------------
+
+export const LearnerProfileSchema = z.object({
+  pseudonym: z.string(),
+  schema_version: z.literal("1.0"),
+  concept_states: z.record(z.string(), ConceptStateSchema),
+  updated_at: z.string(),
+});
+export type LearnerProfile = z.infer<typeof LearnerProfileSchema>;
+
+export function defaultLearnerProfile(pseudonym: string, nowIso: string): LearnerProfile {
+  return { pseudonym, schema_version: "1.0", concept_states: {}, updated_at: nowIso };
+}
+
+/** WARM-START: copy the profile's concept_state into the bundle state for each conceptId the bundle uses
+ * that the per-bundle state hasn't already seen — so a concept mastered in another lesson resumes here
+ * (mastery/calibration/trust/attempts all carry). The per-bundle state TAKES PRECEDENCE (a concept the
+ * learner has already worked in THIS bundle is never overwritten by the profile). Pure, non-mutating. */
+export function seedConceptStatesFromProfile(
+  state: LearnerState, profile: LearnerProfile, conceptIds: readonly string[],
+): LearnerState {
+  const seeded: Record<string, ConceptState> = { ...state.concept_states };
+  let changed = false;
+  for (const cid of conceptIds) {
+    if (!seeded[cid] && profile.concept_states[cid]) { seeded[cid] = { ...profile.concept_states[cid] }; changed = true; }
+  }
+  return changed ? { ...state, concept_states: seeded } : state;
+}
+
+/** CARRY-FORWARD: fold the session's concept_states into the learner profile (latest-wins per concept).
+ * Pure, non-mutating; `nowIso` stamps updated_at (the caller passes its clock). */
+export function mergeConceptStatesIntoProfile(
+  profile: LearnerProfile, state: LearnerState, nowIso: string,
+): LearnerProfile {
+  const merged: Record<string, ConceptState> = { ...profile.concept_states };
+  for (const [cid, cs] of Object.entries(state.concept_states)) merged[cid] = { ...cs };
+  return { ...profile, concept_states: merged, updated_at: nowIso };
+}
+
 export function defaultLearnerState(lesson_id: string): LearnerState {
   return {
     lesson_id, schema_version: "1.0",

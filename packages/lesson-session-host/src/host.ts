@@ -6,7 +6,14 @@ import {
   LessonSession, enrichEvent, bundleVersionOf,
   type Presentation, type ResponseInput, type Transition, type Explanation, type HintResult,
 } from "@studium/lesson-session";
-import { masteryOf, type ConceptState, type LearnerState } from "@studium/learner-state";
+import {
+  masteryOf, defaultLearnerState, defaultLearnerProfile,
+  seedConceptStatesFromProfile, mergeConceptStatesIntoProfile,
+  type ConceptState, type LearnerState,
+} from "@studium/learner-state";
+import {
+  PROFILE_PSEUDONYM_SCOPE, FileLearnerProfileStore, InMemoryLearnerProfileStore, type LearnerProfileStore,
+} from "./learner-profile-store.js";
 import { sceneRenderAssets, type RenderAsset, type ReferenceRun, type RunManifest } from "@studium/lesson-bundle-schema";
 import { runResultToReferenceRun, type RunResult } from "./run-result.js";
 import type { GraphView } from "@studium/typed-graph-lens";
@@ -271,7 +278,13 @@ export class SessionHost {
   // D1 PeerStudio: ephemeral rooms indexed by id and by join_code.
   private readonly rooms = new Map<string, RoomEntry>();
   private readonly joinCodeIndex = new Map<string, string>(); // join_code → room_id
-  constructor(private readonly opts: SessionHostOptions) {}
+  // CROSS-LESSON learner profile (warm-start across bundles). File-backed in durable mode
+  // (STUDIUM_DATA_DIR), else an in-memory store that persists across this host's sessions.
+  private readonly profileStore: LearnerProfileStore;
+  constructor(private readonly opts: SessionHostOptions) {
+    const dataDir = durableDataDir();
+    this.profileStore = dataDir ? new FileLearnerProfileStore(dataDir) : new InMemoryLearnerProfileStore();
+  }
 
   async create(bundleRef: string, learnerId = "anonymous"): Promise<{ sessionId: string; presentation: Presentation }> {
     // Quiz-choice order is shuffled per scene id (same for all learners → aligned item analytics).
@@ -304,11 +317,19 @@ export class SessionHost {
     // same lesson resolve to distinct pseudonyms). Previously discarded as `_learnerId`.
     // #3: pass the loaded prior state so the engine resumes prior concept_states/mastery; in
     // in-memory mode `prior` is null ⇒ collapses to the existing defaultLearnerState path.
-    const session = new LessonSession(bundle, deps, prior ?? undefined, learnerId);
+    // CROSS-LESSON warm-start: seed the working state from the learner-level profile, so a concept
+    // mastered in ANOTHER lesson resumes warm here. The profile pseudonym is salted by a FIXED scope
+    // (not the bundle_id), so it is stable across the learner's lessons; RGPD-safe (never the raw id).
+    // The per-bundle prior takes precedence (seedConceptStatesFromProfile never overwrites it).
+    const profilePseudonym = await deps.pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
+    const profile = await this.profileStore.load(profilePseudonym);
+    let initial = prior ?? defaultLearnerState(bundle.bundle_id);
+    if (profile) initial = seedConceptStatesFromProfile(initial, profile, bundle.concepts.map((c) => c.id));
+    const session = new LessonSession(bundle, deps, initial, learnerId);
     const presentation = await session.start();
     const sessionId = randomUUID();
     const baseDir = assetBaseDir(this.opts.bundlesRoot, bundleRef);
-    this.registry.create(sessionId, { session, deps, bundle, baseDir, assetCache: new Map() });
+    this.registry.create(sessionId, { session, deps, bundle, baseDir, assetCache: new Map(), profilePseudonym });
     return { sessionId, presentation };
   }
 
@@ -387,6 +408,14 @@ export class SessionHost {
       // sink). With a JsonlTelemetrySink (consent path, see deps.ts) this writes the pseudonymized
       // ADR-006 event stream a teacher's class_report can later aggregate. forget() flush+purges.
       await e.deps.telemetry.flush();
+      // CROSS-LESSON carry-forward: merge this lesson's concept_states into the learner-level profile
+      // (latest-wins per concept), so the NEXT lesson sharing a concept starts warm. Keyed by the
+      // stable profile pseudonym set at create(); a no-op when there is none (defensive).
+      if (e.profilePseudonym) {
+        const now = e.deps.clock.now();
+        const profile = (await this.profileStore.load(e.profilePseudonym)) ?? defaultLearnerProfile(e.profilePseudonym, now);
+        await this.profileStore.save(mergeConceptStatesIntoProfile(profile, e.session.getState(), now));
+      }
     }
     return transition;
   }
@@ -550,6 +579,9 @@ export class SessionHost {
     // #4 REAL erasure: purge the learner's state + mastery .jsonld + event log + telemetry. Then
     // drop the registry entry. forget() used to be a no-op (only the event + registry delete).
     await e.session.erase();
+    // RGPD: also erase the learner-level CROSS-LESSON profile (the learner's longitudinal aggregate) —
+    // "right to be forgotten" covers data carried across lessons, not just this bundle's state.
+    if (e.profilePseudonym) await this.profileStore.delete(e.profilePseudonym);
     this.registry.delete(id);
   }
 }
