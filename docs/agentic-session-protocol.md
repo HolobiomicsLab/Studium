@@ -76,8 +76,18 @@ tsx apps/lesson-mcp/src/session-runner-cli.ts capsule-judgment-demo/lesson.json 
 
 Operators (`@studium/lesson-session-host`): `stubOperator` (deterministic placeholder, key-free),
 `watchOperator({pollMs,timeoutMs})` (waits for an **external** agent to write `response.json` — the real
-"any assistant drives it" mode; Studium never calls a model), or your own LLM-backed operator. The
-`--stub` run completes the `capsule-judgment-demo` bundle in 3 steps (`next → next → complete`).
+"any assistant drives it" mode; Studium never calls a model), or `makeLlmOperator({llm, runCapsule})` — a
+real LLM-backed operator that OWNS execution: on a `reproduction(run_manifest)` scene it runs the capsule
+via the injected `runCapsule` (Studium still never executes), and on a `spot_the_flaw` it calls the `llm`
+to judge the flawed AI reading of the learner's OWN run. Both deps are injected, so it runs key-free with
+a stub LLM + a fake runner, or live with a real model + a real `capsule_runner` spawn.
+
+```bash
+# LLM-operator demo: the operator RUNS the real capsule (python3 tools/capsule_runner.py) on the
+# reproduction scene, then LLM-judges the grounded spot_the_flaw of its OWN run -> feeds trust_calibration.
+# Default LLM is a key-free placeholder (the capsule run is REAL); --live uses LITELLM_BASE_URL.
+tsx apps/lesson-mcp/src/llm-operator-demo.ts capsule-loop-demo/lesson.json --dir=/tmp/s   # -> next → next → complete ✔
+```
 
 ## Learner-time runs — per-learner provisioning + execution (pure agentic delegation)
 

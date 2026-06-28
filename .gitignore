@@ -56,3 +56,6 @@ eval/corpus
 
 # runtime telemetry from the VS Code demo (studium.telemetryConsent)
 fixtures/data/
+
+# Studium agentic-session file channel (run by the operator CLIs / demo)
+.studium-session/

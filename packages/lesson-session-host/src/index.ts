@@ -14,8 +14,8 @@ export {
 } from "./session-workspace.js";
 export { RunResultSchema, parseRunResult, runResultToReferenceRun, type RunResult } from "./run-result.js";
 export {
-  runStudiumSession, stubOperator, watchOperator, writeResponse,
-  type Operator, type OperatorCtx, type SessionRunResult,
+  runStudiumSession, stubOperator, watchOperator, makeLlmOperator, writeResponse, writeRunResult,
+  type Operator, type OperatorCtx, type OperatorLlm, type SessionRunResult,
 } from "./session-runner.js";
 export {
   aggregateRatings, ROOM_K_FLOOR,

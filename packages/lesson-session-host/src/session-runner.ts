@@ -131,6 +131,59 @@ export const stubOperator: Operator = async (_task, ctx) => {
  * agent (Claude Code / Copilot / Codex / a human in the same workspace) to write a complete, parseable
  * response.json. Studium never calls a model — the operator is whoever is editing the workspace.
  */
+/** Minimal LLM surface the operator needs: prompt in, completion out. Decoupled from any provider so a
+ * test injects a deterministic stub and the demo binds @studium/llm-client (mock or litellm). */
+export interface OperatorLlm { complete(prompt: string): Promise<string>; }
+
+const _LLM_FREE_TEXT_SCENES = new Set([
+  "spot_the_flaw", "ai_critique", "explain_back", "comparison", "summary_audit", "prompt_practice", "communication_sim",
+]);
+
+/** A REAL LLM-backed operator: it reads the (redacted) task and produces a genuine answer.
+ *  - RUN scene  → the operator OWNS execution: it reads run.json and ACTUALLY runs the capsule via the
+ *    injected `runCapsule` (Studium still never executes), then writes run_result.json.
+ *  - judgment / free-text scene → calls the LLM with the task and writes its critique as {text} (Studium
+ *    maps {text} to the scene's required kind).
+ *  - quiz/meta/control → a deterministic answer (the LLM drives the JUDGMENT, which is the point).
+ * Both deps are injected, so the loop is exercised key-free with a stub LLM + a fake runner; the demo
+ * binds a real model + a real capsule_runner spawn. */
+export function makeLlmOperator(deps: {
+  llm: OperatorLlm;
+  runCapsule: (manifest: Record<string, unknown>, ctx: OperatorCtx) => Promise<Record<string, unknown>>;
+}): Operator {
+  return async (task, ctx) => {
+    if (ctx.expects === "run") {
+      let manifest: Record<string, unknown> = {};
+      try { manifest = JSON.parse(await readFile(join(ctx.dir, "run.json"), "utf8")); } catch { /* also described in task.md */ }
+      await writeRunResult(ctx.dir, await deps.runCapsule(manifest, ctx));
+      return;
+    }
+    if (ctx.sceneType === "quiz") { await writeResponse(ctx.dir, { kind: "quiz_choice", choiceId: _firstChoiceId(task) }); return; }
+    if (ctx.sceneType === "meta_checkpoint") { await writeResponse(ctx.dir, { kind: "confidence", value: 3 }); return; }
+    if (_LLM_FREE_TEXT_SCENES.has(ctx.sceneType)) {
+      const answer = await deps.llm.complete(_operatorPrompt(task));
+      await writeResponse(ctx.dir, { text: answer }); // Studium maps {text} -> the scene's required kind
+      return;
+    }
+    await writeResponse(ctx.dir, { kind: "ack" }); // intro / concept / reproduction(non-run) / discussion
+  };
+}
+
+function _operatorPrompt(task: string): string {
+  return [
+    "Tu es l'apprenant-operateur dans une lecon Studium. Voici la tache courante (redigee, SANS cle de reponse) :",
+    "", task, "",
+    "Reponds par TON jugement/critique en texte clair, avec justification, en t'appuyant sur le resultat reel " +
+      "affiche. N'invente pas de valeurs ; ne demande jamais la cle de reponse.",
+  ].join("\n");
+}
+
+function _firstChoiceId(task: string): string {
+  // best-effort: pick a choice id rendered in the task (the demo bundle has no quiz). Falls back to "a".
+  const m = task.match(/\bid[)\s:]*`?([a-zA-Z0-9_-]+)`?\s*[—:-]/) ?? task.match(/"choiceId":\s*"([^"]+)"/);
+  return m?.[1] && m[1] !== "<id>" ? m[1] : "a";
+}
+
 export function watchOperator(opts: { pollMs?: number; timeoutMs?: number } = {}): Operator {
   const pollMs = opts.pollMs ?? 500;
   const timeoutMs = opts.timeoutMs ?? 0; // 0 = wait forever
