@@ -4,6 +4,17 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-28 — studium-vscode : `run.json` comme TÂCHE VS Code native
+
+Concrétise « laisser VS Code gérer l'environnement et l'install pour l'usage agentique » : le manifeste de run learner-time est surfacé comme une TÂCHE VS Code native. Le protocole reste de la délégation PURE — Studium (host/MCP) N'EXÉCUTE JAMAIS ; c'est l'environnement de l'opérateur (= le workspace de l'utilisateur) qui exécute.
+
+- `studium-vscode/src/run-task.ts` (pur, sans dépendance — esbuild ne bundle que vscode + MCP SDK + typed-graph-lens, donc les shapes RunManifest/RunResult sont mirrorées, lockstep avec lesson-bundle-schema + run-result.ts) : `runManifestToTaskSpec` (install requirements puis run cmd, args shell-quotés), `evaluateChecks` (« file exists: <path> » sous working_dir ; inconnu → NON passé), `buildRunResult` (ran = exitCode≠null ; passed = exit 0 ET tous les expected_outputs présents ET tous les checks passés ; landmark auteur retenu → null).
+- `extension.ts` : commande `studium.runReproduction` → get_run_manifest → `vscode.Task` (ShellExecution dans le terminal intégré) → handler one-shot onDidEndTaskProcess → buildRunResult (fileExists = existsSync sous le workspace) → submit_run_result → avance sur status « ran » + transition (complete → done, sinon avance). État `activeLesson` (garde par IDENTITÉ d'objet, pas par valeur sid) + indice de découvrabilité sur une scène reproduction. `package.json` : commande + activation onCommand + `taskDefinitions {type:"studium-run"}`.
+
+**Vérification** : `tsc` extension exit 0 ; harnais headless complet (8 drivers) vert dont run-task (22 assertions) + lesson-walk e2e (12, boucle leçon intacte). Revue adverse (workflow 4 lentilles : shape RunResult / résolution de chemins / sûreté de la tâche / câblage+honnêteté du protocole) → **0 must-fix / 1 should-fix + 1 nit** repliés (garde dispose par identité d'objet vs collision de sid-sentinelle ; listener one-shot tracké dans context.subscriptions). Shape RunResult + cohérence des chemins task-cwd↔existence vérifiées sans défaut.
+
+---
+
 ## 2026-06-28 — FSRS comme ROUTEUR (et non plus simple lecture)
 
 Promeut FSRS d'une LECTURE (`reviewQueue` listait tous les concepts dus) à un ROUTEUR : une décision de sélection — le concept le PLUS urgent à renforcer + la scène qui l'adresse. Le routage FSRS est intrinsèquement inter-TEMPS (le rappel doit décliner), donc `nowMs` est injecté.

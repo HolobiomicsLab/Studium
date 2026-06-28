@@ -6,7 +6,7 @@
 // scene + get_scene_artifacts and posts them to the pane; the pane posts the learner's responses
 // back, which the extension feeds to submit_response / request_hint.
 import * as vscode from "vscode";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -16,17 +16,88 @@ import { reviewDueConcepts } from "./review-fsrs.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 import { discoverCommunityBundles, toPickItems } from "./community.js";
 import { calibrationVerdicts, type CalibrationVerdict } from "./calibration.js";
+import { runManifestToTaskSpec, buildRunResult, type RunManifest } from "./run-task.js";
 
 type Json = Record<string, any>;
+
+/** The currently-open lesson, exposed to the top-level "Run reproduction" command so it can drive the
+ * run protocol (get_run_manifest → native task → submit_run_result) against the live session. Replaced
+ * each openLesson; cleared on panel dispose. */
+let activeLesson: {
+  call: (name: string, args: Json) => Promise<Json>;
+  sid: () => string;
+  isDisposed: () => boolean;
+  advance: (presentation: Json, explanation?: Json) => Promise<void>;
+  done: (message: string) => void;
+} | null = null;
 
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("studium.openLesson", () => openLesson(context)),
     vscode.commands.registerCommand("studium.communityContributions", () => openCommunityContribution(context)),
+    vscode.commands.registerCommand("studium.runReproduction", () => runReproductionScene(context)),
   );
   registerStudiumNotebook(context);
 }
 export function deactivate() {}
+
+/**
+ * Surface the learner-time RUN manifest of the current scene as a NATIVE VS Code task. The run protocol
+ * is pure delegation — Studium NEVER executes; the OPERATOR's environment does. In VS Code the operator
+ * is the user's workspace: get_run_manifest → a shell task that provisions + runs the capsule in the
+ * integrated terminal → buildRunResult from the produced outputs → submit_run_result (the host gates
+ * advance on ran && passed). This is "let VS Code handle the environment and install" made literal.
+ */
+async function runReproductionScene(context: vscode.ExtensionContext) {
+  if (!activeLesson || activeLesson.isDisposed()) {
+    vscode.window.showInformationMessage("Studium : ouvre d'abord une leçon, puis lance sa scène de reproduction.");
+    return;
+  }
+  const lesson = activeLesson;
+  let manifest: RunManifest | null;
+  try {
+    manifest = ((await lesson.call("get_run_manifest", { session_id: lesson.sid() })).run_manifest as RunManifest | null) ?? null;
+  } catch (e: any) { vscode.window.showErrorMessage(`Studium: ${e.message}`); return; }
+  if (!manifest) {
+    vscode.window.showInformationMessage("Studium : la scène courante n'a pas de capsule à exécuter.");
+    return;
+  }
+  const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!wsFolder) { vscode.window.showErrorMessage("Studium : ouvre un dossier de travail pour exécuter la capsule."); return; }
+
+  const spec = runManifestToTaskSpec(manifest);
+  const task = new vscode.Task(
+    { type: "studium-run", capsule: manifest.capsule_ref },
+    vscode.TaskScope.Workspace, spec.name, "studium",
+    new vscode.ShellExecution(spec.command, { cwd: join(wsFolder, spec.cwd) }),
+  );
+  let exec: vscode.TaskExecution;
+  try { exec = await vscode.tasks.executeTask(task); }
+  catch (e: any) { vscode.window.showErrorMessage(`Studium : impossible de lancer la tâche — ${e.message}`); return; }
+
+  // One-shot: when THIS task's process ends, assemble run_result.json from the outputs + submit it.
+  // Tracked in context.subscriptions so a never-completing task can't leak the listener past deactivate.
+  const sub = vscode.tasks.onDidEndTaskProcess(async (ev) => {
+    if (ev.execution !== exec) return;
+    sub.dispose();
+    const result = buildRunResult(manifest!, {
+      exitCode: ev.exitCode ?? null,
+      fileExists: (p) => existsSync(join(wsFolder, p)),
+    });
+    try {
+      const r = await lesson.call("submit_run_result", { session_id: lesson.sid(), run_result: result });
+      if (r.status === "ran" && r.transition) {
+        vscode.window.showInformationMessage("Studium : run réussi — résultat enregistré, on avance.");
+        if (lesson.isDisposed()) return;
+        if (r.transition.kind === "complete") lesson.done(`Leçon terminée — ${r.transition.summary?.scenesCompleted ?? "?"} scènes.`);
+        else await lesson.advance(r.transition.presentation);
+      } else {
+        vscode.window.showWarningMessage(`Studium : run non accepté (${r.status}) — corrige l'exécution puis relance.`);
+      }
+    } catch (e: any) { vscode.window.showErrorMessage(`Studium: ${e.message}`); }
+  });
+  context.subscriptions.push(sub);
+}
 
 function cfg<T>(key: string, fallback: T): T {
   const v = vscode.workspace.getConfiguration("studium").get<T>(key);
@@ -205,7 +276,28 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
       explanation: explanation ?? presentation.explanation ?? null,
     });
     await pushGraph();
+    // When the current scene is a reproduction the LEARNER must run, nudge them to the native task
+    // command. The run_manifest is non-answer-bearing (publicScene keeps it), so its presence is the cue.
+    if (presentation.scene?.type === "reproduction" && presentation.scene?.run_manifest) {
+      vscode.window.showInformationMessage(
+        "Studium : cette scène demande d'exécuter une capsule. Lance « Studium: Run reproduction » pour la faire tourner dans ton terminal.",
+      );
+    }
   };
+
+  // Expose this lesson to the top-level "Run reproduction" command (it drives get_run_manifest →
+  // native task → submit_run_result against this live session). Latest open wins; cleared on dispose.
+  // The dispose-clear guards by OBJECT IDENTITY (not sid value) so it can't null a different live
+  // lesson during the brief window where two sessions share the empty sentinel sid (pre-start).
+  const thisLesson = {
+    call,
+    sid: () => sid,
+    isDisposed: () => panelDisposed,
+    advance: (presentation: Json, explanation?: Json) => pushScene(presentation, explanation),
+    done: (message: string) => { if (!panelDisposed) panel.webview.postMessage({ type: "done", message }); },
+  };
+  activeLesson = thisLesson;
+  panel.onDidDispose(() => { if (activeLesson === thisLesson) activeLesson = null; });
 
   // 2) learner actions from the pane → MCP calls → next render (pair by pair)
   panel.webview.onDidReceiveMessage(async (msg: Json) => {
