@@ -4,6 +4,18 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-28 — Colonne vertébrale de COURS : séquençage multi-leçons
+
+Ferme le dernier blocker « cours » de l'analyse de gaps : aucune couche au-dessus du bundle (pas de course_outline / lesson_sequence / next_lesson). Une COLONNE de cours séquence les leçons par-dessus le profil cross-lesson.
+
+- `lesson-bundle-schema/course.ts` : `CourseSchema` (course_id, title, lessons:[{lesson_id, bundle_ref, title?, prerequisite_lesson_ids[]}]) + routeur PUR `nextCourseLesson(course, completedLessonIds)` (première leçon non-faite dont TOUS les prérequis sont faits ; null si fini/bloqué — linéaire, DAG, sans-prérequis) + `isCourseComplete`.
+- `learner-state` : `LearnerProfile.completed_lessons` (optionnel, rétro-compatible) + `recordCompletedLesson` pur (dédupliqué, non-mutant).
+- `lesson-session-host` : `host.respond`(complete) enregistre la leçon complétée dans le profil ; `host.nextLesson(course, learnerId)` lit `completed_lessons` (pseudonyme niveau-apprenant) → routeur ; `resolveCourse(bundlesRoot, courseRef)` charge + valide `course.json`. Fixture `fixtures/courses/decay-course.json` (capsule-run-demo → capsule-loop-demo qui le requiert).
+
+**Vérification** : lesson-bundle-schema 62 (routeur : linéaire/DAG/prérequis/fini ; parse) + learner-state 30 + lesson-session-host 111 (e2e : complète A → next B → complète B → null ; par-apprenant ; resolveCourse charge le fixture) ; `tsc` 3 packages ; suite TS complète exit 0. Revue adverse (workflow 2 lentilles + réfutation par finding).
+
+---
+
 ## 2026-06-28 — Profil apprenant CROSS-LESSON : démarrage à chaud entre leçons
 
 Ferme un blocker original de l'analyse de gaps : l'état était keyé par (pseudonyme, bundle) → un concept maîtrisé en leçon A repartait À FROID en leçon B. Un PROFIL apprenant (niveau-apprenant) agrège l'état des concepts entre bundles.

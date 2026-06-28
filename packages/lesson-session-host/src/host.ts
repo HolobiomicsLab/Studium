@@ -8,13 +8,16 @@ import {
 } from "@studium/lesson-session";
 import {
   masteryOf, defaultLearnerState, defaultLearnerProfile,
-  seedConceptStatesFromProfile, mergeConceptStatesIntoProfile,
+  seedConceptStatesFromProfile, mergeConceptStatesIntoProfile, recordCompletedLesson,
   type ConceptState, type LearnerState,
 } from "@studium/learner-state";
 import {
   PROFILE_PSEUDONYM_SCOPE, FileLearnerProfileStore, InMemoryLearnerProfileStore, type LearnerProfileStore,
 } from "./learner-profile-store.js";
-import { sceneRenderAssets, type RenderAsset, type ReferenceRun, type RunManifest } from "@studium/lesson-bundle-schema";
+import {
+  sceneRenderAssets, nextCourseLesson,
+  type RenderAsset, type ReferenceRun, type RunManifest, type Course, type CourseLesson,
+} from "@studium/lesson-bundle-schema";
 import { runResultToReferenceRun, type RunResult } from "./run-result.js";
 import type { GraphView } from "@studium/typed-graph-lens";
 import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
@@ -333,6 +336,16 @@ export class SessionHost {
     return { sessionId, presentation };
   }
 
+  /** COURSE SPINE: the next lesson the learner should take in `course` — the first not-completed lesson
+   * whose prerequisites are all completed — or null when the course is finished / nothing is unlocked.
+   * Reads the learner's completed_lessons from the cross-lesson profile (the same learner-level pseudonym
+   * the profile is keyed by). The caller then host.create(next.bundle_ref, learnerId) to start it. */
+  async nextLesson(course: Course, learnerId = "anonymous"): Promise<CourseLesson | null> {
+    const profilePseudonym = await buildHostDeps(this.opts.live).pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
+    const profile = await this.profileStore.load(profilePseudonym);
+    return nextCourseLesson(course, profile?.completed_lessons ?? []);
+  }
+
   /** Discover the community (learner-authored, approved) bundle refs sitting alongside the
    * canonical bundle in this host's bundles root. Each returned ref loads through `create()`
    * exactly like the canonical bundle (community-<item_id>.zip → resolveBundle). The canonical
@@ -413,8 +426,11 @@ export class SessionHost {
       // stable profile pseudonym set at create(); a no-op when there is none (defensive).
       if (e.profilePseudonym) {
         const now = e.deps.clock.now();
-        const profile = (await this.profileStore.load(e.profilePseudonym)) ?? defaultLearnerProfile(e.profilePseudonym, now);
-        await this.profileStore.save(mergeConceptStatesIntoProfile(profile, e.session.getState(), now));
+        const st = e.session.getState();
+        const base = (await this.profileStore.load(e.profilePseudonym)) ?? defaultLearnerProfile(e.profilePseudonym, now);
+        // carry the concepts forward AND mark this lesson completed (the course spine routes off it).
+        const merged = recordCompletedLesson(mergeConceptStatesIntoProfile(base, st, now), st.lesson_id);
+        await this.profileStore.save(merged);
       }
     }
     return transition;

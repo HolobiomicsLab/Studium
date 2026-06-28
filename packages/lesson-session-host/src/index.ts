@@ -16,6 +16,7 @@ export { RunResultSchema, parseRunResult, runResultToReferenceRun, type RunResul
 export {
   PROFILE_PSEUDONYM_SCOPE, FileLearnerProfileStore, InMemoryLearnerProfileStore, type LearnerProfileStore,
 } from "./learner-profile-store.js";
+export { resolveCourse } from "./course-resolver.js";
 export {
   runStudiumSession, stubOperator, watchOperator, makeLlmOperator, writeResponse, writeRunResult,
   type Operator, type OperatorCtx, type OperatorLlm, type SessionRunResult,

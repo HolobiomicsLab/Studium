@@ -252,12 +252,23 @@ export const LearnerProfileSchema = z.object({
   pseudonym: z.string(),
   schema_version: z.literal("1.0"),
   concept_states: z.record(z.string(), ConceptStateSchema),
+  // lesson_ids (== bundle_ids) the learner has COMPLETED — the course spine routes the next lesson off
+  // this. Optional + back-compatible (absent ⇒ none completed yet).
+  completed_lessons: z.array(z.string()).optional(),
   updated_at: z.string(),
 });
 export type LearnerProfile = z.infer<typeof LearnerProfileSchema>;
 
 export function defaultLearnerProfile(pseudonym: string, nowIso: string): LearnerProfile {
-  return { pseudonym, schema_version: "1.0", concept_states: {}, updated_at: nowIso };
+  return { pseudonym, schema_version: "1.0", concept_states: {}, completed_lessons: [], updated_at: nowIso };
+}
+
+/** Record a COMPLETED lesson (deduped) on the learner profile — the course spine's next-lesson router
+ * reads this. Pure, non-mutating. */
+export function recordCompletedLesson(profile: LearnerProfile, lessonId: string): LearnerProfile {
+  const done = profile.completed_lessons ?? [];
+  if (done.includes(lessonId)) return profile;
+  return { ...profile, completed_lessons: [...done, lessonId] };
 }
 
 /** WARM-START: copy the profile's concept_state into the bundle state for each conceptId the bundle uses

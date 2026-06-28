@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "course_id": "decay-course",
+  "title": "Decay kinetics — reproduce, then judge your own result",
+  "lessons": [
+    {
+      "lesson_id": "capsule-run-demo",
+      "bundle_ref": "capsule-run-demo/lesson.json",
+      "title": "Reproduce the decay fit (learner-time run)",
+      "prerequisite_lesson_ids": []
+    },
+    {
+      "lesson_id": "capsule-loop-demo",
+      "bundle_ref": "capsule-loop-demo/lesson.json",
+      "title": "Run it, then audit an AI reading of YOUR result",
+      "prerequisite_lesson_ids": ["capsule-run-demo"]
+    }
+  ]
+}

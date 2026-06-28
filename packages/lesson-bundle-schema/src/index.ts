@@ -11,6 +11,7 @@ export * from "./scene-assets";
 export * from "./rules";
 export * from "./blueprint";
 export * from "./learner-item";
+export * from "./course";
 
 export const BloomLevelSchema = z.enum([
   "remember", "understand", "apply", "analyze", "evaluate", "create",
