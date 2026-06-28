@@ -1,5 +1,9 @@
 // packages/lesson-session-host/src/index.ts
 export { SessionHost, SessionHostNotFoundError, PeerRoomError, type SessionHostOptions } from "./host.js";
+export {
+  reviewQueueFromState, conceptMemoryFromState, nextReinforcementFromState, reinforcementSceneFromState,
+  type ReviewQueueItem, type ReinforcementTarget,
+} from "./host.js";
 export { SessionRegistry, type SessionEntry } from "./registry.js";
 export { buildHostDeps, durableDataDir, durableScopeDir, telemetryConsentGranted } from "./deps.js";
 export { resolveBundle } from "./bundle-resolver.js";

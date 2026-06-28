@@ -73,6 +73,26 @@ export function buildMcpServer(host: SessionHost): McpServer {
     },
   );
 
+  server.registerTool(
+    "get_next_reinforcement",
+    {
+      description: "FSRS ROUTER: the single most-urgent concept to REINFORCE now (mastered earlier but " +
+        "whose recall is decaying), with the bundle scene that addresses it — or null when nothing is due. " +
+        "A native driver calls this to route the learner to a spaced-repetition pass instead of advancing " +
+        "linearly. Returns {reinforcement: {concept_id, scene_id, due_at, retrievability} | null}. " +
+        "`now_ms` (epoch ms) is injectable for deterministic review scheduling; defaults to wall-clock.",
+      inputSchema: { session_id: z.string(), now_ms: z.number().optional() },
+    },
+    async ({ session_id, now_ms }) => {
+      try {
+        const nowMs = now_ms ?? Date.now();
+        const target = host.nextReinforcement(session_id, nowMs);
+        const scene_id = target ? host.nextReinforcementScene(session_id, nowMs) : null;
+        return text({ reinforcement: target ? { ...target, scene_id } : null });
+      } catch (e) { return fail((e as Error).message); }
+    },
+  );
+
   // ---------------------------------------------------------------------------
   // Learner-time RUN protocol — MCP parity with the file channel (.studium-session/ run.json /
   // run_result.json). Studium NEVER executes: the operator provisions + runs the capsule in the

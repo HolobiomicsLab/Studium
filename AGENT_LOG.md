@@ -4,6 +4,19 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-28 — FSRS comme ROUTEUR (et non plus simple lecture)
+
+Promeut FSRS d'une LECTURE (`reviewQueue` listait tous les concepts dus) à un ROUTEUR : une décision de sélection — le concept le PLUS urgent à renforcer + la scène qui l'adresse. Le routage FSRS est intrinsèquement inter-TEMPS (le rappel doit décliner), donc `nowMs` est injecté.
+
+- `adaptation-engine/fsrs.ts` : `nextReinforcement(states, mastery, nowMs, opts) = dueForReinforcement(...)[0] ?? null` (tête de routeur). Pur.
+- `lesson-session-host/host.ts` (le host N'IMPORTE PAS adaptation-engine — il INLINE un miroir verbatim de fsrs.ts) : miroir `fsrsReinforcementPriority` + `fsrsDueForReinforcement` ; exports purs `conceptMemoryFromState` (rejoue l'historique → carte mémoire), `nextReinforcementFromState` (décision concept), `reinforcementSceneFromState` (route vers le CONTENU : la scène couvrant le concept, en PRÉFÉRANT une scène de RÉCUPÉRATION quiz/spot_the_flaw/explain_back/comparison/summary_audit/prompt_practice à un intro passif, repli sur la 1re couvrante) ; méthodes host `nextReinforcement` + `nextReinforcementScene`. Test de PARITÉ-LOCKSTEP : host == engine pour les mêmes réponses+maîtrise.
+- `lesson-mcp` : outil `get_next_reinforcement {session_id, now_ms?}` → `{reinforcement: {concept_id, scene_id, due_at, retrievability} | null}` — la surface driver qui rend le routeur consommable par un VS Code natif (e2e : frais → null ; futur lointain → route vers la scène quiz).
+- HONNÊTETÉ : rien n'AUTO-route (pas d'injection dans la boucle d'avancement — ça toucherait la sélection cœur) ; le routeur EXPOSE la décision qu'un driver consomme (distinct de la lecture `reviewQueue`). La persistance cross-lesson de la mémoire FSRS reste un nice-to-have (la décision se calcule par-rejeu de l'historique de la session).
+
+**Vérification** : adaptation-engine 51 (1 neuf) + lesson-session-host 124 (11 neufs dont parité-lockstep + préférence-récupération) + lesson-mcp 13 (1 neuf e2e) ; `tsc` 3 packages exit 0. Revue adverse (workflow 4 lentilles dont lockstep + honnêteté-du-claim-routeur) → **0 must-fix / 1 should-fix + 2 nits** repliés (due_at honore opts.requestRetention ; préférence scène-récupération vs intro ; arithmétique maîtrise du commentaire 0.714).
+
+---
+
 ## 2026-06-28 — Surface ENSEIGNANT de complétion par leçon du parcours (niveau-classe)
 
 Rend visible au tableau de bord la complétion par leçon de la colonne de cours. HONNÊTETÉ : le pseudonyme télémétrique est salé par bundle_id (`session.ts:73`) → le MÊME humain a un pseudonyme DIFFÉRENT à chaque leçon. Donc le suivi par-individu cross-lesson est IMPOSSIBLE depuis la télémétrie (par conception, vie privée). La seule surface fidèle = des compteurs INDÉPENDANTS par leçon (apprenant·e·s distinct·e·s par leçon), JAMAIS un entonnoir/flux de rétention.

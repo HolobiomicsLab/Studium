@@ -47,9 +47,32 @@ describe("lesson-mcp tools", () => {
   it("lists the lesson tools", async () => {
     const client = await connect(bundlesDir());
     const names = (await client.listTools()).tools.map((t) => t.name);
-    for (const n of ["start_lesson_session", "get_current_scene", "submit_response", "get_scene_artifacts", "request_hint", "submit_turn", "explain_last_adaptation", "get_session_state", "end_session", "get_run_manifest", "submit_run_result"]) {
+    for (const n of ["start_lesson_session", "get_current_scene", "submit_response", "get_scene_artifacts", "request_hint", "submit_turn", "explain_last_adaptation", "get_session_state", "end_session", "get_run_manifest", "submit_run_result", "get_next_reinforcement"]) {
       expect(names).toContain(n);
     }
+  });
+  it("get_next_reinforcement routes FSRS: null when fresh, the covering scene once a mastered concept decays", async () => {
+    const client = await connect(bundlesDir());
+    const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json", learner_id: "you" } }) as never);
+    const sid = started.session_id as string;
+    // s0 intro → ack; s1 quiz → answer correctly so c1 reaches mastery (bloom "understand" ⇒ w=0.5 ⇒
+    // alpha 2.5 / beta 1 = 0.714 ≥ 0.6 minMastery gate)
+    await client.callTool({ name: "submit_response", arguments: { session_id: sid, input: { kind: "ack" } } });
+    await client.callTool({ name: "submit_response", arguments: { session_id: sid, input: { kind: "quiz_choice", choiceId: "b" } } });
+
+    // freshly answered ⇒ nothing has decayed yet ⇒ no reinforcement routed
+    const fresh = parse(await client.callTool({ name: "get_next_reinforcement", arguments: { session_id: sid } }) as never);
+    expect(fresh.reinforcement).toBeNull();
+
+    // far in the future ⇒ c1's recall has decayed ⇒ route to the RETRIEVAL scene covering c1 (the quiz
+    // s1, preferred over the intro s0)
+    const future = Date.UTC(2035, 0, 1);
+    const due = parse(await client.callTool({ name: "get_next_reinforcement", arguments: { session_id: sid, now_ms: future } }) as never);
+    const r = due.reinforcement as { concept_id: string; scene_id: string; retrievability: number } | null;
+    expect(r).not.toBeNull();
+    expect(r?.concept_id).toBe("c1");
+    expect(r?.scene_id).toBe("s1");
+    expect(r?.retrievability).toBeLessThan(1);
   });
   it("get_scene_artifacts returns the normalized render manifest for the current scene", async () => {
     const client = await connect(bundlesDir());

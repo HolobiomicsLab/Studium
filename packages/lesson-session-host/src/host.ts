@@ -17,7 +17,7 @@ import {
 import type { JudgmentGenerator } from "./judgment-generator.js";
 import {
   sceneRenderAssets, nextCourseLesson,
-  type RenderAsset, type ReferenceRun, type RunManifest, type Course, type CourseLesson,
+  type RenderAsset, type ReferenceRun, type RunManifest, type Course, type CourseLesson, type LessonBundle,
 } from "@studium/lesson-bundle-schema";
 import { runResultToReferenceRun, type RunResult } from "./run-result.js";
 import type { GraphView } from "@studium/typed-graph-lens";
@@ -164,6 +164,27 @@ function fsrsReviewMemory(
     lapses: s.lapses + (grade === 1 ? 1 : 0),
   };
 }
+// Reinforcement priority + the due-list / router-head — lockstep mirror of
+// @studium/adaptation-engine/src/fsrs.ts (reinforcementPriority / dueForReinforcement /
+// nextReinforcement). High priority = well-mastered yet decaying recall.
+function fsrsReinforcementPriority(masteryP: number, r: number): number {
+  return masteryP * (1 - r);
+}
+function fsrsDueForReinforcement(
+  states: Record<string, ConceptMemoryState>,
+  mastery: Record<string, number>,
+  nowMs: number,
+  opts: { requestRetention?: number; minMastery?: number } = {},
+): string[] {
+  const { requestRetention = 0.9, minMastery = 0.6 } = opts;
+  return Object.values(states)
+    .filter(
+      (s) => s.reps > 0 && (mastery[s.concept_id] ?? 0) >= minMastery && fsrsIsDue(s, nowMs, requestRetention),
+    )
+    .map((s) => ({ id: s.concept_id, p: fsrsReinforcementPriority(mastery[s.concept_id] ?? 0, fsrsRetrievability(s, nowMs)) }))
+    .sort((a, b) => b.p - a.p)
+    .map((x) => x.id);
+}
 
 /** Per-concept spaced-repetition read surfaced to the learner: is this concept due for review now,
  * when it next falls due, and how strongly retained it currently is. Derived from the learner's
@@ -234,6 +255,74 @@ export function reviewQueueFromState(
     });
   }
   return items.sort((a, b) => a.retrievability - b.retrievability);
+}
+
+/** The most-urgent concept to reinforce now (the FSRS ROUTER decision), or null. */
+export interface ReinforcementTarget {
+  concept_id: string;
+  /** Epoch ms when the concept fell due for reinforcement. */
+  due_at: number;
+  /** Current retrievability R(t) ∈ [0,1] (lower ⇒ more urgent). */
+  retrievability: number;
+}
+
+/** Build the FULL per-concept FSRS memory map for a LearnerState by replaying each seen concept's
+ * answer history. Pure; exported so the router and a unit test can reuse it (the same replay that
+ * feeds reviewQueueFromState). */
+export function conceptMemoryFromState(state: LearnerState): Record<string, ConceptMemoryState> {
+  const out: Record<string, ConceptMemoryState> = {};
+  for (const concept_id of Object.keys(state.concept_states)) {
+    out[concept_id] = memoryFromHistory(concept_id, state);
+  }
+  return out;
+}
+
+/** FSRS as a ROUTER (not a readout): the single most-urgent concept to reinforce now for this
+ * LearnerState, or null. Replays answer history → memory, gates on mastery (masteryOf ≥ minMastery)
+ * and due-ness, and picks the top-priority concept. Promotes FSRS from the reviewQueue *list* to a
+ * selection *decision* a router/driver acts on. Pure; `nowMs` injected for determinism. */
+export function nextReinforcementFromState(
+  state: LearnerState,
+  nowMs: number,
+  opts: { requestRetention?: number; minMastery?: number } = {},
+): ReinforcementTarget | null {
+  const mem = conceptMemoryFromState(state);
+  const mastery: Record<string, number> = {};
+  for (const [cid, cs] of Object.entries(state.concept_states)) mastery[cid] = masteryOf(cs);
+  const cid = fsrsDueForReinforcement(mem, mastery, nowMs, opts)[0];
+  if (cid === undefined) return null;
+  const m = mem[cid] as ConceptMemoryState;
+  // due_at MUST honor the same requestRetention as the due-gate above, else a non-default retention
+  // could report a due_at > nowMs for a concept the gate just declared due (matches reviewQueueFromState).
+  return { concept_id: cid, due_at: fsrsDueAt(m, opts.requestRetention), retrievability: fsrsRetrievability(m, nowMs) };
+}
+
+/** Scene types that RE-TEST recall (active retrieval), preferred for a reinforcement pass over a
+ * passive intro/exposition — reinforcement is about retrieval practice, not re-reading. */
+const RETRIEVAL_SCENE_TYPES = new Set<string>([
+  "quiz", "spot_the_flaw", "explain_back", "comparison", "summary_audit", "prompt_practice",
+]);
+
+/** ROUTE the FSRS decision to CONTENT: the bundle scene that addresses the most-urgent due concept
+ * (its `concept_refs` includes that concept), preferring an active RETRIEVAL scene (quiz / spot_the_flaw
+ * / explain_back / comparison / summary_audit / prompt_practice) over a passive intro, and falling back
+ * to the first covering scene of any type. Null when nothing is due / no scene covers it. Pure; the
+ * host wraps it with the live session's bundle + state. */
+export function reinforcementSceneFromState(
+  bundle: LessonBundle,
+  state: LearnerState,
+  nowMs: number,
+  opts: { requestRetention?: number; minMastery?: number } = {},
+): string | null {
+  const target = nextReinforcementFromState(state, nowMs, opts);
+  if (!target) return null;
+  const covers = (s: LessonBundle["scenes"][number]): boolean =>
+    (s.concept_refs ?? []).includes(target.concept_id);
+  // Prefer an active RETRIEVAL scene (re-test recall) over a passive intro/exposition; fall back to
+  // the first covering scene of any type when the bundle has no retrieval scene for the concept.
+  const scene = bundle.scenes.find((s) => covers(s) && RETRIEVAL_SCENE_TYPES.has(s.type)) ??
+    bundle.scenes.find(covers);
+  return scene?.id ?? null;
 }
 
 /** Map a concept's hidden `confidence_calibration` to a learner-facing, NUMBER-FREE verdict. Returns
@@ -503,6 +592,21 @@ export class SessionHost {
    * deterministic tests; defaults to wall-clock. A UI renders the due items as a "À réviser" cue. */
   reviewQueue(id: string, nowMs: number = Date.now()): ReviewQueueItem[] {
     return reviewQueueFromState(this.require(id).session.getState(), nowMs);
+  }
+
+  /** Spaced-repetition ROUTER (vs the reviewQueue readout): the single most-urgent concept to
+   * reinforce now, or null. The decision a selection loop acts on — "what should the learner
+   * reinforce next" — derived from the FSRS replay of the learner's answer history. */
+  nextReinforcement(id: string, nowMs: number = Date.now()): ReinforcementTarget | null {
+    return nextReinforcementFromState(this.require(id).session.getState(), nowMs);
+  }
+
+  /** ROUTE the FSRS decision to CONTENT: the id of the bundle scene that addresses the most-urgent
+   * due concept (its `concept_refs` includes it), or null when nothing is due. A driver surfaces
+   * this scene for a reinforcement pass instead of advancing linearly. */
+  nextReinforcementScene(id: string, nowMs: number = Date.now()): string | null {
+    const e = this.require(id);
+    return reinforcementSceneFromState(e.bundle, e.session.getState(), nowMs);
   }
 
   /** Learner-facing metacognitive-calibration verdicts (number-free, mastery never leaked) for every
