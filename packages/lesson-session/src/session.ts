@@ -52,6 +52,11 @@ export class LessonSession {
    * `reference_from_run` is grounded on the learner's OWN run (injected by scene()), closing the
    * operation→judgment loop: the learner audits a flawed AI reading of the result THEY produced. */
   private learnerRuns = new Map<string, ReferenceRun>();
+  /** Host-set per-scene field overrides (keyed by scene id). Used by per-run REGENERATION: when the
+   * learner runs a capsule, the host regenerates a downstream spot_the_flaw's flawed_content/claims/
+   * model_correction from the learner's OWN run and sets them here, so both presentation and grading see
+   * the regenerated judgment (the regenerated answer key stays server-side — publicScene still strips it). */
+  private sceneOverrides = new Map<string, Record<string, unknown>>();
 
   constructor(
     private readonly bundle: LessonBundle,
@@ -143,9 +148,19 @@ export class LessonSession {
     this.learnerRuns.set(taskCardId, run);
   }
 
+  /** Override fields on a scene (by id) — used by per-run REGENERATION (the host regenerates a
+   * spot_the_flaw's flawed_content/claims/model_correction from the learner's run). Merged in scene(). */
+  setSceneOverride(sceneId: string, override: Record<string, unknown>): void {
+    this.sceneOverrides.set(sceneId, { ...(this.sceneOverrides.get(sceneId) ?? {}), ...override });
+  }
+
   // --- protected helpers shared with respond()/submitTurn() (Tasks 8–10) ---
   protected scene(): Scene {
-    const s = this.bundle.scenes[this.idx] as Scene;
+    let s = this.bundle.scenes[this.idx] as Scene;
+    // PER-RUN REGENERATION: a host-set override (regenerated from the learner's run) merges FIRST, so
+    // both presentation and grading see the regenerated flawed_content/claims/model_correction.
+    const override = this.sceneOverrides.get(s.id);
+    if (override) s = { ...s, ...override } as Scene;
     // LEARNER-RUN GROUNDING: a spot_the_flaw with reference_from_run audits a flawed reading of the
     // learner's OWN run — inject the recorded run as reference_result so BOTH the surfaced evidence AND
     // the grader (judgment_audit -> trust_calibration) see the learner's result. No run -> authored scene.

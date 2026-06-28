@@ -299,9 +299,11 @@ class SpotTheFlawScene(_SceneBase):
     reference_result: Optional[ReferenceRun] = None
     # OPTIONAL learner-run grounding (mirror of TS): a task_card_id whose LEARNER-TIME run grounds this
     # judgment (the host injects the recorded run as reference_result at session time — audit YOUR OWN run).
-    # SOUNDNESS: DETERMINISTIC capsules only — the authored claims/flaws are NOT regenerated from the
-    # learner's run, so a stable landmark across runs is required (see SpotTheFlawSceneSchema TS).
     reference_from_run: Optional[str] = None
+    # OPTIONAL per-run REGENERATION (mirror of TS): with reference_from_run set, the host regenerates
+    # flawed_content + claims from the LEARNER's actual run (server-side), so the flaws match even for a
+    # STOCHASTIC capsule (lifts the determinism caveat). Off ⇒ authored flaws (deterministic capsules only).
+    regenerate_from_run: Optional[bool] = None
 
 
 class KeyPoint(BaseModel):

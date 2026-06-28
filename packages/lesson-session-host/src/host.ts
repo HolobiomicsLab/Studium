@@ -14,6 +14,7 @@ import {
 import {
   PROFILE_PSEUDONYM_SCOPE, FileLearnerProfileStore, InMemoryLearnerProfileStore, type LearnerProfileStore,
 } from "./learner-profile-store.js";
+import type { JudgmentGenerator } from "./judgment-generator.js";
 import {
   sceneRenderAssets, nextCourseLesson,
   type RenderAsset, type ReferenceRun, type RunManifest, type Course, type CourseLesson,
@@ -269,7 +270,14 @@ export function calibrationVerdict(cs: ConceptState): CalibrationVerdict | null 
   };
 }
 
-export interface SessionHostOptions { bundlesRoot: string; live: boolean; }
+export interface SessionHostOptions {
+  bundlesRoot: string;
+  live: boolean;
+  /** OPTIONAL per-run judgment regenerator. When present, a spot_the_flaw with regenerate_from_run has its
+   * flawed_content/claims regenerated from the learner's OWN run (server-side) when they run the capsule —
+   * sound even for a stochastic capsule. Absent ⇒ authored flaws (deterministic). */
+  judgmentGenerator?: JudgmentGenerator;
+}
 
 export class PeerRoomError extends Error {
   constructor(msg: string) { super(msg); this.name = "PeerRoomError"; }
@@ -402,11 +410,34 @@ export class SessionHost {
     if (!result.passed) return { status: "run_failed_checks", transition: null, learnerRunRecorded: false };
     let learnerRunRecorded = false;
     if (scene.task_card_id) {
-      this.recordLearnerRun(id, scene.task_card_id, runResultToReferenceRun(result));
+      const learnerRun = runResultToReferenceRun(result);
+      this.recordLearnerRun(id, scene.task_card_id, learnerRun);
       learnerRunRecorded = true;
+      // PER-RUN REGENERATION: regenerate downstream spot_the_flaw judgments from the learner's OWN run
+      // (server-side) so the planted flaws match THEIR numbers — sound for a stochastic capsule too.
+      if (this.opts.judgmentGenerator) await this.regenerateDownstreamJudgments(id, scene.task_card_id, learnerRun);
     }
     const transition = await this.respond(id, { kind: "ack" } as ResponseInput);
     return { status: "ran", transition, learnerRunRecorded };
+  }
+
+  /** Regenerate every spot_the_flaw scene grounded on this capsule run (reference_from_run === taskCardId)
+   * AND flagged regenerate_from_run: ask the injected generator for a flawed reading + answer key built on
+   * the learner's OWN run, and set it as a server-side scene override (publicScene still strips the claims).
+   * No-op without a generator (the authored, deterministic flaws stand). */
+  private async regenerateDownstreamJudgments(id: string, taskCardId: string, refRun: ReferenceRun): Promise<void> {
+    const gen = this.opts.judgmentGenerator;
+    if (!gen) return;
+    const e = this.require(id);
+    for (const sc of e.bundle.scenes) {
+      const s = sc as { id: string; type: string; reference_from_run?: string; regenerate_from_run?: boolean; concept_refs?: string[]; title?: string };
+      if (s.type !== "spot_the_flaw" || !s.regenerate_from_run || s.reference_from_run !== taskCardId) continue;
+      const out = await gen.generateFlaw({ reference_run: refRun, concept_id: s.concept_refs?.[0] ?? "", objective_text: s.title ?? "" });
+      e.session.setSceneOverride(s.id, {
+        flawed_content: out.flawed_content, claims: out.claims, model_correction: out.model_correction,
+        ...(out.rubric ? { rubric: out.rubric } : {}),
+      });
+    }
   }
 
   async respond(id: string, input: ResponseInput): Promise<Transition> {

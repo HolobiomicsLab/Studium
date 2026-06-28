@@ -241,6 +241,12 @@ export const SpotTheFlawSceneSchema = SceneBaseSchema.extend({
   // author `reference_from_run` against a deterministic capsule; for stochastic ones keep a pre-baked
   // author `reference_result` (or regenerate the flaws per-run — a deferred enhancement).
   reference_from_run: z.string().optional(),
+  // OPTIONAL per-run REGENERATION (lifts the determinism caveat above): with reference_from_run set, the
+  // host REGENERATES flawed_content + claims + model_correction from the LEARNER's actual run (server-side,
+  // via an injected judgment generator) when the learner runs the capsule — so the planted flaws match the
+  // learner's real numbers even for a STOCHASTIC capsule. The regenerated answer key stays server-side
+  // (publicScene still strips claims/model_correction). Off ⇒ the authored flaws are used (deterministic).
+  regenerate_from_run: z.boolean().optional(),
 });
 
 // A key idea a good explanation should contain. `cues` (>=1) are the phrases the offline coverage
