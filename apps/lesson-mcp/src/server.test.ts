@@ -1,11 +1,14 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { SessionHost } from "@studium/lesson-session-host";
 import { buildMcpServer } from "./server.js";
+
+const FIXTURES = resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "fixtures");
 
 const MINI = {
   schema_version: "1.4", bundle_id: "mini-001", source_plan_id: "p",
@@ -44,7 +47,7 @@ describe("lesson-mcp tools", () => {
   it("lists the lesson tools", async () => {
     const client = await connect(bundlesDir());
     const names = (await client.listTools()).tools.map((t) => t.name);
-    for (const n of ["start_lesson_session", "get_current_scene", "submit_response", "get_scene_artifacts", "request_hint", "submit_turn", "explain_last_adaptation", "get_session_state", "end_session"]) {
+    for (const n of ["start_lesson_session", "get_current_scene", "submit_response", "get_scene_artifacts", "request_hint", "submit_turn", "explain_last_adaptation", "get_session_state", "end_session", "get_run_manifest", "submit_run_result"]) {
       expect(names).toContain(n);
     }
   });
@@ -151,5 +154,79 @@ describe("lesson-mcp tools", () => {
     const sid = started["session_id"] as string;
     const ended = parse(await client.callTool({ name: "end_session", arguments: { session_id: sid } }) as never);
     expect(ended["forgotten"]).toBe(true);
+  });
+});
+
+describe("lesson-mcp — learner-time run protocol parity (run.json / run_result.json over MCP)", () => {
+  const BUNDLE = "capsule-loop-demo/lesson.json"; // intro + reproduction(run_manifest) + spot_the_flaw(reference_from_run)
+  const PASS = {
+    ran: true, passed: true, landmark: "LANDMARK k_fit=0.4212 half_life=1.6457",
+    artifacts: ["outputs/stats.csv", "figures/decay.png"],
+    checks: [{ check: "file exists: outputs/stats.csv", passed: true }],
+  };
+  const start = async (client: Client) =>
+    (parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: BUNDLE } }) as never))["session_id"] as string;
+  const ackIntro = async (client: Client, sid: string) =>
+    client.callTool({ name: "submit_response", arguments: { session_id: sid, input: { kind: "ack" } } }); // intro -> run scene
+  const sceneType = async (client: Client, sid: string) =>
+    ((parse(await client.callTool({ name: "get_current_scene", arguments: { session_id: sid } }) as never))["presentation"] as { scene: { type: string } }).scene.type;
+
+  it("get_run_manifest is null on a non-run scene, returns the (non-answer-bearing) manifest on the run scene", async () => {
+    const client = await connect(FIXTURES);
+    const sid = await start(client);
+    expect((parse(await client.callTool({ name: "get_run_manifest", arguments: { session_id: sid } }) as never))["run_manifest"]).toBeNull();
+    await ackIntro(client, sid);
+    const m = (parse(await client.callTool({ name: "get_run_manifest", arguments: { session_id: sid } }) as never))["run_manifest"] as { cmd: string[]; expected_outputs: string[] };
+    expect(m.cmd).toEqual(["python", "scripts/run.py"]);
+    expect(m.expected_outputs).toContain("outputs/stats.csv");
+    expect(JSON.stringify(m)).not.toContain("k_fit"); // no author landmark / expected values
+  });
+
+  it("submit_run_result gates on ran && passed — self-heals (no advance) on a failed run", async () => {
+    const client = await connect(FIXTURES);
+    const sid = await start(client);
+    await ackIntro(client, sid);
+    const a = parse(await client.callTool({ name: "submit_run_result", arguments: { session_id: sid, run_result: { ran: false, passed: false } } }) as never);
+    expect(a["status"]).toBe("run_incomplete");
+    expect(a["transition"]).toBeNull();
+    expect(await sceneType(client, sid)).toBe("reproduction"); // still on the run scene (no advance)
+    const b = parse(await client.callTool({ name: "submit_run_result", arguments: { session_id: sid, run_result: { ran: true, passed: false, checks: [{ check: "file exists: outputs/stats.csv", passed: false }] } } }) as never);
+    expect(b["status"]).toBe("run_failed_checks");
+    expect(await sceneType(client, sid)).toBe("reproduction");
+  });
+
+  it("a passing run advances, grounds the later judgment on the LEARNER's run (redacted), and feeds trust_calibration", async () => {
+    const client = await connect(FIXTURES);
+    const sid = await start(client);
+    await ackIntro(client, sid);
+    const r = parse(await client.callTool({ name: "submit_run_result", arguments: { session_id: sid, run_result: PASS } }) as never);
+    expect(r["status"]).toBe("ran");
+    expect(r["learner_run_recorded"]).toBe(true);
+    expect((r["transition"] as { kind: string }).kind).toBe("next"); // advanced to the judgment
+
+    const cur = parse(await client.callTool({ name: "get_current_scene", arguments: { session_id: sid } }) as never);
+    const scene = (cur["presentation"] as { scene: Record<string, unknown> }).scene;
+    expect(scene["type"]).toBe("spot_the_flaw");
+    expect((scene["reference_result"] as { landmark?: string }).landmark).toContain("k_fit=0.4212"); // the LEARNER's run
+    expect("claims" in scene).toBe(false); // answer key still redacted over MCP
+    expect(JSON.stringify(cur)).not.toContain("model_correction");
+
+    const arts = parse(await client.callTool({ name: "get_scene_artifacts", arguments: { session_id: sid } }) as never);
+    const execAsset = (arts["scene_assets"] as Array<{ kind: string; meta?: { landmark?: string } }>).find((a) => a.kind === "executed_result");
+    expect(execAsset?.meta?.landmark).toContain("k_fit=0.4212");
+
+    await client.callTool({ name: "submit_response", arguments: { session_id: sid, input: { kind: "flaw_report", text: "k a des unites (1/temps), pas sans dimension" } } });
+    const st = parse(await client.callTool({ name: "get_session_state", arguments: { session_id: sid } }) as never);
+    const cs = (st["state"] as { concept_states: Record<string, { trust_calibration_samples?: number }> }).concept_states["c-kinetics"];
+    expect(cs?.trust_calibration_samples).toBeGreaterThanOrEqual(1); // judging YOUR OWN run fed trust over MCP
+  });
+
+  it("submit_run_result on a NON-run scene is rejected (not_a_run_scene), never advances", async () => {
+    const client = await connect(FIXTURES);
+    const sid = await start(client); // still on intro (not a run scene)
+    const r = parse(await client.callTool({ name: "submit_run_result", arguments: { session_id: sid, run_result: PASS } }) as never);
+    expect(r["status"]).toBe("not_a_run_scene");
+    expect(r["transition"]).toBeNull();
+    expect(await sceneType(client, sid)).toBe("intro");
   });
 });

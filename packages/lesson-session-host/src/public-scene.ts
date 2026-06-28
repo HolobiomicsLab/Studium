@@ -56,6 +56,9 @@ export function publicScene(scene: Scene): PublicScene {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(src)) {
     if ((REDACTED_SCENE_FIELDS as readonly string[]).includes(key)) continue;
+    // Withhold the AUTHOR's executed run on a LEARNER-TIME RUN scene (run_manifest present): the learner
+    // must produce a FRESH result by running it — surfacing the author landmark would let them echo it.
+    if (key === "reference_result" && "run_manifest" in src) continue;
     if (key === "choices" && Array.isArray(value)) {
       out[key] = value.map((c) => stripChoice(c));
       continue;

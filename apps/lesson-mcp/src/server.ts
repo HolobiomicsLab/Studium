@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { SessionHost, ResponseInputSchema, publicPresentation, publicTransition } from "@studium/lesson-session-host";
+import { SessionHost, ResponseInputSchema, RunResultSchema, publicPresentation, publicTransition } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
@@ -70,6 +70,50 @@ export function buildMcpServer(host: SessionHost): McpServer {
     async ({ session_id }) => {
       try { return text({ scene_assets: host.sceneArtifacts(session_id) }); }
       catch (e) { return fail((e as Error).message); }
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // Learner-time RUN protocol — MCP parity with the file channel (.studium-session/ run.json /
+  // run_result.json). Studium NEVER executes: the operator provisions + runs the capsule in the
+  // workspace, then submits the result. The native VS Code surface drives the run + judgment loop here.
+  // ---------------------------------------------------------------------------
+
+  server.registerTool(
+    "get_run_manifest",
+    {
+      description: "Get the learner-time RUN manifest for the current scene — the provisioning/run " +
+        "instructions {capsule_ref, cmd, working_dir?, timeout_s?, requirements?, expected_outputs[], " +
+        "verify_checks[], research_question?} — when the current scene is a reproduction the LEARNER must " +
+        "run, else null. NON-answer-bearing (no expected values, no author landmark): the operator " +
+        "provisions the env, installs the deps, runs `cmd` IN THE WORKSPACE, then calls submit_run_result.",
+      inputSchema: { session_id: z.string() },
+    },
+    async ({ session_id }) => {
+      try { return text({ run_manifest: host.runManifest(session_id) }); }
+      catch (e) { return fail((e as Error).message); }
+    },
+  );
+
+  server.registerTool(
+    "submit_run_result",
+    {
+      description: "Submit the result of the learner running the capsule in the workspace (Studium NEVER " +
+        "executes). Gates advance on ran && passed: a passing run records the learner's OWN executed " +
+        "result (so a later judgment scene is grounded on it) and advances; a ran:false / failed-checks " +
+        "run does NOT advance. Returns {status: ran|run_incomplete|run_failed_checks|not_a_run_scene, " +
+        "learner_run_recorded, transition?} — transition (redacted) present only on a passing run.",
+      inputSchema: { session_id: z.string(), run_result: RunResultSchema },
+    },
+    async ({ session_id, run_result }) => {
+      try {
+        const r = await host.ingestRunResult(session_id, run_result);
+        return text({
+          status: r.status,
+          learner_run_recorded: r.learnerRunRecorded,
+          transition: r.transition ? publicTransition(r.transition) : null,
+        });
+      } catch (e) { return fail((e as Error).message); }
     },
   );
 

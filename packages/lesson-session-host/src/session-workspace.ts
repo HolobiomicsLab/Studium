@@ -22,7 +22,7 @@ import { mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { SessionHost } from "./host.js";
 import { publicScene, publicTransition } from "./public-scene.js";
-import { parseRunResult, runResultToReferenceRun, type RunResult } from "./run-result.js";
+import { parseRunResult, type RunResult } from "./run-result.js";
 
 const FILES = {
   task: "task.md", response: "response.json", feedback: "feedback.md", index: "index.json",
@@ -178,14 +178,25 @@ export class SessionWorkspace {
       await this.writeRunFeedback("⚠️ `run_result.json` invalide ou partiel. Reecris-le (ecriture atomique).");
       return { done: false, transition: "awaiting_run" };
     }
-    if (!result.ran) {
+    // SHARED run-ingest core (host.ingestRunResult) — gates on ran && passed, records the learner's run
+    // (so a later reference_from_run judgment grounds on it) and advances. The file channel adds only its
+    // own I/O (consume run_result.json, write feedback.md + the next task) around it, so the MCP and file
+    // channels can't drift on the gating logic.
+    let r: { status: string; transition: unknown; learnerRunRecorded: boolean };
+    try { r = await this.host.ingestRunResult(sessionId, result); }
+    catch (e) {
+      await rm(join(this.dir, FILES.runResult), { force: true });
+      await this.writeRunFeedback(`⚠️ Run ingere mais l'avancement a echoue (${(e as Error).message}).`);
+      return { done: false, transition: "invalid_run" };
+    }
+    if (r.status === "run_incomplete") {
       await rm(join(this.dir, FILES.runResult), { force: true });
       await this.writeRunFeedback(
         "⚠️ Le run n'a pas abouti (`ran:false`). Provisionne l'env (installe les dependances de " +
         "`run.json`), relance la commande, puis reecris `run_result.json`.");
       return { done: false, transition: "run_incomplete" };
     }
-    if (!result.passed) {
+    if (r.status === "run_failed_checks") {
       const failing = result.checks.filter((c) => !c.passed).map((c) => c.check);
       await rm(join(this.dir, FILES.runResult), { force: true });
       await this.writeRunFeedback(
@@ -193,19 +204,14 @@ export class SessionWorkspace {
         "Corrige et relance.");
       return { done: false, transition: "run_failed_checks" };
     }
-    // ran && passed -> record the learner's own run, then advance (reproduction = lightly graded via ack).
-    // Ground a LATER judgment on it: store it on the session keyed by this capsule's task_card_id, so a
-    // spot_the_flaw with reference_from_run audits a flawed reading of the result the LEARNER produced.
-    const taskCardId = (this.host.currentPresentation(sessionId) as { scene: { task_card_id?: string } }).scene.task_card_id;
-    if (taskCardId) this.host.recordLearnerRun(sessionId, taskCardId, runResultToReferenceRun(result));
-    await this.markRan(sessionId, result);
-    let t: Record<string, unknown>;
-    try { t = publicTransition(await this.host.respond(sessionId, { kind: "ack" } as never)) as Record<string, unknown>; }
-    catch (e) {
+    if (r.status !== "ran" || !r.transition) { // not_a_run_scene — should not happen (ingest routes run scenes)
       await rm(join(this.dir, FILES.runResult), { force: true });
-      await this.writeRunFeedback(`⚠️ Run ingere mais l'avancement a echoue (${(e as Error).message}).`);
+      await this.writeRunFeedback("⚠️ `run_result.json` ignore : la scene courante n'est pas une scene a executer.");
       return { done: false, transition: "invalid_run" };
     }
+    // ran && passed: the host recorded the learner's run + advanced. Mark the step + write the next task.
+    await this.markRan(sessionId, result);
+    const t = publicTransition(r.transition as Parameters<typeof publicTransition>[0]) as Record<string, unknown>;
     await rm(join(this.dir, FILES.runResult), { force: true }); // consume: next scene starts fresh
     await writeFile(join(this.dir, FILES.feedback), renderRunFeedback(result, t), "utf8");
     if (t.kind === "complete") {

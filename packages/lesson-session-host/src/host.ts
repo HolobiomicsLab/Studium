@@ -7,7 +7,8 @@ import {
   type Presentation, type ResponseInput, type Transition, type Explanation, type HintResult,
 } from "@studium/lesson-session";
 import { masteryOf, type ConceptState, type LearnerState } from "@studium/learner-state";
-import { sceneRenderAssets, type RenderAsset, type ReferenceRun } from "@studium/lesson-bundle-schema";
+import { sceneRenderAssets, type RenderAsset, type ReferenceRun, type RunManifest } from "@studium/lesson-bundle-schema";
+import { runResultToReferenceRun, type RunResult } from "./run-result.js";
 import type { GraphView } from "@studium/typed-graph-lens";
 import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
 import { SessionRegistry, type SessionEntry } from "./registry.js";
@@ -330,13 +331,48 @@ export class SessionHost {
    * scene (figure, equation, interactive plot, executed reference run, …). Empty for a plain quiz. */
   sceneArtifacts(id: string): RenderAsset[] {
     const e = this.require(id);
-    return sceneRenderAssets(e.session.currentPresentation().scene).map((a) => inlineFileAsset(a, e.baseDir, e.assetCache));
+    const scene = e.session.currentPresentation().scene;
+    const assets = sceneRenderAssets(scene).map((a) => inlineFileAsset(a, e.baseDir, e.assetCache));
+    // A LEARNER-TIME RUN scene (run_manifest present) WITHHOLDS its author executed run — the learner
+    // produces a fresh result by running it (parity with the file channel + publicScene).
+    if ((scene as { run_manifest?: unknown }).run_manifest) return assets.filter((a) => a.kind !== "executed_result");
+    return assets;
   }
   /** Record a learner-time capsule run (the learner's OWN executed result) on the session, keyed by
    * task_card_id, so a later spot_the_flaw with `reference_from_run` grounds on it. Called after the
    * host ingests the operator's run_result.json (run protocol) — closes the operation→judgment loop. */
   recordLearnerRun(id: string, taskCardId: string, run: ReferenceRun): void {
     this.require(id).session.recordLearnerRun(taskCardId, run);
+  }
+
+  /** The learner-time RUN manifest for the current scene (the provisioning/run instructions a
+   * reproduction scene needs), or null when the current scene is not a learner-run scene.
+   * NON-answer-bearing — capsule ref / install / cmd / produced file names / file-existence checks. */
+  runManifest(id: string): RunManifest | null {
+    const scene = this.require(id).session.currentPresentation().scene as { run_manifest?: RunManifest };
+    return scene.run_manifest ?? null;
+  }
+
+  /** Ingest a learner-produced run_result — Studium NEVER executes (the operator ran it in the workspace).
+   * The SHARED run-ingest core used by BOTH channels (MCP submit_run_result + the file channel's
+   * SessionWorkspace.ingestRun), so they cannot drift. Gates advance on `ran && passed`: a passing run
+   * records the learner's OWN executed result (keyed by the run scene's task_card_id, so a later
+   * reference_from_run judgment grounds on it) and advances via an ack; a non-completed / failed-checks
+   * run does NOT advance. Guards a non-run scene (no run_manifest) so it never advances an arbitrary scene. */
+  async ingestRunResult(
+    id: string, result: RunResult,
+  ): Promise<{ status: "ran" | "run_incomplete" | "run_failed_checks" | "not_a_run_scene"; transition: Transition | null; learnerRunRecorded: boolean }> {
+    const scene = this.require(id).session.currentPresentation().scene as { run_manifest?: unknown; task_card_id?: string };
+    if (!scene.run_manifest) return { status: "not_a_run_scene", transition: null, learnerRunRecorded: false };
+    if (!result.ran) return { status: "run_incomplete", transition: null, learnerRunRecorded: false };
+    if (!result.passed) return { status: "run_failed_checks", transition: null, learnerRunRecorded: false };
+    let learnerRunRecorded = false;
+    if (scene.task_card_id) {
+      this.recordLearnerRun(id, scene.task_card_id, runResultToReferenceRun(result));
+      learnerRunRecorded = true;
+    }
+    const transition = await this.respond(id, { kind: "ack" } as ResponseInput);
+    return { status: "ran", transition, learnerRunRecorded };
   }
 
   async respond(id: string, input: ResponseInput): Promise<Transition> {

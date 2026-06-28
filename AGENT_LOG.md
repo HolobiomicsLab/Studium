@@ -4,6 +4,18 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-28 — Parité canal MCP : protocole de run pour VS Code natif
+
+Donne au canal MCP (surface VS Code native, MCP-only) la parité avec le canal fichier pour le protocole de run apprenant — pour que l'extension studium-vscode puisse piloter la boucle run + jugement. Studium n'exécute JAMAIS.
+
+- `apps/lesson-mcp/server.ts` : 2 nouveaux outils — `get_run_manifest` (le manifeste de provisioning/run de la scène courante, NON porteur de réponse, ou null) et `submit_run_result` (ingère le run de l'opérateur ; gate sur ran&&passed ; renvoie {status, learner_run_recorded, transition? redacted}).
+- `lesson-session-host/host.ts` : cœur PARTAGÉ `ingestRunResult(id, result)` (gate ran&&passed → recordLearnerRun(task_card_id) → avance via ack ; garde-fou `not_a_run_scene`) utilisé par les DEUX canaux (l'outil MCP + `SessionWorkspace.ingestRun` REFACTORISÉ pour l'appeler — pas de dérive) ; + `runManifest(id)`.
+- REDACTION : une scène de run (run_manifest présent) RETIENT son run d'auteur — `publicScene` drop `reference_result` + `host.sceneArtifacts` filtre `executed_result` (parité avec le canal fichier ; l'apprenant produit frais). Le jugement `reference_from_run` reste ancré sur le run de l'APPRENANT côté MCP, et la clé-réponse reste redacted.
+
+**Vérification** : lesson-mcp 12 (parité : manifeste null/présent ; gate ran&&passed + self-heal ; passing→avance + jugement ancré sur le run apprenant + trust_calibration alimenté ; not_a_run_scene) + lesson-session-host 105 (redaction publicScene/sceneArtifacts) + canal fichier inchangé (refacto sans régression) ; `tsc --noEmit` host+mcp ; suite TS complète exit 0. Revue adverse multi-lentilles (workflow : 4 lentilles + réfutation par finding).
+
+---
+
 ## 2026-06-28 — Boucle opération→jugement : ancrer un jugement sur le run de l'APPRENANT
 
 Ferme la boucle nord-star : l'apprenant lance la capsule lui-même (protocole de run), PUIS audite une lecture IA défectueuse de SON PROPRE résultat exécuté — et ce jugement alimente `trust_calibration`. « Opération réelle = véhicule ; jugement calibré d'un artefact réel = destination. »
