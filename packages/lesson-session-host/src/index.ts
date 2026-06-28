@@ -23,7 +23,8 @@ export {
 } from "./learner-profile-store.js";
 export { resolveCourse } from "./course-resolver.js";
 export {
-  StubJudgmentGenerator, type JudgmentGenerator, type JudgmentGenInput, type GeneratedFlaw,
+  StubJudgmentGenerator, HttpLlmJudgmentGenerator,
+  type JudgmentGenerator, type JudgmentGenInput, type GeneratedFlaw,
 } from "./judgment-generator.js";
 export {
   runStudiumSession, stubOperator, watchOperator, makeLlmOperator, writeResponse, writeRunResult,
