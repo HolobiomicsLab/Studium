@@ -7,6 +7,8 @@ import {
   getProgressMetrics,
   getCalibration,
   getTrustCalibration,
+  getCourseCompletion,
+  getCourse,
   getAutonomy,
   getConceptMasteryHistory,
   getAILiteracy,
@@ -90,6 +92,31 @@ describe("teacher-dashboard api wrapper", () => {
     await getTrustCalibration("c");
     const url = (global.fetch as any).mock.calls[0][0];
     expect(url).not.toContain("learner=");
+  });
+
+  it("getCourseCompletion hits /metrics/course-completion with token", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ lessons: { l1: { n_completed: 2 } }, total_completions: 3 }),
+    });
+    const r = await getCourseCompletion("c");
+    expect(r.lessons.l1.n_completed).toBe(2);
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toContain("/metrics/course-completion?course=c");
+    expect(call[1].headers["X-Course-Token"]).toBe("c");
+  });
+
+  it("getCourse fetches a parsed manifest from lesson-server and unwraps .course", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, ok: true, course: { course_id: "k", title: "T", schema_version: "1.0", lessons: [] } }),
+    });
+    const r = await getCourse("courses/decay-course.json");
+    expect(r.course_id).toBe("k");
+    const url = (global.fetch as any).mock.calls[0][0];
+    expect(url).toContain("/courses?ref=courses%2Fdecay-course.json");
   });
 
   it("getAutonomy returns ratio + critique_completion_rate", async () => {

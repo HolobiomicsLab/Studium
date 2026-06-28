@@ -90,6 +90,51 @@ def compute_progress(
     }
 
 
+def compute_course_completion(
+    data_dir: Path,
+    course: str,
+    bundle_version: str | None = None,
+) -> dict:
+    """Class-level course-spine funnel: distinct completers per lesson.
+
+    For each lesson_id seen in ``lesson_completed`` telemetry (lesson_id ==
+    bundle_id, stamped on every event), count the DISTINCT ``learner_pseudonym``
+    that completed it. The dashboard overlays the CourseSchema spine (order +
+    prerequisites) on top of these counts.
+
+    HONESTY BOUNDARY: the telemetry ``learner_pseudonym`` is salted by bundle_id,
+    so the SAME human has a DIFFERENT pseudonym in each lesson. Distinct counts
+    are therefore valid WITHIN a lesson, but per-individual cross-lesson paths
+    (did the learner who finished A go on to finish B?) are NOT recoverable from
+    telemetry by design — that identity lives only in the cross-lesson profile
+    store. This funnel makes no per-individual cross-lesson claim.
+
+    Returns::
+        {
+          "lessons": { lesson_id: { "n_completed": <distinct pseudonyms> } },
+          "total_completions": <count of lesson_completed events>,
+        }
+    """
+    by_lesson: dict[str, set[str]] = defaultdict(set)
+    total = 0
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
+        if ev.get("type") != "lesson_completed":
+            continue
+        lesson_id = ev.get("lesson_id")
+        if not lesson_id:
+            continue
+        total += 1
+        pseudo = ev.get("learner_pseudonym")
+        if pseudo:
+            by_lesson[lesson_id].add(pseudo)
+        else:
+            by_lesson[lesson_id]  # touch so a pseudonym-less completion still registers the lesson
+    return {
+        "lessons": {lid: {"n_completed": len(ps)} for lid, ps in by_lesson.items()},
+        "total_completions": total,
+    }
+
+
 def compute_calibration(
     data_dir: Path,
     course: str,

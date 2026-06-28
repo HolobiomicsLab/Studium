@@ -4,6 +4,7 @@ type Props = {
   token: string;
   active:
     | "progress"
+    | "course-progress"
     | "calibration"
     | "trust-calibration"
     | "autonomy"
@@ -18,6 +19,7 @@ type Props = {
 
 const TABS: { key: Props["active"]; label: string }[] = [
   { key: "progress", label: "Progression" },
+  { key: "course-progress", label: "Parcours" },
   { key: "calibration", label: "Calibration" },
   { key: "trust-calibration", label: "Confiance IA" },
   { key: "autonomy", label: "Autonomie" },

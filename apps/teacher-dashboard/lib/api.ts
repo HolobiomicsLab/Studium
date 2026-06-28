@@ -115,6 +115,21 @@ export function getTrustCalibration(
   );
 }
 
+// Class-level course-spine funnel: distinct completers per lesson_id. Overlaid on
+// the CourseManifest (order + prerequisites). Per-lesson distinct counts only —
+// NOT per-individual cross-lesson tracking (telemetry pseudonyms are bundle-scoped).
+export type CourseCompletionResponse = {
+  lessons: Record<string, { n_completed: number }>;
+  total_completions: number;
+};
+
+export function getCourseCompletion(courseToken: string): Promise<CourseCompletionResponse> {
+  return fetchJson<CourseCompletionResponse>(
+    `/metrics/course-completion?course=${encodeURIComponent(courseToken)}`,
+    courseToken,
+  );
+}
+
 export type MasteryPoint = {
   date: string;
   pseudonyme: string;
@@ -466,4 +481,30 @@ export async function getRoomState(roomId: string, teacherKey: string): Promise<
 
 export async function closeRoom(roomId: string, teacherKey: string): Promise<RoomState> {
   return roomFetch(`/rooms/${roomId}/close`, { method: "POST", body: JSON.stringify({ teacher_key: teacherKey }) });
+}
+
+// ---------------------------------------------------------------------------
+// Course spine manifest (lesson-server :8010) — the lesson DAG the dashboard
+// overlays on analytics completion counts. Mirrors CourseSchema.
+// ---------------------------------------------------------------------------
+
+export type CourseManifestLesson = {
+  lesson_id: string;
+  bundle_ref: string;
+  title?: string;
+  prerequisite_lesson_ids: string[];
+};
+
+export type CourseManifest = {
+  schema_version: string;
+  course_id: string;
+  title: string;
+  lessons: CourseManifestLesson[];
+};
+
+/** GET /courses?ref= on lesson-server. `ref` is a manifest path under the
+ * server's bundlesRoot (e.g. "courses/decay-course.json"). */
+export async function getCourse(ref: string): Promise<CourseManifest> {
+  const r = await roomFetch<{ course: CourseManifest }>(`/courses?ref=${encodeURIComponent(ref)}`);
+  return r.course;
 }

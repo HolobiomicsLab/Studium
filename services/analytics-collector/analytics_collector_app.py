@@ -9,6 +9,7 @@ from metrics import (
     compute_blueprint_score,
     compute_calibration,
     compute_cooperation_metrics,
+    compute_course_completion,
     compute_journal_metrics,
     compute_progress,
     compute_reasoning_depth_score,
@@ -108,6 +109,23 @@ def get_calibration(
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
     return compute_calibration(_data_dir(), course, learner=learner, bundle_version=bv)
+
+
+@app.get("/metrics/course-completion")
+def get_course_completion(
+    course: str,
+    bundle_version: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    """Class-level course-spine funnel: distinct completers per lesson_id.
+
+    The dashboard overlays the CourseSchema spine (order + prerequisites). HONESTY
+    BOUNDARY: telemetry pseudonyms are bundle-scoped, so this is a per-lesson
+    distinct-completer count, NOT per-individual cross-lesson tracking (see
+    metrics.compute_course_completion)."""
+    _require_course_token(x_course_token, course)
+    bv = _validate_bundle_version(bundle_version)
+    return compute_course_completion(_data_dir(), course, bundle_version=bv)
 
 
 @app.get("/metrics/trust-calibration")

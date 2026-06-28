@@ -4,6 +4,18 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-28 — Surface ENSEIGNANT de complétion par leçon du parcours (niveau-classe)
+
+Rend visible au tableau de bord la complétion par leçon de la colonne de cours. HONNÊTETÉ : le pseudonyme télémétrique est salé par bundle_id (`session.ts:73`) → le MÊME humain a un pseudonyme DIFFÉRENT à chaque leçon. Donc le suivi par-individu cross-lesson est IMPOSSIBLE depuis la télémétrie (par conception, vie privée). La seule surface fidèle = des compteurs INDÉPENDANTS par leçon (apprenant·e·s distinct·e·s par leçon), JAMAIS un entonnoir/flux de rétention.
+
+- `analytics-collector/metrics.py` : `compute_course_completion(data_dir, course, bundle_version?)` — lit `lesson_completed`, groupe par lesson_id (== bundle_id), compte les `learner_pseudonym` distincts. `{lessons:{lesson_id:{n_completed}}, total_completions}`. `GET /metrics/course-completion` (token auth).
+- `lesson-server` : `GET /courses?ref=` → `resolveCourse(bundlesRoot, ref)` (manifeste CourseSchema parsé), avec garde anti-path-traversal (rejette `..` / chemin absolu).
+- `teacher-dashboard` : `getCourseCompletion` (analytics) + `getCourse` (lesson-server) ; composant `CourseProgress` (colonne ordonnée + prérequis + compteurs distincts par leçon + **cadrage honnête : compteurs indépendants, NON comparables comme un flux**) ; page `course-progress` (dégradation gracieuse → compteurs bruts si pas de manifeste) ; onglet « Parcours ».
+
+**Vérification** : analytics-collector 123 (8 neufs : distincts par leçon, doublon=1, vide, lesson_id manquant, filtre bundle_version ; + 401/403/funnel endpoint) ; lesson-server 31 (4 neufs : manifeste parsé, ref manquant 400, path-traversal 400, 404) ; teacher-dashboard 54 (api wrapper getCourse/getCourseCompletion + render CourseProgress incl. 0-completers + honnêteté). `tsc` lesson-server + dashboard exit 0. Revue adverse (workflow 4 lentilles dont SÉCURITÉ path-traversal — garde jugée adéquate — + réfutation) → **0 must-fix / 1 should-fix** replié : retrait du cadrage « entonnoir/funnel » (surclaim de rétention cohorte que les pseudonymes salés-par-leçon ne supportent pas) → compteurs INDÉPENDANTS non-comparables + barre neutre dé-emphasée.
+
+---
+
 ## 2026-06-28 — Surface ENSEIGNANT de `trust_calibration` (jugement-sur-artefact)
 
 Rend VISIBLE au tableau de bord enseignant la dimension phare de la session — la calibration du jugement face à une lecture IA d'un résultat RÉEL (distincte de la calibration de confiance déclaré-vs-compétence). Jusqu'ici `trust_calibration` était calculée par le moteur mais invisible à tout humain.
