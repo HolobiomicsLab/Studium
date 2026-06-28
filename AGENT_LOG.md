@@ -4,6 +4,28 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-28 — TRUST_CALIBRATION : la direction OVER-DISTRUST est ENFIN ALIMENTÉE (live LLM AuditJudge) + 3 preuves live
+
+Ferme la frontière d'honnêteté documentée : le matcher par mots-clés ne pouvait JAMAIS mesurer la sur-méfiance (il porte la clé des fautes plantées, pas les affirmations SAINES — il ne distingue pas « signaler à tort » de « louer »). Un juge LLM, lui, reçoit les DEUX listes.
+
+- **PORT** `AuditJudge.judge({flawed_content, flawed_claims, sound_claims, critique}) → {caught_flaw_ids, wrongly_flagged_sound_ids}` ; **SCHÉMA** `spot_the_flaw.sound_claims?:[{id,text}]` (clé de réponse sur-méfiance, server-side, strippée par publicScene + miroirs Python) ; **GRADER** `flawGrader` consulte `auditJudge` SI présent ET sound_claims → true_positives + false_positives, sinon matcher (fp=0, frontière préservée) ; **ADAPTERS** `StubAuditJudge` (offline, ne fabrique jamais de sur-méfiance) + `HttpLlmAuditJudge` (endpoint OpenAI-compatible, zod-validé, dégrade au fallback mots-clés, **timeout AbortSignal**) ; câblé live UNIQUEMENT sous `live && LITELLM_BASE_URL` (offline ⇒ undefined).
+- **PREUVES LIVE (OpenRouter `claude-haiku-4.5`, Anthropic-direct rate-limité jusqu'au 2026-07-01)** : (1) opérateur LLM pilote une session réelle + capsule réelle → `trust_calibration=0.25` ; (2) sur-méfiance : critique sur-sceptique → `false_positives=1/1 sound → −0.500` ; critique calibrée → `0.000` ; offline stub → fp=0 (frontière tenue) ; (3) régénération par-run (slice suivante).
+
+**Vérification** : learner-state 38 + lesson-session 223 + lesson-session-host 146 + adaptation-engine 51 + lesson-bundle-schema 62 + lesson-mcp 13 + lesson-server 31 ; Python scene-synth+compose+schema 207 ; `tsc` propre. Revue adverse (workflow 4 lentilles + réfutation, **9 confirmés**) entièrement repliés : (should) le DÉNOMINATEUR `planted` divergeait entre chemin mots-clés (compte de mots-clés) et chemin LLM (compte de claims) → standardisé en **compte-de-claims-distincts** dans LES DEUX chemins (over_trust comparable offline/live) ; (should) over_distrust normalisait fp par le compte de FAUTES → normalisé par la population SAINE (`sound_total` plumb dans judgment_audit + recordJudgmentAudit) → deux taux commensurables ; (should) jugement LLM unique non-répliqué → documenté (blend λ=0.5 lisse, multi-vote différé) ; (should) miroirs Python droppaient sound_claims → ajoutés (scene-synth + lesson-bundle-schema) ; (should) fetch sans timeout bloquait respond() → AbortSignal.timeout sur les 2 adapters ; (nit×3) ids distincts, granularité caught, commentaires-frontière périmés → corrigés.
+
+---
+
+## 2026-06-28 — Régénération par-run : générateur de jugement LLM LIVE (HttpLlmJudgmentGenerator)
+
+Concrétise la frontière « live per-run regen quality » : le `judgment-generator.ts` n'avait que le stub ; le générateur LIVE était décrit mais pas implémenté.
+
+- `HttpLlmJudgmentGenerator(baseUrl, {apiKey, model, timeoutMs})` : écrit une lecture IA DÉLIBÉRÉMENT FAUSSE ancrée sur le run RÉEL de l'apprenant (landmark) + la clé de réponse (claims + flaws_expected) + model_correction ; endpoint OpenAI-compatible ; zod-validé (rule 002) ; **dégrade au StubJudgmentGenerator** sur tout échec (transport/non-JSON/schéma) → jamais une scène sans clé ; AbortSignal.timeout. La clé reste server-side (publicScene strippe claims/sound_claims/model_correction).
+- **PREUVE LIVE** : régénère des fautes APPARIÉES au run sur deux landmarks différents (k=0.4212/half_life=1.6457 vs k=0.0917/7.5589) → chaque lecture fausse s'ancre sur SON k réel, fautes distinctes (soundness capsule stochastique).
+
+**Vérification** : lesson-session-host 146 (4 neufs : stub ancré, parse+validate live, dégrade non-200, dégrade schéma-invalide) ; `tsc` propre.
+
+---
+
 ## 2026-06-28 — FSRS : SEEDING du replay de session depuis la mémoire de profil (accumulation cross-lesson)
 
 Ferme l'avant-dernier petit reliquat : aujourd'hui le routeur cross-lesson LIT `profile.concept_memory`, mais le replay de CHAQUE leçon repart de zéro — donc re-réviser un concept partagé donnait une stabilité B-seule, pas A+B. Le seeding fait que le replay démarre DEPUIS la mémoire accumulée du profil.

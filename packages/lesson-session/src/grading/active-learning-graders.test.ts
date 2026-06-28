@@ -41,8 +41,9 @@ describe("spot_the_flaw grader", () => {
     const r = await grade(flawScene, { kind: "flaw_report", text: "viole la regle de hund, spin paralleles, 2p3" }, { critiqueEvaluator: pass });
     expect(r.signal).toMatchObject({ kind: "answer_submitted", concept_id: "c1", correct: true, difficulty: 0.7 });
     expect(r.telemetry.map((e) => e.type)).toEqual(["critique_submitted", "ai_audit_result"]);
-    expect(r.telemetry[0]).toMatchObject({ scene_type: "spot_the_flaw", llm_score: 0.8, completion_rate: 1 }); // 3/3 flaws matched
-    expect(r.telemetry[1]).toMatchObject({ planted_errors: 3, true_positives: 3, missed: 0 });
+    expect(r.telemetry[0]).toMatchObject({ scene_type: "spot_the_flaw", llm_score: 0.8, completion_rate: 1 }); // 2/2 CLAIMS caught
+    // CLAIM-GRANULAR: planted = distinct flaw CLAIMS (2), not keyword count (3) — a claim is caught when any of its keywords match.
+    expect(r.telemetry[1]).toMatchObject({ planted_errors: 2, true_positives: 2, missed: 0 });
   });
 
   it("Bloom level overrides the difficulty fallback", async () => {
@@ -53,7 +54,7 @@ describe("spot_the_flaw grader", () => {
   it("offline (Stub) is deterministic: empty answer → no flaws → correct:false", async () => {
     const r = await grade(flawScene, { kind: "flaw_report", text: "rien à signaler" }, { critiqueEvaluator: new StubCritiqueEvaluator() });
     expect(r.signal).toMatchObject({ correct: false });
-    expect(r.telemetry[1]).toMatchObject({ true_positives: 0, missed: 3 });
+    expect(r.telemetry[1]).toMatchObject({ true_positives: 0, missed: 2 }); // 2 claims, none caught (claim-granular)
   });
 
   it("rejects the wrong input kind", async () => {

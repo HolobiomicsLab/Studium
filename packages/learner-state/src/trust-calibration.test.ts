@@ -39,16 +39,32 @@ describe("trust calibration (judgment-over-artifact)", () => {
   });
 
   it("false positives are OVER-DISTRUST (negative) — miscalibrated but NOT over-trusting", () => {
-    // planted 2, caught 2, fp 2 -> over_distrust = min(2,2)/2 = 1 -> gap -1 -> -0.5
-    const c1 = recordJudgmentAudit(cs(), { planted: 2, caught: 2, false_positives: 2 });
+    // planted 2, caught 2 (over_trust 0); fp 2 of sound_total 2 -> over_distrust = min(2,2)/2 = 1 -> gap -1 -> -0.5
+    const c1 = recordJudgmentAudit(cs(), { planted: 2, caught: 2, false_positives: 2, sound_total: 2 });
     expect(c1.trust_calibration).toBeCloseTo(-0.5, 5);
     expect(isTrustMiscalibrated(c1)).toBe(true);
     expect(isOverTrusting(c1)).toBe(false);       // skepticism is not the certification-gate direction
   });
 
-  it("false positives are capped at planted so over-distrust stays bounded in [-1,0]", () => {
-    const c1 = recordJudgmentAudit(cs(), { planted: 2, caught: 2, false_positives: 9 });
+  it("false positives are capped at sound_total so over-distrust stays bounded in [-1,0]", () => {
+    const c1 = recordJudgmentAudit(cs(), { planted: 2, caught: 2, false_positives: 9, sound_total: 2 });
     expect(c1.trust_calibration).toBeCloseTo(-0.5, 5); // min(9,2)/2 = 1, not 4.5
+  });
+
+  it("over_distrust is a RATE over the SOUND population, independent of the planted-flaw count", () => {
+    // identical over-skeptical behavior (flagged 1 of 2 sound claims) → same over_distrust regardless of planted.
+    const few = recordJudgmentAudit(cs(), { planted: 1, caught: 1, false_positives: 1, sound_total: 2 });
+    const many = recordJudgmentAudit(cs(), { planted: 4, caught: 4, false_positives: 1, sound_total: 2 });
+    expect(few.trust_calibration).toBeCloseTo(-0.25, 5);  // 0 - (1/2) -> -0.5 gap -> *0.5
+    expect(many.trust_calibration).toBeCloseTo(-0.25, 5); // same, NOT a function of planted
+  });
+
+  it("sound_total 0 (offline keyword path) ⇒ over_distrust unmeasured (0), so the gap collapses to over_trust", () => {
+    const c1 = recordJudgmentAudit(cs(), { planted: 2, caught: 2, false_positives: 0, sound_total: 0 });
+    expect(c1.trust_calibration).toBeCloseTo(0, 5);
+    // a back-compat audit with no sound_total field behaves identically (over-distrust unmeasured)
+    const c2 = recordJudgmentAudit(cs(), { planted: 2, caught: 1, false_positives: 0 });
+    expect(c2.trust_calibration).toBeCloseTo(0.25, 5); // over_trust = 1/2 -> *0.5
   });
 
   it("accumulated audits form a RUNNING AVERAGE (EWMA), not last-write-wins", () => {

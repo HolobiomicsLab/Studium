@@ -183,12 +183,23 @@ class FlawClaim(Claim):
     flaws_expected: list[str] = Field(min_length=1)
 
 
+class SoundClaim(BaseModel):
+    """A claim in flawed_content that is actually CORRECT — the over-distrust answer key (mirror of TS
+    SoundClaim). A good auditor must NOT flag it; server-side (stripped by publicScene)."""
+
+    id: str
+    text: str
+
+
 class SpotTheFlawScene(_SceneBase):
     type: Literal["spot_the_flaw"]
     flawed_content: str = Field(min_length=1)
     claims: list[FlawClaim] = Field(min_length=1, max_length=5)
     model_correction: str = Field(min_length=1)
     rubric: AICritiqueRubric
+    # OPTIONAL over-distrust answer key (mirror of TS sound_claims): correct claims a good auditor must
+    # not flag. Carried so a live AuditJudge can measure over-distrust; absent ⇒ over-distrust unmeasured.
+    sound_claims: Optional[list[SoundClaim]] = None
 
 
 class KeyPoint(BaseModel):

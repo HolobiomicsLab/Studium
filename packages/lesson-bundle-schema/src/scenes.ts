@@ -226,6 +226,13 @@ export const SpotTheFlawSceneSchema = SceneBaseSchema.extend({
   // carrier reproduction uses. The run carries no answer key (the flaws live in `claims`), so showing
   // it is the evidence the learner reasons from, not a leak.
   reference_result: ReferenceRunSchema.optional(),
+  // OPTIONAL OVER-DISTRUST answer key: claims in `flawed_content` that are actually CORRECT — a good
+  // auditor must NOT flag them. The keyword matcher can't tell a wrongly-flagged sound claim from praise
+  // (it only carries the planted-flaw key), so over-distrust stays 0 offline. When an LLM AuditJudge is
+  // injected at grade time, it is told these sound claims and reports any the critique wrongly flagged →
+  // false_positives > 0 → the over-distrust direction of trust_calibration. Server-side answer-key
+  // material: publicScene strips `sound_claims` like `claims`. Absent ⇒ over-distrust unmeasured (boundary).
+  sound_claims: z.array(z.object({ id: z.string(), text: z.string() })).optional(),
   // OPTIONAL learner-run grounding (closes the operation→judgment loop): a task_card_id whose
   // LEARNER-TIME run (the learner's OWN executed result, captured via the run protocol) grounds this
   // judgment — the learner audits a flawed AI reading of the result THEY produced. At session time the

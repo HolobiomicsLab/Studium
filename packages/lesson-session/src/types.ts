@@ -3,7 +3,7 @@ import type { Scene, LessonBundle } from "@studium/lesson-bundle-schema";
 import type { LearnerState, Decision } from "@studium/learner-state";
 import type {
   StateStore, EventLog, TelemetrySink, PseudonymProvider,
-  ReasoningScorer, CritiqueEvaluator, Clock, IdGen, MasteryClaimSink, SocraticTutor,
+  ReasoningScorer, CritiqueEvaluator, AuditJudge, Clock, IdGen, MasteryClaimSink, SocraticTutor,
 } from "./ports.js";
 
 /** A client-safe projection of a Scene: structurally a Scene with the answer-bearing fields
@@ -66,6 +66,9 @@ export interface SessionDeps {
   reasoningScorer: ReasoningScorer;
   socraticTutor?: SocraticTutor;   // EV-3a: optional = the flag. Absent → no tutor (default).
   critiqueEvaluator: CritiqueEvaluator;
+  /** OPTIONAL LLM audit judge. Absent → the keyword matcher grades audits (over-distrust stays 0, the
+   * honesty boundary). Present + a scene with sound_claims → the over-distrust direction is measured. */
+  auditJudge?: AuditJudge;
   clock: Clock;
   idGen: IdGen;
   activeUniverseSelector?: (bundle: LessonBundle) => string;

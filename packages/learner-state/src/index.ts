@@ -19,10 +19,11 @@ export const ConceptStateSchema = z.object({
   // positives ⇒ flagged sound claims). DISTINCT from confidence_calibration (trust-in-output, not
   // confidence-in-self). Fed ONLY by grounded spot_the_flaw scenes; optional + back-compatible
   // (absent ⇒ never measured). The samples count is the MEASURED flag the trust gates key on.
-  // HONESTY BOUNDARY: only the OVER-TRUST direction is fed LIVE today — the offline flaw matcher
-  // reports false_positives=0 (it carries the planted-flaw answer key, not the SOUND claims needed to
-  // detect over-flagging), so in production trust_calibration only ever moves ≥0. The signed value +
-  // symmetric gate are ready; over-distrust capture is pending a sound-claims signal from the matcher.
+  // BOTH directions are fed: OVER-TRUST offline (the keyword matcher counts missed planted flaws) AND
+  // OVER-DISTRUST when an LLM AuditJudge + the scene's `sound_claims` are wired (it counts SOUND claims
+  // the critique wrongly flagged → false_positives>0). The OFFLINE keyword matcher still reports
+  // false_positives=0 (it has the planted-flaw key, not the sound claims), so an offline-only deployment
+  // measures over-trust only — over-distrust requires the live judge. See [[trust_calibration]].
   trust_calibration: z.number().min(-1).max(1).optional(),
   trust_calibration_samples: z.number().int().nonnegative().optional(),
 });
@@ -44,13 +45,19 @@ export const SignalSchema = z.discriminatedUnion("kind", [
     // in a real executed result (carries a reference_result). The engine folds it into
     // trust_calibration. `grounded` distinguishes a real-artifact judgment from an ungrounded one; a
     // non-grounded judgment scene never feeds trust_calibration (no real artifact to calibrate against).
-    // `false_positives` is carried for the over-distrust direction but is 0 in production today (the
-    // matcher cannot yet count over-flagging — see the trust_calibration honesty boundary above).
+    // COUNTS ARE CLAIM-GRANULAR: `planted` = number of planted flaw CLAIMS, `caught` = distinct flaw
+    // claims the critique identified (over-trust = missed/planted). `false_positives` = SOUND claims the
+    // critique WRONGLY flagged and `sound_total` = how many sound claims were on offer (over-distrust =
+    // false_positives/sound_total). `false_positives`/`sound_total` are 0 unless a live AuditJudge +
+    // `sound_claims` are wired (the keyword matcher cannot tell a flagged sound claim from praise).
     judgment_audit: z.object({
       grounded: z.literal(true),
       planted: z.number().int().nonnegative(),
       caught: z.number().int().nonnegative(),
       false_positives: z.number().int().nonnegative(),
+      // count of sound claims the auditor COULD have wrongly flagged (the over-distrust denominator).
+      // Optional + back-compatible: absent ⇒ 0 ⇒ over-distrust unmeasured (the offline boundary).
+      sound_total: z.number().int().nonnegative().optional(),
     }).optional() }),
   z.object({ kind: z.literal("confidence_declared"),
     scene_id: z.string(), value: z.number().int().min(0).max(4),
@@ -187,18 +194,25 @@ export const TRUST_CALIBRATION_LAMBDA = 0.5;
  * either direction) is mis-trust. Mirrors CALIBRATION_WELL_BAND. */
 export const TRUST_WELL_BAND = 0.4;
 
-export interface JudgmentAudit { planted: number; caught: number; false_positives: number; }
+export interface JudgmentAudit {
+  planted: number; caught: number; false_positives: number;
+  /** count of sound claims the auditor could have wrongly flagged — the over-distrust denominator.
+   * Optional + back-compatible: absent/undefined ⇒ 0 ⇒ over-distrust unmeasured. */
+  sound_total?: number | undefined;
+}
 
-/** Fold ONE grounded-judgment audit into trust_calibration (+ count the sample). The trust gap is
- *   over_trust   = missed / planted               (failed to catch real flaws ⇒ too credulous, +)
- *   over_distrust = min(false_positives, planted) / planted   (flagged sound claims ⇒ too skeptical, -)
- *   gap = over_trust - over_distrust ∈ [-1, 1]
- * false_positives are capped at `planted` so over-distrust stays bounded and symmetric with
- * over-trust. Blended by `lambda` (EWMA; undefined prior treated as 0) and clamped to [-1, 1]. A
- * degenerate audit with no planted flaws is a no-op (nothing to calibrate against). Pure.
- * NOTE: the over-distrust term is exercised by unit tests but UNFED in production today — the flaw
- * matcher reports false_positives=0 (see [[trust_calibration]] honesty boundary), so live audits only
- * produce over_trust ≥ 0. The math is symmetric and ready the moment a false-positive count exists. */
+/** Fold ONE grounded-judgment audit into trust_calibration (+ count the sample). Each direction is a
+ * PROPER RATE over its OWN population, so the gap subtracts two commensurable rates in [0,1]:
+ *   over_trust    = missed / planted                      (missed real flaws ⇒ too credulous, +)
+ *   over_distrust = min(false_positives, sound_total) / sound_total   (flagged sound claims ⇒ skeptical, −)
+ *   gap = over_trust − over_distrust ∈ [-1, 1]
+ * `planted` is the CLAIM count of planted flaws; `sound_total` the count of sound claims on offer. When
+ * `sound_total` is 0 (no sound claims / offline keyword path), over_distrust is 0 (unmeasured), so the
+ * gap collapses to over_trust — the documented offline behavior. Blended by `lambda` (EWMA; undefined
+ * prior treated as 0) and clamped to [-1, 1]. A degenerate audit with no planted flaws is a no-op. Pure.
+ * NOTE: a single grounded audit is ONE (possibly noisy) LLM judgment on the over-distrust side; the λ
+ * blend (0.5) means one sample only moves the signal halfway, and the trust gates require a measured
+ * sample to persist — repeated audits smooth it. Multi-vote judging is a future hardening. */
 export function recordJudgmentAudit(
   cs: ConceptState, audit: JudgmentAudit, lambda: number = TRUST_CALIBRATION_LAMBDA,
 ): ConceptState {
@@ -206,7 +220,10 @@ export function recordJudgmentAudit(
   if (planted === 0) return cs; // no real flaws ⇒ trust is unmeasurable here
   const missed = Math.max(0, planted - Math.max(0, audit.caught));
   const overTrust = missed / planted;
-  const overDistrust = Math.min(Math.max(0, audit.false_positives), planted) / planted;
+  // over_distrust normalizes the wrongly-flagged-SOUND count by the SOUND population (not the flaw
+  // count), so each direction is a rate over its own denominator. sound_total 0 ⇒ unmeasured ⇒ 0.
+  const soundTotal = Math.max(0, Math.floor(audit.sound_total ?? 0));
+  const overDistrust = soundTotal > 0 ? Math.min(Math.max(0, audit.false_positives), soundTotal) / soundTotal : 0;
   const gap = overTrust - overDistrust;
   const prior = cs.trust_calibration ?? 0;
   const blended = Math.max(-1, Math.min(1, (1 - lambda) * prior + lambda * gap));

@@ -3,12 +3,20 @@ import type { Scene, BloomLevel } from "@studium/lesson-bundle-schema";
 import type { Signal } from "@studium/learner-state";
 import type { ResponseInput } from "../types.js";
 import type { EmitInput } from "../telemetry.js";
-import type { CritiqueEvaluator } from "../ports.js";
+import type { CritiqueEvaluator, AuditJudge } from "../ports.js";
 import { matchClaimsAgainstCritique } from "./ai-audit-matcher.js";
 import { SceneGradingError } from "../errors.js";
 
 export interface GradeResult { signal: Signal; telemetry: EmitInput[]; }
-export interface GradeDeps { critiqueEvaluator: CritiqueEvaluator; hintCount?: number; bloomLevel?: BloomLevel; }
+export interface GradeDeps {
+  critiqueEvaluator: CritiqueEvaluator;
+  /** OPTIONAL LLM-backed audit judge. When present AND the scene carries `sound_claims`, it supplies the
+   * over-distrust direction (false positives) the keyword matcher cannot. Absent ⇒ keyword matcher ⇒ fp=0
+   * (the documented honesty boundary). */
+  auditJudge?: AuditJudge;
+  hintCount?: number;
+  bloomLevel?: BloomLevel;
+}
 type Grader = (scene: Scene, input: ResponseInput, deps: GradeDeps) => Promise<GradeResult>;
 
 const DIFFICULTY = { quiz: 0.5, ai_critique: 0.7, spot_the_flaw: 0.7, explain_back: 0.7, comparison: 0.7, summary_audit: 0.7, prompt_practice: 0.7, communication_sim: 0.7 } as const;
@@ -83,27 +91,58 @@ const flawGrader: Grader = async (scene, input, deps) => {
   if (input.kind !== "flaw_report") throw new SceneGradingError(scene.type, `expected flaw_report, got ${input.kind}`);
   const { score } = await deps.critiqueEvaluator.evaluate({ claims: scene.claims, rubric: scene.rubric, critique: input.text });
   const passed = score >= 0.6;
-  const audit = matchClaimsAgainstCritique(scene.claims, input.text);
-  const completion_rate = audit.planted_errors === 0 ? 0 : audit.true_positives / audit.planted_errors;
+  // AUDIT COUNTS feed trust_calibration. CLAIM-GRANULAR in BOTH paths (planted = number of distinct
+  // planted-flaw CLAIMS, caught = distinct flaw claims identified) so the over_trust the engine derives
+  // (missed/planted) is comparable whether or not a live judge is wired:
+  //  - keyword matcher (default/offline): a CLAIM is caught when ANY of its flaws_expected keywords match
+  //    (the keywords are alternative phrasings of one flaw). false_positives ALWAYS 0 + sound_total 0 —
+  //    it holds the planted-flaw key, not the SOUND claims, so it can't tell a flagged sound claim from
+  //    praise; over-distrust stays unmeasured (the honesty boundary).
+  //  - LLM AuditJudge (when injected AND the scene declares `sound_claims`): told BOTH the planted flaws
+  //    and the sound claims, it reports caught flaws AND wrongly-flagged sound claims — the OVER-DISTRUST
+  //    direction. Ids are GUARDED against hallucination (only ids that exist in the scene's keys count).
+  const soundClaims = scene.sound_claims ?? [];
+  const flawIds = new Set(scene.claims.map((c) => c.id));
+  const planted = flawIds.size; // DISTINCT flaw-claim count — the unit recordJudgmentAudit normalizes by
+  let true_positives: number, false_positives: number, sound_total: number;
+  if (deps.auditJudge && soundClaims.length > 0) {
+    const j = await deps.auditJudge.judge({
+      flawed_content: scene.flawed_content,
+      flawed_claims: scene.claims.map((c) => ({ id: c.id, text: c.text })),
+      sound_claims: soundClaims.map((s) => ({ id: s.id, text: s.text })),
+      critique: input.text,
+    });
+    const soundIds = new Set(soundClaims.map((s) => s.id));
+    true_positives = new Set(j.caught_flaw_ids.filter((id) => flawIds.has(id))).size;
+    false_positives = new Set(j.wrongly_flagged_sound_ids.filter((id) => soundIds.has(id))).size;
+    sound_total = soundIds.size;
+  } else {
+    // claim-granular keyword fallback: a claim is caught if any of its keywords appears in the critique.
+    const caught = new Set(
+      scene.claims.filter((c) => matchClaimsAgainstCritique([c], input.text).true_positives > 0).map((c) => c.id),
+    );
+    true_positives = caught.size; false_positives = 0; sound_total = 0;
+  }
+  const missed = Math.max(0, planted - true_positives);
+  const completion_rate = planted === 0 ? 0 : true_positives / planted;
   // JUDGMENT-OVER-ARTIFACT (the north-star destination): when the scene is GROUNDED in a real executed
   // result (carries a reference_result), the audit breakdown is a TRUST-calibration signal the engine
   // folds into trust_calibration — missed planted flaws = over-trust (credulous of a wrong AI reading),
-  // false positives = over-distrust. Attached ONLY when grounded; an ungrounded spot_the_flaw (no real
-  // artifact to calibrate trust against) never feeds the trust dimension.
-  // NOTE: audit.false_positives is 0 from the matcher today (it has the planted-flaw answer key, not the
-  // sound claims), so only the OVER-TRUST direction is measured live — see the trust_calibration boundary.
+  // wrongly-flagged sound claims = over-distrust (false_positives/sound_total). Attached ONLY when
+  // grounded; an ungrounded spot_the_flaw never feeds the trust dimension. With a live AuditJudge +
+  // sound_claims, false_positives can be > 0, so BOTH trust directions are measurable live.
   const grounded = scene.reference_result != null;
   return {
     signal: {
       kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0,
       difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.spot_the_flaw),
       ...(grounded
-        ? { judgment_audit: { grounded: true as const, planted: audit.planted_errors, caught: audit.true_positives, false_positives: audit.false_positives } }
+        ? { judgment_audit: { grounded: true as const, planted, caught: true_positives, false_positives, sound_total } }
         : {}),
     },
     telemetry: [
       { type: "critique_submitted", scene_id: scene.id, scene_type: "spot_the_flaw", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
-      { type: "ai_audit_result", scene_id: scene.id, planted_errors: audit.planted_errors, true_positives: audit.true_positives, false_positives: audit.false_positives, missed: audit.missed },
+      { type: "ai_audit_result", scene_id: scene.id, planted_errors: planted, true_positives, false_positives, missed },
     ],
   };
 };

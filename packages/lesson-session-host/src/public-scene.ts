@@ -36,6 +36,7 @@ export type PublicScene = Partial<Scene>;
  */
 export const REDACTED_SCENE_FIELDS = [
   "claims",
+  "sound_claims",       // spot_the_flaw OVER-DISTRUST answer key (which AI-reading claims are actually sound)
   "key_points",
   "model_correction",
   "model_explanation",

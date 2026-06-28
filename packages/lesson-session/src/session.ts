@@ -207,6 +207,7 @@ export class LessonSession {
     const bloomLevel = conceptId ? this.bundle.concepts.find((c) => c.id === conceptId)?.bloom_level_target : undefined;
     const { signal, telemetry } = await grade(scene, input, {
       critiqueEvaluator: this.deps.critiqueEvaluator, hintCount: this.hintsUsed,
+      ...(this.deps.auditJudge ? { auditJudge: this.deps.auditJudge } : {}),
       ...(bloomLevel ? { bloomLevel } : {}),
     });
     for (const ev of telemetry) this.emit(ev);

@@ -55,6 +55,31 @@ export interface CritiqueEvaluator {
   evaluate(input: { claims: Claim[]; rubric: AICritiqueRubric; critique: string }): Promise<CritiqueEvaluation>;
 }
 
+/** A claim in a flawed AI reading that is actually CORRECT — a good auditor must NOT flag it. The
+ * answer key for the OVER-DISTRUST direction (server-side, stripped by publicScene). */
+export interface SoundClaim { id: string; text: string; }
+
+/** Structured verdict of a grounded judgment audit. Unlike the keyword matcher (which only carries the
+ * planted-flaw key and so can never tell praise from blame), an AuditJudge is told BOTH the planted
+ * flaws and the sound claims, so it can report whether the critique CAUGHT real flaws (over-trust
+ * direction) AND whether it WRONGLY flagged sound claims (over-distrust direction). */
+export interface AuditJudgement {
+  /** ids of planted flaws the critique correctly identified. */
+  caught_flaw_ids: string[];
+  /** ids of SOUND claims the critique wrongly called flawed → feeds over-distrust. */
+  wrongly_flagged_sound_ids: string[];
+}
+export interface AuditInput {
+  flawed_content: string;
+  flawed_claims: Array<{ id: string; text: string }>;
+  sound_claims: SoundClaim[];
+  critique: string;
+}
+/** LLM-backed judge that detects BOTH directions of mis-trust. Optional dep: when absent (the offline
+ * default), the grader falls back to the keyword matcher and over-distrust stays structurally 0 (the
+ * documented honesty boundary). Injecting a live AuditJudge is what makes over-distrust measurable. */
+export interface AuditJudge { judge(input: AuditInput): Promise<AuditJudgement>; }
+
 export interface Clock { now(): string; }   // ISO 8601 string
 export interface IdGen { uuid(): string; }
 

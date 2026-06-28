@@ -273,6 +273,14 @@ class AICritiqueScene(_SceneBase):
     rubric: AICritiqueRubric
 
 
+class SoundClaim(BaseModel):
+    """A claim in flawed_content that is actually CORRECT — the over-distrust answer key (mirror of TS
+    SoundClaim). Server-side; a good auditor must NOT flag it."""
+
+    id: str
+    text: str
+
+
 class FlawClaim(Claim):
     """A spot_the_flaw claim: flaws_expected MUST be non-empty (an assertion with nothing
     to spot would silently fail every learner offline). Stricter than ai_critique's Claim."""
@@ -297,6 +305,11 @@ class SpotTheFlawScene(_SceneBase):
     # carries that run so the learner audits the AI interpretation AGAINST the real output. The run
     # holds no answer key (flaws live in ``claims``), so it is evidence, not a leak.
     reference_result: Optional[ReferenceRun] = None
+    # OPTIONAL OVER-DISTRUST answer key (mirror of SpotTheFlawSceneSchema TS sound_claims): claims in
+    # flawed_content that are actually CORRECT — a good auditor must NOT flag them. Server-side reveal
+    # (stripped by publicScene). Carried through the composition/scene-synth path so a live AuditJudge can
+    # measure over-distrust (false_positives) at session time. Absent ⇒ over-distrust unmeasured.
+    sound_claims: Optional[list["SoundClaim"]] = None
     # OPTIONAL learner-run grounding (mirror of TS): a task_card_id whose LEARNER-TIME run grounds this
     # judgment (the host injects the recorded run as reference_result at session time — audit YOUR OWN run).
     reference_from_run: Optional[str] = None

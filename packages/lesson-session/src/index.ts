@@ -40,11 +40,18 @@ export type {
   ReasoningScorer,
   CritiqueEvaluator,
   CritiqueEvaluation,
+  AuditJudge,
+  AuditInput,
+  AuditJudgement,
+  SoundClaim,
   Clock,
   IdGen,
   Claim,
   AICritiqueRubric,
 } from "./ports.js";
+
+// Adapters — the over-distrust-capable audit judge (offline stub + LLM-backed).
+export { StubAuditJudge, HttpLlmAuditJudge } from "./adapters/audit-judge.js";
 
 // Types — telemetry.ts
 export type { TelemetryContext, EmitInput } from "./telemetry.js";

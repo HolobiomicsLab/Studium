@@ -50,16 +50,18 @@ describe("publicScene — generic transport redaction", () => {
     expect(pub["rubric"]).toBeDefined();
   });
 
-  it("spot_the_flaw: strips claims + model_correction, keeps flawed_content", () => {
+  it("spot_the_flaw: strips claims + sound_claims + model_correction, keeps flawed_content", () => {
     const sc = {
       ...base("spot_the_flaw"),
       flawed_content: "N is 1s2 2s2 2p4",
       claims: [{ id: "k1", text: "wrong", flaws_expected: ["hund"] }],
+      sound_claims: [{ id: "s1", text: "N has 7 electrons" }],
       model_correction: "N is 1s2 2s2 2p3",
       rubric: { completeness: 1, evidence_quality: 1, tone: 1 },
     } as unknown as Scene;
     const pub = publicScene(sc) as Record<string, unknown>;
     expect("claims" in pub).toBe(false);
+    expect("sound_claims" in pub).toBe(false); // OVER-DISTRUST answer key never reaches the client
     expect("model_correction" in pub).toBe(false);
     expect(pub["flawed_content"]).toBe("N is 1s2 2s2 2p4");
   });
@@ -146,9 +148,9 @@ describe("publicScene — generic transport redaction", () => {
     expect("model_response" in pub).toBe(false);
   });
 
-  it("the centralized field list names every model_* reveal + the two answer-key arrays", () => {
+  it("the centralized field list names every model_* reveal + the answer-key arrays", () => {
     // Guard so a future scene type that reuses these field names is covered automatically.
-    for (const f of ["claims", "key_points", "model_correction", "model_explanation", "model_answer", "model_prompt", "model_response"]) {
+    for (const f of ["claims", "sound_claims", "key_points", "model_correction", "model_explanation", "model_answer", "model_prompt", "model_response"]) {
       expect(REDACTED_SCENE_FIELDS).toContain(f);
     }
   });
