@@ -4,6 +4,17 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-28 — FSRS : SEEDING du replay de session depuis la mémoire de profil (accumulation cross-lesson)
+
+Ferme l'avant-dernier petit reliquat : aujourd'hui le routeur cross-lesson LIT `profile.concept_memory`, mais le replay de CHAQUE leçon repart de zéro — donc re-réviser un concept partagé donnait une stabilité B-seule, pas A+B. Le seeding fait que le replay démarre DEPUIS la mémoire accumulée du profil.
+
+- `lesson-session-host/host.ts` — `memoryFromHistory(concept_id, state, seed?)` + `conceptMemoryFromState(state, seed?)` acceptent un seed optionnel (backward-compatible : tous les appels existants — reviewQueue / nextReinforcement within-session — passent SANS seed, comportement inchangé, scope-session). La branche `respond(complete)` seed depuis `base.concept_memory` (le profil dans lequel on merge) → la répétition espacée COMPOSE A+B+C… à travers les leçons.
+- **Dédup par timestamp** : le seed couvre déjà tout jusqu'à son `last_reviewed_at` ; sur un RESUME du même bundle l'historique chargé RETIENT ces réponses → on ne re-fold QUE les réponses strictement postérieures. Ré-répondre une scène plus tard est une vraie récupération → ça accumule (reps +1 par ré-réponse, l'historique chargé n'est jamais re-foldé). Garde seed MAL-FORMÉ (reps≥1 mais stability≤0/last null → pas une ancre FSRS valable → replay propre depuis le défaut, pas de demi-reset silencieux).
+
+**Vérification** : lesson-session-host 142 (10 neufs : accumulation, no-re-fold de l'historique chargé, RESUME+ré-réponse host-level reps 1→2→3 exactement +1, borne clock-skew/same-ms, garde seed mal-formé, chaîne multi-leçons A→B→C, persistance durable) ; dépendants verts (learner-state 36, adaptation-engine 51, lesson-session 214) ; `tsc` propre. Revue adverse (workflow 4 lentilles + réfutation, **5 confirmés**) repliés HONNÊTEMENT : le « must-fix » (la suite d'idempotence prouvait un no-op que le chemin RESUME réel ne déclenche jamais ; le vrai chemin ré-répond → reps monte) était en fait le COMPORTEMENT CORRECT (ré-répondre = vraie récupération) mal documenté → docs/tests reformulés + test host-level RESUME+ré-réponse prouvant +1 exact (jamais re-fold de l'événement chargé) ; should-fix clock-skew (un événement neuf à un timestamp ≤ seed est conservativement sauté — sous-comptage borné, auto-guérison, jamais de double-comptage) documenté + testé ; should-fix chaîne multi-leçons testée ; should-fix seed mal-formé gardé+testé ; nit cap-50 doc maintenue exacte.
+
+---
+
 ## 2026-06-28 — FSRS CROSS-LESSON : persistance de la mémoire + AUTO-ROUTAGE du prochain pas
 
 Deux moitiés couplées qui font franchir les leçons à la répétition espacée ET piloter le prochain pas. Lève le TODO de `fsrs.ts` (« persist concept_memory beside concept_states »).

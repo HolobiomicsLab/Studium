@@ -218,14 +218,45 @@ export interface CalibrationVerdict {
 export const CALIBRATION_WELL_BAND = 0.4;
 
 /** Replay a single concept's `answer_submitted` history through the FSRS scheduler (fsrs.ts) to
- * reconstruct its current memory state. Pure: time comes only from the history timestamps. */
-function memoryFromHistory(concept_id: string, state: LearnerState): ConceptMemoryState {
-  let mem = fsrsDefaultMemory(concept_id);
+ * reconstruct its current memory state. Pure: time comes only from the history timestamps.
+ *
+ * `seed` = a PRIOR (cross-lesson) memory for this concept (the learner profile's accumulated
+ * `concept_memory`). When given, the replay starts FROM it instead of a fresh default, so a concept
+ * re-reviewed in a later lesson ACCUMULATES stability (A+B) rather than restarting (B-only).
+ *
+ * What is and isn't deduplicated. The seed already accounts for every answer up to its
+ * `last_reviewed_at`; on a RESUME of the same bundle the loaded prior history still HOLDS those answers,
+ * so we must not re-fold them. We dedupe by TIMESTAMP: an answer at/before `seed.last_reviewed_at` is
+ * "already in the seed" → skipped; a genuinely NEW answer (strictly later) is folded and legitimately
+ * ACCUMULATES. So re-answering a scene at a later time IS a real retrieval and DOES bump reps (the
+ * loaded prior events do not) — this is intended cross-lesson spaced repetition, not a double count.
+ *
+ * Timestamp-dedup bound (the history carries no per-event identity): if the clock is non-monotonic
+ * across sessions/machines — a genuine new answer whose wall-clock is <= the seed's last review
+ * (cross-machine skew, or a same-ms tie) — it is CONSERVATIVELY skipped rather than risk re-folding an
+ * already-seeded event. That under-counts that one review (it NEVER double-counts and never regresses
+ * the seed) and self-heals on the next in-order review. A fully robust dedup needs a stable per-event
+ * id / lesson provenance in the history (deferred). */
+function memoryFromHistory(
+  concept_id: string,
+  state: LearnerState,
+  seed?: ConceptMemoryState,
+): ConceptMemoryState {
+  // Only a WELL-FORMED prior is a usable FSRS anchor (reps≥1 ⇒ stability>0 ⇒ a real last review). A
+  // malformed seed (e.g. a hand-migrated profile with reps≥1 yet stability≤0 / null last) would trip
+  // fsrsReviewMemory's re-init branch and SILENTLY reset reps→1; treat it as no anchor and replay this
+  // session's history from scratch instead (predictable, never a half-reset). Internally-produced
+  // profiles are always well-formed, so this only guards externally-written/migrated profile.json.
+  const usableSeed =
+    seed && seed.reps >= 1 && seed.stability > 0 && seed.last_reviewed_at !== null ? seed : undefined;
+  let mem = usableSeed ? { ...usableSeed, concept_id } : fsrsDefaultMemory(concept_id);
+  const seededThrough = usableSeed?.last_reviewed_at ?? null; // answers <= this are already in the seed
   for (const h of state.history) {
     const sig = h.signal;
     if (sig.kind !== "answer_submitted" || sig.concept_id !== concept_id) continue;
     const t = Date.parse(h.timestamp);
     if (Number.isNaN(t)) continue;
+    if (seededThrough !== null && t <= seededThrough) continue; // already in the seed — don't re-fold
     mem = fsrsReviewMemory(mem, fsrsGradeFromAnswer({ correct: sig.correct, hint_count: sig.hint_count }), t);
   }
   return mem;
@@ -277,13 +308,24 @@ export type CourseStep =
 
 /** Build the FULL per-concept FSRS memory map for a LearnerState by replaying each seen concept's
  * answer history. Pure; exported so the router and a unit test can reuse it (the same replay that
- * feeds reviewQueueFromState). CAVEAT: `state.history` is a rolling window capped at 50 entries, so for
- * a lesson with >50 total signals the earliest answers are evicted and reps/stability under-count — a
- * pre-existing limit of the replay-from-history design, now also reflected in the persisted profile. */
-export function conceptMemoryFromState(state: LearnerState): Record<string, ConceptMemoryState> {
+ * feeds reviewQueueFromState).
+ *
+ * `seed` = the learner profile's accumulated cross-lesson `concept_memory`. When given, each concept's
+ * replay STARTS from its prior memory (idempotently — see memoryFromHistory), so re-reviewing a concept
+ * in a later lesson ACCUMULATES (A+B) instead of restarting (B-only). The completion-merge passes the
+ * profile being merged into, so cross-lesson spaced repetition compounds. Omit it for a session-scoped
+ * map (the within-session reviewQueue / reinforcement router, which sees only this lesson's history).
+ *
+ * CAVEAT: `state.history` is a rolling window capped at 50 entries, so for a lesson with >50 total
+ * signals the earliest answers are evicted and reps/stability under-count — a pre-existing limit of the
+ * replay-from-history design, now also reflected in the persisted profile. */
+export function conceptMemoryFromState(
+  state: LearnerState,
+  seed?: Record<string, ConceptMemoryState>,
+): Record<string, ConceptMemoryState> {
   const out: Record<string, ConceptMemoryState> = {};
   for (const concept_id of Object.keys(state.concept_states)) {
-    out[concept_id] = memoryFromHistory(concept_id, state);
+    out[concept_id] = memoryFromHistory(concept_id, state, seed?.[concept_id]);
   }
   return out;
 }
@@ -613,10 +655,13 @@ export class SessionHost {
         const now = e.deps.clock.now();
         const st = e.session.getState();
         const base = (await this.profileStore.load(e.profilePseudonym)) ?? defaultLearnerProfile(e.profilePseudonym, now);
-        // carry the concepts forward, persist this lesson's FSRS memory (replayed from its history) for
-        // CROSS-LESSON spaced repetition, AND mark this lesson completed (the course spine routes off it).
+        // carry the concepts forward, persist this lesson's FSRS memory (replayed from its history,
+        // SEEDED from the profile's accumulated memory so a re-review compounds A+B rather than B-only)
+        // for CROSS-LESSON spaced repetition, AND mark this lesson completed (the course spine routes off it).
         const merged = recordCompletedLesson(
-          mergeConceptMemoryIntoProfile(mergeConceptStatesIntoProfile(base, st, now), conceptMemoryFromState(st), now),
+          mergeConceptMemoryIntoProfile(
+            mergeConceptStatesIntoProfile(base, st, now), conceptMemoryFromState(st, base.concept_memory), now,
+          ),
           st.lesson_id,
         );
         await this.profileStore.save(merged);
