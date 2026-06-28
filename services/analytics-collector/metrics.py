@@ -266,6 +266,123 @@ def compute_ai_audit_accuracy(
     }
 
 
+# Judgment-over-artifact calibration band. Mirrors the engine constant
+# TRUST_WELL_BAND in packages/learner-state (kept in sync by value): |gap| within
+# this band counts as well-calibrated trust.
+TRUST_WELL_BAND = 0.4
+
+
+def compute_trust_calibration(
+    data_dir: Path,
+    course: str,
+    learner: str | None = None,
+    bundle_version: str | None = None,
+) -> dict:
+    """trust_calibration (judgment-over-artifact) — teacher surface.
+
+    DISTINCT from confidence_calibration (declared-vs-competence, Brier). This is
+    the telemetry-native surface of the engine's `trust_calibration` dimension:
+    how well the learner's TRUST in an AI reading of a real artifact matches
+    ground truth, computed from the grounded spot_the_flaw audits
+    (``ai_audit_result`` events — same source as ai_audit_accuracy).
+
+    Per scorable scene (``planted_errors`` > 0, counters POOLED across that
+    scene's events exactly like ai_audit_accuracy)::
+
+        over_trust    = missed / planted             (credulous: missed planted flaws, +)
+        over_distrust = min(fp, planted) / planted    (skeptical: flagged sound claims, -)
+        gap           = over_trust - over_distrust    in [-1, 1]
+
+    overall ``trust_calibration`` = mean(gap) over scorable scenes (mirrors
+    ai_audit ``overall_accuracy`` = mean of per-scene scores); ``None`` if no
+    scene is scorable (unmeasured ≠ well-calibrated). Band mirrors confidence::
+
+        |gap| <= TRUST_WELL_BAND -> "bien"
+        gap   >  TRUST_WELL_BAND -> "sur"   (over-trust / surconfiance IA)
+        gap   < -TRUST_WELL_BAND -> "sous"  (over-distrust / méfiance IA)
+
+    Pooled-counter, mean-of-per-scene aggregate (telemetry-native) — NOT the
+    engine's per-audit EWMA blend (same spirit as Brier-vs-engine-gap for
+    confidence).
+
+    HONESTY BOUNDARY: the live offline flaw-matcher hard-codes
+    ``false_positives=0`` (it carries the planted-flaw answer key, not the
+    sound-claims ground truth needed to detect over-distrust). So in production
+    over_distrust is structurally 0 and ``gap`` only moves >= 0; the "sous" band
+    is reachable only if a richer grader ever emits fp > 0. This function
+    faithfully reflects whatever ``false_positives`` the telemetry carries.
+
+    Filtre optionnel : ``learner`` (1 pseudonyme).
+    """
+    # counters[scene_id] = {fp, planted, missed}
+    counters: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"fp": 0, "planted": 0, "missed": 0}
+    )
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
+        if ev.get("type") != "ai_audit_result":
+            continue
+        sid = ev.get("scene_id")
+        if not sid:
+            continue
+        if learner is not None and ev.get("learner_pseudonym") != learner:
+            continue
+        c = counters[sid]
+        c["fp"] += int(ev.get("false_positives", 0))
+        c["planted"] += int(ev.get("planted_errors", 0))
+        c["missed"] += int(ev.get("missed", 0))
+
+    per_scene: list[dict] = []
+    gaps: list[float] = []
+    over_trusts: list[float] = []
+    over_distrusts: list[float] = []
+    for sid, c in counters.items():
+        planted = c["planted"]
+        if planted == 0:
+            per_scene.append({
+                "scene_id": sid, "gap": None,
+                "over_trust": None, "over_distrust": None,
+                "planted_errors": 0, "missed": c["missed"],
+                "false_positives": c["fp"],
+            })
+            continue
+        over_trust = c["missed"] / planted
+        over_distrust = min(c["fp"], planted) / planted
+        gap = max(-1.0, min(1.0, over_trust - over_distrust))
+        gaps.append(gap)
+        over_trusts.append(over_trust)
+        over_distrusts.append(over_distrust)
+        per_scene.append({
+            "scene_id": sid, "gap": gap,
+            "over_trust": over_trust, "over_distrust": over_distrust,
+            "planted_errors": planted, "missed": c["missed"],
+            "false_positives": c["fp"],
+        })
+
+    if not gaps:
+        return {
+            "trust_calibration": None, "band": None, "n_audits": 0,
+            "over_trust": None, "over_distrust": None, "per_scene": per_scene,
+        }
+    overall = sum(gaps) / len(gaps)
+    if abs(overall) <= TRUST_WELL_BAND:
+        band = "bien"
+    elif overall > 0:
+        band = "sur"
+    else:
+        band = "sous"
+    return {
+        "trust_calibration": overall,
+        "band": band,
+        # n_audits = number of SCORABLE scenes (planted>0), pooled per scene_id —
+        # NOT a count of ai_audit_result events (mirrors compute_ai_audit_accuracy's
+        # n_scenes; named n_audits here for the teacher-facing "audited scenes" sense).
+        "n_audits": len(gaps),
+        "over_trust": sum(over_trusts) / len(over_trusts),
+        "over_distrust": sum(over_distrusts) / len(over_distrusts),
+        "per_scene": per_scene,
+    }
+
+
 def _session_key(ev: dict) -> str | None:
     """Définit une "session" par jour (YYYY-MM-DD du client_timestamp).
 

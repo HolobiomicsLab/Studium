@@ -6,6 +6,7 @@ import {
   getProgress,
   getProgressMetrics,
   getCalibration,
+  getTrustCalibration,
   getAutonomy,
   getConceptMasteryHistory,
   getAILiteracy,
@@ -56,6 +57,37 @@ describe("teacher-dashboard api wrapper", () => {
       json: async () => ({ brier_score: null, n_items: 0 }),
     });
     await getCalibration("c");
+    const url = (global.fetch as any).mock.calls[0][0];
+    expect(url).not.toContain("learner=");
+  });
+
+  it("getTrustCalibration hits /metrics/trust-calibration and forwards learner", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        trust_calibration: 0.67, band: "sur", n_audits: 1,
+        over_trust: 0.67, over_distrust: 0, per_scene: [],
+      }),
+    });
+    const r = await getTrustCalibration("c", "p1");
+    expect(r.band).toBe("sur");
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toContain("/metrics/trust-calibration?course=c");
+    expect(call[0]).toContain("learner=p1");
+    expect(call[1].headers["X-Course-Token"]).toBe("c");
+  });
+
+  it("getTrustCalibration omits learner when not provided", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        trust_calibration: null, band: null, n_audits: 0,
+        over_trust: null, over_distrust: null, per_scene: [],
+      }),
+    });
+    await getTrustCalibration("c");
     const url = (global.fetch as any).mock.calls[0][0];
     expect(url).not.toContain("learner=");
   });

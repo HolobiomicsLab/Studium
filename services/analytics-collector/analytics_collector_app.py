@@ -13,6 +13,7 @@ from metrics import (
     compute_progress,
     compute_reasoning_depth_score,
     compute_scene_type_breakdown,
+    compute_trust_calibration,
 )
 from store import (
     _data_dir,
@@ -107,6 +108,25 @@ def get_calibration(
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
     return compute_calibration(_data_dir(), course, learner=learner, bundle_version=bv)
+
+
+@app.get("/metrics/trust-calibration")
+def get_trust_calibration(
+    course: str,
+    learner: str | None = None,
+    bundle_version: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    """trust_calibration (judgment-over-artifact) — distinct from /metrics/calibration.
+
+    Surface of the engine's `trust_calibration` dimension over the grounded
+    spot_the_flaw audits. Band "sur" = over-trust (surconfiance IA), "sous" =
+    over-distrust (méfiance IA), "bien" = within band. HONESTY BOUNDARY: live
+    matcher emits false_positives=0, so the "sous" direction is structurally
+    unfed in production (see metrics.compute_trust_calibration)."""
+    _require_course_token(x_course_token, course)
+    bv = _validate_bundle_version(bundle_version)
+    return compute_trust_calibration(_data_dir(), course, learner=learner, bundle_version=bv)
 
 
 @app.get("/metrics/autonomy")

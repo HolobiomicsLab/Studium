@@ -40,6 +40,27 @@ export type AutonomyResponse = {
   n_hints: number;
 };
 
+// trust_calibration (judgment-over-artifact) — distinct from CalibrationResponse
+// (declared-vs-competence Brier). Surface of the engine's `trust_calibration`
+// dimension over grounded spot_the_flaw audits. band: "sur" = over-trust
+// (surconfiance IA), "sous" = over-distrust (méfiance IA), "bien" = within band.
+export type TrustCalibrationResponse = {
+  trust_calibration: number | null;
+  band: "bien" | "sur" | "sous" | null;
+  n_audits: number;
+  over_trust: number | null;
+  over_distrust: number | null;
+  per_scene: Array<{
+    scene_id: string;
+    gap: number | null;
+    over_trust: number | null;
+    over_distrust: number | null;
+    planted_errors: number;
+    missed: number;
+    false_positives: number;
+  }>;
+};
+
 async function fetchJson<T>(path: string, courseToken: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`, {
     headers: { "X-Course-Token": courseToken },
@@ -79,6 +100,17 @@ export function getCalibration(
 export function getAutonomy(courseToken: string): Promise<AutonomyResponse> {
   return fetchJson<AutonomyResponse>(
     `/metrics/autonomy?course=${encodeURIComponent(courseToken)}`,
+    courseToken,
+  );
+}
+
+export function getTrustCalibration(
+  courseToken: string,
+  learner?: string,
+): Promise<TrustCalibrationResponse> {
+  const learnerParam = learner ? `&learner=${encodeURIComponent(learner)}` : "";
+  return fetchJson<TrustCalibrationResponse>(
+    `/metrics/trust-calibration?course=${encodeURIComponent(courseToken)}${learnerParam}`,
     courseToken,
   );
 }

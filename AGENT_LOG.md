@@ -4,6 +4,19 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-06-28 — Surface ENSEIGNANT de `trust_calibration` (jugement-sur-artefact)
+
+Rend VISIBLE au tableau de bord enseignant la dimension phare de la session — la calibration du jugement face à une lecture IA d'un résultat RÉEL (distincte de la calibration de confiance déclaré-vs-compétence). Jusqu'ici `trust_calibration` était calculée par le moteur mais invisible à tout humain.
+
+- `analytics-collector/metrics.py` : `TRUST_WELL_BAND=0.4` + `compute_trust_calibration(data_dir, course, learner?, bundle_version?)` — agrégat telemetry-natif sur les events `ai_audit_result` (mêmes que ai_audit_accuracy). Par scène scorable (planted>0, compteurs poolés par scene_id) : `over_trust=missed/planted`, `over_distrust=min(fp,planted)/planted`, `gap=over_trust-over_distrust ∈ [-1,1]` ; overall = MOYENNE des gaps par scène (miroir de ai_audit `overall_accuracy`) ; bande "bien" (|gap|≤0.4) / "sur" (sur-confiance IA) / "sous" (méfiance IA). Fidèle au moteur `recordJudgmentAudit`.
+- `analytics_collector_app.py` : `GET /metrics/trust-calibration` (auth `X-Course-Token`, `_validate_bundle_version`).
+- `teacher-dashboard` : `getTrustCalibration` + type `TrustCalibrationResponse` (lib/api.ts) ; composant `TrustCalibrationChart` (verdict FR par bande + breakdown sur-confiance/méfiance + **limite d'honnêteté affichée**) ; page `app/courses/[token]/trust-calibration/page.tsx` ; onglet « Confiance IA » dans `CourseNav`.
+- LIMITE D'HONNÊTETÉ (surfacée dans l'UI + le docstring) : le matcher hors-ligne fixe `false_positives=0` → en prod la direction « méfiance » est structurellement non-alimentée ; seule la sur-confiance bouge (gap≥0). La surface reflète fidèlement ce que la télémétrie porte. NON ajouté au blueprint composable (le gap signé n'est pas un score [0,1] « plus haut = mieux » ; son cousin composable ai_audit_accuracy y est déjà).
+
+**Vérification** : analytics-collector 115 (14 neufs : bien/sur/sous, cap fp, planted=0 non-scorable, pooling, moyenne-par-scène, filtre apprenant, bande inclusive ; + 401/403/aggregats endpoint) ; teacher-dashboard 47 (api wrapper + render component toutes bandes incl. null + limite d'honnêteté) ; `tsc` dashboard exit 0. Revue adverse (workflow 4 lentilles + réfutation par finding) → **0 must-fix / 0 should-fix / 2 nits** repliés (label `n_audits`→« scène(s) » ; normalisation `-0.00`).
+
+---
+
 ## 2026-06-28 — Régénération du jugement PAR-RUN : lève le caveat de déterminisme
 
 Lève le caveat de déterminisme de la boucle opération→jugement : un `spot_the_flaw` avec `reference_from_run` + `regenerate_from_run` voit son `flawed_content` + `claims` RÉGÉNÉRÉS depuis le run RÉEL de l'apprenant (côté serveur) — les défauts plantés collent à SES chiffres, même pour une capsule STOCHASTIQUE.
