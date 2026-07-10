@@ -36,10 +36,28 @@ pas de liste en dur à maintenir) et vérifie l'artefact avant de déclarer le s
 testé en régression, plus seulement affirmé. Deps Python via `requirements.txt`.
 Étape `vendor` rendue idempotente (TESTING.md demande de la relancer).
 
-Vérifié : `pnpm lint` 0 erreur · `pnpm test` exit 0 · `pytest` 107 passed ·
-depuis un clone vierge, `./setup.sh` exit 0 et les 8 drivers passent (dont `lesson-walk`,
-qui pilote le vrai serveur MCP). Restent : un F5 manuel par le propriétaire, et le
-fast-forward `main` → `dev` (D1), différé tant que la CI n'est pas verte.
+**Revue adversariale (5 angles) → 6 constats, tous corrigés.** Dont un **bloquant que la
+première vérification avait manqué, pour la raison même qu'on venait de diagnostiquer** :
+`pnpm test` passait en local *uniquement* parce que l'arbre de travail contenait des `dist/`
+d'anciens builds. Sur un checkout propre il échoue — `vitest` résout aussi
+`@studium/llm-client` via `main` → `dist/`, donc six fichiers de test de `lesson-session`
+meurent. Comme `tester-path`, `tauri-build` et `demo-m6` déclarent tous `needs: test`, la CI
+serait repartie rouge en sautant précisément le job censé prouver le chemin du testeur.
+Correctif : script racine `build:libs` (`packages/**` seulement), appelé par **setup.sh ET la
+CI**, donc pas de dérive possible. Autres constats : le guide FR enseignait encore
+l'installation en 3 commandes sans le build (Élise aurait planté au F5) ; « emailing the
+maintainer » sans adresse ; `pytest.ini` listé comme modifié alors qu'il ne l'est pas ;
+`CLAUDE.md` gardait `python -m venv`.
+
+Vérifié depuis un checkout propre (`git archive HEAD`, l'état exact d'un runner) :
+`pnpm install --frozen-lockfile` · `build:libs` · `lint` · `test` → tous exit 0.
+Depuis un clone vierge : `./setup.sh` exit 0 et 8/8 drivers (dont `lesson-walk`, qui pilote le
+vrai serveur MCP). `pytest` 107 passed.
+
+**Leçon reportée dans la spec : une acceptance d'onboarding ne se vérifie QUE depuis un clone
+neuf ; l'arbre de dev ment.** Restent : un F5 manuel par le propriétaire, la CI qui n'a encore
+jamais tourné pour de vrai (`demo-m6` s'exécutera pour la première fois de l'histoire du dépôt
+et peut être rouge), et le fast-forward `main` → `dev` (D1), différé jusqu'à CI verte.
 
 ---
 
