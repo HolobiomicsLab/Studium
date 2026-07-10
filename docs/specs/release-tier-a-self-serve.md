@@ -95,6 +95,14 @@ is known-red at `teacher-dashboard` and must never appear in tester docs.
   (the e2e harness does not need a signed desktop bundle), and add a job that runs
   the *actual* tester sequence — `setup.sh` then the `studium-vscode` driver suite —
   so the onboarding path is regression-tested, not just asserted.
+  **Extended after the first real run:** CI should also stop proving what we do *not* ship.
+  `tauri-build` and `demo-m6` both exercise `student-runtime`, the Tauri desktop app that
+  the Non-goal above and `TESTING.md` §8 place out of scope — `demo-m6` literally runs
+  `pnpm tauri:build --debug` and drives it with `tauri-driver` + WDIO. On push they cost
+  ~20 min (Ubuntu, rebuilding `cargo-tarpaulin` from source) plus a macOS runner billed at
+  10×, while the two jobs that gate the shipped surface, `test` and `tester-path`, take 2
+  and 1 minute. Both Tauri jobs are therefore `workflow_dispatch`-only. Push CI now runs
+  exactly what a colleague depends on.
 - **D9 — Python deps in CI come from `requirements.txt`**, not a bare
   `pip install pydantic pytest fastapi httpx`, so CI and a colleague's venv agree.
   **Corrected after the first real CI run (the third dev-tree contamination):** that alone

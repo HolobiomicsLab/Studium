@@ -71,11 +71,17 @@ jobs:
       - name: Studium VS Code driver suite
         run: pnpm --filter studium-vscode test
 
+  # Opt-in only (Actions -> CI -> Run workflow). `student-runtime` is the Tauri desktop app,
+  # which TESTING.md §8 and this release's spec both put OUT OF SCOPE: VS Code is the
+  # interactive surface we ask colleagues to run. Building it on every push cost ~20 min on
+  # Ubuntu (cargo-tarpaulin is rebuilt from source) plus a macOS runner billed at 10x, to
+  # guard an app nobody on the tester path launches. The jobs that gate what we ship are
+  # `test` (2 min) and `tester-path` (1 min).
   tauri-build:
     name: Tauri build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: test
-    if: "!contains(github.event.head_commit.message, '[skip tauri]')"
+    if: github.event_name == 'workflow_dispatch'
 
     strategy:
       fail-fast: false
