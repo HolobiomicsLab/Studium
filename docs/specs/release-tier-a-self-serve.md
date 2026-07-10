@@ -59,6 +59,15 @@ is known-red at `teacher-dashboard` and must never appear in tester docs.
 - **D5 — One command.** `./setup.sh` performs preflight version checks, then
   `pnpm install && pnpm --filter studium-vscode vendor && pnpm --filter studium-vscode build`,
   and prints the F5 instruction. It must **never** call `pnpm -r build`.
+  **Corrected during implementation:** that sequence is not sufficient. The extension
+  spawns the `lesson-mcp` server over stdio (`extension.ts:157,183`), and the server
+  imports `@studium/llm-client`, which resolves to its **built** `dist/index.js`. A
+  fresh clone has none, so F5 died with `ERR_MODULE_NOT_FOUND` — invisible from the
+  dev machine, whose `dist/` was left over from earlier work. `setup.sh` therefore
+  also runs `pnpm --filter "@studium/lesson-mcp^..." run build` (the `^...` filter is
+  *dependencies-only*, so a future dist-backed dependency needs no script edit) and
+  asserts `packages/llm-client/dist/index.js` exists before declaring success.
+  This is why acceptance #4 must be run from a real clone, not the dev tree.
 - **D6 — Eval path is secondary.** The README's eval quickstart leads with `--smoke`
   (works on any clone) and marks `--corpus NN` as requiring the separate corpus repo.
 - **D7 — Lint fix is config-first.** Add `argsIgnorePattern`/`varsIgnorePattern`/

@@ -4,6 +4,45 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-07-10 — Release Tier A : un collègue peut tester Studium sans l'auteur (`chore/release-tier-a`)
+
+Spec : `docs/specs/release-tier-a-self-serve.md`. Objectif : cloner, lancer **une**
+commande, appuyer sur F5, répondre à une scène de chimie. Sans jamais voir de lint.
+
+**Onboarding.** `setup.sh` (préflight Node 20+ / pnpm 9+ durs, Python *advisory*),
+`TESTING.md` comme porte d'entrée unique, formulaire d'issue « Tester feedback »,
+bandeau daté sur les deux guides M6 périmés.
+
+**Chaîne d'outils.** `packageManager: pnpm@9.15.9` + `engines` + `.nvmrc`, lus par la CI.
+La doc nomme `python3.12` : sur un Mac d'origine `/usr/bin/python3` est en 3.9.6 et
+fabrique silencieusement un venv inutilisable.
+
+**Lint : 40 erreurs → 0.** La CI était rouge sur les 47 runs, ce qui bloquait *tous* les
+jobs en aval. Correctif de config d'abord (`^_` + `ignoreRestSiblings`). Le
+`ignoreRestSiblings` n'est pas cosmétique : `const { scene_id, ...rest } = valid` dans
+les tests négatifs de schéma est une omission **délibérée**. Supprimer ces symboles
+« morts » aurait inversé les assertions sans que rien ne casse visiblement.
+
+**Le vrai bug, invisible depuis la machine de dev.** L'extension lance `lesson-mcp` en
+stdio (`extension.ts:157,183`) ; ce serveur importe `@studium/llm-client`, résolu vers
+son `dist/` **compilé**. Un clone neuf n'en a pas → F5 mourait sur `ERR_MODULE_NOT_FOUND`.
+Le poste de dev avait un `dist/` résiduel qui masquait tout. `setup.sh` compile donc
+`pnpm --filter "@studium/lesson-mcp^..." run build` (filtre *dépendances seules*, donc
+pas de liste en dur à maintenir) et vérifie l'artefact avant de déclarer le succès.
+**Leçon : l'acceptance #4 doit tourner depuis un vrai clone, pas depuis l'arbre de dev.**
+
+**CI.** `demo-m6` ne dépend plus de `tauri-build` ; nouveau job `tester-path` qui rejoue
+`setup.sh` puis la suite de drivers `studium-vscode` — le chemin d'onboarding devient
+testé en régression, plus seulement affirmé. Deps Python via `requirements.txt`.
+Étape `vendor` rendue idempotente (TESTING.md demande de la relancer).
+
+Vérifié : `pnpm lint` 0 erreur · `pnpm test` exit 0 · `pytest` 107 passed ·
+depuis un clone vierge, `./setup.sh` exit 0 et les 8 drivers passent (dont `lesson-walk`,
+qui pilote le vrai serveur MCP). Restent : un F5 manuel par le propriétaire, et le
+fast-forward `main` → `dev` (D1), différé tant que la CI n'est pas verte.
+
+---
+
 ## 2026-06-28 — TRUST_CALIBRATION : la direction OVER-DISTRUST est ENFIN ALIMENTÉE (live LLM AuditJudge) + 3 preuves live
 
 Ferme la frontière d'honnêteté documentée : le matcher par mots-clés ne pouvait JAMAIS mesurer la sur-méfiance (il porte la clé des fautes plantées, pas les affirmations SAINES — il ne distingue pas « signaler à tort » de « louer »). Un juge LLM, lui, reçoit les DEUX listes.
