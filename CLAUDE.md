@@ -45,8 +45,8 @@ pip install -r requirements.txt
 # À chaque session :
 source .venv/bin/activate   # ou .venv\Scripts\activate sur Windows
 
-# Lancer les tests Python :
-pytest services/ packages/lesson-plan-schema/tests_python/
+# Lancer les tests Python (schemas partagés — identique à la CI) :
+pytest
 
 # Lancer un service en dev :
 uvicorn services.ingest.app:app --reload --port 8000
@@ -62,12 +62,16 @@ via `pip install -r requirements.txt`.
 # TypeScript (tous les packages)
 pnpm test
 
-# Python (services + schemas)
-pytest services/ packages/lesson-plan-schema/tests_python/
+# Python (schemas partagés — commande identique à la CI, `pytest.ini` cadre sur `packages`)
+pytest
 
 # Next.js build
 pnpm --filter @studium/author-web build
 ```
+
+Les tests des services (`services/*/tests/`) ne se collectent pas ensemble
+(plusieurs `conftest.py` résolvent le même module `tests.conftest`) : les lancer
+service par service, ex. `pytest services/planner/tests/`.
 
 ## Mémoire
 

@@ -37,14 +37,14 @@ describe("POST /sessions/:id/respond + /turns", () => {
     await app.close();
   });
   it("404 respond on unknown session", async () => {
-    const { root, ref } = writeMiniBundle();
+    const { root } = writeMiniBundle();
     const app = buildServer({ bundlesRoot: root, live: false });
     const res = await app.inject({ method: "POST", url: `/sessions/nope/respond`, payload: { input: { kind: "ack" } } });
     expect(res.statusCode).toBe(404);
     await app.close();
   });
   it("404 turns on unknown session", async () => {
-    const { root, ref } = writeMiniBundle();
+    const { root } = writeMiniBundle();
     const app = buildServer({ bundlesRoot: root, live: false });
     const res = await app.inject({ method: "POST", url: `/sessions/nope/turns`, payload: { text: "hello" } });
     expect(res.statusCode).toBe(404);

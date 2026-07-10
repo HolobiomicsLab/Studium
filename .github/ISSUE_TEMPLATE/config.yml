@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Email the maintainer
+    url: mailto:louisfelix.nothias@gmail.com
+    about: Prefer email, or the feedback does not fit an issue? Write directly.
+  - name: How to test Studium
+    url: https://github.com/HolobiomicsLab/studium/blob/main/TESTING.md
+    about: Start here — prerequisites, one setup command, and the lesson walkthrough.

@@ -1,5 +1,13 @@
 # Guide enseignant — Studium démo M6
 
+> **Note — 2026-07-10.** Ce guide décrit les surfaces de l'époque M6. Le parcours
+> testeur actuel est décrit dans [`TESTING.md`](../../TESTING.md) à la racine du
+> dépôt. Les fonctionnalités ajoutées depuis (boucle opération→jugement,
+> calibration de confiance `trust_calibration`, protocole d'exécution côté
+> apprenant `get_run_manifest` / `submit_run_result`, répétition espacée au niveau
+> du cours via `nextCourseStep`) ne sont pas couvertes ici. Voir aussi
+> [`apps/studium-vscode/README.md`](../../apps/studium-vscode/README.md).
+
 > Studium v1 démo — chimie atomistique L1 SV.
 
 ## 1. Prérequis

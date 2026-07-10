@@ -56,11 +56,6 @@ describe("PeerRoomPanel — actions injected as props", () => {
   });
 
   it("AggregateRow renders passed_rate, avg_rating, avg_helpful correctly", () => {
-    // Render the aggregate display directly via the exported helper.
-    // Import inline to keep the test self-contained.
-    const { createElement: h } = require("react");
-    // Build a minimal RoomStateView-equivalent by crafting the table row HTML
-    // from the aggregate structure the panel would render.
     const agg = STATE_WITH_AGGREGATE.aggregates[0]!;
     expect(agg.passed_rate).toBe(1);
     expect(agg.avg_rating).toBe(4.5);

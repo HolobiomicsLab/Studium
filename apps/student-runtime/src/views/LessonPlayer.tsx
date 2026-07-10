@@ -91,7 +91,6 @@ function Player({
     lessonStartedEmittedRef.current = true;
     startedAtRef.current = performance.now();
     emit({ type: "lesson_started", bundle_uri: bundle.bundle_id });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Emit scene_entered when scene changes (and on first render)
@@ -99,7 +98,6 @@ function Player({
     if (sceneEnteredRef.current === scene.id) return;
     sceneEnteredRef.current = scene.id;
     emit({ type: "scene_entered", scene_id: scene.id, scene_type: scene.type });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene.id, scene.type]);
 
   useEffect(() => {

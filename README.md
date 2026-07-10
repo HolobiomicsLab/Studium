@@ -8,7 +8,7 @@
 
 ![Status](https://img.shields.io/badge/status-research_prototype-orange?style=flat-square)
 ![TypeScript](https://img.shields.io/badge/runtime-TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white)
-![Python](https://img.shields.io/badge/author--time-Python_3.13-3776ab?style=flat-square&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/author--time-Python_3.12+-3776ab?style=flat-square&logo=python&logoColor=white)
 ![HITL](https://img.shields.io/badge/human--in--the--loop-required-success?style=flat-square)
 ![RGPD](https://img.shields.io/badge/learner_data-local--first-success?style=flat-square)
 
@@ -71,26 +71,49 @@ local, RGPD-safe "demonstrates_mastery_of" claims  +  a HITL course audit report
 - **Explicability (M6)** — `explainLast()` surfaces why the system did what it did.
 - **Privacy (RGPD / ADR-006)** — learner mastery is **local-only**, pseudonymized, and a real `forget()` erases it; shared telemetry carries refs/scalars only, never free text.
 
-## Quickstart — test a real course end to end (no frontend)
+## Quickstart
 
-The fastest way to see Studium is the **backend eval harness**: it takes a real university course material, runs the whole pipeline, simulates a live agentic-AI ↔ student interaction, and runs an **auditing studio** that scores the course + the run and emits refinement feedback.
+### Try the lesson (no API key)
+
+The adaptive L1 chemistry lesson runs inside VS Code, key-free and offline after install:
 
 ```bash
-cd prototype-build
+git clone https://github.com/HolobiomicsLab/studium.git
+cd studium
+./setup.sh            # then open apps/studium-vscode in VS Code and press F5
+```
+
+See **[`TESTING.md`](TESTING.md)** for the full instructions (prerequisites, the F5
+step, the French walkthrough, what feedback we want).
+
+### Run the backend eval harness
+
+The eval harness takes real university course material, runs the whole pipeline,
+simulates a live agentic-AI ↔ student interaction, and runs an **auditing studio**
+that scores the course + the run and emits refinement feedback.
+
+```bash
+cd studium
 pnpm install            # workspace (TypeScript runtime)
-python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+# Python 3.12+ required. A stock macOS `python3` is 3.9 and too old — name the version.
+python3.12 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 
-# key-free: deterministic author + 3 student personas + heuristic auditing studio
+# key-free, works on any clone: the offline smoke run over the committed fixtures
+./.venv/bin/python eval/run_eval.py --smoke
+```
+
+The corpus runs need `eval/corpus`, a separate **private** repo of third-party OER
+that is **not** in this clone, so they only work where that repo is present:
+
+```bash
+# deterministic author + 3 student personas + heuristic auditing studio
 ./.venv/bin/python eval/run_eval.py --corpus 04
-
-# LIVE: Claude authors the course + a live Claude auditing studio scores it
-./.venv/bin/python eval/run_eval.py --corpus 04 --author claude --audit-llm
 
 # the whole corpus (5 sciences + 5 humanities)
 ./.venv/bin/python eval/run_eval.py --all
 ```
 
-See [`eval/README.md`](eval/README.md) for the full harness (author modes, student personas, the audit rubric, reports). Drop your own `.md` into `eval/corpus/` and add a manifest entry to evaluate your own course.
+See [`eval/README.md`](eval/README.md) for the full harness (author modes, student personas, the audit rubric, reports).
 
 ## Architecture
 
@@ -111,6 +134,7 @@ Research **prototype**. The runtime adaptive loop, the agentic author-time pipel
 
 ## Documentation
 
+- [`TESTING.md`](TESTING.md) — the entry point for colleagues testing the prototype
 - [`eval/README.md`](eval/README.md) — the backend eval harness (how to test a course)
 - [`docs/user/teacher-guide.md`](docs/user/teacher-guide.md) · [`docs/user/student-guide.md`](docs/user/student-guide.md) — role guides
 - [`CLAUDE.md`](CLAUDE.md) — agentic-development conventions (`.venv`, TDD, rule-003 HITL, RGPD)
