@@ -97,6 +97,16 @@ is known-red at `teacher-dashboard` and must never appear in tester docs.
   so the onboarding path is regression-tested, not just asserted.
 - **D9 — Python deps in CI come from `requirements.txt`**, not a bare
   `pip install pydantic pytest fastapi httpx`, so CI and a colleague's venv agree.
+  **Corrected after the first real CI run (the third dev-tree contamination):** that alone
+  is not enough. `packages/telemetry-events/tests` imports `telemetry_events`, which exists
+  only once the package is installed (its module maps to `src/`, so pytest's `pythonpath`
+  cannot substitute). It was present in the dev `.venv` from earlier work, so bare `pytest`
+  passed locally and failed CI collection. Two fixes: `requirements.txt` now installs
+  `-e ./packages/telemetry-events`, and that package's `requires-python` was relaxed from
+  `>=3.13` (a stale over-pin — it imports only `typing` and `pydantic`) to `>=3.12`, the
+  repo's declared floor, since the `>=3.13` pin made it uninstallable on CI's Python 3.12.
+  Verified in a throwaway `python3.12 -m venv`: `pip install -r requirements.txt && pytest`
+  → 107 passed.
 - **D10 — Feedback channel.** A GitHub issue form (`.github/ISSUE_TEMPLATE/`) plus an
   explicit "email the maintainer" line. Testers have `write` access already
   (`elisejdumont`, `taojiang9914`), so issues are open to them.

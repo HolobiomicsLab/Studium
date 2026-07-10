@@ -1,7 +1,10 @@
 [project]
 name = "telemetry-events"
 version = "0.5.0"
-requires-python = ">=3.13"
+# The repo's declared Python floor is 3.12 (CI, README, CLAUDE.md). The module imports only
+# `typing` and `pydantic`, so the previous >=3.13 pin was an over-restriction that made this
+# package uninstallable on CI's 3.12 and broke `pytest` collection.
+requires-python = ">=3.12"
 dependencies = ["pydantic>=2.8"]
 
 [build-system]
