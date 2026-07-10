@@ -51,6 +51,14 @@ fi
 step "Installing workspace dependencies (pnpm install)"
 pnpm install
 
+# The extension spawns the lesson-mcp server over stdio (extension.ts), and that server
+# imports workspace packages that resolve to their built dist/ — @studium/llm-client
+# above all. A fresh clone has no dist/, so without this step the lesson dies on F5 with
+# ERR_MODULE_NOT_FOUND. The `^...` filter selects lesson-mcp's dependencies only, so a
+# newly added dist-backed dependency is picked up without editing this script.
+step "Building the workspace packages the lesson server needs"
+pnpm --filter "@studium/lesson-mcp^..." run build
+
 step "Vendoring render libraries for offline use"
 pnpm --filter studium-vscode vendor
 
@@ -65,7 +73,9 @@ step "Verifying build output"
 [ -d apps/studium-vscode/media/vendor ] || fail "vendor step produced no apps/studium-vscode/media/vendor/"
 [ -f apps/studium-vscode/media/vendor/katex/katex.min.js ] || fail "vendor step did not copy KaTeX"
 [ -f apps/studium-vscode/media/vendor/3Dmol-min.js ] || fail "vendor step did not copy 3Dmol"
-printf '    dist/extension.js and media/vendor/ are present\n'
+# Without this the extension launches and then dies on the first scene.
+[ -f packages/llm-client/dist/index.js ] || fail "workspace build produced no packages/llm-client/dist/index.js — the lesson server cannot start"
+printf '    dist/extension.js, media/vendor/, and the lesson-server deps are present\n'
 
 printf '\nSetup complete.\n\n'
 printf 'Next step: open the folder apps/studium-vscode in VS Code and press F5 (fn+F5 on a Mac).\n'
