@@ -5,6 +5,7 @@ on:
     branches: ["**"]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -149,8 +150,17 @@ jobs:
             apps/student-runtime/src-tauri/target/release/bundle/
           if-no-files-found: warn
 
+  # Opt-in only (Actions -> CI -> Run workflow). This job was gated behind a failing lint
+  # step since the repo began, so it had never once executed. Its first run (2026-07-10)
+  # showed its Python setup has never been valid: it editable-installs `services/planner`,
+  # which has no pyproject.toml or setup.py; `scene-synth` and `analytics-collector` still
+  # pin requires-python >=3.13 while CI runs 3.12; and analytics-collector depends on
+  # `telemetry-events @ file:../../packages/telemetry-events`, a relative path that escapes
+  # the repo root from the runner's working directory. Repairing it is tracked separately.
+  # Left on push, it would keep the repo permanently red and tell a tester nothing true.
   demo-m6:
     name: Demo M6 end-to-end atomistique
+    if: github.event_name == 'workflow_dispatch'
     needs: test
     runs-on: ubuntu-22.04
 

@@ -165,3 +165,11 @@ Each is a command with an expected exit code, not a claim.
 - **`demo-m6` may fail the moment it is allowed to run**, having never executed. That
   is a discovery, not a regression; if it fails, it gets its own fix and does not
   block Tier A (the tester path job in D8 is the one that gates onboarding).
+  **Outcome:** it did fail, at *Install Python dependencies*, and the cause is that its
+  setup has never been valid — `services/planner` has no `pyproject.toml`/`setup.py` yet is
+  editable-installed; `scene-synth` and `analytics-collector` pin `requires-python >=3.13`
+  against CI's 3.12; and `analytics-collector` declares
+  `telemetry-events @ file:../../packages/telemetry-events`, a relative path that escapes the
+  repo root. Rather than leave the repo permanently red (the confidence problem this release
+  exists to fix) or mask it with `continue-on-error`, `demo-m6` is now `workflow_dispatch`-only
+  with the reason recorded in the workflow. Repairing it is a separate task.
