@@ -52,12 +52,12 @@ step "Installing workspace dependencies (pnpm install)"
 pnpm install
 
 # The extension spawns the lesson-mcp server over stdio (extension.ts), and that server
-# imports workspace packages that resolve to their built dist/ — @studium/llm-client
-# above all. A fresh clone has no dist/, so without this step the lesson dies on F5 with
-# ERR_MODULE_NOT_FOUND. The `^...` filter selects lesson-mcp's dependencies only, so a
-# newly added dist-backed dependency is picked up without editing this script.
-step "Building the workspace packages the lesson server needs"
-pnpm --filter "@studium/lesson-mcp^..." run build
+# imports workspace packages that resolve to their built dist/ — @studium/llm-client above
+# all. A fresh clone has no dist/, so without this step the lesson dies on F5 with
+# ERR_MODULE_NOT_FOUND. `build:libs` builds every workspace library (never the apps, so
+# never the known-red teacher-dashboard); CI runs the same script, so the two cannot drift.
+step "Building the workspace libraries the lesson server needs"
+pnpm build:libs
 
 step "Vendoring render libraries for offline use"
 pnpm --filter studium-vscode vendor

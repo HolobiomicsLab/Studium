@@ -37,8 +37,8 @@ Prochaine étape : M2 — voir `../Studium/docs/handoffs/m2-active-learning-peer
 **Toujours utiliser le virtualenv `.venv/`** — ne pas utiliser `python3` système.
 
 ```bash
-# Première fois (déjà fait) :
-python -m venv .venv
+# Première fois (déjà fait) — nommer la version : sur un Mac d'origine `python3` est en 3.9.
+python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 

@@ -68,6 +68,13 @@ is known-red at `teacher-dashboard` and must never appear in tester docs.
   *dependencies-only*, so a future dist-backed dependency needs no script edit) and
   asserts `packages/llm-client/dist/index.js` exists before declaring success.
   This is why acceptance #4 must be run from a real clone, not the dev tree.
+  **The same contamination hid a CI blocker:** `pnpm test` (the `test` job) also failed on a
+  clean checkout — `vitest` resolves `@studium/llm-client` through package.json `main` too, so
+  six `lesson-session` test files died. Since `tester-path`, `tauri-build` and `demo-m6` all
+  declare `needs: test`, CI would have gone red and skipped the very job that proves the tester
+  path. Fixed by a root `build:libs` script (`pnpm --filter "./packages/**" run build`) invoked
+  by **both** `setup.sh` and CI, so the two cannot drift. Never `pnpm -r build` — that is the
+  apps, including the known-red `teacher-dashboard`.
 - **D6 — Eval path is secondary.** The README's eval quickstart leads with `--smoke`
   (works on any clone) and marks `--corpus NN` as requiring the separate corpus repo.
 - **D7 — Lint fix is config-first.** Add `argsIgnorePattern`/`varsIgnorePattern`/
@@ -110,7 +117,8 @@ Modified:
 - ~15 source files — remove dead symbols, `prefer-const`, stale disable-comments
 - `.github/workflows/ci.yml` — read `packageManager`; `requirements.txt`; decouple
   `demo-m6`; add the tester-path job
-- `pytest.ini` + `CLAUDE.md` — one pytest invocation that actually works
+- `CLAUDE.md` — pytest invocation reconciled to bare `pytest` (`pytest.ini` already scoped
+  `testpaths` to `packages`, so it needed no edit), and `python3.12 -m venv`
 - `docs/user/student-guide.md`, `docs/user/teacher-guide.md` — dated banner pointing
   at `TESTING.md`, since both predate the judgment loop
 
@@ -127,6 +135,10 @@ Each is a command with an expected exit code, not a claim.
    populated.
 5. Every command block in `TESTING.md` has been executed verbatim from that fresh
    clone and exits 0 (except the F5 step, which is manual).
+   **Scoped during implementation:** #4/#5 were verified against a clone of *this branch*.
+   The §3 block clones the **default branch**, which today is `main` and carries neither
+   `setup.sh` nor `TESTING.md`, so that block only becomes verbatim-green once D1
+   fast-forwards `main` → `dev`. Re-run it once after D1 to close the criterion literally.
 6. `pnpm -r build` never appears as a runnable instruction. It may appear only in prose
    that warns against it, so the check is
    `grep -n "pnpm -r build" TESTING.md setup.sh | grep -viE "do not|does not|never"` → 0 lines.

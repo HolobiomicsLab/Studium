@@ -80,8 +80,8 @@ These questions are the ones already written in Partie 4 of the French guide and
 - **Scene types** — is a scene type missing (beyond quiz) for what you want your
   students to do?
 
-Send it by opening a GitHub issue (there is a **Tester feedback** issue form) or by
-emailing the maintainer.
+Send it by opening a GitHub issue (there is a **Tester feedback** issue form), or by email
+to Louis-Félix Nothias — `louisfelix.nothias@gmail.com`.
 
 ## 7. Troubleshooting
 
