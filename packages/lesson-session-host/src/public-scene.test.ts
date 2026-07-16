@@ -155,3 +155,32 @@ describe("publicScene — generic transport redaction", () => {
     }
   });
 });
+
+describe("publicScene — verdict deck projection", () => {
+  const deckScene = {
+    id: "s-deck", type: "spot_the_flaw", title: "T", objective_refs: [], concept_refs: ["c1"],
+    estimated_seconds: 0, adaptation_hooks: [],
+    flawed_content: "a flawed reading",
+    claims: [{ id: "f1", text: "k is dimensionless", flaws_expected: ["dim"] }],
+    sound_claims: [{ id: "s1", text: "k is a first-order rate" }],
+    model_correction: "fix", rubric: { completeness: 0.6, evidence_quality: 0.3, tone: 0.1 },
+    verdict_deck: true,
+  } as unknown as Scene;
+
+  it("emits an opaque-token deck (claim texts only) while still stripping the answer keys", () => {
+    const pub = publicScene(deckScene) as Record<string, unknown>;
+    expect("claims" in pub).toBe(false);        // flawed answer key stripped
+    expect("sound_claims" in pub).toBe(false);  // over-distrust answer key stripped
+    const deck = pub["deck"] as Array<Record<string, unknown>>;
+    expect(deck).toHaveLength(2);
+    expect(deck.map((d) => d["text"]).sort()).toEqual(["k is a first-order rate", "k is dimensionless"]);
+    for (const item of deck) {
+      expect(Object.keys(item).sort()).toEqual(["text", "token"]); // NO `flawed` label leaks
+    }
+  });
+
+  it("emits no deck when verdict_deck is not set", () => {
+    const noFlag = { ...(deckScene as unknown as Record<string, unknown>), verdict_deck: false } as unknown as Scene;
+    expect("deck" in (publicScene(noFlag) as Record<string, unknown>)).toBe(false);
+  });
+});

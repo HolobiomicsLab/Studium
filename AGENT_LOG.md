@@ -4,6 +4,42 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-07-17 — INSTRUMENT DE CONFIANCE BIDIRECTIONNEL (deck de verdicts + SDT) + harnais de validité de la porte
+
+**Objectif** : mesurer la SUR-MÉFIANCE sans clé LLM et séparer compétence et biais de confiance (le
+`trust_calibration` signé confond les deux). Ferme la limitation 4c du manuscrit côté hors-ligne. Décision
+verrouillée après débat à 3 experts (psychométricien + ingénieur + sceptique-validité) : deck hybride,
+complément (pas remplacement), porte INCHANGÉE, pas de porte sur le critère c (le scepticisme est la
+direction sûre).
+
+**Livré** :
+- `packages/learner-state/src/sdt.ts` : détection du signal — `computeSdt` (correction loglinéaire Hautus
+  1995), `inverseNormalCdf` (Acklam), A' (Grier), B''D (Donaldson), d', c, variance de Miller.
+- `recordJudgmentSdt` + champs `ConceptState` optionnels `trust_sdt_counts` / `trust_discrimination` (A') /
+  `trust_bias_c` (c), cumulés par concept. `recordJudgmentAudit` INCHANGÉ — la porte de certification et
+  `trust-gate.test.ts` restent verrouillés.
+- `packages/lesson-session/src/grading/deck.ts` : deck de verdicts déterministe, tokens opaques d0..dN,
+  mélange salé par un SECRET SERVEUR (`STUDIUM_DECK_SECRET`, sinon aléatoire par process) — la permutation
+  n'est PAS reconstructible côté client (Kerckhoffs ; corrige la fuite positionnelle trouvée par le panel).
+  `flawGrader` gagne la branche `flaw_verdicts` : une case cochée = un signalement, donc les fausses alertes
+  sur les `sound_claims` sont COMPTÉES sans LLM (sur-méfiance hors-ligne, clé-libre).
+- `verdict_deck` (schéma TS + miroir Python), `PublicScene` projette le deck sans étiquette,
+  `response-input-schema` + `types` : nouvelle réponse `flaw_verdicts`, l'engine plie `recordJudgmentSdt`
+  à côté du gap signé.
+- `packages/lesson-session/src/gate-validity.ts` (Direction 2) : `runGateValidity` + 4 dispositions
+  canoniques ; apprenants synthétiques (paramètres INDÉPENDANTS P(flag|flawed/sound)) à travers le VRAI
+  grader → plis → porte ; l'instrument RETROUVE la disposition et le taux de FAUX-MAINTIEN mesuré = 0. Démo
+  `apps/lesson-mcp/src/gate-validity-demo.ts`.
+
+**Vérifié** : 570 tests verts (+50). tsc propre. Panel adversarial (fuite de redaction + maths SDT + archi
++ direction/docs) : 1 bloquant (fuite positionnelle du deck) CORRIGÉ, advisories traitées (docstrings
+`trust_calibration` obsolètes, code mort, formulation non-circularité).
+
+**Reste** : D5 attestation d'exécution, D3 paquet de préparation d'essai en classe, D4 capsule
+métabolomique phare. Branche `feat/trust-instrument` (non poussée).
+
+---
+
 ## 2026-06-28 — TRUST_CALIBRATION : la direction OVER-DISTRUST est ENFIN ALIMENTÉE (live LLM AuditJudge) + 3 preuves live
 
 Ferme la frontière d'honnêteté documentée : le matcher par mots-clés ne pouvait JAMAIS mesurer la sur-méfiance (il porte la clé des fautes plantées, pas les affirmations SAINES — il ne distingue pas « signaler à tort » de « louer »). Un juge LLM, lui, reçoit les DEUX listes.

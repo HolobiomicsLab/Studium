@@ -5,12 +5,15 @@ import type {
   StateStore, EventLog, TelemetrySink, PseudonymProvider,
   ReasoningScorer, CritiqueEvaluator, AuditJudge, Clock, IdGen, MasteryClaimSink, SocraticTutor,
 } from "./ports.js";
+import type { PublicDeckItem } from "./grading/deck.js";
 
 /** A client-safe projection of a Scene: structurally a Scene with the answer-bearing fields
  * (quiz `correct` flags, `claims`, `key_points`, `model_*` reveals) removed by the host's
  * `publicScene` redaction before the scene leaves the server. The learner-facing fields the
- * webview renders are a subset of Scene, so a partial Scene types it without naming each variant. */
-export type PublicScene = Partial<Scene>;
+ * webview renders are a subset of Scene, so a partial Scene types it without naming each variant.
+ * `deck` is the ADDED verdict-deck projection (opaque-token, label-stripped) — a client-only field,
+ * never an authorable Scene field, so it lives on the projection type, not on Scene. */
+export type PublicScene = Partial<Scene> & { deck?: PublicDeckItem[] };
 
 export interface Explanation { rule_id: string; explanation_short: string; modulator: string; }
 export interface HintResult { hint: string; index: number; remaining: number; }
@@ -33,7 +36,8 @@ export type ResponseInput =
   | { kind: "quiz_choice"; choiceId: string; confidence?: 0 | 1 | 2 | 3 | 4 }
   | { kind: "confidence"; value: 0 | 1 | 2 | 3 | 4 }
   | { kind: "critique"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }
-  | { kind: "flaw_report"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }    // spot_the_flaw
+  | { kind: "flaw_report"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }    // spot_the_flaw (free text)
+  | { kind: "flaw_verdicts"; verdicts: Array<{ token: string; flagged: boolean }>; confidence?: 0 | 1 | 2 | 3 | 4 } // spot_the_flaw (verdict deck)
   | { kind: "explanation"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }    // explain_back
   | { kind: "comparison"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }     // comparison
   | { kind: "summary_audit"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }  // summary_audit

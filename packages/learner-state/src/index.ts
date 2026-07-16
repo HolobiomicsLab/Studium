@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { computeSdt } from "./sdt.js";
 
 export const ConceptStateSchema = z.object({
   concept_id: z.string(),
@@ -19,13 +20,29 @@ export const ConceptStateSchema = z.object({
   // positives ⇒ flagged sound claims). DISTINCT from confidence_calibration (trust-in-output, not
   // confidence-in-self). Fed ONLY by grounded spot_the_flaw scenes; optional + back-compatible
   // (absent ⇒ never measured). The samples count is the MEASURED flag the trust gates key on.
-  // BOTH directions are fed: OVER-TRUST offline (the keyword matcher counts missed planted flaws) AND
-  // OVER-DISTRUST when an LLM AuditJudge + the scene's `sound_claims` are wired (it counts SOUND claims
-  // the critique wrongly flagged → false_positives>0). The OFFLINE keyword matcher still reports
-  // false_positives=0 (it has the planted-flaw key, not the sound claims), so an offline-only deployment
-  // measures over-trust only — over-distrust requires the live judge. See [[trust_calibration]].
+  // BOTH directions are fed. OVER-TRUST needs no key (missed planted flaws, counted by the keyword matcher
+  // OR the verdict deck). OVER-DISTRUST (false_positives>0) now comes from TWO paths: a live LLM AuditJudge
+  // over free-text, OR — KEY-FREE — a VERDICT DECK (the learner marks each claim flawed/sound, so a flagged
+  // SOUND claim is a counted false alarm; see grading/deck.ts + gradeFlawVerdicts). Only the plain free-text
+  // keyword matcher leaves false_positives=0 (it can't tell a flagged sound claim from praise). See
+  // [[trust_calibration]].
   trust_calibration: z.number().min(-1).max(1).optional(),
   trust_calibration_samples: z.number().int().nonnegative().optional(),
+  // SIGNAL-DETECTION diagnostic of the SAME judgment audits, but SEPARATING competence from trust-bias
+  // (the single signed trust_calibration conflates them). Fed ONLY by audits with a real SOUND class
+  // (a verdict deck or a live judge; sound_total>0) so both response classes exist. NON-GATING: the
+  // certification/skip gates key on trust_calibration, never on these. Pooled RAW counts per concept
+  // (transformed once, never per-scene, never EWMA'd — unlike the gap fold). Optional + back-compatible.
+  trust_sdt_counts: z.object({
+    hits: z.number().int().nonnegative(),               // flawed claims flagged
+    misses: z.number().int().nonnegative(),             // flawed claims missed  (over-trust)
+    false_alarms: z.number().int().nonnegative(),       // sound claims wrongly flagged (over-distrust)
+    correct_rejections: z.number().int().nonnegative(), // sound claims correctly left unflagged
+  }).optional(),
+  // A' (Grier) non-parametric discrimination in [0,1]: the trust-COMPETENCE headline (small-N-honest).
+  trust_discrimination: z.number().min(0).max(1).optional(),
+  // criterion c: signed trust-BIAS. >0 conservative (over-trust), <0 liberal (over-distrust).
+  trust_bias_c: z.number().optional(),
 });
 
 export type ConceptState = z.infer<typeof ConceptStateSchema>;
@@ -48,8 +65,8 @@ export const SignalSchema = z.discriminatedUnion("kind", [
     // COUNTS ARE CLAIM-GRANULAR: `planted` = number of planted flaw CLAIMS, `caught` = distinct flaw
     // claims the critique identified (over-trust = missed/planted). `false_positives` = SOUND claims the
     // critique WRONGLY flagged and `sound_total` = how many sound claims were on offer (over-distrust =
-    // false_positives/sound_total). `false_positives`/`sound_total` are 0 unless a live AuditJudge +
-    // `sound_claims` are wired (the keyword matcher cannot tell a flagged sound claim from praise).
+    // false_positives/sound_total). These are nonzero via a live AuditJudge OR a KEY-FREE verdict deck;
+    // only the plain free-text keyword matcher leaves them 0 (it can't tell a flagged sound claim from praise).
     judgment_audit: z.object({
       grounded: z.literal(true),
       planted: z.number().int().nonnegative(),
@@ -228,6 +245,32 @@ export function recordJudgmentAudit(
   const prior = cs.trust_calibration ?? 0;
   const blended = Math.max(-1, Math.min(1, (1 - lambda) * prior + lambda * gap));
   return { ...cs, trust_calibration: blended, trust_calibration_samples: (cs.trust_calibration_samples ?? 0) + 1 };
+}
+
+/** Accumulate ONE grounded judgment audit into the per-concept signal-detection diagnostic (A' + c),
+ * SEPARATE from recordJudgmentAudit's signed gap and NON-GATING. Requires a real SOUND class
+ * (`sound_total > 0`): the offline keyword path (sound_total 0) has no noise trials, so SDT is
+ * undefined there and this is a no-op — the same over-distrust honesty boundary. Pools RAW counts on
+ * the concept and recomputes A'/c ONCE from the running 2x2 with the loglinear correction (never
+ * per-scene, never EWMA'd). Counts are clamped (caught<=planted, fa<=sound_total). Pure. */
+export function recordJudgmentSdt(cs: ConceptState, audit: JudgmentAudit): ConceptState {
+  const soundTotal = Math.max(0, Math.floor(audit.sound_total ?? 0));
+  if (soundTotal === 0) return cs; // no noise trials ⇒ over-distrust unmeasured ⇒ SDT undefined here
+  const planted = Math.max(0, Math.floor(audit.planted));
+  const hits = Math.min(Math.max(0, Math.floor(audit.caught)), planted);
+  const falseAlarms = Math.min(Math.max(0, Math.floor(audit.false_positives)), soundTotal);
+  const prior = cs.trust_sdt_counts ?? { hits: 0, misses: 0, false_alarms: 0, correct_rejections: 0 };
+  const counts = {
+    hits: prior.hits + hits,
+    misses: prior.misses + (planted - hits),
+    false_alarms: prior.false_alarms + falseAlarms,
+    correct_rejections: prior.correct_rejections + (soundTotal - falseAlarms),
+  };
+  const sdt = computeSdt({
+    hits: counts.hits, misses: counts.misses,
+    falseAlarms: counts.false_alarms, correctRejections: counts.correct_rejections,
+  });
+  return { ...cs, trust_sdt_counts: counts, trust_discrimination: sdt.aPrime, trust_bias_c: sdt.c };
 }
 
 /** True once a concept has ≥1 grounded-judgment audit AND its trust gap is within the well band. An

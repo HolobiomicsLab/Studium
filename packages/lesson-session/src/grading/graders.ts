@@ -5,6 +5,7 @@ import type { ResponseInput } from "../types.js";
 import type { EmitInput } from "../telemetry.js";
 import type { CritiqueEvaluator, AuditJudge } from "../ports.js";
 import { matchClaimsAgainstCritique } from "./ai-audit-matcher.js";
+import { scoreVerdictDeck } from "./deck.js";
 import { SceneGradingError } from "../errors.js";
 
 export interface GradeResult { signal: Signal; telemetry: EmitInput[]; }
@@ -81,14 +82,45 @@ const critiqueGrader: Grader = async (scene, input, deps) => {
   };
 };
 
+type SpotScene = Extract<Scene, { type: "spot_the_flaw" }>;
+type FlawVerdictsInput = Extract<ResponseInput, { kind: "flaw_verdicts" }>;
+
+// VERDICT-DECK path — the learner marks each deck item flawed/sound. A checkbox IS a flagging decision,
+// so false alarms on the sound claims are COUNTED with zero LLM — real over-distrust offline (closes the
+// keyword path's fp=0 boundary). Feeds the SAME judgment_audit shape the free-text/judge paths emit
+// (grounded-gated), so recordJudgmentAudit + the SDT diagnostic see it identically. The pass/score is
+// deck accuracy (hits + correct rejections) rather than free-text coverage.
+function gradeFlawVerdicts(scene: SpotScene, input: FlawVerdictsInput, deps: GradeDeps): GradeResult {
+  const soundClaims = scene.sound_claims ?? [];
+  const s = scoreVerdictDeck(scene.claims, soundClaims, scene.id, input.verdicts);
+  const passed = s.accuracy >= 0.6;
+  const missed = Math.max(0, s.planted - s.caught);
+  const completion_rate = s.planted === 0 ? 0 : s.caught / s.planted;
+  const grounded = scene.reference_result != null;
+  return {
+    signal: {
+      kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0,
+      difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.spot_the_flaw),
+      ...(grounded
+        ? { judgment_audit: { grounded: true as const, planted: s.planted, caught: s.caught, false_positives: s.falsePositives, sound_total: s.soundTotal } }
+        : {}),
+    },
+    telemetry: [
+      { type: "critique_submitted", scene_id: scene.id, scene_type: "spot_the_flaw", llm_score: Math.max(0, Math.min(1, s.accuracy)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
+      { type: "ai_audit_result", scene_id: scene.id, planted_errors: s.planted, true_positives: s.caught, false_positives: s.falsePositives, missed },
+    ],
+  };
+}
+
 // spot_the_flaw — a learner-as-auditor variant of ai_critique: the scene embeds a deliberately-flawed
-// mini-lesson (flawed_content) and the answer-key claims; the learner names the flaws (free text). We
-// reuse the SAME CritiqueEvaluator + flaw matcher, so scoring degrades offline to deterministic flaw
-// coverage (true_positives / planted_errors). model_correction is authored but graded-against only via
-// the evaluator (never leaked into telemetry).
+// mini-lesson (flawed_content) and the answer-key claims; the learner names the flaws (free text) OR marks
+// a verdict deck (flaw_verdicts → gradeFlawVerdicts). We reuse the SAME CritiqueEvaluator + flaw matcher
+// for the free-text path, so scoring degrades offline to deterministic flaw coverage (true_positives /
+// planted_errors). model_correction is authored but graded-against only via the evaluator (never leaked).
 const flawGrader: Grader = async (scene, input, deps) => {
   if (scene.type !== "spot_the_flaw") throw new SceneGradingError(scene.type, "flawGrader on non-spot_the_flaw");
-  if (input.kind !== "flaw_report") throw new SceneGradingError(scene.type, `expected flaw_report, got ${input.kind}`);
+  if (input.kind === "flaw_verdicts") return gradeFlawVerdicts(scene, input, deps);
+  if (input.kind !== "flaw_report") throw new SceneGradingError(scene.type, `expected flaw_report or flaw_verdicts, got ${input.kind}`);
   const { score } = await deps.critiqueEvaluator.evaluate({ claims: scene.claims, rubric: scene.rubric, critique: input.text });
   const passed = score >= 0.6;
   // AUDIT COUNTS feed trust_calibration. CLAIM-GRANULAR in BOTH paths (planted = number of distinct

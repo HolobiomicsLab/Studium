@@ -317,6 +317,11 @@ class SpotTheFlawScene(_SceneBase):
     # flawed_content + claims from the LEARNER's actual run (server-side), so the flaws match even for a
     # STOCHASTIC capsule (lifts the determinism caveat). Off ⇒ authored flaws (deterministic capsules only).
     regenerate_from_run: Optional[bool] = None
+    # OPTIONAL VERDICT DECK (mirror of TS): present claims + sound_claims as an unlabeled, shuffled deck
+    # the learner marks flawed/sound per item. A checkbox IS a flagging decision, so false alarms on the
+    # sound claims are COUNTED offline (key-free over-distrust) instead of needing a live judge. The deck is
+    # derived + label-stripped by publicScene at projection time. Absent/false ⇒ the free-text flaw path.
+    verdict_deck: Optional[bool] = None
 
 
 class KeyPoint(BaseModel):

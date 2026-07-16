@@ -254,6 +254,15 @@ export const SpotTheFlawSceneSchema = SceneBaseSchema.extend({
   // learner's real numbers even for a STOCHASTIC capsule. The regenerated answer key stays server-side
   // (publicScene still strips claims/model_correction). Off ⇒ the authored flaws are used (deterministic).
   regenerate_from_run: z.boolean().optional(),
+  // OPTIONAL VERDICT DECK: present the answer-key claims as an unlabeled, shuffled deck the learner
+  // marks flawed/sound per item (a forced binary verdict), instead of / alongside free-text. This is
+  // the KEY-FREE bidirectional signal: a checkbox IS a flagging decision, so false alarms on the
+  // `sound_claims` are COUNTED (not inferred from a live judge or from polarity-blind keyword matching)
+  // → real over-distrust offline. The deck is DERIVED at projection time from `claims` (flawed) +
+  // `sound_claims` (sound) by publicScene; the labels never leave the server (opaque positional tokens).
+  // For the deck to measure over-distrust the scene should declare `sound_claims`; with none it degrades
+  // gracefully to a flawed-only deck (over-trust only). Absent/false ⇒ the free-text flaw_report path.
+  verdict_deck: z.boolean().optional(),
 });
 
 // A key idea a good explanation should contain. `cues` (>=1) are the phrases the offline coverage

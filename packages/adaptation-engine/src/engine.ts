@@ -1,5 +1,5 @@
 import type { LearnerState, ConceptState, Signal, Decision } from "@studium/learner-state";
-import { defaultConceptState, recordConfidenceSample, CALIBRATION_ANSWER_LAMBDA, recordJudgmentAudit } from "@studium/learner-state";
+import { defaultConceptState, recordConfidenceSample, CALIBRATION_ANSWER_LAMBDA, recordJudgmentAudit, recordJudgmentSdt } from "@studium/learner-state";
 import type { AdaptationRule } from "@studium/lesson-bundle-schema";
 import { updateBeta } from "./beta-updater";
 import { matchesCondition } from "./condition-matcher";
@@ -85,6 +85,9 @@ export class AdaptationEngine {
       // dimension DISTINCT from confidence_calibration. This is the north-star destination signal.
       if (signal.judgment_audit?.grounded) {
         next = recordJudgmentAudit(next, signal.judgment_audit);
+        // Same audit, SEPARATE signal-detection diagnostic (A' competence + criterion-c bias); no-op
+        // unless a real sound class was judged (sound_total>0). Non-gating; complements the signed gap.
+        next = recordJudgmentSdt(next, signal.judgment_audit);
       }
       this.state.concept_states[signal.concept_id] = next;
     }
