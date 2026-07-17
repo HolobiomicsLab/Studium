@@ -56,6 +56,19 @@ const hasCmd = (id: string) => commandIds.includes(id);
   }
 }
 
+// 5) the @studium chat participant is contributed with its slash commands + a matching activation event.
+{
+  const cp = (c.chatParticipants ?? []).find((p: any) => p.id === "studium.tutor");
+  expect(!!cp, "the studium.tutor chat participant is contributed");
+  expect(!!cp && cp.name === "studium", "the participant is invoked as @studium");
+  const cmds: string[] = (cp?.commands ?? []).map((x: any) => x.name);
+  for (const name of ["start", "hint", "discuss"]) expect(cmds.includes(name), `chat participant declares the /${name} command`);
+  const acts: string[] = pkg.activationEvents ?? [];
+  expect(acts.includes("onChatParticipant:studium.tutor"), "the chat participant has an onChatParticipant activation event");
+  // the chat API this uses (createChatParticipant) needs a modern engine
+  expect(/\^1\.(9[5-9]|\d{3})/.test(pkg.engines?.vscode ?? ""), "engines.vscode is bumped for the chat API (>=1.95)");
+}
+
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} contributes assertions failed:`);
   for (const f of failures) console.error("  - " + f);

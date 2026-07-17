@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "vscode": "^1.90.0"
+    "vscode": "^1.95.0"
   },
   "categories": [
     "Education",
@@ -18,7 +18,8 @@
     "onCommand:studium.openLessonNotebook",
     "onCommand:studium.communityContributions",
     "onCommand:studium.runReproduction",
-    "onCommand:studium.openWalkthrough"
+    "onCommand:studium.openWalkthrough",
+    "onChatParticipant:studium.tutor"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -105,6 +106,20 @@
             "description": "Une scène de reproduction fait tourner une vraie capsule dans ton espace de travail (Studium n'exécute jamais lui-même). Le résultat que TU produis fonde le jugement — s'il est attesté.\n[Lancer la reproduction](command:studium.runReproduction)",
             "media": { "markdown": "media/walkthrough/03-run.md" }
           }
+        ]
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "studium.tutor",
+        "name": "studium",
+        "fullName": "Studium",
+        "description": "Ouvre une leçon et juge la sortie de l'IA, directement dans le chat",
+        "isSticky": true,
+        "commands": [
+          { "name": "start", "description": "Démarrer (ou redémarrer) la leçon" },
+          { "name": "hint", "description": "Demander un indice" },
+          { "name": "discuss", "description": "Prendre un tour de discussion (argumente une position)" }
         ]
       }
     ],
@@ -216,7 +231,7 @@
     "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js",
     "watch": "pnpm build --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "pnpm typecheck && for d in scene-io asset-path webview-pane community modality review-fsrs run-task lesson-tree contributes lesson-walk; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
+    "test": "pnpm typecheck && for d in scene-io asset-path webview-pane community modality review-fsrs run-task lesson-tree chat-format contributes lesson-walk; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
     "vendor": "mkdir -p media/vendor/katex && cp node_modules/katex/dist/katex.min.js node_modules/katex/dist/katex.min.css media/vendor/katex/ && cp -R node_modules/katex/dist/fonts media/vendor/katex/fonts && cp node_modules/vega/build/vega.min.js node_modules/vega-lite/build/vega-lite.min.js node_modules/vega-embed/build/vega-embed.min.js media/vendor/ && cp node_modules/cytoscape/dist/cytoscape.min.js node_modules/dagre/dist/dagre.min.js node_modules/cytoscape-dagre/dist/cytoscape-dagre.js node_modules/3dmol/build/3Dmol-min.js media/vendor/"
   },
   "dependencies": {

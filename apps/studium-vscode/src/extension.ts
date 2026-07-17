@@ -9,8 +9,8 @@ import * as vscode from "vscode";
 import { readFileSync, existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { connectLessonMcp } from "./mcp-connect.js";
+import { registerStudiumChat } from "./chat.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
 import { reviewDueConcepts } from "./review-fsrs.js";
@@ -50,6 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("studium.refreshLessons", () => treeProvider?.refresh()),
   );
   registerStudiumNotebook(context);
+  registerStudiumChat(context);
 }
 export function deactivate() {}
 
@@ -290,20 +291,12 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
   // 1) connect to lesson-mcp over stdio
   const env: Record<string, string> = { ...process.env as any, BUNDLES_ROOT: bundlesRoot };
   if (consent) { env["STUDIUM_DATA_DIR"] = join(bundlesRoot, "data"); env["STUDIUM_TELEMETRY_CONSENT"] = "granted"; }
-  const transport = new StdioClientTransport({ command: tsx, args: ["src/index.ts"], cwd: mcpDir, env, stderr: "ignore" });
-  const client = new Client({ name: "studium-vscode", version: "0.1.0" });
-  await client.connect(transport);
+  const mcp = await connectLessonMcp({ tsx, mcpDir, env });
+  const call = mcp.call;
   // Track disposal so async callbacks (which may resume after the user closes the panel) never
   // postMessage to a dead webview.
   let panelDisposed = false;
-  panel.onDidDispose(() => { panelDisposed = true; client.close().catch(() => {}); });
-
-  const call = async (name: string, args: Json): Promise<Json> => {
-    const res: any = await client.callTool({ name, arguments: args });
-    const data = JSON.parse(res.content?.[0]?.text ?? "{}");
-    if (res.isError) throw new Error(`${name}: ${data.error}`);
-    return data;
-  };
+  panel.onDidDispose(() => { panelDisposed = true; mcp.close(); });
 
   let sid = "";
 
