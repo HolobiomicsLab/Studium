@@ -41,6 +41,8 @@ SceneType = Literal[
     "prompt_practice",
     # active-learning wave-2 (D2): simulate a professional communication situation.
     "communication_sim",
+    # multi-turn Socratic discussion.
+    "discussion",
 ]
 BloomLevel = Literal[
     "remember", "understand", "apply", "analyze", "evaluate", "create"
@@ -48,6 +50,9 @@ BloomLevel = Literal[
 # Active modulator set — mirrors the registry in packages/lesson-bundle-schema/src/modulators.ts
 # (pinned by packages/lesson-bundle-schema/src/modulators.guard.test.ts).
 Modulator = Literal["M1", "M3", "M6"]
+ReasoningSignalEnum = Literal[
+    "justification", "hypothesis", "question", "counterexample", "synthesis",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -414,6 +419,18 @@ class CommunicationSimScene(_SceneBase):
     rubric: AICritiqueRubric
 
 
+class DiscussionScene(_SceneBase):
+    """Multi-turn Socratic discussion: the learner argues from a seed_claim over a
+    topic, each turn scored on the reasoning signals it exhibits. Mirrors the
+    canonical DiscussionSceneSchema (lesson-bundle-schema)."""
+
+    type: Literal["discussion"]
+    topic: str = Field(min_length=1)
+    seed_claim: str = Field(min_length=1)
+    target_signals: list[ReasoningSignalEnum] = Field(min_length=1)
+    max_turns: int = Field(gt=0, le=50)
+
+
 # ---------------------------------------------------------------------------
 # Discriminated union
 # ---------------------------------------------------------------------------
@@ -432,6 +449,7 @@ SceneUnion = Union[
     SummaryAuditScene,
     PromptPracticeScene,
     CommunicationSimScene,
+    DiscussionScene,
 ]
 Scene = Annotated[SceneUnion, Field(discriminator="type")]
 
@@ -661,6 +679,7 @@ __all__ = [
     "ComparisonScene",
     "Concept",
     "ConceptScene",
+    "DiscussionScene",
     "CritiqueEvalRequest",
     "CritiqueEvalResponse",
     "EnrichmentMetadata",

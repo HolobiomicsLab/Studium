@@ -104,4 +104,19 @@ describe("validateGraph", () => {
     expect(r.valid).toBe(true);
     expect(r.errors).toEqual([]);
   });
+
+  // referential integrity: an edge endpoint must reference a declared node (no dangling edges)
+  it("rejects an edge whose target references an unknown node", () => {
+    const g = { ...FIXTURE, edges: [...FIXTURE.edges, { id: "e-dangle", relation: "prerequisite_for" as const, source: "concept:fft", target: "concept:ghost" }] };
+    const r = validateGraph(g);
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => e.includes("unknown target node: concept:ghost"))).toBe(true);
+  });
+
+  it("rejects an edge whose source references an unknown node", () => {
+    const g = { ...FIXTURE, edges: [...FIXTURE.edges, { id: "e-dangle", relation: "assesses" as const, source: "task:ghost", target: "concept:fft" }] };
+    const r = validateGraph(g);
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => e.includes("unknown source node: task:ghost"))).toBe(true);
+  });
 });
