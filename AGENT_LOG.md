@@ -4,6 +4,27 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-07-17 — CAPSULE PHARE concept→reproduire→juger (métabolomique, patron déterministe)
+
+**Objectif** : démontrer la boucle nord-étoile sur du CONTENU métabolomique RÉEL (pas un jouet) — un
+apprenant reproduit une vraie annotation puis audite une lecture IA sur-confiante de SON propre résultat.
+
+**Livré** (`fixtures/metabo-judgment-demo/`) :
+- `run.py` : vrai **cosinus modifié** de type GNPS (appariement glouton, tolérance de fragment + décalage
+  de précurseur), stdlib. Landmark déterministe `MODIFIED_COSINE=0.6477 MATCHED_PEAKS=7` (niveau analogue,
+  PAS une identité — d'où le défaut planté « MSI-1 confirmé »). `spectra.json` = paire quasi-analogue (CH2).
+- `judgment.json` : scène `spot_the_flaw` (verdict_deck) fondée sur le landmark ; 3 affirmations
+  défectueuses (MSI-1 / confirmé / nouveau) + 2 solides (le cosinus modifié tolère le décalage de masse ;
+  7 fragments partagés). Audit métabolomique authentique.
+- `README.md` : conception + plan de bascule vers un vrai jeu FBMN public + porte de fidélité + FRONTIÈRE
+  HONNÊTE (c'est le PATRON prouvé sur de petites données réelles ; le flagship complet = semaines + un jeu
+  de données redistribuable à confirmer).
+
+**Vérifié** : 5 tests verts (`pytest`) — landmark déterministe, cosinus identique=1, matching par décalage
+de masse, scène fondée sur le landmark.
+
+---
+
 ## 2026-07-17 — PAQUET DE PRÉPARATION D'ESSAI DÉCISIF (pré-enregistrement + puissance + export)
 
 **Objectif** : l'étape empirique décisive du manuscrit (un essai en classe mesurant un gain

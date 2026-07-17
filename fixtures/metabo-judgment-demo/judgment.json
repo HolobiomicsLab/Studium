@@ -1,0 +1,31 @@
+{
+  "id": "metabo-judgment-1",
+  "type": "spot_the_flaw",
+  "title": "Audit the AI's reading of your annotation",
+  "objective_refs": ["annot-confidence"],
+  "concept_refs": ["msi-identification-confidence"],
+  "estimated_seconds": 240,
+  "adaptation_hooks": [],
+  "verdict_deck": true,
+  "reference_from_run": "metabo-modified-cosine",
+  "reference_result": {
+    "ran": true,
+    "passed": true,
+    "landmark": "MODIFIED_COSINE=0.6477 MATCHED_PEAKS=7",
+    "figure_path": null,
+    "checks": [{ "check": "file exists: outputs/match.json", "passed": true }],
+    "provenance": { "capsule_doi": null, "cmd": ["python", "run.py"], "env": "learner workspace" }
+  },
+  "flawed_content": "An AI assistant summarises your run: \"Feature 412 (m/z 448.31) matches the library reference at a modified cosine of 0.65 with 7 shared fragments, and its precursor differs from the reference by exactly one CH2 (14.016 Da). Feature 412 is therefore a confirmed identification of the conjugated bile-acid analogue at MSI level 1 — a novel confirmed structure. The precursor mass shift is handled correctly by the modified cosine, which is why the 7 fragments still align.\"",
+  "claims": [
+    { "id": "f-msi1", "text": "The 0.65 modified-cosine match to a library spectrum is a confirmed identification at MSI level 1.", "flaws_expected": ["msi level 1", "niveau 1", "confirmed", "level 1", "standard", "authentique", "authentic"] },
+    { "id": "f-novel", "text": "A match to an existing library reference is reported as a novel structure.", "flaws_expected": ["novel", "nouveau", "nouvelle"] },
+    { "id": "f-threshold", "text": "A modified cosine of 0.65 is treated as a confident identity match.", "flaws_expected": ["0.65", "0,65", "0.9", "identity", "identite", "seuil", "threshold"] }
+  ],
+  "sound_claims": [
+    { "id": "s-shift", "text": "The modified cosine tolerates the precursor mass shift (one CH2, 14.016 Da), which is why fragments still align across the analogue pair." },
+    { "id": "s-fragments", "text": "Seven fragments are shared between the experimental and reference spectra." }
+  ],
+  "model_correction": "A modified-cosine match to a library spectrum is MSI level 2 at best (putative annotation by spectral similarity, per Sumner 2007 / Schymanski 2014): MSI level 1 requires an authentic standard plus orthogonal evidence (retention time and accurate mass). A cosine of 0.65 is analogue-level similarity, not a confident identity match, and a match to an existing reference is by definition not novel. The two sound claims are correct: the modified cosine is designed to tolerate a precursor mass shift, and the run did report seven shared fragments.",
+  "rubric": { "completeness": 0.6, "evidence_quality": 0.3, "tone": 0.1 }
+}
