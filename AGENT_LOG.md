@@ -4,6 +4,29 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-07-17 — PAQUET DE PRÉPARATION D'ESSAI DÉCISIF (pré-enregistrement + puissance + export)
+
+**Objectif** : l'étape empirique décisive du manuscrit (un essai en classe mesurant un gain
+d'apprentissage) reste à faire ; pré-engager l'étude pour que le trio (étudiant + ingénieur
+pédagogique + chercheur) l'exécute le trimestre prochain comme une collecte de données, pas une
+conception à partir de zéro.
+
+**Livré** (`eval/decisive-trial/`) :
+- `PREREGISTRATION.md` : croisement intra-sujet, bras traitement (boucle opération→jugement) vs
+  contrôle actif ; critère primaire = score de TRANSFERT de jugement (auditer une lecture erronée
+  d'un résultat non produit par l'apprenant) ; H1/H2/H3 ; plan d'analyse ; consentement ; le trio.
+- `power_analysis.py` (stdlib : `math.erf` + quantile d'Acklam ; pas de numpy/scipy) : puissance
+  analytique du plan apparié + vérification Monte-Carlo. Chiffres : d_z=0,5 → 32 apprenants (80 %),
+  43 (90 %) ; EDM à n=60 → 0,36, n=120 → 0,26.
+- `pilot_export.py` : projette la télémétrie `ai_audit_result` en table d'étude par apprenant
+  (score de transfert, fausses alertes), squelette que le trio remplit avec les données réelles.
+
+**Vérifié** : 9 tests verts (`pytest eval/decisive-trial/`). MC=0,914 vs analytique=0,918 à n=45,d=0,5.
+
+**Reste** : D4 capsule métabolomique phare.
+
+---
+
 ## 2026-07-17 — ATTESTATION DE RUN (anti « opération-théâtre »)
 
 **Objectif** : `passed` est ASSERTÉ par l'opérateur — Studium ne peut pas le vérifier (cerveau seul). Un
