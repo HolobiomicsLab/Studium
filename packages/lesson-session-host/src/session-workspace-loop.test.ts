@@ -30,7 +30,7 @@ describe("operation->judgment loop — ground a spot_the_flaw on the learner's O
     writeFileSync(join(dir, "run_result.json"), JSON.stringify({
       ran: true, passed: true, landmark: "LANDMARK k_fit=0.4212 half_life=1.6457",
       artifacts: ["outputs/stats.csv", "figures/decay.png"],
-      checks: [{ check: "file exists: outputs/stats.csv", passed: true }],
+      checks: [{ check: "file exists: outputs/stats.csv", passed: true }, { check: "file exists: figures/decay.png", passed: true }],
     }));
     await ws.ingest(sessionId); // records the learner run + advances to s-flaw
 

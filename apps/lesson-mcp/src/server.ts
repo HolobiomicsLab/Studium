@@ -131,6 +131,10 @@ export function buildMcpServer(host: SessionHost): McpServer {
         return text({
           status: r.status,
           learner_run_recorded: r.learnerRunRecorded,
+          // Attestation: an unverifiable run advances but is quarantined from grounding a judgment
+          // (so it never feeds trust_calibration). Surfaced so a driver/teacher can see quarantined runs.
+          attested: r.attested,
+          attestation_reasons: r.attestationReasons,
           transition: r.transition ? publicTransition(r.transition) : null,
         });
       } catch (e) { return fail((e as Error).message); }

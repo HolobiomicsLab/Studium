@@ -29,7 +29,11 @@ function regenBundle() {
   };
 }
 
-const PASS = { ran: true, passed: true, landmark: "LANDMARK k_fit=0.4212 half_life=1.6457", artifacts: [], checks: [] };
+// A realistic attested run: it produces the manifest's declared output and reports the declared check.
+const PASS = {
+  ran: true, passed: true, landmark: "LANDMARK k_fit=0.4212 half_life=1.6457",
+  artifacts: ["outputs/stats.csv"], checks: [{ check: "file exists: outputs/stats.csv", passed: true }],
+};
 
 describe("per-run flaw regeneration", () => {
   it("regenerates the spot_the_flaw from the learner's run; answer key stays server-side", async () => {
@@ -71,6 +75,25 @@ describe("per-run flaw regeneration", () => {
       await host.ingestRunResult(sessionId, PASS);
       const scene = host.currentPresentation(sessionId).scene as { flawed_content: string };
       expect(scene.flawed_content).toContain("AUTHORED placeholder"); // unchanged
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  });
+
+  it("QUARANTINE: a theatre run (empty artifacts/checks) advances but never grounds the judgment", async () => {
+    const d = mkdtempSync(join(tmpdir(), "regen-"));
+    writeFileSync(join(d, "regen.json"), JSON.stringify(regenBundle()));
+    try {
+      const host = new SessionHost({ bundlesRoot: d, live: false, judgmentGenerator: new StubJudgmentGenerator() });
+      const { sessionId } = await host.create("regen.json", "op");
+      // ran && passed, but produces none of the manifest's declared outputs/checks — theatre.
+      const THEATRE = { ran: true, passed: true, landmark: "k_fit=0.4212", artifacts: [], checks: [] };
+      const r = await host.ingestRunResult(sessionId, THEATRE);
+      expect(r.status).toBe("ran");             // still advances (the pure-delegation gate is ran && passed)
+      expect(r.attested).toBe(false);           // but attestation fails
+      expect(r.learnerRunRecorded).toBe(false); // so the run never grounds a judgment (no trust feed)
+      expect(r.attestationReasons.length).toBeGreaterThan(0);
+      // the downstream judgment stays AUTHORED — no regeneration on an unverifiable run
+      const scene = host.currentPresentation(sessionId).scene as { flawed_content: string };
+      expect(scene.flawed_content).toContain("AUTHORED placeholder");
     } finally { rmSync(d, { recursive: true, force: true }); }
   });
 });

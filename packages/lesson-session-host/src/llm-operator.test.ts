@@ -24,7 +24,7 @@ describe("makeLlmOperator — LLM-backed operator drives the full run + judgment
     const runCalls: Array<Record<string, unknown>> = [];
     const runCapsule = async (manifest: Record<string, unknown>) => {
       runCalls.push(manifest);
-      return { ran: true, passed: true, landmark: "LANDMARK k_fit=0.4212 half_life=1.6457", artifacts: ["outputs/stats.csv", "figures/decay.png"], checks: [{ check: "file exists: outputs/stats.csv", passed: true }] };
+      return { ran: true, passed: true, landmark: "LANDMARK k_fit=0.4212 half_life=1.6457", artifacts: ["outputs/stats.csv", "figures/decay.png"], checks: [{ check: "file exists: outputs/stats.csv", passed: true }, { check: "file exists: figures/decay.png", passed: true }] };
     };
 
     const r = await runStudiumSession(host, BUNDLE, dir, makeLlmOperator({ llm, runCapsule }), { maxSteps: 20 });

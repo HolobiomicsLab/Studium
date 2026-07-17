@@ -19,7 +19,7 @@ import {
   sceneRenderAssets, nextCourseLesson, isCourseComplete,
   type RenderAsset, type ReferenceRun, type RunManifest, type Course, type CourseLesson, type LessonBundle,
 } from "@studium/lesson-bundle-schema";
-import { runResultToReferenceRun, type RunResult } from "./run-result.js";
+import { runResultToReferenceRun, verifyRunAttestation, type RunResult } from "./run-result.js";
 import type { GraphView } from "@studium/typed-graph-lens";
 import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
 import { SessionRegistry, type SessionEntry } from "./registry.js";
@@ -599,13 +599,17 @@ export class SessionHost {
    * run does NOT advance. Guards a non-run scene (no run_manifest) so it never advances an arbitrary scene. */
   async ingestRunResult(
     id: string, result: RunResult,
-  ): Promise<{ status: "ran" | "run_incomplete" | "run_failed_checks" | "not_a_run_scene"; transition: Transition | null; learnerRunRecorded: boolean }> {
-    const scene = this.require(id).session.currentPresentation().scene as { run_manifest?: unknown; task_card_id?: string };
-    if (!scene.run_manifest) return { status: "not_a_run_scene", transition: null, learnerRunRecorded: false };
-    if (!result.ran) return { status: "run_incomplete", transition: null, learnerRunRecorded: false };
-    if (!result.passed) return { status: "run_failed_checks", transition: null, learnerRunRecorded: false };
+  ): Promise<{ status: "ran" | "run_incomplete" | "run_failed_checks" | "not_a_run_scene"; transition: Transition | null; learnerRunRecorded: boolean; attested: boolean; attestationReasons: string[] }> {
+    const scene = this.require(id).session.currentPresentation().scene as { run_manifest?: RunManifest; task_card_id?: string };
+    if (!scene.run_manifest) return { status: "not_a_run_scene", transition: null, learnerRunRecorded: false, attested: false, attestationReasons: [] };
+    if (!result.ran) return { status: "run_incomplete", transition: null, learnerRunRecorded: false, attested: false, attestationReasons: [] };
+    if (!result.passed) return { status: "run_failed_checks", transition: null, learnerRunRecorded: false, attested: false, attestationReasons: [] };
+    // ATTESTATION (brain-only): verify the returned run against its manifest. An unverifiable "theatre" run
+    // still advances (the pure-delegation gate is ran&&passed), but is QUARANTINED from grounding a judgment
+    // — so it can never feed trust_calibration. Only an attested run records the learner's result.
+    const attestation = verifyRunAttestation(scene.run_manifest, result);
     let learnerRunRecorded = false;
-    if (scene.task_card_id) {
+    if (scene.task_card_id && attestation.trusted) {
       const learnerRun = runResultToReferenceRun(result);
       this.recordLearnerRun(id, scene.task_card_id, learnerRun);
       learnerRunRecorded = true;
@@ -614,7 +618,7 @@ export class SessionHost {
       if (this.opts.judgmentGenerator) await this.regenerateDownstreamJudgments(id, scene.task_card_id, learnerRun);
     }
     const transition = await this.respond(id, { kind: "ack" } as ResponseInput);
-    return { status: "ran", transition, learnerRunRecorded };
+    return { status: "ran", transition, learnerRunRecorded, attested: attestation.trusted, attestationReasons: attestation.reasons };
   }
 
   /** Regenerate every spot_the_flaw scene grounded on this capsule run (reference_from_run === taskCardId)

@@ -4,6 +4,29 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-07-17 — ATTESTATION DE RUN (anti « opération-théâtre »)
+
+**Objectif** : `passed` est ASSERTÉ par l'opérateur — Studium ne peut pas le vérifier (cerveau seul). Un
+opérateur paresseux/bogué/malveillant pourrait alimenter un run fabriqué → scène de jugement → `trust_calibration`.
+
+**Livré** :
+- `packages/lesson-session-host/src/run-result.ts` : `verifyRunAttestation(manifest, result)` — vérifie
+  SANS exécuter, sur les seules données rendues : sorties déclarées produites, checks déclarés rendus+passés,
+  cohérence `passed` vs checks, présence d'un landmark. Non-answer-bearing (jamais la VALEUR du landmark).
+- `host.ingestRunResult` : un run non attesté AVANCE quand même (la porte de délégation reste `ran && passed`)
+  mais est MIS EN QUARANTAINE — ni `recordLearnerRun` ni régénération, donc il ne fonde aucun jugement et
+  n'alimente jamais `trust_calibration`. Réutilise la règle existante « non-fondé ⇒ n'alimente pas la confiance ».
+- MCP `submit_run_result` expose `attested` + `attestation_reasons` (visibilité enseignant).
+- Frontière honnête documentée : attaque le théâtre PARESSEUX/PARTIEL/INCOHÉRENT, PAS une contrefaçon
+  parfaite (pas d'attestation cryptographique d'exécution). Le gabarit d'opérateur produit un run conforme.
+
+**Vérifié** : host 156 verts (7 unit d'attestation + 1 quarantaine e2e). 3 fixtures de run rendues réalistes
+(elles étaient vides = le cas théâtre même). tsc propre.
+
+**Reste** : D3 préparation d'essai, D4 capsule métabolomique, mise à jour ciblée du preprint.
+
+---
+
 ## 2026-07-17 — INSTRUMENT DE CONFIANCE BIDIRECTIONNEL (deck de verdicts + SDT) + harnais de validité de la porte
 
 **Objectif** : mesurer la SUR-MÉFIANCE sans clé LLM et séparer compétence et biais de confiance (le
