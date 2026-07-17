@@ -103,6 +103,9 @@ power (n = 45, d = 0.5: analytic 0.918, MC 0.914).
 - **Pedagogical engineer:** consent, scheduling, randomization list, data-management plan.
 - **Researcher:** analysis, pre-registration lock, reporting.
 
+The executable operating model — expanded responsibilities, a RACI, recruitment asks, and a timeline
+anchored to the two pending gates — is in `TRIO.md`.
+
 ## 10. What is done vs pending
 
 - **Done (in-repo, tested):** the key-free bidirectional instrument + construct validation;
