@@ -18,6 +18,8 @@ import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 import { discoverCommunityBundles, toPickItems } from "./community.js";
 import { calibrationVerdicts, type CalibrationVerdict } from "./calibration.js";
 import { runManifestToTaskSpec, buildRunResult, extractLandmark, type RunManifest } from "./run-task.js";
+import { StudiumTreeProvider } from "./tree.js";
+import type { CommunityItem } from "./lesson-tree.js";
 
 type Json = Record<string, any>;
 
@@ -32,15 +34,44 @@ let activeLesson: {
   done: (message: string) => void;
 } | null = null;
 
+/** The activity-bar sidebar; module-level so pushScene can toggle its "reproduction scene is live" state. */
+let treeProvider: StudiumTreeProvider | undefined;
+
 export function activate(context: vscode.ExtensionContext) {
+  treeProvider = new StudiumTreeProvider(() => discoverForTree(context));
   context.subscriptions.push(
-    vscode.commands.registerCommand("studium.openLesson", () => openLesson(context)),
+    vscode.window.registerTreeDataProvider("studiumLessons", treeProvider),
+    // The tree's community leaves open a specific bundle by ref; the palette entry opens the default.
+    vscode.commands.registerCommand("studium.openLesson", (ref?: unknown) =>
+      openLesson(context, typeof ref === "string" ? ref : undefined)),
     vscode.commands.registerCommand("studium.communityContributions", () => openCommunityContribution(context)),
     vscode.commands.registerCommand("studium.runReproduction", () => runReproductionScene()),
+    vscode.commands.registerCommand("studium.openWalkthrough", () => openWalkthrough(context)),
+    vscode.commands.registerCommand("studium.refreshLessons", () => treeProvider?.refresh()),
   );
   registerStudiumNotebook(context);
 }
 export function deactivate() {}
+
+/** Open the Getting-Started walkthrough. Its id is `${extensionId}#${walkthroughId}`; deriving the extension
+ *  id from context.extension.id is correct whether unpublished (undefined_publisher.studium-vscode) or
+ *  published (publisher.studium-vscode) — a hardcoded string would silently open nothing in one of those. */
+function openWalkthrough(context: vscode.ExtensionContext) {
+  vscode.commands.executeCommand("workbench.action.openWalkthrough", `${context.extension.id}#studium.gettingStarted`, false);
+}
+
+/** The community bundles the sidebar lists, discovered the same way the quick-pick command does. */
+function discoverForTree(context: vscode.ExtensionContext): CommunityItem[] {
+  const root = resolveBundlesRoot(context);
+  const canonicalRef = cfg<string>("bundleRef", "atomistique-l1/lesson.json");
+  return toPickItems(discoverCommunityBundles(root, canonicalRef)).map((p) => ({ ref: p.ref, label: p.label }));
+}
+
+/** Toggle the live reproduction-scene state on the sidebar + the `when`-clause context key. */
+function setReproductionContext(on: boolean) {
+  treeProvider?.setReproductionScene(on);
+  vscode.commands.executeCommand("setContext", "studium.onReproductionScene", on);
+}
 
 /**
  * Surface the learner-time RUN manifest of the current scene as a NATIVE VS Code task. The run protocol
@@ -355,9 +386,11 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
       explanation: explanation ?? presentation.explanation ?? null,
     });
     await pushGraph();
-    // When the current scene is a reproduction the LEARNER must run, nudge them to the native task
-    // command. The run_manifest is non-answer-bearing (publicScene keeps it), so its presence is the cue.
-    if (presentation.scene?.type === "reproduction" && presentation.scene?.run_manifest) {
+    // When the current scene is a reproduction the LEARNER must run, light up the sidebar's run action +
+    // the when-clause context, and nudge them. The run_manifest is non-answer-bearing (publicScene keeps it).
+    const isReproScene = presentation.scene?.type === "reproduction" && !!presentation.scene?.run_manifest;
+    setReproductionContext(isReproScene);
+    if (isReproScene) {
       vscode.window.showInformationMessage(
         "Studium : cette scène demande d'exécuter une capsule. Lance « Studium: Run reproduction » pour la faire tourner dans ton terminal.",
       );
@@ -376,7 +409,10 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
     done: (message: string) => { if (!panelDisposed) panel.webview.postMessage({ type: "done", message }); },
   };
   activeLesson = thisLesson;
-  panel.onDidDispose(() => { if (activeLesson === thisLesson) activeLesson = null; });
+  panel.onDidDispose(() => {
+    if (activeLesson === thisLesson) activeLesson = null;
+    setReproductionContext(false); // the run action is scene-scoped; clear it when the lesson closes
+  });
 
   // 2) learner actions from the pane → MCP calls → next render (pair by pair)
   panel.webview.onDidReceiveMessage(async (msg: Json) => {
@@ -428,6 +464,8 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
     await pushScene(started.presentation);
     vscode.window.showInformationMessage(`Studium: lesson started (${bundleRef}).`);
   } catch (e: any) {
+    // Replace the loading placeholder with an in-pane error so the panel is never stuck on "Chargement…".
+    if (!panelDisposed) panel.webview.postMessage({ type: "error", message: `Impossible de démarrer la leçon : ${e.message}` });
     vscode.window.showErrorMessage(`Studium: could not start lesson — ${e.message}`);
   }
 }
@@ -462,7 +500,7 @@ function paneHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "
 <link rel="stylesheet" href="${media("artifact-pane.css")}">
 <link rel="stylesheet" href="${katexCss}">
 ${libs}
-</head><body><div id="pane"></div>
+</head><body><div id="pane"><div class="loading">⏳ Chargement de la leçon…</div></div>
 <script nonce="${n}" src="${media("artifact-pane.js")}"></script>
 </body></html>`;
 }

@@ -492,6 +492,8 @@
       if (d.tutor && d.tutor.text) appendTurn("tutor", d.tutor.text, meta);
       else if (meta) { const box = document.getElementById("turns"); if (box) box.append(el("div", { class: "turn-meta" }, meta)); }
     }
+    else if (d.type === "loading") { const r = $("#pane"); r.innerHTML = ""; r.append(el("div", { class: "loading" }, "⏳ " + (d.message || "Chargement…"))); }
+    else if (d.type === "error") { const r = $("#pane"); r.innerHTML = ""; r.append(el("div", { class: "error-pane" }, "⚠ " + (d.message || "Une erreur est survenue."))); }
     else if (d.type === "done") { const r = $("#pane"); r.innerHTML = ""; r.append(el("div", { class: "done" }, "✔ " + (d.message || "Lesson complete"))); }
   });
   window.__render = renderPane;

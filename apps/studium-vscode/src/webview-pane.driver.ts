@@ -266,6 +266,17 @@ function submitFreeText(scene: any, answer: string) {
   expect(!!m.$(".adapt") && !m.$(".gate"), "a non-withhold adaptation rationale keeps the .adapt banner");
 }
 
+// --- 10) first-run states: loading + error messages render into the pane (never a silent blank) --------
+{
+  const m = mount();
+  m.render(baseState({ type: "concept", title: "C", markdown: "x" })); // draw something first
+  m.post({ type: "loading", message: "Chargement de la leçon…" });
+  expect(!!m.$(".loading") && m.text().includes("Chargement de la leçon"), "a loading message renders a .loading placeholder");
+  m.post({ type: "error", message: "BOOM_REASON" });
+  expect(!!m.$(".error-pane") && m.text().includes("BOOM_REASON"), "an error message renders an .error-pane with the reason");
+  expect(!m.$(".scene-head"), "the error state replaces the scene (no stale scene left behind)");
+}
+
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} webview-pane assertions failed:`);
   for (const f of failures) console.error("  - " + f);

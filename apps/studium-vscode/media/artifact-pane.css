@@ -137,3 +137,7 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--fo
 .gate { margin: 6px 0 8px; padding: 9px 12px; border-radius: 7px; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--card); }
 .gate-title { font-weight: 600; font-size: 13px; color: var(--fg); }
 .gate-why { font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 3px; }
+
+/* first-run states — a lesson pane is never a silent blank */
+.loading { padding: 24px 16px; color: var(--muted); font-size: 13px; }
+.error-pane { margin: 16px; padding: 12px 14px; border: 1px solid var(--no, #d9822b); border-left: 3px solid var(--no, #d9822b); border-radius: 7px; background: rgba(217,130,43,.08); color: var(--fg); font-size: 13px; line-height: 1.5; }
