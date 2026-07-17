@@ -74,7 +74,8 @@ ReasoningSignalEnum = Literal[
     "justification", "hypothesis", "question", "counterexample", "synthesis",
 ]
 BloomLevel = Literal["remember", "understand", "apply", "analyze", "evaluate", "create"]
-Modulator = Literal["M1", "M2", "M3", "M6"]
+# Active modulator set — mirrors the registry in src/modulators.ts (pinned by modulators.guard.test.ts).
+Modulator = Literal["M1", "M3", "M6"]
 
 
 class Concept(BaseModel):

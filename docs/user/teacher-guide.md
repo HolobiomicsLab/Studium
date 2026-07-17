@@ -86,12 +86,14 @@ Ouvre `http://localhost:3001`.
 
 ### 3.1 Vue Journal
 
-Liste des entrées libres rédigées par les étudiants (modulateur M5 métacognition).
+Liste des entrées libres rédigées par les étudiants — un support d'engagement
+métacognitif (le modulateur de métacognition est **M3** ; cf.
+`docs/ontology/modulators.md` pour le vocabulaire réconcilié).
 Indicateurs : nombre d'entrées par étudiant, dispersion, mots-clés fréquents.
 
 **Comment l'interpréter** : un étudiant qui écrit ≥ 2 entrées par leçon avec
 vocabulaire technique correct manifeste un engagement métacognitif solide.
-Si 0 entrée, le modulateur M5 ne s'est pas déclenché — vérifier les
+Si 0 entrée, l'étudiant n'a pas rédigé de journal — vérifier les
 adaptation_hooks de la leçon.
 
 ### 3.2 Vue Blueprint radar

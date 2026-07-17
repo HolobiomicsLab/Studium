@@ -45,7 +45,9 @@ SceneType = Literal[
 BloomLevel = Literal[
     "remember", "understand", "apply", "analyze", "evaluate", "create"
 ]
-Modulator = Literal["M1", "M2", "M3", "M6"]
+# Active modulator set — mirrors the registry in packages/lesson-bundle-schema/src/modulators.ts
+# (pinned by packages/lesson-bundle-schema/src/modulators.guard.test.ts).
+Modulator = Literal["M1", "M3", "M6"]
 
 
 # ---------------------------------------------------------------------------

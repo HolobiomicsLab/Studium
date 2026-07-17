@@ -100,7 +100,9 @@ export const DecisionSchema = z.object({
   next_action: NextActionSchema,
   rule_id: z.string().nullable(),
   explanation_short: z.string().nullable(),
-  modulator: z.enum(["M1", "M2", "M3", "M6"]).nullable(),
+  // Active modulator set — mirrors the registry in @studium/lesson-bundle-schema/src/modulators.ts
+  // (kept literal here to avoid a cross-package dep; modulators.guard.test.ts pins it to the registry).
+  modulator: z.enum(["M1", "M3", "M6"]).nullable(),
 });
 
 export type Decision = z.infer<typeof DecisionSchema>;

@@ -66,9 +66,10 @@ local, RGPD-safe "demonstrates_mastery_of" claims  +  a HITL course audit report
 
 - **Mastery is earned, not clicked** — a Beta/IRT model with a minimum-attempts floor; `demonstrates_mastery_of` is only asserted above a fixed bar.
 - **Universes drive the live experience** — `baseline` vs `remedial` set the prerequisite threshold θ; `pacing` skips mastered concepts; `scaffolding` unlocks hints. A struggling learner is **escalated** baseline → remedial one-way.
-- **Anti-offloading (M5)** — hints scaffold reasoning but *discount* mastery credit, so you can't offload to the answer.
+- **Anti-offloading** — hints scaffold reasoning but *discount* mastery credit, so you can't offload to the answer. (Enforced as a cross-cutting engine invariant; not a per-decision modulator tag.)
 - **Metacognition (M3)** — declared confidence is compared to real performance; over-/under-confidence is surfaced.
-- **Explicability (M6)** — `explainLast()` surfaces why the system did what it did.
+- **Prerequisite-gated remediation (M6)** — unmet prerequisites route to remediation and repeated struggle escalates the support universe; `explainLast()` surfaces why the system did what it did.
+- **Modulator vocabulary** — the reconciled M-series (only **M1, M3, M6** are active tags; see [`docs/ontology/modulators.md`](docs/ontology/modulators.md)).
 - **Privacy (RGPD / ADR-006)** — learner mastery is **local-only**, pseudonymized, and a real `forget()` erases it; shared telemetry carries refs/scalars only, never free text.
 
 ## Quickstart — test a real course end to end (no frontend)

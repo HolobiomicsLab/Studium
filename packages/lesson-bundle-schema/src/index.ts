@@ -8,6 +8,7 @@ export const SCHEMA_VERSION = "1.4";
 
 export * from "./scenes";
 export * from "./scene-assets";
+export * from "./modulators";
 export * from "./rules";
 export * from "./blueprint";
 export * from "./learner-item";
