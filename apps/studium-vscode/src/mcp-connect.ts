@@ -1,7 +1,20 @@
 // mcp-connect.ts — spawn lesson-mcp over stdio and expose a typed call() + close(). Shared by the lesson
 // panel (extension.ts) and the @studium chat participant (chat.ts) so the connection logic lives once.
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+
+/** Resolve the `tsx` runner used to launch lesson-mcp, tolerant of the package manager. The old hardcoded
+ *  pnpm path broke on a packaged VSIX / npm / yarn; try the common layouts, else fall back to PATH. */
+export function resolveTsx(repoRoot: string): string {
+  const candidates = [
+    resolve(repoRoot, "node_modules/.pnpm/node_modules/.bin/tsx"), // pnpm
+    resolve(repoRoot, "node_modules/.bin/tsx"), // npm / yarn (hoisted)
+    resolve(repoRoot, "apps/lesson-mcp/node_modules/.bin/tsx"), // installed at the package
+  ];
+  return candidates.find((p) => existsSync(p)) ?? "tsx"; // last resort: rely on PATH
+}
 
 export type McpCall = (name: string, args: Record<string, any>) => Promise<Record<string, any>>;
 export interface LessonMcp { call: McpCall; close: () => void; }

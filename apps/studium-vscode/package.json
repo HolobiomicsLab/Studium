@@ -4,6 +4,12 @@
   "description": "Run a Studium adaptive lesson in VS Code: a tutoring loop driven over the lesson-mcp server, with an artifact pane that renders each scene's figures, equations, interactive plots, and executed reference runs — pair by pair.",
   "version": "0.1.0",
   "private": true,
+  "publisher": "holobiomicslab",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HolobiomicsLab/studium.git",
+    "directory": "apps/studium-vscode"
+  },
   "engines": {
     "vscode": "^1.95.0"
   },
@@ -231,7 +237,8 @@
     "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js",
     "watch": "pnpm build --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "pnpm typecheck && for d in scene-io asset-path webview-pane community modality review-fsrs run-task lesson-tree chat-format contributes lesson-walk; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
+    "test": "pnpm typecheck && for d in scene-io asset-path webview-pane community modality review-fsrs run-task lesson-tree chat-format mcp-connect contributes lesson-walk; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
+    "package": "pnpm build && npx --yes @vscode/vsce package --no-dependencies -o studium.vsix",
     "vendor": "mkdir -p media/vendor/katex && cp node_modules/katex/dist/katex.min.js node_modules/katex/dist/katex.min.css media/vendor/katex/ && cp -R node_modules/katex/dist/fonts media/vendor/katex/fonts && cp node_modules/vega/build/vega.min.js node_modules/vega-lite/build/vega-lite.min.js node_modules/vega-embed/build/vega-embed.min.js media/vendor/ && cp node_modules/cytoscape/dist/cytoscape.min.js node_modules/dagre/dist/dagre.min.js node_modules/cytoscape-dagre/dist/cytoscape-dagre.js node_modules/3dmol/build/3Dmol-min.js media/vendor/"
   },
   "dependencies": {

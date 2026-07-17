@@ -1,0 +1,3 @@
+# build artifacts (rebuilt via `pnpm build` / `pnpm package`) — never committed
+dist/
+*.vsix

@@ -5,7 +5,7 @@
 // artifacts (3D / KaTeX) still need the webview; the verdict deck works here via numbers.
 import * as vscode from "vscode";
 import { resolve, join } from "node:path";
-import { connectLessonMcp, type LessonMcp } from "./mcp-connect.js";
+import { connectLessonMcp, resolveTsx, type LessonMcp } from "./mcp-connect.js";
 import { formatSceneForChat, replyToInput, type ChatScene } from "./chat-format.js";
 
 // One active chat lesson at a time (mirrors the single-active-lesson model of the panel).
@@ -43,7 +43,7 @@ function launch(context: vscode.ExtensionContext) {
   const env: Record<string, string> = { ...process.env as any, BUNDLES_ROOT: bundlesRoot };
   if (get<boolean>("telemetryConsent", false)) { env["STUDIUM_DATA_DIR"] = join(bundlesRoot, "data"); env["STUDIUM_TELEMETRY_CONSENT"] = "granted"; }
   return {
-    tsx: resolve(repoRoot, "node_modules/.pnpm/node_modules/.bin/tsx"),
+    tsx: resolveTsx(repoRoot),
     mcpDir: resolve(repoRoot, "apps/lesson-mcp"),
     env,
     bundleRef: get<string>("bundleRef", "atomistique-l1/lesson.json"),

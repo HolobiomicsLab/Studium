@@ -102,14 +102,40 @@ ask for a hint · `forget` → erase your session data.
    `pnpm --filter studium-vscode vendor`.
 2. Build the bundle: `pnpm --filter studium-vscode build` (esbuild → `dist/extension.js`).
 3. Open this folder in VS Code and press **F5** (Extension Development Host).
-4. Run **"Studium: Open Lesson"** (or **"… as Notebook"**) from the Command Palette. It runs
-   zero-config against the repo's `fixtures/atomistique-l1` demo; point `studium.bundlesRoot` /
-   `studium.bundleRef` elsewhere for another course.
+4. Run **"Studium: Open Lesson"** (or **"… as Notebook"**) from the Command Palette, or click the
+   **Studium** icon in the Activity Bar. It runs zero-config against the repo's `fixtures/atomistique-l1`
+   demo; point `studium.bundlesRoot` / `studium.bundleRef` elsewhere for another course.
+
+## Install it (packaged VSIX — for a colleague test round)
+
+For testers who don't want to F5 a dev host, build an installable `.vsix`:
+
+```
+pnpm --filter studium-vscode package        # vendor+build already done? just: builds → studium.vsix
+code --install-extension apps/studium-vscode/studium.vsix
+```
+
+Requires VS Code **≥ 1.95** (the chat participant + Language Model APIs). Engine 1.101+ is only needed
+for the (not-yet-shipped) editor-agent MCP integration.
+
+> **Honest boundary — the VSIX still needs the cloned repo.** The extension does not execute the science
+> itself; it spawns `lesson-mcp` (`apps/lesson-mcp`, via `tsx`) from the monorepo. So a tester must also
+> **clone this repo + `pnpm install`**, then set **`studium.repoRoot`** to their clone. The `tsx` path is
+> now resolved tolerantly (pnpm / npm / yarn / PATH), but full self-containment — bundling `lesson-mcp`
+> into the VSIX so no repo is required — is a follow-up. `studium.vsix` is a build artifact (git-ignored);
+> attach it to a GitHub release for distribution.
+
+## Use it in chat (`@studium`)
+
+With Copilot Chat (or another chat provider) installed, type **`@studium`** in the chat panel to run a
+lesson turn-by-turn, plus **`/hint`** and **`/discuss`**. The verdict deck works there via numbers
+(reply `1,3`). Rich artifacts (3D / equations) still open in the **Studium — Lesson** webview — chat is a
+companion, not a replacement. No answer key reaches the chat: the scene is redacted server-side.
 
 ## Tests
 
-The extension ships a headless verification suite (no VS Code host needed) — **6 drivers, 192
-assertions**:
+The extension ships a headless verification suite (no VS Code host needed) — **12 drivers, 300+
+assertions** (`pnpm --filter studium-vscode test`):
 
 ```
 pnpm --filter studium-vscode test          # tsc --noEmit + all 6 drivers

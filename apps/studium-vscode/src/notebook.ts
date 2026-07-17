@@ -10,6 +10,7 @@ import { resolve, join } from "node:path";
 import { readFile } from "node:fs/promises";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { resolveTsx } from "./mcp-connect.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 import { freeTextInput, extractConfidence } from "./scene-io.js";
 import { assetPathFor, imageMime } from "./asset-path.js";
@@ -64,7 +65,7 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
 
   async function startSession(notebook: vscode.NotebookDocument): Promise<Sess> {
     const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
-    const tsx = resolve(repoRoot, "node_modules/.pnpm/node_modules/.bin/tsx");
+    const tsx = resolveTsx(repoRoot);
     const mcpDir = resolve(repoRoot, "apps/lesson-mcp");
     const bundlesRoot = cfg<string>("bundlesRoot", join(repoRoot, "fixtures"));
     const bundleRef = (notebook.metadata?.bundle_ref as string) || cfg<string>("bundleRef", "atomistique-l1/lesson.json");

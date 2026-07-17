@@ -9,7 +9,7 @@ import * as vscode from "vscode";
 import { readFileSync, existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
-import { connectLessonMcp } from "./mcp-connect.js";
+import { connectLessonMcp, resolveTsx } from "./mcp-connect.js";
 import { registerStudiumChat } from "./chat.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
@@ -265,7 +265,7 @@ async function openCommunityContribution(context: vscode.ExtensionContext) {
 async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: string) {
   // The extension ships inside the monorepo (apps/studium-vscode); default repoRoot = ../../ .
   const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
-  const tsx = resolve(repoRoot, "node_modules/.pnpm/node_modules/.bin/tsx");
+  const tsx = resolveTsx(repoRoot);
   const mcpDir = resolve(repoRoot, "apps/lesson-mcp");
   // Default to the repo's own fixtures/ + the atomistique bundle, so it runs zero-config from any
   // clone. Override studium.bundlesRoot / studium.bundleRef to point elsewhere. A community bundle
