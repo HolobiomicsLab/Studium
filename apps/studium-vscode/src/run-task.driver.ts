@@ -8,6 +8,7 @@ import {
   runManifestToTaskSpec,
   evaluateChecks,
   buildRunResult,
+  extractLandmark,
   type RunManifest,
 } from "./run-task.js";
 
@@ -59,9 +60,35 @@ const MANIFEST: RunManifest = {
   const fe = (p: string) => present.has(p);
   const r = evaluateChecks(MANIFEST, fe);
   expect(r.length === 1 && r[0]!.passed === true, "file-exists check passes when the file is present");
-  const r2 = evaluateChecks({ ...MANIFEST, verify_checks: ["file exists: outputs/missing.csv", "stdout contains: k="] }, fe);
+  const r2 = evaluateChecks({ ...MANIFEST, verify_checks: ["file exists: outputs/missing.csv", "totally unknown check"] }, fe);
   expect(r2[0]!.passed === false, "missing file → check fails");
   expect(r2[1]!.passed === false, "unrecognized check kind → conservatively NOT passed");
+}
+
+// 4b) extractLandmark: last-non-empty-line heuristic; optional regex; null when nothing matches.
+{
+  const stdout = "installing…\nrunning pipeline\nMODIFIED_COSINE=0.6477 MATCHED_PEAKS=7\n\n";
+  expect(extractLandmark(stdout) === "MODIFIED_COSINE=0.6477 MATCHED_PEAKS=7", "last non-empty line is the landmark by default");
+  expect(extractLandmark(stdout, "MODIFIED_COSINE=([0-9.]+)") === "0.6477", "landmark_pattern isolates its capturing group");
+  expect(extractLandmark("noise only\nmore noise", "SCORE=([0-9.]+)") === null, "no pattern match → null (run gets quarantined)");
+  expect(extractLandmark("", ) === null, "empty stdout → null landmark");
+  expect(extractLandmark("one\n[weird regex", "(") === null, "an invalid regex is handled → null, never throws");
+}
+
+// 4c) stdout-contains + landmark-matches check forms (presence/FORM only, never a value).
+{
+  const fe = () => false;
+  const ctx = { landmark: "MODIFIED_COSINE=0.6477 MATCHED_PEAKS=7", stdout: "pipeline done\nMODIFIED_COSINE=0.6477 MATCHED_PEAKS=7" };
+  const r = evaluateChecks(
+    { ...MANIFEST, verify_checks: ["stdout contains: MATCHED_PEAKS", "landmark matches: MODIFIED_COSINE=[0-9.]+", "stdout contains: NOPE"] },
+    fe, ctx,
+  );
+  expect(r[0]!.passed === true, "'stdout contains' passes when the marker is in captured stdout");
+  expect(r[1]!.passed === true, "'landmark matches' passes when the landmark has the expected FORM");
+  expect(r[2]!.passed === false, "'stdout contains' fails when the marker is absent");
+  // with no captured context, presence/form checks conservatively fail (never falsely pass)
+  const r2 = evaluateChecks({ ...MANIFEST, verify_checks: ["landmark matches: X=[0-9]+"] }, fe);
+  expect(r2[0]!.passed === false, "no captured landmark → form check conservatively fails");
 }
 
 // 5) buildRunResult: ran/passed gate (host keys submit_run_result on ran && passed).
@@ -83,6 +110,17 @@ const MANIFEST: RunManifest = {
   const missingOut = buildRunResult(MANIFEST, { exitCode: 0, fileExists: () => false });
   expect(missingOut.passed === false, "expected output missing → not passed (even on exit 0)");
   expect(missingOut.landmark === null, "no landmark supplied → null (author landmark withheld)");
+}
+
+// 5b) checks are evaluated against FULL stdout; only the STORED stdout_tail is bounded (regression:
+// an early `stdout contains:` marker in a >4000-char run must not be silently dropped and quarantined).
+{
+  const bigEarly = "MARKER_EARLY\n" + "x".repeat(5000) + "\nMODIFIED_COSINE=0.6477";
+  const m2: RunManifest = { ...MANIFEST, expected_outputs: [], verify_checks: ["stdout contains: MARKER_EARLY"] };
+  const r = buildRunResult(m2, { exitCode: 0, fileExists: () => true, landmark: "MODIFIED_COSINE=0.6477", stdout: bigEarly });
+  expect(r.checks[0]!.passed === true, "early stdout marker in a >4000-char run still passes (checks see FULL stdout)");
+  expect(r.passed === true, "a successful long run with an early marker is not wrongly quarantined");
+  expect((r.stdout_tail || "").length <= 4000, "stdout_tail is bounded to 4000 chars on the wire");
 }
 
 if (failures.length) {

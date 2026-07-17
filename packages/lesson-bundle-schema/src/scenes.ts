@@ -153,8 +153,9 @@ export const RunManifestSchema = z.object({
   timeout_s: z.number().positive().optional(),
   requirements: z.array(z.string()).optional(),    // pip deps to install (or a requirements.txt at capsule_ref)
   expected_outputs: z.array(z.string()),           // file NAMES the run should produce (not their values)
-  verify_checks: z.array(z.string()),              // human-readable file-existence checks (no answer values)
+  verify_checks: z.array(z.string()),              // human-readable checks: `file exists:` / `stdout contains:` / `landmark matches:` (no answer values)
   research_question: z.string().optional(),
+  landmark_pattern: z.string().optional(),         // optional regex isolating the learner's OWN landmark line in stdout (a FORM matcher, not a value); default = last non-empty line
 });
 export type RunManifest = z.infer<typeof RunManifestSchema>;
 

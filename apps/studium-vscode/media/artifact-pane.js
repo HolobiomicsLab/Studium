@@ -182,6 +182,28 @@
     return card;
   }
 
+  // Render the adaptation line. A WITHHOLD (the gate held the learner on a step: replay / remediate_alt)
+  // becomes a calm, NON-PUNITIVE gate card framed at the dimension level — being held back is an
+  // invitation to re-examine one's judgment, not a sanction (this is how calibrated skepticism is
+  // cultivated rather than discouraged). A normal advance keeps the terse adaptation-rationale banner.
+  // BOUNDARY: names only the action + the engine's short reason; never a number, a threshold, or which
+  // specific claim/choice was wrong. Copy is safe to ship; a pedagogy pass can refine the wording.
+  const GATE_COPY = {
+    replay:        { icon: "↻", title: "On refait cette étape ensemble" },
+    remediate_alt: { icon: "↻", title: "On reprend cette notion autrement" },
+  };
+  function renderAdapt(ex) {
+    const g = GATE_COPY[ex && ex.rule_id];
+    if (g) {
+      const card = el("div", { class: "gate gate-" + ex.rule_id });
+      card.append(el("div", { class: "gate-title" }, g.icon + " " + g.title));
+      card.append(el("div", { class: "gate-why" },
+        ex.explanation_short || "Ta lecture de ce résultat mérite un second regard — pas une sanction, une invitation à réexaminer."));
+      return card;
+    }
+    return el("div", { class: "adapt" }, "⟳ " + ((ex && ex.rule_id) || "") + " — " + ((ex && ex.explanation_short) || ""));
+  }
+
   // --- whole pane ----------------------------------------------------------
   function renderPane(state) {
     const root = $("#pane"); root.innerHTML = "";
@@ -197,7 +219,7 @@
     crumbs.append(forget);
     head.append(crumbs);
     head.append(el("h2", { class: "scene-title" }, sc.title || ""));
-    if (state.explanation) head.append(el("div", { class: "adapt" }, "⟳ " + state.explanation.rule_id + " — " + state.explanation.explanation_short));
+    if (state.explanation) head.append(renderAdapt(state.explanation));
     // Calibration mirror (B1): the metacognitive "am I as sure as I should be?" verdict per concept,
     // computed host-side (calibration[]). Show only the ACTIONABLE bands (sur/sous) to avoid noise —
     // number-free, never a mastery score, so safe to show. Capped to keep the header compact.
@@ -226,12 +248,16 @@
     if (sc.type === "quiz" && sc.question) root.append(el("div", { class: "prose question", html: mdLite(sc.question) }));
     if (sc.type === "meta_checkpoint" && sc.pre_question) root.append(el("div", { class: "prose question", html: mdLite(sc.pre_question) }));
     // spot_the_flaw shows the deliberately-flawed lesson (find the errors); explain_back shows the
-    // prompt. NOTE: the full scene object (incl. the answer keys claims/key_points + the model_*
-    // reveals) IS sent to the webview — same posture as quiz choices' `correct` flags — but those
-    // fields are never DRAWN to the DOM before the learner answers. Transport-level redaction would
-    // need a host-side publicScene projection (applies repo-wide, incl. quizzes; tracked as follow-up).
+    // prompt. The answer keys (claims / sound_claims / key_points + the model_* reveals) are stripped
+    // SERVER-SIDE by publicScene (lesson-session-host) before the scene reaches the webview — including
+    // the verdict deck, which arrives as {token,text} only — so there is nothing to leak here.
     if (sc.type === "spot_the_flaw" && sc.flawed_content) {
-      root.append(el("div", { class: "pane-label" }, "⚠️ Ce passage contient des erreurs — repère-les"));
+      // verdict-deck mode reframes the task: audit an AI READING of your own result, then judge each
+      // claim below (flag/sound). Free-text mode is the older "find the errors in this passage".
+      const hasDeck = Array.isArray(sc.deck) && sc.deck.length;
+      root.append(el("div", { class: "pane-label" }, hasDeck
+        ? "⚠️ Audite cette lecture IA de ton résultat — puis juge chaque affirmation ci-dessous"
+        : "⚠️ Ce passage contient des erreurs — repère-les"));
       root.append(el("div", { class: "prose flawed", html: mdLite(sc.flawed_content) }));
     }
     if (sc.type === "explain_back" && sc.prompt) {
@@ -366,6 +392,14 @@
       const fin = el("button", { class: "ghost" }, "Terminer la discussion ▸");
       fin.addEventListener("click", send({ type: "respond", input: { kind: "ack" } }));
       wrap.append(ta, sendBtn, fin);
+    } else if (sc.type === "spot_the_flaw" && Array.isArray(sc.deck) && sc.deck.length) {
+      // VERDICT DECK (D1): the DESTINATION made interactive. The host ships a shuffled, label-stripped
+      // deck of opaque-token claims (publicDeck: {token,text} only — the flawed/sound truth stays
+      // server-side). The learner makes a forced flag/sound decision PER claim; flagging a sound claim is
+      // a false alarm (over-distrust), missing a flawed one is over-trust — the bidirectional signal,
+      // captured offline with zero LLM. Replaces the free-text flaw_report so the graded path is
+      // unambiguous. LEAK BOUNDARY: render ONLY {token,text}; never echo any ground-truth flag.
+      wrap.append(deckControls(sc));
     } else if (FREE_TEXT[sc.type]) {
       // every single-submit free-text active-learning scene → a textarea posting the kind its grader
       // requires (kinds mirror src/scene-io.ts FREE_TEXT_KIND; scene-io.driver.ts guards the parity).
@@ -380,6 +414,43 @@
       const b = el("button", { class: "primary" }, "Continue ▸"); b.addEventListener("click", send({ type: "respond", input: { kind: "ack" } })); wrap.append(b);
     }
     return wrap;
+  }
+
+  // The verdict-deck control: one flag/sound toggle per opaque-token claim + an optional confidence tap
+  // + a single submit. Posts { kind:'flaw_verdicts', verdicts:[{token,flagged}] } — one entry per deck
+  // token (unflagged = judged sound). Mirrors ResponseInputSchema.flaw_verdicts; the host re-derives the
+  // deck permutation from the scene id (+ server secret) to score hits vs false alarms. Renders ONLY the
+  // {token,text} the host shipped — the ground-truth flawed/sound flags never reach the client.
+  function deckControls(sc) {
+    const box = el("div", { class: "deck" });
+    box.append(el("div", { class: "deck-instr" },
+      "Juge chaque affirmation : signale celles que tu estimes erronées, laisse les autres. " +
+      "Signaler une affirmation correcte compte comme une méfiance excessive."));
+    const deck = Array.isArray(sc.deck) ? sc.deck : [];
+    const verdicts = deck.map((d) => ({ token: d.token, flagged: false }));
+    deck.forEach((d, i) => {
+      const row = el("div", { class: "deck-row", "data-token": d.token });
+      const claim = el("div", { class: "deck-claim", html: mdLite(d.text || "") });
+      const toggle = el("button", { class: "deck-flag", type: "button", "aria-pressed": "false" }, "⚑ Signaler comme erronée");
+      toggle.addEventListener("click", () => {
+        const on = !verdicts[i].flagged;
+        verdicts[i].flagged = on;
+        toggle.classList.toggle("on", on);
+        toggle.setAttribute("aria-pressed", on ? "true" : "false");
+        toggle.textContent = on ? "⚑ Erronée — annuler" : "⚑ Signaler comme erronée";
+        row.classList.toggle("flagged", on);
+      });
+      row.append(claim, toggle);
+      box.append(row);
+    });
+    const cr = confidenceRow();
+    const submit = el("button", { class: "primary deck-submit" }, "Soumettre mon jugement");
+    submit.addEventListener("click", () => window.__send && window.__send({
+      type: "respond",
+      input: withConf({ kind: "flaw_verdicts", verdicts: verdicts.map((v) => ({ token: v.token, flagged: v.flagged })) }, cr),
+    }));
+    box.append(cr.node, submit);
+    return box;
   }
 
   // append one dialogue turn to the discussion transcript (#turns). `meta` is an optional

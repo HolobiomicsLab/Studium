@@ -7,6 +7,7 @@
 // back, which the extension feeds to submit_response / request_hint.
 import * as vscode from "vscode";
 import { readFileSync, existsSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -16,7 +17,7 @@ import { reviewDueConcepts } from "./review-fsrs.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 import { discoverCommunityBundles, toPickItems } from "./community.js";
 import { calibrationVerdicts, type CalibrationVerdict } from "./calibration.js";
-import { runManifestToTaskSpec, buildRunResult, type RunManifest } from "./run-task.js";
+import { runManifestToTaskSpec, buildRunResult, extractLandmark, type RunManifest } from "./run-task.js";
 
 type Json = Record<string, any>;
 
@@ -35,7 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("studium.openLesson", () => openLesson(context)),
     vscode.commands.registerCommand("studium.communityContributions", () => openCommunityContribution(context)),
-    vscode.commands.registerCommand("studium.runReproduction", () => runReproductionScene(context)),
+    vscode.commands.registerCommand("studium.runReproduction", () => runReproductionScene()),
   );
   registerStudiumNotebook(context);
 }
@@ -48,7 +49,7 @@ export function deactivate() {}
  * integrated terminal → buildRunResult from the produced outputs → submit_run_result (the host gates
  * advance on ran && passed). This is "let VS Code handle the environment and install" made literal.
  */
-async function runReproductionScene(context: vscode.ExtensionContext) {
+async function runReproductionScene() {
   if (!activeLesson || activeLesson.isDisposed()) {
     vscode.window.showInformationMessage("Studium : ouvre d'abord une leçon, puis lance sa scène de reproduction.");
     return;
@@ -66,37 +67,115 @@ async function runReproductionScene(context: vscode.ExtensionContext) {
   if (!wsFolder) { vscode.window.showErrorMessage("Studium : ouvre un dossier de travail pour exécuter la capsule."); return; }
 
   const spec = runManifestToTaskSpec(manifest);
+  // A CustomExecution backed by a Pseudoterminal so we CAPTURE the run's stdout (a plain ShellExecution
+  // hands us only the exit code). The learner's OWN landmark is parsed from that stdout — without it the
+  // run has landmark=null and attestation quarantines it, so the judgment falls back to a canned number
+  // instead of grounding on the value the learner actually produced. Studium's BRAIN still never executes:
+  // the extension is the operator's harness (VS Code = the operator's environment), and lesson-mcp only
+  // ever receives the finished run_result. Capture is in-process (child_process) → cross-platform, no
+  // workspace-polluting `tee`.
+  const { pty, done } = spawnCapturingPty(spec.command, join(wsFolder, spec.cwd), manifest.timeout_s);
   const task = new vscode.Task(
     { type: "studium-run", capsule: manifest.capsule_ref },
     vscode.TaskScope.Workspace, spec.name, "studium",
-    new vscode.ShellExecution(spec.command, { cwd: join(wsFolder, spec.cwd) }),
+    new vscode.CustomExecution(async () => pty),
   );
-  let exec: vscode.TaskExecution;
-  try { exec = await vscode.tasks.executeTask(task); }
+  try { await vscode.tasks.executeTask(task); }
   catch (e: any) { vscode.window.showErrorMessage(`Studium : impossible de lancer la tâche — ${e.message}`); return; }
 
-  // One-shot: when THIS task's process ends, assemble run_result.json from the outputs + submit it.
-  // Tracked in context.subscriptions so a never-completing task can't leak the listener past deactivate.
-  const sub = vscode.tasks.onDidEndTaskProcess(async (ev) => {
-    if (ev.execution !== exec) return;
-    sub.dispose();
-    const result = buildRunResult(manifest!, {
-      exitCode: ev.exitCode ?? null,
-      fileExists: (p) => existsSync(join(wsFolder, p)),
-    });
-    try {
-      const r = await lesson.call("submit_run_result", { session_id: lesson.sid(), run_result: result });
-      if (r.status === "ran" && r.transition) {
-        vscode.window.showInformationMessage("Studium : run réussi — résultat enregistré, on avance.");
-        if (lesson.isDisposed()) return;
-        if (r.transition.kind === "complete") lesson.done(`Leçon terminée — ${r.transition.summary?.scenesCompleted ?? "?"} scènes.`);
-        else await lesson.advance(r.transition.presentation);
-      } else {
-        vscode.window.showWarningMessage(`Studium : run non accepté (${r.status}) — corrige l'exécution puis relance.`);
-      }
-    } catch (e: any) { vscode.window.showErrorMessage(`Studium: ${e.message}`); }
+  // When the captured process ends, parse the learner's landmark, assemble run_result.json, submit it.
+  const { exitCode, stdout } = await done;
+  if (lesson.isDisposed()) return;
+  const landmark = extractLandmark(stdout, manifest.landmark_pattern);
+  // Pass the FULL stdout — buildRunResult evaluates verify_checks against all of it (an early
+  // `stdout contains:` marker must not be missed) and stores only a bounded tail on the wire.
+  const result = buildRunResult(manifest, {
+    exitCode,
+    fileExists: (p) => existsSync(join(wsFolder, p)),
+    landmark,
+    stdout,
   });
-  context.subscriptions.push(sub);
+  try {
+    const r = await lesson.call("submit_run_result", { session_id: lesson.sid(), run_result: result });
+    if (lesson.isDisposed()) return;
+    if (r.status === "ran" && r.transition) {
+      // ATTESTATION (D5) made legible: a `ran` run always advances (pure-delegation gate), but only an
+      // ATTESTED run grounds the next judgment on the learner's OWN result. Surface which happened —
+      // "attested = internally consistent with the manifest", NOT "verified genuine" (attestation is
+      // structural, brain-only; a perfect forgery still attests — never over-claim the guarantee).
+      if (r.attested && r.learner_run_recorded) {
+        vscode.window.showInformationMessage("Studium : run attesté ✓ — le prochain jugement est fondé sur TON résultat.");
+      } else {
+        const why = Array.isArray(r.attestation_reasons) && r.attestation_reasons.length
+          ? " Raisons : " + r.attestation_reasons.join(" · ") : "";
+        vscode.window.showWarningMessage(
+          `Studium : run en quarantaine ⚠ — il fait avancer la leçon mais ne fonde PAS le jugement (le jugement utilisera le run de référence).${why}`,
+        );
+      }
+      if (r.transition.kind === "complete") lesson.done(`Leçon terminée — ${r.transition.summary?.scenesCompleted ?? "?"} scènes.`);
+      else await lesson.advance(r.transition.presentation);
+    } else {
+      vscode.window.showWarningMessage(`Studium : run non accepté (${r.status}) — corrige l'exécution puis relance.`);
+    }
+  } catch (e: any) { vscode.window.showErrorMessage(`Studium: ${e.message}`); }
+}
+
+/**
+ * A vscode.Pseudoterminal that spawns the capsule command in the workspace and CAPTURES its stdout while
+ * streaming it to the terminal the learner watches. Returns the pty (for a CustomExecution) plus a `done`
+ * promise that resolves with { exitCode, stdout } when the child closes. stderr is echoed to the terminal
+ * (no longer silently discarded) but is not parsed for the landmark. Newlines are CRLF-normalized for the
+ * terminal. The extension is the OPERATOR's harness here — Studium's brain (lesson-mcp) still never runs.
+ */
+function spawnCapturingPty(command: string, cwd: string, timeoutS?: number): {
+  pty: vscode.Pseudoterminal;
+  done: Promise<{ exitCode: number | null; stdout: string }>;
+} {
+  const writeEmitter = new vscode.EventEmitter<string>();
+  const closeEmitter = new vscode.EventEmitter<number>();
+  let stdout = "";
+  let child: ReturnType<typeof spawn> | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let settled = false;
+  let settle!: (v: { exitCode: number | null; stdout: string }) => void;
+  const done = new Promise<{ exitCode: number | null; stdout: string }>((res) => { settle = res; });
+  // Settle `done` at most once and always clear the watchdog. Idempotent so 'error' then 'close', a
+  // timeout kill, and a terminal-close teardown can all call it without double-resolving or hanging.
+  const finish = (exitCode: number | null) => {
+    if (timer) { clearTimeout(timer); timer = undefined; }
+    if (settled) return;
+    settled = true;
+    settle({ exitCode, stdout });
+  };
+  const crlf = (s: string) => s.replace(/\r?\n/g, "\r\n");
+  const pty: vscode.Pseudoterminal = {
+    onDidWrite: writeEmitter.event,
+    onDidClose: closeEmitter.event,
+    open: () => {
+      writeEmitter.fire(crlf(`$ ${command}\n`));
+      try { child = spawn(command, { cwd, shell: true }); }
+      catch (e: any) { writeEmitter.fire(crlf(`[studium] spawn error: ${e?.message}\n`)); closeEmitter.fire(1); finish(1); return; }
+      // Watchdog: a capsule that never exits (infinite loop, blocked on stdin, network stall) would leave
+      // the caller awaiting `done` forever. When the manifest declares a timeout, kill the child at the
+      // deadline; its 'close' event then settles `done` (a timed-out run is quarantined, not hung).
+      if (timeoutS && timeoutS > 0) {
+        timer = setTimeout(() => {
+          writeEmitter.fire(crlf(`[studium] délai dépassé (${timeoutS}s) — arrêt de la capsule.\n`));
+          child?.kill();
+        }, timeoutS * 1000);
+      }
+      child.stdout?.on("data", (d: Buffer) => { const s = d.toString(); stdout += s; writeEmitter.fire(crlf(s)); });
+      child.stderr?.on("data", (d: Buffer) => { writeEmitter.fire(crlf(d.toString())); });
+      child.on("error", (e) => { writeEmitter.fire(crlf(`[studium] ${e.message}\n`)); closeEmitter.fire(1); finish(1); });
+      child.on("close", (code) => { closeEmitter.fire(code ?? 0); finish(code); });
+    },
+    // If the learner closes the terminal before the capsule finishes, KILL the child (it is NOT detached,
+    // so it would otherwise be orphaned) and settle `done` (exitCode=null → ran=false) so the awaiting
+    // caller resumes instead of hanging. (kill() targets the shell; a deeply-nested grandchild on a hung
+    // pipe may outlive it — a known shell:true limitation — but the run protocol is unblocked regardless.)
+    close: () => { child?.kill(); finish(null); },
+  };
+  return { pty, done };
 }
 
 function cfg<T>(key: string, fallback: T): T {

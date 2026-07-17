@@ -240,6 +240,9 @@ class RunManifest(BaseModel):
     expected_outputs: list[str]
     verify_checks: list[str]
     research_question: Optional[str] = None
+    # optional regex isolating the learner's OWN landmark line in stdout (a FORM matcher, not a value);
+    # when absent the client falls back to the last non-empty stdout line.
+    landmark_pattern: Optional[str] = None
 
 
 class ReproductionScene(_SceneBase):

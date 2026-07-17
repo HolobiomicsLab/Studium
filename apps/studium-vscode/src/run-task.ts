@@ -20,6 +20,10 @@ export interface RunManifest {
   expected_outputs: string[];
   verify_checks: string[];
   research_question?: string;
+  /** Optional regex that isolates the learner's OWN landmark line in captured stdout. When absent, the
+   * last non-empty stdout line is used (deterministic capsules print their headline statistic last).
+   * A FORM matcher, never a value — the graded number is withheld by the protocol. */
+  landmark_pattern?: string;
 }
 
 /** Mirror of RunResultSchema (packages/lesson-session-host/src/run-result.ts) — what submit_run_result wants. */
@@ -43,7 +47,12 @@ export interface RunTaskSpec {
   cwd: string;
 }
 
-/** Quote a shell argument conservatively (single-quote, escaping embedded single quotes). */
+/** Quote a shell argument conservatively (single-quote, escaping embedded single quotes). POSIX quoting —
+ * correct for the default macOS/Linux shells the capsule runs under. NOTE: on Windows the run executes via
+ * cmd.exe (spawn shell:true), which does not honour single quotes, so a token OUTSIDE the safe charset
+ * below (e.g. an arg with a space, or a `python -c "..."` cmd) would mis-parse there; ordinary tokens
+ * (`python run.py`, `numpy==1.26.4`) are emitted unquoted and run fine. Windows-correct quoting is a
+ * follow-up — the current colleague-test round is macOS/Linux. */
 function sh(arg: string): string {
   if (/^[A-Za-z0-9_./:=-]+$/.test(arg)) return arg;
   return `'${arg.replace(/'/g, `'\\''`)}'`;
@@ -69,17 +78,53 @@ export function runManifestToTaskSpec(m: RunManifest, opts: { pip?: string } = {
   return { name: `Studium · run ${m.capsule_ref}`, command: parts.join(" && "), cwd };
 }
 
-/** Evaluate the manifest's verify_checks against the workspace. Only "file exists: <path>" is understood
- * today; an unrecognized check is reported NOT passed (conservative — never falsely "passed"). Paths are
- * resolved under working_dir. `fileExists` is injected (the extension passes fs.existsSync over an
- * absolute join; a test passes a stub) so this stays pure + headless-testable. */
+/** Extract the learner's OWN landmark from captured stdout. With a `landmark_pattern` (regex) the first
+ * capturing group — or the whole match — is the landmark; without one, the last non-empty line is used
+ * (a deterministic capsule prints its headline statistic last, e.g. `MODIFIED_COSINE=0.6477 …`). Returns
+ * null when nothing matches (a landmark-less run is then correctly QUARANTINED by attestation, not passed
+ * with a null landmark). Pure + headless-testable — the FORM is checked, the value is never interpreted. */
+export function extractLandmark(stdout: string | null | undefined, pattern?: string): string | null {
+  const text = stdout ?? "";
+  if (pattern) {
+    let re: RegExp | null = null;
+    try { re = new RegExp(pattern); } catch { re = null; }
+    if (!re) return null;
+    const mm = re.exec(text);
+    return mm ? (mm[1] ?? mm[0]).trim() : null;
+  }
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  return lines.length ? lines[lines.length - 1]! : null;
+}
+
+/** Evaluate the manifest's verify_checks against the workspace + the captured run. Understood forms:
+ *   - `file exists: <path>`        — an expected output was produced (resolved under working_dir)
+ *   - `stdout contains: <substr>`  — the pipeline printed an expected marker (presence, not a value)
+ *   - `landmark matches: <regex>`  — the learner's landmark has the expected FORM (e.g. MODIFIED_COSINE=[0-9.]+)
+ * An unrecognized check is reported NOT passed (conservative — never falsely "passed"). Deliberately NO
+ * exact-value / tolerance check: verify_checks are non-answer-bearing by design (scenes.ts:156), so the
+ * graded number is never pinned in the public manifest — only its presence and form are gated here. The
+ * `fileExists` fn + `ctx` (captured landmark/stdout) are injected so this stays pure + headless-testable. */
 export function evaluateChecks(
   m: RunManifest,
   fileExists: (path: string) => boolean,
+  ctx: { landmark?: string | null; stdout?: string | null } = {},
 ): Array<{ check: string; passed: boolean }> {
+  const landmark = ctx.landmark ?? "";
+  const stdout = ctx.stdout ?? "";
   return m.verify_checks.map((check) => {
-    const fe = /^file exists:\s*(.+)$/i.exec(check.trim());
-    if (fe && fe[1]) return { check, passed: fileExists(underWorkingDir(m.working_dir, fe[1].trim())) };
+    const t = check.trim();
+    let mm: RegExpExecArray | null;
+    if ((mm = /^file exists:\s*(.+)$/i.exec(t)) && mm[1]) {
+      return { check, passed: fileExists(underWorkingDir(m.working_dir, mm[1].trim())) };
+    }
+    if ((mm = /^stdout contains:\s*(.+)$/i.exec(t)) && mm[1]) {
+      return { check, passed: stdout.includes(mm[1].trim()) };
+    }
+    if ((mm = /^landmark matches:\s*(.+)$/i.exec(t)) && mm[1]) {
+      let re: RegExp | null = null;
+      try { re = new RegExp(mm[1].trim()); } catch { re = null; }
+      return { check, passed: !!re && re.test(landmark) };
+    }
     return { check, passed: false };
   });
 }
@@ -90,20 +135,23 @@ export function evaluateChecks(
  * parsed from stdout) and defaults to null. Mirrors what an agentic operator writes to run_result.json. */
 export function buildRunResult(
   m: RunManifest,
-  o: { exitCode: number | null; fileExists: (path: string) => boolean; landmark?: string | null; stdoutTail?: string },
+  o: { exitCode: number | null; fileExists: (path: string) => boolean; landmark?: string | null; stdout?: string },
 ): RunResult {
   const ran = o.exitCode !== null;
-  const checks = evaluateChecks(m, o.fileExists);
+  // Evaluate verify_checks against the FULL captured stdout (a `stdout contains:` marker printed early in
+  // a verbose run must not be missed), but transmit only a bounded tail as stdout_tail on the wire.
+  const checks = evaluateChecks(m, o.fileExists, { landmark: o.landmark, stdout: o.stdout });
   const outputs = m.expected_outputs.map((p) => underWorkingDir(m.working_dir, p));
   const present = outputs.filter((p) => o.fileExists(p));
   const passed = ran && o.exitCode === 0 && present.length === outputs.length && checks.every((c) => c.passed);
+  const stdoutTail = o.stdout != null ? (o.stdout.length > 4000 ? o.stdout.slice(-4000) : o.stdout) : undefined;
   return {
     ran,
     passed,
     landmark: o.landmark ?? null,
     artifacts: present,
     checks,
-    stdout_tail: o.stdoutTail,
+    stdout_tail: stdoutTail,
     provenance: { cmd: m.cmd, env: "vscode workspace" },
   };
 }

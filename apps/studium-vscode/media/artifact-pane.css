@@ -121,3 +121,19 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--fo
 .confrow .conf { min-width: 26px; padding: 2px 8px; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; }
 .confrow .conf:hover { border-color: var(--fg); color: var(--fg); }
 .confrow .conf.sel { background: var(--ok, #3a7); border-color: var(--ok, #3a7); color: #fff; }
+
+/* verdict deck (D1) — one flag/sound toggle per opaque-token claim; the DESTINATION made interactive */
+.deck { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.deck-instr { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.deck-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); }
+.deck-row.flagged { border-left: 3px solid var(--no, #d9822b); background: rgba(217,130,43,.08); }
+.deck-claim { flex: 1; font-size: 13px; line-height: 1.5; color: var(--fg); }
+.deck-flag { flex: none; align-self: center; padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; white-space: nowrap; }
+.deck-flag:hover { border-color: var(--no, #d9822b); color: var(--no, #d9822b); }
+.deck-flag.on { background: var(--no, #d9822b); border-color: var(--no, #d9822b); color: #fff; }
+.deck-submit { margin-top: 2px; align-self: flex-start; }
+
+/* gate card — a WITHHOLD (replay/remediate_alt) reframed as a calm, non-punitive invitation to re-examine */
+.gate { margin: 6px 0 8px; padding: 9px 12px; border-radius: 7px; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--card); }
+.gate-title { font-weight: 600; font-size: 13px; color: var(--fg); }
+.gate-why { font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 3px; }
