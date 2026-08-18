@@ -1,10 +1,28 @@
 """Assemble + write ASTRA artifacts (astra.yaml + universes/*.yaml). Studium-local
-emission following astra-spec analysis.yaml / universe.yaml v0.0.10."""
+emission following astra-spec analysis.yaml / universe.yaml; the version and the id
+grammar come from the vendored contract (provenance/astra_contract.py)."""
 from __future__ import annotations
 import os
 from typing import Any
 
-from agentic.decision import ASTRA_SCHEMA_VERSION
+from provenance.astra_contract import ASTRA_SCHEMA_VERSION, slugify_id
+
+# Non-id field carrying the raw Studium edge id an entry was keyed by before
+# slugification. approval.py joins a Claim to its ASTRA entry through the edge id
+# embedded in `astra_insight_ref`, so the raw value must survive the coercion.
+SOURCE_ID_FIELD = "source_edge_id"
+
+
+def _keyed_by_astra_id(entries: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Key `entries` (each carrying an "id") by a grammar-valid ASTRA id, keeping the
+    raw id under SOURCE_ID_FIELD. Returns the id -> body map ASTRA containers use."""
+    taken: set[str] = set()
+    out: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        body = {k: v for k, v in entry.items() if k != "id"}
+        body[SOURCE_ID_FIELD] = entry["id"]
+        out[slugify_id(entry["id"], taken)] = body
+    return out
 
 
 def emit_astra(
@@ -16,14 +34,16 @@ def emit_astra(
     findings: list[dict[str, Any]],
     outputs: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Build an ASTRA Analysis dict (decisions/prior_insights/findings keyed by id)."""
+    """Build an ASTRA Analysis dict. decisions/prior_insights/findings are keyed by
+    grammar-valid ids (the raw id is kept under SOURCE_ID_FIELD); analysis_id is
+    coerced the same way. Returns the Analysis ready for write_astra_yaml."""
     return {
-        "id": analysis_id,
+        "id": slugify_id(analysis_id),
         "version": ASTRA_SCHEMA_VERSION,
         "name": name,
-        "decisions": {d["id"]: {k: v for k, v in d.items() if k != "id"} for d in decisions},
-        "prior_insights": {i["id"]: {k: v for k, v in i.items() if k != "id"} for i in prior_insights},
-        "findings": {f["id"]: {k: v for k, v in f.items() if k != "id"} for f in findings},
+        "decisions": _keyed_by_astra_id(decisions),
+        "prior_insights": _keyed_by_astra_id(prior_insights),
+        "findings": _keyed_by_astra_id(findings),
         "outputs": outputs,
     }
 
@@ -33,7 +53,7 @@ def baseline_universe(decisions: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "id": "baseline",
         "description": "Default option per decision across the analysis.",
-        "decisions": {d["id"]: d["default"] for d in decisions},
+        "decisions": {slugify_id(d["id"]): d["default"] for d in decisions},
     }
 
 

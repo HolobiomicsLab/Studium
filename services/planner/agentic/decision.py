@@ -1,10 +1,12 @@
-"""ASTRA-shaped record builders (Studium-local emission model, version-pinned —
-the ASB precedent: re-declare the shape rather than depend on astra-spec).
-Matches astra-spec analysis.yaml / insight.yaml v0.0.10."""
+"""ASTRA-shaped record builders (Studium-local emission model — the ASB precedent:
+re-declare the shape rather than depend on astra-spec). Matches astra-spec
+analysis.yaml / insight.yaml at the version the vendored contract pins."""
 from __future__ import annotations
 from typing import Any, Optional
 
-ASTRA_SCHEMA_VERSION = "0.0.10"
+# Re-exported, NOT re-declared: astra_contract owns the version. It stays
+# importable here because call sites have used this module since v1.
+from provenance.astra_contract import ASTRA_SCHEMA_VERSION as ASTRA_SCHEMA_VERSION
 
 
 def make_decision(

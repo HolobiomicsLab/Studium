@@ -4,38 +4,60 @@ Calls LLMClient (studium/critic alias) and validates the structured output.
 """
 from __future__ import annotations
 import json
+import logging
 import os
 import time
 from typing import Any
 
 from planner_schemas import LessonPlan
 
+_LOG = logging.getLogger(__name__)
 _LLM_MODE = os.environ.get("STUDIUM_LLM_MODE", "mock")
 _LITELLM_BASE = os.environ.get("LITELLM_BASE_URL", "http://localhost:4000")
 _LITELLM_KEY = os.environ.get("LITELLM_API_KEY", "")
+_LIVE_MODE = "litellm"
+_CRITIC_ALIAS = "studium/critic"
+_LLM_TIMEOUT_S = 30.0
 
 
 def _call_critic_llm(prompt: str) -> str:
-    alias = "studium/critic"
-    if _LLM_MODE == "litellm":
-        try:
-            import httpx
-            resp = httpx.post(
-                f"{_LITELLM_BASE}/v1/chat/completions",
-                json={"model": alias, "messages": [{"role": "user", "content": prompt}]},
-                headers={"Authorization": f"Bearer {_LITELLM_KEY}"} if _LITELLM_KEY else {},
-                timeout=30.0,
-            )
-            resp.raise_for_status()
-            return resp.json()["choices"][0]["message"]["content"]
-        except Exception:
-            pass
+    """Return the critic verdict as raw JSON text.
+
+    Input: the critic prompt. Output: the model's JSON reply. In live mode the mock is
+    NEVER a fallback — a failed call raises so the caller's retry loop ends in an error
+    instead of a fabricated green verdict.
+    """
+    if _LLM_MODE == _LIVE_MODE:
+        return _post_to_litellm(prompt)
     return _mock_critic_response()
 
 
+def _post_to_litellm(prompt: str) -> str:
+    """Post the prompt to the LiteLLM gateway.
+
+    Input: the critic prompt. Output: the assistant message content. Logs and re-raises
+    any transport/HTTP/decoding failure (missing key, 401, 429, timeout).
+    """
+    import httpx
+    try:
+        resp = httpx.post(
+            f"{_LITELLM_BASE}/v1/chat/completions",
+            json={"model": _CRITIC_ALIAS, "messages": [{"role": "user", "content": prompt}]},
+            headers={"Authorization": f"Bearer {_LITELLM_KEY}"} if _LITELLM_KEY else {},
+            timeout=_LLM_TIMEOUT_S,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+    except Exception:
+        _LOG.exception("critic LLM call failed (mode=%s, base=%s)", _LLM_MODE, _LITELLM_BASE)
+        raise
+
+
 def _mock_critic_response() -> str:
+    """Return the canned offline verdict, stamped is_mock so no consumer reads it as live."""
     return json.dumps({
         "score": 0.78,
+        "is_mock": True,
         "annotations": [
             "Le plan couvre bien les objectifs de niveau understand.",
             "Suggérer d'ajouter une scène 'simulation' pour renforcer l'apply.",
@@ -58,9 +80,10 @@ def _build_critic_prompt(plan: LessonPlan) -> str:
 
 
 def review(plan: LessonPlan) -> dict[str, Any]:
-    """Score a LessonPlan. Returns {score: float, annotations: list[str]}.
+    """Score a LessonPlan. Returns {score: float, annotations: list[str], is_mock: bool}.
 
-    Does NOT mutate the plan (rule 003 — human must validate).
+    is_mock is True when the verdict came from the offline canned response rather than a
+    live model. Does NOT mutate the plan (rule 003 — human must validate).
     """
     prompt = _build_critic_prompt(plan)
     t0 = time.monotonic()
@@ -75,7 +98,11 @@ def review(plan: LessonPlan) -> dict[str, Any]:
             if not (0.0 <= score <= 1.0):
                 raise ValueError(f"score out of range: {score}")
             annotations = [str(a) for a in data.get("annotations", [])]
-            return {"score": score, "annotations": annotations}
+            return {
+                "score": score,
+                "annotations": annotations,
+                "is_mock": bool(data.get("is_mock", False)),
+            }
         except Exception as exc:
             last_exc = exc
             continue

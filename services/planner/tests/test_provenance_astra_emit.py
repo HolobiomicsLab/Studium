@@ -1,5 +1,8 @@
 from agentic.decision import make_decision, make_insight, make_evidence
-from provenance.astra_emit import emit_astra, baseline_universe, write_astra_yaml, write_universe_yaml
+from provenance.astra_contract import ASTRA_SCHEMA_VERSION
+from provenance.astra_emit import (
+    SOURCE_ID_FIELD, emit_astra, baseline_universe, write_astra_yaml, write_universe_yaml,
+)
 
 
 def _decisions():
@@ -19,9 +22,12 @@ def test_emit_astra_shape():
     analysis = emit_astra(analysis_id="course-analysis", name="Signal Processing 101",
                           decisions=_decisions(), prior_insights=[], findings=findings,
                           outputs=[{"id": "lwg", "type": "data"}])
-    assert analysis["version"] == "0.0.10"
+    # The version is the vendored contract's, never a literal re-declared here.
+    assert analysis["version"] == ASTRA_SCHEMA_VERSION
+    assert analysis["id"] == "course_analysis"  # "course-analysis" is not a valid ASTRA id
     assert "e1" in analysis["decisions"] and "difficulty" in analysis["decisions"]
     assert analysis["findings"]["e1"]["claim"].startswith("FFT requires")
+    assert analysis["findings"]["e1"][SOURCE_ID_FIELD] == "e1"
 
 
 def test_baseline_universe_picks_defaults():
@@ -39,6 +45,6 @@ def test_write_astra_and_universe_yaml(tmp_path):
     assert (tmp_path / "universes" / "baseline.yaml").exists()
     import yaml
     loaded = yaml.safe_load((tmp_path / "astra.yaml").read_text())
-    assert loaded["version"] == "0.0.10"
+    assert loaded["version"] == ASTRA_SCHEMA_VERSION
     loaded_u = yaml.safe_load((tmp_path / "universes" / "baseline.yaml").read_text())
     assert loaded_u["decisions"] == {"e1": "yes", "difficulty": "standard"}

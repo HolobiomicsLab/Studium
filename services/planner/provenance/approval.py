@@ -35,6 +35,7 @@ import os
 from typing import Any, Optional
 
 from provenance.indicium_schema_vendored import assert_claim_conformant
+from provenance.astra_emit import SOURCE_ID_FIELD
 
 LWG_JSONLD = "lwg.indicium.jsonld"
 LWG_GRAPH_JSON = "lwg.graph.json"
@@ -237,17 +238,27 @@ def _evidence_for(claim_id: str, evidence: list[dict[str, Any]]) -> list[dict[st
     return out
 
 
+def _by_source_edge_id(container: Optional[dict[str, Any]]
+                       ) -> dict[str, dict[str, Any]]:
+    """Index an ASTRA container by the raw Studium edge id each entry was keyed by.
+    Emitted ids are slugified to the ASTRA grammar, so the raw id lives under
+    SOURCE_ID_FIELD; files written before that coercion are keyed by the raw id
+    itself. Input: a decisions/findings map. Output: raw edge id -> entry body."""
+    return {body.get(SOURCE_ID_FIELD, key): body
+            for key, body in (container or {}).items()}
+
+
 def _astra_for(claim: dict[str, Any], astra: Optional[dict[str, Any]]
                ) -> tuple[Optional[dict[str, Any]], Optional[dict[str, Any]]]:
     """Join a claim to its ASTRA decision + finding via astra_insight_ref.
-    The ref is "<analysis_id>/<edge_id>"; astra.yaml keys decisions/findings by
-    the bare <edge_id>."""
+    The ref is "<analysis_id>/<edge_id>"; astra.yaml keys decisions/findings by a
+    slugified id, so the join goes through SOURCE_ID_FIELD."""
     if not astra:
         return None, None
     ref = claim.get("astra_insight_ref") or ""
     edge_id = ref.split("/", 1)[1] if "/" in ref else ref
-    decision = (astra.get("decisions") or {}).get(edge_id)
-    finding = (astra.get("findings") or {}).get(edge_id)
+    decision = _by_source_edge_id(astra.get("decisions")).get(edge_id)
+    finding = _by_source_edge_id(astra.get("findings")).get(edge_id)
     decision_view = None
     if decision is not None:
         decision_view = {

@@ -4,6 +4,7 @@ import json
 import yaml
 from fastapi.testclient import TestClient
 import planner_app
+from provenance.astra_contract import ASTRA_SCHEMA_VERSION
 
 
 def test_plan_writes_lwg_artifacts(monkeypatch, tmp_path):
@@ -21,7 +22,7 @@ def test_plan_writes_lwg_artifacts(monkeypatch, tmp_path):
     assert "@context" in indicium and "@graph" in indicium
 
     astra = yaml.safe_load((out / "astra.yaml").read_text())
-    assert astra["version"] == "0.0.10"
+    assert astra["version"] == ASTRA_SCHEMA_VERSION
     assert "prereq_strictness" in astra["decisions"]
 
     baseline = yaml.safe_load((out / "universes" / "baseline.yaml").read_text())

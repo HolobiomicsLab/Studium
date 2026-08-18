@@ -21,7 +21,7 @@ export const RenderAssetKindSchema = z.enum([
 ]);
 export type RenderAssetKind = z.infer<typeof RenderAssetKindSchema>;
 
-export const RenderAssetSchema = z.object({
+const RenderAssetFieldsSchema = z.object({
   kind: RenderAssetKindSchema,
   title: z.string().optional(),
   payload: z.string().optional(),   // inline content (latex, vega/plotly json, svg, code, csv, md, xyz, cube)
@@ -30,5 +30,34 @@ export const RenderAssetSchema = z.object({
   format: z.string().optional(),    // renderer hint for the payload, e.g. "cube" | "xyz" | "smiles" | "vega-lite"
   provenance: z.string().optional(),
   meta: z.record(z.unknown()).optional(), // e.g. executed_result {passed, landmark, checks}; orbital {iso, level}
+});
+
+type RenderAssetFields = z.infer<typeof RenderAssetFieldsSchema>;
+
+// The ONE kind whose content is its `meta` (landmark + graded checks) rather than payload/path: a
+// reference run legitimately has no figure (ReferenceRun.figure_path is nullable), so `path` stays
+// optional for it while `meta` becomes required.
+const META_BACKED_KIND: RenderAssetKind = "executed_result";
+
+const CONTENT_SOURCE_MESSAGE =
+  "a render asset needs exactly one content source: `payload` (inline) or `path` (file) — " +
+  "`executed_result` instead needs `meta` and at most one of them";
+
+/** Whether an asset names exactly one content source (inline payload XOR file path).
+ * Input: the asset's parsed fields. Output: true when exactly one of the two is set. */
+function hasOneContentSource(asset: RenderAssetFields): boolean {
+  return (asset.payload !== undefined) !== (asset.path !== undefined);
+}
+
+/** Whether an asset carries something renderable at all — the guard that keeps a blank pane out of
+ * an authored bundle. Input: the asset's parsed fields. Output: true when the asset is renderable. */
+function isRenderable(asset: RenderAssetFields): boolean {
+  if (asset.kind !== META_BACKED_KIND) return hasOneContentSource(asset);
+  return asset.meta !== undefined && !(asset.payload !== undefined && asset.path !== undefined);
+}
+
+export const RenderAssetSchema = RenderAssetFieldsSchema.refine(isRenderable, {
+  message: CONTENT_SOURCE_MESSAGE,
+  path: ["payload"],
 });
 export type RenderAsset = z.infer<typeof RenderAssetSchema>;

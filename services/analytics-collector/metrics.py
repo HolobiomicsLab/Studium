@@ -317,6 +317,18 @@ def compute_ai_audit_accuracy(
 TRUST_WELL_BAND = 0.4
 
 
+def _over_distrust_rate(false_positives: int, sound_total: int) -> float | None:
+    """Rate of SOUND claims the auditor wrongly flagged, over the sound population.
+
+    Inputs: pooled ``false_positives`` and ``sound_total`` for one scene. Output:
+    ``min(fp, sound) / sound`` in [0, 1], or ``None`` when ``sound_total`` is 0 —
+    no sound claim was on offer, so over-distrust is UNMEASURED, not zero. Same
+    denominator and cap as the engine's recordJudgmentAudit."""
+    if sound_total <= 0:
+        return None
+    return min(max(0, false_positives), sound_total) / sound_total
+
+
 def compute_trust_calibration(
     data_dir: Path,
     course: str,
@@ -335,8 +347,13 @@ def compute_trust_calibration(
     scene's events exactly like ai_audit_accuracy)::
 
         over_trust    = missed / planted             (credulous: missed planted flaws, +)
-        over_distrust = min(fp, planted) / planted    (skeptical: flagged sound claims, -)
+        over_distrust = min(fp, sound) / sound        (skeptical: flagged sound claims, -)
         gap           = over_trust - over_distrust    in [-1, 1]
+
+    Each direction is a rate over its OWN population: planted flaws for
+    over-trust, SOUND claims (``sound_total``) for over-distrust. Same formula as
+    the engine's ``recordJudgmentAudit`` (packages/learner-state/src/index.ts),
+    so both surfaces report the same number for the same audit.
 
     overall ``trust_calibration`` = mean(gap) over scorable scenes (mirrors
     ai_audit ``overall_accuracy`` = mean of per-scene scores); ``None`` if no
@@ -350,18 +367,26 @@ def compute_trust_calibration(
     engine's per-audit EWMA blend (same spirit as Brier-vs-engine-gap for
     confidence).
 
-    HONESTY BOUNDARY: the live offline flaw-matcher hard-codes
-    ``false_positives=0`` (it carries the planted-flaw answer key, not the
-    sound-claims ground truth needed to detect over-distrust). So in production
-    over_distrust is structurally 0 and ``gap`` only moves >= 0; the "sous" band
-    is reachable only if a richer grader ever emits fp > 0. This function
-    faithfully reflects whatever ``false_positives`` the telemetry carries.
+    HONESTY BOUNDARY — over-distrust is measurable only where the grader knows
+    the SOUND claims. The verdict-deck path (packages/lesson-session/src/grading/
+    graders.ts, ~line 88) marks each deck item flawed/sound, so it counts REAL
+    false alarms with zero LLM and emits ``sound_total`` > 0: the "sous" band IS
+    reachable in production. The keyword flaw-matcher path carries the
+    planted-flaw answer key only, so it emits ``false_positives=0`` and
+    ``sound_total=0``.
+
+    ``sound_total == 0`` therefore means over-distrust is UNMEASURED, NOT zero:
+    no sound claim was on offer, so a false alarm was never possible. Such
+    scenes report ``over_distrust: None`` and their ``gap`` collapses to
+    ``over_trust`` (the engine's behaviour at index.ts:245-247); the overall
+    ``over_distrust`` averages only the scenes that measured it, and is ``None``
+    when none did.
 
     Filtre optionnel : ``learner`` (1 pseudonyme).
     """
-    # counters[scene_id] = {fp, planted, missed}
+    # counters[scene_id] = {fp, planted, missed, sound}
     counters: dict[str, dict[str, int]] = defaultdict(
-        lambda: {"fp": 0, "planted": 0, "missed": 0}
+        lambda: {"fp": 0, "planted": 0, "missed": 0, "sound": 0}
     )
     for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if ev.get("type") != "ai_audit_result":
@@ -375,6 +400,7 @@ def compute_trust_calibration(
         c["fp"] += int(ev.get("false_positives", 0))
         c["planted"] += int(ev.get("planted_errors", 0))
         c["missed"] += int(ev.get("missed", 0))
+        c["sound"] += int(ev.get("sound_total", 0))  # absent in pre-v1.5 JSONL
 
     per_scene: list[dict] = []
     gaps: list[float] = []
@@ -387,20 +413,23 @@ def compute_trust_calibration(
                 "scene_id": sid, "gap": None,
                 "over_trust": None, "over_distrust": None,
                 "planted_errors": 0, "missed": c["missed"],
-                "false_positives": c["fp"],
+                "false_positives": c["fp"], "sound_total": c["sound"],
             })
             continue
         over_trust = c["missed"] / planted
-        over_distrust = min(c["fp"], planted) / planted
-        gap = max(-1.0, min(1.0, over_trust - over_distrust))
+        over_distrust = _over_distrust_rate(c["fp"], c["sound"])
+        # Unmeasured over-distrust contributes 0 to the gap (engine: index.ts:245-247).
+        signed = over_trust - (0.0 if over_distrust is None else over_distrust)
+        gap = max(-1.0, min(1.0, signed))
         gaps.append(gap)
         over_trusts.append(over_trust)
-        over_distrusts.append(over_distrust)
+        if over_distrust is not None:
+            over_distrusts.append(over_distrust)
         per_scene.append({
             "scene_id": sid, "gap": gap,
             "over_trust": over_trust, "over_distrust": over_distrust,
             "planted_errors": planted, "missed": c["missed"],
-            "false_positives": c["fp"],
+            "false_positives": c["fp"], "sound_total": c["sound"],
         })
 
     if not gaps:
@@ -423,7 +452,10 @@ def compute_trust_calibration(
         # n_scenes; named n_audits here for the teacher-facing "audited scenes" sense).
         "n_audits": len(gaps),
         "over_trust": sum(over_trusts) / len(over_trusts),
-        "over_distrust": sum(over_distrusts) / len(over_distrusts),
+        # None when NO scene had a sound population — unmeasured, not zero.
+        "over_distrust": (
+            sum(over_distrusts) / len(over_distrusts) if over_distrusts else None
+        ),
         "per_scene": per_scene,
     }
 

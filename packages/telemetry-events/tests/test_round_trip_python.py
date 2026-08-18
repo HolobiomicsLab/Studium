@@ -189,7 +189,48 @@ def test_ai_audit_result_round_trip():
     assert event.planted_errors == 5
     assert event.missed == 2
     redumped = json.loads(adapter.dump_json(event))
+    # sound_total is absent from pre-v1.5 JSONL and materializes at its default 0
+    assert redumped == {**raw, "sound_total": 0}
+
+
+def test_ai_audit_result_sound_total_round_trip():
+    """sound_total (the over-distrust denominator) survives parse + dump.
+
+    Input: an ai_audit_result carrying sound_total. Output: the field is parsed
+    and re-dumped unchanged, so the collector reads the same SOUND population
+    the engine used."""
+    raw = {
+        **BASE,
+        "type": "ai_audit_result",
+        "scene_id": "s_audit_1",
+        "planted_errors": 2,
+        "true_positives": 2,
+        "false_positives": 6,
+        "missed": 0,
+        "sound_total": 8,
+    }
+    event = adapter.validate_python(raw)
+    assert event.sound_total == 8
+    redumped = json.loads(adapter.dump_json(event))
     assert redumped == raw
+
+
+def test_ai_audit_result_sound_total_defaults_to_zero():
+    """An event with no sound_total parses with sound_total 0 (back-compat).
+
+    Input: pre-v1.5 JSONL without the field. Output: 0, which the collector
+    reads as "over-distrust unmeasured", never as "zero over-distrust"."""
+    raw = {
+        **BASE,
+        "type": "ai_audit_result",
+        "scene_id": "s_audit_1",
+        "planted_errors": 5,
+        "true_positives": 3,
+        "false_positives": 0,
+        "missed": 2,
+    }
+    event = adapter.validate_python(raw)
+    assert event.sound_total == 0
 
 
 def test_ai_audit_result_rejects_negative_counters():
@@ -204,7 +245,7 @@ def test_ai_audit_result_rejects_negative_counters():
         "false_positives": 1,
         "missed": 2,
     }
-    for field in ["planted_errors", "true_positives", "false_positives", "missed"]:
+    for field in ["planted_errors", "true_positives", "false_positives", "missed", "sound_total"]:
         with pytest.raises(ValidationError):
             adapter.validate_python({**base, field: -1})
 

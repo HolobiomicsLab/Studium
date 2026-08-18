@@ -77,7 +77,8 @@ const critiqueGrader: Grader = async (scene, input, deps) => {
     signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.ai_critique) },
     telemetry: [
       { type: "critique_submitted", scene_id: scene.id, scene_type: "ai_critique", llm_score: Math.max(0, Math.min(1, score)), completion_rate },
-      { type: "ai_audit_result", scene_id: scene.id, planted_errors: audit.planted_errors, true_positives: audit.true_positives, false_positives: audit.false_positives, missed: audit.missed },
+      // sound_total 0: the keyword matcher holds the planted-flaw key only, so over-distrust is UNMEASURED here.
+      { type: "ai_audit_result", scene_id: scene.id, planted_errors: audit.planted_errors, true_positives: audit.true_positives, false_positives: audit.false_positives, missed: audit.missed, sound_total: 0 },
     ],
   };
 };
@@ -107,7 +108,8 @@ function gradeFlawVerdicts(scene: SpotScene, input: FlawVerdictsInput, deps: Gra
     },
     telemetry: [
       { type: "critique_submitted", scene_id: scene.id, scene_type: "spot_the_flaw", llm_score: Math.max(0, Math.min(1, s.accuracy)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
-      { type: "ai_audit_result", scene_id: scene.id, planted_errors: s.planted, true_positives: s.caught, false_positives: s.falsePositives, missed },
+      // sound_total carries the deck's SOUND population — the denominator collector-side over-distrust needs.
+      { type: "ai_audit_result", scene_id: scene.id, planted_errors: s.planted, true_positives: s.caught, false_positives: s.falsePositives, missed, sound_total: s.soundTotal },
     ],
   };
 }
@@ -174,7 +176,8 @@ const flawGrader: Grader = async (scene, input, deps) => {
     },
     telemetry: [
       { type: "critique_submitted", scene_id: scene.id, scene_type: "spot_the_flaw", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
-      { type: "ai_audit_result", scene_id: scene.id, planted_errors: planted, true_positives, false_positives, missed },
+      // sound_total mirrors the judgment_audit: >0 under a live judge, 0 on the keyword path (unmeasured).
+      { type: "ai_audit_result", scene_id: scene.id, planted_errors: planted, true_positives, false_positives, missed, sound_total },
     ],
   };
 };
@@ -233,7 +236,8 @@ const summaryAuditGrader: Grader = async (scene, input, deps) => {
     signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.summary_audit) },
     telemetry: [
       { type: "critique_submitted", scene_id: scene.id, scene_type: "summary_audit", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)) },
-      { type: "ai_audit_result", scene_id: scene.id, planted_errors: audit.planted_errors, true_positives: audit.true_positives, false_positives: audit.false_positives, missed: audit.missed },
+      // sound_total 0: keyword matcher, no sound-claims key on this scene ⇒ over-distrust UNMEASURED.
+      { type: "ai_audit_result", scene_id: scene.id, planted_errors: audit.planted_errors, true_positives: audit.true_positives, false_positives: audit.false_positives, missed: audit.missed, sound_total: 0 },
     ],
   };
 };

@@ -6,10 +6,10 @@
 // scene + get_scene_artifacts and posts them to the pane; the pane posts the learner's responses
 // back, which the extension feeds to submit_response / request_hint.
 import * as vscode from "vscode";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
-import { connectLessonMcp, resolveTsx } from "./mcp-connect.js";
+import { connectLessonMcp, resolveTsx, setLessonMcpLog } from "./mcp-connect.js";
 import { registerStudiumChat } from "./chat.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
@@ -17,7 +17,7 @@ import { reviewDueConcepts } from "./review-fsrs.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 import { discoverCommunityBundles, toPickItems } from "./community.js";
 import { calibrationVerdicts, type CalibrationVerdict } from "./calibration.js";
-import { runManifestToTaskSpec, buildRunResult, extractLandmark, type RunManifest } from "./run-task.js";
+import { runManifestToTaskSpec, buildRunResult, extractLandmark, type RunManifest, type RunResult } from "./run-task.js";
 import { StudiumTreeProvider } from "./tree.js";
 import type { CommunityItem } from "./lesson-tree.js";
 
@@ -37,7 +37,15 @@ let activeLesson: {
 /** The activity-bar sidebar; module-level so pushScene can toggle its "reproduction scene is live" state. */
 let treeProvider: StudiumTreeProvider | undefined;
 
+/** Output channel every lesson-mcp subprocess writes its stderr to (View > Output > this name). */
+const MCP_OUTPUT_CHANNEL = "Studium — lesson-mcp";
+
 export function activate(context: vscode.ExtensionContext) {
+  // Every lesson-mcp subprocess pipes its stderr here (lesson panel AND @studium chat), so a server
+  // that dies at startup leaves a readable diagnostic instead of vanishing.
+  const mcpOutput = vscode.window.createOutputChannel(MCP_OUTPUT_CHANNEL);
+  context.subscriptions.push(mcpOutput);
+  setLessonMcpLog((line) => mcpOutput.appendLine(line));
   treeProvider = new StudiumTreeProvider(() => discoverForTree(context));
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("studiumLessons", treeProvider),
@@ -66,6 +74,44 @@ function discoverForTree(context: vscode.ExtensionContext): CommunityItem[] {
   const root = resolveBundlesRoot(context);
   const canonicalRef = cfg<string>("bundleRef", "atomistique-l1/lesson.json");
   return toPickItems(discoverCommunityBundles(root, canonicalRef)).map((p) => ({ ref: p.ref, label: p.label }));
+}
+
+// The `.studium-session/` FILE channel (packages/lesson-session-host/src/session-workspace.ts): the
+// universal operator protocol Studium already ingests run results from. When the MCP submit fails, the
+// run is parked here instead of being thrown away with the error toast.
+const SESSION_DIR = ".studium-session";
+const RUN_RESULT_FILE = "run_result.json";
+
+/** Park an assembled RunResult on the file channel so a failed submit_run_result does not lose the run.
+ *  Inputs: the workspace folder and the result. Output: true when the file was written. Atomic
+ *  (tmp + rename), matching writeRunResult — a reader never sees a half-written file. */
+function parkRunResult(wsFolder: string, result: RunResult): boolean {
+  const target = join(wsFolder, SESSION_DIR, RUN_RESULT_FILE);
+  try {
+    mkdirSync(join(wsFolder, SESSION_DIR), { recursive: true });
+    writeFileSync(`${target}.tmp`, JSON.stringify(result), "utf8");
+    renameSync(`${target}.tmp`, target);
+    return true;
+  } catch {
+    return false; // read-only workspace: the toast below says the run was not saved
+  }
+}
+
+/** Submit the assembled run to lesson-mcp; if the submit itself fails, PARK it on the file channel so the
+ *  learner's completed run is not lost with the error toast (it is ingested without re-running the capsule).
+ *  Inputs: the live lesson, the workspace folder, the result. Output: the server's reply, or null when the
+ *  submit failed (the learner has already been told where the result went). */
+async function submitRunOrPark(lesson: NonNullable<typeof activeLesson>, wsFolder: string, result: RunResult): Promise<Json | null> {
+  try {
+    return await lesson.call("submit_run_result", { session_id: lesson.sid(), run_result: result });
+  } catch (e: any) {
+    const isParked = parkRunResult(wsFolder, result);
+    const rescue = isParked
+      ? ` Résultat conservé dans ${SESSION_DIR}/${RUN_RESULT_FILE} — il sera repris sans relancer la capsule.`
+      : " Le résultat n'a PAS pu être sauvegardé (espace de travail non inscriptible).";
+    vscode.window.showErrorMessage(`Studium : envoi du run échoué — ${e.message}.${rescue}`);
+    return null;
+  }
 }
 
 /** Toggle the live reproduction-scene state on the sidebar + the `when`-clause context key. */
@@ -127,9 +173,9 @@ async function runReproductionScene() {
     landmark,
     stdout,
   });
+  const r = await submitRunOrPark(lesson, wsFolder, result);
+  if (!r || lesson.isDisposed()) return;
   try {
-    const r = await lesson.call("submit_run_result", { session_id: lesson.sid(), run_result: result });
-    if (lesson.isDisposed()) return;
     if (r.status === "ran" && r.transition) {
       // ATTESTATION (D5) made legible: a `ran` run always advances (pure-delegation gate), but only an
       // ATTESTED run grounds the next judgment on the learner's OWN result. Surface which happened —

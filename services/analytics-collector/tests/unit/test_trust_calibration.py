@@ -7,19 +7,22 @@ telemetry-natively from the grounded spot_the_flaw audits (`ai_audit_result`).
 
 Per scorable scene (planted_errors > 0, counters pooled across that scene's events):
     over_trust    = missed / planted             (credulous: missed planted flaws, +)
-    over_distrust = min(fp, planted) / planted    (skeptical: flagged sound claims, -)
+    over_distrust = min(fp, sound) / sound        (skeptical: flagged sound claims, -)
     gap           = over_trust - over_distrust    in [-1, 1]
+
+Each direction is a rate over its OWN population — the same formula the engine uses
+(recordJudgmentAudit, packages/learner-state/src/index.ts:245).
 
 overall trust_calibration = mean(gap) over scorable scenes (mirrors ai_audit overall);
 None if no scene is scorable. Band mirrors confidence:
     |gap| <= TRUST_WELL_BAND(0.4) -> "bien"; gap > band -> "sur" (surconfiance IA);
     gap < -band -> "sous" (mefiance IA).
 
-HONESTY BOUNDARY (asserted below): the live offline flaw-matcher hard-codes
-false_positives=0 (no sound-claims ground truth), so in production the over-distrust
-direction is structurally 0 and gap only moves >= 0. The aggregate faithfully reflects
-whatever fp the telemetry carries; the "sous" band is reachable only if a richer grader
-ever emits fp > 0.
+HONESTY BOUNDARY (asserted below): over-distrust needs the SOUND claims. The
+verdict-deck grader supplies them (sound_total > 0) and emits real false positives, so
+"sous" IS reachable in production; the keyword flaw-matcher path emits fp=0 and
+sound_total=0. sound_total == 0 means over-distrust is UNMEASURED (None), not zero, and
+the gap collapses to over_trust.
 """
 
 import json
@@ -39,6 +42,10 @@ def _base(idx=0, pseudo="hmac:learner0"):
 
 
 def _audit_event(idx, scene_id, tp, fp, planted, missed, pseudo="hmac:learner0"):
+    """One ai_audit_result event WITHOUT sound_total (pre-v1.5 JSONL shape).
+
+    Tests that exercise the SOUND population spread `"sound_total": n` over the
+    returned dict, so the field's absence stays the default here."""
     return {
         **_base(idx, pseudo=pseudo),
         "type": "ai_audit_result",
@@ -58,14 +65,14 @@ def _write_events(tmp_path: Path, course: str, events: list[dict]) -> Path:
 
 
 def test_well_calibrated_perfect_audit(tmp_path):
-    """Caught every planted flaw, no false positives -> gap 0, band 'bien'."""
-    events = [_audit_event(0, "s1", tp=3, fp=0, planted=3, missed=0)]
+    """Caught every planted flaw, flagged no sound claim -> gap 0, band 'bien'."""
+    events = [{**_audit_event(0, "s1", tp=3, fp=0, planted=3, missed=0), "sound_total": 4}]
     data_dir = _write_events(tmp_path, "c1", events)
     r = compute_trust_calibration(data_dir, "c1")
     assert r["trust_calibration"] == 0.0
     assert r["band"] == "bien"
     assert r["over_trust"] == 0.0
-    assert r["over_distrust"] == 0.0
+    assert r["over_distrust"] == 0.0  # measured, and genuinely zero
     assert r["n_audits"] == 1
     assert r["per_scene"][0]["scene_id"] == "s1"
     assert r["per_scene"][0]["gap"] == 0.0
@@ -79,14 +86,15 @@ def test_over_trust_missed_flaws(tmp_path):
     assert abs(r["trust_calibration"] - (2 / 3)) < 1e-9
     assert r["band"] == "sur"  # over-trust (surconfiance IA)
     assert abs(r["over_trust"] - (2 / 3)) < 1e-9
-    assert r["over_distrust"] == 0.0
+    assert r["over_distrust"] is None  # no sound claims on offer -> unmeasured
 
 
 def test_over_distrust_false_positives(tmp_path):
-    """Flagged 3 sound claims (fp=3) on a 3-flaw scene -> over_distrust 1, band 'sous'.
+    """Flagged all 3 sound claims (fp=3, sound_total=3) -> over_distrust 1, band 'sous'.
 
-    Only reachable if a grader ever emits fp>0 (live matcher hard-codes fp=0)."""
-    events = [_audit_event(0, "s1", tp=3, fp=3, planted=3, missed=0)]
+    Reachable in production via the verdict-deck grader, which counts real false
+    alarms on the sound claims."""
+    events = [{**_audit_event(0, "s1", tp=3, fp=3, planted=3, missed=0), "sound_total": 3}]
     data_dir = _write_events(tmp_path, "c1", events)
     r = compute_trust_calibration(data_dir, "c1")
     assert abs(r["trust_calibration"] - (-1.0)) < 1e-9
@@ -95,9 +103,9 @@ def test_over_distrust_false_positives(tmp_path):
     assert r["over_distrust"] == 1.0
 
 
-def test_false_positives_capped_at_planted(tmp_path):
-    """fp far exceeding planted is capped so over_distrust stays bounded at 1."""
-    events = [_audit_event(0, "s1", tp=0, fp=9, planted=3, missed=3)]
+def test_false_positives_capped_at_sound_total(tmp_path):
+    """fp far exceeding sound_total is capped so over_distrust stays bounded at 1."""
+    events = [{**_audit_event(0, "s1", tp=0, fp=9, planted=3, missed=3), "sound_total": 3}]
     data_dir = _write_events(tmp_path, "c1", events)
     r = compute_trust_calibration(data_dir, "c1")
     # over_trust = 3/3 = 1 ; over_distrust = min(9,3)/3 = 1 ; gap = 0
@@ -105,6 +113,49 @@ def test_false_positives_capped_at_planted(tmp_path):
     assert r["over_trust"] == 1.0
     assert r["trust_calibration"] == 0.0
     assert r["band"] == "bien"
+
+
+def test_over_distrust_denominator_is_sound_total_not_planted(tmp_path):
+    """fp is normalized by the SOUND population, never by the planted-flaw count.
+
+    planted=2 but sound_total=8 with fp=6 -> over_distrust = 6/8 = 0.75. The old
+    planted-denominator formula read min(6,2)/2 = 1.0 and disagreed with the
+    engine (packages/learner-state/src/index.ts:245)."""
+    events = [{**_audit_event(0, "s1", tp=2, fp=6, planted=2, missed=0), "sound_total": 8}]
+    data_dir = _write_events(tmp_path, "c1", events)
+    r = compute_trust_calibration(data_dir, "c1")
+    assert abs(r["over_distrust"] - 0.75) < 1e-9
+    assert abs(r["trust_calibration"] - (-0.75)) < 1e-9
+    assert r["band"] == "sous"
+    assert r["per_scene"][0]["sound_total"] == 8
+
+
+def test_over_distrust_unmeasured_when_sound_total_zero(tmp_path):
+    """sound_total 0 -> over-distrust UNMEASURED (None), gap collapses to over_trust.
+
+    Mirrors recordJudgmentAudit: no sound claims on offer means a false alarm was
+    never possible, so the direction is unmeasured — not zero."""
+    events = [_audit_event(0, "s1", tp=1, fp=0, planted=2, missed=1)]
+    data_dir = _write_events(tmp_path, "c1", events)
+    r = compute_trust_calibration(data_dir, "c1")
+    assert r["over_distrust"] is None
+    assert r["per_scene"][0]["over_distrust"] is None
+    assert abs(r["trust_calibration"] - 0.5) < 1e-9  # gap == over_trust
+    assert r["band"] == "sur"
+
+
+def test_sound_total_pooled_across_events_same_scene(tmp_path):
+    """sound_total sums per scene alongside fp/planted/missed before scoring."""
+    events = [
+        {**_audit_event(0, "s1", tp=2, fp=1, planted=2, missed=0), "sound_total": 2},
+        {**_audit_event(1, "s1", tp=2, fp=1, planted=2, missed=0), "sound_total": 2},
+    ]
+    data_dir = _write_events(tmp_path, "c1", events)
+    r = compute_trust_calibration(data_dir, "c1")
+    # pooled: fp=2, sound=4 -> over_distrust = 2/4 = 0.5 ; over_trust 0 -> gap -0.5
+    assert abs(r["over_distrust"] - 0.5) < 1e-9
+    assert abs(r["trust_calibration"] - (-0.5)) < 1e-9
+    assert r["per_scene"][0]["sound_total"] == 4
 
 
 def test_planted_zero_not_scorable(tmp_path):

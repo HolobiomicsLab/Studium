@@ -14,6 +14,10 @@ ADR 006 amendment v1.4 (RC-2) adds an optional `scene_type` discriminator on
 `critique_submitted` so the collector can gate anti-offloading aggregates to
 genuine AI-critique scenes (back-compat: untagged → ai_critique).
 
+ADR 006 amendment v1.5 adds `sound_total` on `ai_audit_result` — the SOUND
+population the over-distrust rate is normalized by, so the collector computes
+the same trust gap as the engine (back-compat: absent → 0 → unmeasured).
+
 All v1.1/v1.3/v1.4 events are strict: no free text transmitted — only counters,
 labels and aggregated histograms.
 """
@@ -124,6 +128,12 @@ class AIAuditResult(_Base):
     true_positives: int = Field(ge=0)
     false_positives: int = Field(ge=0)
     missed: int = Field(ge=0)
+    # sound_total — count of SOUND claims the auditor could have wrongly flagged,
+    # i.e. the over-distrust denominator (false_positives / sound_total). Without
+    # it the collector had to normalize fp by the planted-flaw count and disagreed
+    # with the engine. Optional + back-compatible: pre-v1.5 JSONL has no field, so
+    # it defaults to 0, which means over-distrust UNMEASURED (never "zero").
+    sound_total: int = Field(default=0, ge=0)
 
 
 class JournalEntrySubmitted(_Base):
