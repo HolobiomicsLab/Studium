@@ -9,7 +9,7 @@ import * as vscode from "vscode";
 import { readFileSync, existsSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
-import { connectLessonMcp, resolveTsx, setLessonMcpLog } from "./mcp-connect.js";
+import { connectLessonMcp, resolveServerLaunch, setLessonMcpLog } from "./mcp-connect.js";
 import { registerStudiumChat } from "./chat.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
@@ -311,8 +311,16 @@ async function openCommunityContribution(context: vscode.ExtensionContext) {
 async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: string) {
   // The extension ships inside the monorepo (apps/studium-vscode); default repoRoot = ../../ .
   const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
-  const tsx = resolveTsx(repoRoot);
-  const mcpDir = resolve(repoRoot, "apps/lesson-mcp");
+  let serverLaunch;
+  try {
+    serverLaunch = resolveServerLaunch(context.extensionPath, repoRoot);
+  } catch (e: any) {
+    const open = "Ouvrir les réglages";
+    vscode.window.showErrorMessage(`Studium: ${e.message}`, open).then((pick) => {
+      if (pick === open) vscode.commands.executeCommand("workbench.action.openSettings", "studium.repoRoot");
+    });
+    return;
+  }
   // Default to the repo's own fixtures/ + the atomistique bundle, so it runs zero-config from any
   // clone. Override studium.bundlesRoot / studium.bundleRef to point elsewhere. A community bundle
   // opened via "Contributions de la classe" passes its ref as bundleRefOverride — it loads through
@@ -337,7 +345,7 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
   // 1) connect to lesson-mcp over stdio
   const env: Record<string, string> = { ...process.env as any, BUNDLES_ROOT: bundlesRoot };
   if (consent) { env["STUDIUM_DATA_DIR"] = join(bundlesRoot, "data"); env["STUDIUM_TELEMETRY_CONSENT"] = "granted"; }
-  const mcp = await connectLessonMcp({ tsx, mcpDir, env });
+  const mcp = await connectLessonMcp({ launch: serverLaunch, env });
   const call = mcp.call;
   // Track disposal so async callbacks (which may resume after the user closes the panel) never
   // postMessage to a dead webview.

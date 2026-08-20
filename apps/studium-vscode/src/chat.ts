@@ -5,7 +5,7 @@
 // artifacts (3D / KaTeX) still need the webview; the verdict deck works here via numbers.
 import * as vscode from "vscode";
 import { resolve, join } from "node:path";
-import { connectLessonMcp, resolveTsx, type LessonMcp } from "./mcp-connect.js";
+import { connectLessonMcp, resolveServerLaunch, type LessonMcp } from "./mcp-connect.js";
 import { formatSceneForChat, replyToInput, type ChatScene } from "./chat-format.js";
 
 // One active chat lesson at a time (mirrors the single-active-lesson model of the panel).
@@ -43,8 +43,7 @@ function launch(context: vscode.ExtensionContext) {
   const env: Record<string, string> = { ...process.env as any, BUNDLES_ROOT: bundlesRoot };
   if (get<boolean>("telemetryConsent", false)) { env["STUDIUM_DATA_DIR"] = join(bundlesRoot, "data"); env["STUDIUM_TELEMETRY_CONSENT"] = "granted"; }
   return {
-    tsx: resolveTsx(repoRoot),
-    mcpDir: resolve(repoRoot, "apps/lesson-mcp"),
+    serverLaunch: resolveServerLaunch(context.extensionPath, repoRoot),
     env,
     bundleRef: get<string>("bundleRef", "atomistique-l1/lesson.json"),
     learnerId: get<string>("learnerId", "vscode-learner"),
@@ -53,8 +52,8 @@ function launch(context: vscode.ExtensionContext) {
 
 async function doStart(context: vscode.ExtensionContext, stream: vscode.ChatResponseStream): Promise<void> {
   if (chatLesson) { chatLesson.mcp.close(); chatLesson = null; }
-  const { tsx, mcpDir, env, bundleRef, learnerId } = launch(context);
-  const mcp = await connectLessonMcp({ tsx, mcpDir, env });
+  const { serverLaunch, env, bundleRef, learnerId } = launch(context);
+  const mcp = await connectLessonMcp({ launch: serverLaunch, env });
   const started = await mcp.call("start_lesson_session", { bundle_ref: bundleRef, learner_id: learnerId });
   chatLesson = { mcp, sid: started.session_id, scene: {} };
   stream.markdown(`Leçon démarrée (**${bundleRef}**). Réponds ici, ou utilise \`/hint\` et \`/discuss\`.\n\n`);

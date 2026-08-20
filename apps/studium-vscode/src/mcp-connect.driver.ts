@@ -2,10 +2,11 @@
 // parseToolResult (tool-error surfacing) and forwardStderr/resolveLogSink (server diagnostics).
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/mcp-connect.driver.ts
 import { EventEmitter } from "node:events";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveTsx, parseToolResult, forwardStderr, resolveLogSink, setLessonMcpLog, type LogSink } from "./mcp-connect.js";
+import { resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, setLessonMcpLog, type LogSink } from "./mcp-connect.js";
 
 const failures: string[] = [];
 let checks = 0;
@@ -96,3 +97,33 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(`OK — mcp-connect (resolveTsx + parseToolResult + stderr diagnostics) passed all ${checks} assertions.`);
+
+// 8) resolveServerLaunch: repo checkout preferred (dev mode, live sources via tsx).
+{
+  const launch = resolveServerLaunch("/no/such/extension/path", repoRoot);
+  expect(launch.args[0] === "src/index.ts" && launch.cwd.endsWith("apps/lesson-mcp"),
+    "resolveServerLaunch prefers the repo checkout (tsx on live sources)");
+}
+
+// 9) resolveServerLaunch: no repo -> the bundled server next to the extension, run as node.
+{
+  const ext = mkdtempSync(resolve(tmpdir(), "studium-ext-"));
+  mkdirSync(resolve(ext, "dist"), { recursive: true });
+  writeFileSync(resolve(ext, "dist/lesson-mcp.cjs"), "// bundled server stub\n");
+  const launch = resolveServerLaunch(ext, "/no/such/repo");
+  expect(launch.command === process.execPath && launch.args[0].endsWith("lesson-mcp.cjs"),
+    "resolveServerLaunch falls back to the bundled server via the host executable");
+  expect(launch.env?.ELECTRON_RUN_AS_NODE === "1",
+    "bundled launch sets ELECTRON_RUN_AS_NODE so the Electron host runs it as node");
+}
+
+// 10) resolveServerLaunch: neither -> an actionable error naming the setting.
+{
+  let msg = "";
+  try { resolveServerLaunch("/no/such/extension", "/no/such/repo"); }
+  catch (e: any) { msg = String(e.message); }
+  expect(msg.includes("studium.repoRoot"), "missing-everything error names the studium.repoRoot setting");
+}
+
+if (failures.length) { console.error(`FAIL (${failures.length}/${checks}):`); for (const f of failures) console.error("  - " + f); process.exit(1); }
+console.log(`OK — mcp-connect driver passed all ${checks} assertions`);

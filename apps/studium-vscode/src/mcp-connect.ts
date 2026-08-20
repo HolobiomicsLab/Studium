@@ -1,7 +1,7 @@
 // mcp-connect.ts — spawn lesson-mcp over stdio and expose a typed call() + close(). Shared by the lesson
 // panel (extension.ts) and the @studium chat participant (chat.ts) so the connection logic lives once.
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
@@ -11,6 +11,31 @@ const STDERR_CHANNEL = "Studium — lesson-mcp";
 
 /** Where a server diagnostic line goes (an output channel in VS Code, the console in tests). */
 export type LogSink = (line: string) => void;
+
+/** How to launch lesson-mcp: the executable, its args, its cwd, extra env. */
+export interface ServerLaunch { command: string; args: string[]; cwd: string; env?: Record<string, string>; }
+
+/** Decide how to launch lesson-mcp, in order of preference:
+ *  1. a repo checkout (live sources via tsx) — dev mode, keeps edits hot;
+ *  2. the server bundled INSIDE the extension (dist/lesson-mcp.cjs, produced by `pnpm build`),
+ *     run with the extension host's own executable as node (ELECTRON_RUN_AS_NODE) — this is what
+ *     makes a packaged VSIX work on a machine that has no monorepo and no global tsx;
+ *  3. otherwise throw an actionable error naming both places and the setting that fixes it. */
+export function resolveServerLaunch(extensionPath: string, repoRoot: string): ServerLaunch {
+  const mcpDir = resolve(repoRoot, "apps/lesson-mcp");
+  if (existsSync(resolve(mcpDir, "src/index.ts"))) {
+    return { command: resolveTsx(repoRoot), args: ["src/index.ts"], cwd: mcpDir };
+  }
+  const bundled = resolve(extensionPath, "dist/lesson-mcp.cjs");
+  if (existsSync(bundled)) {
+    return { command: process.execPath, args: [bundled], cwd: dirname(bundled),
+             env: { ELECTRON_RUN_AS_NODE: "1" } };
+  }
+  throw new Error(
+    `lesson-mcp introuvable : ni un checkout du dépôt (${mcpDir}), ni le serveur embarqué ` +
+    `(${bundled}). Pointez le réglage « studium.repoRoot » vers un clone de prototype-build, ` +
+    `ou réinstallez le VSIX (pnpm package).`);
+}
 
 /** Resolve the `tsx` runner used to launch lesson-mcp, tolerant of the package manager. The old hardcoded
  *  pnpm path broke on a packaged VSIX / npm / yarn; try the common layouts, else fall back to PATH. */
@@ -76,9 +101,11 @@ export interface LessonMcp { call: McpCall; close: () => void; }
 /** Connect to a fresh lesson-mcp subprocess. `call` throws on a tool error; `close` tears the transport
  *  down. The server's stderr is piped to `opts.log` (default: the Studium output channel) — never
  *  discarded, so a server that dies at startup is diagnosable. */
-export async function connectLessonMcp(opts: { tsx: string; mcpDir: string; env: Record<string, string>; log?: LogSink }): Promise<LessonMcp> {
+export async function connectLessonMcp(opts: { launch: ServerLaunch; env: Record<string, string>; log?: LogSink }): Promise<LessonMcp> {
   const log = resolveLogSink(opts.log);
-  const transport = new StdioClientTransport({ command: opts.tsx, args: ["src/index.ts"], cwd: opts.mcpDir, env: opts.env, stderr: "pipe" });
+  const { launch } = opts;
+  const transport = new StdioClientTransport({ command: launch.command, args: launch.args, cwd: launch.cwd,
+    env: { ...launch.env, ...opts.env }, stderr: "pipe" });
   forwardStderr(transport.stderr, log); // piped stderr is readable BEFORE start(): no early output lost
   const client = new Client({ name: "studium-vscode", version: "0.1.0" });
   await client.connect(transport);

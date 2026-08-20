@@ -98,19 +98,25 @@
             "id": "open",
             "title": "Ouvre une leçon / Open a lesson",
             "description": "Depuis la barre d'activité Studium (ou la palette : « Studium: Open Lesson »), lance la leçon. Le panneau Studium affiche chaque scène — figures, équations, plots — et te pose des questions.\n[Ouvrir la leçon](command:studium.openLesson)",
-            "media": { "markdown": "media/walkthrough/01-open.md" }
+            "media": {
+              "markdown": "media/walkthrough/01-open.md"
+            }
           },
           {
             "id": "judge",
             "title": "Juge la sortie de l'IA / Judge the AI's output",
             "description": "Sur une scène « spot the flaw », un jeu de cartes te demande, pour chaque affirmation, si elle est erronée ou correcte. C'est le cœur de Studium : calibrer ton jugement de la sortie de l'IA.",
-            "media": { "markdown": "media/walkthrough/02-judge.md" }
+            "media": {
+              "markdown": "media/walkthrough/02-judge.md"
+            }
           },
           {
             "id": "run",
             "title": "Exécute une reproduction / Run a reproduction",
             "description": "Une scène de reproduction fait tourner une vraie capsule dans ton espace de travail (Studium n'exécute jamais lui-même). Le résultat que TU produis fonde le jugement — s'il est attesté.\n[Lancer la reproduction](command:studium.runReproduction)",
-            "media": { "markdown": "media/walkthrough/03-run.md" }
+            "media": {
+              "markdown": "media/walkthrough/03-run.md"
+            }
           }
         ]
       }
@@ -123,9 +129,18 @@
         "description": "Ouvre une leçon et juge la sortie de l'IA, directement dans le chat",
         "isSticky": true,
         "commands": [
-          { "name": "start", "description": "Démarrer (ou redémarrer) la leçon" },
-          { "name": "hint", "description": "Demander un indice" },
-          { "name": "discuss", "description": "Prendre un tour de discussion (argumente une position)" }
+          {
+            "name": "start",
+            "description": "Démarrer (ou redémarrer) la leçon"
+          },
+          {
+            "name": "hint",
+            "description": "Demander un indice"
+          },
+          {
+            "name": "discuss",
+            "description": "Prendre un tour de discussion (argumente une position)"
+          }
         ]
       }
     ],
@@ -160,7 +175,7 @@
         "studium.repoRoot": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to the prototype-build monorepo (defaults to the extension's own monorepo root)."
+          "description": "Chemin d'un clone de prototype-build (mode développement : lesson-mcp est lancé depuis ses sources via tsx). Facultatif pour un VSIX installé : le serveur embarqué dist/lesson-mcp.mjs est utilisé quand aucun clone n'est trouvé."
         },
         "studium.bundlesRoot": {
           "type": "string",
@@ -234,7 +249,7 @@
     }
   },
   "scripts": {
-    "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js",
+    "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js && esbuild src/lesson-mcp-entry.ts --bundle --platform=node --format=cjs --outfile=dist/lesson-mcp.cjs",
     "watch": "pnpm build --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm typecheck && for d in scene-io asset-path webview-pane community modality review-fsrs run-task lesson-tree chat-format mcp-connect contributes lesson-walk; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
