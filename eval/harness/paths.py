@@ -47,3 +47,14 @@ def ensure_perspicacite_importable() -> None:
     p = str(PERSPICACITE_DIR)
     if p not in sys.path:
         sys.path.insert(0, p)
+
+
+def ensure_planner_importable() -> None:
+    """Put services/planner on sys.path so ``from provenance.astra_emit import ...``
+    resolves (mirrors scene-synth). The ASTRA contract is vendored THERE; importing
+    it keeps one source of truth instead of re-declaring the shape here."""
+    import sys
+    p = str(PLANNER_DIR)
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
