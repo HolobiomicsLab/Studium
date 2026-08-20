@@ -4,6 +4,31 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-08-20 (suite) — JUGE DE SCÈNES, MySTRA, VSIX AUTONOME, PREUVE MULTI-HARNAIS
+
+Quatre unités TDD dans la foulée du support ASB/ARA :
+
+- **Juge de contenu par scène** (`eval/harness/scene_judge.py`, 9 tests) : dimensions discrètes
+  (key_correctness, distractor_quality, flaw_veracity, key_recall, evidence_sufficiency,
+  locale_consistency, asset_congruence), verdict pass/suspect/defect + failure_scenario OBLIGATOIRE,
+  agrégation pire-cas (jamais de moyenne — leçon du 0.883), calibration par scènes corrompues
+  déterministes (kappa via bea_external/agreement), échec LLM ⇒ scène SKIPPED jamais inventée
+  (leçon critic.py). Verdicts émis en décisions ASTRA (review/astra.yaml, forme ASB).
+- **MySTRA** (`tools/astra_render.py`, 4 tests) : page MyST composée DEPUIS astra.yaml + universes/
+  + trace/exploration_tree.yaml + review/ — décisions avec alternatives et exclusions, univers,
+  arbre d'exploration en mermaid, verdicts de revue. Jamais rédigée à la main.
+- **VSIX autonome** (`studium-vscode`) : lesson-mcp esbuildé en `dist/lesson-mcp.cjs` (entrée
+  dédiée `lesson-mcp-entry.ts` — la garde import.meta ne se déclenche pas en bundle CJS), résolution
+  checkout-d'abord / bundle-ensuite / erreur actionnable sinon (`resolveServerLaunch`, spawn
+  ELECTRON_RUN_AS_NODE), réglage repoRoot documenté facultatif. 12 drivers verts ; VSIX empaqueté
+  avec le serveur embarqué (923 Ko) ; smoke stdio du bundle OK.
+- **Preuve multi-harnais** (`apps/lesson-mcp/scripts/headless_smoke.mjs`, en CI) : un client MCP nu
+  (SDK seul, zéro code VS Code) démarre une vraie leçon atomistique-l1, soumet une réponse, lit le
+  render manifest — 14 assertions. Matrice harnais : `docs/guides/agent-harness-matrix.md`
+  (Claude Code / Cursor / OpenCode + canal fichier du protocole de run).
+
+---
+
 ## 2026-08-20 — SUPPORT ASB + ARA : document ASTRA imbriqué (`analyses:`) + trace d'exploration
 
 **Objectif** : qu'un `astra.yaml` de Studium soit lisible par les chargeurs de l'écosystème ASB

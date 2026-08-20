@@ -44,6 +44,9 @@ jobs:
       - name: Teaching-material lint
         run: node_modules/.pnpm/node_modules/.bin/tsx tools/bundle_lint.mjs
 
+      - name: Headless MCP smoke (harness-agnostic lesson drive)
+        run: node apps/lesson-mcp/scripts/headless_smoke.mjs
+
       - name: Python tests
         run: pytest
 
