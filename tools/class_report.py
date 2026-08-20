@@ -32,6 +32,11 @@ import zipfile
 from collections import Counter, defaultdict
 from pathlib import Path
 
+# The trust-calibration maths lives in the analytics collector; import it rather than
+# re-implement (a third copy is how the TS/Py over_distrust drift happened).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "services" / "analytics-collector"))
+from metrics import TRUST_WELL_BAND, _over_distrust_rate  # noqa: E402
+
 # adaptation rule_ids that signal the learner needed support (remediation / gating / escalation)
 _REMEDIATION_RULES = ("remediate", "prereq_gate", "replay", "escalat")
 
@@ -72,6 +77,9 @@ def build_report(run_dir: Path, min_learners: int = 5, bundle_path: Path | None 
     by_concept: dict[str, dict] = defaultdict(lambda: {
         "attempts": 0, "correct": 0, "hint_requests": 0, "conf_sum": 0.0,
         "overconfident": 0, "underconfident": 0, "time_ms": 0, "timed": 0,
+    })
+    trust_by_scene: dict[str, dict] = defaultdict(lambda: {
+        "planted": 0, "missed": 0, "fp": 0, "sound": 0,
     })
     rule_counts: Counter = Counter()
     n_started = n_completed = 0
@@ -119,6 +127,13 @@ def build_report(run_dir: Path, min_learners: int = 5, bundle_path: Path | None 
                 passed = float(e.get("llm_score") or 0.0) >= 0.6
                 a["correct"] += 1 if passed else 0
                 a["conf_sum"] += 1.0 if passed else 0.0
+            elif t == "ai_audit_result":
+                sid = str(e.get("scene_id") or "")
+                a = trust_by_scene[sid]
+                a["planted"] += int(e.get("planted_errors") or 0)
+                a["missed"] += int(e.get("missed") or 0)
+                a["fp"] += int(e.get("false_positives") or 0)
+                a["sound"] += int(e.get("sound_total") or 0)
             elif t == "hint_requested":
                 c = s2c.get(e.get("scene_id"), e.get("scene_id"))
                 by_concept[c]["hint_requests"] += 1
@@ -157,7 +172,37 @@ def build_report(run_dir: Path, min_learners: int = 5, bundle_path: Path | None 
         "top_adaptation_rules": rule_counts.most_common(6),
         "concepts": concepts,
         "reteach_priority": [c["concept"] for c in concepts if c["accuracy"] < 0.8][:5],
+        "trust_calibration": _trust_section(trust_by_scene, s2c),
     }
+
+
+def _trust_section(trust_by_scene: dict[str, dict], s2c: dict) -> dict:
+    """Class-level trust-calibration over grounded spot_the_flaw audits, mirroring
+    the collector's compute_trust_calibration (same helpers, same bands). Returns an
+    explicit not-measured shape when the run carries no grounded audits — an absent
+    number must read as "not measured here", never as "no trust issues"."""
+    scenes = []
+    gaps = []
+    for sid, c in sorted(trust_by_scene.items()):
+        if c["planted"] <= 0:
+            continue
+        over_trust = c["missed"] / c["planted"]
+        over_distrust = _over_distrust_rate(c["fp"], c["sound"])
+        gap = max(-1.0, min(1.0, over_trust - (over_distrust or 0.0)))
+        gaps.append(gap)
+        scenes.append({
+            "scene": s2c.get(sid, sid), "gap": round(gap, 3),
+            "over_trust": round(over_trust, 3),
+            "over_distrust": None if over_distrust is None else round(over_distrust, 3),
+            "planted": c["planted"], "missed": c["missed"], "false_positives": c["fp"],
+        })
+    if not gaps:
+        return {"measured": False, "n_scenes": 0,
+                "note": "no grounded audits in this run — trust calibration NOT measured"}
+    overall = sum(gaps) / len(gaps)
+    band = "bien" if abs(overall) <= TRUST_WELL_BAND else ("sur" if overall > 0 else "sous")
+    return {"measured": True, "n_scenes": len(gaps), "gap": round(overall, 3),
+            "band": band, "scenes": scenes}
 
 
 def _md(rep: dict) -> str:
@@ -173,6 +218,21 @@ def _md(rep: dict) -> str:
     for c in rep["concepts"]:
         L.append(f"| {c['concept']} | {c['n_attempts']} | {c['accuracy']} | {c['hint_reliance']} | "
                  f"{c['calibration_gap']:+} | {c['overconfidence_rate']} | {c['mean_time_s']} |")
+    L.append("")
+    L.append("## Trust calibration (judgment over real artifacts)")
+    tc = rep.get("trust_calibration") or {}
+    if not tc.get("measured"):
+        L.append(tc.get("note", "not measured"))
+    else:
+        L.append(f"overall gap: {tc['gap']:+} ({tc['band']}) over {tc['n_scenes']} grounded scene(s) "
+                 "— + credulous (missed planted flaws), − skeptical (flagged sound claims)")
+        L.append("")
+        L.append("| scene/concept | gap | over-trust | over-distrust | planted | missed | false pos. |")
+        L.append("|---|--:|--:|--:|--:|--:|--:|")
+        for s in tc["scenes"]:
+            od = "n/m" if s["over_distrust"] is None else f"{s['over_distrust']}"
+            L.append(f"| {s['scene']} | {s['gap']:+} | {s['over_trust']} | {od} | "
+                     f"{s['planted']} | {s['missed']} | {s['false_positives']} |")
     L.append("")
     L.append(f"**Re-teach priority:** {', '.join(rep['reteach_priority']) or '(none — class above 0.8)'}")
     L.append(f"\n**Top adaptations fired:** {rep['top_adaptation_rules']}")

@@ -139,9 +139,10 @@ def get_trust_calibration(
 
     Surface of the engine's `trust_calibration` dimension over the grounded
     spot_the_flaw audits. Band "sur" = over-trust (surconfiance IA), "sous" =
-    over-distrust (méfiance IA), "bien" = within band. HONESTY BOUNDARY: live
-    matcher emits false_positives=0, so the "sous" direction is structurally
-    unfed in production (see metrics.compute_trust_calibration)."""
+    over-distrust (méfiance IA), "bien" = within band. The verdict-deck grader
+    emits real false_positives and sound_total, so "sous" IS reachable; only the
+    free-text keyword path is structurally fp=0/sound=0, which reports as
+    UNMEASURED, not zero (see metrics.compute_trust_calibration)."""
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
     return compute_trust_calibration(_data_dir(), course, learner=learner, bundle_version=bv)
