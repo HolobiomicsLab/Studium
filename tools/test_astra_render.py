@@ -50,8 +50,14 @@ def test_review_section_appears_when_review_exists(tmp_path):
     course = _emit_course(tmp_path)
     sys.path.insert(0, str(REPO_ROOT / "eval"))
     from harness.scene_judge import judge_bundle, write_review
-    from tests.test_scene_judge import BUNDLE, FakeLLM
-    write_review(judge_bundle(BUNDLE, FakeLLM()), course)
+    # Load the scene-judge test module by path: importing it as `tests.test_scene_judge`
+    # collides with services/planner/tests when the suites run together.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "scene_judge_fixtures", REPO_ROOT / "eval" / "tests" / "test_scene_judge.py")
+    fixtures = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixtures)
+    write_review(judge_bundle(fixtures.BUNDLE, fixtures.FakeLLM()), course)
     page = render(course)
     assert "## Scene review" in page and "not passing" in page
 

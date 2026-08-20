@@ -182,10 +182,13 @@ describe("lesson-mcp tools", () => {
 
 describe("lesson-mcp — learner-time run protocol parity (run.json / run_result.json over MCP)", () => {
   const BUNDLE = "capsule-loop-demo/lesson.json"; // intro + reproduction(run_manifest) + spot_the_flaw(reference_from_run)
+  // A COMPLETE honest run: every declared verify_check reported — the attestation quarantines an
+  // under-reported run from grounding (learner_run_recorded=false), which is its job, not a bug.
   const PASS = {
     ran: true, passed: true, landmark: "LANDMARK k_fit=0.4212 half_life=1.6457",
     artifacts: ["outputs/stats.csv", "figures/decay.png"],
-    checks: [{ check: "file exists: outputs/stats.csv", passed: true }],
+    checks: [{ check: "file exists: outputs/stats.csv", passed: true },
+             { check: "file exists: figures/decay.png", passed: true }],
   };
   const start = async (client: Client) =>
     (parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: BUNDLE } }) as never))["session_id"] as string;
