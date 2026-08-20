@@ -35,7 +35,7 @@ import os
 from typing import Any, Optional
 
 from provenance.indicium_schema_vendored import assert_claim_conformant
-from provenance.astra_emit import SOURCE_ID_FIELD
+from provenance.astra_emit import SOURCE_ID_FIELD, analysis_body
 
 LWG_JSONLD = "lwg.indicium.jsonld"
 LWG_GRAPH_JSON = "lwg.graph.json"
@@ -238,6 +238,18 @@ def _evidence_for(claim_id: str, evidence: list[dict[str, Any]]) -> list[dict[st
     return out
 
 
+def _universe_decisions(universe: dict[str, Any]) -> dict[str, Any]:
+    """The option selection of a universe.yaml in either shape: nested ASB form
+    (`analyses.<slug>.decisions`, merged across slugs) or the older flat form."""
+    analyses = universe.get("analyses")
+    if not analyses:
+        return universe.get("decisions") or {}
+    merged: dict[str, Any] = {}
+    for body in analyses.values():
+        merged.update(body.get("decisions") or {})
+    return merged
+
+
 def _by_source_edge_id(container: Optional[dict[str, Any]]
                        ) -> dict[str, dict[str, Any]]:
     """Index an ASTRA container by the raw Studium edge id each entry was keyed by.
@@ -255,10 +267,11 @@ def _astra_for(claim: dict[str, Any], astra: Optional[dict[str, Any]]
     slugified id, so the join goes through SOURCE_ID_FIELD."""
     if not astra:
         return None, None
+    _, analysis = analysis_body(astra)
     ref = claim.get("astra_insight_ref") or ""
     edge_id = ref.split("/", 1)[1] if "/" in ref else ref
-    decision = _by_source_edge_id(astra.get("decisions")).get(edge_id)
-    finding = _by_source_edge_id(astra.get("findings")).get(edge_id)
+    decision = _by_source_edge_id(analysis.get("decisions")).get(edge_id)
+    finding = _by_source_edge_id(analysis.get("findings")).get(edge_id)
     decision_view = None
     if decision is not None:
         decision_view = {
@@ -304,7 +317,7 @@ def build_course_audit_report(
             if u and u.get("id"):
                 universes[u["id"]] = {
                     "description": u.get("description"),
-                    "decisions": u.get("decisions"),
+                    "decisions": _universe_decisions(u),
                 }
 
     history = _load_approval_history(course_dir)
@@ -368,12 +381,12 @@ def build_course_audit_report(
             "flagged_count": flagged_count,
             "flagged_edge_count": len(flagged_edges),
             "grounded_count": grounded_count,
-            "decision_count": len((astra or {}).get("decisions") or {}),
+            "decision_count": len((analysis_body(astra)[1] if astra else {}).get("decisions") or {}),
         },
         "claims": claim_views,
         "flagged_edges": flagged_edges,
         "universes": universes,
-        "decisions": (astra or {}).get("decisions") or {},
+        "decisions": (analysis_body(astra)[1] if astra else {}).get("decisions") or {},
     }
 
     json_path = os.path.join(out_dir, AUDIT_JSON)

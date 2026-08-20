@@ -23,12 +23,18 @@ def test_plan_writes_lwg_artifacts(monkeypatch, tmp_path):
 
     astra = yaml.safe_load((out / "astra.yaml").read_text())
     assert astra["version"] == ASTRA_SCHEMA_VERSION
-    assert "prereq_strictness" in astra["decisions"]
+    (slug,) = astra["analyses"]
+    assert "prereq_strictness" in astra["analyses"][slug]["decisions"]
 
     baseline = yaml.safe_load((out / "universes" / "baseline.yaml").read_text())
     remedial = yaml.safe_load((out / "universes" / "remedial.yaml").read_text())
-    assert baseline["decisions"]["scaffolding"] == "standard"
-    assert remedial["decisions"]["scaffolding"] == "heavy"
+    assert baseline["analyses"][slug]["decisions"]["scaffolding"] == "standard"
+    assert remedial["analyses"][slug]["decisions"]["scaffolding"] == "heavy"
+
+    trace = yaml.safe_load((out / "trace" / "exploration_tree.yaml").read_text())
+    root = trace["nodes"][0]
+    assert root["type"] == "question"
+    assert {c["title"] for c in root["children"]} >= {"Prerequisite gating strictness"}
 
 
 def test_plan_lwg_includes_abs_repro_nodes_when_capsule_ref_present(monkeypatch, tmp_path):

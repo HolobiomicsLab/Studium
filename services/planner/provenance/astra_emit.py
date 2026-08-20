@@ -34,26 +34,58 @@ def emit_astra(
     findings: list[dict[str, Any]],
     outputs: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Build an ASTRA Analysis dict. decisions/prior_insights/findings are keyed by
-    grammar-valid ids (the raw id is kept under SOURCE_ID_FIELD); analysis_id is
-    coerced the same way. Returns the Analysis ready for write_astra_yaml."""
+    """Build an ASTRA document in the ASB shape: version/name/inputs/outputs at the
+    root (no root id) and the course as ONE sub-analysis under `analyses`, keyed and
+    id'd by the slugified analysis_id. Container entries are keyed by grammar-valid
+    ids with the raw id kept under SOURCE_ID_FIELD. Root outputs re-export each
+    sub-analysis output via `from`, as ASB emitters do."""
+    slug = slugify_id(analysis_id)
     return {
-        "id": slugify_id(analysis_id),
         "version": ASTRA_SCHEMA_VERSION,
         "name": name,
-        "decisions": _keyed_by_astra_id(decisions),
-        "prior_insights": _keyed_by_astra_id(prior_insights),
-        "findings": _keyed_by_astra_id(findings),
-        "outputs": outputs,
+        "description": "Studium author-time course build; the sub-analysis carries "
+                       "the build's decisions and findings.",
+        "inputs": [{"id": "course_manifest", "type": "data",
+                    "description": f"Course manifest and corpus references for {name}."}],
+        "outputs": [{"id": f"{slug}_result", "from": f"{slug}.{o['id']}"} for o in outputs],
+        "analyses": {slug: {
+            "id": slug,
+            "name": name,
+            "decisions": _keyed_by_astra_id(decisions),
+            "prior_insights": _keyed_by_astra_id(prior_insights),
+            "findings": _keyed_by_astra_id(findings),
+            "outputs": outputs,
+        }},
     }
 
 
+def analysis_body(doc: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """(slug, sub-analysis body) of an ASTRA document. A pre-nesting flat document
+    (no `analyses` container) is its own body, so old artifacts keep resolving."""
+    analyses = doc.get("analyses")
+    if not analyses:
+        return doc.get("id", ""), doc
+    slug = next(iter(analyses))
+    return slug, analyses[slug]
+
+
 def baseline_universe(decisions: list[dict[str, Any]]) -> dict[str, Any]:
-    """The baseline Universe: each decision's default option (ASTRA flat map shape)."""
+    """The baseline Universe selection: each decision's default option, flat.
+    This is the in-API shape; nest_universe wraps it for the written artifact."""
     return {
         "id": "baseline",
         "description": "Default option per decision across the analysis.",
         "decisions": {slugify_id(d["id"]): d["default"] for d in decisions},
+    }
+
+
+def nest_universe(universe: dict[str, Any], analysis_slug: str) -> dict[str, Any]:
+    """Wrap a flat Universe selection into the ASB universe.yaml shape: the option
+    map sits under `analyses.<slug>.decisions` instead of at the root."""
+    return {
+        "id": universe["id"],
+        "description": universe["description"],
+        "analyses": {analysis_slug: {"decisions": universe["decisions"]}},
     }
 
 

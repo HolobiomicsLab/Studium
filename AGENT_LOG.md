@@ -4,6 +4,45 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-08-20 — SUPPORT ASB + ARA : document ASTRA imbriqué (`analyses:`) + trace d'exploration
+
+**Objectif** : qu'un `astra.yaml` de Studium soit lisible par les chargeurs de l'écosystème ASB
+(forme imbriquée réelle, cf. `asb_benchmark_metabolomics_v1/q_metlinkr`), et que chaque build de
+cours émette aussi le trajet de recherche au format ARA (spec exploration-trace 0.1.0 d'ASB).
+
+**Livré** (ADR `docs/adr/0001-astra-analyses-shape-and-ara-trace.md`) :
+- `emit_astra` → document ASB : racine `version/name/description/inputs/outputs` (pas d'`id`
+  racine ; `description` car 0.0.12 a supprimé `Narrative`), le cours = UNE sous-analyse sous
+  `analyses:`, sorties racine ré-exportées via `from`. Univers imbriqués (`nest_universe`) ;
+  la charge `lesson_plan.universes` reste plate (API interne).
+- Lecteurs bi-formes : `analysis_body(doc)` + `_universe_decisions(u)` dans `approval.py` —
+  les artefacts pré-imbrication continuent de se résoudre.
+- NOUVEAU `provenance/exploration_trace.py` (contrat 0.1.0 vendored depuis ASB `trace_extract`) :
+  racine `question` + un nœud `decision` par décision du build (choice + alternatives),
+  `source_refs` pointant dans `astra.yaml` ; construit DEPUIS le document émis (zéro dérive d'ids).
+  Écrit `trace/exploration_tree.yaml` à chaque build LWG.
+- Vérif interop structurelle : seul écart racine vs le document ASB réel = `description` vs
+  `narrative` (= exactement la migration 0.0.10→0.0.12). `astra validate` (CLI) indisponible
+  hors-ligne — à exécuter dès que possible.
+
+**Vérifié** : suite planner **208 verts** (dont 5 nouveaux tests de trace + 2 tests de forme) ;
+TDD (tests rouges d'abord : collection errors sur `analysis_body`/`nest_universe`/module trace).
+
+---
+
+## 2026-08-19/20 — AUDIT DU HUB : métrique de confiance TS/Py alignée, ASTRA 0.0.12, échecs silencieux
+
+Voir `docs/audits/2026-08-19-hub-audit.md` (grand livre corrigé/ouvert). Points saillants :
+`sound_total` ajouté à `ai_audit_result` (Zod+Pydantic) — le collecteur calcule enfin
+`over_distrust` comme le moteur (min(fp,sound)/sound, `None` si non mesuré) ; `critic.py` ne
+fabrique plus un 0.78 sur échec LLM (raise en mode live, mock estampillé `is_mock`) ; canal
+run-protocol : stderr → OutputChannel, parse gardé, RunResult persisté sur échec ; ASTRA
+0.0.10→0.0.12 via contrat vendored + ids slugifiés + tests de conformité RÉELS — le panel de
+revue a attrapé que la slugification cassait la jointure `approval.py` (réparée via
+`source_edge_id`, test qui appelle vraiment `_astra_for`) ; lint de bundles repo-wide en CI
+(`tools/bundle_lint.mjs`) + XOR payload/path sur RenderAsset + distracteurs du quiz carbone
+reconstruits (4 choix à 6 électrons, une idée fausse distincte chacun).
+
 ## 2026-07-17 — CAPSULE PHARE concept→reproduire→juger (métabolomique, patron déterministe)
 
 **Objectif** : démontrer la boucle nord-étoile sur du CONTENU métabolomique RÉEL (pas un jouet) — un
