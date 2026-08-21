@@ -136,6 +136,42 @@ class AIAuditResult(_Base):
     sound_total: int = Field(default=0, ge=0)
 
 
+class UniverseSelected(_Base):
+    type: Literal["universe_selected"]
+    universe_id: str
+    # decision_id -> option_id (refs only, RGPD-safe; max 64 chars defense-in-depth)
+    active_decisions: dict[str, Annotated[str, Field(max_length=64)]]
+
+
+class HintRequested(_Base):
+    type: Literal["hint_requested"]
+    scene_id: str
+    hint_index: int = Field(ge=0)
+
+
+class TutorMove(_Base):
+    type: Literal["tutor_move"]
+    scene_id: str
+    move_kind: Literal[
+        "invite_test",
+        "acknowledge_extend",
+        "redirect_question",
+        "probe_justification",
+        "probe_synthesis",
+        "scaffold_hint",
+    ]
+    in_reply_to_signal: Literal[
+        "justification",
+        "hypothesis",
+        "question",
+        "counterexample",
+        "synthesis",
+    ]
+    revealed: bool
+    reveal_blocked: bool
+    turn_index: int = Field(ge=0)
+
+
 class JournalEntrySubmitted(_Base):
     type: Literal["journal_entry_submitted"]
     scene_id: str
@@ -166,7 +202,8 @@ TelemetryEvent = Annotated[
           AdaptationApplied, CritiqueSubmitted, LessonCompleted,
           ConsentGranted, ForgetRequested,
           ReasoningSignal, AIAuditResult,
-          JournalEntrySubmitted, CooperativeVote, CooperativeConvergence],
+          JournalEntrySubmitted, CooperativeVote, CooperativeConvergence,
+          UniverseSelected, HintRequested, TutorMove],
     Field(discriminator="type"),
 ]
 
@@ -177,4 +214,5 @@ __all__ = [
     "ConsentGranted", "ForgetRequested",
     "ReasoningSignal", "AIAuditResult",
     "JournalEntrySubmitted", "CooperativeVote", "CooperativeConvergence",
+    "UniverseSelected", "HintRequested", "TutorMove",
 ]

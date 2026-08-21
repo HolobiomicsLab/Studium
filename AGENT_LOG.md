@@ -4,6 +4,22 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-08-21 — RAPPORT DE CLASSE + PORTE DE PARITÉ TS/PY (la classe de dérive est fermée)
+
+- **class_report.py** : section trust_calibration dans le rapport hors-ligne enseignant (JSON+MD),
+  MÊME formule que le collecteur (import de `_over_distrust_rate`/`TRUST_WELL_BAND` — pas de 3e
+  copie), ligne explicite « NOT measured » sans audits ancrés ; le cas-sonde planted=2/sound=8/fp=6
+  → gap −0.75 « sous » est épinglé par test. Docstring périmée d'`analytics_collector_app` corrigée.
+- **Porte de parité de contrat** (`packages/telemetry-events`) : `scripts/contract_dump.ts` émet
+  {type: {champ: required|optional}} depuis l'union Zod ; `tests/test_contract_parity.py` construit
+  le même résumé depuis l'union Pydantic et échoue sur TOUTE asymétrie. Collectée par le `pytest`
+  racine (testpaths=packages) → déjà en CI. **Prise immédiate : 3 types d'événements absents côté
+  Python (hint_requested, universe_selected, tutor_move) — le collecteur les REJETAIT à l'ingestion
+  (batch validé par `list[TelemetryEvent]`).** Modèles ajoutés en miroir exact + preuve
+  endpoint-niveau (POST /telemetry accepte les 3). 166 tests collector+telemetry verts.
+
+---
+
 ## 2026-08-20 (suite) — JUGE DE SCÈNES, MySTRA, VSIX AUTONOME, PREUVE MULTI-HARNAIS
 
 Quatre unités TDD dans la foulée du support ASB/ARA :

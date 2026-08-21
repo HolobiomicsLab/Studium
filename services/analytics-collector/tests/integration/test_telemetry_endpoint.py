@@ -54,3 +54,25 @@ def test_post_telemetry_rejects_invalid_event(tmp_path, monkeypatch):
         json={"events": [{"type": "not_a_real_event"}]},
     )
     assert r.status_code == 422
+
+
+def test_post_telemetry_accepts_the_runtime_event_types_the_union_once_missed(tmp_path, monkeypatch):
+    """hint_requested / universe_selected / tutor_move ARE emitted by the runtime but were
+    absent from the Pydantic union, so the collector 422-rejected them at ingest while the
+    Zod side validated them fine. Pinned by the schema-parity gate
+    (packages/telemetry-events/tests/test_contract_parity.py); this is the endpoint-level proof."""
+    monkeypatch.setenv("ANALYTICS_DATA_DIR", str(tmp_path))
+    from analytics_collector_app import app
+    client = TestClient(app)
+    base = {k: v for k, v in _event(0).items() if k not in ("type", "scene_id", "scene_type")}
+    events = [
+        {**base, "type": "hint_requested", "scene_id": "s1", "hint_index": 0},
+        {**base, "type": "universe_selected", "universe_id": "remedial",
+         "active_decisions": {"scaffolding": "heavy"}},
+        {**base, "type": "tutor_move", "scene_id": "s2", "move_kind": "invite_test",
+         "in_reply_to_signal": "hypothesis", "revealed": False, "reveal_blocked": False,
+         "turn_index": 1},
+    ]
+    r = client.post("/telemetry", headers={"X-Course-Token": "course-abc"}, json={"events": events})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"accepted": 3}
