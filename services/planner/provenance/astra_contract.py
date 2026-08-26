@@ -10,11 +10,13 @@ this repo may declare a second copy.
 
 SOURCE OF TRUTH (copy these verbatim; keep this file in lock-step):
   AgenticScienceBuilder src/agentic_science_builder/astra_export/model.py
-    @ commit 5e707bc9be1ee6d4f0b27ae5d818c9d86eba381f (2026-07-29)
-    - ASTRA_SCHEMA_VERSION : model.py:26   (upstream astra-spec v0.0.12)
-    - id grammar           : model.py:28-34
-    - ASTRA_RESERVED_IDS   : model.py:36-48
-    - slugify_id           : model.py:50-73
+    @ commit 2795f9ec4910e039ac7bb4dc02f574ae1645ca2c (2026-08-26)
+    - ASTRA_SCHEMA_VERSION : model.py:27   (upstream astra-spec v0.0.12)
+    - id grammar           : model.py:28-35
+    - ASTRA_RESERVED_IDS   : model.py:37-48
+    - slugify_id           : model.py:51-75
+    Re-pinned after the astra-reviewer wave (ASB PR #62); all four mirrored
+    symbols verified unchanged, only their line positions moved.
   Upstream spec: https://astra-spec.org/latest/ (analysis.yaml / universe.yaml)
 
 MIGRATION 0.0.10 -> 0.0.12 (the version this emitter previously declared):
