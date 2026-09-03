@@ -9,7 +9,7 @@ response, and reads the render manifest with zero VS Code code.
 ## Server invocation (identical for every harness)
 
 ```
-command: <repo>/node_modules/.bin/tsx        # or node <ext>/dist/lesson-mcp.cjs from a VSIX install
+command: <repo>/apps/lesson-mcp/node_modules/.bin/tsx   # app-local pnpm binary (a root node_modules/.bin/tsx may not exist); or node <ext>/dist/lesson-mcp.cjs from a VSIX install
 args:    ["src/index.ts"]
 cwd:     <repo>/apps/lesson-mcp
 env:     BUNDLES_ROOT=<repo>/fixtures        # + STUDIUM_TELEMETRY_CONSENT=granted STUDIUM_DATA_DIR=… if consented
@@ -44,3 +44,6 @@ harness executes, Studium attests and ingests. Both channels are equivalent:
   the same behaviour by calling the tools directly.
 - A packaged VSIX ships the server as `dist/lesson-mcp.cjs`; point `command` at
   `node` with that file to reuse one install across harnesses.
+- An agent-facing procedure (tool argument shapes, run-protocol honesty rules, the
+  `.studium-session/` file channel, verification and eval commands) lives in
+  `skills/studium-harness/SKILL.md`; symlink it into a harness's skills directory.
