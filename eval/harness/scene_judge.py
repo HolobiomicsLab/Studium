@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Literal
 
@@ -210,13 +211,20 @@ def _binary_kappa(gold: list[bool], pred: list[bool]) -> float:
 
 # ---------------------------------------------------------------- ASTRA emission
 
-def emit_review_astra(review: dict) -> dict:
+def emit_review_astra(review: dict, *, created_at: str | None = None) -> dict:
     """The review as an ASTRA document (ASB shape): one Decision per judged
     (scene, dimension) whose selected option is the verdict, non-chosen verdicts
-    excluded with the judge's reasoning; defects become findings with the quote."""
+    excluded with the judge's reasoning; defects become findings with the quote.
+
+    In-schema per astra-spec 0.0.14 (INT-STUDIUM-010): every finding carries
+    `created_at` (ISO 8601; default = now, UTC), a quote is a TextQuoteSelector
+    (`{exact: ...}`, omitted when empty), the sub-analysis declares its input
+    (the lesson bundle) and the `verdicts` output declares its format. Evidence
+    ids and the grounding output for `lesson.json#<scene>` come from the emitter."""
     ensure_planner_importable()
     from provenance.astra_emit import emit_astra
 
+    stamp = created_at or datetime.now(timezone.utc).isoformat()
     decisions, findings = [], []
     for sid, vs in review["scenes"].items():
         for v in vs:
@@ -231,15 +239,20 @@ def emit_review_astra(review: dict) -> dict:
                             for o in VERDICTS},
             })
             if v["verdict"] == "defect":
+                quote = v.get("quote") or ""
                 findings.append({
                     "id": f"defect:{sid}:{v['dimension']}",
                     "claim": v["failure_scenario"],
-                    "evidence": [{"artifact": f"lesson.json#{sid}", "quote": v["quote"]}],
+                    "created_at": stamp,
+                    "evidence": [{"artifact": f"lesson.json#{sid}",
+                                  **({"quote": {"exact": quote}} if quote else {})}],
                 })
     return emit_astra(
         analysis_id=f"{review['bundle_id']}-scene-review", name=f"Scene review: {review['bundle_id']}",
         decisions=decisions, prior_insights=[], findings=findings,
-        outputs=[{"id": "verdicts", "type": "data"}])
+        inputs=[{"id": "lesson_bundle", "type": "data",
+                 "description": f"lesson.json of bundle {review['bundle_id']}"}],
+        outputs=[{"id": "verdicts", "type": "data", "format": "json"}])
 
 
 def write_review(review: dict, out_dir: Path) -> None:
