@@ -86,3 +86,42 @@ def test_sub_analysis_declares_inputs():
     custom = [{"id": "lesson_bundle", "type": "data", "description": "x"}]
     _, body = analysis_body(_emit(inputs=custom))
     assert body["inputs"] == custom
+
+
+# ---------------------------------------------------------------- Task 3: universes + set
+
+import yaml  # noqa: E402
+
+from provenance.astra_emit import baseline_universe, nest_universe, write_astra_set  # noqa: E402
+from provenance.universes import pedagogical_decisions, remedial_universe  # noqa: E402
+
+
+def test_nested_universe_assigns_every_emitted_decision():
+    ped = pedagogical_decisions()
+    slug, body = analysis_body(_emit(decisions=[_edge_decision(), *ped]))
+    u = nest_universe(remedial_universe(ped), slug, body["decisions"])
+    selected = u["analyses"][slug]["decisions"]
+    assert set(selected) == set(body["decisions"])  # complete: no [MISSING_DECISION]
+    assert selected["scaffolding"] == "heavy"  # the universe's own choice wins
+    (edge_slug,) = [s for s, d in body["decisions"].items() if source_edge_id(d, s) == _RAW]
+    assert selected[edge_slug] == body["decisions"][edge_slug]["default"]
+    # A universe keyed by the RAW edge id resolves to the emitted slug.
+    raw_keyed = {"id": "u", "description": "d", "decisions": {_RAW: "no"}}
+    nested = nest_universe(raw_keyed, slug, body["decisions"])
+    assert nested["analyses"][slug]["decisions"][edge_slug] == "no"
+    # Two-argument calls are unchanged: the flat selection is wrapped as-is.
+    assert nest_universe(raw_keyed, slug)["analyses"][slug]["decisions"] == {_RAW: "no"}
+
+
+def test_write_astra_set_writes_the_whole_set(tmp_path):
+    ped = pedagogical_decisions()
+    doc = _emit(decisions=[_edge_decision(), *ped])
+    paths = write_astra_set(doc, [baseline_universe(ped), remedial_universe(ped)], tmp_path)
+    rel = [p.relative_to(tmp_path).as_posix() for p in paths]
+    assert rel == ["astra.yaml", "universes/baseline.yaml", "universes/remedial.yaml",
+                   "trace/exploration_tree.yaml"]
+    assert all(p.is_file() for p in paths)
+    slug, body = analysis_body(doc)
+    remedial = yaml.safe_load((tmp_path / "universes" / "remedial.yaml").read_text())
+    assert set(remedial["analyses"][slug]["decisions"]) == set(body["decisions"])
+    assert remedial["analyses"][slug]["decisions"]["scaffolding"] == "heavy"

@@ -9,6 +9,7 @@ as evidence becomes a declared sub-analysis output."""
 from __future__ import annotations
 import os
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 from provenance.astra_contract import ASTRA_SCHEMA_VERSION, is_valid_astra_format, slugify_id
@@ -198,13 +199,27 @@ def baseline_universe(decisions: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def nest_universe(universe: dict[str, Any], analysis_slug: str) -> dict[str, Any]:
+def nest_universe(universe: dict[str, Any], analysis_slug: str,
+                  analysis_decisions: Mapping[str, Mapping[str, Any]] | None = None,
+                  ) -> dict[str, Any]:
     """Wrap a flat Universe selection into the ASB universe.yaml shape: the option
-    map sits under `analyses.<slug>.decisions` instead of at the root."""
+    map sits under `analyses.<slug>.decisions` instead of at the root. Given the
+    emitted decisions map (slug -> body) the nested selection is COMPLETE, as the
+    validator requires of a universe (`[MISSING_DECISION]` otherwise): every emitted
+    decision at its `default`, overlaid by the universe's own selection (the universe
+    wins; a selection keyed by a raw edge id resolves to the emitted slug through the
+    `source_edge_id` tag). Without it the flat selection is wrapped as-is."""
+    selection: dict[str, Any] = dict(universe["decisions"])
+    if analysis_decisions is not None:
+        by_raw = {source_edge_id(body, slug): slug for slug, body in analysis_decisions.items()}
+        complete = {slug: body.get("default") for slug, body in analysis_decisions.items()}
+        for key, option in universe["decisions"].items():
+            complete[key if key in analysis_decisions else by_raw.get(key, key)] = option
+        selection = complete
     return {
         "id": universe["id"],
         "description": universe["description"],
-        "analyses": {analysis_slug: {"decisions": universe["decisions"]}},
+        "analyses": {analysis_slug: {"decisions": selection}},
     }
 
 
@@ -221,3 +236,24 @@ def write_universe_yaml(universe: dict[str, Any], out_dir: str) -> None:
     os.makedirs(udir, exist_ok=True)
     with open(os.path.join(udir, f"{universe['id']}.yaml"), "w", encoding="utf-8") as f:
         yaml.safe_dump(universe, f, sort_keys=False, allow_unicode=True)
+
+
+def write_astra_set(analysis: dict[str, Any], universes: list[dict[str, Any]],
+                    out_dir: str | os.PathLike[str]) -> list[Path]:
+    """Write the whole ASTRA set the validator discovers under `out_dir`: astra.yaml,
+    universes/<id>.yaml for each FLAT universe (nested with the complete selection
+    over the emitted decisions) and trace/exploration_tree.yaml (the ARA trace,
+    outside the validator's scope). Returns the written paths, in that order."""
+    # exploration_trace imports analysis_body from this module: import here, not at top.
+    from provenance.exploration_trace import build_exploration_tree, write_exploration_trace
+    slug, body = analysis_body(analysis)
+    out = Path(out_dir)
+    write_astra_yaml(analysis, str(out))
+    paths = [out / "astra.yaml"]
+    for universe in universes:
+        nested = nest_universe(universe, slug, body.get("decisions") or {})
+        write_universe_yaml(nested, str(out))
+        paths.append(out / "universes" / f"{nested['id']}.yaml")
+    write_exploration_trace(build_exploration_tree(analysis), str(out))
+    paths.append(out / "trace" / "exploration_tree.yaml")
+    return paths
