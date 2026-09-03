@@ -45,5 +45,14 @@ exploration-trace spec (0.1.0, `trace_extract`, branch `feat/exploration-trace-s
   conformance is enforced by `tests/test_provenance_astra_conformance.py` against
   the vendored contract. Running the real validator once the CLI is available is
   the remaining verification step.
+  **2026-09-03:** the real validator ran for the first time (`astra-tools` 0.2.17 with
+  astra-spec 0.0.14, and 0.2.12 with the pinned 0.0.12; the CLI ships in `astra-tools`,
+  not in `astra-spec`). The emitted set fails under both versions: `source_edge_id` is
+  an extra key on decisions and findings (`extra=forbid`), evidence lacks `id` and
+  carries `confidence`, universes omit the edge decisions, the sub-analysis has no
+  `inputs` and evidence artifacts are not declared outputs; `review/astra.yaml` adds a
+  string `quote` and a missing `created_at`. A projection applying those fixes to a
+  copy passes both versions. Tracked as hub intent INT-STUDIUM-010; the `approval.py`
+  join through `source_edge_id` must survive the fix.
 - Consumers that assumed root-level `decisions` were updated (`approval.py`);
   external consumers of old artifacts are unaffected (readers accept both).
