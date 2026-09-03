@@ -21,7 +21,7 @@ from lesson_plan_schema import CorpusRef, LearningObjective, LessonPlan, SceneOu
 from provenance.astra_contract import ASTRA_ID_RE, ASTRA_SCHEMA_VERSION, is_valid_astra_id
 from provenance.approval import _astra_for
 from provenance.astra_emit import (
-    SOURCE_ID_FIELD, analysis_body, baseline_universe, emit_astra, nest_universe,
+    analysis_body, baseline_universe, emit_astra, nest_universe, source_edge_id,
     write_astra_yaml,
 )
 from provenance.universes import pedagogical_decisions, remedial_universe
@@ -130,8 +130,8 @@ def test_raw_edge_ids_survive_for_the_indicium_join(built):
     _, analysis = analysis_body(doc)
     refs = {e["astra_insight_ref"].split("/", 1)[1]
             for e in res.graph["edges"] if e.get("astra_insight_ref")}
-    kept = {body.get(SOURCE_ID_FIELD) for body in analysis["findings"].values()}
-    kept |= {body.get(SOURCE_ID_FIELD) for body in analysis["decisions"].values()}
+    kept = {source_edge_id(body, key) for key, body in analysis["findings"].items()}
+    kept |= {source_edge_id(body, key) for key, body in analysis["decisions"].items()}
     assert refs and refs <= kept, f"lost raw edge id(s): {sorted(refs - kept)}"
 
 

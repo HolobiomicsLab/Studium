@@ -27,7 +27,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "services" / "planner"))
 
-from provenance.astra_emit import SOURCE_ID_FIELD, analysis_body  # noqa: E402
+from provenance.astra_emit import analysis_body, source_edge_id  # noqa: E402
 
 
 def _load_yaml(path: Path) -> dict[str, Any] | None:
@@ -102,7 +102,7 @@ def _review_section(review_doc: dict[str, Any]) -> list[str]:
     lines = ["## Scene review", "",
              f"{len(rows)} judged dimension(s); **{len(non_pass)} not passing**.", ""]
     for dslug, d in non_pass:
-        lines.append(f"- `{d.get(SOURCE_ID_FIELD, dslug)}` → **{d.get('default')}** — "
+        lines.append(f"- `{source_edge_id(d, dslug)}` → **{d.get('default')}** — "
                      f"{d.get('rationale', '')}")
     if not non_pass and rows:
         lines.append("All judged dimensions pass.")
@@ -149,7 +149,7 @@ def render(course_dir: Path) -> str:
     if findings:
         lines += ["## Findings", ""]
         for fslug, f in findings.items():
-            lines.append(f"- `{f.get(SOURCE_ID_FIELD, fslug)}` — {f.get('claim', '')}")
+            lines.append(f"- `{source_edge_id(f, fslug)}` — {f.get('claim', '')}")
         lines.append("")
 
     review = _load_yaml(course_dir / "review" / "astra.yaml")

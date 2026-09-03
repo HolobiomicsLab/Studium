@@ -35,7 +35,7 @@ import os
 from typing import Any, Optional
 
 from provenance.indicium_schema_vendored import assert_claim_conformant
-from provenance.astra_emit import SOURCE_ID_FIELD, analysis_body
+from provenance.astra_emit import analysis_body, source_edge_id
 
 LWG_JSONLD = "lwg.indicium.jsonld"
 LWG_GRAPH_JSON = "lwg.graph.json"
@@ -253,10 +253,12 @@ def _universe_decisions(universe: dict[str, Any]) -> dict[str, Any]:
 def _by_source_edge_id(container: Optional[dict[str, Any]]
                        ) -> dict[str, dict[str, Any]]:
     """Index an ASTRA container by the raw Studium edge id each entry was keyed by.
-    Emitted ids are slugified to the ASTRA grammar, so the raw id lives under
-    SOURCE_ID_FIELD; files written before that coercion are keyed by the raw id
-    itself. Input: a decisions/findings map. Output: raw edge id -> entry body."""
-    return {body.get(SOURCE_ID_FIELD, key): body
+    Emitted ids are slugified to the ASTRA grammar, so the raw id lives in the
+    `source_edge_id:<raw>` tag (files written before 2026-09-03: the extension key
+    of that name; files written before the coercion: the key itself) --
+    source_edge_id() resolves all three. Input: a decisions/findings map. Output:
+    raw edge id -> entry body."""
+    return {source_edge_id(body, key): body
             for key, body in (container or {}).items()}
 
 
@@ -264,7 +266,7 @@ def _astra_for(claim: dict[str, Any], astra: Optional[dict[str, Any]]
                ) -> tuple[Optional[dict[str, Any]], Optional[dict[str, Any]]]:
     """Join a claim to its ASTRA decision + finding via astra_insight_ref.
     The ref is "<analysis_id>/<edge_id>"; astra.yaml keys decisions/findings by a
-    slugified id, so the join goes through SOURCE_ID_FIELD."""
+    slugified id, so the join goes through source_edge_id()."""
     if not astra:
         return None, None
     _, analysis = analysis_body(astra)
