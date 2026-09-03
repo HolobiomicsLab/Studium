@@ -81,10 +81,7 @@ def plan(request: PlanRequest) -> PlanResponse:
             from graph.builder import GraphBuilder
             from agents.graph_agent import GraphAgent
             from provenance.graph_to_indicium import graph_to_claims
-            from provenance.astra_emit import (
-                emit_astra, baseline_universe, nest_universe, write_astra_yaml,
-                write_universe_yaml,
-            )
+            from provenance.astra_emit import emit_astra, baseline_universe, write_astra_set
             from provenance.universes import pedagogical_decisions, remedial_universe
             from learning_workflow_schema import validate_graph
 
@@ -123,7 +120,7 @@ def plan(request: PlanRequest) -> PlanResponse:
                     decisions=_res.decisions + _ped,
                     prior_insights=[],
                     findings=_res.findings,
-                    outputs=[{"id": "lwg", "type": "data"}],
+                    outputs=[{"id": "lwg", "type": "data", "format": "json"}],
                 )
                 os.makedirs(_out_dir, exist_ok=True)
                 with open(os.path.join(_out_dir, "lwg.indicium.jsonld"), "w", encoding="utf-8") as _f:
@@ -137,12 +134,8 @@ def plan(request: PlanRequest) -> PlanResponse:
                 # ungrounded / low-confidence (build_course_audit_report reads this).
                 with open(os.path.join(_out_dir, "lwg.graph.json"), "w", encoding="utf-8") as _f:
                     _json.dump(_res.graph, _f, ensure_ascii=False, indent=2)
-                write_astra_yaml(_analysis, _out_dir)
-                _slug = next(iter(_analysis["analyses"]))
-                write_universe_yaml(nest_universe(baseline_universe(_ped), _slug), _out_dir)
-                write_universe_yaml(nest_universe(remedial_universe(_ped), _slug), _out_dir)
-                from provenance.exploration_trace import build_exploration_tree, write_exploration_trace
-                write_exploration_trace(build_exploration_tree(_analysis), _out_dir)
+                # astra.yaml + complete universes + the ARA trace, the set `astra validate` checks.
+                write_astra_set(_analysis, [baseline_universe(_ped), remedial_universe(_ped)], _out_dir)
                 _log.info(
                     "LWG built: %d nodes, %d edges -> %s",
                     len(_res.graph["nodes"]), len(_res.graph["edges"]), _out_dir,

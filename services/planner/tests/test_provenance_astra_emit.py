@@ -33,7 +33,7 @@ def test_emit_astra_shape():
     assert analysis["outputs"] == [{"id": f"{slug}_result", "from": f"{slug}.lwg"}]
     assert "e1" in body["decisions"] and "difficulty" in body["decisions"]
     assert body["findings"]["e1"]["claim"].startswith("FFT requires")
-    assert body["findings"]["e1"][SOURCE_ID_FIELD] == "e1"
+    assert f"{SOURCE_ID_FIELD}:e1" in body["findings"]["e1"]["tags"]
 
 
 def test_baseline_universe_picks_defaults():

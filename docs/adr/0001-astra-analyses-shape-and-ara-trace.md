@@ -41,18 +41,31 @@ exploration-trace spec (0.1.0, `trace_extract`, branch `feat/exploration-trace-s
 
 - A Studium `astra.yaml` and an ASB `astra.yaml` now differ at the root only by
   `description`-vs-`narrative`, which is precisely the 0.0.10→0.0.12 spec change.
-- `astra validate` could not be run here (no `astra` CLI offline); structural
-  conformance is enforced by `tests/test_provenance_astra_conformance.py` against
-  the vendored contract. Running the real validator once the CLI is available is
-  the remaining verification step.
-  **2026-09-03:** the real validator ran for the first time (`astra-tools` 0.2.17 with
-  astra-spec 0.0.14, and 0.2.12 with the pinned 0.0.12; the CLI ships in `astra-tools`,
-  not in `astra-spec`). The emitted set fails under both versions: `source_edge_id` is
-  an extra key on decisions and findings (`extra=forbid`), evidence lacks `id` and
-  carries `confidence`, universes omit the edge decisions, the sub-analysis has no
-  `inputs` and evidence artifacts are not declared outputs; `review/astra.yaml` adds a
-  string `quote` and a missing `created_at`. A projection applying those fixes to a
-  copy passes both versions. Tracked as hub intent INT-STUDIUM-010; the `approval.py`
-  join through `source_edge_id` must survive the fix.
+- `astra validate` could not be run when this ADR was written (no `astra` CLI
+  offline); structural conformance was enforced by
+  `tests/test_provenance_astra_conformance.py` against the vendored contract only.
+  **2026-09-03:** the real validator ran for the first time (the CLI ships in PyPI
+  `astra-tools`, not in `astra-spec`): the set emitted at that date failed under
+  astra-tools 0.2.12 / astra-spec 0.0.12 (the version pinned then) and under 0.2.17 /
+  0.0.14 — `source_edge_id` as an extra key on decisions and findings (`extra=forbid`),
+  evidence without `id` and with a non-schema `confidence`, universes omitting the edge
+  decisions, no sub-analysis `inputs`, evidence artifacts not declared as outputs;
+  `review/astra.yaml` added a string `quote` and a missing `created_at`.
+  **Closed 2026-09-03 (INT-STUDIUM-010, astra-tools 0.2.17 / astra-spec 0.0.14, commit
+  `3801f0d`):** the contract is pinned to 0.0.14 and every emitted document validates
+  with the real CLI (`tools/astra_validate_check.py`: "All 4 file(s) passed
+  validation."). Fix shape: the raw edge id lives in-schema as a `source_edge_id:<raw>`
+  tag, read back by `astra_emit.source_edge_id()` (tag, then the legacy key of
+  pre-2026-09-03 files, then the container key), so the `approval.py` join and
+  `tools/astra_render.py` survive; evidence gets `id = <owner>_ev<n>`, a
+  `TextQuoteSelector` quote and its confidence in `notes`; every cited artifact is a
+  declared sub-analysis output (`artifact_<slug>`); the sub-analysis declares
+  `inputs`; universes assign every emitted decision (`nest_universe(...,
+  analysis_decisions)`, edge decisions at their default); `Output.format` is emitted —
+  the one field a 0.0.12 validator rejects (ASB's exporter stays 0.0.12; its documents
+  still load here). Proof on every run: `tests/test_provenance_astra_validate_cli.py`
+  (real CLI, negative control, loud skip outside CI, failure in CI) and the CI step
+  "ASTRA validator (INT-STUDIUM-010)". The vendored contract stays the offline
+  fallback for the id grammar.
 - Consumers that assumed root-level `decisions` were updated (`approval.py`);
   external consumers of old artifacts are unaffected (readers accept both).
