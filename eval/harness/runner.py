@@ -17,6 +17,11 @@ from pathlib import Path
 
 from .paths import HARNESS_DIR, REPO_ROOT, SESSION_DRIVER
 
+#: The persona turn cap enforced by the session driver. Named so a reader of a
+#: finished run (the Observatory cap-hit flag, INT-STUDIUM-008) tests against the
+#: number the driver used instead of re-declaring the literal.
+DEFAULT_MAX_TURNS = 60
+
 
 def _find_tsx() -> Path:
     """Locate the pnpm-managed tsx CLI without invoking pnpm (faster, no recursive-exec noise)."""
@@ -50,7 +55,7 @@ def run_session(
     persona: str,
     out_dir: Path,
     live: bool = False,
-    max_turns: int = 60,
+    max_turns: int = DEFAULT_MAX_TURNS,
     pseudo_secret: str | None = None,
     persona_prompt: str | None = None,
     model: str | None = None,
