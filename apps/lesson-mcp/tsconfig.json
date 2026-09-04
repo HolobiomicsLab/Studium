@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "noEmit": true,
     "target": "ES2022", "module": "ESNext", "moduleResolution": "bundler", "lib": ["ES2022"],
     "strict": true, "exactOptionalPropertyTypes": true, "noUncheckedIndexedAccess": true,
     "declaration": true, "sourceMap": true, "esModuleInterop": true, "skipLibCheck": true,

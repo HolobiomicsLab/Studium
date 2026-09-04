@@ -40,10 +40,10 @@ jobs:
 
       - name: Build the workspace packages the tests import
         # @studium/llm-client resolves through ./dist, which is gitignored, so
-        # packages/lesson-session cannot import it on a fresh checkout. Only this
-        # package is built: `pnpm build` would also emit lesson-session's own tsc
-        # output beside its sources (no outDir), and vitest would then collect
-        # every test twice.
+        # packages/lesson-session cannot import it on a fresh checkout. It is the
+        # only workspace whose build the tests need. Since INT-STUDIUM-015 a full
+        # `pnpm build` is emission-free and exits 0 too, so keeping this step narrow
+        # is now a choice about CI time, not a correctness constraint.
         run: pnpm --filter @studium/llm-client build
 
       - name: TypeScript tests
