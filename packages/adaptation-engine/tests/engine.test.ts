@@ -48,7 +48,7 @@ describe("AdaptationEngine", () => {
   });
 
   it("skip rule fires after high mastery + 3+ attempts", () => {
-    let state = defaultLearnerState("L1");
+    const state = defaultLearnerState("L1");
     state.concept_states["c1"] = { ...defaultConceptState("c1"),
       alpha: 9, beta: 1, total_attempts: 3, total_correct: 3 };
     const engine = new AdaptationEngine([RULE_SKIP], state);
@@ -58,7 +58,7 @@ describe("AdaptationEngine", () => {
   });
 
   it("calibration rule shows panel with target_concept from signal", () => {
-    let state = defaultLearnerState("L1");
+    const state = defaultLearnerState("L1");
     state.concept_states["c1"] = { ...defaultConceptState("c1"),
       alpha: 2, beta: 2, total_attempts: 4, total_correct: 1,
       confidence_calibration: 0.5 };
@@ -71,7 +71,7 @@ describe("AdaptationEngine", () => {
 
   it("confidence_declared WRITES calibration and fires the M3 rule on the meta turn (overconfident)", () => {
     // concept already has low mastery from prior quizzes (alpha=1, beta~2.57 → ~0.28), 3 attempts
-    let state = defaultLearnerState("L1");
+    const state = defaultLearnerState("L1");
     state.concept_states["c1"] = { ...defaultConceptState("c1"),
       alpha: 1, beta: 2.57, total_attempts: 3, total_correct: 0 };
     const engine = new AdaptationEngine([RULE_CALIB], state);
@@ -88,7 +88,7 @@ describe("AdaptationEngine", () => {
   });
 
   it("confidence_declared with calibrated-low confidence does NOT fire the M3 rule (struggling persona)", () => {
-    let state = defaultLearnerState("L1");
+    const state = defaultLearnerState("L1");
     state.concept_states["c1"] = { ...defaultConceptState("c1"),
       alpha: 1, beta: 2.57, total_attempts: 3, total_correct: 0 };
     const engine = new AdaptationEngine([RULE_CALIB], state);
@@ -101,7 +101,7 @@ describe("AdaptationEngine", () => {
   });
 
   it("confidence_declared without concept_id is inert (backward-compat no-op)", () => {
-    let state = defaultLearnerState("L1");
+    const state = defaultLearnerState("L1");
     const engine = new AdaptationEngine([RULE_CALIB], state);
     const d = engine.onSignal({ kind: "confidence_declared", scene_id: "m", value: 4 } as any);
     expect(d.next_action.kind).toBe("advance_to_next_scene");
@@ -109,7 +109,7 @@ describe("AdaptationEngine", () => {
   });
 
   it("rule order matters — first match wins", () => {
-    let state = defaultLearnerState("L1");
+    const state = defaultLearnerState("L1");
     state.concept_states["c1"] = { ...defaultConceptState("c1"),
       alpha: 9, beta: 1, total_attempts: 3, total_correct: 3,
       consecutive_errors: 2 };
@@ -128,7 +128,7 @@ describe("AdaptationEngine", () => {
   });
 
   it("explain returns last decision details when non-fallback", () => {
-    let state = defaultLearnerState("L1");
+    const state = defaultLearnerState("L1");
     state.concept_states["c1"] = { ...defaultConceptState("c1"),
       consecutive_errors: 2 };
     const engine = new AdaptationEngine([RULE_REPLAY], state);
