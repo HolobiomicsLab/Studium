@@ -128,6 +128,13 @@ def run_detail(ref: RunRef, *, max_turns: int = DEFAULT_MAX_TURNS) -> dict:
     audit, _ = _read_json(ref.path / AUDIT_FILE)
     audit = audit if isinstance(audit, Mapping) else {}
 
+    report_md, report_problem = _read_text(ref.path / REPORT_FILE)
+    unreadable = dict(summary.unreadable)
+    if report_problem is not None and report_problem != "missing":
+        # An absent report is ordinary and the page says so in words; a report that
+        # cannot be decoded is a gap the page has to name.
+        unreadable[REPORT_FILE] = report_problem
+
     findings = audit.get("findings")
     signals = audit.get("persona_signals")
     detail = asdict(summary)
@@ -136,7 +143,8 @@ def run_detail(ref: RunRef, *, max_turns: int = DEFAULT_MAX_TURNS) -> dict:
         findings=_scrub(findings) if isinstance(findings, Sequence) and not isinstance(findings, str) else [],
         harness_signals=_scrub(audit.get("harness_signals")) if isinstance(audit.get("harness_signals"), Mapping) else {},
         persona_signals=_persona_signals(signals if isinstance(signals, Mapping) else {}),
-        report_md=_read_text(ref.path / REPORT_FILE),
+        report_md=report_md,
+        unreadable=unreadable,
         has_author_provenance=(ref.path / "author_provenance.json").is_file(),
         has_refinement_feedback=(ref.path / "refinement_feedback.json").is_file(),
     )
@@ -218,7 +226,7 @@ def _telemetry(path: Path) -> tuple[dict[str, int], str | None, str | None, str 
     problem: str | None = None
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:  # pragma: no cover - unreadable file
+    except (OSError, ValueError) as exc:  # unreadable, or not UTF-8
         return {}, None, None, _problem(exc)
 
     for number, line in enumerate(lines, start=1):
@@ -261,7 +269,7 @@ def _result_files(suite_dir: Path) -> list[Path]:
 
 
 def _title(readme: Path, fallback: str) -> str:
-    text = _read_text(readme)
+    text, _ = _read_text(readme)
     for line in (text or "").splitlines():
         if line.startswith("# "):
             return line[2:].strip()
@@ -305,11 +313,19 @@ def _read_json(path: Path) -> tuple[Any, str | None]:
         return None, _problem(exc)
 
 
-def _read_text(path: Path) -> str | None:
+def _read_text(path: Path) -> tuple[str | None, str | None]:
+    """(text, problem), the shape of `_read_json`.
+
+    A report or a README written in another encoding raises `UnicodeDecodeError`, a
+    `ValueError`, not an `OSError`: catching only the latter turned one such file into
+    a 500 on the run page and, through `_title`, on the index (spec constraint N3).
+    """
+    if not path.is_file():
+        return None, "missing"
     try:
-        return path.read_text(encoding="utf-8")
-    except OSError:
-        return None
+        return path.read_text(encoding="utf-8"), None
+    except (OSError, ValueError) as exc:
+        return None, _problem(exc)
 
 
 def _iso_mtime(path: Path) -> str:

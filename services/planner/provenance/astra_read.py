@@ -15,7 +15,9 @@ Layout, as `provenance.astra_emit.write_astra_set` writes it:
 `strict=True` (the default) reproduces the renderer's behaviour: a missing `astra.yaml`
 raises `FileNotFoundError`, a YAML or OS error propagates. `strict=False` never raises:
 the field stays `None`, an unreadable universe is skipped, and every gap is named in
-`absent` under its path relative to the course directory.
+`absent` under its path relative to the course directory. A document that parses to
+something other than a mapping (a list, a bare string) counts as unreadable there: no
+emitter writes one, and a reader that cannot crash must still name it.
 """
 from __future__ import annotations
 
@@ -57,18 +59,31 @@ def load_yaml(path: Path) -> dict[str, Any] | None:
 
 
 def universe_selection(universe: Mapping[str, Any]) -> dict[str, Any]:
-    """Option selection of a universe in either shape (nested merged, or flat)."""
+    """Option selection of a universe in either shape (nested merged, or flat).
+
+    A block of the wrong shape contributes nothing instead of raising: both callers
+    (the renderer and the Observatory) then show an empty selection for a universe no
+    emitter wrote, and neither has to guard the formula a second time (R9).
+    """
     analyses = universe.get("analyses")
-    if not analyses:
-        return universe.get("decisions") or {}
+    if not isinstance(analyses, Mapping) or not analyses:
+        decisions = universe.get("decisions")
+        return dict(decisions) if isinstance(decisions, Mapping) else {}
     merged: dict[str, Any] = {}
     for body in analyses.values():
-        merged.update(body.get("decisions") or {})
+        decisions = body.get("decisions") if isinstance(body, Mapping) else None
+        if isinstance(decisions, Mapping):
+            merged.update(decisions)
     return merged
 
 
 def _unreadable(exc: BaseException) -> str:
     return f"unreadable: {type(exc).__name__}: {exc}"
+
+
+def _not_a_mapping(doc: Any) -> str:
+    """A document that parses but is not a mapping is a gap, not a crash (non-strict)."""
+    return f"unreadable: not a mapping ({type(doc).__name__})"
 
 
 def load_course(course_dir: Path | str, *, strict: bool = True) -> CourseDocs:
@@ -86,6 +101,10 @@ def load_course(course_dir: Path | str, *, strict: bool = True) -> CourseDocs:
             return None
         if doc is None:
             absent[rel] = MISSING
+            return None
+        if not isinstance(doc, Mapping) and not strict:
+            absent[rel] = _not_a_mapping(doc)
+            return None
         return doc
 
     astra = _read(ASTRA_FILE)
@@ -102,6 +121,9 @@ def load_course(course_dir: Path | str, *, strict: bool = True) -> CourseDocs:
             if strict:
                 raise
             absent[rel] = _unreadable(exc)
+            continue
+        if doc is not None and not isinstance(doc, Mapping) and not strict:
+            absent[rel] = _not_a_mapping(doc)
             continue
         universe = dict(doc or {})
         universe.setdefault("id", upath.stem)

@@ -25,6 +25,7 @@
   <thead><tr><th>Dimension</th><th>Severity</th><th>Summary</th><th>Evidence</th><th>Backlog</th></tr></thead>
   <tbody>
   {%- for finding in run.findings %}
+    {%- if finding is mapping %}
     <tr>
       <td>{{ finding.get("dimension", "—") }}</td>
       <td>{{ finding.get("severity", "—") }}</td>
@@ -32,6 +33,10 @@
       <td class="path">{{ finding.get("evidence_path", "—") }}</td>
       <td>{{ finding.get("backlog_ref", "—") }}</td>
     </tr>
+    {%- else %}
+    {# a finding the auditor did not write as an object: shown as it stands, never a 500 #}
+    <tr><td colspan="5" class="none">{{ finding }}</td></tr>
+    {%- endif %}
   {%- endfor %}
   </tbody>
 </table>

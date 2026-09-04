@@ -53,21 +53,39 @@ class CourseSummary:
     absent: dict[str, str]
 
 
+def _mapping(value: Any) -> Mapping[str, Any]:
+    """`value` when it is a mapping, an empty one otherwise.
+
+    Applied at every container this module walks. No emitter writes a list where the
+    schema says mapping, but a hand-edited or half-written file does, and the index
+    summarises every course: one such file must not take the whole surface down
+    (spec constraint N3). The gap shows as an empty block, and `load_course` already
+    names a whole document of the wrong shape in `absent`.
+    """
+    return value if isinstance(value, Mapping) else {}
+
+
 def analyses_of(doc: Mapping[str, Any] | None) -> list[tuple[str, Mapping[str, Any]]]:
     """(slug, body) pairs. A nested document yields its `analyses`; a pre-nesting flat
     document is its own single body, the rule `astra_emit.analysis_body` applies."""
-    if not doc:
+    if not doc or not isinstance(doc, Mapping):
         return []
     analyses = doc.get("analyses")
     if isinstance(analyses, Mapping) and analyses:
-        return [(slug, body or {}) for slug, body in analyses.items()]
+        return [(str(slug), _mapping(body)) for slug, body in analyses.items()]
+    if analyses:
+        # The document declares a container and wrote something else. It is not a flat
+        # legacy document either, so there is no body to show: an empty analyses list,
+        # not the `analysis_body` traversal that would raise on it.
+        LOGGER.warning("astra.yaml has a non-mapping `analyses` block: %r", type(analyses).__name__)
+        return []
     slug, body = analysis_body(dict(doc))
-    return [(slug or "root", body)]
+    return [(slug or "root", _mapping(body))]
 
 
 def _defaults_by_analysis(doc: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
-    return {slug: {did: (d or {}).get("default")
-                   for did, d in (body.get("decisions") or {}).items()}
+    return {slug: {did: _mapping(d).get("default")
+                   for did, d in _mapping(body.get("decisions")).items()}
             for slug, body in analyses_of(doc)}
 
 
@@ -84,10 +102,10 @@ def universe_diff(universe: Mapping[str, Any],
     nested = universe.get("analyses")
     pairs: list[tuple[dict[str, Any], Mapping[str, Any]]]
     if isinstance(nested, Mapping) and nested:
-        pairs = [(per_analysis.get(slug, merged), (body or {}).get("decisions") or {})
+        pairs = [(per_analysis.get(str(slug), merged), _mapping(_mapping(body).get("decisions")))
                  for slug, body in nested.items()]
     else:
-        pairs = [(merged, universe_selection(universe))]
+        pairs = [(merged, _mapping(universe_selection(universe)))]
     for defaults, selection in pairs:
         for did, chosen in selection.items():
             default = defaults.get(did)
@@ -102,11 +120,11 @@ def summarize_course(ref: CourseRef) -> CourseSummary:
     return CourseSummary(
         id=ref.id,
         path=str(ref.path),
-        name=(docs.astra or {}).get("name"),
-        version=(docs.astra or {}).get("version"),
+        name=_mapping(docs.astra).get("name"),
+        version=_mapping(docs.astra).get("version"),
         n_analyses=len(bodies),
-        n_decisions=sum(len(b.get("decisions") or {}) for b in bodies),
-        n_findings=sum(len(b.get("findings") or {}) for b in bodies),
+        n_decisions=sum(len(_mapping(b.get("decisions"))) for b in bodies),
+        n_findings=sum(len(_mapping(b.get("findings"))) for b in bodies),
         universes=tuple(str(u.get("id", "")) for u in docs.universes),
         has_trace=docs.trace is not None,
         has_review=docs.review is not None,
@@ -122,15 +140,15 @@ def _port_ids(items: Any) -> list[str]:
 
 
 def _decision_view(slug: str, decision: Mapping[str, Any]) -> dict[str, Any]:
-    options = decision.get("options") or {}
+    options = _mapping(decision.get("options"))
     return {
         "id": slug,
         "source_edge_id": source_edge_id(decision, slug),
         "label": decision.get("label", slug),
         "default": decision.get("default"),
         "rationale": decision.get("rationale", ""),
-        "options": [{"id": oid, "label": (o or {}).get("label", oid),
-                     "excluded_reason": (o or {}).get("excluded_reason")}
+        "options": [{"id": oid, "label": _mapping(o).get("label", oid),
+                     "excluded_reason": _mapping(o).get("excluded_reason")}
                     for oid, o in options.items()],
         "tags": list(decision.get("tags") or []),
     }
@@ -138,6 +156,7 @@ def _decision_view(slug: str, decision: Mapping[str, Any]) -> dict[str, Any]:
 
 def _finding_view(slug: str, finding: Mapping[str, Any]) -> dict[str, Any]:
     evidence = finding.get("evidence") or []
+    evidence = evidence if isinstance(evidence, list) else []
     return {
         "id": slug,
         "source_edge_id": source_edge_id(finding, slug),
@@ -151,12 +170,13 @@ def _finding_view(slug: str, finding: Mapping[str, Any]) -> dict[str, Any]:
 
 def _review_view(review: Mapping[str, Any] | None) -> dict[str, Any] | None:
     """The scene-review verdicts, counted the way `astra_render._review_section` does."""
-    if not review:
+    if not review or not isinstance(review, Mapping):
         return None
-    _, body = analysis_body(dict(review))
-    rows = [{"id": slug, "source_edge_id": source_edge_id(d or {}, slug),
-             "default": (d or {}).get("default"), "label": (d or {}).get("label", slug)}
-            for slug, d in (body.get("decisions") or {}).items()]
+    bodies = analyses_of(review)          # the first analysis, as `_review_section` reads it
+    body = bodies[0][1] if bodies else {}
+    rows = [{"id": slug, "source_edge_id": source_edge_id(_mapping(d), slug),
+             "default": _mapping(d).get("default"), "label": _mapping(d).get("label", slug)}
+            for slug, d in _mapping(_mapping(body).get("decisions")).items()]
     return {"n_decisions": len(rows),
             "n_non_pass": len([r for r in rows if r["default"] != "pass"]),
             "rows": rows}
@@ -175,23 +195,24 @@ def course_detail(ref: CourseRef) -> dict[str, Any]:
             "description": body.get("description", ""),
             "inputs": _port_ids(body.get("inputs")),
             "outputs": _port_ids(body.get("outputs")),
-            "decisions": [_decision_view(s, d or {})
-                          for s, d in (body.get("decisions") or {}).items()],
-            "findings": [_finding_view(s, f or {})
-                         for s, f in (body.get("findings") or {}).items()],
+            "decisions": [_decision_view(str(s), _mapping(d))
+                          for s, d in _mapping(body.get("decisions")).items()],
+            "findings": [_finding_view(str(s), _mapping(f))
+                         for s, f in _mapping(body.get("findings")).items()],
         })
 
     universes = [{"id": str(u.get("id", "")), "description": u.get("description", ""),
-                  "selection": universe_selection(u),
+                  "selection": _mapping(universe_selection(u)),
                   "diff_from_default": universe_diff(u, docs.astra)}
                  for u in docs.universes]
 
-    nodes = (docs.trace or {}).get("nodes") or []
+    nodes = _mapping(docs.trace).get("nodes") or []
+    nodes = nodes if isinstance(nodes, list) else []
     return {
         "summary": asdict(summary),
         "analyses": analyses,
         "universes": universes,
-        "trace_schema_version": (docs.trace or {}).get("schema_version"),
+        "trace_schema_version": _mapping(docs.trace).get("schema_version"),
         "trace_mermaid": "\n".join(astra_render._trace_mermaid(nodes)) if docs.trace else None,
         "trace_bullets": "\n".join(astra_render._trace_bullets(nodes)) if docs.trace else None,
         "review": _review_view(docs.review),
