@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{{ run.id }} — evaluation run{% endblock %}
+{% block content %}
+<h1>{{ run.id }}</h1>
+<p class="path">{{ run.path }}</p>
+<p>
+  corpus {{ run.corpus_id or "—" }} · author mode {{ run.author_mode or "—" }} ·
+  auditor {{ run.auditor or "—" }} ·
+  score {{ "%.2f"|format(run.overall_score) if run.overall_score is not none else "—" }} ·
+  {{ run.n_findings if run.n_findings is not none else "no" }} findings ·
+  read from {{ run.parsed_from }}
+</p>
+<p class="path">
+  author provenance: {{ "present" if run.has_author_provenance else "absent" }} ·
+  refinement feedback: {{ "present" if run.has_refinement_feedback else "absent" }}
+</p>
+{{ markers(run.unreadable) }}
+
+<h2>Dimension scores</h2>
+{{ kv(run.dimension_scores) }}
+
+<h2>Findings</h2>
+{% if run.findings %}
+<table>
+  <thead><tr><th>Dimension</th><th>Severity</th><th>Summary</th><th>Evidence</th><th>Backlog</th></tr></thead>
+  <tbody>
+  {%- for finding in run.findings %}
+    <tr>
+      <td>{{ finding.get("dimension", "—") }}</td>
+      <td>{{ finding.get("severity", "—") }}</td>
+      <td>{{ finding.get("summary", "") }}</td>
+      <td class="path">{{ finding.get("evidence_path", "—") }}</td>
+      <td>{{ finding.get("backlog_ref", "—") }}</td>
+    </tr>
+  {%- endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="none">no finding</p>
+{% endif %}
+
+<h2>Persona sessions</h2>
+<p class="synthetic">Each row is a synthetic persona: a scripted driver, not a person. No learner
+identifier, pseudonym or free-text answer is read into this page.</p>
+{% if run.personas %}
+<table>
+  <thead><tr><th>Persona</th><th>Turns</th><th>Completed</th><th>Degraded</th><th>Transitions</th><th>Telemetry events</th><th>Span</th></tr></thead>
+  <tbody>
+  {%- for persona in run.personas %}
+    <tr>
+      <td>{{ persona.name }} <span class="synthetic">synthetic persona</span>
+        {%- for problem in persona.unreadable %}<p class="absent">({{ problem }})</p>{% endfor %}</td>
+      <td>{{ persona.turns if persona.turns is not none else "—" }}
+        {%- if persona.cap_hit %} <span class="cap">cap</span>{% endif %}</td>
+      <td>{{ "yes" if persona.completed else ("no" if persona.completed is not none else "—") }}</td>
+      <td>{{ persona.degraded_turns if persona.degraded_turns is not none else "—" }}</td>
+      <td>{%- for kind, n in persona.transition_kinds.items() %}{{ kind }}×{{ n }}{{ ", " if not loop.last }}{% else %}—{% endfor %}</td>
+      <td>{%- for kind, n in persona.event_types.items() %}{{ kind }}×{{ n }}{{ ", " if not loop.last }}{% else %}—{% endfor %}</td>
+      <td class="path">{{ persona.first_at or "—" }}{% if persona.last_at and persona.last_at != persona.first_at %} → {{ persona.last_at }}{% endif %}</td>
+    </tr>
+  {%- endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="none">no persona session</p>
+{% endif %}
+
+<h2>Harness signals</h2>
+{{ kv(run.harness_signals) }}
+
+<h2>Audit persona signals</h2>
+{% for name, signal in run.persona_signals.items() %}
+<details><summary>{{ name }} <span class="synthetic">synthetic persona</span></summary>{{ kv(signal) }}</details>
+{% else %}
+<p class="none">none</p>
+{% endfor %}
+
+<h2>Report</h2>
+{% if run.report_md %}
+<pre>{{ run.report_md }}</pre>
+{% else %}
+<p class="none">no report.md</p>
+{% endif %}
+{% endblock %}

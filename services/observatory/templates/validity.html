@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Validity suites{% endblock %}
+{% block content %}
+<h1>Validity suites</h1>
+<p class="path">Committed evaluation results, read in place. A suite without a result file is
+listed so the gap is visible.</p>
+{% for suite in suites %}
+<h2 id="{{ suite.name }}">{{ suite.title }}</h2>
+<p class="path">{{ suite.name }}</p>
+{% if suite.reason %}<p class="absent">({{ suite.reason }})</p>{% endif %}
+{% for result in suite.results %}
+<h3>{{ result.file }}</h3>
+{% if result.error %}
+<p class="absent">({{ result.error }})</p>
+{% else %}
+<p class="path">written {{ result.mtime }}</p>
+{{ kv(result.scalars) }}
+{% endif %}
+{% endfor %}
+{% else %}
+<p class="none">no suite under the configured validity root</p>
+{% endfor %}
+{% endblock %}

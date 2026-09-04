@@ -125,3 +125,13 @@ def cfg(course_root: Path, eval_root: Path, validity_root: Path):
 
     return ObservatoryConfig(course_root=course_root, courses=(), eval_root=eval_root,
                              validity_root=validity_root)
+
+
+@pytest.fixture
+def client(cfg: ObservatoryConfig):
+    """The whole application over the synthetic roots, no network and no server."""
+    from fastapi.testclient import TestClient
+
+    from observatory_app import create_app
+
+    return TestClient(create_app(cfg))

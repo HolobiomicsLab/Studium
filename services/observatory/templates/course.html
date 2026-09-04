@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ course.summary.id }} — provenance{% endblock %}
+{% block content %}
+{% set s = course.summary %}
+<h1>{{ s.id }}{% if s.name %} — {{ s.name }}{% endif %}</h1>
+<p class="path">{{ s.path }}</p>
+<p>
+  ASTRA version {{ s.version or "unknown" }} ·
+  {{ s.n_analyses }} analysis/analyses · {{ s.n_decisions }} decisions · {{ s.n_findings }} findings ·
+  validator <span class="{{ validation.status }}">{{ validation.status|replace("_", " ") }}</span>
+  (<a href="/courses/{{ s.id }}/validation">run it</a>) ·
+  <a href="/courses/{{ s.id }}/provenance.myst.md">MyST page</a>
+</p>
+{{ markers(course.absent) }}
+
+<h2>Analyses</h2>
+{% for analysis in course.analyses %}
+<h3>{{ analysis.slug }}{% if analysis.name %} — {{ analysis.name }}{% endif %}</h3>
+{% if analysis.description %}<p>{{ analysis.description }}</p>{% endif %}
+<p class="path">inputs: {{ analysis.inputs|join(", ") or "—" }} · outputs: {{ analysis.outputs|join(", ") or "—" }}</p>
+
+<table>
+  <thead><tr><th>Decision</th><th>Question</th><th>Default</th><th>Options</th><th>Rationale</th></tr></thead>
+  <tbody>
+  {%- for decision in analysis.decisions %}
+    <tr>
+      <td>{{ decision.id }}<br><span class="path">{{ decision.source_edge_id }}</span></td>
+      <td>{{ decision.label }}{% if decision.tags %}<br><span class="path">{{ decision.tags|join(", ") }}</span>{% endif %}</td>
+      <td>{{ decision.default or "—" }}</td>
+      <td>
+        {%- for option in decision.options %}
+        {{ option.id }}{% if option.label and option.label != option.id %} ({{ option.label }}){% endif %}
+        {%- if option.excluded_reason %} <span class="absent">excluded: {{ option.excluded_reason }}</span>{% endif %}{{ "," if not loop.last }}
+        {%- else %}<span class="none">none</span>
+        {%- endfor %}
+      </td>
+      <td>{{ decision.rationale or "—" }}</td>
+    </tr>
+  {%- else %}
+    <tr><td colspan="5" class="none">no decision</td></tr>
+  {%- endfor %}
+  </tbody>
+</table>
+
+{% if analysis.findings %}
+<table>
+  <thead><tr><th>Finding</th><th>Claim</th><th>Evidence</th></tr></thead>
+  <tbody>
+  {%- for finding in analysis.findings %}
+    <tr>
+      <td>{{ finding.id }}<br><span class="path">{{ finding.source_edge_id }}</span></td>
+      <td>{{ finding.claim }}{% if finding.notes %}<br><span class="path">{{ finding.notes }}</span>{% endif %}</td>
+      <td>
+        {%- for item in finding.evidence %}
+        <div>{{ item.id }} — {{ item.artifact or "—" }}
+          {%- if item.quote_exact %}<br><span class="path">“{{ item.quote_exact }}”</span>{% endif %}</div>
+        {%- else %}<span class="none">none</span>
+        {%- endfor %}
+      </td>
+    </tr>
+  {%- endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% else %}
+<p class="none">no analysis in this document</p>
+{% endfor %}
+
+<h2>Universes</h2>
+{% for universe in course.universes %}
+<h3>{{ universe.id }}</h3>
+{% if universe.description %}<p>{{ universe.description }}</p>{% endif %}
+{% if universe.diff_from_default %}
+<table>
+  <thead><tr><th>Decision</th><th>Default</th><th>Chosen</th></tr></thead>
+  <tbody>
+  {%- for decision, pair in universe.diff_from_default.items() %}
+    <tr><td>{{ decision }}</td><td>{{ pair[0] or "—" }}</td><td>{{ pair[1] }}</td></tr>
+  {%- endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="none">every decision at its default</p>
+{% endif %}
+<details><summary>full selection</summary>{{ kv(universe.selection) }}</details>
+{% else %}
+<p class="none">no universe file</p>
+{% endfor %}
+
+<h2>Exploration trace</h2>
+{% if course.trace_bullets or course.trace_mermaid %}
+<p class="path">schema version {{ course.trace_schema_version or "unknown" }}</p>
+{% if course.trace_bullets %}<pre>{{ course.trace_bullets }}</pre>{% endif %}
+{% if course.trace_mermaid %}
+<details><summary>mermaid source</summary><pre>{{ course.trace_mermaid }}</pre></details>
+{% endif %}
+{% else %}
+<p class="none">no trace file</p>
+{% endif %}
+
+<h2>Review</h2>
+{% if course.review %}
+<p>{{ course.review.n_decisions }} reviewed decisions, {{ course.review.n_non_pass }} not passing.</p>
+<table>
+  <thead><tr><th>Decision</th><th>Verdict</th><th>Scene</th></tr></thead>
+  <tbody>
+  {%- for row in course.review.rows %}
+    <tr><td>{{ row.id }}<br><span class="path">{{ row.source_edge_id }}</span></td>
+      <td>{{ row.default or "—" }}</td><td>{{ row.label }}</td></tr>
+  {%- endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="none">no review document</p>
+{% endif %}
+{% endblock %}
