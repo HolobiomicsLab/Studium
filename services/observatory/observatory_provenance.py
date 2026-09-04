@@ -17,6 +17,8 @@ of this slice.
 """
 from __future__ import annotations
 
+import logging
+
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -29,6 +31,9 @@ ensure_importable()
 import astra_render  # noqa: E402  (the MyST page: one renderer, no second formatter)
 from provenance.astra_emit import analysis_body, source_edge_id  # noqa: E402
 from provenance.astra_read import load_course, universe_selection  # noqa: E402
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -195,6 +200,24 @@ def course_detail(ref: CourseRef) -> dict[str, Any]:
 
 
 def myst_page(ref: CourseRef) -> str:
-    """The MyST page exactly as `tools/astra_render.py` writes it (strict: it raises on
-    a course without astra.yaml, which discovery never yields)."""
-    return astra_render.render(ref.path)
+    """The MyST page `astra_render.render` writes, verbatim.
+
+    The renderer loads strictly, so one unparsable file under the course raises. The
+    Observatory answers with a marker page naming what broke instead (spec N3): a
+    course whose universe file is malformed still has a readable provenance page."""
+    try:
+        return astra_render.render(ref.path)
+    except Exception as exc:  # noqa: BLE001 - any reader error becomes a marker page
+        LOGGER.warning("MyST page unavailable for %s: %s: %s", ref.path, type(exc).__name__, exc)
+        lines = [f"# {ref.id}", "", f"(unreadable course: {type(exc).__name__}: {exc})"]
+        absent = summarize_course(ref).absent
+        if absent:
+            lines += [""] + [f"- {_marker(name, reason)}" for name, reason in absent.items()]
+        return "\n".join(lines) + "\n"
+
+
+def _marker(name: str, reason: str) -> str:
+    """The one marker wording, shared with the templates."""
+    if reason == "missing":
+        return f"(missing {name})"
+    return f"(unreadable {name}: {reason.removeprefix('unreadable: ')})"

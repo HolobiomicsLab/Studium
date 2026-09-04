@@ -1,0 +1,82 @@
+"""The two intent constraints, proved by crawling every route (INT-STUDIUM-008).
+
+R8: every route is a GET and a full crawl leaves every byte under the roots untouched.
+N1: no learner pseudonym and no free-text telemetry field appears in any response.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+
+import pytest
+from conftest import FREE_TEXT, PSEUDONYMS, RUN_ID
+from provenance.astra_validate import AstraValidation, find_astra_cli
+
+import observatory_validation
+from observatory_config import ObservatoryConfig
+from observatory_discovery import discover
+
+
+def _urls(cfg: ObservatoryConfig) -> list[str]:
+    inventory = discover(cfg)
+    urls = ["/", "/api/index", "/eval/validity", "/api/eval/validity"]
+    for course_id in inventory.courses:
+        urls += [f"/courses/{course_id}", f"/api/courses/{course_id}",
+                 f"/courses/{course_id}/provenance.myst.md",
+                 f"/courses/{course_id}/validation", f"/api/courses/{course_id}/validation"]
+    for run_id in inventory.runs:
+        urls += [f"/eval/runs/{run_id}", f"/api/eval/runs/{run_id}"]
+    return urls
+
+
+def _snapshot(root: Path) -> dict[str, tuple[int, str]]:
+    return {
+        str(path.relative_to(root)): (
+            path.stat().st_mtime_ns, hashlib.sha256(path.read_bytes()).hexdigest())
+        for path in sorted(root.rglob("*")) if path.is_file()
+    }
+
+
+@pytest.fixture
+def validator(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The real CLI when it is installed — the stronger proof that the subprocess writes
+    nothing under the course — and an offline stand-in when it is not."""
+    if find_astra_cli() is None:
+        monkeypatch.setattr(observatory_validation, "find_astra_cli", lambda: "/fake/astra")
+        monkeypatch.setattr(
+            observatory_validation, "run_astra_validate",
+            lambda *a, **k: AstraValidation(True, 0, "All 4 file(s) passed validation.", "/fake/astra", "x"))
+
+
+def test_every_route_is_get_only(client) -> None:
+    for route in client.app.routes:
+        methods = getattr(route, "methods", None)
+        if methods:
+            assert set(methods) <= {"GET", "HEAD"}, route.path
+
+
+def test_crawl_changes_no_file(client, cfg: ObservatoryConfig, tmp_path: Path, validator) -> None:
+    before = _snapshot(tmp_path)
+    assert before, "the fixtures wrote nothing to crawl"
+
+    for url in _urls(cfg):
+        assert client.get(url).status_code == 200, url
+
+    assert _snapshot(tmp_path) == before
+
+
+def test_no_pseudonym_or_free_text_in_any_response(client, cfg: ObservatoryConfig, validator) -> None:
+    for url in _urls(cfg):
+        text = client.get(url).text
+        for secret in (*PSEUDONYMS, *FREE_TEXT):
+            assert secret not in text, f"{secret} leaked through {url}"
+
+
+def test_unreadable_audit_renders_marker(client, eval_root: Path) -> None:
+    (eval_root / RUN_ID / "audit.json").write_text("{", encoding="utf-8")
+
+    page = client.get(f"/eval/runs/{RUN_ID}")
+    assert page.status_code == 200
+    assert "(unreadable audit.json" in page.text
+    assert client.get("/").status_code == 200

@@ -98,3 +98,11 @@ def test_analyses_of_nested_and_flat(course_root: Path) -> None:
 
 def test_myst_page_equals_render(course_root: Path) -> None:
     assert myst_page(_ref(course_root, "course-a")) == render(course_root / "course-a")
+
+
+def test_myst_page_fails_soft_on_an_unparsable_file(course_root: Path) -> None:
+    """course-b carries a malformed universe file: the renderer raises, the page does not."""
+    page = myst_page(CourseRef("course-b", course_root / "course-b", "root"))
+    assert page.startswith("# course-b")
+    assert "(unreadable course: " in page
+    assert "(unreadable universes/broken.yaml:" in page
