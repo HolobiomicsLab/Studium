@@ -19,11 +19,11 @@ from pathlib import Path
 
 PKG_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = PKG_DIR.parents[1]
-sys.path.insert(0, str(PKG_DIR / "src"))
+sys.path.insert(0, str(PKG_DIR / "python"))
 
 
 def _python_contract() -> dict[str, dict[str, str]]:
-    import __init__ as telemetry_events  # src/__init__.py (the installed telemetry_events module)
+    import telemetry_events
     union = typing.get_args(telemetry_events.TelemetryEvent)[0]
     summary: dict[str, dict[str, str]] = {}
     for model in typing.get_args(union):

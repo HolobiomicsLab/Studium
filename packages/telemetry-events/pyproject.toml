@@ -12,4 +12,4 @@ build-backend = "setuptools.build_meta"
 packages = ["telemetry_events"]
 
 [tool.setuptools.package-dir]
-telemetry_events = "src"
+telemetry_events = "python/telemetry_events"
