@@ -55,6 +55,11 @@ jobs:
           python tools/astra_validate_check.py
           python -m pytest services/planner/tests/test_provenance_astra_validate_cli.py -q
 
+      # `pytest.ini` sets `testpaths = packages`, so a test under services/ is
+      # invisible to a bare `pytest` and has to be named here to run at all.
+      - name: Planner LWG build outside pytest (INT-STUDIUM-016)
+        run: python -m pytest services/planner/tests/test_plan_lwg_subprocess.py -q
+
       - name: Observatory tests (INT-STUDIUM-008)
         run: |
           python -m pytest services/observatory \
