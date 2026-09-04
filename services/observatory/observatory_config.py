@@ -7,6 +7,7 @@ start. The roots are read-only for the whole service (spec constraint R8).
 """
 from __future__ import annotations
 
+import math
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -83,6 +84,11 @@ class ObservatoryConfig:
                 port = int(raw_port)
             except ValueError:
                 problems.append(f"invalid port value {raw_port!r}, using {DEFAULT_PORT}")
+            else:
+                if not 1 <= port <= 65535:
+                    problems.append(
+                        f"port out of range {raw_port!r}, using {DEFAULT_PORT}")
+                    port = DEFAULT_PORT
 
         timeout = DEFAULT_VALIDATOR_TIMEOUT
         raw_timeout = (env.get(ENV_VALIDATOR_TIMEOUT) or "").strip()
@@ -92,6 +98,14 @@ class ObservatoryConfig:
             except ValueError:
                 problems.append(
                     f"invalid validator timeout {raw_timeout!r}, using {DEFAULT_VALIDATOR_TIMEOUT}")
+            else:
+                # `subprocess.run(timeout=nan)` never elapses: a non-finite or non-positive
+                # value would silently remove the bound the validator adapter relies on.
+                if not math.isfinite(timeout) or timeout <= 0:
+                    problems.append(
+                        f"validator timeout out of range {raw_timeout!r}, "
+                        f"using {DEFAULT_VALIDATOR_TIMEOUT}")
+                    timeout = DEFAULT_VALIDATOR_TIMEOUT
 
         return cls(
             course_root=course_root,

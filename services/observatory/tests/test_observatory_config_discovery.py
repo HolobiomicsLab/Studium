@@ -110,3 +110,32 @@ def test_discover_ignores_non_courses_and_dedups_ids(tmp_path: Path, cfg) -> Non
 def test_parse_run_dirname(name: str, expected: tuple) -> None:
     parsed = parse_run_dirname(name)
     assert (parsed["corpus_id"], parsed["author_mode"], parsed["timestamp"]) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw_port", "raw_timeout", "word"),
+    [
+        ("70000", "60", "port"),
+        ("0", "60", "port"),
+        ("-1", "60", "port"),
+        ("8004", "nan", "timeout"),
+        ("8004", "inf", "timeout"),
+        ("8004", "0", "timeout"),
+        ("8004", "-5", "timeout"),
+    ],
+)
+def test_out_of_range_port_and_timeout_keep_the_default(
+    raw_port: str, raw_timeout: str, word: str
+) -> None:
+    """A value that parses but cannot be served or waited on is a problem, not a setting.
+
+    `nan` is the one that matters: `subprocess.run(timeout=nan)` never elapses, so the
+    bound Task 2 put on the validator would be silently gone.
+    """
+    cfg = ObservatoryConfig.from_env(
+        {"STUDIUM_OBS_PORT": raw_port, "STUDIUM_OBS_VALIDATOR_TIMEOUT": raw_timeout}
+    )
+    assert cfg.port == DEFAULT_PORT
+    assert cfg.validator_timeout == DEFAULT_VALIDATOR_TIMEOUT
+    assert len(cfg.raw_problems) == 1
+    assert word in cfg.raw_problems[0]
