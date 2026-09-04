@@ -156,6 +156,7 @@ pour la formule complète et les limites psychométriques.
 | Bundle refusé par runtime | Schema version != 1.4 | Régénérer via scene-synth, vérifier `schema_version` |
 | Étudiant ne voit pas evidence | Bundle pré-1.4 | Régénérer avec `STUDIUM_EVIDENCE_ENRICH=on` |
 | Perspicacité MCP fail | Pas configuré | Optionnel — graceful skip dans `EvidenceEnricher` |
+| Besoin de relire la provenance ASTRA ou un run d'évaluation | Le dashboard est une surface apprenant, pas une vue opérateur | Observatory en local, port 8004 : `python services/observatory/observatory_app.py` — lecture seule, jamais exposé aux apprenants (voir `docs/guides/observatory.md`) |
 
 ## 6. Limites connues v1
 
