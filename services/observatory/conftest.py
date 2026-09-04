@@ -29,9 +29,12 @@ for _p in (
         sys.path.insert(0, str(_p))
 
 BROKEN_YAML = "id: [unclosed"
-#: Values that must never reach a view: a pseudonym and two free-text fields.
+#: Values that must never reach a view: two pseudonyms and three free-text fields.
+#: `SECRET-PRE-REPORT-4d2e` is planted before the audit and the report run, so the
+#: crawl covers `report.md` — the one artifact a page renders whole. The other two
+#: are written afterwards and so exercise the direct telemetry readers only.
 PSEUDONYMS = ("pseudo-proficient", "pseudo-struggling")
-FREE_TEXT = ("SECRET-FREE-TEXT-7f3a", "SECRET-PAYLOAD-9c1b")
+FREE_TEXT = ("SECRET-FREE-TEXT-7f3a", "SECRET-PAYLOAD-9c1b", "SECRET-PRE-REPORT-4d2e")
 RUN_ID = "01-deterministic-20260615-120000"
 
 
@@ -49,7 +52,8 @@ def _audit_helpers():
 def _synthetic_run(run_dir: Path) -> None:
     """One evaluation run in the real shape: bundle, two persona sessions, provenance,
     then the real `run_audit` and `write_report`. The telemetry carries a pseudonym and
-    a free-text field on purpose — the privacy tests assert they never leave the disk."""
+    free-text fields on purpose, one of them planted before the report so `report.md`
+    is on the crawl's path — the privacy tests assert they never leave the disk."""
     from harness.audit import run_audit
     from harness.report import write_report
 
@@ -59,6 +63,16 @@ def _synthetic_run(run_dir: Path) -> None:
     helpers._write_persona(run_dir, "proficient", ["next", "complete"], [])
     helpers._write_persona(run_dir, "struggling", ["next"] * 60, ["r1"])  # 60 = the turn cap
     helpers._provenance(run_dir)
+
+    # Planted before the audit and the report. `report.md` is the one artifact the run
+    # page renders verbatim (`templates/run.html`) and the API twin returns whole, so a
+    # secret written only after `write_report` leaves that path unasserted. Its own
+    # event type and no `client_timestamp`, so the persona counts and span are unchanged.
+    probe = run_dir / "sessions" / "proficient" / "telemetry.jsonl"
+    probe.write_text(
+        probe.read_text(encoding="utf-8").rstrip("\n") + "\n"
+        + json.dumps({"type": "free_text_probe", "text": "SECRET-PRE-REPORT-4d2e"}) + "\n",
+        encoding="utf-8")
     write_report(run_audit(run_dir), run_dir)
 
     sessions = run_dir / "sessions" / "proficient"
