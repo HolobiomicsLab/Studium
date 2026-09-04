@@ -109,3 +109,26 @@ def test_unknown_ids_are_404(client) -> None:
     for url in ("/courses/nope", "/api/courses/nope", "/courses/nope/provenance.myst.md",
                 "/eval/runs/nope", "/api/eval/runs/nope"):
         assert client.get(url).status_code == 404, url
+
+
+def test_a_course_id_needing_escapes_still_links(client, course_root: Path) -> None:
+    """Review nit 3: ids reach hrefs, and a directory name is not a URL.
+
+    Autoescaping stops injection, so this is not a hole -- it is a dead link. A `#` in a
+    course directory name truncates the href at the fragment and the operator gets a 404
+    on a course the same page just listed.
+    """
+    import shutil
+    from urllib.parse import quote
+
+    awkward = "course #1 draft"
+    shutil.copytree(course_root / "course-a", course_root / awkward)
+
+    listing = client.get("/")
+    assert listing.status_code == 200
+    assert f'href="/courses/{awkward}"' not in listing.text
+    assert f'href="/courses/{quote(awkward)}"' in listing.text
+
+    page = client.get(f"/courses/{quote(awkward)}")
+    assert page.status_code == 200
+    assert awkward in page.text

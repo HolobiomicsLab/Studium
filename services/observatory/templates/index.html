@@ -19,7 +19,7 @@
   <tbody>
   {%- for course in courses %}
     <tr>
-      <td><a href="/courses/{{ course.id }}">{{ course.id }}</a>
+      <td><a href="/courses/{{ course.id | urlencode }}">{{ course.id }}</a>
         {%- if course.name %} <span class="path">{{ course.name }}</span>{% endif %}
         {{ markers(course.absent) }}</td>
       <td>{{ course.n_analyses }}</td>
@@ -44,7 +44,7 @@
   <tbody>
   {%- for run in runs %}
     <tr>
-      <td><a href="/eval/runs/{{ run.id }}">{{ run.id }}</a>{{ markers(run.unreadable) }}</td>
+      <td><a href="/eval/runs/{{ run.id | urlencode }}">{{ run.id }}</a>{{ markers(run.unreadable) }}</td>
       <td>{{ run.corpus_id or "—" }}</td>
       <td>{{ run.author_mode or "—" }}</td>
       <td>{{ "%.2f"|format(run.overall_score) if run.overall_score is not none else "—" }}</td>
@@ -68,7 +68,7 @@
 {% if suites %}
 <ul>
   {%- for suite in suites %}
-  <li><a href="/eval/validity#{{ suite.name }}">{{ suite.title }}</a>
+  <li><a href="/eval/validity#{{ suite.name | urlencode }}">{{ suite.title }}</a>
     — {{ suite.results|length }} result file(s){% if suite.reason %} <span class="none">({{ suite.reason }})</span>{% endif %}</li>
   {%- endfor %}
 </ul>
