@@ -71,3 +71,26 @@ def test_universe_selection_flat_and_nested():
         {"analyses": {"s1": {"decisions": {"a": "y"}}, "s2": {"decisions": {"b": "z"}}}}
     ) == {"a": "y", "b": "z"}
     assert universe_selection({}) == {}
+
+
+def test_unreadable_reason_names_the_type_and_nothing_else(tmp_path):
+    """The reason string is the one text on an operator page we do not author.
+
+    A PyYAML mark block quotes the offending SOURCE LINE of the document, and an
+    OSError names the absolute path it failed on. Both reach the Observatory's pages
+    and its JSON twins through `absent`, so neither belongs in the reason; the full
+    message goes to the log instead (spec N3).
+    """
+    build_course_set(tmp_path)
+    secret = "SECRET-COURSE-CONTENT-8e21"
+    (tmp_path / "universes" / "leaky.yaml").write_text(
+        f"id: leaky\nnote: [{secret}\n", encoding="utf-8")
+
+    reason = load_course(tmp_path, strict=False).absent["universes/leaky.yaml"]
+
+    assert reason.startswith("unreadable: ")
+    assert secret not in reason, "the artifact's own text reached the reason"
+    assert str(tmp_path) not in reason, "the absolute path reached the reason"
+    assert "\n" not in reason
+    # The type is what the operator needs to act, and it is kept.
+    assert "Error" in reason
