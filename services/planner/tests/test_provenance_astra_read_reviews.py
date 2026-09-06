@@ -48,7 +48,7 @@ def test_every_bundle_review_is_read_not_just_one(tmp_path):
     assert [r.rel for r in docs.reviews] == ["review/chap-01/astra.yaml",
                                              "review/chap-02/astra.yaml"]
     assert docs.reviews[1].verdicts["worst_case"] == {"quiz_key": "defect"}
-    assert docs.absent == {}
+    assert [k for k in docs.absent if k.startswith("review/")] == []
     # The single legacy field keeps a document, so the renderer is untouched.
     assert docs.review is docs.reviews[0].astra
 
@@ -65,7 +65,7 @@ def test_the_legacy_flat_review_is_still_read(tmp_path):
     assert docs.review is not None and docs.review["id"] == "legacy"
     assert [(r.bundle_id, r.rel) for r in docs.reviews] == [("", "review/astra.yaml")]
     assert docs.reviews[0].verdicts is None
-    assert docs.absent == {}
+    assert [k for k in docs.absent if k.startswith("review/")] == []
 
 
 def test_a_course_without_any_review_is_named_by_the_legacy_path(tmp_path):

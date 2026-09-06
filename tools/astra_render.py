@@ -8,7 +8,9 @@ Input is a course output directory as the planner writes it:
   astra.yaml                    ASTRA document (ASB `analyses:` shape; flat legacy accepted)
   universes/*.yaml              option selections (nested shape; flat legacy accepted)
   trace/exploration_tree.yaml   ARA exploration trace (schema 0.1.0)
-  review/astra.yaml             scene-review verdicts (optional, from eval/harness/scene_judge.py)
+  review/<bundle_id>/astra.yaml  scene-review verdicts, one per judged bundle (optional,
+                                from eval/harness/scene_judge.py; flat `review/astra.yaml`
+                                is the legacy location and is still read)
 
 Reading those files is `provenance.astra_read.load_course`, shared with the Studium
 Observatory; this module only formats. Output: <dir>/course_provenance.myst.md —

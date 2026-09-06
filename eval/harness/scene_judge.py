@@ -13,13 +13,18 @@ over every bundle scene, under four hard design rules learned in this project:
    never fabricated (the planner critic once returned a hardcoded green 0.78 on
    every failure; that class of bug is banned here).
 
-Verdicts are also emitted as ASTRA decisions (review/astra.yaml, ASB document
-shape) so a review is an auditable, renderable artifact rather than a score.
+Verdicts are also emitted as ASTRA decisions (ASB document shape) so a review is an
+auditable, renderable artifact rather than a score. They are written per BUNDLE, under
+`<course_dir>/review/<bundle_id>/`: the emitted analysis id is
+`f"{bundle_id}-scene-review"` and a course holds several bundles, so the one
+course-level file this module used to write kept only the bundle judged last
+(INT-STUDIUM-020).
 """
 from __future__ import annotations
 
 import argparse
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Literal
@@ -255,22 +260,47 @@ def emit_review_astra(review: dict, *, created_at: str | None = None) -> dict:
         outputs=[{"id": "verdicts", "type": "data", "format": "json"}])
 
 
-def write_review(review: dict, out_dir: Path) -> None:
-    """Persist verdicts.json + astra.yaml under <out_dir>/review/."""
+def bundle_slug(bundle_id: str) -> str:
+    """A bundle id as a directory name: everything else becomes `-`.
+
+    `judge_bundle` falls back to "?" for a bundle without an id, and a bundle id is
+    author-supplied data; neither a path separator nor a wildcard may decide where a
+    review lands.
+    """
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", bundle_id).strip("-.")
+    return slug or "unknown-bundle"
+
+
+def write_review(review: dict, course_dir: Path) -> Path:
+    """Persist verdicts.json + astra.yaml under <course_dir>/review/<bundle_id>/.
+
+    Returns the directory written. The location comes from `provenance.astra_read`, the
+    module that describes the course layout, so the writer and the two readers cannot
+    drift apart (R9).
+    """
     ensure_planner_importable()
     import yaml
-    rdir = out_dir / "review"
+    from provenance.astra_read import REVIEW_BASENAME, VERDICTS_BASENAME, review_dir
+
+    rdir = review_dir(course_dir, bundle_slug(str(review.get("bundle_id", ""))))
     rdir.mkdir(parents=True, exist_ok=True)
-    (rdir / "verdicts.json").write_text(
+    (rdir / VERDICTS_BASENAME).write_text(
         json.dumps(review, ensure_ascii=False, indent=2), encoding="utf-8")
-    with open(rdir / "astra.yaml", "w", encoding="utf-8") as f:
+    with open(rdir / REVIEW_BASENAME, "w", encoding="utf-8") as f:
         yaml.safe_dump(emit_review_astra(review), f, sort_keys=False, allow_unicode=True)
+    return rdir
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="LLM-judge review of a lesson bundle's content")
     ap.add_argument("bundle", help="path to lesson.json")
-    ap.add_argument("--out", default=None, help="output dir (default: alongside the bundle)")
+    # Required, not re-defaulted: the old default wrote next to the bundle, a location no
+    # reader has ever looked at and one that is undefined for an eval bundle whose
+    # lesson.json exists only inside a .zip. Nothing in lesson.json records where its
+    # course was emitted, so a default here would be a guess (INT-STUDIUM-020).
+    ap.add_argument("--out", required=True, metavar="COURSE_DIR",
+                    help="course directory to write the review into "
+                         "(<COURSE_DIR>/review/<bundle_id>/)")
     ap.add_argument("--model", default=None)
     ap.add_argument("--calibrate", action="store_true", help="run the corrupted-scene separation check")
     args = ap.parse_args()
@@ -279,10 +309,9 @@ def main() -> int:
     review = judge_bundle(bundle, llm)
     if args.calibrate:
         review["calibration"] = calibrate(bundle, llm)
-    out = Path(args.out) if args.out else Path(args.bundle).parent
-    write_review(review, out)
+    rdir = write_review(review, Path(args.out))
     print(f"review: {len(review['defects'])} defect(s), "
-          f"{len(review['skipped'])} skipped scene(s) -> {out / 'review'}")
+          f"{len(review['skipped'])} skipped scene(s) -> {rdir}")
     return 1 if review["defects"] else 0
 
 

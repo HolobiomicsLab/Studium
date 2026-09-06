@@ -37,7 +37,9 @@ def test_a_second_bundle_does_not_overwrite_the_first(tmp_path):
     assert second == tmp_path / "review" / "chap-02"
     for rdir, bundle_id in ((first, "chap-01"), (second, "chap-02")):
         doc = yaml.safe_load((rdir / "astra.yaml").read_text(encoding="utf-8"))
-        assert f"{bundle_id}-scene-review" in doc["analyses"]
+        # `emit_astra` normalises the analysis id to snake_case; what matters here is that
+        # the document under each directory is the review of THAT bundle.
+        assert list(doc["analyses"]) == [f"{bundle_id.replace('-', '_')}_scene_review"]
         verdicts = json.loads((rdir / "verdicts.json").read_text(encoding="utf-8"))
         assert verdicts["bundle_id"] == bundle_id
 
