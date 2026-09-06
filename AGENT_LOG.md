@@ -4,6 +4,50 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-06 — OBSERVATORY TRANCHE 2, TÂCHES 1–3 : racine de sessions, lecteur de revue, onglet Review
+
+Trois unités TDD du plan `studium_dev/docs/superpowers/plans/2026-09-06-studium-observatory-s2.md`,
+branche `feat/observatory-s2` (base `f0a9d77`). **Les tâches 4 à 8 ne sont pas faites** : colonnes
+de sessions, page Sessions et confiance, preuve lecture-seule/confidentialité sur les nouvelles
+routes, docs, vérification manuelle sur artefacts réels.
+
+- **Racine de sessions + les deux drapeaux CLI** (`beb2a65`) : `STUDIUM_OBS_SESSIONS_ROOT` désigne
+  UN répertoire, résolu en absolu comme le store collector d'INT-STUDIUM-019, lu en entier par
+  `class_report.build_report` (`rglob("telemetry.jsonl")`). Volontairement NON découpé par cours :
+  ni l'arbre durable (`<pseudonyme>/<bundle_id>/`) ni celui d'un run d'éval (`<persona>/`) n'a de
+  dimension cours. `main()` gagne `--sessions-root` et `--analytics-data-dir` — ce dernier manquait
+  depuis INT-STUDIUM-019, le store n'était atteignable que par variable d'environnement.
+  Fixtures : les MÊMES events dans les deux layouts, construits depuis les modèles Pydantic ADR-006
+  et écrits par `store.append_events` du collector ; `lesson_id` et `learner_pseudonym` sur chaque
+  event (le pseudonyme est HMAC(learnerId:lessonId) — une personne DANS une leçon, pas une identité
+  inter-leçons, donc une leçon par pseudonyme). Contrôle hors test : 60 lignes identiques des deux
+  côtés, 6 apprenants distincts, même écart de confiance (0,083, bande « bien ») chez les deux
+  lecteurs — l'accord est donc l'état par défaut et un test de divergence devra le provoquer.
+- **Lecteur de revue** (`28eb107`) : `reviews_detail(ref)` rend une section par bundle, pire cas
+  d'abord aux deux niveaux, avec `VERDICTS` et `worst()` importés du juge (pas de seconde table de
+  sévérité) ; `verdicts.json` obtient son premier lecteur et `bundle_id` arrive pour la première
+  fois à l'écran. **Le répertoire n'est pas l'identité** : `write_review` slugifie l'id fourni par
+  l'auteur (`Unit 1/Intro` → `Unit-1-Intro`) et `load_course` remonte le SLUG ; la vue affiche l'id
+  jugé de `verdicts.json`, garde le slug dans `dir_slug`, nomme la provenance dans
+  `bundle_id_source`. Tolérance aux pannes portée sur la FORME et pas seulement la syntaxe : gardes
+  de type sur chaque bloc, verdict non reconnu jamais passé à `worst()` (sa table lèverait),
+  marqueur assaini `unreadable: not a list (<type>)` avec le détail journalisé, décisions ASTRA du
+  bundle préservées dans tous les cas. `worst_overall` reste `None` quand rien n'a pu être classé :
+  « non lu » ne se rend jamais comme « relu, propre ».
+- **Onglet Review** (`b36245a`) : `/courses/{id}/review` et son jumeau JSON, id résolu uniquement
+  par `discover(cfg)` (un répertoire non-cours sous la racine reste un 404). Scènes, dimensions,
+  scénarios d'échec et citations du juge (contenu de bundle, jamais de télémétrie), scènes sautées,
+  calibration (kappa / sépare / paires ; `gold` et `pred` non recopiés), lien depuis la page cours.
+  Un cours sans revue rend le marqueur `(missing review/astra.yaml)` et un 200.
+
+Tests : `services/observatory` 94 verts (75 avant, +19). Suite complète du plan :
+**528 passés, 2 sautés** (base équivalente 509 + 19 ; les 2 sautés sont les imports `indicium`
+absents). Deux échecs `eval/tests/test_drive_integration.py` observés à la mesure de base de la
+session tenaient aux liens pnpm par paquet absents du worktree ; ils sont apparus depuis, hors de
+cette session, et ces tests sont verts.
+
+---
+
 ## 2026-08-21 — RAPPORT DE CLASSE + PORTE DE PARITÉ TS/PY (la classe de dérive est fermée)
 
 - **class_report.py** : section trust_calibration dans le rapport hors-ligne enseignant (JSON+MD),
