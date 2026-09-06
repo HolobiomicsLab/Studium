@@ -4,10 +4,13 @@
 <h1>Studium Observatory</h1>
 <p class="path">Read-only. Every page re-reads the artifacts on disk; nothing here starts a lesson, a run or a model call.</p>
 
-{% if problems %}
+{% if problems or notes %}
 <div class="banner">
   {%- for problem in problems %}
   <p>{{ problem }}</p>
+  {%- endfor %}
+  {%- for note in notes %}
+  <p class="note">{{ note }}</p>
   {%- endfor %}
 </div>
 {% endif %}

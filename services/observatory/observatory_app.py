@@ -74,6 +74,9 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
             "runs": [asdict(summarize_run(ref)) for ref in inv.runs.values()],
             "suites": [summarize_suite(ref) for ref in inv.suites.values()],
             "problems": list(app.state.cfg.problems()) + list(inv.problems),
+            # Read as configured, not as typed: the analytics store is the one path two
+            # processes can disagree about in silence (INT-STUDIUM-019).
+            "notes": list(app.state.cfg.notes()),
         }
 
     @app.get("/", response_class=HTMLResponse)

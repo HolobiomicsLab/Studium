@@ -8,8 +8,10 @@ produces a CLASS-LEVEL report: which concepts to re-teach, where hint-reliance a
 miscalibration cluster, completion. It is privacy-preserving by construction:
 
   * output is AGGREGATE only — never a per-learner row, never a pseudonym;
-  * a k-anonymity floor (`--min-learners`, default 5) refuses to report when too few
-    learners would make a concept-level number re-identifiable;
+  * a k-anonymity floor (`--min-learners`, default `MIN_LEARNERS_DEFAULT` = 5) refuses to
+    report when too few learners would make a concept-level number re-identifiable. It counts
+    DISTINCT LEARNERS, not telemetry files: the durable host layout writes one stream per
+    (pseudonym, bundle), so a cohort of two can be three files;
   * telemetry carries no free text (hint text, journal text, discussion text never leave the
     device), so none can appear here.
 
@@ -36,6 +38,13 @@ from pathlib import Path
 # re-implement (a third copy is how the TS/Py over_distrust drift happened).
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "services" / "analytics-collector"))
 from metrics import TRUST_WELL_BAND, _over_distrust_rate  # noqa: E402
+
+#: The k-anonymity floor: the smallest cohort a class-level number may be computed over.
+#: Its value is the product owner's (RGPD), so it lives in exactly one place and every
+#: surface that applies a floor imports it from here — the CLI default below, and the
+#: Observatory (`services/observatory/observatory_config.py`), which applies the same
+#: floor to the live collector column (INT-STUDIUM-005, INT-STUDIUM-019).
+MIN_LEARNERS_DEFAULT = 5
 
 # adaptation rule_ids that signal the learner needed support (remediation / gating / escalation)
 _REMEDIATION_RULES = ("remediate", "prereq_gate", "replay", "escalat")
@@ -67,7 +76,8 @@ def _scene_to_concept(run_dir: Path, bundle_path: Path | None = None) -> dict[st
     return out
 
 
-def build_report(run_dir: Path, min_learners: int = 5, bundle_path: Path | None = None) -> dict:
+def build_report(run_dir: Path, min_learners: int = MIN_LEARNERS_DEFAULT,
+                 bundle_path: Path | None = None) -> dict:
     s2c = _scene_to_concept(run_dir, bundle_path)
     # Discover telemetry streams anywhere under the run dir — covers both the eval layout
     # (sessions/<persona>/telemetry.jsonl) and the durable MCP-host layout
@@ -85,15 +95,23 @@ def build_report(run_dir: Path, min_learners: int = 5, bundle_path: Path | None 
     n_started = n_completed = 0
     autonomy: list[float] = []
     escalations = 0
-    learners = 0
+    # The k floor is a floor on PEOPLE. One learner writes one stream per bundle in the durable
+    # host layout (data/<pseudonym>/<bundle_id>/telemetry.jsonl), so counting files reports a
+    # cohort larger than the class actually is — the wrong side of a privacy floor to be wrong
+    # on. Identity is the `learner_pseudonym` the runtime stamps on every event; a stream that
+    # carries none (the eval layout, sessions/<persona>/) counts as one learner, as before.
+    learner_ids: set[str] = set()
 
     for sf in streams:
-        learners += 1
+        stream_ids: set[str] = set()
         for line in Path(sf).read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line:
                 continue
             e = json.loads(line)
+            pseudo = e.get("learner_pseudonym")
+            if isinstance(pseudo, str) and pseudo:
+                stream_ids.add(pseudo)
             t = e.get("type")
             if t == "lesson_started":
                 n_started += 1
@@ -142,11 +160,15 @@ def build_report(run_dir: Path, min_learners: int = 5, bundle_path: Path | None 
                 rule_counts[rid] += 1
                 if "escalat" in rid:
                     escalations += 1
+        learner_ids |= stream_ids or {f"stream:{sf}"}
 
+    learners = len(learner_ids)
     if learners < min_learners:
-        return {"status": "suppressed", "n_learners": learners, "min_learners": min_learners,
+        return {"status": "suppressed", "n_learners": learners, "n_streams": len(streams),
+                "min_learners": min_learners,
                 "reason": f"k-anonymity floor: need >= {min_learners} learners for a class report "
-                          f"(have {learners}). Per-concept numbers could re-identify individuals."}
+                          f"(have {learners} across {len(streams)} telemetry stream(s)). "
+                          f"Per-concept numbers could re-identify individuals."}
 
     concepts = []
     for cid, a in by_concept.items():
@@ -166,6 +188,7 @@ def build_report(run_dir: Path, min_learners: int = 5, bundle_path: Path | None 
     return {
         "status": "ok",
         "n_learners": learners,
+        "n_streams": len(streams),
         "completion_rate": round(n_completed / n_started, 3) if n_started else None,
         "mean_autonomy": round(statistics.mean(autonomy), 3) if autonomy else None,
         "universe_escalations": escalations,
@@ -209,7 +232,8 @@ def _md(rep: dict) -> str:
     if rep.get("status") != "ok":
         return f"# Class report — SUPPRESSED\n\n{rep.get('reason')}"
     L = ["# Class report (aggregate, RGPD-safe — no individual records)", ""]
-    L.append(f"learners: {rep['n_learners']} · completion: {rep['completion_rate']} · "
+    L.append(f"learners: {rep['n_learners']} (over {rep['n_streams']} telemetry stream(s)) · "
+             f"completion: {rep['completion_rate']} · "
              f"mean autonomy: {rep['mean_autonomy']} · universe escalations: {rep['universe_escalations']}")
     L.append("")
     L.append("## Concepts (worst first — candidates to re-teach)")
@@ -244,7 +268,9 @@ def _md(rep: dict) -> str:
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="RGPD-safe class analytics over Studium telemetry")
     ap.add_argument("run_dir")
-    ap.add_argument("--min-learners", type=int, default=5)
+    ap.add_argument("--min-learners", type=int, default=MIN_LEARNERS_DEFAULT,
+                    help=f"k-anonymity floor over DISTINCT learners "
+                         f"(default {MIN_LEARNERS_DEFAULT})")
     ap.add_argument("--out", default=None)
     ap.add_argument("--bundle", default=None,
                     help="explicit bundle .zip (for the durable MCP layout with no co-located bundle)")

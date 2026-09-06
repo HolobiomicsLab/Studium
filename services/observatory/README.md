@@ -55,11 +55,28 @@ Flags override these; each variable has a default that works in a fresh clone.
 | `STUDIUM_OBS_HOST` | `127.0.0.1` | bind address |
 | `STUDIUM_OBS_PORT` | `8004` | port |
 | `STUDIUM_OBS_VALIDATOR_TIMEOUT` | `60` | seconds before `astra validate` is killed |
+| `STUDIUM_OBS_ANALYTICS_DATA_DIR` | unset | the analytics collector's event store, as an **absolute** path; unset means no live column rather than a guessed directory |
 
 A course is any directory holding an `astra.yaml`. A run is any directory holding an
 `audit.json` or a `sessions/` directory. A suite is any directory holding a
 `README.md`. The roots are re-scanned on every request, so a new run appears on
 reload without a restart.
+
+### The analytics store, and why it has its own variable
+
+The collector resolves its own `ANALYTICS_DATA_DIR` (default: the **relative** `"data"`)
+against *its* working directory, and the teacher guide starts it after a `cd`. The same
+string therefore names two different directories depending on where each process was
+started. The Observatory takes its own variable, resolves it to an absolute path, and
+prints the result in the index banner, so a divergence is visible on the page instead of
+showing as an empty store.
+
+There is deliberately **no course-token variable**. The collector's check is string
+equality between the `X-Course-Token` header and the `course` query parameter, so the
+token *is* the course id — typed into the teacher dashboard's form and rendered on
+screen. A variable documented as "read once, never logged, never rendered" would protect
+nothing; the Observatory reads the store on disk instead of calling the collector over
+HTTP (INT-STUDIUM-019).
 
 ## Read-only
 
@@ -76,8 +93,15 @@ view, in any page, synthetic personas included. The readers filter before a temp
 sees the data, and `sessions/*/events.jsonl` is never opened. Evaluation personas are
 synthetic and are labelled so on screen. The service binds `127.0.0.1` and has no
 authentication layer, so another bind address requires an explicit flag and prints a
-warning. Aggregate learner analytics arrive in slice 2 behind the k-anonymity floor of
-`class_report`.
+warning.
+
+Every number derived from learner telemetry passes the k-anonymity floor of
+`tools/class_report.py`, whose value (`MIN_LEARNERS_DEFAULT = 5`) has exactly one
+definition and is imported, never re-declared. The floor counts **distinct learners**,
+not telemetry files: the durable host layout writes one stream per `(pseudonym, bundle)`,
+so a cohort of two people can be three files, and a file count would report a cohort
+larger than the class actually is — the wrong side of a privacy floor to be wrong on. A
+report states both numbers (`n_learners`, `n_streams`) so the difference is legible.
 
 ## Tests
 

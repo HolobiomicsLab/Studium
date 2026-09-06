@@ -2,6 +2,7 @@
 critique_submitted fold-in (ai_critique / spot_the_flaw / explain_back) added with the active-learning
 scenes. Run: .venv/bin/python -m pytest tools/test_class_report.py -q
 """
+import inspect
 import json
 import os
 import sys
@@ -105,3 +106,69 @@ def test_trust_section_matches_the_engine_denominators(tmp_path):
     scene = tc["scenes"][0]
     assert scene["over_distrust"] == 0.75 and scene["over_trust"] == 0.0
     assert scene["scene"] == "c-crit"
+
+
+# ---------------------------------------------------------------------------
+# INT-STUDIUM-019 — the k floor counts learners, not files (closes INT-STUDIUM-005's
+# single-definition half: MIN_LEARNERS_DEFAULT is the one place the value lives).
+# ---------------------------------------------------------------------------
+
+def _write_stream(run_dir, rel_dir, events):
+    """Write one telemetry stream at an arbitrary layout under the run directory."""
+    d = run_dir / rel_dir
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "telemetry.jsonl").write_text("\n".join(json.dumps(e) for e in events), encoding="utf-8")
+
+
+def _pseudonymized(pseudonym):
+    return [dict(e, learner_pseudonym=pseudonym) for e in _events()]
+
+
+def test_k_floor_counts_distinct_pseudonyms_not_streams(tmp_path):
+    """The durable host layout writes one stream per (pseudonym, bundle): three files can be
+    two learners. Counting files reported a cohort larger than it is, which is the wrong side
+    of a privacy floor to be wrong on."""
+    bundle = _bundle(tmp_path)
+    _write_stream(tmp_path, "data/p-1/bundle-a", _pseudonymized("p-1"))
+    _write_stream(tmp_path, "data/p-1/bundle-b", _pseudonymized("p-1"))
+    _write_stream(tmp_path, "data/p-2/bundle-a", _pseudonymized("p-2"))
+
+    rep = build_report(tmp_path, min_learners=3, bundle_path=bundle)
+    assert rep["status"] == "suppressed"
+    assert rep["n_learners"] == 2          # two people
+    assert rep["n_streams"] == 3           # three files
+    assert "3" in rep["reason"]
+
+    ok = build_report(tmp_path, min_learners=2, bundle_path=bundle)
+    assert ok["status"] == "ok" and ok["n_learners"] == 2 and ok["n_streams"] == 3
+
+
+def test_streams_without_a_pseudonym_still_count_one_learner_each(tmp_path):
+    """The eval layout (sessions/<persona>/telemetry.jsonl) carries no pseudonym; each stream
+    stays one learner there, so the floor does not silently tighten on existing runs."""
+    bundle = _bundle(tmp_path)
+    for learner in ("alice", "bob", "carol"):
+        _write_learner(tmp_path, learner, _events())
+    rep = build_report(tmp_path, min_learners=3, bundle_path=bundle)
+    assert rep["status"] == "ok" and rep["n_learners"] == 3 and rep["n_streams"] == 3
+
+
+def test_min_learners_default_is_one_named_constant(tmp_path):
+    """One definition: the signature default and the CLI default are the same object, so the
+    product owner's RGPD value is changed in one place (INT-STUDIUM-005)."""
+    import class_report
+
+    assert class_report.MIN_LEARNERS_DEFAULT == 5
+    sig = inspect.signature(build_report).parameters["min_learners"].default
+    assert sig == class_report.MIN_LEARNERS_DEFAULT
+
+    # the CLI default is the constant too: four learners are below it without a flag
+    bundle = _bundle(tmp_path)
+    for learner in ("a", "b", "c", "d"):
+        _write_learner(tmp_path, learner, _events())
+    out = tmp_path / "out"
+    assert class_report.main([str(tmp_path), "--bundle", str(bundle), "--out", str(out)]) == 0
+    assert json.loads((out / "class_report.json").read_text())["status"] == "suppressed"
+    assert class_report.main([str(tmp_path), "--bundle", str(bundle),
+                              "--min-learners", "4", "--out", str(out)]) == 0
+    assert json.loads((out / "class_report.json").read_text())["status"] == "ok"
