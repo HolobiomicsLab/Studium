@@ -67,7 +67,9 @@ def test_no_course_token_variable_is_read():
 
 
 def test_the_index_shows_the_store_it_would_read(cfg, tmp_path):
-    store = tmp_path / "collector-data"
+    # `cfg` carries the fixture store since slice 2, so both halves name their own
+    # config: one relocated elsewhere, one with no store at all.
+    store = tmp_path / "relocated-store"
     store.mkdir()
     with_store = dataclasses.replace(cfg, analytics_data_dir=store.resolve())
     with TestClient(create_app(with_store)) as client:
@@ -75,6 +77,6 @@ def test_the_index_shows_the_store_it_would_read(cfg, tmp_path):
         assert any(str(store) in note for note in payload["notes"])
         assert str(store) in client.get("/").text
 
-    with TestClient(create_app(cfg)) as client:
+    with TestClient(create_app(dataclasses.replace(cfg, analytics_data_dir=None))) as client:
         payload = client.get("/api/index").json()
         assert any(ENV_ANALYTICS_DATA_DIR in note for note in payload["notes"])

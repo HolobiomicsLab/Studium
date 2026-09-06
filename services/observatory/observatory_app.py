@@ -26,11 +26,13 @@ from fastapi.templating import Jinja2Templates
 
 from observatory_config import (
     DEFAULT_HOST,
+    ENV_ANALYTICS_DATA_DIR,
     ENV_COURSE_ROOT,
     ENV_COURSES,
     ENV_EVAL_ROOT,
     ENV_HOST,
     ENV_PORT,
+    ENV_SESSIONS_ROOT,
     ENV_VALIDATOR_TIMEOUT,
     ENV_VALIDITY_ROOT,
     ObservatoryConfig,
@@ -169,6 +171,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--course", action="append", default=[], help="one course directory (repeatable)")
     parser.add_argument("--eval-root", help="directory of evaluation run directories")
     parser.add_argument("--validity-root", help="directory of validity suites")
+    parser.add_argument("--analytics-data-dir",
+                        help="collector store root (<store>/<course>/<YYYY-MM-DD>.jsonl)")
+    parser.add_argument("--sessions-root",
+                        help="one directory of telemetry.jsonl streams, read whole")
     parser.add_argument("--host", help=f"bind address (default {DEFAULT_HOST})")
     parser.add_argument("--port", type=int)
     parser.add_argument("--validator-timeout", type=float, help="seconds before astra validate is killed")
@@ -176,7 +182,9 @@ def main(argv: list[str] | None = None) -> int:
 
     env = dict(os.environ)
     for value, name in ((args.course_root, ENV_COURSE_ROOT), (args.eval_root, ENV_EVAL_ROOT),
-                        (args.validity_root, ENV_VALIDITY_ROOT), (args.host, ENV_HOST)):
+                        (args.validity_root, ENV_VALIDITY_ROOT), (args.host, ENV_HOST),
+                        (args.analytics_data_dir, ENV_ANALYTICS_DATA_DIR),
+                        (args.sessions_root, ENV_SESSIONS_ROOT)):
         if value:
             env[name] = value
     if args.course:
