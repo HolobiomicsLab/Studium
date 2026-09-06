@@ -18,6 +18,7 @@ from observatory_paths import EVAL_DIR, PLANNER_DIR, REPO_ROOT, ensure_importabl
 ensure_importable()
 
 from harness.paths import REPORTS_DIR  # noqa: E402  (the harness owns where runs are written)
+from class_report import MIN_LEARNERS_DEFAULT  # noqa: E402  (one definition of the k floor)
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8004
@@ -34,6 +35,15 @@ ENV_VALIDITY_ROOT = "STUDIUM_OBS_VALIDITY_ROOT"
 ENV_HOST = "STUDIUM_OBS_HOST"
 ENV_PORT = "STUDIUM_OBS_PORT"
 ENV_VALIDATOR_TIMEOUT = "STUDIUM_OBS_VALIDATOR_TIMEOUT"
+#: The collector's event store, as an ABSOLUTE path. The collector resolves its own
+#: `ANALYTICS_DATA_DIR` (default `"data"`) against *its* working directory, and the teacher
+#: guide starts it after a `cd`, so the same string names two directories depending on where
+#: each process was started. The Observatory therefore takes its own variable, resolves it,
+#: and echoes the result on the index: a divergence has to be visible, not silent.
+#: There is deliberately no course-token variable — the collector's check is string equality
+#: between the `X-Course-Token` header and the `course` query parameter, so the token *is* the
+#: course id, typed into the teacher dashboard and rendered on screen (INT-STUDIUM-019).
+ENV_ANALYTICS_DATA_DIR = "STUDIUM_OBS_ANALYTICS_DATA_DIR"
 
 
 def _path(value: str) -> Path:
@@ -56,6 +66,12 @@ class ObservatoryConfig:
     host: str = DEFAULT_HOST
     port: int = DEFAULT_PORT
     validator_timeout: float = DEFAULT_VALIDATOR_TIMEOUT
+    #: The collector's store, absolute; `None` when the operator has not named one, in which
+    #: case the Observatory reads no live column rather than guessing a relative directory.
+    analytics_data_dir: Path | None = None
+    #: The k-anonymity floor applied to every learner-derived number, imported from
+    #: `tools/class_report.py` so the value has one definition (INT-STUDIUM-005).
+    min_learners: int = MIN_LEARNERS_DEFAULT
     #: Values that could not be parsed in `from_env`; carried into `problems()`.
     raw_problems: tuple[str, ...] = field(default_factory=tuple)
 
@@ -76,6 +92,7 @@ class ObservatoryConfig:
 
         raw_eval = (env.get(ENV_EVAL_ROOT) or "").strip()
         raw_validity = (env.get(ENV_VALIDITY_ROOT) or "").strip()
+        raw_analytics = (env.get(ENV_ANALYTICS_DATA_DIR) or "").strip()
 
         port = DEFAULT_PORT
         raw_port = (env.get(ENV_PORT) or "").strip()
@@ -112,6 +129,7 @@ class ObservatoryConfig:
             courses=courses,
             eval_root=_path(raw_eval) if raw_eval else REPORTS_DIR,
             validity_root=_path(raw_validity) if raw_validity else EVAL_DIR / "validity",
+            analytics_data_dir=_path(raw_analytics) if raw_analytics else None,
             host=(env.get(ENV_HOST) or "").strip() or DEFAULT_HOST,
             port=port,
             validator_timeout=timeout,
@@ -128,4 +146,20 @@ class ObservatoryConfig:
             lines.append(f"eval root missing: {self.eval_root}")
         if not self.validity_root.is_dir():
             lines.append(f"validity root missing: {self.validity_root}")
+        if self.analytics_data_dir is not None and not self.analytics_data_dir.is_dir():
+            lines.append(f"analytics store missing: {self.analytics_data_dir}")
         return lines
+
+    def notes(self) -> list[str]:
+        """Configuration an operator must be able to read off the page, fault or not.
+
+        The analytics store is the one value two processes can disagree about in silence,
+        so it is stated as resolved rather than as typed.
+        """
+        if self.analytics_data_dir is None:
+            return [f"analytics store: not configured — set {ENV_ANALYTICS_DATA_DIR} to the "
+                    f"absolute directory the collector writes (its own ANALYTICS_DATA_DIR "
+                    f'defaults to the relative "data", resolved against the collector\'s '
+                    f"working directory, not this one)."]
+        return [f"analytics store: {self.analytics_data_dir} "
+                f"(k-anonymity floor: {self.min_learners} learners)"]

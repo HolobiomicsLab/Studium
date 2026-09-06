@@ -69,8 +69,27 @@ changed.
 It also never reads a learner identifier, a pseudonym or a free-text telemetry field
 into a view. The filtering happens in the readers, before any template sees the data,
 and the session event log is never opened at all. Evaluation personas are synthetic
-and labelled as such on screen. Aggregate learner analytics arrive in slice 2, behind
-the same k-anonymity floor the class report already applies.
+and labelled as such on screen. Every number derived from learner telemetry passes the
+same k-anonymity floor the class report applies — five learners, one definition of the
+value, imported rather than copied — and that floor counts **distinct learners**, not
+telemetry files: one learner writes one stream per bundle, so three files can be two
+people, and counting files would report a cohort larger than the class is.
+
+## Telling the Observatory where the collector writes
+
+`STUDIUM_OBS_ANALYTICS_DATA_DIR` names the analytics collector's event store, as an
+**absolute** path. It has its own variable because the collector resolves its own
+`ANALYTICS_DATA_DIR` (default: the relative `"data"`) against *its* working directory,
+and the teacher guide starts the collector after a `cd` — so the same configuration can
+mean two directories. The Observatory resolves what you give it and prints the resolved
+path in the index banner; if it does not match where the collector is writing, you see
+it on the page rather than seeing an empty store. Leave it unset and there is simply no
+live column: a guessed relative directory would be worse than none.
+
+You do not configure a course token. The collector's check is string equality between
+the `X-Course-Token` header and the `course` query parameter — the token *is* the course
+id, typed into the teacher dashboard and shown on screen — so there is no secret for the
+Observatory to hold, and it reads the store on disk rather than calling the collector.
 
 An unreadable file is never an error page. It renders as `(unreadable <file>:
 <reason>)` where its content would have been, and the rest of the page still loads.
