@@ -22,7 +22,12 @@ export default function AICritiqueScene({ scene, onSignal, onContinue, endpoint,
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Deliberately empty: this fires once per mount, and since INT-STUDIUM-017 the scene is
+    // remounted on every scene change (`key={scene.id}` on SceneRouter in LessonPlayer), so one
+    // mount is one scene. Adding `onSignal` or `scene.id` here would re-enter the same scene
+    // whenever the callback identity changes.
     void onSignal({ kind: "scene_entered", scene_id: scene.id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const submit = async () => {
