@@ -40,7 +40,7 @@ from observatory_config import (
 from observatory_discovery import CourseRef, Inventory, RunRef, discover
 from observatory_evaluation import run_detail, summarize_run, summarize_suite
 from observatory_paths import TEMPLATES_DIR
-from observatory_provenance import course_detail, myst_page, summarize_course
+from observatory_provenance import course_detail, myst_page, reviews_detail, summarize_course
 from observatory_validation import ValidationCache
 
 TITLE = "studium-observatory"
@@ -110,6 +110,18 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
         if ref is None:
             return _unknown("course")
         return PlainTextResponse(myst_page(ref), media_type="text/markdown; charset=utf-8")
+
+    @app.get("/courses/{course_id}/review", response_class=HTMLResponse)
+    def course_review(request: Request, course_id: str) -> HTMLResponse:
+        ref = course(course_id)
+        if ref is None:
+            return _unknown("course")
+        return templates.TemplateResponse(request, "review.html", {"review": reviews_detail(ref)})
+
+    @app.get("/api/courses/{course_id}/review")
+    def api_course_review(course_id: str) -> dict:
+        ref = course(course_id)
+        return reviews_detail(ref) if ref is not None else _unknown("course")
 
     @app.get("/courses/{course_id}/validation", response_class=HTMLResponse)
     def course_validation(request: Request, course_id: str) -> HTMLResponse:

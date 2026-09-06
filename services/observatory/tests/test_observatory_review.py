@@ -187,3 +187,56 @@ def test_a_verdicts_document_of_the_wrong_shape_fails_soft(course_root: Path) ->
     reason = bundle["skipped"][0]["reason"]
     assert reason == "unreadable: not a list (str)"       # the TYPE, never a document quote
     assert bundle["astra_rows"]["n_decisions"] >= 1
+
+
+# --------------------------------------------------------------------------- the Review tab
+
+def test_review_page_shows_every_scene_and_the_bundle_id(client, course_root: Path) -> None:
+    page = client.get("/courses/course-a/review")
+    assert page.status_code == 200
+    assert "b1" in page.text                              # the id the Observatory never showed
+
+    verdicts = json.loads(_verdicts_path(course_root, "b1").read_text(encoding="utf-8"))
+    for scene_id in verdicts["scenes"]:
+        assert scene_id in page.text
+    for defect in verdicts["defects"]:
+        assert defect["dimension"] in page.text
+        assert defect["failure_scenario"] in page.text    # judge text about the bundle, shown
+
+
+def test_review_json_twin_matches_the_page_source(client, course_root: Path) -> None:
+    assert client.get("/api/courses/course-a/review").json() == reviews_detail(
+        _ref(course_root, "course-a"))
+
+
+def test_calibration_is_rendered_when_the_review_carries_one(client, course_root: Path) -> None:
+    path = _verdicts_path(course_root, "b1")
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["calibration"] = {"pairs": 3, "gold": [True, False, True],
+                               "pred": [True, False, False], "kappa": 0.71, "separates": True}
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    page = client.get("/courses/course-a/review")
+    assert "kappa" in page.text
+    assert "0.71" in page.text
+    assert "gold" not in page.text                        # the raw per-pair booleans stay out
+
+
+def test_a_course_without_a_review_renders_a_marker_not_a_500(client) -> None:
+    page = client.get("/courses/course-b/review")
+    assert page.status_code == 200
+    assert "(missing review/astra.yaml)" in page.text
+
+
+def test_unknown_course_review_is_404(client, course_root: Path) -> None:
+    assert client.get("/courses/nope/review").status_code == 404
+    assert client.get("/api/courses/nope/review").status_code == 404
+
+    # An id is a key of the discovery map, never a path segment joined to a root: a
+    # directory that exists under the course root but is not a course stays a 404.
+    (course_root / "not-a-course").mkdir()
+    assert client.get("/courses/not-a-course/review").status_code == 404
+
+
+def test_the_course_page_links_to_its_review(client) -> None:
+    assert 'href="/courses/course-a/review"' in client.get("/courses/course-a").text

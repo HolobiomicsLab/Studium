@@ -9,7 +9,8 @@
   {{ s.n_analyses }} analysis/analyses · {{ s.n_decisions }} decisions · {{ s.n_findings }} findings ·
   validator <span class="{{ validation.status }}">{{ validation.status|replace("_", " ") }}</span>
   (<a href="/courses/{{ s.id | urlencode }}/validation">run it</a>) ·
-  <a href="/courses/{{ s.id | urlencode }}/provenance.myst.md">MyST page</a>
+  <a href="/courses/{{ s.id | urlencode }}/provenance.myst.md">MyST page</a> ·
+  <a href="/courses/{{ s.id | urlencode }}/review">scene review</a>
 </p>
 {{ markers(course.absent) }}
 
