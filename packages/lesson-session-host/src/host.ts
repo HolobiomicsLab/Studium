@@ -28,7 +28,7 @@ import { resolveBundle, assetBaseDir } from "./bundle-resolver.js";
 import { discoverCommunityBundles } from "./community-bundles.js";
 import {
   aggregateRatings, ROOM_K_FLOOR,
-  type PeerRating, type RoomEntry, type RoomState,
+  type RoomEntry, type RoomState,
 } from "./room.js";
 
 // Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /

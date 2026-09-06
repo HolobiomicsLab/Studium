@@ -38,6 +38,14 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Build the workspace packages the tests import
+        # @studium/llm-client resolves through ./dist, which is gitignored, so
+        # packages/lesson-session cannot import it on a fresh checkout. Only this
+        # package is built: `pnpm build` would also emit lesson-session's own tsc
+        # output beside its sources (no outDir), and vitest would then collect
+        # every test twice.
+        run: pnpm --filter @studium/llm-client build
+
       - name: TypeScript tests
         run: pnpm test
 

@@ -28,9 +28,6 @@ const scene = [
 ];
 const n = scene.length;
 
-const visualOrder: ModalityPreference[] = ["visual"];
-const textualOrder: ModalityPreference[] = ["textual"];
-
 // --- 1) content-preserving for every preference: same length, same kinds (as a multiset) ----------
 for (const pref of ["visual", "textual", "balanced"] as ModalityPreference[]) {
   const out = selectRenderOrder(scene, pref);

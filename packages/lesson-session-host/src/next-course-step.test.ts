@@ -8,7 +8,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SessionHost } from "./host.js";
 
-const DAY = 86_400_000;
 const t0 = Date.UTC(2026, 0, 1);
 
 function quizBundle(id: string, conceptId: string) {
