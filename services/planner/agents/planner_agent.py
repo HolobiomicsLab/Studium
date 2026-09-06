@@ -1,13 +1,14 @@
 """PlannerAgent : génère un LessonPlan depuis un corpus manifest."""
 from __future__ import annotations
 import json
-import sys
 import os
 import time
 import uuid
 from typing import Any
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../packages/lesson-plan-schema/python"))
+from planner_paths import ensure_importable
+
+ensure_importable()
 
 from agents.base import BaseAgent
 from lesson_plan_schema import LessonPlan, CorpusRef, RefType, Concept
