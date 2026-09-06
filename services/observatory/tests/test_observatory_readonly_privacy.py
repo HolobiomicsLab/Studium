@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -80,3 +81,34 @@ def test_unreadable_audit_renders_marker(client, eval_root: Path) -> None:
     assert page.status_code == 200
     assert "(unreadable audit.json" in page.text
     assert client.get("/").status_code == 200
+
+
+def test_reader_faults_disclose_neither_artifact_text_nor_errno(
+    client, cfg: ObservatoryConfig, course_root: Path, eval_root: Path, validator
+) -> None:
+    """A reader fault must not turn an unreadable artifact into a disclosure.
+
+    The fixture's own broken file (`id: [unclosed`) carries nothing worth leaking, so
+    the crawl above passes with this hole open. These two artifacts carry something:
+    a YAML parse error quotes the source line, and an OSError names the path it failed
+    on. Course and run paths are printed by design, so the assertion is on the two
+    things that are never a chosen field — the artifact's own text, and errno prose.
+    """
+    secret = "SECRET-COURSE-CONTENT-8e21"
+    (course_root / "course-a" / "universes" / "leaky.yaml").write_text(
+        f"id: leaky\nnote: [{secret}\n", encoding="utf-8")
+    report = eval_root / RUN_ID / "report.md"
+    report.chmod(0o000)  # a read now raises PermissionError, which names the path
+    if os.access(report, os.R_OK):  # running as root: the errno half cannot be staged
+        pytest.skip("cannot make a file unreadable as this user")
+
+    for url in _urls(cfg):
+        text = client.get(url).text
+        assert secret not in text, f"artifact text leaked through {url}"
+        assert "[Errno" not in text, f"errno detail leaked through {url}"
+
+    # The marker still names the file and its fault class, which is what the
+    # operator acts on; only the errno prose and the path are gone.
+    page = client.get(f"/eval/runs/{RUN_ID}").text
+    assert "(unreadable report.md: PermissionError)" in page
+    report.chmod(0o644)

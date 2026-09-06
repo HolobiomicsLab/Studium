@@ -2,7 +2,7 @@
 {% block title %}{{ course_id }} — validator{% endblock %}
 {% block content %}
 <h1>Validator — {{ course_id }}</h1>
-<p><a href="/courses/{{ course_id }}">back to the course</a></p>
+<p><a href="/courses/{{ course_id | urlencode }}">back to the course</a></p>
 <p>Status <b class="{{ validation.status }}">{{ validation.status|replace("_", " ") }}</b>
   {%- if validation.returncode is not none %} · exit {{ validation.returncode }}{% endif %}
   {%- if validation.ran_at %} · ran at {{ validation.ran_at }}{% endif %}</p>

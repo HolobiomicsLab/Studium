@@ -21,6 +21,7 @@ emitter writes one, and a reader that cannot crash must still name it.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
@@ -32,6 +33,8 @@ REVIEW_FILE = "review/astra.yaml"
 
 MISSING = "missing"
 
+LOGGER = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class CourseDocs:
@@ -39,7 +42,8 @@ class CourseDocs:
 
     `universes` are sorted by file name and carry the file stem as `id` when the
     document has none (the fallback the renderer applied at display time).
-    `absent` maps a relative path to `"missing"` or `"unreadable: <ExcType>: <message>"`.
+    `absent` maps a relative path to `"missing"` or `"unreadable: <ExcType>"`; the
+    exception message is logged, never rendered (see `_unreadable`).
     """
 
     course_dir: Path
@@ -78,7 +82,18 @@ def universe_selection(universe: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _unreadable(exc: BaseException) -> str:
-    return f"unreadable: {type(exc).__name__}: {exc}"
+    """The reason for a reader fault: the exception TYPE, never its message.
+
+    This string is rendered on an operator page and returned by the JSON twins, and
+    it is the one text there that the reader does not author. An OSError names the
+    absolute path it failed on; a PyYAML mark block quotes the offending SOURCE LINE
+    of the document. The detail goes to the log instead, which is the half of spec
+    N3 ("logged with the path") this site never did.
+
+    Reached only on the non-strict path: a strict load still raises with everything.
+    """
+    LOGGER.warning("unreadable provenance artifact: %s: %s", type(exc).__name__, exc)
+    return f"unreadable: {type(exc).__name__}"
 
 
 def _not_a_mapping(doc: Any) -> str:

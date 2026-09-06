@@ -15,6 +15,7 @@ session driver itself enforced, rather than a literal re-declared here (R9).
 from __future__ import annotations
 
 import json
+import logging
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -44,6 +45,8 @@ DRIVER_FILE = "driver_result.json"
 TELEMETRY_FILE = "telemetry.jsonl"
 REPORT_FILE = "report.md"
 NO_RESULT = "no result file"
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -333,7 +336,9 @@ def _iso_mtime(path: Path) -> str:
 
 
 def _problem(exc: Exception) -> str:
-    return f"unreadable: {type(exc).__name__}: {exc}"
+    """See `astra_read._unreadable`: the type reaches the page, the message the log."""
+    LOGGER.warning("unreadable evaluation artifact: %s: %s", type(exc).__name__, exc)
+    return f"unreadable: {type(exc).__name__}"
 
 
 def _text(value: Any) -> str | None:

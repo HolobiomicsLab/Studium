@@ -4,7 +4,9 @@ Discovery is by directory convention, re-run on every request, and it never rais
 missing or unreadable root yields a problem line and an empty map (spec constraint N3).
 An id is a key of one of these maps and is only ever resolved through it -- no path
 segment from a URL is joined to a root, so a crafted id cannot leave the configured
-roots.
+roots. Nor can a symlink: a scanned child that resolves outside its root is reported
+and not listed (`_within`). Paths named explicitly on the command line are exempt --
+those are the operator's own choice.
 """
 from __future__ import annotations
 
@@ -61,16 +63,41 @@ def parse_run_dirname(name: str) -> dict[str, str | None]:
             "timestamp": match.group("ts")}
 
 
+def _within(root: Path, path: Path) -> bool:
+    """Does `path` still lie under `root` once every link on both sides is followed?"""
+    try:
+        resolved_root = root.resolve(strict=True)
+        resolved = path.resolve(strict=True)
+    except OSError:
+        return False
+    return resolved == resolved_root or resolved_root in resolved.parents
+
+
 def _children(root: Path, problems: list[str], label: str) -> list[Path]:
-    """Direct child directories of `root`, sorted by name; a fault becomes a problem."""
+    """Direct child directories of `root`, sorted by name; a fault becomes a problem.
+
+    A child that resolves outside `root` is not listed. `is_dir()` follows symlinks, so
+    without this a link dropped into the root exposes whatever it points at -- the
+    operator named one directory and would be reading another. The escape is reported
+    rather than silently skipped: whoever placed the link needs to know why it is absent.
+    A path named explicitly on the command line is the operator's own choice and is not
+    subject to this; containment governs the roots that are scanned.
+    """
     if not root.is_dir():
         problems.append(f"{label} missing: {root}")
         return []
     try:
-        return sorted((p for p in root.iterdir() if p.is_dir()), key=lambda p: p.name)
+        children = sorted((p for p in root.iterdir() if p.is_dir()), key=lambda p: p.name)
     except OSError as exc:
         problems.append(f"{label} unreadable: {root} ({type(exc).__name__}: {exc})")
         return []
+    kept: list[Path] = []
+    for path in children:
+        if _within(root, path):
+            kept.append(path)
+        else:
+            problems.append(f"{label} entry leaves the root, not listed: {path.name}")
+    return kept
 
 
 def _unique(name: str, taken: dict[str, object], path: Path, problems: list[str]) -> str:

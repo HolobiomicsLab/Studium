@@ -230,7 +230,7 @@ def myst_page(ref: CourseRef) -> str:
         return astra_render.render(ref.path)
     except Exception as exc:  # noqa: BLE001 - any reader error becomes a marker page
         LOGGER.warning("MyST page unavailable for %s: %s: %s", ref.path, type(exc).__name__, exc)
-        lines = [f"# {ref.id}", "", f"(unreadable course: {type(exc).__name__}: {exc})"]
+        lines = [f"# {ref.id}", "", f"(unreadable course: {type(exc).__name__})"]
         absent = summarize_course(ref).absent
         if absent:
             lines += [""] + [f"- {_marker(name, reason)}" for name, reason in absent.items()]

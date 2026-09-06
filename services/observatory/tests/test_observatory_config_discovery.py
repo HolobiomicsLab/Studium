@@ -139,3 +139,54 @@ def test_out_of_range_port_and_timeout_keep_the_default(
     assert cfg.validator_timeout == DEFAULT_VALIDATOR_TIMEOUT
     assert len(cfg.raw_problems) == 1
     assert word in cfg.raw_problems[0]
+
+
+def test_a_symlinked_child_leaving_the_root_is_not_listed(
+    course_root: Path, eval_root: Path, validity_root: Path, tmp_path: Path
+) -> None:
+    """The root bounds what the service reads; `is_dir()` alone follows links out of it.
+
+    Review nit 1. The operator names one directory; a link inside it pointing anywhere
+    else on the disk made that directory's contents readable through the Observatory
+    without the operator having named them. The escape is reported, not silently dropped,
+    because an operator who put the link there needs to know why it is missing.
+    """
+    outside = tmp_path / "elsewhere" / "course-outside"
+    outside.mkdir(parents=True)
+    (outside / "astra.yaml").write_text("astra_version: '0.0.14'\nid: outside\n")
+    (course_root / "linked").symlink_to(outside, target_is_directory=True)
+
+    inv = discover(ObservatoryConfig(course_root=course_root, courses=(),
+                                     eval_root=eval_root, validity_root=validity_root))
+
+    assert "linked" not in inv.courses
+    assert set(inv.courses) == {"course-a", "course-b"}
+    assert any("linked" in p and "leaves the root" in p for p in inv.problems), inv.problems
+
+
+def test_a_symlink_staying_inside_the_root_is_listed(
+    course_root: Path, eval_root: Path, validity_root: Path
+) -> None:
+    """Containment, not a ban on links: a link to a sibling course is inside the root."""
+    (course_root / "alias").symlink_to(course_root / "course-a", target_is_directory=True)
+
+    inv = discover(ObservatoryConfig(course_root=course_root, courses=(),
+                                     eval_root=eval_root, validity_root=validity_root))
+
+    assert set(inv.courses) == {"alias", "course-a", "course-b"}
+    assert inv.problems == ()
+
+
+def test_an_explicit_course_outside_the_root_is_still_allowed(
+    course_root: Path, eval_root: Path, validity_root: Path, tmp_path: Path
+) -> None:
+    """`--course` is the operator naming a path; containment governs the root only."""
+    outside = tmp_path / "elsewhere" / "course-outside"
+    outside.mkdir(parents=True)
+    (outside / "astra.yaml").write_text("astra_version: '0.0.14'\nid: outside\n")
+
+    inv = discover(ObservatoryConfig(course_root=course_root, courses=(outside,),
+                                     eval_root=eval_root, validity_root=validity_root))
+
+    assert inv.courses["course-outside"].source == "explicit"
+    assert inv.problems == ()
