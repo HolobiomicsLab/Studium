@@ -29,8 +29,17 @@ from observatory_paths import ensure_importable
 ensure_importable()
 
 import astra_render  # noqa: E402  (the MyST page: one renderer, no second formatter)
+from harness.scene_judge import VERDICTS, worst  # noqa: E402  (public names; _SEVERITY is not)
 from provenance.astra_emit import analysis_body, source_edge_id  # noqa: E402
-from provenance.astra_read import load_course, universe_selection  # noqa: E402
+from provenance.astra_read import (  # noqa: E402
+    MISSING,
+    REVIEW_DIR,
+    REVIEW_FILE,
+    VERDICTS_BASENAME,
+    ReviewDoc,
+    load_course,
+    universe_selection,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -180,6 +189,183 @@ def _review_view(review: Mapping[str, Any] | None) -> dict[str, Any] | None:
     return {"n_decisions": len(rows),
             "n_non_pass": len([r for r in rows if r["default"] != "pass"]),
             "rows": rows}
+
+
+#: What `judge_bundle` records for a bundle whose `lesson.json` carries no id, and what
+#: `bundle_slug` stores as the directory `unknown-bundle`. It is the judge's marker for an
+#: absent identity, so it is not displayed as one.
+NO_BUNDLE_ID = "?"
+
+
+def _severity(verdict: str | None) -> int:
+    """Rank of a verdict on the judge's own scale.
+
+    An absent or unrecognised verdict ranks as `pass`, so a bundle whose verdicts could not
+    be read sorts last instead of raising a permanent alarm. What says it was not read is
+    `worst_overall is None`, never the string `"pass"`.
+    """
+    return VERDICTS.index(verdict) if verdict in VERDICTS else 0
+
+
+def _not_a_list(value: Any) -> str:
+    """The marker for a block of the wrong type: the TYPE, never the content.
+
+    Same vocabulary as `astra_read._not_a_mapping`, and for the same reason — this string
+    is rendered on an operator page, and a review file is author-editable text.
+    """
+    return f"unreadable: not a list ({type(value).__name__})"
+
+
+def _bundle_identity(doc: ReviewDoc, legacy: bool) -> tuple[str, str]:
+    """The bundle id to display, and where it was taken from.
+
+    `scene_judge.write_review` slugifies an author-supplied bundle id into a directory name
+    that can hold no path separator (`Unit 1/Intro` becomes `Unit-1-Intro`), and
+    `load_course` reports that DIRECTORY as `ReviewDoc.bundle_id`. The identity the judge
+    recorded is the one inside `verdicts.json`; the slug is only where it was stored. Both
+    are shown, and where the document carries no identity the fallback is stated rather
+    than passed off as one.
+    """
+    if legacy:
+        return "", "legacy course-level review (written before reviews were keyed by bundle)"
+    judged = _mapping(doc.verdicts).get("bundle_id")
+    if isinstance(judged, str) and judged.strip() and judged != NO_BUNDLE_ID:
+        return judged, "verdicts.json"
+    if doc.bundle_id:
+        return doc.bundle_id, "directory name (verdicts.json carries no bundle id)"
+    return "", "no bundle id on disk"
+
+
+def _verdict_view(entry: Mapping[str, Any]) -> dict[str, Any]:
+    """One (dimension, verdict) row of a judged scene.
+
+    `failure_scenario` and `quote` are the judge's own text about the BUNDLE — a quiz stem,
+    a planted flaw — never about a learner and never a telemetry field, and they are the
+    thing the operator acts on (spec N1 governs telemetry, which this reader never opens).
+    """
+    verdict = entry.get("verdict")
+    confidence = entry.get("confidence")
+    return {"dimension": str(entry.get("dimension", "")),
+            "verdict": verdict if isinstance(verdict, str) else "",
+            "failure_scenario": str(entry.get("failure_scenario") or ""),
+            "quote": str(entry.get("quote") or ""),
+            "confidence": confidence if isinstance(confidence, (int, float)) else None}
+
+
+def _calibration_view(calibration: Any) -> dict[str, Any] | None:
+    """The corrupted-scene separation check, reduced to the three fields an operator acts
+    on. `gold` and `pred` are the raw per-pair booleans: they say nothing that is acted on
+    and they lengthen the page, so they are deliberately not copied."""
+    block = _mapping(calibration)
+    if not block:
+        return None
+    kappa, pairs = block.get("kappa"), block.get("pairs")
+    return {
+        "kappa": float(kappa) if isinstance(kappa, (int, float)) and not isinstance(kappa, bool)
+                 else None,
+        "separates": bool(block.get("separates")),
+        "pairs": pairs if isinstance(pairs, int) and not isinstance(pairs, bool) else 0,
+    }
+
+
+def _verdicts_view(verdicts: Mapping[str, Any]) -> dict[str, Any]:
+    """The judged half of one bundle, scenes worst case first.
+
+    Every block is read with a type guard. A review file is author-editable, so a wrong
+    shape has to yield an empty block or a named marker rather than an exception — and an
+    unrecognised verdict must not reach `worst()`, whose severity map would raise on it.
+    """
+    scenes: list[dict[str, Any]] = []
+    skipped: list[dict[str, str]] = []
+    ranked: list[str] = []
+    for scene_id, entries in _mapping(verdicts.get("scenes")).items():
+        if not isinstance(entries, list):
+            skipped.append({"scene_id": str(scene_id), "reason": _not_a_list(entries)})
+            continue
+        rows = [_verdict_view(_mapping(entry)) for entry in entries if isinstance(entry, Mapping)]
+        scene_ranked = [row["verdict"] for row in rows if row["verdict"] in VERDICTS]
+        ranked += scene_ranked
+        scenes.append({"scene_id": str(scene_id),
+                       "worst": worst(scene_ranked) if scene_ranked else None,
+                       "verdicts": rows})
+    scenes.sort(key=lambda scene: (-_severity(scene["worst"]), scene["scene_id"]))
+
+    # The judge's own skipped scenes carry its reason for not judging them; the reader's
+    # markers above carry why a block could not be read. Both answer "why is this scene
+    # not judged?", so they share one list.
+    skipped += [{"scene_id": str(scene_id), "reason": str(reason)}
+                for scene_id, reason in _mapping(verdicts.get("skipped")).items()]
+    skipped.sort(key=lambda entry: entry["scene_id"])
+
+    worst_case = _mapping(verdicts.get("worst_case"))
+    return {
+        "worst_overall": worst(ranked) if ranked else None,
+        "worst_case": {str(d): str(v) for d, v in worst_case.items()} if worst_case else None,
+        "n_scenes": len(scenes),
+        "n_defects": len([row for scene in scenes for row in scene["verdicts"]
+                          if row["verdict"] == "defect"]),
+        "n_skipped": len(skipped),
+        "scenes": scenes,
+        "skipped": skipped,
+        "calibration": _calibration_view(verdicts.get("calibration")),
+    }
+
+
+def _bundle_view(doc: ReviewDoc, absent: Mapping[str, str]) -> dict[str, Any]:
+    """One review on screen: its identity, its ASTRA rows, and its verdicts when readable.
+
+    The two halves are independent, as `load_course` reads them: an unreadable
+    `verdicts.json` leaves the ASTRA rows standing and shows a marker in their place
+    (spec N3).
+    """
+    legacy = doc.rel == REVIEW_FILE
+    verdicts_rel = (f"{REVIEW_DIR}/{VERDICTS_BASENAME}" if legacy
+                    else f"{REVIEW_DIR}/{doc.bundle_id}/{VERDICTS_BASENAME}")
+    bundle_id, bundle_id_source = _bundle_identity(doc, legacy)
+    view: dict[str, Any] = {
+        "bundle_id": bundle_id,
+        "bundle_id_source": bundle_id_source,
+        "dir_slug": doc.bundle_id,
+        "legacy": legacy,
+        "rel": doc.rel,
+        "verdicts_rel": verdicts_rel,
+        "astra_rows": _review_view(doc.astra),
+        "worst_overall": None,
+        "worst_case": None,
+        "n_scenes": 0,
+        "n_defects": 0,
+        "n_skipped": 0,
+        "scenes": [],
+        "skipped": [],
+        "calibration": None,
+        "verdicts_absent": None,
+    }
+    if doc.verdicts is None:
+        # `load_course` already named why under this path; the legacy layout never had the
+        # file at all, and `MISSING` is exactly what it is.
+        view["verdicts_absent"] = absent.get(verdicts_rel, MISSING)
+        return view
+    try:
+        view.update(_verdicts_view(doc.verdicts))
+    except Exception as exc:  # noqa: BLE001 - a hand-edited review must not take the page down
+        LOGGER.warning("unreadable verdicts %s: %s: %s", verdicts_rel, type(exc).__name__, exc)
+        view["verdicts_absent"] = f"unreadable: {type(exc).__name__}"
+    return view
+
+
+def reviews_detail(ref: CourseRef) -> dict[str, Any]:
+    """Every scene review of one course, worst case first at both levels.
+
+    The ordering is the judge's own: `VERDICTS` and `worst()` are imported rather than
+    copied (spec R9), so "worst case first" here means what it means inside the review.
+    A bundle whose verdicts are absent or unreadable sorts as `pass` and says why in
+    `verdicts_absent`; `worst_overall is None` is what separates "not read" from
+    "reviewed and clean".
+    """
+    docs = load_course(ref.path, strict=False)
+    bundles = [_bundle_view(doc, docs.absent) for doc in docs.reviews]
+    bundles.sort(key=lambda b: (-_severity(b["worst_overall"]), b["bundle_id"], b["dir_slug"]))
+    return {"course_id": ref.id, "bundles": bundles, "absent": dict(docs.absent)}
 
 
 def course_detail(ref: CourseRef) -> dict[str, Any]:
