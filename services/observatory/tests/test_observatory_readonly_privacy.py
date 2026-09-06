@@ -31,6 +31,26 @@ def _urls(cfg: ObservatoryConfig) -> list[str]:
     return urls
 
 
+def test_a_forbidden_key_in_a_validity_result_reaches_no_page(client, validity_root) -> None:
+    """A validity result is written elsewhere and dropped in; the index renders it.
+
+    `observatory_app` folds every suite into the index view, so a result file carrying a
+    forbidden key would put its value on the Observatory's front page. None of the
+    thirteen committed files does — the gap is that nothing stopped the next one
+    (INT-STUDIUM-018).
+    """
+    secret = "SECRET-VALIDITY-8f2c"
+    (validity_root / "suite_with_result" / "external_result.json").write_text(
+        json.dumps({"n": 12, "text": secret, "learner_pseudonym": "p-1"}), encoding="utf-8")
+
+    for url in ("/", "/api/index", "/eval/validity", "/api/eval/validity"):
+        text = client.get(url).text
+        assert secret not in text, f"a validity result's free text reached {url}"
+        assert "p-1" not in text, f"a validity result's pseudonym reached {url}"
+    # The result is still shown; only the forbidden keys are gone.
+    assert "external_result.json" in client.get("/eval/validity").text
+
+
 def _snapshot(root: Path) -> dict[str, tuple[int, str]]:
     return {
         str(path.relative_to(root)): (

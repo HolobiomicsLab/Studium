@@ -73,8 +73,15 @@ def test_detail_has_scores_findings_report_and_flags(eval_root: Path) -> None:
     assert detail["report_md"] == (eval_root / RUN_ID / "report.md").read_text(encoding="utf-8")
     assert detail["has_author_provenance"] is True
     assert detail["has_refinement_feedback"] is True
+    # The allow-list bounds the STRUCTURED persona signals, and that is all this asserts.
+    # `final_concept_mastery` is excluded from them, yet `write_report` puts the same
+    # number in `report.md` and `run.html` renders that verbatim, so it is on this page
+    # by another route. It is a synthetic persona's score, not learner data, and it is on
+    # the page by design; crediting the allow-list with hiding it would be false
+    # (INT-STUDIUM-018, resolved in favour of the report as the operator sees it).
     assert set(detail["persona_signals"]["proficient"]) <= set(PERSONA_SIGNAL_KEYS)
     assert "final_concept_mastery" not in detail["persona_signals"]["proficient"]
+    assert "final concept mastery" in detail["report_md"], "the report no longer states it"
 
 
 def _keys(value: object):
@@ -156,3 +163,20 @@ def test_suite_summaries(validity_root: Path) -> None:
 def test_scalars_of_reduces_containers() -> None:
     assert scalars_of({"a": 1, "b": "x", "c": None, "d": [1, 2, 3], "e": {"k": 1}}) == {
         "a": 1, "b": "x", "c": None, "d": "<list, 3 items>", "e": "<dict, 1 keys>"}
+
+
+def test_scalars_of_drops_forbidden_keys() -> None:
+    """A validity result is the one artifact the Observatory does not author.
+
+    `scalars_of` copies every top-level key of it onto `/eval/validity` and, through
+    the index view, onto the front page. The module says `FORBIDDEN_KEYS` is stripped
+    from every blob copied out of an artifact; this is the blob that was exempt
+    (INT-STUDIUM-018).
+    """
+    view = scalars_of({"n": 12, "text": "SECRET-VALIDITY-NOTE", "learner_pseudonym": "p-1",
+                       "nested": {"payload": {"a": 1}, "kept": 2}})
+
+    assert view == {"n": 12, "nested": "<dict, 1 keys>"}
+    # The count describes what a view would carry, not what the file holds: the nested
+    # `payload` is gone before the container is described.
+    assert "SECRET-VALIDITY-NOTE" not in json.dumps(view)
