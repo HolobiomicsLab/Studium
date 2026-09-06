@@ -208,6 +208,13 @@ jobs:
       - name: Install tauri-driver
         run: cargo install tauri-driver --locked
 
+      # Avant la démo, pas après : le smoke test exerce le bloc d'assertions de
+      # l'étape 6 sous un `curl` bouchonné et coûte quelques secondes, là où la
+      # démo coûte un build Tauri. Rien ne le lançait, ce qui est comment trois
+      # défauts de ce bloc ont survécu (INT-STUDIUM-021).
+      - name: e2e-demo-m6 smoke tests (INT-STUDIUM-021)
+        run: bash tools/e2e-demo-m6.test.sh
+
       - name: Run e2e-demo-m6 (CI mode)
         run: xvfb-run -a bash tools/e2e-demo-m6.sh --ci
         env:
