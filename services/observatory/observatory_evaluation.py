@@ -83,7 +83,15 @@ class RunSummary:
 
 
 def scalars_of(obj: Any) -> dict[str, object]:
-    """Flatten one level of a result document: scalars kept, containers described."""
+    """Flatten one level of a result document: scalars kept, containers described.
+
+    Scrubbed first, through the same `_scrub` every other copied blob goes through: a
+    validity result is written outside this repository and dropped in, so it is the one
+    artifact whose keys nobody here chose (INT-STUDIUM-018). The container counts then
+    describe what a view would carry rather than what the file holds, which is the
+    honest number to print next to a filtered document.
+    """
+    obj = _scrub(obj)
     if not isinstance(obj, Mapping):
         return {"value": _describe(obj)}
     return {str(k): _describe(v) for k, v in obj.items()}
