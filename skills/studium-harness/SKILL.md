@@ -177,8 +177,11 @@ Outputs land in `eval/reports/<corpus>-<mode>-<ts>/` (gitignored): `report.md`,
 directory per persona. `--live`
 and `--audit-llm` call paid models (`LITELLM_*`, scene-synth `/scenes/critique-eval`)
 and need the owner's go; everything else is offline. The scene-judge review pass is
-`eval/harness/scene_judge.py <bundle/lesson.json> [--out DIR]` (verdicts per scene,
-worst case first, written as ASTRA decisions under `review/`).
+`eval/harness/scene_judge.py <bundle/lesson.json> --out COURSE_DIR` (verdicts per scene,
+worst case first, written as ASTRA decisions under `COURSE_DIR/review/<bundle_id>/`:
+`astra.yaml` and `verdicts.json`). `--out` is required — nothing in `lesson.json`
+records the course it was emitted into, so a default would be a guess, and judging a
+second bundle of the same course no longer overwrites the first (INT-STUDIUM-020).
 
 ## 8. Gotchas
 

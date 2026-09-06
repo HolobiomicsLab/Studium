@@ -15,7 +15,10 @@ import yaml
 from astra_course_fixture import build_course_set, build_review_set
 from provenance.astra_validate import INSTALL_HINT, find_astra_cli, run_astra_validate
 
-_SET = ("astra.yaml", "universes/baseline.yaml", "universes/remedial.yaml", "review/astra.yaml")
+#: `review/b1/astra.yaml`, not `review/astra.yaml`: a review belongs to the bundle it
+#: judged, and `write_review` keys it by bundle id (INT-STUDIUM-020).
+_SET = ("astra.yaml", "universes/baseline.yaml", "universes/remedial.yaml",
+        "review/b1/astra.yaml")
 
 
 def _cli_or_skip() -> str:
