@@ -40,6 +40,7 @@
     "@wdio/mocha-framework": "^9.27.1",
     "@wdio/spec-reporter": "^9.27.1",
     "autoprefixer": "^10.4.0",
+    "eslint": "^8.57.0",
     "jsdom": "^29.1.1",
     "postcss": "^8.4.0",
     "tailwindcss": "^4.0.0",

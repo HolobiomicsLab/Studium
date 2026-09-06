@@ -185,9 +185,11 @@ worst case first, written as ASTRA decisions under `review/`).
 - `cwd` must be `apps/lesson-mcp` and `BUNDLES_ROOT` absolute, or `start_lesson_session`
   cannot resolve the bundle. `tsx` is app-local: `apps/lesson-mcp/node_modules/.bin/tsx`.
 - The server logs to stderr only; anything printed to stdout corrupts the MCP stream.
-- `pnpm build` emits `.js`/`.d.ts` into `packages/*/src` that shadow sources under
-  vitest; clean with
-  `git status --ignored --porcelain packages apps | awk '/^!! /{print $2}' | grep -E '/src/.*\.(js|d\.ts)$' | xargs rm -f`.
+- `pnpm build` no longer writes into `packages/*/src` (INT-STUDIUM-015). On a tree
+  built before that fix the stale `.js`/`.d.ts` there still shadow the sources under
+  vitest and double every suite; clear them with
+  `git status --ignored --porcelain packages apps | awk '/^!! /{print $2}' | grep -E '/src/.*\.(js|d\.ts|js\.map|d\.ts\.map)$' | xargs rm -f`
+  (the earlier form of this line missed the two `.map` extensions).
 - One operator session per `.studium-session/` directory; stale files from a previous
   run are read as responses.
 - The session-runner CLI exits 0 both on `complete` and at its 100-step cap.
