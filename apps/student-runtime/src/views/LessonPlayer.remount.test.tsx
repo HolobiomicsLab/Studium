@@ -133,8 +133,9 @@ describe("LessonPlayer — two consecutive scenes of the same type", () => {
 
     // 2. The second quiz is unanswered: no feedback from the first, no pre-selected choice.
     expect(screen.queryByText(/Correct 1/)).toBeNull();
-    expect(screen.getByRole("button", { name: /soumettre/i })).toBeDisabled();
-    expect(screen.getByLabelText("Réponse 2A")).not.toBeChecked();
+    const submit2 = screen.getByRole("button", { name: /soumettre/i }) as HTMLButtonElement;
+    expect(submit2.disabled).toBe(true);
+    expect((screen.getByLabelText("Réponse 2A") as HTMLInputElement).checked).toBe(false);
 
     // 3. Its response time is measured from its own arrival, not from the first quiz's.
     fireEvent.click(screen.getByLabelText("Réponse 2A"));

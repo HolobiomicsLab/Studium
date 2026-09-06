@@ -157,7 +157,12 @@ function Player({
         </span>
         <ReviewDueIndicator state={state} />
       </div>
+      {/* `key` is the scene identity: SceneRouter dispatches on `scene.type` and returns the
+          scene component directly, so without it two consecutive scenes of the same type are
+          one component instance to React — the mount effects do not run again and `submitted`,
+          `selected` and the response-time origin carry over (INT-STUDIUM-017). */}
       <SceneRouter
+        key={scene.id}
         scene={scene}
         bundlePath={bundle.bundle_id}
         onSignal={onSignal as (s: Signal) => Promise<unknown>}
