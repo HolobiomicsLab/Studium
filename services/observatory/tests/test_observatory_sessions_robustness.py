@@ -73,19 +73,21 @@ def _jsonl(root: Path) -> list[Path]:
     return sorted(root.rglob("*.jsonl"))
 
 
-def _corrupt(path: Path, event_type: str, **fields) -> None:
+def _corrupt(path: Path, event_type: str, _where: dict | None = None, **fields) -> None:
     """Rewrite one event type's fields in place, at the JSON level.
 
     The fixtures build events through the Pydantic mirror, which is exactly what a
     well-behaved emitter does — so a malformed value has to be written the way a broken
-    one would write it: straight into the file.
+    one would write it: straight into the file. `_where` narrows the rewrite to the events
+    already matching it, for the cases that need one good value beside one bad one.
     """
     lines = []
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         event = json.loads(line)
-        if event.get("type") == event_type:
+        matches = all(event.get(key) == value for key, value in (_where or {}).items())
+        if event.get("type") == event_type and matches:
             event.update(fields)
         lines.append(json.dumps(event))
     path.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
@@ -344,3 +346,33 @@ def test_a_withheld_family_never_renders_a_missing_reason(cfg, tmp_path, monkeyp
     assert page.status_code == 200
     offenders = [line.strip() for line in page.text.splitlines() if "— None" in line]
     assert not offenders, offenders
+
+
+def test_a_key_the_scan_rejected_is_not_reported_as_a_late_arrival(cfg, tmp_path):
+    """Withholding it is right; saying *when* it appeared is a claim about a race.
+
+    The preflight requires a non-empty `str` scene id and `compute_progress` does not, so
+    a `scene_id: 7` is in the reader's read and in no scan. It is withheld, correctly —
+    but it was there all along, and the reason must not tell the operator to look for a
+    write that happened while the page was being served.
+    """
+    root = _store(tmp_path / "store")
+    _corrupt(_jsonl(root)[0], "scene_completed", {"scene_id": "s2-audit"}, scene_id=7)
+
+    family = collector_column(_cfg(cfg, store=root), STORE_COURSE)["progress"]
+
+    assert family["status"] == "ok", family
+    assert "s1-quiz" in family["scenes"], family
+    assert "7" not in family["scenes"], family
+    assert family["n_withheld_scenes"] == 1, family
+    assert "first seen when the reader ran" not in json.dumps(family), family
+
+
+def test_a_reader_that_returns_nothing_is_unreadable_not_a_crash():
+    """`_read` reports an exception; a `None` return slipped through it into `.get`."""
+    from observatory_sessions import _read
+
+    value, reason = _read(lambda: None, "the class report")
+
+    assert value is None
+    assert reason, "a reader that produced no document is not a document"
