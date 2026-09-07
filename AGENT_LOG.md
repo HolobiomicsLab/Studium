@@ -4,6 +4,49 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-07 — OBSERVATORY TRANCHE 2, DURCISSEMENT DES SESSIONS : quatre façons de publier un nombre que personne n'a mesuré
+
+Revue indépendante de l'intégration (`ca1ef46` + le report de la revue, `5267cdb`) : la surface
+Review avait été durcie, la surface Sessions — celle qui lit la télémétrie des apprenants —
+portait la même classe de défaut, plus une brèche de k-anonymat. Onze régressions écrites rouges
+d'abord (`cef794c`), puis la correction (`dca7d25`). Aucun lecteur n'est réimplémenté, aucune
+formule n'est ajoutée : les quatre réparations sont des refus de publier.
+
+- **Un nombre non fini n'est pas une mesure.** `NaN` traverse `json.loads` et le garde
+  `isinstance(value, (int, float))`, et les deux jumeaux ne s'accordaient pas dessus : pydantic
+  le sérialisait en `null` (`{"status": "ok", "mean_autonomy": null}`, indiscernable d'une
+  famille qui a tourné sans rien trouver) pendant que `"%.4g"` écrivait `nan` sur la page. La
+  famille devient `unreadable` et NOMME le champ, jamais la valeur. La chaîne `"nan"` est
+  refusée avec le flottant, puisque `float()` accepte les deux.
+- **Un type faux est une source illisible, pas un 500.** Le préflight établit qu'une ligne parse
+  et qu'elle est un objet, jamais qu'un champ porte le type que son lecteur passe à `int()` :
+  un seul `"planted_errors": "abc"` faisait tomber les deux routes pour l'arbre entier.
+- **L'autonomie est un rapport sur deux populations**, donc il lui faut les deux : un cours avec
+  des adaptations « hint » et aucune soumission de critique publiait
+  `critique_completion_rate: 0.0` sur personne. Zéro contributeur = non mesuré.
+- **Le plancher est décidé sur une lecture, les nombres viennent d'une autre**, et le collecteur
+  écrit dans la partition du jour pendant que la page est servie. Une scène ou une leçon qui
+  apparaît d'abord dans la lecture du lecteur n'a été soumise à AUCUN plancher : elle était
+  publiée avec son propre compte d'apprenants — `n_learners: 1` sous un plancher de 5. Elle est
+  maintenant retenue et comptée, avec une raison distincte de celle du sous-plancher. Pas de
+  cache : la projection ne publie que les clés pour lesquelles le préflight a établi une cohorte.
+
+Un écart de confiance non fini est aussi refusé à la comparaison elle-même, où
+`abs(nan - nan) > tolérance` vaut False et se serait affiché comme un accord.
+
+**Correction d'une justification fausse déjà commitée** : l'entrée du durcissement Review
+ci-dessous affirmait qu'un NaN répondait 500 sur le jumeau JSON. C'est faux — il répondait 200
+avec `null`. Le défaut et la réparation restent justes ; le mécanisme enregistré ne l'était pas,
+et c'est ce mécanisme qui aurait fait conclure que la colonne Sessions était sûre parce qu'elle
+ne tombait pas en 500. Corrigé dans l'entrée et dans le docstring du test concerné.
+
+Tests : `services/observatory` **176 verts** (165 avant, +11). Suite complète du plan :
+**610 passés, 2 sautés** (les 2 sautés restent les imports `indicium` absents). Aucun test
+existant modifié ni affaibli ; la seule retouche à un fichier de test existant est le docstring
+factuellement faux ci-dessus, sans changement d'assertion.
+
+---
+
 ## 2026-09-07 — OBSERVATORY TRANCHE 2, TÂCHES 4–7 : les deux colonnes de sessions, la page, la preuve, les docs
 
 Quatre unités TDD du plan `studium_dev/docs/superpowers/plans/2026-09-06-studium-observatory-s2.md`
@@ -103,8 +146,11 @@ douceur. Un fichier de test de régression écrit rouge d'abord (`8a988cb`), pui
   inchangé.
 - **Une valeur malformée n'est pas une mesure** (`observatory_provenance`) : `bool("false")` vaut
   `True`, donc une calibration en échec s'affichait comme réussie ; `float("nan")` est un float,
-  et `JSONResponse` sérialise avec `allow_nan=False`, donc un seul NaN dans un fichier de revue
-  répondait 500 sur le jumeau JSON au lieu d'un marqueur (N3) ; un nombre de paires absent était
+  et les deux jumeaux ne s'accordaient même pas dessus : l'annotation `-> dict` de la route fait
+  passer la charge par pydantic (`ser_json_inf_nan='null'`) avant que `allow_nan=False` ne la
+  voie, donc un seul NaN répondait 200 avec `null` sur le jumeau JSON — indiscernable d'une
+  calibration qui aurait tourné sans rien trouver — pendant que `%.4g` écrivait `nan` sur la page
+  (N3 ; mécanisme corrigé le 2026-09-07, la mention d'un 500 était fausse) ; un nombre de paires absent était
   rendu `0`, c'est-à-dire une calibration qui aurait tourné. Kappa et confiance sont maintenant
   validés finis et dans leur intervalle (`bool` n'est pas un nombre : `True` est un `int` en
   Python), `separates` est un booléen ou « non renseigné », les blocs `scenes` / `skipped` /

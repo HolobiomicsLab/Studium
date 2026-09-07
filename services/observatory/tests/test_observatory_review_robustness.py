@@ -305,8 +305,13 @@ def test_the_strict_loader_refuses_an_artifact_that_leaves_the_course(course_roo
                                           ("c", float("-inf"))])
 def test_a_non_finite_kappa_is_never_served_as_a_number(client, course_root, label,
                                                         kappa) -> None:
-    """`JSONResponse` serialises with `allow_nan=False`, so a non-finite float in a
-    review file answered the API twin with a 500 rather than a marker."""
+    """A non-finite float in a review file reached the two twins differently.
+
+    The route's `-> dict` annotation sends the payload through pydantic
+    (`ser_json_inf_nan='null'`) before Starlette's `allow_nan=False` ever sees it, so the
+    API twin answered 200 with `null` — a calibration that ran and found nothing — while
+    `%.4g` wrote the literal `nan` on the page. Neither was a marker.
+    """
     course_id = f"course-kappa-{label}"
     course = _course(course_root, course_id)
     _review(course)
