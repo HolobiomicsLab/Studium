@@ -28,7 +28,14 @@ contre le module d'avant). Deux défauts introduits par la réparation, corrigé
   finie), et une phrase de repli quand les deux lectures ne s'accordent pas sur ce qui existe.
   `_pair_families` cesse au passage d'affirmer le plancher pour une paire retenue autrement.
 
-Suite du plan **613 passés, 2 sautés** ; `services/observatory` **179 passés** (610/2 et 176 avant).
+Deux remarques non bloquantes de la même revue, corrigées ici parce qu'elles portent sur du texte
+et du code écrits par la réparation elle-même : la phrase « first seen when the reader ran »
+affirmait une course qui n'a pas eu lieu pour une clé que le scan avait refusée sur son type — un
+`scene_id` entier était là depuis le début —, et `_read` rendait `(None, None)` quand l'appelé
+renvoyait `None`, si bien que la fonction écrite pour éviter un 500 en aurait levé un, hors de tout
+`try`, sur le `.get` de l'appelant.
+
+Suite du plan **615 passés, 2 sautés** ; `services/observatory` **181 passés** (610/2 et 176 avant).
 
 ---
 

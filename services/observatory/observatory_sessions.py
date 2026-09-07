@@ -390,10 +390,17 @@ def _read(call: Callable[[], Any], what: str) -> tuple[Any, str | None]:
     source, not a 500 for a page whose whole contract is to fail soft.
     """
     try:
-        return call(), None
+        document = call()
     except Exception as exc:
         LOGGER.warning("observatory sessions: %s raised (%s: %s)", what, type(exc).__name__, exc)
         return None, f"unreadable: {what} raised {type(exc).__name__}"
+    if document is None:
+        # No reader returns this today. Passing it back with no reason would send `None`
+        # into the caller's `.get`, and the function written to prevent a 500 would raise
+        # one — outside any `try`, on the same page.
+        LOGGER.warning("observatory sessions: %s returned no document", what)
+        return None, f"unreadable: {what} returned no document"
+    return document, None
 
 
 def _withheld(kind: str, floor: int, below: int, unseen: int, unreadable: int) -> str | None:
@@ -408,8 +415,10 @@ def _withheld(kind: str, floor: int, below: int, unseen: int, unreadable: int) -
         parts.append(f"{below} {kind}(s) withheld: fewer than {floor} distinct contributing "
                      f"learners")
     if unseen:
-        parts.append(f"{unseen} {kind}(s) withheld: first seen when the reader ran, after "
-                     f"the cohort was checked, so no floor was applied to them")
+        # Not "arrived late": a key the scan rejected — a non-string id, say — was there all
+        # along. What is true of every one of them is that no floor was ever applied to it.
+        parts.append(f"{unseen} {kind}(s) withheld: in the reader's read and not in the "
+                     f"cohort check's, so no floor was applied to them")
     if unreadable:
         parts.append(f"{unreadable} {kind}(s) withheld: no finite completion_rate")
     return "; ".join(parts) or None
