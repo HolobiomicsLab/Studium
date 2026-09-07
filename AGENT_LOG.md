@@ -4,6 +4,84 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-07 — OBSERVATORY TRANCHE 2, TÂCHES 4–7 : les deux colonnes de sessions, la page, la preuve, les docs
+
+Quatre unités TDD du plan `studium_dev/docs/superpowers/plans/2026-09-06-studium-observatory-s2.md`
+(branche `feat/observatory-s2`, base `81d3712`), avec les **six amendements d'exécution** de la
+revue indépendante du 2026-09-06, qui remplacent les règles de cohorte, de comparaison, d'erreur et
+de sortie du plan initial. **La tâche 8 (vérification manuelle sur artefacts réels, capture
+d'écran) n'est pas faite** : elle appartient au coordinateur.
+
+- **Les deux colonnes** (`eca201f`) : `observatory_sessions.py`. Deux lecteurs, aucune troisième
+  formule : `metrics.compute_*` sur `<store>/<cours>/<date>.jsonl`, `class_report.build_report` sur
+  UN répertoire. Ce qui est neuf est le préflight que ni l'un ni l'autre ne peut faire pour
+  lui-même :
+  - **cohorte par leçon.** `learner_pseudonym` = HMAC(learnerId:lessonId) : une personne DANS une
+    leçon. Chaque partition de leçon doit atteindre le plancher ; une union inter-leçons compte des
+    paires apprenant-leçon et ne peut jamais faire franchir le plancher à une leçon. Une personne
+    portant cinq pseudonymes salés reste supprimée ; au-delà d'une leçon `n_learners` est `null` et
+    l'agrégat s'appelle `n_learner_lesson_pairs`, y compris dans le rapport imbriqué.
+  - **un cours peuplé ne prouve pas une métrique peuplée.** Chaque famille est fermée sur les
+    pseudonymes qui ont RÉELLEMENT contribué aux events que son lecteur consomme — par leçon, et par
+    scène en plus pour une valeur par scène. Six participants dont un seul auditeur ne publient pas
+    le résultat de confiance de cette personne. `metrics._is_autonomy_critique` est importé (pas
+    recopié), donc `explain_back` ne peut pas élargir la cohorte d'autonomie. Zéro contributeur =
+    « non mesuré », jamais un zéro mesuré. Une famille supprimée d'un côté supprime sa paire de
+    l'autre : un nombre montré d'un côté et retenu de l'autre EST le nombre retenu, par différence.
+  - **projection opérateur seulement** : progression par scène assainie, complétion par leçon,
+    résumés d'autonomie et de confiance ; complétion de session, autonomie moyenne, résumé de
+    confiance. Les concepts, règles d'adaptation, priorités de reprise et charges par scène du
+    rapport de classe restent dehors, comme la liste `per_scene` brute du collecteur. Chaque famille
+    omise ou supprimée porte sa raison, en HTML et en JSON.
+  - **une colonne supprimée ne porte AUCUN nombre**, pas même la taille de cohorte que la forme
+    « suppressed » de `build_report` renvoie.
+  - **divergence sur une seule portée identique** `(lesson_id, bundle_version)` des deux côtés.
+    Plusieurs portées, des portées différentes, ou le seau `"unversioned"` : les deux colonnes se
+    rendent indépendamment avec la raison, sans drapeau. Supprimé et non mesuré ne se lisent jamais
+    comme un accord (`comparable: false`, `diverges: null`).
+  - **« illisible » est un état distinct** d'absent et de supprimé : 200 avec un marqueur
+    `basename` + classe d'exception, diagnostic journalisé. Jamais un répertoire parent de session
+    (ses segments sont des pseudonymes), jamais un message d'exception.
+  - **confinement avant chaque lecture** via `observatory_discovery._within` : un enfant de store
+    qui sort de la racine n'est pas listé donc pas routable, et un lien JSONL/télémétrie qui sort de
+    la racine est refusé AVANT son lecteur — `build_report` découvre son entrée tout seul et ne
+    pourrait pas être arrêté après.
+  Complétion et autonomie sont **montrées, jamais signalées**, chaque formule nommée à l'écran :
+  populations différentes, et deux définitions d'« autonomy ratio » qui partagent un nom et pas une
+  formule (défaut à part, intention Draft, non résolu ici). 34 tests.
+- **La page Sessions** (`4d3c82f`, corrections de formulation `23719d7`) : quatre routes
+  (`/sessions`, `/sessions/{cours}` et jumeaux JSON), id résolu uniquement par `store_courses`.
+  Deux colonnes avec le chemin absolu lu et le lecteur qui l'a lu, cohorte étiquetée pour ce qu'elle
+  est, raison à la place de chaque valeur retenue, table « indicateurs comparés » (ou la raison de
+  l'absence de comparaison), table « montré, non signalé » avec les deux formules issues de la
+  constante de module, et la phrase D1 en bannière. Les quatre états ont été rendus hors serveur
+  dans `/private/tmp/studium-observatory-s2-codex/sessions-*.html` pour relecture visuelle ; trois
+  formulations corrigées à la lecture du rendu. 11 tests de route.
+- **La preuve sur les nouvelles routes** (`28a8345`) : `_urls()` gagne les deux routes Review par
+  cours et les quatre routes Sessions ; la boucle de secrets gagne les six pseudonymes du store.
+  Aucun changement de production nécessaire. Deux ajouts pour ce que seule cette tranche peut fuir :
+  une page sous le plancher qui ne porte que la raison (les jetons interdits sont exactement ceux
+  que la page « ok » affiche pour les mêmes fixtures — vérifié côte à côte, donc l'assertion
+  discrimine), et les pseudonymes du store absents des quatre routes **et comptés par la même
+  requête**, pour que la preuve ne puisse pas passer parce que rien n'a été lu. La couverture du
+  crawl a été prouvée mordante hors test en injectant un pseudonyme dans le rendu Sessions
+  (`prove_crawl_bites.py`) : les quatre nouvelles URL déclenchent.
+- **Docs** (ce commit) : `services/observatory/README.md` (variable, drapeaux, deux nouvelles
+  pages, section « les deux sources de session », plancher à deux niveaux et paire de colonnes) et
+  `docs/guides/observatory.md` (en termes opérateur : ce que signifie et ne signifie PAS un
+  drapeau, pourquoi rien n'est comparé sur des portées ambiguës, pourquoi un ancien run
+  synthétique ne produit pas de colonne — identité inconnue, pas persona comptée comme personne).
+  `.github/workflows/ci.yml` **lu et vérifié** : l'étape Observatory passe le répertoire
+  `services/observatory`, les nouveaux fichiers de test sont donc pris sans édition.
+
+Tests : `services/observatory` **141 verts** (94 avant, +47). Suite complète du plan :
+**575 passés, 2 sautés** (les 2 sautés sont les imports `indicium` absents, inchangés).
+Aucune dépendance ajoutée ou épinglée autrement. INT-STUDIUM-005 **n'est pas déclarée fermée** :
+les lecteurs et endpoints en amont gardent leurs propres planchers inter-leçons et contributeurs,
+suivis à part côté hub.
+
+---
+
 ## 2026-09-06 — OBSERVATORY TRANCHE 2, TÂCHES 1–3 : racine de sessions, lecteur de revue, onglet Review
 
 Trois unités TDD du plan `studium_dev/docs/superpowers/plans/2026-09-06-studium-observatory-s2.md`,
