@@ -24,6 +24,7 @@ for _p in (
     REPO_ROOT / "services" / "planner" / "tests",  # astra_course_fixture
     REPO_ROOT / "eval",
     REPO_ROOT / "tools",
+    REPO_ROOT / "services" / "analytics-collector",  # store.py: the collector's own writer
 ):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
@@ -36,6 +37,19 @@ BROKEN_YAML = "id: [unclosed"
 PSEUDONYMS = ("pseudo-proficient", "pseudo-struggling")
 FREE_TEXT = ("SECRET-FREE-TEXT-7f3a", "SECRET-PAYLOAD-9c1b", "SECRET-PRE-REPORT-4d2e")
 RUN_ID = "01-deterministic-20260615-120000"
+
+#: The collector partitions its store by course token, and the token *is* the course id
+#: (INT-STUDIUM-019), so the store's partition is named after the emitted course.
+STORE_COURSE = "course-a"
+#: One lesson, on every event of every stream. `learner_pseudonym` is HMAC(learnerId:lessonId):
+#: it identifies a person WITHIN one lesson and is not a cross-lesson person id, so a fixture
+#: that reused a pseudonym across lessons would assert an identity the runtime never emits.
+STORE_LESSON = "demo-metabolomics-001"
+STORE_BUNDLE_VERSION = f"1.1:{STORE_LESSON}@2026-09-01T10:00:00Z"
+#: Six learners: above `MIN_LEARNERS_DEFAULT` (5), so the k floor does not suppress.
+STORE_PSEUDONYMS = tuple(f"pseudo-store-{i}" for i in range(6))
+#: Two of them: a cohort below the floor.
+SMALL_COHORT_PSEUDONYMS = STORE_PSEUDONYMS[:2]
 
 
 def _audit_helpers():
@@ -133,12 +147,126 @@ def validity_root(tmp_path: Path) -> Path:
     return root
 
 
+def session_events(pseudonym: str, index: int, *, lesson_id: str = STORE_LESSON,
+                   bundle_version: str = STORE_BUNDLE_VERSION, audit: bool = True,
+                   critique_scene_type: str | None = "spot_the_flaw") -> list:
+    """One learner's lesson, as the runtime's ADR-006 events.
+
+    Built from the Pydantic mirror the collector validates against, so an event-schema
+    change fails these fixtures instead of drifting silently past the readers they feed.
+    Deterministic in `pseudonym` and `index`, which is what lets the same list be written
+    into both layouts: agreement between the two columns is then the default, and a test
+    that wants a divergence has to cause one.
+
+    The keyword arguments exist for the privacy regressions of slice 2: `lesson_id` because
+    a pseudonym is `HMAC(learnerId:lessonId)` and a cohort therefore lives inside one
+    lesson; `bundle_version` because a comparison needs one identical artifact scope on
+    both sides; `audit` and `critique_scene_type` because a populated lesson can still have
+    a single contributor to one metric family.
+    """
+    from telemetry_events import (
+        AIAuditResult, AdaptationApplied, CritiqueSubmitted, LessonCompleted, LessonStarted,
+        QuizAnswered, SceneCompleted, SceneEntered,
+    )
+
+    def base(n: int) -> dict:
+        return {"event_id": f"{pseudonym}-{lesson_id}-{n:02d}", "learner_pseudonym": pseudonym,
+                "lesson_id": lesson_id, "bundle_version": bundle_version,
+                "client_timestamp": f"2026-09-05T10:{index % 60:02d}:{n:02d}Z"}
+
+    correct = index % 2 == 0
+    events = [
+        LessonStarted(**base(1), type="lesson_started",
+                      bundle_uri=f"file:///bundles/{lesson_id}.zip"),
+        SceneEntered(**base(2), type="scene_entered", scene_id="s1-quiz", scene_type="quiz"),
+        QuizAnswered(**base(3), type="quiz_answered", scene_id="s1-quiz", item_id="q1",
+                     correct=correct, response_time_ms=18_000, confidence=0.8),
+        SceneCompleted(**base(4), type="scene_completed", scene_id="s1-quiz",
+                       duration_ms=42_000, success=correct),
+        AdaptationApplied(**base(5), type="adaptation_applied", rule_id="hint_after_error",
+                          signal="hint", modulator="scaffolding", value=1.0),
+        SceneEntered(**base(6), type="scene_entered", scene_id="s2-audit",
+                     scene_type="spot_the_flaw"),
+    ]
+    if audit:
+        # Grounded audit: `planted_errors` and `sound_total` are both non-zero, so both
+        # directions of the trust gap are measured on both sides of the pair.
+        events.append(AIAuditResult(**base(7), type="ai_audit_result", scene_id="s2-audit",
+                                    planted_errors=3, true_positives=2, false_positives=1,
+                                    missed=1, sound_total=4))
+    if critique_scene_type is not None:
+        events.append(CritiqueSubmitted(**base(8), type="critique_submitted", scene_id="s2-audit",
+                                        llm_score=0.72, completion_rate=0.9,
+                                        scene_type=critique_scene_type))
+    events += [
+        SceneCompleted(**base(9), type="scene_completed", scene_id="s2-audit",
+                       duration_ms=61_000, success=True),
+        LessonCompleted(**base(10), type="lesson_completed", total_duration_ms=180_000,
+                        autonomy_ratio=0.5),
+    ]
+    return events
+
+
+def write_store(root: Path, events: list, *, course: str = STORE_COURSE) -> Path:
+    """Append `events` through the collector's own `store.append_events`, so the layout
+    under test (`<store>/<course>/<YYYY-MM-DD>.jsonl`) is the collector's and not a third
+    copy of it."""
+    import store
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setenv("ANALYTICS_DATA_DIR", str(root))
+        store.append_events(course, events)
+    return root
+
+
+def write_stream(root: Path, segments: tuple[str, ...], events: list) -> Path:
+    """One `telemetry.jsonl` at `root/<segments>/telemetry.jsonl` — the durable MCP-host
+    layout, whose top level is a pseudonym and whose second is a bundle id."""
+    stream = root.joinpath(*segments) / "telemetry.jsonl"
+    stream.parent.mkdir(parents=True, exist_ok=True)
+    stream.write_text("".join(f"{event.model_dump_json()}\n" for event in events),
+                      encoding="utf-8")
+    return stream
+
+
+def _write_store(root: Path, pseudonyms: tuple[str, ...]) -> Path:
+    for index, pseudonym in enumerate(pseudonyms):
+        write_store(root, session_events(pseudonym, index))
+    return root
+
+
 @pytest.fixture
-def cfg(course_root: Path, eval_root: Path, validity_root: Path):
+def analytics_store(tmp_path: Path) -> Path:
+    """The collector store the live column reads: six learners under one course."""
+    return _write_store(tmp_path / "collector-data", STORE_PSEUDONYMS)
+
+
+@pytest.fixture
+def small_cohort_store(tmp_path: Path) -> Path:
+    """Two distinct pseudonyms: a cohort below `MIN_LEARNERS_DEFAULT`."""
+    return _write_store(tmp_path / "small-cohort-data", SMALL_COHORT_PSEUDONYMS)
+
+
+@pytest.fixture
+def sessions_root(tmp_path: Path) -> Path:
+    """A `build_report`-readable tree in the durable MCP-host layout
+    (`<root>/<pseudonym>/<bundle_id>/telemetry.jsonl`), carrying the SAME events as
+    `analytics_store`. The root has no course dimension, because no writer of a
+    telemetry stream has one."""
+    root = tmp_path / "session-runs"
+    for index, pseudonym in enumerate(STORE_PSEUDONYMS):
+        write_stream(root, (pseudonym, STORE_LESSON), session_events(pseudonym, index))
+    return root
+
+
+@pytest.fixture
+def cfg(course_root: Path, eval_root: Path, validity_root: Path,
+        analytics_store: Path, sessions_root: Path):
     from observatory_config import ObservatoryConfig
 
     return ObservatoryConfig(course_root=course_root, courses=(), eval_root=eval_root,
-                             validity_root=validity_root)
+                             validity_root=validity_root, analytics_data_dir=analytics_store,
+                             sessions_root=sessions_root)
 
 
 @pytest.fixture
@@ -149,3 +277,16 @@ def client(cfg: ObservatoryConfig):
     from observatory_app import create_app
 
     return TestClient(create_app(cfg))
+
+
+@pytest.fixture
+def client_small_cohort(cfg: ObservatoryConfig, small_cohort_store: Path):
+    """The same application over a collector store whose only lesson is below the floor."""
+    import dataclasses
+
+    from fastapi.testclient import TestClient
+
+    from observatory_app import create_app
+
+    return TestClient(create_app(dataclasses.replace(
+        cfg, analytics_data_dir=small_cohort_store)))

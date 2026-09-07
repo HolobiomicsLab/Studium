@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Sessions{% if detail.course %} — {{ detail.course }}{% endif %}{% endblock %}
+
+{#- A number, or a dash. Never a computed placeholder: an absent value means the page has
+    no number to show, and the reason for that is always next to it. -#}
+{% macro n(value) -%}
+{%- if value is none %}<span class="none">—</span>
+{%- elif value is number and value is not integer %}{{ "%.4g"|format(value) }}
+{%- else %}{{ value }}{%- endif %}
+{%- endmacro %}
+
+{#- Why a family is not shown, or what was withheld from one that is. -#}
+{% macro why(family) -%}
+{%- if family.status != "ok" %}<p class="absent">{{ family.status }} — {{ family.reason }}</p>
+{%- elif family.reason %}<p class="absent">{{ family.reason }}</p>
+{%- endif %}
+{%- endmacro %}
+
+{% macro source_head(label, path, column) -%}
+<p><b>{{ label }}</b> · <span class="{{ column.status }}">{{ column.status }}</span></p>
+<p class="path">{{ path or "not configured" }}</p>
+<p class="path">read by {{ column.reader }}</p>
+{%- if column.status != "ok" and column.reason %}<p class="absent">{{ column.reason }}</p>{% endif %}
+{%- endmacro %}
+
+{#- The cohort, labelled for what it is: people only within one lesson. -#}
+{% macro cohort(column) -%}
+{%- if column.status == "ok" %}
+<p>
+  {%- if column.n_learners is not none %}<b>{{ column.n_learners }}</b> learner(s)
+  {%- else %}<b>{{ n(column.n_learner_lesson_pairs) }}</b> learner-lesson pair(s)
+  {%- endif %}
+  {%- if column.n_streams is defined and column.n_streams is not none %} ·
+  {{ column.n_streams }} telemetry stream(s){% endif %}
+  {%- if column.n_lessons is not none %} · {{ column.n_lessons }} lesson(s){% endif %}
+</p>
+{%- if column.n_learners is none %}
+<p class="path">Not a count of people: a pseudonym is HMAC(learnerId:lessonId), so the same
+  human holds a different one in every lesson and a sum across lessons counts
+  learner-lesson pairs.</p>
+{%- endif %}
+<p class="path">{{ column.scope_note }}</p>
+{%- endif %}
+{%- endmacro %}
+
+{% block content %}
+{% set c = detail.collector %}
+{% set s = detail.sessions %}
+<h1>Sessions and trust{% if detail.course %} — {{ detail.course }}{% endif %}</h1>
+<p class="path">
+  Two sources, two readers, one screen. Both are read in place on every request and nothing
+  is written. Every learner-derived number passes a k-anonymity floor of
+  {{ detail.min_learners }} distinct learners, counted per lesson and then per population
+  each metric was actually computed over.
+</p>
+<p class="banner">{{ detail.notes[0] }}</p>
+
+<table>
+  <thead><tr><th>collector store</th><th>session runs</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>
+        {{ source_head("collector store", c.store, c) }}
+        {{ cohort(c) }}
+
+        {% if c.status == "ok" %}
+        <p><b>Per-scene progress</b></p>
+        {{ why(c.progress) }}
+        {%- if c.progress.status == "ok" %}
+        <table>
+          <thead><tr><th>scene</th><th>completion_rate</th><th>learners</th></tr></thead>
+          <tbody>
+          {%- for scene_id, scene in c.progress.scenes.items() %}
+            <tr><td>{{ scene_id }}</td><td>{{ n(scene.completion_rate) }}</td>
+              <td>{% if scene.n_learners is not none %}{{ scene.n_learners }}
+                {%- else %}{{ n(scene.n_learner_lesson_pairs) }} pair(s){% endif %}</td></tr>
+          {%- endfor %}
+          </tbody>
+        </table>
+        {%- endif %}
+
+        <p><b>Lesson completion</b> <span class="path">compute_course_completion: distinct
+          learners who emitted lesson_completed, per lesson</span></p>
+        {{ why(c.course_completion) }}
+        {%- if c.course_completion.status == "ok" %}
+        <table>
+          <thead><tr><th>lesson</th><th>n_completed</th></tr></thead>
+          <tbody>
+          {%- for lesson_id, lesson in c.course_completion.lessons.items() %}
+            <tr><td>{{ lesson_id }}</td><td>{{ n(lesson.n_completed) }}</td></tr>
+          {%- endfor %}
+            <tr><td>total_completions <span class="path">(events)</span></td>
+              <td>{{ n(c.course_completion.total_completions) }}</td></tr>
+          </tbody>
+        </table>
+        {%- endif %}
+
+        <p><b>Autonomy</b></p>
+        {{ why(c.autonomy) }}
+        {%- if c.autonomy.status == "ok" %}
+        {{ kv({"autonomy_ratio": n(c.autonomy.autonomy_ratio),
+               "critique_completion_rate": n(c.autonomy.critique_completion_rate),
+               "n_critique": c.autonomy.n_critique, "n_hints": c.autonomy.n_hints}) }}
+        {%- endif %}
+
+        <p><b>Trust calibration</b></p>
+        {{ why(c.trust) }}
+        {%- if c.trust.status == "ok" %}
+        {{ kv({"trust_calibration": n(c.trust.trust_calibration), "band": c.trust.band,
+               "n_audits": c.trust.n_audits, "over_trust": n(c.trust.over_trust),
+               "over_distrust": n(c.trust.over_distrust)}) }}
+        {%- endif %}
+        {% endif %}
+      </td>
+
+      <td>
+        {{ source_head("session runs", s.root, s) }}
+        {{ cohort(s) }}
+
+        {% if s.status == "ok" %}
+        <p><b>Completion</b></p>
+        {{ why(s.report.completion) }}
+        {%- if s.report.completion.status == "ok" %}
+        {{ kv({"completion_rate": n(s.report.completion.completion_rate)}) }}
+        {%- endif %}
+
+        <p><b>Autonomy</b></p>
+        {{ why(s.report.autonomy) }}
+        {%- if s.report.autonomy.status == "ok" %}
+        {{ kv({"mean_autonomy": n(s.report.autonomy.mean_autonomy)}) }}
+        {%- endif %}
+
+        <p><b>Trust calibration</b></p>
+        {{ why(s.report.trust) }}
+        {%- if s.report.trust.status == "ok" %}
+        {{ kv({"measured": s.report.trust.measured, "n_scenes": s.report.trust.n_scenes,
+               "gap": n(s.report.trust.gap), "band": s.report.trust.band}) }}
+        {%- endif %}
+
+        <p class="path">The class report's concept, adaptation-rule, reteach and per-scene
+          payloads are not published here: this page is the operator projection over that
+          reader, not the report.</p>
+        {% endif %}
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Indicators compared</h2>
+<p class="path">{{ detail.comparison.reason }}</p>
+{% if detail.divergences %}
+<table>
+  <thead><tr><th>indicator</th><th>collector store</th><th>session runs</th><th>verdict</th></tr></thead>
+  <tbody>
+  {%- for row in detail.divergences %}
+    <tr>
+      <td>{{ row.indicator }}</td>
+      <td>{{ n(row.collector) }}</td>
+      <td>{{ n(row.sessions) }}</td>
+      <td>
+        {%- if not row.comparable %}<span class="none">not compared</span>
+        {%- elif row.diverges %}<span class="defect">diverges</span>
+        {%- else %}<span class="ok">agree</span>{% endif %}
+        <br><span class="path">{{ row.note }}</span>
+      </td>
+    </tr>
+  {%- endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h2>Shown, not flagged</h2>
+<p class="path">Two indicators appear in both columns and are deliberately never flagged:
+  the two sides do not measure the same population, and one pair does not even share a
+  definition. Each formula is named so a difference can be read for what it is.</p>
+<table>
+  <thead><tr><th>indicator</th><th>collector store</th><th>session runs</th><th>why it is not flagged</th></tr></thead>
+  <tbody>
+  {%- for row in detail.shown_not_flagged %}
+    <tr><td>{{ row.indicator }}</td><td>{{ row.collector }}</td><td>{{ row.sessions }}</td>
+      <td>{{ row.why_not_flagged }}</td></tr>
+  {%- endfor %}
+  </tbody>
+</table>
+
+<h2>Notes</h2>
+<ul>
+{%- for note in detail.notes %}
+  <li>{{ note }}</li>
+{%- endfor %}
+</ul>
+{% endblock %}

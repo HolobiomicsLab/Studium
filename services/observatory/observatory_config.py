@@ -44,6 +44,12 @@ ENV_VALIDATOR_TIMEOUT = "STUDIUM_OBS_VALIDATOR_TIMEOUT"
 #: between the `X-Course-Token` header and the `course` query parameter, so the token *is* the
 #: course id, typed into the teacher dashboard and rendered on screen (INT-STUDIUM-019).
 ENV_ANALYTICS_DATA_DIR = "STUDIUM_OBS_ANALYTICS_DATA_DIR"
+#: ONE directory of telemetry streams, read whole by `class_report.build_report`, which
+#: discovers its input with `rglob("telemetry.jsonl")`. Deliberately NOT course-scoped:
+#: the durable MCP-host tree is keyed by pseudonym (`<pseudonym>/<bundle_id>/`) and an
+#: eval run's by persona, so neither writer has a course dimension and a `<root>/<course>`
+#: convention would name a layout nothing on disk produces.
+ENV_SESSIONS_ROOT = "STUDIUM_OBS_SESSIONS_ROOT"
 
 
 def _path(value: str) -> Path:
@@ -69,6 +75,9 @@ class ObservatoryConfig:
     #: The collector's store, absolute; `None` when the operator has not named one, in which
     #: case the Observatory reads no live column rather than guessing a relative directory.
     analytics_data_dir: Path | None = None
+    #: The directory `build_report` reads whole; `None` when the operator has not named
+    #: one, in which case the session-runs column is absent rather than guessed.
+    sessions_root: Path | None = None
     #: The k-anonymity floor applied to every learner-derived number, imported from
     #: `tools/class_report.py` so the value has one definition (INT-STUDIUM-005).
     min_learners: int = MIN_LEARNERS_DEFAULT
@@ -93,6 +102,7 @@ class ObservatoryConfig:
         raw_eval = (env.get(ENV_EVAL_ROOT) or "").strip()
         raw_validity = (env.get(ENV_VALIDITY_ROOT) or "").strip()
         raw_analytics = (env.get(ENV_ANALYTICS_DATA_DIR) or "").strip()
+        raw_sessions = (env.get(ENV_SESSIONS_ROOT) or "").strip()
 
         port = DEFAULT_PORT
         raw_port = (env.get(ENV_PORT) or "").strip()
@@ -130,6 +140,7 @@ class ObservatoryConfig:
             eval_root=_path(raw_eval) if raw_eval else REPORTS_DIR,
             validity_root=_path(raw_validity) if raw_validity else EVAL_DIR / "validity",
             analytics_data_dir=_path(raw_analytics) if raw_analytics else None,
+            sessions_root=_path(raw_sessions) if raw_sessions else None,
             host=(env.get(ENV_HOST) or "").strip() or DEFAULT_HOST,
             port=port,
             validator_timeout=timeout,
@@ -148,18 +159,28 @@ class ObservatoryConfig:
             lines.append(f"validity root missing: {self.validity_root}")
         if self.analytics_data_dir is not None and not self.analytics_data_dir.is_dir():
             lines.append(f"analytics store missing: {self.analytics_data_dir}")
+        if self.sessions_root is not None and not self.sessions_root.is_dir():
+            lines.append(f"sessions root missing: {self.sessions_root}")
         return lines
 
     def notes(self) -> list[str]:
         """Configuration an operator must be able to read off the page, fault or not.
 
         The analytics store is the one value two processes can disagree about in silence,
-        so it is stated as resolved rather than as typed.
+        so it is stated as resolved rather than as typed. The session root is stated the
+        same way, and as one directory: it is read whole, by a different reader, and only
+        the collector's half of the pair is partitioned by course.
         """
         if self.analytics_data_dir is None:
-            return [f"analytics store: not configured — set {ENV_ANALYTICS_DATA_DIR} to the "
-                    f"absolute directory the collector writes (its own ANALYTICS_DATA_DIR "
-                    f'defaults to the relative "data", resolved against the collector\'s '
-                    f"working directory, not this one)."]
-        return [f"analytics store: {self.analytics_data_dir} "
-                f"(k-anonymity floor: {self.min_learners} learners)"]
+            lines = [f"analytics store: not configured — set {ENV_ANALYTICS_DATA_DIR} to the "
+                     f"absolute directory the collector writes (its own ANALYTICS_DATA_DIR "
+                     f'defaults to the relative "data", resolved against the collector\'s '
+                     f"working directory, not this one)."]
+        else:
+            lines = [f"analytics store: {self.analytics_data_dir} "
+                     f"(k-anonymity floor: {self.min_learners} learners)"]
+        if self.sessions_root is None:
+            lines.append(f"session runs: not configured ({ENV_SESSIONS_ROOT})")
+        else:
+            lines.append(f"session runs: {self.sessions_root} (one directory, read whole)")
+        return lines

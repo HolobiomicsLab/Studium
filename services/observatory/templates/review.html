@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ review.course_id }} — scene review{% endblock %}
+
+{% macro astra_table(rows) -%}
+<table>
+  <thead><tr><th>Decision</th><th>Verdict</th><th>Scene — dimension</th></tr></thead>
+  <tbody>
+  {%- for row in rows.rows %}
+    <tr><td>{{ row.id }}<br><span class="path">{{ row.source_edge_id }}</span></td>
+      <td class="{{ row.default }}">{{ row.default or "—" }}</td><td>{{ row.label }}</td></tr>
+  {%- else %}
+    <tr><td colspan="3" class="none">no decision</td></tr>
+  {%- endfor %}
+  </tbody>
+</table>
+{%- endmacro %}
+
+{% block content %}
+<h1>{{ review.course_id }} — scene review</h1>
+<p class="path">
+  One section per judged bundle, worst case first, as <code>eval/harness/scene_judge.py</code>
+  wrote it under <code>review/&lt;bundle_id&gt;/</code>. A verdict's failure scenario and quote
+  are the judge's text about the bundle's own content.
+</p>
+{#- Only the review's own gaps: a fault in a universe file belongs on the provenance page.
+    `review` itself is one of them — a review directory that leaves the course is named
+    under that bare key. Each is passed through base.html's `markers` macro so the
+    wording has one home. #}
+{%- for name, reason in review.absent.items() if name == "review" or name.startswith("review/") %}
+{{ markers({name: reason}) }}
+{%- endfor %}
+
+{% for bundle in review.bundles %}
+<h2>{{ bundle.bundle_id or "(no bundle id)" }}
+  {%- if bundle.worst_overall %} — <span class="{{ bundle.worst_overall }}">{{ bundle.worst_overall }}</span>
+  {%- else %} — <span class="none">not judged</span>{% endif %}</h2>
+<p class="path">{{ bundle.rel }} · bundle id from {{ bundle.bundle_id_source }}
+  {%- if bundle.dir_slug and bundle.dir_slug != bundle.bundle_id %} · stored under
+  <code>review/{{ bundle.dir_slug }}/</code>{% endif %}</p>
+{%- if bundle.verdicts_absent %}
+{{ markers({bundle.verdicts_rel: bundle.verdicts_absent}) }}
+{%- endif %}
+{#- Fields that parsed and hold no value of the kind they claim. Named one by one, so a
+    single bad number reads as one bad number and not as a whole unreadable review. #}
+{%- for problem in bundle.problems %}
+{{ markers({bundle.verdicts_rel ~ " " ~ problem.field: problem.reason}) }}
+{%- endfor %}
+
+{% if bundle.scenes %}
+<p>{{ bundle.n_scenes }} scene(s) judged · {{ bundle.n_defects }} defect verdict(s) ·
+  {{ bundle.n_skipped }} skipped{% if bundle.worst_case %} · worst case per dimension:
+  {% for dimension, verdict in bundle.worst_case.items() %}{{ dimension }}
+  <span class="{{ verdict }}">{{ verdict }}</span>{{ ", " if not loop.last }}{% endfor %}{% endif %}</p>
+<table>
+  <thead><tr><th>Scene</th><th>Worst</th><th>Dimension</th><th>Verdict</th>
+    <th>Failure scenario</th><th>Quote</th></tr></thead>
+  <tbody>
+  {%- for scene in bundle.scenes %}
+    {%- for row in scene.verdicts %}
+    <tr>
+      {%- if loop.first %}
+      <td rowspan="{{ scene.verdicts|length }}">{{ scene.scene_id }}</td>
+      <td rowspan="{{ scene.verdicts|length }}" class="{{ scene.worst or 'none' }}">{{ scene.worst or "—" }}</td>
+      {%- endif %}
+      <td>{{ row.dimension or "—" }}</td>
+      <td class="{{ row.verdict }}">{{ row.verdict or "—" }}
+        {%- if row.confidence is not none %} <span class="path">({{ row.confidence }})</span>{% endif %}</td>
+      <td>{{ row.failure_scenario or "—" }}</td>
+      <td>{% if row.quote %}“{{ row.quote }}”{% else %}—{% endif %}</td>
+    </tr>
+    {%- else %}
+    <tr><td>{{ scene.scene_id }}</td><td class="none">—</td>
+      <td colspan="4" class="none">no verdict on this scene</td></tr>
+    {%- endfor %}
+  {%- endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if bundle.skipped %}
+<h3>Skipped scenes</h3>
+<table>
+  <thead><tr><th>Scene</th><th>Reason</th></tr></thead>
+  <tbody>
+  {%- for entry in bundle.skipped %}
+    <tr><td>{{ entry.scene_id }}</td><td>{{ entry.reason }}</td></tr>
+  {%- endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if bundle.calibration %}
+{#- Each field says "not recorded" rather than showing a default: a `no` the file does
+    not hold reads as a failed separation, and a `0` reads as a calibration that ran. #}
+<p>Calibration (corrupted-scene separation): kappa
+  {%- if bundle.calibration.kappa is not none %} {{ "%.2f"|format(bundle.calibration.kappa) }}
+  {%- else %} not computed{% endif %} ·
+  separates: {% if bundle.calibration.separates is none %}not recorded
+  {%- else %}{{ "yes" if bundle.calibration.separates else "no" }}{% endif %} ·
+  {% if bundle.calibration.pairs is none %}pair count not recorded
+  {%- else %}{{ bundle.calibration.pairs }} pair(s){% endif %}</p>
+{% endif %}
+
+{% if bundle.astra_rows %}
+{%- if bundle.scenes %}
+<details><summary>the same verdicts as ASTRA decisions ({{ bundle.astra_rows.n_decisions }},
+  {{ bundle.astra_rows.n_non_pass }} not passing)</summary>{{ astra_table(bundle.astra_rows) }}</details>
+{%- else %}
+<h3>ASTRA decisions ({{ bundle.astra_rows.n_decisions }}, {{ bundle.astra_rows.n_non_pass }} not passing)</h3>
+{{ astra_table(bundle.astra_rows) }}
+{%- endif %}
+{% endif %}
+{% else %}
+<p class="none">no review under this course</p>
+{% endfor %}
+
+<p class="path"><a href="/courses/{{ review.course_id | urlencode }}">back to provenance</a></p>
+{% endblock %}

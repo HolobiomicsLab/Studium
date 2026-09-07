@@ -4,6 +4,266 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-07 — OBSERVATORY TRANCHE 2, RETOUR DE REVUE : une réparation qui retirait une mesure vraie
+
+Seconde revue indépendante, portée sur `cef794c..e6c8e8d` — la réparation elle-même. Les quatre
+défauts bloquants sont confirmés fermés, et les onze régressions sont honnêtes (11 échecs sur 11
+contre le module d'avant). Deux défauts introduits par la réparation, corrigés ici, rouges d'abord :
+
+- **`requires=("n_critique", "n_hints")` supprimait une autonomie réellement mesurée.**
+  `critique_completion_rate` divise par `n_critique` seul — sans critique, c'est bien un taux sur
+  personne, et c'est le défaut d'origine. Mais `autonomy_ratio` divise par `n_critique + n_hints`,
+  qu'un seul contributeur de l'un ou l'autre suffit à remplir : un cours où six apprenants
+  soumettent une critique et où personne n'a eu besoin d'un indice vaut 6/6 = 1.0, mesuré sur tout
+  le monde. La garde le rendait `unmeasured` sous une phrase affirmant que le ratio portait sur
+  personne — donc fausse. Une leçon bien étayée est précisément le cas où les indices sont rares.
+  `requires=("n_critique",)` ; le plancher continue de s'appliquer à toute population vivante.
+
+- **`suppressed — None` sur la page.** Quand aucune clé ne survivait aux filtres alors qu'aucune
+  population n'était sous le plancher, la famille repartait avec la raison `None` : un nombre
+  retenu sans motif, sur une surface dont tout le contrat est que chaque état non-`ok` dise
+  pourquoi. Et le mot `suppressed` signifie ici le plancher de k-anonymat, qui n'était pas la
+  cause. `_nothing_left` sépare les deux : `suppressed` seulement si `short` est non vide, sinon
+  l'état `withheld` avec la raison qui nomme la vraie cause (clé jamais scannée, valeur non
+  finie), et une phrase de repli quand les deux lectures ne s'accordent pas sur ce qui existe.
+  `_pair_families` cesse au passage d'affirmer le plancher pour une paire retenue autrement.
+
+Deux remarques non bloquantes de la même revue, corrigées ici parce qu'elles portent sur du texte
+et du code écrits par la réparation elle-même : la phrase « first seen when the reader ran »
+affirmait une course qui n'a pas eu lieu pour une clé que le scan avait refusée sur son type — un
+`scene_id` entier était là depuis le début —, et `_read` rendait `(None, None)` quand l'appelé
+renvoyait `None`, si bien que la fonction écrite pour éviter un 500 en aurait levé un, hors de tout
+`try`, sur le `.get` de l'appelant.
+
+Suite du plan **615 passés, 2 sautés** ; `services/observatory` **181 passés** (610/2 et 176 avant).
+
+---
+
+## 2026-09-07 — OBSERVATORY TRANCHE 2, DURCISSEMENT DES SESSIONS : quatre façons de publier un nombre que personne n'a mesuré
+
+Revue indépendante de l'intégration (`ca1ef46` + le report de la revue, `5267cdb`) : la surface
+Review avait été durcie, la surface Sessions — celle qui lit la télémétrie des apprenants —
+portait la même classe de défaut, plus une brèche de k-anonymat. Onze régressions écrites rouges
+d'abord (`cef794c`), puis la correction (`dca7d25`). Aucun lecteur n'est réimplémenté, aucune
+formule n'est ajoutée : les quatre réparations sont des refus de publier.
+
+- **Un nombre non fini n'est pas une mesure.** `NaN` traverse `json.loads` et le garde
+  `isinstance(value, (int, float))`, et les deux jumeaux ne s'accordaient pas dessus : pydantic
+  le sérialisait en `null` (`{"status": "ok", "mean_autonomy": null}`, indiscernable d'une
+  famille qui a tourné sans rien trouver) pendant que `"%.4g"` écrivait `nan` sur la page. La
+  famille devient `unreadable` et NOMME le champ, jamais la valeur. La chaîne `"nan"` est
+  refusée avec le flottant, puisque `float()` accepte les deux.
+- **Un type faux est une source illisible, pas un 500.** Le préflight établit qu'une ligne parse
+  et qu'elle est un objet, jamais qu'un champ porte le type que son lecteur passe à `int()` :
+  un seul `"planted_errors": "abc"` faisait tomber les deux routes pour l'arbre entier.
+- **L'autonomie est un rapport sur deux populations**, donc il lui faut les deux : un cours avec
+  des adaptations « hint » et aucune soumission de critique publiait
+  `critique_completion_rate: 0.0` sur personne. Zéro contributeur = non mesuré.
+- **Le plancher est décidé sur une lecture, les nombres viennent d'une autre**, et le collecteur
+  écrit dans la partition du jour pendant que la page est servie. Une scène ou une leçon qui
+  apparaît d'abord dans la lecture du lecteur n'a été soumise à AUCUN plancher : elle était
+  publiée avec son propre compte d'apprenants — `n_learners: 1` sous un plancher de 5. Elle est
+  maintenant retenue et comptée, avec une raison distincte de celle du sous-plancher. Pas de
+  cache : la projection ne publie que les clés pour lesquelles le préflight a établi une cohorte.
+
+Un écart de confiance non fini est aussi refusé à la comparaison elle-même, où
+`abs(nan - nan) > tolérance` vaut False et se serait affiché comme un accord.
+
+**Correction d'une justification fausse déjà commitée** : l'entrée du durcissement Review
+ci-dessous affirmait qu'un NaN répondait 500 sur le jumeau JSON. C'est faux — il répondait 200
+avec `null`. Le défaut et la réparation restent justes ; le mécanisme enregistré ne l'était pas,
+et c'est ce mécanisme qui aurait fait conclure que la colonne Sessions était sûre parce qu'elle
+ne tombait pas en 500. Corrigé dans l'entrée et dans le docstring du test concerné.
+
+Tests : `services/observatory` **176 verts** (165 avant, +11). Suite complète du plan :
+**610 passés, 2 sautés** (les 2 sautés restent les imports `indicium` absents). Aucun test
+existant modifié ni affaibli ; la seule retouche à un fichier de test existant est le docstring
+factuellement faux ci-dessus, sans changement d'assertion.
+
+---
+
+## 2026-09-07 — OBSERVATORY TRANCHE 2, TÂCHES 4–7 : les deux colonnes de sessions, la page, la preuve, les docs
+
+Quatre unités TDD du plan `studium_dev/docs/superpowers/plans/2026-09-06-studium-observatory-s2.md`
+(branche `feat/observatory-s2`, base `81d3712`), avec les **six amendements d'exécution** de la
+revue indépendante du 2026-09-06, qui remplacent les règles de cohorte, de comparaison, d'erreur et
+de sortie du plan initial. **La tâche 8 (vérification manuelle sur artefacts réels, capture
+d'écran) n'est pas faite** : elle appartient au coordinateur.
+
+- **Les deux colonnes** (`eca201f`) : `observatory_sessions.py`. Deux lecteurs, aucune troisième
+  formule : `metrics.compute_*` sur `<store>/<cours>/<date>.jsonl`, `class_report.build_report` sur
+  UN répertoire. Ce qui est neuf est le préflight que ni l'un ni l'autre ne peut faire pour
+  lui-même :
+  - **cohorte par leçon.** `learner_pseudonym` = HMAC(learnerId:lessonId) : une personne DANS une
+    leçon. Chaque partition de leçon doit atteindre le plancher ; une union inter-leçons compte des
+    paires apprenant-leçon et ne peut jamais faire franchir le plancher à une leçon. Une personne
+    portant cinq pseudonymes salés reste supprimée ; au-delà d'une leçon `n_learners` est `null` et
+    l'agrégat s'appelle `n_learner_lesson_pairs`, y compris dans le rapport imbriqué.
+  - **un cours peuplé ne prouve pas une métrique peuplée.** Chaque famille est fermée sur les
+    pseudonymes qui ont RÉELLEMENT contribué aux events que son lecteur consomme — par leçon, et par
+    scène en plus pour une valeur par scène. Six participants dont un seul auditeur ne publient pas
+    le résultat de confiance de cette personne. `metrics._is_autonomy_critique` est importé (pas
+    recopié), donc `explain_back` ne peut pas élargir la cohorte d'autonomie. Zéro contributeur =
+    « non mesuré », jamais un zéro mesuré. Une famille supprimée d'un côté supprime sa paire de
+    l'autre : un nombre montré d'un côté et retenu de l'autre EST le nombre retenu, par différence.
+  - **projection opérateur seulement** : progression par scène assainie, complétion par leçon,
+    résumés d'autonomie et de confiance ; complétion de session, autonomie moyenne, résumé de
+    confiance. Les concepts, règles d'adaptation, priorités de reprise et charges par scène du
+    rapport de classe restent dehors, comme la liste `per_scene` brute du collecteur. Chaque famille
+    omise ou supprimée porte sa raison, en HTML et en JSON.
+  - **une colonne supprimée ne porte AUCUN nombre**, pas même la taille de cohorte que la forme
+    « suppressed » de `build_report` renvoie.
+  - **divergence sur une seule portée identique** `(lesson_id, bundle_version)` des deux côtés.
+    Plusieurs portées, des portées différentes, ou le seau `"unversioned"` : les deux colonnes se
+    rendent indépendamment avec la raison, sans drapeau. Supprimé et non mesuré ne se lisent jamais
+    comme un accord (`comparable: false`, `diverges: null`).
+  - **« illisible » est un état distinct** d'absent et de supprimé : 200 avec un marqueur
+    `basename` + classe d'exception, diagnostic journalisé. Jamais un répertoire parent de session
+    (ses segments sont des pseudonymes), jamais un message d'exception.
+  - **confinement avant chaque lecture** via `observatory_discovery._within` : un enfant de store
+    qui sort de la racine n'est pas listé donc pas routable, et un lien JSONL/télémétrie qui sort de
+    la racine est refusé AVANT son lecteur — `build_report` découvre son entrée tout seul et ne
+    pourrait pas être arrêté après.
+  Complétion et autonomie sont **montrées, jamais signalées**, chaque formule nommée à l'écran :
+  populations différentes, et deux définitions d'« autonomy ratio » qui partagent un nom et pas une
+  formule (défaut à part, intention Draft, non résolu ici). 34 tests.
+- **La page Sessions** (`4d3c82f`, corrections de formulation `23719d7`) : quatre routes
+  (`/sessions`, `/sessions/{cours}` et jumeaux JSON), id résolu uniquement par `store_courses`.
+  Deux colonnes avec le chemin absolu lu et le lecteur qui l'a lu, cohorte étiquetée pour ce qu'elle
+  est, raison à la place de chaque valeur retenue, table « indicateurs comparés » (ou la raison de
+  l'absence de comparaison), table « montré, non signalé » avec les deux formules issues de la
+  constante de module, et la phrase D1 en bannière. Les quatre états ont été rendus hors serveur
+  dans `/private/tmp/studium-observatory-s2-codex/sessions-*.html` pour relecture visuelle ; trois
+  formulations corrigées à la lecture du rendu. 11 tests de route.
+- **La preuve sur les nouvelles routes** (`28a8345`) : `_urls()` gagne les deux routes Review par
+  cours et les quatre routes Sessions ; la boucle de secrets gagne les six pseudonymes du store.
+  Aucun changement de production nécessaire. Deux ajouts pour ce que seule cette tranche peut fuir :
+  une page sous le plancher qui ne porte que la raison (les jetons interdits sont exactement ceux
+  que la page « ok » affiche pour les mêmes fixtures — vérifié côte à côte, donc l'assertion
+  discrimine), et les pseudonymes du store absents des quatre routes **et comptés par la même
+  requête**, pour que la preuve ne puisse pas passer parce que rien n'a été lu. La couverture du
+  crawl a été prouvée mordante hors test en injectant un pseudonyme dans le rendu Sessions
+  (`prove_crawl_bites.py`) : les quatre nouvelles URL déclenchent.
+- **Docs** (ce commit) : `services/observatory/README.md` (variable, drapeaux, deux nouvelles
+  pages, section « les deux sources de session », plancher à deux niveaux et paire de colonnes) et
+  `docs/guides/observatory.md` (en termes opérateur : ce que signifie et ne signifie PAS un
+  drapeau, pourquoi rien n'est comparé sur des portées ambiguës, pourquoi un ancien run
+  synthétique ne produit pas de colonne — identité inconnue, pas persona comptée comme personne).
+  `.github/workflows/ci.yml` **lu et vérifié** : l'étape Observatory passe le répertoire
+  `services/observatory`, les nouveaux fichiers de test sont donc pris sans édition.
+
+Tests : `services/observatory` **141 verts** (94 avant, +47). Suite complète du plan :
+**575 passés, 2 sautés** (les 2 sautés sont les imports `indicium` absents, inchangés).
+Aucune dépendance ajoutée ou épinglée autrement. INT-STUDIUM-005 **n'est pas déclarée fermée** :
+les lecteurs et endpoints en amont gardent leurs propres planchers inter-leçons et contributeurs,
+suivis à part côté hub.
+
+---
+
+## 2026-09-07 — OBSERVATORY TRANCHE 2, DURCISSEMENT DES TÂCHES 2–3 : la surface Review contre des artefacts qu'aucun émetteur n'écrit
+
+Correction bornée des trois défauts matériels relevés par une revue indépendante sur
+`f0a9d77..81d3712`, branche `codex/observatory-s2-review-hardening`. Aucun périmètre produit
+nouveau : `review/<bundle_id>/` est le seul arbre d'un cours dont les noms et le contenu viennent
+de qui a lancé le juge, et les trois défauts sont trois façons de mentir plutôt que d'échouer en
+douceur. Un fichier de test de régression écrit rouge d'abord (`8a988cb`), puis le garde
+`protect-tests` armé pendant la correction.
+
+- **Les deux moitiés d'une revue sont lues indépendamment** (`astra_read.load_course`) : le lecteur
+  lisait `astra.yaml` en premier et sautait le bundle quand il manquait ou était illisible, ce qui
+  faisait disparaître un `verdicts.json` parfaitement lisible — exactement le défaut
+  qu'INT-STUDIUM-020 avait corrigé pour le fichier plat hérité, réintroduit par bundle. Les deux
+  moitiés sont désormais lues chacune pour elle-même ; le `ReviewDoc` existe dès que l'une est
+  lisible, le marqueur ASTRA (`missing` / `unreadable: <Type>`) reste affiché, et un répertoire
+  dont aucune moitié n'est lisible n'est toujours pas une revue. `CourseDocs.review` prend le
+  premier document ASTRA LISIBLE (le fichier hérité gardant sa priorité), donc `None` veut dire
+  « aucune revue affichable » et jamais « la première était cassée » — `tools/astra_render` est
+  inchangé.
+- **Une valeur malformée n'est pas une mesure** (`observatory_provenance`) : `bool("false")` vaut
+  `True`, donc une calibration en échec s'affichait comme réussie ; `float("nan")` est un float,
+  et les deux jumeaux ne s'accordaient même pas dessus : l'annotation `-> dict` de la route fait
+  passer la charge par pydantic (`ser_json_inf_nan='null'`) avant que `allow_nan=False` ne la
+  voie, donc un seul NaN répondait 200 avec `null` sur le jumeau JSON — indiscernable d'une
+  calibration qui aurait tourné sans rien trouver — pendant que `%.4g` écrivait `nan` sur la page
+  (N3 ; mécanisme corrigé le 2026-09-07, la mention d'un 500 était fausse) ; un nombre de paires absent était
+  rendu `0`, c'est-à-dire une calibration qui aurait tourné. Kappa et confiance sont maintenant
+  validés finis et dans leur intervalle (`bool` n'est pas un nombre : `True` est un `int` en
+  Python), `separates` est un booléen ou « non renseigné », les blocs `scenes` / `skipped` /
+  `worst_case` / `calibration` du mauvais type sont NOMMÉS au lieu de se vider en silence, et un
+  mot qui n'est pas un des trois verdicts du juge n'est ni classé ni affiché comme un verdict. Le
+  demi-état que la page ne savait pas montrer — le fichier a parsé, une valeur dedans n'en est pas
+  une — devient la liste `problems` (`{field, reason}`) rendue par le macro `markers` existant :
+  le champ et le TYPE, jamais la valeur, jamais la ligne source, jamais un message d'exception.
+  Les lignes saines et les décisions ASTRA du bundle survivent à côté.
+- **Un artefact de revue ne quitte pas son cours** : `is_file()` et `is_dir()` suivent les liens,
+  donc un lien déposé sous `review/` faisait lire — et rendre — un document de n'importe où sur la
+  machine. La règle est celle que `observatory_discovery._within` applique déjà à toutes les
+  racines balayées, portée ici sur la racine `review/`, les répertoires par bundle, `astra.yaml`,
+  `verdicts.json` et le fichier hérité. Cible externe : marqueur `unreadable: leaves the course
+  directory`, cible jamais divulguée, chemin dans le journal seulement. `iterdir()` illisible et
+  résolution de lien impossible échouent en douceur en `strict=False` ; en `strict=True` le lecteur
+  lève, parce que strict a toujours voulu dire « ne pas deviner ».
+- **Conflit d'identité de bundle** : quand l'id valide de `verdicts.json` ne se slugifie pas
+  (`scene_judge.bundle_slug`, importé) vers le répertoire qui le stocke, l'un des deux est faux et
+  le lecteur ne peut pas dire lequel. Le répertoire — le seul fait observé et non lu — est affiché,
+  le conflit est nommé, l'id revendiqué n'est jamais rendu. Le chemin heureux `Unit 1/Intro` sous
+  son slug et les replis hérités sont inchangés.
+
+Tests : nouveau `services/observatory/tests/test_observatory_review_robustness.py`, **24 verts**
+(ASTRA manquant/malformé avec verdicts valides, cinq échappements par lien symbolique dont le
+lecteur strict, NaN/Infinity/−Infinity, kappa hors intervalle, `separates` chaîne et absent, compte
+de paires non entier, confiance NaN et booléenne, conteneurs imbriqués du mauvais type, verdict
+inconnu en scène et en `worst_case`, conflit d'identité, id slugifié). `services/observatory`
+**118 verts** (94 avant), `services/planner` **233 verts, 2 sautés**, `tools/test_astra_render.py`
+**4 verts** ; avec `eval/tests/test_scene_judge.py`, `tools/test_class_report.py` et
+`services/analytics-collector` : **498 passés, 2 sautés**. Aucun test existant modifié ni affaibli.
+
+---
+
+## 2026-09-06 — OBSERVATORY TRANCHE 2, TÂCHES 1–3 : racine de sessions, lecteur de revue, onglet Review
+
+Trois unités TDD du plan `studium_dev/docs/superpowers/plans/2026-09-06-studium-observatory-s2.md`,
+branche `feat/observatory-s2` (base `f0a9d77`). **Les tâches 4 à 8 ne sont pas faites** : colonnes
+de sessions, page Sessions et confiance, preuve lecture-seule/confidentialité sur les nouvelles
+routes, docs, vérification manuelle sur artefacts réels.
+
+- **Racine de sessions + les deux drapeaux CLI** (`beb2a65`) : `STUDIUM_OBS_SESSIONS_ROOT` désigne
+  UN répertoire, résolu en absolu comme le store collector d'INT-STUDIUM-019, lu en entier par
+  `class_report.build_report` (`rglob("telemetry.jsonl")`). Volontairement NON découpé par cours :
+  ni l'arbre durable (`<pseudonyme>/<bundle_id>/`) ni celui d'un run d'éval (`<persona>/`) n'a de
+  dimension cours. `main()` gagne `--sessions-root` et `--analytics-data-dir` — ce dernier manquait
+  depuis INT-STUDIUM-019, le store n'était atteignable que par variable d'environnement.
+  Fixtures : les MÊMES events dans les deux layouts, construits depuis les modèles Pydantic ADR-006
+  et écrits par `store.append_events` du collector ; `lesson_id` et `learner_pseudonym` sur chaque
+  event (le pseudonyme est HMAC(learnerId:lessonId) — une personne DANS une leçon, pas une identité
+  inter-leçons, donc une leçon par pseudonyme). Contrôle hors test : 60 lignes identiques des deux
+  côtés, 6 apprenants distincts, même écart de confiance (0,083, bande « bien ») chez les deux
+  lecteurs — l'accord est donc l'état par défaut et un test de divergence devra le provoquer.
+- **Lecteur de revue** (`28eb107`) : `reviews_detail(ref)` rend une section par bundle, pire cas
+  d'abord aux deux niveaux, avec `VERDICTS` et `worst()` importés du juge (pas de seconde table de
+  sévérité) ; `verdicts.json` obtient son premier lecteur et `bundle_id` arrive pour la première
+  fois à l'écran. **Le répertoire n'est pas l'identité** : `write_review` slugifie l'id fourni par
+  l'auteur (`Unit 1/Intro` → `Unit-1-Intro`) et `load_course` remonte le SLUG ; la vue affiche l'id
+  jugé de `verdicts.json`, garde le slug dans `dir_slug`, nomme la provenance dans
+  `bundle_id_source`. Tolérance aux pannes portée sur la FORME et pas seulement la syntaxe : gardes
+  de type sur chaque bloc, verdict non reconnu jamais passé à `worst()` (sa table lèverait),
+  marqueur assaini `unreadable: not a list (<type>)` avec le détail journalisé, décisions ASTRA du
+  bundle préservées dans tous les cas. `worst_overall` reste `None` quand rien n'a pu être classé :
+  « non lu » ne se rend jamais comme « relu, propre ».
+- **Onglet Review** (`b36245a`) : `/courses/{id}/review` et son jumeau JSON, id résolu uniquement
+  par `discover(cfg)` (un répertoire non-cours sous la racine reste un 404). Scènes, dimensions,
+  scénarios d'échec et citations du juge (contenu de bundle, jamais de télémétrie), scènes sautées,
+  calibration (kappa / sépare / paires ; `gold` et `pred` non recopiés), lien depuis la page cours.
+  Un cours sans revue rend le marqueur `(missing review/astra.yaml)` et un 200.
+
+Tests : `services/observatory` 94 verts (75 avant, +19). Suite complète du plan :
+**528 passés, 2 sautés** (base équivalente 509 + 19 ; les 2 sautés sont les imports `indicium`
+absents). Deux échecs `eval/tests/test_drive_integration.py` observés à la mesure de base de la
+session tenaient aux liens pnpm par paquet absents du worktree ; ils sont apparus depuis, hors de
+cette session, et ces tests sont verts.
+
+---
+
 ## 2026-08-21 — RAPPORT DE CLASSE + PORTE DE PARITÉ TS/PY (la classe de dérive est fermée)
 
 - **class_report.py** : section trust_calibration dans le rapport hors-ligne enseignant (JSON+MD),

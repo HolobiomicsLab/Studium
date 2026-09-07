@@ -49,7 +49,8 @@
   .cap { background: #b45309; color: #fff; border-radius: 3px; padding: 0 .35rem; font-size: .8em; }
   .banner { background: #b453091a; border: 1px solid #b4530955; padding: .5rem .8rem; border-radius: 3px; }
   .synthetic { color: #8889; font-size: .85em; }
-  .ok { color: #15803d; } .failed, .timed_out { color: #b91c1c; }
+  .ok, .pass { color: #15803d; } .failed, .timed_out, .defect { color: #b91c1c; }
+  .suspect, .suppressed, .unmeasured, .unreadable, .empty { color: #b45309; }
   .not_run, .not_installed { color: #8889; }
   .controls { float: right; font-size: .85em; }
   .controls button { font: inherit; cursor: pointer; }
@@ -61,6 +62,7 @@
   <a href="/">Courses</a>
   <a href="/#runs">Evaluation</a>
   <a href="/eval/validity">Validity</a>
+  <a href="/sessions">Sessions</a>
   <span class="controls"><button onclick="foldAll(true)">expand all</button>
   <button onclick="foldAll(false)">collapse all</button></span>
 </header>

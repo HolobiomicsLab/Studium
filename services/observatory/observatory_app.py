@@ -26,11 +26,13 @@ from fastapi.templating import Jinja2Templates
 
 from observatory_config import (
     DEFAULT_HOST,
+    ENV_ANALYTICS_DATA_DIR,
     ENV_COURSE_ROOT,
     ENV_COURSES,
     ENV_EVAL_ROOT,
     ENV_HOST,
     ENV_PORT,
+    ENV_SESSIONS_ROOT,
     ENV_VALIDATOR_TIMEOUT,
     ENV_VALIDITY_ROOT,
     ObservatoryConfig,
@@ -38,7 +40,8 @@ from observatory_config import (
 from observatory_discovery import CourseRef, Inventory, RunRef, discover
 from observatory_evaluation import run_detail, summarize_run, summarize_suite
 from observatory_paths import TEMPLATES_DIR
-from observatory_provenance import course_detail, myst_page, summarize_course
+from observatory_provenance import course_detail, myst_page, reviews_detail, summarize_course
+from observatory_sessions import sessions_detail, store_courses
 from observatory_validation import ValidationCache
 
 TITLE = "studium-observatory"
@@ -60,6 +63,12 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
 
     def run(run_id: str) -> RunRef | None:
         return inventory().runs.get(run_id)
+
+    def store_course(course_id: str) -> bool:
+        """Is this a course of the collector store? Resolved through `store_courses`, the
+        store's own listing, so a URL segment is never joined to the store root — and a
+        store child that leaves the root is not listed there, so it is not routable."""
+        return course_id in store_courses(app.state.cfg)
 
     def index_view() -> dict:
         inv = inventory()
@@ -109,6 +118,18 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
             return _unknown("course")
         return PlainTextResponse(myst_page(ref), media_type="text/markdown; charset=utf-8")
 
+    @app.get("/courses/{course_id}/review", response_class=HTMLResponse)
+    def course_review(request: Request, course_id: str) -> HTMLResponse:
+        ref = course(course_id)
+        if ref is None:
+            return _unknown("course")
+        return templates.TemplateResponse(request, "review.html", {"review": reviews_detail(ref)})
+
+    @app.get("/api/courses/{course_id}/review")
+    def api_course_review(course_id: str) -> dict:
+        ref = course(course_id)
+        return reviews_detail(ref) if ref is not None else _unknown("course")
+
     @app.get("/courses/{course_id}/validation", response_class=HTMLResponse)
     def course_validation(request: Request, course_id: str) -> HTMLResponse:
         ref = course(course_id)
@@ -146,6 +167,28 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
     def api_validity() -> dict:
         return {"suites": [summarize_suite(ref) for ref in inventory().suites.values()]}
 
+    @app.get("/sessions", response_class=HTMLResponse)
+    def sessions_index(request: Request) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request, "sessions.html", {"detail": sessions_detail(app.state.cfg, None)})
+
+    @app.get("/api/sessions")
+    def api_sessions() -> dict:
+        return sessions_detail(app.state.cfg, None)
+
+    @app.get("/sessions/{course_id}", response_class=HTMLResponse)
+    def sessions_page(request: Request, course_id: str) -> HTMLResponse:
+        if not store_course(course_id):
+            return _unknown("course")
+        return templates.TemplateResponse(
+            request, "sessions.html", {"detail": sessions_detail(app.state.cfg, course_id)})
+
+    @app.get("/api/sessions/{course_id}")
+    def api_sessions_course(course_id: str) -> dict:
+        if not store_course(course_id):
+            return _unknown("course")
+        return sessions_detail(app.state.cfg, course_id)
+
     return app
 
 
@@ -169,6 +212,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--course", action="append", default=[], help="one course directory (repeatable)")
     parser.add_argument("--eval-root", help="directory of evaluation run directories")
     parser.add_argument("--validity-root", help="directory of validity suites")
+    parser.add_argument("--analytics-data-dir",
+                        help="collector store root (<store>/<course>/<YYYY-MM-DD>.jsonl)")
+    parser.add_argument("--sessions-root",
+                        help="one directory of telemetry.jsonl streams, read whole")
     parser.add_argument("--host", help=f"bind address (default {DEFAULT_HOST})")
     parser.add_argument("--port", type=int)
     parser.add_argument("--validator-timeout", type=float, help="seconds before astra validate is killed")
@@ -176,7 +223,9 @@ def main(argv: list[str] | None = None) -> int:
 
     env = dict(os.environ)
     for value, name in ((args.course_root, ENV_COURSE_ROOT), (args.eval_root, ENV_EVAL_ROOT),
-                        (args.validity_root, ENV_VALIDITY_ROOT), (args.host, ENV_HOST)):
+                        (args.validity_root, ENV_VALIDITY_ROOT), (args.host, ENV_HOST),
+                        (args.analytics_data_dir, ENV_ANALYTICS_DATA_DIR),
+                        (args.sessions_root, ENV_SESSIONS_ROOT)):
         if value:
             env[name] = value
     if args.course:

@@ -27,6 +27,15 @@ the field stays `None`, an unreadable universe is skipped, and every gap is name
 `absent` under its path relative to the course directory. A document that parses to
 something other than a mapping (a list, a bare string) counts as unreadable there: no
 emitter writes one, and a reader that cannot crash must still name it.
+
+`review/` is the one part of a course whose names and contents are chosen by whoever
+ran the judge, so two rules apply there and nowhere else in this loader. Its two files
+are read INDEPENDENTLY — a review whose ASTRA document is missing or malformed still
+has verdicts, and dropping the bundle for the first fault would turn a readable
+artifact into a silent gap, the fault INT-STUDIUM-020 fixed for the flat legacy file.
+And every path under it is checked for CONTAINMENT before it is inspected: `is_file()`
+and `is_dir()` follow symlinks, so without that a link dropped into `review/` makes
+this loader return, and its readers render, a document from anywhere on the host.
 """
 from __future__ import annotations
 
@@ -47,6 +56,10 @@ VERDICTS_BASENAME = "verdicts.json"
 REVIEW_FILE = f"{REVIEW_DIR}/{REVIEW_BASENAME}"
 
 MISSING = "missing"
+#: A review artifact whose path leaves the course directory once every link is followed.
+#: Named like any other gap and never read: the operator configured one course root, and
+#: what a link points at is not part of it. The target is never disclosed.
+OUTSIDE = "unreadable: leaves the course directory"
 
 LOGGER = logging.getLogger(__name__)
 
@@ -143,6 +156,22 @@ def _not_a_mapping(doc: Any) -> str:
     return f"unreadable: not a mapping ({type(doc).__name__})"
 
 
+def _within(root: Path, path: Path) -> bool:
+    """Does `path` still lie under `root` once every link on both sides is followed?
+
+    The rule `observatory_discovery._within` applies to every root the Observatory
+    scans, stated here for the one directory of a course whose entries this loader does
+    not control. A path that cannot be resolved is not contained: the caller checks
+    existence first, so what is left is a link this process may not follow.
+    """
+    try:
+        resolved_root = root.resolve(strict=True)
+        resolved = path.resolve(strict=True)
+    except OSError:
+        return False
+    return resolved == resolved_root or resolved_root in resolved.parents
+
+
 def load_course(course_dir: Path | str, *, strict: bool = True) -> CourseDocs:
     """Read `astra.yaml`, `universes/*.yaml`, the trace and the review of one course."""
     course_dir = Path(course_dir)
@@ -205,27 +234,61 @@ def load_course(course_dir: Path | str, *, strict: bool = True) -> CourseDocs:
         universe.setdefault("id", upath.stem)
         universes.append(universe)
 
+    def _contained(rel: str) -> bool:
+        """Is `<course>/rel` still inside the course once every link is followed?
+
+        A path that does not exist is left to its reader, which names it `MISSING`;
+        one that exists elsewhere is named and not opened, so nothing outside the
+        course reaches a caller. Strict raises instead, because strict has always
+        meant "do not guess", and a silent skip there would be the silent gap.
+        """
+        path = course_dir / rel
+        if not path.exists() or _within(course_dir, path):
+            return True
+        if strict:
+            raise ValueError(f"{rel} leaves the course directory")
+        LOGGER.warning("review artifact leaves the course directory: %s", path)
+        absent[rel] = OUTSIDE
+        return False
+
     reviews: list[ReviewDoc] = []
     reviews_dir = course_dir / REVIEW_DIR
-    on_disk = False  # a per-bundle review file exists, readable or not
-    for bdir in sorted(p for p in reviews_dir.iterdir() if p.is_dir()) \
-            if reviews_dir.is_dir() else []:
-        rel = f"{REVIEW_DIR}/{bdir.name}/{REVIEW_BASENAME}"
-        on_disk = on_disk or (bdir / REVIEW_BASENAME).is_file()
-        doc = _read(rel)
-        if doc is None:
-            continue
-        reviews.append(ReviewDoc(bundle_id=bdir.name, rel=rel, astra=doc,
-                                 verdicts=_read_json(f"{REVIEW_DIR}/{bdir.name}/"
-                                                     f"{VERDICTS_BASENAME}")))
+    on_disk = False  # a per-bundle review artifact exists, readable or not
+    bundle_dirs: list[Path] = []
+    review_root_ok = _contained(REVIEW_DIR)
+    if review_root_ok and reviews_dir.is_dir():
+        try:
+            children = sorted(p for p in reviews_dir.iterdir() if p.is_dir())
+        except OSError as exc:
+            if strict:
+                raise
+            absent[REVIEW_DIR] = _unreadable(exc)
+            children = []
+        bundle_dirs = [p for p in children if _contained(f"{REVIEW_DIR}/{p.name}")]
+
+    for bdir in bundle_dirs:
+        astra_rel = f"{REVIEW_DIR}/{bdir.name}/{REVIEW_BASENAME}"
+        verdicts_rel = f"{REVIEW_DIR}/{bdir.name}/{VERDICTS_BASENAME}"
+        astra_ok, verdicts_ok = _contained(astra_rel), _contained(verdicts_rel)
+        on_disk = on_disk or (astra_ok and (bdir / REVIEW_BASENAME).is_file()) \
+            or (verdicts_ok and (bdir / VERDICTS_BASENAME).is_file())
+        # Both halves, whatever the other one does: the ASTRA document is the same
+        # verdicts in another notation, so a fault in it says nothing about the JSON.
+        doc = _read(astra_rel) if astra_ok else None
+        verdicts = _read_json(verdicts_rel) if verdicts_ok else None
+        if doc is None and verdicts is None:
+            continue          # a directory holding nothing readable is not a review
+        reviews.append(ReviewDoc(bundle_id=bdir.name, rel=astra_rel, astra=doc,
+                                 verdicts=verdicts))
 
     # The legacy file is read whenever it exists, and its verdict on `review` is final:
     # a course that has the flat file is a course whose review is that file, broken or
     # not, and a per-bundle document must not paper over it. Its name is also the one
     # reported as missing when the course has no review of either kind — one review is
     # still what most courses have, and `review/astra.yaml` is the name the operator knows.
-    legacy_exists = (course_dir / REVIEW_FILE).is_file()
-    legacy = _read(REVIEW_FILE) if legacy_exists or not on_disk else None
+    legacy_ok = review_root_ok and _contained(REVIEW_FILE)
+    legacy_exists = legacy_ok and (course_dir / REVIEW_FILE).is_file()
+    legacy = _read(REVIEW_FILE) if legacy_ok and (legacy_exists or not on_disk) else None
     if legacy is not None:
         reviews.insert(0, ReviewDoc(bundle_id="", rel=REVIEW_FILE, astra=legacy))
 
@@ -234,7 +297,12 @@ def load_course(course_dir: Path | str, *, strict: bool = True) -> CourseDocs:
         astra=astra,
         universes=tuple(universes),
         trace=_read(TRACE_FILE),
-        review=legacy if legacy_exists else (reviews[0].astra if reviews else None),
+        # One document for the readers that show one. A bundle whose ASTRA half is
+        # unreadable now keeps its ReviewDoc, so the first readable document is taken
+        # rather than the first bundle's: `None` here means no review is renderable,
+        # never "the first one happened to be the broken one".
+        review=legacy if legacy_exists
+        else next((r.astra for r in reviews if r.astra is not None), None),
         reviews=tuple(reviews),
         absent=absent,
     )

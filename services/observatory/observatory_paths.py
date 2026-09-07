@@ -17,14 +17,19 @@ PLANNER_DIR = REPO_ROOT / "services" / "planner"
 PLANNER_TESTS_DIR = PLANNER_DIR / "tests"  # astra_course_fixture: the demo course builder
 EVAL_DIR = REPO_ROOT / "eval"
 TOOLS_DIR = REPO_ROOT / "tools"
+#: `metrics` and its `_is_autonomy_critique` scope rule: the live column's own reader.
+#: `class_report` puts this directory on `sys.path` as an import side effect; naming it
+#: here means the Observatory does not depend on that having happened first.
+COLLECTOR_DIR = REPO_ROOT / "services" / "analytics-collector"
 TEMPLATES_DIR = SERVICE_DIR / "templates"
 
 #: Inserted at the front of `sys.path`, in this order, when absent.
-IMPORT_DIRS = (SERVICE_DIR, PLANNER_DIR, EVAL_DIR, TOOLS_DIR)
+IMPORT_DIRS = (SERVICE_DIR, PLANNER_DIR, EVAL_DIR, TOOLS_DIR, COLLECTOR_DIR)
 
 
 def ensure_importable() -> None:
-    """Put the service, the planner, the eval harness and the tools on `sys.path`."""
+    """Put the service, the planner, the eval harness, the tools and the collector on
+    `sys.path`."""
     for directory in IMPORT_DIRS:
         entry = str(directory)
         if entry not in sys.path:
