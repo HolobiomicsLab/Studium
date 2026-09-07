@@ -633,3 +633,111 @@ def test_divergences_is_computed_from_the_two_columns_alone(cfg):
 
 def test_divergences_of_an_absent_column_is_empty(cfg):
     assert divergences(collector_column(_cfg(cfg), STORE_COURSE), sessions_column(_cfg(cfg))) == []
+
+
+# --------------------------------------------------------------------------------------
+# the four routes and the page (task 5)
+# --------------------------------------------------------------------------------------
+
+
+def _client(base, store: Path | None = None, sessions: Path | None = None):
+    from fastapi.testclient import TestClient
+
+    from observatory_app import create_app
+
+    return TestClient(create_app(_cfg(base, store, sessions)))
+
+
+def test_sessions_page_names_both_readers_and_both_paths(client, cfg):
+    response = client.get(f"/sessions/{STORE_COURSE}")
+    assert response.status_code == 200
+    for fragment in ("collector store", "session runs", str(cfg.analytics_data_dir),
+                     str(cfg.sessions_root), "build_report", "compute_trust_calibration"):
+        assert fragment in response.text, fragment
+
+
+def test_the_page_says_the_session_column_is_not_course_scoped(client):
+    """The one sentence an operator needs next to the `{course}` in the URL. Asserted on a
+    distinctive fragment, so deleting it fails this test."""
+    assert "scopes the collector store column only" in client.get(
+        f"/sessions/{STORE_COURSE}").text
+
+
+def test_the_page_shows_the_two_flagged_indicators_and_the_two_it_does_not_flag(client):
+    text = client.get(f"/sessions/{STORE_COURSE}").text
+    for fragment in ("n_learners", "trust_gap", "trust_band", "agree",
+                     "Shown, not flagged", "scene_completed", "lesson_completed",
+                     "n_critique", "scaffolding"):
+        assert fragment in text, fragment
+
+
+def test_a_flagged_row_is_marked_on_the_page(client, sessions_root):
+    (sessions_root / STORE_PSEUDONYMS[0] / STORE_LESSON / "telemetry.jsonl").unlink()
+    text = client.get(f"/sessions/{STORE_COURSE}").text
+    assert "diverges" in text
+    assert 'class="defect">diverges' in text
+
+
+def test_the_page_explains_an_incomparable_scope_instead_of_flagging_it(cfg, tmp_path):
+    runs = _tree(tmp_path / "other-version-runs",
+                 _batches(6, bundle_version=f"1.2:{STORE_LESSON}@2026-09-06T10:00:00Z"))
+    with _client(cfg, cfg.analytics_data_dir, runs) as client:
+        text = client.get(f"/sessions/{STORE_COURSE}").text
+    assert "nothing is paired and nothing is flagged" in text
+    assert "diverges" not in text
+    # Both columns still show their own numbers: incomparable is not suppressed.
+    assert "trust_calibration" in text or "over_trust" in text
+
+
+def test_the_suppression_banner_names_the_floor_and_no_number(cfg, small_cohort_store):
+    from conftest import SMALL_COHORT_PSEUDONYMS
+
+    with _client(cfg, small_cohort_store, cfg.sessions_root) as client:
+        response = client.get(f"/sessions/{STORE_COURSE}")
+    assert response.status_code == 200
+    assert "k-anonymity floor" in response.text
+    assert "suppressed" in response.text
+    for pseudonym in SMALL_COHORT_PSEUDONYMS:
+        assert pseudonym not in response.text
+
+
+def test_an_unreadable_source_is_a_marker_on_a_200_page(client, sessions_root):
+    stream = sessions_root / STORE_PSEUDONYMS[3] / STORE_LESSON / "telemetry.jsonl"
+    with stream.open("a", encoding="utf-8") as handle:
+        handle.write("}\n")
+
+    response = client.get(f"/sessions/{STORE_COURSE}")
+    assert response.status_code == 200
+    assert "unreadable: telemetry.jsonl" in response.text
+    for pseudonym in STORE_PSEUDONYMS:
+        assert pseudonym not in response.text, pseudonym
+
+
+def test_sessions_index_renders_without_a_course(cfg, client):
+    response = client.get("/sessions")
+    assert response.status_code == 200
+    assert str(cfg.sessions_root) in response.text
+    assert "needs a course" in response.text
+
+
+def test_the_nav_reaches_the_sessions_page(client):
+    assert 'href="/sessions"' in client.get("/").text
+
+
+def test_unknown_course_is_404(cfg, client):
+    for url in (f"/sessions/{STORE_COURSE}-nope", f"/api/sessions/{STORE_COURSE}-nope"):
+        assert client.get(url).status_code == 404, url
+
+    # With no store configured there is no id to resolve, so every one 404s — and the
+    # index still renders the session column alone.
+    with _client(cfg, None, cfg.sessions_root) as bare:
+        assert bare.get(f"/sessions/{STORE_COURSE}").status_code == 404
+        assert bare.get(f"/api/sessions/{STORE_COURSE}").status_code == 404
+        assert bare.get("/sessions").status_code == 200
+        assert bare.get("/api/sessions").status_code == 200
+
+
+def test_json_twins_match_the_reader(client, cfg):
+    assert client.get(f"/api/sessions/{STORE_COURSE}").json() == sessions_detail(
+        cfg, STORE_COURSE)
+    assert client.get("/api/sessions").json() == sessions_detail(cfg, None)

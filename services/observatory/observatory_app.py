@@ -41,6 +41,7 @@ from observatory_discovery import CourseRef, Inventory, RunRef, discover
 from observatory_evaluation import run_detail, summarize_run, summarize_suite
 from observatory_paths import TEMPLATES_DIR
 from observatory_provenance import course_detail, myst_page, reviews_detail, summarize_course
+from observatory_sessions import sessions_detail, store_courses
 from observatory_validation import ValidationCache
 
 TITLE = "studium-observatory"
@@ -62,6 +63,12 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
 
     def run(run_id: str) -> RunRef | None:
         return inventory().runs.get(run_id)
+
+    def store_course(course_id: str) -> bool:
+        """Is this a course of the collector store? Resolved through `store_courses`, the
+        store's own listing, so a URL segment is never joined to the store root — and a
+        store child that leaves the root is not listed there, so it is not routable."""
+        return course_id in store_courses(app.state.cfg)
 
     def index_view() -> dict:
         inv = inventory()
@@ -159,6 +166,28 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
     @app.get("/api/eval/validity")
     def api_validity() -> dict:
         return {"suites": [summarize_suite(ref) for ref in inventory().suites.values()]}
+
+    @app.get("/sessions", response_class=HTMLResponse)
+    def sessions_index(request: Request) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request, "sessions.html", {"detail": sessions_detail(app.state.cfg, None)})
+
+    @app.get("/api/sessions")
+    def api_sessions() -> dict:
+        return sessions_detail(app.state.cfg, None)
+
+    @app.get("/sessions/{course_id}", response_class=HTMLResponse)
+    def sessions_page(request: Request, course_id: str) -> HTMLResponse:
+        if not store_course(course_id):
+            return _unknown("course")
+        return templates.TemplateResponse(
+            request, "sessions.html", {"detail": sessions_detail(app.state.cfg, course_id)})
+
+    @app.get("/api/sessions/{course_id}")
+    def api_sessions_course(course_id: str) -> dict:
+        if not store_course(course_id):
+            return _unknown("course")
+        return sessions_detail(app.state.cfg, course_id)
 
     return app
 
