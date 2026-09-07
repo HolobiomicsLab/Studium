@@ -147,7 +147,9 @@ def validity_root(tmp_path: Path) -> Path:
     return root
 
 
-def _session_events(pseudonym: str, index: int) -> list:
+def session_events(pseudonym: str, index: int, *, lesson_id: str = STORE_LESSON,
+                   bundle_version: str = STORE_BUNDLE_VERSION, audit: bool = True,
+                   critique_scene_type: str | None = "spot_the_flaw") -> list:
     """One learner's lesson, as the runtime's ADR-006 events.
 
     Built from the Pydantic mirror the collector validates against, so an event-schema
@@ -155,6 +157,12 @@ def _session_events(pseudonym: str, index: int) -> list:
     Deterministic in `pseudonym` and `index`, which is what lets the same list be written
     into both layouts: agreement between the two columns is then the default, and a test
     that wants a divergence has to cause one.
+
+    The keyword arguments exist for the privacy regressions of slice 2: `lesson_id` because
+    a pseudonym is `HMAC(learnerId:lessonId)` and a cohort therefore lives inside one
+    lesson; `bundle_version` because a comparison needs one identical artifact scope on
+    both sides; `audit` and `critique_scene_type` because a populated lesson can still have
+    a single contributor to one metric family.
     """
     from telemetry_events import (
         AIAuditResult, AdaptationApplied, CritiqueSubmitted, LessonCompleted, LessonStarted,
@@ -162,14 +170,14 @@ def _session_events(pseudonym: str, index: int) -> list:
     )
 
     def base(n: int) -> dict:
-        return {"event_id": f"{pseudonym}-{n:02d}", "learner_pseudonym": pseudonym,
-                "lesson_id": STORE_LESSON, "bundle_version": STORE_BUNDLE_VERSION,
-                "client_timestamp": f"2026-09-05T10:{index:02d}:{n:02d}Z"}
+        return {"event_id": f"{pseudonym}-{lesson_id}-{n:02d}", "learner_pseudonym": pseudonym,
+                "lesson_id": lesson_id, "bundle_version": bundle_version,
+                "client_timestamp": f"2026-09-05T10:{index % 60:02d}:{n:02d}Z"}
 
     correct = index % 2 == 0
-    return [
+    events = [
         LessonStarted(**base(1), type="lesson_started",
-                      bundle_uri=f"file:///bundles/{STORE_LESSON}.zip"),
+                      bundle_uri=f"file:///bundles/{lesson_id}.zip"),
         SceneEntered(**base(2), type="scene_entered", scene_id="s1-quiz", scene_type="quiz"),
         QuizAnswered(**base(3), type="quiz_answered", scene_id="s1-quiz", item_id="q1",
                      correct=correct, response_time_ms=18_000, confidence=0.8),
@@ -179,29 +187,51 @@ def _session_events(pseudonym: str, index: int) -> list:
                           signal="hint", modulator="scaffolding", value=1.0),
         SceneEntered(**base(6), type="scene_entered", scene_id="s2-audit",
                      scene_type="spot_the_flaw"),
+    ]
+    if audit:
         # Grounded audit: `planted_errors` and `sound_total` are both non-zero, so both
         # directions of the trust gap are measured on both sides of the pair.
-        AIAuditResult(**base(7), type="ai_audit_result", scene_id="s2-audit",
-                      planted_errors=3, true_positives=2, false_positives=1, missed=1,
-                      sound_total=4),
-        CritiqueSubmitted(**base(8), type="critique_submitted", scene_id="s2-audit",
-                          llm_score=0.72, completion_rate=0.9, scene_type="spot_the_flaw"),
+        events.append(AIAuditResult(**base(7), type="ai_audit_result", scene_id="s2-audit",
+                                    planted_errors=3, true_positives=2, false_positives=1,
+                                    missed=1, sound_total=4))
+    if critique_scene_type is not None:
+        events.append(CritiqueSubmitted(**base(8), type="critique_submitted", scene_id="s2-audit",
+                                        llm_score=0.72, completion_rate=0.9,
+                                        scene_type=critique_scene_type))
+    events += [
         SceneCompleted(**base(9), type="scene_completed", scene_id="s2-audit",
                        duration_ms=61_000, success=True),
         LessonCompleted(**base(10), type="lesson_completed", total_duration_ms=180_000,
                         autonomy_ratio=0.5),
     ]
+    return events
 
 
-def _write_store(root: Path, pseudonyms: tuple[str, ...]) -> Path:
-    """A collector-shaped store, written by the collector's own `store.append_events`
-    (`<store>/<course>/<YYYY-MM-DD>.jsonl`) rather than by a third copy of its layout."""
+def write_store(root: Path, events: list, *, course: str = STORE_COURSE) -> Path:
+    """Append `events` through the collector's own `store.append_events`, so the layout
+    under test (`<store>/<course>/<YYYY-MM-DD>.jsonl`) is the collector's and not a third
+    copy of it."""
     import store
 
     with pytest.MonkeyPatch.context() as patch:
         patch.setenv("ANALYTICS_DATA_DIR", str(root))
-        for index, pseudonym in enumerate(pseudonyms):
-            store.append_events(STORE_COURSE, _session_events(pseudonym, index))
+        store.append_events(course, events)
+    return root
+
+
+def write_stream(root: Path, segments: tuple[str, ...], events: list) -> Path:
+    """One `telemetry.jsonl` at `root/<segments>/telemetry.jsonl` — the durable MCP-host
+    layout, whose top level is a pseudonym and whose second is a bundle id."""
+    stream = root.joinpath(*segments) / "telemetry.jsonl"
+    stream.parent.mkdir(parents=True, exist_ok=True)
+    stream.write_text("".join(f"{event.model_dump_json()}\n" for event in events),
+                      encoding="utf-8")
+    return stream
+
+
+def _write_store(root: Path, pseudonyms: tuple[str, ...]) -> Path:
+    for index, pseudonym in enumerate(pseudonyms):
+        write_store(root, session_events(pseudonym, index))
     return root
 
 
@@ -225,11 +255,7 @@ def sessions_root(tmp_path: Path) -> Path:
     telemetry stream has one."""
     root = tmp_path / "session-runs"
     for index, pseudonym in enumerate(STORE_PSEUDONYMS):
-        stream = root / pseudonym / STORE_LESSON / "telemetry.jsonl"
-        stream.parent.mkdir(parents=True)
-        stream.write_text(
-            "".join(f"{event.model_dump_json()}\n" for event in _session_events(pseudonym, index)),
-            encoding="utf-8")
+        write_stream(root, (pseudonym, STORE_LESSON), session_events(pseudonym, index))
     return root
 
 
