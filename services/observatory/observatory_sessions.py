@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
@@ -296,7 +297,8 @@ def _live_terms(scan: _Scan, family: str) -> list[tuple[tuple[str, ...], set[str
 
 
 def _family_state(scan: _Scan, family: str, floor: int, label: str, what: str,
-                  per_scene: bool = False) -> tuple[str, set[str], str | None]:
+                  per_scene: bool = False,
+                  requires: tuple[str, ...] = ()) -> tuple[str, set[str], str | None]:
     """`(status, display keys below the floor, reason)` for one metric family.
 
     A family is measured when at least one of the events its reader consumes was emitted,
@@ -306,6 +308,12 @@ def _family_state(scan: _Scan, family: str, floor: int, label: str, what: str,
     live = _live_terms(scan, family)
     if not live:
         return "unmeasured", set(), f"not measured: the {label} carries no {what}"
+    for term in requires:
+        if not any(ids for ids in scan.terms.get(family, {}).get(term, {}).values()):
+            return "unmeasured", set(), (
+                f"not measured: {what} is computed over more than one population, and the "
+                f"{label} carries no contributor to {term}. A ratio over nobody is not a "
+                f"zero that was measured.")
     short = {key[0] for key, ids in live if len(ids) < floor}
     if not short:
         return "ok", set(), None
@@ -337,6 +345,85 @@ def _people(count: Any, single_lesson: bool) -> dict[str, Any]:
     number = count if isinstance(count, int) else None
     return {"n_learners": number if single_lesson else None,
             "n_learner_lesson_pairs": number}
+
+
+def _finite(value: Any) -> float | None:
+    """`value` as a finite float, or None when it is not one.
+
+    `bool` is excluded deliberately: `True` is an `int` in Python, so an unguarded numeric
+    check reads a `true` in a numeric field as the measurement `1.0`. A string is excluded
+    for the same reason `float("nan")` must not be trusted: it succeeds.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if math.isfinite(number) else None
+
+
+def _measured(read: Mapping[str, Any], numeric: tuple[str, ...],
+              other: tuple[str, ...] = ()) -> tuple[dict[str, Any] | None, str | None]:
+    """The reader's own values, or the reason the family cannot publish any of them.
+
+    A number that is present but not finite has measured nothing an operator can read, and
+    the two twins do not even agree about it: pydantic serialises it to `null`, which cannot
+    be told from a family that ran and found nothing, while `"%.4g"` puts the literal `nan`
+    on the page. `None` is left alone — a shape that already says a value is absent is not
+    a malformed one. The FIELD is named, never the value (amendment 4).
+    """
+    payload: dict[str, Any] = {}
+    for key in numeric:
+        value = read.get(key)
+        if value is not None and _finite(value) is None:
+            return None, f"unreadable: {key} is not a finite number"
+        payload[key] = value
+    for key in other:
+        payload[key] = read.get(key)
+    return payload, None
+
+
+def _read(call: Callable[[], Any], what: str) -> tuple[Any, str | None]:
+    """Run one reader over telemetry that may hold anything.
+
+    The preflight establishes that every line parses and is an object. It does not
+    establish that a field holds the type its reader will pass to `int()`, and neither
+    reader validates before it aggregates — so one wrong-typed field is an unreadable
+    source, not a 500 for a page whose whole contract is to fail soft.
+    """
+    try:
+        return call(), None
+    except Exception as exc:
+        LOGGER.warning("observatory sessions: %s raised (%s: %s)", what, type(exc).__name__, exc)
+        return None, f"unreadable: {what} raised {type(exc).__name__}"
+
+
+def _withheld(kind: str, floor: int, below: int, unseen: int, unreadable: int) -> str | None:
+    """Why a family published fewer keys than its reader returned.
+
+    Three different reasons, never merged into one count an operator would read as the
+    floor alone: a cohort under the floor, a key the preflight never saw, and a key whose
+    number came back unusable.
+    """
+    parts = []
+    if below:
+        parts.append(f"{below} {kind}(s) withheld: fewer than {floor} distinct contributing "
+                     f"learners")
+    if unseen:
+        parts.append(f"{unseen} {kind}(s) withheld: first seen when the reader ran, after "
+                     f"the cohort was checked, so no floor was applied to them")
+    if unreadable:
+        parts.append(f"{unreadable} {kind}(s) withheld: no finite completion_rate")
+    return "; ".join(parts) or None
+
+
+def _seen_keys(scan: _Scan, family: str) -> set[str]:
+    """The display keys the preflight actually established a cohort for.
+
+    The floor is decided on one read of a source and the numbers come from another: the
+    collector appends to today's partition while the page is being served. A key that
+    first appears in the reader's read is in no below-floor set, so publishing it publishes
+    a count no floor was ever applied to.
+    """
+    return {key[0] for key, _ids in _live_terms(scan, family)}
 
 
 # --------------------------------------------------------------------------------------
@@ -482,19 +569,33 @@ def _collector_progress(cfg: ObservatoryConfig, root: Path, course: str, scan: _
                                          "per-scene progress", per_scene=True)
     if state == "unmeasured":
         return _family(state, reason)
-    scenes_read = metrics.compute_progress(root, course).get("scenes") or {}
-    scenes = {}
+    read, unreadable = _read(lambda: metrics.compute_progress(root, course),
+                             "the per-scene progress reader")
+    if unreadable is not None:
+        return _family("unreadable", unreadable)
+    scenes_read = read.get("scenes") or {}
+    seen = _seen_keys(scan, "progress")
+    scenes, unseen, unreadable_scenes = {}, [], []
     for scene_id, row in scenes_read.items():
         if scene_id in short:
             continue
+        if scene_id not in seen:
+            unseen.append(scene_id)
+            continue
         row = row if isinstance(row, Mapping) else {}
-        scenes[scene_id] = {"completion_rate": row.get("completion_rate"),
+        rate = row.get("completion_rate")
+        if rate is not None and _finite(rate) is None:
+            unreadable_scenes.append(scene_id)
+            continue
+        scenes[scene_id] = {"completion_rate": rate,
                             **_people(row.get("n_learners"), single)}
     if not scenes:
         return _family("suppressed", reason)
-    withheld = (f"{len(short)} scene(s) withheld: fewer than {cfg.min_learners} distinct "
-                f"contributing learners" if short else None)
-    return _family("ok", withheld, {"scenes": scenes, "n_withheld_scenes": len(short)})
+    withheld = _withheld("scene", cfg.min_learners, len(short), len(unseen),
+                         len(unreadable_scenes))
+    return _family("ok", withheld,
+                   {"scenes": scenes,
+                    "n_withheld_scenes": len(short) + len(unseen) + len(unreadable_scenes)})
 
 
 def _collector_completion(cfg: ObservatoryConfig, root: Path, course: str, scan: _Scan) -> dict:
@@ -505,30 +606,42 @@ def _collector_completion(cfg: ObservatoryConfig, root: Path, course: str, scan:
                                          COLLECTOR_LABEL, "lesson completions")
     if state == "unmeasured":
         return _family(state, reason)
-    read = metrics.compute_course_completion(root, course)
+    read, unreadable = _read(lambda: metrics.compute_course_completion(root, course),
+                             "the lesson completion reader")
+    if unreadable is not None:
+        return _family("unreadable", unreadable)
+    seen = _seen_keys(scan, "course_completion")
+    lessons_read = read.get("lessons") or {}
+    unseen = [lesson_id for lesson_id in lessons_read if lesson_id not in seen]
     lessons = {lesson_id: {"n_completed": (row or {}).get("n_completed")}
-               for lesson_id, row in (read.get("lessons") or {}).items()
-               if lesson_id not in short}
+               for lesson_id, row in lessons_read.items()
+               if lesson_id not in short and lesson_id in seen}
     if not lessons:
         return _family("suppressed", reason)
-    withheld = (f"{len(short)} lesson(s) withheld: fewer than {cfg.min_learners} distinct "
-                f"contributing learners" if short else None)
+    incomplete = bool(short or unseen)
+    withheld = _withheld("lesson", cfg.min_learners, len(short), len(unseen), 0)
     return _family("ok", withheld,
-                   {"lessons": lessons, "n_withheld_lessons": len(short),
-                    "total_completions": None if short else read.get("total_completions")})
+                   {"lessons": lessons, "n_withheld_lessons": len(short) + len(unseen),
+                    "total_completions": None if incomplete else read.get("total_completions")})
 
 
 def _collector_autonomy(cfg: ObservatoryConfig, root: Path, course: str, scan: _Scan) -> dict:
     """One ratio over the whole course, so it is all-or-nothing: both of its populations —
     the AI-critique submissions and the hint adaptations — need a cohort."""
     state, _short, reason = _family_state(scan, "autonomy", cfg.min_learners, COLLECTOR_LABEL,
-                                         "AI-critique submissions and hint adaptations")
+                                         "AI-critique submissions and hint adaptations",
+                                         requires=("n_critique", "n_hints"))
     if state != "ok":
         return _family(state, reason)
-    read = metrics.compute_autonomy(root, course)
-    return _family("ok", None, {key: read.get(key) for key in
-                                ("autonomy_ratio", "critique_completion_rate",
-                                 "n_critique", "n_hints")})
+    read, unreadable = _read(lambda: metrics.compute_autonomy(root, course),
+                             "the autonomy reader")
+    if unreadable is not None:
+        return _family("unreadable", unreadable)
+    payload, unreadable = _measured(read, ("autonomy_ratio", "critique_completion_rate",
+                                           "n_critique", "n_hints"))
+    if payload is None:
+        return _family("unreadable", unreadable)
+    return _family("ok", None, payload)
 
 
 def _collector_trust(cfg: ObservatoryConfig, root: Path, course: str, scan: _Scan) -> dict:
@@ -537,10 +650,15 @@ def _collector_trust(cfg: ObservatoryConfig, root: Path, course: str, scan: _Sca
                                           "grounded audits", per_scene=True)
     if state != "ok":
         return _family(state, reason)
-    read = metrics.compute_trust_calibration(root, course)
-    return _family("ok", None, {key: read.get(key) for key in
-                                ("trust_calibration", "band", "n_audits", "over_trust",
-                                 "over_distrust")})
+    read, unreadable = _read(lambda: metrics.compute_trust_calibration(root, course),
+                             "the trust calibration reader")
+    if unreadable is not None:
+        return _family("unreadable", unreadable)
+    payload, unreadable = _measured(
+        read, ("trust_calibration", "n_audits", "over_trust", "over_distrust"), ("band",))
+    if payload is None:
+        return _family("unreadable", unreadable)
+    return _family("ok", None, payload)
 
 
 # --------------------------------------------------------------------------------------
@@ -576,7 +694,10 @@ def sessions_column(cfg: ObservatoryConfig) -> dict:
     if state != "ok":
         return _blank(base, state, reason or "")
 
-    report = build_report(root, min_learners=cfg.min_learners)
+    report, unreadable = _read(lambda: build_report(root, min_learners=cfg.min_learners),
+                               "the class report")
+    if unreadable is not None:
+        return _blank(base, "unreadable", unreadable)
     if report.get("status") != "ok":
         # Unreachable while the preflight holds (every lesson is over the floor, so the
         # union is too), and not passed through if it ever is: that shape returns the exact
@@ -609,7 +730,10 @@ def _sessions_completion(cfg: ObservatoryConfig, report: Mapping[str, Any], scan
                                           "lesson starts and completions")
     if state != "ok":
         return _family(state, reason)
-    return _family("ok", None, {"completion_rate": report.get("completion_rate")})
+    payload, unreadable = _measured(report, ("completion_rate",))
+    if payload is None:
+        return _family("unreadable", unreadable)
+    return _family("ok", None, payload)
 
 
 def _sessions_autonomy(cfg: ObservatoryConfig, report: Mapping[str, Any], scan: _Scan) -> dict:
@@ -617,7 +741,10 @@ def _sessions_autonomy(cfg: ObservatoryConfig, report: Mapping[str, Any], scan: 
                                           "lesson completions carrying an autonomy_ratio")
     if state != "ok":
         return _family(state, reason)
-    return _family("ok", None, {"mean_autonomy": report.get("mean_autonomy")})
+    payload, unreadable = _measured(report, ("mean_autonomy",))
+    if payload is None:
+        return _family("unreadable", unreadable)
+    return _family("ok", None, payload)
 
 
 def _sessions_trust(cfg: ObservatoryConfig, report: Mapping[str, Any], scan: _Scan) -> dict:
@@ -628,7 +755,10 @@ def _sessions_trust(cfg: ObservatoryConfig, report: Mapping[str, Any], scan: _Sc
         return _family(state, reason)
     section = report.get("trust_calibration")
     section = section if isinstance(section, Mapping) else {}
-    return _family("ok", None, {key: section.get(key)
+    payload, unreadable = _measured(section, ("n_scenes", "gap"), ("measured", "band"))
+    if payload is None:
+        return _family("unreadable", unreadable)
+    return _family("ok", None, {key: payload[key]
                                 for key in ("measured", "n_scenes", "gap", "band")})
 
 
@@ -677,6 +807,9 @@ def _trust_pair(collector: dict, sessions: dict) -> tuple[dict, dict] | None:
     if left["status"] != "ok" or right["status"] != "ok":
         return None
     if left.get("trust_calibration") is None or right.get("measured") is not True:
+        return None
+    if _finite(left.get("trust_calibration")) is None or _finite(right.get("gap")) is None:
+        # `abs(nan - nan) > tolerance` is False, which renders as agreement.
         return None
     return left, right
 
