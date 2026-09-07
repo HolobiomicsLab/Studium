@@ -311,9 +311,9 @@ def _family_state(scan: _Scan, family: str, floor: int, label: str, what: str,
     for term in requires:
         if not any(ids for ids in scan.terms.get(family, {}).get(term, {}).values()):
             return "unmeasured", set(), (
-                f"not measured: {what} is computed over more than one population, and the "
-                f"{label} carries no contributor to {term}. A ratio over nobody is not a "
-                f"zero that was measured.")
+                f"not measured: {what} divides by the {term} population, and the {label} "
+                f"carries no contributor to it. A ratio over nobody is not a zero that was "
+                f"measured.")
     short = {key[0] for key, ids in live if len(ids) < floor}
     if not short:
         return "ok", set(), None
@@ -413,6 +413,25 @@ def _withheld(kind: str, floor: int, below: int, unseen: int, unreadable: int) -
     if unreadable:
         parts.append(f"{unreadable} {kind}(s) withheld: no finite completion_rate")
     return "; ".join(parts) or None
+
+
+def _nothing_left(kind: str, short: set[str], floor_reason: str | None,
+                  withheld: str | None) -> dict:
+    """Nothing survived the filters, and the operator is owed the reason it did not.
+
+    `suppressed` is the k-anonymity word everywhere else on this surface, so it is used
+    only when a population really was under the floor — `short` is what says so, and
+    `floor_reason` is the sentence `_family_state` already wrote for it. A key the
+    preflight never scanned, or one whose value is not a finite number, is withheld for a
+    reason of its own and must not borrow the floor's; and a reader that returns no key at
+    all where the cohort check saw the events for one is a disagreement between two reads,
+    which is neither.
+    """
+    if short:
+        return _family("suppressed", floor_reason or "")
+    return _family("withheld", withheld or (
+        f"nothing to show: the {kind} reader returned no {kind} where the cohort check had "
+        f"seen the events for one, so the two reads disagree about what exists"))
 
 
 def _seen_keys(scan: _Scan, family: str) -> set[str]:
@@ -589,10 +608,10 @@ def _collector_progress(cfg: ObservatoryConfig, root: Path, course: str, scan: _
             continue
         scenes[scene_id] = {"completion_rate": rate,
                             **_people(row.get("n_learners"), single)}
-    if not scenes:
-        return _family("suppressed", reason)
     withheld = _withheld("scene", cfg.min_learners, len(short), len(unseen),
                          len(unreadable_scenes))
+    if not scenes:
+        return _nothing_left("scene", short, reason, withheld)
     return _family("ok", withheld,
                    {"scenes": scenes,
                     "n_withheld_scenes": len(short) + len(unseen) + len(unreadable_scenes)})
@@ -616,21 +635,28 @@ def _collector_completion(cfg: ObservatoryConfig, root: Path, course: str, scan:
     lessons = {lesson_id: {"n_completed": (row or {}).get("n_completed")}
                for lesson_id, row in lessons_read.items()
                if lesson_id not in short and lesson_id in seen}
-    if not lessons:
-        return _family("suppressed", reason)
     incomplete = bool(short or unseen)
     withheld = _withheld("lesson", cfg.min_learners, len(short), len(unseen), 0)
+    if not lessons:
+        return _nothing_left("lesson", short, reason, withheld)
     return _family("ok", withheld,
                    {"lessons": lessons, "n_withheld_lessons": len(short) + len(unseen),
                     "total_completions": None if incomplete else read.get("total_completions")})
 
 
 def _collector_autonomy(cfg: ObservatoryConfig, root: Path, course: str, scan: _Scan) -> dict:
-    """One ratio over the whole course, so it is all-or-nothing: both of its populations —
-    the AI-critique submissions and the hint adaptations — need a cohort."""
+    """One ratio over the whole course, so it is all-or-nothing.
+
+    `n_critique` is required and `n_hints` is not, because they sit in different places in
+    the two formulas: `critique_completion_rate` divides by `n_critique` alone, so with no
+    critiques it is a rate over nobody. `autonomy_ratio` divides by `n_critique + n_hints`,
+    which one contributor to either already makes non-empty — and requiring hints would
+    delete a real measurement from the course that needed none, under a sentence claiming
+    the ratio was over nobody. Whichever populations are live still face the floor.
+    """
     state, _short, reason = _family_state(scan, "autonomy", cfg.min_learners, COLLECTOR_LABEL,
                                          "AI-critique submissions and hint adaptations",
-                                         requires=("n_critique", "n_hints"))
+                                         requires=("n_critique",))
     if state != "ok":
         return _family(state, reason)
     read, unreadable = _read(lambda: metrics.compute_autonomy(root, course),
@@ -775,29 +801,42 @@ _PAIRED_FAMILIES = (("trust", "trust"), ("course_completion", "completion"),
 _STATE_WORDS = {
     "unmeasured": "not measured",
     "suppressed": "withheld by the k-anonymity floor",
+    "withheld": "withheld for the reason the family carries",
     "absent": "absent",
     "unreadable": "unreadable",
     "empty": "empty",
 }
 
+#: The two states that mean "this family exists and its number is not being shown". They
+#: differ in the cause, never in what a reader may infer from them.
+_WITHHOLDING = ("suppressed", "withheld")
+
 
 def _pair_families(collector: dict, sessions: dict) -> None:
-    """Suppress a family whose pair on the other source is suppressed. In place, on two
+    """Suppress a family whose pair on the other source withholds. In place, on two
     columns that are both `ok` — there is nothing to protect against when the other source
-    is absent, unreadable or suppressed as a whole."""
+    is absent, unreadable or suppressed as a whole.
+
+    Both withholding states count. The pair is suppressed because publishing one side of a
+    family the other side will not show narrows what was withheld, and that is true however
+    the other side came to withhold it — so the reason says that, rather than naming a floor
+    that may not have been the cause.
+    """
     if collector.get("status") != "ok" or sessions.get("status") != "ok":
         return
     for collector_key, sessions_key in _PAIRED_FAMILIES:
         left = collector[collector_key]
         right = sessions["report"][sessions_key]
-        if left["status"] == "suppressed" and right["status"] != "suppressed":
+        if left["status"] in _WITHHOLDING and right["status"] not in _WITHHOLDING:
             sessions["report"][sessions_key] = _family(
                 "suppressed", f"suppressed with its pair on the {COLLECTOR_LABEL}, which "
-                              f"withheld the same family at the k-anonymity floor")
-        elif right["status"] == "suppressed" and left["status"] != "suppressed":
+                              f"withheld the same family; showing this side alone would "
+                              f"narrow what that side withheld")
+        elif right["status"] in _WITHHOLDING and left["status"] not in _WITHHOLDING:
             collector[collector_key] = _family(
                 "suppressed", f"suppressed with its pair on the {SESSIONS_LABEL}, which "
-                              f"withheld the same family at the k-anonymity floor")
+                              f"withheld the same family; showing this side alone would "
+                              f"narrow what that side withheld")
 
 
 def _trust_pair(collector: dict, sessions: dict) -> tuple[dict, dict] | None:

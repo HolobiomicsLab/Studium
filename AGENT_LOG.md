@@ -4,6 +4,34 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-07 — OBSERVATORY TRANCHE 2, RETOUR DE REVUE : une réparation qui retirait une mesure vraie
+
+Seconde revue indépendante, portée sur `cef794c..e6c8e8d` — la réparation elle-même. Les quatre
+défauts bloquants sont confirmés fermés, et les onze régressions sont honnêtes (11 échecs sur 11
+contre le module d'avant). Deux défauts introduits par la réparation, corrigés ici, rouges d'abord :
+
+- **`requires=("n_critique", "n_hints")` supprimait une autonomie réellement mesurée.**
+  `critique_completion_rate` divise par `n_critique` seul — sans critique, c'est bien un taux sur
+  personne, et c'est le défaut d'origine. Mais `autonomy_ratio` divise par `n_critique + n_hints`,
+  qu'un seul contributeur de l'un ou l'autre suffit à remplir : un cours où six apprenants
+  soumettent une critique et où personne n'a eu besoin d'un indice vaut 6/6 = 1.0, mesuré sur tout
+  le monde. La garde le rendait `unmeasured` sous une phrase affirmant que le ratio portait sur
+  personne — donc fausse. Une leçon bien étayée est précisément le cas où les indices sont rares.
+  `requires=("n_critique",)` ; le plancher continue de s'appliquer à toute population vivante.
+
+- **`suppressed — None` sur la page.** Quand aucune clé ne survivait aux filtres alors qu'aucune
+  population n'était sous le plancher, la famille repartait avec la raison `None` : un nombre
+  retenu sans motif, sur une surface dont tout le contrat est que chaque état non-`ok` dise
+  pourquoi. Et le mot `suppressed` signifie ici le plancher de k-anonymat, qui n'était pas la
+  cause. `_nothing_left` sépare les deux : `suppressed` seulement si `short` est non vide, sinon
+  l'état `withheld` avec la raison qui nomme la vraie cause (clé jamais scannée, valeur non
+  finie), et une phrase de repli quand les deux lectures ne s'accordent pas sur ce qui existe.
+  `_pair_families` cesse au passage d'affirmer le plancher pour une paire retenue autrement.
+
+Suite du plan **613 passés, 2 sautés** ; `services/observatory` **179 passés** (610/2 et 176 avant).
+
+---
+
 ## 2026-09-07 — OBSERVATORY TRANCHE 2, DURCISSEMENT DES SESSIONS : quatre façons de publier un nombre que personne n'a mesuré
 
 Revue indépendante de l'intégration (`ca1ef46` + le report de la revue, `5267cdb`) : la surface
