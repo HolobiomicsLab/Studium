@@ -82,6 +82,63 @@ suivis à part côté hub.
 
 ---
 
+## 2026-09-07 — OBSERVATORY TRANCHE 2, DURCISSEMENT DES TÂCHES 2–3 : la surface Review contre des artefacts qu'aucun émetteur n'écrit
+
+Correction bornée des trois défauts matériels relevés par une revue indépendante sur
+`f0a9d77..81d3712`, branche `codex/observatory-s2-review-hardening`. Aucun périmètre produit
+nouveau : `review/<bundle_id>/` est le seul arbre d'un cours dont les noms et le contenu viennent
+de qui a lancé le juge, et les trois défauts sont trois façons de mentir plutôt que d'échouer en
+douceur. Un fichier de test de régression écrit rouge d'abord (`8a988cb`), puis le garde
+`protect-tests` armé pendant la correction.
+
+- **Les deux moitiés d'une revue sont lues indépendamment** (`astra_read.load_course`) : le lecteur
+  lisait `astra.yaml` en premier et sautait le bundle quand il manquait ou était illisible, ce qui
+  faisait disparaître un `verdicts.json` parfaitement lisible — exactement le défaut
+  qu'INT-STUDIUM-020 avait corrigé pour le fichier plat hérité, réintroduit par bundle. Les deux
+  moitiés sont désormais lues chacune pour elle-même ; le `ReviewDoc` existe dès que l'une est
+  lisible, le marqueur ASTRA (`missing` / `unreadable: <Type>`) reste affiché, et un répertoire
+  dont aucune moitié n'est lisible n'est toujours pas une revue. `CourseDocs.review` prend le
+  premier document ASTRA LISIBLE (le fichier hérité gardant sa priorité), donc `None` veut dire
+  « aucune revue affichable » et jamais « la première était cassée » — `tools/astra_render` est
+  inchangé.
+- **Une valeur malformée n'est pas une mesure** (`observatory_provenance`) : `bool("false")` vaut
+  `True`, donc une calibration en échec s'affichait comme réussie ; `float("nan")` est un float,
+  et `JSONResponse` sérialise avec `allow_nan=False`, donc un seul NaN dans un fichier de revue
+  répondait 500 sur le jumeau JSON au lieu d'un marqueur (N3) ; un nombre de paires absent était
+  rendu `0`, c'est-à-dire une calibration qui aurait tourné. Kappa et confiance sont maintenant
+  validés finis et dans leur intervalle (`bool` n'est pas un nombre : `True` est un `int` en
+  Python), `separates` est un booléen ou « non renseigné », les blocs `scenes` / `skipped` /
+  `worst_case` / `calibration` du mauvais type sont NOMMÉS au lieu de se vider en silence, et un
+  mot qui n'est pas un des trois verdicts du juge n'est ni classé ni affiché comme un verdict. Le
+  demi-état que la page ne savait pas montrer — le fichier a parsé, une valeur dedans n'en est pas
+  une — devient la liste `problems` (`{field, reason}`) rendue par le macro `markers` existant :
+  le champ et le TYPE, jamais la valeur, jamais la ligne source, jamais un message d'exception.
+  Les lignes saines et les décisions ASTRA du bundle survivent à côté.
+- **Un artefact de revue ne quitte pas son cours** : `is_file()` et `is_dir()` suivent les liens,
+  donc un lien déposé sous `review/` faisait lire — et rendre — un document de n'importe où sur la
+  machine. La règle est celle que `observatory_discovery._within` applique déjà à toutes les
+  racines balayées, portée ici sur la racine `review/`, les répertoires par bundle, `astra.yaml`,
+  `verdicts.json` et le fichier hérité. Cible externe : marqueur `unreadable: leaves the course
+  directory`, cible jamais divulguée, chemin dans le journal seulement. `iterdir()` illisible et
+  résolution de lien impossible échouent en douceur en `strict=False` ; en `strict=True` le lecteur
+  lève, parce que strict a toujours voulu dire « ne pas deviner ».
+- **Conflit d'identité de bundle** : quand l'id valide de `verdicts.json` ne se slugifie pas
+  (`scene_judge.bundle_slug`, importé) vers le répertoire qui le stocke, l'un des deux est faux et
+  le lecteur ne peut pas dire lequel. Le répertoire — le seul fait observé et non lu — est affiché,
+  le conflit est nommé, l'id revendiqué n'est jamais rendu. Le chemin heureux `Unit 1/Intro` sous
+  son slug et les replis hérités sont inchangés.
+
+Tests : nouveau `services/observatory/tests/test_observatory_review_robustness.py`, **24 verts**
+(ASTRA manquant/malformé avec verdicts valides, cinq échappements par lien symbolique dont le
+lecteur strict, NaN/Infinity/−Infinity, kappa hors intervalle, `separates` chaîne et absent, compte
+de paires non entier, confiance NaN et booléenne, conteneurs imbriqués du mauvais type, verdict
+inconnu en scène et en `worst_case`, conflit d'identité, id slugifié). `services/observatory`
+**118 verts** (94 avant), `services/planner` **233 verts, 2 sautés**, `tools/test_astra_render.py`
+**4 verts** ; avec `eval/tests/test_scene_judge.py`, `tools/test_class_report.py` et
+`services/analytics-collector` : **498 passés, 2 sautés**. Aucun test existant modifié ni affaibli.
+
+---
+
 ## 2026-09-06 — OBSERVATORY TRANCHE 2, TÂCHES 1–3 : racine de sessions, lecteur de revue, onglet Review
 
 Trois unités TDD du plan `studium_dev/docs/superpowers/plans/2026-09-06-studium-observatory-s2.md`,

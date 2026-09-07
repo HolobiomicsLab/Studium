@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -129,6 +130,11 @@ def _problem(bundle: dict[str, Any], field: str) -> str | None:
 def _shown(reason: str) -> str:
     """A reason as `base.html`'s `markers` macro renders it."""
     return reason.removeprefix("unreadable: ")
+
+
+#: How Python renders a non-finite float, as a WORD: the page's own footer link says
+#: "back to prove-nan-ce", so a bare substring search can never pass here.
+NON_FINITE_WORD = re.compile(r"\b(nan|inf|infinity)\b", re.IGNORECASE)
 
 
 # ------------------------------------------------- the two halves of a review are read
@@ -313,7 +319,7 @@ def test_a_non_finite_kappa_is_never_served_as_a_number(client, course_root, lab
     assert bundle["calibration"]["pairs"] == 3            # the readable field survives
     assert _problem(bundle, "calibration.kappa")
     assert "kappa not computed" in page
-    assert "nan" not in page.lower() and "inf" not in page.lower()
+    assert NON_FINITE_WORD.search(page) is None
 
 
 def test_a_kappa_outside_its_range_is_not_a_measurement(client, course_root) -> None:
@@ -384,7 +390,7 @@ def test_a_non_finite_confidence_is_never_served_as_a_number(client, course_root
     bundle = _bundle(api, "b1")
     assert bundle["scenes"][0]["verdicts"][0]["confidence"] is None
     assert _problem(bundle, "scenes.s1[0].confidence")
-    assert "nan" not in page.lower()
+    assert NON_FINITE_WORD.search(page) is None
 
 
 def test_a_boolean_confidence_is_not_a_confidence(client, course_root) -> None:
@@ -483,7 +489,8 @@ def test_a_verdicts_bundle_id_that_this_directory_does_not_store_is_a_conflict(
     api, page = _pages(client, "course-identity-conflict")
     bundle = _bundle(api, "b1")
     assert bundle["dir_slug"] == "b1"
-    assert _problem(bundle, "verdicts.json bundle_id")
+    assert _problem(bundle, "bundle_id")
+    assert "(unreadable review/b1/verdicts.json bundle_id: " in page
     assert "some-other-bundle" not in page
     assert [s["scene_id"] for s in bundle["scenes"]] == ["s1"]   # the verdicts still show
 
