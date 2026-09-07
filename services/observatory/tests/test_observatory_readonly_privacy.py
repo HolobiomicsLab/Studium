@@ -11,23 +11,37 @@ import os
 from pathlib import Path
 
 import pytest
-from conftest import FREE_TEXT, PSEUDONYMS, RUN_ID
+from conftest import (
+    FREE_TEXT,
+    PSEUDONYMS,
+    RUN_ID,
+    SMALL_COHORT_PSEUDONYMS,
+    STORE_COURSE,
+    STORE_PSEUDONYMS,
+)
 from provenance.astra_validate import AstraValidation, find_astra_cli
 
 import observatory_validation
 from observatory_config import ObservatoryConfig
 from observatory_discovery import discover
+from observatory_sessions import store_courses
 
 
 def _urls(cfg: ObservatoryConfig) -> list[str]:
     inventory = discover(cfg)
-    urls = ["/", "/api/index", "/eval/validity", "/api/eval/validity"]
+    urls = ["/", "/api/index", "/eval/validity", "/api/eval/validity",
+            # Slice 2. The session runs column has no course, so its index is crawled once.
+            "/sessions", "/api/sessions"]
     for course_id in inventory.courses:
         urls += [f"/courses/{course_id}", f"/api/courses/{course_id}",
                  f"/courses/{course_id}/provenance.myst.md",
-                 f"/courses/{course_id}/validation", f"/api/courses/{course_id}/validation"]
+                 f"/courses/{course_id}/validation", f"/api/courses/{course_id}/validation",
+                 f"/courses/{course_id}/review", f"/api/courses/{course_id}/review"]
     for run_id in inventory.runs:
         urls += [f"/eval/runs/{run_id}", f"/api/eval/runs/{run_id}"]
+    # Resolved through the store's own listing, the same map the routes use.
+    for course in store_courses(cfg):
+        urls += [f"/sessions/{course}", f"/api/sessions/{course}"]
     return urls
 
 
@@ -80,6 +94,12 @@ def test_every_route_is_get_only(client) -> None:
 def test_crawl_changes_no_file(client, cfg: ObservatoryConfig, tmp_path: Path, validator) -> None:
     before = _snapshot(tmp_path)
     assert before, "the fixtures wrote nothing to crawl"
+    # Both slice-2 roots are under `tmp_path`, so this snapshot already covers the collector
+    # store and every telemetry stream. Asserted rather than assumed: a fixture that moved
+    # either root elsewhere would silence the proof instead of failing.
+    for root in (cfg.analytics_data_dir, cfg.sessions_root):
+        prefix = str(root.relative_to(tmp_path))
+        assert any(path.startswith(prefix) for path in before), prefix
 
     for url in _urls(cfg):
         assert client.get(url).status_code == 200, url
@@ -90,8 +110,41 @@ def test_crawl_changes_no_file(client, cfg: ObservatoryConfig, tmp_path: Path, v
 def test_no_pseudonym_or_free_text_in_any_response(client, cfg: ObservatoryConfig, validator) -> None:
     for url in _urls(cfg):
         text = client.get(url).text
-        for secret in (*PSEUDONYMS, *FREE_TEXT):
+        for secret in (*PSEUDONYMS, *FREE_TEXT, *STORE_PSEUDONYMS):
             assert secret not in text, f"{secret} leaked through {url}"
+
+
+def test_a_store_pseudonym_never_reaches_the_sessions_page(client, cfg: ObservatoryConfig) -> None:
+    """The store's pseudonyms are on every event BOTH columns read, and in no response.
+
+    The crawl above proves it over every route; this proves it is not vacuous — the same
+    request that hides them counts them, so the readers really did consume those events.
+    """
+    payload = client.get(f"/api/sessions/{STORE_COURSE}").json()
+    assert payload["collector"]["n_learners"] == len(STORE_PSEUDONYMS)
+    assert payload["sessions"]["n_learners"] == len(STORE_PSEUDONYMS)
+
+    for url in (f"/sessions/{STORE_COURSE}", f"/api/sessions/{STORE_COURSE}", "/sessions",
+                "/api/sessions"):
+        text = client.get(url).text
+        for pseudonym in STORE_PSEUDONYMS:
+            assert pseudonym not in text, f"{pseudonym} leaked through {url}"
+
+
+def test_a_below_floor_cohort_puts_no_number_on_the_page(client_small_cohort) -> None:
+    """Below the floor the page carries the reason and not the numbers.
+
+    The scene ids, the rates and the trust band are what the two readers would have
+    returned for this store; the suppression is not a disclaimer printed above them.
+    """
+    response = client_small_cohort.get(f"/sessions/{STORE_COURSE}")
+    assert response.status_code == 200
+    text = response.text
+    assert "k-anonymity floor" in text
+    assert "suppressed" in text
+    for forbidden in ("s1-quiz", "s2-audit", "bien", "0.5", "0.9", "0.083",
+                      *SMALL_COHORT_PSEUDONYMS):
+        assert forbidden not in text, forbidden
 
 
 def test_unreadable_audit_renders_marker(client, eval_root: Path) -> None:

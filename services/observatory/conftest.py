@@ -277,3 +277,16 @@ def client(cfg: ObservatoryConfig):
     from observatory_app import create_app
 
     return TestClient(create_app(cfg))
+
+
+@pytest.fixture
+def client_small_cohort(cfg: ObservatoryConfig, small_cohort_store: Path):
+    """The same application over a collector store whose only lesson is below the floor."""
+    import dataclasses
+
+    from fastapi.testclient import TestClient
+
+    from observatory_app import create_app
+
+    return TestClient(create_app(dataclasses.replace(
+        cfg, analytics_data_dir=small_cohort_store)))
