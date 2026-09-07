@@ -272,3 +272,75 @@ def test_a_non_finite_trust_gap_is_never_reported_as_agreement():
 
     assert rows["trust_gap"]["comparable"] is False, rows["trust_gap"]
     assert rows["trust_gap"]["diverges"] is None
+
+
+# --------------------------------------------------------------------------------------
+# a term with no contributors is not the same as a denominator with none
+# --------------------------------------------------------------------------------------
+
+def test_a_course_where_nobody_needed_a_hint_still_publishes_its_autonomy(cfg, tmp_path):
+    """`autonomy_ratio` is `n_critique / (n_critique + n_hints)`; with no hints it is 6/6.
+
+    The guard above this one refuses a rate over an empty population, and `n_critique` is
+    that population for both of this family's numbers. `n_hints` is not: it is the other
+    half of a denominator that already has six contributors, and a lesson scaffolded well
+    enough that nobody needed a hint is exactly where a course lands here. Requiring it
+    deletes a measurement taken over every learner in the course, under a sentence saying
+    the ratio was over nobody.
+    """
+    root = _store(tmp_path / "store")
+    _corrupt(_jsonl(root)[0], "adaptation_applied", signal="prerequisite")
+
+    family = collector_column(_cfg(cfg, store=root), STORE_COURSE)["autonomy"]
+
+    assert family["status"] == "ok", family
+    assert family["autonomy_ratio"] == 1.0, family
+    assert family["n_hints"] == 0, family
+
+
+# --------------------------------------------------------------------------------------
+# a family that withholds everything still says why, and does not blame the floor
+# --------------------------------------------------------------------------------------
+
+def _only_unseen(monkeypatch, name: str, key: str, row: dict) -> None:
+    """Make the reader return one key the preflight never scanned, and nothing else."""
+    real = getattr(metrics, name)
+    monkeypatch.setattr(metrics, name, lambda store_root, course, _r=real: {
+        **_r(store_root, course), key: {"s9-appended": row}})
+
+
+def test_a_family_that_withholds_every_key_still_names_the_reason(cfg, tmp_path, monkeypatch):
+    """Nothing survives, no population was under the floor, and the page must still say why.
+
+    Every non-`ok` state on this surface owes the operator a reason — that is the whole
+    contract of the column. A status with `reason: None` renders as `suppressed — None`:
+    a number withheld for nothing, and the k-anonymity word asserting a cause that did
+    not happen.
+    """
+    root = _store(tmp_path / "store")
+    _only_unseen(monkeypatch, "compute_progress", "scenes",
+                 {"completion_rate": 1.0, "n_learners": 6})
+
+    family = collector_column(_cfg(cfg, store=root), STORE_COURSE)["progress"]
+
+    assert family["status"] != "ok", family
+    assert family["reason"], "a family that shows no number owes the reason it shows none"
+    assert family["status"] != "suppressed", (
+        "`suppressed` reads as the k-anonymity floor, and no population was under it")
+    assert "s9-appended" not in json.dumps(family), family
+
+
+def test_a_withheld_family_never_renders_a_missing_reason(cfg, tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from observatory_app import create_app
+
+    root = _store(tmp_path / "store")
+    _only_unseen(monkeypatch, "compute_progress", "scenes",
+                 {"completion_rate": 1.0, "n_learners": 6})
+
+    page = TestClient(create_app(_cfg(cfg, store=root))).get(f"/sessions/{STORE_COURSE}")
+
+    assert page.status_code == 200
+    offenders = [line.strip() for line in page.text.splitlines() if "— None" in line]
+    assert not offenders, offenders
