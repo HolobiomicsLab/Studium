@@ -280,12 +280,11 @@ def _cohort_state(scan: _Scan, floor: int, label: str) -> tuple[str, str | None]
             f"stream's own file path is not a substitute for one.")
     if not scan.participants:
         return "empty", f"no telemetry event on the {label}"
-    short = [lesson for lesson, ids in scan.participants.items() if len(ids) < floor]
-    if short:
+    if any(len(ids) < floor for ids in scan.participants.values()):
         return "suppressed", (
-            f"k-anonymity floor: every lesson needs at least {floor} distinct learners, and "
-            f"{len(short)} of the {len(scan.participants)} lesson(s) on the {label} has fewer. "
-            f"Because a pseudonym is salted per lesson, a union across lessons is a count of "
+            f"k-anonymity floor: every lesson needs at least {floor} distinct learners, and at "
+            f"least one of the {len(scan.participants)} lesson(s) on the {label} has fewer. "
+            f"Because a pseudonym is salted per lesson, a union across lessons counts "
             f"learner-lesson pairs and cannot lift a lesson over the floor. Exact counts are "
             f"withheld.")
     return "ok", None
@@ -769,12 +768,15 @@ def sessions_detail(cfg: ObservatoryConfig, course: str | None) -> dict:
     # One floor over the pair: a source that may not be shown takes the other with it, so
     # the shown one cannot be differenced against the withheld one. A source that is
     # absent or unreadable withholds nothing, and leaves the other independently readable.
+    def with_the_other(label: str) -> str:
+        return (f"suppressed with the {label}, which has a population below the "
+                f"{cfg.min_learners}-learner floor: shown alone, this column would leave the "
+                f"withheld numbers as its difference")
+
     if collector["status"] == "suppressed" and sessions["status"] == "ok":
-        sessions = _blank(sessions, "suppressed",
-                          f"suppressed with the {COLLECTOR_LABEL}: {collector['reason']}")
+        sessions = _blank(sessions, "suppressed", with_the_other(COLLECTOR_LABEL))
     elif sessions["status"] == "suppressed" and collector["status"] == "ok":
-        collector = _blank(collector, "suppressed",
-                           f"suppressed with the {SESSIONS_LABEL}: {sessions['reason']}")
+        collector = _blank(collector, "suppressed", with_the_other(SESSIONS_LABEL))
     _pair_families(collector, sessions)
 
     comparison = _comparison(collector, sessions)

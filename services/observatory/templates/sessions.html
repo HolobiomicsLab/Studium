@@ -30,7 +30,8 @@
   {%- if column.n_learners is not none %}<b>{{ column.n_learners }}</b> learner(s)
   {%- else %}<b>{{ n(column.n_learner_lesson_pairs) }}</b> learner-lesson pair(s)
   {%- endif %}
-  {%- if column.n_streams is not none %} · {{ column.n_streams }} telemetry stream(s){% endif %}
+  {%- if column.n_streams is defined and column.n_streams is not none %} ·
+  {{ column.n_streams }} telemetry stream(s){% endif %}
   {%- if column.n_lessons is not none %} · {{ column.n_lessons }} lesson(s){% endif %}
 </p>
 {%- if column.n_learners is none %}
