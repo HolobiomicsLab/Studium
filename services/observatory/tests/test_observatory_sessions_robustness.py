@@ -45,6 +45,7 @@ from conftest import (
 )
 
 from observatory_sessions import (
+    _blank,
     collector_column,
     divergences,
     sessions_column,
@@ -376,3 +377,39 @@ def test_a_reader_that_returns_nothing_is_unreadable_not_a_crash():
 
     assert value is None
     assert reason, "a reader that produced no document is not a document"
+
+
+# --------------------------------------------------------------------------------------
+# a suppressed column says one thing about its scope, not two (INT-STUDIUM-026)
+# --------------------------------------------------------------------------------------
+
+def test_a_blanked_column_does_not_contradict_itself_about_its_scope(cfg, tmp_path):
+    """`_blank` kept `scope_note` and dropped `scope`, so the column said both.
+
+    The prose sentence names `lesson_id` and `bundle_version`; the structured field
+    carrying exactly the same two values was set to `None` beside it. A reader — or a
+    twin-asserting test — got `{"scope": null, "scope_note": "one artifact scope:
+    lesson_id=…, bundle_version=…"}`, which is not a privacy question in the first
+    instance but a contradiction: the JSON and the sentence disagree about whether the
+    scope is known.
+
+    INT-STUDIUM-026 resolves it by keeping all three. `lesson_id` and `bundle_version`
+    identify the ARTIFACT, not the cohort — they belong with `reader`, `store`, `root`
+    and `course`, which `_blank` already keeps — and under INT-STUDIUM-030's R1 an
+    operator who cannot see WHICH lesson was suppressed cannot act on the suppression.
+    What `_blank` removes is every measurement of the cohort, which is what its
+    docstring now says.
+    """
+    root = _store(tmp_path / "store")
+    column = collector_column(_cfg(cfg, store=root), STORE_COURSE)
+    assert column["status"] == "ok", column
+    assert column["scope"] is not None, "the fixture must produce one artifact scope"
+
+    blanked = _blank(column, "suppressed", "suppressed with the other column")
+
+    assert blanked["scope"] == column["scope"], "the scope is source identification"
+    assert blanked["n_scopes"] == column["n_scopes"]
+    assert blanked["scope_note"] == column["scope_note"]
+    # And the cohort measurements are still gone.
+    assert blanked["autonomy"]["status"] == "suppressed", blanked["autonomy"]
+    assert blanked["n_learners"] is None, blanked

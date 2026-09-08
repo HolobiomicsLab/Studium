@@ -489,17 +489,27 @@ def store_courses(cfg: ObservatoryConfig) -> tuple[str, ...]:
 
 
 def _blank(column: dict, status: str, reason: str) -> dict:
-    """The column, with every measurement removed.
+    """The column, with every measurement OF THE COHORT removed.
 
-    Applied to every state but `ok`. A suppressed column holds no number at all: not the
-    cohort size (which `build_report`'s own suppressed shape returns), not a rate, not a
-    scene. `status` and `reason` are what is left, and they name the floor and the source.
+    Applied to every state but `ok`. A suppressed column holds no number about the people
+    behind it: not the cohort size (which `build_report`'s own suppressed shape returns),
+    not a rate, not a scene.
+
+    What it keeps is source identification, and the artifact scope is part of that
+    (INT-STUDIUM-026). `lesson_id` and `bundle_version` describe the ARTIFACT, not the
+    cohort — they do not vary with who contributed — so they sit with `reader`, `store`,
+    `root` and `course`. Before this, `scope_note` was kept while `scope` and `n_scopes`
+    were nulled beside it, so a suppressed column carried a sentence naming a scope next
+    to a field saying there was none: the JSON twin and its own prose disagreed. And
+    under INT-STUDIUM-030's R1 an operator who cannot see WHICH lesson was suppressed
+    cannot act on the suppression.
     """
     blanked = dict(column)
     blanked["status"] = status
     blanked["reason"] = reason
     for key, value in column.items():
-        if key in ("status", "reason", "reader", "store", "root", "course", "scope_note"):
+        if key in ("status", "reason", "reader", "store", "root", "course",
+                   "scope", "n_scopes", "scope_note"):
             continue
         if isinstance(value, dict) and "status" in value:
             blanked[key] = _family(status, reason)

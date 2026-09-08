@@ -112,6 +112,23 @@ def _columns(detail: dict) -> dict:
             for side in ("collector", "sessions")}
 
 
+#: The artifact scope is source identification, not measurement: `n_scopes` counts
+#: `(lesson_id, bundle_version)` pairs in the source, which describe the ARTIFACT and do
+#: not vary with who contributed to it. A suppressed column keeps them (INT-STUDIUM-026),
+#: so the numeric guard names what it forbids instead of forbidding every number.
+#:
+#: This exemption is deliberately narrow. It applies to the NUMERIC check only — the
+#: pseudonym and identifier checks below still run over the whole column, `scope_note`
+#: included, because the point of those is to catch a value nobody expected to be there.
+_ARTIFACT_SCOPE_PATHS = ("n_scopes",)
+
+
+def _cohort_numbers(payload) -> list[str]:
+    """`_numbers`, minus the artifact-scope fields a suppressed column is allowed to keep."""
+    return [path for path in _numbers(payload)
+            if path.rsplit(".", 1)[-1] not in _ARTIFACT_SCOPE_PATHS]
+
+
 def _row(detail: dict, indicator: str) -> dict:
     rows = [r for r in detail["divergences"] if r["indicator"] == indicator]
     assert len(rows) == 1, f"expected exactly one {indicator} row, got {rows}"
@@ -237,8 +254,10 @@ def test_both_columns_are_suppressed_together_below_the_floor(cfg, small_cohort_
     for column in ("collector", "sessions"):
         reason = detail[column]["reason"]
         assert "5" in reason and "learner" in reason, reason
-    # No exact count, no rate, no scene: a floor, not a disclaimer.
-    assert _numbers(_columns(detail)) == []
+    # No exact count, no rate, no scene: a floor, not a disclaimer. The artifact scope is
+    # not one of those — it says which lesson was suppressed, which is what lets an
+    # operator act on the suppression (INT-STUDIUM-026).
+    assert _cohort_numbers(_columns(detail)) == []
     dumped = json.dumps(_columns(detail))
     for forbidden in ("s1-quiz", "s2-audit", *STORE_PSEUDONYMS):
         assert forbidden not in dumped, forbidden
