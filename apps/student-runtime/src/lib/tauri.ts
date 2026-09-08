@@ -17,8 +17,31 @@ export type BundleEntry = {
   n_scenes: number;
 };
 
+/**
+ * The bundle's `lesson.json`, parsed (INT-STUDIUM-034).
+ *
+ * `load_bundle` is `Result<String, String>` over `read_lesson_json`, which reads the entry out
+ * of the zip as text, so what crosses the IPC is a JSON *string* — exactly like
+ * `telemetry_outbox_drain`, whose consumer has always parsed each element
+ * (`hooks/useTelemetry.ts`). `invoke<unknown>` said otherwise and the one caller handed the
+ * result straight to a Zod object schema, so every bundle was "illisible" the moment a screen
+ * finally offered one. The parse belongs here, once, rather than at each call site.
+ */
+async function loadBundle(path: string): Promise<unknown> {
+  const text = await invoke<string>("load_bundle", { path });
+  try {
+    return JSON.parse(text) as unknown;
+  } catch (e) {
+    // The bundle is named: a bare `Unexpected token` says nothing about which file the
+    // learner clicked, and the library can offer several.
+    throw new Error(
+      `lesson.json de ${path} n'est pas du JSON valide (${(e as Error).message})`,
+    );
+  }
+}
+
 export const tauri = {
-  loadBundle:    (path: string)                      => invoke<unknown>("load_bundle", { path }),
+  loadBundle,
   listBundles:   (dir?: string)                      => invoke<BundleEntry[]>("list_bundles", { dir: dir ?? null }),
   getConsent:    ()                                  => invoke<ConsentRecord | null>("get_consent"),
   setConsent:    (record: ConsentRecord)             => invoke<void>("set_consent", { record }),
