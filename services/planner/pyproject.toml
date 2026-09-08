@@ -1,0 +1,43 @@
+# Le planner est un service, pas une bibliothèque. Cette métadonnée existe pour
+# que les deux commandes documentées fonctionnent — `docs/user/teacher-guide.md`
+# et le job `Demo M6` de la CI installent toutes deux ce répertoire en éditable,
+# et échouaient jusqu'ici sur « neither 'setup.py' nor 'pyproject.toml' found »
+# (INT-STUDIUM-032).
+#
+# Nom : `studium-planner`, pas `planner`. `planner` est un projet existant sur
+# PyPI ; aucune de ces distributions n'est publiée, mais un nom déjà pris
+# invite la confusion de dépendance le jour où quelqu'un l'écrit sans chemin.
+[project]
+name = "studium-planner"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+  "pydantic>=2.8",
+  # Importés paresseusement (critic.py, agents/base.py, provenance/*) : un import
+  # différé reste une dépendance, il déplace seulement l'échec dans le temps.
+  "httpx>=0.27",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3"]
+# `ontology/jsonld.py:serialize_turtle` seulement, qui lève un ImportError
+# explicite en son absence : optionnel, et le code le dit déjà.
+turtle = ["rdflib>=7.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# Les modules plats uniquement, PAS les sous-paquets. `services/planner/agents/`
+# et `services/scene-synth/agents/` sont deux paquets différents portant le même
+# nom de premier niveau, et le guide enseignant installe les deux services dans
+# la même commande : déclarer `agents*` ici ferait que l'un masquerait l'autre.
+# Les sous-paquets restent atteints par `planner_paths.ensure_importable()`, qui
+# place le répertoire du service en tête de `sys.path` (INT-STUDIUM-016) — le
+# mécanisme unique, et la raison pour laquelle l'installation éditable est la
+# forme supportée.
+[tool.setuptools]
+py-modules = ["planner_app", "planner_paths", "planner_schemas", "critic", "mimosa_wrapper"]
