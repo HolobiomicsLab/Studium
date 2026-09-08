@@ -95,7 +95,11 @@
         </table>
         {%- endif %}
 
-        <p><b>Autonomy</b></p>
+        {#- INT-STUDIUM-023: the two columns return two different measurements under the
+            wire key `autonomy_ratio`. Each is headed with its own name, from its own
+            definition site, so the collision is not reproduced on this page. -#}
+        <p><b>{{ detail.indicator_names.collector_autonomy }}</b>
+          <span class="path">(wire key: autonomy_ratio)</span></p>
         {{ why(c.autonomy) }}
         {%- if c.autonomy.status == "ok" %}
         {{ kv({"autonomy_ratio": n(c.autonomy.autonomy_ratio),
@@ -124,7 +128,8 @@
         {{ kv({"completion_rate": n(s.report.completion.completion_rate)}) }}
         {%- endif %}
 
-        <p><b>Autonomy</b></p>
+        <p><b>{{ detail.indicator_names.sessions_autonomy }}</b>
+          <span class="path">(wire key: mean_autonomy)</span></p>
         {{ why(s.report.autonomy) }}
         {%- if s.report.autonomy.status == "ok" %}
         {{ kv({"mean_autonomy": n(s.report.autonomy.mean_autonomy)}) }}

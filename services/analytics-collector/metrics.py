@@ -1016,12 +1016,32 @@ def compute_blueprint_score(blueprint: dict, metric_fetcher) -> dict:
     return {"dimensions": dim_results, "overall_weighted_score": overall}
 
 
+#: INT-STUDIUM-023 — the operator-facing name of the ratio `compute_autonomy` returns.
+#:
+#: Two different measurements ship under the wire key `autonomy_ratio`. This one is a
+#: CLASS-LEVEL RATIO OF EVENTS over a course's store: of the adaptive interactions the
+#: course produced, the share that were AI critiques rather than hints. The other is the
+#: runtime's per-session ratio of scenes completed to scenes completed plus scaffolding,
+#: whose mean `tools/class_report.py` publishes as `mean_autonomy`
+#: (`class_report.AUTONOMY_INDICATOR_NAME`). Numerators, denominators and populations all
+#: differ, so a disagreement between them is the definition and not a fault.
+#:
+#: The wire key is deliberately NOT renamed: historical streams, the `/metrics/autonomy`
+#: route and every stored payload carry it, and this intent does not authorise a change to
+#: what is measured or transmitted. The two constructs are told apart by the name an
+#: operator reads — here, on the teacher dashboard, and on the Observatory sessions page.
+AUTONOMY_INDICATOR_NAME = "critique-over-hint balance"
+
+
 def compute_autonomy(
     data_dir: Path,
     course: str,
     bundle_version: str | None = None,
 ) -> dict:
     """Anti-offloading metrics: autonomy_ratio + critique_completion_rate.
+
+    `autonomy_ratio` here is the AUTONOMY_INDICATOR_NAME — see that constant for why it is
+    not the runtime's identically-keyed ratio.
 
     - autonomy_ratio = n_critique_submitted / (n_critique_submitted + n_hints_applied)
     - critique_completion_rate = mean(completion_rate of critique_submitted events)

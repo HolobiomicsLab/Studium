@@ -54,7 +54,10 @@ from observatory_paths import ensure_importable
 ensure_importable()
 
 import metrics  # noqa: E402  (the collector's own aggregations, and its scope predicate)
-from class_report import build_report  # noqa: E402  (the runtime-side class report)
+from class_report import (  # noqa: E402  (the runtime-side class report)
+    AUTONOMY_INDICATOR_NAME as _SESSIONS_AUTONOMY_NAME,
+    build_report,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -81,6 +84,15 @@ SESSION_SCOPE_NOTE = (
     "session runs column is therefore the whole configured directory, and the course in the "
     "URL scopes the collector store column only.")
 
+#: INT-STUDIUM-023 — the two operator-facing names for the two ratios that the two readers
+#: both return as `autonomy_ratio`. Neither wire key moves; what is separated is the name.
+#: Read from the two definition sites, so this page, its JSON twin and the two computations
+#: cannot drift apart — the drift is the defect.
+INDICATOR_NAMES: dict[str, str] = {
+    "collector_autonomy": metrics.AUTONOMY_INDICATOR_NAME,
+    "sessions_autonomy": _SESSIONS_AUTONOMY_NAME,
+}
+
 #: Completion and autonomy are SHOWN with the formula that produced them, and not flagged:
 #: the two sides measure different populations, and one pair of them does not even share a
 #: definition. A module constant so the page and the JSON twin cannot drift apart.
@@ -99,16 +111,20 @@ SHOWN_NOT_FLAGGED: tuple[dict[str, str], ...] = (
     },
     {
         "indicator": "autonomy",
-        "collector": "compute_autonomy: n_critique / (n_critique + n_hints), where n_critique "
-                     "counts `critique_submitted` from AI-critique scenes only and n_hints "
-                     "counts `adaptation_applied` with signal \"hint\" (the scaffolding "
-                     "modulator) — a class-level ratio of events.",
-        "sessions": "build_report: the mean of the `autonomy_ratio` scalar the runtime stamps "
-                    "on each `lesson_completed` — a mean of per-session values computed on "
-                    "the device.",
-        "why_not_flagged": "Two definitions of \"autonomy ratio\" that share a name and not a "
-                           "formula. That collision is a defect in its own right, filed as a "
-                           "Draft intent, and it is not resolved on this page.",
+        "collector": f"{INDICATOR_NAMES['collector_autonomy']} — compute_autonomy: "
+                     "n_critique / (n_critique + n_hints), where n_critique counts "
+                     "`critique_submitted` from AI-critique scenes only and n_hints counts "
+                     "`adaptation_applied` with signal \"hint\" (the scaffolding modulator) "
+                     "— a class-level ratio of events.",
+        "sessions": f"{INDICATOR_NAMES['sessions_autonomy']} — build_report: the mean of the "
+                    "`autonomy_ratio` scalar the runtime stamps on each `lesson_completed` "
+                    "(scenes completed / scenes completed + scaffolding) — a mean of "
+                    "per-session values computed on the device.",
+        "why_not_flagged": "Two measurements that arrive under the wire key `autonomy_ratio` "
+                           "and share no formula. Neither key is renamed — historical streams "
+                           "carry it — so the two are separated by the names above "
+                           "(INT-STUDIUM-023), and a difference between them is the "
+                           "definition, not a fault.",
     },
 )
 
@@ -978,4 +994,5 @@ def sessions_detail(cfg: ObservatoryConfig, course: str | None) -> dict:
     return {"course": course, "collector": collector, "sessions": sessions,
             "divergences": divergences(collector, sessions),
             "shown_not_flagged": list(SHOWN_NOT_FLAGGED), "comparison": comparison,
+            "indicator_names": dict(INDICATOR_NAMES),
             "min_learners": cfg.min_learners, "notes": notes}

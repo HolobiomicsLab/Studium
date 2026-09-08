@@ -172,3 +172,31 @@ def test_min_learners_default_is_one_named_constant(tmp_path):
     assert class_report.main([str(tmp_path), "--bundle", str(bundle),
                               "--min-learners", "4", "--out", str(out)]) == 0
     assert json.loads((out / "class_report.json").read_text())["status"] == "ok"
+
+
+def test_the_report_names_the_ratio_it_averages_and_keeps_its_json_key(tmp_path):
+    """INT-STUDIUM-023: two measurements ship under the wire key `autonomy_ratio`.
+
+    This report averages the runtime's: scenes completed over scenes completed plus
+    scaffolding, computed on the device for one session. The collector computes a different
+    one under the same key — AI critiques over critiques plus hints, over a course's events.
+    The key does not move (the Observatory's sessions column reads `mean_autonomy`, and
+    historical streams carry `autonomy_ratio`), so what tells the two apart is the name the
+    teacher reads.
+    """
+    import class_report
+    import metrics
+
+    assert class_report.AUTONOMY_INDICATOR_NAME != metrics.AUTONOMY_INDICATOR_NAME
+
+    bundle = _bundle(tmp_path)
+    for learner in ("a", "b", "c", "d", "e"):
+        _write_learner(tmp_path, learner, _events())
+    out = tmp_path / "out"
+    assert class_report.main([str(tmp_path), "--bundle", str(bundle), "--out", str(out)]) == 0
+
+    # the key its consumers read has not moved
+    assert json.loads((out / "class_report.json").read_text())["mean_autonomy"] == 1.0
+    md = (out / "class_report.md").read_text()
+    assert class_report.AUTONOMY_INDICATOR_NAME in md
+    assert "mean autonomy" not in md  # the name that meant two things

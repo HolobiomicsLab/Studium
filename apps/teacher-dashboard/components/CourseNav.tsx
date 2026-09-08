@@ -22,7 +22,9 @@ const TABS: { key: Props["active"]; label: string }[] = [
   { key: "course-progress", label: "Parcours" },
   { key: "calibration", label: "Calibration" },
   { key: "trust-calibration", label: "Confiance IA" },
-  { key: "autonomy", label: "Autonomie" },
+  // INT-STUDIUM-023: "Autonomie" named two different measurements. The route key stays
+  // `autonomy` (it is the collector's endpoint); the label names what this page shows.
+  { key: "autonomy", label: "Critique / indice" },
   { key: "trajectory", label: "Trajectoire" },
   { key: "ai-literacy", label: "Littératie IA" },
   { key: "reasoning", label: "Raisonnement" },

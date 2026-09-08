@@ -37,7 +37,11 @@ from pathlib import Path
 # The trust-calibration maths lives in the analytics collector; import it rather than
 # re-implement (a third copy is how the TS/Py over_distrust drift happened).
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "services" / "analytics-collector"))
-from metrics import TRUST_WELL_BAND, _over_distrust_rate  # noqa: E402
+from metrics import (  # noqa: E402
+    AUTONOMY_INDICATOR_NAME as _COLLECTOR_AUTONOMY_NAME,
+    TRUST_WELL_BAND,
+    _over_distrust_rate,
+)
 
 #: The k-anonymity floor: the smallest cohort a class-level number may be computed over.
 #: Its value is the product owner's (RGPD), so it lives in exactly one place and every
@@ -45,6 +49,20 @@ from metrics import TRUST_WELL_BAND, _over_distrust_rate  # noqa: E402
 #: Observatory (`services/observatory/observatory_config.py`), which applies the same
 #: floor to the live collector column (INT-STUDIUM-005, INT-STUDIUM-019).
 MIN_LEARNERS_DEFAULT = 5
+
+#: INT-STUDIUM-023 — the operator-facing name of the ratio this report averages.
+#:
+#: The runtime stamps `autonomy_ratio` on each `lesson_completed`: scenes completed over
+#: scenes completed plus scaffolding (hints dispensed, scene replays, prerequisite
+#: remediations), computed on the device for ONE session. `mean_autonomy` below is the mean
+#: of those. The collector publishes a different measurement under the same wire key —
+#: `metrics.AUTONOMY_INDICATOR_NAME`, a class-level ratio of critique events to
+#: critique-plus-hint events — so the two disagree by construction.
+#:
+#: Neither wire key moves: historical streams carry `autonomy_ratio`, and the Observatory's
+#: sessions column reads `mean_autonomy` by that name. What separates the two constructs is
+#: the name a teacher reads, which is this one.
+AUTONOMY_INDICATOR_NAME = "scaffolding independence"
 
 # adaptation rule_ids that signal the learner needed support (remediation / gating / escalation)
 _REMEDIATION_RULES = ("remediate", "prereq_gate", "replay", "escalat")
@@ -234,7 +252,12 @@ def _md(rep: dict) -> str:
     L = ["# Class report (aggregate, RGPD-safe — no individual records)", ""]
     L.append(f"learners: {rep['n_learners']} (over {rep['n_streams']} telemetry stream(s)) · "
              f"completion: {rep['completion_rate']} · "
-             f"mean autonomy: {rep['mean_autonomy']} · universe escalations: {rep['universe_escalations']}")
+             f"mean {AUTONOMY_INDICATOR_NAME}: {rep['mean_autonomy']} · "
+             f"universe escalations: {rep['universe_escalations']}")
+    L.append("")
+    L.append(f"*{AUTONOMY_INDICATOR_NAME}*: per session, scenes completed / (scenes completed + "
+             "scaffolding), averaged over the sessions in this run. The collector's course-level "
+             f"*{_COLLECTOR_AUTONOMY_NAME}* is a different measurement under the same wire key.")
     L.append("")
     L.append("## Concepts (worst first — candidates to re-teach)")
     L.append("| concept | n | accuracy | hint-reliance | calibration gap | overconf. | mean time (s) |")

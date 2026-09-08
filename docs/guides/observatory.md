@@ -157,12 +157,21 @@ you would otherwise have had to compare by hand.
 
 **Completion and autonomy are shown and never flagged.** They are on the page with the
 formula that produced each one written next to it. The collector's completion is a rate
-over scene events; the class report's is lesson completions over lesson starts. The
-collector's autonomy is critique events over critique-plus-hint events; the class report's
-is the mean of the `autonomy_ratio` the runtime computed on the device. Those two
-"autonomy ratios" share a name and not a formula, which is a defect in its own right and
-is filed as such; until it is resolved, the page tells you which one you are looking at
-rather than flagging a difference that is a definition.
+over scene events; the class report's is lesson completions over lesson starts. The two
+"autonomy ratios" do not even share a formula: the collector's is critique events over
+critique-plus-hint events, and the class report's is the mean of the `autonomy_ratio` the
+runtime computed on the device from scenes completed over scenes plus scaffolding.
+
+**The two autonomy ratios are named apart (INT-STUDIUM-023).** The collector's is the
+**critique-over-hint balance**, a class-level ratio of events; the runtime's is
+**scaffolding independence**, a per-session ratio averaged by the class report. Each column
+of the page is headed with its own name, taken from its own definition site
+(`metrics.AUTONOMY_INDICATOR_NAME`, `class_report.AUTONOMY_INDICATOR_NAME`), so the page
+cannot drift from the code. The **wire keys are unchanged** — `autonomy_ratio` on the
+telemetry event and on the collector payload, `mean_autonomy` in the class report — because
+historical streams and existing consumers carry them, and nothing about what is measured
+has changed. A difference between the two is the definition, not a fault, which is why the
+page states both and flags neither.
 
 **Sometimes nothing is compared, and that is not a fault.** A comparison needs exactly one
 identical `(lesson_id, bundle_version)` scope on both sides. If either source spans several

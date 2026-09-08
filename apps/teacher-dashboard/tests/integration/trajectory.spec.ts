@@ -24,6 +24,7 @@ test.describe("/courses/[token]/trajectory", () => {
     await page.goto(`/courses/${encodeURIComponent(COURSE_TOKEN)}/trajectory`);
     await expect(page.getByRole("link", { name: /Progression/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /Calibration/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Autonomie/i })).toBeVisible();
+    // INT-STUDIUM-023: the tab's label, not its route, carries the indicator's name.
+    await expect(page.getByRole("link", { name: /Critique \/ indice/i })).toBeVisible();
   });
 });

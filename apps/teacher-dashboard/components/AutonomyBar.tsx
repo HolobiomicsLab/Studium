@@ -12,7 +12,13 @@ export default function AutonomyBar({ data }: Props) {
     <div className="space-y-4" data-testid="autonomy-bar">
       <div>
         <div className="flex justify-between text-sm mb-1">
-          <span>Ratio d&apos;autonomie</span>
+          {/* INT-STUDIUM-023: this is the collector's course-level ratio of events
+              (metrics.AUTONOMY_INDICATOR_NAME). The runtime computes a different ratio
+              under the same wire key `autonomy_ratio` — scenes completed over scenes plus
+              scaffolding, per session — which the class report publishes as "mean
+              scaffolding independence". Neither key is renamed; the names differ so the
+              two numbers are not read as one. */}
+          <span>Équilibre critique / indice</span>
           <span className="font-mono">{ratioPct}%</span>
         </div>
         <div className="h-3 bg-gray-200 rounded overflow-hidden">
@@ -37,8 +43,14 @@ export default function AutonomyBar({ data }: Props) {
         </div>
       </div>
       <p className="text-xs text-gray-500">
-        Anti-offloading : plus le ratio d&apos;autonomie est élevé, plus les apprenant·e·s
-        engagent une critique réflexive plutôt que de demander un indice.
+        Anti-offloading : plus l&apos;équilibre critique / indice est élevé, plus les
+        apprenant·e·s engagent une critique réflexive plutôt que de demander un indice.
+      </p>
+      <p className="text-xs text-gray-500">
+        Mesure de classe, sur les événements de ce cours. À ne pas confondre avec
+        l&apos;<i>indépendance vis-à-vis de l&apos;étayage</i> du rapport de classe, calculée
+        par session sur l&apos;appareil (scènes terminées / scènes + étayage) : deux mesures
+        différentes transmises sous la même clé <code>autonomy_ratio</code>.
       </p>
     </div>
   );

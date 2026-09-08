@@ -43,6 +43,7 @@ from conftest import (
 from observatory_config import ENV_ANALYTICS_DATA_DIR, ENV_SESSIONS_ROOT
 from observatory_sessions import (
     GAP_TOLERANCE,
+    INDICATOR_NAMES,
     SHOWN_NOT_FLAGGED,
     collector_column,
     divergences,
@@ -50,6 +51,9 @@ from observatory_sessions import (
     sessions_detail,
     store_courses,
 )
+
+import class_report  # noqa: E402  (reachable through observatory_sessions' sys.path insert)
+import metrics  # noqa: E402
 
 
 def _batches(n: int = 6, **kwargs) -> list[list]:
@@ -760,3 +764,33 @@ def test_json_twins_match_the_reader(client, cfg):
     assert client.get(f"/api/sessions/{STORE_COURSE}").json() == sessions_detail(
         cfg, STORE_COURSE)
     assert client.get("/api/sessions").json() == sessions_detail(cfg, None)
+
+
+def test_the_two_autonomy_ratios_are_named_apart(cfg, client):
+    """INT-STUDIUM-023: two measurements ship under one wire key, so the page names them.
+
+    `metrics.compute_autonomy` divides AI critiques by critiques plus hints over a course's
+    event store; the runtime divides scenes completed by scenes completed plus scaffolding,
+    on one device, for one session, and `class_report` publishes the mean of those. Both
+    arrive as `autonomy_ratio`, and neither wire key moves — historical streams, the
+    `/metrics/autonomy` route and `mean_autonomy`'s consumers all carry it. What must not
+    collide is the name an operator reads, and this page is where it would collide first:
+    the two constructs sit side by side on one row, under one heading.
+    """
+    collector_name = metrics.AUTONOMY_INDICATOR_NAME
+    sessions_name = class_report.AUTONOMY_INDICATOR_NAME
+    assert collector_name != sessions_name
+    assert "autonomy" not in f"{collector_name} {sessions_name}".lower()
+    assert INDICATOR_NAMES == {"collector_autonomy": collector_name,
+                               "sessions_autonomy": sessions_name}
+
+    detail = sessions_detail(cfg, STORE_COURSE)
+    assert detail["indicator_names"] == INDICATOR_NAMES
+    row = next(r for r in detail["shown_not_flagged"] if r["indicator"] == "autonomy")
+    assert collector_name in row["collector"] and sessions_name in row["sessions"]
+    assert collector_name not in row["sessions"] and sessions_name not in row["collector"]
+
+    page = client.get(f"/sessions/{STORE_COURSE}").text
+    assert collector_name in page and sessions_name in page
+    # The heading the two columns used to share, one per column, over two different numbers.
+    assert "<b>Autonomy</b>" not in page

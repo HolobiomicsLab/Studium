@@ -13,7 +13,8 @@ export default function Home() {
       <h1 className="text-2xl font-bold mb-2">Studium — Teacher Dashboard</h1>
       <p className="text-gray-600 mb-6">
         Tableau de bord en lecture seule. Saisissez le token de cours pour
-        consulter les indicateurs de progression, calibration et autonomie.
+        consulter les indicateurs de progression, calibration et équilibre
+        critique / indice.
       </p>
       <form action={go} className="flex gap-2">
         <input

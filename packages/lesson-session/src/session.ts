@@ -322,6 +322,13 @@ export class LessonSession {
     const totalDurationMs = Math.max(0, Date.parse(this.deps.clock.now()) - Date.parse(this.startIso));
     const completed = this.state.scenes_completed.length;
     // autonomyRatio measures how much the learner completed WITHOUT leaning on scaffolding.
+    // Its operator-facing name is SCAFFOLDING INDEPENDENCE (INT-STUDIUM-023,
+    // `tools/class_report.py:AUTONOMY_INDICATOR_NAME`, which publishes the mean of these as
+    // `mean_autonomy`). The analytics collector computes a DIFFERENT measurement under the
+    // same wire key `autonomy_ratio` — AI critiques over critiques plus hints, over a whole
+    // course's events ("critique-over-hint balance",
+    // `services/analytics-collector/metrics.py:AUTONOMY_INDICATOR_NAME`). The wire key is
+    // not renamed: historical telemetry carries it, and both numbers are real.
     // Formula: completed / (completed + scaffoldingEvents), clamped to [0,1].
     //   scaffoldingEvents = #hints dispensed + #scene replays + #prerequisite remediations
     //     (cumulative over the whole session; see `this.scaffoldingEvents`).
