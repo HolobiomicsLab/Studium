@@ -8,7 +8,7 @@
 
 ![Status](https://img.shields.io/badge/status-research_prototype-orange?style=flat-square)
 ![TypeScript](https://img.shields.io/badge/runtime-TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white)
-![Python](https://img.shields.io/badge/author--time-Python_3.13-3776ab?style=flat-square&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/author--time-Python_3.12-3776ab?style=flat-square&logo=python&logoColor=white)
 ![HITL](https://img.shields.io/badge/human--in--the--loop-required-success?style=flat-square)
 ![RGPD](https://img.shields.io/badge/learner_data-local--first-success?style=flat-square)
 

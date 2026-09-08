@@ -4,7 +4,7 @@
 
 ## 1. Prérequis
 
-- Studium installé (`pnpm install`, Python ≥ 3.13, Rust ≥ 1.95 stable).
+- Studium installé (`pnpm install`, Python ≥ 3.12, Rust ≥ 1.95 stable).
 - Services Python en éditable :
   ```bash
   pip install -e services/planner services/scene-synth services/analytics-collector
