@@ -45,8 +45,8 @@ pip install -r requirements.txt
 # À chaque session :
 source .venv/bin/activate   # ou .venv\Scripts\activate sur Windows
 
-# Lancer les tests Python :
-pytest services/ packages/lesson-plan-schema/tests_python/
+# Lancer TOUS les tests Python (un processus pytest par suite) :
+python tools/pytest_all.py          # succès : exit 0, « N suites, 0 failing »
 
 # Lancer un service en dev :
 uvicorn services.ingest.app:app --reload --port 8000
@@ -62,8 +62,8 @@ via `pip install -r requirements.txt`.
 # TypeScript (tous les packages)
 pnpm test
 
-# Python (services + schemas)
-pytest services/ packages/lesson-plan-schema/tests_python/
+# Python (toutes les suites : packages, services, eval, tools, fixtures)
+python tools/pytest_all.py          # succès : exit 0, « N suites, 0 failing »
 
 # Next.js build
 pnpm --filter @studium/author-web build
@@ -74,6 +74,12 @@ pnpm --filter @studium/author-web build
 `.memory/` géré par `tools/memory_cli.py`. Voir `../Studium/.memory/INDEX.md` pour la mémoire du workspace de préparation.
 
 ## Convention nommage modules Python
+
+Deux `conftest.py` de services différents s'importent sous le même nom de module, donc un seul
+processus pytest sur `services/` avorte à la collecte (`ImportPathMismatchError`). C'est la raison
+d'être de `tools/pytest_all.py` : une suite = un processus, et les suites sont **découvertes**, pas
+listées à la main — un répertoire de tests ajouté demain tourne sans qu'on pense à l'inscrire
+quelque part (INT-STUDIUM-011).
 
 Pour éviter les conflits `sys.path` entre services lors des runs pytest multi-services :
 - `services/ingest/ingest_app.py` (pas `app.py`) — entrée FastAPI ingest
