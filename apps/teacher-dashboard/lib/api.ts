@@ -40,6 +40,49 @@ export type AutonomyResponse = {
   n_hints: number;
 };
 
+// trust_calibration (judgment-over-artifact) — distinct from CalibrationResponse
+// (declared-vs-competence Brier). Surface of the engine's `trust_calibration`
+// dimension over grounded spot_the_flaw audits. band: "sur" = over-trust
+// (surconfiance IA), "sous" = over-distrust (méfiance IA), "bien" = within band.
+export type TrustCalibrationResponse = {
+  trust_calibration: number | null;
+  band: "bien" | "sur" | "sous" | null;
+  n_audits: number;
+  over_trust: number | null;
+  over_distrust: number | null;
+  per_scene: Array<{
+    scene_id: string;
+    gap: number | null;
+    over_trust: number | null;
+    over_distrust: number | null;
+    planted_errors: number;
+    missed: number;
+    false_positives: number;
+  }>;
+};
+
+/**
+ * What every class-level endpoint may return INSTEAD of its numbers (INT-STUDIUM-005).
+ *
+ * The collector applies the k-anonymity floor per lesson before it serves an aggregate, so a
+ * cohort below the floor produces this shape where a chart's data used to be. It states the
+ * floor and never the cohort — publishing the count would name exactly the classes the floor
+ * exists to protect (INT-STUDIUM-030).
+ */
+export type Suppressed = {
+  status: "suppressed";
+  min_learners: number;
+  reason: string;
+};
+
+/** Narrow a metrics response before handing it to a chart. */
+export function isSuppressed(data: unknown): data is Suppressed {
+  return (
+    typeof data === "object" && data !== null &&
+    (data as { status?: unknown }).status === "suppressed"
+  );
+}
+
 async function fetchJson<T>(path: string, courseToken: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`, {
     headers: { "X-Course-Token": courseToken },
@@ -51,15 +94,15 @@ async function fetchJson<T>(path: string, courseToken: string): Promise<T> {
   return r.json() as Promise<T>;
 }
 
-export function getProgress(courseToken: string): Promise<ProgressResponse> {
-  return fetchJson<ProgressResponse>(
+export function getProgress(courseToken: string): Promise<ProgressResponse | Suppressed> {
+  return fetchJson<ProgressResponse | Suppressed>(
     `/metrics/progress?course=${encodeURIComponent(courseToken)}`,
     courseToken,
   );
 }
 
-export function getProgressMetrics(courseToken: string): Promise<ProgressMetricsResponse> {
-  return fetchJson<ProgressMetricsResponse>(
+export function getProgressMetrics(courseToken: string): Promise<ProgressMetricsResponse | Suppressed> {
+  return fetchJson<ProgressMetricsResponse | Suppressed>(
     `/metrics/progress-metrics?course=${encodeURIComponent(courseToken)}`,
     courseToken,
   );
@@ -68,17 +111,43 @@ export function getProgressMetrics(courseToken: string): Promise<ProgressMetrics
 export function getCalibration(
   courseToken: string,
   learner?: string,
-): Promise<CalibrationResponse> {
+): Promise<CalibrationResponse | Suppressed> {
   const learnerParam = learner ? `&learner=${encodeURIComponent(learner)}` : "";
-  return fetchJson<CalibrationResponse>(
+  return fetchJson<CalibrationResponse | Suppressed>(
     `/metrics/calibration?course=${encodeURIComponent(courseToken)}${learnerParam}`,
     courseToken,
   );
 }
 
-export function getAutonomy(courseToken: string): Promise<AutonomyResponse> {
-  return fetchJson<AutonomyResponse>(
+export function getAutonomy(courseToken: string): Promise<AutonomyResponse | Suppressed> {
+  return fetchJson<AutonomyResponse | Suppressed>(
     `/metrics/autonomy?course=${encodeURIComponent(courseToken)}`,
+    courseToken,
+  );
+}
+
+export function getTrustCalibration(
+  courseToken: string,
+  learner?: string,
+): Promise<TrustCalibrationResponse | Suppressed> {
+  const learnerParam = learner ? `&learner=${encodeURIComponent(learner)}` : "";
+  return fetchJson<TrustCalibrationResponse | Suppressed>(
+    `/metrics/trust-calibration?course=${encodeURIComponent(courseToken)}${learnerParam}`,
+    courseToken,
+  );
+}
+
+// Class-level course-spine funnel: distinct completers per lesson_id. Overlaid on
+// the CourseManifest (order + prerequisites). Per-lesson distinct counts only —
+// NOT per-individual cross-lesson tracking (telemetry pseudonyms are bundle-scoped).
+export type CourseCompletionResponse = {
+  lessons: Record<string, { n_completed: number }>;
+  total_completions: number;
+};
+
+export function getCourseCompletion(courseToken: string): Promise<CourseCompletionResponse | Suppressed> {
+  return fetchJson<CourseCompletionResponse | Suppressed>(
+    `/metrics/course-completion?course=${encodeURIComponent(courseToken)}`,
     courseToken,
   );
 }
@@ -99,12 +168,12 @@ export type ConceptMasteryHistoryResponse = {
 export function getConceptMasteryHistory(
   courseToken: string,
   opts: { pseudonyme?: string; concept_id?: string; since?: string } = {},
-): Promise<ConceptMasteryHistoryResponse> {
+): Promise<ConceptMasteryHistoryResponse | Suppressed> {
   const params = new URLSearchParams({ course: courseToken });
   if (opts.pseudonyme) params.set("pseudonyme", opts.pseudonyme);
   if (opts.concept_id) params.set("concept_id", opts.concept_id);
   if (opts.since) params.set("since", opts.since);
-  return fetchJson<ConceptMasteryHistoryResponse>(
+  return fetchJson<ConceptMasteryHistoryResponse | Suppressed>(
     `/metrics/concept-mastery-history?${params.toString()}`,
     courseToken,
   );
@@ -149,11 +218,11 @@ export type ReasoningResponse = { scenes: Record<string, ReasoningSceneEntry> };
 export function getReasoningDepth(
   courseToken: string,
   opts: { pseudonyme?: string; scene_id?: string } = {},
-): Promise<ReasoningResponse> {
+): Promise<ReasoningResponse | Suppressed> {
   const params = new URLSearchParams({ course: courseToken });
   if (opts.pseudonyme) params.set("pseudonyme", opts.pseudonyme);
   if (opts.scene_id) params.set("scene_id", opts.scene_id);
-  return fetchJson<ReasoningResponse>(
+  return fetchJson<ReasoningResponse | Suppressed>(
     `/metrics/reasoning?${params.toString()}`,
     courseToken,
   );
@@ -169,11 +238,11 @@ export type JournalStatsResponse = {
 export function getJournalStats(
   courseToken: string,
   opts: { pseudonyme?: string; bundle_version?: string } = {},
-): Promise<JournalStatsResponse> {
+): Promise<JournalStatsResponse | Suppressed> {
   const params = new URLSearchParams({ course: courseToken });
   if (opts.pseudonyme) params.set("pseudonyme", opts.pseudonyme);
   if (opts.bundle_version) params.set("bundle_version", opts.bundle_version);
-  return fetchJson<JournalStatsResponse>(
+  return fetchJson<JournalStatsResponse | Suppressed>(
     `/metrics/journal?${params.toString()}`,
     courseToken,
   );
@@ -190,10 +259,10 @@ export type CooperationStatsResponse = {
 export function getCooperationStats(
   courseToken: string,
   opts: { bundle_version?: string } = {},
-): Promise<CooperationStatsResponse> {
+): Promise<CooperationStatsResponse | Suppressed> {
   const params = new URLSearchParams({ course: courseToken });
   if (opts.bundle_version) params.set("bundle_version", opts.bundle_version);
-  return fetchJson<CooperationStatsResponse>(
+  return fetchJson<CooperationStatsResponse | Suppressed>(
     `/metrics/cooperation?${params.toString()}`,
     courseToken,
   );
@@ -434,4 +503,30 @@ export async function getRoomState(roomId: string, teacherKey: string): Promise<
 
 export async function closeRoom(roomId: string, teacherKey: string): Promise<RoomState> {
   return roomFetch(`/rooms/${roomId}/close`, { method: "POST", body: JSON.stringify({ teacher_key: teacherKey }) });
+}
+
+// ---------------------------------------------------------------------------
+// Course spine manifest (lesson-server :8010) — the lesson DAG the dashboard
+// overlays on analytics completion counts. Mirrors CourseSchema.
+// ---------------------------------------------------------------------------
+
+export type CourseManifestLesson = {
+  lesson_id: string;
+  bundle_ref: string;
+  title?: string;
+  prerequisite_lesson_ids: string[];
+};
+
+export type CourseManifest = {
+  schema_version: string;
+  course_id: string;
+  title: string;
+  lessons: CourseManifestLesson[];
+};
+
+/** GET /courses?ref= on lesson-server. `ref` is a manifest path under the
+ * server's bundlesRoot (e.g. "courses/decay-course.json"). */
+export async function getCourse(ref: string): Promise<CourseManifest> {
+  const r = await roomFetch<{ course: CourseManifest }>(`/courses?ref=${encodeURIComponent(ref)}`);
+  return r.course;
 }

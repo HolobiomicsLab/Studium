@@ -6,27 +6,255 @@
 // scene + get_scene_artifacts and posts them to the pane; the pane posts the learner's responses
 // back, which the extension feeds to submit_response / request_hint.
 import * as vscode from "vscode";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { connectLessonMcp, resolveServerLaunch, setLessonMcpLog } from "./mcp-connect.js";
+import { registerStudiumChat } from "./chat.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
 import { reviewDueConcepts } from "./review-fsrs.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 import { discoverCommunityBundles, toPickItems } from "./community.js";
 import { calibrationVerdicts, type CalibrationVerdict } from "./calibration.js";
+import { runManifestToTaskSpec, buildRunResult, extractLandmark, type RunManifest, type RunResult } from "./run-task.js";
+import { StudiumTreeProvider } from "./tree.js";
+import type { CommunityItem } from "./lesson-tree.js";
 
 type Json = Record<string, any>;
 
+/** The currently-open lesson, exposed to the top-level "Run reproduction" command so it can drive the
+ * run protocol (get_run_manifest → native task → submit_run_result) against the live session. Replaced
+ * each openLesson; cleared on panel dispose. */
+let activeLesson: {
+  call: (name: string, args: Json) => Promise<Json>;
+  sid: () => string;
+  isDisposed: () => boolean;
+  advance: (presentation: Json, explanation?: Json) => Promise<void>;
+  done: (message: string) => void;
+} | null = null;
+
+/** The activity-bar sidebar; module-level so pushScene can toggle its "reproduction scene is live" state. */
+let treeProvider: StudiumTreeProvider | undefined;
+
+/** Output channel every lesson-mcp subprocess writes its stderr to (View > Output > this name). */
+const MCP_OUTPUT_CHANNEL = "Studium — lesson-mcp";
+
 export function activate(context: vscode.ExtensionContext) {
+  // Every lesson-mcp subprocess pipes its stderr here (lesson panel AND @studium chat), so a server
+  // that dies at startup leaves a readable diagnostic instead of vanishing.
+  const mcpOutput = vscode.window.createOutputChannel(MCP_OUTPUT_CHANNEL);
+  context.subscriptions.push(mcpOutput);
+  setLessonMcpLog((line) => mcpOutput.appendLine(line));
+  treeProvider = new StudiumTreeProvider(() => discoverForTree(context));
   context.subscriptions.push(
-    vscode.commands.registerCommand("studium.openLesson", () => openLesson(context)),
+    vscode.window.registerTreeDataProvider("studiumLessons", treeProvider),
+    // The tree's community leaves open a specific bundle by ref; the palette entry opens the default.
+    vscode.commands.registerCommand("studium.openLesson", (ref?: unknown) =>
+      openLesson(context, typeof ref === "string" ? ref : undefined)),
     vscode.commands.registerCommand("studium.communityContributions", () => openCommunityContribution(context)),
+    vscode.commands.registerCommand("studium.runReproduction", () => runReproductionScene()),
+    vscode.commands.registerCommand("studium.openWalkthrough", () => openWalkthrough(context)),
+    vscode.commands.registerCommand("studium.refreshLessons", () => treeProvider?.refresh()),
   );
   registerStudiumNotebook(context);
+  registerStudiumChat(context);
 }
 export function deactivate() {}
+
+/** Open the Getting-Started walkthrough. Its id is `${extensionId}#${walkthroughId}`; deriving the extension
+ *  id from context.extension.id is correct whether unpublished (undefined_publisher.studium-vscode) or
+ *  published (publisher.studium-vscode) — a hardcoded string would silently open nothing in one of those. */
+function openWalkthrough(context: vscode.ExtensionContext) {
+  vscode.commands.executeCommand("workbench.action.openWalkthrough", `${context.extension.id}#studium.gettingStarted`, false);
+}
+
+/** The community bundles the sidebar lists, discovered the same way the quick-pick command does. */
+function discoverForTree(context: vscode.ExtensionContext): CommunityItem[] {
+  const root = resolveBundlesRoot(context);
+  const canonicalRef = cfg<string>("bundleRef", "atomistique-l1/lesson.json");
+  return toPickItems(discoverCommunityBundles(root, canonicalRef)).map((p) => ({ ref: p.ref, label: p.label }));
+}
+
+// The `.studium-session/` FILE channel (packages/lesson-session-host/src/session-workspace.ts): the
+// universal operator protocol Studium already ingests run results from. When the MCP submit fails, the
+// run is parked here instead of being thrown away with the error toast.
+const SESSION_DIR = ".studium-session";
+const RUN_RESULT_FILE = "run_result.json";
+
+/** Park an assembled RunResult on the file channel so a failed submit_run_result does not lose the run.
+ *  Inputs: the workspace folder and the result. Output: true when the file was written. Atomic
+ *  (tmp + rename), matching writeRunResult — a reader never sees a half-written file. */
+function parkRunResult(wsFolder: string, result: RunResult): boolean {
+  const target = join(wsFolder, SESSION_DIR, RUN_RESULT_FILE);
+  try {
+    mkdirSync(join(wsFolder, SESSION_DIR), { recursive: true });
+    writeFileSync(`${target}.tmp`, JSON.stringify(result), "utf8");
+    renameSync(`${target}.tmp`, target);
+    return true;
+  } catch {
+    return false; // read-only workspace: the toast below says the run was not saved
+  }
+}
+
+/** Submit the assembled run to lesson-mcp; if the submit itself fails, PARK it on the file channel so the
+ *  learner's completed run is not lost with the error toast (it is ingested without re-running the capsule).
+ *  Inputs: the live lesson, the workspace folder, the result. Output: the server's reply, or null when the
+ *  submit failed (the learner has already been told where the result went). */
+async function submitRunOrPark(lesson: NonNullable<typeof activeLesson>, wsFolder: string, result: RunResult): Promise<Json | null> {
+  try {
+    return await lesson.call("submit_run_result", { session_id: lesson.sid(), run_result: result });
+  } catch (e: any) {
+    const isParked = parkRunResult(wsFolder, result);
+    const rescue = isParked
+      ? ` Résultat conservé dans ${SESSION_DIR}/${RUN_RESULT_FILE} — il sera repris sans relancer la capsule.`
+      : " Le résultat n'a PAS pu être sauvegardé (espace de travail non inscriptible).";
+    vscode.window.showErrorMessage(`Studium : envoi du run échoué — ${e.message}.${rescue}`);
+    return null;
+  }
+}
+
+/** Toggle the live reproduction-scene state on the sidebar + the `when`-clause context key. */
+function setReproductionContext(on: boolean) {
+  treeProvider?.setReproductionScene(on);
+  vscode.commands.executeCommand("setContext", "studium.onReproductionScene", on);
+}
+
+/**
+ * Surface the learner-time RUN manifest of the current scene as a NATIVE VS Code task. The run protocol
+ * is pure delegation — Studium NEVER executes; the OPERATOR's environment does. In VS Code the operator
+ * is the user's workspace: get_run_manifest → a shell task that provisions + runs the capsule in the
+ * integrated terminal → buildRunResult from the produced outputs → submit_run_result (the host gates
+ * advance on ran && passed). This is "let VS Code handle the environment and install" made literal.
+ */
+async function runReproductionScene() {
+  if (!activeLesson || activeLesson.isDisposed()) {
+    vscode.window.showInformationMessage("Studium : ouvre d'abord une leçon, puis lance sa scène de reproduction.");
+    return;
+  }
+  const lesson = activeLesson;
+  let manifest: RunManifest | null;
+  try {
+    manifest = ((await lesson.call("get_run_manifest", { session_id: lesson.sid() })).run_manifest as RunManifest | null) ?? null;
+  } catch (e: any) { vscode.window.showErrorMessage(`Studium: ${e.message}`); return; }
+  if (!manifest) {
+    vscode.window.showInformationMessage("Studium : la scène courante n'a pas de capsule à exécuter.");
+    return;
+  }
+  const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!wsFolder) { vscode.window.showErrorMessage("Studium : ouvre un dossier de travail pour exécuter la capsule."); return; }
+
+  const spec = runManifestToTaskSpec(manifest);
+  // A CustomExecution backed by a Pseudoterminal so we CAPTURE the run's stdout (a plain ShellExecution
+  // hands us only the exit code). The learner's OWN landmark is parsed from that stdout — without it the
+  // run has landmark=null and attestation quarantines it, so the judgment falls back to a canned number
+  // instead of grounding on the value the learner actually produced. Studium's BRAIN still never executes:
+  // the extension is the operator's harness (VS Code = the operator's environment), and lesson-mcp only
+  // ever receives the finished run_result. Capture is in-process (child_process) → cross-platform, no
+  // workspace-polluting `tee`.
+  const { pty, done } = spawnCapturingPty(spec.command, join(wsFolder, spec.cwd), manifest.timeout_s);
+  const task = new vscode.Task(
+    { type: "studium-run", capsule: manifest.capsule_ref },
+    vscode.TaskScope.Workspace, spec.name, "studium",
+    new vscode.CustomExecution(async () => pty),
+  );
+  try { await vscode.tasks.executeTask(task); }
+  catch (e: any) { vscode.window.showErrorMessage(`Studium : impossible de lancer la tâche — ${e.message}`); return; }
+
+  // When the captured process ends, parse the learner's landmark, assemble run_result.json, submit it.
+  const { exitCode, stdout } = await done;
+  if (lesson.isDisposed()) return;
+  const landmark = extractLandmark(stdout, manifest.landmark_pattern);
+  // Pass the FULL stdout — buildRunResult evaluates verify_checks against all of it (an early
+  // `stdout contains:` marker must not be missed) and stores only a bounded tail on the wire.
+  const result = buildRunResult(manifest, {
+    exitCode,
+    fileExists: (p) => existsSync(join(wsFolder, p)),
+    landmark,
+    stdout,
+  });
+  const r = await submitRunOrPark(lesson, wsFolder, result);
+  if (!r || lesson.isDisposed()) return;
+  try {
+    if (r.status === "ran" && r.transition) {
+      // ATTESTATION (D5) made legible: a `ran` run always advances (pure-delegation gate), but only an
+      // ATTESTED run grounds the next judgment on the learner's OWN result. Surface which happened —
+      // "attested = internally consistent with the manifest", NOT "verified genuine" (attestation is
+      // structural, brain-only; a perfect forgery still attests — never over-claim the guarantee).
+      if (r.attested && r.learner_run_recorded) {
+        vscode.window.showInformationMessage("Studium : run attesté ✓ — le prochain jugement est fondé sur TON résultat.");
+      } else {
+        const why = Array.isArray(r.attestation_reasons) && r.attestation_reasons.length
+          ? " Raisons : " + r.attestation_reasons.join(" · ") : "";
+        vscode.window.showWarningMessage(
+          `Studium : run en quarantaine ⚠ — il fait avancer la leçon mais ne fonde PAS le jugement (le jugement utilisera le run de référence).${why}`,
+        );
+      }
+      if (r.transition.kind === "complete") lesson.done(`Leçon terminée — ${r.transition.summary?.scenesCompleted ?? "?"} scènes.`);
+      else await lesson.advance(r.transition.presentation);
+    } else {
+      vscode.window.showWarningMessage(`Studium : run non accepté (${r.status}) — corrige l'exécution puis relance.`);
+    }
+  } catch (e: any) { vscode.window.showErrorMessage(`Studium: ${e.message}`); }
+}
+
+/**
+ * A vscode.Pseudoterminal that spawns the capsule command in the workspace and CAPTURES its stdout while
+ * streaming it to the terminal the learner watches. Returns the pty (for a CustomExecution) plus a `done`
+ * promise that resolves with { exitCode, stdout } when the child closes. stderr is echoed to the terminal
+ * (no longer silently discarded) but is not parsed for the landmark. Newlines are CRLF-normalized for the
+ * terminal. The extension is the OPERATOR's harness here — Studium's brain (lesson-mcp) still never runs.
+ */
+function spawnCapturingPty(command: string, cwd: string, timeoutS?: number): {
+  pty: vscode.Pseudoterminal;
+  done: Promise<{ exitCode: number | null; stdout: string }>;
+} {
+  const writeEmitter = new vscode.EventEmitter<string>();
+  const closeEmitter = new vscode.EventEmitter<number>();
+  let stdout = "";
+  let child: ReturnType<typeof spawn> | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let settled = false;
+  let settle!: (v: { exitCode: number | null; stdout: string }) => void;
+  const done = new Promise<{ exitCode: number | null; stdout: string }>((res) => { settle = res; });
+  // Settle `done` at most once and always clear the watchdog. Idempotent so 'error' then 'close', a
+  // timeout kill, and a terminal-close teardown can all call it without double-resolving or hanging.
+  const finish = (exitCode: number | null) => {
+    if (timer) { clearTimeout(timer); timer = undefined; }
+    if (settled) return;
+    settled = true;
+    settle({ exitCode, stdout });
+  };
+  const crlf = (s: string) => s.replace(/\r?\n/g, "\r\n");
+  const pty: vscode.Pseudoterminal = {
+    onDidWrite: writeEmitter.event,
+    onDidClose: closeEmitter.event,
+    open: () => {
+      writeEmitter.fire(crlf(`$ ${command}\n`));
+      try { child = spawn(command, { cwd, shell: true }); }
+      catch (e: any) { writeEmitter.fire(crlf(`[studium] spawn error: ${e?.message}\n`)); closeEmitter.fire(1); finish(1); return; }
+      // Watchdog: a capsule that never exits (infinite loop, blocked on stdin, network stall) would leave
+      // the caller awaiting `done` forever. When the manifest declares a timeout, kill the child at the
+      // deadline; its 'close' event then settles `done` (a timed-out run is quarantined, not hung).
+      if (timeoutS && timeoutS > 0) {
+        timer = setTimeout(() => {
+          writeEmitter.fire(crlf(`[studium] délai dépassé (${timeoutS}s) — arrêt de la capsule.\n`));
+          child?.kill();
+        }, timeoutS * 1000);
+      }
+      child.stdout?.on("data", (d: Buffer) => { const s = d.toString(); stdout += s; writeEmitter.fire(crlf(s)); });
+      child.stderr?.on("data", (d: Buffer) => { writeEmitter.fire(crlf(d.toString())); });
+      child.on("error", (e) => { writeEmitter.fire(crlf(`[studium] ${e.message}\n`)); closeEmitter.fire(1); finish(1); });
+      child.on("close", (code) => { closeEmitter.fire(code ?? 0); finish(code); });
+    },
+    // If the learner closes the terminal before the capsule finishes, KILL the child (it is NOT detached,
+    // so it would otherwise be orphaned) and settle `done` (exitCode=null → ran=false) so the awaiting
+    // caller resumes instead of hanging. (kill() targets the shell; a deeply-nested grandchild on a hung
+    // pipe may outlive it — a known shell:true limitation — but the run protocol is unblocked regardless.)
+    close: () => { child?.kill(); finish(null); },
+  };
+  return { pty, done };
+}
 
 function cfg<T>(key: string, fallback: T): T {
   const v = vscode.workspace.getConfiguration("studium").get<T>(key);
@@ -83,8 +311,16 @@ async function openCommunityContribution(context: vscode.ExtensionContext) {
 async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: string) {
   // The extension ships inside the monorepo (apps/studium-vscode); default repoRoot = ../../ .
   const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
-  const tsx = resolve(repoRoot, "node_modules/.pnpm/node_modules/.bin/tsx");
-  const mcpDir = resolve(repoRoot, "apps/lesson-mcp");
+  let serverLaunch;
+  try {
+    serverLaunch = resolveServerLaunch(context.extensionPath, repoRoot);
+  } catch (e: any) {
+    const open = "Ouvrir les réglages";
+    vscode.window.showErrorMessage(`Studium: ${e.message}`, open).then((pick) => {
+      if (pick === open) vscode.commands.executeCommand("workbench.action.openSettings", "studium.repoRoot");
+    });
+    return;
+  }
   // Default to the repo's own fixtures/ + the atomistique bundle, so it runs zero-config from any
   // clone. Override studium.bundlesRoot / studium.bundleRef to point elsewhere. A community bundle
   // opened via "Contributions de la classe" passes its ref as bundleRefOverride — it loads through
@@ -109,20 +345,12 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
   // 1) connect to lesson-mcp over stdio
   const env: Record<string, string> = { ...process.env as any, BUNDLES_ROOT: bundlesRoot };
   if (consent) { env["STUDIUM_DATA_DIR"] = join(bundlesRoot, "data"); env["STUDIUM_TELEMETRY_CONSENT"] = "granted"; }
-  const transport = new StdioClientTransport({ command: tsx, args: ["src/index.ts"], cwd: mcpDir, env, stderr: "ignore" });
-  const client = new Client({ name: "studium-vscode", version: "0.1.0" });
-  await client.connect(transport);
+  const mcp = await connectLessonMcp({ launch: serverLaunch, env });
+  const call = mcp.call;
   // Track disposal so async callbacks (which may resume after the user closes the panel) never
   // postMessage to a dead webview.
   let panelDisposed = false;
-  panel.onDidDispose(() => { panelDisposed = true; client.close().catch(() => {}); });
-
-  const call = async (name: string, args: Json): Promise<Json> => {
-    const res: any = await client.callTool({ name, arguments: args });
-    const data = JSON.parse(res.content?.[0]?.text ?? "{}");
-    if (res.isError) throw new Error(`${name}: ${data.error}`);
-    return data;
-  };
+  panel.onDidDispose(() => { panelDisposed = true; mcp.close(); });
 
   let sid = "";
 
@@ -205,7 +433,33 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
       explanation: explanation ?? presentation.explanation ?? null,
     });
     await pushGraph();
+    // When the current scene is a reproduction the LEARNER must run, light up the sidebar's run action +
+    // the when-clause context, and nudge them. The run_manifest is non-answer-bearing (publicScene keeps it).
+    const isReproScene = presentation.scene?.type === "reproduction" && !!presentation.scene?.run_manifest;
+    setReproductionContext(isReproScene);
+    if (isReproScene) {
+      vscode.window.showInformationMessage(
+        "Studium : cette scène demande d'exécuter une capsule. Lance « Studium: Run reproduction » pour la faire tourner dans ton terminal.",
+      );
+    }
   };
+
+  // Expose this lesson to the top-level "Run reproduction" command (it drives get_run_manifest →
+  // native task → submit_run_result against this live session). Latest open wins; cleared on dispose.
+  // The dispose-clear guards by OBJECT IDENTITY (not sid value) so it can't null a different live
+  // lesson during the brief window where two sessions share the empty sentinel sid (pre-start).
+  const thisLesson = {
+    call,
+    sid: () => sid,
+    isDisposed: () => panelDisposed,
+    advance: (presentation: Json, explanation?: Json) => pushScene(presentation, explanation),
+    done: (message: string) => { if (!panelDisposed) panel.webview.postMessage({ type: "done", message }); },
+  };
+  activeLesson = thisLesson;
+  panel.onDidDispose(() => {
+    if (activeLesson === thisLesson) activeLesson = null;
+    setReproductionContext(false); // the run action is scene-scoped; clear it when the lesson closes
+  });
 
   // 2) learner actions from the pane → MCP calls → next render (pair by pair)
   panel.webview.onDidReceiveMessage(async (msg: Json) => {
@@ -257,6 +511,8 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
     await pushScene(started.presentation);
     vscode.window.showInformationMessage(`Studium: lesson started (${bundleRef}).`);
   } catch (e: any) {
+    // Replace the loading placeholder with an in-pane error so the panel is never stuck on "Chargement…".
+    if (!panelDisposed) panel.webview.postMessage({ type: "error", message: `Impossible de démarrer la leçon : ${e.message}` });
     vscode.window.showErrorMessage(`Studium: could not start lesson — ${e.message}`);
   }
 }
@@ -291,7 +547,7 @@ function paneHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "
 <link rel="stylesheet" href="${media("artifact-pane.css")}">
 <link rel="stylesheet" href="${katexCss}">
 ${libs}
-</head><body><div id="pane"></div>
+</head><body><div id="pane"><div class="loading">⏳ Chargement de la leçon…</div></div>
 <script nonce="${n}" src="${media("artifact-pane.js")}"></script>
 </body></html>`;
 }

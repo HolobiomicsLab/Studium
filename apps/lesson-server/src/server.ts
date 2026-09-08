@@ -1,7 +1,7 @@
 // apps/lesson-server/src/server.ts
 import Fastify, { type FastifyInstance } from "fastify";
 import type { ResponseInput } from "@studium/lesson-session";
-import { SessionHost, SessionHostNotFoundError, PeerRoomError } from "@studium/lesson-session-host";
+import { SessionHost, SessionHostNotFoundError, PeerRoomError, resolveCourse } from "@studium/lesson-session-host";
 import { ok, err } from "./envelope.js";
 import {
   CreateSessionBody, RespondBody, TurnBody,
@@ -101,6 +101,20 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (!parsed.success) return reply.code(400).send(err(`invalid body: ${parsed.error.message}`));
     try { return reply.send(ok(host.closeRoom(req.params.id, parsed.data.teacher_key))); }
     catch (e) { return reply.code(roomErr(e)).send(err((e as Error).message)); }
+  });
+
+  // -------------------------------------------------------------------------
+  // Course spine — serve a parsed course manifest so the teacher dashboard can
+  // overlay the lesson DAG (order + prerequisites) on analytics completion
+  // counts. `ref` is a relative path under bundlesRoot (query param so it may
+  // contain slashes); a path-traversal guard keeps reads inside the root.
+  // -------------------------------------------------------------------------
+  app.get<{ Querystring: { ref?: string } }>("/courses", async (req, reply) => {
+    const ref = req.query.ref ?? "";
+    if (!ref) return reply.code(400).send(err("ref query param required"));
+    if (ref.includes("..") || ref.startsWith("/")) return reply.code(400).send(err("invalid ref"));
+    try { return reply.send(ok({ course: await resolveCourse(opts.bundlesRoot, ref) })); }
+    catch (e) { return reply.code(404).send(err((e as Error).message)); } // not found / invalid manifest
   });
 
   return app;

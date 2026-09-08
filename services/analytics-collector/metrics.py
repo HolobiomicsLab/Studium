@@ -6,10 +6,93 @@ and compute on the fly. No pre-aggregation, no caching: simplicity first
 """
 
 import json
+import os
 import random
 from collections import defaultdict
 from pathlib import Path
 from typing import Iterator
+
+#: The smallest cohort a class-level number may be computed over. Its value is the product
+#: owner's (RGPD), and it lives here — the deepest module both the live collector and the
+#: offline `tools/class_report.py` already share — so there is exactly one definition
+#: (INT-STUDIUM-005). `class_report.MIN_LEARNERS_DEFAULT` and the Observatory's
+#: `min_learners` are this object.
+#:
+#: It is a RESTRAINT ON SINGLING OUT, not a guarantee of anonymity: k-anonymity protects
+#: against a reader who does not know the population, and the teacher of a class does know it
+#: (INT-STUDIUM-030). What it delivers is that this instrument does not become a per-student
+#: report by accident, by drill-down, or by patient reading over time.
+MIN_LEARNERS = 5
+
+#: Server-side override, read per request like `ANALYTICS_DATA_DIR`. Deliberately NOT a query
+#: parameter: the floor restrains the reader, so the reader must not be able to lift it.
+ENV_MIN_LEARNERS = "ANALYTICS_MIN_LEARNERS"
+
+
+def min_learners() -> int:
+    raw = (os.environ.get(ENV_MIN_LEARNERS) or "").strip()
+    try:
+        return int(raw) if raw else MIN_LEARNERS
+    except ValueError:
+        return MIN_LEARNERS
+
+
+def cohort_state(
+    data_dir: Path,
+    course: str,
+    bundle_version: str | None = None,
+    floor: int | None = None,
+) -> dict | None:
+    """`None` when every lesson on this course clears the floor; otherwise the payload an
+    aggregate endpoint returns INSTEAD of its numbers.
+
+    The unit is the LESSON, because a pseudonym is HMAC(learnerId:lessonId): a union across
+    lessons counts learner-lesson pairs and cannot lift any one lesson over the floor. The
+    Observatory applies the same rule to the same store (`_cohort_state`); this is that rule
+    where the numbers are actually served.
+
+    The payload states the floor and never the cohort. Publishing the count would invert the
+    floor — the only cohorts named exactly would be the ones it exists to protect.
+
+    A course with NO events passes through, and its endpoint returns its own empty aggregate:
+    there is nobody to protect, an empty aggregate already says so unambiguously, and turning
+    "no data" into "suppressed" would tell an operator with a wrong course token that they had
+    found a class too small to report on.
+
+    The unit is the course cohort, which is coarser than the Observatory's per-family floor
+    (`_family_state` there floors each metric family over its own contributors). That is
+    deliberate here: this is the last check before the wire, and a conservative floor at the
+    boundary is the right way round to be wrong.
+    """
+    floor = min_learners() if floor is None else floor
+    participants: dict[str, set[str]] = defaultdict(set)
+    unknown_identity = False
+    seen = False
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
+        seen = True
+        pseudo, lesson = ev.get("learner_pseudonym"), ev.get("lesson_id")
+        if not isinstance(pseudo, str) or not pseudo or not isinstance(lesson, str) or not lesson:
+            unknown_identity = True
+            continue
+        participants[lesson].add(pseudo)
+
+    if not seen:
+        return None
+    if unknown_identity:
+        return {"status": "suppressed", "min_learners": floor,
+                "reason": "unknown identity: at least one event carries no learner_pseudonym "
+                          "or no lesson_id, so no cohort can be established. A pseudonym is "
+                          "HMAC(learnerId:lessonId) — a person within ONE lesson."}
+    if not participants:
+        return None
+    if any(len(ids) < floor for ids in participants.values()):
+        return {"status": "suppressed", "min_learners": floor,
+                "reason": f"k-anonymity floor: every lesson needs at least {floor} distinct "
+                          f"learners and at least one lesson on this course has fewer. Because "
+                          f"a pseudonym is salted per lesson, a union across lessons counts "
+                          f"learner-lesson pairs and cannot lift a lesson over the floor. "
+                          f"Exact counts are withheld."}
+    return None
 
 
 def _iter_events(
@@ -87,6 +170,51 @@ def compute_progress(
             }
             for sid, vals in completions.items()
         }
+    }
+
+
+def compute_course_completion(
+    data_dir: Path,
+    course: str,
+    bundle_version: str | None = None,
+) -> dict:
+    """Class-level course-spine funnel: distinct completers per lesson.
+
+    For each lesson_id seen in ``lesson_completed`` telemetry (lesson_id ==
+    bundle_id, stamped on every event), count the DISTINCT ``learner_pseudonym``
+    that completed it. The dashboard overlays the CourseSchema spine (order +
+    prerequisites) on top of these counts.
+
+    HONESTY BOUNDARY: the telemetry ``learner_pseudonym`` is salted by bundle_id,
+    so the SAME human has a DIFFERENT pseudonym in each lesson. Distinct counts
+    are therefore valid WITHIN a lesson, but per-individual cross-lesson paths
+    (did the learner who finished A go on to finish B?) are NOT recoverable from
+    telemetry by design — that identity lives only in the cross-lesson profile
+    store. This funnel makes no per-individual cross-lesson claim.
+
+    Returns::
+        {
+          "lessons": { lesson_id: { "n_completed": <distinct pseudonyms> } },
+          "total_completions": <count of lesson_completed events>,
+        }
+    """
+    by_lesson: dict[str, set[str]] = defaultdict(set)
+    total = 0
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
+        if ev.get("type") != "lesson_completed":
+            continue
+        lesson_id = ev.get("lesson_id")
+        if not lesson_id:
+            continue
+        total += 1
+        pseudo = ev.get("learner_pseudonym")
+        if pseudo:
+            by_lesson[lesson_id].add(pseudo)
+        else:
+            by_lesson[lesson_id]  # touch so a pseudonym-less completion still registers the lesson
+    return {
+        "lessons": {lid: {"n_completed": len(ps)} for lid, ps in by_lesson.items()},
+        "total_completions": total,
     }
 
 
@@ -262,6 +390,155 @@ def compute_ai_audit_accuracy(
     return {
         "overall_accuracy": overall,
         "n_scenes": len(per_scene),
+        "per_scene": per_scene,
+    }
+
+
+# Judgment-over-artifact calibration band. Mirrors the engine constant
+# TRUST_WELL_BAND in packages/learner-state (kept in sync by value): |gap| within
+# this band counts as well-calibrated trust.
+TRUST_WELL_BAND = 0.4
+
+
+def _over_distrust_rate(false_positives: int, sound_total: int) -> float | None:
+    """Rate of SOUND claims the auditor wrongly flagged, over the sound population.
+
+    Inputs: pooled ``false_positives`` and ``sound_total`` for one scene. Output:
+    ``min(fp, sound) / sound`` in [0, 1], or ``None`` when ``sound_total`` is 0 —
+    no sound claim was on offer, so over-distrust is UNMEASURED, not zero. Same
+    denominator and cap as the engine's recordJudgmentAudit."""
+    if sound_total <= 0:
+        return None
+    return min(max(0, false_positives), sound_total) / sound_total
+
+
+def compute_trust_calibration(
+    data_dir: Path,
+    course: str,
+    learner: str | None = None,
+    bundle_version: str | None = None,
+) -> dict:
+    """trust_calibration (judgment-over-artifact) — teacher surface.
+
+    DISTINCT from confidence_calibration (declared-vs-competence, Brier). This is
+    the telemetry-native surface of the engine's `trust_calibration` dimension:
+    how well the learner's TRUST in an AI reading of a real artifact matches
+    ground truth, computed from the grounded spot_the_flaw audits
+    (``ai_audit_result`` events — same source as ai_audit_accuracy).
+
+    Per scorable scene (``planted_errors`` > 0, counters POOLED across that
+    scene's events exactly like ai_audit_accuracy)::
+
+        over_trust    = missed / planted             (credulous: missed planted flaws, +)
+        over_distrust = min(fp, sound) / sound        (skeptical: flagged sound claims, -)
+        gap           = over_trust - over_distrust    in [-1, 1]
+
+    Each direction is a rate over its OWN population: planted flaws for
+    over-trust, SOUND claims (``sound_total``) for over-distrust. Same formula as
+    the engine's ``recordJudgmentAudit`` (packages/learner-state/src/index.ts),
+    so both surfaces report the same number for the same audit.
+
+    overall ``trust_calibration`` = mean(gap) over scorable scenes (mirrors
+    ai_audit ``overall_accuracy`` = mean of per-scene scores); ``None`` if no
+    scene is scorable (unmeasured ≠ well-calibrated). Band mirrors confidence::
+
+        |gap| <= TRUST_WELL_BAND -> "bien"
+        gap   >  TRUST_WELL_BAND -> "sur"   (over-trust / surconfiance IA)
+        gap   < -TRUST_WELL_BAND -> "sous"  (over-distrust / méfiance IA)
+
+    Pooled-counter, mean-of-per-scene aggregate (telemetry-native) — NOT the
+    engine's per-audit EWMA blend (same spirit as Brier-vs-engine-gap for
+    confidence).
+
+    HONESTY BOUNDARY — over-distrust is measurable only where the grader knows
+    the SOUND claims. The verdict-deck path (packages/lesson-session/src/grading/
+    graders.ts, ~line 88) marks each deck item flawed/sound, so it counts REAL
+    false alarms with zero LLM and emits ``sound_total`` > 0: the "sous" band IS
+    reachable in production. The keyword flaw-matcher path carries the
+    planted-flaw answer key only, so it emits ``false_positives=0`` and
+    ``sound_total=0``.
+
+    ``sound_total == 0`` therefore means over-distrust is UNMEASURED, NOT zero:
+    no sound claim was on offer, so a false alarm was never possible. Such
+    scenes report ``over_distrust: None`` and their ``gap`` collapses to
+    ``over_trust`` (the engine's behaviour at index.ts:245-247); the overall
+    ``over_distrust`` averages only the scenes that measured it, and is ``None``
+    when none did.
+
+    Filtre optionnel : ``learner`` (1 pseudonyme).
+    """
+    # counters[scene_id] = {fp, planted, missed, sound}
+    counters: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"fp": 0, "planted": 0, "missed": 0, "sound": 0}
+    )
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
+        if ev.get("type") != "ai_audit_result":
+            continue
+        sid = ev.get("scene_id")
+        if not sid:
+            continue
+        if learner is not None and ev.get("learner_pseudonym") != learner:
+            continue
+        c = counters[sid]
+        c["fp"] += int(ev.get("false_positives", 0))
+        c["planted"] += int(ev.get("planted_errors", 0))
+        c["missed"] += int(ev.get("missed", 0))
+        c["sound"] += int(ev.get("sound_total", 0))  # absent in pre-v1.5 JSONL
+
+    per_scene: list[dict] = []
+    gaps: list[float] = []
+    over_trusts: list[float] = []
+    over_distrusts: list[float] = []
+    for sid, c in counters.items():
+        planted = c["planted"]
+        if planted == 0:
+            per_scene.append({
+                "scene_id": sid, "gap": None,
+                "over_trust": None, "over_distrust": None,
+                "planted_errors": 0, "missed": c["missed"],
+                "false_positives": c["fp"], "sound_total": c["sound"],
+            })
+            continue
+        over_trust = c["missed"] / planted
+        over_distrust = _over_distrust_rate(c["fp"], c["sound"])
+        # Unmeasured over-distrust contributes 0 to the gap (engine: index.ts:245-247).
+        signed = over_trust - (0.0 if over_distrust is None else over_distrust)
+        gap = max(-1.0, min(1.0, signed))
+        gaps.append(gap)
+        over_trusts.append(over_trust)
+        if over_distrust is not None:
+            over_distrusts.append(over_distrust)
+        per_scene.append({
+            "scene_id": sid, "gap": gap,
+            "over_trust": over_trust, "over_distrust": over_distrust,
+            "planted_errors": planted, "missed": c["missed"],
+            "false_positives": c["fp"], "sound_total": c["sound"],
+        })
+
+    if not gaps:
+        return {
+            "trust_calibration": None, "band": None, "n_audits": 0,
+            "over_trust": None, "over_distrust": None, "per_scene": per_scene,
+        }
+    overall = sum(gaps) / len(gaps)
+    if abs(overall) <= TRUST_WELL_BAND:
+        band = "bien"
+    elif overall > 0:
+        band = "sur"
+    else:
+        band = "sous"
+    return {
+        "trust_calibration": overall,
+        "band": band,
+        # n_audits = number of SCORABLE scenes (planted>0), pooled per scene_id —
+        # NOT a count of ai_audit_result events (mirrors compute_ai_audit_accuracy's
+        # n_scenes; named n_audits here for the teacher-facing "audited scenes" sense).
+        "n_audits": len(gaps),
+        "over_trust": sum(over_trusts) / len(over_trusts),
+        # None when NO scene had a sound population — unmeasured, not zero.
+        "over_distrust": (
+            sum(over_distrusts) / len(over_distrusts) if over_distrusts else None
+        ),
         "per_scene": per_scene,
     }
 
@@ -822,12 +1099,32 @@ def compute_blueprint_score(blueprint: dict, metric_fetcher) -> dict:
     return {"dimensions": dim_results, "overall_weighted_score": overall}
 
 
+#: INT-STUDIUM-023 — the operator-facing name of the ratio `compute_autonomy` returns.
+#:
+#: Two different measurements ship under the wire key `autonomy_ratio`. This one is a
+#: CLASS-LEVEL RATIO OF EVENTS over a course's store: of the adaptive interactions the
+#: course produced, the share that were AI critiques rather than hints. The other is the
+#: runtime's per-session ratio of scenes completed to scenes completed plus scaffolding,
+#: whose mean `tools/class_report.py` publishes as `mean_autonomy`
+#: (`class_report.AUTONOMY_INDICATOR_NAME`). Numerators, denominators and populations all
+#: differ, so a disagreement between them is the definition and not a fault.
+#:
+#: The wire key is deliberately NOT renamed: historical streams, the `/metrics/autonomy`
+#: route and every stored payload carry it, and this intent does not authorise a change to
+#: what is measured or transmitted. The two constructs are told apart by the name an
+#: operator reads — here, on the teacher dashboard, and on the Observatory sessions page.
+AUTONOMY_INDICATOR_NAME = "critique-over-hint balance"
+
+
 def compute_autonomy(
     data_dir: Path,
     course: str,
     bundle_version: str | None = None,
 ) -> dict:
     """Anti-offloading metrics: autonomy_ratio + critique_completion_rate.
+
+    `autonomy_ratio` here is the AUTONOMY_INDICATOR_NAME — see that constant for why it is
+    not the runtime's identically-keyed ratio.
 
     - autonomy_ratio = n_critique_submitted / (n_critique_submitted + n_hints_applied)
     - critique_completion_rate = mean(completion_rate of critique_submitted events)

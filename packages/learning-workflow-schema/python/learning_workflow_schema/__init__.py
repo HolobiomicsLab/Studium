@@ -97,6 +97,14 @@ class LearningWorkflowGraph(BaseModel):
             if eid in seen:
                 raise ValueError(f"duplicate edge id: {eid}")
             seen.add(eid)
+        # Referential integrity: every edge endpoint must reference a declared node (no dangling edges),
+        # so a graph loaded from disk is as safe as one the builder produced.
+        known = set(node_ids)
+        for e in self.edges:
+            if e.source not in known:
+                raise ValueError(f"edge {e.id} references unknown source node: {e.source}")
+            if e.target not in known:
+                raise ValueError(f"edge {e.id} references unknown target node: {e.target}")
         return self
 
 

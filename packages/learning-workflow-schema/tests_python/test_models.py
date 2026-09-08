@@ -125,3 +125,20 @@ def test_validate_graph_helper_accepts_valid_graph():
     result = validate_graph(FIXTURE)
     assert result["valid"] is True
     assert result["errors"] == []
+
+
+# referential integrity: an edge endpoint must reference a declared node (no dangling edges)
+def test_rejects_edge_with_unknown_target():
+    bad = {**FIXTURE, "edges": [*FIXTURE["edges"],
+        {"id": "e-dangle", "relation": "prerequisite_for", "source": "concept:fft", "target": "concept:ghost"}]}
+    with pytest.raises(ValidationError) as exc_info:
+        LearningWorkflowGraph.model_validate(bad)
+    assert "unknown target node: concept:ghost" in str(exc_info.value)
+
+
+def test_rejects_edge_with_unknown_source():
+    bad = {**FIXTURE, "edges": [*FIXTURE["edges"],
+        {"id": "e-dangle", "relation": "assesses", "source": "task:ghost", "target": "concept:fft"}]}
+    result = validate_graph(bad)
+    assert result["valid"] is False
+    assert any("unknown source node: task:ghost" in e for e in result["errors"])

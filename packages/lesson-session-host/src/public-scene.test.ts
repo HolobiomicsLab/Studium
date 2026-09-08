@@ -50,16 +50,18 @@ describe("publicScene — generic transport redaction", () => {
     expect(pub["rubric"]).toBeDefined();
   });
 
-  it("spot_the_flaw: strips claims + model_correction, keeps flawed_content", () => {
+  it("spot_the_flaw: strips claims + sound_claims + model_correction, keeps flawed_content", () => {
     const sc = {
       ...base("spot_the_flaw"),
       flawed_content: "N is 1s2 2s2 2p4",
       claims: [{ id: "k1", text: "wrong", flaws_expected: ["hund"] }],
+      sound_claims: [{ id: "s1", text: "N has 7 electrons" }],
       model_correction: "N is 1s2 2s2 2p3",
       rubric: { completeness: 1, evidence_quality: 1, tone: 1 },
     } as unknown as Scene;
     const pub = publicScene(sc) as Record<string, unknown>;
     expect("claims" in pub).toBe(false);
+    expect("sound_claims" in pub).toBe(false); // OVER-DISTRUST answer key never reaches the client
     expect("model_correction" in pub).toBe(false);
     expect(pub["flawed_content"]).toBe("N is 1s2 2s2 2p4");
   });
@@ -146,10 +148,39 @@ describe("publicScene — generic transport redaction", () => {
     expect("model_response" in pub).toBe(false);
   });
 
-  it("the centralized field list names every model_* reveal + the two answer-key arrays", () => {
+  it("the centralized field list names every model_* reveal + the answer-key arrays", () => {
     // Guard so a future scene type that reuses these field names is covered automatically.
-    for (const f of ["claims", "key_points", "model_correction", "model_explanation", "model_answer", "model_prompt", "model_response"]) {
+    for (const f of ["claims", "sound_claims", "key_points", "model_correction", "model_explanation", "model_answer", "model_prompt", "model_response"]) {
       expect(REDACTED_SCENE_FIELDS).toContain(f);
     }
+  });
+});
+
+describe("publicScene — verdict deck projection", () => {
+  const deckScene = {
+    id: "s-deck", type: "spot_the_flaw", title: "T", objective_refs: [], concept_refs: ["c1"],
+    estimated_seconds: 0, adaptation_hooks: [],
+    flawed_content: "a flawed reading",
+    claims: [{ id: "f1", text: "k is dimensionless", flaws_expected: ["dim"] }],
+    sound_claims: [{ id: "s1", text: "k is a first-order rate" }],
+    model_correction: "fix", rubric: { completeness: 0.6, evidence_quality: 0.3, tone: 0.1 },
+    verdict_deck: true,
+  } as unknown as Scene;
+
+  it("emits an opaque-token deck (claim texts only) while still stripping the answer keys", () => {
+    const pub = publicScene(deckScene) as Record<string, unknown>;
+    expect("claims" in pub).toBe(false);        // flawed answer key stripped
+    expect("sound_claims" in pub).toBe(false);  // over-distrust answer key stripped
+    const deck = pub["deck"] as Array<Record<string, unknown>>;
+    expect(deck).toHaveLength(2);
+    expect(deck.map((d) => d["text"]).sort()).toEqual(["k is a first-order rate", "k is dimensionless"]);
+    for (const item of deck) {
+      expect(Object.keys(item).sort()).toEqual(["text", "token"]); // NO `flawed` label leaks
+    }
+  });
+
+  it("emits no deck when verdict_deck is not set", () => {
+    const noFlag = { ...(deckScene as unknown as Record<string, unknown>), verdict_deck: false } as unknown as Scene;
+    expect("deck" in (publicScene(noFlag) as Record<string, unknown>)).toBe(false);
   });
 });

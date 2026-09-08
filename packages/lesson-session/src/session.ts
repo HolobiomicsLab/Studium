@@ -1,7 +1,7 @@
-import type { LessonBundle, Scene } from "@studium/lesson-bundle-schema";
+import type { LessonBundle, Scene, ReferenceRun } from "@studium/lesson-bundle-schema";
 import { AdaptationEngine, DEFAULT_THETA } from "@studium/adaptation-engine";
 import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type Decision } from "@studium/learner-state";
-import { buildLwgMastery, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept } from "./graph-nav.js";
+import { buildLwgMastery, buildLwgCalibration, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept } from "./graph-nav.js";
 import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary, HintResult } from "./types.js";
 import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
 import { SessionNotStartedError, SessionAlreadyCompleteError } from "./errors.js";
@@ -48,6 +48,15 @@ export class LessonSession {
   protected discussionHistory: { role: "learner" | "tutor"; text: string }[] = [];
   protected lastTutorMove: TutorMove | null = null;
   protected lastReasoning: { signal: string; confidence: number } | null = null;
+  /** LEARNER-TIME runs captured this session, keyed by task_card_id. A spot_the_flaw scene with
+   * `reference_from_run` is grounded on the learner's OWN run (injected by scene()), closing the
+   * operation→judgment loop: the learner audits a flawed AI reading of the result THEY produced. */
+  private learnerRuns = new Map<string, ReferenceRun>();
+  /** Host-set per-scene field overrides (keyed by scene id). Used by per-run REGENERATION: when the
+   * learner runs a capsule, the host regenerates a downstream spot_the_flaw's flawed_content/claims/
+   * model_correction from the learner's OWN run and sets them here, so both presentation and grading see
+   * the regenerated judgment (the regenerated answer key stays server-side — publicScene still strips it). */
+  private sceneOverrides = new Map<string, Record<string, unknown>>();
 
   constructor(
     private readonly bundle: LessonBundle,
@@ -132,8 +141,35 @@ export class LessonSession {
     return { hint, index, remaining: cap - this.hintsUsed };
   }
 
+  /** Record a learner-time run (the learner's OWN executed result) for a capsule, keyed by task_card_id.
+   * A later spot_the_flaw scene with `reference_from_run === taskCardId` is then grounded on it. Called
+   * by the host after it ingests the operator's run_result.json (the run protocol). */
+  recordLearnerRun(taskCardId: string, run: ReferenceRun): void {
+    this.learnerRuns.set(taskCardId, run);
+  }
+
+  /** Override fields on a scene (by id) — used by per-run REGENERATION (the host regenerates a
+   * spot_the_flaw's flawed_content/claims/model_correction from the learner's run). Merged in scene(). */
+  setSceneOverride(sceneId: string, override: Record<string, unknown>): void {
+    this.sceneOverrides.set(sceneId, { ...(this.sceneOverrides.get(sceneId) ?? {}), ...override });
+  }
+
   // --- protected helpers shared with respond()/submitTurn() (Tasks 8–10) ---
-  protected scene(): Scene { return this.bundle.scenes[this.idx] as Scene; }
+  protected scene(): Scene {
+    let s = this.bundle.scenes[this.idx] as Scene;
+    // PER-RUN REGENERATION: a host-set override (regenerated from the learner's run) merges FIRST, so
+    // both presentation and grading see the regenerated flawed_content/claims/model_correction.
+    const override = this.sceneOverrides.get(s.id);
+    if (override) s = { ...s, ...override } as Scene;
+    // LEARNER-RUN GROUNDING: a spot_the_flaw with reference_from_run audits a flawed reading of the
+    // learner's OWN run — inject the recorded run as reference_result so BOTH the surfaced evidence AND
+    // the grader (judgment_audit -> trust_calibration) see the learner's result. No run -> authored scene.
+    if (s.type === "spot_the_flaw" && s.reference_from_run) {
+      const run = this.learnerRuns.get(s.reference_from_run);
+      if (run) return { ...s, reference_result: run };
+    }
+    return s;
+  }
   protected assertStarted(): void { if (!this.started) throw new SessionNotStartedError(); }
   protected emit(partial: EmitInput): void {
     this.deps.telemetry.emit(enrichEvent(partial, this.ctx, this.deps.clock, this.deps.idGen));
@@ -171,6 +207,7 @@ export class LessonSession {
     const bloomLevel = conceptId ? this.bundle.concepts.find((c) => c.id === conceptId)?.bloom_level_target : undefined;
     const { signal, telemetry } = await grade(scene, input, {
       critiqueEvaluator: this.deps.critiqueEvaluator, hintCount: this.hintsUsed,
+      ...(this.deps.auditJudge ? { auditJudge: this.deps.auditJudge } : {}),
       ...(bloomLevel ? { bloomLevel } : {}),
     });
     for (const ev of telemetry) this.emit(ev);
@@ -251,6 +288,7 @@ export class LessonSession {
       const { index: nextIdx, reason } = graphAwareNextIndex(
         this.bundle.scenes, this.idx, lwg,
         buildLwgMastery(this.state.concept_states), this.theta, this.skipMastered,
+        buildLwgCalibration(this.state.concept_states),
       );
       if (nextIdx === null) return this.complete();
       this.idx = nextIdx;
@@ -284,6 +322,13 @@ export class LessonSession {
     const totalDurationMs = Math.max(0, Date.parse(this.deps.clock.now()) - Date.parse(this.startIso));
     const completed = this.state.scenes_completed.length;
     // autonomyRatio measures how much the learner completed WITHOUT leaning on scaffolding.
+    // Its operator-facing name is SCAFFOLDING INDEPENDENCE (INT-STUDIUM-023,
+    // `tools/class_report.py:AUTONOMY_INDICATOR_NAME`, which publishes the mean of these as
+    // `mean_autonomy`). The analytics collector computes a DIFFERENT measurement under the
+    // same wire key `autonomy_ratio` — AI critiques over critiques plus hints, over a whole
+    // course's events ("critique-over-hint balance",
+    // `services/analytics-collector/metrics.py:AUTONOMY_INDICATOR_NAME`). The wire key is
+    // not renamed: historical telemetry carries it, and both numbers are real.
     // Formula: completed / (completed + scaffoldingEvents), clamped to [0,1].
     //   scaffoldingEvents = #hints dispensed + #scene replays + #prerequisite remediations
     //     (cumulative over the whole session; see `this.scaffoldingEvents`).

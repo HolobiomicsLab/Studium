@@ -165,6 +165,118 @@ function submitFreeText(scene: any, answer: string) {
   expect(!!m.sent.find((x) => x.type === "end"), "forget posts {type:'end'}");
 }
 
+// --- 7) per-answer confidence tap: the tapped 0-4 rides on the submitted input -------------------
+{
+  // quiz: tap confidence 3, then choose b → the respond input carries confidence 3
+  const m = mount();
+  m.render(baseState({ type: "quiz", title: "Q", question: "?", choices: [{ id: "a", text: "A" }, { id: "b", text: "B" }] }));
+  const confBtns = m.$all(".confrow .conf");
+  expect(confBtns.length === 5, `quiz renders a 0-4 confidence tap (got ${confBtns.length})`);
+  m.click(confBtns[3]);                              // confidence = 3
+  m.click(m.$all(".controls .choice")[1]);           // choose b
+  const r = m.sent.find((x) => x.type === "respond");
+  expect(!!r && r.input?.kind === "quiz_choice" && r.input?.choiceId === "b" && r.input?.confidence === 3,
+    "quiz submit carries the tapped confidence");
+}
+{
+  // free-text: tap confidence 1, then submit → the input carries confidence 1
+  const m = mount();
+  m.render(baseState({ type: "spot_the_flaw", title: "F", flawed_content: "FLAWED" }));
+  expect(m.$all(".confrow .conf").length === 5, "free-text renders a 0-4 confidence tap");
+  m.click(m.$all(".confrow .conf")[1]);              // confidence = 1
+  const ta = m.$("textarea"); if (ta) (ta as any).value = "mes erreurs";
+  m.click(m.$(".controls .primary"));
+  const r = m.sent.find((x) => x.type === "respond");
+  expect(!!r && r.input?.kind === "flaw_report" && r.input?.confidence === 1, "free-text submit carries the tapped confidence");
+}
+{
+  // not tapping → the input has NO confidence field (optional, omitted)
+  const m = mount();
+  m.render(baseState({ type: "quiz", title: "Q", question: "?", choices: [{ id: "a", text: "A" }] }));
+  m.click(m.$all(".controls .choice")[0]);
+  const r = m.sent.find((x) => x.type === "respond");
+  expect(!!r && r.input?.confidence === undefined, "no tap → no confidence on the submitted input");
+}
+
+// --- 8) verdict deck (D1): per-token flag/sound toggles → posts flaw_verdicts, replaces free text ---
+{
+  const m = mount();
+  m.render(baseState({
+    type: "spot_the_flaw", title: "Audit",
+    flawed_content: "AI_READING_TEXT",
+    deck: [
+      { token: "d0", text: "CLAIM_ZERO" },
+      { token: "d1", text: "CLAIM_ONE" },
+      { token: "d2", text: "CLAIM_TWO" },
+    ],
+  }));
+  const page = m.text();
+  expect(page.includes("AI_READING_TEXT"), "verdict deck still shows the AI reading (flawed_content)");
+  const rows = m.$all(".deck-row");
+  expect(rows.length === 3, `verdict deck renders one row per token (got ${rows.length})`);
+  expect(page.includes("CLAIM_ZERO") && page.includes("CLAIM_TWO"), "verdict deck shows each claim's text");
+  // the free-text flaw_report textarea is REPLACED by the deck (one unambiguous graded path)
+  expect(!m.$(".controls textarea"), "verdict deck replaces the free-text flaw_report textarea");
+  // flag d0 and d2, leave d1 → submit posts flaw_verdicts with the per-token booleans
+  const flags = m.$all(".deck-row .deck-flag");
+  m.click(flags[0]); m.click(flags[2]);
+  m.click(m.$(".deck-submit"));
+  const r = m.sent.find((x) => x.type === "respond");
+  expect(!!r && r.input?.kind === "flaw_verdicts", `verdict deck posts kind flaw_verdicts (got ${r?.input?.kind})`);
+  const vs = (r && r.input && r.input.verdicts) || [];
+  expect(vs.length === 3, `verdict deck posts one verdict per token (got ${vs.length})`);
+  const byTok = Object.fromEntries(vs.map((v: any) => [v.token, v.flagged]));
+  expect(byTok.d0 === true && byTok.d1 === false && byTok.d2 === true, "verdict deck carries the per-token flag/sound decisions");
+  // LEAK GUARD: the client only ever received {token,text}; no ground-truth marker may reach the DOM
+  expect(!page.includes("model_") && !page.includes("sound_claims"), "verdict deck leaks no answer key to the DOM");
+}
+// --- 8b) verdict-deck confidence pairing: the tapped confidence rides on the flaw_verdicts input ----
+{
+  const m = mount();
+  m.render(baseState({ type: "spot_the_flaw", title: "Audit", flawed_content: "X", deck: [{ token: "d0", text: "C0" }] }));
+  expect(m.$all(".deck .confrow .conf").length === 5, "verdict deck renders a 0-4 confidence tap");
+  m.click(m.$all(".deck .confrow .conf")[2]);        // confidence = 2
+  m.click(m.$(".deck-submit"));
+  const r = m.sent.find((x) => x.type === "respond");
+  expect(!!r && r.input?.kind === "flaw_verdicts" && r.input?.confidence === 2,
+    "verdict deck submit carries the tapped confidence (unites over-trust + over-distrust axes)");
+}
+// --- 8c) a spot_the_flaw scene WITHOUT a deck still renders the free-text flaw_report path ----------
+{
+  const m = mount();
+  m.render(baseState({ type: "spot_the_flaw", title: "F", flawed_content: "FLAWED" }));
+  expect(!!m.$(".controls textarea") && !m.$(".deck"), "no deck → free-text flaw_report path is unchanged");
+}
+
+// --- 9) gate card: a withhold (replay) becomes a calm dimension-level card, not the raw token --------
+{
+  const m = mount();
+  m.render(baseState({ type: "concept", title: "C", markdown: "x" },
+    { explanation: { rule_id: "replay", explanation_short: "GATE_REASON_TEXT" } }));
+  expect(!!m.$(".gate.gate-replay"), "a replay withhold renders a gate card (not the terse adapt banner)");
+  expect(m.text().includes("On refait cette étape ensemble"), "gate card shows the calm, non-punitive framing");
+  expect(m.text().includes("GATE_REASON_TEXT"), "gate card still surfaces the engine's short reason");
+  expect(!m.$(".adapt"), "withhold does not also render the raw ⟳ rule_id banner");
+}
+{
+  // a NORMAL adaptation rationale (a real rule id, not a withhold kind) keeps the terse banner
+  const m = mount();
+  m.render(baseState({ type: "concept", title: "C", markdown: "x" },
+    { explanation: { rule_id: "rule-042", explanation_short: "why this scene" } }));
+  expect(!!m.$(".adapt") && !m.$(".gate"), "a non-withhold adaptation rationale keeps the .adapt banner");
+}
+
+// --- 10) first-run states: loading + error messages render into the pane (never a silent blank) --------
+{
+  const m = mount();
+  m.render(baseState({ type: "concept", title: "C", markdown: "x" })); // draw something first
+  m.post({ type: "loading", message: "Chargement de la leçon…" });
+  expect(!!m.$(".loading") && m.text().includes("Chargement de la leçon"), "a loading message renders a .loading placeholder");
+  m.post({ type: "error", message: "BOOM_REASON" });
+  expect(!!m.$(".error-pane") && m.text().includes("BOOM_REASON"), "an error message renders an .error-pane with the reason");
+  expect(!m.$(".scene-head"), "the error state replaces the scene (no stale scene left behind)");
+}
+
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} webview-pane assertions failed:`);
   for (const f of failures) console.error("  - " + f);

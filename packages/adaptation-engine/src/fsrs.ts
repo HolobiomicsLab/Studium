@@ -170,3 +170,15 @@ export function dueForReinforcement(
     .sort((a, b) => b.p - a.p)
     .map((x) => x.id);
 }
+
+/** ROUTER head: the single most-urgent concept to reinforce NOW, or `null` if none is due. This is the
+ *  decision that promotes FSRS from a *readout* (dueForReinforcement's full list / the host reviewQueue)
+ *  to a *router* — "what should the learner reinforce next" — that a selection loop can act on. */
+export function nextReinforcement(
+  states: Record<string, ConceptMemoryState>,
+  mastery: Record<string, number>,
+  nowMs: number,
+  opts: { requestRetention?: number; minMastery?: number } = {},
+): string | null {
+  return dueForReinforcement(states, mastery, nowMs, opts)[0] ?? null;
+}

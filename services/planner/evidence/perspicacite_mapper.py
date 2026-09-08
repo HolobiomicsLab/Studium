@@ -1,7 +1,8 @@
 """Mapping Perspicacité mode × scene_type + extraction refs structurées."""
 from __future__ import annotations
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../packages/lesson-plan-schema/python"))
+from planner_paths import ensure_importable
+
+ensure_importable()
 
 from lesson_plan_schema import SceneType, BibliographicRef
 

@@ -79,7 +79,10 @@ vi.mock("../lib/tauri", () => ({
   },
 }));
 
-function renderAt(path = "/lesson/demo-001") {
+// `?bundle=` is now required: the player plays what it is given rather than a module constant
+// (INT-STUDIUM-034). These telemetry assertions are unchanged — only the route says which
+// bundle they are about.
+function renderAt(path = "/lesson/demo-001?bundle=/fixtures/demo.zip") {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>

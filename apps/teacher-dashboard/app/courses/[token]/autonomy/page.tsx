@@ -1,6 +1,7 @@
-import { getAutonomy } from "@/lib/api";
+import { getAutonomy, isSuppressed } from "@/lib/api";
 import AutonomyBar from "@/components/AutonomyBar";
 import CourseNav from "@/components/CourseNav";
+import SuppressedNotice from "@/components/SuppressedNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +22,13 @@ export default async function AutonomyPage({ params }: Props) {
         Cours <code className="text-base">{token}</code>
       </h1>
       <CourseNav token={token} active="autonomy" />
-      <h2 className="text-lg font-semibold mb-4">Autonomie réflexive (anti-offloading)</h2>
+      <h2 className="text-lg font-semibold mb-4">
+        Équilibre critique / indice (anti-offloading)
+      </h2>
       {error ? (
         <p className="text-red-600">Erreur API : {error}</p>
+      ) : isSuppressed(data) ? (
+        <SuppressedNotice info={data} />
       ) : data ? (
         <AutonomyBar data={data} />
       ) : null}

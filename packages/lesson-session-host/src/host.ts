@@ -6,8 +6,20 @@ import {
   LessonSession, enrichEvent, bundleVersionOf,
   type Presentation, type ResponseInput, type Transition, type Explanation, type HintResult,
 } from "@studium/lesson-session";
-import { masteryOf, type ConceptState, type LearnerState } from "@studium/learner-state";
-import { sceneRenderAssets, type RenderAsset } from "@studium/lesson-bundle-schema";
+import {
+  masteryOf, defaultLearnerState, defaultLearnerProfile,
+  seedConceptStatesFromProfile, mergeConceptStatesIntoProfile, mergeConceptMemoryIntoProfile, recordCompletedLesson,
+  type ConceptState, type LearnerState,
+} from "@studium/learner-state";
+import {
+  PROFILE_PSEUDONYM_SCOPE, FileLearnerProfileStore, InMemoryLearnerProfileStore, type LearnerProfileStore,
+} from "./learner-profile-store.js";
+import type { JudgmentGenerator } from "./judgment-generator.js";
+import {
+  sceneRenderAssets, nextCourseLesson, isCourseComplete,
+  type RenderAsset, type ReferenceRun, type RunManifest, type Course, type CourseLesson, type LessonBundle,
+} from "@studium/lesson-bundle-schema";
+import { runResultToReferenceRun, verifyRunAttestation, type RunResult } from "./run-result.js";
 import type { GraphView } from "@studium/typed-graph-lens";
 import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
 import { SessionRegistry, type SessionEntry } from "./registry.js";
@@ -15,8 +27,8 @@ import { buildHostDeps, durableDataDir, durableScopeDir } from "./deps.js";
 import { resolveBundle, assetBaseDir } from "./bundle-resolver.js";
 import { discoverCommunityBundles } from "./community-bundles.js";
 import {
-  aggregateRatings, ROOM_K_FLOOR,
-  type PeerRating, type RoomEntry, type RoomState,
+  aggregateRatings, distinctRaters, ROOM_K_FLOOR,
+  type RoomEntry, type RoomState,
 } from "./room.js";
 
 // Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /
@@ -152,6 +164,27 @@ function fsrsReviewMemory(
     lapses: s.lapses + (grade === 1 ? 1 : 0),
   };
 }
+// Reinforcement priority + the due-list / router-head — lockstep mirror of
+// @studium/adaptation-engine/src/fsrs.ts (reinforcementPriority / dueForReinforcement /
+// nextReinforcement). High priority = well-mastered yet decaying recall.
+function fsrsReinforcementPriority(masteryP: number, r: number): number {
+  return masteryP * (1 - r);
+}
+function fsrsDueForReinforcement(
+  states: Record<string, ConceptMemoryState>,
+  mastery: Record<string, number>,
+  nowMs: number,
+  opts: { requestRetention?: number; minMastery?: number } = {},
+): string[] {
+  const { requestRetention = 0.9, minMastery = 0.6 } = opts;
+  return Object.values(states)
+    .filter(
+      (s) => s.reps > 0 && (mastery[s.concept_id] ?? 0) >= minMastery && fsrsIsDue(s, nowMs, requestRetention),
+    )
+    .map((s) => ({ id: s.concept_id, p: fsrsReinforcementPriority(mastery[s.concept_id] ?? 0, fsrsRetrievability(s, nowMs)) }))
+    .sort((a, b) => b.p - a.p)
+    .map((x) => x.id);
+}
 
 /** Per-concept spaced-repetition read surfaced to the learner: is this concept due for review now,
  * when it next falls due, and how strongly retained it currently is. Derived from the learner's
@@ -185,14 +218,45 @@ export interface CalibrationVerdict {
 export const CALIBRATION_WELL_BAND = 0.4;
 
 /** Replay a single concept's `answer_submitted` history through the FSRS scheduler (fsrs.ts) to
- * reconstruct its current memory state. Pure: time comes only from the history timestamps. */
-function memoryFromHistory(concept_id: string, state: LearnerState): ConceptMemoryState {
-  let mem = fsrsDefaultMemory(concept_id);
+ * reconstruct its current memory state. Pure: time comes only from the history timestamps.
+ *
+ * `seed` = a PRIOR (cross-lesson) memory for this concept (the learner profile's accumulated
+ * `concept_memory`). When given, the replay starts FROM it instead of a fresh default, so a concept
+ * re-reviewed in a later lesson ACCUMULATES stability (A+B) rather than restarting (B-only).
+ *
+ * What is and isn't deduplicated. The seed already accounts for every answer up to its
+ * `last_reviewed_at`; on a RESUME of the same bundle the loaded prior history still HOLDS those answers,
+ * so we must not re-fold them. We dedupe by TIMESTAMP: an answer at/before `seed.last_reviewed_at` is
+ * "already in the seed" → skipped; a genuinely NEW answer (strictly later) is folded and legitimately
+ * ACCUMULATES. So re-answering a scene at a later time IS a real retrieval and DOES bump reps (the
+ * loaded prior events do not) — this is intended cross-lesson spaced repetition, not a double count.
+ *
+ * Timestamp-dedup bound (the history carries no per-event identity): if the clock is non-monotonic
+ * across sessions/machines — a genuine new answer whose wall-clock is <= the seed's last review
+ * (cross-machine skew, or a same-ms tie) — it is CONSERVATIVELY skipped rather than risk re-folding an
+ * already-seeded event. That under-counts that one review (it NEVER double-counts and never regresses
+ * the seed) and self-heals on the next in-order review. A fully robust dedup needs a stable per-event
+ * id / lesson provenance in the history (deferred). */
+function memoryFromHistory(
+  concept_id: string,
+  state: LearnerState,
+  seed?: ConceptMemoryState,
+): ConceptMemoryState {
+  // Only a WELL-FORMED prior is a usable FSRS anchor (reps≥1 ⇒ stability>0 ⇒ a real last review). A
+  // malformed seed (e.g. a hand-migrated profile with reps≥1 yet stability≤0 / null last) would trip
+  // fsrsReviewMemory's re-init branch and SILENTLY reset reps→1; treat it as no anchor and replay this
+  // session's history from scratch instead (predictable, never a half-reset). Internally-produced
+  // profiles are always well-formed, so this only guards externally-written/migrated profile.json.
+  const usableSeed =
+    seed && seed.reps >= 1 && seed.stability > 0 && seed.last_reviewed_at !== null ? seed : undefined;
+  let mem = usableSeed ? { ...usableSeed, concept_id } : fsrsDefaultMemory(concept_id);
+  const seededThrough = usableSeed?.last_reviewed_at ?? null; // answers <= this are already in the seed
   for (const h of state.history) {
     const sig = h.signal;
     if (sig.kind !== "answer_submitted" || sig.concept_id !== concept_id) continue;
     const t = Date.parse(h.timestamp);
     if (Number.isNaN(t)) continue;
+    if (seededThrough !== null && t <= seededThrough) continue; // already in the seed — don't re-fold
     mem = fsrsReviewMemory(mem, fsrsGradeFromAnswer({ correct: sig.correct, hint_count: sig.hint_count }), t);
   }
   return mem;
@@ -224,12 +288,122 @@ export function reviewQueueFromState(
   return items.sort((a, b) => a.retrievability - b.retrievability);
 }
 
+/** The most-urgent concept to reinforce now (the FSRS ROUTER decision), or null. */
+export interface ReinforcementTarget {
+  concept_id: string;
+  /** Epoch ms when the concept fell due for reinforcement. */
+  due_at: number;
+  /** Current retrievability R(t) ∈ [0,1] (lower ⇒ more urgent). */
+  retrievability: number;
+}
+
+/** The next step a learner should take in a course, auto-routed by FSRS: reinforce a decayed concept,
+ * advance to the next lesson, the course is done, or it's blocked (lessons remain but none is unlocked —
+ * a mis-authored unmet/cyclic prereq). `reinforce` PREEMPTS `advance` (spaced repetition first). */
+export type CourseStep =
+  | ({ kind: "reinforce" } & ReinforcementTarget)
+  | { kind: "advance"; lesson: CourseLesson }
+  | { kind: "done" }
+  | { kind: "blocked" };
+
+/** Build the FULL per-concept FSRS memory map for a LearnerState by replaying each seen concept's
+ * answer history. Pure; exported so the router and a unit test can reuse it (the same replay that
+ * feeds reviewQueueFromState).
+ *
+ * `seed` = the learner profile's accumulated cross-lesson `concept_memory`. When given, each concept's
+ * replay STARTS from its prior memory (idempotently — see memoryFromHistory), so re-reviewing a concept
+ * in a later lesson ACCUMULATES (A+B) instead of restarting (B-only). The completion-merge passes the
+ * profile being merged into, so cross-lesson spaced repetition compounds. Omit it for a session-scoped
+ * map (the within-session reviewQueue / reinforcement router, which sees only this lesson's history).
+ *
+ * CAVEAT: `state.history` is a rolling window capped at 50 entries, so for a lesson with >50 total
+ * signals the earliest answers are evicted and reps/stability under-count — a pre-existing limit of the
+ * replay-from-history design, now also reflected in the persisted profile. */
+export function conceptMemoryFromState(
+  state: LearnerState,
+  seed?: Record<string, ConceptMemoryState>,
+): Record<string, ConceptMemoryState> {
+  const out: Record<string, ConceptMemoryState> = {};
+  for (const concept_id of Object.keys(state.concept_states)) {
+    out[concept_id] = memoryFromHistory(concept_id, state, seed?.[concept_id]);
+  }
+  return out;
+}
+
+/** FSRS as a ROUTER (not a readout): the single most-urgent concept to reinforce now for this
+ * LearnerState, or null. Replays answer history → memory, gates on mastery (masteryOf ≥ minMastery)
+ * and due-ness, and picks the top-priority concept. Promotes FSRS from the reviewQueue *list* to a
+ * selection *decision* a router/driver acts on. Pure; `nowMs` injected for determinism. */
+export function nextReinforcementFromState(
+  state: LearnerState,
+  nowMs: number,
+  opts: { requestRetention?: number; minMastery?: number } = {},
+): ReinforcementTarget | null {
+  const mem = conceptMemoryFromState(state);
+  const mastery: Record<string, number> = {};
+  for (const [cid, cs] of Object.entries(state.concept_states)) mastery[cid] = masteryOf(cs);
+  const cid = fsrsDueForReinforcement(mem, mastery, nowMs, opts)[0];
+  if (cid === undefined) return null;
+  const m = mem[cid] as ConceptMemoryState;
+  // due_at MUST honor the same requestRetention as the due-gate above, else a non-default retention
+  // could report a due_at > nowMs for a concept the gate just declared due (matches reviewQueueFromState).
+  return { concept_id: cid, due_at: fsrsDueAt(m, opts.requestRetention), retrievability: fsrsRetrievability(m, nowMs) };
+}
+
+/** Scene types that RE-TEST recall (active retrieval), preferred for a reinforcement pass over a
+ * passive intro/exposition — reinforcement is about retrieval practice, not re-reading. */
+const RETRIEVAL_SCENE_TYPES = new Set<string>([
+  "quiz", "spot_the_flaw", "explain_back", "comparison", "summary_audit", "prompt_practice",
+]);
+
+/** ROUTE the FSRS decision to CONTENT: the bundle scene that addresses the most-urgent due concept
+ * (its `concept_refs` includes that concept), preferring an active RETRIEVAL scene (quiz / spot_the_flaw
+ * / explain_back / comparison / summary_audit / prompt_practice) over a passive intro, and falling back
+ * to the first covering scene of any type. Null when nothing is due / no scene covers it. Pure; the
+ * host wraps it with the live session's bundle + state. */
+export function reinforcementSceneFromState(
+  bundle: LessonBundle,
+  state: LearnerState,
+  nowMs: number,
+  opts: { requestRetention?: number; minMastery?: number } = {},
+): string | null {
+  const target = nextReinforcementFromState(state, nowMs, opts);
+  if (!target) return null;
+  const covers = (s: LessonBundle["scenes"][number]): boolean =>
+    (s.concept_refs ?? []).includes(target.concept_id);
+  // Prefer an active RETRIEVAL scene (re-test recall) over a passive intro/exposition; fall back to
+  // the first covering scene of any type when the bundle has no retrieval scene for the concept.
+  const scene = bundle.scenes.find((s) => covers(s) && RETRIEVAL_SCENE_TYPES.has(s.type)) ??
+    bundle.scenes.find(covers);
+  return scene?.id ?? null;
+}
+
+/** CROSS-LESSON reinforcement router: every concept DUE for reinforcement now, most-urgent first, from a
+ * PERSISTED FSRS memory map (the learner profile's `concept_memory`, accumulated across lessons) + a
+ * per-concept mastery map. Unlike nextReinforcementFromState (which replays ONE session's history), this
+ * spans lessons — a concept mastered + reviewed in lesson A can surface as due while the learner is
+ * elsewhere. Pure; `nowMs` injected. */
+export function dueReinforcementTargetsFromMemory(
+  memory: Record<string, ConceptMemoryState>,
+  mastery: Record<string, number>,
+  nowMs: number,
+  opts: { requestRetention?: number; minMastery?: number } = {},
+): ReinforcementTarget[] {
+  return fsrsDueForReinforcement(memory, mastery, nowMs, opts).map((cid) => {
+    const m = memory[cid] as ConceptMemoryState;
+    return { concept_id: cid, due_at: fsrsDueAt(m, opts.requestRetention), retrievability: fsrsRetrievability(m, nowMs) };
+  });
+}
+
 /** Map a concept's hidden `confidence_calibration` to a learner-facing, NUMBER-FREE verdict. Returns
  * null when the concept has no checkpointed calibration yet (calibration === 0 with no attempts).
  * Never leaks mastery or the raw gap. Exported + pure for reuse across the runtime + a unit test. */
 export function calibrationVerdict(cs: ConceptState): CalibrationVerdict | null {
   const gap = cs.confidence_calibration;
-  if (cs.total_attempts === 0) return null;
+  // "measured" = a confidence was actually observed. Without a sample, confidence_calibration defaults
+  // to 0 (in-band) and a "bien calibrée" verdict would be a FABRICATED reassurance — so gate on the
+  // sample count, sharing ONE definition of measured with isCalibrated/isMiscalibrated (learner-state).
+  if (cs.total_attempts === 0 || (cs.calibration_samples ?? 0) === 0) return null;
   if (Math.abs(gap) < CALIBRATION_WELL_BAND) {
     return {
       concept_id: cs.concept_id,
@@ -255,7 +429,14 @@ export function calibrationVerdict(cs: ConceptState): CalibrationVerdict | null 
   };
 }
 
-export interface SessionHostOptions { bundlesRoot: string; live: boolean; }
+export interface SessionHostOptions {
+  bundlesRoot: string;
+  live: boolean;
+  /** OPTIONAL per-run judgment regenerator. When present, a spot_the_flaw with regenerate_from_run has its
+   * flawed_content/claims regenerated from the learner's OWN run (server-side) when they run the capsule —
+   * sound even for a stochastic capsule. Absent ⇒ authored flaws (deterministic). */
+  judgmentGenerator?: JudgmentGenerator;
+}
 
 export class PeerRoomError extends Error {
   constructor(msg: string) { super(msg); this.name = "PeerRoomError"; }
@@ -267,7 +448,13 @@ export class SessionHost {
   // D1 PeerStudio: ephemeral rooms indexed by id and by join_code.
   private readonly rooms = new Map<string, RoomEntry>();
   private readonly joinCodeIndex = new Map<string, string>(); // join_code → room_id
-  constructor(private readonly opts: SessionHostOptions) {}
+  // CROSS-LESSON learner profile (warm-start across bundles). File-backed in durable mode
+  // (STUDIUM_DATA_DIR), else an in-memory store that persists across this host's sessions.
+  private readonly profileStore: LearnerProfileStore;
+  constructor(private readonly opts: SessionHostOptions) {
+    const dataDir = durableDataDir();
+    this.profileStore = dataDir ? new FileLearnerProfileStore(dataDir) : new InMemoryLearnerProfileStore();
+  }
 
   async create(bundleRef: string, learnerId = "anonymous"): Promise<{ sessionId: string; presentation: Presentation }> {
     // Quiz-choice order is shuffled per scene id (same for all learners → aligned item analytics).
@@ -300,12 +487,67 @@ export class SessionHost {
     // same lesson resolve to distinct pseudonyms). Previously discarded as `_learnerId`.
     // #3: pass the loaded prior state so the engine resumes prior concept_states/mastery; in
     // in-memory mode `prior` is null ⇒ collapses to the existing defaultLearnerState path.
-    const session = new LessonSession(bundle, deps, prior ?? undefined, learnerId);
+    // CROSS-LESSON warm-start: seed the working state from the learner-level profile, so a concept
+    // mastered in ANOTHER lesson resumes warm here. The profile pseudonym is salted by a FIXED scope
+    // (not the bundle_id), so it is stable across the learner's lessons; RGPD-safe (never the raw id).
+    // The per-bundle prior takes precedence (seedConceptStatesFromProfile never overwrites it).
+    const profilePseudonym = await deps.pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
+    const profile = await this.profileStore.load(profilePseudonym);
+    let initial = prior ?? defaultLearnerState(bundle.bundle_id);
+    if (profile) initial = seedConceptStatesFromProfile(initial, profile, bundle.concepts.map((c) => c.id));
+    const session = new LessonSession(bundle, deps, initial, learnerId);
     const presentation = await session.start();
     const sessionId = randomUUID();
     const baseDir = assetBaseDir(this.opts.bundlesRoot, bundleRef);
-    this.registry.create(sessionId, { session, deps, bundle, baseDir, assetCache: new Map() });
+    this.registry.create(sessionId, { session, deps, bundle, baseDir, assetCache: new Map(), profilePseudonym });
     return { sessionId, presentation };
+  }
+
+  /** COURSE SPINE: the next lesson the learner should take in `course` — the first not-completed lesson
+   * whose prerequisites are all completed — or null when the course is finished / nothing is unlocked.
+   * Reads the learner's completed_lessons from the cross-lesson profile (the same learner-level pseudonym
+   * the profile is keyed by). The caller then host.create(next.bundle_ref, learnerId) to start it. */
+  async nextLesson(course: Course, learnerId = "anonymous"): Promise<CourseLesson | null> {
+    const profilePseudonym = await buildHostDeps(this.opts.live).pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
+    const profile = await this.profileStore.load(profilePseudonym);
+    return nextCourseLesson(course, profile?.completed_lessons ?? []);
+  }
+
+  /** CROSS-LESSON spaced-repetition router (no live session needed): the concepts the learner is DUE to
+   * reinforce now, most-urgent first, from the PERSISTED `concept_memory` in their profile (accumulated
+   * as lessons complete) + mastery from the profile's concept_states. Empty when no profile / no memory.
+   * `nowMs` injected for deterministic review scheduling. */
+  async dueReinforcements(learnerId = "anonymous", nowMs: number = Date.now()): Promise<ReinforcementTarget[]> {
+    const profilePseudonym = await buildHostDeps(this.opts.live).pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
+    const profile = await this.profileStore.load(profilePseudonym);
+    if (!profile?.concept_memory) return [];
+    const mastery: Record<string, number> = {};
+    for (const [cid, cs] of Object.entries(profile.concept_states)) mastery[cid] = masteryOf(cs);
+    return dueReinforcementTargetsFromMemory(profile.concept_memory, mastery, nowMs);
+  }
+
+  /** The learner's NEXT course step, AUTO-ROUTED by FSRS: a DUE reinforcement (a concept mastered in an
+   * earlier lesson whose recall has decayed) PREEMPTS advancing to new material — so spaced repetition
+   * actually drives the course, not just a readout a driver may ignore. When nothing is due, advance the
+   * course spine (next not-done lesson whose prereqs are met). When no lesson is left to advance, the
+   * course is either `done` (every lesson completed) or `blocked` (lessons remain but none is unlocked —
+   * a mis-authored unmet/cyclic prereq) — disambiguated via isCourseComplete. A still-due concept keeps
+   * surfacing `reinforce` even past the last lesson (review never stops). Loads the profile ONCE.
+   * `nowMs` injected for deterministic scheduling. */
+  async nextCourseStep(course: Course, learnerId = "anonymous", nowMs: number = Date.now()): Promise<CourseStep> {
+    const profilePseudonym = await buildHostDeps(this.opts.live).pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
+    const profile = await this.profileStore.load(profilePseudonym);
+    if (profile?.concept_memory) {
+      const mastery: Record<string, number> = {};
+      for (const [cid, cs] of Object.entries(profile.concept_states)) mastery[cid] = masteryOf(cs);
+      const top = dueReinforcementTargetsFromMemory(profile.concept_memory, mastery, nowMs)[0];
+      if (top) return { kind: "reinforce", concept_id: top.concept_id, due_at: top.due_at, retrievability: top.retrievability };
+    }
+    const completed = profile?.completed_lessons ?? [];
+    const next = nextCourseLesson(course, completed);
+    if (next) return { kind: "advance", lesson: next };
+    // nextCourseLesson returns null for BOTH "all done" and "stuck (nothing unlocked)" — disambiguate.
+    return isCourseComplete(course, completed) ? { kind: "done" } : { kind: "blocked" };
   }
 
   /** Discover the community (learner-authored, approved) bundle refs sitting alongside the
@@ -327,8 +569,77 @@ export class SessionHost {
    * scene (figure, equation, interactive plot, executed reference run, …). Empty for a plain quiz. */
   sceneArtifacts(id: string): RenderAsset[] {
     const e = this.require(id);
-    return sceneRenderAssets(e.session.currentPresentation().scene).map((a) => inlineFileAsset(a, e.baseDir, e.assetCache));
+    const scene = e.session.currentPresentation().scene;
+    const assets = sceneRenderAssets(scene).map((a) => inlineFileAsset(a, e.baseDir, e.assetCache));
+    // A LEARNER-TIME RUN scene (run_manifest present) WITHHOLDS its author executed run — the learner
+    // produces a fresh result by running it (parity with the file channel + publicScene).
+    if ((scene as { run_manifest?: unknown }).run_manifest) return assets.filter((a) => a.kind !== "executed_result");
+    return assets;
   }
+  /** Record a learner-time capsule run (the learner's OWN executed result) on the session, keyed by
+   * task_card_id, so a later spot_the_flaw with `reference_from_run` grounds on it. Called after the
+   * host ingests the operator's run_result.json (run protocol) — closes the operation→judgment loop. */
+  recordLearnerRun(id: string, taskCardId: string, run: ReferenceRun): void {
+    this.require(id).session.recordLearnerRun(taskCardId, run);
+  }
+
+  /** The learner-time RUN manifest for the current scene (the provisioning/run instructions a
+   * reproduction scene needs), or null when the current scene is not a learner-run scene.
+   * NON-answer-bearing — capsule ref / install / cmd / produced file names / file-existence checks. */
+  runManifest(id: string): RunManifest | null {
+    const scene = this.require(id).session.currentPresentation().scene as { run_manifest?: RunManifest };
+    return scene.run_manifest ?? null;
+  }
+
+  /** Ingest a learner-produced run_result — Studium NEVER executes (the operator ran it in the workspace).
+   * The SHARED run-ingest core used by BOTH channels (MCP submit_run_result + the file channel's
+   * SessionWorkspace.ingestRun), so they cannot drift. Gates advance on `ran && passed`: a passing run
+   * records the learner's OWN executed result (keyed by the run scene's task_card_id, so a later
+   * reference_from_run judgment grounds on it) and advances via an ack; a non-completed / failed-checks
+   * run does NOT advance. Guards a non-run scene (no run_manifest) so it never advances an arbitrary scene. */
+  async ingestRunResult(
+    id: string, result: RunResult,
+  ): Promise<{ status: "ran" | "run_incomplete" | "run_failed_checks" | "not_a_run_scene"; transition: Transition | null; learnerRunRecorded: boolean; attested: boolean; attestationReasons: string[] }> {
+    const scene = this.require(id).session.currentPresentation().scene as { run_manifest?: RunManifest; task_card_id?: string };
+    if (!scene.run_manifest) return { status: "not_a_run_scene", transition: null, learnerRunRecorded: false, attested: false, attestationReasons: [] };
+    if (!result.ran) return { status: "run_incomplete", transition: null, learnerRunRecorded: false, attested: false, attestationReasons: [] };
+    if (!result.passed) return { status: "run_failed_checks", transition: null, learnerRunRecorded: false, attested: false, attestationReasons: [] };
+    // ATTESTATION (brain-only): verify the returned run against its manifest. An unverifiable "theatre" run
+    // still advances (the pure-delegation gate is ran&&passed), but is QUARANTINED from grounding a judgment
+    // — so it can never feed trust_calibration. Only an attested run records the learner's result.
+    const attestation = verifyRunAttestation(scene.run_manifest, result);
+    let learnerRunRecorded = false;
+    if (scene.task_card_id && attestation.trusted) {
+      const learnerRun = runResultToReferenceRun(result);
+      this.recordLearnerRun(id, scene.task_card_id, learnerRun);
+      learnerRunRecorded = true;
+      // PER-RUN REGENERATION: regenerate downstream spot_the_flaw judgments from the learner's OWN run
+      // (server-side) so the planted flaws match THEIR numbers — sound for a stochastic capsule too.
+      if (this.opts.judgmentGenerator) await this.regenerateDownstreamJudgments(id, scene.task_card_id, learnerRun);
+    }
+    const transition = await this.respond(id, { kind: "ack" } as ResponseInput);
+    return { status: "ran", transition, learnerRunRecorded, attested: attestation.trusted, attestationReasons: attestation.reasons };
+  }
+
+  /** Regenerate every spot_the_flaw scene grounded on this capsule run (reference_from_run === taskCardId)
+   * AND flagged regenerate_from_run: ask the injected generator for a flawed reading + answer key built on
+   * the learner's OWN run, and set it as a server-side scene override (publicScene still strips the claims).
+   * No-op without a generator (the authored, deterministic flaws stand). */
+  private async regenerateDownstreamJudgments(id: string, taskCardId: string, refRun: ReferenceRun): Promise<void> {
+    const gen = this.opts.judgmentGenerator;
+    if (!gen) return;
+    const e = this.require(id);
+    for (const sc of e.bundle.scenes) {
+      const s = sc as { id: string; type: string; reference_from_run?: string; regenerate_from_run?: boolean; concept_refs?: string[]; title?: string };
+      if (s.type !== "spot_the_flaw" || !s.regenerate_from_run || s.reference_from_run !== taskCardId) continue;
+      const out = await gen.generateFlaw({ reference_run: refRun, concept_id: s.concept_refs?.[0] ?? "", objective_text: s.title ?? "" });
+      e.session.setSceneOverride(s.id, {
+        flawed_content: out.flawed_content, claims: out.claims, model_correction: out.model_correction,
+        ...(out.rubric ? { rubric: out.rubric } : {}),
+      });
+    }
+  }
+
   async respond(id: string, input: ResponseInput): Promise<Transition> {
     const e = this.require(id);
     const transition = await e.session.respond(input);
@@ -341,6 +652,24 @@ export class SessionHost {
       // sink). With a JsonlTelemetrySink (consent path, see deps.ts) this writes the pseudonymized
       // ADR-006 event stream a teacher's class_report can later aggregate. forget() flush+purges.
       await e.deps.telemetry.flush();
+      // CROSS-LESSON carry-forward: merge this lesson's concept_states into the learner-level profile
+      // (latest-wins per concept), so the NEXT lesson sharing a concept starts warm. Keyed by the
+      // stable profile pseudonym set at create(); a no-op when there is none (defensive).
+      if (e.profilePseudonym) {
+        const now = e.deps.clock.now();
+        const st = e.session.getState();
+        const base = (await this.profileStore.load(e.profilePseudonym)) ?? defaultLearnerProfile(e.profilePseudonym, now);
+        // carry the concepts forward, persist this lesson's FSRS memory (replayed from its history,
+        // SEEDED from the profile's accumulated memory so a re-review compounds A+B rather than B-only)
+        // for CROSS-LESSON spaced repetition, AND mark this lesson completed (the course spine routes off it).
+        const merged = recordCompletedLesson(
+          mergeConceptMemoryIntoProfile(
+            mergeConceptStatesIntoProfile(base, st, now), conceptMemoryFromState(st, base.concept_memory), now,
+          ),
+          st.lesson_id,
+        );
+        await this.profileStore.save(merged);
+      }
     }
     return transition;
   }
@@ -381,6 +710,21 @@ export class SessionHost {
    * deterministic tests; defaults to wall-clock. A UI renders the due items as a "À réviser" cue. */
   reviewQueue(id: string, nowMs: number = Date.now()): ReviewQueueItem[] {
     return reviewQueueFromState(this.require(id).session.getState(), nowMs);
+  }
+
+  /** Spaced-repetition ROUTER (vs the reviewQueue readout): the single most-urgent concept to
+   * reinforce now, or null. The decision a selection loop acts on — "what should the learner
+   * reinforce next" — derived from the FSRS replay of the learner's answer history. */
+  nextReinforcement(id: string, nowMs: number = Date.now()): ReinforcementTarget | null {
+    return nextReinforcementFromState(this.require(id).session.getState(), nowMs);
+  }
+
+  /** ROUTE the FSRS decision to CONTENT: the id of the bundle scene that addresses the most-urgent
+   * due concept (its `concept_refs` includes it), or null when nothing is due. A driver surfaces
+   * this scene for a reinforcement pass instead of advancing linearly. */
+  nextReinforcementScene(id: string, nowMs: number = Date.now()): string | null {
+    const e = this.require(id);
+    return reinforcementSceneFromState(e.bundle, e.session.getState(), nowMs);
   }
 
   /** Learner-facing metacognitive-calibration verdicts (number-free, mastery never leaked) for every
@@ -453,7 +797,9 @@ export class SessionHost {
       ...rating,
       ts: Date.now(),
     });
-    const k = room.ratings.filter((r) => r.target_session_id === targetSessionId).length;
+    // Distinct raters, not rows: `k` is the number the floor is applied to, and a row count
+    // here would disagree with the aggregate the teacher later reads (see room.ts).
+    const k = distinctRaters(room.ratings, targetSessionId);
     return { suppressed: k < ROOM_K_FLOOR, k };
   }
 
@@ -504,6 +850,9 @@ export class SessionHost {
     // #4 REAL erasure: purge the learner's state + mastery .jsonld + event log + telemetry. Then
     // drop the registry entry. forget() used to be a no-op (only the event + registry delete).
     await e.session.erase();
+    // RGPD: also erase the learner-level CROSS-LESSON profile (the learner's longitudinal aggregate) —
+    // "right to be forgotten" covers data carried across lessons, not just this bundle's state.
+    if (e.profilePseudonym) await this.profileStore.delete(e.profilePseudonym);
     this.registry.delete(id);
   }
 }

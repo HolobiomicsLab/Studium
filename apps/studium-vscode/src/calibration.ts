@@ -18,9 +18,10 @@ export const CALIBRATION_WELL_BAND = 0.4;
 
 type AnyJson = Record<string, any>;
 
-/** Verbatim port of host.ts `calibrationVerdict`. Returns null before any attempt (no calibration yet). */
+/** Verbatim port of host.ts `calibrationVerdict`. Returns null until calibration is MEASURED (a
+ * confidence sample) — without one, the gap defaults to 0 and "bien calibrée" would be fabricated. */
 export function calibrationVerdict(cs: AnyJson): CalibrationVerdict | null {
-  if (!cs || (cs.total_attempts | 0) === 0) return null;
+  if (!cs || (cs.total_attempts | 0) === 0 || (cs.calibration_samples | 0) === 0) return null;
   const gap = Number(cs.confidence_calibration) || 0;
   if (Math.abs(gap) < CALIBRATION_WELL_BAND) {
     return {

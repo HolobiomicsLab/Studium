@@ -20,9 +20,10 @@ jobs:
           node-version: "20"
 
       - name: Setup pnpm
+        # No `version:` here on purpose. `package.json`'s `packageManager` field pins
+        # pnpm for CI and for every contributor at once (INT-STUDIUM-031), and
+        # action-setup refuses to run when both are given.
         uses: pnpm/action-setup@v3
-        with:
-          version: "9"
 
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
@@ -30,7 +31,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install Python dependencies
-        run: pip install pydantic pytest fastapi httpx
+        # INT-STUDIUM-011: the pins live in `requirements.txt` and nowhere else. The hand-written
+        # list this replaced was missing PyMuPDF, so `services/ingest` could not have run here even
+        # once the step below started collecting it.
+        run: pip install -r requirements.txt
 
       - name: Install Node dependencies
         run: pnpm install --no-frozen-lockfile
@@ -38,11 +42,78 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Workspace compiles (TypeScript)
+        # This step's failure means one thing, and now says it: the workspace does not
+        # compile. Until INT-STUDIUM-031 `pnpm build` ran only inside `tauri build`'s
+        # beforeBuildCommand, so a TypeScript error surfaced as a red job named
+        # "Tauri build" on two platform runners, and read for two days as a desktop
+        # toolchain problem. The platform jobs now fail *after* this one rather than
+        # instead of it.
+        #
+        # It also covers what the tests need: @studium/llm-client resolves through
+        # ./dist, which is gitignored, so packages/lesson-session cannot import it on a
+        # fresh checkout. Measured 2026-09-08 on `dev`: exit 0 over 18 workspaces,
+        # teacher-dashboard included, and the tree stays clean (INT-STUDIUM-015).
+        run: pnpm build
+
       - name: TypeScript tests
         run: pnpm test
 
+      - name: Teaching-material lint
+        run: node_modules/.pnpm/node_modules/.bin/tsx tools/bundle_lint.mjs
+
+      - name: Headless MCP smoke (harness-agnostic lesson drive)
+        run: node apps/lesson-mcp/scripts/headless_smoke.mjs
+
       - name: Python tests
-        run: pytest
+        # A bare `pytest` is limited by `pytest.ini` (`testpaths = packages`) to 112 tests, so ~1000
+        # tests under services/, eval/, tools/ and fixtures/ were green only when someone ran them
+        # by hand. This is the command CLAUDE.md declares (INT-STUDIUM-011).
+        run: python tools/pytest_all.py
+
+      - name: ASTRA validator (INT-STUDIUM-010)
+        run: |
+          python tools/astra_validate_check.py
+          python -m pytest services/planner/tests/test_provenance_astra_validate_cli.py -q
+
+      # Since INT-STUDIUM-011 the step above also runs this test, inside the services/planner
+      # suite. It stays named here as a loud gate: when the LWG build breaks, the job that goes red
+      # says so, instead of pointing at a suite of 233 tests.
+      - name: Planner LWG build outside pytest (INT-STUDIUM-016)
+        run: python -m pytest services/planner/tests/test_plan_lwg_subprocess.py -q
+
+      - name: Observatory tests (INT-STUDIUM-008)
+        run: |
+          python -m pytest services/observatory \
+            services/planner/tests/test_provenance_astra_read.py \
+            services/planner/tests/test_provenance_astra_validate_timeout.py \
+            eval/tests/test_runner_max_turns_constant.py -q
+
+  tester-path:
+    name: Tester onboarding path
+    runs-on: ubuntu-latest
+    needs: test
+
+    # What a colleague actually runs from a fresh clone. `setup.sh` is the single
+    # documented command in TESTING.md and in the French guide, and until now nothing
+    # executed it — the same shape as every other defect found this week: the path we
+    # ask someone else to walk was the one path CI never walked. ~1 min.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+
+      - name: Run setup.sh (preflight + install + vendor + build)
+        run: ./setup.sh
+
+      - name: Studium VS Code driver suite
+        run: pnpm --filter studium-vscode test
 
   tauri-build:
     name: Tauri build (${{ matrix.os }})
@@ -77,8 +148,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
-        with:
-          version: "9"
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -140,8 +209,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
-        with:
-          version: "9"
 
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
@@ -162,10 +229,17 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Install Tauri/webkit deps
+        # `webkit2gtk-driver` fournit /usr/bin/WebKitWebDriver, que `tauri-driver`
+        # lance en sous-processus. Sans lui, tauri-driver meurt immédiatement
+        # (`CannotFindBinaryPath`) et WDIO échoue en ECONNREFUSED sur le port 4444 —
+        # une erreur qui désigne le port, pas la cause. `libwebkit2gtk-4.1-dev` ne
+        # suffit pas : ce sont les en-têtes de compilation, pas le pilote.
+        # (INT-STUDIUM-033)
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
+            webkit2gtk-driver \
             libssl-dev \
             libgtk-3-dev \
             libayatana-appindicator3-dev \
@@ -176,6 +250,13 @@ jobs:
 
       - name: Install tauri-driver
         run: cargo install tauri-driver --locked
+
+      # Avant la démo, pas après : le smoke test exerce le bloc d'assertions de
+      # l'étape 6 sous un `curl` bouchonné et coûte quelques secondes, là où la
+      # démo coûte un build Tauri. Rien ne le lançait, ce qui est comment trois
+      # défauts de ce bloc ont survécu (INT-STUDIUM-021).
+      - name: e2e-demo-m6 smoke tests (INT-STUDIUM-021)
+        run: bash tools/e2e-demo-m6.test.sh
 
       - name: Run e2e-demo-m6 (CI mode)
         run: xvfb-run -a bash tools/e2e-demo-m6.sh --ci

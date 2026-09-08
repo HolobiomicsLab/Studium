@@ -61,12 +61,14 @@ test.describe("/courses/[token]/progress", () => {
     await expect(first).toContainText(/apprenant/);
   });
 
-  test("navigation links to calibration and autonomy are present", async ({
+  test("navigation links to calibration and the critique/hint balance are present", async ({
     page,
   }) => {
     await page.goto(`/courses/${encodeURIComponent(COURSE_TOKEN)}/progress`);
 
     await expect(page.getByRole("link", { name: /Calibration/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Autonomie/i })).toBeVisible();
+    // INT-STUDIUM-023: the link was labelled "Autonomie", a name the class report used for
+    // a different measurement. The route is still /autonomy; the label is not.
+    await expect(page.getByRole("link", { name: /Critique \/ indice/i })).toBeVisible();
   });
 });

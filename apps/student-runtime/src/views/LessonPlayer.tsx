@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { LessonBundleSchema, type LessonBundle } from "@studium/lesson-bundle-schema";
 import { defaultLearnerState, type LearnerState } from "@studium/learner-state";
 import type { Scene } from "@studium/lesson-bundle-schema";
@@ -13,24 +13,69 @@ import ReviewDueIndicator from "../components/ReviewDueIndicator";
 import AdaptationButton from "../components/AdaptationButton";
 import type { Signal } from "@studium/learner-state";
 
-const BUNDLE_PATH = "fixtures/m3/demo-metabolomics-bundle.zip";
+// INT-STUDIUM-034: there is no BUNDLE_PATH constant any more. The player plays what it is
+// given — `?bundle=<path>`, set by the library when a row is clicked. A default here is what
+// made the runtime a single-lesson demo: it could open exactly one file, chosen when the
+// binary was compiled, whatever the library offered and whatever the URL said.
 
 export default function LessonPlayer() {
   const { lessonId = "" } = useParams();
+  const [searchParams] = useSearchParams();
+  const bundlePath = searchParams.get("bundle");
   const navigate = useNavigate();
   const [bundle, setBundle] = useState<LessonBundle | null>(null);
   const [sceneIdx, setSceneIdx] = useState(0);
   const [initialState, setInitialState] = useState<LearnerState | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!bundlePath) return;
     (async () => {
-      const raw = await tauri.loadBundle(BUNDLE_PATH);
-      const parsed = LessonBundleSchema.parse(raw);
-      setBundle(parsed);
-      const persisted = (await tauri.loadState(lessonId)) as LearnerState | null;
-      setInitialState(persisted ?? defaultLearnerState(lessonId));
+      try {
+        const raw = await tauri.loadBundle(bundlePath);
+        const parsed = LessonBundleSchema.parse(raw);
+        setBundle(parsed);
+        const persisted = (await tauri.loadState(lessonId)) as LearnerState | null;
+        setInitialState(persisted ?? defaultLearnerState(lessonId));
+      } catch (e) {
+        // Named, not swallowed: an unreadable bundle otherwise leaves "Chargement de la
+        // leçon…" on screen for ever, which reads as a slow load rather than a broken file.
+        setError((e as Error).message);
+      }
     })();
-  }, [lessonId]);
+  }, [lessonId, bundlePath]);
+
+  if (!bundlePath) {
+    return (
+      <main className="p-8">
+        <p className="text-gray-700 mb-3">
+          Aucun bundle n&apos;a été choisi pour cette leçon.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="px-4 py-2 bg-blue-600 text-white rounded"
+        >
+          Retour à la bibliothèque
+        </button>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="p-8">
+        <p className="text-red-600 mb-3">Leçon illisible : {error}</p>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="px-4 py-2 bg-blue-600 text-white rounded"
+        >
+          Retour à la bibliothèque
+        </button>
+      </main>
+    );
+  }
 
   if (!bundle || !initialState) {
     return <p className="p-8 text-gray-500">Chargement de la leçon…</p>;
@@ -91,7 +136,8 @@ function Player({
     lessonStartedEmittedRef.current = true;
     startedAtRef.current = performance.now();
     emit({ type: "lesson_started", bundle_uri: bundle.bundle_id });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Deps deliberately empty: this must fire exactly once per Player mount.
+    // `emit` and `bundle` are intentionally omitted; the ref above is the guard.
   }, []);
 
   // Emit scene_entered when scene changes (and on first render)
@@ -99,7 +145,8 @@ function Player({
     if (sceneEnteredRef.current === scene.id) return;
     sceneEnteredRef.current = scene.id;
     emit({ type: "scene_entered", scene_id: scene.id, scene_type: scene.type });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Deps deliberately narrowed to the scene identity: `emit` is omitted so that a new
+    // callback identity does not re-emit scene_entered for a scene already entered.
   }, [scene.id, scene.type]);
 
   useEffect(() => {
@@ -148,14 +195,19 @@ function Player({
   };
 
   return (
-    <main className="min-h-screen p-6 bg-gray-50">
+    <main data-testid="lesson-player" className="min-h-screen p-6 bg-gray-50">
       <div className="max-w-3xl mx-auto mb-4 flex items-center justify-between gap-3">
         <span className="text-sm text-gray-500">
           Scène {sceneIdx + 1} / {bundle.scenes.length}
         </span>
         <ReviewDueIndicator state={state} />
       </div>
+      {/* `key` is the scene identity: SceneRouter dispatches on `scene.type` and returns the
+          scene component directly, so without it two consecutive scenes of the same type are
+          one component instance to React — the mount effects do not run again and `submitted`,
+          `selected` and the response-time origin carry over (INT-STUDIUM-017). */}
       <SceneRouter
+        key={scene.id}
         scene={scene}
         bundlePath={bundle.bundle_id}
         onSignal={onSignal as (s: Signal) => Promise<unknown>}

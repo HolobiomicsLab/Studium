@@ -4,7 +4,9 @@ type Props = {
   token: string;
   active:
     | "progress"
+    | "course-progress"
     | "calibration"
+    | "trust-calibration"
     | "autonomy"
     | "trajectory"
     | "ai-literacy"
@@ -17,8 +19,12 @@ type Props = {
 
 const TABS: { key: Props["active"]; label: string }[] = [
   { key: "progress", label: "Progression" },
+  { key: "course-progress", label: "Parcours" },
   { key: "calibration", label: "Calibration" },
-  { key: "autonomy", label: "Autonomie" },
+  { key: "trust-calibration", label: "Confiance IA" },
+  // INT-STUDIUM-023: "Autonomie" named two different measurements. The route key stays
+  // `autonomy` (it is the collector's endpoint); the label names what this page shows.
+  { key: "autonomy", label: "Critique / indice" },
   { key: "trajectory", label: "Trajectoire" },
   { key: "ai-literacy", label: "Littératie IA" },
   { key: "reasoning", label: "Raisonnement" },

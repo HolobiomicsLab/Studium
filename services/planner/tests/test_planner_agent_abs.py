@@ -58,3 +58,24 @@ def test_planner_agent_abs_prov_includes_ro_crate():
     plan, _ = agent.generate(_manifest_with_abs_capsule(), target="L3")
     assert plan.prov_derived_from is not None
     assert any("abs" in uri or "rocrate" in uri for uri in plan.prov_derived_from)
+
+
+def test_planner_emits_judgment_scene_when_requested():
+    """With ``emit_judgment_scenes`` on, the planner emits a capsule-grounded
+    ``spot_the_flaw`` judgment outline alongside the reproduction outline — closing
+    the "planner can't even request a judgment scene" gap. The outline points at the
+    same task card (the composer later runs it + attaches the real reference_result)."""
+    from agents.planner_agent import PlannerAgent
+    manifest = {**_manifest_with_abs_capsule(), "emit_judgment_scenes": True}
+    plan, _ = PlannerAgent().generate(manifest, target="L3")
+    scene_types = [s.type.value for s in plan.scene_outlines]
+    assert "spot_the_flaw" in scene_types
+    judgment = [s for s in plan.scene_outlines if s.type.value == "spot_the_flaw"]
+    assert judgment[0].abs_task_card_id == "task_001"
+
+
+def test_planner_omits_judgment_scene_by_default():
+    """Default OFF: existing courses keep their exact scene shape (no surprise scenes)."""
+    from agents.planner_agent import PlannerAgent
+    plan, _ = PlannerAgent().generate(_manifest_with_abs_capsule(), target="L3")
+    assert "spot_the_flaw" not in [s.type.value for s in plan.scene_outlines]

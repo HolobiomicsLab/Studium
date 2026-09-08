@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema, DiscussionSceneSchema, ConceptSceneSchema, ReproductionSceneSchema, SpotTheFlawSceneSchema, ExplainBackSceneSchema, ComparisonSceneSchema, SummaryAuditSceneSchema, PromptPracticeSceneSchema, CommunicationSimSceneSchema, SCHEMA_VERSION } from "../src/index";
+import { LessonBundleSchema, IntroSceneSchema, QuizSceneSchema, AdaptationRuleSchema, DiscussionSceneSchema, ConceptSceneSchema, ReproductionSceneSchema, SpotTheFlawSceneSchema, ExplainBackSceneSchema, ComparisonSceneSchema, SummaryAuditSceneSchema, PromptPracticeSceneSchema, CommunicationSimSceneSchema, RunManifestSchema, SCHEMA_VERSION } from "../src/index";
 
 function _minimalBundle() {
   return {
@@ -447,5 +447,38 @@ describe("Evidence on bundle scenes (ADR 014, schema 1.4)", () => {
       evidence: validEvidence,
     };
     expect(() => ReproductionSceneSchema.parse(scene)).not.toThrow();
+  });
+});
+
+describe("RunManifest (learner-time run)", () => {
+  const validManifest = {
+    capsule_ref: "fixtures/capsule-demo",
+    cmd: ["python", "scripts/run.py"],
+    working_dir: null,
+    timeout_s: 60,
+    requirements: ["numpy", "matplotlib"],
+    expected_outputs: ["outputs/stats.csv", "figures/decay.png"],
+    verify_checks: ["file exists: outputs/stats.csv"],
+    research_question: "What is k?",
+  };
+
+  it("validates a non-answer-bearing run manifest", () => {
+    expect(() => RunManifestSchema.parse(validManifest)).not.toThrow();
+  });
+
+  it("requires a non-empty cmd and a capsule_ref", () => {
+    expect(() => RunManifestSchema.parse({ ...validManifest, cmd: [] })).toThrow();
+    expect(() => RunManifestSchema.parse({ ...validManifest, capsule_ref: "" })).toThrow();
+  });
+
+  it("ReproductionScene KEEPS a run_manifest (not stripped) — and is fine without one (back-compat)", () => {
+    const base = {
+      id: "s-run", type: "reproduction", title: "Run", objective_refs: [], concept_refs: [],
+      estimated_seconds: 120, adaptation_hooks: [], task_card_id: "tc",
+      steps: [{ step_id: "1", instruction: "x", expected_input_schema: { type: "object" }, expected_output: "y" }],
+    };
+    expect(() => ReproductionSceneSchema.parse(base)).not.toThrow(); // optional
+    const withRun = ReproductionSceneSchema.parse({ ...base, run_manifest: validManifest });
+    expect((withRun as { run_manifest?: { cmd: string[] } }).run_manifest?.cmd).toEqual(["python", "scripts/run.py"]);
   });
 });

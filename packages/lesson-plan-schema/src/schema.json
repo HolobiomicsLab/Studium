@@ -162,7 +162,7 @@
         "id": { "type": "string", "minLength": 1 },
         "type": {
           "type": "string",
-          "enum": ["intro", "concept", "quiz", "simulation", "reproduction", "discussion", "meta_checkpoint", "ai_critique"]
+          "enum": ["intro", "concept", "quiz", "simulation", "reproduction", "discussion", "meta_checkpoint", "ai_critique", "spot_the_flaw"]
         },
         "title": { "type": "string", "minLength": 1 },
         "objective_refs": {

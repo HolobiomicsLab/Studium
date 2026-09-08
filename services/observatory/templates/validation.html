@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ course_id }} — validator{% endblock %}
+{% block content %}
+<h1>Validator — {{ course_id }}</h1>
+<p><a href="/courses/{{ course_id | urlencode }}">back to the course</a></p>
+<p>Status <b class="{{ validation.status }}">{{ validation.status|replace("_", " ") }}</b>
+  {%- if validation.returncode is not none %} · exit {{ validation.returncode }}{% endif %}
+  {%- if validation.ran_at %} · ran at {{ validation.ran_at }}{% endif %}</p>
+{% if validation.hint %}<div class="banner"><p>{{ validation.hint }}</p></div>{% endif %}
+{{ kv(validation.versions) }}
+<p class="path">{{ validation.cli or "no astra CLI" }}</p>
+{% if validation.output %}<pre>{{ validation.output }}</pre>{% endif %}
+<p class="path">cache key {{ validation.cache_key or "—" }} (the verdict is reused until a file under the course changes)</p>
+{% endblock %}

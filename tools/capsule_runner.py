@@ -63,6 +63,7 @@ def run_capsule(capsule_dir: str | Path, out_dir: str | Path | None = None,
     doi = card.get("crossref_doi")
 
     base = {"task_id": card.get("task_id"), "title": card.get("title"),
+            "research_question": card.get("research_question"),
             "compute_tier": tier, "reproducibility_tier": repro, "doi": doi}
 
     # --- tier gate (safe by default) ---

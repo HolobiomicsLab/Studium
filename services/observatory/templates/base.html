@@ -1,0 +1,78 @@
+{#- The one layout: inline style, no bundler, no CDN (spec N4). -#}
+{% macro markers(mapping) -%}
+{%- for name, reason in (mapping or {}).items() %}
+<p class="absent">{% if reason == "missing" %}(missing {{ name }}){% else %}(unreadable {{ name }}: {{ reason|replace("unreadable: ", "", 1) }}){% endif %}</p>
+{%- endfor %}
+{%- endmacro %}
+
+{% macro kv(mapping) -%}
+{%- if mapping %}
+<table class="kv">
+  <tbody>
+  {%- for key, value in mapping.items() %}
+    <tr><th>{{ key }}</th><td>{{ value }}</td></tr>
+  {%- endfor %}
+  </tbody>
+</table>
+{%- else %}
+<p class="none">none</p>
+{%- endif %}
+{%- endmacro %}
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Studium Observatory{% endblock %}</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  header { border-bottom: 1px solid #8883; padding: .6rem 1.2rem; display: flex; gap: 1.2rem; align-items: baseline; }
+  header b { font-size: 1rem; }
+  header a { color: inherit; }
+  main { max-width: 68rem; margin: 0 auto; padding: 1rem 1.2rem 4rem; }
+  h1 { font-size: 1.3rem; margin: 1rem 0 .2rem; }
+  h2 { font-size: 1.05rem; margin: 1.8rem 0 .4rem; border-bottom: 1px solid #8883; padding-bottom: .2rem; }
+  h3 { font-size: .95rem; margin: 1.1rem 0 .3rem; }
+  table { border-collapse: collapse; width: 100%; margin: .4rem 0; }
+  th, td { text-align: left; padding: .3rem .5rem; border-bottom: 1px solid #8882; vertical-align: top; }
+  th { font-weight: 600; }
+  table.kv th { width: 16rem; font-weight: 500; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; }
+  pre { background: #8881; padding: .6rem .8rem; overflow-x: auto; border-radius: 3px; }
+  details { margin: .3rem 0; }
+  summary { cursor: pointer; }
+  .path { color: #8889; font-size: .85em; word-break: break-all; }
+  .none { color: #8889; font-style: italic; }
+  .absent { color: #b45309; margin: .2rem 0; }
+  .cap { background: #b45309; color: #fff; border-radius: 3px; padding: 0 .35rem; font-size: .8em; }
+  .banner { background: #b453091a; border: 1px solid #b4530955; padding: .5rem .8rem; border-radius: 3px; }
+  .synthetic { color: #8889; font-size: .85em; }
+  .ok, .pass { color: #15803d; } .failed, .timed_out, .defect { color: #b91c1c; }
+  .suspect, .suppressed, .unmeasured, .unreadable, .empty { color: #b45309; }
+  .not_run, .not_installed { color: #8889; }
+  .controls { float: right; font-size: .85em; }
+  .controls button { font: inherit; cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <b>Studium Observatory</b>
+  <a href="/">Courses</a>
+  <a href="/#runs">Evaluation</a>
+  <a href="/eval/validity">Validity</a>
+  <a href="/sessions">Sessions</a>
+  <span class="controls"><button onclick="foldAll(true)">expand all</button>
+  <button onclick="foldAll(false)">collapse all</button></span>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<script>
+  function foldAll(open) {
+    document.querySelectorAll("details").forEach(function (d) { d.open = open; });
+  }
+</script>
+</body>
+</html>

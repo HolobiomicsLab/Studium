@@ -15,13 +15,14 @@
 // is covered automatically; a future answer-bearing field is a one-line addition here.
 
 import type { Scene } from "@studium/lesson-bundle-schema";
-import type { Presentation, Transition } from "@studium/lesson-session";
+import type { Presentation, Transition, PublicDeckItem } from "@studium/lesson-session";
+import { verdictDeck, publicDeck } from "@studium/lesson-session";
 
 // A client-safe projection of a Scene: structurally a Scene with the answer-bearing fields removed
 // (see PublicScene in @studium/lesson-session/types — kept un-re-exported there to avoid touching a
 // parallel-owned barrel; the contract is identical). The learner-facing fields the webview renders
 // are a subset of Scene, so a partial Scene types it without enumerating each variant.
-export type PublicScene = Partial<Scene>;
+export type PublicScene = Partial<Scene> & { deck?: PublicDeckItem[] };
 
 /**
  * Top-level scene fields that carry the answer key / reference reveal across EVERY scene type:
@@ -36,6 +37,7 @@ export type PublicScene = Partial<Scene>;
  */
 export const REDACTED_SCENE_FIELDS = [
   "claims",
+  "sound_claims",       // spot_the_flaw OVER-DISTRUST answer key (which AI-reading claims are actually sound)
   "key_points",
   "model_correction",
   "model_explanation",
@@ -56,11 +58,20 @@ export function publicScene(scene: Scene): PublicScene {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(src)) {
     if ((REDACTED_SCENE_FIELDS as readonly string[]).includes(key)) continue;
+    // Withhold the AUTHOR's executed run on a LEARNER-TIME RUN scene (run_manifest present): the learner
+    // must produce a FRESH result by running it — surfacing the author landmark would let them echo it.
+    if (key === "reference_result" && "run_manifest" in src) continue;
     if (key === "choices" && Array.isArray(value)) {
       out[key] = value.map((c) => stripChoice(c));
       continue;
     }
     out[key] = value;
+  }
+  // VERDICT DECK: derive the client-safe deck (opaque tokens + text, labels stripped) from the answer-key
+  // claims that were just redacted above. The `flawed`/`sound` truth stays server-side; the grader
+  // re-derives the identical permutation from scene.id to score the returned verdicts.
+  if (scene.type === "spot_the_flaw" && scene.verdict_deck) {
+    out.deck = publicDeck(verdictDeck(scene.claims, scene.sound_claims ?? [], scene.id));
   }
   return out as PublicScene;
 }

@@ -22,6 +22,10 @@ class SceneType(str, Enum):
     discussion = "discussion"
     meta_checkpoint = "meta_checkpoint"
     ai_critique = "ai_critique"
+    # capsule-grounded JUDGMENT scene (audit a flawed AI reading of a REAL executed
+    # result). The planner can request it; the composer runs the capsule + attaches the
+    # verified reference_result. Mirrors scene_synth_schemas.SceneType (the bundle vocab).
+    spot_the_flaw = "spot_the_flaw"
 
 
 class PlanStatus(str, Enum):

@@ -38,7 +38,10 @@ eval/corpus/
 .lwg/          # planner LWG output (lwg.indicium.jsonld, astra.yaml, universes/)
 .mastery/      # RGPD: local learner mastery claims (demonstrates_mastery_of) — personal data, must never be pushed
 
-# TypeScript emitted artifacts inside src/ — never commit (npx tsc / tsx run leave these)
+# TypeScript emitted artifacts inside src/ — never commit. Since INT-STUDIUM-015 no
+# workspace build writes here: every tsc build sets noEmit or outDir, guarded by
+# packages/telemetry-events/tests/tsc-emission-guard.test.ts. These patterns stay for
+# ad-hoc invocations like `npx tsc src/foo.ts`, which ignore tsconfig entirely.
 packages/*/src/**/*.js
 packages/*/src/**/*.d.ts
 packages/*/src/**/*.js.map
@@ -56,3 +59,6 @@ eval/corpus
 
 # runtime telemetry from the VS Code demo (studium.telemetryConsent)
 fixtures/data/
+
+# Studium agentic-session file channel (run by the operator CLIs / demo)
+.studium-session/

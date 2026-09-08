@@ -112,6 +112,14 @@ export const LearningWorkflowGraphSchema = z.object({
   if (ndup) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `duplicate node id: ${ndup}`, path: ["nodes"] });
   const edup = dup(g.edges.map((e) => e.id));
   if (edup) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `duplicate edge id: ${edup}`, path: ["edges"] });
+  // Referential integrity: every edge endpoint must reference a declared node. The build path already
+  // drops unknown-endpoint edges, but a hand-edited or loaded-from-disk graph could carry a dangling edge;
+  // this makes a loaded graph as safe as a generated one.
+  const nodeIds = new Set(g.nodes.map((n) => n.id));
+  for (const e of g.edges) {
+    if (!nodeIds.has(e.source)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `edge ${e.id} references unknown source node: ${e.source}`, path: ["edges"] });
+    if (!nodeIds.has(e.target)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `edge ${e.id} references unknown target node: ${e.target}`, path: ["edges"] });
+  }
 });
 export type LearningWorkflowGraph = z.infer<typeof LearningWorkflowGraphSchema>;
 

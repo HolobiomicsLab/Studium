@@ -94,7 +94,15 @@ export const ReasoningSignalSchema = BaseEventSchema.extend({
 
 // ADR 006 amendment v1.1 — ai_audit_result emitted at the end of an
 // ai_audit/ai_critique scene. Strict: aucun texte libre transmis, uniquement
-// des compteurs (planted_errors, true_positives, false_positives, missed).
+// des compteurs (planted_errors, true_positives, false_positives, missed,
+// sound_total).
+//
+// sound_total = le nombre de claims SAINES que l'auditeur pouvait signaler à
+// tort — le DÉNOMINATEUR de la sur-méfiance (false_positives / sound_total),
+// exactement celui qu'utilise le moteur (recordJudgmentAudit). Sans lui le
+// collector normalisait fp par le compte de failles plantées et produisait un
+// chiffre différent de celui du moteur pour le même audit. Optionnel et
+// rétro-compatible : absent ⇒ 0 ⇒ sur-méfiance NON MESURÉE (jamais « nulle »).
 export const AIAuditResultSchema = BaseEventSchema.extend({
   type: z.literal("ai_audit_result"),
   scene_id: z.string(),
@@ -102,6 +110,7 @@ export const AIAuditResultSchema = BaseEventSchema.extend({
   true_positives: z.number().int().nonnegative(),
   false_positives: z.number().int().nonnegative(),
   missed: z.number().int().nonnegative(),
+  sound_total: z.number().int().nonnegative().optional(),
 });
 
 // ADR 006 amendment v1.3 — journal_entry_submitted emitted when a learner

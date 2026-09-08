@@ -577,7 +577,7 @@
         },
         {
           "id": "b",
-          "text": "1s² 2s⁴",
+          "text": "1s² 2s¹ 2p³",
           "correct": false
         },
         {
@@ -587,7 +587,7 @@
         },
         {
           "id": "d",
-          "text": "1s⁴ 2s²",
+          "text": "1s² 2s² 3p²",
           "correct": false
         }
       ],

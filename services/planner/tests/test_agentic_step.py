@@ -45,7 +45,18 @@ def test_make_insight_shape():
                      created_at="2026-06-10T00:00:00+00:00", evidence=[ev])
     assert i["claim"].startswith("FFT requires") and i["evidence"][0]["doi"]
     assert i["id"] == "edge-fft-fourier"
-    assert ASTRA_SCHEMA_VERSION == "0.0.10"
+
+
+def test_decision_module_does_not_own_a_second_schema_version():
+    """The version must live only in the vendored contract: a private copy here is
+    what let this module go on advertising 0.0.10 after the spec had moved."""
+    import agentic.decision as decision
+    from provenance import astra_contract
+    from pathlib import Path
+
+    source = Path(decision.__file__).read_text(encoding="utf-8")
+    assert "ASTRA_SCHEMA_VERSION = " not in source
+    assert ASTRA_SCHEMA_VERSION == astra_contract.ASTRA_SCHEMA_VERSION
 
 
 from agentic.step import run_agentic_step, AgenticStepResult

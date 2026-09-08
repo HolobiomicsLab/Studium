@@ -8,7 +8,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { FREE_TEXT_KIND, freeTextInput } from "./scene-io.js";
+import { FREE_TEXT_KIND, freeTextInput, extractConfidence } from "./scene-io.js";
 import { calibrationVerdict } from "./calibration.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -50,12 +50,30 @@ for (const field of ["artifact_a", "artifact_b", "source_content", "ai_summary",
   expect(pane.includes(field), `artifact-pane.js renders scene field "${field}"`);
 }
 
-// 3) calibration verdict — verbatim port of host.ts. Band thresholds + null-before-attempt.
-expect(calibrationVerdict({ concept_id: "c", total_attempts: 0, confidence_calibration: 0.9 }) === null, "no attempt → null");
-expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.1 })?.band === "bien", "|gap|<0.4 → bien");
-expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.5 })?.band === "sur", "gap>0.4 → sur (overconfident)");
-expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: -0.5 })?.band === "sous", "gap<-0.4 → sous (underconfident)");
-expect((calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.5 })?.message || "").includes("surconfiant"), "sur message wording preserved");
+// 3) calibration verdict — verbatim port of host.ts. Band thresholds + null until MEASURED.
+expect(calibrationVerdict({ concept_id: "c", total_attempts: 0, confidence_calibration: 0.9, calibration_samples: 0 }) === null, "no attempt → null");
+// MEASURED guard: attempts>0 but NO confidence sample → null (never fabricate a "bien calibrée" verdict)
+expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.1 }) === null, "attempts but no calibration sample → null");
+expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.1, calibration_samples: 1 })?.band === "bien", "|gap|<0.4 → bien");
+expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.5, calibration_samples: 1 })?.band === "sur", "gap>0.4 → sur (overconfident)");
+expect(calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: -0.5, calibration_samples: 1 })?.band === "sous", "gap<-0.4 → sous (underconfident)");
+expect((calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_calibration: 0.5, calibration_samples: 1 })?.message || "").includes("surconfiant"), "sur message wording preserved");
+
+// 4) per-answer confidence token (the notebook tap) — extractConfidence parses a trailing conf:N.
+{
+  const a = extractConfidence("ma critique conf:3");
+  expect(a.confidence === 3 && a.rest === "ma critique", "extractConfidence parses 'conf:3' + strips the token");
+  const b = extractConfidence("b conf 2");
+  expect(b.confidence === 2 && b.rest === "b", "extractConfidence parses the space form 'conf 2'");
+  const c = extractConfidence("réponse confidence=4");
+  expect(c.confidence === 4, "extractConfidence accepts 'confidence=4'");
+  const d = extractConfidence("just my answer");
+  expect(d.confidence === undefined && d.rest === "just my answer", "no token → confidence undefined, text untouched");
+  const e = extractConfidence("3");
+  expect(e.confidence === undefined && e.rest === "3", "a bare digit is NOT a token (meta_checkpoint digit untouched)");
+}
+// parity: the webview pane must also attach a `confidence` to a submitted input (the tap mirrors this).
+expect(/confidence/.test(pane), "artifact-pane.js attaches a confidence to a submitted input (the tap)");
 
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} scene-io assertions failed:`);

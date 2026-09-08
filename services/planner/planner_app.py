@@ -3,6 +3,14 @@ from __future__ import annotations
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 
+# INT-STUDIUM-016: register every package the planner imports at RUNTIME here, at
+# module scope, through the one shared mechanism. The gated LWG build below imports
+# `learning_workflow_schema`; when its only registration lived in the pytest
+# conftest, that build was reachable under pytest and unreachable under uvicorn.
+from planner_paths import ensure_importable
+
+ensure_importable()
+
 from fastapi import FastAPI
 
 from planner_schemas import PlanRequest, PlanResponse, PlanStatus, CritiqueResult
@@ -21,11 +29,7 @@ def _get_perspicacite_client():
     """Factory d'injection. Retourne le client MCP Perspicacité live si activé
     (STUDIUM_PERSPICACITE_ENABLED=on), sinon None (enrichissement skippé).
     Testable via patch("planner_app._get_perspicacite_client")."""
-    import sys, os as _os
-    _here = _os.path.dirname(__file__)
-    _p = _os.path.join(_here, "../../packages/perspicacite-client/python")
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+    ensure_importable()
     from perspicacite_mcp.client import make_perspicacite_client
     return make_perspicacite_client()
 
@@ -81,9 +85,7 @@ def plan(request: PlanRequest) -> PlanResponse:
             from graph.builder import GraphBuilder
             from agents.graph_agent import GraphAgent
             from provenance.graph_to_indicium import graph_to_claims
-            from provenance.astra_emit import (
-                emit_astra, baseline_universe, write_astra_yaml, write_universe_yaml,
-            )
+            from provenance.astra_emit import emit_astra, baseline_universe, write_astra_set
             from provenance.universes import pedagogical_decisions, remedial_universe
             from learning_workflow_schema import validate_graph
 
@@ -122,7 +124,7 @@ def plan(request: PlanRequest) -> PlanResponse:
                     decisions=_res.decisions + _ped,
                     prior_insights=[],
                     findings=_res.findings,
-                    outputs=[{"id": "lwg", "type": "data"}],
+                    outputs=[{"id": "lwg", "type": "data", "format": "json"}],
                 )
                 os.makedirs(_out_dir, exist_ok=True)
                 with open(os.path.join(_out_dir, "lwg.indicium.jsonld"), "w", encoding="utf-8") as _f:
@@ -136,18 +138,22 @@ def plan(request: PlanRequest) -> PlanResponse:
                 # ungrounded / low-confidence (build_course_audit_report reads this).
                 with open(os.path.join(_out_dir, "lwg.graph.json"), "w", encoding="utf-8") as _f:
                     _json.dump(_res.graph, _f, ensure_ascii=False, indent=2)
-                write_astra_yaml(_analysis, _out_dir)
-                write_universe_yaml(baseline_universe(_ped), _out_dir)
-                write_universe_yaml(remedial_universe(_ped), _out_dir)
+                # astra.yaml + complete universes + the ARA trace, the set `astra validate` checks.
+                write_astra_set(_analysis, [baseline_universe(_ped), remedial_universe(_ped)], _out_dir)
                 _log.info(
                     "LWG built: %d nodes, %d edges -> %s",
                     len(_res.graph["nodes"]), len(_res.graph["edges"]), _out_dir,
                 )
-        except Exception:
+        except Exception as _exc:
             # Best-effort: a failed LWG build must NOT 500 the /plan response — but
             # make it LOUD (logged ERROR + telemetry marker), never a silent swallow.
+            # The marker NAMES the exception (INT-STUDIUM-016): an operator reading
+            # the artifact must be able to tell a missing module from a real crash.
             _log.exception("LWG build failed — skipping artifact write")
-            _emit_lwg_failure("exception")
+            _emit_lwg_failure(
+                "import_error" if isinstance(_exc, ImportError) else "exception",
+                errors=[f"{type(_exc).__name__}: {_exc}"],
+            )
 
     if os.getenv("STUDIUM_EVIDENCE_ENRICH") == "on":
         perspicacite = _get_perspicacite_client()

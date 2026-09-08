@@ -1,0 +1,12 @@
+# Ship only what the installed extension needs: the esbuild bundle (dist/) + the webview/vendor assets
+# (media/) + the walkthrough. Everything else (TypeScript sources, tests, node_modules, config) is excluded.
+.vscode/**
+src/**
+**/*.ts
+**/*.ts.map
+**/*.map
+tsconfig.json
+.gitignore
+.crossmbp-*
+pnpm-lock.yaml
+node_modules/**

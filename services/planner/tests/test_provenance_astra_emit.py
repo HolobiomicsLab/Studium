@@ -1,5 +1,9 @@
 from agentic.decision import make_decision, make_insight, make_evidence
-from provenance.astra_emit import emit_astra, baseline_universe, write_astra_yaml, write_universe_yaml
+from provenance.astra_contract import ASTRA_SCHEMA_VERSION
+from provenance.astra_emit import (
+    SOURCE_ID_FIELD, analysis_body, emit_astra, baseline_universe, nest_universe,
+    write_astra_yaml, write_universe_yaml,
+)
 
 
 def _decisions():
@@ -19,9 +23,17 @@ def test_emit_astra_shape():
     analysis = emit_astra(analysis_id="course-analysis", name="Signal Processing 101",
                           decisions=_decisions(), prior_insights=[], findings=findings,
                           outputs=[{"id": "lwg", "type": "data"}])
-    assert analysis["version"] == "0.0.10"
-    assert "e1" in analysis["decisions"] and "difficulty" in analysis["decisions"]
-    assert analysis["findings"]["e1"]["claim"].startswith("FFT requires")
+    # The version is the vendored contract's, never a literal re-declared here.
+    assert analysis["version"] == ASTRA_SCHEMA_VERSION
+    # ASB document shape: no root id; the course is one sub-analysis under `analyses`.
+    assert "id" not in analysis
+    slug, body = analysis_body(analysis)
+    assert slug == "course_analysis"  # "course-analysis" is not a valid ASTRA id
+    assert body["id"] == slug
+    assert analysis["outputs"] == [{"id": f"{slug}_result", "from": f"{slug}.lwg"}]
+    assert "e1" in body["decisions"] and "difficulty" in body["decisions"]
+    assert body["findings"]["e1"]["claim"].startswith("FFT requires")
+    assert f"{SOURCE_ID_FIELD}:e1" in body["findings"]["e1"]["tags"]
 
 
 def test_baseline_universe_picks_defaults():
@@ -30,15 +42,22 @@ def test_baseline_universe_picks_defaults():
     assert u["decisions"] == {"e1": "yes", "difficulty": "standard"}
 
 
+def test_nest_universe_wraps_under_the_analysis_slug():
+    u = nest_universe(baseline_universe(_decisions()), "course_analysis")
+    assert u["id"] == "baseline"
+    assert u["analyses"] == {"course_analysis": {"decisions": {"e1": "yes", "difficulty": "standard"}}}
+    assert "decisions" not in u
+
+
 def test_write_astra_and_universe_yaml(tmp_path):
     analysis = emit_astra(analysis_id="a", name="n", decisions=_decisions(),
                           prior_insights=[], findings=[], outputs=[])
     write_astra_yaml(analysis, str(tmp_path))
-    write_universe_yaml(baseline_universe(_decisions()), str(tmp_path))
+    write_universe_yaml(nest_universe(baseline_universe(_decisions()), "a"), str(tmp_path))
     assert (tmp_path / "astra.yaml").exists()
     assert (tmp_path / "universes" / "baseline.yaml").exists()
     import yaml
     loaded = yaml.safe_load((tmp_path / "astra.yaml").read_text())
-    assert loaded["version"] == "0.0.10"
+    assert loaded["version"] == ASTRA_SCHEMA_VERSION
     loaded_u = yaml.safe_load((tmp_path / "universes" / "baseline.yaml").read_text())
-    assert loaded_u["decisions"] == {"e1": "yes", "difficulty": "standard"}
+    assert loaded_u["analyses"]["a"]["decisions"] == {"e1": "yes", "difficulty": "standard"}

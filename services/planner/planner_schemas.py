@@ -1,8 +1,10 @@
 """Planner service Pydantic schemas — aligned with lesson-plan-schema v1 (ADR 003)."""
 from __future__ import annotations
-import sys, os
 import uuid as _uuid
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../packages/lesson-plan-schema/python"))
+
+from planner_paths import ensure_importable
+
+ensure_importable()
 
 from lesson_plan_schema import (
     LessonPlan,

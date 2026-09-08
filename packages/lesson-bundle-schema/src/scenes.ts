@@ -139,6 +139,25 @@ export const ReferenceRunSchema = z.object({
     env: z.string(),
   }),
 });
+export type ReferenceRun = z.infer<typeof ReferenceRunSchema>;
+
+// LEARNER-TIME provisioning + run manifest. Studium emits it (from the capsule's runnable contract)
+// so a PLUGGABLE AGENTIC OPERATOR provisions the env, installs deps, and runs the capsule IN THE VS CODE
+// WORKSPACE — Studium NEVER executes (no per-learner sandbox). Deliberately NON-answer-bearing: it carries
+// only HOW to run (capsule ref / cmd / install / produced file NAMES / file-existence checks), and NEVER
+// the expected values or the author's landmark — the learner produces those by actually running it.
+export const RunManifestSchema = z.object({
+  capsule_ref: z.string().min(1),                  // where the capsule lives / how to obtain it (path or DOI)
+  cmd: z.array(z.string()).min(1),                 // the command the operator runs in the workspace
+  working_dir: z.string().nullable().optional(),
+  timeout_s: z.number().positive().optional(),
+  requirements: z.array(z.string()).optional(),    // pip deps to install (or a requirements.txt at capsule_ref)
+  expected_outputs: z.array(z.string()),           // file NAMES the run should produce (not their values)
+  verify_checks: z.array(z.string()),              // human-readable checks: `file exists:` / `stdout contains:` / `landmark matches:` (no answer values)
+  research_question: z.string().optional(),
+  landmark_pattern: z.string().optional(),         // optional regex isolating the learner's OWN landmark line in stdout (a FORM matcher, not a value); default = last non-empty line
+});
+export type RunManifest = z.infer<typeof RunManifestSchema>;
 
 export const ReproductionSceneSchema = SceneBaseSchema.extend({
   type: z.literal("reproduction"),
@@ -147,6 +166,9 @@ export const ReproductionSceneSchema = SceneBaseSchema.extend({
   prov_derived_from: z.string().url().optional(),
   image_path: z.string().optional(),         // rendered figure from the reference run
   reference_result: ReferenceRunSchema.optional(),
+  // OPTIONAL learner-time run: when present, the scene is reproduced BY THE LEARNER at session time
+  // (the host/operator provisions + runs it), not merely shown as a pre-baked author run.
+  run_manifest: RunManifestSchema.optional(),
   evidence: EvidenceSchema.optional(),
 });
 
@@ -196,6 +218,52 @@ export const SpotTheFlawSceneSchema = SceneBaseSchema.extend({
   claims: z.array(FlawClaimSchema).min(1).max(5),
   model_correction: z.string().min(1),
   rubric: AICritiqueRubricSchema,
+  // OPTIONAL grounding in a REAL capsule execution. When `flawed_content` is a deliberately-flawed
+  // AI reading of a genuine executed result (the capsule "reference run"), the scene carries that run
+  // so the learner audits the AI interpretation AGAINST the real output (figure + landmark + graded
+  // checks) — "real operation as the vehicle, judgment as the destination". Populated at author time
+  // by tools/ground_judgment.py (which gets it from tools/capsule_runner.py); absent for a purely
+  // hand-authored flaw. Surfaced as an `executed_result` render-asset by sceneRenderAssets — the SAME
+  // carrier reproduction uses. The run carries no answer key (the flaws live in `claims`), so showing
+  // it is the evidence the learner reasons from, not a leak.
+  reference_result: ReferenceRunSchema.optional(),
+  // OPTIONAL OVER-DISTRUST answer key: claims in `flawed_content` that are actually CORRECT — a good
+  // auditor must NOT flag them. The keyword matcher can't tell a wrongly-flagged sound claim from praise
+  // (it only carries the planted-flaw key), so over-distrust stays 0 offline. When an LLM AuditJudge is
+  // injected at grade time, it is told these sound claims and reports any the critique wrongly flagged →
+  // false_positives > 0 → the over-distrust direction of trust_calibration. Server-side answer-key
+  // material: publicScene strips `sound_claims` like `claims`. Absent ⇒ over-distrust unmeasured (boundary).
+  sound_claims: z.array(z.object({ id: z.string(), text: z.string() })).optional(),
+  // OPTIONAL learner-run grounding (closes the operation→judgment loop): a task_card_id whose
+  // LEARNER-TIME run (the learner's OWN executed result, captured via the run protocol) grounds this
+  // judgment — the learner audits a flawed AI reading of the result THEY produced. At session time the
+  // host injects the recorded run as `reference_result` (so both the evidence shown AND the grading
+  // feed off the learner's run). Falls back to the authored `reference_result` (or ungrounded) when no
+  // learner run was captured. Non-answer-bearing — it is just a reference to which run to ground on.
+  //
+  // SOUNDNESS REQUIREMENT — DETERMINISTIC CAPSULES ONLY: the authored `claims`/`flaws_expected` (the
+  // answer key the grader scores against) are written for a CANONICAL result and are NOT regenerated
+  // from the learner's run. So `reference_from_run` is only sound when the capsule is DETERMINISTIC
+  // (the landmark is stable across runs — e.g. a fixed seed). For a stochastic capsule the learner
+  // would see their real landmark while being graded against flaws written for different numbers. Only
+  // author `reference_from_run` against a deterministic capsule; for stochastic ones keep a pre-baked
+  // author `reference_result` (or regenerate the flaws per-run — a deferred enhancement).
+  reference_from_run: z.string().optional(),
+  // OPTIONAL per-run REGENERATION (lifts the determinism caveat above): with reference_from_run set, the
+  // host REGENERATES flawed_content + claims + model_correction from the LEARNER's actual run (server-side,
+  // via an injected judgment generator) when the learner runs the capsule — so the planted flaws match the
+  // learner's real numbers even for a STOCHASTIC capsule. The regenerated answer key stays server-side
+  // (publicScene still strips claims/model_correction). Off ⇒ the authored flaws are used (deterministic).
+  regenerate_from_run: z.boolean().optional(),
+  // OPTIONAL VERDICT DECK: present the answer-key claims as an unlabeled, shuffled deck the learner
+  // marks flawed/sound per item (a forced binary verdict), instead of / alongside free-text. This is
+  // the KEY-FREE bidirectional signal: a checkbox IS a flagging decision, so false alarms on the
+  // `sound_claims` are COUNTED (not inferred from a live judge or from polarity-blind keyword matching)
+  // → real over-distrust offline. The deck is DERIVED at projection time from `claims` (flawed) +
+  // `sound_claims` (sound) by publicScene; the labels never leave the server (opaque positional tokens).
+  // For the deck to measure over-distrust the scene should declare `sound_claims`; with none it degrades
+  // gracefully to a flawed-only deck (over-trust only). Absent/false ⇒ the free-text flaw_report path.
+  verdict_deck: z.boolean().optional(),
 });
 
 // A key idea a good explanation should contain. `cues` (>=1) are the phrases the offline coverage

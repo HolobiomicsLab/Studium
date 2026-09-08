@@ -6,6 +6,9 @@ import {
   getProgress,
   getProgressMetrics,
   getCalibration,
+  getTrustCalibration,
+  getCourseCompletion,
+  getCourse,
   getAutonomy,
   getConceptMasteryHistory,
   getAILiteracy,
@@ -16,7 +19,17 @@ import {
   getLearnerItems,
   decideLearnerItem,
   teacherIriForToken,
+  isSuppressed,
+  type Suppressed,
 } from "./api";
+
+/** Narrow away the k-anonymity suppression (INT-STUDIUM-005) so these tests can keep asserting
+ *  on the aggregate they mocked. Throwing rather than casting means a fetcher that started
+ *  suppressing unexpectedly fails here by name instead of at an undefined property. */
+function aggregate<T>(data: T | Suppressed): T {
+  if (isSuppressed(data)) throw new Error(`unexpected suppression: ${data.reason}`);
+  return data;
+}
 
 describe("teacher-dashboard api wrapper", () => {
   beforeEach(() => {
@@ -29,7 +42,7 @@ describe("teacher-dashboard api wrapper", () => {
       status: 200,
       json: async () => ({ scenes: { s1: { completion_rate: 0.5, n_learners: 3 } } }),
     });
-    const r = await getProgress("course-x");
+    const r = aggregate(await getProgress("course-x"));
     expect(r.scenes.s1.completion_rate).toBe(0.5);
     const call = (global.fetch as any).mock.calls[0];
     expect(call[0]).toContain("/metrics/progress?course=course-x");
@@ -60,6 +73,62 @@ describe("teacher-dashboard api wrapper", () => {
     expect(url).not.toContain("learner=");
   });
 
+  it("getTrustCalibration hits /metrics/trust-calibration and forwards learner", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        trust_calibration: 0.67, band: "sur", n_audits: 1,
+        over_trust: 0.67, over_distrust: 0, per_scene: [],
+      }),
+    });
+    const r = aggregate(await getTrustCalibration("c", "p1"));
+    expect(r.band).toBe("sur");
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toContain("/metrics/trust-calibration?course=c");
+    expect(call[0]).toContain("learner=p1");
+    expect(call[1].headers["X-Course-Token"]).toBe("c");
+  });
+
+  it("getTrustCalibration omits learner when not provided", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        trust_calibration: null, band: null, n_audits: 0,
+        over_trust: null, over_distrust: null, per_scene: [],
+      }),
+    });
+    await getTrustCalibration("c");
+    const url = (global.fetch as any).mock.calls[0][0];
+    expect(url).not.toContain("learner=");
+  });
+
+  it("getCourseCompletion hits /metrics/course-completion with token", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ lessons: { l1: { n_completed: 2 } }, total_completions: 3 }),
+    });
+    const r = aggregate(await getCourseCompletion("c"));
+    expect(r.lessons.l1.n_completed).toBe(2);
+    const call = (global.fetch as any).mock.calls[0];
+    expect(call[0]).toContain("/metrics/course-completion?course=c");
+    expect(call[1].headers["X-Course-Token"]).toBe("c");
+  });
+
+  it("getCourse fetches a parsed manifest from lesson-server and unwraps .course", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, ok: true, course: { course_id: "k", title: "T", schema_version: "1.0", lessons: [] } }),
+    });
+    const r = await getCourse("courses/decay-course.json");
+    expect(r.course_id).toBe("k");
+    const url = (global.fetch as any).mock.calls[0][0];
+    expect(url).toContain("/courses?ref=courses%2Fdecay-course.json");
+  });
+
   it("getAutonomy returns ratio + critique_completion_rate", async () => {
     (global.fetch as any).mockResolvedValue({
       ok: true,
@@ -71,7 +140,7 @@ describe("teacher-dashboard api wrapper", () => {
         n_hints: 2,
       }),
     });
-    const r = await getAutonomy("c");
+    const r = aggregate(await getAutonomy("c"));
     expect(r.autonomy_ratio).toBe(0.8);
     expect(r.n_critique).toBe(8);
   });
@@ -91,7 +160,7 @@ describe("teacher-dashboard api wrapper", () => {
       status: 200,
       json: async () => ({ concepts: {} }),
     });
-    const r = await getConceptMasteryHistory("c1");
+    const r = aggregate(await getConceptMasteryHistory("c1"));
     expect(r.concepts).toEqual({});
     const call = (global.fetch as any).mock.calls[0];
     expect(call[0]).toContain("/metrics/concept-mastery-history?course=c1");
@@ -153,7 +222,7 @@ describe("teacher-dashboard api wrapper", () => {
         },
       }),
     })) as never;
-    const result = await getReasoningDepth("course-x", { pseudonyme: "p1", scene_id: "s1" });
+    const result = aggregate(await getReasoningDepth("course-x", { pseudonyme: "p1", scene_id: "s1" }));
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining("/metrics/reasoning?"),
       expect.objectContaining({
@@ -174,10 +243,10 @@ describe("teacher-dashboard api wrapper", () => {
         entries_by_scene: { "s-disc-1": { count: 7, mean_length: 200 } },
       }),
     });
-    const r = await getJournalStats("course-x", {
+    const r = aggregate(await getJournalStats("course-x", {
       pseudonyme: "p1",
       bundle_version: "v0.4",
-    });
+    }));
     expect(r.entries_total).toBe(12);
     expect(r.entries_by_scene["s-disc-1"].count).toBe(7);
     const call = (global.fetch as any).mock.calls[0];
@@ -200,7 +269,7 @@ describe("teacher-dashboard api wrapper", () => {
         votes_per_session_mean: 4.2,
       }),
     });
-    const r = await getCooperationStats("course-x", { bundle_version: "v0.4" });
+    const r = aggregate(await getCooperationStats("course-x", { bundle_version: "v0.4" }));
     expect(r.n_sessions).toBe(3);
     expect(r.convergence_quality).toBe(0.67);
     expect(r.votes_per_session_mean).toBe(4.2);
@@ -379,7 +448,7 @@ describe("teacher-dashboard api wrapper", () => {
       status: 200,
       json: async () => ({ scenes_with_evidence: 2, scenes_total: 3 }),
     });
-    const r = await getProgressMetrics("course-x");
+    const r = aggregate(await getProgressMetrics("course-x"));
     expect(r.scenes_with_evidence).toBe(2);
     expect(r.scenes_total).toBe(3);
     const call = (global.fetch as any).mock.calls[0];

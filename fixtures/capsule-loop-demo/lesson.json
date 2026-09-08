@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.4",
+  "bundle_id": "capsule-loop-demo",
+  "source_plan_id": "plan-capsule-loop",
+  "metadata": {
+    "title": "Run it, then judge YOUR result (operation -> judgment loop)",
+    "target": "grad",
+    "duration_minutes": 20,
+    "language": "fr",
+    "discipline": "chemistry"
+  },
+  "concepts": [
+    {
+      "id": "c-kinetics",
+      "title": "Cinetique du premier ordre",
+      "description": "Constante de vitesse k et demi-vie",
+      "bloom_level_target": "evaluate"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s-intro",
+      "type": "intro",
+      "title": "Reproduis puis audite",
+      "objective_refs": [],
+      "concept_refs": ["c-kinetics"],
+      "estimated_seconds": 20,
+      "adaptation_hooks": [],
+      "markdown": "Tu vas d'abord LANCER la capsule toi-meme (l'hote provisionne), puis AUDITER une lecture IA de TON propre resultat execute."
+    },
+    {
+      "id": "s-repro",
+      "type": "reproduction",
+      "title": "Lance la capsule de decroissance",
+      "objective_refs": ["c-kinetics"],
+      "concept_refs": ["c-kinetics"],
+      "estimated_seconds": 120,
+      "adaptation_hooks": [],
+      "task_card_id": "demo-decay-fit",
+      "steps": [
+        {
+          "step_id": "1",
+          "instruction": "Provisionne l'environnement, lance la capsule, verifie les sorties.",
+          "expected_input_schema": { "type": "object" },
+          "expected_output": "outputs/stats.csv + figures/decay.png"
+        }
+      ],
+      "run_manifest": {
+        "capsule_ref": "fixtures/capsule-demo",
+        "cmd": ["python", "scripts/run.py"],
+        "working_dir": null,
+        "timeout_s": 60,
+        "requirements": ["numpy", "matplotlib"],
+        "expected_outputs": ["outputs/stats.csv", "figures/decay.png"],
+        "verify_checks": [
+          "file exists: outputs/stats.csv",
+          "file exists: figures/decay.png"
+        ],
+        "research_question": "What is the rate constant k (and half-life) of a first-order decay?"
+      }
+    },
+    {
+      "id": "s-flaw",
+      "type": "spot_the_flaw",
+      "title": "Audite une lecture IA de TON resultat",
+      "objective_refs": ["c-kinetics"],
+      "concept_refs": ["c-kinetics"],
+      "estimated_seconds": 120,
+      "adaptation_hooks": [],
+      "flawed_content": "Lecture IA de ton run : k vaut environ 0.42, c'est un nombre sans dimension, donc la demi-vie depasse une heure.",
+      "claims": [
+        { "id": "f-unit", "text": "k serait sans dimension", "flaws_expected": ["unites"] },
+        { "id": "f-half", "text": "demi-vie > 1 h", "flaws_expected": ["demi-vie"] }
+      ],
+      "model_correction": "k est un taux (1/temps) ; la demi-vie vaut ln2/k (~1.65 unite de temps), pas une heure.",
+      "rubric": { "completeness": 0.6, "evidence_quality": 0.3, "tone": 0.1 },
+      "reference_from_run": "demo-decay-fit"
+    }
+  ],
+  "rules": [],
+  "validated_by": "capsule-loop-demo",
+  "validated_at": "2026-06-28T08:00:00Z"
+}

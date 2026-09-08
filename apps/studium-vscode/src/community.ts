@@ -17,7 +17,7 @@
 // cannot import @studium/lesson-session-host (a dep we must not add) into the extension bundle.
 
 import { readdirSync } from "node:fs";
-import { join, dirname, posix } from "node:path";
+import { join, posix } from "node:path";
 
 /** The per-course subdir holding approved community bundles, alongside the canonical bundle.
  * MIRRORS COMMUNITY_DIR in packages/lesson-session-host/src/community-bundles.ts AND

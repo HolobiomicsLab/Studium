@@ -9,6 +9,7 @@ import {
   LiteLLMReasoningScorer, StubReasoningScorer,
   LiteLLMSocraticTutor, StubSocraticTutor,
   HttpCritiqueEvaluator, StubCritiqueEvaluator,
+  HttpLlmAuditJudge,
 } from "@studium/lesson-session/node";
 
 /** #4 fail-closed: refuse a missing/empty/"dev-secret" secret whenever ANY production-ish signal
@@ -96,6 +97,15 @@ export function buildHostDeps(live: boolean, scopeDir?: string): SessionDeps {
         }, Number(process.env["STUDIUM_LLM_TIMEOUT_MS"] ?? 20000))
       : new StubReasoningScorer(),
     critiqueEvaluator: live ? new HttpCritiqueEvaluator() : new StubCritiqueEvaluator(),
+    // OVER-DISTRUST: only LIVE (LITELLM_BASE_URL) wires an LLM audit judge — an offline run leaves it
+    // undefined, so the keyword matcher grades audits and over-distrust stays 0 (the honesty boundary).
+    // A grounded spot_the_flaw with sound_claims + this judge produces a real false_positive signal.
+    ...(live && process.env["LITELLM_BASE_URL"]
+      ? { auditJudge: new HttpLlmAuditJudge(process.env["LITELLM_BASE_URL"], {
+          ...(process.env["LITELLM_API_KEY"] !== undefined ? { apiKey: process.env["LITELLM_API_KEY"] } : {}),
+          ...(process.env["LITELLM_MODEL"] !== undefined ? { model: process.env["LITELLM_MODEL"] } : {}),
+        }) }
+      : {}),
     // EV-3a: Socratic tutor for discussion scenes. Offline (live=false) wires the
     // deterministic, never-revealing StubSocraticTutor so the narrative free-text dialogue
     // works without an LLM; live mode swaps in the LiteLLM tutor (same opts as the scorer).

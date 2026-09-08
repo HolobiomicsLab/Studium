@@ -1,4 +1,7 @@
 import { z } from "zod";
+// ModulatorSchema is the single-source registry's active set {M1,M3,M6} (./modulators.ts). The package
+// barrel re-exports it (and the full registry) via `export * from "./modulators"`.
+import { ModulatorSchema } from "./modulators.js";
 
 export const RuleConditionSchema = z.record(z.string(), z.string());
 
@@ -9,8 +12,6 @@ export const RuleActionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("show_calibration_panel") }),
   z.object({ kind: z.literal("show_explanation_panel") }),
 ]);
-
-export const ModulatorSchema = z.enum(["M1", "M2", "M3", "M6"]);
 
 export const AdaptationRuleSchema = z.object({
   id: z.string(),

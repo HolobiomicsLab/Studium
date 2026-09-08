@@ -1,5 +1,5 @@
 import type { LearnerState, ConceptState, Signal, Decision } from "@studium/learner-state";
-import { defaultConceptState, updateCalibration } from "@studium/learner-state";
+import { defaultConceptState, recordConfidenceSample, CALIBRATION_ANSWER_LAMBDA, recordJudgmentAudit, recordJudgmentSdt } from "@studium/learner-state";
 import type { AdaptationRule } from "@studium/lesson-bundle-schema";
 import { updateBeta } from "./beta-updater";
 import { matchesCondition } from "./condition-matcher";
@@ -27,6 +27,10 @@ function buildContext(state: LearnerState, signal: Signal): Record<string, numbe
     ctx.total_attempts = cs.total_attempts;
     ctx.total_correct = cs.total_correct;
     ctx.confidence_calibration_abs = Math.abs(cs.confidence_calibration);
+    // expose the FRESHLY-updated trust calibration (judgment-over-artifact) so a bundle rule can route
+    // on it (e.g. show_explanation_panel when trust_calibration_abs is high). Signed + abs; 0 if unmeasured.
+    ctx.trust_calibration = cs.trust_calibration ?? 0;
+    ctx.trust_calibration_abs = Math.abs(cs.trust_calibration ?? 0);
   }
   if (signal.kind === "confidence_declared") {
     ctx.confidence_pre = signal.value;
@@ -67,14 +71,33 @@ export class AdaptationEngine {
   onSignal(signal: Signal): Decision {
     if (signal.kind === "answer_submitted") {
       const cs = ensureConceptState(this.state, signal.concept_id);
-      this.state.concept_states[signal.concept_id] = updateBeta(cs, signal);
+      const afterBeta = updateBeta(cs, signal);
+      // PER-ANSWER (CONTINUOUS) calibration capture: when the answer carries a self-rated confidence
+      // (fed by the confidence-tap UI), fold it into calibration against the POST-answer mastery — the
+      // competence the answer just demonstrated — using CALIBRATION_ANSWER_LAMBDA (<1) so accumulated
+      // per-answer samples form a RUNNING AVERAGE (not last-write-wins). + counts a sample.
+      let next =
+        signal.confidence !== undefined
+          ? recordConfidenceSample(afterBeta, signal.confidence, CALIBRATION_ANSWER_LAMBDA)
+          : afterBeta;
+      // JUDGMENT-OVER-ARTIFACT: when the answer is a GROUNDED spot_the_flaw audit (a flawed AI reading
+      // of a real executed result), fold trust-in-output-vs-ground-truth into trust_calibration — a
+      // dimension DISTINCT from confidence_calibration. This is the north-star destination signal.
+      if (signal.judgment_audit?.grounded) {
+        next = recordJudgmentAudit(next, signal.judgment_audit);
+        // Same audit, SEPARATE signal-detection diagnostic (A' competence + criterion-c bias); no-op
+        // unless a real sound class was judged (sound_total>0). Non-gating; complements the signed gap.
+        next = recordJudgmentSdt(next, signal.judgment_audit);
+      }
+      this.state.concept_states[signal.concept_id] = next;
     }
     if (signal.kind === "confidence_declared" && signal.concept_id) {
       // M3: compare declared confidence against the concept's accumulated competence and
-      // fold the signed gap into confidence_calibration. Runs BEFORE buildContext so the
+      // fold the signed gap into confidence_calibration (+ count the sample, so a calibration GATE
+      // can tell measured-and-calibrated from never-measured). Runs BEFORE buildContext so the
       // freshly-written value is visible to the calibration rule on this same turn.
       const cs = ensureConceptState(this.state, signal.concept_id);
-      this.state.concept_states[signal.concept_id] = updateCalibration(cs, signal.value);
+      this.state.concept_states[signal.concept_id] = recordConfidenceSample(cs, signal.value);
     }
     if (signal.kind === "scene_completed") {
       if (!this.state.scenes_completed.includes(signal.scene_id)) {

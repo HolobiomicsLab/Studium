@@ -47,16 +47,26 @@ export interface RoomState {
   aggregates: TargetAggregate[];
 }
 
-/** Group ratings by target, apply k-floor suppression, return per-target aggregates. */
+/** Group ratings by target, apply k-floor suppression over DISTINCT RATERS, return per-target
+ *  aggregates.
+ *
+ *  The floor counts people, not rows (INT-STUDIUM-030, found auditing the floors; the same
+ *  defect INT-STUDIUM-019 fixed on the collector side, where it counted telemetry files).
+ *  Counting rows let one learner rate the same target three times and unlock an aggregate that
+ *  was their own three opinions averaged — surfaced to the teacher as a k=3 peer consensus.
+ *  Nothing in the Room prevents a repeat rating, so the dedup lives here: one rater is one
+ *  opinion, their latest, and every published number is computed over that same population. */
 export function aggregateRatings(ratings: PeerRating[], kFloor = ROOM_K_FLOOR): TargetAggregate[] {
-  const byTarget = new Map<string, PeerRating[]>();
+  const byTarget = new Map<string, Map<string, PeerRating>>();
   for (const r of ratings) {
-    const arr = byTarget.get(r.target_session_id) ?? [];
-    arr.push(r);
-    byTarget.set(r.target_session_id, arr);
+    const byRater = byTarget.get(r.target_session_id) ?? new Map<string, PeerRating>();
+    const prev = byRater.get(r.rater_session_id);
+    if (!prev || r.ts >= prev.ts) byRater.set(r.rater_session_id, r);
+    byTarget.set(r.target_session_id, byRater);
   }
   const result: TargetAggregate[] = [];
-  for (const [target, rs] of byTarget) {
+  for (const [target, byRater] of byTarget) {
+    const rs = [...byRater.values()];
     if (rs.length < kFloor) continue;
     result.push({
       target_session_id: target,
@@ -67,4 +77,10 @@ export function aggregateRatings(ratings: PeerRating[], kFloor = ROOM_K_FLOOR): 
     });
   }
   return result;
+}
+
+/** Distinct raters of one target — the number the k floor is applied to. */
+export function distinctRaters(ratings: PeerRating[], targetSessionId: string): number {
+  return new Set(ratings.filter((r) => r.target_session_id === targetSessionId)
+    .map((r) => r.rater_session_id)).size;
 }

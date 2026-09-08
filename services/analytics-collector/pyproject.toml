@@ -1,12 +1,17 @@
 [project]
 name = "analytics-collector"
 version = "0.1.0"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115",
   "uvicorn>=0.30",
   "pydantic>=2.8",
-  "telemetry-events @ file:../../packages/telemetry-events",
+  # Nom simple, pas d'URL `file:` relative : PEP 508 résout une URL relative
+  # depuis le RÉPERTOIRE COURANT, pas depuis le fichier qui la déclare, donc
+  # l'invocation documentée depuis la racine du dépôt pointait hors du dépôt.
+  # Le paquet est fourni par l'installation éditable qui précède celle-ci
+  # (workspace ou CI) ; il n'est pas publié et n'est jamais téléchargé.
+  "telemetry-events>=0.5",
 ]
 
 [project.optional-dependencies]

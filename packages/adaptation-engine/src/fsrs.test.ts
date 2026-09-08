@@ -8,6 +8,7 @@ import {
   gradeFromAnswer,
   reinforcementPriority,
   dueForReinforcement,
+  nextReinforcement,
 } from "./fsrs";
 
 const t0 = Date.UTC(2026, 0, 1);
@@ -91,5 +92,18 @@ describe("FSRS retention scheduler", () => {
     expect(out).toContain("b");
     expect(out[0]).toBe("a"); // higher mastery → higher priority at equal decay
     expect(dueForReinforcement({ a }, { a: 0.3 }, now, { minMastery: 0.6 })).toEqual([]);
+  });
+
+  it("nextReinforcement returns the single most-urgent due concept (router head), or null", () => {
+    const a = reviewMemory(defaultMemoryState("a"), 3, t0);
+    const b = reviewMemory(defaultMemoryState("b"), 3, t0);
+    const now = days(30);
+    // a has higher mastery → higher priority at equal decay → it is THE next reinforcement
+    expect(nextReinforcement({ a, b }, { a: 0.9, b: 0.7 }, now, { minMastery: 0.6 })).toBe("a");
+    // nothing mastered+due → null (not an empty list — a single routing decision)
+    expect(nextReinforcement({}, {}, now)).toBeNull();
+    expect(nextReinforcement({ a }, { a: 0.3 }, now, { minMastery: 0.6 })).toBeNull();
+    // freshly reviewed (not yet decayed) → not due → null
+    expect(nextReinforcement({ a }, { a: 0.9 }, t0, { minMastery: 0.6 })).toBeNull();
   });
 });

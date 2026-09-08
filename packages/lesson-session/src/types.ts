@@ -3,14 +3,17 @@ import type { Scene, LessonBundle } from "@studium/lesson-bundle-schema";
 import type { LearnerState, Decision } from "@studium/learner-state";
 import type {
   StateStore, EventLog, TelemetrySink, PseudonymProvider,
-  ReasoningScorer, CritiqueEvaluator, Clock, IdGen, MasteryClaimSink, SocraticTutor,
+  ReasoningScorer, CritiqueEvaluator, AuditJudge, Clock, IdGen, MasteryClaimSink, SocraticTutor,
 } from "./ports.js";
+import type { PublicDeckItem } from "./grading/deck.js";
 
 /** A client-safe projection of a Scene: structurally a Scene with the answer-bearing fields
  * (quiz `correct` flags, `claims`, `key_points`, `model_*` reveals) removed by the host's
  * `publicScene` redaction before the scene leaves the server. The learner-facing fields the
- * webview renders are a subset of Scene, so a partial Scene types it without naming each variant. */
-export type PublicScene = Partial<Scene>;
+ * webview renders are a subset of Scene, so a partial Scene types it without naming each variant.
+ * `deck` is the ADDED verdict-deck projection (opaque-token, label-stripped) — a client-only field,
+ * never an authorable Scene field, so it lives on the projection type, not on Scene. */
+export type PublicScene = Partial<Scene> & { deck?: PublicDeckItem[] };
 
 export interface Explanation { rule_id: string; explanation_short: string; modulator: string; }
 export interface HintResult { hint: string; index: number; remaining: number; }
@@ -25,17 +28,21 @@ export interface Presentation {
   learnerSnapshot: LearnerSnapshot;
 }
 
+// `confidence?` (0..4) is the optional per-answer self-rating — the path to CONTINUOUS calibration
+// (capture-ready but currently UNFED by any UI; the live calibration input today is the meta-checkpoint).
+// When present the engine folds it into the concept's confidence_calibration on that graded answer.
 export type ResponseInput =
   | { kind: "ack" }
-  | { kind: "quiz_choice"; choiceId: string }
+  | { kind: "quiz_choice"; choiceId: string; confidence?: 0 | 1 | 2 | 3 | 4 }
   | { kind: "confidence"; value: 0 | 1 | 2 | 3 | 4 }
-  | { kind: "critique"; text: string }
-  | { kind: "flaw_report"; text: string }    // spot_the_flaw: the learner's named flaws
-  | { kind: "explanation"; text: string }    // explain_back: the learner's teach-back
-  | { kind: "comparison"; text: string }     // comparison: the learner's named differences / added value
-  | { kind: "summary_audit"; text: string }  // summary_audit: the learner's named omissions / distortions
-  | { kind: "prompt_submission"; text: string } // prompt_practice: the learner's authored/refined prompt
-  | { kind: "communication"; text: string };     // communication_sim: the learner's professional communication
+  | { kind: "critique"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }
+  | { kind: "flaw_report"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }    // spot_the_flaw (free text)
+  | { kind: "flaw_verdicts"; verdicts: Array<{ token: string; flagged: boolean }>; confidence?: 0 | 1 | 2 | 3 | 4 } // spot_the_flaw (verdict deck)
+  | { kind: "explanation"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }    // explain_back
+  | { kind: "comparison"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }     // comparison
+  | { kind: "summary_audit"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }  // summary_audit
+  | { kind: "prompt_submission"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 } // prompt_practice
+  | { kind: "communication"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 };     // communication_sim
 
 export interface CompletionSummary {
   totalDurationMs: number;
@@ -63,6 +70,9 @@ export interface SessionDeps {
   reasoningScorer: ReasoningScorer;
   socraticTutor?: SocraticTutor;   // EV-3a: optional = the flag. Absent → no tutor (default).
   critiqueEvaluator: CritiqueEvaluator;
+  /** OPTIONAL LLM audit judge. Absent → the keyword matcher grades audits (over-distrust stays 0, the
+   * honesty boundary). Present + a scene with sound_claims → the over-distrust direction is measured. */
+  auditJudge?: AuditJudge;
   clock: Clock;
   idGen: IdGen;
   activeUniverseSelector?: (bundle: LessonBundle) => string;

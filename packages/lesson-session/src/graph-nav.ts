@@ -1,6 +1,6 @@
 import type { LearningWorkflowGraph } from "@studium/learning-workflow-schema";
 import { isAvailable, remediationTarget, DEFAULT_THETA, type Mastery } from "@studium/adaptation-engine";
-import { masteryOf, type ConceptState } from "@studium/learner-state";
+import { masteryOf, isMiscalibrated, isTrustMiscalibrated, type ConceptState } from "@studium/learner-state";
 
 /** Minimum total_attempts a concept must accumulate before its mastery can count as MASTERED.
  * Without this floor, mastery is trivially cheap: 2 correct quiz answers push alpha/(alpha+beta)
@@ -23,6 +23,24 @@ export function buildLwgMastery(
     m[`concept:${cid}`] = masteryOf(cs);
   }
   return m;
+}
+
+/** Build a calibration GATE map for the skip path: a concept node id maps to `false` iff its mastery
+ * is MEASURED-miscalibrated on EITHER calibration axis — confidence (declared-vs-competence) OR trust
+ * (judgment-over-artifact: did the learner correctly distrust a flawed AI reading of a real result) —
+ * so skip-on-mastery will NOT skip past it (the learner does the scene to recalibrate). Calibrated or
+ * unmeasured concepts are omitted (no gate). Keyed `concept:<id>` to match the LWG node ids and the
+ * mastery map. SYMMETRIC (either direction) by design — a recalibration replay is a low-cost nudge for
+ * an over- OR under-calibrated learner. (Distinct from the CERTIFICATION gate in mastery-claims, which
+ * is over-confidence/over-trust-only so it never withholds a proven master's claim.)
+ * (Trust's over-DIStrust direction is symmetric here by construction but unfed in production today —
+ * the flaw matcher reports no false positives yet; see learner-state trust_calibration honesty boundary.) */
+export function buildLwgCalibration(conceptStates: Record<string, ConceptState>): Record<string, boolean> {
+  const g: Record<string, boolean> = {};
+  for (const [cid, cs] of Object.entries(conceptStates)) {
+    if (isMiscalibrated(cs) || isTrustMiscalibrated(cs)) g[`concept:${cid}`] = false;
+  }
+  return g;
 }
 
 /** The LWG concept node id a scene teaches/assesses (its first concept_ref), or null. */
@@ -79,13 +97,16 @@ export function graphAwareNextIndex(
   mastery: Mastery,
   theta: number = DEFAULT_THETA,
   skipMastered = false,
+  calibrated: Record<string, boolean> = {},
 ): GraphNavResult {
   let candidate = currentIdx + 1;
   let skipped = false;
   if (skipMastered) {
     while (candidate < scenes.length) {
       const c = sceneConceptId(scenes[candidate]!);
-      if (c === null || (mastery[c] ?? 0) < theta) break; // stop at concept-less or unmastered
+      // stop at: concept-less, unmastered, OR mastered-but-MISCALIBRATED (calibration gate — don't
+      // skip a concept the learner's self-assessment is out of band on; let them do the scene).
+      if (c === null || (mastery[c] ?? 0) < theta || calibrated[c] === false) break;
       candidate += 1;
       skipped = true;
     }

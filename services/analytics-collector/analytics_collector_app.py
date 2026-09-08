@@ -3,16 +3,19 @@ from pydantic import BaseModel as _PydanticBase
 
 from analytics_collector_schemas import TelemetryBatch, TelemetryResponse
 from metrics import (
+    cohort_state,
     compute_ai_audit_accuracy,
     compute_ai_literacy_index,
     compute_autonomy,
     compute_blueprint_score,
     compute_calibration,
     compute_cooperation_metrics,
+    compute_course_completion,
     compute_journal_metrics,
     compute_progress,
     compute_reasoning_depth_score,
     compute_scene_type_breakdown,
+    compute_trust_calibration,
 )
 from store import (
     _data_dir,
@@ -94,6 +97,8 @@ def get_progress(
 ) -> dict:
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_progress(_data_dir(), course, bundle_version=bv)
 
 
@@ -106,7 +111,50 @@ def get_calibration(
 ) -> dict:
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_calibration(_data_dir(), course, learner=learner, bundle_version=bv)
+
+
+@app.get("/metrics/course-completion")
+def get_course_completion(
+    course: str,
+    bundle_version: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    """Class-level course-spine funnel: distinct completers per lesson_id.
+
+    The dashboard overlays the CourseSchema spine (order + prerequisites). HONESTY
+    BOUNDARY: telemetry pseudonyms are bundle-scoped, so this is a per-lesson
+    distinct-completer count, NOT per-individual cross-lesson tracking (see
+    metrics.compute_course_completion)."""
+    _require_course_token(x_course_token, course)
+    bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
+    return compute_course_completion(_data_dir(), course, bundle_version=bv)
+
+
+@app.get("/metrics/trust-calibration")
+def get_trust_calibration(
+    course: str,
+    learner: str | None = None,
+    bundle_version: str | None = None,
+    x_course_token: str | None = Header(default=None),
+) -> dict:
+    """trust_calibration (judgment-over-artifact) — distinct from /metrics/calibration.
+
+    Surface of the engine's `trust_calibration` dimension over the grounded
+    spot_the_flaw audits. Band "sur" = over-trust (surconfiance IA), "sous" =
+    over-distrust (méfiance IA), "bien" = within band. The verdict-deck grader
+    emits real false_positives and sound_total, so "sous" IS reachable; only the
+    free-text keyword path is structurally fp=0/sound=0, which reports as
+    UNMEASURED, not zero (see metrics.compute_trust_calibration)."""
+    _require_course_token(x_course_token, course)
+    bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
+    return compute_trust_calibration(_data_dir(), course, learner=learner, bundle_version=bv)
 
 
 @app.get("/metrics/autonomy")
@@ -117,6 +165,8 @@ def get_autonomy(
 ) -> dict:
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_autonomy(_data_dir(), course, bundle_version=bv)
 
 
@@ -131,6 +181,8 @@ def get_scene_breakdown(
     summary_audit, prompt_practice, communication_sim, ai_critique, untagged)."""
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_scene_type_breakdown(_data_dir(), course, bundle_version=bv)
 
 
@@ -144,6 +196,8 @@ def get_reasoning(
 ) -> dict:
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_reasoning_depth_score(
         _data_dir(), course, pseudonyme=pseudonyme, scene_id=scene_id,
         bundle_version=bv,
@@ -159,6 +213,8 @@ def get_ai_audit(
 ) -> dict:
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_ai_audit_accuracy(
         _data_dir(), course, pseudonyme=pseudonyme, bundle_version=bv,
     )
@@ -205,6 +261,8 @@ def get_journal(
     """
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_journal_metrics(
         _data_dir(), course,
         pseudonyme=pseudonyme, bundle_version=bv,
@@ -224,6 +282,8 @@ def get_cooperation(
     """
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_cooperation_metrics(_data_dir(), course, bundle_version=bv)
 
 
@@ -312,6 +372,8 @@ def get_concept_mastery_history(
     from datetime import date as _date_type
 
     _require_course_token(x_course_token, course)
+    if (below := cohort_state(_data_dir(), course)) is not None:
+        return below
     since_date = _date_type.fromisoformat(since) if since else None
     return {
         "concepts": read_concept_mastery_history(

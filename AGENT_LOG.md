@@ -4,6 +4,742 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-07 — OBSERVATORY TRANCHE 2, RETOUR DE REVUE : une réparation qui retirait une mesure vraie
+
+Seconde revue indépendante, portée sur `cef794c..e6c8e8d` — la réparation elle-même. Les quatre
+défauts bloquants sont confirmés fermés, et les onze régressions sont honnêtes (11 échecs sur 11
+contre le module d'avant). Deux défauts introduits par la réparation, corrigés ici, rouges d'abord :
+
+- **`requires=("n_critique", "n_hints")` supprimait une autonomie réellement mesurée.**
+  `critique_completion_rate` divise par `n_critique` seul — sans critique, c'est bien un taux sur
+  personne, et c'est le défaut d'origine. Mais `autonomy_ratio` divise par `n_critique + n_hints`,
+  qu'un seul contributeur de l'un ou l'autre suffit à remplir : un cours où six apprenants
+  soumettent une critique et où personne n'a eu besoin d'un indice vaut 6/6 = 1.0, mesuré sur tout
+  le monde. La garde le rendait `unmeasured` sous une phrase affirmant que le ratio portait sur
+  personne — donc fausse. Une leçon bien étayée est précisément le cas où les indices sont rares.
+  `requires=("n_critique",)` ; le plancher continue de s'appliquer à toute population vivante.
+
+- **`suppressed — None` sur la page.** Quand aucune clé ne survivait aux filtres alors qu'aucune
+  population n'était sous le plancher, la famille repartait avec la raison `None` : un nombre
+  retenu sans motif, sur une surface dont tout le contrat est que chaque état non-`ok` dise
+  pourquoi. Et le mot `suppressed` signifie ici le plancher de k-anonymat, qui n'était pas la
+  cause. `_nothing_left` sépare les deux : `suppressed` seulement si `short` est non vide, sinon
+  l'état `withheld` avec la raison qui nomme la vraie cause (clé jamais scannée, valeur non
+  finie), et une phrase de repli quand les deux lectures ne s'accordent pas sur ce qui existe.
+  `_pair_families` cesse au passage d'affirmer le plancher pour une paire retenue autrement.
+
+Deux remarques non bloquantes de la même revue, corrigées ici parce qu'elles portent sur du texte
+et du code écrits par la réparation elle-même : la phrase « first seen when the reader ran »
+affirmait une course qui n'a pas eu lieu pour une clé que le scan avait refusée sur son type — un
+`scene_id` entier était là depuis le début —, et `_read` rendait `(None, None)` quand l'appelé
+renvoyait `None`, si bien que la fonction écrite pour éviter un 500 en aurait levé un, hors de tout
+`try`, sur le `.get` de l'appelant.
+
+Suite du plan **615 passés, 2 sautés** ; `services/observatory` **181 passés** (610/2 et 176 avant).
+
+---
+
+## 2026-09-07 — OBSERVATORY TRANCHE 2, DURCISSEMENT DES SESSIONS : quatre façons de publier un nombre que personne n'a mesuré
+
+Revue indépendante de l'intégration (`ca1ef46` + le report de la revue, `5267cdb`) : la surface
+Review avait été durcie, la surface Sessions — celle qui lit la télémétrie des apprenants —
+portait la même classe de défaut, plus une brèche de k-anonymat. Onze régressions écrites rouges
+d'abord (`cef794c`), puis la correction (`dca7d25`). Aucun lecteur n'est réimplémenté, aucune
+formule n'est ajoutée : les quatre réparations sont des refus de publier.
+
+- **Un nombre non fini n'est pas une mesure.** `NaN` traverse `json.loads` et le garde
+  `isinstance(value, (int, float))`, et les deux jumeaux ne s'accordaient pas dessus : pydantic
+  le sérialisait en `null` (`{"status": "ok", "mean_autonomy": null}`, indiscernable d'une
+  famille qui a tourné sans rien trouver) pendant que `"%.4g"` écrivait `nan` sur la page. La
+  famille devient `unreadable` et NOMME le champ, jamais la valeur. La chaîne `"nan"` est
+  refusée avec le flottant, puisque `float()` accepte les deux.
+- **Un type faux est une source illisible, pas un 500.** Le préflight établit qu'une ligne parse
+  et qu'elle est un objet, jamais qu'un champ porte le type que son lecteur passe à `int()` :
+  un seul `"planted_errors": "abc"` faisait tomber les deux routes pour l'arbre entier.
+- **L'autonomie est un rapport sur deux populations**, donc il lui faut les deux : un cours avec
+  des adaptations « hint » et aucune soumission de critique publiait
+  `critique_completion_rate: 0.0` sur personne. Zéro contributeur = non mesuré.
+- **Le plancher est décidé sur une lecture, les nombres viennent d'une autre**, et le collecteur
+  écrit dans la partition du jour pendant que la page est servie. Une scène ou une leçon qui
+  apparaît d'abord dans la lecture du lecteur n'a été soumise à AUCUN plancher : elle était
+  publiée avec son propre compte d'apprenants — `n_learners: 1` sous un plancher de 5. Elle est
+  maintenant retenue et comptée, avec une raison distincte de celle du sous-plancher. Pas de
+  cache : la projection ne publie que les clés pour lesquelles le préflight a établi une cohorte.
+
+Un écart de confiance non fini est aussi refusé à la comparaison elle-même, où
+`abs(nan - nan) > tolérance` vaut False et se serait affiché comme un accord.
+
+**Correction d'une justification fausse déjà commitée** : l'entrée du durcissement Review
+ci-dessous affirmait qu'un NaN répondait 500 sur le jumeau JSON. C'est faux — il répondait 200
+avec `null`. Le défaut et la réparation restent justes ; le mécanisme enregistré ne l'était pas,
+et c'est ce mécanisme qui aurait fait conclure que la colonne Sessions était sûre parce qu'elle
+ne tombait pas en 500. Corrigé dans l'entrée et dans le docstring du test concerné.
+
+Tests : `services/observatory` **176 verts** (165 avant, +11). Suite complète du plan :
+**610 passés, 2 sautés** (les 2 sautés restent les imports `indicium` absents). Aucun test
+existant modifié ni affaibli ; la seule retouche à un fichier de test existant est le docstring
+factuellement faux ci-dessus, sans changement d'assertion.
+
+---
+
+## 2026-09-07 — OBSERVATORY TRANCHE 2, TÂCHES 4–7 : les deux colonnes de sessions, la page, la preuve, les docs
+
+Quatre unités TDD du plan `studium_dev/docs/superpowers/plans/2026-09-06-studium-observatory-s2.md`
+(branche `feat/observatory-s2`, base `81d3712`), avec les **six amendements d'exécution** de la
+revue indépendante du 2026-09-06, qui remplacent les règles de cohorte, de comparaison, d'erreur et
+de sortie du plan initial. **La tâche 8 (vérification manuelle sur artefacts réels, capture
+d'écran) n'est pas faite** : elle appartient au coordinateur.
+
+- **Les deux colonnes** (`eca201f`) : `observatory_sessions.py`. Deux lecteurs, aucune troisième
+  formule : `metrics.compute_*` sur `<store>/<cours>/<date>.jsonl`, `class_report.build_report` sur
+  UN répertoire. Ce qui est neuf est le préflight que ni l'un ni l'autre ne peut faire pour
+  lui-même :
+  - **cohorte par leçon.** `learner_pseudonym` = HMAC(learnerId:lessonId) : une personne DANS une
+    leçon. Chaque partition de leçon doit atteindre le plancher ; une union inter-leçons compte des
+    paires apprenant-leçon et ne peut jamais faire franchir le plancher à une leçon. Une personne
+    portant cinq pseudonymes salés reste supprimée ; au-delà d'une leçon `n_learners` est `null` et
+    l'agrégat s'appelle `n_learner_lesson_pairs`, y compris dans le rapport imbriqué.
+  - **un cours peuplé ne prouve pas une métrique peuplée.** Chaque famille est fermée sur les
+    pseudonymes qui ont RÉELLEMENT contribué aux events que son lecteur consomme — par leçon, et par
+    scène en plus pour une valeur par scène. Six participants dont un seul auditeur ne publient pas
+    le résultat de confiance de cette personne. `metrics._is_autonomy_critique` est importé (pas
+    recopié), donc `explain_back` ne peut pas élargir la cohorte d'autonomie. Zéro contributeur =
+    « non mesuré », jamais un zéro mesuré. Une famille supprimée d'un côté supprime sa paire de
+    l'autre : un nombre montré d'un côté et retenu de l'autre EST le nombre retenu, par différence.
+  - **projection opérateur seulement** : progression par scène assainie, complétion par leçon,
+    résumés d'autonomie et de confiance ; complétion de session, autonomie moyenne, résumé de
+    confiance. Les concepts, règles d'adaptation, priorités de reprise et charges par scène du
+    rapport de classe restent dehors, comme la liste `per_scene` brute du collecteur. Chaque famille
+    omise ou supprimée porte sa raison, en HTML et en JSON.
+  - **une colonne supprimée ne porte AUCUN nombre**, pas même la taille de cohorte que la forme
+    « suppressed » de `build_report` renvoie.
+  - **divergence sur une seule portée identique** `(lesson_id, bundle_version)` des deux côtés.
+    Plusieurs portées, des portées différentes, ou le seau `"unversioned"` : les deux colonnes se
+    rendent indépendamment avec la raison, sans drapeau. Supprimé et non mesuré ne se lisent jamais
+    comme un accord (`comparable: false`, `diverges: null`).
+  - **« illisible » est un état distinct** d'absent et de supprimé : 200 avec un marqueur
+    `basename` + classe d'exception, diagnostic journalisé. Jamais un répertoire parent de session
+    (ses segments sont des pseudonymes), jamais un message d'exception.
+  - **confinement avant chaque lecture** via `observatory_discovery._within` : un enfant de store
+    qui sort de la racine n'est pas listé donc pas routable, et un lien JSONL/télémétrie qui sort de
+    la racine est refusé AVANT son lecteur — `build_report` découvre son entrée tout seul et ne
+    pourrait pas être arrêté après.
+  Complétion et autonomie sont **montrées, jamais signalées**, chaque formule nommée à l'écran :
+  populations différentes, et deux définitions d'« autonomy ratio » qui partagent un nom et pas une
+  formule (défaut à part, intention Draft, non résolu ici). 34 tests.
+- **La page Sessions** (`4d3c82f`, corrections de formulation `23719d7`) : quatre routes
+  (`/sessions`, `/sessions/{cours}` et jumeaux JSON), id résolu uniquement par `store_courses`.
+  Deux colonnes avec le chemin absolu lu et le lecteur qui l'a lu, cohorte étiquetée pour ce qu'elle
+  est, raison à la place de chaque valeur retenue, table « indicateurs comparés » (ou la raison de
+  l'absence de comparaison), table « montré, non signalé » avec les deux formules issues de la
+  constante de module, et la phrase D1 en bannière. Les quatre états ont été rendus hors serveur
+  dans `/private/tmp/studium-observatory-s2-codex/sessions-*.html` pour relecture visuelle ; trois
+  formulations corrigées à la lecture du rendu. 11 tests de route.
+- **La preuve sur les nouvelles routes** (`28a8345`) : `_urls()` gagne les deux routes Review par
+  cours et les quatre routes Sessions ; la boucle de secrets gagne les six pseudonymes du store.
+  Aucun changement de production nécessaire. Deux ajouts pour ce que seule cette tranche peut fuir :
+  une page sous le plancher qui ne porte que la raison (les jetons interdits sont exactement ceux
+  que la page « ok » affiche pour les mêmes fixtures — vérifié côte à côte, donc l'assertion
+  discrimine), et les pseudonymes du store absents des quatre routes **et comptés par la même
+  requête**, pour que la preuve ne puisse pas passer parce que rien n'a été lu. La couverture du
+  crawl a été prouvée mordante hors test en injectant un pseudonyme dans le rendu Sessions
+  (`prove_crawl_bites.py`) : les quatre nouvelles URL déclenchent.
+- **Docs** (ce commit) : `services/observatory/README.md` (variable, drapeaux, deux nouvelles
+  pages, section « les deux sources de session », plancher à deux niveaux et paire de colonnes) et
+  `docs/guides/observatory.md` (en termes opérateur : ce que signifie et ne signifie PAS un
+  drapeau, pourquoi rien n'est comparé sur des portées ambiguës, pourquoi un ancien run
+  synthétique ne produit pas de colonne — identité inconnue, pas persona comptée comme personne).
+  `.github/workflows/ci.yml` **lu et vérifié** : l'étape Observatory passe le répertoire
+  `services/observatory`, les nouveaux fichiers de test sont donc pris sans édition.
+
+Tests : `services/observatory` **141 verts** (94 avant, +47). Suite complète du plan :
+**575 passés, 2 sautés** (les 2 sautés sont les imports `indicium` absents, inchangés).
+Aucune dépendance ajoutée ou épinglée autrement. INT-STUDIUM-005 **n'est pas déclarée fermée** :
+les lecteurs et endpoints en amont gardent leurs propres planchers inter-leçons et contributeurs,
+suivis à part côté hub.
+
+---
+
+## 2026-09-07 — OBSERVATORY TRANCHE 2, DURCISSEMENT DES TÂCHES 2–3 : la surface Review contre des artefacts qu'aucun émetteur n'écrit
+
+Correction bornée des trois défauts matériels relevés par une revue indépendante sur
+`f0a9d77..81d3712`, branche `codex/observatory-s2-review-hardening`. Aucun périmètre produit
+nouveau : `review/<bundle_id>/` est le seul arbre d'un cours dont les noms et le contenu viennent
+de qui a lancé le juge, et les trois défauts sont trois façons de mentir plutôt que d'échouer en
+douceur. Un fichier de test de régression écrit rouge d'abord (`8a988cb`), puis le garde
+`protect-tests` armé pendant la correction.
+
+- **Les deux moitiés d'une revue sont lues indépendamment** (`astra_read.load_course`) : le lecteur
+  lisait `astra.yaml` en premier et sautait le bundle quand il manquait ou était illisible, ce qui
+  faisait disparaître un `verdicts.json` parfaitement lisible — exactement le défaut
+  qu'INT-STUDIUM-020 avait corrigé pour le fichier plat hérité, réintroduit par bundle. Les deux
+  moitiés sont désormais lues chacune pour elle-même ; le `ReviewDoc` existe dès que l'une est
+  lisible, le marqueur ASTRA (`missing` / `unreadable: <Type>`) reste affiché, et un répertoire
+  dont aucune moitié n'est lisible n'est toujours pas une revue. `CourseDocs.review` prend le
+  premier document ASTRA LISIBLE (le fichier hérité gardant sa priorité), donc `None` veut dire
+  « aucune revue affichable » et jamais « la première était cassée » — `tools/astra_render` est
+  inchangé.
+- **Une valeur malformée n'est pas une mesure** (`observatory_provenance`) : `bool("false")` vaut
+  `True`, donc une calibration en échec s'affichait comme réussie ; `float("nan")` est un float,
+  et les deux jumeaux ne s'accordaient même pas dessus : l'annotation `-> dict` de la route fait
+  passer la charge par pydantic (`ser_json_inf_nan='null'`) avant que `allow_nan=False` ne la
+  voie, donc un seul NaN répondait 200 avec `null` sur le jumeau JSON — indiscernable d'une
+  calibration qui aurait tourné sans rien trouver — pendant que `%.4g` écrivait `nan` sur la page
+  (N3 ; mécanisme corrigé le 2026-09-07, la mention d'un 500 était fausse) ; un nombre de paires absent était
+  rendu `0`, c'est-à-dire une calibration qui aurait tourné. Kappa et confiance sont maintenant
+  validés finis et dans leur intervalle (`bool` n'est pas un nombre : `True` est un `int` en
+  Python), `separates` est un booléen ou « non renseigné », les blocs `scenes` / `skipped` /
+  `worst_case` / `calibration` du mauvais type sont NOMMÉS au lieu de se vider en silence, et un
+  mot qui n'est pas un des trois verdicts du juge n'est ni classé ni affiché comme un verdict. Le
+  demi-état que la page ne savait pas montrer — le fichier a parsé, une valeur dedans n'en est pas
+  une — devient la liste `problems` (`{field, reason}`) rendue par le macro `markers` existant :
+  le champ et le TYPE, jamais la valeur, jamais la ligne source, jamais un message d'exception.
+  Les lignes saines et les décisions ASTRA du bundle survivent à côté.
+- **Un artefact de revue ne quitte pas son cours** : `is_file()` et `is_dir()` suivent les liens,
+  donc un lien déposé sous `review/` faisait lire — et rendre — un document de n'importe où sur la
+  machine. La règle est celle que `observatory_discovery._within` applique déjà à toutes les
+  racines balayées, portée ici sur la racine `review/`, les répertoires par bundle, `astra.yaml`,
+  `verdicts.json` et le fichier hérité. Cible externe : marqueur `unreadable: leaves the course
+  directory`, cible jamais divulguée, chemin dans le journal seulement. `iterdir()` illisible et
+  résolution de lien impossible échouent en douceur en `strict=False` ; en `strict=True` le lecteur
+  lève, parce que strict a toujours voulu dire « ne pas deviner ».
+- **Conflit d'identité de bundle** : quand l'id valide de `verdicts.json` ne se slugifie pas
+  (`scene_judge.bundle_slug`, importé) vers le répertoire qui le stocke, l'un des deux est faux et
+  le lecteur ne peut pas dire lequel. Le répertoire — le seul fait observé et non lu — est affiché,
+  le conflit est nommé, l'id revendiqué n'est jamais rendu. Le chemin heureux `Unit 1/Intro` sous
+  son slug et les replis hérités sont inchangés.
+
+Tests : nouveau `services/observatory/tests/test_observatory_review_robustness.py`, **24 verts**
+(ASTRA manquant/malformé avec verdicts valides, cinq échappements par lien symbolique dont le
+lecteur strict, NaN/Infinity/−Infinity, kappa hors intervalle, `separates` chaîne et absent, compte
+de paires non entier, confiance NaN et booléenne, conteneurs imbriqués du mauvais type, verdict
+inconnu en scène et en `worst_case`, conflit d'identité, id slugifié). `services/observatory`
+**118 verts** (94 avant), `services/planner` **233 verts, 2 sautés**, `tools/test_astra_render.py`
+**4 verts** ; avec `eval/tests/test_scene_judge.py`, `tools/test_class_report.py` et
+`services/analytics-collector` : **498 passés, 2 sautés**. Aucun test existant modifié ni affaibli.
+
+---
+
+## 2026-09-06 — OBSERVATORY TRANCHE 2, TÂCHES 1–3 : racine de sessions, lecteur de revue, onglet Review
+
+Trois unités TDD du plan `studium_dev/docs/superpowers/plans/2026-09-06-studium-observatory-s2.md`,
+branche `feat/observatory-s2` (base `f0a9d77`). **Les tâches 4 à 8 ne sont pas faites** : colonnes
+de sessions, page Sessions et confiance, preuve lecture-seule/confidentialité sur les nouvelles
+routes, docs, vérification manuelle sur artefacts réels.
+
+- **Racine de sessions + les deux drapeaux CLI** (`beb2a65`) : `STUDIUM_OBS_SESSIONS_ROOT` désigne
+  UN répertoire, résolu en absolu comme le store collector d'INT-STUDIUM-019, lu en entier par
+  `class_report.build_report` (`rglob("telemetry.jsonl")`). Volontairement NON découpé par cours :
+  ni l'arbre durable (`<pseudonyme>/<bundle_id>/`) ni celui d'un run d'éval (`<persona>/`) n'a de
+  dimension cours. `main()` gagne `--sessions-root` et `--analytics-data-dir` — ce dernier manquait
+  depuis INT-STUDIUM-019, le store n'était atteignable que par variable d'environnement.
+  Fixtures : les MÊMES events dans les deux layouts, construits depuis les modèles Pydantic ADR-006
+  et écrits par `store.append_events` du collector ; `lesson_id` et `learner_pseudonym` sur chaque
+  event (le pseudonyme est HMAC(learnerId:lessonId) — une personne DANS une leçon, pas une identité
+  inter-leçons, donc une leçon par pseudonyme). Contrôle hors test : 60 lignes identiques des deux
+  côtés, 6 apprenants distincts, même écart de confiance (0,083, bande « bien ») chez les deux
+  lecteurs — l'accord est donc l'état par défaut et un test de divergence devra le provoquer.
+- **Lecteur de revue** (`28eb107`) : `reviews_detail(ref)` rend une section par bundle, pire cas
+  d'abord aux deux niveaux, avec `VERDICTS` et `worst()` importés du juge (pas de seconde table de
+  sévérité) ; `verdicts.json` obtient son premier lecteur et `bundle_id` arrive pour la première
+  fois à l'écran. **Le répertoire n'est pas l'identité** : `write_review` slugifie l'id fourni par
+  l'auteur (`Unit 1/Intro` → `Unit-1-Intro`) et `load_course` remonte le SLUG ; la vue affiche l'id
+  jugé de `verdicts.json`, garde le slug dans `dir_slug`, nomme la provenance dans
+  `bundle_id_source`. Tolérance aux pannes portée sur la FORME et pas seulement la syntaxe : gardes
+  de type sur chaque bloc, verdict non reconnu jamais passé à `worst()` (sa table lèverait),
+  marqueur assaini `unreadable: not a list (<type>)` avec le détail journalisé, décisions ASTRA du
+  bundle préservées dans tous les cas. `worst_overall` reste `None` quand rien n'a pu être classé :
+  « non lu » ne se rend jamais comme « relu, propre ».
+- **Onglet Review** (`b36245a`) : `/courses/{id}/review` et son jumeau JSON, id résolu uniquement
+  par `discover(cfg)` (un répertoire non-cours sous la racine reste un 404). Scènes, dimensions,
+  scénarios d'échec et citations du juge (contenu de bundle, jamais de télémétrie), scènes sautées,
+  calibration (kappa / sépare / paires ; `gold` et `pred` non recopiés), lien depuis la page cours.
+  Un cours sans revue rend le marqueur `(missing review/astra.yaml)` et un 200.
+
+Tests : `services/observatory` 94 verts (75 avant, +19). Suite complète du plan :
+**528 passés, 2 sautés** (base équivalente 509 + 19 ; les 2 sautés sont les imports `indicium`
+absents). Deux échecs `eval/tests/test_drive_integration.py` observés à la mesure de base de la
+session tenaient aux liens pnpm par paquet absents du worktree ; ils sont apparus depuis, hors de
+cette session, et ces tests sont verts.
+
+---
+
+## 2026-08-21 — RAPPORT DE CLASSE + PORTE DE PARITÉ TS/PY (la classe de dérive est fermée)
+
+- **class_report.py** : section trust_calibration dans le rapport hors-ligne enseignant (JSON+MD),
+  MÊME formule que le collecteur (import de `_over_distrust_rate`/`TRUST_WELL_BAND` — pas de 3e
+  copie), ligne explicite « NOT measured » sans audits ancrés ; le cas-sonde planted=2/sound=8/fp=6
+  → gap −0.75 « sous » est épinglé par test. Docstring périmée d'`analytics_collector_app` corrigée.
+- **Porte de parité de contrat** (`packages/telemetry-events`) : `scripts/contract_dump.ts` émet
+  {type: {champ: required|optional}} depuis l'union Zod ; `tests/test_contract_parity.py` construit
+  le même résumé depuis l'union Pydantic et échoue sur TOUTE asymétrie. Collectée par le `pytest`
+  racine (testpaths=packages) → déjà en CI. **Prise immédiate : 3 types d'événements absents côté
+  Python (hint_requested, universe_selected, tutor_move) — le collecteur les REJETAIT à l'ingestion
+  (batch validé par `list[TelemetryEvent]`).** Modèles ajoutés en miroir exact + preuve
+  endpoint-niveau (POST /telemetry accepte les 3). 166 tests collector+telemetry verts.
+
+---
+
+## 2026-08-20 (suite) — JUGE DE SCÈNES, MySTRA, VSIX AUTONOME, PREUVE MULTI-HARNAIS
+
+Quatre unités TDD dans la foulée du support ASB/ARA :
+
+- **Juge de contenu par scène** (`eval/harness/scene_judge.py`, 9 tests) : dimensions discrètes
+  (key_correctness, distractor_quality, flaw_veracity, key_recall, evidence_sufficiency,
+  locale_consistency, asset_congruence), verdict pass/suspect/defect + failure_scenario OBLIGATOIRE,
+  agrégation pire-cas (jamais de moyenne — leçon du 0.883), calibration par scènes corrompues
+  déterministes (kappa via bea_external/agreement), échec LLM ⇒ scène SKIPPED jamais inventée
+  (leçon critic.py). Verdicts émis en décisions ASTRA (review/astra.yaml, forme ASB).
+- **MySTRA** (`tools/astra_render.py`, 4 tests) : page MyST composée DEPUIS astra.yaml + universes/
+  + trace/exploration_tree.yaml + review/ — décisions avec alternatives et exclusions, univers,
+  arbre d'exploration en mermaid, verdicts de revue. Jamais rédigée à la main.
+- **VSIX autonome** (`studium-vscode`) : lesson-mcp esbuildé en `dist/lesson-mcp.cjs` (entrée
+  dédiée `lesson-mcp-entry.ts` — la garde import.meta ne se déclenche pas en bundle CJS), résolution
+  checkout-d'abord / bundle-ensuite / erreur actionnable sinon (`resolveServerLaunch`, spawn
+  ELECTRON_RUN_AS_NODE), réglage repoRoot documenté facultatif. 12 drivers verts ; VSIX empaqueté
+  avec le serveur embarqué (923 Ko) ; smoke stdio du bundle OK.
+- **Preuve multi-harnais** (`apps/lesson-mcp/scripts/headless_smoke.mjs`, en CI) : un client MCP nu
+  (SDK seul, zéro code VS Code) démarre une vraie leçon atomistique-l1, soumet une réponse, lit le
+  render manifest — 14 assertions. Matrice harnais : `docs/guides/agent-harness-matrix.md`
+  (Claude Code / Cursor / OpenCode + canal fichier du protocole de run).
+
+---
+
+## 2026-08-20 — SUPPORT ASB + ARA : document ASTRA imbriqué (`analyses:`) + trace d'exploration
+
+**Objectif** : qu'un `astra.yaml` de Studium soit lisible par les chargeurs de l'écosystème ASB
+(forme imbriquée réelle, cf. `asb_benchmark_metabolomics_v1/q_metlinkr`), et que chaque build de
+cours émette aussi le trajet de recherche au format ARA (spec exploration-trace 0.1.0 d'ASB).
+
+**Livré** (ADR `docs/adr/0001-astra-analyses-shape-and-ara-trace.md`) :
+- `emit_astra` → document ASB : racine `version/name/description/inputs/outputs` (pas d'`id`
+  racine ; `description` car 0.0.12 a supprimé `Narrative`), le cours = UNE sous-analyse sous
+  `analyses:`, sorties racine ré-exportées via `from`. Univers imbriqués (`nest_universe`) ;
+  la charge `lesson_plan.universes` reste plate (API interne).
+- Lecteurs bi-formes : `analysis_body(doc)` + `_universe_decisions(u)` dans `approval.py` —
+  les artefacts pré-imbrication continuent de se résoudre.
+- NOUVEAU `provenance/exploration_trace.py` (contrat 0.1.0 vendored depuis ASB `trace_extract`) :
+  racine `question` + un nœud `decision` par décision du build (choice + alternatives),
+  `source_refs` pointant dans `astra.yaml` ; construit DEPUIS le document émis (zéro dérive d'ids).
+  Écrit `trace/exploration_tree.yaml` à chaque build LWG.
+- Vérif interop structurelle : seul écart racine vs le document ASB réel = `description` vs
+  `narrative` (= exactement la migration 0.0.10→0.0.12). `astra validate` (CLI) indisponible
+  hors-ligne — à exécuter dès que possible.
+
+**Vérifié** : suite planner **208 verts** (dont 5 nouveaux tests de trace + 2 tests de forme) ;
+TDD (tests rouges d'abord : collection errors sur `analysis_body`/`nest_universe`/module trace).
+
+---
+
+## 2026-08-19/20 — AUDIT DU HUB : métrique de confiance TS/Py alignée, ASTRA 0.0.12, échecs silencieux
+
+Voir `docs/audits/2026-08-19-hub-audit.md` (grand livre corrigé/ouvert). Points saillants :
+`sound_total` ajouté à `ai_audit_result` (Zod+Pydantic) — le collecteur calcule enfin
+`over_distrust` comme le moteur (min(fp,sound)/sound, `None` si non mesuré) ; `critic.py` ne
+fabrique plus un 0.78 sur échec LLM (raise en mode live, mock estampillé `is_mock`) ; canal
+run-protocol : stderr → OutputChannel, parse gardé, RunResult persisté sur échec ; ASTRA
+0.0.10→0.0.12 via contrat vendored + ids slugifiés + tests de conformité RÉELS — le panel de
+revue a attrapé que la slugification cassait la jointure `approval.py` (réparée via
+`source_edge_id`, test qui appelle vraiment `_astra_for`) ; lint de bundles repo-wide en CI
+(`tools/bundle_lint.mjs`) + XOR payload/path sur RenderAsset + distracteurs du quiz carbone
+reconstruits (4 choix à 6 électrons, une idée fausse distincte chacun).
+
+## 2026-07-17 — CAPSULE PHARE concept→reproduire→juger (métabolomique, patron déterministe)
+
+**Objectif** : démontrer la boucle nord-étoile sur du CONTENU métabolomique RÉEL (pas un jouet) — un
+apprenant reproduit une vraie annotation puis audite une lecture IA sur-confiante de SON propre résultat.
+
+**Livré** (`fixtures/metabo-judgment-demo/`) :
+- `run.py` : vrai **cosinus modifié** de type GNPS (appariement glouton, tolérance de fragment + décalage
+  de précurseur), stdlib. Landmark déterministe `MODIFIED_COSINE=0.6477 MATCHED_PEAKS=7` (niveau analogue,
+  PAS une identité — d'où le défaut planté « MSI-1 confirmé »). `spectra.json` = paire quasi-analogue (CH2).
+- `judgment.json` : scène `spot_the_flaw` (verdict_deck) fondée sur le landmark ; 3 affirmations
+  défectueuses (MSI-1 / confirmé / nouveau) + 2 solides (le cosinus modifié tolère le décalage de masse ;
+  7 fragments partagés). Audit métabolomique authentique.
+- `README.md` : conception + plan de bascule vers un vrai jeu FBMN public + porte de fidélité + FRONTIÈRE
+  HONNÊTE (c'est le PATRON prouvé sur de petites données réelles ; le flagship complet = semaines + un jeu
+  de données redistribuable à confirmer).
+
+**Vérifié** : 5 tests verts (`pytest`) — landmark déterministe, cosinus identique=1, matching par décalage
+de masse, scène fondée sur le landmark.
+
+---
+
+## 2026-07-17 — PAQUET DE PRÉPARATION D'ESSAI DÉCISIF (pré-enregistrement + puissance + export)
+
+**Objectif** : l'étape empirique décisive du manuscrit (un essai en classe mesurant un gain
+d'apprentissage) reste à faire ; pré-engager l'étude pour que le trio (étudiant + ingénieur
+pédagogique + chercheur) l'exécute le trimestre prochain comme une collecte de données, pas une
+conception à partir de zéro.
+
+**Livré** (`eval/decisive-trial/`) :
+- `PREREGISTRATION.md` : croisement intra-sujet, bras traitement (boucle opération→jugement) vs
+  contrôle actif ; critère primaire = score de TRANSFERT de jugement (auditer une lecture erronée
+  d'un résultat non produit par l'apprenant) ; H1/H2/H3 ; plan d'analyse ; consentement ; le trio.
+- `power_analysis.py` (stdlib : `math.erf` + quantile d'Acklam ; pas de numpy/scipy) : puissance
+  analytique du plan apparié + vérification Monte-Carlo. Chiffres : d_z=0,5 → 32 apprenants (80 %),
+  43 (90 %) ; EDM à n=60 → 0,36, n=120 → 0,26.
+- `pilot_export.py` : projette la télémétrie `ai_audit_result` en table d'étude par apprenant
+  (score de transfert, fausses alertes), squelette que le trio remplit avec les données réelles.
+
+**Vérifié** : 9 tests verts (`pytest eval/decisive-trial/`). MC=0,914 vs analytique=0,918 à n=45,d=0,5.
+
+**Reste** : D4 capsule métabolomique phare.
+
+---
+
+## 2026-07-17 — ATTESTATION DE RUN (anti « opération-théâtre »)
+
+**Objectif** : `passed` est ASSERTÉ par l'opérateur — Studium ne peut pas le vérifier (cerveau seul). Un
+opérateur paresseux/bogué/malveillant pourrait alimenter un run fabriqué → scène de jugement → `trust_calibration`.
+
+**Livré** :
+- `packages/lesson-session-host/src/run-result.ts` : `verifyRunAttestation(manifest, result)` — vérifie
+  SANS exécuter, sur les seules données rendues : sorties déclarées produites, checks déclarés rendus+passés,
+  cohérence `passed` vs checks, présence d'un landmark. Non-answer-bearing (jamais la VALEUR du landmark).
+- `host.ingestRunResult` : un run non attesté AVANCE quand même (la porte de délégation reste `ran && passed`)
+  mais est MIS EN QUARANTAINE — ni `recordLearnerRun` ni régénération, donc il ne fonde aucun jugement et
+  n'alimente jamais `trust_calibration`. Réutilise la règle existante « non-fondé ⇒ n'alimente pas la confiance ».
+- MCP `submit_run_result` expose `attested` + `attestation_reasons` (visibilité enseignant).
+- Frontière honnête documentée : attaque le théâtre PARESSEUX/PARTIEL/INCOHÉRENT, PAS une contrefaçon
+  parfaite (pas d'attestation cryptographique d'exécution). Le gabarit d'opérateur produit un run conforme.
+
+**Vérifié** : host 156 verts (7 unit d'attestation + 1 quarantaine e2e). 3 fixtures de run rendues réalistes
+(elles étaient vides = le cas théâtre même). tsc propre.
+
+**Reste** : D3 préparation d'essai, D4 capsule métabolomique, mise à jour ciblée du preprint.
+
+---
+
+## 2026-07-17 — INSTRUMENT DE CONFIANCE BIDIRECTIONNEL (deck de verdicts + SDT) + harnais de validité de la porte
+
+**Objectif** : mesurer la SUR-MÉFIANCE sans clé LLM et séparer compétence et biais de confiance (le
+`trust_calibration` signé confond les deux). Ferme la limitation 4c du manuscrit côté hors-ligne. Décision
+verrouillée après débat à 3 experts (psychométricien + ingénieur + sceptique-validité) : deck hybride,
+complément (pas remplacement), porte INCHANGÉE, pas de porte sur le critère c (le scepticisme est la
+direction sûre).
+
+**Livré** :
+- `packages/learner-state/src/sdt.ts` : détection du signal — `computeSdt` (correction loglinéaire Hautus
+  1995), `inverseNormalCdf` (Acklam), A' (Grier), B''D (Donaldson), d', c, variance de Miller.
+- `recordJudgmentSdt` + champs `ConceptState` optionnels `trust_sdt_counts` / `trust_discrimination` (A') /
+  `trust_bias_c` (c), cumulés par concept. `recordJudgmentAudit` INCHANGÉ — la porte de certification et
+  `trust-gate.test.ts` restent verrouillés.
+- `packages/lesson-session/src/grading/deck.ts` : deck de verdicts déterministe, tokens opaques d0..dN,
+  mélange salé par un SECRET SERVEUR (`STUDIUM_DECK_SECRET`, sinon aléatoire par process) — la permutation
+  n'est PAS reconstructible côté client (Kerckhoffs ; corrige la fuite positionnelle trouvée par le panel).
+  `flawGrader` gagne la branche `flaw_verdicts` : une case cochée = un signalement, donc les fausses alertes
+  sur les `sound_claims` sont COMPTÉES sans LLM (sur-méfiance hors-ligne, clé-libre).
+- `verdict_deck` (schéma TS + miroir Python), `PublicScene` projette le deck sans étiquette,
+  `response-input-schema` + `types` : nouvelle réponse `flaw_verdicts`, l'engine plie `recordJudgmentSdt`
+  à côté du gap signé.
+- `packages/lesson-session/src/gate-validity.ts` (Direction 2) : `runGateValidity` + 4 dispositions
+  canoniques ; apprenants synthétiques (paramètres INDÉPENDANTS P(flag|flawed/sound)) à travers le VRAI
+  grader → plis → porte ; l'instrument RETROUVE la disposition et le taux de FAUX-MAINTIEN mesuré = 0. Démo
+  `apps/lesson-mcp/src/gate-validity-demo.ts`.
+
+**Vérifié** : 570 tests verts (+50). tsc propre. Panel adversarial (fuite de redaction + maths SDT + archi
++ direction/docs) : 1 bloquant (fuite positionnelle du deck) CORRIGÉ, advisories traitées (docstrings
+`trust_calibration` obsolètes, code mort, formulation non-circularité).
+
+**Reste** : D5 attestation d'exécution, D3 paquet de préparation d'essai en classe, D4 capsule
+métabolomique phare. Branche `feat/trust-instrument` (non poussée).
+
+---
+
+## 2026-06-28 — TRUST_CALIBRATION : la direction OVER-DISTRUST est ENFIN ALIMENTÉE (live LLM AuditJudge) + 3 preuves live
+
+Ferme la frontière d'honnêteté documentée : le matcher par mots-clés ne pouvait JAMAIS mesurer la sur-méfiance (il porte la clé des fautes plantées, pas les affirmations SAINES — il ne distingue pas « signaler à tort » de « louer »). Un juge LLM, lui, reçoit les DEUX listes.
+
+- **PORT** `AuditJudge.judge({flawed_content, flawed_claims, sound_claims, critique}) → {caught_flaw_ids, wrongly_flagged_sound_ids}` ; **SCHÉMA** `spot_the_flaw.sound_claims?:[{id,text}]` (clé de réponse sur-méfiance, server-side, strippée par publicScene + miroirs Python) ; **GRADER** `flawGrader` consulte `auditJudge` SI présent ET sound_claims → true_positives + false_positives, sinon matcher (fp=0, frontière préservée) ; **ADAPTERS** `StubAuditJudge` (offline, ne fabrique jamais de sur-méfiance) + `HttpLlmAuditJudge` (endpoint OpenAI-compatible, zod-validé, dégrade au fallback mots-clés, **timeout AbortSignal**) ; câblé live UNIQUEMENT sous `live && LITELLM_BASE_URL` (offline ⇒ undefined).
+- **PREUVES LIVE (OpenRouter `claude-haiku-4.5`, Anthropic-direct rate-limité jusqu'au 2026-07-01)** : (1) opérateur LLM pilote une session réelle + capsule réelle → `trust_calibration=0.25` ; (2) sur-méfiance : critique sur-sceptique → `false_positives=1/1 sound → −0.500` ; critique calibrée → `0.000` ; offline stub → fp=0 (frontière tenue) ; (3) régénération par-run (slice suivante).
+
+**Vérification** : learner-state 38 + lesson-session 223 + lesson-session-host 146 + adaptation-engine 51 + lesson-bundle-schema 62 + lesson-mcp 13 + lesson-server 31 ; Python scene-synth+compose+schema 207 ; `tsc` propre. Revue adverse (workflow 4 lentilles + réfutation, **9 confirmés**) entièrement repliés : (should) le DÉNOMINATEUR `planted` divergeait entre chemin mots-clés (compte de mots-clés) et chemin LLM (compte de claims) → standardisé en **compte-de-claims-distincts** dans LES DEUX chemins (over_trust comparable offline/live) ; (should) over_distrust normalisait fp par le compte de FAUTES → normalisé par la population SAINE (`sound_total` plumb dans judgment_audit + recordJudgmentAudit) → deux taux commensurables ; (should) jugement LLM unique non-répliqué → documenté (blend λ=0.5 lisse, multi-vote différé) ; (should) miroirs Python droppaient sound_claims → ajoutés (scene-synth + lesson-bundle-schema) ; (should) fetch sans timeout bloquait respond() → AbortSignal.timeout sur les 2 adapters ; (nit×3) ids distincts, granularité caught, commentaires-frontière périmés → corrigés.
+
+---
+
+## 2026-06-28 — Régénération par-run : générateur de jugement LLM LIVE (HttpLlmJudgmentGenerator)
+
+Concrétise la frontière « live per-run regen quality » : le `judgment-generator.ts` n'avait que le stub ; le générateur LIVE était décrit mais pas implémenté.
+
+- `HttpLlmJudgmentGenerator(baseUrl, {apiKey, model, timeoutMs})` : écrit une lecture IA DÉLIBÉRÉMENT FAUSSE ancrée sur le run RÉEL de l'apprenant (landmark) + la clé de réponse (claims + flaws_expected) + model_correction ; endpoint OpenAI-compatible ; zod-validé (rule 002) ; **dégrade au StubJudgmentGenerator** sur tout échec (transport/non-JSON/schéma) → jamais une scène sans clé ; AbortSignal.timeout. La clé reste server-side (publicScene strippe claims/sound_claims/model_correction).
+- **PREUVE LIVE** : régénère des fautes APPARIÉES au run sur deux landmarks différents (k=0.4212/half_life=1.6457 vs k=0.0917/7.5589) → chaque lecture fausse s'ancre sur SON k réel, fautes distinctes (soundness capsule stochastique).
+
+**Vérification** : lesson-session-host 146 (4 neufs : stub ancré, parse+validate live, dégrade non-200, dégrade schéma-invalide) ; `tsc` propre.
+
+---
+
+## 2026-06-28 — FSRS : SEEDING du replay de session depuis la mémoire de profil (accumulation cross-lesson)
+
+Ferme l'avant-dernier petit reliquat : aujourd'hui le routeur cross-lesson LIT `profile.concept_memory`, mais le replay de CHAQUE leçon repart de zéro — donc re-réviser un concept partagé donnait une stabilité B-seule, pas A+B. Le seeding fait que le replay démarre DEPUIS la mémoire accumulée du profil.
+
+- `lesson-session-host/host.ts` — `memoryFromHistory(concept_id, state, seed?)` + `conceptMemoryFromState(state, seed?)` acceptent un seed optionnel (backward-compatible : tous les appels existants — reviewQueue / nextReinforcement within-session — passent SANS seed, comportement inchangé, scope-session). La branche `respond(complete)` seed depuis `base.concept_memory` (le profil dans lequel on merge) → la répétition espacée COMPOSE A+B+C… à travers les leçons.
+- **Dédup par timestamp** : le seed couvre déjà tout jusqu'à son `last_reviewed_at` ; sur un RESUME du même bundle l'historique chargé RETIENT ces réponses → on ne re-fold QUE les réponses strictement postérieures. Ré-répondre une scène plus tard est une vraie récupération → ça accumule (reps +1 par ré-réponse, l'historique chargé n'est jamais re-foldé). Garde seed MAL-FORMÉ (reps≥1 mais stability≤0/last null → pas une ancre FSRS valable → replay propre depuis le défaut, pas de demi-reset silencieux).
+
+**Vérification** : lesson-session-host 142 (10 neufs : accumulation, no-re-fold de l'historique chargé, RESUME+ré-réponse host-level reps 1→2→3 exactement +1, borne clock-skew/same-ms, garde seed mal-formé, chaîne multi-leçons A→B→C, persistance durable) ; dépendants verts (learner-state 36, adaptation-engine 51, lesson-session 214) ; `tsc` propre. Revue adverse (workflow 4 lentilles + réfutation, **5 confirmés**) repliés HONNÊTEMENT : le « must-fix » (la suite d'idempotence prouvait un no-op que le chemin RESUME réel ne déclenche jamais ; le vrai chemin ré-répond → reps monte) était en fait le COMPORTEMENT CORRECT (ré-répondre = vraie récupération) mal documenté → docs/tests reformulés + test host-level RESUME+ré-réponse prouvant +1 exact (jamais re-fold de l'événement chargé) ; should-fix clock-skew (un événement neuf à un timestamp ≤ seed est conservativement sauté — sous-comptage borné, auto-guérison, jamais de double-comptage) documenté + testé ; should-fix chaîne multi-leçons testée ; should-fix seed mal-formé gardé+testé ; nit cap-50 doc maintenue exacte.
+
+---
+
+## 2026-06-28 — FSRS CROSS-LESSON : persistance de la mémoire + AUTO-ROUTAGE du prochain pas
+
+Deux moitiés couplées qui font franchir les leçons à la répétition espacée ET piloter le prochain pas. Lève le TODO de `fsrs.ts` (« persist concept_memory beside concept_states »).
+
+- **PERSISTANCE** : `learner-state` — `ConceptMemoryStateSchema` (miroir zod de l'interface `adaptation-engine/fsrs.ts` ; learner-state ne peut PAS importer le moteur, c'est l'inverse) + `LearnerProfile.concept_memory?` + `mergeConceptMemoryIntoProfile` pur (latest-wins, **SKIP des entrées reps===0** pour ne JAMAIS écraser une vraie mémoire portée d'une leçon antérieure par un défaut « non-vu »). `lesson-session-host` — la branche `respond(complete)` persiste aussi `conceptMemoryFromState(state)` dans le profil ; `dueReinforcementTargetsFromMemory` pur + `host.dueReinforcements(learnerId, nowMs)` (routeur CROSS-LESSON lisant la mémoire accumulée du profil — pas de session vivante requise).
+- **AUTO-ROUTAGE** : `host.nextCourseStep(course, learnerId, nowMs) → CourseStep` (reinforce | advance | done | **blocked**). Un renforcement DÛ (concept maîtrisé en leçon antérieure dont le rappel a décliné) PRÉEMPTE l'avancement → la répétition espacée pilote vraiment le prochain pas. Profil chargé UNE fois ; `done` vs `blocked` désambiguïsé via `isCourseComplete` (spine épuisée vs prérequis non-satisfait/cyclique).
+
+**Vérification** : learner-state 36 (6 neufs dont garde-clobber) + lesson-session-host 132 (8 neufs dont régression-clobber + blocked) ; dépendants verts (adaptation-engine 51, lesson-session 214, lesson-mcp 13, lesson-server 31) ; `tsc` propre. Revue adverse (workflow 4 lentilles + réfutation) → **1 must-fix / 1 should-fix / 1 nit** repliés : (must) la mémoire cross-lesson était ÉCRASÉE quand une leçon ultérieure DÉCLARE (warm-seed) un concept partagé sans le ré-répondre (replay reps:0 → écrasait la vraie mémoire) — VÉRIFIÉ par repro runtime du reviewer, corrigé par le skip reps===0 + re-vérifié par un agent adverse (chemin complètement fermé, skip non sur-agressif, writer unique) ; (should) `nextCourseStep` confondait spine-bloquée et cours-terminé → variante `blocked` + `isCourseComplete` ; (nit) caveat docstring sur le cap d'historique à 50.
+
+---
+
+## 2026-06-28 — studium-vscode : `run.json` comme TÂCHE VS Code native
+
+Concrétise « laisser VS Code gérer l'environnement et l'install pour l'usage agentique » : le manifeste de run learner-time est surfacé comme une TÂCHE VS Code native. Le protocole reste de la délégation PURE — Studium (host/MCP) N'EXÉCUTE JAMAIS ; c'est l'environnement de l'opérateur (= le workspace de l'utilisateur) qui exécute.
+
+- `studium-vscode/src/run-task.ts` (pur, sans dépendance — esbuild ne bundle que vscode + MCP SDK + typed-graph-lens, donc les shapes RunManifest/RunResult sont mirrorées, lockstep avec lesson-bundle-schema + run-result.ts) : `runManifestToTaskSpec` (install requirements puis run cmd, args shell-quotés), `evaluateChecks` (« file exists: <path> » sous working_dir ; inconnu → NON passé), `buildRunResult` (ran = exitCode≠null ; passed = exit 0 ET tous les expected_outputs présents ET tous les checks passés ; landmark auteur retenu → null).
+- `extension.ts` : commande `studium.runReproduction` → get_run_manifest → `vscode.Task` (ShellExecution dans le terminal intégré) → handler one-shot onDidEndTaskProcess → buildRunResult (fileExists = existsSync sous le workspace) → submit_run_result → avance sur status « ran » + transition (complete → done, sinon avance). État `activeLesson` (garde par IDENTITÉ d'objet, pas par valeur sid) + indice de découvrabilité sur une scène reproduction. `package.json` : commande + activation onCommand + `taskDefinitions {type:"studium-run"}`.
+
+**Vérification** : `tsc` extension exit 0 ; harnais headless complet (8 drivers) vert dont run-task (22 assertions) + lesson-walk e2e (12, boucle leçon intacte). Revue adverse (workflow 4 lentilles : shape RunResult / résolution de chemins / sûreté de la tâche / câblage+honnêteté du protocole) → **0 must-fix / 1 should-fix + 1 nit** repliés (garde dispose par identité d'objet vs collision de sid-sentinelle ; listener one-shot tracké dans context.subscriptions). Shape RunResult + cohérence des chemins task-cwd↔existence vérifiées sans défaut.
+
+---
+
+## 2026-06-28 — FSRS comme ROUTEUR (et non plus simple lecture)
+
+Promeut FSRS d'une LECTURE (`reviewQueue` listait tous les concepts dus) à un ROUTEUR : une décision de sélection — le concept le PLUS urgent à renforcer + la scène qui l'adresse. Le routage FSRS est intrinsèquement inter-TEMPS (le rappel doit décliner), donc `nowMs` est injecté.
+
+- `adaptation-engine/fsrs.ts` : `nextReinforcement(states, mastery, nowMs, opts) = dueForReinforcement(...)[0] ?? null` (tête de routeur). Pur.
+- `lesson-session-host/host.ts` (le host N'IMPORTE PAS adaptation-engine — il INLINE un miroir verbatim de fsrs.ts) : miroir `fsrsReinforcementPriority` + `fsrsDueForReinforcement` ; exports purs `conceptMemoryFromState` (rejoue l'historique → carte mémoire), `nextReinforcementFromState` (décision concept), `reinforcementSceneFromState` (route vers le CONTENU : la scène couvrant le concept, en PRÉFÉRANT une scène de RÉCUPÉRATION quiz/spot_the_flaw/explain_back/comparison/summary_audit/prompt_practice à un intro passif, repli sur la 1re couvrante) ; méthodes host `nextReinforcement` + `nextReinforcementScene`. Test de PARITÉ-LOCKSTEP : host == engine pour les mêmes réponses+maîtrise.
+- `lesson-mcp` : outil `get_next_reinforcement {session_id, now_ms?}` → `{reinforcement: {concept_id, scene_id, due_at, retrievability} | null}` — la surface driver qui rend le routeur consommable par un VS Code natif (e2e : frais → null ; futur lointain → route vers la scène quiz).
+- HONNÊTETÉ : rien n'AUTO-route (pas d'injection dans la boucle d'avancement — ça toucherait la sélection cœur) ; le routeur EXPOSE la décision qu'un driver consomme (distinct de la lecture `reviewQueue`). La persistance cross-lesson de la mémoire FSRS reste un nice-to-have (la décision se calcule par-rejeu de l'historique de la session).
+
+**Vérification** : adaptation-engine 51 (1 neuf) + lesson-session-host 124 (11 neufs dont parité-lockstep + préférence-récupération) + lesson-mcp 13 (1 neuf e2e) ; `tsc` 3 packages exit 0. Revue adverse (workflow 4 lentilles dont lockstep + honnêteté-du-claim-routeur) → **0 must-fix / 1 should-fix + 2 nits** repliés (due_at honore opts.requestRetention ; préférence scène-récupération vs intro ; arithmétique maîtrise du commentaire 0.714).
+
+---
+
+## 2026-06-28 — Surface ENSEIGNANT de complétion par leçon du parcours (niveau-classe)
+
+Rend visible au tableau de bord la complétion par leçon de la colonne de cours. HONNÊTETÉ : le pseudonyme télémétrique est salé par bundle_id (`session.ts:73`) → le MÊME humain a un pseudonyme DIFFÉRENT à chaque leçon. Donc le suivi par-individu cross-lesson est IMPOSSIBLE depuis la télémétrie (par conception, vie privée). La seule surface fidèle = des compteurs INDÉPENDANTS par leçon (apprenant·e·s distinct·e·s par leçon), JAMAIS un entonnoir/flux de rétention.
+
+- `analytics-collector/metrics.py` : `compute_course_completion(data_dir, course, bundle_version?)` — lit `lesson_completed`, groupe par lesson_id (== bundle_id), compte les `learner_pseudonym` distincts. `{lessons:{lesson_id:{n_completed}}, total_completions}`. `GET /metrics/course-completion` (token auth).
+- `lesson-server` : `GET /courses?ref=` → `resolveCourse(bundlesRoot, ref)` (manifeste CourseSchema parsé), avec garde anti-path-traversal (rejette `..` / chemin absolu).
+- `teacher-dashboard` : `getCourseCompletion` (analytics) + `getCourse` (lesson-server) ; composant `CourseProgress` (colonne ordonnée + prérequis + compteurs distincts par leçon + **cadrage honnête : compteurs indépendants, NON comparables comme un flux**) ; page `course-progress` (dégradation gracieuse → compteurs bruts si pas de manifeste) ; onglet « Parcours ».
+
+**Vérification** : analytics-collector 123 (8 neufs : distincts par leçon, doublon=1, vide, lesson_id manquant, filtre bundle_version ; + 401/403/funnel endpoint) ; lesson-server 31 (4 neufs : manifeste parsé, ref manquant 400, path-traversal 400, 404) ; teacher-dashboard 54 (api wrapper getCourse/getCourseCompletion + render CourseProgress incl. 0-completers + honnêteté). `tsc` lesson-server + dashboard exit 0. Revue adverse (workflow 4 lentilles dont SÉCURITÉ path-traversal — garde jugée adéquate — + réfutation) → **0 must-fix / 1 should-fix** replié : retrait du cadrage « entonnoir/funnel » (surclaim de rétention cohorte que les pseudonymes salés-par-leçon ne supportent pas) → compteurs INDÉPENDANTS non-comparables + barre neutre dé-emphasée.
+
+---
+
+## 2026-06-28 — Surface ENSEIGNANT de `trust_calibration` (jugement-sur-artefact)
+
+Rend VISIBLE au tableau de bord enseignant la dimension phare de la session — la calibration du jugement face à une lecture IA d'un résultat RÉEL (distincte de la calibration de confiance déclaré-vs-compétence). Jusqu'ici `trust_calibration` était calculée par le moteur mais invisible à tout humain.
+
+- `analytics-collector/metrics.py` : `TRUST_WELL_BAND=0.4` + `compute_trust_calibration(data_dir, course, learner?, bundle_version?)` — agrégat telemetry-natif sur les events `ai_audit_result` (mêmes que ai_audit_accuracy). Par scène scorable (planted>0, compteurs poolés par scene_id) : `over_trust=missed/planted`, `over_distrust=min(fp,planted)/planted`, `gap=over_trust-over_distrust ∈ [-1,1]` ; overall = MOYENNE des gaps par scène (miroir de ai_audit `overall_accuracy`) ; bande "bien" (|gap|≤0.4) / "sur" (sur-confiance IA) / "sous" (méfiance IA). Fidèle au moteur `recordJudgmentAudit`.
+- `analytics_collector_app.py` : `GET /metrics/trust-calibration` (auth `X-Course-Token`, `_validate_bundle_version`).
+- `teacher-dashboard` : `getTrustCalibration` + type `TrustCalibrationResponse` (lib/api.ts) ; composant `TrustCalibrationChart` (verdict FR par bande + breakdown sur-confiance/méfiance + **limite d'honnêteté affichée**) ; page `app/courses/[token]/trust-calibration/page.tsx` ; onglet « Confiance IA » dans `CourseNav`.
+- LIMITE D'HONNÊTETÉ (surfacée dans l'UI + le docstring) : le matcher hors-ligne fixe `false_positives=0` → en prod la direction « méfiance » est structurellement non-alimentée ; seule la sur-confiance bouge (gap≥0). La surface reflète fidèlement ce que la télémétrie porte. NON ajouté au blueprint composable (le gap signé n'est pas un score [0,1] « plus haut = mieux » ; son cousin composable ai_audit_accuracy y est déjà).
+
+**Vérification** : analytics-collector 115 (14 neufs : bien/sur/sous, cap fp, planted=0 non-scorable, pooling, moyenne-par-scène, filtre apprenant, bande inclusive ; + 401/403/aggregats endpoint) ; teacher-dashboard 47 (api wrapper + render component toutes bandes incl. null + limite d'honnêteté) ; `tsc` dashboard exit 0. Revue adverse (workflow 4 lentilles + réfutation par finding) → **0 must-fix / 0 should-fix / 2 nits** repliés (label `n_audits`→« scène(s) » ; normalisation `-0.00`).
+
+---
+
+## 2026-06-28 — Régénération du jugement PAR-RUN : lève le caveat de déterminisme
+
+Lève le caveat de déterminisme de la boucle opération→jugement : un `spot_the_flaw` avec `reference_from_run` + `regenerate_from_run` voit son `flawed_content` + `claims` RÉGÉNÉRÉS depuis le run RÉEL de l'apprenant (côté serveur) — les défauts plantés collent à SES chiffres, même pour une capsule STOCHASTIQUE.
+
+- `lesson-bundle-schema` (TS + mirror Python) : `spot_the_flaw.regenerate_from_run` (optionnel).
+- `lesson-session` : `setSceneOverride(sceneId, override)` + `scene()` fusionne l'override EN PREMIER (présentation ET notation voient le jugement régénéré), puis l'overlay reference_result.
+- `lesson-session-host` : port `JudgmentGenerator` + `StubJudgmentGenerator` (déterministe, key-free ; le générateur LIVE est LLM-backed → clé requise). `SessionHostOptions.judgmentGenerator` (opt-in). `host.ingestRunResult` (quand l'apprenant lance la capsule) régénère les `spot_the_flaw` en aval (reference_from_run===task_card && regenerate_from_run) depuis le run de l'apprenant → `setSceneOverride`. La clé-réponse régénérée reste CÔTÉ SERVEUR (publicScene strip claims/model_correction).
+
+**Vérification** : lesson-session-host 113 (régénéré depuis le landmark de l'apprenant ; clé-réponse non-fuitée ; sans générateur → défauts d'auteur inchangés ; trust alimenté) ; `tsc` 3 packages ; scene-synth 206 (mirror) ; suite TS complète exit 0. Revue adverse (workflow 2 lentilles). HONNÊTETÉ : la qualité de régénération LIVE nécessite une clé ; le mécanisme + le stub sont prouvés key-free.
+
+---
+
+## 2026-06-28 — Colonne vertébrale de COURS : séquençage multi-leçons
+
+Ferme le dernier blocker « cours » de l'analyse de gaps : aucune couche au-dessus du bundle (pas de course_outline / lesson_sequence / next_lesson). Une COLONNE de cours séquence les leçons par-dessus le profil cross-lesson.
+
+- `lesson-bundle-schema/course.ts` : `CourseSchema` (course_id, title, lessons:[{lesson_id, bundle_ref, title?, prerequisite_lesson_ids[]}]) + routeur PUR `nextCourseLesson(course, completedLessonIds)` (première leçon non-faite dont TOUS les prérequis sont faits ; null si fini/bloqué — linéaire, DAG, sans-prérequis) + `isCourseComplete`.
+- `learner-state` : `LearnerProfile.completed_lessons` (optionnel, rétro-compatible) + `recordCompletedLesson` pur (dédupliqué, non-mutant).
+- `lesson-session-host` : `host.respond`(complete) enregistre la leçon complétée dans le profil ; `host.nextLesson(course, learnerId)` lit `completed_lessons` (pseudonyme niveau-apprenant) → routeur ; `resolveCourse(bundlesRoot, courseRef)` charge + valide `course.json`. Fixture `fixtures/courses/decay-course.json` (capsule-run-demo → capsule-loop-demo qui le requiert).
+
+**Vérification** : lesson-bundle-schema 62 (routeur : linéaire/DAG/prérequis/fini ; parse) + learner-state 30 + lesson-session-host 111 (e2e : complète A → next B → complète B → null ; par-apprenant ; resolveCourse charge le fixture) ; `tsc` 3 packages ; suite TS complète exit 0. Revue adverse (workflow 2 lentilles + réfutation par finding).
+
+---
+
+## 2026-06-28 — Profil apprenant CROSS-LESSON : démarrage à chaud entre leçons
+
+Ferme un blocker original de l'analyse de gaps : l'état était keyé par (pseudonyme, bundle) → un concept maîtrisé en leçon A repartait À FROID en leçon B. Un PROFIL apprenant (niveau-apprenant) agrège l'état des concepts entre bundles.
+
+- `learner-state` : `LearnerProfile` (concept_states keyés par concept_id + pseudonyme + updated_at) + helpers PURS `seedConceptStatesFromProfile` (warm-start : copie l'état du profil pour les concepts du bundle ABSENTS de l'état per-bundle — le per-bundle a la PRIORITÉ, jamais écrasé) + `mergeConceptStatesIntoProfile` (carry-forward latest-wins, non-mutant).
+- `lesson-session-host` : `LearnerProfileStore` (InMemory par défaut — persiste entre sessions d'une instance host ; `FileLearnerProfileStore` = `<dataDir>/<pseudonyme>/profile.json` en mode durable). Le pseudonyme du PROFIL est salé par un scope FIXE (`__learner_profile__`), donc STABLE entre leçons (le pseudonyme per-bundle est salé par bundle_id). `host.create` SEED l'état initial depuis le profil (avant `session.start`) ; `host.respond` (complete) MERGE l'état de la leçon dans le profil ; `host.forget` (RGPD) efface AUSSI le profil cross-lesson.
+- HYPOTHÈSE documentée : un concept de même id entre bundles EST le même concept (espace de concepts partagé — le composeur de cours assigne des ids partagés) ; si les ids sont locaux au bundle, ça ne seed simplement pas.
+
+**Vérification** : learner-state 30 (seed/merge purs : warm/cold, précédence per-bundle, non-mutation, round-trip) + lesson-session-host 109 (e2e : concept travaillé en A → chaud en B ; non-apparenté reste froid ; isolation par apprenant ; forget efface le profil) ; `tsc` host ; suite TS complète exit 0. Revue adverse (workflow 3 lentilles + réfutation).
+
+---
+
+## 2026-06-28 — Opérateur agentique RÉEL (LLM-backed) + démo bout-en-bout
+
+L'opérateur n'est plus seulement stub/watch : un VRAI opérateur LLM pilote une leçon complète run+jugement. Il POSSÈDE l'exécution — Studium n'exécute jamais.
+
+- `lesson-session-host/session-runner.ts` : `makeLlmOperator({ llm, runCapsule })` — sur une scène `reproduction(run_manifest)` il lit le manifeste et LANCE la capsule via `runCapsule` injecté (l'opérateur exécute, pas Studium) ; sur un `spot_the_flaw` il appelle `llm` pour JUGER la lecture IA défectueuse du run de l'apprenant ; quiz/meta/contrôle = réponse déterministe ; la clé-réponse n'entre jamais dans le prompt. `OperatorLlm = {complete(prompt)}` (découplé du provider) + `writeRunResult` exportés.
+- Démo `apps/lesson-mcp/llm-operator-demo.ts` : câble un VRAI run de capsule (`python3 tools/capsule_runner.py`, uv venv isolé) + LLM (placeholder key-free par défaut ; `--live` = LiteLLM via LITELLM_BASE_URL). **EXÉCUTÉE bout-en-bout sans clé sur `capsule-loop-demo` : `next → next → complete ✔`, trust_calibration alimenté (1 sample de run jugé).** Le run de capsule est RÉEL ; la qualité du jugement live nécessite une clé (frontière d'honnêteté).
+
+**Vérification** : lesson-session-host 107 (l'opérateur LLM pilote la boucle key-free : capsule lancée sur la scène run, LLM-jugée sur le spot_the_flaw ancré, trust alimenté ; aucun appel LLM sur un run échoué) ; démo réellement exécutée (capsule réelle, key-free) ; `tsc` host+mcp ; suite TS complète exit 0. Revue adverse (workflow 3 lentilles + réfutation par finding) : 0 must-fix ; appliqués — should-fix (runner démo parse STDOUT de capsule_runner → gracieux sur `deferred`/`no-executable` au lieu d'un crash ENOENT) + 2 nits (override `LITELLM_MODEL` ; `.studium-session/` gitignored).
+
+---
+
+## 2026-06-28 — Parité canal MCP : protocole de run pour VS Code natif
+
+Donne au canal MCP (surface VS Code native, MCP-only) la parité avec le canal fichier pour le protocole de run apprenant — pour que l'extension studium-vscode puisse piloter la boucle run + jugement. Studium n'exécute JAMAIS.
+
+- `apps/lesson-mcp/server.ts` : 2 nouveaux outils — `get_run_manifest` (le manifeste de provisioning/run de la scène courante, NON porteur de réponse, ou null) et `submit_run_result` (ingère le run de l'opérateur ; gate sur ran&&passed ; renvoie {status, learner_run_recorded, transition? redacted}).
+- `lesson-session-host/host.ts` : cœur PARTAGÉ `ingestRunResult(id, result)` (gate ran&&passed → recordLearnerRun(task_card_id) → avance via ack ; garde-fou `not_a_run_scene`) utilisé par les DEUX canaux (l'outil MCP + `SessionWorkspace.ingestRun` REFACTORISÉ pour l'appeler — pas de dérive) ; + `runManifest(id)`.
+- REDACTION : une scène de run (run_manifest présent) RETIENT son run d'auteur — `publicScene` drop `reference_result` + `host.sceneArtifacts` filtre `executed_result` (parité avec le canal fichier ; l'apprenant produit frais). Le jugement `reference_from_run` reste ancré sur le run de l'APPRENANT côté MCP, et la clé-réponse reste redacted.
+
+**Vérification** : lesson-mcp 12 (parité : manifeste null/présent ; gate ran&&passed + self-heal ; passing→avance + jugement ancré sur le run apprenant + trust_calibration alimenté ; not_a_run_scene) + lesson-session-host 105 (redaction publicScene/sceneArtifacts) + canal fichier inchangé (refacto sans régression) ; `tsc --noEmit` host+mcp ; suite TS complète exit 0. Revue adverse multi-lentilles (workflow : 4 lentilles + réfutation par finding).
+
+---
+
+## 2026-06-28 — Boucle opération→jugement : ancrer un jugement sur le run de l'APPRENANT
+
+Ferme la boucle nord-star : l'apprenant lance la capsule lui-même (protocole de run), PUIS audite une lecture IA défectueuse de SON PROPRE résultat exécuté — et ce jugement alimente `trust_calibration`. « Opération réelle = véhicule ; jugement calibré d'un artefact réel = destination. »
+
+- `lesson-bundle-schema` (TS + mirror Python) : `spot_the_flaw` gagne un champ optionnel `reference_from_run` (un task_card_id) — le jugement est ancré sur le run capturé de l'apprenant. + export du type `ReferenceRun`.
+- `lesson-session` : `recordLearnerRun(taskCardId, run)` mémorise le run de l'apprenant ; le SEUL point d'injection est `scene()` (accesseur unique présentation+notation) : pour un `spot_the_flaw` avec `reference_from_run` ET un run enregistré, renvoie une copie avec `reference_result` = le run de l'apprenant — donc l'évidence affichée ET le `flawGrader` (qui pose `judgment_audit` quand reference_result≠null → `trust_calibration`) voient le run de l'apprenant. Aucun run → scène d'auteur inchangée (non-ancrée, pas de fabrication).
+- `lesson-session-host` : `host.recordLearnerRun` ; `SessionWorkspace.ingestRun` projette le `run_result` de l'opérateur en `ReferenceRun` (`runResultToReferenceRun`) et l'enregistre sous le task_card_id de la scène run AVANT d'avancer.
+- Fixture `fixtures/capsule-loop-demo` (intro → reproduction(run_manifest) → spot_the_flaw(reference_from_run)).
+
+HONNÊTETÉ : les défauts plantés (claims) supposent un résultat CANONIQUE ; l'ancrage sur le run de l'apprenant n'est sain que pour une capsule DÉTERMINISTE (même landmark à chaque run) — vrai pour `capsule-demo` (seed fixe).
+
+**Vérification** : lesson-session 3 (overlay ancré→reference_result injecté ; sans run→non-ancré ; notation→trust_calibration) + lesson-session-host e2e 1 (run → tâche jugement affiche le landmark de l'APPRENANT → noté → trust alimenté) ; lesson-session 213 · lesson-session-host 102 · lesson-bundle-schema 59 · scene-synth 206 ; `tsc --noEmit` 3 packages ; suite TS complète exit 0. Revue adverse (Opus) en cours.
+
+---
+
+## 2026-06-28 — Exécution PAR L'APPRENANT : protocole de run (délégation agentique pure)
+
+Ferme le gap « no-host-learner-time-execution » : l'apprenant provisionne + exécute lui-même la capsule (via l'opérateur agentique dans l'espace de travail VS Code), Studium n'exécute JAMAIS (brain-only, pas de sandbox Studium). « Opération réelle = véhicule. » Décision utilisateur : DÉLÉGATION AGENTIQUE PURE (Studium émet un manifeste, l'opérateur installe + lance).
+
+- `lesson-bundle-schema` (TS + mirror Python `scene_synth_schemas`) : `RunManifest` + champ optionnel `run_manifest` sur `ReproductionScene` — instructions de provisioning/run NON porteuses de réponse (capsule_ref / install / cmd / noms de fichiers produits / vérifs d'existence), JAMAIS les valeurs attendues ni le landmark de l'auteur.
+- Canal fichier `.studium-session/` (`SessionWorkspace`) : pour une scène reproduction avec `run_manifest`, `writeStep` émet `run.json` + une tâche « provisionne & lance » (statut `awaiting_run`) en RETENANT le landmark de l'auteur (l'apprenant produit un résultat frais). L'opérateur lance dans l'espace de travail puis écrit `run_result.json` ; `ingestRun` le valide, GATE l'avancement sur `ran && passed` (enregistre le run de l'apprenant en statut `ran` + landmark/artifacts) et s'auto-répare (absent → attente ; `ran:false`/vérifs échouées → consommé + feedback correctif, jamais bloqué). `run-result.ts` (RunResultSchema + parseRunResult lenient).
+- Harnais `runStudiumSession` rendu run-aware (`OperatorCtx.expects`) ; `stubOperator` écrit un run PLACEHOLDER passant (n'exécute rien), `watchOperator` attend `run_result.json` ; `writeRunResult` (atomique). Le CLI `--watch`/`--stub` marche sans changement.
+- Fixture `fixtures/capsule-run-demo/lesson.json` (intro + reproduction-with-run_manifest, dérivée de `capsule-demo`). Doc `agentic-session-protocol.md` mise à jour.
+
+**Délégation pure** : aucun process lancé côté Studium — l'e2e prouve le PROTOCOLE (run simulé par l'opérateur/stub) ; l'exécution réelle est celle de l'opérateur agentique dans VS Code.
+
+**Vérification** : run-protocol host 4 + harnais 2 ; lesson-bundle-schema 59 (RunManifest) ; lesson-session-host 100 ; `tsc --noEmit` host+schema ; scene-synth 200 (mirror Python round-trip) ; suite TS complète exit 0. Revue adverse (Opus) en cours.
+
+---
+
+## 2026-06-27 — Calibration du jugement-sur-artefact : `trust_calibration`, dimension d'engine de première classe
+
+Atteint la DESTINATION nord-star : « dans un monde où l'opération scientifique est conduite par l'IA, la compétence durable n°1 est la confiance CALIBRÉE dans une sortie ». Une nouvelle dimension `trust_calibration` — DISTINCTE de `confidence_calibration` — mesure si la confiance de l'apprenant dans une lecture IA défectueuse d'un RÉSULTAT EXÉCUTÉ RÉEL suit la vérité-terrain, et GATE dessus.
+
+- `packages/learner-state` : `ConceptState.trust_calibration`/`_samples` (optionnels, rétro-compatibles) ; `recordJudgmentAudit` (over-trust = défauts ratés `+`, over-distrust = faux positifs `−` ; cap fp≤planted ; EWMA λ=0.5 ; clamp [-1,1] ; planted=0 ⇒ no-op) ; `isTrustCalibrated`/`isTrustMiscalibrated`/`isOverTrusting` (mesuré + bande, mirrors confidence). `answer_submitted` gagne `judgment_audit?` (grounded/planted/caught/false_positives).
+- `packages/adaptation-engine/engine.ts` : un `answer_submitted` portant `judgment_audit.grounded` plie la confiance-dans-l'artefact dans `trust_calibration` (indépendant de la confiance-en-soi) ; `buildContext` expose `trust_calibration(+abs)` pour les règles.
+- `lesson-session/grading/graders.ts` : `flawGrader` attache `judgment_audit` UNIQUEMENT quand la scène est ancrée (`reference_result` présent) — une scène de jugement non-ancrée ne nourrit JAMAIS la dimension de confiance.
+- **GATE certification** (`mastery-claims.ts`) : OVER-TRUST-SEUL — retient la claim d'un apprenant compétent MAIS systématiquement crédule (a raté les défauts d'une lecture IA d'un vrai résultat) ; la sur-méfiance n'est jamais retenue (mirrors overconfiance-seule). La compétence seule ne certifie pas : le jugement calibré EST la destination évaluée.
+- **GATE skip** (`graph-nav.ts buildLwgCalibration`) : nudge symétrique de recalibration sur la mal-calibration de confiance OU de trust.
+
+**HONESTY BOUNDARY** : seul l'OVER-TRUST est alimenté en LIVE aujourd'hui — le matcher renvoie `false_positives=0` (il porte la clé-réponse des défauts plantés, pas les affirmations SAINES nécessaires pour détecter le sur-signalement), donc en production `trust_calibration` ne monte que ≥0. La dimension signée + le gate symétrique sont prêts ; la capture de l'over-distrust attend un signal « affirmations saines » du matcher.
+
+**Vérification** : learner-state 26 · adaptation-engine 50 · lesson-session 210 ; `tsc --noEmit` 3 packages ; suite TS complète exit 0 (25 packages/apps, zéro régression). Revue adverse (Opus) : math CORRECTE, 0 must-fix, ship-with-fixes — le should-fix (honnêteté over-distrust) appliqué en commentaires.
+
+---
+
+## 2026-06-27 — Chaîne de composition : planner → scene-synth → bundle de jugement ancré
+
+Ferme le blocker « le planner et scene-synth sont deux services disjoints que rien ne chaîne ; le planner ne peut même pas demander une scène de jugement ». Une seule passe in-process transforme (manifeste corpus + capsule) en bundle gradé incluant une scène `spot_the_flaw` ancrée sur une EXÉCUTION RÉELLE. « Opération scientifique réelle = véhicule ; jugement calibré d'un artefact réel = destination. »
+
+- `lesson-plan-schema` (Python + mirror TS `src/index.ts` & `src/schema.json`) : `SceneType` gagne `spot_the_flaw` — le planner peut enfin DEMANDER une scène de jugement.
+- `planner_agent._enrich_from_abs` : avec `emit_judgment_scenes`, émet une scène `spot_the_flaw` par task card (à côté de la reproduction), pointant sur la même capsule. Défaut OFF (les cours existants gardent leur forme exacte).
+- `scene-synth/orchestrator.py` : injection `capsule_runner` ; `_synthesize_judgment` résout la capsule via `corpus_refs`, l'exécute UNE fois (mémoïsée), enrichit l'outline avec le `reference_run` vérifié (le LLM lit des valeurs réelles, ne les invente pas) + le cadran de fiabilité, et attache le run exécuté comme `reference_result` (attaché PAR CODE, non-hallucinable). Non-ancré ⇒ warning honnête, jamais fabriqué.
+- `SynthesizeOptions` : cadran `judgment_n_flaws`/`judgment_level`/`judgment_guidance` (fiabilité paramétrable par l'auteur).
+- `capsule_runner.py` : expose `research_question` dans le résultat (pour le prompt du juge).
+- `tools/compose_lesson.py` : l'entrée de la chaîne (planner → orchestrateur ancré → bundle) ; isolation `sys.modules`/`sys.path` pour la collision de packages `agents` planner vs scene-synth.
+
+**Vérification** : orchestrator-grounding 3 (run réel mémoïsé + non-ancré averti) · planner-abs (judgment émis/omis) · chaîne e2e RÉELLE sur `fixtures/capsule-demo` (vrai uv venv, landmark `k_fit=` vérifié, non-halluciné) ; scene-synth 200 · planner 190 · lesson-plan-schema 13 (TS) ; zéro régression. Revue adverse (Opus) = ship-with-fixes ; should-fix corrigés (warning si projecteur de grounding absent ; `_resolve_capsule` 2-passes exact-match-d'abord ; restore `sys.path`).
+
+---
+
+## 2026-06-27 — Tap de confiance per-réponse + EWMA glissant (calibration continue LIVE)
+
+Ferme le follow-up de la tranche #3 : la capture de calibration per-réponse passe de « prête » à **LIVE** dans les deux surfaces.
+- **Webview** (`media/artifact-pane.js` + `.css`) : sélecteur « Ta confiance : 0–4 » sur les scènes quiz + free-text ; la confiance tapée chevauche l'input soumis (`withConf`). Omise si non tapée.
+- **Notebook** (`src/notebook.ts`) : token optionnel `conf:N` (0–4) en fin de cellule → extrait par `extractConfidence` (pur, testable, dans `scene-io.ts`) et attaché à l'input ; aide d'intro mise à jour ; un chiffre nu (meta_checkpoint) n'est PAS un token.
+- **Moteur** (`learner-state` + `adaptation-engine`) : `CALIBRATION_ANSWER_LAMBDA=0.4` ; la voie per-réponse utilise λ<1 → MOYENNE GLISSANTE (plus last-write-wins) ; la voie `meta_checkpoint` reste λ=1.0 (auto-jugement délibéré = signal plein, déclenche la règle 0.4). `updateCalibration`/`recordConfidenceSample` prennent un λ.
+- `ResponseInput` (scene-io.ts) gagne `confidence?` sur les kinds-réponses.
+
+**Vérification** : tsc ; learner-state 18 (test EWMA glissant vs last-write-wins) · adaptation-engine 47 · studium-vscode scene-io 51 (extractConfidence + parité) · webview-pane 68 (tap → `input.confidence` dans les 2 surfaces) ; zéro régression (lesson-session 408, lesson-session-host 188, lesson-mcp tsc). La calibration-gating est désormais alimentée en continu PAR RÉPONSE, plus seulement au meta_checkpoint.
+
+---
+
+## 2026-06-27 — Calibration-gating : calibration = dimension de première classe, évaluée + GATING
+
+**Tranche #3 de la pivot capsule-backed (décision verrouillée).** `confidence_calibration` devient une dimension SAMPLE-COMPTÉE qui GATE ; capture per-réponse plumbée bout-en-bout (prête, pas encore alimentée par UI).
+
+- `packages/learner-state` : `ConceptState.calibration_samples` (optionnel, rétro-compatible) ; `CALIBRATION_WELL_BAND=0.4` ; `recordConfidenceSample` (updateCalibration + samples++) ; `isCalibrated` / `isMiscalibrated` (mesuré + bande, symétrique) / `isOverconfident` (mesuré + sur-confiance seule). `answer_submitted` gagne `confidence?` optionnel.
+- `packages/adaptation-engine/engine.ts` : `confidence_declared` → `recordConfidenceSample` (compte les samples) ; un `answer_submitted` portant un `confidence` capture aussi (per-réponse, contre la maîtrise POST-réponse).
+- **GATE certification** (`mastery-claims.ts`) : OVERCONFIANCE-SEULE (`isOverconfident`) — on ne retient JAMAIS la claim d'un maître sous-confiant (par l'arithmétique, pour actual≥θ seule la sous-confiance dépasse la bande ⇒ un gate symétrique ne frapperait que les maîtres sous-confiants = pénalité de compétence). Inerte pour un vrai maître ; ne mord qu'une sur-confiance.
+- **GATE skip** (`graph-nav.ts` `buildLwgCalibration` + param `calibrated` ; câblé `session.ts`) : SYMÉTRIQUE — skip-on-mastery ne saute PAS un concept maîtrisé-mais-mal-calibré (replay = nudge de recalibration peu coûteux). Conservateur : ne bloque jamais (au pire, atterrit SUR la scène).
+- `ResponseInput` (types.ts + response-input-schema.ts) + `grade()` : portent un `confidence?` optionnel de l'entrée → signal.
+- Cohérence « mesuré » : `host.ts calibrationVerdict` (+ port studium-vscode) renvoie `null` sans sample (sinon « bien calibrée » fabriqué pour un concept jamais auto-évalué).
+
+**Vérification** : tsc 5 packages ; learner-state 17 · adaptation-engine 47 · lesson-session 408 · lesson-session-host 188 · 209 assertions drivers studium-vscode (e2e lesson-walk inclus) ; zéro régression (~660 tests back-end). Revue adverse (2 lentilles × Opus) = ship-with-fixes ; **2 must-fix corrigés** (le verdict learner-facing partage la déf « mesuré » ; gate certification overconfiance-seule + documenté) + should-fix (commentaires « continu » honnêtes ; λ=1.0 = last-write-wins documenté, pas EWMA).
+
+**NON construit (suivi honnête)** : l'affordance UI du tap de confiance per-réponse (plumbing prêt+testé mais aucune UI ne l'alimente — seul le `meta_checkpoint` alimente la calibration en vrai aujourd'hui) ; EWMA glissant (λ<1) lié à cette UI ; diagnostic auditable des concepts retenus-pour-calibration.
+
+---
+
+## 2026-06-27 — Rendu inline de la figure `executed_result` (notebook)
+
+Le contrôleur notebook (`apps/studium-vscode/src/notebook.ts`) rend désormais les assets `executed_result` (et `image`) comme **image native inline** — lecture du fichier depuis le dossier du bundle + légende (landmark / checks) — au lieu d'une simple note `📎`. La logique pure chemin+MIME est extraite dans `src/asset-path.ts` (testable) ; le câblage `vscode.*` reste tsc-only (Extension Host). Nouveau driver `asset-path` (8 assertions) ajouté au runner. Ferme le follow-up « rendu natif » du canal `.studium-session/`. Vérif : tsc + **208 assertions** drivers studium-vscode.
+
+---
+
+## 2026-06-27 — Harnais opérateur de session (`runStudiumSession` + CLI)
+
+**Suite du canal `.studium-session/`** : un harnais *runnable* qui pilote une session complète avec un opérateur ENFICHABLE — le canal fichier devient utilisable, pas seulement testé.
+- `packages/lesson-session-host/src/session-runner.ts` — `runStudiumSession(host, bundleRef, dir, operator)` boucle `writeStep → operator → ingest` jusqu'à `complete`. Opérateurs : `stubOperator` (placeholder déterministe sans clé, pour démos/tests), `watchOperator({pollMs,timeoutMs})` (ATTEND qu'un agent EXTERNE — Claude Code / Copilot / Codex / humain — écrive `response.json` ; Studium n'appelle aucun modèle), `writeResponse` (écriture atomique tmp+rename). La rédaction de la clé de réponse est héritée de `SessionWorkspace`.
+- `apps/lesson-mcp/src/session-runner-cli.ts` — CLI : `tsx … <bundleRef> [--dir=] [--bundles-root=] [--stub]`. Défaut `--watch` (l'assistant du workspace pilote).
+- `docs/agentic-session-protocol.md` — section « Run it » ; le harnais passe de follow-up à **livré**.
+
+**Vérification** : lesson-session-host tsc + lesson-mcp tsc + **186 vitest** (3 nouveaux session-runner : session-stub-complète-avec-rédaction-tenue · watch-retourne-sur-réponse-externe · watch-timeout). **Run live** : la CLI `--stub` déroule `capsule-judgment-demo` jusqu'au bout (`next → next → complete`, 3 étapes) en laissant un vrai `.studium-session/` (task.md/feedback.md/index.json ; log : intro graded → 2× spot_the_flaw graded → complete).
+
+---
+
+## 2026-06-27 — Canal de session agentique fichier (`.studium-session/`) — outsourcing exécution/rendu
+
+**Vision** : la leçon capsule-backed n'embarque PAS son propre sandbox d'exécution ni sa pile de rendu ; elle les délègue à l'**hôte VS Code** + un **opérateur agentique enfichable** (Copilot / Claude Code / Codex / opencode). Studium reste le *cerveau* (routage adaptatif, maîtrise, calibration, scènes de jugement + ancrage). Deux canaux : **MCP** (déjà existant, `apps/lesson-mcp`, déjà rédacté) et **fichiers** (nouveau, universel).
+
+**Construit (branche `feat/capsule-judgment-slice`)** :
+- `packages/lesson-session-host/src/session-workspace.ts` — conducteur `SessionWorkspace` du protocole `.studium-session/` : `writeStep()` écrit un `task.md` RÉDACTÉ (via `publicScene`) + le résultat réellement exécuté (landmark/figure, allowlist) + `index.json` (mémoire/log) ; `readResponse()` mappe `response.json` → ResponseInput (coercition du `kind`) ; `ingest()` note via le vrai grader, écrit `feedback.md`, avance. **Self-heal** : une `response.json` invalide/mal typée est consommée + `feedback.md` correctif (le canal ne se bloque pas).
+- `tools/build_capsule_judgment_demo.py` émet aussi `fixtures/capsule-judgment-demo/lesson.json` (bundle chargeable : intro + 2 `spot_the_flaw` ancrés, rules:[] → avance linéaire).
+- `docs/agentic-session-protocol.md` — les deux canaux + layout `.studium-session/` + quick-start opérateur (n'importe quel assistant) + garantie de rédaction.
+
+**Invariant clé (vérifié)** : la clé de réponse (claims/flaws_expected/model_*) n'atteint JAMAIS l'opérateur via task.md/feedback.md/index.json. `publicScene` rédacte les champs de scène ; `renderTask` ne surface QUE l'asset `executed_result` + une allowlist de meta (landmark/path/cmd/passed), car `host.sceneArtifacts` n'est pas rédacté (asymétrie connue, commentée).
+
+**Vérification** : lesson-session-host tsc + **180 vitest** (3 nouveaux : round-trip ancré rédacté · self-heal · no-leak-toutes-scènes) ; lesson-mcp build ; 200 assertions drivers studium-vscode (aucune régression). Revue adverse (2 lentilles × Opus) = ship-with-fixes ; **2 must-fix corrigés** (self-heal anti-blocage ; cette entrée AGENT_LOG) + 4 should-fix (allowlist commentée · écriture atomique documentée · prose rendu-natif resserrée · clause quick-start « pas de harnais opérateur »).
+
+**NON construit (suivi honnête)** : rendu inline de la figure `executed_result` dans le notebook (aujourd'hui une note de référence ; le contrôleur n'a pas de cas `executed_result`) ; harnais opérateur réel (Claude Code/Copilot) ; intégration du `work/` opérateur dans l'évaluation de processus.
+
+---
+
+## 2026-06-27 — Slice « capsule-backed judgment » (vision capsule-backed lessons, tranche 1)
+
+**Vision (verrouillée en discussion ; mémoire `studium-capsule-backed-lessons`)** : l'opération scientifique réelle est le *véhicule*, le jugement calibré est la *destination*. Première tranche de dé-risquage : prouver qu'un composeur agentique peut produire une scène de jugement ANCRÉE sur une exécution réelle.
+
+**Construit (branche `feat/capsule-judgment-slice`)** :
+- **Carrier TS** : `reference_result` (ReferenceRunSchema) optionnel sur `SpotTheFlawSceneSchema` ; `sceneRenderAssets` généralisé (`"reference_result" in scene`) → une scène de jugement ancrée expose le run réel comme asset `executed_result` (même carrier que `reproduction`).
+- **Composeur** : nouvel agent génératif `SpotTheFlawAgent` + `prompts/spot_the_flaw.j2` (le type était schema-only ; l'orchestrateur le sautait — désormais 7 agents). Le prompt injecte le landmark RÉEL + un cadran de fiabilité auteur (`n_flaws`).
+- **Ancrage** : `tools/ground_judgment.py::ground_spot_the_flaw` attache le `reference_result` depuis un vrai run `tools/capsule_runner.py` ; le LLM n'écrit que l'*interprétation*, le *résultat* est attaché par code (non hallucinable).
+- **Miroir Python** : `ReferenceRun` ajouté (corrige le drift TS↔Python signalé par l'audit) + `reference_result`/`image_path` sur ReproductionScene & SpotTheFlawScene.
+- **Démo e2e** : `tools/build_capsule_judgment_demo.py` exécute la VRAIE capsule (`fixtures/capsule-demo`, venv uv isolé) puis génère 2 scènes ancrées (subtle=1 défaut, blatant=3) → `fixtures/capsule-judgment-demo/{scenes.json,decay.png,README.md}`. Landmark réel `k_fit=0.4212`.
+
+**Vérification** : 25 pytest scene-synth (agent + intégration ancrage + round-trip) ; 56 vitest lesson-bundle-schema (dont nouveau cas `executed_result` spot_the_flaw) ; tsc lesson-session/host/mcp ; 200 assertions drivers studium-vscode (aucune régression). Revue adverse (3 lentilles × Opus) = **ship-with-fixes, 0 must-fix** ; le seul should-fix corrigé : README + docstring n'impliquent plus que la démo déterministe prouve le *cadran de prompt* (le stub honore `n_flaws` via l'outline, pas le prompt rendu ; l'authorabilité du cadran est prouvée par test unitaire ; bout-en-bout = `--live`).
+
+**NON prouvé (assumé, honnêtement signalé)** : qualité de génération avec un vrai modèle (pas de clé API dans ce shell — `--live` requis). Reportés (séparables) : calibration-as-gating + capture de confiance CONTINUE (décision « continuous » verrouillée pour la tranche suivante), provenance span-level, environnement capsule installé.
+
+---
+
 ## 2026-06-27 — studium-vscode : câblage des scènes active-learning (audit → fix Wave 1-3)
 
 **Contexte** : un audit multi-agent (21 agents) a montré que l'extension VS Code (`apps/studium-vscode`, le runtime étudiant) n'avait jamais été mise à jour quand les types de scènes Wave-1/Wave-2 ont atterri. Les 4 plus récents (comparison/summary_audit/prompt_practice/communication_sim) **cassaient la leçon** : les deux surfaces (webview `media/artifact-pane.js` + notebook `src/notebook.ts`) tombaient sur un `{kind:"ack"}` que leurs graders rejettent (`SceneGradingError`) → reset de session / toast d'erreur. Le bundle démo par défaut `atomistique-l1` est touché (scène 4 = summary_audit).

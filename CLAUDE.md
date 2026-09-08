@@ -1,36 +1,62 @@
 # CLAUDE.md — prototype-build
 
-Ce repo est le repo de construction du prototype Studium.
-Il est piloté par le workspace de préparation `../Studium/`.
+Ce repo est le repo de construction du prototype Studium. Le remote est
+`HolobiomicsLab/studium` ; le nom de répertoire `prototype-build` est historique.
+
+Il est piloté par le **hub de développement `../studium_dev/`** : point d'entrée
+`MANIFEST.yaml`, état courant `STATUS.md`, travaux en cours et décidés dans
+`docs/superpowers/intents/`. `../Studium/` est le repo de *conception* antérieur — concept,
+architecture, specs et plans d'origine, superseded par ce repo pour l'implémentation. Ses
+pointeurs résolvent toujours et `AGENTS.md` y fait toujours foi.
 
 ## Règles
 
 - Lis `../Studium/AGENTS.md` pour le protocole de travail (phases, règles d'or, boucle de session).
-- Chaque milestone suit un handoff dans `../Studium/docs/handoffs/m<N>-*.md`.
 - TDD obligatoire (rule 002) + validation Pydantic pour tout appel LLM.
 - Human-in-the-loop strict (rule 003) avant toute diffusion étudiante.
 - Mise à jour `AGENT_LOG.md` à chaque commit significatif.
+- Les milestones M0–M3 ont un handoff dans `../Studium/docs/handoffs/` ; **il n'y en a pas
+  au-delà de `m3-student-runtime.md`**. Le travail postérieur est piloté par intent
+  (`INT-STUDIUM-<n>`) depuis le hub, pas par handoff de milestone.
 
-## Milestone active
+## Où est le travail — et où le lire
 
-**Roadmap complet livré sur `main` (2026-06-27, commit `e227cb5`).** 11/11 features mergées :
+**Sur `dev`, pas sur `main`.** `main` n'a pas bougé depuis le 2026-06-27 (`0293287`) ; `dev`
+est très largement devant et porte tout le travail depuis. Vérifier plutôt que croire :
 
-| Wave | Features |
-|---|---|
-| Learner-as-author | A1 `/studio` multi-type · A2 `/peer` UI · A3 community bundle runtime · A4 publicScene redaction |
-| FSRS / modality | B1 review queue + calibration surface · B2 modality preference (VS Code) |
-| Wave 1 scenes | C1 comparison · C2 summary_audit · C3 prompt_practice |
-| Wave 2 scenes | D2 communication_sim |
-| PeerStudio | D1 Room registry · HTTP API (lesson-server) · teacher-dashboard /room · spec doc |
+```bash
+git log -1 --format='%h %ad %s' --date=short main dev
+git rev-list --count main..dev
+```
 
-Prochaine étape : M2 — voir `../Studium/docs/handoffs/m2-active-learning-peerstudio.md`.
+**L'état courant se lit dans `../studium_dev/STATUS.md`, pas ici.** Ce fichier-ci ne porte plus
+d'instantané de jalon, et c'est délibéré : il en portait un — « Prochaine étape : M2 », alors
+que le travail avait dépassé la démo M6 — parce qu'un instantané épinglé dans un fichier que
+personne ne relit vieillit en silence. Le remplacer par un instantané plus frais reproduit le
+défaut avec un délai. Ce qui reste ici est ce qui se vérifie depuis le repo lui-même :
+commandes, conventions, environnement.
+
+Le jalon livré sur `main` (11 features : learner-as-author A1–A4, FSRS/modalité B1–B2, scènes
+wave 1 C1–C3 et wave 2 D2, PeerStudio D1) est sur les deux branches ; il n'est pas l'état
+d'avancement.
 
 ## Toolchain requise
 
-- Node 20+ ✅ (v25.8.2)
-- pnpm 9+ ✅ (v11.0.5)
-- Python 3.12+ ✅ (3.13.2 via `.venv/`)
-- Rust/Cargo (Tauri 2.x) ❌ — à installer avant M3
+Les versions ci-dessous sont les versions **déclarées par le repo**, pas celles d'une machine :
+les numéros exacts qui figuraient ici étaient faux sur les quatre lignes (Rust était donné
+absent alors que le build Tauri est vert sur les deux plateformes CI depuis `f16cfcd`,
+2026-09-08).
+
+| Outil | Exigence | Déclarée dans |
+|---|---|---|
+| Node | 20 | `.nvmrc`, `engines.node` (`>=20`), les jobs CI |
+| pnpm | 9.15.9 | `packageManager` (épinglé, INT-STUDIUM-031), `engines.pnpm` (`>=9`) |
+| Python | 3.12 | `python-version` des jobs CI ; `requires-python = ">=3.12"` des paquets |
+| Rust / Cargo | Tauri 2.x | `apps/student-runtime/src-tauri/Cargo.toml` |
+
+```bash
+node -v && pnpm -v && python -V && cargo --version   # ce que cette machine a réellement
+```
 
 ## Environnement Python
 
@@ -45,8 +71,8 @@ pip install -r requirements.txt
 # À chaque session :
 source .venv/bin/activate   # ou .venv\Scripts\activate sur Windows
 
-# Lancer les tests Python :
-pytest services/ packages/lesson-plan-schema/tests_python/
+# Lancer TOUS les tests Python (un processus pytest par suite) :
+python tools/pytest_all.py          # succès : exit 0, « N suites, 0 failing »
 
 # Lancer un service en dev :
 uvicorn services.ingest.app:app --reload --port 8000
@@ -62,8 +88,8 @@ via `pip install -r requirements.txt`.
 # TypeScript (tous les packages)
 pnpm test
 
-# Python (services + schemas)
-pytest services/ packages/lesson-plan-schema/tests_python/
+# Python (toutes les suites : packages, services, eval, tools, fixtures)
+python tools/pytest_all.py          # succès : exit 0, « N suites, 0 failing »
 
 # Next.js build
 pnpm --filter @studium/author-web build
@@ -74,6 +100,12 @@ pnpm --filter @studium/author-web build
 `.memory/` géré par `tools/memory_cli.py`. Voir `../Studium/.memory/INDEX.md` pour la mémoire du workspace de préparation.
 
 ## Convention nommage modules Python
+
+Deux `conftest.py` de services différents s'importent sous le même nom de module, donc un seul
+processus pytest sur `services/` avorte à la collecte (`ImportPathMismatchError`). C'est la raison
+d'être de `tools/pytest_all.py` : une suite = un processus, et les suites sont **découvertes**, pas
+listées à la main — un répertoire de tests ajouté demain tourne sans qu'on pense à l'inscrire
+quelque part (INT-STUDIUM-011).
 
 Pour éviter les conflits `sys.path` entre services lors des runs pytest multi-services :
 - `services/ingest/ingest_app.py` (pas `app.py`) — entrée FastAPI ingest

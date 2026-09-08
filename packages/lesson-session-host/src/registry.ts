@@ -11,6 +11,9 @@ export interface SessionEntry {
   /** per-session cache of inlined text-asset payloads, keyed by resolved path (files are static for
    * the session) — avoids re-reading a big .cube on every get_scene_artifacts turn. */
   assetCache: Map<string, string>;
+  /** the LEARNER-level pseudonym (fixed scope, stable across lessons) keying the cross-lesson profile —
+   * used to merge this session's concept_states forward on completion. */
+  profilePseudonym?: string;
 }
 
 export class SessionRegistry {

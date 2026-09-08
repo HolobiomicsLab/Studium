@@ -1,13 +1,14 @@
 """PlannerAgent : génère un LessonPlan depuis un corpus manifest."""
 from __future__ import annotations
 import json
-import sys
 import os
 import time
 import uuid
 from typing import Any
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../packages/lesson-plan-schema/python"))
+from planner_paths import ensure_importable
+
+ensure_importable()
 
 from agents.base import BaseAgent
 from lesson_plan_schema import LessonPlan, CorpusRef, RefType, Concept
@@ -133,9 +134,13 @@ class PlannerAgent(BaseAgent):
             reader = ABSCapsuleReader()
             capsule_data = reader.read(capsule_path, task_card_ids)
 
-            # Ajouter scènes reproduction depuis task cards (en tête de liste)
+            # Ajouter scènes reproduction depuis task cards (en tête de liste). Avec
+            # ``emit_judgment_scenes``, on émet AUSSI une scène de jugement capsule-ancrée
+            # (spot_the_flaw) par task card : le composer exécute la capsule + attache le
+            # reference_result réel. Opération réelle = véhicule ; jugement calibré = destination.
             from lesson_plan_schema import SceneOutline, SceneType
-            new_scenes = []
+            emit_judgment = bool(manifest.get("emit_judgment_scenes"))
+            block: list = []
             for card in capsule_data.task_cards:
                 scene_id = f"sc-abs-{card.task_id}"
                 if any(s.id == scene_id for s in plan.scene_outlines):
@@ -145,21 +150,31 @@ class PlannerAgent(BaseAgent):
                     f"Outputs: {', '.join(card.expected_outputs[:3])}. "
                     f"Tools: {', '.join(card.tools[:3])}."
                 )
-                scene = SceneOutline(
+                block.append(SceneOutline(
                     id=scene_id,
                     type=SceneType.reproduction,
                     title=card.title,
                     objective_refs=[o.id for o in plan.learning_objectives[:1]],
                     notes=notes,
                     abs_task_card_id=card.task_id,
-                )
-                new_scenes.append(scene)
-            # Insérer les scènes ABS avant les scènes de reproduction existantes
+                ))
+                judge_id = f"sc-judge-{card.task_id}"
+                if emit_judgment and not any(s.id == judge_id for s in plan.scene_outlines):
+                    block.append(SceneOutline(
+                        id=judge_id,
+                        type=SceneType.spot_the_flaw,
+                        title=f"Auditer une lecture IA — {card.title}",
+                        objective_refs=[o.id for o in plan.learning_objectives[:1]],
+                        notes="Audite une lecture IA du résultat exécuté réel de cette "
+                              "capsule (jugement calibré sur un résultat vérifié).",
+                        abs_task_card_id=card.task_id,
+                    ))
+            # Insérer le bloc (reproduction [+ jugement]) avant les scènes de reproduction existantes
             first_repro_idx = next(
                 (i for i, s in enumerate(plan.scene_outlines) if s.type == SceneType.reproduction),
                 len(plan.scene_outlines),
             )
-            for scene in reversed(new_scenes):
+            for scene in reversed(block):
                 plan.scene_outlines.insert(first_repro_idx, scene)
 
             # Enrichir objectives avec EDAM depuis skills

@@ -263,3 +263,21 @@ def test_scene_aliases_exist():
     assert ConceptScene is not None
     assert QuizScene is not None
     assert MetaCheckpointScene is not None
+
+
+def test_scene_types_match_canonical_mirror():
+    """scene-synth's SceneType must match the canonical lesson-bundle-schema Python mirror. This is the
+    drift guard that would have caught 'discussion' being missing here (it was, silently, for months)."""
+    import re
+    from pathlib import Path
+    from typing import get_args
+
+    from scene_synth_schemas import SceneType
+
+    synth = set(get_args(SceneType))
+    repo = Path(__file__).resolve().parents[4]
+    canonical_src = (repo / "packages/lesson-bundle-schema/python/lesson_bundle_schema/__init__.py").read_text()
+    block = re.search(r"SceneType = Literal\[(.*?)\]", canonical_src, re.S)
+    assert block, "could not locate the canonical SceneType literal"
+    canonical = set(re.findall(r'"([a-z_]+)"', block.group(1)))
+    assert synth == canonical, f"scene-synth SceneType drifted from canonical; symmetric diff = {synth ^ canonical}"

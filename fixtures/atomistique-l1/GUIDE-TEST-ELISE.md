@@ -53,28 +53,34 @@ externe**. En particulier, **Perspicacité** et **indicium** ne sont **pas néce
 ## Préparer (une fois) — dans le Terminal
 Ouvrez l'app **Terminal** (`Cmd+Espace`, tapez « Terminal », `Entrée`).
 
-**1) Vérifiez les outils** — tapez ces 3 lignes (une à la fois, `Entrée` après chacune) :
+**1) Vérifiez les outils** — tapez ces 2 lignes (une à la fois, `Entrée` après chacune) :
 
 ```bash
 node --version       # doit afficher v20 ou plus
 pnpm --version       # doit afficher 9 ou plus
-python3 --version    # doit afficher 3.x
 ```
 
-Si l'une répond « command not found » : `pnpm` → `npm install -g pnpm` ; `node` → installez Node 20+
-depuis nodejs.org ; `python3` → depuis python.org (ou `brew install python3`).
+Si l'une répond « command not found » : `pnpm` → `corepack enable` ; `node` → installez Node 20+
+depuis nodejs.org. `setup.sh` revérifie tout cela et vous le dira.
 
-**2) Installez et compilez** — tapez ces lignes une par une ; après chaque `Entrée`, **attendez que
-la commande finisse** (le `$` réapparaît) avant la suivante :
+Python n'est **pas** nécessaire pour la leçon (Parties 1–2). Il ne sert qu'à la partie
+enseignant (Partie 3), et il faut alors un **Python 3.12+** : sur un Mac d'origine,
+`python3` est en 3.9 et ne suffit pas (`brew install python@3.12`).
+
+**2) Installez et compilez** — une seule commande. Elle vérifie votre chaîne d'outils, installe
+le dépôt, embarque les bibliothèques de rendu hors ligne et compile ce qu'il faut. **Attendez
+qu'elle finisse** (le `$` réapparaît) :
 
 ```bash
 cd CHEMIN/prototype-build
-pnpm install
-pnpm --filter studium-vscode vendor
-pnpm --filter studium-vscode build
+./setup.sh
 ```
 
-*(`--filter studium-vscode` = « ne traite que ce sous-projet » ; copiez la commande telle quelle.)*
+Sa dernière ligne vous dit quoi faire ensuite (ouvrir `apps/studium-vscode`, puis F5).
+Elle est rejouable : en cas de doute, relancez-la.
+
+> Inutile de lancer `pnpm -r build` : elle compile aussi des applications dont vous n'avez
+> pas besoin et prend plusieurs minutes. `setup.sh` ne compile que le nécessaire.
 
 ---
 
@@ -269,7 +275,8 @@ python3 tools/class_report.py fixtures/data --min-learners 1 --bundle fixtures/a
 | Symptôme | Solution |
 |----------|----------|
 | `code` : command not found | ouvrez le dossier via VS Code (*File ▸ Open Folder*), ou installez la commande : `Cmd+Shift+P` → « Shell Command: Install 'code' command in PATH » |
-| « could not start lesson » / rien | *Help ▸ Toggle Developer Tools* dans la fenêtre de test pour voir l'erreur |
+| « could not start lesson » / rien | relancez `./setup.sh` (il compile les paquets dont le serveur de leçon a besoin) ; si le problème persiste, *Help ▸ Toggle Developer Tools* dans la fenêtre de test pour voir l'erreur |
+| `ERR_MODULE_NOT_FOUND` dans la console | les paquets de l'espace de travail ne sont pas compilés : `./setup.sh` |
 | L'orbitale s'affiche en texte | `studium.assets` = `"vendor"` (ou `"cdn"` avec internet) ; relancez `pnpm --filter studium-vscode vendor` |
 | Pas de panneau graphe | `studium.showGraph` = `true` |
 | Le concept suivant ne se débloque pas | normal : ~3 bonnes réponses au quiz du prérequis |

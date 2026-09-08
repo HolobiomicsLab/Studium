@@ -35,6 +35,34 @@ describe("aggregateRatings", () => {
     expect(a.avg_helpful).toBe(1); // all helpful
   });
 
+  it("counts distinct raters, not ratings — one rater cannot lift a target over the floor", () => {
+    // INT-STUDIUM-030, found auditing the floors. The type's own comments promise "k_floor
+    // INDEPENDENT raters", and the code counted rows. Nothing stops a learner rating the same
+    // target three times, and the aggregate that then unlocks is that one learner's three
+    // opinions averaged — presented to the teacher as a k=3 peer consensus. This is the same
+    // defect INT-STUDIUM-019 fixed on the collector side, where the floor counted telemetry
+    // files instead of learners.
+    const solo = [
+      rating("t1", "r1", true, 5),
+      rating("t1", "r1", true, 5),
+      rating("t1", "r1", true, 5),
+    ];
+    expect(aggregateRatings(solo, ROOM_K_FLOOR)).toHaveLength(0);
+
+    // A repeat rating neither inflates k nor double-weights its author: one rater is one
+    // opinion, their latest. Averaging over rows would let a rater move a peer aggregate by
+    // rating twice, which is the same failure wearing an average instead of a count.
+    const mixed = [
+      rating("t1", "r1", true, 5), rating("t1", "r1", false, 1), // r1 changed their mind
+      rating("t1", "r2", true, 3), rating("t1", "r3", true, 4),
+    ];
+    const agg = aggregateRatings(mixed, ROOM_K_FLOOR);
+    expect(agg).toHaveLength(1);
+    expect(agg[0]!.k).toBe(3); // three people, four ratings
+    expect(agg[0]!.passed_rate).toBeCloseTo(2 / 3);
+    expect(agg[0]!.avg_rating).toBeCloseTo((1 + 3 + 4) / 3);
+  });
+
   it("independently suppresses each target", () => {
     const ratings = [
       rating("t1", "r1", true), rating("t1", "r2", true), // 2 — suppressed

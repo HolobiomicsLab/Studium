@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
 # ---------------------------------------------------------------------------
 # Primitives partagées
@@ -41,11 +41,18 @@ SceneType = Literal[
     "prompt_practice",
     # active-learning wave-2 (D2): simulate a professional communication situation.
     "communication_sim",
+    # multi-turn Socratic discussion.
+    "discussion",
 ]
 BloomLevel = Literal[
     "remember", "understand", "apply", "analyze", "evaluate", "create"
 ]
-Modulator = Literal["M1", "M2", "M3", "M6"]
+# Active modulator set — mirrors the registry in packages/lesson-bundle-schema/src/modulators.ts
+# (pinned by packages/lesson-bundle-schema/src/modulators.guard.test.ts).
+Modulator = Literal["M1", "M3", "M6"]
+ReasoningSignalEnum = Literal[
+    "justification", "hypothesis", "question", "counterexample", "synthesis",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -201,11 +208,83 @@ class ReproductionStep(BaseModel):
     expected_output: Union[str, dict[str, Any]]
 
 
+class ReferenceCheck(BaseModel):
+    check: str
+    passed: bool
+
+
+# `landmark`, `figure_path` and `capsule_doi` are the only fields in this mirror that the TS
+# schema declares `.nullable()` and NOT `.optional()` (scenes.ts:133-138) — they must be PRESENT
+# and may be null, because "the run happened and produced no landmark" is a fact about the run,
+# not a missing field. Everywhere else `Optional[X] = None` means absent, which is what the TS
+# `.optional()` accepts and what a `null` violates. A dump that excludes every None therefore
+# cannot express this contract on its own: it would drop the three fields that carry a real
+# signal along with the ones that carry nothing. These serializers emit their models whole, so
+# `exclude_none=True` upstream strips the empty optionals without deleting the measurement.
+class ReferenceRunProvenance(BaseModel):
+    capsule_doi: Optional[str] = None
+    cmd: list[str] = Field(default_factory=list)
+    env: str
+
+    @model_serializer
+    def _serialize_whole(self) -> dict[str, Any]:
+        return {"capsule_doi": self.capsule_doi, "cmd": self.cmd, "env": self.env}
+
+
+class ReferenceRun(BaseModel):
+    """Mirror of ReferenceRunSchema (TS, scenes.ts): the result of executing a capsule once at
+    author time. Carried by ``reproduction`` (authenticity) AND ``spot_the_flaw`` (a judgment
+    scene whose flawed_content interprets this real run). Populated by tools/capsule_runner.py;
+    surfaced as an ``executed_result`` render asset client-side."""
+
+    ran: bool
+    passed: bool
+    landmark: Optional[str] = None
+    figure_path: Optional[str] = None
+    checks: list[ReferenceCheck] = Field(default_factory=list)
+    provenance: ReferenceRunProvenance
+
+    @model_serializer
+    def _serialize_whole(self) -> dict[str, Any]:
+        return {
+            "ran": self.ran,
+            "passed": self.passed,
+            "landmark": self.landmark,
+            "figure_path": self.figure_path,
+            "checks": self.checks,
+            "provenance": self.provenance,
+        }
+
+
+class RunManifest(BaseModel):
+    """Mirror of RunManifestSchema (TS, scenes.ts): a learner-time provisioning + run manifest. Studium
+    emits it so a pluggable agentic operator provisions the env + installs + runs the capsule IN THE HOST
+    WORKSPACE (Studium never executes). NON-answer-bearing — carries only how to RUN (capsule ref / cmd /
+    install / produced file names / file-existence checks), never the expected values or author landmark."""
+
+    capsule_ref: str = Field(min_length=1)
+    cmd: list[str] = Field(min_length=1)
+    working_dir: Optional[str] = None
+    timeout_s: Optional[float] = Field(default=None, gt=0)
+    requirements: Optional[list[str]] = None
+    expected_outputs: list[str]
+    verify_checks: list[str]
+    research_question: Optional[str] = None
+    # optional regex isolating the learner's OWN landmark line in stdout (a FORM matcher, not a value);
+    # when absent the client falls back to the last non-empty stdout line.
+    landmark_pattern: Optional[str] = None
+
+
 class ReproductionScene(_SceneBase):
     type: Literal["reproduction"]
     task_card_id: str
     steps: list[ReproductionStep] = Field(min_length=1)
     prov_derived_from: Optional[str] = None  # URL
+    image_path: Optional[str] = None  # rendered figure from the reference run (parity with TS)
+    reference_result: Optional[ReferenceRun] = None  # executed reference run (parity with TS)
+    # OPTIONAL learner-time run (parity with TS): when present, the learner reproduces the capsule at
+    # session time (host/operator provisions + runs), not merely views a pre-baked author run.
+    run_manifest: Optional[RunManifest] = None
     evidence: Optional[Evidence] = None
 
 
@@ -227,6 +306,14 @@ class AICritiqueScene(_SceneBase):
     rubric: AICritiqueRubric
 
 
+class SoundClaim(BaseModel):
+    """A claim in flawed_content that is actually CORRECT — the over-distrust answer key (mirror of TS
+    SoundClaim). Server-side; a good auditor must NOT flag it."""
+
+    id: str
+    text: str
+
+
 class FlawClaim(Claim):
     """A spot_the_flaw claim: flaws_expected MUST be non-empty (an assertion with nothing
     to spot would silently fail every learner offline). Stricter than ai_critique's Claim."""
@@ -246,6 +333,28 @@ class SpotTheFlawScene(_SceneBase):
     claims: list[FlawClaim] = Field(min_length=1, max_length=5)
     model_correction: str = Field(min_length=1)
     rubric: AICritiqueRubric
+    # OPTIONAL grounding in a REAL capsule execution (mirror of SpotTheFlawSceneSchema TS): when
+    # flawed_content is a deliberately-flawed AI reading of a genuine executed result, the scene
+    # carries that run so the learner audits the AI interpretation AGAINST the real output. The run
+    # holds no answer key (flaws live in ``claims``), so it is evidence, not a leak.
+    reference_result: Optional[ReferenceRun] = None
+    # OPTIONAL OVER-DISTRUST answer key (mirror of SpotTheFlawSceneSchema TS sound_claims): claims in
+    # flawed_content that are actually CORRECT — a good auditor must NOT flag them. Server-side reveal
+    # (stripped by publicScene). Carried through the composition/scene-synth path so a live AuditJudge can
+    # measure over-distrust (false_positives) at session time. Absent ⇒ over-distrust unmeasured.
+    sound_claims: Optional[list["SoundClaim"]] = None
+    # OPTIONAL learner-run grounding (mirror of TS): a task_card_id whose LEARNER-TIME run grounds this
+    # judgment (the host injects the recorded run as reference_result at session time — audit YOUR OWN run).
+    reference_from_run: Optional[str] = None
+    # OPTIONAL per-run REGENERATION (mirror of TS): with reference_from_run set, the host regenerates
+    # flawed_content + claims from the LEARNER's actual run (server-side), so the flaws match even for a
+    # STOCHASTIC capsule (lifts the determinism caveat). Off ⇒ authored flaws (deterministic capsules only).
+    regenerate_from_run: Optional[bool] = None
+    # OPTIONAL VERDICT DECK (mirror of TS): present claims + sound_claims as an unlabeled, shuffled deck
+    # the learner marks flawed/sound per item. A checkbox IS a flagging decision, so false alarms on the
+    # sound claims are COUNTED offline (key-free over-distrust) instead of needing a live judge. The deck is
+    # derived + label-stripped by publicScene at projection time. Absent/false ⇒ the free-text flaw path.
+    verdict_deck: Optional[bool] = None
 
 
 class KeyPoint(BaseModel):
@@ -333,6 +442,18 @@ class CommunicationSimScene(_SceneBase):
     rubric: AICritiqueRubric
 
 
+class DiscussionScene(_SceneBase):
+    """Multi-turn Socratic discussion: the learner argues from a seed_claim over a
+    topic, each turn scored on the reasoning signals it exhibits. Mirrors the
+    canonical DiscussionSceneSchema (lesson-bundle-schema)."""
+
+    type: Literal["discussion"]
+    topic: str = Field(min_length=1)
+    seed_claim: str = Field(min_length=1)
+    target_signals: list[ReasoningSignalEnum] = Field(min_length=1)
+    max_turns: int = Field(gt=0, le=50)
+
+
 # ---------------------------------------------------------------------------
 # Discriminated union
 # ---------------------------------------------------------------------------
@@ -351,6 +472,7 @@ SceneUnion = Union[
     SummaryAuditScene,
     PromptPracticeScene,
     CommunicationSimScene,
+    DiscussionScene,
 ]
 Scene = Annotated[SceneUnion, Field(discriminator="type")]
 
@@ -417,6 +539,12 @@ class SynthesizeOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
     include_critique: bool = True
     deterministic_seed: Optional[int] = None
+    # Trustworthiness dial for capsule-grounded spot_the_flaw judgment scenes. The number /
+    # subtlety of planted flaws is an AUTHORED parameter (not hardcoded) so a composer can
+    # deliberately vary output trustworthiness — what makes a learner's calibration measurable.
+    judgment_n_flaws: int = Field(default=1, ge=1, le=5)
+    judgment_level: str = "subtle"
+    judgment_guidance: str = "subtils et crédibles"
 
 
 class SynthesizeRequest(BaseModel):
@@ -574,6 +702,7 @@ __all__ = [
     "ComparisonScene",
     "Concept",
     "ConceptScene",
+    "DiscussionScene",
     "CritiqueEvalRequest",
     "CritiqueEvalResponse",
     "EnrichmentMetadata",
@@ -601,7 +730,10 @@ __all__ = [
     "PromptPracticeScene",
     "QuizChoice",
     "QuizScene",
+    "ReferenceCheck",
+    "ReferenceRun",
     "ReproductionScene",
+    "RunManifest",
     "ReproductionStep",
     "RuleAction",
     "RuleActionKind",
