@@ -193,10 +193,17 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Install Tauri/webkit deps
+        # `webkit2gtk-driver` fournit /usr/bin/WebKitWebDriver, que `tauri-driver`
+        # lance en sous-processus. Sans lui, tauri-driver meurt immédiatement
+        # (`CannotFindBinaryPath`) et WDIO échoue en ECONNREFUSED sur le port 4444 —
+        # une erreur qui désigne le port, pas la cause. `libwebkit2gtk-4.1-dev` ne
+        # suffit pas : ce sont les en-têtes de compilation, pas le pilote.
+        # (INT-STUDIUM-033)
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
+            webkit2gtk-driver \
             libssl-dev \
             libgtk-3-dev \
             libayatana-appindicator3-dev \

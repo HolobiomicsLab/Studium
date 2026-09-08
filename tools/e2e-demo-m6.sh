@@ -225,7 +225,11 @@ if [[ "$MODE" != "no-tauri" ]]; then
     || { echo "[M6] FAIL: tauri build"; exit 5; }
   mkdir -p /tmp/studium-e2e
   cp "$BUNDLE_PATH" /tmp/studium-e2e/demo-atomistique.zip
+  # Cette démo est le seul harnais qui construise en `--debug` ; wdio.conf.ts vise
+  # `release` par défaut, comme le construisent e2e-m5/e2e-c2/e2e-a10. On déclare
+  # donc ici le binaire qu'on vient effectivement de produire. (INT-STUDIUM-033)
   (cd "$ROOT/apps/student-runtime" && \
+    STUDIUM_RUNTIME_BIN="src-tauri/target/debug/student-runtime" \
     pnpm wdio:run --spec tests-e2e/specs/demo-m6-atomistique.spec.ts \
     > "$WDIO_LOG" 2>&1) \
     || { echo "[M6] FAIL: WDIO"; tail -50 "$WDIO_LOG"; exit 6; }
