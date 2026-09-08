@@ -3,6 +3,7 @@ from pydantic import BaseModel as _PydanticBase
 
 from analytics_collector_schemas import TelemetryBatch, TelemetryResponse
 from metrics import (
+    cohort_state,
     compute_ai_audit_accuracy,
     compute_ai_literacy_index,
     compute_autonomy,
@@ -96,6 +97,8 @@ def get_progress(
 ) -> dict:
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_progress(_data_dir(), course, bundle_version=bv)
 
 
@@ -108,6 +111,8 @@ def get_calibration(
 ) -> dict:
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_calibration(_data_dir(), course, learner=learner, bundle_version=bv)
 
 
@@ -125,6 +130,8 @@ def get_course_completion(
     metrics.compute_course_completion)."""
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_course_completion(_data_dir(), course, bundle_version=bv)
 
 
@@ -145,6 +152,8 @@ def get_trust_calibration(
     UNMEASURED, not zero (see metrics.compute_trust_calibration)."""
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_trust_calibration(_data_dir(), course, learner=learner, bundle_version=bv)
 
 
@@ -156,6 +165,8 @@ def get_autonomy(
 ) -> dict:
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_autonomy(_data_dir(), course, bundle_version=bv)
 
 
@@ -170,6 +181,8 @@ def get_scene_breakdown(
     summary_audit, prompt_practice, communication_sim, ai_critique, untagged)."""
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_scene_type_breakdown(_data_dir(), course, bundle_version=bv)
 
 
@@ -183,6 +196,8 @@ def get_reasoning(
 ) -> dict:
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_reasoning_depth_score(
         _data_dir(), course, pseudonyme=pseudonyme, scene_id=scene_id,
         bundle_version=bv,
@@ -198,6 +213,8 @@ def get_ai_audit(
 ) -> dict:
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_ai_audit_accuracy(
         _data_dir(), course, pseudonyme=pseudonyme, bundle_version=bv,
     )
@@ -244,6 +261,8 @@ def get_journal(
     """
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_journal_metrics(
         _data_dir(), course,
         pseudonyme=pseudonyme, bundle_version=bv,
@@ -263,6 +282,8 @@ def get_cooperation(
     """
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
+    if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
+        return below
     return compute_cooperation_metrics(_data_dir(), course, bundle_version=bv)
 
 
@@ -351,6 +372,8 @@ def get_concept_mastery_history(
     from datetime import date as _date_type
 
     _require_course_token(x_course_token, course)
+    if (below := cohort_state(_data_dir(), course)) is not None:
+        return below
     since_date = _date_type.fromisoformat(since) if since else None
     return {
         "concepts": read_concept_mastery_history(

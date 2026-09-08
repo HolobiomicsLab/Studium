@@ -1,6 +1,7 @@
-import { getProgress } from "@/lib/api";
+import { getProgress, isSuppressed } from "@/lib/api";
 import ProgressHeatmap from "@/components/ProgressHeatmap";
 import CourseNav from "@/components/CourseNav";
+import SuppressedNotice from "@/components/SuppressedNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,8 @@ export default async function ProgressPage({ params }: Props) {
       <h2 className="text-lg font-semibold mb-4">Progression par scène</h2>
       {error ? (
         <p className="text-red-600">Erreur API : {error}</p>
+      ) : isSuppressed(data) ? (
+        <SuppressedNotice info={data} />
       ) : data ? (
         <ProgressHeatmap data={data} />
       ) : null}

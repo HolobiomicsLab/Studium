@@ -1,6 +1,7 @@
-import { getCalibration } from "@/lib/api";
+import { getCalibration, isSuppressed } from "@/lib/api";
 import CalibrationChart from "@/components/CalibrationChart";
 import CourseNav from "@/components/CourseNav";
+import SuppressedNotice from "@/components/SuppressedNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,8 @@ export default async function CalibrationPage({ params, searchParams }: Props) {
       <h2 className="text-lg font-semibold mb-4">Calibration des réponses</h2>
       {error ? (
         <p className="text-red-600">Erreur API : {error}</p>
+      ) : isSuppressed(data) ? (
+        <SuppressedNotice info={data} />
       ) : data ? (
         <CalibrationChart data={data} learner={learner} />
       ) : null}

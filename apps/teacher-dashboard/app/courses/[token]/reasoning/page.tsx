@@ -1,6 +1,7 @@
-import { getReasoningDepth } from "@/lib/api";
+import { getReasoningDepth, isSuppressed } from "@/lib/api";
 import ReasoningBreakdown from "@/components/ReasoningBreakdown";
 import CourseNav from "@/components/CourseNav";
+import SuppressedNotice from "@/components/SuppressedNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,8 @@ export default async function ReasoningPage({ params, searchParams }: Props) {
       <h2 className="text-lg font-semibold mb-4">Qualité du raisonnement</h2>
       {error ? (
         <p className="text-red-600">Erreur API : {error}</p>
+      ) : isSuppressed(data) ? (
+        <SuppressedNotice info={data} />
       ) : data ? (
         <ReasoningBreakdown data={data} />
       ) : null}

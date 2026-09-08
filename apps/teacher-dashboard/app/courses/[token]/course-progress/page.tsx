@@ -1,6 +1,7 @@
-import { getCourse, getCourseCompletion, type CourseManifest, type CourseCompletionResponse } from "@/lib/api";
+import { getCourse, getCourseCompletion, isSuppressed, type CourseManifest, type CourseCompletionResponse, type Suppressed } from "@/lib/api";
 import CourseProgress from "@/components/CourseProgress";
 import CourseNav from "@/components/CourseNav";
+import SuppressedNotice from "@/components/SuppressedNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function CourseProgressPage({ params, searchParams }: Props
   const token = decodeURIComponent(params.token);
   const courseRef = searchParams.course_ref;
 
-  let completion: CourseCompletionResponse | undefined;
+  let completion: CourseCompletionResponse | Suppressed | undefined;
   let course: CourseManifest | undefined;
   let error: string | null = null;
   let manifestError: string | null = null;
@@ -39,9 +40,10 @@ export default async function CourseProgressPage({ params, searchParams }: Props
       <CourseNav token={token} active="course-progress" />
       <h2 className="text-lg font-semibold mb-4">Complétion par leçon du parcours</h2>
       {error ? <p className="text-red-600">Erreur API : {error}</p> : null}
-      {course && completion ? (
+      {isSuppressed(completion) ? <SuppressedNotice info={completion} /> : null}
+      {course && completion && !isSuppressed(completion) ? (
         <CourseProgress course={course} completion={completion} />
-      ) : completion ? (
+      ) : completion && !isSuppressed(completion) ? (
         <div className="space-y-3">
           {!courseRef ? (
             <p className="text-sm text-gray-600">

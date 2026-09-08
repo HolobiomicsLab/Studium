@@ -6,10 +6,93 @@ and compute on the fly. No pre-aggregation, no caching: simplicity first
 """
 
 import json
+import os
 import random
 from collections import defaultdict
 from pathlib import Path
 from typing import Iterator
+
+#: The smallest cohort a class-level number may be computed over. Its value is the product
+#: owner's (RGPD), and it lives here — the deepest module both the live collector and the
+#: offline `tools/class_report.py` already share — so there is exactly one definition
+#: (INT-STUDIUM-005). `class_report.MIN_LEARNERS_DEFAULT` and the Observatory's
+#: `min_learners` are this object.
+#:
+#: It is a RESTRAINT ON SINGLING OUT, not a guarantee of anonymity: k-anonymity protects
+#: against a reader who does not know the population, and the teacher of a class does know it
+#: (INT-STUDIUM-030). What it delivers is that this instrument does not become a per-student
+#: report by accident, by drill-down, or by patient reading over time.
+MIN_LEARNERS = 5
+
+#: Server-side override, read per request like `ANALYTICS_DATA_DIR`. Deliberately NOT a query
+#: parameter: the floor restrains the reader, so the reader must not be able to lift it.
+ENV_MIN_LEARNERS = "ANALYTICS_MIN_LEARNERS"
+
+
+def min_learners() -> int:
+    raw = (os.environ.get(ENV_MIN_LEARNERS) or "").strip()
+    try:
+        return int(raw) if raw else MIN_LEARNERS
+    except ValueError:
+        return MIN_LEARNERS
+
+
+def cohort_state(
+    data_dir: Path,
+    course: str,
+    bundle_version: str | None = None,
+    floor: int | None = None,
+) -> dict | None:
+    """`None` when every lesson on this course clears the floor; otherwise the payload an
+    aggregate endpoint returns INSTEAD of its numbers.
+
+    The unit is the LESSON, because a pseudonym is HMAC(learnerId:lessonId): a union across
+    lessons counts learner-lesson pairs and cannot lift any one lesson over the floor. The
+    Observatory applies the same rule to the same store (`_cohort_state`); this is that rule
+    where the numbers are actually served.
+
+    The payload states the floor and never the cohort. Publishing the count would invert the
+    floor — the only cohorts named exactly would be the ones it exists to protect.
+
+    A course with NO events passes through, and its endpoint returns its own empty aggregate:
+    there is nobody to protect, an empty aggregate already says so unambiguously, and turning
+    "no data" into "suppressed" would tell an operator with a wrong course token that they had
+    found a class too small to report on.
+
+    The unit is the course cohort, which is coarser than the Observatory's per-family floor
+    (`_family_state` there floors each metric family over its own contributors). That is
+    deliberate here: this is the last check before the wire, and a conservative floor at the
+    boundary is the right way round to be wrong.
+    """
+    floor = min_learners() if floor is None else floor
+    participants: dict[str, set[str]] = defaultdict(set)
+    unknown_identity = False
+    seen = False
+    for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
+        seen = True
+        pseudo, lesson = ev.get("learner_pseudonym"), ev.get("lesson_id")
+        if not isinstance(pseudo, str) or not pseudo or not isinstance(lesson, str) or not lesson:
+            unknown_identity = True
+            continue
+        participants[lesson].add(pseudo)
+
+    if not seen:
+        return None
+    if unknown_identity:
+        return {"status": "suppressed", "min_learners": floor,
+                "reason": "unknown identity: at least one event carries no learner_pseudonym "
+                          "or no lesson_id, so no cohort can be established. A pseudonym is "
+                          "HMAC(learnerId:lessonId) — a person within ONE lesson."}
+    if not participants:
+        return None
+    if any(len(ids) < floor for ids in participants.values()):
+        return {"status": "suppressed", "min_learners": floor,
+                "reason": f"k-anonymity floor: every lesson needs at least {floor} distinct "
+                          f"learners and at least one lesson on this course has fewer. Because "
+                          f"a pseudonym is salted per lesson, a union across lessons counts "
+                          f"learner-lesson pairs and cannot lift a lesson over the floor. "
+                          f"Exact counts are withheld."}
+    return None
 
 
 def _iter_events(

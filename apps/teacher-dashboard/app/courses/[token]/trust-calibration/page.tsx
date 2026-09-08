@@ -1,6 +1,7 @@
-import { getTrustCalibration } from "@/lib/api";
+import { getTrustCalibration, isSuppressed } from "@/lib/api";
 import TrustCalibrationChart from "@/components/TrustCalibrationChart";
 import CourseNav from "@/components/CourseNav";
+import SuppressedNotice from "@/components/SuppressedNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,8 @@ export default async function TrustCalibrationPage({ params, searchParams }: Pro
       </p>
       {error ? (
         <p className="text-red-600">Erreur API : {error}</p>
+      ) : isSuppressed(data) ? (
+        <SuppressedNotice info={data} />
       ) : data ? (
         <TrustCalibrationChart data={data} learner={learner} />
       ) : null}

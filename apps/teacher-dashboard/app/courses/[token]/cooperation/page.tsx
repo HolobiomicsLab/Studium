@@ -1,6 +1,7 @@
-import { getCooperationStats } from "@/lib/api";
+import { getCooperationStats, isSuppressed } from "@/lib/api";
 import CooperationStats from "@/components/CooperationStats";
 import CourseNav from "@/components/CourseNav";
+import SuppressedNotice from "@/components/SuppressedNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,8 @@ export default async function CooperationPage({ params }: Props) {
       </p>
       {error ? (
         <p className="text-red-600">Erreur API : {error}</p>
+      ) : isSuppressed(data) ? (
+        <SuppressedNotice info={data} />
       ) : data ? (
         <CooperationStats data={data} />
       ) : null}

@@ -44,6 +44,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "services" / "analytics-collector"))
 from metrics import (  # noqa: E402
     AUTONOMY_INDICATOR_NAME as _COLLECTOR_AUTONOMY_NAME,
+    MIN_LEARNERS,
     TRUST_WELL_BAND,
     _over_distrust_rate,
 )
@@ -51,11 +52,12 @@ from metrics import (  # noqa: E402
 #: The floor: the smallest cohort a class-level number may be computed over. It restrains
 #: singling out; at class scale it is not an anonymity guarantee — see the module docstring
 #: and INT-STUDIUM-030.
-#: Its value is the product owner's (RGPD), so it lives in exactly one place and every
-#: surface that applies a floor imports it from here — the CLI default below, and the
-#: Observatory (`services/observatory/observatory_config.py`), which applies the same
-#: floor to the live collector column (INT-STUDIUM-005, INT-STUDIUM-019).
-MIN_LEARNERS_DEFAULT = 5
+#: Its value is the product owner's (RGPD) and it has exactly one definition, in the
+#: collector's `metrics.py` — the deepest module the live endpoints and this report share.
+#: It moved there when the live collector started applying it too (INT-STUDIUM-005); this
+#: name is kept because the Observatory (`services/observatory/observatory_config.py`) and
+#: the CLI default below already import it (INT-STUDIUM-019).
+MIN_LEARNERS_DEFAULT = MIN_LEARNERS
 
 #: INT-STUDIUM-023 — the operator-facing name of the ratio this report averages.
 #:
