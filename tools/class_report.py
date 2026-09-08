@@ -8,10 +8,15 @@ produces a CLASS-LEVEL report: which concepts to re-teach, where hint-reliance a
 miscalibration cluster, completion. It is privacy-preserving by construction:
 
   * output is AGGREGATE only — never a per-learner row, never a pseudonym;
-  * a k-anonymity floor (`--min-learners`, default `MIN_LEARNERS_DEFAULT` = 5) refuses to
-    report when too few learners would make a concept-level number re-identifiable. It counts
-    DISTINCT LEARNERS, not telemetry files: the durable host layout writes one stream per
-    (pseudonym, bundle), so a cohort of two can be three files;
+  * a floor (`--min-learners`, default `MIN_LEARNERS_DEFAULT` = 5) withholds class-level
+    numbers computed over too few learners. It is a RESTRAINT ON SINGLING OUT, not a guarantee
+    of anonymity (INT-STUDIUM-030): k-anonymity protects against a reader who does not know the
+    population, and the teacher of a class does know it — five pseudonyms behind a number are
+    five people they can usually name. What the floor delivers is that this instrument does not
+    become a per-student report, by accident, by drill-down, or by patient reading over time.
+    Read it as that restraint; a guarantee that is not delivered is worse than none, because it
+    is relied upon. It counts DISTINCT LEARNERS, not telemetry files: the durable host layout
+    writes one stream per (pseudonym, bundle), so a cohort of two can be three files;
   * telemetry carries no free text (hint text, journal text, discussion text never leave the
     device), so none can appear here.
 
@@ -43,7 +48,9 @@ from metrics import (  # noqa: E402
     _over_distrust_rate,
 )
 
-#: The k-anonymity floor: the smallest cohort a class-level number may be computed over.
+#: The floor: the smallest cohort a class-level number may be computed over. It restrains
+#: singling out; at class scale it is not an anonymity guarantee — see the module docstring
+#: and INT-STUDIUM-030.
 #: Its value is the product owner's (RGPD), so it lives in exactly one place and every
 #: surface that applies a floor imports it from here — the CLI default below, and the
 #: Observatory (`services/observatory/observatory_config.py`), which applies the same

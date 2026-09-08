@@ -78,8 +78,10 @@ class ObservatoryConfig:
     #: The directory `build_report` reads whole; `None` when the operator has not named
     #: one, in which case the session-runs column is absent rather than guessed.
     sessions_root: Path | None = None
-    #: The k-anonymity floor applied to every learner-derived number, imported from
-    #: `tools/class_report.py` so the value has one definition (INT-STUDIUM-005).
+    #: The floor applied to every learner-derived number, imported from `tools/class_report.py`
+    #: so the value has one definition (INT-STUDIUM-005). For this deployment's reader — a
+    #: teacher who already holds the roster — it restrains singling out rather than delivering
+    #: anonymity (INT-STUDIUM-030).
     min_learners: int = MIN_LEARNERS_DEFAULT
     #: Values that could not be parsed in `from_env`; carried into `problems()`.
     raw_problems: tuple[str, ...] = field(default_factory=tuple)

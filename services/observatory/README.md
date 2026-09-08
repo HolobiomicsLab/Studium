@@ -149,6 +149,14 @@ so a cohort of two people can be three files, and a file count would report a co
 larger than the class actually is — the wrong side of a privacy floor to be wrong on.
 Where both counts are shown (`n_learners`, `n_streams`) the difference is legible.
 
+What that floor is for: it **restrains singling out**; it does not make the numbers anonymous
+(INT-STUDIUM-030). k-anonymity protects against a reader who does not know the population, and
+this surface's reader is a teacher who already holds the roster. Five pseudonyms behind a number
+are five people they can usually name. The floor's job is to stop the instrument becoming a
+per-student report — by accident, by drill-down, or by patient reading over time — and it is
+worth keeping at five for exactly that. A cross-class reader would be a different reader, and
+this reading does not carry over to one.
+
 The floor is applied at two levels, and it now gates a **pair** of columns:
 
 * **Per lesson, over identities.** `learner_pseudonym` is `HMAC(learnerId:lessonId)`, so

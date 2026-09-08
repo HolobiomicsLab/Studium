@@ -88,6 +88,12 @@ value, imported rather than copied — and that floor counts **distinct learners
 telemetry files: one learner writes one stream per bundle, so three files can be two
 people, and counting files would report a cohort larger than the class is.
 
+The floor is a **restraint on singling out, not a guarantee of anonymity** (INT-STUDIUM-030).
+k-anonymity protects a population from a reader who does not know it; you know it — you were in
+the room. What the floor buys is that this instrument cannot be turned into a per-student
+report, by accident, by drill-down, or by reading it patiently over a term. Read a suppressed
+cell as *the instrument declining to narrow*, not as *nobody could tell who this is*.
+
 Two things about that floor are worth knowing before you read a suppressed page. It is
 applied **per lesson**, because a pseudonym is computed over the learner *and the lesson*:
 the same person is a different pseudonym in every lesson, so adding lessons together

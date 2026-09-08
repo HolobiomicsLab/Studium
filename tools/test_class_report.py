@@ -200,3 +200,26 @@ def test_the_report_names_the_ratio_it_averages_and_keeps_its_json_key(tmp_path)
     md = (out / "class_report.md").read_text()
     assert class_report.AUTONOMY_INDICATOR_NAME in md
     assert "mean autonomy" not in md  # the name that meant two things
+
+
+def test_the_floor_is_documented_as_a_restraint_not_as_anonymity():
+    """INT-STUDIUM-030 — the floor stays at five and stops promising what five cannot buy.
+
+    k-anonymity protects a population from a reader who does not know it. This deployment's
+    reader is a teacher who already holds the roster, so five pseudonyms behind a number are
+    five people they can usually name. The module used to say the floor "refuses to report when
+    too few learners would make a concept-level number re-identifiable" — a guarantee the class
+    deployment cannot deliver, and one that is worse than none precisely because it is relied
+    upon. What it delivers is that the instrument does not become a per-student report.
+
+    The number is untouched; only the claim is. So this pins the CLAIM, and pins that the floor
+    is still five, because a correction that quietly weakened the restraint would pass a test
+    that only read the prose.
+    """
+    import class_report
+
+    doc = class_report.__doc__ or ""
+    assert "RESTRAINT ON SINGLING OUT" in doc
+    assert "not a guarantee\n    of anonymity" in doc
+    assert "re-identifiable" not in doc, "the withdrawn guarantee is back in the docstring"
+    assert class_report.MIN_LEARNERS_DEFAULT == 5, "the claim changed, the floor must not"

@@ -794,3 +794,26 @@ def test_the_two_autonomy_ratios_are_named_apart(cfg, client):
     assert collector_name in page and sessions_name in page
     # The heading the two columns used to share, one per column, over two different numbers.
     assert "<b>Autonomy</b>" not in page
+
+
+def test_the_page_does_not_promise_anonymity_to_a_reader_holding_the_roster(cfg, client):
+    """INT-STUDIUM-030 — the floor restrains singling out; it does not anonymise.
+
+    The header told the operator that every number "passes a k-anonymity floor of 5" and left
+    it there. For this surface's reader that sentence is misread by default: k-anonymity is a
+    guarantee against a reader who does not know the population, and a teacher knows it — they
+    were in the room. The floor is still worth its five, for what it does do, which is stop
+    this page becoming a per-student report.
+
+    The floor VALUE is untouched, so the assertion covers both: the corrected sentence, and
+    the number it is a sentence about.
+    """
+    page = client.get(f"/sessions/{STORE_COURSE}").text
+
+    assert "restrains singling out" in page
+    assert "does not make" in page and "anonymous" in page
+    # The reason a suppressed cell gives is a separate string and is deliberately unchanged
+    # here — renaming the mechanism across emitted text belongs to -030's staged plan, not to
+    # the immediate claim correction. This asserts the correction sits WITH it, not instead.
+    assert "k-anonymity floor" in page
+    assert str(cfg.min_learners) in page and cfg.min_learners == 5
