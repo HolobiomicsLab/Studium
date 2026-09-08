@@ -30,7 +30,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Python dependencies
-        run: pip install pydantic pytest fastapi httpx pyyaml jinja2 astra-spec==0.0.14 astra-tools==0.2.17
+        run: pip install pydantic pytest fastapi httpx pyyaml jinja2 uvicorn astra-spec==0.0.14 astra-tools==0.2.17
 
       - name: Install Node dependencies
         run: pnpm install --no-frozen-lockfile
