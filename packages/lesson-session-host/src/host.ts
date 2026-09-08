@@ -27,7 +27,7 @@ import { buildHostDeps, durableDataDir, durableScopeDir } from "./deps.js";
 import { resolveBundle, assetBaseDir } from "./bundle-resolver.js";
 import { discoverCommunityBundles } from "./community-bundles.js";
 import {
-  aggregateRatings, ROOM_K_FLOOR,
+  aggregateRatings, distinctRaters, ROOM_K_FLOOR,
   type RoomEntry, type RoomState,
 } from "./room.js";
 
@@ -797,7 +797,9 @@ export class SessionHost {
       ...rating,
       ts: Date.now(),
     });
-    const k = room.ratings.filter((r) => r.target_session_id === targetSessionId).length;
+    // Distinct raters, not rows: `k` is the number the floor is applied to, and a row count
+    // here would disagree with the aggregate the teacher later reads (see room.ts).
+    const k = distinctRaters(room.ratings, targetSessionId);
     return { suppressed: k < ROOM_K_FLOOR, k };
   }
 

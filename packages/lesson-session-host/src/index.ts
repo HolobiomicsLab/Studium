@@ -31,6 +31,6 @@ export {
   type Operator, type OperatorCtx, type OperatorLlm, type SessionRunResult,
 } from "./session-runner.js";
 export {
-  aggregateRatings, ROOM_K_FLOOR,
+  aggregateRatings, distinctRaters, ROOM_K_FLOOR,
   type PeerRating, type RoomEntry, type TargetAggregate, type RoomState,
 } from "./room.js";
