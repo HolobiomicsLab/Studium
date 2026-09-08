@@ -1,0 +1,66 @@
+name: Tester feedback
+description: Feedback after testing the atomistique lesson (see TESTING.md)
+title: "[tester] "
+labels: ["tester-feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci d'avoir testé Studium. Répondez en français ou en anglais — peu importe.
+        Only the first field is required; skip anything you did not look at.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you run, and what did you see? If something broke, paste the error.
+      placeholder: |
+        I ran ./setup.sh, pressed F5, opened the lesson. At scene 3 the orbital rendered as text.
+    validations:
+      required: true
+
+  - type: textarea
+    id: chemical-accuracy
+    attributes:
+      label: Chemical accuracy
+      description: >
+        Are the statements, correct answers, feedback, and numeric values right?
+        Name the scene if you can.
+
+  - type: textarea
+    id: pedagogy
+    attributes:
+      label: Pedagogy
+      description: >
+        Is the order of concepts, the prerequisites, and the quiz relevance right for an
+        L1 level?
+
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Generated artifacts
+      description: >
+        Are the orbitals, the Balmer spectrum, the periodic trends, and the 3D molecules
+        accurate and useful? What is missing for your students?
+
+  - type: textarea
+    id: teacher-side
+    attributes:
+      label: Teacher graph and class report
+      description: >
+        Does the `teacher` graph view reflect your prerequisite logic? Does the class
+        report point at the right concepts to rework? (Partie 3 of the French guide.)
+
+  - type: textarea
+    id: missing-scene-type
+    attributes:
+      label: Missing scene type
+      description: >
+        Is a scene type missing, beyond quiz, for what you want your students to do?
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Output of `node -v`, `pnpm -v`, and your macOS + VS Code versions.
+      placeholder: "node v20.11.0 / pnpm 9.15.9 / macOS 15.2 / VS Code 1.96"
