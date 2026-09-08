@@ -59,9 +59,14 @@ describe("AdaptationEngine", () => {
 
   it("calibration rule shows panel with target_concept from signal", () => {
     const state = defaultLearnerState("L1");
+    // `calibration_samples` is what makes the 0.5 a MEASUREMENT rather than the default 0 wearing a
+    // number. No production path writes the gap without it (recordConfidenceSample returns both, and
+    // the profile carries whole concept states), host.ts:406 already refuses a verdict on the pair
+    // without it, and since INT-STUDIUM-029 the rule context does too: a gap with no sample is not
+    // published, so this rule would not have fired for a learner who never self-assessed.
     state.concept_states["c1"] = { ...defaultConceptState("c1"),
       alpha: 2, beta: 2, total_attempts: 4, total_correct: 1,
-      confidence_calibration: 0.5 };
+      confidence_calibration: 0.5, calibration_samples: 1 };
     const engine = new AdaptationEngine([RULE_CALIB], state);
     const d = engine.onSignal({ kind: "answer_submitted", concept_id: "c1",
       scene_id: "s1", correct: false, time_ms: 0, hint_count: 0, difficulty: 0.5 });

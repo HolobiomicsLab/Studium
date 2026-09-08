@@ -26,11 +26,28 @@ function buildContext(state: LearnerState, signal: Signal): Record<string, numbe
     ctx.mastery_c = masteryOf(cs);
     ctx.total_attempts = cs.total_attempts;
     ctx.total_correct = cs.total_correct;
-    ctx.confidence_calibration_abs = Math.abs(cs.confidence_calibration);
-    // expose the FRESHLY-updated trust calibration (judgment-over-artifact) so a bundle rule can route
-    // on it (e.g. show_explanation_panel when trust_calibration_abs is high). Signed + abs; 0 if unmeasured.
-    ctx.trust_calibration = cs.trust_calibration ?? 0;
-    ctx.trust_calibration_abs = Math.abs(cs.trust_calibration ?? 0);
+    // A calibration that was never measured is NOT a calibration of zero, and both axes used to
+    // publish one anyway: confidence_calibration defaults to 0, trust_calibration was read as `?? 0`.
+    // A learner who had declared no confidence and audited no AI output therefore reached a bundle
+    // rule as PERFECTLY CALIBRATED on both — and an audit catching every planted flaw measures that
+    // very same 0, so the number could not tell the two apart. learner-state already draws the line
+    // (isCalibrated / isTrustCalibrated require >=1 sample before reading the gap), and
+    // matchesCondition makes absence a first-class answer (`if (!(key in ctx)) return false`), so an
+    // unmeasured axis now fires no rule instead of firing the wrong one. The sample COUNTS are
+    // published either way, so a bundle that wants to route ON "never asked" can say so. (INT-STUDIUM-029)
+    const confidenceSamples = cs.calibration_samples ?? 0;
+    ctx.calibration_samples = confidenceSamples;
+    if (confidenceSamples >= 1) {
+      ctx.confidence_calibration_abs = Math.abs(cs.confidence_calibration);
+    }
+    // the FRESHLY-updated trust calibration (judgment-over-artifact), signed + abs, so a bundle rule
+    // can route on it (e.g. show_explanation_panel when trust_calibration_abs is high).
+    const trustSamples = cs.trust_calibration_samples ?? 0;
+    ctx.trust_calibration_samples = trustSamples;
+    if (trustSamples >= 1) {
+      ctx.trust_calibration = cs.trust_calibration ?? 0;
+      ctx.trust_calibration_abs = Math.abs(cs.trust_calibration ?? 0);
+    }
   }
   if (signal.kind === "confidence_declared") {
     ctx.confidence_pre = signal.value;
@@ -40,6 +57,10 @@ function buildContext(state: LearnerState, signal: Signal): Record<string, numbe
       const cs = state.concept_states[signal.concept_id] ?? defaultConceptState(signal.concept_id);
       ctx.confidence_calibration = cs.confidence_calibration;             // signed (direction-specific rules)
       ctx.confidence_calibration_abs = Math.abs(cs.confidence_calibration);
+      // no gate needed here — recordConfidenceSample ran above, so this branch is measured BY
+      // CONSTRUCTION. The count is published all the same, so `calibration_samples` means the same
+      // thing on both signal kinds and a bundle rule can be written once. (INT-STUDIUM-029)
+      ctx.calibration_samples = cs.calibration_samples ?? 0;
       ctx.total_attempts = cs.total_attempts;
       ctx.mastery_c = masteryOf(cs);
     }
