@@ -1,5 +1,6 @@
 import { spawn, ChildProcess } from "child_process";
 import { connect } from "net";
+import { stageBundle, type Executor } from "./tests-e2e/support/staged-bundle";
 let tauriDriver: ChildProcess | null = null;
 
 // Le binaire piloté par WDIO dépend de qui a construit l'application, et les
@@ -84,6 +85,15 @@ export const config = {
       }
     });
     await waitForDriver();
+  },
+  // Depuis INT-STUDIUM-034 la bibliothèque liste un répertoire de bundles : plus de leçon
+  // intégrée, donc plus rien à cliquer pour une spec qui n'en met aucun en scène. Le chemin
+  // est posé ici une fois, pour toutes les specs ; celles de `tests-e2e/specs/` s'exécutent
+  // après ce hook et écrasent la valeur par la leur. Voir `tests-e2e/support/staged-bundle.ts`
+  // pour la règle qui compte : une navigation document efface tout cela, et il faut rappeler
+  // `stageBundle` derrière. (INT-STUDIUM-033)
+  before: async (_capabilities: unknown, _specs: unknown, session: Executor) => {
+    await stageBundle(session);
   },
   afterSession: () => {
     tauriDriver?.kill();

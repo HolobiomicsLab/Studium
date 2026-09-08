@@ -30,9 +30,17 @@ describe("M5 end-to-end pipeline (M5.11) — 2-sessions cross-session", () => {
     "ai_critique",
   ];
 
-  /** Patch fetch pour compter les events POSTés vers /telemetry. */
-  const installFetchCounter = async (): Promise<void> => {
-    await browser.execute(() => {
+  /**
+   * Patch fetch pour compter les events POSTés vers /telemetry.
+   *
+   * `seed` : `browser.url(...)` est une navigation document. Elle détruit `window`, donc TOUT
+   * ce que cette fonction installe — chemin du bundle, endpoint, token, patch de `fetch` et
+   * compteur. La session 2 repart de la bibliothèque par une navigation ; sans report explicite,
+   * « ≥ 60 cumulés » serait lu sur un compteur que le rechargement vient de remettre à zéro et
+   * ne mesurerait que la session 2. (INT-STUDIUM-033)
+   */
+  const installFetchCounter = async (seed = 0): Promise<void> => {
+    await browser.execute((initial: number) => {
       const w = window as unknown as {
         __telemetry_endpoint?: string;
         __course_token?: string;
@@ -44,7 +52,7 @@ describe("M5 end-to-end pipeline (M5.11) — 2-sessions cross-session", () => {
       };
       w.__telemetry_endpoint = "http://localhost:8003/telemetry";
       w.__course_token = "e2e-course";
-      w.__emitted_count = 0;
+      w.__emitted_count = initial;
       w.__emitted_events = [];
       w.__test_bundle_path = "/tmp/studium-e2e/demo-fresh.zip";
 
@@ -80,12 +88,43 @@ describe("M5 end-to-end pipeline (M5.11) — 2-sessions cross-session", () => {
         }
         return realFetch(input as RequestInfo, init);
       }) as typeof fetch;
-    });
+    }, seed);
   };
+
+  const getEmittedCount = async (): Promise<number> =>
+    (await browser.execute(() => {
+      const w = window as unknown as { __emitted_count?: number };
+      return w.__emitted_count ?? 0;
+    })) as number;
+
+  /**
+   * Les hooks posés par `installFetchCounter` sont-ils encore là ?
+   *
+   * `getEmittedCount` renvoie 0 aussi bien pour « aucun event » que pour « le compteur n'existe
+   * plus », et c'est cette confusion qui a fait passer une assertion cumulée pour une mesure.
+   */
+  const counterIsArmed = async (): Promise<boolean> =>
+    (await browser.execute(() => {
+      const w = window as unknown as {
+        __emitted_count?: number;
+        __test_bundle_path?: string;
+      };
+      return typeof w.__emitted_count === "number" && typeof w.__test_bundle_path === "string";
+    })) as boolean;
 
   /** Parcours complet : consent (1ʳᵉ session) → library → 6 scènes → fin. */
   const playFullParcours = async (skipConsent = false): Promise<void> => {
     await browser.pause(1500);
+
+    // Une navigation ajoutée n'importe où dans ce parcours effacerait les hooks sans rien
+    // casser de visible : bibliothèque vide, compteur à zéro, et une assertion finale qui
+    // mesure autre chose que ce que son libellé annonce.
+    if (!(await counterIsArmed())) {
+      throw new Error(
+        "hooks du harnais absents : une navigation document a réinitialisé `window`. " +
+          "Rappeler installFetchCounter(compteurReporté) après chaque browser.url().",
+      );
+    }
 
     if (!skipConsent) {
       const consentUrl = await browser.getUrl();
@@ -199,7 +238,15 @@ describe("M5 end-to-end pipeline (M5.11) — 2-sessions cross-session", () => {
 
     // ── Session 2 : re-entry Library + re-play même bundle ─────────────
     // L'état Beta (consent, profil pseudonyme) doit persister via SQLCipher.
+    //
+    // Le compteur est lu AVANT la navigation, qui détruit `window` avec tout ce que le harnais
+    // y avait posé, puis reposé comme graine juste après : c'est ce report qui fait de
+    // l'assertion ci-dessous un cumul des deux sessions. (INT-STUDIUM-033)
+    const carried = await getEmittedCount();
+    expect(carried).toBeGreaterThan(0);
+
     await browser.url("/library");
+    await installFetchCounter(carried);
     await browser.pause(1000);
     await playFullParcours(true);
 

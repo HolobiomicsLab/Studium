@@ -8,7 +8,12 @@ describe("Play lesson linear", () => {
     await browser.pause(500);
 
     // Click start lesson
-    await $("a*=Démarrer").then((l) => l.click());
+    // INT-STUDIUM-034 : la bibliothèque liste des bundles, et son contrôle de démarrage est
+    // un <button data-testid='library-load-bundle'> — plus le lien `a*=Démarrer` d'avant.
+    // Le bundle joué est mis en scène par `wdio.conf.ts` (STAGED_BUNDLE).
+    const start = await $("[data-testid='library-load-bundle']");
+    await start.waitForDisplayed({ timeout: 10_000 });
+    await start.click();
     await browser.pause(500);
 
     // Play through 7 scenes
