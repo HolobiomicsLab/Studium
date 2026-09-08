@@ -189,11 +189,22 @@ def build_report(run_dir: Path, min_learners: int = MIN_LEARNERS_DEFAULT,
 
     learners = len(learner_ids)
     if learners < min_learners:
-        return {"status": "suppressed", "n_learners": learners, "n_streams": len(streams),
-                "min_learners": min_learners,
-                "reason": f"k-anonymity floor: need >= {min_learners} learners for a class report "
-                          f"(have {learners} across {len(streams)} telemetry stream(s)). "
-                          f"Per-concept numbers could re-identify individuals."}
+        # The suppressed report states the FLOOR, never the cohort. Publishing the exact count
+        # here inverted the floor: a class of twenty was an aggregate, and a class of two was
+        # reported as *two* — the only cohorts named exactly were the ones the floor exists to
+        # protect (INT-STUDIUM-030). `n_streams` is the same leak by another route, since every
+        # learner writes at least one stream and so a stream count bounds the cohort from above.
+        #
+        # `has_data` is kept deliberately, and costs nothing: zero people is not a person. Without
+        # it a wrong `run_dir` and a small class are one indistinguishable message, and they need
+        # opposite actions — fix the path, or accept the floor.
+        return {"status": "suppressed", "min_learners": min_learners, "has_data": learners > 0,
+                "reason": (f"no telemetry streams found under {run_dir} — check the path"
+                           if learners == 0 else
+                           f"k-anonymity floor: a class report needs at least {min_learners} "
+                           f"learners and this run has fewer. Per-concept numbers over a smaller "
+                           f"cohort could re-identify individuals; the size is withheld for the "
+                           f"same reason.")}
 
     concepts = []
     for cid, a in by_concept.items():

@@ -76,7 +76,47 @@ def test_k_anonymity_suppression(tmp_path):
     _write_learner(tmp_path, "solo", _events())
     rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
     assert rep["status"] == "suppressed"
-    assert rep["n_learners"] == 1
+
+
+def test_a_suppressed_report_does_not_name_the_size_of_the_cohort_it_protects(tmp_path):
+    """INT-STUDIUM-030. The floor withholds numbers computed over too few learners — and then
+    the suppression itself published the exact count, so the ONLY cohorts whose size this
+    report stated exactly were the ones the floor exists to protect. A class of twenty is
+    reported as an aggregate; a class of two was reported as *two*.
+
+    `n_streams` is the same leak by another route: every learner writes at least one stream, so
+    a stream count is an upper bound on the cohort, and `n_streams == 1` names a single person.
+    """
+    bundle = _bundle(tmp_path)
+    for learner in ("p-1", "p-2"):
+        _write_learner(tmp_path, learner, _events())
+
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert rep["status"] == "suppressed"
+    assert "n_learners" not in rep, "the suppressed path still publishes the cohort size"
+    assert "n_streams" not in rep, "a stream count bounds the cohort from above"
+    # nor in the prose a teacher actually reads
+    assert "2" not in rep["reason"], rep["reason"]
+    assert str(rep["min_learners"]) in rep["reason"]
+
+
+def test_an_empty_run_is_distinguishable_from_a_small_class(tmp_path):
+    """The repair must not delete a real signal to hide a number (the symmetric-guard trap).
+
+    An operator whose path is wrong and a teacher whose class is too small both get
+    `suppressed`, and they need entirely different actions — fix the path, or accept the floor.
+    Saying so costs no privacy: zero people is not a person. Anything above zero is reported
+    only as being below the floor.
+    """
+    bundle = _bundle(tmp_path)
+    empty = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert empty["status"] == "suppressed" and empty["has_data"] is False
+
+    _write_learner(tmp_path, "solo", _events())
+    small = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert small["status"] == "suppressed" and small["has_data"] is True
+    assert empty["reason"] != small["reason"]
+    assert "1" not in small["reason"], small["reason"]
 
 
 def test_trust_section_not_measured_without_grounded_audits(tmp_path):
@@ -133,11 +173,10 @@ def test_k_floor_counts_distinct_pseudonyms_not_streams(tmp_path):
     _write_stream(tmp_path, "data/p-1/bundle-b", _pseudonymized("p-1"))
     _write_stream(tmp_path, "data/p-2/bundle-a", _pseudonymized("p-2"))
 
+    # Three files, two people: a floor of 3 must suppress. Counting files would have passed it.
     rep = build_report(tmp_path, min_learners=3, bundle_path=bundle)
     assert rep["status"] == "suppressed"
-    assert rep["n_learners"] == 2          # two people
-    assert rep["n_streams"] == 3           # three files
-    assert "3" in rep["reason"]
+    assert "3" in rep["reason"]            # the floor, which is all a suppressed report may state
 
     ok = build_report(tmp_path, min_learners=2, bundle_path=bundle)
     assert ok["status"] == "ok" and ok["n_learners"] == 2 and ok["n_streams"] == 3
