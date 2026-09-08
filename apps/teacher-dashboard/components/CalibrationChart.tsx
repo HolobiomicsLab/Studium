@@ -2,7 +2,8 @@
 
 import type { CalibrationResponse } from "@/lib/api";
 
-type Props = { data: CalibrationResponse; learner?: string };
+// No `learner` prop — see TrustCalibrationChart (INT-STUDIUM-030).
+type Props = { data: CalibrationResponse };
 
 function qualifyBrier(b: number | null): { label: string; color: string } {
   if (b === null) return { label: "Données insuffisantes", color: "text-gray-500" };
@@ -12,12 +13,12 @@ function qualifyBrier(b: number | null): { label: string; color: string } {
   return { label: "Calibration faible — surévaluation possible", color: "text-red-600" };
 }
 
-export default function CalibrationChart({ data, learner }: Props) {
+export default function CalibrationChart({ data }: Props) {
   const q = qualifyBrier(data.brier_score);
   return (
     <div className="space-y-3" data-testid="calibration-chart">
       <h3 className="font-semibold">
-        {learner ? `Calibration de ${learner}` : "Calibration agrégée"}
+        Calibration agrégée
       </h3>
       <div className="flex items-baseline gap-3">
         <span className="text-3xl font-bold tabular-nums">

@@ -19,8 +19,17 @@ Three decisions carried in from INT-STUDIUM-030 rather than re-opened here:
 listing them, so an endpoint added tomorrow fails this suite until it is either floored or
 exempted here with a reason. That is the INT-STUDIUM-011 lesson: a hand-written list of
 surfaces reproduces the gap it was written to close.
+
+INT-STUDIUM-030 adds the OTHER half of the restraint, and it is structural rather than
+numeric: *no surface exposes a control, parameter or route that narrows a published aggregate
+to a caller-chosen subset of the cohort.* The two are not alternatives. A floor with a
+drill-down behind it is defeated by the drill-down — twenty aggregates over overlapping
+subsets reconstruct an individual without any one of them falling under five — and a
+drill-down ban with no floor still publishes an aggregate over two people. Each covers the gap
+the other leaves, so both are checked here, by the same discovery.
 """
 
+import inspect
 import json
 from pathlib import Path
 
@@ -39,6 +48,12 @@ EXEMPT = {
     ("GET", "/metrics/ai-literacy"): "ADR 011 — pseudonyme obligatoire, formative individual read",
     ("POST", "/metrics/blueprint"): "ADR 013 — per-learner formative score, pseudonyme required",
 }
+
+#: Request parameters that name ONE PERSON. A route is class-level (none of these) or
+#: individual by design (one of them, MANDATORY, with its ADR in EXEMPT). The third state —
+#: a class-level aggregate that also accepts an optional pseudonym — is the drill-down: the
+#: floor is applied to the cohort, and the answer is then narrowed to somebody inside it.
+NARROWING = {"learner", "pseudonyme", "learner_pseudonym", "pseudonym"}
 
 
 def _event(idx: int, lesson: str = "demo", **overrides) -> dict:
@@ -140,6 +155,12 @@ def test_the_floor_is_not_a_query_parameter(client):
     assert r.json()["status"] == "suppressed"
 
 
+#: States in which a route publishes no numbers. `suppressed` is the floor answering for this
+#: cohort; `unavailable` is a surface withdrawn for every cohort, which the next test pins so
+#: the word cannot become a way for an aggregate to skip the floor.
+WITHHELD = {"suppressed", "unavailable"}
+
+
 def test_every_class_level_endpoint_applies_the_floor(client):
     """Discovery, not a list: a new aggregate endpoint fails here until it is floored, or
     named in EXEMPT with the reason it is not a class-level read."""
@@ -158,9 +179,80 @@ def test_every_class_level_endpoint_applies_the_floor(client):
                 continue
             r = c.request(method, f"{route.path}?course={COURSE}",
                           headers={"X-Course-Token": COURSE})
-            if r.status_code != 200 or r.json().get("status") != "suppressed":
+            if r.status_code != 200 or r.json().get("status") not in WITHHELD:
                 unguarded.append(f"{method} {route.path} -> {r.status_code} {r.text[:120]}")
     assert not unguarded, "class-level endpoints serving a sub-floor cohort:\n" + "\n".join(unguarded)
+
+
+def test_an_unavailable_route_is_withdrawn_rather_than_floored(client):
+    """`unavailable` is the stronger claim, so it is held to the stronger standard: a route
+    that reports it below the floor must report it at twenty-four learners too, and must say
+    why. Otherwise the word is a way for an aggregate to answer the floor's discovery test
+    without ever meeting the floor."""
+    c, data_dir = client
+    _seed(data_dir, [_event(i) for i in range(24)])
+    from analytics_collector_app import app
+
+    withdrawn = []
+    for route in app.routes:
+        if not isinstance(route, APIRoute):
+            continue
+        for method in sorted(route.methods & {"GET", "POST"}):
+            if (method, route.path) in EXEMPT:
+                continue
+            body = c.request(method, f"{route.path}?course={COURSE}",
+                             headers={"X-Course-Token": COURSE}).json()
+            if body.get("status") == "unavailable":
+                withdrawn.append((method, route.path, body))
+
+    assert withdrawn, "no route is withdrawn; concept-mastery-history was (INT-STUDIUM-030)"
+    for method, path, body in withdrawn:
+        assert body.get("reason"), f"{method} {path} is unavailable and does not say why"
+        assert "concepts" not in body, f"{method} {path} served its rows beside the refusal"
+
+
+def test_no_class_level_endpoint_narrows_to_a_caller_chosen_person(client):
+    """The structural restraint, checked the way the floor is: by DISCOVERY of the app's own
+    signatures rather than a list somebody has to remember to update.
+
+    Six routes were in the third state — `calibration` and `trust-calibration` took `learner`,
+    `reasoning`, `ai-audit`, `journal` and `concept-mastery-history` took `pseudonyme` — and
+    each applied the floor to the COURSE and then handed back one person inside it. The
+    dashboard advertised two of them in its own UI copy. (INT-STUDIUM-030, INT-STUDIUM-005)
+    """
+    from analytics_collector_app import app
+
+    offenders = []
+    for route in app.routes:
+        if not isinstance(route, APIRoute):
+            continue
+        params = set(inspect.signature(route.endpoint).parameters)
+        for method in sorted(route.methods & {"GET", "POST"}):
+            if (method, route.path) in EXEMPT:
+                continue
+            if narrowing := sorted(NARROWING & params):
+                offenders.append(f"{method} {route.path} accepts {narrowing}")
+    assert not offenders, (
+        "class-level endpoints that narrow to a caller-chosen person:\n" + "\n".join(offenders)
+    )
+
+
+def test_an_exempt_endpoint_requires_its_pseudonym_rather_than_offering_it(client):
+    """EXEMPT's reason IS the guardrail — "pseudonyme obligatoire". An exemption whose
+    pseudonym is optional is a drill-down with an ADR number written on it, and it would also
+    be a class-level aggregate nobody floored. Checked against the running app, so the two
+    remaining individual reads cannot quietly acquire an aggregate mode."""
+    c, _ = client
+    for (method, path), reason in sorted(EXEMPT.items()):
+        if not path.startswith("/metrics/"):
+            continue
+        r = c.request(method, f"{path}?course={COURSE}",
+                      headers={"X-Course-Token": COURSE},
+                      json={} if method == "POST" else None)
+        assert r.status_code != 200, (
+            f"{method} {path} answered without a pseudonym; its exemption ({reason}) rests on "
+            "the pseudonym being mandatory"
+        )
 
 
 def test_the_exempt_endpoints_are_the_ones_an_adr_made_individual(client):

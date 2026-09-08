@@ -1,22 +1,25 @@
 import { getTrustCalibration, isSuppressed } from "@/lib/api";
 import TrustCalibrationChart from "@/components/TrustCalibrationChart";
 import CourseNav from "@/components/CourseNav";
+import NonAttribution from "@/components/NonAttribution";
 import SuppressedNotice from "@/components/SuppressedNotice";
 
 export const dynamic = "force-dynamic";
 
-type Props = {
-  params: { token: string };
-  searchParams: { learner?: string };
-};
+/**
+ * The `?learner=<pseudonyme>` drill-down this page advertised is gone (INT-STUDIUM-030), and
+ * this is the page it mattered most on: over-trust is the most characterological reading the
+ * instrument produces, so it was the last one that should have been available per student to
+ * a reader who already holds the roster.
+ */
+type Props = { params: { token: string } };
 
-export default async function TrustCalibrationPage({ params, searchParams }: Props) {
+export default async function TrustCalibrationPage({ params }: Props) {
   const token = decodeURIComponent(params.token);
-  const learner = searchParams.learner;
   let data;
   let error: string | null = null;
   try {
-    data = await getTrustCalibration(token, learner);
+    data = await getTrustCalibration(token);
   } catch (e) {
     error = (e as Error).message;
   }
@@ -39,12 +42,9 @@ export default async function TrustCalibrationPage({ params, searchParams }: Pro
       ) : isSuppressed(data) ? (
         <SuppressedNotice info={data} />
       ) : data ? (
-        <TrustCalibrationChart data={data} learner={learner} />
+        <TrustCalibrationChart data={data} />
       ) : null}
-      <p className="mt-6 text-xs text-gray-500">
-        Astuce : ajouter <code>?learner=&lt;pseudonyme&gt;</code> à l&apos;URL pour
-        filtrer sur un·e apprenant·e.
-      </p>
+      <NonAttribution />
     </main>
   );
 }

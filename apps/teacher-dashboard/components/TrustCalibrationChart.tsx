@@ -2,7 +2,10 @@
 
 import type { TrustCalibrationResponse } from "@/lib/api";
 
-type Props = { data: TrustCalibrationResponse; learner?: string };
+// No `learner` prop: this chart renders a class aggregate and nothing else, because the
+// collector no longer serves a narrowed one (INT-STUDIUM-030). A per-learner TITLE with no
+// per-learner DATA behind it would be the most misleading state of all.
+type Props = { data: TrustCalibrationResponse };
 
 // Maps the engine's signed trust gap + band to a teacher-facing verdict.
 // POSITIVE gap = over-trust (missed planted flaws ⇒ too credulous toward the AI);
@@ -42,7 +45,7 @@ function pct(x: number | null): string {
   return x === null ? "—" : `${Math.round(x * 100)} %`;
 }
 
-export default function TrustCalibrationChart({ data, learner }: Props) {
+export default function TrustCalibrationChart({ data }: Props) {
   const q = qualifyBand(data.band);
   const gap = data.trust_calibration;
   // Round for display, then collapse a -0 (tiny negative ⇒ "-0.00") to 0 so the
@@ -52,7 +55,7 @@ export default function TrustCalibrationChart({ data, learner }: Props) {
   return (
     <div className="space-y-3" data-testid="trust-calibration-chart">
       <h3 className="font-semibold">
-        {learner ? `Confiance en l’IA — ${learner}` : "Confiance en l’IA — agrégée"}
+        Confiance en l’IA — agrégée
       </h3>
       <div className="flex items-baseline gap-3">
         <span className="text-3xl font-bold tabular-nums">

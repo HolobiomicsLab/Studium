@@ -60,8 +60,10 @@ def test_get_ai_audit_returns_aggregates(tmp_path, monkeypatch):
     _seed_jsonl(tmp_path, "course-x", events)
     from analytics_collector_app import app
     client = TestClient(app)
+    # No `&pseudonyme=` since INT-STUDIUM-030 removed the drill-down. One learner is seeded,
+    # so the class aggregate is the same two scenes and the accuracies below are unchanged.
     r = client.get(
-        "/metrics/ai-audit?course=course-x&pseudonyme=hmac:la",
+        "/metrics/ai-audit?course=course-x",
         headers={"X-Course-Token": "course-x"},
     )
     assert r.status_code == 200

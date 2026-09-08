@@ -83,6 +83,26 @@ export function isSuppressed(data: unknown): data is Suppressed {
   );
 }
 
+/**
+ * A surface the collector has WITHDRAWN, for every cohort (INT-STUDIUM-030).
+ *
+ * Distinct from `Suppressed`, which is this class being too small today and would serve
+ * numbers tomorrow. `unavailable` says the route publishes nothing at all, and the `reason`
+ * says why — rendering the two the same way would tell a teacher their class is too small
+ * when the truth is that the instrument was never wired.
+ */
+export type Unavailable = {
+  status: "unavailable";
+  reason: string;
+};
+
+export function isUnavailable(data: unknown): data is Unavailable {
+  return (
+    typeof data === "object" && data !== null &&
+    (data as { status?: unknown }).status === "unavailable"
+  );
+}
+
 async function fetchJson<T>(path: string, courseToken: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`, {
     headers: { "X-Course-Token": courseToken },
@@ -108,13 +128,16 @@ export function getProgressMetrics(courseToken: string): Promise<ProgressMetrics
   );
 }
 
+// INT-STUDIUM-030: the `learner` / `pseudonyme` arguments are gone from every class-level
+// helper below. No Studium surface exposes a control that narrows a published aggregate to a
+// caller-chosen subset of the cohort — a floor with a drill-down behind it is not a floor.
+// The two individual reads an ADR authorises (getAILiteracy, postBlueprintScore) still take a
+// pseudonym, and it is REQUIRED there rather than optional, which is the whole distinction.
 export function getCalibration(
   courseToken: string,
-  learner?: string,
 ): Promise<CalibrationResponse | Suppressed> {
-  const learnerParam = learner ? `&learner=${encodeURIComponent(learner)}` : "";
   return fetchJson<CalibrationResponse | Suppressed>(
-    `/metrics/calibration?course=${encodeURIComponent(courseToken)}${learnerParam}`,
+    `/metrics/calibration?course=${encodeURIComponent(courseToken)}`,
     courseToken,
   );
 }
@@ -128,11 +151,9 @@ export function getAutonomy(courseToken: string): Promise<AutonomyResponse | Sup
 
 export function getTrustCalibration(
   courseToken: string,
-  learner?: string,
 ): Promise<TrustCalibrationResponse | Suppressed> {
-  const learnerParam = learner ? `&learner=${encodeURIComponent(learner)}` : "";
   return fetchJson<TrustCalibrationResponse | Suppressed>(
-    `/metrics/trust-calibration?course=${encodeURIComponent(courseToken)}${learnerParam}`,
+    `/metrics/trust-calibration?course=${encodeURIComponent(courseToken)}`,
     courseToken,
   );
 }
@@ -165,15 +186,19 @@ export type ConceptMasteryHistoryResponse = {
   concepts: Record<string, MasteryPoint[]>;
 };
 
+/**
+ * Withdrawn at the collector (INT-STUDIUM-030): the rows are keyed by pseudonym, so no
+ * parameter list makes this route class-level, and the snapshots behind it were never written.
+ * The helper stays so the page has something to render the refusal from — see `Unavailable`.
+ */
 export function getConceptMasteryHistory(
   courseToken: string,
-  opts: { pseudonyme?: string; concept_id?: string; since?: string } = {},
-): Promise<ConceptMasteryHistoryResponse | Suppressed> {
+  opts: { concept_id?: string; since?: string } = {},
+): Promise<ConceptMasteryHistoryResponse | Suppressed | Unavailable> {
   const params = new URLSearchParams({ course: courseToken });
-  if (opts.pseudonyme) params.set("pseudonyme", opts.pseudonyme);
   if (opts.concept_id) params.set("concept_id", opts.concept_id);
   if (opts.since) params.set("since", opts.since);
-  return fetchJson<ConceptMasteryHistoryResponse | Suppressed>(
+  return fetchJson<ConceptMasteryHistoryResponse | Suppressed | Unavailable>(
     `/metrics/concept-mastery-history?${params.toString()}`,
     courseToken,
   );
@@ -215,12 +240,12 @@ export type ReasoningSceneEntry = {
 };
 export type ReasoningResponse = { scenes: Record<string, ReasoningSceneEntry> };
 
+// `scene_id` survives the INT-STUDIUM-030 removal: a scene is an artifact scope, not a person.
 export function getReasoningDepth(
   courseToken: string,
-  opts: { pseudonyme?: string; scene_id?: string } = {},
+  opts: { scene_id?: string } = {},
 ): Promise<ReasoningResponse | Suppressed> {
   const params = new URLSearchParams({ course: courseToken });
-  if (opts.pseudonyme) params.set("pseudonyme", opts.pseudonyme);
   if (opts.scene_id) params.set("scene_id", opts.scene_id);
   return fetchJson<ReasoningResponse | Suppressed>(
     `/metrics/reasoning?${params.toString()}`,
@@ -237,10 +262,9 @@ export type JournalStatsResponse = {
 
 export function getJournalStats(
   courseToken: string,
-  opts: { pseudonyme?: string; bundle_version?: string } = {},
+  opts: { bundle_version?: string } = {},
 ): Promise<JournalStatsResponse | Suppressed> {
   const params = new URLSearchParams({ course: courseToken });
-  if (opts.pseudonyme) params.set("pseudonyme", opts.pseudonyme);
   if (opts.bundle_version) params.set("bundle_version", opts.bundle_version);
   return fetchJson<JournalStatsResponse | Suppressed>(
     `/metrics/journal?${params.toString()}`,

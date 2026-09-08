@@ -15,8 +15,8 @@ const base: TrustCalibrationResponse = {
   over_trust: 0, over_distrust: 0, per_scene: [],
 };
 
-function render(data: TrustCalibrationResponse, learner?: string) {
-  return renderToStaticMarkup(createElement(TrustCalibrationChart, { data, learner }));
+function render(data: TrustCalibrationResponse) {
+  return renderToStaticMarkup(createElement(TrustCalibrationChart, { data }));
 }
 
 describe("TrustCalibrationChart", () => {
@@ -70,8 +70,12 @@ describe("TrustCalibrationChart", () => {
     expect(html).not.toContain("seule la surconfiance est mesurée");
   });
 
-  it("labels the learner when a pseudonym is given", () => {
-    const html = render(base, "hmac:p1");
-    expect(html).toContain("hmac:p1");
+  it("names the reading as aggregated, and cannot name a person", () => {
+    // Replaces "labels the learner when a pseudonym is given" (INT-STUDIUM-030). The chart no
+    // longer takes a `learner` prop because the collector no longer serves a narrowed number,
+    // and a per-learner TITLE over class-wide DATA would be the worst of the three states.
+    const html = render(base);
+    expect(html).toContain("agrégée");
+    expect(html).not.toContain("hmac:");
   });
 });

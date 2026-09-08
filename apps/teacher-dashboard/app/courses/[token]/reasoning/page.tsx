@@ -5,17 +5,20 @@ import SuppressedNotice from "@/components/SuppressedNotice";
 
 export const dynamic = "force-dynamic";
 
-type Props = {
-  params: { token: string };
-  searchParams: { pseudonyme?: string };
-};
+/**
+ * This page forwarded `?pseudonyme=` to the collector — an unadvertised drill-down, which is
+ * the more dangerous kind: nothing on the page said the number could be narrowed to one
+ * student, so nothing would have prompted a reader to ask whether it should be
+ * (INT-STUDIUM-030).
+ */
+type Props = { params: { token: string } };
 
-export default async function ReasoningPage({ params, searchParams }: Props) {
+export default async function ReasoningPage({ params }: Props) {
   const token = decodeURIComponent(params.token);
   let data;
   let error: string | null = null;
   try {
-    data = await getReasoningDepth(token, { pseudonyme: searchParams.pseudonyme });
+    data = await getReasoningDepth(token);
   } catch (e) {
     error = (e as Error).message;
   }

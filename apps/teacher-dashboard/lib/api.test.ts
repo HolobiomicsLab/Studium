@@ -20,14 +20,18 @@ import {
   decideLearnerItem,
   teacherIriForToken,
   isSuppressed,
+  isUnavailable,
   type Suppressed,
+  type Unavailable,
 } from "./api";
 
-/** Narrow away the k-anonymity suppression (INT-STUDIUM-005) so these tests can keep asserting
- *  on the aggregate they mocked. Throwing rather than casting means a fetcher that started
- *  suppressing unexpectedly fails here by name instead of at an undefined property. */
-function aggregate<T>(data: T | Suppressed): T {
+/** Narrow away the withheld states — the k-anonymity suppression (INT-STUDIUM-005) and the
+ *  withdrawn surface (INT-STUDIUM-030) — so these tests can keep asserting on the aggregate
+ *  they mocked. Throwing rather than casting means a fetcher that started withholding
+ *  unexpectedly fails here by name instead of at an undefined property. */
+function aggregate<T>(data: T | Suppressed | Unavailable): T {
   if (isSuppressed(data)) throw new Error(`unexpected suppression: ${data.reason}`);
+  if (isUnavailable(data)) throw new Error(`unexpectedly unavailable: ${data.reason}`);
   return data;
 }
 
@@ -50,30 +54,27 @@ describe("teacher-dashboard api wrapper", () => {
     expect(call[1].cache).toBe("no-store");
   });
 
-  it("getCalibration includes learner param when provided", async () => {
+  // The two tests that used to sit here pinned the drill-down: one asserted that
+  // `getCalibration("c", "p1")` put `learner=p1` on the wire, the other that it was omitted
+  // when not asked for. INT-STUDIUM-030 removed the argument, so the first has no subject.
+  // They are replaced by the same coverage inverted — the URL must never carry a parameter
+  // naming a person — which is the property that has to hold from now on rather than a
+  // deleted line. (`getAILiteracy` and `postBlueprintScore` still pass one, by ADR, and are
+  // covered by their own tests below.)
+  it("getCalibration asks for the class and cannot ask for a person", async () => {
     (global.fetch as any).mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({ brier_score: 0.12, n_items: 4 }),
     });
-    await getCalibration("c", "p1");
-    const url = (global.fetch as any).mock.calls[0][0];
-    expect(url).toContain("course=c");
-    expect(url).toContain("learner=p1");
-  });
-
-  it("getCalibration omits learner when not provided", async () => {
-    (global.fetch as any).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ brier_score: null, n_items: 0 }),
-    });
     await getCalibration("c");
     const url = (global.fetch as any).mock.calls[0][0];
+    expect(url).toContain("course=c");
     expect(url).not.toContain("learner=");
+    expect(url).not.toContain("pseudonyme=");
   });
 
-  it("getTrustCalibration hits /metrics/trust-calibration and forwards learner", async () => {
+  it("getTrustCalibration hits /metrics/trust-calibration for the class only", async () => {
     (global.fetch as any).mockResolvedValue({
       ok: true,
       status: 200,
@@ -82,26 +83,12 @@ describe("teacher-dashboard api wrapper", () => {
         over_trust: 0.67, over_distrust: 0, per_scene: [],
       }),
     });
-    const r = aggregate(await getTrustCalibration("c", "p1"));
+    const r = aggregate(await getTrustCalibration("c"));
     expect(r.band).toBe("sur");
     const call = (global.fetch as any).mock.calls[0];
     expect(call[0]).toContain("/metrics/trust-calibration?course=c");
-    expect(call[0]).toContain("learner=p1");
+    expect(call[0]).not.toContain("learner=");
     expect(call[1].headers["X-Course-Token"]).toBe("c");
-  });
-
-  it("getTrustCalibration omits learner when not provided", async () => {
-    (global.fetch as any).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        trust_calibration: null, band: null, n_audits: 0,
-        over_trust: null, over_distrust: null, per_scene: [],
-      }),
-    });
-    await getTrustCalibration("c");
-    const url = (global.fetch as any).mock.calls[0][0];
-    expect(url).not.toContain("learner=");
   });
 
   it("getCourseCompletion hits /metrics/course-completion with token", async () => {
@@ -167,22 +154,42 @@ describe("teacher-dashboard api wrapper", () => {
     expect(call[1].headers["X-Course-Token"]).toBe("c1");
   });
 
-  it("getConceptMasteryHistory includes optional filters when set", async () => {
+  it("getConceptMasteryHistory keeps the artifact filters and loses the person filter", async () => {
+    // `concept_id` and `since` scope the ARTIFACT and the period; `pseudonyme` scoped the
+    // person, and went with the drill-down (INT-STUDIUM-030). The route itself is withdrawn
+    // at the collector, but the helper still builds the URL, so the distinction is pinned here.
     (global.fetch as any).mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({ concepts: {} }),
     });
     await getConceptMasteryHistory("c1", {
-      pseudonyme: "p1",
       concept_id: "kepler",
       since: "2026-05-01",
     });
     const url = (global.fetch as any).mock.calls[0][0];
     expect(url).toContain("course=c1");
-    expect(url).toContain("pseudonyme=p1");
     expect(url).toContain("concept_id=kepler");
     expect(url).toContain("since=2026-05-01");
+    expect(url).not.toContain("pseudonyme=");
+  });
+
+  it("a withdrawn surface is recognised as itself, not as a suppression", async () => {
+    // The two states must not collapse: `suppressed` says this class is too small today,
+    // `unavailable` says the measurement exists for nobody. Rendering the second with the
+    // first's words would tell a teacher something false about their class.
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: "unavailable",
+        reason: "les instantanés par concept ne sont jamais écrits (`concept_states`)",
+      }),
+    });
+    const data = await getConceptMasteryHistory("c1");
+    expect(isUnavailable(data)).toBe(true);
+    expect(isSuppressed(data)).toBe(false);
+    expect(isUnavailable({ status: "suppressed", min_learners: 5, reason: "…" })).toBe(false);
   });
 
   it("getAILiteracy passes pseudonyme + window with X-Course-Token", async () => {
@@ -222,7 +229,8 @@ describe("teacher-dashboard api wrapper", () => {
         },
       }),
     })) as never;
-    const result = aggregate(await getReasoningDepth("course-x", { pseudonyme: "p1", scene_id: "s1" }));
+    // `scene_id` only: the person filter went with the drill-down (INT-STUDIUM-030).
+    const result = aggregate(await getReasoningDepth("course-x", { scene_id: "s1" }));
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining("/metrics/reasoning?"),
       expect.objectContaining({
@@ -243,16 +251,16 @@ describe("teacher-dashboard api wrapper", () => {
         entries_by_scene: { "s-disc-1": { count: 7, mean_length: 200 } },
       }),
     });
-    const r = aggregate(await getJournalStats("course-x", {
-      pseudonyme: "p1",
-      bundle_version: "v0.4",
-    }));
+    const r = aggregate(await getJournalStats("course-x", { bundle_version: "v0.4" }));
     expect(r.entries_total).toBe(12);
     expect(r.entries_by_scene["s-disc-1"].count).toBe(7);
     const call = (global.fetch as any).mock.calls[0];
     expect(call[0]).toContain("/metrics/journal?");
     expect(call[0]).toContain("course=course-x");
-    expect(call[0]).toContain("pseudonyme=p1");
+    // `bundle_version` scopes the artifact and stays; `pseudonyme` scoped the person and went
+    // with the drill-down. The journal text never leaves the device, but how often a named
+    // student writes in theirs is still a reading about them. (INT-STUDIUM-030)
+    expect(call[0]).not.toContain("pseudonyme=");
     expect(call[0]).toContain("bundle_version=v0.4");
     expect(call[1].headers["X-Course-Token"]).toBe("course-x");
   });
