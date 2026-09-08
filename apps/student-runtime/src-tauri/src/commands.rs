@@ -34,6 +34,23 @@ pub fn load_bundle(path: String) -> Result<String, String> {
     bundle::read_lesson_json(&PathBuf::from(&path)).map_err(|e| e.to_string())
 }
 
+/// The bundles this installation can open (INT-STUDIUM-034).
+///
+/// `dir` is resolved by the caller so the library screen, the E2E harnesses and a packaged
+/// installation can all name their own directory. `STUDIUM_BUNDLES_DIR` is the operator's
+/// override and the default is `<cwd>/bundles`; neither is a build-time constant, which is
+/// the whole point — the runtime could previously open exactly one bundle, chosen when the
+/// binary was compiled.
+#[tauri::command]
+pub fn list_bundles(dir: Option<String>) -> Result<Vec<bundle::BundleEntry>, String> {
+    let resolved = dir
+        .filter(|d| !d.is_empty())
+        .or_else(|| std::env::var("STUDIUM_BUNDLES_DIR").ok())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("bundles"));
+    bundle::list_bundles(&resolved).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn get_consent(state: State<AppState>) -> Result<Option<ConsentRecord>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;

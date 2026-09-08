@@ -80,7 +80,8 @@ vi.mock("../lib/tauri", () => ({
   },
 }));
 
-function renderAt(path = "/lesson/remount-001") {
+// `?bundle=` is now required (INT-STUDIUM-034); the remount behaviour under test is unchanged.
+function renderAt(path = "/lesson/remount-001?bundle=/fixtures/remount.zip") {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>

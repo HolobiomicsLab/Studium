@@ -8,8 +8,18 @@ export type ConsentRecord = {
   granted_at: string;
 };
 
+/** One library row, as `list_bundles` describes it (INT-STUDIUM-034). Every field is read
+ *  from the bundle's own `lesson.json`; `path` is what `loadBundle` is later handed. */
+export type BundleEntry = {
+  path: string;
+  bundle_id: string;
+  title: string;
+  n_scenes: number;
+};
+
 export const tauri = {
   loadBundle:    (path: string)                      => invoke<unknown>("load_bundle", { path }),
+  listBundles:   (dir?: string)                      => invoke<BundleEntry[]>("list_bundles", { dir: dir ?? null }),
   getConsent:    ()                                  => invoke<ConsentRecord | null>("get_consent"),
   setConsent:    (record: ConsentRecord)             => invoke<void>("set_consent", { record }),
   saveState:     (lessonId: string, stateValue: unknown) => invoke<void>("save_state", { lessonId, stateValue }),

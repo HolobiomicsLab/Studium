@@ -18,6 +18,7 @@ pub fn run() {
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             commands::load_bundle,
+            commands::list_bundles,
             commands::get_consent,
             commands::set_consent,
             commands::save_state,
