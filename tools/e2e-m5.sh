@@ -33,6 +33,7 @@ COLLECTOR_PORT="${COLLECTOR_PORT:-8003}"
 DASH_PORT="${DASH_PORT:-3001}"
 DATA_DIR="${ANALYTICS_DATA_DIR:-/tmp/c2-e2e-data}"
 COURSE_TOKEN="e2e-course"
+BUNDLE_DIR="${BUNDLE_DIR:-/tmp/studium-e2e}"
 PSEUDO_FILE="/tmp/test-pseudo"
 WDIO_LOG="/tmp/m5-wdio.log"
 DRY_RUN="${1:-}"
@@ -124,6 +125,11 @@ if [[ "$DRY_RUN" == "--dry-run" ]]; then
 else
   echo "[M5] building student-runtime (tauri:build)"
   pnpm --filter @studium/student-runtime tauri:build
+
+  # `m5-end-to-end.spec.ts` joue `$BUNDLE_DIR/demo-fresh.zip`, qu'aucun script
+  # n'écrivait (INT-STUDIUM-033).
+  echo "[M5] baking demo-fresh.zip"
+  BUNDLE_DIR="$BUNDLE_DIR" python3 "$ROOT/tools/bake_demo_fresh.py"
 
   echo "[M5] running WDIO m5-end-to-end.spec.ts"
   pnpm --filter @studium/student-runtime wdio:run \

@@ -31,6 +31,12 @@ echo "[A.10] running pytest pipeline E2E"
 ( cd "$ROOT" && \
   python -m pytest services/scene-synth/tests/e2e/test_full_pipeline.py -v )
 
+# Le spec charge `$BUNDLE_DIR/demo-fresh.zip` via `window.__test_bundle_path` ; rien ne
+# l'écrivait, donc le spec s'arrêtait à la bibliothèque (INT-STUDIUM-033). Le bundle est
+# ÉMIS par le pipeline scene-synth, pas stocké : c'est ce que ce harnais mesure.
+echo "[A.10] baking demo-fresh.zip"
+BUNDLE_DIR="$BUNDLE_DIR" python3 "$ROOT/tools/bake_demo_fresh.py"
+
 echo "[A.10] running wdio runtime E2E (requires release bundle)"
 ( cd "$ROOT/apps/student-runtime" && \
   pnpm wdio:run --spec tests-e2e/play-bundle-from-scene-synth.test.ts )

@@ -29,6 +29,7 @@ COLLECTOR_PORT="${COLLECTOR_PORT:-8003}"
 DASH_PORT="${DASH_PORT:-3001}"
 DATA_DIR="${ANALYTICS_DATA_DIR:-/tmp/c2-e2e-data}"
 COURSE_TOKEN="e2e-course"
+BUNDLE_DIR="${BUNDLE_DIR:-/tmp/studium-e2e}"
 
 # Plateforme : tauri-driver est Linux/Windows-only
 case "$(uname -s)" in
@@ -95,6 +96,12 @@ curl -fs "http://localhost:$COLLECTOR_PORT/health" >/dev/null || {
 # ── 3. Build runtime release ───────────────────────────────────────────
 echo "[C.8] building student-runtime (tauri:build)"
 pnpm --filter @studium/student-runtime tauri:build
+
+# ── 3bis. Baker le bundle que le spec joue ────────────────────────────
+# `telemetry-end-to-end.spec.ts` pointe `window.__test_bundle_path` sur
+# `$BUNDLE_DIR/demo-fresh.zip`, qu'aucun script n'écrivait (INT-STUDIUM-033).
+echo "[C.8] baking demo-fresh.zip"
+BUNDLE_DIR="$BUNDLE_DIR" python3 "$ROOT/tools/bake_demo_fresh.py"
 
 # ── 4. Exécuter le spec WDIO E2E ──────────────────────────────────────
 echo "[C.8] running WDIO telemetry-end-to-end.spec.ts"
