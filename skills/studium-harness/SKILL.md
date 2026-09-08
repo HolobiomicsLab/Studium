@@ -26,16 +26,19 @@ running server is the authoritative tool surface.
 | Repo | `/Users/nothiasl/git/prototype-build` (`pnpm install` already run; Node 20+) |
 | `tsx` | `apps/lesson-mcp/node_modules/.bin/tsx` (app-local, present on any pnpm checkout); the smoke falls back to `node_modules/.pnpm/node_modules/.bin/tsx`. There is no root `node_modules/.bin/tsx` here |
 | Bundles | `fixtures/` — refs are paths relative to `BUNDLES_ROOT` (below) |
-| Python (eval only) | `.venv/bin/python` (3.13); never the system `python3` |
+| Python (eval only) | the repo's `.venv/bin/python`; never the system `python3` |
 | Capsule runs | `python3` + `uv` for `tools/capsule_runner.py` (the operator demo) |
 
 Bundle refs available: `atomistique-l1/lesson.json` (validated L1 chemistry),
-`capsule-judgment-demo/lesson.json` (intro + two capsule-grounded `spot_the_flaw`
-audits, free-text — it carries no `reproduction` scene and no verdict deck),
+`capsule-judgment-demo/lesson.json` (intro + three capsule-grounded `spot_the_flaw`
+audits: two free-text, and `s-flaw-deck`, a verdict deck with two `sound_claims` — the
+only lesson in the corpus that measures over-distrust offline; it carries no
+`reproduction` scene),
 `capsule-run-demo/lesson.json` and `capsule-loop-demo/lesson.json` (the two that do
 carry a `reproduction` run),
-`m3/demo-metabolomics/lesson.json`; `m6/demo-atomistique/lesson.json` fails schema
-parse and is quarantined in the bundle lint — do not use it.
+`m3/demo-metabolomics/lesson.json` and `m6/demo-atomistique/lesson.json` (10 scenes, the
+M6 demo corpus — repaired and out of quarantine since 2026-09-08, so all six bundles now
+lint `OK` and `KNOWN_BROKEN_BUNDLES` is empty).
 
 ## 2. Start the server (identical for every harness)
 
@@ -98,7 +101,9 @@ Without a consent variable nothing is persisted; `end_session` emits
 
 Peer tools (`open_peer_room`, `join_peer_room`, `submit_peer_rating`,
 `get_peer_room_state`, `close_peer_room`) are teacher/learner room mechanics with a
-3-rater k-suppression; they are not part of a single-learner run.
+k-suppression at 3 DISTINCT raters (`ROOM_K_FLOOR`; one
+learner rating the same target three times unlocks nothing); they are not part of a
+single-learner run.
 
 ## 4. Learner-time runs (the run protocol)
 
@@ -125,7 +130,7 @@ when a submit fails.
 Start the operator harness from the repo root; it writes the first task and waits:
 
 ```bash
-cd /Users/nothiasl/git/prototype-build && cd /Users/nothiasl/git/prototype-build && apps/lesson-mcp/node_modules/.bin/tsx apps/lesson-mcp/src/session-runner-cli.ts capsule-judgment-demo/lesson.json --dir=/absolute/dir/.studium-session
+cd /Users/nothiasl/git/prototype-build && apps/lesson-mcp/node_modules/.bin/tsx apps/lesson-mcp/src/session-runner-cli.ts capsule-judgment-demo/lesson.json --dir=/absolute/dir/.studium-session
 ```
 
 Flags: `--bundles-root=DIR` (default `<cwd>/fixtures`), `--dir=DIR` (default
@@ -165,6 +170,9 @@ them a verdict deck). The stub cannot answer quizzes: on a quiz-bearing
 bundle such as `atomistique-l1` it replays until the 100-step cap and exits 0 with
 `stopped after 100 steps` — that is not a pass. Read the last line, not the exit code.
 
+Both were re-run on 2026-09-08 while updating this skill, not assumed: smoke
+`all 14 assertions passed`; stub `complete ✔ after 4 steps: next → next → next → complete`.
+
 ## 7. The evaluation harness (personas, corpora, judges)
 
 ```bash
@@ -203,7 +211,10 @@ second bundle of the same course no longer overwrites the first (INT-STUDIUM-020
   teacher dashboard (`apps/teacher-dashboard`, collector on :8003) only sees consented,
   k-suppressed aggregates.
 - Do not edit fixtures or tests while a run is in progress; file a bundle change
-  separately and re-run the bundle lint (`node tools/bundle_lint.mjs`).
+  separately and re-run the bundle lint — with `tsx`, not `node`:
+  `node_modules/.pnpm/node_modules/.bin/tsx tools/bundle_lint.mjs`. It imports the schema's
+  TypeScript sources, so bare `node` dies on `ERR_MODULE_NOT_FOUND` before linting anything;
+  CI and `tools/bundle_lint.test.sh` both invoke it through `tsx`.
 
 ## 9. Pointers
 
