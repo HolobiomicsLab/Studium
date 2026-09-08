@@ -46,9 +46,28 @@ describe("TrustCalibrationChart", () => {
     expect(html).toContain("—");
   });
 
-  it("always surfaces the honesty boundary (false_positives = 0 live)", () => {
+  it("states the measurement boundary the panel actually has (INT-STUDIUM-003)", () => {
+    // The footnote used to say the offline detector emits no false positives, so only
+    // over-trust is ever fed. The verdict deck ended that: a scene declaring
+    // `sound_claims` produces real false_positives and sound_total
+    // (`grading/graders.ts:151`), and only the free-text keyword path is fixed at
+    // fp=0/sound=0 (`graders.ts:158`, `ai-audit-matcher.ts:39`), which the collector
+    // reports as UNMEASURED and not zero (`metrics._over_distrust_rate`).
     const html = render(base);
-    expect(html).toContain("false_positives = 0");
+    expect(html).toContain("sound_claims");
+    expect(html).toContain("non mesurée");
+    // the sentence the panel above it contradicts
+    expect(html).not.toContain("false_positives = 0");
+    expect(html).not.toContain("structurellement");
+  });
+
+  it("does not deny the over-distrust it is rendering", () => {
+    // A "sous" verdict with a measured over-distrust and a footnote saying that
+    // direction is never fed is one panel making two opposite claims.
+    const html = render({ ...base, band: "sous", trust_calibration: -1, over_distrust: 1 });
+    expect(html).toContain("Méfiance");
+    expect(html).toContain("100 %");
+    expect(html).not.toContain("seule la surconfiance est mesurée");
   });
 
   it("labels the learner when a pseudonym is given", () => {

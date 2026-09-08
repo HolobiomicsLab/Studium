@@ -82,12 +82,22 @@ export default function TrustCalibrationChart({ data, learner }: Props) {
         d&apos;une même scène sont regroupés). Distinct de la calibration de confiance
         (déclaré-vs-compétence).
       </p>
+      {/* INT-STUDIUM-003. The previous footnote said the offline detector never emits
+          false positives, so only over-trust is ever fed. The verdict deck ended that:
+          a scene declaring `sound_claims` is graded with real false_positives and
+          sound_total (lesson-session/src/grading/graders.ts:151), and only the free-text
+          keyword path is fixed at fp=0/sound=0 (graders.ts:158,
+          grading/ai-audit-matcher.ts:39) — which the collector reports as UNMEASURED
+          rather than zero (metrics._over_distrust_rate). The panel above already renders
+          a measured over-distrust and a "sous" verdict, so the old sentence contradicted
+          the numbers beside it. */}
       <p className="text-xs text-gray-400">
-        Limite d’honnêteté : le détecteur de défauts hors-ligne n’émet pas de faux
-        positifs (false_positives = 0), donc la direction « méfiance » n’est
-        structurellement pas alimentée en production aujourd’hui — seule la
-        surconfiance est mesurée tant qu’un correcteur plus riche ne fournit pas
-        de signal d’affirmations correctes.
+        Limite de mesure : la direction « méfiance » n’est alimentée que par les scènes
+        qui déclarent des affirmations correctes (sound_claims) et sont corrigées par le
+        barème de verdicts — là, les faux positifs sont comptés réellement. Sur le chemin
+        mots-clés hors-ligne, aucune affirmation correcte n’est proposée : la méfiance y
+        est <b>non mesurée</b> (affichée « — »), et non nulle. Une direction non mesurée
+        compte 0 dans l’écart signé, qui ne peut donc pas devenir négatif faute de mesure.
       </p>
     </div>
   );
