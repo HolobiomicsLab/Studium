@@ -59,7 +59,6 @@
           }
         ],
         "case_studies": [],
-        "abs_asset": null,
         "enrichment_metadata": {
           "enricher_version": "evidence-enricher-1.0.0",
           "perspicacite_mode_used": "advanced",
@@ -81,7 +80,6 @@
         "bibliographic_refs": [
           {
             "perspicacite_doc_id": "mahan-university-chem-4e",
-            "doi": null,
             "title": "Mahan, University Chemistry, 4e — Chapter 2: Atomic structure",
             "authors": ["Mahan, B.M.", "Myers, R.J."],
             "year": 1987,
@@ -91,7 +89,6 @@
           }
         ],
         "case_studies": [],
-        "abs_asset": null,
         "enrichment_metadata": {
           "enricher_version": "evidence-enricher-1.0.0",
           "perspicacite_mode_used": "advanced",
@@ -142,7 +139,6 @@
           }
         ],
         "case_studies": [],
-        "abs_asset": null,
         "enrichment_metadata": {
           "enricher_version": "evidence-enricher-1.0.0",
           "perspicacite_mode_used": "advanced",
@@ -219,7 +215,6 @@
           }
         ],
         "case_studies": [],
-        "abs_asset": null,
         "enrichment_metadata": {
           "enricher_version": "evidence-enricher-1.0.0",
           "perspicacite_mode_used": "advanced",
@@ -305,7 +300,6 @@
           "abs_task_card_id": "task-atom-001",
           "asset_type": "spectrum_viewer_svg",
           "payload_path": "abs-capsule/assets/task-atom-001/periodic-table.svg",
-          "payload_inline": null,
           "prov_derived_from": "urn:abs:task-card:task-atom-001"
         },
         "enrichment_metadata": {

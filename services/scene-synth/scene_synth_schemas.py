@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
 # ---------------------------------------------------------------------------
 # Primitives partagées
@@ -213,10 +213,22 @@ class ReferenceCheck(BaseModel):
     passed: bool
 
 
+# `landmark`, `figure_path` and `capsule_doi` are the only fields in this mirror that the TS
+# schema declares `.nullable()` and NOT `.optional()` (scenes.ts:133-138) — they must be PRESENT
+# and may be null, because "the run happened and produced no landmark" is a fact about the run,
+# not a missing field. Everywhere else `Optional[X] = None` means absent, which is what the TS
+# `.optional()` accepts and what a `null` violates. A dump that excludes every None therefore
+# cannot express this contract on its own: it would drop the three fields that carry a real
+# signal along with the ones that carry nothing. These serializers emit their models whole, so
+# `exclude_none=True` upstream strips the empty optionals without deleting the measurement.
 class ReferenceRunProvenance(BaseModel):
     capsule_doi: Optional[str] = None
     cmd: list[str] = Field(default_factory=list)
     env: str
+
+    @model_serializer
+    def _serialize_whole(self) -> dict[str, Any]:
+        return {"capsule_doi": self.capsule_doi, "cmd": self.cmd, "env": self.env}
 
 
 class ReferenceRun(BaseModel):
@@ -231,6 +243,17 @@ class ReferenceRun(BaseModel):
     figure_path: Optional[str] = None
     checks: list[ReferenceCheck] = Field(default_factory=list)
     provenance: ReferenceRunProvenance
+
+    @model_serializer
+    def _serialize_whole(self) -> dict[str, Any]:
+        return {
+            "ran": self.ran,
+            "passed": self.passed,
+            "landmark": self.landmark,
+            "figure_path": self.figure_path,
+            "checks": self.checks,
+            "provenance": self.provenance,
+        }
 
 
 class RunManifest(BaseModel):

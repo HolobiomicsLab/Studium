@@ -29,10 +29,15 @@ const EXPECTED_CORRECT_CHOICES = 1;
 // stale — so the list cannot outlive the defects. Delete the entry once the fixture's reveal is fixed.
 // Bundles that fail SCHEMA validation, quarantined on the same terms as KNOWN_FLAW_GAPS: reported on
 // every run, and flagged stale the moment the bundle parses again, so an entry cannot outlive its defect.
-const KNOWN_BROKEN_BUNDLES = new Map([
-  ["fixtures/m6/demo-atomistique/lesson.json",
-    "M6 demo is opt-in until repaired: evidence.abs_asset and bibliographic_refs[].doi are emitted as null where the schema expects an object/string or absence"],
-]);
+// Empty since 2026-09-08 (INT-STUDIUM-004): the M6 demo entry is gone because the bundle is
+// repaired, not because the entry was tidied away. Its defect — `evidence.abs_asset` and
+// `bibliographic_refs[].doi` emitted as null where the schema expects an object/string or
+// absence — was not the fixture's alone: `services/scene-synth/bundler.py` dumped every bundle
+// with `exclude_none=False`, so this was the first bundle whose evidence was ever populated and
+// therefore the first to show it. The emitter is fixed and guarded by
+// `services/scene-synth/tests/test_bundle_null_contract.py`. The map stays: it is the mechanism,
+// and an entry that outlives its defect is still reported as stale below.
+const KNOWN_BROKEN_BUNDLES = new Map([]);
 
 const KNOWN_FLAW_GAPS = new Map([
   // capsule-judgment-demo's five entries were deleted on 2026-09-08 (INT-STUDIUM-004): its reveal is

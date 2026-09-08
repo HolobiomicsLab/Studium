@@ -209,7 +209,16 @@ def build_bundle(
 
     # Validation stricte (lève si le bundle ne round-trip pas).
     bundle = LessonBundle.model_validate(bundle_data)
-    bundle_json = bundle.model_dump(mode="json", exclude_none=False)
+    # `exclude_none=True`: the TS schema this bundle is read by declares its optional fields
+    # `.optional()`, which accepts ABSENCE and rejects `null` — so a dump that emitted every
+    # unset optional as `null` produced bundles the runtime refuses to parse. It did: every
+    # `evidence.abs_asset`, `bibliographic_refs[].doi` and `[].year` this bundler ever wrote was
+    # a null, which is why `fixtures/m6/demo-atomistique` sat quarantined in `tools/bundle_lint.mjs`.
+    # The three fields the TS schema declares `.nullable()` instead are protected by
+    # `model_serializer` on `ReferenceRun` / `ReferenceRunProvenance` — see the note there. The
+    # scenes were already dumped with `exclude_none=True` at `_scene_to_dict`; re-validating into
+    # `LessonBundle` put the nulls back, so the two halves disagreed.
+    bundle_json = bundle.model_dump(mode="json", exclude_none=True)
 
     # Provenance (sidecar).
     prov_graph = build_prov_graph(scenes, lesson_plan, prov_seed)
