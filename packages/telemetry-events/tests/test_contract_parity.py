@@ -35,11 +35,33 @@ def _python_contract() -> dict[str, dict[str, str]]:
     return summary
 
 
+# Where pnpm puts `tsx` — hoisted under `.pnpm` in this workspace, directly under
+# `node_modules/.bin` in a flat install. Both are checked because both occur.
+TSX_CANDIDATES = (
+    REPO_ROOT / "node_modules/.pnpm/node_modules/.bin/tsx",
+    REPO_ROOT / "node_modules/.bin/tsx",
+)
+
+
+def _tsx(candidates: tuple[Path, ...] = TSX_CANDIDATES) -> Path:
+    """The `tsx` binary this gate shells out to, or an error that says what to do.
+
+    This was `next(p for p in (...) if p.exists())`, which raises a bare `StopIteration` when
+    neither path is there — the traceback names a generator, not a missing dependency, and the
+    remedy (`pnpm install`) appears nowhere in it. INT-STUDIUM-011, outcome 4.
+    """
+    for path in candidates:
+        if path.exists():
+            return path
+    raise AssertionError(
+        "tsx not found — run `pnpm install` at the repository root. This gate compares the Zod "
+        "and Pydantic unions, so it cannot run without the TypeScript side. Looked in: "
+        + ", ".join(str(p.relative_to(REPO_ROOT)) for p in candidates)
+    )
+
+
 def _typescript_contract() -> dict[str, dict[str, str]]:
-    tsx = next(p for p in (
-        REPO_ROOT / "node_modules/.pnpm/node_modules/.bin/tsx",
-        REPO_ROOT / "node_modules/.bin/tsx",
-    ) if p.exists())
+    tsx = _tsx()
     proc = subprocess.run(
         [str(tsx), str(PKG_DIR / "scripts" / "contract_dump.ts")],
         capture_output=True, text=True, timeout=120, cwd=str(REPO_ROOT),
@@ -64,3 +86,18 @@ def test_zod_and_pydantic_unions_declare_the_same_wire_contract():
             if ts[t][f] != py[t][f]:
                 problems.append(f"{t}.{f}: {ts[t][f]} in TS vs {py[t][f]} in Python")
     assert not problems, "wire-contract drift:\n  " + "\n  ".join(problems)
+
+
+def test_a_missing_tsx_names_itself_and_the_remedy():
+    """The failure mode this fix is about: an absent dependency must say which one.
+
+    Pinned rather than assumed, because the defect it replaces was invisible exactly when it
+    mattered — on a checkout where `pnpm install` had not been run.
+    """
+    import pytest
+
+    with pytest.raises(AssertionError) as caught:
+        _tsx((REPO_ROOT / "node_modules/.bin/tsx-does-not-exist",))
+    message = str(caught.value)
+    assert "tsx" in message
+    assert "pnpm install" in message
