@@ -160,7 +160,8 @@ The smoke is the reference MCP client (bare `@modelcontextprotocol/sdk`, no VS C
 code): start → scene → ack → artifacts → workflow graph → end; 14 assertions, about
 a second. Run it after any change to the server, a bundle or this skill. For the file
 channel, a `--stub` run of the session-runner CLI on `capsule-judgment-demo/lesson.json`
-must end with `complete ✔` (3 steps). The stub cannot answer quizzes: on a quiz-bearing
+must end with `complete ✔` (4 steps: intro + three grounded `spot_the_flaw`, the last of
+them a verdict deck). The stub cannot answer quizzes: on a quiz-bearing
 bundle such as `atomistique-l1` it replays until the 100-step cap and exits 0 with
 `stopped after 100 steps` — that is not a pass. Read the last line, not the exit code.
 

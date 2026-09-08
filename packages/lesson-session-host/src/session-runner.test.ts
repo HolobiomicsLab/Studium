@@ -8,7 +8,7 @@ import { runStudiumSession, stubOperator, watchOperator, type Operator } from ".
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const FIXTURES = resolve(here, "..", "..", "..", "fixtures");
-const BUNDLE = "capsule-judgment-demo/lesson.json"; // intro + 2 grounded spot_the_flaw
+const BUNDLE = "capsule-judgment-demo/lesson.json"; // intro + 3 grounded spot_the_flaw
 
 describe("session-runner — the operator harness", () => {
   it("drives a full session to completion with the stub operator, redaction held every step", async () => {
@@ -25,7 +25,10 @@ describe("session-runner — the operator harness", () => {
 
     const res = await runStudiumSession(host, BUNDLE, dir, noLeakThenStub);
     expect(res.completed).toBe(true);
-    expect(res.steps).toBe(3);                                  // intro + 2 spot_the_flaw
+    // INT-STUDIUM-004 raised this from 3: the bundle gained `s-flaw-deck`, a grounded verdict-deck
+    // scene, so the corpus can measure over-distrust with no LLM. The stub operator drives it to
+    // completion like the other two — the assertion below is what proves the deck is answerable.
+    expect(res.steps).toBe(4);                                  // intro + 3 spot_the_flaw
     expect(res.transitions.at(-1)).toBe("complete");
     expect(res.transitions.filter((t) => t === "invalid_response").length).toBe(0);
     // the judgments were really graded into mastery

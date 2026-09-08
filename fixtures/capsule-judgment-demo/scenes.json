@@ -126,5 +126,80 @@
         "env": "isolated uv venv (python 3.13)"
       }
     }
+  },
+  {
+    "id": "s-flaw-deck",
+    "title": "Audit d'une lecture IA (deck)",
+    "objective_refs": [],
+    "concept_refs": [
+      "c-kinetics"
+    ],
+    "estimated_seconds": 0,
+    "adaptation_hooks": [],
+    "type": "spot_the_flaw",
+    "flawed_content": "Lecture IA du resultat reel (LANDMARK k_fit=0.4212 s^-1 half_life=1.6457 s). La demi-vie depasse une heure. k est un nombre sans dimension. L ajustement est obtenu par regression lineaire sur le logarithme du signal, restreinte aux points positifs. La figure superpose les points de donnees et la courbe ajustee.",
+    "claims": [
+      {
+        "id": "f1",
+        "text": "La demi-vie depasse une heure.",
+        "flaws_expected": [
+          "demi-vie",
+          "unites"
+        ]
+      },
+      {
+        "id": "f2",
+        "text": "k est un nombre sans dimension.",
+        "flaws_expected": [
+          "unites",
+          "dimension"
+        ]
+      }
+    ],
+    "model_correction": "Lecture correcte ancree sur LANDMARK k_fit=0.4212 s^-1 half_life=1.6457 s : la demi-vie vaut ln2/k = 1.65 s, dont les unites sont des secondes, tres loin d une heure ; k n est pas sans dimension : ses unites sont s^-1, l inverse d un temps. Les autres affirmations de la lecture sont exactes et ne devaient pas etre signalees.",
+    "rubric": {
+      "completeness": 0.6,
+      "evidence_quality": 0.3,
+      "tone": 0.1
+    },
+    "sound_claims": [
+      {
+        "id": "s1",
+        "text": "L ajustement est obtenu par regression lineaire sur le logarithme du signal, restreinte aux points positifs."
+      },
+      {
+        "id": "s2",
+        "text": "La figure superpose les points de donnees et la courbe ajustee."
+      }
+    ],
+    "verdict_deck": true,
+    "reference_result": {
+      "ran": true,
+      "passed": true,
+      "landmark": "LANDMARK k_fit=0.4212 s^-1 half_life=1.6457 s",
+      "figure_path": "decay.png",
+      "checks": [
+        {
+          "check": "file exists: outputs/stats.csv",
+          "passed": true
+        },
+        {
+          "check": "file exists: figures/decay.png",
+          "passed": true
+        },
+        {
+          "check": "expected artifact: stats.csv",
+          "passed": true
+        }
+      ],
+      "provenance": {
+        "capsule_doi": "10.0000/demo.decay-fit",
+        "cmd": [
+          "python",
+          "scripts/run.py"
+        ],
+        "env": "isolated uv venv (python 3.13)"
+      }
+    }
   }
 ]

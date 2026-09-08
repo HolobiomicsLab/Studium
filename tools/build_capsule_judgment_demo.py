@@ -47,9 +47,23 @@ from scene_synth_schemas import SpotTheFlawScene  # noqa: E402
 CAPSULE = REPO / "fixtures" / "capsule-demo"
 OUT = REPO / "fixtures" / "capsule-judgment-demo"
 
+# (level, n_flaws, guidance, verdict_deck). The third level is the one that makes the corpus able
+# to measure OVER-DISTRUST offline (INT-STUDIUM-004): a checkbox is a flagging decision, so false
+# alarms on `sound_claims` are counted with no LLM. The first two keep the free-text path they have
+# always had — this is additive, not a change to what they demonstrate.
 LEVELS = [
-    ("subtle", 1, "un seul defaut subtil et credible"),
-    ("blatant", 3, "trois defauts plus visibles"),
+    ("subtle", 1, "un seul defaut subtil et credible", False),
+    ("blatant", 3, "trois defauts plus visibles", False),
+    ("deck", 2, "deux defauts, dans un jeu de verdicts melant affirmations fausses et correctes", True),
+]
+
+#: Statements about the REAL run that are true — a good auditor must not flag them. They are what
+#: the over-distrust direction is measured against; with none, the deck degrades to flawed-only and
+#: measures over-trust alone. Each is checkable against fixtures/capsule-demo/scripts/run.py.
+SOUND_CLAIMS = [
+    ("s1", "L ajustement est obtenu par regression lineaire sur le logarithme du signal, "
+           "restreinte aux points positifs."),
+    ("s2", "La figure superpose les points de donnees et la courbe ajustee."),
 ]
 
 
@@ -73,6 +87,8 @@ class _StubLLM:
         o = self._o
         lm = o["reference_run"]["landmark"]
         n = o["trustworthiness"]["n_flaws"]
+        deck = bool(o["trustworthiness"].get("verdict_deck"))
+        sound = SOUND_CLAIMS if deck else []
         # Each planted flaw carries the clause that CORRECTS it, so the reveal explains every
         # flaw it planted and no more (INT-STUDIUM-004). Before, one fixed sentence corrected f1
         # only, and bundle_lint quarantined f2/f3 as "never named in model_correction" — a reveal
@@ -90,8 +106,11 @@ class _StubLLM:
             "type": "spot_the_flaw",
             "title": o["title"],
             "concept_refs": o.get("concept_refs", []),
+            # The sound statements are part of the READING being audited — a deck whose sound
+            # items never appear in the text would ask the learner to judge something unsaid.
             "flawed_content": (
-                f"Lecture IA du resultat reel ({lm}). " + " ".join(t for _, t, _, _ in pool)
+                f"Lecture IA du resultat reel ({lm}). "
+                + " ".join([t for _, t, _, _ in pool] + [t for _, t in sound])
             ),
             "claims": [{"id": i, "text": t, "flaws_expected": fe} for i, t, fe, _ in pool],
             # INT-STUDIUM-004: the reveal names the UNIT it concludes from. It used to read
@@ -101,9 +120,16 @@ class _StubLLM:
                 f"Lecture correcte ancree sur {lm} : "
                 + " ; ".join(c for _, _, _, c in pool)
                 + "."
+                # On a deck, "what you should NOT have flagged" is half the answer: the false
+                # alarms are scored, so the reveal has to account for them too.
+                + (" Les autres affirmations de la lecture sont exactes et ne devaient pas etre "
+                   "signalees." if sound else "")
             ),
             "rubric": {"completeness": 0.6, "evidence_quality": 0.3, "tone": 0.1},
         }
+        if deck:
+            scene["sound_claims"] = [{"id": i, "text": t} for i, t in sound]
+            scene["verdict_deck"] = True
         return json.dumps(scene, ensure_ascii=False)
 
 
@@ -139,7 +165,7 @@ def main(live: bool = False) -> int:
     }
 
     scenes: list[dict] = []
-    for level, n_flaws, guidance in LEVELS:
+    for level, n_flaws, guidance, deck in LEVELS:
         outline = {
             "id": f"s-flaw-{level}",
             "title": f"Audit d'une lecture IA ({level})",
@@ -148,7 +174,8 @@ def main(live: bool = False) -> int:
             "concept_refs": ["c-kinetics"],
             "objective_refs": ["o-kinetics"],
             "reference_run": ref_run,
-            "trustworthiness": {"level": level, "n_flaws": n_flaws, "guidance": guidance},
+            "trustworthiness": {"level": level, "n_flaws": n_flaws, "guidance": guidance,
+                                "verdict_deck": deck},
         }
         agent = SpotTheFlawAgent(_make_llm(outline, live), _PassCritic())
         scene = agent.synthesize(outline, {})

@@ -8,7 +8,7 @@ import { SessionWorkspace } from "./session-workspace.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const FIXTURES = resolve(here, "..", "..", "..", "fixtures"); // prototype-build/fixtures
-const BUNDLE = "capsule-judgment-demo/lesson.json";           // intro + 2 capsule-grounded spot_the_flaw
+const BUNDLE = "capsule-judgment-demo/lesson.json";           // intro + 3 capsule-grounded spot_the_flaw
 
 describe("SessionWorkspace — file-based agentic session channel (.studium-session/)", () => {
   it("runs a full back-and-forth (intro ack -> grounded spot_the_flaw audit), REDACTED end to end", async () => {
