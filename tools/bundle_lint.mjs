@@ -35,16 +35,9 @@ const KNOWN_BROKEN_BUNDLES = new Map([
 ]);
 
 const KNOWN_FLAW_GAPS = new Map([
-  ["fixtures/capsule-judgment-demo/lesson.json::s-flaw-subtle::unites",
-    "reveal writes «unite de temps» (singular); the key expects «unites»"],
-  ["fixtures/capsule-judgment-demo/lesson.json::s-flaw-blatant::unites",
-    "reveal writes «unite de temps» (singular); the key expects «unites»"],
-  ["fixtures/capsule-judgment-demo/lesson.json::s-flaw-blatant::dimension",
-    "reveal only corrects flaw f1; f2 (k dimensionless) is never explained"],
-  ["fixtures/capsule-judgment-demo/lesson.json::s-flaw-blatant::ordre",
-    "reveal only corrects flaw f1; f3 (reaction order) is never explained"],
-  ["fixtures/capsule-judgment-demo/lesson.json::s-flaw-blatant::sur-interpretation",
-    "reveal only corrects flaw f1; f3 (over-reading the noise) is never explained"],
+  // capsule-judgment-demo's five entries were deleted on 2026-09-08 (INT-STUDIUM-004): its reveal is
+  // now built one clause per planted flaw by tools/build_capsule_judgment_demo.py, so every flaw it
+  // plants is explained. The stale-entry detector below is what reported them gone.
   ["fixtures/capsule-loop-demo/lesson.json::s-flaw::unites",
     "reveal writes «unite de temps» (singular); the key expects «unites»"],
 ]);

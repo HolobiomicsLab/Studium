@@ -30,8 +30,10 @@ running server is the authoritative tool surface.
 | Capsule runs | `python3` + `uv` for `tools/capsule_runner.py` (the operator demo) |
 
 Bundle refs available: `atomistique-l1/lesson.json` (validated L1 chemistry),
-`capsule-judgment-demo/lesson.json` (reproduction run + verdict deck),
-`capsule-run-demo/lesson.json`, `capsule-loop-demo/lesson.json`,
+`capsule-judgment-demo/lesson.json` (intro + two capsule-grounded `spot_the_flaw`
+audits, free-text — it carries no `reproduction` scene and no verdict deck),
+`capsule-run-demo/lesson.json` and `capsule-loop-demo/lesson.json` (the two that do
+carry a `reproduction` run),
 `m3/demo-metabolomics/lesson.json`; `m6/demo-atomistique/lesson.json` fails schema
 parse and is quarantined in the bundle lint — do not use it.
 

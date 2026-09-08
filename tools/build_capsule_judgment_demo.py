@@ -73,10 +73,17 @@ class _StubLLM:
         o = self._o
         lm = o["reference_run"]["landmark"]
         n = o["trustworthiness"]["n_flaws"]
+        # Each planted flaw carries the clause that CORRECTS it, so the reveal explains every
+        # flaw it planted and no more (INT-STUDIUM-004). Before, one fixed sentence corrected f1
+        # only, and bundle_lint quarantined f2/f3 as "never named in model_correction" — a reveal
+        # that leaves a planted flaw unexplained is an answer key the learner cannot learn from.
         pool = [
-            ("f1", "La demi-vie depasse une heure.", ["demi-vie", "unites"]),
-            ("f2", "k est un nombre sans dimension.", ["unites", "dimension"]),
-            ("f3", "Le bruit prouve une cinetique d ordre deux.", ["ordre", "sur-interpretation"]),
+            ("f1", "La demi-vie depasse une heure.", ["demi-vie", "unites"],
+             "la demi-vie vaut ln2/k = 1.65 s, dont les unites sont des secondes, tres loin d une heure"),
+            ("f2", "k est un nombre sans dimension.", ["unites", "dimension"],
+             "k n est pas sans dimension : ses unites sont s^-1, l inverse d un temps"),
+            ("f3", "Le bruit prouve une cinetique d ordre deux.", ["ordre", "sur-interpretation"],
+             "le bruit residuel ne prouve aucun ordre deux : c est une sur-interpretation du residu"),
         ][:n]
         scene = {
             "id": o["id"],
@@ -84,12 +91,16 @@ class _StubLLM:
             "title": o["title"],
             "concept_refs": o.get("concept_refs", []),
             "flawed_content": (
-                f"Lecture IA du resultat reel ({lm}). " + " ".join(t for _, t, _ in pool)
+                f"Lecture IA du resultat reel ({lm}). " + " ".join(t for _, t, _, _ in pool)
             ),
-            "claims": [{"id": i, "text": t, "flaws_expected": fe} for i, t, fe in pool],
+            "claims": [{"id": i, "text": t, "flaws_expected": fe} for i, t, fe, _ in pool],
+            # INT-STUDIUM-004: the reveal names the UNIT it concludes from. It used to read
+            # "~1.65 unite de temps, pas une heure" — denying the hour while declining to say
+            # what the 1.65 was in, which is the same category error the scene plants.
             "model_correction": (
-                f"Lecture correcte ancree sur {lm} : k est un taux (1/temps) ; "
-                "la demi-vie vaut ln2/k (~1.65 unite de temps), pas une heure."
+                f"Lecture correcte ancree sur {lm} : "
+                + " ; ".join(c for _, _, _, c in pool)
+                + "."
             ),
             "rubric": {"completeness": 0.6, "evidence_quality": 0.3, "tone": 0.1},
         }

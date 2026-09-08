@@ -9,7 +9,7 @@
     "estimated_seconds": 0,
     "adaptation_hooks": [],
     "type": "spot_the_flaw",
-    "flawed_content": "Lecture IA du resultat reel (LANDMARK k_fit=0.4212 half_life=1.6457). La demi-vie depasse une heure.",
+    "flawed_content": "Lecture IA du resultat reel (LANDMARK k_fit=0.4212 s^-1 half_life=1.6457 s). La demi-vie depasse une heure.",
     "claims": [
       {
         "id": "f1",
@@ -20,7 +20,7 @@
         ]
       }
     ],
-    "model_correction": "Lecture correcte ancree sur LANDMARK k_fit=0.4212 half_life=1.6457 : k est un taux (1/temps) ; la demi-vie vaut ln2/k (~1.65 unite de temps), pas une heure.",
+    "model_correction": "Lecture correcte ancree sur LANDMARK k_fit=0.4212 s^-1 half_life=1.6457 s : la demi-vie vaut ln2/k = 1.65 s, dont les unites sont des secondes, tres loin d une heure.",
     "rubric": {
       "completeness": 0.6,
       "evidence_quality": 0.3,
@@ -29,7 +29,7 @@
     "reference_result": {
       "ran": true,
       "passed": true,
-      "landmark": "LANDMARK k_fit=0.4212 half_life=1.6457",
+      "landmark": "LANDMARK k_fit=0.4212 s^-1 half_life=1.6457 s",
       "figure_path": "decay.png",
       "checks": [
         {
@@ -65,7 +65,7 @@
     "estimated_seconds": 0,
     "adaptation_hooks": [],
     "type": "spot_the_flaw",
-    "flawed_content": "Lecture IA du resultat reel (LANDMARK k_fit=0.4212 half_life=1.6457). La demi-vie depasse une heure. k est un nombre sans dimension. Le bruit prouve une cinetique d ordre deux.",
+    "flawed_content": "Lecture IA du resultat reel (LANDMARK k_fit=0.4212 s^-1 half_life=1.6457 s). La demi-vie depasse une heure. k est un nombre sans dimension. Le bruit prouve une cinetique d ordre deux.",
     "claims": [
       {
         "id": "f1",
@@ -92,7 +92,7 @@
         ]
       }
     ],
-    "model_correction": "Lecture correcte ancree sur LANDMARK k_fit=0.4212 half_life=1.6457 : k est un taux (1/temps) ; la demi-vie vaut ln2/k (~1.65 unite de temps), pas une heure.",
+    "model_correction": "Lecture correcte ancree sur LANDMARK k_fit=0.4212 s^-1 half_life=1.6457 s : la demi-vie vaut ln2/k = 1.65 s, dont les unites sont des secondes, tres loin d une heure ; k n est pas sans dimension : ses unites sont s^-1, l inverse d un temps ; le bruit residuel ne prouve aucun ordre deux : c est une sur-interpretation du residu.",
     "rubric": {
       "completeness": 0.6,
       "evidence_quality": 0.3,
@@ -101,7 +101,7 @@
     "reference_result": {
       "ran": true,
       "passed": true,
-      "landmark": "LANDMARK k_fit=0.4212 half_life=1.6457",
+      "landmark": "LANDMARK k_fit=0.4212 s^-1 half_life=1.6457 s",
       "figure_path": "decay.png",
       "checks": [
         {
