@@ -15,9 +15,9 @@
   },
   "dependencies": {
     "@studium/adaptation-engine": "workspace:*",
-    "@studium/lesson-session": "workspace:*",
     "@studium/learner-state": "workspace:*",
     "@studium/lesson-bundle-schema": "workspace:*",
+    "@studium/lesson-session": "workspace:*",
     "@studium/reasoning-scorer": "workspace:*",
     "@studium/telemetry-events": "workspace:*",
     "@tauri-apps/api": "^2.0.0",
@@ -32,6 +32,7 @@
     "@tauri-apps/cli": "^2.0.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
+    "@types/eslint": "^8.56.12",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
