@@ -105,6 +105,30 @@ which source lacked the evidence and what the floor is, and shows no count at al
 cohort size, not the rate, nothing that could be recovered by subtraction. That is also why
 suppression takes both columns down together.
 
+Three things follow from that floor that you will see on the page, and they are there for one
+reason: you hold the roster, so a number that moves in step with your class is a number about
+your students (INT-STUDIUM-030).
+
+* **A judgement metric tells you the size of its cohort as a band, not as a number.** Trust
+  calibration, over-trust, over-distrust and autonomy read « cohorte 5–9 / 10–19 / 20+ »,
+  because an exact count moves each time one more student contributes, and you could time each
+  move against who was in the room. The band still tells you what you need in order to weigh the
+  number — a reading over five people is not a reading over twenty-four — which is why the page
+  gives you a band and not a bare "at least five". Participation counts stay exact: how many of
+  your class did a lesson is something you already know from the room.
+* **Every judgement metric says, in words, that it is not about a student.** That line is not
+  boilerplate. These metrics describe how a group *judged*, and there is no filter on this
+  surface that narrows one to a person — a floor you can get around by filtering is not a floor.
+* **When something is withheld, the page tells you why and not how many.** "At least one scene
+  is withheld: fewer than five distinct contributing learners." A count there would grow with
+  your class, one step at a time, and each step is readable against your roster.
+
+And **`measured` is not the same as a blank**. A metric that says `measured: false` ran and had
+nothing to measure — nobody started a lesson, or every AI audit was ungrounded — and the page
+gives you that sentence. Before, an unmeasured metric arrived as an empty cell under a green
+status, which reads as a zero: an unaudited class and a perfectly calibrated one looked the
+same.
+
 ## Telling the Observatory where the collector writes
 
 `STUDIUM_OBS_ANALYTICS_DATA_DIR` names the analytics collector's event store, as an
@@ -192,12 +216,15 @@ which counts personas as people. The Observatory refuses that: an event without 
 pseudonym and a lesson id is an unknown identity, and the column is suppressed with that
 reason. Use a durable host tree if you want the column, or read the run page for that run.
 
-**Absent, unreadable and suppressed are three different states**, and the column says which
-one it is in. Absent means nothing is configured or the directory is gone; unreadable means
-a file could not be read or parsed, and the page names the file's *basename* and the
+**Absent, unreadable, broken and suppressed are four different states**, and the column says
+which one it is in. Absent means nothing is configured or the directory is gone; unreadable
+means a file could not be read or parsed, and the page names the file's *basename* and the
 exception class only — every directory above a `telemetry.jsonl` is a pseudonym, and an
-exception message carries the path it failed on. In both cases the other column still
-renders alone. Suppressed is the only state that takes the pair down together.
+exception message carries the path it failed on. **Broken** means the Observatory called one
+of its two readers wrongly and the source was never read — the defect is in this page, not in
+your telemetry, and nothing you change about your files will clear it. In all three cases the
+other column still renders alone. Suppressed is the only state that takes the pair down
+together.
 
 ## Where the screenshots live
 

@@ -44,7 +44,9 @@ from observatory_config import ENV_ANALYTICS_DATA_DIR, ENV_SESSIONS_ROOT
 from observatory_sessions import (
     GAP_TOLERANCE,
     INDICATOR_NAMES,
+    NON_ATTRIBUTION,
     SHOWN_NOT_FLAGGED,
+    _cohort_band,
     collector_column,
     divergences,
     sessions_column,
@@ -235,12 +237,15 @@ def test_the_operator_projection_omits_the_report_payloads_it_must_not_publish(c
     for forbidden in ("concepts", "reteach_priority", "top_adaptation_rules",
                       "universe_escalations", "per_scene"):
         assert forbidden not in dumped, forbidden
-    # The trust families are summaries, key by key: no scene list on either side.
+    # The trust families are summaries, key by key: no scene list on either side. The three
+    # judgement keys are INT-STUDIUM-030's, and they are asserted here rather than merely
+    # tolerated — an exact-key test is the place a new key has to be argued for.
+    judgement = {"cohort_band", "cohort_counts", "non_attribution"}
     assert set(detail["sessions"]["report"]["trust"]) == {
-        "status", "reason", "measured", "n_scenes", "gap", "band"}
+        "status", "reason", "measured", "n_scenes", "gap", "band"} | judgement
     assert set(detail["collector"]["trust"]) == {
-        "status", "reason", "trust_calibration", "band", "n_audits", "over_trust",
-        "over_distrust"}
+        "status", "reason", "measured", "trust_calibration", "band", "n_audits", "over_trust",
+        "over_distrust"} | judgement
 
 
 # --------------------------------------------------------------------------------------
@@ -817,3 +822,210 @@ def test_the_page_does_not_promise_anonymity_to_a_reader_holding_the_roster(cfg,
     # the immediate claim correction. This asserts the correction sits WITH it, not instead.
     assert "k-anonymity floor" in page
     assert str(cfg.min_learners) in page and cfg.min_learners == 5
+
+
+# --------------------------------------------------------------------------------------
+# INT-STUDIUM-030, R1 on the Observatory surface: one identity rule, banded judgement
+# cohorts, withheld reasons instead of withheld counts, and `ok` that means a number was
+# computed
+# --------------------------------------------------------------------------------------
+
+
+def _many(n: int, **kwargs) -> list[list]:
+    """`n` learners in ONE lesson. `_batches` is capped at the six `STORE_PSEUDONYMS`."""
+    return [session_events(f"pseudo-band-{i:02d}", i, **kwargs) for i in range(n)]
+
+
+def _without(events: list, kind: str) -> list:
+    return [event for event in events if getattr(event, "type", None) != kind]
+
+
+def _ungrounded(events: list) -> list:
+    """The same lesson, with its audit UNGROUNDED: `planted_errors == 0`.
+
+    The audit happened — the scan sees a contributor, so the family is not `unmeasured` —
+    and no gap was ever computable from it. That is the second of the two instances
+    INT-STUDIUM-029 named, on the collector side.
+    """
+    return [event.model_copy(update={"planted_errors": 0, "missed": 0})
+            if getattr(event, "type", None) == "ai_audit_result" else event
+            for event in events]
+
+
+@pytest.mark.parametrize("contributors, band",
+                         [(5, "5–9"), (9, "5–9"), (12, "10–19"), (24, "20+")])
+def test_a_judgement_cohort_is_published_as_a_band(cfg, tmp_path, contributors, band):
+    """Call 1: a judgement metric names its population, coarsened to `5-9 / 10-19 / 20+`.
+
+    The band is what makes R1 and R2 hold together. A bare `>= 5` would satisfy R2 and break
+    R1, because it names no population: a trust figure resting on five contributors and one
+    resting on twenty-four would arrive identical and be given the same weight by a reader
+    who cannot tell them apart.
+    """
+    store = _store(tmp_path / f"store-{contributors}", _many(contributors))
+    column = collector_column(_cfg(cfg, store=store), STORE_COURSE)
+
+    assert column["status"] == "ok", column
+    for name in ("trust", "autonomy"):
+        family = column[name]
+        assert family["status"] == "ok", family
+        assert family["cohort_band"] == band, family
+        assert family["cohort_counts"] == "distinct learners within one lesson", family
+
+
+def test_the_band_moves_twice_where_an_exact_count_moves_every_contributor():
+    """The whole of R2's second clause, as arithmetic.
+
+    Over a class of five to twenty-four an exact cohort size has nineteen transitions, each
+    one an event a patient reader can time against the roster they already hold. The band has
+    two. Asserted on `_cohort_band` directly: this is a property of the coarsening, not of any
+    one fixture.
+    """
+    bands = [_cohort_band(size, 5) for size in range(5, 25)]
+    assert set(bands) == {"5–9", "10–19", "20+"}
+    assert sum(a != b for a, b in zip(bands, bands[1:])) == 2
+    # And the lowest band starts at the floor, whatever the floor is: a cohort under it was
+    # never published, so a band claiming to start below it would name a population that
+    # cannot reach this surface.
+    assert _cohort_band(3, 3) == "3–9" and _cohort_band(12, 12) == "12–19"
+
+
+def test_every_judgement_metric_carries_its_non_attribution_line_on_both_twins(cfg, client):
+    """-024's clearest expression: the surface says in words what the number is not.
+
+    Both twins, in one test, because the two are the same claim rendered twice and a
+    difference between them is the defect this asserts against.
+    """
+    payload = client.get(f"/api/sessions/{STORE_COURSE}").json()
+    page = client.get(f"/sessions/{STORE_COURSE}").text
+    families = (payload["collector"]["autonomy"], payload["collector"]["trust"],
+                payload["sessions"]["report"]["autonomy"],
+                payload["sessions"]["report"]["trust"])
+
+    for family in families:
+        assert family["status"] == "ok", family
+        assert family["non_attribution"] == NON_ATTRIBUTION, family
+        assert family["cohort_band"] == "5–9", family
+        assert family["measured"] is True, family
+    assert page.count(NON_ATTRIBUTION) == len(families), page
+
+    # No identifier and no raw telemetry text reaches either twin along with the sentence.
+    dumped = json.dumps(_columns(payload))
+    for pseudonym in STORE_PSEUDONYMS:
+        assert pseudonym not in page and pseudonym not in dumped, pseudonym
+
+
+def test_the_withheld_flags_do_not_encode_how_many(cfg, tmp_path, monkeypatch):
+    """A course growing scene by scene: what is published must not move with the count.
+
+    `n_withheld_scenes` moved once per withheld scene, monotonically, against a roster the
+    teacher holds. Three different numbers of withheld scenes now produce the same payload,
+    which is the property stated as a test rather than as a claim.
+    """
+    real = metrics.compute_progress
+    root = _store(tmp_path / "store", _batches())
+
+    def appending(count: int):
+        def reader(store_root, course):
+            read = real(store_root, course)
+            scenes = dict(read.get("scenes") or {})
+            for index in range(count):
+                scenes[f"s-appended-{index}"] = {"completion_rate": 1.0, "n_learners": 1}
+            return {**read, "scenes": scenes}
+        return reader
+
+    published = []
+    for count in (1, 3, 7):
+        monkeypatch.setattr(metrics, "compute_progress", appending(count))
+        published.append(collector_column(_cfg(cfg, store=root), STORE_COURSE)["progress"])
+
+    assert published[0] == published[1] == published[2], published
+    assert published[0]["withheld_unseen"] is True, published[0]
+    assert not _numbers({k: v for k, v in published[0].items() if k != "scenes"}), published[0]
+
+
+def test_a_completion_rate_over_nobody_is_measured_false_and_says_why(cfg, tmp_path):
+    """INT-STUDIUM-029's first reachable instance: `n_started == 0`.
+
+    `build_report` returns `completion_rate: None` there, and `status: ok` beside it used to
+    mean only that the family ran. Under R1 `ok` means a number was computed over the stated
+    population, so the null says it is the measurement.
+    """
+    runs = _tree(tmp_path / "runs", [_without(b, "lesson_started") for b in _batches()])
+    family = sessions_column(_cfg(cfg, sessions=runs))["report"]["completion"]
+
+    assert family["status"] == "ok", family
+    assert family["completion_rate"] is None, family
+    assert family["measured"] is False, family
+    assert "n_started == 0" in family["reason"], family
+
+
+def test_an_ungrounded_audit_is_measured_false_and_says_why(cfg, tmp_path):
+    """The second instance, on the collector side: every audit ungrounded.
+
+    `planted_errors == 0` everywhere, so `compute_trust_calibration` has no scorable scene
+    and returns `trust_calibration: None`. A reader who saw `ok` and a blank cell had no way
+    to tell that from a class whose over-trust and over-distrust cancelled to zero — the two
+    readings are opposite and they rendered identically.
+    """
+    store = _store(tmp_path / "store", [_ungrounded(b) for b in _batches()])
+    family = collector_column(_cfg(cfg, store=store), STORE_COURSE)["trust"]
+
+    assert family["status"] == "ok", family
+    assert family["trust_calibration"] is None, family
+    assert family["measured"] is False, family
+    assert "planted_errors == 0" in family["reason"], family
+    assert "well-calibrated zero" in family["reason"], family
+
+
+def test_the_cohort_count_is_the_preflights_and_never_the_class_reports(
+        cfg, sessions_root, monkeypatch):
+    """INT-STUDIUM-025 resolved into R1: ONE identity rule, and `build_report`'s is not it.
+
+    `tools/class_report.py:163` falls back to a stream's own file path when a stream carries
+    no pseudonym, so its `n_learners` can count one synthetic learner per pseudonym-less
+    stream — a different population from the one this page floored. The count published here
+    is the population the floor was actually applied to; `build_report`'s own figure is still
+    shown, under the name it honestly has.
+    """
+    import observatory_sessions
+
+    real = observatory_sessions.build_report
+
+    def inflated(root, *, min_learners):
+        return {**real(root, min_learners=min_learners), "n_learners": 99}
+
+    monkeypatch.setattr(observatory_sessions, "build_report", inflated)
+    column = sessions_column(_cfg(cfg, sessions=sessions_root))
+
+    assert column["status"] == "ok", column
+    assert column["n_learners"] == len(STORE_PSEUDONYMS), column
+    assert column["report"]["n_learners"] == len(STORE_PSEUDONYMS), column
+    assert column["n_streams"] == len(STORE_PSEUDONYMS), column
+    assert 99 not in [leaf for _path, leaf in _leaves(column)], column
+
+
+def test_a_reader_called_wrongly_is_this_pages_defect_and_says_so(
+        cfg, analytics_store, monkeypatch):
+    """The nit INT-STUDIUM-030 filed against `_read`, and the state word it asked for.
+
+    Reporting a call-site `TypeError` as "unreadable: <reader> raised TypeError" tells the
+    operator their telemetry is broken and sends them to look at their own files for a defect
+    that is in this projection. The two cases are separated by where the exception came from,
+    and both are asserted here so the discriminator itself is under test.
+    """
+    monkeypatch.setattr(metrics, "compute_progress", lambda: None)  # accepts no arguments
+    family = collector_column(_cfg(cfg, store=analytics_store), STORE_COURSE)["progress"]
+
+    assert family["status"] == "broken", family
+    assert "not in the telemetry" in family["reason"], family
+    assert "unreadable" not in family["reason"], family
+
+    def raises_inside(store_root, course):
+        raise TypeError("a field held a str where the aggregation passed it to int()")
+
+    monkeypatch.setattr(metrics, "compute_progress", raises_inside)
+    family = collector_column(_cfg(cfg, store=analytics_store), STORE_COURSE)["progress"]
+
+    assert family["status"] == "unreadable", family
+    assert family["reason"] == "unreadable: the per-scene progress reader raised TypeError"

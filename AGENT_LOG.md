@@ -4,6 +4,59 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-09 — INT-STUDIUM-030, R1 SUR LA SURFACE OBSERVATORY : une règle d'identité, des cohortes en bandes, des motifs au lieu de comptes
+
+La moitié R1 que l'intent mettait en attente. Quatre changements, chacun vérifiable sur un diff.
+
+- **Une seule règle d'identité (INT-STUDIUM-025).** La colonne « session runs » publiait la
+  cohorte que lui rendait `build_report`, qui retombe sur le CHEMIN DU FLUX quand un flux ne porte
+  pas de pseudonyme (`tools/class_report.py:163`) : un apprenant synthétique par flux muet, donc
+  une population comptée autrement que celle sur laquelle cette page avait appliqué son plancher.
+  Le nombre publié vient désormais du préflight lui-même. Le chiffre de `build_report` reste
+  affiché sous le nom qu'il porte honnêtement, `n_streams`, et la ligne de divergence compare donc
+  deux populations comptées de la même façon des deux côtés — ou ne compare rien.
+
+- **Une cohorte de jugement est une bande, jamais une taille (call 1).** `cohort_band`
+  (`5–9 / 10–19 / 20+`), `cohort_counts` qui dit si la bande compte des personnes ou des paires
+  apprenant-leçon, et `non_attribution` qui dit en toutes lettres que le nombre est une lecture de
+  classe. Un effectif exact bouge à chaque nouveau contributeur — dix-neuf transitions sur une
+  classe de vingt-quatre, chacune datable contre une liste que l'enseignant détient ; la bande
+  bouge deux fois. Le `>= 5` que la synthèse proposait est écarté par R1 elle-même : il ne nomme
+  aucune population, et une calibration sur cinq contributeurs arriverait identique à une
+  calibration sur vingt-quatre.
+
+- **Ce qui est retenu est un motif, jamais un compte (R2, deuxième clause).**
+  `withheld_below_floor` / `withheld_unseen` / `withheld_unreadable` remplacent
+  `n_withheld_scenes` et `n_withheld_lessons`. **Et la phrase perd le compte aussi** — c'est le
+  test qui l'a trouvé : trois booléens à côté d'une raison disant « 3 scene(s) withheld »
+  laissaient le canal exactement où il était. Trois nombres de scènes retenues produisent
+  maintenant la même charge utile, octet pour octet.
+
+- **`ok` veut dire qu'un nombre a été calculé (R1 au niveau de la valeur).** Chaque famille porte
+  `measured`, et quand il est faux la famille dit pourquoi le `null` EST la mesure : aucune leçon
+  commencée (`n_started == 0`), ou tout audit non étayé (`planted_errors == 0`). Le drapeau est
+  calculé sur la valeur réellement publiée et jamais recopié d'un lecteur : un lecteur qui
+  annonce `measured: true` à côté du `null` qu'il publie est le défaut, pas l'autorité sur le
+  défaut — quand le rapport de classe le fait, la page le dit. `over_distrust` reste `null` sans
+  faire basculer `measured` : l'écart qui A été mesuré n'est pas supprimé avec celui qui ne l'a
+  pas été (le piège de la garde symétrique, INT-STUDIUM-026).
+
+Et le nit que l'intent avait déposé sur `_read` : un `TypeError` levé par l'APPEL — signature qui
+ne lie pas, donc aucune frame du lecteur sous la nôtre — n'est plus « unreadable », qui envoyait
+l'opérateur chercher dans sa propre télémétrie un défaut situé dans cette page. C'est un sixième
+état, `broken`, et le discriminateur est lui-même sous test dans les deux sens.
+
+Trois tests qui épinglaient les entiers retenus sont réécrits, pas supprimés, et l'assertion qui
+les remplace est la plus forte : la famille ne publie AUCUN compte de retenue. Un test à jeu de
+clés exact accueille les trois clés de jugement explicitement, parce qu'un test de clés exactes
+est l'endroit où une nouvelle clé doit être défendue.
+
+`services/observatory` **197 passés** (186 avant, +11) ; suite Python complète **16 suites, 0 en
+échec**. Aucun TypeScript touché. `metrics.py` et `tools/class_report.py` restent intacts : leur
+tour est la seconde tranche, sous la contrainte de consommateur existant d'INT-STUDIUM-005.
+
+---
+
 ## 2026-09-07 — OBSERVATORY TRANCHE 2, RETOUR DE REVUE : une réparation qui retirait une mesure vraie
 
 Seconde revue indépendante, portée sur `cef794c..e6c8e8d` — la réparation elle-même. Les quatre

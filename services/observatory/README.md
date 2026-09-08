@@ -176,7 +176,38 @@ readable source is suppressed, the other is suppressed with it: a number shown o
 and withheld on the other is the withheld one, by subtraction. A source that is *absent* or
 *unreadable* withholds nothing, so the other column still renders alone. An unreadable
 source names a basename and an exception class and nothing else — every path segment above
-a `telemetry.jsonl` is a pseudonym, and an exception message carries the path.
+a `telemetry.jsonl` is a pseudonym, and an exception message carries the path. A reader called
+wrongly by this page is a sixth state, `broken`, and not an unreadable source: the old wording
+sent an operator to hunt through their own telemetry for a defect that is in the projection.
+
+### What a published number may say about the people behind it (INT-STUDIUM-030, R1)
+
+* **One identity rule, and it is the preflight's.** The cohort count published for the session
+  runs column is the population this page actually floored, never `build_report`'s own figure —
+  that reader falls back to a stream's file path when a stream carries no pseudonym, so its
+  count can include one synthetic learner per pseudonym-less stream. `build_report`'s figure is
+  still shown, under the name it honestly has: `n_streams`. The divergence row therefore
+  compares two populations counted the same way, or it compares nothing.
+* **A judgement metric names its population as a band.** Trust calibration, over-trust,
+  over-distrust and autonomy carry `cohort_band` (`5–9`, `10–19`, `20+` at the default floor),
+  `cohort_counts` saying whether that band counts people or learner-lesson pairs, and a
+  `non_attribution` sentence stating that the number is a class reading and not a statement
+  about a student. An exact cohort size moves once per contributor — nineteen transitions over
+  a class of twenty-four, each timeable against the roster; the band moves twice. Participation
+  counts stay exact: "six of your twenty-four did this lesson" is something the teacher already
+  has from the room.
+* **What was withheld is a reason, never a count.** `withheld_below_floor`,
+  `withheld_unseen` and `withheld_unreadable` replace `n_withheld_scenes` and
+  `n_withheld_lessons`, and the prose beside them carries no number either. A reader still
+  cannot mistake a course of eight scenes for one of twelve, and still learns why a key is
+  missing; what is gone is the monotone integer. One boolean per reason also makes the old
+  disagreement unrepresentable — the integers summed three differently-caused populations while
+  the sentence distinguished all three.
+* **`ok` means a number was computed.** Every family carries `measured`. When it is false the
+  family says why the null is itself the measurement — no lesson was started, or every audit was
+  ungrounded — instead of publishing a blank an operator reads as a zero. The flag is computed
+  from the value actually published and never copied from a reader's own claim; where the class
+  report's own `measured` disagrees, the page says so.
 
 ## Tests
 

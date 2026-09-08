@@ -16,6 +16,29 @@
 {%- endif %}
 {%- endmacro %}
 
+{#- What a family withheld, by REASON and never by count (INT-STUDIUM-030, R2). A number
+    here would be monotone as the course grows and read against a roster the teacher holds. -#}
+{% macro withheld(family) -%}
+{%- if family.withheld_below_floor or family.withheld_unseen or family.withheld_unreadable %}
+<p class="path">withheld —
+  {%- if family.withheld_below_floor %} below the floor;{% endif %}
+  {%- if family.withheld_unseen %} not in the cohort check, so no floor was applied;{% endif %}
+  {%- if family.withheld_unreadable %} no finite value;{% endif %}
+  flags and not counts: how many were withheld would say how large the class is.</p>
+{%- endif %}
+{%- endmacro %}
+
+{#- A judgement metric names the population it rests on as a BAND, and says what it is not
+    (INT-STUDIUM-030, call 1). Both lines are in the payload, so this page and its JSON twin
+    carry the same sentence and cannot drift. -#}
+{% macro judgement(family) -%}
+{%- if family.status == "ok" %}
+<p class="path">cohort <b>{{ family.cohort_band }}</b> {{ family.cohort_counts }} ·
+  measured: {{ family.measured }}</p>
+<p class="path" role="note">{{ family.non_attribution }}</p>
+{%- endif %}
+{%- endmacro %}
+
 {% macro source_head(label, path, column) -%}
 <p><b>{{ label }}</b> · <span class="{{ column.status }}">{{ column.status }}</span></p>
 <p class="path">{{ path or "not configured" }}</p>
@@ -54,6 +77,14 @@
   each metric was actually computed over. That floor restrains singling out; it does not make
   these numbers anonymous to you, who hold the roster.
 </p>
+<p class="path">
+  A judgement metric — trust calibration, over-trust, over-distrust, autonomy — names the
+  population it rests on as a band ({{ detail.min_learners }}&#8211;9 / 10&#8211;19 / 20+) and
+  never as an exact size: an exact count moves once per contributor, and each move is an event
+  that can be timed against the roster. What a family withheld is stated as a reason and never
+  as a count, for the same reason. `measured` says whether a number was computed at all: an
+  absent value here is a measurement that says so, not a zero.
+</p>
 <p class="banner">{{ detail.notes[0] }}</p>
 
 <table>
@@ -78,6 +109,7 @@
           {%- endfor %}
           </tbody>
         </table>
+        {{ withheld(c.progress) }}
         {%- endif %}
 
         <p><b>Lesson completion</b> <span class="path">compute_course_completion: distinct
@@ -94,6 +126,7 @@
               <td>{{ n(c.course_completion.total_completions) }}</td></tr>
           </tbody>
         </table>
+        {{ withheld(c.course_completion) }}
         {%- endif %}
 
         {#- INT-STUDIUM-023: the two columns return two different measurements under the
@@ -106,6 +139,7 @@
         {{ kv({"autonomy_ratio": n(c.autonomy.autonomy_ratio),
                "critique_completion_rate": n(c.autonomy.critique_completion_rate),
                "n_critique": c.autonomy.n_critique, "n_hints": c.autonomy.n_hints}) }}
+        {{ judgement(c.autonomy) }}
         {%- endif %}
 
         <p><b>Trust calibration</b></p>
@@ -114,6 +148,7 @@
         {{ kv({"trust_calibration": n(c.trust.trust_calibration), "band": c.trust.band,
                "n_audits": c.trust.n_audits, "over_trust": n(c.trust.over_trust),
                "over_distrust": n(c.trust.over_distrust)}) }}
+        {{ judgement(c.trust) }}
         {%- endif %}
         {% endif %}
       </td>
@@ -126,7 +161,8 @@
         <p><b>Completion</b></p>
         {{ why(s.report.completion) }}
         {%- if s.report.completion.status == "ok" %}
-        {{ kv({"completion_rate": n(s.report.completion.completion_rate)}) }}
+        {{ kv({"completion_rate": n(s.report.completion.completion_rate),
+               "measured": s.report.completion.measured}) }}
         {%- endif %}
 
         <p><b>{{ detail.indicator_names.sessions_autonomy }}</b>
@@ -134,6 +170,7 @@
         {{ why(s.report.autonomy) }}
         {%- if s.report.autonomy.status == "ok" %}
         {{ kv({"mean_autonomy": n(s.report.autonomy.mean_autonomy)}) }}
+        {{ judgement(s.report.autonomy) }}
         {%- endif %}
 
         <p><b>Trust calibration</b></p>
@@ -141,6 +178,7 @@
         {%- if s.report.trust.status == "ok" %}
         {{ kv({"measured": s.report.trust.measured, "n_scenes": s.report.trust.n_scenes,
                "gap": n(s.report.trust.gap), "band": s.report.trust.band}) }}
+        {{ judgement(s.report.trust) }}
         {%- endif %}
 
         <p class="path">The class report's concept, adaptation-rule, reteach and per-scene
