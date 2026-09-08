@@ -286,16 +286,72 @@ def test_a_legacy_review_file_that_leaves_the_course_is_not_read(client, course_
     assert SECRET not in client.get("/courses/course-link-legacy").text
 
 
-def test_the_strict_loader_refuses_an_artifact_that_leaves_the_course(course_root,
-                                                                      tmp_path) -> None:
-    """The renderer loads strictly, and strict has always meant "raise, do not guess".
-    Containment is not an exception to it: a silent skip there would be a silent gap."""
+def test_the_strict_loader_names_an_artifact_that_leaves_the_course(course_root,
+                                                                    tmp_path) -> None:
+    """An escaping path is a GAP in the artifact, not a fault of it — under strict too.
+
+    This assertion is the reverse of the one it replaces, and the reversal is
+    INT-STUDIUM-028's decision, taken after the survey the intent required. Strict means
+    "do not guess", and naming a path `OUTSIDE` is not a guess: it is the same report the
+    non-strict path already makes, and containment is identical either way — the file is
+    not opened in either branch.
+
+    The survey found exactly one non-test strict caller, `tools/astra_render.py:107`
+    inside `render()`, reached by two consumers, and the raise served neither: the CLI
+    exited on a traceback, and the Observatory's `/courses/{id}/provenance.myst.md`
+    caught it and degraded the WHOLE page to "(unreadable course: ValueError)" — while
+    the marker list underneath, built with `strict=False`, correctly said OUTSIDE. A
+    readable course rendered as unreadable, and the page contradicted itself two lines
+    apart.
+    """
     course = _course(course_root, "course-link-strict")
     rdir = _review(course)
     (rdir / "verdicts.json").unlink()
     (rdir / "verdicts.json").symlink_to(_outside(tmp_path) / "verdicts.json")
 
-    with pytest.raises(ValueError):
+    docs = load_course(course, strict=True)
+
+    assert docs.absent["review/b1/verdicts.json"] == OUTSIDE
+    assert SECRET not in json.dumps(docs.absent)
+    # The contained half of the same review still reads: one escaping path is one gap.
+    assert [r.bundle_id for r in docs.reviews] == ["b1"]
+
+
+def test_a_course_with_an_escaping_review_path_still_renders_its_provenance_page(
+        client, course_root, tmp_path) -> None:
+    """The visible half of INT-STUDIUM-028: the page said the course was unreadable.
+
+    `myst_page` calls `astra_render.render`, which loads strictly, and caught the raise
+    into "(unreadable course: ValueError)" — the whole page, for one escaping link —
+    while the marker list it appends, built with `strict=False`, said OUTSIDE on the one
+    path that was actually missing. Two adjacent lines disagreeing about the same course.
+    """
+    course = _course(course_root, "course-link-myst")
+    rdir = _review(course)
+    (rdir / "verdicts.json").unlink()
+    (rdir / "verdicts.json").symlink_to(_outside(tmp_path) / "verdicts.json")
+
+    page = client.get("/courses/course-link-myst/provenance.myst.md")
+
+    assert page.status_code == 200
+    assert "unreadable course" not in page.text, page.text[:400]
+    assert "course provenance" in page.text, page.text[:400]
+    assert SECRET not in page.text
+
+
+def test_the_strict_loader_still_raises_on_a_fault_that_is_not_a_gap(course_root,
+                                                                     tmp_path) -> None:
+    """Naming the escaping path does not soften strict anywhere else.
+
+    A broken YAML under strict still propagates, because there the loader genuinely
+    cannot say what the artifact holds — which is the distinction INT-STUDIUM-028 drew:
+    a gap is reported, a fault is raised.
+    """
+    course = _course(course_root, "course-link-strict-yaml")
+    rdir = _review(course)
+    (rdir / "astra.yaml").write_text("{not: [valid", encoding="utf-8")
+
+    with pytest.raises(Exception):
         load_course(course, strict=True)
 
 

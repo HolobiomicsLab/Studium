@@ -35,7 +35,11 @@ has verdicts, and dropping the bundle for the first fault would turn a readable
 artifact into a silent gap, the fault INT-STUDIUM-020 fixed for the flat legacy file.
 And every path under it is checked for CONTAINMENT before it is inspected: `is_file()`
 and `is_dir()` follow symlinks, so without that a link dropped into `review/` makes
-this loader return, and its readers render, a document from anywhere on the host.
+this loader return, and its readers render, a document from anywhere on the host. An
+escaping path is named `OUTSIDE` in `absent` and not opened, under both strictnesses:
+containment is a gap in the artifact, not a fault of it, and an operator who assembles
+a course with a link into a shared review store gets a named gap rather than a crash
+(INT-STUDIUM-028).
 """
 from __future__ import annotations
 
@@ -239,14 +243,25 @@ def load_course(course_dir: Path | str, *, strict: bool = True) -> CourseDocs:
 
         A path that does not exist is left to its reader, which names it `MISSING`;
         one that exists elsewhere is named and not opened, so nothing outside the
-        course reaches a caller. Strict raises instead, because strict has always
-        meant "do not guess", and a silent skip there would be the silent gap.
+        course reaches a caller. **Strict behaves the same way** (INT-STUDIUM-028).
+
+        Strict means "do not guess", and this is not a guess: an escaping path is a
+        GAP in the artifact, reported under its own name, exactly as the non-strict
+        path reports it. Containment is identical in both branches — the file is not
+        opened either way. Strict still raises where the loader genuinely cannot say
+        what a file holds (a YAML or OS error), because that is a fault, not a gap.
+
+        It used to raise, and the survey the intent required found the raise served
+        nobody: the only non-test strict caller is `tools/astra_render.py:107`, whose
+        two consumers are a CLI that exited on a traceback and the Observatory's
+        `provenance.myst.md` route, which caught it and degraded the whole page to
+        "(unreadable course: ValueError)" while the marker list beneath it — built
+        with `strict=False` — correctly named the path OUTSIDE. A readable course
+        rendered as unreadable, and the page contradicted itself two lines apart.
         """
         path = course_dir / rel
         if not path.exists() or _within(course_dir, path):
             return True
-        if strict:
-            raise ValueError(f"{rel} leaves the course directory")
         LOGGER.warning("review artifact leaves the course directory: %s", path)
         absent[rel] = OUTSIDE
         return False
