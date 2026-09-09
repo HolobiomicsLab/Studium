@@ -37,6 +37,23 @@ $PY eval/validity/run_all.py --corpus 01
 `kt_calibration/data/assistments09_canonical.csv` exists (see
 `kt_calibration/external_result.json`), else falls back to synthetic.
 
+## The committed scorecard
+
+`run_all.py` also writes `SCORECARD.json` and `SCORECARD.md` here — the one artifact in this
+tree that is **committed** (INT-STUDIUM-002). Everything else a run produces is gitignored,
+because `eval/reports/` carries per-learner state, so a sentence citing these numbers had
+nothing in the repository to point at. The scorecard names the run id, the commit the tools
+ran at, and — per tool — the report it read together with that report's **sha256**.
+
+The digest is not decoration. `grounding_relevance` and `bea_tutor` name their report after the
+BUNDLE (`05-bundle.json`), so the next run of the same course overwrites it in place; the
+digest is what lets a later reader tell whether the file still holds the numbers quoted. And a
+report is matched to a run by its own `run_dir` / `bundle` field, never by its filename: a tool
+whose report belongs to a different run is recorded as **not attributed**, not quietly adopted.
+
+`kt_calibration` is recorded as run-independent (`n/a`), because it validates the learner model
+against ASSISTments and returns the same number whatever run id is beside it.
+
 ## What this suite does NOT do
 - It does **not** establish *learning efficacy* — that needs a **Tier-3 pilot RCT** with a
   no-AI transfer test (the crutch-effect check; EV-11). All in-session metrics are suspect for efficacy.

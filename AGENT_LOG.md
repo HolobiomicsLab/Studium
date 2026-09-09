@@ -4,6 +4,54 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-09 — INT-STUDIUM-002 : une carte de résultats commise, et ce que la relecture du run bloqué a réellement montré
+
+La moitié repo de -002. La question ouverte de l'intent — le non-achèvement de `hint_reliant`
+est-il un défaut d'instrument (plafond de tours trop bas) ou un vrai résultat ? — **n'a ni l'une
+ni l'autre réponse.**
+
+La lecture tour par tour du run `05-claude-20260615-203632` montre une **boucle de trois scènes** :
+du tour 4 au tour 57, la session repasse les mêmes trois quiz (index 10, 6, 2), `scenesCompleted`
+figé à 4, la maîtrise figée à 0,783 sous un seuil que l'un des concepts a franchi à 0,8, et un
+indice demandé à **chacun** des 58 tours de quiz. Le plafond n'a pas tronqué une session longue
+mais qui progressait : il a arrêté une session qui ne progressait plus depuis le tour 4. Un
+plafond plus haut n'aurait rien changé sinon le nombre de tours identiques enregistrés.
+
+Et le run n'est pas attribuable au code commis : `hint_reliant` et `misconception` n'entrent dans
+`eval/harness/personas.mjs` que le 2026-06-20 (`9c64a00`, « consolidate accumulated working-tree
+state »), **cinq jours après** le run du 2026-06-15 qui les nomme. Le commentaire de
+`makeHintReliant` décrit précisément le contraire de ce qui s'est produit — « INTERNALISES … the
+persona COMPLETES … instead of offloading forever and hitting the turn cap » — ce qui se lit comme
+un correctif écrit *après* avoir observé cette boucle. Le §8 du manuscrit s'appuie donc sur un run
+produit par du code qui n'est pas le code commis. C'est exactement le défaut que -002 nomme, sous
+une forme plus forte que « l'entrée C7 ne porte pas d'identifiant de run ».
+
+- **Re-run déterministe, gratuit** (`--author deterministic`, corpus 05, aucun modèle payant) :
+  les cinq personas terminent, `hint_reliant` en 17 tours, verdict `PASS`, aucune branche
+  manquante. Run `05-deterministic-20260909-113535`.
+- **`eval/validity/scorecard.py` + `SCORECARD.json` / `.md`**, écrits par `run_all.py` et
+  **commis**, à la manière de `bea_external/external_result.json`. La carte nomme le run, le
+  commit, et pour chaque outil le rapport lu **avec son sha256**.
+- **L'appariement se fait sur le CONTENU, jamais sur le nom de fichier.** `grounding_relevance`
+  et `bea_tutor` nomment leur rapport d'après le *bundle* (`05-bundle.json`) : le run suivant du
+  même cours l'écrase sur place. Un rapport qui appartient à un autre run est marqué **non
+  attribué** au lieu d'être adopté silencieusement, et le sha256 est ce qui permet à un lecteur
+  ultérieur de savoir si le fichier porte encore les nombres cités.
+- **`kt_calibration` est enregistré comme indépendant du run** (`n/a`) : il valide le modèle
+  d'apprenant contre ASSISTments et rendrait le même nombre à côté de n'importe quel run id — le
+  marquer « attribué » ferait lire une constante comme une réplication.
+- **Garde RGPD avant toute écriture** : `eval/reports/` est gitignoré parce qu'il porte de l'état
+  par apprenant·e, et ce fichier-ci est commis. La garde refuse la CLÉ plutôt que de la filtrer,
+  et distingue un pseudonyme (16 hex) d'un sha256 (64 hex) par la forme exacte.
+
+**Pour le·la propriétaire, non traité ici** : le run frais donne `relevance_grade 0.5` (2 scènes
+évidenciées sur 4 sous le seuil), là où le §8 énonce « relevance grade 1.0 ». La formulation du §8
+et l'entrée C7 du PAPER_SPEC vivent dans le dépôt manuscrit et ne sont pas modifiées ici.
+
+Vérification : `python tools/pytest_all.py` → 16 suites, 0 failing (eval/validity 133 → 145).
+
+---
+
 ## 2026-09-09 — INT-STUDIUM-030, R1 ÉTAPE 2 : chaque nombre publié nomme la population sur laquelle il a été calculé
 
 R1 sur les trois surfaces restantes — les endpoints du collecteur, `tools/class_report.py`, le

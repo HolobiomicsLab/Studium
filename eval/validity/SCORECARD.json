@@ -1,0 +1,119 @@
+{
+  "schema": "studium-validity-scorecard/1",
+  "run_id": "05-deterministic-20260909-113535",
+  "run_dir": "eval/reports/05-deterministic-20260909-113535",
+  "corpus": "05",
+  "author_mode": "deterministic",
+  "git_commit": "ff7abc24b8922ac11b3b32473e2341d158f23381",
+  "generated_at": "2026-09-09T09:43:11Z",
+  "tools": {
+    "kt_calibration": {
+      "exit_code": 0,
+      "status": "ok",
+      "source_report": "eval/validity/kt_calibration/reports/20260909T114311.json",
+      "source_sha256": "93b67f61cfb86fed116bfd8174e878cd01e379796d70345bd34d27b3a6a61d0c",
+      "attributed_to_run": null,
+      "headline": {
+        "source_type": "csv",
+        "n_observations": 278336,
+        "beta_beats_running_mean": true,
+        "results": {
+          "beta": {
+            "auc": 0.6981769869734796,
+            "brier": 0.20895070531854049,
+            "acc": null,
+            "n": 278336
+          },
+          "bkt": {
+            "auc": 0.6775900256384527,
+            "brier": 0.21784346571524096,
+            "acc": null,
+            "n": 278336
+          },
+          "running_mean": {
+            "auc": 0.6932838664934053,
+            "brier": 0.21546307082761787,
+            "acc": null,
+            "n": 278336
+          }
+        }
+      },
+      "note": "validates the learner model against an external dataset, not against this run: the same number for any run id"
+    },
+    "persona_validation": {
+      "exit_code": 0,
+      "status": "ok",
+      "source_report": "eval/validity/persona_validation/reports/05-deterministic-20260909-113535.json",
+      "source_sha256": "fbcb95bb20b5ebb0546049bca55eef0b5848d67a57a040ac02da506e47b850c0",
+      "attributed_to_run": true,
+      "headline": {
+        "verdict": "pass",
+        "n_personas": 5,
+        "completed": {
+          "hint_reliant": true,
+          "misconception": true,
+          "overconfident": true,
+          "proficient": true,
+          "struggling": true
+        },
+        "n_turns": {
+          "hint_reliant": 17,
+          "misconception": 35,
+          "overconfident": 24,
+          "proficient": 15,
+          "struggling": 35
+        },
+        "max_collapse_score": 0.934161,
+        "missing_branches": [],
+        "findings": []
+      }
+    },
+    "grounding_relevance": {
+      "exit_code": 0,
+      "status": "ok",
+      "source_report": "eval/validity/grounding_relevance/reports/05-bundle.json",
+      "source_sha256": "af1b55a82f8d15c6c628fe7624a90b6d39279ba4363b1a8409857938aec06a58",
+      "attributed_to_run": true,
+      "headline": {
+        "verdict": "relevant",
+        "n_evidenced_scenes": 4,
+        "mean_best_relevance": 0.08078973938284849,
+        "relevance_grade": 0.5,
+        "threshold": 0.06
+      }
+    },
+    "bea_tutor": {
+      "exit_code": 0,
+      "status": "ok",
+      "source_report": "eval/validity/bea_tutor/reports/05-bundle.json",
+      "source_sha256": "d1c7912c0d26d1064e2fab59ce1113d8d58fea202c9651a1c4d4d5d8125659b0",
+      "attributed_to_run": true,
+      "headline": {
+        "n_moves": 27,
+        "reveal_rate": 0.0,
+        "actionability_rate": 0.4444444444444444,
+        "summative_safe_rate": 1.0
+      }
+    },
+    "reasoning_depth": {
+      "exit_code": 0,
+      "status": "ok",
+      "source_report": "eval/validity/reasoning_depth/reports/05-deterministic-20260909-113535.json",
+      "source_sha256": "3c40a27a91cb14598896e44845661533dac96b294aa65d97176cd73cc642bfe5",
+      "attributed_to_run": true,
+      "headline": {
+        "verdict": {
+          "anti_offloading_ok": true,
+          "eliciting_depth": false,
+          "contingent": false
+        },
+        "n_signals": 0,
+        "depth_slope": null,
+        "signal_entropy": 0.0,
+        "n_moves": 0,
+        "reveal_violations": 0
+      }
+    }
+  },
+  "learner_data": "none — aggregates only; the run directory that produced these numbers is gitignored and stays local"
+}

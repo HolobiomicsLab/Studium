@@ -9,6 +9,11 @@ Thin orchestrator over the three validity tools (each independently tested):
 Usage:
   python eval/validity/run_all.py --corpus 01     # runs an eval, then validates it
   python eval/validity/run_all.py --run-dir DIR   # validates an existing eval run dir
+
+It also writes ONE aggregate scorecard (INT-STUDIUM-002) naming the run id, the commit, and
+the digest of every report it read — see `scorecard.py`. Printing a summary that vanishes with
+the terminal was the whole gap: a paragraph could cite these numbers and nothing in the
+repository said which run they came from.
 """
 from __future__ import annotations
 
@@ -17,6 +22,10 @@ import glob
 import os
 import subprocess
 import sys
+from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from eval.validity import scorecard as scorecard_mod  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 EVAL_DIR = os.path.dirname(HERE)
@@ -37,6 +46,9 @@ def main(argv: list[str]) -> int:
     g.add_argument("--corpus", help="run eval on this corpus id then validate")
     g.add_argument("--run-dir", help="validate an existing eval run dir")
     p.add_argument("--seed", default="1", help="kt_calibration synthetic seed")
+    p.add_argument("--scorecard", default=os.path.join(HERE, "SCORECARD.json"),
+                   help="aggregate scorecard to write (a sibling .md is written beside it); "
+                        "pass an empty string to skip")
     args = p.parse_args(argv)
 
     codes: dict[str, int] = {}
@@ -95,6 +107,20 @@ def main(argv: list[str]) -> int:
         )
     else:
         print("\n[reasoning_depth] skipped (no run dir)", flush=True)
+
+    if run_dir and args.scorecard:
+        # Written from the tools' own reports, not from what this process printed: the
+        # scorecard has to be checkable against files on disk, including by someone who was
+        # not here when it ran.
+        card = scorecard_mod.build(run_dir, Path(HERE), Path(REPO), codes)
+        json_path = Path(args.scorecard)
+        scorecard_mod.write(card, json_path, json_path.with_suffix(".md"))
+        print(f"\n[scorecard] {json_path} (+ .md) — run_id={card['run_id']}")
+        unattributed = [n for n, t in card["tools"].items() if t["attributed_to_run"] is False]
+        if unattributed:
+            print(f"[scorecard] NOT attributable to this run: {', '.join(unattributed)}")
+    elif not run_dir:
+        print("\n[scorecard] skipped (no run dir)", flush=True)
 
     print(f"\n{'=' * 70}\nVALIDITY SUITE SUMMARY\n{'=' * 70}")
     for k, v in codes.items():
