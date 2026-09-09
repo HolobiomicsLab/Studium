@@ -36,6 +36,11 @@ def test_renders_all_sections_from_real_artifacts(tmp_path):
     page = render(_emit_course(tmp_path))
     assert "## Decisions" in page and "Prerequisite gating strictness" in page
     assert "## Universes" in page and "baseline" in page
+    # The section is the DELTA, not the selection: the baseline moves nothing, so it says
+    # so as a count. Printing every decision is what INT-STUDIUM-010 nit 3 closed — the
+    # emitter assigns all of them, so the full list is the default list once per universe.
+    assert "3 decisions at default" in page
+    assert "- prereq_strictness: `standard`" not in page
     assert "## Exploration trace" in page and "```{mermaid}" in page and "N01" in page
     assert "## Findings" in page and "link:wf:c1" in page
     assert "do not edit by hand" in page

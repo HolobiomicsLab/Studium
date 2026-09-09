@@ -32,7 +32,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "services" / "planner"))
 
 from provenance.astra_emit import analysis_body, source_edge_id  # noqa: E402
-from provenance.astra_read import load_course, load_yaml, universe_selection  # noqa: E402
+from provenance.astra_read import (  # noqa: E402
+    load_course, load_yaml, universe_selection, universe_summary_lines,
+)
 
 # The reading helpers moved to provenance.astra_read; these names stay for callers
 # that import them from here.
@@ -119,11 +121,16 @@ def render(course_dir: Path) -> str:
         lines.extend(_decision_lines(dslug, d))
 
     if docs.universes:
-        lines += ["## Universes", ""]
+        # What each universe CHANGES, not everything it selects. The emitter assigns every
+        # decision of the analysis so no selection reads `[MISSING_DECISION]`, so the full
+        # list is the default list repeated once per universe and the delta — the only thing
+        # a universe is — is buried in it (INT-STUDIUM-010 nit 3).
+        lines += ["## Universes", "",
+                  "Each universe is a delta: the decisions it moves, then a count of the "
+                  "ones it leaves at their default.", ""]
         for u in docs.universes:
             lines.append(f"- **{u.get('id', '')}** — {u.get('description', '')}")
-            for did, opt in universe_selection(u).items():
-                lines.append(f"  - {did}: `{opt}`")
+            lines += universe_summary_lines(u, docs.astra)
         lines.append("")
 
     trace = docs.trace

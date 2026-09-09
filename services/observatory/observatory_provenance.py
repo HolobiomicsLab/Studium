@@ -42,7 +42,9 @@ from provenance.astra_read import (  # noqa: E402
     REVIEW_FILE,
     VERDICTS_BASENAME,
     ReviewDoc,
+    analyses_of,
     load_course,
+    universe_diff,
     universe_selection,
 )
 
@@ -77,55 +79,6 @@ def _mapping(value: Any) -> Mapping[str, Any]:
     names a whole document of the wrong shape in `absent`.
     """
     return value if isinstance(value, Mapping) else {}
-
-
-def analyses_of(doc: Mapping[str, Any] | None) -> list[tuple[str, Mapping[str, Any]]]:
-    """(slug, body) pairs. A nested document yields its `analyses`; a pre-nesting flat
-    document is its own single body, the rule `astra_emit.analysis_body` applies."""
-    if not doc or not isinstance(doc, Mapping):
-        return []
-    analyses = doc.get("analyses")
-    if isinstance(analyses, Mapping) and analyses:
-        return [(str(slug), _mapping(body)) for slug, body in analyses.items()]
-    if analyses:
-        # The document declares a container and wrote something else. It is not a flat
-        # legacy document either, so there is no body to show: an empty analyses list,
-        # not the `analysis_body` traversal that would raise on it.
-        LOGGER.warning("astra.yaml has a non-mapping `analyses` block: %r", type(analyses).__name__)
-        return []
-    slug, body = analysis_body(dict(doc))
-    return [(slug or "root", _mapping(body))]
-
-
-def _defaults_by_analysis(doc: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
-    return {slug: {did: _mapping(d).get("default")
-                   for did, d in _mapping(body.get("decisions")).items()}
-            for slug, body in analyses_of(doc)}
-
-
-def universe_diff(universe: Mapping[str, Any],
-                  doc: Mapping[str, Any] | None) -> dict[str, list[Any]]:
-    """`{decision: [default, chosen]}` for every option this universe moves away from
-    the default of the analysis it nests under."""
-    per_analysis = _defaults_by_analysis(doc)
-    merged: dict[str, Any] = {}
-    for defaults in per_analysis.values():
-        merged.update(defaults)
-
-    diff: dict[str, list[Any]] = {}
-    nested = universe.get("analyses")
-    pairs: list[tuple[dict[str, Any], Mapping[str, Any]]]
-    if isinstance(nested, Mapping) and nested:
-        pairs = [(per_analysis.get(str(slug), merged), _mapping(_mapping(body).get("decisions")))
-                 for slug, body in nested.items()]
-    else:
-        pairs = [(merged, _mapping(universe_selection(universe)))]
-    for defaults, selection in pairs:
-        for did, chosen in selection.items():
-            default = defaults.get(did)
-            if chosen != default:
-                diff[did] = [default, chosen]
-    return diff
 
 
 def summarize_course(ref: CourseRef) -> CourseSummary:
