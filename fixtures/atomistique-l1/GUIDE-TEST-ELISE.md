@@ -209,12 +209,25 @@ Relancez **« Studium: Open Lesson »**. En jouant l'étudiant·e, vous voyez :
 > C'est la réponse à « voir le graphe en direct pour comprendre ce qui est proposé », côté prof.
 > Repassez `showMastery` à off et `graphView` à `student` pour retrouver la vue élève.
 
-## 3B — Rapport de classe (agrégé, anonyme — RGPD)
+## 3B — Rapport de classe (agrégé, sans nommer personne — RGPD)
 
 Studium peut produire un **rapport de classe** : quels concepts re-travailler, où l'on s'appuie trop
 sur les indices, la calibration (sur/sous-confiance), l'autonomie, la complétion — **sans jamais
-nommer un·e étudiant·e** (la maîtrise individuelle reste sur l'appareil de l'élève ; un **seuil de
-k-anonymat** refuse tout chiffre qui ré-identifierait quelqu'un).
+nommer un·e étudiant·e** (la maîtrise individuelle reste sur l'appareil de l'élève ; un **plancher
+d'anonymat** retient les chiffres calculés sur trop peu de contributeurs).
+
+> **Ce que le plancher fait — et ce qu'il ne fait pas.** C'est une *retenue contre
+> l'identification*, pas une garantie d'anonymat : vous connaissez votre classe, et aucun traitement
+> ne vous fera l'oublier. Ce qu'il garantit, c'est que cet instrument ne devienne pas un rapport par
+> élève — ni par accident, ni par filtrage, ni par lecture patiente au fil du trimestre.
+>
+> Concrètement : le plancher s'applique **par leçon** (un pseudonyme est calculé par leçon, donc
+> réunir deux leçons compte des *paires apprenant·e–leçon* et non des personnes) et **par ligne**
+> — une ligne dont les contributeurs sont trop peu nombreux n'est pas publiée, et le rapport signale
+> qu'il en manque sans dire combien. Et chaque **lecture de jugement** (calibration, confiance dans
+> l'IA, autonomie, qualité du raisonnement) dit sur quelle population elle a été calculée, sous
+> forme de **tranche** — `5–9`, `10–19`, `20+` au plancher par défaut — plutôt que d'effectif
+> exact : la taille précise d'un petit groupe est elle-même une information sur ce groupe.
 
 **Le plus rapide (5 « élèves » simulés)** — pour voir le rapport sans tout refaire à la main :
 
@@ -289,7 +302,8 @@ python3 tools/class_report.py fixtures/data --min-learners 1 --bundle fixtures/a
 Le PDF du cours et le **texte brut extrait** restent **en local** (ignorés par git :
 `_extract/*.text.txt`). Le **rapport de classe est agrégé** : jamais de ligne par élève, jamais de
 pseudonyme, pas de texte libre (les indices/journaux/discussions ne quittent pas l'appareil), et un
-**plancher de k-anonymat** bloque les nombres ré-identifiables. La maîtrise individuelle ne quitte
+**plancher d'anonymat** retient les chiffres calculés sur trop peu de contributeurs — une retenue
+contre l'identification, pas une garantie d'anonymat (voir 3B). La maîtrise individuelle ne quitte
 pas l'appareil de l'élève.
 
 ---
