@@ -21,12 +21,21 @@ pointeurs résolvent toujours et `AGENTS.md` y fait toujours foi.
 
 ## Où est le travail — et où le lire
 
-**Sur `dev`, pas sur `main`.** `main` n'a pas bougé depuis le 2026-06-27 (`0293287`) ; `dev`
-est très largement devant et porte tout le travail depuis. Vérifier plutôt que croire :
+**Sur `dev`, pas sur `main`.** `dev` porte le travail courant ; `main` reçoit des intégrations
+par lots, à intervalles irréguliers. Aucun numéro n'est donné ici : ce fichier ne porte pas
+d'instantané (voir juste en dessous), les commandes ci-dessous en donnent un frais.
+
+**Et il faut `fetch` avant de comparer.** La recette qui figurait ici lisait la ref `main`
+LOCALE, qui dans un clone où l'on ne sort jamais de `dev` n'est jamais mise à jour : elle
+répondait `0293287` (2026-06-27) trois mois après que `origin/main` avait avancé, et un relevé
+de statut mené avec elle a conclu l'inverse de la vérité sur onze intents. La ref locale d'une
+branche sur laquelle on ne travaille pas ne se met pas à jour toute seule.
 
 ```bash
-git log -1 --format='%h %ad %s' --date=short main dev
-git rev-list --count main..dev
+git fetch origin                                                  # d'abord, toujours
+git log -1 --format='%h %ad %s' --date=short origin/main dev
+git rev-list --count origin/main..dev
+git ls-remote origin main dev                                     # la source, sans intermédiaire
 ```
 
 **L'état courant se lit dans `../studium_dev/STATUS.md`, pas ici.** Ce fichier-ci ne porte plus
