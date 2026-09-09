@@ -4,6 +4,187 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-10 — Tier-A, le compromis de coût : la jambe macOS sur demande (`6fd4f8a`)
+
+Le point de coût de la release Tier-A, appliqué à `dev` **plutôt que pris depuis
+`chore/release-tier-a`**. Un runner macOS GitHub-hosted est facturé 10x la minute Linux, et sur
+un push sa jambe de `tauri-build` ne produit qu'une preuve de compilation : rien ne consomme son
+bundle en aval — `demo-m6` reconstruit sur Linux — et la couverture tarpaulin est sur la jambe
+Ubuntu. La matrice devient donc `fromJSON(github.event_name == 'workflow_dispatch' ? les deux :
+Ubuntu seul)`, et `workflow_dispatch:` entre dans le bloc `on:`.
+
+Supprimer la ligne macOS aurait été plus court et aurait supprimé la couverture avec : Tauri casse
+par plateforme, et ce build l'a déjà montré une fois. Le compromis est « moins souvent », pas
+« plus jamais ». `demo-m6` reste sur chaque push — c'est le seul chemin de preuve d'INT-STUDIUM-034.
+
+**Pourquoi la branche n'est pas fusionnée.** `chore/release-tier-a` porte bien cette décision,
+mais elle est antérieure à plusieurs réparations de `dev` et les annulerait : `pnpm build`
+(compilation du workspace), `bundle_lint`, le smoke MCP headless, l'étape du validateur ASTRA,
+l'étape LWG du planner, l'étape Observatory, `webkit2gtk-driver` (INT-STUDIUM-033) et
+`tools/e2e-demo-m6.test.sh` (INT-STUDIUM-021) ; et elle remplacerait `python tools/pytest_all.py`
+par un `pytest` nu, que `pytest.ini` borne à `packages` (112 tests). Un merge pour récupérer une
+ligne de matrice aurait rendu la CI verte en lui retirant ce qu'elle mesure.
+
+Vérification locale seulement (la CI de l'organisation est bloquée sur facturation) : le YAML
+parse, les deux branches de `fromJSON` sont du JSON valide, et l'expression tient sur une ligne —
+un scalaire replié dont la continuation est plus indentée garde son saut de ligne et serait partie
+coupée en deux.
+
+---
+
+## 2026-09-10 — INT-STUDIUM-030 : faire respecter le consentement que l'écran enregistre (`1c1becb`)
+
+L'item déposé portait sur la **formulation** : `student-guide.md` et `ConsentScreen.tsx` promettent
+des « données/indicateurs anonymisés », ce qui est de la pseudonymisation, pas de l'anonymat. La
+reformuler s'est révélée impossible à faire honnêtement, parce que le code sous la formule ne fait
+ce qu'annonce ni l'une ni l'autre des deux surfaces. Deux défauts, tous deux vérifiés :
+
+- **L'accord était enregistré et jamais appliqué.** `ConsentScreen` écrit `level_b` ; personne ne
+  le lisait. `LessonPlayer` passait `getTelemetryEndpoint(null)`, et cette fonction résout une
+  *configuration* : elle rend `window.__telemetry_endpoint` dès qu'il est posé, c'est-à-dire
+  exactement le mode d'un déploiement et du harnais E2E. Un apprenant n'ayant coché que A
+  transmettait donc quand même. Le commentaire de la fonction promettait déjà le portillon —
+  « peut être `null` si l'apprenant n'a pas consenti niveau B » : c'est ainsi qu'un portillon
+  manquant reste invisible, la conception documentée à l'endroit qui ne l'implémente pas.
+- **Le pseudonyme sur le fil était la chaîne littérale `"anonymous"`.** `pseudonyme.rs` calcule
+  HMAC(secret machine, lesson_id) et `get_pseudonyme` l'expose ; le magasin local chiffré l'estampe
+  sur chaque event. Le contexte transmis codait « anonymous » en dur — la même valeur pour tout le
+  monde, ni un pseudonyme ni un anonymat, et un plancher k réduit à une cohorte d'un.
+
+`resolveTelemetryEndpoint(consent, fallback)` est le portillon, et il **échoue fermé** : pas de
+dossier, une lecture en échec, ou un dossier sans l'accord résolvent tous à `null`. L'override de
+test ne le contourne pas — une brèche là serait une brèche dans le seul mode où l'application
+transmet réellement. `LessonPlayer` lit désormais le dossier ET le pseudonyme, et ne transmet sous
+aucun des deux si l'une des lectures échoue.
+
+**Trois specs E2E posaient l'override et ne cochaient que `#a` tout en affirmant une transmission**
+— elles mesuraient une fuite, pas une fonctionnalité. Elles accordent B.
+
+Les trois nouveaux cas `LessonPlayer` ont été vérifiés ROUGES contre le joueur précédent
+(`3 failed | 3 passed`) avant d'être verts. student-runtime 122 → 125 tests, 22 fichiers ;
+`tsc --noEmit` propre ; `pnpm test` exit 0 ; 16 suites Python, 0 failing.
+
+**Tenu pour le·la propriétaire** (rule 003) : la réécriture de la formulation elle-même, et la
+contradiction de taxonomie — `docs/user/student-guide.md` numérote B = journal et C = agrégat
+enseignant, quand l'application fait de B la transmission. C'est la taxonomie qui décide ce que
+vaut un `level_b = true` déjà stocké pour les étudiants ayant consenti.
+
+---
+
+## 2026-09-10 — INT-STUDIUM-004 item 2 : une scène `discussion` qu'une leçon peut atteindre (`1213090`)
+
+`discussion` était le seul type de scène sans aucune couverture par fixture : exercé par des tests
+unitaires qui construisent leur propre bundle et par `SceneRouter.test.tsx`, mais porté par aucun
+bundle sous `fixtures/` — donc aucune leçon qu'on puisse donner à un apprenant n'en contenait une.
+
+`fixtures/capsule-debate-demo` est un bundle de démo nouveau plutôt qu'une scène ajoutée à un
+existant, ce que l'intent recommandait lui-même : pas dans `atomistique-l1`, matériel L1 validé
+d'Élise Dumont où rédiger du dialogue pédagogique est la décision du·de la propriétaire.
+`capsule-loop-demo` était l'autre candidat et a été laissé tel quel — six fichiers de test et le
+décompte d'étapes documenté du harnais épinglent sa séquence exacte de scènes. Trois scènes :
+intro, discussion, meta_checkpoint, sur la même cinétique d'ordre 1 que le reste de la famille
+capsule ; le débat porte sur ce qu'une constante ajustée sur une fenêtre finie autorise à conclure.
+
+**La garde est l'objet, pas le fichier.** `corpus-over-distrust.test.ts` consigne pourquoi une
+fixture qui *existe* n'est pas une couverture : `corpus-discussion.test.ts` n'affirme donc pas
+qu'une scène `discussion` est présente — il **découvre** chacune sous `fixtures/` et la conduit
+dans le vrai `LessonSession`, en marchant jusqu'à elle scène par scène, en soumettant un tour, et
+en affirmant que le scorer a été atteint et le signal émis sous l'id de cette scène. Une scène
+déclarée mais injouable, ou un bundle qu'on ne peut pas parcourir jusqu'à sa propre discussion,
+tombe là. Un second cas envoie `max_turns + 2` tours et vérifie que le plafond est *appliqué* et
+pas seulement déclaré. Vérifié rouge avec la fixture déplacée, vert avec elle remise.
+
+`bundle_lint` : 7 bundles, 0 failing (le nouveau `OK — 3 scenes`), son propre auto-test 8/8 ;
+lesson-session 249 → 252 ; `pnpm test` exit 0 ; `tsc --noEmit` propre.
+
+*Item 3 du même intent (la quarantaine `demo-atomistique`) était déjà bâti* — `KNOWN_BROKEN_BUNDLES`
+est vide et le lint dit `OK — 10 scenes` depuis `c22a42a` (2026-09-08). C'est la ligne du relevé
+qui était périmée, pas le code.
+
+---
+
+## 2026-09-10 — INT-STUDIUM-010 nit 3 : une section « univers » est un delta, pas une liste (`eca96d0`)
+
+Un univers EST un delta par rapport aux défauts, mais `nest_universe` assigne CHAQUE décision de
+l'analyse pour qu'aucune sélection ne lise `[MISSING_DECISION]`. La section imprimait cette
+assignation complète : ce qu'un univers change réellement était enseveli sous la liste des défauts,
+répétée une fois par univers. Elle imprime maintenant ce qui a bougé, avec la valeur d'où cela a
+bougé, et compte le reste : « 3 decisions at default ».
+
+**La formule n'a pas été écrite pour l'occasion.** `universe_diff` existait déjà dans
+`observatory_provenance.py`, répondant exactement à cette question pour les cartes univers de
+l'Observatory : le changement est donc un **déplacement**, pas une troisième copie (spec R9).
+`analyses_of`, `_defaults_by_analysis` et `universe_diff` descendent dans
+`provenance/astra_read.py`, le chargeur que les deux lecteurs partagent déjà, rejoints par
+`universe_summary` et les deux formateurs. L'Observatory les importe et garde ses 229 tests
+inchangés.
+
+`summary_lines` prend le résumé plutôt que l'univers parce que le rapport d'audit de cours se rend
+depuis le seul rapport, plus tard, sans document ASTRA en main : le résumé est calculé au build et
+stocké à côté de la sélection complète, qui reste dans le JSON — ce rapport se lit aussi comme
+donnée.
+
+Deux choses trouvées par les tests, et aucune n'est le nit :
+
+- **Les sections « univers » n'avaient aucune couverture.** Les deux rendus ont changé de forme et
+  les 16 suites sont restées vertes ; les assertions étaient `"## Universes" in page`. Elles
+  affirment désormais le delta et l'absence de la liste complète.
+- Un défaut à `None` s'imprimait ``(default `None`)`` — un défaut, sur la page d'un enseignant, que
+  nul artefact n'enregistre. C'est la forme réelle d'un cours dont les univers ont été écrits
+  contre une autre analyse, ce que construit précisément la fixture d'approbation. Lit maintenant
+  « (no default recorded) ».
+
+services/planner 234 → 238 ; 16 suites, 0 failing.
+
+---
+
+## 2026-09-09 — INT-STUDIUM-008 slice 3 : l'onglet Harness (spec R7) (`8ff6046`)
+
+R7 était la dernière exigence du design Observatory sans code : un répertoire de session explicite,
+rendu en table d'étapes depuis `index.json`, `task.md` courant, dernier `feedback.md`, rafraîchi en
+sondant les mtimes, sans dépendance à un file-watcher.
+
+**La moitié intéressante n'est pas ce qui est rendu mais ce qui est posé à côté sur le disque.**
+`.studium-session/` contient aussi `response.json` et `run_result.json` — la soumission de
+l'apprenant et son propre résultat d'exécution — et N1 interdit de poser un champ libre d'origine
+apprenant sur un onglet. Trois fichiers sont donc lus, les deux fichiers apprenant sont exclus par
+une constante nommée, et **l'exclusion est testée comme un comportement** : une chaîne canari est
+écrite dans les deux et vérifiée n'atteindre aucun payload ni aucune page, et un second test
+enregistre chaque fichier ouvert sous un répertoire de session et compare l'ensemble à `READ_FILES`.
+
+**Le canari a trouvé une vraie fuite.** `index.json` est rendu en table d'étapes et jamais en texte
+— mais son texte brut voyageait quand même, et ses entrées portent des CHEMINS d'artefacts, que la
+table réduit à des basenames (un chemin est l'endroit où un répertoire personnel, donc un nom,
+fuit). Le document brut les remettait sur la page et dans le jumeau JSON. Un champ sans rendu n'est
+pas inoffensif : c'est la copie que rien ne filtre.
+
+Les noms de fichiers du protocole vivent en TypeScript et Python ne peut pas les importer ; les
+noms Python sont donc un miroir. R9 interdit une seconde déclaration et la dérive TS/Py
+d'`over_distrust` est le précédent : le miroir est donc **vérifié**, un test lisant
+`session-workspace.ts`, en extrayant le littéral `FILES`, et tombant en nommant la dérive sur un
+renommage — et sur un septième fichier, ce qui force quelqu'un à décider s'il est rendu ou retenu
+plutôt qu'à hériter du silence.
+
+Deux décisions à nommer :
+
+- Les répertoires de session sont désignés un par un (`--session-dir`, répétable ;
+  `STUDIUM_OBS_SESSION_DIRS`), jamais balayés. Le dossier siège à la racine du workspace que pilote
+  un opérateur et rien n'en met plusieurs sous un même parent : une convention `<racine>/<session>`
+  nommerait une disposition qu'aucun écrivain ne produit.
+- Le sondage est le meta refresh de la PAGE, pas une boucle serveur : R7 interdit un watcher et R8
+  interdit un état serveur. `--harness-refresh 0` le désactive. Le jumeau JSON porte l'intervalle
+  comme un nombre et ne pose aucun en-tête de rafraîchissement — un client qui sonde possède son
+  propre intervalle.
+
+Rien ne lève (N3) : un index illisible, un `entries` mal formé, une ligne malformée et un fichier
+illisible deviennent chacun un état et une raison sur la page. Un document mal formé n'est
+délibérément pas une table vide silencieuse — une table vide se lit « cette session n'a franchi
+aucune étape », ce qui est une affirmation sur la session, et une fausse.
+
+services/observatory 198 → 229 tests ; 16 suites, 0 failing.
+
+---
+
 ## 2026-09-09 — INT-STUDIUM-010, nits 2 et 5 : un instant par revue, et pas de second tag
 
 Les deux nits que la revue de -010 avait laissés au·à la propriétaire, tous deux rouges avant
