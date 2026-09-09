@@ -31,7 +31,11 @@ def _urls(cfg: ObservatoryConfig) -> list[str]:
     inventory = discover(cfg)
     urls = ["/", "/api/index", "/eval/validity", "/api/eval/validity",
             # Slice 2. The session runs column has no course, so its index is crawled once.
-            "/sessions", "/api/sessions"]
+            "/sessions", "/api/sessions",
+            # Slice 3. Named session workspaces, none configured on this fixture: the pair is
+            # here so "every route" stays true as routes are added, and so a future harness
+            # reader that writes on GET is caught by this crawl as well as by its own suite.
+            "/harness", "/api/harness"]
     for course_id in inventory.courses:
         urls += [f"/courses/{course_id}", f"/api/courses/{course_id}",
                  f"/courses/{course_id}/provenance.myst.md",

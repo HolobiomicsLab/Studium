@@ -6,8 +6,9 @@ evaluation runs under `eval/reports/`, and the validity scorecards under
 `eval/validity/`. It is an operator surface. It is not the teacher dashboard and it
 is never shown to learners.
 
-Slices 1 and 2 (INT-STUDIUM-008): provenance, evaluation, validity, the scene-review
-tab and the two session sources. The harness tab arrives in slice 3.
+INT-STUDIUM-008, three slices: provenance, evaluation and validity (1); the scene-review
+tab and the two session sources (2); the harness tab over the agentic-session file protocol
+(3). Every requirement of the design spec now has code.
 
 ## What it shows
 
@@ -22,6 +23,7 @@ tab and the two session sources. The harness tab arrives in slice 3.
 | `/eval/validity` | one card per validity suite with the scalar fields of its result files |
 | `/sessions` | the session-runs column on its own — that tree has no course dimension, so it needs no id |
 | `/sessions/<course>` | both session sources side by side: the collector store for that course, the session runs, the indicators that are comparable, and the two that are shown and never flagged |
+| `/harness` | one named agentic-session workspace per section: `index.json` as a step table, the current `task.md`, the last `feedback.md`, each file's modification time; the page refreshes itself |
 
 Every page has a JSON twin under `/api/…` with the same data.
 
@@ -60,6 +62,8 @@ Flags override these; each variable has a default that works in a fresh clone.
 | `STUDIUM_OBS_VALIDATOR_TIMEOUT` | `60` | seconds before `astra validate` is killed |
 | `STUDIUM_OBS_ANALYTICS_DATA_DIR` | unset | the analytics collector's event store, as an **absolute** path; unset means no live column rather than a guessed directory |
 | `STUDIUM_OBS_SESSIONS_ROOT` | unset | **one** directory of `telemetry.jsonl` streams, read whole by `class_report.build_report`; unset means no session-runs column |
+| `STUDIUM_OBS_SESSION_DIRS` | empty | agentic-session workspaces, one by one, separated by the platform path separator; either the workspace or its `.studium-session/` is accepted |
+| `STUDIUM_OBS_HARNESS_REFRESH` | `5` | seconds between the Harness page's own refresh; `0` turns it off |
 
 A course is any directory holding an `astra.yaml`. A run is any directory holding an
 `audit.json` or a `sessions/` directory. A suite is any directory holding a
@@ -123,6 +127,36 @@ would be an alarm about the scope.
 identity. The Observatory does not accept that: an event without both a pseudonym and a
 lesson id is an unknown identity, and the source is suppressed with that reason rather than
 counted. Point `--sessions-root` at a durable host tree to get a column.
+
+## The Harness tab
+
+`--session-dir <workspace>` (repeatable) or `STUDIUM_OBS_SESSION_DIRS` names the workspaces
+to watch. They are named **one by one and never scanned for**: a `.studium-session/` folder
+sits at the root of whatever workspace an operator is driving, and nothing puts several of
+them under a common parent, so a `<root>/<session>` convention would name a layout no writer
+produces. Either form of path works — the workspace, or the `.studium-session/` inside it.
+
+The page re-requests itself every `STUDIUM_OBS_HARNESS_REFRESH` seconds. The poll is the
+page's, not the server's: the spec asks for polling and forbids a file-watcher dependency,
+and a server-side loop would be state in a service that has none. `--harness-refresh 0`
+turns it off for a session you are reading rather than watching. The JSON twin carries the
+interval as a number and sets no refresh header — a client that polls owns its own interval.
+
+**Three of the six protocol files are read, and the omission is the point.**
+`.studium-session/` also holds `response.json` and `run_result.json`, which are the
+learner's own submission and their own executed result; those two names appear on the page
+only as the stated omission. `task.md` is safe by construction — `publicScene` strips the
+answer key before the file is written — and `feedback.md` cannot echo a response, because
+`renderFeedback` is a closed set of transition messages. `index.json` is rendered as a step
+table and never as text: its entries carry artifact paths, which the table reduces to
+basenames, and the raw document would put them back unfiltered. A test writes a canary
+string into both learner files and asserts it reaches no payload and no page; another
+records every file opened under a session directory and compares the set to the three.
+
+The file names live in TypeScript (`FILES` in
+`packages/lesson-session-host/src/session-workspace.ts`) and Python cannot import them, so
+the Python names are a mirror — and a *checked* one: a test reads that source, extracts the
+literal, and fails naming the drift if a name is renamed or a seventh file is added.
 
 ## Read-only
 

@@ -234,6 +234,42 @@ your telemetry, and nothing you change about your files will clear it. In all th
 other column still renders alone. Suppressed is the only state that takes the pair down
 together.
 
+## Watching an agentic session
+
+The Harness tab reads the file protocol an agentic operator drives — the
+`.studium-session/` folder a `SessionWorkspace` writes — and shows it while it moves.
+
+```bash
+python services/observatory/observatory_app.py \
+  --course-root services/planner/.lwg \
+  --session-dir ~/work/atomistique-run \
+  --session-dir ~/work/second-run
+```
+
+`--session-dir` is repeatable and takes either the workspace or the `.studium-session/`
+inside it. There is no root to scan: the folder sits at the root of whatever workspace you
+are driving, and nothing puts several of them under one parent, so a directory of sessions
+would be a layout nothing writes. A path that holds no protocol folder says so, with the
+path it looked under — it does not render an empty page.
+
+Each session shows its id, the step table from `index.json`, the current `task.md`, the
+last `feedback.md`, and when each of those three files last changed. The step table is how
+you tell a session that is waiting from one that has stalled: a row sitting at
+`awaiting_response` with a five-minute-old `task.md` is waiting for the operator, and one
+at `awaiting_run` is waiting for a run that has not been written back.
+
+The page reloads itself every five seconds; `--harness-refresh 0` stops that when you want
+to read one state rather than watch. The interval belongs to the page and not to the
+service — there is no watcher and no server-side loop — so closing the tab stops the
+polling entirely.
+
+**What it will not show you is the learner's work.** `response.json` and `run_result.json`
+hold the learner's own submission and their own executed result, and the tab does not open
+them; you will see their names on the page as the stated omission and nothing else. The
+artifacts a run produced are listed by file name, without their directory, because a path
+is where a home directory — and so a person's name — leaks. If you need to read a response,
+read it on disk: it is deliberately not something a page left open on a projector can show.
+
 ## Where the screenshots live
 
 The slice-1 acceptance screenshots and the timing measured on the real
@@ -242,8 +278,8 @@ The slice-1 acceptance screenshots and the timing measured on the real
 
 ## Scope
 
-Slice 1 was provenance and evaluation; slice 2 adds the review tab and the two session
-columns (INT-STUDIUM-008). Slice 3 adds the harness tab. The tests for what exists today
+Slice 1 was provenance and evaluation; slice 2 added the review tab and the two session
+columns; slice 3 adds the harness tab (INT-STUDIUM-008). The tests for what exists today
 run with:
 
 ```bash

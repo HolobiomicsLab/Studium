@@ -23,6 +23,7 @@ from class_report import MIN_LEARNERS_DEFAULT  # noqa: E402  (one definition of 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8004
 DEFAULT_VALIDATOR_TIMEOUT = 60.0
+DEFAULT_HARNESS_REFRESH = 5
 
 #: `planner_app.py` resolves the default ".lwg" against its own working directory, so a
 #: course set can sit under the service or under the repository root.
@@ -50,6 +51,15 @@ ENV_ANALYTICS_DATA_DIR = "STUDIUM_OBS_ANALYTICS_DATA_DIR"
 #: eval run's by persona, so neither writer has a course dimension and a `<root>/<course>`
 #: convention would name a layout nothing on disk produces.
 ENV_SESSIONS_ROOT = "STUDIUM_OBS_SESSIONS_ROOT"
+#: One or more agentic-session workspaces, `os.pathsep`-separated. Deliberately NOT a root to
+#: scan: a `.studium-session/` folder sits at the root of whatever workspace an operator is
+#: driving, and nothing puts several of them under one parent, so a `<root>/<session>`
+#: convention would name a layout no writer produces (spec R7, "an explicit session
+#: directory"). Either the protocol directory or the workspace holding it is accepted.
+ENV_SESSION_DIRS = "STUDIUM_OBS_SESSION_DIRS"
+#: Seconds between the Harness page's own meta refresh; `0` disables it. R7 asks for polling
+#: and forbids a file watcher, and R8 forbids server state, so the poll belongs to the page.
+ENV_HARNESS_REFRESH = "STUDIUM_OBS_HARNESS_REFRESH"
 
 
 def _path(value: str) -> Path:
@@ -78,6 +88,11 @@ class ObservatoryConfig:
     #: The directory `build_report` reads whole; `None` when the operator has not named
     #: one, in which case the session-runs column is absent rather than guessed.
     sessions_root: Path | None = None
+    #: Agentic-session workspaces named one by one; empty when none was named, in which case
+    #: the Harness tab says so rather than scanning for a layout that does not exist.
+    session_dirs: tuple[Path, ...] = field(default_factory=tuple)
+    #: Seconds between the Harness page's meta refresh; 0 disables it.
+    harness_refresh: int = DEFAULT_HARNESS_REFRESH
     #: The floor applied to every learner-derived number, imported from `tools/class_report.py`
     #: so the value has one definition (INT-STUDIUM-005). For this deployment's reader — a
     #: teacher who already holds the roster — it restrains singling out rather than delivering
@@ -105,6 +120,27 @@ class ObservatoryConfig:
         raw_validity = (env.get(ENV_VALIDITY_ROOT) or "").strip()
         raw_analytics = (env.get(ENV_ANALYTICS_DATA_DIR) or "").strip()
         raw_sessions = (env.get(ENV_SESSIONS_ROOT) or "").strip()
+
+        session_dirs = tuple(_path(entry)
+                             for entry in (env.get(ENV_SESSION_DIRS) or "").split(os.pathsep)
+                             if entry.strip())
+
+        harness_refresh = DEFAULT_HARNESS_REFRESH
+        raw_refresh = (env.get(ENV_HARNESS_REFRESH) or "").strip()
+        if raw_refresh:
+            try:
+                harness_refresh = int(raw_refresh)
+            except ValueError:
+                problems.append(f"invalid harness refresh {raw_refresh!r}, "
+                                f"using {DEFAULT_HARNESS_REFRESH}")
+            else:
+                # A negative interval is not "off" — `0` is, and it is spelled out — and a
+                # sub-second one turns a read-only page into a load generator against the
+                # operator's own disk.
+                if harness_refresh < 0 or (0 < harness_refresh < 1):
+                    problems.append(f"harness refresh out of range {raw_refresh!r}, "
+                                    f"using {DEFAULT_HARNESS_REFRESH}")
+                    harness_refresh = DEFAULT_HARNESS_REFRESH
 
         port = DEFAULT_PORT
         raw_port = (env.get(ENV_PORT) or "").strip()
@@ -143,6 +179,8 @@ class ObservatoryConfig:
             validity_root=_path(raw_validity) if raw_validity else EVAL_DIR / "validity",
             analytics_data_dir=_path(raw_analytics) if raw_analytics else None,
             sessions_root=_path(raw_sessions) if raw_sessions else None,
+            session_dirs=session_dirs,
+            harness_refresh=harness_refresh,
             host=(env.get(ENV_HOST) or "").strip() or DEFAULT_HOST,
             port=port,
             validator_timeout=timeout,
@@ -163,6 +201,7 @@ class ObservatoryConfig:
             lines.append(f"analytics store missing: {self.analytics_data_dir}")
         if self.sessions_root is not None and not self.sessions_root.is_dir():
             lines.append(f"sessions root missing: {self.sessions_root}")
+        lines += [f"session workspace missing: {p}" for p in self.session_dirs if not p.is_dir()]
         return lines
 
     def notes(self) -> list[str]:
@@ -185,4 +224,11 @@ class ObservatoryConfig:
             lines.append(f"session runs: not configured ({ENV_SESSIONS_ROOT})")
         else:
             lines.append(f"session runs: {self.sessions_root} (one directory, read whole)")
+        if not self.session_dirs:
+            lines.append(f"agentic sessions: none named ({ENV_SESSION_DIRS})")
+        else:
+            lines.append(f"agentic sessions: {len(self.session_dirs)} named, "
+                         f"page refresh {self.harness_refresh}s"
+                         if self.harness_refresh else
+                         f"agentic sessions: {len(self.session_dirs)} named, refresh off")
         return lines

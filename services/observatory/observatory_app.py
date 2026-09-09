@@ -30,8 +30,10 @@ from observatory_config import (
     ENV_COURSE_ROOT,
     ENV_COURSES,
     ENV_EVAL_ROOT,
+    ENV_HARNESS_REFRESH,
     ENV_HOST,
     ENV_PORT,
+    ENV_SESSION_DIRS,
     ENV_SESSIONS_ROOT,
     ENV_VALIDATOR_TIMEOUT,
     ENV_VALIDITY_ROOT,
@@ -39,6 +41,7 @@ from observatory_config import (
 )
 from observatory_discovery import CourseRef, Inventory, RunRef, discover
 from observatory_evaluation import run_detail, summarize_run, summarize_suite
+from observatory_harness import harness_detail
 from observatory_paths import TEMPLATES_DIR
 from observatory_provenance import course_detail, myst_page, reviews_detail, summarize_course
 from observatory_sessions import sessions_detail, store_courses
@@ -189,6 +192,17 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
             return _unknown("course")
         return sessions_detail(app.state.cfg, course_id)
 
+    @app.get("/harness", response_class=HTMLResponse)
+    def harness_page(request: Request) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request, "harness.html", {"detail": harness_detail(app.state.cfg)})
+
+    @app.get("/api/harness")
+    def api_harness() -> dict:
+        # No refresh header on the JSON twin: a client that polls owns its own interval,
+        # and the page's meta refresh is a property of the page (plan D4).
+        return harness_detail(app.state.cfg)
+
     return app
 
 
@@ -216,6 +230,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="collector store root (<store>/<course>/<YYYY-MM-DD>.jsonl)")
     parser.add_argument("--sessions-root",
                         help="one directory of telemetry.jsonl streams, read whole")
+    parser.add_argument("--session-dir", action="append", default=[],
+                        help="an agentic-session workspace, or its .studium-session/ (repeatable)")
+    parser.add_argument("--harness-refresh", type=int,
+                        help="seconds between Harness page refreshes (0 disables)")
     parser.add_argument("--host", help=f"bind address (default {DEFAULT_HOST})")
     parser.add_argument("--port", type=int)
     parser.add_argument("--validator-timeout", type=float, help="seconds before astra validate is killed")
@@ -230,6 +248,10 @@ def main(argv: list[str] | None = None) -> int:
             env[name] = value
     if args.course:
         env[ENV_COURSES] = os.pathsep.join(args.course)
+    if args.session_dir:
+        env[ENV_SESSION_DIRS] = os.pathsep.join(args.session_dir)
+    if args.harness_refresh is not None:
+        env[ENV_HARNESS_REFRESH] = str(args.harness_refresh)
     if args.port is not None:
         env[ENV_PORT] = str(args.port)
     if args.validator_timeout is not None:
