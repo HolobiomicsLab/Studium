@@ -5,6 +5,10 @@ on:
     branches: ["**"]
   pull_request:
     branches: [main]
+  # Manuel, pour demander explicitement la jambe macOS de `tauri-build` (voir la
+  # matrice ci-dessous). C'est le geste à faire avant une release Tier-A, quand le
+  # bundle macOS est ce qu'on veut vraiment voir se construire.
+  workflow_dispatch:
 
 jobs:
   test:
@@ -124,7 +128,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-22.04]
+        # Le coût, pas le principe. Un runner macOS GitHub-hosted est facturé 10x la
+        # minute Linux, et sur un push la jambe macOS ne produit qu'une preuve de
+        # compilation : personne ne consomme son bundle en aval — `demo-m6` reconstruit
+        # sur Linux — et la couverture tarpaulin est déjà sur la jambe Ubuntu. On la
+        # garde donc, mais sur demande (`workflow_dispatch`), c'est-à-dire au moment où
+        # le bundle macOS est l'objet de l'exercice.
+        #
+        # Supprimer la ligne macOS aurait été plus simple et aurait supprimé la
+        # couverture avec : Tauri casse par plateforme, et c'est ce build qui l'a déjà
+        # montré une fois. Le compromis est « moins souvent », pas « plus jamais ».
+        #
+        # Une seule ligne, et pas un scalaire replié : en YAML, une continuation plus
+        # indentée que la première garde son saut de ligne, et l'expression serait
+        # partie chez GitHub coupée en deux.
+        os: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["macos-latest","ubuntu-22.04"]' || '["ubuntu-22.04"]') }}
 
     steps:
       - uses: actions/checkout@v4
