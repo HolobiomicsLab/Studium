@@ -10,6 +10,7 @@ Score formula v1 (choix B — binarisé) :
 import json
 from pathlib import Path
 
+import metrics
 from metrics import compute_reasoning_depth_score
 
 
@@ -97,8 +98,15 @@ def test_no_signals_returns_none(tmp_path):
     ]
     data_dir = _write_events(tmp_path, "c1", events)
     result = compute_reasoning_depth_score(data_dir, "c1")
-    # No reasoning_signal events anywhere → scenes empty dict
-    assert result == {"scenes": {}}
+    # No reasoning_signal events anywhere → scenes empty dict. La forme est exacte : une clé
+    # nouvelle doit se justifier ici plutôt que d'apparaître. `withheld_below_floor` est
+    # INT-STUDIUM-030 R1 — un booléen, jamais un compte, et il est faux ici parce qu'aucune
+    # scène n'a été retenue : il n'y en avait aucune.
+    assert result == {"scenes": {}, "withheld_below_floor": False,
+                      "judgement": {"cohort_band": None,
+                                    "cohort_counts": "no contributors: this number was "
+                                                     "computed over nobody",
+                                    "non_attribution": metrics.NON_ATTRIBUTION}}
 
 
 def test_breakdown_proportions_correct(tmp_path):

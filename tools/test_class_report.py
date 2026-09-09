@@ -180,6 +180,45 @@ def test_k_floor_counts_distinct_pseudonyms_not_streams(tmp_path):
 
     ok = build_report(tmp_path, min_learners=2, bundle_path=bundle)
     assert ok["status"] == "ok" and ok["n_learners"] == 2 and ok["n_streams"] == 3
+    # No event here names a lesson, so the run is one lesson and the report says which of the
+    # two things it did (INT-STUDIUM-030 R1: the rule that counted is published, not implied).
+    assert "taken as one lesson" in ok["lesson_scope"]
+
+
+def test_the_floor_is_per_lesson_and_a_union_across_lessons_cannot_lift_it(tmp_path):
+    """R1, clause 3, where the events name their lessons — which every ADR-006 event does
+    (`lesson_id` is required on the base model), so this is the case that runs in production.
+
+    Four people, two in each of two lessons. A union counts four members and would clear a
+    floor of three; those are learner-lesson pairs, and no lesson has three people in it."""
+    bundle = _bundle(tmp_path)
+    for lesson, pseudonyms in (("l1", ("p-1", "p-2")), ("l2", ("p-3", "p-4"))):
+        for pseudonym in pseudonyms:
+            events = [dict(e, lesson_id=lesson) for e in _pseudonymized(pseudonym)]
+            _write_stream(tmp_path, f"data/{pseudonym}/{lesson}", events)
+
+    assert build_report(tmp_path, min_learners=3, bundle_path=bundle)["status"] == "suppressed"
+
+    ok = build_report(tmp_path, min_learners=2, bundle_path=bundle)
+    assert ok["status"] == "ok" and ok["n_lessons"] == 2
+    # Two lessons, so the members are learner-lesson pairs — and the payload says so by
+    # changing the KEY, not by publishing a pair count under the word "learners".
+    assert ok["n_learners"] is None and ok["n_learner_lesson_pairs"] == 4
+    assert ok["cohort_counts"] == "learner-lesson pairs across the lessons in scope"
+    assert ok["lesson_scope"] == "as named by the events (lesson_id)"
+
+
+def test_a_run_that_mixes_named_and_unnamed_lessons_is_refused(tmp_path):
+    """Clause 2 again, one level down. Counting both under one key would put events from
+    different lessons into one population — the thing the per-lesson floor exists to stop."""
+    bundle = _bundle(tmp_path)
+    _write_stream(tmp_path, "data/p-1/l1",
+                  [dict(e, lesson_id="l1") for e in _pseudonymized("p-1")])
+    _write_stream(tmp_path, "data/p-2/l1", _pseudonymized("p-2"))
+
+    rep = build_report(tmp_path, min_learners=1, bundle_path=bundle)
+    assert rep["status"] == "suppressed"
+    assert "some carry a lesson_id and some do not" in rep["reason"]
 
 
 def test_streams_without_a_pseudonym_still_count_one_learner_each(tmp_path):
@@ -262,3 +301,117 @@ def test_the_floor_is_documented_as_a_restraint_not_as_anonymity():
     assert "not a guarantee\n    of anonymity" in doc
     assert "re-identifiable" not in doc, "the withdrawn guarantee is back in the docstring"
     assert class_report.MIN_LEARNERS_DEFAULT == 5, "the claim changed, the floor must not"
+
+
+# ---------------------------------------------------------------------------
+# INT-STUDIUM-030 R1 (stage 2) — every published number names the population it was
+# computed over, that population is counted by exactly one rule, and the rule operates
+# inside one lesson.
+# ---------------------------------------------------------------------------
+
+def _quiz(scene, learner, correct=True):
+    return [
+        {"type": "lesson_started", "learner_pseudonym": learner},
+        {"type": "quiz_answered", "scene_id": scene, "correct": correct,
+         "confidence": 0.5, "response_time_ms": 5000, "learner_pseudonym": learner},
+        {"type": "lesson_completed", "autonomy_ratio": 1.0, "learner_pseudonym": learner},
+    ]
+
+
+def test_a_concept_attempted_by_one_learner_is_not_published(tmp_path):
+    """THE defect this stage exists for, on the surface a teacher actually reads.
+
+    The floor was applied once, over the whole run. Inside a class that clears it, a concept
+    attempted by a single learner published that learner's accuracy, calibration gap,
+    hint-reliance and mean time under the concept's name — a per-student report reached by
+    reading a class report carefully. `fixtures/atomistique-l1/GUIDE-TEST-ELISE.md` promises
+    the teacher this document is aggregate; this is the assertion behind that sentence.
+    """
+    bundle = _bundle(tmp_path)
+    for i in range(5):
+        _write_learner(tmp_path, f"L{i}", _quiz("q-quiz", f"p{i}"))
+    _write_learner(tmp_path, "solo", _quiz("q-mixed", "p-solo"))
+
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert rep["status"] == "ok"
+    assert [c["concept"] for c in rep["concepts"]] == ["c-quiz"]
+    assert rep["withheld_below_floor"] is True
+
+
+def test_every_published_concept_names_its_own_cohort_as_a_band(tmp_path):
+    bundle = _bundle(tmp_path)
+    for i in range(12):
+        _write_learner(tmp_path, f"L{i}", _quiz("q-quiz", f"p{i}"))
+
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert [c["cohort_band"] for c in rep["concepts"]] == ["10–19"]
+    assert rep["identity_rule"] == "pseudonym"
+    assert rep["cohort_counts"] == "distinct learners within one lesson"
+
+
+def test_the_withheld_flag_does_not_encode_how_many(tmp_path):
+    """One withheld concept and three produce the same payload — including the prose, which
+    is where the count survived the first time this repair was made (INT-STUDIUM-030 R1 on the
+    Observatory: a count moved into a sentence is the same count)."""
+    bundle = _bundle(tmp_path)
+
+    def report(extra_scenes):
+        run = tmp_path / f"run{len(extra_scenes)}"
+        for i in range(5):
+            _write_learner(run, f"L{i}", _quiz("q-quiz", f"p{i}"))
+        for n, scene in enumerate(extra_scenes):
+            _write_learner(run, f"solo{n}", _quiz(scene, f"p-solo{n}"))
+        return build_report(run, min_learners=5, bundle_path=bundle)
+
+    one = report(["q-mixed"])
+    three = report(["q-mixed", "cr-mixed", "cr-crit"])
+    assert one["concepts"] == three["concepts"]
+    assert one["withheld_below_floor"] == three["withheld_below_floor"] is True
+    assert not [k for k in one if k.startswith("n_withheld")]
+
+
+def test_a_mixed_directory_is_refused_rather_than_summed(tmp_path):
+    """R1 clause 2, and the line this replaces: `learner_ids |= stream_ids or {stream}`. Where
+    some streams carried a pseudonym and some did not, the union was part people and part
+    files — a number with no definition, to which the floor was then applied."""
+    bundle = _bundle(tmp_path)
+    for i in range(5):
+        _write_learner(tmp_path, f"L{i}", _quiz("q-quiz", f"p{i}"))
+    _write_learner(tmp_path, "anon", [dict(e) for e in _events()])   # no learner_pseudonym
+
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert rep["status"] == "suppressed"
+    assert "part people and part files" in rep["reason"], rep["reason"]
+
+
+def test_the_eval_layout_still_counts_one_stream_one_learner(tmp_path):
+    """The other rule, unchanged: a directory where NO stream carries a pseudonym is counted
+    by streams, and says so. The repair refuses the MIXED case, not the second rule."""
+    bundle = _bundle(tmp_path)
+    for learner in ("alice", "bob", "carol", "dave", "erin"):
+        _write_learner(tmp_path, learner, _events())
+
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert rep["status"] == "ok" and rep["n_learners"] == 5
+    assert rep["identity_rule"] == "stream"
+    assert "one telemetry stream, one learner" in rep["identity_rule_note"]
+
+
+def test_the_judgement_vocabulary_is_the_collectors_own_objects(tmp_path):
+    """One definition of the band, the floor and the non-attribution line, in the collector's
+    `metrics`, shared by this report, the live endpoints and the Observatory page. Three
+    copies of a sentence say three different things within a release or two — the TS/Py
+    `over_distrust` drift is the precedent this repository already paid for."""
+    import class_report
+    import metrics
+
+    assert class_report.NON_ATTRIBUTION is metrics.NON_ATTRIBUTION
+    assert class_report.cohort_band is metrics.cohort_band
+    assert class_report.MIN_LEARNERS_DEFAULT is metrics.MIN_LEARNERS
+
+    bundle = _bundle(tmp_path)
+    for i in range(5):
+        _write_learner(tmp_path, f"L{i}", _quiz("q-quiz", f"p{i}"))
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert rep["non_attribution"] is metrics.NON_ATTRIBUTION
+    assert rep["autonomy_cohort"]["non_attribution"] is metrics.NON_ATTRIBUTION

@@ -1,6 +1,7 @@
 "use client";
 
 import type { TrustCalibrationResponse } from "@/lib/api";
+import CohortLine, { WithheldNotice } from "./CohortLine";
 
 // No `learner` prop: this chart renders a class aggregate and nothing else, because the
 // collector no longer serves a narrowed one (INT-STUDIUM-030). A per-learner TITLE with no
@@ -10,10 +11,15 @@ type Props = { data: TrustCalibrationResponse };
 // Maps the engine's signed trust gap + band to a teacher-facing verdict.
 // POSITIVE gap = over-trust (missed planted flaws ⇒ too credulous toward the AI);
 // NEGATIVE = over-distrust (flagged sound claims ⇒ too skeptical). Formative only.
+// Takes the whole response, not just the band, because the null band has TWO causes and they
+// call for opposite actions from the teacher: no scene carried a planted flaw (nothing to
+// measure — check the bundle), or the audit was measured and withheld under the floor (nothing
+// to check — the class is small). The collector already distinguishes them in `reason`;
+// rendering one verdict for both would send a teacher looking for a scene that is there.
 function qualifyBand(
-  band: TrustCalibrationResponse["band"],
+  data: TrustCalibrationResponse,
 ): { label: string; color: string; hint: string } {
-  switch (band) {
+  switch (data.band) {
     case "bien":
       return {
         label: "Jugement bien calibré",
@@ -33,11 +39,20 @@ function qualifyBand(
         hint: "Des affirmations correctes ont été signalées à tort comme fausses — tendance à trop se méfier du résultat.",
       };
     default:
-      return {
-        label: "Données insuffisantes",
-        color: "text-gray-500",
-        hint: "Aucun audit « repère le défaut » ancré sur un résultat réel n’a encore été joué.",
-      };
+      return data.withheld_below_floor
+        ? {
+            label: "Mesure retenue — plancher d’anonymat",
+            color: "text-gray-500",
+            hint:
+              "L’audit a bien eu lieu : ce sont les apprenant·e·s qui l’ont alimenté qui " +
+              "sont moins nombreux·ses que le plancher dans au moins une leçon. Rien à " +
+              "corriger dans le parcours — le chiffre reviendra avec une cohorte plus large.",
+          }
+        : {
+            label: "Données insuffisantes",
+            color: "text-gray-500",
+            hint: "Aucun audit « repère le défaut » ancré sur un résultat réel n’a encore été joué.",
+          };
   }
 }
 
@@ -46,7 +61,7 @@ function pct(x: number | null): string {
 }
 
 export default function TrustCalibrationChart({ data }: Props) {
-  const q = qualifyBand(data.band);
+  const q = qualifyBand(data);
   const gap = data.trust_calibration;
   // Round for display, then collapse a -0 (tiny negative ⇒ "-0.00") to 0 so the
   // sign never implies an over-distrust direction the value doesn't actually have.
@@ -85,6 +100,12 @@ export default function TrustCalibrationChart({ data }: Props) {
         d&apos;une même scène sont regroupés). Distinct de la calibration de confiance
         (déclaré-vs-compétence).
       </p>
+      {/* INT-STUDIUM-030 R1. The line above counts SCENES, and a scene is not a population:
+          two scenes can be two learners. The band below is the union of the learners behind
+          the PUBLISHED scenes — scenes that were withheld, and scenes nobody could be scored
+          on, contribute no one to it and no number to the gap. */}
+      <CohortLine judgement={data.judgement} />
+      {data.withheld_below_floor ? <WithheldNotice /> : null}
       {/* INT-STUDIUM-003. The previous footnote said the offline detector never emits
           false positives, so only over-trust is ever fed. The verdict deck ended that:
           a scene declaring `sound_claims` is graded with real false_positives and

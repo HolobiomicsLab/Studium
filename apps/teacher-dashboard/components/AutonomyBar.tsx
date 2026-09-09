@@ -1,6 +1,7 @@
 "use client";
 
 import type { AutonomyResponse } from "@/lib/api";
+import CohortLine from "./CohortLine";
 
 type Props = { data: AutonomyResponse };
 
@@ -46,6 +47,10 @@ export default function AutonomyBar({ data }: Props) {
         Anti-offloading : plus l&apos;équilibre critique / indice est élevé, plus les
         apprenant·e·s engagent une critique réflexive plutôt que de demander un indice.
       </p>
+      {/* INT-STUDIUM-030 R1: both terms of the ratio (critiques and hints) contribute to it,
+          so the population named here is the union of the learners behind both — not the
+          course roster, and not the critique side alone. */}
+      <CohortLine judgement={data.judgement} />
       <p className="text-xs text-gray-500">
         Mesure de classe, sur les événements de ce cours. À ne pas confondre avec
         l&apos;<i>indépendance vis-à-vis de l&apos;étayage</i> du rapport de classe, calculée

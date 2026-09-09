@@ -19,6 +19,14 @@ const data: AutonomyResponse = {
   critique_completion_rate: 0.9,
   n_critique: 3,
   n_hints: 2,
+  // INT-STUDIUM-030 R1. Required, not optional: the collector sends it on every judgement
+  // payload, and a fixture allowed to omit it would let a panel ship that renders the ratio
+  // with no population named — which is the defect, not a gap in the test data.
+  judgement: {
+    cohort_band: "10–19",
+    cohort_counts: "distinct learners within one lesson",
+    non_attribution: "class-level reading over the contributors this family names",
+  },
 };
 
 function render(payload: AutonomyResponse) {
@@ -45,5 +53,14 @@ describe("AutonomyBar", () => {
     const html = render(data);
     expect(html).toContain("étayage");
     expect(html).toContain("autonomy_ratio");
+  });
+
+  it("names the population the ratio was computed over (INT-STUDIUM-030 R1)", () => {
+    // "3 critiques sur 5 interactions" counts EVENTS. Five events can be one learner, and
+    // the panel gave a reader no way to tell — the count of interactions reads as a class
+    // size when it is nothing of the sort.
+    const html = render(data);
+    expect(html).toContain('data-testid="cohort-line"');
+    expect(html).toContain("10–19");
   });
 });

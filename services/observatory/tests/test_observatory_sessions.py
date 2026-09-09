@@ -890,6 +890,19 @@ def test_the_band_moves_twice_where_an_exact_count_moves_every_contributor():
     assert _cohort_band(3, 3) == "3–9" and _cohort_band(12, 12) == "12–19"
 
 
+def test_the_band_and_the_line_are_the_collectors_own_objects():
+    """INT-STUDIUM-030 stage 2 — three surfaces publish these judgement metrics: this page,
+    the live endpoints and `tools/class_report.py`. They now share ONE definition, in the
+    collector's `metrics`, where the floor already lives. Two surfaces that band differently
+    publish two different cohorts under one word, and a sentence copied per surface says
+    something different on each of them within a release or two (the TS/Py `over_distrust`
+    drift is the precedent this repository already paid for)."""
+    import metrics
+
+    assert _cohort_band is metrics.cohort_band
+    assert NON_ATTRIBUTION is metrics.NON_ATTRIBUTION
+
+
 def test_every_judgement_metric_carries_its_non_attribution_line_on_both_twins(cfg, client):
     """-024's clearest expression: the surface says in words what the number is not.
 

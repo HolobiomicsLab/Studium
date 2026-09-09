@@ -94,16 +94,12 @@ UNVERSIONED = "unversioned"
 #: that is why a band is published rather than a bare `>= floor`: `>= floor` names no
 #: population, so a reading resting on five contributors and one resting on twenty-four would
 #: arrive identical and be given the same weight.
-_BAND_EDGES = (10, 20)
-
 #: The sentence every judgement metric carries, on both twins. The teacher dashboard states
 #: the same thing in its own voice (`apps/teacher-dashboard/components/NonAttribution.tsx`);
-#: this is the operator page's. The unit of protection is the individual, and the surface says
-#: so in words rather than implying it through a floor.
-NON_ATTRIBUTION = (
-    "class-level reading over the contributors this family names, and not a statement about "
-    "any student: it describes how a group judged, and no control on this surface narrows it "
-    "to a person")
+#: the live endpoints publish this object itself. It is DEFINED in the collector's `metrics`,
+#: with the floor and the bands, because a sentence copied per surface says something different
+#: on each of them within a release or two (INT-STUDIUM-030 stage 2).
+NON_ATTRIBUTION = metrics.NON_ATTRIBUTION
 
 #: The sentence the operator needs next to the `{course}` in the URL.
 SESSION_SCOPE_NOTE = (
@@ -391,20 +387,11 @@ def _people(count: Any, single_lesson: bool) -> dict[str, Any]:
             "n_learner_lesson_pairs": number}
 
 
-def _cohort_band(size: int, floor: int) -> str:
-    """A judgement cohort's size as a band: `5-9`, `10-19`, `20+` at the default floor of 5.
-
-    The lowest band starts at the floor, because a cohort under the floor was never
-    published, and each later band starts at its edge. What the reader gains is the order of
-    magnitude that makes a judgement metric interpretable; what they lose is the per-read
-    increment that makes an exact count a channel.
-    """
-    lower = floor
-    for edge in _BAND_EDGES:
-        if size < edge:
-            return f"{lower}\u2013{edge - 1}"
-        lower = max(edge, floor)
-    return f"{lower}+"
+#: A judgement cohort's size as a band (`5-9`, `10-19`, `20+` at the default floor). One
+#: definition, in the collector's `metrics`, shared by this page, the live endpoints and
+#: `tools/class_report.py`: two surfaces that band differently publish two different cohorts
+#: under one word.
+_cohort_band = metrics.cohort_band
 
 
 def _judgement(scan: _Scan, family: str, floor: int, single: bool) -> dict[str, Any]:

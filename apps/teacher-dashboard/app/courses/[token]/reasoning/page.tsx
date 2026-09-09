@@ -1,6 +1,7 @@
 import { getReasoningDepth, isSuppressed } from "@/lib/api";
 import ReasoningBreakdown from "@/components/ReasoningBreakdown";
 import CourseNav from "@/components/CourseNav";
+import NonAttribution from "@/components/NonAttribution";
 import SuppressedNotice from "@/components/SuppressedNotice";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,12 @@ export default async function ReasoningPage({ params }: Props) {
       ) : data ? (
         <ReasoningBreakdown data={data} />
       ) : null}
+      {/* INT-STUDIUM-030: this page publishes a judgement metric, and the collector
+          now sends `non_attribution` with it. The two pages that already carried this
+          line were the two that had advertised a drill-down; these two never did, which
+          is precisely why the line was missing here — nobody had had to argue about
+          them. An unadvertised aggregate is not a less characterological one. */}
+      <NonAttribution />
     </main>
   );
 }

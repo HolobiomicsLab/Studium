@@ -4,6 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import type { ReasoningResponse } from "@/lib/api";
+import CohortLine, { WithheldNotice } from "./CohortLine";
 
 const SIGNAL_COLORS: Record<string, string> = {
   justification: "#2563eb",
@@ -18,7 +19,14 @@ type Props = { data: ReasoningResponse };
 export default function ReasoningBreakdown({ data }: Props) {
   const entries = Object.entries(data.scenes).sort(([a], [b]) => a.localeCompare(b));
   if (entries.length === 0) {
-    return (
+    // An empty `scenes` has two causes and the copy below used to assert the first one for
+    // both: no signals arrived, or every scene that had signals was withheld under the floor
+    // (INT-STUDIUM-030 R1). "Aucun signal reçu" is a claim, and in the second case a false
+    // one — it tells a teacher their scenes are not instrumented when the truth is that their
+    // class is small.
+    return data.withheld_below_floor ? (
+      <WithheldNotice className="text-sm text-amber-700" />
+    ) : (
       <p className="text-gray-500 italic">
         Aucun signal de raisonnement reçu pour ce cours.
       </p>
@@ -41,6 +49,12 @@ export default function ReasoningBreakdown({ data }: Props) {
             <p className="text-xs text-gray-500 mb-2">
               {entry.n_signals} signaux observés
             </p>
+            {/* Per row, not once for the page: a scene's score is computed over the learners
+                who produced signals in THAT scene, which is a narrower population than the
+                course cohort the endpoint floored. This is the surface where the two diverge
+                most: a class of thirty can leave one person's reasoning behind a scene's
+                name, and the endpoint's floor would never have noticed. */}
+            <CohortLine judgement={entry} className="text-xs text-gray-500 mb-2" />
             <div className="w-full h-32">
               <ResponsiveContainer>
                 <BarChart layout="vertical" data={breakdownArr}>
@@ -58,6 +72,7 @@ export default function ReasoningBreakdown({ data }: Props) {
           </section>
         );
       })}
+      {data.withheld_below_floor ? <WithheldNotice className="text-sm text-amber-700" /> : null}
     </div>
   );
 }

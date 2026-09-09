@@ -1,6 +1,7 @@
 "use client";
 
 import type { CalibrationResponse } from "@/lib/api";
+import CohortLine from "./CohortLine";
 
 // No `learner` prop — see TrustCalibrationChart (INT-STUDIUM-030).
 type Props = { data: CalibrationResponse };
@@ -31,6 +32,11 @@ export default function CalibrationChart({ data }: Props) {
         Calculé sur {data.n_items} réponse{data.n_items > 1 ? "s" : ""} de quiz.
         Brier = mean((confidence - outcome)²) ; plus bas = mieux calibré.
       </p>
+      {/* INT-STUDIUM-030 R1: the line above counts ANSWERS, which is not a population. Two
+          hundred answers can be four learners. The number is only interpretable once the
+          reader knows who it was computed over, so that comes from the payload rather than
+          from a count the panel happens to have. */}
+      <CohortLine judgement={data.judgement} />
     </div>
   );
 }

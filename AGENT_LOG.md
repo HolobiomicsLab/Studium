@@ -4,6 +4,52 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-09 — INT-STUDIUM-030, R1 ÉTAPE 2 : chaque nombre publié nomme la population sur laquelle il a été calculé
+
+R1 sur les trois surfaces restantes — les endpoints du collecteur, `tools/class_report.py`, le
+tableau de bord enseignant. Le constat qui a ouvert l'étape : **`cohort_state` (le portail de
+sortie) est déjà correct au niveau du cours, mais une mesure est souvent calculée sur une
+population bien plus étroite que la cohorte qu'il a contrôlée.** Une ligne de confiance par scène,
+un score de raisonnement par scène, une exactitude d'audit par scène, une ligne de concept dans le
+rapport de classe : chacune peut être une seule personne dans une classe de trente. Le plancher
+passait ; la ligne publiait le jugement d'un individu sous le nom d'une scène.
+
+- **La population est accumulée LÀ OÙ le nombre est calculé** (`metrics.Population`), pas
+  re-dérivée après coup depuis un second prédicat — un second prédicat est une seconde définition,
+  et elle dérive. Un membre est une paire `(leçon, identité)` parce qu'un pseudonyme est
+  `HMAC(learnerId:lessonId)` : dans UNE leçon ce sont des personnes, et une union entre leçons
+  compte des paires apprenant·e–leçon. Le payload dit laquelle des deux, au lieu d'appeler les deux
+  « apprenant·e·s ».
+- **Le plancher s'applique par ligne, avant l'agrégat.** Une scène sous son propre plancher est
+  écartée avant de contribuer à `gaps`, `over_trusts`, `over_distrusts` et à la population — pas
+  seulement avant le payload : une moyenne sur deux scènes dont l'une est un individu publie la
+  moitié du jugement de cet individu comme celui de la classe.
+- **`cohort_band`, `cohort_counts` et `non_attribution` sont les objets du collecteur.** La
+  bande et la phrase vivent dans `metrics.py` ; `observatory_sessions.py` en fait des alias, et un
+  test l'assure par identité d'objet (`is`). Une phrase copiée trois fois dit trois choses
+  différentes — la dérive TS/Py sur `over_distrust` est le précédent maison.
+- **Ce que le test de propriété a trouvé.** Une scène retenue et trois scènes retenues devaient
+  produire le même payload. `n_audits` valait `len(gaps)` sur *toutes* les scènes notables : 1
+  retenue → 2, 3 retenues → 4. Le compte supprimé d'une clé revenait par la clé voisine, exactement
+  le défaut de l'étape 1 où il avait survécu dans la prose. `n_audits` (et `n_scenes` de
+  `compute_ai_audit_accuracy`) ne comptent plus que les scènes publiées.
+- **`floor=0` lit l'arithmétique brute, et le DÉFAUT est le publiable.** Un appelant qui oublie
+  l'argument retient au lieu de divulguer. Un répertoire qui mélange identités nommées et anonymes,
+  ou leçons nommées et anonymes, est **refusé** plutôt que sommé.
+- **Tableau de bord.** `Judgement` devient un type, requis et non optionnel, sur calibration,
+  autonomie, confiance-IA et raisonnement ; `CohortLine` rend la bande et l'unité comptée,
+  `WithheldNotice` l'état retenu — sans prop, parce qu'il n'y a aucun compte à passer. La
+  traduction française est indexée sur la phrase exacte du serveur et retombe en verbatim si elle
+  change : *stale-and-fluent* est pire que non traduit, parce que rien ne le signale.
+- **Deux états rendus comme un seul, corrigés.** « Aucun signal de raisonnement reçu » et « aucun
+  audit n'a encore été joué » étaient affichés quand la mesure existait mais était retenue : ils
+  envoient un·e enseignant·e réparer un parcours qui n'a rien.
+
+Vérification : `python tools/pytest_all.py` → 16 suites, 0 failing (collecteur 140 → 158, tools
+32 → 39) ; `pnpm test` vert ; `next build` du tableau de bord vert (66 → 76 tests).
+
+---
+
 ## 2026-09-09 — INT-STUDIUM-030, R1 SUR LA SURFACE OBSERVATORY : une règle d'identité, des cohortes en bandes, des motifs au lieu de comptes
 
 La moitié R1 que l'intent mettait en attente. Quatre changements, chacun vérifiable sur un diff.

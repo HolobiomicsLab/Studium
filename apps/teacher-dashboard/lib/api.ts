@@ -28,9 +28,31 @@ export type ProgressMetricsResponse = {
   scenes_total?: number;
 };
 
+/**
+ * What a judgement number says about the population it was computed over (INT-STUDIUM-030 R1).
+ *
+ * The collector accumulates this where the number is computed, not from a second predicate
+ * afterwards, so the band belongs to THAT population: a per-scene row carries the auditors of
+ * that scene, which can be far fewer than the course cohort the endpoint floored on the way
+ * out. A row that passed the endpoint's floor can still be one person's judgement published
+ * under a scene's name — that gap is the whole reason this block exists.
+ *
+ * `cohort_band` is a BAND (`5–9`, `10–19`, `20+`), never a count: an exact class size printed
+ * beside a characterological reading is, for a reader who holds the roster, one more coordinate
+ * on the way to a person. `null` means no population could be established, and `cohort_counts`
+ * then says WHICH absence it is — nobody contributed, or the contributors could not be counted
+ * by the one rule. The two need different actions from the reader.
+ */
+export type Judgement = {
+  cohort_band: string | null;
+  cohort_counts: string;
+  non_attribution: string;
+};
+
 export type CalibrationResponse = {
   brier_score: number | null;
   n_items: number;
+  judgement: Judgement;
 };
 
 export type AutonomyResponse = {
@@ -38,6 +60,7 @@ export type AutonomyResponse = {
   autonomy_ratio: number;
   n_critique: number;
   n_hints: number;
+  judgement: Judgement;
 };
 
 // trust_calibration (judgment-over-artifact) — distinct from CalibrationResponse
@@ -47,9 +70,21 @@ export type AutonomyResponse = {
 export type TrustCalibrationResponse = {
   trust_calibration: number | null;
   band: "bien" | "sur" | "sous" | null;
+  /** PUBLISHED scorable scenes, pooled per scene_id — scenes withheld under the floor are
+   * dropped before they reach this tally, because a scorable-scene count that included them
+   * would republish, from a neighbouring key, exactly the number `withheld_below_floor`
+   * replaced. */
   n_audits: number;
   over_trust: number | null;
   over_distrust: number | null;
+  /** A flag, never a count. How many scenes were withheld is cohort information about the
+   * classes the floor exists to protect; a boolean says the reading is incomplete without
+   * saying how incomplete. */
+  withheld_below_floor: boolean;
+  /** Only on the unpublished branch: says whether nothing was scorable or the cohort was too
+   * small. Rendering one for the other sends a teacher looking for a scene that is there. */
+  reason?: string;
+  /** Published scenes only. Each row is its own population — see `Judgement`. */
   per_scene: Array<{
     scene_id: string;
     gap: number | null;
@@ -58,7 +93,9 @@ export type TrustCalibrationResponse = {
     planted_errors: number;
     missed: number;
     false_positives: number;
-  }>;
+    sound_total: number;
+  } & Judgement>;
+  judgement: Judgement;
 };
 
 /**
@@ -237,8 +274,14 @@ export type ReasoningSceneEntry = {
   score: number | null;
   n_signals: number;
   breakdown: Record<string, number>;
+} & Judgement;
+/** `scenes` holds the PUBLISHED scenes only; rows whose own contributors fell under the floor
+ * are dropped by the collector, and `withheld_below_floor` says so without saying how many. */
+export type ReasoningResponse = {
+  scenes: Record<string, ReasoningSceneEntry>;
+  withheld_below_floor: boolean;
+  judgement: Judgement;
 };
-export type ReasoningResponse = { scenes: Record<string, ReasoningSceneEntry> };
 
 // `scene_id` survives the INT-STUDIUM-030 removal: a scene is an artifact scope, not a person.
 export function getReasoningDepth(

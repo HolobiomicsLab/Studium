@@ -123,6 +123,14 @@ your students (INT-STUDIUM-030).
   is withheld: fewer than five distinct contributing learners." A count there would grow with
   your class, one step at a time, and each step is readable against your roster.
 
+The same three rules now hold on the surfaces beside this one — the collector's `/metrics/*`
+endpoints, `tools/class_report.py`, and the teacher dashboard — so a number does not become
+more precise by being read somewhere else. What changed there is the *scope* the floor is
+applied at: a per-scene trust row, a per-scene reasoning score and a per-concept class-report
+row are each computed over the people who contributed to THAT row, which can be far fewer than
+the course cohort the endpoint checked on the way out. Those rows are now floored, and named,
+one by one.
+
 And **`measured` is not the same as a blank**. A metric that says `measured: false` ran and had
 nothing to measure — nobody started a lesson, or every AI audit was ungrounded — and the page
 gives you that sentence. Before, an unmeasured metric arrived as an empty cell under a green

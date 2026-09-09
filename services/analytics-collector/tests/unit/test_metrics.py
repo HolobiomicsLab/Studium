@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import metrics
 from metrics import (
     compute_progress, compute_calibration, compute_autonomy,
     compute_progress_metrics, compute_scene_type_breakdown,
@@ -63,7 +64,15 @@ def test_compute_calibration_brier(tmp_path):
 
 def test_compute_calibration_no_data(tmp_path):
     cal = compute_calibration(tmp_path, "c-empty")
-    assert cal == {"brier_score": None, "n_items": 0}
+    # The exact shape, so a new key has to be argued for here rather than appearing. The
+    # judgement block is INT-STUDIUM-030 R1: every published number names the population it
+    # was computed over, and this one was computed over nobody — which is a different
+    # sentence from "the contributors could not be counted", and must not borrow it.
+    assert cal == {"brier_score": None, "n_items": 0,
+                   "judgement": {"cohort_band": None,
+                                 "cohort_counts": "no contributors: this number was computed "
+                                                  "over nobody",
+                                 "non_attribution": metrics.NON_ATTRIBUTION}}
 
 
 def test_compute_autonomy(tmp_path):
