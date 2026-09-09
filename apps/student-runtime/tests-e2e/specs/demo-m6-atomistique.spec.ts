@@ -107,7 +107,7 @@ describe("Démo M6 atomistique — 2 sessions cross-session", () => {
    *   consent (1ʳᵉ session uniquement) → library load bundle → boucle scènes → fin.
    *
    * Selectors identiques à `m5-end-to-end.spec.ts` :
-   *   - Consent A   : `#a` (checkbox HTML id)
+   *   - Consent A   : `#a` (checkbox HTML id) ; B : `#b`, exigé pour transmettre
    *   - Continuer   : `button*=Continuer`
    *   - Library     : `[data-testid='library-load-bundle']`
    *   - Player      : `[data-testid='lesson-player']`
@@ -132,6 +132,12 @@ describe("Démo M6 atomistique — 2 sessions cross-session", () => {
         const aBox = await $("#a");
         if (await aBox.isExisting()) {
           await aBox.click();
+        }
+        // B — « Indicateurs … transmis ». Exigé pour transmettre depuis INT-STUDIUM-030 :
+        // sans lui le portillon échoue fermée et le collector ne reçoit rien.
+        const bBox = await $("#b");
+        if (await bBox.isExisting()) {
+          await bBox.click();
         }
         const continueBtn = await $("button*=Continuer");
         if (await continueBtn.isExisting()) {

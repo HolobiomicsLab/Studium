@@ -60,6 +60,7 @@ const { loadBundleMock, bundleFor } = vi.hoisted(() => {
 vi.mock("../hooks/useTelemetry", () => ({
   useTelemetry: () => ({ emit: vi.fn(), flush: vi.fn().mockResolvedValue(undefined) }),
   getTelemetryEndpoint: (x: string | null) => x,
+  resolveTelemetryEndpoint: (_c: unknown, x: string | null) => x,
   getTelemetryCourseToken: (x: string) => x,
 }));
 
@@ -70,6 +71,9 @@ vi.mock("../lib/tauri", () => ({
     saveState: vi.fn().mockResolvedValue(undefined),
     appendEvent: vi.fn().mockResolvedValue(undefined),
     getPseudonyme: vi.fn().mockResolvedValue("pseudo-1"),
+    // The player reads the consent record before it transmits (INT-STUDIUM-030);
+    // this suite is about a different behaviour, so the grant is simply present.
+    getConsent: vi.fn().mockResolvedValue({ level_a: true, level_b: true, level_c: false }),
   },
 }));
 

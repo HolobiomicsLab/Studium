@@ -133,6 +133,12 @@ describe("M5 end-to-end pipeline (M5.11) — 2-sessions cross-session", () => {
         if (await aBox.isExisting()) {
           await aBox.click();
         }
+        // B — « Indicateurs … transmis ». Exigé pour transmettre depuis INT-STUDIUM-030 :
+        // sans lui le portillon échoue fermée et le collector ne reçoit rien.
+        const bBox = await $("#b");
+        if (await bBox.isExisting()) {
+          await bBox.click();
+        }
         const continueBtn = await $("button*=Continuer");
         if (await continueBtn.isExisting()) {
           await continueBtn.click();

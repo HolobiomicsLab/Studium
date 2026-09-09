@@ -5,7 +5,7 @@ import { defaultLearnerState, type LearnerState } from "@studium/learner-state";
 import type { Scene } from "@studium/lesson-bundle-schema";
 import { tauri } from "../lib/tauri";
 import { useAdaptation } from "../hooks/useAdaptation";
-import { useTelemetry, getTelemetryEndpoint, getTelemetryCourseToken } from "../hooks/useTelemetry";
+import { useTelemetry, resolveTelemetryEndpoint, getTelemetryCourseToken } from "../hooks/useTelemetry";
 import SceneRouter from "../components/scenes/SceneRouter";
 import CalibrationPanel from "../components/CalibrationPanel";
 import CalibrationFeedback from "../components/CalibrationFeedback";
@@ -105,11 +105,38 @@ function Player({
   setSceneIdx: (i: number) => void;
   navigate: ReturnType<typeof useNavigate>;
 }) {
+  // Le consentement et le pseudonyme sont LUS, pas supposés. Les deux valeurs qui étaient
+  // écrites en dur ici — un endpoint qui ignorait l'accord de l'apprenant, et le littéral
+  // "anonymous" à la place du pseudonyme par leçon que `pseudonyme.rs` calcule déjà — sont
+  // les deux moitiés de ce que l'écran de consentement promet.
+  const [consent, setConsent] = useState<{ level_b?: boolean } | null>(null);
+  const [pseudonym, setPseudonym] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      // Chaque lecture échoue FERMÉE : sans consentement lisible on ne transmet pas, et sans
+      // pseudonyme lisible on n'invente pas d'identifiant de remplacement.
+      try {
+        const record = await tauri.getConsent();
+        if (!cancelled) setConsent(record ?? null);
+      } catch {
+        if (!cancelled) setConsent(null);
+      }
+      try {
+        const value = await tauri.getPseudonyme(bundle.bundle_id);
+        if (!cancelled) setPseudonym(typeof value === "string" && value ? value : null);
+      } catch {
+        if (!cancelled) setPseudonym(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [bundle.bundle_id]);
+
   const { emit } = useTelemetry({
-    endpoint: getTelemetryEndpoint(null),
+    endpoint: pseudonym ? resolveTelemetryEndpoint(consent, null) : null,
     courseToken: getTelemetryCourseToken(""),
     context: {
-      learner_pseudonym: "anonymous",
+      learner_pseudonym: pseudonym ?? "anonymous",
       lesson_id: bundle.bundle_id,
       bundle_version: bundle.schema_version,
     },
