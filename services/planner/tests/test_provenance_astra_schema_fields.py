@@ -62,6 +62,21 @@ def test_entries_carry_the_raw_id_as_a_tag_and_the_accessor_reads_tag_then_legac
     assert source_edge_id({}, "k") == "k"
 
 
+def test_re_emitting_an_entry_that_already_has_the_tag_does_not_append_a_second_one():
+    """INT-STUDIUM-010 nit 5. `source_edge_id` returns the FIRST matching tag, so a duplicate
+    never changed the value read back — it only grew the file, which is the kind of defect
+    that stays invisible until someone diffs two emissions of one document and finds them
+    unequal. The kept tag is the EXISTING one, carrying the true raw id: on a re-emission the
+    entry is keyed by its slug, so appending would have recorded the slug as the raw id."""
+    already_tagged = dict(_edge_decision(), id="prereq_obj_fft_obj_fourier",
+                          tags=[f"{SOURCE_ID_FIELD}:{_RAW}"])
+    _, body = analysis_body(_emit(decisions=[already_tagged]))
+    (slug,) = body["decisions"]
+    tags = body["decisions"][slug]["tags"]
+    assert [t for t in tags if t.startswith(f"{SOURCE_ID_FIELD}:")] == [f"{SOURCE_ID_FIELD}:{_RAW}"]
+    assert source_edge_id(body["decisions"][slug], slug) == _RAW
+
+
 def test_evidence_is_normalised_and_artifacts_become_declared_outputs():
     _, body = analysis_body(_emit())
     (slug,) = body["findings"]

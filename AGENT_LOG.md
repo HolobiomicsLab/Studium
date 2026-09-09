@@ -4,6 +4,31 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-09 — INT-STUDIUM-010, nits 2 et 5 : un instant par revue, et pas de second tag
+
+Les deux nits que la revue de -010 avait laissés au·à la propriétaire, tous deux rouges avant
+d'être verts.
+
+- **Nit 2 — `eval/harness/scene_judge.py`.** `created_at` prenait l'horloge AU MOMENT DE
+  L'ÉMISSION : `verdicts.json` et `review/astra.yaml` nommaient donc deux instants différents, et
+  deux `write_review` sur la MÊME revue produisaient deux documents différents. `judge_bundle`
+  estampille désormais une fois (`judged_at`) et `emit_review_astra` lit cette estampille avant
+  l'horloge ; l'argument explicite reste prioritaire, et une revue écrite avant l'existence de
+  `judged_at` s'émet encore. Le test a d'abord été écrit sur la scène PROPRE : sans défaut, le
+  document ne porte aucun `created_at` et l'égalité tenait quoi que fît le code — un vert qui
+  mesurait un champ absent. Réécrit sur la scène corrompue, il tombe sans le correctif.
+- **Nit 5 — `services/planner/provenance/astra_emit.py`.** Ré-émettre un corps portant déjà un
+  tag `source_edge_id:` en ajoutait un second. `source_edge_id` renvoyant le PREMIER, la valeur
+  lue restait juste et seul le fichier grossissait — le genre de défaut invisible jusqu'au jour
+  où quelqu'un compare deux émissions d'un même document et les trouve inégales. Le tag conservé
+  est l'existant, qui porte le vrai id brut : à la ré-émission l'entrée est clefée par son slug,
+  donc l'ajout aurait enregistré le slug comme id brut.
+
+Vérification : `python tools/pytest_all.py` → 16 suites, 0 failing (eval/tests 47 → 48,
+services/planner 233 → 234).
+
+---
+
 ## 2026-09-09 — INT-STUDIUM-002 : une carte de résultats commise, et ce que la relecture du run bloqué a réellement montré
 
 La moitié repo de -002. La question ouverte de l'intent — le non-achèvement de `hint_reliant`

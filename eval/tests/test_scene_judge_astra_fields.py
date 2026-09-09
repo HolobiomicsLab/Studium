@@ -44,3 +44,35 @@ def test_review_findings_are_in_schema():
     verdicts = next(o for o in body["outputs"] if o["id"] == "verdicts")
     assert verdicts["format"] == "json"
     assert "lesson.json#" not in declared  # raw refs live in grounding-output descriptions
+
+
+def test_a_review_carries_one_stamp_and_every_emission_reuses_it():
+    """INT-STUDIUM-010 nit 2. `created_at` used to default to the wall clock AT EMISSION, so
+    `verdicts.json` and `review/astra.yaml` named two different instants and two
+    `write_review` calls on the same review produced two different documents. A review that
+    becomes an evaluation artifact has to be tied to one moment, and the moment that means
+    something is when the judging happened — not when a file was rewritten."""
+    # The CORRUPTED scene, so the document actually has findings to carry a stamp. On the
+    # clean quiz there are none, `created_at` appears nowhere, and the equality below would
+    # hold whatever the code did — a green test measuring an absent field.
+    corrupted = corrupt_scene(QUIZ)
+    assert corrupted is not None
+    bundle = {"bundle_id": "b1", "language": "fr", "scenes": [corrupted[0]]}
+    review = judge_bundle(bundle, FakeLLM())
+    assert review["judged_at"], "the review must stamp itself"
+
+    first = emit_review_astra(review)
+    second = emit_review_astra(review)
+    assert first == second
+    findings = analysis_body(first)[1]["findings"]
+    assert findings, "the corrupted scene must produce at least one defect finding"
+    assert {f["created_at"] for f in findings.values()} == {review["judged_at"]}
+
+    # The explicit argument still wins: a caller re-emitting a historical review can pin it.
+    pinned = emit_review_astra(review, created_at=_AT)
+    for finding in analysis_body(pinned)[1]["findings"].values():
+        assert finding["created_at"] == _AT
+
+    # And a review dict written before `judged_at` existed still emits, from the clock.
+    legacy = {k: v for k, v in review.items() if k != "judged_at"}
+    assert emit_review_astra(legacy)
