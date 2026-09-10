@@ -5,6 +5,7 @@ from typing import Any, Protocol
 
 from .session import _MCPSession
 from . import cache as _cache
+from .passages import PassageEnvelopeError, normalize_passage_envelope
 
 
 class PerspicaciteClient(Protocol):
@@ -29,30 +30,27 @@ def _unwrap(payload: dict | None) -> dict | None:
 
 
 def _normalize(inner: dict | None) -> dict:
-    """Perspicacité {success, results|passages:[{chunk_text, score, source}]} → {status, docs}.
+    """Normalize live or legacy passages to the planner's ``{status, docs}`` API.
 
     `docs` carry the keys extract_refs requires: id, title, authors, relevance_score
-    (+ doi, year, excerpt). Defaults are defensive so extract_refs never KeyErrors.
+    (+ doi, year, excerpt). Malformed successful responses fail closed as offline.
     """
-    if not isinstance(inner, dict) or not inner.get("success"):
+    try:
+        normalized = normalize_passage_envelope(inner)
+    except PassageEnvelopeError:
         return {"status": "offline", "docs": []}
-    hits = inner.get("results") or inner.get("passages") or []
+    if normalized["status"] != "ok":
+        return {"status": "offline", "docs": []}
     docs: list[dict] = []
-    for h in hits:
-        src = h.get("source") or {}
-        excerpt = str(h.get("chunk_text") or "")
-        if len(excerpt) > 500:
-            excerpt = excerpt[:500]
-        doi = src.get("doi")
-        doc_id = src.get("bibkey") or h.get("chunk_id") or doi or src.get("title") or "unknown"
+    for passage in normalized["passages"]:
         docs.append({
-            "id": str(doc_id),
-            "doi": doi,
-            "title": src.get("title") or "(untitled)",
-            "authors": src.get("authors") or [],
-            "year": src.get("year"),
-            "excerpt": excerpt,
-            "relevance_score": float(h.get("score") or 0.0),
+            "id": str(passage["id"]),
+            "doi": passage["doi"],
+            "title": passage["title"] or "(untitled)",
+            "authors": passage["authors"],
+            "year": passage["year"],
+            "excerpt": passage["text"][:500],
+            "relevance_score": passage["score"] or 0.0,
         })
     return {"status": "ok", "docs": docs}
 

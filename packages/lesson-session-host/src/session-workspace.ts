@@ -23,6 +23,7 @@ import { join } from "node:path";
 import type { SessionHost } from "./host.js";
 import { publicScene, publicTransition } from "./public-scene.js";
 import { parseRunResult, type RunResult } from "./run-result.js";
+import { expectedKind, operatorContext, operatorContextMarkdown, responseFor } from "./operator-context.js";
 
 const FILES = {
   task: "task.md", response: "response.json", feedback: "feedback.md", index: "index.json",
@@ -33,21 +34,6 @@ const FILES = {
 // scene type -> the free-text ResponseInput kind its grader requires (mirror of studium-vscode
 // scene-io.ts + lesson-session graders.ts). Operators may instead write an explicit {kind,...};
 // control scenes (intro/concept/reproduction/discussion) and anything unmapped fall back to ack.
-const FREE_TEXT_KIND: Record<string, string> = {
-  ai_critique: "critique",
-  spot_the_flaw: "flaw_report",
-  explain_back: "explanation",
-  comparison: "comparison",
-  summary_audit: "summary_audit",
-  prompt_practice: "prompt_submission",
-  communication_sim: "communication",
-};
-
-/** The ResponseInput kind the grader requires for a scene type (free-text map + quiz/meta + ack fallback). */
-function expectedKind(type: string): string {
-  return FREE_TEXT_KIND[type] ?? (type === "quiz" ? "quiz_choice" : type === "meta_checkpoint" ? "confidence" : "ack");
-}
-
 export interface WorkspaceStepEntry {
   step: number;
   scene_id: string;
@@ -79,12 +65,13 @@ export class SessionWorkspace {
   async writeStep(sessionId: string): Promise<void> {
     const pres = this.host.currentPresentation(sessionId) as { scene: Record<string, unknown> };
     const scene = publicScene(pres.scene as never) as Record<string, unknown>; // answer key stripped HERE
+    const context = operatorContextMarkdown(operatorContext(this.host, sessionId));
     await mkdir(this.dir, { recursive: true });
     const manifest = scene.run_manifest as Record<string, unknown> | undefined;
     if (manifest) {
       await rm(join(this.dir, FILES.runResult), { force: true }); // fresh run scene: no stale result
       await writeFile(join(this.dir, FILES.run), JSON.stringify(manifest, null, 2), "utf8");
-      await writeFile(join(this.dir, FILES.task), renderRunTask(scene, manifest, this.step), "utf8");
+      await writeFile(join(this.dir, FILES.task), renderRunTask(scene, manifest, this.step) + context, "utf8");
       await this.append(sessionId, {
         step: this.step, scene_id: String(scene.id ?? ""), scene_type: String(scene.type ?? ""),
         status: "awaiting_run",
@@ -93,7 +80,7 @@ export class SessionWorkspace {
     }
     await rm(join(this.dir, FILES.run), { force: true }); // leaving a run scene: clear the stale manifest
     const assets = this.host.sceneArtifacts(sessionId) as Array<Record<string, unknown>>;
-    await writeFile(join(this.dir, FILES.task), renderTask(scene, assets, this.step), "utf8");
+    await writeFile(join(this.dir, FILES.task), renderTask(scene, assets, this.step) + context, "utf8");
     await this.append(sessionId, {
       step: this.step,
       scene_id: String(scene.id ?? ""),
@@ -309,11 +296,7 @@ function renderTask(scene: Record<string, unknown>, assets: Array<Record<string,
   }
 
   L.push("## Repondre", "Ecris ta reponse dans `response.json` (ce dossier) :", "```json");
-  const kind = FREE_TEXT_KIND[String(s.type)];
-  if (kind) L.push(`{ "kind": "${kind}", "text": "<ta reponse, avec justification>" }`);
-  else if (s.type === "quiz") L.push('{ "kind": "quiz_choice", "choiceId": "<id>" }');
-  else if (s.type === "meta_checkpoint") L.push('{ "kind": "confidence", "value": 3 }');
-  else L.push('{ "kind": "ack" }');
+  L.push(JSON.stringify(responseFor(scene, false).example, null, 2));
   L.push("```", '_(ou simplement `{ "text": "..." }` — Studium deduit le bon type d\'entree.)_');
   return L.join("\n") + "\n";
 }

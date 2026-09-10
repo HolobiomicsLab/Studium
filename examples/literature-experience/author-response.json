@@ -1,0 +1,30 @@
+{
+  "lesson_plan": {
+    "schema_version": "1.0",
+    "id": "spectral-evidence-draft",
+    "title": "What does a spectral similarity score establish?",
+    "language": "en",
+    "target": "Graduate scientists",
+    "duration_minutes": 20,
+    "status": "draft",
+    "validated_by": null,
+    "learning_objectives": [
+      {"id": "o-matching", "description": "Explain how precursor mass changes the matching of two spectra.", "bloom_level": "analyze"},
+      {"id": "o-judgment", "description": "Distinguish a numerical similarity result from a stronger chemical identification claim and state the missing evidence.", "bloom_level": "evaluate"}
+    ],
+    "concepts": [{"id": "spectral-evidence", "title": "Precursor-aware spectral evidence", "description": "The matching rule affects a score; interpretation requires knowing how the score was obtained.", "bloom_level_target": "evaluate"}],
+    "corpus_refs": [{"ref_id": "perspicacite:e0e48ebf3d0af205753d9071", "ref_type": "doi", "doi": "10.1093/bioinformatics/btaf081", "title": "SimMS: a GPU-accelerated cosine similarity implementation for tandem mass spectrometry."}],
+    "scene_outlines": [
+      {"id": "read-source", "type": "concept", "title": "What information enters the similarity calculation?", "objective_refs": ["o-matching"], "duration_minutes": 4, "prov_derived_from": ["perspicacite:e0e48ebf3d0af205753d9071"], "notes": "Read the selected introduction excerpt. This is the sole captured passage; no whole-paper coverage is claimed."},
+      {"id": "inspect-matching", "type": "simulation", "title": "Explore direct and precursor-aware matching", "objective_refs": ["o-matching"], "duration_minutes": 8, "prov_derived_from": ["perspicacite:e0e48ebf3d0af205753d9071"], "notes": "Harness creates an external viewer for the existing illustrative spectra. Ask for a prediction, vary one parameter, inspect matched peaks. An actual fixture computation is not a replication of SimMS or an identification benchmark. No capsule is selected by this draft."},
+      {"id": "judge-interpretation", "type": "ai_critique", "title": "What can you conclude from the score?", "objective_refs": ["o-judgment"], "duration_minutes": 8, "prov_derived_from": ["perspicacite:e0e48ebf3d0af205753d9071"], "notes": "Proposed teaching extension for human review: critique a claim that a changed matching score by itself certifies chemical identity. Request independent evidence and the learner's own confidence. Do not label this inference as a direct finding of the captured excerpt. A teacher must supply and validate any assessment key and transfer task."}
+    ],
+    "metadata": {"subject": "Spectral interpretation", "author": "Codex harness demonstration", "created": "2026-09-10", "tags": ["draft", "synthetic-data", "source-linked-example"]}
+  },
+  "source_links": [
+    {"scene_id": "read-source", "evidence_id": "perspicacite:e0e48ebf3d0af205753d9071", "quote": "“Modified” cosine similarity is an extension of greedy cosine that uses the precursor mass as an additional input"},
+    {"scene_id": "inspect-matching", "evidence_id": "perspicacite:e0e48ebf3d0af205753d9071", "quote": "precursor mass"},
+    {"scene_id": "judge-interpretation", "evidence_id": "perspicacite:e0e48ebf3d0af205753d9071", "quote": "similarity"}
+  ],
+  "viewers": [{"id": "spectrum-comparison", "scene_id": "inspect-matching", "source_ids": ["perspicacite:e0e48ebf3d0af205753d9071"], "goal": "Expose the role of the matching rule and preserve the distinction between measured baseline and derived exploration.", "interactions": ["Toggle precursor-aware matching", "Vary fragment tolerance", "Inspect each matched peak", "Record the learner's interpretation and confidence without automatic grading"]}]
+}

@@ -4,6 +4,29 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-10 — INT-STUDIUM-040, littérature et harnais
+
+Première tranche de la demande propriétaire après lecture du manuscrit (lecture
+seule) : normalisation réelle Perspicacité et migration du cache; dossier auteur
+indépendant du fournisseur, validation des sources/citations et du brouillon;
+export ASTRA/MySTRA; contexte public commun MCP/fichiers avec exemples de réponse
+canoniques. Deux feuilles Sol high : contrats/implémentation Python, revue indépendante.
+
+Exemple reproductible depuis un passage SimMS capturé via Perspicacité/PMC :
+brouillon non approuvé, calcul réel de spectres synthétiques, visualiseur externe
+avec paramètres, provenance, comparaison au résultat initial et réflexion locale.
+Contrôles négatifs conservés : le passage/source ne peut pas être substitué dans
+le dossier; les clés/feedback/meta arbitraires sont absents du contexte; désactiver
+le shift et resserrer la tolérance changent l'exploration sans changer le cours.
+
+Vérification de travail : build, lint (194 avertissements existants, 0 erreur),
+tests TS, Python 16 suites/0 failing, MCP smoke 14 assertions, ASTRA réel et audit
+navigateur passent. La vérification du commit exact depuis un checkout neuf et
+les chiffres consolidés sont consignés dans le hub INT040. Aucun ancien test
+modifié. Aucune approbation pédagogique, exécution ASB arbitraire, API modèle,
+diffusion étudiante ou écriture manuscrit. Pas de push.
+
+
 ## 2026-09-10 — INT-STUDIUM-038, audits reproductibles
 
 Pilotes locaux versionnés: captures des douze vues enseignantes sur le vrai

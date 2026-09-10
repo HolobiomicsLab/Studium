@@ -1,0 +1,22 @@
+{
+  "success": true,
+  "origin": {
+    "tool": "perspicacite.get_paper_content",
+    "doi": "10.1093/bioinformatics/btaf081",
+    "content_source": "pmc",
+    "selector": "Introduction, paragraph 2; selected exact excerpt",
+    "retrieved_at": "2026-09-10",
+    "note": "Selected excerpt from live structured PMC content; not a get_relevant_passages search score."
+  },
+  "passages": [
+    {
+      "text": "“Modified” cosine similarity is an extension of greedy cosine that uses the precursor mass as an additional input",
+      "source_doi": "10.1093/bioinformatics/btaf081",
+      "source_url": "https://doi.org/10.1093/bioinformatics/btaf081",
+      "license_id": null,
+      "kb_name": null,
+      "title": "SimMS: a GPU-accelerated cosine similarity implementation for tandem mass spectrometry.",
+      "score": null
+    }
+  ]
+}

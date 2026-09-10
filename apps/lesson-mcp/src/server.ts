@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { SessionHost, ResponseInputSchema, RunResultSchema, publicPresentation, publicTransition } from "@studium/lesson-session-host";
+import { SessionHost, ResponseInputSchema, RunResultSchema, publicPresentation, publicTransition, operatorContext } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
@@ -17,6 +17,16 @@ const fail = (message: string): ToolResult => ({ content: [{ type: "text", text:
  */
 export function buildMcpServer(host: SessionHost): McpServer {
   const server = new McpServer({ name: "studium-lesson", version: "0.1.0" });
+
+  server.registerTool("get_operator_context", {
+    description: "Get the current public scene, resolved display assets, run instructions and response contract " +
+      "for an external harness creating a custom viewer or example. Read-only: Studium never executes viewer code. " +
+      "In teaching mode collect the learner's judgment and confidence; do not answer for them.",
+    inputSchema: { session_id: z.string() },
+  }, async ({ session_id }) => {
+    try { return text(operatorContext(host, session_id)); }
+    catch (e) { return fail((e as Error).message); }
+  });
 
   server.registerTool(
     "start_lesson_session",

@@ -1,5 +1,6 @@
 // packages/lesson-session-host/src/index.ts
 export { SessionHost, SessionHostNotFoundError, PeerRoomError, type SessionHostOptions } from "./host.js";
+export { operatorContext } from "./operator-context.js";
 export {
   reviewQueueFromState, conceptMemoryFromState, nextReinforcementFromState, reinforcementSceneFromState,
   dueReinforcementTargetsFromMemory,
