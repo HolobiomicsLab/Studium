@@ -48,8 +48,8 @@ export class LessonSession {
   private remediationCount = 0;
   /** Cumulative count of scaffolding events the learner leaned on across the whole session:
    * +1 per hint dispensed, +1 per scene replay, +1 per prerequisite remediation. Unlike
-   * `hintsUsed` (reset per scene-visit) and `state.scenes_replayed` (never written by the engine),
-   * this is the session-lifetime denominator for autonomyRatio. */
+   * `hintsUsed` (reset per scene-visit) and `state.scenes_replayed` (per scene id), this is the
+   * session-lifetime denominator for autonomyRatio. */
   private scaffoldingEvents = 0;
   private activeUniverseId = BASELINE_UNIVERSE_ID;
   protected discussionTurnIdx = 0;
@@ -115,7 +115,18 @@ export class LessonSession {
     if (!this.started) return null;
     return this.lastGraphExplanation ?? this.engine.explain();
   }
-  getState(): LearnerState { return this.started ? this.engine.getState() : this.state; }
+  getState(): LearnerState { return this.started ? this.engineStateWithReplays() : this.state; }
+
+  /** The engine's state, with the session's replay tally stamped on. `scenes_replayed` is a
+   * declared, persisted field of LearnerState that the ENGINE never writes and the SESSION owns,
+   * and `getState()` hands out the engine's object — so anything written into `this.state` alone
+   * never reached a caller, a save, or the completion summary. One place stamps it, and every
+   * exit from the session goes through here. */
+  private engineStateWithReplays(): LearnerState {
+    const st = this.engine.getState();
+    for (const [sceneId, n] of Object.entries(this.replayCounts)) st.scenes_replayed[sceneId] = n;
+    return st;
+  }
 
   /** The session's resolved pseudonym (salted on learnerId+lessonId). Empty until start(). Used by
    * the host to label the forget_requested event without re-deriving the salt. */
@@ -229,7 +240,7 @@ export class LessonSession {
 
   protected async applySignal(signal: Signal): Promise<Decision> {
     const decision = this.engine.onSignal(signal);
-    this.state = this.engine.getState();
+    this.state = this.engineStateWithReplays();
     await this.deps.stateStore.save(this.bundle.bundle_id, this.state);
     await this.deps.eventLog.append({
       event_id: this.deps.idGen.uuid(),
@@ -254,9 +265,9 @@ export class LessonSession {
 
   /** Same-scene replays spent per scene id, this session — the budget behind MAX_SCENE_REPLAYS.
    * SESSION-owned on purpose: `state.scenes_replayed` belongs to the engine, which hands back its
-   * own object on every `getState()`, so a tally the session writes there is overwritten on the
-   * next signal and never passes 1. The write below is kept (it is what that field has always
-   * recorded); the budget reads this counter, which actually accumulates. */
+   * own object on every `getState()`, so a tally written straight into it is overwritten on the
+   * next signal and never passes 1. This counter accumulates, and `applySignal` projects it onto
+   * the state before every save — so the persisted field finally holds the real count. */
   private replayCounts: Record<string, number> = {};
 
   protected navigate(decision: Decision, scene: Scene): Transition {
@@ -279,11 +290,10 @@ export class LessonSession {
         return { kind: "remediate_alt", reason: action.reason, presentation: this.currentPresentation() };
       }
       // no unseen alternate -> honest fallback: replay the same item, while the budget lasts.
-      // Record the replay both per-scene (state.scenes_replayed — previously never written) and in the
-      // session-lifetime scaffolding tally that feeds autonomyRatio.
+      // Counted ONCE, in the session-owned tally; applySignal projects it onto
+      // `state.scenes_replayed` before each save, and `scaffoldingEvents` feeds autonomyRatio.
       if ((this.replayCounts[scene.id] ?? 0) < MAX_SCENE_REPLAYS) {
         this.replayCounts[scene.id] = (this.replayCounts[scene.id] ?? 0) + 1;
-        this.state.scenes_replayed[scene.id] = (this.state.scenes_replayed[scene.id] ?? 0) + 1;
         this.scaffoldingEvents += 1;
         return { kind: "replay", reason: action.reason, presentation: this.currentPresentation() };
       }
@@ -379,10 +389,10 @@ export class LessonSession {
     const scaffolding = this.scaffoldingEvents;
     const denom = completed + scaffolding;
     const autonomyRatio = denom === 0 ? 1 : Math.max(0, Math.min(1, completed / denom));
-    const summary: CompletionSummary = { totalDurationMs, autonomyRatio, scenesCompleted: completed, finalState: this.engine.getState() };
+    const summary: CompletionSummary = { totalDurationMs, autonomyRatio, scenesCompleted: completed, finalState: this.engineStateWithReplays() };
     this.emit({ type: "lesson_completed", total_duration_ms: totalDurationMs, autonomy_ratio: autonomyRatio });
     if (this.deps.masteryClaimSink) {
-      const doc = buildMasteryClaims(this.engine.getState(), {
+      const doc = buildMasteryClaims(this.engineStateWithReplays(), {
         pseudonym: this.pseudonym,
         sessionId: this.sessionId,
         bundleId: this.bundle.bundle_id,

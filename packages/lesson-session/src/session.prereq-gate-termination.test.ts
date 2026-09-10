@@ -178,6 +178,21 @@ describe("scene replay — a learner who keeps failing one scene still finishes"
     expect(exhausted.length).toBe(1);
   });
 
+  // `state.scenes_replayed` is a declared, PERSISTED field of LearnerState. The session wrote to
+  // it, but `applySignal` does `this.state = this.engine.getState()` on the next signal and the
+  // engine hands back its own object, so the write was dropped and the field never passed 1 — a
+  // schema field that has only ever persisted zeros. The session's own counter is the truth; it
+  // is projected onto the state before it is saved.
+  it("persists the replay tally it claims to persist", async () => {
+    const s = new LessonSession(replayBundle(), buildTestDeps());
+    await s.start();
+    for (let i = 0; i < 50; i++) {
+      const t = await s.respond({ kind: "quiz_choice", choiceId: "a" });
+      if (t.kind === "complete") break;
+    }
+    expect(s.getState().scenes_replayed).toEqual({ "q-base2": MAX_SCENE_REPLAYS });
+  });
+
   it("a learner who answers correctly never spends the replay budget", async () => {
     const telemetry = new InMemoryTelemetrySink();
     const s = new LessonSession(replayBundle(), buildTestDeps({ telemetry }));
