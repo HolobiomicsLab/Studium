@@ -264,8 +264,21 @@ def compute_progress(
     course: str,
     bundle_version: str | None = None,
 ) -> dict:
-    """Completion rate by scene_id, with n_learners (distinct pseudonyms)."""
-    completions: dict[str, list[bool]] = defaultdict(list)
+    """Taux de réussite par scene_id, avec n_learners (pseudonymes distincts).
+
+    ``success`` est OPTIONNEL depuis l'ADR 006 v1.7 (INT-STUDIUM-035, décision candidat 2) :
+    une scène de texte libre corrigée hors ligne par l'appariement de sous-chaînes n'affirme
+    plus si la réponse était juste. Ces événements sont EXCLUS du taux au lieu d'être comptés
+    comme des échecs — ``bool(ev.get("success", False))`` transformait « personne n'a corrigé »
+    en « tout le monde a raté », la faute même que ce dépôt a déjà enregistrée sous
+    « une mesure vide rendue comme un zéro ».
+
+    Une scène dont aucun événement n'est corrigé vaut donc ``None``, jamais ``0.0``, et le
+    dénominateur réellement utilisé (``n_graded``) est publié à côté du taux, avec le nombre
+    d'événements écartés (``n_ungraded``), pour qu'aucun lecteur n'ait à le deviner.
+    """
+    graded: dict[str, list[bool]] = defaultdict(list)
+    ungraded: dict[str, int] = defaultdict(int)
     learners: dict[str, set[str]] = defaultdict(set)
     for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if ev.get("type") != "scene_completed":
@@ -273,17 +286,26 @@ def compute_progress(
         sid = ev.get("scene_id")
         if sid is None:
             continue
-        completions[sid].append(bool(ev.get("success", False)))
+        success = ev.get("success")
+        if success is None:
+            ungraded[sid] += 1
+        else:
+            graded[sid].append(bool(success))
         pseudo = ev.get("learner_pseudonym")
         if pseudo:
             learners[sid].add(pseudo)
+    scene_ids = set(graded) | set(ungraded)
     return {
         "scenes": {
             sid: {
-                "completion_rate": sum(1 for s in vals if s) / len(vals) if vals else 0.0,
+                "completion_rate": (
+                    sum(1 for s in graded[sid] if s) / len(graded[sid]) if graded[sid] else None
+                ),
+                "n_graded": len(graded[sid]),
+                "n_ungraded": ungraded[sid],
                 "n_learners": len(learners[sid]),
             }
-            for sid, vals in completions.items()
+            for sid in scene_ids
         }
     }
 

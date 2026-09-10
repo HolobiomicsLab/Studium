@@ -234,7 +234,8 @@ export class LessonSession {
     if (signal.kind !== "scene_completed") {
       await this.applySignal({ kind: "scene_completed", scene_id: scene.id, duration_ms: 0 }); // bookkeeping only
     }
-    this.emit({ type: "scene_completed", scene_id: scene.id, duration_ms: 0, success: this.successOf(signal) });
+    const success = this.successOf(signal);
+    this.emit({ type: "scene_completed", scene_id: scene.id, duration_ms: 0, ...(success === undefined ? {} : { success }) });
     return this.navigate(decision, scene);
   }
 
@@ -404,7 +405,14 @@ export class LessonSession {
     return { kind: "complete", summary, ...(calibration ? { calibration } : {}) };
   }
 
-  protected successOf(signal: Signal): boolean {
+  /** Whether the scene was answered CORRECTLY, or `undefined` when nobody graded it.
+   *
+   * A non-answer scene (intro, concept, discussion, meta) completes successfully by definition. An
+   * answered one reports what the grader said — and since INT-STUDIUM-035 candidate 2 the offline
+   * substring matcher says nothing, so this is `undefined` and `scene_completed` goes out WITHOUT
+   * `success`. `true` would certify through the telemetry the exact claim the decision withdrew from
+   * the posterior, and `false` would libel the learner. */
+  protected successOf(signal: Signal): boolean | undefined {
     return signal.kind === "answer_submitted" ? signal.correct : true;
   }
 

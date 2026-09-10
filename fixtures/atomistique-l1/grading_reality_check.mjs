@@ -7,11 +7,20 @@
 // company with a teacher's.
 //
 // Offline (the default tester path: no LITELLM_BASE_URL, no :8002 shim) every free-text scene is
-// graded by matchClaimsAgainstCritique, which credits a claim when its cue string appears
+// scored by matchClaimsAgainstCritique, which credits a claim when its cue string appears
 // ANYWHERE in the answer. It has no notion of negation, of who is asserting what, or of whether
 // there are sentences at all. Run it and read the ✗ rows:
 //   node_modules/.pnpm/node_modules/.bin/tsx fixtures/atomistique-l1/grading_reality_check.mjs
 // Exits 0 always — it reports, it does not gate.
+//
+// SINCE INT-STUDIUM-035 CANDIDATE 2 (owner's decision, 2026-09-10) this table has THREE verdict
+// states, not two. That score is still computed and still published to the teacher as a coverage
+// hint, but it no longer certifies: offline, `answer_submitted` carries no `correct` at all, and
+// the STUDIUM column reads `—` for "nobody graded this". Printing `FAIL` there would be the same
+// defect as before pointing the other way — reporting a failure that was never observed — so the
+// two counts below are kept apart: answers actively graded AGAINST the teacher, and answers left
+// uncertified. The score column is unchanged, which is the point of candidate 2: what the teacher
+// reads about coverage is exactly what it was; what disappeared is the claim about mastery.
 import { readFileSync } from "node:fs";
 import { grade } from "../../packages/lesson-session/src/grading/index.ts";
 import { StubCritiqueEvaluator } from "../../packages/lesson-session/src/adapters/critique-evaluator.ts";
@@ -57,15 +66,29 @@ for (const c of CASES) {
   const sc = byId[c.s];
   const r = await grade(sc, { kind: KIND[sc.type], text: c.t }, deps);
   const tel = r.telemetry.find((x) => x.type === "critique_submitted");
-  const studium = r.signal.correct ? "PASS" : "FAIL";
-  rows.push({ ...c, studium, score: tel.llm_score, cover: tel.completion_rate, agree: studium === c.teacher });
+  // three states: certified pass, certified fail, or NOT GRADED (the offline path since candidate 2)
+  const studium = r.signal.correct === undefined ? "—" : r.signal.correct ? "PASS" : "FAIL";
+  const scored = tel.llm_score >= 0.6 ? "PASS" : "FAIL"; // what the score ALONE would have said
+  rows.push({
+    ...c, studium, scored, score: tel.llm_score, cover: tel.completion_rate,
+    // an ungraded answer agrees with nothing and contradicts nothing
+    agree: studium === "—" ? null : studium === c.teacher,
+  });
 }
 console.log(`\n  ${pad("SCENE", 22)} ${pad("TEACHER", 8)} ${pad("STUDIUM", 8)} ${pad("score", 6)} ${pad("cover", 6)} ANSWER`);
 console.log("  " + "-".repeat(128));
 for (const r of rows) {
-  console.log(`${r.agree ? "  " : "✗ "}${pad(r.s, 22)} ${pad(r.teacher, 8)} ${pad(r.studium, 8)} ${pad(r.score.toFixed(2), 6)} ${pad(r.cover.toFixed(2), 6)} ${r.p}`);
+  const mark = r.agree === null ? "· " : r.agree ? "  " : "✗ ";
+  console.log(`${mark}${pad(r.s, 22)} ${pad(r.teacher, 8)} ${pad(r.studium, 8)} ${pad(r.score.toFixed(2), 6)} ${pad(r.cover.toFixed(2), 6)} ${r.p}`);
 }
-const dis = rows.filter((r) => !r.agree);
-console.log(`\n  ${rows.length} answers, ${dis.length} graded against the teacher.`);
-console.log(`  ${rows.filter((r) => r.teacher === "PASS" && r.studium === "FAIL").length} correct answers marked wrong; ` +
-  `${rows.filter((r) => r.teacher === "FAIL" && r.studium === "PASS").length} wrong answers marked right.\n`);
+const certified = rows.filter((r) => r.studium !== "—");
+const wrongWay = rows.filter((r) => r.agree === false);
+console.log(`\n  ${rows.length} answers, ${certified.length} certified by Studium, ${rows.length - certified.length} left UNGRADED (·).`);
+console.log(`  Of the certified: ${certified.filter((r) => r.teacher === "PASS" && r.studium === "FAIL").length} correct marked wrong; ` +
+  `${certified.filter((r) => r.teacher === "FAIL" && r.studium === "PASS").length} wrong marked right; ${wrongWay.length} disagreements in all.`);
+// What the SCORE alone would have certified, had it still been allowed to — the size of the claim
+// candidate 2 withdrew, kept visible so the decision stays arguable rather than merely applied.
+const wouldHave = rows.filter((r) => r.studium === "—" && r.scored !== r.teacher);
+console.log(`  The score alone would have got ${wouldHave.length} of the ${rows.length - certified.length} ungraded answers wrong ` +
+  `(${wouldHave.filter((r) => r.teacher === "FAIL").length} wrong answers passed, ` +
+  `${wouldHave.filter((r) => r.teacher === "PASS").length} correct answers failed).\n`);

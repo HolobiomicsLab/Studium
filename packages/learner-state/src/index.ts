@@ -8,6 +8,13 @@ export const ConceptStateSchema = z.object({
   consecutive_errors: z.number().int().nonnegative(),
   total_attempts: z.number().int().nonnegative(),
   total_correct: z.number().int().nonnegative(),
+  // Attempts on this concept whose correctness was never measured (INT-STUDIUM-035 candidate 2:
+  // a free-text answer graded offline by the substring matcher). Deliberately NOT folded into
+  // `total_attempts`, which is read as evidence — a rule keyed on `total_attempts >= n` must not
+  // be satisfied by answers nobody graded. Published so the absence is countable rather than
+  // invisible, the same reason the collector publishes `n_score_source_known` beside
+  // `keyword_graded_rate`. Optional + back-compatible (absent ⇒ 0).
+  ungraded_attempts: z.number().int().nonnegative().optional(),
   confidence_calibration: z.number().min(-1).max(1),
   // How many confidence observations have fed confidence_calibration. Optional + back-compatible
   // (absent ⇒ 0 ⇒ "never measured"). This is what lets a calibration GATE tell a well-calibrated
@@ -50,7 +57,19 @@ export type ConceptState = z.infer<typeof ConceptStateSchema>;
 export const SignalSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("answer_submitted"),
     concept_id: z.string(), scene_id: z.string(),
-    correct: z.boolean(), time_ms: z.number().nonnegative(),
+    // CORRECTNESS IS OPTIONAL, and its absence means UNMEASURED — never `false`. An answer graded
+    // by `matchClaimsAgainstCritique` is graded on whether an authored cue string appears in the
+    // text, which is a statement about vocabulary; INT-STUDIUM-035 measured it against a teacher on
+    // the real atomistique-l1 bundle and 11 of 12 answers came back inverted. On the owner's
+    // decision (candidate 2, 2026-09-10) that path still publishes its score as a COVERAGE HINT
+    // (`critique_submitted.llm_score` / `completion_rate`) but no longer certifies: it emits this
+    // signal with no `correct`, so the Beta posterior, FSRS and the concept gates receive nothing.
+    // `false` would be the same defect pointing the other way — the learner may well have been
+    // right. Readers must branch on presence, following INT-STUDIUM-029: `matchesCondition` already
+    // treats an absent context key as a first-class answer, so no adaptation rule fires on it.
+    // Still certified: `quiz` (a marked choice), the verdict deck (marks scored against the key by
+    // identity) and a live evaluator (`source: "llm"`).
+    correct: z.boolean().optional(), time_ms: z.number().nonnegative(),
     hint_count: z.number().int().nonnegative(),
     difficulty: z.number().min(0).max(1),
     // optional per-answer self-rated confidence (0..4) — the path toward CONTINUOUS calibration.

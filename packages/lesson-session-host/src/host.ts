@@ -254,6 +254,11 @@ function memoryFromHistory(
   for (const h of state.history) {
     const sig = h.signal;
     if (sig.kind !== "answer_submitted" || sig.concept_id !== concept_id) continue;
+    // INT-STUDIUM-035 candidate 2: an answer nobody graded is not a retrieval with an outcome, so
+    // it is not replayed at all. It matters that this is a SKIP and not a default: `gradeFromAnswer`
+    // reads `if (!a.correct) return 1`, so an absent field would have been folded as grade 1
+    // ("again") — the hardest failure — and an ungraded concept would come back urgently due.
+    if (sig.correct === undefined) continue;
     const t = Date.parse(h.timestamp);
     if (Number.isNaN(t)) continue;
     if (seededThrough !== null && t <= seededThrough) continue; // already in the seed — don't re-fold

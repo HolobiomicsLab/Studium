@@ -62,7 +62,10 @@ class SceneCompleted(_Base):
     type: Literal["scene_completed"]
     scene_id: str
     duration_ms: int = Field(ge=0)
-    success: bool
+    # Optionnel depuis l'ADR 006 v1.7 (INT-STUDIUM-035) : absent = la scène a été jouée et personne
+    # n'a corrigé. `False` dirait un échec jamais observé, `True` certifierait par la télémétrie ce
+    # que la décision a retiré de la postérieure. Miroir exact de `events.ts`.
+    success: bool | None = None
 
 
 class QuizAnswered(_Base):

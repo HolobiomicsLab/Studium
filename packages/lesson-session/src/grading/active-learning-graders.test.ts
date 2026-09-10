@@ -33,8 +33,12 @@ const explainScene: Extract<Scene, { type: "explain_back" }> = {
   rubric: { completeness: 0.6, evidence_quality: 0.2, tone: 0.2 },
 };
 
-const pass: CritiqueEvaluator = { async evaluate() { return { score: 0.8, feedback: "good" }; } };
-const fail: CritiqueEvaluator = { async evaluate() { return { score: 0.3, feedback: "weak" }; } };
+// `source: "llm"` — these stand in for a WIRED evaluator, and since INT-STUDIUM-035 candidate 2
+// (owner's decision, 2026-09-10) only a live one certifies. A double that omitted the field would
+// be standing in for an evaluator the real boundary cannot produce. The offline path is exercised
+// below by the genuine `StubCritiqueEvaluator`, which certifies nothing by design.
+const pass: CritiqueEvaluator = { async evaluate() { return { score: 0.8, feedback: "good", source: "llm" as const }; } };
+const fail: CritiqueEvaluator = { async evaluate() { return { score: 0.3, feedback: "weak", source: "llm" as const }; } };
 
 describe("spot_the_flaw grader", () => {
   it("all flaws named + passing score → correct; critique_submitted + ai_audit_result", async () => {
@@ -51,9 +55,9 @@ describe("spot_the_flaw grader", () => {
     expect(r.signal).toMatchObject({ difficulty: 0.6 }); // apply, not the 0.7 fallback
   });
 
-  it("offline (Stub) is deterministic: empty answer → no flaws → correct:false", async () => {
+  it("offline (Stub) is deterministic: empty answer → no flaws, and certifies nothing", async () => {
     const r = await grade(flawScene, { kind: "flaw_report", text: "rien à signaler" }, { critiqueEvaluator: new StubCritiqueEvaluator() });
-    expect(r.signal).toMatchObject({ correct: false });
+    expect("correct" in r.signal).toBe(false); // the coverage number stands; the mastery claim does not
     expect(r.telemetry[1]).toMatchObject({ true_positives: 0, missed: 2 }); // 2 claims, none caught (claim-granular)
   });
 
@@ -70,10 +74,10 @@ describe("explain_back grader", () => {
     expect(r.telemetry[0]).toMatchObject({ scene_type: "explain_back", llm_score: 0.8, completion_rate: 1 }); // 4/4 key points covered
   });
 
-  it("offline (Stub) scores by key-point coverage: half covered → 0.5 < 0.6 → correct:false", async () => {
+  it("offline (Stub) scores by key-point coverage: half covered → 0.5, and certifies nothing", async () => {
     const r = await grade(explainScene, { kind: "explanation", text: "il y a une fonction et un signe" }, { critiqueEvaluator: new StubCritiqueEvaluator() });
     expect(r.telemetry[0]).toMatchObject({ completion_rate: 0.5 }); // fonction + signe = 2/4
-    expect(r.signal).toMatchObject({ correct: false });
+    expect("correct" in r.signal).toBe(false); // the coverage number stands; the mastery claim does not
   });
 
   it("fail evaluator → correct:false even if coverage is high", async () => {
@@ -138,10 +142,10 @@ describe("comparison grader", () => {
     expect(r.telemetry[0]).toMatchObject({ scene_type: "comparison", llm_score: 0.8, completion_rate: 1 }); // 2/2 covered
   });
 
-  it("offline (Stub) scores by key-point coverage: half covered → 0.5 < 0.6 → correct:false", async () => {
+  it("offline (Stub) scores by key-point coverage: half covered → 0.5, and certifies nothing", async () => {
     const r = await grade(comparisonScene, { kind: "comparison", text: "juste un exemple" }, { critiqueEvaluator: new StubCritiqueEvaluator() });
     expect(r.telemetry[0]).toMatchObject({ completion_rate: 0.5 }); // exemple = 1/2
-    expect(r.signal).toMatchObject({ correct: false });
+    expect("correct" in r.signal).toBe(false); // the coverage number stands; the mastery claim does not
   });
 
   it("Bloom level overrides the difficulty fallback; rejects the wrong input kind", async () => {
@@ -160,9 +164,9 @@ describe("summary_audit grader", () => {
     expect(r.telemetry[1]).toMatchObject({ planted_errors: 2, true_positives: 2, missed: 0 });
   });
 
-  it("offline (Stub) is deterministic: empty answer → no catches → correct:false", async () => {
+  it("offline (Stub) is deterministic: empty answer → no catches, and certifies nothing", async () => {
     const r = await grade(summaryAuditScene, { kind: "summary_audit", text: "rien à signaler" }, { critiqueEvaluator: new StubCritiqueEvaluator() });
-    expect(r.signal).toMatchObject({ correct: false });
+    expect("correct" in r.signal).toBe(false); // the coverage number stands; the mastery claim does not
     expect(r.telemetry[1]).toMatchObject({ true_positives: 0, missed: 2 });
   });
 
@@ -194,10 +198,10 @@ describe("communication_sim grader", () => {
     expect(r.telemetry[0]).toMatchObject({ scene_type: "communication_sim", llm_score: 0.8, completion_rate: 1 }); // 4/4 cues
   });
 
-  it("offline (Stub) scores by cue coverage: half covered → 0.5 < 0.6 → correct:false", async () => {
+  it("offline (Stub) scores by cue coverage: half covered → 0.5, and certifies nothing", async () => {
     const r = await grade(communicationSimScene, { kind: "communication", text: "il y a deux zones, comme deux pièces" }, { critiqueEvaluator: new StubCritiqueEvaluator() });
     expect(r.telemetry[0]).toMatchObject({ completion_rate: 0.5 }); // "deux zones" + "comme" = 2/4
-    expect(r.signal).toMatchObject({ correct: false });
+    expect("correct" in r.signal).toBe(false); // the coverage number stands; the mastery claim does not
   });
 
   it("fail evaluator → correct:false even if coverage is high; rejects the wrong input kind", async () => {
@@ -215,10 +219,10 @@ describe("prompt_practice grader", () => {
     expect(r.telemetry[0]).toMatchObject({ scene_type: "prompt_practice", llm_score: 0.8, completion_rate: 1 }); // 4/4 cues
   });
 
-  it("offline (Stub) scores by cue coverage: half covered → 0.5 < 0.6 → correct:false", async () => {
+  it("offline (Stub) scores by cue coverage: half covered → 0.5, and certifies nothing", async () => {
     const r = await grade(promptPracticeScene, { kind: "prompt_submission", text: "une consigne et un contexte" }, { critiqueEvaluator: new StubCritiqueEvaluator() });
     expect(r.telemetry[0]).toMatchObject({ completion_rate: 0.5 }); // consigne + contexte = 2/4
-    expect(r.signal).toMatchObject({ correct: false });
+    expect("correct" in r.signal).toBe(false); // the coverage number stands; the mastery claim does not
   });
 
   it("fail evaluator → correct:false even if coverage is high; rejects the wrong input kind", async () => {

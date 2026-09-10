@@ -27,7 +27,15 @@ export const SceneCompletedSchema = BaseEventSchema.extend({
   type: z.literal("scene_completed"),
   scene_id: z.string(),
   duration_ms: z.number().int().nonnegative(),
-  success: z.boolean(),
+  // OPTIONAL since ADR 006 v1.7 (INT-STUDIUM-035, the owner's candidate-2 decision of 2026-09-10):
+  // absent means the scene was answered but NOBODY GRADED IT — the offline substring matcher scores
+  // free-text answers on whether an authored cue string appears, which is a coverage hint and not a
+  // verdict, so it no longer asserts correctness anywhere, telemetry included. A reader must treat
+  // absence as UNMEASURED: `success: false` would report a failure that was never observed, and
+  // `true` would certify through this channel what the decision withdrew from the posterior. The
+  // collector excludes unmeasured events from `completion_rate` and publishes `n_graded` beside it.
+  // Every event written before v1.7 carries the field, so existing cohorts are unaffected.
+  success: z.boolean().optional(),
 });
 
 export const QuizAnsweredSchema = BaseEventSchema.extend({

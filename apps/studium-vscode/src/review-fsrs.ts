@@ -71,6 +71,9 @@ export function memoryFromHistory(conceptId: string, state: AnyJson): Mem {
   for (const h of history) {
     const sig = h && h.signal;
     if (!sig || sig.kind !== "answer_submitted" || sig.concept_id !== conceptId) continue;
+    // `!!sig.correct` would read UNMEASURED as WRONG and fold it as grade 1 ("again"): an answer
+    // graded offline by the substring matcher carries no `correct` since INT-STUDIUM-035 candidate 2.
+    if (sig.correct === undefined || sig.correct === null) continue;
     const t = Date.parse(h.timestamp);
     if (Number.isNaN(t)) continue;
     m = reviewMemory(m, gradeFromAnswer(!!sig.correct, sig.hint_count | 0), t);

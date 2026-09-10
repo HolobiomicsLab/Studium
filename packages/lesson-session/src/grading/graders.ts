@@ -3,7 +3,7 @@ import type { Scene, BloomLevel } from "@studium/lesson-bundle-schema";
 import type { Signal } from "@studium/learner-state";
 import type { ResponseInput } from "../types.js";
 import type { EmitInput } from "../telemetry.js";
-import type { CritiqueEvaluator, AuditJudge } from "../ports.js";
+import type { CritiqueEvaluator, CritiqueEvaluation, AuditJudge } from "../ports.js";
 import { matchClaimsAgainstCritique } from "./ai-audit-matcher.js";
 import { scoreVerdictDeck } from "./deck.js";
 import { SceneGradingError } from "../errors.js";
@@ -40,6 +40,26 @@ function conceptOf(scene: Scene): string {
   return ("concept_refs" in scene ? scene.concept_refs[0] : undefined) ?? "default";
 }
 
+/** The correctness half of an `answer_submitted`, derived ONLY from a grader that actually graded.
+ *
+ * INT-STUDIUM-035, the owner's decision of 2026-09-10 (candidate 2): the offline substring matcher
+ * keeps publishing its score as a coverage hint and stops feeding `correct`. It credits a point when
+ * an authored cue string appears ANYWHERE in the answer — no negation, no subject, no sentence — and
+ * measured against a teacher on the real bundle it inverted 11 of 12 answers. A pass there is a
+ * statement about vocabulary, and it was being spent as a statement about understanding: `correct`
+ * feeds the Beta posterior, FSRS scheduling and the concept gates.
+ *
+ * So `source: "llm"` certifies and anything else returns `{}` — the field is ABSENT, not `false`. An
+ * unmeasured answer is not a wrong one, and an evaluator that states no provenance is not a licence
+ * to certify: defaulting the unknown case to "graded" is the one door that would restore the defect,
+ * and it is the door the v1.6 provenance tag exists to close.
+ *
+ * `quiz` and the verdict deck do not come through here. A marked choice and a marked deck are scored
+ * against the key by identity, never by looking for words in prose, and both still certify. */
+function certifiedCorrect(score: number, source: CritiqueEvaluation["source"]): { correct?: boolean } {
+  return source === "llm" ? { correct: score >= 0.6 } : {};
+}
+
 const ackGrader: Grader = async (scene) => ({
   signal: { kind: "scene_completed", scene_id: scene.id, duration_ms: 0 },
   telemetry: [],
@@ -68,13 +88,13 @@ const critiqueGrader: Grader = async (scene, input, deps) => {
   if (scene.type !== "ai_critique") throw new SceneGradingError(scene.type, "critiqueGrader on non-ai_critique");
   if (input.kind !== "critique") throw new SceneGradingError(scene.type, `expected critique, got ${input.kind}`);
   const { score, source } = await deps.critiqueEvaluator.evaluate({ claims: scene.claims, rubric: scene.rubric, critique: input.text });
-  const passed = score >= 0.6;
+  const graded = certifiedCorrect(score, source);
   const trimmed = input.text.trim().toLowerCase();
   const mentioned = scene.claims.reduce((n, c) => n + (trimmed.includes(c.id.toLowerCase()) ? 1 : 0), 0);
   const completion_rate = scene.claims.length === 0 ? 0 : Math.max(0, Math.min(1, mentioned / scene.claims.length));
   const audit = matchClaimsAgainstCritique(scene.claims, input.text);
   return {
-    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.ai_critique) },
+    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, ...graded, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.ai_critique) },
     telemetry: [
       { type: "critique_submitted", scene_id: scene.id, scene_type: "ai_critique", llm_score: Math.max(0, Math.min(1, score)), completion_rate, ...(source ? { score_source: source } : {}) },
       // sound_total 0: the keyword matcher holds the planted-flaw key only, so over-distrust is UNMEASURED here.
@@ -94,13 +114,17 @@ type FlawVerdictsInput = Extract<ResponseInput, { kind: "flaw_verdicts" }>;
 function gradeFlawVerdicts(scene: SpotScene, input: FlawVerdictsInput, deps: GradeDeps): GradeResult {
   const soundClaims = scene.sound_claims ?? [];
   const s = scoreVerdictDeck(scene.claims, soundClaims, scene.id, input.verdicts);
-  const passed = s.accuracy >= 0.6;
+  // The deck STILL CERTIFIES under INT-STUDIUM-035 candidate 2: the learner ticks each claim
+  // flawed/sound and the scorer compares tokens against the key by IDENTITY. It never looks for
+  // words in prose, so it is not the path the decision withdrew certification from — it is the one
+  // honest offline grade the project has, and folding it in would have deleted it.
+  const deckPassed = s.accuracy >= 0.6;
   const missed = Math.max(0, s.planted - s.caught);
   const completion_rate = s.planted === 0 ? 0 : s.caught / s.planted;
   const grounded = scene.reference_result != null;
   return {
     signal: {
-      kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0,
+      kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: deckPassed, time_ms: 0, hint_count: 0,
       difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.spot_the_flaw),
       ...(grounded
         ? { judgment_audit: { grounded: true as const, planted: s.planted, caught: s.caught, false_positives: s.falsePositives, sound_total: s.soundTotal } }
@@ -124,7 +148,7 @@ const flawGrader: Grader = async (scene, input, deps) => {
   if (input.kind === "flaw_verdicts") return gradeFlawVerdicts(scene, input, deps);
   if (input.kind !== "flaw_report") throw new SceneGradingError(scene.type, `expected flaw_report or flaw_verdicts, got ${input.kind}`);
   const { score, source } = await deps.critiqueEvaluator.evaluate({ claims: scene.claims, rubric: scene.rubric, critique: input.text });
-  const passed = score >= 0.6;
+  const graded = certifiedCorrect(score, source);
   // AUDIT COUNTS feed trust_calibration. CLAIM-GRANULAR in BOTH paths (planted = number of distinct
   // planted-flaw CLAIMS, caught = distinct flaw claims identified) so the over_trust the engine derives
   // (missed/planted) is comparable whether or not a live judge is wired:
@@ -168,7 +192,7 @@ const flawGrader: Grader = async (scene, input, deps) => {
   const grounded = scene.reference_result != null;
   return {
     signal: {
-      kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0,
+      kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, ...graded, time_ms: 0, hint_count: 0,
       difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.spot_the_flaw),
       ...(grounded
         ? { judgment_audit: { grounded: true as const, planted, caught: true_positives, false_positives, sound_total } }
@@ -190,11 +214,11 @@ const explainBackGrader: Grader = async (scene, input, deps) => {
   if (input.kind !== "explanation") throw new SceneGradingError(scene.type, `expected explanation, got ${input.kind}`);
   const claims = scene.key_points.map((k) => ({ id: k.id, text: k.text, flaws_expected: k.cues }));
   const { score, source } = await deps.critiqueEvaluator.evaluate({ claims, rubric: scene.rubric, critique: input.text });
-  const passed = score >= 0.6;
+  const graded = certifiedCorrect(score, source);
   const cover = matchClaimsAgainstCritique(claims, input.text);
   const completion_rate = cover.planted_errors === 0 ? 0 : cover.true_positives / cover.planted_errors;
   return {
-    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.explain_back) },
+    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, ...graded, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.explain_back) },
     telemetry: [
       { type: "critique_submitted", scene_id: scene.id, scene_type: "explain_back", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)), ...(source ? { score_source: source } : {}) },
     ],
@@ -210,11 +234,11 @@ const comparisonGrader: Grader = async (scene, input, deps) => {
   if (input.kind !== "comparison") throw new SceneGradingError(scene.type, `expected comparison, got ${input.kind}`);
   const claims = scene.key_points.map((k) => ({ id: k.id, text: k.text, flaws_expected: k.cues }));
   const { score, source } = await deps.critiqueEvaluator.evaluate({ claims, rubric: scene.rubric, critique: input.text });
-  const passed = score >= 0.6;
+  const graded = certifiedCorrect(score, source);
   const cover = matchClaimsAgainstCritique(claims, input.text);
   const completion_rate = cover.planted_errors === 0 ? 0 : cover.true_positives / cover.planted_errors;
   return {
-    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.comparison) },
+    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, ...graded, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.comparison) },
     telemetry: [
       { type: "critique_submitted", scene_id: scene.id, scene_type: "comparison", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)), ...(source ? { score_source: source } : {}) },
     ],
@@ -229,11 +253,11 @@ const summaryAuditGrader: Grader = async (scene, input, deps) => {
   if (scene.type !== "summary_audit") throw new SceneGradingError(scene.type, "summaryAuditGrader on non-summary_audit");
   if (input.kind !== "summary_audit") throw new SceneGradingError(scene.type, `expected summary_audit, got ${input.kind}`);
   const { score, source } = await deps.critiqueEvaluator.evaluate({ claims: scene.claims, rubric: scene.rubric, critique: input.text });
-  const passed = score >= 0.6;
+  const graded = certifiedCorrect(score, source);
   const audit = matchClaimsAgainstCritique(scene.claims, input.text);
   const completion_rate = audit.planted_errors === 0 ? 0 : audit.true_positives / audit.planted_errors;
   return {
-    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.summary_audit) },
+    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, ...graded, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.summary_audit) },
     telemetry: [
       { type: "critique_submitted", scene_id: scene.id, scene_type: "summary_audit", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)), ...(source ? { score_source: source } : {}) },
       // sound_total 0: keyword matcher, no sound-claims key on this scene ⇒ over-distrust UNMEASURED.
@@ -251,11 +275,11 @@ const promptPracticeGrader: Grader = async (scene, input, deps) => {
   if (input.kind !== "prompt_submission") throw new SceneGradingError(scene.type, `expected prompt_submission, got ${input.kind}`);
   const claims = scene.key_points.map((k) => ({ id: k.id, text: k.text, flaws_expected: k.cues }));
   const { score, source } = await deps.critiqueEvaluator.evaluate({ claims, rubric: scene.rubric, critique: input.text });
-  const passed = score >= 0.6;
+  const graded = certifiedCorrect(score, source);
   const cover = matchClaimsAgainstCritique(claims, input.text);
   const completion_rate = cover.planted_errors === 0 ? 0 : cover.true_positives / cover.planted_errors;
   return {
-    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.prompt_practice) },
+    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, ...graded, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.prompt_practice) },
     telemetry: [
       { type: "critique_submitted", scene_id: scene.id, scene_type: "prompt_practice", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)), ...(source ? { score_source: source } : {}) },
     ],
@@ -272,11 +296,11 @@ const communicationSimGrader: Grader = async (scene, input, deps) => {
   if (input.kind !== "communication") throw new SceneGradingError(scene.type, `expected communication, got ${input.kind}`);
   const claims = scene.key_points.map((k) => ({ id: k.id, text: k.text, flaws_expected: k.cues }));
   const { score, source } = await deps.critiqueEvaluator.evaluate({ claims, rubric: scene.rubric, critique: input.text });
-  const passed = score >= 0.6;
+  const graded = certifiedCorrect(score, source);
   const cover = matchClaimsAgainstCritique(claims, input.text);
   const completion_rate = cover.planted_errors === 0 ? 0 : cover.true_positives / cover.planted_errors;
   return {
-    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: passed, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.communication_sim) },
+    signal: { kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, ...graded, time_ms: 0, hint_count: 0, difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.communication_sim) },
     telemetry: [
       { type: "critique_submitted", scene_id: scene.id, scene_type: "communication_sim", llm_score: Math.max(0, Math.min(1, score)), completion_rate: Math.max(0, Math.min(1, completion_rate)), ...(source ? { score_source: source } : {}) },
     ],

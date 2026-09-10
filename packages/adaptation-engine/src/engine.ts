@@ -1,7 +1,7 @@
 import type { LearnerState, ConceptState, Signal, Decision } from "@studium/learner-state";
 import { defaultConceptState, recordConfidenceSample, CALIBRATION_ANSWER_LAMBDA, recordJudgmentAudit, recordJudgmentSdt } from "@studium/learner-state";
 import type { AdaptationRule } from "@studium/lesson-bundle-schema";
-import { updateBeta } from "./beta-updater";
+import { updateBeta, recordUngradedAttempt } from "./beta-updater";
 import { matchesCondition } from "./condition-matcher";
 
 function masteryOf(s: ConceptState): number {
@@ -19,7 +19,13 @@ function buildContext(state: LearnerState, signal: Signal): Record<string, numbe
   const ctx: Record<string, number | string | boolean> = {};
   if (signal.kind === "answer_submitted") {
     const cs = state.concept_states[signal.concept_id] ?? defaultConceptState(signal.concept_id);
-    ctx.answer_correct = signal.correct;
+    // An answer whose correctness was never measured publishes NO `answer_correct` (INT-STUDIUM-035
+    // candidate 2). `matchesCondition` refuses a rule whose key is absent from the context, so no
+    // rule fires on it — which is the whole point: `answer_correct: false` here would send the
+    // learner into remediation for an answer nobody graded, moving the false claim rather than
+    // removing it. The count is published either way, so a bundle CAN route on "ungradeable here".
+    if (signal.correct !== undefined) ctx.answer_correct = signal.correct;
+    ctx.ungraded_attempts = cs.ungraded_attempts ?? 0;
     ctx.hint_count = signal.hint_count;
     ctx.time_on_scene = signal.time_ms / 1000;
     ctx.consecutive_errors_same_concept = cs.consecutive_errors;
@@ -92,7 +98,9 @@ export class AdaptationEngine {
   onSignal(signal: Signal): Decision {
     if (signal.kind === "answer_submitted") {
       const cs = ensureConceptState(this.state, signal.concept_id);
-      const afterBeta = updateBeta(cs, signal);
+      // INT-STUDIUM-035 candidate 2: an answer with no `correct` was not graded, so it updates no
+      // posterior. It is still recorded as an attempt that happened.
+      const afterBeta = signal.correct === undefined ? recordUngradedAttempt(cs) : updateBeta(cs, signal);
       // PER-ANSWER (CONTINUOUS) calibration capture: when the answer carries a self-rated confidence
       // (fed by the confidence-tap UI), fold it into calibration against the POST-answer mastery — the
       // competence the answer just demonstrated — using CALIBRATION_ANSWER_LAMBDA (<1) so accumulated
