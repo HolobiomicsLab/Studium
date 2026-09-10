@@ -4,6 +4,21 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-10 — INT-STUDIUM-038, le navigateur ne démarrait pas
+
+Audit live depuis le checkout isolé `prototype-build-ux`: écran blanc à `/`,
+console `ReferenceError: process is not defined` dans le module partagé
+`lesson-session/src/grading/deck.ts`. Le build et les suites Node étaient verts,
+mais l'import du paquet dans le webview évaluait `process.env` avant React.
+
+Un nouveau test exécute le vrai module transpilé dans un contexte sans globale
+Node `process`, avec Web Crypto: rouge avec cette même ReferenceError. La lecture
+de l'environnement est maintenant conditionnelle; la route serveur et son secret
+configuré restent identiques, le webview utilise le tirage cryptographique local
+déjà prévu. Aucun polyfill Node ni secret serveur n'est injecté dans le client.
+Le test passe; vérification de la suite lesson-session et du démarrage live jointe
+au bilan du chantier. Aucun test existant modifié.
+
 ## 2026-09-10 (conséquence) — La porte de prérequis s'ouvrait sans le dire (`1470199`)
 
 La décision du propriétaire sur INT-STUDIUM-035 avait laissé deux choses ouvertes, dites
