@@ -78,7 +78,14 @@ export function firstUnseenAnswerGradedSceneForConcept(
   );
 }
 
-export type GraphNavReason = "advance" | "remediate" | "skip_mastered";
+/** How many times the gate may route a learner back to the SAME unmet prerequisite before it
+ * gives up and lets them through. Remediation assumes mastery rises on replay; for a learner
+ * whose answers keep grading wrong it never does, and without a bound the lesson never ends
+ * (observed on atomistique-l1: 199 replays of one scene in 400 steps, no completion). Three is
+ * a real second and third chance, not an unbounded one. */
+export const MAX_PREREQ_DETOURS = 3;
+
+export type GraphNavReason = "advance" | "remediate" | "skip_mastered" | "gate_released";
 export interface GraphNavResult {
   index: number | null; // null => no scene to advance to (caller completes)
   reason: GraphNavReason;
@@ -88,8 +95,11 @@ export interface GraphNavResult {
  * - skipMastered (pacing=skip_on_mastery): skip forward over scenes whose concept is already
  *   mastered (>= theta), stopping at the first concept-less or unmastered scene.
  * - landed candidate available (or concept-less) => advance there.
- * - landed candidate LOCKED => remediate to an answer-graded scene for the weakest unmet prereq
- *   (mastery rises on replay -> converges); if none exists, advance to the candidate (no loop). */
+ * - landed candidate LOCKED => remediate to an answer-graded scene for the weakest unmet prereq,
+ *   but at most MAX_PREREQ_DETOURS times for that prereq: remediation only converges if the
+ *   learner's mastery actually rises, and for one whose answers keep grading wrong it does not.
+ *   Past the budget the gate RELEASES (reason "gate_released") and the lesson advances unmastered;
+ *   if no remedial scene exists at all, advance to the candidate. Either way, the lesson ends. */
 export function graphAwareNextIndex(
   scenes: { concept_refs?: string[]; type?: string }[],
   currentIdx: number,
@@ -98,6 +108,9 @@ export function graphAwareNextIndex(
   theta: number = DEFAULT_THETA,
   skipMastered = false,
   calibrated: Record<string, boolean> = {},
+  /** Detours ALREADY spent per prerequisite concept id, this session. Omitted ⇒ unbounded
+   * (the previous behaviour), so existing callers are unaffected. */
+  prereqDetours: Record<string, number> = {},
 ): GraphNavResult {
   let candidate = currentIdx + 1;
   let skipped = false;
@@ -118,6 +131,13 @@ export function graphAwareNextIndex(
   }
   const remedial = remediationTarget(lwg, cid, mastery, theta);
   if (remedial) {
+    // BUDGET FIRST: past it, stop routing back and let the learner into the gated scene. The
+    // release is a fact the caller reports (graph_prereq_gate_released) — an unmastered pass is
+    // a worse outcome than a mastered one, but a strictly better one than a lesson that ends
+    // nowhere. `>=` because the count is detours already SPENT.
+    if ((prereqDetours[remedial] ?? 0) >= MAX_PREREQ_DETOURS) {
+      return { index: candidate, reason: "gate_released" };
+    }
     const ri = firstAnswerGradedSceneForConcept(scenes, remedial);
     if (ri >= 0) return { index: ri, reason: "remediate" };
   }

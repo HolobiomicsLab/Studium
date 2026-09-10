@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildLwgMastery, sceneConceptId, firstSceneForConcept, firstAnswerGradedSceneForConcept, graphAwareNextIndex, MIN_MASTERY_ATTEMPTS } from "./graph-nav";
+import { buildLwgMastery, sceneConceptId, firstSceneForConcept, firstAnswerGradedSceneForConcept, graphAwareNextIndex, MIN_MASTERY_ATTEMPTS, MAX_PREREQ_DETOURS } from "./graph-nav";
 import type { LearningWorkflowGraph } from "@studium/learning-workflow-schema";
 
 const LWG: LearningWorkflowGraph = {
@@ -159,5 +159,39 @@ describe("graphAwareNextIndex — skipMastered (pacing)", () => {
     const r = graphAwareNextIndex(scenes, 1, LWG, { "concept:fourier": 0.3 }, 0.8, true);
     expect(r.index).toBe(1);
     expect(r.reason).toBe("remediate");
+  });
+
+  // The detour BUDGET. Remediation re-serves an answer-graded scene for the unmet prereq and
+  // relies on mastery rising; for a learner whose answers keep being graded wrong it never does,
+  // and the same scene is served forever (observed: 199 replays in 400 steps on atomistique-l1).
+  // Past the budget the gate releases and the lesson advances unmastered.
+  describe("prereq detour budget", () => {
+    it("remediates while the concept still has detours left", () => {
+      const r = graphAwareNextIndex(scenes, 1, LWG, { "concept:fourier": 0.3 }, 0.8, false, {}, {
+        "concept:fourier": MAX_PREREQ_DETOURS - 1,
+      });
+      expect(r.reason).toBe("remediate");
+      expect(r.index).toBe(1);
+    });
+
+    it("releases the gate once the budget is spent — advances to the LOCKED candidate", () => {
+      const r = graphAwareNextIndex(scenes, 1, LWG, { "concept:fourier": 0.3 }, 0.8, false, {}, {
+        "concept:fourier": MAX_PREREQ_DETOURS,
+      });
+      expect(r.reason).toBe("gate_released");
+      expect(r.index).toBe(2); // the gated scene itself, not another detour
+    });
+
+    it("a spent budget on ANOTHER concept does not release this gate", () => {
+      const r = graphAwareNextIndex(scenes, 1, LWG, { "concept:fourier": 0.3 }, 0.8, false, {}, {
+        "concept:fft": 99,
+      });
+      expect(r.reason).toBe("remediate");
+    });
+
+    it("omitting the budget keeps the previous behaviour (backward compatible)", () => {
+      const r = graphAwareNextIndex(scenes, 1, LWG, { "concept:fourier": 0.3 }, 0.8);
+      expect(r.reason).toBe("remediate");
+    });
   });
 });

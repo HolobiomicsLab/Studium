@@ -30,6 +30,11 @@ async function runOne(learnerId, beGood) {
     else if (sc.type === "comparison") input = { kind: "comparison", text: beGood ? "l'enseignant distingue le noeud radial spherique du noeud angulaire qui est un plan, il signale le piege 4s avant 3d et le contre-exemple du chrome, et nuance que la regle est un guide ; il ajoute un exemple concret avec deux lobes" : "les deux disent la meme chose" };
     else if (sc.type === "summary_audit") input = { kind: "summary_audit", text: beGood ? "le resume oublie que z le nombre de protons definit l'element, il omet la definition des isotopes, et pour les spectres il oublie la quantification, l'energie du photon et que balmer est dans le visible" : "le resume est bon" };
     else if (sc.type === "prompt_practice") input = { kind: "prompt_submission", text: beGood ? "explique pourquoi, pour un niveau l1, en moins de 150 mots, avec un exemple comme l'azote, un schema de cases quantiques, et la reponse en trois points numerotes" : "explique" };
+    // communication_sim was missing here and fell through to `ack`, which its grader rejects. It
+    // never showed: a GOOD learner skips this scene (mastery_c >= 0.8 fires skip_to_next_concept)
+    // and a WEAK one never used to arrive — the unbounded replay/prereq loops held them upstream
+    // until the step cap. Once those were bounded, the weak learners reached it and threw.
+    else if (sc.type === "communication_sim") input = { kind: "communication", text: beGood ? "deux zones de chaque cote du noyau, une image simple : deux pieces separees par un couloir, et au milieu un endroit ou l'electron ne passe jamais" : "je ne sais pas" };
     else input = { kind: "ack" };
     const t = await host.respond(sessionId, input);
     if (t.kind === "complete") return true;

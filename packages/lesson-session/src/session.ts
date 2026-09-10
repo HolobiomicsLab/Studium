@@ -1,7 +1,7 @@
 import type { LessonBundle, Scene, ReferenceRun } from "@studium/lesson-bundle-schema";
 import { AdaptationEngine, DEFAULT_THETA } from "@studium/adaptation-engine";
 import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type Decision } from "@studium/learner-state";
-import { buildLwgMastery, buildLwgCalibration, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept } from "./graph-nav.js";
+import { buildLwgMastery, buildLwgCalibration, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept, sceneConceptId } from "./graph-nav.js";
 import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary, HintResult } from "./types.js";
 import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
 import { SessionNotStartedError, SessionAlreadyCompleteError } from "./errors.js";
@@ -13,6 +13,14 @@ import { collectBannedAnswers, revealsAnswer } from "./socratic-tutor/reveal.js"
 import { FADED_FALLBACK } from "./socratic-tutor/contingency.js";
 
 const ESCALATE_AFTER = 2; // graph remediations in a session before baseline -> remedial escalation
+
+/** How many times ONE scene may be replayed by `replay_current_scene` before the lesson moves on.
+ * The rule fires on consecutive errors and the fallback (no unseen alternate item for the concept)
+ * is to serve the SAME scene again — which reproduces the same consecutive errors, and fires the
+ * same rule. Observed on atomistique-l1: s3c-compare-noeuds replayed to the step limit for a
+ * learner whose answers kept grading wrong. A replay is a second chance; an unlimited replay is a
+ * dead end, and a lesson nobody can finish teaches nothing. */
+export const MAX_SCENE_REPLAYS = 3;
 // Mastery-CERTIFICATION bar — the posterior a concept must reach before a `demonstrates_mastery_of`
 // claim is emitted. Set to the navigation theta (DEFAULT_THETA=0.8), consistent with the
 // buildMasteryClaims unit tests. What separates certification from merely unlocking the next concept
@@ -239,6 +247,18 @@ export class LessonSession {
     return decision;
   }
 
+  /** Prerequisite detours spent per concept id, this session — the budget that makes the
+   * prereq gate terminate for a learner whose mastery never rises (see graph-nav's
+   * MAX_PREREQ_DETOURS). Session-scoped: a fresh session gets a fresh budget. */
+  private prereqDetours: Record<string, number> = {};
+
+  /** Same-scene replays spent per scene id, this session — the budget behind MAX_SCENE_REPLAYS.
+   * SESSION-owned on purpose: `state.scenes_replayed` belongs to the engine, which hands back its
+   * own object on every `getState()`, so a tally the session writes there is overwritten on the
+   * next signal and never passes 1. The write below is kept (it is what that field has always
+   * recorded); the budget reads this counter, which actually accumulates. */
+  private replayCounts: Record<string, number> = {};
+
   protected navigate(decision: Decision, scene: Scene): Transition {
     this.lastGraphExplanation = null;
     const action = decision.next_action;
@@ -258,12 +278,20 @@ export class LessonSession {
         this.enterScene();
         return { kind: "remediate_alt", reason: action.reason, presentation: this.currentPresentation() };
       }
-      // no unseen alternate -> honest fallback: replay the same item.
+      // no unseen alternate -> honest fallback: replay the same item, while the budget lasts.
       // Record the replay both per-scene (state.scenes_replayed — previously never written) and in the
       // session-lifetime scaffolding tally that feeds autonomyRatio.
-      this.state.scenes_replayed[scene.id] = (this.state.scenes_replayed[scene.id] ?? 0) + 1;
-      this.scaffoldingEvents += 1;
-      return { kind: "replay", reason: action.reason, presentation: this.currentPresentation() };
+      if ((this.replayCounts[scene.id] ?? 0) < MAX_SCENE_REPLAYS) {
+        this.replayCounts[scene.id] = (this.replayCounts[scene.id] ?? 0) + 1;
+        this.state.scenes_replayed[scene.id] = (this.state.scenes_replayed[scene.id] ?? 0) + 1;
+        this.scaffoldingEvents += 1;
+        return { kind: "replay", reason: action.reason, presentation: this.currentPresentation() };
+      }
+      // Budget spent: stop re-serving the same scene and FALL THROUGH to the normal advance below.
+      // Announced, not silent — the learner leaves this scene without getting it right, and that is
+      // exactly what the teacher needs to see.
+      this.lastGraphExplanation = { rule_id: "replay_budget_exhausted", explanation_short: "revu plusieurs fois sans succès — on avance", modulator: "M1" };
+      this.emit({ type: "adaptation_applied", rule_id: "replay_budget_exhausted", signal: "navigate", modulator: "M1", value: 0 });
     }
     if (action.kind === "skip_to_next_concept") {
       // NOTE: engine-fired explicit actions (skip/calibration) take priority over LWG prereq gating.
@@ -289,6 +317,7 @@ export class LessonSession {
         this.bundle.scenes, this.idx, lwg,
         buildLwgMastery(this.state.concept_states), this.theta, this.skipMastered,
         buildLwgCalibration(this.state.concept_states),
+        this.prereqDetours,
       );
       if (nextIdx === null) return this.complete();
       this.idx = nextIdx;
@@ -298,7 +327,17 @@ export class LessonSession {
         this.emit({ type: "adaptation_applied", rule_id: "graph_prereq_gate", signal: "navigate", modulator: "M6", value: 0 });
         this.remediationCount += 1;
         this.scaffoldingEvents += 1; // a prerequisite remediation detour is scaffolding the learner relied on
+        // Spend one unit of THIS prerequisite's detour budget. Keyed on the concept we were routed
+        // TO (the unmet prereq), which is the concept the gate is waiting on — not the gated one.
+        const detoured = sceneConceptId(this.bundle.scenes[nextIdx] as { concept_refs?: string[] });
+        if (detoured) this.prereqDetours[detoured] = (this.prereqDetours[detoured] ?? 0) + 1;
         this.maybeEscalateUniverse();
+      } else if (reason === "gate_released") {
+        // The budget is spent and the learner is let into the gated scene WITHOUT the prerequisite.
+        // Announced rather than silent: an unmastered pass is a thing the teacher must be able to
+        // see, and it is the only alternative to a lesson that never ends.
+        this.lastGraphExplanation = { rule_id: "graph_prereq_gate_released", explanation_short: "prerequisite still unmastered after repeated remediation — advancing anyway", modulator: "M6" };
+        this.emit({ type: "adaptation_applied", rule_id: "graph_prereq_gate_released", signal: "navigate", modulator: "M6", value: 0 });
       } else if (reason === "skip_mastered") {
         this.lastGraphExplanation = { rule_id: "graph_skip_mastered", explanation_short: "concept already mastered — skipped", modulator: "M1" };
         this.emit({ type: "adaptation_applied", rule_id: "graph_skip_mastered", signal: "navigate", modulator: "M1", value: 0 });
