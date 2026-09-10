@@ -2294,3 +2294,26 @@ Bloqué tant que D.4 (push remote) pas fait : pas moyen de tester le workflow
 en condition réelle.
 
 **D.6** (badge CI README) : à faire après merge PR D.5 sur main.
+
+
+## 2026-09-10 — MySTRA teacher/reviewer continuation (INT-STUDIUM-039)
+
+Codex Astra with explicitly requested Sol high leaves. The existing ASTRA pins and
+real validator were confirmed (0.0.14 / 0.2.17; four canonical fixture files valid),
+so no dependency upgrade or schema change was needed. MyST now includes every
+analysis and review bundle, plus source/quote metadata through one shared
+`evidence_view` in the existing loader. MySTRA adds a read-only printable HTML route
+and JSON twin over the same readers. The old singular `course.review` contract is
+preserved; `review_summary` supplies the complete overview. Malformed tags and trace
+nodes now leave readable sections and named gaps. No student/validated content,
+consent, grading, aggregate or model-call behavior changes.
+
+New tests went red before fixes: renderer completeness 4, backend route/data 5,
+review evidence 1, evidence source metadata 2, nested metadata 2. Current focused
+suite 250 passed (Observatory + renderer). Original tests are unchanged. The live
+Chrome audit has 11 desktop/mobile/print captures, real ASTRA five-file validation,
+zero external requests/browser errors, and unchanged artifact hashes/mtimes. It
+found that CSS alone does not print collapsed details: beforeprint/afterprint now
+open and restore them, with browser assertions and extracted PDF evidence confirming
+both bundles and their full ASTRA records. Full fresh-checkout checks are recorded
+in the hub audit/handoff before integration. No push, PR, release or publication.

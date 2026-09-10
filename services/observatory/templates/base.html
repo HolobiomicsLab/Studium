@@ -7,16 +7,10 @@
 
 {% macro kv(mapping) -%}
 {%- if mapping %}
-<table class="kv">
-  <tbody>
-  {%- for key, value in mapping.items() %}
-    <tr><th>{{ key }}</th><td>{{ value }}</td></tr>
-  {%- endfor %}
-  </tbody>
-</table>
-{%- else %}
-<p class="none">none</p>
-{%- endif %}
+<table class="kv"><tbody>
+  {%- for key, value in mapping.items() %}<tr><th>{{ key }}</th><td>{{ value }}</td></tr>{%- endfor %}
+</tbody></table>
+{%- else %}<p class="none">none</p>{%- endif %}
 {%- endmacro %}
 
 <!doctype html>
@@ -27,54 +21,141 @@
 <title>{% block title %}Studium Observatory{% endblock %}</title>
 {% block head_extra %}{% endblock %}
 <style>
-  :root { color-scheme: light dark; }
-  body { margin: 0; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
-  header { border-bottom: 1px solid #8883; padding: .6rem 1.2rem; display: flex; gap: 1.2rem; align-items: baseline; }
-  header b { font-size: 1rem; }
-  header a { color: inherit; }
-  main { max-width: 68rem; margin: 0 auto; padding: 1rem 1.2rem 4rem; }
-  h1 { font-size: 1.3rem; margin: 1rem 0 .2rem; }
-  h2 { font-size: 1.05rem; margin: 1.8rem 0 .4rem; border-bottom: 1px solid #8883; padding-bottom: .2rem; }
-  h3 { font-size: .95rem; margin: 1.1rem 0 .3rem; }
-  table { border-collapse: collapse; width: 100%; margin: .4rem 0; }
-  th, td { text-align: left; padding: .3rem .5rem; border-bottom: 1px solid #8882; vertical-align: top; }
-  th { font-weight: 600; }
-  table.kv th { width: 16rem; font-weight: 500; }
-  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; }
-  pre { background: #8881; padding: .6rem .8rem; overflow-x: auto; border-radius: 3px; }
-  details { margin: .3rem 0; }
-  summary { cursor: pointer; }
-  .path { color: #8889; font-size: .85em; word-break: break-all; }
-  .none { color: #8889; font-style: italic; }
-  .absent { color: #b45309; margin: .2rem 0; }
-  .cap { background: #b45309; color: #fff; border-radius: 3px; padding: 0 .35rem; font-size: .8em; }
-  .banner { background: #b453091a; border: 1px solid #b4530955; padding: .5rem .8rem; border-radius: 3px; }
-  .synthetic { color: #8889; font-size: .85em; }
-  .ok, .pass { color: #15803d; } .failed, .timed_out, .defect { color: #b91c1c; }
-  .suspect, .suppressed, .unmeasured, .unreadable, .empty { color: #b45309; }
-  .not_run, .not_installed { color: #8889; }
-  .controls { float: right; font-size: .85em; }
-  .controls button { font: inherit; cursor: pointer; }
+  :root {
+    --ivory: #f5f2eb; --paper: #fffdf8; --ink: #172d38; --ink-soft: #4a5d64;
+    --teal: #176b60; --teal-deep: #0d4d47; --teal-pale: #dceae5;
+    --ochre: #ad6b16; --ochre-pale: #f5e8d2; --red: #a63d32; --rule: #cfc9bb;
+    --shadow: 0 18px 45px rgba(23, 45, 56, .08); color: var(--ink); background: var(--ivory);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; min-width: 18rem; color: var(--ink);
+    background: linear-gradient(90deg, rgba(23, 107, 96, .035) 1px, transparent 1px) 0 0 / 3.5rem 3.5rem, var(--ivory);
+    font: 15px/1.65 Avenir, "Avenir Next", "Trebuchet MS", sans-serif;
+  }
+  a { color: var(--teal-deep); text-decoration-thickness: .08em; text-underline-offset: .18em; }
+  a:hover { color: var(--ochre); }
+  :focus-visible { outline: 3px solid var(--ochre); outline-offset: 3px; }
+  .skip-link { position: fixed; z-index: 100; top: .5rem; left: .5rem; transform: translateY(-180%); padding: .65rem 1rem; background: var(--ink); color: white; border-radius: .2rem; }
+  .skip-link:focus { transform: translateY(0); }
+  .site-header { border-bottom: 1px solid var(--rule); background: var(--ivory); padding: .72rem clamp(1rem, 3vw, 2.5rem); display: flex; gap: 1rem 2rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .site-title { color: var(--ink); font-family: Iowan Old Style, Georgia, serif; font-size: 1.08rem; letter-spacing: .02em; }
+  .site-title::before { content: "◈"; margin-right: .55rem; color: var(--ochre); }
+  .global-nav { display: flex; align-items: center; gap: .2rem .35rem; flex-wrap: wrap; }
+  .global-nav a, .controls button { display: inline-flex; min-height: 44px; align-items: center; padding: .45rem .7rem; border-radius: .2rem; color: var(--ink); font-size: .82rem; font-weight: 700; letter-spacing: .025em; text-decoration: none; }
+  .global-nav a:hover { background: var(--teal-pale); color: var(--teal-deep); }
+  .controls { display: flex; gap: .35rem; }
+  .controls button, .button { border: 1px solid var(--teal); background: transparent; color: var(--teal-deep); cursor: pointer; font: inherit; }
+  .controls button:hover, .button:hover { background: var(--teal); color: white; }
+  main { width: min(74rem, calc(100% - 2rem)); margin: 0 auto; padding: 2.2rem 0 5rem; }
+  h1, h2, h3, h4 { color: var(--ink); font-family: Iowan Old Style, Georgia, serif; line-height: 1.18; }
+  h1 { max-width: 54rem; margin: 0 0 .4rem; font-size: clamp(2rem, 5vw, 3.7rem); font-weight: 500; letter-spacing: -.035em; }
+  h2 { margin: 3.2rem 0 .8rem; padding-bottom: .45rem; border-bottom: 1px solid var(--rule); font-size: clamp(1.45rem, 3vw, 2rem); font-weight: 500; }
+  h2::before { content: ""; display: inline-block; width: 1.8rem; height: .18rem; margin: 0 .7rem .32rem 0; background: var(--ochre); }
+  h3 { margin: 1.8rem 0 .45rem; font-size: 1.15rem; }
+  p { max-width: 70ch; }
+  table { display: block; width: 100%; max-width: 100%; margin: .75rem 0; overflow-x: auto; border-collapse: collapse; background: rgba(255, 253, 248, .72); box-shadow: 0 0 0 1px var(--rule); }
+  thead { background: var(--ink); color: #fff; }
+  th, td { min-width: 7rem; padding: .72rem .8rem; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+  th { font-weight: 700; font-size: .78rem; letter-spacing: .035em; }
+  tbody th { color: var(--ink); background: var(--teal-pale); }
+  tbody tr:last-child > * { border-bottom: 0; }
+  tbody tr:hover { background: rgba(220, 234, 229, .46); }
+  table.kv th { width: 16rem; font-weight: 700; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .87em; }
+  code { padding: .08em .28em; border-radius: .15rem; background: rgba(23, 45, 56, .07); }
+  pre { max-width: 100%; padding: 1rem 1.1rem; overflow-x: auto; border: 1px solid var(--rule); border-left: .3rem solid var(--teal); background: var(--paper); white-space: pre-wrap; }
+  details { margin: .65rem 0; border: 1px solid var(--rule); background: rgba(255, 253, 248, .6); }
+  summary { min-height: 44px; padding: .65rem .8rem; cursor: pointer; color: var(--teal-deep); font-weight: 700; }
+  details > :not(summary) { margin-right: .8rem; margin-left: .8rem; }
+  details > table, details > pre { width: calc(100% - 1.6rem); }
+  .path { color: var(--ink-soft); font-size: .82rem; word-break: break-word; }
+  .none { color: #6d777b; font-style: italic; }
+  .absent { color: #81500f; margin: .25rem 0; padding-left: .65rem; border-left: .2rem solid var(--ochre); }
+  .cap { background: var(--ochre); color: #fff; border-radius: .15rem; padding: .05rem .35rem; font-size: .76em; }
+  .banner { max-width: none; padding: .8rem 1rem; border: 1px solid #c99b55; border-left: .35rem solid var(--ochre); background: var(--ochre-pale); }
+  .synthetic { color: var(--ink-soft); font-size: .82em; }
+  .ok, .pass { color: var(--teal); font-weight: 700; }
+  .failed, .timed_out, .defect { color: var(--red); font-weight: 700; }
+  .suspect, .suppressed, .unmeasured, .unreadable, .empty { color: #81500f; font-weight: 700; }
+  .not_run, .not_installed { color: #6d777b; font-weight: 700; }
+  .eyebrow { margin: 0 0 .6rem; color: var(--teal); font-size: .76rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+  .lede { max-width: 60rem; margin: .7rem 0 1.3rem; color: var(--ink-soft); font: 1.08rem/1.65 Iowan Old Style, Georgia, serif; }
+  .actions { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: 1.25rem 0; }
+  .button { display: inline-flex; min-height: 44px; align-items: center; padding: .55rem .85rem; border-radius: .2rem; font-size: .85rem; font-weight: 800; text-decoration: none; }
+  .button.primary { background: var(--teal); color: #fff; }
+  .button.primary:hover { background: var(--teal-deep); }
+  .section-nav { position: sticky; z-index: 10; top: 0; display: flex; gap: .25rem; flex-wrap: wrap; margin: 1.75rem 0 2.4rem; padding: .55rem; border: 1px solid var(--rule); background: var(--ivory); box-shadow: 0 8px 24px rgba(23, 45, 56, .07); }
+  .section-nav a { display: inline-flex; min-height: 44px; align-items: center; padding: .4rem .68rem; border-radius: .15rem; font-size: .8rem; font-weight: 800; text-decoration: none; }
+  .section-nav a:hover { background: var(--teal-pale); }
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .7rem; margin: 1.5rem 0; }
+  .metric { min-height: 7rem; padding: .9rem 1rem; border-top: .28rem solid var(--teal); background: var(--paper); box-shadow: var(--shadow); }
+  .metric .value { display: block; font: 2.2rem/1 Iowan Old Style, Georgia, serif; }
+  .metric .label { display: block; margin-top: .65rem; color: var(--ink-soft); font-size: .75rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+  .report-section { scroll-margin-top: 5rem; }
+  .analysis-card, .review-bundle { margin: 1.2rem 0 2rem; padding: clamp(1rem, 3vw, 1.6rem); border: 1px solid var(--rule); background: rgba(255, 253, 248, .82); box-shadow: var(--shadow); break-inside: avoid-page; }
+  .analysis-card > h3, .review-bundle > h3 { margin-top: 0; }
+  .record-meta { display: flex; gap: .4rem 1.2rem; flex-wrap: wrap; margin: .4rem 0 1rem; padding: .55rem 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .status-note { max-width: none; padding: .8rem 1rem; border-left: .3rem solid var(--teal); background: var(--teal-pale); }
+  blockquote.evidence { margin: .55rem 0; padding: .65rem .8rem; border-left: .22rem solid var(--ochre); background: var(--ochre-pale); font-family: Iowan Old Style, Georgia, serif; }
+  .print-only { display: none; }
+
+  @media (max-width: 44rem) {
+    .site-header { align-items: flex-start; }
+    .global-nav, .controls { width: 100%; }
+    .controls button { flex: 1; justify-content: center; }
+    main { width: min(100% - 1.25rem, 74rem); padding-top: 1.35rem; }
+    th, td { min-width: 8.5rem; }
+    .section-nav { top: 0; max-height: 10rem; overflow-y: auto; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  @media print {
+    @page { margin: 16mm 13mm 18mm; }
+    :root, body { background: #fff; color: #172d38; }
+    body { font-size: 10pt; }
+    .site-header, .section-nav, .screen-only, .controls, .skip-link { display: none !important; }
+    main { width: 100%; max-width: none; margin: 0; padding: 0; }
+    a { color: inherit; text-decoration: none; }
+    h1 { font-size: 28pt; }
+    h2 { margin-top: 1.4rem; font-size: 17pt; break-after: avoid; }
+    h3, h4, summary { break-after: avoid; }
+    table { display: table; overflow: visible; box-shadow: 0 0 0 1px #bbb; font-size: 8.5pt; break-inside: auto; }
+    thead { display: table-header-group; background: #e6eeeb; color: #172d38; }
+    tr { break-inside: avoid; }
+    th, td { min-width: 0; padding: .35rem .4rem; overflow-wrap: anywhere; }
+    details { display: block; break-inside: auto; }
+    summary { list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    pre { white-space: pre-wrap; word-break: break-word; }
+    .analysis-card, .review-bundle { box-shadow: none; break-inside: auto; }
+    .print-only { display: block; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <b>Studium Observatory</b>
-  <a href="/">Courses</a>
-  <a href="/#runs">Evaluation</a>
-  <a href="/eval/validity">Validity</a>
-  <a href="/sessions">Sessions</a>
-  <a href="/harness">Harness</a>
-  <span class="controls"><button onclick="foldAll(true)">expand all</button>
-  <button onclick="foldAll(false)">collapse all</button></span>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <a class="site-title" href="/">Studium Observatory</a>
+  <nav class="global-nav" aria-label="Observatory">
+    <a href="/">Courses</a><a href="/#runs">Evaluation</a><a href="/eval/validity">Validity</a><a href="/sessions">Sessions</a><a href="/harness">Harness</a>
+  </nav>
+  <span class="controls"><button type="button" onclick="foldAll(true)">expand all</button><button type="button" onclick="foldAll(false)">collapse all</button></span>
 </header>
-<main>
-{% block content %}{% endblock %}
-</main>
+<main id="main" tabindex="-1">{% block content %}{% endblock %}</main>
 <script>
-  function foldAll(open) {
-    document.querySelectorAll("details").forEach(function (d) { d.open = open; });
-  }
+  function foldAll(open) { document.querySelectorAll("details").forEach(function (detail) { detail.open = open; }); }
+  let collapsedBeforePrint = null;
+  window.addEventListener("beforeprint", function () {
+    if (collapsedBeforePrint !== null) return;
+    collapsedBeforePrint = Array.from(document.querySelectorAll("details:not([open])"));
+    collapsedBeforePrint.forEach(function (detail) { detail.open = true; });
+  });
+  window.addEventListener("afterprint", function () {
+    if (collapsedBeforePrint === null) return;
+    collapsedBeforePrint.forEach(function (detail) { detail.open = false; });
+    collapsedBeforePrint = null;
+  });
 </script>
 </body>
 </html>

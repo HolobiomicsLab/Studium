@@ -41,11 +41,12 @@ runs), so the runs and validity tabs work immediately.
 | A validator-green course, no model call | `.venv/bin/python tools/astra_validate_check.py --out $S/course-demo` | free, ~1 s |
 | A course with **real findings and evidence** | §3 | one paid call |
 
-The free route is what the slice-1 audit used. Be aware of what it does *not* give
-you: courses built in mock mode carry `n_findings: 0`, three pedagogical decisions
-and no per-edge decisions, because `GraphAgent._mock_response()` returns
-`{"edges": []}`. The Observatory's finding and evidence surfaces stay blank — that
-is a property of the input, not a bug in the page.
+The validator fixture uses a deterministic StubAgent and emits structural findings
+without a paid call. These are synthetic fixture findings, not a live-model result.
+The ordinary GraphAgent mock can still produce an empty graph; inspect the actual
+`n_findings` before claiming the evidence surface was exercised. The dedicated
+`tools/audit-mystra-fixtures.py` also emits explicit synthetic quotations and two
+bundle reviews for the viewer audit.
 
 ## 3. A live course (paid — ask first)
 
@@ -102,13 +103,17 @@ reports `not_installed` while `.venv/bin/astra` sits right there.
 
 ## 5. Routes
 
-Eleven, all GET. Every HTML page has a JSON twin — prefer the twin when you are
+All application routes are GET-only; the current inventory is in `observatory_app.py`. Every HTML page has a JSON twin — prefer the twin when you are
 reading programmatically, and diff it across changes.
 
 | HTML | JSON | Shows |
 | --- | --- | --- |
 | `/` | `/api/index` | problems banner, courses, runs, validity suites |
 | `/courses/{id}` | `/api/courses/{id}` | decisions, universes and their diff from default, exploration trace, findings with evidence, review |
+| `/courses/{id}/mystra` | `/api/courses/{id}/mystra` | printable teacher/reviewer dossier, all analyses and bundles, cached validation status |
+| `/courses/{id}/review` | `/api/courses/{id}/review` | per-bundle scene verdicts, skipped scenes and calibration |
+| `/sessions` and `/sessions/{id}` | corresponding `/api/sessions` routes | the existing source comparison with privacy suppression |
+| `/harness` | `/api/harness` | explicitly configured session workspaces |
 | `/courses/{id}/provenance.myst.md` | — | the same text `astra_render` writes |
 | `/courses/{id}/validation` | `/api/courses/{id}/validation` | the real validator's verdict — **the only routes that spawn a process** |
 | `/eval/runs/{id}` | `/api/eval/runs/{id}` | dimension scores, findings, persona sessions, `report.md` |
@@ -119,7 +124,7 @@ An unknown id gives 404 `{"error": "unknown course"}` / `{"error": "unknown run"
 
 ## 6. Configuration
 
-Seven environment variables (`observatory_config.py`), each overridden by its CLI
+Environment variables (`observatory_config.py` is the authoritative inventory), each overridden by its CLI
 flag. One name matters more than the rest: the course root is
 **`STUDIUM_LWG_OUT_DIR`** — the planner's own variable, deliberately shared so that
 what the planner wrote is what the Observatory reads. There is no
@@ -177,10 +182,11 @@ crawled in 0.90 s, zero non-200.
 - A blank findings section usually means a mock-mode course (§2), not a broken page.
 - `services/observatory` is not on the default pytest path (§9).
 - The service has no `__init__.py`; `uvicorn` needs the service directory as cwd.
-- Slice 1 is what exists. The Review tab and the Sessions-and-trust tab are slice 2
-  and the Harness tab slice 3; their spec answers changed on 2026-09-04 (per-bundle
-  review directories; both session columns read in-process, no course token). Do not
-  promise those tabs from the spec's older text.
+- Slices 1–3 are implemented: provenance/evaluation, per-bundle Review, Sessions
+  and Harness. MySTRA adds a printable HTML view and complete MyST export. Read
+  `docs/guides/mystra-reviewer.md` for the verified no-model fixture/audit recipe.
+- ASTRA validation uses `--skip-evidence`: a schema pass is neither checked source
+  evidence nor teacher approval. The viewer does not write an approval or publish.
 
 ## 11. Pointers
 

@@ -133,6 +133,36 @@ def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
+def evidence_view(evidence: Mapping[str, Any]) -> dict[str, Any]:
+    """Project ASTRA 0.0.14 evidence and legacy quotes into safe, complete display fields.
+
+    Both report formats share this projection. Source paths remain plain text; they
+    are never opened. Wrong-shaped optional fields remain absent, not coerced facts.
+    """
+    strings = ("id", "artifact", "doi", "snapshot", "source_commit", "notes")
+    view = {key: evidence.get(key) if isinstance(evidence.get(key), str) else None
+            for key in strings}
+    quote = evidence.get("quote")
+    selector = quote if isinstance(quote, Mapping) else {}
+    exact = selector.get("exact", quote)
+    if not isinstance(exact, str):
+        exact = evidence.get("quote_exact")
+    view["quote_exact"] = exact if isinstance(exact, str) else None
+    for key in ("prefix", "suffix"):
+        value = selector.get(key)
+        view[f"quote_{key}"] = value if isinstance(value, str) else None
+    location = _mapping(evidence.get("location"))
+    value = location.get("value")
+    view["location_value"] = value if isinstance(value, str) else None
+    for key, value in (("version", evidence.get("version")), ("location_page", location.get("page"))):
+        view[key] = value if isinstance(value, int) and not isinstance(value, bool) and value >= 1 else None
+    labels = {"doi": "DOI", "version": "Version", "snapshot": "Snapshot",
+              "source_commit": "Source commit", "quote_prefix": "Quote prefix",
+              "quote_suffix": "Quote suffix", "location_value": "Location", "location_page": "Page"}
+    view["details"] = {label: view[key] for key, label in labels.items() if view[key] is not None}
+    return view
+
+
 def analyses_of(doc: Mapping[str, Any] | None) -> list[tuple[str, Mapping[str, Any]]]:
     """(slug, body) pairs. A nested document yields its `analyses`; a pre-nesting flat
     document is its own single body, the rule `astra_emit.analysis_body` applies."""

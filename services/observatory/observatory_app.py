@@ -114,6 +114,23 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
         ref = course(course_id)
         return course_detail(ref) if ref is not None else _unknown("course")
 
+    def mystra_view(ref: CourseRef) -> dict:
+        """Reuse the artifact views and cached schema verdict for the printable report."""
+        return {"course": course_detail(ref), "review": reviews_detail(ref),
+                "validation": asdict(app.state.validation.get(ref.path, run=False))}
+
+    @app.get("/courses/{course_id}/mystra", response_class=HTMLResponse)
+    def course_mystra(request: Request, course_id: str) -> HTMLResponse:
+        ref = course(course_id)
+        if ref is None:
+            return _unknown("course")
+        return templates.TemplateResponse(request, "mystra.html", mystra_view(ref))
+
+    @app.get("/api/courses/{course_id}/mystra")
+    def api_course_mystra(course_id: str) -> dict:
+        ref = course(course_id)
+        return mystra_view(ref) if ref is not None else _unknown("course")
+
     @app.get("/courses/{course_id}/provenance.myst.md", response_class=PlainTextResponse)
     def course_myst(course_id: str) -> PlainTextResponse:
         ref = course(course_id)

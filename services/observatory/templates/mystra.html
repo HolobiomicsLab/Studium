@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% import "_review_macros.html" as reviews %}
+{% block title %}{{ course.summary.id }} — MySTRA review report{% endblock %}
+
+{% block content %}
+{% set s = course.summary %}
+{% set totals = namespace(reviewed=0, scenes=0, defects=0, skipped=0) %}
+{% for bundle in review.bundles %}
+  {% if bundle.worst_overall is not none %}{% set totals.reviewed = totals.reviewed + 1 %}{% endif %}
+  {% set totals.scenes = totals.scenes + bundle.n_scenes %}
+  {% set totals.defects = totals.defects + bundle.n_defects %}
+  {% set totals.skipped = totals.skipped + bundle.n_skipped %}
+{% endfor %}
+
+<article class="mystra-report">
+  <header>
+    <p class="eyebrow">MySTRA · teacher and reviewer copy · read-only</p>
+    <h1>{{ s.id }}{% if s.name %} — {{ s.name }}{% endif %}</h1>
+    <p class="lede">A complete reading copy of the course’s recorded analyses, decisions, evidence, explored universes, trace, and review bundles. Missing or unreadable records remain visible as gaps.</p>
+    <p class="path">{{ s.path }}</p>
+    <p class="print-only path">Printed from Studium Observatory · ASTRA version {{ s.version or "unknown" }}</p>
+    <div class="actions report-actions screen-only">
+      <button class="button primary" type="button" onclick="window.print()">Print report</button>
+      <a class="button" href="/courses/{{ s.id | urlencode }}">Course provenance</a>
+      <a class="button" href="/courses/{{ s.id | urlencode }}/review">Focused scene review</a>
+      <a class="button" href="/courses/{{ s.id | urlencode }}/provenance.myst.md">MyST source</a>
+    </div>
+  </header>
+
+  <nav class="section-nav screen-only" aria-label="Report sections">
+    <a href="#overview">Overview</a><a href="#analyses">Analyses</a><a href="#universes">Universes</a>
+    <a href="#trace">Trace</a><a href="#reviews">Reviews</a><a href="#integrity">Integrity</a>
+  </nav>
+
+  <section class="report-section" id="overview">
+    <h2>Overview</h2>
+    <div class="metric-grid" aria-label="Recorded course counts">
+      <div class="metric"><span class="value">{{ s.n_analyses }}</span><span class="label">Analyses</span></div>
+      <div class="metric"><span class="value">{{ s.n_decisions }}</span><span class="label">Course decisions</span></div>
+      <div class="metric"><span class="value">{{ s.n_findings }}</span><span class="label">Course findings</span></div>
+      <div class="metric"><span class="value">{{ course.universes|length }}</span><span class="label">Universes</span></div>
+      <div class="metric"><span class="value">{{ review.bundles|length }}</span><span class="label">Review bundles found</span></div>
+      <div class="metric"><span class="value">{{ totals.reviewed }}</span><span class="label">Bundles with verdicts</span></div>
+      <div class="metric"><span class="value">{{ totals.scenes }}</span><span class="label">Scenes judged</span></div>
+      <div class="metric"><span class="value">{{ totals.skipped }}</span><span class="label">Scenes skipped</span></div>
+    </div>
+    <p class="status-note">
+      Cached schema validation: <strong class="{{ validation.status }}">{{ validation.status|replace("_", " ") }}</strong>.
+      Schema validation checks the ASTRA structure and references. Evidence files and quote accuracy are not checked (--skip-evidence). It is not pedagogical approval.
+      <a class="screen-only" href="/courses/{{ s.id | urlencode }}/validation">Run or inspect validation</a>.
+    </p>
+    {% if totals.defects %}<p class="banner"><strong>{{ totals.defects }}</strong> defect verdict(s) are recorded across the review bundles.</p>{% endif %}
+  </section>
+
+  <section class="report-section" id="analyses">
+    <h2>Analyses and evidence</h2>
+    {% for analysis in course.analyses %}
+    <section class="analysis-card">
+      <h3>{{ analysis.slug }}{% if analysis.name %} — {{ analysis.name }}{% endif %}</h3>
+      {% if analysis.description %}<p>{{ analysis.description }}</p>{% else %}<p class="none">no analysis description</p>{% endif %}
+      <p class="record-meta path"><span>inputs: {{ analysis.inputs|join(", ") or "none recorded" }}</span><span>outputs: {{ analysis.outputs|join(", ") or "none recorded" }}</span></p>
+
+      <h4>Decisions</h4>
+      <table>
+        <thead><tr><th>Decision</th><th>Question</th><th>Chosen / default</th><th>Alternatives</th><th>Rationale</th></tr></thead>
+        <tbody>
+        {% for decision in analysis.decisions %}
+          <tr>
+            <td>{{ decision.id }}<br><span class="path">{{ decision.source_edge_id }}</span></td>
+            <td>{{ decision.label or "—" }}{% if decision.tags_unreadable %}<p class="absent">unreadable decision tags</p>{% endif %}{% if decision.tags %}<br><span class="path">tags: {{ decision.tags|join(", ") }}</span>{% else %}<br><span class="none">no tags</span>{% endif %}</td>
+            <td>{{ decision.default or "—" }}</td>
+            <td>{% for option in decision.options %}<div><strong>{{ option.id }}</strong>{% if option.label and option.label != option.id %} — {{ option.label }}{% endif %}{% if option.excluded_reason %}<br><span class="absent">excluded: {{ option.excluded_reason }}</span>{% endif %}</div>{% else %}<span class="none">no alternatives recorded</span>{% endfor %}</td>
+            <td>{{ decision.rationale or "—" }}</td>
+          </tr>
+        {% else %}<tr><td colspan="5" class="none">no decision in this analysis</td></tr>{% endfor %}
+        </tbody>
+      </table>
+
+      <h4>Findings</h4>
+      <table>
+        <thead><tr><th>Finding</th><th>Claim</th><th>Evidence anchors</th></tr></thead>
+        <tbody>
+        {% for finding in analysis.findings %}
+          <tr>
+            <td>{{ finding.id }}<br><span class="path">{{ finding.source_edge_id }}</span></td>
+            <td>{{ finding.claim or "—" }}{% if finding.notes %}<br><span class="path">{{ finding.notes }}</span>{% endif %}</td>
+            <td>{% with evidence=finding.evidence %}{% include "_evidence.html" %}{% endwith %}</td>
+          </tr>
+        {% else %}<tr><td colspan="3" class="none">no finding in this analysis</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% else %}<p class="none">no analysis in this document</p>{% endfor %}
+  </section>
+
+  <section class="report-section" id="universes">
+    <h2>Explored universes</h2>
+    {% for universe in course.universes %}
+    <section class="analysis-card">
+      <h3>{{ universe.id or "(no universe id)" }}</h3>
+      {% if universe.description %}<p>{{ universe.description }}</p>{% else %}<p class="none">no universe description</p>{% endif %}
+      {% if universe.diff_from_default %}
+      <table><thead><tr><th>Decision</th><th>Default</th><th>Chosen</th></tr></thead><tbody>
+        {% for decision, pair in universe.diff_from_default.items() %}<tr><td>{{ decision }}</td><td>{{ pair[0] or "—" }}</td><td>{{ pair[1] or "—" }}</td></tr>{% endfor %}
+      </tbody></table>
+      {% else %}<p class="none">every decision remains at its default</p>{% endif %}
+      <details><summary>Full selection</summary>{{ kv(universe.selection) }}</details>
+    </section>
+    {% else %}<p class="none">no universe file</p>{% endfor %}
+  </section>
+
+  <section class="report-section" id="trace">
+    <h2>Exploration trace</h2>
+    {% if course.trace_bullets or course.trace_mermaid %}
+      <p class="path">schema version {{ course.trace_schema_version or "unknown" }}</p>
+      {% if course.trace_bullets %}<h3>Recorded path</h3><pre>{{ course.trace_bullets }}</pre>{% endif %}
+      {% if course.trace_mermaid %}<details><summary>Mermaid source</summary><pre>{{ course.trace_mermaid }}</pre></details>{% endif %}
+    {% else %}<p class="none">no trace file</p>{% endif %}
+  </section>
+
+  <section class="report-section" id="reviews">
+    <h2>Review bundles</h2>
+    <p class="lede">All discovered bundle reviews are reproduced below, including skipped scenes, incomplete twins, and the legacy flat layout. “Not judged” means no usable scene verdict was read; it does not mean pass.</p>
+    {% for name, reason in review.absent.items() if name == "review" or name.startswith("review/") %}{{ markers({name: reason}) }}{% endfor %}
+    {% for bundle in review.bundles %}{{ reviews.render_bundle(bundle, markers, 3) }}{% else %}<p class="none">no review under this course</p>{% endfor %}
+  </section>
+
+  <section class="report-section" id="integrity">
+    <h2>Record integrity</h2>
+    <p>ASTRA version <strong>{{ s.version or "unknown" }}</strong> · cached validator status <strong class="{{ validation.status }}">{{ validation.status|replace("_", " ") }}</strong>.</p>
+    {% if course.absent %}
+      <p>The reader reported {{ course.absent|length }} missing or unreadable artifact(s):</p>{{ markers(course.absent) }}
+    {% else %}<p class="ok">No missing or unreadable course artifact was reported by the reader.</p>{% endif %}
+    <p class="status-note">This page reports recorded provenance and machine review evidence for human inspection. It does not record or imply pedagogical approval.</p>
+  </section>
+</article>
+{% endblock %}

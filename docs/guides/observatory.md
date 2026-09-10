@@ -10,6 +10,9 @@ The Observatory is one localhost page over all of it. It is the operator's view:
 whoever generated a course, ran an evaluation, or is about to claim something in a
 paper. It is not the teacher dashboard, and no learner ever sees it.
 
+For a teacher or reviewer, open **MySTRA** from a course. The [reviewer guide](mystra-reviewer.md)
+covers the printable HTML report, complete MyST source and synthetic browser audit.
+
 ## Start it
 
 From the repository root:

@@ -1,0 +1,7 @@
+{% for item in evidence %}
+<div><strong>{{ item.id or "(no evidence id)" }}</strong>{% if item.artifact %} — {{ item.artifact }}{% endif %}
+  {% if item.quote_exact %}<blockquote class="evidence">“{{ item.quote_exact }}”</blockquote>{% endif %}
+  {% for label, value in item.details.items() %}<div class="path"><strong>{{ label }}:</strong> {{ value }}</div>{% endfor %}
+  {% if item.notes %}<div class="path">{{ item.notes }}</div>{% endif %}
+</div>
+{% else %}<span class="none">no evidence anchor</span>{% endfor %}

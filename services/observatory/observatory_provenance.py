@@ -43,6 +43,7 @@ from provenance.astra_read import (  # noqa: E402
     VERDICTS_BASENAME,
     ReviewDoc,
     analyses_of,
+    evidence_view,
     load_course,
     universe_diff,
     universe_selection,
@@ -108,6 +109,8 @@ def _port_ids(items: Any) -> list[str]:
 
 def _decision_view(slug: str, decision: Mapping[str, Any]) -> dict[str, Any]:
     options = _mapping(decision.get("options"))
+    tags = decision.get("tags")
+    valid_tags = isinstance(tags, list) and all(isinstance(tag, str) for tag in tags)
     return {
         "id": slug,
         "source_edge_id": source_edge_id(decision, slug),
@@ -117,7 +120,8 @@ def _decision_view(slug: str, decision: Mapping[str, Any]) -> dict[str, Any]:
         "options": [{"id": oid, "label": _mapping(o).get("label", oid),
                      "excluded_reason": _mapping(o).get("excluded_reason")}
                     for oid, o in options.items()],
-        "tags": list(decision.get("tags") or []),
+        "tags": tags if valid_tags else [],
+        "tags_unreadable": tags is not None and not valid_tags,
     }
 
 
@@ -129,24 +133,49 @@ def _finding_view(slug: str, finding: Mapping[str, Any]) -> dict[str, Any]:
         "source_edge_id": source_edge_id(finding, slug),
         "claim": finding.get("claim", ""),
         "notes": finding.get("notes", ""),
-        "evidence": [{"id": e.get("id", ""), "artifact": e.get("artifact", ""),
-                      "quote_exact": e.get("quote_exact"), "notes": e.get("notes")}
-                     for e in evidence if isinstance(e, Mapping)],
+        "evidence": [evidence_view(e) for e in evidence if isinstance(e, Mapping)],
     }
 
 
-def _review_view(review: Mapping[str, Any] | None) -> dict[str, Any] | None:
-    """The scene-review verdicts, counted the way `astra_render._review_section` does."""
-    if not review or not isinstance(review, Mapping):
-        return None
-    bodies = analyses_of(review)          # the first analysis, as `_review_section` reads it
-    body = bodies[0][1] if bodies else {}
-    rows = [{"id": slug, "source_edge_id": source_edge_id(_mapping(d), slug),
-             "default": _mapping(d).get("default"), "label": _mapping(d).get("label", slug)}
-            for slug, d in _mapping(_mapping(body).get("decisions")).items()]
+def _review_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Count the rendered ASTRA verdict rows without recomputing judge outcomes."""
     return {"n_decisions": len(rows),
             "n_non_pass": len([r for r in rows if r["default"] != "pass"]),
             "rows": rows}
+
+
+def _review_view(review: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Every analysis in one scene-review document, with its analysis identity."""
+    if not review or not isinstance(review, Mapping):
+        return None
+    rows = [{"id": slug, "analysis_id": analysis_id,
+             "source_edge_id": source_edge_id(_mapping(d), slug),
+             "default": _mapping(d).get("default"), "label": _mapping(d).get("label", slug),
+             "rationale": _mapping(d).get("rationale", "")}
+            for analysis_id, body in analyses_of(review)
+            for slug, d in _mapping(body.get("decisions")).items()]
+    findings = [{**_finding_view(str(slug), _mapping(f)), "analysis_id": analysis_id}
+                for analysis_id, body in analyses_of(review)
+                for slug, f in _mapping(body.get("findings")).items()]
+    return {**_review_summary(rows), "findings": findings}
+
+
+def _course_review_view(reviews: tuple[ReviewDoc, ...]) -> dict[str, Any] | None:
+    """Aggregate readable review documents while retaining each row's origin."""
+    rows = []
+    findings = []
+    readable = False
+    for doc in reviews:
+        view = _review_view(doc.astra)
+        if view is None:
+            continue
+        readable = True
+        bundle_id, _ = _bundle_identity(doc, doc.rel == REVIEW_FILE, [])
+        rows.extend({**row, "bundle_id": bundle_id, "rel": doc.rel}
+                    for row in view["rows"])
+        findings.extend({**finding, "bundle_id": bundle_id, "rel": doc.rel}
+                        for finding in view["findings"])
+    return {**_review_summary(rows), "findings": findings} if readable else None
 
 
 #: What `judge_bundle` records for a bundle whose `lesson.json` carries no id, and what
@@ -457,6 +486,21 @@ def reviews_detail(ref: CourseRef) -> dict[str, Any]:
     return {"course_id": ref.id, "bundles": bundles, "absent": dict(docs.absent)}
 
 
+def _trace_view(trace: Mapping[str, Any] | None) -> tuple[str | None, str | None, str | None]:
+    """Format the shared trace as a block; malformed nodes leave other sections readable."""
+    if not trace:
+        return None, None, None
+    try:
+        nodes = trace.get("nodes") or []
+        if not isinstance(nodes, list):
+            raise TypeError("trace nodes must be a list")
+        return ("\n".join(astra_render._trace_mermaid(nodes)),
+                "\n".join(astra_render._trace_bullets(nodes)), None)
+    except (TypeError, KeyError, AttributeError, ValueError, RecursionError) as exc:
+        LOGGER.warning("Trace formatting failed: %s", type(exc).__name__)
+        return None, None, f"unreadable: {type(exc).__name__}"
+
+
 def course_detail(ref: CourseRef) -> dict[str, Any]:
     """Everything the course page shows, JSON-serialisable."""
     docs = load_course(ref.path, strict=False)
@@ -481,17 +525,20 @@ def course_detail(ref: CourseRef) -> dict[str, Any]:
                   "diff_from_default": universe_diff(u, docs.astra)}
                  for u in docs.universes]
 
-    nodes = _mapping(docs.trace).get("nodes") or []
-    nodes = nodes if isinstance(nodes, list) else []
+    trace_mermaid, trace_bullets, trace_problem = _trace_view(docs.trace)
+    absent = dict(docs.absent)
+    if trace_problem:
+        absent["trace/exploration_tree.yaml"] = trace_problem
     return {
         "summary": asdict(summary),
         "analyses": analyses,
         "universes": universes,
         "trace_schema_version": _mapping(docs.trace).get("schema_version"),
-        "trace_mermaid": "\n".join(astra_render._trace_mermaid(nodes)) if docs.trace else None,
-        "trace_bullets": "\n".join(astra_render._trace_bullets(nodes)) if docs.trace else None,
+        "trace_mermaid": trace_mermaid,
+        "trace_bullets": trace_bullets,
         "review": _review_view(docs.review),
-        "absent": dict(docs.absent),
+        "review_summary": _course_review_view(docs.reviews),
+        "absent": absent,
     }
 
 

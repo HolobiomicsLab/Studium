@@ -32,7 +32,8 @@ def source_edge_id(body: Mapping[str, Any], key: str) -> str:
     written before that, else the container key itself (pre-slug files were keyed
     by the raw id). Raw ids contain colons, so the tag splits on its first colon."""
     prefix = SOURCE_ID_FIELD + ":"
-    for tag in body.get("tags") or []:
+    tags = body.get("tags")
+    for tag in tags if isinstance(tags, list) else []:
         if isinstance(tag, str) and tag.startswith(prefix):
             return tag[len(prefix):]
     legacy = body.get(SOURCE_ID_FIELD)

@@ -251,3 +251,11 @@ python -m pytest services/observatory -q
 
 The two validator tests need `astra-tools`; they fail under `CI` and skip locally when
 the CLI is absent.
+
+## MySTRA reviewer view
+
+`/courses/{id}/mystra` presents a printable report from the shared course and review
+readers; `/api/courses/{id}/mystra` exposes the same structured context. The existing
+`/courses/{id}/provenance.myst.md` exports the MyST source. All remain GET-only.
+Opening the viewer reads the cached validation verdict; only the validation routes
+run the validator. See [the reviewer guide](../../docs/guides/mystra-reviewer.md).
