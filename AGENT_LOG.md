@@ -4,6 +4,54 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-10 (décision) — Le score mot-clé ne certifie plus (`97cf72f`)
+
+La moitié de INT-STUDIUM-035 qui n'était pas la mienne a été tranchée par le propriétaire :
+**candidat 2**. Le score par appariement de sous-chaînes reste calculé, reste publié au
+professeur comme indice de couverture — et cesse de dire si la réponse était juste.
+
+**Ce qui a disparu, et où.** `answer_submitted.correct` devient optionnel. Absent ne veut pas
+dire faux : rendre l'absence comme un échec serait exactement le défaut d'origine retourné, et
+le dépôt a déjà tranché cette question ailleurs — `matchesCondition` fait `if (!(key in ctx))
+return false`, l'absence y est une réponse de plein droit (INT-STUDIUM-029). Trois chemins
+certifient encore : le quiz, où le choix marqué **est** la vérité terrain ; le paquet de
+verdicts, dont les marques sont notées contre la clé par identité et non par sous-chaîne — la
+seule note hors ligne honnête du projet, qu'un remplacement en bloc aurait supprimée avec le
+reste ; et un évaluateur vivant, qui se déclare `source: "llm"`.
+
+**Les six lecteurs bougent ensemble.** Arrêter la seule mise à jour Beta n'aurait pas supprimé
+l'affirmation fausse, il l'aurait déménagée. Cinq autres la lisaient : `ctx.answer_correct` dans
+le moteur d'adaptation, la file de révision FSRS des deux clients (`if (!a.correct) return 1`
+aurait replanifié chaque réponse non corrigée en « à revoir »), `scene_completed.success` — rendu
+optionnel, ADR 006 v1.7, dans les deux miroirs TS et Python comme `score_source` en v1.6 — et
+`compute_progress`, qui lisait `get("success", False)` et publiait donc « cette scène est ratée
+par tout le monde » là où la vérité est « personne ne l'a corrigée ». Le taux vaut désormais
+`None`, avec `n_graded` et `n_ungraded` publiés à côté : une mesure vide rendue comme un zéro est
+une faute déjà enregistrée dans ce dépôt.
+
+**L'absence est comptée.** `ConceptState.ungraded_attempts` la rend dénombrable, délibérément
+hors de `total_attempts` — ce compteur-là se lit comme de la preuve, et y verser des tentatives
+non corrigées reproduirait la confusion d'un cran plus bas.
+
+**Mesuré, pas affirmé.** `grading_reality_check.mjs` portait lui-même le défaut qu'il mesurait :
+`r.signal.correct ? "PASS" : "FAIL"` imprimait un échec pour toute réponse désormais non
+corrigée. Le pilote a trois états maintenant. Il passait de « 5 bonnes réponses marquées fausses ;
+6 mauvaises marquées justes » à 12 réponses, 0 certifiée, 0 désaccord — et il imprime ce que le
+score **seul** aurait affirmé, 11 verdicts faux sur 12, pour que la décision reste discutable et
+pas seulement appliquée.
+
+**Conséquence notée, pas encore traitée.** `graph-nav.ts` compte `ai_critique` parmi les
+`ANSWER_GRADED_TYPES` : hors ligne, une remédiation routée là ne peut plus converger par la
+maîtrise. La terminaison tient quand même, par `MAX_PREREQ_DETOURS = 3` et l'annonce
+`graph_prereq_gate_released` (INT-STUDIUM-036) — vérifié : `teacher_check.mjs` rend toujours
+« completed 5/5 », et les 6 pilotes de fixtures passent.
+
+Portes : `pnpm test` vert, `python tools/pytest_all.py` 16 suites 0 failing, `tsc --noEmit`
+propre sur les six paquets touchés. Chaque nouvelle garde a été prouvée rouge en retirant sa
+réparation : moteur 6 échecs, hôte 3, collecteur 4.
+
+---
+
 ## 2026-09-10 (fin) — Les intents déposés, repris un par un (`ecf95b2`, `8e38cb1`, `d9b1b1e`)
 
 Quatre intents étaient encore en **Draft**. Ce qui restait de chacun a été repris ; ce qui reste
