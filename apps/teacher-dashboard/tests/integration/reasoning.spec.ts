@@ -15,9 +15,8 @@ test.describe("/courses/[token]/reasoning", () => {
     // "signals arrived but every scene's own contributors were under the floor". The third
     // used to render as the second, which is a false claim about the course rather than a
     // missing state — and a locator listing only two states would have kept passing on it.
-    const container = page.locator(
-      '[data-testid="reasoning-breakdown"], [data-testid="withheld-notice"], text=/Aucun signal/i',
-    );
+    const container = page.getByTestId("reasoning-breakdown")
+      .or(page.getByTestId("withheld-notice")).or(page.getByText(/Aucun signal/i));
     await expect(container.first()).toBeVisible({ timeout: 10_000 });
   });
 });

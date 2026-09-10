@@ -1,6 +1,7 @@
 import { getAutonomy, isSuppressed } from "@/lib/api";
 import AutonomyBar from "@/components/AutonomyBar";
-import CourseNav from "@/components/CourseNav";
+import CourseShell from "@/components/CourseShell";
+import { ApiError } from "@/components/DashboardNotice";
 import NonAttribution from "@/components/NonAttribution";
 import SuppressedNotice from "@/components/SuppressedNotice";
 
@@ -18,27 +19,22 @@ export default async function AutonomyPage({ params }: Props) {
     error = (e as Error).message;
   }
   return (
-    <main className="max-w-5xl mx-auto p-8">
-      <h1 className="text-xl font-bold mb-2">
-        Cours <code className="text-base">{token}</code>
-      </h1>
-      <CourseNav token={token} active="autonomy" />
-      <h2 className="text-lg font-semibold mb-4">
-        Équilibre critique / indice (anti-offloading)
-      </h2>
+    <CourseShell token={token} active="autonomy" eyebrow="Apprentissages" title="Équilibre critique / indice">
       {error ? (
-        <p className="text-red-600">Erreur API : {error}</p>
+        <ApiError message={error} />
       ) : isSuppressed(data) ? (
         <SuppressedNotice info={data} />
       ) : data ? (
         <AutonomyBar data={data} />
-      ) : null}
+      ) : (
+        <p className="empty-state">Aucune mesure critique / indice disponible.</p>
+      )}
       {/* INT-STUDIUM-030: this page publishes a judgement metric, and the collector
           now sends `non_attribution` with it. The two pages that already carried this
           line were the two that had advertised a drill-down; these two never did, which
           is precisely why the line was missing here — nobody had had to argue about
           them. An unadvertised aggregate is not a less characterological one. */}
       <NonAttribution />
-    </main>
+    </CourseShell>
   );
 }

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 async function go(formData: FormData) {
   "use server";
@@ -9,31 +10,62 @@ async function go(formData: FormData) {
 
 export default function Home() {
   return (
-    <main className="max-w-xl mx-auto p-8">
-      <h1 className="text-2xl font-bold mb-2">Studium — Teacher Dashboard</h1>
-      <p className="text-gray-600 mb-6">
-        Tableau de bord en lecture seule. Saisissez le token de cours pour
-        consulter les indicateurs de progression, calibration et équilibre
-        critique / indice.
-      </p>
-      <form action={go} className="flex gap-2">
-        <input
-          name="courseToken"
-          required
-          aria-label="Token du cours"
-          placeholder="ex. metabolomics-2026-spring"
-          className="flex-1 border rounded px-3 py-2"
-        />
-        <button
-          type="submit"
-          className="rounded bg-blue-600 text-white px-4 py-2 hover:bg-blue-700"
-        >
-          Ouvrir
-        </button>
-      </form>
-      <p className="mt-4 text-xs text-gray-500">
-        Itération courante : le token doit correspondre à l&apos;identifiant du cours.
-      </p>
+    <main className="home-shell" id="contenu">
+      <section className="home-intro" aria-labelledby="home-title">
+        <p className="eyebrow">Observatoire pédagogique</p>
+        <h1 id="home-title">Lire un cours avec justesse.</h1>
+        <p className="home-intro__lead">
+          Un espace de travail pour suivre les parcours, repérer les points d’attention
+          et préparer vos interventions à partir d’indicateurs contextualisés.
+        </p>
+        <ul className="home-principles" aria-label="Principes du tableau de bord">
+          <li>
+            <strong>Vue d’ensemble</strong>
+            <span>Progression et parcours dans une même lecture.</span>
+          </li>
+          <li>
+            <strong>Mesures situées</strong>
+            <span>Population et limites restent visibles près des chiffres.</span>
+          </li>
+          <li>
+            <strong>Décisions humaines</strong>
+            <span>Les indicateurs éclairent le travail enseignant.</span>
+          </li>
+        </ul>
+      </section>
+
+      <section className="course-entry" aria-labelledby="course-entry-title">
+        <p className="eyebrow">Entrer dans l’atelier</p>
+        <h2 id="course-entry-title">Ouvrir un cours</h2>
+        <p className="course-entry__intro">
+          Utilisez l’identifiant transmis avec votre espace de cours.
+        </p>
+        <form action={go} className="course-entry__form">
+          <label className="field">
+            <span className="field__label">Identifiant du cours</span>
+            <input
+              name="courseToken"
+              required
+              aria-label="Identifiant du cours"
+              autoComplete="off"
+              placeholder="ex. metabolomics-2026-spring"
+              className="field__input"
+            />
+            <span className="field__hint">
+              L’identifiant doit correspondre exactement à celui du cours.
+            </span>
+          </label>
+          <button type="submit" className="primary-button">
+            Ouvrir le cours <span aria-hidden="true">→</span>
+          </button>
+        </form>
+        <div className="course-entry__aside">
+          <p>Vous animez une séance de révision entre pairs&nbsp;?</p>
+          <Link className="button-link" href="/room">
+            Gérer une salle
+          </Link>
+        </div>
+      </section>
     </main>
   );
 }

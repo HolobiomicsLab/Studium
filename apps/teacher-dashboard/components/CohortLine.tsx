@@ -45,7 +45,7 @@ type Props = { judgement: Judgement; className?: string };
 export default function CohortLine({ judgement, className }: Props) {
   const counts = renderCounts(judgement.cohort_counts);
   return (
-    <p className={className ?? "text-xs text-gray-500"} data-testid="cohort-line">
+    <p className={`context-note context-note--compact ${className ?? ""}`} data-testid="cohort-line">
       {judgement.cohort_band !== null ? (
         <>
           Calcul&eacute; sur une cohorte de{" "}
@@ -67,7 +67,7 @@ export default function CohortLine({ judgement, className }: Props) {
 export function WithheldNotice({ className }: { className?: string }) {
   return (
     <p
-      className={className ?? "text-xs text-amber-700"}
+      className={`withheld-note ${className ?? ""}`}
       role="note"
       data-testid="withheld-notice"
     >

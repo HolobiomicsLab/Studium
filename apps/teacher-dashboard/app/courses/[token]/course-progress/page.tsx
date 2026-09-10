@@ -1,6 +1,7 @@
 import { getCourse, getCourseCompletion, isSuppressed, type CourseManifest, type CourseCompletionResponse, type Suppressed } from "@/lib/api";
 import CourseProgress from "@/components/CourseProgress";
-import CourseNav from "@/components/CourseNav";
+import CourseShell from "@/components/CourseShell";
+import DashboardNotice, { ApiError } from "@/components/DashboardNotice";
 import SuppressedNotice from "@/components/SuppressedNotice";
 
 export const dynamic = "force-dynamic";
@@ -33,44 +34,49 @@ export default async function CourseProgressPage({ params, searchParams }: Props
   }
 
   return (
-    <main className="max-w-5xl mx-auto p-8">
-      <h1 className="text-xl font-bold mb-2">
-        Cours <code className="text-base">{token}</code>
-      </h1>
-      <CourseNav token={token} active="course-progress" />
-      <h2 className="text-lg font-semibold mb-4">Complétion par leçon du parcours</h2>
-      {error ? <p className="text-red-600">Erreur API : {error}</p> : null}
+    <CourseShell
+      token={token}
+      active="course-progress"
+      eyebrow="Vue d’ensemble"
+      title="Complétion par leçon du parcours"
+      description="Les compteurs restent indépendants d’une leçon à l’autre et ne décrivent pas un entonnoir de rétention."
+    >
+      {error ? <ApiError message={error} /> : null}
       {isSuppressed(completion) ? <SuppressedNotice info={completion} /> : null}
       {course && completion && !isSuppressed(completion) ? (
         <CourseProgress course={course} completion={completion} />
       ) : completion && !isSuppressed(completion) ? (
-        <div className="space-y-3">
+        <section className="metric-panel">
           {!courseRef ? (
-            <p className="text-sm text-gray-600">
-              Ajouter <code>?course_ref=courses/&lt;manifeste&gt;.json</code> à l&apos;URL
-              pour superposer la colonne du parcours (ordre + prérequis). Sans manifeste,
-              voici les compteurs bruts de complétion par leçon :
-            </p>
+            <DashboardNotice title="Parcours non associé">
+              <p>
+                Ajouter <code>?course_ref=courses/&lt;manifeste&gt;.json</code> à l&apos;URL
+                pour superposer la colonne du parcours (ordre + prérequis). Sans manifeste,
+                voici les compteurs bruts de complétion par leçon :
+              </p>
+            </DashboardNotice>
           ) : manifestError ? (
-            <p className="text-amber-600 text-sm">
-              Manifeste de cours introuvable ({manifestError}). Compteurs bruts :
-            </p>
+            <DashboardNotice title="Manifeste de cours introuvable" tone="caution">
+              <p>{manifestError}. Les compteurs bruts restent disponibles ci-dessous.</p>
+            </DashboardNotice>
           ) : null}
-          <ul className="space-y-1" data-testid="raw-completion-counts">
+          <ul className="data-list" data-testid="raw-completion-counts">
             {Object.entries(completion.lessons).map(([lessonId, c]) => (
-              <li key={lessonId} className="flex justify-between border-b py-1 text-sm">
+              <li key={lessonId} className="data-list__row">
                 <code>{lessonId}</code>
-                <span className="tabular-nums text-gray-600">
+                <span className="data-list__meta">
                   {c.n_completed} apprenant·e{c.n_completed > 1 ? "·s" : ""}
                 </span>
               </li>
             ))}
             {Object.keys(completion.lessons).length === 0 ? (
-              <li className="text-sm text-gray-500">Aucune leçon terminée pour l&apos;instant.</li>
+              <li className="empty-state">Aucune leçon terminée pour l&apos;instant.</li>
             ) : null}
           </ul>
-        </div>
-      ) : null}
-    </main>
+        </section>
+      ) : error ? null : (
+        <p className="empty-state">Aucune donnée de parcours disponible.</p>
+      )}
+    </CourseShell>
   );
 }

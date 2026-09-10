@@ -1,6 +1,7 @@
 import { getConceptMasteryHistory, isSuppressed, isUnavailable } from "@/lib/api";
 import TrajectoryChart from "@/components/TrajectoryChart";
-import CourseNav from "@/components/CourseNav";
+import CourseShell from "@/components/CourseShell";
+import { ApiError } from "@/components/DashboardNotice";
 import SuppressedNotice from "@/components/SuppressedNotice";
 import UnavailableNotice from "@/components/UnavailableNotice";
 
@@ -27,21 +28,18 @@ export default async function TrajectoryPage({ params }: Props) {
     error = (e as Error).message;
   }
   return (
-    <main className="max-w-5xl mx-auto p-8">
-      <h1 className="text-xl font-bold mb-2">
-        Cours <code className="text-base">{token}</code>
-      </h1>
-      <CourseNav token={token} active="trajectory" />
-      <h2 className="text-lg font-semibold mb-4">Trajectoire longitudinale de maîtrise</h2>
+    <CourseShell token={token} active="trajectory" eyebrow="Apprentissages" title="Trajectoire longitudinale de maîtrise">
       {error ? (
-        <p className="text-red-600">Erreur API : {error}</p>
+        <ApiError message={error} />
       ) : isUnavailable(data) ? (
         <UnavailableNotice info={data} />
       ) : isSuppressed(data) ? (
         <SuppressedNotice info={data} />
       ) : data ? (
         <TrajectoryChart data={data} />
-      ) : null}
-    </main>
+      ) : (
+        <p className="empty-state">Aucune trajectoire disponible.</p>
+      )}
+    </CourseShell>
   );
 }

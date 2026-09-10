@@ -7,7 +7,7 @@ test.describe("/courses/[token]/ai-literacy", () => {
   test("page loads with mandatory ADR 011 disclaimer", async ({ page }) => {
     await page.goto(`/courses/${encodeURIComponent(COURSE_TOKEN)}/ai-literacy`);
     await expect(page.locator("text=/formatif uniquement/i")).toBeVisible();
-    await expect(page.locator("text=/ADR 011/")).toBeVisible();
+    await expect(page.getByRole("note").locator("p").filter({ hasText: /ADR 011/ })).toBeVisible();
   });
 
   test("renders card with mandatory mentions when pseudonyme provided", async ({
@@ -16,7 +16,7 @@ test.describe("/courses/[token]/ai-literacy", () => {
     await page.goto(
       `/courses/${encodeURIComponent(COURSE_TOKEN)}/ai-literacy?pseudonyme=${PSEUDO}`,
     );
-    await expect(page.locator("text=/usage certificatif/i")).toBeVisible();
+    await expect(page.getByRole("note").getByText(/usage certificatif/i)).toBeVisible();
     const card = page.locator('[data-testid="ai-literacy-card"]');
     if (await card.count()) {
       await expect(card.locator("text=/formatif/i")).toBeVisible();

@@ -13,7 +13,7 @@
  */
 export default function NonAttribution() {
   return (
-    <p className="mt-6 text-xs text-gray-600" role="note">
+    <p className="context-note" role="note">
       Lecture <strong>de classe</strong>, calculée sur les contributeurs de cette leçon. Ce
       n’est pas un énoncé sur un·e élève en particulier, et le tableau de bord n’offre aucun
       filtre par apprenant·e : un plancher que l’on peut contourner en filtrant n’en est pas un.

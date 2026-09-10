@@ -1,6 +1,7 @@
 import { postBlueprintScore, type AssessmentBlueprintInput } from "@/lib/api";
 import BlueprintRadar from "@/components/BlueprintRadar";
-import CourseNav from "@/components/CourseNav";
+import CourseShell from "@/components/CourseShell";
+import DashboardNotice, { ApiError } from "@/components/DashboardNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -46,42 +47,39 @@ export default async function BlueprintPage({ params, searchParams }: Props) {
     }
   }
   return (
-    <main className="max-w-4xl mx-auto p-8">
-      <h1 className="text-xl font-bold mb-2">
-        Cours <code className="text-base">{token}</code>
-      </h1>
-      <CourseNav token={token} active="blueprint" />
-      <h2 className="text-lg font-semibold mb-4">Blueprint d'évaluation (ADR 013)</h2>
-      <p className="text-sm text-gray-700 mb-4 p-3 bg-yellow-50 rounded">
-        ⚠ Indicateur composite <strong>formatif uniquement</strong>. Pondérations
-        configurées par l'enseignant. Pas d'usage certificatif sans validation
-        pédagogique (ADR 013). Blueprint par défaut v1 — édition via UI auteur
-        reportée à M6.5+.
-      </p>
-      <form className="mb-4">
-        <label className="text-sm">
-          Pseudonyme étudiant :
+    <CourseShell token={token} active="blueprint" eyebrow="Pilotage" title="Blueprint d'évaluation">
+      <DashboardNotice title="Cadre d’usage — ADR 013" tone="caution">
+        <p>
+          Indicateur composite <strong>formatif uniquement</strong>. Pondérations
+          configurées par l'enseignant. Pas d'usage certificatif sans validation
+          pédagogique (ADR 013). Blueprint par défaut v1 — édition via UI auteur
+          reportée à M6.5+.
+        </p>
+      </DashboardNotice>
+      <form className="inline-form">
+        <label className="field">
+          <span className="field__label">Pseudonyme étudiant</span>
           <input
             type="text"
             name="pseudonyme"
             defaultValue={pseudonyme}
-            className="ml-2 border rounded p-1 text-sm font-mono"
+            className="field__input"
             placeholder="HMAC hex"
           />
         </label>
-        <button type="submit" className="ml-2 px-3 py-1 bg-blue-600 text-white rounded text-sm">
+        <button type="submit" className="primary-button">
           Consulter
         </button>
       </form>
       {error ? (
-        <p className="text-red-600">Erreur API : {error}</p>
+        <ApiError message={error} />
       ) : data ? (
         <BlueprintRadar data={data} />
       ) : pseudonyme ? null : (
-        <p className="text-gray-500 italic">
+        <p className="empty-state">
           Sélectionne un pseudonyme étudiant pour consulter son blueprint.
         </p>
       )}
-    </main>
+    </CourseShell>
   );
 }

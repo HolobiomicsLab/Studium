@@ -12,12 +12,12 @@ test.describe("/courses/[token]/trajectory", () => {
     await expect(page.locator("text=/Erreur API/i")).toHaveCount(0);
   });
 
-  test("renders the chart container or empty state", async ({ page }) => {
+  test("names the withdrawn instrument instead of implying an empty learner trajectory", async ({ page }) => {
     await page.goto(`/courses/${encodeURIComponent(COURSE_TOKEN)}/trajectory`);
-    const chartOrEmpty = page.locator(
-      '[data-testid="trajectory-chart"], text=/Aucune donnée/i',
-    );
-    await expect(chartOrEmpty.first()).toBeVisible({ timeout: 10_000 });
+    // INT-STUDIUM-030 withdrew this endpoint for every class.
+    await expect(page.getByRole("heading", { name: "Indicateur indisponible" })).toBeVisible();
+    await expect(page.getByTestId("trajectory-chart")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /Chiffres retenus/ })).toHaveCount(0);
   });
 
   test("navigation to other tabs is present", async ({ page }) => {

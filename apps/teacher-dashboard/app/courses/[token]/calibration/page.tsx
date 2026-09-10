@@ -1,6 +1,7 @@
 import { getCalibration, isSuppressed } from "@/lib/api";
 import CalibrationChart from "@/components/CalibrationChart";
-import CourseNav from "@/components/CourseNav";
+import CourseShell from "@/components/CourseShell";
+import { ApiError } from "@/components/DashboardNotice";
 import NonAttribution from "@/components/NonAttribution";
 import SuppressedNotice from "@/components/SuppressedNotice";
 
@@ -26,20 +27,17 @@ export default async function CalibrationPage({ params }: Props) {
     error = (e as Error).message;
   }
   return (
-    <main className="max-w-5xl mx-auto p-8">
-      <h1 className="text-xl font-bold mb-2">
-        Cours <code className="text-base">{token}</code>
-      </h1>
-      <CourseNav token={token} active="calibration" />
-      <h2 className="text-lg font-semibold mb-4">Calibration des réponses</h2>
+    <CourseShell token={token} active="calibration" eyebrow="Apprentissages" title="Calibration des réponses">
       {error ? (
-        <p className="text-red-600">Erreur API : {error}</p>
+        <ApiError message={error} />
       ) : isSuppressed(data) ? (
         <SuppressedNotice info={data} />
       ) : data ? (
         <CalibrationChart data={data} />
-      ) : null}
+      ) : (
+        <p className="empty-state">Aucune mesure de calibration disponible.</p>
+      )}
       <NonAttribution />
-    </main>
+    </CourseShell>
   );
 }

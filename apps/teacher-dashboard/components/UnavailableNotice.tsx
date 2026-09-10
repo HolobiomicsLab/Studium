@@ -18,15 +18,17 @@ import type { Unavailable } from "@/lib/api";
  */
 export default function UnavailableNotice({ info }: { info: Unavailable }) {
   return (
-    <section className="border border-slate-300 bg-slate-50 rounded p-4" role="note">
-      <h3 className="font-semibold mb-1">Indicateur indisponible</h3>
-      <p className="text-sm mb-2">{info.reason}</p>
-      <p className="text-xs text-gray-600">
-        Ce n’est pas un plancher d’effectif : la mesure n’est disponible pour{" "}
-        <strong>aucune</strong> classe. Un graphique vide aurait laissé entendre que ces
-        élèves n’ont pas de trajectoire, ce qui serait un énoncé sur eux plutôt que sur
-        l’instrument.
-      </p>
+    <section className="notice notice--neutral" role="note">
+      <div className="notice__body">
+        <h3>Indicateur indisponible</h3>
+        <p>{info.reason}</p>
+        <p>
+          Ce n’est pas un plancher d’effectif : la mesure n’est disponible pour{" "}
+          <strong>aucune</strong> classe. Un graphique vide aurait laissé entendre que ces
+          élèves n’ont pas de trajectoire, ce qui serait un énoncé sur eux plutôt que sur
+          l’instrument.
+        </p>
+      </div>
     </section>
   );
 }

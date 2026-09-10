@@ -1,6 +1,7 @@
 import { getTrustCalibration, isSuppressed } from "@/lib/api";
 import TrustCalibrationChart from "@/components/TrustCalibrationChart";
-import CourseNav from "@/components/CourseNav";
+import CourseShell from "@/components/CourseShell";
+import { ApiError } from "@/components/DashboardNotice";
 import NonAttribution from "@/components/NonAttribution";
 import SuppressedNotice from "@/components/SuppressedNotice";
 
@@ -24,27 +25,31 @@ export default async function TrustCalibrationPage({ params }: Props) {
     error = (e as Error).message;
   }
   return (
-    <main className="max-w-5xl mx-auto p-8">
-      <h1 className="text-xl font-bold mb-2">
-        Cours <code className="text-base">{token}</code>
-      </h1>
-      <CourseNav token={token} active="trust-calibration" />
-      <h2 className="text-lg font-semibold mb-4">Confiance dans le résultat de l’IA</h2>
-      <p className="text-sm text-gray-600 mb-4">
+    <CourseShell
+      token={token}
+      active="trust-calibration"
+      eyebrow="Apprentissages"
+      title="Confiance dans le résultat de l’IA"
+      description={
+        <p>
         Mesure le jugement de l’apprenant·e face à une lecture IA d’un{" "}
         <strong>résultat réel</strong> qu’il·elle a exécuté : croit-il·elle l’IA
         quand elle a raison, et la corrige-t-il·elle quand elle se trompe ? C’est
         la <em>destination évaluée</em> du dispositif — distincte de la
         calibration de confiance déclarée.
-      </p>
+        </p>
+      }
+    >
       {error ? (
-        <p className="text-red-600">Erreur API : {error}</p>
+        <ApiError message={error} />
       ) : isSuppressed(data) ? (
         <SuppressedNotice info={data} />
       ) : data ? (
         <TrustCalibrationChart data={data} />
-      ) : null}
+      ) : (
+        <p className="empty-state">Aucune mesure de confiance disponible.</p>
+      )}
       <NonAttribution />
-    </main>
+    </CourseShell>
   );
 }

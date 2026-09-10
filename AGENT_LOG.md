@@ -4,6 +4,32 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-10 — INT-STUDIUM-038, refonte du tableau de bord enseignant
+
+Audit initial: zéro feuille de style, Times par défaut, contrôles minuscules.
+Le shell commun charge désormais son CSS, hiérarchise douze vues dans quatre
+groupes, indique la destination active et replie la navigation sur mobile.
+Accueil, cartes, tableaux, notices et formulaires partagent une identité ivoire,
+encre et sarcelle. Les lecteurs/API, seuils et formules n'ont pas changé.
+
+Sol a prouvé les trois nouveaux contrats de navigation/44 px rouges puis verts.
+Revue indépendante: notices ADR 006/011/013, modération, non-attribution et
+branches suppressed/unavailable conservées. Vitest: 9 fichiers, 76 tests passent;
+TypeScript passe. Chrome réel + collecteur synthétique: **23 tests navigateur passent**.
+
+Modification des tests historiques annoncée explicitement pendant la session:
+six fichiers avaient sept échecs de sélecteurs. Les unions CSS/`text=` invalides
+utilisent maintenant `or()`, et les mentions ADR/KPI sont cherchées dans leur
+contenant. Le test Trajectoire vérifie désormais explicitement le retrait décidé
+par INT-STUDIUM-030 (notice d'indisponibilité, ni graphique ni retenue d'effectif),
+au lieu d'attendre un graphique vide qui aurait porté un message faux. Aucun test
+supprimé, aucune assertion de chiffre ou de confidentialité affaiblie.
+
+Le choix optionnel `PLAYWRIGHT_CHANNEL=chrome` dans la configuration permet de
+jouer toute la suite avec Chrome installé. Le Chromium attendu était absent;
+son téléchargement est resté bloqué après le transfert et a été arrêté. Les
+résultats verts proviennent de Chrome, sans simulation des API enseignantes.
+
 ## 2026-09-10 — INT-STUDIUM-038, attendre aussi l'envoi déjà en vol
 
 La revue de la sortie a identifié la concurrence avec un flush automatique:
