@@ -4,6 +4,20 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-10 — INT-STUDIUM-038, audits reproductibles
+
+Pilotes locaux versionnés: captures des douze vues enseignantes sur le vrai
+collecteur; cohorte synthétique (55+2+1 événements, dix agrégats et gardes
+401/403/422); diagnostic d'autorité conceptuelle. Les contrôles navigateur
+enseignant passent sur desktop et 390 px, avec une feuille CSS et zéro exception.
+Le pilote conceptuel reproduit exactement les mesures Sol: deux divergences sur
+seize arêtes assesses et une conséquence de routage, sans modifier le bundle.
+
+Les guides donnent commandes, frontières et moyens de reprise. Le contrôle natif
+reste non lancé: le stockage utilise une entrée Keychain globale indépendante du
+dossier SQLite. Cargo a construit le binaire et passé le test de stockage injectant
+une clé, mais cela ne constitue pas un audit GUI natif. Aucun secret n'a été lu.
+
 ## 2026-09-10 — INT-STUDIUM-038, refonte du tableau de bord enseignant
 
 Audit initial: zéro feuille de style, Times par défaut, contrôles minuscules.
