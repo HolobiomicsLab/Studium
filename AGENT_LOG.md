@@ -4,6 +4,42 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-10 — Le test en conditions réelles : deux boucles sans fin, et une notation par mot-clé (`74f74e5`, `b31cee6`)
+
+Audit du système sur du VRAI matériel pédagogique — le bundle atomistique-l1 monté depuis le cours
+de L1 d'Élise Dumont — avec des réponses telles qu'un étudiant les écrit, et non fabriquées à
+partir des chaînes-indices du corrigé. Les drivers existants du répertoire font l'inverse : leurs
+réponses « GOOD » sont composées des mots-clés attendus, si bien qu'ils prouvent que la chaîne
+tourne sans jamais prouver qu'elle note.
+
+**Une leçon qu'on ne pouvait pas finir.** Un apprenant compétent mais formulant autrement ne
+sortait jamais du chapitre : 199 replays d'une même scène en 400 pas. Deux boucles distinctes, non
+bornées pour la même raison — chacune suppose que la maîtrise finit par monter, ce qui n'est vrai
+que d'un apprenant dont les réponses finissent par être notées justes. La grille de prérequis
+renvoyait indéfiniment vers la première scène notée du prérequis ; `replay_current_scene`
+reservait indéfiniment la même scène faute d'item alternatif non vu. Bornées à 3 (`gate_released`,
+`replay_budget_exhausted`), et annoncées : un passage sans maîtrise est un fait que l'enseignant
+doit voir. La leçon se termine désormais en 91 pas pour l'apprenant compétent, 118 pour celui qui
+échoue partout. Le compteur de replays a dû passer côté session : `state.scenes_replayed`
+appartient au moteur, qui rend son propre objet à chaque `getState()`, et n'a jamais dépassé 1.
+
+**Ce que la correction a fait apparaître.** `teacher_check.mjs` n'avait pas de branche
+`communication_sim` et retombait sur `ack` : la scène n'était jamais atteinte, un bon apprenant la
+sautant et un apprenant faible restant coincé en amont. Le script affichait `completed 3/5` sans
+échouer — les deux sessions manquantes étaient celles des apprenants en difficulté, celles dont
+le tableau de bord enseignant a le plus besoin. Mesuré avant/après : 3/5 puis 5/5.
+
+**La notation hors-ligne, elle, n'est pas corrigée — c'est une décision de conception.** Hors
+LiteLLM et hors shim :8002 (le chemin par défaut du testeur VS Code, et le repli de
+`HttpCritiqueEvaluator` à la moindre erreur), toute réponse libre est notée par
+`matchClaimsAgainstCritique` : un point du corrigé est crédité si sa chaîne-indice apparaît
+QUELQUE PART dans la réponse. Pas de négation, pas de sujet, pas d'exigence de phrase. Sur les
+vraies scènes, 11 réponses sur 12 sont notées à l'inverse d'un enseignant — « Je ne vois aucune
+erreur » obtient 1.00 en contenant « Hund », « célibataires » et « 2p3 ». Le diagnostic est
+`fixtures/atomistique-l1/grading_reality_check.mjs` (sortie 0 : il rapporte, il ne barre pas).
+
+---
+
 ## 2026-09-10 — Tier-A, le compromis de coût : la jambe macOS sur demande (`6fd4f8a`)
 
 Le point de coût de la release Tier-A, appliqué à `dev` **plutôt que pris depuis
