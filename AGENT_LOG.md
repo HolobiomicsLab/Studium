@@ -4,6 +4,91 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-10 (conséquence) — La porte de prérequis s'ouvrait sans le dire (`1470199`)
+
+La décision du propriétaire sur INT-STUDIUM-035 avait laissé deux choses ouvertes, dites
+telles quelles : les candidats 3 et 4, et une conséquence de routage notée sans être traitée.
+Cette entrée traite la seconde et **mesure** la première ; elle n'en décide aucune.
+
+### Ce qui a été trouvé, et qui n'était pas ce que la note annonçait
+
+La note disait : hors ligne, une remédiation routée vers une scène `ai_critique` ne peut plus
+converger par la maîtrise. C'est exact dans le code — et le bundle réel ne contient **aucune**
+scène `ai_critique`. La conséquence notée est latente. En allant la vérifier, le driver en a
+trouvé une autre, active, et plus grave.
+
+`ANSWER_GRADED_TYPES` porte deux types. Son commentaire affirmait « les types dont la
+correction émet un `answer_submitted` ». **Huit** en émettent. `concept:c-configuration` est
+prérequis de `c-periodicite` et de `c-geometrie`, et sa seule scène d'évaluation est un
+`prompt_practice` : le routeur ne la voit pas, `firstAnswerGradedSceneForConcept` rend `-1`, et
+le code retombait sur `reason: "advance"` — la raison d'un passage ordinaire.
+
+Aucun détour n'est dépensé, donc le budget ne s'épuise jamais, donc la libération annoncée que
+INT-STUDIUM-036 avait construite exprès ne se déclenche jamais :
+
+```
+avant : advance=7  remediate=17  gate_released=0   (4 des « advance » franchissent un verrou)
+après : advance=3  remediate=17  gate_unassessable=4
+```
+
+### Un rapport, pas une route
+
+L'index rendu est identique — une assertion dédiée le dit, parce que c'est ce qui sépare une
+réparation d'une décision de routage. Ce qui change est que la session dit
+`graph_prereq_unassessable`, avec son propre `rule_id` : « trois essais n'ont pas suffi » parle
+de l'apprenant, « il n'y avait rien à essayer » parle du **bundle**, et c'est l'enseignant qui
+peut y remédier. Emprunter le `rule_id` de la libération aurait affirmé une remédiation qui n'a
+jamais eu lieu.
+
+### Trois ensembles, tous différents, et désormais mesurés
+
+Depuis le candidat 2, émettre un `answer_submitted` n'implique plus faire monter la maîtrise :
+hors ligne seuls `quiz` et le **deck** de `spot_the_flaw` portent un `correct`, les deux notés
+contre la clé par identité. Donc le prédicat qu'un routeur veut — « un détour ici peut-il faire
+monter la maîtrise ? » — n'est plus une propriété du type de scène.
+`answer-graded-types.contract.test.ts` exécute les correcteurs réels et épingle les trois
+ensembles ; changer un correcteur fait bouger les nombres tout seuls.
+
+L'**appartenance** de `ANSWER_GRADED_TYPES` est laissée telle quelle. L'élargir routerait des
+apprenants hors ligne vers des scènes qui ne peuvent pas converger ; la restreindre coûterait à
+un déploiement en ligne sa remédiation en texte libre. Choisir est la décision de routage que
+l'intent dépose et ne prend pas.
+
+### Le plafond du candidat 3, avant qu'on écrive des indices
+
+Le candidat 3 propose d'écrire plusieurs indices par point-clé et d'exiger une proportion —
+c'est-à-dire un **seuil** sur le score existant. Avant d'écrire quoi que ce soit, mesurer ce
+qu'un seuil peut atteindre, sur les douze réponses réelles :
+
+```
+moyenne 0,16 sur les 5 réponses qu'un enseignant valide
+        0,86 sur les 7 qu'il refuse                      — à l'envers
+meilleur seuil : 58 %, contre 58 % pour refuser de corriger
+AUC 0,114 sur 35 paires (0,5 = pile ou face ; en dessous, inversé)
+```
+
+Ce n'est pas « encore bourrable » : c'est inversé. Un étudiant qui n'écrit jamais « Hund » ne
+gagne rien à ce qu'il existe cinq façons de l'écrire qu'il n'écrit pas non plus ; quelqu'un qui
+colle des mots-clés gagne cinq chaînes de plus à coller. Le signe est ce qu'il faudrait changer,
+et c'est une réécriture des indices — matériel validé par Élise Dumont, règle 003 — pas un
+réglage. Mesure faite sur douze réponses d'un seul bundle, étiquetées à la main.
+
+### Le candidat 4 n'est pas seulement une préférence
+
+Publier le texte brut de l'apprenant au professeur se heurte à **R2 d'INT-STUDIUM-030**, qui
+est *Accepted* : « aucune surface ne peut se rétrécir à une personne ». Un texte libre s'y
+rétrécit par construction, et `events.ts:96` interdit déjà de le transmettre. Le candidat 4
+demande donc un amendement à un intent accepté plus un mécanisme de consentement, pas un
+arbitrage d'ingénierie. Constat, pas décision.
+
+### Portes
+
+`pnpm test` vert ; `python tools/pytest_all.py` 16 suites 0 failing ; `tsc --noEmit` propre ;
+les sept drivers passent ; `teacher_check.mjs` toujours **completed 5/5**. Les deux gardes
+prouvées rouges en annulant la réparation (2 échecs), les autres inchangées.
+
+---
+
 ## 2026-09-10 (décision) — Le score mot-clé ne certifie plus (`97cf72f`)
 
 La moitié de INT-STUDIUM-035 qui n'était pas la mienne a été tranchée par le propriétaire :
