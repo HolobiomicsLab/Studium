@@ -4,6 +4,17 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-10 — INT-STUDIUM-038, attendre aussi l'envoi déjà en vol
+
+La revue de la sortie a identifié la concurrence avec un flush automatique:
+le buffer pouvait être vide parce qu'un envoi attendait le réseau. Le flush de
+sortie attend maintenant la promesse active avant de traiter le lot suivant.
+Un nouveau test différé déclenche l'auto-flush, demande une sortie, fait échouer
+réseau et outbox, puis vérifie que l'erreur arrive au demandeur et que la reprise
+conserve le lot exact. Rouge avant sérialisation, vert après; 30 fichiers et
+144 tests apprenant passent, TypeScript sans émission passe. Aucun test existant
+modifié; aucune règle de consentement, métrique ou contrat IPC changée.
+
 ## 2026-09-10 — INT-STUDIUM-038, un espace apprenant utilisable
 
 Cadre visuel commun aux écrans: papier ivoire, encre sombre, titres serif locaux,

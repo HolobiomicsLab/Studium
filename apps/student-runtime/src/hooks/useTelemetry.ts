@@ -90,6 +90,7 @@ export function getTelemetryCourseToken(fallback: string): string {
 
 export function useTelemetry(opts: Options) {
   const buffer = useRef<TelemetryEvent[]>([]);
+  const inFlight = useRef<Promise<void> | null>(null);
   const batchSize = opts.batchSize ?? 20;
   const flushInterval = opts.flushIntervalMs ?? 30_000;
   const ctxRef = useRef(opts.context);
@@ -124,8 +125,13 @@ export function useTelemetry(opts: Options) {
   );
 
   const flush = useCallback(async () => {
+    while (inFlight.current) await inFlight.current;
     const events = buffer.current.splice(0, buffer.current.length);
-    await sendBatch(events);
+    if (events.length === 0) return;
+    const pending = sendBatch(events);
+    inFlight.current = pending;
+    try { await pending; }
+    finally { inFlight.current = null; }
   }, [sendBatch]);
 
   const emit = useCallback(
