@@ -21,6 +21,10 @@
 // two counts below are kept apart: answers actively graded AGAINST the teacher, and answers left
 // uncertified. The score column is unchanged, which is the point of candidate 2: what the teacher
 // reads about coverage is exactly what it was; what disappeared is the claim about mastery.
+//
+// The last block answers a different question, added for INT-STUDIUM-037: candidate 3 of the same
+// intent proposes thresholding this score instead of retiring it, so it prints what the best
+// possible threshold over the EXISTING cues would reach on these twelve answers.
 import { readFileSync } from "node:fs";
 import { grade } from "../../packages/lesson-session/src/grading/index.ts";
 import { StubCritiqueEvaluator } from "../../packages/lesson-session/src/adapters/critique-evaluator.ts";
@@ -91,4 +95,38 @@ console.log(`  Of the certified: ${certified.filter((r) => r.teacher === "PASS" 
 const wouldHave = rows.filter((r) => r.studium === "—" && r.scored !== r.teacher);
 console.log(`  The score alone would have got ${wouldHave.length} of the ${rows.length - certified.length} ungraded answers wrong ` +
   `(${wouldHave.filter((r) => r.teacher === "FAIL").length} wrong answers passed, ` +
-  `${wouldHave.filter((r) => r.teacher === "PASS").length} correct answers failed).\n`);
+  `${wouldHave.filter((r) => r.teacher === "PASS").length} correct answers failed).`);
+
+// ─── CANDIDATE 3's CEILING ────────────────────────────────────────────────────────────────────
+// INT-STUDIUM-035 lists a third direction: "author several cues per key point and require a
+// proportion". The intent calls it "cheaper, and still stuffable", which is an argument. This is
+// the measurement, and it is a stronger statement than stuffability: a proportion rule is a
+// THRESHOLD on this score, so before anyone authors cues it is worth knowing whether any threshold
+// on it could work at all — the ceiling, ahead of the extractor.
+//
+// SCOPE, precisely. This measures a proportion rule over the cues that EXIST. Candidate 3 proposes
+// cues that do not, and no driver can score answers against unwritten keys. What it does establish
+// is the SIGN of the relationship, and that is the part a threshold cannot fix: if more cues per
+// point raised the score for both populations, the ordering below would survive re-authoring. A
+// student who never writes "Hund" gains nothing from five more ways to write it that they also do
+// not write; someone pasting cue words gains five more strings to paste.
+const P = rows.filter((r) => r.teacher === "PASS");
+const F = rows.filter((r) => r.teacher === "FAIL");
+const mean = (xs) => xs.reduce((a, b) => a + b.score, 0) / (xs.length || 1);
+let best = { t: null, acc: -1 };
+for (let t = 0; t <= 1.0001; t += 0.05) {
+  const acc = rows.filter((r) => (r.score >= t ? "PASS" : "FAIL") === r.teacher).length / rows.length;
+  if (acc > best.acc) best = { t: +t.toFixed(2), acc };
+}
+// AUC by pairwise concordance: over every (correct, wrong) pair, how often does the score rank the
+// correct answer higher? 0.5 is a coin flip; below 0.5 the score is INVERTED, and a threshold on an
+// inverted quantity is not a tuning problem.
+let conc = 0, pairs = 0;
+for (const a of P) for (const b of F) { pairs += 1; conc += a.score > b.score ? 1 : a.score === b.score ? 0.5 : 0; }
+const alwaysFail = F.length / rows.length;
+console.log(`\n  CANDIDATE 3 — what a proportion rule over the EXISTING cues could reach:`);
+console.log(`    mean score: ${mean(P).toFixed(2)} on the ${P.length} answers a teacher passes, ` +
+  `${mean(F).toFixed(2)} on the ${F.length} a teacher fails — the wrong way round.`);
+console.log(`    best threshold: score>=${best.t} → ${(best.acc * 100).toFixed(0)}%, ` +
+  `against ${(alwaysFail * 100).toFixed(0)}% for refusing to grade at all (always-FAIL).`);
+console.log(`    AUC ${(conc / pairs).toFixed(3)} over ${pairs} pairs (0.5 = coin flip; below it, inverted).\n`);

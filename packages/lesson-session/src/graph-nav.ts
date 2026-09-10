@@ -55,11 +55,29 @@ export function firstSceneForConcept(scenes: { concept_refs?: string[] }[], conc
   return scenes.findIndex((s) => sceneConceptId(s) === conceptId);
 }
 
-/** Scene types whose grading emits an answer_submitted signal (updates per-concept mastery).
- * Routing remediation to any other type cannot improve mastery -> would loop, so it's excluded. */
-const ANSWER_GRADED_TYPES = new Set(["quiz", "ai_critique"]);
+/** Scene types this router will send a learner back to for remediation.
+ *
+ * The comment here used to read "scene types whose grading emits an answer_submitted signal". That
+ * was never true and is measurably not true now: EIGHT types emit one (quiz plus the seven
+ * free-text types), and this set names two of them. `answer-graded-types.contract.test.ts` runs the
+ * real graders and pins the three-way gap, so the numbers below cannot go stale silently.
+ *
+ * Since INT-STUDIUM-035 candidate 2 (the owner's decision of 2026-09-10) emitting an
+ * `answer_submitted` no longer implies moving mastery either: offline only `quiz` and
+ * `spot_the_flaw`'s VERDICT DECK carry a `correct`, because those two are scored against the key by
+ * identity. The other six carry one only when a live evaluator declares `source: "llm"`. So the
+ * predicate a router actually wants — "can a detour here raise mastery?" — is no longer a property
+ * of the scene type alone, and this set matches neither the emitting types nor the certifying ones.
+ *
+ * INT-STUDIUM-037 deliberately leaves the MEMBERSHIP alone. Widening it would route offline
+ * learners into scenes that provably cannot converge, and shrinking it would cost a live deployment
+ * its free-text remediation; choosing between them is the routing decision that intent files and
+ * does not take. What it does fix is the SILENCE when this set finds nothing — see
+ * `gate_unassessable` below. */
+export const ANSWER_GRADED_TYPES: ReadonlySet<string> = new Set(["quiz", "ai_critique"]);
 
-/** Index of the first ANSWER-GRADED scene for the concept (one that can move mastery), or -1. */
+/** Index of the first scene of a remediable type for the concept, or -1 when there is none —
+ * the case `gate_unassessable` reports. */
 export function firstAnswerGradedSceneForConcept(
   scenes: { concept_refs?: string[]; type?: string }[],
   conceptId: string,
@@ -85,7 +103,7 @@ export function firstUnseenAnswerGradedSceneForConcept(
  * a real second and third chance, not an unbounded one. */
 export const MAX_PREREQ_DETOURS = 3;
 
-export type GraphNavReason = "advance" | "remediate" | "skip_mastered" | "gate_released";
+export type GraphNavReason = "advance" | "remediate" | "skip_mastered" | "gate_released" | "gate_unassessable";
 export interface GraphNavResult {
   index: number | null; // null => no scene to advance to (caller completes)
   reason: GraphNavReason;
@@ -99,7 +117,9 @@ export interface GraphNavResult {
  *   but at most MAX_PREREQ_DETOURS times for that prereq: remediation only converges if the
  *   learner's mastery actually rises, and for one whose answers keep grading wrong it does not.
  *   Past the budget the gate RELEASES (reason "gate_released") and the lesson advances unmastered;
- *   if no remedial scene exists at all, advance to the candidate. Either way, the lesson ends. */
+ *   if no remedial scene exists at all the gate opens immediately, reported as "gate_unassessable"
+ *   — a different fact, and one about the bundle rather than the learner. Either way the lesson
+ *   ends, and either way the caller says so out loud. */
 export function graphAwareNextIndex(
   scenes: { concept_refs?: string[]; type?: string }[],
   currentIdx: number,
@@ -140,6 +160,18 @@ export function graphAwareNextIndex(
     }
     const ri = firstAnswerGradedSceneForConcept(scenes, remedial);
     if (ri >= 0) return { index: ri, reason: "remediate" };
+    // NO REMEDIAL SCENE AT ALL. The prerequisite is unmet and the lesson holds nothing this router
+    // can send the learner back to, so the gate opens on the first try — without spending a detour
+    // and, until INT-STUDIUM-037, without saying anything: this returned a plain "advance", which
+    // is what the caller emits for an ordinary next-scene step. Measured on atomistique-l1, a
+    // learner who has mastered nothing walks into a gated scene FOUR times this way and
+    // `graph_prereq_gate_released` fires zero times.
+    //
+    // It is a distinct fact from the budget release and must not borrow its rule_id: "we tried
+    // three times and it did not take" is a statement about the learner; "there was nothing to
+    // try" is a statement about the BUNDLE — the prerequisite has no scene this router can use to
+    // assess it. The caller announces it separately (graph_prereq_unassessable).
+    return { index: candidate, reason: "gate_unassessable" };
   }
   return { index: candidate, reason: skipped ? "skip_mastered" : "advance" };
 }

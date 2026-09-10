@@ -349,6 +349,17 @@ export class LessonSession {
         // see, and it is the only alternative to a lesson that never ends.
         this.lastGraphExplanation = { rule_id: "graph_prereq_gate_released", explanation_short: "prerequisite still unmastered after repeated remediation — advancing anyway", modulator: "M6" };
         this.emit({ type: "adaptation_applied", rule_id: "graph_prereq_gate_released", signal: "navigate", modulator: "M6", value: 0 });
+      } else if (reason === "gate_unassessable") {
+        // INT-STUDIUM-037. The prerequisite is unmet and the lesson holds no scene the router can
+        // send the learner back to, so the gate opens on the first try. Before this it was reported
+        // as a plain advance — indistinguishable from an ordinary next step — and on the real
+        // atomistique-l1 bundle it happens FOUR times to a learner who has mastered nothing, while
+        // graph_prereq_gate_released fires zero times. Its own rule_id, not the release's: the
+        // release says the learner did not manage it after three tries, this says the bundle gave
+        // them nothing to try. The second is an authoring defect and the teacher is the one who can
+        // fix it.
+        this.lastGraphExplanation = { rule_id: "graph_prereq_unassessable", explanation_short: "prerequisite unmet and no scene can assess it — advancing anyway", modulator: "M6" };
+        this.emit({ type: "adaptation_applied", rule_id: "graph_prereq_unassessable", signal: "navigate", modulator: "M6", value: 0 });
       } else if (reason === "skip_mastered") {
         this.lastGraphExplanation = { rule_id: "graph_skip_mastered", explanation_short: "concept already mastered — skipped", modulator: "M1" };
         this.emit({ type: "adaptation_applied", rule_id: "graph_skip_mastered", signal: "navigate", modulator: "M1", value: 0 });
