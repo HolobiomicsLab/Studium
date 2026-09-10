@@ -4,6 +4,47 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-10 (fin) — Les intents déposés, repris un par un (`ecf95b2`, `8e38cb1`, `d9b1b1e`)
+
+Quatre intents étaient encore en **Draft**. Ce qui restait de chacun a été repris ; ce qui reste
+maintenant ne relève plus de la réparation.
+
+**INT-STUDIUM-007, le dernier point ouvert.** L'URL du service d'évaluation de critique était un
+littéral dans le corps de `AICritiqueScene.submit`, et la propriété `critiqueEvalEndpoint` de
+`SceneRouter` — celle qui existait pour la configurer — n'était passée par personne. Le littéral
+était donc toujours l'URL, et il n'y avait nulle part où la changer sans recompiler.
+`lib/serviceEndpoints.ts` la résout comme `getTelemetryEndpoint` résout déjà le collector.
+
+L'autre moitié de l'énoncé était « un diagnostic d'accessibilité ». « Failed to fetch » était tout
+ce que l'apprenant lisait : ni l'URL tentée, ni le fait qu'aucune n'avait été configurée, ni le
+service à démarrer. Les trois cas sont distingués — injoignable, erreur HTTP, réponse illisible —
+et le premier dit quand l'URL n'est que le défaut de développement. Ce n'est pas de l'ergonomie :
+sans ce service, toute réponse libre passe au repli mot-clé.
+
+**INT-STUDIUM-004, la dernière dérogation.** Déposée comme un écart d'orthographe (« le corrigé
+écrit *unite de temps*, la clé attend *unites* »), c'était en fait le défaut que l'item 4 du même
+intent avait réparé dans la capsule : « ~1.65 unite de temps » est indécidable. La capsule rapporte
+depuis k en s^-1 et la demi-vie en s ; le corrigé le dit maintenant, une clause par erreur plantée.
+Les deux quarantaines sont vides : 7 bundles, 0 en échec, 0 écart connu.
+
+**INT-STUDIUM-035, la moitié qui n'est pas une décision.** Le sens à donner à la notation par
+mots-clés appartient au propriétaire ; qu'on ne puisse pas savoir *quel* correcteur a produit un
+nombre, non. `HttpCritiqueEvaluator` rattrape n'importe quelle erreur et renvoie le repli mot-clé
+dans la même forme qu'une vraie évaluation : une cohorte notée par sous-chaînes et une cohorte
+notée par un LLM arrivaient identiques à tous les étages. `CritiqueEvaluation.source` puis
+`critique_submitted.score_source` (ADR 006 v1.6, optionnel et rétro-compatible, comme `scene_type`
+en v1.4) le disent, et le collector expose `keyword_graded_rate` à côté de
+`critique_completion_rate`, avec son propre dénominateur. Une cohorte non étiquetée lit **None**,
+jamais 0.0 : « 0 % noté par mots-clés » serait la lecture rassurante d'une question que personne
+n'a posée. Mesuré sur un vrai passage du bundle atomistique-l1 : complétion 0.176,
+`keyword_graded_rate` 1.0 sur 17 événements. Le second nombre n'existait pas.
+
+**Ce qui reste, et qui n'est pas technique.** `atomistique-l1::s5b-spot-azote` sans `sound_claims`
+(matériel validé d'Élise Dumont, règle 003) ; le §8 du manuscrit et l'entrée C7 de PAPER_SPEC
+(INT-STUDIUM-002, autre dépôt) ; et la direction de l'INT-STUDIUM-035 elle-même.
+
+---
+
 ## 2026-09-10 (suite) — Les trois écarts enregistrés, et ce qu'ils ont en commun (`da0c804`, `da083b1`)
 
 Les trois points que l'audit avait consignés sans les traiter sont traités. Deux d'entre eux
