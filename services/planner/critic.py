@@ -60,7 +60,12 @@ def _mock_critic_response() -> str:
         "is_mock": True,
         "annotations": [
             "Le plan couvre bien les objectifs de niveau understand.",
-            "Suggérer d'ajouter une scène 'simulation' pour renforcer l'apply.",
+            # 'reproduction', pas 'simulation' : les deux couvrent l'apply pour le critic, mais
+            # scene-synth n'a pas d'agent 'simulation' et le vocabulaire de bundle n'a pas de
+            # membre 'simulation' — un enseignant qui suivait ce conseil obtenait une scène
+            # silencieusement abandonnée à la synthèse. Voir scene-synth
+            # KNOWN_UNSUPPORTED_SCENE_TYPES.
+            "Suggérer d'ajouter une scène 'reproduction' pour renforcer l'apply.",
             "Les références corpus sont présentes et traçables.",
         ],
     })
