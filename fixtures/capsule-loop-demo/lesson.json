@@ -72,7 +72,7 @@
         { "id": "f-unit", "text": "k serait sans dimension", "flaws_expected": ["unites"] },
         { "id": "f-half", "text": "demi-vie > 1 h", "flaws_expected": ["demi-vie"] }
       ],
-      "model_correction": "k est un taux (1/temps) ; la demi-vie vaut ln2/k (~1.65 unite de temps), pas une heure.",
+      "model_correction": "Une clause par erreur plantee. Les unites : k n'est pas sans dimension, c'est un taux, et le run le mesure en s^-1 (stats.csv, colonne unit). La demi-vie : elle vaut ln2/k, soit environ 1.65 s pour k=0.4212 s^-1 — des secondes, pas une heure.",
       "rubric": { "completeness": 0.6, "evidence_quality": 0.3, "tone": 0.1 },
       "reference_from_run": "demo-decay-fit"
     }

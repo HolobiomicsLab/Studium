@@ -40,11 +40,14 @@ const EXPECTED_CORRECT_CHOICES = 1;
 const KNOWN_BROKEN_BUNDLES = new Map([]);
 
 const KNOWN_FLAW_GAPS = new Map([
-  // capsule-judgment-demo's five entries were deleted on 2026-09-08 (INT-STUDIUM-004): its reveal is
-  // now built one clause per planted flaw by tools/build_capsule_judgment_demo.py, so every flaw it
-  // plants is explained. The stale-entry detector below is what reported them gone.
-  ["fixtures/capsule-loop-demo/lesson.json::s-flaw::unites",
-    "reveal writes «unite de temps» (singular); the key expects «unites»"],
+  // EMPTY, and each entry left for the reason its defect was fixed — not because the map was tidied.
+  // capsule-judgment-demo's five went on 2026-09-08 (INT-STUDIUM-004): its reveal is now built one
+  // clause per planted flaw by tools/build_capsule_judgment_demo.py. capsule-loop-demo::s-flaw::unites
+  // went on 2026-09-10, and it was never really about the missing «s»: the reveal said the half-life
+  // was "~1.65 unite de temps", which is the SAME undecidable phrasing item 4 of that intent repaired
+  // in the capsule itself. The capsule reports k in s^-1 and the half-life in s (run.py, stats.csv's
+  // `unit` column); the reveal now says so, one clause per planted flaw. The stale-entry detector
+  // below is what reports an entry that outlives its defect.
 ]);
 
 /** Every lesson bundle under a directory, recursively. Input: an absolute directory path.
