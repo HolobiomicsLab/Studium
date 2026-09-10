@@ -4,6 +4,52 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-10 (suite) — Les trois écarts enregistrés, et ce qu'ils ont en commun (`da0c804`, `da083b1`)
+
+Les trois points que l'audit avait consignés sans les traiter sont traités. Deux d'entre eux
+tenaient à la même cause : un état qu'un composant écrit et qu'un autre possède.
+
+**`scenes_replayed` n'a jamais dépassé zéro.** Champ déclaré, persisté, présent dans le résumé de
+fin de session et au dénominateur d'`autonomyRatio` — et jamais renseigné. La session
+l'incrémentait, mais `applySignal` fait `this.state = this.engine.getState()` au signal suivant et
+le moteur rend son propre objet ; `getState()` aggravait le tout en retournant directement
+`this.engine.getState()`, sans passer par `this.state`. Le compteur vit maintenant côté session
+(`replayCounts`), et un seul point — `engineStateWithReplays()` — l'appose sur l'état du moteur.
+Les quatre sorties de la session y passent : `getState`, la sauvegarde, `finalState`, et
+`buildMasteryClaims`. Un apprenant qui épuise son budget de replays relit désormais
+`{ "q-base2": 3 }` et non `{}`.
+
+**Trois vocabulaires de types de scène, jamais comparés.** Ce qu'un plan peut demander
+(`lesson_plan_schema.SceneType`, 9), ce que scene-synth sait produire (7 agents), ce qu'un bundle
+peut porter et que le runtime note donc (13). Un outline dont le type n'a pas d'agent est sauté
+avec un warning que personne ne lit : la scène disparaît entre le plan et le bundle, et toutes les
+vérifications de niveau plan qui la comptaient passent quand même. C'est ainsi que `simulation` a
+survécu — planifiable, acceptée par la cohérence Bloom du critic, recommandée par son verdict
+hors-ligne en dur, produite par rien, et même pas représentable dans un bundle. Dans l'autre sens,
+cinq types que le runtime note (`explain_back`, `comparison`, `summary_audit`, `prompt_practice`,
+`communication_sim`) n'existent que là où un humain les a écrits à la main.
+
+Les deux écarts sont désormais **déclarés avec leur raison** (`KNOWN_UNSUPPORTED_SCENE_TYPES`,
+`HAND_AUTHORED_ONLY_SCENE_TYPES`), `SUPPORTED_SCENE_TYPES` est dérivé de la table d'agents, et un
+test de garde échoue sur tout type qui n'est dans aucun ensemble, sur toute entrée périmée, et sur
+tout type productible qu'aucun bundle ne pourrait porter. Un écart reste un écart — mais un écart
+décidé, pas un silence.
+
+**Le critic ne promet plus une couverture qui ne survivra pas.** Il accepte toujours `simulation`
+OU `reproduction` comme couverture du niveau apply, mais il avertit quand la couverture ne repose
+QUE sur un type que scene-synth ne sait pas produire — au moment du plan, quand l'auteur peut
+encore le changer. Les verdicts hors-ligne en dur recommandent `reproduction`, productible de bout
+en bout. `simulation` n'est **pas** supprimé : le membre d'énumération porte du vrai routage dans
+l'enrichissement par évidences, le mapper perspicacité, l'extraction d'assets ABS et la cohérence
+Bloom ; le supprimer supprimerait cette couverture. Un test de dérive compare les deux services
+(dans un sous-processus : chacun possède un paquet `agents` de premier niveau).
+
+**Ce qui reste sous décision.** Écrire les cinq types manquants suppose de générer leurs `cues` —
+c'est-à-dire de générer la clé de notation que l'INT-STUDIUM-035 met précisément en cause.
+Construire maintenant industrialiserait le défaut. C'est écrit dans la raison de chaque entrée.
+
+---
+
 ## 2026-09-10 — Le test en conditions réelles : deux boucles sans fin, et une notation par mot-clé (`74f74e5`, `b31cee6`)
 
 Audit du système sur du VRAI matériel pédagogique — le bundle atomistique-l1 monté depuis le cours
