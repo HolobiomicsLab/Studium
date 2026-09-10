@@ -109,8 +109,14 @@ export function useTelemetry(opts: Options) {
         });
         if (!r.ok) throw new Error(`status ${r.status}`);
       } catch {
-        for (const ev of events) {
-          await invoke("telemetry_outbox_push", { eventJson: JSON.stringify(ev) });
+        for (let index = 0; index < events.length; index += 1) {
+          try {
+            await invoke("telemetry_outbox_push", { eventJson: JSON.stringify(events[index]) });
+          } catch (error) {
+            // Keep only the suffix not durably queued.
+            buffer.current.unshift(...events.slice(index));
+            throw error;
+          }
         }
       }
     },
@@ -127,7 +133,7 @@ export function useTelemetry(opts: Options) {
       const event = enrichEvent(partial, ctxRef.current);
       buffer.current.push(event);
       if (buffer.current.length >= batchSize) {
-        void flush();
+        void flush().catch(() => { /* Buffered suffix retries later. */ });
       }
     },
     [batchSize, flush],
@@ -161,7 +167,7 @@ export function useTelemetry(opts: Options) {
 
   // Periodic flush
   useEffect(() => {
-    const id = setInterval(() => void flush(), flushInterval);
+    const id = setInterval(() => void flush().catch(() => { /* Buffered suffix retries later. */ }), flushInterval);
     return () => clearInterval(id);
   }, [flush, flushInterval]);
 

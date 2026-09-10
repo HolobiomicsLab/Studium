@@ -1,3 +1,174 @@
 @import "tailwindcss";
 
-body { @apply font-sans bg-gray-50 text-gray-900; }
+@theme {
+  --font-sans: "Avenir Next", "Trebuchet MS", sans-serif;
+  --color-blue-50: #eaf4f0;
+  --color-blue-100: #d7eae2;
+  --color-blue-500: #247c70;
+  --color-blue-600: #176b60;
+  --color-blue-700: #11544c;
+  --color-gray-50: #f5f2eb;
+  --color-gray-100: #ece8df;
+  --color-gray-500: #65716d;
+  --color-gray-600: #53635f;
+  --color-gray-700: #344945;
+  --color-gray-900: #172d38;
+}
+
+:root { color: #172d38; background: #f5f2eb; font-family: var(--font-sans); font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; line-height: 1.6; }
+button, input, textarea, select { font: inherit; }
+button, a, input, textarea, summary { -webkit-tap-highlight-color: transparent; }
+button, summary { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+button:not([role="radio"]), select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) { min-height: 44px; min-width: 44px; }
+input[type="checkbox"], input[type="radio"] { accent-color: #176b60; width: 19px; height: 19px; flex-shrink: 0; }
+input[type="range"] { accent-color: #176b60; }
+:focus-visible { outline: 3px solid #947019; outline-offset: 4px; }
+h1, h2, h3, p { overflow-wrap: anywhere; }
+h1, h2, h3 { text-wrap: balance; }
+.study-shell { min-height: 100vh; display: flex; flex-direction: column; }
+#study-content { flex: 1; }
+.skip-link { position: fixed; left: 1rem; top: 1rem; transform: translateY(-200%); opacity: 0; pointer-events: none; z-index: 100; padding: .8rem 1rem; color: white; background: #172d38; border-radius: 8px; }
+.skip-link:focus { transform: none; opacity: 1; pointer-events: auto; }
+.study-header { max-width: 1280px; width: 100%; margin: auto; padding: 28px 48px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid #dcded4; }
+.study-brand { display: flex; gap: 12px; align-items: center; color: #176b60; }
+.study-brand > span { font: 28px/1 "Iowan Old Style", "Palatino Linotype", Georgia, serif; letter-spacing: -.9px; color: #172d38; }
+.study-brand small { display: block; font: 10px/1.8 var(--font-sans); letter-spacing: 1.7px; text-transform: uppercase; margin-top: 4px; }
+.study-nav { display: flex; gap: 8px; align-items: center; }
+.study-nav a { padding: 11px 18px; min-height: 44px; border-radius: 7px; font-size: 14px; color: #53635f; text-decoration: none; }
+.study-nav a:hover { background: #ece8df; }
+.study-nav a[aria-current="page"] { background: #e3e9df; color: #174e42; font-weight: 600; }
+.study-footer { display: flex; justify-content: space-between; gap: 16px; max-width: 1184px; width: calc(100% - 96px); margin: 70px auto 0; padding: 22px 0; border-top: 1px solid #dcded4; color: #65716d; font-size: 12px; }
+.study-footer > :first-child { font-family: Georgia, serif; font-style: italic; font-size: 17px; }
+.library-page { max-width: 1184px; margin: auto; padding: 0 32px; }
+.library-intro { display: grid; grid-template-columns: 1.4fr 1fr; align-items: center; gap: 40px; padding: 64px 0 58px; }
+.eyebrow { text-transform: uppercase; letter-spacing: 2px; font-size: 11px; font-weight: 600; color: #53635f; margin-bottom: 16px; }
+.library-intro h1 { font: clamp(44px, 5.4vw, 74px)/1.06 "Iowan Old Style", "Palatino Linotype", Georgia, serif; letter-spacing: -2.5px; }
+.library-intro h1 em { color: #176b60; font-weight: 400; }
+.intro-copy { max-width: 460px; font-size: 16px; color: #53635f; margin-top: 24px; }
+.library-emblem { position: relative; height: 270px; width: 100%; max-width: 350px; justify-self: center; display: grid; place-items: center; color: #176b60; }
+.emblem-orbit { width: 250px; height: 150px; border: 1px solid #729c86; border-radius: 50%; position: absolute; transform: rotate(-35deg); }
+.orbit-two { transform: rotate(35deg); border-color: #b48d38; }
+.emblem-axis { width: 215px; height: 215px; border: 1px solid #d6d7c7; border-radius: 50%; position: absolute; background: radial-gradient(circle, #e7ece0, transparent 70%); }
+.emblem-core { font: italic 84px Georgia, serif; z-index: 1; }
+.emblem-caption { position: absolute; bottom: 0; font-size: 10px; letter-spacing: 1.3px; text-transform: uppercase; }
+.library-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; padding: 23px 0; border-top: 1px solid #ccd3c9; }
+.library-toolbar h2 { font: 26px Georgia, serif; display: flex; gap: 12px; align-items: center; }
+.count-badge { background: #e4e8dd; color: #476256; border-radius: 50%; min-width: 26px; height: 26px; display: inline-grid; place-items: center; font: 12px var(--font-sans); }
+.search-field { display: flex; align-items: center; gap: 10px; border: 1px solid #c7cec1; border-radius: 7px; padding: 0 14px; background: #fffcf6; width: min(100%, 320px); }
+.search-field svg { stroke: #65716d; fill: none; stroke-width: 1.6; flex-shrink: 0; }
+.search-field:focus-within { outline: 3px solid #947019; outline-offset: 3px; }
+.search-field input { min-width: 0; width: 100%; outline: none; background: transparent; font-size: 14px; }
+.lesson-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; list-style: none; padding: 0; }
+.lesson-card { background: #fffdf8; border: 1px solid #d4dbcc; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; transition: border-color .2s, box-shadow .2s; }
+.lesson-card:hover { border-color: #8ba58f; box-shadow: 0 10px 28px #172d380a; }
+.lesson-card-art { height: 140px; background: #e2e9db; position: relative; overflow: hidden; padding: 24px; color: #41624b; }
+.lesson-card:nth-child(even) .lesson-card-art { background: #eee3c8; color: #8a692b; }
+.lesson-card-art > span { font: italic 38px Georgia, serif; }
+.lesson-card-art i { position: absolute; width: 200px; height: 200px; border: 1px solid currentColor; opacity: .22; border-radius: 50%; right: -15px; top: -29px; }
+.lesson-card-art i:nth-of-type(2) { right: 35px; }
+.lesson-card-art i:nth-of-type(3) { right: -65px; }
+.lesson-card-body { padding: 28px; flex: 1; display: flex; flex-direction: column; align-items: flex-start; }
+.lesson-card-body .eyebrow { margin-bottom: 10px; }
+.lesson-card h3 { font: 29px/1.25 "Iowan Old Style", Georgia, serif; margin-bottom: 28px; }
+.staged-path { font: 12px monospace; color: #65716d; word-break: break-all; margin-bottom: 16px; }
+.button-primary, .button-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 20px; padding: 11px 19px; border-radius: 7px; font-size: 14px; text-decoration: none; min-height: 46px; border: 1px solid transparent; transition: background .18s; }
+.button-primary { background: #176b60; color: white; }
+.button-primary:hover { background: #11544c; }
+.button-secondary { background: #fffdf8; border-color: #b9c5b8; color: #25493c; }
+.button-secondary:hover { background: #eaf0e4; }
+.lesson-start { margin-top: auto; width: 100%; justify-content: space-between; }
+.notice { padding: 20px; border-radius: 8px; margin: 0 0 24px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: center; }
+.notice-error { background: #fbefeb; color: #823d2c; border: 1px solid #e4b9a6; }
+.empty-state { padding: 52px 24px; background: #fffdf8; border: 1px dashed #b9c5b8; border-radius: 12px; text-align: center; }
+.empty-state h3 { font: 27px Georgia, serif; margin-bottom: 14px; }
+.empty-state p { color: #53635f; }
+.empty-state button { margin-top: 24px; }
+.empty-state details { max-width: 550px; margin: 18px auto 0; font-size: 14px; }
+.empty-state summary { min-height: 44px; padding: 10px; color: #176b60; }
+.welcome-page { max-width: 1120px; margin: 56px auto; padding: 0 32px; display: grid; grid-template-columns: .8fr 1.2fr; gap: 64px; align-items: center; }
+.welcome-aside .welcome-title { font: 48px/1.12 "Iowan Old Style", Georgia, serif; letter-spacing: -1px; color: #172d38; margin-top: 0; }
+.welcome-aside p:not(.eyebrow) { margin-top: 20px; color: #53635f; }
+.consent-card, .settings-card, .summary-card { border: 1px solid #d4dbcc; background: #fffdf8; padding: 36px; border-radius: 12px; box-shadow: 0 8px 32px #172d3805; }
+.consent-card h1, .settings-card h1, .summary-card h1 { font: 32px/1.2 "Iowan Old Style", Georgia, serif; }
+.consent-option { padding: 16px; margin-bottom: 12px; border: 1px solid #d4dbcc; border-radius: 8px; background: #fffefb; }
+.consent-option:has(input:checked) { border-color: #176b60; background: #eff5ec; }
+.consent-option:focus-within { outline: 2px solid #947019; outline-offset: 3px; }
+.settings-page, .summary-page { max-width: 820px; margin: 56px auto; padding: 0 24px; }
+.summary-card { text-align: center; padding: 64px 32px; }
+.summary-mark { display: grid; place-items: center; margin: 0 auto 28px; width: 72px; height: 72px; font: 30px Georgia, serif; border-radius: 50%; background: #e2e9db; color: #176b60; }
+.player-page { max-width: 1120px; padding: 32px; margin: auto; }
+.lesson-exit { margin-bottom: 28px; }
+.exit-confirmation { margin-top: 12px; border: 1px solid #cfb575; border-radius: 8px; padding: 20px; background: #faf1db; }
+.exit-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+.player-heading { display: flex; align-items: flex-end; gap: 24px; justify-content: space-between; margin-bottom: 18px; }
+.player-heading .eyebrow { margin-bottom: 8px; }
+.player-heading h1 { font: 30px/1.3 "Iowan Old Style", Georgia, serif; }
+.player-position { white-space: nowrap; font-size: 13px; color: #53635f; }
+.scene-progress { width: 100%; height: 5px; display: block; border: 0; border-radius: 6px; background: #dce3d5; margin-bottom: 30px; accent-color: #176b60; }
+.scene-progress::-webkit-progress-bar { background: #dce3d5; border-radius: 6px; }
+.scene-progress::-webkit-progress-value { background: #176b60; border-radius: 6px; }
+.scene-progress::-moz-progress-bar { background: #176b60; border-radius: 6px; }
+.scene-paper { border: 1px solid #d4dbcc; border-radius: 12px; padding: 48px; background: #fffdf8; min-height: 330px; }
+.scene-paper > section:not([data-testid="unsupported-scene"]) { max-width: 720px; padding: 0; background: transparent; box-shadow: none; }
+.scene-paper > article { max-width: 720px; }
+.scene-paper h2 { font: 29px/1.25 "Iowan Old Style", Georgia, serif; }
+.scene-paper .prose { font-size: 17px; line-height: 1.8; }
+.prose > :not(:last-child) { margin-bottom: 1.2em; }
+.prose h1 { font: 36px/1.2 "Iowan Old Style", Georgia, serif; }
+.prose h3 { font: 23px/1.4 Georgia, serif; }
+.prose ul, .prose ol { padding-left: 1.5em; }
+.prose ul { list-style: disc; }
+.prose ol { list-style: decimal; }
+.prose li { margin: .35em 0; }
+.prose a { text-decoration: underline; color: #176b60; }
+.prose pre { overflow: auto; padding: 16px; background: #ece8df; border-radius: 6px; }
+.prose table { display: block; overflow-x: auto; max-width: 100%; }
+.prose td, .prose th { padding: 8px; border-bottom: 1px solid #d4dbcc; }
+.scene-paper label:has(input[type="radio"]) { min-height: 54px; padding: 14px 16px; border: 1px solid #d4dbcc; border-radius: 8px; gap: 14px; }
+.scene-paper label:has(input[type="radio"]:checked) { border-color: #176b60; background: #eaf4f0; }
+.scene-paper label:has(input[type="radio"]):focus-within { outline: 2px solid #947019; outline-offset: 3px; }
+.scene-paper textarea { width: 100%; min-height: 140px; border-color: #bbc9b7; border-radius: 8px; padding: 14px; }
+
+@media (max-width: 760px) {
+  .study-header { padding: 20px 24px; }
+  .library-page { padding: 0 24px; }
+  .library-intro { padding: 40px 0; gap: 12px; grid-template-columns: 1.5fr 1fr; }
+  .library-emblem { transform: scale(.68); transform-origin: center; min-width: 200px; margin-left: -30px; }
+  .library-intro h1 { font-size: 48px; }
+  .lesson-card h3 { font-size: 26px; }
+  .lesson-card-body { padding: 22px; }
+  .welcome-page { grid-template-columns: 1fr; gap: 28px; max-width: 650px; margin: 32px auto; }
+  .welcome-aside .welcome-title { font-size: 35px; }
+  .study-footer { width: calc(100% - 48px); margin-top: 48px; }
+  .scene-paper { padding: 28px; }
+}
+@media (max-width: 540px) {
+  .study-header { flex-wrap: wrap; gap: 18px; padding: 20px; }
+  .study-nav { width: 100%; }
+  .study-nav a { flex: 1; text-align: center; }
+  .library-page { padding: 0 20px; }
+  .library-intro { grid-template-columns: 1fr; padding: 38px 0 30px; }
+  .library-intro h1 { font-size: 52px; letter-spacing: -1.8px; }
+  .library-emblem { display: none; }
+  .intro-copy { font-size: 15px; margin-top: 20px; }
+  .library-toolbar { align-items: stretch; }
+  .search-field { width: 100%; }
+  .lesson-grid { grid-template-columns: 1fr; gap: 20px; }
+  .lesson-card-art { height: 110px; }
+  .welcome-page { padding: 0 20px; }
+  .consent-card, .settings-card { padding: 24px 20px; }
+  .consent-card h1, .settings-card h1 { font-size: 29px; }
+  .consent-option { padding: 14px 12px; }
+  .study-footer { width: calc(100% - 40px); flex-wrap: wrap; }
+  .player-page { padding: 24px 16px; }
+  .player-heading { flex-wrap: wrap; gap: 12px; }
+  .player-heading h1 { font-size: 26px; }
+  .scene-paper { padding: 24px 20px; }
+  .scene-paper h2 { font-size: 25px; }
+  .scene-paper .prose { font-size: 16px; }
+  .scene-paper button { max-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }

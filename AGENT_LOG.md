@@ -4,6 +4,39 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-09-10 — INT-STUDIUM-038, un espace apprenant utilisable
+
+Cadre visuel commun aux écrans: papier ivoire, encre sombre, titres serif locaux,
+navigation, lien d'évitement, retour en haut au changement d'écran, progression
+du lecteur et cartes de leçons tirées des vrais bundles. La bibliothèque cherche
+sans accents, distingue vide/aucun résultat/erreur et permet de réessayer. Les
+rejets Rust sous forme de chaîne sont maintenant affichés dans bibliothèque et
+lecteur; auparavant ils pouvaient laisser un chargement permanent.
+
+Neuf nouveaux contrats rouges puis verts (recherche, effacement de recherche,
+reprise d'erreur, erreur avec bundle préparé, erreur native du lecteur, position
+de défilement, sortie confirmée, flush avant sortie et reprise après échec d'outbox).
+La sortie d'une leçon annonce la perte du
+brouillon et le redémarrage à la première scène; annuler garde la réponse et
+rend le focus au bouton. Aucun test antérieur au chantier modifié. Suite apprenant:
+**29 fichiers, 143 tests passent**; TypeScript sans émission passe. ESLint: zéro erreur, deux
+avertissements préexistants sur les effets de télémétrie du lecteur. Les contrats
+de consentement, événements, remount de scènes et bundle choisi restent verts.
+
+La sortie attend le flush des événements avant de démonter le lecteur. Si réseau
+et stockage local échouent, seul le suffixe non persisté revient en mémoire avec
+ses identifiants originaux; le préfixe déjà en outbox n'est pas recopié. Le test
+injecte une panne au deuxième événement puis vérifie l'ordre et l'identité de la
+tentative suivante. La revue Sol a aussi fait préserver l'encadré des scènes web
+non prises en charge et l'ordre de titres du consentement.
+
+`tools/audit-learner-ui.mjs` joue le vrai frontend dans Chrome avec un double IPC
+en mémoire explicitement déclaré: leçon métabolomique inchangée terminée en
+7 scènes, recherche, erreurs/reprise, annulation d'effacement, clavier, captures
+desktop/390 px sans débordement, zéro exception navigateur. Ce n'est pas un test
+du stockage natif ni d'une transmission réelle. Les captures et mesures seront
+archivées dans le hub avec l'audit enseignant et conceptuel.
+
 ## 2026-09-10 — INT-STUDIUM-038, le navigateur ne démarrait pas
 
 Audit live depuis le checkout isolé `prototype-build-ux`: écran blanc à `/`,
