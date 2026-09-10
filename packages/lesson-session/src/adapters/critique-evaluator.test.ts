@@ -17,12 +17,14 @@ describe("critique-evaluator adapters", () => {
   it("HttpCritiqueEvaluator parses a valid eval response", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ score: 0.75, feedback: "ok" }), { status: 200 })));
     const e = new HttpCritiqueEvaluator("http://localhost:8002/scenes/critique-eval");
-    expect(await e.evaluate({ claims, rubric, critique: "x" })).toEqual({ score: 0.75, feedback: "ok" });
+    // `source` says which grader produced the score (ADR 006 v1.6) — a real response is "llm".
+    expect(await e.evaluate({ claims, rubric, critique: "x" })).toEqual({ score: 0.75, feedback: "ok", source: "llm" });
   });
   it("HttpCritiqueEvaluator degrades to audit-ratio score on HTTP failure", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 500 })));
     const e = new HttpCritiqueEvaluator();
     const r = await e.evaluate({ claims, rubric, critique: "small sample issue" });
     expect(r.score).toBe(1); // fallback audit hit
+    expect(r.source).toBe("keyword"); // ...and the degradation is recorded, not silent
   });
 });

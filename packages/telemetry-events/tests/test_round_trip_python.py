@@ -4,6 +4,11 @@ from telemetry_events import TelemetryEvent
 
 adapter = TypeAdapter(TelemetryEvent)
 
+# `critique_submitted`'s optional discriminators (ADR 006 v1.4 `scene_type`, v1.6
+# `score_source`). Absent on legacy events, so a dump carries them as null and an exact-equality
+# round-trip has to say which keys are allowed to appear from nowhere.
+_OPTIONAL_CRITIQUE_TAGS = {"scene_type", "score_source"}
+
 
 def test_quiz_answered_parses():
     raw = {
@@ -593,10 +598,12 @@ def test_critique_submitted_untagged_round_trip():
     event = adapter.validate_python(raw)
     assert event.type == "critique_submitted"
     assert event.scene_type is None
+    assert event.score_source is None
     redumped = json.loads(adapter.dump_json(event))
-    # scene_type is omitted-or-null when untagged; the other fields round-trip exactly.
+    # Both optional tags are omitted-or-null when absent; the other fields round-trip exactly.
     assert redumped.get("scene_type") is None
-    assert {k: v for k, v in redumped.items() if k != "scene_type"} == raw
+    assert redumped.get("score_source") is None
+    assert {k: v for k, v in redumped.items() if k not in _OPTIONAL_CRITIQUE_TAGS} == raw
 
 
 def test_critique_submitted_tagged_round_trip():
@@ -615,7 +622,49 @@ def test_critique_submitted_tagged_round_trip():
         event = adapter.validate_python(raw)
         assert event.scene_type == st
         redumped = json.loads(adapter.dump_json(event))
-        assert redumped == raw
+        # scene_type IS in raw here; only the untagged v1.6 field appears from nowhere.
+        assert {k: v for k, v in redumped.items() if k != "score_source"} == raw
+        assert redumped.get("score_source") is None
+
+
+def test_critique_submitted_score_source_round_trip():
+    """ADR 006 v1.6 — which grader produced `llm_score`.
+
+    The three values are the three real producers: a semantic evaluator, the substring matcher
+    the runtime falls back to when the critique service is absent or errors
+    (INT-STUDIUM-035), and the spot_the_flaw verdict deck, which grades marks and calls
+    neither. Optional, because events written before v1.6 have no answer and must not be given
+    one.
+    """
+    for src in ["llm", "keyword", "verdict_deck"]:
+        raw = {
+            **BASE,
+            "type": "critique_submitted",
+            "scene_id": "s_crit_1",
+            "llm_score": 0.8,
+            "completion_rate": 1.0,
+            "scene_type": "ai_critique",
+            "score_source": src,
+        }
+        event = adapter.validate_python(raw)
+        assert event.score_source == src
+        assert json.loads(adapter.dump_json(event)) == raw
+
+
+def test_critique_submitted_rejects_invalid_score_source():
+    import pytest
+    from pydantic import ValidationError
+
+    raw = {
+        **BASE,
+        "type": "critique_submitted",
+        "scene_id": "s_crit_1",
+        "llm_score": 0.8,
+        "completion_rate": 1.0,
+        "score_source": "vibes",
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
 
 
 def test_critique_submitted_rejects_invalid_scene_type():

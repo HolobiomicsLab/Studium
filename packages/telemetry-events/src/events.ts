@@ -58,6 +58,16 @@ export const CritiqueSubmittedSchema = BaseEventSchema.extend({
   llm_score: z.number().min(0).max(1),
   completion_rate: z.number().min(0).max(1),
   scene_type: z.enum(["ai_critique", "spot_the_flaw", "explain_back", "comparison", "summary_audit", "prompt_practice", "communication_sim"]).optional(),
+  // ADR 006 amendment v1.6 — WHO GRADED THIS. `llm_score` had no provenance, and the two
+  // producers are not comparable: a semantic evaluator, or the substring matcher the session
+  // falls back to whenever the critique service is absent or errors (INT-STUDIUM-035). Both
+  // arrived as the same number, so a dashboard could not tell a semantically-graded cohort from
+  // a keyword-graded one, and neither could a teacher. Same shape and the same reason as
+  // `scene_type` above. "verdict_deck" is the third producer: the spot_the_flaw deck path, which
+  // grades marks rather than text and calls no evaluator at all.
+  // NOTE, deliberately: this tags `llm_score` ONLY. `completion_rate` is computed by the keyword
+  // matcher on EVERY path, evaluator or not — that is the finding, not an omission here.
+  score_source: z.enum(["llm", "keyword", "verdict_deck"]).optional(),
 });
 
 export const LessonCompletedSchema = BaseEventSchema.extend({

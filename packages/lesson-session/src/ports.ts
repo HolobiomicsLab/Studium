@@ -50,7 +50,17 @@ export interface ReasoningScorer { score(turn: string, topic: string): Promise<C
 
 export interface SocraticTutor { respond(input: TutorInput): Promise<TutorMove | null>; }
 
-export interface CritiqueEvaluation { score: number; feedback: string; }
+/** What a critique evaluation says, and WHERE THE SCORE CAME FROM.
+ *
+ * `source` exists because the degradation was silent. `HttpCritiqueEvaluator` catches ANY error
+ * — service down, 500, unparseable body — and returns the keyword fallback with the same shape
+ * as a real evaluation, so a session graded by substring matching was indistinguishable from a
+ * session graded by an LLM at every layer above: the grader, the telemetry, the dashboard. A
+ * fallback is a legitimate design (spec §8.3, graceful degradation); an unrecorded one is not.
+ *
+ * Optional so a custom evaluator that does not say stays honest as UNKNOWN rather than being
+ * defaulted into a claim it never made. See INT-STUDIUM-035 for what the keyword path scores. */
+export interface CritiqueEvaluation { score: number; feedback: string; source?: "llm" | "keyword"; }
 export interface CritiqueEvaluator {
   evaluate(input: { claims: Claim[]; rubric: AICritiqueRubric; critique: string }): Promise<CritiqueEvaluation>;
 }

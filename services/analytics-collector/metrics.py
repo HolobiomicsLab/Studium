@@ -1342,10 +1342,20 @@ def compute_autonomy(
 
     - autonomy_ratio = n_critique_submitted / (n_critique_submitted + n_hints_applied)
     - critique_completion_rate = mean(completion_rate of critique_submitted events)
+    - keyword_graded_rate = share of those events whose score came from the SUBSTRING MATCHER
+      rather than a semantic evaluator (`score_source`, ADR 006 v1.6). It is reported beside
+      the completion rate because it says how much that number is worth: the matcher credits a
+      point of the answer key when its cue string appears anywhere in the learner's text, with
+      no notion of negation or of who is asserting what (INT-STUDIUM-035). A cohort graded that
+      way and a cohort graded by an LLM used to arrive here as the same number.
+      `n_score_source_known` is the denominator: events predating v1.6 carry no tag, and a rate
+      over an empty denominator is not zero — it is unmeasured, so it is reported as None.
     """
     n_critique = 0
     sum_completion = 0.0
     n_hints = 0
+    n_source_known = 0
+    n_keyword = 0
     population = Population()
     for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         t = ev.get("type")
@@ -1354,6 +1364,11 @@ def compute_autonomy(
                 continue  # RC-2: explain_back (teach-back) is not an AI-critique signal
             n_critique += 1
             sum_completion += float(ev.get("completion_rate", 0))
+            src = ev.get("score_source")
+            if src:
+                n_source_known += 1
+                if src == "keyword":
+                    n_keyword += 1
             population.add_event(ev)
         elif t == "adaptation_applied" and ev.get("signal") == "hint":
             n_hints += 1
@@ -1364,6 +1379,11 @@ def compute_autonomy(
         "autonomy_ratio": (n_critique / total) if total else 0.0,
         "n_critique": n_critique,
         "n_hints": n_hints,
+        # None, not 0.0: no tagged event means the question was not answered, and a dashboard
+        # showing "0 % keyword-graded" for an untagged cohort would be the reassuring reading of
+        # a missing measurement.
+        "keyword_graded_rate": (n_keyword / n_source_known) if n_source_known else None,
+        "n_score_source_known": n_source_known,
         # R1: both terms of the ratio contribute, so both contribute to its population.
         "judgement": population.judgement(),
     }
