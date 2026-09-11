@@ -1,0 +1,57 @@
+schema_version: 0.1.0
+nodes:
+- id: N01
+  type: question
+  title: Which selected records and privacy choice produced this technical learner
+    report?
+  support_level: explicit
+  source_refs:
+  - astra.yaml#analyses/learner_activity_report
+  children:
+  - id: N02
+    type: decision
+    title: Learner free-text export
+    support_level: explicit
+    source_refs:
+    - astra.yaml#analyses/learner_activity_report/decisions/privacy_export
+    choice: Free text redacted
+    alternatives:
+    - Original text included explicitly
+  - id: N03
+    type: decision
+    title: Selected report sources
+    support_level: explicit
+    source_refs:
+    - astra.yaml#analyses/learner_activity_report/decisions/source_binding
+    choice: One selected source
+    alternatives:
+    - Two sources with scene identifier overlap
+  - id: N04
+    type: question
+    title: Imported host journal snapshot (separate, unauthenticated timeline)
+    support_level: explicit
+    source_refs:
+    - sources/experiment-journal.json
+    children:
+    - id: N05
+      type: experiment
+      title: 'Journal synthetic-export-check sequence 1 · learner declaration · Predict
+        · prediction: [redacted]; justification: [redacted]; confidence 2/4'
+      support_level: explicit
+      source_refs:
+      - sources/experiment-journal.json#/experiments/0/events/0
+      result: The sanitized host snapshot records this event; its presence does not
+        authenticate a learner or session.
+      evidence:
+      - sources/experiment-journal.json#/experiments/0/events/0
+    - id: N06
+      type: experiment
+      title: Journal synthetic-export-check sequence 2 · host marker · Begin · experiment
+        start recorded
+      support_level: explicit
+      source_refs:
+      - sources/experiment-journal.json#/experiments/0/events/1
+      result: The sanitized host snapshot records this event; its presence does not
+        authenticate a learner or session.
+      evidence:
+      - sources/experiment-journal.json#/experiments/0/events/1

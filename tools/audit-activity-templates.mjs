@@ -62,6 +62,7 @@ async function auditTemplate(templateId) {
   check(templateId + ": prediction waits for explicit trace choice", await page.locator("#prediction").isDisabled());
   check(templateId + ": expected answers hidden before prediction", await page.locator("#checks").isHidden());
   await page.locator("#startTrace").click();
+  check(templateId + ": recording choice compacts after selection", await page.locator("#traceChoice").evaluate(node => node.tagName === "DETAILS" && !node.open));
   const earlyPath = join(audit, templateId + "-early-actions.json");
   const early = await saveDownload(page, () => page.locator("#exportEarly").click(), earlyPath);
   check(templateId + ": early partial trace has only opted-in start", early.events.length === 1 && early.events[0].kind === "activity_started");
@@ -71,6 +72,11 @@ async function auditTemplate(templateId) {
   await page.locator("#predictionConfidence").selectOption("2");
   await page.locator("#reveal").click();
   check(templateId + ": results and expected checks reveal after prediction", await page.locator("#result").isVisible() && await page.locator("#checks").isVisible());
+  check(templateId + ": committed prediction compacts after reveal", await page.locator("#predictionPanel").evaluate(node => node.tagName === "DETAILS" && !node.open));
+  await page.locator("#predictionPanel > summary").focus();
+  await page.keyboard.press("Enter");
+  check(templateId + ": keyboard reopens original prediction", await page.locator("#prediction").isVisible() && await page.locator("#prediction").inputValue() === "Synthetic audit prediction before reveal." && await page.locator("#prediction").isDisabled());
+  await page.keyboard.press("Enter");
   if (templateId === "linked-representations") {
     check("linked: checked baseline has one edge and four nodes", await page.locator("#edgeCount").innerText() === "1" && await page.locator("#nodeCount").innerText() === "4");
     await page.getByRole("button", { name: "Use checked variation 0.64" }).click();
@@ -106,6 +112,7 @@ async function auditTemplate(templateId) {
   await page.locator("#requestAssistance").click();
   await page.locator("#observation").fill("Observed synthetic relation for " + templateId + ".");
   await page.locator("#conclusion").fill("The bounded fixture supports only the displayed conclusion.");
+  await page.evaluate(() => scrollTo(0, 0));
   await page.screenshot({ path: join(audit, templateId + "-desktop.png"), fullPage: true });
   report.screenshots.push(templateId + "-desktop.png");
   const actionsPath = join(audit, templateId + "-actions.json");

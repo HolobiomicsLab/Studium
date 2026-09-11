@@ -1,0 +1,33 @@
+{
+  "activity": null,
+  "activity_context": null,
+  "assistance_status": "unknown",
+  "binding_assurance": "single_source_only",
+  "chronology": "separate_not_merged",
+  "context_status": "unavailable",
+  "counts": {
+    "activity_events": 0,
+    "journal_experiments": 1
+  },
+  "generated_at": "2026-09-11T22:17:17.372471Z",
+  "learning_assessment": "not_performed",
+  "privacy": {
+    "dedicated_identity_fields": "not_collected",
+    "original_text": "excluded_by_default"
+  },
+  "schema": "studium/learner-report/v1",
+  "scientific_validation": "not_performed",
+  "sources": [
+    {
+      "id": "experiment_journal",
+      "origin": "imported_snapshot_not_authenticated",
+      "path": "sources/experiment-journal.json",
+      "sha256": "68f20d3d5139f9276ef7471c2ff89b5eab9d6c85fec850a1b359ccfee5f737e5",
+      "timeline": "host_journal_snapshot"
+    }
+  ],
+  "technical_integrity": "validated_at_export",
+  "timelines": [
+    "host_journal_snapshot"
+  ]
+}
