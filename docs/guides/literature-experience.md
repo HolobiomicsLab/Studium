@@ -117,3 +117,7 @@ peuvent être téléchargées localement, sans notation ni soumission à Studium
 Pour adapter le visualiseur avec votre propre harnais, partir de
 `examples/literature-experience/` et du contexte public. Ce dossier est un exemple
 de code produit par le harnais, pas un nouveau moteur de rendu embarqué.
+
+Pour prolonger la séance avec recherche web, skills de domaine, dépendances et
+expériences comparées, suivre [le parcours d'exploration](grounded-exploration.md).
+Il fournit un dossier portable lié à la scène, distinct des réponses et runs soumis.

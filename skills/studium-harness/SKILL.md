@@ -226,6 +226,19 @@ second bundle of the same course no longer overwrites the first (INT-STUDIUM-020
 
 ## 9. Pointers
 
+For learner-requested web research, domain skills, library provisioning or custom
+viewers, follow [grounded exploration](../../docs/guides/grounded-exploration.md).
+Discover the current harness's actual tools; read relevant installed skills and
+version-matched official documentation. Use one concept-linked question, a
+baseline, a controlled variation, a comparison and the learner's own judgment.
+`tools/experience_exploration.py prepare/seal/verify` captures a portable local
+review record with named source/skill/input/code/environment/output files. It
+does not execute commands, grant permission or submit an answer/run result.
+Keep learner observations absent unless the learner asks to save them; never
+infer confidence. New scientific content beyond the approved activity remains
+a draft for teacher review. Use the existing skill sources without duplicating
+their operational installations.
+
 Author a literature-backed experience with the provider-free prepare/check workflow
 in `docs/guides/literature-experience.md`. `tools/experience_packet.py prepare`
 captures Perspicacité passages and an optional explicit ASB task into an author

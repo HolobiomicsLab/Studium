@@ -2340,3 +2340,25 @@ found that CSS alone does not print collapsed details: beforeprint/afterprint no
 open and restore them, with browser assertions and extracted PDF evidence confirming
 both bundles and their full ASTRA records. Full fresh-checkout checks are recorded
 in the hub audit/handoff before integration. No push, PR, release or publication.
+# 2026-09-11 — Grounded exploration from a swappable harness (INT040)
+
+Codex Astra; one Sol high read-only review leaf. Added provider-free local
+prepare/seal/verify exploration records bound to public session/scene context,
+source/skill snapshots, named input/code/environment/output files, reported
+actions/checks and optional learner-owned observations. Public MCP/file guidance
+now describes tool discovery and predict/baseline/vary/compare/judge/transfer.
+No executor, automatic answer, approval or publication path added.
+
+New adversarial tests cover stale/private contexts, contradictory success,
+unsafe paths/symlinks, size bounds, changed/extra receipt material, and invalid
+spectral viewer measurements. Sol findings reproduced in 12 failing tests and
+fixed. Existing tests unchanged. Targeted verification: 43 Python + 1 new TS
+pass; full build, host typecheck and existing 9-check browser demo pass. Final
+fresh-checkout full-suite evidence and exact revisions are recorded in hub
+docs/superpowers/audits/2026-09-11-grounded-exploration.md.
+
+Official Copilot tools/skills, pip and Vega-Lite documentation inspected; no
+Copilot session tested. An actual ASB matchms cleaning card was captured locally
+as not_run/type-checked, distinct from the executed synthetic matching demo.
+New guide documents private local retention and teacher-approved exploration
+scope. No paid call, push, grading/consent/bundle or shared skill-source change.

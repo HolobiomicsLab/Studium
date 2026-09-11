@@ -18,9 +18,15 @@ for (const key of ["experimental", "reference"]) {
     if (!Array.isArray(peak) || peak.length !== 2 || !peak.every(Number.isFinite) || peak[0] <= 0 || peak[1] < 0)
       throw new Error(`Invalid peak: ${key}`);
   }
+  if (spectra[key].precursor_mz <= 0 || !spectra[key].peaks.some(peak => peak[1] > 0))
+    throw new Error(`Invalid spectrum: positive precursor and nonzero signal required (${key})`);
 }
+if (!Number.isFinite(spectra.fragment_tol_da) || spectra.fragment_tol_da <= 0)
+  throw new Error("Invalid spectrum: positive finite fragment tolerance required");
 if (!Number.isFinite(result.score) || result.score < 0 || result.score > 1 || !Number.isInteger(result.matched_peaks))
   throw new Error("Expected a measured score and integer matched_peaks in result.json");
+if (result.matched_peaks < 0 || result.matched_peaks > Math.min(spectra.experimental.peaks.length, spectra.reference.peaks.length) || (result.matched_peaks === 0 && result.score !== 0))
+  throw new Error("Invalid measurement: matched peaks must fit the input spectra and score");
 if (context.schema !== "studium/operator-context/v1" || !context.scene?.id)
   throw new Error("Expected a public Studium operator context");
 if (!/illustrative|synthetic/i.test(spectra.note || "")) throw new Error("This example requires explicitly illustrative or synthetic input spectra");

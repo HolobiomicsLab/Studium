@@ -82,6 +82,20 @@ export function operatorContext(host: SessionHost, sessionId: string) {
     scene_assets: host.sceneArtifacts(sessionId).map(displayAsset),
     run_manifest: run,
     response: responseFor(scene, run !== null),
+    exploration: {
+      capabilities: "discover-in-current-harness" as const,
+      workflow: ["predict", "baseline", "vary", "compare", "judge", "transfer"],
+      recordTool: "tools/experience_exploration.py",
+      instructions: "Discover available web/MCP tools and read relevant installed domain skills before use; " +
+        "this context grants no new tool permissions. Use paper/capsule evidence for scientific claims and " +
+        "version-matched official documentation for libraries and visualization. Record why a source was selected. " +
+        "Provision within the harness's permitted isolated workspace; a venv is not a security sandbox. " +
+        "Capture sources, skills, inputs, code, environment versions, outputs and actual checks in a local exploration record. " +
+        "Use prepare/seal/verify with a fresh public context; the receipt is not submitted as a response or run result. " +
+        "Hashes establish snapshot integrity, not scientific truth or independent execution. " +
+        "Keep observations private and optional; save only the learner's own text/confidence at their request. " +
+        "Return to this scene for judgment. Scientific extensions beyond the approved activity remain drafts for teacher review.",
+    },
     rendering: {
       owner: "harness" as const,
       instructions: "Use these public materials to build a viewer or example in the learner's workspace. " +
