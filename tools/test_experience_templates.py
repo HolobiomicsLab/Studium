@@ -257,6 +257,16 @@ def test_cli_lists_and_prepares_without_running_or_submitting(
     assert Path(prepared.stdout.strip()) == output.resolve()
     assert not (output / "response.json").exists()
 
+    proposed = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "experience_templates.py"), "prepare",
+         "--template", "diagnose-analysis", "--context", str(public_context),
+         "--out", str(tmp_path / "proposal")],
+        text=True, capture_output=True,
+    )
+    assert proposed.returncode == 1
+    assert "proposed and cannot be prepared" in proposed.stderr
+    assert "Traceback" not in proposed.stderr
+
 
 def test_browser_style_trace_fixture_validates_with_shared_contract() -> None:
     payload = {
