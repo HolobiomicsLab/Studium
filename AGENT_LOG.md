@@ -2437,3 +2437,18 @@ A red-first host test23add6f reproduced private journal persistence under the sh
 anonymous identity. Anonymous, agent-operator and blank IDs now remain ephemeral;
 unique stable learner IDs are required for durable contributions. The existing
 grading/profile behavior is unchanged. Host experiment4 and type build pass.
+
+# 2026-09-11 — Linked pedagogical MS/MS viewer (INT044 / S2)
+
+Sol-high leaf built a self-contained synthetic network/mirror/candidate viewer
+with stable IDs, threshold baseline/differences, prediction before reveal, own-text
+export and a reusable generation brief. Parent review corrected focal selection,
+flexible layout, baseline labels, axis units, mobile overflow, prediction wording
+and temporary invalid tolerance recovery. Parent separated lower spectrum caption
+from axis ticks after screenshot inspection. Original pair calculation retained.
+
+Focused numerical/build/legacy/fixture20 tests pass. Final real fixture+MCP+Chrome
+demo /tmp/studium-int044-final-demo passes18/18 browser checks, no console errors
+or external requests, desktop/direct/mobile captured. Python baseline0.6477 with
+7matched peaks; direct-only0.1871. All data are synthetic, not paper reproduction.
+Viewer notes are distinct from the private host journal; neither auto-submits.
