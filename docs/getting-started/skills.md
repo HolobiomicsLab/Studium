@@ -9,6 +9,8 @@ Leurs sources sont versionnées dans `skills/` du dépôt Studium.
 | `studium-teacher` | Installation enseignant, premier brouillon sourcé, revue MySTRA | « Aide-moi à préparer mon premier cours à partir de cet article. » |
 | `studium-student` | Installation étudiante, choix du harnais et première activité | « J'ai Copilot Student ; aide-moi à démarrer le cours. » |
 | `studium-harness` | Boucle MCP/fichier, réponses personnelles, runs et exploration | « Pilote cette séance et attends mes réponses. » |
+| `studium-activity-templates` | Choisir et adapter une activité interactive liée à la scène | « Fais-moi explorer ce résultat avec un template. » |
+| `studium-learner-report` | Export local et revue des actions choisies dans ASTRA/MySTRA | « Prépare mon rapport sans inclure mes textes privés. » |
 
 ## Les utiliser dans un clone du projet
 
@@ -71,3 +73,11 @@ Les paramètres de compte et d'API restent dans les guides
 d'onboarding n'autorise pas implicitement un achat, une diffusion étudiante ou
 la publication de données. Les skills reprennent les autorisations déjà données
 et ne redemandent pas confirmation pour les étapes locales déjà convenues.
+
+## Templates et traces
+
+Les [templates d’activité](../user/activity-templates.md) fournissent une structure
+au harnais ; le viewer ne contient pas un agent. Le
+[rapport étudiant](../user/learner-report.md) utilise les contrats ASTRA/ARA communs
+et MySTRA, avec un fichier d’actions Studium versionné. Il couvre les événements
+enregistrés explicitement, pas toute la conversation ni une preuve d’autonomie.

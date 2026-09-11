@@ -146,3 +146,15 @@ La [fiche confidentialité](../privacy-and-limits.md) précise les frontières.
 Le [journal privé](experiment-journal.md) conserve les contributions avec le
 consentement de l'étudiant. Le [viewer à représentations liées](linked-viewer.md)
 fournit un exemple MS/MS vérifiable pour ce déroulement.
+
+## Réutiliser une activité et relire sa trace
+
+Le [catalogue de templates](activity-templates.md) fournit au harnais une base
+pour adapter les représentations, une comparaison contrôlée ou l’examen d’une
+preuve. Le contenu adapté reste dans le périmètre scientifique que vous avez
+revu ; une nouvelle affirmation ou un nouvel objectif demande une nouvelle revue.
+
+Un étudiant peut choisir de produire un [rapport ASTRA/MySTRA](learner-report.md).
+Relisez les actions et les preuves disponibles, en tenant compte des événements
+non enregistrés. La version par défaut exclut les textes personnels ; elle ne donne
+pas accès au journal privé complet ni à l’historique du harnais.

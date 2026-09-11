@@ -1,0 +1,50 @@
+{
+  "schema": "studium/activity-template-catalogue/v1",
+  "templates": [
+    {
+      "id": "linked-representations",
+      "version": "1.0.0",
+      "status": "ready",
+      "title": "Linked representations",
+      "summary": "Follow stable identifiers across a thresholded network, spectra and candidate evidence.",
+      "learning_goal": "Relate one controlled threshold change across linked representations without turning similarity into identification.",
+      "sample_config": "linked-representations/config.json"
+    },
+    {
+      "id": "parameter-comparison",
+      "version": "1.0.0",
+      "status": "ready",
+      "title": "Controlled parameter comparison",
+      "summary": "Compare one baseline with one variation while holding the stated control fixed.",
+      "learning_goal": "Attribute a numerical change to one varied parameter within the limits of a controlled synthetic comparison.",
+      "sample_config": "parameter-comparison/config.json"
+    },
+    {
+      "id": "evidence-claim",
+      "version": "1.0.0",
+      "status": "ready",
+      "title": "Evidence and claim",
+      "summary": "Judge which bounded claim is supported by a supplied source excerpt.",
+      "learning_goal": "Distinguish a source-backed claim from stronger conclusions that the evidence does not establish.",
+      "sample_config": "evidence-claim/config.json"
+    },
+    {
+      "id": "diagnose-analysis",
+      "version": "1.0.0",
+      "status": "proposed",
+      "title": "Diagnose a flawed analysis",
+      "summary": "Proposed pattern for locating a consequential flaw in an analysis and testing a repair.",
+      "learning_goal": "Connect a diagnosed analytical flaw to its effect on a result and to a check that can detect it.",
+      "sample_config": null
+    },
+    {
+      "id": "conclusion-robustness",
+      "version": "1.0.0",
+      "status": "proposed",
+      "title": "Test conclusion robustness",
+      "summary": "Proposed pattern for varying defensible assumptions and checking whether a conclusion survives.",
+      "learning_goal": "State which assumptions a conclusion depends on and where the conclusion changes.",
+      "sample_config": null
+    }
+  ]
+}

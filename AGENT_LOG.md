@@ -2487,3 +2487,32 @@ Known existing CJS import.meta warning remains, packaged entrypoint verified.
 Work remains on codex/studium-experiment-continuity; no push, student release,
 real teacher approval, new benchmark, external model evaluation or manuscript change.
 The32-session protocol is unchanged/unrun and must freeze the chosen code first.
+
+# 2026-09-11 — Harness activity templates and learner reports (INT045)
+
+Three runnable templates (linked representations, controlled parameter comparison,
+evidence/claim) and two explicitly proposed patterns share the strict
+studium/learner-actions/v1 schema. The linked template reuses the numerical viewer
+core. Recording is optional and local; synthetic fixtures are labelled. Source
+binding includes identifiers and the prepared activity's content digest.
+
+Reports reuse ASTRA0.0.14, ARA0.1.0 and the existing MySTRA renderer/Observatory;
+no parallel provenance contract. Selected browser and host-journal streams remain
+separate. Original text is excluded by default. Two portable skills and a French
+end-to-end tutorial route harness preparation and explicit report export. Existing
+teacher/student/harness skills link to them; project-local discovery symlinks share
+one source. No global skill link points at this temporary checkout.
+
+Two Sol-high leaves delivered bounded implementations. Focused template/trace/report
+tests:60 passed; activity browser audit:41/41, no console errors/external requests.
+Parent complete demo:34/34 additional report checks, including actual native MySTRA,
+mobile and unchanged artifacts after viewing. Independent skill forward-test prepared
+an evidence/claim activity without fabricating a learner response; clarified that
+scene identifiers do not make sample data source-derived and that base UI is English.
+Full pnpm test:1111 passed /18 packages; Python:16 suites,0 failing; author-web build
+passed; lint:0 errors,194 existing warnings; packaged MCP smoke:14 passed.
+
+Review checkpoint: optional confidence currently renders None/4 in the portable
+report. A separate regression-first correction follows this feature checkpoint.
+Runtime Node26.3.0/pnpm9.15.9/Python3.13.13, not exact CI20/3.12. No paid teaching
+model, student study, manuscript change, release, merge or push.

@@ -74,3 +74,12 @@ context and relevant local files. Do not silently invoke `end_session` merely
 because the conversation ends: it requests forgetting. Explain the scope if the
 student asks to erase. Harness history and experiment folders have separate
 retention; see [privacy](../../docs/privacy-and-limits.md).
+
+## Experiment and keep a report
+
+For an interactive example tied to the current scene, use
+[studium-activity-templates](../studium-activity-templates/SKILL.md). The learner
+chooses whether to export semantic actions; this is not recording every chat or
+keystroke. For a local portfolio or teacher copy, use
+[studium-learner-report](../studium-learner-report/SKILL.md). Original free text is
+excluded by default; the learner chooses whether to include it for that report.

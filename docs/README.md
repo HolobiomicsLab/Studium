@@ -41,6 +41,9 @@ ici ne valent pas validation scientifique ni preuve d'efficacité pédagogique.
 
 ## Références pour aller plus loin
 
+- [Templates d’activité pour le harnais](user/activity-templates.md),
+  [rapport étudiant ASTRA/MySTRA](user/learner-report.md) et
+  [tutoriel activité → rapport](tutorials/activity-to-report.md).
 - [Journal privé prédiction → observation → conclusion](user/experiment-journal.md),
   [viewer MS/MS à représentations liées](user/linked-viewer.md) et
   [révision approuvée → synthèse](user/reviewed-synthesis.md).

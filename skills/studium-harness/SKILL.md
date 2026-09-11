@@ -81,6 +81,9 @@ When the learner agrees to save their words, use `record_experiment` for predict
 begin, observation and conclusion; use `get_experiment_journal` to resume. Do not
 put journal actions in `submit_response` or grade them. Keep the prediction intact;
 authorship/consent are declarations, not permission to write an answer for them.
+For reusable interactive activities, use [studium-activity-templates](../studium-activity-templates/SKILL.md).
+For a learner-selected action/journal export, use [studium-learner-report](../studium-learner-report/SKILL.md);
+its ASTRA/MySTRA report is separate from grading and excludes original text by default.
 For linked scientific views, use the [viewer brief](../../docs/user/linked-viewer.md):
 stable identifiers across representations, a frozen baseline, explicit parameter
 differences and numerical checks independent of appearance.

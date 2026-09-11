@@ -74,3 +74,12 @@ preview is not publication; respect existing authorization before distribution.
 When the teacher wants to try a lesson, use [studium-harness](../studium-harness/SKILL.md)
 with a labelled demonstration, or [studium-student](../studium-student/SKILL.md)
 for the student's own first session. Do not fabricate learner answers in either.
+
+## Interactive activities and learner reports
+
+Use [studium-activity-templates](../studium-activity-templates/SKILL.md) to turn a
+public scene into an editable activity with a baseline and source-linked checks.
+Use [studium-learner-report](../studium-learner-report/SKILL.md) to inspect a report
+the learner selected for review. Technical action traces do not establish learning
+or permission to inspect the full private journal. Keep proposed patterns distinct
+from runnable templates and content review distinct from schema conformance.
