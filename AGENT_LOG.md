@@ -2422,4 +2422,11 @@ Red evidence: journal module absent; host recordExperiment absent and file actio
 ignored; watcher timed out waiting only for responses/results. All became green.
 Focused journal/host/runner8 tests and MCP15 pass; host suite184 passes. Full pnpm
 test passed, pnpm build:libs passed, lint0 errors/194 existing warnings. MCP types
-rechecked after adding stale-scene validation. No model call or student publication.
+rechecked after adding stale-scene validation. No teaching-model/benchmark call or student publication; development used Codex Astra and Sol high.
+
+## INT044 review correction — locale-independent revisions
+
+A red-first canonical-key vector showed localeCompare ordered uppercase/lowercase
+keys differently from the portable code-unit order. Test committed3948dc6; revision
+hashing now uses explicit lexical comparison. Journal+host8 tests pass unchanged.
+This is pre-release work; no real learner journal was migrated or relabelled.
