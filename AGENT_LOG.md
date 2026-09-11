@@ -2516,3 +2516,29 @@ Review checkpoint: optional confidence currently renders None/4 in the portable
 report. A separate regression-first correction follows this feature checkpoint.
 Runtime Node26.3.0/pnpm9.15.9/Python3.13.13, not exact CI20/3.12. No paid teaching
 model, student study, manuscript change, release, merge or push.
+
+## INT045 final review corrections and verification
+
+Committed regression9cd4211 reproduced None/4 for absent confidence; report rendering
+now omits absent confidence and preserves explicit0/4. Committed regression0296058
+records the proposed-template CLI refusal; expected validation failures now produce
+a concise error. Closed validation of nested linked-network fields precedes browser
+embedding and numerical verification. Templates retain shared source and ID checks.
+Markdown hard breaks were replaced with blank lines to pass whitespace checking.
+
+The template leaf delivered late validation/CLI edits after its first stable notice;
+the parent stopped further writes and reran verification on the final combined tree.
+No claim of mechanical test-edit protection is made; existing assertions were retained.
+Final focused tests:63 passed,1 existing Starlette/httpx deprecation warning.
+Full Python rerun:16 suites,0 failing. Final reproducible demo has41 activity checks
+and34 report checks, all passing, zero browser errors or external requests. Native
+MySTRA and portable report screenshots inspected; optional confidence renders correctly.
+99 local documentation links resolve;6 Studium skill validators and4 new discovery
+symlinks pass. Lint remains0 errors,194 existing warnings. Earlier unchanged TS and
+author-web verification remain applicable. All worker turns complete.
+
+Final demo: .studium-session/int045-demo-verified/index.html. This is synthetic test
+data, including browser-generated learner actions and a separate real-host transport
+probe; no measured learning or scientific approval. Existing MySTRA retains its
+course-review framing and shows absent teacher review as missing. No preview server
+remains; regenerate with tools/demo-template-reports.py into a new directory.

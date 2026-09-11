@@ -612,7 +612,7 @@ def _event_detail(event: dict, context: dict | None) -> str:
         labels = {row["id"]: row.get("text", row.get("label", row["id"])) for row in (context or {}).get("choices", [])}
         return f"{data['choice_id']}: {labels.get(data['choice_id'], 'label unavailable')}"
     if event["kind"] == "learner_text_submitted":
-        suffix = f"; confidence {data['confidence']}/4" if "confidence" in data else ""
+        suffix = f"; confidence {data['confidence']}/4" if data.get("confidence") is not None else ""
         return f"{data['phase']}: {data['text']}{suffix}"
     if "text" in data:
         return str(data["text"])

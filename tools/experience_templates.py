@@ -10,6 +10,7 @@ import json
 import math
 import re
 import subprocess
+import sys
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -237,13 +238,68 @@ def _load_linked_network(config: dict[str, Any], config_path: Path) -> dict[str,
     if not isinstance(relative, str) or Path(relative).is_absolute():
         raise ValueError("Linked config requires a relative network_file")
     network_path = (config_path.parent / relative).resolve()
-    if not network_path.is_relative_to(ROOT / "examples"):
-        raise ValueError("Linked network must be a public example file")
     network = _read_json(network_path)
+    _validate_linked_network_shape(network)
     actual = _run_linked_core(network, config["parameter"])
     if actual != config["oracle"]:
         raise ValueError(f"Linked network oracle mismatch: expected {config['oracle']}, observed {actual}")
     return network
+
+
+def _validate_linked_network_shape(network: dict[str, Any]) -> None:
+    """Close every nested linked-network field before browser embedding."""
+    fields = {"schema", "note", "focal_id", "fragment_tol_da", "baseline_threshold", "threshold_presets", "nodes", "candidates", "generation_brief"}
+    _require_exact_keys(network, fields, "linked network")
+    if network["schema"] != "studium/linked-spectrum-network/v1":
+        raise ValueError("Linked network schema is invalid")
+    if not all(isinstance(network[field], str) for field in ("note", "focal_id")):
+        raise ValueError("Linked network note and focal ID must be text")
+    for preset in network["threshold_presets"]:
+        item = _require_exact_keys(preset, {"id", "label", "value"}, "threshold preset")
+        if not isinstance(item["id"], str) or not ID_PATTERN.fullmatch(item["id"]) or not isinstance(item["label"], str):
+            raise ValueError("Threshold presets require public IDs and labels")
+        if not isinstance(item["value"], (int, float)) or isinstance(item["value"], bool) or not math.isfinite(item["value"]):
+            raise ValueError("Threshold preset values must be finite")
+    _validate_linked_nodes(network.get("nodes"))
+    _validate_linked_candidates(network.get("candidates"))
+    _validate_generation_brief(network.get("generation_brief"))
+
+
+def _validate_linked_nodes(nodes: object) -> None:
+    """Validate the exact public spectrum fields used by the viewer."""
+    if not isinstance(nodes, list):
+        raise ValueError("Linked network nodes must be an array")
+    for node in nodes:
+        item = _require_exact_keys(node, {"id", "label", "role", "precursor_mz", "peaks"}, "linked node")
+        if not isinstance(item["id"], str) or not ID_PATTERN.fullmatch(item["id"]):
+            raise ValueError("Linked node IDs must be bounded ASCII")
+        if not all(isinstance(item[field], str) for field in ("label", "role")):
+            raise ValueError("Linked node labels and roles must be text")
+
+
+def _validate_linked_candidates(candidates: object) -> None:
+    """Validate the exact candidate fields shown in the linked table."""
+    if not isinstance(candidates, list):
+        raise ValueError("Linked network candidates must be an array")
+    fields = {"node_id", "candidate", "formula", "scope"}
+    for candidate in candidates:
+        item = _require_exact_keys(candidate, fields, "linked candidate")
+        if not isinstance(item["node_id"], str) or not ID_PATTERN.fullmatch(item["node_id"]):
+            raise ValueError("Linked candidate node ID is invalid")
+        if not all(isinstance(item[field], str) for field in fields - {"node_id"}):
+            raise ValueError("Linked candidate display fields must be text")
+
+
+def _validate_generation_brief(brief: object) -> None:
+    """Validate known linked-fixture metadata without accepting arbitrary objects."""
+    fields = {"id", "learning_goal", "inputs", "reference_calculation", "allowed_parameters", "hidden_information", "cross_view_questions", "learner_sequence", "export_policy"}
+    item = _require_exact_keys(brief, fields, "generation brief")
+    for field in ("id", "learning_goal", "reference_calculation", "export_policy"):
+        if not isinstance(item[field], str):
+            raise ValueError("Generation brief scalar fields must be text")
+    for field in ("inputs", "allowed_parameters", "hidden_information", "cross_view_questions", "learner_sequence"):
+        if not isinstance(item[field], list) or not all(isinstance(value, str) for value in item[field]):
+            raise ValueError("Generation brief list fields must contain text")
 
 
 def _materialize_config(config: dict[str, Any], config_path: Path) -> dict[str, Any]:
@@ -352,6 +408,7 @@ def _validate_materialized_config(config: dict[str, Any]) -> None:
     if template_id == "linked-representations":
         _require_exact_keys(config, COMMON_CONFIG_FIELDS | {"network", "parameter", "oracle"}, "linked config")
         _validate_parameter(config.get("parameter")); _validate_oracle(config.get("oracle"), {"baseline_edge_count", "variation_edge_count", "node_count"}, integer=True)
+        _validate_linked_network_shape(config.get("network"))
         if _run_linked_core(config.get("network"), config["parameter"]) != config["oracle"]:
             raise ValueError("Prepared linked network does not match its oracle")
     elif template_id == "parameter-comparison":
@@ -432,9 +489,11 @@ def _task_markdown(activity: dict[str, Any], output_dir: Path) -> str:
     checks = "\n".join(f"- `{item['id']}` — {item['description']}" for item in activity["independent_checks"])
     return f"""# {activity['learning_goal']}
 
-Template: `{activity['template_id']}` v{activity['template_version']}  
-Activity: `{activity['activity_id']}`  
-Scene: `{activity['scene_id']}`  
+Template: `{activity['template_id']}` v{activity['template_version']}
+
+Activity: `{activity['activity_id']}`
+
+Scene: `{activity['scene_id']}`
 Status: local draft built from public context; teacher review is still required.
 
 ## Scope
@@ -520,17 +579,21 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """List templates or prepare one local activity."""
     args = _parser().parse_args(argv)
-    if args.command == "list":
-        catalogue = list_templates()
-        if args.json:
-            print(json.dumps(catalogue, indent=2))
-        else:
-            for item in catalogue["templates"]:
-                print(f"{item['id']}\t{item['status']}\tv{item['version']}\t{item['title']}")
+    try:
+        if args.command == "list":
+            catalogue = list_templates()
+            if args.json:
+                print(json.dumps(catalogue, indent=2))
+            else:
+                for item in catalogue["templates"]:
+                    print(f"{item['id']}\t{item['status']}\tv{item['version']}\t{item['title']}")
+            return 0
+        prepared = prepare_activity(args.template, args.context, args.out, args.config)
+        print(prepared.output_dir)
         return 0
-    prepared = prepare_activity(args.template, args.context, args.out, args.config)
-    print(prepared.output_dir)
-    return 0
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        print(f"activity templates: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
