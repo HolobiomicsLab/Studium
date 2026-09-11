@@ -13,12 +13,14 @@
 {% endfor %}
 
 <article class="mystra-report">
-  <header>
-    <p class="eyebrow">MySTRA · teacher and reviewer copy · read-only</p>
-    <h1>{{ s.id }}{% if s.name %} — {{ s.name }}{% endif %}</h1>
-    <p class="lede">A complete reading copy of the course’s recorded analyses, decisions, evidence, explored universes, trace, and review bundles. Missing or unreadable records remain visible as gaps.</p>
-    <p class="path">{{ s.path }}</p>
-    <p class="print-only path">Printed from Studium Observatory · ASTRA version {{ s.version or "unknown" }}</p>
+  <header class="viewer-header">
+    <div>
+      <p class="eyebrow viewer-kicker">MySTRA · teacher and reviewer copy · read-only</p>
+      <h1>{{ s.id }}{% if s.name %} — {{ s.name }}{% endif %}</h1>
+      <p class="lede viewer-summary">A complete reading copy of the course’s recorded analyses, decisions, evidence, explored universes, trace, and review bundles. Missing or unreadable records remain visible as gaps.</p>
+      <p class="path">{{ s.path }}</p>
+      <p class="print-only path">Printed from Studium Observatory · ASTRA version {{ s.version or "unknown" }}</p>
+    </div>
     <div class="actions report-actions screen-only">
       <button class="button primary" type="button" onclick="window.print()">Print report</button>
       <a class="button" href="/courses/{{ s.id | urlencode }}">Course provenance</a>
@@ -55,13 +57,13 @@
   <section class="report-section" id="analyses">
     <h2>Analyses and evidence</h2>
     {% for analysis in course.analyses %}
-    <section class="analysis-card">
+    <section class="analysis-card card">
       <h3>{{ analysis.slug }}{% if analysis.name %} — {{ analysis.name }}{% endif %}</h3>
       {% if analysis.description %}<p>{{ analysis.description }}</p>{% else %}<p class="none">no analysis description</p>{% endif %}
       <p class="record-meta path"><span>inputs: {{ analysis.inputs|join(", ") or "none recorded" }}</span><span>outputs: {{ analysis.outputs|join(", ") or "none recorded" }}</span></p>
 
       <h4>Decisions</h4>
-      <table>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Recorded decisions table"><table>
         <thead><tr><th>Decision</th><th>Question</th><th>Chosen / default</th><th>Alternatives</th><th>Rationale</th></tr></thead>
         <tbody>
         {% for decision in analysis.decisions %}
@@ -74,10 +76,10 @@
           </tr>
         {% else %}<tr><td colspan="5" class="none">no decision in this analysis</td></tr>{% endfor %}
         </tbody>
-      </table>
+      </table></div>
 
       <h4>Findings</h4>
-      <table>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Recorded findings table"><table>
         <thead><tr><th>Finding</th><th>Claim</th><th>Evidence anchors</th></tr></thead>
         <tbody>
         {% for finding in analysis.findings %}
@@ -88,7 +90,7 @@
           </tr>
         {% else %}<tr><td colspan="3" class="none">no finding in this analysis</td></tr>{% endfor %}
         </tbody>
-      </table>
+      </table></div>
     </section>
     {% else %}<p class="none">no analysis in this document</p>{% endfor %}
   </section>
@@ -96,15 +98,15 @@
   <section class="report-section" id="universes">
     <h2>Explored universes</h2>
     {% for universe in course.universes %}
-    <section class="analysis-card">
+    <section class="analysis-card card">
       <h3>{{ universe.id or "(no universe id)" }}</h3>
       {% if universe.description %}<p>{{ universe.description }}</p>{% else %}<p class="none">no universe description</p>{% endif %}
       {% if universe.diff_from_default %}
-      <table><thead><tr><th>Decision</th><th>Default</th><th>Chosen</th></tr></thead><tbody>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Universe decision changes table"><table><thead><tr><th>Decision</th><th>Default</th><th>Chosen</th></tr></thead><tbody>
         {% for decision, pair in universe.diff_from_default.items() %}<tr><td>{{ decision }}</td><td>{{ pair[0] or "—" }}</td><td>{{ pair[1] or "—" }}</td></tr>{% endfor %}
-      </tbody></table>
+      </tbody></table></div>
       {% else %}<p class="none">every decision remains at its default</p>{% endif %}
-      <details><summary>Full selection</summary>{{ kv(universe.selection) }}</details>
+      <details><summary>Full selection</summary>{{ kv(universe.selection, "Full universe selection table") }}</details>
     </section>
     {% else %}<p class="none">no universe file</p>{% endfor %}
   </section>
@@ -122,7 +124,7 @@
     <h2>Review bundles</h2>
     <p class="lede">All discovered bundle reviews are reproduced below, including skipped scenes, incomplete twins, and the legacy flat layout. “Not judged” means no usable scene verdict was read; it does not mean pass.</p>
     {% for name, reason in review.absent.items() if name == "review" or name.startswith("review/") %}{{ markers({name: reason}) }}{% endfor %}
-    {% for bundle in review.bundles %}{{ reviews.render_bundle(bundle, markers, 3) }}{% else %}<p class="none">no review under this course</p>{% endfor %}
+    {% for bundle in review.bundles %}<div class="table-scroll" tabindex="0" role="region" aria-label="Review bundle {{ bundle.bundle_id or loop.index }} tables">{{ reviews.render_bundle(bundle, markers, 3) }}</div>{% else %}<p class="none">no review under this course</p>{% endfor %}
   </section>
 
   <section class="report-section" id="integrity">

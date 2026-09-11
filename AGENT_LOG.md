@@ -2577,3 +2577,26 @@ Runtime Node26.3.0/pnpm9.15.9/Python3.13.13, not exact CI20/3.12. Common contrac
 unchanged; no model embedded, paid teaching-model run, real student, manuscript
 change, teacher approval, student distribution, merge or push. All artifacts are
 local; project-local skill discovery continues using the same shared source files.
+
+## 2026-09-12 — INT047 common viewer charter
+
+Shared local theme for prepared activities, portable reports and native
+Observatory/MySTRA. Completed trace-choice/prediction sections are reopenable,
+keyboard focus follows the activity, named table regions scroll on mobile, print
+preserves report titles. Exact pre-theme report verification remains supported;
+rehashed HTML tampering is rejected for both renderers. Future theme revisions
+must freeze this CSS/renderer before changing them (viewer-charter.md).
+
+Regression commit 2ad99f2 includes historical synthetic export and new browser/
+compatibility tests. Existing kappa test now checks main content rather than
+unrelated CSS dimensions; API rejection and explicit missing-value checks remain.
+Red evidence covered collapsed steps and absent print title. Mobile header width
+was corrected after actual screenshot review; full-page captures reset scroll.
+
+Python16 suites/0 failing, TS1111 tests, build pass; lint0errors/194 existing
+warnings. Final .studium-session/int047-complete:80 activity +51 practical +92
+portable/native report browser checks pass,6 report packages verify. Desktop,
+mobile and A4 print inspected; historical export unchanged. These are synthetic
+technical tests, not student trials or a complete accessibility certification.
+No push, release, scientific acceptance, model call or private learner data.
+INT048 visual-support skill and figure-path fix are a separate slice.

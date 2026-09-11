@@ -49,6 +49,7 @@ from observatory_validation import ValidationCache
 
 TITLE = "studium-observatory"
 VERSION = "0.1.0"
+THEME_DIR = TEMPLATES_DIR.parents[2] / "ui"
 
 
 def create_app(cfg: ObservatoryConfig) -> FastAPI:
@@ -56,7 +57,7 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
     app = FastAPI(title=TITLE, version=VERSION)
     app.state.cfg = cfg
     app.state.validation = ValidationCache(cfg.validator_timeout)
-    templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+    templates = Jinja2Templates(directory=[str(TEMPLATES_DIR), str(THEME_DIR)])
 
     def inventory() -> Inventory:
         return discover(app.state.cfg)

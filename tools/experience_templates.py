@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE_ROOT = ROOT / "examples" / "activity-templates"
 MANIFEST_PATH = TEMPLATE_ROOT / "manifest.json"
 VIEWER_PATH = TEMPLATE_ROOT / "viewer.html"
+THEME_PATH = ROOT / "ui" / "studium-theme.css"
 LINKED_CORE_PATH = ROOT / "examples" / "literature-experience" / "linked-viewer-core.mjs"
 CATALOGUE_SCHEMA = "studium/activity-template-catalogue/v1"
 CONFIG_SCHEMA = "studium/activity-template-config/v1"
@@ -636,7 +637,9 @@ def _safe_script_json(value: object) -> str:
 
 def _render_viewer(activity: dict[str, Any]) -> str:
     """Render the shared local viewer and inject the checked linked core once."""
-    template = VIEWER_PATH.read_text(encoding="utf-8")
+    template = VIEWER_PATH.read_text(encoding="utf-8").replace(
+        "/* STUDIUM_THEME */", THEME_PATH.read_text(encoding="utf-8")
+    )
     linked_core = LINKED_CORE_PATH.read_text(encoding="utf-8").replace("export ", "")
     data = f"const ACTIVITY = {_safe_script_json(activity)};\nconst ACTIVITY_SHA256 = \"{activity_digest(activity)}\";"
     return template.replace("/* LINKED_CORE */", linked_core).replace("/* ACTIVITY_DATA */", data)

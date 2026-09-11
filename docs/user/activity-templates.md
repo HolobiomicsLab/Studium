@@ -132,3 +132,7 @@ Choose scenarios on scientific grounds. Three supplied scenarios do not estimate
 a probability of truth; a threshold crossing does not establish causation.
 For real source-backed content, check the source and result references and have the
 teacher review the objective and interpretation before use with students.
+
+## Visual design
+
+Activities and portable/native reports share the [viewer charter](../design/viewer-charter.md). Completed recording and prediction steps stay available as collapsible summaries.

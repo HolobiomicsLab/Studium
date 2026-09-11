@@ -105,21 +105,23 @@ def run_demo(output: Path) -> Path:
     }
     (output / "demo.json").write_text(json.dumps(evidence, indent=2) + "\n")
     rows = "".join(
-        f'<article><h2>{html.escape(item["title"])}</h2><p>{html.escape(item["learning_goal"])}</p>'
+        f'<article class="card"><h2>{html.escape(item["title"])}</h2><p>{html.escape(item["learning_goal"])}</p>'
         f'<p><a href="activities/{item["id"]}/index.html">Ouvrir l’activité</a> · '
         f'<a href="reports/{item["id"]}/index.html">Rapport MySTRA de test</a></p></article>' for item in ready
     )
     (output / "index.html").write_text(
         '<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-        '<title>Studium · Activités et rapports</title><style>body{font:17px/1.55 system-ui;max-width:960px;margin:auto;padding:32px;background:#f6f4ef;color:#18343a}'
-        'h1,h2{font-family:Georgia,serif}article{background:white;border:1px solid #c4cfcc;padding:24px;margin:20px 0}a{color:#006e66}'
-        '.notice{border-left:4px solid #98633d;padding:16px}</style><h1>Studium · Activités et rapports</h1>'
+        '<title>Studium · Activités et rapports</title><style>' +
+        (ROOT / "ui/studium-theme.css").read_text(encoding="utf-8") +
+        '</style><body class="studium-viewer"><header><span class="brand">STUDIUM</span>'
+        '<span class="meta">Atelier des viewers · démonstration technique</span></header><main>'
+        '<span class="eyebrow">Activités et rapports</span><h1>Explorer, observer, relire.</h1>'
         '<p class="notice">Démonstration technique synthétique. Les rapports ont été produits par un audit navigateur automatisé ; '
         'ils ne décrivent pas un étudiant réel. Le viewer ne contient pas un agent.</p>' + rows +
         '<p>Les cinq activités partagent le même parcours et les mêmes formats de trace et de rapport.</p>'
         '<p><a href="reports/host-journal/index.html">Rapport du journal moteur synthétique</a> · '
         '<a href="demo.json">Vérifications</a></p><p>ASTRA, ARA et MySTRA communs ; export local, textes exclus par défaut. '
-        'Aucune évaluation d’apprentissage ni diffusion étudiante.</p></html>', encoding="utf-8",
+        'Aucune évaluation d’apprentissage ni diffusion étudiante.</p></main></body></html>', encoding="utf-8",
     )
     return output
 

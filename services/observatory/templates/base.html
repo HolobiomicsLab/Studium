@@ -5,11 +5,11 @@
 {%- endfor %}
 {%- endmacro %}
 
-{% macro kv(mapping) -%}
+{% macro kv(mapping, label="Key-value table") -%}
 {%- if mapping %}
-<table class="kv"><tbody>
+<div class="table-scroll" tabindex="0" role="region" aria-label="{{ label }}"><table class="kv"><tbody>
   {%- for key, value in mapping.items() %}<tr><th>{{ key }}</th><td>{{ value }}</td></tr>{%- endfor %}
-</tbody></table>
+</tbody></table></div>
 {%- else %}<p class="none">none</p>{%- endif %}
 {%- endmacro %}
 
@@ -20,7 +20,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Studium Observatory{% endblock %}</title>
 {% block head_extra %}{% endblock %}
-<style>
+<style id="observatory-host-styles">
   :root {
     --ivory: #f5f2eb; --paper: #fffdf8; --ink: #172d38; --ink-soft: #4a5d64;
     --teal: #176b60; --teal-deep: #0d4d47; --teal-pale: #dceae5;
@@ -132,8 +132,11 @@
     .print-only { display: block; }
   }
 </style>
+<style id="studium-theme">
+{% include "studium-theme.css" %}
+</style>
 </head>
-<body>
+<body class="studium-viewer" data-viewer="observatory">
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="site-header">
   <a class="site-title" href="/">Studium Observatory</a>

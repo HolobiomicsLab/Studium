@@ -35,6 +35,7 @@ from experience_templates import activity_digest, validate_prepared_activity
 
 ROOT = Path(__file__).resolve().parents[1]
 PLANNER = ROOT / "services" / "planner"
+THEME_PATH = ROOT / "ui" / "studium-theme.css"
 if str(PLANNER) not in sys.path:
     sys.path.insert(0, str(PLANNER))
 
@@ -642,8 +643,8 @@ def _journal_rows(journal: dict | None) -> str:
     return "\n".join(rows)
 
 
-def _render_html(report: LearnerReportDocument, activity: dict | None, journal: dict | None, myst: str) -> str:
-    """Render a self-contained escaped browser view with no active content."""
+def _render_html_v1(report: LearnerReportDocument, activity: dict | None, journal: dict | None, myst: str) -> str:
+    """Render the immutable pre-theme browser view for legacy verification."""
     assistance = "Recorded in the selected sidecar." if report.assistance_status == "recorded" else "Unknown: missing trace does not establish that no help occurred."
     context = report.activity_context
     context_html = _context_html(context)
@@ -659,6 +660,59 @@ def _render_html(report: LearnerReportDocument, activity: dict | None, journal: 
 <h2>Browser or harness reported activity</h2><table><thead><tr><th>Sequence</th><th>Reported UTC time</th><th>Actor</th><th>Action</th><th>Detail</th></tr></thead><tbody>{_event_rows(activity, context)}</tbody></table>
 <h2>Host journal snapshot</h2><table><thead><tr><th>Experiment</th><th>Sequence</th><th>Host time</th><th>Input</th></tr></thead><tbody>{_journal_rows(journal)}</tbody></table>
 <details><summary>Shared MySTRA source rendering</summary><pre>{html.escape(myst)}</pre></details></body></html>\n"""
+
+
+def _shared_theme() -> str:
+    """Read the canonical local theme for inlining in a portable export."""
+    return THEME_PATH.read_text(encoding="utf-8").rstrip()
+
+
+def _table_region(label: str, headings: tuple[str, ...], rows: str) -> str:
+    """Wrap one wide table in a named keyboard-scrollable region."""
+    cells = "".join(f"<th>{html.escape(heading)}</th>" for heading in headings)
+    return (
+        f'<div class="table-scroll" tabindex="0" role="region" aria-label="{html.escape(label)}">'
+        f"<table><thead><tr>{cells}</tr></thead><tbody>{rows}</tbody></table></div>"
+    )
+
+
+def _render_html(report: LearnerReportDocument, activity: dict | None, journal: dict | None, myst: str) -> str:
+    """Render the current themed, self-contained browser view."""
+    assistance = "Recorded in the selected sidecar." if report.assistance_status == "recorded" else "Unknown: missing trace does not establish that no help occurred."
+    activity_table = _table_region(
+        "Activity events table",
+        ("Sequence", "Reported UTC time", "Actor", "Action", "Detail"),
+        _event_rows(activity, report.activity_context),
+    )
+    journal_table = _table_region(
+        "Host journal events table",
+        ("Experiment", "Sequence", "Host time", "Input"),
+        _journal_rows(journal),
+    )
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+<title>Learner activity technical report</title>
+<style id="report-layout">
+html{{scroll-behavior:smooth}}.skip-link{{position:fixed;z-index:100;top:.5rem;left:.5rem;transform:translateY(-180%);padding:.65rem 1rem;background:#193039;color:white;border-radius:.25rem}}.skip-link:focus{{transform:translateY(0)}}.viewer-header>div:first-child{{max-width:76ch}}.viewer-header .viewer-summary{{padding:0;border:0;background:transparent}}.resource-links{{display:flex;gap:.5rem 1rem;flex-wrap:wrap}}.report-section{{margin:0 0 2rem}}.visually-hidden{{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}}@media(prefers-reduced-motion:reduce){{html{{scroll-behavior:auto}}}}@media print{{.skip-link{{display:none}}}}
+</style>
+<style id="studium-theme">
+{_shared_theme()}
+</style></head>
+<body class="studium-viewer" data-viewer="report">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="viewer-header"><div><p class="viewer-kicker">Studium · local technical export</p><h1>Learner activity technical report</h1><p class="viewer-summary">A privacy-defaulted reading copy of selected learner activity and host-journal records. The two timelines remain separate.</p></div></header>
+<main id="main">
+<nav class="section-nav" aria-label="Report sections"><a href="#overview">Overview</a><a href="#context">Context</a><a href="#activity">Activity</a><a href="#journal">Host journal</a><a href="#source">MySTRA source</a></nav>
+<section class="report-section card" id="overview"><h2>Overview</h2><p class="notice">Technical integrity only. Scientific validation: not performed. Learning assessment: not performed. Zero learning judgments is the intended report scope.</p>
+<p class="privacy">Privacy: {html.escape(report.privacy.original_text)}. Assistance coverage: {html.escape(assistance)}</p>
+<p>The activity and host-journal timelines are displayed separately. Shared scene identifiers show overlap only; they do not authenticate a learner, bundle or session.</p>
+<p class="resource-links"><a href="course_provenance.myst.md">MySTRA source</a><a href="astra.yaml">ASTRA</a><a href="trace/exploration_tree.yaml">ARA trace</a><a href="checks.json">Integrity checks</a></p></section>
+<section class="report-section card" id="context"><h2>Activity context</h2>{_context_html(report.activity_context)}</section>
+<section class="report-section" id="activity"><h2>Browser or harness reported activity</h2>{activity_table}</section>
+<section class="report-section" id="journal"><h2>Host journal snapshot</h2>{journal_table}</section>
+<section class="report-section" id="source"><h2>Shared source rendering</h2><details><summary>MySTRA source</summary><pre>{html.escape(myst)}</pre></details></section>
+</main></body></html>\n"""
 
 
 def _context_html(context: dict | None) -> str:
@@ -836,8 +890,12 @@ def verify_learner_report(directory: Path) -> dict[str, Any]:
         myst = render_mystra(directory)
         if myst != (directory / "course_provenance.myst.md").read_text(encoding="utf-8"):
             raise ReportError("MySTRA rendering is stale")
-        expected_html = _render_html(report, activity_value, journal_value, myst)
-        if expected_html != (directory / "index.html").read_text(encoding="utf-8"):
+        actual_html = (directory / "index.html").read_text(encoding="utf-8")
+        supported_html = {
+            _render_html(report, activity_value, journal_value, myst),
+            _render_html_v1(report, activity_value, journal_value, myst),
+        }
+        if actual_html not in supported_html:
             raise ReportError("browser rendering is stale")
         return {"ok": True, "astra_validator": "astra-tools", "artifacts": len(checks.artifacts)}
     except ReportError:
