@@ -2406,3 +2406,20 @@ docs worktree. No product/test edit, API call, student session or publication.
 Personal links are added only when missing after canonical integration; existing
 studium-harness links remain untouched. Client catalogue refresh may require a
 new session; automatic discovery in every authenticated client is not claimed.
+
+# 2026-09-11 — Private experiment journal (INT044 / S1)
+
+Typed predict/begin/observe/conclude records are separate from grading and public
+operator context. Exact learner text, justification and confidence persist by
+learner/lesson/revision in durable mode; forget erases revision journals. MCP and
+file transports share host validation; stale scene/session envelopes are rejected.
+The file watcher wakes for experiment actions without advancing the lesson.
+Attribution is declared and consent explicit; neither establishes independent
+authorship or absence of outside help. Exported harness copies retain their own
+privacy/erasure boundary. Filesystem writes use lock plus atomic rename.
+
+Red evidence: journal module absent; host recordExperiment absent and file action
+ignored; watcher timed out waiting only for responses/results. All became green.
+Focused journal/host/runner8 tests and MCP15 pass; host suite184 passes. Full pnpm
+test passed, pnpm build:libs passed, lint0 errors/194 existing warnings. MCP types
+rechecked after adding stale-scene validation. No model call or student publication.

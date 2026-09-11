@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { SessionHost, ResponseInputSchema, RunResultSchema, publicPresentation, publicTransition, operatorContext } from "@studium/lesson-session-host";
+import { SessionHost, ResponseInputSchema, ExperimentInputSchema, RunResultSchema, publicPresentation, publicTransition, operatorContext } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
@@ -17,6 +17,27 @@ const fail = (message: string): ToolResult => ({ content: [{ type: "text", text:
  */
 export function buildMcpServer(host: SessionHost): McpServer {
   const server = new McpServer({ name: "studium-lesson", version: "0.1.0" });
+
+  server.registerTool("record_experiment", {
+    description: "Record a consenting learner's own prediction, begin, observation or conclusion in the private " +
+      "experiment journal. Preserve their exact words; never substitute assistant text. No grading or scene advance. " +
+      "Predict before beginning an experiment; use the same experiment_id for later contributions.",
+    inputSchema: { session_id: z.string(), scene_id: z.string(), input: ExperimentInputSchema },
+  }, async ({ session_id, scene_id, input }) => {
+    try {
+      if (host.currentPresentation(session_id).scene.id !== scene_id) return fail("Stale experiment action: scene changed");
+      return text(host.recordExperiment(session_id, input));
+    }
+    catch (e) { return fail((e as Error).message); }
+  });
+  server.registerTool("get_experiment_journal", {
+    description: "Read this learner's private experiment contributions to resume across harnesses. " +
+      "Contains learner text; do not share with teacher analytics or another learner. No grading.",
+    inputSchema: { session_id: z.string() },
+  }, async ({ session_id }) => {
+    try { return text(host.experimentJournal(session_id)); }
+    catch (e) { return fail((e as Error).message); }
+  });
 
   server.registerTool("get_operator_context", {
     description: "Get the current public scene, resolved display assets, run instructions and response contract " +

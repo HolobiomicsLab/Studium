@@ -12,6 +12,7 @@ export { resolveBundle } from "./bundle-resolver.js";
 export { discoverCommunityBundles, COMMUNITY_DIR } from "./community-bundles.js";
 export { shuffleQuizChoices } from "./shuffle-choices.js";
 export { ResponseInputSchema } from "./response-input-schema.js";
+export { ExperimentInputSchema, type ExperimentInput, type ExperimentDocument } from "./experiment-journal.js";
 export {
   publicScene, publicPresentation, publicTransition, REDACTED_SCENE_FIELDS, type PublicScene,
 } from "./public-scene.js";

@@ -24,6 +24,10 @@ import type { SessionHost } from "./host.js";
 import { publicScene, publicTransition } from "./public-scene.js";
 import { parseRunResult, type RunResult } from "./run-result.js";
 import { expectedKind, operatorContext, operatorContextMarkdown, responseFor } from "./operator-context.js";
+import { z } from "zod";
+import { ExperimentInputSchema } from "./experiment-journal.js";
+
+const experimentEnvelope = z.object({ session_id: z.string(), scene_id: z.string(), input: ExperimentInputSchema }).strict();
 
 const FILES = {
   task: "task.md", response: "response.json", feedback: "feedback.md", index: "index.json",
@@ -67,6 +71,7 @@ export class SessionWorkspace {
     const scene = publicScene(pres.scene as never) as Record<string, unknown>; // answer key stripped HERE
     const context = operatorContextMarkdown(operatorContext(this.host, sessionId));
     await mkdir(this.dir, { recursive: true });
+    await this.writeExperimentSnapshot(sessionId);
     const manifest = scene.run_manifest as Record<string, unknown> | undefined;
     if (manifest) {
       await rm(join(this.dir, FILES.runResult), { force: true }); // fresh run scene: no stale result
@@ -114,6 +119,8 @@ export class SessionWorkspace {
    * input is CONSUMED + a corrective feedback.md is written so the operator can retry — the channel
    * self-heals instead of deadlocking on an un-consumed bad response.json. */
   async ingest(sessionId: string): Promise<{ done: boolean; transition: string }> {
+    const experiment = await this.ingestExperiment(sessionId);
+    if (experiment) return experiment;
     const pres = this.host.currentPresentation(sessionId) as { scene: { type: string; run_manifest?: unknown } };
     if (pres.scene.run_manifest) return this.ingestRun(sessionId); // learner-time run scene
     const sceneType = pres.scene.type;
@@ -214,6 +221,38 @@ export class SessionWorkspace {
 
   private async writeRunFeedback(body: string): Promise<void> {
     await writeFile(join(this.dir, FILES.feedback), `# Feedback\n\n${body}\n`, "utf8");
+  }
+
+  private async writeExperimentSnapshot(sessionId: string): Promise<void> {
+    const journal = this.host.experimentJournal(sessionId);
+    const path = join(this.dir, "experiment.json");
+    if (journal.experiments.length) await writeFile(path, JSON.stringify(journal, null, 2), { encoding: "utf8", mode: 0o600 });
+    else await rm(path, { force: true });
+  }
+
+  private async ingestExperiment(sessionId: string): Promise<{ done: boolean; transition: string } | null> {
+    const path = join(this.dir, "experiment-action.json");
+    let raw: string;
+    try { raw = await readFile(path, "utf8"); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw error;
+    }
+    try {
+      const envelope = experimentEnvelope.parse(JSON.parse(raw));
+      if (envelope.session_id !== sessionId || envelope.scene_id !== this.host.currentPresentation(sessionId).scene.id)
+        throw new Error("Stale experiment action: session or scene changed");
+      this.host.recordExperiment(sessionId, envelope.input);
+      await this.writeExperimentSnapshot(sessionId);
+      await rm(path, { force: true });
+      await writeFile(join(this.dir, FILES.feedback), "# Experiment\n\nContribution recorded privately. No grade or lesson advance.\n", "utf8");
+      return { done: false, transition: "experiment_recorded" };
+    } catch {
+      // Do not echo invalid free text or a foreign session's identifiers into feedback.
+      await rm(path, { force: true });
+      await writeFile(join(this.dir, FILES.feedback), "# Experiment\n\nInvalid or stale experiment action, or journal unavailable. Check session/scene, consent, attribution and event order. Rewrite experiment-action.json and retry.\n", "utf8");
+      return { done: false, transition: "invalid_experiment" };
+    }
   }
 
   /** Mark the latest awaiting_run step "ran" and record the learner's executed-result summary (auditable). */
