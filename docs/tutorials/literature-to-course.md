@@ -89,6 +89,8 @@ d'une carte n'est pas une preuve de réussite locale. Le
 Relire objectifs, prérequis, exactitude scientifique, questions, critères de
 réponse, charge de travail et permissions des matériaux. Le dossier vérifié n'est
 pas un `LessonBundle` étudiant et ne doit pas être renommé en `lesson.json`.
-L'intégration du draft dans l'approbation/synthèse de l'interface auteur reste à
-compléter ; voir [l'état exact du parcours enseignant](../user/teacher-guide.md).
 Le livrable de ce tutoriel est un brouillon sourcé et une revue humaine préparée.
+Continuer avec [la revue de révision et la synthèse liée](../user/reviewed-synthesis.md) :
+importer ce dossier dans un espace enseignant, conserver les éditions, puis
+approuver son empreinte après revue. Un orchestrateur configuré reçoit ce plan
+exact ; le contenu qu'il produit reste à relire avant toute diffusion étudiante.

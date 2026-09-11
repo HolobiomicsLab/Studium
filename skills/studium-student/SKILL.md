@@ -58,6 +58,9 @@ public scene and its materials, then wait for the student's response.
 - For experiments, elicit a prediction before execution and a personal conclusion
   afterwards. Use the [agentic tutorial](../../docs/tutorials/agentic-experiment.md)
   within the teacher's scope. Missing tools or failed runs remain visible.
+  Offer the [private experiment journal](../../docs/user/experiment-journal.md)
+  when the student wants to save those contributions and resume in another harness.
+  Explain ephemeral versus durable storage; never infer consent or confidence.
 
 ## Verify and hand back
 

@@ -58,10 +58,13 @@ data, tools, dependency installation and new content. Do not present MySTRA hash
 or schema validity as scientific approval. Follow the real approval boundary;
 never insert the teacher's name or set `approved` on their behalf.
 
-The current draft-to-author-UI import and unchanged-approved-plan-to-synthesis
-flow are incomplete. The teacher guide records CORS and unconfigured synthesis
-limits. Do not promise an end-to-end publication button, rename a draft to
-`lesson.json`, or silently replan after approval.
+For a checked source-backed draft, use the [reviewed synthesis workflow](../../docs/user/reviewed-synthesis.md).
+Import to a local teacher workspace, preserve edits to its actual `plan.json`,
+and let the teacher review before recording approval of that exact revision.
+Verify the receipt before synthesis with an explicitly configured orchestrator.
+The CLI preserves the approved input; the older browser export alone does not.
+Generated content still needs teacher review before students receive it. Do not
+rename a draft to `lesson.json` or silently replan after approval.
 
 ## Close with a usable checkpoint
 

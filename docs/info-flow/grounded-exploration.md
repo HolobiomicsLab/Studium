@@ -27,3 +27,14 @@ Learner response and capsule run submissions continue exclusively through their
 existing protocols. The receipt does not change mastery, trust calibration,
 publication, consent or teacher approval. Local observation retention is optional
 and independent of the telemetry deletion lifecycle.
+
+Explicit teacher attachment through `experience_approval.py attach-exploration`
+verifies the portable receipt, checks the scene exists in the review package and
+stores a technical summary in `exploration-summaries.json`. MySTRA shows source,
+artifact hash and operator-reported check references. Structured learner fields,
+session IDs and material contents are not copied. This is verification at attachment,
+not independent execution attestation; keep the original receipt for re-verification.
+Adding the summary changes the approval inputs and requires renewed review.
+
+The separate learner `studium/experiment-journal/v1` records reasoning contributions
+through MCP/files. It is not an exploration receipt and never feeds this teacher view.

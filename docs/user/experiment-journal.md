@@ -57,6 +57,9 @@ Use the existing session runner in watch mode. Atomically write a complete
 Replace `input` with each action above, starting with `predict`. The runner
 consumes the action and writes `experiment.json` plus a short `feedback.md`.
 It continues waiting for the learner; it does not submit a lesson response.
+This `experiment.json` has schema `studium/experiment-journal/v1`. It is distinct
+from the scientific provenance record made by `tools/experience_exploration.py`;
+keep that tool's workspace/receipt in separate directories, as its guide specifies.
 An old session/scene envelope is rejected. Use `response.json` or `run_result.json`
 separately when ready to advance the lesson. Journal actions count as operator
 turns in the runner's `maxSteps` budget, so allow four extra turns per experiment.

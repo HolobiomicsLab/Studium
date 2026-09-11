@@ -41,6 +41,9 @@ ici ne valent pas validation scientifique ni preuve d'efficacité pédagogique.
 
 ## Références pour aller plus loin
 
+- [Journal privé prédiction → observation → conclusion](user/experiment-journal.md),
+  [viewer MS/MS à représentations liées](user/linked-viewer.md) et
+  [révision approuvée → synthèse](user/reviewed-synthesis.md).
 - [Procédure du harnais](../skills/studium-harness/SKILL.md) et
   [protocole agentique](agentic-session-protocol.md).
 - [Revue MySTRA](guides/mystra-reviewer.md), [Observatory](guides/observatory.md),

@@ -65,6 +65,10 @@ approbation.
 Le harnais fournit un objet local ayant la méthode existante
 `synthesize_lesson(lesson_plan, options)` :
 
+Le module doit être importable par ce Python (par exemple un fichier
+`tools/mon_harnais.py`, ou un module installé/sur `PYTHONPATH`). Son attribut
+`orchestrator` est l'instance configurée ou une fonction sans argument qui la crée.
+
 ```sh
 .venv/bin/python tools/experience_approval.py synthesize \
   /ABS/PATH/teacher-workspace \

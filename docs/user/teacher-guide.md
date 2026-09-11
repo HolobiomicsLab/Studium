@@ -51,6 +51,11 @@ un outil indisponible et un résultat nul.
 
 ## Relire avec MySTRA
 
+Pour conserver les éditions et relier une révision approuvée à sa synthèse,
+suivre le [workflow local de revue et synthèse](reviewed-synthesis.md). Il importe
+le brouillon contrôlé, enregistre l'approbation de son empreinte et refuse un plan
+modifié après cette revue. La revue du contenu généré précède toujours la diffusion.
+
 Le [tutoriel littérature](../tutorials/literature-to-course.md) produit `astra.yaml`
 et `course_provenance.myst.md`. L'Observatory sert ces dossiers localement :
 
@@ -120,10 +125,10 @@ Le schéma de requête ne constitue pas non plus une barrière d'approbation.
 Voir [le service](../../services/scene-synth/scene_synth_app.py) et
 [les schémas](../../services/scene-synth/scene_synth_schemas.py).
 
-Le brouillon produit par `experience_packet.py` n'a pas encore d'import intégré
-qui préserve le plan jusqu'à l'approbation et la synthèse. Ne pas relancer une
-génération en prétendant avoir approuvé exactement le même plan. Cette continuité
-est une capacité à compléter, explicitement séparée des recettes exécutables ici.
+Le brouillon produit par `experience_packet.py` peut être importé avec
+`experience_approval.py import` dans le [workflow local](reviewed-synthesis.md).
+Celui-ci préserve l'exacte révision approuvée jusqu'à l'appel de synthèse, sans
+relancer le planner. Ce parcours CLI est distinct du bouton historique du navigateur.
 
 ## Organiser une expérience et sa restitution
 
@@ -137,3 +142,7 @@ et un reçu local. Demander à l'étudiant sa prédiction, les différences obse
 une limite et un test de transfert. Une sortie de l'agent n'est pas une preuve
 que l'étudiant a compris. Garder les observations nominatives hors du dépôt public.
 La [fiche confidentialité](../privacy-and-limits.md) précise les frontières.
+
+Le [journal privé](experiment-journal.md) conserve les contributions avec le
+consentement de l'étudiant. Le [viewer à représentations liées](linked-viewer.md)
+fournit un exemple MS/MS vérifiable pour ce déroulement.

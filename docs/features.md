@@ -12,6 +12,7 @@ présente dans le dépôt n'est pas nécessairement intégrée à toutes les int
 | Plan pédagogique | Objectifs, scènes, prérequis et Learning Workflow Graph | Les propositions et liens scientifiques nécessitent une revue |
 | Parcours adaptatif | Navigation liée aux prérequis, maîtrise, indices et remédiation | Dépend de la qualité du bundle et des évaluateurs |
 | Métacognition | Confiance déclarée et comparaison avec la performance | Indicateurs du prototype, pas diagnostic ni note institutionnelle |
+| Journal d'expérience | Prédiction motivée, confiance, observation et conclusion conservées via MCP/fichiers | Privé, opt-in, non noté ; reprise durable à configurer |
 | Panneau VS Code | Scènes, réponses, assets et graphe dans l'éditeur | Installation/build ou VSIX de pilote requis |
 | Notebook VS Code | Même contrat de scène dans une cellule pilote | Rendu à vérifier dans le véritable Extension Host |
 | Harnais MCP | Outils pour ouvrir la séance, lire le contexte public et répondre | Chaque client a ses propres outils, compte et session |
@@ -19,6 +20,8 @@ présente dans le dépôt n'est pas nécessairement intégrée à toutes les int
 | Littérature → draft | Capture de passages, plan canonique et liens exacts aux preuves | Pas d'approbation scientifique ni de bundle jouable automatique |
 | Capsule ASB | Carte de tâche et protocole de reproduction | Un tier de capsule n'atteste pas un run étudiant |
 | Visualiseur à la demande | Contexte public pour construire un artefact externe adapté | Pas d'installation automatique de code généré dans le panneau |
+| Représentations liées | Exemple réseau MS/MS, spectres miroir et candidats avec baseline et paramètres | Données synthétiques ; similarité ne signifie pas identité |
+| Révision approuvée → synthèse | Workflow local qui vérifie l'empreinte du plan relu avant synthèse | CLI et orchestrateur configuré ; contenu généré à relire avant diffusion |
 | Dossier d'exploration | Capture portable de sources, versions, fichiers et contrôles | Hashes d'intégrité, pas preuve indépendante d'exécution |
 | ASTRA / MySTRA | Provenance structurée et lecture locale des analyses/décisions | La revue n'exécute pas le code et ne signe pas une approbation |
 | Observatory | Inspection de cours et vues de revue | Service local, pas portail multi-utilisateur authentifié |
@@ -89,11 +92,14 @@ montre comment exploiter ces capacités sans sortir du contrat pédagogique.
 
 ## Frontières encore ouvertes
 
-L'import du draft sourcé dans la revue auteur, la préservation du plan approuvé
-jusqu'à sa synthèse et l'ouverture intégrée des reçus d'exploration dans MySTRA
-restent à compléter. L'approbation du plan dans le navigateur est un export local.
-La route HTTP de synthèse a besoin d'un orchestrateur configuré. Le panneau et
-un MCP indépendant ne partagent pas automatiquement leur session.
+Le [workflow local de revue et synthèse](user/reviewed-synthesis.md) conserve la
+révision approuvée et expose sa provenance dans MySTRA. Il complète le parcours
+historique : l'approbation dans le navigateur reste un export local et la route
+HTTP de synthèse requiert un orchestrateur configuré. L'installation automatique
+d'un viewer dans tous les clients et un portail enseignant authentifié restent
+à construire. Le panneau et un MCP indépendant ne partagent pas automatiquement
+leur session. Le [journal privé](user/experiment-journal.md) peut reprendre ses
+contributions avec le même stockage, identité et contenu de cours.
 
 La conformité institutionnelle, le déploiement multi-utilisateur et l'efficacité
 pédagogique ne découlent pas de tests logiciels réussis. Commencer par un pilote

@@ -2470,3 +2470,20 @@ focused95 pass; parent plan/packet/review47 pass. Production ConceptAgent and
 bundler exercised with deterministic fake model/critic; scene-synth231 pass1skip.
 No real teaching model called. CLI needs an explicitly configured local orchestrator;
 identity remains locally declared and the older author-web/HTTP paths stay separate.
+
+# INT044 final integration verification
+
+All three local capabilities implemented; docs and three existing shared skills
+updated without copying skill sources. Sol-high independent S1 review found no
+additional consequential defect; direct parent review covered S2/S3.
+Final pnpm test:1111 passed across18 packages. Python wrapper:16 suites,0failing.
+Library, host/MCP, author-web and extension builds pass; packaged stdio prediction
+roundtrip/forget passed. Lint0errors194warnings. Final browser18/18 plus numeric
+fixture20 pass; no external browser requests.76 local doc links and three skill
+validators checked.
+
+Local runtime Node26.3.0/pnpm9.15.9/Python3.13.13; CI Node20/Python3.12 not rerun.
+Known existing CJS import.meta warning remains, packaged entrypoint verified.
+Work remains on codex/studium-experiment-continuity; no push, student release,
+real teacher approval, new benchmark, external model evaluation or manuscript change.
+The32-session protocol is unchanged/unrun and must freeze the chosen code first.
