@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { ExperimentJournal } from "./experiment-journal.js";
+import { ExperimentJournal, experimentRevision } from "./experiment-journal.js";
+import { createHash } from "node:crypto";
 
 const dirs: string[] = [];
 afterEach(() => dirs.splice(0).forEach(d => rmSync(d, { recursive: true, force: true })));
@@ -12,6 +13,10 @@ const observe = { kind: "observe", experiment_id: "threshold", text: "Two edges 
 const conclude = { kind: "conclude", experiment_id: "threshold", text: "Connectivity is not identity", confidence: 3, authorship: "learner", consent: true };
 
 describe("learner experiment journal", () => {
+  it("uses locale-independent key ordering for revisions across machines", () => {
+    const expected = createHash("sha256").update('{"Z":1,"a":2}').digest("hex");
+    expect(experimentRevision({ a: 2, Z: 1 })).toBe(expected);
+  });
   it("preserves original text and ordered contributions without accepting a rewritten prediction", () => {
     const journal = new ExperimentJournal("revision-a");
     journal.record(predict, "s1");
