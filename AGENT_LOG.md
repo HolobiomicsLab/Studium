@@ -2452,3 +2452,21 @@ demo /tmp/studium-int044-final-demo passes18/18 browser checks, no console error
 or external requests, desktop/direct/mobile captured. Python baseline0.6477 with
 7matched peaks; direct-only0.1871. All data are synthetic, not paper reproduction.
 Viewer notes are distinct from the private host journal; neither auto-submits.
+
+# 2026-09-11 — Reviewed revision to synthesis (INT044 / S3)
+
+Sol-high leaf delivered import/attach-exploration/approve/verify/synthesize CLI.
+Canonical hashes bind the exact editable plan and supporting inputs; synthesis
+uses a captured verified snapshot without replanning. Post-call disk and in-memory
+mutation checks quarantine stale generated artifacts. Failures are retryable;
+reapproval archives prior synthesis records. Artifact URI/hash and source/check
+references are visible in MySTRA. Technical exploration summaries omit structured
+learner fields and copy no blobs or portable receipts. They are checked on attach,
+not continuously attested. Plan approval never approves generated content/release.
+
+Parent review corrections covered concurrent edits, in-memory mutation, stale
+synthesis bindings, conditional failure wording and receipt privacy. Leaf final
+focused95 pass; parent plan/packet/review47 pass. Production ConceptAgent and
+bundler exercised with deterministic fake model/critic; scene-synth231 pass1skip.
+No real teaching model called. CLI needs an explicitly configured local orchestrator;
+identity remains locally declared and the older author-web/HTTP paths stay separate.
