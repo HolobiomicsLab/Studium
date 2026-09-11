@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Audit three prepared activity templates in a real local browser.
+/** Audit five prepared activity templates in a real local browser.
  * Usage: node tools/audit-activity-templates.mjs ACTIVITIES_DIR NEW_AUDIT_DIR
  */
 import { createServer } from "node:http";
@@ -87,9 +87,20 @@ async function auditTemplate(templateId) {
     await page.locator("#parameter").fill("2.5");
     await page.locator("#parameter").dispatchEvent("input");
     check("comparison: varying gain recomputes response delta", await page.locator("#differenceValue").innerText() === "+4.0 a.u.");
-  } else {
+  } else if (templateId === "evidence-claim") {
     await page.locator('input[value="claim_supported"]').check();
     check("evidence: learner judgment uses visible source-backed choices", (await page.locator("#claimFeedback").innerText()).startsWith("Supported within this fixture."));
+  }
+  if (templateId === "diagnose-analysis" || templateId === "conclusion-robustness") {
+    const choices = page.locator('#experiment input[type="radio"]');
+    check(templateId + ": exposes learner-selectable evidence", await choices.count() >= 2);
+    check(templateId + ": choice descriptions start below their titles", await page.locator("#experiment .choice").evaluateAll(labels => labels.every(label => {
+      const title = label.querySelector(".choice-title"), detail = label.querySelector(".choice-detail");
+      return !detail || detail.getClientRects()[0].top >= title.getBoundingClientRect().bottom - 1;
+    })));
+    await choices.first().check();
+    await choices.last().check();
+    check(templateId + ": records real selections", await page.evaluate(() => events.filter(event => event.kind === "learner_choice_selected").length >= 2));
   }
   await page.locator("#assistanceText").fill("Explain the displayed relation, without answering for me.");
   await page.locator("#requestAssistance").click();
@@ -123,7 +134,7 @@ async function auditNoTrace() {
 }
 
 try {
-  for (const templateId of ["linked-representations", "parameter-comparison", "evidence-claim"])
+  for (const templateId of ["linked-representations", "parameter-comparison", "evidence-claim", "diagnose-analysis", "conclusion-robustness"])
     await auditTemplate(templateId);
   await auditNoTrace();
   const mobile = await openTemplate("linked-representations", { width: 390, height: 844 });
