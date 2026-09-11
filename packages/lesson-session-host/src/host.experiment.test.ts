@@ -85,3 +85,15 @@ it("completes an opt-in file experiment then a lesson response without conflatin
   expect(result.transitions).toEqual(["experiment_recorded", "experiment_recorded", "experiment_recorded", "experiment_recorded", "complete"]);
   expect(host.experimentJournal(result.sessionId).experiments[0]?.events).toHaveLength(4);
 });
+
+it("does not persist private text under the shared anonymous identity", async () => {
+  vi.stubEnv("STUDIUM_DATA_DIR", dir());
+  vi.stubEnv("STUDIUM_PSEUDO_SECRET", "journal-test-secret");
+  const root = dir(); writeFileSync(join(root, "lesson.json"), JSON.stringify(bundle));
+  const host = new SessionHost({ bundlesRoot: root, live: false });
+  const first = await host.create("lesson.json");
+  host.recordExperiment(first.sessionId, prediction);
+  expect(host.experimentJournal(first.sessionId).storage).toBe("ephemeral");
+  const other = await host.create("lesson.json");
+  expect(host.experimentJournal(other.sessionId).experiments).toEqual([]);
+});
