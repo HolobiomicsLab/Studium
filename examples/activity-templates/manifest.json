@@ -31,20 +31,20 @@
     {
       "id": "diagnose-analysis",
       "version": "1.0.0",
-      "status": "proposed",
+      "status": "ready",
       "title": "Diagnose a flawed analysis",
-      "summary": "Proposed pattern for locating a consequential flaw in an analysis and testing a repair.",
+      "summary": "Locate a consequential flaw in a captured analysis and compare supplied repair results.",
       "learning_goal": "Connect a diagnosed analytical flaw to its effect on a result and to a check that can detect it.",
-      "sample_config": null
+      "sample_config": "diagnose-analysis/config.json"
     },
     {
       "id": "conclusion-robustness",
       "version": "1.0.0",
-      "status": "proposed",
+      "status": "ready",
       "title": "Test conclusion robustness",
-      "summary": "Proposed pattern for varying defensible assumptions and checking whether a conclusion survives.",
+      "summary": "Compare captured results under supplied assumptions and check where a bounded conclusion survives.",
       "learning_goal": "State which assumptions a conclusion depends on and where the conclusion changes.",
-      "sample_config": null
+      "sample_config": "conclusion-robustness/config.json"
     }
   ]
 }

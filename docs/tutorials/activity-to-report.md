@@ -2,7 +2,7 @@
 
 Ce parcours utilise votre harnais pour préparer l’activité, le navigateur pour
 l’expérimentation et Studium pour structurer le rapport. Le viewer ne contient
-pas un agent. Les trois templates fournis ont des exemples synthétiques ; un
+pas un agent. Les cinq templates fournis ont des exemples synthétiques ; un
 exemple technique ne constitue pas une expérience pédagogique validée.
 
 ## Préparer l’activité
@@ -24,8 +24,8 @@ Python :
 ```
 
 `activity/task.md` guide l’adaptation. `activity/index.html` est le viewer à ouvrir.
-Les modèles `linked-representations` et `evidence-claim` utilisent la même commande.
-Les deux entrées `proposed` du catalogue sont des propositions, pas des exécutables.
+Les modèles `linked-representations`, `evidence-claim`, `diagnose-analysis` et
+`conclusion-robustness` utilisent la même commande.
 Les exemples par défaut ne sont pas dérivés des sources de votre scène : un même
 identifiant ne prouve pas un lien scientifique. Si les entrées nécessaires manquent,
 le harnais doit le signaler et présenter le sample comme une illustration séparée.
@@ -42,7 +42,8 @@ conclusion scientifique nouvelle reste à relire par l’enseignant.
 Choisir dans le viewer si une trace locale doit être préparée pour un export
 éventuel. Écrire sa prédiction avant d’afficher les résultats, faire varier le
 contrôle ou choisir une représentation, puis écrire son observation et sa
-conclusion. Les champs facultatifs peuvent rester vides, notamment la confiance.
+conclusion. Les champs facultatifs peuvent rester vides, notamment la confiance. Le parcours
+sans trace permet aussi de terminer l’activité, sans téléchargement.
 
 Télécharger la trace seulement si souhaité. Un export partiel reste possible ;
 il n’affirme pas que l’activité est terminée. Pour la suite, enregistrer le fichier
@@ -90,3 +91,25 @@ signifie « inconnu ». Les contrôles ASTRA et les empreintes des fichiers vér
 la structure et la cohérence technique, pas un apprentissage ni l’authenticité de
 l’auteur. Le [guide du rapport](../user/learner-report.md) précise les limites et
 l’ouverture dans le viewer MySTRA partagé.
+
+## Deux autres parcours à demander au harnais
+
+Pour diagnostiquer une analyse :
+
+> Utilise `diagnose-analysis` pour les étapes et résultats publics de cette scène.
+> Prépare plusieurs réparations plausibles, avec leurs résultats explicitement
+> fournis et la manière de les vérifier. Laisse-moi choisir l’étape suspecte et
+> expliquer mon diagnostic avant de discuter la réparation. Si un résultat
+> manque, indique-le ; ne présente pas une valeur inventée comme un calcul exécuté.
+
+Pour éprouver une conclusion :
+
+> Utilise `conclusion-robustness`. Compare une hypothèse de référence avec des
+> alternatives défendables, leurs résultats et un critère explicite avec unités.
+> Laisse-moi prédire les conséquences puis examiner où la conclusion change.
+> Précise ce qui reste inconnu hors de ces scénarios.
+
+L’enseignant peut adapter ces formats à une autre discipline en remplaçant les
+sources, étapes, hypothèses, unités et valeurs dans la configuration. Le code du
+viewer reste commun. Une nouvelle exécution scientifique relève du harnais ;
+le viewer affiche ensuite les résultats capturés et trace les choix locaux.

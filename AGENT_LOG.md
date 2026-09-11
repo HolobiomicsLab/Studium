@@ -2542,3 +2542,38 @@ data, including browser-generated learner actions and a separate real-host trans
 probe; no measured learning or scientific approval. Existing MySTRA retains its
 course-review framing and shows absent teacher review as missing. No preview server
 remains; regenerate with tools/demo-template-reports.py into a new directory.
+
+## 2026-09-12 — Five practical activity templates (INT046)
+
+Implemented the owner's request to complete both proposed patterns and improve
+activities through practice. Diagnose-analysis and conclusion-robustness now use
+closed, configurable captured-result contracts and the existing action/ASTRA/ARA/
+MySTRA formats. Examples expose actual invented inputs and checkable arithmetic.
+Five distinct science configurations exercise signed/zero values, both threshold
+operators and all/some/no support; source-backed shapes are also checked. These
+are software fixtures, not pedagogical or empirical validation.
+
+Practical review corrected small-value rounding, inaccessible range labels,
+misleading no-trace assistance, absent no-trace completion, and fused choice labels.
+Progress/focus, mobile wrapping, signed bars and a non-wrapping brand improve the
+shared viewer. Native controls retain common trace semantics. Off-grid baseline/
+variation values are refused instead of being silently snapped by the browser.
+Regression commits:752be84 (practical browser),a90c230 (step grid),d305cb2
+(choice readability). No regression assertions weakened; existing proposal tests
+now exercise a proposed catalogue entry via monkeypatch after the two promotions.
+Two Sol-high leaves delivered isolated files, then stopped before final verification.
+
+Final evidence:136 focused Python tests pass; full Python16 suites,0 failing;
+TypeScript1111 tests/18 packages pass on retry. First TS run had a native Node26
+V8 ToLocalChecked abort after passing lesson-mcp assertions; no code or test change
+between runs. Author-web build passes; lint0errors/194existing warnings.
+Final demo .studium-session/int046-final:65 common activity,51 practical and50
+portable/native report browser checks, all green; no browser errors or external
+requests. All6 reports verify, including a separate synthetic host journal.
+Final screenshots inspected after the choice-label and mobile-brand corrections.
+Updated skill validates;16 changed-document relative links resolve.
+
+Runtime Node26.3.0/pnpm9.15.9/Python3.13.13, not exact CI20/3.12. Common contracts
+unchanged; no model embedded, paid teaching-model run, real student, manuscript
+change, teacher approval, student distribution, merge or push. All artifacts are
+local; project-local skill discovery continues using the same shared source files.

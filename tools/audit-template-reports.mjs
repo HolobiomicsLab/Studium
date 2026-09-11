@@ -70,7 +70,7 @@ try {
     if (!['file:', 'data:'].includes(url.protocol) && url.origin !== base) result.external_requests.push(request.url());
   });
   const before = await snapshot(reports);
-  for (const name of ['linked-representations', 'parameter-comparison', 'evidence-claim', 'host-journal']) {
+  for (const name of ['linked-representations', 'parameter-comparison', 'evidence-claim', 'diagnose-analysis', 'conclusion-robustness', 'host-journal']) {
     const report = JSON.parse(await readFile(join(reports, name, 'report.json'), 'utf8'));
     check(`${name}: original text excluded by default`, report.privacy.original_text === 'excluded_by_default');
     await page.goto(pathToFileURL(join(reports, name, 'index.html')).href);

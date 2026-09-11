@@ -108,10 +108,11 @@ accompagné, avec [les règles de confidentialité](privacy-and-limits.md) adapt
 ## Activités réutilisables et rapport étudiant
 
 Le [catalogue de templates](user/activity-templates.md) permet au harnais de
-préparer trois activités : représentations liées, comparaison de paramètres,
-et examen d’une affirmation à partir de preuves. Diagnostic d’analyse et
-robustesse d’une conclusion sont deux propositions supplémentaires, identifiées
-comme telles dans le catalogue. Le viewer reste un outil local, sans agent intégré.
+préparer cinq activités : représentations liées, comparaison de paramètres,
+examen d’une affirmation à partir de preuves, diagnostic d’analyse et robustesse
+d’une conclusion. Les deux dernières comparent des résultats fournis et des
+hypothèses explicites ; l’exécution scientifique relève du harnais. Le viewer
+reste un outil local, sans agent intégré.
 
 Le [rapport étudiant](user/learner-report.md) transforme les actions exportées
 volontairement et/ou un journal choisi en une copie locale ASTRA/MySTRA. Les

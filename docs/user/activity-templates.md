@@ -1,6 +1,6 @@
 # Harness activity templates
 
-Studium includes three ready local activity starters and two proposals. The ready
+Studium includes five ready local activity starters. The ready
 templates turn a checked studium/operator-context/v1 scene into an editable
 harness task, a self-contained browser page and the JSON Schema used by learner
 action exports. Preparation does not execute retrieved code, install a library,
@@ -11,12 +11,11 @@ approve a lesson or submit a response.
 | linked-representations | Ready | Follow stable IDs across a thresholded edge table, a real peak plot and a candidate table. |
 | parameter-comparison | Ready | Hold a synthetic input fixed, vary one gain and compare computed baseline and variation outputs. |
 | evidence-claim | Ready | Read a supplied source statement and select the narrowest supported claim. |
-| diagnose-analysis | Proposed | Diagnose a consequential flaw and connect it to a detecting check. |
-| conclusion-robustness | Proposed | Vary defensible assumptions and locate where a conclusion changes. |
+| diagnose-analysis | Ready | Inspect analysis steps, choose a suspected flaw and compare supplied repair results. |
+| conclusion-robustness | Ready | Compare supplied assumption scenarios against an explicit decision threshold. |
 
-The proposals have no sample config and the prepare command refuses them. Their
-catalogue entries describe possible later work without presenting an unbuilt
-activity as runnable.
+All five use the same preparation, recording and report contracts. A future
+catalogue entry marked proposed remains non-runnable.
 
 List the complete catalogue:
 
@@ -35,13 +34,13 @@ does not already exist:
   --out activity-linked
 ~~~
 
-Replace the template ID with parameter-comparison or evidence-claim for the
-other starters. Add --config PUBLIC-CONFIG.json to adapt a ready template. A
+Replace the template ID with any ready entry in the table for the other starters. Add --config PUBLIC-CONFIG.json to adapt a ready template. A
 config is closed: unknown fields, non-finite numbers, duplicate IDs, mismatched
 template IDs and incomplete sources are rejected before the output directory is
-created.
+created. Parameter baselines and variations must also lie on the declared slider
+step grid; otherwise a browser would silently move them to a different value.
 
-The parameter and evidence templates accept either:
+The parameter, evidence, diagnosis and robustness templates accept either:
 
 - data_status "synthetic teaching fixture" with source_kind "synthetic_fixture"; or
 - data_status "supplied source-backed data" with source_kind "supplied_evidence".
@@ -62,7 +61,9 @@ Each prepared directory contains:
 
 The page first asks whether to enable an in-memory local trace. Choosing no trace
 keeps the activity usable and cannot be changed later without reloading; events
-are never reconstructed. With tracing enabled, Export activity trace can download
+are never reconstructed. In this mode, finish the activity without downloading
+a trace; assistance notes are not claimed as recorded or cleared silently.
+With tracing enabled, Export activity trace can download
 a legitimate partial trace before results are revealed. Complete and export final
 trace adds the single final completion event and locks further controls and
 logging.
@@ -85,3 +86,49 @@ persistence, includes no learner identity or private lesson answer key, and pres
 learner text exactly only in an explicit download. Consent to a local export does
 not imply consent to share it. Neither the viewer nor its report measures learning
 or grants teacher approval for student release.
+
+## Diagnose an analysis
+
+Adapt [the diagnosis config](../../examples/activity-templates/diagnose-analysis/config.json).
+`steps` contain stable `id`, `label` and `description`; `repairs` contain `id`,
+`label`, `explanation` and a finite numerical `result`. Set `flawed_result`,
+`result_unit`, `supported_repair_id` and `oracle.repaired_result`. The oracle
+must equal the supplied result of the referenced repair. This is a consistency
+check, not independent scientific verification of that repair.
+
+The learner selects a suspected step, then examines a repair and its result.
+Selections use `step_<id>` and `repair_<id>` in the common action trace. There
+is no automatic correctness assessment of the selected step. Describe how the
+source or a separate calculation supports the repair criterion; do not encode
+scientific judgments in template-specific application logic.
+
+## Test conclusion robustness
+
+Adapt [the robustness config](../../examples/activity-templates/conclusion-robustness/config.json).
+Each `scenario` contains an `id`, `label`, explicit `assumption` and finite `value`.
+Set `baseline_scenario_id`, `metric.label`, `metric.unit` and a `decision` containing
+`operator` (`gte` or `lte`), finite `threshold`, and bounded `claim`.
+`oracle.supporting_scenario_ids` must agree with all supplied scenario values,
+in scenario order, including equality at the threshold. Both all-supporting and none-supporting
+sets are valid outcomes. A scenario selection records `scenario_<id>`.
+
+All IDs, including their trace prefixes, must fit the common 120-character
+limit. Both new patterns reject unknown fields, duplicate IDs, invalid references
+and non-finite numbers. They compare captured results: no arbitrary equation or
+code is evaluated. Execute real analyses in the harness, record their provenance,
+then regenerate the activity from those explicit outputs.
+
+## Practice across disciplines
+
+The same diagnosis structure can compare an incorrect denominator in ecology,
+a unit conversion in astronomy, an omitted blank correction in chemistry, or an
+aggregation error in survey analysis. The same robustness structure can compare
+alternative background estimates, missing-data assumptions or calibration choices.
+Keep domain terms and values in config files, with units and source locators.
+These are adaptation patterns, not claims that one numerical criterion validates
+an entire scientific conclusion.
+
+Choose scenarios on scientific grounds. Three supplied scenarios do not estimate
+a probability of truth; a threshold crossing does not establish causation.
+For real source-backed content, check the source and result references and have the
+teacher review the objective and interpretation before use with students.

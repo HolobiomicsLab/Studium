@@ -29,6 +29,7 @@ CATALOGUE_SCHEMA = "studium/activity-template-catalogue/v1"
 CONFIG_SCHEMA = "studium/activity-template-config/v1"
 ACTIVITY_SCHEMA = "studium/prepared-activity/v1"
 ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,120}$")
+CHOICE_ID_MAX_LENGTH = 120
 DATA_STATUSES = {"synthetic teaching fixture", "supplied source-backed data"}
 COMMON_CONFIG_FIELDS = {
     "schema", "template_id", "data_status", "scope", "prediction_prompt",
@@ -206,12 +207,25 @@ def _validate_parameter(parameter: object) -> dict[str, Any]:
     if not all(isinstance(parameter[field], str) and parameter[field].strip() for field in ("label", "unit")):
         raise ValueError("Parameter label and unit must be nonblank text")
     numbers = [parameter.get(key) for key in ("min", "max", "step", "baseline", "variation")]
-    if not all(isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) for value in numbers):
+    if not all(_is_finite_number(value) for value in numbers):
         raise ValueError("Parameter bounds and values must be finite numeric values")
     minimum, maximum, step, baseline, variation = numbers
     if step <= 0 or minimum >= maximum or not minimum <= baseline <= maximum or not minimum <= variation <= maximum:
         raise ValueError("Parameter values fall outside their declared bounds")
+    if not all(_is_step_aligned(value, minimum, step) for value in (baseline, variation)):
+        raise ValueError("Parameter baseline and variation must align with the declared step")
     return parameter
+
+
+def _is_step_aligned(value: float, minimum: float, step: float) -> bool:
+    """Return whether a range value lies on its finite step grid."""
+    try:
+        offset = (value - minimum) / step
+    except OverflowError:
+        return False
+    if not math.isfinite(offset):
+        return False
+    return math.isclose(offset, round(offset), rel_tol=0, abs_tol=1e-9)
 
 
 def _run_linked_core(network: dict[str, Any], parameter: dict[str, Any]) -> dict[str, int]:
@@ -258,7 +272,7 @@ def _validate_linked_network_shape(network: dict[str, Any]) -> None:
         item = _require_exact_keys(preset, {"id", "label", "value"}, "threshold preset")
         if not isinstance(item["id"], str) or not ID_PATTERN.fullmatch(item["id"]) or not isinstance(item["label"], str):
             raise ValueError("Threshold presets require public IDs and labels")
-        if not isinstance(item["value"], (int, float)) or isinstance(item["value"], bool) or not math.isfinite(item["value"]):
+        if not _is_finite_number(item["value"]):
             raise ValueError("Threshold preset values must be finite")
     _validate_linked_nodes(network.get("nodes"))
     _validate_linked_candidates(network.get("candidates"))
@@ -324,6 +338,16 @@ def _materialize_config(config: dict[str, Any], config_path: Path) -> dict[str, 
         _require_exact_keys(config, COMMON_CONFIG_FIELDS | {"claims", "supported_claim_id", "feedback"}, "evidence config")
         _validate_claim_config(config)
         result = copy.deepcopy(config)
+    elif template_id == "diagnose-analysis":
+        fields = {"steps", "repairs", "flawed_result", "result_unit", "supported_repair_id", "oracle"}
+        _require_exact_keys(config, COMMON_CONFIG_FIELDS | fields, "diagnosis config")
+        _validate_diagnosis_config(config)
+        result = copy.deepcopy(config)
+    elif template_id == "conclusion-robustness":
+        fields = {"scenarios", "baseline_scenario_id", "metric", "decision", "oracle"}
+        _require_exact_keys(config, COMMON_CONFIG_FIELDS | fields, "robustness config")
+        _validate_robustness_config(config)
+        result = copy.deepcopy(config)
     else:
         raise ValueError(f"Unsupported ready template: {template_id}")
     return result
@@ -333,8 +357,8 @@ def _validate_oracle(oracle: object, fields: set[str], integer: bool = False) ->
     """Validate a closed finite numerical oracle."""
     oracle = _require_exact_keys(oracle, fields, "oracle")
     for value in oracle.values():
-        valid_type = isinstance(value, int) and not isinstance(value, bool) if integer else isinstance(value, (int, float)) and not isinstance(value, bool)
-        if not valid_type or not math.isfinite(value):
+        valid_type = isinstance(value, int) and not isinstance(value, bool) if integer else _is_finite_number(value)
+        if not valid_type or not _is_finite_number(value):
             raise ValueError("Oracle values must be finite numbers of the declared type")
 
 
@@ -342,7 +366,7 @@ def _validate_comparison(config: dict[str, Any]) -> None:
     """Validate a linear controlled model against its exact numerical oracle."""
     model_fields = {"kind", "fixed_input", "input_label", "input_unit", "output_label", "output_unit", "equation"}
     model = _require_exact_keys(config.get("model"), model_fields, "comparison model")
-    if model["kind"] != "linear_gain" or not isinstance(model["fixed_input"], (int, float)) or isinstance(model["fixed_input"], bool) or not math.isfinite(model["fixed_input"]):
+    if model["kind"] != "linear_gain" or not _is_finite_number(model["fixed_input"]):
         raise ValueError("Comparison model must be a finite linear_gain fixture")
     if not all(isinstance(model[key], str) and model[key].strip() for key in model_fields - {"fixed_input"}):
         raise ValueError("Comparison model labels and equation must be nonblank text")
@@ -372,6 +396,133 @@ def _validate_claim_config(config: dict[str, Any]) -> None:
         raise ValueError("Supported claim must reference a supplied claim")
     if not isinstance(config.get("feedback"), str) or not config["feedback"].strip():
         raise ValueError("Evidence activity requires nonblank feedback")
+
+
+def _require_choice_source_id(value: object, prefix: str, label: str) -> str:
+    """Validate a config ID and its emitted trace choice identifier."""
+    if not isinstance(value, str) or not ID_PATTERN.fullmatch(value):
+        raise ValueError(f"{label} ID must be a bounded ASCII identifier")
+    if len(prefix) + len(value) > CHOICE_ID_MAX_LENGTH:
+        raise ValueError(f"{label} choice ID exceeds {CHOICE_ID_MAX_LENGTH} characters")
+    return value
+
+
+def _is_finite_number(value: object) -> bool:
+    """Return whether a value is a finite JSON number rather than a boolean."""
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
+def _validate_diagnosis_steps(steps: object) -> list[str]:
+    """Validate the closed ordered analysis steps."""
+    if not isinstance(steps, list) or len(steps) < 2:
+        raise ValueError("Diagnosis activity requires at least two steps")
+    ids: list[str] = []
+    for step in steps:
+        item = _require_exact_keys(step, {"id", "label", "description"}, "diagnosis step")
+        ids.append(_require_choice_source_id(item["id"], "step_", "step"))
+        if not all(isinstance(item[field], str) and item[field].strip() for field in ("label", "description")):
+            raise ValueError("Each diagnosis step needs a nonblank label and description")
+    if len(ids) != len(set(ids)):
+        raise ValueError("Diagnosis step IDs must be unique")
+    return ids
+
+
+def _validate_diagnosis_repairs(repairs: object) -> tuple[list[str], dict[str, float]]:
+    """Validate supplied repair descriptions and captured finite results."""
+    if not isinstance(repairs, list) or len(repairs) < 2:
+        raise ValueError("Diagnosis activity requires at least two repairs")
+    results: dict[str, float] = {}
+    for repair in repairs:
+        item = _require_exact_keys(repair, {"id", "label", "explanation", "result"}, "diagnosis repair")
+        repair_id = _require_choice_source_id(item["id"], "repair_", "repair")
+        if repair_id in results:
+            raise ValueError("Diagnosis repair IDs must be unique")
+        if not all(isinstance(item[field], str) and item[field].strip() for field in ("label", "explanation")):
+            raise ValueError("Each diagnosis repair needs a nonblank label and explanation")
+        if not _is_finite_number(item["result"]):
+            raise ValueError("Diagnosis repair results must be finite numbers")
+        results[repair_id] = item["result"]
+    return list(results), results
+
+
+def _validate_diagnosis_config(config: dict[str, Any]) -> None:
+    """Validate captured diagnosis choices and their supplied teaching oracle."""
+    _validate_diagnosis_steps(config.get("steps"))
+    repair_ids, results = _validate_diagnosis_repairs(config.get("repairs"))
+    if not _is_finite_number(config.get("flawed_result")):
+        raise ValueError("Diagnosis flawed result must be a finite number")
+    if not isinstance(config.get("result_unit"), str) or not config["result_unit"].strip():
+        raise ValueError("Diagnosis result unit must be nonblank text")
+    supported = config.get("supported_repair_id")
+    if supported not in repair_ids:
+        raise ValueError("Supported repair must reference a supplied repair")
+    oracle = _require_exact_keys(config.get("oracle"), {"repaired_result"}, "diagnosis oracle")
+    if not _is_finite_number(oracle["repaired_result"]):
+        raise ValueError("Diagnosis oracle repaired result must be finite")
+    if oracle["repaired_result"] != results[supported]:
+        raise ValueError("Diagnosis oracle must match the supported repair result")
+
+
+def _validate_robustness_scenarios(scenarios: object) -> tuple[list[str], list[float]]:
+    """Validate supplied assumption scenarios and captured values."""
+    if not isinstance(scenarios, list) or len(scenarios) < 2:
+        raise ValueError("Robustness activity requires at least two scenarios")
+    ids: list[str] = []
+    values: list[float] = []
+    for scenario in scenarios:
+        item = _require_exact_keys(scenario, {"id", "label", "assumption", "value"}, "robustness scenario")
+        ids.append(_require_choice_source_id(item["id"], "scenario_", "scenario"))
+        if not all(isinstance(item[field], str) and item[field].strip() for field in ("label", "assumption")):
+            raise ValueError("Each robustness scenario needs a nonblank label and assumption")
+        if not _is_finite_number(item["value"]):
+            raise ValueError("Robustness scenario values must be finite numbers")
+        values.append(item["value"])
+    if len(ids) != len(set(ids)):
+        raise ValueError("Robustness scenario IDs must be unique")
+    return ids, values
+
+
+def _validate_metric(metric: object) -> None:
+    """Validate the displayed metric without accepting extra semantics."""
+    item = _require_exact_keys(metric, {"label", "unit"}, "robustness metric")
+    if not all(isinstance(item[field], str) and item[field].strip() for field in ("label", "unit")):
+        raise ValueError("Robustness metric label and unit must be nonblank text")
+
+
+def _validate_decision(decision: object) -> dict[str, Any]:
+    """Validate one closed finite threshold decision."""
+    item = _require_exact_keys(decision, {"operator", "threshold", "claim"}, "robustness decision")
+    if not isinstance(item["operator"], str) or item["operator"] not in {"gte", "lte"}:
+        raise ValueError("Robustness decision operator must be gte or lte")
+    if not _is_finite_number(item["threshold"]):
+        raise ValueError("Robustness decision threshold must be finite")
+    if not isinstance(item["claim"], str) or not item["claim"].strip():
+        raise ValueError("Robustness decision claim must be nonblank text")
+    return item
+
+
+def _validate_robustness_config(config: dict[str, Any]) -> None:
+    """Validate scenario-limited threshold support against the exact oracle."""
+    scenario_ids, values = _validate_robustness_scenarios(config.get("scenarios"))
+    if config.get("baseline_scenario_id") not in scenario_ids:
+        raise ValueError("Baseline scenario must reference a supplied scenario")
+    _validate_metric(config.get("metric"))
+    decision = _validate_decision(config.get("decision"))
+    oracle = _require_exact_keys(config.get("oracle"), {"supporting_scenario_ids"}, "robustness oracle")
+    supporting_ids = oracle["supporting_scenario_ids"]
+    if not isinstance(supporting_ids, list):
+        raise ValueError("Robustness oracle supporting scenario IDs must be an array")
+    if not all(isinstance(item, str) and item in scenario_ids for item in supporting_ids):
+        raise ValueError("Robustness oracle IDs must reference supplied scenarios")
+    compare = (lambda value: value >= decision["threshold"]) if decision["operator"] == "gte" else (lambda value: value <= decision["threshold"])
+    expected = [scenario_id for scenario_id, value in zip(scenario_ids, values) if compare(value)]
+    if supporting_ids != expected:
+        raise ValueError("Robustness oracle must match the finite scenario comparison")
 
 
 def _activity_document(entry: dict[str, Any], context: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
@@ -416,6 +567,14 @@ def _validate_materialized_config(config: dict[str, Any]) -> None:
         _validate_parameter(config.get("parameter")); _validate_comparison(config)
     elif template_id == "evidence-claim":
         _require_exact_keys(config, COMMON_CONFIG_FIELDS | {"claims", "supported_claim_id", "feedback"}, "evidence config"); _validate_claim_config(config)
+    elif template_id == "diagnose-analysis":
+        fields = {"steps", "repairs", "flawed_result", "result_unit", "supported_repair_id", "oracle"}
+        _require_exact_keys(config, COMMON_CONFIG_FIELDS | fields, "diagnosis config")
+        _validate_diagnosis_config(config)
+    elif template_id == "conclusion-robustness":
+        fields = {"scenarios", "baseline_scenario_id", "metric", "decision", "oracle"}
+        _require_exact_keys(config, COMMON_CONFIG_FIELDS | fields, "robustness config")
+        _validate_robustness_config(config)
     else:
         raise ValueError("Prepared activity uses an unsupported template")
 
@@ -502,7 +661,7 @@ Status: local draft built from public context; teacher review is still required.
 
 ## Learner sequence
 
-Ask the learner for their own prediction before revealing results. Let them inspect the baseline, vary the single exposed control or select a claim, record an optional observation and conclusion, then export only when they choose. Do not answer for the learner or infer missing events.
+Ask the learner for their own prediction before revealing results. Let them inspect the supplied results, use the exposed controls or choices, record an optional observation and conclusion, then export only when they choose. Do not answer for the learner or infer missing events.
 
 ## Expected source inputs
 

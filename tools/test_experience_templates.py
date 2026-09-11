@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+import experience_templates as templates
 from experience_templates import (
     CATALOGUE_SCHEMA,
     PreparedActivity,
@@ -49,7 +50,7 @@ def public_context(tmp_path: Path) -> Path:
     return path
 
 
-def test_catalogue_distinguishes_three_ready_and_two_proposed_templates() -> None:
+def test_catalogue_lists_five_ready_templates() -> None:
     catalogue = list_templates()
     assert catalogue["schema"] == CATALOGUE_SCHEMA
     assert [item["id"] for item in catalogue["templates"]] == [
@@ -59,20 +60,23 @@ def test_catalogue_distinguishes_three_ready_and_two_proposed_templates() -> Non
         "diagnose-analysis",
         "conclusion-robustness",
     ]
-    assert [item["status"] for item in catalogue["templates"]].count("ready") == 3
-    assert [item["status"] for item in catalogue["templates"]].count("proposed") == 2
+    assert [item["status"] for item in catalogue["templates"]].count("ready") == 5
+    assert [item["status"] for item in catalogue["templates"]].count("proposed") == 0
     for item in catalogue["templates"]:
         assert item["learning_goal"]
         assert item["version"] == "1.0.0"
-        if item["status"] == "ready":
-            assert item["sample_config"]
-        else:
-            assert item["sample_config"] is None
+        assert item["sample_config"]
 
 
 @pytest.mark.parametrize(
     "template_id",
-    ["linked-representations", "parameter-comparison", "evidence-claim"],
+    [
+        "linked-representations",
+        "parameter-comparison",
+        "evidence-claim",
+        "diagnose-analysis",
+        "conclusion-robustness",
+    ],
 )
 def test_prepare_creates_a_browsable_task_from_public_context(
     public_context: Path, tmp_path: Path, template_id: str
@@ -122,8 +126,15 @@ def test_linked_template_reuses_the_checked_numeric_core(
 
 
 def test_prepare_rejects_proposed_template_unknown_context_and_existing_output(
-    public_context: Path, tmp_path: Path
+    public_context: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    catalogue = list_templates()
+    diagnosis = next(
+        item for item in catalogue["templates"] if item["id"] == "diagnose-analysis"
+    )
+    diagnosis["status"] = "proposed"
+    diagnosis["sample_config"] = None
+    monkeypatch.setattr(templates, "list_templates", lambda: catalogue)
     with pytest.raises(ValueError, match="proposed"):
         prepare_activity("diagnose-analysis", public_context, tmp_path / "proposal")
     private_context = tmp_path / "private.json"
@@ -194,6 +205,29 @@ def test_explicit_config_is_closed_and_finite(
     assert not output.exists()
 
 
+def test_parameter_grid_overflow_is_rejected_as_invalid_input(
+    public_context: Path, tmp_path: Path
+) -> None:
+    config = json.loads(
+        (EXAMPLES / "parameter-comparison" / "config.json").read_text(encoding="utf-8")
+    )
+    config["parameter"].update(
+        min=-1e308, max=1e308, step=0.1, baseline=0.0, variation=1e308
+    )
+    config["model"]["fixed_input"] = 1e-308
+    config["oracle"] = {
+        "baseline_output": 0.0,
+        "variation_output": 0.9999999999999999,
+        "delta": 0.9999999999999999,
+    }
+    config_path = tmp_path / "overflow-grid.json"
+    write_json(config_path, config)
+    with pytest.raises(ValueError, match="step"):
+        prepare_activity(
+            "parameter-comparison", public_context, tmp_path / "overflow-grid", config_path
+        )
+
+
 def test_prepared_activity_validator_rejects_unknown_fields_and_preserves_controls(
     public_context: Path, tmp_path: Path
 ) -> None:
@@ -257,16 +291,54 @@ def test_cli_lists_and_prepares_without_running_or_submitting(
     assert Path(prepared.stdout.strip()) == output.resolve()
     assert not (output / "response.json").exists()
 
-    proposed = subprocess.run(
-        [sys.executable, str(ROOT / "tools" / "experience_templates.py"), "prepare",
-         "--template", "diagnose-analysis", "--context", str(public_context),
-         "--out", str(tmp_path / "proposal")],
-        text=True, capture_output=True,
+    unknown = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "tools" / "experience_templates.py"),
+            "prepare",
+            "--template",
+            "not-in-catalogue",
+            "--context",
+            str(public_context),
+            "--out",
+            str(tmp_path / "unknown"),
+        ],
+        text=True,
+        capture_output=True,
     )
-    assert proposed.returncode == 1
-    assert "proposed and cannot be prepared" in proposed.stderr
-    assert "Traceback" not in proposed.stderr
+    assert unknown.returncode == 1
+    assert "Unknown activity template" in unknown.stderr
+    assert "Traceback" not in unknown.stderr
 
+
+def test_cli_retains_a_friendly_error_for_non_ready_catalogue_entries(
+    public_context: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    catalogue = list_templates()
+    diagnosis = next(
+        item for item in catalogue["templates"] if item["id"] == "diagnose-analysis"
+    )
+    diagnosis["status"] = "proposed"
+    diagnosis["sample_config"] = None
+    monkeypatch.setattr(templates, "list_templates", lambda: catalogue)
+    code = templates.main(
+        [
+            "prepare",
+            "--template",
+            "diagnose-analysis",
+            "--context",
+            str(public_context),
+            "--out",
+            str(tmp_path / "proposal"),
+        ]
+    )
+    captured = capsys.readouterr()
+    assert code == 1
+    assert "proposed and cannot be prepared" in captured.err
+    assert "Traceback" not in captured.err
 
 def test_browser_style_trace_fixture_validates_with_shared_contract() -> None:
     payload = {

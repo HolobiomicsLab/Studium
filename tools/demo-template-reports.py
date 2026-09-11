@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run three synthetic activity templates and export their local ASTRA/MySTRA reports.
+"""Run five synthetic activity templates and export their local ASTRA/MySTRA reports.
 
 Uses real host public-context/journal methods and a labelled automated browser
 interaction. No teacher approval, real learner session, model call or network
@@ -49,7 +49,7 @@ def capture_synthetic_host(output: Path) -> None:
 
 
 def run_demo(output: Path) -> Path:
-    """Create a new local demo with three browser exports and verified reports."""
+    """Create a new local demo with five browser exports and verified reports."""
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     capture_synthetic_host(output)
@@ -68,6 +68,15 @@ def run_demo(output: Path) -> Path:
     browser_result = json.loads((audit / "report.json").read_text())
     if browser_result.get("passed") is not True:
         raise ValueError("Browser audit did not report success")
+    practical_audit = output / "practical-audit"
+    practical = subprocess.run(
+        ["node", str(ROOT / "tools/audit-practical-templates.mjs"), str(activities), str(practical_audit)],
+        cwd=ROOT, capture_output=True, text=True, timeout=180,
+    )
+    (output / "practical-browser.log").write_text(practical.stdout + practical.stderr, encoding="utf-8")
+    practical.check_returncode()
+    if json.loads((practical_audit / "report.json").read_text()).get("passed") is not True:
+        raise ValueError("Practical viewer audit did not report success")
     reports = output / "reports"
     reports.mkdir()
     checks = {}
@@ -90,7 +99,7 @@ def run_demo(output: Path) -> Path:
         raise ValueError("Report viewer audit did not report success")
     evidence = {
         "purpose": "synthetic developer demonstration; no measured learning",
-        "browser_audit": "audit/report.json", "report_viewer_audit": "report-audit/report.json", "reports": checks,
+        "browser_audit": "audit/report.json", "practical_audit": "practical-audit/report.json", "report_viewer_audit": "report-audit/report.json", "reports": checks,
         "host_journal": "separate synthetic transport check, not browser chronology",
         "teaching_model_calls": 0, "student_release": "not performed",
     }
@@ -107,7 +116,7 @@ def run_demo(output: Path) -> Path:
         '.notice{border-left:4px solid #98633d;padding:16px}</style><h1>Studium · Activités et rapports</h1>'
         '<p class="notice">Démonstration technique synthétique. Les rapports ont été produits par un audit navigateur automatisé ; '
         'ils ne décrivent pas un étudiant réel. Le viewer ne contient pas un agent.</p>' + rows +
-        '<p>Deux autres patterns sont proposés dans le catalogue : diagnostiquer une analyse et tester la robustesse d’une conclusion.</p>'
+        '<p>Les cinq activités partagent le même parcours et les mêmes formats de trace et de rapport.</p>'
         '<p><a href="reports/host-journal/index.html">Rapport du journal moteur synthétique</a> · '
         '<a href="demo.json">Vérifications</a></p><p>ASTRA, ARA et MySTRA communs ; export local, textes exclus par défaut. '
         'Aucune évaluation d’apprentissage ni diffusion étudiante.</p></html>', encoding="utf-8",
