@@ -1,0 +1,7 @@
+[mcp_servers.studium]
+command = "node"
+args = ["/ABS/PATH/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]
+
+[mcp_servers.studium.env]
+BUNDLES_ROOT = "/ABS/PATH/studium/fixtures"
+LITELLM_BASE_URL = ""

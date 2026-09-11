@@ -1,108 +1,81 @@
-# Guide étudiant — Studium démo M6
+# Guide étudiant
 
-> Studium est une application d'apprentissage avec évaluation continue.
-> Cette version démo couvre la chimie atomistique L1 Sciences de la Vie.
+Dans Studium, tu peux demander à l'IA d'expliquer un outil, de préparer un calcul
+ou de construire un graphique. **Ta prédiction, ton raisonnement et ta conclusion
+restent les tiens.** Le parcours utilise tes réponses pour choisir la suite et
+te rendre cette adaptation compréhensible.
 
-## 1. Premier lancement — Consentement (RGPD)
+## Préparer sa première séance
 
-Au premier démarrage, Studium te demande 3 consentements distincts :
+Demande à l'enseignant le bundle du cours, ses assets, la version de Studium et
+le périmètre des expériences autorisées. Un PDF seul n'est pas un bundle jouable.
+Pour essayer immédiatement, utilise `atomistique-l1`, livré dans le dépôt.
 
-- **A — Données pédagogiques anonymisées** : *obligatoire*. Ce que tu fais
-  dans l'app (scènes jouées, réponses, temps) est stocké chiffré sur **ton
-  appareil uniquement** pour l'adaptation.
-- **B — Journal métacognitif** : *optionnel*. Stocke tes réflexions libres
-  rédigées dans le journal.
-- **C — Partage agrégat enseignant** : *optionnel*. Envoie au tableau de
-  bord enseignant des **statistiques anonymisées** (jamais ton texte brut).
+1. Suis l'[installation commune](../getting-started/installation.md).
+2. Choisis le panneau sans compte LLM, ou [Copilot Student](../getting-started/copilot.md)
+   pour travailler avec un agent. [D'autres harnais](../getting-started/harnesses-and-api.md) sont possibles.
+3. Fais le [tutoriel première séance](../tutorials/first-lesson.md).
 
-Tu peux modifier ces choix à tout moment dans **Settings**.
+Laisse d'abord la télémétrie désactivée et utilise un identifiant de test sans
+nom réel. Le professeur précise les règles du pilote avant une collecte de classe.
+La [confidentialité](../privacy-and-limits.md) distingue les données Studium de
+ce qui est envoyé au fournisseur du chat.
 
-## 2. Library — choisir une leçon
+## Que faire dans une scène ?
 
-Une fois consenti, la Library s'ouvre. Elle liste les bundles disponibles
-sur ton appareil. Pour la démo, charge `demo-atomistique-bundle.zip`.
-
-Clique sur un bundle pour démarrer.
-
-## 3. Les 8 types de scènes
-
-Studium combine 8 types de scènes pédagogiques :
-
-| Type | Ce que tu y fais |
+| Activité | Ta contribution |
 |---|---|
-| `intro` | Lecture courte — contexte de la leçon. |
-| `concept` | Exposé textuel d'un concept-clé. Possible : image, schéma. |
-| `quiz` | Question à choix multiple, feedback immédiat. |
-| `simulation` | Manipulation interactive (graphes, paramètres). |
-| `reproduction` | Reproduction guidée d'une tâche (protocole, raisonnement). |
-| `discussion` | Texte libre minimum 50 mots — argumentation. |
-| `meta_checkpoint` | Pause métacognitive : tu te demandes "ai-je compris ?". |
-| `ai_critique` | Évaluation critique d'une réponse IA — détecte l'erreur. |
+| Introduction ou concept | Lire, manipuler les assets puis continuer |
+| Quiz | Choisir après avoir raisonné ; demander un indice si nécessaire |
+| Confiance | Déclarer ton propre niveau de confiance, de 0 à 4 |
+| Reproduction | Lire le protocole, prédire et examiner les résultats réellement exécutés |
+| Critique / erreur à repérer | Relier chaque objection à un fait ou une preuve |
+| Expliquer / comparer / auditer | Produire ta formulation et ses limites |
+| Discussion | Construire le raisonnement sur plusieurs échanges |
+| Prompt / communication | Rédiger puis améliorer ta propre proposition |
 
-## 4. Calibration et adaptation
+Les [13 types de scènes](../features.md) n'apparaissent pas dans chaque cours.
+Le panneau propose les contrôles appropriés ; dans le chat, l'agent lit le contrat
+avant de soumettre. Un exemple JSON du serveur est un format, pas une réponse.
 
-Studium s'adapte à ton niveau **en continu**, sans examen terminal.
+## Utiliser l'agent sans lui céder l'activité
 
-### Comment ça se manifeste ?
+Prompts utiles :
 
-- 2 erreurs de suite sur un quiz → tu rejoues la scène concept précédente.
-- Maîtrise haute observée → tu skips les concepts pré-requis aux leçons
-  suivantes.
-- Le panel **Calibration** te montre comment tu estimes ton niveau vs ton
-  niveau réel. Plus l'écart est faible, mieux tu te connais (méta-conscience).
+> Donne-moi un indice sur la démarche, puis attends mon essai.
 
-### Beta model
+> Affiche ces données avec leurs unités. Demande-moi d'abord ce que je prédis
+> quand on change le seuil. Garde la référence visible à côté de la variante.
 
-Chaque concept-clé a un score Beta(α, β) qui évolue à chaque réponse :
-- Bonne réponse → α augmente.
-- Mauvaise réponse → β augmente.
+> Voici mon explication : […]. Pose une question qui teste sa limite, sans
+> remplacer mon texte par ta réponse avant soumission.
 
-Au démarrage d'une nouvelle session, Studium recharge ton état Beta et adapte
-en conséquence.
+> Explique la dernière adaptation avec l'outil Studium disponible.
+> Distingue ce qu'il rapporte de ton interprétation.
 
-## 5. Bouton "?" — explicabilité
+Un indice peut réduire le crédit de maîtrise : il reste utile pour apprendre.
+Une remédiation propose un travail sur un prérequis. Les indicateurs du prototype
+ne sont pas une note institutionnelle ni un diagnostic.
 
-À tout moment tu peux cliquer le bouton **"?"** près d'une scène pour voir
-quelle règle d'adaptation est active (par exemple `rule_2err_replay_concept`)
-et **pourquoi** elle a été déclenchée.
+## Expérimenter avec un article ou une capsule
 
-C'est volontaire : Studium veut que tu comprennes ce qui se passe sous le
-capot, pas une boîte noire.
+Suis le [tutoriel agentique](../tutorials/agentic-experiment.md). Choisis une question,
+prédis un effet, exécute une référence, modifie un facteur et juge la différence.
+Le harnais peut rechercher une documentation ou lire un skill, mais doit dire
+ce qu'il a vraiment consulté et exécuté. Vérifie unités, données, cas limites et
+provenance : un graphique produit par l'IA peut être erroné.
 
-## 6. Settings — RGPD et droit à l'oubli
+Garde les sorties dans ton espace d'expérience. Une capsule `type-checked` n'est
+pas un run réussi. Si une dépendance manque ou qu'un calcul échoue, conserve cet
+échec ; ne demande pas à l'agent de fabriquer un résultat.
 
-- **Modifier mes consentements** : change A/B/C à tout moment.
-- **Droit à l'oubli** : efface définitivement toutes tes données locales
-  (Beta model, journal, télémétrie en attente). **Action irréversible**.
-- **Pseudonyme** : Studium utilise un identifiant local pseudonyme pour
-  les agrégats classe (jamais ton nom réel).
+## Terminer ou reprendre
 
-## 7. FAQ
+Note le cours, la révision et ce que tu veux reprendre. Le panneau et un chat MCP
+indépendant ont des sessions distinctes. Fermer une fenêtre ne prouve pas que
+des données persistantes ont été effacées. L'oubli concerne l'état géré par Studium ;
+les dossiers d'expérience et l'historique du harnais ont leur propre conservation.
+Voir [confidentialité](../privacy-and-limits.md).
 
-**Q. Studium envoie-t-il mes données sur Internet ?**
-A. Non, sauf si tu actives le consentement C. Et même alors, **seules les
-statistiques anonymisées** sont envoyées au dashboard de ton enseignant —
-jamais le contenu brut de tes réponses.
-
-**Q. Puis-je revoir une scène ?**
-A. Oui, via le menu de navigation latéral. Mais l'adaptation peut
-re-déclencher des scènes que tu pensais finies.
-
-**Q. L'IA dans `ai_critique` peut dire des choses fausses ?**
-A. **Oui, c'est l'objectif.** La scène `ai_critique` te présente
-volontairement des réponses IA partiellement ou totalement fausses. Ton
-travail = identifier l'erreur. C'est de la **littératie IA** : apprendre à
-ne pas croire l'IA sur parole.
-
-**Q. Où sont stockées mes données ?**
-A. Dans une base **SQLCipher chiffrée** sur ton appareil. La clé est dérivée
-de ton pseudonyme. Si tu supprimes l'app, tout est perdu (pas de cloud).
-
-## 8. Problèmes courants
-
-| Symptôme | Solution |
-|---|---|
-| L'app ne démarre pas | Vérifie que ton OS est macOS ≥ 12 ou Linux récent |
-| Une scène reste bloquée | Bouton "Suivant" grisé ? Réponds d'abord à la question/champ |
-| Le journal ne sauvegarde pas | As-tu consenti B dans Settings ? |
-| Calibration ne s'affiche pas | Joue ≥ 3 scènes pour avoir assez de signal |
+En cas de difficulté, utilise le [dépannage](../troubleshooting.md) et transmets
+uniquement un exemple minimal anonymisé à l'enseignant.

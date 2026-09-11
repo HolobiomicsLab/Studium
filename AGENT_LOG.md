@@ -2362,3 +2362,30 @@ Copilot session tested. An actual ASB matchms cleaning card was captured locally
 as not_run/type-checked, distinct from the executed synthetic matching demo.
 New guide documents private local retention and teacher-approved exploration
 scope. No paid call, push, grading/consent/bundle or shared skill-source change.
+
+# 2026-09-11 — GitHub-ready teacher/student documentation (INT041)
+
+Codex Astra with one Sol high read-only teacher-path/review leaf. Added a French
+Markdown portal, feature/maturity catalogue, separate teacher/student onboarding,
+Copilot Student/teacher benefit setup, Claude/Codex/Cursor/OpenCode v2 MCP examples,
+API boundaries, three runnable tutorials, privacy and troubleshooting. Replaced
+obsolete M6 entry guides and corrected the VSIX server-packaging claim. No product
+code, tests, course content or global harness configuration changed.
+
+Official provider documentation checked 2026-09-11; quotas/prices not frozen.
+Fresh code worktree installation: frozen pnpm install, library build, vendor and
+extension/CJS build; fresh Python 3.13 venv plus the documented requirements and
+editable packages. Verified MCP smoke14, actual documented bundled-CJS config
+(start/context/response/end), file stub4steps, packet/check/review, MySTRA HTTP200,
+and executed synthetic exploration/browser9/receipt integrity. Ingest startup
+and minimal planner POST pass; direct browser planner preflight returns405, now
+explicitly documented alongside the unconfigured synthesis orchestrator.
+
+All changed Markdown local links and JSON/TOML examples checked. No authenticated
+Copilot/Claude/Codex/Cursor/OpenCode GUI session, Windows install or VSIX packaging
+claimed tested. Existing esbuild import.meta CJS warning remains; bundled MCP
+launch passed. Full product suite not repeated for a documentation-only change.
+Sol's incorrect lesson-plan-schema editable-install suggestion was rejected:
+lesson-schema has pyproject.toml; lesson-plan-schema is injected by the tool and
+has no installable project. The fresh venv recipe and tutorials already passed.
+No paid model call, push, Pages, release, visibility change or student publication.

@@ -111,19 +111,22 @@ ask for a hint · `forget` → erase your session data.
 For testers who don't want to F5 a dev host, build an installable `.vsix`:
 
 ```
-pnpm --filter studium-vscode package        # vendor+build already done? just: builds → studium.vsix
+pnpm --filter studium-vscode package        # run vendor first; this command builds and packages
 code --install-extension apps/studium-vscode/studium.vsix
 ```
 
-Requires VS Code **≥ 1.95** (the chat participant + Language Model APIs). Engine 1.101+ is only needed
-for the (not-yet-shipped) editor-agent MCP integration.
+The extension declares VS Code ≥ 1.95; use a current VS Code for native editor-agent
+MCP support. The VSIX includes `dist/lesson-mcp.cjs` and the vendored renderers.
+The pane can therefore run without a source checkout or global `tsx`. **Course
+bundles are supplied separately**: configure `studium.bundlesRoot` and
+`studium.bundleRef`. In a source checkout the extension prefers the source server.
 
-> **Honest boundary — the VSIX still needs the cloned repo.** The extension does not execute the science
-> itself; it spawns `lesson-mcp` (`apps/lesson-mcp`, via `tsx`) from the monorepo. So a tester must also
-> **clone this repo + `pnpm install`**, then set **`studium.repoRoot`** to their clone. The `tsx` path is
-> now resolved tolerantly (pnpm / npm / yarn / PATH), but full self-containment — bundling `lesson-mcp`
-> into the VSIX so no repo is required — is a follow-up. `studium.vsix` is a build artifact (git-ignored);
-> attach it to a GitHub release for distribution.
+The package command rebuilds but does not vendor: run the vendor step first.
+`studium.vsix` is a local, ignored build artifact, not a published Marketplace
+release. See the [installation guide](../../docs/getting-started/installation.md)
+and [Copilot setup](../../docs/getting-started/copilot.md). A native MCP client
+and the extension pane create separate server sessions; they do not automatically
+share the current scene.
 
 ## Use it in chat (`@studium`)
 

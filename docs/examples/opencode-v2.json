@@ -1,0 +1,14 @@
+{
+  "mcp": {
+    "servers": {
+      "studium": {
+        "type": "local",
+        "command": ["node", "/ABS/PATH/studium/apps/studium-vscode/dist/lesson-mcp.cjs"],
+        "environment": {
+          "BUNDLES_ROOT": "/ABS/PATH/studium/fixtures",
+          "LITELLM_BASE_URL": ""
+        }
+      }
+    }
+  }
+}

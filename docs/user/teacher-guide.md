@@ -1,179 +1,136 @@
-# Guide enseignant — Studium démo M6
+# Guide enseignant
 
-> Studium v1 démo — chimie atomistique L1 SV.
+Studium aide à construire un parcours où objectifs, prérequis, preuves et
+évaluation sont inspectables. Votre rôle est de décider ce qui doit être appris,
+ce que les sources permettent d'affirmer et ce qui peut être présenté aux étudiants.
+Un plan techniquement valide reste un **brouillon** tant que vous ne l'avez pas relu.
 
-## 1. Prérequis
+## Onboarding recommandé
 
-- Studium installé (`pnpm install`, Python ≥ 3.12, Rust ≥ 1.95 stable).
-- Services Python en éditable :
-  ```bash
-  pip install -e services/planner services/scene-synth services/analytics-collector
-  ```
-- (Optionnel) Perspicacité MCP configuré pour enrichissement bibliographique.
+1. Installer les outils Node et Python du [guide commun](../getting-started/installation.md).
+2. Essayer la [première séance étudiante](../tutorials/first-lesson.md) pour voir
+   ce que l'apprenant reçoit réellement.
+3. Choisir son [harnais](../getting-started/harnesses-and-api.md).
+   L'[avantage Copilot enseignant](../getting-started/copilot.md) est distinct de
+   Copilot Student ; aucun fournisseur backend supplémentaire n'est nécessaire
+   au tutoriel de création par le harnais.
+4. Faire le [tutoriel article → brouillon → MySTRA](../tutorials/literature-to-course.md).
+5. Définir un pilote : public, prérequis, durée, question de jugement, règles
+   d'exploration, matériaux autorisés et mode de restitution.
 
-## 2. Workflow auteur
+Pour une classe, fournir un bundle et ses assets de même révision, les consignes
+étudiantes et une voie de secours si le compte du harnais ou Internet échoue.
+Commencer par quelques utilisateurs et vérifier la séance sur leurs machines.
+L'installation VSIX peut simplifier la distribution du panneau ; elle ne remplace
+pas la distribution des cours ni leur validation.
 
-### 2.1 Ingestion d'un corpus pédagogique
+## Concevoir l'activité
 
-Place tes documents source dans un dossier :
+Définir une question qui demande plus qu'une sortie calculée. Par exemple :
+« Une similarité spectrale élevée suffit-elle à identifier une molécule ? »
+Puis distinguer : concept à comprendre, tâche à réaliser, observation attendue,
+limite à discuter et cas nouveau pour vérifier le transfert.
 
-```
-mon-corpus/
-  cours.pdf
-  td.pdf
-  articles/*.pdf
-```
+Prompt de cadrage :
 
-Lance le planner :
+> Prépare un brouillon Studium pour [public], en [durée], sur [question].
+> Utilise seulement les passages et matériaux identifiés dans le dossier.
+> Sépare résultats de l'article, hypothèses et données synthétiques. Propose une
+> prédiction avant exécution, une comparaison et une question de transfert.
+> Signale les preuves manquantes. Ne marque rien comme approuvé et n'invente
+> aucun résultat de capsule. Respecte le schéma fourni par le packet.
 
-```bash
-curl -X POST http://localhost:8001/plan \
-  -H "Content-Type: application/json" \
-  -d '{
-    "corpus_path": "mon-corpus/",
-    "target_level": "L1",
-    "duration_minutes": 45,
-    "language": "fr",
-    "discipline": "chimie atomistique"
-  }'
-```
+La revue porte sur l'exactitude des liens source/scène, les prérequis proposés,
+la charge cognitive, les critères d'évaluation et les représentations. Une
+citation exacte peut être mal interprétée ; un score ou un hash ne remplace pas
+votre lecture. Tester aussi un élève hésitant, une réponse partiellement juste,
+un outil indisponible et un résultat nul.
 
-Le service `planner` retourne un `lesson-plan.json` (schema 1.4) qui inclut :
-- Plan structuré (objectifs, scènes, concepts)
-- Critique automatique (`CriticAgent`)
-- Enrichissement bibliographique optionnel (Perspicacité refs + ABS asset)
+## Relire avec MySTRA
 
-### 2.2 Configuration du blueprint d'évaluation
+Le [tutoriel littérature](../tutorials/literature-to-course.md) produit `astra.yaml`
+et `course_provenance.myst.md`. L'Observatory sert ces dossiers localement :
 
-Le blueprint définit la pondération des 4 dimensions ADR 013 :
-
-- Connaissance & application
-- Pensée critique / raisonnement
-- Métacognition / autonomie
-- Littératie IA
-
-Par défaut, pondération équilibrée (25/25/25/25). Modifiable via UI auteur ou
-édition directe du `lesson-plan.json` (champ `assessment_blueprint`).
-
-### 2.3 Génération du bundle
-
-```bash
-curl -X POST http://localhost:8002/scenes/synthesize \
-  -H "Content-Type: application/json" \
-  --data @lesson-plan.json
+```sh
+.venv/bin/python services/observatory/observatory_app.py --course-root /ABS/PATH/courses --port 8004
 ```
 
-Produit `lesson-bundle.json` (schema 1.4) consommé par le runtime étudiant.
+Ouvrir `http://127.0.0.1:8004/courses/spectral-evidence/mystra` pour l'exemple.
+Examiner les analyses, décisions, preuves liées et points à relire. MySTRA
+présente la provenance ; il n'exécute pas le code décrit et ne transforme pas
+un draft en cours approuvé. Voir le [guide de revue](../guides/mystra-reviewer.md).
+Ce serveur local n'est pas un portail de classe authentifié à exposer sur Internet.
 
-### 2.4 Export
+## Interface auteur et API : état actuel
 
-```bash
-zip -r demo-bundle.zip lesson.json abs-capsule/
+L'interface auteur existe, mais ne constitue pas encore un assistant de publication
+continu pour le nouveau parcours littérature. Pour l'inspecter :
+
+```sh
+pnpm --filter @studium/author-web dev
 ```
 
-Bundle distribuable aux étudiants (USB, LAN, ou téléchargement).
+Ouvrir `http://localhost:3000`. La page d'entrée attend un PDF ; elle appelle
+l'ingestion puis le planner. Le client utilise les paramètres suivants :
 
-## 3. Lecture du dashboard
-
-Lance le dashboard :
-
-```bash
-cd apps/teacher-dashboard
-pnpm dev  # port 3001
-```
-
-Ouvre `http://localhost:3001`.
-
-### 3.1 Vue Journal
-
-Liste des entrées libres rédigées par les étudiants — un support d'engagement
-métacognitif (le modulateur de métacognition est **M3** ; cf.
-`docs/ontology/modulators.md` pour le vocabulaire réconcilié).
-Indicateurs : nombre d'entrées par étudiant, dispersion, mots-clés fréquents.
-
-**Comment l'interpréter** : un étudiant qui écrit ≥ 2 entrées par leçon avec
-vocabulaire technique correct manifeste un engagement métacognitif solide.
-Si 0 entrée, l'étudiant n'a pas rédigé de journal — vérifier les
-adaptation_hooks de la leçon.
-
-### 3.2 Vue Blueprint radar
-
-Radar à 4 dimensions, valeurs 0–1, par étudiant ou agrégat classe.
-
-**Comment l'interpréter** :
-- Lobe asymétrique = profil pédagogique typé (ex: forte connaissance,
-  faible métacognition → tendance à mémoriser sans réfléchir).
-- Lobe équilibré et large = maîtrise transversale.
-- Lobe étroit = lacunes globales — revoir le plan.
-
-### 3.3 Vue Coopération (analytics-only en v1)
-
-Le mode LAN coopératif M4 est **différé** dans la v1 démo. La vue affiche
-néanmoins les statistiques agrégées disponibles (taux de désaccord productif
-si données récoltées sur d'autres sessions).
-
-### 3.4 Vue Evidence (`scenes_with_evidence`)
-
-Métrique calculée par `compute_progress_metrics` : `N/M` scènes ont au moins
-1 référence bibliographique ou asset ABS.
-
-**Comment l'interpréter** : ratio élevé = leçon bien sourcée, étudiants
-exposés à des contenus traçables. Ratio faible = bundle peut être enrichi
-au prochain `/plan` en activant l'enrichissement evidence.
-
-**Activer l'enrichissement Perspicacité (live KB)** — deux drapeaux sont requis :
-`STUDIUM_EVIDENCE_ENRICH=on` (active l'étape d'enrichissement) **et**
-`STUDIUM_PERSPICACITE_ENABLED=on` (active le client MCP Perspicacité live).
-Configurer aussi `PERSPICACITE_MCP_URL` (défaut `http://localhost:8000/mcp`) et
-`PERSPICACITE_DOMAIN_KB` (la KB de domaine interrogée). Sans le second drapeau,
-l'étape d'enrichissement tourne mais n'attache aucune référence (client = `None`).
-Mettre `STUDIUM_PERSPICACITE_MODE=mock` pour un enrichissement déterministe hors-ligne.
-
-## 4. Interprétation pédagogique
-
-### 4.1 Trajectoire longitudinale
-
-`/metrics/concept-mastery-history` retourne pour chaque concept-clé une série
-temporelle Beta(α, β) reflétant l'évolution de la maîtrise.
-
-**Cas typique** : un étudiant qui démontre la maîtrise de "Structure de
-l'atome" en session 1 voit Beta(α=5, β=1) → α élevé. En session 2, l'adaptation
-le pousse directement vers des questions de plus haut niveau Bloom (analyze)
-plutôt que rejouer les bases.
-
-### 4.2 Index littératie IA (`ai_literacy_index`)
-
-Score psychométrique 0–1 basé sur les réponses `ai_critique`. Voir ADR 011
-pour la formule complète et les limites psychométriques.
-
-**Usage formatif uniquement v1** — ne pas utiliser en évaluation certificative.
-
-## 5. Troubleshooting
-
-| Symptôme | Cause probable | Solution |
+| Service | Valeur par défaut | Variable lue par le navigateur |
 |---|---|---|
-| Dashboard vide | Collector pas démarré | `cd services/analytics-collector && uvicorn analytics_collector_app:app --port 8003` |
-| Bundle refusé par runtime | Schema version != 1.4 | Régénérer via scene-synth, vérifier `schema_version` |
-| Étudiant ne voit pas evidence | Bundle pré-1.4 | Régénérer avec `STUDIUM_EVIDENCE_ENRICH=on` |
-| Perspicacité MCP fail | Pas configuré | Optionnel — graceful skip dans `EvidenceEnricher` |
-| Besoin de relire la provenance ASTRA ou un run d'évaluation | Le dashboard est une surface apprenant, pas une vue opérateur | Observatory en local, port 8004 : `python services/observatory/observatory_app.py` — lecture seule, jamais exposé aux apprenants (voir `docs/guides/observatory.md`) |
+| Ingestion | `http://localhost:8000` | `NEXT_PUBLIC_INGEST_SERVICE_URL` |
+| Planner | `http://localhost:8001` | `NEXT_PUBLIC_PLANNER_SERVICE_URL` |
+| Synthèse | `http://localhost:8002` | `NEXT_PUBLIC_SCENE_SYNTH_SERVICE_URL` |
 
-## 6. Limites connues v1
+Les services doivent être configurés séparément. Pour inspecter les API locales
+avec le venv installé, utiliser deux terminaux depuis la racine :
 
-- **Coopératif LAN M4 différé** : pas démontré dans la v1 démo. Brainstorm
-  dédié post-M6 nécessaire.
-- **Tableau périodique interactif** : statique en v1 (souhait auteur différé M7+).
-- **macOS Tauri test WDIO** : impossible (tauri-driver Linux/Windows only).
-  Tests E2E via CI Linux (workflow D.5).
-- **D.1 validation humaine M3** : reste un blocage rule 003 indépendant — la
-  démo M6 ne lève pas ce gate.
-- **Evidence editing UI auteur** : pas dans la v1, manuel via édition JSON.
+```sh
+.venv/bin/python -m uvicorn ingest_app:app --app-dir services/ingest --host 127.0.0.1 --port 8000
+```
 
-## 7. Pour aller plus loin
+```sh
+.venv/bin/python -m uvicorn planner_app:app --app-dir services/planner --host 127.0.0.1 --port 8001
+```
 
-- Spec démo détaillée : `docs/user/demo-script-m6.md` (section 7 du présent guide peut servir de script de démo court — `demo-script-m6.md` dédié optionnel et différé M7 si pas le temps).
-- ADR principales :
-  - Lesson schema v1.4 : `.memory/decisions/003_lesson-schema-v1.md`
-  - Evidence enrichment v1 : `.memory/decisions/014_evidence-enrichment-v1.md`
-  - Assessment blueprint v1 : `.memory/decisions/013_assessment-blueprint-v1.md`
-- Architecture : `architecture/lesson-schema.md`, `architecture/adaptation-model.md`
+Une API joignable au terminal ne suffit pas pour le navigateur : le planner ne
+configure pas CORS pour le POST JSON direct depuis `localhost:3000`. Sans proxy
+ou middleware approprié, le flux navigateur est bloqué. Le parcours packet/MySTRA
+reste l'entrée reproductible recommandée. Ces commandes inspectent les services ;
+elles ne constituent pas une installation complète de l'interface auteur.
+
+Le corps minimal de `POST /plan` est :
+
+```json
+{"manifest_id":"demo-local","target":"L1"}
+```
+
+La réponse est un `PlanResponse` contenant le plan, marqué `critic_reviewed`.
+Ce statut ne vaut pas validation humaine. Dans `/plan/{id}`, l'interface permet
+l'édition du titre du plan et des titres de scènes. **Valider et exporter**
+marque le plan `approved`, renseigne `validated_by` et télécharge le JSON ;
+ce bouton ne persiste pas une approbation serveur et ne déclenche pas la synthèse.
+L'édition du blueprint d'évaluation n'est pas exposée dans cette page.
+
+Le contrat de `POST /scenes/synthesize` attend un objet contenant `lesson_plan`,
+pas le plan brut. Mais démarrer simplement `scene_synth_app:app` laisse son
+orchestrateur non configuré et cette route répond 503. Une intégration de service
+est nécessaire avant de présenter cette étape comme utilisable par un enseignant.
+Le schéma de requête ne constitue pas non plus une barrière d'approbation.
+Voir [le service](../../services/scene-synth/scene_synth_app.py) et
+[les schémas](../../services/scene-synth/scene_synth_schemas.py).
+
+Le brouillon produit par `experience_packet.py` n'a pas encore d'import intégré
+qui préserve le plan jusqu'à l'approbation et la synthèse. Ne pas relancer une
+génération en prétendant avoir approuvé exactement le même plan. Cette continuité
+est une capacité à compléter, explicitement séparée des recettes exécutables ici.
+
+## Organiser une expérience et sa restitution
+
+Autoriser un périmètre concret : données, commandes, dépendances, accès web,
+contrôles interactifs et durée. Une variation d'affichage des matériaux existants
+peut rester dans l'activité ; de nouvelles affirmations ou scènes générées doivent
+être relues avant diffusion. Le prototype n'automatise pas toute cette distinction.
+
+Le [tutoriel agentique](../tutorials/agentic-experiment.md) propose un déroulement
+et un reçu local. Demander à l'étudiant sa prédiction, les différences observées,
+une limite et un test de transfert. Une sortie de l'agent n'est pas une preuve
+que l'étudiant a compris. Garder les observations nominatives hors du dépôt public.
+La [fiche confidentialité](../privacy-and-limits.md) précise les frontières.

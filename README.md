@@ -20,6 +20,18 @@
 
 The motivating problem: AI can now generate a "course" from a pile of documents in seconds. But a generated course is only trustworthy if you can see *why* it teaches what it teaches, *what evidence* grounds each prerequisite, and *whether a learner actually demonstrated mastery* — not just clicked through. Studium makes those things first-class.
 
+## Documentation and first use
+
+Start with the **[documentation portal](docs/README.md)** (French), including
+[student onboarding](docs/user/student-guide.md), [teacher onboarding](docs/user/teacher-guide.md),
+[Copilot Student setup](docs/getting-started/copilot.md), other harnesses/API, and
+step-by-step tutorials for literature-grounded courses and agentic experiments.
+The [feature status](docs/features.md) separates working paths from integration gaps.
+
+For a first local lesson without a backend API key, follow the
+[installation guide](docs/getting-started/installation.md). The evaluation harness
+below is a developer research workflow, not the student onboarding path.
+
 ## The core idea: a course is a Learning Workflow Graph
 
 The backbone of every Studium course is a **Learning Workflow Graph (LWG)** — a typed DAG that decomposes teaching into:
@@ -59,7 +71,7 @@ LessonBundle  +  Learning Workflow Graph  +  Universes (baseline / remedial)  + 
 a learner session: prerequisite-gated navigation · remediation · hints · calibration · mastery
    │
    ▼
-local, RGPD-safe "demonstrates_mastery_of" claims  +  a HITL course audit report
+local-first "demonstrates_mastery_of" claims  +  a HITL course audit report
 ```
 
 **Runtime adaptivity that *acts* (not just configured):**
@@ -70,14 +82,14 @@ local, RGPD-safe "demonstrates_mastery_of" claims  +  a HITL course audit report
 - **Metacognition (M3)** — declared confidence is compared to real performance; over-/under-confidence is surfaced.
 - **Prerequisite-gated remediation (M6)** — unmet prerequisites route to remediation and repeated struggle escalates the support universe; `explainLast()` surfaces why the system did what it did.
 - **Modulator vocabulary** — the reconciled M-series (only **M1, M3, M6** are active tags; see [`docs/ontology/modulators.md`](docs/ontology/modulators.md)).
-- **Privacy (RGPD / ADR-006)** — learner mastery is **local-only**, pseudonymized, and a real `forget()` erases it; shared telemetry carries refs/scalars only, never free text.
+- **Privacy boundaries** — local learner state, pseudonymization and explicit forgetting are part of the runtime design. Storage depends on the client/configuration; harness history and exported experiments have separate retention. See [privacy and limits](docs/privacy-and-limits.md) before a class pilot.
 
-## Quickstart — test a real course end to end (no frontend)
+## Developer evaluation harness (no frontend)
 
 The fastest way to see Studium is the **backend eval harness**: it takes a real university course material, runs the whole pipeline, simulates a live agentic-AI ↔ student interaction, and runs an **auditing studio** that scores the course + the run and emits refinement feedback.
 
 ```bash
-cd prototype-build
+# From the root of your Studium checkout
 pnpm install            # workspace (TypeScript runtime)
 python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 
