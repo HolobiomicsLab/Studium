@@ -6,7 +6,7 @@
 // scene + get_scene_artifacts and posts them to the pane; the pane posts the learner's responses
 // back, which the extension feeds to submit_response / request_hint.
 import * as vscode from "vscode";
-import { readFileSync, existsSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
 import { connectLessonMcp, resolveServerLaunch, setLessonMcpLog } from "./mcp-connect.js";
@@ -20,6 +20,7 @@ import { calibrationVerdicts, type CalibrationVerdict } from "./calibration.js";
 import { runManifestToTaskSpec, buildRunResult, extractLandmark, type RunManifest, type RunResult } from "./run-task.js";
 import { StudiumTreeProvider } from "./tree.js";
 import type { CommunityItem } from "./lesson-tree.js";
+import { inlineImageAsset } from "./asset-path.js";
 
 type Json = Record<string, any>;
 
@@ -391,17 +392,6 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
     } catch { /* the graph is best-effort; never let it break the lesson */ }
   };
 
-  // Resolve a figure path on disk into a webview-safe data URI so <img> renders under the CSP.
-  // (Text artifacts — orbital .cube, spectrum, molecule — are inlined server-side by get_scene_artifacts.)
-  const inlineImage = (a: Json) => {
-    if (!a.path || a.kind !== "image" && a.kind !== "executed_result") return a;
-    try {
-      const b64 = readFileSync(a.path).toString("base64");
-      const ext = (a.path.split(".").pop() || "png").toLowerCase();
-      return { ...a, dataUri: `data:image/${ext === "jpg" ? "jpeg" : ext};base64,${b64}` };
-    } catch { return a; }
-  };
-
   const pushScene = async (presentation: Json, explanation?: Json) => {
     const artifacts = (await call("get_scene_artifacts", { session_id: sid })).scene_assets || [];
     if (panelDisposed) return;
@@ -423,7 +413,10 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
       type: "render",
       // Modality-adaptive: reorder + emphasis-tag the (image-inlined) assets for the learner's
       // preference before posting. 'balanced' returns the authored order unchanged, all 'normal'.
-      scene_assets: selectRenderOrder(artifacts.map(inlineImage), modalityPref),
+      scene_assets: selectRenderOrder(
+        artifacts.map((asset: Json) => inlineImageAsset(bundlesRoot, bundleRef, asset)),
+        modalityPref,
+      ),
       modalityPreference: modalityPref,
       scene: presentation.scene,
       progress: { index: (presentation.index ?? 0) + 1, total: presentation.total },

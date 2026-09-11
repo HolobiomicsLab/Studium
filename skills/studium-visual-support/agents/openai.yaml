@@ -1,0 +1,4 @@
+interface:
+  display_name: "Studium · Supports visuels"
+  short_description: "Figures sourcées et explications adaptées à la scène"
+  default_prompt: "Utilise $studium-visual-support pour expliquer cette figure et préparer un support adapté à mes connaissances, sans répondre à ma place."

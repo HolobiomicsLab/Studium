@@ -2600,3 +2600,25 @@ mobile and A4 print inspected; historical export unchanged. These are synthetic
 technical tests, not student trials or a complete accessibility certification.
 No push, release, scientific acceptance, model call or private learner data.
 INT048 visual-support skill and figure-path fix are a separate slice.
+
+## 2026-09-12 — INT048 grounded visual support and directory figures
+
+Added studium-visual-support with project-local Claude/Codex discovery, capability
+matrix, differentiation workflow, original Mermaid source and RenderAsset example.
+Inspected upstream Lightcone audience-aware-skills and official OpenAI vision/image
+editing docs. No global communication profile, model account or provider installed.
+Automatic paper/ASB import, ZIP media transport, native Mermaid and private-history
+adaptation remain explicitly designed follow-ups, not claimed shipped.
+
+VS Code pane now uses the notebook's shared asset-path logic for image and
+executed_result. Canonical confinement accepts relative/in-bundle absolute paths;
+external absolute files must be copied into the lesson. Traversal/symlink escapes
+and missing files keep the existing fallback. Preserved nested-bundle coverage,
+added a real PNG and a valid two-dot filename regression; general containment
+checks parent path components rather than a broad string prefix.
+
+Sol-high leaf's final package test, typecheck and build pass (12 registered
+drivers,16 asset-path assertions). Existing CJS import.meta build warning remains.
+Skill frontmatter validates and relative guide links resolve. No real signed-in
+VS Code session, image-generation call, real student trial or learning-effect
+claim. Common RenderAsset, ASTRA/ARA and learner action formats remain unchanged.

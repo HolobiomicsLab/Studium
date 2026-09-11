@@ -10,6 +10,7 @@ Leurs sources sont versionnées dans `skills/` du dépôt Studium.
 | `studium-student` | Installation étudiante, choix du harnais et première activité | « J'ai Copilot Student ; aide-moi à démarrer le cours. » |
 | `studium-harness` | Boucle MCP/fichier, réponses personnelles, runs et exploration | « Pilote cette séance et attends mes réponses. » |
 | `studium-activity-templates` | Choisir et adapter une activité interactive liée à la scène | « Fais-moi explorer ce résultat avec un template. » |
+| `studium-visual-support` | Figure sourcée, carte conceptuelle ou explication visuelle adaptée | « Explique cette figure en tenant compte de ce que je connais déjà. » |
 | `studium-learner-report` | Export local et revue des actions choisies dans ASTRA/MySTRA | « Prépare mon rapport sans inclure mes textes privés. » |
 
 ## Les utiliser dans un clone du projet

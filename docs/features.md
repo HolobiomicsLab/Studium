@@ -120,3 +120,7 @@ volontairement et/ou un journal choisi en une copie locale ASTRA/MySTRA. Les
 formats communs. Les textes personnels sont exclus par défaut. Cette trace
 partielle ne prouve ni l’absence d’aide, ni l’apprentissage, ni l’identité de son
 auteur. Elle ne soumet pas de réponse et ne modifie pas la maîtrise des concepts.
+
+## Supports visuels et différenciation par le harnais
+
+Le [guide dédié](guides/adaptive-visual-support.md) distingue les médias déjà rendus, les imports PDF/ASB encore incomplets et le workflow de génération externe. Le skill `studium-visual-support` prépare une aide sourcée à partir de la scène et des besoins exprimés ; il ne constitue pas un moteur automatique de personnalisation. Les viewers partagent une [charte sobre](design/viewer-charter.md).
