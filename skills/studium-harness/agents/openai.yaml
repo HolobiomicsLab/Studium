@@ -1,0 +1,4 @@
+interface:
+  display_name: "Studium · Harnais"
+  short_description: "Piloter une séance et ses expériences par MCP"
+  default_prompt: "Utilise $studium-harness pour piloter cette séance en attendant mes propres réponses."

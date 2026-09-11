@@ -1,0 +1,4 @@
+interface:
+  display_name: "Studium · Étudiant"
+  short_description: "Installer Studium et commencer une activité"
+  default_prompt: "Utilise $studium-student pour connecter mon harnais et commencer ma première activité Studium."

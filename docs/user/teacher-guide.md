@@ -1,5 +1,8 @@
 # Guide enseignant
 
+Pour être accompagné par votre agent, utiliser le skill `studium-teacher` ;
+voir [activation et exemples](../getting-started/skills.md).
+
 Studium aide à construire un parcours où objectifs, prérequis, preuves et
 évaluation sont inspectables. Votre rôle est de décider ce qui doit être appris,
 ce que les sources permettent d'affirmer et ce qui peut être présenté aux étudiants.

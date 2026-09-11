@@ -2389,3 +2389,20 @@ Sol's incorrect lesson-plan-schema editable-install suggestion was rejected:
 lesson-schema has pyproject.toml; lesson-plan-schema is injected by the tool and
 has no installable project. The fresh venv recipe and tutorials already passed.
 No paid model call, push, Pages, release, visibility change or student publication.
+
+# 2026-09-11 — Reusable onboarding skills (INT041 follow-up)
+
+Added studium-teacher and studium-student with short role-specific procedures,
+links to the maintained guides, observable completion and no assumed provider.
+Updated the existing studium-harness source for portable root/server discovery,
+Copilot/Codex routes, learner-owned confidence and intentional forgetting only.
+Added three Codex UI metadata files and six relative discovery symlinks under
+.agents/skills and .claude/skills; no duplicated operational skill source.
+Public skills activation/invocation guide linked from portal and role guides.
+
+Three official skill validators pass, 21 skill references and six project aliases
+resolve, UI metadata checked. MCP14 and file stub4 pass in the separately installed
+docs worktree. No product/test edit, API call, student session or publication.
+Personal links are added only when missing after canonical integration; existing
+studium-harness links remain untouched. Client catalogue refresh may require a
+new session; automatic discovery in every authenticated client is not claimed.

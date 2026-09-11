@@ -1,5 +1,8 @@
 # Guide étudiant
 
+Pour être accompagné par votre agent, utiliser le skill `studium-student` ;
+voir [activation et exemples](../getting-started/skills.md).
+
 Dans Studium, tu peux demander à l'IA d'expliquer un outil, de préparer un calcul
 ou de construire un graphique. **Ta prédiction, ton raisonnement et ta conclusion
 restent les tiens.** Le parcours utilise tes réponses pour choisir la suite et

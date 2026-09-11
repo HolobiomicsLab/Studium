@@ -23,6 +23,9 @@ ses permissions ; ces pages n'annoncent ni publication publique ni version stabl
 | Garder mon agent habituel | [Harnais et API](getting-started/harnesses-and-api.md) | Configuration adaptée au client choisi |
 | Comprendre le produit | [Fonctionnalités et maturité](features.md) | Ce qui fonctionne et ce qui reste expérimental |
 
+Les [skills prêts à utiliser](getting-started/skills.md) accompagnent ces parcours :
+`studium-teacher`, `studium-student` et `studium-harness`.
+
 ## Apprendre par la pratique
 
 1. [Première séance](tutorials/first-lesson.md) : découvrir les outils, lire une scène,
