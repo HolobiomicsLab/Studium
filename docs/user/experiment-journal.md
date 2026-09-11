@@ -69,6 +69,9 @@ bundle content, learner ID, data directory and `STUDIUM_PSEUDO_SECRET`, using
 either MCP or files. The resumed session has a new session ID. A changed bundle
 opens a different journal; the prior record is not silently relabelled.
 Without a data directory the journal is **ephemeral**, as its `storage` field says.
+Shared default identities (`anonymous`, `agent-operator`) and blank IDs also keep
+journals ephemeral. For durable use choose an explicit, stable ID unique to the
+learner in this local installation; never reuse one ID for a whole class.
 
 The learner's `forget` operation erases the host's journals for all revisions of
 this lesson. Copies already exported to a harness folder or conversation are

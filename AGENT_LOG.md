@@ -2430,3 +2430,10 @@ A red-first canonical-key vector showed localeCompare ordered uppercase/lowercas
 keys differently from the portable code-unit order. Test committed3948dc6; revision
 hashing now uses explicit lexical comparison. Journal+host8 tests pass unchanged.
 This is pre-release work; no real learner journal was migrated or relabelled.
+
+## INT044 review correction — anonymous session privacy
+
+A red-first host test23add6f reproduced private journal persistence under the shared
+anonymous identity. Anonymous, agent-operator and blank IDs now remain ephemeral;
+unique stable learner IDs are required for durable contributions. The existing
+grading/profile behavior is unchanged. Host experiment4 and type build pass.

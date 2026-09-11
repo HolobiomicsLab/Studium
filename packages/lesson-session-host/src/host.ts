@@ -484,7 +484,9 @@ export class SessionHost {
       const probe = buildHostDeps(this.opts.live);
       const pseudonym = await probe.pseudonym.get(learnerId, bundle.bundle_id);
       const scopeDir = durableScopeDir(dataDir, pseudonym, bundle.bundle_id);
-      journalDirectory = join(scopeDir, "experiments");
+      // Shared default identities must not carry raw learner text into another session.
+      if (learnerId.trim() && learnerId !== "anonymous" && learnerId !== "agent-operator")
+        journalDirectory = join(scopeDir, "experiments");
       deps = buildHostDeps(this.opts.live, scopeDir);
       // #3 RESUME: load any prior LearnerState for this (pseudonym, bundle_id). FileStateStore.load
       // returns null on missing/parse-error, so a fresh learner falls back to defaultLearnerState.
