@@ -19,10 +19,15 @@ import argparse
 import os
 import sys
 from dataclasses import asdict
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+from contextual_help import help_tip
 
 from observatory_config import (
     DEFAULT_HOST,
@@ -58,6 +63,7 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
     app.state.cfg = cfg
     app.state.validation = ValidationCache(cfg.validator_timeout)
     templates = Jinja2Templates(directory=[str(TEMPLATES_DIR), str(THEME_DIR)])
+    templates.env.globals["help_tip"] = lambda topic: Markup(help_tip(topic, "teacher"))
 
     def inventory() -> Inventory:
         return discover(app.state.cfg)

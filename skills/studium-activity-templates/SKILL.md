@@ -79,3 +79,12 @@ Collect the learner's observation, then discuss and collect their conclusion.
 For a requested report, use [studium-learner-report](../studium-learner-report/SKILL.md).
 Do not infer consent to share text from consent to store a journal. Preserve the
 chosen harness; these templates require no second model account or API provider.
+
+## Keep the method understandable
+
+Prepared templates already include shared `?` explanations. For custom viewers,
+reuse `ui/context-help.json` and the [shared renderers](../../docs/guides/contextual-help.md):
+place relevant help beside the objective, prediction, comparison, confidence and
+conclusion. Keep essential instructions visible. Explain what/why/objective/source,
+with student and teacher perspectives, without injecting answer keys or fabricating
+learning benefits. Preserve the current language and do not log help openings.

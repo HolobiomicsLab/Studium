@@ -142,3 +142,11 @@ applicable. MCP and file sessions carry an editable presentation-language policy
 for the active harness. GUI translations use packaged dictionaries; this does not
 automatically localize all legacy interfaces or call a translation/image API.
 See [the tutorial](guides/language-and-scientific-presentation.md).
+
+## Expliquer les méthodes pendant l’usage
+
+Les contrôles `?` donnent des explications pour enseignants et étudiants : objectif,
+prédiction, confiance, preuves, adaptation, traces et provenance. Catalogue EN/FR
+commun aux activités, viewers, rapports, interfaces web et panneau VS Code.
+Voir [couverture, exemples et intégration](guides/contextual-help.md). Les textes
+expriment l’intention pédagogique ; ils ne certifient pas les bénéfices du prototype.

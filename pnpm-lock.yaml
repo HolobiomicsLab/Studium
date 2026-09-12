@@ -29,6 +29,9 @@ importers:
 
   apps/author-web:
     dependencies:
+      '@studium/activity-presentation':
+        specifier: workspace:*
+        version: link:../../packages/activity-presentation
       next:
         specifier: 14.2.29
         version: 14.2.29(@babel/core@7.29.0)(@playwright/test@1.59.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -128,6 +131,9 @@ importers:
 
   apps/student-runtime:
     dependencies:
+      '@studium/activity-presentation':
+        specifier: workspace:*
+        version: link:../../packages/activity-presentation
       '@studium/adaptation-engine':
         specifier: workspace:*
         version: link:../../packages/adaptation-engine
@@ -283,6 +289,9 @@ importers:
 
   apps/teacher-dashboard:
     dependencies:
+      '@studium/activity-presentation':
+        specifier: workspace:*
+        version: link:../../packages/activity-presentation
       next:
         specifier: ^14.2
         version: 14.2.29(@babel/core@7.29.0)(@playwright/test@1.59.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -316,7 +325,14 @@ importers:
         version: 2.1.9(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0)
 
   packages/activity-presentation:
+    dependencies:
+      react:
+        specifier: ^18.3.0
+        version: 18.3.1
     devDependencies:
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.28
       esbuild:
         specifier: 0.21.5
         version: 0.21.5

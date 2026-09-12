@@ -1,3 +1,5 @@
+import { ContextHelp } from "@studium/activity-presentation/react";
+import "../../../ui/context-help.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -12,7 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header style={{ borderBottom: "1px solid #ddd", marginBottom: "1.5rem", paddingBottom: "0.75rem" }}>
           <h1 style={{ margin: 0, fontSize: "1.4rem" }}>Studium — Author Studio</h1>
         </header>
-        <main>{children}</main>
+        <main><ContextHelp topic="review" audience="teacher" />{children}</main>
       </body>
     </html>
   );

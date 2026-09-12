@@ -284,3 +284,12 @@ calls. The demo is not a paper replication or evidence of educational efficacy.
 `docs/guides/agent-harness-matrix.md` · `docs/agentic-session-protocol.md` ·
 `apps/lesson-mcp/scripts/headless_smoke.mjs` · `apps/lesson-mcp/src/session-runner-cli.ts` ·
 `apps/lesson-mcp/src/llm-operator-demo.ts` · `eval/README.md` · `docs/adr/0001-astra-analyses-shape-and-ara-trace.md`.
+
+## Explain unfamiliar methods
+
+At first use, briefly explain the learner's role and why the next step is proposed.
+Reuse the authored `ui/context-help.json` topic matching the public scene type;
+see [contextual help](../../docs/guides/contextual-help.md). Use the requested language,
+offer more detail on demand and keep explanations generic enough not to reveal
+expected answers. State the objective and source/limits, not a promised learning
+gain. Help reading is not a submitted learner action or evidence of understanding.

@@ -19,7 +19,7 @@
 {%- endmacro %}
 
 {% block content %}
-<h1>Harness</h1>
+<h1>Harness</h1>{{ help_tip("harness") }}
 <p class="path">The agentic-session file protocol (<code>.studium-session/</code>), read-only.
 {% if detail.refresh_seconds %}This page refreshes every {{ detail.refresh_seconds }}s.
 {% else %}Automatic refresh is off.{% endif %}</p>

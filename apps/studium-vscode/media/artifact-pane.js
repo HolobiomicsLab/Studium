@@ -209,6 +209,8 @@
     const root = $("#pane"); root.innerHTML = "";
     const sc = state.scene || {};
     const head = el("div", { class: "scene-head" });
+    const help = document.getElementById("studium-help-" + sc.type);
+    if (help instanceof HTMLTemplateElement) head.append(help.content.cloneNode(true));
     const crumbs = el("div", { class: "crumbs" },
       el("span", { class: "stype" }, sc.type || ""),
       state.progress ? el("span", { class: "prog" }, `${state.progress.index}/${state.progress.total}`) : "");

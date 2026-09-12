@@ -12,6 +12,13 @@
     "jsdom": "29.1.1",
     "katex": "0.16.22",
     "mermaid": "11.17.2",
-    "smiles-drawer": "2.4.1"
+    "smiles-drawer": "2.4.1",
+    "@types/react": "^18.3.0"
+  },
+  "exports": {
+    "./react": "./ContextHelp.tsx"
+  },
+  "peerDependencies": {
+    "react": "^18.3.0"
   }
 }

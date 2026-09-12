@@ -19,7 +19,7 @@
 </p>
 {{ markers(course.absent) }}
 
-<h2>Analyses</h2>
+<h2>Analyses</h2>{{ help_tip("provenance") }}
 {% for analysis in course.analyses %}
 <h3>{{ analysis.slug }}{% if analysis.name %} — {{ analysis.name }}{% endif %}</h3>
 {% if analysis.description %}<p>{{ analysis.description }}</p>{% endif %}
@@ -68,7 +68,7 @@
 <p class="none">no analysis in this document</p>
 {% endfor %}
 
-<h2>Universes</h2>
+<h2>Universes</h2>{{ help_tip("universes") }}
 {% for universe in course.universes %}
 <h3>{{ universe.id }}</h3>
 {% if universe.description %}<p>{{ universe.description }}</p>{% endif %}
@@ -89,7 +89,7 @@
 <p class="none">no universe file</p>
 {% endfor %}
 
-<h2>Exploration trace</h2>
+<h2>Exploration trace</h2>{{ help_tip("trace") }}
 {% if course.trace_bullets or course.trace_mermaid %}
 <p class="path">schema version {{ course.trace_schema_version or "unknown" }}</p>
 {% if course.trace_bullets %}<pre>{{ course.trace_bullets }}</pre>{% endif %}
@@ -100,7 +100,7 @@
 <p class="none">no trace file</p>
 {% endif %}
 
-<h2>Review</h2>
+<h2>Review</h2>{{ help_tip("review") }}
 {% if course.review_summary %}
 <p>{{ course.review_summary.n_decisions }} reviewed decisions, {{ course.review_summary.n_non_pass }} not passing.</p>
 <table>

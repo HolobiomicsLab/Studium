@@ -1,3 +1,4 @@
+import { helpStyles, lessonHelpTemplates, graphHelp } from "./contextual-help.js";
 // extension.ts — Studium in VS Code.
 //
 // The extension host is an MCP client to the lesson-mcp server (the same server VS Code Copilot
@@ -535,12 +536,13 @@ function paneHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "
     : [media("vendor/katex/katex.min.js"), media("vendor/vega.min.js"), media("vendor/vega-lite.min.js"), media("vendor/vega-embed.min.js"),
        media("vendor/3Dmol-min.js")]
   ).map((src) => `<script defer nonce="${n}" src="${src}"></script>`).join("\n");
-  return `<!doctype html><html><head><meta charset="utf-8">
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <link rel="stylesheet" href="${media("artifact-pane.css")}">
 <link rel="stylesheet" href="${katexCss}">
 ${libs}
-</head><body><div id="pane"><div class="loading">⏳ Chargement de la leçon…</div></div>
+<style>${helpStyles}</style>
+</head><body>${lessonHelpTemplates()}<div id="pane"><div class="loading">⏳ Chargement de la leçon…</div></div>
 <script nonce="${n}" src="${media("artifact-pane.js")}"></script>
 </body></html>`;
 }
@@ -565,11 +567,12 @@ function graphHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | 
        "https://cdn.jsdelivr.net/npm/cytoscape-dagre@4.0.0/dist/cytoscape-dagre.js"]
     : [media("vendor/cytoscape.min.js"), media("vendor/dagre.min.js"), media("vendor/cytoscape-dagre.js")]
   ).map((src) => `<script defer nonce="${n}" src="${src}"></script>`).join("\n");
-  return `<!doctype html><html><head><meta charset="utf-8">
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <link rel="stylesheet" href="${media("graph-pane.css")}">
 ${libs}
-</head><body><div id="graph"></div><div id="legend"></div>
+<style>${helpStyles}</style>
+</head><body>${graphHelp()}<div id="graph"></div><div id="legend"></div>
 <script nonce="${n}" src="${media("graph-pane.js")}"></script>
 </body></html>`;
 }

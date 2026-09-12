@@ -135,6 +135,7 @@
 <style id="studium-theme">
 {% include "studium-theme.css" %}
 </style>
+<style id="studium-help-styles">{% include "context-help.css" %}</style>
 </head>
 <body class="studium-viewer" data-viewer="observatory">
 <a class="skip-link" href="#main">Skip to content</a>
@@ -145,13 +146,13 @@
   </nav>
   <span class="controls"><button type="button" onclick="foldAll(true)">expand all</button><button type="button" onclick="foldAll(false)">collapse all</button></span>
 </header>
-<main id="main" tabindex="-1">{% block content %}{% endblock %}</main>
+<main id="main" tabindex="-1">{{ help_tip("studium") }}{% block content %}{% endblock %}</main>
 <script>
-  function foldAll(open) { document.querySelectorAll("details").forEach(function (detail) { detail.open = open; }); }
+  function foldAll(open) { document.querySelectorAll("details:not(.studium-help):not(.studium-help-more)").forEach(function (detail) { detail.open = open; }); }
   let collapsedBeforePrint = null;
   window.addEventListener("beforeprint", function () {
     if (collapsedBeforePrint !== null) return;
-    collapsedBeforePrint = Array.from(document.querySelectorAll("details:not([open])"));
+    collapsedBeforePrint = Array.from(document.querySelectorAll("details:not([open]):not(.studium-help):not(.studium-help-more)"));
     collapsedBeforePrint.forEach(function (detail) { detail.open = true; });
   });
   window.addEventListener("afterprint", function () {
@@ -160,5 +161,6 @@
     collapsedBeforePrint = null;
   });
 </script>
+<script>{% include "context-help-runtime.js" %}</script>
 </body>
 </html>

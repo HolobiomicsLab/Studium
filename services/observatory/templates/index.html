@@ -15,7 +15,7 @@
 </div>
 {% endif %}
 
-<h2 id="courses">Courses</h2>
+<h2 id="courses">Courses</h2>{{ help_tip("review") }}
 {% if courses %}
 <table>
   <thead><tr><th>Course</th><th>Analyses</th><th>Decisions</th><th>Findings</th><th>Universes</th><th>Trace</th><th>Review</th><th>Validator</th></tr></thead>
@@ -40,7 +40,7 @@
 <p class="none">no course under the configured root</p>
 {% endif %}
 
-<h2 id="runs">Evaluation runs</h2>
+<h2 id="runs">Evaluation runs</h2>{{ help_tip("validity") }}
 {% if runs %}
 <table>
   <thead><tr><th>Run</th><th>Corpus</th><th>Author mode</th><th>Score</th><th>Findings</th><th>Personas <span class="synthetic">(synthetic)</span></th></tr></thead>
@@ -67,7 +67,7 @@
 <p class="none">no run under the configured eval root</p>
 {% endif %}
 
-<h2 id="validity">Validity suites</h2>
+<h2 id="validity">Validity suites</h2>{{ help_tip("validity") }}
 {% if suites %}
 <ul>
   {%- for suite in suites %}

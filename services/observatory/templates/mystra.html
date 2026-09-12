@@ -35,7 +35,7 @@
   </nav>
 
   <section class="report-section" id="overview">
-    <h2>Overview</h2>
+    <h2>Overview</h2>{{ help_tip("provenance") }}
     <div class="metric-grid" aria-label="Recorded course counts">
       <div class="metric"><span class="value">{{ s.n_analyses }}</span><span class="label">Analyses</span></div>
       <div class="metric"><span class="value">{{ s.n_decisions }}</span><span class="label">Course decisions</span></div>
@@ -55,7 +55,7 @@
   </section>
 
   <section class="report-section" id="analyses">
-    <h2>Analyses and evidence</h2>
+    <h2>Analyses and evidence</h2>{{ help_tip("evidence") }}
     {% for analysis in course.analyses %}
     <section class="analysis-card card">
       <h3>{{ analysis.slug }}{% if analysis.name %} — {{ analysis.name }}{% endif %}</h3>
@@ -96,7 +96,7 @@
   </section>
 
   <section class="report-section" id="universes">
-    <h2>Explored universes</h2>
+    <h2>Explored universes</h2>{{ help_tip("universes") }}
     {% for universe in course.universes %}
     <section class="analysis-card card">
       <h3>{{ universe.id or "(no universe id)" }}</h3>
@@ -112,7 +112,7 @@
   </section>
 
   <section class="report-section" id="trace">
-    <h2>Exploration trace</h2>
+    <h2>Exploration trace</h2>{{ help_tip("trace") }}
     {% if course.trace_bullets or course.trace_mermaid %}
       <p class="path">schema version {{ course.trace_schema_version or "unknown" }}</p>
       {% if course.trace_bullets %}<h3>Recorded path</h3><pre>{{ course.trace_bullets }}</pre>{% endif %}
@@ -121,14 +121,14 @@
   </section>
 
   <section class="report-section" id="reviews">
-    <h2>Review bundles</h2>
+    <h2>Review bundles</h2>{{ help_tip("review") }}
     <p class="lede">All discovered bundle reviews are reproduced below, including skipped scenes, incomplete twins, and the legacy flat layout. “Not judged” means no usable scene verdict was read; it does not mean pass.</p>
     {% for name, reason in review.absent.items() if name == "review" or name.startswith("review/") %}{{ markers({name: reason}) }}{% endfor %}
     {% for bundle in review.bundles %}<div class="table-scroll" tabindex="0" role="region" aria-label="Review bundle {{ bundle.bundle_id or loop.index }} tables">{{ reviews.render_bundle(bundle, markers, 3) }}</div>{% else %}<p class="none">no review under this course</p>{% endfor %}
   </section>
 
   <section class="report-section" id="integrity">
-    <h2>Record integrity</h2>
+    <h2>Record integrity</h2>{{ help_tip("validity") }}
     <p>ASTRA version <strong>{{ s.version or "unknown" }}</strong> · cached validator status <strong class="{{ validation.status }}">{{ validation.status|replace("_", " ") }}</strong>.</p>
     {% if course.absent %}
       <p>The reader reported {{ course.absent|length }} missing or unreadable artifact(s):</p>{{ markers(course.absent) }}

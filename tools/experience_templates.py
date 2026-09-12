@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from activity_presentation import load_presentation
+from contextual_help import add_contextual_help
 from exploration_public_context import validate_public_fields
 from learner_trace import activity_json_schema
 
@@ -653,7 +654,7 @@ def _render_viewer(activity: dict[str, Any], presentation: dict[str, Any] | None
     template = template.replace("/* PRESENTATION_DATA */", "const PRESENTATION = " + _safe_script_json(presentation) + ";")
     linked_core = LINKED_CORE_PATH.read_text(encoding="utf-8").replace("export ", "")
     data = f"const ACTIVITY = {_safe_script_json(activity)};\nconst ACTIVITY_SHA256 = \"{activity_digest(activity)}\";"
-    return template.replace("/* LINKED_CORE */", linked_core).replace("/* ACTIVITY_DATA */", data)
+    return add_contextual_help(template.replace("/* LINKED_CORE */", linked_core).replace("/* ACTIVITY_DATA */", data))
 
 
 def _task_markdown(activity: dict[str, Any], output_dir: Path) -> str:
@@ -676,6 +677,14 @@ Status: local draft built from public context; teacher review is still required.
 ## Learner sequence
 
 Ask the learner for their own prediction before revealing results. Let them inspect the supplied results, use the exposed controls or choices, record an optional observation and conclusion, then export only when they choose. Do not answer for the learner or infer missing events.
+
+## Explain the method
+
+The viewer's question-mark controls explain the purpose, student action, teacher rationale,
+limits and project source. Reuse `ui/context-help.json` for chat or custom viewers,
+in the learner's requested language. Give a brief explanation at first use and expand
+on request; never reveal an expected result to explain the method. Reading this help
+does not create a learner event. See `docs/guides/contextual-help.md`.
 
 ## Expected source inputs
 

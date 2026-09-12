@@ -676,7 +676,7 @@ def _table_region(label: str, headings: tuple[str, ...], rows: str) -> str:
     )
 
 
-def _render_html(report: LearnerReportDocument, activity: dict | None, journal: dict | None, myst: str) -> str:
+def _render_html_v2(report: LearnerReportDocument, activity: dict | None, journal: dict | None, myst: str) -> str:
     """Render the current themed, self-contained browser view."""
     assistance = "Recorded in the selected sidecar." if report.assistance_status == "recorded" else "Unknown: missing trace does not establish that no help occurred."
     activity_table = _table_region(
@@ -713,6 +713,19 @@ html{{scroll-behavior:smooth}}.skip-link{{position:fixed;z-index:100;top:.5rem;l
 <section class="report-section" id="journal"><h2>Host journal snapshot</h2>{journal_table}</section>
 <section class="report-section" id="source"><h2>Shared source rendering</h2><details><summary>MySTRA source</summary><pre>{html.escape(myst)}</pre></details></section>
 </main></body></html>\n"""
+
+
+def _render_html(report, activity, journal, myst) -> str:
+    """Add passive method explanations while retaining the exact v2 renderer."""
+    from contextual_help import help_tip, help_assets
+    page = _render_html_v2(report, activity, journal, myst)
+    sections = {"Overview": "validity", "Activity context": "objective",
+                "Browser or harness reported activity": "trace",
+                "Host journal snapshot": "trace", "Shared source rendering": "provenance"}
+    for title, topic in sections.items():
+        marker = f"<h2>{title}</h2>"
+        page = page.replace(marker, marker + help_tip(topic, "teacher"), 1)
+    return page.replace("</head>", help_assets() + "</head>", 1)
 
 
 def _context_html(context: dict | None) -> str:
@@ -894,6 +907,7 @@ def verify_learner_report(directory: Path) -> dict[str, Any]:
         supported_html = {
             _render_html(report, activity_value, journal_value, myst),
             _render_html_v1(report, activity_value, journal_value, myst),
+            _render_html_v2(report, activity_value, journal_value, myst),
         }
         if actual_html not in supported_html:
             raise ReportError("browser rendering is stale")

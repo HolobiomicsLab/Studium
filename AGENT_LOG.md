@@ -2622,3 +2622,27 @@ drivers,16 asset-path assertions). Existing CJS import.meta build warning remain
 Skill frontmatter validates and relative guide links resolve. No real signed-in
 VS Code session, image-generation call, real student trial or learning-effect
 claim. Common RenderAsset, ASTRA/ARA and learner action formats remain unchanged.
+
+## 2026-09-12 — INT051 contextual pedagogical help (Codex)
+
+One authored EN/FR catalogue (18 topics, 13 public scene mappings), shared passive
+renderers/CSS, help beside activity/report/Observatory sections, React web shells
+and teacher metric pages, VS Code scene/graph help. Generic method guidance only;
+no answer keys, help telemetry, model calls, scoring or schema changes. Native
+disclosures preserve script-free portable reports and exact v1/v2 compatibility.
+Added generated-task guidance, harness/template skill instructions and public guide.
+
+Verification: full Python 16 suites/0 failing; full pnpm test 1117 Vitest +3 Node
+and package drivers; full build/lint pass (194 existing warnings). Latest focused
+31 and Observatory242 passed; two skills valid. Browser:80 activity+51 practical+
+92 report+29 help+17 React+18 linked+5 extension-layout =292 assertions, plus11 native
+MySTRA views, print restoration and read-only fixture checks. New extension driver
+checks all13 scene help mappings and zero host messages. Synthetic checks only.
+
+Review corrections: implicit HTML heads dropped helper CSS (new browser regression),
+React package resolution, controlled print expansion excluding optional help, author
+input box sizing on mobile, and graph canvas leaving room for a clickable help icon.
+Only the existing print audit selector was narrowed to its original report-content
+scope; a new check ensures help is not force-opened. Source/template hashes and old
+report integrity checks remain strict. No push, merge, student release or sibling write.
+See the hub audit and docs/guides/contextual-help.md for coverage and limitations.

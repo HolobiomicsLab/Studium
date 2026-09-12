@@ -68,3 +68,17 @@ rapports et un rapport séparé du journal moteur. Les sous-dossiers `audit`,
 Les essais couvrent desktop 1360 px, mobile 390 px, clavier, révélation après
 prédiction, export, absence de traçage, impression et intégrité des artefacts.
 Ils ne constituent pas un audit WCAG complet ni une étude d’usage auprès d’étudiants.
+
+## Aide contextuelle commune
+
+Le symbole `?` donne accès à une explication progressive : définition, contribution
+attendue, objectif, méthode, limites et source. Les perspectives enseignant et
+étudiant viennent du même [catalogue](../../ui/context-help.json).
+Consulter le [guide d’intégration](../guides/contextual-help.md) pour les renderers,
+les langues, les garanties et la couverture. Garder toute consigne indispensable
+hors du panneau d’aide. La lecture d’une aide ne devient jamais une évaluation.
+
+La révision INT051 conserve le thème et le renderer v2 sans modification ; les
+nouveaux rapports ajoutent un CSS d’aide distinct. Une modification future de ce
+catalogue/CSS/renderer doit préserver la génération exacte INT051 avant de changer
+le rendu, au même titre que les générations v1 et v2 déjà supportées.

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Validity suites{% endblock %}
 {% block content %}
-<h1>Validity suites</h1>
+<h1>Validity suites</h1>{{ help_tip("validity") }}
 <p class="path">Committed evaluation results, read in place. A suite without a result file is
 listed so the gap is visible.</p>
 {% for suite in suites %}

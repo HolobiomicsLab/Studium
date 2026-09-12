@@ -1,3 +1,5 @@
+import catalogue from "../../../../../ui/context-help.json";
+import { ContextHelp } from "@studium/activity-presentation/react";
 import type { Scene } from "@studium/lesson-bundle-schema";
 import type { Signal } from "@studium/learner-state";
 import type { TelemetryEmit } from "../../hooks/useTelemetry";
@@ -70,7 +72,12 @@ type Props = {
   emit?: TelemetryEmit;
 };
 
-export default function SceneRouter({
+/** Explain the current method using only its public scene type. */
+export default function SceneRouter(props: Props) {
+  return <><ContextHelp topic={catalogue.scene_topics[props.scene.type] as keyof typeof catalogue.topics} /><RenderedScene {...props} /></>;
+}
+
+function RenderedScene({
   scene,
   bundlePath,
   onSignal,

@@ -61,3 +61,7 @@ ici ne valent pas validation scientifique ni preuve d'efficacité pédagogique.
 Pour proposer une amélioration, fournir la révision du code, le parcours suivi,
 le résultat attendu et un exemple minimal anonymisé. Ne pas joindre une clé API,
 un dossier étudiant ou un article dont la redistribution n'est pas autorisée.
+
+Pour comprendre les méthodes et les symboles `?` pendant une séance :
+[aide contextuelle pédagogique](guides/contextual-help.md), avec exemples étudiant,
+enseignant et contrat commun pour les viewers créés par un harnais.

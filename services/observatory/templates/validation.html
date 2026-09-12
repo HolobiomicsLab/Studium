@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ course_id }} — validator{% endblock %}
 {% block content %}
-<h1>Validator — {{ course_id }}</h1>
+<h1>Validator — {{ course_id }}</h1>{{ help_tip("validity") }}
 <p><a href="/courses/{{ course_id | urlencode }}">back to the course</a></p>
 <p>Status <b class="{{ validation.status }}">{{ validation.status|replace("_", " ") }}</b>
   {%- if validation.returncode is not none %} · exit {{ validation.returncode }}{% endif %}
