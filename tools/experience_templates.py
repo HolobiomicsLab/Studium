@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from activity_presentation import load_presentation
 from exploration_public_context import validate_public_fields
 from learner_trace import activity_json_schema
 
@@ -635,11 +636,21 @@ def _safe_script_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False).replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
 
-def _render_viewer(activity: dict[str, Any]) -> str:
+def _render_viewer(activity: dict[str, Any], presentation: dict[str, Any] | None = None) -> str:
     """Render the shared local viewer and inject the checked linked core once."""
     template = VIEWER_PATH.read_text(encoding="utf-8").replace(
         "/* STUDIUM_THEME */", THEME_PATH.read_text(encoding="utf-8")
     )
+    presentation = presentation or load_presentation()
+    language_script = (ROOT / "ui/activity-language.mjs").read_text().replace("export ", "")
+    support_script = ""
+    if presentation["render_assets"] or re.search(r"\\[([]|\$\$", json.dumps(activity)):
+        built = ROOT / "packages/activity-presentation/dist/support.js"
+        if not built.is_file():
+            raise ValueError("Build local renderers first: pnpm --filter @studium/activity-presentation build")
+        support_script = built.read_text().replace("</script", "<\\/script")
+    template = template.replace("/* PRESENTATION_LIBRARIES */", language_script + "\n" + support_script)
+    template = template.replace("/* PRESENTATION_DATA */", "const PRESENTATION = " + _safe_script_json(presentation) + ";")
     linked_core = LINKED_CORE_PATH.read_text(encoding="utf-8").replace("export ", "")
     data = f"const ACTIVITY = {_safe_script_json(activity)};\nconst ACTIVITY_SHA256 = \"{activity_digest(activity)}\";"
     return template.replace("/* LINKED_CORE */", linked_core).replace("/* ACTIVITY_DATA */", data)
@@ -687,16 +698,20 @@ See `docs/user/learner-report.md` for optional journal and original-text choices
 """
 
 
-def _write_outputs(output_dir: Path, activity: dict[str, Any], context: dict[str, Any], config_path: Path) -> PreparedActivity:
+def _write_outputs(output_dir: Path, activity: dict[str, Any], context: dict[str, Any], config_path: Path, presentation: dict[str, Any]) -> PreparedActivity:
     """Create a new activity directory after all inputs have validated."""
     validate_prepared_activity(activity)
+    viewer_html = _render_viewer(activity, presentation)
     output_dir.mkdir()
     activity_path, viewer_path, task_path = (output_dir / name for name in ("activity.json", "index.html", "task.md"))
     activity_path.write_text(json.dumps(activity, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    viewer_path.write_text(_render_viewer(activity), encoding="utf-8")
+    viewer_path.write_text(viewer_html, encoding="utf-8")
     task_path.write_text(_task_markdown(activity, output_dir), encoding="utf-8")
     (output_dir / "learner-actions.schema.json").write_text(json.dumps(activity_json_schema(), indent=2) + "\n", encoding="utf-8")
+    if presentation != load_presentation():
+        (output_dir / "presentation.json").write_text(json.dumps(presentation, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     provenance = {
+        "presentation_sha256": _sha256(_canonical_bytes(presentation)),
         "schema": "studium/prepared-activity-provenance/v1",
         "context_sha256": _sha256(_canonical_bytes(context)),
         "config_sha256": _sha256(config_path.read_bytes()),
@@ -710,7 +725,7 @@ def _write_outputs(output_dir: Path, activity: dict[str, Any], context: dict[str
     return PreparedActivity(output_dir, activity_path, viewer_path, task_path)
 
 
-def prepare_activity(template_id: str, context_path: Path, output_dir: Path, config_path: Path | None = None) -> PreparedActivity:
+def prepare_activity(template_id: str, context_path: Path, output_dir: Path, config_path: Path | None = None, *, language: str = "en", translations_path: Path | None = None, supports_path: Path | None = None) -> PreparedActivity:
     """Prepare one ready activity from checked public context into a new directory."""
     entry = _template_entry(template_id)
     if entry["status"] != "ready":
@@ -721,7 +736,8 @@ def prepare_activity(template_id: str, context_path: Path, output_dir: Path, con
     context = _load_context(context_path)
     config, selected_config = _load_config(entry, config_path)
     activity = _activity_document(entry, context, _materialize_config(config, selected_config))
-    return _write_outputs(output_dir, activity, context, selected_config)
+    presentation = load_presentation(language=language, translations_path=translations_path, supports_path=supports_path)
+    return _write_outputs(output_dir, activity, context, selected_config, presentation)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -735,6 +751,9 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--context", required=True, type=Path)
     prepare.add_argument("--out", required=True, type=Path)
     prepare.add_argument("--config", type=Path, help="optional explicit public config matching the template")
+    prepare.add_argument("--language", default="en", help="initial presentation language (BCP47)")
+    prepare.add_argument("--translations", type=Path, help="local language-to-text translation dictionaries")
+    prepare.add_argument("--supports", type=Path, help="optional local RenderAsset support manifest")
     return parser
 
 
@@ -750,7 +769,7 @@ def main(argv: list[str] | None = None) -> int:
                 for item in catalogue["templates"]:
                     print(f"{item['id']}\t{item['status']}\tv{item['version']}\t{item['title']}")
             return 0
-        prepared = prepare_activity(args.template, args.context, args.out, args.config)
+        prepared = prepare_activity(args.template, args.context, args.out, args.config, language=args.language, translations_path=args.translations, supports_path=args.supports)
         print(prepared.output_dir)
         return 0
     except (OSError, json.JSONDecodeError, ValueError) as exc:

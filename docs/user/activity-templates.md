@@ -136,3 +136,10 @@ teacher review the objective and interpretation before use with students.
 ## Visual design
 
 Activities and portable/native reports share the [viewer charter](../design/viewer-charter.md). Completed recording and prediction steps stay available as collapsible summaries.
+
+## Language and optional scientific supports
+
+All five templates accept `--language`, `--translations` and `--supports`. See the
+[preparation tutorial](../guides/language-and-scientific-presentation.md) for local
+Mermaid, KaTeX, 2D chemistry and source/generated figures. The language selector
+keeps student input intact; missing translations remain explicit.

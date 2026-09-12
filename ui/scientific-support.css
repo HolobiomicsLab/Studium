@@ -1,0 +1,100 @@
+.scientific-support {
+  display: grid;
+  gap: 0.75rem;
+  margin-block: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line, #d7dde5);
+  border-radius: 0.75rem;
+  background: var(--surface, #fff);
+  min-width: 0;
+}
+
+.scientific-support > *,
+.scientific-support__body,
+.scientific-support__visual {
+  min-width: 0;
+}
+
+.scientific-support__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  justify-content: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.scientific-support__kind {
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: var(--surface-muted, #eef2f6);
+  font-size: 0.75rem;
+}
+
+.scientific-support__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.scientific-support__figure {
+  margin: 0;
+}
+
+.scientific-support__image,
+.scientific-support__visual svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.scientific-support__molecule {
+  display: block;
+  width: min(100%, 420px) !important;
+  max-width: 420px !important;
+  height: auto !important;
+  max-height: 280px;
+  margin-inline: auto;
+}
+
+.scientific-support__visual {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.scientific-support__equation {
+  overflow-x: auto;
+  padding-block: 0.5rem;
+}
+
+.scientific-support__notice,
+.scientific-support__provenance,
+.scientific-support__alternative,
+.scientific-support__fallback {
+  font-size: 0.875rem;
+}
+
+.scientific-support__notice,
+.scientific-support__fallback {
+  color: var(--warning-text, #6b4d00);
+}
+
+.scientific-support__provenance {
+  color: var(--text-muted, #566273);
+}
+
+.scientific-support pre {
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scientific-support *,
+  .scientific-support *::before,
+  .scientific-support *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

@@ -124,3 +124,12 @@ auteur. Elle ne soumet pas de réponse et ne modifie pas la maîtrise des concep
 ## Supports visuels et différenciation par le harnais
 
 Le [guide dédié](guides/adaptive-visual-support.md) distingue les médias déjà rendus, les imports PDF/ASB encore incomplets et le workflow de génération externe. Le skill `studium-visual-support` prépare une aide sourcée à partir de la scène et des besoins exprimés ; il ne constitue pas un moteur automatique de personnalisation. Les viewers partagent une [charte sobre](design/viewer-charter.md).
+
+### Scientific supports and language
+
+Portable activities can include local Mermaid diagrams, KaTeX equations, 2D SMILES
+structures and raster figures, with provenance and an AI-origin notice where
+applicable. MCP and file sessions carry an editable presentation-language policy
+for the active harness. GUI translations use packaged dictionaries; this does not
+automatically localize all legacy interfaces or call a translation/image API.
+See [the tutorial](guides/language-and-scientific-presentation.md).

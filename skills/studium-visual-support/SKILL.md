@@ -10,6 +10,8 @@ Read [the practical guide](../../docs/guides/adaptive-visual-support.md) for cur
 capabilities, example assets and the source-to-receipt workflow. This skill uses
 the tools actually available in the chosen harness; it does not install a model,
 create an image tool, or attach generated assets to a live lesson automatically.
+For portable activities, use the checked `--supports` preparation path in
+[language and scientific presentation](../../docs/guides/language-and-scientific-presentation.md).
 
 ## Start from the learner and the scene
 
@@ -18,7 +20,10 @@ operator context, and keep its scene, objective and response contract. The publi
 context deliberately excludes private learner history and answer keys. Do not
 read a raw bundle or private history to bypass that boundary.
 
-Use already stated familiarity, preferred language and current question. If one
+Use already stated familiarity, preferred language and current question. Follow
+`operator-context.language.effective_language` for explanations and captions.
+A changed language never rewrites learner answers, source material, notation,
+quantities, code or identifiers; translations of quotations stay labelled. If one
 missing fact would change the support, ask one short question, such as whether
 the difficulty is the axes, the method or the conclusion. Unknown familiarity
 stays unknown. A degree, role or one wrong answer does not establish mastery.
@@ -39,13 +44,20 @@ Prefer the smallest useful representation:
   axes, units, stable IDs, baseline and errors; never estimate exact data from a
   generated illustration.
 - Concept map or process: author inspectable Mermaid source with a textual
-  equivalent. Render outside the learner viewer using an available renderer;
-  retain the source. If unavailable, supply source/text honestly. Studium's native
-  reports currently show Mermaid source, not a rendered mindmap.
+  equivalent. Portable activities render Mermaid locally from a `code` asset with
+  `language: "mermaid"`; retain the source and accessible `meta.alt`. Native
+  reports still show Mermaid source. If no renderer is available, keep source/text.
+- Equations and structures: use KaTeX for explicit mathematical notation and
+  a real chemistry renderer for SMILES or structure files. A 2D depiction is not
+  a 3D conformer. Do not ask an image model to invent exact molecular connectivity.
 - Graphical abstract or analogy: use the harness's image-generation capability
-  only when it is available and useful. Provide selected sources, the current
+  only when it is available, requested and useful. Explain possible delay and
+  allowance/cost before generation, reuse an existing support, and keep a local
+  diagram or text fallback. Never generate on every slider movement. Provide selected sources, the current
   learning question and a short de-identified support brief. Describe the result
   as generated explanatory material, not a source figure or executed result.
+  Set image `meta.origin` to `generated`; keep the standard possible-inaccuracy
+  notice visible and include provenance and `meta.alt`.
 
 Keep exact source/caption attribution in text outside generated image pixels.
 Check symbols, numbers, arrows and implied causal relationships against the

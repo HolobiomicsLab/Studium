@@ -145,16 +145,18 @@ mindmap
       Cas de transfert
 ```
 
-Le texte de la carte est aussi son alternative accessible. Pour un viewer Studium,
-faire rendre la source par un outil disponible dans l’espace du harnais, puis
-utiliser une image PNG passive. Garder le `.mmd` avec cette image. Le SVG peut être
+Le texte de la carte est aussi son alternative accessible. Les activités portables
+acceptent désormais Mermaid via `--supports`, voir le
+[guide de présentation scientifique](language-and-scientific-presentation.md).
+Pour les autres viewers, faire rendre la source par un outil disponible dans
+l’espace du harnais, puis utiliser une image PNG passive. Garder le `.mmd` avec cette image. Le SVG peut être
 utilisé après contrôle/sanitisation ; le panneau historique accepte du SVG inline
 et ne constitue pas une frontière de sécurité pour du contenu arbitraire.
 
 La [configuration Mermaid](https://mermaid.js.org/config/usage.html) fournit un mode
 strict ; l’utiliser dans un renderer isolé, sans liens externes ni configuration
-fournie librement par le diagramme. Aucun moteur Mermaid ni installation réseau
-n’est ajouté au viewer par ce guide. Le rendu des cartes par un harnais particulier
+fournie librement par le diagramme. Le préparateur d’activités peut embarquer un moteur Mermaid local. Les rapports
+MySTRA natifs conservent leur affichage de source pour le moment. Le rendu des cartes par un harnais particulier
 reste à vérifier ; sans renderer, livrer honnêtement le texte et la source.
 
 ## Reçu et reprise entre harnais

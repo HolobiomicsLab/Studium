@@ -1,0 +1,19 @@
+{
+  "render_assets": [
+    {
+      "kind": "equation_latex",
+      "title": "One criterion, several assumptions",
+      "payload": "y_s = y_0 + \\Delta_s, \\qquad \\text{supports the claim} \\iff y_s \\geq \\tau",
+      "provenance": "Authored explanatory notation for the synthetic conclusion-robustness template; not a new calculation.",
+      "meta": {"alt": "For each scenario, add its supplied offset to the baseline and compare the result with the same threshold."}
+    },
+    {
+      "kind": "code",
+      "language": "mermaid",
+      "title": "What a robustness comparison establishes",
+      "payload": "flowchart LR\n A[Supplied assumptions] --> B[Captured values]\n B --> C[Same decision criterion]\n C --> D[Conclusion within these scenarios]\n D --> E[Independent checks]",
+      "provenance": "Authored conceptual diagram; it does not establish the frequency of a scenario or statistical confidence.",
+      "meta": {"alt": "Compare captured values under each supplied assumption against one criterion, then check the conclusion independently."}
+    }
+  ]
+}
