@@ -2,6 +2,7 @@
 
 Deux usages peuvent partager le même code : **suivre une leçon** nécessite Node
 et éventuellement VS Code ; **préparer un cours et ses preuves** ajoute Python.
+L'API et les harnais locaux permettent aussi de suivre une leçon sans éditeur.
 La première séance utilise des exemples locaux sans clé API backend. Les
 téléchargements d'outils et de dépendances nécessitent Internet au premier install.
 
@@ -14,6 +15,13 @@ si nécessaire ; ne pas présumer que Corepack est présent sur chaque installat
 
 Depuis un terminal, avec les droits d'accès au dépôt :
 
+**Choisir la révision avant l'installation.** `dev` est la branche distante
+habituelle. Certaines [avancées des 10–12 septembre](../updates/2026-09-12.md)
+attendent encore leur intégration. Pour celles-ci, l'enseignant ou le mainteneur
+doit fournir un checkout de la révision documentée ; ne pas chercher une branche
+locale qui n'a pas encore été publiée. Conserver `git rev-parse HEAD` avec le
+matériel du pilote. Si vous avez déjà ce checkout, commencer à `pnpm install`.
+
 ```sh
 git clone --branch dev https://github.com/HolobiomicsLab/studium.git
 cd studium
@@ -24,8 +32,9 @@ pnpm --filter studium-vscode build
 node apps/lesson-mcp/scripts/headless_smoke.mjs
 ```
 
-Le dernier script vérifie 14 assertions MCP sans VS Code. Il doit terminer sans
-échec. Le build crée `apps/studium-vscode/dist/lesson-mcp.cjs`, utilisé dans les
+Le dernier script vérifie la boucle MCP sans VS Code et affiche le nombre de
+contrôles réussis. Il doit terminer sans échec. Le build crée
+`apps/studium-vscode/dist/lesson-mcp.cjs`, utilisé dans les
 configurations des [harnais](harnesses-and-api.md). Garder le terminal à la racine
 du dépôt pour les commandes suivantes. Si une branche de travail vous est fournie
 pour un pilote, utiliser cette branche avec sa documentation plutôt que mélanger
@@ -66,6 +75,22 @@ utiliser `C:/Users/.../mes-cours` dans le JSON.
 Suivre [Copilot](copilot.md) ou [un autre harnais](harnesses-and-api.md), puis le
 [tutoriel première séance](../tutorials/first-lesson.md). Le client démarre le serveur
 stdio ; ne pas ouvrir un port HTTP pour MCP. Ce serveur ne produit pas de page web.
+
+### API locale sans MCP
+
+Suivre [API et harnais](../guides/api-and-harness.md) après l'installation des
+dépendances. Ce parcours utilise `pnpm --filter @studium/lesson-mcp api` et le
+client `api:call`, sans ouvrir VS Code. Il faut un token local partagé entre le
+serveur et ses clients ; aucune clé de fournisseur LLM n'est nécessaire à la démo.
+Le serveur doit rester actif pour reprendre la séance depuis un autre harnais.
+
+### Navigateur seul
+
+Un enseignant peut fournir une activité portable déjà préparée : ouvrir son
+`index.html` dans un navigateur récent. L'activité ne nécessite pas le clone ni
+un compte LLM pour ses interactions locales. Les supports préparés sont embarqués.
+Elle n'est pas le moteur complet de séance : elle ne pilote pas automatiquement
+la progression et ne contient pas d'agent. Voir [activité → rapport](../tutorials/activity-to-report.md).
 
 ### VSIX pour un groupe pilote
 
@@ -114,7 +139,8 @@ Conserver ses cours et expériences hors des fichiers sources versionnés. Arrê
 la séance, noter sa révision (`git rev-parse HEAD`), puis appliquer la mise à jour
 convenue avec l'enseignant et refaire installation/build. Reconnecter MCP après
 un changement de serveur. Un identifiant de session appartient au processus qui
-l'a créé : le copier dans un autre harnais ne transfère pas une séance vivante.
+l'a créé : l'API permet de le réutiliser dans un autre harnais tant que ce même
+serveur tourne, mais pas de le transférer vers un nouveau processus.
 
 Un problème ? Commencer par le [dépannage](../troubleshooting.md), sans supprimer
 les données d'apprentissage ni les sorties d'expérience pour « repartir propre ».

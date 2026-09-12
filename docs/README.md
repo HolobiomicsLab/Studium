@@ -8,7 +8,9 @@ le harnais aide à lire, expérimenter, programmer et expliquer.
 
 Cette documentation décrit le **prototype de recherche**, à utiliser d'abord en
 pilote accompagné. Elle est destinée à être lue directement sur GitHub. Les
-recettes et informations fournisseurs ont été vérifiées le **11 septembre 2026**.
+pages d'entrée ont été consolidées le **12 septembre 2026**, à partir du code et
+des vérifications de connexion disponibles. Les références fournisseurs ont leur
+date de consultation dans les guides concernés.
 Utiliser le code et les guides de la même révision. L'accès au dépôt dépend de
 ses permissions ; ces pages n'annoncent ni publication publique ni version stable.
 
@@ -18,14 +20,17 @@ ses permissions ; ces pages n'annoncent ni publication publique ni version stabl
 |---|---|---|
 | Suivre une activité | [Guide étudiant](user/student-guide.md) | Une première réponse personnelle dans une séance |
 | Préparer un enseignement | [Guide enseignant](user/teacher-guide.md) | Un brouillon sourcé et une revue avant diffusion |
-| Installer les outils | [Installation](getting-started/installation.md) | Serveur MCP et/ou panneau VS Code fonctionnel |
+| Installer les outils | [Installation](getting-started/installation.md) | Panneau, serveur MCP ou API locale prêt à vérifier |
 | Utiliser mon avantage étudiant | [Copilot Student](getting-started/copilot.md) | Compte activé et Studium connecté à VS Code |
 | Piloter sans MCP ni VS Code | [API locale et harnais](guides/api-and-harness.md) | Session HTTP, reprise et export |
 | Garder mon agent habituel | [Harnais et API](getting-started/harnesses-and-api.md) | Configuration adaptée au client choisi |
 | Comprendre le produit | [Fonctionnalités et maturité](features.md) | Ce qui fonctionne et ce qui reste expérimental |
+| Voir les dernières avancées | [10–12 septembre](updates/2026-09-12.md) | Changements, révisions et limites de vérification |
+| Choisir une activité concrète | [Cas d'usage](tutorials/use-cases.md) | Matériel requis, rôle de chacun et résultat à relire |
 
 Les [skills prêts à utiliser](getting-started/skills.md) accompagnent ces parcours :
-`studium-teacher`, `studium-student` et `studium-harness`.
+`studium-teacher`, `studium-student`, `studium-harness`,
+`studium-activity-templates`, `studium-visual-support` et `studium-learner-report`.
 
 ## Apprendre par la pratique
 
@@ -35,6 +40,14 @@ Les [skills prêts à utiliser](getting-started/skills.md) accompagnent ces parc
    de preuves, faire proposer un plan, le vérifier et le relire dans MySTRA.
 3. [Expérience agentique](tutorials/agentic-experiment.md) : prédire, exécuter,
    modifier un facteur, construire un visualiseur et défendre une conclusion.
+4. [Activité → rapport](tutorials/activity-to-report.md) : choisir un template,
+   expérimenter et vérifier l'export ASTRA/ARA/MySTRA avant partage.
+
+Pour choisir entre ces parcours, lire les [cas d'usage](tutorials/use-cases.md) :
+capsule ASB et métabolomique, diagnostic d'analyse, robustesse, photographie en
+archéologie, aide multilingue et restitution. Les [langues et supports scientifiques](guides/language-and-scientific-presentation.md)
+et les [médias sourcés ou générés](guides/sourced-and-generated-media.md) restent
+facultatifs ; aucun modèle multimodal n'est nécessaire pour terminer une activité.
 
 Les guides [confidentialité et limites](privacy-and-limits.md) et
 [dépannage](troubleshooting.md) accompagnent les deux rôles. Les activités proposées

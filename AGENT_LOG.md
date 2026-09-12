@@ -2680,3 +2680,28 @@ mtime sweep, only this checkout with recent sampled data; foodomeai_dev remote
 lookup timed out. No global before-snapshot, so no claim of exclusive attribution.
 Canonical/live dev33bf561 unchanged; no push/merge/release/paid call, manuscript or
 LabOS write. Hub audit/handoff records exact output and limitations.
+
+## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
+
+Reorganized the GitHub README/docs entry points around visual lessons, local
+harnesses and HTTP. Added a dated 10–12 September development digest and seven
+practical use cases: self-learning, literature authoring, ASB/spectral experiments,
+analysis diagnosis/robustness, archaeology imagery, language/media support and
+learner reports. Updated capability coverage, role guides, troubleshooting,
+privacy, skills and explicit Claude Code/Codex/OpenCode onboarding. Provider
+setup references were opened on 12 September. Remote dev/main still lack the
+latest local slices; installation now states the revision requirement explicitly.
+
+Corrected obsolete “no language switch” instructions in the activity tutorial
+and its skill, and the frozen 14-check MCP count (actual smoke now has 19).
+No runtime, schema, tests or dependency changes. No paid provider calls, global
+configuration writes, publication or student distribution.
+
+Validation: real MCP smoke 19/19; real HTTP/CLI continuity and standard report
+smoke 10/10 (`.studium-session/int053-api`); file runner completes four synthetic
+steps; French conclusion-robustness activity prepared with translations/supports
+(`.studium-session/int053-activity`); 88 targeted template/presentation tests pass;
+both changed skills validate. Relative Markdown links/anchors, shell syntax and
+JSON/TOML examples checked. Authenticated provider UIs, fresh-machine installation
+and the actual VS Code Extension Host were not exercised. Full regression counts
+in the dated digest are attributed to baseline 2691a5a, not rerun for this docs slice.

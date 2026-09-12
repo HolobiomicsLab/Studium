@@ -29,7 +29,11 @@ Les modèles `linked-representations`, `evidence-claim`, `diagnose-analysis` et
 Les exemples par défaut ne sont pas dérivés des sources de votre scène : un même
 identifiant ne prouve pas un lien scientifique. Si les entrées nécessaires manquent,
 le harnais doit le signaler et présenter le sample comme une illustration séparée.
-Les libellés de base sont en anglais ; la commande n’a pas d’option de langue.
+Pour démarrer en français, ajouter `--language fr`. Les cinq templates acceptent
+aussi `--translations` et `--supports` : voir [langues et supports scientifiques](../guides/language-and-scientific-presentation.md).
+Le sélecteur conserve les réponses saisies ; le contenu sans traduction reste
+dans sa langue source avec une indication explicite. Il n'appelle pas une API
+de traduction.
 
 Pour adapter les entrées, lire le [contrat de configuration](../user/activity-templates.md)
 et utiliser `--config` avec un fichier explicite. La préparation ne relie pas

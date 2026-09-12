@@ -49,6 +49,31 @@ citation exacte peut être mal interprétée ; un score ou un hash ne remplace p
 votre lecture. Tester aussi un élève hésitant, une réponse partiellement juste,
 un outil indisponible et un résultat nul.
 
+## Composer une expérience interactive
+
+Les [cas d'usage](../tutorials/use-cases.md) relient les outils à des situations
+concrètes : capsule ASB et annotation spectrale, diagnostic d'analyse, robustesse,
+photographie en archéologie et restitution. Les [cinq templates](activity-templates.md)
+conservent un contrat commun ; adapter leurs données, unités, sources et critères
+dans la configuration. Un exemple synthétique doit rester identifiable comme tel.
+
+Préparer avec le cours ses traductions et un petit nombre de supports utiles :
+équations, carte de concepts, structure chimique, photographie ou média avec
+transcription. Le [guide de présentation](../guides/language-and-scientific-presentation.md)
+et le [workflow médias](../guides/sourced-and-generated-media.md) permettent une
+préparation unique puis une aide à la demande via le harnais de l'étudiant.
+Conserver une alternative textuelle et vérifier les termes traduits et les images.
+
+Pour chaque pilote, tester le parcours choisi sur une machine étudiante : accès
+au bundle, rendu, langue, indisponibilité du modèle et export. Le panneau,
+l'API et les activités portables ont des limites différentes, décrites dans
+la [matrice des capacités](../features.md). Les aides `?` expliquent la méthode
+pendant l'usage ; elles ne remplacent pas les consignes essentielles.
+
+Le [rapport étudiant](learner-report.md) complète la provenance du cours par les
+actions volontairement exportées. Discuter avec les étudiants ce qui sera partagé
+et comment vous l'interpréterez : une trace incomplète ne mesure pas l'autonomie.
+
 ## Relire avec MySTRA
 
 Pour conserver les éditions et relier une révision approuvée à sa synthèse,

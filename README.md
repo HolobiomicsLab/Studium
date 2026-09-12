@@ -4,7 +4,7 @@
 
 *Turn a corpus of teaching material into a transparent, adaptive course where every pedagogical decision is grounded, typed, and auditable.*
 
-**Teaching-as-a-workflow** &nbsp;·&nbsp; **Learning Workflow Graph** &nbsp;·&nbsp; **Claim-native provenance** &nbsp;·&nbsp; **Backend-only, agent-drivable**
+**Teaching-as-a-workflow** &nbsp;·&nbsp; **Learning Workflow Graph** &nbsp;·&nbsp; **Claim-native provenance** &nbsp;·&nbsp; **Visual or harness-driven learning**
 
 ![Status](https://img.shields.io/badge/status-research_prototype-orange?style=flat-square)
 ![TypeScript](https://img.shields.io/badge/runtime-TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white)
@@ -22,11 +22,23 @@ The motivating problem: AI can now generate a "course" from a pile of documents 
 
 ## Documentation and first use
 
-Start with the **[documentation portal](docs/README.md)** (French), including
-[student onboarding](docs/user/student-guide.md), [teacher onboarding](docs/user/teacher-guide.md),
-[Copilot Student setup](docs/getting-started/copilot.md), other harnesses/API, and
-step-by-step tutorials for literature-grounded courses and agentic experiments.
-The [feature status](docs/features.md) separates working paths from integration gaps.
+Start with the **[documentation portal](docs/README.md)** (French). Studium can be
+operated through its VS Code panel, an AI harness, or a local HTTP client.
+
+| Your goal | Start here |
+|---|---|
+| Take a lesson visually, without an LLM account for the demo | [Install and open the VS Code panel](docs/getting-started/installation.md) |
+| Learn with Copilot Student | [Account setup and MCP connection](docs/getting-started/copilot.md) |
+| Use Claude Code, Codex or OpenCode | [Harness onboarding and connection checks](docs/getting-started/harnesses-and-api.md) |
+| Use an API and switch local harnesses | [HTTP API, session continuity and exports](docs/guides/api-and-harness.md) |
+| Prepare a course from literature or an ASB capsule | [Teacher guide](docs/user/teacher-guide.md) and [practical use cases](docs/tutorials/use-cases.md) |
+| Build an interactive activity and review its trace | [Activity → ASTRA/MySTRA report](docs/tutorials/activity-to-report.md) |
+
+Read the [10–12 September development update](docs/updates/2026-09-12.md) for the
+latest additions and their verification, and [capability status](docs/features.md)
+for surface-specific limits. These are development docs: use code and guides from
+the same revision. The dated update identifies changes still awaiting integration;
+it does not announce a release.
 
 For a first local lesson without a backend API key, follow the
 [installation guide](docs/getting-started/installation.md). The evaluation harness
@@ -66,13 +78,24 @@ corpus (.md / ASB capsule)
    │  author-time (services/planner, services/scene-synth) — agentic, grounded, validated
    ▼
 LessonBundle  +  Learning Workflow Graph  +  Universes (baseline / remedial)  +  indicium/ASTRA provenance
-   │  runtime (@studium/lesson-session) — adaptive, learner-scoped, durable
+   │  runtime (@studium/lesson-session) — adaptive, learner-scoped
    ▼
 a learner session: prerequisite-gated navigation · remediation · hints · calibration · mastery
    │
    ▼
 local-first "demonstrates_mastery_of" claims  +  a HITL course audit report
 ```
+
+The same runtime is accessible through MCP, the local HTTP operation API and a
+file channel. An AI harness can prepare code, figures and reusable activities
+from public lesson context; the learner supplies predictions and conclusions.
+Portable activities offer five templates, optional scientific/media supports,
+language selection and an opt-in action export to ASTRA/ARA/MySTRA. A viewer is
+a local artifact, not an embedded agent. See [worked scenarios](docs/tutorials/use-cases.md).
+
+Live session position belongs to the server process. Some learner state and
+journals can be persisted under their consent rules; restarting the HTTP server
+does not restore its active sessions.
 
 **Runtime adaptivity that *acts* (not just configured):**
 
@@ -86,7 +109,9 @@ local-first "demonstrates_mastery_of" claims  +  a HITL course audit report
 
 ## Developer evaluation harness (no frontend)
 
-The fastest way to see Studium is the **backend eval harness**: it takes a real university course material, runs the whole pipeline, simulates a live agentic-AI ↔ student interaction, and runs an **auditing studio** that scores the course + the run and emits refinement feedback.
+For developers, the **backend eval harness** runs the pipeline over course
+material, simulates learner interactions and emits technical audit feedback.
+For a first student session, use the installation and onboarding above.
 
 ```bash
 # From the root of your Studium checkout
@@ -113,10 +138,16 @@ See [`eval/README.md`](eval/README.md) for the full harness (author modes, stude
 | **Runtime** | [`packages/lesson-session`](packages/lesson-session), [`packages/adaptation-engine`](packages/adaptation-engine), [`packages/learner-state`](packages/learner-state) | the adaptive engine: graph-aware navigation, mastery, universes, hints, calibration, local mastery claims |
 | **Schemas** | [`packages/learning-workflow-schema`](packages/learning-workflow-schema), [`packages/lesson-bundle-schema`](packages/lesson-bundle-schema), [`packages/telemetry-events`](packages/telemetry-events) | the typed contracts (Zod + Pydantic mirrors) |
 | **Provenance** | `services/planner/provenance` | indicium-claim + ASTRA serializers, the education adapter, HITL `approve_course` + course audit report |
-| **Hosts** | [`packages/lesson-session-host`](packages/lesson-session-host), [`apps/lesson-server`](apps/lesson-server), [`apps/lesson-mcp`](apps/lesson-mcp) | multi-session host behind HTTP + MCP |
+| **Hosts** | [`packages/lesson-session-host`](packages/lesson-session-host), [`apps/lesson-mcp`](apps/lesson-mcp) | common operations over MCP and authenticated local HTTP; file-channel runner |
+| **Clients and activities** | [`apps/studium-vscode`](apps/studium-vscode), [`tools/experience_templates.py`](tools/experience_templates.py), [`packages/activity-presentation`](packages/activity-presentation) | lesson panel/notebook, five portable templates, local scientific renderers |
+| **Review** | [`services/observatory`](services/observatory), [`tools/learner_report.py`](tools/learner_report.py) | course review, MySTRA and portable learner reports |
 | **Eval** | [`eval/`](eval) | the backend auditing harness (this is how you exercise everything above) |
 
-GUI apps under `apps/` (`teacher-dashboard`, `student-runtime`, `author-web`) exist but the **runtime + author-time + eval are the substance**; the project is backend-evaluable without a frontend.
+GUI apps under `apps/` include `teacher-dashboard`, `student-runtime` and
+`author-web`. Their coverage differs from portable activities and the VS Code
+panel; see the [capability map](docs/features.md). The legacy REST service
+[`apps/lesson-server`](apps/lesson-server) remains separate from the new operation
+API. The project can still be evaluated without a frontend.
 
 ## Status
 

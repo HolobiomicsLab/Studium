@@ -5,8 +5,9 @@ description: Operate a Studium lesson through an AI harness such as Copilot, Cla
 
 # studium-harness — Studium as the lesson brain, this harness as the hands
 
-Studium (GitHub `HolobiomicsLab/studium`) is a standard MCP
-stdio server (`apps/lesson-mcp`). The harness renders scenes, executes any code, and
+Studium (GitHub `HolobiomicsLab/studium`) exposes shared lesson operations over
+local HTTP and MCP stdio, plus a file channel (`apps/lesson-mcp`).
+The harness renders scenes, executes any code, and
 submits the learner's answers; Studium presents, grades, adapts, attests and records.
 Two invariants shape every step below:
 
@@ -217,16 +218,17 @@ node apps/lesson-mcp/scripts/headless_smoke.mjs
 ```
 
 The smoke is the reference MCP client (bare `@modelcontextprotocol/sdk`, no VS Code
-code): start → scene → ack → artifacts → workflow graph → end; 14 assertions, about
-a second. Run it after any change to the server, a bundle or this skill. For the file
+code): start → scene → ack → artifacts → workflow graph → end. It prints the
+number of successful assertions. Run it after any change to the server, a bundle or this skill. For the file
 channel, a `--stub` run of the session-runner CLI on `capsule-judgment-demo/lesson.json`
 must end with `complete ✔` (4 steps: intro + three grounded `spot_the_flaw`, the last of
 them a verdict deck). The stub cannot answer quizzes: on a quiz-bearing
 bundle such as `atomistique-l1` it replays until the 100-step cap and exits 0 with
 `stopped after 100 steps` — that is not a pass. Read the last line, not the exit code.
 
-Both were re-run on 2026-09-08 while updating this skill, not assumed: smoke
-`all 14 assertions passed`; stub `complete ✔ after 4 steps: next → next → next → complete`.
+For the smoke, require the final `all … assertions passed` message. For the stub,
+require `complete ✔ after 4 steps: next → next → next → complete`. Counts describe
+the current fixtures, not an authenticated harness session or a learning outcome.
 
 ## 7. The evaluation harness (personas, corpora, judges)
 

@@ -1,105 +1,187 @@
-# Autres harnais et accès API
+# Choisir et connecter son harnais
 
-Studium expose une [API HTTP locale](../guides/api-and-harness.md), un serveur MCP standard en **stdio** et un canal fichiers. Le moteur est indépendant du
-client ; authentification, permissions et configuration restent propres à chaque
-harnais. Terminer d'abord l'[installation](installation.md). Les recettes utilisent
-le serveur compilé, sans dépendre d'un `tsx` global ni du dossier courant.
+Studium expose une [API HTTP locale](../guides/api-and-harness.md), un serveur MCP
+**stdio** et un canal fichiers. Ici, « visuel » désigne **Visual Studio Code**,
+pas Visual Studio IDE ; « Open » désigne **OpenCode**. Le moteur pédagogique est
+commun ; comptes, outils et permissions appartiennent au harnais.
 
-## Choisir une route
+Terminer l'[installation](installation.md) avec la révision fournie pour le pilote.
+Les recettes MCP utilisent le serveur compilé, sans `tsx` global. Remplacer chaque
+`/ABS/PATH/studium` par le chemin réel du clone, avec ses assets.
 
-| Route | Accès à prévoir | Usage |
+## Choisir sa route
+
+| Route | Compte nécessaire | Usage |
 |---|---|---|
-| Panneau Studium, exemple local | Aucun compte LLM pour la démonstration | Première leçon et rendus scientifiques |
-| VS Code + Copilot | Avantage étudiant/enseignant ou offre du compte | [Parcours recommandé](copilot.md) |
-| Claude Code | Authentification et offre compatibles | Même MCP et procédure Studium |
-| Codex | Connexion ChatGPT admissible ou clé API | Même MCP ; coût selon le mode choisi |
-| Cursor / OpenCode | Selon le client et son fournisseur | Alternative à configurer et vérifier |
-| Backend Studium avec LLM | Fournisseur compatible et budget séparé | Génération ou tutorat backend avancé |
+| [Panneau ou notebook VS Code](installation.md#panneau-ou-notebook-vs-code) | Aucun compte LLM pour la démo | Première leçon visuelle |
+| [VS Code + Copilot](copilot.md) | Avantage Education activé ou offre compatible | Agent dans l'éditeur |
+| [Claude Code](#claude-code) | Authentification et offre compatibles | Agent local en terminal/éditeur |
+| [Codex](#codex) | Accès ChatGPT admissible ou clé API | Agent local dans l'application, le CLI ou l'IDE |
+| [OpenCode](#opencode) | Fournisseur configuré dans le client | Alternative avec son choix de modèle |
+| [API directe](#api-directe-et-changement-de-harnais) | Token local Studium ; compte du harnais distinct | Scripts ou reprise entre harnais |
+| [Canal fichiers](#canal-fichiers) | Selon le harnais choisi | Boucle inspectable sans MCP ni HTTP |
 
-Un avantage Copilot ne fournit pas une clé API générale. La connexion ChatGPT de
-Codex et son utilisation par clé API sont deux modes ; l'API est facturée séparément.
-Voir l'[authentification Codex](https://learn.chatgpt.com/docs/auth). Aucun tarif ou
-quota n'est figé ici : vérifier les conditions du compte avant une séance de groupe.
+Un avantage Copilot ne fournit pas une clé API générale. Dans Codex, connexion
+ChatGPT et clé API sont deux modes ; l'usage par clé est facturé séparément selon
+[l'authentification officielle](https://learn.chatgpt.com/docs/auth). La génération
+backend Studium est encore un choix distinct, décrit plus bas. Aucun tarif ni
+quota n'est figé dans le cours.
+
+Ces recettes concernent un **harnais local**. Un agent cloud ne voit pas les
+fichiers ni `127.0.0.1` de votre ordinateur. Aucun tunnel ou service de classe
+distant n'est configuré par ces étapes.
+
+## Vérifier une connexion avant d'apprendre
+
+1. Vérifier que le client voit le checkout et le bundle de même révision.
+2. Lire les opérations réellement accessibles : `tools/list` pour MCP,
+   `/v1/operations` pour l'API.
+3. Appeler `start_lesson_session`, puis `get_operator_context` avec le
+   `session_id` retourné. La réponse doit contenir la scène publique et son contrat.
+4. Présenter l'activité et attendre la contribution de l'étudiant. L'agent ne
+   remplit pas la prédiction ni la confiance pour tester la connexion.
+
+Continuer avec la [première séance](../tutorials/first-lesson.md). Une entrée de
+configuration ou un skill découvert ne prouve pas qu'un serveur est connecté.
 
 ## Claude Code
 
 Installer et authentifier le client selon la [procédure officielle](https://code.claude.com/docs/en/setup).
-Remplacer `/ABS/PATH/studium` dans [cet exemple](../examples/mcp.claude.json), puis
-fusionner son entrée dans `.mcp.json` à la racine du projet. Autre possibilité :
+Ouvrir le clone Studium dans le terminal et lancer `claude` pour compléter la
+connexion si nécessaire. Fusionner [l'exemple MCP](../examples/mcp.claude.json)
+dans `.mcp.json`, ou utiliser depuis ce projet :
 
 ```sh
 claude mcp add --transport stdio --scope project --env BUNDLES_ROOT=/ABS/PATH/studium/fixtures --env LITELLM_BASE_URL= studium -- node /ABS/PATH/studium/apps/studium-vscode/dist/lesson-mcp.cjs
 claude mcp list
 ```
 
-Inspecter la connexion avec `/mcp`. Les paramètres avant le nom du serveur et
-la structure `mcpServers` suivent la [documentation Claude Code MCP](https://code.claude.com/docs/en/mcp).
-Lire le skill Studium puis utiliser le prompt de [première séance](../tutorials/first-lesson.md).
+Inspecter la connexion avec `/mcp`. Les options avant le nom du serveur et la
+structure `mcpServers` suivent la [documentation Claude Code MCP](https://code.claude.com/docs/en/mcp).
+Ce parcours vise Claude Code ; il ne configure pas automatiquement Claude Desktop.
+
+> Lis `skills/studium-student/SKILL.md`, vérifie la connexion Studium et accompagne
+> ma première leçon en français. Attends mes propres réponses.
+
+Pour préparer un cours, utiliser `studium-teacher` et le
+[tutoriel littérature](../tutorials/literature-to-course.md).
 
 ## Codex
 
-Se connecter avec le mode choisi, puis ajouter le serveur, ou fusionner
-[l'exemple TOML](../examples/codex.toml) dans la configuration MCP appropriée :
+Installer le client local depuis le [démarrage officiel Codex](https://learn.chatgpt.com/docs/quickstart).
+Dans le CLI, `codex login` lance la connexion et `codex login status` indique son
+mode. Dans l'application ou l'extension IDE, utiliser le parcours de connexion de
+cette interface. Ouvrir le clone Studium comme projet local.
+
+Ajouter le serveur, ou fusionner [l'exemple TOML](../examples/codex.toml) dans la
+configuration appropriée, sans écraser les serveurs existants :
 
 ```sh
-codex mcp add --env BUNDLES_ROOT=/ABS/PATH/studium/fixtures --env LITELLM_BASE_URL= studium -- node /ABS/PATH/studium/apps/studium-vscode/dist/lesson-mcp.cjs
+codex mcp add studium --env BUNDLES_ROOT=/ABS/PATH/studium/fixtures --env LITELLM_BASE_URL= -- node /ABS/PATH/studium/apps/studium-vscode/dist/lesson-mcp.cjs
 codex mcp list
 ```
 
-Ne pas écraser une configuration existante. Remplacer les chemins absolus et
-vérifier les outils dans la session après reconnexion. Référence :
+Vérifier les outils dans la session après reconnexion. Référence :
 [MCP dans Codex](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
 
-## Cursor et OpenCode
+> Utilise `$studium-student` pour vérifier ma connexion et démarrer le cours fourni.
+> Lis la scène publique et attends ma réponse avant toute soumission.
 
-Pour Cursor, fusionner le bloc `mcpServers` de l'[exemple Claude](../examples/mcp.claude.json)
-dans `.cursor/mcp.json`, après remplacement des chemins. Suivre la
-[documentation MCP Cursor](https://cursor.com/docs/mcp) pour activer et inspecter
-les outils. Le transport MCP ne garantit pas le rendu du panneau VS Code.
+Si le skill n'est pas découvert, demander la lecture explicite de
+`skills/studium-student/SKILL.md`. Le [guide des skills](skills.md) décrit cette
+solution de repli. Une commande d'ajout réussie ne prouve pas que l'application,
+l'extension IDE ou le CLI déjà ouvert a rechargé ses outils.
 
-Pour **OpenCode v2**, utiliser [l'exemple dédié](../examples/opencode-v2.json)
-dans `opencode.jsonc`. Sa structure est `mcp.servers`, avec `type: "local"`,
-un tableau `command` et `environment`. Ce n'est pas le JSON de Claude Code.
-Pour une autre version, suivre sa documentation : [MCP OpenCode v2](https://opencode.ai/v2/docs/mcp-servers).
-Ces recettes ont été confrontées aux sources officielles le 11 septembre 2026 ;
-chaque application n'a pas fait l'objet d'une séance authentifiée complète.
+## OpenCode
 
-## Fournisseur backend : option avancée
+Installer et connecter le fournisseur selon le [démarrage OpenCode v2](https://opencode.ai/v2/docs).
+Vérifier la version installée. Pour **v2**, fusionner [l'exemple dédié](../examples/opencode-v2.json)
+dans `opencode.jsonc` à la racine du projet. Sa structure est `mcp.servers`, avec
+`type: "local"`, un tableau `command` et `environment`. Ce n'est pas le JSON de
+Claude Code. Les anciennes versions nécessitent leur propre configuration ou migration.
 
-Le harnais peut lire les sources et proposer le plan avec son propre modèle.
-Ajouter un second fournisseur n'est donc pas nécessaire au
-[parcours littérature](../tutorials/literature-to-course.md).
+Depuis ce projet, `opencode mcp list` affiche les connexions ; dans l'interface,
+`/mcps` permet de les inspecter. Suivre le nom d'exécutable de son installation
+s'il diffère. Référence : [MCP OpenCode v2](https://opencode.ai/v2/docs/mcp-servers).
 
-Pour les agents de génération du planner, `STUDIUM_LLM_MODE=mock` est le mode de
-départ. Le mode `litellm` utilise `LITELLM_BASE_URL`, éventuellement `LITELLM_API_KEY`,
-et un endpoint compatible `/v1/chat/completions`. Un proxy doit router les alias
-vers des modèles autorisés : les agents planner emploient notamment `planner`,
-`critic`, `graph-builder` ; le client TypeScript utilise `studium/planner`,
-`studium/scene-synth`, `studium/critic`, `studium/teacher-review`, `studium/runtime-tutor`.
+> Lis `skills/studium-harness/SKILL.md`, vérifie les outils Studium, présente la
+> scène publique en français puis attends ma réponse.
 
-Voir les contrats du [planner](../../services/planner/agents/base.py) et du
-[client LLM](../../packages/llm-client/src/index.ts). Copier une URL sans vérifier
-chemin d'API et modèles ne suffit pas. Le serveur lesson-mcp active son backend
-live si `LITELLM_BASE_URL` est non vide ; les exemples la laissent vide.
+Un modèle ouvert peut être choisi si le fournisseur du harnais le propose ; cela
+ne garantit ni gratuité, ni exécution locale, ni qualité équivalente des réponses.
 
-Conserver les clés dans le mécanisme local de secrets du client, jamais dans les
-fichiers versionnés, prompts ou captures. Faire d'abord un essai borné avec un
-budget décidé. Examiner les traces et indicateurs de fallback : certains agents
-retombent en mock après un échec ; un HTTP 200 ne prouve pas un appel distant réussi.
+## Cursor
 
-## Sans MCP et lors d'un changement de harnais
+Fusionner le bloc `mcpServers` de l'[exemple Claude](../examples/mcp.claude.json)
+dans `.cursor/mcp.json`, avec les chemins remplacés. Suivre la
+[documentation MCP Cursor](https://cursor.com/docs/mcp) pour activer les outils.
+Le transport MCP ne garantit pas le rendu du panneau VS Code.
 
-Le [skill Studium](../../skills/studium-harness/SKILL.md) décrit le canal fichier
-`.studium-session` : le runner écrit une tâche, le harnais lit le contexte public
-et dépose la réponse suivant le contrat. L'exemple automatisé suivant teste la
-plomberie ; il ne remplace pas une séance étudiante :
+Les recettes Claude Code, Codex et OpenCode ont été confrontées aux sources
+officielles le **12 septembre 2026** ; la recette Cursor date du 11. Elles n'ont
+pas toutes fait l'objet d'une séance authentifiée complète.
+
+## API directe et changement de harnais
+
+Suivre le [guide API](../guides/api-and-harness.md) pour démarrer le serveur et
+transmettre son token aux environnements clients sans l'insérer dans un prompt.
+Ce token autorise le client local ; ce n'est pas une clé de fournisseur LLM.
+Depuis le checkout, avec cet environnement configuré :
+
+```sh
+pnpm --silent --filter @studium/lesson-mcp api:call health
+pnpm --silent --filter @studium/lesson-mcp api:call operations
+```
+
+Le harnais utilise ensuite les schémas et fichiers de requête documentés.
+
+> Lis `skills/studium-harness/SKILL.md` et le guide API. Utilise le serveur local
+> configuré dans ton environnement. Vérifie sa disponibilité sans afficher le
+> token. Démarre le bundle fourni en français, puis attends mes réponses.
+
+Pour reprendre, fournir le `session_id` existant au lieu de demander un démarrage.
+Le nouveau harnais relit le contexte avant d'agir. Le serveur doit rester actif
+et les clients utiliser le même token. Un redémarrage perd les sessions actives ;
+les journaux consentis et exports ont une conservation distincte.
+
+Les routes `/v1/operations` sont une **API JSON**, pas un transport MCP HTTP : ne
+pas les déclarer avec `codex mcp add --url`. Le guide précise relances identiques,
+conflits de scène, capacité du serveur et oubli. Le panneau VS Code et les serveurs
+MCP indépendants ne partagent pas automatiquement cette séance API.
+
+## Canal fichiers
+
+Le [skill Studium](../../skills/studium-harness/SKILL.md) décrit `.studium-session` :
+le runner écrit une tâche ; le harnais lit son contexte public et dépose la
+réponse suivant le contrat. Cet essai automatisé teste la plomberie :
 
 ```sh
 apps/lesson-mcp/node_modules/.bin/tsx apps/lesson-mcp/src/session-runner-cli.ts capsule-judgment-demo/lesson.json --dir=/ABS/PATH/new-session --stub
 ```
 
 Le répertoire doit être nouveau. Sans `--stub`, le runner attend les réponses
-externes. Suivre ses formats et écritures atomiques. Un `session_id` appartient
-au serveur qui l'a créé. Pour alterner, conserver bundle/révision, objectif,
-preuves et contexte public, puis vérifier l'état retrouvé dans le nouveau client.
-Ne pas déclarer une reprise exacte sans l'avoir observée.
+externes. Garder le runner actif et suivre les formats et écritures atomiques de
+`task.md`. Le test stub contient des réponses synthétiques, pas celles d'un étudiant.
+Changer de harnais en conservant ce runner n'est pas restaurer une session après
+son arrêt. Ne pas déclarer une reprise exacte sans avoir retrouvé l'état réel.
+
+## Fournisseur backend : option avancée
+
+Le harnais peut lire les sources et proposer un plan avec son propre modèle.
+Ajouter un second fournisseur n'est pas nécessaire au [parcours littérature](../tutorials/literature-to-course.md).
+
+Pour les agents du planner, `STUDIUM_LLM_MODE=mock` est le départ. Le mode
+`litellm` utilise `LITELLM_BASE_URL`, éventuellement `LITELLM_API_KEY`, et un endpoint
+compatible `/v1/chat/completions`. Le proxy doit router les alias autorisés :
+notamment `planner`, `critic`, `graph-builder` pour les agents Python ; le client
+TypeScript utilise `studium/planner`, `studium/scene-synth`, `studium/critic`,
+`studium/teacher-review`, `studium/runtime-tutor`.
+
+Voir le [planner](../../services/planner/agents/base.py) et le
+[client LLM](../../packages/llm-client/src/index.ts). Le serveur MCP stdio active
+son backend live si `LITELLM_BASE_URL` est non vide ; les exemples la laissent
+vide. L'API HTTP exige en plus `STUDIUM_API_LIVE=1`.
+
+Garder les clés dans le mécanisme local de secrets, jamais dans Git ou un prompt.
+Faire un essai borné avec le budget convenu. Examiner les indicateurs de fallback :
+certains agents retombent en mock après un échec ; HTTP 200 ne prouve pas le live.

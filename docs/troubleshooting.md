@@ -15,7 +15,14 @@ d'erreur minimal sans clés, données personnelles ou contenu privé.
 | F5 ne trouve pas la configuration | Ouvrir `apps/studium-vscode`, qui contient la configuration Extension Host |
 | Le VSIX ne trouve pas la leçon | Fournir le bundle et ses assets, définir `studium.bundlesRoot` et `bundleRef` |
 | Graphique/équation dégradé | Exécuter `pnpm --filter studium-vscode vendor`, reconstruire ; vérifier le mode assets |
-| Session inconnue après changement de client | Un identifiant appartient à son serveur ; ne pas le transférer comme une session vivante |
+| Session inconnue après changement de client | Vérifier le même serveur encore actif ; l'API permet cette reprise, pas le transfert vers un nouveau processus |
+| API répond `401` | Fournir le même token local au serveur et au client via leur environnement ; ne pas le coller dans le chat |
+| API répond `409` | Relire le contexte si la scène est périmée ; après une erreur réseau, relancer le même fichier avec le même `request_id` |
+| API répond `503` | File d'attente ou reçus pleins : consulter [les règles de reprise](guides/api-and-harness.md) avant de créer une nouvelle action |
+| API refusée depuis un viewer | Les requêtes de navigateur avec `Origin` sont refusées ; faire appeler l'API par le harnais, sans token dans le HTML |
+| `api:call` ou une option récente est absente | Vérifier [la révision installée](updates/2026-09-12.md) ; ne pas mélanger les docs récentes avec un ancien clone de `dev` |
+| La langue choisie ne traduit pas toute l'activité | Fournir un dictionnaire `--translations` ; le sélecteur conserve les textes manquants dans leur langue source |
+| Un prompt média ne génère rien dans le navigateur | Le harnais exécute la demande avec son outil disponible, puis attache le fichier dans une nouvelle activité |
 | Chat et panneau montrent deux scènes | Ils peuvent utiliser deux serveurs ; choisir un seul pilote de séance |
 | Réponse rejetée | Relire `get_operator_context` et son format ; ne pas envoyer `ack` à toutes les scènes |
 | Réponse IA ou confiance inventée | Revenir à la contribution personnelle de l'étudiant avant toute soumission |
@@ -39,7 +46,7 @@ Depuis la racine installée/construite :
 node apps/lesson-mcp/scripts/headless_smoke.mjs
 ```
 
-Ce test MCP doit passer ses 14 assertions. Il ne vérifie pas l'authentification
+Ce test MCP doit annoncer la réussite de tous ses contrôles. Il ne vérifie pas l'authentification
 Copilot, le rendu dans l'Extension Host ni l'efficacité du cours. Pour une recette
 Python et une revue locale, rejouer le [tutoriel littérature](tutorials/literature-to-course.md).
 

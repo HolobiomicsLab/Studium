@@ -9,6 +9,8 @@ The maintained user recipes are now:
 - [VS Code / Copilot Student and teacher setup](../getting-started/copilot.md).
 - [Claude Code, Codex, Cursor, OpenCode v2 and backend API](../getting-started/harnesses-and-api.md).
 - [First lesson](../tutorials/first-lesson.md) and [agentic experiments](../tutorials/agentic-experiment.md).
+- [Practical use cases](../tutorials/use-cases.md), [capability map](../features.md)
+  and [10–12 September development update](../updates/2026-09-12.md).
 
 After building the extension, the portable server launch is `node` with the
 absolute path to `apps/studium-vscode/dist/lesson-mcp.cjs`, plus an absolute

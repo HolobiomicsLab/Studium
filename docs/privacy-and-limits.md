@@ -7,6 +7,7 @@ modèle distant est utilisé. Distinguer les espaces avant un pilote de classe.
 | Espace | Ce qui peut s'y trouver | Qui contrôle sa conservation |
 |---|---|---|
 | Moteur Studium | État de séance et, selon configuration, profil durable | Configuration et commandes d'oubli Studium |
+| API HTTP locale | Sessions actives et reçus de relance en mémoire du serveur | Utilisateur local ; le token donne accès aux sessions de ce serveur |
 | Harnais / fournisseur | Prompts, contenus transmis, appels d'outils, historique | Paramètres et conditions du client/fournisseur |
 | Espace d'expérience | Code, données, logs, reçus, observations choisies | Utilisateur du dossier |
 | Cours partagé | Sources autorisées, plan, assets, critères de réponse | Enseignant et règles de distribution |
@@ -32,6 +33,18 @@ généraliser une propriété d'un backend de stockage à toutes les surfaces ou
 présenter le prototype comme certifié conforme à un règlement.
 
 ## Oubli et export
+
+L'[API locale](guides/api-and-harness.md) permet une reprise par un autre harnais
+sur le même serveur actif. Son token ne crée pas une séparation entre étudiants :
+le service vise une personne et ses clients locaux. Ne pas incorporer le token
+dans une activité HTML ni exposer ce serveur sur Internet. L'arrêt du processus
+perd la position active ; les profils/journaux persistés sous consentement et
+les exports restent des objets distincts.
+
+Les [activités portables](tutorials/activity-to-report.md) proposent un choix
+d'enregistrement et un téléchargement volontaire des actions. Le rapport exclut
+les textes personnels par défaut ; `--include-original-text` est un choix pour
+la copie produite, pas une autorisation générale de diffusion.
 
 Le bouton « M'oublier » ou l'appel d'oubli de la séance vise les données gérées par
 Studium. Il ne supprime pas l'historique du harnais, les dossiers d'exploration,

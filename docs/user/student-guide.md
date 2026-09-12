@@ -19,6 +19,12 @@ Pour essayer immédiatement, utilise `atomistique-l1`, livré dans le dépôt.
    pour travailler avec un agent. [D'autres harnais](../getting-started/harnesses-and-api.md) sont possibles.
 3. Fais le [tutoriel première séance](../tutorials/first-lesson.md).
 
+Si l'enseignant fournit seulement une activité portable `index.html`, tu peux
+l'ouvrir dans un navigateur sans installer le moteur. Pour une séance pilotée
+par Claude Code, Codex ou OpenCode sans VS Code, suis les
+[recettes par harnais](../getting-started/harnesses-and-api.md). L'API permet de
+changer de harnais en gardant le même serveur actif.
+
 Laisse d'abord la télémétrie désactivée et utilise un identifiant de test sans
 nom réel. Le professeur précise les règles du pilote avant une collecte de classe.
 La [confidentialité](../privacy-and-limits.md) distingue les données Studium de
@@ -72,9 +78,30 @@ Garde les sorties dans ton espace d'expérience. Une capsule `type-checked` n'es
 pas un run réussi. Si une dépendance manque ou qu'un calcul échoue, conserve cet
 échec ; ne demande pas à l'agent de fabriquer un résultat.
 
+## Choisir la langue et demander une représentation
+
+Précise ta langue au début ou demande « Continue en français ». Le harnais
+applique cette préférence à ses explications, en conservant tes réponses et les
+sources originales. Dans les activités portables, le sélecteur utilise les
+traductions fournies ; un texte non traduit reste signalé dans sa langue source.
+
+Tu peux demander une équation lisible, un schéma Mermaid, une structure chimique
+ou une explication textuelle. Une image, un audio ou un clip généré est facultatif
+et dépend des outils et de l'allocation de ton harnais. Les médias préparés par
+l'enseignant peuvent être réutilisés. Le symbole `?` explique le rôle de la
+prédiction, de la confiance, des preuves ou de la trace. Voir les
+[cas d'usage](../tutorials/use-cases.md) et [supports](../guides/language-and-scientific-presentation.md).
+
+Pour conserver tes actions, suis [activité → rapport](../tutorials/activity-to-report.md).
+Tu choisis la trace et l'inclusion de tes textes ; produire le rapport ne l'envoie
+pas à l'enseignant.
+
 ## Terminer ou reprendre
 
-Note le cours, la révision et ce que tu veux reprendre. Le panneau et un chat MCP
+Note le cours, la révision et ce que tu veux reprendre. Avec l'API, conserve le
+`session_id` et le même serveur actif ; le nouveau harnais relit le contexte
+avant d'agir. Un redémarrage du serveur ne restaure pas ta position.
+Le panneau et un chat MCP
 indépendant ont des sessions distinctes. Fermer une fenêtre ne prouve pas que
 des données persistantes ont été effacées. L'oubli concerne l'état géré par Studium ;
 les dossiers d'expérience et l'historique du harnais ont leur propre conservation.
