@@ -44,6 +44,9 @@ ici ne valent pas validation scientifique ni preuve d'efficacité pédagogique.
 - [Templates d’activité pour le harnais](user/activity-templates.md),
   [rapport étudiant ASTRA/MySTRA](user/learner-report.md) et
   [tutoriel activité → rapport](tutorials/activity-to-report.md).
+- [Photographies, audio et vidéo](guides/sourced-and-generated-media.md) :
+  sources et droits, accessibilité, génération par le harnais et
+  [exemple d’archéologie](../examples/archaeology/README.md).
 - [Journal privé prédiction → observation → conclusion](user/experiment-journal.md),
   [viewer MS/MS à représentations liées](user/linked-viewer.md) et
   [révision approuvée → synthèse](user/reviewed-synthesis.md).

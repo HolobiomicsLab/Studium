@@ -50,6 +50,52 @@
   margin-inline: auto;
 }
 
+.scientific-support__audio,
+.scientific-support__video {
+  display: block;
+  width: 100%;
+  max-width: 48rem;
+}
+
+.scientific-support__video {
+  max-height: 32rem;
+  background: #111;
+}
+
+.scientific-support__prompt-text {
+  max-height: 20rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line, #d7dde5);
+  border-radius: 0.5rem;
+  background: var(--surface-muted, #eef2f6);
+  overflow: auto;
+}
+
+.scientific-support__download {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid currentColor;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.scientific-support__rights {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.2rem 0.5rem;
+  margin: 0.5rem 0 0;
+}
+
+.scientific-support__rights dt {
+  font-weight: 600;
+}
+
+.scientific-support__rights dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .scientific-support__molecule {
   display: block;
   width: min(100%, 420px) !important;
@@ -72,6 +118,7 @@
 .scientific-support__notice,
 .scientific-support__provenance,
 .scientific-support__alternative,
+.scientific-support__transcript,
 .scientific-support__fallback {
   font-size: 0.875rem;
 }

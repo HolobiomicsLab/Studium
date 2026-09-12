@@ -3,6 +3,9 @@
 const MAX_PAYLOAD_CHARS = 64 * 1024;
 const GENERATED_NOTICE = "AI-generated image; details may be inaccurate.";
 const SAFE_IMAGE = /^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/;
+const SAFE_AUDIO = /^data:audio\/(?:wav|mpeg);base64,[A-Za-z0-9+/=]+$/;
+const SAFE_VIDEO = /^data:video\/(?:mp4|webm);base64,[A-Za-z0-9+/=]+$/;
+const SAFE_CAPTIONS = /^data:text\/vtt;base64,[A-Za-z0-9+/=]+$/;
 const UNSAFE_MERMAID = [
   /<\s*\/?\s*[a-z!]/i,
   /%%\s*\{/,
@@ -32,10 +35,15 @@ export function validateSupportAsset(asset) {
   if (typeof asset.provenance !== "string" || !asset.provenance.trim()) {
     return "Support has no provenance.";
   }
+  if (asset.meta.placement && !["before_prediction", "after_prediction"].includes(asset.meta.placement)) {
+    return "Support placement is invalid.";
+  }
   if (asset.kind === "image") return validateImage(asset);
+  if (asset.kind === "audio" || asset.kind === "video") return validateMedia(asset);
   if (asset.kind === "equation_latex") return validateEquation(asset);
   if (asset.kind === "code") return validateMermaid(asset);
   if (asset.kind === "mol_3d") return validateSmiles(asset);
+  if (asset.kind === "protocol_md") return validateMediaPrompt(asset);
   return `Unsupported scientific support kind: ${String(asset.kind)}`;
 }
 
@@ -77,14 +85,25 @@ function createHeading(document, asset) {
 }
 
 function supportLabel(asset) {
-  if (asset?.kind === "image") return `image · ${asset.meta?.origin || "unknown origin"}`;
+  if (["image", "audio", "video"].includes(asset?.kind)) {
+    return `${asset.kind} · ${asset.meta?.origin || "unknown origin"}`;
+  }
   if (asset?.kind === "mol_3d" && asset.format === "smiles") return "molecule · 2D structure";
+  if (asset?.kind === "protocol_md") return "media generation instructions";
   return asset?.kind || "support";
 }
 
 async function renderAsset(document, mount, asset, options) {
   if (asset.kind === "mol_3d") {
     await renderSmiles(document, mount, asset, options.SmilesDrawer || globalThis.SmilesDrawer);
+    return;
+  }
+  if (asset.kind === "audio" || asset.kind === "video") {
+    mount.replaceChildren(renderMedia(document, asset));
+    return;
+  }
+  if (asset.kind === "protocol_md") {
+    mount.replaceChildren(renderMediaPrompt(document, asset));
     return;
   }
   let rendered;
@@ -104,6 +123,79 @@ function renderImage(document, asset) {
     figure.append(element(document, "figcaption", "scientific-support__notice", GENERATED_NOTICE));
   }
   return figure;
+}
+
+function renderMedia(document, asset) {
+  const wrapper = element(document, "div", "scientific-support__media");
+  const player = element(document, asset.kind, `scientific-support__${asset.kind}`);
+  player.controls = true;
+  player.autoplay = false;
+  player.preload = "none";
+  player.setAttribute("aria-label", asset.meta.alt);
+  const source = createMediaSource(document, asset);
+  player.append(source);
+  const failure = element(document, "p", "scientific-support__fallback", `Media could not be played. ${asset.meta.alt}`);
+  failure.hidden = true;
+  const showFailure = () => { player.hidden = true; failure.hidden = false; };
+  player.addEventListener("error", showFailure);
+  source.addEventListener("error", showFailure);
+  if (asset.kind === "video") {
+    const track = createCaptionTrack(document, asset);
+    track.addEventListener("error", showFailure);
+    player.append(track);
+  }
+  wrapper.append(player, failure, createTranscript(document, asset));
+  if (asset.meta.origin === "generated") wrapper.append(createGeneratedNotice(document, asset.kind));
+  return wrapper;
+}
+
+function createMediaSource(document, asset) {
+  const source = element(document, "source", "");
+  source.src = asset.path;
+  source.type = asset.path.slice(5, asset.path.indexOf(";"));
+  return source;
+}
+
+function createCaptionTrack(document, asset) {
+  const track = element(document, "track", "");
+  track.kind = "captions";
+  track.src = asset.meta.captions_data_uri;
+  track.srclang = asset.meta.captions_language;
+  track.label = asset.meta.captions_language;
+  track.default = true;
+  return track;
+}
+
+function createTranscript(document, asset) {
+  const details = element(document, "details", "scientific-support__transcript");
+  details.append(element(document, "summary", "", "Transcript"));
+  details.append(element(document, "p", "", asset.meta.transcript));
+  return details;
+}
+
+function createGeneratedNotice(document, kind) {
+  return element(document, "p", "scientific-support__notice", `AI-generated ${kind}; details may be inaccurate.`);
+}
+
+function renderMediaPrompt(document, asset) {
+  const wrapper = element(document, "div", "scientific-support__prompt");
+  const text = element(document, "pre", "scientific-support__prompt-text", asset.payload);
+  text.setAttribute("aria-label", asset.meta.alt);
+  const button = element(document, "button", "scientific-support__download", "Download instructions");
+  button.type = "button";
+  button.addEventListener("click", () => downloadPrompt(document, asset));
+  wrapper.append(text, button);
+  return wrapper;
+}
+
+function downloadPrompt(document, asset) {
+  const anchor = element(document, "a", "");
+  anchor.href = `data:text/plain;charset=utf-8,${encodeURIComponent(asset.payload)}`;
+  anchor.download = asset.meta.generation.download_filename;
+  anchor.hidden = true;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
 }
 
 function renderEquation(document, asset, katex) {
@@ -250,13 +342,31 @@ function createFallback(document, asset, message) {
   fallback.setAttribute("role", "note");
   fallback.append(element(document, "p", "", `${message} ${asset?.meta?.alt || "No description supplied."}`));
   if (typeof asset?.payload === "string") fallback.append(element(document, "pre", "", asset.payload));
+  if (typeof asset?.meta?.transcript === "string") fallback.append(element(document, "p", "", asset.meta.transcript));
   return fallback;
 }
 
 function createProvenance(document, asset) {
   const footer = element(document, "footer", "scientific-support__provenance");
   footer.append(element(document, "span", "", `Provenance: ${asset?.provenance || "unavailable"}`));
+  if (asset?.meta?.rights) footer.append(createRights(document, asset.meta.rights));
   return footer;
+}
+
+function createRights(document, rights) {
+  const wrapper = element(document, "div", "scientific-support__rights-claim");
+  wrapper.append(element(document, "p", "", "Rights metadata is an authored claim, not a legal determination."));
+  const list = element(document, "dl", "scientific-support__rights");
+  const fields = [
+    ["Creator", rights.creator], ["License", rights.license],
+    ["Rights evidence", rights.evidence_url], ["Intended scope", rights.scope],
+  ];
+  if (rights.adaptations) fields.push(["Adaptations", rights.adaptations]);
+  for (const [label, value] of fields) {
+    list.append(element(document, "dt", "", label), element(document, "dd", "", value));
+  }
+  wrapper.append(list);
+  return wrapper;
 }
 
 function validateEquation(asset) {
@@ -266,7 +376,36 @@ function validateEquation(asset) {
 
 function validateImage(asset) {
   if (!SAFE_IMAGE.test(asset.path || "")) return "Image was not prepared locally.";
+  if (asset.meta.rights) {
+    const rightsProblem = validateRights(asset.meta.rights);
+    if (rightsProblem) return rightsProblem;
+  }
   return ["source", "generated"].includes(asset.meta.origin) ? "" : "Image origin is not declared.";
+}
+
+function validateMedia(asset) {
+  const safePath = asset.kind === "audio" ? SAFE_AUDIO : SAFE_VIDEO;
+  if (!safePath.test(asset.path || "")) return `${asset.kind} was not prepared locally.`;
+  if (!["source", "generated"].includes(asset.meta.origin)) return `${asset.kind} origin is not declared.`;
+  if (!validPayload(asset.meta.transcript)) return `${asset.kind} transcript is unavailable.`;
+  const rightsProblem = validateRights(asset.meta.rights);
+  if (rightsProblem) return rightsProblem;
+  if (asset.kind === "video" && !SAFE_CAPTIONS.test(asset.meta.captions_data_uri || "")) return "Video captions are unavailable.";
+  return "";
+}
+
+function validateRights(rights) {
+  if (!rights || typeof rights !== "object") return "Media rights metadata is unavailable.";
+  if (![rights.creator, rights.license, rights.evidence_url].every(validPayload)) return "Media rights metadata is incomplete.";
+  return ["private", "course", "public"].includes(rights.scope) ? "" : "Media rights scope is invalid.";
+}
+
+function validateMediaPrompt(asset) {
+  if (asset.format !== "studium-media-prompt" || !validPayload(asset.payload)) return "Media prompt is invalid.";
+  const generation = asset.meta.generation;
+  if (!generation || typeof generation !== "object") return "Media generation metadata is unavailable.";
+  if (!validPayload(generation.download_filename) || /[/\\]/.test(generation.download_filename)) return "Prompt filename is invalid.";
+  return "";
 }
 
 function validateMermaid(asset) {

@@ -7,6 +7,8 @@ import { z } from "zod";
 
 export const RenderAssetKindSchema = z.enum([
   "image",            // a rendered figure (path)
+  "audio",            // a local audio recording with transcript metadata
+  "video",            // a local video recording with transcript + WebVTT metadata
   "svg",              // inline SVG markup (e.g. a spectrum viewer)
   "equation_latex",   // a LaTeX string → KaTeX/MathJax
   "plot_spec",        // a Vega-Lite / Plotly JSON spec → interactive plot

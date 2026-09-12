@@ -21,6 +21,8 @@ describe("RenderAsset content source — payload XOR path", () => {
   it("accepts payload-only and path-only assets", () => {
     expect(RenderAssetSchema.safeParse({ kind: "equation_latex", payload: "E=h\\nu" }).success).toBe(true);
     expect(RenderAssetSchema.safeParse({ kind: "image", path: "figures/decay.png" }).success).toBe(true);
+    expect(RenderAssetSchema.safeParse({ kind: "audio", path: "media/narration.wav" }).success).toBe(true);
+    expect(RenderAssetSchema.safeParse({ kind: "video", path: "media/observation.mp4" }).success).toBe(true);
   });
 
   it("accepts an executed_result with no figure — its content is `meta` (figure_path is nullable)", () => {

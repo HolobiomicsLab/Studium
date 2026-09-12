@@ -1,0 +1,23 @@
+{
+  "expected_output": "image",
+  "expected_format": "png",
+  "download_filename": "evidence-reconstruction-prompt.txt",
+  "output_filename": "evidence-reconstruction.png",
+  "prompt": "Create a clearly labelled explanatory diagram based on the supplied Met photograph of Hippopotamus (\"William\"). Separate directly visible features from museum catalogue information. Do not invent an ancient setting, ritual use, dimensions or unseen surfaces.",
+  "language": "en",
+  "pedagogical_goal": "Help the learner distinguish observed archaeological evidence from an explanatory reconstruction.",
+  "source_refs": [
+    {
+      "id": "met_544227",
+      "locator": "https://www.metmuseum.org/art/collection/search/544227",
+      "role": "primary_evidence"
+    }
+  ],
+  "text_fallback": "Visible blue-green colouring and dark motifs can be described from the photograph; dating and material are attributed to the museum catalogue. Original use and placement require other evidence.",
+  "accessibility": {
+    "alt": "Diagram separating visible features of the museum hippopotamus figurine from catalogue information and unknown context.",
+    "transcript_required": false,
+    "captions_required": false
+  },
+  "placement": "after_prediction"
+}

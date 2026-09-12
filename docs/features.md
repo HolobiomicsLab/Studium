@@ -125,6 +125,15 @@ auteur. Elle ne soumet pas de réponse et ne modifie pas la maîtrise des concep
 
 Le [guide dédié](guides/adaptive-visual-support.md) distingue les médias déjà rendus, les imports PDF/ASB encore incomplets et le workflow de génération externe. Le skill `studium-visual-support` prépare une aide sourcée à partir de la scène et des besoins exprimés ; il ne constitue pas un moteur automatique de personnalisation. Les viewers partagent une [charte sobre](design/viewer-charter.md).
 
+Les activités portables acceptent maintenant des photographies avant la prédiction,
+des supports audio/vidéo locaux avec transcription et sous-titres, et des prompts
+de génération préparés pour le harnais. L'enseignant peut préparer un média une
+fois ; l'étudiant peut demander une aide et faire intégrer le fichier retourné
+dans un nouvel artefact. Les droits et la provenance restent explicites. Voir le
+[parcours complet et ses limites](guides/sourced-and-generated-media.md).
+Cette capacité ne constitue pas un branchement automatique à une API multimodale
+ni une migration de tous les lecteurs et rapports historiques.
+
 ### Scientific supports and language
 
 Portable activities can include local Mermaid diagrams, KaTeX equations, 2D SMILES

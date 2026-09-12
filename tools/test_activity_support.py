@@ -25,6 +25,27 @@ def asset_meta(alt: str, origin: str = "source") -> dict[str, str]:
     return {"alt": alt, "origin": origin}
 
 
+def media_rights(scope: str = "course") -> dict[str, str]:
+    """Return explicit authored rights claims for a media fixture."""
+    return {
+        "creator": "Fixture author",
+        "license": "CC BY 4.0",
+        "evidence_url": "urn:studium:test:rights-record",
+        "scope": scope,
+    }
+
+
+def write_media(path: Path, kind: str) -> None:
+    """Write a small signature-valid synthetic media fixture."""
+    signatures = {
+        "wav": b"RIFF\x00\x00\x00\x00WAVEfmt ",
+        "mp3": b"ID3\x04\x00\x00\x00\x00\x00\x00",
+        "mp4": b"\x00\x00\x00\x18ftypisom\x00\x00\x00\x00isom",
+        "webm": b"\x1a\x45\xdf\xa3\x9fB\x86\x81\x01",
+    }
+    path.write_bytes(signatures[kind] + b"synthetic fixture")
+
+
 def test_prepare_support_inlines_image_and_preserves_canonical_shapes(tmp_path: Path) -> None:
     image = tmp_path / "figure.png"
     image.write_bytes(PNG_HEADER + b"bounded fixture")
@@ -159,3 +180,130 @@ def test_prepare_support_enforces_aggregate_image_budget(tmp_path: Path) -> None
 
     with pytest.raises(SupportValidationError, match="aggregate"):
         prepare_support(write_sidecar(tmp_path / "support.json", assets))
+
+
+def test_prepare_support_inlines_audio_video_captions_and_rights(tmp_path: Path) -> None:
+    write_media(tmp_path / "voice.wav", "wav")
+    write_media(tmp_path / "clip.mp4", "mp4")
+    (tmp_path / "clip.vtt").write_text("WEBVTT\n\n00:00.000 --> 00:01.000\nMeasured sample.\n", encoding="utf-8")
+    assets = [
+        {
+            "kind": "audio",
+            "path": "voice.wav",
+            "provenance": "Synthetic local narration fixture.",
+            "meta": {
+                **asset_meta("Audio explanation of the measured sample."),
+                "transcript": "The measured sample is shown first.",
+                "rights": {"creator": "unknown", "license": "unknown", "evidence_url": "unknown", "scope": "private"},
+            },
+        },
+        {
+            "kind": "video",
+            "path": "clip.mp4",
+            "provenance": "Synthetic local motion fixture.",
+            "meta": {
+                **asset_meta("Short video of the measured sample."),
+                "transcript": "The measured sample remains still.",
+                "captions_path": "clip.vtt",
+                "captions_language": "en",
+                "rights": media_rights(),
+                "placement": "before_prediction",
+            },
+        },
+    ]
+
+    audio, video = prepare_support(write_sidecar(tmp_path / "support.json", assets))
+
+    assert audio["path"].startswith("data:audio/wav;base64,")
+    assert audio["meta"]["rights"]["scope"] == "private"
+    assert video["path"].startswith("data:video/mp4;base64,")
+    assert video["meta"]["captions_data_uri"].startswith("data:text/vtt;base64,")
+    assert "captions_path" not in video["meta"]
+    assert video["meta"]["rights"] == media_rights()
+    assert video["meta"]["placement"] == "before_prediction"
+
+
+def test_prepare_support_validates_passive_generation_prompt(tmp_path: Path) -> None:
+    prompt = {
+        "kind": "protocol_md",
+        "format": "studium-media-prompt",
+        "payload": "Create a silent, labelled close-up of the supplied teaching specimen.",
+        "language": "en",
+        "provenance": "Teacher-reviewed media request.",
+        "meta": {
+            "alt": "Generation instructions for an optional specimen video.",
+            "generation": {
+                "expected_output": "video",
+                "expected_format": "mp4",
+                "placement": "after_prediction",
+                "download_filename": "specimen-video-prompt.txt",
+                "output_filename": "specimen-video.mp4",
+                "activity_id": "activity-1",
+                "activity_sha256": "a" * 64,
+                "language": "en",
+                "pedagogical_goal": "Show the specimen without revealing the judgment.",
+                "source_refs": ["source-1"],
+                "text_fallback": "A close-up of the labelled specimen.",
+                "accessibility": "Silent video with captions and transcript required.",
+            },
+        },
+    }
+
+    assert prepare_support(write_sidecar(tmp_path / "prompt.json", [prompt])) == [prompt]
+
+
+def test_prepare_support_accepts_mp3_webm_and_fixes_generated_notices(tmp_path: Path) -> None:
+    write_media(tmp_path / "voice.mp3", "mp3")
+    write_media(tmp_path / "clip.webm", "webm")
+    (tmp_path / "clip.vtt").write_text("WEBVTT\n\n00:00.000 --> 00:01.000\nLocal fixture.\n", encoding="utf-8")
+    generated = lambda alt: {**asset_meta(alt, "generated"), "transcript": alt, "rights": media_rights(), "ai_disclaimer": "replace me"}
+    assets = [
+        {"kind": "audio", "path": "voice.mp3", "provenance": "Synthetic fixture.", "meta": generated("Generated voice fixture.")},
+        {"kind": "video", "path": "clip.webm", "provenance": "Synthetic fixture.", "meta": {**generated("Generated video fixture."), "captions_path": "clip.vtt", "captions_language": "en"}},
+    ]
+
+    audio, video = prepare_support(write_sidecar(tmp_path / "support.json", assets))
+
+    assert audio["path"].startswith("data:audio/mpeg;base64,")
+    assert video["path"].startswith("data:video/webm;base64,")
+    assert audio["meta"]["ai_disclaimer"] == "AI-generated audio; details may be inaccurate."
+    assert video["meta"]["ai_disclaimer"] == "AI-generated video; details may be inaccurate."
+
+
+def test_prepare_support_rejects_media_over_item_limit(tmp_path: Path) -> None:
+    media = tmp_path / "voice.wav"
+    with media.open("wb") as stream:
+        stream.write(b"RIFF\x00\x00\x00\x00WAVE")
+        stream.truncate(20 * 1024 * 1024 + 1)
+    asset = {"kind": "audio", "path": media.name, "provenance": "Oversize fixture.", "meta": {**asset_meta("Oversize audio."), "transcript": "Audio transcript.", "rights": media_rights()}}
+
+    with pytest.raises(SupportValidationError, match="size limit"):
+        prepare_support(write_sidecar(tmp_path / "support.json", [asset]))
+
+
+@pytest.mark.parametrize(
+    ("asset", "match"),
+    [
+        ({"kind": "audio", "path": "../voice.wav", "provenance": "x", "meta": {**asset_meta("x"), "transcript": "x", "rights": media_rights()}}, "inside"),
+        ({"kind": "audio", "path": "voice.mp3", "provenance": "x", "meta": {**asset_meta("x"), "transcript": "x", "rights": media_rights()}}, "content"),
+        ({"kind": "video", "path": "clip.mp4", "provenance": "x", "meta": {**asset_meta("x"), "transcript": "x", "rights": media_rights()}}, "captions"),
+        ({"kind": "video", "path": "clip.mp4", "provenance": "x", "meta": {**asset_meta("x"), "transcript": "x", "captions_path": "active.vtt", "captions_language": "en", "rights": media_rights()}}, "active"),
+        ({"kind": "audio", "path": "voice.wav", "provenance": "x", "meta": {**asset_meta("x"), "transcript": "", "rights": media_rights()}}, "transcript"),
+        ({"kind": "audio", "path": "voice.wav", "provenance": "x", "meta": {**asset_meta("x"), "transcript": "x", "rights": {**media_rights(), "scope": "world"}}}, "scope"),
+        ({"kind": "image", "path": "figure.png", "provenance": "x", "meta": {**asset_meta("x"), "rights": {**media_rights(), "scope": "world"}}}, "scope"),
+        ({"kind": "audio", "path": "voice.wav", "provenance": "x", "meta": {**asset_meta("x"), "transcript": "x", "rights": {**media_rights(), "license": "unknown"}}}, "private"),
+        ({"kind": "audio", "path": "voice.wav", "provenance": "x", "meta": {**asset_meta("x"), "transcript": "x", "rights": media_rights(), "placement": "during_answer"}}, "placement"),
+        ({"kind": "protocol_md", "format": "markdown", "payload": "make media", "provenance": "x", "meta": {"alt": "x"}}, "studium-media-prompt"),
+    ],
+)
+def test_prepare_support_rejects_unsafe_media_profiles(
+    tmp_path: Path, asset: dict[str, object], match: str
+) -> None:
+    write_media(tmp_path / "voice.wav", "wav")
+    write_media(tmp_path / "voice.mp3", "wav")
+    write_media(tmp_path / "clip.mp4", "mp4")
+    (tmp_path / "figure.png").write_bytes(PNG_HEADER + b"fixture")
+    (tmp_path / "active.vtt").write_text("WEBVTT\n\n<script>alert(1)</script>\n", encoding="utf-8")
+
+    with pytest.raises(SupportValidationError, match=match):
+        prepare_support(write_sidecar(tmp_path / "support.json", [asset]))

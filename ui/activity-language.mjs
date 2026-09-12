@@ -3,6 +3,8 @@ const FR = {
   'Language':'Langue', 'Harness activity · local draft':'Activité accompagnée · brouillon local',
   '1 · Predict':'1 · Prédire', '2 · Observe':'2 · Observer', '3 · Conclude':'3 · Conclure',
   'Source or calculation basis':'Source ou base du calcul',
+  'Observation material':'Documents à observer',
+  'Available before your prediction · inspect at your own pace':'Disponibles avant votre prédiction · explorez à votre rythme',
   'Recording · choose before you begin':'Enregistrement · choisir avant de commencer',
   'Enable a private in-page trace for optional download, or continue with no trace. This choice cannot be changed without reloading, so actions are never filled in retroactively.':'Activez une trace privée dans cette page, téléchargeable à votre demande, ou continuez sans trace. Ce choix nécessite un rechargement pour être modifié ; aucune action ne sera reconstruite après coup.',
   'Start with local trace':'Commencer avec une trace locale', 'Continue without trace':'Continuer sans trace',

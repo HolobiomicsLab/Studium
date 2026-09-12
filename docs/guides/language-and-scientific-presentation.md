@@ -66,6 +66,8 @@ retain their existing interface language until their own localization migration.
 | Process, concept relation, mind map | Mermaid | `code` asset with `language: "mermaid"` |
 | Molecular connectivity | SmilesDrawer 2D structure | `mol_3d` asset with `format: "smiles"`; labelled as a 2D depiction |
 | Original figure or generated explanation | Embedded passive raster image | `image` with a local path, provenance and alternative text |
+| Narration or short clip | Native player, transcript, video captions | `audio` (WAV/MP3) or `video` (MP4/WebM) |
+| Optional generation through the harness | Inspectable prompt and local download | `protocol_md`, `format: "studium-media-prompt"` |
 | Other domain | Existing specialised lesson renderer or passive figure + explanation | Canonical `RenderAsset`; use a passive figure for other kinds |
 
 The historical `mol_3d` kind also accepts SMILES; a SMILES support is rendered in
@@ -76,8 +78,10 @@ these have not all been ported into the portable activity viewer.
 The supports manifest is an object with `render_assets`, using the existing
 [RenderAsset contract](../../packages/lesson-bundle-schema/src/render-asset.ts).
 Every support should explain its scope and name its source in `provenance`.
-Prefer one or two useful supports to a gallery. Supports are collapsed and offered
-after the learner's prediction. They are pedagogical assistance, not evidence that
+Prefer one or two useful supports to a gallery. Explanatory supports are collapsed
+and offered after the learner's prediction. Source photographs and non-answer
+introductions can set `meta.placement: "before_prediction"` so they are available
+for the initial observation. They are learning material, not evidence that
 a scientific computation or learner assessment took place.
 
 The preparation command bundles local assets into the generated HTML. Installed
@@ -86,7 +90,11 @@ and fonts add several megabytes when rich supports are included; text-only
 activities remain lightweight. Reuse the prepared file rather than rebuilding or
 generating an image on each interaction. Mathematical syntax errors and unsupported
 representations retain source text instead of invented graphics. Preparation accepts
-only the four supported input profiles above and rejects other kinds explicitly.
+only the supported input profiles above and rejects other kinds explicitly.
+
+See [sourced and generated media](sourced-and-generated-media.md) for rights,
+accessible audio/video, teacher preparation and checked attachment of a file
+generated through the learner's harness.
 
 ## Optional AI image
 

@@ -1,6 +1,6 @@
 ---
 name: studium-visual-support
-description: Help a Studium learner understand a source figure or request an adapted visual explanation, graphical abstract or Mermaid concept map through their existing harness. Use for source-grounded visual support and learner-stated familiarity; use studium-harness for lesson responses and grading.
+description: Help a Studium learner inspect source photographs or request an adapted image, Mermaid map, audio explanation or short video through their existing harness. Use for source-grounded media support and stated access needs; use studium-harness for lesson responses and grading.
 ---
 
 # Studium visual support
@@ -10,6 +10,10 @@ Read [the practical guide](../../docs/guides/adaptive-visual-support.md) for cur
 capabilities, example assets and the source-to-receipt workflow. This skill uses
 the tools actually available in the chosen harness; it does not install a model,
 create an image tool, or attach generated assets to a live lesson automatically.
+For teacher-built or learner-requested images/audio/video, read
+[the media workflow](../../docs/guides/sourced-and-generated-media.md).
+It provides a checked local attachment into a new portable activity, not a live
+session replacement or a universal provider bridge.
 For portable activities, use the checked `--supports` preparation path in
 [language and scientific presentation](../../docs/guides/language-and-scientific-presentation.md).
 
@@ -67,6 +71,11 @@ was made. Don't silently switch to a paid API or another account.
 
 ## Preserve the pedagogical boundary
 
+Source photographs and non-answer orientation can use
+`meta.placement: "before_prediction"`. The learner must see the primary material
+they are asked to observe. Keep annotation and generated reconstruction distinct
+from that original; explanatory supports default to `after_prediction`.
+
 If the requested support would reveal the answer or measured result, first collect
 the learner's own prediction using the current lesson workflow. Before that,
 explain notation or show a separate non-answer example. Never populate their
@@ -78,6 +87,27 @@ objectives fixed. New scientific claims, exercises or alternate lessons are
 teacher-review drafts under the existing release workflow.
 
 ## Keep a reusable record
+
+For a requested media generation, use `tools/media_workflow.py prepare` with the
+existing public activity and an adapted teacher brief. Inspect the bound canonical
+`protocol_md` request. Confirm the connected tool is available and its allowance
+before invoking the requested generation; use only necessary public/de-identified
+context. Never invent a provider result or silently use another paid route.
+Record the actual prompt/tool/model/date with the existing exploration receipt.
+
+Inspect/play the returned local file, then use `tools/media_workflow.py attach`
+with authored source/rights metadata. Audio requires a transcript; video also
+requires WebVTT captions. Describe meaningful visual information, not just speech.
+The attachment creates a new directory and preserves the original activity and
+student files. Export any active browser trace before opening a new run; do not
+claim seamless in-place migration. Unknown rights stay private and unresolved;
+local use does not itself authorize redistribution or provider uploads.
+
+Prefer an existing source or teacher-generated reusable support to repeated
+generation. Keep a text fallback, native playback controls and the generated
+notice. Do not infer disability or diagnose needs from learner errors. Check
+current official provider documentation before selecting a route; model names in
+the guide are dated observations, not installed capabilities.
 
 Use existing `RenderAsset` kinds for a reviewed lesson asset: `image` for a passive
 PNG, `svg` only when trusted/sanitized, `plot_spec` for supported declarative plots.

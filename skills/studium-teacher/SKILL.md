@@ -83,3 +83,12 @@ Use [studium-learner-report](../studium-learner-report/SKILL.md) to inspect a re
 the learner selected for review. Technical action traces do not establish learning
 or permission to inspect the full private journal. Keep proposed patterns distinct
 from runnable templates and content review distinct from schema conformance.
+
+For photographs, reusable narrated introductions or short clips, use
+[studium-visual-support](../studium-visual-support/SKILL.md) and the
+[media preparation guide](../../docs/guides/sourced-and-generated-media.md).
+Prefer reviewed teacher preparation once, with optional learner generation through
+their own available harness. Record source/rights, keep generated reconstructions
+distinct from evidence, provide text alternatives/transcripts/captions, and place
+primary observation material before prediction. A generated explanation does not
+change the learning objective or constitute approval of new teaching content.
