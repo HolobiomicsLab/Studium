@@ -49,18 +49,37 @@ export function buildMcpServer(host: SessionHost): McpServer {
     catch (e) { return fail((e as Error).message); }
   });
 
+  server.registerTool("set_session_language", {
+    description: "Set this session's presentation language as a BCP 47 tag, or null to use the bundle's source language. " +
+      "This changes only harness presentation instructions; source content and learner responses remain unchanged.",
+    inputSchema: { session_id: z.string(), presentation_language: z.string().nullable() },
+  }, async ({ session_id, presentation_language }) => {
+    try {
+      host.setPresentationLanguage(session_id, presentation_language);
+      return text({ language: operatorContext(host, session_id).language });
+    }
+    catch (e) { return fail((e as Error).message); }
+  });
+
   server.registerTool(
     "start_lesson_session",
     {
-      description: "Start a lesson session from a bundle_ref and return the first scene presentation.",
-      inputSchema: { bundle_ref: z.string(), learner_id: z.string().optional() },
+      description: "Start a lesson session from a bundle_ref and return the first public presentation. " +
+        "Optionally select a BCP 47 presentation_language; when omitted, use the bundle's source language.",
+      inputSchema: {
+        bundle_ref: z.string(), learner_id: z.string().optional(), presentation_language: z.string().optional(),
+      },
     },
-    async ({ bundle_ref, learner_id }) => {
+    async ({ bundle_ref, learner_id, presentation_language }) => {
       try {
-        const r = await host.create(bundle_ref, learner_id);
+        const r = await host.create(bundle_ref, learner_id, presentation_language);
         // Redact the answer key (quiz `correct`, claims/key_points/cues, model_* reveals) at the
         // client boundary — the server keeps the full scene; only this projection ships.
-        return text({ session_id: r.sessionId, presentation: publicPresentation(r.presentation) });
+        return text({
+          session_id: r.sessionId,
+          presentation: publicPresentation(r.presentation),
+          language: operatorContext(host, r.sessionId).language,
+        });
       } catch (e) { return fail((e as Error).message); }
     },
   );

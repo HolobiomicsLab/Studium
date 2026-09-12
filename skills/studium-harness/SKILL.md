@@ -68,6 +68,17 @@ it for an intentional reset/erasure, not automatically on completion.
 
 ## 3. The scene loop over MCP
 
+Ask which presentation language the learner wants before presenting the first scene. Pass a
+reasonable BCP 47 tag as `presentation_language` when starting; if they do not choose one,
+leave it unset and use the bundle's source language. When they ask to change language, call
+`set_session_language {session_id, presentation_language}` immediately; pass `null` to return
+to the source language. Then fetch a fresh operator context. Follow its language instructions
+for every explanation, support message, caption and output. Translate public lesson text only
+for presentation, keep the original available, and preserve notation, quantities, numbers,
+units, code, IDs, citations and source links exactly. Preserve learner answers verbatim. Label
+translated quotations and retain their originals. The harness performs this translation; do
+not invent or require a Studium translation backend.
+
 For a custom viewer or example, call `get_operator_context {session_id}`. It
 returns the current public display materials, run instructions and a canonical
 response example; the identical JSON is embedded in the file channel's task.md.
@@ -88,7 +99,7 @@ For linked scientific views, use the [viewer brief](../../docs/user/linked-viewe
 stable identifiers across representations, a frozen baseline, explicit parameter
 differences and numerical checks independent of appearance.
 
-1. `start_lesson_session {bundle_ref, learner_id?}` → `session_id` + first presentation.
+1. `start_lesson_session {bundle_ref, learner_id?, presentation_language?}` → `session_id` + first presentation and language policy.
 2. `get_current_scene {session_id}` — scene type, prompt, choices, hints available.
    `get_scene_artifacts {session_id}` — the render manifest (`scene_assets[]`: image,
    svg, equation_latex, plot_spec, code, data_csv, protocol_md, executed_result).
@@ -158,7 +169,8 @@ apps/lesson-mcp/node_modules/.bin/tsx apps/lesson-mcp/src/session-runner-cli.ts 
 
 Flags: `--bundles-root=DIR` (default `<cwd>/fixtures`), `--dir=DIR` (default
 `<cwd>/.studium-session`), `--stub` (a key-free placeholder operator self-drives the
-loop; use it as a smoke). Files in the directory:
+loop; use it as a smoke), and `--language=BCP47` (optional initial presentation
+language; unset falls back to the bundle source language). Files in the directory:
 
 | File | Direction | Content |
 | --- | --- | --- |
@@ -167,11 +179,17 @@ loop; use it as a smoke). Files in the directory:
 | `run.json` / `run_result.json` | Studium → operator / operator → Studium | run manifest / run result (section 4 shape) |
 | `feedback.md` | Studium → operator | graded outcome and whether the lesson advanced |
 | `index.json` | shared log | one entry per step `{step, scene_id, scene_type, status}` |
+| `session-language.json` | operator → Studium | language change `{session_id, presentation_language}`; use `null` for source language |
 
 Operator loop: read `task.md`; do the work in the workspace; write `response.json`
 **atomically** (`response.json.tmp`, then rename); read `feedback.md`; continue while a
 new `task.md` appears. A mismatched response is consumed and answered with a
 corrective `feedback.md`; retry. Never look for the answer key.
+
+On a learner language-change request, atomically write `session-language.json` before
+the next response and run the ingest loop once. Studium refreshes the same `task.md`
+with the new public language policy without advancing or grading the scene. Apply the
+same translation and preservation rules as the MCP path.
 
 The LLM-backed operator demo runs the capsule for real and judges its own run:
 `tsx apps/lesson-mcp/src/llm-operator-demo.ts [bundleRef] [--dir=DIR] [--bundles-root=DIR] [--live]`

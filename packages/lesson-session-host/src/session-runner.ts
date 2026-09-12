@@ -67,10 +67,10 @@ export async function runStudiumSession(
   bundleRef: string,
   dir: string,
   operator: Operator,
-  opts: { maxSteps?: number; learnerId?: string } = {},
+  opts: { maxSteps?: number; learnerId?: string; presentationLanguage?: string } = {},
 ): Promise<SessionRunResult> {
   const maxSteps = opts.maxSteps ?? 100;
-  const { sessionId } = await host.create(bundleRef, opts.learnerId ?? "agent-operator");
+  const { sessionId } = await host.create(bundleRef, opts.learnerId ?? "agent-operator", opts.presentationLanguage);
   const ws = new SessionWorkspace(host, dir);
   const transitions: string[] = [];
 

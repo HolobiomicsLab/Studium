@@ -39,6 +39,18 @@ const TEXT_INLINE_KINDS = new Set<RenderAsset["kind"]>([
   "orbital", "mol_3d", "spectrum", "code", "data_csv", "protocol_md", "svg",
 ]);
 
+function normalizePresentationLanguage(language: string): string {
+  const trimmed = language.trim();
+  if (!trimmed) throw new Error("Presentation language must be a valid BCP 47 language tag");
+  try {
+    const [canonical] = Intl.getCanonicalLocales(trimmed);
+    if (!canonical) throw new Error();
+    return canonical;
+  } catch {
+    throw new Error("Presentation language must be a valid BCP 47 language tag");
+  }
+}
+
 /** If an asset references a text file by relative path (and carries no inline payload), read it from
  * the bundle dir and inline it as `payload`. Confined to baseDir, with the canonical (symlink-
  * resolved) path re-validated so a malicious bundle can't symlink-escape and leak host files. The
@@ -463,7 +475,10 @@ export class SessionHost {
     this.profileStore = dataDir ? new FileLearnerProfileStore(dataDir) : new InMemoryLearnerProfileStore();
   }
 
-  async create(bundleRef: string, learnerId = "anonymous"): Promise<{ sessionId: string; presentation: Presentation }> {
+  async create(bundleRef: string, learnerId = "anonymous", presentationLanguage?: string): Promise<{ sessionId: string; presentation: Presentation }> {
+    const normalizedPresentationLanguage = presentationLanguage === undefined
+      ? undefined
+      : normalizePresentationLanguage(presentationLanguage);
     // Quiz-choice order is shuffled per scene id (same for all learners → aligned item analytics).
     // Opt in to PER-LEARNER answer order (anti answer-sharing) with STUDIUM_PER_LEARNER_SHUFFLE:
     // the learnerId salts the permutation so each learner gets a distinct-but-reproducible order.
@@ -510,7 +525,10 @@ export class SessionHost {
     const presentation = await session.start();
     const sessionId = randomUUID();
     const baseDir = assetBaseDir(this.opts.bundlesRoot, bundleRef);
-    this.registry.create(sessionId, { session, deps, bundle, baseDir, assetCache: new Map(), profilePseudonym });
+    this.registry.create(sessionId, {
+      session, deps, bundle, baseDir, assetCache: new Map(), profilePseudonym,
+      ...(normalizedPresentationLanguage ? { presentationLanguage: normalizedPresentationLanguage } : {}),
+    });
     this.experiments.set(sessionId, new ExperimentJournal(experimentRevision(bundle), journalDirectory));
     return { sessionId, presentation };
   }
@@ -577,6 +595,27 @@ export class SessionHost {
   }
 
   currentPresentation(id: string): Presentation { return this.require(id).session.currentPresentation(); }
+
+  /** Read the public presentation-language policy for a live session. */
+  sessionLanguage(id: string) {
+    const entry = this.require(id);
+    const sourceLanguage = entry.bundle.metadata.language;
+    const selectedLanguage = entry.presentationLanguage ?? null;
+    return {
+      source_language: sourceLanguage,
+      selected_language: selectedLanguage,
+      effective_language: selectedLanguage ?? sourceLanguage,
+      translation_required: selectedLanguage !== null && selectedLanguage !== sourceLanguage,
+    };
+  }
+
+  /** Change presentation language only; null restores the bundle's source-language fallback. */
+  setPresentationLanguage(id: string, language: string | null) {
+    const entry = this.require(id);
+    if (language === null) delete entry.presentationLanguage;
+    else entry.presentationLanguage = normalizePresentationLanguage(language);
+    return this.sessionLanguage(id);
+  }
 
   /** Learner-private journal; never included in public scene context or teacher aggregates. */
   experimentJournal(id: string): ExperimentDocument {

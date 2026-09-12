@@ -11,6 +11,7 @@
 //     response.json operator -> Studium : the learner's submission  ({kind,...} or {text}).
 //     feedback.md   Studium -> operator : the graded outcome + whether it advanced.
 //     index.json    the shared memory/log : one entry per step (scene id/type + status).
+//     session-language.json operator -> Studium : optional presentation-language change.
 //
 // The answer key (claims / flaws_expected / model_*) is stripped by publicScene BEFORE it is ever
 // written to task.md, so the operator (and the model behind it) audits the AI reading WITHOUT being
@@ -28,6 +29,9 @@ import { z } from "zod";
 import { ExperimentInputSchema } from "./experiment-journal.js";
 
 const experimentEnvelope = z.object({ session_id: z.string(), scene_id: z.string(), input: ExperimentInputSchema }).strict();
+const sessionLanguageEnvelope = z.object({
+  session_id: z.string(), presentation_language: z.string().nullable(),
+}).strict();
 
 const FILES = {
   task: "task.md", response: "response.json", feedback: "feedback.md", index: "index.json",
@@ -66,32 +70,36 @@ export class SessionWorkspace {
    * A scene carrying a `run_manifest` is a LEARNER-TIME RUN: Studium emits a non-answer-bearing
    * `run.json` + a provision-&-run task and WITHHOLDS the author landmark (the learner produces a
    * fresh result by running it). Execution is the host/operator's job — Studium never runs it. */
-  async writeStep(sessionId: string): Promise<void> {
+  async writeStep(sessionId: string, recordInIndex = true): Promise<void> {
     const pres = this.host.currentPresentation(sessionId) as { scene: Record<string, unknown> };
     const scene = publicScene(pres.scene as never) as Record<string, unknown>; // answer key stripped HERE
     const context = operatorContextMarkdown(operatorContext(this.host, sessionId));
     await mkdir(this.dir, { recursive: true });
-    await this.writeExperimentSnapshot(sessionId);
+    if (recordInIndex) await this.writeExperimentSnapshot(sessionId);
     const manifest = scene.run_manifest as Record<string, unknown> | undefined;
     if (manifest) {
-      await rm(join(this.dir, FILES.runResult), { force: true }); // fresh run scene: no stale result
-      await writeFile(join(this.dir, FILES.run), JSON.stringify(manifest, null, 2), "utf8");
+      if (recordInIndex) await rm(join(this.dir, FILES.runResult), { force: true }); // fresh run scene: no stale result
+      if (recordInIndex) await writeFile(join(this.dir, FILES.run), JSON.stringify(manifest, null, 2), "utf8");
       await writeFile(join(this.dir, FILES.task), renderRunTask(scene, manifest, this.step) + context, "utf8");
-      await this.append(sessionId, {
-        step: this.step, scene_id: String(scene.id ?? ""), scene_type: String(scene.type ?? ""),
-        status: "awaiting_run",
-      });
+      if (recordInIndex) {
+        await this.append(sessionId, {
+          step: this.step, scene_id: String(scene.id ?? ""), scene_type: String(scene.type ?? ""),
+          status: "awaiting_run",
+        });
+      }
       return;
     }
-    await rm(join(this.dir, FILES.run), { force: true }); // leaving a run scene: clear the stale manifest
+    if (recordInIndex) await rm(join(this.dir, FILES.run), { force: true }); // leaving a run scene: clear the stale manifest
     const assets = this.host.sceneArtifacts(sessionId) as Array<Record<string, unknown>>;
     await writeFile(join(this.dir, FILES.task), renderTask(scene, assets, this.step) + context, "utf8");
-    await this.append(sessionId, {
-      step: this.step,
-      scene_id: String(scene.id ?? ""),
-      scene_type: String(scene.type ?? ""),
-      status: "awaiting_response",
-    });
+    if (recordInIndex) {
+      await this.append(sessionId, {
+        step: this.step,
+        scene_id: String(scene.id ?? ""),
+        scene_type: String(scene.type ?? ""),
+        status: "awaiting_response",
+      });
+    }
   }
 
   /** operator -> Studium: read response.json into a ResponseInput for the current scene type.
@@ -119,6 +127,8 @@ export class SessionWorkspace {
    * input is CONSUMED + a corrective feedback.md is written so the operator can retry — the channel
    * self-heals instead of deadlocking on an un-consumed bad response.json. */
   async ingest(sessionId: string): Promise<{ done: boolean; transition: string }> {
+    const sessionLanguage = await this.ingestSessionLanguage(sessionId);
+    if (sessionLanguage) return sessionLanguage;
     const experiment = await this.ingestExperiment(sessionId);
     if (experiment) return experiment;
     const pres = this.host.currentPresentation(sessionId) as { scene: { type: string; run_manifest?: unknown } };
@@ -228,6 +238,32 @@ export class SessionWorkspace {
     const path = join(this.dir, "experiment.json");
     if (journal.experiments.length) await writeFile(path, JSON.stringify(journal, null, 2), { encoding: "utf8", mode: 0o600 });
     else await rm(path, { force: true });
+  }
+
+  private async ingestSessionLanguage(sessionId: string): Promise<{ done: boolean; transition: string } | null> {
+    const path = join(this.dir, "session-language.json");
+    let raw: string;
+    try { raw = await readFile(path, "utf8"); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw error;
+    }
+    let envelope: z.infer<typeof sessionLanguageEnvelope>;
+    try {
+      envelope = sessionLanguageEnvelope.parse(JSON.parse(raw));
+      if (envelope.session_id !== sessionId) throw new Error("Stale session language action");
+      this.host.setPresentationLanguage(sessionId, envelope.presentation_language);
+    } catch {
+      await rm(path, { force: true });
+      await writeFile(join(this.dir, FILES.feedback),
+        "# Session language\n\nInvalid session or BCP 47 presentation language. Rewrite session-language.json and retry.\n", "utf8");
+      return { done: false, transition: "invalid_session_language" };
+    }
+    await rm(path, { force: true });
+    await this.writeStep(sessionId, false);
+    await writeFile(join(this.dir, FILES.feedback),
+      "# Session language\n\nPresentation language updated. Source content and learner responses are unchanged.\n", "utf8");
+    return { done: false, transition: "session_language_changed" };
   }
 
   private async ingestExperiment(sessionId: string): Promise<{ done: boolean; transition: string } | null> {

@@ -75,12 +75,22 @@ function responseExample(kind: string): Record<string, unknown> {
 export function operatorContext(host: SessionHost, sessionId: string) {
   const scene = publicScene(host.currentPresentation(sessionId).scene) as Record<string, unknown>;
   const run = host.runManifest(sessionId);
+  const language = host.sessionLanguage(sessionId);
   return {
     schema: "studium/operator-context/v1" as const,
     session_id: sessionId,
     scene: displayScene(scene),
     scene_assets: host.sceneArtifacts(sessionId).map(displayAsset),
     run_manifest: run,
+    language: {
+      ...language,
+      instructions: language.selected_language === null
+        ? `No presentation language is selected. Present explanations, support text, captions, and output in the source language (${language.source_language}).`
+        : `Present all explanations, support text, captions, and output in ${language.selected_language}. ` +
+          "Translate public lesson text for presentation only. Keep the original available and do not alter canonical bundle content or learner answers. " +
+          "Preserve scientific notation, quantities, numbers, units, code, identifiers, citations, and source links exactly. " +
+          "Label translated quotations as translations and retain the original quotation.",
+    },
     response: responseFor(scene, run !== null),
     exploration: {
       journal: {
