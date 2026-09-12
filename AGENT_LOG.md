@@ -2666,7 +2666,7 @@ restart-retention wording and native-task race. No full Extension Host test.
 Three existing portable skills and user guides now cover API, resume, execution,
 standard journal/report export and intentional erasure; no global skill copies.
 
-Evidence:1135 Vitest passed plus existing3 Node tests and13 extension drivers;
+Evidence:1135 Vitest passed plus existing3 Node tests and14 extension drivers;
 16 Python suites/0failing. Full build and lint pass (201warnings/0errors).
 New API32 tests including existing MCP contracts; legacy REST33 including2 new
 redaction regressions; extension webview97/lifecycle9/MCP23/realstdio12 assertions.
