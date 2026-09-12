@@ -20,6 +20,7 @@ ses permissions ; ces pages n'annoncent ni publication publique ni version stabl
 | Préparer un enseignement | [Guide enseignant](user/teacher-guide.md) | Un brouillon sourcé et une revue avant diffusion |
 | Installer les outils | [Installation](getting-started/installation.md) | Serveur MCP et/ou panneau VS Code fonctionnel |
 | Utiliser mon avantage étudiant | [Copilot Student](getting-started/copilot.md) | Compte activé et Studium connecté à VS Code |
+| Piloter sans MCP ni VS Code | [API locale et harnais](guides/api-and-harness.md) | Session HTTP, reprise et export |
 | Garder mon agent habituel | [Harnais et API](getting-started/harnesses-and-api.md) | Configuration adaptée au client choisi |
 | Comprendre le produit | [Fonctionnalités et maturité](features.md) | Ce qui fonctionne et ce qui reste expérimental |
 

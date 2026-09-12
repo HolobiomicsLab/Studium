@@ -1,6 +1,6 @@
 ---
 name: studium-harness
-description: Operate a Studium lesson through an AI harness such as Copilot, Claude Code, Codex, Cursor or OpenCode using MCP or the file channel. Present public scenes, collect learner-owned responses, execute capsule runs honestly and support grounded experiments. Use studium-teacher or studium-student for role-specific onboarding.
+description: Operate a Studium lesson through an AI harness such as Copilot, Claude Code, Codex, Cursor or OpenCode using HTTP API, MCP or the file channel. Present public scenes, collect learner-owned responses, execute capsule runs honestly and support grounded experiments. Use studium-teacher or studium-student for role-specific onboarding.
 ---
 
 # studium-harness — Studium as the lesson brain, this harness as the hands
@@ -18,6 +18,20 @@ Two invariants shape every step below:
 
 `docs/guides/agent-harness-matrix.md` is the short reference; `tools/list` on the
 running server is the authoritative tool surface.
+
+## Direct API without an editor
+
+If the user chooses HTTP or wants to switch harnesses without an editor, follow
+[the local API guide](../../docs/guides/api-and-harness.md). Discover `/v1/operations`
+and use the JSON-file client; keep credentials in the environment, never prompts.
+Reuse the same server and session ID across harnesses. Inspect current context
+before acting. Preserve the original request file/ID for uncertain retries;
+scene-sensitive mutations also require the current `expected_scene_id`.
+Do not invent responses, re-create a session on a connection error, or call
+`end_session` merely to pause: it erases data. A restart loses active session
+position; existing exports and consented profiles do not prove exact restoration.
+The chosen harness supplies tools for execution, research and visuals under its
+existing permissions. The API does not require another model provider or VS Code.
 
 ## 1. Locate the installation and choose a mode
 

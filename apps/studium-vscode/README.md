@@ -19,6 +19,9 @@ pair** with the tutoring loop:
 Each turn the extension pulls the current scene (server-redacted via `publicScene`) +
 `get_scene_artifacts` and presents them; the learner answers in the surface; the response goes back
 over `submit_response` / `submit_turn` / `request_hint`; the engine adapts; the next scene repaints.
+The pane closes a connection that finishes opening after the panel was dismissed, serializes learner
+actions, disables controls while a turn is pending, and keeps recoverable action errors beside the
+current scene. Startup failures name the local output channel and the command to retry.
 
 ## Scene coverage
 
@@ -137,7 +140,7 @@ companion, not a replacement. No answer key reaches the chat: the scene is redac
 
 ## Tests
 
-The extension ships a headless verification suite (no VS Code host needed) — **12 drivers, 300+
+The extension ships a headless verification suite (no VS Code host needed) — **13 drivers, 300+
 assertions** (`pnpm --filter studium-vscode test`):
 
 ```
@@ -153,6 +156,7 @@ pnpm --filter studium-vscode test          # tsc --noEmit + all 6 drivers
   `src/fixtures/wave-scenes.json` (every active-learning type, un-gated) + `all-scene-types.json`
   (the discussion turn loop) through the real graders to `complete`.
 - `community`, `modality`, `review-fsrs` — picker discovery, modality reordering, FSRS parity.
+- `panel-lifecycle` / `mcp-connect` — late-close cleanup, exclusive actions, and failed-connect cleanup.
 
 > Scope note: the **webview** front-end is executed live (jsdom). The **notebook** controller uses
 > `vscode.*` APIs that only run inside a real Extension Host, so its input mapping is covered live

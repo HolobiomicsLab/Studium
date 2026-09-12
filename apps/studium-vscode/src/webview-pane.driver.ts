@@ -277,6 +277,34 @@ function submitFreeText(scene: any, answer: string) {
   expect(!m.$(".scene-head"), "the error state replaces the scene (no stale scene left behind)");
 }
 
+// --- 11) pending actions: a double click posts once, disables controls, and recovers inline ----------
+{
+  const m = mount();
+  m.render(baseState({ type: "quiz", title: "Q", question: "?", choices: [{ id: "a", text: "A" }, { id: "b", text: "B" }] }));
+  const choices = m.$all(".controls .choice") as HTMLButtonElement[];
+  const choice = choices[0] ?? null;
+  choices[1]!.disabled = true;
+  m.click(choice); m.click(choice);
+  expect(m.sent.filter((message) => message.type === "respond").length === 1, "a rapid double click posts one response");
+  expect(choice?.disabled === true, "scene controls are disabled while an action is pending");
+  expect(m.$("#pane")?.getAttribute("aria-busy") === "true", "the pane exposes its pending state to assistive technology");
+  expect(m.text().includes("Envoi de ta réponse"), "the pending state tells the learner what is happening");
+
+  m.post({ type: "action_error", message: "NETWORK_DOWN" });
+  expect(!!m.$(".scene-head"), "an action error preserves the current scene and learner context");
+  expect(choice?.disabled === false, "controls are re-enabled after an action error");
+  expect(choices[1]!.disabled === true, "settling an action preserves controls that were disabled beforehand");
+  expect(m.text().includes("NETWORK_DOWN"), "an action error is visible inside the pane");
+}
+
+// --- 12) fatal startup error: explain the recovery path instead of showing a bare warning -----------
+{
+  const m = mount();
+  m.post({ type: "error", message: "SERVICE_FAILED" });
+  expect(m.text().includes("Connexion interrompue"), "a fatal error has a meaningful heading");
+  expect(m.text().includes("Output") && m.text().includes("Open Lesson"), "a fatal error names the logs and retry path");
+}
+
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} webview-pane assertions failed:`);
   for (const f of failures) console.error("  - " + f);

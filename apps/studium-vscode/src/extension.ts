@@ -10,7 +10,8 @@ import * as vscode from "vscode";
 import { existsSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
-import { connectLessonMcp, resolveServerLaunch, setLessonMcpLog } from "./mcp-connect.js";
+import { connectLessonMcp, resolveServerLaunch, setLessonMcpLog, type LessonMcp } from "./mcp-connect.js";
+import { LessonPanelLifecycle, type ActionResult } from "./panel-lifecycle.js";
 import { registerStudiumChat } from "./chat.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
@@ -34,6 +35,9 @@ let activeLesson: {
   isDisposed: () => boolean;
   advance: (presentation: Json, explanation?: Json) => Promise<void>;
   done: (message: string) => void;
+  runExclusive: <TResult>(action: () => Promise<TResult>) => Promise<ActionResult<TResult>>;
+  pending: (message: string) => void;
+  settled: () => void;
 } | null = null;
 
 /** The activity-bar sidebar; module-level so pushScene can toggle its "reproduction scene is live" state. */
@@ -135,6 +139,18 @@ async function runReproductionScene() {
     return;
   }
   const lesson = activeLesson;
+  const result = await lesson.runExclusive(async () => {
+    lesson.pending("Exécution de la reproduction dans le terminal…");
+    try { await runReproductionForLesson(lesson); }
+    finally { lesson.settled(); }
+  });
+  if (result.status === "busy") {
+    vscode.window.showInformationMessage("Studium : une action est déjà en cours pour cette leçon.");
+  }
+}
+
+/** Execute one reproduction after the caller has acquired the lesson panel's exclusive gate. */
+async function runReproductionForLesson(lesson: NonNullable<typeof activeLesson>) {
   let manifest: RunManifest | null;
   try {
     manifest = ((await lesson.call("get_run_manifest", { session_id: lesson.sid() })).run_manifest as RunManifest | null) ?? null;
@@ -344,15 +360,30 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
   );
   panel.webview.html = paneHtml(panel.webview, context.extensionPath, assets);
 
+  // Register disposal BEFORE the asynchronous connection starts. If the learner closes the pane
+  // while the subprocess is still opening, the lifecycle closes the late connection on arrival.
+  const lifecycle = new LessonPanelLifecycle<LessonMcp>();
+  let panelDisposed = false;
+  panel.onDidDispose(() => { panelDisposed = true; lifecycle.dispose(); });
+
   // 1) connect to lesson-mcp over stdio
   const env: Record<string, string> = { ...process.env as any, BUNDLES_ROOT: bundlesRoot };
   if (consent) { env["STUDIUM_DATA_DIR"] = join(bundlesRoot, "data"); env["STUDIUM_TELEMETRY_CONSENT"] = "granted"; }
-  const mcp = await connectLessonMcp({ launch: serverLaunch, env });
+  let mcp: LessonMcp | null;
+  try {
+    mcp = await lifecycle.connect(() => connectLessonMcp({ launch: serverLaunch, env }));
+  } catch (e: any) {
+    if (panelDisposed) return;
+    panel.webview.postMessage({
+      type: "error",
+      message: `Impossible de joindre le service local : ${e.message}`,
+    });
+    vscode.window.showErrorMessage(`Studium: could not connect to lesson-mcp — ${e.message}`);
+    return;
+  }
+  if (!mcp) return;
   const call = mcp.call;
-  // Track disposal so async callbacks (which may resume after the user closes the panel) never
-  // postMessage to a dead webview.
-  let panelDisposed = false;
-  panel.onDidDispose(() => { panelDisposed = true; mcp.close(); });
+  panel.webview.postMessage({ type: "loading", message: "Service prêt · ouverture de la leçon…" });
 
   let sid = "";
 
@@ -445,9 +476,12 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
   const thisLesson = {
     call,
     sid: () => sid,
-    isDisposed: () => panelDisposed,
+    isDisposed: () => panelDisposed || lifecycle.isDisposed(),
     advance: (presentation: Json, explanation?: Json) => pushScene(presentation, explanation),
     done: (message: string) => { if (!panelDisposed) panel.webview.postMessage({ type: "done", message }); },
+    runExclusive: <TResult>(action: () => Promise<TResult>) => lifecycle.runExclusive(action),
+    pending: (message: string) => { if (!panelDisposed) panel.webview.postMessage({ type: "action_pending", message }); },
+    settled: () => { if (!panelDisposed) panel.webview.postMessage({ type: "action_settled" }); },
   };
   activeLesson = thisLesson;
   panel.onDidDispose(() => {
@@ -458,44 +492,56 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
   // 2) learner actions from the pane → MCP calls → next render (pair by pair)
   panel.webview.onDidReceiveMessage(async (msg: Json) => {
     try {
-      if (msg.type === "hint") {
-        const h = (await call("request_hint", { session_id: sid })).hint;
-        if (!panelDisposed) panel.webview.postMessage({ type: "hint", hint: h?.hint ?? null, remaining: h?.remaining });
-        return;
-      }
-      if (msg.type === "end") {
-        // Right to be forgotten: end_session emits forget_requested and PURGES the durable per-learner
-        // state on disk (in consented/durable mode). Irreversible, so confirm first; closing the panel
-        // alone only drops the transport and leaves the saved state intact (so a learner can resume).
-        const ok = await vscode.window.showWarningMessage(
-          "Effacer définitivement vos données de cette session (droit à l'oubli) ? Cette action est irréversible.",
-          { modal: true }, "Effacer",
-        );
-        if (ok === "Effacer") {
-          try { await call("end_session", { session_id: sid }); } catch { /* already gone */ }
-          panel.dispose();
-        }
-        return;
-      }
-      if (msg.type === "turn") {
-        // a discussion turn: score it (reasoning signal) + get the Socratic tutor's reply, WITHOUT
-        // advancing the scene. The pane appends both to the transcript; the learner ends the scene
-        // with the "Terminer" ack (a normal respond). After max_turns the server no-ops the turn.
-        const r = await call("submit_turn", { session_id: sid, text: String(msg.text ?? "") });
-        if (!panelDisposed) panel.webview.postMessage({ type: "turn_result", reasoning: r.reasoning ?? null, tutor: r.tutor ?? null });
-        return;
-      }
-      if (msg.type === "respond") {
-        const t = (await call("submit_response", { session_id: sid, input: msg.input })).transition;
-        if (panelDisposed) return;
-        if (t.kind === "complete") {
-          panel.webview.postMessage({ type: "done", message: `Lesson complete — ${t.summary.scenesCompleted} scenes, autonomy ${t.summary.autonomyRatio.toFixed(2)}` });
+      const result = await lifecycle.runExclusive(async () => {
+        if (msg.type === "hint") {
+          const h = (await call("request_hint", { session_id: sid })).hint;
+          if (!panelDisposed) panel.webview.postMessage({ type: "hint", hint: h?.hint ?? null, remaining: h?.remaining });
           return;
         }
-        await pushScene(t.presentation, t.kind === "replay" || t.kind === "remediate_alt"
-          ? { rule_id: t.kind, explanation_short: t.reason } : undefined);
+        if (msg.type === "end") {
+          // Right to be forgotten: end_session emits forget_requested and PURGES the durable per-learner
+          // state on disk (in consented/durable mode). Irreversible, so confirm first; closing the panel
+          // alone only drops the transport and leaves the saved state intact (so a learner can resume).
+          const ok = await vscode.window.showWarningMessage(
+            "Effacer définitivement vos données de cette session (droit à l'oubli) ? Cette action est irréversible.",
+            { modal: true }, "Effacer",
+          );
+          if (ok === "Effacer") {
+            try { await call("end_session", { session_id: sid }); } catch { /* already gone */ }
+            panel.dispose();
+          } else if (!panelDisposed) {
+            panel.webview.postMessage({ type: "action_settled" });
+          }
+          return;
+        }
+        if (msg.type === "turn") {
+          // a discussion turn: score it (reasoning signal) + get the Socratic tutor's reply, WITHOUT
+          // advancing the scene. The pane appends both to the transcript; the learner ends the scene
+          // with the "Terminer" ack (a normal respond). After max_turns the server no-ops the turn.
+          const r = await call("submit_turn", { session_id: sid, text: String(msg.text ?? "") });
+          if (!panelDisposed) panel.webview.postMessage({ type: "turn_result", reasoning: r.reasoning ?? null, tutor: r.tutor ?? null });
+          return;
+        }
+        if (msg.type === "respond") {
+          const t = (await call("submit_response", { session_id: sid, input: msg.input })).transition;
+          if (panelDisposed) return;
+          if (t.kind === "complete") {
+            panel.webview.postMessage({ type: "done", message: `Lesson complete — ${t.summary.scenesCompleted} scenes, autonomy ${t.summary.autonomyRatio.toFixed(2)}` });
+            return;
+          }
+          await pushScene(t.presentation, t.kind === "replay" || t.kind === "remediate_alt"
+            ? { rule_id: t.kind, explanation_short: t.reason } : undefined);
+        }
+      });
+      if (result.status === "busy") {
+        // The accepted action will settle the pane. Ignore a duplicate host message so it cannot
+        // mutate the same scene twice or unlock controls ahead of the accepted request.
+        return;
       }
-    } catch (e: any) { vscode.window.showErrorMessage(`Studium: ${e.message}`); }
+    } catch (e: any) {
+      if (!panelDisposed) panel.webview.postMessage({ type: "action_error", message: e.message });
+      if (!panelDisposed) vscode.window.showErrorMessage(`Studium: ${e.message}`);
+    }
   });
 
   // 3) start
@@ -506,7 +552,11 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
     vscode.window.showInformationMessage(`Studium: lesson started (${bundleRef}).`);
   } catch (e: any) {
     // Replace the loading placeholder with an in-pane error so the panel is never stuck on "Chargement…".
-    if (!panelDisposed) panel.webview.postMessage({ type: "error", message: `Impossible de démarrer la leçon : ${e.message}` });
+    if (panelDisposed) return;
+    lifecycle.dispose();
+    if (activeLesson === thisLesson) activeLesson = null;
+    setReproductionContext(false);
+    panel.webview.postMessage({ type: "error", message: `Impossible de démarrer la leçon : ${e.message}` });
     vscode.window.showErrorMessage(`Studium: could not start lesson — ${e.message}`);
   }
 }
@@ -542,7 +592,7 @@ function paneHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "
 <link rel="stylesheet" href="${katexCss}">
 ${libs}
 <style>${helpStyles}</style>
-</head><body>${lessonHelpTemplates()}<div id="pane"><div class="loading">⏳ Chargement de la leçon…</div></div>
+</head><body>${lessonHelpTemplates()}<div id="pane"><div class="loading" role="status"><span class="loading-mark" aria-hidden="true"></span><div><strong>Ouverture de Studium</strong><span>Démarrage du service local et vérification de la leçon…</span></div></div></div>
 <script nonce="${n}" src="${media("artifact-pane.js")}"></script>
 </body></html>`;
 }

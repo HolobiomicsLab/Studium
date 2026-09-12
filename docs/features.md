@@ -150,3 +150,7 @@ prédiction, confiance, preuves, adaptation, traces et provenance. Catalogue EN/
 commun aux activités, viewers, rapports, interfaces web et panneau VS Code.
 Voir [couverture, exemples et intégration](guides/contextual-help.md). Les textes
 expriment l’intention pédagogique ; ils ne certifient pas les bénéfices du prototype.
+
+## API locale et harnais indépendants
+
+L’[API HTTP](guides/api-and-harness.md) expose les mêmes opérations et schémas que MCP, avec authentification locale, découverte, sérialisation, protection contre les doubles soumissions et scènes périmées. Un même serveur peut être piloté successivement depuis plusieurs harnais sans VS Code. Les sessions actives et reçus restent limités à la durée de vie du processus ; ce serveur individuel ne constitue pas un hébergement multi-utilisateur.

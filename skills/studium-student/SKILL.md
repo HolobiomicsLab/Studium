@@ -9,6 +9,20 @@ Help the student reach one working activity and submit their own response.
 Match their language and existing tools. Keep installation details proportional
 to what is missing; do not turn a learning request into repository development.
 
+## Direct API without an editor
+
+If the user chooses HTTP or wants to switch harnesses without an editor, follow
+[the local API guide](../../docs/guides/api-and-harness.md). Discover `/v1/operations`
+and use the JSON-file client; keep credentials in the environment, never prompts.
+Reuse the same server and session ID across harnesses. Inspect current context
+before acting. Preserve the original request file/ID for uncertain retries;
+scene-sensitive mutations also require the current `expected_scene_id`.
+Do not invent responses, re-create a session on a connection error, or call
+`end_session` merely to pause: it erases data. A restart loses active session
+position; existing exports and consented profiles do not prove exact restoration.
+The chosen harness supplies tools for execution, research and visuals under its
+existing permissions. The API does not require another model provider or VS Code.
+
 ## Find the starting point
 
 Resolve this skill's real directory through any symlink; the Studium root is two

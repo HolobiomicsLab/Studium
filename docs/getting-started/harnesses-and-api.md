@@ -1,6 +1,6 @@
 # Autres harnais et accès API
 
-Studium expose un serveur MCP standard en **stdio**. Le moteur est indépendant du
+Studium expose une [API HTTP locale](../guides/api-and-harness.md), un serveur MCP standard en **stdio** et un canal fichiers. Le moteur est indépendant du
 client ; authentification, permissions et configuration restent propres à chaque
 harnais. Terminer d'abord l'[installation](installation.md). Les recettes utilisent
 le serveur compilé, sans dépendre d'un `tsx` global ni du dossier courant.

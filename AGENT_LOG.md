@@ -2646,3 +2646,37 @@ Only the existing print audit selector was narrowed to its original report-conte
 scope; a new check ensures help is not force-opened. Source/template hashes and old
 report integrity checks remain strict. No push, merge, student release or sibling write.
 See the hub audit and docs/guides/contextual-help.md for coverage and limitations.
+
+## 2026-09-12 — INT052 API and independent harness access
+
+Owner requests direct API, smoother VS Code integration and learning through an
+independent harness. Baseline6351212; plan/spec/intent committed first in hub70e234e.
+22 operation declarations now shared by MCP and authenticated loopback HTTP v1.
+Adds schema discovery, JSON-file CLI, serialized calls, request receipts, stale-scene
+checks, bounded queues/cache, bundle realpath containment and forgetting of cached
+session outputs. Backend models require explicit API activation. Sessions remain
+process-local; legacy REST and VS Code MCP are separate processes. Legacy REST
+create/current/respond now use the existing public projections, fixing exposed
+quiz keys without changing response envelopes or old tests.
+
+Sol-high leaf owns only extension files: connection/disposal cleanup, shared gate
+for pane/native reproduction mutations, disabled-state preservation, actionable
+errors, native themes and 44px primary controls. Lead reviewed correction of false
+restart-retention wording and native-task race. No full Extension Host test.
+Three existing portable skills and user guides now cover API, resume, execution,
+standard journal/report export and intentional erasure; no global skill copies.
+
+Evidence:1135 Vitest passed plus existing3 Node tests and13 extension drivers;
+16 Python suites/0failing. Full build and lint pass (201warnings/0errors).
+New API32 tests including existing MCP contracts; legacy REST33 including2 new
+redaction regressions; extension webview97/lifecycle9/MCP23/realstdio12 assertions.
+Actual API entry+pnpm JSON client smoke10checks; ASTRA/ARA/MySTRA export verifies.
+Reproducible Chrome pane audit9checks incl localKaTeX/light-dark/narrow/pending.
+Artifacts:.studium-session/int052-api-verified and int052-vscode-verified.
+Logs:/tmp/studium-int052-{final-test,final-build,final-lint,python}.log.
+
+Workspace post-agent audit:164 repository snapshots/live-default checks and data
+mtime sweep, only this checkout with recent sampled data; foodomeai_dev remote
+lookup timed out. No global before-snapshot, so no claim of exclusive attribution.
+Canonical/live dev33bf561 unchanged; no push/merge/release/paid call, manuscript or
+LabOS write. Hub audit/handoff records exact output and limitations.

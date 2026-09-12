@@ -9,6 +9,20 @@ Help the teacher reach a small, inspectable teaching outcome. Use their language
 existing harness and available account. Do not require another API provider just
 to generate a draft with the current agent.
 
+## Direct API without an editor
+
+If the user chooses HTTP or wants to switch harnesses without an editor, follow
+[the local API guide](../../docs/guides/api-and-harness.md). Discover `/v1/operations`
+and use the JSON-file client; keep credentials in the environment, never prompts.
+Reuse the same server and session ID across harnesses. Inspect current context
+before acting. Preserve the original request file/ID for uncertain retries;
+scene-sensitive mutations also require the current `expected_scene_id`.
+Do not invent responses, re-create a session on a connection error, or call
+`end_session` merely to pause: it erases data. A restart loses active session
+position; existing exports and consented profiles do not prove exact restoration.
+The chosen harness supplies tools for execution, research and visuals under its
+existing permissions. The API does not require another model provider or VS Code.
+
 ## Locate the materials
 
 Resolve this skill's real path if loaded through a symlink. Its repository root

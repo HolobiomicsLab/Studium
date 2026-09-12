@@ -6,13 +6,29 @@ import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, setLessonMcpLog, type LogSink } from "./mcp-connect.js";
+import { connectOrClose, resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, setLessonMcpLog, type LogSink } from "./mcp-connect.js";
+
+async function main() {
 
 const failures: string[] = [];
 let checks = 0;
 function expect(cond: boolean, msg: string) { checks++; if (!cond) failures.push(msg); }
 
 const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", ".."); // apps/studium-vscode/src -> repo root
+
+// A failed SDK connect must release the partially-started client/process.
+{
+  let closes = 0;
+  const client = {
+    connect: async () => { throw new Error("spawn failed"); },
+    close: async () => { closes++; },
+  };
+  let message = "";
+  try { await connectOrClose(client, {}); }
+  catch (error: any) { message = String(error.message); }
+  expect(message === "spawn failed", "connectOrClose preserves the connection error");
+  expect(closes === 1, `connectOrClose cleans up a failed client once (got ${closes})`);
+}
 
 // 1) in the real monorepo it finds an existing tsx binary (not the PATH fallback).
 {
@@ -127,3 +143,6 @@ console.log(`OK — mcp-connect (resolveTsx + parseToolResult + stderr diagnosti
 
 if (failures.length) { console.error(`FAIL (${failures.length}/${checks}):`); for (const f of failures) console.error("  - " + f); process.exit(1); }
 console.log(`OK — mcp-connect driver passed all ${checks} assertions`);
+}
+
+main().catch((error) => { console.error(error); process.exit(1); });
