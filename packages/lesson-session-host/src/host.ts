@@ -9,7 +9,7 @@ import {
 import {
   masteryOf, defaultLearnerState, defaultLearnerProfile,
   seedConceptStatesFromProfile, mergeConceptStatesIntoProfile, mergeConceptMemoryIntoProfile, recordCompletedLesson,
-  type ConceptState, type LearnerState,
+  type ConceptState, type LearnerProfile, type LearnerState,
 } from "@studium/learner-state";
 import {
   PROFILE_PSEUDONYM_SCOPE, FileLearnerProfileStore, InMemoryLearnerProfileStore, type LearnerProfileStore,
@@ -302,6 +302,24 @@ export function reviewQueueFromState(
   return items.sort((a, b) => a.retrievability - b.retrievability);
 }
 
+function reviewQueueFromMemory(
+  memory: Record<string, ConceptMemoryState>,
+  nowMs: number,
+  requestRetention = 0.9,
+): ReviewQueueItem[] {
+  return Object.values(memory)
+    .filter((entry) => entry.reps > 0)
+    .map((entry) => ({
+      concept_id: entry.concept_id,
+      due: fsrsIsDue(entry, nowMs, requestRetention),
+      due_at: fsrsDueAt(entry, requestRetention),
+      retrievability: fsrsRetrievability(entry, nowMs),
+      reps: entry.reps,
+      last_reviewed_at: entry.last_reviewed_at,
+    }))
+    .sort((a, b) => a.retrievability - b.retrievability);
+}
+
 /** The most-urgent concept to reinforce now (the FSRS ROUTER decision), or null. */
 export interface ReinforcementTarget {
   concept_id: string;
@@ -309,6 +327,21 @@ export interface ReinforcementTarget {
   due_at: number;
   /** Current retrievability R(t) ∈ [0,1] (lower ⇒ more urgent). */
   retrievability: number;
+}
+
+export interface RoutedReinforcementTarget extends ReinforcementTarget {
+  scene_id: string | null;
+  source: "session" | "profile";
+}
+
+export interface ReinforcementStatus {
+  due: RoutedReinforcementTarget[];
+  has_history: boolean;
+  next_due_at: number | null;
+}
+
+interface RankedReinforcementTarget extends ReinforcementTarget {
+  priority: number;
 }
 
 /** The next step a learner should take in a course, auto-routed by FSRS: reinforce a decayed concept,
@@ -353,15 +386,19 @@ export function nextReinforcementFromState(
   nowMs: number,
   opts: { requestRetention?: number; minMastery?: number } = {},
 ): ReinforcementTarget | null {
+  return dueReinforcementsFromState(state, nowMs, opts)[0] ?? null;
+}
+
+/** Every due concept in a session, in the authoritative FSRS reinforcement order. */
+export function dueReinforcementsFromState(
+  state: LearnerState,
+  nowMs: number,
+  opts: { requestRetention?: number; minMastery?: number } = {},
+): ReinforcementTarget[] {
   const mem = conceptMemoryFromState(state);
   const mastery: Record<string, number> = {};
   for (const [cid, cs] of Object.entries(state.concept_states)) mastery[cid] = masteryOf(cs);
-  const cid = fsrsDueForReinforcement(mem, mastery, nowMs, opts)[0];
-  if (cid === undefined) return null;
-  const m = mem[cid] as ConceptMemoryState;
-  // due_at MUST honor the same requestRetention as the due-gate above, else a non-default retention
-  // could report a due_at > nowMs for a concept the gate just declared due (matches reviewQueueFromState).
-  return { concept_id: cid, due_at: fsrsDueAt(m, opts.requestRetention), retrievability: fsrsRetrievability(m, nowMs) };
+  return dueReinforcementTargetsFromMemory(mem, mastery, nowMs, opts);
 }
 
 /** Scene types that RE-TEST recall (active retrieval), preferred for a reinforcement pass over a
@@ -383,8 +420,13 @@ export function reinforcementSceneFromState(
 ): string | null {
   const target = nextReinforcementFromState(state, nowMs, opts);
   if (!target) return null;
+  return reinforcementSceneForConcept(bundle, target.concept_id);
+}
+
+/** Map one concept to the current bundle's preferred active-retrieval scene. */
+export function reinforcementSceneForConcept(bundle: LessonBundle, conceptId: string): string | null {
   const covers = (s: LessonBundle["scenes"][number]): boolean =>
-    (s.concept_refs ?? []).includes(target.concept_id);
+    (s.concept_refs ?? []).includes(conceptId);
   // Prefer an active RETRIEVAL scene (re-test recall) over a passive intro/exposition; fall back to
   // the first covering scene of any type when the bundle has no retrieval scene for the concept.
   const scene = bundle.scenes.find((s) => covers(s) && RETRIEVAL_SCENE_TYPES.has(s.type)) ??
@@ -403,10 +445,103 @@ export function dueReinforcementTargetsFromMemory(
   nowMs: number,
   opts: { requestRetention?: number; minMastery?: number } = {},
 ): ReinforcementTarget[] {
+  return rankedDueTargetsFromMemory(memory, mastery, nowMs, opts).map(({ priority: _priority, ...target }) => target);
+}
+
+function rankedDueTargetsFromMemory(
+  memory: Record<string, ConceptMemoryState>,
+  mastery: Record<string, number>,
+  nowMs: number,
+  opts: { requestRetention?: number; minMastery?: number } = {},
+): RankedReinforcementTarget[] {
   return fsrsDueForReinforcement(memory, mastery, nowMs, opts).map((cid) => {
     const m = memory[cid] as ConceptMemoryState;
-    return { concept_id: cid, due_at: fsrsDueAt(m, opts.requestRetention), retrievability: fsrsRetrievability(m, nowMs) };
+    const retrievability = fsrsRetrievability(m, nowMs);
+    return {
+      concept_id: cid,
+      due_at: fsrsDueAt(m, opts.requestRetention),
+      retrievability,
+      priority: fsrsReinforcementPriority(mastery[cid] ?? 0, retrievability),
+    };
   });
+}
+
+function masteryFromState(state: LearnerState): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(state.concept_states).map(([conceptId, conceptState]) => [conceptId, masteryOf(conceptState)]),
+  );
+}
+
+function masteryFromProfile(profile: LearnerProfile | null): Record<string, number> {
+  return profile ? Object.fromEntries(
+    Object.entries(profile.concept_states).map(([conceptId, conceptState]) => [conceptId, masteryOf(conceptState)]),
+  ) : {};
+}
+
+function rankedDueTargetsFromState(state: LearnerState, nowMs: number): RankedReinforcementTarget[] {
+  return rankedDueTargetsFromMemory(conceptMemoryFromState(state), masteryFromState(state), nowMs);
+}
+
+function routedTarget(
+  bundle: LessonBundle | null,
+  source: RoutedReinforcementTarget["source"],
+  target: RankedReinforcementTarget,
+): RoutedReinforcementTarget {
+  return {
+    concept_id: target.concept_id,
+    scene_id: bundle ? reinforcementSceneForConcept(bundle, target.concept_id) : null,
+    due_at: target.due_at,
+    retrievability: target.retrievability,
+    source,
+  };
+}
+
+function earliestDueAt(queues: ReviewQueueItem[][]): number | null {
+  const dueTimes = queues.flat().map((item) => item.due_at);
+  return dueTimes.length === 0 ? null : Math.min(...dueTimes);
+}
+
+function isLessonCompleted(bundle: LessonBundle, state: LearnerState, profile: LearnerProfile | null): boolean {
+  if (profile?.completed_lessons?.includes(bundle.bundle_id)) return true;
+  const completed = new Set(state.scenes_completed);
+  return bundle.scenes.every((scene) => completed.has(scene.id));
+}
+
+function resumeFor(
+  bundle: LessonBundle,
+  state: LearnerState,
+  profile: LearnerProfile | null,
+  sceneId: string,
+): SessionResume {
+  const completedByProfile = profile?.completed_lessons?.includes(bundle.bundle_id) ?? false;
+  const completedIds = new Set(state.scenes_completed);
+  const completedCount = completedByProfile
+    ? bundle.scenes.length
+    : bundle.scenes.filter((scene) => completedIds.has(scene.id)).length;
+  const kind = isLessonCompleted(bundle, state, profile) ? "completed" : completedCount > 0 ? "resumed" : "new";
+  return { kind, scene_id: sceneId, scenes_completed: completedCount };
+}
+
+function routedProfileDue(
+  profile: LearnerProfile | null,
+  bundle: LessonBundle,
+  nowMs: number,
+): RoutedReinforcementTarget[] {
+  if (!profile?.concept_memory) return [];
+  return rankedDueTargetsFromMemory(profile.concept_memory, masteryFromProfile(profile), nowMs)
+    .map((target) => routedTarget(bundle, "profile", target));
+}
+
+function profileReinforcementStatus(
+  profile: LearnerProfile | null,
+  bundle: LessonBundle | null,
+  nowMs: number,
+): ReinforcementStatus {
+  const memory = profile?.concept_memory ?? {};
+  const queue = reviewQueueFromMemory(memory, nowMs);
+  const due = rankedDueTargetsFromMemory(memory, masteryFromProfile(profile), nowMs)
+    .map((target) => routedTarget(bundle, "profile", target));
+  return { due, has_history: queue.length > 0, next_due_at: earliestDueAt([queue]) };
 }
 
 /** Map a concept's hidden `confidence_calibration` to a learner-facing, NUMBER-FREE verdict. Returns
@@ -452,6 +587,19 @@ export interface SessionHostOptions {
   clock?: Clock;
 }
 
+export interface SessionResume {
+  kind: "new" | "resumed" | "completed";
+  scene_id: string;
+  scenes_completed: number;
+}
+
+export interface SessionStartResult {
+  sessionId: string;
+  presentation: Presentation;
+  resume: SessionResume;
+  due?: RoutedReinforcementTarget[];
+}
+
 export class PeerRoomError extends Error {
   constructor(msg: string) { super(msg); this.name = "PeerRoomError"; }
 }
@@ -470,7 +618,7 @@ export class SessionHost {
     this.profileStore = dataDir ? new FileLearnerProfileStore(dataDir) : new InMemoryLearnerProfileStore();
   }
 
-  async create(bundleRef: string, learnerId = "anonymous"): Promise<{ sessionId: string; presentation: Presentation }> {
+  async create(bundleRef: string, learnerId = "anonymous", nowMs?: number): Promise<SessionStartResult> {
     // Quiz-choice order is shuffled per scene id (same for all learners → aligned item analytics).
     // Opt in to PER-LEARNER answer order (anti answer-sharing) with STUDIUM_PER_LEARNER_SHUFFLE:
     // the learnerId salts the permutation so each learner gets a distinct-but-reproducible order.
@@ -509,12 +657,19 @@ export class SessionHost {
     const profile = await this.profileStore.load(profilePseudonym);
     let initial = prior ?? defaultLearnerState(bundle.bundle_id);
     if (profile) initial = seedConceptStatesFromProfile(initial, profile, bundle.concepts.map((c) => c.id));
-    const session = new LessonSession(bundle, deps, initial, learnerId);
+    const completed = isLessonCompleted(bundle, initial, profile);
+    const session = new LessonSession(bundle, deps, initial, learnerId, completed);
     const presentation = await session.start();
     const sessionId = randomUUID();
     const baseDir = assetBaseDir(this.opts.bundlesRoot, bundleRef);
     this.registry.create(sessionId, { session, deps, bundle, baseDir, assetCache: new Map(), profilePseudonym });
-    return { sessionId, presentation };
+    const resume = resumeFor(bundle, initial, profile, presentation.scene.id);
+    return {
+      sessionId,
+      presentation,
+      resume,
+      ...(resume.kind === "completed" ? { due: routedProfileDue(profile, bundle, nowMs ?? this.nowMs()) } : {}),
+    };
   }
 
   /** COURSE SPINE: the next lesson the learner should take in `course` — the first not-completed lesson
@@ -533,11 +688,23 @@ export class SessionHost {
    * `nowMs` injected for deterministic review scheduling. */
   async dueReinforcements(learnerId = "anonymous", nowMs: number = this.nowMs()): Promise<ReinforcementTarget[]> {
     const profilePseudonym = await buildHostDeps(this.opts.live).pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
+    return this.dueReinforcementsForProfile(profilePseudonym, nowMs);
+  }
+
+  /** Profile-keyed variant used by live sessions without retaining the raw learner id. */
+  async dueReinforcementsForProfile(profilePseudonym: string, nowMs: number = this.nowMs()): Promise<ReinforcementTarget[]> {
     const profile = await this.profileStore.load(profilePseudonym);
     if (!profile?.concept_memory) return [];
-    const mastery: Record<string, number> = {};
-    for (const [cid, cs] of Object.entries(profile.concept_states)) mastery[cid] = masteryOf(cs);
-    return dueReinforcementTargetsFromMemory(profile.concept_memory, mastery, nowMs);
+    return dueReinforcementTargetsFromMemory(profile.concept_memory, masteryFromProfile(profile), nowMs);
+  }
+
+  /** Profile-only reinforcement status for a learner who has no live session. */
+  async reinforcementStatusForLearner(
+    learnerId = "anonymous",
+    nowMs: number = this.nowMs(),
+  ): Promise<ReinforcementStatus> {
+    const pseudonym = await buildHostDeps(this.opts.live).pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
+    return profileReinforcementStatus(await this.profileStore.load(pseudonym), null, nowMs);
   }
 
   /** The learner's NEXT course step, AUTO-ROUTED by FSRS: a DUE reinforcement (a concept mastered in an
@@ -677,31 +844,30 @@ export class SessionHost {
     // writes the .jsonld for FileMasteryClaimSink). NOT flushed on forget() — that is the
     // RGPD-delete path.
     if (transition.kind === "complete") {
-      await e.deps.masteryClaimSink?.flush();
-      // Flush consented telemetry to its durable sink at end-of-lesson (no-op for the in-memory
-      // sink). With a JsonlTelemetrySink (consent path, see deps.ts) this writes the pseudonymized
-      // ADR-006 event stream a teacher's class_report can later aggregate. forget() flush+purges.
-      await e.deps.telemetry.flush();
-      // CROSS-LESSON carry-forward: merge this lesson's concept_states into the learner-level profile
-      // (latest-wins per concept), so the NEXT lesson sharing a concept starts warm. Keyed by the
-      // stable profile pseudonym set at create(); a no-op when there is none (defensive).
-      if (e.profilePseudonym) {
-        const now = e.deps.clock.now();
-        const st = e.session.getState();
-        const base = (await this.profileStore.load(e.profilePseudonym)) ?? defaultLearnerProfile(e.profilePseudonym, now);
-        // carry the concepts forward, persist this lesson's FSRS memory (replayed from its history,
-        // SEEDED from the profile's accumulated memory so a re-review compounds A+B rather than B-only)
-        // for CROSS-LESSON spaced repetition, AND mark this lesson completed (the course spine routes off it).
-        const merged = recordCompletedLesson(
-          mergeConceptMemoryIntoProfile(
-            mergeConceptStatesIntoProfile(base, st, now), conceptMemoryFromState(st, base.concept_memory), now,
-          ),
-          st.lesson_id,
-        );
-        await this.profileStore.save(merged);
-      }
+      await this.flushSessionOutputs(e);
+      await this.mergeSessionIntoProfile(e, true);
     }
     return transition;
+  }
+
+  private async flushSessionOutputs(entry: SessionEntry): Promise<void> {
+    await entry.deps.masteryClaimSink?.flush();
+    await entry.deps.telemetry.flush();
+  }
+
+  private async mergeSessionIntoProfile(entry: SessionEntry, isComplete: boolean): Promise<void> {
+    if (!entry.profilePseudonym) return;
+    const now = entry.deps.clock.now();
+    const state = entry.session.getState();
+    const base = (await this.profileStore.load(entry.profilePseudonym))
+      ?? defaultLearnerProfile(entry.profilePseudonym, now);
+    let merged = mergeConceptMemoryIntoProfile(
+      mergeConceptStatesIntoProfile(base, state, now),
+      conceptMemoryFromState(state, base.concept_memory),
+      now,
+    );
+    if (isComplete) merged = recordCompletedLesson(merged, state.lesson_id);
+    await this.profileStore.save(merged);
   }
   /** Pull the next authored hint for the current quiz scene (scaffolding-gated, M5 discount).
    * Returns null when the scene is not a quiz, has no hints, or the per-visit cap is reached. */
@@ -746,6 +912,35 @@ export class SessionHost {
 
   reviewQueue(id: string, nowMs: number = this.nowMs()): ReviewQueueItem[] {
     return reviewQueueFromState(this.require(id).session.getState(), nowMs);
+  }
+
+  /** Union live-session and longitudinal profile memory, with live memory winning per concept. */
+  async reinforcementStatusForSession(
+    id: string,
+    nowMs: number = this.nowMs(),
+  ): Promise<ReinforcementStatus> {
+    const entry = this.require(id);
+    const state = entry.session.getState();
+    const sessionQueue = reviewQueueFromState(state, nowMs);
+    const sessionDue = rankedDueTargetsFromState(state, nowMs);
+    const profile = entry.profilePseudonym
+      ? await this.profileStore.load(entry.profilePseudonym)
+      : null;
+    const profileMemory = profile?.concept_memory ?? {};
+    const sessionConcepts = new Set(sessionQueue.map((target) => target.concept_id));
+    const profileQueue = reviewQueueFromMemory(profileMemory, nowMs)
+      .filter((target) => !sessionConcepts.has(target.concept_id));
+    const candidates = [
+      ...sessionDue.map((target) => ({ source: "session" as const, target })),
+      ...rankedDueTargetsFromMemory(profileMemory, masteryFromProfile(profile), nowMs)
+        .filter((target) => !sessionConcepts.has(target.concept_id))
+        .map((target) => ({ source: "profile" as const, target })),
+    ].sort((a, b) => b.target.priority - a.target.priority || Number(a.source === "profile") - Number(b.source === "profile"));
+    return {
+      due: candidates.map(({ source, target }) => routedTarget(entry.bundle, source, target)),
+      has_history: sessionQueue.length > 0 || profileQueue.length > 0,
+      next_due_at: earliestDueAt([sessionQueue, profileQueue]),
+    };
   }
 
   /** Spaced-repetition ROUTER (vs the reviewQueue readout): the single most-urgent concept to
@@ -872,6 +1067,14 @@ export class SessionHost {
       closed: true,
       aggregates: aggregateRatings(room.ratings),
     };
+  }
+
+  /** Close a live handle while preserving both bundle state and longitudinal memory. */
+  async close(id: string): Promise<void> {
+    const entry = this.require(id);
+    await this.flushSessionOutputs(entry);
+    await this.mergeSessionIntoProfile(entry, false);
+    this.registry.delete(id);
   }
 
   async forget(id: string): Promise<void> {

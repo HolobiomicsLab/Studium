@@ -275,11 +275,11 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
         exec.end(true, Date.now());
         return;
       }
-      // Right to be forgotten: `forget` / `oublier` ends the session (purges the durable per-learner
+      // Right to be forgotten: `forget` / `oublier` calls forget_session (purges the durable per-learner
       // state) and drops it. Closing the notebook alone only tears down the transport, so saved
       // progress survives for a resume — only this explicit directive erases it.
       if (/^(forget|oublier)$/i.test(directive)) {
-        await sess.call("end_session", { session_id: sess.sid });
+        await sess.call("forget_session", { session_id: sess.sid });
         sess.client.close().catch(() => {});
         sessions.delete(key);
         exec.replaceOutput([new vscode.NotebookCellOutput([md(phrase("notebook_erased", {}, sess.locale))])]);

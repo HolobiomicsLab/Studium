@@ -5,13 +5,32 @@ import type { ResponseInput } from "@studium/lesson-session";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
+type ReinforcementStatus = Awaited<ReturnType<SessionHost["reinforcementStatusForSession"]>>;
+type RoutedReinforcementTarget = ReinforcementStatus["due"][number];
 const text = (data: unknown): ToolResult => ({ content: [{ type: "text", text: JSON.stringify(data) }] });
 const fail = (message: string): ToolResult => ({ content: [{ type: "text", text: JSON.stringify({ error: message }) }], isError: true });
+
+function transportTarget(target: RoutedReinforcementTarget): RoutedReinforcementTarget {
+  return { ...target, due_at: Math.round(target.due_at) };
+}
+
+function reinforcementResult(status: ReinforcementStatus): Record<string, unknown> {
+  const due = status.due.map(transportTarget);
+  const reason = due.length > 0 ? "due" : status.has_history ? "nothing_due" : "no_history";
+  return {
+    reinforcement: due[0] ?? null,
+    due,
+    reason,
+    next_due_at: reason === "nothing_due" && status.next_due_at !== null
+      ? Math.round(status.next_due_at) : null,
+  };
+}
 
 export const TOOL_NAMES = [
   "close_peer_room",
   "end_session",
   "explain_last_adaptation",
+  "forget_session",
   "get_current_scene",
   "get_next_reinforcement",
   "get_operator_context",
@@ -81,15 +100,21 @@ export function buildMcpServer(host: SessionHost): McpServer {
   server.registerTool(
     "start_lesson_session",
     {
-      description: "Start a lesson session from a bundle_ref and return the first scene presentation.",
-      inputSchema: { bundle_ref: z.string(), learner_id: z.string().optional() },
+      description: "Start or resume a lesson session and report whether it is new, resumed, or completed. " +
+        "A completed lesson starts at scene zero as a retake and includes due profile-backed review targets.",
+      inputSchema: { bundle_ref: z.string(), learner_id: z.string().optional(), now_ms: z.number().optional() },
     },
-    async ({ bundle_ref, learner_id }) => {
+    async ({ bundle_ref, learner_id, now_ms }) => {
       try {
-        const r = await host.create(bundle_ref, learner_id);
+        const r = await host.create(bundle_ref, learner_id, now_ms);
         // Redact the answer key (quiz `correct`, claims/key_points/cues, model_* reveals) at the
         // client boundary — the server keeps the full scene; only this projection ships.
-        return text({ session_id: r.sessionId, presentation: publicPresentation(r.presentation) });
+        return text({
+          session_id: r.sessionId,
+          presentation: publicPresentation(r.presentation),
+          resume: r.resume,
+          ...(r.due ? { due: r.due.map(transportTarget) } : {}),
+        });
       } catch (e) { return fail((e as Error).message); }
     },
   );
@@ -144,18 +169,26 @@ export function buildMcpServer(host: SessionHost): McpServer {
     "get_next_reinforcement",
     {
       description: "FSRS ROUTER: the single most-urgent concept to REINFORCE now (mastered earlier but " +
-        "whose recall is decaying), with the bundle scene that addresses it — or null when nothing is due. " +
-        "A native driver calls this to route the learner to a spaced-repetition pass instead of advancing " +
-        "linearly. Returns {reinforcement: {concept_id, scene_id, due_at, retrievability} | null}. " +
+        "whose recall is decaying), plus every due target in priority order. With session_id it unions " +
+        "session and cross-lesson profile memory; learner_id works without a live session. " +
+        "Returns reinforcement, due, reason (due|nothing_due|no_history), and next_due_at. " +
         "`now_ms` (epoch ms) is injectable for deterministic review scheduling; defaults to wall-clock.",
-      inputSchema: { session_id: z.string(), now_ms: z.number().optional() },
+      inputSchema: {
+        session_id: z.string().min(1).optional(),
+        learner_id: z.string().min(1).optional(),
+        now_ms: z.number().optional(),
+      },
     },
-    async ({ session_id, now_ms }) => {
+    async ({ session_id, learner_id, now_ms }) => {
       try {
+        if (session_id === undefined && learner_id === undefined) {
+          return fail("at least one of session_id or learner_id is required");
+        }
         const nowMs = now_ms ?? Date.now();
-        const target = host.nextReinforcement(session_id, nowMs);
-        const scene_id = target ? host.nextReinforcementScene(session_id, nowMs) : null;
-        return text({ reinforcement: target ? { ...target, scene_id } : null });
+        const status = session_id !== undefined
+          ? await host.reinforcementStatusForSession(session_id, nowMs)
+          : await host.reinforcementStatusForLearner(learner_id, nowMs);
+        return text(reinforcementResult(status));
       } catch (e) { return fail((e as Error).message); }
     },
   );
@@ -281,7 +314,21 @@ export function buildMcpServer(host: SessionHost): McpServer {
   server.registerTool(
     "end_session",
     {
-      description: "End a session: emits forget_requested and drops it (right to be forgotten).",
+      description: "Closes a session and keeps durable lesson state and cross-lesson memory. " +
+        "Use forget_session for irreversible erasure.",
+      inputSchema: { session_id: z.string() },
+    },
+    async ({ session_id }) => {
+      try { await host.close(session_id); return text({ closed: true, state_kept: true }); }
+      catch (e) { return fail((e as Error).message); }
+    },
+  );
+
+  server.registerTool(
+    "forget_session",
+    {
+      description: "Right to be forgotten: erases this learner's durable state for this lesson AND " +
+        "the cross-lesson profile; irreversible. To merely close, use end_session.",
       inputSchema: { session_id: z.string() },
     },
     async ({ session_id }) => {

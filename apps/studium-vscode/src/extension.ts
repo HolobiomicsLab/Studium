@@ -640,7 +640,7 @@ async function openLesson(
         return;
       }
       if (msg.type === "end") {
-        // Right to be forgotten: end_session emits forget_requested and PURGES the durable per-learner
+        // Right to be forgotten: forget_session emits forget_requested and PURGES the durable per-learner
         // state on disk (in consented/durable mode). Irreversible, so confirm first; closing the panel
         // alone only drops the transport and leaves the saved state intact (so a learner can resume).
         const ok = await vscode.window.showWarningMessage(
@@ -648,7 +648,7 @@ async function openLesson(
           { modal: true }, phrase("extension_forget_action", {}, locale),
         );
         if (ok === phrase("extension_forget_action", {}, locale)) {
-          try { await call("end_session", { session_id: sid }); } catch { /* already gone */ }
+          try { await call("forget_session", { session_id: sid }); } catch { /* already gone */ }
           panel.dispose();
         }
         return;

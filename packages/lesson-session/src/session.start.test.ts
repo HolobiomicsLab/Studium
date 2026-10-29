@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
+import { defaultLearnerState } from "@studium/learner-state";
 import { LessonSession } from "./session.js";
 import { buildTestDeps, InMemoryTelemetrySink } from "./testing.js";
 
@@ -29,5 +30,38 @@ describe("LessonSession.start", () => {
   it("currentPresentation before start throws", () => {
     const s = new LessonSession(bundle, buildTestDeps());
     expect(() => s.currentPresentation()).toThrow(/not started/);
+  });
+
+  it("resumes at the first bundle scene not already completed", async () => {
+    const state = defaultLearnerState(bundle.bundle_id);
+    state.scenes_completed = ["s0"];
+    const deps = buildTestDeps();
+
+    const presentation = await new LessonSession(bundle, deps, state).start();
+
+    expect(presentation.index).toBe(1);
+    expect(presentation.scene.id).toBe("s1");
+    const sink = deps.telemetry as InMemoryTelemetrySink;
+    expect(sink.events.at(-1)).toMatchObject({ type: "scene_entered", scene_id: "s1" });
+  });
+
+  it("starts a completed lesson at scene zero for a retake", async () => {
+    const state = defaultLearnerState(bundle.bundle_id);
+    state.scenes_completed = bundle.scenes.map((scene) => scene.id);
+
+    const presentation = await new LessonSession(bundle, buildTestDeps(), state).start();
+
+    expect(presentation.index).toBe(0);
+    expect(presentation.scene.id).toBe("s0");
+  });
+
+  it("starts a profile-completed lesson at scene zero even when its bundle state is partial", async () => {
+    const state = defaultLearnerState(bundle.bundle_id);
+    state.scenes_completed = ["s0"];
+
+    const presentation = await new LessonSession(bundle, buildTestDeps(), state, "learner", true).start();
+
+    expect(presentation.index).toBe(0);
+    expect(presentation.scene.id).toBe("s0");
   });
 });

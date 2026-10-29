@@ -4,6 +4,29 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-10-29 (nuit) — lot 1 de la vague 3 : mémoire inter-leçons (V17, V1, V9, V19, V2)
+
+Demande propriétaire : « Oui, lot 1 » après le rapport de la vague 3
+(`studium_dev/docs/superpowers/audits/2026-10-29-web-cases-wave3-trial.md`, §9). Mission Codex D,
+tests d'abord ; non commité.
+
+- **Fermer ≠ oublier (V17).** `SessionHost.close()` vide les sorties, fusionne l'état et la mémoire FSRS
+  de la session dans le profil sans marquer la leçon terminée, retire l'entrée. L'outil MCP
+  `end_session` ferme désormais (`{closed, state_kept}`) ; `forget_session` (nouveau, 21 outils) porte
+  l'effacement RGPD ; l'extension appelle `forget_session` sur ses deux actions « oublier ».
+- **Routeur de révision sur le profil (V1, V9, V19).** `get_next_reinforcement` accepte `session_id` ou
+  `learner_id`, unit les cibles dues de la session et du profil (session prioritaire par concept),
+  les projette sur une scène du bundle courant, renvoie `due[]` ordonné, `reason`
+  (`due | nothing_due | no_history`) et `next_due_at` entier.
+- **Neuf / repris / terminé (V2).** `LessonSession.start()` reprend à la première scène non terminée ;
+  une leçon terminée repart de la scène 0 ; `host.create()` et `start_lesson_session` renvoient
+  `resume {kind, scene_id, scenes_completed}` et `due[]` pour une leçon terminée.
+- Tests : `lesson-session/src/session.start.test.ts`, `lesson-session-host/src/durable-host.test.ts`,
+  `host-reinforcement-router.test.ts`, `lesson-mcp/src/server.test.ts`. Suites vertes (333 / 185 / 22),
+  extension typecheck + pilotes, rejeu kepler-1 → kepler-2 compilé = source (47 événements).
+
+---
+
 ## 2026-10-29 (soir, suite) — restes de code après la vague 2
 
 Demande propriétaire : « Tu peux y aller pour ces recommandations ». Trois correctifs hors des

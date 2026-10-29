@@ -44,6 +44,43 @@ async function connect(bundlesRoot: string) {
   return client;
 }
 
+async function withDurableData<T>(fn: (dataDir: string) => Promise<T>): Promise<T> {
+  const dataDir = mkdtempSync(join(tmpdir(), "mcp-data-"));
+  dirs.push(dataDir);
+  const previousDataDir = process.env["STUDIUM_DATA_DIR"];
+  const previousSecret = process.env["STUDIUM_PSEUDO_SECRET"];
+  process.env["STUDIUM_DATA_DIR"] = dataDir;
+  process.env["STUDIUM_PSEUDO_SECRET"] = "mcp-durable-test-secret";
+  try { return await fn(dataDir); }
+  finally {
+    if (previousDataDir === undefined) delete process.env["STUDIUM_DATA_DIR"];
+    else process.env["STUDIUM_DATA_DIR"] = previousDataDir;
+    if (previousSecret === undefined) delete process.env["STUDIUM_PSEUDO_SECRET"];
+    else process.env["STUDIUM_PSEUDO_SECRET"] = previousSecret;
+  }
+}
+
+function quizBundle(bundleId: string, conceptId: string, sceneId = "q-shared") {
+  return {
+    schema_version: "1.4", bundle_id: bundleId, source_plan_id: "p",
+    metadata: { title: bundleId, target: "L1", duration_minutes: 5, language: "fr", discipline: "x" },
+    concepts: [{ id: conceptId, title: "C", description: "d", bloom_level_target: "understand" }],
+    scenes: [
+      { id: sceneId, type: "quiz", title: "Q", objective_refs: [], concept_refs: [conceptId], estimated_seconds: 0, adaptation_hooks: [],
+        question: "?", choices: [{ id: "wrong", text: "wrong", correct: false }, { id: "right", text: "right", correct: true }],
+        feedback_correct: "y", feedback_incorrect: "n", hints: [] },
+    ],
+    rules: [], validated_by: "teacher", validated_at: "2026-06-10T08:00:00Z",
+  };
+}
+
+function displayedChoiceId(started: Record<string, unknown>, textValue = "right"): string {
+  const scene = (started["presentation"] as { scene: { choices: Array<{ id: string; text: string }> } }).scene;
+  const choice = scene.choices.find((candidate) => candidate.text === textValue);
+  if (!choice) throw new Error(`choice not found: ${textValue}`);
+  return choice.id;
+}
+
 describe("lesson-mcp tools", () => {
   it("reports its package version and complete sorted tool surface", async () => {
     const client = await connect(bundlesDir());
@@ -53,6 +90,8 @@ describe("lesson-mcp tools", () => {
     expect(info["version"]).toBe(packageJson.version);
     expect(info["tools"]).toEqual(names);
     expect(info["tools"]).toEqual([...names].sort());
+    expect(names).toHaveLength(21);
+    expect(names).toContain("forget_session");
     expect(names).toContain("get_operator_context");
     expect(names).toContain("get_server_info");
 
@@ -66,11 +105,17 @@ describe("lesson-mcp tools", () => {
     expect(description("submit_response")).toContain("mastery");
     expect(description("get_current_scene")).toContain("EVIDENCE");
     expect(description("get_scene_artifacts")).toContain("not an answer key");
+    expect(description("end_session")).toContain("keeps");
+    expect(description("end_session")).toContain("forget_session");
+    expect(description("forget_session")).toContain("Right to be forgotten");
+    expect(description("forget_session")).toContain("irreversible");
   });
-  it("get_next_reinforcement routes FSRS: null when fresh, the covering scene once a mastered concept decays", async () => {
+  it("get_next_reinforcement distinguishes no history, nothing due, and due", async () => {
     const client = await connect(bundlesDir());
     const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json", learner_id: "you" } }) as never);
     const sid = started.session_id as string;
+    const empty = parse(await client.callTool({ name: "get_next_reinforcement", arguments: { session_id: sid } }) as never);
+    expect(empty).toMatchObject({ reinforcement: null, due: [], reason: "no_history", next_due_at: null });
     // s0 intro → ack; s1 quiz → answer correctly so c1 reaches mastery (bloom "understand" ⇒ w=0.5 ⇒
     // alpha 2.5 / beta 1 = 0.714 ≥ 0.6 minMastery gate)
     await client.callTool({ name: "submit_response", arguments: { session_id: sid, input: { kind: "ack" } } });
@@ -79,16 +124,72 @@ describe("lesson-mcp tools", () => {
     // freshly answered ⇒ nothing has decayed yet ⇒ no reinforcement routed
     const fresh = parse(await client.callTool({ name: "get_next_reinforcement", arguments: { session_id: sid } }) as never);
     expect(fresh.reinforcement).toBeNull();
+    expect(fresh.reason).toBe("nothing_due");
+    expect(Number.isInteger(fresh.next_due_at)).toBe(true);
 
     // far in the future ⇒ c1's recall has decayed ⇒ route to the RETRIEVAL scene covering c1 (the quiz
     // s1, preferred over the intro s0)
     const future = Date.UTC(2035, 0, 1);
     const due = parse(await client.callTool({ name: "get_next_reinforcement", arguments: { session_id: sid, now_ms: future } }) as never);
-    const r = due.reinforcement as { concept_id: string; scene_id: string; retrievability: number } | null;
+    const r = due.reinforcement as { concept_id: string; scene_id: string; due_at: number; retrievability: number; source: string } | null;
     expect(r).not.toBeNull();
     expect(r?.concept_id).toBe("c1");
     expect(r?.scene_id).toBe("s1");
+    expect(r?.source).toBe("session");
+    expect(Number.isInteger(r?.due_at)).toBe(true);
     expect(r?.retrievability).toBeLessThan(1);
+    expect(due.reason).toBe("due");
+    expect(due.next_due_at).toBeNull();
+    expect((due.due as unknown[])).toHaveLength(1);
+  });
+
+  it("get_next_reinforcement returns every due concept in priority order", async () => {
+    const d = mkdtempSync(join(tmpdir(), "mcp-")); dirs.push(d);
+    const twoDue = {
+      ...quizBundle("two-due", "c-high", "q-high-1"),
+      concepts: [
+        { id: "c-high", title: "High", description: "d", bloom_level_target: "remember" },
+        { id: "c-low", title: "Low", description: "d", bloom_level_target: "understand" },
+      ],
+      scenes: [
+        quizBundle("x", "c-high", "q-high-1").scenes[0],
+        quizBundle("x", "c-high", "q-high-2").scenes[0],
+        quizBundle("x", "c-low", "q-low").scenes[0],
+      ],
+    };
+    writeFileSync(join(d, "two.json"), JSON.stringify(twoDue));
+    const client = await connect(d);
+    let current = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "two.json", learner_id: "ordered" } }) as never);
+    const sid = current.session_id as string;
+    for (let index = 0; index < 3; index += 1) {
+      const choiceId = displayedChoiceId(current);
+      const response = parse(await client.callTool({ name: "submit_response", arguments: { session_id: sid, input: { kind: "quiz_choice", choiceId } } }) as never);
+      const transition = response.transition as { kind: string; presentation?: unknown };
+      if (transition.presentation) current = { presentation: transition.presentation };
+    }
+
+    const result = parse(await client.callTool({
+      name: "get_next_reinforcement",
+      arguments: { session_id: sid, now_ms: Date.UTC(2035, 0, 1) },
+    }) as never);
+    const due = result.due as Array<{ concept_id: string }>;
+    expect(due.map((target) => target.concept_id)).toEqual(["c-high", "c-low"]);
+    expect(result.reinforcement).toEqual(due[0]);
+  });
+
+  it("validates reinforcement identity and preserves unknown-session errors", async () => {
+    const client = await connect(bundlesDir());
+    const missing = await client.callTool({ name: "get_next_reinforcement", arguments: {} }) as {
+      isError?: boolean; content: Array<{ type: string; text?: string }>;
+    };
+    expect(missing.isError).toBe(true);
+    expect(parse(missing).error).toMatch(/session_id.*learner_id|learner_id.*session_id/);
+
+    const unknown = await client.callTool({
+      name: "get_next_reinforcement", arguments: { session_id: "missing" },
+    }) as { isError?: boolean; content: Array<{ type: string; text?: string }> };
+    expect(unknown.isError).toBe(true);
+    expect(parse(unknown).error).toMatch(/session not found/);
   });
   it("get_scene_artifacts returns the normalized render manifest for the current scene", async () => {
     const client = await connect(bundlesDir());
@@ -187,12 +288,131 @@ describe("lesson-mcp tools", () => {
     expect(wire1).not.toContain("\"cues\"");
   });
 
-  it("end_session forgets the session", async () => {
+  it("end_session closes while forget_session remains the irreversible erasure path", async () => {
     const client = await connect(bundlesDir());
     const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json" } }) as never);
     const sid = started["session_id"] as string;
     const ended = parse(await client.callTool({ name: "end_session", arguments: { session_id: sid } }) as never);
-    expect(ended["forgotten"]).toBe(true);
+    expect(ended).toEqual({ closed: true, state_kept: true });
+
+    const second = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json" } }) as never);
+    const forgotten = parse(await client.callTool({
+      name: "forget_session", arguments: { session_id: second["session_id"] },
+    }) as never);
+    expect(forgotten).toEqual({ forgotten: true });
+  });
+
+  it("closing lesson A keeps mastery and profile reinforcement for lesson B and learner-only routing", async () => {
+    await withDurableData(async () => {
+      const d = mkdtempSync(join(tmpdir(), "mcp-")); dirs.push(d);
+      writeFileSync(join(d, "A.json"), JSON.stringify(quizBundle("lesson-A", "c-shared", "q-a")));
+      const bundleB = quizBundle("lesson-B", "c-shared", "q-b-review");
+      bundleB.scenes.unshift({
+        id: "b-intro", type: "intro", title: "Intro", objective_refs: [], concept_refs: ["c-shared"],
+        estimated_seconds: 0, adaptation_hooks: [], markdown: "review",
+      } as never);
+      writeFileSync(join(d, "B.json"), JSON.stringify(bundleB));
+      const client = await connect(d);
+
+      const a = parse(await client.callTool({
+        name: "start_lesson_session", arguments: { bundle_ref: "A.json", learner_id: "kepler" },
+      }) as never);
+      expect(a.resume).toEqual({ kind: "new", scene_id: "q-a", scenes_completed: 0 });
+      await client.callTool({
+        name: "submit_response",
+        arguments: { session_id: a.session_id, input: { kind: "quiz_choice", choiceId: displayedChoiceId(a) } },
+      });
+      expect(parse(await client.callTool({
+        name: "end_session", arguments: { session_id: a.session_id },
+      }) as never)).toEqual({ closed: true, state_kept: true });
+
+      const b = parse(await client.callTool({
+        name: "start_lesson_session", arguments: { bundle_ref: "B.json", learner_id: "kepler" },
+      }) as never);
+      const mastery = (b.presentation as { learnerSnapshot: { conceptMastery: Record<string, number> } })
+        .learnerSnapshot.conceptMastery["c-shared"];
+      expect(mastery).toBeGreaterThan(0.6);
+
+      const future = Date.UTC(2035, 0, 1);
+      const inSession = parse(await client.callTool({
+        name: "get_next_reinforcement", arguments: { session_id: b.session_id, now_ms: future },
+      }) as never);
+      expect(inSession.reinforcement).toMatchObject({
+        concept_id: "c-shared", scene_id: "q-b-review", source: "profile",
+      });
+
+      await client.callTool({ name: "end_session", arguments: { session_id: b.session_id } });
+      const withoutSession = parse(await client.callTool({
+        name: "get_next_reinforcement", arguments: { learner_id: "kepler", now_ms: future },
+      }) as never);
+      expect(withoutSession.reinforcement).toMatchObject({
+        concept_id: "c-shared", scene_id: null, source: "profile",
+      });
+    });
+  });
+
+  it("a completed lesson starts as a retake and offers profile-backed review", async () => {
+    const client = await connect(bundlesDir());
+    const first = parse(await client.callTool({
+      name: "start_lesson_session", arguments: { bundle_ref: "mini.json", learner_id: "retake" },
+    }) as never);
+    expect(first.resume).toEqual({ kind: "new", scene_id: "s0", scenes_completed: 0 });
+    const sid = first.session_id as string;
+    await client.callTool({ name: "submit_response", arguments: { session_id: sid, input: { kind: "ack" } } });
+    const current = parse(await client.callTool({ name: "get_current_scene", arguments: { session_id: sid } }) as never);
+    const answer = displayedChoiceId({ presentation: current.presentation }, "B");
+    await client.callTool({ name: "submit_response", arguments: { session_id: sid, input: { kind: "quiz_choice", choiceId: answer } } });
+    await client.callTool({ name: "end_session", arguments: { session_id: sid } });
+
+    const retake = parse(await client.callTool({
+      name: "start_lesson_session",
+      arguments: { bundle_ref: "mini.json", learner_id: "retake", now_ms: Date.UTC(2035, 0, 1) },
+    }) as never);
+    expect(retake.resume).toEqual({ kind: "completed", scene_id: "s0", scenes_completed: 2 });
+    expect((retake.presentation as { scene: { id: string } }).scene.id).toBe("s0");
+    expect((retake.due as Array<{ concept_id: string; source: string }>)).toEqual([
+      expect.objectContaining({ concept_id: "c1", source: "profile" }),
+    ]);
+  });
+
+  it("forget_session erases this lesson state and the cross-lesson profile", async () => {
+    await withDurableData(async () => {
+      const d = mkdtempSync(join(tmpdir(), "mcp-")); dirs.push(d);
+      writeFileSync(join(d, "A.json"), JSON.stringify(quizBundle("lesson-A", "c-shared", "q-a")));
+      const bundleB = quizBundle("lesson-B", "c-shared", "q-b");
+      bundleB.scenes.unshift({
+        id: "b-intro", type: "intro", title: "Intro", objective_refs: [], concept_refs: ["c-shared"],
+        estimated_seconds: 0, adaptation_hooks: [], markdown: "review",
+      } as never);
+      writeFileSync(join(d, "B.json"), JSON.stringify(bundleB));
+      const client = await connect(d);
+
+      const a = parse(await client.callTool({
+        name: "start_lesson_session", arguments: { bundle_ref: "A.json", learner_id: "erase-me" },
+      }) as never);
+      await client.callTool({
+        name: "submit_response",
+        arguments: { session_id: a.session_id, input: { kind: "quiz_choice", choiceId: displayedChoiceId(a) } },
+      });
+      await client.callTool({ name: "end_session", arguments: { session_id: a.session_id } });
+
+      const warm = parse(await client.callTool({
+        name: "start_lesson_session", arguments: { bundle_ref: "B.json", learner_id: "erase-me" },
+      }) as never);
+      expect(Object.keys((warm.presentation as { learnerSnapshot: { conceptMastery: object } }).learnerSnapshot.conceptMastery)).toContain("c-shared");
+      await client.callTool({
+        name: "submit_response", arguments: { session_id: warm.session_id, input: { kind: "ack" } },
+      });
+      expect(parse(await client.callTool({
+        name: "forget_session", arguments: { session_id: warm.session_id },
+      }) as never)).toEqual({ forgotten: true });
+
+      const cold = parse(await client.callTool({
+        name: "start_lesson_session", arguments: { bundle_ref: "B.json", learner_id: "erase-me" },
+      }) as never);
+      expect((cold.presentation as { learnerSnapshot: { conceptMastery: object } }).learnerSnapshot.conceptMastery).toEqual({});
+      expect(cold.resume).toEqual({ kind: "new", scene_id: "b-intro", scenes_completed: 0 });
+    });
   });
 });
 

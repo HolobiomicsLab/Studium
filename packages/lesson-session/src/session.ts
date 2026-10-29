@@ -91,6 +91,8 @@ export class LessonSession {
      * pseudonyms. Defaults to "anonymous" so callers/tests that omit it still compile and stay
      * deterministic. */
     private readonly learnerId: string = "anonymous",
+    /** The learner profile can prove completion even when no per-bundle state is available. */
+    private readonly completedInProfile = false,
   ) {
     this.locale = localeFromLanguage(bundle.metadata.language);
   }
@@ -101,6 +103,7 @@ export class LessonSession {
     this.ctx = { learnerPseudonym: this.pseudonym, lessonId: this.bundle.bundle_id, bundleVersion: bundleVersionOf(this.bundle) };
     this.engine = new AdaptationEngine(this.bundle.rules, this.state, () => this.deps.clock.now());
     this.state = this.engine.getState();
+    this.idx = this.startingSceneIndex();
     this.startIso = this.deps.clock.now();
     this.started = true;
     const u = this.bundle.universes ?? null;
@@ -116,6 +119,14 @@ export class LessonSession {
     this.emit({ type: "lesson_started", bundle_uri: this.bundle.bundle_id });
     this.emit({ type: "scene_entered", scene_id: this.scene().id, scene_type: this.scene().type });
     return this.currentPresentation();
+  }
+
+  private startingSceneIndex(): number {
+    const completed = new Set(this.state.scenes_completed);
+    const isComplete = this.completedInProfile || this.bundle.scenes.every((scene) => completed.has(scene.id));
+    if (isComplete) return 0;
+    const firstIncomplete = this.bundle.scenes.findIndex((scene) => !completed.has(scene.id));
+    return firstIncomplete < 0 ? 0 : firstIncomplete;
   }
 
   currentPresentation(): Presentation {

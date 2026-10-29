@@ -3,7 +3,7 @@
 // scoped per (pseudonym, bundle_id). These tests simulate a process restart by constructing a
 // FRESH SessionHost over the SAME dataDir and asserting prior LearnerState resumes.
 import { describe, it, expect, afterEach } from "vitest";
-import { mkdtempSync, rmSync, existsSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHmac } from "node:crypto";
@@ -85,12 +85,50 @@ describe("SessionHost — durable + learner-scoped + resumable (#3)", () => {
 
       // Second "process": a FRESH host over the SAME dataDir must RESUME alice's prior state.
       const host2 = new SessionHost({ bundlesRoot: bundles, live: false });
-      const r2 = await host2.create("mastery3.json", "alice");
+      const r2 = await host2.create("mastery3.json", "alice", Date.UTC(2035, 0, 1));
       const state2 = host2.getState(r2.sessionId);
       // concept_states / mastery carry over (longitudinal continuity, not a fresh defaultLearnerState).
       expect(state2.concept_states["c1"]).toBeDefined();
       expect(state2.concept_states["c1"]!.total_attempts).toBe(attempts1);
       expect(state2.scenes_completed.length).toBe(state1.scenes_completed.length);
+      expect(r2.resume).toEqual({ kind: "completed", scene_id: "q1", scenes_completed: 3 });
+      expect(r2.due?.map((target) => target.concept_id)).toContain("c1");
+    });
+  });
+
+  it("resumes an incomplete lesson at its first unfinished scene and close keeps progress", async () => {
+    const data = dataDir();
+    const bundles = mastery3BundlesDir();
+    await withDataEnv(data, async () => {
+      const host1 = new SessionHost({ bundlesRoot: bundles, live: false });
+      const first = await host1.create("mastery3.json", "alice");
+      expect(first.resume).toEqual({ kind: "new", scene_id: "q1", scenes_completed: 0 });
+
+      await host1.respond(first.sessionId, correctChoice(host1, first.sessionId));
+      await host1.respond(first.sessionId, correctChoice(host1, first.sessionId));
+      await host1.close(first.sessionId);
+      expect(host1.has(first.sessionId)).toBe(false);
+
+      const scopeDir = join(data, pseudonymOf("alice"), BUNDLE_ID);
+      expect(existsSync(join(scopeDir, `state-${BUNDLE_ID}.json`))).toBe(true);
+      const profilePath = join(data, pseudonymOf("alice", "__learner_profile__"), "profile.json");
+      const profile = JSON.parse(readFileSync(profilePath, "utf8")) as {
+        completed_lessons?: string[];
+        concept_states: Record<string, unknown>;
+      };
+      expect(profile.concept_states["c1"]).toBeDefined();
+      expect(profile.completed_lessons ?? []).toEqual([]);
+
+      const host2 = new SessionHost({ bundlesRoot: bundles, live: false });
+      const resumed = await host2.create("mastery3.json", "alice");
+      expect(resumed.resume).toEqual({ kind: "resumed", scene_id: "q3", scenes_completed: 2 });
+      expect(resumed.presentation.scene.id).toBe("q3");
+
+      const done = await host2.respond(resumed.sessionId, correctChoice(host2, resumed.sessionId));
+      expect(done.kind).toBe("complete");
+      const completed = host2.getState(resumed.sessionId).scenes_completed;
+      expect(completed).toEqual(["q1", "q2", "q3"]);
+      expect(new Set(completed).size).toBe(completed.length);
     });
   });
 
