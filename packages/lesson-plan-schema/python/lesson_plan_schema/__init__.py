@@ -58,6 +58,7 @@ class Concept(BaseModel):
     title: str = Field(min_length=1)
     description: str = Field(min_length=1)
     bloom_level_target: BloomLevel
+    prerequisites: list[str] = Field(default_factory=list)
 
 
 class LearningObjective(BaseModel):
@@ -131,6 +132,7 @@ class SceneOutline(BaseModel):
     type: SceneType
     title: str = Field(min_length=1)
     objective_refs: list[str] = Field(default_factory=list)
+    concept_refs: list[str] = Field(default_factory=list)
     notes: Optional[str] = None
     duration_minutes: Optional[int] = Field(default=None, ge=1)
     evidence: Optional[Evidence] = None

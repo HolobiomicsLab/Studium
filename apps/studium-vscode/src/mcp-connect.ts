@@ -1,6 +1,7 @@
 // mcp-connect.ts — spawn lesson-mcp over stdio and expose a typed call() + close(). Shared by the lesson
 // panel (extension.ts) and the @studium chat participant (chat.ts) so the connection logic lives once.
 import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -25,6 +26,9 @@ export interface ServerInfo {
   model_backend: "none" | "configured";
 }
 
+const GIT_TIMEOUT_MS = 1_000;
+export type RepoHeadReader = (repoRoot: string) => string | null;
+
 /** Describe whether a launch uses live TypeScript sources or the VSIX bundle. */
 export function describeServerLaunch(launch: ServerLaunch): string {
   const entry = launch.args[0] ?? "";
@@ -38,6 +42,36 @@ export function serverInfoLine(info: ServerInfo): string {
   return `[${info.name}] v${info.version} ${info.build.origin} ${info.build.built_at ?? "unbuilt"}${sha} ` +
     `tools=${info.tools.length} bundles_root=${info.bundles_root} data_dir=${info.data_dir ?? "none"} ` +
     `model_backend=${info.model_backend}`;
+}
+
+/** Read a checkout's HEAD identity in the same format as the bundle command. */
+export function readRepoHead(repoRoot: string): string | null {
+  try {
+    return execFileSync("git", ["describe", "--always", "--abbrev=7"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      timeout: GIT_TIMEOUT_MS,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Explain a dirty or stale lesson-mcp build; return null when identities agree. */
+export function serverBuildWarning(
+  info: ServerInfo,
+  repoRoot: string,
+  readHead: RepoHeadReader = readRepoHead,
+): string | null {
+  const serverSha = info.build.git_sha;
+  if (!serverSha) return null;
+  if (serverSha.endsWith("-dirty")) {
+    return `[studium] WARNING: lesson-mcp reports dirty build identity ${serverSha}.`;
+  }
+  const repoHead = readHead(repoRoot);
+  if (!repoHead || repoHead === serverSha) return null;
+  return `[studium] WARNING: lesson-mcp sha=${serverSha} differs from repoRoot HEAD=${repoHead}.`;
 }
 
 /** Decide how to launch lesson-mcp, in order of preference:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
@@ -37,6 +38,14 @@ PASSAGES = {
     ],
     "attempts": [{"query": "treatment signal"}],
     "refined_query": "Treatment A signal control",
+}
+
+DEFAULT_REPLAY_RULE = {
+    "id": "rule_2err_replay_concept",
+    "when": {"consecutive_errors_same_concept": ">=2"},
+    "action": {"kind": "replay_current_scene", "reason": "errors_threshold"},
+    "modulator": "M1",
+    "explanation_short": "Deux erreurs sur ce concept : on reprend la scène avec un appui.",
 }
 
 
@@ -288,6 +297,41 @@ def test_check_rejects_unknown_plan_corpus_reference(tmp_path):
         )
 
 
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (
+            lambda plan: plan["scene_outlines"][0].update(concept_refs=["missing"]),
+            "unknown concept",
+        ),
+        (
+            lambda plan: plan["concepts"][0].update(prerequisites=["missing"]),
+            "unknown prerequisite",
+        ),
+    ],
+)
+def test_check_rejects_unknown_concept_ids(tmp_path, mutate, message):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response_value = valid_response(evidence_id)
+    response_value["lesson_plan"]["concepts"] = [
+        {
+            "id": "known",
+            "title": "Known concept",
+            "description": "A declared concept.",
+            "bloom_level_target": "understand",
+        }
+    ]
+    mutate(response_value["lesson_plan"])
+    response = write_json(tmp_path / "response.json", response_value)
+
+    with pytest.raises(PacketError, match=message):
+        check_response(
+            packet_dir=packet,
+            response_path=response,
+            output_dir=tmp_path / "checked",
+        )
+
+
 def test_check_rejects_asb_task_mismatch(tmp_path):
     packet, evidence_id = prepare_basic(tmp_path)
     response_value = valid_response(evidence_id)
@@ -308,8 +352,35 @@ def test_check_never_overwrites_an_output_directory(tmp_path):
     output = tmp_path / "checked"
     output.mkdir()
 
-    with pytest.raises(PacketError, match="already exists"):
+    with pytest.raises(PacketError, match="--force"):
         check_response(packet_dir=packet, response_path=response, output_dir=output)
+
+
+def test_check_force_replaces_an_existing_output_directory(tmp_path):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response = write_json(tmp_path / "response.json", valid_response(evidence_id))
+    output = tmp_path / "checked"
+    output.mkdir()
+    stale = output / "stale.txt"
+    stale.write_text("old", encoding="utf-8")
+
+    status = main(
+        [
+            "check",
+            "--packet",
+            str(packet),
+            "--response",
+            str(response),
+            "--out",
+            str(output),
+            "--force",
+            "--quiet",
+        ]
+    )
+
+    assert status == 0
+    assert (output / "plan.json").is_file()
+    assert not stale.exists()
 
 
 @pytest.mark.parametrize(
@@ -464,6 +535,73 @@ def test_check_cli_reports_course_summary_and_warnings(tmp_path, capsys):
     assert "WARN: scene type 'simulation' is not playable" in stdout
 
 
+def test_check_reports_quote_language_concept_gaps_and_human_review(tmp_path, capsys):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response_value = valid_response(evidence_id)
+    plan = response_value["lesson_plan"]
+    plan["language"] = "fr"
+    plan["concepts"] = [
+        {
+            "id": concept_id,
+            "title": concept_id,
+            "description": concept_id,
+            "bloom_level_target": "understand",
+        }
+        for concept_id in ("explicit", "objective", "skos")
+    ]
+    plan["learning_objectives"][0]["concept_uris"] = ["objective"]
+    plan["scene_outlines"] = [
+        {
+            **plan["scene_outlines"][0],
+            "concept_refs": ["explicit"],
+            "notes": "TODO review: confirm the reported 31%.",
+        },
+        {
+            "id": "scene-objective",
+            "type": "concept",
+            "title": "Objective mapping",
+            "objective_refs": ["objective-1"],
+            "evidence_override": "skip",
+        },
+        {
+            "id": "scene-skos",
+            "type": "concept",
+            "title": "SKOS mapping",
+            "objective_refs": [],
+            "skos_concept_uris": ["concept:skos"],
+        },
+        {
+            "id": "scene-unmapped",
+            "type": "discussion",
+            "title": "Unmapped scene",
+            "objective_refs": [],
+        },
+        {
+            "id": "scene-meta",
+            "type": "meta_checkpoint",
+            "title": "Checkpoint without a concept, by design",
+            "objective_refs": [],
+        },
+    ]
+    response = write_json(tmp_path / "response.json", response_value)
+    output = tmp_path / "course"
+
+    status = main(
+        ["check", "--packet", str(packet), "--response", str(response), "--out", str(output)]
+    )
+
+    stdout = capsys.readouterr().out
+    assert status == 0
+    assert "Plan language: fr; 1 source quotes verified verbatim in en" in stdout
+    assert "WARN: scene 'scene-unmapped' reaches no concept" in stdout
+    assert "scene-objective' reaches no concept" not in stdout
+    assert "scene-skos' reaches no concept" not in stdout
+    assert "scene-meta' reaches no concept" not in stdout  # intro / meta_checkpoint carry none by design
+    assert "Not verifiable by quote:" in stdout
+    assert "scene-1: TODO review: confirm the reported 31%." in stdout
+    assert "scene-objective: evidence_override=skip" in stdout
+
+
 def test_check_cli_quiet_keeps_single_output_line(tmp_path, capsys):
     packet, evidence_id = prepare_basic(tmp_path)
     response = write_json(tmp_path / "response.json", valid_response(evidence_id))
@@ -545,7 +683,7 @@ def test_bundle_builds_schema_complete_placeholder_for_each_plan_scene(tmp_path,
     assert bundle["schema_version"] == "1.4"
     assert scene["type"] == expected_type
     assert scene["objective_refs"] == ["objective-1"]
-    assert bundle["rules"] == []
+    assert bundle["rules"] == [DEFAULT_REPLAY_RULE]
     assert bundle["validated_by"] == "DRAFT — not validated"
     assert bundle["validated_at"].endswith("Z")
     assert sum(choice["correct"] for choice in scene.get("choices", [])) <= 1
@@ -589,6 +727,165 @@ def test_bundle_preserves_dependent_to_prerequisite_edge_direction(tmp_path):
     edge = json.loads(output.read_text())["learning_workflow_graph"]["edges"][0]
     assert edge["source"] == "concept:dependent"
     assert edge["target"] == "concept:prereq"
+
+
+def test_bundle_completes_an_existing_graph_from_plan_prerequisites(tmp_path):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response_value = valid_response(evidence_id)
+    response_value["lesson_plan"]["concepts"] = [
+        {
+            "id": "prereq",
+            "title": "First",
+            "description": "First",
+            "bloom_level_target": "remember",
+        },
+        {
+            "id": "dependent",
+            "title": "Second",
+            "description": "Second",
+            "bloom_level_target": "apply",
+            "prerequisites": ["prereq"],
+        },
+    ]
+    response_value["lesson_plan"]["learning_workflow_graph"] = {
+        "schema_version": "1.0",
+        "course_id": "course",
+        "nodes": [
+            {
+                "id": "concept:prereq",
+                "node_kind": "concept",
+                "title": "First",
+                "bloom_level": "remember",
+            }
+        ],
+        "edges": [],
+    }
+    response = write_json(tmp_path / "response.json", response_value)
+    course = tmp_path / "course"
+    check_response(packet_dir=packet, response_path=response, output_dir=course)
+
+    output = build_lesson_bundle(course_dir=course, output_path=tmp_path / "lesson.json")
+    graph = json.loads(output.read_text())["learning_workflow_graph"]
+
+    assert {node["id"] for node in graph["nodes"]} == {
+        "concept:prereq",
+        "concept:dependent",
+    }
+    assert graph["edges"][0]["source"] == "concept:dependent"
+    assert graph["edges"][0]["target"] == "concept:prereq"
+
+
+def test_bundle_generates_concept_graph_copies_quiz_notes_and_lints(tmp_path):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response_value = valid_response(evidence_id)
+    plan = response_value["lesson_plan"]
+    plan["concepts"] = [
+        {
+            "id": "prerequisite",
+            "title": "Prerequisite",
+            "description": "Learn this first.",
+            "bloom_level_target": "remember",
+        },
+        {
+            "id": "dependent",
+            "title": "Dependent",
+            "description": "Build on the prerequisite.",
+            "bloom_level_target": "apply",
+            "prerequisites": ["prerequisite"],
+        },
+    ]
+    plan["scene_outlines"] = [
+        {
+            **plan["scene_outlines"][0],
+            "type": "quiz",
+            "title": "Prerequisite quiz",
+            "concept_refs": ["prerequisite"],
+            "notes": "Which result establishes the prerequisite?",
+        },
+        {
+            "id": "scene-2",
+            "type": "summary_audit",
+            "title": "Dependent audit",
+            "objective_refs": ["objective-1"],
+            "concept_refs": ["dependent"],
+        },
+    ]
+    response = write_json(tmp_path / "response.json", response_value)
+    course = tmp_path / "course"
+    check_response(packet_dir=packet, response_path=response, output_dir=course)
+
+    output = build_lesson_bundle(course_dir=course, output_path=tmp_path / "lesson.json")
+    bundle = json.loads(output.read_text())
+
+    assert [scene["concept_refs"] for scene in bundle["scenes"]] == [
+        ["prerequisite"],
+        ["dependent"],
+    ]
+    assert bundle["scenes"][0]["question"] == "Which result establishes the prerequisite?"
+    assert {node["id"] for node in bundle["learning_workflow_graph"]["nodes"]} == {
+        "concept:prerequisite",
+        "concept:dependent",
+    }
+    assert bundle["learning_workflow_graph"]["edges"] == [
+        {
+            "id": "prerequisite:dependent:prerequisite",
+            "relation": "prerequisite_for",
+            "source": "concept:dependent",
+            "target": "concept:prerequisite",
+        }
+    ]
+    lint = subprocess.run(
+        ["node", str(TOOLS / "bundle_lint.mjs"), str(output)],
+        cwd=TOOLS.parent,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert lint.returncode == 0, lint.stdout + lint.stderr
+
+
+def test_bundle_no_default_rules_opt_out(tmp_path, capsys):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response = write_json(tmp_path / "response.json", valid_response(evidence_id))
+    course = tmp_path / "course"
+    check_response(packet_dir=packet, response_path=response, output_dir=course)
+    output = tmp_path / "lesson.json"
+
+    status = main(
+        [
+            "bundle",
+            "--course",
+            str(course),
+            "--out",
+            str(output),
+            "--no-default-rules",
+        ]
+    )
+
+    assert status == 0
+    assert json.loads(output.read_text())["rules"] == []
+    assert capsys.readouterr().out == f"{output.resolve()}\n"
+
+
+def test_bundle_force_replaces_existing_output_file(tmp_path, capsys):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response = write_json(tmp_path / "response.json", valid_response(evidence_id))
+    course = tmp_path / "course"
+    check_response(packet_dir=packet, response_path=response, output_dir=course)
+    output = write_json(tmp_path / "lesson.json", {"old": True})
+
+    refused = main(["bundle", "--course", str(course), "--out", str(output)])
+    refused_output = capsys.readouterr()
+    assert refused == 2
+    assert "--force" in refused_output.err
+    assert json.loads(output.read_text()) == {"old": True}
+
+    forced = main(
+        ["bundle", "--course", str(course), "--out", str(output), "--force"]
+    )
+
+    assert forced == 0
+    assert json.loads(output.read_text())["schema_version"] == "1.4"
 
 
 def test_bundle_cli_accepts_validator_name_and_uses_checked_quotes(tmp_path, capsys):

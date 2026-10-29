@@ -47,8 +47,8 @@ function logStartup(): void {
  *
  * SDK API used (1.29.0): McpServer.registerTool(name, { description, inputSchema }, cb)
  * where inputSchema is a ZodRawShapeCompat (Record<string, ZodTypeAny>).
- * The discriminated-union ResponseInputSchema satisfies AnySchema and can appear as a
- * value in the ZodRawShapeCompat record for the `input` field.
+ * ResponseInputSchema satisfies AnySchema and can appear as a value in the
+ * ZodRawShapeCompat record for the `input` field.
  */
 export function buildMcpServer(host: SessionHost): McpServer {
   const server = new McpServer({ name: "studium-lesson", version: SERVER_VERSION });
@@ -70,7 +70,8 @@ export function buildMcpServer(host: SessionHost): McpServer {
   server.registerTool("get_operator_context", {
     description: "Get the current public scene, resolved display assets, run instructions and response contract " +
       "for an external harness creating a custom viewer or example. Read-only: Studium never executes viewer code. " +
-      "In teaching mode collect the learner's judgment and confidence; do not answer for them.",
+      "In teaching mode collect the learner's judgment and confidence; do not answer for them. A reference_result " +
+      "or executed_result is EVIDENCE the learner judges against, not an answer key.",
     inputSchema: { session_id: z.string() },
   }, async ({ session_id }) => {
     try { return text(operatorContext(host, session_id)); }
@@ -96,7 +97,8 @@ export function buildMcpServer(host: SessionHost): McpServer {
   server.registerTool(
     "get_current_scene",
     {
-      description: "Get the current scene/presentation for a session.",
+      description: "Get the current public scene/presentation for a session. Any reference_result or " +
+        "executed_result is EVIDENCE to judge against, not an answer key; answer-bearing fields remain redacted.",
       inputSchema: { session_id: z.string() },
     },
     async ({ session_id }) => {
@@ -108,7 +110,12 @@ export function buildMcpServer(host: SessionHost): McpServer {
   server.registerTool(
     "submit_response",
     {
-      description: "Submit a response to the current scene (ack | quiz_choice | confidence | critique); returns the transition (next/replay/remediate_alt/remediate/calibration/complete) with `verdict` (graded?, correct?, the feedback the learner earned) and `navigation` (the one routing decision: kind, rule_id, reason, returns_to).",
+      description: "Submit a response to the current scene. A scene carrying run_manifest requires " +
+        "get_run_manifest, an actual run, and submit_run_result first. Quiz choices are reshuffled and relettered " +
+        "per session: send the DISPLAYED choice id, never a memorized source id. Confidence checkpoints accept " +
+        "{kind:\"confidence\", pre, post} (legacy value remains accepted). Returns next/replay/remediate_alt/" +
+        "remediate/calibration/complete with verdict and navigation; navigation.returns_to is the scene resumed " +
+        "after the detour. A complete summary documents skipped_scene_ids, scenes_detoured, and mastery.",
       inputSchema: { session_id: z.string(), input: ResponseInputSchema },
     },
     async ({ session_id, input }) => {
@@ -123,7 +130,8 @@ export function buildMcpServer(host: SessionHost): McpServer {
       description: "Get the normalized render manifest (scene_assets[]) for the current scene — the " +
         "artifacts a UI pairs with this scene: {kind: image|svg|equation_latex|plot_spec|code|data_csv|" +
         "protocol_md|executed_result, title?, payload?, path?, meta?}. Empty for a plain quiz. A webview " +
-        "calls this each turn to repaint the artifact pane in lockstep with the lesson.",
+        "calls this each turn to repaint the artifact pane in lockstep with the lesson. reference_result and " +
+        "executed_result are EVIDENCE to judge against, not an answer key.",
       inputSchema: { session_id: z.string() },
     },
     async ({ session_id }) => {

@@ -3,6 +3,7 @@
 
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { phrase, type Locale } from "./phrases.js";
 
 const IGNORED_DIRECTORIES = new Set(["node_modules", "dist", ".git"]);
 const MAX_DIRECTORY_DEPTH = 2;
@@ -90,11 +91,11 @@ export function discoverCoursesInRoot(
 }
 
 /** Shape courses for VS Code's QuickPick without importing vscode. */
-export function toLessonPickItems(courses: readonly LessonCourse[]): LessonPickItem[] {
+export function toLessonPickItems(courses: readonly LessonCourse[], locale: Locale = "fr"): LessonPickItem[] {
   return courses.map((course) => ({
     label: course.title,
     description: courseDescription(course),
-    detail: `${course.ref} · validated_by: ${course.validatedBy}`,
+    detail: `${course.ref} · validated_by: ${localizedValidatedBy(course.validatedBy, locale)}`,
     ref: course.ref,
   }));
 }
@@ -103,11 +104,12 @@ export function toLessonPickItems(courses: readonly LessonCourse[]): LessonPickI
 export function toLessonPickerChoices(
   courses: readonly LessonCourse[],
   bundlesRoot: string,
+  locale: Locale = "fr",
 ): LessonPickerChoice[] {
-  const courseChoices = toLessonPickItems(courses).map((item) => ({ ...item, action: "course" as const }));
+  const courseChoices = toLessonPickItems(courses, locale).map((item) => ({ ...item, action: "course" as const }));
   return [...courseChoices, {
-    label: "$(folder-opened) Choisir un autre dossier de cours… / Choose another bundles root…",
-    description: "Changer studium.bundlesRoot",
+    label: phrase("picker_folder", {}, locale),
+    description: phrase("picker_folder_description", {}, locale),
     detail: bundlesRoot,
     action: "folder",
   }];
@@ -171,11 +173,15 @@ function parseCourse(ref: string, contents: string): LessonCourse | null {
     const target = requiredText(metadata.target);
     const language = requiredText(metadata.language);
     if (!title || !target || !language) return null;
-    const validatedBy = requiredText(bundle.validated_by) ?? "non renseigné / not specified";
+    const validatedBy = requiredText(bundle.validated_by) ?? phrase("picker_not_specified");
     return { ref, title, target, language, validatedBy };
   } catch {
     return null;
   }
+}
+
+function localizedValidatedBy(value: string, locale: Locale): string {
+  return value === phrase("picker_not_specified") ? phrase("picker_not_specified", {}, locale) : value;
 }
 
 function requiredText(value: unknown): string | null {

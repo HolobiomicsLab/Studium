@@ -1,4 +1,5 @@
 // packages/lesson-session/src/types.ts
+import type { Locale } from "./phrases.js";
 import type { Scene, LessonBundle } from "@studium/lesson-bundle-schema";
 import type { LearnerState, Decision } from "@studium/learner-state";
 import type {
@@ -26,6 +27,10 @@ export interface Presentation {
   lastDecision: Decision | null;
   explanation: Explanation | null;
   learnerSnapshot: LearnerSnapshot;
+  /** Fresh hint requests available on this replay/remediation visit. */
+  hints_available?: number;
+  /** Learner-facing locale resolved once from `bundle.metadata.language` (fr unless `en`). */
+  locale: Locale;
 }
 
 // `confidence?` (0..4) is the optional per-answer self-rating — the path to CONTINUOUS calibration
@@ -35,6 +40,7 @@ export type ResponseInput =
   | { kind: "ack" }
   | { kind: "quiz_choice"; choiceId: string; confidence?: 0 | 1 | 2 | 3 | 4 }
   | { kind: "confidence"; value: 0 | 1 | 2 | 3 | 4 }
+  | { kind: "confidence"; pre: 0 | 1 | 2 | 3 | 4; post: 0 | 1 | 2 | 3 | 4 }
   | { kind: "critique"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }
   | { kind: "flaw_report"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 }    // spot_the_flaw (free text)
   | { kind: "flaw_verdicts"; verdicts: Array<{ token: string; flagged: boolean }>; confidence?: 0 | 1 | 2 | 3 | 4 } // spot_the_flaw (verdict deck)
@@ -49,6 +55,8 @@ export interface CompletionSummary {
   autonomyRatio: number;
   scenesCompleted: number;
   finalState: LearnerState;
+  mastery: Record<string, number>;
+  scenes_detoured: Record<string, number>;
 }
 
 /** What the engine concluded about the response that was just submitted. Carried on the
@@ -63,14 +71,15 @@ export interface Verdict {
   signal: string;
   correct?: boolean;
   feedback?: string;
+  detail?: { caught: number; planted: number; false_positives: number; sound_total: number };
 }
 
 /** The ONE navigation decision behind a transition, stated once. Before this field the same
  * decision was spread over three places that could disagree: `transition.kind`, the rule engine's
  * `presentation.lastDecision` (which says `advance_to_next_scene` even when the graph gate routed
  * back) and `explain_last_adaptation`. `kind` is the routing outcome; `rule_id` / `modulator` name
- * the rule that produced it (null for a plain advance); `returns_to` is the scene the learner is
- * owed once the detour is over (graph remediation), `scene_id` the scene being presented. */
+ * the rule that produced it (null for a plain advance); `returns_to` is the scene the learner will
+ * actually resume once the detour ends, and `scene_id` is the scene being presented. */
 export interface Navigation {
   kind: "advance" | "replay" | "remediate_alt" | "remediate" | "gate_passed" | "gate_released"
       | "gate_unassessable" | "skip_mastered" | "skip_concept" | "calibration" | "complete";
@@ -79,6 +88,7 @@ export interface Navigation {
   reason: string | null;
   modulator: string | null;
   returns_to?: string;
+  skipped_scene_ids?: string[];
 }
 
 interface TransitionMeta { verdict?: Verdict; navigation?: Navigation }

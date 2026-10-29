@@ -81,6 +81,37 @@ codex exec --approve-for-me --skip-git-repo-check -C /ABS/WORKDIR \
   - < prompt.md
 ```
 
+Dans une exécution TypeScript depuis les sources, la CLI `tsx` ouvre un socket IPC.
+Si le bac à sable le refuse (`listen EPERM`), utiliser le chargeur sans IPC :
+
+```sh
+node --import /ABS/PATH/studium/apps/lesson-mcp/node_modules/tsx/dist/loader.mjs \
+  /ABS/PATH/studium/apps/lesson-mcp/src/session-runner-cli.ts \
+  capsule-run-demo/lesson.json --dir=/ABS/WORKDIR/.studium-session
+```
+
+## Contrat d'une séance
+
+Les choix d'un quiz sont remélangés et relettrés à chaque session : envoyer
+l'identifiant **affiché dans la scène courante**, jamais celui mémorisé depuis le
+bundle ou une autre session. Un `reference_result` ou `executed_result` est la
+preuve à juger, pas un corrigé.
+
+Quand une scène porte `run_manifest`, appeler `get_run_manifest`, exécuter la
+capsule dans l'espace de travail, puis `submit_run_result`. Avant un run attesté,
+`submit_response` renvoie exactement `run required: call get_run_manifest, run it,
+then submit_run_result`. Pour préparer l'environnement, placer `UV_CACHE_DIR` dans
+l'espace de travail et lancer `uv venv`. Si `requirements: []`, ne lancer aucune
+commande `uv pip install` ; le venv suffit. Installer seulement lorsque la liste
+contient réellement des dépendances.
+
+```sh
+export UV_CACHE_DIR="$PWD/.uv-cache"
+uv venv .venv
+# Seulement si requirements n'est pas vide :
+uv pip install --python .venv/bin/python REQUIREMENT_1 REQUIREMENT_2
+```
+
 **Test de fumée (tout harnais).** Avant une séance, demander au harnais d'appeler
 `get_server_info` : la réponse donne la version, l'origine du build (`source` ou
 `bundled`, avec sa date) et la liste des outils. Un `dist/lesson-mcp.cjs` ou un

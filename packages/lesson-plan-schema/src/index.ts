@@ -46,11 +46,20 @@ export type Evidence = {
   enrichment_metadata: EnrichmentMetadata;
 };
 
+export type Concept = {
+  id: string;
+  title: string;
+  description: string;
+  bloom_level_target: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create";
+  prerequisites?: string[];
+};
+
 export type SceneOutline = {
   id: string;
   type: "intro" | "concept" | "quiz" | "simulation" | "reproduction" | "discussion" | "meta_checkpoint" | "ai_critique" | "spot_the_flaw";
   title: string;
   objective_refs: string[];
+  concept_refs?: string[];
   notes?: string;
   duration_minutes?: number;
   evidence?: Evidence;
@@ -75,6 +84,7 @@ export type LessonPlan = {
   duration_minutes: number;
   learning_objectives: LearningObjective[];
   scene_outlines: SceneOutline[];
+  concepts?: Concept[];
   corpus_refs: CorpusRef[];
   critic_score?: number;
   critic_annotations?: string[];

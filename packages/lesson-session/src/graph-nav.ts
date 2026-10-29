@@ -76,6 +76,9 @@ export function firstSceneForConcept(scenes: { concept_refs?: string[] }[], conc
  * `gate_unassessable` below. */
 export const ANSWER_GRADED_TYPES: ReadonlySet<string> = new Set(["quiz", "ai_critique"]);
 
+/** Mastery pacing may remove authored exposition/checks, but never judgment or practice scenes. */
+export const MASTERY_SKIPPABLE_TYPES: ReadonlySet<string> = new Set(["intro", "concept", "quiz"]);
+
 /** Index of the first scene of a remediable type for the concept, or -1 when there is none —
  * the case `gate_unassessable` reports. */
 export function firstAnswerGradedSceneForConcept(
@@ -111,6 +114,8 @@ export interface GraphNavResult {
    * gate_unassessable). Lets the caller say where the detour returns to, and release the gate
    * without re-running the router. */
   gated?: number;
+  /** The unmet prerequisite responsible for a remediation or open gate. */
+  prerequisite?: string;
 }
 
 /** Choose the next scene (graph-aware). Used only when the bundle carries an LWG.
@@ -135,25 +140,37 @@ export function graphAwareNextIndex(
   /** Detours ALREADY spent per prerequisite concept id, this session. Omitted ⇒ unbounded
    * (the previous behaviour), so existing callers are unaffected. */
   prereqDetours: Record<string, number> = {},
+  /** Scene ids already served in this session; unseen remediation items take priority. */
+  seen: ReadonlySet<string> = new Set(),
+  /** Correctly answered prerequisites count as passed even while posterior mastery is below theta. */
+  passedPrerequisites: ReadonlySet<string> = new Set(),
 ): GraphNavResult {
+  const routingMastery: Mastery = { ...mastery };
+  for (const conceptId of passedPrerequisites) routingMastery[conceptId] = 1;
   let candidate = currentIdx + 1;
   let skipped = false;
   if (skipMastered) {
     while (candidate < scenes.length) {
-      const c = sceneConceptId(scenes[candidate]!);
+      const scene = scenes[candidate]!;
+      const c = sceneConceptId(scene);
       // stop at: concept-less, unmastered, OR mastered-but-MISCALIBRATED (calibration gate — don't
       // skip a concept the learner's self-assessment is out of band on; let them do the scene).
-      if (c === null || (mastery[c] ?? 0) < theta || calibrated[c] === false) break;
+      // Judgment/practice/reproduction scenes are never skippable: quiz mastery is not evidence that
+      // the learner can evaluate an AI output, explain, compare, communicate, or perform the task.
+      // A session-local prerequisite pass releases dependency gates only; it is not posterior
+      // mastery and therefore must not make ordinary authored scenes skippable.
+      if (!MASTERY_SKIPPABLE_TYPES.has(scene.type ?? "")
+        || c === null || (mastery[c] ?? 0) < theta || calibrated[c] === false) break;
       candidate += 1;
       skipped = true;
     }
   }
   if (candidate >= scenes.length) return { index: null, reason: "advance" };
   const cid = sceneConceptId(scenes[candidate]!);
-  if (cid === null || isAvailable(lwg, cid, mastery, theta)) {
+  if (cid === null || isAvailable(lwg, cid, routingMastery, theta)) {
     return { index: candidate, reason: skipped ? "skip_mastered" : "advance" };
   }
-  const remedial = remediationTarget(lwg, cid, mastery, theta);
+  const remedial = remediationTarget(lwg, cid, routingMastery, theta);
   if (remedial) {
     // BUDGET FIRST: past it, stop routing back and let the learner into the gated scene. The
     // release is a fact the caller reports (graph_prereq_gate_released) — an unmastered pass is
@@ -162,7 +179,8 @@ export function graphAwareNextIndex(
     if ((prereqDetours[remedial] ?? 0) >= MAX_PREREQ_DETOURS) {
       return { index: candidate, reason: "gate_released", gated: candidate };
     }
-    const ri = firstAnswerGradedSceneForConcept(scenes, remedial);
+    const unseen = firstUnseenAnswerGradedSceneForConcept(scenes, remedial, new Set(seen));
+    const ri = unseen >= 0 ? unseen : firstAnswerGradedSceneForConcept(scenes, remedial);
     if (ri >= 0) return { index: ri, reason: "remediate", gated: candidate };
     // NO REMEDIAL SCENE AT ALL. The prerequisite is unmet and the lesson holds nothing this router
     // can send the learner back to, so the gate opens on the first try — without spending a detour
@@ -175,7 +193,7 @@ export function graphAwareNextIndex(
     // three times and it did not take" is a statement about the learner; "there was nothing to
     // try" is a statement about the BUNDLE — the prerequisite has no scene this router can use to
     // assess it. The caller announces it separately (graph_prereq_unassessable).
-    return { index: candidate, reason: "gate_unassessable", gated: candidate };
+    return { index: candidate, reason: "gate_unassessable", gated: candidate, prerequisite: remedial };
   }
   return { index: candidate, reason: skipped ? "skip_mastered" : "advance" };
 }

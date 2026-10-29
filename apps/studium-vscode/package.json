@@ -254,7 +254,7 @@
     }
   },
   "scripts": {
-    "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js && esbuild src/lesson-mcp-entry.ts --bundle --platform=node --format=cjs --outfile=dist/lesson-mcp.cjs --define:__STUDIUM_BUILD__='{\"origin\":\"bundled\",\"built_at\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"git_sha\":\"'\"$(git rev-parse --short HEAD)\"'\"}'",
+    "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js && esbuild src/lesson-mcp-entry.ts --bundle --platform=node --format=cjs --outfile=dist/lesson-mcp.cjs --define:__STUDIUM_BUILD__='{\"origin\":\"bundled\",\"built_at\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"git_sha\":\"'\"$(git describe --always --dirty --abbrev=7)\"'\"}'",
     "watch": "pnpm build --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm typecheck && for d in scene-io asset-path webview-pane community modality review-fsrs run-task lesson-tree lesson-picker chat-format mcp-connect contributes lesson-walk; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",

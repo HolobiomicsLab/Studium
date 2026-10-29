@@ -8,7 +8,13 @@ import { matchClaimsAgainstCritique } from "./ai-audit-matcher.js";
 import { scoreVerdictDeck } from "./deck.js";
 import { SceneGradingError } from "../errors.js";
 
-export interface GradeResult { signal: Signal; telemetry: EmitInput[]; }
+export interface GradeDetail {
+  caught: number;
+  planted: number;
+  false_positives: number;
+  sound_total: number;
+}
+export interface GradeResult { signal: Signal; telemetry: EmitInput[]; detail?: GradeDetail; }
 export interface GradeDeps {
   critiqueEvaluator: CritiqueEvaluator;
   /** OPTIONAL LLM-backed audit judge. When present AND the scene carries `sound_claims`, it supplies the
@@ -21,6 +27,8 @@ export interface GradeDeps {
 type Grader = (scene: Scene, input: ResponseInput, deps: GradeDeps) => Promise<GradeResult>;
 
 const DIFFICULTY = { quiz: 0.5, ai_critique: 0.7, spot_the_flaw: 0.7, explain_back: 0.7, comparison: 0.7, summary_audit: 0.7, prompt_practice: 0.7, communication_sim: 0.7 } as const;
+const MIN_DECK_DETECTION_RATE = 0.6;
+const MIN_DECK_REJECTION_RATE = 0.5;
 
 // M1: item difficulty (the IRT weight `w` fed to beta-updater) derives from the scene
 // concept's Bloom level via this monotone map. ANCHOR: `understand` -> 0.5 == the legacy
@@ -80,8 +88,18 @@ const metaGrader: Grader = async (scene, input) => {
   if (scene.type !== "meta_checkpoint") throw new SceneGradingError(scene.type, "metaGrader on non-meta_checkpoint");
   if (input.kind !== "confidence") throw new SceneGradingError(scene.type, `expected confidence, got ${input.kind}`);
   // M3: tie the declared confidence to the meta scene's concept so the engine can compare it
-  // against that concept's actual accumulated mastery (calibration loop).
-  return { signal: { kind: "confidence_declared", scene_id: scene.id, value: input.value, concept_id: conceptOf(scene) }, telemetry: [] };
+  // against that concept's actual accumulated mastery (calibration loop). For paired checkpoints,
+  // post is the declared confidence while the complete pre/post observation remains in history.
+  const isPaired = "post" in input;
+  const value = isPaired ? input.post : input.value;
+  const signal = {
+    kind: "confidence_declared" as const,
+    scene_id: scene.id,
+    value,
+    concept_id: conceptOf(scene),
+    ...(isPaired ? { pre: input.pre, post: input.post, confidence_delta: input.post - input.pre } : {}),
+  } as Signal;
+  return { signal, telemetry: [] };
 };
 
 const critiqueGrader: Grader = async (scene, input, deps) => {
@@ -109,8 +127,8 @@ type FlawVerdictsInput = Extract<ResponseInput, { kind: "flaw_verdicts" }>;
 // VERDICT-DECK path — the learner marks each deck item flawed/sound. A checkbox IS a flagging decision,
 // so false alarms on the sound claims are COUNTED with zero LLM — real over-distrust offline (closes the
 // keyword path's fp=0 boundary). Feeds the SAME judgment_audit shape the free-text/judge paths emit
-// (grounded-gated), so recordJudgmentAudit + the SDT diagnostic see it identically. The pass/score is
-// deck accuracy (hits + correct rejections) rather than free-text coverage.
+// (grounded-gated), so recordJudgmentAudit + the SDT diagnostic see it identically. The readout score
+// remains deck accuracy; passing separately requires both flaw detection and sound-claim restraint.
 function gradeFlawVerdicts(scene: SpotScene, input: FlawVerdictsInput, deps: GradeDeps): GradeResult {
   const soundClaims = scene.sound_claims ?? [];
   const s = scoreVerdictDeck(scene.claims, soundClaims, scene.id, input.verdicts);
@@ -118,11 +136,21 @@ function gradeFlawVerdicts(scene: SpotScene, input: FlawVerdictsInput, deps: Gra
   // flawed/sound and the scorer compares tokens against the key by IDENTITY. It never looks for
   // words in prose, so it is not the path the decision withdrew certification from — it is the one
   // honest offline grade the project has, and folding it in would have deleted it.
-  const deckPassed = s.accuracy >= 0.6;
+  const detectionRate = s.planted === 0 ? 0 : s.caught / s.planted;
+  const correctRejections = s.soundTotal - s.falsePositives;
+  const hasEnoughRestraint = s.soundTotal === 0
+    || correctRejections / s.soundTotal >= MIN_DECK_REJECTION_RATE;
+  const deckPassed = detectionRate >= MIN_DECK_DETECTION_RATE && hasEnoughRestraint;
   const missed = Math.max(0, s.planted - s.caught);
   const completion_rate = s.planted === 0 ? 0 : s.caught / s.planted;
   const grounded = scene.reference_result != null;
   return {
+    detail: {
+      caught: s.caught,
+      planted: s.planted,
+      false_positives: s.falsePositives,
+      sound_total: s.soundTotal,
+    },
     signal: {
       kind: "answer_submitted", concept_id: conceptOf(scene), scene_id: scene.id, correct: deckPassed, time_ms: 0, hint_count: 0,
       difficulty: difficultyForBloom(deps.bloomLevel, DIFFICULTY.spot_the_flaw),

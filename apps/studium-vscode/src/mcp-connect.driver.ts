@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describeServerLaunch, resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, serverInfoLine, setLessonMcpLog, type LogSink } from "./mcp-connect.js";
+import { describeServerLaunch, resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, serverBuildWarning, serverInfoLine, setLessonMcpLog, type LogSink, type ServerInfo } from "./mcp-connect.js";
 
 const failures: string[] = [];
 let checks = 0;
@@ -131,7 +131,7 @@ console.log(`OK — mcp-connect (resolveTsx + parseToolResult + stderr diagnosti
 
 // 11) get_server_info is rendered as one diagnostic line with build and runtime identity.
 {
-  const line = serverInfoLine({
+  const info: ServerInfo = {
     name: "studium-lesson",
     version: "0.1.0",
     build: { origin: "bundled", built_at: "2026-10-29T09:30:00Z", git_sha: "33bf561" },
@@ -139,9 +139,18 @@ console.log(`OK — mcp-connect (resolveTsx + parseToolResult + stderr diagnosti
     bundles_root: "/lessons",
     data_dir: null,
     model_backend: "none",
-  });
+  };
+  const line = serverInfoLine(info);
   expect(line === "[studium-lesson] v0.1.0 bundled 2026-10-29T09:30:00Z sha=33bf561 tools=2 bundles_root=/lessons data_dir=none model_backend=none",
     `serverInfoLine formats the complete payload (got: ${line})`);
+  expect(serverBuildWarning(info, repoRoot, () => "33bf561") === null,
+    "matching clean bundled and checkout SHAs produce no warning");
+  const stale = serverBuildWarning(info, repoRoot, () => "eb5b1e1");
+  expect(!!stale?.includes("WARNING") && stale.includes("33bf561") && stale.includes("eb5b1e1"),
+    `a stale bundled server reports both identities (got: ${stale})`);
+  const dirty = serverBuildWarning({ ...info, build: { ...info.build, git_sha: "eb5b1e1-dirty" } }, repoRoot, () => "eb5b1e1");
+  expect(!!dirty?.includes("WARNING") && dirty.includes("dirty"),
+    `a dirty server build emits a WARNING (got: ${dirty})`);
 }
 
 if (failures.length) { console.error(`FAIL (${failures.length}/${checks}):`); for (const f of failures) console.error("  - " + f); process.exit(1); }

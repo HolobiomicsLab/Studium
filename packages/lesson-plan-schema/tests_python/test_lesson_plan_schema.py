@@ -286,6 +286,34 @@ def test_lesson_plan_concepts_defaults_empty():
     assert plan.concepts == []
 
 
+def test_concept_links_are_optional_and_default_empty():
+    from lesson_plan_schema import Concept, SceneOutline
+
+    concept = Concept(
+        id="dependent",
+        title="Dependent concept",
+        description="Builds on the prerequisite.",
+        bloom_level_target="apply",
+        prerequisites=["prerequisite"],
+    )
+    linked_scene = SceneOutline(
+        id="linked",
+        type="concept",
+        title="Linked scene",
+        concept_refs=["dependent"],
+    )
+
+    assert concept.prerequisites == ["prerequisite"]
+    assert linked_scene.concept_refs == ["dependent"]
+    assert Concept(
+        id="standalone",
+        title="Standalone",
+        description="No prerequisite.",
+        bloom_level_target="remember",
+    ).prerequisites == []
+    assert SceneOutline(id="legacy", type="intro", title="Legacy").concept_refs == []
+
+
 def test_corpus_ref_accepts_aligns_concept_ids():
     from lesson_plan_schema import CorpusRef
     r = CorpusRef(ref_id="cap1", ref_type="abs_capsule", abs_capsule_path="/x", aligns_concept_ids=["obj-1", "obj-2"])

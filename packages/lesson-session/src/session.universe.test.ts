@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { LessonSession } from "./session";
 import { buildTestDeps } from "./testing";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
+import { defaultConceptState, defaultLearnerState } from "@studium/learner-state";
 
 function quiz(id: string, c: string) {
   return { id, type: "quiz", title: id, objective_refs: [c], concept_refs: [c], estimated_seconds: 0, adaptation_hooks: [],
@@ -95,26 +96,26 @@ describe("LessonSession — universe-driven theta", () => {
   });
 
   it("remedial universe (theta 0.6) unlocks the dependent earlier than baseline (theta 0.8)", async () => {
-    // Now gated by the MIN_MASTERY_ATTEMPTS=3 floor (#1a): a concept counts as mastered only once it has
-    // >= 3 attempts AND mastery >= theta. So drive 3 fourier attempts (C, C, W over the three fourier
-    // quizzes — same-concept advances, no remediation/escalation) to clear the floor, landing mastery in
-    // the band that separates the two thetas:
-    //   initial alpha=1, beta=1; each correct (difficulty=0.5) adds 1.5 to alpha, each wrong adds 1.5 to beta
-    //   after C,C,W: alpha=4, beta=2.5 -> mastery=4/6.5 ≈ 0.615  (>= 0.6 remedial, < 0.8 baseline), attempts=3
-    // Baseline: 0.615 < 0.8 -> concept:fft still locked -> routed back to a fourier quiz (q-fourier)
-    // Remedial: 0.615 >= 0.6 -> concept:fft unlocked -> advance to q-fft
-    const sB = new LessonSession(bundle("baseline"), buildTestDeps());
+    // Start at mastery 0.8 with three prior attempts, then submit one wrong answer: alpha=4,
+    // beta=2.5 -> mastery≈0.615. No correct answer occurs in this session, so W1's session-local
+    // prerequisite-pass memory does not supersede the theta comparison this test isolates.
+    const initial = defaultLearnerState("L1");
+    initial.concept_states.fourier = {
+      ...defaultConceptState("fourier"), alpha: 4, beta: 1, total_attempts: 3, total_correct: 2,
+    };
+    const twoSceneBundle = (active: string) => {
+      const value = bundle(active);
+      value.scenes = [quiz("q-fourier", "fourier"), quiz("q-fft", "fft")] as unknown as LessonBundle["scenes"];
+      return value;
+    };
+    const sB = new LessonSession(twoSceneBundle("baseline"), buildTestDeps(), initial);
     await sB.start();
-    await sB.respond({ kind: "quiz_choice", choiceId: "b" }); // C: q-fourier -> q-fourier-2 (advance, same concept)
-    await sB.respond({ kind: "quiz_choice", choiceId: "b" }); // C: q-fourier-2 -> q-fourier-3 (advance)
-    const tB = await sB.respond({ kind: "quiz_choice", choiceId: "a" }); // W: 3 attempts, ~0.615 -> fft locked
+    const tB = await sB.respond({ kind: "quiz_choice", choiceId: "a" });
     expect((tB as any).presentation.scene.id).toBe("q-fourier"); // baseline: fft locked -> remediate to fourier
 
-    const sR = new LessonSession(bundle("remedial"), buildTestDeps());
+    const sR = new LessonSession(twoSceneBundle("remedial"), buildTestDeps(), initial);
     await sR.start();
-    await sR.respond({ kind: "quiz_choice", choiceId: "b" }); // C
-    await sR.respond({ kind: "quiz_choice", choiceId: "b" }); // C
-    const tR = await sR.respond({ kind: "quiz_choice", choiceId: "a" }); // W: 3 attempts, ~0.615
+    const tR = await sR.respond({ kind: "quiz_choice", choiceId: "a" });
     expect((tR as any).presentation.scene.id).toBe("q-fft");      // remedial: 0.615 >= 0.6 -> fft unlocked
   });
 });

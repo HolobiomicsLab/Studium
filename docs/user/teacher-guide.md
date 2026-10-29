@@ -74,6 +74,23 @@ qui n'est pas une sous-chaîne exacte de son passage produit `ERROR` et un code 
 sortie 1. Pour un script qui dépend de l'ancienne sortie sur une seule ligne,
 ajouter `--quiet` à `check`.
 
+Dans le plan 1.0, chaque concept peut déclarer les identifiants des concepts dont
+il dépend avec `prerequisites: ["concept-de-base"]`. Chaque scène indique les
+concepts qu'elle fait travailler avec `concept_refs: ["concept-cible"]`. Les deux
+champs sont facultatifs et valent `[]` lorsqu'ils sont absents. `check` refuse un
+identifiant qui n'existe pas dans `concepts` et émet un `WARN` pour chaque scène
+qui ne rejoint aucun concept, directement ou par les `concept_uris`/URI SKOS de
+ses objectifs : une telle scène ne peut déplacer aucune maîtrise.
+
+`check` indique aussi la langue du plan et le nombre de citations vérifiées. Pour
+signaler à faible coût un cours français fondé sur une source anglaise, il classe
+une citation comme `en` si elle ne contient aucun caractère accentué et contient
+un mot-outil anglais courant ; sinon il affiche `same as plan`. C'est une
+heuristique de revue, pas une détection linguistique. Les notes contenant
+`TODO review` et les scènes avec `evidence_override: "skip"` sont regroupées sous
+`Not verifiable by quote:` afin que l'enseignant contrôle les faits non couverts
+par une citation exacte.
+
 Après la revue du dossier vérifié, créer un squelette exécutable sans prétendre
 qu'il est approuvé :
 
@@ -81,16 +98,20 @@ qu'il est approuvé :
 .venv/bin/python tools/experience_packet.py bundle --course /ABS/PATH/courses/mon-cours --out /ABS/PATH/bundles/mon-cours/lesson.json
 ```
 
-Le fichier est un `LessonBundle` 1.4 avec une scène par scène du plan, `rules: []`
-et, par défaut, `validated_by: "DRAFT — not validated"`. Les champs de contenu à
-rédiger portent `TODO:` ; le quiz contient deux choix factices, un seul marqué
-correct, et aucun indice. Les scènes `explain_back`, `comparison`,
+Le fichier est un `LessonBundle` 1.4 avec une scène par scène du plan et, par
+défaut, `validated_by: "DRAFT — not validated"`. Il recopie `concept_refs`, crée
+un nœud de graphe par concept et une arête par prérequis dans la convention du
+moteur : le concept dépendant est `source`, son prérequis est `target`. Il ajoute
+la règle `rule_2err_replay_concept`; `--no-default-rules` permet de l'omettre.
+Les champs de contenu à rédiger portent `TODO:` ; le quiz contient deux choix
+factices, un seul marqué correct, et aucun indice. Si le plan fournit `notes` pour
+un quiz, leur texte devient sa `question`. Les scènes `explain_back`, `comparison`,
 `summary_audit`, `prompt_practice` et `communication_sim` reprennent les objectifs
 du plan comme points à travailler. Une ancienne `simulation` devient un concept
 `TODO:` afin que le squelette reste jouable : l'enseignant doit choisir une scène
-1.4 et fournir le support interactif avant diffusion. Si le plan contient un
-graphe, une arête `prerequisite_for` va du concept dépendant (`source`) vers son
-prérequis (`target`).
+1.4 et fournir le support interactif avant diffusion. Un graphe explicitement
+fourni par le plan est préservé puis complété avec les nœuds ou arêtes de prérequis
+manquants.
 
 Valider la forme puis faire un essai local :
 
@@ -102,6 +123,10 @@ apps/lesson-mcp/node_modules/.bin/tsx tools/bundle_validate.ts /ABS/PATH/bundles
 ni revue scientifique ni approbation. Les capsules de reproduction peuvent avoir
 leurs propres dépendances et doivent être testées dans l'environnement déclaré par
 leur manifeste, qui n'est pas nécessairement le `.venv` de Studium.
+Sans option supplémentaire, `check` et `bundle` refusent toujours une destination
+existante et nomment `--force` dans leur message. Ajouter `--force` remplace
+respectivement tout le dossier vérifié ou le fichier bundle ; garder une copie si
+l'ancienne sortie doit rester comparable.
 
 ## Interface auteur et API : état actuel
 

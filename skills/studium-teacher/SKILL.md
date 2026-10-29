@@ -52,6 +52,14 @@ Produce a draft with exact source links, then run `check` and `experience_review
 Keep scientific claims, synthetic examples and unexecuted capsule commands distinct.
 The checker produces a draft, not a playable bundle or teacher approval.
 
+In a plan 1.0 draft, use plain IDs from `concepts`: put the concepts exercised by
+each scene in `concept_refs`, and put the concepts a concept depends on in its
+`prerequisites`. Treat every no-concept warning and every item under
+`Not verifiable by quote:` as teacher-review work. The checker uses only a documented
+word-based heuristic for cross-language quotes; do not present it as language
+identification. Use `--force` only when the teacher intends to replace the named
+checked directory or bundle file.
+
 Ask the teacher to examine the source interpretation, prerequisites, response
 criteria, workload and a transfer question. Define what students may explore:
 data, tools, dependency installation and new content. Do not present MySTRA hashes

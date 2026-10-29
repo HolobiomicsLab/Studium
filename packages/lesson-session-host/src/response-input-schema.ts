@@ -4,12 +4,14 @@ import { z } from "zod";
 // optional per-answer self-rated confidence (0..4) — capture-ready path to CONTINUOUS calibration (no
 // UI supplies it yet; the live calibration input today is the meta-checkpoint). Any graded answer MAY
 // carry it, and the engine then folds it into the concept's confidence_calibration that turn.
-const conf = z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional();
+const confidenceValue = z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
+const conf = confidenceValue.optional();
 
-export const ResponseInputSchema = z.discriminatedUnion("kind", [
+export const ResponseInputSchema = z.union([
   z.object({ kind: z.literal("ack") }),
   z.object({ kind: z.literal("quiz_choice"), choiceId: z.string(), confidence: conf }),
-  z.object({ kind: z.literal("confidence"), value: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4)]) }),
+  z.object({ kind: z.literal("confidence"), value: confidenceValue }),
+  z.object({ kind: z.literal("confidence"), pre: confidenceValue, post: confidenceValue }),
   z.object({ kind: z.literal("critique"), text: z.string(), confidence: conf }),
   z.object({ kind: z.literal("flaw_report"), text: z.string(), confidence: conf }),   // spot_the_flaw (free text)
   z.object({ kind: z.literal("flaw_verdicts"),                                        // spot_the_flaw (verdict deck)

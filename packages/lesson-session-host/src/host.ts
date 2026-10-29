@@ -69,6 +69,14 @@ export class SessionHostNotFoundError extends Error {
   constructor(id: string) { super(`session not found: ${id}`); this.name = "SessionHostNotFoundError"; }
 }
 
+export const RUN_REQUIRED_MESSAGE =
+  "run required: call get_run_manifest, run it, then submit_run_result";
+
+/** Raised when a response attempts to bypass a learner-time run. */
+export class RunRequiredError extends Error {
+  constructor() { super(RUN_REQUIRED_MESSAGE); this.name = "RunRequiredError"; }
+}
+
 // ---------------------------------------------------------------------------------------------
 // FSRS read-side mirror. The authoritative scheduler is packages/adaptation-engine/src/fsrs.ts;
 // these are a verbatim copy of its *read* functions (forgetting curve + stability/difficulty update
@@ -403,7 +411,7 @@ export function dueReinforcementTargetsFromMemory(
 /** Map a concept's hidden `confidence_calibration` to a learner-facing, NUMBER-FREE verdict. Returns
  * null when the concept has no checkpointed calibration yet (calibration === 0 with no attempts).
  * Never leaks mastery or the raw gap. Exported + pure for reuse across the runtime + a unit test. */
-export function calibrationVerdict(cs: ConceptState): CalibrationVerdict | null {
+export function calibrationVerdict(cs: ConceptState, locale: "fr" | "en" = "fr"): CalibrationVerdict | null {
   const gap = cs.confidence_calibration;
   // "measured" = a confidence was actually observed. Without a sample, confidence_calibration defaults
   // to 0 (in-band) and a "bien calibrée" verdict would be a FABRICATED reassurance — so gate on the
@@ -413,24 +421,20 @@ export function calibrationVerdict(cs: ConceptState): CalibrationVerdict | null 
     return {
       concept_id: cs.concept_id,
       band: "bien",
-      message: "Ta confiance était bien calibrée : ton ressenti collait à ta maîtrise réelle.",
+      message: LessonSession.phrase("calibration_well", {}, locale),
     };
   }
   if (gap > 0) {
     return {
       concept_id: cs.concept_id,
       band: "sur",
-      message:
-        "Tu étais un peu surconfiant·e : tu te sentais plus sûr·e que ne le montrent tes réponses. " +
-        "Vérifie ce concept avant de passer à la suite.",
+      message: LessonSession.phrase("calibration_over", {}, locale),
     };
   }
   return {
     concept_id: cs.concept_id,
     band: "sous",
-    message:
-      "Tu étais un peu sous-confiant·e : tu maîtrises ce concept mieux que tu ne le penses. " +
-      "Fais-toi confiance.",
+    message: LessonSession.phrase("calibration_under", {}, locale),
   };
 }
 
@@ -631,7 +635,7 @@ export class SessionHost {
       // (server-side) so the planted flaws match THEIR numbers — sound for a stochastic capsule too.
       if (this.opts.judgmentGenerator) await this.regenerateDownstreamJudgments(id, scene.task_card_id, learnerRun);
     }
-    const transition = await this.respond(id, { kind: "ack" } as ResponseInput);
+    const transition = await this.applyResponse(id, { kind: "ack" } as ResponseInput);
     return { status: "ran", transition, learnerRunRecorded, attested: attestation.trusted, attestationReasons: attestation.reasons };
   }
 
@@ -655,6 +659,13 @@ export class SessionHost {
   }
 
   async respond(id: string, input: ResponseInput): Promise<Transition> {
+    const runStatus = this.runStatus(id);
+    if (runStatus.run_manifest && !runStatus.learner_run_recorded) throw new RunRequiredError();
+    return this.applyResponse(id, input);
+  }
+
+  /** Apply a validated response; run ingestion uses this after its own gate. */
+  private async applyResponse(id: string, input: ResponseInput): Promise<Transition> {
     const e = this.require(id);
     const transition = await e.session.respond(input);
     // Persist local mastery claims when the lesson completes (no-op for the in-memory sink;
@@ -746,7 +757,9 @@ export class SessionHost {
    * calibration rule: after a meta_checkpoint a UI shows "ta confiance était bien/sur/sous-calibrée".
    * Pass a `concept_id` to scope to one concept. */
   calibrationFor(id: string, concept_id?: string): CalibrationVerdict[] {
-    const state = this.require(id).session.getState();
+    const session = this.require(id).session;
+    const state = session.getState();
+    const locale = session.currentPresentation().locale;
     // Only concepts where the learner ACTUALLY declared a confidence (a meta_checkpoint ran for it)
     // have a real calibration gap; a never-checkpointed concept keeps the default
     // confidence_calibration=0, which calibrationVerdict would otherwise turn into a fabricated
@@ -758,7 +771,7 @@ export class SessionHost {
     const entries = concept_id
       ? (declared.has(concept_id) && state.concept_states[concept_id] ? [state.concept_states[concept_id]] : [])
       : Object.values(state.concept_states).filter((cs) => declared.has(cs.concept_id));
-    return entries.map(calibrationVerdict).filter((v): v is CalibrationVerdict => v !== null);
+    return entries.map((entry) => calibrationVerdict(entry, locale)).filter((v): v is CalibrationVerdict => v !== null);
   }
 
   has(id: string): boolean { return this.registry.has(id); }

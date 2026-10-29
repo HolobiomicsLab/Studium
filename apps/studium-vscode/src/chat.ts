@@ -7,9 +7,10 @@ import * as vscode from "vscode";
 import { resolve, join } from "node:path";
 import { connectLessonMcp, resolveServerLaunch, type LessonMcp } from "./mcp-connect.js";
 import { formatSceneForChat, replyToInput, type ChatScene } from "./chat-format.js";
+import { phrase, type Locale } from "./phrases.js";
 
 // One active chat lesson at a time (mirrors the single-active-lesson model of the panel).
-let chatLesson: { mcp: LessonMcp; sid: string; scene: ChatScene } | null = null;
+let chatLesson: { mcp: LessonMcp; sid: string; scene: ChatScene; locale: Locale } | null = null;
 
 export function registerStudiumChat(context: vscode.ExtensionContext): void {
   const participant = vscode.chat.createChatParticipant("studium.tutor",
@@ -55,43 +56,57 @@ async function doStart(context: vscode.ExtensionContext, stream: vscode.ChatResp
   const { serverLaunch, env, bundleRef, learnerId } = launch(context);
   const mcp = await connectLessonMcp({ launch: serverLaunch, env });
   const started = await mcp.call("start_lesson_session", { bundle_ref: bundleRef, learner_id: learnerId });
-  chatLesson = { mcp, sid: started.session_id, scene: {} };
-  stream.markdown(`Leçon démarrée (**${bundleRef}**). Réponds ici, ou utilise \`/hint\` et \`/discuss\`.\n\n`);
+  const locale = started.presentation?.locale === "en" ? "en" : "fr";
+  chatLesson = { mcp, sid: started.session_id, scene: {}, locale };
+  stream.markdown(`${phrase("chat_started", { bundle: bundleRef }, locale)}\n\n`);
   present(stream, started.presentation);
 }
 
 /** Store the redacted scene (to interpret the next reply) and stream it as chat markdown. */
 function present(stream: vscode.ChatResponseStream, presentation: any): void {
   if (!chatLesson) return;
+  if (presentation.locale === "en" || presentation.locale === "fr") chatLesson.locale = presentation.locale;
   chatLesson.scene = (presentation.scene || {}) as ChatScene;
-  stream.markdown(formatSceneForChat(chatLesson.scene, { index: (presentation.index ?? 0) + 1, total: presentation.total }));
+  stream.markdown(formatSceneForChat(
+    chatLesson.scene,
+    { index: (presentation.index ?? 0) + 1, total: presentation.total },
+    chatLesson.locale,
+  ));
 }
 
 async function doAnswer(stream: vscode.ChatResponseStream, prompt: string): Promise<void> {
   if (!chatLesson) return;
+  const locale = chatLesson.locale;
   const input = replyToInput(chatLesson.scene, prompt || "");
-  if (!input) { stream.markdown("_Je n'ai pas compris — réponds au format indiqué._\n\n" + formatSceneForChat(chatLesson.scene)); return; }
+  if (!input) { stream.markdown(`${phrase("chat_unrecognized", {}, locale)}\n\n` + formatSceneForChat(chatLesson.scene, undefined, locale)); return; }
   const t = (await chatLesson.mcp.call("submit_response", { session_id: chatLesson.sid, input })).transition;
   if (t.kind === "complete") {
-    stream.markdown(`✔ Leçon terminée — ${t.summary?.scenesCompleted ?? "?"} scènes.`);
+    stream.markdown(phrase("chat_complete", { count: t.summary?.scenesCompleted ?? "?" }, locale));
     chatLesson.mcp.close();
     chatLesson = null;
     return;
   }
   if (t.verdict?.feedback) stream.markdown(`${t.verdict.correct === false ? "✗" : "✓"} ${t.verdict.feedback}\n\n`);
-  if (t.kind === "replay" || t.kind === "remediate_alt" || t.kind === "remediate") stream.markdown(`↻ _On revoit cette étape ensemble : ${t.reason || ""}_\n\n`);
+  if (t.kind === "replay" || t.kind === "remediate_alt" || t.kind === "remediate") {
+    stream.markdown(`${phrase("chat_review", { reason: t.reason || "" }, locale)}\n\n`);
+  }
   present(stream, t.presentation);
 }
 
 async function doHint(stream: vscode.ChatResponseStream): Promise<void> {
-  if (!chatLesson) { stream.markdown("_Aucune leçon active — envoie un message à `@studium` pour commencer._"); return; }
+  if (!chatLesson) { stream.markdown(phrase("chat_no_active_start")); return; }
   const h = (await chatLesson.mcp.call("request_hint", { session_id: chatLesson.sid })).hint;
-  stream.markdown(h?.hint ? `💡 ${h.hint}${h.remaining != null ? `  _(${h.remaining} restants)_` : ""}` : "_Plus d'indice disponible pour cette scène._");
+  stream.markdown(h?.hint
+    ? `💡 ${h.hint}${h.remaining != null ? phrase("chat_hint_remaining", { count: h.remaining }, chatLesson.locale) : ""}`
+    : phrase("chat_no_hint", {}, chatLesson.locale));
 }
 
 async function doDiscuss(stream: vscode.ChatResponseStream, text: string): Promise<void> {
-  if (!chatLesson) { stream.markdown("_Aucune leçon active._"); return; }
+  if (!chatLesson) { stream.markdown(phrase("chat_no_active")); return; }
   const r = await chatLesson.mcp.call("submit_turn", { session_id: chatLesson.sid, text: text || "" });
-  if (r.tutor?.text) stream.markdown(`**Tuteur :** ${r.tutor.text}`);
-  if (r.reasoning) stream.markdown(`\n\n_signal : ${r.reasoning.signal}${r.reasoning.confidence != null ? ` (${r.reasoning.confidence.toFixed(2)})` : ""}_`);
+  if (r.tutor?.text) stream.markdown(phrase("chat_tutor", { text: r.tutor.text }, chatLesson.locale));
+  if (r.reasoning) stream.markdown(`\n\n${phrase("chat_reasoning_signal", {
+    signal: r.reasoning.signal,
+    confidence: r.reasoning.confidence != null ? ` (${r.reasoning.confidence.toFixed(2)})` : "",
+  }, chatLesson.locale)}`);
 }

@@ -14,6 +14,7 @@ import { resolveTsx } from "./mcp-connect.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 import { freeTextInput, extractConfidence } from "./scene-io.js";
 import { assetPathFor, imageMime } from "./asset-path.js";
+import { phrase, type Locale } from "./phrases.js";
 
 type Json = Record<string, any>;
 const NB_TYPE = "studium-lesson";
@@ -23,17 +24,20 @@ function cfg<T>(key: string, fallback: T): T {
   return v === undefined || v === "" ? fallback : v;
 }
 
-interface Sess { client: Client; sid: string; bundleRef: string; learnerId: string; bundlesRoot: string; call: (n: string, a: Json) => Promise<Json>; }
+interface Sess {
+  client: Client;
+  sid: string;
+  locale: Locale;
+  bundleRef: string;
+  learnerId: string;
+  bundlesRoot: string;
+  call: (n: string, a: Json) => Promise<Json>;
+}
 
-function driverCells(): vscode.NotebookCellData[] {
+function driverCells(locale: Locale = "fr"): vscode.NotebookCellData[] {
   const intro = new vscode.NotebookCellData(
     vscode.NotebookCellKind.Markup,
-    "# Studium lesson\nRun the cell below to **start**. To advance, re-run it:\n" +
-    "- empty or `next` → continue\n- a quiz choice id (`a`, `b`, …) → answer\n- `0`–`4` → a confidence checkpoint\n" +
-    "- free text → answer an active-learning scene (critique / errors / explanation / comparison / audit / prompt / message / discussion turn)\n" +
-    "- end a quiz / free-text answer with `conf:N` (0–4) → rate your confidence (calibration)\n- `hint` → ask for a hint\n- `forget` → erase your session data (right to be forgotten)\n\n" +
-    "Spectra and plots render inline (with a Vega-capable notebook renderer). The companion " +
-    "**Studium — Lesson** pane is the full-fidelity surface: rotatable 3D orbitals/molecules and KaTeX equations.",
+    phrase("notebook_intro", {}, locale),
     "markdown",
   );
   const driver = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, "start", "studium");
@@ -61,7 +65,7 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
   const controller = vscode.notebooks.createNotebookController("studium", NB_TYPE, "Studium");
   controller.supportedLanguages = ["studium"];
   controller.supportsExecutionOrder = true;
-  controller.description = "Studium lesson runtime";
+  controller.description = phrase("notebook_runtime");
 
   async function startSession(notebook: vscode.NotebookDocument): Promise<Sess> {
     const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
@@ -80,7 +84,7 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       if (r.isError) throw new Error(`${n}: ${data.error}`);
       return data;
     };
-    return { client, sid: "", bundleRef, learnerId, bundlesRoot, call };
+    return { client, sid: "", locale: "fr", bundleRef, learnerId, bundlesRoot, call };
   }
 
   // `d` is the RAW (untrimmed-of-case) cell text so free-text answers keep their casing; only the
@@ -107,6 +111,8 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
   // are ALTERNATIVE representations of the same thing — used here so a plot prefers the Vega-Lite
   // renderer and falls back to a markdown note when no Vega renderer is installed.
   async function buildSceneOutputs(sess: Sess, presentation: Json, transition: Json | null): Promise<vscode.NotebookCellOutput[]> {
+    const locale: Locale = presentation.locale === "en" ? "en" : "fr";
+    sess.locale = locale;
     // Modality-adaptive: reorder the assets toward the learner's preferred modality (same pure pass
     // the lesson pane uses). 'balanced' (default) leaves the authored order untouched. The notebook
     // surface still emits EVERY asset — it only changes which modality is listed first.
@@ -118,14 +124,17 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
     const sc = presentation.scene || {};
     const outs: vscode.NotebookCellOutput[] = [];
     let head = `### ${sc.title || sc.type}\n`;
-    if (presentation.total) head += `*scene ${(presentation.index ?? 0) + 1} / ${presentation.total}*\n\n`;
+    if (presentation.total) head += `${phrase("notebook_scene_progress", {
+      index: (presentation.index ?? 0) + 1,
+      total: presentation.total,
+    }, locale)}\n\n`;
     if (transition?.verdict?.feedback) head += `> ${transition.verdict.correct === false ? "✗" : "✓"} ${transition.verdict.feedback}\n\n`;
     if (transition && (transition.kind === "replay" || transition.kind === "remediate_alt" || transition.kind === "remediate")) head += `> ⟳ ${transition.reason}\n\n`;
     // adaptation rationale (parity with the lesson pane): why the engine routed here this turn.
     else if (presentation.explanation) head += `> ⟳ ${presentation.explanation.rule_id} — ${presentation.explanation.explanation_short}\n\n`;
     if (sc.markdown) head += sc.markdown + "\n";
     // active-learning bodies (answer keys + model_* reveals are never included):
-    if (sc.type === "spot_the_flaw" && sc.flawed_content) head += `\n> ⚠️ **Ce passage contient des erreurs — repère-les :**\n\n${sc.flawed_content}\n`;
+    if (sc.type === "spot_the_flaw" && sc.flawed_content) head += `\n${phrase("notebook_flaw_passage", {}, locale)}\n\n${sc.flawed_content}\n`;
     if (sc.type === "explain_back" && sc.prompt) head += `\n${sc.prompt}\n`;
     if (sc.type === "comparison") {
       if (sc.prompt) head += `\n${sc.prompt}\n`;
@@ -133,23 +142,23 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       if (sc.artifact_b) head += `\n**B.**\n\n${sc.artifact_b}\n`;
     }
     if (sc.type === "summary_audit") {
-      if (sc.source_content) head += `\n**Source :**\n\n${sc.source_content}\n`;
-      if (sc.ai_summary) head += `\n**Résumé IA à auditer :**\n\n${sc.ai_summary}\n`;
+      if (sc.source_content) head += `\n${phrase("notebook_source", {}, locale)}\n\n${sc.source_content}\n`;
+      if (sc.ai_summary) head += `\n${phrase("notebook_ai_summary", {}, locale)}\n\n${sc.ai_summary}\n`;
     }
     if (sc.type === "prompt_practice" && sc.task) {
-      head += `\n**Tâche :** ${sc.task}\n`;
-      if (sc.starter_prompt) head += `\n> prompt de départ à affiner :\n>\n> ${String(sc.starter_prompt).replace(/\n/g, "\n> ")}\n`;
+      head += `\n${phrase("notebook_task", { text: sc.task }, locale)}\n`;
+      if (sc.starter_prompt) head += `\n${phrase("notebook_starter_prompt", {}, locale)}\n>\n> ${String(sc.starter_prompt).replace(/\n/g, "\n> ")}\n`;
     }
     if (sc.type === "communication_sim") {
-      if (sc.scenario) head += `\n**Situation :** ${sc.scenario}\n`;
+      if (sc.scenario) head += `\n${phrase("notebook_situation", { text: sc.scenario }, locale)}\n`;
       if (sc.prompt) head += `\n${sc.prompt}\n`;
     }
     if (sc.type === "discussion") {
-      if (sc.topic) head += `\n**Discussion :** ${sc.topic}\n`;
+      if (sc.topic) head += `\n${phrase("notebook_discussion", { topic: sc.topic }, locale)}\n`;
       if (sc.seed_claim) head += `\n> ${sc.seed_claim}\n`;
     }
     if (sc.type === "reproduction" && Array.isArray(sc.steps)) {
-      head += `\n**Protocole${sc.task_card_id ? ` — ${sc.task_card_id}` : ""} :**\n` +
+      head += `\n${phrase("notebook_protocol", { card: sc.task_card_id ? ` — ${sc.task_card_id}` : "" }, locale)}\n` +
         (sc.steps as Json[]).map((s, i) => `${i + 1}. ${s.instruction ?? ""}`).join("\n") + "\n";
     }
     outs.push(new vscode.NotebookCellOutput([md(head)]));
@@ -162,10 +171,13 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
         let spec: unknown = null;
         try { spec = JSON.parse(a.payload); } catch { /* fall back to the note */ }
         if (spec) items.push(vscode.NotebookCellOutputItem.json(spec, "application/vnd.vegalite.v5+json"));
-        items.push(md(`📈 *${a.title || a.kind}* — interactive plot (renders with a Vega-capable notebook renderer; always in the *Studium — Lesson* pane).`));
+        items.push(md(phrase("notebook_plot", { title: a.title || a.kind }, locale)));
         outs.push(new vscode.NotebookCellOutput(items));
       } else if (a.kind === "orbital" || a.kind === "mol_3d") {
-        outs.push(new vscode.NotebookCellOutput([md(`🧬 **${a.title || a.kind}** — rotate it in the *Studium — Lesson* pane (${a.format || a.kind}).`)]));
+        outs.push(new vscode.NotebookCellOutput([md(phrase("notebook_3d", {
+          title: a.title || a.kind,
+          format: a.format || a.kind,
+        }, locale))]));
       } else if ((a.kind === "executed_result" || a.kind === "image") && a.path) {
         // render the REAL figure INLINE (executed_result = a capsule run's figure; image = a scene
         // figure): read the file from the bundle dir and emit a native image output + a caption.
@@ -176,8 +188,8 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
         } catch { /* unreadable figure — fall back to the caption only */ }
         const m = (a.meta || {}) as Json;
         const cap = a.kind === "executed_result"
-          ? `🔬 **${a.title || "Reference run"}**${m.landmark ? ` — \`${m.landmark}\`` : ""}${m.passed != null ? ` · checks ${m.passed ? "✓" : "✗"}` : ""}`
-          : `🖼️ *${a.title || "Figure"}*`;
+          ? `🔬 **${a.title || phrase("notebook_reference_run", {}, locale)}**${m.landmark ? ` — \`${m.landmark}\`` : ""}${m.passed != null ? phrase("notebook_checks", { result: m.passed ? "✓" : "✗" }, locale) : ""}`
+          : `🖼️ *${a.title || phrase("notebook_figure", {}, locale)}*`;
         items.push(md(cap));
         outs.push(new vscode.NotebookCellOutput(items));
       } else if (a.title) {
@@ -187,30 +199,32 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
 
     if (sc.type === "quiz") {
       outs.push(new vscode.NotebookCellOutput([md(`**${sc.question}**\n\n` + (sc.choices || []).map((c: Json) => `- \`${c.id}\`  ${c.text}`).join("\n") +
-        `\n\n*Type a choice id in the cell above and re-run.*`)]));
+        `\n\n${phrase("notebook_quiz_instruction", {}, locale)}`)]));
     } else if (sc.type === "meta_checkpoint") {
-      outs.push(new vscode.NotebookCellOutput([md(`*${sc.pre_question}* — type \`0\`–\`4\` and re-run.`)]));
+      outs.push(new vscode.NotebookCellOutput([md(phrase("notebook_meta_instruction", { question: sc.pre_question }, locale))]));
     } else if (sc.type === "ai_critique") {
-      outs.push(new vscode.NotebookCellOutput([md(`*Write your critique in the cell above and re-run.*`)]));
+      outs.push(new vscode.NotebookCellOutput([md(phrase("notebook_critique_instruction", {}, locale))]));
     } else if (sc.type === "spot_the_flaw") {
-      outs.push(new vscode.NotebookCellOutput([md(`*Décris les erreurs (avec justification) dans la cellule ci-dessus et relance.*`)]));
+      outs.push(new vscode.NotebookCellOutput([md(phrase("notebook_flaw_instruction", {}, locale))]));
     } else if (sc.type === "explain_back") {
-      outs.push(new vscode.NotebookCellOutput([md(`*Écris ton explication dans la cellule ci-dessus et relance.*`)]));
+      outs.push(new vscode.NotebookCellOutput([md(phrase("notebook_explain_instruction", {}, locale))]));
     } else if (sc.type === "comparison") {
-      outs.push(new vscode.NotebookCellOutput([md(`*Décris les différences / la valeur ajoutée entre A et B dans la cellule ci-dessus et relance.*`)]));
+      outs.push(new vscode.NotebookCellOutput([md(phrase("notebook_compare_instruction", {}, locale))]));
     } else if (sc.type === "summary_audit") {
-      outs.push(new vscode.NotebookCellOutput([md(`*Quelles omissions ou distorsions le résumé contient-il ? Écris-les (avec justification) dans la cellule ci-dessus et relance.*`)]));
+      outs.push(new vscode.NotebookCellOutput([md(phrase("notebook_summary_instruction", {}, locale))]));
     } else if (sc.type === "prompt_practice") {
-      outs.push(new vscode.NotebookCellOutput([md(`*Écris (ou affine) ton prompt dans la cellule ci-dessus et relance.*`)]));
+      outs.push(new vscode.NotebookCellOutput([md(phrase("notebook_prompt_instruction", {}, locale))]));
     } else if (sc.type === "communication_sim") {
-      outs.push(new vscode.NotebookCellOutput([md(`*Rédige ta communication professionnelle dans la cellule ci-dessus et relance.*`)]));
+      outs.push(new vscode.NotebookCellOutput([md(phrase("notebook_communication_instruction", {}, locale))]));
     } else if (sc.type === "discussion") {
-      outs.push(new vscode.NotebookCellOutput([md(`*Réponds à l'affirmation dans la cellule ci-dessus et relance pour dialoguer (le tuteur te répond). Laisse vide ou tape \`next\` pour terminer la discussion et avancer.*`)]));
+      outs.push(new vscode.NotebookCellOutput([md(phrase("notebook_discussion_instruction", {}, locale))]));
     }
 
     const mastery = presentation.learnerSnapshot?.conceptMastery || {};
     const mk = Object.entries(mastery);
-    if (mk.length) outs.push(new vscode.NotebookCellOutput([md("**Mastery** · " + mk.map(([k, v]) => `${k.replace(/^concept:/, "")} ${(v as number).toFixed(2)}`).join("  ·  "))]));
+    if (mk.length) outs.push(new vscode.NotebookCellOutput([md(phrase("notebook_mastery", {
+      items: mk.map(([k, v]) => `${k.replace(/^concept:/, "")} ${(v as number).toFixed(2)}`).join("  ·  "),
+    }, locale))]));
 
     return outs;
   }
@@ -238,20 +252,24 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
         sessions.set(key, sess);
         const started = await sess.call("start_lesson_session", { bundle_ref: sess.bundleRef, learner_id: sess.learnerId });
         sess.sid = started.session_id;
+        sess.locale = started.presentation?.locale === "en" ? "en" : "fr";
         exec.replaceOutput(await buildSceneOutputs(sess, started.presentation, null));
         exec.end(true, Date.now());
         return;
       }
       const cur = await sess.call("get_current_scene", { session_id: sess.sid });
+      sess.locale = cur.presentation?.locale === "en" ? "en" : "fr";
       const scene = cur.presentation.scene;
       const directive = cell.document.getText().trim();
       // `hint` / `indice` asks the tutor for a hint WITHOUT advancing (parity with the pane's Hint
       // button). Wrapped so a hintless scene is a no-op note, not a session reset.
       if (/^(hint|indice)$/i.test(directive)) {
-        let hintText = "*(pas d'indice pour cette scène)*";
+        let hintText = phrase("notebook_no_hint", {}, sess.locale);
         try {
           const h = (await sess.call("request_hint", { session_id: sess.sid })).hint;
-          if (h?.hint) hintText = `💡 ${h.hint}${h.remaining != null ? `  (${h.remaining} restant·s)` : ""}`;
+          if (h?.hint) hintText = `💡 ${h.hint}${h.remaining != null
+            ? phrase("notebook_hint_remaining", { count: h.remaining }, sess.locale)
+            : ""}`;
         } catch { /* no hint available for this scene */ }
         exec.replaceOutput([new vscode.NotebookCellOutput([md(hintText)])]);
         exec.end(true, Date.now());
@@ -264,7 +282,7 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
         await sess.call("end_session", { session_id: sess.sid });
         sess.client.close().catch(() => {});
         sessions.delete(key);
-        exec.replaceOutput([new vscode.NotebookCellOutput([md("🗑 **Données effacées** — session oubliée (droit à l'oubli). Relance la cellule pour recommencer.")])]);
+        exec.replaceOutput([new vscode.NotebookCellOutput([md(phrase("notebook_erased", {}, sess.locale))])]);
         exec.end(true, Date.now());
         return;
       }
@@ -273,10 +291,13 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       // `next` ends the discussion with an ack. After max_turns the server no-ops the turn.
       if (scene.type === "discussion" && directive && !/^(next|continue|done|fin)$/i.test(directive)) {
         const r = await sess.call("submit_turn", { session_id: sess.sid, text: directive });
-        const parts = [`**Toi :** ${directive}`];
-        if (r.reasoning) parts.push(`*signal de raisonnement : ${r.reasoning.signal}${r.reasoning.confidence != null ? ` (${r.reasoning.confidence.toFixed(2)})` : ""}*`);
-        if (r.tutor && r.tutor.text) parts.push(`**Tuteur :** ${r.tutor.text}`);
-        parts.push(`*(continue en tapant une autre réponse, ou laisse vide / \`next\` pour avancer)*`);
+        const parts = [phrase("notebook_you", { text: directive }, sess.locale)];
+        if (r.reasoning) parts.push(phrase("notebook_reasoning", {
+          signal: r.reasoning.signal,
+          confidence: r.reasoning.confidence != null ? ` (${r.reasoning.confidence.toFixed(2)})` : "",
+        }, sess.locale));
+        if (r.tutor && r.tutor.text) parts.push(phrase("notebook_tutor", { text: r.tutor.text }, sess.locale));
+        parts.push(phrase("notebook_continue_discussion", {}, sess.locale));
         exec.replaceOutput([new vscode.NotebookCellOutput([md(parts.join("\n\n"))])]);
         exec.end(true, Date.now());
         return;
@@ -284,7 +305,10 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       const input = directiveToInput(directive, scene);
       const t = (await sess.call("submit_response", { session_id: sess.sid, input })).transition;
       if (t.kind === "complete") {
-        exec.replaceOutput([new vscode.NotebookCellOutput([md(`✔ **Lesson complete** — ${t.summary.scenesCompleted} scenes, autonomy ${(t.summary.autonomyRatio ?? 0).toFixed(2)}`)])]);
+        exec.replaceOutput([new vscode.NotebookCellOutput([md(phrase("notebook_complete", {
+          count: t.summary.scenesCompleted,
+          autonomy: (t.summary.autonomyRatio ?? 0).toFixed(2),
+        }, sess.locale))])]);
         exec.end(true, Date.now());
         return;
       }
@@ -297,7 +321,7 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       if (dead) { dead.client.close().catch(() => {}); sessions.delete(key); }
       exec.replaceOutput([new vscode.NotebookCellOutput([
         vscode.NotebookCellOutputItem.error(e as Error),
-        md("_session reset — run the cell again to reconnect._"),
+        md(phrase("notebook_reset", {}, dead?.locale ?? "fr")),
       ])]);
       exec.end(false, Date.now());
     }

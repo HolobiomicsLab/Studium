@@ -87,8 +87,11 @@ d'une carte n'est pas une preuve de réussite locale. Le
 ## 5. Décider de la suite
 
 Relire objectifs, prérequis, exactitude scientifique, questions, critères de
-réponse, charge de travail et permissions des matériaux. Puis convertir le dossier
-vérifié en squelette jouable :
+réponse, charge de travail et permissions des matériaux. Dans le brouillon
+`author-response.json`, relier chaque scène aux identifiants de `concepts` avec
+`concept_refs`, puis déclarer sur chaque concept les identifiants dont il dépend
+dans `prerequisites`. Relancer `check` : il ne doit signaler ni identifiant inconnu
+ni scène sans concept. Puis convertir le dossier vérifié en squelette jouable :
 
 ```sh
 .venv/bin/python tools/experience_packet.py bundle --course /ABS/PATH/studium-tutorial/courses/spectral-evidence --out /ABS/PATH/studium-tutorial/bundles/spectral-evidence/lesson.json
@@ -96,12 +99,18 @@ vérifié en squelette jouable :
 
 Le bundle conserve par défaut la marque `DRAFT — not validated` et contient des
 champs `TODO:` : l'ouvrir, remplacer chaque contenu factice et le relire avant tout
-usage étudiant. `--validated-by "Nom"` ne doit être ajouté qu'après cette décision
-humaine. Vérifier enfin le contrat 1.4 :
+usage étudiant. Le squelette recopie les `concept_refs`, dérive le graphe de
+prérequis (`source` = concept dépendant, `target` = prérequis), ajoute
+`rule_2err_replay_concept` et reprend les `notes` comme question des quiz.
+`--no-default-rules` retire explicitement cette règle. `--validated-by "Nom"` ne
+doit être ajouté qu'après la décision humaine. Vérifier enfin le contrat 1.4 :
 
 ```sh
 apps/lesson-mcp/node_modules/.bin/tsx tools/bundle_validate.ts /ABS/PATH/studium-tutorial/bundles/spectral-evidence/lesson.json
 ```
+
+Pour relancer `check` ou `bundle` vers la même destination, ajouter `--force` ;
+sans cette option la commande refuse l'écrasement et conserve la sortie existante.
 
 Voir [Du brouillon au bundle jouable](../user/teacher-guide.md#du-brouillon-au-bundle-jouable)
 pour les avertissements de licence, la scène `simulation` héritée et les limites de

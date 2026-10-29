@@ -47,13 +47,25 @@ async function connect(bundlesRoot: string) {
 describe("lesson-mcp tools", () => {
   it("reports its package version and complete sorted tool surface", async () => {
     const client = await connect(bundlesDir());
-    const names = (await client.listTools()).tools.map((tool) => tool.name).sort();
+    const tools = (await client.listTools()).tools;
+    const names = tools.map((tool) => tool.name).sort();
     const info = parse(await client.callTool({ name: "get_server_info", arguments: {} }) as never);
     expect(info["version"]).toBe(packageJson.version);
     expect(info["tools"]).toEqual(names);
     expect(info["tools"]).toEqual([...names].sort());
     expect(names).toContain("get_operator_context");
     expect(names).toContain("get_server_info");
+
+    const description = (name: string) => tools.find((tool) => tool.name === name)?.description ?? "";
+    expect(description("submit_response")).toContain("submit_run_result first");
+    expect(description("submit_response")).toContain("DISPLAYED choice id");
+    expect(description("submit_response")).toContain("{kind:\"confidence\", pre, post}");
+    expect(description("submit_response")).toContain("returns_to");
+    expect(description("submit_response")).toContain("skipped_scene_ids");
+    expect(description("submit_response")).toContain("scenes_detoured");
+    expect(description("submit_response")).toContain("mastery");
+    expect(description("get_current_scene")).toContain("EVIDENCE");
+    expect(description("get_scene_artifacts")).toContain("not an answer key");
   });
   it("get_next_reinforcement routes FSRS: null when fresh, the covering scene once a mastered concept decays", async () => {
     const client = await connect(bundlesDir());
@@ -223,6 +235,29 @@ describe("lesson-mcp — learner-time run protocol parity (run.json / run_result
     const b = parse(await client.callTool({ name: "submit_run_result", arguments: { session_id: sid, run_result: { ran: true, passed: false, checks: [{ check: "file exists: outputs/stats.csv", passed: false }] } } }) as never);
     expect(b["status"]).toBe("run_failed_checks");
     expect(await sceneType(client, sid)).toBe("reproduction");
+  });
+
+  it("submit_response returns run-required until submit_run_result records the run", async () => {
+    const client = await connect(FIXTURES);
+    const sid = await start(client);
+    await ackIntro(client, sid);
+
+    const blocked = await client.callTool({
+      name: "submit_response",
+      arguments: { session_id: sid, input: { kind: "ack" } },
+    }) as { isError?: boolean; content: Array<{ type: string; text?: string }> };
+    expect(blocked.isError).toBe(true);
+    expect(parse(blocked)["error"]).toBe(
+      "run required: call get_run_manifest, run it, then submit_run_result",
+    );
+    expect(await sceneType(client, sid)).toBe("reproduction");
+
+    const submitted = parse(await client.callTool({
+      name: "submit_run_result",
+      arguments: { session_id: sid, run_result: PASS },
+    }) as never);
+    expect(submitted["learner_run_recorded"]).toBe(true);
+    expect((submitted["transition"] as { kind: string }).kind).toBe("next");
   });
 
   it("a passing run advances, grounds the later judgment on the LEARNER's run (redacted), and feeds trust_calibration", async () => {

@@ -10,7 +10,10 @@ import { thetaForVariant, resolveActiveVariant } from "./universe.js";
 import { buildMasteryClaims } from "./mastery-claims.js";
 import type { TutorMove } from "./socratic-tutor/types.js";
 import { collectBannedAnswers, revealsAnswer } from "./socratic-tutor/reveal.js";
-import { FADED_FALLBACK } from "./socratic-tutor/contingency.js";
+import { fadedFallback } from "./socratic-tutor/contingency.js";
+import { matchClaimsAgainstCritique } from "./grading/ai-audit-matcher.js";
+import type { GradeDetail } from "./grading/graders.js";
+import { localeFromLanguage, phrase, type Locale } from "./phrases.js";
 
 const ESCALATE_AFTER = 2; // graph remediations in a session before baseline -> remedial escalation
 
@@ -32,6 +35,10 @@ const BASELINE_UNIVERSE_ID = "baseline";
 const REMEDIAL_UNIVERSE_ID = "remedial";
 
 export class LessonSession {
+  /** Shared localization seam for consumers that only depend on the public LessonSession class. */
+  static readonly phrase = phrase;
+  static readonly localeFromLanguage = localeFromLanguage;
+
   private engine!: AdaptationEngine;
   private idx = 0;
   private started = false;
@@ -44,8 +51,17 @@ export class LessonSession {
   private skipMastered = false;
   private scaffolding: "standard" | "heavy" = "standard";
   private hintsUsed = 0;
+  private showHintsAvailable = false;
   private lastGraphExplanation: Explanation | null = null;
+  private activeNavigationExplanation: Explanation | null = null;
   private remediationCount = 0;
+  /** Prerequisites (LWG `concept:` ids) whose gate was passed this session; never re-gated. */
+  private passedPrerequisites = new Set<string>();
+  /** The prerequisite a graph detour is currently serving an item for, until the next routing. */
+  private graphDetourPrerequisite: string | undefined;
+  private announcedUnassessablePrerequisites = new Set<string>();
+  private detourCounts: Record<string, number> = {};
+  private pendingDetourReturnIdx: number | undefined;
   /** Cumulative count of scaffolding events the learner leaned on across the whole session:
    * +1 per hint dispensed, +1 per scene replay, +1 per prerequisite remediation. Unlike
    * `hintsUsed` (reset per scene-visit) and `state.scenes_replayed` (per scene id), this is the
@@ -65,6 +81,7 @@ export class LessonSession {
    * model_correction from the learner's OWN run and sets them here, so both presentation and grading see
    * the regenerated judgment (the regenerated answer key stays server-side — publicScene still strips it). */
   private sceneOverrides = new Map<string, Record<string, unknown>>();
+  private readonly locale: Locale;
 
   constructor(
     private readonly bundle: LessonBundle,
@@ -74,7 +91,9 @@ export class LessonSession {
      * pseudonyms. Defaults to "anonymous" so callers/tests that omit it still compile and stay
      * deterministic. */
     private readonly learnerId: string = "anonymous",
-  ) {}
+  ) {
+    this.locale = localeFromLanguage(bundle.metadata.language);
+  }
 
   async start(): Promise<Presentation> {
     this.sessionId = this.deps.idGen.uuid();
@@ -101,7 +120,8 @@ export class LessonSession {
 
   currentPresentation(): Presentation {
     this.assertStarted();
-    return {
+    const presentation: Presentation = {
+      locale: this.locale,
       scene: this.scene(),
       index: this.idx,
       total: this.bundle.scenes.length,
@@ -109,6 +129,15 @@ export class LessonSession {
       explanation: this.explainLast(),
       learnerSnapshot: this.snapshot(),
     };
+    if (this.showHintsAvailable) presentation.hints_available = this.hintsAvailable();
+    return presentation;
+  }
+
+  private hintsAvailable(): number {
+    const scene = this.scene();
+    if (scene.type !== "quiz") return 0;
+    const cap = this.scaffolding === "heavy" ? scene.hints.length : Math.min(1, scene.hints.length);
+    return Math.max(0, cap - this.hintsUsed);
   }
 
   explainLast(): Explanation | null {
@@ -210,6 +239,26 @@ export class LessonSession {
     return { conceptMastery, scenesCompleted: this.state.scenes_completed.length };
   }
 
+  /** Every graded attempt on the concept (LWG `concept:` id) was correct, and there was at least one. */
+  private hasFlawlessRecord(lwgConceptId: string): boolean {
+    const cs = this.state.concept_states[lwgConceptId.replace(/^concept:/, "")];
+    return cs !== undefined && cs.total_attempts > 0 && cs.total_correct === cs.total_attempts;
+  }
+
+  private rememberExplanation(explanation: Explanation): void {
+    this.activeNavigationExplanation = explanation;
+    this.lastGraphExplanation = explanation;
+  }
+
+  private rememberDecision(decision: Decision): void {
+    if (!decision.rule_id || !decision.modulator) return;
+    this.lastGraphExplanation = {
+      rule_id: decision.rule_id,
+      explanation_short: decision.explanation_short ?? "",
+      modulator: decision.modulator,
+    };
+  }
+
   /** One-way escalation: after repeated prerequisite remediation, switch the active universe
    * baseline -> remedial (lower theta, more support). Never de-escalates. */
   private maybeEscalateUniverse(): void {
@@ -222,7 +271,11 @@ export class LessonSession {
     // the remedial variant may set its own pacing (e.g. could enable skip) — recompute on switch
     this.skipMastered = remedial.decisions?.["pacing"] === "skip_on_mastery";
     this.scaffolding = remedial.decisions?.["scaffolding"] === "heavy" ? "heavy" : "standard";
-    this.lastGraphExplanation = { rule_id: "graph_universe_escalated", explanation_short: "repeated remediation — escalated to the remedial universe", modulator: "M6" };
+    this.rememberExplanation({
+      rule_id: "graph_universe_escalated",
+      explanation_short: phrase("explanation_graph_universe_escalated", {}, this.locale),
+      modulator: "M6",
+    });
     this.emit({ type: "universe_selected", universe_id: remedial.id, active_decisions: remedial.decisions });
     this.emit({ type: "adaptation_applied", rule_id: "graph_universe_escalated", signal: "navigate", modulator: "M6", value: 0 });
   }
@@ -235,20 +288,21 @@ export class LessonSession {
     // the IRT difficulty `w` from it (mirrors how hintCount is threaded). Absent -> grader fallback.
     const conceptId = "concept_refs" in scene ? scene.concept_refs[0] : undefined;
     const bloomLevel = conceptId ? this.bundle.concepts.find((c) => c.id === conceptId)?.bloom_level_target : undefined;
-    const { signal, telemetry } = await grade(scene, input, {
+    const { signal, telemetry, detail } = await grade(scene, input, {
       critiqueEvaluator: this.deps.critiqueEvaluator, hintCount: this.hintsUsed,
       ...(this.deps.auditJudge ? { auditJudge: this.deps.auditJudge } : {}),
       ...(bloomLevel ? { bloomLevel } : {}),
     });
     for (const ev of telemetry) this.emit(ev);
     const decision = await this.applySignal(signal);                 // drives navigation
+    this.rememberDecision(decision);
     if (signal.kind !== "scene_completed") {
       await this.applySignal({ kind: "scene_completed", scene_id: scene.id, duration_ms: 0 }); // bookkeeping only
     }
     const success = this.successOf(signal);
     this.emit({ type: "scene_completed", scene_id: scene.id, duration_ms: 0, ...(success === undefined ? {} : { success }) });
     this.lastSuccess = signal.kind === "answer_submitted" ? signal.correct : undefined;
-    const verdict = this.verdictOf(scene, signal);
+    const verdict = this.verdictOf(scene, signal, input, telemetry, detail);
     const t = this.navigate(decision, scene);
     this.lastSuccess = undefined;
     return { ...t, verdict };
@@ -256,12 +310,26 @@ export class LessonSession {
 
   /** The verdict carried on the transition (types.ts Verdict). Only the matching half of the quiz
    * feedback is released, and only here — after the answer; the public scene no longer carries it. */
-  private verdictOf(scene: Scene, signal: Signal): Verdict {
+  private verdictOf(
+    scene: Scene,
+    signal: Signal,
+    input: ResponseInput,
+    telemetry: EmitInput[],
+    detail?: GradeDetail,
+  ): Verdict {
     const graded = signal.kind === "answer_submitted";
     const correct = graded ? signal.correct : undefined;
     let feedback: string | undefined;
     if (scene.type === "quiz" && correct !== undefined) feedback = correct ? scene.feedback_correct : scene.feedback_incorrect;
-    return { scene_id: scene.id, graded, signal: signal.kind, ...(correct === undefined ? {} : { correct }), ...(feedback ? { feedback } : {}) };
+    if (graded && scene.type !== "quiz") feedback = feedbackFor(scene, input, telemetry, this.locale, detail);
+    return {
+      scene_id: scene.id,
+      graded,
+      signal: signal.kind,
+      ...(correct === undefined ? {} : { correct }),
+      ...(feedback ? { feedback } : {}),
+      ...(detail ? { detail } : {}),
+    };
   }
 
   protected async applySignal(signal: Signal): Promise<Decision> {
@@ -303,22 +371,24 @@ export class LessonSession {
 
   /** The one navigation record behind a transition (see Navigation in types.ts). `rule_id` /
    * `modulator` come from the graph explanation when the graph routed, else from the rule engine. */
-  private nav(kind: Navigation["kind"], reason: string | null, extra: Partial<Navigation> = {}): Navigation {
-    const src = this.lastGraphExplanation;
+  private nav(decision: Decision, kind: Navigation["kind"], reason: string | null, extra: Partial<Navigation> = {}): Navigation {
+    const src = this.activeNavigationExplanation;
     return {
       kind,
       scene_id: this.started && !this.completed ? this.scene().id : null,
-      rule_id: src?.rule_id ?? this.state.last_decision?.rule_id ?? null,
+      rule_id: src?.rule_id ?? decision.rule_id,
       reason,
-      modulator: src?.modulator ?? this.state.last_decision?.modulator ?? null,
+      modulator: src?.modulator ?? decision.modulator,
       ...extra,
     };
   }
 
   protected navigate(decision: Decision, scene: Scene): Transition {
-    this.lastGraphExplanation = null;
+    this.activeNavigationExplanation = null;
     const action = decision.next_action;
     if (action.kind === "replay_current_scene") {
+      // Despite its stable schema name, this action prefers an unseen same-concept item. It replays
+      // the current scene only when no alternate exists; both paths restore a fresh hint budget.
       this.hintsUsed = 0; // hints are per-scene-visit: a replay grants a fresh budget. Farming (hint then deliberate-wrong then replay then unhinted-correct) is self-defeating — the wrong answer's beta penalty dominates the dodged discount.
       // Prefer routing remediation to an UNSEEN alternate item for the same concept (#1: avoids the
       // penalized same-scene replay). sceneConceptId() returns the `concept:`-prefixed LWG node id,
@@ -329,11 +399,15 @@ export class LessonSession {
       const altIdx = firstUnseenAnswerGradedSceneForConcept(this.bundle.scenes, concept, seen);
       if (altIdx >= 0) {
         // present an UNSEEN alternate item for the same concept (different-item remediation)
+        const resumeIdx = Math.max(this.idx, altIdx) + 1;
+        this.pendingDetourReturnIdx = resumeIdx;
         this.scaffoldingEvents += 1; // remediation is still a scaffold the learner relied on
         this.idx = altIdx;
         this.enterScene();
+        this.showHintsAvailable = true;
+        const resume = this.bundle.scenes[resumeIdx] as Scene | undefined;
         return { kind: "remediate_alt", reason: action.reason, presentation: this.currentPresentation(),
-          navigation: this.nav("remediate_alt", action.reason, { returns_to: scene.id }) };
+          navigation: this.nav(decision, "remediate_alt", action.reason, resume ? { returns_to: resume.id } : {}) };
       }
       // no unseen alternate -> honest fallback: replay the same item, while the budget lasts.
       // Counted ONCE, in the session-owned tally; applySignal projects it onto
@@ -341,13 +415,18 @@ export class LessonSession {
       if ((this.replayCounts[scene.id] ?? 0) < MAX_SCENE_REPLAYS) {
         this.replayCounts[scene.id] = (this.replayCounts[scene.id] ?? 0) + 1;
         this.scaffoldingEvents += 1;
+        this.showHintsAvailable = true;
         return { kind: "replay", reason: action.reason, presentation: this.currentPresentation(),
-          navigation: this.nav("replay", action.reason) };
+          navigation: this.nav(decision, "replay", action.reason) };
       }
       // Budget spent: stop re-serving the same scene and FALL THROUGH to the normal advance below.
       // Announced, not silent — the learner leaves this scene without getting it right, and that is
       // exactly what the teacher needs to see.
-      this.lastGraphExplanation = { rule_id: "replay_budget_exhausted", explanation_short: "revu plusieurs fois sans succès — on avance", modulator: "M1" };
+      this.rememberExplanation({
+        rule_id: "replay_budget_exhausted",
+        explanation_short: phrase("explanation_replay_budget_exhausted", {}, this.locale),
+        modulator: "M1",
+      });
       this.emit({ type: "adaptation_applied", rule_id: "replay_budget_exhausted", signal: "navigate", modulator: "M1", value: 0 });
     }
     if (action.kind === "skip_to_next_concept") {
@@ -357,7 +436,8 @@ export class LessonSession {
         i > this.idx && ("concept_refs" in s ? (s.concept_refs[0] ?? "") : "") !== currentConcept);
       if (next >= 0) {
         this.idx = next; this.enterScene();
-        return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav("skip_concept", decision.explanation_short) };
+        this.pendingDetourReturnIdx = undefined;
+        return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav(decision, "skip_concept", decision.explanation_short) };
       }
       // no later scene with a different concept — fall through to advance/complete
     }
@@ -366,57 +446,97 @@ export class LessonSession {
       const target = action.target_concept;
       // End-of-lesson self-check: no next scene to host a standalone calibration
       // transition, so surface the M3 feedback on the completion instead of dropping it.
-      if (this.idx + 1 >= this.bundle.scenes.length) return this.complete({ targetConcept: target });
+      if (this.idx + 1 >= this.bundle.scenes.length) return this.complete(decision, { targetConcept: target });
       this.idx += 1; this.enterScene();
       return { kind: "calibration", targetConcept: target, presentation: this.currentPresentation(),
-        navigation: this.nav("calibration", decision.explanation_short) };
+        navigation: this.nav(decision, "calibration", decision.explanation_short) };
     }
     // advance_to_next_scene | show_explanation_panel | fallback
     const lwg = this.bundle.learning_workflow_graph;
     if (lwg) {
+      const routeStartIdx = this.pendingDetourReturnIdx === undefined
+        ? this.idx
+        : this.pendingDetourReturnIdx - 1;
       const routed = graphAwareNextIndex(
-        this.bundle.scenes, this.idx, lwg,
+        this.bundle.scenes, routeStartIdx, lwg,
         buildLwgMastery(this.state.concept_states), this.theta, this.skipMastered,
         buildLwgCalibration(this.state.concept_states),
         this.prereqDetours,
+        new Set(this.state.scenes_completed),
+        this.passedPrerequisites,
       );
       let { index: nextIdx, reason } = routed;
-      if (nextIdx === null) return this.complete();
+      if (nextIdx === null) {
+        this.pendingDetourReturnIdx = undefined;
+        return this.complete(decision);
+      }
       const gatedId = routed.gated != null ? (this.bundle.scenes[routed.gated] as Scene).id : undefined;
-      // GATE PASSED: the router wants to send the learner back to the scene they JUST answered
-      // correctly. One correct answer moves mastery 0.5 → 0.54, nowhere near theta 0.8, so this
-      // detour would re-serve the same item up to MAX_PREREQ_DETOURS times — "you got it right, do
-      // it again" three times (2026-10-29 trial, both harnesses). Pass the gate instead, and say so.
-      if (reason === "remediate" && nextIdx === this.idx && this.lastSuccess === true && routed.gated != null) {
+      if (reason === "gate_unassessable" && routed.prerequisite
+        && this.announcedUnassessablePrerequisites.has(routed.prerequisite)) {
+        reason = "advance";
+      }
+      // GATE PASSED. The router wants to send the learner back to an item of a prerequisite still
+      // below theta. Two cases pass the gate instead of drilling: (a) the prerequisite's record is
+      // flawless — every graded attempt correct — so the low posterior is only the prior's inertia
+      // (one correct answer moves 0.5 -> 0.54; the 2026-10-29 trials re-served the same item up to
+      // the detour limit); (b) the learner just answered an item of that prerequisite correctly while
+      // on a graph detour for it. A prerequisite with recorded errors stays gated: that posterior is
+      // evidence, and the detour budget plus escalation are the designed answer. A pass is remembered
+      // for the session (W1), so later scenes gated on the same prerequisite do not re-open it.
+      const routedConcept = sceneConceptId(this.bundle.scenes[nextIdx] as { concept_refs?: string[] });
+      const answeredConcept = sceneConceptId(scene);
+      const passedOnDetour = this.graphDetourPrerequisite !== undefined
+        && this.graphDetourPrerequisite === routedConcept && answeredConcept === routedConcept
+        && this.lastSuccess === true;
+      if (reason === "remediate" && routed.gated != null && routedConcept !== null
+        && (this.hasFlawlessRecord(routedConcept) || passedOnDetour)) {
         nextIdx = routed.gated;
         reason = "gate_passed" as typeof reason;
+        this.passedPrerequisites.add(routedConcept);
       }
+      this.graphDetourPrerequisite = reason === "remediate" && routedConcept !== null ? routedConcept : undefined;
+      if (reason === "remediate" && routed.gated !== undefined) {
+        this.pendingDetourReturnIdx = routed.gated;
+      } else {
+        this.pendingDetourReturnIdx = undefined;
+      }
+      const skippedSceneIds = reason === "skip_mastered"
+        ? this.bundle.scenes.slice(routeStartIdx + 1, nextIdx).map((skipped) => skipped.id)
+        : [];
       this.idx = nextIdx;
       this.enterScene();
       if (reason === "remediate") {
-        this.lastGraphExplanation = { rule_id: "graph_prereq_gate", explanation_short: "prerequisite not yet mastered — routed to remediation", modulator: "M6" };
+        this.showHintsAvailable = true;
+        const explanation = { rule_id: "graph_prereq_gate", explanation_short: phrase("explanation_graph_prereq_gate", {}, this.locale), modulator: "M6" };
+        this.rememberExplanation(explanation);
         this.emit({ type: "adaptation_applied", rule_id: "graph_prereq_gate", signal: "navigate", modulator: "M6", value: 0 });
         this.remediationCount += 1;
         this.scaffoldingEvents += 1; // a prerequisite remediation detour is scaffolding the learner relied on
         // Spend one unit of THIS prerequisite's detour budget. Keyed on the concept we were routed
         // TO (the unmet prereq), which is the concept the gate is waiting on — not the gated one.
         const detoured = sceneConceptId(this.bundle.scenes[nextIdx] as { concept_refs?: string[] });
-        if (detoured) this.prereqDetours[detoured] = (this.prereqDetours[detoured] ?? 0) + 1;
+        if (detoured) {
+          this.prereqDetours[detoured] = (this.prereqDetours[detoured] ?? 0) + 1;
+          const detouredScene = (this.bundle.scenes[nextIdx] as Scene).id;
+          this.detourCounts[detouredScene] = (this.detourCounts[detouredScene] ?? 0) + 1;
+        }
         this.maybeEscalateUniverse();
-        const reasonText = this.lastGraphExplanation.explanation_short;
+        const reasonText = explanation.explanation_short;
         return { kind: "remediate", reason: reasonText, presentation: this.currentPresentation(),
-          navigation: this.nav("remediate", reasonText, gatedId ? { returns_to: gatedId } : {}) };
+          navigation: this.nav(decision, "remediate", reasonText, gatedId ? { returns_to: gatedId } : {}) };
       } else if ((reason as string) === "gate_passed") {
-        this.lastGraphExplanation = { rule_id: "graph_prereq_gate_passed", explanation_short: "prerequisite item answered correctly, mastery still below threshold — advancing", modulator: "M6" };
+        const explanation = { rule_id: "graph_prereq_gate_passed", explanation_short: phrase("explanation_graph_prereq_gate_passed", {}, this.locale), modulator: "M6" };
+        this.rememberExplanation(explanation);
         this.emit({ type: "adaptation_applied", rule_id: "graph_prereq_gate_passed", signal: "navigate", modulator: "M6", value: 0 });
-        return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav("gate_passed", this.lastGraphExplanation.explanation_short) };
+        return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav(decision, "gate_passed", explanation.explanation_short) };
       } else if (reason === "gate_released") {
         // The budget is spent and the learner is let into the gated scene WITHOUT the prerequisite.
         // Announced rather than silent: an unmastered pass is a thing the teacher must be able to
         // see, and it is the only alternative to a lesson that never ends.
-        this.lastGraphExplanation = { rule_id: "graph_prereq_gate_released", explanation_short: "prerequisite still unmastered after repeated remediation — advancing anyway", modulator: "M6" };
+        const explanation = { rule_id: "graph_prereq_gate_released", explanation_short: phrase("explanation_graph_prereq_gate_released", {}, this.locale), modulator: "M6" };
+        this.rememberExplanation(explanation);
         this.emit({ type: "adaptation_applied", rule_id: "graph_prereq_gate_released", signal: "navigate", modulator: "M6", value: 0 });
-        return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav("gate_released", this.lastGraphExplanation.explanation_short) };
+        return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav(decision, "gate_released", explanation.explanation_short) };
       } else if (reason === "gate_unassessable") {
         // INT-STUDIUM-037. The prerequisite is unmet and the lesson holds no scene the router can
         // send the learner back to, so the gate opens on the first try. Before this it was reported
@@ -426,29 +546,35 @@ export class LessonSession {
         // release says the learner did not manage it after three tries, this says the bundle gave
         // them nothing to try. The second is an authoring defect and the teacher is the one who can
         // fix it.
-        this.lastGraphExplanation = { rule_id: "graph_prereq_unassessable", explanation_short: "prerequisite unmet and no scene can assess it — advancing anyway", modulator: "M6" };
+        const explanation = { rule_id: "graph_prereq_unassessable", explanation_short: phrase("explanation_graph_prereq_unassessable", {}, this.locale), modulator: "M6" };
+        this.rememberExplanation(explanation);
+        if (routed.prerequisite) this.announcedUnassessablePrerequisites.add(routed.prerequisite);
         this.emit({ type: "adaptation_applied", rule_id: "graph_prereq_unassessable", signal: "navigate", modulator: "M6", value: 0 });
-        return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav("gate_unassessable", this.lastGraphExplanation.explanation_short) };
+        return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav(decision, "gate_unassessable", explanation.explanation_short) };
       } else if (reason === "skip_mastered") {
-        this.lastGraphExplanation = { rule_id: "graph_skip_mastered", explanation_short: "concept already mastered — skipped", modulator: "M1" };
+        const explanation = { rule_id: "graph_skip_mastered", explanation_short: phrase("explanation_graph_skip_mastered", {}, this.locale), modulator: "M1" };
+        this.rememberExplanation(explanation);
         this.emit({ type: "adaptation_applied", rule_id: "graph_skip_mastered", signal: "navigate", modulator: "M1", value: 0 });
-        return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav("skip_mastered", this.lastGraphExplanation.explanation_short) };
+        return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav(decision, "skip_mastered", explanation.explanation_short, { skipped_scene_ids: skippedSceneIds }) };
       }
-      return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav("advance", null) };
+      return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav(decision, "advance", null) };
     }
-    if (this.idx + 1 >= this.bundle.scenes.length) return this.complete();
-    this.idx += 1; this.enterScene();
-    return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav("advance", null) };
+    const nextIdx = this.pendingDetourReturnIdx ?? this.idx + 1;
+    this.pendingDetourReturnIdx = undefined;
+    if (nextIdx >= this.bundle.scenes.length) return this.complete(decision);
+    this.idx = nextIdx; this.enterScene();
+    return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav(decision, "advance", null) };
   }
 
   protected enterScene(): void {
     this.discussionTurnIdx = 0;
     this.discussionHistory = [];
     this.hintsUsed = 0;
+    this.showHintsAvailable = false;
     this.emit({ type: "scene_entered", scene_id: this.scene().id, scene_type: this.scene().type });
   }
 
-  protected complete(calibration?: { targetConcept: string }): Transition {
+  protected complete(decision: Decision, calibration?: { targetConcept: string }): Transition {
     this.completed = true;
     const totalDurationMs = Math.max(0, Date.parse(this.deps.clock.now()) - Date.parse(this.startIso));
     const completed = this.state.scenes_completed.length;
@@ -471,7 +597,19 @@ export class LessonSession {
     const scaffolding = this.scaffoldingEvents;
     const denom = completed + scaffolding;
     const autonomyRatio = denom === 0 ? 1 : Math.max(0, Math.min(1, completed / denom));
-    const summary: CompletionSummary = { totalDurationMs, autonomyRatio, scenesCompleted: completed, finalState: this.engineStateWithReplays() };
+    const finalState = this.engineStateWithReplays();
+    const mastery: Record<string, number> = {};
+    for (const [conceptId, conceptState] of Object.entries(finalState.concept_states)) {
+      mastery[conceptId] = masteryOf(conceptState);
+    }
+    const summary: CompletionSummary = {
+      totalDurationMs,
+      autonomyRatio,
+      scenesCompleted: completed,
+      finalState,
+      mastery,
+      scenes_detoured: { ...this.detourCounts },
+    };
     this.emit({ type: "lesson_completed", total_duration_ms: totalDurationMs, autonomy_ratio: autonomyRatio });
     if (this.deps.masteryClaimSink) {
       const doc = buildMasteryClaims(this.engineStateWithReplays(), {
@@ -484,7 +622,7 @@ export class LessonSession {
       if (doc["@graph"].length > 0) this.deps.masteryClaimSink.emit(doc);
     }
     return { kind: "complete", summary, ...(calibration ? { calibration } : {}),
-      navigation: { kind: "complete", scene_id: null, rule_id: null, reason: null, modulator: null } };
+      navigation: this.nav(decision, "complete", null) };
   }
 
   /** Whether the scene was answered CORRECTLY, or `undefined` when nobody graded it.
@@ -524,7 +662,7 @@ export class LessonSession {
     const banned = collectBannedAnswers(this.bundle, scene);
     const lowConfViolation = result.confidence < 0.4 && move.move_kind !== "scaffold_hint";
     const revealed = move.revealed || revealsAnswer(move.text, banned) || lowConfViolation;
-    const safe = revealed ? FADED_FALLBACK[result.signal] : move;
+    const safe = revealed ? fadedFallback(this.locale)[result.signal] : move;
     this.discussionHistory.push({ role: "tutor", text: safe.text });
     this.lastTutorMove = safe; // the learner-facing move
     this.emit({
@@ -534,6 +672,92 @@ export class LessonSession {
       revealed, reveal_blocked: revealed, turn_index: turnIndex,
     });
   }
+}
+
+function responseText(input: ResponseInput): string {
+  if (input.kind === "critique" || input.kind === "flaw_report" || input.kind === "explanation"
+    || input.kind === "comparison" || input.kind === "summary_audit"
+    || input.kind === "prompt_submission" || input.kind === "communication") return input.text;
+  return "";
+}
+
+function auditFeedback(
+  telemetry: EmitInput[],
+  correction: string,
+  locale: Locale,
+  detail?: GradeDetail,
+): string {
+  if (detail) {
+    return [
+      phrase("deck_detail", {
+        caught: detail.caught,
+        planted: detail.planted,
+        false_positives: detail.false_positives,
+        sound_total: detail.sound_total,
+      }, locale),
+      phrase("model_reveal", { text: correction }, locale),
+    ].join("; ");
+  }
+  const audit = telemetry.find((event) => event.type === "ai_audit_result");
+  const found = audit?.type === "ai_audit_result" ? audit.true_positives : 0;
+  const total = audit?.type === "ai_audit_result" ? audit.planted_errors : 0;
+  return [
+    phrase("planted_flaws_found", { found, total }, locale),
+    phrase("model_reveal", { text: correction }, locale),
+  ].join("; ");
+}
+
+type KeyPointScene = Extract<Scene, {
+  type: "explain_back" | "comparison" | "prompt_practice" | "communication_sim";
+}>;
+
+function keyPointFeedback(scene: KeyPointScene, answer: string, locale: Locale): string {
+  const missing = scene.key_points.filter((point) => {
+    const match = matchClaimsAgainstCritique(
+      [{ id: point.id, flaws_expected: point.cues }],
+      answer,
+    );
+    return match.true_positives === 0;
+  });
+  const parts = [phrase("key_points_covered", {
+    covered: scene.key_points.length - missing.length,
+    total: scene.key_points.length,
+  }, locale)];
+  if (missing.length > 0) {
+    parts.push(phrase("missing_key_points", { text: missing.map((point) => point.text).join("; ") }, locale));
+  }
+  const reveal = scene.type === "explain_back" ? scene.model_explanation
+    : scene.type === "comparison" ? scene.model_answer
+      : scene.type === "prompt_practice" ? scene.model_prompt : scene.model_response;
+  parts.push(phrase("model_reveal", { text: reveal }, locale));
+  return parts.join("; ");
+}
+
+function critiqueFeedback(scene: Extract<Scene, { type: "ai_critique" }>, answer: string, locale: Locale): string {
+  const normalized = answer.toLowerCase();
+  const covered = scene.claims.filter((claim) => {
+    const matched = matchClaimsAgainstCritique([claim], answer).true_positives > 0;
+    return matched || normalized.includes(claim.id.toLowerCase()) || normalized.includes(claim.text.toLowerCase());
+  }).length;
+  return phrase("claims_addressed", { covered, total: scene.claims.length }, locale);
+}
+
+function feedbackFor(
+  scene: Scene,
+  input: ResponseInput,
+  telemetry: EmitInput[],
+  locale: Locale,
+  detail?: GradeDetail,
+): string | undefined {
+  const answer = responseText(input);
+  if (scene.type === "spot_the_flaw") return auditFeedback(telemetry, scene.model_correction, locale, detail);
+  if (scene.type === "summary_audit") return auditFeedback(telemetry, scene.model_correction, locale);
+  if (scene.type === "ai_critique") return critiqueFeedback(scene, answer, locale);
+  if (scene.type === "explain_back" || scene.type === "comparison"
+    || scene.type === "prompt_practice" || scene.type === "communication_sim") {
+    return keyPointFeedback(scene, answer, locale);
+  }
+  return undefined;
 }
 
 function decisionValue(signal: Signal): number {

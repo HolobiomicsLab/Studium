@@ -20,7 +20,9 @@ import { freeTextInput } from "./scene-io.js";
 type Json = Record<string, any>;
 const here = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = resolve(here, "..", "..", "..");           // apps/studium-vscode/src → repo root
-const tsx = resolve(repoRoot, "node_modules/.pnpm/node_modules/.bin/tsx");
+// Launch through Node's loader instead of the tsx CLI. The CLI opens an IPC socket for its cache,
+// which is unavailable in restricted CI/sandbox runners; the loader executes the same TypeScript.
+const tsxLoader = resolve(repoRoot, "node_modules/.pnpm/node_modules/tsx/dist/loader.mjs");
 const mcpDir = resolve(repoRoot, "apps/lesson-mcp");
 
 const failures: string[] = [];
@@ -57,7 +59,13 @@ async function walk(bundlesRoot: string, bundleRef: string, expectTypes: string[
   const rawBundle: Json = JSON.parse(readFileSync(resolve(bundlesRoot, bundleRef), "utf8"));
   const rawById = new Map<string, Json>((rawBundle.scenes || []).map((s: Json) => [s.id, s]));
   const env: Record<string, string> = { ...(process.env as any), BUNDLES_ROOT: bundlesRoot };
-  const transport = new StdioClientTransport({ command: tsx, args: ["src/index.ts"], cwd: mcpDir, env, stderr: "ignore" });
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: ["--import", tsxLoader, "src/index.ts"],
+    cwd: mcpDir,
+    env,
+    stderr: "ignore",
+  });
   const client = new Client({ name: "lesson-walk", version: "0.0.0" });
   await client.connect(transport);
   const call = async (n: string, a: Json): Promise<Json> => {

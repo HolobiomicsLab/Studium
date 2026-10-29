@@ -2,6 +2,7 @@
 // jsdom/tsx; src/tree.ts wraps these nodes in a vscode.TreeDataProvider.
 
 import { courseDescription, type LessonCourse } from "./lesson-picker.js";
+import { phrase, type Locale } from "./phrases.js";
 
 /** One node of the Studium activity-bar tree. `command`(+`args`) runs on click; `children` nest. */
 export interface TreeNode {
@@ -21,12 +22,14 @@ export interface CommunityItem {
   label: string;
 }
 
-const PRIMARY: TreeNode[] = [
-  { id: "open", label: "Commencer la leçon / Start the lesson", icon: "play", command: "studium.openLesson", tooltip: "Ouvrir la leçon dans le panneau Studium" },
-  { id: "pick", label: "Choisir un cours / Pick a course", icon: "library", command: "studium.pickLesson", tooltip: "Choisir parmi les cours disponibles ou changer de dossier" },
-  { id: "notebook", label: "Ouvrir comme notebook / Open as notebook", icon: "notebook", command: "studium.openLessonNotebook" },
-  { id: "walkthrough", label: "Prise en main / Getting started", icon: "mortar-board", command: "studium.openWalkthrough" },
-];
+function primary(locale: Locale): TreeNode[] {
+  return [
+    { id: "open", label: phrase("tree_open", {}, locale), icon: "play", command: "studium.openLesson", tooltip: phrase("tree_open_tooltip", {}, locale) },
+    { id: "pick", label: phrase("tree_pick", {}, locale), icon: "library", command: "studium.pickLesson", tooltip: phrase("tree_pick_tooltip", {}, locale) },
+    { id: "notebook", label: phrase("tree_notebook", {}, locale), icon: "notebook", command: "studium.openLessonNotebook" },
+    { id: "walkthrough", label: phrase("tree_walkthrough", {}, locale), icon: "mortar-board", command: "studium.openWalkthrough" },
+  ];
+}
 
 /** Build the sidebar tree from discovered courses and community contributions. Pure. */
 export function buildLessonTree(opts: {
@@ -34,29 +37,31 @@ export function buildLessonTree(opts: {
   currentRef?: string;
   community: CommunityItem[];
   onReproductionScene: boolean;
+  locale?: Locale;
 }): TreeNode[] {
-  const nodes: TreeNode[] = [...PRIMARY];
+  const locale = opts.locale ?? "fr";
+  const nodes: TreeNode[] = primary(locale);
   if (opts.onReproductionScene) {
-    nodes.push({ id: "run", label: "Lancer la reproduction / Run reproduction", icon: "beaker", command: "studium.runReproduction" });
+    nodes.push({ id: "run", label: phrase("tree_run", {}, locale), icon: "beaker", command: "studium.runReproduction" });
   }
-  nodes.push(coursesNode(opts.courses ?? [], opts.currentRef ?? ""));
-  nodes.push(communityNode(opts.community));
+  nodes.push(coursesNode(opts.courses ?? [], opts.currentRef ?? "", locale));
+  nodes.push(communityNode(opts.community, locale));
   return nodes;
 }
 
 /** The available-courses subtree, including an explicit placeholder for an empty root. */
-function coursesNode(courses: readonly LessonCourse[], currentRef: string): TreeNode {
-  const children = courses.map((course) => courseNode(course, course.ref === currentRef));
+function coursesNode(courses: readonly LessonCourse[], currentRef: string, locale: Locale): TreeNode {
+  const children = courses.map((course) => courseNode(course, course.ref === currentRef, locale));
   return {
     id: "courses",
-    label: "Cours disponibles / Courses",
+    label: phrase("tree_courses", {}, locale),
     icon: "library",
-    children: children.length ? children : [{ id: "courses:empty", label: "— aucun cours trouvé / no courses found —", icon: "info" }],
+    children: children.length ? children : [{ id: "courses:empty", label: phrase("tree_no_courses", {}, locale), icon: "info" }],
   };
 }
 
-function courseNode(course: LessonCourse, isCurrent: boolean): TreeNode {
-  const current = isCurrent ? "\n✓ cours actuel / current course" : "";
+function courseNode(course: LessonCourse, isCurrent: boolean, locale: Locale): TreeNode {
+  const current = isCurrent ? phrase("tree_current", {}, locale) : "";
   return {
     id: `course:${course.ref}`,
     label: course.title,
@@ -69,7 +74,7 @@ function courseNode(course: LessonCourse, isCurrent: boolean): TreeNode {
 }
 
 /** The community subtree — one openable leaf per discovered bundle, or a single placeholder when none. */
-function communityNode(community: CommunityItem[]): TreeNode {
+function communityNode(community: CommunityItem[], locale: Locale): TreeNode {
   const children: TreeNode[] = community.map((c) => ({
     id: "community:" + c.ref,
     label: c.label,
@@ -80,8 +85,8 @@ function communityNode(community: CommunityItem[]): TreeNode {
   }));
   return {
     id: "community",
-    label: "Contributions de la classe / Community",
+    label: phrase("tree_community", {}, locale),
     icon: "organization",
-    children: children.length ? children : [{ id: "community:empty", label: "— aucune pour l'instant / none yet —", icon: "info" }],
+    children: children.length ? children : [{ id: "community:empty", label: phrase("tree_no_community", {}, locale), icon: "info" }],
   };
 }

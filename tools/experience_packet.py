@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
 import sys
 from collections import Counter
 from copy import deepcopy
@@ -53,6 +54,34 @@ EXECUTION_CLAIM_KEYS = {
     "reference_result",
     "run_result",
 }
+DEFAULT_REPLAY_RULE = {
+    "id": "rule_2err_replay_concept",
+    "when": {"consecutive_errors_same_concept": ">=2"},
+    "action": {"kind": "replay_current_scene", "reason": "errors_threshold"},
+    "modulator": "M1",
+    "explanation_short": "Deux erreurs sur ce concept : on reprend la scène avec un appui.",
+}
+ENGLISH_FUNCTION_WORDS = frozenset(
+    {
+        "and",
+        "are",
+        "as",
+        "by",
+        "for",
+        "from",
+        "is",
+        "of",
+        "that",
+        "the",
+        "this",
+        "to",
+        "was",
+        "were",
+        "which",
+        "with",
+    }
+)
+ACCENTED_CHARACTER = re.compile(r"[À-ÖØ-öø-ÿ]")
 
 
 class PacketError(ValueError):
@@ -111,6 +140,27 @@ def _load_json(path: Path, label: str) -> tuple[Any, bytes]:
 def _require_new_directory(path: Path) -> None:
     if path.exists():
         raise PacketError(f"output directory already exists: {path}")
+
+
+def _output_exists(path: Path) -> bool:
+    return path.exists() or path.is_symlink()
+
+
+def _require_output_permission(path: Path, force: bool, label: str) -> None:
+    if _output_exists(path) and not force:
+        raise PacketError(f"{label} already exists: {path}; use --force to overwrite it")
+
+
+def _remove_output(path: Path, label: str) -> None:
+    if not _output_exists(path):
+        return
+    try:
+        if path.is_symlink() or not path.is_dir():
+            path.unlink()
+        else:
+            shutil.rmtree(path)
+    except OSError as exc:
+        raise PacketError(f"cannot replace {label}: {exc}") from exc
 
 
 def _source_record(passage: dict[str, Any]) -> dict[str, Any]:
@@ -349,10 +399,22 @@ def _validate_packet(evidence: Any) -> dict[str, dict[str, Any]]:
 def _validate_plan_graph(plan: LessonPlan, allowed_sources: set[str]) -> tuple[set[str], set[str]]:
     objective_ids = _unique_ids([item.id for item in plan.learning_objectives], "objective")
     scene_ids = _unique_ids([item.id for item in plan.scene_outlines], "scene")
+    concept_ids = _unique_ids([item.id for item in plan.concepts], "concept")
+    for concept in plan.concepts:
+        unknown = set(concept.prerequisites) - concept_ids
+        if unknown:
+            raise PacketError(
+                f"concept {concept.id!r} references unknown prerequisite {sorted(unknown)[0]!r}"
+            )
     for scene in plan.scene_outlines:
         unknown = set(scene.objective_refs) - objective_ids
         if unknown:
             raise PacketError(f"scene {scene.id!r} references unknown objective {sorted(unknown)[0]!r}")
+        unknown_concepts = set(scene.concept_refs) - concept_ids
+        if unknown_concepts:
+            raise PacketError(
+                f"scene {scene.id!r} references unknown concept {sorted(unknown_concepts)[0]!r}"
+            )
         provenance = (scene.prov_derived_from or []) + (scene.dct_references or [])
         unknown_sources = set(provenance) - allowed_sources
         if unknown_sources:
@@ -536,10 +598,12 @@ def _validated_response(value: Any) -> AuthorResponse:
         raise PacketError(f"response does not match response.schema.json: {exc}") from exc
 
 
-def check_response(*, packet_dir: Path, response_path: Path, output_dir: Path) -> Path:
+def check_response(
+    *, packet_dir: Path, response_path: Path, output_dir: Path, force: bool = False
+) -> Path:
     """Validate an external author response and emit teacher-review artifacts."""
-    output_dir = output_dir.resolve()
-    _require_new_directory(output_dir)
+    output_dir = output_dir.absolute()
+    _require_output_permission(output_dir, force, "output directory")
     evidence, evidence_raw = _load_json(packet_dir / "evidence.json", "packet evidence")
     response_value, _ = _load_json(response_path, "author response")
     sources = _validate_packet(evidence)
@@ -558,6 +622,7 @@ def check_response(*, packet_dir: Path, response_path: Path, output_dir: Path) -
     _validate_embedded_evidence(plan, sources)
     _validate_links(response.source_links, sources, scene_ids)
     _validate_viewers(response.viewers, scene_ids, allowed_sources)
+    _remove_output(output_dir, "output directory")
     output_dir.mkdir(parents=True)
     (output_dir / "plan.json").write_bytes(_json_bytes(plan.model_dump(mode="json")))
     (output_dir / "evidence.json").write_bytes(evidence_raw)
@@ -663,6 +728,32 @@ def _is_unknown_license(license_id: str | None) -> bool:
     return normalized in {"unknown", "unspecified", "n/a", "none", "noassertion"}
 
 
+def _quote_language(quote: str, plan_language: str) -> str:
+    language = plan_language.lower().split("-", maxsplit=1)[0]
+    words = set(re.findall(r"[a-z]+", quote.lower()))
+    is_likely_english = (
+        language == "fr"
+        and ACCENTED_CHARACTER.search(quote) is None
+        and bool(words.intersection(ENGLISH_FUNCTION_WORDS))
+    )
+    return "en" if is_likely_english else "same as plan"
+
+
+def _source_languages(links: list[SourceLink], plan_language: str) -> str:
+    labels = dict.fromkeys(_quote_language(link.quote, plan_language) for link in links)
+    return ", ".join(labels) or "same as plan"
+
+
+def _human_review_lines(plan: LessonPlan) -> list[str]:
+    lines: list[str] = []
+    for scene in plan.scene_outlines:
+        if scene.notes and "TODO review" in scene.notes:
+            lines.append(f"- {scene.id}: {scene.notes}")
+        if scene.evidence_override == "skip":
+            lines.append(f"- {scene.id}: evidence_override=skip")
+    return lines
+
+
 def _warning_lines(plan: LessonPlan, sources: list[dict[str, Any]]) -> list[str]:
     lines: list[str] = []
     for source in sources:
@@ -677,6 +768,17 @@ def _warning_lines(plan: LessonPlan, sources: list[dict[str, Any]]) -> list[str]
             "WARN: scene type 'simulation' is not playable by LessonBundle 1.4; "
             "bundle will emit a TODO concept placeholder"
         )
+    context = _bundle_context(plan, [])
+    # intro and meta_checkpoint scenes carry no concept by design (nothing to master there);
+    # warning on them would train teachers to ignore the warning.
+    for scene in plan.scene_outlines:
+        if scene.type.value in ("intro", "meta_checkpoint"):
+            continue
+        if not _scene_concept_refs(scene, context):
+            lines.append(
+                f"WARN: scene {scene.id!r} reaches no concept; "
+                "a scene without a concept moves no mastery"
+            )
     return lines
 
 
@@ -691,6 +793,10 @@ def check_summary_lines(course_dir: Path) -> list[str]:
     unique_sources = _unique_sources(sources)
     lines = [
         "CHECK OK",
+        (
+            f"Plan language: {plan.language}; {len(links)} source quotes verified verbatim "
+            f"in {_source_languages(links, plan.language)}"
+        ),
         f"Scenes: {len(plan.scene_outlines)} ({count_text})",
         f"Concepts: {len(plan.concepts)}",
         f"Source links: {len(links)}",
@@ -704,13 +810,20 @@ def check_summary_lines(course_dir: Path) -> list[str]:
         for source in unique_sources
     )
     lines.extend(_warning_lines(plan, unique_sources))
+    human_review = _human_review_lines(plan)
+    if human_review:
+        lines.append("Not verifiable by quote:")
+        lines.extend(human_review)
     lines.append(f"Output: {course_dir.resolve()}")
     return lines
 
 
 def _bundle_concepts(plan: LessonPlan) -> list[dict[str, Any]]:
     if plan.concepts:
-        return [concept.model_dump(mode="json") for concept in plan.concepts]
+        return [
+            concept.model_dump(mode="json", exclude={"prerequisites"})
+            for concept in plan.concepts
+        ]
     return [
         {
             "id": objective.id,
@@ -727,6 +840,16 @@ def _links_by_scene(links: list[SourceLink]) -> dict[str, list[SourceLink]]:
     for link in links:
         grouped.setdefault(link.scene_id, []).append(link)
     return grouped
+
+
+def _bundle_context(plan: LessonPlan, links: list[SourceLink]) -> _BundleContext:
+    concepts = _bundle_concepts(plan)
+    return _BundleContext(
+        plan=plan,
+        objectives={objective.id: objective for objective in plan.learning_objectives},
+        links_by_scene=_links_by_scene(links),
+        concept_ids={concept["id"] for concept in concepts},
+    )
 
 
 def _known_concept_id(candidate: str, concept_ids: set[str]) -> str | None:
@@ -753,7 +876,8 @@ def _graph_concept_candidates(scene: SceneOutline, plan: LessonPlan) -> list[str
 
 
 def _scene_concept_refs(scene: SceneOutline, context: _BundleContext) -> list[str]:
-    candidates = list(scene.skos_concept_uris or [])
+    candidates = list(scene.concept_refs)
+    candidates.extend(scene.skos_concept_uris or [])
     for objective_id in scene.objective_refs:
         objective = context.objectives[objective_id]
         candidates.extend(objective.concept_uris or [])
@@ -838,7 +962,7 @@ def _build_quiz_scene(
 ) -> dict[str, Any]:
     return {
         **base,
-        "question": f"TODO: rédiger la question — {scene.title}",
+        "question": scene.notes or f"TODO: rédiger la question — {scene.title}",
         "choices": [
             {"id": "todo-correct", "text": "TODO: réponse correcte", "correct": True},
             {"id": "todo-distractor", "text": "TODO: distracteur", "correct": False},
@@ -951,7 +1075,10 @@ def _build_summary_audit_scene(
         "source_content": _source_context(scene.id, context),
         "ai_summary": "TODO: résumé IA à auditer",
         "claims": _placeholder_claims(scene, context, 5),
-        "model_correction": "TODO: résumé corrigé de référence",
+        "model_correction": (
+            "TODO: résumé corrigé de référence — il doit nommer chaque défaut attendu "
+            "(ici : « TODO: défaut attendu »)."
+        ),
         "rubric": dict(PLACEHOLDER_RUBRIC),
     }
 
@@ -1030,16 +1157,85 @@ def _bundle_metadata(plan: LessonPlan) -> dict[str, Any]:
     }
 
 
+def _concept_graph_nodes(concepts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": f"concept:{concept['id']}",
+            "node_kind": "concept",
+            "title": concept["title"],
+            "bloom_level": concept["bloom_level_target"],
+            "description": concept["description"],
+        }
+        for concept in concepts
+    ]
+
+
+def _prerequisite_graph_edges(plan: LessonPlan) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": f"prerequisite:{concept.id}:{prerequisite}",
+            "relation": "prerequisite_for",
+            # Engine convention: the dependent points to its prerequisite.
+            "source": f"concept:{concept.id}",
+            "target": f"concept:{prerequisite}",
+        }
+        for concept in plan.concepts
+        for prerequisite in concept.prerequisites
+    ]
+
+
+def _merge_generated_graph_parts(
+    graph: dict[str, Any], nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
+) -> None:
+    existing_nodes = graph.get("nodes")
+    existing_edges = graph.get("edges")
+    if not isinstance(existing_nodes, list) or not isinstance(existing_edges, list):
+        return
+    node_ids = {node.get("id") for node in existing_nodes if isinstance(node, dict)}
+    existing_nodes.extend(node for node in nodes if node["id"] not in node_ids)
+    edge_pairs = {
+        (edge.get("relation"), edge.get("source"), edge.get("target"))
+        for edge in existing_edges
+        if isinstance(edge, dict)
+    }
+    edge_ids = {edge.get("id") for edge in existing_edges if isinstance(edge, dict)}
+    for edge in edges:
+        pair = (edge["relation"], edge["source"], edge["target"])
+        if pair in edge_pairs:
+            continue
+        base_id = edge["id"]
+        suffix = 2
+        while edge["id"] in edge_ids:
+            edge["id"] = f"{base_id}:{suffix}"
+            suffix += 1
+        existing_edges.append(edge)
+        edge_pairs.add(pair)
+        edge_ids.add(edge["id"])
+
+
+def _bundle_graph(plan: LessonPlan, concepts: list[dict[str, Any]]) -> dict[str, Any]:
+    nodes = _concept_graph_nodes(concepts)
+    edges = _prerequisite_graph_edges(plan)
+    if plan.learning_workflow_graph is not None:
+        graph = deepcopy(plan.learning_workflow_graph)
+        _merge_generated_graph_parts(graph, nodes, edges)
+        return graph
+    return {
+        "schema_version": "1.0",
+        "course_id": _bundle_id(plan.id),
+        "nodes": nodes,
+        "edges": edges,
+    }
+
+
 def _bundle_payload(
-    plan: LessonPlan, links: list[SourceLink], validated_by: str | None
+    plan: LessonPlan,
+    links: list[SourceLink],
+    validated_by: str | None,
+    include_default_rules: bool,
 ) -> dict[str, Any]:
     concepts = _bundle_concepts(plan)
-    context = _BundleContext(
-        plan=plan,
-        objectives={objective.id: objective for objective in plan.learning_objectives},
-        links_by_scene=_links_by_scene(links),
-        concept_ids={concept["id"] for concept in concepts},
-    )
+    context = _bundle_context(plan, links)
     payload: dict[str, Any] = {
         "schema_version": "1.4",
         "bundle_id": _bundle_id(plan.id),
@@ -1047,13 +1243,11 @@ def _bundle_payload(
         "metadata": _bundle_metadata(plan),
         "concepts": concepts,
         "scenes": [_build_bundle_scene(scene, context) for scene in plan.scene_outlines],
-        "rules": [],
+        "rules": [deepcopy(DEFAULT_REPLAY_RULE)] if include_default_rules else [],
         "validated_by": (validated_by or DEFAULT_VALIDATED_BY).strip() or DEFAULT_VALIDATED_BY,
         "validated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "learning_workflow_graph": _bundle_graph(plan, concepts),
     }
-    if plan.learning_workflow_graph is not None:
-        # Preserve engine semantics: source is dependent; target is prerequisite.
-        payload["learning_workflow_graph"] = deepcopy(plan.learning_workflow_graph)
     return payload
 
 
@@ -1066,14 +1260,21 @@ def _validated_bundle_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_lesson_bundle(
-    *, course_dir: Path, output_path: Path, validated_by: str | None = None
+    *,
+    course_dir: Path,
+    output_path: Path,
+    validated_by: str | None = None,
+    force: bool = False,
+    include_default_rules: bool = True,
 ) -> Path:
     """Build a schema-valid LessonBundle 1.4 skeleton from a checked course."""
-    output_path = output_path.resolve()
-    if output_path.exists():
-        raise PacketError(f"output file already exists: {output_path}")
+    output_path = output_path.absolute()
+    _require_output_permission(output_path, force, "output file")
     plan, _, _, links = _load_checked_course(course_dir)
-    bundle = _validated_bundle_payload(_bundle_payload(plan, links, validated_by))
+    bundle = _validated_bundle_payload(
+        _bundle_payload(plan, links, validated_by, include_default_rules)
+    )
+    _remove_output(output_path, "output file")
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(_json_bytes(bundle))
@@ -1096,11 +1297,18 @@ def _parser() -> argparse.ArgumentParser:
     check.add_argument("--packet", type=Path, required=True)
     check.add_argument("--response", type=Path, required=True)
     check.add_argument("--out", type=Path, required=True)
+    check.add_argument("--force", action="store_true", help="replace an existing output")
     check.add_argument("--quiet", action="store_true", help="print only the output path")
     bundle = commands.add_parser("bundle", help="build a playable LessonBundle skeleton")
     bundle.add_argument("--course", type=Path, required=True)
     bundle.add_argument("--out", type=Path, required=True)
     bundle.add_argument("--validated-by")
+    bundle.add_argument("--force", action="store_true", help="replace an existing output")
+    bundle.add_argument(
+        "--no-default-rules",
+        action="store_true",
+        help="omit the default two-error replay rule",
+    )
     return parser
 
 
@@ -1122,12 +1330,15 @@ def main(argv: list[str] | None = None) -> int:
                 packet_dir=args.packet,
                 response_path=args.response,
                 output_dir=args.out,
+                force=args.force,
             )
         else:
             output = build_lesson_bundle(
                 course_dir=args.course,
                 output_path=args.out,
                 validated_by=args.validated_by,
+                force=args.force,
+                include_default_rules=not args.no_default_rules,
             )
     except SourceQuoteError as exc:
         print(f"ERROR: {exc}")

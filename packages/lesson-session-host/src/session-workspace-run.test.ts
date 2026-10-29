@@ -99,6 +99,9 @@ describe("SessionWorkspace — learner-time run protocol (run.json / run_result.
     const a = await ws.ingest(sessionId);
     expect(a.transition).toBe("awaiting_run"); // ingestRun ignores response.json -> still waiting, no wedge
     expect(a.done).toBe(false);
+    expect(readFileSync(join(dir, "feedback.md"), "utf8")).toContain(
+      "run required: call get_run_manifest, run it, then submit_run_result",
+    );
 
     // the correct run_result.json then advances
     writeFileSync(join(dir, "run_result.json"), JSON.stringify({ ran: true, passed: true, artifacts: [], checks: [] }));

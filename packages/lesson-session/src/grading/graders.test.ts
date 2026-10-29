@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import type { Scene } from "@studium/lesson-bundle-schema";
 import { grade } from "./index.js";
+import { verdictDeck } from "./deck.js";
 import { StubCritiqueEvaluator } from "../adapters/critique-evaluator.js"; // used in Task 5 tests
 
 const deps = { critiqueEvaluator: new StubCritiqueEvaluator() };
@@ -36,6 +37,42 @@ describe("grade() — simple graders", () => {
   });
   it("wrong input kind → SceneGradingError", async () => {
     await expect(grade(quiz, { kind: "ack" }, deps)).rejects.toThrow(/quiz/);
+  });
+});
+
+describe("grade() — verdict deck calibration", () => {
+  const scene = {
+    id: "deck-overdistrust", type: "spot_the_flaw", title: "t", objective_refs: [], concept_refs: ["c1"],
+    estimated_seconds: 60, adaptation_hooks: [], flawed_content: "A flawed analysis.",
+    claims: [
+      { id: "f1", text: "flaw 1", flaws_expected: ["flaw 1"] },
+      { id: "f2", text: "flaw 2", flaws_expected: ["flaw 2"] },
+      { id: "f3", text: "flaw 3", flaws_expected: ["flaw 3"] },
+    ],
+    sound_claims: [{ id: "s1", text: "sound 1" }, { id: "s2", text: "sound 2" }],
+    verdict_deck: true, model_correction: "corrected",
+    rubric: { completeness: 0.6, evidence_quality: 0.3, tone: 0.1 },
+  } as Extract<Scene, { type: "spot_the_flaw" }>;
+
+  it("fails an all-flawed verdict on a deck with three flaws and two sound claims", async () => {
+    const verdicts = verdictDeck(scene.claims, scene.sound_claims ?? [], scene.id)
+      .map(({ token }) => ({ token, flagged: true }));
+
+    const result = await grade(scene, { kind: "flaw_verdicts", verdicts }, deps);
+
+    expect(result.signal).toMatchObject({ kind: "answer_submitted", correct: false });
+    expect(result.detail).toEqual({ caught: 3, planted: 3, false_positives: 2, sound_total: 2 });
+  });
+
+  it("passes at the sound-claim restraint boundary", async () => {
+    const deck = verdictDeck(scene.claims, scene.sound_claims ?? [], scene.id);
+    const verdicts = deck.filter((item) => item.flawed || item.text === "sound 1")
+      .map(({ token }) => ({ token, flagged: true }));
+
+    const result = await grade(scene, { kind: "flaw_verdicts", verdicts }, deps);
+
+    expect(result.signal).toMatchObject({ kind: "answer_submitted", correct: true });
+    expect(result.detail).toEqual({ caught: 3, planted: 3, false_positives: 1, sound_total: 2 });
   });
 });
 

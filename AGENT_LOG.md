@@ -4,6 +4,40 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-10-29 (soir) — vague 2 : neuf correctifs appliqués, non commités
+
+Demande propriétaire : « Oui, corrige » après le rapport de la vague 2
+(`studium_dev/docs/superpowers/audits/2026-10-29-web-cases-wave2-trial.md`, §7 → §9).
+Branche `fix/2026-10-29-harness-trial` sur eb5b1e1, arbre sale (50 fichiers, 42 files changed, 1819 insertions(+), 453 deletions(-)), **aucun
+commit, aucun push**. Quatre missions Codex sol-max (E moteur, F hôte/chargeur/MCP/identité,
+G outils enseignant, H catalogue fr/en), intégrées par le lead.
+
+Unités : `RunRequiredError` sur une reproduction sans run attesté (W3) ; mémoire de passage
+des prérequis — porte passée si dossier sans faute ou item réussi pendant un détour de graphe,
+mémorisée pour la session, item non vu préféré (W1) ; `nav(decision)` (W2) ; chargeur limité aux
+nuls optionnels hérités (W4) ; deck de verdicts : détection ≥ 0,6 et rejet ≥ 0,5, `verdict.detail`
+(W5) ; prérequis inévaluable annoncé une fois (W6) ; confiance pré/post (W8) ; saut sur maîtrise
+limité à intro/concept/quiz (W9) ; retour sur chaque scène notée hors quiz via `phrases.ts` (W10) ;
+catalogue fr/en par `metadata.language`, `Presentation.locale`, chrome hôte / canal fichier /
+extension (W11) ; `git describe --dirty` dans le build (W12) ; plan 1.x `Concept.prerequisites` +
+`SceneOutline.concept_refs`, `check` qui alerte, `bundle` qui émet refs, arêtes et règle (W13) ;
+guide harnais (W14) ; `--force` (W15) ; `returns_to` réel (W16) ; `skipped_scene_ids`,
+`summary.mastery`, `scenes_detoured` (W17).
+
+Corrections du lead sur les rendus : E marquait un prérequis « passé » à toute réponse juste
+(la persona *struggling* d'`eval/tests/test_drive_integration.py` n'était plus gardée ni
+escaladée) ; G alertait sur `intro`/`meta_checkpoint` ; H laissait en anglais les entrées `fr`
+des explications du moteur et des mots du retour.
+
+Vérification : `pnpm -r --no-bail test` vert sauf `host.review.test.ts › FSRS schedule`
+(préexistant, date) ; `tools/pytest_all.py` 16 suites / 0 échec ; extension typecheck, build,
+14 pilotes ; rejeu des trois cas v2→v4 contre le dist reconstruit et sonde run-required
+(`~/git/studium_eval/trials/2026-10-29-web-cases-wave2/logs/`). Attentes modifiées :
+`session.universe.test.ts` (état initial explicite au lieu de trois réponses, puisque le passage
+de porte s'en mêle). Pas de VSIX.
+
+---
+
 ## 2026-10-29 — essai trois cas web, correctifs harnais et VS Code
 
 Demande propriétaire : jouer Studium sur trois cas d'enseignement pris sur le web

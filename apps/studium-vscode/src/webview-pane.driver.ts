@@ -10,6 +10,7 @@ import { JSDOM } from "jsdom";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { browserPhrases, type Locale } from "./phrases.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const paneSrc = readFileSync(resolve(here, "..", "media", "artifact-pane.js"), "utf8");
@@ -40,7 +41,10 @@ function mount() {
   };
 }
 
-const baseState = (scene: any, extra: any = {}) => ({ scene, scene_assets: [], progress: { index: 1, total: 9 }, ...extra });
+const baseState = (scene: any, extra: any = {}) => {
+  const locale: Locale = extra.locale === "en" ? "en" : "fr";
+  return { scene, scene_assets: [], progress: { index: 1, total: 9 }, strings: browserPhrases(locale), ...extra };
+};
 
 // Submits a free-text scene: fill the textarea, click the primary button, return the captured input.
 function submitFreeText(scene: any, answer: string) {
@@ -275,6 +279,24 @@ function submitFreeText(scene: any, answer: string) {
   m.post({ type: "error", message: "BOOM_REASON" });
   expect(!!m.$(".error-pane") && m.text().includes("BOOM_REASON"), "an error message renders an .error-pane with the reason");
   expect(!m.$(".scene-head"), "the error state replaces the scene (no stale scene left behind)");
+}
+
+// --- 11) bundle locale controls the artifact-pane verdict chrome -------------------------------------
+{
+  const recorded = mount();
+  recorded.render(baseState({ type: "concept", title: "C", markdown: "x" },
+    { locale: "en", verdict: { graded: false } }));
+  expect(recorded.text().includes("Answer recorded"), "locale en renders the ungraded verdict in English");
+
+  const correct = mount();
+  correct.render(baseState({ type: "concept", title: "C", markdown: "x" },
+    { locale: "en", verdict: { graded: true, correct: true } }));
+  expect(correct.text().includes("Correct"), "locale en renders the correct verdict in English");
+
+  const incorrect = mount();
+  incorrect.render(baseState({ type: "concept", title: "C", markdown: "x" },
+    { locale: "en", verdict: { graded: true, correct: false } }));
+  expect(incorrect.text().includes("Incorrect"), "locale en renders the incorrect verdict in English");
 }
 
 if (failures.length) {
