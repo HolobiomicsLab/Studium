@@ -8,7 +8,8 @@
 // `model_*` reveals. The webview only DOM-hides these, so a determined learner can read them off the
 // transport. `publicScene` returns a client-safe PROJECTION with those fields removed — generically,
 // over the whole Scene union — while keeping everything the learner needs to attempt the scene
-// (question + choice text, flawed_content, prompt, artifacts/render_assets, scenario fields, hints).
+// (question + choice text, flawed_content, prompt, artifacts/render_assets, scenario fields). Hints
+// and quiz feedback are NOT part of it: they are metered (request_hint) or earned (verdict).
 //
 // The SERVER keeps the full scene (the graders read claims/key_points/correct) — only this client
 // projection is redacted. Centralized field list ⇒ a future scene type that reuses these field names
@@ -44,6 +45,14 @@ export const REDACTED_SCENE_FIELDS = [
   "model_answer",
   "model_prompt",
   "model_response",
+  // Quiz: the two feedback texts restate the right answer ("Oui : α ≤ p-value, on ne rejette pas
+  // H0…") and the hints lead to it — all three were readable BEFORE answering, over MCP and in
+  // task.md. Observed on the 2026-10-29 web-cases trial by two independent harnesses. The matching
+  // feedback now travels on the transition's `verdict` after the answer; hints stay behind
+  // `request_hint`, which meters them (M5).
+  "feedback_correct",
+  "feedback_incorrect",
+  "hints",
 ] as const;
 
 /**

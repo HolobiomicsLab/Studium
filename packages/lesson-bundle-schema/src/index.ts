@@ -57,6 +57,8 @@ export const LessonBundleSchema = z.object({
   validated_by: z.string().min(3),
   validated_at: z.string().datetime(),
   assessment_blueprint: AssessmentBlueprintSchema.optional(),
+  /** For `prerequisite_for`, `source` is the dependent concept and `target` is its prerequisite.
+   * This engine convention is consumed by `packages/lesson-session/src/graph-nav.ts`, so reverse an edge written in the relation name's natural reading. */
   learning_workflow_graph: LearningWorkflowGraphSchema.nullish(),
   universes: UniversesSchema.nullish(),
 });

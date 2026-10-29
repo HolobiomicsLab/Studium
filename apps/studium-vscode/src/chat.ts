@@ -78,7 +78,8 @@ async function doAnswer(stream: vscode.ChatResponseStream, prompt: string): Prom
     chatLesson = null;
     return;
   }
-  if (t.kind === "replay" || t.kind === "remediate_alt") stream.markdown(`↻ _On revoit cette étape ensemble : ${t.reason || ""}_\n\n`);
+  if (t.verdict?.feedback) stream.markdown(`${t.verdict.correct === false ? "✗" : "✓"} ${t.verdict.feedback}\n\n`);
+  if (t.kind === "replay" || t.kind === "remediate_alt" || t.kind === "remediate") stream.markdown(`↻ _On revoit cette étape ensemble : ${t.reason || ""}_\n\n`);
   present(stream, t.presentation);
 }
 

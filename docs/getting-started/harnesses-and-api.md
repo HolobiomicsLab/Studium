@@ -32,6 +32,17 @@ claude mcp add --transport stdio --scope project --env BUNDLES_ROOT=/ABS/PATH/st
 claude mcp list
 ```
 
+En mode non interactif (`claude -p`), le serveur se passe sur la ligne de commande
+et les outils doivent être autorisés explicitement (vérifié le 2026-10-29,
+Claude Code 2.1.304 ; une séance de six scènes coûte de l'ordre de 0,15 $ avec
+un modèle Sonnet) :
+
+```sh
+claude -p --mcp-config mcp.studium.json --strict-mcp-config \
+  --allowedTools "mcp__studium__*" --permission-mode dontAsk --max-budget-usd 2 \
+  "Appelle get_server_info, puis start_lesson_session sur atomistique-l1/lesson.json …"
+```
+
 Inspecter la connexion avec `/mcp`. Les paramètres avant le nom du serveur et
 la structure `mcpServers` suivent la [documentation Claude Code MCP](https://code.claude.com/docs/en/mcp).
 Lire le skill Studium puis utiliser le prompt de [première séance](../tutorials/first-lesson.md).
@@ -49,6 +60,32 @@ codex mcp list
 Ne pas écraser une configuration existante. Remplacer les chemins absolus et
 vérifier les outils dans la session après reconnexion. Référence :
 [MCP dans Codex](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
+
+**Politique d'approbation.** Un profil Codex à `approval_policy = "never"` refuse
+*chaque* appel d'outil MCP d'un serveur stdio local avec
+`MCP tool call requires approval, but approval policy is never` (observé le
+2026-10-29, Codex CLI 0.154.0). En mode non interactif, lancer avec
+`--approve-for-me` (incompatible avec `-s/--sandbox`), ou laisser la politique
+`on-request` d'une session interactive répondre aux demandes. Le serveur Studium
+n'écrit que dans `STUDIUM_DATA_DIR` (état durable de l'apprenant) ; il n'exécute
+jamais de capsule.
+
+Pour un essai hors configuration (bundles d'un autre dossier), tout se passe
+par `-c` :
+
+```sh
+codex exec --approve-for-me --skip-git-repo-check -C /ABS/WORKDIR \
+  -c 'mcp_servers.studium.command="node"' \
+  -c 'mcp_servers.studium.args=["/ABS/PATH/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]' \
+  -c 'mcp_servers.studium.env={BUNDLES_ROOT="/ABS/BUNDLES",LITELLM_BASE_URL="",STUDIUM_DATA_DIR="/ABS/DATA"}' \
+  - < prompt.md
+```
+
+**Test de fumée (tout harnais).** Avant une séance, demander au harnais d'appeler
+`get_server_info` : la réponse donne la version, l'origine du build (`source` ou
+`bundled`, avec sa date) et la liste des outils. Un `dist/lesson-mcp.cjs` ou un
+VSIX reconstruits avant le dernier `git pull` manquent des outils récents sans
+autre symptôme ; `pnpm --filter studium-vscode build` les met à jour.
 
 ## Cursor et OpenCode
 

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { SessionHost } from "@studium/lesson-session-host";
+import packageJson from "../package.json" with { type: "json" };
 import { buildMcpServer } from "./server.js";
 
 const FIXTURES = resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "fixtures");
@@ -44,12 +45,15 @@ async function connect(bundlesRoot: string) {
 }
 
 describe("lesson-mcp tools", () => {
-  it("lists the lesson tools", async () => {
+  it("reports its package version and complete sorted tool surface", async () => {
     const client = await connect(bundlesDir());
-    const names = (await client.listTools()).tools.map((t) => t.name);
-    for (const n of ["start_lesson_session", "get_current_scene", "submit_response", "get_scene_artifacts", "request_hint", "submit_turn", "explain_last_adaptation", "get_session_state", "end_session", "get_run_manifest", "submit_run_result", "get_next_reinforcement"]) {
-      expect(names).toContain(n);
-    }
+    const names = (await client.listTools()).tools.map((tool) => tool.name).sort();
+    const info = parse(await client.callTool({ name: "get_server_info", arguments: {} }) as never);
+    expect(info["version"]).toBe(packageJson.version);
+    expect(info["tools"]).toEqual(names);
+    expect(info["tools"]).toEqual([...names].sort());
+    expect(names).toContain("get_operator_context");
+    expect(names).toContain("get_server_info");
   });
   it("get_next_reinforcement routes FSRS: null when fresh, the covering scene once a mastered concept decays", async () => {
     const client = await connect(bundlesDir());

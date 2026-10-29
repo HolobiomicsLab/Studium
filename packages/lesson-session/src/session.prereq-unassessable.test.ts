@@ -172,9 +172,9 @@ describe("graphAwareNextIndex — the learner's path does not move", () => {
     const spent = graphAwareNextIndex(routable, 0, LWG as never, {}, 0.8, false, {}, {
       "concept:base": MAX_PREREQ_DETOURS,
     });
-    expect(spent).toEqual({ index: 1, reason: "gate_released" });
+    expect(spent).toEqual({ index: 1, reason: "gate_released", gated: 1 });
     const fresh = graphAwareNextIndex(routable, 0, LWG as never, {}, 0.8, false, {}, {});
-    expect(fresh).toEqual({ index: 0, reason: "remediate" });
+    expect(fresh).toEqual({ index: 0, reason: "remediate", gated: 1 });
   });
 
   it("an AVAILABLE concept is still a plain advance — the new reason is not overreaching", () => {

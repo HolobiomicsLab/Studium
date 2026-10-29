@@ -64,6 +64,45 @@ présente la provenance ; il n'exécute pas le code décrit et ne transforme pas
 un draft en cours approuvé. Voir le [guide de revue](../guides/mystra-reviewer.md).
 Ce serveur local n'est pas un portail de classe authentifié à exposer sur Internet.
 
+## Du brouillon au bundle jouable
+
+`check` affiche désormais le nombre de scènes par type, les concepts, les liens
+source, les passages cités ou non cités et la licence de chaque source. Une ligne
+`WARN` demande une revue pour les licences `NC`, `ND` ou inconnues et pour une
+ancienne scène `simulation`, que le runtime 1.4 ne sait pas jouer. Une citation
+qui n'est pas une sous-chaîne exacte de son passage produit `ERROR` et un code de
+sortie 1. Pour un script qui dépend de l'ancienne sortie sur une seule ligne,
+ajouter `--quiet` à `check`.
+
+Après la revue du dossier vérifié, créer un squelette exécutable sans prétendre
+qu'il est approuvé :
+
+```sh
+.venv/bin/python tools/experience_packet.py bundle --course /ABS/PATH/courses/mon-cours --out /ABS/PATH/bundles/mon-cours/lesson.json
+```
+
+Le fichier est un `LessonBundle` 1.4 avec une scène par scène du plan, `rules: []`
+et, par défaut, `validated_by: "DRAFT — not validated"`. Les champs de contenu à
+rédiger portent `TODO:` ; le quiz contient deux choix factices, un seul marqué
+correct, et aucun indice. Les scènes `explain_back`, `comparison`,
+`summary_audit`, `prompt_practice` et `communication_sim` reprennent les objectifs
+du plan comme points à travailler. Une ancienne `simulation` devient un concept
+`TODO:` afin que le squelette reste jouable : l'enseignant doit choisir une scène
+1.4 et fournir le support interactif avant diffusion. Si le plan contient un
+graphe, une arête `prerequisite_for` va du concept dépendant (`source`) vers son
+prérequis (`target`).
+
+Valider la forme puis faire un essai local :
+
+```sh
+apps/lesson-mcp/node_modules/.bin/tsx tools/bundle_validate.ts /ABS/PATH/bundles/mon-cours/lesson.json
+```
+
+`--validated-by "Nom"` renseigne seulement la trace demandée ; l'option ne réalise
+ni revue scientifique ni approbation. Les capsules de reproduction peuvent avoir
+leurs propres dépendances et doivent être testées dans l'environnement déclaré par
+leur manifeste, qui n'est pas nécessairement le `.venv` de Studium.
+
 ## Interface auteur et API : état actuel
 
 L'interface auteur existe, mais ne constitue pas encore un assistant de publication

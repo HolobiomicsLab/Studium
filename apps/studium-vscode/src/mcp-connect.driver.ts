@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, setLessonMcpLog, type LogSink } from "./mcp-connect.js";
+import { describeServerLaunch, resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, serverInfoLine, setLessonMcpLog, type LogSink } from "./mcp-connect.js";
 
 const failures: string[] = [];
 let checks = 0;
@@ -103,6 +103,8 @@ console.log(`OK — mcp-connect (resolveTsx + parseToolResult + stderr diagnosti
   const launch = resolveServerLaunch("/no/such/extension/path", repoRoot);
   expect(launch.args[0] === "src/index.ts" && launch.cwd.endsWith("apps/lesson-mcp"),
     "resolveServerLaunch prefers the repo checkout (tsx on live sources)");
+  expect(describeServerLaunch(launch) === `source (${resolve(launch.cwd, "src/index.ts")})`,
+    "describeServerLaunch names the resolved source entry path");
 }
 
 // 9) resolveServerLaunch: no repo -> the bundled server next to the extension, run as node.
@@ -115,6 +117,8 @@ console.log(`OK — mcp-connect (resolveTsx + parseToolResult + stderr diagnosti
     "resolveServerLaunch falls back to the bundled server via the host executable");
   expect(launch.env?.ELECTRON_RUN_AS_NODE === "1",
     "bundled launch sets ELECTRON_RUN_AS_NODE so the Electron host runs it as node");
+  expect(describeServerLaunch(launch) === "bundled (dist/lesson-mcp.cjs)",
+    "describeServerLaunch names the embedded bundle");
 }
 
 // 10) resolveServerLaunch: neither -> an actionable error naming the setting.
@@ -123,6 +127,21 @@ console.log(`OK — mcp-connect (resolveTsx + parseToolResult + stderr diagnosti
   try { resolveServerLaunch("/no/such/extension", "/no/such/repo"); }
   catch (e: any) { msg = String(e.message); }
   expect(msg.includes("studium.repoRoot"), "missing-everything error names the studium.repoRoot setting");
+}
+
+// 11) get_server_info is rendered as one diagnostic line with build and runtime identity.
+{
+  const line = serverInfoLine({
+    name: "studium-lesson",
+    version: "0.1.0",
+    build: { origin: "bundled", built_at: "2026-10-29T09:30:00Z", git_sha: "33bf561" },
+    tools: ["get_server_info", "start_lesson_session"],
+    bundles_root: "/lessons",
+    data_dir: null,
+    model_backend: "none",
+  });
+  expect(line === "[studium-lesson] v0.1.0 bundled 2026-10-29T09:30:00Z sha=33bf561 tools=2 bundles_root=/lessons data_dir=none model_backend=none",
+    `serverInfoLine formats the complete payload (got: ${line})`);
 }
 
 if (failures.length) { console.error(`FAIL (${failures.length}/${checks}):`); for (const f of failures) console.error("  - " + f); process.exit(1); }

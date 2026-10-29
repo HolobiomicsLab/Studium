@@ -8,8 +8,8 @@
 import * as vscode from "vscode";
 import { readFileSync, existsSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { join, resolve } from "node:path";
-import { connectLessonMcp, resolveServerLaunch, setLessonMcpLog } from "./mcp-connect.js";
+import { isAbsolute, join, relative, resolve } from "node:path";
+import { connectLessonMcp, describeServerLaunch, resolveLogSink, resolveServerLaunch, serverInfoLine, setLessonMcpLog } from "./mcp-connect.js";
 import { registerStudiumChat } from "./chat.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
@@ -19,7 +19,8 @@ import { discoverCommunityBundles, toPickItems } from "./community.js";
 import { calibrationVerdicts, type CalibrationVerdict } from "./calibration.js";
 import { runManifestToTaskSpec, buildRunResult, extractLandmark, type RunManifest, type RunResult } from "./run-task.js";
 import { StudiumTreeProvider } from "./tree.js";
-import type { CommunityItem } from "./lesson-tree.js";
+import { buildLessonTree, type CommunityItem, type TreeNode } from "./lesson-tree.js";
+import { discoverCoursesInRoot, needsLessonPicker, toLessonPickerChoices, type LessonCourse, type LessonPickerChoice } from "./lesson-picker.js";
 
 type Json = Record<string, any>;
 
@@ -35,7 +36,47 @@ let activeLesson: {
 } | null = null;
 
 /** The activity-bar sidebar; module-level so pushScene can toggle its "reproduction scene is live" state. */
-let treeProvider: StudiumTreeProvider | undefined;
+let treeProvider: StudiumCoursesTreeProvider | undefined;
+
+interface TreeContents {
+  courses: LessonCourse[];
+  currentRef: string;
+  community: CommunityItem[];
+}
+
+/** Add course-aware root shaping and descriptions without changing the shared thin tree provider. */
+class StudiumCoursesTreeProvider extends StudiumTreeProvider {
+  private onReproductionScene = false;
+
+  constructor(private readonly discoverContents: () => TreeContents) {
+    super(() => discoverContents().community);
+  }
+
+  override setReproductionScene(on: boolean): void {
+    this.onReproductionScene = on;
+    super.setReproductionScene(on);
+  }
+
+  override getTreeItem(node: TreeNode): vscode.TreeItem {
+    const item = super.getTreeItem(node);
+    item.description = node.description;
+    return item;
+  }
+
+  override getChildren(node?: TreeNode): TreeNode[] {
+    if (node) return node.children ?? [];
+    const contents = this.safeDiscoverContents();
+    return buildLessonTree({ ...contents, onReproductionScene: this.onReproductionScene });
+  }
+
+  private safeDiscoverContents(): TreeContents {
+    try {
+      return this.discoverContents();
+    } catch {
+      return { courses: [], currentRef: "", community: [] };
+    }
+  }
+}
 
 /** Output channel every lesson-mcp subprocess writes its stderr to (View > Output > this name). */
 const MCP_OUTPUT_CHANNEL = "Studium — lesson-mcp";
@@ -46,12 +87,13 @@ export function activate(context: vscode.ExtensionContext) {
   const mcpOutput = vscode.window.createOutputChannel(MCP_OUTPUT_CHANNEL);
   context.subscriptions.push(mcpOutput);
   setLessonMcpLog((line) => mcpOutput.appendLine(line));
-  treeProvider = new StudiumTreeProvider(() => discoverForTree(context));
+  treeProvider = new StudiumCoursesTreeProvider(() => discoverForTree(context));
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("studiumLessons", treeProvider),
     // The tree's community leaves open a specific bundle by ref; the palette entry opens the default.
-    vscode.commands.registerCommand("studium.openLesson", (ref?: unknown) =>
-      openLesson(context, typeof ref === "string" ? ref : undefined)),
+    vscode.commands.registerCommand("studium.openLesson", (ref?: unknown, source?: unknown) =>
+      openLesson(context, typeof ref === "string" ? ref : undefined, source === "community" ? "community" : "lesson")),
+    vscode.commands.registerCommand("studium.pickLesson", () => pickLesson(context)),
     vscode.commands.registerCommand("studium.communityContributions", () => openCommunityContribution(context)),
     vscode.commands.registerCommand("studium.runReproduction", () => runReproductionScene()),
     vscode.commands.registerCommand("studium.openWalkthrough", () => openWalkthrough(context)),
@@ -69,11 +111,15 @@ function openWalkthrough(context: vscode.ExtensionContext) {
   vscode.commands.executeCommand("workbench.action.openWalkthrough", `${context.extension.id}#studium.gettingStarted`, false);
 }
 
-/** The community bundles the sidebar lists, discovered the same way the quick-pick command does. */
-function discoverForTree(context: vscode.ExtensionContext): CommunityItem[] {
-  const root = resolveBundlesRoot(context);
+/** Courses and community bundles shown in the sidebar, discovered from their configured roots. */
+function discoverForTree(context: vscode.ExtensionContext): TreeContents {
+  const lessonRoot = resolveLessonBundlesRoot(context);
+  const communityRoot = resolveCommunityBundlesRoot(context);
   const canonicalRef = cfg<string>("bundleRef", "atomistique-l1/lesson.json");
-  return toPickItems(discoverCommunityBundles(root, canonicalRef)).map((p) => ({ ref: p.ref, label: p.label }));
+  const currentRef = configuredValue<string>("bundleRef")?.trim() ?? "";
+  const community = toPickItems(discoverCommunityBundles(communityRoot, canonicalRef))
+    .map((pick) => ({ ref: pick.ref, label: pick.label }));
+  return { courses: discoverCoursesInRoot(lessonRoot), currentRef, community };
 }
 
 // The `.studium-session/` FILE channel (packages/lesson-session-host/src/session-workspace.ts): the
@@ -261,14 +307,29 @@ function cfg<T>(key: string, fallback: T): T {
   return v === undefined || v === "" ? fallback : v;
 }
 
-/** Resolve the runtime BUNDLES_ROOT exactly as openLesson does, so discovery and lesson-open agree
- * on the same root. The community-bundles root override (studium.communityBundlesRoot) lets a
- * deployment point discovery at the COURSE bundles root the scene-synth emit path writes into, when
- * that differs from the lesson BUNDLES_ROOT. */
-function resolveBundlesRoot(context: vscode.ExtensionContext): string {
+/** Return only an explicitly stored setting, excluding package defaults. */
+function configuredValue<T>(key: string): T | undefined {
+  const inspected = vscode.workspace.getConfiguration("studium").inspect<T>(key);
+  return inspected?.workspaceFolderValue ?? inspected?.workspaceValue ?? inspected?.globalValue;
+}
+
+/** Resolve the lesson BUNDLES_ROOT used by course discovery and canonical lesson opens. */
+function resolveLessonBundlesRoot(context: vscode.ExtensionContext): string {
   const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
-  const lessonBundlesRoot = cfg<string>("bundlesRoot", join(repoRoot, "fixtures"));
-  return cfg<string>("communityBundlesRoot", lessonBundlesRoot);
+  return cfg<string>("bundlesRoot", join(repoRoot, "fixtures"));
+}
+
+/** Resolve the optional community root while preserving the lesson root as its fallback. */
+function resolveCommunityBundlesRoot(context: vscode.ExtensionContext): string {
+  return cfg<string>("communityBundlesRoot", resolveLessonBundlesRoot(context));
+}
+
+function bundleExists(bundlesRoot: string, bundleRef: string): boolean {
+  const root = resolve(bundlesRoot);
+  const candidate = resolve(root, bundleRef);
+  const fromRoot = relative(root, candidate);
+  if (!fromRoot || isAbsolute(fromRoot) || fromRoot === ".." || fromRoot.startsWith("../") || fromRoot.startsWith("..\\")) return false;
+  return existsSync(candidate);
 }
 
 /**
@@ -281,7 +342,7 @@ function resolveBundlesRoot(context: vscode.ExtensionContext): string {
  * pseudonym-scrubbed; the picker shows only the neutral item id).
  */
 async function openCommunityContribution(context: vscode.ExtensionContext) {
-  const bundlesRoot = resolveBundlesRoot(context);
+  const bundlesRoot = resolveCommunityBundlesRoot(context);
   const canonicalRef = cfg<string>("bundleRef", "atomistique-l1/lesson.json");
   let bundles;
   try {
@@ -305,12 +366,79 @@ async function openCommunityContribution(context: vscode.ExtensionContext) {
   if (!chosen) return; // dismissed
   // Open the chosen community bundle EXACTLY like the canonical one — reuse openLesson with the
   // community ref as the bundleRef override. resolveBundle / start_lesson_session load it unchanged.
-  await openLesson(context, chosen.ref);
+  await openLesson(context, chosen.ref, "community");
 }
 
-async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: string) {
+type LessonRootKind = "lesson" | "community";
+
+/** Let the learner choose a discovered course or another bundles root, persist it, then open it. */
+async function pickLesson(context: vscode.ExtensionContext) {
+  let bundlesRoot = resolveLessonBundlesRoot(context);
+  while (true) {
+    const chosen = await showLessonChoices(bundlesRoot);
+    if (!chosen) return;
+    if (chosen.action === "folder") {
+      const selected = await chooseBundlesRoot();
+      if (!selected) return;
+      bundlesRoot = selected;
+      continue;
+    }
+    if (!chosen.ref) return;
+    await saveAndOpenLesson(context, bundlesRoot, chosen.ref);
+    return;
+  }
+}
+
+async function showLessonChoices(bundlesRoot: string): Promise<LessonPickerChoice | undefined> {
+  const choices = toLessonPickerChoices(discoverCoursesInRoot(bundlesRoot), bundlesRoot);
+  return vscode.window.showQuickPick(choices, {
+    title: "Studium: Choisir un cours / Pick a course",
+    placeHolder: choices.length === 1 ? "Aucun cours trouvé — choisis un autre dossier" : "Choisis le cours à ouvrir",
+    matchOnDescription: true,
+    matchOnDetail: true,
+  });
+}
+
+async function chooseBundlesRoot(): Promise<string | undefined> {
+  const selected = await vscode.window.showOpenDialog({
+    title: "Choisir le dossier qui contient les cours Studium",
+    canSelectFiles: false,
+    canSelectFolders: true,
+    canSelectMany: false,
+  });
+  return selected?.[0]?.fsPath;
+}
+
+async function saveLessonSelection(bundlesRoot: string, bundleRef: string): Promise<void> {
+  const configuration = vscode.workspace.getConfiguration("studium");
+  await configuration.update("bundlesRoot", bundlesRoot, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("bundleRef", bundleRef, vscode.ConfigurationTarget.Workspace);
+}
+
+async function saveAndOpenLesson(context: vscode.ExtensionContext, bundlesRoot: string, bundleRef: string): Promise<void> {
+  try {
+    await saveLessonSelection(bundlesRoot, bundleRef);
+  } catch (error: any) {
+    vscode.window.showErrorMessage(`Studium: impossible d'enregistrer le cours choisi — ${error.message}`);
+    return;
+  }
+  treeProvider?.refresh();
+  await openLesson(context, bundleRef, "lesson");
+}
+
+async function openLesson(
+  context: vscode.ExtensionContext,
+  bundleRefOverride?: string,
+  rootKind: LessonRootKind = "lesson",
+) {
   // The extension ships inside the monorepo (apps/studium-vscode); default repoRoot = ../../ .
   const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
+  const lessonBundlesRoot = resolveLessonBundlesRoot(context);
+  const configuredRef = configuredValue<string>("bundleRef")?.trim();
+  if (!bundleRefOverride && needsLessonPicker(configuredRef, (ref) => bundleExists(lessonBundlesRoot, ref))) {
+    await pickLesson(context);
+    return;
+  }
   let serverLaunch;
   try {
     serverLaunch = resolveServerLaunch(context.extensionPath, repoRoot);
@@ -326,12 +454,10 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
   // opened via "Contributions de la classe" passes its ref as bundleRefOverride — it loads through
   // this SAME path as the canonical bundle (the course stays immutable; community items are additive).
   // When opening a community bundle, root BUNDLES_ROOT at the SAME root discovery used
-  // (resolveBundlesRoot — honours studium.communityBundlesRoot) so the community ref resolves; a
+  // (resolveCommunityBundlesRoot honours studium.communityBundlesRoot) so the community ref resolves; a
   // canonical open keeps the plain lesson bundlesRoot.
-  const bundlesRoot = bundleRefOverride
-    ? resolveBundlesRoot(context)
-    : cfg<string>("bundlesRoot", join(repoRoot, "fixtures"));
-  const bundleRef = bundleRefOverride ?? cfg<string>("bundleRef", "atomistique-l1/lesson.json");
+  const bundlesRoot = rootKind === "community" ? resolveCommunityBundlesRoot(context) : lessonBundlesRoot;
+  const bundleRef = bundleRefOverride ?? configuredRef!;
   const learnerId = cfg<string>("learnerId", "vscode-learner");
   const consent = cfg<boolean>("telemetryConsent", false);
 
@@ -345,8 +471,15 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
   // 1) connect to lesson-mcp over stdio
   const env: Record<string, string> = { ...process.env as any, BUNDLES_ROOT: bundlesRoot };
   if (consent) { env["STUDIUM_DATA_DIR"] = join(bundlesRoot, "data"); env["STUDIUM_TELEMETRY_CONSENT"] = "granted"; }
+  const mcpLog = resolveLogSink();
+  mcpLog(`[studium] lesson-mcp launch: ${describeServerLaunch(serverLaunch)}`);
   const mcp = await connectLessonMcp({ launch: serverLaunch, env });
   const call = mcp.call;
+  // Say which server actually answered (version, bundled-vs-source, build date, git sha) in the
+  // output channel, so a stale VSIX or a source checkout is a readable fact rather than a guess
+  // (audit 2026-10-29, P11/V2). Best-effort: an older server without get_server_info still runs.
+  try { mcpLog(serverInfoLine(await call("get_server_info", {}) as any)); }
+  catch (e: any) { mcpLog(`[studium] get_server_info unavailable: ${e?.message ?? e}`); }
   // Track disposal so async callbacks (which may resume after the user closes the panel) never
   // postMessage to a dead webview.
   let panelDisposed = false;
@@ -402,7 +535,7 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
     } catch { return a; }
   };
 
-  const pushScene = async (presentation: Json, explanation?: Json) => {
+  const pushScene = async (presentation: Json, explanation?: Json, verdict?: Json) => {
     const artifacts = (await call("get_scene_artifacts", { session_id: sid })).scene_assets || [];
     if (panelDisposed) return;
     // Spaced-repetition: which concepts are DUE for review (per the FSRS scheduler in
@@ -431,6 +564,10 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
       reviewDue,
       calibration,
       explanation: explanation ?? presentation.explanation ?? null,
+      // The graded verdict of the answer that led here (quiz: correct + the matching feedback
+      // only, never the other branch; ungraded scenes: an acknowledgement). The engine releases
+      // it on the transition; before 2026-10-29 the pane never showed it (audit P2).
+      verdict: verdict ?? null,
     });
     await pushGraph();
     // When the current scene is a reproduction the LEARNER must run, light up the sidebar's run action +
@@ -498,8 +635,8 @@ async function openLesson(context: vscode.ExtensionContext, bundleRefOverride?: 
           panel.webview.postMessage({ type: "done", message: `Lesson complete — ${t.summary.scenesCompleted} scenes, autonomy ${t.summary.autonomyRatio.toFixed(2)}` });
           return;
         }
-        await pushScene(t.presentation, t.kind === "replay" || t.kind === "remediate_alt"
-          ? { rule_id: t.kind, explanation_short: t.reason } : undefined);
+        await pushScene(t.presentation, t.kind === "replay" || t.kind === "remediate_alt" || t.kind === "remediate"
+          ? { rule_id: t.navigation?.rule_id ?? t.kind, explanation_short: t.reason } : undefined, t.verdict);
       }
     } catch (e: any) { vscode.window.showErrorMessage(`Studium: ${e.message}`); }
   });

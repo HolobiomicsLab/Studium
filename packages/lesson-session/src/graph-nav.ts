@@ -107,6 +107,10 @@ export type GraphNavReason = "advance" | "remediate" | "skip_mastered" | "gate_r
 export interface GraphNavResult {
   index: number | null; // null => no scene to advance to (caller completes)
   reason: GraphNavReason;
+  /** The LOCKED candidate the gate is holding the learner back from (remediate / gate_released /
+   * gate_unassessable). Lets the caller say where the detour returns to, and release the gate
+   * without re-running the router. */
+  gated?: number;
 }
 
 /** Choose the next scene (graph-aware). Used only when the bundle carries an LWG.
@@ -156,10 +160,10 @@ export function graphAwareNextIndex(
     // a worse outcome than a mastered one, but a strictly better one than a lesson that ends
     // nowhere. `>=` because the count is detours already SPENT.
     if ((prereqDetours[remedial] ?? 0) >= MAX_PREREQ_DETOURS) {
-      return { index: candidate, reason: "gate_released" };
+      return { index: candidate, reason: "gate_released", gated: candidate };
     }
     const ri = firstAnswerGradedSceneForConcept(scenes, remedial);
-    if (ri >= 0) return { index: ri, reason: "remediate" };
+    if (ri >= 0) return { index: ri, reason: "remediate", gated: candidate };
     // NO REMEDIAL SCENE AT ALL. The prerequisite is unmet and the lesson holds nothing this router
     // can send the learner back to, so the gate opens on the first try — without spending a detour
     // and, until INT-STUDIUM-037, without saying anything: this returned a plain "advance", which
@@ -171,7 +175,7 @@ export function graphAwareNextIndex(
     // three times and it did not take" is a statement about the learner; "there was nothing to
     // try" is a statement about the BUNDLE — the prerequisite has no scene this router can use to
     // assess it. The caller announces it separately (graph_prereq_unassessable).
-    return { index: candidate, reason: "gate_unassessable" };
+    return { index: candidate, reason: "gate_unassessable", gated: candidate };
   }
   return { index: candidate, reason: skipped ? "skip_mastered" : "advance" };
 }

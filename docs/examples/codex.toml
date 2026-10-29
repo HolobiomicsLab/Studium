@@ -5,3 +5,8 @@ args = ["/ABS/PATH/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]
 [mcp_servers.studium.env]
 BUNDLES_ROOT = "/ABS/PATH/studium/fixtures"
 LITELLM_BASE_URL = ""
+# durable learner state (mastery, FSRS); omit for an in-memory session
+STUDIUM_DATA_DIR = "/ABS/PATH/studium-data"
+
+# A profile with approval_policy = "never" refuses every MCP call of a local stdio server:
+# run `codex exec --approve-for-me …` non-interactively, or answer the prompts interactively.

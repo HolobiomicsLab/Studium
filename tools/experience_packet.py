@@ -5,8 +5,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
+from collections import Counter
 from copy import deepcopy
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -16,11 +20,19 @@ ROOT = Path(__file__).resolve().parents[1]
 for package_path in (
     ROOT / "packages" / "perspicacite-client" / "python",
     ROOT / "packages" / "lesson-plan-schema" / "python",
+    ROOT / "packages" / "lesson-bundle-schema" / "python",
 ):
     if str(package_path) not in sys.path:
         sys.path.insert(0, str(package_path))
 
-from lesson_plan_schema import LessonPlan, PlanStatus, RefType  # noqa: E402
+from lesson_bundle_schema import LessonBundle  # noqa: E402
+from lesson_plan_schema import (  # noqa: E402
+    LearningObjective,
+    LessonPlan,
+    PlanStatus,
+    RefType,
+    SceneOutline,
+)
 from perspicacite_mcp.passages import (  # noqa: E402
     PassageEnvelopeError,
     normalize_passage_envelope,
@@ -28,6 +40,13 @@ from perspicacite_mcp.passages import (  # noqa: E402
 
 PACKET_SCHEMA_VERSION = "1.0"
 ASB_SOURCE_PREFIX = "asb:"
+DEFAULT_VALIDATED_BY = "DRAFT — not validated"
+LEGACY_SIMULATION_TYPE = "simulation"
+PLACEHOLDER_RUBRIC = {
+    "completeness": 0.6,
+    "evidence_quality": 0.3,
+    "tone": 0.1,
+}
 EXECUTION_CLAIM_KEYS = {
     "capsule_result",
     "execution_result",
@@ -38,6 +57,10 @@ EXECUTION_CLAIM_KEYS = {
 
 class PacketError(ValueError):
     """Raised when packet preparation or response checking cannot proceed."""
+
+
+class SourceQuoteError(PacketError):
+    """Raised when a source link does not quote its passage exactly."""
 
 
 class SourceLink(BaseModel):
@@ -442,7 +465,9 @@ def _validate_links(
         if source is None:
             raise PacketError(f"source link references unknown evidence {link.evidence_id!r}")
         if link.quote not in source["text"]:
-            raise PacketError(f"source link quote is not an exact substring of {link.evidence_id!r}")
+            raise SourceQuoteError(
+                f"source link quote is not an exact substring of {link.evidence_id!r}"
+            )
         identity = (link.scene_id, link.evidence_id, link.quote)
         if identity in seen:
             raise PacketError("duplicate source link")
@@ -553,6 +578,510 @@ def check_response(*, packet_dir: Path, response_path: Path, output_dir: Path) -
     return output_dir
 
 
+@dataclass(frozen=True)
+class _BundleContext:
+    plan: LessonPlan
+    objectives: dict[str, LearningObjective]
+    links_by_scene: dict[str, list[SourceLink]]
+    concept_ids: set[str]
+
+
+def _load_checked_plan(course_dir: Path) -> LessonPlan:
+    value, _ = _load_json(course_dir / "plan.json", "checked lesson plan")
+    try:
+        return LessonPlan.model_validate(value)
+    except ValidationError as exc:
+        raise PacketError(f"checked plan is invalid: {exc}") from exc
+
+
+def _load_checked_links(course_dir: Path) -> list[SourceLink]:
+    value, _ = _load_json(course_dir / "source_links.json", "checked source links")
+    if not isinstance(value, dict) or value.get("schema_version") != PACKET_SCHEMA_VERSION:
+        raise PacketError("unsupported checked source-link schema")
+    if not isinstance(value.get("source_links"), list):
+        raise PacketError("checked source links must contain a source_links list")
+    try:
+        return [SourceLink.model_validate(link) for link in value["source_links"]]
+    except ValidationError as exc:
+        raise PacketError(f"checked source link is invalid: {exc}") from exc
+
+
+def _validate_checked_course(
+    plan: LessonPlan,
+    evidence: dict[str, Any],
+    sources: dict[str, dict[str, Any]],
+    links: list[SourceLink],
+) -> None:
+    asb_task = evidence.get("asb_task")
+    selected_task = asb_task if isinstance(asb_task, dict) else None
+    allowed_sources = set(sources)
+    if selected_task:
+        allowed_sources.add(selected_task["source_id"])
+    _, scene_ids = _validate_plan_graph(plan, allowed_sources)
+    _validate_corpus(plan, sources, selected_task)
+    _validate_asb(plan, evidence)
+    _validate_embedded_evidence(plan, sources)
+    _validate_links(links, sources, scene_ids)
+
+
+def _load_checked_course(
+    course_dir: Path,
+) -> tuple[LessonPlan, dict[str, Any], dict[str, dict[str, Any]], list[SourceLink]]:
+    course_dir = course_dir.resolve()
+    plan = _load_checked_plan(course_dir)
+    evidence_value, _ = _load_json(course_dir / "evidence.json", "checked evidence")
+    sources = _validate_packet(evidence_value)
+    links = _load_checked_links(course_dir)
+    _validate_checked_course(plan, evidence_value, sources, links)
+    return plan, evidence_value, sources, links
+
+
+def _source_label(source: dict[str, Any]) -> str:
+    return source.get("title") or source.get("source_doi") or source.get("source_url") or source["evidence_id"]
+
+
+def _unique_sources(sources: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    unique: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for source in sources.values():
+        locator = source.get("source_doi") or source.get("source_url") or source.get("source_id")
+        key = (locator, source.get("title"), source.get("license_id"))
+        unique.setdefault(key, source)
+    return list(unique.values())
+
+
+def _license_restrictions(license_id: str | None) -> list[str]:
+    if not license_id:
+        return []
+    tokens = set(re.split(r"[^A-Z0-9]+", license_id.upper()))
+    return sorted(tokens.intersection({"NC", "ND"}))
+
+
+def _is_unknown_license(license_id: str | None) -> bool:
+    if not license_id or not license_id.strip():
+        return True
+    normalized = license_id.strip().lower()
+    return normalized in {"unknown", "unspecified", "n/a", "none", "noassertion"}
+
+
+def _warning_lines(plan: LessonPlan, sources: list[dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+    for source in sources:
+        license_id = source.get("license_id")
+        label = _source_label(source)
+        if _is_unknown_license(license_id):
+            lines.append(f"WARN: licence is unknown or missing — {label}")
+        for restriction in _license_restrictions(license_id):
+            lines.append(f"WARN: licence contains {restriction} — {label}: {license_id}")
+    if any(scene.type.value == LEGACY_SIMULATION_TYPE for scene in plan.scene_outlines):
+        lines.append(
+            "WARN: scene type 'simulation' is not playable by LessonBundle 1.4; "
+            "bundle will emit a TODO concept placeholder"
+        )
+    return lines
+
+
+def check_summary_lines(course_dir: Path) -> list[str]:
+    """Return a human-readable summary for a technically checked course."""
+    plan, _, sources, links = _load_checked_course(course_dir)
+    counts = Counter(scene.type.value for scene in plan.scene_outlines)
+    count_text = ", ".join(f"{kind}: {counts[kind]}" for kind in sorted(counts))
+    cited = {link.evidence_id for link in links}
+    cited_ids = [source_id for source_id in sources if source_id in cited]
+    uncited_ids = [source_id for source_id in sources if source_id not in cited]
+    unique_sources = _unique_sources(sources)
+    lines = [
+        "CHECK OK",
+        f"Scenes: {len(plan.scene_outlines)} ({count_text})",
+        f"Concepts: {len(plan.concepts)}",
+        f"Source links: {len(links)}",
+        f"Passages: {len(cited_ids)} cited, {len(uncited_ids)} uncited",
+        f"Cited evidence IDs: {', '.join(cited_ids) or 'none'}",
+        f"Uncited evidence IDs: {', '.join(uncited_ids) or 'none'}",
+        "Licences:",
+    ]
+    lines.extend(
+        f"- {_source_label(source)}: {source.get('license_id') or 'unknown'}"
+        for source in unique_sources
+    )
+    lines.extend(_warning_lines(plan, unique_sources))
+    lines.append(f"Output: {course_dir.resolve()}")
+    return lines
+
+
+def _bundle_concepts(plan: LessonPlan) -> list[dict[str, Any]]:
+    if plan.concepts:
+        return [concept.model_dump(mode="json") for concept in plan.concepts]
+    return [
+        {
+            "id": objective.id,
+            "title": objective.description,
+            "description": objective.description,
+            "bloom_level_target": objective.bloom_level.value,
+        }
+        for objective in plan.learning_objectives
+    ]
+
+
+def _links_by_scene(links: list[SourceLink]) -> dict[str, list[SourceLink]]:
+    grouped: dict[str, list[SourceLink]] = {}
+    for link in links:
+        grouped.setdefault(link.scene_id, []).append(link)
+    return grouped
+
+
+def _known_concept_id(candidate: str, concept_ids: set[str]) -> str | None:
+    if candidate in concept_ids:
+        return candidate
+    if candidate.startswith("concept:") and candidate.removeprefix("concept:") in concept_ids:
+        return candidate.removeprefix("concept:")
+    return None
+
+
+def _graph_concept_candidates(scene: SceneOutline, plan: LessonPlan) -> list[str]:
+    graph = plan.learning_workflow_graph
+    if not isinstance(graph, dict) or not isinstance(graph.get("edges"), list):
+        return []
+    task_ids = {scene.id, f"task:{scene.id}"}
+    return [
+        edge["target"]
+        for edge in graph["edges"]
+        if isinstance(edge, dict)
+        and edge.get("relation") == "assesses"
+        and edge.get("source") in task_ids
+        and isinstance(edge.get("target"), str)
+    ]
+
+
+def _scene_concept_refs(scene: SceneOutline, context: _BundleContext) -> list[str]:
+    candidates = list(scene.skos_concept_uris or [])
+    for objective_id in scene.objective_refs:
+        objective = context.objectives[objective_id]
+        candidates.extend(objective.concept_uris or [])
+        if objective.skos_concept_uri:
+            candidates.append(objective.skos_concept_uri)
+    candidates.extend(_graph_concept_candidates(scene, context.plan))
+    refs: list[str] = []
+    for candidate in candidates:
+        concept_id = _known_concept_id(candidate, context.concept_ids)
+        if concept_id and concept_id not in refs:
+            refs.append(concept_id)
+    return refs
+
+
+def _objective_texts(scene: SceneOutline, context: _BundleContext) -> list[str]:
+    texts = [context.objectives[ref].description for ref in scene.objective_refs]
+    return texts or ["TODO: préciser l'objectif d'apprentissage"]
+
+
+def _placeholder_key_points(
+    scene: SceneOutline, context: _BundleContext, maximum: int | None = None
+) -> list[dict[str, Any]]:
+    texts = _objective_texts(scene, context)
+    if maximum is not None:
+        texts = texts[:maximum]
+    return [
+        {
+            "id": f"todo-key-point-{index}",
+            "text": text,
+            "cues": ["TODO: mot-clé ou expression d'évaluation"],
+        }
+        for index, text in enumerate(texts, start=1)
+    ]
+
+
+def _placeholder_claims(
+    scene: SceneOutline, context: _BundleContext, maximum: int
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": f"todo-claim-{index}",
+            "text": f"TODO: affirmation à auditer — {text}",
+            "flaws_expected": ["TODO: défaut attendu"],
+        }
+        for index, text in enumerate(_objective_texts(scene, context)[:maximum], start=1)
+    ]
+
+
+def _source_context(scene_id: str, context: _BundleContext) -> str:
+    links = context.links_by_scene.get(scene_id, [])
+    if not links:
+        return "TODO: ajouter un extrait source vérifié"
+    return "\n".join(f"- “{link.quote}” ({link.evidence_id})" for link in links)
+
+
+def _base_scene(
+    scene: SceneOutline, context: _BundleContext, runtime_type: str | None = None
+) -> dict[str, Any]:
+    return {
+        "id": scene.id,
+        "type": runtime_type or scene.type.value,
+        "title": scene.title,
+        "objective_refs": list(scene.objective_refs),
+        "concept_refs": _scene_concept_refs(scene, context),
+        "estimated_seconds": (scene.duration_minutes or 1) * 60,
+        "adaptation_hooks": [],
+    }
+
+
+def _build_reading_scene(
+    base: dict[str, Any], scene: SceneOutline, context: _BundleContext
+) -> dict[str, Any]:
+    markdown = (
+        f"TODO: rédiger le contenu de la scène « {scene.title} ».\n\n"
+        f"Extraits source vérifiés :\n{_source_context(scene.id, context)}"
+    )
+    return {**base, "markdown": markdown}
+
+
+def _build_quiz_scene(
+    base: dict[str, Any], scene: SceneOutline, _context: _BundleContext
+) -> dict[str, Any]:
+    return {
+        **base,
+        "question": f"TODO: rédiger la question — {scene.title}",
+        "choices": [
+            {"id": "todo-correct", "text": "TODO: réponse correcte", "correct": True},
+            {"id": "todo-distractor", "text": "TODO: distracteur", "correct": False},
+        ],
+        "feedback_correct": "TODO: retour pour la réponse correcte",
+        "feedback_incorrect": "TODO: retour pour la réponse incorrecte",
+        "hints": [],
+    }
+
+
+def _build_checkpoint_scene(
+    base: dict[str, Any], _scene: SceneOutline, _context: _BundleContext
+) -> dict[str, Any]:
+    return {
+        **base,
+        "pre_question": "TODO: question de confiance avant l'activité",
+        "post_question": "TODO: question de confiance après l'activité",
+        "scale_labels": [f"TODO: niveau {level}" for level in range(1, 6)],
+    }
+
+
+def _build_reproduction_scene(
+    base: dict[str, Any], scene: SceneOutline, _context: _BundleContext
+) -> dict[str, Any]:
+    return {
+        **base,
+        "task_card_id": scene.abs_task_card_id or f"TODO:{scene.id}:task-card",
+        "steps": [
+            {
+                "step_id": "todo-step-1",
+                "instruction": "TODO: décrire l'étape de reproduction",
+                "expected_input_schema": {"type": "object"},
+                "expected_output": "TODO: décrire la sortie attendue",
+            }
+        ],
+    }
+
+
+def _build_ai_critique_scene(
+    base: dict[str, Any], scene: SceneOutline, context: _BundleContext
+) -> dict[str, Any]:
+    return {
+        **base,
+        "claims": _placeholder_claims(scene, context, 3),
+        "rubric": dict(PLACEHOLDER_RUBRIC),
+    }
+
+
+def _build_discussion_scene(
+    base: dict[str, Any], scene: SceneOutline, _context: _BundleContext
+) -> dict[str, Any]:
+    return {
+        **base,
+        "topic": f"TODO: sujet de discussion — {scene.title}",
+        "seed_claim": "TODO: affirmation de départ à discuter",
+        "target_signals": ["justification"],
+        "max_turns": 4,
+    }
+
+
+def _build_spot_the_flaw_scene(
+    base: dict[str, Any], scene: SceneOutline, context: _BundleContext
+) -> dict[str, Any]:
+    return {
+        **base,
+        "flawed_content": "TODO: contenu délibérément erroné à auditer",
+        "claims": _placeholder_claims(scene, context, 5),
+        # The reveal must NAME every expected flaw (tools/bundle_lint.mjs flaw_reveal_gap): a
+        # skeleton that does not already satisfies that rule would fail the lint before the
+        # teacher wrote a word, so the placeholder repeats the placeholder flaw.
+        "model_correction": (
+            "TODO: correction de référence — elle doit nommer chaque défaut attendu "
+            "(ici : « TODO: défaut attendu »)."
+        ),
+        "rubric": dict(PLACEHOLDER_RUBRIC),
+    }
+
+
+def _build_explain_back_scene(
+    base: dict[str, Any], scene: SceneOutline, context: _BundleContext
+) -> dict[str, Any]:
+    return {
+        **base,
+        "prompt": f"TODO: demander à l'apprenant d'expliquer — {scene.title}",
+        "key_points": _placeholder_key_points(scene, context, 6),
+        "model_explanation": "TODO: explication de référence",
+        "rubric": dict(PLACEHOLDER_RUBRIC),
+    }
+
+
+def _build_comparison_scene(
+    base: dict[str, Any], scene: SceneOutline, context: _BundleContext
+) -> dict[str, Any]:
+    return {
+        **base,
+        "prompt": "TODO: consigne de comparaison",
+        "artifact_a": "TODO: premier artefact à comparer",
+        "artifact_b": "TODO: second artefact à comparer",
+        "key_points": _placeholder_key_points(scene, context),
+        "model_answer": "TODO: comparaison de référence",
+        "rubric": dict(PLACEHOLDER_RUBRIC),
+    }
+
+
+def _build_summary_audit_scene(
+    base: dict[str, Any], scene: SceneOutline, context: _BundleContext
+) -> dict[str, Any]:
+    return {
+        **base,
+        "source_content": _source_context(scene.id, context),
+        "ai_summary": "TODO: résumé IA à auditer",
+        "claims": _placeholder_claims(scene, context, 5),
+        "model_correction": "TODO: résumé corrigé de référence",
+        "rubric": dict(PLACEHOLDER_RUBRIC),
+    }
+
+
+def _build_prompt_practice_scene(
+    base: dict[str, Any], scene: SceneOutline, context: _BundleContext
+) -> dict[str, Any]:
+    return {
+        **base,
+        "task": f"TODO: tâche de prompting — {scene.title}",
+        "starter_prompt": "TODO: prompt initial à améliorer",
+        "key_points": _placeholder_key_points(scene, context),
+        "model_prompt": "TODO: prompt de référence",
+        "rubric": dict(PLACEHOLDER_RUBRIC),
+    }
+
+
+def _build_communication_scene(
+    base: dict[str, Any], scene: SceneOutline, context: _BundleContext
+) -> dict[str, Any]:
+    return {
+        **base,
+        "scenario": f"TODO: situation professionnelle — {scene.title}",
+        "prompt": "TODO: consigne de communication",
+        "key_points": _placeholder_key_points(scene, context),
+        "model_response": "TODO: réponse de référence",
+        "rubric": dict(PLACEHOLDER_RUBRIC),
+    }
+
+
+_SCENE_BUILDERS = {
+    "intro": _build_reading_scene,
+    "concept": _build_reading_scene,
+    "quiz": _build_quiz_scene,
+    "meta_checkpoint": _build_checkpoint_scene,
+    "reproduction": _build_reproduction_scene,
+    "ai_critique": _build_ai_critique_scene,
+    "discussion": _build_discussion_scene,
+    "spot_the_flaw": _build_spot_the_flaw_scene,
+    "explain_back": _build_explain_back_scene,
+    "comparison": _build_comparison_scene,
+    "summary_audit": _build_summary_audit_scene,
+    "prompt_practice": _build_prompt_practice_scene,
+    "communication_sim": _build_communication_scene,
+}
+
+
+def _build_bundle_scene(scene: SceneOutline, context: _BundleContext) -> dict[str, Any]:
+    if scene.type.value == LEGACY_SIMULATION_TYPE:
+        base = _base_scene(scene, context, runtime_type="concept")
+        return {
+            **base,
+            "markdown": (
+                "TODO: remplacer cette ancienne scène `simulation` par une scène jouable "
+                "et ajouter son support interactif.\n\n"
+                f"Extraits source vérifiés :\n{_source_context(scene.id, context)}"
+            ),
+        }
+    base = _base_scene(scene, context)
+    return _SCENE_BUILDERS[scene.type.value](base, scene, context)
+
+
+def _bundle_id(plan_id: str) -> str:
+    candidate = plan_id.removesuffix("-draft")
+    return candidate or plan_id
+
+
+def _bundle_metadata(plan: LessonPlan) -> dict[str, Any]:
+    subject = plan.metadata.subject if plan.metadata else None
+    return {
+        "title": plan.title,
+        "target": plan.target,
+        "duration_minutes": plan.duration_minutes,
+        "language": plan.language,
+        "discipline": subject or plan.dct_subject or "TODO: discipline à préciser",
+    }
+
+
+def _bundle_payload(
+    plan: LessonPlan, links: list[SourceLink], validated_by: str | None
+) -> dict[str, Any]:
+    concepts = _bundle_concepts(plan)
+    context = _BundleContext(
+        plan=plan,
+        objectives={objective.id: objective for objective in plan.learning_objectives},
+        links_by_scene=_links_by_scene(links),
+        concept_ids={concept["id"] for concept in concepts},
+    )
+    payload: dict[str, Any] = {
+        "schema_version": "1.4",
+        "bundle_id": _bundle_id(plan.id),
+        "source_plan_id": plan.id,
+        "metadata": _bundle_metadata(plan),
+        "concepts": concepts,
+        "scenes": [_build_bundle_scene(scene, context) for scene in plan.scene_outlines],
+        "rules": [],
+        "validated_by": (validated_by or DEFAULT_VALIDATED_BY).strip() or DEFAULT_VALIDATED_BY,
+        "validated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    if plan.learning_workflow_graph is not None:
+        # Preserve engine semantics: source is dependent; target is prerequisite.
+        payload["learning_workflow_graph"] = deepcopy(plan.learning_workflow_graph)
+    return payload
+
+
+def _validated_bundle_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        bundle = LessonBundle.model_validate(payload)
+    except ValidationError as exc:
+        raise PacketError(f"generated LessonBundle is invalid: {exc}") from exc
+    return bundle.model_dump(mode="json", exclude_none=True)
+
+
+def build_lesson_bundle(
+    *, course_dir: Path, output_path: Path, validated_by: str | None = None
+) -> Path:
+    """Build a schema-valid LessonBundle 1.4 skeleton from a checked course."""
+    output_path = output_path.resolve()
+    if output_path.exists():
+        raise PacketError(f"output file already exists: {output_path}")
+    plan, _, _, links = _load_checked_course(course_dir)
+    bundle = _validated_bundle_payload(_bundle_payload(plan, links, validated_by))
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(_json_bytes(bundle))
+    except OSError as exc:
+        raise PacketError(f"cannot write LessonBundle: {exc}") from exc
+    return output_path
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -567,11 +1096,16 @@ def _parser() -> argparse.ArgumentParser:
     check.add_argument("--packet", type=Path, required=True)
     check.add_argument("--response", type=Path, required=True)
     check.add_argument("--out", type=Path, required=True)
+    check.add_argument("--quiet", action="store_true", help="print only the output path")
+    bundle = commands.add_parser("bundle", help="build a playable LessonBundle skeleton")
+    bundle.add_argument("--course", type=Path, required=True)
+    bundle.add_argument("--out", type=Path, required=True)
+    bundle.add_argument("--validated-by")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the ``prepare`` or ``check`` command and return a process status."""
+    """Run a packet command and return its process status."""
     args = _parser().parse_args(argv)
     try:
         if args.command == "prepare":
@@ -583,15 +1117,27 @@ def main(argv: list[str] | None = None) -> int:
                 capsule_path=args.capsule,
                 task_id=args.task_id,
             )
-        else:
+        elif args.command == "check":
             output = check_response(
                 packet_dir=args.packet,
                 response_path=args.response,
                 output_dir=args.out,
             )
+        else:
+            output = build_lesson_bundle(
+                course_dir=args.course,
+                output_path=args.out,
+                validated_by=args.validated_by,
+            )
+    except SourceQuoteError as exc:
+        print(f"ERROR: {exc}")
+        return 1
     except PacketError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+    if args.command == "check" and not args.quiet:
+        print("\n".join(check_summary_lines(output)))
+        return 0
     print(output)
     return 0
 

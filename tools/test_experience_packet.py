@@ -11,7 +11,13 @@ TOOLS = Path(__file__).resolve().parent
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-from experience_packet import PacketError, check_response, prepare_packet
+from experience_packet import (
+    PacketError,
+    build_lesson_bundle,
+    check_response,
+    main,
+    prepare_packet,
+)
 
 
 PASSAGES = {
@@ -417,3 +423,215 @@ def test_check_rejects_unbound_corpus_locator(tmp_path, changes, message):
             response_path=response,
             output_dir=tmp_path / "checked",
         )
+
+
+def test_check_cli_reports_course_summary_and_warnings(tmp_path, capsys):
+    passages = deepcopy(PASSAGES)
+    passages["passages"][0]["license_id"] = "CC-BY-NC-SA-4.0"
+    uncited = deepcopy(passages["passages"][0])
+    uncited.update(
+        text="An uncited passage.",
+        source_doi=None,
+        source_url="https://example.test/uncited",
+        license_id=None,
+        title="Unlicensed source",
+    )
+    passages["passages"].append(uncited)
+    source = write_json(tmp_path / "passages.json", passages)
+    packet = tmp_path / "packet"
+    prepare_packet(passages_path=source, output_dir=packet, title="A title", target="L1")
+    evidence = json.loads((packet / "evidence.json").read_text())
+    response_value = valid_response(evidence["sources"][0]["evidence_id"])
+    response_value["lesson_plan"]["scene_outlines"][0]["type"] = "simulation"
+    response = write_json(tmp_path / "response.json", response_value)
+    output = tmp_path / "course"
+
+    status = main(
+        ["check", "--packet", str(packet), "--response", str(response), "--out", str(output)]
+    )
+
+    stdout = capsys.readouterr().out
+    assert status == 0
+    assert "Scenes: 1 (simulation: 1)" in stdout
+    assert "Concepts: 0" in stdout
+    assert "Source links: 1" in stdout
+    assert "Passages: 1 cited, 1 uncited" in stdout
+    assert evidence["sources"][0]["evidence_id"] in stdout
+    assert evidence["sources"][1]["evidence_id"] in stdout
+    assert "CC-BY-NC-SA-4.0" in stdout
+    assert "WARN: licence contains NC" in stdout
+    assert "WARN: licence is unknown or missing" in stdout
+    assert "WARN: scene type 'simulation' is not playable" in stdout
+
+
+def test_check_cli_quiet_keeps_single_output_line(tmp_path, capsys):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response = write_json(tmp_path / "response.json", valid_response(evidence_id))
+    output = tmp_path / "course"
+
+    status = main(
+        [
+            "check",
+            "--packet",
+            str(packet),
+            "--response",
+            str(response),
+            "--out",
+            str(output),
+            "--quiet",
+        ]
+    )
+
+    assert status == 0
+    assert capsys.readouterr().out == f"{output.resolve()}\n"
+
+
+def test_check_cli_bad_quote_is_error_exit_one(tmp_path, capsys):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response_value = valid_response(evidence_id)
+    response_value["source_links"][0]["quote"] = "fabricated quote"
+    response = write_json(tmp_path / "response.json", response_value)
+    output = tmp_path / "course"
+
+    status = main(
+        ["check", "--packet", str(packet), "--response", str(response), "--out", str(output)]
+    )
+
+    assert status == 1
+    assert capsys.readouterr().out.startswith("ERROR: source link quote")
+    assert not output.exists()
+
+
+PLAYABLE_PLAN_SCENES = [
+    "intro",
+    "concept",
+    "quiz",
+    "reproduction",
+    "discussion",
+    "meta_checkpoint",
+    "ai_critique",
+    "spot_the_flaw",
+    "explain_back",
+    "comparison",
+    "summary_audit",
+    "prompt_practice",
+    "communication_sim",
+    "simulation",
+]
+
+
+@pytest.mark.parametrize("scene_type", PLAYABLE_PLAN_SCENES)
+def test_bundle_builds_schema_complete_placeholder_for_each_plan_scene(tmp_path, scene_type):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response_value = valid_response(evidence_id)
+    response_value["lesson_plan"]["concepts"] = [
+        {
+            "id": "concept-1",
+            "title": "Evidence judgment",
+            "description": "Judge a claim from evidence.",
+            "bloom_level_target": "evaluate",
+        }
+    ]
+    response_value["lesson_plan"]["scene_outlines"][0]["type"] = scene_type
+    response = write_json(tmp_path / "response.json", response_value)
+    course = tmp_path / "course"
+    check_response(packet_dir=packet, response_path=response, output_dir=course)
+
+    output = build_lesson_bundle(course_dir=course, output_path=tmp_path / "lesson.json")
+
+    bundle = json.loads(output.read_text())
+    scene = bundle["scenes"][0]
+    expected_type = "concept" if scene_type == "simulation" else scene_type
+    assert bundle["schema_version"] == "1.4"
+    assert scene["type"] == expected_type
+    assert scene["objective_refs"] == ["objective-1"]
+    assert bundle["rules"] == []
+    assert bundle["validated_by"] == "DRAFT — not validated"
+    assert bundle["validated_at"].endswith("Z")
+    assert sum(choice["correct"] for choice in scene.get("choices", [])) <= 1
+    if scene_type in {"explain_back", "comparison", "prompt_practice", "communication_sim"}:
+        assert scene["key_points"][0]["text"] == response_value["lesson_plan"][
+            "learning_objectives"
+        ][0]["description"]
+    if scene_type == "simulation":
+        assert "TODO:" in scene["markdown"]
+
+
+def test_bundle_preserves_dependent_to_prerequisite_edge_direction(tmp_path):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response_value = valid_response(evidence_id)
+    response_value["lesson_plan"]["concepts"] = [
+        {"id": "prereq", "title": "First", "description": "First", "bloom_level_target": "remember"},
+        {"id": "dependent", "title": "Second", "description": "Second", "bloom_level_target": "apply"},
+    ]
+    response_value["lesson_plan"]["learning_workflow_graph"] = {
+        "schema_version": "1.0",
+        "course_id": "course",
+        "nodes": [
+            {"id": "concept:prereq", "node_kind": "concept", "title": "First", "bloom_level": "remember"},
+            {"id": "concept:dependent", "node_kind": "concept", "title": "Second", "bloom_level": "apply"},
+        ],
+        "edges": [
+            {
+                "id": "edge-1",
+                "relation": "prerequisite_for",
+                "source": "concept:dependent",
+                "target": "concept:prereq",
+            }
+        ],
+    }
+    response = write_json(tmp_path / "response.json", response_value)
+    course = tmp_path / "course"
+    check_response(packet_dir=packet, response_path=response, output_dir=course)
+
+    output = build_lesson_bundle(course_dir=course, output_path=tmp_path / "lesson.json")
+
+    edge = json.loads(output.read_text())["learning_workflow_graph"]["edges"][0]
+    assert edge["source"] == "concept:dependent"
+    assert edge["target"] == "concept:prereq"
+
+
+def test_bundle_cli_accepts_validator_name_and_uses_checked_quotes(tmp_path, capsys):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response_value = valid_response(evidence_id)
+    response_value["lesson_plan"]["scene_outlines"][0]["type"] = "concept"
+    response = write_json(tmp_path / "response.json", response_value)
+    course = tmp_path / "course"
+    check_response(packet_dir=packet, response_path=response, output_dir=course)
+    output = tmp_path / "lesson.json"
+
+    status = main(
+        [
+            "bundle",
+            "--course",
+            str(course),
+            "--out",
+            str(output),
+            "--validated-by",
+            "Prof. Example",
+        ]
+    )
+
+    bundle = json.loads(output.read_text())
+    assert status == 0
+    assert capsys.readouterr().out == f"{output.resolve()}\n"
+    assert bundle["validated_by"] == "Prof. Example"
+    assert "reduced the signal by 31%" in bundle["scenes"][0]["markdown"]
+
+
+def test_bundle_cli_reports_output_write_failure_without_traceback(tmp_path, capsys):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response = write_json(tmp_path / "response.json", valid_response(evidence_id))
+    course = tmp_path / "course"
+    check_response(packet_dir=packet, response_path=response, output_dir=course)
+    blocked_parent = tmp_path / "blocked"
+    blocked_parent.write_text("not a directory")
+
+    status = main(
+        ["bundle", "--course", str(course), "--out", str(blocked_parent / "lesson.json")]
+    )
+
+    captured = capsys.readouterr()
+    assert status == 2
+    assert "cannot write LessonBundle" in captured.err
+    assert "Traceback" not in captured.err

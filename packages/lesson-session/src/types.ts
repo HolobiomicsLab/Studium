@@ -51,16 +51,52 @@ export interface CompletionSummary {
   finalState: LearnerState;
 }
 
+/** What the engine concluded about the response that was just submitted. Carried on the
+ * transition because the public scene no longer ships `feedback_correct` / `feedback_incorrect`
+ * (they were an answer key readable before answering): the feedback the learner is owed travels
+ * with the verdict, after the answer, and only the matching half. `graded: false` on ack-only
+ * scenes (intro, concept, meta_checkpoint…). `correct` is set for choice-graded answers only;
+ * free-text graders report their signal kind in `signal` and no boolean. */
+export interface Verdict {
+  scene_id: string;
+  graded: boolean;
+  signal: string;
+  correct?: boolean;
+  feedback?: string;
+}
+
+/** The ONE navigation decision behind a transition, stated once. Before this field the same
+ * decision was spread over three places that could disagree: `transition.kind`, the rule engine's
+ * `presentation.lastDecision` (which says `advance_to_next_scene` even when the graph gate routed
+ * back) and `explain_last_adaptation`. `kind` is the routing outcome; `rule_id` / `modulator` name
+ * the rule that produced it (null for a plain advance); `returns_to` is the scene the learner is
+ * owed once the detour is over (graph remediation), `scene_id` the scene being presented. */
+export interface Navigation {
+  kind: "advance" | "replay" | "remediate_alt" | "remediate" | "gate_passed" | "gate_released"
+      | "gate_unassessable" | "skip_mastered" | "skip_concept" | "calibration" | "complete";
+  scene_id: string | null;
+  rule_id: string | null;
+  reason: string | null;
+  modulator: string | null;
+  returns_to?: string;
+}
+
+interface TransitionMeta { verdict?: Verdict; navigation?: Navigation }
+
 export type Transition =
-  | { kind: "next"; presentation: Presentation }
-  | { kind: "replay"; reason: string; presentation: Presentation }
-  | { kind: "remediate_alt"; reason: string; presentation: Presentation }
-  | { kind: "calibration"; targetConcept: string; presentation: Presentation }
+  | ({ kind: "next"; presentation: Presentation } & TransitionMeta)
+  | ({ kind: "replay"; reason: string; presentation: Presentation } & TransitionMeta)
+  | ({ kind: "remediate_alt"; reason: string; presentation: Presentation } & TransitionMeta)
+  // Graph prerequisite gate: the learner is routed to a graded scene of an UNMET prerequisite
+  // (a different scene, not an alternate item for the same concept). Was reported as `next`
+  // until the 2026-10-29 trial, where two harnesses read the detour as an ordinary advance.
+  | ({ kind: "remediate"; reason: string; presentation: Presentation } & TransitionMeta)
+  | ({ kind: "calibration"; targetConcept: string; presentation: Presentation } & TransitionMeta)
   // `calibration` rides on completion when a show_calibration_panel action fires on
   // the LAST scene (end-of-lesson self-check): there is no next scene to attach a
   // standalone `calibration` transition to, so the M3 feedback is surfaced here
   // instead of being silently dropped.
-  | { kind: "complete"; summary: CompletionSummary; calibration?: { targetConcept: string } };
+  | ({ kind: "complete"; summary: CompletionSummary; calibration?: { targetConcept: string } } & TransitionMeta);
 
 export interface SessionDeps {
   stateStore: StateStore;

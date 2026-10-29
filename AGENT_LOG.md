@@ -4,6 +4,30 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-10-29 — essai trois cas web, correctifs harnais et VS Code
+
+Demande propriétaire : jouer Studium sur trois cas d'enseignement pris sur le web
+(OpenStax photosynthèse, Carpentries Python, OpenStax p-value), relever problèmes et
+améliorations côté harnais agentique et VS Code, puis corriger P1/P2 et les huit points
+du §7 du rapport (`studium_dev/docs/superpowers/audits/2026-10-29-three-web-cases-trial.md`).
+
+Unités : scène publique sans `feedback_*` ni `hints` ; `Transition` porteuse de
+`verdict` et `navigation` (sorte `remediate`, règle `graph_prereq_gate_passed`) et
+surfaces VS Code / canal fichier alignées ; `get_server_info` avec identité de build
+(`build-info.ts`, define esbuild) ; `bundle_lint.mjs` réécrit (`--root`, règles graphe,
+convention source=dépendant documentée dans le schéma, fixtures) ; run attesté non
+redemandé ; recettes Claude/Codex avec `build` et appel de fumée ; sélecteur de leçon ;
+`experience_packet.py check` bavard et `bundle` squelette 1.4 validé par
+`bundle_validate.ts` ; cinq types actifs plannifiables, déclarés non synthétisables
+dans scene-synth. Quatre missions Codex sol-max (A–D), intégrées par le lead.
+
+Vérification : TS `pnpm -r --no-bail test` vert sauf `host.review.test.ts › FSRS
+schedule`, échec préexistant lié à la date (identique sur `dev` intact) ; Python 16
+suites / 0 échec ; extension 13 pilotes, `lesson-walk` 1052 assertions ; rejeu des trois
+cas contre le dist reconstruit : 0 fuite, navigation sur chaque transition, quiz réussi
+non rejoué. Aucun ancien test affaibli ; les attentes modifiées suivent le nouveau
+contrat. Pas de push ; VSIX non repackagé.
+
 ## 2026-09-10 — INT-STUDIUM-040, littérature et harnais
 
 Première tranche de la demande propriétaire après lecture du manuscrit (lecture

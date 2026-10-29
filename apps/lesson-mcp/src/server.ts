@@ -2,10 +2,45 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { SessionHost, ResponseInputSchema, RunResultSchema, publicPresentation, publicTransition, operatorContext } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
+import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
 const text = (data: unknown): ToolResult => ({ content: [{ type: "text", text: JSON.stringify(data) }] });
 const fail = (message: string): ToolResult => ({ content: [{ type: "text", text: JSON.stringify({ error: message }) }], isError: true });
+
+export const TOOL_NAMES = [
+  "close_peer_room",
+  "end_session",
+  "explain_last_adaptation",
+  "get_current_scene",
+  "get_next_reinforcement",
+  "get_operator_context",
+  "get_peer_room_state",
+  "get_run_manifest",
+  "get_scene_artifacts",
+  "get_server_info",
+  "get_session_state",
+  "get_workflow_graph",
+  "join_peer_room",
+  "open_peer_room",
+  "request_hint",
+  "start_lesson_session",
+  "submit_peer_rating",
+  "submit_response",
+  "submit_run_result",
+  "submit_turn",
+] as const;
+
+let hasLoggedStartup = false;
+
+function logStartup(): void {
+  if (hasLoggedStartup) return;
+  const build = getBuildInfo();
+  process.stderr.write(
+    `[studium-lesson] v${SERVER_VERSION} ${build.origin} ${build.built_at ?? "unbuilt"} tools=${TOOL_NAMES.length}\n`,
+  );
+  hasLoggedStartup = true;
+}
 
 /**
  * Builds the MCP server exposing the lesson-session loop as tools over a SessionHost.
@@ -16,7 +51,21 @@ const fail = (message: string): ToolResult => ({ content: [{ type: "text", text:
  * value in the ZodRawShapeCompat record for the `input` field.
  */
 export function buildMcpServer(host: SessionHost): McpServer {
-  const server = new McpServer({ name: "studium-lesson", version: "0.1.0" });
+  const server = new McpServer({ name: "studium-lesson", version: SERVER_VERSION });
+  logStartup();
+
+  server.registerTool("get_server_info", {
+    description: "Describe this Studium MCP server build, runtime configuration, and complete tool surface.",
+    inputSchema: {},
+  }, async () => text({
+    name: "studium-lesson",
+    version: SERVER_VERSION,
+    build: getBuildInfo(),
+    tools: [...TOOL_NAMES],
+    bundles_root: process.env["BUNDLES_ROOT"] ?? process.cwd(),
+    data_dir: process.env["STUDIUM_DATA_DIR"] || null,
+    model_backend: process.env["LITELLM_BASE_URL"] ? "configured" : "none",
+  }));
 
   server.registerTool("get_operator_context", {
     description: "Get the current public scene, resolved display assets, run instructions and response contract " +
@@ -59,7 +108,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
   server.registerTool(
     "submit_response",
     {
-      description: "Submit a response to the current scene (ack | quiz_choice | confidence | critique); returns the transition (next/replay/calibration/complete).",
+      description: "Submit a response to the current scene (ack | quiz_choice | confidence | critique); returns the transition (next/replay/remediate_alt/remediate/calibration/complete) with `verdict` (graded?, correct?, the feedback the learner earned) and `navigation` (the one routing decision: kind, rule_id, reason, returns_to).",
       inputSchema: { session_id: z.string(), input: ResponseInputSchema },
     },
     async ({ session_id, input }) => {
@@ -116,11 +165,13 @@ export function buildMcpServer(host: SessionHost): McpServer {
         "instructions {capsule_ref, cmd, working_dir?, timeout_s?, requirements?, expected_outputs[], " +
         "verify_checks[], research_question?} — when the current scene is a reproduction the LEARNER must " +
         "run, else null. NON-answer-bearing (no expected values, no author landmark): the operator " +
-        "provisions the env, installs the deps, runs `cmd` IN THE WORKSPACE, then calls submit_run_result.",
+        "provisions the env, installs the deps, runs `cmd` IN THE WORKSPACE, then calls submit_run_result. " +
+        "`learner_run_recorded: true` means this session already holds the learner's attested run for this " +
+        "scene (a revisit after a detour): re-run if you want a fresh result, or submit_response {kind:\"ack\"} to continue.",
       inputSchema: { session_id: z.string() },
     },
     async ({ session_id }) => {
-      try { return text({ run_manifest: host.runManifest(session_id) }); }
+      try { return text(host.runStatus(session_id)); }
       catch (e) { return fail((e as Error).message); }
     },
   );

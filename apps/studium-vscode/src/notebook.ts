@@ -119,7 +119,8 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
     const outs: vscode.NotebookCellOutput[] = [];
     let head = `### ${sc.title || sc.type}\n`;
     if (presentation.total) head += `*scene ${(presentation.index ?? 0) + 1} / ${presentation.total}*\n\n`;
-    if (transition && (transition.kind === "replay" || transition.kind === "remediate_alt")) head += `> ⟳ ${transition.reason}\n\n`;
+    if (transition?.verdict?.feedback) head += `> ${transition.verdict.correct === false ? "✗" : "✓"} ${transition.verdict.feedback}\n\n`;
+    if (transition && (transition.kind === "replay" || transition.kind === "remediate_alt" || transition.kind === "remediate")) head += `> ⟳ ${transition.reason}\n\n`;
     // adaptation rationale (parity with the lesson pane): why the engine routed here this turn.
     else if (presentation.explanation) head += `> ⟳ ${presentation.explanation.rule_id} — ${presentation.explanation.explanation_short}\n\n`;
     if (sc.markdown) head += sc.markdown + "\n";

@@ -6,7 +6,8 @@
       "args": ["/ABS/PATH/studium/apps/studium-vscode/dist/lesson-mcp.cjs"],
       "env": {
         "BUNDLES_ROOT": "/ABS/PATH/studium/fixtures",
-        "LITELLM_BASE_URL": ""
+        "LITELLM_BASE_URL": "",
+        "STUDIUM_DATA_DIR": "/ABS/PATH/studium-data"
       }
     }
   }

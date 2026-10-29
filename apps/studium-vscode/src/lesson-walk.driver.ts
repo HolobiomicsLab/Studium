@@ -76,6 +76,12 @@ async function walk(bundlesRoot: string, bundleRef: string, expectTypes: string[
     for (let step = 0; step < 400; step++) {
       const scene = pres.scene as Json;
       seen.add(scene.type);
+      // ANSWER-KEY LEAK GUARD (2026-10-29 trial): nothing that restates the right answer may reach the
+      // client before the answer — quiz feedback texts, hints, choice `correct` flags, cues, reveals.
+      for (const key of ["feedback_correct", "feedback_incorrect", "hints", "claims", "key_points", "model_correction", "model_explanation", "model_answer"]) {
+        expect(!(key in scene), `[${bundleRef}] public scene ${scene.id} (${scene.type}) exposes \`${key}\` before the answer`);
+      }
+      for (const c of scene.choices ?? []) expect(!("correct" in c), `[${bundleRef}] public quiz ${scene.id} exposes a choice \`correct\` flag`);
       // discussion is multi-turn: the extension submits a turn (submit_turn) then advances with ack.
       if (scene.type === "discussion") {
         await call("submit_turn", { session_id: sid, text: "Oui, parce que la configuration électronique l'explique — mais la charge nucléaire nuance l'effet." });
@@ -90,6 +96,11 @@ async function walk(bundlesRoot: string, bundleRef: string, expectTypes: string[
         break;
       }
       if (process.env.DEBUG_WALK) console.error(`  ${String(step).padStart(3)} ${scene.type}#${scene.id} [${input.kind}] → ${t.kind}`);
+      // The transition states its verdict and its ONE navigation decision; a quiz verdict carries the
+      // feedback the learner earned (the public scene no longer does).
+      expect(!!t.navigation && typeof t.navigation.kind === "string", `[${bundleRef}] transition after ${scene.id} carries a navigation record`);
+      if (t.kind !== "complete") expect(!!t.verdict && t.verdict.scene_id === scene.id, `[${bundleRef}] transition after ${scene.id} carries its verdict`);
+      if (scene.type === "quiz" && t.kind !== "complete") expect(typeof t.verdict?.feedback === "string" && t.verdict.feedback.length > 0, `[${bundleRef}] quiz ${scene.id} verdict carries the earned feedback`);
       if (t.kind === "complete") { completed = true; break; }
       pres = t.presentation as Json;
     }

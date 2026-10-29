@@ -110,6 +110,26 @@ def test_scene_outline_optional_ontology_fields():
     assert scene.prov_derived_from == ["doi:10.1073/pnas.1319030111"]
 
 
+def test_scene_type_accepts_runtime_active_learning_vocabulary():
+    from lesson_plan_schema import SceneType
+
+    expected = {
+        "explain_back",
+        "comparison",
+        "summary_audit",
+        "prompt_practice",
+        "communication_sim",
+    }
+    assert expected <= {scene_type.value for scene_type in SceneType}
+
+
+def test_scene_type_keeps_simulation_as_deprecated_legacy_value():
+    from lesson_plan_schema import SceneType
+
+    assert SceneType("simulation") is SceneType.simulation
+    assert "deprecated" in (SceneType.__doc__ or "").lower()
+
+
 def test_lesson_plan_optional_provenance_fields():
     from lesson_plan_schema import LessonPlan, LearningObjective, SceneOutline, BloomLevel, SceneType
     plan = LessonPlan(

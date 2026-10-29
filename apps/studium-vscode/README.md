@@ -8,6 +8,8 @@ pair** with the tutoring loop:
   renders each scene + its artifacts and collects the learner's answer.
 - **Lesson notebook** (`studium.openLessonNotebook`) — a `NotebookController`; each run of the
   driver cell advances the lesson one turn and renders the scene as rich cell output.
+- **Course picker** (`studium.pickLesson`) — discovers a bundles root, stores the workspace's chosen
+  course, and opens it without asking the learner to edit `settings.json`.
 
 ```
  VS Code extension host ── MCP client ──▶ lesson-mcp (stdio) ──▶ lesson-session engine
@@ -76,7 +78,7 @@ locally by default (`studium.assets: "vendor"`, air-gap safe); `cdn` pulls them 
 |---|---|---|
 | `studium.repoRoot` | *(extension's monorepo root)* | where `lesson-mcp` + the pnpm `tsx` live |
 | `studium.bundlesRoot` | *(repo `fixtures/`)* | `BUNDLES_ROOT` the server resolves `bundleRef` against |
-| `studium.bundleRef` | `atomistique-l1/lesson.json` | the course to open (the L1 atomistique demo) |
+| `studium.bundleRef` | `atomistique-l1/lesson.json` | the current course; when no value has been stored yet, Open Lesson starts the picker |
 | `studium.communityBundlesRoot` | *(= `bundlesRoot`)* | root the community-contributions picker scans |
 | `studium.assets` | `vendor` | `vendor` (offline, `media/vendor`) or `cdn` (jsdelivr) |
 | `studium.learnerId` | `vscode-learner` | salts the RGPD pseudonym |
@@ -88,6 +90,8 @@ locally by default (`studium.assets: "vendor"`, air-gap safe); `cdn` pulls them 
 
 ## Commands
 
+- **Studium: Choisir un cours / Pick a course** (`studium.pickLesson`) — choose a discovered course
+  or another bundles-root folder, save both settings in the workspace, then open the lesson.
 - **Studium: Open Lesson** (`studium.openLesson`) — the webview lesson pane.
 - **Studium: Open Lesson as Notebook** (`studium.openLessonNotebook`) — the notebook surface.
 - **Studium: Contributions de la classe / Community contributions** (`studium.communityContributions`).
@@ -102,9 +106,10 @@ ask for a hint · `forget` → erase your session data.
    `pnpm --filter studium-vscode vendor`.
 2. Build the bundle: `pnpm --filter studium-vscode build` (esbuild → `dist/extension.js`).
 3. Open this folder in VS Code and press **F5** (Extension Development Host).
-4. Run **"Studium: Open Lesson"** (or **"… as Notebook"**) from the Command Palette, or click the
-   **Studium** icon in the Activity Bar. It runs zero-config against the repo's `fixtures/atomistique-l1`
-   demo; point `studium.bundlesRoot` / `studium.bundleRef` elsewhere for another course.
+4. Run **"Studium: Choisir un cours / Pick a course"** from the Command Palette, or open the
+   **Studium** Activity Bar and use **Cours disponibles / Courses**. Discovery accepts
+   `<bundlesRoot>/<course>/lesson.json` and bare root `*.json` files. **Open Lesson** also offers the
+   picker automatically when the workspace has no stored course or its configured file is missing.
 
 ## Install it (packaged VSIX — for a colleague test round)
 
@@ -119,7 +124,8 @@ The extension declares VS Code ≥ 1.95; use a current VS Code for native editor
 MCP support. The VSIX includes `dist/lesson-mcp.cjs` and the vendored renderers.
 The pane can therefore run without a source checkout or global `tsx`. **Course
 bundles are supplied separately**: configure `studium.bundlesRoot` and
-`studium.bundleRef`. In a source checkout the extension prefers the source server.
+`studium.bundleRef`, or use **Studium: Choisir un cours / Pick a course**. In a source checkout the
+extension prefers the source server.
 
 The package command rebuilds but does not vendor: run the vendor step first.
 `studium.vsix` is a local, ignored build artifact, not a published Marketplace
@@ -141,7 +147,7 @@ The extension ships a headless verification suite (no VS Code host needed) — *
 assertions** (`pnpm --filter studium-vscode test`):
 
 ```
-pnpm --filter studium-vscode test          # tsc --noEmit + all 6 drivers
+pnpm --filter studium-vscode test          # tsc --noEmit + all 12 registered drivers
 ```
 
 - `scene-io.driver` — the scene→response-kind contract (must match the graders) + a text-parity
@@ -153,6 +159,9 @@ pnpm --filter studium-vscode test          # tsc --noEmit + all 6 drivers
   `src/fixtures/wave-scenes.json` (every active-learning type, un-gated) + `all-scene-types.json`
   (the discussion turn loop) through the real graders to `complete`.
 - `community`, `modality`, `review-fsrs` — picker discovery, modality reordering, FSRS parity.
+- `lesson-tree` — available-courses/community shaping and current-course marker.
+- `lesson-picker` (standalone) — pure discovery plus a temporary-filesystem adapter check; run with
+  `node --import tsx src/lesson-picker.driver.ts [bundles-root]` from this package.
 
 > Scope note: the **webview** front-end is executed live (jsdom). The **notebook** controller uses
 > `vscode.*` APIs that only run inside a real Extension Host, so its input mapping is covered live

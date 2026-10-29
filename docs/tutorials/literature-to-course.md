@@ -87,8 +87,23 @@ d'une carte n'est pas une preuve de réussite locale. Le
 ## 5. Décider de la suite
 
 Relire objectifs, prérequis, exactitude scientifique, questions, critères de
-réponse, charge de travail et permissions des matériaux. Le dossier vérifié n'est
-pas un `LessonBundle` étudiant et ne doit pas être renommé en `lesson.json`.
-L'intégration du draft dans l'approbation/synthèse de l'interface auteur reste à
-compléter ; voir [l'état exact du parcours enseignant](../user/teacher-guide.md).
-Le livrable de ce tutoriel est un brouillon sourcé et une revue humaine préparée.
+réponse, charge de travail et permissions des matériaux. Puis convertir le dossier
+vérifié en squelette jouable :
+
+```sh
+.venv/bin/python tools/experience_packet.py bundle --course /ABS/PATH/studium-tutorial/courses/spectral-evidence --out /ABS/PATH/studium-tutorial/bundles/spectral-evidence/lesson.json
+```
+
+Le bundle conserve par défaut la marque `DRAFT — not validated` et contient des
+champs `TODO:` : l'ouvrir, remplacer chaque contenu factice et le relire avant tout
+usage étudiant. `--validated-by "Nom"` ne doit être ajouté qu'après cette décision
+humaine. Vérifier enfin le contrat 1.4 :
+
+```sh
+apps/lesson-mcp/node_modules/.bin/tsx tools/bundle_validate.ts /ABS/PATH/studium-tutorial/bundles/spectral-evidence/lesson.json
+```
+
+Voir [Du brouillon au bundle jouable](../user/teacher-guide.md#du-brouillon-au-bundle-jouable)
+pour les avertissements de licence, la scène `simulation` héritée et les limites de
+validation. L'intégration du draft dans l'approbation/synthèse de l'interface auteur
+reste distincte de ce squelette local.

@@ -13,7 +13,7 @@ function base(type: string): Record<string, unknown> {
 }
 
 describe("publicScene — generic transport redaction", () => {
-  it("removes the `correct` flag from every quiz choice but keeps choice text + question + hints", () => {
+  it("removes the `correct` flag from every quiz choice but keeps choice text + question; withholds feedback + hints", () => {
     const quiz = {
       ...base("quiz"),
       question: "Why?",
@@ -30,7 +30,10 @@ describe("publicScene — generic transport redaction", () => {
     for (const c of choices) expect("correct" in c).toBe(false);
     // attemptable + render fields survive
     expect(pub["question"]).toBe("Why?");
-    expect(pub["hints"]).toEqual(["hint one"]);
+    // the answer key in prose: both feedback texts and the hints are withheld until earned
+    expect("hints" in pub).toBe(false);
+    expect("feedback_correct" in pub).toBe(false);
+    expect("feedback_incorrect" in pub).toBe(false);
     expect(pub["render_assets"]).toBeDefined();
     // does not mutate the source scene (server keeps the full scene)
     expect((quiz as Record<string, unknown>)["choices"]).toEqual([

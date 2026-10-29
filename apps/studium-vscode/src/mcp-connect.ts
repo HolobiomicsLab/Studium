@@ -15,6 +15,31 @@ export type LogSink = (line: string) => void;
 /** How to launch lesson-mcp: the executable, its args, its cwd, extra env. */
 export interface ServerLaunch { command: string; args: string[]; cwd: string; env?: Record<string, string>; }
 
+export interface ServerInfo {
+  name: string;
+  version: string;
+  build: { origin: "source" | "bundled"; built_at: string | null; git_sha: string | null };
+  tools: string[];
+  bundles_root: string;
+  data_dir: string | null;
+  model_backend: "none" | "configured";
+}
+
+/** Describe whether a launch uses live TypeScript sources or the VSIX bundle. */
+export function describeServerLaunch(launch: ServerLaunch): string {
+  const entry = launch.args[0] ?? "";
+  if (entry.endsWith("lesson-mcp.cjs")) return "bundled (dist/lesson-mcp.cjs)";
+  return `source (${resolve(launch.cwd, entry)})`;
+}
+
+/** Format get_server_info for the Studium output channel. */
+export function serverInfoLine(info: ServerInfo): string {
+  const sha = info.build.git_sha ? ` sha=${info.build.git_sha}` : "";
+  return `[${info.name}] v${info.version} ${info.build.origin} ${info.build.built_at ?? "unbuilt"}${sha} ` +
+    `tools=${info.tools.length} bundles_root=${info.bundles_root} data_dir=${info.data_dir ?? "none"} ` +
+    `model_backend=${info.model_backend}`;
+}
+
 /** Decide how to launch lesson-mcp, in order of preference:
  *  1. a repo checkout (live sources via tsx) — dev mode, keeps edits hot;
  *  2. the server bundled INSIDE the extension (dist/lesson-mcp.cjs, produced by `pnpm build`),

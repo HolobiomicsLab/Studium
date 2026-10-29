@@ -78,8 +78,9 @@ SUPPORTED_SCENE_TYPES: frozenset[str] = frozenset(_AGENT_CLASSES)
 #: exactly the mechanism INT-STUDIUM-035 puts in question. Until that is decided, generating them
 #: would industrialise the defect rather than close the gap.
 _ACTIVE_LEARNING_GAP = (
-    "Graded by the runtime but authorable only by hand: an agent would have to generate the "
-    "`cues` that ARE the grading key, which is gated on the INT-STUDIUM-035 decision."
+    "Graded by the runtime and, since 2026-10-29, plannable (lesson_plan_schema) but authorable "
+    "only by hand or as a TODO skeleton (tools/experience_packet.py bundle): an agent would have to "
+    "generate the `cues` that ARE the grading key, which is gated on the INT-STUDIUM-035 decision."
 )
 
 #: Scene types a plan may legitimately name that this service cannot build, each with the reason.
@@ -101,6 +102,13 @@ KNOWN_UNSUPPORTED_SCENE_TYPES: dict[str, str] = {
         "Building it means auto-generating the grading cues, which is gated on the "
         "INT-STUDIUM-035 decision about how free-text answers are graded at all."
     ),
+    # The five active-learning types became plannable on 2026-10-29 (teacher `bundle` command,
+    # audit of the three web cases); they stay unbuildable here for the reason above.
+    "explain_back": _ACTIVE_LEARNING_GAP,
+    "comparison": _ACTIVE_LEARNING_GAP,
+    "summary_audit": _ACTIVE_LEARNING_GAP,
+    "prompt_practice": _ACTIVE_LEARNING_GAP,
+    "communication_sim": _ACTIVE_LEARNING_GAP,
 }
 
 #: The other direction of the same drift: scene types the RUNTIME can grade that no plan can ask
@@ -108,13 +116,9 @@ KNOWN_UNSUPPORTED_SCENE_TYPES: dict[str, str] = {
 #: atomistique-l1 bundle). They are not a defect - a hand-authored scene is a legitimate product
 #: state - but an UNDECLARED one is, because nothing else in the pipeline reveals that the
 #: authoring path stops short of the grading path.
-HAND_AUTHORED_ONLY_SCENE_TYPES: dict[str, str] = {
-    "explain_back": _ACTIVE_LEARNING_GAP,
-    "comparison": _ACTIVE_LEARNING_GAP,
-    "summary_audit": _ACTIVE_LEARNING_GAP,
-    "prompt_practice": _ACTIVE_LEARNING_GAP,
-    "communication_sim": _ACTIVE_LEARNING_GAP,
-}
+#: Empty since 2026-10-29: the five active-learning types that lived here became plannable and
+#: moved to KNOWN_UNSUPPORTED_SCENE_TYPES (the guard test accepts either table as a declaration).
+HAND_AUTHORED_ONLY_SCENE_TYPES: dict[str, str] = {}
 
 
 # Project a tools/capsule_runner result into a ReferenceRun dict. Canonical home is

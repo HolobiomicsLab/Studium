@@ -14,6 +14,12 @@ class BloomLevel(str, Enum):
 
 
 class SceneType(str, Enum):
+    """Scene vocabulary accepted in plans.
+
+    ``simulation`` remains accepted for legacy plans but is deprecated because
+    the LessonBundle 1.4 runtime has no corresponding playable scene type.
+    """
+
     intro = "intro"
     concept = "concept"
     quiz = "quiz"
@@ -26,6 +32,11 @@ class SceneType(str, Enum):
     # result). The planner can request it; the composer runs the capsule + attaches the
     # verified reference_result. Mirrors scene_synth_schemas.SceneType (the bundle vocab).
     spot_the_flaw = "spot_the_flaw"
+    explain_back = "explain_back"
+    comparison = "comparison"
+    summary_audit = "summary_audit"
+    prompt_practice = "prompt_practice"
+    communication_sim = "communication_sim"
 
 
 class PlanStatus(str, Enum):

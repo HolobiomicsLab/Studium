@@ -5,7 +5,7 @@
  *   - anywhere they are absent (e.g. a quick preview), every renderer DEGRADES GRACEFULLY
  *     (equation → styled code, plot_spec → a minimal inline-SVG bar chart from the spec's data).
  * The render path is identical; only fidelity changes. Drives off window.postMessage from the
- * extension host: { type: 'render', scene, scene_assets, progress, mastery, explanation }.
+ * extension host: { type: 'render', scene, scene_assets, progress, mastery, explanation, verdict }.
  */
 (function () {
   "use strict";
@@ -204,6 +204,19 @@
     return el("div", { class: "adapt" }, "⟳ " + ((ex && ex.rule_id) || "") + " — " + ((ex && ex.explanation_short) || ""));
   }
 
+  // The verdict of the answer that brought the learner here: for a graded scene, right or wrong
+  // plus the ONE feedback branch the engine released; for an ungraded scene, a plain
+  // acknowledgement. The other branch and the key never reach this pane (audit 2026-10-29, P1/P2).
+  function renderVerdict(v) {
+    if (!v || typeof v !== "object") return document.createDocumentFragment();
+    if (!v.graded) return el("div", { class: "verdict verdict-ack" }, "✓ Réponse enregistrée");
+    const ok = v.correct === true;
+    const line = el("div", { class: "verdict " + (ok ? "verdict-ok" : "verdict-ko") });
+    line.append(el("span", { class: "verdict-mark" }, ok ? "✓ Juste" : "✗ Faux"));
+    if (v.feedback) line.append(el("span", { class: "verdict-feedback" }, " — " + v.feedback));
+    return line;
+  }
+
   // --- whole pane ----------------------------------------------------------
   function renderPane(state) {
     const root = $("#pane"); root.innerHTML = "";
@@ -219,6 +232,7 @@
     crumbs.append(forget);
     head.append(crumbs);
     head.append(el("h2", { class: "scene-title" }, sc.title || ""));
+    if (state.verdict) head.append(renderVerdict(state.verdict));
     if (state.explanation) head.append(renderAdapt(state.explanation));
     // Calibration mirror (B1): the metacognitive "am I as sure as I should be?" verdict per concept,
     // computed host-side (calibration[]). Show only the ACTIONABLE bands (sur/sous) to avoid noise —

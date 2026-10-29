@@ -68,7 +68,9 @@ export class SessionWorkspace {
     const context = operatorContextMarkdown(operatorContext(this.host, sessionId));
     await mkdir(this.dir, { recursive: true });
     const manifest = scene.run_manifest as Record<string, unknown> | undefined;
-    if (manifest) {
+    // A run scene revisited after a detour, with the learner's run already recorded: a response task
+    // (ack) — the operator may still re-run and write run_result.json, which ingest() picks up first.
+    if (manifest && !scene.learner_run_recorded) {
       await rm(join(this.dir, FILES.runResult), { force: true }); // fresh run scene: no stale result
       await writeFile(join(this.dir, FILES.run), JSON.stringify(manifest, null, 2), "utf8");
       await writeFile(join(this.dir, FILES.task), renderRunTask(scene, manifest, this.step) + context, "utf8");
@@ -114,8 +116,13 @@ export class SessionWorkspace {
    * input is CONSUMED + a corrective feedback.md is written so the operator can retry — the channel
    * self-heals instead of deadlocking on an un-consumed bad response.json. */
   async ingest(sessionId: string): Promise<{ done: boolean; transition: string }> {
-    const pres = this.host.currentPresentation(sessionId) as { scene: { type: string; run_manifest?: unknown } };
-    if (pres.scene.run_manifest) return this.ingestRun(sessionId); // learner-time run scene
+    const pres = this.host.currentPresentation(sessionId) as { scene: { type: string; run_manifest?: unknown; learner_run_recorded?: boolean } };
+    if (pres.scene.run_manifest) {
+      // learner-time run scene: a run already recorded makes the run optional — a fresh run_result.json
+      // still counts (re-run), otherwise the operator's response.json (ack) advances.
+      const hasResult = await readFile(join(this.dir, FILES.runResult), "utf8").then(() => true, () => false);
+      if (!pres.scene.learner_run_recorded || hasResult) return this.ingestRun(sessionId);
+    }
     const sceneType = pres.scene.type;
     const input = await this.readResponse(sceneType);
     if (!input) {                                                        // no valid response yet — don't wedge
@@ -125,7 +132,7 @@ export class SessionWorkspace {
     }
     let t: Record<string, unknown>;
     try {
-      t = publicTransition(await this.host.respond(sessionId, input as never)) as Record<string, unknown>;
+      t = publicTransition(await this.host.respond(sessionId, input as never)) as unknown as Record<string, unknown>;
     } catch (e) {                                                        // bad/mismatched input — self-heal
       await rm(join(this.dir, FILES.response), { force: true });         // consume the bad file (no re-wedge)
       await writeFile(join(this.dir, FILES.feedback),
@@ -198,7 +205,7 @@ export class SessionWorkspace {
     }
     // ran && passed: the host recorded the learner's run + advanced. Mark the step + write the next task.
     await this.markRan(sessionId, result);
-    const t = publicTransition(r.transition as Parameters<typeof publicTransition>[0]) as Record<string, unknown>;
+    const t = publicTransition(r.transition as Parameters<typeof publicTransition>[0]) as unknown as Record<string, unknown>;
     await rm(join(this.dir, FILES.runResult), { force: true }); // consume: next scene starts fresh
     await writeFile(join(this.dir, FILES.feedback), renderRunFeedback(result, t), "utf8");
     if (t.kind === "complete") {
@@ -268,6 +275,10 @@ function renderTask(scene: Record<string, unknown>, assets: Array<Record<string,
   const s = scene as Record<string, string | undefined>;
   const L: string[] = [];
   L.push(`# Studium — etape ${step} : ${s.title || s.type}`, "");
+  if (scene.learner_run_recorded) {
+    L.push("", `**Run deja enregistre** (mesure : \`${String(scene.learner_run_landmark ?? "")}\`). Pas besoin de re-provisionner :`,
+      "reponds `{ \"kind\": \"ack\" }` pour continuer, ou relance et ecris `run_result.json` pour un resultat frais.", "");
+  }
   L.push(`**Type de scene :** \`${s.type}\``, "");
   L.push(instructionFor(String(s.type)), "");
   if (s.markdown) L.push(s.markdown, "");
@@ -303,10 +314,16 @@ function renderTask(scene: Record<string, unknown>, assets: Array<Record<string,
 
 function renderFeedback(t: Record<string, unknown>): string {
   const reason = typeof t.reason === "string" ? t.reason : "";
+  // The verdict is the ONLY place the quiz feedback reaches the learner now (the public scene no
+  // longer carries feedback_correct / feedback_incorrect): say it first, then where the lesson goes.
+  const v = t.verdict as { graded?: boolean; correct?: boolean; feedback?: string } | undefined;
+  const verdictLine = v?.feedback ? `${v.correct === false ? "✗ Faux" : "✓ Juste"} — ${v.feedback}\n\n` : "";
+  const nav = t.navigation as { returns_to?: string } | undefined;
   switch (t.kind) {
-    case "next": return "# Feedback\n\n✓ Reponse enregistree — passage a l'etape suivante (`task.md` mis a jour).\n";
-    case "replay": return `# Feedback\n\n↻ A revoir : ${reason || "maitrise insuffisante"}. La prochaine tache revient dessus.\n`;
-    case "remediate_alt": return `# Feedback\n\n↻ Remediation : ${reason}. Une variante est proposee.\n`;
+    case "next": return `# Feedback\n\n${verdictLine}✓ Reponse enregistree — passage a l'etape suivante (\`task.md\` mis a jour).\n`;
+    case "replay": return `# Feedback\n\n${verdictLine}↻ A revoir : ${reason || "maitrise insuffisante"}. La prochaine tache revient dessus.\n`;
+    case "remediate_alt": return `# Feedback\n\n${verdictLine}↻ Remediation : ${reason}. Une variante est proposee.\n`;
+    case "remediate": return `# Feedback\n\n${verdictLine}↻ Prerequis non maitrise : ${reason}. Detour par une scene du prerequis${nav?.returns_to ? ` ; retour ensuite a \`${nav.returns_to}\`` : ""}.\n`;
     case "calibration": return "# Feedback\n\n⚖️ Point de calibration : compare ta confiance a ta maitrise reelle.\n";
     case "complete": {
       const n = (t.summary as Record<string, unknown> | undefined)?.scenesCompleted;

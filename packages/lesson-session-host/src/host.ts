@@ -596,6 +596,15 @@ export class SessionHost {
     return scene.run_manifest ?? null;
   }
 
+  /** The run manifest PLUS whether this session already holds the learner's attested run for the
+   * current scene's task card (a revisit after a graph detour). When it does, a harness may re-run or
+   * simply `submit_response {kind:"ack"}`; nobody has to re-provision an environment to move on. */
+  runStatus(id: string): { run_manifest: RunManifest | null; learner_run_recorded: boolean; landmark: string | null } {
+    const scene = this.require(id).session.currentPresentation().scene as { run_manifest?: RunManifest; task_card_id?: string };
+    const run = scene.run_manifest && scene.task_card_id ? this.require(id).session.learnerRunFor(scene.task_card_id) : null;
+    return { run_manifest: scene.run_manifest ?? null, learner_run_recorded: !!run, landmark: run?.landmark ?? null };
+  }
+
   /** Ingest a learner-produced run_result — Studium NEVER executes (the operator ran it in the workspace).
    * The SHARED run-ingest core used by BOTH channels (MCP submit_run_result + the file channel's
    * SessionWorkspace.ingestRun), so they cannot drift. Gates advance on `ran && passed`: a passing run

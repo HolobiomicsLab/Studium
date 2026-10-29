@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.4",
+  "bundle_id": "bundle-lint-cycle",
+  "source_plan_id": "bundle-lint-tests",
+  "metadata": {
+    "title": "Cyclic prerequisite graph",
+    "target": "Lint tests",
+    "duration_minutes": 5,
+    "language": "en",
+    "discipline": "testing"
+  },
+  "concepts": [
+    { "id": "alpha", "title": "Alpha", "description": "Alpha.", "bloom_level_target": "understand" },
+    { "id": "beta", "title": "Beta", "description": "Beta.", "bloom_level_target": "apply" }
+  ],
+  "scenes": [
+    {
+      "id": "s-alpha",
+      "type": "quiz",
+      "title": "Alpha check 1",
+      "objective_refs": [],
+      "concept_refs": ["alpha"],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "question": "Choose alpha.",
+      "choices": [
+        { "id": "a", "text": "Alpha", "correct": true },
+        { "id": "b", "text": "Beta", "correct": false }
+      ],
+      "feedback_correct": "Correct.",
+      "feedback_incorrect": "Try again.",
+      "hints": []
+    },
+    {
+      "id": "s-alpha-2",
+      "type": "quiz",
+      "title": "Alpha check 2",
+      "objective_refs": [],
+      "concept_refs": ["alpha"],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "question": "Choose alpha again.",
+      "choices": [
+        { "id": "a", "text": "Alpha", "correct": true },
+        { "id": "b", "text": "Beta", "correct": false }
+      ],
+      "feedback_correct": "Correct.",
+      "feedback_incorrect": "Try again.",
+      "hints": []
+    },
+    {
+      "id": "s-beta",
+      "type": "quiz",
+      "title": "Beta check 1",
+      "objective_refs": [],
+      "concept_refs": ["beta"],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "question": "Choose beta.",
+      "choices": [
+        { "id": "a", "text": "Beta", "correct": true },
+        { "id": "b", "text": "Alpha", "correct": false }
+      ],
+      "feedback_correct": "Correct.",
+      "feedback_incorrect": "Try again.",
+      "hints": []
+    },
+    {
+      "id": "s-beta-2",
+      "type": "quiz",
+      "title": "Beta check 2",
+      "objective_refs": [],
+      "concept_refs": ["beta"],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "question": "Choose beta again.",
+      "choices": [
+        { "id": "a", "text": "Beta", "correct": true },
+        { "id": "b", "text": "Alpha", "correct": false }
+      ],
+      "feedback_correct": "Correct.",
+      "feedback_incorrect": "Try again.",
+      "hints": []
+    }
+  ],
+  "rules": [],
+  "validated_by": "bundle-lint tests",
+  "validated_at": "2026-10-29T00:00:00.000Z",
+  "learning_workflow_graph": {
+    "schema_version": "1.0",
+    "course_id": "bundle-lint-cycle",
+    "nodes": [
+      { "id": "concept:alpha", "node_kind": "concept", "title": "Alpha", "bloom_level": "understand" },
+      { "id": "concept:beta", "node_kind": "concept", "title": "Beta", "bloom_level": "apply" }
+    ],
+    "edges": [
+      { "id": "edge-alpha-beta", "relation": "prerequisite_for", "source": "concept:alpha", "target": "concept:beta" },
+      { "id": "edge-beta-alpha", "relation": "prerequisite_for", "source": "concept:beta", "target": "concept:alpha" }
+    ]
+  }
+}
