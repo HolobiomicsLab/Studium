@@ -33,31 +33,31 @@
     "commands": [
       {
         "command": "studium.openLesson",
-        "title": "Studium: Open Lesson"
+        "title": "%command.openLesson.title%"
       },
       {
         "command": "studium.pickLesson",
-        "title": "Studium: Choisir un cours / Pick a course"
+        "title": "%command.pickLesson.title%"
       },
       {
         "command": "studium.openLessonNotebook",
-        "title": "Studium: Open Lesson as Notebook"
+        "title": "%command.openLessonNotebook.title%"
       },
       {
         "command": "studium.communityContributions",
-        "title": "Studium: Contributions de la classe / Community contributions"
+        "title": "%command.communityContributions.title%"
       },
       {
         "command": "studium.runReproduction",
-        "title": "Studium: Run reproduction (current scene's capsule)"
+        "title": "%command.runReproduction.title%"
       },
       {
         "command": "studium.openWalkthrough",
-        "title": "Studium: Prise en main / Getting started"
+        "title": "%command.openWalkthrough.title%"
       },
       {
         "command": "studium.refreshLessons",
-        "title": "Studium: Refresh the lessons view",
+        "title": "%command.refreshLessons.title%",
         "icon": "$(refresh)"
       }
     ],
@@ -74,7 +74,7 @@
       "studium": [
         {
           "id": "studiumLessons",
-          "name": "Leçons / Lessons"
+          "name": "%view.lessons.name%"
         }
       ]
     },
@@ -175,27 +175,27 @@
       }
     ],
     "configuration": {
-      "title": "Studium",
+      "title": "%configuration.title%",
       "properties": {
         "studium.repoRoot": {
           "type": "string",
           "default": "",
-          "description": "Chemin d'un clone de prototype-build (mode développement : lesson-mcp est lancé depuis ses sources via tsx). Facultatif pour un VSIX installé : le serveur embarqué dist/lesson-mcp.mjs est utilisé quand aucun clone n'est trouvé."
+          "description": "%configuration.repoRoot.description%"
         },
         "studium.bundlesRoot": {
           "type": "string",
           "default": "",
-          "description": "Directory the lesson-mcp server resolves bundle_ref against (BUNDLES_ROOT). Leave empty to use the repo's own fixtures/ folder."
+          "description": "%configuration.bundlesRoot.description%"
         },
         "studium.bundleRef": {
           "type": "string",
           "default": "atomistique-l1/lesson.json",
-          "description": "The bundle to open (relative to bundlesRoot). Defaults to the L1 atomistique demo."
+          "description": "%configuration.bundleRef.description%"
         },
         "studium.communityBundlesRoot": {
           "type": "string",
           "default": "",
-          "description": "Root the 'Contributions de la classe / Community contributions' command discovers approved learner-authored bundles against (the course bundles root the scene-synth decide_item path emits <courseRoot>/community/*.zip into). Leave empty to reuse studium.bundlesRoot. The canonical course is never mutated; community items are additive."
+          "description": "%configuration.communityBundlesRoot.description%"
         },
         "studium.assets": {
           "type": "string",
@@ -204,22 +204,26 @@
             "cdn"
           ],
           "default": "vendor",
-          "description": "Where the webview loads KaTeX/Vega from: 'vendor' (offline, bundled in media/vendor — air-gap safe) or 'cdn' (jsdelivr)."
+          "description": "%configuration.assets.description%",
+          "enumDescriptions": [
+            "%configuration.assets.enum.0%",
+            "%configuration.assets.enum.1%"
+          ]
         },
         "studium.learnerId": {
           "type": "string",
           "default": "vscode-learner",
-          "description": "Learner id (salts the RGPD pseudonym)."
+          "description": "%configuration.learnerId.description%"
         },
         "studium.telemetryConsent": {
           "type": "boolean",
           "default": false,
-          "description": "Opt in to consented, pseudonymized class telemetry (STUDIUM_TELEMETRY_CONSENT)."
+          "description": "%configuration.telemetryConsent.description%"
         },
         "studium.showGraph": {
           "type": "boolean",
           "default": true,
-          "description": "Open a companion live Learning-Workflow-Graph panel that repaints each turn (typed-graph-lens)."
+          "description": "%configuration.showGraph.description%"
         },
         "studium.graphView": {
           "type": "string",
@@ -228,12 +232,16 @@
             "teacher"
           ],
           "default": "student",
-          "description": "Graph scope: 'student' (ego-graph around the current frontier) or 'teacher' (the whole graph)."
+          "description": "%configuration.graphView.description%",
+          "enumDescriptions": [
+            "%configuration.graphView.enum.0%",
+            "%configuration.graphView.enum.1%"
+          ]
         },
         "studium.showMastery": {
           "type": "boolean",
           "default": false,
-          "description": "Show the live per-concept mastery bar in the lesson pane. OFF by default: it is a teacher/model signal, and showing it to a learner during a quiz can leak the answer (try options, watch which raises mastery). Turn on only for teacher demos."
+          "description": "%configuration.showMastery.description%"
         },
         "studium.modalityPreference": {
           "type": "string",
@@ -243,12 +251,12 @@
             "balanced"
           ],
           "enumDescriptions": [
-            "Lead with the visual modality: 3D orbital / molecule / plot / spectrum renders are ordered first and expanded; equations & text are collapsed (kept, openable).",
-            "Lead with the textual modality: equations, markdown & concise summaries are ordered first and expanded; figures & 3D are collapsed (kept, openable).",
-            "Balanced — the authored order, no extra emphasis (default)."
+            "%configuration.modalityPreference.enum.0%",
+            "%configuration.modalityPreference.enum.1%",
+            "%configuration.modalityPreference.enum.2%"
           ],
           "default": "balanced",
-          "description": "Modality-adaptive rendering (Ciussi, \"comment mieux apprendre si je suis visuel\"). Reorders and emphasizes each scene's artifacts toward the learner's preferred modality. Content-preserving: nothing is removed — the non-preferred modality is collapsed, never hidden."
+          "description": "%configuration.modalityPreference.description%"
         }
       }
     }

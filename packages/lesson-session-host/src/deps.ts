@@ -1,6 +1,6 @@
 // packages/lesson-session-host/src/deps.ts  (moved from server-deps.ts; renamed buildServerDeps → buildHostDeps)
 import { join } from "node:path";
-import type { SessionDeps } from "@studium/lesson-session";
+import type { Clock, SessionDeps } from "@studium/lesson-session";
 import {
   SystemClock, RandomIdGen, HmacPseudonymProvider,
   InMemoryStateStore, InMemoryEventLog, InMemoryTelemetrySink,
@@ -73,7 +73,7 @@ export function telemetryConsentGranted(): boolean {
  * is opt-in; the 18 host tests + server/mcp baselines stay green). pseudonym/clock/idGen/scorers
  * are identical in both modes — crucially the SAME HmacPseudonymProvider instance the host uses to
  * derive `scopeDir`, so the host dir pseudonym === session pseudonym (no salt drift). */
-export function buildHostDeps(live: boolean, scopeDir?: string): SessionDeps {
+export function buildHostDeps(live: boolean, scopeDir?: string, clock?: Clock): SessionDeps {
   const pseudonym = new HmacPseudonymProvider(resolvePseudoSecret(live));
   const durable = scopeDir !== undefined;
   // Consented telemetry: durable mode + explicit opt-in → write the pseudonymized ADR-006 event
@@ -87,7 +87,7 @@ export function buildHostDeps(live: boolean, scopeDir?: string): SessionDeps {
     eventLog: durable ? new JsonlEventLog(join(scopeDir, "events.jsonl")) : new InMemoryEventLog(),
     telemetry,
     pseudonym,
-    clock: new SystemClock(),
+    clock: clock ?? new SystemClock(),
     idGen: new RandomIdGen(),
     reasoningScorer: live
       ? new LiteLLMReasoningScorer({

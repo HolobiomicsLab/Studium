@@ -99,7 +99,14 @@ export const SignalSchema = z.discriminatedUnion("kind", [
     scene_id: z.string(), value: z.number().int().min(0).max(4),
     // M3: the concept this self-assessment is about. Optional for backward-compat —
     // when absent, the calibration loop is a no-op (no concept to attach the gap to).
-    concept_id: z.string().optional() }),
+    concept_id: z.string().optional(),
+    // Paired checkpoint (pre_question/post_question): the two declarations and their delta. `value`
+    // stays the post declaration (what the calibration loop compares). Optional: a single-question
+    // checkpoint carries none. Declared here so a durable store (FileStateStore parses on load)
+    // keeps them — a zod object strips unknown keys, which silently dropped them before.
+    pre: z.number().int().min(0).max(4).optional(),
+    post: z.number().int().min(0).max(4).optional(),
+    confidence_delta: z.number().int().min(-4).max(4).optional() }),
   z.object({ kind: z.literal("scene_entered"), scene_id: z.string() }),
   z.object({ kind: z.literal("scene_completed"),
     scene_id: z.string(), duration_ms: z.number().nonnegative() }),

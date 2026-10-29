@@ -4,12 +4,36 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
-## 2026-10-29 (soir) — vague 2 : neuf correctifs appliqués, non commités
+## 2026-10-29 (soir, suite) — restes de code après la vague 2
+
+Demande propriétaire : « Tu peux y aller pour ces recommandations ». Trois correctifs hors des
+vagues, un commit, non poussé.
+
+- **Test FSRS dépendant de la date** (`host.review.test.ts › reviewQueue … FSRS schedule`, rouge
+  depuis que le calendrier a dépassé t0 + 90 jours). Cause réelle : l'historique est horodaté par
+  `AdaptationEngine.appendHistory` avec `new Date()`, pas par l'horloge de la session ; le rejeu FSRS
+  lit cet horodatage. `AdaptationEngine` reçoit maintenant un `now()` (la session passe
+  `deps.clock.now`), `SessionHostOptions.clock` injecte l'horloge dans `buildHostDeps`, et les
+  lectures `reviewQueue` / `nextReinforcement` / `nextReinforcementScene` / `dueReinforcements` /
+  `nextCourseStep` prennent par défaut cette horloge. Le test fixe `FixedClock("2026-06-20T10:00:00Z")`.
+- **Champs pré/post durables (W8)** : `confidence_declared` déclare `pre`, `post`,
+  `confidence_delta` optionnels dans `@studium/learner-state` ; un objet zod retirait ces clés au
+  rechargement `FileStateStore`. Le grader perd son `as Signal`. Test
+  `learner-state/src/confidence-pre-post.test.ts`.
+- **Extension VS Code localisée** : `package.nls.json` (en) + `package.nls.fr.json` (fr), 27 clés :
+  titres des sept commandes, nom de la vue, titre et descriptions des onze réglages avec leurs
+  `enumDescriptions`. Les titres bilingues « A / B » disparaissent ; VS Code choisit selon sa langue
+  d'affichage. README et walkthrough alignés.
+
+Vérification : `pnpm -r --no-bail test` entièrement vert (host 182/182, plus aucun test rouge),
+extension typecheck + 14 pilotes dont le manifeste.
+
+## 2026-10-29 (soir) — vague 2 : neuf correctifs appliqués, commit 3e701f8 non poussé
 
 Demande propriétaire : « Oui, corrige » après le rapport de la vague 2
 (`studium_dev/docs/superpowers/audits/2026-10-29-web-cases-wave2-trial.md`, §7 → §9).
-Branche `fix/2026-10-29-harness-trial` sur eb5b1e1, arbre sale (50 fichiers, 42 files changed, 1819 insertions(+), 453 deletions(-)), **aucun
-commit, aucun push**. Quatre missions Codex sol-max (E moteur, F hôte/chargeur/MCP/identité,
+Branche `fix/2026-10-29-harness-trial` sur eb5b1e1, commit `3e701f8` (51 files changed, 2893 insertions(+), 453 deletions(-)), **non
+poussé** (go propriétaire « Oui, un commit »). Quatre missions Codex sol-max (E moteur, F hôte/chargeur/MCP/identité,
 G outils enseignant, H catalogue fr/en), intégrées par le lead.
 
 Unités : `RunRequiredError` sur une reproduction sans run attesté (W3) ; mémoire de passage

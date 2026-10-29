@@ -92,13 +92,13 @@ const metaGrader: Grader = async (scene, input) => {
   // post is the declared confidence while the complete pre/post observation remains in history.
   const isPaired = "post" in input;
   const value = isPaired ? input.post : input.value;
-  const signal = {
-    kind: "confidence_declared" as const,
+  const signal: Signal = {
+    kind: "confidence_declared",
     scene_id: scene.id,
     value,
     concept_id: conceptOf(scene),
     ...(isPaired ? { pre: input.pre, post: input.post, confidence_delta: input.post - input.pre } : {}),
-  } as Signal;
+  };
   return { signal, telemetry: [] };
 };
 

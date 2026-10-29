@@ -90,11 +90,15 @@ locally by default (`studium.assets: "vendor"`, air-gap safe); `cdn` pulls them 
 
 ## Commands
 
-- **Studium: Choisir un cours / Pick a course** (`studium.pickLesson`) — choose a discovered course
+Command titles, the settings descriptions and the view name follow VS Code's display language:
+English from `package.nls.json`, French from `package.nls.fr.json` (« Studium : Choisir un cours »,
+« Studium : Ouvrir une leçon », …). The ids below never change.
+
+- **Studium: Pick a course** (`studium.pickLesson`) — choose a discovered course
   or another bundles-root folder, save both settings in the workspace, then open the lesson.
-- **Studium: Open Lesson** (`studium.openLesson`) — the webview lesson pane.
-- **Studium: Open Lesson as Notebook** (`studium.openLessonNotebook`) — the notebook surface.
-- **Studium: Contributions de la classe / Community contributions** (`studium.communityContributions`).
+- **Studium: Open lesson** (`studium.openLesson`) — the webview lesson pane.
+- **Studium: Open lesson as notebook** (`studium.openLessonNotebook`) — the notebook surface.
+- **Studium: Community contributions** (`studium.communityContributions`).
 
 Notebook driver-cell directives: empty/`next` → continue · a choice id (`a`,`b`,…) → quiz answer ·
 `0`–`4` → confidence · free text → answer an active-learning scene / a discussion turn · `hint` →

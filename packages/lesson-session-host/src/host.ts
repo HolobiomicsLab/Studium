@@ -23,6 +23,7 @@ import { runResultToReferenceRun, verifyRunAttestation, type RunResult } from ".
 import type { GraphView } from "@studium/typed-graph-lens";
 import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
 import { SessionRegistry, type SessionEntry } from "./registry.js";
+import type { Clock } from "@studium/lesson-session";
 import { buildHostDeps, durableDataDir, durableScopeDir } from "./deps.js";
 import { resolveBundle, assetBaseDir } from "./bundle-resolver.js";
 import { discoverCommunityBundles } from "./community-bundles.js";
@@ -445,6 +446,10 @@ export interface SessionHostOptions {
    * flawed_content/claims regenerated from the learner's OWN run (server-side) when they run the capsule —
    * sound even for a stochastic capsule. Absent ⇒ authored flaws (deterministic). */
   judgmentGenerator?: JudgmentGenerator;
+  /** OPTIONAL clock. Stamps every session's history (the FSRS replay reads those timestamps) AND is
+   * the default "now" of the review/reinforcement reads, so a test with a fixed clock sees a
+   * consistent timeline. Absent ⇒ wall-clock. */
+  clock?: Clock;
 }
 
 export class PeerRoomError extends Error {
@@ -482,15 +487,15 @@ export class SessionHost {
       // Build deps once to obtain the (fail-closed) pseudonym provider, derive the scope dir, then
       // rebuild the deps with File* stores rooted at that dir. resolvePseudoSecret runs in
       // buildHostDeps, so a misconfigured prod still throws BEFORE any dir is touched.
-      const probe = buildHostDeps(this.opts.live);
+      const probe = buildHostDeps(this.opts.live, undefined, this.opts.clock);
       const pseudonym = await probe.pseudonym.get(learnerId, bundle.bundle_id);
       const scopeDir = durableScopeDir(dataDir, pseudonym, bundle.bundle_id);
-      deps = buildHostDeps(this.opts.live, scopeDir);
+      deps = buildHostDeps(this.opts.live, scopeDir, this.opts.clock);
       // #3 RESUME: load any prior LearnerState for this (pseudonym, bundle_id). FileStateStore.load
       // returns null on missing/parse-error, so a fresh learner falls back to defaultLearnerState.
       prior = await deps.stateStore.load(bundle.bundle_id);
     } else {
-      deps = buildHostDeps(this.opts.live);
+      deps = buildHostDeps(this.opts.live, undefined, this.opts.clock);
     }
     // #4: thread the learnerId so the pseudonym is salted per learner (distinct learners on the
     // same lesson resolve to distinct pseudonyms). Previously discarded as `_learnerId`.
@@ -526,7 +531,7 @@ export class SessionHost {
    * reinforce now, most-urgent first, from the PERSISTED `concept_memory` in their profile (accumulated
    * as lessons complete) + mastery from the profile's concept_states. Empty when no profile / no memory.
    * `nowMs` injected for deterministic review scheduling. */
-  async dueReinforcements(learnerId = "anonymous", nowMs: number = Date.now()): Promise<ReinforcementTarget[]> {
+  async dueReinforcements(learnerId = "anonymous", nowMs: number = this.nowMs()): Promise<ReinforcementTarget[]> {
     const profilePseudonym = await buildHostDeps(this.opts.live).pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
     const profile = await this.profileStore.load(profilePseudonym);
     if (!profile?.concept_memory) return [];
@@ -543,7 +548,7 @@ export class SessionHost {
    * a mis-authored unmet/cyclic prereq) — disambiguated via isCourseComplete. A still-due concept keeps
    * surfacing `reinforce` even past the last lesson (review never stops). Loads the profile ONCE.
    * `nowMs` injected for deterministic scheduling. */
-  async nextCourseStep(course: Course, learnerId = "anonymous", nowMs: number = Date.now()): Promise<CourseStep> {
+  async nextCourseStep(course: Course, learnerId = "anonymous", nowMs: number = this.nowMs()): Promise<CourseStep> {
     const profilePseudonym = await buildHostDeps(this.opts.live).pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
     const profile = await this.profileStore.load(profilePseudonym);
     if (profile?.concept_memory) {
@@ -733,21 +738,27 @@ export class SessionHost {
    * in @studium/adaptation-engine), when it next falls due, and its current retrievability. Derived
    * from the learner's running answer history, replayed through fsrs.ts. `nowMs` is injectable for
    * deterministic tests; defaults to wall-clock. A UI renders the due items as a "À réviser" cue. */
-  reviewQueue(id: string, nowMs: number = Date.now()): ReviewQueueItem[] {
+  /** The host's "now" in ms: the injected clock when one is configured (see SessionHostOptions.clock),
+   * else wall-clock. Default for every time-dependent read below. */
+  private nowMs(): number {
+    return this.opts.clock ? Date.parse(this.opts.clock.now()) : Date.now();
+  }
+
+  reviewQueue(id: string, nowMs: number = this.nowMs()): ReviewQueueItem[] {
     return reviewQueueFromState(this.require(id).session.getState(), nowMs);
   }
 
   /** Spaced-repetition ROUTER (vs the reviewQueue readout): the single most-urgent concept to
    * reinforce now, or null. The decision a selection loop acts on — "what should the learner
    * reinforce next" — derived from the FSRS replay of the learner's answer history. */
-  nextReinforcement(id: string, nowMs: number = Date.now()): ReinforcementTarget | null {
+  nextReinforcement(id: string, nowMs: number = this.nowMs()): ReinforcementTarget | null {
     return nextReinforcementFromState(this.require(id).session.getState(), nowMs);
   }
 
   /** ROUTE the FSRS decision to CONTENT: the id of the bundle scene that addresses the most-urgent
    * due concept (its `concept_refs` includes it), or null when nothing is due. A driver surfaces
    * this scene for a reinforcement pass instead of advancing linearly. */
-  nextReinforcementScene(id: string, nowMs: number = Date.now()): string | null {
+  nextReinforcementScene(id: string, nowMs: number = this.nowMs()): string | null {
     const e = this.require(id);
     return reinforcementSceneFromState(e.bundle, e.session.getState(), nowMs);
   }

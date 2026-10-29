@@ -99,7 +99,7 @@ export class LessonSession {
     this.sessionId = this.deps.idGen.uuid();
     this.pseudonym = await this.deps.pseudonym.get(this.learnerId, this.bundle.bundle_id);
     this.ctx = { learnerPseudonym: this.pseudonym, lessonId: this.bundle.bundle_id, bundleVersion: bundleVersionOf(this.bundle) };
-    this.engine = new AdaptationEngine(this.bundle.rules, this.state);
+    this.engine = new AdaptationEngine(this.bundle.rules, this.state, () => this.deps.clock.now());
     this.state = this.engine.getState();
     this.startIso = this.deps.clock.now();
     this.started = true;

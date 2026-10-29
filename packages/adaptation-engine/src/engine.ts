@@ -91,7 +91,13 @@ export class AdaptationEngine {
   private state: LearnerState;
   private lastDecision: Decision | null = null;
 
-  constructor(private readonly rules: AdaptationRule[], initialState: LearnerState) {
+  /** `now` stamps the history entries the FSRS replay later reads. Injected by the session from its
+   * clock port so a fixed test clock gives one consistent timeline; defaults to wall-clock. */
+  constructor(
+    private readonly rules: AdaptationRule[],
+    initialState: LearnerState,
+    private readonly now: () => string = () => new Date().toISOString(),
+  ) {
     this.state = JSON.parse(JSON.stringify(initialState));
   }
 
@@ -160,7 +166,7 @@ export class AdaptationEngine {
 
   private appendHistory(signal: Signal, decision: Decision): void {
     this.state.history.push({
-      timestamp: new Date().toISOString(),
+      timestamp: this.now(),
       scene_id: "scene_id" in signal ? signal.scene_id : "",
       signal, decision,
     });
