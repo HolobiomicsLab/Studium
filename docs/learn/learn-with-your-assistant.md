@@ -80,8 +80,8 @@ The first screen of a lesson an assistant wrote carries a notice. Without a judg
 
 > AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; challenge any key
 > you think is wrong. Without a judge model, production scenes are not assessed: compare your answer with the
-> model answer and rate your recall; that rating schedules your reviews and never changes your mastery. Only
-> executed reproductions carry an external assessment.
+> provided reference and rate your recall; that rating schedules your reviews and never changes your mastery. Executed reproductions carry
+> an external assessment.
 
 What it means in practice:
 

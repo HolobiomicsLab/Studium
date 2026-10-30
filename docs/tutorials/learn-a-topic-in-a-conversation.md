@@ -81,7 +81,7 @@ gave. It also relays the authoring notice:
 
 > AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage;
 > challenge any key you think is wrong. Without a judge model, production scenes are not assessed:
-> compare your answer with the model answer and rate your recall; that rating schedules your reviews
+> compare your answer with the provided reference and rate your recall; that rating schedules your reviews
 > and never changes your mastery. […]
 
 Ask for changes now if the outline misses what you wanted. Replacing an existing lesson takes an

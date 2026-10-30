@@ -57,8 +57,10 @@ A self-study lesson starts with a notice in the lesson's language (French for a 
 
 | Judge | Second sentence |
 |---|---|
-| none | "Without a judge model, production scenes are not assessed: compare your answer with the model answer and rate your recall; that rating schedules your reviews and never changes your mastery. Only executed reproductions carry an external assessment." |
-| configured | "Production scenes, judged by the model, and executed reproductions carry the assessment." |
+| none | "Without a judge model, production scenes are not assessed: compare your answer with the provided reference and rate your recall; that rating schedules your reviews and never changes your mastery." |
+| configured | "Production scenes are assessed by the model." |
+
+A lesson that holds a reproduction adds a third sentence: "Executed reproductions carry an external assessment."
 
 The texts are defined in [`authoring.ts`](../../packages/lesson-session-host/src/authoring.ts).
 

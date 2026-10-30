@@ -66,10 +66,12 @@ Une leçon d'auto-apprentissage affiche un avis dès son premier écran. Il dép
 
 | Rédigée par, juge | Avis (leçons en français) |
 |---|---|
-| apprenant, aucun | Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). Sans juge modèle, les scènes de production ne sont pas évaluées : comparez votre réponse à la réponse modèle et notez votre rappel ; cette note règle vos révisions, jamais votre maîtrise. Seules les reproductions exécutées portent une évaluation externe. |
-| apprenant, configuré | Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). Les scènes de production, jugées par le modèle, et les reproductions exécutées portent l'évaluation. |
-| agent, aucun | Leçon rédigée par l'IA à partir de vos sources, non vérifiée par un enseignant : chaque question cite son passage ; contestez une clé qui vous semble fausse. Sans juge modèle, les scènes de production ne sont pas évaluées : comparez votre réponse à la réponse modèle et notez votre rappel ; cette note règle vos révisions, jamais votre maîtrise. Seules les reproductions exécutées portent une évaluation externe. |
-| agent, configuré | Leçon rédigée par l'IA à partir de vos sources, non vérifiée par un enseignant : chaque question cite son passage ; contestez une clé qui vous semble fausse. Les scènes de production, jugées par le modèle, et les reproductions exécutées portent l'évaluation. |
+| apprenant, aucun | Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise. |
+| apprenant, configuré | Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). Les scènes de production sont évaluées par le modèle. |
+| agent, aucun | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; conteste une clé qui te semble fausse. Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise. |
+| agent, configuré | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; conteste une clé qui te semble fausse. Les scènes de production sont évaluées par le modèle. |
+
+Une leçon qui contient une reproduction ajoute : « Les reproductions exécutées portent une évaluation externe. »
 
 Plus de détails dans [Honnêteté et provenance](honesty-and-provenance.fr.md).
 

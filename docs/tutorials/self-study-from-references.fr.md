@@ -163,8 +163,8 @@ réglez `studium.bundlesRoot` sur le chemin complet de votre dossier `bundles` e
 **Studium : Choisir un cours**. Le premier écran affiche l'avis d'une leçon rédigée par l'apprenant :
 
 > Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre
-> ouvert). Sans juge modèle, les scènes de production ne sont pas évaluées : comparez votre réponse à
-> la réponse modèle et notez votre rappel […]
+> ouvert). Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la
+> référence affichée et note ton rappel […]
 
 Répondez avec vos mots, comme dans [la première séance](first-lesson.fr.md). Après une réponse
 évaluée, quand la leçon avance, le retour montre la référence et le passage cité par la scène.

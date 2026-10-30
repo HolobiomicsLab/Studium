@@ -84,10 +84,10 @@ plan : titres, types de scène, notions et passages cités par chaque scène, s
 Il signale aussi les avertissements de Studium, chacun avec une piste, par exemple une leçon plus
 longue que vos minutes par jour, et relaie l'avis d'autorat :
 
-> Leçon rédigée par l'IA à partir de vos sources, non vérifiée par un enseignant : chaque question
-> cite son passage ; contestez une clé qui vous semble fausse. Sans juge modèle, les scènes de
-> production ne sont pas évaluées : comparez votre réponse à la réponse modèle et notez votre rappel ;
-> cette note règle vos révisions, jamais votre maîtrise. […]
+> Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question
+> cite son passage ; conteste une clé qui te semble fausse. Sans juge modèle, les scènes de
+> production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ;
+> cette note règle tes révisions, jamais ta maîtrise. […]
 
 C'est le moment de demander des changements si le plan ne couvre pas ce que vous vouliez.
 Remplacer une leçon existante demande un `overwrite` explicite, qui ne remplace jamais qu'une leçon

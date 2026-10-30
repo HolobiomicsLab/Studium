@@ -80,10 +80,10 @@ pas dans le plan d'étude que lit votre assistant, et inversement.
 
 Le premier écran d'une leçon rédigée par un assistant porte un avis. Sans juge modèle, il dit :
 
-> Leçon rédigée par l'IA à partir de vos sources, non vérifiée par un enseignant : chaque question cite son
-> passage ; contestez une clé qui vous semble fausse. Sans juge modèle, les scènes de production ne sont pas
-> évaluées : comparez votre réponse à la réponse modèle et notez votre rappel ; cette note règle vos révisions,
-> jamais votre maîtrise. Seules les reproductions exécutées portent une évaluation externe.
+> Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son
+> passage ; conteste une clé qui te semble fausse. Sans juge modèle, les scènes de production ne sont pas
+> évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes
+> révisions, jamais ta maîtrise. Les reproductions exécutées portent une évaluation externe.
 
 Concrètement :
 
@@ -137,7 +137,7 @@ conversation conservée par l'assistant. Supprimez-les vous-même si vous le sou
 >
 > **Vous :** Oui.
 >
-> **Assistant :** *Leçon rédigée par l'IA à partir de vos sources, non vérifiée par un enseignant …* Étape 2
+> **Assistant :** *Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant …* Étape 2
 > sur 4. Qu'est-ce qui fait s'évaporer l'eau des océans ? A, B ou C ?
 >
 > **Vous :** B.

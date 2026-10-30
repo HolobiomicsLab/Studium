@@ -53,12 +53,14 @@ Une leçon d'auto-apprentissage commence par un avis dans sa langue (en françai
 | Rédigée par | Première phrase |
 |---|---|
 | l'apprenant | « Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). » |
-| un agent | « Leçon rédigée par l'IA à partir de vos sources, non vérifiée par un enseignant : chaque question cite son passage ; contestez une clé qui vous semble fausse. » |
+| un agent | « Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; conteste une clé qui te semble fausse. » |
 
 | Juge | Seconde phrase |
 |---|---|
-| aucun | « Sans juge modèle, les scènes de production ne sont pas évaluées : comparez votre réponse à la réponse modèle et notez votre rappel ; cette note règle vos révisions, jamais votre maîtrise. Seules les reproductions exécutées portent une évaluation externe. » |
-| configuré | « Les scènes de production, jugées par le modèle, et les reproductions exécutées portent l'évaluation. » |
+| aucun | « Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise. » |
+| configuré | « Les scènes de production sont évaluées par le modèle. » |
+
+Une leçon qui contient une reproduction ajoute une troisième phrase : « Les reproductions exécutées portent une évaluation externe. »
 
 Les textes sont définis dans [`authoring.ts`](../../packages/lesson-session-host/src/authoring.ts).
 

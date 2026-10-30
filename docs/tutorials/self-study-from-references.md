@@ -158,8 +158,8 @@ Then ask: "Start the Studium lesson `durkheim-fait-social/lesson.json`." In VS C
 the notice of a learner-drafted lesson:
 
 > Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre
-> ouvert). Sans juge modèle, les scènes de production ne sont pas évaluées : comparez votre réponse à
-> la réponse modèle et notez votre rappel […]
+> ouvert). Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la
+> référence affichée et note ton rappel […]
 
 The notice follows the lesson's language; the English version begins "Self-authored lesson: quiz and
 spot-the-flaw keys were written by the learner (open book)." Answer in your own words, as in

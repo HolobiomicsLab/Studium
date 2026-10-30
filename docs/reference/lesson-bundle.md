@@ -99,6 +99,7 @@ Schema version: `1.4`. Field tables are generated from the Zod schemas; rules th
 | `authoring.author_is_learner` | boolean | no | Default `false`. |
 | `authoring.drafted_by` | one of `agent`, `learner`, `teacher` | no |  |
 | `authoring.note` | string | no |  |
+| `authoring.learner_profile` | object | no |  |
 
 ## Concept
 

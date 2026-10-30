@@ -66,10 +66,12 @@ A self-study lesson shows a notice on its first screen. It depends on who drafte
 
 | Drafted by, judge | Notice (English lessons) |
 |---|---|
-| learner, none | Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book). Without a judge model, production scenes are not assessed: compare your answer with the model answer and rate your recall; that rating schedules your reviews and never changes your mastery. Only executed reproductions carry an external assessment. |
-| learner, configured | Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book). Production scenes, judged by the model, and executed reproductions carry the assessment. |
-| agent, none | AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; challenge any key you think is wrong. Without a judge model, production scenes are not assessed: compare your answer with the model answer and rate your recall; that rating schedules your reviews and never changes your mastery. Only executed reproductions carry an external assessment. |
-| agent, configured | AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; challenge any key you think is wrong. Production scenes, judged by the model, and executed reproductions carry the assessment. |
+| learner, none | Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book). Without a judge model, production scenes are not assessed: compare your answer with the provided reference and rate your recall; that rating schedules your reviews and never changes your mastery. |
+| learner, configured | Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book). Production scenes are assessed by the model. |
+| agent, none | AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; challenge any key you think is wrong. Without a judge model, production scenes are not assessed: compare your answer with the provided reference and rate your recall; that rating schedules your reviews and never changes your mastery. |
+| agent, configured | AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; challenge any key you think is wrong. Production scenes are assessed by the model. |
+
+A lesson that holds a reproduction adds: "Executed reproductions carry an external assessment."
 
 More in [Honesty and provenance](honesty-and-provenance.md).
 

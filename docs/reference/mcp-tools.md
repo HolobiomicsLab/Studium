@@ -93,7 +93,7 @@ The server registers 34 tools.
 | [close_peer_room](#close_peer_room) | Lesson | Teacher closes the PeerStudio room. |
 | [end_session](#end_session) | Lesson | Closes a session and keeps durable lesson state and cross-lesson memory. |
 | [explain_last_adaptation](#explain_last_adaptation) | Lesson | Explain the last adaptation decision (rule_id + modulator + short explanation), or null. |
-| [forget_session](#forget_session) | Lesson | Right to be forgotten: erases this learner's durable state for this lesson AND the cross-lesson profile; irreversible. |
+| [forget_session](#forget_session) | Lesson | Right to be forgotten; irreversible. |
 | [get_current_scene](#get_current_scene) | Lesson | Get the current public scene/presentation for a session. |
 | [get_experiment_journal](#get_experiment_journal) | Lesson | Read this learner's private experiment contributions to resume across harnesses. |
 | [get_next_reinforcement](#get_next_reinforcement) | Lesson | FSRS ROUTER: the single most-urgent concept to REINFORCE now (mastered earlier but whose recall is decaying), plus every due target in priority order. |
@@ -112,7 +112,7 @@ The server registers 34 tools.
 | [set_session_language](#set_session_language) | Lesson | Set this session's presentation language as a BCP 47 tag, or null to use the bundle's source language. |
 | [start_lesson_session](#start_lesson_session) | Lesson | Start or resume a lesson session and report whether it is new, resumed, or completed. |
 | [submit_peer_rating](#submit_peer_rating) | Lesson | Learner submits a peer rating for another session's response. |
-| [submit_response](#submit_response) | Lesson | Submit a response to the current scene. |
+| [submit_response](#submit_response) | Lesson | Submit a response to the current scene: {session_id, input}. |
 | [submit_run_result](#submit_run_result) | Lesson | Submit the result of the learner running the capsule in the workspace (Studium NEVER executes). |
 | [submit_turn](#submit_turn) | Lesson | Submit a free-text discussion turn; returns the scored reasoning signal and the Socratic tutor's reply move (so the client can render the dialogue turn-by-tu... |
 | [class_report](#class_report) | Teacher | Teacher: class-level report for a course over consented telemetry: per scene and per concept accuracy (only where a key or a model judge graded), hint relian... |
@@ -124,21 +124,23 @@ What to do now, and reviews over days.
 
 ### get_study_plan
 
-Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, the next lesson, and next_step {action: review|continue|start|author|wait, tool, arguments, text} naming the call to make. display_markdown is the plan in the learner's language, ready to show.
+Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, the next lesson, and next_step {action: review|continue|start|author|wait, tool, arguments, text} naming the call to make with its arguments (language included where the tool takes one). With the minutes a day the learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in `language`, ready to show. Dates (due_date, next_review_date) are days in get_server_info.time_zone.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `learner_id` | string (1–200 chars) | no | one stable id per learner; defaults to persistence.learner_id_default |
-| `now_ms` | number | no | epoch ms, for deterministic scheduling; defaults to the server clock |
+| `now_ms` | integer (0–253402300799999) | no | epoch ms, for deterministic scheduling: the session started with it stamps its answers, ratings and reviews there; defaults to the server clock |
+| `language` | one of `fr`, `en` | no | fr or en: the language of display_markdown and of the next step; defaults to the language of the learner's last lesson, else the server's |
 
 ### list_lessons
 
-List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). `query` keeps the lessons whose title, ref, discipline or concepts contain every word of it.
+List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). `query` keeps the lessons whose title, ref, discipline or concepts contain every word of it. display_markdown is the list in `language`, ready to show.
 
-| Field | Type | Required |
-|---|---|---|
-| `query` | string (≤ 200 chars) | no |
-| `learner_id` | string (1–200 chars) | no |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `query` | string (≤ 200 chars) | no |  |
+| `learner_id` | string (1–200 chars) | no |  |
+| `language` | one of `fr`, `en` | no | fr or en: the language of display_markdown and of the next step; defaults to the language of the learner's last lesson, else the server's |
 
 ### rate_recall
 
@@ -152,14 +154,15 @@ After an answer whose transition carries self_rating {requested: true} (a produc
 
 ### start_review_session
 
-Start a review session: one retrieval scene per concept due, taken from the lessons the learner studied — mastered concepts whose recall is due, then reviewed ones still weak. Play it like a lesson (submit_response, rate_recall); its answers update the learner's memory and mastery, and it is never recorded as a lesson completed. Returns {status: "started", session_id, review: {items}, presentation, ...}, or {status: "nothing_due", next_review_at, next_review_date, display_markdown} saying when the next review falls.
+Start a review session: one retrieval scene per concept due, taken from the lessons the learner studied — mastered concepts whose recall is due, then reviewed ones still weak. Play it like a lesson (submit_response, rate_recall); its answers update the learner's memory and mastery, and it is never recorded as a lesson completed. With now_ms it runs on a clock anchored there (its answers and ratings are dated from it). Returns {status: "started", session_id, review: {items, not_playable?}, presentation, ...}, or {status: "nothing_due", next_review_at, next_review_date, display_markdown, not_playable?} saying when the next review falls; not_playable names the concepts due that no lesson on disk can review any more.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `learner_id` | string (1–200 chars) | no | one stable id per learner; defaults to persistence.learner_id_default |
 | `max_items` | integer (1–50) | no |  |
-| `now_ms` | number | no | epoch ms, for deterministic scheduling; defaults to the server clock |
+| `now_ms` | integer (0–253402300799999) | no | epoch ms, for deterministic scheduling: the session started with it stamps its answers, ratings and reviews there; defaults to the server clock |
 | `presentation_language` | string | no |  |
+| `language` | one of `fr`, `en` | no | fr or en: the language of display_markdown and of the next step; defaults to the language of the learner's last lesson, else the server's |
 
 ## Authoring tools
 
@@ -167,7 +170,7 @@ Turn sources the learner chose into a playable lesson.
 
 ### create_lesson
 
-Check a complete LessonDraft (see get_authoring_guide) against its source set — every quote to the character, no TODO, a sound concept graph — then build the lesson and write it to the learner's library. Returns {ok: true, course_ref, outline, key_classes, findings, notice} or {ok: false, errors: [{path, message, hint}]}: fix the draft and call again (errors may quote the draft's own keys: keep them from the learner). The outline holds no key; show it to the learner and never show a key. Then start the lesson with start_lesson_session {bundle_ref: course_ref} and relay the notice. An existing lesson is replaced only with overwrite: true.
+Check a complete LessonDraft (see get_authoring_guide) against its source set — every quote to the character, no TODO, a sound concept graph — then build the lesson and write it to the learner's library. Returns {ok: true, course_ref, outline, key_classes, findings: [{level, code, message, hint?}], notice} or {ok: false, errors: [{path, message, hint}]}: fix the draft and call again (errors may quote the draft's own keys: keep them from the learner). The outline holds no key; show it to the learner and never show a key. Then start the lesson with start_lesson_session {bundle_ref: course_ref} and relay the notice. An existing lesson is replaced only with overwrite: true, and only a self-study lesson no teacher validated or approved.
 
 | Field | Type | Required |
 |---|---|---|
@@ -214,7 +217,7 @@ Teacher closes the PeerStudio room. Returns the final k-suppressed aggregates fo
 
 ### end_session
 
-Closes a session and keeps durable lesson state and cross-lesson memory. Use forget_session for irreversible erasure.
+Closes a session and keeps durable lesson state and cross-lesson memory. Use forget_session for irreversible erasure. When the progress could not be saved, the reply says state_kept: false with a persistence_warning to pass on to the learner.
 
 | Field | Type | Required |
 |---|---|---|
@@ -230,11 +233,12 @@ Explain the last adaptation decision (rule_id + modulator + short explanation), 
 
 ### forget_session
 
-Right to be forgotten: erases this learner's durable state for this lesson AND the cross-lesson profile; irreversible. To merely close, use end_session.
+Right to be forgotten; irreversible. Pass exactly one of session_id or learner_id. With session_id: erases this learner's durable state for this lesson AND the cross-lesson profile and review schedule. With learner_id (no live session needed): every lesson's progress too, and the learner's live sessions close. Returns {forgotten, scope: lesson|learner, erased: [{kind, lessons?}], kept: [{kind, lessons?, path?}], display_markdown}: kept names what stays on disk (the library's lessons and their sources); show display_markdown to the learner. To merely close, use end_session.
 
 | Field | Type | Required |
 |---|---|---|
-| `session_id` | string | yes |
+| `session_id` | string (non-empty) | no |
+| `learner_id` | string (1–200 chars) | no |
 
 ### get_current_scene
 
@@ -254,13 +258,13 @@ Read this learner's private experiment contributions to resume across harnesses.
 
 ### get_next_reinforcement
 
-FSRS ROUTER: the single most-urgent concept to REINFORCE now (mastered earlier but whose recall is decaying), plus every due target in priority order. With session_id it unions session and cross-lesson profile memory; learner_id works without a live session. Returns reinforcement, due, reason (due|nothing_due|no_history), and next_due_at. `now_ms` (epoch ms) is injectable for deterministic review scheduling; defaults to wall-clock.
+FSRS ROUTER: the single most-urgent concept to REINFORCE now (mastered earlier but whose recall is decaying), plus every due target in priority order. With session_id it unions session and cross-lesson profile memory; learner_id works without a live session. Returns reinforcement (the first of due, else of relearn, else of unmeasured), due, relearn (graded weak), unmeasured (self-rated only), counts {due, relearn, unmeasured, total}, reason (due|nothing_due|no_history: due when any of the three lists is not empty), and next_due_at. `now_ms` (epoch ms) is injectable for deterministic review scheduling; defaults to the session's clock with session_id, else the server clock.
 
-| Field | Type | Required |
-|---|---|---|
-| `session_id` | string (non-empty) | no |
-| `learner_id` | string (non-empty) | no |
-| `now_ms` | number | no |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `session_id` | string (non-empty) | no |  |
+| `learner_id` | string (non-empty) | no |  |
+| `now_ms` | integer (0–253402300799999) | no | epoch ms, for deterministic scheduling: the session started with it stamps its answers, ratings and reviews there; defaults to the server clock |
 
 ### get_operator_context
 
@@ -380,14 +384,14 @@ Set this session's presentation language as a BCP 47 tag, or null to use the bun
 
 ### start_lesson_session
 
-Start or resume a lesson session and report whether it is new, resumed, or completed. A completed lesson starts at scene zero as a retake and includes due profile-backed review targets. The authoring block (also on every presentation) says who wrote the lesson; when authoring.notice is set (a self-authored lesson), show it to the learner. Optionally select a BCP 47 presentation_language; when omitted, use the bundle's source language.
+Start or resume a lesson session and report whether it is new, resumed, or completed. A completed lesson starts at scene zero as a retake and includes due profile-backed review targets. The authoring block (also on every presentation) says who wrote the lesson; when authoring.notice is set (a self-authored lesson), show it to the learner. Optionally select a BCP 47 presentation_language; when omitted, use the bundle's source language. With now_ms the session runs on a clock anchored there: its answers, ratings and reviews are dated from it.
 
-| Field | Type | Required |
-|---|---|---|
-| `bundle_ref` | string | yes |
-| `learner_id` | string | no |
-| `now_ms` | number | no |
-| `presentation_language` | string | no |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `bundle_ref` | string | yes |  |
+| `learner_id` | string | no |  |
+| `now_ms` | integer (0–253402300799999) | no | epoch ms, for deterministic scheduling: the session started with it stamps its answers, ratings and reviews there; defaults to the server clock |
+| `presentation_language` | string | no |  |
 
 ### submit_peer_rating
 
@@ -404,7 +408,7 @@ Learner submits a peer rating for another session's response. Returns whether th
 
 ### submit_response
 
-Submit a response to the current scene. In a chat, send the learner's own words as {kind:"reply", text}: Studium maps them to the scene's answer (a choice letter or text, a confidence, a free-text answer). A scene carrying run_manifest requires get_run_manifest, an actual run, and submit_run_result first. Quiz choices are reshuffled and relettered per session: send the DISPLAYED choice id, never a memorized source id. Confidence checkpoints accept {kind:"confidence", pre, post} (legacy value remains accepted). Returns next/replay/remediate_alt/remediate/calibration/complete with verdict and navigation; navigation.returns_to is the scene resumed after the detour. A complete summary documents skipped_scene_ids, scenes_detoured, and mastery. Show verdict.display_markdown first, then the transition's display_markdown.
+Submit a response to the current scene: {session_id, input}. In a chat, send the learner's own words as input {kind:"reply", text}, that is submit_response {session_id, input: {kind:"reply", text}}: Studium maps them to the scene's answer (a choice letter, alone or followed by the learner's reason, or the choice text; a confidence; a free-text answer) and refuses a reply naming two choices. A scene carrying run_manifest requires get_run_manifest, an actual run, and submit_run_result first. Lesson quiz choices keep a deterministic order for each learner, including on resume. Review choices are shuffled and relettered by learner and review day in the host's time zone; an open review keeps its letters. Send the DISPLAYED choice id, never a memorized source id. Confidence checkpoints accept {kind:"confidence", pre, post} (legacy value remains accepted). Returns next/replay/remediate_alt/remediate/calibration/complete with verdict and navigation; navigation.returns_to is the scene resumed after the detour. A complete summary documents skipped_scene_ids, scenes_detoured, and mastery. Show verdict.display_markdown first, then the transition's display_markdown.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -456,7 +460,7 @@ Review a lesson and read an aggregated class report.
 
 ### class_report
 
-Teacher: class-level report for a course over consented telemetry: per scene and per concept accuracy (only where a key or a model judge graded), hint reliance, calibration gap, completion. Aggregate only, behind a minimum-cohort floor; never a learner identifier, and a scene or concept with too few contributors is withheld. Learner counts are banded (cohort_band); per-row attempt counts are exact. Each report respects the floor, but two reports taken before and after a learner plays can be compared: treat figures as a live class view, not a release. It covers the whole data folder the server is configured with; the folder cannot be narrowed from here. Read-only.
+Teacher: class-level report for a course over consented telemetry: per scene and per concept accuracy (only where a key or a model judge graded), hint reliance (share of answering learners who asked for a hint), calibration gap (rated answers only), completion. Aggregate only, behind a minimum-cohort floor applied to the learners each figure is computed over; never a learner identifier, and a scene, concept or figure with too few contributors is withheld. Learner counts are banded (cohort_band); per-row attempt counts are exact. Each report respects the floor, but two reports taken before and after a learner plays can be compared: treat figures as a live class view, not a release. course_id is the name of the course's top-level folder under the server's lessons root (the folder holding lesson.json; lowercase letters, digits, '.', '_' or '-', no '/'). It covers the whole data folder the server is configured with, named by data_folder; the folder is server configuration and cannot be chosen from here. Read-only.
 
 | Field | Type | Required |
 |---|---|---|
@@ -483,11 +487,12 @@ What a harness receives once, when it connects (MCP `instructions`):
 
 ```text
 Studium teaches through the learner's own answers: you relay, the learner answers.
-- Start with get_study_plan: its next_step names the call to make (start_review_session, start_lesson_session, or the authoring tools).
+- Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools).
 - Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.
+- Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.
 - Show display_markdown as it is: on a presentation; after an answer, verdict.display_markdown first, then the transition's.
 - On the first screen, relay the authoring notice; if persistence.durable is false, tell the learner progress is lost at restart.
-- Wait for the learner's answer and send their words with submit_response {kind: "reply", text}; never answer, choose or rate for them.
+- Wait for the learner's answer and send their words with submit_response {session_id, input: {kind: "reply", text}}; never answer, choose or rate for them.
 - When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.
 - start_review_session plays every review due, across lessons; list_lessons shows what can be started.
 - To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session.
