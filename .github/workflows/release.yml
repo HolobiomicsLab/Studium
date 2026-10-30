@@ -1,0 +1,74 @@
+name: Release
+
+# ENG-06 / ENG-07. Pushing a tag `vX.Y.Z` builds the VSIX and the self-contained MCP server and
+# attaches both to a GitHub Release (draft: the owner publishes it). Nothing is published to npm or
+# the Marketplace from here (decision D10, deferred).
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# The tag must equal the version in apps/studium-vscode/package.json, so a release cannot carry a
+# VSIX that calls itself another version.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write # create the release and upload assets
+
+jobs:
+  release:
+    name: Build and attach VSIX + lesson-mcp.cjs
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node (from .nvmrc, Node 22 LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+
+      - name: Tag matches the extension version
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          have="$(node -p "require('./apps/studium-vscode/package.json').version")"
+          if [ "$want" != "$have" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match apps/studium-vscode/package.json version ${have}" >&2
+            exit 1
+          fi
+
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace libraries
+        run: pnpm build:libs
+
+      - name: Test the extension and the MCP server
+        run: |
+          pnpm --filter studium-vscode test
+          pnpm --filter @studium/lesson-mcp test
+
+      - name: Vendor the pane's viewer libraries
+        run: pnpm --filter studium-vscode vendor
+
+      - name: Package the VSIX
+        run: pnpm --filter studium-vscode package
+
+      - name: Check the VSIX contents
+        run: .github/scripts/check-vsix.sh apps/studium-vscode/*.vsix
+
+      - name: Stage release assets
+        run: |
+          mkdir -p release
+          cp apps/studium-vscode/*.vsix "release/studium-${GITHUB_REF_NAME}.vsix"
+          cp apps/studium-vscode/dist/lesson-mcp.cjs release/lesson-mcp.cjs
+          (cd release && sha256sum * > SHA256SUMS.txt)
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release/* --draft --generate-notes --title "Studium ${GITHUB_REF_NAME}"

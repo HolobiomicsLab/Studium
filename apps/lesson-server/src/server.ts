@@ -1,5 +1,5 @@
 // apps/lesson-server/src/server.ts
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyError, type FastifyInstance } from "fastify";
 import type { ResponseInput } from "@studium/lesson-session";
 import { SessionHost, SessionHostNotFoundError, PeerRoomError, resolveCourse, publicPresentation, publicTransition } from "@studium/lesson-session-host";
 import { ok, err } from "./envelope.js";
@@ -14,7 +14,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   const app = Fastify({ logger: false });
   const host = new SessionHost({ bundlesRoot: opts.bundlesRoot, live: opts.live });
 
-  app.setErrorHandler((error, _req, reply) => {
+  app.setErrorHandler((error: FastifyError, _req, reply) => { // Fastify 5 types `error` as unknown unless annotated
     reply.code(error.statusCode ?? 500).send(err(error.message));
   });
 

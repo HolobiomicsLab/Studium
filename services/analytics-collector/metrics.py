@@ -12,6 +12,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Iterator
 
+from store import course_dir
+
 #: The smallest cohort a class-level number may be computed over. Its value is the product
 #: owner's (RGPD), and it lives here — the deepest module both the live collector and the
 #: offline `tools/class_report.py` already share — so there is exactly one definition
@@ -221,10 +223,10 @@ def _iter_events(
     le champ ``bundle_version`` matche exactement. Les events legacy sans
     champ ``bundle_version`` sont traités comme ``"unversioned"``.
     """
-    course_dir = data_dir / course
-    if not course_dir.exists():
+    cdir = course_dir(data_dir, course)  # raises InvalidCourseToken on an unsafe course (AC-1)
+    if not cdir.exists():
         return
-    for f in sorted(course_dir.glob("*.jsonl")):
+    for f in sorted(cdir.glob("*.jsonl")):
         for line in f.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line:

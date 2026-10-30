@@ -18,8 +18,10 @@ from metrics import (
     compute_trust_calibration,
 )
 from store import (
+    InvalidCourseToken,
     _data_dir,
     append_events,
+    course_dir,
     process_event_for_mastery,
     read_concept_mastery_history,
 )
@@ -28,11 +30,20 @@ from store import (
 app = FastAPI(title="analytics-collector", version="0.1.0")
 
 
+def _check_course_segment(value: str) -> None:
+    """400 when a course token / id is not a safe single path segment (AC-1)."""
+    try:
+        course_dir(_data_dir(), value)
+    except InvalidCourseToken as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
 def _require_course_token(x_course_token: str | None, course: str) -> None:
     if not x_course_token:
         raise HTTPException(status_code=401, detail="missing X-Course-Token")
     if x_course_token != course:
         raise HTTPException(status_code=403, detail="token does not match course")
+    _check_course_segment(course)
 
 
 def _validate_bundle_version(bundle_version: str | None) -> str | None:
@@ -76,6 +87,7 @@ def post_telemetry(
 ) -> TelemetryResponse:
     if not x_course_token:
         raise HTTPException(status_code=401, detail="missing X-Course-Token")
+    _check_course_segment(x_course_token)
     n = append_events(x_course_token, batch.events)
     # M5.1 : snapshot maîtrise/concept si l'event porte concept_states.
     # Aujourd'hui le schema strict TelemetryEvent ne déclare pas ce champ,

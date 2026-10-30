@@ -5,10 +5,19 @@ on:
     branches: ["**"]
   pull_request:
     branches: [main]
-  # Manuel, pour demander explicitement la jambe macOS de `tauri-build` (voir la
-  # matrice ci-dessous). C'est le geste à faire avant une release Tier-A, quand le
-  # bundle macOS est ce qu'on veut vraiment voir se construire.
+  # Manuel : `tauri-build` et `demo-m6` (application Tauri gelée, SR-1 / CI-1) ne tournent
+  # QUE sur demande. C'est le geste à faire avant une release Tier-A, quand le bundle macOS
+  # est ce qu'on veut vraiment voir se construire.
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Since the production sprint (C6) the lesson-mcp server keeps learner state in ~/.studium/data by default.
+# Every test, driver and smoke step here runs in memory instead, so one job's state never leaks into
+# another's expectations.
+env:
+  STUDIUM_EPHEMERAL: "1"
 
 jobs:
   test:
@@ -18,10 +27,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node 20
+      - name: Setup Node (from .nvmrc, Node 22 LTS)
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version-file: .nvmrc
 
       - name: Setup pnpm
         # No `version:` here on purpose. `package.json`'s `packageManager` field pins
@@ -41,7 +50,17 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Install Node dependencies
-        run: pnpm install --no-frozen-lockfile
+        # `--frozen-lockfile`: CI builds exactly what pnpm-lock.yaml records (ENG-04). A manifest
+        # edited without `pnpm install` fails here instead of resolving something newer.
+        run: pnpm install --frozen-lockfile
+
+      - name: Dependency audit (production, critical)
+        # ENG-04. Blocking. `next` 14.2.35 (teacher-dashboard, author-web) is the last 14.x release and
+        # three "critical" advisories are only patched from 15.5.28: those three GHSA ids, and only
+        # those, are listed in `pnpm.auditConfig.ignoreGhsas` of the root package.json, so any other new
+        # critical advisory fails this step. Drop the list when the dashboards move to Next 15 (or are
+        # retired).
+        run: pnpm audit --prod --audit-level=critical
 
       - name: Lint
         run: pnpm lint
@@ -119,30 +138,78 @@ jobs:
       - name: Studium VS Code driver suite
         run: pnpm --filter studium-vscode test
 
+  vsix:
+    name: VSIX + standalone MCP server
+    runs-on: ubuntu-latest
+    needs: test
+
+    # ENG-06 / ENG-07 : the VSIX used to be built by hand, on one machine, with `vendor` optional.
+    # This job builds it the way a release does, refuses a package that lacks the dist bundle, the
+    # vendored viewers or the nls manifests, and uploads both the VSIX and the self-contained
+    # `lesson-mcp.cjs` (the same file the VSIX embeds) as a workflow artifact.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node (from .nvmrc, Node 22 LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace libraries
+        # `@studium/llm-client` and friends resolve through ./dist, which a fresh checkout lacks.
+        run: pnpm build:libs
+
+      - name: Vendor the pane's viewer libraries
+        run: pnpm --filter studium-vscode vendor
+
+      - name: Package the VSIX
+        run: pnpm --filter studium-vscode package
+
+      - name: Check the VSIX contents
+        run: .github/scripts/check-vsix.sh apps/studium-vscode/*.vsix
+
+      - name: Smoke-test the standalone MCP server
+        # Initialise over stdio and check the server answers with its name: the bundle starts
+        # without the repository next to it. The reply is captured, not piped into `grep -q`, so a
+        # closed pipe cannot turn a pass into a SIGPIPE failure under `pipefail`.
+        run: |
+          reply="$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            | BUNDLES_ROOT="$RUNNER_TEMP" timeout 20 node apps/studium-vscode/dist/lesson-mcp.cjs 2>/dev/null || true)"
+          echo "$reply"
+          grep -q '"studium-lesson"' <<<"$reply"
+
+      - name: Upload VSIX and MCP bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: studium-vsix
+          path: |
+            apps/studium-vscode/*.vsix
+            apps/studium-vscode/dist/lesson-mcp.cjs
+          if-no-files-found: error
+
+  # SR-1 / CI-1 : l'application Tauri (apps/student-runtime) est GELÉE (voir son README). Elle ne
+  # reconstruit plus à chaque push : `tauri-build` et `demo-m6` sont lancés à la main (Actions >
+  # CI > Run workflow). Les suites de lesson-server et du collecteur, elles, restent dans
+  # « Lint + Test » (`pnpm test` et `tools/pytest_all.py`), donc sur chaque push.
   tauri-build:
     name: Tauri build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: test
-    if: "!contains(github.event.head_commit.message, '[skip tauri]')"
+    if: github.event_name == 'workflow_dispatch'
 
     strategy:
       fail-fast: false
       matrix:
-        # Le coût, pas le principe. Un runner macOS GitHub-hosted est facturé 10x la
-        # minute Linux, et sur un push la jambe macOS ne produit qu'une preuve de
-        # compilation : personne ne consomme son bundle en aval — `demo-m6` reconstruit
-        # sur Linux — et la couverture tarpaulin est déjà sur la jambe Ubuntu. On la
-        # garde donc, mais sur demande (`workflow_dispatch`), c'est-à-dire au moment où
-        # le bundle macOS est l'objet de l'exercice.
-        #
-        # Supprimer la ligne macOS aurait été plus simple et aurait supprimé la
-        # couverture avec : Tauri casse par plateforme, et c'est ce build qui l'a déjà
-        # montré une fois. Le compromis est « moins souvent », pas « plus jamais ».
-        #
-        # Une seule ligne, et pas un scalaire replié : en YAML, une continuation plus
-        # indentée que la première garde son saut de ligne, et l'expression serait
-        # partie chez GitHub coupée en deux.
-        os: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["macos-latest","ubuntu-22.04"]' || '["ubuntu-22.04"]') }}
+        # Dispatch manuel seulement (SR-1 / CI-1) : les deux jambes. macOS est facturé 10x la minute
+        # Linux ; on le paie quand le bundle macOS est l'objet de l'exercice, pas à chaque push.
+        # Tauri casse par plateforme, d'où les deux systèmes plutôt qu'un seul.
+        os: ["macos-latest", "ubuntu-22.04"]
 
     steps:
       - uses: actions/checkout@v4
@@ -159,10 +226,10 @@ jobs:
             librsvg2-dev \
             libsoup-3.0-dev
 
-      - name: Setup Node 20
+      - name: Setup Node (from .nvmrc, Node 22 LTS)
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version-file: .nvmrc
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
@@ -176,7 +243,7 @@ jobs:
           workspaces: apps/student-runtime/src-tauri -> target
 
       - name: Install Node dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Build Tauri app (debug, no signing)
         run: pnpm --filter @studium/student-runtime tauri:build --debug
@@ -215,15 +282,16 @@ jobs:
   demo-m6:
     name: Demo M6 end-to-end atomistique
     needs: tauri-build
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node 20
+      - name: Setup Node (from .nvmrc, Node 22 LTS)
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version-file: .nvmrc
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
@@ -244,7 +312,7 @@ jobs:
           pip install -e services/analytics-collector
 
       - name: Install Node dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Install Tauri/webkit deps
         # `webkit2gtk-driver` fournit /usr/bin/WebKitWebDriver, que `tauri-driver`

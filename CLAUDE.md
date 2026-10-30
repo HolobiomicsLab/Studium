@@ -58,7 +58,7 @@ absent alors que le build Tauri est vert sur les deux plateformes CI depuis `f16
 
 | Outil | Exigence | Déclarée dans |
 |---|---|---|
-| Node | 20 | `.nvmrc`, `engines.node` (`>=20`), les jobs CI |
+| Node | 22 (LTS) | `.nvmrc` et les jobs CI ; `engines.node` reste `>=20` |
 | pnpm | 9.15.9 | `packageManager` (épinglé, INT-STUDIUM-031), `engines.pnpm` (`>=9`) |
 | Python | 3.12 | `python-version` des jobs CI ; `requires-python = ">=3.12"` des paquets |
 | Rust / Cargo | Tauri 2.x | `apps/student-runtime/src-tauri/Cargo.toml` |
