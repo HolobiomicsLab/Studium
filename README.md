@@ -1,164 +1,143 @@
-<div align="center">
+English · [Français](README.fr.md)
 
-# Studium — Agentic, Ontology-Grounded Adaptive Teaching
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg">
+    <img src="docs/assets/hero-light.svg" width="880" alt="Studium: adaptive lessons, grounded in knowledge. For teachers, students and self-learners.">
+  </picture>
+</p>
 
-*Turn a corpus of teaching material into a transparent, adaptive course where every pedagogical decision is grounded, typed, and auditable.*
+# Studium
 
-**Teaching-as-a-workflow** &nbsp;·&nbsp; **Learning Workflow Graph** &nbsp;·&nbsp; **Claim-native provenance** &nbsp;·&nbsp; **Visual or harness-driven learning**
+Studium turns sources you trust into adaptive lessons that you can play in VS Code or through your own AI assistant, with assessment that always says who wrote the answer key and whether anything was actually measured.
 
-![Status](https://img.shields.io/badge/status-research_prototype-orange?style=flat-square)
-![TypeScript](https://img.shields.io/badge/runtime-TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white)
-![Python](https://img.shields.io/badge/author--time-Python_3.12-3776ab?style=flat-square&logo=python&logoColor=white)
-![HITL](https://img.shields.io/badge/human--in--the--loop-required-success?style=flat-square)
-![RGPD](https://img.shields.io/badge/learner_data-local--first-success?style=flat-square)
+## Choose your path
 
-</div>
+| I want to… | Start here | What you get |
+|---|---|---|
+| Learn a topic on my own with an AI assistant | [Learn with your assistant](docs/learn/learn-with-your-assistant.md) | A lesson built from the sources you chose, then reviews spaced over the following days |
+| Study in a class | [Student guide](docs/learn/student-guide.md) | A teacher-approved lesson in VS Code or in your assistant, with feedback after each answer |
+| Teach | [Teacher guide](docs/teach/teacher-guide.md) | A sourced lesson, an approval record bound to its exact content, and an aggregated class report |
+| Build on Studium | [Architecture](docs/develop/architecture.md) and [MCP tools](docs/reference/mcp-tools.md) | The runtime contracts, the 34 MCP tools and the lesson bundle format |
 
----
+The [documentation portal](docs/index.md) lists every page by role.
 
-**Studium** is a research prototype for **adaptive scientific teaching in the agentic-AI era**. It treats a *course* the way modern science treats an *analysis*: as a workflow of decisions that should be **grounded in evidence, typed against shared ontologies, and auditable end-to-end** — by a human, before any student sees it.
+## Screenshots
 
-The motivating problem: AI can now generate a "course" from a pile of documents in seconds. But a generated course is only trustworthy if you can see *why* it teaches what it teaches, *what evidence* grounds each prerequisite, and *whether a learner actually demonstrated mastery* — not just clicked through. Studium makes those things first-class.
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/vscode-pane-choices-dark.png">
+        <img src="docs/assets/screenshots/vscode-pane-choices-light.png" width="420" alt="The Studium lesson pane in VS Code on a quiz step of a French lesson: a notice saying the learner wrote the answer key, step 3 of 8 on the Lyman series, the Rydberg formula as a step document, four lettered choices with A selected, an optional confidence scale from 0 to 4, a Submit button and a Hint link.">
+      </picture>
+      <br><em>A quiz step in the VS Code lesson pane; the notice on top says who wrote the answer key.</em>
+    </td>
+    <td width="50%" valign="top">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/vscode-pane-feedback-dark.png">
+        <img src="docs/assets/screenshots/vscode-pane-feedback-light.png" width="420" alt="The feedback step after a written answer in a French lesson: a compare-it-yourself box marked not certified because no judge assessed the answer, the key points, a collapsed model answer, the cited source passage with its link, four buttons to rate recall and a Continue button.">
+      </picture>
+      <br><em>Feedback after a written answer that no judge assessed: compare with the key points, then rate your recall.</em>
+    </td>
+  </tr>
+</table>
 
-## Documentation and first use
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/teacher-library-dark.png">
+  <img src="docs/assets/screenshots/teacher-library-light.png" width="720" alt="The teacher dashboard library, in French: counts of courses, checked and approved lessons, then each lesson with its language, author, number of scenes and concepts, duration, badges for its key classes, a Checked status and a Review button.">
+</picture>
 
-Start with the **[documentation portal](docs/README.md)** (French). Studium can be
-operated through its VS Code panel, an AI harness, or a local HTTP client.
+<em>The teacher dashboard library: each lesson with who holds its answer keys and its review status.</em>
 
-| Your goal | Start here |
-|---|---|
-| Take a lesson visually, without an LLM account for the demo | [Install and open the VS Code panel](docs/getting-started/installation.md) |
-| Learn with Copilot Student | [Account setup and MCP connection](docs/getting-started/copilot.md) |
-| Use Claude Code, Codex or OpenCode | [Harness onboarding and connection checks](docs/getting-started/harnesses-and-api.md) |
-| Use an API and switch local harnesses | [HTTP API, session continuity and exports](docs/guides/api-and-harness.md) |
-| Prepare a course from literature or an ASB capsule | [Teacher guide](docs/user/teacher-guide.md) and [practical use cases](docs/tutorials/use-cases.md) |
-| Build an interactive activity and review its trace | [Activity → ASTRA/MySTRA report](docs/tutorials/activity-to-report.md) |
+## Quickstart (5 minutes)
 
-Read the [10–12 September development update](docs/updates/2026-09-12.md) for the
-latest additions and their verification, and [capability status](docs/features.md)
-for surface-specific limits. These are development docs: use code and guides from
-the same revision. The dated update identifies changes still awaiting integration;
-it does not announce a release.
-
-For a first local lesson without a backend API key, follow the
-[installation guide](docs/getting-started/installation.md). The evaluation harness
-below is a developer research workflow, not the student onboarding path.
-
-## The core idea: a course is a Learning Workflow Graph
-
-The backbone of every Studium course is a **Learning Workflow Graph (LWG)** — a typed DAG that decomposes teaching into:
-
-- **concept nodes** (`concept:<id>`, Bloom-typed: remember → … → create) and **task nodes** (`task:<id>`, scene types: quiz, ai_critique, reproduction, …),
-- connected by typed edges — **`prerequisite_for`**, **`assesses`**, **`part_of`**, **`decomposes_into`**, **`aligns_with`**.
-
-The LWG is **built agentically** from two sources:
-
-- **Mode A — documents:** lecture notes / textbook chapters → concepts (from objectives) + tasks (from scenes), with prerequisite edges *proposed* by an LLM and *grounded* in citable literature passages.
-- **Mode B — reproduction:** an [AgenticScienceBuilder](https://github.com/HolobiomicsLab/AgenticScienceBuilder) capsule → a *reproduction subgraph* that makes "learn to reproduce this published analysis" a first-class, scaffolded, prerequisite-gated experience.
-
-Every consequential build step runs through an **agentic-step contract** (lenient admission + quality flags + an [ASTRA](https://github.com/LightconeResearch/astra-spec) Decision/Insight + JSONL telemetry), and the whole graph is serialized as **[indicium](https://github.com/HolobiomicsLab/indicium) Claims** (Bucur 5-slot, SEPIO/ECO evidence) so each edge is a verifiable, provenance-stamped assertion — not an opaque model output.
-
-## Four siblings, four jobs
-
-Studium is the teaching layer that composes the lab's standards into one loop:
-
-| Sibling | Role in Studium |
-|---|---|
-| **[Perspicacité](https://github.com/HolobiomicsLab/Perspicacite-AI)** | **grounds** — every prerequisite edge is anchored in a citable literature passage |
-| **[indicium](https://github.com/HolobiomicsLab/indicium)** | **represents** — the graph is a set of typed, evidence-bound Claims |
-| **[ASTRA](https://github.com/LightconeResearch/astra-spec)** | **explains the decision** — every adaptive move is a replayable Decision over Options |
-| **[ASB](https://github.com/HolobiomicsLab/AgenticScienceBuilder)** | **the agentic-step standard** + the source of reproduction tasks |
-
-*Perspicacité grounds · indicium represents · ASTRA explains · ASB sets the agentic-step standard.*
-
-## How it works (end to end)
-
-```
-corpus (.md / ASB capsule)
-   │  author-time (services/planner, services/scene-synth) — agentic, grounded, validated
-   ▼
-LessonBundle  +  Learning Workflow Graph  +  Universes (baseline / remedial)  +  indicium/ASTRA provenance
-   │  runtime (@studium/lesson-session) — adaptive, learner-scoped
-   ▼
-a learner session: prerequisite-gated navigation · remediation · hints · calibration · mastery
-   │
-   ▼
-local-first "demonstrates_mastery_of" claims  +  a HITL course audit report
-```
-
-The same runtime is accessible through MCP, the local HTTP operation API and a
-file channel. An AI harness can prepare code, figures and reusable activities
-from public lesson context; the learner supplies predictions and conclusions.
-Portable activities offer five templates, optional scientific/media supports,
-language selection and an opt-in action export to ASTRA/ARA/MySTRA. A viewer is
-a local artifact, not an embedded agent. See [worked scenarios](docs/tutorials/use-cases.md).
-
-Live session position belongs to the server process. Some learner state and
-journals can be persisted under their consent rules; restarting the HTTP server
-does not restore its active sessions.
-
-**Runtime adaptivity that *acts* (not just configured):**
-
-- **Mastery is earned, not clicked** — a Beta/IRT model with a minimum-attempts floor; `demonstrates_mastery_of` is only asserted above a fixed bar.
-- **Universes drive the live experience** — `baseline` vs `remedial` set the prerequisite threshold θ; `pacing` skips mastered concepts; `scaffolding` unlocks hints. A struggling learner is **escalated** baseline → remedial one-way.
-- **Anti-offloading** — hints scaffold reasoning but *discount* mastery credit, so you can't offload to the answer. (Enforced as a cross-cutting engine invariant; not a per-decision modulator tag.)
-- **Metacognition (M3)** — declared confidence is compared to real performance; over-/under-confidence is surfaced.
-- **Prerequisite-gated remediation (M6)** — unmet prerequisites route to remediation and repeated struggle escalates the support universe; `explainLast()` surfaces why the system did what it did.
-- **Modulator vocabulary** — the reconciled M-series (only **M1, M3, M6** are active tags; see [`docs/ontology/modulators.md`](docs/ontology/modulators.md)).
-- **Privacy boundaries** — local learner state, pseudonymization and explicit forgetting are part of the runtime design. Storage depends on the client/configuration; harness history and exported experiments have separate retention. See [privacy and limits](docs/privacy-and-limits.md) before a class pilot.
-
-## Developer evaluation harness (no frontend)
-
-For developers, the **backend eval harness** runs the pipeline over course
-material, simulates learner interactions and emits technical audit feedback.
-For a first student session, use the installation and onboarding above.
+You need git, Node 22 (Node 20 or newer works) and pnpm 9. Python is not needed to learn.
 
 ```bash
-# From the root of your Studium checkout
-pnpm install            # workspace (TypeScript runtime)
-python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
-
-# key-free: deterministic author + 3 student personas + heuristic auditing studio
-./.venv/bin/python eval/run_eval.py --corpus 04
-
-# LIVE: Claude authors the course + a live Claude auditing studio scores it
-./.venv/bin/python eval/run_eval.py --corpus 04 --author claude --audit-llm
-
-# the whole corpus (5 sciences + 5 humanities)
-./.venv/bin/python eval/run_eval.py --all
+git clone https://github.com/HolobiomicsLab/studium.git
+cd studium
+corepack enable        # provides the pnpm version pinned in package.json
+./setup.sh             # installs, builds the libraries and the VS Code extension
 ```
 
-See [`eval/README.md`](eval/README.md) for the full harness (author modes, student personas, the audit rubric, reports). Drop your own `.md` into `eval/corpus/` and add a manifest entry to evaluate your own course.
+If the clone answers `Repository not found`, the repository is not visible to your account yet: run `gh auth login` and clone again.
+
+Then pick one of the two surfaces.
+
+**In VS Code.** Open the folder `apps/studium-vscode`, press F5 (fn+F5 on a Mac), and in the window that opens run **Studium: Open lesson** from the Command Palette. The demo lessons under `fixtures/` play without an API key or network access.
+
+**In your AI assistant.** Register the Studium MCP server that `setup.sh` built, from the repository root:
+
+```bash
+# Claude Code
+claude mcp add studium -e BUNDLES_ROOT="$PWD/fixtures" -- node "$PWD/apps/studium-vscode/dist/lesson-mcp.cjs"
+
+# Codex
+codex mcp add studium --env BUNDLES_ROOT="$PWD/fixtures" -- node "$PWD/apps/studium-vscode/dist/lesson-mcp.cjs"
+```
+
+Restart the assistant and ask: "I want to learn photosynthesis with Studium". The assistant follows the server's instructions: it checks your study plan, gathers sources with its own tools, builds a lesson with `prepare_sources` and `create_lesson`, and asks you the first question. Your progress is kept in `~/.studium/data`; lessons you create go to `~/.studium/library`. Other harnesses (Copilot, OpenCode, Cursor) are covered in [Connect a harness](docs/start/harnesses.md).
+
+More detail: [Quickstart](docs/start/quickstart.md), [Installation](docs/start/installation.md), [Troubleshooting](docs/start/troubleshooting.md).
+
+## What makes Studium different
+
+- **A course is a graph.** Each lesson carries a Learning Workflow Graph: concepts and tasks linked by typed edges such as `prerequisite_for` and `assesses`. Navigation, remediation and the teacher's view all read the same graph. See [How Studium works](docs/concepts/how-studium-works.md).
+- **Honest assessment, with provenance.** Every lesson says whether its answer key was written by a teacher, by the learner or by an AI agent, and whether a judge model assessed the answer. Without a judge, an open answer is shown next to the reference for you to compare; it is never given a keyword score. See [Honesty and provenance](docs/concepts/honesty-and-provenance.md).
+- **Sourced lessons.** A lesson built from your sources cites a passage for each graded item, and each quote must match its source character for character before the lesson is written.
+- **Spaced review.** After a lesson, Studium schedules reviews (FSRS). One call, `get_study_plan`, says what is due across all your lessons. Rating your own recall schedules reviews but never changes measured mastery. See [Review over time](docs/learn/review-over-time.md).
+- **Local-first.** Learner state stays on your machine, in folders named by pseudonyms, and you can erase it. Class reports are aggregated, with at least five learners behind each figure. See [Privacy and limits](docs/concepts/privacy-and-limits.md).
+- **Any harness.** The same session contract is served over MCP, a local HTTP API and a file channel, so Codex, Claude Code, Copilot, OpenCode or Cursor can drive a lesson. The assistant relays; the learner answers.
 
 ## Architecture
 
-| Layer | Where | What |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/architecture-dark.svg">
+  <img src="docs/assets/diagrams/architecture-light.svg" alt="Studium architecture: author-time Python services turn documents or an ASB capsule into a LessonBundle and a typed Learning Workflow Graph; the runtime packages and the session host serve sessions over MCP, HTTP and a file channel to VS Code and AI harnesses; the teacher dashboard and the Observatory are separate review surfaces.">
+</picture>
+
+### Repository map
+
+| Area | Where | What it does |
 |---|---|---|
-| **Author-time** | [`services/planner`](services/planner), [`services/scene-synth`](services/scene-synth), [`services/ingest`](services/ingest) | corpus → LessonPlan → LWG (agentic, grounded) → validated LessonBundle |
-| **Runtime** | [`packages/lesson-session`](packages/lesson-session), [`packages/adaptation-engine`](packages/adaptation-engine), [`packages/learner-state`](packages/learner-state) | the adaptive engine: graph-aware navigation, mastery, universes, hints, calibration, local mastery claims |
-| **Schemas** | [`packages/learning-workflow-schema`](packages/learning-workflow-schema), [`packages/lesson-bundle-schema`](packages/lesson-bundle-schema), [`packages/telemetry-events`](packages/telemetry-events) | the typed contracts (Zod + Pydantic mirrors) |
-| **Provenance** | `services/planner/provenance` | indicium-claim + ASTRA serializers, the education adapter, HITL `approve_course` + course audit report |
-| **Hosts** | [`packages/lesson-session-host`](packages/lesson-session-host), [`apps/lesson-mcp`](apps/lesson-mcp) | common operations over MCP and authenticated local HTTP; file-channel runner |
-| **Clients and activities** | [`apps/studium-vscode`](apps/studium-vscode), [`tools/experience_templates.py`](tools/experience_templates.py), [`packages/activity-presentation`](packages/activity-presentation) | lesson panel/notebook, five portable templates, local scientific renderers |
-| **Review** | [`services/observatory`](services/observatory), [`tools/learner_report.py`](tools/learner_report.py) | course review, MySTRA and portable learner reports |
-| **Eval** | [`eval/`](eval) | the backend auditing harness (this is how you exercise everything above) |
+| Learner clients | [`apps/studium-vscode`](apps/studium-vscode) | VS Code extension: lesson pane, notebook, chat participant, reviews in the status bar |
+| Hosts | [`apps/lesson-mcp`](apps/lesson-mcp), [`packages/lesson-session-host`](packages/lesson-session-host), [`apps/lesson-server`](apps/lesson-server) | MCP server (34 tools), multi-session host with durable state, HTTP adapters |
+| Adaptive runtime | [`packages/lesson-session`](packages/lesson-session), [`packages/adaptation-engine`](packages/adaptation-engine), [`packages/learner-state`](packages/learner-state) | Graph-aware navigation, mastery, remediation, hints, calibration, spaced review |
+| Contracts | [`packages/lesson-bundle-schema`](packages/lesson-bundle-schema), [`packages/learning-workflow-schema`](packages/learning-workflow-schema), [`packages/telemetry-events`](packages/telemetry-events) | Typed schemas (Zod, with Pydantic mirrors) for lessons, graphs and events |
+| Authoring and review | [`services/`](services), [`tools/`](tools), [`eval/`](eval) | Python planner, scene synthesis, ingestion, Observatory, authoring CLI (`tools/experience_packet.py`), evaluation harness |
+| Teaching surfaces and identity | [`apps/teacher-dashboard`](apps/teacher-dashboard), [`skills/`](skills), [`design/`](design) | Teacher library and review pages, harness skills, design tokens and components |
 
-GUI apps under `apps/` include `teacher-dashboard`, `student-runtime` and
-`author-web`. Their coverage differs from portable activities and the VS Code
-panel; see the [capability map](docs/features.md). The legacy REST service
-[`apps/lesson-server`](apps/lesson-server) remains separate from the new operation
-API. The project can still be evaluated without a frontend.
+## Surfaces and maturity
 
-## Status
+| Surface | Status | Meaning |
+|---|---|---|
+| Any MCP harness (Codex, Claude Code, Copilot, OpenCode, Cursor) and the file channel | Supported | Tested in CI, documented, the recommended way in |
+| VS Code extension (lesson pane, chat participant) | Supported | Tested in CI, built as a VSIX by CI |
+| `lesson-server` (HTTP, answer keys redacted), teacher dashboard, Observatory | Maintained | Kept working and tested; fewer new features |
+| Tauri student app ([`apps/student-runtime`](apps/student-runtime)) | Frozen | No new work; built only on manual request |
+| [`apps/author-web`](apps/author-web) | Legacy | Kept for the M1 demonstration; use the teacher dashboard instead |
 
-Research **prototype**. The runtime adaptive loop, the agentic author-time pipeline, the indicium/ASTRA provenance, the HITL approval + audit report, and the eval harness are implemented and tested; the system runs end-to-end on real OER course material across humanities and sciences. It is **not** production software and has **not** been formally evaluated for learning outcomes — that study is pending. Human-in-the-loop approval is required before any student-facing use (rule-003).
+## Status and limits
 
-## Documentation
+Studium is a research prototype, version 0.2.0. The adaptive runtime, the authoring tools, the provenance records and the evaluation harness are implemented and tested, but Studium has not been evaluated for learning outcomes. A teacher must review and approve a lesson before students use it. A lesson built by an AI assistant from your sources is labelled as agent-drafted and not teacher-validated. Without a configured judge model, open answers are compared with the reference rather than scored. The HTTP adapter exposes the lesson operations only; study, authoring and teacher tools are MCP-only. The release workflow can publish to the VS Code Marketplace, Open VSX and npm once their tokens are configured; until then, a release is a GitHub draft with the VSIX and the server file. [Capabilities](docs/concepts/capabilities.md) gives the detail per surface.
 
-- [`eval/README.md`](eval/README.md) — the backend eval harness (how to test a course)
-- [`docs/user/teacher-guide.md`](docs/user/teacher-guide.md) · [`docs/user/student-guide.md`](docs/user/student-guide.md) — role guides
-- [`CLAUDE.md`](CLAUDE.md) — agentic-development conventions (`.venv`, TDD, rule-003 HITL, RGPD)
+## Part of a family
 
-## License
+Studium composes four sibling projects of the lab: [Perspicacité](https://github.com/HolobiomicsLab/Perspicacite-AI) grounds prerequisites in literature passages, [indicium](https://github.com/HolobiomicsLab/indicium) represents the graph as evidence-bound claims, [ASTRA](https://github.com/LightconeResearch/astra-spec) records each adaptive decision so it can be replayed, and [ASB](https://github.com/HolobiomicsLab/AgenticScienceBuilder) supplies reproduction capsules and the agentic-step standard.
 
-Research prototype — license to be finalized. Third-party OER course material under `eval/corpus/` is **not** redistributed (gitignored; see its manifest for per-source licenses).
+## Licence
+
+The code is licensed under the [Apache License 2.0](LICENSE). The documentation, the visual identity and the lessons written by the project are licensed under [Creative Commons Attribution 4.0](LICENSES/CC-BY-4.0.txt). Source excerpts quoted in a lesson keep their own licence, named on each source line, and a lesson you build from your own sources belongs to you. Teaching material used by the evaluation harness under `eval/corpus/` is not redistributed; its manifest lists each source's licence. [NOTICE](NOTICE) says which licence covers which folder.
+
+## Citation
+
+If you use Studium in research, cite it with the metadata in [`CITATION.cff`](CITATION.cff). GitHub shows a "Cite this repository" button from that file. No DOI has been assigned yet.
+
+## Contributing and security
+
+- [Contributing](CONTRIBUTING.md): setup, the checks a change must pass, tests first, bilingual documentation.
+- [Code of conduct](CODE_OF_CONDUCT.md).
+- [Security policy](SECURITY.md): report vulnerabilities privately.
+- [Testing Studium](TESTING.md): the guided path for a colleague trying the demo lesson.
+- [Changelog](CHANGELOG.md).

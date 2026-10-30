@@ -1,0 +1,22 @@
+Studium
+Copyright 2026 The Studium contributors (HolobiomicsLab)
+
+Licensing
+---------
+
+Source code (apps/, packages/, services/, tools/, ui/, design/ code and scripts, eval/ code, skills/
+scripts, CI configuration) is licensed under the Apache License, Version 2.0. See LICENSE.
+
+Documentation (Markdown pages, docs/, README files, skills/ instructions), the visual identity and
+diagrams under docs/assets/, and lesson content written for Studium (lessons under fixtures/ and
+examples/ authored by the project) are licensed under the Creative Commons Attribution 4.0
+International licence (CC BY 4.0). See LICENSES/CC-BY-4.0.txt.
+
+Third-party material keeps its own licence. Source excerpts quoted inside lessons (for example
+OpenStax, Wikipedia or Wikisource passages) are attributed in each lesson's sources with their own
+licence. Teaching material used by the evaluation harness under eval/corpus/ is not redistributed;
+its manifest lists each source and its licence. Vendored libraries under
+apps/studium-vscode/media/vendor/ keep their licences (see apps/studium-vscode/media/VENDOR-LICENSES.md).
+
+Lessons that learners or teachers build with Studium from their own sources belong to their
+authors and to the licences of those sources; Studium's licences do not apply to them.

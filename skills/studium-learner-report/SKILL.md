@@ -7,9 +7,9 @@ description: Export or inspect a learner-selected Studium activity trace or priv
 
 Resolve this skill's real path; its source repository is two directories above
 it. Locate `tools/learner_report.py` and read
-[the report guide](../../docs/user/learner-report.md) for the current CLI. Use the
-existing Python venv and the repository's ASTRA validator and MySTRA renderer.
-Do not install a parallel schema or copy another project's private report data.
+[Learner activity report](../../docs/learn/learner-report.md). Use the existing
+Python venv and the repository's ASTRA validator and MySTRA renderer. Do not install
+a parallel schema or copy another project's private report data.
 
 ## Select the record and sharing scope
 
@@ -26,10 +26,21 @@ observations from the harness conversation or invent a score.
 
 ## Export and verify
 
-Write to a new report directory, validate the input contracts and run the report
-verification command. Examine its actual result before calling the package
-verified. Open the generated local MySTRA viewer and show the learner the text
-policy, recorded actions, missing evidence and checks before any sharing.
+Write to a new report directory, then verify it:
+
+```bash
+.venv/bin/python tools/learner_report.py export NEW_REPORT_DIR \
+  --actions learner-actions.json --activity prepared-activity/activity.json
+.venv/bin/python tools/learner_report.py verify NEW_REPORT_DIR
+```
+
+`--journal journal.json` adds a journal snapshot (alone or with `--actions`);
+`--include-original-text` keeps the learner's own words, only on their explicit
+request. Over MCP, `get_experiment_journal {session_id}` returns the journal to save
+as that snapshot. Examine the actual `verify` result before calling the package
+verified. Open the report's `index.html` (or its MySTRA view in the Observatory) and
+show the learner the text policy, recorded actions, missing evidence and checks before
+any sharing.
 
 Keep three contracts distinct: the private host journal, the versioned Studium
 activity sidecar and ASTRA provenance. Learner actions belong to declared

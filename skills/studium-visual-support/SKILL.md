@@ -6,16 +6,15 @@ description: Help a Studium learner inspect source photographs or request an ada
 # Studium visual support
 
 Resolve this skill's real directory; the Studium checkout is two levels above.
-Read [the practical guide](../../docs/guides/adaptive-visual-support.md) for current
-capabilities, example assets and the source-to-receipt workflow. This skill uses
-the tools actually available in the chosen harness; it does not install a model,
-create an image tool, or attach generated assets to a live lesson automatically.
-For teacher-built or learner-requested images/audio/video, read
-[the media workflow](../../docs/guides/sourced-and-generated-media.md).
-It provides a checked local attachment into a new portable activity, not a live
-session replacement or a universal provider bridge.
-For portable activities, use the checked `--supports` preparation path in
-[language and scientific presentation](../../docs/guides/language-and-scientific-presentation.md).
+Read [Media and visual support](../../docs/teach/media-and-visual-support.md) for
+current capabilities, example assets and the source-to-receipt workflow, and
+[Language and supports](../../docs/learn/language-and-supports.md) for what the
+learner can ask for. This skill uses the tools actually available in the chosen
+harness; it does not install a model, create an image tool, or attach generated
+assets to a live lesson automatically. The media workflow provides a checked local
+attachment into a new portable activity, not a live session replacement or a
+universal provider bridge. For portable activities, use the checked `--supports`
+option of `tools/experience_templates.py prepare`.
 
 ## Start from the learner and the scene
 
@@ -25,7 +24,7 @@ context deliberately excludes private learner history and answer keys. Do not
 read a raw bundle or private history to bypass that boundary.
 
 Use already stated familiarity, preferred language and current question. Follow
-`operator-context.language.effective_language` for explanations and captions.
+`language.effective_language` from `get_operator_context` for explanations and captions.
 A changed language never rewrites learner answers, source material, notation,
 quantities, code or identifiers; translations of quotations stay labelled. If one
 missing fact would change the support, ask one short question, such as whether
@@ -88,15 +87,17 @@ teacher-review drafts under the existing release workflow.
 
 ## Keep a reusable record
 
-For a requested media generation, use `tools/media_workflow.py prepare` with the
-existing public activity and an adapted teacher brief. Inspect the bound canonical
+For a requested media generation, use `tools/media_workflow.py prepare --activity
+ACTIVITY --brief BRIEF.json --out ACTIVITY/media-request.json` with the existing public activity and
+an adapted teacher brief. Inspect the bound canonical
 `protocol_md` request. Confirm the connected tool is available and its allowance
 before invoking the requested generation; use only necessary public/de-identified
 context. Never invent a provider result or silently use another paid route.
 Record the actual prompt/tool/model/date with the existing exploration receipt.
 
-Inspect/play the returned local file, then use `tools/media_workflow.py attach`
-with authored source/rights metadata. Audio requires a transcript; video also
+Inspect/play the returned local file, then use `tools/media_workflow.py attach
+--request ACTIVITY/media-request.json --media FILE --source-metadata META.json
+[--transcript FILE] [--captions FILE.vtt] --out NEW_ACTIVITY` with authored source/rights metadata. Audio requires a transcript; video also
 requires WebVTT captions. Describe meaningful visual information, not just speech.
 The attachment creates a new directory and preserves the original activity and
 student files. Export any active browser trace before opening a new run; do not

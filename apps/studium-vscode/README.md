@@ -1,15 +1,42 @@
+English · [Français](README.fr.md)
+
 # Studium for VS Code
 
-Run a Studium **adaptive lesson inside VS Code**. The extension is a thin **MCP client** to
-`apps/lesson-mcp` (no new backend) and offers two student-runtime surfaces that move **pair by
-pair** with the tutoring loop:
+Play a Studium adaptive lesson inside VS Code: read each scene with its figures, equations, plots and
+molecules, answer in the pane, get feedback after your answer, and see which concepts are due for review.
+The extension is a thin MCP client of [`apps/lesson-mcp`](../lesson-mcp/README.md); it adds no backend.
 
-- **Lesson pane** (`studium.openLesson`) — a `WebviewPanel` (`media/artifact-pane.{js,css}`) that
-  renders each scene + its artifacts and collects the learner's answer.
-- **Lesson notebook** (`studium.openLessonNotebook`) — a `NotebookController`; each run of the
-  driver cell advances the lesson one turn and renders the scene as rich cell output.
-- **Course picker** (`studium.pickLesson`) — discovers a bundles root, stores the workspace's chosen
-  course, and opens it without asking the learner to edit `settings.json`.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/screenshots/vscode-pane-choices-dark.png">
+  <img src="../../docs/assets/screenshots/vscode-pane-choices-light.png" width="420" alt="The Studium lesson pane in VS Code showing a multiple-choice question with its answer buttons">
+</picture>
+
+| | |
+|---|---|
+| Status | **supported** (decision D6) |
+| Run (developer) | `pnpm --filter studium-vscode build`, then F5 in VS Code |
+| Install | `pnpm --filter studium-vscode package`, then `code --install-extension apps/studium-vscode/studium.vsix` |
+| Port | none: the server runs as a child process over stdio |
+| Calls | the bundled lesson server (`dist/lesson-mcp.cjs`), or the source server in a checkout |
+| Tests | `pnpm --filter studium-vscode test` (type check and 23 headless drivers) |
+
+User guide: [Studium in VS Code](../../docs/start/vscode.md).
+
+## Surfaces
+
+- **Lesson pane** (`studium.openLesson`): a webview (`media/artifact-pane.{js,css}`) that renders each
+  scene with its artifacts and collects the answer. Feedback is its own step; a completion screen offers
+  the review actions.
+- **Lesson notebook** (`studium.openLessonNotebook`): each run of the driver cell advances the lesson one
+  turn and renders the scene as cell output.
+- **Course picker** (`studium.pickLesson`): discovers a lessons folder, stores the workspace's chosen
+  course and opens it, without editing `settings.json`.
+- **Chat participant** (`@studium`): a lesson turn by turn in the chat panel, with `/hint` and `/discuss`.
+  It shows the server's own text for each step and sends what you type as `{kind: "reply", text}`; the
+  server maps it to the scene's input (a letter, a confidence, your words) or says it could not read it,
+  and the chat then repeats how this scene is answered.
+
+The pane, the chat and the notebook start the lesson server the same way, on the same learner storage.
 
 ```
  VS Code extension host ── MCP client ──▶ lesson-mcp (stdio) ──▶ lesson-session engine
@@ -18,167 +45,191 @@ pair** with the tutoring loop:
         └─▶ NotebookController ── cell output ──  src/notebook.ts
 ```
 
-Each turn the extension pulls the current scene (server-redacted via `publicScene`) +
-`get_scene_artifacts` and presents them; the learner answers in the surface; the response goes back
-over `submit_response` / `submit_turn` / `request_hint`; the engine adapts; the next scene repaints.
-The pane closes a connection that finishes opening after the panel was dismissed, serializes learner
-actions, disables controls while a turn is pending, and keeps recoverable action errors beside the
-current scene. Startup failures name the local output channel and the command to retry.
+Each turn the extension pulls the current scene (redacted by the server) and `get_scene_artifacts`,
+presents them, sends the answer back over `submit_response`, `submit_turn` or `request_hint`, and repaints
+the next scene. The pane serializes learner actions, disables controls while a turn is pending, keeps
+recoverable errors beside the current scene, and closes a connection that finishes opening after the panel
+was dismissed. Start-up failures name the output channel and the command to retry.
 
-## Scene coverage
+## Commands
 
-Every scene type the bundle schema defines is wired on **both** surfaces — rendered **and** answered
-with the exact response kind its grader requires (the graders dispatch by `scene.type` and reject a
-mismatched kind, so a half-wired scene would hard-break the lesson):
+Titles, setting descriptions and the view name follow VS Code's display language (English from
+`package.nls.json`, French from `package.nls.fr.json`). The ids never change.
+
+| Command | Id | What it does |
+|---|---|---|
+| Studium: Pick a course | `studium.pickLesson` | choose a discovered course or another lessons folder, save both in the workspace, open the lesson |
+| Studium: Open lesson | `studium.openLesson` | the lesson pane |
+| Studium: Open lesson as notebook | `studium.openLessonNotebook` | the notebook surface |
+| Studium: Open this lesson | `studium.openThisLesson` | also in the explorer and editor-tab menus on a `lesson.json`; opens it without touching the settings |
+| Studium: Community contributions | `studium.communityContributions` | open peer-authored, teacher-approved bundles under the course's `community/` folder |
+| Studium: Run reproduction (current scene's capsule) | `studium.runReproduction` | run the current scene's capsule, after confirmation |
+| Studium: Refresh the lessons view | `studium.refreshLessons` | rescan courses and reviews |
+| Studium: Getting started | `studium.openWalkthrough` | the walkthrough |
+| Studium: Forget my data | `studium.forgetMyData` | after confirmation, erase what this extension keeps in VS Code |
+
+**Forget my data** first closes every lesson server the extension started (lesson panes, the chat, notebook
+sessions, a status refresh) and waits for them to exit, so none writes its state back; a new lesson asked for
+meanwhile waits until the erase is over. It then erases the progress and review state in the extension's
+storage folder, the courses you chose to trust and the remembered last lesson. The data an assistant (Claude Code, Codex) keeps in
+`<STUDIUM_HOME>/data` (default `~/.studium/data`) is named in the confirmation and left untouched. Inside a
+lesson, **Forget me** in the pane's *Lesson options* menu (or the notebook `forget` directive) calls
+`forget_session` after a confirmation. `end_session` closes a session and keeps its state; closing a panel
+or notebook only drops the connection, so saved progress survives.
+
+## Settings
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `studium.repoRoot` | the extension's monorepo root | where `lesson-mcp` and the pnpm `tsx` live |
+| `studium.bundlesRoot` | a checkout's `fixtures/`, else `~/.studium/library` | `BUNDLES_ROOT` the server resolves `bundleRef` against; `STUDIUM_HOME` moves the library |
+| `studium.bundleRef` | `atomistique-l1/lesson.json` | the current course; with nothing stored yet, Open lesson starts the picker |
+| `studium.communityBundlesRoot` | the value of `bundlesRoot` | root the community picker scans |
+| `studium.assets` | `vendor` | `vendor` (offline, `media/vendor`) or `cdn` (jsdelivr) |
+| `studium.learnerId` | `vscode-learner` | salts the learner pseudonym |
+| `studium.telemetryConsent` | `false` | opt in to sending consented, pseudonymized class telemetry; progress and reviews stay on the device either way |
+| `studium.showGraph` | `true` | open the companion live workflow-graph pane |
+| `studium.graphView` | `student` | graph scope: `student` (ego view) or `teacher` (full graph) |
+| `studium.showMastery` | `false` | show the per-concept mastery bar (teacher demo only: it can leak quiz answers) |
+| `studium.modalityPreference` | `balanced` | `visual`, `textual` or `balanced` artifact ordering |
+
+## Scenes and artifacts
+
+Every scene type of the bundle schema is wired on both surfaces, rendered and answered with the response
+kind its grader requires (graders dispatch on `scene.type` and reject a mismatched kind).
 
 | Scene type | What the learner does | Response |
 |---|---|---|
 | `intro`, `concept` | read | continue (`ack`) |
-| `quiz` | pick a choice (+ ask for a hint) | `quiz_choice` |
-| `meta_checkpoint` | declare confidence `0`–`4` | `confidence` |
-| `reproduction` | follow the protocol steps; see the executed reference run | `ack` |
+| `quiz` | pick a choice, ask for a hint | `quiz_choice` |
+| `meta_checkpoint` | declare confidence `0` to `4` | `confidence` |
+| `reproduction` | follow the protocol; see the executed reference run | `ack` |
 | `ai_critique` | critique an AI output (free text) | `critique` |
-| `spot_the_flaw` | name the planted errors (free text) | `flaw_report` |
-| `explain_back` | teach the idea back (free text) | `explanation` |
+| `spot_the_flaw` | name the planted errors | `flaw_report` |
+| `explain_back` | teach the idea back | `explanation` |
 | `comparison` | name the differences between artifact A and B | `comparison` |
-| `summary_audit` | audit an AI summary for omissions/distortions | `summary_audit` |
-| `prompt_practice` | write/refine a prompt for the task | `prompt_submission` |
+| `summary_audit` | audit an AI summary for omissions and distortions | `summary_audit` |
+| `prompt_practice` | write or refine a prompt for the task | `prompt_submission` |
 | `communication_sim` | write a professional message for the scenario | `communication` |
-| `discussion` | multi-turn Socratic dialogue (scored reasoning + tutor reply) | `submit_turn` ×N, then `ack` |
+| `discussion` | multi-turn Socratic dialogue | `submit_turn` several times, then `ack` |
 
-Answer keys (`claims` / `key_points` / `correct` flags / `model_*` reveals) are stripped **at the
-transport** by `publicScene` (server-side), so they never reach the surface to be DOM-leaked.
+Answer keys (`claims`, `key_points`, `correct` flags, `model_*`) are stripped by the server before the
+scene reaches the pane.
 
-## Artifact rendering
+Letter and number shortcuts work while the focus is in the list of choices; the pane says so under the
+choices ("In the list of choices: A–C or 1 to 3 to choose, Enter to submit.", or "On the scale: 0 to 4" for
+a confidence check).
 
-The lesson pane renders the normalized `scene_assets[]` manifest **by kind**: `image`, `svg`,
-`equation_latex` (KaTeX), `plot_spec` (Vega-Lite, interactive), `code`, `data_csv`, `protocol_md`,
-the `executed_result` card (figure + graded checks + landmark + capsule provenance), and the
-interactive scientific kinds `orbital` / `mol_3d` (3Dmol) and `spectrum` (Vega). If a render lib is
-absent the **same renderer degrades gracefully** (equation → styled code; plot → inline-SVG bars;
-3D → a labelled note). marked/KaTeX/Vega/3Dmol/Cytoscape are **vendored into `media/vendor`** and load
-locally by default (`studium.assets: "vendor"`, air-gap safe); `cdn` pulls them from jsdelivr.
+The pane renders the `scene_assets[]` manifest by kind: `image`, `svg`, `equation_latex` (KaTeX),
+`plot_spec` (Vega-Lite), `code`, `data_csv`, `protocol_md`, the `executed_result` card (figure, graded
+checks, landmark, capsule provenance), and `orbital`, `mol_3d` (3Dmol) and `spectrum` (Vega). If a library
+is absent the renderer degrades (equation to styled code, plot to inline SVG bars, 3D to a labelled note).
+marked, KaTeX, Vega, 3Dmol and Cytoscape are vendored into `media/vendor` and load locally by default.
 
-Lesson prose in the pane uses full GFM Markdown (nested lists, links, tables, blockquotes and fenced
-code), then passes through a local DOM allowlist before display. Inline/display mathematics (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`) and
-mhchem expressions are tokenized before the Markdown inline pass and rendered with KaTeX, while fenced blocks and code assets get lightweight
-offline colouring for Python, JavaScript/TypeScript, SQL, Bash and JSON. Relative Markdown images are
-shown as an explicit unresolved-image caption until the extension host gains a bundle-path resolver.
+Lesson prose uses GFM Markdown and passes through a local DOM allowlist. Inline and display mathematics
+(`$…$`, `$$…$$`, `\(…\)`, `\[…\]`) and mhchem are rendered with KaTeX; code gets offline colouring for
+Python, JavaScript/TypeScript, SQL, Bash and JSON. Relative Markdown images show an explicit
+unresolved-image caption for now.
 
-## Adaptive & metacognitive surfaces
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/screenshots/vscode-pane-feedback-dark.png">
+  <img src="../../docs/assets/screenshots/vscode-pane-feedback-light.png" width="420" alt="Feedback shown as its own step after a written answer: marked not certified because no judge assessed it, with the key points, the model answer, the cited source and the four self-rating buttons">
+</picture>
 
-- **Modality preference** (`studium.modalityPreference`) — reorders + emphasises each scene's
-  artifacts toward `visual` / `textual` (content-preserving; nothing is hidden).
-- **Spaced-repetition cue** — an "À réviser / Due for review" banner from the FSRS scheduler
-  (`src/review-fsrs.ts`, a read-side mirror of the engine's `fsrs.ts`).
-- **Calibration verdict** — a number-free "sur/sous-calibré·e" nudge (`src/calibration.ts`, a
-  verbatim port of the engine's `calibrationVerdict`); only the actionable bands are shown.
-- **Live Learning-Workflow-Graph** (`studium.showGraph`) — a companion Cytoscape pane
-  (typed-graph-lens) that repaints each turn; `student` ego-view or `teacher` full-view.
-- **Community contributions** (`studium.communityContributions`) — open peer-authored, teacher-
-  approved bundles discovered under the course's `community/` dir; the canonical course is immutable.
-- **Right to be forgotten** — the pane's "🗑 M'oublier" control (or the notebook `forget` directive)
-  calls `forget_session` to purge the durable per-learner state and cross-lesson profile. `end_session`
-  closes a session while keeping that state. Closing a panel/notebook only drops the
-  transport, so saved progress survives a resume.
+## Feedback, reviews and adaptation
 
-## Settings
+- **Feedback** comes after the answer. ✓ appears only on an answer marked right, ✗ only on one marked
+  wrong; an answer nobody assessed is shown as recorded. Without a judge model, an open answer is shown with
+  the reference to compare with; self-rating ("I didn't know", "Hard", "Good", "Easy") schedules reviews but
+  never moves mastery. After a wrong quiz answer, the right choice appears under "The right answer" once you
+  leave the question. A cited source shows its licence after its title when the lesson records one.
+- **Reviews**: at start-up, when a lesson closes or completes, and on Refresh, the extension asks the
+  server what is due (`get_next_reinforcement`). The status bar then reads **Studium · 2 to review** when
+  every concept waiting is a due review, else **Studium · 3 to work on**; its tooltip and the sidebar keep
+  the groups apart (to review, to take up again, not measured yet) or give the next review date. Clicking
+  opens the Studium sidebar. With no history, nothing is shown.
+- **Completion screen**: the concepts consolidated, the concepts practised (with their number of graded
+  answers) and those not measured yet, then the next review date and the review actions.
+- **Modality preference** reorders and emphasises each scene's artifacts toward `visual` or `textual`;
+  nothing is hidden.
+- **Calibration verdict**: a number-free over- or under-confidence nudge ([`src/calibration.ts`](src/calibration.ts)).
+- **Live workflow graph** (`studium.showGraph`): a companion Cytoscape pane that repaints each turn.
 
-| setting | default | meaning |
-|---|---|---|
-| `studium.repoRoot` | *(extension's monorepo root)* | where `lesson-mcp` + the pnpm `tsx` live |
-| `studium.bundlesRoot` | *(repo `fixtures/`)* | `BUNDLES_ROOT` the server resolves `bundleRef` against |
-| `studium.bundleRef` | `atomistique-l1/lesson.json` | the current course; when no value has been stored yet, Open Lesson starts the picker |
-| `studium.communityBundlesRoot` | *(= `bundlesRoot`)* | root the community-contributions picker scans |
-| `studium.assets` | `vendor` | `vendor` (offline, `media/vendor`) or `cdn` (jsdelivr) |
-| `studium.learnerId` | `vscode-learner` | salts the RGPD pseudonym |
-| `studium.telemetryConsent` | `false` | opt in to consented, pseudonymized class telemetry |
-| `studium.showGraph` | `true` | open the companion live workflow-graph pane |
-| `studium.graphView` | `student` | graph scope: `student` ego-graph or `teacher` full graph |
-| `studium.showMastery` | `false` | show the per-concept mastery bar (teacher demo only — can leak quiz answers) |
-| `studium.modalityPreference` | `balanced` | `visual` / `textual` / `balanced` artifact ordering |
+## From a conversation to the pane
 
-## Commands
+A lesson an assistant builds for you lands in your personal library (`~/.studium/library`, or
+`STUDIUM_HOME/library`), the default lessons folder of an installed extension. To open it the assistant
+can run
 
-Command titles, the settings descriptions and the view name follow VS Code's display language:
-English from `package.nls.json`, French from `package.nls.fr.json` (« Studium : Choisir un cours »,
-« Studium : Ouvrir une leçon », …). The ids below never change.
-
-- **Studium: Pick a course** (`studium.pickLesson`) — choose a discovered course
-  or another bundles-root folder, save both settings in the workspace, then open the lesson.
-- **Studium: Open lesson** (`studium.openLesson`) — the webview lesson pane.
-- **Studium: Open lesson as notebook** (`studium.openLessonNotebook`) — the notebook surface.
-- **Studium: Community contributions** (`studium.communityContributions`).
-
-Notebook driver-cell directives: empty/`next` → continue · a choice id (`a`,`b`,…) → quiz answer ·
-`0`–`4` → confidence · free text → answer an active-learning scene / a discussion turn · `hint` →
-ask for a hint · `forget` → erase your session data.
-
-## Run it (developer / F5)
-
-1. Vendor the render libs once (offline KaTeX/Vega/3Dmol/Cytoscape → `media/vendor`):
-   `pnpm --filter studium-vscode vendor`.
-2. Build the bundle: `pnpm --filter studium-vscode build` (esbuild → `dist/extension.js`).
-3. Open this folder in VS Code and press **F5** (Extension Development Host).
-4. Run **"Studium: Choisir un cours / Pick a course"** from the Command Palette, or open the
-   **Studium** Activity Bar and use **Cours disponibles / Courses**. Discovery accepts
-   `<bundlesRoot>/<course>/lesson.json` and bare root `*.json` files. **Open Lesson** also offers the
-   picker automatically when the workspace has no stored course or its configured file is missing.
-
-## Install it (packaged VSIX — for a colleague test round)
-
-For testers who don't want to F5 a dev host, build an installable `.vsix`:
-
+```bash
+code --open-url "vscode://holobiomicslab.studium-vscode/open?bundle=<percent-encoded path of lesson.json>"
 ```
-pnpm --filter studium-vscode package        # run vendor first; this command builds and packages
+
+or you can right-click the `lesson.json` and choose **Studium: Open this lesson**. A link must name an
+absolute path, without `..`, to an existing `.json` file; anything else is refused and nothing opens. If
+the window reloads while a lesson is open, the pane is restored and the lesson resumes.
+
+## Your data, and what runs
+
+- **Where it is.** Progress and review state are written under VS Code's per-user extension storage
+  (`globalStorageUri`), never into the lessons folder, whatever the telemetry setting.
+- **Size limits.** To name concepts by their titles, the extension reads a `lesson.json` of at most 8 MB,
+  or a community `.zip` of at most 32 MB whose `lesson.json` inflates to at most 8 MB; past those sizes it
+  reads nothing and the pane shows concept ids. The lesson server applies the same 8 MB cap to a zipped
+  `lesson.json`.
+- **Running a reproduction.** Before a bundle's command runs, a modal shows the exact command, the
+  packages to install and the folder; nothing starts until you choose **Run** or **Run and trust this
+  course** (remembered for that exact bundle version, by fingerprint). A `working_dir` that is absolute
+  or contains `..` is refused. A `landmark_pattern` is bounded before it is compiled, and every match runs
+  under a 50 ms time limit.
+
+Notebook driver-cell directives: empty or `next` continues; a choice id (`a`, `b`…) answers a quiz;
+`0` to `4` sets confidence; free text answers an active-learning scene or a discussion turn; `hint` asks
+for a hint; `forget` erases your session data.
+
+## Develop
+
+1. Vendor the render libraries once: `pnpm --filter studium-vscode vendor`.
+2. Build: `pnpm --filter studium-vscode build` (writes `dist/extension.js` and `dist/lesson-mcp.cjs`).
+3. Open this folder in VS Code and press F5 (Extension Development Host).
+4. Run **Studium: Pick a course**, or use the **Courses** node of the Studium activity bar. Discovery
+   accepts `<bundlesRoot>/<course>/lesson.json` and bare `*.json` files at the root.
+
+## Package a VSIX
+
+```bash
+pnpm --filter studium-vscode package        # vendors, builds, then packages with a pinned @vscode/vsce
 code --install-extension apps/studium-vscode/studium.vsix
 ```
 
-The extension declares VS Code ≥ 1.95; use a current VS Code for native editor-agent
-MCP support. The VSIX includes `dist/lesson-mcp.cjs` and the vendored renderers.
-The pane can therefore run without a source checkout or global `tsx`. **Course
-bundles are supplied separately**: configure `studium.bundlesRoot` and
-`studium.bundleRef`, or use **Studium: Choisir un cours / Pick a course**. In a source checkout the
-extension prefers the source server.
-
-The package command rebuilds but does not vendor: run the vendor step first.
-`studium.vsix` is a local, ignored build artifact, not a published Marketplace
-release. See the [installation guide](../../docs/getting-started/installation.md)
-and [Copilot setup](../../docs/getting-started/copilot.md). A native MCP client
-and the extension pane create separate server sessions; they do not automatically
-share the current scene.
-
-## Use it in chat (`@studium`)
-
-With Copilot Chat (or another chat provider) installed, type **`@studium`** in the chat panel to run a
-lesson turn-by-turn, plus **`/hint`** and **`/discuss`**. The verdict deck works there via numbers
-(reply `1,3`). Rich artifacts (3D / equations) still open in the **Studium — Lesson** webview — chat is a
-companion, not a replacement. No answer key reaches the chat: the scene is redacted server-side.
+The extension requires VS Code 1.95 or later. The VSIX includes `dist/lesson-mcp.cjs` and the vendored
+renderers, so it runs without a checkout or a global `tsx`. Lessons are not inside the VSIX: without a
+checkout the extension reads your personal library; otherwise set `studium.bundlesRoot` and
+`studium.bundleRef`, or use **Studium: Pick a course**. In a checkout it prefers the source server and the
+checkout's `fixtures/`. `studium.vsix` is a local build artifact, not a Marketplace release. A native MCP
+client and the extension pane create separate server sessions; they do not share the current scene.
+Installation is described in the [installation guide](../../docs/start/installation.md).
 
 ## Tests
 
-The extension ships a headless verification suite (no VS Code host needed) — **15 drivers, 300+
-assertions** (`pnpm --filter studium-vscode test`):
-
-```
-pnpm --filter studium-vscode test          # tsc --noEmit + all 15 registered drivers
+```bash
+pnpm --filter studium-vscode test          # tsc --noEmit and the 23 registered drivers
 ```
 
-- `scene-io.driver` — the scene→response-kind contract (must match the graders) + a text-parity
-  guard that the webview posts the same kinds + the calibration port.
-- `webview-pane.driver` — **live** render of `media/artifact-pane.js` in **jsdom**: every scene type
-  renders its fields, and clicking a control posts the correct host message (`respond`/`turn`/`end`);
-  asserts no `model_*` answer key leaks to the DOM.
-- `lesson-walk.driver` — **live e2e**: spawns the real `lesson-mcp` server over stdio and walks
-  `src/fixtures/wave-scenes.json` (every active-learning type, un-gated) + `all-scene-types.json`
-  (the discussion turn loop) through the real graders to `complete`.
-- `community`, `modality`, `review-fsrs` — picker discovery, modality reordering, FSRS parity.
-- `lesson-tree` — available-courses/community shaping and current-course marker.
-- `lesson-picker` (standalone) — pure discovery plus a temporary-filesystem adapter check; run with
-  `node --import tsx src/lesson-picker.driver.ts [bundles-root]` from this package.
-- `panel-lifecycle` / `mcp-connect` — late-close cleanup, exclusive actions, and failed-connect cleanup.
+| Driver | Covers |
+|---|---|
+| `extension-host` | the extension host against a fake `vscode` module and the real `lesson-mcp`: link and "Open this lesson", pane restoration, storage with consent off, run confirmation and trust memory, `working_dir` refusal, navigation, self-rating, completion, review and restart actions, forget my data |
+| `run-trust`, `lesson-uri`, `study-status`, `data-paths`, `host-phrases`, `pane-messages` | the pure pieces behind it (fingerprint and consent text, link parsing, review shaping, default lesson folder, fr/en parity, message validation) |
+| `contributes` | the manifest: every `%key%` resolves in both nls files, walkthrough, activation events, menus, welcome view, icon |
+| `scene-io` | the scene-to-response-kind contract (must match the graders) and the calibration port |
+| `webview-pane` | live render of `media/artifact-pane.js` in jsdom: every scene type, posted messages, no `model_*` key in the DOM, and an axe-core pass (WCAG 2.x A/AA) |
+| `lesson-walk` | end to end: spawns the real `lesson-mcp` and walks every scene type through the real graders to `complete` |
+| `community`, `modality`, `review-fsrs`, `lesson-tree`, `lesson-picker` | picker discovery, modality ordering, FSRS parity, course tree |
+| `panel-lifecycle`, `mcp-connect`, `chat-format`, `context-help`, `asset-path`, `run-task` | late-close cleanup, exclusive actions, failed-connect cleanup, chat output, help, asset paths, run tasks |
+| `completion` | the end-of-lesson split (consolidated, practised, not measured yet) and the next review date after a rating |
 
-> Scope note: the **webview** front-end is executed live (jsdom). The **notebook** controller uses
-> `vscode.*` APIs that only run inside a real Extension Host, so its input mapping is covered live
-> (it shares `src/scene-io.ts` with `lesson-walk`) but its cell-output rendering is type-checked
-> only — exercise it by hand via F5.
+Drivers that start `lesson-mcp` never write into your home folder: [`src/driver-isolation.ts`](src/driver-isolation.ts)
+points `STUDIUM_HOME` at a temporary folder, sets `STUDIUM_EPHEMERAL=1`, points `HOME` at an empty sentinel
+folder, and fails if anything appeared there. jsdom does not paint, so colour contrast is checked separately
+by `node design/scripts/check-contrast.mjs`; a custom editor theme still needs a look in VS Code. The
+notebook controller's cell output is type-checked only; try it by hand with F5.

@@ -1,21 +1,22 @@
-# De l’activité interactive au rapport ASTRA/MySTRA
+English · [Français](activity-to-report.fr.md)
 
-Ce parcours utilise votre harnais pour préparer l’activité, le navigateur pour
-l’expérimentation et Studium pour structurer le rapport. Le viewer ne contient
-pas un agent. Les cinq templates fournis ont des exemples synthétiques ; un
-exemple technique ne constitue pas une expérience pédagogique validée.
+# From an interactive activity to an ASTRA/MySTRA report
 
-## Préparer l’activité
+Prepare an interactive activity with your harness, experiment with it in the browser, then let
+Studium turn what you chose to keep into a local report you can check before sharing anything. The
+viewer contains no agent. The five templates ship with synthetic examples; a technical example is not
+a validated teaching experience.
 
-Dans une session Studium déjà démarrée, demander au harnais :
+## Prepare the activity
 
-> Utilise le skill studium-activity-templates. Récupère le contexte public de ma
-> scène courante, choisis un template adapté à sa question et prépare-le dans un
-> nouveau dossier. Présente ses sources et ses limites. Attends ma prédiction.
+In a Studium session already started, ask the harness:
 
-Le harnais utilise `get_operator_context` et enregistre la réponse JSON dans
-`context.json`. Il peut ensuite exécuter, depuis le dépôt et son environnement
-Python :
+> Use the studium-activity-templates skill. Get the public context of my current scene, choose a
+> template suited to its question and prepare it in a new folder. Show its sources and limits. Wait
+> for my prediction.
+
+The harness calls `get_operator_context` and saves the JSON reply as `context.json`. It can then run,
+from the repository and its Python environment:
 
 ```bash
 .venv/bin/python tools/experience_templates.py list
@@ -23,48 +24,44 @@ Python :
   --template parameter-comparison --context context.json --out activity
 ```
 
-`activity/task.md` guide l’adaptation. `activity/index.html` est le viewer à ouvrir.
-Les modèles `linked-representations`, `evidence-claim`, `diagnose-analysis` et
-`conclusion-robustness` utilisent la même commande.
-Les exemples par défaut ne sont pas dérivés des sources de votre scène : un même
-identifiant ne prouve pas un lien scientifique. Si les entrées nécessaires manquent,
-le harnais doit le signaler et présenter le sample comme une illustration séparée.
-Pour démarrer en français, ajouter `--language fr`. Les cinq templates acceptent
-aussi `--translations` et `--supports` : voir [langues et supports scientifiques](../guides/language-and-scientific-presentation.md).
-Le sélecteur conserve les réponses saisies ; le contenu sans traduction reste
-dans sa langue source avec une indication explicite. Il n'appelle pas une API
-de traduction.
+`activity/task.md` guides the adaptation and `activity/index.html` is the viewer to open. The
+templates `linked-representations`, `evidence-claim`, `diagnose-analysis` and
+`conclusion-robustness` use the same command. The default examples are not derived from your scene's
+sources: a shared identifier does not prove a scientific link. If the needed inputs are missing, the
+harness must say so and present the sample as a separate illustration.
 
-Pour adapter les entrées, lire le [contrat de configuration](../user/activity-templates.md)
-et utiliser `--config` avec un fichier explicite. La préparation ne relie pas
-magiquement de nouvelles données à une publication : conserver les sources, les
-valeurs de référence et les contrôles réellement effectués. Un objectif ou une
-conclusion scientifique nouvelle reste à relire par l’enseignant.
+| Option | Effect |
+|---|---|
+| `--language fr` | Start the viewer in French (default `en`) |
+| `--translations FILE` | Local translation dictionaries; untranslated content stays in its source language, flagged |
+| `--supports FILE` | A local manifest of supporting media; see [Language and supports](../learn/language-and-supports.md) |
+| `--config FILE` | Your own inputs, following the [template contract](../teach/activity-templates.md) |
 
-## Expérimenter et choisir ce qui sera conservé
+No translation API is called. Preparing does not link new data to a publication: keep the sources,
+reference values and controls actually performed. A new objective or scientific conclusion is for
+the teacher to review.
 
-Choisir dans le viewer si une trace locale doit être préparée pour un export
-éventuel. Écrire sa prédiction avant d’afficher les résultats, faire varier le
-contrôle ou choisir une représentation, puis écrire son observation et sa
-conclusion. Les champs facultatifs peuvent rester vides, notamment la confiance. Le parcours
-sans trace permet aussi de terminer l’activité, sans téléchargement.
+## Experiment and choose what to keep
 
-Télécharger la trace seulement si souhaité. Un export partiel reste possible ;
-il n’affirme pas que l’activité est terminée. Pour la suite, enregistrer le fichier
-choisi sous `actions.json`. Le téléchargement contient les contributions soumises
-au viewer ; le rapport applique ensuite son propre choix d’inclusion des textes.
+In the viewer, choose whether a local trace should be prepared for a possible export. Write your
+prediction before showing the results, vary the control or choose a representation, then write your
+observation and conclusion. Optional fields, confidence included, may stay empty. The path without a
+trace also completes the activity, without any download.
 
-Si le harnais utilise aussi le journal privé, la prédiction doit y être enregistrée
-avant de révéler les résultats. Un téléchargement ultérieur ne doit pas être
-réintroduit comme une prédiction que le moteur aurait enregistrée plus tôt.
+Download the trace only if you want to. A partial export is possible and does not claim the activity
+is finished. Save the chosen file as `actions.json`. The download holds what you submitted in the
+viewer; the report then applies its own choice about including your texts.
 
-## Produire une copie à relire
+If the harness also uses the private [experiment journal](../learn/experiment-journal.md), the
+prediction must be recorded there before the results are revealed. A later download must not be
+re-entered as a prediction the engine would have recorded earlier.
 
-Demander au harnais :
+## Produce a copy to review
 
-> Utilise studium-learner-report pour préparer un rapport local à partir de ce
-> fichier actions.json et de la définition de mon activité. Exclue mes textes
-> personnels et montre-moi le résultat avant tout partage.
+Ask the harness:
+
+> Use studium-learner-report to prepare a local report from this actions.json file and the
+> definition of my activity. Exclude my personal texts and show me the result before any sharing.
 
 ```bash
 .venv/bin/python tools/learner_trace.py validate actions.json
@@ -73,47 +70,38 @@ Demander au harnais :
 .venv/bin/python tools/learner_report.py verify report
 ```
 
-Ouvrir `report/index.html`. Le rapport contient également ASTRA, la trace ARA,
-la source MySTRA et les fichiers structurés vérifiables. Les actions gardent leurs
-origines déclarées et leurs séquences. La définition de l’activité rend les
-identifiants de choix et les paramètres interprétables.
+Open `report/index.html`. The report also holds ASTRA, the ARA trace, the MySTRA source and the
+structured files that can be verified. Actions keep their declared origins and sequence; the
+activity definition makes choice identifiers and parameters readable.
 
-Pour inclure volontairement les mots originaux, générer une nouvelle copie avec
-`--include-original-text`. Ce choix concerne le rapport courant : il ne découle
-pas du seul consentement au stockage du journal. Aucune commande ci-dessus
-n’envoie le rapport à un enseignant ou à un service externe.
+To include your original words on purpose, generate a new copy with `--include-original-text`. That
+choice applies to this report only; it does not follow from consenting to journal storage. A journal
+can also be selected with `--journal`; the browser and engine timelines stay separate, and matching
+scene identifiers do not prove two files come from the same person. None of the commands above sends
+the report to a teacher or an external service.
 
-Un journal peut aussi être sélectionné avec `--journal`. Les chronologies du
-navigateur et du moteur restent séparées. Des identifiants de scène compatibles
-ne prouvent pas que deux fichiers viennent de la même personne.
+## What the teacher can examine
 
-## Ce que l’enseignant peut examiner
+The question, recorded actions, parameters, evidence and any texts the student chose to include. A
+missing help trace means "unknown". ASTRA checks and file fingerprints verify structure and technical
+consistency, not learning nor authorship. The [learner report guide](../learn/learner-report.md)
+details the limits and how to open the report in the shared MySTRA viewer.
 
-Relire la question, les actions enregistrées, les paramètres, les preuves et les
-éventuels textes que l’étudiant a choisi d’inclure. Une absence de trace d’aide
-signifie « inconnu ». Les contrôles ASTRA et les empreintes des fichiers vérifient
-la structure et la cohérence technique, pas un apprentissage ni l’authenticité de
-l’auteur. Le [guide du rapport](../user/learner-report.md) précise les limites et
-l’ouverture dans le viewer MySTRA partagé.
+## Two more activities to ask for
 
-## Deux autres parcours à demander au harnais
+To diagnose an analysis:
 
-Pour diagnostiquer une analyse :
+> Use `diagnose-analysis` for the public steps and results of this scene. Prepare several plausible
+> repairs, with their explicitly provided results and how to check them. Let me pick the suspect step
+> and explain my diagnosis before discussing the repair. If a result is missing, say so; never present
+> an invented value as an executed computation.
 
-> Utilise `diagnose-analysis` pour les étapes et résultats publics de cette scène.
-> Prépare plusieurs réparations plausibles, avec leurs résultats explicitement
-> fournis et la manière de les vérifier. Laisse-moi choisir l’étape suspecte et
-> expliquer mon diagnostic avant de discuter la réparation. Si un résultat
-> manque, indique-le ; ne présente pas une valeur inventée comme un calcul exécuté.
+To stress-test a conclusion:
 
-Pour éprouver une conclusion :
+> Use `conclusion-robustness`. Compare a reference hypothesis with defensible alternatives, their
+> results and an explicit criterion with units. Let me predict the consequences, then examine where
+> the conclusion changes. State what remains unknown outside these scenarios.
 
-> Utilise `conclusion-robustness`. Compare une hypothèse de référence avec des
-> alternatives défendables, leurs résultats et un critère explicite avec unités.
-> Laisse-moi prédire les conséquences puis examiner où la conclusion change.
-> Précise ce qui reste inconnu hors de ces scénarios.
-
-L’enseignant peut adapter ces formats à une autre discipline en remplaçant les
-sources, étapes, hypothèses, unités et valeurs dans la configuration. Le code du
-viewer reste commun. Une nouvelle exécution scientifique relève du harnais ;
-le viewer affiche ensuite les résultats capturés et trace les choix locaux.
+A teacher can adapt these formats to another discipline by replacing sources, steps, hypotheses,
+units and values in the configuration; the viewer code stays the same. A new scientific run is the
+harness's job; the viewer then shows the captured results and traces local choices.

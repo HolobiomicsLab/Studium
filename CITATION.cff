@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use Studium in your research, please cite it using these metadata."
+title: Studium
+abstract: >-
+  Studium turns sources into adaptive lessons grounded in a typed Learning Workflow Graph,
+  playable in VS Code or through any MCP harness, with assessment that records who wrote
+  the answer key and whether a judge assessed the answer, spaced review and local-first
+  learner data.
+type: software
+authors:
+  - family-names: Nothias
+    given-names: Louis-Félix
+  - name: HolobiomicsLab
+version: 0.2.0
+date-released: 2026-10-30
+license: Apache-2.0
+repository-code: "https://github.com/HolobiomicsLab/studium"
+keywords:
+  - adaptive learning
+  - education
+  - learning workflow graph
+  - spaced repetition
+  - model context protocol
+  - provenance

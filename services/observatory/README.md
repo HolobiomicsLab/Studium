@@ -1,14 +1,30 @@
+English · [Français](README.fr.md)
+
 # Observatory
 
-A read-only localhost page over the artifacts Studium already writes: the ASTRA
-provenance of each generated course, the ASTRA validator's verdict on demand, the
-evaluation runs under `eval/reports/`, and the validity scorecards under
-`eval/validity/`. It is an operator surface. It is not the teacher dashboard and it
-is never shown to learners.
+A read-only localhost page over the artifacts Studium already writes: the ASTRA provenance of each
+generated course, the ASTRA validator's verdict on demand, the MySTRA reviewer report, the evaluation runs
+under `eval/reports/`, the validity scorecards under `eval/validity/`, class sessions and live agentic
+sessions. It is an operator and reviewer surface. It is not the teacher dashboard and it is never shown
+to learners.
 
-INT-STUDIUM-008, three slices: provenance, evaluation and validity (1); the scene-review
-tab and the two session sources (2); the harness tab over the agentic-session file protocol
-(3). Every requirement of the design spec now has code.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/screenshots/observatory-mystra-dark.png">
+  <img src="../../docs/assets/screenshots/observatory-mystra-light.png" alt="The Observatory MySTRA reviewer report of a course, with its decisions, findings and evidence">
+</picture>
+
+| | |
+|---|---|
+| Status | **maintained** (decision D6) |
+| Run | `.venv/bin/python services/observatory/observatory_app.py --course-root <dir>` |
+| Port | 8004 on 127.0.0.1 (`--port`, `STUDIUM_OBS_PORT`) |
+| Reads | planner course folders (`.lwg/<id>/astra.yaml`), `eval/reports/`, `eval/validity/`, the analytics collector's store on disk, session folders |
+| Calls | nothing over the network; runs `astra validate` on request |
+| Linked from | the [teacher dashboard](../../apps/teacher-dashboard/README.md) review page (`OBSERVATORY_BASE_URL`) |
+| Tests | `.venv/bin/python -m pytest services/observatory` |
+
+User guide: [The Observatory](../../docs/teach/observatory.md). The rest of this page is for developers
+and operators.
 
 ## What it shows
 
@@ -17,6 +33,7 @@ tab and the two session sources (2); the harness tab over the agentic-session fi
 | `/` | every course, evaluation run and validity suite found on disk, with a banner for any misconfigured root |
 | `/courses/<id>` | the course's analyses, decisions with their options and rationale, findings with their evidence anchors, universes with what each one changes from the defaults, the exploration trace, and the scene-review rows |
 | `/courses/<id>/validation` | runs `astra validate` on that course and shows the verdict; the only page that starts a subprocess |
+| `/courses/<id>/mystra` | the printable MySTRA reviewer report built from the course and review readers |
 | `/courses/<id>/provenance.myst.md` | the MyST page `tools/astra_render.py` writes, verbatim |
 | `/courses/<id>/review` | one section per judged bundle, worst case first: the per-scene verdicts `eval/harness/scene_judge.py` wrote, with its failure scenario and quote, the corrupted-scene calibration when the review carries one, and the same verdicts as ASTRA decisions |
 | `/eval/runs/<id>` | the run's dimension scores, findings, harness signals, synthetic-persona sessions and `report.md` |
@@ -29,10 +46,10 @@ Every page has a JSON twin under `/api/…` with the same data.
 
 ## Start it
 
-From the repository root, with the project's virtual environment active:
+From the repository root, with the virtual environment installed:
 
 ```bash
-python services/observatory/observatory_app.py --course-root services/planner/.lwg --eval-root eval/reports
+.venv/bin/python services/observatory/observatory_app.py --course-root services/planner/.lwg --eval-root eval/reports
 ```
 
 Or, from this directory, with any ASGI server:
@@ -45,7 +62,8 @@ The wrapper prints one line per configuration fault to stderr and exits 2 when t
 is no course root and no `--course`. Everything else is fail-soft: an unreadable file
 becomes a marker in the page, never an error page. Flags: `--course-root`,
 `--course` (repeatable), `--eval-root`, `--validity-root`, `--analytics-data-dir`,
-`--sessions-root`, `--host`, `--port`, `--validator-timeout`.
+`--sessions-root`, `--session-dir` (repeatable), `--harness-refresh`, `--host`, `--port`,
+`--validator-timeout`.
 
 ## Configuration
 
@@ -73,7 +91,7 @@ reload without a restart.
 ### The analytics store, and why it has its own variable
 
 The collector resolves its own `ANALYTICS_DATA_DIR` (default: the **relative** `"data"`)
-against *its* working directory, and the teacher guide starts it after a `cd`. The same
+against *its* working directory, and `tools/e2e-demo-m6.sh` starts it after a `cd`. The same
 string therefore names two different directories depending on where each process was
 started. The Observatory takes its own variable, resolves it to an absolute path, and
 prints the result in the index banner, so a divergence is visible on the page instead of
@@ -246,7 +264,7 @@ sent an operator to hunt through their own telemetry for a defect that is in the
 ## Tests
 
 ```bash
-python -m pytest services/observatory -q
+.venv/bin/python -m pytest services/observatory -q
 ```
 
 The two validator tests need `astra-tools`; they fail under `CI` and skip locally when
@@ -258,4 +276,4 @@ the CLI is absent.
 readers; `/api/courses/{id}/mystra` exposes the same structured context. The existing
 `/courses/{id}/provenance.myst.md` exports the MyST source. All remain GET-only.
 Opening the viewer reads the cached validation verdict; only the validation routes
-run the validator. See [the reviewer guide](../../docs/guides/mystra-reviewer.md).
+run the validator. See [the Observatory guide](../../docs/teach/observatory.md).

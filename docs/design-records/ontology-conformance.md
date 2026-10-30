@@ -5,7 +5,7 @@ This table is derived from the schemas on disk so the code and the paper's ontol
 silently diverge. A stale row is a diff, not a lie.
 
 ## Modulators
-Active runtime set: **M1, M3, M6** (3). Definitions + retired ids: `docs/ontology/modulators.md`.
+Active runtime set: **M1, M3, M6** (3). Definitions + retired ids: `docs/concepts/modulators.md`.
 
 ## Scene types — the three schema sites
 | site | count | scene types |

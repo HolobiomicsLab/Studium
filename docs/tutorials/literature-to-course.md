@@ -1,130 +1,124 @@
-# Tutoriel — de la littérature à un brouillon relisible
+English · [Français](literature-to-course.fr.md)
 
-**Objectif :** produire un plan sourcé, inspectable dans MySTRA, avant approbation
-enseignant. Prévoir 20–30 minutes avec l'[installation Python](../getting-started/installation.md)
-terminée. Le premier passage réutilise un exemple capturé ; il n'effectue ni
-recherche web ni appel de modèle payant.
+# From the literature to a reviewable draft
 
-## 1. Rejouer le petit exemple livré
+Produce a sourced lesson plan that a teacher can inspect in MySTRA, the provenance viewer of the
+Observatory, before deciding to approve it. Allow 20 to 30 minutes once the Python environment from
+[Installation](../start/installation.md) is ready. The first pass replays a captured example: no web
+search and no paid model call.
 
-Depuis la racine, choisir des dossiers de sortie nouveaux :
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/teacher-journey-dark.svg">
+  <img alt="Teacher journey: sources, evidence packet, sourced draft, check and lint, MySTRA review, human approval, then the class." src="../assets/diagrams/teacher-journey-light.svg">
+</picture>
 
-```sh
-.venv/bin/python tools/experience_packet.py prepare --passages examples/literature-experience/passages.json --title "Que démontre une similarité spectrale ?" --target "Master" --out /ABS/PATH/studium-tutorial/packet
-.venv/bin/python tools/experience_packet.py check --packet /ABS/PATH/studium-tutorial/packet --response examples/literature-experience/author-response.json --out /ABS/PATH/studium-tutorial/courses/spectral-evidence
-.venv/bin/python tools/experience_review.py /ABS/PATH/studium-tutorial/courses/spectral-evidence
+## 1. Replay the shipped example
+
+From the repository root, with a new working folder:
+
+```bash
+WORK="$HOME/studium-tutorial"
+.venv/bin/python tools/experience_packet.py prepare --passages examples/literature-experience/passages.json \
+  --title "What does spectral similarity show?" --target "Master's students" --out "$WORK/packet"
+.venv/bin/python tools/experience_packet.py check --packet "$WORK/packet" \
+  --response examples/literature-experience/author-response.json --out "$WORK/courses/spectral-evidence"
+.venv/bin/python tools/experience_review.py "$WORK/courses/spectral-evidence"
 ```
 
-Remplacer `/ABS/PATH` par un emplacement personnel. Les sorties ne sont pas
-écrasées. L'exemple utilise un court extrait capturé de l'article SimMS et une
-réponse auteur préparée. Les spectres illustratifs sont synthétiques ; ce n'est
-pas une reproduction des résultats de l'article.
+Outputs are never overwritten silently. The example uses a short captured excerpt of the SimMS
+article and a prepared author response. Its spectra are synthetic: this is not a reproduction of the
+article's results.
 
-| Fichier | Ce qu'il permet de vérifier |
+| File | What it lets you check |
 |---|---|
-| `packet/evidence.json` | Textes capturés, identifiants, provenance et hashes |
-| `packet/author-task.md` | Consigne destinée au harnais auteur |
-| `packet/response.schema.json` | Format imposé à la proposition |
-| `courses/spectral-evidence/plan.json` | Plan canonique au statut draft |
-| `source_links.json` | Liens scène / preuve / citation exacte |
-| `viewers.json` | Intentions de visualisation ; pas un visualiseur exécuté |
-| `review.md` | Points de revue et limites |
-| `astra.yaml`, `course_provenance.myst.md` | Provenance structurée pour MySTRA |
+| `packet/evidence.json` | Captured texts, identifiers, provenance and hashes |
+| `packet/author-task.md` | The brief for the authoring assistant |
+| `packet/response.schema.json` | The format the proposal must follow |
+| `plan.json` | The canonical plan, with status `draft` |
+| `source_links.json` | Links between scene, evidence and exact quote |
+| `viewers.json` | Visualisation intents, not an executed viewer |
+| `review.md` | Review points and limits |
+| `astra.yaml`, `course_provenance.myst.md` | Structured provenance for MySTRA |
 
-Les cinq dernières lignes sont relatives au dossier du cours. `check` valide
-les références et la structure ; il ne juge pas la vérité de l'interprétation.
+Every file below the first three sits in the course folder. `check` validates references and structure; it does not
+judge whether the interpretation is true.
 
-## 2. Ouvrir la revue
+## 2. Open the review
 
-```sh
-.venv/bin/python services/observatory/observatory_app.py --course-root /ABS/PATH/studium-tutorial/courses --port 8004
+```bash
+.venv/bin/python services/observatory/observatory_app.py --course-root "$WORK/courses" --port 8124
 ```
 
-Ouvrir `http://127.0.0.1:8004/courses/spectral-evidence/mystra`. Retrouver la question,
-les décisions et leurs preuves. Comparer une citation au passage capturé. Identifier
-une limite scientifique et une amélioration pédagogique. Le statut doit rester
-**DRAFT**. Arrêter le serveur avec Ctrl-C à la fin.
+Open `http://127.0.0.1:8124/courses/spectral-evidence/mystra`. Find the question, the decisions and
+their evidence. Compare a quote with its captured passage. Note one scientific limit and one
+teaching improvement. The status must still read **DRAFT**. Stop the server with Ctrl-C.
 
-## 3. Remplacer l'exemple par sa littérature
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/screenshots/observatory-mystra-dark.png">
+  <img alt="MySTRA view of a course in the Observatory: the course question, its decisions and the evidence each one rests on." src="../assets/screenshots/observatory-mystra-light.png">
+</picture>
 
-Avec un connecteur Perspicacité réellement disponible et authentifié, formuler
-une question de recherche bornée et conserver l'enveloppe JSON réellement retournée
-par l'outil de passages. Le préparateur attend ce contrat, pas une liste arbitraire
-de titres. Voir [le format de l'exemple](../../examples/literature-experience/passages.json).
-Un connecteur configuré ne prouve pas qu'il a réussi une recherche.
+## 3. Replace the example with your literature
 
-Vérifier pertinence, identifiants, extraits disponibles et droits de réutilisation.
-Un résultat bibliographique n'est pas le texte intégral de l'article. Si l'accès
-échoue, garder cette limite et travailler avec les matériaux autorisés disponibles.
-Puis refaire `prepare` avec ce fichier et une nouvelle destination.
+With a Perspicacité connector actually available and authenticated in your harness, ask a bounded
+research question and keep the JSON envelope its passages tool returned. `prepare` expects that
+contract, not a list of titles; see [the example's format](../../examples/literature-experience/passages.json).
+A configured connector does not prove a search succeeded. Without one, the `passages` command of
+[Self-study from your references](self-study-from-references.md#route-2-with-the-command-line-tools)
+captures a page, PDF or text file in the same role.
 
-Prompt au harnais :
+Check relevance, identifiers, available excerpts and reuse rights. A bibliographic record is not the
+article's full text. Then run `prepare` again with that file and a new destination, and ask the
+harness:
 
-> Lis `author-task.md`, `evidence.json` et `response.schema.json` du packet.
-> Propose le plan demandé dans un nouveau `author-response.json`. Utilise les
-> identifiants de preuves exacts et des citations présentes dans les passages.
-> Distingue ce que chaque source soutient et ce qui manque. Conserve `status: draft`
-> et `validated_by: null`. Décris les interactions utiles des viewers, sans
-> revendiquer un calcul qui n'a pas eu lieu. Ne soumets aucune réponse étudiante.
+> Read `author-task.md`, `evidence.json` and `response.schema.json` in the packet. Write the plan in
+> a new `author-response.json`. Use the exact evidence ids and quotes present in the passages.
+> Separate what each source supports from what is missing. Keep `status: draft` and
+> `validated_by: null`. Describe useful viewer interactions without claiming a computation that did
+> not happen. Do not submit any student answer.
 
-Remplacer ensuite `--response` par ce nouveau fichier. Corriger les erreurs
-rapportées par `check` dans le brouillon, jamais en falsifiant la preuve. Garder
-la version précédente si elle sert à comparer deux propositions.
+Point `--response` at the new file. Fix the errors `check` reports in the draft, never by altering
+the evidence. In `author-response.json`, link each scene to concept ids with `concept_refs` and
+declare on each concept the ids it depends on in `prerequisites`; `check` must report no unknown id
+and no scene without a concept.
 
-## 4. Ajouter une capsule ASB
+## 4. Add an ASB capsule
 
-À la commande `prepare`, ajouter `--capsule /ABS/PATH/capsule --task-id TASK_ID`.
-Choisir l'identifiant réel dans la capsule. Le préparateur capture la carte et
-ses contraintes, retire les valeurs d'environnement et conserve les noms utiles.
-Il n'exécute pas le code. Une capsule documentaire Perspicacité et une capsule
-exécutable ASB ne sont pas interchangeables.
+Add `--capsule PATH --task-id TASK_ID` to `prepare`, with the real task id from the capsule. The
+preparer captures the card and its constraints, drops environment values, keeps the useful names and
+does not run the code. A Perspicacité documentary capsule and an executable ASB capsule are not
+interchangeable. Try the task first in an environment meant for it and keep the command, inputs,
+versions and output, or the failure. A card marked `type-checked` is not proof of a local success.
+[The next tutorial](agentic-experiment.md) turns such a task into a judgment activity.
 
-Faire d'abord un essai de la tâche dans un environnement prévu pour elle. Conserver
-commande, entrées, versions, sortie et échec éventuel. Le statut `type-checked`
-d'une carte n'est pas une preuve de réussite locale. Le
-[tutoriel suivant](agentic-experiment.md) transforme cette tâche en activité de jugement.
+## 5. Decide what comes next
 
-## 5. Décider de la suite
+Review objectives, prerequisites, scientific accuracy, questions, answer criteria, workload and
+material permissions. The checked folder is not a student `LessonBundle`: never rename it to
+`lesson.json`. Convert it explicitly into a playable skeleton:
 
-Relire objectifs, prérequis, exactitude scientifique, questions, critères de
-réponse, charge de travail et permissions des matériaux. Le dossier vérifié n'est
-pas un `LessonBundle` étudiant et ne doit pas être simplement renommé en
-`lesson.json`. Le premier livrable de ce tutoriel reste un brouillon sourcé et une
-revue humaine préparée.
-
-Dans `author-response.json`, relier chaque scène aux identifiants de `concepts`
-avec `concept_refs`, puis déclarer sur chaque concept les identifiants dont il
-dépend dans `prerequisites`. Relancer `check` : il ne doit signaler ni identifiant
-inconnu ni scène sans concept.
-
-Pour la voie enseignant, continuer avec [la revue de révision et la synthèse liée](../user/reviewed-synthesis.md) :
-importer ce dossier dans un espace enseignant, conserver les éditions, puis
-approuver son empreinte après revue. Un orchestrateur configuré reçoit ce plan
-exact ; le contenu qu'il produit reste à relire avant toute diffusion étudiante.
-
-Pour obtenir en parallèle un squelette local jouable, utiliser la conversion
-explicite plutôt qu'un renommage :
-
-```sh
-.venv/bin/python tools/experience_packet.py bundle --course /ABS/PATH/studium-tutorial/courses/spectral-evidence --out /ABS/PATH/studium-tutorial/bundles/spectral-evidence/lesson.json
+```bash
+.venv/bin/python tools/experience_packet.py bundle --course "$WORK/courses/spectral-evidence" \
+  --out "$WORK/bundles/spectral-evidence/lesson.json"
+apps/lesson-mcp/node_modules/.bin/tsx tools/bundle_validate.ts "$WORK/bundles/spectral-evidence/lesson.json"
 ```
 
-Le bundle conserve par défaut la marque `DRAFT — not validated` et contient des
-champs `TODO:` : l'ouvrir, remplacer chaque contenu factice et le relire avant tout
-usage étudiant. Le squelette recopie les `concept_refs`, dérive le graphe de
-prérequis (`source` = concept dépendant, `target` = prérequis), ajoute
-`rule_2err_replay_concept` et reprend les `notes` comme question des quiz.
-`--no-default-rules` retire explicitement cette règle. `--validated-by "Nom"` ne
-doit être ajouté qu'après la décision humaine. Vérifier enfin le contrat 1.4 :
+The skeleton keeps the mark `DRAFT — not validated` and contains `TODO:` fields to replace and
+reread. It copies the `concept_refs`, derives the prerequisite graph (`source` = dependent concept,
+`target` = prerequisite), adds the two-error replay rule `rule_2err_replay_concept` (omit it with
+`--no-default-rules`) and reuses the `notes` as quiz questions. `check` and `bundle` refuse an
+existing destination unless given `--force`.
 
-```sh
-apps/lesson-mcp/node_modules/.bin/tsx tools/bundle_validate.ts /ABS/PATH/studium-tutorial/bundles/spectral-evidence/lesson.json
+When the lesson is filled and reviewed, record the decision:
+
+```bash
+.venv/bin/python tools/experience_packet.py approve --bundle "$WORK/bundles/spectral-evidence/lesson.json" \
+  --validated-by "Your name"
 ```
 
-Pour relancer `check` ou `bundle` vers la même destination, ajouter `--force` ;
-sans cette option la commande refuse l'écrasement et conserve la sortie existante.
-
-Voir [Du brouillon au bundle jouable](../user/teacher-guide.md#du-brouillon-au-bundle-jouable)
-pour les avertissements de licence, la scène `simulation` héritée et les limites de
-validation. L'intégration du draft dans l'approbation/synthèse de l'interface auteur
-reste distincte de ce squelette local.
+`approve` refuses remaining placeholders and lint errors, and writes `approval.json` next to the
+lesson, bound to the exact bytes of `lesson.json`: editing the lesson afterwards breaks the binding.
+A self-study lesson cannot be approved. From your harness, the `review_lesson` tool shows the scene
+plan, who holds each key, the lint verdict and whether an approval record matches, without revealing
+any key. The full teacher route is in [Review and approve](../teach/review-and-approve.md); filling
+rules and licence warnings are in [Author a lesson](../teach/author-a-lesson.md).

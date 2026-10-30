@@ -1,120 +1,110 @@
-# Tutoriel — une expérience scientifique avec son agent
+English · [Français](agentic-experiment.fr.md)
 
-**Objectif :** utiliser la liberté du harnais pour tester une idée, en restant lié
-à la scène, aux preuves et au contrat de réponse Studium. L'enseignant définit le
-périmètre ; l'étudiant choisit une hypothèse et défend sa conclusion.
+# A scientific experiment with your agent
 
-## Cas A : similarité spectrale et visualiseur sur mesure
+Use the freedom of your harness to test an idea while staying tied to the scene, its evidence and
+Studium's answer contract. The teacher sets the scope; the student chooses a hypothesis and defends
+a conclusion. The result is a prediction, a reproducible comparison, a stated limit and an argued
+transfer to a new case.
 
-Question proposée : « Une meilleure similarité après déplacement des pics
-suffit-elle à identifier une molécule ? » L'exemple fourni est un calcul illustratif
-sur spectres synthétiques, lié à un passage capturé de SimMS. Il ne reproduit pas
-l'article ni une capsule de nettoyage de bibliothèque ASB.
+## Case A: spectral similarity and a custom viewer
 
-Pour rejouer le calcul, le visualiseur et l'audit technique, avec Node/Python
-installés et Chrome disponible :
+Proposed question: "Does a better similarity after shifting peaks suffice to identify a molecule?"
+The example is an illustrative computation on synthetic spectra, linked to a captured passage of the
+SimMS article. It reproduces neither the article nor an ASB library-cleaning capsule.
 
-```sh
-.venv/bin/python tools/demo-grounded-exploration.py /ABS/PATH/new-exploration-demo
+To replay the computation, the viewer and the technical audit (Node, Python and Chrome available):
+
+```bash
+.venv/bin/python tools/demo-grounded-exploration.py "$HOME/studium-exploration-demo"
 ```
 
-Le script produit notamment `capsule/outputs/match.json`, `execution.json`,
-`audit/viewer/`, `audit/report.json`, `exploration-receipt/` et
-`exploration-verification.json`. Il réutilise les passages capturés hors ligne,
-exécute le calcul et teste le visualiseur. Les observations de cet audit sont
-synthétiques, pas des réponses d'étudiant.
+The script writes, among others, `capsule/outputs/match.json`, `execution.json`, `audit/viewer/`,
+`audit/report.json`, `exploration-receipt/` and `exploration-verification.json`. It reuses the
+captured passages offline, runs the computation and tests the viewer. The audit's observations are
+synthetic, not student answers. To inspect the viewer:
 
-Pour inspecter le visualiseur produit :
-
-```sh
-.venv/bin/python -m http.server 8118 --bind 127.0.0.1 --directory /ABS/PATH/new-exploration-demo/audit/viewer
+```bash
+.venv/bin/python -m http.server 8118 --bind 127.0.0.1 --directory "$HOME/studium-exploration-demo/audit/viewer"
 ```
 
-Ouvrir `http://127.0.0.1:8118`, manipuler les contrôles et vérifier que les valeurs
-changent de façon cohérente. Le visualiseur est un artefact local externe ; il
-n'est pas automatiquement installé dans le panneau Studium. Arrêter avec Ctrl-C.
+Open `http://127.0.0.1:8118`, move the controls and check that the values change consistently. The
+viewer is an external local artefact; it is not installed in the Studium pane. Stop with Ctrl-C.
 
-## Cas B : tâche réelle issue d'une capsule ASB
+## Case B: a real task from an ASB capsule
 
-À partir d'une capsule fournie par l'enseignant, une tâche de nettoyage spectral
-peut devenir une comparaison avant/après : quels spectres ont été rejetés, selon
-quels critères et avec quelles conséquences sur l'analyse ? Lire sa carte exacte,
-ses données et ses dépendances. Ne pas remplacer une tâche indisponible par
-l'exemple synthétique en lui donnant le nom du résultat réel.
+From a capsule the teacher provides, a spectral-cleaning task can become a before/after comparison:
+which spectra were rejected, by which criteria, with what consequences for the analysis? Read its
+exact card, data and dependencies. Never replace an unavailable task with the synthetic example under
+the real result's name.
 
-Le harnais doit vérifier ses outils effectifs : accès aux fichiers, terminal,
-recherche web, Perspicacité éventuel et skills de domaine. Un skill explique
-comment opérer ; il n'installe ni bibliothèque ni connecteur par sa seule présence.
-Pour une question scientifique, consulter l'article et des sources primaires.
-Pour coder ou installer, commencer par la documentation officielle de la version
-choisie. Garder URL, date, extrait utile et raison du choix. Le
-[guide d'exploration](../guides/grounded-exploration.md) détaille cette sélection.
+The harness checks its actual tools: file access, terminal, web search, Perspicacité if present, and
+domain skills. A skill explains how to operate; its presence installs neither a library nor a
+connector. For a scientific question, read the article and primary sources; to code or install,
+start from the official documentation of the chosen version. Keep the URL, date, useful excerpt and
+reason for each choice.
 
-## Boucle à utiliser en séance
+## The loop to use in a session
 
-1. **Prédire.** L'étudiant formule l'effet attendu avant de voir les résultats.
-2. **Exécuter une référence.** Le harnais fait la tâche autorisée et conserve
-   entrées, versions, commande et sorties réelles.
-3. **Varier un facteur.** L'étudiant choisit un seuil ou une hypothèse. La référence
-   reste visible pour comparer.
-4. **Tester les limites.** Examiner au moins un cas limite et un résultat nul ou
-   contradictoire. Vérifier unités et calculs, pas seulement l'apparence.
-5. **Juger.** L'étudiant explique ce que l'expérience soutient, ne démontre pas
-   et quelles preuves supplémentaires seraient utiles.
-6. **Transférer.** Appliquer le raisonnement à un cas nouveau, puis revenir à la
-   réponse personnelle exigée par Studium.
+1. **Predict.** The student states the expected effect before seeing results.
+2. **Run a reference.** The harness performs the authorised task and keeps inputs, versions, command
+   and real outputs.
+3. **Vary one factor.** The student picks a threshold or a hypothesis; the reference stays visible.
+4. **Test the limits.** Examine at least one edge case and one null or contradictory result. Check
+   units and computations, not only appearance.
+5. **Judge.** The student explains what the experiment supports, what it does not show and which
+   further evidence would help.
+6. **Transfer.** Apply the reasoning to a new case, then return to the personal answer Studium asks
+   for.
 
-Prompt prêt à adapter :
+A prompt to adapt:
 
-> Lis le contexte public de la scène et le skill Studium. Vérifie tes outils.
-> Aide-moi à expérimenter sur [question], dans [périmètre enseignant]. Demande
-> d'abord ma prédiction. Propose l'environnement minimal et les sources officielles
-> pertinentes ; utilise un skill de domaine si nécessaire. Exécute la référence,
-> puis la variation que je choisis. Crée un viewer avec données, unités, référence
-> et variante visibles. Teste les contrôles et un cas limite. Conserve les preuves
-> et distingue `completed`, `failed`, `not_run`. Termine par une question de
-> jugement et attends ma réponse ; ne soumets rien à ma place.
+> Read the public context of the scene and the Studium skill. Check your tools. Help me experiment on
+> [question], within [teacher's scope]. Ask for my prediction first. Propose the minimal environment
+> and the relevant official sources; use a domain skill if needed. Run the reference, then the
+> variation I choose. Build a viewer with data, units, reference and variant visible. Test the
+> controls and an edge case. Keep the evidence and distinguish `completed`, `failed` and `not_run`.
+> End with a judgment question and wait for my answer; submit nothing on my behalf.
 
-Préférer un asset existant ou une spécification déclarative quand cela suffit.
-Un viewer personnalisé est utile lorsqu'une interaction répond à une question
-pédagogique précise. Installer les bibliothèques dans un environnement propre à
-l'expérience et conserver les versions ; un venv n'est pas un bac à sable de
-sécurité. Le harnais garde ses permissions d'exécution habituelles.
+Prefer an existing asset or a declarative specification when it is enough. A custom viewer earns its
+place when an interaction answers a precise teaching question. Install libraries in an environment
+dedicated to the experiment and record the versions; a virtual environment is not a security
+sandbox, and the harness keeps its usual execution permissions.
 
-## Respecter le protocole d'exécution
+## Follow the run protocol
 
-Pour une scène comportant un run, utiliser `get_run_manifest`, exécuter réellement
-l'opération autorisée, puis transmettre un `RunResult` conforme avec
-`submit_run_result`. Lire le [skill](../../skills/studium-harness/SKILL.md) pour les
-champs actuels. Studium n'exécute pas la science à la place du harnais au temps
-étudiant. Un recalcul exploratoire dans un graphique n'est pas un nouveau run
-attesté et ne doit pas remplacer silencieusement le résultat soumis.
+For a scene with a run, call `get_run_manifest`, actually perform the authorised operation, then send
+a conforming `RunResult` with `submit_run_result`. The [`studium-harness`](../../skills/studium-harness/SKILL.md)
+skill and the [agentic session protocol](../reference/agentic-session-protocol.md) list the current
+fields. Studium does not run the science for the harness at study time. In VS Code, **Studium: Run
+reproduction** shows what will run and asks for your confirmation; it asks again whenever the
+command, the packages or the lesson file change. An exploratory
+recomputation in a chart is not a new attested run and must not silently replace the submitted
+result.
 
-## Conserver un dossier d'expérience portable
+## Keep a portable experiment folder
 
-Sauver le JSON public de `get_operator_context` puis :
+Save the public JSON of `get_operator_context` as `current-context.json`, then:
 
-```sh
-.venv/bin/python tools/experience_exploration.py prepare --context /ABS/PATH/current-context.json --out /ABS/PATH/new-experiment
+```bash
+.venv/bin/python tools/experience_exploration.py prepare --context current-context.json --out new-experiment
 ```
 
-Lire `task.md` et le schéma généré. Compléter `experiment.json` avec question,
-hypothèse, sources, fichiers explicitement choisis, actions et contrôles. Le
-gabarit initial est volontairement incomplet. Une action déclarée `completed`
-exige des preuves et contrôles réussis. Puis :
+Read `task.md` and the generated schema. Fill `experiment.json` with the question, hypothesis,
+sources, explicitly chosen files, actions and controls; the starting template is deliberately
+incomplete. An action declared `completed` requires evidence and passed controls. Then:
 
-```sh
-.venv/bin/python tools/experience_exploration.py seal --workspace /ABS/PATH/new-experiment --out /ABS/PATH/new-receipt
-.venv/bin/python tools/experience_exploration.py verify /ABS/PATH/new-receipt --context /ABS/PATH/fresh-context.json
+```bash
+.venv/bin/python tools/experience_exploration.py seal --workspace new-experiment --out new-receipt
+.venv/bin/python tools/experience_exploration.py verify new-receipt --context fresh-context.json
 ```
 
-Le reçu vérifie l'intégrité des fichiers capturés et leur rattachement au contexte.
-Il ne prouve ni vérité scientifique, ni exécution indépendante, ni auteur humain.
-Il ne se soumet pas comme `response.json` ou `run_result.json`. L'intégration de
-ces reçus dans la revue MySTRA n'est pas encore réalisée. Conserver l'observation
-personnelle uniquement à la demande de l'étudiant ; elle est nulle par défaut.
-Ces fichiers restent hors de l'effacement de session et de la télémétrie Studium.
+The receipt checks the integrity of the captured files and their link to the context. It proves
+neither scientific truth, nor independent execution, nor human authorship, and it is not submitted
+as `response.json` or `run_result.json`. Receipts are not yet integrated in the MySTRA review. Keep
+the student's personal observation only at their request; it is empty by default. These files stay
+outside session erasure and Studium telemetry. For notes kept by the engine itself, see the
+[experiment journal](../learn/experiment-journal.md).
 
-**Réussite pédagogique attendue :** une prédiction personnelle, une comparaison
-reproductible, une limite explicitée et un transfert argumenté. Le fait que
-l'agent ait écrit du code ou produit un joli graphique ne suffit pas.
+**Expected learning outcome:** a personal prediction, a reproducible comparison, an explicit limit
+and an argued transfer. That the agent wrote code or produced a nice chart is not enough.

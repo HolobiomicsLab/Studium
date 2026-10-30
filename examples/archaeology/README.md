@@ -29,4 +29,4 @@ SHA-256. This image's CC0 status is separate from the repository's software lice
 
 For a generated reconstruction, keep this photograph as the original evidence,
 label inferred features and place explanatory material after prediction. Follow
-the [media workflow](../../docs/guides/sourced-and-generated-media.md).
+the [media workflow](../../docs/teach/media-and-visual-support.md).

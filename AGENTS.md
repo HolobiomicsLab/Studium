@@ -1,66 +1,76 @@
-# AGENTS.md — point d'entrée agentique (toutes plateformes)
+# AGENTS.md — entry point for coding agents (any harness)
 
-Ce fichier existe parce que la plupart des harnais agentiques lisent `AGENTS.md` à la racine et
-rien d'autre. **Les conventions du repo sont dans [`CLAUDE.md`](CLAUDE.md) et s'appliquent quel que
-soit le modèle ou l'outil** — le nom de ce fichier-là est un accident d'outillage, pas une portée.
-Lis-le en entier avant d'écrire quoi que ce soit ; ce qui suit ne le remplace pas, il ajoute ce qui
-change quand le harnais n'est pas Claude Code.
+Most agent harnesses read `AGENTS.md` at the repository root and nothing else. The repository's
+conventions are in [`CLAUDE.md`](CLAUDE.md) (written in French) and apply whatever the model or tool: the
+file name is an accident of tooling, not a scope. Read it before you write anything; this file does not
+replace it, it adds what changes when the harness is not Claude Code.
 
-## Ordre de lecture au démarrage
+The remote is `HolobiomicsLab/studium`; a local directory named `prototype-build` is the same repository
+under its historical name.
 
-1. `CLAUDE.md` (ici) — toolchain, venv, commandes de test, conventions de nommage Python.
-2. `../studium_dev/MANIFEST.yaml` — la constellation ; le hub `studium_dev` est le point d'entrée
-   du projet, ce repo n'est que le code.
-3. `../studium_dev/STATUS.md` — **l'état courant**. Il ne se lit pas ici : ce repo ne porte aucun
-   instantané de jalon, délibérément (voir `CLAUDE.md`).
-4. `../studium_dev/HANDOFF.md` — la reprise : quoi faire, quoi ne pas faire, quoi vérifier.
-5. `AGENT_LOG.md` (ici) — le journal par commit significatif, à alimenter.
+## Reading order
 
-`../Studium/AGENTS.md` reste la référence de protocole citée par `CLAUDE.md`, avec une réserve :
-il se déclare en « Phase 2 — pré-construction », ce qui est **périmé** — le projet construit depuis
-longtemps. Ses règles d'or 3 à 9 (sourcer, pas de décision silencieuse, validation Pydantic pour
-tout appel LLM, human-in-the-loop rule 003, mémoire avant conversation, commits atomiques, contrat
-sous-agent) tiennent. Son cadrage de phases, non.
+1. `CLAUDE.md` — toolchain, virtualenv, test commands, Python module naming.
+2. [`docs/develop/architecture.md`](docs/develop/architecture.md) — units, data flow, authoring routes.
+3. [`docs/develop/testing.md`](docs/develop/testing.md) — every suite and what CI runs.
+4. [`docs/internal/agent-log.md`](docs/internal/agent-log.md) — the journal of significant commits; add an
+   entry at each significant commit.
+5. [`docs/design-records/`](docs/design-records/index.md) — specifications and decisions, when the change
+   touches one.
 
-## Ce que Claude Code faisait et qu'aucun autre harnais ne fait
+### Optional, for maintainers with the development hub
 
-Des *hooks* imposaient plusieurs de ces règles mécaniquement. Ailleurs, elles ne sont imposées par
-rien : il faut les tenir soi-même, et c'est le seul vrai delta de ce fichier.
+The project is steered from a private hub cloned next to this repository as `../studium_dev/`. If you have
+it, also read `../studium_dev/MANIFEST.yaml` (the repositories of the project), `../studium_dev/STATUS.md`
+(the current state, which this repository deliberately does not carry) and `../studium_dev/HANDOFF.md` (what
+to do next and what not to do). `../Studium/AGENTS.md`, from the earlier design repository, still states
+the working protocol (source claims, no silent decision, Pydantic validation of every model call, human
+review before anything reaches students, atomic commits); its phase framing is out of date. Without the
+hub, this repository and its `docs/` are enough to build, test and change the code.
 
-| Règle | Qui l'imposait | Ce qu'il faut faire sans lui |
-| --- | --- | --- |
-| Chemins de staging explicites | rien (convention) | jamais `git add -A` / `git add .` — nomme chaque fichier |
-| Pas de réécriture d'historique | rien | pas de `rebase`, `push --force`, suppression de branche, `stash` nu ; on avance en ajoutant |
-| `push` sous approbation | hook `sdlc-git-gates` | **demander au propriétaire avant chaque push** ; PR, release et tag ne sont PAS autorisés |
-| Édition des tests tracée | hook `protect-tests` | les tests sont du contrat : les modifier est une décision à énoncer, jamais un effet de bord d'une réparation |
-| Repos interdits | rien | ne pas écrire dans `~/git/studium_manuscript`, `~/git/LabOS`, `~/Documents/ChatGPT/LabOS` |
+## What Claude Code enforced and other harnesses do not
 
-Deux autres, qui ne dépendaient d'aucun hook et valent d'être répétées : ne jamais inspecter ni
-recopier une valeur secrète ; ne pas accepter un intent `Draft` à la place du propriétaire — un
-agent dépose, seul le propriétaire accepte.
+Hooks enforced some of these rules mechanically. Elsewhere nothing enforces them: hold them yourself.
 
-## Portes (à passer avant de dire « c'est vert »)
+| Rule | What to do |
+| --- | --- |
+| Explicit staging | never `git add -A` or `git add .`; name each file |
+| No history rewriting | no `rebase`, `push --force`, branch deletion or bare `stash`; move forward by adding commits |
+| Push only on approval | ask the owner before every push; pull requests, releases and tags are not yours to create |
+| Test edits are decisions | tests are part of the contract: changing one is a decision you state, never a side effect of a fix |
+| Stay in this repository | do not write into sibling repositories (for maintainers: `studium_manuscript`, `LabOS`) |
+
+Two more, which never depended on a hook: never inspect or copy a secret value; never accept a `Draft`
+intent on the owner's behalf. An agent proposes; only the owner accepts.
+
+## Gates (pass them before you say "green")
 
 ```bash
-source .venv/bin/activate            # obligatoire, jamais le python système
-pnpm test                            # TypeScript, tous les paquets
-python tools/pytest_all.py           # Python — succès : exit 0, « N suites, 0 failing »
+export STUDIUM_EPHEMERAL=1                    # learner state in memory; nothing written under ~/.studium
+pnpm build:libs                               # packages that resolve through ./dist, on a fresh checkout
+pnpm lint                                     # zero errors
+pnpm test                                     # every TypeScript package, app and VS Code driver
+.venv/bin/python tools/pytest_all.py          # success: exit 0, "N suites, 0 failing"
+bash tools/bundle_lint.test.sh
+node tools/docs/check.mjs                     # when you touched documentation, a tool or the bundle schema
 pnpm --filter @studium/<pkg> exec tsc --noEmit
 ```
 
-Et les diagnostics de `fixtures/atomistique-l1/` (`*.mjs`, via
-`node_modules/.pnpm/node_modules/.bin/tsx`), qui sortent 0 en toutes circonstances : ils
-*rapportent*, ils ne gardent pas. Leurs chiffres attendus sont dans le handoff courant — un écart
-est un signal, pas un échec de test.
+Anything that starts the stdio MCP server (`pnpm --filter @studium/lesson-mcp start`, the smoke scripts,
+the drivers) must run with `STUDIUM_EPHEMERAL=1` in tests and demos, or it writes into the user's home.
 
-## Pièges de cette machine
+The diagnostics in `fixtures/atomistique-l1/` (`*_check.mjs`, run with
+`node_modules/.pnpm/node_modules/.bin/tsx`) always exit 0: they report, they do not guard. A change in
+their numbers is a signal to read, not a test failure.
 
-- **Le travail est sur `dev`, pas sur `main`.** Et la ref `main` locale est périmée (`0293287`) :
-  compare toujours avec `git ls-remote origin main dev`, jamais avec la ref locale.
-- **Six worktrees frères existent** (`~/git/prototype-build-013`, `-015`, `-016`, `-lint`, `-s2`,
-  `-s2-review`). Une branche qu'ils tiennent ne peut pas être `checkout` ici, et ces répertoires ne
-  sont pas ce repo. `git worktree list` avant de s'étonner.
-- **`feat/trust-instrument` est 24 commits en avance sur son remote** — du travail local non poussé,
-  pas une branche morte.
-- `fixtures/data/` est régénéré par `teacher_check.mjs` à chaque exécution et gitignoré : c'est la
-  disposition du *runtime*, pas ce que lit le collecteur.
+## Traps
+
+- **Fetch before you compare branches.** The local ref of a branch you never check out does not move by
+  itself. Compare with `git fetch origin` then `origin/<branch>`, or with `git ls-remote origin main dev`.
+  Ongoing work lands on `dev` (or a feature branch); `main` receives batched integrations.
+- **Sibling worktrees may exist.** A branch held by another worktree cannot be checked out here. Run
+  `git worktree list` before you are surprised.
+- **`fixtures/data/` is regenerated** by `fixtures/atomistique-l1/teacher_check.mjs` at each run and is
+  ignored by Git: it is the runtime's layout, not what the analytics collector reads.
+- **Two Python services import a module named `tests.conftest`**, so one pytest process over `services/`
+  fails at collection. Use `tools/pytest_all.py`, which runs one process per suite.

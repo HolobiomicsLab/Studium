@@ -1,226 +1,179 @@
-# Tutoriel — une leçon d'auto-apprentissage à partir de ses références
+English · [Français](self-study-from-references.fr.md)
 
-**Objectif :** construire seul, avec son harnais, une leçon jouable à partir d'une
-source choisie, puis la jouer dans le panneau ou par MCP. Aucun enseignant, aucun
-connecteur Perspicacité ni second fournisseur API n'est nécessaire. Prévoir
-30–45 minutes avec l'[installation Python](../getting-started/installation.md)
-terminée. Le skill [`studium-self-learner`](../../skills/studium-self-learner/SKILL.md)
-conduit l'agent dans les mêmes étapes.
+# Self-study from your references
 
-L'exemple utilise Émile Durkheim, *Les Règles de la méthode sociologique*,
-chapitre I « Qu'est-ce qu'un fait social ? », sur Wikisource. Le texte est dans
-le domaine public ; les ajouts propres au site (notes, mise en page) suivent la
-licence de Wikisource. Pour une autre source, vérifier sa licence avant de
-commencer : un PDF d'éditeur ou une licence `NC`, `ND` ou inconnue restreint ce
-qu'on peut faire de la leçon.
+Turn a text you chose into a lesson you can play on your own, without a teacher. Two routes lead to
+the same kind of lesson: in a conversation with your assistant through the MCP tools (about 15
+minutes, no shell), or with the command-line packet tools (30 to 45 minutes, more control over each
+step). The [`studium-self-learner`](../../skills/studium-self-learner/SKILL.md) skill guides an
+assistant through the command-line route.
 
-Ce que l'apprenant fait : formuler l'objectif, fournir la source, relire le plan
-proposé, puis jouer la leçon. Ce que l'agent fait : extraire les passages, rédiger
-le plan et les scènes avec des citations exactes, lancer les vérifications.
+The example is Émile Durkheim, *Les Règles de la méthode sociologique*, chapter I, « Qu'est-ce qu'un
+fait social ? », on French Wikisource. The text is in the public domain; additions specific to the
+site (notes, layout) follow the Wikisource licence. For another source, check its licence first: a
+publisher PDF or an `NC`, `ND` or unknown licence restricts what you may do with the lesson.
 
-## 1. Extraire les passages
+You state the goal, supply the source, review the proposed outline and play the lesson. The
+assistant extracts the passages, drafts the outline and scenes with exact quotes, and runs the
+checks.
 
-Depuis la racine du dépôt, choisir des dossiers de sortie nouveaux :
+## Route 1: in a conversation (MCP)
 
-```sh
-.venv/bin/python tools/experience_packet.py passages --url "https://fr.wikisource.org/wiki/Les_R%C3%A8gles_de_la_m%C3%A9thode_sociologique/Chapitre_1" --title "Les Règles de la méthode sociologique, chapitre I" --license public-domain --out /ABS/PATH/auto-etude/passages.json
-```
+With the Studium server connected to your assistant ([Connect your harness](../start/harnesses.md)),
+send:
 
-Remplacer `/ABS/PATH` par un emplacement personnel. La commande accepte aussi
-`--html FICHIER`, `--pdf FICHIER` ou `--text FICHIER` à la place de `--url`, et
-borne la taille des passages avec `--min-chars` (200 par défaut) et `--max-chars`
-(1200 par défaut). Elle écrit une enveloppe inerte
-`{ "success": true, "origin": "self-study-passages/1.0", "results": [...] }`,
-du même rôle que l'enveloppe Perspicacité du
-[tutoriel littérature](literature-to-course.md) : ce sont les seuls textes que la
-leçon pourra citer.
+> I want to learn with Studium what distinguishes a social fact from an individual fact according
+> to Durkheim, and apply it to a new example. Fetch chapter I of *Les Règles de la méthode
+> sociologique* on French Wikisource (public domain) and build a French lesson from it. Favour
+> scenes where I write (explain_back, comparison, summary_audit), with at most one quiz. Show me the
+> outline without the answers.
 
-Sur une page Wikimedia, la commande ignore la navigation, le pied de page, les
-catégories et les liens de modification. Un paragraphe trop court (un titre, une
-note) est d'abord fusionné avec les paragraphes qui le suivent, sinon rattaché au
-passage précédent, au lieu d'être perdu ; le compte `dropped_short` indique ce qui
-a tout de même été écarté. Les notes qu'une page regroupe à la fin rejoignent donc
-le dernier passage du corps, pas le paragraphe qui les appelle. Parcourir quand même les passages : un
-passage parasite (métadonnées du site, appel de note isolé) peut rester. Il suffit
-de ne pas le citer ; `check` le comptera parmi les passages non cités. Si
-l'extraction est surtout faite de tels passages, repartir d'un fichier texte
-nettoyé avec `--text`.
+The assistant then follows the steps of [Learn a topic in a conversation](learn-a-topic-in-a-conversation.md):
 
-## 2. Préparer le dossier d'auteur
-
-```sh
-.venv/bin/python tools/experience_packet.py prepare --passages /ABS/PATH/auto-etude/passages.json --title "Qu'est-ce qu'un fait social ?" --target "Autodidacte, niveau licence" --out /ABS/PATH/auto-etude/packet
-```
-
-Le dossier contient `evidence.json`, `author-task.md` et `response.schema.json`,
-décrits dans le [tutoriel littérature](literature-to-course.md#1-rejouer-le-petit-exemple-livré).
-Comme l'enveloppe vient de `passages` (origine `self-study-passages/…`), `prepare`
-écrit une consigne d'auteur propre à l'auto-apprentissage, et non la consigne
-enseignant, et préfixe les identifiants de preuve par `passage:` (`--self-study` force cette
-consigne pour une enveloppe d'une autre origine ; le préfixe, lui, suit l'origine).
-La destination
-peut être un dossier vide déjà créé ; un dossier non vide est refusé, `prepare`
-n'ayant pas d'option `--force` : choisir alors un nouveau chemin.
-
-## 3. Faire rédiger le plan par l'agent
-
-L'apprenant donne l'objectif ; l'agent écrit la réponse d'auteur. Prompt :
-
-> Lis `author-task.md`, `evidence.json` et `response.schema.json` du packet.
-> Mon objectif : savoir dire ce qui distingue un fait social d'un fait individuel
-> selon Durkheim, et l'appliquer à un exemple nouveau. Écris `author-response.json`
-> en français (`language: "fr"`), avec des citations exactes des passages et leurs
-> identifiants de preuve. Privilégie les scènes où je produis un texte
-> (`explain_back`, `comparison`, `summary_audit`) ; au plus un quiz. Garde
-> `status: draft` et `validated_by: null`. Montre-moi ensuite le plan (objectifs,
-> concepts, titres et types de scènes, sources) sans les réponses attendues.
-
-Relire ce plan et demander les corrections utiles : un concept manquant, une
-scène trop longue, un exemple hors du texte. Ne pas ouvrir `author-response.json`
-soi-même : il contient déjà ce que l'agent attend.
-
-Le champ `learning_workflow_graph` de la réponse est facultatif : `bundle` dérive
-le graphe des `prerequisites` déclarés sur chaque concept.
-
-## 4. Vérifier le brouillon et lire les classes de clé
-
-```sh
-.venv/bin/python tools/experience_packet.py check --packet /ABS/PATH/auto-etude/packet --response /ABS/PATH/auto-etude/author-response.json --out /ABS/PATH/auto-etude/courses/durkheim-fait-social
-```
-
-Les sorties sont celles du tutoriel littérature (`plan.json`, `source_links.json`,
-`review.md`…). Une citation qui n'est pas une sous-chaîne exacte de son passage
-produit `ERROR` : l'agent corrige le brouillon, jamais la preuve. La licence
-`public-domain` n'émet pas l'avertissement réservé aux licences `NC`, `ND` ou
-inconnues.
-
-La ligne `Key classes:` range les identifiants de scène selon l'origine de leur clé :
-
-| Classe | Types de scène | Ce que cela veut dire ici |
+| Step | Tool | What you see |
 |---|---|---|
-| `ungraded` | intro, concept, meta_checkpoint | Rien n'est évalué |
-| `author_keyed` | quiz, spot_the_flaw | La clé est écrite par celui qui répondra : livre ouvert |
-| `production` | explain_back, comparison, summary_audit, prompt_practice, communication_sim, discussion, ai_critique | L'apprenant produit un texte ; sans juge modèle, retour par mots-clés auto-écrits, sans évaluation certifiée ; un juge modèle rend l'évaluation externe |
-| `externally_grounded` | reproduction | Le résultat de référence vient d'une exécution attestée, pas de l'auteur |
+| Read the brief | `get_authoring_guide {language: "fr"}` | The assistant asks for your goal if you did not give it |
+| Cut the source into passages | `prepare_sources` with `{title, text, url, license: "public-domain"}` | Passages with ids such as `p:<source>:1` |
+| Check and write the lesson | `create_lesson` | The outline (no key) and the authoring notice |
+| Play | `start_lesson_session`, `submit_response`, `rate_recall` | One screen at a time, in your words |
 
-Pour ce texte, attendre surtout des scènes `production` et au plus un identifiant
-`author_keyed`. Une reproduction n'a de sens qu'avec une capsule réellement
-exécutée ; un texte de sociologie n'en fournit pas.
+The assistant fetches the page with its own web tool; Studium never fetches it. A source set holds
+up to 20 sources and 200 000 characters in total, so a whole chapter fits. Each quote must match its
+passage character for character, otherwise `create_lesson` refuses the draft and the assistant
+corrects it. The lesson is written to your library (`~/.studium/library/<course_id>/lesson.json`) and
+marked "AI-drafted, not checked by a teacher".
 
-## 5. Construire le bundle d'auto-apprentissage
+## Route 2: with the command-line tools
 
-```sh
-.venv/bin/python tools/experience_packet.py bundle --course /ABS/PATH/auto-etude/courses/durkheim-fait-social --out /ABS/PATH/auto-etude/bundles/durkheim-fait-social/lesson.json --self-study --note "Étude personnelle du chapitre I, Wikisource"
+This route needs the Python environment from [Installation](../start/installation.md). Run the
+commands from the repository root and choose a new working folder:
+
+```bash
+WORK="$HOME/studium-self-study"
 ```
 
-`--self-study` écrit `metadata.authoring = { mode: "self_study", author_is_learner: true, note }`
-et la marque `validated_by: "SELF-STUDY — not teacher-validated"` à la place de
-`DRAFT — not validated`. Le champ `validated_at` reçoit l'heure de construction :
-ce n'est que la date du fichier, rien n'a été validé. Le bundle reste un
-squelette : l'agent remplace chaque champ texte `TODO:` à partir des passages
-(choix du quiz, points attendus et leurs indices, réponses de référence). Les
-identifiants `todo-*` du squelette peuvent rester ; seul le texte compte. Les
-indices (`cues`) d'un point attendu sont deux à quatre racines ou synonymes courts
-que l'apprenant écrirait, jamais des phrases. Les indices ne concernent que les
-points attendus : dans une scène `summary_audit`, chaque entrée de `flaws_expected`
-compte pour un défaut planté dans le score affiché (« n/m défauts »), donc une seule
-formulation par défaut, sans variante, et chaque défaut nommé dans
-`model_correction` (sinon le lint signale `flaw_reveal_gap` en ERROR). Les règles du squelette sont celles de
-[Du brouillon au bundle jouable](../user/teacher-guide.md#du-brouillon-au-bundle-jouable).
-Valider ensuite la forme :
+### Extract the passages
 
-```sh
-apps/lesson-mcp/node_modules/.bin/tsx tools/bundle_validate.ts /ABS/PATH/auto-etude/bundles/durkheim-fait-social/lesson.json
+```bash
+.venv/bin/python tools/experience_packet.py passages \
+  --url "https://fr.wikisource.org/wiki/Les_R%C3%A8gles_de_la_m%C3%A9thode_sociologique/Chapitre_1" \
+  --title "Les Règles de la méthode sociologique, chapitre I" \
+  --license public-domain --out "$WORK/passages.json"
 ```
 
-## 6. Lire le lint
+`--html FILE`, `--pdf FILE` or `--text FILE` replace `--url`; `--min-chars` (default 200) and
+`--max-chars` (default 1200) bound the passage size. The output is an inert envelope
+(`origin: "self-study-passages/1.0"`): these are the only texts the lesson may quote. On a Wikimedia
+page the command skips navigation, footer and categories; a short paragraph is merged with its
+neighbours, and `dropped_short` counts what was still dropped. Skim the passages: a stray one (site
+metadata, a lone footnote call) can simply stay uncited. If most are stray, start again from a
+cleaned text file with `--text`.
 
-```sh
-node tools/bundle_lint.mjs /ABS/PATH/auto-etude/bundles/durkheim-fait-social/lesson.json
+### Prepare the authoring packet
+
+```bash
+.venv/bin/python tools/experience_packet.py prepare --passages "$WORK/passages.json" \
+  --title "Qu'est-ce qu'un fait social ?" --target "Self-learner, undergraduate level" \
+  --out "$WORK/packet"
 ```
 
-Chaque ligne a la forme `NIVEAU  bundle  code  message`. Pour cet exemple, attendre :
+The packet holds `evidence.json`, `author-task.md` and `response.schema.json`. Because the envelope
+comes from `passages`, `prepare` writes the self-study brief and prefixes evidence ids with
+`passage:` (`--self-study` forces the brief for an envelope of another origin). `prepare` refuses a
+non-empty destination and has no `--force`.
 
-| Ligne | Sens |
+### Have the assistant draft
+
+> Read `author-task.md`, `evidence.json` and `response.schema.json` in the packet. My goal: say
+> what distinguishes a social fact from an individual fact according to Durkheim, and apply it to a
+> new example. Write `author-response.json` in French (`language: "fr"`) with exact quotes and their
+> evidence ids. Favour scenes where I write; at most one quiz. Keep `status: draft` and
+> `validated_by: null`. Then show me the outline without the expected answers.
+
+Review the outline and ask for corrections. Do not open `author-response.json` yourself: it already
+contains the expected answers. Its `learning_workflow_graph` is optional: `bundle` derives the graph
+from each concept's `prerequisites`.
+
+### Check the draft
+
+```bash
+.venv/bin/python tools/experience_packet.py check --packet "$WORK/packet" \
+  --response "$WORK/author-response.json" --out "$WORK/courses/durkheim-fait-social"
+```
+
+A quote that is not an exact substring of its passage produces an `ERROR`: the assistant fixes the
+draft, never the evidence. `--json` prints one machine-readable report; `--force` replaces an
+existing output. The `Key classes:` line sorts scenes by who holds their key:
+
+| Class | Scene types | What it means here |
+|---|---|---|
+| `ungraded` | intro, concept, meta_checkpoint | Nothing is graded |
+| `author_keyed` | quiz, spot_the_flaw | The key was written by whoever answers: open book |
+| `production` | explain_back, comparison, summary_audit, prompt_practice, communication_sim, discussion, ai_critique | You write a text; without a judge model you compare with the reference and rate your recall |
+| `externally_grounded` | reproduction | Graded against an attested run; a sociology text provides none |
+
+### Build and lint the lesson
+
+```bash
+.venv/bin/python tools/experience_packet.py bundle --course "$WORK/courses/durkheim-fait-social" \
+  --out "$WORK/bundles/durkheim-fait-social/lesson.json" --self-study \
+  --note "Personal study of chapter I, Wikisource"
+```
+
+`--self-study` records `metadata.authoring = {mode: "self_study", author_is_learner: true, note}` and
+`validated_by: "SELF-STUDY — not teacher-validated"`. The bundle is a skeleton: the assistant replaces
+every `TODO:` text from the passages (quiz choices, key points and their 2 to 4 short `cues`, model
+answers). In a `summary_audit`, each `flaws_expected` entry is one planted flaw: one phrasing per
+flaw, each named in `model_correction`. Then validate and lint:
+
+```bash
+apps/lesson-mcp/node_modules/.bin/tsx tools/bundle_validate.ts "$WORK/bundles/durkheim-fait-social/lesson.json"
+node tools/bundle_lint.mjs "$WORK/bundles/durkheim-fait-social/lesson.json"
+```
+
+| Lint line | Meaning |
 |---|---|
-| `INFO … self_study_authoring …` | Le bundle se déclare auto-rédigé |
-| `WARN … self_study_open_book …` | Liste les scènes `author_keyed` : le quiz est à livre ouvert |
-| `INFO … lwg_single_graded_item …` | Un concept n'a qu'une scène évaluée par réponse : le quiz |
-| `WARN … lwg_prereq_unassessable …` | Un concept n'a aucune scène évaluée par réponse (quiz ou ai_critique ; hors ligne, un `ai_critique` ferait taire la ligne sans rendre le concept évaluable, puisqu'il ne certifie rien sans juge) |
+| `INFO self_study_authoring` | The lesson declares itself self-authored |
+| `WARN self_study_open_book` | Lists the `author_keyed` scenes: the quiz is open book |
+| `INFO lwg_single_graded_item` / `WARN lwg_prereq_unassessable` | A concept has one, or no, scene graded by a key: expected with mostly production scenes |
+| `WARN self_study_no_external_key` | No production or reproduction scene: add one rather than ignore it |
 
-Les deux lignes `lwg_*` découlent du choix recommandé ici (scènes de production,
-un seul quiz) : elles sont attendues, ce ne sont pas des erreurs. Elles rappellent
-que la maîtrise de ces concepts ne bougera pas sans juge modèle (voir plus bas).
+An `ERROR` fails the command and must be fixed. Rules for filling a skeleton are in
+[Author a lesson](../teach/author-a-lesson.md).
 
-`WARN … self_study_no_external_key …` apparaîtrait si la leçon ne contenait
-aucune scène `production` ni `reproduction`. Ajouter alors une scène de production
-plutôt que d'ignorer l'avertissement. Un `ERROR` fait échouer la commande et doit
-être corrigé.
+### Play it
 
-## 7. Jouer la leçon
+Do not open `plan.json` or `lesson.json` before playing: the key is in plain text there. The server
+removes expected answers from what it shows, but cannot erase what you already read.
 
-Avant de jouer, ne pas ouvrir `plan.json` ni `lesson.json` : la clé y est en
-clair. Le serveur retire les réponses attendues de la scène publique, mais ne peut
-pas effacer ce qu'on a déjà lu.
+To play through your assistant, copy the lesson into your library (`~/.studium/library`, or
+`<STUDIUM_HOME>/library`), which the server always searches:
 
-**Par MCP.** Déclarer dans son harnais un serveur stdio lancé depuis la racine du
-dépôt, avec cette commande :
-
-```sh
-BUNDLES_ROOT=/ABS/PATH/auto-etude/bundles STUDIUM_DATA_DIR=/ABS/PATH/auto-etude/data node_modules/.pnpm/node_modules/.bin/tsx apps/lesson-mcp/src/index.ts
+```bash
+mkdir -p "$HOME/.studium/library" && cp -R "$WORK/bundles/durkheim-fait-social" "$HOME/.studium/library/"
 ```
 
-Après un build de l'extension, `node apps/studium-vscode/dist/lesson-mcp.cjs`
-remplace la partie `tsx …`, avec les mêmes variables. La forme de configuration de
-chaque client est dans les [recettes de harnais](../getting-started/harnesses-and-api.md).
-Demander à l'agent de suivre le
-[skill harnais](../../skills/studium-harness/SKILL.md) et d'appeler
-`start_lesson_session` :
+Then ask: "Start the Studium lesson `durkheim-fait-social/lesson.json`." In VS Code, set
+`studium.bundlesRoot` to the full path of your `bundles` folder and run **Studium: Pick a course**. The first screen shows
+the notice of a learner-drafted lesson:
 
-```json
-{"bundle_ref":"durkheim-fait-social/lesson.json","learner_id":"demo-local"}
-```
+> Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre
+> ouvert). Sans juge modèle, les scènes de production ne sont pas évaluées : comparez votre réponse à
+> la réponse modèle et notez votre rappel […]
 
-La réponse, comme `get_operator_context` et le `task.md` du canal fichier, porte
-un bloc `authoring`. Sans juge modèle (`LITELLM_BASE_URL` vide, le défaut) :
+The notice follows the lesson's language; the English version begins "Self-authored lesson: quiz and
+spot-the-flaw keys were written by the learner (open book)." Answer in your own words, as in
+[Your first lesson](first-lesson.md). After a graded answer, when the lesson moves on, the feedback
+shows the reference and the passage the scene cites.
 
-```json
-{"mode":"self_study","author_is_learner":true,"validated":false,"judge":false,"notice":"Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). Sans juge modèle, les scènes de production donnent un retour par mots-clés sans évaluation certifiée ; seules les reproductions exécutées portent une évaluation externe."}
-```
+## What this lesson is not
 
-Avec un juge modèle, `judge` vaut `true` et l'avis devient : « Leçon auto-rédigée :
-les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert).
-Les scènes de production, jugées par le modèle, et les reproductions exécutées
-portent l'évaluation. » L'avis suit `metadata.language` ; les variantes anglaises
-sont dans [Fonctionnalités](../features.md#qui-a-écrit-la-clé-).
-
-**Dans le panneau.** Régler `studium.bundlesRoot` sur
-`/ABS/PATH/auto-etude/bundles`, lancer **Studium : Choisir un cours**, puis ouvrir
-`durkheim-fait-social`. Le panneau affiche l'avis en bannière.
-
-Répondre ensuite avec ses propres mots, comme dans la
-[première séance](first-lesson.md). La scène `explain_back` ne réaffiche pas le
-passage cité, et son retour montre la réponse de référence écrite par l'agent.
-Pour se corriger, revenir plutôt au passage, dans les scènes de concept précédentes
-ou dans la source. Le quiz peut être servi deux fois : une première fois en détour,
-quand la porte de prérequis l'exige, puis à sa place dans le parcours. Les deux
-réponses comptent, alors que la seconde se fait en ayant déjà vu les choix et le
-retour.
-
-## Ce que cette leçon n'est pas
-
-- **Une leçon validée.** Aucun enseignant ne l'a relue. Les citations exactes et
-  un schéma valide ne garantissent pas l'interprétation ; vérifier les affirmations
-  centrales dans le texte lui-même.
-- **Une évaluation, sans juge modèle.** Avec `LITELLM_BASE_URL` vide, le défaut
-  des exemples, les scènes de production donnent un retour par mots-clés, écrits
-  par l'agent, mais aucune évaluation certifiée : elles ne déplacent pas la
-  maîtrise. Seul le quiz à livre ouvert la fait bouger. Un retour par mots-clés
-  peut aussi manquer une paraphrase juste. Un juge configuré rend l'évaluation
-  externe ; c'est une route payante, à décider avant de l'activer.
-- **Une contribution diffusée.** Un bundle d'auto-apprentissage n'est pas un
-  bundle communautaire : `list_community_bundles` ne le trouve pas, et rien n'est
-  envoyé à d'autres apprenants. La relecture humaine avant toute diffusion
-  étudiante (règle 003) reste la règle ; voir le
-  [guide apprenant-auteur](../guides/learner-as-author-UI-guide.md) pour le
-  circuit des contributions relues.
+- **A validated lesson.** No teacher has reviewed it. Exact quotes and a valid schema do not
+  guarantee the interpretation; check the central claims in the text itself.
+- **An assessment, without a judge model.** With `LITELLM_BASE_URL` empty (the default), production
+  scenes show the reference and ask you to rate your recall; the rating schedules reviews and never
+  moves mastery. Only keyed questions such as the quiz do. A judge model is a paid route, to decide
+  before enabling it ([Configuration](../reference/configuration.md)).
+- **A shared contribution.** The lesson stays in your library and nothing is sent to other
+  learners. A lesson for students goes through teacher review first (rule 003): see
+  [Learner contributions](../teach/learner-contributions.md).

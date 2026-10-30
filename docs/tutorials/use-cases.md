@@ -1,148 +1,142 @@
-# Choisir un cas d'usage Studium
+English · [Français](use-cases.fr.md)
 
-Partir d'une question à comprendre, puis choisir la plus petite activité qui
-permet de l'examiner. Les parcours ci-dessous sont des recettes du prototype,
-avec exemples synthétiques lorsqu'indiqué. Ils ne constituent pas des cours
-validés pour une discipline ou un public.
+# Choose a Studium use case
 
-Avant de commencer, suivre l'[installation](../getting-started/installation.md)
-et choisir [son harnais ou le panneau](../getting-started/harnesses-and-api.md).
-Les [six skills](../getting-started/skills.md) guident ces mêmes procédures.
+Start from a question you want to understand, then choose the smallest activity that lets you
+examine it. The recipes below run on the current version, with synthetic examples where stated; they
+are not validated courses for a given discipline or audience.
 
-| Situation | Matériel de départ | Production à examiner |
+Before you start, [install Studium](../start/installation.md) and choose
+[your harness or the VS Code pane](../start/harnesses.md). The [skills](../start/skills.md) guide an
+assistant through these same procedures.
+
+| Situation | Starting material | What you examine |
 |---|---|---|
-| Apprendre un concept avec un agent | Bundle relu et objectif de séance | Réponse personnelle, indice éventuel, adaptation expliquée |
-| Construire un cours depuis un article | Passages exacts, références, public et objectifs | Brouillon vérifié, plan relu, provenance MySTRA |
-| Expérimenter depuis une capsule ASB | Capsule précise, données, commande et périmètre autorisé | Exécution de référence, variante, conclusion limitée par les preuves |
-| Comprendre un résultat avec un viewer | Résultats publics, unités, référence et variantes | Activité interactive et contrôles techniques |
-| Observer une photographie en archéologie | Photo institutionnelle, notice et statut de réutilisation | Distinction entre observation, attribution et hypothèse |
-| Recevoir une aide dans une autre langue ou modalité | Scène publique et besoin exprimé | Texte, schéma, figure ou média, avec équivalent accessible |
-| Préparer une restitution | Actions/journal que l'étudiant choisit d'exporter | Rapport local ASTRA/ARA/MySTRA avant partage |
+| Learn a topic from your own sources | A goal and one or two sources | A lesson built from exact quotes, your answers, reviews over days |
+| Study a concept with an agent | A reviewed lesson and a session goal | Your answer, a hint if needed, the adaptation explained |
+| Build a course from an article | Exact passages, references, audience and objectives | A checked draft, a reviewed plan, MySTRA provenance |
+| Experiment from an ASB capsule | A capsule, data, command and authorised scope | A reference run, a variant, a conclusion bounded by evidence |
+| Understand a result with a viewer | Public results, units, reference and variants | An interactive activity and technical checks |
+| Observe a photograph in archaeology | An institutional photo, its record and reuse status | The line between observation, attribution and hypothesis |
+| Get help in another language or modality | The public scene and the stated need | Text, diagram, figure or media, with an accessible equivalent |
+| Prepare a write-up | The actions or journal the student chooses to export | A local ASTRA/ARA/MySTRA report before sharing |
 
-## 1. Une séance d'auto-apprentissage accompagnée
+## 1. Learn a topic in a conversation
 
-**Pour l'étudiant.** Utiliser d'abord une leçon relue, par exemple la fixture
-`atomistique-l1`. Choisir le panneau VS Code pour la boucle visuelle, ou le chat
-du harnais pour demander des explications et outils supplémentaires.
+**For a self-learner.** Ask your assistant "I want to learn <topic> with Studium" and give it your
+sources. It builds a lesson with the authoring tools, you answer in your own words, and
+`get_study_plan` tells you what to review on the following days. Follow
+[Learn a topic in a conversation](learn-a-topic-in-a-conversation.md); for a longer text or more
+control, [Self-study from your references](self-study-from-references.md). The lesson is drafted by
+the agent and not checked by a teacher; each item cites its passage.
 
-> Lis le skill `studium-student`, puis `studium-harness`. Vérifie la connexion,
-> démarre le cours fourni en français et présente une seule activité à la fois.
-> Attends mes réponses. Si je demande un indice, aide-moi à raisonner puis
-> explique l'adaptation effectivement rapportée par Studium.
+## 2. A guided self-study session
 
-Le [tutoriel première séance](first-lesson.md) donne les appels. Le contrôle de
-réussite est une scène publique réellement lue et une réponse personnelle acceptée.
-Pour alterner Claude Code et Codex pendant cette séance, choisir l'[API locale](../guides/api-and-harness.md)
-et conserver le même processus serveur. Un export ne restaure pas à lui seul la
-position d'une séance arrêtée.
+**For a student.** Start with a reviewed lesson, for example the `atomistique-l1` fixture. Choose the
+VS Code pane for the visual loop, or your harness's chat to ask for explanations and extra tools.
 
-## 2. Un article devient un parcours à relire
+> Read the `studium-student` skill, then `studium-harness`. Check the connection, start the
+> provided course and present one activity at a time. Wait for my answers. If I ask for a hint,
+> help me reason, then explain the adaptation Studium actually reported.
 
-**Pour l'enseignant.** Sélectionner des passages et figures autorisés à l'usage
-prévu. Définir public, prérequis, durée et question de jugement. Perspicacité peut
-aider à rechercher les preuves lorsqu'il est réellement connecté au harnais.
+[Your first lesson](first-lesson.md) gives the calls. Success means a public scene actually read and
+an answer of your own accepted. To switch between Claude Code and Codex during a session, keep the
+same server process and use the local [HTTP API](../reference/http-api.md), which serves the lesson
+operations.
 
-> Utilise `studium-teacher`. Prépare un brouillon à partir de ces passages pour
-> [public] autour de [question]. Relie chaque affirmation à sa source. Distingue
-> résultats publiés, hypothèses et exemples synthétiques. Prépare une prédiction,
-> une comparaison et un cas de transfert, puis montre les éléments à relire.
+## 3. An article becomes a course to review
 
-Suivre [article → brouillon → MySTRA](literature-to-course.md), puis
-[révision approuvée → synthèse](../user/reviewed-synthesis.md) si un bundle est
-souhaité. La validation du schéma n'approuve pas les contenus. L'enseignant relit
-aussi le résultat de la synthèse avant diffusion. L'import d'un article ne garantit
-pas l'extraction automatique de ses figures ; préparer les assets choisis avec
-leurs sources et droits.
+**For a teacher.** Select passages and figures you may use for the intended purpose. Define audience,
+prerequisites, duration and judgment question. Perspicacité can help find evidence when it is
+actually connected to the harness.
 
-## 3. Réseaux moléculaires et annotation spectrale
+> Use `studium-teacher`. Prepare a draft from these passages for [audience] around [question]. Link
+> each claim to its source. Separate published results, hypotheses and synthetic examples. Prepare a
+> prediction, a comparison and a transfer case, then show what needs review.
 
-**Pour un groupe accompagné.** Question : « Une forte similarité MS/MS suffit-elle
-à identifier une structure ? » Partir d'une capsule fournie par l'enseignant ou
-des exemples synthétiques du dépôt, en indiquant lequel est utilisé.
+Follow [From the literature to a reviewable draft](literature-to-course.md), then
+[Review and approve](../teach/review-and-approve.md). Schema validation does not approve content.
+Importing an article does not extract its figures automatically; prepare the chosen assets with their
+sources and rights.
 
-1. L'étudiant prédit l'effet d'un seuil ou d'une tolérance.
-2. Le harnais lit le protocole, les versions et le skill de domaine disponible,
-   puis exécute la référence dans l'environnement autorisé.
-3. L'étudiant choisit une variation ; le viewer garde la référence visible et
-   relie réseau, spectres et candidats lorsque ces données existent.
-4. L'étudiant distingue similarité, candidat et identification ; il explique
-   quelle preuve supplémentaire serait nécessaire.
+## 4. Molecular networks and spectral annotation
 
-> Utilise le skill de domaine réellement installé et la documentation officielle
-> de la bibliothèque retenue. Vérifie les unités et le calcul sur un cas limite.
-> Prépare des représentations liées, garde la référence visible et enregistre
-> sources, commande, versions et sorties. N'invente pas de données manquantes.
+**For a supervised group.** Question: "Is a high MS/MS similarity enough to identify a structure?"
+Start from a capsule the teacher provides or from the repository's synthetic examples, saying which.
 
-Le [tutoriel agentique](agentic-experiment.md) fournit une démo exécutable et le
-protocole `get_run_manifest` → exécution → `submit_run_result`.
-Le [viewer lié](../user/linked-viewer.md) utilise des données synthétiques.
-Une ressource GNPS, matchms ou EMBL fournie par l'enseignant est un matériau de
-cours ; elle n'est pas automatiquement un bundle Studium ni une capsule attestée.
+1. The student predicts the effect of a threshold or a tolerance.
+2. The harness reads the protocol, versions and available domain skill, then runs the reference in
+   the authorised environment.
+3. The student chooses a variation; the viewer keeps the reference visible and links network,
+   spectra and candidates when those data exist.
+4. The student distinguishes similarity, candidate and identification, and says which further
+   evidence would be needed.
 
-## 4. Diagnostiquer une analyse ou tester une conclusion
+> Use the domain skill actually installed and the official documentation of the chosen library.
+> Check units and the computation on an edge case. Prepare linked representations, keep the
+> reference visible and record sources, command, versions and outputs. Do not invent missing data.
 
-**Toutes disciplines.** À partir d'étapes et résultats fournis, utiliser
-`diagnose-analysis` pour comparer des réparations possibles ; utiliser
-`conclusion-robustness` pour examiner des hypothèses alternatives contre un
-critère explicite. Par exemple : dénominateur d'un indicateur écologique, correction
-de blanc en chimie, hypothèse de calibration ou agrégation d'une enquête.
+[A scientific experiment with your agent](agentic-experiment.md) provides a runnable demo and the
+`get_run_manifest` → run → `submit_run_result` protocol. The `linked-representations` template
+([activity templates](../teach/activity-templates.md)) uses synthetic data. A GNPS, matchms or EMBL
+resource provided by the teacher is course material; it is not automatically a Studium lesson or an
+attested capsule.
 
-> Utilise `studium-activity-templates`. À partir de ces résultats, prépare
-> `conclusion-robustness` avec unités, hypothèse de référence et variantes
-> justifiées. Demande ma prédiction avant de montrer les résultats. Explique
-> ce que les scénarios ne permettent pas de conclure.
+## 5. Diagnose an analysis or test a conclusion
 
-Suivre [activité → rapport](activity-to-report.md) et son contrat `--config`.
-Ces viewers comparent des valeurs capturées ; ils ne calculent pas une nouvelle
-analyse scientifique. Le harnais exécute et vérifie les nouveaux calculs avant
-de les intégrer. Une proportion de scénarios favorables n'est pas une probabilité
-que la conclusion soit vraie.
+**Any discipline.** From given steps and results, use `diagnose-analysis` to compare possible repairs
+and `conclusion-robustness` to weigh alternative hypotheses against an explicit criterion: the
+denominator of an ecological indicator, a blank correction in chemistry, a calibration assumption, a
+survey aggregation.
 
-## 5. Une photographie comme objet d'observation
+> Use `studium-activity-templates`. From these results, prepare `conclusion-robustness` with units,
+> a reference hypothesis and justified variants. Ask for my prediction before showing results.
+> Explain what the scenarios do not allow us to conclude.
 
-**Exemple d'archéologie.** Le dépôt propose une photographie muséale de
-*Hippopotamus (William)* : [préparation et sources](../../examples/archaeology/README.md).
-L'image est disponible avant la prédiction parce qu'elle constitue le matériau
-à observer ; les explications viennent ensuite.
+Follow [From an interactive activity to a report](activity-to-report.md) and its `--config` contract.
+These viewers compare captured values; they do not compute a new scientific analysis. The harness
+runs and checks new computations before adding them. A share of favourable scenarios is not a
+probability that the conclusion is true.
 
-> Utilise `studium-visual-support` et `evidence-claim`. Conserve la photographie
-> originale, son attribution et une description alternative. Demande ce que
-> j'observe, puis sépare ce que la photographie montre de ce que la notice du
-> musée établit. Présente toute reconstruction générée comme une interprétation.
+## 6. A photograph as an object of observation
 
-Le [guide médias](../guides/sourced-and-generated-media.md) précise les métadonnées,
-la préparation et l'attachement local. Le statut de réutilisation doit rester
-visible, y compris pour un usage privé. Le viewer ne certifie pas les droits.
+**Archaeology example.** The repository offers a museum photograph of *Hippopotamus (William)*:
+[preparation and sources](../../examples/archaeology/README.md). The image is shown before the
+prediction because it is the material to observe; explanations come after.
 
-## 6. Adapter l'aide sans exiger un modèle multimodal
+> Use `studium-visual-support` and `evidence-claim`. Keep the original photograph, its attribution
+> and an alternative description. Ask what I observe, then separate what the photograph shows from
+> what the museum record establishes. Present any generated reconstruction as an interpretation.
 
-**À la demande de l'étudiant.** Commencer par texte, KaTeX, Mermaid ou un graphique
-calculé. Choisir une aide à partir de la difficulté exprimée, de la langue et du
-contexte autorisé, sans inférer un handicap ou un profil stable à partir d'une erreur.
+[Media and visual support](../teach/media-and-visual-support.md) covers metadata, preparation and
+local attachment. The reuse status must stay visible, even for private use; the viewer does not
+certify rights.
 
-> Continue en français avec les termes scientifiques originaux entre parenthèses.
-> Prépare une carte Mermaid de la relation qui me pose problème, sans révéler
-> la réponse. Si une image ou un court audio apporte davantage, prépare d'abord
-> son prompt et un équivalent textuel ; utilise mon outil seulement si je le demande.
+## 7. Adapt help without requiring a multimodal model
 
-Le [guide de présentation](../guides/language-and-scientific-presentation.md)
-décrit langue, dictionnaires, équations et structures. Un enseignant peut produire
-un média une fois pour réutilisation ; une demande étudiante peut produire une
-nouvelle copie enrichie. Le [workflow médias](../guides/sourced-and-generated-media.md)
-conserve prompt, provenance, transcription et sous-titres. Génération, délai et
-coût dépendent du harnais ; les activités restent utilisables sans cette option.
+**At the student's request.** Start with text, KaTeX, Mermaid or a computed chart. Choose help from
+the stated difficulty, the language and the authorised context, never by inferring a disability or a
+stable profile from an error.
 
-## 7. Restituer une expérience sans tout partager
+> Continue in English with the original scientific terms in brackets. Prepare a Mermaid map of the
+> relation I struggle with, without revealing the answer. If an image or a short audio would add
+> more, first prepare its prompt and a text equivalent; use my tool only if I ask.
 
-**Pour l'étudiant puis le reviewer.** Choisir une trace locale ou un journal,
-produire un rapport et l'examiner avant tout partage. Les textes sont exclus par
-défaut du rapport ; leur inclusion est un choix distinct du stockage du journal.
+[Language and supports](../learn/language-and-supports.md) covers language, dictionaries, equations
+and structures. A teacher can produce a medium once for reuse; a student request can produce a new
+enriched copy that keeps prompt, provenance, transcript and subtitles. Generation, delay and cost
+depend on the harness; activities stay usable without this option.
 
-> Utilise `studium-learner-report` avec les fichiers que je sélectionne. Vérifie
-> le rapport, ouvre le viewer et montre ce qu'il contient. Exclue mes textes
-> personnels pour cette première copie. Ne l'envoie à personne.
+## 8. Report on an experiment without sharing everything
 
-Le [tutoriel de restitution](activity-to-report.md) contient les commandes
-`export` et `verify`. MySTRA expose les éléments enregistrés et leurs limites.
-La trace ne couvre pas toute la conversation, les aides consultées ou le travail
-hors outil. Elle ne prouve ni l'identité, ni l'autonomie, ni l'apprentissage.
+**For the student, then the reviewer.** Choose a local trace or a journal, produce a report and
+examine it before any sharing. Texts are excluded by default; including them is a separate choice
+from storing the journal.
+
+> Use `studium-learner-report` with the files I select. Verify the report, open the viewer and show
+> what it contains. Exclude my personal texts for this first copy. Send it to no one.
+
+[From an interactive activity to a report](activity-to-report.md) holds the `export` and `verify`
+commands. MySTRA shows the recorded elements and their limits. The trace does not cover the whole
+conversation, the help consulted or work outside the tool, and it proves neither identity, nor
+autonomy, nor learning.

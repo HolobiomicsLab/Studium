@@ -7,26 +7,34 @@ description: Choose and adapt a Studium activity template for linked representat
 
 Resolve this skill's real path; the source repository is two directories above
 it. Locate `tools/experience_templates.py` and read
-[the template guide](../../docs/user/activity-templates.md) for its current CLI
-and input contract. The [activity-to-report tutorial](../../docs/tutorials/activity-to-report.md)
-gives a complete local recipe. Use the existing Python venv. No private hub is required.
+[Activity templates](../../docs/teach/activity-templates.md) for its input contract.
+The [activity-to-report tutorial](../../docs/tutorials/activity-to-report.md) gives a
+complete local recipe. Use the existing Python venv (`.venv`). No private hub is required.
+
+```bash
+.venv/bin/python tools/experience_templates.py list            # catalogue: id, status, version, title
+.venv/bin/python tools/experience_templates.py prepare --template ID \
+  --context operator-context.json --out NEW_DIR [--config FILE] [--language BCP47] \
+  [--translations FILE] [--supports FILE]
+```
 
 ## Choose the teaching move
 
-Read the live catalogue; choose by the judgment the learner should practice:
+Read the live catalogue (`list`); choose by the judgment the learner should practise:
 
-- Linked representations: connect the same object across views.
-- Parameter comparison: predict a controlled change and compare with a baseline.
-- Evidence and claim: examine what a captured passage or result actually supports.
+| Template id | Teaching move |
+| --- | --- |
+| `linked-representations` | connect the same object across views |
+| `parameter-comparison` | predict a controlled change and compare with a baseline |
+| `evidence-claim` | examine what a captured passage or result actually supports |
+| `diagnose-analysis` | locate a suspect step, inspect proposed repairs and compare their supplied results |
+| `conclusion-robustness` | compare explicit assumption scenarios against a stated criterion |
 
-- Diagnose analysis: locate a suspect step, inspect proposed repairs and compare their supplied results.
-- Conclusion robustness: compare explicit assumption scenarios against a stated criterion.
+Only entries with status `ready` can be prepared; proposed entries are not runnable.
 
-Check live catalogue status before preparing; future proposed entries are not runnable.
-
-Get the public scene with `get_operator_context` over MCP or the local HTTP API,
-or the file channel in
-[studium-harness](../studium-harness/SKILL.md). Use that scene's materials and IDs,
+Get the public scene with `get_operator_context {session_id}` over MCP or the local
+HTTP API, or from `task.md` on the file channel (see
+[studium-harness](../studium-harness/SKILL.md)), and save it as the `--context` file. Use that scene's materials and IDs,
 not a raw bundle with answer keys. With no active scene, use an explicitly labelled
 synthetic demo context; never claim it belongs to a student's live lesson.
 
@@ -59,8 +67,8 @@ not authorization to execute it. The harness owns execution and provisioning.
 
 Within the reviewed activity, adapt labels, language, selected representations and
 permitted parameters to the learner's question. All five templates accept
-`--language`, `--translations` and `--supports`; read the
-[presentation guide](../../docs/guides/language-and-scientific-presentation.md).
+`--language`, `--translations` and `--supports`; read
+[Language and supports](../../docs/learn/language-and-supports.md#for-teachers-prepare-an-activity-in-another-language).
 Use the learner's requested language and prepare explicit dictionaries when
 needed. The selector preserves learner input; missing translations remain visible
 in the source language. Keep IDs, numbers, units and notation unchanged. A changed scientific objective,
@@ -86,7 +94,7 @@ chosen harness; these templates require no second model account or API provider.
 ## Keep the method understandable
 
 Prepared templates already include shared `?` explanations. For custom viewers,
-reuse `ui/context-help.json` and the [shared renderers](../../docs/guides/contextual-help.md):
+reuse `ui/context-help.json` and the [shared renderers](../../docs/learn/language-and-supports.md#for-developers-reuse-the-help-catalogue):
 place relevant help beside the objective, prediction, comparison, confidence and
 conclusion. Keep essential instructions visible. Explain what/why/objective/source,
 with student and teacher perspectives, without injecting answer keys or fabricating
