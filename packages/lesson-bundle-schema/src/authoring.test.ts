@@ -23,3 +23,19 @@ describe("BundleMetadata.authoring", () => {
     expect(() => BundleAuthoringSchema.parse({ mode: "peer" })).toThrow();
   });
 });
+
+// C3 (sprint 2026-10-30): who drafted the content and its keys, separate from who plays it.
+describe("BundleAuthoring.drafted_by", () => {
+  it.each(["agent", "learner", "teacher"] as const)("accepts drafted_by %s and keeps it", (draftedBy) => {
+    const parsed = BundleAuthoringSchema.parse({ mode: "self_study", drafted_by: draftedBy });
+    expect(parsed.drafted_by).toBe(draftedBy);
+  });
+
+  it("is optional: a block without it parses unchanged", () => {
+    expect(BundleAuthoringSchema.parse({ mode: "teacher" })).toEqual({ mode: "teacher", author_is_learner: false });
+  });
+
+  it("rejects any other value", () => {
+    expect(BundleAuthoringSchema.safeParse({ mode: "self_study", drafted_by: "model" }).success).toBe(false);
+  });
+});

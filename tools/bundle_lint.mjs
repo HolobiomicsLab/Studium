@@ -6,17 +6,21 @@
 //   node tools/bundle_lint.mjs path/to/lesson.json
 //
 // A bundle whose metadata.authoring says who wrote it also gets self_study_authoring (INFO),
-// self_study_open_book and self_study_no_external_key (WARN) in self-study mode, or
-// learner_authored_validated (INFO) when a teacher released a learner's bundle; a bundle
-// without metadata.authoring gets none of them.
+// self_study_open_book (a learner-drafted key), self_study_agent_key (an agent-drafted key) and
+// self_study_no_external_key (WARN) in self-study mode, or learner_authored_validated (INFO) when
+// a teacher released a learner's bundle; a bundle without metadata.authoring gets none of them.
+// Any learner-visible or grading string a skeleton left unfilled (it starts with TODO or contains
+// "TODO:") is an ERROR unfilled_placeholder.
 //
 // Exit 0 means no ERROR findings; WARN and INFO findings do not fail the run.
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+//
+// Importable too: `lintBundleData(bundle, { bundleDir })` lints a parsed bundle in process (the MCP
+// authoring route, packages/lesson-session-host/src/authoring-draft/), and importing this module
+// runs nothing.
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const DEFAULT_BUNDLES_ROOT = join(REPO_ROOT, "fixtures");
 const BUNDLE_FILENAME = "lesson.json";
 const MAX_BUNDLE_DEPTH = 2;
 const EXPECTED_CORRECT_CHOICES = 1;
@@ -80,6 +84,12 @@ const UNGRADED_KEY_CLASS = "ungraded";
 const UNKNOWN_KEY_CLASS = "unknown";
 const SELF_STUDY_MODE = "self_study";
 const TEACHER_MODE = "teacher";
+const DRAFTERS = new Set(["agent", "learner", "teacher"]);
+// The placeholder a skeleton leaves in a field to fill (tools/experience_packet.py writes
+// « TODO: … »); the same pattern as PLACEHOLDER_PATTERN there. Python's \b is Unicode-aware, so
+// the boundary after TODO is spelled out.
+const PLACEHOLDER_PATTERN = /^TODO(?![\p{L}\p{N}_])|TODO:/u;
+const PLACEHOLDER_EXCERPT_CHARS = 60;
 
 // Quarantines stay explicit and self-expiring. Both maps are intentionally empty.
 const KNOWN_BROKEN_BUNDLES = new Map([]);
@@ -95,6 +105,12 @@ function isRecord(value) {
 
 function isStringArray(value) {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+/** The checkout holding this file. Only the CLI's default run needs it: a bundled copy of this
+ * module has no file URL, so nothing may compute it at import. */
+function repoRoot() {
+  return resolve(dirname(fileURLToPath(import.meta.url)), "..");
 }
 
 /** Find lesson.json files no deeper than `find DIR -maxdepth 2`. */
@@ -153,8 +169,8 @@ function scanRoot(root, base) {
 
 function resolveTargets(parsed) {
   const isDefaultRun = parsed.root === null && parsed.files.length === 0;
-  const root = parsed.root ?? (isDefaultRun ? DEFAULT_BUNDLES_ROOT : null);
-  const scanned = root === null ? { targets: [], findings: [] } : scanRoot(root, isDefaultRun ? REPO_ROOT : root);
+  const root = parsed.root ?? (isDefaultRun ? join(repoRoot(), "fixtures") : null);
+  const scanned = root === null ? { targets: [], findings: [] } : scanRoot(root, isDefaultRun ? repoRoot() : root);
   const positional = parsed.files.map((file) => ({ file, name: displayPath(file, process.cwd()) }));
   const targets = new Map(scanned.targets.map((target) => [target.file, target]));
   for (const target of positional) targets.set(target.file, target);
@@ -458,6 +474,41 @@ function graphFindings(bundle) {
   ];
 }
 
+/** `todo-*` stays allowed in identifier fields (`id`, `*_id`, `*_ids`), never in visible prose. */
+function isAllowedPlaceholderId(value, key) {
+  const isIdentifier = key === "id" || (typeof key === "string" && (key.endsWith("_id") || key.endsWith("_ids")));
+  return isIdentifier && value.toLowerCase().startsWith("todo-");
+}
+
+function placeholderEntries(value, path, key) {
+  const at = (child) => (path === "" ? String(child) : `${path}.${child}`);
+  if (Array.isArray(value)) return value.flatMap((item, index) => placeholderEntries(item, at(index), key));
+  // `evidence` holds quoted source text (bibliographic_refs[].excerpt is copied verbatim from the
+  // source): a programming text that itself says "TODO:" is not a field the author left to fill.
+  if (isRecord(value)) {
+    return Object.entries(value).flatMap(([childKey, child]) =>
+      childKey === "evidence" ? [] : placeholderEntries(child, at(childKey), childKey));
+  }
+  if (typeof value !== "string" || isAllowedPlaceholderId(value, key)) return [];
+  return PLACEHOLDER_PATTERN.test(value.trimStart()) ? [{ path, text: value.trim() }] : [];
+}
+
+/**
+ * The dotted paths ("scenes.2.question", "metadata.discipline") of every string under `value` that
+ * still carries a skeleton placeholder: it starts with TODO or contains "TODO:". `todo-*` is allowed
+ * in identifier fields, and `evidence` (quoted source text) is never scanned. Mirrors placeholder_paths in tools/experience_packet.py.
+ */
+export function placeholderPaths(value) {
+  return placeholderEntries(value, "", null).map((entry) => entry.path);
+}
+
+function unfilledPlaceholderFindings(bundle) {
+  return placeholderEntries(bundle, "", null).map(({ path, text }) => {
+    const excerpt = text.length > PLACEHOLDER_EXCERPT_CHARS ? `${text.slice(0, PLACEHOLDER_EXCERPT_CHARS)}…` : text;
+    return finding("ERROR", "unfilled_placeholder", `${path}: unfilled placeholder ${JSON.stringify(excerpt)}`);
+  });
+}
+
 function sceneIdsByKeyClass(scenes) {
   const grouped = new Map();
   for (const scene of scenes.filter(isRecord)) {
@@ -478,19 +529,33 @@ function keyClassSummary(grouped) {
   return parts.join(" ");
 }
 
+/** Who drafted the keys: `drafted_by`, else by mode — the learner in self-study (the bundles built
+ * before drafted_by), the teacher otherwise. The rule of draftedByOf in lesson-session-host. */
+function draftedBy(authoring) {
+  if (DRAFTERS.has(authoring.drafted_by)) return authoring.drafted_by;
+  return authoring.mode === SELF_STUDY_MODE ? "learner" : TEACHER_MODE;
+}
+
+const KEY_HOLDER = { learner: "the learner who answers it", agent: "the agent that drafted it", teacher: "its author" };
+
 function selfStudyFindings(bundle, authoring) {
   const grouped = sceneIdsByKeyClass(Array.isArray(bundle.scenes) ? bundle.scenes : []);
   const validatedBy = JSON.stringify(bundle.validated_by ?? null);
+  const drafter = draftedBy(authoring);
   const findings = [finding("INFO", "self_study_authoring",
-    `mode=${SELF_STUDY_MODE} author_is_learner=${authoring.author_is_learner === true} validated_by=${validatedBy}; key classes: ${keyClassSummary(grouped)}`)];
+    `mode=${SELF_STUDY_MODE} author_is_learner=${authoring.author_is_learner === true} validated_by=${validatedBy} drafted_by=${drafter}; key classes: ${keyClassSummary(grouped)}`)];
   const authorKeyed = grouped.get("author_keyed") ?? [];
-  if (authorKeyed.length > 0) {
+  if (authorKeyed.length > 0 && drafter === "learner") {
     findings.push(finding("WARN", "self_study_open_book",
       `${authorKeyed.join(", ")}: answer key (choices[].correct, flaws_expected, sound_claims) written by the learner who answers it (open book)`));
   }
+  if (authorKeyed.length > 0 && drafter === "agent") {
+    findings.push(finding("WARN", "self_study_agent_key",
+      `${authorKeyed.join(", ")}: answer key (choices[].correct, flaws_expected, sound_claims) drafted by an agent from the learner's sources and not checked by a teacher; check each key against the passage it cites`));
+  }
   if (!grouped.has("production") && !grouped.has("externally_grounded")) {
     findings.push(finding("WARN", "self_study_no_external_key",
-      "no production or externally grounded scene: every graded scene is keyed by the learner who answers it; add a production scene judged by a model or an executed reproduction"));
+      `no production or externally grounded scene: every graded scene is keyed by ${KEY_HOLDER[drafter]}; add a production scene judged by a model or an executed reproduction`));
   }
   return findings;
 }
@@ -516,29 +581,40 @@ function uniqueFindings(findings) {
 
 function readBundle(target) {
   if (!existsSync(target.file) || !statSync(target.file).isFile()) {
-    return { bundle: null, findings: [finding("ERROR", "file_read_error", `not a file: ${target.file}`)] };
+    return { ok: false, findings: [finding("ERROR", "file_read_error", `not a file: ${target.file}`)] };
   }
   try {
-    return { bundle: JSON.parse(readFileSync(target.file, "utf8")), findings: [] };
+    return { ok: true, bundle: JSON.parse(readFileSync(target.file, "utf8")) };
   } catch (error) {
-    return { bundle: null, findings: [finding("ERROR", "invalid_json", error.message)] };
+    return { ok: false, findings: [finding("ERROR", "invalid_json", error.message)] };
   }
+}
+
+/**
+ * Lint one parsed bundle: `{ findings: [{ level, code, message }], waiversHit }`. `bundleDir` is the
+ * directory its relative asset paths resolve against (the folder of its lesson.json); `name` keys
+ * the KNOWN_FLAW_GAPS waivers. Pure apart from checking that those asset files exist.
+ */
+export function lintBundleData(bundle, { bundleDir, name = BUNDLE_FILENAME }) {
+  if (!isRecord(bundle)) return { findings: schemaFindings(bundle), waiversHit: [] };
+  const flawReport = flawRevealFindings(bundle, name);
+  const findings = uniqueFindings([
+    ...schemaFindings(bundle),
+    ...duplicateIdFindings(bundle),
+    ...quizAnswerKeyFindings(bundle),
+    ...unresolvedAssetFindings(bundle, bundleDir),
+    ...flawReport.findings,
+    ...graphFindings(bundle),
+    ...unfilledPlaceholderFindings(bundle),
+    ...authoringFindings(bundle),
+  ]);
+  return { findings, waiversHit: flawReport.waiversHit };
 }
 
 function lintBundle(target) {
   const loaded = readBundle(target);
-  if (loaded.bundle === null) return { findings: loaded.findings, waiversHit: [] };
-  const flawReport = flawRevealFindings(loaded.bundle, target.name);
-  const findings = uniqueFindings([
-    ...schemaFindings(loaded.bundle),
-    ...duplicateIdFindings(loaded.bundle),
-    ...quizAnswerKeyFindings(loaded.bundle),
-    ...unresolvedAssetFindings(loaded.bundle, dirname(target.file)),
-    ...flawReport.findings,
-    ...graphFindings(loaded.bundle),
-    ...authoringFindings(loaded.bundle),
-  ]);
-  return { findings, waiversHit: flawReport.waiversHit };
+  if (!loaded.ok) return { findings: loaded.findings, waiversHit: [] };
+  return lintBundleData(loaded.bundle, { bundleDir: dirname(target.file), name: target.name });
 }
 
 function applyKnownBundleQuarantine(target, result) {
@@ -586,4 +662,16 @@ function main(args) {
   return hasError ? 1 : 0;
 }
 
-process.exitCode = main(process.argv.slice(2));
+/** Whether node (or tsx) runs this file as its entry script, as opposed to importing it. A bundled
+ * copy has no file URL and is never the entry. */
+function isCliEntry() {
+  const script = process.argv[1];
+  if (!script || typeof import.meta.url !== "string" || !import.meta.url.startsWith("file:")) return false;
+  try {
+    return realpathSync(script) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isCliEntry()) process.exitCode = main(process.argv.slice(2));

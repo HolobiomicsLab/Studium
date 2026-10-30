@@ -86,18 +86,24 @@ class Concept(BaseModel):
 
 
 AuthoringMode = Literal["teacher", "self_study"]
+# Who drafted the content and its answer keys (contract C3, 2026-10-30; mirror of Zod DraftedBySchema).
+DraftedBy = Literal["agent", "learner", "teacher"]
 
 
 class BundleAuthoring(BaseModel):
     """Who wrote the bundle (mirror of Zod BundleAuthoringSchema).
 
     ``self_study``: the learner (or their agent) authored the lesson from
-    references they chose; author-keyed scenes (quiz, spot_the_flaw, …) carry a
-    key written by the person who will answer them.
+    references they chose; no teacher validated it. ``drafted_by`` says who
+    drafted the content and its keys: ``agent`` (from the learner's sources,
+    keys unseen by the learner), ``learner`` (open book) or ``teacher``. It is
+    absent on bundles built before 2026-10-30; readers then default it by
+    mode: ``learner`` for ``self_study``, ``teacher`` otherwise.
     """
 
     mode: AuthoringMode
     author_is_learner: bool = False
+    drafted_by: Optional[DraftedBy] = None
     note: Optional[str] = None
 
 
@@ -118,6 +124,9 @@ class _SceneBase(BaseModel):
     concept_refs: list[str] = Field(default_factory=list)
     estimated_seconds: int = Field(default=0, ge=0)
     adaptation_hooks: list[str] = Field(default_factory=list)
+    # ADR 014 evidence, on every scene type since 2026-10-30 (mirror of Zod SceneBaseSchema):
+    # each item may cite the passages it rests on.
+    evidence: Optional[Evidence] = None
 
 
 class QuizChoice(BaseModel):
@@ -129,14 +138,12 @@ class QuizChoice(BaseModel):
 class IntroScene(_SceneBase):
     type: Literal["intro"]
     markdown: str
-    evidence: Optional[Evidence] = None
 
 
 class ConceptScene(_SceneBase):
     type: Literal["concept"]
     markdown: str
     image_path: Optional[str] = None
-    evidence: Optional[Evidence] = None
 
 
 class QuizScene(_SceneBase):
@@ -167,7 +174,6 @@ class ReproductionScene(_SceneBase):
     task_card_id: str
     steps: list[ReproductionStep] = Field(min_length=1)
     prov_derived_from: Optional[str] = None
-    evidence: Optional[Evidence] = None
 
 
 class Claim(BaseModel):

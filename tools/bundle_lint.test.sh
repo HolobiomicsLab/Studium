@@ -93,6 +93,61 @@ grep -Fq "unknown=1 (s-hologram)" <<<"$OUTPUT" || { echo "FAIL: unknown scene ty
 node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));b.metadata.authoring={mode:'teacher'};fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$FIXTURES/clean/lesson.json" "$TMP/teacher.json"
 expect_clean "teacher authoring without a learner author" "$TMP/teacher.json"
 
+# Who drafted the key (metadata.authoring.drafted_by, contract C3): an agent-drafted key is not
+# open book, it is unchecked by a teacher; the INFO line names the effective drafter.
+node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));b.metadata.authoring={mode:'self_study',author_is_learner:false,drafted_by:'agent'};fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$FIXTURES/self-study-open-book/lesson.json" "$TMP/agent-drafted.json"
+expect_finding "agent-drafted self-study key" 0 "self_study_agent_key" "$TMP/agent-drafted.json"
+grep -Eq '^WARN  .+  self_study_agent_key  s-foundation-quiz-1, s-foundation-quiz-2: .*drafted by an agent.*not checked by a teacher' <<<"$OUTPUT" || { echo "FAIL: agent-key warning does not name the scenes and the unchecked agent key"; echo "$OUTPUT"; exit 1; }
+grep -Fq "self_study_open_book" <<<"$OUTPUT" && { echo "FAIL: an agent-drafted key was reported as open book"; echo "$OUTPUT"; exit 1; }
+grep -Fq 'drafted_by=agent; key classes:' <<<"$OUTPUT" || { echo "FAIL: self_study_authoring omits drafted_by"; echo "$OUTPUT"; exit 1; }
+run_lint "$FIXTURES/self-study-open-book/lesson.json"
+grep -Fq 'drafted_by=learner; key classes:' <<<"$OUTPUT" || { echo "FAIL: a pre-C3 learner bundle is not read as drafted by the learner"; echo "$OUTPUT"; exit 1; }
+echo "OK: drafted_by decides between open book and an unchecked agent key"
+
+# Unfilled skeleton placeholders (AUTH-1): a learner-visible or grading string that starts with TODO
+# or contains "TODO:" is an ERROR; todo-* stays allowed in identifier fields only.
+node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));const q=b.scenes[1];q.question='TODO: rédiger la question';q.choices[0].id='todo-correct';q.choices[1].text='TODO distracteur';b.metadata.discipline='TODO: discipline à préciser';b.scenes[0].markdown='Un texte fini qui cite la règle « TODO: » des squelettes.';fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$FIXTURES/self-study-open-book/lesson.json" "$TMP/placeholders.json"
+expect_finding "unfilled skeleton placeholders" 1 "unfilled_placeholder" "$TMP/placeholders.json"
+for path in "scenes.1.question" "scenes.1.choices.1.text" "metadata.discipline" "scenes.0.markdown"; do
+  grep -Eq "^ERROR  .+  unfilled_placeholder  $path: " <<<"$OUTPUT" || { echo "FAIL: placeholder at $path not reported as an ERROR"; echo "$OUTPUT"; exit 1; }
+done
+grep -Fq 'scenes.1.question: unfilled placeholder "TODO: rédiger la question"' <<<"$OUTPUT" || { echo "FAIL: the placeholder finding does not quote the text"; echo "$OUTPUT"; exit 1; }
+grep -Fq "choices.0.id" <<<"$OUTPUT" && { echo "FAIL: a todo-* identifier was reported"; echo "$OUTPUT"; exit 1; }
+[ "$(grep -c '  unfilled_placeholder  ' <<<"$OUTPUT")" -eq 4 ] || { echo "FAIL: expected exactly 4 placeholder findings"; echo "$OUTPUT"; exit 1; }
+node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));b.scenes[1].task_card_id='TODO:s-repro:task-card';b.scenes[1].steps[0].step_id='TODO-step';fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$BASE" "$TMP/placeholder-id.json"
+expect_finding "placeholder inside an identifier field" 1 "unfilled_placeholder" "$TMP/placeholder-id.json"
+grep -Fq "scenes.1.task_card_id: " <<<"$OUTPUT" || { echo "FAIL: a TODO: task card id was not reported"; echo "$OUTPUT"; exit 1; }
+grep -Fq "step_id" <<<"$OUTPUT" && { echo "FAIL: a TODO-* step id was reported"; echo "$OUTPUT"; exit 1; }
+echo "OK: unfilled placeholders are ERRORs, todo-* identifiers are not"
+
+# A quoted source is not the author's placeholder: evidence excerpts are copied verbatim from the
+# source, and a programming text that itself holds "TODO:" must not make the lesson unfixable.
+node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));b.scenes[1].evidence={bibliographic_refs:[{id:'ref-1',title:'Notes de code',excerpt:'// TODO: handle the empty list'}]};fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$FIXTURES/self-study-open-book/lesson.json" "$TMP/evidence-todo.json"
+run_lint "$TMP/evidence-todo.json"
+grep -Fq "unfilled_placeholder" <<<"$OUTPUT" && { echo "FAIL: a quoted source holding TODO: was reported as an unfilled placeholder"; echo "$OUTPUT"; exit 1; }
+node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));b.scenes[1].question='TODO: rédiger la question';fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$TMP/evidence-todo.json" "$TMP/evidence-todo-and-question.json"
+expect_finding "a real placeholder beside a quoted TODO: is still reported" 1 "unfilled_placeholder" "$TMP/evidence-todo-and-question.json"
+[ "$(grep -c '  unfilled_placeholder  ' <<<"$OUTPUT")" -eq 1 ] || { echo "FAIL: only the question should be reported"; echo "$OUTPUT"; exit 1; }
+grep -Eq "unfilled_placeholder  [^ ]*evidence" <<<"$OUTPUT" && { echo "FAIL: the evidence excerpt was reported"; echo "$OUTPUT"; exit 1; }
+echo "OK: evidence (quoted source text) is not scanned for placeholders"
+
+# The lint core is importable (the MCP authoring route lints in process) without running the CLI.
+set +e
+IMPORT_OUTPUT="$(node --input-type=module -e "
+import { lintBundleData, placeholderPaths } from '$LINT';
+import { readFileSync } from 'node:fs';
+const bundle = JSON.parse(readFileSync('$TMP/placeholders.json', 'utf8'));
+const { findings } = lintBundleData(bundle, { bundleDir: '$TMP' });
+const codes = findings.filter((item) => item.level === 'ERROR').map((item) => item.code);
+if (codes.length !== 4 || codes.some((code) => code !== 'unfilled_placeholder')) { console.error(JSON.stringify(findings)); process.exit(3); }
+if (JSON.stringify(placeholderPaths({ a: ['TODO: x'], id: 'todo-1' })) !== JSON.stringify(['a.0'])) process.exit(4);
+" 2>&1)"
+IMPORT_STATUS=$?
+set -e
+[ "$IMPORT_STATUS" -eq 0 ] || { echo "FAIL: importing the lint core failed ($IMPORT_STATUS)"; echo "$IMPORT_OUTPUT"; exit 1; }
+[ -z "$IMPORT_OUTPUT" ] || { echo "FAIL: importing the lint core ran the CLI"; echo "$IMPORT_OUTPUT"; exit 1; }
+echo "OK: the lint core is importable without running the CLI"
+
 # --root visits every */lesson.json at depth <= 2 and aggregates failures.
 run_lint --root "$FIXTURES"
 [ "$STATUS" -eq 1 ] || { echo "FAIL: fixture root should fail on ERROR findings"; echo "$OUTPUT"; exit 1; }
@@ -118,6 +173,9 @@ claims:[{id:'c1',text:'t',flaws_expected:['hund']}],model_correction});"
 mutate() {
   node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));$PRELUDE$2;fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$BASE" "$TMP/$1"
 }
+
+printf 'null' > "$TMP/null.json"
+expect_finding "a JSON null is not a bundle" 1 "schema_invalid" "$TMP/null.json"
 
 mutate dup.json "b.scenes.push(JSON.parse(JSON.stringify(b.scenes[0])))"
 expect_finding "duplicate scene id" 1 "duplicate_scene_id" "$TMP/dup.json"

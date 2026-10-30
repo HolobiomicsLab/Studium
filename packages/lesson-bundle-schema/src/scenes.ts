@@ -80,6 +80,11 @@ export const SceneBaseSchema = z.object({
   // explicit typed artifacts shown pair-by-pair with this scene/cell (orbital, spectrum, equation,
   // plot…). Flattened into the render manifest by sceneRenderAssets(); optional + back-compatible.
   render_assets: z.array(RenderAssetSchema).optional(),
+  // ADR 014 evidence, on every scene type since 2026-10-30 (it was declared on intro, concept and
+  // reproduction only, and silently dropped elsewhere): the conversational author binds each item to
+  // the passages it cites. On a graded scene a cited passage can state the answer, so a client
+  // projection must not ship it before the learner has answered.
+  evidence: EvidenceSchema.optional(),
 });
 
 // ADR 010 — flat shape : champs métier à la racine, pas d'enveloppe `content`.
@@ -87,14 +92,12 @@ export const SceneBaseSchema = z.object({
 export const IntroSceneSchema = SceneBaseSchema.extend({
   type: z.literal("intro"),
   markdown: z.string(),
-  evidence: EvidenceSchema.optional(),
 });
 
 export const ConceptSceneSchema = SceneBaseSchema.extend({
   type: z.literal("concept"),
   markdown: z.string(),
   image_path: z.string().optional(),
-  evidence: EvidenceSchema.optional(),
 });
 
 const ChoiceSchema = z.object({
@@ -169,7 +172,6 @@ export const ReproductionSceneSchema = SceneBaseSchema.extend({
   // OPTIONAL learner-time run: when present, the scene is reproduced BY THE LEARNER at session time
   // (the host/operator provisions + runs it), not merely shown as a pre-baked author run.
   run_manifest: RunManifestSchema.optional(),
-  evidence: EvidenceSchema.optional(),
 });
 
 export const ClaimSchema = z.object({

@@ -13,6 +13,7 @@ export * from "./rules";
 export * from "./blueprint";
 export * from "./learner-item";
 export * from "./course";
+export * from "./errors";
 
 export const BloomLevelSchema = z.enum([
   "remember", "understand", "apply", "analyze", "evaluate", "create",
@@ -30,16 +31,25 @@ export const ConceptSchema = z.object({
  * Who wrote the bundle, so that every surface can say it honestly.
  * `teacher`: the ordinary route (a teacher drafts, reviews and validates).
  * `self_study`: the learner (or their agent) authored the lesson from references
- * they chose themselves; the answer keys of author-keyed scenes (quiz,
- * spot_the_flaw, …) were written by the person who will answer them.
+ * they chose themselves; no teacher validated it.
  */
 export const AuthoringModeSchema = z.enum(["teacher", "self_study"]);
+/**
+ * Who drafted the content and its answer keys (contract C3, sprint 2026-10-30), which `mode`
+ * alone does not say: `agent` (a harness agent, from sources the learner chose; the learner has
+ * not seen the keys), `learner` (open book: the person who answers wrote the key) or `teacher`.
+ */
+export const DraftedBySchema = z.enum(["agent", "learner", "teacher"]);
 export const BundleAuthoringSchema = z.object({
   mode: AuthoringModeSchema,
   author_is_learner: z.boolean().default(false),
+  /** Absent on bundles built before 2026-10-30; readers then default it by mode: `learner` for a
+   * self-study bundle, `teacher` otherwise (draftedByOf in @studium/lesson-session-host). */
+  drafted_by: DraftedBySchema.optional(),
   note: z.string().optional(),
 });
 export type AuthoringMode = z.infer<typeof AuthoringModeSchema>;
+export type DraftedBy = z.infer<typeof DraftedBySchema>;
 export type BundleAuthoring = z.infer<typeof BundleAuthoringSchema>;
 
 export const BundleMetadataSchema = z.object({

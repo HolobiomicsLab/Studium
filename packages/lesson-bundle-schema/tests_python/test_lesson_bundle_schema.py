@@ -289,8 +289,77 @@ def test_metadata_authoring_is_optional_and_mirrors_zod():
     meta = BundleMetadata(**base, authoring={"mode": "self_study"})
     assert meta.authoring == BundleAuthoring(mode="self_study", author_is_learner=False, note=None)
     full = BundleAuthoring(mode="self_study", author_is_learner=True, note="Durkheim ch. 1")
-    assert full.model_dump() == {"mode": "self_study", "author_is_learner": True, "note": "Durkheim ch. 1"}
+    assert full.model_dump() == {
+        "mode": "self_study", "author_is_learner": True, "drafted_by": None, "note": "Durkheim ch. 1",
+    }
     import pytest
 
     with pytest.raises(Exception):
         BundleAuthoring(mode="peer")
+
+
+@pytest.mark.parametrize("drafted_by", ["agent", "learner", "teacher"])
+def test_metadata_authoring_drafted_by_mirrors_zod(drafted_by):
+    """C3 (sprint 2026-10-30): who drafted the content and its keys, optional like in Zod."""
+    from lesson_bundle_schema import BundleAuthoring
+
+    assert BundleAuthoring(mode="self_study", drafted_by=drafted_by).drafted_by == drafted_by
+    assert BundleAuthoring(mode="self_study").drafted_by is None
+
+
+def test_metadata_authoring_rejects_an_unknown_drafter():
+    from lesson_bundle_schema import BundleAuthoring
+
+    with pytest.raises(Exception):
+        BundleAuthoring(mode="self_study", drafted_by="model")
+
+
+_EVIDENCE = {
+    "bibliographic_refs": [{
+        "perspicacite_doc_id": "p:source:1", "title": "Source", "authors": [], "excerpt": "un extrait exact",
+        "relevance_score": 1, "prov_derived_from": "https://example.org/source",
+    }],
+    "enrichment_metadata": {
+        "enricher_version": "test/1", "perspicacite_mode_used": "passages",
+        "timestamp": "2026-10-30T00:00:00Z", "degraded": False,
+    },
+}
+_RUBRIC = {"completeness": 0.6, "evidence_quality": 0.3, "tone": 0.1}
+_KEY_POINTS = [{"id": "kp1", "text": "k", "cues": ["k"]}]
+_FLAW_CLAIMS = [{"id": "c1", "text": "t", "flaws_expected": ["f"]}]
+_SCENE_FIELDS = {
+    "intro": {"markdown": "m"},
+    "concept": {"markdown": "m"},
+    "quiz": {"question": "q", "choices": [{"id": "a", "text": "A", "correct": True}, {"id": "b", "text": "B", "correct": False}],
+             "feedback_correct": "y", "feedback_incorrect": "n"},
+    "meta_checkpoint": {"pre_question": "a", "post_question": "b", "scale_labels": ["1", "2", "3", "4", "5"]},
+    "reproduction": {"task_card_id": "t", "steps": [{"step_id": "1", "instruction": "i", "expected_input_schema": {}, "expected_output": "o"}]},
+    "ai_critique": {"claims": _FLAW_CLAIMS, "rubric": _RUBRIC},
+    "discussion": {"topic": "t", "seed_claim": "s", "target_signals": ["justification"], "max_turns": 4},
+    "spot_the_flaw": {"flawed_content": "x", "claims": _FLAW_CLAIMS, "model_correction": "f", "rubric": _RUBRIC},
+    "explain_back": {"prompt": "p", "key_points": _KEY_POINTS, "model_explanation": "m", "rubric": _RUBRIC},
+    "comparison": {"prompt": "p", "artifact_a": "a", "artifact_b": "b", "key_points": _KEY_POINTS, "model_answer": "m", "rubric": _RUBRIC},
+    "summary_audit": {"source_content": "s", "ai_summary": "a", "claims": _FLAW_CLAIMS, "model_correction": "f", "rubric": _RUBRIC},
+    "prompt_practice": {"task": "t", "key_points": _KEY_POINTS, "model_prompt": "m", "rubric": _RUBRIC},
+    "communication_sim": {"scenario": "s", "prompt": "p", "key_points": _KEY_POINTS, "model_response": "m", "rubric": _RUBRIC},
+}
+
+
+def test_scene_evidence_fixture_covers_every_scene_type():
+    from typing import get_args
+    from lesson_bundle_schema import SceneType
+
+    assert sorted(_SCENE_FIELDS) == sorted(get_args(SceneType))
+
+
+@pytest.mark.parametrize("scene_type", sorted(_SCENE_FIELDS))
+def test_every_scene_type_keeps_its_evidence(scene_type):
+    """Mirror of scene-evidence.test.ts: evidence is declared on every scene since 2026-10-30."""
+    from pydantic import TypeAdapter
+    from lesson_bundle_schema import Scene
+
+    scene = {"id": f"s-{scene_type}", "type": scene_type, "title": "T", "concept_refs": ["c1"],
+             **_SCENE_FIELDS[scene_type], "evidence": _EVIDENCE}
+    parsed = TypeAdapter(Scene).validate_python(scene)
+    assert parsed.evidence is not None
+    assert parsed.evidence.model_dump(mode="json", exclude_none=True) == _EVIDENCE
