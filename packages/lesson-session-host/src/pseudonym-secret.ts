@@ -24,7 +24,7 @@
 // legacy secret; and a folder holding no learner any more — every one of them forgotten — gets its
 // own secret, whatever keyed it before. The data folder is created 0700.
 import { randomBytes } from "node:crypto";
-import { linkSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, linkSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const SECRET_FILE = ".studium-secret";
@@ -58,6 +58,7 @@ function readSecret(file: string): string | null {
   if (!secret) {
     throw new Error(`${file} is empty: restore it from a backup, or set STUDIUM_PSEUDO_SECRET to the secret this data folder was written with`);
   }
+  chmodSync(file, 0o600);
   return secret;
 }
 
@@ -81,12 +82,14 @@ export function holdsLearners(dataDir: string): boolean {
 /** The folder's marker, or null when it has none. A marker that says anything else reads as `install`:
  * the folder is then refused rather than keyed by the legacy secret. */
 export function readKeySource(dataDir: string): KeySource | null {
+  const file = join(dataDir, KEY_SOURCE_FILE);
   let text: string;
-  try { text = readFileSync(join(dataDir, KEY_SOURCE_FILE), "utf8"); }
+  try { text = readFileSync(file, "utf8"); }
   catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
   }
+  chmodSync(file, 0o600);
   const source = text.trim();
   return source === "legacy" || source === "env" ? source : "install";
 }
@@ -94,26 +97,29 @@ export function readKeySource(dataDir: string): KeySource | null {
 /** Write the marker: only when there is none, or `replace` it whole (temporary file and rename). */
 function writeKeySource(dataDir: string, source: KeySource, opts: { replace?: boolean } = {}): void {
   const file = join(dataDir, KEY_SOURCE_FILE);
-  if (!opts.replace) {
-    try { writeFileSync(file, `${source}\n`, { mode: 0o600, flag: "wx" }); }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
-    return;
-  }
   const pending = `${file}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
-  writeFileSync(pending, `${source}\n`, { mode: 0o600, flag: "wx" });
-  try { renameSync(pending, file); }
-  catch (error) { rmSync(pending, { force: true }); throw error; }
+  try {
+    writeFileSync(pending, `${source}\n`, { mode: 0o600, flag: "wx" });
+    if (opts.replace) renameSync(pending, file);
+    else linkSync(pending, file);
+  } catch (error) {
+    if (opts.replace || (error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  } finally { rmSync(pending, { force: true }); }
+  chmodSync(file, 0o600);
 }
 
 /** L-11: a durable host keying learners with STUDIUM_PSEUDO_SECRET records it in a folder that has no
  * marker yet, so that unsetting the variable later is refused instead of orphaning those learners. */
 export function markEnvKeyed(dataDir: string): void {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+  chmodSync(dataDir, 0o700);
   writeKeySource(dataDir, "env");
 }
 
 /** The pseudonym secret of the durable data folder `dataDir` when STUDIUM_PSEUDO_SECRET is unset. */
 export function installSecret(dataDir: string): InstallSecret {
+  mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+  chmodSync(dataDir, 0o700);
   const file = join(dataDir, SECRET_FILE);
   const existing = readSecret(file);
   if (existing) {
@@ -141,7 +147,6 @@ export function installSecret(dataDir: string): InstallSecret {
   }
   // No learner folder: a fresh folder, or one every learner was erased from — its own secret, whatever
   // keyed it before (the legacy secret is never used again after the last of its learners is forgotten).
-  mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const secret = randomBytes(32).toString("hex");
   const pending = join(dataDir, `${SECRET_FILE}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`);
   writeFileSync(pending, `${secret}\n`, { mode: 0o600, flag: "wx" });

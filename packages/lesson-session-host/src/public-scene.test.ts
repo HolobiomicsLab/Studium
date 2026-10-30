@@ -220,4 +220,14 @@ describe("publicScene — cited passages", () => {
     expect(citedSources(quiz)).toEqual([{ title: "Cours", quote: "La réponse est trois.", url: "https://example.org/cours" }]);
     expect(citedSources(base("quiz") as unknown as Scene)).toEqual([]);
   });
+
+  it("carries a citation's licence with its title and URL", () => {
+    const scene = { ...base("concept"), evidence: {
+      ...EVIDENCE,
+      bibliographic_refs: [{ ...EVIDENCE.bibliographic_refs[0], license: "CC BY-SA 4.0" }],
+    } } as unknown as Scene;
+    expect(citedSources(scene)).toEqual([{
+      title: "Cours", quote: "La réponse est trois.", url: "https://example.org/cours", license: "CC BY-SA 4.0",
+    }]);
+  });
 });

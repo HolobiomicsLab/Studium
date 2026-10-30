@@ -6,7 +6,7 @@
 // well. Both leave no empty pseudonym folder behind, and both say what is kept: the lessons in the
 // library and the sources they were built from (and, for one lesson, the progress in the others).
 import { describe, it, expect, afterEach } from "vitest";
-import { existsSync, mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { SessionHost } from "./host.js";
@@ -66,6 +66,9 @@ describe("forgetLearner (L-13): no live session needed, every lesson erased", ()
     await host.close(await play("atomes/lesson.json", "ana"));
     await host.close(await play("liaisons/lesson.json", "ana"));
     const open = await play("liaisons/lesson.json", "ana"); // still open when the learner asks
+    const anaLockDir = tree(data).find((p) => p.startsWith(".learner-locks/") &&
+      !p.slice(".learner-locks/".length).includes("/") && !bensFiles.includes(p));
+    expect(anaLockDir).toBeDefined();
 
     const report = await host.forgetLearner("ana");
     expect(report).toMatchObject({ forgotten: true, scope: "learner" });
@@ -86,12 +89,15 @@ describe("forgetLearner (L-13): no live session needed, every lesson erased", ()
     expect(report.display_markdown).toContain(join(library, "_sources"));
     expect(report.display_markdown).not.toContain("pseudonym");
 
-    // Nothing of ana is left, not even an empty folder; ben's data is untouched.
-    expect(tree(data)).toEqual(bensFiles);
+    // L-11 retains only a random forget generation outside the erased learner folders. It stops
+    // another process's old session resurrecting ana; ben's files and every deletion stay checked.
+    expect(tree(data)).toEqual([...bensFiles, anaLockDir, `${anaLockDir}/tombstone`].sort());
+    expect(readFileSync(join(data, anaLockDir!, "tombstone"), "utf8")).toMatch(/^[0-9a-f]{32}\n$/);
     expect(host.has(open)).toBe(false);
     const again = await host.create("atomes/lesson.json", "ana");
     expect(again.resume).toMatchObject({ kind: "new", scenes_completed: 0 });
-    expect((again.presentation as { learnerSnapshot: { conceptMastery: object } }).learnerSnapshot.conceptMastery).toEqual({});
+    // L-6 explicitly lists unmeasured concepts as null rather than leaving the map empty.
+    expect(again.presentation.learnerSnapshot.conceptMastery).toEqual({ "c-a": null });
     expect((await host.create("atomes/lesson.json", "ben")).resume.scenes_completed).toBe(1);
   });
 
@@ -123,8 +129,8 @@ describe("forget(session) (L-13): this lesson, the profile and the schedule", ()
     ]);
     expect(report.kept[0]).toEqual({ kind: "other_lessons_progress", lessons: ["Les atomes"] });
     expect(report.display_markdown).toContain("Les atomes");
-    // Only the other lesson's folder is left: no empty folder of the erased lesson or the profile.
-    expect(tree(data)).toEqual(atomesOnly);
+    // L-11 adds only the forget generation; the erased lesson/profile folders must still be gone.
+    expect(tree(data)).toEqual([...atomesOnly, `.learner-locks/${profileDir}/tombstone`].sort());
     for (const entry of readdirSync(data, { withFileTypes: true })) {
       if (entry.isDirectory()) expect(readdirSync(join(data, entry.name)).length).toBeGreaterThan(0);
     }

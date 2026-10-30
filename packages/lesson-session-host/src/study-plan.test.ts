@@ -90,12 +90,28 @@ describe("buildStudyPlan", () => {
     // L-4: the arguments carry the plan's language to start_review_session (they used to carry learner_id alone).
     expect(plan.next_step).toEqual({
       action: "review", tool: "start_review_session", arguments: { learner_id: "ana", language: "fr" },
-      text: "tu as 1 notion(s) à revoir (Notion c-a). Lance une séance de révision.",
+      // L-5 changed this expected learner-facing copy: Studium now chooses the real singular form.
+      text: "tu as 1 notion à revoir (Notion c-a). Lance une séance de révision.",
     });
     expect(plan.due_reviews).toEqual([expect.objectContaining({
       concept_id: "c-a", concept: "Notion c-a", lesson: { bundle_ref: "a/lesson.json", title: "Atomes" }, scene_id: "s-q",
     })]);
     expect(plan.display_markdown).toContain("**À réviser**");
+  });
+
+  it("uses real French plural forms, typographic spaces and overdue wording in the supplied time zone (L-5)", () => {
+    const memory = { "c-a": mem("c-a", NOW - 30 * DAY), "c-b": mem("c-b", NOW - 20 * DAY) };
+    const mastery = { "c-a": 0.9, "c-b": 0.9 };
+    const plan = buildStudyPlan(input({
+      memory, mastery, timeZone: "Pacific/Kiritimati",
+      catalog: catalogOf(lessonEntry("a/lesson.json", "lesson-a", "Atomes", ["c-a", "c-b"])),
+    }));
+    expect(plan.next_step.text).toContain("tu as 2 notions à revoir");
+    expect(plan.next_step.text).not.toMatch(/notion\(s\)/);
+    expect(plan.display_markdown).toMatch(/en retard depuis le [^\n]+/);
+    expect(plan.display_markdown).not.toContain("prévu le");
+    expect(plan.display_markdown).toContain("**Maintenant\u00a0:**");
+    expect(plan.display_markdown).not.toContain(" :");
   });
 
   it("then a lesson in progress, then the newest library lesson not started, then authoring", () => {
@@ -105,6 +121,14 @@ describe("buildStudyPlan", () => {
       .toMatchObject({ action: "start", arguments: { bundle_ref: "c/lesson.json" } });
     expect(buildStudyPlan(input()).next_step).toMatchObject({ action: "author", tool: "get_authoring_guide" });
   });
+
+  it.each([[1, 3, "1 of 3 steps"], [2, 3, "2 of 3 steps"], [1, 1, "1 of 1 step"]] as const)(
+    "agrees English progress plurals with the total (%s of %s)", (done, total, expected) => {
+      const progress = { ...record, lessons: { "lesson-b": {
+        ...record.lessons["lesson-b"]!, scenes_completed: done, total_scenes: total,
+      } } };
+      expect(buildStudyPlan(input({ record: progress, catalog, locale: "en" })).display_markdown).toContain(expected);
+    });
 
   it("offers a lesson of the bundles root when the library has none to start", () => {
     const shared = lessonEntry("cours/lesson.json", "cours", "Cours du prof", ["c-x"], { root: "bundles" });

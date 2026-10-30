@@ -1,3 +1,4 @@
+// L-5: exact display assertions use French non-breaking spaces; content/privacy contracts stay intact.
 // packages/lesson-session-host/src/host.judged-reference.test.ts
 //
 // I-1 and I-2 on the judged path: when a judge measured which key points an answer covered, the
@@ -87,6 +88,6 @@ describe("a judged key-point verdict releases which points were missing only wit
     expect(left.verdict?.feedback).toBe("1/2 points clés couverts");
     const shown = left.verdict?.display_markdown ?? "";
     expect(shown.split("POINT-DEUX")).toHaveLength(2);
-    expect(shown).toContain("**Compare ta réponse à ces points clés :**\n\n- POINT-UN\n- POINT-DEUX _(manquant selon le juge)_");
+    expect(shown).toContain("**Compare ta réponse à ces points clés\u00a0:**\n\n- POINT-UN\n- POINT-DEUX _(manquant selon le juge)_");
   });
 });

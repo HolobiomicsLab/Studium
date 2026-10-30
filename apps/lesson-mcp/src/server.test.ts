@@ -458,7 +458,8 @@ describe("lesson-mcp tools", () => {
       const cold = parse(await client.callTool({
         name: "start_lesson_session", arguments: { bundle_ref: "B.json", learner_id: "erase-me" },
       }) as never);
-      expect((cold.presentation as { learnerSnapshot: { conceptMastery: object } }).learnerSnapshot.conceptMastery).toEqual({});
+      // L-6: a fresh, unmeasured concept is explicit null, never zero or an absent entry.
+      expect((cold.presentation as { learnerSnapshot: { conceptMastery: object } }).learnerSnapshot.conceptMastery).toEqual({ "c-shared": null });
       expect(cold.resume).toEqual({ kind: "new", scene_id: "b-intro", scenes_completed: 0 });
     });
   });
@@ -564,14 +565,14 @@ describe("lesson-mcp — learner-time run protocol parity (run.json / run_result
   });
 });
 
-const OPEN_BOOK_FR = "Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). ";
+const OPEN_BOOK_FR = "Leçon auto-rédigée\u00a0: les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). ";
 // D5 (sprint 2026-10-30): without a judge the notice no longer promises keyword feedback; it says the
-// learner compares with the model answer and that their self-rating schedules reviews, never mastery.
+// learner compares with the reference and their self-rating schedules reviews, never mastery.
+// B2: L-5 uses tu/French spacing; RFR-09 omits reproduction claims from this intro + quiz fixture.
 const SELF_STUDY_NOTICE_FR_WITHOUT_JUDGE = OPEN_BOOK_FR + "Sans juge modèle, les scènes de production ne sont pas " +
-  "évaluées : comparez votre réponse à la réponse modèle et notez votre rappel ; cette note règle vos révisions, " +
-  "jamais votre maîtrise. Seules les reproductions exécutées portent une évaluation externe.";
-const SELF_STUDY_NOTICE_FR_WITH_JUDGE = OPEN_BOOK_FR + "Les scènes de production, jugées par le modèle, et les " +
-  "reproductions exécutées portent l'évaluation.";
+  "évaluées\u00a0: compare ta réponse à la référence affichée et note ton rappel\u202f; cette note règle tes révisions, " +
+  "jamais ta maîtrise.";
+const SELF_STUDY_NOTICE_FR_WITH_JUDGE = OPEN_BOOK_FR + "Les scènes de production sont évaluées par le modèle.";
 const SELF_STUDY_BUNDLE = {
   ...MINI, bundle_id: "self-001",
   metadata: { ...MINI.metadata, authoring: { mode: "self_study", author_is_learner: true } },
@@ -616,9 +617,9 @@ describe("lesson-mcp — community bundles and authoring", () => {
   it("start_lesson_session says who wrote the lesson, top-level and on every presentation", async () => {
     const teacherClient = await connect(bundlesDir());
     const teacher = parse(await teacherClient.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json" } }) as never);
-    // C5: the block also says whether an approval record is bound to this lesson.json (none here).
+    // C5 adds approval; B2 also exposes the drafter, inferred for older bundles without a declaration.
     const teacherBlock = {
-      mode: "teacher", author_is_learner: false, validated: true, judge: false, notice: null,
+      mode: "teacher", author_is_learner: false, drafted_by: "teacher", validated: true, judge: false, notice: null,
       approval: { recorded: false, matches: false },
     };
     expect(teacher.authoring).toEqual(teacherBlock);
@@ -629,7 +630,7 @@ describe("lesson-mcp — community bundles and authoring", () => {
     const client = await connect(d);
     const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "self.json" } }) as never);
     const block = {
-      mode: "self_study", author_is_learner: true, validated: false, judge: false, notice: SELF_STUDY_NOTICE_FR_WITHOUT_JUDGE,
+      mode: "self_study", author_is_learner: true, drafted_by: "learner", validated: false, judge: false, notice: SELF_STUDY_NOTICE_FR_WITHOUT_JUDGE,
       approval: { recorded: false, matches: false }, // C5
     };
     expect(started.authoring).toEqual(block);
@@ -652,7 +653,8 @@ describe("lesson-mcp — community bundles and authoring", () => {
       const client = await connect(d, true);
       const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "self.json" } }) as never);
       expect(started.authoring).toEqual({
-        mode: "self_study", author_is_learner: true, validated: false, judge: true, notice: SELF_STUDY_NOTICE_FR_WITH_JUDGE,
+        // B2 exposes the learner drafter here too, independently of judge availability.
+        mode: "self_study", author_is_learner: true, drafted_by: "learner", validated: false, judge: true, notice: SELF_STUDY_NOTICE_FR_WITH_JUDGE,
         approval: { recorded: false, matches: false }, // C5
       });
     } finally {

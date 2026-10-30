@@ -7,29 +7,45 @@
 //
 // After an answer the text comes in two parts, shown in this order:
 //   verdict.display_markdown  what the learner earned by answering: the verdict, the feedback, the
-//                             reference a key-point, audit or critique scene is compared against (its
-//                             key points, planted flaws or flawed claims, and its model answer: lead
+//                             reference the answer is compared against (the correct choice, key
+//                             points, planted flaws or flawed claims, and its model answer: lead
 //                             decision I-1, integration tail T3), the cited passages and the
 //                             self-rating request (verdictMarkdown);
 //   display_markdown          where the lesson goes next, in words, then the next scene or the end
 //                             of the lesson (transitionMarkdown).
-// The split keeps one invariant every transport already checks: outside `verdict`, a transition is
-// the public projection of the next scene, so a cited passage or a model answer never sits there.
+// Outside `verdict`, a transition is the public projection of the next scene. Reading scenes carry
+// their sources there; passages that reveal a graded answer remain withheld until it is released.
 //
 // Two rules hold by construction:
 //   - the scene is read through `publicScene`, so no answer key can reach the text before the answer;
 //   - no mastery number, rule id, modulator or internal reason code is ever printed.
-// The scene-type layout follows apps/studium-vscode/src/chat-format.ts, the @studium participant's
-// formatter, so the pane's chat and any MCP harness read the same way.
-import type { Presentation, Transition } from "@studium/lesson-session";
+// This module is the canonical learner-facing chat rendering. Clients, including the VS Code chat,
+// stream its `display_markdown`; their local formatters are compatibility fallbacks for older hosts.
+import type { CompletionSummary, Presentation, Transition } from "@studium/lesson-session";
 import type { Scene } from "@studium/lesson-bundle-schema";
-import { publicScene, type CitedSource } from "./public-scene.js";
+import {
+  publicScene, citedSources, type CitedSource, type PublicPresentation,
+  type PublicTransition,
+} from "./public-scene.js";
 import { FREE_TEXT_KIND } from "./operator-context.js";
+import { frenchSpacing } from "../../lesson-session/src/phrases.js";
+import { MIN_MASTERY_ATTEMPTS } from "../../lesson-session/src/graph-nav.js";
+import { REVIEW_MIN_MASTERY } from "./study-plan.js";
 
 export type DisplayLocale = "fr" | "en";
 
-/** What the host knows beyond the transport objects: titles to name scenes and concepts in words. */
+export interface DisplayAuthoring {
+  drafted_by?: "agent" | "learner" | "teacher";
+  approval?: { recorded: boolean; matches: boolean };
+}
+
+export type DisplayPresentation = PublicPresentation & {
+  authoring?: NonNullable<Presentation["authoring"]> & DisplayAuthoring;
+};
+
+/** What the host knows beyond the transport objects. */
 export interface DisplayContext {
+  /** Kept for source compatibility; navigation deliberately ignores scene ids and titles. */
   sceneTitle?: (sceneId: string) => string | undefined;
   conceptLabel?: (conceptId: string) => string;
   /** Locale of a `complete` transition, which carries no presentation. */
@@ -38,6 +54,14 @@ export interface DisplayContext {
   review?: boolean;
   /** The time zone review dates are printed in (calendar.ts): the host's, the one its JSON dates use. */
   timeZone?: string;
+  /** Needed on a complete transition, which carries no presentation, for keyed-verdict provenance. */
+  authoring?: DisplayAuthoring;
+}
+
+export interface CompletionSplit {
+  consolidated: string[];
+  practised: Array<{ concept_id: string; answers: number }>;
+  not_measured: string[];
 }
 
 /** Host additions to a served transition (see host.ts servedTransition). */
@@ -46,6 +70,8 @@ export interface TransitionExtras {
   review_plan?: { next_due_at: number | null; concepts: readonly string[] };
   /** L-11: the learner's progress could not be saved; the transition says so first. */
   persistence_warning?: string;
+  /** L-6: the host-computed completion categories consumed by every client. */
+  completion?: CompletionSplit;
 }
 
 const PHRASES = {
@@ -54,6 +80,7 @@ const PHRASES = {
     review_progress: "Révision {n} sur {total}",
     not_durable: "Attention : ta progression n'est gardée qu'en mémoire et sera perdue au redémarrage du serveur.",
     not_saved: "Attention : ta progression n'a pas pu être enregistrée ; cette séance continue.",
+    stale_approval: "Attention : cette leçon a été modifiée depuis son approbation par l'enseignant.",
     ai_reading: "**Lecture IA à auditer** : juge chaque affirmation.",
     ai_summary: "**Résumé IA à auditer**",
     source: "**Source**",
@@ -73,25 +100,35 @@ const PHRASES = {
     verdict_correct: "✓ **Juste.**",
     verdict_incorrect: "✗ **Pas tout à fait.**",
     verdict_recorded: "**Réponse enregistrée.** Aucun juge ne l'a évaluée.",
+    verdict_key_recorded: "**Réponse comparée à la clé.** Aucun résultat global n'est affirmé.",
+    verdict_judge_measured: "**Mesure enregistrée.** Le juge a mesuré les éléments cités, sans certifier de résultat global.",
     verdict_confidence: "**Confiance enregistrée.**",
     source_heading: "**Source**",
     sources_heading: "**Sources**",
     reference_key_points: "**Compare ta réponse à ces points clés :**",
     reference_planted_flaws: "**Compare ton audit aux défauts plantés :**",
     reference_flawed_claims: "**Compare ta critique aux affirmations qui cachaient un défaut :**",
+    reference_correct_choice: "**La bonne réponse :**",
     model_answer: "**Réponse modèle**",
     key_point_missing: "_(manquant selon le juge)_",
     model_correction: "**Correction modèle**",
-    self_rating: "Compare ta réponse à la réponse modèle, puis note ton rappel : **again** (à revoir), **hard** (difficile), **good** (bien) ou **easy** (facile). Cette note fixe la date de ta prochaine révision ; elle ne change jamais ta maîtrise.",
+    self_rating: "Compare ta réponse à la référence ci-dessus, puis note ton rappel : **je ne savais pas** (`again`), **difficile** (`hard`), **bien** (`good`) ou **facile** (`easy`). Cette note fixe la date de ta prochaine révision ; elle ne change jamais ta maîtrise.",
+    ai_key_provenance: "Selon la clé rédigée par l'IA — voir le passage cité.",
     recall_rated: "Note enregistrée. Prochaine révision : {date}. Elle règle tes révisions, jamais ta maîtrise.",
     nav_replay: "On reprend cette question.",
     nav_remediate_alt: "Voici une autre question sur le même point.",
-    nav_remediate: "Détour : on consolide d'abord un prérequis.",
-    nav_returns_to: "Ensuite, on revient à « {title} ».",
+    nav_remediate: "On revoit d'abord une notion nécessaire.",
+    nav_continue: "On poursuit la leçon.",
+    nav_unmeasured: "Cette notion n'a pas pu être mesurée ici ; on poursuit la leçon.",
+    nav_skip: "On passe à la suite.",
+    nav_calibration: "On fait maintenant un point de confiance.",
     complete: "**Leçon terminée.**",
     review_complete: "**Révision terminée.**",
-    consolidated: "Notions consolidées : {list}.",
-    to_review: "À revoir : {list}.",
+    consolidated_one: "Notion consolidée : {list}.",
+    consolidated_many: "Notions consolidées : {list}.",
+    practised_one: "{concept} — Travaillée ({answers} réponse)",
+    practised_many: "{concept} — Travaillée ({answers} réponses)",
+    not_measured: "{concept} — Pas encore mesurée",
     next_review: "Prochaine révision : {date}.",
     no_review: "Aucune révision n'est encore planifiée.",
     nothing_due: "Rien à réviser pour l'instant. Prochaine révision : {date}.",
@@ -129,6 +166,7 @@ const PHRASES = {
     review_progress: "Review {n} of {total}",
     not_durable: "Note: your progress is kept in memory only and will be lost when the server restarts.",
     not_saved: "Note: your progress could not be saved; this session goes on.",
+    stale_approval: "Note: this lesson changed after the teacher approved it.",
     ai_reading: "**AI reading to audit**: judge each claim.",
     ai_summary: "**AI summary to audit**",
     source: "**Source**",
@@ -148,25 +186,35 @@ const PHRASES = {
     verdict_correct: "✓ **Right.**",
     verdict_incorrect: "✗ **Not quite.**",
     verdict_recorded: "**Answer recorded.** No judge assessed it.",
+    verdict_key_recorded: "**Answer checked against the key.** No overall result is claimed.",
+    verdict_judge_measured: "**Evidence measured.** The judge measured the evidence cited above but did not certify an overall pass.",
     verdict_confidence: "**Confidence recorded.**",
     source_heading: "**Source**",
     sources_heading: "**Sources**",
     reference_key_points: "**Compare your answer with these key points:**",
     reference_planted_flaws: "**Compare your audit with the planted flaws:**",
     reference_flawed_claims: "**Compare your critique with the claims that hid a flaw:**",
+    reference_correct_choice: "**The right answer:**",
     model_answer: "**Model answer**",
     key_point_missing: "_(missing, per the judge)_",
     model_correction: "**Model correction**",
-    self_rating: "Compare your answer with the model answer, then rate your recall: **again**, **hard**, **good** or **easy**. This rating sets the date of your next review; it never changes your mastery.",
+    self_rating: "Compare your answer with the reference above, then rate your recall: **again**, **hard**, **good** or **easy**. This rating sets the date of your next review; it never changes your mastery.",
+    ai_key_provenance: "Per the AI-drafted key — see the cited passage.",
     recall_rated: "Rating recorded. Next review: {date}. It schedules your reviews and never changes your mastery.",
     nav_replay: "Let's take this question again.",
     nav_remediate_alt: "Here is another question on the same point.",
-    nav_remediate: "Detour: first we consolidate a prerequisite.",
-    nav_returns_to: "Then we come back to “{title}”.",
+    nav_remediate: "First, we revisit a concept this lesson needs.",
+    nav_continue: "We continue the lesson.",
+    nav_unmeasured: "This concept could not be measured here; we continue the lesson.",
+    nav_skip: "We move on.",
+    nav_calibration: "Now we check your confidence.",
     complete: "**Lesson complete.**",
     review_complete: "**Review complete.**",
-    consolidated: "Consolidated: {list}.",
-    to_review: "To review: {list}.",
+    consolidated_one: "Consolidated: {list}.",
+    consolidated_many: "Consolidated: {list}.",
+    practised_one: "{concept} — Practised ({answers} answer)",
+    practised_many: "{concept} — Practised ({answers} answers)",
+    not_measured: "{concept} — Not measured yet",
     next_review: "Next review: {date}.",
     no_review: "No review is scheduled yet.",
     nothing_due: "Nothing to review right now. Next review: {date}.",
@@ -204,12 +252,10 @@ const PHRASES = {
 type PhraseKey = keyof typeof PHRASES.fr;
 
 function say(locale: DisplayLocale, key: PhraseKey, params: Record<string, string | number> = {}): string {
-  return PHRASES[locale][key].replace(/\{([a-z_]+)\}/g, (token, name: string) =>
+  const filled = PHRASES[locale][key].replace(/\{([a-z_]+)\}/g, (token, name: string) =>
     params[name] === undefined ? token : String(params[name]));
+  return locale === "fr" ? frenchSpacing(filled) : filled;
 }
-
-/** The concept FSRS treats as mastered for review (`dueForReinforcement`'s default minMastery). */
-const CONSOLIDATED_MASTERY = 0.6;
 
 /** A plain, localized date for a review (« jeudi 6 novembre 2026 »), in `timeZone` — the host's, the
  * one its yyyy-mm-dd dates are taken in (calendar.ts) — or the machine's when none is given. */
@@ -279,45 +325,56 @@ function replyHint(scene: PublicSceneFields, locale: DisplayLocale): string {
 /** The learner-facing block for one presentation. `firstScreen` adds the authoring notice (and, when
  * nothing is durable, a one-line warning) — the start of a lesson or a review session. */
 export function presentationMarkdown(
-  p: Presentation,
+  p: DisplayPresentation,
   opts: { firstScreen?: boolean; notDurable?: boolean; review?: boolean } = {},
 ): string {
   const locale: DisplayLocale = p.locale === "en" ? "en" : "fr";
   const scene = publicScene(p.scene as Scene) as PublicSceneFields;
+  const authoring = p.authoring as DisplayAuthoring | undefined;
   const blocks: string[] = [];
   if (opts.firstScreen && p.authoring?.notice) blocks.push(`> ${p.authoring.notice}`);
+  const approvalNotice = opts.firstScreen ? approvalNoticeMarkdown(authoring, locale) : "";
+  if (approvalNotice) blocks.push(`> ${approvalNotice}`);
   if (opts.firstScreen && opts.notDurable) blocks.push(`> ${say(locale, "not_durable")}`);
   blocks.push(`### ${scene.title || scene.type || ""}`);
   blocks.push(`_${say(locale, opts.review ? "review_progress" : "progress", { n: p.index + 1, total: p.total })}_`);
   blocks.push(...sceneBody(scene, locale));
+  const readingSources = sourcesMarkdown(citedSources(scene as unknown as Scene), locale);
+  if (readingSources) blocks.push(readingSources);
   if ((p.hints_available ?? 0) > 0) blocks.push(say(locale, "hint_available"));
   blocks.push(replyHint(scene, locale));
   return blocks.filter((b) => b.trim() !== "").join("\n\n");
 }
 
-function verdictLine(t: Transition, locale: DisplayLocale): string {
+/** The same first-screen warning on chat and file surfaces when the approved bytes have changed. */
+export function approvalNoticeMarkdown(authoring: DisplayAuthoring | undefined, locale: DisplayLocale): string {
+  return authoring?.approval?.recorded && !authoring.approval.matches ? say(locale, "stale_approval") : "";
+}
+
+function verdictLine(t: PublicTransition, locale: DisplayLocale): string {
   const v = t.verdict;
   if (!v) return "";
   if (v.signal === "confidence_declared") return say(locale, "verdict_confidence");
   if (!v.graded) return "";
   if (v.correct === true) return say(locale, "verdict_correct");
   if (v.correct === false) return say(locale, "verdict_incorrect");
+  if (v.assessed_by === "judge") return say(locale, "verdict_judge_measured");
+  if (v.assessed_by === "key") return say(locale, "verdict_key_recorded");
   return say(locale, "verdict_recorded");
 }
 
-/** Where the lesson goes next, in words: the session's own explanation sentences, never codes. */
-function navigationLine(t: Transition, locale: DisplayLocale, ctx: DisplayContext): string {
+/** Where the lesson goes next, in words derived only from the public navigation kind. Engine reasons
+ * and explanations may refer to another answer and may contain rule, item or threshold vocabulary. */
+function navigationLine(t: PublicTransition, locale: DisplayLocale): string {
   const nav = t.navigation;
   if (!nav || nav.kind === "advance" || nav.kind === "complete") return "";
-  const explanation = "presentation" in t ? t.presentation.explanation?.explanation_short ?? "" : "";
-  const returnsTo = nav.returns_to ? ctx.sceneTitle?.(nav.returns_to) : undefined;
-  const back = returnsTo ? ` ${say(locale, "nav_returns_to", { title: returnsTo })}` : "";
-  // A rule's `reason` on replay / remediate_alt is a machine code ("errors_threshold"): use the
-  // rule's explanation sentence instead. The graph router's reasons are already sentences.
-  if (nav.kind === "replay") return (explanation || say(locale, "nav_replay")) + back;
-  if (nav.kind === "remediate_alt") return (explanation || say(locale, "nav_remediate_alt")) + back;
-  if (nav.kind === "remediate") return (nav.reason || say(locale, "nav_remediate")) + back;
-  return nav.reason ?? "";
+  if (nav.kind === "replay") return say(locale, "nav_replay");
+  if (nav.kind === "remediate_alt") return say(locale, "nav_remediate_alt");
+  if (nav.kind === "remediate") return say(locale, "nav_remediate");
+  if (nav.kind === "gate_unassessable") return say(locale, "nav_unmeasured");
+  if (nav.kind === "calibration") return say(locale, "nav_calibration");
+  if (nav.kind === "skip_mastered" || nav.kind === "skip_concept") return say(locale, "nav_skip");
+  return say(locale, "nav_continue");
 }
 
 /** I-1: the reference a key-point, audit or critique verdict carries — its key points (an audit's
@@ -331,7 +388,8 @@ export function referenceMarkdown(
   if (!verdict) return "";
   const audit = verdict.reference_kind === "planted_flaws";
   const heading = audit ? "reference_planted_flaws"
-    : verdict.reference_kind === "flawed_claims" ? "reference_flawed_claims" : "reference_key_points";
+    : verdict.reference_kind === "flawed_claims" ? "reference_flawed_claims"
+      : verdict.reference_kind === "correct_choice" ? "reference_correct_choice" : "reference_key_points";
   const blocks: string[] = [];
   const points = (verdict.key_points ?? []).filter((point) => point.trim() !== "");
   const missing = new Set(verdict.key_points_missing ?? []);
@@ -346,32 +404,65 @@ export function referenceMarkdown(
 /** The passages an answered scene cites, quoted with their source (empty when there are none). */
 export function sourcesMarkdown(sources: readonly CitedSource[], locale: DisplayLocale): string {
   const lines = sources.map((s) => {
-    const quote = s.quote ? `« ${s.quote} » — ` : "";
-    return `> ${quote}${s.title}${s.url ? ` (${s.url})` : ""}`;
+    const quote = s.quote
+      ? `${locale === "fr" ? `« ${s.quote} »` : `“${s.quote}”`} — `
+      : "";
+    const source = `${s.title}${s.url ? ` (${s.url})` : ""}${s.license ? `, ${s.license}` : ""}`;
+    return `> ${quote}${source}`;
   });
   if (!lines.length) return "";
-  return `${say(locale, lines.length > 1 ? "sources_heading" : "source_heading")}\n\n${lines.join("\n>\n")}`;
+  const rendered = `${say(locale, lines.length > 1 ? "sources_heading" : "source_heading")}\n\n${lines.join("\n>\n")}`;
+  return locale === "fr" ? frenchSpacing(rendered) : rendered;
 }
 
-function completionBlock(t: Transition & TransitionExtras, locale: DisplayLocale, ctx: DisplayContext): string[] {
+export type CompletionInput = Pick<CompletionSummary, "finalState"> & {
+  mastery: Record<string, number | null>;
+};
+
+/** L-6's one completion rule, shared by host rendering and the public completion payload. */
+export function completionSplit(summary: CompletionInput): CompletionSplit {
+  const states = summary.finalState?.concept_states ?? {};
+  const ids = Object.keys(summary.mastery);
+  const split: CompletionSplit = { consolidated: [], practised: [], not_measured: [] };
+  for (const conceptId of ids) {
+    const answers = states[conceptId]?.total_attempts ?? 0;
+    const mastery = summary.mastery[conceptId];
+    if (answers <= 0 || typeof mastery !== "number") split.not_measured.push(conceptId);
+    else if (answers >= MIN_MASTERY_ATTEMPTS && mastery >= REVIEW_MIN_MASTERY) {
+      split.consolidated.push(conceptId);
+    } else split.practised.push({ concept_id: conceptId, answers });
+  }
+  return split;
+}
+
+/** Only the measured/practised/unmeasured groups, reusable after the final file-channel rating. */
+export function completionGroupsMarkdown(
+  split: CompletionSplit, locale: DisplayLocale, label: (id: string) => string = (id) => id,
+): string {
+  const consolidated = split.consolidated.map(label);
+  const practised = split.practised.map(({ concept_id, answers }) => say(locale,
+    answers === 1 ? "practised_one" : "practised_many", { concept: label(concept_id), answers }));
+  const notMeasured = split.not_measured.map((id) => say(locale, "not_measured", { concept: label(id) }));
+  return [
+    consolidated.length ? say(locale, consolidated.length === 1 ? "consolidated_one" : "consolidated_many",
+      { list: consolidated.join(", ") }) : "",
+    ...practised,
+    ...notMeasured,
+  ].filter(Boolean).join("\n\n");
+}
+
+function completionBlock(t: PublicTransition & TransitionExtras, locale: DisplayLocale, ctx: DisplayContext): string[] {
   if (t.kind !== "complete") return [];
-  const label = (id: string) => ctx.conceptLabel?.(id) ?? id;
-  const states = (t.summary.finalState?.concept_states ?? {}) as Record<string, { total_attempts?: number }>;
-  // Only concepts with at least one graded attempt are named: an ungraded or self-rated concept is
-  // claimed neither consolidated nor weak.
-  const graded = Object.keys(t.summary.mastery).filter((id) => (states[id]?.total_attempts ?? 0) > 0);
-  const consolidated = graded.filter((id) => (t.summary.mastery[id] ?? 0) >= CONSOLIDATED_MASTERY).map(label);
-  const toReview = graded.filter((id) => (t.summary.mastery[id] ?? 0) < CONSOLIDATED_MASTERY).map(label);
+  const split = t.completion ?? completionSplit(t.summary);
   const next = t.review_plan?.next_due_at;
   return [
     say(locale, ctx.review ? "review_complete" : "complete"),
-    consolidated.length ? say(locale, "consolidated", { list: consolidated.join(", ") }) : "",
-    toReview.length ? say(locale, "to_review", { list: toReview.join(", ") }) : "",
+    completionGroupsMarkdown(split, locale, ctx.conceptLabel),
     next != null ? say(locale, "next_review", { date: formatReviewDate(next, locale, ctx.timeZone) }) : say(locale, "no_review"),
   ];
 }
 
-function localeOf(t: Transition, ctx: DisplayContext): DisplayLocale {
+function localeOf(t: PublicTransition, ctx: DisplayContext): DisplayLocale {
   return "presentation" in t ? (t.presentation.locale === "en" ? "en" : "fr") : ctx.locale ?? "fr";
 }
 
@@ -379,11 +470,17 @@ function localeOf(t: Transition, ctx: DisplayContext): DisplayLocale {
  * feedback, the reference to compare with (I-1), the passages the scene cites, and a self-rating
  * request when no judge certified the answer. Empty for an acknowledged scene that carries none. */
 export function verdictMarkdown(
-  t: Transition & TransitionExtras, sources: readonly CitedSource[], ctx: DisplayContext = {},
+  t: PublicTransition & TransitionExtras, sources: readonly CitedSource[], ctx: DisplayContext = {},
 ): string {
   const locale = localeOf(t, ctx);
+  const presentationAuthoring = "presentation" in t
+    ? (t.presentation.authoring as DisplayAuthoring | undefined)
+    : undefined;
+  const keyedByAgent = t.verdict?.assessed_by === "key"
+    && (presentationAuthoring?.drafted_by ?? ctx.authoring?.drafted_by) === "agent";
   return [
     verdictLine(t, locale),
+    keyedByAgent ? say(locale, "ai_key_provenance") : "",
     t.verdict?.feedback ?? "",
     referenceMarkdown(t.verdict, locale),
     sourcesMarkdown(sources, locale),
@@ -393,11 +490,11 @@ export function verdictMarkdown(
 
 /** The public part after an answer, carried as `display_markdown`: where the lesson goes, in words,
  * then the next scene — or, at the end, what is consolidated, what to review and when. */
-export function transitionMarkdown(t: Transition & TransitionExtras, ctx: DisplayContext = {}): string {
+export function transitionMarkdown(t: PublicTransition & TransitionExtras, ctx: DisplayContext = {}): string {
   const locale = localeOf(t, ctx);
   const head = [
     t.persistence_warning ? `> ${say(locale, "not_saved")}` : "",
-    navigationLine(t, locale, ctx), ...completionBlock(t, locale, ctx),
+    navigationLine(t, locale), ...completionBlock(t, locale, ctx),
   ].filter((b) => b.trim() !== "").join("\n\n");
   if (!("presentation" in t)) return head;
   const next = presentationMarkdown(t.presentation, { review: ctx.review ?? false });

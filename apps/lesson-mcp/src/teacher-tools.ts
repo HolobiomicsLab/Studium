@@ -341,7 +341,8 @@ export interface SchemaError { path: string; message: string; hint?: string }
 
 /** The authoring block of review_lesson: who wrote the lesson and, under C5's name, its approval. The
  * learner notice is left out (null): this is the teacher's view. */
-export type ReviewAuthoring = Omit<AuthoringBlock, "notice"> & { notice: null; drafted_by: string | null };
+// Teacher review preserves the raw declaration (null when absent); learner authoring infers a drafter.
+export type ReviewAuthoring = Omit<AuthoringBlock, "notice" | "drafted_by"> & { notice: null; drafted_by: string | null };
 
 export interface ReviewLessonResult {
   ok: true;

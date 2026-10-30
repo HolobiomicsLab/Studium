@@ -7,7 +7,10 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
-import { presentationMarkdown, transitionMarkdown, verdictMarkdown, referenceMarkdown, recallRatedMarkdown, formatReviewDate } from "./chat-display.js";
+import {
+  presentationMarkdown, transitionMarkdown, verdictMarkdown, referenceMarkdown, recallRatedMarkdown,
+  formatReviewDate, completionSplit, sourcesMarkdown,
+} from "./chat-display.js";
 import { REDACTED_SCENE_FIELDS } from "./public-scene.js";
 
 const ATOMISTIQUE = JSON.parse(readFileSync(
@@ -78,6 +81,37 @@ describe("presentationMarkdown", () => {
     expect(presentationMarkdown(p, { firstScreen: true })).not.toMatch(/redémarrage/);
   });
 
+  it("warns on the first screen when the lesson changed after its recorded approval (RT-4)", () => {
+    const p = presentation(ATOMISTIQUE.scenes[0], 0, {
+      authoring: { mode: "teacher", author_is_learner: false, drafted_by: "teacher", validated: true,
+        judge: false, notice: null, approval: { recorded: true, matches: false } },
+    });
+    // L-5 typesets French learner copy, including the non-breaking space before a colon.
+    expect(presentationMarkdown(p, { firstScreen: true })).toContain(
+      "cette leçon a été modifiée depuis son approbation par l'enseignant",
+    );
+    expect(presentationMarkdown(p)).not.toContain("depuis son approbation");
+    const en = { ...(p as object), locale: "en" } as never;
+    expect(presentationMarkdown(en, { firstScreen: true })).toContain(
+      "this lesson changed after the teacher approved it",
+    );
+  });
+
+  it("attributes a reading scene with title, URL and licence before any answer (L-3)", () => {
+    const reading = {
+      id: "read", type: "concept", title: "Read", objective_refs: [], concept_refs: ["c"],
+      estimated_seconds: 30, adaptation_hooks: [], markdown: "A source-backed explanation.",
+      evidence: { bibliographic_refs: [{ title: "Open source", excerpt: "A cited passage.",
+        prov_derived_from: "https://example.org/source", license: "CC BY 4.0" }] },
+    };
+    const fr = presentationMarkdown(presentation(reading));
+    expect(fr).toContain("**Source**");
+    expect(fr).toContain("«\u00a0A cited passage.\u00a0» — Open source (https://example.org/source), CC BY 4.0");
+    const en = presentationMarkdown({ ...(presentation(reading) as object), locale: "en" } as never);
+    expect(en).toContain("“A cited passage.” — Open source (https://example.org/source), CC BY 4.0");
+    expect(en).not.toContain("«");
+  });
+
   it("speaks English for an English lesson", () => {
     const scene = { ...ATOMISTIQUE.scenes[0], title: "Welcome" };
     const md = presentationMarkdown({ ...(presentation(scene) as object), locale: "en" } as never);
@@ -101,8 +135,11 @@ describe("transitionMarkdown", () => {
     const md = transitionMarkdown(t, { sceneTitle: titleOf });
     expect(earned).toMatch(/Pas tout à fait/);
     expect(earned).toContain("Non : l = 3.");
-    expect(md).toContain("Prérequis à consolider d'abord.");
-    expect(md).toContain(`« ${titleOf("s3-concept-orbitales")} »`);
+    // L-6 changed navigation to copy selected only from navigation.kind: engine reasons can expose
+    // a rule threshold or make a correctness claim about another answer.
+    expect(md).toContain("On revoit d'abord une notion nécessaire.");
+    expect(md).not.toContain("Prérequis à consolider d'abord.");
+    expect(md).not.toContain(`Ensuite, on revient à «\u00a0${titleOf("s3-concept-orbitales")}\u00a0».`);
     expect(md).toContain(ATOMISTIQUE.scenes[3]!.title); // the next scene follows the navigation
     for (const text of [earned, md]) expect(text).not.toMatch(/graph_prereq_gate|rule_|M6/);
     // Outside the verdict a transition is the next scene's public projection: no earned feedback there.
@@ -118,7 +155,27 @@ describe("transitionMarkdown", () => {
     } as never, {});
     expect(md).not.toContain("errors_threshold");
     expect(md).not.toContain("r-replay");
-    expect(md).toContain("Deux erreurs : on revoit avec un appui.");
+    // L-6 changed the contract: navigation is worded only from navigation.kind, because an engine
+    // explanation can claim correctness about a different answer or expose threshold vocabulary.
+    expect(md).toContain("On reprend cette question.");
+    expect(md).not.toContain("Deux erreurs");
+  });
+
+  it("never exposes correctness, engine reasons, item or threshold vocabulary in navigation (L-6)", () => {
+    const forbidden = /answered correctly|bonne réponse|errors_threshold|rule_|\bitem\b|seuil|threshold/i;
+    for (const [kind, expected] of [
+      ["gate_passed", "On poursuit la leçon."],
+      ["gate_unassessable", "Cette notion n'a pas pu être mesurée ici"],
+      ["skip_mastered", "On passe à la suite."],
+    ] as const) {
+      const md = transitionMarkdown({
+        kind: "next", presentation: next,
+        verdict: { scene_id: "x", graded: true, assessed_by: "none", signal: "answer_submitted" },
+        navigation: { kind, scene_id: "y", rule_id: "rule_internal", reason: "item answered correctly, mastery below threshold", modulator: "M" },
+      } as never);
+      expect(md).toContain(expected);
+      expect(md).not.toMatch(forbidden);
+    }
   });
 
   it("an uncertified answer asks for a self-rating that never changes mastery, and cites the source", () => {
@@ -131,10 +188,10 @@ describe("transitionMarkdown", () => {
     const sources = [{ title: "Cours d'atomistique", quote: "La fonction d'onde change de signe.", url: "https://example.org/cours" }];
     const md = verdictMarkdown(t, sources);
     expect(md).toMatch(/Réponse enregistrée/);
-    expect(md).toMatch(/again/);
-    expect(md).toMatch(/easy/);
+    expect(md).toMatch(/je ne savais pas.*again/);
+    expect(md).toMatch(/facile.*easy/);
     expect(md).toMatch(/jamais ta maîtrise/);
-    expect(md).toContain("« La fonction d'onde change de signe. »");
+    expect(md).toContain("«\u00a0La fonction d'onde change de signe.\u00a0»");
     expect(md).toContain("https://example.org/cours");
     const outside = transitionMarkdown(t);
     expect(outside).not.toContain("La fonction d'onde change de signe.");
@@ -156,7 +213,7 @@ describe("transitionMarkdown", () => {
     const sources = [{ title: "Cours d'atomistique", quote: "Le signe change au plan nodal." }];
     const md = verdictMarkdown(t, sources);
     expect(md).toContain([
-      "**Compare ta réponse à ces points clés :**",
+      "**Compare ta réponse à ces points clés\u00a0:**",
       "- La fonction d'onde change de signe\n- Un plan nodal sépare les lobes",
       "**Réponse modèle**",
       "La fonction d'onde change de signe de part et d'autre d'un plan nodal.",
@@ -172,7 +229,7 @@ describe("transitionMarkdown", () => {
     const verdict = { scene_id: "f", graded: true, signal: "answer_submitted", correct: true,
       key_points: ["2p holds four electrons"], model_answer: "N: 1s2 2s2 2p3.", reference_kind: "planted_flaws" };
     const fr = verdictMarkdown({ kind: "complete", summary: {}, verdict } as never, [], { locale: "fr" });
-    expect(fr).toContain("**Compare ton audit aux défauts plantés :**\n\n- 2p holds four electrons");
+    expect(fr).toContain("**Compare ton audit aux défauts plantés\u00a0:**\n\n- 2p holds four electrons");
     expect(fr).toContain("**Correction modèle**\n\nN: 1s2 2s2 2p3.");
     const en = verdictMarkdown({ kind: "complete", summary: {}, verdict } as never, [], { locale: "en" });
     expect(en).toContain("**Compare your audit with the planted flaws:**\n\n- 2p holds four electrons");
@@ -182,11 +239,42 @@ describe("transitionMarkdown", () => {
     expect(keyPoints).toContain("**Model answer**\n\nN: 1s2 2s2 2p3.");
   });
 
+  it("labels a wrong quiz reference as the right answer (L-2)", () => {
+    const verdict = { scene_id: "q", graded: true, assessed_by: "key", signal: "answer_submitted", correct: false,
+      key_points: ["Carbon dioxide"], reference_kind: "correct_choice" };
+    // Group E's fallback uses the same reference heading, including its colon (chat-format parity).
+    expect(referenceMarkdown(verdict as never, "fr")).toContain("**La bonne réponse\u00a0:**\n\n- Carbon dioxide");
+    expect(referenceMarkdown(verdict as never, "en")).toContain("**The right answer:**\n\n- Carbon dioxide");
+  });
+
+  it("marks only boolean verdicts and identifies an agent-drafted key (L-7, H7)", () => {
+    const base = { kind: "complete", summary: {}, navigation: { kind: "complete" } };
+    const ctx = { locale: "en" as const, authoring: { drafted_by: "agent" as const } };
+    const key = verdictMarkdown({ ...base, verdict: { scene_id: "q", graded: true, assessed_by: "key",
+      signal: "answer_submitted", correct: true } } as never, [], ctx);
+    expect(key).toContain("✓ **Right.**");
+    expect(key).toContain("Per the AI-drafted key — see the cited passage");
+    const none = verdictMarkdown({ ...base, verdict: { scene_id: "p", graded: true, assessed_by: "none",
+      signal: "answer_submitted", feedback: "Recorded." } } as never, [], ctx);
+    expect(none).toContain("No judge assessed it");
+    expect(none).not.toMatch(/[✓✗]/);
+    const measured = verdictMarkdown({ ...base, verdict: { scene_id: "a", graded: true, assessed_by: "judge",
+      signal: "audit_measured", feedback: "1 of 2 claims measured." } } as never, [], ctx);
+    expect(measured).toContain("judge measured the evidence");
+    expect(measured).not.toMatch(/[✓✗]/);
+  });
+
+  it("prints licences and locale-specific quotation marks on earned sources (L-3, R-en-04)", () => {
+    const sources = [{ title: "Open source", quote: "Quoted words", url: "https://example.org", license: "CC BY-SA 4.0" }];
+    expect(sourcesMarkdown(sources, "fr")).toContain("«\u00a0Quoted words\u00a0» — Open source (https://example.org), CC BY-SA 4.0");
+    expect(sourcesMarkdown(sources, "en")).toContain("“Quoted words” — Open source (https://example.org), CC BY-SA 4.0");
+  });
+
   it("labels a critique's reference as the claims that hid a flaw, in French and English (T3)", () => {
     const verdict = { scene_id: "k", graded: true, signal: "answer_submitted",
       key_points: ["n=3 proves the effect (small sample)"], reference_kind: "flawed_claims" };
     const fr = verdictMarkdown({ kind: "complete", summary: {}, verdict } as never, [], { locale: "fr" });
-    expect(fr).toContain("**Compare ta critique aux affirmations qui cachaient un défaut :**\n\n- n=3 proves the effect (small sample)");
+    expect(fr).toContain("**Compare ta critique aux affirmations qui cachaient un défaut\u00a0:**\n\n- n=3 proves the effect (small sample)");
     const en = verdictMarkdown({ kind: "complete", summary: {}, verdict } as never, [], { locale: "en" });
     expect(en).toContain("**Compare your critique with the claims that hid a flaw:**\n\n- n=3 proves the effect (small sample)");
     expect(en).not.toMatch(/planted flaws|key points/);
@@ -200,7 +288,7 @@ describe("transitionMarkdown", () => {
     expect(recallRatedMarkdown(at, "en")).toMatch(/never changes your mastery/);
   });
 
-  it("a completed lesson names what is consolidated and what to review, and the next review date", () => {
+  it("a completed lesson splits consolidated, practised and not measured concepts honestly", () => {
     const nextReview = Date.UTC(2026, 10, 6, 9);
     const md = transitionMarkdown({
       kind: "complete",
@@ -213,10 +301,21 @@ describe("transitionMarkdown", () => {
       review_plan: { next_due_at: nextReview, concepts: ["c-particules"] },
     } as never, { conceptLabel: (id) => ({ "c-particules": "Particules", "c-spectres": "Spectres", "c-geometrie": "Géométrie" })[id] ?? id, locale: "fr" });
     expect(md).toMatch(/Leçon terminée/);
-    expect(md).toContain("Particules");
-    expect(md).toContain("Spectres");
-    expect(md).not.toContain("Géométrie"); // never graded: not claimed either way
+    expect(md).toContain("Notion consolidée\u00a0: Particules");
+    expect(md).toContain("Spectres — Travaillée (2 réponses)");
+    // L-6 changed this expectation: silence made an unmeasured concept look absent rather than honest.
+    expect(md).toContain("Géométrie — Pas encore mesurée");
     expect(md).toContain(formatReviewDate(nextReview, "fr"));
     expect(md).not.toMatch(/0\.\d/);
+    expect(completionSplit({
+      mastery: { "c-particules": 0.81, "c-spectres": 0.42, "c-geometrie": null },
+      finalState: { concept_states: {
+        "c-particules": { total_attempts: 3 }, "c-spectres": { total_attempts: 2 }, "c-geometrie": { total_attempts: 0 },
+      } },
+    } as never)).toEqual({
+      consolidated: ["c-particules"],
+      practised: [{ concept_id: "c-spectres", answers: 2 }],
+      not_measured: ["c-geometrie"],
+    });
   });
 });

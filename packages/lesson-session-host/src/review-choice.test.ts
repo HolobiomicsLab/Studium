@@ -1,3 +1,4 @@
+// L-5: exact display assertions use French non-breaking spaces; content/privacy contracts stay intact.
 // packages/lesson-session-host/src/review-choice.test.ts
 //
 // L-8 (RFR-07, R-en-09, H1, H2, CC-4): which scene a review plays, and when the plan may send the
@@ -198,7 +199,7 @@ describe("the plan and the review session agree on what can be reviewed (H1, H2,
     set(T0 + 7 * DAY);
     const none = await host.startReview("ana");
     if (none.status !== "nothing_due") throw new Error(`expected nothing due, got ${none.status}`);
-    expect(none.display_markdown).toContain("« Notion c-side »");
+    expect(none.display_markdown).toContain("«\u00a0Notion c-side\u00a0»");
     expect(none.display_markdown).not.toContain("aucune révision n'est encore planifiée");
   });
 

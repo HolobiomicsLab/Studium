@@ -7,7 +7,7 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { LearnerProfileSchema, type LearnerProfile } from "@studium/learner-state";
-import { readJsonFile, writeFileAtomic } from "./learner-files.js";
+import { ensurePrivateDirectory, readJsonFile, writeFileAtomic } from "./learner-files.js";
 
 /** A fixed pseudonym scope so the learner profile key is STABLE across the learner's lessons (the
  * per-bundle pseudonym is salted by bundle_id and therefore differs per lesson). */
@@ -42,6 +42,7 @@ export class FileLearnerProfileStore implements LearnerProfileStore {
     return readJsonFile(this.path(pseudonym), (value) => LearnerProfileSchema.safeParse(value));
   }
   async save(profile: LearnerProfile): Promise<void> {
+    await ensurePrivateDirectory(this.dataDir);
     await writeFileAtomic(this.path(profile.pseudonym), JSON.stringify(profile, null, 2));
   }
   async delete(pseudonym: string): Promise<void> { await rm(this.path(pseudonym), { force: true }); }

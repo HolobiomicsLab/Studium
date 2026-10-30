@@ -13,7 +13,7 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { readJsonFile, writeFileAtomic } from "./learner-files.js";
+import { ensurePrivateDirectory, readJsonFile, writeFileAtomic } from "./learner-files.js";
 
 const ConceptRouteSchema = z.object({
   bundle_ref: z.string(),
@@ -75,6 +75,7 @@ export class FileStudyRecordStore implements StudyRecordStore {
     return readJsonFile(this.path(pseudonym), (value) => StudyRecordSchema.safeParse(value));
   }
   async save(pseudonym: string, record: StudyRecord): Promise<void> {
+    await ensurePrivateDirectory(this.dataDir);
     await writeFileAtomic(this.path(pseudonym), JSON.stringify(record, null, 2));
   }
   async delete(pseudonym: string): Promise<void> { await rm(this.path(pseudonym), { force: true }); }

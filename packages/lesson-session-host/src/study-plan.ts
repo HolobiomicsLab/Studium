@@ -27,6 +27,7 @@ import { calendarDate, localTimeZone } from "./calendar.js";
 import { DEFAULT_REVIEW_ITEMS } from "./review-session.js";
 import type { Catalog, CatalogLesson } from "./lesson-catalog.js";
 import type { StudyRecord } from "./study-record.js";
+import { frenchSpacing } from "../../lesson-session/src/phrases.js";
 
 /** FSRS reinforcement's mastery gate (dueForReinforcement's default minMastery). */
 export const REVIEW_MIN_MASTERY = 0.6;
@@ -157,12 +158,15 @@ const PLAN = {
     progress_heading: "**En cours**",
     next_heading: "**Leçon suivante**",
     due_line: "- {concept} — prévu le {date}{lesson}",
+    overdue_line: "- {concept} — en retard depuis le {date}{lesson}",
     lesson_suffix: " (leçon « {title} »)",
     unplayable_suffix: " — aucune question de révision ne la reprend pour l'instant",
-    progress_line: "- « {title} » : {done} étape(s) sur {total}",
+    progress_line_one: "- « {title} » : {done} étape sur {total}",
+    progress_line_many: "- « {title} » : {done} étapes sur {total}",
     next_line: "- « {title} »",
     now: "**Maintenant :** {text}",
-    review: "tu as {count} notion(s) à revoir ({list}). Lance une séance de révision.",
+    review_one: "tu as 1 notion à revoir ({list}). Lance une séance de révision.",
+    review_many: "tu as {count} notions à revoir ({list}). Lance une séance de révision.",
     continue: "reprends « {title} » là où tu t'étais arrêté·e.",
     start: "commence « {title} ».",
     author: "aucune leçon n'est encore disponible. Choisis un sujet et tes sources : l'assistant prépare une leçon avec toi.",
@@ -183,12 +187,15 @@ const PLAN = {
     progress_heading: "**In progress**",
     next_heading: "**Next lesson**",
     due_line: "- {concept} — due {date}{lesson}",
+    overdue_line: "- {concept} — overdue since {date}{lesson}",
     lesson_suffix: " (lesson “{title}”)",
     unplayable_suffix: " — no review question covers it yet",
-    progress_line: "- “{title}”: {done} of {total} steps",
+    progress_line_one: "- “{title}”: {done} of {total} step",
+    progress_line_many: "- “{title}”: {done} of {total} steps",
     next_line: "- “{title}”",
     now: "**Now:** {text}",
-    review: "you have {count} concept(s) to review ({list}). Start a review session.",
+    review_one: "you have 1 concept to review ({list}). Start a review session.",
+    review_many: "you have {count} concepts to review ({list}). Start a review session.",
     continue: "pick up “{title}” where you left off.",
     start: "start “{title}”.",
     author: "no lesson is available yet. Choose a topic and your sources: the assistant prepares a lesson with you.",
@@ -296,7 +303,8 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
   // « nothing to review », the memory would never move, and the learner would be sent back every day.
   const reviewItems = [...due, ...relearn, ...unmeasured].filter((i) => i.playable);
   if (reviewItems.length) {
-    const text = fill(t.review, { count: reviewItems.length, list: reviewItems.map((i) => i.concept).join(", ") });
+    const text = fill(reviewItems.length === 1 ? t.review_one : t.review_many,
+      { count: reviewItems.length, list: reviewItems.map((i) => i.concept).join(", ") });
     nextStep = { action: "review", tool: "start_review_session", arguments: { ...learner, language: input.locale }, text };
     if (budget !== null) {
       // The session takes its items in this order, DEFAULT_REVIEW_ITEMS of them unless told otherwise.
@@ -340,7 +348,7 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
         ? fill(t.wait_next, { date: formatReviewDate(schedule.next_due_at, input.locale, timeZone) }) : t.wait };
   }
 
-  const line = (i: StudyItem) => fill(t.due_line, {
+  const line = (i: StudyItem) => fill(i.due_at < input.nowMs ? t.overdue_line : t.due_line, {
     concept: i.concept, date: formatReviewDate(i.due_at, input.locale, timeZone),
     lesson: (i.lesson ? fill(t.lesson_suffix, { title: i.lesson.title }) : "") + (i.playable ? "" : t.unplayable_suffix),
   });
@@ -349,11 +357,16 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
     due.length ? `${t.due_heading}\n\n${due.map(line).join("\n")}` : "",
     relearn.length ? `${t.relearn_heading}\n\n${relearn.map(line).join("\n")}` : "",
     unmeasured.length ? `${t.unmeasured_heading}\n\n${unmeasured.map(line).join("\n")}` : "",
-    inProgress.length ? `${t.progress_heading}\n\n${inProgress.map((l) => fill(t.progress_line, { title: l.title, done: l.scenes_completed, total: l.total_scenes })).join("\n")}` : "",
+    inProgress.length ? `${t.progress_heading}\n\n${inProgress.map((l) => fill(
+      (input.locale === "en" ? l.total_scenes : l.scenes_completed) === 1 ? t.progress_line_one : t.progress_line_many,
+      { title: l.title, done: l.scenes_completed, total: l.total_scenes },
+    )).join("\n")}` : "",
     next && nextStep.action !== "start" ? `${t.next_heading}\n\n${fill(t.next_line, { title: next.title })}` : "",
     fill(t.now, { text: nextStep.text }),
   ].filter(Boolean);
 
+  if (input.locale === "fr") nextStep.text = frenchSpacing(nextStep.text);
+  const displayMarkdown = sections.join("\n\n");
   return {
     due_reviews: due,
     relearn,
@@ -364,6 +377,6 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
     next_review_date: schedule.next_due_at === null ? null : calendarDate(schedule.next_due_at, timeZone),
     minutes_per_day: budget,
     next_step: nextStep,
-    display_markdown: sections.join("\n\n"),
+    display_markdown: input.locale === "fr" ? frenchSpacing(displayMarkdown) : displayMarkdown,
   };
 }

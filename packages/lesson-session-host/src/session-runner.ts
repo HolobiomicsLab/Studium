@@ -16,6 +16,7 @@
 import { writeFile, readFile, access, rename } from "node:fs/promises";
 import { join } from "node:path";
 import type { SessionHost } from "./host.js";
+import type { SelfRating } from "./fsrs-memory.js";
 import { SessionWorkspace } from "./session-workspace.js";
 
 const TASK = "task.md";
@@ -77,10 +78,12 @@ export async function runStudiumSession(
   await ws.writeStep(sessionId);
   let step = 0;
   for (; step < maxSteps; step++) {
-    const pres = host.currentPresentation(sessionId) as { scene: { type: string; run_manifest?: unknown } };
+    const pendingRecall = await ws.pendingRecall(sessionId);
+    const scene = pendingRecall ? { type: "recall", run_manifest: undefined }
+      : host.currentPresentation(sessionId).scene;
     const task = await readFile(join(dir, TASK), "utf8");
-    const expects = pres.scene.run_manifest ? ("run" as const) : ("response" as const);
-    await operator(task, { dir, sessionId, sceneType: pres.scene.type, step, expects });
+    const expects = "run_manifest" in scene && scene.run_manifest ? ("run" as const) : ("response" as const);
+    await operator(task, { dir, sessionId, sceneType: scene.type, step, expects });
     const r = await ws.ingest(sessionId);
     transitions.push(r.transition);
     if (r.done) return { sessionId, steps: step + 1, transitions, completed: true };
@@ -96,6 +99,11 @@ export async function runStudiumSession(
  * genuine answer. The stub exists so the harness/round-trip runs reproducibly without a model.
  */
 export const stubOperator: Operator = async (_task, ctx) => {
+  if (ctx.sceneType === "recall") {
+    // Synthetic demo input, never an inferred learner rating.
+    await writeResponse(ctx.dir, { kind: "recall", grade: "good" });
+    return;
+  }
   if (ctx.expects === "run") {
     // PLACEHOLDER: the REAL agentic operator provisions + runs the capsule in the workspace and reports the
     // genuine result. The stub fakes a passing run (no real execution) so the key-free harness completes.
@@ -150,8 +158,15 @@ const _LLM_FREE_TEXT_SCENES = new Set([
 export function makeLlmOperator(deps: {
   llm: OperatorLlm;
   runCapsule: (manifest: Record<string, unknown>, ctx: OperatorCtx) => Promise<Record<string, unknown>>;
+  /** Obtain the learner's own rating; the model never chooses it. */
+  recallRating?: (task: string, ctx: OperatorCtx) => Promise<SelfRating>;
 }): Operator {
   return async (task, ctx) => {
+    if (ctx.sceneType === "recall") {
+      if (!deps.recallRating) throw new Error("Recall rating must come from the learner: supply a recallRating callback.");
+      await writeResponse(ctx.dir, { kind: "recall", grade: await deps.recallRating(task, ctx) });
+      return;
+    }
     if (ctx.expects === "run") {
       let manifest: Record<string, unknown> = {};
       try { manifest = JSON.parse(await readFile(join(ctx.dir, "run.json"), "utf8")); } catch { /* also described in task.md */ }

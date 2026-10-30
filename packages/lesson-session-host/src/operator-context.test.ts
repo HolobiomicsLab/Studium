@@ -24,12 +24,11 @@ const SELF_STUDY = {
   validated_by: "SELF-STUDY — not teacher-validated",
 };
 // These hosts are offline (live: false), so the notice is the no-judge variant. Sprint 2026-10-30 (D5):
-// without a judge the learner compares with the model answer and rates their recall, which schedules
-// reviews and never moves mastery; the notice says so instead of promising keyword feedback.
+// without a judge the learner compares with the reference and rates their recall, which schedules
+// reviews and never moves mastery. RFR-09 omits the reproduction claim from this quiz-only fixture.
 const SELF_STUDY_NOTICE_EN_WITHOUT_JUDGE = "Self-authored lesson: quiz and spot-the-flaw keys were written by the learner " +
-  "(open book). Without a judge model, production scenes are not assessed: compare your answer with the model " +
-  "answer and rate your recall; that rating schedules your reviews and never changes your mastery. Only executed " +
-  "reproductions carry an external assessment.";
+  "(open book). Without a judge model, production scenes are not assessed: compare your answer with the provided " +
+  "reference and rate your recall; that rating schedules your reviews and never changes your mastery.";
 const AGENT_DRAFTED = {
   metadata: { ...METADATA, authoring: { mode: "self_study", author_is_learner: false, drafted_by: "agent" } },
   validated_by: "SELF-STUDY — not teacher-validated",
@@ -106,9 +105,9 @@ describe("public operator context", () => {
   it("states who wrote a teacher lesson just before exploration, without extra instructions", async () => {
     const { host, sessionId } = await start();
     const result = operatorContext(host, sessionId);
-    // C5 (sprint 2026-10-30) adds the approval block; no approval.json sits next to this lesson.
+    // C5 adds approval; B2 exposes the inferred teacher drafter even without metadata.authoring.
     expect(result.authoring).toEqual({
-      mode: "teacher", author_is_learner: false, validated: true, judge: false, notice: null,
+      mode: "teacher", author_is_learner: false, drafted_by: "teacher", validated: true, judge: false, notice: null,
       approval: { recorded: false, matches: false },
     });
     const keys = Object.keys(result);

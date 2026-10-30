@@ -46,7 +46,11 @@ describe("operation->judgment loop — ground a spot_the_flaw on the learner's O
       text: "k a des unites (1/temps), ce n'est pas sans dimension ; la demi-vie vaut ln2/k, pas une heure.",
     }));
     const r = await ws.ingest(sessionId);
-    expect(["next", "complete"]).toContain(r.transition);
+    // H6: the judgment is graded first, then the learner must provide the recall grade that drives
+    // FSRS; the file operator does not manufacture it while closing the session.
+    expect(r.transition).toBe("awaiting_recall");
+    writeFileSync(join(dir, "response.json"), JSON.stringify({ kind: "recall", grade: "good" }));
+    expect(await ws.ingest(sessionId)).toEqual({ done: true, transition: "complete" });
 
     const cs = (host.getState(sessionId) as { concept_states: Record<string, { trust_calibration_samples?: number }> })
       .concept_states["c-kinetics"];

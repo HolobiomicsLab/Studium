@@ -113,7 +113,8 @@ describe("learn X, then review a week later, through the real MCP server (R1, R2
     const started = await call("start_lesson_session", { bundle_ref: courseRef, learner_id: LEARNER });
     expect(started.persistence).toMatchObject({ durable: true, data_dir: join(home, "data"), library_root: join(home, "library") });
     expect(started.authoring).toMatchObject({ mode: "self_study", validated: false });
-    expect(started.authoring.notice).toMatch(/^Leçon rédigée par l'IA à partir de vos sources/);
+    // L-5: learner-facing French consistently uses tu.
+    expect(started.authoring.notice).toMatch(/^Leçon rédigée par l'IA à partir de tes sources/);
     const sessionId = started.session_id as string;
     let presentation = started.presentation as Json;
     expect(presentation.display_markdown).toBeTypeOf("string");
@@ -197,9 +198,12 @@ describe("learn X, then review a week later, through the real MCP server (R1, R2
 
   it("wrote nothing outside the temporary STUDIUM_HOME, and kept the learner's data under a pseudonym", () => {
     expect(readdirSync(home).sort()).toEqual(["data", "library"]);
-    const learnerDirs = readdirSync(join(home, "data")).filter((name) => statSync(join(home, "data", name)).isDirectory());
+    // L-11 keeps lock/generation metadata outside erasable learner folders; both use pseudonyms.
+    const learnerDirs = readdirSync(join(home, "data")).filter((name) =>
+      name !== ".learner-locks" && statSync(join(home, "data", name)).isDirectory());
     expect(learnerDirs.length).toBeGreaterThan(0);
     for (const dir of learnerDirs) expect(dir).toMatch(/^[0-9a-f]{16}$/);
+    for (const dir of readdirSync(join(home, "data", ".learner-locks"))) expect(dir).toMatch(/^[0-9a-f]{16}$/);
     expect(JSON.stringify(readdirSync(join(home, "data"), { recursive: true }))).not.toContain(LEARNER);
   });
 });

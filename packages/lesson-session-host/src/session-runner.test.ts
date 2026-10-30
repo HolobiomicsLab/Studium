@@ -25,10 +25,9 @@ describe("session-runner — the operator harness", () => {
 
     const res = await runStudiumSession(host, BUNDLE, dir, noLeakThenStub);
     expect(res.completed).toBe(true);
-    // INT-STUDIUM-004 raised this from 3: the bundle gained `s-flaw-deck`, a grounded verdict-deck
-    // scene, so the corpus can measure over-distrust with no LLM. The stub operator drives it to
-    // completion like the other two — the assertion below is what proves the deck is answerable.
-    expect(res.steps).toBe(4);                                  // intro + 3 spot_the_flaw
+    // H6 adds an explicit recall turn after each of the three spot_the_flaw scenes.
+    expect(res.steps).toBe(7);                                  // intro + 3 answers + 3 recall ratings
+    expect(res.transitions.filter((t) => t === "awaiting_recall")).toHaveLength(3);
     expect(res.transitions.at(-1)).toBe("complete");
     expect(res.transitions.filter((t) => t === "invalid_response").length).toBe(0);
     // the judgments were really graded into mastery

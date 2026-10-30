@@ -68,6 +68,8 @@ export interface SessionEntry {
    * that is gone was erased — by a forget in this server or in another one on the same folder — and
    * the session never writes the learner back. */
   profileSeen: boolean;
+  /** Durable forget generation observed when opening, retained even after a new profile appears. */
+  learnerTombstone?: string | null;
   /** L-11: the learner's data was erased while this session was open; every later call is refused. */
   erased?: boolean;
   /** The session served its `complete` transition (a rating after it reports the review plan, UX-11). */

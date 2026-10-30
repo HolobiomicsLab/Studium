@@ -16,7 +16,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { HmacPseudonymProvider } from "@studium/lesson-session/node";
+import { FileStateStore, HmacPseudonymProvider } from "@studium/lesson-session/node";
 import { defaultLearnerProfile } from "@studium/learner-state";
 import { SessionHost } from "./host.js";
 import { PROFILE_PSEUDONYM_SCOPE } from "./learner-profile-store.js";
@@ -213,6 +213,53 @@ describe("L-11 — a write-through that fails returns the served transition with
 });
 
 describe("L-11 — forget lets no later write bring the learner back", () => {
+  it.each([false, true])("an old session stays erased after a fresh profile is created (profile seen: %s)", async (seen) => {
+    unsetEnv("STUDIUM_PSEUDO_SECRET");
+    const root = library();
+    const data = tmp();
+    const here = host(root, data);
+    const there = host(root, data);
+    const original = await here.create("atomes/lesson.json", "ana");
+    if (seen) await answer(here, original.sessionId);
+    const stale = await there.create("liaisons/lesson.json", "ana");
+    await here.forgetLearner("ana");
+    const fresh = await here.create("atomes/lesson.json", "ana");
+    await answer(here, fresh.sessionId);
+    const before = readFileSync(join(profileFolder(data), "profile.json"), "utf8");
+    await expect(answer(there, stale.sessionId)).rejects.toThrow(/^session not found: .*erased/);
+    expect(readFileSync(join(profileFolder(data), "profile.json"), "utf8")).toBe(before);
+  });
+
+  it.each([false, true])("forget waits for the engine's pending state write (another host: %s)", async (otherHost) => {
+    unsetEnv("STUDIUM_PSEUDO_SECRET");
+    const root = library();
+    const data = tmp();
+    const writer = host(root, data);
+    const eraser = otherHost ? host(root, data) : writer;
+    const started = await writer.create("atomes/lesson.json", "ana");
+    await answer(writer, started.sessionId);
+    let enter!: () => void;
+    let release!: () => void;
+    const entered = new Promise<void>((resolve) => { enter = resolve; });
+    const released = new Promise<void>((resolve) => { release = resolve; });
+    const save = FileStateStore.prototype.save;
+    vi.spyOn(FileStateStore.prototype, "save").mockImplementationOnce(async function (this: FileStateStore, lessonId, state) {
+      enter();
+      await released;
+      return save.call(this, lessonId, state);
+    });
+    const answering = answer(writer, started.sessionId);
+    await entered;
+    let finished = false;
+    const forgetting = eraser.forgetLearner("ana").then(() => { finished = true; });
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const finishedBeforeWrite = finished;
+    release();
+    await Promise.all([answering, forgetting]);
+    expect(finishedBeforeWrite).toBe(false);
+    expect(learnerFolders(data)).toEqual([]);
+  });
+
   it("forget(session) closes the learner's other sessions, which can no longer write the profile back", async () => {
     unsetEnv("STUDIUM_PSEUDO_SECRET");
     const root = library();

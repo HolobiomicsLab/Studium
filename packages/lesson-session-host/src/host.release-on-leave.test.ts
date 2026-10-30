@@ -1,3 +1,4 @@
+// L-5: exact display assertions use French non-breaking spaces; content/privacy contracts stay intact.
 // packages/lesson-session-host/src/host.release-on-leave.test.ts
 //
 // What an answer releases, and when (integration wave, lead decisions I-1 and I-2):
@@ -86,7 +87,7 @@ describe("I-2 — cited passages are released when the learner leaves the scene 
 
     const right = await host.respond(sessionId, { kind: "quiz_choice", choiceId: choiceOf(host.currentPresentation(sessionId), "Juste") });
     expect(right.verdict?.sources).toEqual([{ title: "Atkins", quote: "PASSAGE-Q1", url: "https://example.org/atkins" }]);
-    expect(right.verdict?.display_markdown).toContain("« PASSAGE-Q1 »");
+    expect(right.verdict?.display_markdown).toContain("«\u00a0PASSAGE-Q1\u00a0»");
   });
 
   it("another item on the same point holds both passages back until the learner moves on", async () => {
@@ -99,7 +100,7 @@ describe("I-2 — cited passages are released when the learner leaves the scene 
     const right = await host.respond(sessionId, { kind: "quiz_choice", choiceId: choiceOf(host.currentPresentation(sessionId), "Juste") });
     expect(right.verdict?.scene_id).toBe("q2");
     expect(right.verdict?.sources?.map((s) => s.quote).sort()).toEqual(["PASSAGE-Q1", "PASSAGE-Q2"]);
-    expect(right.verdict?.display_markdown).toContain("« PASSAGE-Q1 »");
+    expect(right.verdict?.display_markdown).toContain("«\u00a0PASSAGE-Q1\u00a0»");
   });
 
   it("a prerequisite detour to another item on the same point holds the passage back too", async () => {
@@ -142,7 +143,7 @@ describe("I-1 — the reference is data on the verdict, laid out under its own h
     const { host, sessionId } = await start(lesson([explainBack, ending("c2")]));
     const t = await host.respond(sessionId, { kind: "explanation", text: "Le signe change entre les lobes." });
     expect(t.verdict).toMatchObject({ key_points: ["POINT-UN", "POINT-DEUX"], model_answer: "MODÈLE-SECRET", reference_kind: "key_points" });
-    expect(t.verdict?.display_markdown).toContain("**Compare ta réponse à ces points clés :**\n\n- POINT-UN\n- POINT-DEUX");
+    expect(t.verdict?.display_markdown).toContain("**Compare ta réponse à ces points clés\u00a0:**\n\n- POINT-UN\n- POINT-DEUX");
     expect(t.verdict?.display_markdown).toContain("**Réponse modèle**\n\nMODÈLE-SECRET");
     // The feedback does not repeat the reference (it is empty offline: nothing measured the answer).
     expect(t.verdict?.display_markdown.split("POINT-UN")).toHaveLength(2);
@@ -158,7 +159,7 @@ describe("I-1 — the reference is data on the verdict, laid out under its own h
     writeFileSync(join(dir, "response.json"), JSON.stringify({ text: "Le signe change entre les lobes." }));
     await ws.ingest(sessionId);
     const feedback = readFileSync(join(dir, "feedback.md"), "utf8");
-    expect(feedback).toContain("**Compare ta réponse à ces points clés :**\n\n- POINT-UN\n- POINT-DEUX");
+    expect(feedback).toContain("**Compare ta réponse à ces points clés\u00a0:**\n\n- POINT-UN\n- POINT-DEUX");
     expect(feedback).toContain("**Réponse modèle**\n\nMODÈLE-SECRET");
   });
 
@@ -179,15 +180,15 @@ describe("I-1 — the reference is data on the verdict, laid out under its own h
     expect(wrong.verdict).toMatchObject({ scene_id: "f", correct: false });
     expect(wrong.verdict).not.toHaveProperty("key_points");
     expect(wrong.verdict).not.toHaveProperty("model_answer");
-    expect(served(wrong)).not.toMatch(/CORRECTION-SECRÈTE|PASSAGE-AUDIT|défauts plantés :/);
+    expect(served(wrong)).not.toMatch(/CORRECTION-SECRÈTE|PASSAGE-AUDIT|défauts plantés\u00a0:/);
 
     const right = await host.respond(sessionId, { kind: "flaw_verdicts", verdicts: marks(true) });
     expect(right.verdict).toMatchObject({
       correct: true, key_points: ["AFFIRMATION-FAUSSE"], model_answer: "CORRECTION-SECRÈTE", reference_kind: "planted_flaws",
     });
-    expect(right.verdict?.display_markdown).toContain("**Compare ton audit aux défauts plantés :**\n\n- AFFIRMATION-FAUSSE");
+    expect(right.verdict?.display_markdown).toContain("**Compare ton audit aux défauts plantés\u00a0:**\n\n- AFFIRMATION-FAUSSE");
     expect(right.verdict?.display_markdown).toContain("**Correction modèle**\n\nCORRECTION-SECRÈTE");
-    expect(right.verdict?.display_markdown).toContain("« PASSAGE-AUDIT »");
+    expect(right.verdict?.display_markdown).toContain("«\u00a0PASSAGE-AUDIT\u00a0»");
   });
 
   // Integration tail T3: an offline ai_critique put the claims that hid a flaw, with their expected flaws,
@@ -217,7 +218,7 @@ describe("I-1 — the reference is data on the verdict, laid out under its own h
     expect(left.verdict).toMatchObject({ key_points: ["AFFIRMATION-PIÈGE (DÉFAUT-ATTENDU)"], reference_kind: "flawed_claims" });
     expect(left.verdict?.feedback ?? "").not.toContain("AFFIRMATION-PIÈGE");
     const shown = left.verdict?.display_markdown ?? "";
-    expect(shown).toContain("**Compare ta critique aux affirmations qui cachaient un défaut :**\n\n- AFFIRMATION-PIÈGE (DÉFAUT-ATTENDU)");
+    expect(shown).toContain("**Compare ta critique aux affirmations qui cachaient un défaut\u00a0:**\n\n- AFFIRMATION-PIÈGE (DÉFAUT-ATTENDU)");
     expect(shown.split("AFFIRMATION-PIÈGE")).toHaveLength(2);
     expect(shown).not.toContain("AFFIRMATION-SAINE");
   });
@@ -235,7 +236,7 @@ describe("I-1 — the reference is data on the verdict, laid out under its own h
     writeFileSync(join(dir, "response.json"), JSON.stringify({ text: "La première affirmation généralise trop." }));
     await ws.ingest(sessionId);
     const feedback = readFileSync(join(dir, "feedback.md"), "utf8");
-    expect(feedback).toContain("**Compare ta critique aux affirmations qui cachaient un défaut :**\n\n- AFFIRMATION-PIÈGE (DÉFAUT-ATTENDU)");
+    expect(feedback).toContain("**Compare ta critique aux affirmations qui cachaient un défaut\u00a0:**\n\n- AFFIRMATION-PIÈGE (DÉFAUT-ATTENDU)");
     expect(feedback.split("AFFIRMATION-PIÈGE")).toHaveLength(2);
   });
 });

@@ -1,0 +1,127 @@
+B2 interface and wording notes — source baseline 6f7aa15; no docs or dist generated.
+IFACE completion: complete transitions carry completion={consolidated:string[],practised:{concept_id:string,answers:number}[],not_measured:string[]}. Consolidated requires total_attempts >= imported MIN_MASTERY_ATTEMPTS (3) and mastery >= imported REVIEW_MIN_MASTERY (0.6). VS Code completion.ts accepts this shape; its driver passes.
+IFACE mastery: presentation.learnerSnapshot.conceptMastery and complete.summary.mastery list every lesson concept with null until at least one graded answer measured it. File completion uses the same split and concept titles, including after a final recall rating.
+IFACE graph: get_workflow_graph concept nodes carry attrs.mastery=null when unmeasured and omit the optional numeric value. Measured nodes retain value and attrs.mastery. GraphView schema remains valid.
+IFACE verdict: correct_choice references render under “The right answer:” / « La bonne réponse : » with French NBSP. ✓ requires correct===true; ✗ requires correct===false. A keyed verdict from an agent-drafted lesson carries the provenance sentence below, including on the final answer.
+IFACE sources: citedSources passes optional bibliographic_refs[].license. Source blocks render title (url), licence when supplied; missing optional URLs/licences are omitted, never invented. Quotations use “ ” in English and « NBSP … NBSP » in French. Reading scenes show formatted Source blocks in chat and task.md; answer-bearing sources remain withheld until earned.
+IFACE authoring: served top-level/presentation/operator-context authoring.drafted_by is agent|learner|teacher, inferred by mode for older bundles. Teacher review keeps its prior raw declaration/null semantics; only its TypeScript Omit was adjusted for this added learner field.
+IFACE notice: French learner notices use tes/ta/ton/conteste. The English opening notice says “provided reference”, since it appears before an answer. The reproduction-assessment sentence is appended only if this bundle contains a reproduction scene, with or without a judge.
+IFACE stale approval: first chat screen and first file task show the one-line stale-approval notice below if approval.recorded && !approval.matches. The saved approval is not changed.
+IFACE recall: rate_recall always returns the updated lesson-specific review_plan={next_due_at,next_due_date,concepts}, including before completion. Existing all-concept scheduling, e.moved, persistLearner moved lists and session-clock rated_at are retained and regression-tested.
+IFACE recall expiry: MCP isError response includes code="self_rating_expired" and the engine's explicit expiry/re-answer message.
+IFACE file channel: after a requested self-rating, ingest returns {done:false,transition:"awaiting_recall"}; task.md requests response.json {kind:"recall",grade:"again"|"hard"|"good"|"easy"}. A valid grade resumes with recall_rated or completes after the final scene. index.json retains pending_recall={scene_id,after,locale}. Invalid structures are consumed; incomplete JSON waits. No model invents a learner grade.
+IFACE runner: OperatorCtx.sceneType="recall" for that turn. makeLlmOperator requires an explicit recallRating(task,ctx) callback; without one it errors “Recall rating must come from the learner: supply a recallRating callback.” stubOperator supplies a synthetic good rating for synthetic test runs only.
+IFACE file feedback: uses the canonical host verdict, so no-judge answers have a no-judge line, explicit boolean marks and earned references/sources. Final completion retains measured/practised/unmeasured groups after the learner rates recall.
+IFACE file task headings: “# Studium — note ton rappel” / “# Studium — rate your recall”.
+IFACE file rating instruction: “Choisis ta note de rappel — **je ne savais pas** (`again`), **difficile** (`hard`), **bien** (`good`) ou **facile** (`easy`) — puis écris :” / “Choose your recall rating — **again**, **hard**, **good** or **easy** — then write:” followed by a JSON example {kind:"recall",grade:"good"}; French colon is typeset with NBSP.
+IFACE file waiting: “Aucune note de rappel valide n'a encore été reçue. La leçon attend ta note.” / “No valid recall rating has been received yet. The lesson is waiting for your rating.”
+IFACE file invalid rating: “La note de rappel est invalide. Choisis `again`, `hard`, `good` ou `easy`.” / “The recall rating is invalid. Choose `again`, `hard`, `good` or `easy`.” followed by the localized grade instruction.
+IFACE navigation: chat and file prose is selected from navigation.kind, without engine reasons, rule IDs, returns_to titles, correctness claims, item/seuil/threshold vocabulary. Normal advance/complete need no extra chat navigation line.
+IFACE file navigation replay: “La prochaine tâche reprend cette question.” / “The next task repeats this question.”
+IFACE file navigation remediate_alt: “La prochaine tâche propose une autre question sur le même point.” / “The next task gives you another question on the same point.”
+IFACE file navigation remediate: “La prochaine tâche revoit d'abord une notion nécessaire.” / “The next task first revisits a concept this lesson needs.”
+IFACE file navigation gate_unassessable: “Cette notion n'a pas pu être mesurée ici ; la leçon continue.” / “This concept could not be measured here; the lesson continues.”; French semicolon has U+202F.
+IFACE file navigation skip: “La leçon passe à la suite.” / “The lesson moves on.”
+IFACE file navigation calibration: “La prochaine tâche est un point de confiance.” / “The next task is a confidence check.”
+IFACE file navigation complete: “Leçon terminée — 1 scène.” / “Leçon terminée — {count} scènes.”; “Lesson complete — 1 scene.” / “Lesson complete — {count} scenes.”, followed by completion groups. The final recall completion uses “**Leçon terminée.**” / “**Lesson complete.**”.
+IFACE file navigation next: “Passage à l'étape suivante (`task.md` est mis à jour).” / “Moving to the next step (`task.md` is updated).”
+IFACE study plan: singular/plural notion/concept/étape/step is selected explicitly. English “1 of 3 steps” agrees with the total; French “1 étape sur 3” agrees with completed steps. Overdue wording uses the host time zone, with “en retard depuis le …” / “overdue since …”.
+IFACE typography: French catalogues and rendered source blocks use U+00A0 before : and inside guillemets, U+202F before ; ! ?, preserving code spans. English lists/quotes use “ ”. Teacher-facing vous is preserved.
+IFACE review: review.items[].bundle_ref identifies the source lesson. Review quiz shuffle salt is [learner_id,"review",calendarDate(now_ms,host.timeZone)]; the session holds its shuffled bundle so letters stay fixed while open. A new review on a new local day receives that day's salt. Lesson order keeps the existing deterministic per-learner/shared-class policy (STUDIUM_PER_LEARNER_SHUFFLE); lesson resume across restarts/days retains its letters.
+IFACE submit_response description: “Lesson quiz choices keep a deterministic order for each learner, including on resume. Review choices are shuffled and relettered by learner and review day in the host's time zone; an open review keeps its letters. Send the DISPLAYED choice id, never a memorized source id.”
+IFACE teacher tools: registered review_lesson and class_report receive host.libraryRoot and can inspect a lesson authored into the separate learner library. create_lesson rejects a course_id already served from a distinct BUNDLES_ROOT, including overwrite:true; existing conflict wording is retained.
+IFACE forget/storage: complete learner writes and forget share the per-learner cross-process lock. Forget waits for pending engine/store writes, rotates a durable generation token, erases learner records and closes that learner's local sessions; an old session in another host is refused even after a fresh profile is created. .learner-locks/<pseudonym>/tombstone remains outside erased learner folders. It holds a random generation only. Existing served persistence warnings are retained on write-through failure.
+IFACE storage helpers: withLearnerLock(dataDir,pseudonym,fn), readLearnerTombstone(dataDir,pseudonym), writeLearnerTombstone(dataDir,pseudonym). The write helper requires the lock. Do not clear metadata on ordinary forget or acquire the lock recursively.
+IFACE inherited L-10: requested single-choice reply prefixes and ambiguity refusal already existed at 6f7aa15; reply-mapping.ts is unchanged and all 43 tests pass.
+
+Exact changed catalogue templates follow. Templates still contain placeholders; French spacing is shown as emitted.
+IFACE wording chat.fr.not_durable = "Attention : ta progression n'est gardée qu'en mémoire et sera perdue au redémarrage du serveur."
+IFACE wording chat.fr.not_saved = "Attention : ta progression n'a pas pu être enregistrée ; cette séance continue."
+IFACE wording chat.fr.stale_approval = "Attention : cette leçon a été modifiée depuis son approbation par l'enseignant."
+IFACE wording chat.fr.ai_reading = "**Lecture IA à auditer** : juge chaque affirmation."
+IFACE wording chat.fr.discussion = "**Discussion : {topic}**"
+IFACE wording chat.fr.hint_available = "_Besoin d'aide ? Un indice est disponible : demande-le._"
+IFACE wording chat.fr.run_recorded = "Ta reproduction est déjà enregistrée : tu peux continuer sans la relancer."
+IFACE wording chat.fr.reply_quiz = "_Réponds avec la lettre de ton choix : {ids}._"
+IFACE wording chat.fr.reply_deck = "_Réponds avec les numéros des affirmations que tu juges fausses (par exemple « 1, 3 ») ; aucun numéro si toutes te semblent justes._"
+IFACE wording chat.fr.reply_run = "_Cette étape demande d'exécuter la reproduction toi-même : l'assistant lit le manifeste, lance la commande avec toi, puis transmet le résultat._"
+IFACE wording chat.fr.reply_discussion = "_Argumente avec tes propres mots ; dis « continuer » pour passer à la suite._"
+IFACE wording chat.fr.reply_text = "_Réponds avec tes propres mots : l'assistant n'écrit pas la réponse à ta place._"
+IFACE wording chat.fr.reply_continue = "_Dis « continuer » quand tu es prêt·e._"
+IFACE wording chat.fr.verdict_key_recorded = "**Réponse comparée à la clé.** Aucun résultat global n'est affirmé."
+IFACE wording chat.fr.verdict_judge_measured = "**Mesure enregistrée.** Le juge a mesuré les éléments cités, sans certifier de résultat global."
+IFACE wording chat.fr.reference_key_points = "**Compare ta réponse à ces points clés :**"
+IFACE wording chat.fr.reference_planted_flaws = "**Compare ton audit aux défauts plantés :**"
+IFACE wording chat.fr.reference_flawed_claims = "**Compare ta critique aux affirmations qui cachaient un défaut :**"
+IFACE wording chat.fr.reference_correct_choice = "**La bonne réponse :**"
+IFACE wording chat.fr.self_rating = "Compare ta réponse à la référence ci-dessus, puis note ton rappel : **je ne savais pas** (`again`), **difficile** (`hard`), **bien** (`good`) ou **facile** (`easy`). Cette note fixe la date de ta prochaine révision ; elle ne change jamais ta maîtrise."
+IFACE wording chat.fr.ai_key_provenance = "Selon la clé rédigée par l'IA — voir le passage cité."
+IFACE wording chat.fr.recall_rated = "Note enregistrée. Prochaine révision : {date}. Elle règle tes révisions, jamais ta maîtrise."
+IFACE wording chat.fr.nav_remediate = "On revoit d'abord une notion nécessaire."
+IFACE wording chat.fr.nav_continue = "On poursuit la leçon."
+IFACE wording chat.fr.nav_unmeasured = "Cette notion n'a pas pu être mesurée ici ; on poursuit la leçon."
+IFACE wording chat.fr.nav_skip = "On passe à la suite."
+IFACE wording chat.fr.nav_calibration = "On fait maintenant un point de confiance."
+IFACE wording chat.fr.consolidated_one = "Notion consolidée : {list}."
+IFACE wording chat.fr.consolidated_many = "Notions consolidées : {list}."
+IFACE wording chat.fr.practised_one = "{concept} — Travaillée ({answers} réponse)"
+IFACE wording chat.fr.practised_many = "{concept} — Travaillée ({answers} réponses)"
+IFACE wording chat.fr.not_measured = "{concept} — Pas encore mesurée"
+IFACE wording chat.fr.next_review = "Prochaine révision : {date}."
+IFACE wording chat.fr.nothing_due = "Rien à réviser pour l'instant. Prochaine révision : {date}."
+IFACE wording chat.fr.nothing_scheduled = "Rien à réviser pour l'instant : aucune révision n'est encore planifiée. Une leçon terminée en programme."
+IFACE wording chat.fr.nothing_playable_one = "Rien à réviser pour l'instant : la notion {list} est à revoir, mais aucune question de tes leçons ne la reprend."
+IFACE wording chat.fr.nothing_playable_many = "Rien à réviser pour l'instant : les notions {list} sont à revoir, mais aucune question de tes leçons ne les reprend."
+IFACE wording chat.fr.nothing_playable_next = "Prochaine révision : {date}."
+IFACE wording chat.fr.lessons_no_match = "Aucune leçon ne correspond à « {query} »."
+IFACE wording chat.fr.lesson_line = "- « {title} » — {details}"
+IFACE wording chat.fr.lesson_in_progress = "en cours : {done} sur {total}"
+IFACE wording chat.fr.forget_nothing = "Rien à effacer : aucune donnée n'est enregistrée pour toi ici."
+IFACE wording chat.fr.forget_erased = "Effacé : {items}."
+IFACE wording chat.fr.forget_kept = "Conservé : {items}."
+IFACE wording chat.fr.forget_other_lessons = "ta progression dans {lessons} : demande à effacer toutes tes données pour l'effacer aussi"
+IFACE wording chat.en.stale_approval = "Note: this lesson changed after the teacher approved it."
+IFACE wording chat.en.verdict_key_recorded = "**Answer checked against the key.** No overall result is claimed."
+IFACE wording chat.en.verdict_judge_measured = "**Evidence measured.** The judge measured the evidence cited above but did not certify an overall pass."
+IFACE wording chat.en.reference_correct_choice = "**The right answer:**"
+IFACE wording chat.en.self_rating = "Compare your answer with the reference above, then rate your recall: **again**, **hard**, **good** or **easy**. This rating sets the date of your next review; it never changes your mastery."
+IFACE wording chat.en.ai_key_provenance = "Per the AI-drafted key — see the cited passage."
+IFACE wording chat.en.nav_remediate = "First, we revisit a concept this lesson needs."
+IFACE wording chat.en.nav_continue = "We continue the lesson."
+IFACE wording chat.en.nav_unmeasured = "This concept could not be measured here; we continue the lesson."
+IFACE wording chat.en.nav_skip = "We move on."
+IFACE wording chat.en.nav_calibration = "Now we check your confidence."
+IFACE wording chat.en.consolidated_one = "Consolidated: {list}."
+IFACE wording chat.en.consolidated_many = "Consolidated: {list}."
+IFACE wording chat.en.practised_one = "{concept} — Practised ({answers} answer)"
+IFACE wording chat.en.practised_many = "{concept} — Practised ({answers} answers)"
+IFACE wording chat.en.not_measured = "{concept} — Not measured yet"
+IFACE wording study_plan.fr.overdue_line = "- {concept} — en retard depuis le {date}{lesson}"
+IFACE wording study_plan.fr.lesson_suffix = " (leçon « {title} »)"
+IFACE wording study_plan.fr.progress_line_one = "- « {title} » : {done} étape sur {total}"
+IFACE wording study_plan.fr.progress_line_many = "- « {title} » : {done} étapes sur {total}"
+IFACE wording study_plan.fr.next_line = "- « {title} »"
+IFACE wording study_plan.fr.now = "**Maintenant :** {text}"
+IFACE wording study_plan.fr.review_one = "tu as 1 notion à revoir ({list}). Lance une séance de révision."
+IFACE wording study_plan.fr.review_many = "tu as {count} notions à revoir ({list}). Lance une séance de révision."
+IFACE wording study_plan.fr.continue = "reprends « {title} » là où tu t'étais arrêté·e."
+IFACE wording study_plan.fr.start = "commence « {title} »."
+IFACE wording study_plan.fr.author = "aucune leçon n'est encore disponible. Choisis un sujet et tes sources : l'assistant prépare une leçon avec toi."
+IFACE wording study_plan.fr.wait_next = "rien à revoir pour l'instant. Prochaine révision : {date}."
+IFACE wording study_plan.fr.lesson_split = "Elle dure environ {minutes} minutes : avec tes {budget} minutes par jour, fais-la en {sittings} fois."
+IFACE wording study_plan.fr.left_split = "Il en reste environ {minutes} minutes : avec tes {budget} minutes par jour, finis-la en {sittings} fois."
+IFACE wording study_plan.en.overdue_line = "- {concept} — overdue since {date}{lesson}"
+IFACE wording study_plan.en.progress_line_one = "- “{title}”: {done} of {total} step"
+IFACE wording study_plan.en.progress_line_many = "- “{title}”: {done} of {total} steps"
+IFACE wording study_plan.en.review_one = "you have 1 concept to review ({list}). Start a review session."
+IFACE wording study_plan.en.review_many = "you have {count} concepts to review ({list}). Start a review session."
+IFACE wording authoring.fr.open_book = "Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). "
+IFACE wording authoring.en.open_book = "Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book). "
+IFACE wording authoring.fr.agent_drafted = "Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; conteste une clé qui te semble fausse. "
+IFACE wording authoring.en.agent_drafted = "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; challenge any key you think is wrong. "
+IFACE wording authoring.fr.no_judge = "Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise."
+IFACE wording authoring.en.no_judge = "Without a judge model, production scenes are not assessed: compare your answer with the provided reference and rate your recall; that rating schedules your reviews and never changes your mastery."
+IFACE wording authoring.fr.with_judge = "Les scènes de production sont évaluées par le modèle."
+IFACE wording authoring.en.with_judge = "Production scenes are assessed by the model."
+IFACE wording authoring.fr.reproduction_assessment = "Les reproductions exécutées portent une évaluation externe."
+IFACE wording authoring.en.reproduction_assessment = "Executed reproductions carry an external assessment."

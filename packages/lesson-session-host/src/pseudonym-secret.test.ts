@@ -6,14 +6,14 @@
 // folder that already holds learner folders and no secret file keeps the legacy secret, so nobody loses
 // their progress, and says so once on stderr. Ephemeral mode is unchanged.
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HmacPseudonymProvider } from "@studium/lesson-session/node";
 import { defaultLearnerProfile } from "@studium/learner-state";
 import { SessionHost } from "./host.js";
 import { PROFILE_PSEUDONYM_SCOPE } from "./learner-profile-store.js";
-import { LEGACY_PSEUDO_SECRET, SECRET_FILE, installSecret } from "./pseudonym-secret.js";
+import { KEY_SOURCE_FILE, LEGACY_PSEUDO_SECRET, SECRET_FILE, installSecret, markEnvKeyed } from "./pseudonym-secret.js";
 
 const dirs: string[] = [];
 function tmp(): string {
@@ -75,6 +75,36 @@ async function finishLesson(host: SessionHost, learnerId: string): Promise<void>
 }
 
 describe("I-6 — a per-install pseudonym secret for durable state", () => {
+  it("tightens an existing data folder and its key files before reusing them", () => {
+    const dataDir = tmp();
+    installSecret(dataDir);
+    chmodSync(dataDir, 0o755);
+    chmodSync(join(dataDir, SECRET_FILE), 0o644);
+    chmodSync(join(dataDir, KEY_SOURCE_FILE), 0o644);
+    installSecret(dataDir);
+    expect(statSync(dataDir).mode & 0o777).toBe(0o700);
+    expect(statSync(join(dataDir, SECRET_FILE)).mode & 0o777).toBe(0o600);
+    expect(statSync(join(dataDir, KEY_SOURCE_FILE)).mode & 0o777).toBe(0o600);
+  });
+
+  it("keeps an env-keyed data folder private when it already existed", () => {
+    const dataDir = tmp();
+    chmodSync(dataDir, 0o755);
+    markEnvKeyed(dataDir);
+    expect(statSync(dataDir).mode & 0o777).toBe(0o700);
+    expect(statSync(join(dataDir, KEY_SOURCE_FILE)).mode & 0o777).toBe(0o600);
+  });
+
+  it("tightens a reused legacy marker as well as a newly created marker", () => {
+    const dataDir = tmp();
+    mkdirSync(join(dataDir, "0123456789abcdef"));
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    installSecret(dataDir);
+    chmodSync(join(dataDir, KEY_SOURCE_FILE), 0o644);
+    expect(installSecret(dataDir).source).toBe("legacy");
+    expect(statSync(join(dataDir, KEY_SOURCE_FILE)).mode & 0o777).toBe(0o600);
+  });
+
   it("a fresh data folder gets its own 0600 secret of 32 random bytes, and pseudonyms keyed by it", async () => {
     unsetEnv("STUDIUM_PSEUDO_SECRET");
     const dataDir = join(tmp(), "data");

@@ -10,7 +10,10 @@
 // The study, authoring and teacher tools are MCP-only this sprint (lead decision I-11): the HTTP
 // adapter (http.ts) serves the 25 lesson operations alone.
 import { z } from "zod";
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { SelfRatingExpiredError } from "@studium/lesson-session";
 import {
   SessionHost, NowMsSchema, publicPresentation, operatorContext, type SelfRating,
 } from "@studium/lesson-session-host";
@@ -61,8 +64,13 @@ function logStartup(toolCount: number): void {
 }
 
 const text = (data: unknown): ToolResult => ({ content: [{ type: "text", text: JSON.stringify(data) }] });
-const fail = (error: unknown): ToolResult =>
-  ({ content: [{ type: "text", text: JSON.stringify({ error: (error as Error).message }) }], isError: true });
+const fail = (error: unknown): ToolResult => ({
+  content: [{ type: "text", text: JSON.stringify({
+    error: (error as Error).message,
+    ...(error instanceof SelfRatingExpiredError ? { code: "self_rating_expired" } : {}),
+  }) }],
+  isError: true,
+});
 
 /** An operation whose arguments are checked against its schema, as operations.ts does. */
 function operation<S extends z.ZodRawShape>(
@@ -247,13 +255,16 @@ export function buildMcpServer(host: SessionHost): McpServer {
   }
   registered.push(...registerAuthoringTools(server, {
     libraryRoot: () => authoringRoot(host),
+    servedElsewhere: (id) => resolve(host.bundlesRoot) !== resolve(host.libraryRoot ?? "") && existsSync(join(host.bundlesRoot, id)),
     // Nothing to refresh: list_lessons scans the roots afresh on every call and start_lesson_session
     // resolves a bundle_ref on disk, so a lesson written a moment ago is listed and starts at once
     // (learn-and-review.e2e.test.ts proves it through this server).
     onLessonWritten: () => {},
     judge: () => host.judge,
   }));
-  registered.push(...registerTeacherTools(server, { bundlesRoot: host.bundlesRoot, dataDir: host.persistence().data_dir }));
+  registered.push(...registerTeacherTools(server, {
+    bundlesRoot: host.bundlesRoot, libraryRoot: host.libraryRoot, dataDir: host.persistence().data_dir,
+  }));
   registerPrompts(server);
   logStartup(registered.length);
   return server;

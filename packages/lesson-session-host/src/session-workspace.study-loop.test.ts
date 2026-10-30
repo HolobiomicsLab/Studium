@@ -56,7 +56,8 @@ describe("SessionWorkspace and the study loop", () => {
     expect((await ws.ingest(sessionId)).transition).toBe("next");
     const feedback = readFileSync(join(dir, "feedback.md"), "utf8");
     expect(feedback).toContain("BRAVO-RÉVÉLÉ");
-    expect(feedback).toContain("« PASSAGE-QUI-RÉPOND » — Atkins (https://doi.org/10.1000/x)");
+    // L-5 requires non-breaking spaces inside French guillemets on every learner surface.
+    expect(feedback).toContain("«\u00a0PASSAGE-QUI-RÉPOND\u00a0» — Atkins (https://doi.org/10.1000/x)");
     expect(host.getState(sessionId).history.find((h) => h.signal.kind === "answer_submitted")?.signal)
       .toMatchObject({ scene_id: "s-q", correct: true });
 
@@ -79,5 +80,90 @@ describe("SessionWorkspace and the study loop", () => {
     const feedback = readFileSync(join(dir, "feedback.md"), "utf8");
     expect(feedback).toContain("BRAVO-RÉVÉLÉ");
     expect(feedback).toContain("PASSAGE-QUI-RÉPOND");
+    // L-6 applies to the file surface too: one correct answer is practice, not consolidation.
+    expect(feedback).toContain("Signe — Travaillée (1 réponse)");
+    expect(feedback).not.toContain("consolidée");
+  });
+
+  it("prints a reading scene's source and licence in task.md", async () => {
+    const root = tmp();
+    const evidence = { bibliographic_refs: [{ perspicacite_doc_id: "d1", title: "Atkins", authors: ["Atkins"],
+      excerpt: "PASSAGE-LISIBLE", relevance_score: 0.9, prov_derived_from: "https://example.org/chimie", license: "CC BY 4.0" }],
+      enrichment_metadata: { enricher_version: "1", perspicacite_mode_used: "passages", timestamp: "2026-10-01T00:00:00Z", degraded: false } };
+    writeFileSync(join(root, "lesson.json"), JSON.stringify({ ...BUNDLE,
+      scenes: [{ ...base("s-r", "concept"), markdown: "Lis le passage.", evidence }] }));
+    const host = new SessionHost({ bundlesRoot: root, live: false, dataDir: null });
+    const { sessionId } = await host.create("lesson.json", "ana");
+    const dir = tmp();
+    await new SessionWorkspace(host, dir).writeStep(sessionId);
+    expect(readFileSync(join(dir, "task.md"), "utf8"))
+      .toContain("**Source**\n\n> «\u00a0PASSAGE-LISIBLE\u00a0» — Atkins (https://example.org/chimie), CC BY 4.0");
+  });
+
+  it("shows the stale teacher approval notice on the file channel's first screen", async () => {
+    const root = tmp();
+    writeFileSync(join(root, "lesson.json"), JSON.stringify(BUNDLE));
+    writeFileSync(join(root, "approval.json"), JSON.stringify({ schema: "studium-approval/1", bundle_sha256: "old-bytes" }));
+    const host = new SessionHost({ bundlesRoot: root, live: false, dataDir: null });
+    const { sessionId } = await host.create("lesson.json", "ana");
+    const dir = tmp();
+    await new SessionWorkspace(host, dir).writeStep(sessionId);
+    expect(readFileSync(join(dir, "task.md"), "utf8"))
+      .toContain("Attention\u00a0: cette leçon a été modifiée depuis son approbation par l'enseignant.");
+  });
+
+  it("pauses for an explicit recall rating after an unjudged production answer (H6)", async () => {
+    const explain = { ...base("s-e", "explain_back"), prompt: "Explique le changement de signe.",
+      key_points: [{ id: "kp", text: "Le signe suit la phase.", cues: ["signe"] }],
+      model_explanation: "Le signe change avec la phase.",
+      rubric: { completeness: 1, evidence_quality: 1, tone: 1 } };
+    const root = tmp();
+    writeFileSync(join(root, "lesson.json"), JSON.stringify({ ...BUNDLE, scenes: [explain, BUNDLE.scenes[0]] }));
+    const host = new SessionHost({ bundlesRoot: root, live: false, dataDir: null });
+    const { sessionId } = await host.create("lesson.json", "ana");
+    const dir = tmp();
+    const ws = new SessionWorkspace(host, dir);
+    await ws.writeStep(sessionId);
+    writeFileSync(join(dir, "response.json"), JSON.stringify({ text: "Le signe change." }));
+
+    const answered = await ws.ingest(sessionId);
+    expect(answered).toEqual({ done: false, transition: "awaiting_recall" });
+    expect(await ws.pendingRecall(sessionId)).toEqual({ sceneId: "s-e" });
+    const feedback = readFileSync(join(dir, "feedback.md"), "utf8");
+    expect(feedback).toContain("Aucun juge ne l'a évaluée");
+    expect(feedback).not.toMatch(/[✓✗]/);
+    expect(feedback).toContain("je ne savais pas");
+    expect(feedback).toContain('{\n  "kind": "recall",\n  "grade": "good"\n}');
+    expect(readFileSync(join(dir, "task.md"), "utf8")).toContain('"kind": "recall"');
+
+    writeFileSync(join(dir, "response.json"), JSON.stringify({ kind: "recall", grade: "good" }));
+    const rated = await ws.ingest(sessionId);
+    expect(rated).toEqual({ done: false, transition: "recall_rated" });
+    expect(await ws.pendingRecall(sessionId)).toBeNull();
+    expect(readFileSync(join(dir, "feedback.md"), "utf8")).toContain("Prochaine révision");
+    expect(readFileSync(join(dir, "task.md"), "utf8")).toContain("Le signe change-t-il ?");
+  });
+
+  it("keeps a last-scene completion open until its requested recall rating is recorded (H6)", async () => {
+    const explain = { ...base("s-e", "explain_back"), prompt: "Explique le changement de signe.",
+      key_points: [{ id: "kp", text: "Le signe suit la phase.", cues: ["signe"] }],
+      model_explanation: "Le signe change avec la phase.",
+      rubric: { completeness: 1, evidence_quality: 1, tone: 1 } };
+    const root = tmp();
+    writeFileSync(join(root, "lesson.json"), JSON.stringify({ ...BUNDLE, scenes: [explain] }));
+    const host = new SessionHost({ bundlesRoot: root, live: false, dataDir: null });
+    const { sessionId } = await host.create("lesson.json", "ana");
+    const dir = tmp();
+    const ws = new SessionWorkspace(host, dir);
+    await ws.writeStep(sessionId);
+    writeFileSync(join(dir, "response.json"), JSON.stringify({ text: "Le signe change." }));
+    expect(await ws.ingest(sessionId)).toEqual({ done: false, transition: "awaiting_recall" });
+    writeFileSync(join(dir, "response.json"), JSON.stringify({ kind: "recall", grade: "hard" }));
+    expect(await ws.ingest(sessionId)).toEqual({ done: true, transition: "complete" });
+    // A self-rating schedules a review without measuring mastery, including on the last scene.
+    const completion = readFileSync(join(dir, "feedback.md"), "utf8");
+    expect(completion).toContain("Signe — Pas encore mesurée");
+    expect(completion).toContain("Prochaine révision");
+    expect(completion).not.toContain("Aucune révision");
   });
 });

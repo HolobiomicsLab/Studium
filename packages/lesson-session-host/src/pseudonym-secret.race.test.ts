@@ -5,7 +5,7 @@
 // The race is made deterministic: the first write of a secret starts, and before its bytes land a
 // second host calls installSecret on the same folder (what a second process does in that window).
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { mkdtempSync, rmSync, statSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -30,7 +30,7 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 
 let installSecretRef: ((dir: string) => { secret: string; source: string }) | null = null;
-const { installSecret, SECRET_FILE } = await import("./pseudonym-secret.js");
+const { installSecret, LEGACY_PSEUDO_SECRET, SECRET_FILE } = await import("./pseudonym-secret.js");
 installSecretRef = installSecret;
 
 const dirs: string[] = [];
@@ -40,6 +40,21 @@ afterEach(() => {
 });
 
 describe("I-6 — two hosts creating the secret of one fresh data folder at once", () => {
+  it("publishes a legacy marker whole before another host can read it", () => {
+    const dir = mkdtempSync(join(tmpdir(), "legacy-marker-race-"));
+    dirs.push(dir);
+    mkdirSync(join(dir, "0123456789abcdef"));
+    race.dir = dir;
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const outer = installSecret(dir);
+      expect(race.inner, "the marker publication window was exercised").not.toBeNull();
+      expect(race.inner?.error).toBeUndefined();
+      expect(outer.secret).toBe(LEGACY_PSEUDO_SECRET);
+      expect(race.inner?.secret).toBe(outer.secret);
+    } finally { stderr.mockRestore(); }
+  });
+
   it("the second host never reads a half-written secret, and both use the same one", () => {
     const dir = mkdtempSync(join(tmpdir(), "secret-race-"));
     dirs.push(dir);

@@ -1,3 +1,4 @@
+// L-5: exact display assertions use French non-breaking spaces; content/privacy contracts stay intact.
 // packages/lesson-session-host/src/host.study-loop.test.ts
 //
 // The study loop through SessionHost (sprint 2026-10-30, W2): the FSRS memory kept first-class
@@ -156,12 +157,12 @@ describe("start_review_session — a due concept can be reviewed (SL-2, HJ-1)", 
     // RFR-13: the day of next_due_at in the host's time zone (it was the UTC day, whatever the display said).
     expect(done.review_plan!.next_due_date).toBe(calendarDate(done.review_plan!.next_due_at!, host.timeZone));
     expect(done.display_markdown).toContain("**Leçon terminée.**");
-    expect(done.display_markdown).toContain("Prochaine révision :");
+    expect(done.display_markdown).toContain("Prochaine révision\u00a0:");
 
     const early = await host.startReview("ana");
     expect(early).toMatchObject({ status: "nothing_due", next_review_at: done.review_plan!.next_due_at });
     if (early.status !== "nothing_due") throw new Error("unreachable");
-    expect(early.display_markdown).toMatch(/^Rien à réviser pour l'instant\. Prochaine révision : /);
+    expect(early.display_markdown).toMatch(/^Rien à réviser pour l'instant\. Prochaine révision\u00a0: /);
     const firstInterval = early.next_review_at! - T0;
 
     set(T0 + 7 * DAY);
@@ -173,8 +174,9 @@ describe("start_review_session — a due concept can be reviewed (SL-2, HJ-1)", 
 
     const review = await host.startReview("ana");
     if (review.status !== "started") throw new Error(`expected a review, got ${review.status}`);
+    // UX-03: retain the lesson's original reference on each review item.
     expect(review.review.items).toEqual([
-      { concept_id: "c-signe", concept: "Notion c-signe", lesson_title: "Leçon lesson-A", scene_id: "r1:s-q" },
+      { concept_id: "c-signe", concept: "Notion c-signe", lesson_title: "Leçon lesson-A", scene_id: "r1:s-q", bundle_ref: "A.json" },
     ]);
     expect(review.presentation.scene.id).toBe("r1:s-q");
     expect(review.presentation.display_markdown).toContain("Révision 1 sur 1");
@@ -296,7 +298,7 @@ describe("rate_recall — a self-rating schedules reviews, never mastery (C4, D5
     expect(rated.next_review_at).toBeGreaterThan(T0);
     // RFR-13: the day of next_review_at in the host's time zone, the day display_markdown prints.
     expect(rated.next_review_date).toBe(calendarDate(rated.next_review_at, host.timeZone));
-    expect(rated.display_markdown).toMatch(/^Note enregistrée\. Prochaine révision : .+\. Elle règle tes révisions, jamais ta maîtrise\.$/);
+    expect(rated.display_markdown).toMatch(/^Note enregistrée\. Prochaine révision\u00a0: .+\. Elle règle tes révisions, jamais ta maîtrise\.$/);
     expect(host.getState(s.sessionId).concept_states).toEqual(mastery);
     expect(host.reviewQueue(s.sessionId)).toEqual([expect.objectContaining({ concept_id: "c-signe", reps: 1 })]);
 
@@ -353,7 +355,7 @@ describe("display_markdown — what a chat shows, and when (HJ-4, SL-5)", () => 
     expect(t.verdict?.sources).toEqual([{ title: "Atkins, Chimie physique", quote: "PASSAGE-QUI-RÉPOND", url: "https://doi.org/10.1000/x" }]);
     expect(t.verdict?.display_markdown).toContain("✓ **Juste.**");
     expect(t.verdict?.display_markdown).toContain("BRAVO-RÉVÉLÉ");
-    expect(t.verdict?.display_markdown).toContain("« PASSAGE-QUI-RÉPOND » — Atkins, Chimie physique (https://doi.org/10.1000/x)");
+    expect(t.verdict?.display_markdown).toContain("«\u00a0PASSAGE-QUI-RÉPOND\u00a0» — Atkins, Chimie physique (https://doi.org/10.1000/x)");
     for (const secret of ["BRAVO-RÉVÉLÉ", "PASSAGE-QUI-RÉPOND"]) expect(t.display_markdown).not.toContain(secret);
     expect(t.display_markdown).toContain("Question s-q2 ?");
     // The warning and the notice belong to the first screen only.

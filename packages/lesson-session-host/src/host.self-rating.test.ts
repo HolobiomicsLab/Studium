@@ -51,6 +51,18 @@ function filesNamed(dir: string, pattern: RegExp): string[] {
 }
 
 describe("L-9 — a self-rating applies to every concept of the rated scene", () => {
+  it("returns the lesson's updated review plan even before the final scene", async () => {
+    const bundles = tmp();
+    write(bundles, "E.json", lesson());
+    const host = new SessionHost({ bundlesRoot: bundles, live: false, dataDir: null, clock: fixedClock });
+    const started = await host.create("E.json", "ana");
+    await host.respond(started.sessionId, { kind: "reply", text: "Le signe suit la phase." });
+    const rated = await host.rateRecall(started.sessionId, "s-e", "good");
+    expect(rated.review_plan).toEqual({ next_due_at: rated.next_review_at, next_due_date: rated.next_review_date,
+      concepts: ["c-signe", "c-lobe"],
+    });
+  });
+
   it("schedules both concepts of a two-concept scene, and says which", async () => {
     const bundles = tmp();
     write(bundles, "E.json", lesson());

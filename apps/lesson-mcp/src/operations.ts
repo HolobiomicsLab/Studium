@@ -224,8 +224,10 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         "Studium maps them to the scene's answer (a choice letter, alone or followed by the learner's reason, or " +
         "the choice text; a confidence; a free-text answer) and refuses a reply naming two choices. A scene " +
         "carrying run_manifest requires " +
-        "get_run_manifest, an actual run, and submit_run_result first. Quiz choices are reshuffled and relettered " +
-        "per session: send the DISPLAYED choice id, never a memorized source id. Confidence checkpoints accept " +
+        "get_run_manifest, an actual run, and submit_run_result first. Lesson quiz choices keep a deterministic " +
+        "order for each learner, including on resume. Review choices are shuffled and relettered by learner and " +
+        "review day in the host's time zone; an open review keeps its letters. Send the DISPLAYED choice id, never " +
+        "a memorized source id. Confidence checkpoints accept " +
         "{kind:\"confidence\", pre, post} (legacy value remains accepted). Returns next/replay/remediate_alt/" +
         "remediate/calibration/complete with verdict and navigation; navigation.returns_to is the scene resumed " +
         "after the detour. A complete summary documents skipped_scene_ids, scenes_detoured, and mastery. Show " +

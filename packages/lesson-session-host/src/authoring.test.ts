@@ -18,39 +18,54 @@ import { publicPresentation, publicTransition } from "./public-scene.js";
 
 const ATOMISTIQUE = fileURLToPath(new URL("../../../fixtures/atomistique-l1/lesson.json", import.meta.url));
 const SELF_STUDY_VALIDATED_BY = "SELF-STUDY — not teacher-validated";
-const OPEN_BOOK_FR = "Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). ";
+const OPEN_BOOK_FR = "Leçon auto-rédigée\u00a0: les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). ";
 const OPEN_BOOK_EN = "Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book). ";
 // Sprint 2026-10-30, D5: without a judge, free-text feedback no longer claims coverage; the learner
 // compares with the model answer and rates their recall, which schedules reviews and never moves
 // mastery — and the notice says so. That replaced the « retour par mots-clés » sentence below.
 const NO_JUDGE = {
-  fr: "Sans juge modèle, les scènes de production ne sont pas évaluées : comparez votre réponse à la réponse " +
-    "modèle et notez votre rappel ; cette note règle vos révisions, jamais votre maîtrise. Seules les " +
-    "reproductions exécutées portent une évaluation externe.",
-  en: "Without a judge model, production scenes are not assessed: compare your answer with the model answer and " +
-    "rate your recall; that rating schedules your reviews and never changes your mastery. Only executed " +
-    "reproductions carry an external assessment.",
+  fr: "Sans juge modèle, les scènes de production ne sont pas évaluées\u00a0: compare ta réponse à la référence " +
+    "affichée et note ton rappel\u202f; cette note règle tes révisions, jamais ta maîtrise.",
+  // The notice also appears before any answer/reference; it cannot point to a reference "above".
+  en: "Without a judge model, production scenes are not assessed: compare your answer with the provided reference and " +
+    "rate your recall; that rating schedules your reviews and never changes your mastery.",
 };
 const WITH_JUDGE = {
-  fr: "Les scènes de production, jugées par le modèle, et les reproductions exécutées portent l'évaluation.",
-  en: "Production scenes, judged by the model, and executed reproductions carry the assessment.",
+  fr: "Les scènes de production sont évaluées par le modèle.",
+  en: "Production scenes are assessed by the model.",
 };
-const NOTICE = {
+const BASE_NOTICE = {
   fr: { without_judge: OPEN_BOOK_FR + NO_JUDGE.fr, with_judge: OPEN_BOOK_FR + WITH_JUDGE.fr },
   en: { without_judge: OPEN_BOOK_EN + NO_JUDGE.en, with_judge: OPEN_BOOK_EN + WITH_JUDGE.en },
 };
+const REPRODUCTION = {
+  fr: " Les reproductions exécutées portent une évaluation externe.",
+  en: " Executed reproductions carry an external assessment.",
+};
+const NOTICE = {
+  fr: { without_judge: BASE_NOTICE.fr.without_judge + REPRODUCTION.fr,
+    with_judge: BASE_NOTICE.fr.with_judge + REPRODUCTION.fr },
+  en: { without_judge: BASE_NOTICE.en.without_judge + REPRODUCTION.en,
+    with_judge: BASE_NOTICE.en.with_judge + REPRODUCTION.en },
+};
 // Contract C3: a self-study lesson an agent drafted from the learner's sources says so — the risk is a
 // wrong AI key the learner never saw, not open book.
-const AGENT_FR = "Leçon rédigée par l'IA à partir de vos sources, non vérifiée par un enseignant : chaque " +
-  "question cite son passage ; contestez une clé qui vous semble fausse. ";
+const AGENT_FR = "Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant\u00a0: chaque " +
+  "question cite son passage\u202f; conteste une clé qui te semble fausse. ";
 const AGENT_EN = "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; " +
   "challenge any key you think is wrong. ";
-const AGENT_NOTICE = {
+const AGENT_BASE_NOTICE = {
   fr: { without_judge: AGENT_FR + NO_JUDGE.fr, with_judge: AGENT_FR + WITH_JUDGE.fr },
   en: { without_judge: AGENT_EN + NO_JUDGE.en, with_judge: AGENT_EN + WITH_JUDGE.en },
 };
+const AGENT_NOTICE = {
+  fr: { without_judge: AGENT_BASE_NOTICE.fr.without_judge + REPRODUCTION.fr,
+    with_judge: AGENT_BASE_NOTICE.fr.with_judge + REPRODUCTION.fr },
+  en: { without_judge: AGENT_BASE_NOTICE.en.without_judge + REPRODUCTION.en,
+    with_judge: AGENT_BASE_NOTICE.en.with_judge + REPRODUCTION.en },
+};
 // Contract C5 (read side) adds `approval`; `validated` keeps its meaning.
-const BLOCK_KEYS = ["mode", "author_is_learner", "validated", "judge", "notice", "approval"];
+const BLOCK_KEYS = ["mode", "author_is_learner", "drafted_by", "validated", "judge", "notice", "approval"];
 const NO_APPROVAL = { recorded: false, matches: false };
 
 const dirs: string[] = [];
@@ -91,7 +106,8 @@ describe("authoring block of a started lesson", () => {
   it("a French self-study bundle on an offline host: no judge, the no-judge notice, not validated", async () => {
     const started = await hostOver(atomistique({ selfStudy: true })).create("lesson.json");
     expect(started.authoring).toEqual({
-      mode: "self_study", author_is_learner: true, validated: false, judge: false, notice: NOTICE.fr.without_judge,
+      mode: "self_study", author_is_learner: true, drafted_by: "learner", validated: false, judge: false,
+      notice: NOTICE.fr.without_judge,
       approval: NO_APPROVAL,
     });
     expect(Object.keys(started.authoring)).toEqual(BLOCK_KEYS);
@@ -100,7 +116,8 @@ describe("authoring block of a started lesson", () => {
   it("the same bundle on a live host: a judge, the judged notice", async () => {
     const started = await startLive(atomistique({ selfStudy: true }));
     expect(started.authoring).toEqual({
-      mode: "self_study", author_is_learner: true, validated: false, judge: true, notice: NOTICE.fr.with_judge,
+      mode: "self_study", author_is_learner: true, drafted_by: "learner", validated: false, judge: true,
+      notice: NOTICE.fr.with_judge,
       approval: NO_APPROVAL,
     });
   });
@@ -114,9 +131,11 @@ describe("authoring block of a started lesson", () => {
 
   it("the untouched atomistique fixture is a validated teacher bundle with no notice, judge or not", async () => {
     const offline = await hostOver(atomistique()).create("lesson.json");
-    expect(offline.authoring).toEqual({ mode: "teacher", author_is_learner: false, validated: true, judge: false, notice: null, approval: NO_APPROVAL });
+    expect(offline.authoring).toEqual({ mode: "teacher", author_is_learner: false, drafted_by: "teacher",
+      validated: true, judge: false, notice: null, approval: NO_APPROVAL });
     const live = await startLive(atomistique());
-    expect(live.authoring).toEqual({ mode: "teacher", author_is_learner: false, validated: true, judge: true, notice: null, approval: NO_APPROVAL });
+    expect(live.authoring).toEqual({ mode: "teacher", author_is_learner: false, drafted_by: "teacher",
+      validated: true, judge: true, notice: null, approval: NO_APPROVAL });
   });
 });
 
@@ -124,7 +143,9 @@ describe("authoringOf", () => {
   const metadata = { title: "T", target: "L1", duration_minutes: 5, language: "fr", discipline: "x" };
 
   it("holds the four spec texts verbatim", () => {
-    expect(SELF_STUDY_NOTICE).toEqual(NOTICE);
+    // RFR-09 changed the exported base text: the reproduction sentence is appended only by
+    // authoringOf when this particular bundle actually contains a reproduction scene.
+    expect(SELF_STUDY_NOTICE).toEqual(BASE_NOTICE);
   });
 
   it("is not validated under the DRAFT prefix either", () => {
@@ -136,8 +157,8 @@ describe("authoringOf", () => {
       metadata: { ...metadata, language, authoring: { mode: "self_study", author_is_learner: false } },
       validated_by: SELF_STUDY_VALIDATED_BY,
     }, { judge: false }).notice;
-    expect(selfStudy("fr-FR")).toBe(NOTICE.fr.without_judge);
-    expect(selfStudy("de")).toBe(NOTICE.en.without_judge);
+    expect(selfStudy("fr-FR")).toBe(BASE_NOTICE.fr.without_judge);
+    expect(selfStudy("de")).toBe(BASE_NOTICE.en.without_judge);
   });
 
   it("reports a learner-authored contribution a teacher approved (community bundle) as teacher and validated", () => {
@@ -145,7 +166,8 @@ describe("authoringOf", () => {
       metadata: { ...metadata, authoring: { mode: "teacher", author_is_learner: true } },
       validated_by: "https://univ-cotedazur.fr/people/teacher-001",
     }, { judge: false });
-    expect(block).toEqual({ mode: "teacher", author_is_learner: true, validated: true, judge: false, notice: null, approval: NO_APPROVAL });
+    expect(block).toEqual({ mode: "teacher", author_is_learner: true, drafted_by: "teacher", validated: true,
+      judge: false, notice: null, approval: NO_APPROVAL });
   });
 });
 
@@ -174,14 +196,14 @@ describe("C3 — a lesson an agent drafted from the learner's sources", () => {
   } as never, { judge }).notice;
 
   it("holds the four agent-drafted texts verbatim", () => {
-    expect(AGENT_DRAFTED_NOTICE).toEqual(AGENT_NOTICE);
+    expect(AGENT_DRAFTED_NOTICE).toEqual(AGENT_BASE_NOTICE);
   });
 
   it("says AI-drafted, not teacher-checked, cited and contestable, by locale and judge", () => {
-    expect(agentDrafted("fr", false)).toBe(AGENT_NOTICE.fr.without_judge);
-    expect(agentDrafted("fr", true)).toBe(AGENT_NOTICE.fr.with_judge);
-    expect(agentDrafted("en", false)).toBe(AGENT_NOTICE.en.without_judge);
-    expect(agentDrafted("de", true)).toBe(AGENT_NOTICE.en.with_judge);
+    expect(agentDrafted("fr", false)).toBe(AGENT_BASE_NOTICE.fr.without_judge);
+    expect(agentDrafted("fr", true)).toBe(AGENT_BASE_NOTICE.fr.with_judge);
+    expect(agentDrafted("en", false)).toBe(AGENT_BASE_NOTICE.en.without_judge);
+    expect(agentDrafted("de", true)).toBe(AGENT_BASE_NOTICE.en.with_judge);
   });
 
   it("never credits the learner with keys an agent wrote", () => {
@@ -191,12 +213,24 @@ describe("C3 — a lesson an agent drafted from the learner's sources", () => {
     }
   });
 
+  it("mentions external reproduction assessment only when the bundle contains one (RFR-09)", () => {
+    const authoring = { mode: "self_study", author_is_learner: false, drafted_by: "agent" };
+    const without = authoringOf({ metadata: { ...metadata, authoring }, validated_by: SELF_STUDY_VALIDATED_BY,
+      scenes: [] } as never, { judge: false });
+    const withRun = authoringOf({ metadata: { ...metadata, authoring }, validated_by: SELF_STUDY_VALIDATED_BY,
+      scenes: [{ type: "reproduction" }] } as never, { judge: false });
+    expect(without.notice).toBe(AGENT_BASE_NOTICE.fr.without_judge);
+    expect(without.notice).not.toMatch(/reproduction/i);
+    expect(withRun.notice).toBe(AGENT_NOTICE.fr.without_judge);
+    expect(withRun.notice).toContain("reproductions exécutées");
+  });
+
   it("a learner-drafted self-study lesson keeps the open-book notice; drafted_by absent defaults by mode", () => {
     const notice = (authoring: Record<string, unknown>) => authoringOf({
       metadata: { ...metadata, authoring }, validated_by: SELF_STUDY_VALIDATED_BY,
     } as never, { judge: false }).notice;
-    expect(notice({ mode: "self_study", author_is_learner: true, drafted_by: "learner" })).toBe(NOTICE.fr.without_judge);
-    expect(notice({ mode: "self_study", author_is_learner: true })).toBe(NOTICE.fr.without_judge);
+    expect(notice({ mode: "self_study", author_is_learner: true, drafted_by: "learner" })).toBe(BASE_NOTICE.fr.without_judge);
+    expect(notice({ mode: "self_study", author_is_learner: true })).toBe(BASE_NOTICE.fr.without_judge);
   });
 });
 

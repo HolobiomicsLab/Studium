@@ -9,6 +9,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
 import type { Presentation } from "@studium/lesson-session";
+import { frenchSpacing } from "../../lesson-session/src/phrases.js";
 
 /** C5: whether `<course>/approval.json` exists and is bound to this exact lesson.json. */
 export interface ApprovalStatus {
@@ -19,8 +20,11 @@ export interface ApprovalStatus {
   reviewed_at?: string;
 }
 
-/** `{ mode, author_is_learner, validated, judge, notice, approval }`, the block on `Presentation.authoring`. */
-export type AuthoringBlock = NonNullable<Presentation["authoring"]> & { approval: ApprovalStatus };
+/** The block on `Presentation.authoring`; `drafted_by` keeps a keyed verdict's provenance visible. */
+export type AuthoringBlock = NonNullable<Presentation["authoring"]> & {
+  drafted_by: DraftedBy;
+  approval: ApprovalStatus;
+};
 
 /** C3: who drafted the lesson's content and keys. */
 export type DraftedBy = "agent" | "learner" | "teacher";
@@ -33,27 +37,32 @@ const OPEN_BOOK = {
   en: "Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book). ",
 };
 const AGENT_DRAFTED = {
-  fr: "Leçon rédigée par l'IA à partir de vos sources, non vérifiée par un enseignant : chaque question cite son " +
-    "passage ; contestez une clé qui vous semble fausse. ",
+  fr: "Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son " +
+    "passage ; conteste une clé qui te semble fausse. ",
   en: "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; challenge any " +
     "key you think is wrong. ",
 };
 const NO_JUDGE = {
-  fr: "Sans juge modèle, les scènes de production ne sont pas évaluées : comparez votre réponse à la réponse modèle " +
-    "et notez votre rappel ; cette note règle vos révisions, jamais votre maîtrise. Seules les reproductions " +
-    "exécutées portent une évaluation externe.",
-  en: "Without a judge model, production scenes are not assessed: compare your answer with the model answer and " +
-    "rate your recall; that rating schedules your reviews and never changes your mastery. Only executed " +
-    "reproductions carry an external assessment.",
+  fr: "Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée " +
+    "et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise.",
+  en: "Without a judge model, production scenes are not assessed: compare your answer with the provided reference and " +
+    "rate your recall; that rating schedules your reviews and never changes your mastery.",
 };
 const WITH_JUDGE = {
-  fr: "Les scènes de production, jugées par le modèle, et les reproductions exécutées portent l'évaluation.",
-  en: "Production scenes, judged by the model, and executed reproductions carry the assessment.",
+  fr: "Les scènes de production sont évaluées par le modèle.",
+  en: "Production scenes are assessed by the model.",
+};
+const REPRODUCTION_ASSESSMENT = {
+  fr: "Les reproductions exécutées portent une évaluation externe.",
+  en: "Executed reproductions carry an external assessment.",
 };
 
 function noticeTexts(prefix: { fr: string; en: string }) {
   return Object.freeze({
-    fr: Object.freeze({ without_judge: prefix.fr + NO_JUDGE.fr, with_judge: prefix.fr + WITH_JUDGE.fr }),
+    fr: Object.freeze({
+      without_judge: frenchSpacing(prefix.fr + NO_JUDGE.fr),
+      with_judge: frenchSpacing(prefix.fr + WITH_JUDGE.fr),
+    }),
     en: Object.freeze({ without_judge: prefix.en + NO_JUDGE.en, with_judge: prefix.en + WITH_JUDGE.en }),
   });
 }
@@ -89,18 +98,25 @@ export function isTeacherValidated(validatedBy: string): boolean {
  * `approval` is what the host read next to the lesson (none when not given).
  */
 export function authoringOf(
-  bundle: Pick<LessonBundle, "metadata" | "validated_by">,
+  bundle: Pick<LessonBundle, "metadata" | "validated_by"> & Partial<Pick<LessonBundle, "scenes">>,
   host: { judge: boolean; approval?: ApprovalStatus },
 ): AuthoringBlock {
   const mode = bundle.metadata.authoring?.mode ?? "teacher";
-  const texts = draftedByOf(bundle.metadata) === "agent" ? AGENT_DRAFTED_NOTICE : SELF_STUDY_NOTICE;
-  const notices = texts[isFrench(bundle.metadata.language) ? "fr" : "en"];
+  const draftedBy = draftedByOf(bundle.metadata);
+  const texts = draftedBy === "agent" ? AGENT_DRAFTED_NOTICE : SELF_STUDY_NOTICE;
+  const locale = isFrench(bundle.metadata.language) ? "fr" : "en";
+  const notices = texts[locale];
+  const reproduction = bundle.scenes?.some((scene) => scene.type === "reproduction")
+    ? ` ${REPRODUCTION_ASSESSMENT[locale]}` : "";
   return {
     mode,
     author_is_learner: bundle.metadata.authoring?.author_is_learner ?? false,
+    drafted_by: draftedBy,
     validated: isTeacherValidated(bundle.validated_by),
     judge: host.judge,
-    notice: mode === "self_study" ? notices[host.judge ? "with_judge" : "without_judge"] : null,
+    notice: mode === "self_study"
+      ? notices[host.judge ? "with_judge" : "without_judge"] + reproduction
+      : null,
     approval: { ...(host.approval ?? NO_APPROVAL) },
   };
 }

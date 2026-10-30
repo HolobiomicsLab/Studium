@@ -16,7 +16,7 @@
 // is covered automatically; a future answer-bearing field is a one-line addition here.
 
 import type { Scene } from "@studium/lesson-bundle-schema";
-import type { Presentation, Transition, PublicDeckItem } from "@studium/lesson-session";
+import type { Presentation, Transition, CompletionSummary, PublicDeckItem } from "@studium/lesson-session";
 import { verdictDeck, publicDeck } from "@studium/lesson-session";
 import { keyClassOf } from "./key-class.js";
 
@@ -25,6 +25,19 @@ import { keyClassOf } from "./key-class.js";
 // parallel-owned barrel; the contract is identical). The learner-facing fields the webview renders
 // are a subset of Scene, so a partial Scene types it without enumerating each variant.
 export type PublicScene = Partial<Scene> & { deck?: PublicDeckItem[] };
+
+/** Public mastery distinguishes an unmeasured concept from a measured score. */
+export type PublicPresentation = Omit<Presentation, "learnerSnapshot"> & {
+  learnerSnapshot: Omit<Presentation["learnerSnapshot"], "conceptMastery"> & {
+    conceptMastery: Record<string, number | null>;
+  };
+};
+export type PublicCompletionSummary = Omit<CompletionSummary, "mastery"> & { mastery: Record<string, number | null> };
+export type PublicTransition<T extends Transition = Transition> = T extends { summary: CompletionSummary }
+  ? Omit<T, "summary"> & { summary: PublicCompletionSummary }
+  : T extends { presentation: Presentation }
+    ? Omit<T, "presentation"> & { presentation: PublicPresentation }
+    : T;
 
 /**
  * Top-level scene fields that carry the answer key / reference reveal across EVERY scene type:
@@ -107,7 +120,7 @@ function withoutCitations(evidence: unknown): unknown {
 }
 
 /** A passage a scene cites, as the verdict releases it after the answer. */
-export interface CitedSource { title: string; quote?: string; url?: string }
+export interface CitedSource { title: string; quote?: string; url?: string; license?: string }
 
 const MAX_CITED_SOURCES = 5;
 
@@ -118,12 +131,13 @@ export function citedSources(scene: Scene): CitedSource[] {
   if (!Array.isArray(refs)) return [];
   return refs.slice(0, MAX_CITED_SOURCES).flatMap((ref): CitedSource[] => {
     if (!ref || typeof ref !== "object") return [];
-    const r = ref as { title?: unknown; excerpt?: unknown; prov_derived_from?: unknown; doi?: unknown };
+    const r = ref as { title?: unknown; excerpt?: unknown; prov_derived_from?: unknown; doi?: unknown; license?: unknown };
     if (typeof r.title !== "string") return [];
     const source: CitedSource = { title: r.title };
     if (typeof r.excerpt === "string" && r.excerpt.trim()) source.quote = r.excerpt.trim();
     if (typeof r.prov_derived_from === "string" && /^https?:\/\//.test(r.prov_derived_from)) source.url = r.prov_derived_from;
     else if (typeof r.doi === "string" && r.doi.trim()) source.url = `https://doi.org/${r.doi.trim()}`;
+    if (typeof r.license === "string" && r.license.trim()) source.license = r.license.trim();
     return [source];
   });
 }
@@ -136,13 +150,13 @@ function stripChoice(choice: unknown): unknown {
 }
 
 /** Redact the scene embedded in a Presentation (the shape get_current_scene / start return). */
-export function publicPresentation(p: Presentation): Presentation {
+export function publicPresentation<P extends Pick<Presentation, "scene">>(p: P): P {
   return { ...p, scene: publicScene(p.scene) as unknown as Scene };
 }
 
 /** Redact the scene embedded in a Transition's presentation (submit_response return). The `complete`
  * transition carries no presentation, so it is returned unchanged. */
-export function publicTransition(t: Transition): Transition {
+export function publicTransition<T extends { kind: string; presentation?: Pick<Presentation, "scene"> }>(t: T): T {
   if ("presentation" in t && t.presentation) {
     return { ...t, presentation: publicPresentation(t.presentation) };
   }
