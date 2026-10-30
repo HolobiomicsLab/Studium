@@ -1,18 +1,19 @@
 import type { LessonBundle, Scene, ReferenceRun } from "@studium/lesson-bundle-schema";
-import { AdaptationEngine, DEFAULT_THETA } from "@studium/adaptation-engine";
+import { AdaptationEngine, DEFAULT_THETA, type SelfRating } from "@studium/adaptation-engine";
+import type { TelemetryEvent } from "@studium/telemetry-events";
 import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type Decision } from "@studium/learner-state";
-import { buildLwgMastery, buildLwgCalibration, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept, sceneConceptId } from "./graph-nav.js";
+import { buildLwgMastery, buildLwgEffectiveMastery, buildLwgCalibration, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept, sceneConceptId } from "./graph-nav.js";
 import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary, HintResult, Verdict, Navigation } from "./types.js";
 import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
-import { SessionNotStartedError, SessionAlreadyCompleteError } from "./errors.js";
+import { SessionNotStartedError, SessionAlreadyCompleteError, SelfRatingNotRequestedError, InvalidSelfRatingError } from "./errors.js";
 import { grade } from "./grading/index.js";
 import { thetaForVariant, resolveActiveVariant } from "./universe.js";
 import { buildMasteryClaims } from "./mastery-claims.js";
 import type { TutorMove } from "./socratic-tutor/types.js";
 import { collectBannedAnswers, revealsAnswer } from "./socratic-tutor/reveal.js";
 import { fadedFallback } from "./socratic-tutor/contingency.js";
-import { matchClaimsAgainstCritique } from "./grading/ai-audit-matcher.js";
-import type { GradeDetail } from "./grading/graders.js";
+import type { GradeDetail, JudgedCoverage } from "./grading/graders.js";
+import { isSelfRating, fsrsGradeOf, selfRatingRequest, type SelfRatingRecord, type SelfRatingRequest } from "./self-rating.js";
 import { localeFromLanguage, phrase, type Locale } from "./phrases.js";
 
 const ESCALATE_AFTER = 2; // graph remediations in a session before baseline -> remedial escalation
@@ -81,6 +82,11 @@ export class LessonSession {
    * model_correction from the learner's OWN run and sets them here, so both presentation and grading see
    * the regenerated judgment (the regenerated answer key stays server-side — publicScene still strips it). */
   private sceneOverrides = new Map<string, Record<string, unknown>>();
+  /** Epoch ms at which the current scene was entered: the client_timestamp of its scene_entered
+   * event, so measuring time on scene costs no extra clock read (RT-8). NaN before any entry. */
+  private sceneEnteredAtMs = Number.NaN;
+  /** C4: scenes whose last answer asked for a self-rating not given yet, with the concept it rates. */
+  private pendingSelfRatings = new Map<string, { conceptId: string }>();
   private readonly locale: Locale;
 
   constructor(
@@ -117,7 +123,7 @@ export class LessonSession {
       this.emit({ type: "universe_selected", universe_id: variant.id, active_decisions: variant.decisions });
     }
     this.emit({ type: "lesson_started", bundle_uri: this.bundle.bundle_id });
-    this.emit({ type: "scene_entered", scene_id: this.scene().id, scene_type: this.scene().type });
+    this.markSceneEntered();
     return this.currentPresentation();
   }
 
@@ -241,8 +247,15 @@ export class LessonSession {
    * a revisited run scene needs no re-run. */
   learnerRunFor(taskCardId: string): ReferenceRun | null { return this.learnerRuns.get(taskCardId) ?? null; }
   protected assertStarted(): void { if (!this.started) throw new SessionNotStartedError(); }
-  protected emit(partial: EmitInput): void {
-    this.deps.telemetry.emit(enrichEvent(partial, this.ctx, this.deps.clock, this.deps.idGen));
+  protected emit(partial: EmitInput): TelemetryEvent {
+    const event = enrichEvent(partial, this.ctx, this.deps.clock, this.deps.idGen);
+    this.deps.telemetry.emit(event);
+    return event;
+  }
+  /** Announce the current scene and remember when it was entered (RT-8 time on scene). */
+  private markSceneEntered(): void {
+    const event = this.emit({ type: "scene_entered", scene_id: this.scene().id, scene_type: this.scene().type });
+    this.sceneEnteredAtMs = Date.parse(event.client_timestamp);
   }
   private snapshot(): LearnerSnapshot {
     const conceptMastery: Record<string, number> = {};
@@ -295,12 +308,16 @@ export class LessonSession {
     this.assertStarted();
     if (this.completed) throw new SessionAlreadyCompleteError();
     const scene = this.scene();
+    // RT-8: time on scene, from the scene's entry to this answer on the session clock. Graders put it
+    // on the signal (the engine publishes it to rules as `time_on_scene`) and on the telemetry.
+    const answeredAtMs = Date.parse(this.deps.clock.now());
+    const timeMs = elapsedMs(this.sceneEnteredAtMs, answeredAtMs);
     // M1: look up the scene concept's Bloom target from the bundle so grade() can derive
     // the IRT difficulty `w` from it (mirrors how hintCount is threaded). Absent -> grader fallback.
     const conceptId = "concept_refs" in scene ? scene.concept_refs[0] : undefined;
     const bloomLevel = conceptId ? this.bundle.concepts.find((c) => c.id === conceptId)?.bloom_level_target : undefined;
-    const { signal, telemetry, detail } = await grade(scene, input, {
-      critiqueEvaluator: this.deps.critiqueEvaluator, hintCount: this.hintsUsed,
+    const { signal, telemetry, detail, coverage } = await grade(scene, input, {
+      critiqueEvaluator: this.deps.critiqueEvaluator, hintCount: this.hintsUsed, timeMs,
       ...(this.deps.auditJudge ? { auditJudge: this.deps.auditJudge } : {}),
       ...(bloomLevel ? { bloomLevel } : {}),
     });
@@ -308,31 +325,61 @@ export class LessonSession {
     const decision = await this.applySignal(signal);                 // drives navigation
     this.rememberDecision(decision);
     if (signal.kind !== "scene_completed") {
-      await this.applySignal({ kind: "scene_completed", scene_id: scene.id, duration_ms: 0 }); // bookkeeping only
+      await this.applySignal({ kind: "scene_completed", scene_id: scene.id, duration_ms: timeMs }); // bookkeeping only
     }
     const success = this.successOf(signal);
-    this.emit({ type: "scene_completed", scene_id: scene.id, duration_ms: 0, ...(success === undefined ? {} : { success }) });
+    this.emit({ type: "scene_completed", scene_id: scene.id, duration_ms: timeMs, ...(success === undefined ? {} : { success }) });
     this.lastSuccess = signal.kind === "answer_submitted" ? signal.correct : undefined;
-    const verdict = this.verdictOf(scene, signal, input, telemetry, detail);
-    const t = this.navigate(decision, scene);
+    const verdict = this.verdictOf(scene, signal, detail, coverage);
+    const selfRating = this.selfRatingFor(scene, signal);
+    const t = this.navigate(decision, scene, answeredAtMs);
     this.lastSuccess = undefined;
-    return { ...t, verdict };
+    return { ...t, verdict, ...(selfRating ? { self_rating: selfRating } : {}) };
+  }
+
+  /** C4: a production answer no judge certified (graded, `correct` absent) asks the learner to rate
+   * their own recall; any other answer clears a pending request for that scene. */
+  private selfRatingFor(scene: Scene, signal: Signal): SelfRatingRequest | undefined {
+    if (signal.kind === "answer_submitted" && signal.correct === undefined) {
+      this.pendingSelfRatings.set(scene.id, { conceptId: signal.concept_id });
+      return selfRatingRequest();
+    }
+    this.pendingSelfRatings.delete(scene.id);
+    return undefined;
+  }
+
+  /** C4: the learner's own recall rating for a scene whose last answer asked for one. Validated,
+   * recorded in the event log (`recall_self_rated`) and returned for the host to fold into the FSRS
+   * memory. It NEVER moves mastery: no engine signal, no concept state, no history entry. Allowed
+   * after completion, since the last scene may be the one rated; one rating per request. */
+  async rateRecall(sceneId: string, grade: SelfRating): Promise<SelfRatingRecord> {
+    this.assertStarted();
+    if (!isSelfRating(grade)) throw new InvalidSelfRatingError(String(grade));
+    const pending = this.pendingSelfRatings.get(sceneId);
+    if (!pending) throw new SelfRatingNotRequestedError(sceneId);
+    this.pendingSelfRatings.delete(sceneId);
+    const record: SelfRatingRecord = {
+      scene_id: sceneId, concept_id: pending.conceptId, grade, fsrs_grade: fsrsGradeOf(grade),
+      source: "self_rated", rated_at: this.deps.clock.now(),
+    };
+    await this.deps.eventLog.append({
+      event_id: this.deps.idGen.uuid(), session_id: this.sessionId, pseudonyme: this.pseudonym,
+      lesson_id: this.bundle.bundle_id, schema_version: "1.0", timestamp: record.rated_at,
+      event_type: "recall_self_rated", payload: record,
+    });
+    return record;
   }
 
   /** The verdict carried on the transition (types.ts Verdict). Only the matching half of the quiz
-   * feedback is released, and only here — after the answer; the public scene no longer carries it. */
-  private verdictOf(
-    scene: Scene,
-    signal: Signal,
-    input: ResponseInput,
-    telemetry: EmitInput[],
-    detail?: GradeDetail,
-  ): Verdict {
+   * feedback is released, and only here — after the answer; the public scene no longer carries it.
+   * A graded key-point, audit or critique scene also releases its reference as data (I-1, T3). */
+  private verdictOf(scene: Scene, signal: Signal, detail?: GradeDetail, coverage?: JudgedCoverage): Verdict {
     const graded = signal.kind === "answer_submitted";
     const correct = graded ? signal.correct : undefined;
     let feedback: string | undefined;
     if (scene.type === "quiz" && correct !== undefined) feedback = correct ? scene.feedback_correct : scene.feedback_incorrect;
-    if (graded && scene.type !== "quiz") feedback = feedbackFor(scene, input, telemetry, this.locale, detail);
+    if (graded && scene.type !== "quiz") feedback = feedbackFor(scene, this.locale, detail, coverage);
+    const reference = graded ? referenceOf(scene, coverage) : undefined;
     return {
       scene_id: scene.id,
       graded,
@@ -340,6 +387,7 @@ export class LessonSession {
       ...(correct === undefined ? {} : { correct }),
       ...(feedback ? { feedback } : {}),
       ...(detail ? { detail } : {}),
+      ...(reference ?? {}),
     };
   }
 
@@ -394,7 +442,8 @@ export class LessonSession {
     };
   }
 
-  protected navigate(decision: Decision, scene: Scene): Transition {
+  /** `nowMs` is the answer time; skip-on-mastery weighs mastery by retention at that moment (RT-2). */
+  protected navigate(decision: Decision, scene: Scene, nowMs: number = Number.NaN): Transition {
     this.activeNavigationExplanation = null;
     const action = decision.next_action;
     if (action.kind === "replay_current_scene") {
@@ -427,6 +476,9 @@ export class LessonSession {
         this.replayCounts[scene.id] = (this.replayCounts[scene.id] ?? 0) + 1;
         this.scaffoldingEvents += 1;
         this.showHintsAvailable = true;
+        // RT-8: the second attempt is timed from the moment the replay is shown, i.e. this answer.
+        // No scene_entered is emitted here (the scene never changed), so the clock restarts silently.
+        this.sceneEnteredAtMs = nowMs;
         return { kind: "replay", reason: action.reason, presentation: this.currentPresentation(),
           navigation: this.nav(decision, "replay", action.reason) };
       }
@@ -475,6 +527,7 @@ export class LessonSession {
         this.prereqDetours,
         new Set(this.state.scenes_completed),
         this.passedPrerequisites,
+        buildLwgEffectiveMastery(this.state.concept_states, this.state.concept_memory, nowMs),
       );
       let { index: nextIdx, reason } = routed;
       if (nextIdx === null) {
@@ -582,7 +635,7 @@ export class LessonSession {
     this.discussionHistory = [];
     this.hintsUsed = 0;
     this.showHintsAvailable = false;
-    this.emit({ type: "scene_entered", scene_id: this.scene().id, scene_type: this.scene().type });
+    this.markSceneEntered();
   }
 
   protected complete(decision: Decision, calibration?: { targetConcept: string }): Transition {
@@ -657,7 +710,7 @@ export class LessonSession {
     if (scene.type !== "discussion") return;            // no-op outside discussion
     if (this.discussionTurnIdx >= scene.max_turns) return;
     const turnIndex = this.discussionTurnIdx++;
-    const result = await this.deps.reasoningScorer.score(text, scene.topic);
+    const result = await this.deps.reasoningScorer.score(text, scene.topic, this.locale);
     if (result === null) return;                        // graceful degradation
     this.lastReasoning = { signal: result.signal, confidence: result.confidence };
     this.emit({ type: "reasoning_signal", scene_id: scene.id, signal: result.signal, confidence: result.confidence, turn_index: turnIndex });
@@ -667,7 +720,7 @@ export class LessonSession {
     this.discussionHistory.push({ role: "learner", text });
     const move = await this.deps.socraticTutor.respond({
       topic: scene.topic, seedClaim: scene.seed_claim, learnerTurn: text,
-      signal: result.signal, confidence: result.confidence, history: this.discussionHistory,
+      signal: result.signal, confidence: result.confidence, history: this.discussionHistory, locale: this.locale,
     });
     if (move === null) return;
     const banned = collectBannedAnswers(this.bundle, scene);
@@ -685,89 +738,117 @@ export class LessonSession {
   }
 }
 
-function responseText(input: ResponseInput): string {
-  if (input.kind === "critique" || input.kind === "flaw_report" || input.kind === "explanation"
-    || input.kind === "comparison" || input.kind === "summary_audit"
-    || input.kind === "prompt_submission" || input.kind === "communication") return input.text;
-  return "";
+/** Non-negative whole ms between two epoch-ms readings; 0 when either is unreadable. */
+function elapsedMs(fromMs: number, toMs: number): number {
+  return Number.isFinite(fromMs) && Number.isFinite(toMs) ? Math.max(0, Math.round(toMs - fromMs)) : 0;
 }
 
-function auditFeedback(
-  telemetry: EmitInput[],
-  correction: string,
-  locale: Locale,
-  detail?: GradeDetail,
-): string {
-  if (detail) {
-    return [
-      phrase("deck_detail", {
-        caught: detail.caught,
-        planted: detail.planted,
-        false_positives: detail.false_positives,
-        sound_total: detail.sound_total,
-      }, locale),
-      phrase("model_reveal", { text: correction }, locale),
-    ].join("; ");
-  }
-  const audit = telemetry.find((event) => event.type === "ai_audit_result");
-  const found = audit?.type === "ai_audit_result" ? audit.true_positives : 0;
-  const total = audit?.type === "ai_audit_result" ? audit.planted_errors : 0;
-  return [
-    phrase("planted_flaws_found", { found, total }, locale),
-    phrase("model_reveal", { text: correction }, locale),
-  ].join("; ");
-}
+/* RT-1 — the free-text feedback (sprint 2026-10-30, spec D5 / R4). A count ("2/4 key points
+ * covered", "1/2 planted flaws found") is shown only when something MEASURED it: an LLM judge that
+ * named the ids it found covered (`coverage`), or the verdict deck, whose marks are scored against
+ * the key by identity (`detail`). Offline, the only count available came from the substring matcher
+ * the project withdrew from grading (INT-STUDIUM-035): on the 2026-10-30 probe it told a learner who
+ * negated all four key points "4/4 covered", and one who paraphrased them correctly "0/4 — Missing:
+ * <all four>". So offline the verdict reveals the reference to compare against and states no count;
+ * the transition asks for a self-rating instead (C4). Everything here is released after the answer only.
+ *
+ * Lead decision I-1: the reference of a key-point or audit scene — its key points (an audit's planted
+ * flaws) and its model answer — is data on the verdict (`key_points`, `model_answer`, referenceOf),
+ * which every surface renders; the feedback text says only what the answer earned (a measured count)
+ * and never repeats the reference. ai_critique has no model answer: its reference is the claims that
+ * hid a flaw, each with the flaws its author expected (`reference_kind: "flawed_claims"`; integration
+ * tail T3), data on the verdict like the others, so the host withholds it on a replay too. */
 
+type AuditScene = Extract<Scene, { type: "spot_the_flaw" | "summary_audit" }>;
 type KeyPointScene = Extract<Scene, {
   type: "explain_back" | "comparison" | "prompt_practice" | "communication_sim";
 }>;
 
-function keyPointFeedback(scene: KeyPointScene, answer: string, locale: Locale): string {
-  const missing = scene.key_points.filter((point) => {
-    const match = matchClaimsAgainstCritique(
-      [{ id: point.id, flaws_expected: point.cues }],
-      answer,
-    );
-    return match.true_positives === 0;
-  });
-  const parts = [phrase("key_points_covered", {
-    covered: scene.key_points.length - missing.length,
-    total: scene.key_points.length,
-  }, locale)];
-  if (missing.length > 0) {
-    parts.push(phrase("missing_key_points", { text: missing.map((point) => point.text).join("; ") }, locale));
+const isKeyPointScene = (scene: Scene): scene is KeyPointScene => scene.type === "explain_back"
+  || scene.type === "comparison" || scene.type === "prompt_practice" || scene.type === "communication_sim";
+
+const isAuditScene = (scene: Scene): scene is AuditScene => scene.type === "spot_the_flaw" || scene.type === "summary_audit";
+
+/** I-1: the reference of a graded key-point, audit or critique scene, released with its verdict; with a
+ * judge's coverage, a key-point reference also names the points it found missing. */
+function referenceOf(
+  scene: Scene, coverage?: JudgedCoverage,
+): Pick<Verdict, "key_points" | "key_points_missing" | "model_answer" | "reference_kind"> | undefined {
+  if (isKeyPointScene(scene)) {
+    return {
+      key_points: scene.key_points.map((point) => point.text),
+      ...(coverage ? { key_points_missing: missingKeyPoints(scene, coverage).map((point) => point.text) } : {}),
+      model_answer: modelAnswerOf(scene), reference_kind: "key_points",
+    };
   }
-  const reveal = scene.type === "explain_back" ? scene.model_explanation
+  if (isAuditScene(scene)) {
+    return { key_points: scene.claims.map((claim) => claim.text), model_answer: scene.model_correction, reference_kind: "planted_flaws" };
+  }
+  if (scene.type === "ai_critique") return { key_points: flawedClaimLines(scene), reference_kind: "flawed_claims" };
+  return undefined;
+}
+
+/** An ai_critique's reference: one line per claim that hid a flaw, with the flaws its author expected
+ * (a sound claim is not one to find; all claims when none hid one). */
+function flawedClaimLines(scene: Extract<Scene, { type: "ai_critique" }>): string[] {
+  const flawed = scene.claims.filter((claim) => claim.flaws_expected.length > 0);
+  return (flawed.length > 0 ? flawed : scene.claims)
+    .map((claim) => claim.flaws_expected.length > 0 ? `${claim.text} (${claim.flaws_expected.join(", ")})` : claim.text);
+}
+
+/** What an audit earned: a measured count (the verdict deck, or a judge), else nothing — the planted
+ * flaws and the model correction are on the verdict (referenceOf). */
+function auditFeedback(locale: Locale, detail?: GradeDetail, coverage?: JudgedCoverage): string | undefined {
+  if (detail) {
+    return phrase("deck_detail", {
+      caught: detail.caught, planted: detail.planted, false_positives: detail.false_positives, sound_total: detail.sound_total,
+    }, locale);
+  }
+  if (coverage) {
+    return coverage.sound_total
+      ? phrase("deck_detail", {
+        caught: coverage.covered_ids.length, planted: coverage.total,
+        false_positives: coverage.false_positives ?? 0, sound_total: coverage.sound_total,
+      }, locale)
+      : phrase("planted_flaws_found", { found: coverage.covered_ids.length, total: coverage.total }, locale);
+  }
+  return undefined;
+}
+
+function modelAnswerOf(scene: KeyPointScene): string {
+  return scene.type === "explain_back" ? scene.model_explanation
     : scene.type === "comparison" ? scene.model_answer
       : scene.type === "prompt_practice" ? scene.model_prompt : scene.model_response;
-  parts.push(phrase("model_reveal", { text: reveal }, locale));
-  return parts.join("; ");
 }
 
-function critiqueFeedback(scene: Extract<Scene, { type: "ai_critique" }>, answer: string, locale: Locale): string {
-  const normalized = answer.toLowerCase();
-  const covered = scene.claims.filter((claim) => {
-    const matched = matchClaimsAgainstCritique([claim], answer).true_positives > 0;
-    return matched || normalized.includes(claim.id.toLowerCase()) || normalized.includes(claim.text.toLowerCase());
-  }).length;
-  return phrase("claims_addressed", { covered, total: scene.claims.length }, locale);
+/** The key points a judge found not covered. Reference data (`key_points_missing`), not feedback
+ * text: the host withholds it with the rest of the reference until the learner leaves the scene. */
+function missingKeyPoints(scene: KeyPointScene, coverage: JudgedCoverage): KeyPointScene["key_points"] {
+  const covered = new Set(coverage.covered_ids);
+  return scene.key_points.filter((point) => !covered.has(point.id));
 }
 
-function feedbackFor(
-  scene: Scene,
-  input: ResponseInput,
-  telemetry: EmitInput[],
-  locale: Locale,
-  detail?: GradeDetail,
-): string | undefined {
-  const answer = responseText(input);
-  if (scene.type === "spot_the_flaw") return auditFeedback(telemetry, scene.model_correction, locale, detail);
-  if (scene.type === "summary_audit") return auditFeedback(telemetry, scene.model_correction, locale);
-  if (scene.type === "ai_critique") return critiqueFeedback(scene, answer, locale);
-  if (scene.type === "explain_back" || scene.type === "comparison"
-    || scene.type === "prompt_practice" || scene.type === "communication_sim") {
-    return keyPointFeedback(scene, answer, locale);
-  }
+/** What a key-point answer earned: with a judge, the count it measured (which points were missing is
+ * on the verdict, `key_points_missing`); offline, nothing — the key points and the model answer are on
+ * the verdict (referenceOf). */
+function keyPointFeedback(scene: KeyPointScene, locale: Locale, coverage?: JudgedCoverage): string | undefined {
+  if (!coverage) return undefined;
+  const missing = missingKeyPoints(scene, coverage);
+  return phrase("key_points_covered", { covered: scene.key_points.length - missing.length, total: scene.key_points.length }, locale);
+}
+
+/** What a critique earned: with a judge, the count of claims it found addressed; offline, nothing — the
+ * claims that hid a flaw are on the verdict (referenceOf, `flawed_claims`). */
+function critiqueFeedback(scene: Extract<Scene, { type: "ai_critique" }>, locale: Locale, coverage?: JudgedCoverage): string | undefined {
+  if (!coverage) return undefined;
+  return phrase("claims_addressed", { covered: coverage.covered_ids.length, total: scene.claims.length }, locale);
+}
+
+function feedbackFor(scene: Scene, locale: Locale, detail?: GradeDetail, coverage?: JudgedCoverage): string | undefined {
+  if (scene.type === "spot_the_flaw") return auditFeedback(locale, detail, coverage);
+  if (scene.type === "summary_audit") return auditFeedback(locale, undefined, coverage);
+  if (scene.type === "ai_critique") return critiqueFeedback(scene, locale, coverage);
+  if (isKeyPointScene(scene)) return keyPointFeedback(scene, locale, coverage);
   return undefined;
 }
 

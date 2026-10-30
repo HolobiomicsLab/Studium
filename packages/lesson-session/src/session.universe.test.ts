@@ -96,12 +96,15 @@ describe("LessonSession — universe-driven theta", () => {
   });
 
   it("remedial universe (theta 0.6) unlocks the dependent earlier than baseline (theta 0.8)", async () => {
-    // Start at mastery 0.8 with three prior attempts, then submit one wrong answer: alpha=4,
-    // beta=2.5 -> mastery≈0.615. No correct answer occurs in this session, so W1's session-local
-    // prerequisite-pass memory does not supersede the theta comparison this test isolates.
+    // Start at mastery 0.9 with three prior attempts, then submit one wrong answer on this true/false
+    // item: beta 1 + 1.5 = 2.5, and the correction for guessing (RT-2, beta-updater) moves the expected
+    // lucky credit 1.5 · g/(1-g) = 1.5 from alpha to beta: alpha 7.5, beta 4 -> mastery≈0.652, between
+    // the two thetas. (Before RT-2 this test seeded alpha 4 and reached 0.615 without the transfer.)
+    // No correct answer occurs in this session, so W1's session-local prerequisite-pass memory does
+    // not supersede the theta comparison this test isolates.
     const initial = defaultLearnerState("L1");
     initial.concept_states.fourier = {
-      ...defaultConceptState("fourier"), alpha: 4, beta: 1, total_attempts: 3, total_correct: 2,
+      ...defaultConceptState("fourier"), alpha: 9, beta: 1, total_attempts: 3, total_correct: 2,
     };
     const twoSceneBundle = (active: string) => {
       const value = bundle(active);
@@ -116,6 +119,6 @@ describe("LessonSession — universe-driven theta", () => {
     const sR = new LessonSession(twoSceneBundle("remedial"), buildTestDeps(), initial);
     await sR.start();
     const tR = await sR.respond({ kind: "quiz_choice", choiceId: "a" });
-    expect((tR as any).presentation.scene.id).toBe("q-fft");      // remedial: 0.615 >= 0.6 -> fft unlocked
+    expect((tR as any).presentation.scene.id).toBe("q-fft");      // remedial: 0.652 >= 0.6 -> fft unlocked
   });
 });

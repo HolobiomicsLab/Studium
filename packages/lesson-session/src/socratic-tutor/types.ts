@@ -1,5 +1,6 @@
 // types.ts
 import type { ReasoningSignal } from "@studium/reasoning-scorer";
+import type { Locale } from "../phrases.js";
 
 export type TutorMoveKind =
   | "invite_test" | "acknowledge_extend" | "redirect_question"
@@ -18,4 +19,7 @@ export interface TutorInput {
   signal: ReasoningSignal;
   confidence: number;
   history: { role: "learner" | "tutor"; text: string }[];
+  /** The lesson's language (RT-9): the tutor replies in it. The session always sets it; a caller
+   * that omits it gets the historical French. */
+  locale?: Locale;
 }

@@ -217,24 +217,45 @@ describe("wave-2 routing regressions", () => {
   });
 });
 
+// W10 gave every free-text scene an offline feedback line. It used to lead with a coverage count
+// from the substring matcher ("1/1 key points covered"); since RT-1 (sprint 2026-10-30, spec D5/R4)
+// an unjudged answer gets the reference to compare against and NO count — the W10 guarantee (an
+// offline answer reveals the reference after the answer) is what these cases keep pinning. Since lead
+// decision I-1 the reference of a key-point or audit scene is data on the verdict (`key_points`,
+// `model_answer`) that every surface renders, rather than a « Compare your …; Model: … » feedback
+// string; ai_critique, which has no model answer, keeps its reference in the feedback text.
 describe("W10 offline feedback", () => {
   const rubric = { completeness: 1, evidence_quality: 1, tone: 1 };
-  const cases: Array<{ name: string; scene: object; response: object; count: string }> = [
-    { name: "spot_the_flaw", scene: { id: "s", type: "spot_the_flaw", title: "S", objective_refs: ["c"], concept_refs: ["c"], estimated_seconds: 0, adaptation_hooks: [], flawed_content: "bad", claims: [{ id: "f", text: "flaw", flaws_expected: ["alpha"] }], model_correction: "correction", rubric }, response: { kind: "flaw_report", text: "alpha" }, count: "1/1" },
-    { name: "summary_audit", scene: { id: "s", type: "summary_audit", title: "S", objective_refs: ["c"], concept_refs: ["c"], estimated_seconds: 0, adaptation_hooks: [], source_content: "source", ai_summary: "bad", claims: [{ id: "f", text: "flaw", flaws_expected: ["alpha"] }], model_correction: "correction", rubric }, response: { kind: "summary_audit", text: "alpha" }, count: "1/1" },
-    { name: "explain_back", scene: explainBack("s", "c"), response: { kind: "explanation", text: "alpha" }, count: "1/1" },
-    { name: "comparison", scene: { id: "s", type: "comparison", title: "S", objective_refs: ["c"], concept_refs: ["c"], estimated_seconds: 0, adaptation_hooks: [], prompt: "p", artifact_a: "a", artifact_b: "b", key_points: [{ id: "k", text: "point", cues: ["alpha"] }], model_answer: "model", rubric }, response: { kind: "comparison", text: "alpha" }, count: "1/1" },
-    { name: "prompt_practice", scene: promptPractice("s", "c"), response: { kind: "prompt_submission", text: "alpha" }, count: "1/1" },
-    { name: "communication_sim", scene: { id: "s", type: "communication_sim", title: "S", objective_refs: ["c"], concept_refs: ["c"], estimated_seconds: 0, adaptation_hooks: [], scenario: "scenario", prompt: "p", key_points: [{ id: "k", text: "point", cues: ["alpha"] }], model_response: "model", rubric }, response: { kind: "communication", text: "alpha" }, count: "1/1" },
-    { name: "ai_critique", scene: { id: "s", type: "ai_critique", title: "S", objective_refs: ["c"], concept_refs: ["c"], estimated_seconds: 0, adaptation_hooks: [], claims: [{ id: "f", text: "claim", flaws_expected: ["alpha"] }], rubric }, response: { kind: "critique", text: "alpha" }, count: "1/1" },
+  // Integration tail T3: ai_critique's reference (each claim that hid a flaw, with its expected flaws) moved
+  // from the feedback text into reference data like the others; its case read `{ feedback: "claim (alpha)" }`
+  // and now reads the points, with no model answer (a critique has none) and kind "flawed_claims".
+  type Reference = { points: string[]; model?: string; kind?: string };
+  const cases: Array<{ name: string; scene: object; response: object; reference: Reference }> = [
+    { name: "spot_the_flaw", scene: { id: "s", type: "spot_the_flaw", title: "S", objective_refs: ["c"], concept_refs: ["c"], estimated_seconds: 0, adaptation_hooks: [], flawed_content: "bad", claims: [{ id: "f", text: "flaw", flaws_expected: ["alpha"] }], model_correction: "correction", rubric }, response: { kind: "flaw_report", text: "alpha" }, reference: { points: ["flaw"], model: "correction" } },
+    { name: "summary_audit", scene: { id: "s", type: "summary_audit", title: "S", objective_refs: ["c"], concept_refs: ["c"], estimated_seconds: 0, adaptation_hooks: [], source_content: "source", ai_summary: "bad", claims: [{ id: "f", text: "flaw", flaws_expected: ["alpha"] }], model_correction: "correction", rubric }, response: { kind: "summary_audit", text: "alpha" }, reference: { points: ["flaw"], model: "correction" } },
+    { name: "explain_back", scene: explainBack("s", "c"), response: { kind: "explanation", text: "alpha" }, reference: { points: (explainBack("s", "c") as { key_points: Array<{ text: string }> }).key_points.map((p) => p.text), model: "authored model" } },
+    { name: "comparison", scene: { id: "s", type: "comparison", title: "S", objective_refs: ["c"], concept_refs: ["c"], estimated_seconds: 0, adaptation_hooks: [], prompt: "p", artifact_a: "a", artifact_b: "b", key_points: [{ id: "k", text: "point", cues: ["alpha"] }], model_answer: "model", rubric }, response: { kind: "comparison", text: "alpha" }, reference: { points: ["point"], model: "model" } },
+    { name: "prompt_practice", scene: promptPractice("s", "c"), response: { kind: "prompt_submission", text: "alpha" }, reference: { points: (promptPractice("s", "c") as { key_points: Array<{ text: string }> }).key_points.map((p) => p.text), model: "model" } },
+    { name: "communication_sim", scene: { id: "s", type: "communication_sim", title: "S", objective_refs: ["c"], concept_refs: ["c"], estimated_seconds: 0, adaptation_hooks: [], scenario: "scenario", prompt: "p", key_points: [{ id: "k", text: "point", cues: ["alpha"] }], model_response: "model", rubric }, response: { kind: "communication", text: "alpha" }, reference: { points: ["point"], model: "model" } },
+    { name: "ai_critique", scene: { id: "s", type: "ai_critique", title: "S", objective_refs: ["c"], concept_refs: ["c"], estimated_seconds: 0, adaptation_hooks: [], claims: [{ id: "f", text: "claim", flaws_expected: ["alpha"] }], rubric }, response: { kind: "critique", text: "alpha" }, reference: { points: ["claim (alpha)"], kind: "flawed_claims" } },
   ];
 
   for (const testCase of cases) {
-    it(`${testCase.name} returns count-bearing feedback`, async () => {
+    it(`${testCase.name} reveals its reference after the answer, without an unmeasured count`, async () => {
       const session = new LessonSession(bundle([testCase.scene], ["c"]), buildTestDeps());
       await session.start();
       const transition = await session.respond(testCase.response as never);
-      expect(transition.verdict?.feedback).toContain(testCase.count);
+      const verdict = transition.verdict;
+      expect(verdict?.key_points).toEqual(testCase.reference.points);
+      for (const point of testCase.reference.points) expect(verdict?.feedback ?? "").not.toContain(point);
+      if (testCase.reference.kind) expect(verdict?.reference_kind).toBe(testCase.reference.kind);
+      if (testCase.reference.model === undefined) {
+        expect(verdict).not.toHaveProperty("model_answer");
+      } else {
+        expect(verdict?.model_answer).toBe(testCase.reference.model);
+        expect(verdict?.feedback ?? "").not.toContain(`Model: ${testCase.reference.model}`);
+      }
+      expect(verdict?.feedback ?? "").not.toMatch(/\d+\s*\/\s*\d+/);
     });
   }
 

@@ -1,6 +1,7 @@
 import { makeLLMClient, type LLMClientOptions } from "@studium/llm-client";
 import { classifyTurn, type ClassifyResult } from "@studium/reasoning-scorer";
 import type { ReasoningScorer } from "../ports.js";
+import type { Locale } from "../phrases.js";
 
 const RUNTIME_ALIAS = "studium/runtime-tutor" as const;
 
@@ -10,8 +11,8 @@ export class LiteLLMReasoningScorer implements ReasoningScorer {
     const client = makeLLMClient(opts);
     this.llm = { complete: (prompt: string) => client.complete(prompt, RUNTIME_ALIAS) };
   }
-  async score(turn: string, topic: string): Promise<ClassifyResult | null> {
-    try { return await classifyTurn(this.llm, turn, topic, { timeoutMs: this.timeoutMs }); }
+  async score(turn: string, topic: string, locale?: Locale): Promise<ClassifyResult | null> {
+    try { return await classifyTurn(this.llm, turn, topic, { timeoutMs: this.timeoutMs, ...(locale ? { locale } : {}) }); }
     catch { return null; }  // graceful degradation (spec §8.3)
   }
 }

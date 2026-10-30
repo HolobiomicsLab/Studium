@@ -20,6 +20,16 @@ describe("critique-evaluator adapters", () => {
     // `source` says which grader produced the score (ADR 006 v1.6) — a real response is "llm".
     expect(await e.evaluate({ claims, rubric, critique: "x" })).toEqual({ score: 0.75, feedback: "ok", source: "llm" });
   });
+  it("HttpCritiqueEvaluator passes through the ids the judge found covered (RT-1), and only real strings", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ score: 0.5, feedback: "ok", covered_ids: ["c1"] }), { status: 200 })));
+    const e = new HttpCritiqueEvaluator();
+    expect(await e.evaluate({ claims, rubric, critique: "x" })).toEqual({ score: 0.5, feedback: "ok", source: "llm", covered_ids: ["c1"] });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ score: 0.5, feedback: "ok", covered_ids: [3] }), { status: 200 })));
+    expect((await e.evaluate({ claims, rubric, critique: "x" })).source).toBe("keyword"); // malformed → the honest fallback
+  });
+  it("the offline fallback never claims covered ids", async () => {
+    expect("covered_ids" in await new StubCritiqueEvaluator().evaluate({ claims, rubric, critique: "small sample" })).toBe(false);
+  });
   it("HttpCritiqueEvaluator degrades to audit-ratio score on HTTP failure", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 500 })));
     const e = new HttpCritiqueEvaluator();

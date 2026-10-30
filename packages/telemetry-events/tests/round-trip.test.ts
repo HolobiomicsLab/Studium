@@ -60,6 +60,26 @@ describe("telemetry-events Zod schemas", () => {
     expect(parsed.confidence).toBeCloseTo(0.7);
   });
 
+  it("accepts quiz_answered without a confidence when the learner did not rate (I-5)", () => {
+    const raw = {
+      event_id: "01923456-7890-1234-5678-abcdef012345",
+      learner_pseudonym: "hmac:abc",
+      lesson_id: "x",
+      bundle_version: "1.0.0",
+      client_timestamp: "2026-05-09T10:00:00Z",
+      type: "quiz_answered",
+      scene_id: "s_quiz_1",
+      item_id: "q1",
+      correct: false,
+      response_time_ms: 900,
+    };
+    const parsed = QuizAnsweredSchema.parse(raw);
+    expect(parsed.confidence).toBeUndefined();
+    expect("confidence" in parsed).toBe(false);
+    expect(() => QuizAnsweredSchema.parse({ ...raw, confidence: 1.2 })).toThrow();
+    expect(() => TelemetryEventSchema.parse(raw)).not.toThrow();
+  });
+
   describe("reasoning_signal (M5.9)", () => {
     const valid = {
       ...BASE,

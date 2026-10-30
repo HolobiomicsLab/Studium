@@ -7,9 +7,10 @@ const FR = {
   planted_flaws_found: "{found}/{total} défauts plantés trouvés",
   key_points_covered: "{covered}/{total} points clés couverts",
   claims_addressed: "{covered}/{total} affirmations traitées",
-  missing_key_points: "Manquant : {text}",
-  model_reveal: "Modèle : {text}",
   deck_detail: "{caught}/{planted} défauts plantés trouvés ; {false_positives}/{sound_total} fausses alertes",
+  // RT-1 / I-1: the offline (unjudged) feedback counts nothing, and the reference it is compared with
+  // (key points, planted flaws, flawed claims, model answer) is data on the verdict, worded by each
+  // surface (lesson-session-host chat-display.ts referenceMarkdown), not a phrase of this catalogue.
 
   explanation_graph_universe_escalated: "remédiations répétées — passage à l'univers de remédiation",
   explanation_replay_budget_exhausted: "revu plusieurs fois sans succès — on avance",
@@ -24,6 +25,7 @@ const FR = {
   tutor_question: "Bonne question — qu'est-ce que tu sais déjà qui pourrait t'orienter vers la réponse ?",
   tutor_counterexample: "Ton contre-exemple tient. Dans quels cas l'affirmation de départ resterait-elle vraie ?",
   tutor_synthesis: "Formule-le comme une seule règle, puis nomme un cas qu'elle ne couvre pas.",
+  tutor_scaffold_hint: "Avance d'un pas : qu'est-ce que tu sais déjà qui pourrait t'aider, sans donner la réponse ?",
 
   calibration_well: "Ta confiance était bien calibrée : ton ressenti collait à ta maîtrise réelle.",
   calibration_over: "Tu étais un peu surconfiant·e : tu te sentais plus sûr·e que ne le montrent tes réponses. Vérifie ce concept avant de passer à la suite.",
@@ -105,8 +107,6 @@ const EN: Record<PhraseKey, string> = {
   planted_flaws_found: "{found}/{total} planted flaws found",
   key_points_covered: "{covered}/{total} key points covered",
   claims_addressed: "{covered}/{total} claims addressed",
-  missing_key_points: "Missing: {text}",
-  model_reveal: "Model: {text}",
   deck_detail: "{caught}/{planted} planted flaws found; {false_positives}/{sound_total} false positives",
 
   explanation_graph_universe_escalated: "repeated remediation — escalated to the remedial universe",
@@ -122,6 +122,7 @@ const EN: Record<PhraseKey, string> = {
   tutor_question: "Good question — what do you already know that could point you toward the answer?",
   tutor_counterexample: "Your counterexample holds. In which cases would the original claim still be true?",
   tutor_synthesis: "State it as a single rule, then name one case it does not cover.",
+  tutor_scaffold_hint: "One step at a time: what do you already know that could help you, without being given the answer?",
 
   calibration_well: "Your confidence was well calibrated: how you felt matched your actual command of the concept.",
   calibration_over: "You were slightly overconfident: you felt more certain than your answers showed. Check this concept before moving on.",

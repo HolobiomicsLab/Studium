@@ -3,6 +3,7 @@ import { defaultConceptState, recordConfidenceSample, CALIBRATION_ANSWER_LAMBDA,
 import type { AdaptationRule } from "@studium/lesson-bundle-schema";
 import { updateBeta, recordUngradedAttempt } from "./beta-updater";
 import { matchesCondition } from "./condition-matcher";
+import { defaultMemoryState, gradeFromAnswer, reviewMemory } from "./fsrs";
 
 function masteryOf(s: ConceptState): number {
   return s.alpha / (s.alpha + s.beta);
@@ -91,8 +92,9 @@ export class AdaptationEngine {
   private state: LearnerState;
   private lastDecision: Decision | null = null;
 
-  /** `now` stamps the history entries the FSRS replay later reads. Injected by the session from its
-   * clock port so a fixed test clock gives one consistent timeline; defaults to wall-clock. */
+  /** `now` stamps the history entries and the FSRS reviews folded into `concept_memory`. Injected by
+   * the session from its clock port so a fixed test clock gives one consistent timeline; defaults to
+   * wall-clock. */
   constructor(
     private readonly rules: AdaptationRule[],
     initialState: LearnerState,
@@ -102,6 +104,8 @@ export class AdaptationEngine {
   }
 
   onSignal(signal: Signal): Decision {
+    // One instant per signal: the history entry and the FSRS review of an answer share it.
+    const nowIso = this.now();
     if (signal.kind === "answer_submitted") {
       const cs = ensureConceptState(this.state, signal.concept_id);
       // INT-STUDIUM-035 candidate 2: an answer with no `correct` was not graded, so it updates no
@@ -125,6 +129,9 @@ export class AdaptationEngine {
         next = recordJudgmentSdt(next, signal.judgment_audit);
       }
       this.state.concept_states[signal.concept_id] = next;
+      if (signal.correct !== undefined) {
+        this.foldReview(signal.concept_id, gradeFromAnswer({ correct: signal.correct, hint_count: signal.hint_count }), nowIso);
+      }
     }
     if (signal.kind === "confidence_declared" && signal.concept_id) {
       // M3: compare declared confidence against the concept's accumulated competence and
@@ -150,7 +157,7 @@ export class AdaptationEngine {
         };
         this.lastDecision = decision;
         this.state.last_decision = decision;
-        this.appendHistory(signal, decision);
+        this.appendHistory(signal, decision, nowIso);
         return decision;
       }
     }
@@ -160,13 +167,25 @@ export class AdaptationEngine {
     };
     this.lastDecision = fallback;
     this.state.last_decision = fallback;
-    this.appendHistory(signal, fallback);
+    this.appendHistory(signal, fallback, nowIso);
     return fallback;
   }
 
-  private appendHistory(signal: Signal, decision: Decision): void {
+  /** RT-3: the FSRS memory is first-class. Every graded answer is folded here as it happens — the
+   * history is capped at 50 entries, so a memory rebuilt from it under-counts a long lesson. An answer
+   * nobody graded (`correct` absent) is not a retrieval and is never folded: `gradeFromAnswer` would
+   * read it as a failure. A clock that does not parse folds nothing rather than a review at NaN. */
+  private foldReview(conceptId: string, grade: ReturnType<typeof gradeFromAnswer>, nowIso: string): void {
+    const at = Date.parse(nowIso);
+    if (Number.isNaN(at)) return;
+    const memory = this.state.concept_memory ?? {};
+    memory[conceptId] = reviewMemory(memory[conceptId] ?? defaultMemoryState(conceptId), grade, at);
+    this.state.concept_memory = memory;
+  }
+
+  private appendHistory(signal: Signal, decision: Decision, timestamp: string): void {
     this.state.history.push({
-      timestamp: this.now(),
+      timestamp,
       scene_id: "scene_id" in signal ? signal.scene_id : "",
       signal, decision,
     });

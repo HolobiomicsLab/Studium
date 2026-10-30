@@ -7,6 +7,7 @@ import type {
   ReasoningScorer, CritiqueEvaluator, AuditJudge, Clock, IdGen, MasteryClaimSink, SocraticTutor,
 } from "./ports.js";
 import type { PublicDeckItem } from "./grading/deck.js";
+import type { SelfRatingRequest } from "./self-rating.js";
 
 /** A client-safe projection of a Scene: structurally a Scene with the answer-bearing fields
  * (quiz `correct` flags, `claims`, `key_points`, `model_*` reveals) removed by the host's
@@ -79,6 +80,22 @@ export interface Verdict {
   correct?: boolean;
   feedback?: string;
   detail?: { caught: number; planted: number; false_positives: number; sound_total: number };
+  /** The reference a graded key-point, audit or critique scene is compared against (lead decision
+   * I-1): its key points' texts (explain_back, comparison, prompt_practice, communication_sim), the
+   * claims that hid a planted flaw (spot_the_flaw, summary_audit), or, for ai_critique, one line per
+   * claim that hid a flaw with the flaws its author expected (integration tail T3). Released with the
+   * verdict only; `feedback` does not repeat it. */
+  key_points?: string[];
+  /** The key points (texts, a subset of `key_points`) a judge found the answer did not cover. Set only
+   * when a judge measured coverage; part of the reference, so released with it and never repeated
+   * in `feedback`, which carries the measured count only. */
+  key_points_missing?: string[];
+  /** The model answer of a graded key-point scene, or the model correction of an audit (I-1). */
+  model_answer?: string;
+  /** What `key_points` holds, so a surface can label it: the key points an answer should cover, the
+   * planted flaws an audit should have caught, or the claims a critique should have challenged
+   * (`flawed_claims`, ai_critique). Set whenever `key_points` is. */
+  reference_kind?: "key_points" | "planted_flaws" | "flawed_claims";
 }
 
 /** The ONE navigation decision behind a transition, stated once. Before this field the same
@@ -98,7 +115,10 @@ export interface Navigation {
   skipped_scene_ids?: string[];
 }
 
-interface TransitionMeta { verdict?: Verdict; navigation?: Navigation }
+/** `self_rating` (C4): set after a production answer no judge certified — the learner compares
+ * their answer with the reference shown in the verdict, then rates their recall with
+ * `LessonSession.rateRecall`. FSRS input only; it never moves mastery. */
+interface TransitionMeta { verdict?: Verdict; navigation?: Navigation; self_rating?: SelfRatingRequest }
 
 export type Transition =
   | ({ kind: "next"; presentation: Presentation } & TransitionMeta)

@@ -3,7 +3,7 @@ export { HmacPseudonymProvider } from "./pseudonym.js";
 export { FileStateStore } from "./state-store.js";
 export { JsonlEventLog } from "./event-log.js";
 export { JsonlTelemetrySink, HttpTelemetrySink } from "./telemetry-sink.js";
-export { loadBundleZip, loadBundleJson } from "./bundle-loader.js";
+export { loadBundleZip, loadBundleJson, BundleSchemaError } from "./bundle-loader.js";
 export { LiteLLMReasoningScorer, StubReasoningScorer } from "./reasoning-scorer.js";
 export { LiteLLMSocraticTutor, StubSocraticTutor } from "./socratic-tutor.js";
 export { HttpCritiqueEvaluator, StubCritiqueEvaluator } from "./critique-evaluator.js";

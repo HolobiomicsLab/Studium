@@ -44,7 +44,10 @@ export const QuizAnsweredSchema = BaseEventSchema.extend({
   item_id: z.string(),
   correct: z.boolean(),
   response_time_ms: z.number().int().nonnegative(),
-  confidence: z.number().min(0).max(1),
+  // The learner's own per-answer rating (0..4 → 0..1). Optional since 2026-10-30 (I-5): an answer
+  // the learner did not rate carries none, rather than a made-up 0.5 that calibration consumers
+  // (Brier, over/under-confidence) would read as a measurement. They skip answers without it.
+  confidence: z.number().min(0).max(1).optional(),
 });
 
 export const AdaptationAppliedSchema = BaseEventSchema.extend({

@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { unzipSync, strFromU8 } from "fflate";
-import { LessonBundleSchema, type LessonBundle } from "@studium/lesson-bundle-schema";
+import { LessonBundleSchema, formatBundleError, type BundleIssue, type LessonBundle } from "@studium/lesson-bundle-schema";
 
 const LEGACY_OPTIONAL_NULL_KEYS = new Set(["abs_asset", "doi"]);
 
@@ -18,16 +18,37 @@ function normalizeLegacyOptionalNulls(value: unknown): unknown {
   return value;
 }
 
-/** Load and validate a zipped lesson bundle. */
+/** A lesson bundle that does not match the schema (RT-7): its problems as readable issues — path,
+ * message and what to change (formatBundleError) — and a one-line message naming the first of them,
+ * with the count of the others. Replaces the raw ZodError, whose dump no author could act on. */
+export class BundleSchemaError extends Error {
+  readonly issues: BundleIssue[];
+  constructor(issues: BundleIssue[]) {
+    const first = issues[0];
+    const more = issues.length > 1 ? ` (+${issues.length - 1} more)` : "";
+    super(first ? `${first.path || "(root)"}: ${first.message} — ${first.hint}${more}` : "the bundle does not match the schema");
+    this.name = "BundleSchemaError";
+    this.issues = issues;
+  }
+}
+
+function validated(raw: unknown): LessonBundle {
+  const input = normalizeLegacyOptionalNulls(raw);
+  const parsed = LessonBundleSchema.safeParse(input);
+  if (!parsed.success) throw new BundleSchemaError(formatBundleError(parsed.error, input));
+  return parsed.data;
+}
+
+/** Load and validate a zipped lesson bundle; BundleSchemaError when its lesson.json is invalid. */
 export async function loadBundleZip(path: string): Promise<LessonBundle> {
   const buf = await readFile(path);
   const files = unzipSync(new Uint8Array(buf));
   const entry = files["lesson.json"];
   if (!entry) throw new Error(`bundle ${path} missing lesson.json`);
-  return LessonBundleSchema.parse(normalizeLegacyOptionalNulls(JSON.parse(strFromU8(entry))));
+  return validated(JSON.parse(strFromU8(entry)));
 }
 
-/** Validate an already decoded lesson bundle. */
+/** Validate an already decoded lesson bundle; BundleSchemaError when it is invalid. */
 export function loadBundleJson(raw: unknown): LessonBundle {
-  return LessonBundleSchema.parse(normalizeLegacyOptionalNulls(raw));
+  return validated(raw);
 }

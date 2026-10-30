@@ -3,7 +3,9 @@ import { z } from "zod";
 import type { CritiqueEvaluator, CritiqueEvaluation, Claim, AICritiqueRubric } from "../ports.js";
 import { matchClaimsAgainstCritique } from "../grading/ai-audit-matcher.js";
 
-const EvalResponseSchema = z.object({ score: z.number(), feedback: z.string() });
+// `covered_ids` is optional: the scene-synth endpoint returns {score, feedback} today. When a judge
+// names the key points / claims it found covered, the session builds the learner's count from them.
+const EvalResponseSchema = z.object({ score: z.number(), feedback: z.string(), covered_ids: z.array(z.string()).optional() });
 
 function fallbackScore(claims: Claim[], critique: string): CritiqueEvaluation {
   const audit = matchClaimsAgainstCritique(claims, critique);
@@ -22,7 +24,11 @@ export class HttpCritiqueEvaluator implements CritiqueEvaluator {
       if (!r.ok) throw new Error(`status ${r.status}`);
       const parsed = EvalResponseSchema.safeParse(await r.json());
       if (!parsed.success) throw new Error("invalid eval response");
-      return { score: Math.max(0, Math.min(1, parsed.data.score)), feedback: parsed.data.feedback, source: "llm" };
+      const { covered_ids } = parsed.data;
+      return {
+        score: Math.max(0, Math.min(1, parsed.data.score)), feedback: parsed.data.feedback, source: "llm",
+        ...(covered_ids ? { covered_ids } : {}),
+      };
     } catch {
       // graceful degradation (spec §8.3) — and SAID SO. The fallback stays; what changes is that
       // the evaluation now carries `source: "keyword"`, so a degraded run is legible downstream

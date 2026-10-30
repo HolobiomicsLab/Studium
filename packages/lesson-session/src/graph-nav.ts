@@ -1,6 +1,8 @@
 import type { LearningWorkflowGraph } from "@studium/learning-workflow-schema";
-import { isAvailable, remediationTarget, DEFAULT_THETA, type Mastery } from "@studium/adaptation-engine";
-import { masteryOf, isMiscalibrated, isTrustMiscalibrated, type ConceptState } from "@studium/learner-state";
+import { isAvailable, remediationTarget, retrievability, DEFAULT_THETA, type Mastery } from "@studium/adaptation-engine";
+import {
+  masteryOf, effectiveMastery, isMiscalibrated, isTrustMiscalibrated, type ConceptState, type ConceptMemoryState,
+} from "@studium/learner-state";
 
 /** Minimum total_attempts a concept must accumulate before its mastery can count as MASTERED.
  * Without this floor, mastery is trivially cheap: 2 correct quiz answers push alpha/(alpha+beta)
@@ -21,6 +23,28 @@ export function buildLwgMastery(
   for (const [cid, cs] of Object.entries(conceptStates)) {
     if (cs.total_attempts < minAttempts) continue; // below the floor -> not yet masterable -> omit
     m[`concept:${cid}`] = masteryOf(cs);
+  }
+  return m;
+}
+
+/** The SKIP view of mastery (RT-2): EFFECTIVE mastery per concept — the posterior times the FSRS
+ * retrievability at `nowMs` (learner-state `effectiveMastery`) — with the same minimum-attempts floor
+ * as buildLwgMastery. A concept with no reviewed memory keeps its posterior (no retention evidence is
+ * not a decay), and so does every concept when the time is unknown. Only skip-on-mastery reads it:
+ * the prerequisite gates and the mastery claims stay on the posterior, whose termination and
+ * certification contracts were built on it. */
+export function buildLwgEffectiveMastery(
+  conceptStates: Record<string, ConceptState>,
+  memory: Record<string, ConceptMemoryState> | undefined,
+  nowMs: number,
+  minAttempts: number = MIN_MASTERY_ATTEMPTS,
+): Mastery {
+  const m: Mastery = {};
+  for (const [cid, cs] of Object.entries(conceptStates)) {
+    if (cs.total_attempts < minAttempts) continue;
+    const mem = memory?.[cid];
+    const reviewed = mem !== undefined && mem.reps > 0 && mem.last_reviewed_at !== null && Number.isFinite(nowMs);
+    m[`concept:${cid}`] = effectiveMastery(masteryOf(cs), reviewed ? retrievability(mem, nowMs) : undefined);
   }
   return m;
 }
@@ -144,6 +168,9 @@ export function graphAwareNextIndex(
   seen: ReadonlySet<string> = new Set(),
   /** Correctly answered prerequisites count as passed even while posterior mastery is below theta. */
   passedPrerequisites: ReadonlySet<string> = new Set(),
+  /** What skip-on-mastery reads (buildLwgEffectiveMastery). Omitted ⇒ `mastery`, the previous
+   * behaviour. The gates always read `mastery`. */
+  skipMastery: Mastery = mastery,
 ): GraphNavResult {
   const routingMastery: Mastery = { ...mastery };
   for (const conceptId of passedPrerequisites) routingMastery[conceptId] = 1;
@@ -160,7 +187,7 @@ export function graphAwareNextIndex(
       // A session-local prerequisite pass releases dependency gates only; it is not posterior
       // mastery and therefore must not make ordinary authored scenes skippable.
       if (!MASTERY_SKIPPABLE_TYPES.has(scene.type ?? "")
-        || c === null || (mastery[c] ?? 0) < theta || calibrated[c] === false) break;
+        || c === null || (skipMastery[c] ?? 0) < theta || calibrated[c] === false) break;
       candidate += 1;
       skipped = true;
     }

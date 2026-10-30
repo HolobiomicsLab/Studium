@@ -30,6 +30,47 @@ def test_quiz_answered_parses():
     assert redumped == raw
 
 
+def test_quiz_answered_without_confidence_parses_and_stays_without_it():
+    """I-5: an answer the learner did not rate carries no confidence at all (not a made-up 0.5)."""
+    raw = {
+        "event_id": "01923456-7890-1234-5678-abcdef012345",
+        "learner_pseudonym": "hmac:abc",
+        "lesson_id": "demo",
+        "bundle_version": "1.0.0",
+        "client_timestamp": "2026-05-09T10:00:00Z",
+        "type": "quiz_answered",
+        "scene_id": "s1",
+        "item_id": "q1",
+        "correct": False,
+        "response_time_ms": 900,
+    }
+    event = adapter.validate_python(raw)
+    assert event.confidence is None
+    redumped = json.loads(adapter.dump_json(event, exclude_none=True))
+    assert redumped == raw
+
+
+def test_quiz_answered_still_rejects_a_confidence_outside_0_1():
+    import pytest
+    from pydantic import ValidationError
+
+    raw = {
+        "event_id": "01923456-7890-1234-5678-abcdef012345",
+        "learner_pseudonym": "hmac:abc",
+        "lesson_id": "demo",
+        "bundle_version": "1.0.0",
+        "client_timestamp": "2026-05-09T10:00:00Z",
+        "type": "quiz_answered",
+        "scene_id": "s1",
+        "item_id": "q1",
+        "correct": True,
+        "response_time_ms": 900,
+        "confidence": 1.5,
+    }
+    with pytest.raises(ValidationError):
+        adapter.validate_python(raw)
+
+
 def test_lesson_started_parses():
     raw = {
         "event_id": "01923456-7890-1234-5678-abcdef012345",

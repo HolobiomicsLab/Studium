@@ -74,7 +74,9 @@ class QuizAnswered(_Base):
     item_id: str
     correct: bool
     response_time_ms: int = Field(ge=0)
-    confidence: float = Field(ge=0, le=1)
+    # Optionnel depuis 2026-10-30 (I-5) : absent = l'apprenant n'a pas noté sa confiance ; les
+    # consommateurs de calibration (Brier, sur/sous-confiance) ignorent ces réponses. Miroir de `events.ts`.
+    confidence: float | None = Field(default=None, ge=0, le=1)
 
 
 class AdaptationApplied(_Base):
