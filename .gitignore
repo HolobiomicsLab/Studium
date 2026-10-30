@@ -62,3 +62,6 @@ fixtures/data/
 
 # Studium agentic-session file channel (run by the operator CLIs / demo)
 .studium-session/
+
+# scene-synth emits approved learner items under <BUNDLES_ROOT>/<course>/community/ (default root = fixtures/)
+fixtures/*/community/

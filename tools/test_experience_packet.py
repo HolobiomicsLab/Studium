@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import typing
 from copy import deepcopy
 from pathlib import Path
 
@@ -12,13 +13,20 @@ TOOLS = Path(__file__).resolve().parent
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
+import self_study_passages
 from experience_packet import (
+    SCENE_KEY_CLASS,
+    SELF_STUDY_VALIDATED_BY,
     PacketError,
     build_lesson_bundle,
     check_response,
+    key_classes_line,
     main,
     prepare_packet,
 )
+from lesson_bundle_schema import LessonBundle  # noqa: E402 - importable once experience_packet set the path
+from lesson_bundle_schema import SceneType as BundleSceneType  # noqa: E402
+from self_study_passages import FetchedReference  # noqa: E402
 
 
 PASSAGES = {
@@ -201,9 +209,35 @@ def test_prepare_never_overwrites_an_output_directory(tmp_path):
     source = write_json(tmp_path / "passages.json", PASSAGES)
     output = tmp_path / "packet"
     output.mkdir()
+    (output / "mine.txt").write_text("keep me", encoding="utf-8")
+
+    with pytest.raises(PacketError, match="already exists and is not empty"):
+        prepare_packet(passages_path=source, output_dir=output, title="A title", target=None)
+
+    assert sorted(path.name for path in output.iterdir()) == ["mine.txt"]
+
+
+def test_prepare_never_replaces_a_file_with_a_packet(tmp_path):
+    source = write_json(tmp_path / "passages.json", PASSAGES)
+    output = tmp_path / "packet"
+    output.write_text("not a directory", encoding="utf-8")
 
     with pytest.raises(PacketError, match="already exists"):
         prepare_packet(passages_path=source, output_dir=output, title="A title", target=None)
+
+
+def test_prepare_fills_an_existing_empty_output_directory(tmp_path):
+    source = write_json(tmp_path / "passages.json", PASSAGES)
+    output = tmp_path / "packet"
+    output.mkdir()
+
+    prepare_packet(passages_path=source, output_dir=output, title="A title", target=None)
+
+    assert sorted(path.name for path in output.iterdir()) == [
+        "author-task.md",
+        "evidence.json",
+        "response.schema.json",
+    ]
 
 
 def test_check_emits_review_artifacts_without_approval_or_bundle(tmp_path):
@@ -223,7 +257,10 @@ def test_check_emits_review_artifacts_without_approval_or_bundle(tmp_path):
     plan = json.loads((output / "plan.json").read_text())
     assert plan["status"] == "draft"
     assert plan["validated_by"] is None
-    assert "technical checks only" in (output / "review.md").read_text()
+    review = (output / "review.md").read_text()
+    assert review.startswith("# Teacher review handoff")
+    assert "technical checks only" in review
+    assert "A teacher must assess" in review
     links = json.loads((output / "source_links.json").read_text())
     assert links["schema_version"] == "1.0"
     assert links["source_links"][0]["evidence_id"] == evidence_id
@@ -932,3 +969,577 @@ def test_bundle_cli_reports_output_write_failure_without_traceback(tmp_path, cap
     assert status == 2
     assert "cannot write LessonBundle" in captured.err
     assert "Traceback" not in captured.err
+
+
+SELF_STUDY_URL = "https://example.test/rules-of-method"
+# Saved 2026-10-30 from fr.wikisource.org (Durkheim 1895, public domain); inert test data.
+DURKHEIM_PAGE = TOOLS / "fixtures" / "self-study" / "durkheim-ch1.html"
+SELF_STUDY_PARAGRAPHS = [
+    "Social facts are ways of acting, thinking and feeling that exist outside the individual "
+    "consciousness and are endowed with a power of coercion by which they impose themselves upon "
+    "the individual, whether or not the individual consents to them.",
+    "The first and most fundamental rule is to consider social facts as things, which means that "
+    "the sociologist must approach them from the outside, through their observable manifestations, "
+    "and not through the ideas that people already hold of them.",
+    "A rule of evidence follows: every preconception must be systematically discarded, because the "
+    "notions formed in everyday life were made for practical ends and not for science, so they stand "
+    "between the observer and the facts that must be described.",
+]
+EXPECTED_KEY_CLASSES = {
+    "intro": "ungraded",
+    "concept": "ungraded",
+    "meta_checkpoint": "ungraded",
+    "quiz": "author_keyed",
+    "spot_the_flaw": "author_keyed",
+    "explain_back": "production",
+    "comparison": "production",
+    "summary_audit": "production",
+    "prompt_practice": "production",
+    "communication_sim": "production",
+    "discussion": "production",
+    "ai_critique": "production",
+    "reproduction": "externally_grounded",
+}
+
+
+def self_study_page() -> bytes:
+    body = "".join(f"<p>{paragraph}</p>" for paragraph in SELF_STUDY_PARAGRAPHS)
+    return (
+        "<html><head><title>Ignored tab title</title></head><body><nav>Menu</nav>"
+        f"<main>{body}</main><footer>Footer</footer></body></html>"
+    ).encode("utf-8")
+
+
+def self_study_response(evidence_ids: list[str]) -> dict:
+    first, second = evidence_ids[:2]
+    return {
+        "lesson_plan": {
+            "schema_version": "1.0",
+            "id": "self-study-rules",
+            "title": "Rules of method",
+            "language": "en",
+            "target": "L1",
+            "duration_minutes": 15,
+            "learning_objectives": [
+                {
+                    "id": "objective-1",
+                    "description": "Explain why social facts are treated as things.",
+                    "bloom_level": "understand",
+                }
+            ],
+            "concepts": [
+                {
+                    "id": "social-fact",
+                    "title": "Social fact",
+                    "description": "A way of acting that constrains the individual.",
+                    "bloom_level_target": "understand",
+                }
+            ],
+            "scene_outlines": [
+                {
+                    "id": "scene-intro",
+                    "type": "intro",
+                    "title": "What a social fact is",
+                    "objective_refs": ["objective-1"],
+                    "prov_derived_from": [first],
+                },
+                {
+                    "id": "scene-quiz",
+                    "type": "quiz",
+                    "title": "Recognise a social fact",
+                    "objective_refs": ["objective-1"],
+                    "concept_refs": ["social-fact"],
+                    "prov_derived_from": [first],
+                },
+                {
+                    "id": "scene-explain",
+                    "type": "explain_back",
+                    "title": "Explain the first rule",
+                    "objective_refs": ["objective-1"],
+                    "concept_refs": ["social-fact"],
+                    "prov_derived_from": [second],
+                },
+            ],
+            "corpus_refs": [{"ref_id": ref, "ref_type": "offline"} for ref in (first, second)],
+            "status": "draft",
+            "validated_by": None,
+        },
+        "source_links": [
+            {"scene_id": "scene-intro", "evidence_id": first, "quote": "ways of acting, thinking and feeling"},
+            {"scene_id": "scene-quiz", "evidence_id": first, "quote": "endowed with a power of coercion"},
+            {"scene_id": "scene-explain", "evidence_id": second, "quote": "consider social facts as things"},
+        ],
+    }
+
+
+def checked_course(tmp_path: Path) -> Path:
+    packet, evidence_id = prepare_basic(tmp_path)
+    response = write_json(tmp_path / "response.json", valid_response(evidence_id))
+    course = tmp_path / "course"
+    check_response(packet_dir=packet, response_path=response, output_dir=course)
+    return course
+
+
+@pytest.mark.parametrize("sources", [[], ["--text", "notes.txt", "--html", "page.html"]])
+def test_passages_cli_takes_exactly_one_source(tmp_path, sources):
+    output = tmp_path / "passages.json"
+
+    with pytest.raises(SystemExit) as exit_info:
+        main(["passages", *sources, "--title", "T", "--out", str(output)])
+
+    assert exit_info.value.code == 2
+    assert not output.exists()
+
+
+def test_passages_cli_requires_a_title(tmp_path):
+    reference = tmp_path / "notes.txt"
+    reference.write_text("\n\n".join(SELF_STUDY_PARAGRAPHS), encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exit_info:
+        main(["passages", "--text", str(reference), "--out", str(tmp_path / "passages.json")])
+
+    assert exit_info.value.code == 2
+
+
+def test_passages_from_a_url_reach_prepare_with_their_url_and_licence(tmp_path, monkeypatch, capsys):
+    fetched = FetchedReference(media_type="text/html", body=self_study_page(), encoding="utf-8")
+    monkeypatch.setattr(self_study_passages, "_fetch", lambda url: fetched)
+    passages = tmp_path / "passages.json"
+
+    status = main(
+        [
+            "passages",
+            "--url",
+            SELF_STUDY_URL,
+            "--title",
+            "Rules of method",
+            "--license",
+            "CC-BY-SA-4.0",
+            "--out",
+            str(passages),
+        ]
+    )
+
+    assert status == 0
+    assert capsys.readouterr().out == f"{passages.resolve()}\n"
+    packet = tmp_path / "packet"
+    prepare_packet(passages_path=passages, output_dir=packet, title="Rules of method", target="L1")
+    evidence = json.loads((packet / "evidence.json").read_text())
+    assert evidence["retrieval"]["origin"] == "self-study-passages/1.0"
+    assert [source["text"] for source in evidence["sources"]] == SELF_STUDY_PARAGRAPHS
+    assert [source["source_id"] for source in evidence["sources"]] == ["rules-of-method"] * 3
+    assert [result["chunk_id"] for result in evidence["captured_response"]["results"]] == [
+        "rules-of-method-1",
+        "rules-of-method-2",
+        "rules-of-method-3",
+    ]
+    assert {
+        (source["source_url"], source["license_id"], source["title"]) for source in evidence["sources"]
+    } == {(SELF_STUDY_URL, "CC-BY-SA-4.0", "Rules of method")}
+
+
+def test_passages_from_a_local_file_keep_their_path_beside_the_sources(tmp_path):
+    reference = tmp_path / "notes.txt"
+    reference.write_text("\n\n".join(SELF_STUDY_PARAGRAPHS), encoding="utf-8")
+    passages = tmp_path / "passages.json"
+
+    assert main(["passages", "--text", str(reference), "--title", "Notes", "--out", str(passages)]) == 0
+
+    packet = tmp_path / "packet"
+    prepare_packet(passages_path=passages, output_dir=packet, title="Notes", target=None)
+    evidence = json.loads((packet / "evidence.json").read_text())
+    # The normalizer ignores origin_path; the packet keeps it as part of the captured response.
+    assert evidence["captured_response"]["origin_path"] == str(reference.resolve())
+    assert [source["text"] for source in evidence["sources"]] == SELF_STUDY_PARAGRAPHS
+    assert {(source["source_url"], source["license_id"]) for source in evidence["sources"]} == {
+        (None, "unknown")
+    }
+
+
+@pytest.mark.parametrize("kind", ["--html", "--text", "--pdf"])
+def test_passages_cli_reads_each_local_kind(tmp_path, kind):
+    reference = tmp_path / f"reference{kind.replace('--', '.')}"
+    if kind == "--pdf":
+        fitz = pytest.importorskip("fitz")
+        document = fitz.open()
+        document.new_page().insert_textbox(fitz.Rect(72, 72, 540, 400), SELF_STUDY_PARAGRAPHS[0], fontsize=10)
+        reference.write_bytes(document.tobytes())
+    elif kind == "--html":
+        reference.write_bytes(self_study_page())
+    else:
+        reference.write_text(SELF_STUDY_PARAGRAPHS[0], encoding="utf-8")
+    passages = tmp_path / "passages.json"
+
+    assert main(["passages", kind, str(reference), "--title", "T", "--out", str(passages)]) == 0
+
+    texts = [result["text"] for result in json.loads(passages.read_text())["results"]]
+    assert texts[0] == SELF_STUDY_PARAGRAPHS[0]
+
+
+def test_passages_never_overwrite_an_output_without_force(tmp_path, capsys):
+    reference = tmp_path / "notes.txt"
+    reference.write_text("\n\n".join(SELF_STUDY_PARAGRAPHS), encoding="utf-8")
+    passages = write_json(tmp_path / "passages.json", {"old": True})
+    command = ["passages", "--text", str(reference), "--title", "Notes", "--out", str(passages)]
+
+    refused = main(command)
+
+    assert refused == 2
+    assert "--force" in capsys.readouterr().err
+    assert json.loads(passages.read_text()) == {"old": True}
+    assert main([*command, "--force"]) == 0
+    assert json.loads(passages.read_text())["origin"] == "self-study-passages/1.0"
+
+
+def test_passages_without_a_usable_passage_write_nothing(tmp_path, capsys):
+    reference = tmp_path / "short.txt"
+    reference.write_text("Too short to teach anything.", encoding="utf-8")
+    passages = tmp_path / "passages.json"
+
+    status = main(["passages", "--text", str(reference), "--title", "T", "--out", str(passages)])
+
+    assert status == 2
+    assert "no passage of at least 200 characters" in capsys.readouterr().err
+    assert not passages.exists()
+
+
+def test_evidence_ids_say_where_the_passages_came_from(tmp_path):
+    _, perspicacite_id = prepare_basic(tmp_path)
+    reference = tmp_path / "notes.txt"
+    reference.write_text("\n\n".join(SELF_STUDY_PARAGRAPHS), encoding="utf-8")
+    passages = tmp_path / "self-study.json"
+    assert main(["passages", "--text", str(reference), "--title", "Notes", "--out", str(passages)]) == 0
+    packet = tmp_path / "self-study-packet"
+
+    prepare_packet(passages_path=passages, output_dir=packet, title="Notes", target=None)
+
+    ids = [source["evidence_id"] for source in json.loads((packet / "evidence.json").read_text())["sources"]]
+    assert perspicacite_id.startswith("perspicacite:")
+    assert len(ids) == 3
+    assert all(evidence_id.startswith("passage:") and len(evidence_id) == 32 for evidence_id in ids)
+
+
+def test_prepare_writes_the_self_study_brief_for_self_study_passages(tmp_path):
+    reference = tmp_path / "notes.txt"
+    reference.write_text("\n\n".join(SELF_STUDY_PARAGRAPHS), encoding="utf-8")
+    passages = tmp_path / "self-study.json"
+    assert main(["passages", "--text", str(reference), "--title", "Notes", "--out", str(passages)]) == 0
+    packet = tmp_path / "self-study-packet"
+
+    prepare_packet(passages_path=passages, output_dir=packet, title="Notes", target=None)
+
+    task = (packet / "author-task.md").read_text()
+    teacher_packet, _ = prepare_basic(tmp_path)
+    assert task.startswith("# Studium self-study author task")
+    assert (teacher_packet / "author-task.md").read_text().startswith("# Studium literature-experience author task")
+    assert "{{" not in task
+    sources = json.loads((packet / "evidence.json").read_text())["sources"]
+    assert all(source["evidence_id"] in task for source in sources)
+
+
+def test_prepare_self_study_flag_picks_the_self_study_brief_for_any_envelope(tmp_path):
+    source = write_json(tmp_path / "passages.json", PASSAGES)
+    packet = tmp_path / "packet"
+
+    status = main(
+        ["prepare", "--passages", str(source), "--out", str(packet), "--title", "T", "--self-study"]
+    )
+
+    assert status == 0
+    assert (packet / "author-task.md").read_text().startswith("# Studium self-study author task")
+    evidence = json.loads((packet / "evidence.json").read_text())
+    assert evidence["sources"][0]["evidence_id"].startswith("perspicacite:")
+
+
+def test_self_study_brief_steers_the_learners_agent():
+    brief = (TOOLS / "prompts" / "experience_author_self_study.md").read_text(encoding="utf-8")
+
+    for placeholder in ("{{TITLE}}", "{{TARGET}}", "{{SOURCE_IDS}}", "{{ASB_SOURCE_ID}}"):
+        assert placeholder in brief
+    for production_type in [name for name, key in SCENE_KEY_CLASS.items() if key == "production"]:
+        assert production_type in brief
+    for phrase in (
+        "untrusted",
+        "character-for-character",
+        "No teacher",
+        "at most one or two",
+        "2 to 4 short cues",
+        "never a whole sentence",
+        '"draft"',
+        "`null`",
+    ):
+        assert phrase in brief, phrase
+
+
+def test_scene_key_class_names_every_bundle_scene_type():
+    assert set(SCENE_KEY_CLASS) == set(typing.get_args(BundleSceneType))
+    assert SCENE_KEY_CLASS == EXPECTED_KEY_CLASSES
+    assert len(SCENE_KEY_CLASS) == 13
+
+
+def test_check_prints_key_classes_with_their_scene_ids(tmp_path, capsys):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response_value = valid_response(evidence_id)
+    template = response_value["lesson_plan"]["scene_outlines"][0]
+    response_value["lesson_plan"]["scene_outlines"] = [
+        {**template, "id": f"s-{scene_type}", "type": scene_type} for scene_type in PLAYABLE_PLAN_SCENES
+    ]
+    response_value["source_links"][0]["scene_id"] = "s-discussion"
+    response_value["viewers"][0]["scene_id"] = "s-discussion"
+    response = write_json(tmp_path / "response.json", response_value)
+
+    status = main(
+        ["check", "--packet", str(packet), "--response", str(response), "--out", str(tmp_path / "course")]
+    )
+
+    lines = capsys.readouterr().out.splitlines()
+    assert status == 0
+    # The legacy simulation scene becomes a concept placeholder, hence ungraded=4.
+    assert (
+        "Key classes: author_keyed=2 (s-quiz, s-spot_the_flaw) "
+        "production=7 (s-discussion, s-ai_critique, s-explain_back, s-comparison, s-summary_audit, "
+        "s-prompt_practice, s-communication_sim) externally_grounded=1 (s-reproduction) ungraded=4"
+    ) in lines
+
+
+def test_key_classes_line_puts_unrecognised_types_in_an_unknown_bucket():
+    line = key_classes_line([("s-quiz", "quiz"), ("s-new", "hologram"), ("s-intro", "intro")])
+
+    assert line == (
+        "Key classes: author_keyed=1 (s-quiz) production=0 (none) externally_grounded=0 (none) "
+        "ungraded=1 unknown=1 (s-new)"
+    )
+
+
+@pytest.mark.parametrize(
+    ("note_args", "expected_authoring"),
+    [
+        ([], {"mode": "self_study", "author_is_learner": True}),
+        (
+            ["--note", "  Durkheim, chapter 1  "],
+            {"mode": "self_study", "author_is_learner": True, "note": "Durkheim, chapter 1"},
+        ),
+    ],
+)
+def test_bundle_self_study_records_who_wrote_it(tmp_path, note_args, expected_authoring):
+    course = checked_course(tmp_path)
+    output = tmp_path / "lesson.json"
+
+    status = main(["bundle", "--course", str(course), "--out", str(output), "--self-study", *note_args])
+
+    bundle = json.loads(output.read_text())
+    assert status == 0
+    assert bundle["metadata"]["authoring"] == expected_authoring
+    assert bundle["validated_by"] == SELF_STUDY_VALIDATED_BY == "SELF-STUDY — not teacher-validated"
+    LessonBundle.model_validate(bundle)
+
+
+def test_bundle_self_study_keeps_an_explicit_validator(tmp_path):
+    course = checked_course(tmp_path)
+    output = tmp_path / "lesson.json"
+
+    status = main(
+        [
+            "bundle",
+            "--course",
+            str(course),
+            "--out",
+            str(output),
+            "--self-study",
+            "--validated-by",
+            "Prof. Example",
+        ]
+    )
+
+    bundle = json.loads(output.read_text())
+    assert status == 0
+    assert bundle["validated_by"] == "Prof. Example"
+    assert bundle["metadata"]["authoring"]["mode"] == "self_study"
+
+
+def test_bundle_without_self_study_has_no_authoring_and_nothing_else_differs(tmp_path):
+    course = checked_course(tmp_path)
+    plain = json.loads(build_lesson_bundle(course_dir=course, output_path=tmp_path / "plain.json").read_text())
+    assert main(["bundle", "--course", str(course), "--out", str(tmp_path / "self.json"), "--self-study"]) == 0
+    self_study = json.loads((tmp_path / "self.json").read_text())
+
+    assert sorted(plain["metadata"]) == ["discipline", "duration_minutes", "language", "target", "title"]
+    assert plain["validated_by"] == "DRAFT — not validated"
+    del self_study["metadata"]["authoring"]
+    for bundle in (plain, self_study):
+        del bundle["validated_by"], bundle["validated_at"]
+    assert self_study == plain
+
+
+def test_bundle_note_requires_self_study(tmp_path, capsys):
+    course = checked_course(tmp_path)
+    output = tmp_path / "lesson.json"
+
+    status = main(["bundle", "--course", str(course), "--out", str(output), "--note", "orphan note"])
+
+    assert status == 2
+    assert "--note requires --self-study" in capsys.readouterr().err
+    assert not output.exists()
+
+
+def evidence_quoting(sources: list[dict], quote: str) -> str:
+    matches = [source["evidence_id"] for source in sources if quote in source["text"]]
+    assert len(matches) == 1, quote
+    return matches[0]
+
+
+def durkheim_response(sources: list[dict]) -> dict:
+    quotes = {
+        "scene-intro": "ils consistent en des manières d’agir, de penser et de sentir, extérieures",
+        "scene-quiz": "doués d’une puissance impérative et coercitive",
+        "scene-explain": "existent en dehors des consciences individuelles",
+    }
+    evidence = {scene_id: evidence_quoting(sources, quote) for scene_id, quote in quotes.items()}
+    scene_types = {"scene-intro": "intro", "scene-quiz": "quiz", "scene-explain": "explain_back"}
+    return {
+        "lesson_plan": {
+            "schema_version": "1.0",
+            "id": "fait-social-self-study",
+            "title": "Le fait social",
+            "language": "fr",
+            "target": "L1",
+            "duration_minutes": 15,
+            "learning_objectives": [
+                {
+                    "id": "objective-1",
+                    "description": "Expliquer ce qui distingue un fait social.",
+                    "bloom_level": "understand",
+                }
+            ],
+            "concepts": [
+                {
+                    "id": "fait-social",
+                    "title": "Fait social",
+                    "description": "Manière d’agir extérieure à l’individu et contraignante.",
+                    "bloom_level_target": "understand",
+                }
+            ],
+            "scene_outlines": [
+                {
+                    "id": scene_id,
+                    "type": scene_type,
+                    "title": f"Scène {scene_type}",
+                    "objective_refs": ["objective-1"],
+                    "concept_refs": [] if scene_type == "intro" else ["fait-social"],
+                    "prov_derived_from": [evidence[scene_id]],
+                }
+                for scene_id, scene_type in scene_types.items()
+            ],
+            "corpus_refs": [
+                {"ref_id": ref, "ref_type": "offline"} for ref in dict.fromkeys(evidence.values())
+            ],
+            "status": "draft",
+            "validated_by": None,
+        },
+        "source_links": [
+            {"scene_id": scene_id, "evidence_id": evidence[scene_id], "quote": quote}
+            for scene_id, quote in quotes.items()
+        ],
+    }
+
+
+def test_self_study_chain_on_the_saved_durkheim_page(tmp_path, capsys):
+    passages = tmp_path / "passages.json"
+    capture = ["passages", "--html", str(DURKHEIM_PAGE), "--title", "Les Règles — Chapitre I"]
+    assert main([*capture, "--license", "public-domain", "--out", str(passages)]) == 0
+    packet = tmp_path / "packet"
+    assert main(["prepare", "--passages", str(passages), "--out", str(packet), "--title", "Le fait social"]) == 0
+    sources = json.loads((packet / "evidence.json").read_text())["sources"]
+    assert all(source["evidence_id"].startswith("passage:") for source in sources)
+    assert (packet / "author-task.md").read_text().startswith("# Studium self-study author task")
+    response = write_json(tmp_path / "response.json", durkheim_response(sources))
+    course = tmp_path / "course"
+    capsys.readouterr()
+
+    assert main(["check", "--packet", str(packet), "--response", str(response), "--out", str(course)]) == 0
+    stdout = capsys.readouterr().out
+    assert (
+        "Key classes: author_keyed=1 (scene-quiz) production=1 (scene-explain) "
+        "externally_grounded=0 (none) ungraded=1"
+    ) in stdout.splitlines()
+    assert "WARN: licence" not in stdout
+    review = (course / "review.md").read_text()
+    assert "- `scene-quiz` → `passage:" in review
+    assert review.startswith("# Self-study review handoff")
+    assert "No teacher validates this lesson" in review
+    assert "A teacher must assess" not in review
+
+    lesson = tmp_path / "lesson.json"
+    bundle_command = ["bundle", "--course", str(course), "--out", str(lesson), "--self-study"]
+    assert main([*bundle_command, "--note", "my reading"]) == 0
+    bundle = json.loads(lesson.read_text())
+    LessonBundle.model_validate(bundle)
+    assert bundle["metadata"]["authoring"] == {
+        "mode": "self_study",
+        "author_is_learner": True,
+        "note": "my reading",
+    }
+
+    lint = subprocess.run(
+        ["node", str(TOOLS / "bundle_lint.mjs"), str(lesson)],
+        cwd=TOOLS.parent,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert lint.returncode == 0, lint.stdout + lint.stderr
+    open_book = [line for line in lint.stdout.splitlines() if "  self_study_open_book  " in line]
+    assert len(open_book) == 1 and open_book[0].startswith("WARN  ") and "scene-quiz" in open_book[0]
+    assert "  self_study_authoring  " in lint.stdout
+    assert "self_study_no_external_key" not in lint.stdout
+
+
+def test_check_names_a_local_reference_and_its_licence_once(tmp_path, capsys):
+    reference = tmp_path / "notes.txt"
+    reference.write_text("\n\n".join(SELF_STUDY_PARAGRAPHS), encoding="utf-8")
+    passages = tmp_path / "passages.json"
+    assert main(["passages", "--text", str(reference), "--title", "Rules of method", "--out", str(passages)]) == 0
+    packet = tmp_path / "packet"
+    prepare_packet(passages_path=passages, output_dir=packet, title="Rules of method", target="L1")
+    sources = json.loads((packet / "evidence.json").read_text())["sources"]
+    response = write_json(
+        tmp_path / "response.json", self_study_response([source["evidence_id"] for source in sources])
+    )
+    capsys.readouterr()
+
+    course = tmp_path / "course"
+    assert main(["check", "--packet", str(packet), "--response", str(response), "--out", str(course)]) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    licences = lines[lines.index("Licences:") + 1 :]
+    assert [line for line in licences if line.startswith("- ")] == ["- Rules of method: unknown"]
+    assert sum(line.startswith("WARN: licence is unknown") for line in lines) == 1
+    assert {source["source_id"] for source in sources} == {"rules-of-method"}
+
+
+def test_cli_finds_its_sibling_modules_in_isolated_mode(tmp_path):
+    reference = tmp_path / "notes.txt"
+    reference.write_text("\n\n".join(SELF_STUDY_PARAGRAPHS), encoding="utf-8")
+    passages = tmp_path / "passages.json"
+
+    # `python -I` drops the script directory from sys.path; agents use it on downloaded data.
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            str(TOOLS / "experience_packet.py"),
+            "passages",
+            "--text",
+            str(reference),
+            "--title",
+            "Notes",
+            "--out",
+            str(passages),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(passages.read_text())["origin"] == "self-study-passages/1.0"

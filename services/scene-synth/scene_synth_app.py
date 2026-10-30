@@ -19,12 +19,14 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import re
 import uuid
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import ValidationError
 
 from agents.base import SceneSynthError
 from agents.critique_evaluator import CritiqueEvaluator
@@ -48,6 +50,7 @@ from scene_synth_schemas import (
     LearnerSubmitRequest,
     LearnerValidateRequest,
     LearnerValidateResponse,
+    LessonBundle,
     SynthesizeRequest,
     SynthesizeResponse,
 )
@@ -80,46 +83,62 @@ _learner_store: LearnerItemsStore = LearnerItemsStore(
     _LEARNER_DATA_ROOT / "learner_items.jsonl"
 )
 
-# A3 — emit/discover PATH reconciliation. An approved community bundle must land
-# where the TS runtime's discoverCommunityBundles(courseRoot) scans:
-# ``<courseRoot>/community``. ``COMMUNITY_BUNDLES_ROOT`` is the COURSE bundles root
-# (the dir holding the canonical, immutable ``lesson.json`` a SessionHost is rooted
-# at). The emit dir is its ``community/`` subdir, so a decide on the running server
-# is DISCOVERABLE by a live student runtime rooted at the same course — additively,
-# without ever mutating the canonical course. When unset we fall back to
-# LEARNER_DATA_ROOT so the legacy standalone behaviour (a self-contained bundles
-# root) keeps working; tests monkeypatch ``_learner_bundles_root`` directly.
-_COMMUNITY_BUNDLES_ROOT = Path(
-    os.environ.get("COMMUNITY_BUNDLES_ROOT", str(_LEARNER_DATA_ROOT))
-)
-_learner_bundles_root: Path = community_emit_dir(_COMMUNITY_BUNDLES_ROOT)
-
-# Demo course context (plan §"Minor defaults": hardcoded to atomistique-l1).
-# The single course concept a learner quiz on radial nodes references.
-_DEMO_COURSE_ID = "atomistique-l1"
-_COURSE_CONCEPTS: list[dict] = [
-    {
-        "id": "c-orbitales-formes",
-        "title": "Formes des orbitales",
-        "description": "Nombre de nœuds radiaux et angulaires des orbitales.",
-        "bloom_level_target": "understand",
-    }
-]
+# Course bundles (A3 emit/discover reconciliation, V15 naming). BUNDLES_ROOT holds
+# one directory per course, each with its canonical, immutable ``lesson.json``. An
+# approved community bundle lands in ``<root>/<course_id>/community``, where the TS
+# discoverCommunityBundles(<root>/<course_id>) scans, so a decide on the running
+# server is discoverable by a live runtime rooted at that course without ever
+# mutating the canonical course. COMMUNITY_BUNDLES_ROOT, when set, replaces
+# BUNDLES_ROOT for emission only (same ``<course_id>/community`` join). Both are
+# read per request, so tests and deployments only set the environment.
+_DEFAULT_BUNDLES_ROOT = Path(__file__).resolve().parents[2] / "fixtures"
+_CANONICAL_BUNDLE = "lesson.json"
+# One directory name under BUNDLES_ROOT: no separator can slip in.
+_COURSE_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}")
 
 
-def _course_concept_ids() -> list[str]:
-    return [c["id"] for c in _COURSE_CONCEPTS]
+def _bundles_root() -> Path:
+    """The root holding one ``<course_id>/lesson.json`` per course (env ``BUNDLES_ROOT``)."""
+    return Path(os.environ.get("BUNDLES_ROOT") or _DEFAULT_BUNDLES_ROOT)
 
 
-def _assert_demo_course(course_id: str) -> None:
-    """MVP single-course guard: validation uses the hardcoded demo concepts, so a
-    request for any other course_id is rejected rather than silently validated
-    against (and stored under) the wrong course."""
-    if course_id != _DEMO_COURSE_ID:
+def _course_emit_dir(course_id: str) -> Path:
+    """Where the approved community bundles of ``course_id`` are written.
+
+    ``<root>/<course_id>/community``, root being ``COMMUNITY_BUNDLES_ROOT`` when it
+    is set and ``BUNDLES_ROOT`` otherwise.
+    """
+    root = os.environ.get("COMMUNITY_BUNDLES_ROOT") or _bundles_root()
+    return community_emit_dir(Path(root) / course_id)
+
+
+def _load_course(course_id: str) -> LessonBundle:
+    """Parse the canonical bundle of ``course_id``; its concepts gate the learner items.
+
+    Raises HTTP 400 when ``course_id`` is not a course id (which also forbids path
+    traversal) and HTTP 404 when ``<BUNDLES_ROOT>/<course_id>/lesson.json`` is missing
+    or is not a valid ``LessonBundle``.
+    """
+    if not _COURSE_ID.fullmatch(course_id):
         raise HTTPException(
             status_code=400,
-            detail=f"course_id must be {_DEMO_COURSE_ID!r} for the MVP (got {course_id!r})",
+            detail=f"course_id {course_id!r} must match {_COURSE_ID.pattern}",
         )
+    location = f"{course_id}/{_CANONICAL_BUNDLE}"
+    path = _bundles_root() / course_id / _CANONICAL_BUNDLE
+    if not path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail=f"unknown course {course_id!r}: no {location} under BUNDLES_ROOT",
+        )
+    try:
+        return LessonBundle.model_validate_json(path.read_bytes())
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"course {course_id!r}: {location} is not a valid LessonBundle "
+            f"({exc.error_count()} validation errors)",
+        ) from exc
 
 
 def _pseudonym_secret() -> bytes:
@@ -203,9 +222,13 @@ def critique_eval(req: CritiqueEvalRequest) -> CritiqueEvalResponse:
 
 @app.post("/learner-items/validate", response_model=LearnerValidateResponse)
 def learner_validate(req: LearnerValidateRequest) -> LearnerValidateResponse:
-    """Validate ONE scene (validate-only, no write) via the pure ``validate_scene``."""
-    _assert_demo_course(req.course_id)
-    result = validate_scene(req.scene, course_concept_ids=_course_concept_ids())
+    """Validate ONE scene (validate-only, no write) via the pure ``validate_scene``.
+
+    The scene may cite only concepts of its course's canonical bundle; an unusable
+    course id or bundle is 400 / 404 (see ``_load_course``).
+    """
+    course = _load_course(req.course_id)
+    result = validate_scene(req.scene, course_concept_ids=[c.id for c in course.concepts])
     return LearnerValidateResponse(**result)
 
 
@@ -216,10 +239,11 @@ def learner_submit(req: LearnerSubmitRequest) -> LearnerItemView:
     Learner endpoints can ONLY ever write ``submitted``; surfacing happens
     EXCLUSIVELY through ``decide_item`` (the rule-003 gate). A failing scene is
     rejected (422) and nothing is staged. The HMAC ``author_pseudonym`` is
-    computed server-side and is NEVER returned in the response.
+    computed server-side and is NEVER returned in the response. An unusable course
+    id or canonical bundle is 400 / 404 (see ``_load_course``).
     """
-    _assert_demo_course(req.course_id)
-    validation = validate_scene(req.scene, course_concept_ids=_course_concept_ids())
+    course = _load_course(req.course_id)
+    validation = validate_scene(req.scene, course_concept_ids=[c.id for c in course.concepts])
     if not validation["ok"]:
         raise HTTPException(
             status_code=422,
@@ -255,11 +279,14 @@ def learner_decide(item_id: str, req: LearnerDecideRequest) -> LearnerItemView:
     """Teacher decision (rule-003 chokepoint) — approve / reject / request_revision.
 
     Approve guards (empty reviewer / timestamp) surface as 400; an unknown item
-    is 404. On approve the community bundle is emitted and the pseudonym is
-    asserted-scrubbed by ``decide_item``.
+    is 404, and so is an item whose course has no usable canonical bundle. On
+    approve the community bundle is emitted into ``_course_emit_dir`` with the
+    course's metadata, and the pseudonym is asserted-scrubbed by ``decide_item``.
     """
-    if _learner_store.get_item(item_id) is None:
+    current = _learner_store.get_item(item_id)
+    if current is None:
         raise HTTPException(status_code=404, detail=f"unknown item {item_id!r}")
+    course = _load_course(current.course_id)
     try:
         env = decide_item(
             _learner_store,
@@ -267,8 +294,9 @@ def learner_decide(item_id: str, req: LearnerDecideRequest) -> LearnerItemView:
             decision=req.decision,
             reviewer=req.reviewer,
             reviewed_at=req.reviewed_at,
-            bundles_root=_learner_bundles_root,
-            course_concepts=_COURSE_CONCEPTS,
+            bundles_root=_course_emit_dir(current.course_id),
+            course_concepts=[c.model_dump() for c in course.concepts],
+            course_metadata=course.metadata.model_dump(),
             note_code=req.note_code,
         )
     except ValueError as exc:

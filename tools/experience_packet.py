@@ -1,5 +1,10 @@
 #!/usr/bin/env python
-"""Prepare and check provider-free literature experience authoring packets."""
+"""Prepare and check provider-free literature experience authoring packets.
+
+Commands: ``passages`` captures a learner-chosen URL, HTML page, PDF or text file as a passage
+envelope; ``prepare`` turns an envelope into an authoring packet; ``check`` validates an
+external author response; ``bundle`` builds a playable LessonBundle skeleton.
+"""
 from __future__ import annotations
 
 import argparse
@@ -25,6 +30,9 @@ for package_path in (
 ):
     if str(package_path) not in sys.path:
         sys.path.insert(0, str(package_path))
+# Appended, not prepended: sibling modules resolve under `python -I` without shadowing anything.
+if str(ROOT / "tools") not in sys.path:
+    sys.path.append(str(ROOT / "tools"))
 
 from lesson_bundle_schema import LessonBundle  # noqa: E402
 from lesson_plan_schema import (  # noqa: E402
@@ -38,11 +46,29 @@ from perspicacite_mcp.passages import (  # noqa: E402
     PassageEnvelopeError,
     normalize_passage_envelope,
 )
+from self_study_passages import (  # noqa: E402
+    DEFAULT_LICENSE_ID,
+    DEFAULT_MAX_CHARS,
+    DEFAULT_MIN_CHARS,
+    REFERENCE_KINDS,
+    PassageCapture,
+    PassageCaptureError,
+    build_passage_envelope,
+    is_self_study_origin,
+)
 
 PACKET_SCHEMA_VERSION = "1.0"
 ASB_SOURCE_PREFIX = "asb:"
+PERSPICACITE_EVIDENCE_PREFIX = "perspicacite:"
+SELF_STUDY_EVIDENCE_PREFIX = "passage:"
+EVIDENCE_HASH_LENGTH = 24
+TEACHER_AUTHOR_PROMPT = "experience_author.md"
+SELF_STUDY_AUTHOR_PROMPT = "experience_author_self_study.md"
 DEFAULT_VALIDATED_BY = "DRAFT — not validated"
+SELF_STUDY_VALIDATED_BY = "SELF-STUDY — not teacher-validated"
+SELF_STUDY_MODE = "self_study"
 LEGACY_SIMULATION_TYPE = "simulation"
+LEGACY_SIMULATION_RUNTIME_TYPE = "concept"
 PLACEHOLDER_RUBRIC = {
     "completeness": 0.6,
     "evidence_quality": 0.3,
@@ -82,6 +108,27 @@ ENGLISH_FUNCTION_WORDS = frozenset(
     }
 )
 ACCENTED_CHARACTER = re.compile(r"[À-ÖØ-öø-ÿ]")
+# Who wrote the key each LessonBundle 1.4 scene type is graded against. Source of truth: the spec
+# studium_dev/docs/superpowers/specs/2026-10-30-lot-apprenant-autonome.md, « Classes de clé »;
+# the same table lives in tools/bundle_lint.mjs and in the TypeScript runtime.
+SCENE_KEY_CLASS = {
+    "intro": "ungraded",
+    "concept": "ungraded",
+    "meta_checkpoint": "ungraded",
+    "quiz": "author_keyed",
+    "spot_the_flaw": "author_keyed",
+    "explain_back": "production",
+    "comparison": "production",
+    "summary_audit": "production",
+    "prompt_practice": "production",
+    "communication_sim": "production",
+    "discussion": "production",
+    "ai_critique": "production",
+    "reproduction": "externally_grounded",
+}
+LISTED_KEY_CLASSES = ("author_keyed", "production", "externally_grounded")
+UNGRADED_KEY_CLASS = "ungraded"
+UNKNOWN_KEY_CLASS = "unknown"
 
 
 class PacketError(ValueError):
@@ -137,9 +184,12 @@ def _load_json(path: Path, label: str) -> tuple[Any, bytes]:
         raise PacketError(f"cannot read {label} JSON: {exc}") from exc
 
 
-def _require_new_directory(path: Path) -> None:
-    if path.exists():
-        raise PacketError(f"output directory already exists: {path}")
+def _require_empty_directory(path: Path) -> None:
+    """Refuse an output path that holds anything: a file, or a directory with entries."""
+    if not path.exists():
+        return
+    if not path.is_dir() or any(path.iterdir()):
+        raise PacketError(f"output directory already exists and is not empty: {path}")
 
 
 def _output_exists(path: Path) -> bool:
@@ -163,11 +213,11 @@ def _remove_output(path: Path, label: str) -> None:
         raise PacketError(f"cannot replace {label}: {exc}") from exc
 
 
-def _source_record(passage: dict[str, Any]) -> dict[str, Any]:
+def _source_record(passage: dict[str, Any], prefix: str) -> dict[str, Any]:
     record_sha = passage["sha256"]
     text_sha = _sha256(passage["text"].encode("utf-8"))
     return {
-        "evidence_id": f"perspicacite:{record_sha[:24]}",
+        "evidence_id": f"{prefix}{record_sha[:EVIDENCE_HASH_LENGTH]}",
         "text": passage["text"],
         "sha256": text_sha,
         "text_sha256": text_sha,
@@ -184,8 +234,11 @@ def _source_record(passage: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _source_records(passages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    records = [_source_record(passage) for passage in passages]
+def _source_records(normalized: dict[str, Any]) -> list[dict[str, Any]]:
+    """Evidence records of a normalized envelope, ids prefixed by where the passages came from."""
+    is_self_study = is_self_study_origin(normalized["origin"])
+    prefix = SELF_STUDY_EVIDENCE_PREFIX if is_self_study else PERSPICACITE_EVIDENCE_PREFIX
+    records = [_source_record(passage, prefix) for passage in normalized["passages"]]
     ids = [record["evidence_id"] for record in records]
     if len(ids) != len(set(ids)):
         raise PacketError("captured passages contain duplicate evidence identities")
@@ -264,8 +317,8 @@ def _asb_record(capsule_path: Path, task_id: str | None) -> dict[str, Any]:
     }
 
 
-def _render_author_task(evidence: dict[str, Any]) -> str:
-    template_path = ROOT / "tools" / "prompts" / "experience_author.md"
+def _render_author_task(evidence: dict[str, Any], template_name: str) -> str:
+    template_path = ROOT / "tools" / "prompts" / template_name
     try:
         template = template_path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -293,14 +346,17 @@ def prepare_packet(
     target: str | None,
     capsule_path: Path | None = None,
     task_id: str | None = None,
+    self_study: bool = False,
 ) -> Path:
     """Create a deterministic authoring packet from captured source JSON.
 
     Inputs are read as inert JSON. No model, capsule command, or source code is
-    executed. ``output_dir`` must not exist.
+    executed. ``output_dir`` must not exist or be an empty directory. The author brief
+    is the self-study one when ``self_study`` is set or the envelope comes from
+    ``passages`` (whose evidence ids are then prefixed ``passage:``).
     """
     output_dir = output_dir.resolve()
-    _require_new_directory(output_dir)
+    _require_empty_directory(output_dir)
     if not title.strip():
         raise PacketError("title must not be empty")
     if task_id is not None and capsule_path is None:
@@ -329,12 +385,15 @@ def prepare_packet(
             "attempts": normalized["attempts"],
             "refined_query": normalized["refined_query"],
         },
-        "sources": _source_records(normalized["passages"]),
+        "sources": _source_records(normalized),
         "asb_task": _asb_record(capsule_path, task_id) if capsule_path else None,
     }
-    author_task = _render_author_task(evidence)
+    is_self_study = self_study or is_self_study_origin(normalized["origin"])
+    author_task = _render_author_task(
+        evidence, SELF_STUDY_AUTHOR_PROMPT if is_self_study else TEACHER_AUTHOR_PROMPT
+    )
     response_schema = AuthorResponse.model_json_schema()
-    output_dir.mkdir(parents=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "evidence.json").write_bytes(_json_bytes(evidence))
     (output_dir / "author-task.md").write_text(author_task, encoding="utf-8")
     (output_dir / "response.schema.json").write_bytes(_json_bytes(response_schema))
@@ -380,7 +439,7 @@ def _validate_packet(evidence: Any) -> dict[str, dict[str, Any]]:
         normalized = normalize_passage_envelope(captured)
     except PassageEnvelopeError as exc:
         raise PacketError(f"captured response no longer normalizes: {exc}") from exc
-    expected_sources = _source_records(normalized["passages"])
+    expected_sources = _source_records(normalized)
     if evidence.get("sources") != expected_sources:
         raise PacketError("source ledger does not match the captured response")
     expected_retrieval = {
@@ -552,8 +611,10 @@ def _review_markdown(response: AuthorResponse, evidence: dict[str, Any]) -> str:
     linked_scenes = {link.scene_id for link in response.source_links}
     all_scenes = {scene.id for scene in response.lesson_plan.scene_outlines}
     unlinked = sorted(all_scenes - linked_scenes)
+    retrieval = evidence.get("retrieval")
+    self_study = isinstance(retrieval, dict) and is_self_study_origin(str(retrieval.get("origin", "")))
     lines = [
-        "# Teacher review handoff",
+        "# Self-study review handoff" if self_study else "# Teacher review handoff",
         "",
         "Status: technical checks only; this LessonPlan remains a draft.",
         "",
@@ -581,7 +642,12 @@ def _review_markdown(response: AuthorResponse, evidence: dict[str, Any]) -> str:
         [
             "- Exact quotation checks do not establish that paraphrases or conclusions are scientifically valid.",
             "- Viewer briefs have not been implemented, run, or inspected.",
-            "- A teacher must assess scientific accuracy, pedagogy, licensing, and learner release.",
+            (
+                "- No teacher validates this lesson: the learner who wrote it answers for its accuracy,"
+                " its pedagogy and its licences, and it stays a private self-study draft."
+                if self_study
+                else "- A teacher must assess scientific accuracy, pedagogy, licensing, and learner release."
+            ),
             "",
         ]
     )
@@ -782,6 +848,33 @@ def _warning_lines(plan: LessonPlan, sources: list[dict[str, Any]]) -> list[str]
     return lines
 
 
+def _runtime_scene_type(scene: SceneOutline) -> str:
+    """Return the LessonBundle scene type a plan scene is built as."""
+    if scene.type.value == LEGACY_SIMULATION_TYPE:
+        return LEGACY_SIMULATION_RUNTIME_TYPE
+    return scene.type.value
+
+
+def _key_class_part(name: str, scene_ids: list[str]) -> str:
+    return f"{name}={len(scene_ids)} ({', '.join(scene_ids) or 'none'})"
+
+
+def key_classes_line(scenes: list[tuple[str, str]]) -> str:
+    """Summarise ``(scene_id, scene_type)`` pairs by who wrote the key each scene is graded against.
+
+    Ids are listed for every class but ``ungraded``. A type missing from ``SCENE_KEY_CLASS``
+    is counted in a trailing ``unknown`` bucket instead of failing.
+    """
+    grouped: dict[str, list[str]] = {}
+    for scene_id, scene_type in scenes:
+        grouped.setdefault(SCENE_KEY_CLASS.get(scene_type, UNKNOWN_KEY_CLASS), []).append(scene_id)
+    parts = [_key_class_part(name, grouped.get(name, [])) for name in LISTED_KEY_CLASSES]
+    parts.append(f"{UNGRADED_KEY_CLASS}={len(grouped.get(UNGRADED_KEY_CLASS, []))}")
+    if UNKNOWN_KEY_CLASS in grouped:
+        parts.append(_key_class_part(UNKNOWN_KEY_CLASS, grouped[UNKNOWN_KEY_CLASS]))
+    return "Key classes: " + " ".join(parts)
+
+
 def check_summary_lines(course_dir: Path) -> list[str]:
     """Return a human-readable summary for a technically checked course."""
     plan, _, sources, links = _load_checked_course(course_dir)
@@ -798,6 +891,7 @@ def check_summary_lines(course_dir: Path) -> list[str]:
             f"in {_source_languages(links, plan.language)}"
         ),
         f"Scenes: {len(plan.scene_outlines)} ({count_text})",
+        key_classes_line([(scene.id, _runtime_scene_type(scene)) for scene in plan.scene_outlines]),
         f"Concepts: {len(plan.concepts)}",
         f"Source links: {len(links)}",
         f"Passages: {len(cited_ids)} cited, {len(uncited_ids)} uncited",
@@ -1128,7 +1222,7 @@ _SCENE_BUILDERS = {
 
 def _build_bundle_scene(scene: SceneOutline, context: _BundleContext) -> dict[str, Any]:
     if scene.type.value == LEGACY_SIMULATION_TYPE:
-        base = _base_scene(scene, context, runtime_type="concept")
+        base = _base_scene(scene, context, runtime_type=LEGACY_SIMULATION_RUNTIME_TYPE)
         return {
             **base,
             "markdown": (
@@ -1146,15 +1240,40 @@ def _bundle_id(plan_id: str) -> str:
     return candidate or plan_id
 
 
-def _bundle_metadata(plan: LessonPlan) -> dict[str, Any]:
+def self_study_authoring(note: str | None = None) -> dict[str, Any]:
+    """Return the ``metadata.authoring`` block of a lesson a learner wrote for themself."""
+    authoring: dict[str, Any] = {"mode": SELF_STUDY_MODE, "author_is_learner": True}
+    if note and note.strip():
+        authoring["note"] = note.strip()
+    return authoring
+
+
+@dataclass(frozen=True)
+class _BundleOptions:
+    validated_by: str | None
+    include_default_rules: bool
+    authoring: dict[str, Any] | None
+
+    def recorded_validator(self) -> str:
+        """The caller's ``validated_by``, else the not-validated marker of this authoring mode."""
+        is_self_study = bool(self.authoring) and self.authoring.get("mode") == SELF_STUDY_MODE
+        default = SELF_STUDY_VALIDATED_BY if is_self_study else DEFAULT_VALIDATED_BY
+        return (self.validated_by or default).strip() or default
+
+
+def _bundle_metadata(plan: LessonPlan, authoring: dict[str, Any] | None) -> dict[str, Any]:
     subject = plan.metadata.subject if plan.metadata else None
-    return {
+    metadata: dict[str, Any] = {
         "title": plan.title,
         "target": plan.target,
         "duration_minutes": plan.duration_minutes,
         "language": plan.language,
         "discipline": subject or plan.dct_subject or "TODO: discipline à préciser",
     }
+    # Absent, not null, on teacher bundles: readers treat a missing block as "teacher".
+    if authoring is not None:
+        metadata["authoring"] = deepcopy(authoring)
+    return metadata
 
 
 def _concept_graph_nodes(concepts: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1229,10 +1348,7 @@ def _bundle_graph(plan: LessonPlan, concepts: list[dict[str, Any]]) -> dict[str,
 
 
 def _bundle_payload(
-    plan: LessonPlan,
-    links: list[SourceLink],
-    validated_by: str | None,
-    include_default_rules: bool,
+    plan: LessonPlan, links: list[SourceLink], options: _BundleOptions
 ) -> dict[str, Any]:
     concepts = _bundle_concepts(plan)
     context = _bundle_context(plan, links)
@@ -1240,11 +1356,11 @@ def _bundle_payload(
         "schema_version": "1.4",
         "bundle_id": _bundle_id(plan.id),
         "source_plan_id": plan.id,
-        "metadata": _bundle_metadata(plan),
+        "metadata": _bundle_metadata(plan, options.authoring),
         "concepts": concepts,
         "scenes": [_build_bundle_scene(scene, context) for scene in plan.scene_outlines],
-        "rules": [deepcopy(DEFAULT_REPLAY_RULE)] if include_default_rules else [],
-        "validated_by": (validated_by or DEFAULT_VALIDATED_BY).strip() or DEFAULT_VALIDATED_BY,
+        "rules": [deepcopy(DEFAULT_REPLAY_RULE)] if options.include_default_rules else [],
+        "validated_by": options.recorded_validator(),
         "validated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "learning_workflow_graph": _bundle_graph(plan, concepts),
     }
@@ -1259,6 +1375,14 @@ def _validated_bundle_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return bundle.model_dump(mode="json", exclude_none=True)
 
 
+def _write_json_file(path: Path, value: Any, label: str) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(_json_bytes(value))
+    except OSError as exc:
+        raise PacketError(f"cannot write {label}: {exc}") from exc
+
+
 def build_lesson_bundle(
     *,
     course_dir: Path,
@@ -1266,26 +1390,42 @@ def build_lesson_bundle(
     validated_by: str | None = None,
     force: bool = False,
     include_default_rules: bool = True,
+    authoring: dict[str, Any] | None = None,
 ) -> Path:
-    """Build a schema-valid LessonBundle 1.4 skeleton from a checked course."""
+    """Build a schema-valid LessonBundle 1.4 skeleton from a checked course.
+
+    ``authoring`` (see ``self_study_authoring``) becomes ``metadata.authoring``; when it says
+    ``self_study`` and no ``validated_by`` is given, the bundle records
+    ``SELF_STUDY_VALIDATED_BY``. Without it the bundle carries no authoring block at all.
+    """
     output_path = output_path.absolute()
     _require_output_permission(output_path, force, "output file")
     plan, _, _, links = _load_checked_course(course_dir)
-    bundle = _validated_bundle_payload(
-        _bundle_payload(plan, links, validated_by, include_default_rules)
-    )
+    options = _BundleOptions(validated_by, include_default_rules, authoring)
+    bundle = _validated_bundle_payload(_bundle_payload(plan, links, options))
     _remove_output(output_path, "output file")
-    try:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(_json_bytes(bundle))
-    except OSError as exc:
-        raise PacketError(f"cannot write LessonBundle: {exc}") from exc
+    _write_json_file(output_path, bundle, "LessonBundle")
     return output_path
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
-    commands = parser.add_subparsers(dest="command", required=True)
+def capture_passages(capture: PassageCapture, output_path: Path, force: bool = False) -> Path:
+    """Write the passage envelope of a learner-chosen reference for ``prepare --passages``.
+
+    ``output_path`` must not exist unless ``force``; nothing is written when the reference
+    cannot be read or yields no passage.
+    """
+    output_path = output_path.absolute()
+    _require_output_permission(output_path, force, "output file")
+    try:
+        envelope = build_passage_envelope(capture)
+    except PassageCaptureError as exc:
+        raise PacketError(str(exc)) from exc
+    _remove_output(output_path, "output file")
+    _write_json_file(output_path, envelope, "passages")
+    return output_path
+
+
+def _add_prepare_parser(commands: Any) -> None:
     prepare = commands.add_parser("prepare", help="prepare an offline authoring packet")
     prepare.add_argument("--passages", type=Path, required=True)
     prepare.add_argument("--out", type=Path, required=True)
@@ -1293,12 +1433,23 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--target")
     prepare.add_argument("--capsule", type=Path)
     prepare.add_argument("--task-id")
+    prepare.add_argument(
+        "--self-study",
+        action="store_true",
+        help="write the self-study author brief (automatic for passages from the passages command)",
+    )
+
+
+def _add_check_parser(commands: Any) -> None:
     check = commands.add_parser("check", help="check an external author response")
     check.add_argument("--packet", type=Path, required=True)
     check.add_argument("--response", type=Path, required=True)
     check.add_argument("--out", type=Path, required=True)
     check.add_argument("--force", action="store_true", help="replace an existing output")
     check.add_argument("--quiet", action="store_true", help="print only the output path")
+
+
+def _add_bundle_parser(commands: Any) -> None:
     bundle = commands.add_parser("bundle", help="build a playable LessonBundle skeleton")
     bundle.add_argument("--course", type=Path, required=True)
     bundle.add_argument("--out", type=Path, required=True)
@@ -1309,37 +1460,128 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="omit the default two-error replay rule",
     )
+    bundle.add_argument(
+        "--self-study",
+        action="store_true",
+        help=(
+            "the learner wrote this lesson for themself: record metadata.authoring and, "
+            f"without --validated-by, validated_by={SELF_STUDY_VALIDATED_BY!r}"
+        ),
+    )
+    bundle.add_argument(
+        "--note", metavar="TEXT", help="free note kept in metadata.authoring (needs --self-study)"
+    )
+
+
+def _add_passages_parser(commands: Any) -> None:
+    passages = commands.add_parser(
+        "passages", help="capture a learner-chosen URL, HTML page, PDF or text file as passages"
+    )
+    source = passages.add_mutually_exclusive_group(required=True)
+    source.add_argument("--url", help="an http(s) page or PDF, fetched once")
+    source.add_argument("--html", type=Path, metavar="FILE", help="a saved HTML page (UTF-8)")
+    source.add_argument("--pdf", type=Path, metavar="FILE", help="a PDF with a text layer")
+    source.add_argument("--text", type=Path, metavar="FILE", help="a UTF-8 text file")
+    passages.add_argument("--out", type=Path, required=True, metavar="FILE", help="passages.json to write")
+    passages.add_argument(
+        "--title", required=True, metavar="T", help="title of the reference, kept on every passage"
+    )
+    passages.add_argument(
+        "--license",
+        dest="license_id",
+        default=DEFAULT_LICENSE_ID,
+        metavar="ID",
+        help=f"licence identifier (default: {DEFAULT_LICENSE_ID}, which check reports as a WARN)",
+    )
+    passages.add_argument(
+        "--min-chars",
+        type=int,
+        default=DEFAULT_MIN_CHARS,
+        metavar="N",
+        help=(
+            "join a paragraph shorter than N characters to a neighbouring passage, or drop it "
+            f"and count it in dropped_short (default {DEFAULT_MIN_CHARS})"
+        ),
+    )
+    passages.add_argument(
+        "--max-chars",
+        type=int,
+        default=DEFAULT_MAX_CHARS,
+        metavar="N",
+        help=f"cut passages longer than N characters (default {DEFAULT_MAX_CHARS})",
+    )
+    passages.add_argument("--force", action="store_true", help="replace an existing output")
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    for add_command in (_add_passages_parser, _add_prepare_parser, _add_check_parser, _add_bundle_parser):
+        add_command(commands)
     return parser
+
+
+def _run_prepare(args: argparse.Namespace) -> Path:
+    return prepare_packet(
+        passages_path=args.passages,
+        output_dir=args.out,
+        title=args.title,
+        target=args.target,
+        capsule_path=args.capsule,
+        task_id=args.task_id,
+        self_study=args.self_study,
+    )
+
+
+def _run_check(args: argparse.Namespace) -> Path:
+    return check_response(
+        packet_dir=args.packet,
+        response_path=args.response,
+        output_dir=args.out,
+        force=args.force,
+    )
+
+
+def _run_bundle(args: argparse.Namespace) -> Path:
+    if args.note is not None and not args.self_study:
+        raise PacketError("--note requires --self-study")
+    return build_lesson_bundle(
+        course_dir=args.course,
+        output_path=args.out,
+        validated_by=args.validated_by,
+        force=args.force,
+        include_default_rules=not args.no_default_rules,
+        authoring=self_study_authoring(args.note) if args.self_study else None,
+    )
+
+
+def _run_passages(args: argparse.Namespace) -> Path:
+    # The parser makes --url/--html/--pdf/--text mutually exclusive and required.
+    kind = next(kind for kind in REFERENCE_KINDS if getattr(args, kind) is not None)
+    capture = PassageCapture(
+        kind=kind,
+        location=str(getattr(args, kind)),
+        title=args.title,
+        license_id=args.license_id,
+        min_chars=args.min_chars,
+        max_chars=args.max_chars,
+    )
+    return capture_passages(capture, args.out, force=args.force)
+
+
+_COMMANDS = {
+    "passages": _run_passages,
+    "prepare": _run_prepare,
+    "check": _run_check,
+    "bundle": _run_bundle,
+}
 
 
 def main(argv: list[str] | None = None) -> int:
     """Run a packet command and return its process status."""
     args = _parser().parse_args(argv)
     try:
-        if args.command == "prepare":
-            output = prepare_packet(
-                passages_path=args.passages,
-                output_dir=args.out,
-                title=args.title,
-                target=args.target,
-                capsule_path=args.capsule,
-                task_id=args.task_id,
-            )
-        elif args.command == "check":
-            output = check_response(
-                packet_dir=args.packet,
-                response_path=args.response,
-                output_dir=args.out,
-                force=args.force,
-            )
-        else:
-            output = build_lesson_bundle(
-                course_dir=args.course,
-                output_path=args.out,
-                validated_by=args.validated_by,
-                force=args.force,
-                include_default_rules=not args.no_default_rules,
-            )
+        output = _COMMANDS[args.command](args)
     except SourceQuoteError as exc:
         print(f"ERROR: {exc}")
         return 1

@@ -22,7 +22,8 @@ présente dans le dépôt n'est pas nécessairement intégrée à toutes les int
 | Dossier d'exploration | Capture portable de sources, versions, fichiers et contrôles | Hashes d'intégrité, pas preuve indépendante d'exécution |
 | ASTRA / MySTRA | Provenance structurée et lecture locale des analyses/décisions | La revue n'exécute pas le code et ne signe pas une approbation |
 | Observatory | Inspection de cours et vues de revue | Service local, pas portail multi-utilisateur authentifié |
-| Contributions étudiantes | Proposition, revue et diffusion de bundles communautaires | MVP borné, notamment au cours de démonstration pour certains endpoints |
+| Contributions étudiantes | Proposition, revue et diffusion de bundles communautaires ; découverte par l'outil MCP `list_community_bundles` | MVP : tout cours dont le bundle canonique est `<BUNDLES_ROOT>/<cours>/lesson.json` ; bundle émis après la décision enseignante `decide_item` |
+| Auto-apprentissage | Leçon construite par l'apprenant à partir de ses références (`passages`, `prepare`, `check`, `bundle --self-study`) ; [tutoriel](tutorials/self-study-from-references.md) | Livre ouvert pour quiz et défauts à repérer ; ni validation enseignante ni diffusion |
 
 ## Les 13 types de scènes
 
@@ -46,6 +47,37 @@ Les réponses sont typées : un texte, un choix et une confiance ne sont pas
 interchangeables. Le contexte opérateur fournit un exemple de format canonique.
 Les évaluateurs peuvent utiliser une logique locale ou un fournisseur configuré ;
 une démonstration mock ne mesure pas la qualité d'un évaluateur LLM réel.
+
+### Qui a écrit la clé ?
+
+Un bundle peut déclarer son autorat dans `metadata.authoring`
+(`mode: "teacher"` par défaut, ou `"self_study"`, avec `author_is_learner`).
+`start_lesson_session`, `get_operator_context` (et le `task.md` du canal fichier)
+et `presentation` renvoient un bloc `authoring: { mode, author_is_learner, validated, judge, notice }` ;
+le panneau affiche l'avis en bannière. `judge` indique si un juge modèle est
+configuré. L'avis d'une leçon auto-rédigée suit `metadata.language` et `judge` :
+
+| Langue, juge | Avis |
+|---|---|
+| fr, sans juge | « Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). Sans juge modèle, les scènes de production donnent un retour par mots-clés sans évaluation certifiée ; seules les reproductions exécutées portent une évaluation externe. » |
+| fr, avec juge | « Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). Les scènes de production, jugées par le modèle, et les reproductions exécutées portent l'évaluation. » |
+| en, sans juge | « Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book). Without a judge model, production scenes give keyword feedback with no certified assessment; only executed reproductions carry an external assessment. » |
+| en, avec juge | « Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book). Production scenes, judged by the model, and executed reproductions carry the assessment. » |
+
+Les types de scène se rangent en quatre
+classes de clé, affichées par `check` (ligne `Key classes:`) et reprises par le lint :
+
+| Classe | Types | En auto-apprentissage |
+|---|---|---|
+| `ungraded` | intro, concept, meta_checkpoint | Rien n'est évalué |
+| `author_keyed` | quiz, spot_the_flaw | Clé écrite par celui qui répondra : livre ouvert |
+| `production` | explain_back, comparison, summary_audit, prompt_practice, communication_sim, discussion, ai_critique | Sans juge modèle, retour par mots-clés auto-écrits, sans évaluation certifiée ni effet sur la maîtrise ; un juge modèle (`LITELLM_BASE_URL`) rend l'évaluation externe |
+| `externally_grounded` | reproduction | Résultat de référence issu d'une exécution attestée |
+
+Le lint signale `self_study_authoring` (INFO), `self_study_open_book` (WARN, scènes
+`author_keyed`), `self_study_no_external_key` (WARN, ni `production` ni
+`externally_grounded`) et `learner_authored_validated` (INFO, contribution
+d'apprenant approuvée par un enseignant).
 
 ## Assets et ergonomie
 

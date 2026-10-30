@@ -26,12 +26,30 @@ export const ConceptSchema = z.object({
   bloom_level_target: BloomLevelSchema,
 });
 
+/**
+ * Who wrote the bundle, so that every surface can say it honestly.
+ * `teacher`: the ordinary route (a teacher drafts, reviews and validates).
+ * `self_study`: the learner (or their agent) authored the lesson from references
+ * they chose themselves; the answer keys of author-keyed scenes (quiz,
+ * spot_the_flaw, …) were written by the person who will answer them.
+ */
+export const AuthoringModeSchema = z.enum(["teacher", "self_study"]);
+export const BundleAuthoringSchema = z.object({
+  mode: AuthoringModeSchema,
+  author_is_learner: z.boolean().default(false),
+  note: z.string().optional(),
+});
+export type AuthoringMode = z.infer<typeof AuthoringModeSchema>;
+export type BundleAuthoring = z.infer<typeof BundleAuthoringSchema>;
+
 export const BundleMetadataSchema = z.object({
   title: z.string(),
   target: z.string(),
   duration_minutes: z.number().int().positive(),
   language: z.string().min(2),
   discipline: z.string(),
+  /** Absent on bundles built before 2026-10-30; readers treat absent as `teacher`. */
+  authoring: BundleAuthoringSchema.optional(),
 });
 
 export const UniverseVariantSchema = z.object({

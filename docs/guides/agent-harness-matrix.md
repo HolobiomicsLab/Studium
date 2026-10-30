@@ -22,6 +22,16 @@ Claude-shaped object into every application.
 contracts, the `.studium-session` file channel and recovery procedures.
 Do not confuse an exploration receipt with a run result or a learner response.
 
+`list_community_bundles({course_id?})` returns `{bundles: [{bundle_ref, course_id, item_id}]}`
+for the community bundles emitted under `<BUNDLES_ROOT>/<course_id>/community/`; each
+`bundle_ref` is passed unchanged to `start_lesson_session`. `start_lesson_session`,
+`get_operator_context` (and `task.md`) and `presentation` carry an
+`authoring: {mode, author_is_learner, validated, judge, notice}` block: relay a
+non-null `notice` to the learner. `judge` is false without a judge model
+(`LITELLM_BASE_URL` empty); production scenes then give keyword feedback with no
+certified assessment and move no mastery. Self-study lessons are covered by the
+[self-learner skill](../../skills/studium-self-learner/SKILL.md).
+
 The independent client proof is `node apps/lesson-mcp/scripts/headless_smoke.mjs`.
 Passing it verifies the server, not every provider's authenticated UI. A pane and
 an independently configured MCP client do not share live session IDs.

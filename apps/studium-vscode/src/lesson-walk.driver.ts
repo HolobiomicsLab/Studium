@@ -81,6 +81,15 @@ async function walk(bundlesRoot: string, bundleRef: string, expectTypes: string[
     const started = await call("start_lesson_session", { bundle_ref: bundleRef, learner_id: "walk" });
     const sid = started.session_id as string;
     let pres = started.presentation as Json;
+    // Who wrote the lesson (spec 2026-10-30): these are teacher lessons, so the pane receives an
+    // authoring block without a notice, and draws no self-study banner on the demo. The server has a
+    // judge model exactly when it runs live, i.e. when LITELLM_BASE_URL is set (lesson-mcp index.ts).
+    expect(started.authoring?.mode === "teacher" && started.authoring?.notice === null,
+      `[${bundleRef}] start_lesson_session says a teacher wrote the lesson, with no self-study notice`);
+    expect(started.authoring?.judge === Boolean(process.env.LITELLM_BASE_URL),
+      `[${bundleRef}] start_lesson_session reports judge=${Boolean(process.env.LITELLM_BASE_URL)} (got ${started.authoring?.judge})`);
+    expect(JSON.stringify(pres.authoring) === JSON.stringify(started.authoring),
+      `[${bundleRef}] the presentation the pane reads carries the same authoring block`);
     for (let step = 0; step < 400; step++) {
       const scene = pres.scene as Json;
       seen.add(scene.type);

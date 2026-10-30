@@ -139,12 +139,25 @@ class Concept(BaseModel):
     bloom_level_target: BloomLevel
 
 
+AuthoringMode = Literal["teacher", "self_study"]
+
+
+class BundleAuthoring(BaseModel):
+    """Who wrote the bundle (mirror of Zod BundleAuthoringSchema)."""
+
+    mode: AuthoringMode
+    author_is_learner: bool = False
+    note: Optional[str] = None
+
+
 class BundleMetadata(BaseModel):
     title: str
     target: str
     duration_minutes: int = Field(gt=0)
     language: str = Field(min_length=2)
     discipline: str
+    # Absent on bundles built before 2026-10-30; readers treat absent as "teacher".
+    authoring: Optional[BundleAuthoring] = None
 
 
 class _SceneBase(BaseModel):
@@ -693,9 +706,11 @@ __all__ = [
     "AICritiqueRubric",
     "AICritiqueScene",
     "AdaptationRule",
+    "AuthoringMode",
     "BibliographicRef",
     "BloomLevel",
     "Bundle",
+    "BundleAuthoring",
     "CaseStudy",
     "Claim",
     "CommunicationSimScene",

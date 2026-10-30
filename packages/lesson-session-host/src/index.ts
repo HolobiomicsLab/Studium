@@ -12,7 +12,12 @@ export {
 export { SessionRegistry, type SessionEntry } from "./registry.js";
 export { buildHostDeps, durableDataDir, durableScopeDir, telemetryConsentGranted } from "./deps.js";
 export { resolveBundle } from "./bundle-resolver.js";
-export { discoverCommunityBundles, COMMUNITY_DIR } from "./community-bundles.js";
+export {
+  discoverCommunityBundles, discoverCommunityBundleEntries, COMMUNITY_DIR, COURSE_ID_PATTERN,
+  type CommunityBundleEntry,
+} from "./community-bundles.js";
+export { authoringOf, SELF_STUDY_NOTICE, type AuthoringBlock } from "./authoring.js";
+export { SCENE_KEY_CLASS, keyClassOf, type KeyClass } from "./key-class.js";
 export { shuffleQuizChoices } from "./shuffle-choices.js";
 export { ResponseInputSchema } from "./response-input-schema.js";
 export {

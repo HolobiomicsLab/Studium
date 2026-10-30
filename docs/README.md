@@ -24,7 +24,8 @@ ses permissions ; ces pages n'annoncent ni publication publique ni version stabl
 | Comprendre le produit | [Fonctionnalités et maturité](features.md) | Ce qui fonctionne et ce qui reste expérimental |
 
 Les [skills prêts à utiliser](getting-started/skills.md) accompagnent ces parcours :
-`studium-teacher`, `studium-student` et `studium-harness`.
+`studium-teacher`, `studium-student`, `studium-harness` et `studium-self-learner`
+(apprenant sans enseignant).
 
 ## Apprendre par la pratique
 
@@ -34,6 +35,9 @@ Les [skills prêts à utiliser](getting-started/skills.md) accompagnent ces parc
    de preuves, faire proposer un plan, le vérifier et le relire dans MySTRA.
 3. [Expérience agentique](tutorials/agentic-experiment.md) : prédire, exécuter,
    modifier un facteur, construire un visualiseur et défendre une conclusion.
+4. [Auto-apprentissage à partir de ses références](tutorials/self-study-from-references.md) :
+   extraire les passages d'une source choisie, faire rédiger la leçon, lire ses
+   limites (livre ouvert, aucune validation enseignant) et la jouer.
 
 Les guides [confidentialité et limites](privacy-and-limits.md) et
 [dépannage](troubleshooting.md) accompagnent les deux rôles. Les activités proposées

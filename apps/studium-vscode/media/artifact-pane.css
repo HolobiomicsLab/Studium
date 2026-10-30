@@ -14,6 +14,7 @@
 body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 13px; line-height: 1.5; }
 #pane { padding: 14px 16px; max-width: 720px; margin: 0 auto; }
 
+.authoring-notice { margin: 0 0 10px; padding: 6px 10px; border: 1px solid var(--border); border-left: 3px solid var(--muted); border-radius: 0 6px 6px 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .scene-head { border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px; }
 .crumbs { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
 .stype { color: var(--accent); font-weight: 600; }

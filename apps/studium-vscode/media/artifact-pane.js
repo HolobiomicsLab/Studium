@@ -5,7 +5,7 @@
  *   - anywhere they are absent (e.g. a quick preview), every renderer DEGRADES GRACEFULLY
  *     (equation → styled code, plot_spec → a minimal inline-SVG bar chart from the spec's data).
  * The render path is identical; only fidelity changes. Drives off window.postMessage from the
- * extension host: { type: 'render', scene, scene_assets, progress, mastery, explanation, verdict }.
+ * extension host: { type: 'render', scene, scene_assets, progress, mastery, explanation, verdict, authoring }.
  */
 (function () {
   "use strict";
@@ -235,6 +235,9 @@
   function renderPane(state) {
     if (state.strings && typeof state.strings === "object") strings = { ...DEFAULT_STRINGS, ...state.strings };
     const root = $("#pane"); root.innerHTML = "";
+    // Self-authored lesson: the host's fixed, already-localized notice, shown above the scene.
+    const notice = state.authoring && state.authoring.notice;
+    if (notice) root.append(el("div", { class: "authoring-notice", role: "note" }, notice));
     const sc = state.scene || {};
     const head = el("div", { class: "scene-head" });
     const crumbs = el("div", { class: "crumbs" },

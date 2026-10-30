@@ -5,6 +5,11 @@
 //   node tools/bundle_lint.mjs --root path/to/bundles
 //   node tools/bundle_lint.mjs path/to/lesson.json
 //
+// A bundle whose metadata.authoring says who wrote it also gets self_study_authoring (INFO),
+// self_study_open_book and self_study_no_external_key (WARN) in self-study mode, or
+// learner_authored_validated (INFO) when a teacher released a learner's bundle; a bundle
+// without metadata.authoring gets none of them.
+//
 // Exit 0 means no ERROR findings; WARN and INFO findings do not fail the run.
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -50,6 +55,31 @@ const ABS_ASSET_KINDS = new Map([
   ["molecule_3d", "mol_3d"],
   ["spectrum_data", "spectrum"],
 ]);
+
+// Who wrote the key each LessonBundle 1.4 scene type is graded against. Source of truth: the spec
+// studium_dev/docs/superpowers/specs/2026-10-30-lot-apprenant-autonome.md, « Classes de clé »;
+// copies live in tools/experience_packet.py (SCENE_KEY_CLASS) and in the TypeScript runtime, and
+// tools/bundle_lint.test.sh checks this one against the SceneType enum.
+const SCENE_KEY_CLASS = new Map([
+  ["intro", "ungraded"],
+  ["concept", "ungraded"],
+  ["meta_checkpoint", "ungraded"],
+  ["quiz", "author_keyed"],
+  ["spot_the_flaw", "author_keyed"],
+  ["explain_back", "production"],
+  ["comparison", "production"],
+  ["summary_audit", "production"],
+  ["prompt_practice", "production"],
+  ["communication_sim", "production"],
+  ["discussion", "production"],
+  ["ai_critique", "production"],
+  ["reproduction", "externally_grounded"],
+]);
+const LISTED_KEY_CLASSES = ["author_keyed", "production", "externally_grounded"];
+const UNGRADED_KEY_CLASS = "ungraded";
+const UNKNOWN_KEY_CLASS = "unknown";
+const SELF_STUDY_MODE = "self_study";
+const TEACHER_MODE = "teacher";
 
 // Quarantines stay explicit and self-expiring. Both maps are intentionally empty.
 const KNOWN_BROKEN_BUNDLES = new Map([]);
@@ -428,6 +458,52 @@ function graphFindings(bundle) {
   ];
 }
 
+function sceneIdsByKeyClass(scenes) {
+  const grouped = new Map();
+  for (const scene of scenes.filter(isRecord)) {
+    const keyClass = SCENE_KEY_CLASS.get(scene.type) ?? UNKNOWN_KEY_CLASS;
+    if (!grouped.has(keyClass)) grouped.set(keyClass, []);
+    grouped.get(keyClass).push(String(scene.id));
+  }
+  return grouped;
+}
+
+function keyClassSummary(grouped) {
+  const listed = (name) => {
+    const ids = grouped.get(name) ?? [];
+    return `${name}=${ids.length} (${ids.join(", ") || "none"})`;
+  };
+  const parts = [...LISTED_KEY_CLASSES.map(listed), `${UNGRADED_KEY_CLASS}=${(grouped.get(UNGRADED_KEY_CLASS) ?? []).length}`];
+  if (grouped.has(UNKNOWN_KEY_CLASS)) parts.push(listed(UNKNOWN_KEY_CLASS));
+  return parts.join(" ");
+}
+
+function selfStudyFindings(bundle, authoring) {
+  const grouped = sceneIdsByKeyClass(Array.isArray(bundle.scenes) ? bundle.scenes : []);
+  const validatedBy = JSON.stringify(bundle.validated_by ?? null);
+  const findings = [finding("INFO", "self_study_authoring",
+    `mode=${SELF_STUDY_MODE} author_is_learner=${authoring.author_is_learner === true} validated_by=${validatedBy}; key classes: ${keyClassSummary(grouped)}`)];
+  const authorKeyed = grouped.get("author_keyed") ?? [];
+  if (authorKeyed.length > 0) {
+    findings.push(finding("WARN", "self_study_open_book",
+      `${authorKeyed.join(", ")}: answer key (choices[].correct, flaws_expected, sound_claims) written by the learner who answers it (open book)`));
+  }
+  if (!grouped.has("production") && !grouped.has("externally_grounded")) {
+    findings.push(finding("WARN", "self_study_no_external_key",
+      "no production or externally grounded scene: every graded scene is keyed by the learner who answers it; add a production scene judged by a model or an executed reproduction"));
+  }
+  return findings;
+}
+
+function authoringFindings(bundle) {
+  const authoring = isRecord(bundle) && isRecord(bundle.metadata) ? bundle.metadata.authoring : undefined;
+  if (!isRecord(authoring)) return [];
+  if (authoring.mode === SELF_STUDY_MODE) return selfStudyFindings(bundle, authoring);
+  if (authoring.mode !== TEACHER_MODE || authoring.author_is_learner !== true) return [];
+  return [finding("INFO", "learner_authored_validated",
+    `written by a learner and released as a teacher bundle; validated_by=${JSON.stringify(bundle.validated_by ?? null)}`)];
+}
+
 function uniqueFindings(findings) {
   const seen = new Set();
   return findings.filter((item) => {
@@ -460,6 +536,7 @@ function lintBundle(target) {
     ...unresolvedAssetFindings(loaded.bundle, dirname(target.file)),
     ...flawReport.findings,
     ...graphFindings(loaded.bundle),
+    ...authoringFindings(loaded.bundle),
   ]);
   return { findings, waiversHit: flawReport.waiversHit };
 }

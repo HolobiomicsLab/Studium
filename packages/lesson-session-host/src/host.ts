@@ -26,7 +26,8 @@ import { SessionRegistry, type SessionEntry } from "./registry.js";
 import type { Clock } from "@studium/lesson-session";
 import { buildHostDeps, durableDataDir, durableScopeDir } from "./deps.js";
 import { resolveBundle, assetBaseDir } from "./bundle-resolver.js";
-import { discoverCommunityBundles } from "./community-bundles.js";
+import { discoverCommunityBundleEntries, type CommunityBundleEntry } from "./community-bundles.js";
+import { authoringOf, type AuthoringBlock } from "./authoring.js";
 import {
   aggregateRatings, distinctRaters, ROOM_K_FLOOR,
   type RoomEntry, type RoomState,
@@ -597,7 +598,20 @@ export interface SessionStartResult {
   sessionId: string;
   presentation: Presentation;
   resume: SessionResume;
+  /** Who wrote the lesson (also on `presentation.authoring`). */
+  authoring: AuthoringBlock;
   due?: RoutedReinforcementTarget[];
+}
+
+/** A presentation as the host serves it: the engine's view plus the lesson's authoring block. */
+function servedPresentation(presentation: Presentation, authoring: AuthoringBlock): Presentation {
+  return { ...presentation, authoring };
+}
+
+/** A transition as the host serves it: its presentation, when it has one, is served. */
+function servedTransition(transition: Transition, authoring: AuthoringBlock): Transition {
+  if (!("presentation" in transition)) return transition;
+  return { ...transition, presentation: servedPresentation(transition.presentation, authoring) };
 }
 
 export class PeerRoomError extends Error {
@@ -659,7 +673,8 @@ export class SessionHost {
     if (profile) initial = seedConceptStatesFromProfile(initial, profile, bundle.concepts.map((c) => c.id));
     const completed = isLessonCompleted(bundle, initial, profile);
     const session = new LessonSession(bundle, deps, initial, learnerId, completed);
-    const presentation = await session.start();
+    const authoring = this.authoringOfBundle(bundle);
+    const presentation = servedPresentation(await session.start(), authoring);
     const sessionId = randomUUID();
     const baseDir = assetBaseDir(this.opts.bundlesRoot, bundleRef);
     this.registry.create(sessionId, { session, deps, bundle, baseDir, assetCache: new Map(), profilePseudonym });
@@ -668,6 +683,7 @@ export class SessionHost {
       sessionId,
       presentation,
       resume,
+      authoring,
       ...(resume.kind === "completed" ? { due: routedProfileDue(profile, bundle, nowMs ?? this.nowMs()) } : {}),
     };
   }
@@ -731,12 +747,12 @@ export class SessionHost {
     return isCourseComplete(course, completed) ? { kind: "done" } : { kind: "blocked" };
   }
 
-  /** Discover the community (learner-authored, approved) bundle refs sitting alongside the
-   * canonical bundle in this host's bundles root. Each returned ref loads through `create()`
-   * exactly like the canonical bundle (community-<item_id>.zip → resolveBundle). The canonical
-   * course is never mutated; a canonical-only root returns []. */
-  async listCommunityBundles(): Promise<string[]> {
-    return discoverCommunityBundles(this.opts.bundlesRoot);
+  /** Discover the community (learner-authored, approved) bundles under this host's bundles root:
+   * with `courseId`, those of `<courseId>/community/`; without, the legacy root-level `community/`
+   * (course_id null) plus every course directory's. Each `bundle_ref` loads through `create()`
+   * exactly like a canonical bundle, which is never mutated. Throws on an invalid course id. */
+  async listCommunityBundles(courseId?: string): Promise<CommunityBundleEntry[]> {
+    return discoverCommunityBundleEntries(this.opts.bundlesRoot, courseId);
   }
 
   private require(id: string): SessionEntry {
@@ -745,7 +761,16 @@ export class SessionHost {
     return e;
   }
 
-  currentPresentation(id: string): Presentation { return this.require(id).session.currentPresentation(); }
+  currentPresentation(id: string): Presentation {
+    return servedPresentation(this.require(id).session.currentPresentation(), this.authoring(id));
+  }
+  /** Who wrote this session's lesson, whether a teacher validated it, and whether this host has a
+   * judge model (see authoringOf). */
+  authoring(id: string): AuthoringBlock { return this.authoringOfBundle(this.require(id).bundle); }
+  /** A live host wires the model judge; an offline one grades production scenes by keywords only. */
+  private authoringOfBundle(bundle: LessonBundle): AuthoringBlock {
+    return authoringOf(bundle, { judge: this.opts.live });
+  }
   /** The normalized render manifest for the current scene — the artifacts a UI pairs with this
    * scene (figure, equation, interactive plot, executed reference run, …). Empty for a plain quiz. */
   sceneArtifacts(id: string): RenderAsset[] {
@@ -839,7 +864,7 @@ export class SessionHost {
   /** Apply a validated response; run ingestion uses this after its own gate. */
   private async applyResponse(id: string, input: ResponseInput): Promise<Transition> {
     const e = this.require(id);
-    const transition = await e.session.respond(input);
+    const transition = servedTransition(await e.session.respond(input), this.authoringOfBundle(e.bundle));
     // Persist local mastery claims when the lesson completes (no-op for the in-memory sink;
     // writes the .jsonld for FileMasteryClaimSink). NOT flushed on forget() — that is the
     // RGPD-delete path.

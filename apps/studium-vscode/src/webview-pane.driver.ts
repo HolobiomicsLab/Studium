@@ -436,6 +436,36 @@ function submitFreeText(scene: any, answer: string) {
   expect(!unknown.$(".asset-code script") && unknown.text().includes("<script>"), "unknown code stays escaped plain text");
 }
 
+// --- 13) self-authored lesson: the host's authoring.notice as a sober banner above the scene ---------
+{
+  // the judge-absent French notice: what an offline host (no judge model) sends for a self-study lesson
+  const notice = "Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant " +
+    "(livre ouvert). Sans juge modèle, les scènes de production donnent un retour par mots-clés sans " +
+    "évaluation certifiée ; seules les reproductions exécutées portent une évaluation externe.";
+  const m = mount();
+  m.render(baseState({ type: "quiz", title: "Q", question: "?", choices: [{ id: "a", text: "A" }] },
+    { authoring: { mode: "self_study", author_is_learner: true, validated: false, judge: false, notice } }));
+  const banners = m.$all(".authoring-notice");
+  const banner = m.$(".authoring-notice");
+  expect(banners.length === 1, `a self-study lesson renders one authoring banner (got ${banners.length})`);
+  expect(banner?.getAttribute("role") === "note", "the authoring banner is a role=note");
+  expect(banner?.textContent === notice, "the authoring banner shows the host's notice verbatim");
+  const head = m.$(".scene-head");
+  expect(!!head && !!banner && !!(banner.compareDocumentPosition(head) & m.win.Node.DOCUMENT_POSITION_FOLLOWING), "the authoring banner sits above the scene");
+  expect(m.$all(".controls .choice").length === 1, "the scene still renders under the banner");
+}
+{
+  // the demo is a teacher lesson: the host sends authoring with notice null → no banner
+  const demo = mount();
+  demo.render(baseState({ type: "concept", title: "C", markdown: "x" },
+    { authoring: { mode: "teacher", author_is_learner: false, validated: true, judge: false, notice: null } }));
+  expect(!demo.$(".authoring-notice"), "a teacher lesson (the demo) renders no authoring banner");
+  // an older server sends no authoring at all → no banner either
+  const legacy = mount();
+  legacy.render(baseState({ type: "concept", title: "C", markdown: "x" }));
+  expect(!legacy.$(".authoring-notice"), "a presentation without authoring renders no banner");
+}
+
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} webview-pane assertions failed:`);
   for (const f of failures) console.error("  - " + f);

@@ -41,6 +41,7 @@ export const TOOL_NAMES = [
   "get_session_state",
   "get_workflow_graph",
   "join_peer_room",
+  "list_community_bundles",
   "open_peer_room",
   "request_hint",
   "start_lesson_session",
@@ -98,10 +99,27 @@ export function buildMcpServer(host: SessionHost): McpServer {
   });
 
   server.registerTool(
+    "list_community_bundles",
+    {
+      description: "List the approved community (learner-authored) bundles under BUNDLES_ROOT as " +
+        "{bundles:[{bundle_ref, course_id, item_id}]}. With course_id, only <course_id>/community/; without, " +
+        "the legacy root-level community/ (course_id null) plus every course directory's. Each bundle_ref " +
+        "passes unchanged to start_lesson_session. course_id must match ^[a-z0-9][a-z0-9._-]{0,63}$.",
+      inputSchema: { course_id: z.string().optional() },
+    },
+    async ({ course_id }) => {
+      try { return text({ bundles: await host.listCommunityBundles(course_id) }); }
+      catch (e) { return fail((e as Error).message); }
+    },
+  );
+
+  server.registerTool(
     "start_lesson_session",
     {
       description: "Start or resume a lesson session and report whether it is new, resumed, or completed. " +
-        "A completed lesson starts at scene zero as a retake and includes due profile-backed review targets.",
+        "A completed lesson starts at scene zero as a retake and includes due profile-backed review targets. " +
+        "The authoring block (also on every presentation) says who wrote the lesson; when authoring.notice " +
+        "is set (a self-authored lesson), show it to the learner.",
       inputSchema: { bundle_ref: z.string(), learner_id: z.string().optional(), now_ms: z.number().optional() },
     },
     async ({ bundle_ref, learner_id, now_ms }) => {
@@ -111,6 +129,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
         // client boundary — the server keeps the full scene; only this projection ships.
         return text({
           session_id: r.sessionId,
+          authoring: r.authoring,
           presentation: publicPresentation(r.presentation),
           resume: r.resume,
           ...(r.due ? { due: r.due.map(transportTarget) } : {}),

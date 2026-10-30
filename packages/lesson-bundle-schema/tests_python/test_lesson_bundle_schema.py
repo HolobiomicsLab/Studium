@@ -279,3 +279,18 @@ def test_bundle_carries_optional_lwg():
 def test_bundle_without_lwg_is_valid():
     b = LessonBundle.model_validate(_minimal_bundle_dict())
     assert b.learning_workflow_graph is None
+
+
+def test_metadata_authoring_is_optional_and_mirrors_zod():
+    from lesson_bundle_schema import BundleAuthoring, BundleMetadata
+
+    base = dict(title="T", target="L1", duration_minutes=30, language="fr", discipline="chimie")
+    assert BundleMetadata(**base).authoring is None
+    meta = BundleMetadata(**base, authoring={"mode": "self_study"})
+    assert meta.authoring == BundleAuthoring(mode="self_study", author_is_learner=False, note=None)
+    full = BundleAuthoring(mode="self_study", author_is_learner=True, note="Durkheim ch. 1")
+    assert full.model_dump() == {"mode": "self_study", "author_is_learner": True, "note": "Durkheim ch. 1"}
+    import pytest
+
+    with pytest.raises(Exception):
+        BundleAuthoring(mode="peer")

@@ -288,9 +288,7 @@ def client(tmp_path, monkeypatch):
     store = LearnerItemsStore(tmp_path / "learner_items.jsonl")
     store.append_new(LAItemEnvelope.model_validate(_envelope()))
     monkeypatch.setattr(scene_synth_app, "_learner_store", store, raising=False)
-    monkeypatch.setattr(
-        scene_synth_app, "_learner_bundles_root", tmp_path / "bundles", raising=False
-    )
+    monkeypatch.setenv("COMMUNITY_BUNDLES_ROOT", str(tmp_path / "bundles"))
     return TestClient(scene_synth_app.app)
 
 

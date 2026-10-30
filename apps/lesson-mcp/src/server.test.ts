@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,8 +35,8 @@ function parse(res: { content: Array<{ type: string; text?: string }> }): Record
   return JSON.parse(first.text);
 }
 
-async function connect(bundlesRoot: string) {
-  const host = new SessionHost({ bundlesRoot, live: false });
+async function connect(bundlesRoot: string, live = false) {
+  const host = new SessionHost({ bundlesRoot, live });
   const server = buildMcpServer(host);
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
   await server.connect(serverT);
@@ -90,8 +91,9 @@ describe("lesson-mcp tools", () => {
     expect(info["version"]).toBe(packageJson.version);
     expect(info["tools"]).toEqual(names);
     expect(info["tools"]).toEqual([...names].sort());
-    expect(names).toHaveLength(21);
+    expect(names).toHaveLength(22);
     expect(names).toContain("forget_session");
+    expect(names).toContain("list_community_bundles");
     expect(names).toContain("get_operator_context");
     expect(names).toContain("get_server_info");
 
@@ -109,6 +111,9 @@ describe("lesson-mcp tools", () => {
     expect(description("end_session")).toContain("forget_session");
     expect(description("forget_session")).toContain("Right to be forgotten");
     expect(description("forget_session")).toContain("irreversible");
+    expect(description("list_community_bundles")).toContain("course_id");
+    expect(description("list_community_bundles")).toContain("start_lesson_session");
+    expect(description("start_lesson_session")).toContain("authoring.notice");
   });
   it("get_next_reinforcement distinguishes no history, nothing due, and due", async () => {
     const client = await connect(bundlesDir());
@@ -513,5 +518,94 @@ describe("lesson-mcp — learner-time run protocol parity (run.json / run_result
     expect(r["status"]).toBe("not_a_run_scene");
     expect(r["transition"]).toBeNull();
     expect(await sceneType(client, sid)).toBe("intro");
+  });
+});
+
+const OPEN_BOOK_FR = "Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). ";
+const SELF_STUDY_NOTICE_FR_WITHOUT_JUDGE = OPEN_BOOK_FR + "Sans juge modèle, les scènes de production donnent un retour " +
+  "par mots-clés sans évaluation certifiée ; seules les reproductions exécutées portent une évaluation externe.";
+const SELF_STUDY_NOTICE_FR_WITH_JUDGE = OPEN_BOOK_FR + "Les scènes de production, jugées par le modèle, et les " +
+  "reproductions exécutées portent l'évaluation.";
+const SELF_STUDY_BUNDLE = {
+  ...MINI, bundle_id: "self-001",
+  metadata: { ...MINI.metadata, authoring: { mode: "self_study", author_is_learner: true } },
+  validated_by: "SELF-STUDY — not teacher-validated",
+};
+
+/** A bundles root with one course directory whose community/ holds MINI zipped as community-k1.zip. */
+function communityRoot(): string {
+  const root = mkdtempSync(join(tmpdir(), "mcp-community-")); dirs.push(root);
+  const stage = mkdtempSync(join(tmpdir(), "mcp-zip-")); dirs.push(stage);
+  writeFileSync(join(stage, "lesson.json"), JSON.stringify(MINI));
+  mkdirSync(join(root, "kepler", "community"), { recursive: true });
+  writeFileSync(join(root, "kepler", "lesson.json"), JSON.stringify(MINI));
+  // zip -j keeps the entry name "lesson.json", the one loadBundleZip reads.
+  execFileSync("zip", ["-j", "-q", join(root, "kepler", "community", "community-k1.zip"), join(stage, "lesson.json")]);
+  return root;
+}
+
+describe("lesson-mcp — community bundles and authoring", () => {
+  it("list_community_bundles finds a course's community bundle, startable by its bundle_ref", async () => {
+    const client = await connect(communityRoot());
+    const listed = parse(await client.callTool({ name: "list_community_bundles", arguments: { course_id: "kepler" } }) as never);
+    expect(listed).toEqual({ bundles: [{ bundle_ref: "kepler/community/community-k1.zip", course_id: "kepler", item_id: "k1" }] });
+    const all = parse(await client.callTool({ name: "list_community_bundles", arguments: {} }) as never);
+    expect(all).toEqual(listed);
+
+    const bundleRef = (listed.bundles as Array<{ bundle_ref: string }>)[0]!.bundle_ref;
+    const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: bundleRef } }) as never);
+    expect(typeof started.session_id).toBe("string");
+    expect((started.presentation as { scene: { id: string } }).scene.id).toBe("s0");
+  });
+
+  it("list_community_bundles reports an invalid course_id as a tool error", async () => {
+    const client = await connect(communityRoot());
+    const res = await client.callTool({ name: "list_community_bundles", arguments: { course_id: "../kepler" } }) as {
+      isError?: boolean; content: Array<{ type: string; text?: string }>;
+    };
+    expect(res.isError).toBe(true);
+    expect(parse(res).error).toMatch(/invalid course_id/);
+  });
+
+  it("start_lesson_session says who wrote the lesson, top-level and on every presentation", async () => {
+    const teacherClient = await connect(bundlesDir());
+    const teacher = parse(await teacherClient.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json" } }) as never);
+    const teacherBlock = { mode: "teacher", author_is_learner: false, validated: true, judge: false, notice: null };
+    expect(teacher.authoring).toEqual(teacherBlock);
+    expect((teacher.presentation as { authoring?: unknown }).authoring).toEqual(teacherBlock);
+
+    const d = mkdtempSync(join(tmpdir(), "mcp-")); dirs.push(d);
+    writeFileSync(join(d, "self.json"), JSON.stringify(SELF_STUDY_BUNDLE));
+    const client = await connect(d);
+    const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "self.json" } }) as never);
+    const block = {
+      mode: "self_study", author_is_learner: true, validated: false, judge: false, notice: SELF_STUDY_NOTICE_FR_WITHOUT_JUDGE,
+    };
+    expect(started.authoring).toEqual(block);
+    expect((started.presentation as { authoring?: unknown }).authoring).toEqual(block);
+    const sid = started.session_id as string;
+    const current = parse(await client.callTool({ name: "get_current_scene", arguments: { session_id: sid } }) as never);
+    expect((current.presentation as { authoring?: unknown }).authoring).toEqual(block);
+    const next = parse(await client.callTool({ name: "submit_response", arguments: { session_id: sid, input: { kind: "ack" } } }) as never);
+    expect((next.transition as { presentation: { authoring?: unknown } }).presentation.authoring).toEqual(block);
+    const context = parse(await client.callTool({ name: "get_operator_context", arguments: { session_id: sid } }) as never);
+    expect(context.authoring).toEqual(block);
+  });
+
+  it("a live host (judge model) reports judge: true and the judged notice", async () => {
+    const d = mkdtempSync(join(tmpdir(), "mcp-")); dirs.push(d);
+    writeFileSync(join(d, "self.json"), JSON.stringify(SELF_STUDY_BUNDLE));
+    const previous = process.env["STUDIUM_PSEUDO_SECRET"];
+    process.env["STUDIUM_PSEUDO_SECRET"] = "mcp-judge-test-secret"; // live mode refuses the default secret
+    try {
+      const client = await connect(d, true);
+      const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "self.json" } }) as never);
+      expect(started.authoring).toEqual({
+        mode: "self_study", author_is_learner: true, validated: false, judge: true, notice: SELF_STUDY_NOTICE_FR_WITH_JUDGE,
+      });
+    } finally {
+      if (previous === undefined) delete process.env["STUDIUM_PSEUDO_SECRET"];
+      else process.env["STUDIUM_PSEUDO_SECRET"] = previous;
+    }
   });
 });

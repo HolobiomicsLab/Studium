@@ -9,6 +9,7 @@ Leurs sources sont versionnées dans `skills/` du dépôt Studium.
 | `studium-teacher` | Installation enseignant, premier brouillon sourcé, revue MySTRA | « Aide-moi à préparer mon premier cours à partir de cet article. » |
 | `studium-student` | Installation étudiante, choix du harnais et première activité | « J'ai Copilot Student ; aide-moi à démarrer le cours. » |
 | `studium-harness` | Boucle MCP/fichier, réponses personnelles, runs et exploration | « Pilote cette séance et attends mes réponses. » |
+| `studium-self-learner` | Apprenant sans enseignant : leçon d'auto-apprentissage à partir de ses propres références | « Construis une leçon à partir de ce chapitre, puis fais-la-moi jouer. » |
 
 ## Les utiliser dans un clone du projet
 
@@ -41,7 +42,7 @@ la méthode portable est explicite :
 > Lis `skills/studium-teacher/SKILL.md` dans ce dépôt et applique-le pour mon
 > onboarding enseignant.
 
-Remplacer le nom par `studium-student` ou `studium-harness` selon le besoin.
+Remplacer le nom par `studium-student`, `studium-harness` ou `studium-self-learner` selon le besoin.
 Cette lecture directe reste utilisable quand les liens de découverte ne sont
 pas suivis. Le skill doit résoudre sa source réelle pour trouver les guides.
 

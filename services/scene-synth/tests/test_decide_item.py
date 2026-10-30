@@ -260,6 +260,25 @@ def test_approve_validated_by_is_teacher(tmp_path):
     assert lesson["validated_by"] == _TEACHER
 
 
+def test_approve_marks_the_bundle_learner_authored_and_teacher_validated(tmp_path):
+    """Every emitted community bundle says who wrote it, canonical metadata or not."""
+    import json
+
+    store = _seeded_store(tmp_path)
+    env = decide_item(
+        store,
+        "item-1",
+        decision="approve",
+        reviewer=_TEACHER,
+        reviewed_at=_TS,
+        bundles_root=tmp_path / "bundles",
+        course_concepts=_COURSE_CONCEPTS,
+    )
+    with zipfile.ZipFile(_path_from_uri(env.published_bundle_ref)) as zf:
+        lesson = json.loads(zf.read("lesson.json"))
+    assert lesson["metadata"]["authoring"] == {"mode": "teacher", "author_is_learner": True}
+
+
 # --------------------------------------------------------------------------- #
 # Idempotency — double-approve / publish is a no-op.
 # --------------------------------------------------------------------------- #

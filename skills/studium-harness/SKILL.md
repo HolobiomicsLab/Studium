@@ -279,10 +279,9 @@ second bundle of the same course no longer overwrites the first (INT-STUDIUM-020
   teacher dashboard (`apps/teacher-dashboard`, collector on :8003) only sees consented,
   k-suppressed aggregates.
 - Do not edit fixtures or tests while a run is in progress; file a bundle change
-  separately and re-run the bundle lint — with `tsx`, not `node`:
-  `node_modules/.pnpm/node_modules/.bin/tsx tools/bundle_lint.mjs`. It imports the schema's
-  TypeScript sources, so bare `node` dies on `ERR_MODULE_NOT_FOUND` before linting anything;
-  CI and `tools/bundle_lint.test.sh` both invoke it through `tsx`.
+  separately and re-run the bundle lint: `node tools/bundle_lint.mjs [--root DIR | lesson.json]`.
+  The lint is dependency-free (Node built-ins only); `tsx` also runs it, which is how CI
+  still invokes it, but it is not required.
 
 ## 9. Pointers
 

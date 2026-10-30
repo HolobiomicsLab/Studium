@@ -1,0 +1,331 @@
+{
+  "schema_version": "1.4",
+  "bundle_id": "bundle-lint-self-study-all-types",
+  "source_plan_id": "bundle-lint-tests",
+  "metadata": {
+    "title": "One scene of each type, self-authored",
+    "target": "Lint tests",
+    "duration_minutes": 10,
+    "language": "en",
+    "discipline": "testing",
+    "authoring": {
+      "mode": "self_study",
+      "author_is_learner": true
+    }
+  },
+  "concepts": [
+    {
+      "id": "advanced",
+      "title": "Every type",
+      "description": "One scene per type.",
+      "bloom_level_target": "understand"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s-intro",
+      "type": "intro",
+      "title": "Intro",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "markdown": "What this lesson covers."
+    },
+    {
+      "id": "s-concept",
+      "type": "concept",
+      "title": "Concept",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "markdown": "The concept in a paragraph."
+    },
+    {
+      "id": "s-meta_checkpoint",
+      "type": "meta_checkpoint",
+      "title": "Meta checkpoint",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "pre_question": "How confident are you before?",
+      "post_question": "How confident are you after?",
+      "scale_labels": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ]
+    },
+    {
+      "id": "s-quiz",
+      "type": "quiz",
+      "title": "Quiz",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "question": "Which answer is right?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Right",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Wrong",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Correct.",
+      "feedback_incorrect": "Not quite.",
+      "hints": []
+    },
+    {
+      "id": "s-spot_the_flaw",
+      "type": "spot_the_flaw",
+      "title": "Spot the flaw",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "flawed_content": "The result is reported in the wrong unit.",
+      "claims": [
+        {
+          "id": "c1",
+          "text": "The unit is right.",
+          "flaws_expected": [
+            "wrong unit"
+          ]
+        }
+      ],
+      "model_correction": "The flaw is the wrong unit.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      }
+    },
+    {
+      "id": "s-explain_back",
+      "type": "explain_back",
+      "title": "Explain back",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "prompt": "Explain the concept.",
+      "key_points": [
+        {
+          "id": "kp",
+          "text": "The core idea.",
+          "cues": [
+            "core"
+          ]
+        }
+      ],
+      "model_explanation": "The core idea, explained.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      }
+    },
+    {
+      "id": "s-comparison",
+      "type": "comparison",
+      "title": "Comparison",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "prompt": "Compare the two answers.",
+      "artifact_a": "Answer A.",
+      "artifact_b": "Answer B.",
+      "key_points": [
+        {
+          "id": "kp",
+          "text": "A is complete.",
+          "cues": [
+            "complete"
+          ]
+        }
+      ],
+      "model_answer": "A is more complete than B.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      }
+    },
+    {
+      "id": "s-summary_audit",
+      "type": "summary_audit",
+      "title": "Summary audit",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "source_content": "The study had a control group.",
+      "ai_summary": "The study had no control.",
+      "claims": [
+        {
+          "id": "c1",
+          "text": "No control group.",
+          "flaws_expected": [
+            "omitted control"
+          ]
+        }
+      ],
+      "model_correction": "The summary omitted control: the study had one.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      }
+    },
+    {
+      "id": "s-prompt_practice",
+      "type": "prompt_practice",
+      "title": "Prompt practice",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "task": "Ask for a sourced summary.",
+      "starter_prompt": "Summarise.",
+      "key_points": [
+        {
+          "id": "kp",
+          "text": "Asks for sources.",
+          "cues": [
+            "source"
+          ]
+        }
+      ],
+      "model_prompt": "Summarise and cite a source for each claim.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      }
+    },
+    {
+      "id": "s-communication_sim",
+      "type": "communication_sim",
+      "title": "Communication sim",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "scenario": "A colleague asks what the result means.",
+      "prompt": "Answer the colleague.",
+      "key_points": [
+        {
+          "id": "kp",
+          "text": "States the limit.",
+          "cues": [
+            "limit"
+          ]
+        }
+      ],
+      "model_response": "The result holds within its limit.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      }
+    },
+    {
+      "id": "s-discussion",
+      "type": "discussion",
+      "title": "Discussion",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "topic": "Is the claim justified?",
+      "seed_claim": "The claim follows from the data.",
+      "target_signals": [
+        "justification"
+      ],
+      "max_turns": 4
+    },
+    {
+      "id": "s-ai_critique",
+      "type": "ai_critique",
+      "title": "Ai critique",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "claims": [
+        {
+          "id": "c1",
+          "text": "The model overclaims.",
+          "flaws_expected": [
+            "overclaim"
+          ]
+        }
+      ],
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      }
+    },
+    {
+      "id": "s-reproduction",
+      "type": "reproduction",
+      "title": "Reproduction",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "task_card_id": "task-every-type",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "instruction": "Run the analysis.",
+          "expected_input_schema": {
+            "type": "object"
+          },
+          "expected_output": "A number."
+        }
+      ]
+    }
+  ],
+  "rules": [],
+  "validated_by": "SELF-STUDY — not teacher-validated",
+  "validated_at": "2026-10-30T00:00:00.000Z"
+}

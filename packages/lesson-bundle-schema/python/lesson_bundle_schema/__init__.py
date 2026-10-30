@@ -85,12 +85,30 @@ class Concept(BaseModel):
     bloom_level_target: BloomLevel
 
 
+AuthoringMode = Literal["teacher", "self_study"]
+
+
+class BundleAuthoring(BaseModel):
+    """Who wrote the bundle (mirror of Zod BundleAuthoringSchema).
+
+    ``self_study``: the learner (or their agent) authored the lesson from
+    references they chose; author-keyed scenes (quiz, spot_the_flaw, …) carry a
+    key written by the person who will answer them.
+    """
+
+    mode: AuthoringMode
+    author_is_learner: bool = False
+    note: Optional[str] = None
+
+
 class BundleMetadata(BaseModel):
     title: str
     target: str
     duration_minutes: int = Field(gt=0)
     language: str = Field(min_length=2)
     discipline: str
+    # Absent on bundles built before 2026-10-30; readers treat absent as "teacher".
+    authoring: Optional[BundleAuthoring] = None
 
 
 class _SceneBase(BaseModel):

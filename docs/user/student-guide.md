@@ -72,6 +72,23 @@ Garde les sorties dans ton espace d'expérience. Une capsule `type-checked` n'es
 pas un run réussi. Si une dépendance manque ou qu'un calcul échoue, conserve cet
 échec ; ne demande pas à l'agent de fabriquer un résultat.
 
+## Construire sa propre leçon à partir de ses références
+
+Sans enseignant, tu peux transformer une page web, un PDF ou un texte que tu as
+choisi en leçon jouable. Le [tutoriel d'auto-apprentissage](../tutorials/self-study-from-references.md)
+donne la recette complète ; le skill `studium-self-learner` y conduit ton agent.
+Tu fixes l'objectif, fournis la source et sa licence, relis le plan proposé ;
+l'agent rédige les scènes à partir des passages cités.
+
+Sache-le dès le départ : les quiz et les défauts à repérer d'une telle leçon ont
+une clé écrite de ton côté. C'est un **livre ouvert**, pas un contrôle. Sans juge modèle, le réglage par
+défaut, tes explications, comparaisons et audits de résumé reçoivent un retour
+par mots-clés mais aucune évaluation certifiée : seul ce quiz fait bouger ta
+maîtrise. Un juge modèle configuré rend l'évaluation de ces textes externe.
+Pour ne pas gâcher l'essai, laisse l'agent écrire et n'ouvre pas `plan.json` ni
+`lesson.json` avant de jouer. Une leçon auto-rédigée n'est relue par aucun
+enseignant et n'est diffusée à personne.
+
 ## Terminer ou reprendre
 
 Note le cours, la révision et ce que tu veux reprendre. Le panneau et un chat MCP

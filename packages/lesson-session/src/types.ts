@@ -1,6 +1,6 @@
 // packages/lesson-session/src/types.ts
 import type { Locale } from "./phrases.js";
-import type { Scene, LessonBundle } from "@studium/lesson-bundle-schema";
+import type { Scene, LessonBundle, AuthoringMode } from "@studium/lesson-bundle-schema";
 import type { LearnerState, Decision } from "@studium/learner-state";
 import type {
   StateStore, EventLog, TelemetrySink, PseudonymProvider,
@@ -31,6 +31,13 @@ export interface Presentation {
   hints_available?: number;
   /** Learner-facing locale resolved once from `bundle.metadata.language` (fr unless `en`). */
   locale: Locale;
+  /** Who wrote the lesson, as every surface states it: the bundle's `metadata.authoring` (absent =
+   * teacher), whether `validated_by` names a validating teacher (not a DRAFT / SELF-STUDY
+   * placeholder), whether the host has a judge model (without one, production scenes are not
+   * certified), and the learner-facing self-study notice (null for a teacher lesson). Set by the
+   * session host on every presentation it serves; the engine leaves it unset. Kept as a type
+   * literal so packages that only see this barrel can still name it. */
+  authoring?: { mode: AuthoringMode; author_is_learner: boolean; validated: boolean; judge: boolean; notice: string | null };
 }
 
 // `confidence?` (0..4) is the optional per-answer self-rating — the path to CONTINUOUS calibration

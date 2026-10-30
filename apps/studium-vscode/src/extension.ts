@@ -600,6 +600,8 @@ async function openLesson(
       // only, never the other branch; ungraded scenes: an acknowledgement). The engine releases
       // it on the transition; before 2026-10-29 the pane never showed it (audit P2).
       verdict: verdict ?? null,
+      // Who wrote the lesson; a self-authored one carries a notice the pane shows above the scene.
+      authoring: presentation.authoring ?? null,
     });
     await pushGraph();
     // When the current scene is a reproduction the LEARNER must run, light up the sidebar's run action +

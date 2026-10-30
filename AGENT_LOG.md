@@ -4,6 +4,53 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-10-30 (matin) — lot « apprenant autonome » : une leçon depuis ses propres références
+
+Demande propriétaire : « Oui, lot autonome. Fais les choses bien. » après le constat qu'un étudiant
+sans enseignant pouvait techniquement construire une leçon mais que rien ne le cadrait (rapport
+vague 3 §11, spec `studium_dev/docs/superpowers/specs/2026-10-30-lot-apprenant-autonome.md`).
+Quatre sous-agents Claude (Opus) sur des fichiers disjoints, intégration et vérification par le
+lead ; un rejeu réel par un agent suivant le skill (Durkheim, Wikisource) a relevé 18 constats, six
+corrigés dans la foulée ; non commité.
+
+- **Schéma (lead).** LessonBundle 1.4 gagne `metadata.authoring = {mode: teacher|self_study,
+  author_is_learner, note?}` (optionnel, absent = enseignant, pas de bump de version) : Zod
+  `packages/lesson-bundle-schema/src/index.ts` + miroir Pydantic ; tests `authoring.test.ts` (nouveau)
+  et `tests_python/test_lesson_bundle_schema.py`.
+- **scene-synth (S1, V4).** Plus de verrou `atomistique-l1` : `BUNDLES_ROOT` (défaut
+  `<repo>/fixtures`), `course_id` validé `^[a-z0-9][a-z0-9._-]{0,63}$` (400 sinon), cours canonique
+  `<root>/<course>/lesson.json` (404 sinon), émission `<root>/<course>/community/community-<item>.zip`
+  (`COMMUNITY_BUNDLES_ROOT` ne remplace que l'émission) ; le zip émis hérite langue/cible/discipline
+  et porte `authoring {teacher, author_is_learner: true}`. `tests/test_learner_courses.py` (32, nouveau).
+- **Hôte, MCP, panneau (S2, V6 + avis).** `list_community_bundles({course_id?})` (22 outils) ;
+  `packages/lesson-session-host/src/authoring.ts` (`authoringOf`, avis fr/en × juge absent/présent,
+  `judge = host.live`) et `key-class.ts` ; bloc `authoring {mode, author_is_learner, validated, judge,
+  notice}` dans `start_lesson_session`, chaque `presentation` et `get_operator_context` (+ `task.md`) ;
+  bannière `.authoring-notice[role=note]` dans `artifact-pane.js`. `certifiedCorrect`
+  (`graders.ts:67`) ne certifie que `source === "llm"` : sans juge, aucune scène de production ne
+  porte `correct` ni ne bouge la maîtrise, et l'avis le dit.
+- **Packet, lint (S3).** `tools/self_study_passages.py` (nouveau) : `passages (--url|--html|--pdf|--text)`
+  → enveloppe `self-study-passages/1.0` ; chrome Wikimedia ignorée, paragraphes courts fusionnés puis
+  rattachés (`dropped_short`), abréviations (« M. ») non terminales. `experience_packet.py` :
+  `prepare` accepte un dossier vide, préfixe `passage:`, consigne
+  `tools/prompts/experience_author_self_study.md` (origine auto-étude ou `--self-study`) ;
+  `bundle --self-study [--note]` → `authoring` + `validated_by = "SELF-STUDY — not teacher-validated"` ;
+  `check` imprime `Key classes:`. `bundle_lint.mjs` : `self_study_authoring` (INFO),
+  `self_study_open_book`, `self_study_no_external_key` (WARN), `learner_authored_validated` (INFO),
+  quatre fixtures ; fixture de test `tools/fixtures/self-study/durkheim-ch1.html` (page Wikisource
+  sauvegardée, 89 Ko, à confirmer par le propriétaire).
+- **Skill et docs (S4).** `skills/studium-self-learner/SKILL.md` (+ liens `.claude/skills`,
+  `.agents/skills`), `docs/tutorials/self-study-from-references.md`, `docs/features.md` (quatre avis,
+  classes de clé), `docs/user/student-guide.md`, `getting-started/skills.md`, `agent-harness-matrix.md`.
+- **Lead.** `.gitignore` (`fixtures/*/community/`), `community_flow_check.mjs` (entrées → `bundle_ref`,
+  métadonnées canoniques), `package.nls*.json` (`communityBundlesRoot`), skill harness §8 (lint sans tsx).
+- Vérification : `pytest_all` 16 suites (tools 230, scene-synth 267), `pnpm test` (host 222, session 333,
+  MCP 26, pilotes extension dont webview-pane 132 et lesson-walk 606), `bundle_lint.test.sh` 23 OK,
+  build extension, `pnpm lint` = la seule erreur préexistante `extension.ts:394`. Rejeu Durkheim et
+  bannière dans le navigateur intégré : rapport vague 3 §11.
+
+---
+
 ## 2026-10-29 (nuit, plus tard) — lot « rendu du panneau » : markdown complet, maths, code coloré
 
 Demande propriétaire : « Oui, lot rendu » après le relevé des trois surfaces de rendu (rapport vague 3

@@ -18,13 +18,24 @@ const scene = {
   render_assets: [{ kind: "data_csv", title: "Peaks", payload: "mz,intensity\n100,1", meta: { model_answer: "PRIVATE-ASSET" } }],
 };
 
-async function start(overrides: Record<string, unknown> = {}) {
+const METADATA = { title: "Spectra", target: "M2", duration_minutes: 5, language: "en", discipline: "Chemistry" };
+const SELF_STUDY = {
+  metadata: { ...METADATA, authoring: { mode: "self_study", author_is_learner: true } },
+  validated_by: "SELF-STUDY — not teacher-validated",
+};
+// These hosts are offline (live: false), so the notice is the no-judge variant.
+const SELF_STUDY_NOTICE_EN_WITHOUT_JUDGE = "Self-authored lesson: quiz and spot-the-flaw keys were written by the learner " +
+  "(open book). Without a judge model, production scenes give keyword feedback with no certified assessment; " +
+  "only executed reproductions carry an external assessment.";
+
+async function start(overrides: Record<string, unknown> = {}, bundleOverrides: Record<string, unknown> = {}) {
   const dir = await mkdtemp(join(tmpdir(), "operator-context-")); dirs.push(dir);
   await writeFile(join(dir, "lesson.json"), JSON.stringify({
     schema_version: "1.4", bundle_id: "operator-test", source_plan_id: "plan",
-    metadata: { title: "Spectra", target: "M2", duration_minutes: 5, language: "en", discipline: "Chemistry" },
+    metadata: METADATA,
     concepts: [{ id: "c", title: "Evidence", description: "Evidence", bloom_level_target: "evaluate" }],
     scenes: [{ ...scene, ...overrides }], rules: [], validated_by: "test-teacher", validated_at: "2026-09-10T00:00:00Z",
+    ...bundleOverrides,
   }));
   const host = new SessionHost({ bundlesRoot: dir, live: false });
   const { sessionId } = await host.create("lesson.json", "test");
@@ -83,5 +94,41 @@ describe("public operator context", () => {
     expect(result.run_manifest?.cmd).toEqual(["python", "run.py"]);
     expect(JSON.stringify(result)).not.toContain("PRIVATE-");
     expect(result.scene_assets.some(a => a.kind === "executed_result")).toBe(false);
+  });
+
+  it("states who wrote a teacher lesson just before exploration, without extra instructions", async () => {
+    const { host, sessionId } = await start();
+    const result = operatorContext(host, sessionId);
+    expect(result.authoring).toEqual({ mode: "teacher", author_is_learner: false, validated: true, judge: false, notice: null });
+    const keys = Object.keys(result);
+    expect(keys.indexOf("authoring")).toBe(keys.indexOf("exploration") - 1);
+    expect(result.exploration.instructions).not.toContain("Self-authored");
+    expect(result.rendering.instructions).not.toContain("authoring.notice");
+  });
+
+  it("carries the self-study notice and adds one sentence to each instruction, in MCP and task.md alike", async () => {
+    const teacher = await start();
+    const plain = operatorContext(teacher.host, teacher.sessionId);
+    const { dir, host, sessionId } = await start({}, SELF_STUDY);
+    const result = operatorContext(host, sessionId);
+    expect(result.authoring).toMatchObject({ mode: "self_study", author_is_learner: true, validated: false, judge: false });
+    expect(result.authoring.notice).toBe(SELF_STUDY_NOTICE_EN_WITHOUT_JUDGE);
+    for (const field of ["exploration", "rendering"] as const) {
+      const before = plain[field].instructions;
+      const after = result[field].instructions;
+      expect(after.startsWith(before), `${field} keeps its instructions`).toBe(true);
+      const extra = after.slice(before.length).trim();
+      expect(extra, `${field} gains a sentence`).toMatch(/\.$/);
+      expect(extra, `${field} gains ONE sentence`).not.toMatch(/\.\s/);
+    }
+    await new SessionWorkspace(host, dir).writeStep(sessionId);
+    const task = await readFile(join(dir, "task.md"), "utf8");
+    const match = task.match(/<!-- studium-operator-context -->\n```json\n([\s\S]*?)\n```/);
+    expect(JSON.parse(match![1]!).authoring).toEqual(result.authoring);
+    const prose = task.slice(task.indexOf("## Harness rendering context"), task.indexOf("<!-- studium-operator-context -->"));
+    expect(prose, "the notice is readable before the JSON block").toContain(`> ${SELF_STUDY_NOTICE_EN_WITHOUT_JUDGE}`);
+    await new SessionWorkspace(teacher.host, teacher.dir).writeStep(teacher.sessionId);
+    const teacherTask = await readFile(join(teacher.dir, "task.md"), "utf8");
+    expect(teacherTask, "a teacher lesson adds no quote line").not.toMatch(/## Harness rendering context\n\n> /);
   });
 });

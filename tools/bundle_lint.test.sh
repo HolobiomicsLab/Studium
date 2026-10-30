@@ -65,6 +65,34 @@ grep -Fq 'target "concept:missing" is not a declared graph node' <<<"$OUTPUT" ||
 expect_finding "single graded prerequisite" 0 "lwg_single_graded_item" "$FIXTURES/single-graded/lesson.json"
 grep -Fq "one correct answer cannot reach theta, the gate will pass it on a correct answer" <<<"$OUTPUT" || { echo "FAIL: single-item information omits gate behaviour"; echo "$OUTPUT"; exit 1; }
 
+# Who wrote the key (metadata.authoring, spec 2026-10-30 « Classes de clé »). The all-types
+# fixture must hold exactly one scene per SceneType of the Zod schema, so a new scene type
+# fails here until SCENE_KEY_CLASS in bundle_lint.mjs classifies it.
+SCENE_TYPES_TS="$ROOT/packages/lesson-bundle-schema/src/scenes.ts"
+ALL_TYPES="$FIXTURES/self-study-all-types/lesson.json"
+zod_types="$(sed -n '/export const SceneTypeSchema = z.enum(\[/,/\]);/p' "$SCENE_TYPES_TS" | grep -o '"[a-z_]*"' | tr -d '"' | LC_ALL=C sort)"
+fixture_types="$(node -e "const b=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));console.log(b.scenes.map((s)=>s.type).sort().join('\n'))" "$ALL_TYPES")"
+[ -n "$zod_types" ] || { echo "FAIL: no SceneType enum found in $SCENE_TYPES_TS"; exit 1; }
+[ "$zod_types" = "$fixture_types" ] || { echo "FAIL: self-study-all-types must hold one scene per SceneType"; echo "zod: $zod_types"; echo "fixture: $fixture_types"; exit 1; }
+expect_finding "self-study key classes of every scene type" 0 "self_study_authoring" "$ALL_TYPES"
+grep -Fq "key classes: author_keyed=2 (s-quiz, s-spot_the_flaw) production=7 (s-explain_back, s-comparison, s-summary_audit, s-prompt_practice, s-communication_sim, s-discussion, s-ai_critique) externally_grounded=1 (s-reproduction) ungraded=3" <<<"$OUTPUT" || { echo "FAIL: key classes differ from the spec table"; echo "$OUTPUT"; exit 1; }
+grep -Fq "unknown=" <<<"$OUTPUT" && { echo "FAIL: a schema scene type has no key class"; echo "$OUTPUT"; exit 1; }
+
+expect_finding "self-study open book" 0 "self_study_open_book" "$FIXTURES/self-study-open-book/lesson.json"
+grep -Eq '^WARN  .+  self_study_open_book  ' <<<"$OUTPUT" || { echo "FAIL: open book is not a WARN"; echo "$OUTPUT"; exit 1; }
+grep -Fq "s-foundation-quiz-1, s-foundation-quiz-2: " <<<"$OUTPUT" || { echo "FAIL: open-book warning does not list the author-keyed scenes"; echo "$OUTPUT"; exit 1; }
+grep -Fq 'mode=self_study author_is_learner=true validated_by="SELF-STUDY' <<<"$OUTPUT" || { echo "FAIL: self_study_authoring omits mode, author or validator"; echo "$OUTPUT"; exit 1; }
+grep -Fq "self_study_no_external_key" <<<"$OUTPUT" && { echo "FAIL: an explain_back scene is a production key"; echo "$OUTPUT"; exit 1; }
+expect_finding "self-study without an external key" 0 "self_study_no_external_key" "$FIXTURES/self-study-no-external-key/lesson.json"
+expect_finding "learner-authored teacher bundle" 0 "learner_authored_validated" "$FIXTURES/learner-authored/lesson.json"
+grep -Fq "self_study_" <<<"$OUTPUT" && { echo "FAIL: a teacher-released bundle was reported as self-study"; echo "$OUTPUT"; exit 1; }
+
+node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));b.scenes.push({...b.scenes[0],id:'s-hologram',type:'hologram'});fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$FIXTURES/self-study-no-external-key/lesson.json" "$TMP/unknown-type.json"
+expect_finding "unknown scene type is counted, not fatal" 0 "self_study_authoring" "$TMP/unknown-type.json"
+grep -Fq "unknown=1 (s-hologram)" <<<"$OUTPUT" || { echo "FAIL: unknown scene type was not counted"; echo "$OUTPUT"; exit 1; }
+node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));b.metadata.authoring={mode:'teacher'};fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$FIXTURES/clean/lesson.json" "$TMP/teacher.json"
+expect_clean "teacher authoring without a learner author" "$TMP/teacher.json"
+
 # --root visits every */lesson.json at depth <= 2 and aggregates failures.
 run_lint --root "$FIXTURES"
 [ "$STATUS" -eq 1 ] || { echo "FAIL: fixture root should fail on ERROR findings"; echo "$OUTPUT"; exit 1; }
