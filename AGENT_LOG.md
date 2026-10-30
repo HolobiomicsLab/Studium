@@ -4,6 +4,23 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-10-29 (nuit, plus tard) — lot « rendu du panneau » : markdown complet, maths, code coloré
+
+Demande propriétaire : « Oui, lot rendu » après le relevé des trois surfaces de rendu (rapport vague 3
+§10). Mission Codex E puis correction de conception par le lead ; non commité.
+
+- `apps/studium-vscode/media/artifact-pane.js` : `renderMarkdown()` (marked vendored, GFM, HTML brut
+  échappé, allowlist DOM) remplace `mdLite` partout ; extensions marked `mathBlock`/`mathInline` qui
+  tokenisent `$…$`, `$$…$$`, `\(…\)`, `\[…\]` avant la passe inline (règle pandoc pour les devises),
+  rendu `katex.render` après l'allowlist, mhchem chargé, repli `imath` sans KaTeX ; `highlightCode`
+  (python/js/sql/bash/json) pour les assets `code` et les blocs clôturés ; images relatives → placeholder
+  décidé au rendu (`renderer.image`).
+- `src/extension.ts` (`paneHtml`) : marked, KaTeX, mhchem chargés avant le panneau (vendor et CDN),
+  `img-src https:`, `artifact-pane.js` en `defer`. `src/phrases.ts` : `pane_image_unresolved` fr/en.
+- `package.json` : devDependency `marked@15.0.12`, script `vendor` étendu ; `media/VENDOR-LICENSES.md`.
+- Tests : `src/webview-pane.driver.ts` 88 → 125 assertions (échantillon GFM, HTML hostile, KaTeX,
+  devises, repli, cas limites TeX). Typecheck + 13 pilotes + build verts.
+
 ## 2026-10-29 (nuit) — lot 1 de la vague 3 : mémoire inter-leçons (V17, V1, V9, V19, V2)
 
 Demande propriétaire : « Oui, lot 1 » après le rapport de la vague 3

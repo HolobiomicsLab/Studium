@@ -14,17 +14,27 @@ import { browserPhrases, type Locale } from "./phrases.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const paneSrc = readFileSync(resolve(here, "..", "media", "artifact-pane.js"), "utf8");
+const markedSrc = readFileSync(resolve(here, "..", "node_modules", "marked", "marked.min.js"), "utf8");
+const katexSrc = readFileSync(resolve(here, "..", "node_modules", "katex", "dist", "katex.min.js"), "utf8");
+const mhchemSrc = readFileSync(resolve(here, "..", "node_modules", "katex", "dist", "contrib", "mhchem.min.js"), "utf8");
 
 const failures: string[] = [];
 let checks = 0;
 function expect(cond: boolean, msg: string) { checks++; if (!cond) failures.push(msg); }
 
 // A fresh DOM + a freshly-evaluated pane per scene, with __send overridden to CAPTURE host messages.
-function mount() {
+function mount(withRenderLibraries: boolean | "marked" = false) {
   const dom = new JSDOM(`<!doctype html><html><body><div id="pane"></div></body></html>`, {
     runScripts: "outside-only", pretendToBeVisual: true,
   });
   const win = dom.window as any;
+  if (withRenderLibraries) {
+    win.eval(markedSrc);
+  }
+  if (withRenderLibraries === true) {
+    win.eval(katexSrc);
+    win.eval(mhchemSrc);
+  }
   win.eval(paneSrc);                       // runs the IIFE → attaches window.__render / __send / message listener
   const sent: any[] = [];
   win.__send = (m: any) => sent.push(m);   // capture instead of postMessage to the (absent) host
@@ -297,6 +307,133 @@ function submitFreeText(scene: any, answer: string) {
   incorrect.render(baseState({ type: "concept", title: "C", markdown: "x" },
     { locale: "en", verdict: { graded: true, correct: false } }));
   expect(incorrect.text().includes("Incorrect"), "locale en renders the incorrect verdict in English");
+}
+
+// --- 12) full Markdown, prose math, sanitization, and code highlighting -------------------------------
+{
+  const markdown = [
+    "Deux lois :",
+    "- la période T",
+    "- le demi-grand axe *a*",
+    "",
+    "La relation est $T^2 \\propto a^3$.",
+    "",
+    "```python",
+    "import pandas as pd  # charge",
+    "x = \"a\"",
+    "```",
+    "",
+    "Voir [OpenStax](https://openstax.org) et ![fig](plots/x.png)",
+    "",
+    "| a | b |",
+    "|---|---|",
+    "| 1 | 2 |",
+    "",
+    "$$E = mc^2$$",
+  ].join("\n");
+  const m = mount(true);
+  m.render(baseState({ type: "concept", title: "Markdown", markdown }));
+  expect(m.$all(".prose ul > li").length === 2, "Markdown renders both bullet-list items");
+  expect(m.$(".prose em")?.textContent === "a", "Markdown renders italic emphasis");
+  expect(!!m.$(".prose .katex"), "inline prose math renders through KaTeX");
+  expect(!!m.$(".prose pre code[data-lang='python']"), "fenced code keeps python as data-lang");
+  expect(!!m.$(".prose pre code .tok-kw"), "fenced Python highlights a keyword");
+  expect(!!m.$(".prose pre code .tok-str"), "fenced Python highlights a string");
+  expect(!!m.$(".prose pre code .tok-com"), "fenced Python highlights a comment");
+  expect(!!m.$(".prose a[href='https://openstax.org'][target='_blank']"), "safe links open through the host");
+  expect(m.text().includes("image : plots/x.png (non résolue)"), "relative Markdown images render a visible French placeholder");
+  expect(m.$all(".prose table td").length === 2, "Markdown renders both table cells");
+  expect(!!m.$(".prose .katex-display"), "display prose math renders through KaTeX");
+}
+{
+  const m = mount(true);
+  m.render(baseState({
+    type: "concept",
+    title: "Sanitize",
+    markdown: "<img src=x onerror=alert(1)>\n<script>alert(2)</script>\n[x](javascript:alert(1))\nA & B",
+  }));
+  expect(!m.$(".prose script"), "raw Markdown HTML cannot create a script element");
+  expect(!m.$(".prose img[onerror]"), "raw Markdown HTML cannot create an event-handler image");
+  expect(!m.$(".prose a[href^='javascript:']"), "sanitizer removes javascript links");
+  expect(m.text().includes("<script>") && m.text().includes("A & B"), "raw angle brackets and ampersands remain literal text");
+}
+{
+  const chemistry = mount(true);
+  chemistry.render(baseState({ type: "concept", title: "Chemistry", markdown: "Eau : $\\ce{H2O}$." }));
+  expect(!!chemistry.$(".prose .katex"), "mhchem prose renders without throwing");
+
+  const currency = mount(true);
+  currency.render(baseState({ type: "concept", title: "Price", markdown: "Cela coûte 5$ et 10$." }));
+  expect(currency.text().includes("coûte 5$ et 10$") && !currency.$(".prose .katex"), "currency dollar signs remain plain text");
+
+  // TeX must reach KaTeX untouched by marked's escape/emphasis pass (annotation = the TeX it got).
+  const texOf = (m: any) => m.$all(".prose annotation").map((a: any) => a.textContent);
+  const edges = mount(true);
+  edges.render(baseState({ type: "concept", title: "Edges", markdown: [
+    "Ensemble $\\{a, b\\}$ et produit $a*b*c$.",
+    "",
+    "Soit \\[E = mc^2\\] puis \\(x_1 + y_1\\).",
+    "",
+    "$$\\begin{pmatrix}1\\\\2\\end{pmatrix}$$",
+    "",
+    "Prix : $5 et $10.",
+    "",
+    "Soit 5$ et 10$.",
+  ].join("\n") }));
+  const tex = texOf(edges);
+  expect(tex.includes("\\{a, b\\}"), "escaped braces reach KaTeX untouched");
+  expect(tex.includes("a*b*c"), "asterisks inside math are not emphasis");
+  expect(tex.includes("E = mc^2") && !!edges.$(".prose .katex-display"), "\\[…\\] renders as display math");
+  expect(tex.includes("x_1 + y_1"), "\\(…\\) renders as inline math");
+  expect(tex.includes("\\begin{pmatrix}1\\\\2\\end{pmatrix}"), "double backslash (matrix row) survives");
+  expect(edges.text().includes("$5 et $10") && edges.text().includes("5$ et 10$") && tex.length === 5, "currency dollars in both conventions stay text");
+
+  const fallback = mount("marked");
+  fallback.render(baseState({ type: "concept", title: "Fallback", markdown: "Math $x^2$ puis $$y$$." }));
+  expect(fallback.$all(".prose .imath").length === 2, "missing KaTeX leaves prose math in imath fallbacks");
+}
+{
+  const structure = mount(true);
+  structure.render(baseState({ type: "concept", title: "Structure", markdown: "ligne un\nligne deux\n\n1. haut\n   1. imbriqué\n2. bas" }));
+  expect(!!structure.$(".prose p br"), "breaks:true renders a single prose newline as br");
+  expect(!!structure.$(".prose ol ol li"), "Markdown renders nested ordered lists");
+
+  const unresolved = mount(true);
+  unresolved.render(baseState({ type: "concept", title: "Image", markdown: "![plot](plots/y.png)" }, { locale: "en" }));
+  expect(unresolved.text().includes("image: plots/y.png (unresolved)"), "relative Markdown images use the English catalogue caption");
+}
+{
+  const python = mount(true);
+  python.render(baseState({ type: "concept", title: "Code", markdown: "x" }, {
+    scene_assets: [{ kind: "code", title: "sample.py", language: "python", payload: "def f():\n    # note\n    return \"ok\"" }],
+  }));
+  expect(!!python.$(".asset-code .tok-kw"), "code assets highlight Python keywords");
+  expect(!!python.$(".asset-code .tok-str"), "code assets highlight Python strings");
+  expect(!!python.$(".asset-code .tok-com"), "code assets highlight Python comments");
+
+  const sql = mount(true);
+  sql.render(baseState({ type: "concept", title: "SQL", markdown: "x" }, {
+    scene_assets: [{ kind: "code", title: "query.sql", language: "sql", payload: "SELECT count(*) FROM samples;" }],
+  }));
+  expect(sql.$(".asset-code .tok-kw")?.textContent === "SELECT", "code assets highlight SQL SELECT");
+
+  for (const sample of [
+    { language: "typescript", payload: "const n = 3; // count", keyword: "const" },
+    { language: "bash", payload: "if true; then echo \"ok\"; fi # branch", keyword: "if" },
+    { language: "json", payload: "{\"count\": 3, \"ready\": true}", keyword: "true" },
+  ]) {
+    const supported = mount(true);
+    supported.render(baseState({ type: "concept", title: sample.language, markdown: "x" }, {
+      scene_assets: [{ kind: "code", title: sample.language, language: sample.language, payload: sample.payload }],
+    }));
+    expect(supported.$(".asset-code .tok-kw")?.textContent === sample.keyword, `code assets highlight ${sample.language}`);
+  }
+
+  const unknown = mount(true);
+  unknown.render(baseState({ type: "concept", title: "Unknown", markdown: "x" }, {
+    scene_assets: [{ kind: "code", title: "plain", language: "unknown", payload: "<script>alert(1)</script>" }],
+  }));
+  expect(!unknown.$(".asset-code script") && unknown.text().includes("<script>"), "unknown code stays escaped plain text");
 }
 
 if (failures.length) {

@@ -1,7 +1,7 @@
 /* artifact-pane.js — renders a scene's normalized render-manifest (scene_assets[]) "pair by pair".
  *
  * One renderer, two homes:
- *   - inside the VS Code webview, KaTeX + Vega-Lite are loaded → equations and plots are rich/interactive;
+ *   - inside the VS Code webview, marked + KaTeX + Vega-Lite are loaded → prose, equations and plots are rich;
  *   - anywhere they are absent (e.g. a quick preview), every renderer DEGRADES GRACEFULLY
  *     (equation → styled code, plot_spec → a minimal inline-SVG bar chart from the spec's data).
  * The render path is identical; only fidelity changes. Drives off window.postMessage from the
@@ -9,13 +9,18 @@
  */
 (function () {
   "use strict";
-  let strings = Object.create(null);
+  const DEFAULT_STRINGS = {
+    pane_image_unresolved: "image : {path} (non résolue)",
+  };
+  let strings = { ...DEFAULT_STRINGS };
   function t(key, params) {
     const template = strings[key] || key;
     return template.replace(/\{([a-z_]+)\}/gi, (token, name) =>
       params && params[name] !== undefined ? String(params[name]) : token);
   }
   const $ = (sel, root) => (root || document).querySelector(sel);
+  const escapeHtml = (value) => String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const el = (tag, attrs, ...kids) => {
     const n = document.createElement(tag);
     for (const k in (attrs || {})) {
@@ -95,8 +100,11 @@
   }
 
   function renderSvg(a) { return el("div", { class: "svgwrap", html: a.payload || "" }); }
-  function renderCode(a) { return el("pre", { class: "code", "data-lang": a.language || "" }, el("code", {}, a.payload || "")); }
-  function renderProtocol(a) { return el("div", { class: "protocol", html: mdLite(a.payload || "") }); }
+  function renderCode(a) {
+    const code = el("code", { "data-lang": a.language || "", html: highlightCode(a.payload || "", a.language || "") });
+    return el("pre", { class: "code" }, code);
+  }
+  function renderProtocol(a) { return el("div", { class: "protocol", html: renderMarkdown(a.payload || "") }); }
 
   function renderCsv(a) {
     const rows = (a.payload || "").trim().split(/\r?\n/).map((r) => r.split(","));
@@ -225,7 +233,7 @@
 
   // --- whole pane ----------------------------------------------------------
   function renderPane(state) {
-    if (state.strings && typeof state.strings === "object") strings = state.strings;
+    if (state.strings && typeof state.strings === "object") strings = { ...DEFAULT_STRINGS, ...state.strings };
     const root = $("#pane"); root.innerHTML = "";
     const sc = state.scene || {};
     const head = el("div", { class: "scene-head" });
@@ -263,11 +271,11 @@
     }
     root.append(head);
 
-    if (sc.markdown) root.append(el("div", { class: "prose", html: mdLite(sc.markdown) }));
+    if (sc.markdown) root.append(el("div", { class: "prose", html: renderMarkdown(sc.markdown) }));
     // quiz / meta_checkpoint carry their prompt in `question` / `pre_question` (NOT markdown) — draw
     // it so the learner sees what they're answering (the choice buttons live in renderControls).
-    if (sc.type === "quiz" && sc.question) root.append(el("div", { class: "prose question", html: mdLite(sc.question) }));
-    if (sc.type === "meta_checkpoint" && sc.pre_question) root.append(el("div", { class: "prose question", html: mdLite(sc.pre_question) }));
+    if (sc.type === "quiz" && sc.question) root.append(el("div", { class: "prose question", html: renderMarkdown(sc.question) }));
+    if (sc.type === "meta_checkpoint" && sc.pre_question) root.append(el("div", { class: "prose question", html: renderMarkdown(sc.pre_question) }));
     // spot_the_flaw shows the deliberately-flawed lesson (find the errors); explain_back shows the
     // prompt. The answer keys (claims / sound_claims / key_points + the model_* reveals) are stripped
     // SERVER-SIDE by publicScene (lesson-session-host) before the scene reaches the webview — including
@@ -279,29 +287,29 @@
       root.append(el("div", { class: "pane-label" }, hasDeck
         ? t("pane_audit_deck")
         : t("pane_find_errors")));
-      root.append(el("div", { class: "prose flawed", html: mdLite(sc.flawed_content) }));
+      root.append(el("div", { class: "prose flawed", html: renderMarkdown(sc.flawed_content) }));
     }
     if (sc.type === "explain_back" && sc.prompt) {
-      root.append(el("div", { class: "prose", html: mdLite(sc.prompt) }));
+      root.append(el("div", { class: "prose", html: renderMarkdown(sc.prompt) }));
     }
     // Wave-1 active-learning scenes — render only the learner-facing fields (key_points/claims/model_*
     // answer keys are stripped server-side by publicScene, so there is nothing to leak here).
     if (sc.type === "comparison") {
-      if (sc.prompt) root.append(el("div", { class: "prose", html: mdLite(sc.prompt) }));
-      if (sc.artifact_a) { root.append(el("div", { class: "pane-label" }, "A")); root.append(el("div", { class: "prose", html: mdLite(sc.artifact_a) })); }
-      if (sc.artifact_b) { root.append(el("div", { class: "pane-label" }, "B")); root.append(el("div", { class: "prose", html: mdLite(sc.artifact_b) })); }
+      if (sc.prompt) root.append(el("div", { class: "prose", html: renderMarkdown(sc.prompt) }));
+      if (sc.artifact_a) { root.append(el("div", { class: "pane-label" }, "A")); root.append(el("div", { class: "prose", html: renderMarkdown(sc.artifact_a) })); }
+      if (sc.artifact_b) { root.append(el("div", { class: "pane-label" }, "B")); root.append(el("div", { class: "prose", html: renderMarkdown(sc.artifact_b) })); }
     }
     if (sc.type === "summary_audit") {
-      if (sc.source_content) { root.append(el("div", { class: "pane-label" }, "Source")); root.append(el("div", { class: "prose", html: mdLite(sc.source_content) })); }
-      if (sc.ai_summary) { root.append(el("div", { class: "pane-label" }, t("pane_ai_summary"))); root.append(el("div", { class: "prose ai-summary", html: mdLite(sc.ai_summary) })); }
+      if (sc.source_content) { root.append(el("div", { class: "pane-label" }, "Source")); root.append(el("div", { class: "prose", html: renderMarkdown(sc.source_content) })); }
+      if (sc.ai_summary) { root.append(el("div", { class: "pane-label" }, t("pane_ai_summary"))); root.append(el("div", { class: "prose ai-summary", html: renderMarkdown(sc.ai_summary) })); }
     }
     if (sc.type === "prompt_practice" && sc.task) {
       root.append(el("div", { class: "pane-label" }, t("pane_task")));
-      root.append(el("div", { class: "prose", html: mdLite(sc.task) }));
+      root.append(el("div", { class: "prose", html: renderMarkdown(sc.task) }));
     }
     if (sc.type === "communication_sim") {
-      if (sc.scenario) { root.append(el("div", { class: "pane-label" }, t("pane_situation"))); root.append(el("div", { class: "prose", html: mdLite(sc.scenario) })); }
-      if (sc.prompt) root.append(el("div", { class: "prose", html: mdLite(sc.prompt) }));
+      if (sc.scenario) { root.append(el("div", { class: "pane-label" }, t("pane_situation"))); root.append(el("div", { class: "prose", html: renderMarkdown(sc.scenario) })); }
+      if (sc.prompt) root.append(el("div", { class: "prose", html: renderMarkdown(sc.prompt) }));
     }
     // reproduction — the protocol the learner reproduces. Show the ordered step instructions (the
     // executed reference run, when present, arrives as a separate executed_result render asset).
@@ -316,7 +324,7 @@
     // empty) transcript the turn loop appends to (learner turn on send, tutor reply on turn_result).
     if (sc.type === "discussion") {
       if (sc.topic) root.append(el("div", { class: "pane-label" }, t("pane_discussion", { topic: sc.topic })));
-      if (sc.seed_claim) root.append(el("div", { class: "prose", html: mdLite(sc.seed_claim) }));
+      if (sc.seed_claim) root.append(el("div", { class: "prose", html: renderMarkdown(sc.seed_claim) }));
       root.append(el("div", { id: "turns", class: "turns" }));
     }
 
@@ -449,7 +457,7 @@
     const verdicts = deck.map((d) => ({ token: d.token, flagged: false }));
     deck.forEach((d, i) => {
       const row = el("div", { class: "deck-row", "data-token": d.token });
-      const claim = el("div", { class: "deck-claim", html: mdLite(d.text || "") });
+      const claim = el("div", { class: "deck-claim", html: renderMarkdown(d.text || "") });
       const toggle = el("button", { class: "deck-flag", type: "button", "aria-pressed": "false" }, t("pane_flag"));
       toggle.addEventListener("click", () => {
         const on = !verdicts[i].flagged;
@@ -479,13 +487,172 @@
     if (!box) return;
     const line = el("div", { class: "turn turn-" + role });
     line.append(el("span", { class: "turn-who" }, t(role === "learner" ? "pane_you" : "pane_tutor") + " : "));
-    line.append(el("span", { class: "turn-text", html: mdLite(text) }));
+    line.append(el("span", { class: "turn-text", html: renderMarkdown(text) }));
     if (meta) line.append(el("div", { class: "turn-meta" }, meta));
     box.append(line);
   }
 
-  // tiny markdown (bold/italic/code/headings/paragraphs) — no deps
-  function mdLite(s) {
+  const CODE_KEYWORDS = {
+    python: new Set("and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield True False None".split(" ")),
+    javascript: new Set("as async await break case catch class const continue debugger default delete do else export extends false finally for from function get if import in instanceof let new null of return set static super switch this throw true try typeof var void while with yield interface type enum implements private protected public readonly abstract declare namespace".split(" ")),
+    sql: new Set("select from where join inner left right full on as and or not null is insert into update delete create alter drop table values set group by order having limit offset union all distinct case when then else end with recursive primary key foreign references".split(" ")),
+    bash: new Set("if then elif else fi for while until do done case esac function in select time coproc local readonly export declare typeset unset shift source return break continue true false".split(" ")),
+    json: new Set(["true", "false", "null"]),
+  };
+
+  // Small, non-parsing highlighter: token classes only, with every unmatched byte escaped.
+  function highlightCode(source, language) {
+    const aliases = {
+      py: "python", python: "python", js: "javascript", jsx: "javascript", javascript: "javascript",
+      ts: "javascript", tsx: "javascript", typescript: "javascript", sql: "sql", sh: "bash",
+      shell: "bash", zsh: "bash", bash: "bash", json: "json", jsonc: "json",
+    };
+    const requested = String(language || "").trim().split(/\s+/)[0].toLowerCase();
+    const family = aliases[requested];
+    if (!family) return escapeHtml(source);
+    const comments = family === "python" || family === "bash" ? "#[^\\n]*"
+      : family === "sql" ? "--[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/"
+      : "\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/";
+    const strings = "\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'|`(?:\\\\.|[^`\\\\])*`";
+    const pattern = new RegExp(`(${comments})|(${strings})|(\\b(?:0x[\\da-f]+|\\d+(?:\\.\\d+)?)\\b)|(\\b[A-Za-z_$][\\w$]*\\b)`, "gmi");
+    let output = "";
+    let cursor = 0;
+    for (const match of String(source).matchAll(pattern)) {
+      output += escapeHtml(String(source).slice(cursor, match.index));
+      const token = match[0];
+      const tokenClass = match[1] ? "tok-com" : match[2] ? "tok-str" : match[3] ? "tok-num"
+        : CODE_KEYWORDS[family].has(token.toLowerCase()) || CODE_KEYWORDS[family].has(token) ? "tok-kw" : "";
+      output += tokenClass ? `<span class="${tokenClass}">${escapeHtml(token)}</span>` : escapeHtml(token);
+      cursor = match.index + token.length;
+    }
+    return output + escapeHtml(String(source).slice(cursor));
+  }
+
+  const MARKDOWN_TAGS = new Set([
+    "P", "H1", "H2", "H3", "H4", "STRONG", "EM", "CODE", "PRE", "UL", "OL", "LI", "A", "IMG",
+    "TABLE", "THEAD", "TBODY", "TR", "TH", "TD", "BLOCKQUOTE", "HR", "BR", "SPAN", "DIV",
+  ]);
+
+  function isSafeLink(href) { return /^(https?:|mailto:)/i.test(String(href || "").trim()); }
+  function isSafeImage(src) {
+    return /^(data:|https:|vscode-resource:|vscode-webview-resource:)/i.test(String(src || "").trim());
+  }
+
+  function replaceUnresolvedImages(root) {
+    root.querySelectorAll("img").forEach((image) => {
+      const src = image.getAttribute("src") || "";
+      if (isSafeImage(src)) return;
+      image.replaceWith(el("span", { class: "image-unresolved" }, t("pane_image_unresolved", { path: src })));
+    });
+  }
+
+  function sanitizeMarkdown(root) {
+    const sanitizeElement = (node) => {
+      if (!MARKDOWN_TAGS.has(node.tagName)) {
+        node.replaceWith(document.createTextNode(node.textContent || ""));
+        return;
+      }
+      const href = node.tagName === "A" ? node.getAttribute("href") : null;
+      const src = node.tagName === "IMG" ? node.getAttribute("src") : null;
+      for (const attr of Array.from(node.attributes)) {
+        const allowed = attr.name === "class" || attr.name === "title"
+          || (node.tagName === "A" && attr.name === "href")
+          || (node.tagName === "IMG" && (attr.name === "src" || attr.name === "alt"))
+          || (node.tagName === "CODE" && attr.name === "data-lang")
+          || (node.tagName === "OL" && attr.name === "start");
+        if (!allowed) node.removeAttribute(attr.name);
+      }
+      if (node.tagName === "A") {
+        if (isSafeLink(href)) { node.setAttribute("href", href.trim()); node.setAttribute("target", "_blank"); }
+        else { node.removeAttribute("href"); node.removeAttribute("target"); }
+      }
+      if (node.tagName === "IMG" && isSafeImage(src)) node.setAttribute("src", src.trim());
+      Array.from(node.children).forEach(sanitizeElement);
+    };
+    Array.from(root.children).forEach(sanitizeElement);
+  }
+
+  // Mathematics is tokenized BEFORE marked's inline pass (backslash escapes, emphasis), so `\{`,
+  // `\\` (matrix rows), `a*b*c` and the `\[…\]` / `\(…\)` delimiters reach KaTeX untouched — an
+  // auto-render pass over the parsed DOM saw them already mangled. Each token becomes a
+  // <span class="math-tex"> holding the raw TeX as text (which survives the allowlist pass); KaTeX
+  // then renders those spans AFTER sanitizing, because its MathML output is not allowlisted.
+  // Inline `$…$` follows pandoc's rule: no space after the opening `$`, none before the closing
+  // one, and the closing `$` is not followed by a digit — so "5$ et 10$" and "$5 et $10" stay text.
+  const MATH_INLINE = /^(?:\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$([^\s$](?:[^$\n]*?[^\s$])?)\$(?!\d))/;
+  const MATH_BLOCK = /^(?:\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\])[ \t]*(?:\n+|$)/;
+  function mathToken(type, match) {
+    const tex = match[1] ?? match[2] ?? match[3] ?? match[4] ?? "";
+    const display = match[1] !== undefined || match[2] !== undefined;
+    return { type, raw: match[0], tex, display };
+  }
+  function mathSpan(token) {
+    return `<span class="math-tex${token.display ? " math-display" : ""}">${escapeHtml(token.tex)}</span>`;
+  }
+  const MATH_EXTENSIONS = [
+    {
+      name: "mathBlock", level: "block",
+      start(src) { const i = src.search(/^(?:\$\$|\\\[)/m); return i < 0 ? undefined : i; },
+      tokenizer(src) { const m = MATH_BLOCK.exec(src); return m ? mathToken("mathBlock", m) : undefined; },
+      renderer(token) { return `<div class="math-block">${mathSpan(token)}</div>\n`; },
+    },
+    {
+      name: "mathInline", level: "inline",
+      start(src) { const i = src.search(/\$|\\[[(]/); return i < 0 ? undefined : i; },
+      tokenizer(src) { const m = MATH_INLINE.exec(src); return m ? mathToken("mathInline", m) : undefined; },
+      renderer(token) { return mathSpan(token); },
+    },
+  ];
+  let markedConfigured = false;
+  function configureMarked() {
+    if (markedConfigured) return;
+    window.marked.use({ extensions: MATH_EXTENSIONS });
+    markedConfigured = true;
+  }
+
+  function renderMathSpans(root) {
+    root.querySelectorAll(".math-tex").forEach((span) => {
+      const tex = span.textContent || "";
+      const display = span.classList.contains("math-display");
+      if (window.katex && typeof window.katex.render === "function") {
+        try { window.katex.render(tex, span, { displayMode: display, throwOnError: false }); return; }
+        catch (error) { /* fall through to the plain-text fallback */ }
+      }
+      span.className = display ? "imath imath-display" : "imath";
+      span.textContent = tex;
+    });
+  }
+
+  function renderMarkdown(source) {
+    if (!window.marked || typeof window.marked.parse !== "function") return mdLiteFallback(source);
+    configureMarked();
+    const renderer = new window.marked.Renderer();
+    renderer.html = (token) => escapeHtml(token.text || "");
+    // An unresolvable image never becomes an <img>: assigning innerHTML on a detached node already
+    // fires the fetch, so the placeholder is decided at render time, not after.
+    renderer.image = (token) => {
+      const src = String(token.href || "");
+      if (!isSafeImage(src)) return `<span class="image-unresolved">${escapeHtml(t("pane_image_unresolved", { path: src }))}</span>`;
+      return `<img src="${escapeHtml(src.trim())}" alt="${escapeHtml(token.text || "")}"${token.title ? ` title="${escapeHtml(token.title)}"` : ""}>`;
+    };
+    renderer.code = (token) => {
+      const info = String(token.lang || "").trim();
+      return `<pre class="code"><code data-lang="${escapeHtml(info)}">${highlightCode(token.text || "", info)}</code></pre>`;
+    };
+    let parsed;
+    try { parsed = window.marked.parse(String(source || ""), { renderer, gfm: true, breaks: true, async: false }); }
+    catch (error) { return mdLiteFallback(source); }
+    if (typeof parsed !== "string") return mdLiteFallback(source);
+    const host = document.createElement("div");
+    host.innerHTML = parsed;
+    replaceUnresolvedImages(host);
+    sanitizeMarkdown(host);
+    renderMathSpans(host);
+    return host.innerHTML;
+  }
+
+  // Standalone previews stay readable when the vendored parser is unavailable.
+  function mdLiteFallback(s) {
     return s.split(/\n{2,}/).map((p) => {
       let h = p.replace(/&/g, "&amp;").replace(/</g, "&lt;");
       h = h.replace(/`([^`]+)`/g, "<code>$1</code>")

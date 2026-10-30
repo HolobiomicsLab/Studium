@@ -698,24 +698,27 @@ function nonce() { return Array.from({ length: 16 }, () => "abcdef0123456789"[Ma
 function paneHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "cdn", locale: Locale): string {
   const media = (f: string) => webview.asWebviewUri(vscode.Uri.file(join(extPath, "media", f)));
   const n = nonce();
-  // KaTeX + Vega(-Lite/-Embed) make equations + plots rich; if neither loads, the renderer
+  // Marked + KaTeX + Vega(-Lite/-Embed) make prose, equations, and plots rich; if they do not load, the renderer
   // degrades to styled code + an inline-SVG bar chart (same code path). `vendor` ships the libs
   // inside media/vendor (air-gap safe); `cdn` pulls them from jsdelivr.
   const cdn = assets === "cdn";
   const origin = cdn ? "https://cdn.jsdelivr.net" : "";
   const csp = [
     `default-src 'none'`,
-    `img-src ${webview.cspSource} data:`,
+    `img-src ${webview.cspSource} data: https:`,
     `style-src ${webview.cspSource} ${origin} 'unsafe-inline'`,
     `font-src ${webview.cspSource} ${origin}`,
     `script-src 'nonce-${n}' ${origin}`,
   ].join("; ");
   const katexCss = cdn ? "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" : media("vendor/katex/katex.min.css");
   const libs = (cdn
-    ? ["https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js",
+    ? ["https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js",
+       "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js",
+       "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js",
        "https://cdn.jsdelivr.net/npm/vega@5", "https://cdn.jsdelivr.net/npm/vega-lite@5", "https://cdn.jsdelivr.net/npm/vega-embed@6",
        "https://cdn.jsdelivr.net/npm/3dmol@2.5.5/build/3Dmol-min.js"]
-    : [media("vendor/katex/katex.min.js"), media("vendor/vega.min.js"), media("vendor/vega-lite.min.js"), media("vendor/vega-embed.min.js"),
+    : [media("vendor/marked.min.js"), media("vendor/katex/katex.min.js"), media("vendor/katex/mhchem.min.js"),
+       media("vendor/vega.min.js"), media("vendor/vega-lite.min.js"), media("vendor/vega-embed.min.js"),
        media("vendor/3Dmol-min.js")]
   ).map((src) => `<script defer nonce="${n}" src="${src}"></script>`).join("\n");
   return `<!doctype html><html><head><meta charset="utf-8">
@@ -724,7 +727,7 @@ function paneHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "
 <link rel="stylesheet" href="${katexCss}">
 ${libs}
 </head><body><div id="pane"><div class="loading">⏳ ${phrase("extension_loading_lesson", {}, locale)}</div></div>
-<script nonce="${n}" src="${media("artifact-pane.js")}"></script>
+<script defer nonce="${n}" src="${media("artifact-pane.js")}"></script>
 </body></html>`;
 }
 

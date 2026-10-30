@@ -53,8 +53,14 @@ The lesson pane renders the normalized `scene_assets[]` manifest **by kind**: `i
 the `executed_result` card (figure + graded checks + landmark + capsule provenance), and the
 interactive scientific kinds `orbital` / `mol_3d` (3Dmol) and `spectrum` (Vega). If a render lib is
 absent the **same renderer degrades gracefully** (equation → styled code; plot → inline-SVG bars;
-3D → a labelled note). KaTeX/Vega/3Dmol/Cytoscape are **vendored into `media/vendor`** and load
+3D → a labelled note). marked/KaTeX/Vega/3Dmol/Cytoscape are **vendored into `media/vendor`** and load
 locally by default (`studium.assets: "vendor"`, air-gap safe); `cdn` pulls them from jsdelivr.
+
+Lesson prose in the pane uses full GFM Markdown (nested lists, links, tables, blockquotes and fenced
+code), then passes through a local DOM allowlist before display. Inline/display mathematics (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`) and
+mhchem expressions are tokenized before the Markdown inline pass and rendered with KaTeX, while fenced blocks and code assets get lightweight
+offline colouring for Python, JavaScript/TypeScript, SQL, Bash and JSON. Relative Markdown images are
+shown as an explicit unresolved-image caption until the extension host gains a bundle-path resolver.
 
 ## Adaptive & metacognitive surfaces
 
