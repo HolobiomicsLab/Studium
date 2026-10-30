@@ -20,73 +20,76 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Studium Observatory{% endblock %}</title>
 {% block head_extra %}{% endblock %}
+<style id="studium-tokens">
+{% include "studium-tokens.css" %}
+</style>
 <style id="observatory-host-styles">
   :root {
-    --ivory: #f5f2eb; --paper: #fffdf8; --ink: #172d38; --ink-soft: #4a5d64;
-    --teal: #176b60; --teal-deep: #0d4d47; --teal-pale: #dceae5;
-    --ochre: #ad6b16; --ochre-pale: #f5e8d2; --red: #a63d32; --rule: #cfc9bb;
-    --shadow: 0 18px 45px rgba(23, 45, 56, .08); color: var(--ink); background: var(--ivory);
+    --ivory: var(--st-canvas); --paper: var(--st-surface); --ink: var(--st-text); --ink-soft: var(--st-muted);
+    --teal: var(--st-accent); --teal-deep: var(--st-accent-hover); --teal-pale: var(--st-accent-soft);
+    --ochre: var(--st-warning); --ochre-pale: var(--st-warning-soft); --red: var(--st-danger); --rule: var(--st-border);
+    --shadow: var(--st-shadow-raised); color: var(--st-text); background: var(--st-canvas);
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
     margin: 0; min-width: 18rem; color: var(--ink);
-    background: linear-gradient(90deg, rgba(23, 107, 96, .035) 1px, transparent 1px) 0 0 / 3.5rem 3.5rem, var(--ivory);
-    font: 15px/1.65 Avenir, "Avenir Next", "Trebuchet MS", sans-serif;
+    background: var(--st-canvas);
+    font: var(--st-size-base)/var(--st-leading-body) var(--st-font-text);
   }
   a { color: var(--teal-deep); text-decoration-thickness: .08em; text-underline-offset: .18em; }
   a:hover { color: var(--ochre); }
-  :focus-visible { outline: 3px solid var(--ochre); outline-offset: 3px; }
-  .skip-link { position: fixed; z-index: 100; top: .5rem; left: .5rem; transform: translateY(-180%); padding: .65rem 1rem; background: var(--ink); color: white; border-radius: .2rem; }
+  :focus-visible { outline: var(--st-border-width-focus) solid var(--st-focus); outline-offset: 3px; }
+  .skip-link { position: fixed; z-index: 100; top: .5rem; left: .5rem; transform: translateY(-180%); padding: var(--st-space-3) var(--st-space-4); background: var(--ink); color: var(--st-surface); border-radius: var(--st-radius-small); }
   .skip-link:focus { transform: translateY(0); }
   .site-header { border-bottom: 1px solid var(--rule); background: var(--ivory); padding: .72rem clamp(1rem, 3vw, 2.5rem); display: flex; gap: 1rem 2rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-  .site-title { color: var(--ink); font-family: Iowan Old Style, Georgia, serif; font-size: 1.08rem; letter-spacing: .02em; }
+  .site-title { color: var(--ink); font-family: var(--st-font-display); font-size: var(--st-size-md); letter-spacing: .02em; }
   .site-title::before { content: "◈"; margin-right: .55rem; color: var(--ochre); }
   .global-nav { display: flex; align-items: center; gap: .2rem .35rem; flex-wrap: wrap; }
-  .global-nav a, .controls button { display: inline-flex; min-height: 44px; align-items: center; padding: .45rem .7rem; border-radius: .2rem; color: var(--ink); font-size: .82rem; font-weight: 700; letter-spacing: .025em; text-decoration: none; }
+  .global-nav a, .controls button { display: inline-flex; min-height: var(--st-layout-target); align-items: center; padding: var(--st-space-2) var(--st-space-3); border-radius: var(--st-radius-small); color: var(--ink); font-size: var(--st-size-sm); font-weight: var(--st-weight-bold); letter-spacing: .025em; text-decoration: none; }
   .global-nav a:hover { background: var(--teal-pale); color: var(--teal-deep); }
   .controls { display: flex; gap: .35rem; }
   .controls button, .button { border: 1px solid var(--teal); background: transparent; color: var(--teal-deep); cursor: pointer; font: inherit; }
-  .controls button:hover, .button:hover { background: var(--teal); color: white; }
+  .controls button:hover, .button:hover { background: var(--teal); color: var(--st-on-accent); }
   main { width: min(74rem, calc(100% - 2rem)); margin: 0 auto; padding: 2.2rem 0 5rem; }
-  h1, h2, h3, h4 { color: var(--ink); font-family: Iowan Old Style, Georgia, serif; line-height: 1.18; }
+  h1, h2, h3, h4 { color: var(--ink); font-family: var(--st-font-display); line-height: var(--st-leading-tight); }
   h1 { max-width: 54rem; margin: 0 0 .4rem; font-size: clamp(2rem, 5vw, 3.7rem); font-weight: 500; letter-spacing: -.035em; }
   h2 { margin: 3.2rem 0 .8rem; padding-bottom: .45rem; border-bottom: 1px solid var(--rule); font-size: clamp(1.45rem, 3vw, 2rem); font-weight: 500; }
   h2::before { content: ""; display: inline-block; width: 1.8rem; height: .18rem; margin: 0 .7rem .32rem 0; background: var(--ochre); }
   h3 { margin: 1.8rem 0 .45rem; font-size: 1.15rem; }
   p { max-width: 70ch; }
-  table { display: block; width: 100%; max-width: 100%; margin: .75rem 0; overflow-x: auto; border-collapse: collapse; background: rgba(255, 253, 248, .72); box-shadow: 0 0 0 1px var(--rule); }
-  thead { background: var(--ink); color: #fff; }
+  table { display: block; width: 100%; max-width: 100%; margin: .75rem 0; overflow-x: auto; border-collapse: collapse; background: var(--st-surface); box-shadow: 0 0 0 1px var(--rule); }
+  thead { background: var(--ink); color: var(--st-surface); }
   th, td { min-width: 7rem; padding: .72rem .8rem; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
   th { font-weight: 700; font-size: .78rem; letter-spacing: .035em; }
   tbody th { color: var(--ink); background: var(--teal-pale); }
   tbody tr:last-child > * { border-bottom: 0; }
-  tbody tr:hover { background: rgba(220, 234, 229, .46); }
+  tbody tr:hover { background: var(--st-accent-soft); }
   table.kv th { width: 16rem; font-weight: 700; }
-  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .87em; }
-  code { padding: .08em .28em; border-radius: .15rem; background: rgba(23, 45, 56, .07); }
+  code, pre { font-family: var(--st-font-mono); font-size: .87em; }
+  code { padding: .08em .28em; border-radius: var(--st-radius-small); background: var(--st-surface-muted); }
   pre { max-width: 100%; padding: 1rem 1.1rem; overflow-x: auto; border: 1px solid var(--rule); border-left: .3rem solid var(--teal); background: var(--paper); white-space: pre-wrap; }
-  details { margin: .65rem 0; border: 1px solid var(--rule); background: rgba(255, 253, 248, .6); }
+  details { margin: .65rem 0; border: 1px solid var(--rule); background: var(--st-surface); }
   summary { min-height: 44px; padding: .65rem .8rem; cursor: pointer; color: var(--teal-deep); font-weight: 700; }
   details > :not(summary) { margin-right: .8rem; margin-left: .8rem; }
   details > table, details > pre { width: calc(100% - 1.6rem); }
   .path { color: var(--ink-soft); font-size: .82rem; word-break: break-word; }
-  .none { color: #6d777b; font-style: italic; }
-  .absent { color: #81500f; margin: .25rem 0; padding-left: .65rem; border-left: .2rem solid var(--ochre); }
-  .cap { background: var(--ochre); color: #fff; border-radius: .15rem; padding: .05rem .35rem; font-size: .76em; }
-  .banner { max-width: none; padding: .8rem 1rem; border: 1px solid #c99b55; border-left: .35rem solid var(--ochre); background: var(--ochre-pale); }
+  .none { color: var(--st-muted); font-style: italic; }
+  .absent { color: var(--st-warning); margin: .25rem 0; padding-left: .65rem; border-left: .2rem solid var(--ochre); }
+  .cap { background: var(--ochre); color: var(--st-surface); border-radius: var(--st-radius-small); padding: .05rem .35rem; font-size: .76em; }
+  .banner { max-width: none; padding: .8rem 1rem; border: 1px solid var(--st-warning); border-left: .35rem solid var(--ochre); background: var(--ochre-pale); }
   .synthetic { color: var(--ink-soft); font-size: .82em; }
   .ok, .pass { color: var(--teal); font-weight: 700; }
   .failed, .timed_out, .defect { color: var(--red); font-weight: 700; }
-  .suspect, .suppressed, .unmeasured, .unreadable, .empty { color: #81500f; font-weight: 700; }
-  .not_run, .not_installed { color: #6d777b; font-weight: 700; }
+  .suspect, .suppressed, .unmeasured, .unreadable, .empty { color: var(--st-warning); font-weight: 700; }
+  .not_run, .not_installed { color: var(--st-muted); font-weight: 700; }
   .eyebrow { margin: 0 0 .6rem; color: var(--teal); font-size: .76rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
   .lede { max-width: 60rem; margin: .7rem 0 1.3rem; color: var(--ink-soft); font: 1.08rem/1.65 Iowan Old Style, Georgia, serif; }
   .actions { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: 1.25rem 0; }
-  .button { display: inline-flex; min-height: 44px; align-items: center; padding: .55rem .85rem; border-radius: .2rem; font-size: .85rem; font-weight: 800; text-decoration: none; }
-  .button.primary { background: var(--teal); color: #fff; }
+  .button { display: inline-flex; min-height: var(--st-layout-target); align-items: center; padding: var(--st-space-2) var(--st-space-4); border-radius: var(--st-radius-small); font-size: var(--st-size-sm); font-weight: var(--st-weight-bold); text-decoration: none; }
+  .button.primary { background: var(--teal); color: var(--st-on-accent); }
   .button.primary:hover { background: var(--teal-deep); }
-  .section-nav { position: sticky; z-index: 10; top: 0; display: flex; gap: .25rem; flex-wrap: wrap; margin: 1.75rem 0 2.4rem; padding: .55rem; border: 1px solid var(--rule); background: var(--ivory); box-shadow: 0 8px 24px rgba(23, 45, 56, .07); }
+  .section-nav { position: sticky; z-index: 10; top: 0; display: flex; gap: .25rem; flex-wrap: wrap; margin: 1.75rem 0 2.4rem; padding: .55rem; border: 1px solid var(--rule); background: var(--ivory); box-shadow: var(--st-shadow-raised); }
   .section-nav a { display: inline-flex; min-height: 44px; align-items: center; padding: .4rem .68rem; border-radius: .15rem; font-size: .8rem; font-weight: 800; text-decoration: none; }
   .section-nav a:hover { background: var(--teal-pale); }
   .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .7rem; margin: 1.5rem 0; }
@@ -94,7 +97,7 @@
   .metric .value { display: block; font: 2.2rem/1 Iowan Old Style, Georgia, serif; }
   .metric .label { display: block; margin-top: .65rem; color: var(--ink-soft); font-size: .75rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
   .report-section { scroll-margin-top: 5rem; }
-  .analysis-card, .review-bundle { margin: 1.2rem 0 2rem; padding: clamp(1rem, 3vw, 1.6rem); border: 1px solid var(--rule); background: rgba(255, 253, 248, .82); box-shadow: var(--shadow); break-inside: avoid-page; }
+  .analysis-card, .review-bundle { margin: 1.2rem 0 2rem; padding: clamp(1rem, 3vw, 1.6rem); border: 1px solid var(--rule); background: var(--st-surface); box-shadow: var(--shadow); break-inside: avoid-page; }
   .analysis-card > h3, .review-bundle > h3 { margin-top: 0; }
   .record-meta { display: flex; gap: .4rem 1.2rem; flex-wrap: wrap; margin: .4rem 0 1rem; padding: .55rem 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
   .status-note { max-width: none; padding: .8rem 1rem; border-left: .3rem solid var(--teal); background: var(--teal-pale); }
@@ -112,7 +115,7 @@
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   @media print {
     @page { margin: 16mm 13mm 18mm; }
-    :root, body { background: #fff; color: #172d38; }
+    :root, body { background: var(--st-palette-light-surface-raised); color: var(--st-palette-light-text); }
     body { font-size: 10pt; }
     .site-header, .section-nav, .screen-only, .controls, .skip-link { display: none !important; }
     main { width: 100%; max-width: none; margin: 0; padding: 0; }
@@ -120,8 +123,8 @@
     h1 { font-size: 28pt; }
     h2 { margin-top: 1.4rem; font-size: 17pt; break-after: avoid; }
     h3, h4, summary { break-after: avoid; }
-    table { display: table; overflow: visible; box-shadow: 0 0 0 1px #bbb; font-size: 8.5pt; break-inside: auto; }
-    thead { display: table-header-group; background: #e6eeeb; color: #172d38; }
+    table { display: table; overflow: visible; box-shadow: 0 0 0 1px var(--st-palette-light-border-strong); font-size: 8.5pt; break-inside: auto; }
+    thead { display: table-header-group; background: var(--st-palette-light-surface-muted); color: var(--st-palette-light-text); }
     tr { break-inside: avoid; }
     th, td { min-width: 0; padding: .35rem .4rem; overflow-wrap: anywhere; }
     details { display: block; break-inside: auto; }
@@ -134,6 +137,9 @@
 </style>
 <style id="studium-theme">
 {% include "studium-theme.css" %}
+</style>
+<style id="studium-theme-current">
+{% include "studium-theme-current.css" %}
 </style>
 <style id="studium-help-styles">{% include "context-help.css" %}</style>
 </head>

@@ -1,3 +1,4 @@
+import { findLessonByToken } from "@/lib/library";
 import { getReasoningDepth, isSuppressed } from "@/lib/api";
 import ReasoningBreakdown from "@/components/ReasoningBreakdown";
 import CourseShell from "@/components/CourseShell";
@@ -17,6 +18,7 @@ type Props = { params: { token: string } };
 
 export default async function ReasoningPage({ params }: Props) {
   const token = decodeURIComponent(params.token);
+  const lesson = await findLessonByToken(token);
   let data;
   let error: string | null = null;
   try {
@@ -31,7 +33,7 @@ export default async function ReasoningPage({ params }: Props) {
       ) : isSuppressed(data) ? (
         <SuppressedNotice info={data} />
       ) : data ? (
-        <ReasoningBreakdown data={data} />
+        <ReasoningBreakdown data={data} sceneTitles={Object.fromEntries((lesson?.outline ?? []).map((scene) => [scene.id, scene.title]))} />
       ) : (
         <p className="empty-state">Aucune mesure de raisonnement disponible.</p>
       )}

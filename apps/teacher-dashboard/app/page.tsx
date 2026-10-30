@@ -10,7 +10,7 @@ async function go(formData: FormData) {
 
 export default function Home() {
   return (
-    <main className="home-shell" id="contenu">
+    <main className="home-shell" id="contenu" lang="fr">
       <section className="home-intro" aria-labelledby="home-title">
         <p className="eyebrow">Observatoire pédagogique</p>
         <h1 id="home-title">Lire un cours avec justesse.</h1>
@@ -18,6 +18,7 @@ export default function Home() {
           Un espace de travail pour suivre les parcours, repérer les points d’attention
           et préparer vos interventions à partir d’indicateurs contextualisés.
         </p>
+        <Link className="primary-button home-library-link" href="/library">Bibliothèque de cours <span aria-hidden="true">→</span></Link>
         <ul className="home-principles" aria-label="Principes du tableau de bord">
           <li>
             <strong>Vue d’ensemble</strong>

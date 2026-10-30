@@ -24,10 +24,10 @@ export default function DashboardNotice({
   );
 }
 
-/** Names an upstream read failure and keeps the original error available to the teacher. */
+/** The API wrapper supplies a service name and a concrete recovery action. */
 export function ApiError({ message }: { message: string }) {
   return (
-    <DashboardNotice title="Erreur API" tone="error" role="alert">
+    <DashboardNotice title="Lecture du service interrompue" tone="error" role="alert">
       <p>{message}</p>
     </DashboardNotice>
   );

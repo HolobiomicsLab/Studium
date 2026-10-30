@@ -1,13 +1,14 @@
 "use client";
 
 import type { AILiteracyResponse } from "@/lib/api";
+import ChartDataTable from "./ChartDataTable";
 
 function colorFor(value: number | null): string {
-  if (value === null) return "bg-gray-200 text-gray-500";
-  if (value >= 0.7) return "bg-emerald-500 text-white";
-  if (value >= 0.5) return "bg-amber-300";
-  if (value >= 0.3) return "bg-orange-400 text-white";
-  return "bg-red-400 text-white";
+  if (value === null) return "score-card--muted";
+  if (value >= 0.7) return "score-card--strong";
+  if (value >= 0.5) return "score-card--watch";
+  if (value >= 0.3) return "score-card--low";
+  return "score-card--critical";
 }
 
 const fmtPct = (n: number | null): string =>
@@ -21,41 +22,71 @@ export default function AILiteracyCard({ pseudonyme, data }: Props) {
     ? `IC80 [${Math.round(data.ic80[0] * 100)}%, ${Math.round(data.ic80[1] * 100)}%]`
     : "IC indispo (<5 sessions)";
   return (
-    <article
-      className={`rounded p-4 shadow ${colorFor(data.value)}`}
+    <figure
+      className={`analytics-figure score-card ${colorFor(data.value)}`}
       data-testid="ai-literacy-card"
     >
-      <header className="flex justify-between items-baseline">
-        <code className="text-xs opacity-80">{pseudonyme}</code>
-        <div className="text-3xl font-bold">{pct}</div>
-      </header>
-      <p className="text-xs mt-1">
-        n={data.n_sessions} sessions · {icText}
-      </p>
-      {data.degraded && (
-        <p className="text-xs mt-1 italic">
-          ⚠ composante manquante (degraded)
+      <figcaption className="score-card__header">
+        <span className="score-card__identity">
+          <span className="analytics-figure__title">Littératie IA</span>
+          <code>{pseudonyme}</code>
+        </span>
+        <span className="score-card__value">{pct}</span>
+      </figcaption>
+      <div className="score-card__body">
+        <p className="score-card__meta">
+          n={data.n_sessions} sessions · {icText}
         </p>
-      )}
-      <details className="mt-3 text-xs">
-        <summary className="cursor-pointer">Composantes</summary>
-        <ul className="mt-1 space-y-0.5">
-          <li>
-            ai_audit_accuracy : {fmtPct(data.components.ai_audit_accuracy)}
-          </li>
-          <li>
-            hint_independence_trend :{" "}
-            {fmtPct(data.components.hint_independence_trend)}
-          </li>
-          <li>
-            critique_completion_rate :{" "}
-            {fmtPct(data.components.critique_completion_rate)}
-          </li>
-        </ul>
-      </details>
-      <footer className="mt-3 text-xs italic border-t pt-2">
+        {data.degraded && (
+          <p className="analytics-note analytics-note--warning">
+            Composante manquante (mode dégradé).
+          </p>
+        )}
+        <details>
+          <summary>Composantes</summary>
+          <ul className="score-card__components">
+            <li>
+              ai_audit_accuracy : {fmtPct(data.components.ai_audit_accuracy)}
+            </li>
+            <li>
+              hint_independence_trend :{" "}
+              {fmtPct(data.components.hint_independence_trend)}
+            </li>
+            <li>
+              critique_completion_rate :{" "}
+              {fmtPct(data.components.critique_completion_rate)}
+            </li>
+          </ul>
+        </details>
+      </div>
+      <p className="score-card__footer">
         Indicateur formatif — non validé pour usage certificatif (ADR 011).
-      </footer>
-    </article>
+      </p>
+      <ChartDataTable
+        caption={`Données de littératie IA — ${pseudonyme}`}
+        rows={[
+          { metric: "Indice de littératie IA", value: fmtPct(data.value) },
+          { metric: "Sessions", value: String(data.n_sessions) },
+          { metric: "Intervalle de confiance", value: icText },
+          {
+            metric: "Précision de l’audit IA",
+            value: fmtPct(data.components.ai_audit_accuracy),
+          },
+          {
+            metric: "Tendance d’indépendance aux indices",
+            value: fmtPct(data.components.hint_independence_trend),
+          },
+          {
+            metric: "Complétion des critiques",
+            value: fmtPct(data.components.critique_completion_rate),
+          },
+        ]}
+        rowKey={(row) => row.metric}
+        columns={[
+          { key: "metric", label: "Mesure", rowHeader: true, render: (row) => row.metric },
+          { key: "value", label: "Valeur", render: (row) => row.value },
+        ]}
+      />
+    </figure>
   );
 }

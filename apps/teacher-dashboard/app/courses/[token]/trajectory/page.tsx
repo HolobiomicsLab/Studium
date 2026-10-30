@@ -1,3 +1,4 @@
+import { findLessonByToken } from "@/lib/library";
 import { getConceptMasteryHistory, isSuppressed, isUnavailable } from "@/lib/api";
 import TrajectoryChart from "@/components/TrajectoryChart";
 import CourseShell from "@/components/CourseShell";
@@ -20,6 +21,7 @@ type Props = { params: { token: string } };
 
 export default async function TrajectoryPage({ params }: Props) {
   const token = decodeURIComponent(params.token);
+  const lesson = await findLessonByToken(token);
   let data;
   let error: string | null = null;
   try {
@@ -36,7 +38,7 @@ export default async function TrajectoryPage({ params }: Props) {
       ) : isSuppressed(data) ? (
         <SuppressedNotice info={data} />
       ) : data ? (
-        <TrajectoryChart data={data} />
+        <TrajectoryChart data={data} conceptTitles={lesson?.conceptTitles} />
       ) : (
         <p className="empty-state">Aucune trajectoire disponible.</p>
       )}

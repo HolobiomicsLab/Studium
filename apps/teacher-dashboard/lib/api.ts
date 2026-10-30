@@ -19,6 +19,39 @@ const SCENE_SYNTH_BASE =
 const LESSON_SERVER_BASE =
   process.env.LESSON_SERVER_BASE_URL ?? "http://localhost:8010";
 
+type Service = "analytics-collector" | "scene-synth" | "lesson-server";
+const SERVICE_SETUP: Record<Service, string> = {
+  "analytics-collector": "Démarrez analytics-collector sur le port 8003 et vérifiez ANALYTICS_BASE_URL.",
+  "scene-synth": "Démarrez scene-synth sur le port 8002 et vérifiez SCENE_SYNTH_BASE_URL.",
+  "lesson-server": "Démarrez lesson-server sur le port 8010 et vérifiez LESSON_SERVER_BASE_URL.",
+};
+
+/** Keep internal URLs, teacher keys and upstream response bodies out of user-facing errors. */
+function serviceFailure(service: Service, status?: number): Error {
+  const reason = status ? ` (HTTP ${status})` : "";
+  const fix = status === 401 || status === 403
+    ? "Vérifiez l’identifiant du cours et les droits d’accès, puis réessayez."
+    : status === 404
+      ? "Vérifiez que le cours ou la ressource existe sur ce service, puis actualisez."
+      : status === 400 || status === 422
+        ? "Vérifiez les champs du formulaire et la référence de la leçon, puis réessayez."
+        : `${SERVICE_SETUP[service]} Actualisez ensuite cette page.`;
+  return new Error(`Le service ${service} ne peut pas terminer la demande${reason}. ${fix}`);
+}
+
+async function serviceFetch(service: Service, url: string, options: RequestInit): Promise<Response> {
+  let response: Response;
+  try { response = await fetch(url, { ...options, signal: options.signal ?? AbortSignal.timeout(10_000) }); }
+  catch { throw serviceFailure(service); }
+  if (!response.ok) throw serviceFailure(service, response.status);
+  return response;
+}
+
+async function serviceJson<T>(service: Service, response: Response): Promise<T> {
+  try { return await response.json() as T; }
+  catch { throw serviceFailure(service); }
+}
+
 export type ProgressResponse = {
   scenes: Record<string, { completion_rate: number; n_learners: number }>;
 };
@@ -141,14 +174,11 @@ export function isUnavailable(data: unknown): data is Unavailable {
 }
 
 async function fetchJson<T>(path: string, courseToken: string): Promise<T> {
-  const r = await fetch(`${BASE}${path}`, {
+  const r = await serviceFetch("analytics-collector", `${BASE}${path}`, {
     headers: { "X-Course-Token": courseToken },
     cache: "no-store",
   });
-  if (!r.ok) {
-    throw new Error(`Analytics API ${path} failed: ${r.status} ${r.statusText}`);
-  }
-  return r.json() as Promise<T>;
+  return serviceJson<T>("analytics-collector", r);
 }
 
 export function getProgress(courseToken: string): Promise<ProgressResponse | Suppressed> {
@@ -359,7 +389,7 @@ export async function postBlueprintScore(
   blueprint: AssessmentBlueprintInput,
   bundle_version?: string,
 ): Promise<BlueprintScoreResponse> {
-  const r = await fetch(`${BASE}/metrics/blueprint`, {
+  const r = await serviceFetch("analytics-collector", `${BASE}/metrics/blueprint`, {
     method: "POST",
     cache: "no-store",
     headers: {
@@ -373,10 +403,7 @@ export async function postBlueprintScore(
       blueprint,
     }),
   });
-  if (!r.ok) {
-    throw new Error(`Analytics API /metrics/blueprint failed: ${r.status} ${r.statusText}`);
-  }
-  return r.json() as Promise<BlueprintScoreResponse>;
+  return serviceJson<BlueprintScoreResponse>("analytics-collector", r);
 }
 
 // ---------------------------------------------------------------------------
@@ -462,14 +489,11 @@ export async function getLearnerItems(
   state: LAReviewState = "submitted",
 ): Promise<LearnerItemsListResponse> {
   const params = new URLSearchParams({ course: courseToken, state });
-  const r = await fetch(`${SCENE_SYNTH_BASE}/learner-items?${params.toString()}`, {
+  const r = await serviceFetch("scene-synth", `${SCENE_SYNTH_BASE}/learner-items?${params.toString()}`, {
     headers: { "X-Course-Token": courseToken },
     cache: "no-store",
   });
-  if (!r.ok) {
-    throw new Error(`scene-synth /learner-items failed: ${r.status} ${r.statusText}`);
-  }
-  return r.json() as Promise<LearnerItemsListResponse>;
+  return serviceJson<LearnerItemsListResponse>("scene-synth", r);
 }
 
 export type DecideLearnerItemArgs = {
@@ -496,7 +520,7 @@ export async function decideLearnerItem(
     reviewed_at: args.reviewed_at,
   };
   if (args.note_code) body.note_code = args.note_code;
-  const r = await fetch(
+  const r = await serviceFetch("scene-synth",
     `${SCENE_SYNTH_BASE}/learner-items/${encodeURIComponent(itemId)}/decide`,
     {
       method: "POST",
@@ -508,12 +532,7 @@ export async function decideLearnerItem(
       body: JSON.stringify(body),
     },
   );
-  if (!r.ok) {
-    throw new Error(
-      `scene-synth /learner-items/${itemId}/decide failed: ${r.status} ${r.statusText}`,
-    );
-  }
-  return r.json() as Promise<LearnerItemView>;
+  return serviceJson<LearnerItemView>("scene-synth", r);
 }
 
 /**
@@ -546,14 +565,12 @@ export type RoomState = {
 };
 
 async function roomFetch<T>(path: string, opts?: RequestInit): Promise<T> {
-  const r = await fetch(`${LESSON_SERVER_BASE}${path}`, {
+  const r = await serviceFetch("lesson-server", `${LESSON_SERVER_BASE}${path}`, {
     ...opts,
     headers: { "Content-Type": "application/json", ...opts?.headers },
     cache: "no-store",
   });
-  const json = (await r.json()) as Record<string, unknown>;
-  if (!r.ok) throw new Error(`lesson-server ${path} failed: ${r.status} — ${String(json["error"] ?? json["message"] ?? "")}`);
-  return json as T;
+  return serviceJson<T>("lesson-server", r);
 }
 
 export async function openRoom(bundleRef: string): Promise<{ room_id: string; join_code: string; teacher_key: string }> {

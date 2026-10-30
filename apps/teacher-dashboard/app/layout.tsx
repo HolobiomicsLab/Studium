@@ -1,22 +1,29 @@
-import { ContextHelp } from "@studium/activity-presentation/react";
+import { cookies } from "next/headers";
 import "../../../ui/context-help.css";
 import "./globals.css";
+import "./analytics.css";
+import "./library.css";
 import DashboardHeader from "@/components/DashboardHeader";
+import { requestLocale } from "@/lib/request-locale";
+import { messages } from "@/lib/i18n";
 
 export const metadata = {
   title: "Studium — Espace enseignant",
   description: "Pilotage pédagogique et lectures de cours",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await requestLocale();
+  const t = messages(locale);
+  const preference = (await cookies()).get("studium-theme")?.value;
+  const theme = preference === "light" || preference === "dark" ? preference : "system";
   return (
-    <html lang="fr">
+    <html lang={locale} data-theme={theme === "system" ? undefined : theme}>
       <body>
         <a className="skip-link" href="#contenu">
-          Aller au contenu
+          {t.skip}
         </a>
-        <DashboardHeader />
-        <aside style={{ maxWidth: "72rem", margin: "0 auto", padding: "0 1rem" }} aria-label="Comprendre les indicateurs"><ContextHelp topic="mastery" audience="teacher" /></aside>
+        <DashboardHeader locale={locale} theme={theme} />
         {children}
       </body>
     </html>

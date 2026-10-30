@@ -1,6 +1,7 @@
 "use client";
 
 import type { TrustCalibrationResponse } from "@/lib/api";
+import ChartDataTable from "./ChartDataTable";
 import CohortLine, { WithheldNotice } from "./CohortLine";
 
 // No `learner` prop: this chart renders a class aggregate and nothing else, because the
@@ -18,31 +19,31 @@ type Props = { data: TrustCalibrationResponse };
 // rendering one verdict for both would send a teacher looking for a scene that is there.
 function qualifyBand(
   data: TrustCalibrationResponse,
-): { label: string; color: string; hint: string } {
+): { label: string; tone: string; hint: string } {
   switch (data.band) {
     case "bien":
       return {
         label: "Jugement bien calibré",
-        color: "text-emerald-700",
+        tone: "strong",
         hint: "L’apprenant·e croit l’IA quand elle a raison et la corrige quand elle se trompe.",
       };
     case "sur":
       return {
         label: "Surconfiance en l’IA",
-        color: "text-red-600",
+        tone: "low",
         hint: "Des défauts plantés dans la lecture IA sont passés inaperçus — tendance à trop faire confiance au résultat.",
       };
     case "sous":
       return {
         label: "Méfiance excessive envers l’IA",
-        color: "text-amber-600",
+        tone: "watch",
         hint: "Des affirmations correctes ont été signalées à tort comme fausses — tendance à trop se méfier du résultat.",
       };
     default:
       return data.withheld_below_floor
         ? {
             label: "Mesure retenue — plancher d’anonymat",
-            color: "text-gray-500",
+            tone: "muted",
             hint:
               "L’audit a bien eu lieu : ce sont les apprenant·e·s qui l’ont alimenté qui " +
               "sont moins nombreux·ses que le plancher dans au moins une leçon. Rien à " +
@@ -50,7 +51,7 @@ function qualifyBand(
           }
         : {
             label: "Données insuffisantes",
-            color: "text-gray-500",
+            tone: "muted",
             hint: "Aucun audit « repère le défaut » ancré sur un résultat réel n’a encore été joué.",
           };
   }
@@ -67,34 +68,40 @@ export default function TrustCalibrationChart({ data }: Props) {
   // sign never implies an over-distrust direction the value doesn't actually have.
   const rounded = gap === null ? null : Math.round(gap * 100) / 100;
   const shownGap = rounded === null ? null : Object.is(rounded, -0) ? 0 : rounded;
+  const shownGapText = shownGap === null
+    ? "—"
+    : (shownGap > 0 ? "+" : "") + shownGap.toFixed(2);
   return (
-    <div className="space-y-3" data-testid="trust-calibration-chart">
-      <h3 className="font-semibold">
-        Confiance en l’IA — agrégée
-      </h3>
-      <div className="flex items-baseline gap-3">
-        <span className="text-3xl font-bold tabular-nums">
-          {shownGap !== null ? (shownGap > 0 ? "+" : "") + shownGap.toFixed(2) : "—"}
+    <figure className="analytics-figure metric-panel" data-testid="trust-calibration-chart">
+      <figcaption className="analytics-figure__caption">
+        <span className="analytics-figure__title">Confiance en l’IA — agrégée</span>
+        <span className="analytics-figure__description">
+          Écart signé entre les défauts manqués et les affirmations correctes signalées à tort.
         </span>
-        <span className="text-sm text-gray-500">
+      </figcaption>
+      <div className="metric-panel__reading">
+        <span className="metric-panel__value">{shownGapText}</span>
+        <span className="metric-panel__unit">
           écart de confiance signé ∈ [−1, +1] · + surconfiance / − méfiance
         </span>
       </div>
-      <p className={`font-medium ${q.color}`}>{q.label}</p>
-      <p className="text-sm text-gray-600">{q.hint}</p>
+      <p className={`metric-panel__verdict metric-panel__verdict--${q.tone}`}>
+        {q.label}
+      </p>
+      <p className="metric-panel__support">{q.hint}</p>
       {data.band !== null ? (
-        <dl className="flex gap-6 text-sm">
+        <dl className="metric-details">
           <div>
-            <dt className="text-gray-500">Surconfiance (défauts manqués)</dt>
-            <dd className="font-semibold tabular-nums">{pct(data.over_trust)}</dd>
+            <dt>Surconfiance (défauts manqués)</dt>
+            <dd>{pct(data.over_trust)}</dd>
           </div>
           <div>
-            <dt className="text-gray-500">Méfiance (faux positifs)</dt>
-            <dd className="font-semibold tabular-nums">{pct(data.over_distrust)}</dd>
+            <dt>Méfiance (faux positifs)</dt>
+            <dd>{pct(data.over_distrust)}</dd>
           </div>
         </dl>
       ) : null}
-      <p className="text-xs text-gray-500">
+      <p className="metric-panel__definition">
         Calculé sur {data.n_audits} scène{data.n_audits > 1 ? "s" : ""} « repère le
         défaut » ancrée{data.n_audits > 1 ? "s" : ""} sur un résultat réel (les audits
         d&apos;une même scène sont regroupés). Distinct de la calibration de confiance
@@ -115,7 +122,7 @@ export default function TrustCalibrationChart({ data }: Props) {
           rather than zero (metrics._over_distrust_rate). The panel above already renders
           a measured over-distrust and a "sous" verdict, so the old sentence contradicted
           the numbers beside it. */}
-      <p className="text-xs text-gray-400">
+      <p className="measurement-limit">
         Limite de mesure : la direction « méfiance » n’est alimentée que par les scènes
         qui déclarent des affirmations correctes (sound_claims) et sont corrigées par le
         barème de verdicts — là, les faux positifs sont comptés réellement. Sur le chemin
@@ -123,6 +130,22 @@ export default function TrustCalibrationChart({ data }: Props) {
         est <b>non mesurée</b> (affichée « — »), et non nulle. Une direction non mesurée
         compte 0 dans l’écart signé, qui ne peut donc pas devenir négatif faute de mesure.
       </p>
-    </div>
+      <ChartDataTable
+        caption="Données de confiance en l’IA"
+        rows={[
+          { metric: "Écart de confiance signé", value: shownGapText },
+          { metric: "Surconfiance", value: pct(data.over_trust) },
+          { metric: "Méfiance", value: pct(data.over_distrust) },
+          { metric: "Scènes auditées publiées", value: String(data.n_audits) },
+          { metric: "Interprétation", value: q.label },
+          { metric: "Bande de cohorte", value: data.judgement.cohort_band ?? "—" },
+        ]}
+        rowKey={(row) => row.metric}
+        columns={[
+          { key: "metric", label: "Mesure", rowHeader: true, render: (row) => row.metric },
+          { key: "value", label: "Valeur", render: (row) => row.value },
+        ]}
+      />
+    </figure>
   );
 }

@@ -1,3 +1,4 @@
+import { findLessonByToken } from "@/lib/library";
 import { getJournalStats, isSuppressed } from "@/lib/api";
 import JournalStatsCard from "@/components/JournalStatsCard";
 import CourseShell from "@/components/CourseShell";
@@ -10,6 +11,7 @@ type Props = { params: { token: string } };
 
 export default async function JournalPage({ params }: Props) {
   const token = decodeURIComponent(params.token);
+  const lesson = await findLessonByToken(token);
   let data;
   let error: string | null = null;
   try {
@@ -31,7 +33,7 @@ export default async function JournalPage({ params }: Props) {
       ) : isSuppressed(data) ? (
         <SuppressedNotice info={data} />
       ) : data ? (
-        <JournalStatsCard data={data} />
+        <JournalStatsCard data={data} sceneTitles={Object.fromEntries((lesson?.outline ?? []).map((scene) => [scene.id, scene.title]))} />
       ) : (
         <p className="empty-state">Aucune statistique de journal disponible.</p>
       )}

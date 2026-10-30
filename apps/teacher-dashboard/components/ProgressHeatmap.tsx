@@ -1,8 +1,13 @@
 "use client";
 
 import type { ProgressResponse, ProgressMetricsResponse } from "@/lib/api";
+import ChartDataTable from "./ChartDataTable";
 
-type Props = { data: ProgressResponse; metrics?: ProgressMetricsResponse };
+type Props = {
+  data: ProgressResponse;
+  metrics?: ProgressMetricsResponse;
+  sceneTitles?: Record<string, string>;
+};
 
 function colorFor(rate: number): string {
   if (rate >= 0.8) return "strong";
@@ -12,7 +17,7 @@ function colorFor(rate: number): string {
   return "critical";
 }
 
-export default function ProgressHeatmap({ data, metrics }: Props) {
+export default function ProgressHeatmap({ data, metrics, sceneTitles = {} }: Props) {
   const entries = Object.entries(data.scenes).sort(([a], [b]) => a.localeCompare(b));
   if (entries.length === 0) {
     return (
@@ -22,7 +27,13 @@ export default function ProgressHeatmap({ data, metrics }: Props) {
     );
   }
   return (
-    <section className="chart-panel">
+    <figure className="analytics-figure chart-panel" data-testid="progress-heatmap">
+      <figcaption className="analytics-figure__caption">
+        <span className="analytics-figure__title">Progression par scène</span>
+        <span className="analytics-figure__description">
+          Taux de complétion et nombre d’apprenant·e·s par scène.
+        </span>
+      </figcaption>
       {metrics?.scenes_with_evidence !== undefined && metrics?.scenes_total !== undefined && (
         <p className="metric-summary">
           Scènes enrichies : <strong>{metrics.scenes_with_evidence}/{metrics.scenes_total}</strong>
@@ -35,7 +46,8 @@ export default function ProgressHeatmap({ data, metrics }: Props) {
             className={`progress-cell progress-cell--${colorFor(m.completion_rate)}`}
             data-testid="progress-cell"
           >
-            <code className="metric-id">{sceneId}</code>
+            <p className="metric-label">{sceneTitles[sceneId] ?? sceneId}</p>
+            {sceneTitles[sceneId] ? <code className="metric-id">{sceneId}</code> : null}
             <p className="metric-value">{Math.round(m.completion_rate * 100)}%</p>
             <p className="metric-caption">{m.n_learners} apprenant·e·s</p>
           </div>
@@ -48,6 +60,29 @@ export default function ProgressHeatmap({ data, metrics }: Props) {
         <li><span className="legend__swatch legend__swatch--low" />≥20%</li>
         <li><span className="legend__swatch legend__swatch--critical" />&lt;20%</li>
       </ul>
-    </section>
+      <ChartDataTable
+        caption="Données de progression par scène"
+        rows={entries}
+        rowKey={([sceneId]) => sceneId}
+        columns={[
+          {
+            key: "scene",
+            label: "Scène",
+            rowHeader: true,
+            render: ([sceneId]) => sceneTitles[sceneId] ?? sceneId,
+          },
+          {
+            key: "completion",
+            label: "Taux de complétion",
+            render: ([, metric]) => `${Math.round(metric.completion_rate * 100)} %`,
+          },
+          {
+            key: "learners",
+            label: "Apprenant·e·s",
+            render: ([, metric]) => metric.n_learners,
+          },
+        ]}
+      />
+    </figure>
   );
 }

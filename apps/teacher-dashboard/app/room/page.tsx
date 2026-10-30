@@ -6,7 +6,7 @@ export const metadata = {
 
 export default function RoomPage() {
   return (
-    <main className="room-page" id="contenu">
+    <main className="room-page" id="contenu" lang="fr">
       <header className="page-heading">
         <p className="eyebrow">Animation en direct</p>
         <h1>PeerStudio</h1>

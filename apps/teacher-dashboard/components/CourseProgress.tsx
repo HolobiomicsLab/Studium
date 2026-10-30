@@ -1,6 +1,7 @@
 "use client";
 
 import type { CourseManifest, CourseCompletionResponse } from "@/lib/api";
+import ChartDataTable from "./ChartDataTable";
 
 type Props = { course: CourseManifest; completion: CourseCompletionResponse };
 
@@ -17,29 +18,31 @@ export default function CourseProgress({ course, completion }: Props) {
   const counts = course.lessons.map((l) => completion.lessons[l.lesson_id]?.n_completed ?? 0);
   const maxN = Math.max(1, ...counts);
   return (
-    <div className="space-y-4" data-testid="course-progress">
-      <h3 className="font-semibold">{course.title}</h3>
-      <ol className="space-y-3">
+    <figure className="analytics-figure metric-panel" data-testid="course-progress">
+      <figcaption className="analytics-figure__caption">
+        <span className="analytics-figure__title">{course.title}</span>
+        <span className="analytics-figure__description">
+          Complétions indépendantes par leçon, dans l’ordre du parcours.
+        </span>
+      </figcaption>
+      <ol className="course-path">
         {course.lessons.map((l, i) => {
           const n = completion.lessons[l.lesson_id]?.n_completed ?? 0;
           return (
-            <li key={l.lesson_id} className="border rounded p-3" data-testid="course-lesson">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="font-medium">
+            <li key={l.lesson_id} className="course-lesson" data-testid="course-lesson">
+              <div className="course-lesson__heading">
+                <span className="course-lesson__title">
                   {i + 1}. {l.title ?? l.lesson_id}
                 </span>
-                <span className="text-sm tabular-nums text-gray-600">
+                <span className="course-lesson__count">
                   {n} apprenant·e{n > 1 ? "·s" : ""}
                 </span>
               </div>
-              <div className="mt-2 h-1.5 bg-gray-100 rounded" aria-hidden>
-                <div
-                  className="h-1.5 bg-gray-400 rounded"
-                  style={{ width: `${Math.round((n / maxN) * 100)}%` }}
-                />
+              <div className="course-lesson__bar" aria-hidden="true">
+                <span style={{ width: `${Math.round((n / maxN) * 100)}%` }} />
               </div>
               {l.prerequisite_lesson_ids.length > 0 ? (
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="course-lesson__prerequisite">
                   Prérequis : {l.prerequisite_lesson_ids.map((p) => titleOf(course, p)).join(", ")}
                 </p>
               ) : null}
@@ -47,7 +50,7 @@ export default function CourseProgress({ course, completion }: Props) {
           );
         })}
       </ol>
-      <p className="text-xs text-gray-400">
+      <p className="method-note">
         Compteurs INDÉPENDANTS par leçon : apprenant·e·s distinct·e·s ayant terminé
         chaque leçon ({completion.total_completions} complétion
         {completion.total_completions > 1 ? "s" : ""} au total). Ce ne sont PAS les
@@ -56,6 +59,35 @@ export default function CourseProgress({ course, completion }: Props) {
         comparables comme un flux ou un entonnoir de rétention. Le suivi par individu
         d&apos;une leçon à l&apos;autre ne vit que dans le profil cross-lesson, jamais distribué.
       </p>
-    </div>
+      <ChartDataTable
+        caption={`Complétions par leçon — ${course.title}`}
+        rows={course.lessons.map((lesson, index) => ({
+          lesson,
+          index,
+          n: completion.lessons[lesson.lesson_id]?.n_completed ?? 0,
+        }))}
+        rowKey={(row) => row.lesson.lesson_id}
+        columns={[
+          {
+            key: "lesson",
+            label: "Leçon",
+            rowHeader: true,
+            render: (row) => `${row.index + 1}. ${row.lesson.title ?? row.lesson.lesson_id}`,
+          },
+          {
+            key: "prerequisites",
+            label: "Prérequis",
+            render: (row) => row.lesson.prerequisite_lesson_ids.length > 0
+              ? row.lesson.prerequisite_lesson_ids.map((id) => titleOf(course, id)).join(", ")
+              : "Aucun",
+          },
+          {
+            key: "completed",
+            label: "Apprenant·e·s ayant terminé",
+            render: (row) => row.n,
+          },
+        ]}
+      />
+    </figure>
   );
 }
