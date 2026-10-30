@@ -56,9 +56,29 @@ describe("QuizScene telemetry", () => {
         item_id: "b",
         correct: true,
         response_time_ms: expect.any(Number),
-        confidence: expect.any(Number),
       }),
     );
+    // I-5: quiz_answered.confidence is optional and omitted when the learner did not rate. The quiz scene
+    // asks for no rating, so the key is absent — the former constant 0.5 read as a measurement to the
+    // calibration consumers (Brier, over/under-confidence). This replaces `confidence: expect.any(Number)`.
+    expect(call![0]).not.toHaveProperty("confidence");
+  });
+
+  it("never invents a confidence for an unrated wrong answer either (I-5)", async () => {
+    const emit = vi.fn();
+    render(
+      <QuizScene
+        scene={baseScene}
+        onSignal={vi.fn().mockResolvedValue(undefined)}
+        onContinue={vi.fn()}
+        emit={emit}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText(/6\.5/));
+    fireEvent.click(screen.getByRole("button", { name: /soumettre/i }));
+    await Promise.resolve();
+    const call = emit.mock.calls.find((c) => c[0].type === "quiz_answered");
+    expect(call![0]).not.toHaveProperty("confidence");
   });
 
   it("emits quiz_answered with correct=false when incorrect choice selected", async () => {

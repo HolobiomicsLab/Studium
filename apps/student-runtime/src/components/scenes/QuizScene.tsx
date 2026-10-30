@@ -32,13 +32,14 @@ export default function QuizScene({ scene, onSignal, onContinue, emit }: Props) 
     setCorrect(c);
     setSubmitted(true);
     const concept_id = scene.concept_refs[0] ?? "default";
+    // I-5: no `confidence` — this scene asks the learner for no rating, and the key is optional and
+    // omitted when the learner did not rate (a constant read as a measurement to calibration consumers).
     emit?.({
       type: "quiz_answered",
       scene_id: scene.id,
       item_id: selected ?? "",
       correct: c,
       response_time_ms: Math.max(0, Math.round(responseTimeMs)),
-      confidence: 0.5,
     });
     await onSignal({
       kind: "answer_submitted",
