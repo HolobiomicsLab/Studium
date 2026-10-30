@@ -1,4 +1,9 @@
-"""Planner service — FastAPI app. M2 : utilise PlannerAgent + CriticAgent explicites."""
+"""Legacy/research FastAPI planner service.
+
+The supported authoring route is the packet/learn workflow. This retained
+service requires an explicit model mode and never treats its canned research
+mock as the production default.
+"""
 from __future__ import annotations
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
@@ -11,9 +16,10 @@ from planner_paths import ensure_importable
 
 ensure_importable()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from planner_schemas import PlanRequest, PlanResponse, PlanStatus, CritiqueResult
+from agents.base import configured_llm_mode
 from agents.planner_agent import PlannerAgent
 from agents.critic_agent import CriticAgent
 from ontology.prov import build_prov_graph
@@ -42,8 +48,14 @@ def _get_abs_reader():
 @app.post("/plan", response_model=PlanResponse)
 def plan(request: PlanRequest) -> PlanResponse:
     """Génère un plan + critique. Status=critic_reviewed ; validation humaine requise (rule 003)."""
+    if configured_llm_mode() is None:
+        raise HTTPException(status_code=503, detail="planner model not configured")
+
     manifest = request.model_dump()
-    lesson_plan, planner_audit = _planner.generate(manifest, target=request.target)
+    try:
+        lesson_plan, planner_audit = _planner.generate(manifest, target=request.target)
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail="planner model unavailable") from exc
 
     critique: CritiqueResult = _critic.review(lesson_plan)
     lesson_plan.critic_score = critique.score

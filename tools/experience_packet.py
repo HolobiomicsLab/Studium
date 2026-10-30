@@ -3,16 +3,20 @@
 
 Commands: ``passages`` captures a learner-chosen URL, HTML page, PDF or text file as a passage
 envelope; ``prepare`` turns an envelope into an authoring packet; ``check`` validates an
-external author response; ``bundle`` builds a playable LessonBundle skeleton.
+external author response; ``bundle`` builds a playable LessonBundle skeleton; ``approve``
+records teacher review of the filled bundle without rebuilding it.
 """
 from __future__ import annotations
 
 import argparse
+import difflib
 import hashlib
 import json
 import re
 import shutil
+import subprocess
 import sys
+import unicodedata
 from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
@@ -58,6 +62,8 @@ from self_study_passages import (  # noqa: E402
 )
 
 PACKET_SCHEMA_VERSION = "1.0"
+TOOL_VERSION = "1.0"
+APPROVAL_SCHEMA = "studium-approval/1"
 ASB_SOURCE_PREFIX = "asb:"
 PERSPICACITE_EVIDENCE_PREFIX = "perspicacite:"
 SELF_STUDY_EVIDENCE_PREFIX = "passage:"
@@ -87,6 +93,12 @@ DEFAULT_REPLAY_RULE = {
     "modulator": "M1",
     "explanation_short": "Deux erreurs sur ce concept : on reprend la scène avec un appui.",
 }
+ENGLISH_REPLAY_EXPLANATION = (
+    "Two errors on this concept: replay the scene with support."
+)
+PLACEHOLDER_PATTERN = re.compile(r"^TODO\b|TODO:")
+TYPOGRAPHIC_APOSTROPHES = "‘’ʼ"
+NON_BREAKING_SPACES = "\u00a0\u202f"
 ENGLISH_FUNCTION_WORDS = frozenset(
     {
         "and",
@@ -130,6 +142,173 @@ LISTED_KEY_CLASSES = ("author_keyed", "production", "externally_grounded")
 UNGRADED_KEY_CLASS = "ungraded"
 UNKNOWN_KEY_CLASS = "unknown"
 
+AUTHORING_TEXT = {
+    "en": {
+        "objective": "TODO: specify the learning objective",
+        "cue": "TODO: evaluation keyword or phrase",
+        "claim": "TODO: claim to audit — {text}",
+        "flaw": "TODO: expected flaw",
+        "source": "TODO: add a verified source excerpt",
+        "scene_content": "TODO: write the content for scene “{title}”.",
+        "source_heading": "Verified source excerpts:",
+        "quiz_question": "TODO: write the question — {title}",
+        "correct_answer": "TODO: correct answer",
+        "distractor": "TODO: distractor",
+        "correct_feedback": "TODO: feedback for the correct answer",
+        "incorrect_feedback": "TODO: feedback for the incorrect answer",
+        "pre_question": "TODO: confidence question before the activity",
+        "post_question": "TODO: confidence question after the activity",
+        "scale_level": "TODO: level {level}",
+        "reproduction_step": "TODO: describe the reproduction step",
+        "expected_output": "TODO: describe the expected output",
+        "discussion_topic": "TODO: discussion topic — {title}",
+        "seed_claim": "TODO: opening claim to discuss",
+        "flawed_content": "TODO: deliberately flawed content to audit",
+        "model_correction": (
+            "TODO: reference correction — it must name every expected flaw "
+            "(here: “TODO: expected flaw”)."
+        ),
+        "explain_prompt": "TODO: ask the learner to explain — {title}",
+        "model_explanation": "TODO: reference explanation",
+        "comparison_prompt": "TODO: comparison instruction",
+        "artifact_a": "TODO: first artifact to compare",
+        "artifact_b": "TODO: second artifact to compare",
+        "model_answer": "TODO: reference comparison",
+        "ai_summary": "TODO: AI summary to audit",
+        "corrected_summary": (
+            "TODO: corrected reference summary — it must name every expected flaw "
+            "(here: “TODO: expected flaw”)."
+        ),
+        "prompt_task": "TODO: prompting task — {title}",
+        "starter_prompt": "TODO: initial prompt to improve",
+        "model_prompt": "TODO: reference prompt",
+        "communication_scenario": "TODO: professional situation — {title}",
+        "communication_prompt": "TODO: communication instruction",
+        "model_response": "TODO: reference response",
+        "legacy_simulation": (
+            "TODO: replace this legacy `simulation` scene with a playable scene "
+            "and add its interactive support."
+        ),
+        "discipline": "TODO: specify the discipline",
+    },
+    "fr": {
+        "objective": "TODO: préciser l’objectif d’apprentissage",
+        "cue": "TODO: mot-clé ou expression d’évaluation",
+        "claim": "TODO: affirmation à auditer — {text}",
+        "flaw": "TODO: défaut attendu",
+        "source": "TODO: ajouter un extrait source vérifié",
+        "scene_content": "TODO: rédiger le contenu de la scène « {title} ».",
+        "source_heading": "Extraits source vérifiés :",
+        "quiz_question": "TODO: rédiger la question — {title}",
+        "correct_answer": "TODO: réponse correcte",
+        "distractor": "TODO: distracteur",
+        "correct_feedback": "TODO: retour pour la réponse correcte",
+        "incorrect_feedback": "TODO: retour pour la réponse incorrecte",
+        "pre_question": "TODO: question de confiance avant l’activité",
+        "post_question": "TODO: question de confiance après l’activité",
+        "scale_level": "TODO: niveau {level}",
+        "reproduction_step": "TODO: décrire l’étape de reproduction",
+        "expected_output": "TODO: décrire la sortie attendue",
+        "discussion_topic": "TODO: sujet de discussion — {title}",
+        "seed_claim": "TODO: affirmation de départ à discuter",
+        "flawed_content": "TODO: contenu délibérément erroné à auditer",
+        "model_correction": (
+            "TODO: correction de référence — elle doit nommer chaque défaut attendu "
+            "(ici : « TODO: défaut attendu »)."
+        ),
+        "explain_prompt": "TODO: demander à l’apprenant d’expliquer — {title}",
+        "model_explanation": "TODO: explication de référence",
+        "comparison_prompt": "TODO: consigne de comparaison",
+        "artifact_a": "TODO: premier artefact à comparer",
+        "artifact_b": "TODO: second artefact à comparer",
+        "model_answer": "TODO: comparaison de référence",
+        "ai_summary": "TODO: résumé IA à auditer",
+        "corrected_summary": (
+            "TODO: résumé corrigé de référence — il doit nommer chaque défaut attendu "
+            "(ici : « TODO: défaut attendu »)."
+        ),
+        "prompt_task": "TODO: tâche de prompting — {title}",
+        "starter_prompt": "TODO: prompt initial à améliorer",
+        "model_prompt": "TODO: prompt de référence",
+        "communication_scenario": "TODO: situation professionnelle — {title}",
+        "communication_prompt": "TODO: consigne de communication",
+        "model_response": "TODO: réponse de référence",
+        "legacy_simulation": (
+            "TODO: remplacer cette ancienne scène `simulation` par une scène jouable "
+            "et ajouter son support interactif."
+        ),
+        "discipline": "TODO: discipline à préciser",
+    },
+}
+
+REVIEW_TEXT = {
+    "en": {
+        "teacher_heading": "# Teacher review handoff",
+        "self_heading": "# Self-study review handoff",
+        "status": "Status: technical checks only; this LessonPlan remains a draft.",
+        "checked_heading": "## Checked",
+        "links": "{count} source link(s) use known evidence IDs and exact quotes.",
+        "viewers": "{count} viewer brief(s) reference known scenes and sources.",
+        "references": "Objective, scene, corpus, and optional ASB task references resolve.",
+        "no_approval": "No teacher approval or structured capsule execution result is claimed.",
+        "source_heading": "## Source links",
+        "attention_heading": "## Review attention",
+        "unlinked": "Scenes without an explicit source link: {scenes}.",
+        "asb": "ASB task `{task_id}` was captured but not executed by this tool.",
+        "quote_limit": (
+            "Exact quotation checks do not establish that paraphrases or conclusions are "
+            "scientifically valid."
+        ),
+        "viewer_limit": "Viewer briefs have not been implemented, run, or inspected.",
+        "self_limit": (
+            "No teacher validates this lesson: the learner who wrote it answers for its accuracy, "
+            "its pedagogy and its licences, and it stays a private self-study draft."
+        ),
+        "teacher_limit": (
+            "A teacher must assess scientific accuracy, pedagogy, licensing, and learner release."
+        ),
+        "none": "none",
+    },
+    "fr": {
+        "teacher_heading": "# Relais de relecture enseignant",
+        "self_heading": "# Relais de relecture pour l’auto-apprentissage",
+        "status": "Statut : vérifications techniques seulement ; ce LessonPlan reste un brouillon.",
+        "checked_heading": "## Vérifications",
+        "links": "{count} lien(s) source utilisent des identifiants connus et des citations exactes.",
+        "viewers": "{count} brief(s) de visualisation référencent des scènes et sources connues.",
+        "references": "Les références d’objectif, de scène, de corpus et de tâche ASB se résolvent.",
+        "no_approval": "Aucune approbation enseignante ni exécution structurée de capsule n’est déclarée.",
+        "source_heading": "## Liens vers les sources",
+        "attention_heading": "## Points d’attention pour la relecture",
+        "unlinked": "Scènes sans lien source explicite : {scenes}.",
+        "asb": "La tâche ASB `{task_id}` a été capturée mais pas exécutée par cet outil.",
+        "quote_limit": (
+            "La vérification exacte des citations n’établit pas la validité scientifique des "
+            "paraphrases ou conclusions."
+        ),
+        "viewer_limit": "Les briefs de visualisation n’ont été ni implémentés, ni exécutés, ni inspectés.",
+        "self_limit": (
+            "Aucun enseignant ne valide cette leçon : l’apprenant qui l’a écrite répond de son "
+            "exactitude, de sa pédagogie et de ses licences ; elle reste un brouillon privé."
+        ),
+        "teacher_limit": (
+            "Un enseignant doit évaluer l’exactitude scientifique, la pédagogie, les licences "
+            "et la diffusion aux apprenants."
+        ),
+        "none": "aucune",
+    },
+}
+
+
+def _locale(language: str) -> str:
+    """Resolve the two supported authoring locales, defaulting safely to English."""
+    return "fr" if language.lower().split("-", maxsplit=1)[0] == "fr" else "en"
+
+
+def _authoring_text(language: str, key: str, **values: Any) -> str:
+    """Render one generated authoring string in the lesson language."""
+    return AUTHORING_TEXT[_locale(language)][key].format(**values)
+
 
 class PacketError(ValueError):
     """Raised when packet preparation or response checking cannot proceed."""
@@ -137,6 +316,48 @@ class PacketError(ValueError):
 
 class SourceQuoteError(PacketError):
     """Raised when a source link does not quote its passage exactly."""
+
+
+@dataclass(frozen=True)
+class CheckFinding:
+    """One actionable authoring finding emitted by ``check``."""
+
+    level: str
+    code: str
+    message: str
+    scene_id: str | None = None
+    link_index: int | None = None
+    quote: str | None = None
+    hint: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return a compact JSON-ready representation, omitting absent location fields."""
+        result: dict[str, Any] = {
+            "level": self.level,
+            "code": self.code,
+            "message": self.message,
+        }
+        for name in ("scene_id", "link_index", "quote", "hint"):
+            value = getattr(self, name)
+            if value is not None:
+                result[name] = value
+        return result
+
+
+class AuthoringFindingsError(PacketError):
+    """Carry every authoring error found in a single ``check`` pass."""
+
+    def __init__(self, findings: list[CheckFinding]) -> None:
+        self.findings = findings
+        super().__init__("; ".join(finding.message for finding in findings))
+
+
+@dataclass(frozen=True)
+class CheckReport:
+    """Successful ``check`` output and its non-blocking warnings."""
+
+    output_path: Path
+    findings: list[CheckFinding]
 
 
 class SourceLink(BaseModel):
@@ -174,6 +395,34 @@ def _json_bytes(value: Any) -> bytes:
 
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _is_allowed_placeholder_id(value: str, key: str | None) -> bool:
+    """Allow ``todo-*`` only in fields that are identifiers, never in visible prose."""
+    is_identifier = key == "id" or bool(key and (key.endswith("_id") or key.endswith("_ids")))
+    return is_identifier and value.lower().startswith("todo-")
+
+
+def placeholder_paths(value: Any, path: str = "$", key: str | None = None) -> list[str]:
+    """List learner-visible or grading strings that still carry a TODO placeholder."""
+    if isinstance(value, dict):
+        # `evidence` is quoted source text (excerpts are copied verbatim), never a field to fill;
+        # tools/bundle_lint.mjs skips it the same way.
+        return [
+            found
+            for child_key, child in value.items()
+            if child_key != "evidence"
+            for found in placeholder_paths(child, f"{path}.{child_key}", child_key)
+        ]
+    if isinstance(value, list):
+        return [
+            found
+            for index, child in enumerate(value)
+            for found in placeholder_paths(child, f"{path}[{index}]", key)
+        ]
+    if not isinstance(value, str) or _is_allowed_placeholder_id(value, key):
+        return []
+    return [path] if PLACEHOLDER_PATTERN.search(value.lstrip()) else []
 
 
 def _load_json(path: Path, label: str) -> tuple[Any, bytes]:
@@ -575,6 +824,322 @@ def _validate_embedded_evidence(plan: LessonPlan, sources: dict[str, dict[str, A
                 raise PacketError(f"scene {scene.id!r} embeds a non-exact evidence excerpt")
 
 
+def _error(code: str, message: str, **location: Any) -> CheckFinding:
+    """Build a blocking authoring finding with optional scene/link context."""
+    return CheckFinding("ERROR", code, message, **location)
+
+
+def _duplicates(values: list[str]) -> list[str]:
+    """Return duplicate identifiers once, in their first repeated order."""
+    counts = Counter(values)
+    return list(dict.fromkeys(value for value in values if counts[value] > 1))
+
+
+def _collect_plan_graph_findings(
+    plan: LessonPlan, allowed_sources: set[str]
+) -> list[CheckFinding]:
+    findings: list[CheckFinding] = []
+    objective_ids = [item.id for item in plan.learning_objectives]
+    scene_ids = [item.id for item in plan.scene_outlines]
+    concept_ids = [item.id for item in plan.concepts]
+    for label, values in (
+        ("objective", objective_ids),
+        ("scene", scene_ids),
+        ("concept", concept_ids),
+    ):
+        findings.extend(
+            _error(f"duplicate_{label}", f"duplicate {label} ID {value!r}")
+            for value in _duplicates(values)
+        )
+    objective_set, concept_set = set(objective_ids), set(concept_ids)
+    for concept in plan.concepts:
+        for unknown in sorted(set(concept.prerequisites) - concept_set):
+            findings.append(
+                _error(
+                    "unknown_prerequisite",
+                    f"concept {concept.id!r} references unknown prerequisite {unknown!r}",
+                )
+            )
+    for scene in plan.scene_outlines:
+        for unknown in sorted(set(scene.objective_refs) - objective_set):
+            findings.append(
+                _error(
+                    "unknown_objective",
+                    f"scene {scene.id!r} references unknown objective {unknown!r}",
+                    scene_id=scene.id,
+                )
+            )
+        for unknown in sorted(set(scene.concept_refs) - concept_set):
+            findings.append(
+                _error(
+                    "unknown_concept",
+                    f"scene {scene.id!r} references unknown concept {unknown!r}",
+                    scene_id=scene.id,
+                )
+            )
+        provenance = (scene.prov_derived_from or []) + (scene.dct_references or [])
+        for unknown in sorted(set(provenance) - allowed_sources):
+            findings.append(
+                _error(
+                    "unknown_evidence",
+                    f"scene {scene.id!r} references unknown evidence {unknown!r}",
+                    scene_id=scene.id,
+                )
+            )
+    for unknown in sorted(set(plan.prov_derived_from or []) - allowed_sources):
+        findings.append(_error("unknown_evidence", f"plan references unknown evidence {unknown!r}"))
+    return findings
+
+
+def _collect_corpus_findings(
+    plan: LessonPlan,
+    sources: dict[str, dict[str, Any]],
+    asb_task: dict[str, Any] | None,
+) -> list[CheckFinding]:
+    findings: list[CheckFinding] = []
+    for reference in plan.corpus_refs:
+        try:
+            source = sources.get(reference.ref_id)
+            if source is not None:
+                _validate_literature_corpus(reference, source)
+            elif asb_task and reference.ref_id == asb_task["source_id"]:
+                _validate_asb_corpus(reference, asb_task)
+            else:
+                raise PacketError(f"unknown corpus reference {reference.ref_id!r}")
+        except PacketError as exc:
+            findings.append(_error("invalid_corpus_reference", str(exc)))
+    return findings
+
+
+def _collect_asb_findings(
+    plan: LessonPlan, asb_task: dict[str, Any] | None
+) -> list[CheckFinding]:
+    selected_id = asb_task.get("task_id") if asb_task else None
+    findings: list[CheckFinding] = []
+    for scene in plan.scene_outlines:
+        task_ids = [scene.abs_task_card_id]
+        task_ids.append(scene.evidence.abs_asset.abs_task_card_id if scene.evidence and scene.evidence.abs_asset else None)
+        for task_id in task_ids:
+            if task_id and task_id != selected_id:
+                findings.append(
+                    _error(
+                        "unknown_asb_task",
+                        f"scene {scene.id!r} references an unavailable ASB task",
+                        scene_id=scene.id,
+                    )
+                )
+    for reference in plan.corpus_refs:
+        for task_id in reference.abs_task_card_ids or []:
+            if task_id != selected_id:
+                findings.append(
+                    _error(
+                        "unknown_asb_task",
+                        f"corpus references an unavailable ASB task {task_id!r}",
+                    )
+                )
+    return findings
+
+
+def _collect_embedded_findings(
+    plan: LessonPlan, sources: dict[str, dict[str, Any]]
+) -> list[CheckFinding]:
+    findings: list[CheckFinding] = []
+    for scene in plan.scene_outlines:
+        references = scene.evidence.bibliographic_refs if scene.evidence else None
+        for reference in references or []:
+            source = sources.get(reference.perspicacite_doc_id)
+            problems: list[str] = []
+            if source is None:
+                problems.append("embeds unknown evidence")
+            else:
+                expected_title = source["title"] or "(untitled)"
+                if reference.doi is not None and reference.doi != source["source_doi"]:
+                    problems.append("bibliography DOI contradicts capture")
+                if reference.title != expected_title:
+                    problems.append("bibliography title contradicts capture")
+                if reference.authors != source["authors"]:
+                    problems.append("bibliography authors contradict capture")
+                if reference.year != source["year"]:
+                    problems.append("bibliography year contradicts capture")
+                if source["score"] is None or reference.relevance_score != source["score"]:
+                    problems.append("bibliography score contradicts capture")
+                if reference.prov_derived_from != reference.perspicacite_doc_id:
+                    problems.append("bibliography provenance contradicts capture")
+                if not reference.excerpt or reference.excerpt not in source["text"]:
+                    problems.append("embeds a non-exact evidence excerpt")
+            findings.extend(
+                _error(
+                    "invalid_embedded_evidence",
+                    f"scene {scene.id!r} {problem}",
+                    scene_id=scene.id,
+                )
+                for problem in problems
+            )
+    return findings
+
+
+def _normalize_typography(text: str) -> str:
+    """Normalize comparison-only typography without weakening the exact quote gate."""
+    translated = text.translate(str.maketrans({character: "'" for character in TYPOGRAPHIC_APOSTROPHES}))
+    translated = translated.translate(str.maketrans({character: " " for character in NON_BREAKING_SPACES}))
+    normalized = unicodedata.normalize("NFKC", translated)
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def _typography_differences(quote: str, passage: str) -> list[str]:
+    differences: list[str] = []
+    quote_curly = any(character in quote for character in TYPOGRAPHIC_APOSTROPHES)
+    passage_curly = any(character in passage for character in TYPOGRAPHIC_APOSTROPHES)
+    if ("'" in quote and passage_curly) or (quote_curly and "'" in passage):
+        differences.append("curly apostrophe (’) versus straight apostrophe (')")
+    quote_nbsp = any(character in quote for character in NON_BREAKING_SPACES)
+    passage_nbsp = any(character in passage for character in NON_BREAKING_SPACES)
+    if quote_nbsp != passage_nbsp and " " in (quote if passage_nbsp else passage):
+        differences.append("NBSP versus regular space")
+    return differences
+
+
+def _nearest_passage_hint(quote: str, source: dict[str, Any]) -> str:
+    normalized_quote = _normalize_typography(quote)
+    normalized_source = _normalize_typography(source["text"])
+    start = normalized_source.find(normalized_quote)
+    if start < 0:
+        match = difflib.SequenceMatcher(
+            None, normalized_quote, normalized_source, autojunk=False
+        ).find_longest_match()
+        start = max(0, match.b - match.a)
+    excerpt = normalized_source[start : start + max(len(normalized_quote), 1)]
+    similarity = difflib.SequenceMatcher(None, normalized_quote, excerpt).ratio()
+    if len(excerpt) > 180:
+        excerpt = excerpt[:177] + "…"
+    differences = _typography_differences(quote, source["text"])
+    detail = f" Typography difference: {', '.join(differences)}." if differences else ""
+    return (
+        f'Nearest passage in {source["evidence_id"]} after typographic normalization '
+        f'({similarity:.0%} similar): "{excerpt}".{detail}'
+    )
+
+
+def _is_word_character(character: str) -> bool:
+    return character.isalnum() or character in ("_-'" + TYPOGRAPHIC_APOSTROPHES)
+
+
+def _quote_boundary_message(quote: str, passage: str) -> str | None:
+    start = passage.find(quote)
+    if start < 0:
+        return None
+    end = start + len(quote)
+    boundaries: list[str] = []
+    if start > 0 and _is_word_character(passage[start - 1]):
+        boundaries.append("starts")
+    if end < len(passage) and _is_word_character(passage[end]):
+        boundaries.append("ends")
+    if not boundaries:
+        return None
+    return f"quote {' and '.join(boundaries)} mid-word"
+
+
+def _collect_link_findings(
+    links: list[SourceLink], sources: dict[str, dict[str, Any]], scene_ids: set[str]
+) -> list[CheckFinding]:
+    findings: list[CheckFinding] = []
+    seen: set[tuple[str, str, str]] = set()
+    for link_index, link in enumerate(links, start=1):
+        location = {
+            "scene_id": link.scene_id,
+            "link_index": link_index,
+            "quote": link.quote,
+        }
+        if link.scene_id not in scene_ids:
+            findings.append(
+                _error(
+                    "unknown_scene",
+                    f"source link references unknown scene {link.scene_id!r}",
+                    **location,
+                )
+            )
+        source = sources.get(link.evidence_id)
+        if source is None:
+            findings.append(
+                _error(
+                    "unknown_evidence",
+                    f"source link references unknown evidence {link.evidence_id!r}",
+                    **location,
+                )
+            )
+        elif link.quote not in source["text"]:
+            findings.append(
+                _error(
+                    "quote_not_exact",
+                    f"quote is not an exact substring of {link.evidence_id!r}",
+                    hint=_nearest_passage_hint(link.quote, source),
+                    **location,
+                )
+            )
+        else:
+            boundary = _quote_boundary_message(link.quote, source["text"])
+            if boundary:
+                findings.append(
+                    CheckFinding("WARN", "quote_mid_word", boundary, **location)
+                )
+        identity = (link.scene_id, link.evidence_id, link.quote)
+        if identity in seen:
+            findings.append(_error("duplicate_source_link", "duplicate source link", **location))
+        seen.add(identity)
+    return findings
+
+
+def _collect_viewer_findings(
+    viewers: list[ViewerBrief], scene_ids: set[str], allowed_sources: set[str]
+) -> list[CheckFinding]:
+    findings = [
+        _error("duplicate_viewer", f"duplicate viewer ID {viewer_id!r}")
+        for viewer_id in _duplicates([viewer.id for viewer in viewers])
+    ]
+    for viewer in viewers:
+        if viewer.scene_id not in scene_ids:
+            findings.append(
+                _error(
+                    "unknown_scene",
+                    f"viewer {viewer.id!r} references unknown scene",
+                    scene_id=viewer.scene_id,
+                )
+            )
+        for source_id in sorted(set(viewer.source_ids) - allowed_sources):
+            findings.append(
+                _error(
+                    "unknown_source",
+                    f"viewer {viewer.id!r} references unknown source {source_id!r}",
+                    scene_id=viewer.scene_id,
+                )
+            )
+    return findings
+
+
+def _collect_check_findings(
+    response: AuthorResponse,
+    evidence: dict[str, Any],
+    sources: dict[str, dict[str, Any]],
+) -> list[CheckFinding]:
+    plan = response.lesson_plan
+    findings: list[CheckFinding] = []
+    if plan.status != PlanStatus.draft:
+        findings.append(_error("invalid_status", "lesson plan status must be draft"))
+    if plan.validated_by is not None:
+        findings.append(_error("premature_validation", "lesson plan validated_by must be null"))
+    asb_value = evidence.get("asb_task")
+    asb_task = asb_value if isinstance(asb_value, dict) else None
+    allowed_sources = set(sources) | ({asb_task["source_id"]} if asb_task else set())
+    findings.extend(_collect_plan_graph_findings(plan, allowed_sources))
+    findings.extend(_collect_corpus_findings(plan, sources, asb_task))
+    findings.extend(_collect_asb_findings(plan, asb_task))
+    findings.extend(_collect_embedded_findings(plan, sources))
+    scene_ids = {scene.id for scene in plan.scene_outlines}
+    findings.extend(_collect_link_findings(response.source_links, sources, scene_ids))
+    findings.extend(_collect_viewer_findings(response.viewers, scene_ids, allowed_sources))
+    return findings
+
+
 def _validate_links(
     links: list[SourceLink], sources: dict[str, dict[str, Any]], scene_ids: set[str]
 ) -> None:
@@ -613,41 +1178,37 @@ def _review_markdown(response: AuthorResponse, evidence: dict[str, Any]) -> str:
     unlinked = sorted(all_scenes - linked_scenes)
     retrieval = evidence.get("retrieval")
     self_study = isinstance(retrieval, dict) and is_self_study_origin(str(retrieval.get("origin", "")))
+    labels = REVIEW_TEXT[_locale(response.lesson_plan.language)]
     lines = [
-        "# Self-study review handoff" if self_study else "# Teacher review handoff",
+        labels["self_heading"] if self_study else labels["teacher_heading"],
         "",
-        "Status: technical checks only; this LessonPlan remains a draft.",
+        labels["status"],
         "",
-        "## Checked",
+        labels["checked_heading"],
         "",
-        f"- {len(response.source_links)} source link(s) use known evidence IDs and exact quotes.",
-        f"- {len(response.viewers)} viewer brief(s) reference known scenes and sources.",
-        "- Objective, scene, corpus, and optional ASB task references resolve.",
-        "- No teacher approval or structured capsule execution result is claimed.",
+        f"- {labels['links'].format(count=len(response.source_links))}",
+        f"- {labels['viewers'].format(count=len(response.viewers))}",
+        f"- {labels['references']}",
+        f"- {labels['no_approval']}",
         "",
-        "## Source links",
+        labels["source_heading"],
         "",
     ]
     for link in response.source_links:
         quote = link.quote.replace("\n", " ")
         lines.append(f"- `{link.scene_id}` → `{link.evidence_id}`: “{quote}”")
-    lines.extend(["", "## Review attention", ""])
-    lines.append(f"- Scenes without an explicit source link: {', '.join(unlinked) or 'none' }.")
+    lines.extend(["", labels["attention_heading"], ""])
+    lines.append(
+        f"- {labels['unlinked'].format(scenes=', '.join(unlinked) or labels['none'])}"
+    )
     asb_task = evidence.get("asb_task")
     if asb_task:
-        lines.append(
-            f"- ASB task `{asb_task['task_id']}` was captured but not executed by this tool."
-        )
+        lines.append(f"- {labels['asb'].format(task_id=asb_task['task_id'])}")
     lines.extend(
         [
-            "- Exact quotation checks do not establish that paraphrases or conclusions are scientifically valid.",
-            "- Viewer briefs have not been implemented, run, or inspected.",
-            (
-                "- No teacher validates this lesson: the learner who wrote it answers for its accuracy,"
-                " its pedagogy and its licences, and it stays a private self-study draft."
-                if self_study
-                else "- A teacher must assess scientific accuracy, pedagogy, licensing, and learner release."
-            ),
+            f"- {labels['quote_limit']}",
+            f"- {labels['viewer_limit']}",
+            f"- {labels['self_limit'] if self_study else labels['teacher_limit']}",
             "",
         ]
     )
@@ -656,38 +1217,44 @@ def _review_markdown(response: AuthorResponse, evidence: dict[str, Any]) -> str:
 
 def _validated_response(value: Any) -> AuthorResponse:
     if not isinstance(value, dict) or not isinstance(value.get("lesson_plan"), dict):
-        raise PacketError("response must contain a lesson_plan object")
-    _reject_execution_claims(value["lesson_plan"])
+        raise AuthoringFindingsError(
+            [_error("invalid_response", "response must contain a lesson_plan object")]
+        )
     try:
+        _reject_execution_claims(value["lesson_plan"])
         return AuthorResponse.model_validate(value)
+    except PacketError as exc:
+        raise AuthoringFindingsError([_error("unverified_execution", str(exc))]) from exc
     except ValidationError as exc:
-        raise PacketError(f"response does not match response.schema.json: {exc}") from exc
+        findings = [
+            _error(
+                "invalid_response",
+                "response does not match response.schema.json at "
+                f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}",
+            )
+            for error in exc.errors()
+        ]
+        raise AuthoringFindingsError(findings) from exc
 
 
-def check_response(
+def _check_response_report(
     *, packet_dir: Path, response_path: Path, output_dir: Path, force: bool = False
-) -> Path:
-    """Validate an external author response and emit teacher-review artifacts."""
+) -> CheckReport:
+    """Validate a response once, collecting all independent authoring findings."""
     output_dir = output_dir.absolute()
     _require_output_permission(output_dir, force, "output directory")
     evidence, evidence_raw = _load_json(packet_dir / "evidence.json", "packet evidence")
-    response_value, _ = _load_json(response_path, "author response")
+    try:
+        response_value, _ = _load_json(response_path, "author response")
+    except PacketError as exc:
+        raise AuthoringFindingsError([_error("invalid_response", str(exc))]) from exc
     sources = _validate_packet(evidence)
     response = _validated_response(response_value)
+    findings = _collect_check_findings(response, evidence, sources)
+    errors = [finding for finding in findings if finding.level == "ERROR"]
+    if errors:
+        raise AuthoringFindingsError(findings)
     plan = response.lesson_plan
-    if plan.status != PlanStatus.draft:
-        raise PacketError("lesson plan status must be draft")
-    if plan.validated_by is not None:
-        raise PacketError("lesson plan validated_by must be null")
-    asb_task = evidence.get("asb_task")
-    asb_source = {asb_task["source_id"]} if isinstance(asb_task, dict) else set()
-    allowed_sources = set(sources) | asb_source
-    _, scene_ids = _validate_plan_graph(plan, allowed_sources)
-    _validate_corpus(plan, sources, asb_task if isinstance(asb_task, dict) else None)
-    _validate_asb(plan, evidence)
-    _validate_embedded_evidence(plan, sources)
-    _validate_links(response.source_links, sources, scene_ids)
-    _validate_viewers(response.viewers, scene_ids, allowed_sources)
     _remove_output(output_dir, "output directory")
     output_dir.mkdir(parents=True)
     (output_dir / "plan.json").write_bytes(_json_bytes(plan.model_dump(mode="json")))
@@ -706,7 +1273,19 @@ def check_response(
     (output_dir / "review.md").write_text(
         _review_markdown(response, evidence), encoding="utf-8"
     )
-    return output_dir
+    return CheckReport(output_dir, findings)
+
+
+def check_response(
+    *, packet_dir: Path, response_path: Path, output_dir: Path, force: bool = False
+) -> Path:
+    """Validate an external author response and emit teacher-review artifacts."""
+    return _check_response_report(
+        packet_dir=packet_dir,
+        response_path=response_path,
+        output_dir=output_dir,
+        force=force,
+    ).output_path
 
 
 @dataclass(frozen=True)
@@ -988,7 +1567,7 @@ def _scene_concept_refs(scene: SceneOutline, context: _BundleContext) -> list[st
 
 def _objective_texts(scene: SceneOutline, context: _BundleContext) -> list[str]:
     texts = [context.objectives[ref].description for ref in scene.objective_refs]
-    return texts or ["TODO: préciser l'objectif d'apprentissage"]
+    return texts or [_authoring_text(context.plan.language, "objective")]
 
 
 def _placeholder_key_points(
@@ -1001,7 +1580,7 @@ def _placeholder_key_points(
         {
             "id": f"todo-key-point-{index}",
             "text": text,
-            "cues": ["TODO: mot-clé ou expression d'évaluation"],
+            "cues": [_authoring_text(context.plan.language, "cue")],
         }
         for index, text in enumerate(texts, start=1)
     ]
@@ -1013,8 +1592,8 @@ def _placeholder_claims(
     return [
         {
             "id": f"todo-claim-{index}",
-            "text": f"TODO: affirmation à auditer — {text}",
-            "flaws_expected": ["TODO: défaut attendu"],
+            "text": _authoring_text(context.plan.language, "claim", text=text),
+            "flaws_expected": [_authoring_text(context.plan.language, "flaw")],
         }
         for index, text in enumerate(_objective_texts(scene, context)[:maximum], start=1)
     ]
@@ -1023,7 +1602,7 @@ def _placeholder_claims(
 def _source_context(scene_id: str, context: _BundleContext) -> str:
     links = context.links_by_scene.get(scene_id, [])
     if not links:
-        return "TODO: ajouter un extrait source vérifié"
+        return _authoring_text(context.plan.language, "source")
     return "\n".join(f"- “{link.quote}” ({link.evidence_id})" for link in links)
 
 
@@ -1045,51 +1624,57 @@ def _build_reading_scene(
     base: dict[str, Any], scene: SceneOutline, context: _BundleContext
 ) -> dict[str, Any]:
     markdown = (
-        f"TODO: rédiger le contenu de la scène « {scene.title} ».\n\n"
-        f"Extraits source vérifiés :\n{_source_context(scene.id, context)}"
+        f"{_authoring_text(context.plan.language, 'scene_content', title=scene.title)}\n\n"
+        f"{_authoring_text(context.plan.language, 'source_heading')}\n"
+        f"{_source_context(scene.id, context)}"
     )
     return {**base, "markdown": markdown}
 
 
 def _build_quiz_scene(
-    base: dict[str, Any], scene: SceneOutline, _context: _BundleContext
+    base: dict[str, Any], scene: SceneOutline, context: _BundleContext
 ) -> dict[str, Any]:
+    language = context.plan.language
     return {
         **base,
-        "question": scene.notes or f"TODO: rédiger la question — {scene.title}",
+        "question": scene.notes or _authoring_text(language, "quiz_question", title=scene.title),
         "choices": [
-            {"id": "todo-correct", "text": "TODO: réponse correcte", "correct": True},
-            {"id": "todo-distractor", "text": "TODO: distracteur", "correct": False},
+            {"id": "todo-correct", "text": _authoring_text(language, "correct_answer"), "correct": True},
+            {"id": "todo-distractor", "text": _authoring_text(language, "distractor"), "correct": False},
         ],
-        "feedback_correct": "TODO: retour pour la réponse correcte",
-        "feedback_incorrect": "TODO: retour pour la réponse incorrecte",
+        "feedback_correct": _authoring_text(language, "correct_feedback"),
+        "feedback_incorrect": _authoring_text(language, "incorrect_feedback"),
         "hints": [],
     }
 
 
 def _build_checkpoint_scene(
-    base: dict[str, Any], _scene: SceneOutline, _context: _BundleContext
+    base: dict[str, Any], _scene: SceneOutline, context: _BundleContext
 ) -> dict[str, Any]:
+    language = context.plan.language
     return {
         **base,
-        "pre_question": "TODO: question de confiance avant l'activité",
-        "post_question": "TODO: question de confiance après l'activité",
-        "scale_labels": [f"TODO: niveau {level}" for level in range(1, 6)],
+        "pre_question": _authoring_text(language, "pre_question"),
+        "post_question": _authoring_text(language, "post_question"),
+        "scale_labels": [
+            _authoring_text(language, "scale_level", level=level) for level in range(1, 6)
+        ],
     }
 
 
 def _build_reproduction_scene(
-    base: dict[str, Any], scene: SceneOutline, _context: _BundleContext
+    base: dict[str, Any], scene: SceneOutline, context: _BundleContext
 ) -> dict[str, Any]:
+    language = context.plan.language
     return {
         **base,
         "task_card_id": scene.abs_task_card_id or f"TODO:{scene.id}:task-card",
         "steps": [
             {
                 "step_id": "todo-step-1",
-                "instruction": "TODO: décrire l'étape de reproduction",
+                "instruction": _authoring_text(language, "reproduction_step"),
                 "expected_input_schema": {"type": "object"},
-                "expected_output": "TODO: décrire la sortie attendue",
+                "expected_output": _authoring_text(language, "expected_output"),
             }
         ],
     }
@@ -1106,12 +1691,13 @@ def _build_ai_critique_scene(
 
 
 def _build_discussion_scene(
-    base: dict[str, Any], scene: SceneOutline, _context: _BundleContext
+    base: dict[str, Any], scene: SceneOutline, context: _BundleContext
 ) -> dict[str, Any]:
+    language = context.plan.language
     return {
         **base,
-        "topic": f"TODO: sujet de discussion — {scene.title}",
-        "seed_claim": "TODO: affirmation de départ à discuter",
+        "topic": _authoring_text(language, "discussion_topic", title=scene.title),
+        "seed_claim": _authoring_text(language, "seed_claim"),
         "target_signals": ["justification"],
         "max_turns": 4,
     }
@@ -1122,15 +1708,12 @@ def _build_spot_the_flaw_scene(
 ) -> dict[str, Any]:
     return {
         **base,
-        "flawed_content": "TODO: contenu délibérément erroné à auditer",
+        "flawed_content": _authoring_text(context.plan.language, "flawed_content"),
         "claims": _placeholder_claims(scene, context, 5),
         # The reveal must NAME every expected flaw (tools/bundle_lint.mjs flaw_reveal_gap): a
         # skeleton that does not already satisfies that rule would fail the lint before the
         # teacher wrote a word, so the placeholder repeats the placeholder flaw.
-        "model_correction": (
-            "TODO: correction de référence — elle doit nommer chaque défaut attendu "
-            "(ici : « TODO: défaut attendu »)."
-        ),
+        "model_correction": _authoring_text(context.plan.language, "model_correction"),
         "rubric": dict(PLACEHOLDER_RUBRIC),
     }
 
@@ -1140,9 +1723,9 @@ def _build_explain_back_scene(
 ) -> dict[str, Any]:
     return {
         **base,
-        "prompt": f"TODO: demander à l'apprenant d'expliquer — {scene.title}",
+        "prompt": _authoring_text(context.plan.language, "explain_prompt", title=scene.title),
         "key_points": _placeholder_key_points(scene, context, 6),
-        "model_explanation": "TODO: explication de référence",
+        "model_explanation": _authoring_text(context.plan.language, "model_explanation"),
         "rubric": dict(PLACEHOLDER_RUBRIC),
     }
 
@@ -1152,11 +1735,11 @@ def _build_comparison_scene(
 ) -> dict[str, Any]:
     return {
         **base,
-        "prompt": "TODO: consigne de comparaison",
-        "artifact_a": "TODO: premier artefact à comparer",
-        "artifact_b": "TODO: second artefact à comparer",
+        "prompt": _authoring_text(context.plan.language, "comparison_prompt"),
+        "artifact_a": _authoring_text(context.plan.language, "artifact_a"),
+        "artifact_b": _authoring_text(context.plan.language, "artifact_b"),
         "key_points": _placeholder_key_points(scene, context),
-        "model_answer": "TODO: comparaison de référence",
+        "model_answer": _authoring_text(context.plan.language, "model_answer"),
         "rubric": dict(PLACEHOLDER_RUBRIC),
     }
 
@@ -1167,12 +1750,9 @@ def _build_summary_audit_scene(
     return {
         **base,
         "source_content": _source_context(scene.id, context),
-        "ai_summary": "TODO: résumé IA à auditer",
+        "ai_summary": _authoring_text(context.plan.language, "ai_summary"),
         "claims": _placeholder_claims(scene, context, 5),
-        "model_correction": (
-            "TODO: résumé corrigé de référence — il doit nommer chaque défaut attendu "
-            "(ici : « TODO: défaut attendu »)."
-        ),
+        "model_correction": _authoring_text(context.plan.language, "corrected_summary"),
         "rubric": dict(PLACEHOLDER_RUBRIC),
     }
 
@@ -1182,10 +1762,10 @@ def _build_prompt_practice_scene(
 ) -> dict[str, Any]:
     return {
         **base,
-        "task": f"TODO: tâche de prompting — {scene.title}",
-        "starter_prompt": "TODO: prompt initial à améliorer",
+        "task": _authoring_text(context.plan.language, "prompt_task", title=scene.title),
+        "starter_prompt": _authoring_text(context.plan.language, "starter_prompt"),
         "key_points": _placeholder_key_points(scene, context),
-        "model_prompt": "TODO: prompt de référence",
+        "model_prompt": _authoring_text(context.plan.language, "model_prompt"),
         "rubric": dict(PLACEHOLDER_RUBRIC),
     }
 
@@ -1195,10 +1775,12 @@ def _build_communication_scene(
 ) -> dict[str, Any]:
     return {
         **base,
-        "scenario": f"TODO: situation professionnelle — {scene.title}",
-        "prompt": "TODO: consigne de communication",
+        "scenario": _authoring_text(
+            context.plan.language, "communication_scenario", title=scene.title
+        ),
+        "prompt": _authoring_text(context.plan.language, "communication_prompt"),
         "key_points": _placeholder_key_points(scene, context),
-        "model_response": "TODO: réponse de référence",
+        "model_response": _authoring_text(context.plan.language, "model_response"),
         "rubric": dict(PLACEHOLDER_RUBRIC),
     }
 
@@ -1226,9 +1808,9 @@ def _build_bundle_scene(scene: SceneOutline, context: _BundleContext) -> dict[st
         return {
             **base,
             "markdown": (
-                "TODO: remplacer cette ancienne scène `simulation` par une scène jouable "
-                "et ajouter son support interactif.\n\n"
-                f"Extraits source vérifiés :\n{_source_context(scene.id, context)}"
+                f"{_authoring_text(context.plan.language, 'legacy_simulation')}\n\n"
+                f"{_authoring_text(context.plan.language, 'source_heading')}\n"
+                f"{_source_context(scene.id, context)}"
             ),
         }
     base = _base_scene(scene, context)
@@ -1261,6 +1843,10 @@ class _BundleOptions:
         return (self.validated_by or default).strip() or default
 
 
+def _is_draft_marker(validated_by: str) -> bool:
+    return validated_by in {DEFAULT_VALIDATED_BY, SELF_STUDY_VALIDATED_BY}
+
+
 def _bundle_metadata(plan: LessonPlan, authoring: dict[str, Any] | None) -> dict[str, Any]:
     subject = plan.metadata.subject if plan.metadata else None
     metadata: dict[str, Any] = {
@@ -1268,7 +1854,7 @@ def _bundle_metadata(plan: LessonPlan, authoring: dict[str, Any] | None) -> dict
         "target": plan.target,
         "duration_minutes": plan.duration_minutes,
         "language": plan.language,
-        "discipline": subject or plan.dct_subject or "TODO: discipline à préciser",
+        "discipline": subject or plan.dct_subject or _authoring_text(plan.language, "discipline"),
     }
     # Absent, not null, on teacher bundles: readers treat a missing block as "teacher".
     if authoring is not None:
@@ -1347,6 +1933,14 @@ def _bundle_graph(plan: LessonPlan, concepts: list[dict[str, Any]]) -> dict[str,
     }
 
 
+def _default_replay_rule(language: str) -> dict[str, Any]:
+    """Return the default replay rule with its learner-facing explanation localized."""
+    rule = deepcopy(DEFAULT_REPLAY_RULE)
+    if _locale(language) == "en":
+        rule["explanation_short"] = ENGLISH_REPLAY_EXPLANATION
+    return rule
+
+
 def _bundle_payload(
     plan: LessonPlan, links: list[SourceLink], options: _BundleOptions
 ) -> dict[str, Any]:
@@ -1359,7 +1953,7 @@ def _bundle_payload(
         "metadata": _bundle_metadata(plan, options.authoring),
         "concepts": concepts,
         "scenes": [_build_bundle_scene(scene, context) for scene in plan.scene_outlines],
-        "rules": [deepcopy(DEFAULT_REPLAY_RULE)] if options.include_default_rules else [],
+        "rules": [_default_replay_rule(plan.language)] if options.include_default_rules else [],
         "validated_by": options.recorded_validator(),
         "validated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "learning_workflow_graph": _bundle_graph(plan, concepts),
@@ -1396,13 +1990,20 @@ def build_lesson_bundle(
 
     ``authoring`` (see ``self_study_authoring``) becomes ``metadata.authoring``; when it says
     ``self_study`` and no ``validated_by`` is given, the bundle records
-    ``SELF_STUDY_VALIDATED_BY``. Without it the bundle carries no authoring block at all.
+    ``SELF_STUDY_VALIDATED_BY``. Without it the bundle carries no authoring block at all. A
+    non-draft validator is refused until the skeleton is filled; teacher approval is recorded
+    later with ``approve`` so regenerating the skeleton cannot erase authored content.
     """
     output_path = output_path.absolute()
     _require_output_permission(output_path, force, "output file")
     plan, _, _, links = _load_checked_course(course_dir)
     options = _BundleOptions(validated_by, include_default_rules, authoring)
     bundle = _validated_bundle_payload(_bundle_payload(plan, links, options))
+    remaining = placeholder_paths(bundle)
+    if remaining and not _is_draft_marker(options.recorded_validator()):
+        raise PacketError(
+            f"{len(remaining)} remaining placeholder(s); use approve after filling the lesson"
+        )
     _remove_output(output_path, "output file")
     _write_json_file(output_path, bundle, "LessonBundle")
     return output_path
@@ -1423,6 +2024,89 @@ def capture_passages(capture: PassageCapture, output_path: Path, force: bool = F
     _remove_output(output_path, "output file")
     _write_json_file(output_path, envelope, "passages")
     return output_path
+
+
+def _parse_checklist(items: list[str]) -> dict[str, str]:
+    """Parse repeatable ``key=value`` checklist entries without guessing value types."""
+    checklist: dict[str, str] = {}
+    for item in items:
+        key, separator, value = item.partition("=")
+        key = key.strip()
+        if not separator or not key:
+            raise PacketError(f"invalid checklist entry {item!r}; expected key=value")
+        if key in checklist:
+            raise PacketError(f"duplicate checklist key {key!r}")
+        checklist[key] = value.strip()
+    return checklist
+
+
+def _bundle_lint_summary(bundle_path: Path) -> dict[str, int]:
+    """Run the canonical Node linter and return its ERROR/WARN counts."""
+    command = ["node", str(ROOT / "tools" / "bundle_lint.mjs"), str(bundle_path)]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        raise PacketError(f"cannot run bundle lint: {exc}") from exc
+    lines = (result.stdout + "\n" + result.stderr).splitlines()
+    summary = {
+        "errors": sum(line.startswith("ERROR  ") for line in lines),
+        "warnings": sum(line.startswith("WARN  ") for line in lines),
+    }
+    if result.returncode not in (0, 1) or (result.returncode and not summary["errors"]):
+        detail = next((line.strip() for line in lines if line.strip()), "no diagnostic output")
+        raise PacketError(f"bundle lint could not complete: {detail}")
+    return summary
+
+
+def approve_lesson_bundle(
+    *, bundle_path: Path, validated_by: str, checklist: dict[str, str] | None = None
+) -> Path:
+    """Record teacher approval for a finished bundle without rebuilding its content."""
+    bundle_path = bundle_path.resolve()
+    reviewer = validated_by.strip()
+    if not reviewer:
+        raise PacketError("--validated-by must not be empty")
+    bundle, _ = _load_json(bundle_path, "LessonBundle")
+    if not isinstance(bundle, dict):
+        raise PacketError("LessonBundle root must be an object")
+    metadata = bundle.get("metadata")
+    authoring = metadata.get("authoring") if isinstance(metadata, dict) else None
+    if isinstance(authoring, dict) and authoring.get("mode") == SELF_STUDY_MODE:
+        raise PacketError("self-study bundles cannot receive teacher approval")
+    remaining = placeholder_paths(bundle)
+    if remaining:
+        raise PacketError(
+            f"cannot approve: {len(remaining)} placeholder(s) remain ({remaining[0]})"
+        )
+    lint = _bundle_lint_summary(bundle_path)
+    if lint["errors"]:
+        raise PacketError(f"cannot approve: bundle lint reported {lint['errors']} ERROR finding(s)")
+    reviewed_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    bundle["validated_by"] = reviewer
+    bundle["validated_at"] = reviewed_at
+    final_bytes = _json_bytes(bundle)
+    approval = {
+        "schema": APPROVAL_SCHEMA,
+        "bundle_sha256": _sha256(final_bytes),
+        "reviewer": reviewer,
+        "reviewed_at": reviewed_at,
+        "checklist": checklist or {},
+        "lint": lint,
+        "tool": f"experience_packet.py approve {TOOL_VERSION}",
+    }
+    try:
+        bundle_path.write_bytes(final_bytes)
+    except OSError as exc:
+        raise PacketError(f"cannot write approved LessonBundle: {exc}") from exc
+    approval_path = bundle_path.parent / "approval.json"
+    _write_json_file(approval_path, approval, "approval record")
+    return approval_path
 
 
 def _add_prepare_parser(commands: Any) -> None:
@@ -1446,11 +2130,23 @@ def _add_check_parser(commands: Any) -> None:
     check.add_argument("--response", type=Path, required=True)
     check.add_argument("--out", type=Path, required=True)
     check.add_argument("--force", action="store_true", help="replace an existing output")
-    check.add_argument("--quiet", action="store_true", help="print only the output path")
+    output = check.add_mutually_exclusive_group()
+    output.add_argument("--quiet", action="store_true", help="print only the output path")
+    output.add_argument("--json", action="store_true", help="emit one machine-readable report")
 
 
 def _add_bundle_parser(commands: Any) -> None:
-    bundle = commands.add_parser("bundle", help="build a playable LessonBundle skeleton")
+    bundle = commands.add_parser(
+        "bundle",
+        help="build a playable LessonBundle skeleton",
+        description=(
+            "Build a draft LessonBundle skeleton and report its remaining placeholders."
+        ),
+        epilog=(
+            "Flow: build the draft, fill the placeholders, run check/lint, then record teacher "
+            "review with `approve --bundle lesson.json --validated-by NAME`."
+        ),
+    )
     bundle.add_argument("--course", type=Path, required=True)
     bundle.add_argument("--out", type=Path, required=True)
     bundle.add_argument("--validated-by")
@@ -1470,6 +2166,26 @@ def _add_bundle_parser(commands: Any) -> None:
     )
     bundle.add_argument(
         "--note", metavar="TEXT", help="free note kept in metadata.authoring (needs --self-study)"
+    )
+
+
+def _add_approve_parser(commands: Any) -> None:
+    approve = commands.add_parser(
+        "approve",
+        help="record teacher approval for an already-filled LessonBundle",
+        description=(
+            "Preserve an edited teacher bundle, refuse placeholders or lint errors, and write "
+            "a hash-bound approval.json record. Self-study bundles cannot be approved."
+        ),
+    )
+    approve.add_argument("--bundle", type=Path, required=True, metavar="LESSON_JSON")
+    approve.add_argument("--validated-by", required=True, metavar="NAME")
+    approve.add_argument(
+        "--checklist",
+        nargs="*",
+        default=[],
+        metavar="KEY=VALUE",
+        help="optional review checklist entries",
     )
 
 
@@ -1516,7 +2232,13 @@ def _add_passages_parser(commands: Any) -> None:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for add_command in (_add_passages_parser, _add_prepare_parser, _add_check_parser, _add_bundle_parser):
+    for add_command in (
+        _add_passages_parser,
+        _add_prepare_parser,
+        _add_check_parser,
+        _add_bundle_parser,
+        _add_approve_parser,
+    ):
         add_command(commands)
     return parser
 
@@ -1533,8 +2255,8 @@ def _run_prepare(args: argparse.Namespace) -> Path:
     )
 
 
-def _run_check(args: argparse.Namespace) -> Path:
-    return check_response(
+def _run_check(args: argparse.Namespace) -> CheckReport:
+    return _check_response_report(
         packet_dir=args.packet,
         response_path=args.response,
         output_dir=args.out,
@@ -1569,12 +2291,51 @@ def _run_passages(args: argparse.Namespace) -> Path:
     return capture_passages(capture, args.out, force=args.force)
 
 
+def _run_approve(args: argparse.Namespace) -> Path:
+    return approve_lesson_bundle(
+        bundle_path=args.bundle,
+        validated_by=args.validated_by,
+        checklist=_parse_checklist(args.checklist),
+    )
+
+
 _COMMANDS = {
     "passages": _run_passages,
     "prepare": _run_prepare,
     "check": _run_check,
     "bundle": _run_bundle,
+    "approve": _run_approve,
 }
+
+
+def _format_check_finding(finding: CheckFinding) -> str:
+    location: list[str] = []
+    if finding.scene_id is not None:
+        location.append(f"scene {finding.scene_id!r}")
+    if finding.link_index is not None:
+        location.append(f"link {finding.link_index}")
+    prefix = f"{finding.level} [{finding.code}]"
+    if location:
+        prefix += " " + ", ".join(location)
+    parts = [f"{prefix}: {finding.message}"]
+    if finding.quote is not None:
+        parts.append(f"quote {json.dumps(finding.quote, ensure_ascii=False)}")
+    if finding.hint is not None:
+        parts.append(finding.hint)
+    return "; ".join(parts)
+
+
+def _print_check_json(
+    *, ok: bool, findings: list[CheckFinding], output: Path | None, summary: list[str] | None = None
+) -> None:
+    report: dict[str, Any] = {
+        "ok": ok,
+        "findings": [finding.as_dict() for finding in findings],
+        "output": str(output.resolve()) if output else None,
+    }
+    if summary is not None:
+        report["summary"] = summary
+    print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1582,15 +2343,42 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         output = _COMMANDS[args.command](args)
+    except AuthoringFindingsError as exc:
+        if args.command == "check" and args.json:
+            _print_check_json(ok=False, findings=exc.findings, output=None)
+        else:
+            for finding in exc.findings:
+                print(_format_check_finding(finding))
+        return 1
     except SourceQuoteError as exc:
         print(f"ERROR: {exc}")
         return 1
     except PacketError as exc:
+        if args.command == "check" and args.json:
+            finding = _error("packet_error", str(exc))
+            _print_check_json(ok=False, findings=[finding], output=None)
+            return 2
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    if args.command == "check" and not args.quiet:
-        print("\n".join(check_summary_lines(output)))
+    if args.command == "check":
+        summary = check_summary_lines(output.output_path)
+        if args.json:
+            _print_check_json(
+                ok=True,
+                findings=output.findings,
+                output=output.output_path,
+                summary=summary,
+            )
+        elif args.quiet:
+            print(output.output_path)
+        else:
+            for finding in output.findings:
+                print(_format_check_finding(finding))
+            print("\n".join(summary))
         return 0
+    if args.command == "bundle":
+        bundle, _ = _load_json(output, "generated LessonBundle")
+        print(f"Remaining placeholders: {len(placeholder_paths(bundle))}")
     print(output)
     return 0
 

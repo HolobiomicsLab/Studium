@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -22,6 +23,7 @@ from experience_packet import (
     check_response,
     key_classes_line,
     main,
+    placeholder_paths,
     prepare_packet,
 )
 from lesson_bundle_schema import LessonBundle  # noqa: E402 - importable once experience_packet set the path
@@ -53,7 +55,7 @@ DEFAULT_REPLAY_RULE = {
     "when": {"consecutive_errors_same_concept": ">=2"},
     "action": {"kind": "replay_current_scene", "reason": "errors_threshold"},
     "modulator": "M1",
-    "explanation_short": "Deux erreurs sur ce concept : on reprend la scène avec un appui.",
+    "explanation_short": "Two errors on this concept: replay the scene with support.",
 }
 
 
@@ -661,7 +663,7 @@ def test_check_cli_quiet_keeps_single_output_line(tmp_path, capsys):
     assert capsys.readouterr().out == f"{output.resolve()}\n"
 
 
-def test_check_cli_bad_quote_is_error_exit_one(tmp_path, capsys):
+def test_check_cli_bad_quote_is_authoring_error_exit_one(tmp_path, capsys):
     packet, evidence_id = prepare_basic(tmp_path)
     response_value = valid_response(evidence_id)
     response_value["source_links"][0]["quote"] = "fabricated quote"
@@ -673,7 +675,11 @@ def test_check_cli_bad_quote_is_error_exit_one(tmp_path, capsys):
     )
 
     assert status == 1
-    assert capsys.readouterr().out.startswith("ERROR: source link quote")
+    output_text = capsys.readouterr().out
+    assert "ERROR" in output_text
+    assert "scene 'scene-1', link 1" in output_text
+    assert 'quote "fabricated quote"' in output_text
+    assert "Nearest passage" in output_text
     assert not output.exists()
 
 
@@ -812,6 +818,18 @@ def test_bundle_completes_an_existing_graph_from_plan_prerequisites(tmp_path):
     assert graph["edges"][0]["target"] == "concept:prereq"
 
 
+def assert_fails_only_on_unfilled_placeholder(lint):
+    """A skeleton still holds its TODO fields: the lint must refuse it, and for that reason alone.
+
+    `unfilled_placeholder` is an ERROR (plan W1 step 5), so a generated bundle exits 1 until the
+    author fills the fields. Any other ERROR code would be a real defect the skeleton must not carry.
+    """
+    assert lint.returncode == 1, lint.stdout + lint.stderr
+    errors = [line.split() for line in lint.stdout.splitlines() if line.startswith("ERROR  ")]
+    assert errors, lint.stdout + lint.stderr
+    assert {fields[2] for fields in errors} == {"unfilled_placeholder"}, lint.stdout + lint.stderr
+
+
 def test_bundle_generates_concept_graph_copies_quiz_notes_and_lints(tmp_path):
     packet, evidence_id = prepare_basic(tmp_path)
     response_value = valid_response(evidence_id)
@@ -878,7 +896,7 @@ def test_bundle_generates_concept_graph_copies_quiz_notes_and_lints(tmp_path):
         text=True,
         check=False,
     )
-    assert lint.returncode == 0, lint.stdout + lint.stderr
+    assert_fails_only_on_unfilled_placeholder(lint)
 
 
 def test_bundle_no_default_rules_opt_out(tmp_path, capsys):
@@ -901,7 +919,9 @@ def test_bundle_no_default_rules_opt_out(tmp_path, capsys):
 
     assert status == 0
     assert json.loads(output.read_text())["rules"] == []
-    assert capsys.readouterr().out == f"{output.resolve()}\n"
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0].startswith("Remaining placeholders: ")
+    assert lines[1] == str(output.resolve())
 
 
 def test_bundle_force_replaces_existing_output_file(tmp_path, capsys):
@@ -925,7 +945,7 @@ def test_bundle_force_replaces_existing_output_file(tmp_path, capsys):
     assert json.loads(output.read_text())["schema_version"] == "1.4"
 
 
-def test_bundle_cli_accepts_validator_name_and_uses_checked_quotes(tmp_path, capsys):
+def test_bundle_cli_refuses_validator_name_while_placeholders_remain(tmp_path, capsys):
     packet, evidence_id = prepare_basic(tmp_path)
     response_value = valid_response(evidence_id)
     response_value["lesson_plan"]["scene_outlines"][0]["type"] = "concept"
@@ -946,11 +966,11 @@ def test_bundle_cli_accepts_validator_name_and_uses_checked_quotes(tmp_path, cap
         ]
     )
 
-    bundle = json.loads(output.read_text())
-    assert status == 0
-    assert capsys.readouterr().out == f"{output.resolve()}\n"
-    assert bundle["validated_by"] == "Prof. Example"
-    assert "reduced the signal by 31%" in bundle["scenes"][0]["markdown"]
+    captured = capsys.readouterr()
+    assert status == 2
+    assert "remaining placeholder" in captured.err
+    assert "use approve after filling" in captured.err
+    assert not output.exists()
 
 
 def test_bundle_cli_reports_output_write_failure_without_traceback(tmp_path, capsys):
@@ -1334,7 +1354,9 @@ def test_bundle_self_study_records_who_wrote_it(tmp_path, note_args, expected_au
     LessonBundle.model_validate(bundle)
 
 
-def test_bundle_self_study_keeps_an_explicit_validator(tmp_path):
+def test_bundle_self_study_refuses_an_explicit_validator_while_placeholders_remain(
+    tmp_path, capsys
+):
     course = checked_course(tmp_path)
     output = tmp_path / "lesson.json"
 
@@ -1351,10 +1373,9 @@ def test_bundle_self_study_keeps_an_explicit_validator(tmp_path):
         ]
     )
 
-    bundle = json.loads(output.read_text())
-    assert status == 0
-    assert bundle["validated_by"] == "Prof. Example"
-    assert bundle["metadata"]["authoring"]["mode"] == "self_study"
+    assert status == 2
+    assert "remaining placeholder" in capsys.readouterr().err
+    assert not output.exists()
 
 
 def test_bundle_without_self_study_has_no_authoring_and_nothing_else_differs(tmp_path):
@@ -1465,8 +1486,8 @@ def test_self_study_chain_on_the_saved_durkheim_page(tmp_path, capsys):
     assert "WARN: licence" not in stdout
     review = (course / "review.md").read_text()
     assert "- `scene-quiz` → `passage:" in review
-    assert review.startswith("# Self-study review handoff")
-    assert "No teacher validates this lesson" in review
+    assert review.startswith("# Relais de relecture pour l’auto-apprentissage")
+    assert "Aucun enseignant ne valide cette leçon" in review
     assert "A teacher must assess" not in review
 
     lesson = tmp_path / "lesson.json"
@@ -1487,7 +1508,7 @@ def test_self_study_chain_on_the_saved_durkheim_page(tmp_path, capsys):
         text=True,
         check=False,
     )
-    assert lint.returncode == 0, lint.stdout + lint.stderr
+    assert_fails_only_on_unfilled_placeholder(lint)
     open_book = [line for line in lint.stdout.splitlines() if "  self_study_open_book  " in line]
     assert len(open_book) == 1 and open_book[0].startswith("WARN  ") and "scene-quiz" in open_book[0]
     assert "  self_study_authoring  " in lint.stdout
@@ -1543,3 +1564,265 @@ def test_cli_finds_its_sibling_modules_in_isolated_mode(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert json.loads(passages.read_text())["origin"] == "self-study-passages/1.0"
+
+
+def _typographic_response(tmp_path: Path) -> tuple[Path, dict]:
+    passages_value = deepcopy(PASSAGES)
+    passages_value["passages"][0]["text"] = (
+        "Le fait social s’impose\u00a0à l’individu. Une seconde phrase demeure observable."
+    )
+    passages = write_json(tmp_path / "passages.json", passages_value)
+    packet = tmp_path / "packet"
+    prepare_packet(passages_path=passages, output_dir=packet, title="Le fait social", target="L1")
+    evidence_id = json.loads((packet / "evidence.json").read_text())["sources"][0]["evidence_id"]
+    return packet, valid_response(evidence_id)
+
+
+def test_check_json_collects_all_errors_with_typographic_nearest_passages(tmp_path, capsys):
+    packet, response_value = _typographic_response(tmp_path)
+    response_value["lesson_plan"]["scene_outlines"][0]["concept_refs"] = ["unknown-concept"]
+    response_value["source_links"] = [
+        {
+            "scene_id": "scene-1",
+            "evidence_id": response_value["source_links"][0]["evidence_id"],
+            "quote": "Le fait social s'impose à l'individu.",
+        },
+        {
+            "scene_id": "scene-1",
+            "evidence_id": response_value["source_links"][0]["evidence_id"],
+            "quote": "Une seconde phrase inventée.",
+        },
+    ]
+    response = write_json(tmp_path / "response.json", response_value)
+    output = tmp_path / "course"
+
+    status = main(
+        [
+            "check",
+            "--packet",
+            str(packet),
+            "--response",
+            str(response),
+            "--out",
+            str(output),
+            "--json",
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    errors = [finding for finding in report["findings"] if finding["level"] == "ERROR"]
+    assert status == 1
+    assert report["ok"] is False
+    assert {finding["code"] for finding in errors} == {"unknown_concept", "quote_not_exact"}
+    assert [finding["link_index"] for finding in errors if "link_index" in finding] == [1, 2]
+    assert all(finding.get("scene_id") == "scene-1" for finding in errors)
+    first_quote = next(finding for finding in errors if finding.get("link_index") == 1)
+    assert first_quote["quote"] == "Le fait social s'impose à l'individu."
+    assert "curly apostrophe" in first_quote["hint"]
+    assert "NBSP" in first_quote["hint"]
+    assert "Nearest passage" in first_quote["hint"]
+    assert not output.exists()
+
+
+def test_check_warns_when_an_exact_quote_starts_mid_word(tmp_path, capsys):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response_value = valid_response(evidence_id)
+    response_value["source_links"][0]["quote"] = "educed the signal by 31%"
+    response = write_json(tmp_path / "response.json", response_value)
+
+    status = main(
+        [
+            "check",
+            "--packet",
+            str(packet),
+            "--response",
+            str(response),
+            "--out",
+            str(tmp_path / "course"),
+            "--json",
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    warning = next(finding for finding in report["findings"] if finding["code"] == "quote_mid_word")
+    assert status == 0
+    assert report["ok"] is True
+    assert warning["level"] == "WARN"
+    assert warning["scene_id"] == "scene-1"
+    assert warning["link_index"] == 1
+    assert warning["quote"] == "educed the signal by 31%"
+
+
+@pytest.mark.parametrize(
+    ("language", "heading", "topic", "replay"),
+    [
+        (
+            "en",
+            "# Teacher review handoff",
+            "TODO: discussion topic",
+            "Two errors on this concept: replay the scene with support.",
+        ),
+        (
+            "fr",
+            "# Relais de relecture enseignant",
+            "TODO: sujet de discussion",
+            "Deux erreurs sur ce concept : on reprend la scène avec un appui.",
+        ),
+    ],
+)
+def test_generated_authoring_strings_follow_plan_language(
+    tmp_path, language, heading, topic, replay
+):
+    packet, evidence_id = prepare_basic(tmp_path)
+    response_value = valid_response(evidence_id)
+    response_value["lesson_plan"]["language"] = language
+    response = write_json(tmp_path / "response.json", response_value)
+    course = tmp_path / "course"
+    check_response(packet_dir=packet, response_path=response, output_dir=course)
+
+    lesson = build_lesson_bundle(course_dir=course, output_path=tmp_path / "lesson.json")
+    bundle = json.loads(lesson.read_text())
+
+    assert (course / "review.md").read_text().startswith(heading)
+    assert bundle["scenes"][0]["topic"].startswith(topic)
+    assert bundle["rules"][0]["explanation_short"] == replay
+
+
+def test_bundle_prints_placeholder_count_and_documents_approval_flow(tmp_path, capsys):
+    course = checked_course(tmp_path)
+    lesson = tmp_path / "lesson.json"
+
+    status = main(["bundle", "--course", str(course), "--out", str(lesson)])
+
+    lines = capsys.readouterr().out.splitlines()
+    assert status == 0
+    assert int(lines[0].removeprefix("Remaining placeholders: ")) > 0
+    assert lines[1] == str(lesson.resolve())
+
+    with pytest.raises(SystemExit) as exit_info:
+        main(["bundle", "--help"])
+    assert exit_info.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "fill the placeholders" in help_text
+    assert "approve --bundle" in help_text
+
+
+def _replace_placeholders(value: object) -> object:
+    if isinstance(value, dict):
+        return {key: _replace_placeholders(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_replace_placeholders(item) for item in value]
+    if isinstance(value, str) and (value.lstrip().startswith("TODO") or "TODO:" in value):
+        return "Finished authored content grounded in the cited passage."
+    return value
+
+
+def _finished_teacher_bundle(tmp_path: Path) -> Path:
+    course = checked_course(tmp_path)
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    lesson = build_lesson_bundle(course_dir=course, output_path=bundle_dir / "lesson.json")
+    finished = _replace_placeholders(json.loads(lesson.read_text()))
+    lesson.write_text(json.dumps(finished, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    LessonBundle.model_validate(finished)
+    return lesson
+
+
+def test_placeholder_detection_catches_todo_prefix_but_allows_todo_ids():
+    value = {
+        "id": "todo-scene",
+        "choices": [{"id": "todo-choice", "text": "TODO finish this answer"}],
+        "feedback": "Embedded TODO: finish this feedback",
+    }
+
+    assert placeholder_paths(value) == ["$.choices[0].text", "$.feedback"]
+
+
+def test_placeholder_detection_skips_quoted_source_text_in_evidence():
+    """Same rule as tools/bundle_lint.mjs: a verbatim excerpt that says "TODO:" is not an unfilled field."""
+    value = {
+        "evidence": {"bibliographic_refs": [{"excerpt": "// TODO: handle the empty list"}]},
+        "question": "TODO: write the question",
+    }
+
+    assert placeholder_paths(value) == ["$.question"]
+
+
+def test_approve_preserves_bundle_content_and_writes_hash_bound_record(tmp_path, capsys):
+    lesson = _finished_teacher_bundle(tmp_path)
+    before = json.loads(lesson.read_text())
+
+    status = main(
+        [
+            "approve",
+            "--bundle",
+            str(lesson),
+            "--validated-by",
+            "Professor Example",
+            "--checklist",
+            "scientific_accuracy=yes",
+            "licence=checked",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    after = json.loads(lesson.read_text())
+    approval = json.loads((lesson.parent / "approval.json").read_text())
+    comparable_before = {key: value for key, value in before.items() if key not in {"validated_by", "validated_at"}}
+    comparable_after = {key: value for key, value in after.items() if key not in {"validated_by", "validated_at"}}
+    assert status == 0
+    assert captured.err == ""
+    assert captured.out == f"{(lesson.parent / 'approval.json').resolve()}\n"
+    assert comparable_after == comparable_before
+    assert after["validated_by"] == "Professor Example"
+    assert after["validated_at"] == approval["reviewed_at"]
+    assert approval == {
+        "schema": "studium-approval/1",
+        "bundle_sha256": hashlib.sha256(lesson.read_bytes()).hexdigest(),
+        "reviewer": "Professor Example",
+        "reviewed_at": after["validated_at"],
+        "checklist": {"scientific_accuracy": "yes", "licence": "checked"},
+        "lint": {"errors": 0, "warnings": 0},
+        "tool": "experience_packet.py approve 1.0",
+    }
+
+
+def test_approve_refuses_placeholders_without_mutating_bundle(tmp_path, capsys):
+    course = checked_course(tmp_path)
+    lesson = build_lesson_bundle(course_dir=course, output_path=tmp_path / "lesson.json")
+    before = lesson.read_bytes()
+
+    status = main(["approve", "--bundle", str(lesson), "--validated-by", "Professor Example"])
+
+    assert status == 2
+    assert "placeholder" in capsys.readouterr().err
+    assert lesson.read_bytes() == before
+    assert not (lesson.parent / "approval.json").exists()
+
+
+def test_approve_refuses_lint_errors_without_mutating_bundle(tmp_path, capsys):
+    lesson = _finished_teacher_bundle(tmp_path)
+    broken = json.loads(lesson.read_text())
+    broken["rules"] = {"not": "an array"}
+    lesson.write_text(json.dumps(broken, ensure_ascii=False) + "\n", encoding="utf-8")
+    before = lesson.read_bytes()
+
+    status = main(["approve", "--bundle", str(lesson), "--validated-by", "Professor Example"])
+
+    assert status == 2
+    assert "lint reported" in capsys.readouterr().err
+    assert lesson.read_bytes() == before
+    assert not (lesson.parent / "approval.json").exists()
+
+
+def test_approve_refuses_self_study_even_when_finished(tmp_path, capsys):
+    lesson = _finished_teacher_bundle(tmp_path)
+    bundle = json.loads(lesson.read_text())
+    bundle["metadata"]["authoring"] = {"mode": "self_study", "author_is_learner": True}
+    lesson.write_text(json.dumps(bundle, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    status = main(["approve", "--bundle", str(lesson), "--validated-by", "Professor Example"])
+
+    assert status == 2
+    assert "self-study" in capsys.readouterr().err
+    assert not (lesson.parent / "approval.json").exists()

@@ -415,3 +415,35 @@ def test_the_judgement_vocabulary_is_the_collectors_own_objects(tmp_path):
     rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
     assert rep["non_attribution"] is metrics.NON_ATTRIBUTION
     assert rep["autonomy_cohort"]["non_attribution"] is metrics.NON_ATTRIBUTION
+
+
+def test_unrated_quiz_answers_are_calibration_neutral_and_not_overconfident(tmp_path):
+    """I-5: quiz_answered.confidence is optional. An answer without it must not count as a 0.0
+    confidence (that read as `underconfident` on every correct answer and shifted the gap); like a
+    critique it contributes conf == accuracy, so the gap is 0 and neither tail counter moves."""
+    bundle = _bundle(tmp_path)
+    for learner in ("alice", "bob"):
+        _write_learner(tmp_path, learner, [
+            {"type": "lesson_started"},
+            {"type": "quiz_answered", "scene_id": "q-quiz", "correct": True, "response_time_ms": 4000},
+            {"type": "lesson_completed", "autonomy_ratio": 1.0},
+        ])
+    rep = build_report(tmp_path, min_learners=2, bundle_path=bundle)
+    assert rep["status"] == "ok"
+    quiz = {c["concept"]: c for c in rep["concepts"]}["c-quiz"]
+    assert quiz["n_attempts"] == 2 and quiz["accuracy"] == 1.0
+    assert quiz["calibration_gap"] == 0.0
+    assert quiz["overconfidence_rate"] == 0.0
+    assert quiz["mean_time_s"] == 4.0
+
+
+def test_a_wrong_unrated_answer_is_not_overconfident_either(tmp_path):
+    bundle = _bundle(tmp_path)
+    for learner in ("alice", "bob"):
+        _write_learner(tmp_path, learner, [
+            {"type": "quiz_answered", "scene_id": "q-quiz", "correct": False, "response_time_ms": 4000},
+        ])
+    rep = build_report(tmp_path, min_learners=2, bundle_path=bundle)
+    quiz = {c["concept"]: c for c in rep["concepts"]}["c-quiz"]
+    assert quiz["calibration_gap"] == 0.0
+    assert quiz["overconfidence_rate"] == 0.0

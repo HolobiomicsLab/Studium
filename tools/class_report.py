@@ -228,11 +228,16 @@ def build_report(run_dir: Path, min_learners: int = MIN_LEARNERS_DEFAULT,
                 a["members"].add(member)
                 a["attempts"] += 1
                 a["correct"] += 1 if e.get("correct") else 0
-                conf = float(e.get("confidence") or 0.0)
+                # I-5: confidence is optional. An unrated answer carries NO self-rated confidence, so it
+                # stays calibration-neutral like a critique item (conf == accuracy, gap 0) and never
+                # lands in the over/under-confidence tails; a rating of 0.0 is a real rating.
+                raw_conf = e.get("confidence")
+                rated = isinstance(raw_conf, (int, float)) and not isinstance(raw_conf, bool)
+                conf = float(raw_conf) if rated else (1.0 if e.get("correct") else 0.0)
                 a["conf_sum"] += conf
-                if conf >= 0.6 and not e.get("correct"):
+                if rated and conf >= 0.6 and not e.get("correct"):
                     a["overconfident"] += 1
-                if conf <= 0.4 and e.get("correct"):
+                if rated and conf <= 0.4 and e.get("correct"):
                     a["underconfident"] += 1
                 a["time_ms"] += int(e.get("response_time_ms") or 0)
                 a["timed"] += 1

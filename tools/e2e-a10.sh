@@ -11,8 +11,9 @@ PLANNER_PORT="${PLANNER_PORT:-8001}"
 SYNTH_PORT="${SYNTH_PORT:-8002}"
 
 echo "[A.10] starting planner on :$PLANNER_PORT"
+# The planner answers 503 without a model; this demo selects the deterministic mock explicitly.
 ( cd "$ROOT/services/planner" && \
-  uvicorn planner_app:app --port "$PLANNER_PORT" >/tmp/planner.log 2>&1 ) &
+  STUDIUM_LLM_MODE=mock uvicorn planner_app:app --port "$PLANNER_PORT" >/tmp/planner.log 2>&1 ) &
 PLANNER_PID=$!
 
 echo "[A.10] starting scene-synth on :$SYNTH_PORT"

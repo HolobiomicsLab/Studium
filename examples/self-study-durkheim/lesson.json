@@ -1,0 +1,243 @@
+{
+  "bundle_id": "self-study-durkheim-fait-social",
+  "concepts": [
+    {
+      "bloom_level_target": "understand",
+      "description": "Une manière d’agir, de penser ou de sentir qui existe hors des consciences individuelles et peut s’imposer à elles.",
+      "id": "fait-social",
+      "title": "Fait social"
+    },
+    {
+      "bloom_level_target": "analyze",
+      "description": "La diffusion d’un phénomène ne suffit pas à le rendre social : elle doit être rapportée à une réalité collective qui s’impose aux individus.",
+      "id": "generalite-collectif",
+      "title": "Généralité et caractère collectif"
+    }
+  ],
+  "learning_workflow_graph": {
+    "course_id": "self-study-durkheim-fait-social",
+    "edges": [
+      {
+        "id": "prerequisite:generalite-collectif:fait-social",
+        "relation": "prerequisite_for",
+        "source": "concept:generalite-collectif",
+        "target": "concept:fait-social"
+      }
+    ],
+    "nodes": [
+      {
+        "bloom_level": "understand",
+        "description": "Une manière d’agir, de penser ou de sentir qui existe hors des consciences individuelles et peut s’imposer à elles.",
+        "id": "concept:fait-social",
+        "node_kind": "concept",
+        "title": "Fait social"
+      },
+      {
+        "bloom_level": "analyze",
+        "description": "La diffusion d’un phénomène ne suffit pas à le rendre social : elle doit être rapportée à une réalité collective qui s’impose aux individus.",
+        "id": "concept:generalite-collectif",
+        "node_kind": "concept",
+        "title": "Généralité et caractère collectif"
+      }
+    ],
+    "schema_version": "1.0"
+  },
+  "metadata": {
+    "authoring": {
+      "author_is_learner": true,
+      "mode": "self_study"
+    },
+    "discipline": "Sociologie",
+    "duration_minutes": 18,
+    "language": "fr",
+    "target": "Licence 1 — étude autonome",
+    "title": "Comprendre le fait social chez Durkheim"
+  },
+  "rules": [
+    {
+      "action": {
+        "kind": "replay_current_scene",
+        "reason": "errors_threshold"
+      },
+      "explanation_short": "Deux erreurs sur ce concept : on reprend la scène avec un appui.",
+      "id": "rule_2err_replay_concept",
+      "modulator": "M1",
+      "when": {
+        "consecutive_errors_same_concept": ">=2"
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "fait-social"
+      ],
+      "estimated_seconds": 240,
+      "id": "scene-intro",
+      "markdown": "# Trois repères pour reconnaître un fait social\n\nDurkheim cherche des phénomènes qui constituent un objet propre à la sociologie. Il retient trois repères liés :\n\n1. **L’extériorité** : la règle, la croyance ou la pratique existe avant et hors de la conscience individuelle.\n2. **La coercition** : elle peut s’imposer à l’individu ; la résistance la rend visible par une sanction, un obstacle ou une opposition.\n3. **L’existence propre** : le phénomène appartient à la vie collective et ne se réduit pas à la somme de ses manifestations individuelles.\n\n> « des manières d’agir, de penser et de sentir, extérieures à l’individu, et qui sont douées d’un pouvoir de coercition »\n\nLa fréquence seule ne suffit donc pas : un comportement très répandu n’est pas automatiquement un fait social.",
+      "objective_refs": [
+        "objective-definition"
+      ],
+      "title": "Trois repères pour reconnaître un fait social",
+      "type": "intro"
+    },
+    {
+      "adaptation_hooks": [],
+      "choices": [
+        {
+          "correct": true,
+          "id": "resistance",
+          "text": "Une tentative de résistance rencontre une sanction, un obstacle ou une opposition collective."
+        },
+        {
+          "correct": false,
+          "id": "frequency",
+          "text": "La plupart des individus adoptent spontanément le même comportement."
+        },
+        {
+          "correct": false,
+          "id": "preference",
+          "text": "L’individu juge personnellement la règle raisonnable et choisit de la suivre."
+        },
+        {
+          "correct": false,
+          "id": "biology",
+          "text": "Le comportement répond à un besoin biologique partagé par tous."
+        }
+      ],
+      "concept_refs": [
+        "fait-social"
+      ],
+      "estimated_seconds": 180,
+      "feedback_correct": "Oui. Durkheim précise que la coercition « s’affirme dès que je tente de résister » : la réaction à la résistance révèle une force qui ne vient pas du seul individu.",
+      "feedback_incorrect": "La fréquence, l’adhésion personnelle ou un besoin biologique ne prouvent pas la coercition sociale. Cherche ce qui arrive lorsque l’individu tente de ne pas suivre la règle.",
+      "hints": [
+        "Imagine que l’individu refuse la règle.",
+        "Cherche une réaction qui vient du droit, des mœurs ou du groupe."
+      ],
+      "id": "scene-quiz",
+      "objective_refs": [
+        "objective-definition"
+      ],
+      "question": "Quel indice montre le plus directement, chez Durkheim, qu’une règle exerce une coercition sociale ?",
+      "title": "Repérer la coercition",
+      "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [],
+      "artifact_a": "Un comportement est un fait social dès qu’il est partagé par la majorité des membres d’une société.",
+      "artifact_b": "Un comportement peut être général parce qu’une réalité collective, dotée d’une certaine autorité, s’impose aux individus et se répète chez eux.",
+      "concept_refs": [
+        "generalite-collectif"
+      ],
+      "estimated_seconds": 300,
+      "id": "scene-comparison",
+      "key_points": [
+        {
+          "cues": [
+            "général parce que collectif",
+            "collectif avant général",
+            "caractère obligatoire"
+          ],
+          "id": "direction-causale",
+          "text": "Chez Durkheim, la généralité est une conséquence du caractère collectif ou obligatoire, et non sa cause."
+        },
+        {
+          "cues": [
+            "état du groupe",
+            "existence propre",
+            "s’impose aux individus"
+          ],
+          "id": "realite-collective",
+          "text": "L’artefact B rapporte la répétition individuelle à une réalité du groupe qui possède une existence propre."
+        },
+        {
+          "cues": [
+            "fréquence ne suffit pas",
+            "pas seulement partagé",
+            "majorité insuffisante"
+          ],
+          "id": "limite-frequence",
+          "text": "L’artefact A confond une fréquence observée avec le critère sociologique que cette fréquence doit encore expliquer."
+        }
+      ],
+      "model_answer": "L’artefact A inverse le raisonnement : le simple fait qu’un comportement soit majoritaire ne prouve pas qu’il soit social au sens de Durkheim. L’artefact B conserve la direction causale du texte : le phénomène est général parce qu’il procède d’un état du groupe, possède une existence propre et s’impose aux individus. La diffusion est donc un indice à interpréter avec l’extériorité et la coercition, pas un critère suffisant.",
+      "objective_refs": [
+        "objective-distinction"
+      ],
+      "prompt": "Compare les deux affirmations. Laquelle respecte le raisonnement de Durkheim, et quelle confusion précise l’autre commet-elle ?",
+      "rubric": {
+        "completeness": 0.5,
+        "evidence_quality": 0.4,
+        "tone": 0.1
+      },
+      "title": "Général parce que collectif, et non l’inverse",
+      "type": "comparison"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "fait-social",
+        "generalite-collectif"
+      ],
+      "estimated_seconds": 360,
+      "id": "scene-explain",
+      "key_points": [
+        {
+          "cues": [
+            "extérieur à l’individu",
+            "hors des consciences",
+            "préexiste"
+          ],
+          "id": "exteriorite",
+          "text": "Le fait social existe hors de la conscience individuelle et ne dépend pas de l’invention de chaque personne."
+        },
+        {
+          "cues": [
+            "pouvoir de coercition",
+            "résistance",
+            "sanction"
+          ],
+          "id": "coercition",
+          "text": "Son pouvoir de coercition devient particulièrement visible quand l’individu résiste."
+        },
+        {
+          "cues": [
+            "existence propre",
+            "état du groupe",
+            "réalité collective"
+          ],
+          "id": "existence-propre",
+          "text": "Il relève d’une réalité collective qui possède une existence propre, distincte de ses expressions individuelles."
+        },
+        {
+          "cues": [
+            "général parce que collectif",
+            "généralité ne suffit pas",
+            "diffusion"
+          ],
+          "id": "generalite",
+          "text": "Sa diffusion dans le groupe est un effet ou un indice de son caractère collectif, pas une définition suffisante."
+        }
+      ],
+      "model_explanation": "Un fait social est une manière d’agir, de penser ou de sentir qui existe hors de chaque conscience individuelle. Il peut s’imposer aux personnes ; on voit cette coercition quand une résistance rencontre une sanction ou une opposition. Par exemple, une règle juridique existait avant moi et réagit si je tente de la violer. Le phénomène appartient à une réalité collective qui ne se réduit pas à mes choix particuliers. S’il est répandu, ce n’est pas la fréquence seule qui le rend social : chez Durkheim, il est général parce qu’il est collectif.",
+      "objective_refs": [
+        "objective-definition",
+        "objective-distinction"
+      ],
+      "prompt": "Explique en quatre à six phrases ce qu’est un fait social à une personne qui n’a pas lu Durkheim. Donne un exemple, indique comment la résistance révèle la coercition et précise pourquoi la simple généralité ne suffit pas.",
+      "rubric": {
+        "completeness": 0.5,
+        "evidence_quality": 0.4,
+        "tone": 0.1
+      },
+      "title": "Expliquer la définition sans la réciter",
+      "type": "explain_back"
+    }
+  ],
+  "schema_version": "1.4",
+  "source_plan_id": "self-study-durkheim-fait-social-draft",
+  "validated_at": "2026-10-30T00:00:00Z",
+  "validated_by": "SELF-STUDY — not teacher-validated"
+}

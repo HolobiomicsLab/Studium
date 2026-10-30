@@ -1,17 +1,16 @@
-"""FastAPI app for the scene-synth service (A.7).
+"""Legacy/research FastAPI app for the scene-synth service (A.7).
 
 Exposes:
 - ``GET  /health`` — liveness probe.
-- ``POST /scenes/synthesize`` — orchestrates the six SceneAgents and
+- ``POST /scenes/synthesize`` — orchestrates the registered SceneAgents and
   returns a ``LessonBundle`` ZIP URI.
 - ``POST /scenes/critique-eval`` — scores a student critique against a
   set of claims + rubric (anti-offloading; cf. ADR 001/004).
 
 Singletons ``_orchestrator`` and ``_critique_evaluator`` are module-level
-so tests can override them via ``monkeypatch.setattr``. The default
-factory ``_build_default_orchestrator`` returns ``None`` unless the
-``ABS_CAPSULE_ROOT`` env var is set, so the app boots in test contexts
-without a real LLM.
+so tests or a research host can inject them. No default orchestrator factory
+exists: both start as ``None``, and their endpoints return HTTP 503 until an
+explicit integration configures them.
 """
 
 from __future__ import annotations
@@ -201,18 +200,27 @@ def synthesize(req: SynthesizeRequest) -> SynthesizeResponse:
     return SynthesizeResponse(**result)
 
 
-@app.post("/scenes/critique-eval", response_model=CritiqueEvalResponse)
+@app.post("/scenes/critique-eval", response_model=CritiqueEvalResponse, response_model_exclude_none=True)
 def critique_eval(req: CritiqueEvalRequest) -> CritiqueEvalResponse:
     if _critique_evaluator is None:
         raise HTTPException(
             status_code=503, detail="critique evaluator not configured"
         )
-    result = _critique_evaluator.evaluate(
-        claims=[c.model_dump() for c in req.claims],
-        rubric=req.rubric.model_dump(),
-        student_critique=req.student_critique,
+    try:
+        result = _critique_evaluator.evaluate(
+            claims=[c.model_dump() for c in req.claims],
+            rubric=req.rubric.model_dump(),
+            student_critique=req.student_critique,
+        )
+    except ValueError as e:
+        # the judge's reply was unusable (not JSON, bad score, malformed covered_ids): a failed
+        # upstream call, not a server bug. The TS adapter degrades to its keyword scorer on non-2xx.
+        raise HTTPException(status_code=502, detail=f"critique judge reply unusable: {e}")
+    return CritiqueEvalResponse(
+        score=result.score,
+        feedback=result.feedback,
+        covered_ids=result.covered_ids,
     )
-    return CritiqueEvalResponse(score=result.score, feedback=result.feedback)
 
 
 # --------------------------------------------------------------------------- #

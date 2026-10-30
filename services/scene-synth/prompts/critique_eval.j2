@@ -13,5 +13,7 @@ Critique de l'étudiant :
 
 Évalue dans quelle mesure l'étudiant a identifié les défauts. Note de 0 à 1 (somme pondérée des dimensions). Donne un feedback bref (1-2 phrases).
 
+Indique aussi, dans "covered_ids", les "id" des affirmations ci-dessus dont le défaut est bien identifié par la critique de l'étudiant. N'utilise que les "id" listés plus haut ; une liste vide signifie qu'aucun défaut n'est identifié.
+
 Réponds en JSON strict :
-{ "score": <float entre 0 et 1>, "feedback": "<1-2 phrases>" }
+{ "score": <float entre 0 et 1>, "feedback": "<1-2 phrases>", "covered_ids": ["<id d'affirmation>", ...] }

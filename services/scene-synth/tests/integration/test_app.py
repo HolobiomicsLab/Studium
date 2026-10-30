@@ -115,3 +115,74 @@ def test_critique_eval_endpoint(client, monkeypatch):
     body = r.json()
     assert body["score"] == 0.7
     assert body["feedback"] == "Bonne identification."
+    # a result built without the field is "not measured": the key is absent from the response, so
+    # the client never reads it as an LLM judgement that nothing was covered
+    assert "covered_ids" not in body
+
+
+def test_critique_eval_endpoint_returns_the_covered_ids(client, monkeypatch):
+    from agents.critique_evaluator import CritiqueResult
+
+    class StubEval:
+        def evaluate(self, claims, rubric, student_critique):
+            return CritiqueResult(score=0.5, feedback="Un défaut sur deux.", covered_ids=["c1"])
+
+    monkeypatch.setattr(scene_synth_app, "_critique_evaluator", StubEval(), raising=False)
+    r = client.post(
+        "/scenes/critique-eval",
+        json={
+            "claims": [
+                {"id": "c1", "text": "...", "flaws_expected": ["bias"]},
+                {"id": "c2", "text": "...", "flaws_expected": ["bias"]},
+            ],
+            "rubric": {"completeness": 0.4, "evidence_quality": 0.4, "tone": 0.2},
+            "student_critique": "L'auteur omet la méthodologie.",
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["covered_ids"] == ["c1"]
+
+
+_CRITIQUE_BODY = {
+    "claims": [{"id": "c1", "text": "...", "flaws_expected": ["bias"]}],
+    "rubric": {"completeness": 0.4, "evidence_quality": 0.4, "tone": 0.2},
+    "student_critique": "L'auteur omet la méthodologie.",
+}
+
+
+def _real_evaluator(monkeypatch, reply: str):
+    from unittest.mock import MagicMock
+
+    from agents.critique_evaluator import CritiqueEvaluator
+
+    llm = MagicMock()
+    llm.complete.return_value = reply
+    monkeypatch.setattr(scene_synth_app, "_critique_evaluator", CritiqueEvaluator(llm_client=llm), raising=False)
+
+
+def test_critique_eval_endpoint_serves_a_reply_without_covered_ids_as_unmeasured(client, monkeypatch):
+    _real_evaluator(monkeypatch, '{"score": 0.6, "feedback": "Bien."}')
+    r = client.post("/scenes/critique-eval", json=_CRITIQUE_BODY)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"score": 0.6, "feedback": "Bien."}  # no covered_ids key, no null
+
+
+def test_critique_eval_endpoint_serves_an_empty_covered_ids_as_a_measurement(client, monkeypatch):
+    _real_evaluator(monkeypatch, '{"score": 0.0, "feedback": "Rien.", "covered_ids": []}')
+    r = client.post("/scenes/critique-eval", json=_CRITIQUE_BODY)
+    assert r.status_code == 200, r.text
+    assert r.json()["covered_ids"] == []
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "not json",
+        '{"score": 0.6, "feedback": "Bien.", "covered_ids": "c1"}',
+        '{"score": 0.6, "feedback": "Bien.", "covered_ids": [1]}',
+    ],
+)
+def test_critique_eval_endpoint_answers_502_not_500_for_an_unusable_judge_reply(client, monkeypatch, reply):
+    _real_evaluator(monkeypatch, reply)
+    r = client.post("/scenes/critique-eval", json=_CRITIQUE_BODY)
+    assert r.status_code == 502, r.text
