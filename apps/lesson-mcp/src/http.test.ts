@@ -16,7 +16,7 @@ afterEach(async () => {
 });
 async function setup(options: {bundlesRoot?: string; maxRequests?: number} = {}) {
   const bundlesRoot = options.bundlesRoot ?? root;
-  const host = new SessionHost({bundlesRoot, live:false});
+  const host = new SessionHost({bundlesRoot, live:false, dataDir:null}); // I-10: in memory, whatever the environment says
   const server = createLessonHttpServer({host, token, bundlesRoot, ...options});
   servers.push(server);
   await new Promise<void>(r => server.listen(0, '127.0.0.1', r));
@@ -53,6 +53,7 @@ describe('local lesson HTTP API', () => {
     expect(submit.mutating).toBe(true);
     expect(submit.requires_scene_id).toBe(true);
     expect(body.operations.some((x:any) => x.name === 'record_experiment')).toBe(true);
+    // The lesson operations only: the study, authoring and teacher tools are MCP-only this sprint (I-11).
     expect(body.operations).toHaveLength(25);
     for (const name of ['get_server_info', 'list_community_bundles']) {
       expect(body.operations.find((operation:{name:string;mutating:boolean}) => operation.name === name)?.mutating).toBe(false);

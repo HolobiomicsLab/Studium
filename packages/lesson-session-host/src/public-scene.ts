@@ -18,6 +18,7 @@
 import type { Scene } from "@studium/lesson-bundle-schema";
 import type { Presentation, Transition, PublicDeckItem } from "@studium/lesson-session";
 import { verdictDeck, publicDeck } from "@studium/lesson-session";
+import { keyClassOf } from "./key-class.js";
 
 // A client-safe projection of a Scene: structurally a Scene with the answer-bearing fields removed
 // (see PublicScene in @studium/lesson-session/types — kept un-re-exported there to avoid touching a
@@ -74,6 +75,10 @@ export function publicScene(scene: Scene): PublicScene {
       out[key] = value.map((c) => stripChoice(c));
       continue;
     }
+    if (key === "evidence" && citationsAnswerIt(scene.type)) {
+      out[key] = withoutCitations(value);
+      continue;
+    }
     out[key] = value;
   }
   // VERDICT DECK: derive the client-safe deck (opaque tokens + text, labels stripped) from the answer-key
@@ -83,6 +88,44 @@ export function publicScene(scene: Scene): PublicScene {
     out.deck = publicDeck(verdictDeck(scene.claims, scene.sound_claims ?? [], scene.id));
   }
   return out as PublicScene;
+}
+
+/** SL-5: on a graded scene the passages it cites can state the answer (a quiz built from a sentence
+ * of the source quotes that sentence), so they wait for the verdict (`citedSources`). A reading, a
+ * checkpoint and a reproduction keep them: there the passage is the material, not the key. An
+ * unknown scene type is treated as graded. */
+function citationsAnswerIt(type: string): boolean {
+  const keyClass = keyClassOf(type);
+  return keyClass === null || keyClass === "author_keyed" || keyClass === "production";
+}
+
+/** The evidence minus what quotes the source: the display asset and the enrichment record stay. */
+function withoutCitations(evidence: unknown): unknown {
+  if (!evidence || typeof evidence !== "object") return evidence;
+  const { bibliographic_refs: _refs, case_studies: _cases, ...rest } = evidence as Record<string, unknown>;
+  return rest;
+}
+
+/** A passage a scene cites, as the verdict releases it after the answer. */
+export interface CitedSource { title: string; quote?: string; url?: string }
+
+const MAX_CITED_SOURCES = 5;
+
+/** The passages `scene` cites (its `evidence.bibliographic_refs`): title, exact quote, and a link
+ * when the record has a web address or a DOI. Released only after the learner answered. */
+export function citedSources(scene: Scene): CitedSource[] {
+  const refs = (scene as { evidence?: { bibliographic_refs?: unknown } }).evidence?.bibliographic_refs;
+  if (!Array.isArray(refs)) return [];
+  return refs.slice(0, MAX_CITED_SOURCES).flatMap((ref): CitedSource[] => {
+    if (!ref || typeof ref !== "object") return [];
+    const r = ref as { title?: unknown; excerpt?: unknown; prov_derived_from?: unknown; doi?: unknown };
+    if (typeof r.title !== "string") return [];
+    const source: CitedSource = { title: r.title };
+    if (typeof r.excerpt === "string" && r.excerpt.trim()) source.quote = r.excerpt.trim();
+    if (typeof r.prov_derived_from === "string" && /^https?:\/\//.test(r.prov_derived_from)) source.url = r.prov_derived_from;
+    else if (typeof r.doi === "string" && r.doi.trim()) source.url = `https://doi.org/${r.doi.trim()}`;
+    return [source];
+  });
 }
 
 /** Drop the `correct` flag from a quiz choice while preserving id + text (+ any other display field). */

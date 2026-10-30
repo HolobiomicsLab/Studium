@@ -13,7 +13,7 @@ function payload(result: Awaited<ReturnType<Client["callTool"]>>) {
 describe("session language over MCP", () => {
   it("supports start and change with the same host preference exposed by operator context", async () => {
     const fixtures = resolve(fileURLToPath(new URL("../../../fixtures/", import.meta.url)));
-    const host = new SessionHost({ bundlesRoot: fixtures, live: false });
+    const host = new SessionHost({ bundlesRoot: fixtures, live: false, dataDir: null }); // I-10: in memory
     const server = buildMcpServer(host);
     const client = new Client({ name: "language-test", version: "1" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();

@@ -28,6 +28,10 @@ const problem = (status:number, code:string, error:string):Reply => ({status, bo
 /** Build a local single-owner API; caller must listen on a loopback address. */
 export function createLessonHttpServer(options:HttpOptions) {
   if (options.token.length < 32) throw new Error('STUDIUM_API_TOKEN must contain at least 32 characters');
+  // Lead decision I-11 (2026-10-30 sprint): this adapter serves the lesson operations only. The study
+  // tools (get_study_plan, list_lessons, rate_recall, start_review_session), the authoring tools
+  // (get_authoring_guide, prepare_sources, create_lesson) and the teacher tools (review_lesson,
+  // class_report) stay MCP-only this sprint: server.ts registers them, http.test.ts pins what is here.
   const operations = lessonOperations(options.host);
   const dispatch = createDispatcher(options, operations);
   const server = createServer(async (request,response) => {

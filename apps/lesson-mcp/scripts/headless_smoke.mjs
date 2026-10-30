@@ -32,7 +32,8 @@ const expect = (cond, msg) => { checks++; if (!cond) failures.push(msg); };
 
 const transport = new StdioClientTransport({
   command: TSX, args: ["src/index.ts"], cwd: MCP_DIR,
-  env: { ...process.env, BUNDLES_ROOT: resolve(REPO_ROOT, "fixtures") }, stderr: "pipe",
+  // I-10: a smoke keeps nothing — in memory, never the developer's STUDIUM_DATA_DIR or ~/.studium.
+  env: { ...process.env, BUNDLES_ROOT: resolve(REPO_ROOT, "fixtures"), STUDIUM_EPHEMERAL: "1", STUDIUM_DATA_DIR: "" }, stderr: "pipe",
 });
 transport.stderr?.on("data", () => {});
 const client = new Client({ name: "headless-smoke", version: "0.0.1" });

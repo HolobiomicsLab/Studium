@@ -13,7 +13,8 @@ const TSX = resolve(REPO, "node_modules/.pnpm/node_modules/.bin/tsx");
 
 const transport = new StdioClientTransport({
   command: TSX, args: ["src/index.ts"], cwd: HERE,
-  env: { ...process.env, BUNDLES_ROOT: "/tmp/studium_live" }, stderr: "inherit",
+  // I-10: in memory, never the developer's STUDIUM_DATA_DIR or ~/.studium.
+  env: { ...process.env, BUNDLES_ROOT: "/tmp/studium_live", STUDIUM_EPHEMERAL: "1", STUDIUM_DATA_DIR: "" }, stderr: "inherit",
 });
 const client = new Client({ name: "verify", version: "0.1.0" });
 await client.connect(transport);

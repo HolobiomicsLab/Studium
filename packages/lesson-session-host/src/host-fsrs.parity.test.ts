@@ -1,16 +1,15 @@
 // packages/lesson-session-host/src/host-fsrs.parity.test.ts
-// Parity guard for the FSRS scheduler that host.ts INLINES verbatim (see the "FSRS read-side mirror"
-// block in host.ts). The host cannot import @studium/adaptation-engine (undeclared dep, and a parallel
-// workflow owns that package.json), so the scheduler is copied by hand — which silently drifts if
-// fsrs.ts changes. This test pins the host copy against the AUTHORITATIVE scheduler in
-// packages/adaptation-engine/src/fsrs.ts by replaying the SAME answer history through both and
-// asserting numerically-identical retrievability / isDue / next-due, INCLUDING multi-review chains
+// Parity guard for the host's FSRS history replay. The host no longer carries a copy of the scheduler
+// (RT-3, sprint 2026-10-30): it imports packages/adaptation-engine/src/fsrs.ts through fsrs-memory.ts,
+// and the engine folds every graded answer into LearnerState.concept_memory itself. What remains on
+// the host side is the replay of a state saved before that memory existed (conceptMemoryFromState,
+// reached here through reviewQueueFromState on a state without concept_memory). This test replays
+// the SAME answer history through that path and through the scheduler directly and asserts
+// numerically-identical retrievability / isDue / next-due, INCLUDING multi-review chains
 // (reps >= 2: good → +30d → good → +60d → good, lapses, hinted answers).
 //
-// The host side is exercised through its PUBLIC surface — reviewQueueFromState() runs the inlined
-// fsrsReviewMemory/fsrsRetrievability/fsrsIsDue/fsrsDueAt — so this tests the real shipped copy, not a
-// re-export. The engine side imports fsrs.ts directly by relative path (a file import; no package dep
-// needed for vitest's resolver).
+// The engine side imports fsrs.ts directly by relative path (a file import; no package dep needed
+// for vitest's resolver).
 import { describe, it, expect } from "vitest";
 import {
   defaultLearnerState,
@@ -132,8 +131,8 @@ describe("host.ts inlined FSRS is numerically identical to packages/adaptation-e
       for (const off of PROBE_OFFSETS) {
         const now = lastReview + off;
 
-        // HOST side: the inlined scheduler, surfaced through reviewQueueFromState (replays the
-        // SAME history through fsrsReviewMemory/Retrievability/IsDue/DueAt).
+        // HOST side: the history replay, surfaced through reviewQueueFromState (replays the SAME
+        // history through the scheduler fsrs-memory.ts imports).
         const q = reviewQueueFromState(state, now);
         const hostItem = q.find((i) => i.concept_id === "c1");
         expect(hostItem, `host item missing at off=${off}`).toBeDefined();

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Scene } from "@studium/lesson-bundle-schema";
-import { publicScene, REDACTED_SCENE_FIELDS } from "./public-scene.js";
+import { publicScene, citedSources, REDACTED_SCENE_FIELDS } from "./public-scene.js";
 
 // A minimal SceneBase the variant builders extend. Every attemptable field the learner needs to
 // answer must SURVIVE publicScene; every answer-bearing field must be stripped.
@@ -185,5 +185,39 @@ describe("publicScene — verdict deck projection", () => {
   it("emits no deck when verdict_deck is not set", () => {
     const noFlag = { ...(deckScene as unknown as Record<string, unknown>), verdict_deck: false } as unknown as Scene;
     expect("deck" in (publicScene(noFlag) as Record<string, unknown>)).toBe(false);
+  });
+});
+
+// SL-5: a scene may cite the passages it rests on (`evidence`, contract C2). On a graded scene a cited
+// passage can state the answer, so the projection withholds the citations until the learner has
+// answered — they come back with the verdict (citedSources). A reading keeps them: they ARE the text.
+describe("publicScene — cited passages", () => {
+  const EVIDENCE = {
+    bibliographic_refs: [{
+      perspicacite_doc_id: "p:src:1", title: "Cours", authors: [], excerpt: "La réponse est trois.",
+      relevance_score: 1, prov_derived_from: "https://example.org/cours",
+    }],
+    abs_asset: { asset_type: "equation_latex", payload_inline: "x^2", prov_derived_from: "doi:x" },
+    enrichment_metadata: { enricher_version: "1", perspicacite_mode_used: "passages", timestamp: "t", degraded: false },
+  };
+
+  it("withholds the citations of a graded scene and keeps its display asset", () => {
+    const quiz = { ...base("quiz"), question: "?", choices: [{ id: "a", text: "A", correct: true }],
+      feedback_correct: "y", feedback_incorrect: "n", hints: [], evidence: EVIDENCE } as unknown as Scene;
+    const pub = publicScene(quiz) as Record<string, unknown>;
+    expect(JSON.stringify(pub)).not.toContain("La réponse est trois.");
+    expect((pub["evidence"] as Record<string, unknown>)["abs_asset"]).toEqual(EVIDENCE.abs_asset);
+    expect("bibliographic_refs" in (pub["evidence"] as Record<string, unknown>)).toBe(false);
+  });
+
+  it("keeps the citations of a reading", () => {
+    const concept = { ...base("concept"), markdown: "m", evidence: EVIDENCE } as unknown as Scene;
+    expect((publicScene(concept) as Record<string, unknown>)["evidence"]).toEqual(EVIDENCE);
+  });
+
+  it("releases them after the answer as {title, quote, url}", () => {
+    const quiz = { ...base("quiz"), evidence: EVIDENCE } as unknown as Scene;
+    expect(citedSources(quiz)).toEqual([{ title: "Cours", quote: "La réponse est trois.", url: "https://example.org/cours" }]);
+    expect(citedSources(base("quiz") as unknown as Scene)).toEqual([]);
   });
 });

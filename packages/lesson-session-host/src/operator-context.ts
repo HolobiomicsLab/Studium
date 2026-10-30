@@ -26,9 +26,12 @@ const RENDERING_INSTRUCTIONS = "Use these public materials to build a viewer or 
   "Record input/code hashes and actual execution checks. A changed viewer parameter is not a new attested capsule run. " +
   "In teaching mode obtain the learner's own judgment and confidence before submitting; never answer for them. " +
   "Do not search the bundle for assessment keys. Do not modify the approved lesson, grading or publication state.";
-// Appended only when the lesson carries a self-study notice (authoring.notice).
+// Appended only when the lesson carries a self-study notice (authoring.notice): one sentence, naming
+// who wrote the keys (C3: an agent drafting from the learner's sources is not the learner).
 const SELF_STUDY_EXPLORATION = " Self-authored lesson: its quiz and spot-the-flaw keys are the learner's own, " +
   "so check claims against the cited sources rather than against those keys.";
+const AGENT_DRAFTED_EXPLORATION = " AI-drafted lesson: an agent wrote its keys from the learner's sources and no " +
+  "teacher checked them, so check claims against the cited passages rather than against those keys.";
 const SELF_STUDY_RENDERING = " Show authoring.notice with the scene and never present author-keyed results as external assessment.";
 
 /** Free-text inputs shared by the file transport and operator response contract. */
@@ -99,6 +102,7 @@ export function operatorContext(host: SessionHost, sessionId: string) {
   const run = host.runManifest(sessionId);
   const authoring = host.authoring(sessionId);
   const selfStudy = authoring.notice !== null;
+  const explorationNote = host.draftedBy(sessionId) === "agent" ? AGENT_DRAFTED_EXPLORATION : SELF_STUDY_EXPLORATION;
   const language = host.sessionLanguage(sessionId);
   return {
     schema: "studium/operator-context/v1" as const,
@@ -133,7 +137,7 @@ export function operatorContext(host: SessionHost, sessionId: string) {
       capabilities: "discover-in-current-harness" as const,
       workflow: ["predict", "baseline", "vary", "compare", "judge", "transfer"],
       recordTool: "tools/experience_exploration.py",
-      instructions: EXPLORATION_INSTRUCTIONS + (selfStudy ? SELF_STUDY_EXPLORATION : ""),
+      instructions: EXPLORATION_INSTRUCTIONS + (selfStudy ? explorationNote : ""),
     },
     rendering: {
       owner: "harness" as const,

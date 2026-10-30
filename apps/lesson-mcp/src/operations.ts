@@ -19,6 +19,10 @@ function reinforcementResult(status: ReinforcementStatus): Record<string, unknow
   return {
     reinforcement: due[0] ?? null,
     due,
+    // Reviewed concepts still below the gate after graded attempts (the study plan's « À reprendre »).
+    relearn: status.relearn.map(transportTarget),
+    // Reviewed concepts no graded attempt measured, due for review (« À revoir »), never called weak.
+    unmeasured: status.unmeasured.map(transportTarget),
     reason,
     next_due_at: reason === "nothing_due" && status.next_due_at !== null
       ? Math.round(status.next_due_at) : null,
@@ -60,8 +64,14 @@ export interface Operation {
   invoke: (args: Record<string, unknown>) => Promise<ToolResult>;
 }
 
+export interface LessonOperationsOptions {
+  /** The tools the surface actually registers, which get_server_info lists (sorted). The MCP server
+   * passes its full list (lesson, study, authoring and teacher tools); without it, TOOL_NAMES. */
+  toolNames?: () => readonly string[];
+}
+
 /** Build transport-independent operations using the canonical host and schemas. */
-export function lessonOperations(host: SessionHost): Operation[] {
+export function lessonOperations(host: SessionHost, opts: LessonOperationsOptions = {}): Operation[] {
   const operations: Operation[] = [];
   const server = {
     registerTool<S extends z.ZodRawShape>(name: string, config: {description: string; inputSchema: S}, callback: (args: z.infer<z.ZodObject<S>>) => Promise<ToolResult>) {
@@ -105,15 +115,20 @@ export function lessonOperations(host: SessionHost): Operation[] {
   server.registerTool("get_server_info", {
     description: "Describe this Studium MCP server build, runtime configuration, and complete tool surface.",
     inputSchema: {},
-  }, async () => text({
-    name: "studium-lesson",
-    version: SERVER_VERSION,
-    build: getBuildInfo(),
-    tools: [...TOOL_NAMES],
-    bundles_root: process.env["BUNDLES_ROOT"] ?? process.cwd(),
-    data_dir: process.env["STUDIUM_DATA_DIR"] || null,
-    model_backend: process.env["LITELLM_BASE_URL"] ? "configured" : "none",
-  }));
+  }, async () => {
+    const persistence = host.persistence();
+    return text({
+      name: "studium-lesson",
+      version: SERVER_VERSION,
+      build: getBuildInfo(),
+      tools: [...(opts.toolNames?.() ?? TOOL_NAMES)].sort(),
+      bundles_root: host.bundlesRoot,
+      data_dir: persistence.data_dir,
+      // C6: where lessons and learner data live, and the warning to relay when nothing is durable.
+      persistence,
+      model_backend: process.env["LITELLM_BASE_URL"] ? "configured" : "none",
+    });
+  });
 
   server.registerTool("get_operator_context", {
     description: "Get the current public scene, resolved display assets, run instructions and response contract " +
@@ -168,6 +183,7 @@ export function lessonOperations(host: SessionHost): Operation[] {
           presentation: publicPresentation(r.presentation),
           language: operatorContext(host, r.sessionId).language,
           resume: r.resume,
+          persistence: r.persistence,
           ...(r.due ? { due: r.due.map(transportTarget) } : {}),
         });
       } catch (e) { return fail((e as Error).message); }
@@ -190,12 +206,15 @@ export function lessonOperations(host: SessionHost): Operation[] {
   server.registerTool(
     "submit_response",
     {
-      description: "Submit a response to the current scene. A scene carrying run_manifest requires " +
+      description: "Submit a response to the current scene. In a chat, send the learner's own words as " +
+        "{kind:\"reply\", text}: Studium maps them to the scene's answer (a choice letter or text, a confidence, a " +
+        "free-text answer). A scene carrying run_manifest requires " +
         "get_run_manifest, an actual run, and submit_run_result first. Quiz choices are reshuffled and relettered " +
         "per session: send the DISPLAYED choice id, never a memorized source id. Confidence checkpoints accept " +
         "{kind:\"confidence\", pre, post} (legacy value remains accepted). Returns next/replay/remediate_alt/" +
         "remediate/calibration/complete with verdict and navigation; navigation.returns_to is the scene resumed " +
-        "after the detour. A complete summary documents skipped_scene_ids, scenes_detoured, and mastery.",
+        "after the detour. A complete summary documents skipped_scene_ids, scenes_detoured, and mastery. Show " +
+        "verdict.display_markdown first, then the transition's display_markdown.",
       inputSchema: { session_id: z.string(), input: ResponseInputSchema },
     },
     async ({ session_id, input }) => {

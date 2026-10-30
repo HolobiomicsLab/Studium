@@ -23,7 +23,8 @@ import { mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { LessonSession } from "@studium/lesson-session";
 import { RUN_REQUIRED_MESSAGE, type SessionHost } from "./host.js";
-import { publicScene, publicTransition } from "./public-scene.js";
+import { publicScene, publicTransition, type CitedSource } from "./public-scene.js";
+import { referenceMarkdown, sourcesMarkdown } from "./chat-display.js";
 import { parseRunResult, type RunResult } from "./run-result.js";
 import { expectedKind, operatorContext, operatorContextMarkdown, responseFor } from "./operator-context.js";
 import { z } from "zod";
@@ -45,6 +46,9 @@ const FILES = {
   // LEARNER-TIME RUN channel: Studium emits the manifest, the operator runs + writes the result back.
   run: "run.json", runResult: "run_result.json",
 } as const;
+
+/** Expected kinds a bare `{text}` cannot carry: the host reads the choice or the confidence from it. */
+const READ_FROM_REPLY = new Set(["quiz_choice", "confidence"]);
 
 // scene type -> the free-text ResponseInput kind its grader requires (mirror of studium-vscode
 // scene-io.ts + lesson-session graders.ts). Operators may instead write an explicit {kind,...};
@@ -123,12 +127,14 @@ export class SessionWorkspace {
     let r: Record<string, unknown>;
     try { r = JSON.parse(raw); } catch { return null; }                  // partial/invalid write = not ready (retry)
     const expected = expectedKind(sceneType);
+    // A quiz choice or a confidence is not free text: the host reads it from the words (reply-mapping.ts).
+    const fromText = (text: string) => (READ_FROM_REPLY.has(expected) ? { kind: "reply", text } : { kind: expected, text });
     if (r && typeof r.kind === "string") {
       if (r.kind === expected) return r;                                 // explicit + correct
-      if (typeof r.text === "string") return { kind: expected, text: r.text }; // mismatched-with-text: coerce
+      if (typeof r.text === "string") return fromText(r.text);           // mismatched-with-text: coerce
       return r;                                                          // structural mismatch: ingest's catch handles it
     }
-    if (r && typeof r.text === "string") return expected === "ack" ? { kind: "ack" } : { kind: expected, text: r.text };
+    if (r && typeof r.text === "string") return expected === "ack" ? { kind: "ack" } : fromText(r.text);
     return { kind: "ack" };                                              // empty / control scene
   }
 
@@ -417,11 +423,18 @@ function renderTask(
 function renderFeedback(t: Record<string, unknown>, locale: Locale): string {
   const reason = typeof t.reason === "string" ? t.reason : "";
   // The verdict is the ONLY place the quiz feedback reaches the learner now (the public scene no
-  // longer carries feedback_correct / feedback_incorrect): say it first, then where the lesson goes.
-  const v = t.verdict as { graded?: boolean; correct?: boolean; feedback?: string } | undefined;
-  const verdictLine = v?.feedback
+  // longer carries feedback_correct / feedback_incorrect): say it first, then the reference a key-point
+  // or audit answer is compared with (I-1, under the chat's headings), the passages the scene cites
+  // (SL-5, withheld from task.md until now), then where the lesson goes.
+  const v = t.verdict as {
+    graded?: boolean; correct?: boolean; feedback?: string; sources?: CitedSource[];
+    key_points?: string[]; key_points_missing?: string[]; model_answer?: string; reference_kind?: "key_points" | "planted_flaws" | "flawed_claims";
+  } | undefined;
+  const reference = referenceMarkdown(v, locale);
+  const cited = v?.sources?.length ? `${sourcesMarkdown(v.sources, locale)}\n\n` : "";
+  const verdictLine = (v?.feedback
     ? `${tr(locale, v.correct === false ? "workspace_verdict_incorrect" : "workspace_verdict_correct")} — ${v.feedback}\n\n`
-    : "";
+    : "") + (reference ? `${reference}\n\n` : "") + cited;
   const nav = t.navigation as { returns_to?: string } | undefined;
   const heading = `${tr(locale, "workspace_feedback_heading")}\n\n`;
   switch (t.kind) {
@@ -434,10 +447,11 @@ function renderFeedback(t: Record<string, unknown>, locale: Locale): string {
       reason,
       returns_to: nav?.returns_to ? tr(locale, "workspace_feedback_returns_to", { scene: nav.returns_to }) : "",
     })}\n`;
-    case "calibration": return `${heading}${tr(locale, "workspace_feedback_calibration")}\n`;
+    case "calibration": return `${heading}${verdictLine}${tr(locale, "workspace_feedback_calibration")}\n`;
     case "complete": {
+      // The last answer of a lesson earns its feedback and its sources too.
       const n = (t.summary as Record<string, unknown> | undefined)?.scenesCompleted;
-      return `${heading}${tr(locale, "workspace_feedback_complete", { count: String(n ?? "?") })}\n`;
+      return `${heading}${verdictLine}${tr(locale, "workspace_feedback_complete", { count: String(n ?? "?") })}\n`;
     }
     default: return `${heading}(${String(t.kind)})\n`;
   }

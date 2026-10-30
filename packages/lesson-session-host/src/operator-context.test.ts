@@ -23,10 +23,17 @@ const SELF_STUDY = {
   metadata: { ...METADATA, authoring: { mode: "self_study", author_is_learner: true } },
   validated_by: "SELF-STUDY — not teacher-validated",
 };
-// These hosts are offline (live: false), so the notice is the no-judge variant.
+// These hosts are offline (live: false), so the notice is the no-judge variant. Sprint 2026-10-30 (D5):
+// without a judge the learner compares with the model answer and rates their recall, which schedules
+// reviews and never moves mastery; the notice says so instead of promising keyword feedback.
 const SELF_STUDY_NOTICE_EN_WITHOUT_JUDGE = "Self-authored lesson: quiz and spot-the-flaw keys were written by the learner " +
-  "(open book). Without a judge model, production scenes give keyword feedback with no certified assessment; " +
-  "only executed reproductions carry an external assessment.";
+  "(open book). Without a judge model, production scenes are not assessed: compare your answer with the model " +
+  "answer and rate your recall; that rating schedules your reviews and never changes your mastery. Only executed " +
+  "reproductions carry an external assessment.";
+const AGENT_DRAFTED = {
+  metadata: { ...METADATA, authoring: { mode: "self_study", author_is_learner: false, drafted_by: "agent" } },
+  validated_by: "SELF-STUDY — not teacher-validated",
+};
 
 async function start(overrides: Record<string, unknown> = {}, bundleOverrides: Record<string, unknown> = {}) {
   const dir = await mkdtemp(join(tmpdir(), "operator-context-")); dirs.push(dir);
@@ -99,7 +106,11 @@ describe("public operator context", () => {
   it("states who wrote a teacher lesson just before exploration, without extra instructions", async () => {
     const { host, sessionId } = await start();
     const result = operatorContext(host, sessionId);
-    expect(result.authoring).toEqual({ mode: "teacher", author_is_learner: false, validated: true, judge: false, notice: null });
+    // C5 (sprint 2026-10-30) adds the approval block; no approval.json sits next to this lesson.
+    expect(result.authoring).toEqual({
+      mode: "teacher", author_is_learner: false, validated: true, judge: false, notice: null,
+      approval: { recorded: false, matches: false },
+    });
     const keys = Object.keys(result);
     expect(keys.indexOf("authoring")).toBe(keys.indexOf("exploration") - 1);
     expect(result.exploration.instructions).not.toContain("Self-authored");
@@ -130,5 +141,19 @@ describe("public operator context", () => {
     await new SessionWorkspace(teacher.host, teacher.dir).writeStep(teacher.sessionId);
     const teacherTask = await readFile(join(teacher.dir, "task.md"), "utf8");
     expect(teacherTask, "a teacher lesson adds no quote line").not.toMatch(/## Harness rendering context\n\n> /);
+  });
+
+  it("C3: an agent-drafted lesson's sentence says an AI wrote the keys, not the learner — still one sentence", async () => {
+    const teacher = await start();
+    const plain = operatorContext(teacher.host, teacher.sessionId);
+    const { host, sessionId } = await start({}, AGENT_DRAFTED);
+    const result = operatorContext(host, sessionId);
+    expect(result.authoring.notice).toMatch(/^AI-drafted lesson from your sources/);
+    const extra = result.exploration.instructions.slice(plain.exploration.instructions.length).trim();
+    expect(extra).toMatch(/AI-drafted/);
+    expect(extra).not.toMatch(/learner's own/);
+    expect(extra).toMatch(/\.$/);
+    expect(extra).not.toMatch(/\.\s/);
+    expect(result.rendering.instructions).toContain("authoring.notice");
   });
 });

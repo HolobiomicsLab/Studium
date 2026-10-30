@@ -1,9 +1,29 @@
-// packages/lesson-session-host/src/bundle-resolver.ts  (moved verbatim)
-import { readFile } from "node:fs/promises";
-import { resolve, relative, isAbsolute, dirname } from "node:path";
+// packages/lesson-session-host/src/bundle-resolver.ts
+//
+// Turn a bundle_ref into a loaded lesson. A ref is looked up in each root in order — the configured
+// bundles root, then the learner's library (C6) — and read from disk on every call, so a lesson
+// written into the library after the server started plays without a restart. Each root confines its
+// own lookups: a ref that leaves the root lexically, or through a symlink, is refused. Errors name
+// the ref the caller gave, never an absolute path, and a missing lesson suggests the closest refs.
+import { createHash } from "node:crypto";
+import { readFile, realpath, stat } from "node:fs/promises";
+import { resolve, relative, isAbsolute, dirname, join } from "node:path";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
-import { loadBundleZip, loadBundleJson } from "@studium/lesson-session/node";
+import { BundleSchemaError, loadBundleZip, loadBundleJson } from "@studium/lesson-session/node";
 import { shuffleQuizChoices } from "./shuffle-choices.js";
+import { scanCatalog, nearestRefs } from "./lesson-catalog.js";
+
+export interface ResolvedBundle {
+  bundle: LessonBundle;
+  /** The root the ref was found under. */
+  root: string;
+  /** Absolute path of the lesson file (a lesson.json or a .zip). */
+  path: string;
+  /** Folder relative render-asset paths resolve against: the lesson.json folder; "" for a .zip. */
+  baseDir: string;
+  /** sha256 of the lesson.json bytes, binding an approval record (C5); null for a .zip. */
+  sha256: string | null;
+}
 
 /** The on-disk directory a bundle's relative render-asset paths (e.g. "assets/orbitals/2pz.cube")
  * resolve against — the folder holding lesson.json for a directory bundle. "" for a .zip bundle
@@ -13,18 +33,84 @@ export function assetBaseDir(bundlesRoot: string, ref: string): string {
   return full.endsWith(".json") ? dirname(full) : "";
 }
 
-export async function resolveBundle(bundlesRoot: string, ref: string, seedSalt = ""): Promise<LessonBundle> {
-  const root = resolve(bundlesRoot);
-  const full = resolve(root, ref);
-  const rel = relative(root, full);
-  if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
-    throw new Error(`bundle_ref escapes bundles root: ${ref}`);
+function escapes(root: string, target: string): boolean {
+  const rel = relative(root, target);
+  return rel === "" || rel.startsWith("..") || isAbsolute(rel);
+}
+
+async function isFile(path: string): Promise<boolean> {
+  try { return (await stat(path)).isFile(); } catch { return false; }
+}
+
+async function isDirectory(path: string): Promise<boolean> {
+  try { return (await stat(path)).isDirectory(); } catch { return false; }
+}
+
+/** The first root holding `ref` (a lesson file, or a course folder holding lesson.json). */
+async function locate(roots: readonly string[], ref: string): Promise<{ root: string; path: string }> {
+  let insideSomeRoot = false;
+  for (const configured of roots) {
+    const root = resolve(configured);
+    let full = resolve(root, ref);
+    if (escapes(root, full)) continue;
+    insideSomeRoot = true;
+    if (await isDirectory(full)) full = join(full, "lesson.json");
+    if (!(await isFile(full))) continue;
+    // Lexically inside, but a symlink may still point out of the root: compare canonical paths.
+    if (escapes(await realpath(root), await realpath(full))) throw new Error(`bundle_ref escapes bundles root: ${ref}`);
+    return { root, path: full };
   }
-  const bundle = full.endsWith(".json")
-    ? loadBundleJson(JSON.parse(await readFile(full, "utf8")))
-    : await loadBundleZip(full);
+  if (!insideSomeRoot) throw new Error(`bundle_ref escapes bundles root: ${ref}`);
+  throw await notFound(roots, ref);
+}
+
+async function notFound(roots: readonly string[], ref: string): Promise<Error> {
+  const catalog = await scanCatalog(roots.map((dir) => ({ kind: "bundles" as const, dir })));
+  const closest = nearestRefs(ref, catalog.lessons.map((lesson) => lesson.bundle_ref));
+  const hint = closest.length ? ` — closest: ${closest.join(", ")}` : "";
+  return new Error(`lesson not found: ${ref}${hint}; call list_lessons for the available lessons`);
+}
+
+/** One line naming the first schema problem and what to change (the loader's BundleSchemaError,
+ * RT-7), instead of a whole zod dump. */
+function invalidLesson(ref: string, error: unknown): Error {
+  if (error instanceof BundleSchemaError) return new Error(`lesson ${ref} does not match the bundle schema: ${error.message}`);
+  return new Error(`lesson ${ref} could not be loaded`);
+}
+
+/** Locate `ref` across `roots`, load and validate it, and shuffle its quiz choices. */
+export async function loadResolvedBundle(
+  roots: string | readonly string[], ref: string, seedSalt = "",
+): Promise<ResolvedBundle> {
+  const { root, path } = await locate(typeof roots === "string" ? [roots] : roots, ref);
+  let bundle: LessonBundle;
+  let sha256: string | null = null;
+  if (path.endsWith(".json")) {
+    const bytes = await readFile(path);
+    sha256 = createHash("sha256").update(bytes).digest("hex");
+    let raw: unknown;
+    try { raw = JSON.parse(bytes.toString("utf8")); }
+    catch { throw new Error(`lesson ${ref} is not valid JSON`); }
+    try { bundle = loadBundleJson(raw); }
+    catch (error) { throw invalidLesson(ref, error); }
+  } else {
+    try { bundle = await loadBundleZip(path); }
+    catch (error) { throw error instanceof BundleSchemaError ? invalidLesson(ref, error) : new Error(`lesson ${ref} could not be read as a bundle archive`); }
+  }
   // Anti-leak: permute + re-letter quiz choices so the correct answer is not always first/"a".
   // Deterministic per scene id (+ optional per-learner salt), so grading and replay stay
   // reproducible. See shuffle-choices.ts.
-  return shuffleQuizChoices(bundle, seedSalt);
+  return {
+    bundle: shuffleQuizChoices(bundle, seedSalt),
+    root,
+    path,
+    baseDir: path.endsWith(".json") ? dirname(path) : "",
+    sha256,
+  };
+}
+
+export async function resolveBundle(
+  bundlesRoot: string | readonly string[], ref: string, seedSalt = "",
+): Promise<LessonBundle> {
+  return (await loadResolvedBundle(bundlesRoot, ref, seedSalt)).bundle;
 }

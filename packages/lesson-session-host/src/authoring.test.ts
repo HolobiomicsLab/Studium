@@ -11,27 +11,47 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SessionHost } from "./host.js";
-import { authoringOf, SELF_STUDY_NOTICE } from "./authoring.js";
+import { createHash } from "node:crypto";
+import { mkdirSync } from "node:fs";
+import { authoringOf, readApproval, SELF_STUDY_NOTICE, AGENT_DRAFTED_NOTICE } from "./authoring.js";
 import { publicPresentation, publicTransition } from "./public-scene.js";
 
 const ATOMISTIQUE = fileURLToPath(new URL("../../../fixtures/atomistique-l1/lesson.json", import.meta.url));
 const SELF_STUDY_VALIDATED_BY = "SELF-STUDY — not teacher-validated";
 const OPEN_BOOK_FR = "Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). ";
 const OPEN_BOOK_EN = "Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book). ";
-const NOTICE = {
-  fr: {
-    without_judge: OPEN_BOOK_FR + "Sans juge modèle, les scènes de production donnent un retour par mots-clés sans " +
-      "évaluation certifiée ; seules les reproductions exécutées portent une évaluation externe.",
-    with_judge: OPEN_BOOK_FR + "Les scènes de production, jugées par le modèle, et les reproductions exécutées " +
-      "portent l'évaluation.",
-  },
-  en: {
-    without_judge: OPEN_BOOK_EN + "Without a judge model, production scenes give keyword feedback with no certified " +
-      "assessment; only executed reproductions carry an external assessment.",
-    with_judge: OPEN_BOOK_EN + "Production scenes, judged by the model, and executed reproductions carry the assessment.",
-  },
+// Sprint 2026-10-30, D5: without a judge, free-text feedback no longer claims coverage; the learner
+// compares with the model answer and rates their recall, which schedules reviews and never moves
+// mastery — and the notice says so. That replaced the « retour par mots-clés » sentence below.
+const NO_JUDGE = {
+  fr: "Sans juge modèle, les scènes de production ne sont pas évaluées : comparez votre réponse à la réponse " +
+    "modèle et notez votre rappel ; cette note règle vos révisions, jamais votre maîtrise. Seules les " +
+    "reproductions exécutées portent une évaluation externe.",
+  en: "Without a judge model, production scenes are not assessed: compare your answer with the model answer and " +
+    "rate your recall; that rating schedules your reviews and never changes your mastery. Only executed " +
+    "reproductions carry an external assessment.",
 };
-const BLOCK_KEYS = ["mode", "author_is_learner", "validated", "judge", "notice"];
+const WITH_JUDGE = {
+  fr: "Les scènes de production, jugées par le modèle, et les reproductions exécutées portent l'évaluation.",
+  en: "Production scenes, judged by the model, and executed reproductions carry the assessment.",
+};
+const NOTICE = {
+  fr: { without_judge: OPEN_BOOK_FR + NO_JUDGE.fr, with_judge: OPEN_BOOK_FR + WITH_JUDGE.fr },
+  en: { without_judge: OPEN_BOOK_EN + NO_JUDGE.en, with_judge: OPEN_BOOK_EN + WITH_JUDGE.en },
+};
+// Contract C3: a self-study lesson an agent drafted from the learner's sources says so — the risk is a
+// wrong AI key the learner never saw, not open book.
+const AGENT_FR = "Leçon rédigée par l'IA à partir de vos sources, non vérifiée par un enseignant : chaque " +
+  "question cite son passage ; contestez une clé qui vous semble fausse. ";
+const AGENT_EN = "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; " +
+  "challenge any key you think is wrong. ";
+const AGENT_NOTICE = {
+  fr: { without_judge: AGENT_FR + NO_JUDGE.fr, with_judge: AGENT_FR + WITH_JUDGE.fr },
+  en: { without_judge: AGENT_EN + NO_JUDGE.en, with_judge: AGENT_EN + WITH_JUDGE.en },
+};
+// Contract C5 (read side) adds `approval`; `validated` keeps its meaning.
+const BLOCK_KEYS = ["mode", "author_is_learner", "validated", "judge", "notice", "approval"];
+const NO_APPROVAL = { recorded: false, matches: false };
 
 const dirs: string[] = [];
 afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
@@ -72,6 +92,7 @@ describe("authoring block of a started lesson", () => {
     const started = await hostOver(atomistique({ selfStudy: true })).create("lesson.json");
     expect(started.authoring).toEqual({
       mode: "self_study", author_is_learner: true, validated: false, judge: false, notice: NOTICE.fr.without_judge,
+      approval: NO_APPROVAL,
     });
     expect(Object.keys(started.authoring)).toEqual(BLOCK_KEYS);
   });
@@ -80,6 +101,7 @@ describe("authoring block of a started lesson", () => {
     const started = await startLive(atomistique({ selfStudy: true }));
     expect(started.authoring).toEqual({
       mode: "self_study", author_is_learner: true, validated: false, judge: true, notice: NOTICE.fr.with_judge,
+      approval: NO_APPROVAL,
     });
   });
 
@@ -92,9 +114,9 @@ describe("authoring block of a started lesson", () => {
 
   it("the untouched atomistique fixture is a validated teacher bundle with no notice, judge or not", async () => {
     const offline = await hostOver(atomistique()).create("lesson.json");
-    expect(offline.authoring).toEqual({ mode: "teacher", author_is_learner: false, validated: true, judge: false, notice: null });
+    expect(offline.authoring).toEqual({ mode: "teacher", author_is_learner: false, validated: true, judge: false, notice: null, approval: NO_APPROVAL });
     const live = await startLive(atomistique());
-    expect(live.authoring).toEqual({ mode: "teacher", author_is_learner: false, validated: true, judge: true, notice: null });
+    expect(live.authoring).toEqual({ mode: "teacher", author_is_learner: false, validated: true, judge: true, notice: null, approval: NO_APPROVAL });
   });
 });
 
@@ -123,7 +145,7 @@ describe("authoringOf", () => {
       metadata: { ...metadata, authoring: { mode: "teacher", author_is_learner: true } },
       validated_by: "https://univ-cotedazur.fr/people/teacher-001",
     }, { judge: false });
-    expect(block).toEqual({ mode: "teacher", author_is_learner: true, validated: true, judge: false, notice: null });
+    expect(block).toEqual({ mode: "teacher", author_is_learner: true, validated: true, judge: false, notice: null, approval: NO_APPROVAL });
   });
 });
 
@@ -141,5 +163,83 @@ describe("presentations served by the host carry the authoring block", () => {
     expect(transition.presentation.authoring).toEqual(authoring);
     const shipped = publicTransition(transition) as typeof transition;
     expect(shipped.presentation.authoring).toEqual(authoring);
+  });
+});
+
+describe("C3 — a lesson an agent drafted from the learner's sources", () => {
+  const metadata = { title: "T", target: "L1", duration_minutes: 5, language: "fr", discipline: "x" };
+  const agentDrafted = (language: string, judge: boolean) => authoringOf({
+    metadata: { ...metadata, language, authoring: { mode: "self_study", author_is_learner: false, drafted_by: "agent" } },
+    validated_by: SELF_STUDY_VALIDATED_BY,
+  } as never, { judge }).notice;
+
+  it("holds the four agent-drafted texts verbatim", () => {
+    expect(AGENT_DRAFTED_NOTICE).toEqual(AGENT_NOTICE);
+  });
+
+  it("says AI-drafted, not teacher-checked, cited and contestable, by locale and judge", () => {
+    expect(agentDrafted("fr", false)).toBe(AGENT_NOTICE.fr.without_judge);
+    expect(agentDrafted("fr", true)).toBe(AGENT_NOTICE.fr.with_judge);
+    expect(agentDrafted("en", false)).toBe(AGENT_NOTICE.en.without_judge);
+    expect(agentDrafted("de", true)).toBe(AGENT_NOTICE.en.with_judge);
+  });
+
+  it("never credits the learner with keys an agent wrote", () => {
+    for (const judge of [false, true]) {
+      expect(agentDrafted("fr", judge)).not.toMatch(/apprenant/);
+      expect(agentDrafted("en", judge)).not.toMatch(/learner/);
+    }
+  });
+
+  it("a learner-drafted self-study lesson keeps the open-book notice; drafted_by absent defaults by mode", () => {
+    const notice = (authoring: Record<string, unknown>) => authoringOf({
+      metadata: { ...metadata, authoring }, validated_by: SELF_STUDY_VALIDATED_BY,
+    } as never, { judge: false }).notice;
+    expect(notice({ mode: "self_study", author_is_learner: true, drafted_by: "learner" })).toBe(NOTICE.fr.without_judge);
+    expect(notice({ mode: "self_study", author_is_learner: true })).toBe(NOTICE.fr.without_judge);
+  });
+});
+
+describe("C5 — the approval record, read side", () => {
+  const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+  function courseDir(): string {
+    const root = mkdtempSync(join(tmpdir(), "approval-")); dirs.push(root);
+    mkdirSync(join(root, "course"), { recursive: true });
+    return join(root, "course");
+  }
+  const record = (bundleSha: string) => JSON.stringify({
+    schema: "studium-approval/1", bundle_sha256: bundleSha, reviewer: "Dr Example",
+    reviewed_at: "2026-10-30T09:00:00Z", checklist: {}, lint: { errors: 0, warnings: 0 }, tool: "experience_packet.py approve",
+  });
+
+  it("no record, a matching record, a stale record and a malformed one", async () => {
+    const dir = courseDir();
+    expect(await readApproval(dir, sha("v1"))).toEqual({ recorded: false, matches: false });
+    writeFileSync(join(dir, "approval.json"), record(sha("v1")));
+    expect(await readApproval(dir, sha("v1"))).toEqual({
+      recorded: true, matches: true, reviewer: "Dr Example", reviewed_at: "2026-10-30T09:00:00Z",
+    });
+    expect(await readApproval(dir, sha("v2"))).toMatchObject({ recorded: true, matches: false });
+    writeFileSync(join(dir, "approval.json"), "{not json");
+    expect(await readApproval(dir, sha("v1"))).toEqual({ recorded: false, matches: false });
+    writeFileSync(join(dir, "approval.json"), JSON.stringify({ schema: "other/9", bundle_sha256: sha("v1") }));
+    expect(await readApproval(dir, sha("v1"))).toEqual({ recorded: false, matches: false });
+    expect(await readApproval(null, null)).toEqual({ recorded: false, matches: false });
+  });
+
+  it("a started lesson reports the approval bound to its exact lesson.json; validated keeps its meaning", async () => {
+    const root = mkdtempSync(join(tmpdir(), "approval-host-")); dirs.push(root);
+    mkdirSync(join(root, "course"));
+    const text = JSON.stringify(atomistique({ selfStudy: true }));
+    writeFileSync(join(root, "course", "lesson.json"), text);
+    writeFileSync(join(root, "course", "approval.json"), record(sha(text)));
+    const started = await new SessionHost({ bundlesRoot: root, live: false }).create("course/lesson.json");
+    expect(started.authoring.approval).toEqual({
+      recorded: true, matches: true, reviewer: "Dr Example", reviewed_at: "2026-10-30T09:00:00Z",
+    });
+    expect(started.authoring.validated).toBe(false); // the SELF-STUDY validated_by still says not validated
+    writeFileSync(join(root, "course", "lesson.json"), text + "\n"); // edited after approval
+    const again = await new SessionHost({ bundlesRoot: root, live: false }).create("course/lesson.json");
+    expect(again.authoring.approval).toMatchObject({ recorded: true, matches: false });
   });
 });

@@ -19,7 +19,8 @@ import {
   reinforcementSceneFromState,
 } from "./host.js";
 // Authoritative scheduler (relative file import; no @studium/adaptation-engine package dep — same
-// approach as host-fsrs.parity.test.ts). Pins the host's INLINED reinforcement mirror against it.
+// approach as host-fsrs.parity.test.ts). Pins the host's router — which imports this scheduler through
+// fsrs-memory.ts since RT-3 — against the engine's own decision.
 import {
   defaultMemoryState as engineDefaultMemory,
   reviewMemory as engineReviewMemory,
@@ -171,10 +172,9 @@ describe("FSRS-as-router — reinforcementSceneFromState (route to content)", ()
   });
 });
 
-describe("FSRS-as-router — host mirror is in LOCKSTEP with the authoritative engine", () => {
-  // host.ts inlines the FSRS reinforcement mirror (it cannot import @studium/adaptation-engine). This
-  // pins the host's nextReinforcementFromState decision to the engine's nextReinforcement over the SAME
-  // replayed history + mastery, so the copied reinforcementPriority/dueForReinforcement cannot drift.
+describe("FSRS-as-router — the host router agrees with the authoritative engine", () => {
+  // This pins the host's nextReinforcementFromState decision (history replay + mastery gate + priority)
+  // to the engine's nextReinforcement over the SAME replayed history + mastery.
   it("host nextReinforcementFromState == engine nextReinforcement for the same answers + mastery", () => {
     const answers = [
       { id: "c-fit", mastery: 0.9, ans: { correct: true, hint_count: 0, atMs: t0 } },

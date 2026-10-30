@@ -11,7 +11,7 @@ import { buildMcpServer } from "./server.js";
 describe("operator context over the MCP transport", () => {
   it("agrees with the file channel and returns a protocol error for unknown sessions", async () => {
     const fixtures = resolve(fileURLToPath(new URL("../../../fixtures/", import.meta.url)));
-    const host = new SessionHost({ bundlesRoot: fixtures, live: false });
+    const host = new SessionHost({ bundlesRoot: fixtures, live: false, dataDir: null }); // I-10: in memory
     const server = buildMcpServer(host);
     const client = new Client({ name: "operator-audit", version: "1" });
     const [ct, st] = InMemoryTransport.createLinkedPair();

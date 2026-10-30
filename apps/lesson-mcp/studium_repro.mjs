@@ -19,7 +19,7 @@ const p = (s = "") => out.push(s);
 
 const transport = new StdioClientTransport({
   command: TSX, args: ["src/index.ts"], cwd: HERE,
-  env: { BUNDLES_ROOT: "/tmp/studium_live", PATH: process.env.PATH }, stderr: "ignore",
+  env: { BUNDLES_ROOT: "/tmp/studium_live", PATH: process.env.PATH, STUDIUM_EPHEMERAL: "1" }, stderr: "ignore", // I-10: in memory
 });
 const client = new Client({ name: "studium-repro", version: "0.1.0" });
 await client.connect(transport);

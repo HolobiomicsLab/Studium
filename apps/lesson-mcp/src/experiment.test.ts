@@ -9,7 +9,8 @@ import { SessionHost, SessionWorkspace } from "@studium/lesson-session-host";
 import { buildMcpServer } from "./server.js";
 
 it("uses one learner journal over MCP and files and rejects assistant-authored responses", async () => {
-  const host = new SessionHost({ bundlesRoot: fileURLToPath(new URL("../../../fixtures/", import.meta.url)), live: false });
+  // I-10: in memory whatever the developer's environment says (never their STUDIUM_DATA_DIR or ~/.studium).
+  const host = new SessionHost({ bundlesRoot: fileURLToPath(new URL("../../../fixtures/", import.meta.url)), live: false, dataDir: null });
   const server = buildMcpServer(host);
   const client = new Client({ name: "journal-test", version: "1" });
   const [ct, st] = InMemoryTransport.createLinkedPair();

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -35,8 +35,13 @@ function parse(res: { content: Array<{ type: string; text?: string }> }): Record
   return JSON.parse(first.text);
 }
 
+/** The durable data folder of the test running inside withDurableData; otherwise every host keeps
+ * its state in memory, whatever the developer's environment says (I-10: never their STUDIUM_DATA_DIR
+ * or ~/.studium). */
+let durableDataDir: string | null = null;
+
 async function connect(bundlesRoot: string, live = false) {
-  const host = new SessionHost({ bundlesRoot, live });
+  const host = new SessionHost({ bundlesRoot, live, dataDir: durableDataDir });
   const server = buildMcpServer(host);
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
   await server.connect(serverT);
@@ -52,8 +57,10 @@ async function withDurableData<T>(fn: (dataDir: string) => Promise<T>): Promise<
   const previousSecret = process.env["STUDIUM_PSEUDO_SECRET"];
   process.env["STUDIUM_DATA_DIR"] = dataDir;
   process.env["STUDIUM_PSEUDO_SECRET"] = "mcp-durable-test-secret";
+  durableDataDir = dataDir;
   try { return await fn(dataDir); }
   finally {
+    durableDataDir = null;
     if (previousDataDir === undefined) delete process.env["STUDIUM_DATA_DIR"];
     else process.env["STUDIUM_DATA_DIR"] = previousDataDir;
     if (previousSecret === undefined) delete process.env["STUDIUM_PSEUDO_SECRET"];
@@ -91,7 +98,14 @@ describe("lesson-mcp tools", () => {
     expect(info["version"]).toBe(packageJson.version);
     expect(info["tools"]).toEqual(names);
     expect(info["tools"]).toEqual([...names].sort());
-    expect(names).toHaveLength(25);
+    // 25 lesson operations + the four C1 study tools (sprint 2026-10-30): list_lessons, get_study_plan,
+    // start_review_session, rate_recall; + the three C1 authoring tools (get_authoring_guide,
+    // prepare_sources, create_lesson) and the two C1 teacher tools (review_lesson, class_report),
+    // wired at integration: 29 + 5 = 34.
+    expect(names).toHaveLength(34);
+    for (const name of ["get_authoring_guide", "prepare_sources", "create_lesson", "review_lesson", "class_report"]) {
+      expect(names).toContain(name);
+    }
     expect(names).toContain("forget_session");
     expect(names).toContain("list_community_bundles");
     expect(names).toContain("get_operator_context");
@@ -353,8 +367,10 @@ describe("lesson-mcp tools", () => {
       const withoutSession = parse(await client.callTool({
         name: "get_next_reinforcement", arguments: { learner_id: "kepler", now_ms: future },
       }) as never);
+      // HJ-1: a learner-only query used to return scene_id null — nothing to play. It now names the
+      // lesson and the scene the concept was last graded in (lesson B only showed its intro).
       expect(withoutSession.reinforcement).toMatchObject({
-        concept_id: "c-shared", scene_id: null, source: "profile",
+        concept_id: "c-shared", scene_id: "q-a", source: "profile", bundle_ref: "A.json", lesson_title: "lesson-A",
       });
     });
   });
@@ -525,8 +541,11 @@ describe("lesson-mcp — learner-time run protocol parity (run.json / run_result
 });
 
 const OPEN_BOOK_FR = "Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). ";
-const SELF_STUDY_NOTICE_FR_WITHOUT_JUDGE = OPEN_BOOK_FR + "Sans juge modèle, les scènes de production donnent un retour " +
-  "par mots-clés sans évaluation certifiée ; seules les reproductions exécutées portent une évaluation externe.";
+// D5 (sprint 2026-10-30): without a judge the notice no longer promises keyword feedback; it says the
+// learner compares with the model answer and that their self-rating schedules reviews, never mastery.
+const SELF_STUDY_NOTICE_FR_WITHOUT_JUDGE = OPEN_BOOK_FR + "Sans juge modèle, les scènes de production ne sont pas " +
+  "évaluées : comparez votre réponse à la réponse modèle et notez votre rappel ; cette note règle vos révisions, " +
+  "jamais votre maîtrise. Seules les reproductions exécutées portent une évaluation externe.";
 const SELF_STUDY_NOTICE_FR_WITH_JUDGE = OPEN_BOOK_FR + "Les scènes de production, jugées par le modèle, et les " +
   "reproductions exécutées portent l'évaluation.";
 const SELF_STUDY_BUNDLE = {
@@ -573,7 +592,11 @@ describe("lesson-mcp — community bundles and authoring", () => {
   it("start_lesson_session says who wrote the lesson, top-level and on every presentation", async () => {
     const teacherClient = await connect(bundlesDir());
     const teacher = parse(await teacherClient.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json" } }) as never);
-    const teacherBlock = { mode: "teacher", author_is_learner: false, validated: true, judge: false, notice: null };
+    // C5: the block also says whether an approval record is bound to this lesson.json (none here).
+    const teacherBlock = {
+      mode: "teacher", author_is_learner: false, validated: true, judge: false, notice: null,
+      approval: { recorded: false, matches: false },
+    };
     expect(teacher.authoring).toEqual(teacherBlock);
     expect((teacher.presentation as { authoring?: unknown }).authoring).toEqual(teacherBlock);
 
@@ -583,6 +606,7 @@ describe("lesson-mcp — community bundles and authoring", () => {
     const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "self.json" } }) as never);
     const block = {
       mode: "self_study", author_is_learner: true, validated: false, judge: false, notice: SELF_STUDY_NOTICE_FR_WITHOUT_JUDGE,
+      approval: { recorded: false, matches: false }, // C5
     };
     expect(started.authoring).toEqual(block);
     expect((started.presentation as { authoring?: unknown }).authoring).toEqual(block);
@@ -605,10 +629,46 @@ describe("lesson-mcp — community bundles and authoring", () => {
       const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "self.json" } }) as never);
       expect(started.authoring).toEqual({
         mode: "self_study", author_is_learner: true, validated: false, judge: true, notice: SELF_STUDY_NOTICE_FR_WITH_JUDGE,
+        approval: { recorded: false, matches: false }, // C5
       });
     } finally {
       if (previous === undefined) delete process.env["STUDIUM_PSEUDO_SECRET"];
       else process.env["STUDIUM_PSEUDO_SECRET"] = previous;
     }
+  });
+});
+
+// Integration item 1 (W1/W2/W7 needs_lead): create_lesson writes where this server looks lessons up
+// first — the C6 library, or the folder BUNDLES_ROOT names when it is set — so the lesson is listed and
+// started at once, and review_lesson and class_report, which read the bundles root, find it too.
+describe("lesson-mcp — where an authored lesson goes", () => {
+  it("with BUNDLES_ROOT set, create_lesson writes there: list, start and review_lesson see it at once", async () => {
+    const bundlesRoot = bundlesDir();
+    const libraryRoot = mkdtempSync(join(tmpdir(), "mcp-library-"));
+    dirs.push(libraryRoot);
+    const host = new SessionHost({ bundlesRoot, libraryRoot, live: false, dataDir: null });
+    const server = buildMcpServer(host);
+    const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverT);
+    const client = new Client({ name: "authoring-root", version: "1.0.0" });
+    await client.connect(clientT);
+    const call = async (name: string, args: Record<string, unknown> = {}) =>
+      parse(await client.callTool({ name, arguments: args }) as { content: Array<{ type: string; text?: string }> });
+
+    const guide = await call("get_authoring_guide", { language: "fr" });
+    const { source, draft } = guide["example"] as { source: Record<string, unknown>; draft: Record<string, unknown> };
+    const prepared = await call("prepare_sources", { sources: [source], goal: draft["goal"], language: "fr" });
+    const created = await call("create_lesson", { source_set_id: prepared["source_set_id"], draft });
+    expect(created).toMatchObject({ ok: true });
+    const courseRef = String(created["course_ref"]);
+    expect(existsSync(join(bundlesRoot, courseRef))).toBe(true);
+    expect(existsSync(join(libraryRoot, courseRef))).toBe(false);
+
+    const listed = await call("list_lessons", {}) as { lessons: Array<{ bundle_ref: string }> };
+    expect(listed.lessons.map((lesson) => lesson.bundle_ref)).toContain(courseRef);
+    expect(await call("start_lesson_session", { bundle_ref: courseRef })).toHaveProperty("session_id");
+    const review = await call("review_lesson", { course_ref: courseRef.replace(/\/lesson\.json$/, "") });
+    expect(review).toMatchObject({ schema_valid: true });
+    await client.close();
   });
 });
