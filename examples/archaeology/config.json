@@ -1,0 +1,49 @@
+{
+  "schema": "studium/activity-template-config/v1",
+  "template_id": "evidence-claim",
+  "data_status": "supplied source-backed data",
+  "scope": "A local teaching draft based on one museum photograph. Observation of visible features does not establish ancient function or archaeological context.",
+  "prediction_prompt": "Inspect the photograph. What can you observe directly, and what would require another source?",
+  "expected_source_inputs": [
+    "A public scene objective that asks for an evidence-grounded judgment",
+    "A source title, locator and exact excerpt available to the learner",
+    "Candidate claims whose support can be checked directly against the excerpt"
+  ],
+  "independent_checks": [
+    {
+      "id": "source_visible",
+      "description": "The attributed museum photograph and its description are available before prediction."
+    },
+    {
+      "id": "bounded_entailment",
+      "description": "Compare each proposed claim with the photograph and the explicitly identified museum metadata."
+    },
+    {
+      "id": "limits_visible",
+      "description": "Do not infer precise function or burial arrangement from the photograph alone."
+    }
+  ],
+  "source": {
+    "id": "met_544227",
+    "title": "The Met · Hippopotamus (\"William\")",
+    "locator": "https://www.metmuseum.org/art/collection/search/544227",
+    "source_kind": "supplied_evidence",
+    "statement": "The photograph shows a blue-green hippopotamus-shaped object with dark plant-like motifs. The museum record identifies it as faience, dated ca. 1961–1878 B.C. Material and dating are catalogue information, not measurements made from this photograph."
+  },
+  "claims": [
+    {
+      "id": "claim_supported",
+      "text": "The pictured object has blue-green colouring and dark motifs; its dating comes from the museum record."
+    },
+    {
+      "id": "claim_function",
+      "text": "The photograph alone proves the precise ritual use of this object."
+    },
+    {
+      "id": "claim_context",
+      "text": "The photograph establishes how this object was arranged in its original burial."
+    }
+  ],
+  "supported_claim_id": "claim_supported",
+  "feedback": "Visible features and catalogue claims have different sources. A photograph of an isolated object cannot establish its precise ancient use or original placement; those require contextual evidence."
+}

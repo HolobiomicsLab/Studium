@@ -1,0 +1,104 @@
+version: 0.0.14
+name: Learner activity technical report
+description: Local technical provenance report for selected learner activity records.
+  It makes no scientific validation or learning assessment.
+inputs:
+- id: course_manifest
+  type: data
+  description: Course manifest and corpus references for Learner activity technical
+    report.
+outputs:
+- id: learner_activity_report_experiment_journal_result
+  from: learner_activity_report.experiment_journal
+- id: learner_activity_report_learner_report_result
+  from: learner_activity_report.learner_report
+- id: learner_activity_report_ara_trace_result
+  from: learner_activity_report.ara_trace
+- id: learner_activity_report_mystra_report_result
+  from: learner_activity_report.mystra_report
+- id: learner_activity_report_browser_report_result
+  from: learner_activity_report.browser_report
+- id: learner_activity_report_report_checks_result
+  from: learner_activity_report.report_checks
+analyses:
+  learner_activity_report:
+    id: learner_activity_report
+    name: Learner activity technical report
+    inputs:
+    - id: experiment_journal_input
+      type: data
+      description: Selected sanitized source sources/experiment-journal.json.
+    decisions:
+      privacy_export:
+        label: Learner free-text export
+        rationale: Original learner and assistance words require an explicit local
+          export choice.
+        default: free_text_redacted
+        options:
+          free_text_redacted:
+            label: Free text redacted
+          original_text_included:
+            label: Original text included explicitly
+        tags:
+        - source_edge_id:privacy_export
+      source_binding:
+        label: Selected report sources
+        rationale: Scene overlap checks identifiers only; it does not authenticate
+          learner, bundle or session identity, and clocks remain separate.
+        default: single_source
+        options:
+          single_source:
+            label: One selected source
+          scene_overlap:
+            label: Two sources with scene identifier overlap
+        tags:
+        - source_edge_id:source_binding
+    prior_insights: {}
+    findings:
+      validated_experiment_journal:
+        claim: The selected sanitized host_journal_snapshot record contains 1 validated
+          experiment sequence(s). This is a technical integrity statement, not a learning
+          outcome.
+        created_at: '2026-09-12T07:39:13.328568Z'
+        evidence:
+        - artifact: experiment_journal
+          id: validated_experiment_journal_ev0
+        derived: true
+        tags:
+        - source_edge_id:validated_experiment_journal
+      assistance_coverage_unknown:
+        claim: The selected records contain no assistance event; missing trace does
+          not establish that no help occurred.
+        created_at: '2026-09-12T07:39:13.328568Z'
+        evidence:
+        - artifact: experiment_journal
+          id: assistance_coverage_unknown_ev0
+        derived: true
+        tags:
+        - source_edge_id:assistance_coverage_unknown
+    outputs:
+    - id: experiment_journal
+      type: data
+      format: json
+      description: Sanitized selected record at sources/experiment-journal.json; SHA-256
+        a6970115918945efd35d5b21ddb3a79d5dde3c63b6a447bca035eb6ef4a36168.
+    - id: learner_report
+      type: data
+      format: json
+      description: 'report.json: technical summary; no learning assessment.'
+    - id: ara_trace
+      type: data
+      format: yaml
+      description: 'trace/exploration_tree.yaml: source-separated export path.'
+    - id: mystra_report
+      type: report
+      format: md
+      description: course_provenance.myst.md rendered by the shared MySTRA renderer.
+    - id: browser_report
+      type: report
+      format: html
+      description: 'index.html: escaped local technical report.'
+    - id: report_checks
+      type: data
+      format: json
+      description: 'checks.json: hashes and ASTRA validator result.'

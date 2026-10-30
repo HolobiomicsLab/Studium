@@ -25,6 +25,7 @@ _RUN = {**_scalars("capsule_ref working_dir timeout_s research_question landmark
 PUBLIC_CONTEXT = {
     **_scalars("schema session_id"), "scene": _SCENE, "scene_assets": [_ASSET], "run_manifest": _RUN,
     "response": {**_scalars("kind file instructions"), "example": _EXAMPLE},
+    "language": _scalars("source_language selected_language effective_language translation_required instructions"),
     "rendering": _scalars("owner instructions"),
     "exploration": {**_scalars("capabilities recordTool instructions"), "workflow": [None]},
 }

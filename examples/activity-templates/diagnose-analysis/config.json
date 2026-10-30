@@ -1,0 +1,37 @@
+{
+  "schema": "studium/activity-template-config/v1",
+  "template_id": "diagnose-analysis",
+  "data_status": "synthetic teaching fixture",
+  "scope": "Diagnose which supplied analysis step explains a flawed captured mean growth, then compare captured repair results. The activity does not run a repair or infer that any selected step is correct.",
+  "prediction_prompt": "Predict the mean from the supplied changes of 1, 2 and 3 cm, and name a check that could detect a wrong summary.",
+  "expected_source_inputs": [
+    "A public scene objective asking the learner to diagnose an analysis",
+    "A documented sequence of analysis steps with stable identifiers",
+    "Captured flawed and repair results with units and an independently checked teaching criterion"
+  ],
+  "independent_checks": [
+    {"id": "correct_denominator", "description": "The three supplied changes sum to 6 cm, so their mean is 6 divided by 3, or 2 cm."},
+    {"id": "captured_results", "description": "Every displayed number is supplied in this fixture; the browser does not execute an analysis."},
+    {"id": "bounded_diagnosis", "description": "The criterion identifies the supported repair without treating the learner's selected step as an automatic grade."}
+  ],
+  "source": {
+    "id": "synthetic_seedling_analysis",
+    "title": "Synthetic seedling-growth analysis record",
+    "locator": "urn:studium:synthetic:diagnose-analysis:v1",
+    "source_kind": "synthetic_fixture",
+    "statement": "Three synthetic pots changed by 1, 2 and 3 cm, for a total of 6 cm. The captured analysis reports a mean change of 3 cm."
+  },
+  "steps": [
+    {"id": "read_changes", "label": "Read per-pot changes", "description": "Use the supplied changes of 1, 2 and 3 cm."},
+    {"id": "sum_changes", "label": "Sum the changes", "description": "Add the three supplied changes to obtain 6 cm."},
+    {"id": "summarize_changes", "label": "Divide by two", "description": "The flawed analysis divides the 6 cm total by 2 and reports 3 cm."}
+  ],
+  "repairs": [
+    {"id": "use_actual_count", "label": "Divide by the actual count", "explanation": "Divide the supplied 6 cm total by all 3 pots.", "result": 2.0},
+    {"id": "drop_smallest_change", "label": "Drop the smallest change", "explanation": "Without justification, remove the 1 cm change and average the remaining 2 and 3 cm changes.", "result": 2.5}
+  ],
+  "flawed_result": 3.0,
+  "result_unit": "cm",
+  "supported_repair_id": "use_actual_count",
+  "oracle": {"repaired_result": 2.0}
+}

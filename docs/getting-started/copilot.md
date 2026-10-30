@@ -24,7 +24,7 @@ Les enseignants vérifiés ont un parcours distinct, actuellement **Copilot Pro*
 gratuit sous conditions : [activation enseignant](https://docs.github.com/en/copilot/how-tos/copilot-on-github/set-up-copilot/enable-copilot/set-up-for-teachers-and-os-maintainers).
 Ces avantages ne signifient pas usage illimité. Modèles disponibles, limites et
 conditions évoluent : les pages GitHub et l'écran du compte font référence.
-Informations consultées le 11 septembre 2026.
+Pages d'activation étudiant/enseignant reconsultées le 12 septembre 2026.
 
 ## Connecter Studium dans VS Code
 
@@ -52,7 +52,7 @@ Dans la palette, utiliser **MCP: List Servers**, sélectionner Studium et démar
 le serveur. Lire les permissions demandées et ses logs en cas d'erreur. Dans une
 session de chat agent, vérifier que ses outils sont disponibles. La syntaxe
 `servers` est celle du fichier MCP **VS Code** ; les autres clients peuvent lire
-une structure différente. Référence : [configuration MCP VS Code](https://code.visualstudio.com/docs/agents/reference/mcp-configuration).
+une structure différente. Référence : [configuration MCP VS Code](https://code.visualstudio.com/docs/agent-customization/mcp-servers).
 
 Prompt de connexion :
 

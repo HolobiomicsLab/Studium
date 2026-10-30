@@ -1,0 +1,18 @@
+{
+  "fr": {
+    "Compare whether a conclusion survives supplied scenarios while keeping the claim and decision threshold fixed.": "Comparer la résistance d’une conclusion aux scénarios fournis, en conservant le même énoncé et le même seuil de décision.",
+    "Compare supplied flexural-strength results under three stated calibration assumptions. The conclusion is limited to these scenarios and does not estimate frequency or confidence.": "Comparer les résistances à la flexion fournies sous trois hypothèses d’étalonnage. La conclusion se limite à ces scénarios ; elle n’estime ni leur fréquence ni un niveau de confiance.",
+    "Before revealing which scenarios meet the decision threshold, predict whether the claim survives every supplied calibration assumption.": "Avant de voir quels scénarios satisfont le seuil, prédisez si l’énoncé reste valable pour chaque hypothèse d’étalonnage fournie.",
+    "synthetic teaching fixture": "exemple pédagogique synthétique",
+    "Synthetic flexural-strength sensitivity record": "Exemple synthétique de sensibilité de la résistance à la flexion",
+    "The nominal synthetic result is 52.0 MPa. Hypothetical calibration alternatives apply supplied offsets of -3.5 MPa and -1.8 MPa, giving captured results of 48.5 MPa and 50.2 MPa.": "Le résultat nominal synthétique est de 52.0 MPa. Les étalonnages hypothétiques appliquent les écarts fournis de -3.5 MPa et -1.8 MPa, donnant 48.5 MPa et 50.2 MPa.",
+    "Nominal calibration": "Étalonnage nominal",
+    "Conservative calibration": "Étalonnage conservateur",
+    "Alternate calibration": "Autre étalonnage",
+    "Use the nominal instrument calibration supplied with the fixture.": "Utiliser l’étalonnage nominal de l’instrument fourni avec l’exemple.",
+    "Apply the hypothetical -3.5 MPa calibration offset to the nominal result.": "Appliquer l’écart d’étalonnage hypothétique de -3.5 MPa au résultat nominal.",
+    "Apply the hypothetical -1.8 MPa calibration offset to the nominal result.": "Appliquer l’écart d’étalonnage hypothétique de -1.8 MPa au résultat nominal.",
+    "One criterion, several assumptions": "Un critère, plusieurs hypothèses",
+    "What a robustness comparison establishes": "Ce qu’établit une comparaison de robustesse"
+  }
+}

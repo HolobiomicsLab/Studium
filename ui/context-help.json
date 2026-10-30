@@ -1,0 +1,420 @@
+{
+  "schema": "studium/context-help/v1",
+  "labels": {
+    "en": {
+      "about": "About",
+      "student": "For students",
+      "teacher": "For teachers",
+      "objective": "Objective",
+      "method": "Method / origin",
+      "limit": "Keep in mind",
+      "source": "Project source",
+      "more": "Method, limits and source"
+    },
+    "fr": {
+      "about": "À propos",
+      "student": "Pour les étudiants",
+      "teacher": "Pour les enseignants",
+      "objective": "Objectif",
+      "method": "Méthode / origine",
+      "limit": "À retenir",
+      "source": "Source du projet",
+      "more": "Méthode, limites et source"
+    }
+  },
+  "topics": {
+    "studium": {
+      "source": "docs/user/student-guide.md",
+      "en": {
+        "title": "Studium",
+        "what": "A learning path connects concepts, tasks, evidence and reflection. Your AI harness helps operate it.",
+        "student": "Make your own prediction and conclusion; ask the agent for a tool, an explanation or a hint.",
+        "teacher": "Choose the audience, prerequisites and evidence of understanding; review generated content before use.",
+        "objective": "Practise reasoning that you can later explain and apply yourself.",
+        "limit": "The prototype has not established learning gains across audiences.",
+        "method": "Active participation and learner authorship"
+      },
+      "fr": {
+        "title": "Studium",
+        "what": "Un parcours relie concepts, activités, preuves et réflexion. Votre harnais IA aide à le faire fonctionner.",
+        "student": "Formulez votre prédiction et votre conclusion ; demandez à l’agent un outil, une explication ou un indice.",
+        "teacher": "Choisissez le public, les prérequis et les signes de compréhension ; relisez le contenu généré avant usage.",
+        "objective": "Exercer un raisonnement que vous pourrez expliquer et réutiliser vous-même.",
+        "limit": "Le prototype n’a pas établi de gains d’apprentissage pour tous les publics.",
+        "method": "Participation active et contribution personnelle"
+      }
+    },
+    "objective": {
+      "source": "docs/user/teacher-guide.md",
+      "en": {
+        "title": "Learning objective",
+        "what": "The capability this activity is designed to practise.",
+        "student": "Use the objective to explain what you are trying to understand, beyond finishing the task.",
+        "teacher": "Align the task and feedback with an observable capability and the prerequisites it needs.",
+        "objective": "Connect each action to a reason for learning it.",
+        "limit": "Finishing an activity does not by itself show that its objective was achieved.",
+        "method": "Alignment of objectives, activity and assessment"
+      },
+      "fr": {
+        "title": "Objectif pédagogique",
+        "what": "La capacité que cette activité cherche à exercer.",
+        "student": "Utilisez l’objectif pour expliquer ce que vous cherchez à comprendre, au-delà de terminer la tâche.",
+        "teacher": "Reliez la tâche et le retour à une capacité observable et aux prérequis nécessaires.",
+        "objective": "Donner une raison pédagogique à chaque action.",
+        "limit": "Terminer une activité ne prouve pas à lui seul que son objectif est atteint.",
+        "method": "Alignement entre objectifs, activité et évaluation"
+      }
+    },
+    "prediction": {
+      "source": "docs/user/activity-templates.md",
+      "en": {
+        "title": "Prediction",
+        "what": "State what you expect and why, before viewing the result.",
+        "student": "An uncertain prediction is useful: compare it with what you actually observe, then explain the difference.",
+        "teacher": "Use the initial reasoning to discuss assumptions; avoid turning an exploratory prediction into a penalty.",
+        "objective": "Make the starting explanation visible before assistance can influence it.",
+        "limit": "Prediction alone is not evidence of learning; a mismatch can have several causes.",
+        "method": "Prediction, observation and explanation"
+      },
+      "fr": {
+        "title": "Prédiction",
+        "what": "Formuler ce que vous attendez et pourquoi, avant de voir le résultat.",
+        "student": "Une prédiction incertaine est utile : comparez-la à votre observation, puis expliquez l’écart.",
+        "teacher": "Discutez les hypothèses du raisonnement initial ; évitez de pénaliser une prédiction exploratoire.",
+        "objective": "Rendre visible l’explication initiale avant l’influence d’une aide.",
+        "limit": "Une prédiction seule ne prouve pas un apprentissage ; un écart peut avoir plusieurs causes.",
+        "method": "Prédiction, observation et explication"
+      }
+    },
+    "confidence": {
+      "source": "docs/user/student-guide.md",
+      "en": {
+        "title": "Confidence",
+        "what": "Your own estimate of how sure you are about a response.",
+        "student": "Choose honestly, including uncertainty. Where optional, leaving it blank means not recorded.",
+        "teacher": "Compare confidence with independent evidence of understanding and discuss the mismatch.",
+        "objective": "Notice when certainty and the available evidence differ.",
+        "limit": "Confidence is not correctness, ability, a diagnosis or a grade.",
+        "method": "Metacognitive monitoring: noticing your own uncertainty"
+      },
+      "fr": {
+        "title": "Confiance",
+        "what": "Votre estimation personnelle de la certitude d’une réponse.",
+        "student": "Indiquez sincèrement votre incertitude. Si le champ est facultatif, le laisser vide signifie non renseigné.",
+        "teacher": "Comparez la confiance aux indices indépendants de compréhension et discutez les écarts.",
+        "objective": "Repérer les différences entre certitude et preuves disponibles.",
+        "limit": "La confiance n’est ni l’exactitude, ni une aptitude, un diagnostic ou une note.",
+        "method": "Suivi métacognitif : observer sa propre incertitude"
+      }
+    },
+    "evidence": {
+      "source": "docs/user/teacher-guide.md",
+      "en": {
+        "title": "Sources and evidence",
+        "what": "Material used to support a claim: a passage, photograph, dataset or observed result.",
+        "student": "Separate what you can observe from what a source says and what you infer.",
+        "teacher": "Check the exact passage or material, its context and whether it supports the teaching claim.",
+        "objective": "Justify a conclusion and identify what remains unknown.",
+        "limit": "A citation or image can be authentic while the interpretation is wrong.",
+        "method": "Evidence-based judgment and source criticism"
+      },
+      "fr": {
+        "title": "Sources et preuves",
+        "what": "Les matériaux qui soutiennent une affirmation : passage, photographie, données ou résultat observé.",
+        "student": "Distinguez ce que vous observez, ce que la source indique et ce que vous en déduisez.",
+        "teacher": "Vérifiez le matériau exact, son contexte et son lien avec l’affirmation enseignée.",
+        "objective": "Justifier une conclusion et identifier ce qui reste inconnu.",
+        "limit": "Une citation ou une image peut être authentique alors que son interprétation est fausse.",
+        "method": "Jugement fondé sur des preuves et critique des sources"
+      }
+    },
+    "experiment": {
+      "source": "docs/guides/grounded-exploration.md",
+      "en": {
+        "title": "Compare and experiment",
+        "what": "Compare a declared baseline with a variation, keeping the relevant controls visible.",
+        "student": "Predict a change, inspect values and units, then explain both changes and stable results.",
+        "teacher": "Choose meaningful contrasts and a check that can expose a wrong explanation.",
+        "objective": "Reason about how a conclusion depends on an assumption or parameter.",
+        "limit": "A browser comparison may use supplied numbers; it is not necessarily a newly executed experiment.",
+        "method": "Controlled comparison and sensitivity analysis"
+      },
+      "fr": {
+        "title": "Comparer et expérimenter",
+        "what": "Comparer une référence déclarée à une variation en gardant visibles les contrôles pertinents.",
+        "student": "Prédisez un changement, examinez valeurs et unités, puis expliquez changements et résultats stables.",
+        "teacher": "Choisissez des contrastes pertinents et un contrôle capable de révéler une explication erronée.",
+        "objective": "Comprendre comment une conclusion dépend d’une hypothèse ou d’un paramètre.",
+        "limit": "Une comparaison dans le navigateur peut utiliser des nombres fournis ; ce n’est pas forcément une nouvelle exécution.",
+        "method": "Comparaison contrôlée et analyse de sensibilité"
+      }
+    },
+    "reflection": {
+      "source": "docs/user/experiment-journal.md",
+      "en": {
+        "title": "Observation and conclusion",
+        "what": "Record what happened, then explain what that observation supports.",
+        "student": "Write in your own words. You may revise your explanation without rewriting what you first predicted.",
+        "teacher": "Ask for the evidence behind the explanation and a plausible alternative.",
+        "objective": "Distinguish a result from its interpretation.",
+        "limit": "A fluent explanation still needs evidence; saved text alone does not establish understanding.",
+        "method": "Self-explanation and reflective reasoning"
+      },
+      "fr": {
+        "title": "Observation et conclusion",
+        "what": "Décrire ce qui s’est passé, puis expliquer ce que cette observation permet de conclure.",
+        "student": "Écrivez avec vos mots. Vous pouvez réviser l’explication sans réécrire votre prédiction initiale.",
+        "teacher": "Demandez les preuves de l’explication et une autre interprétation plausible.",
+        "objective": "Distinguer un résultat de son interprétation.",
+        "limit": "Une explication fluide demande des preuves ; un texte enregistré ne démontre pas seul la compréhension.",
+        "method": "Auto-explication et retour sur le raisonnement"
+      }
+    },
+    "scaffolding": {
+      "source": "docs/features.md",
+      "en": {
+        "title": "Hints and adaptation",
+        "what": "Support can change with the task, prerequisites and recorded responses.",
+        "student": "Ask for a manageable hint and try the next step yourself. Ask why the route changed.",
+        "teacher": "Inspect the rule and response behind an adaptation; adjust unsuitable support.",
+        "objective": "Support progress while retaining the learner’s reasoning.",
+        "limit": "Adaptation is a provisional rule-based decision, not a fixed learner profile. Help may affect mastery credit.",
+        "method": "Scaffolding: temporary support for a task"
+      },
+      "fr": {
+        "title": "Indices et adaptation",
+        "what": "L’accompagnement peut varier selon la tâche, les prérequis et les réponses enregistrées.",
+        "student": "Demandez un indice utilisable, puis essayez vous-même. Demandez pourquoi le parcours change.",
+        "teacher": "Examinez la règle et la réponse derrière une adaptation ; ajustez un accompagnement inapproprié.",
+        "objective": "Soutenir la progression tout en préservant le raisonnement de l’apprenant.",
+        "limit": "L’adaptation reste une décision provisoire fondée sur des règles, pas un profil fixe. L’aide peut modifier le crédit de maîtrise.",
+        "method": "Étayage : soutien temporaire à une tâche"
+      }
+    },
+    "transfer": {
+      "source": "docs/user/teacher-guide.md",
+      "en": {
+        "title": "Transfer to a new case",
+        "what": "Apply the idea to a different example, with the permitted level of help stated.",
+        "student": "Explain what carries over and what needs changing; distinguish your reasoning from assistance.",
+        "teacher": "Choose a genuinely different case and record whether support was available.",
+        "objective": "Check whether the idea can be used beyond the practised example.",
+        "limit": "Completing the original activity is not a transfer test or a delayed retention result.",
+        "method": "Transfer and independent application"
+      },
+      "fr": {
+        "title": "Transfert à un nouveau cas",
+        "what": "Appliquer l’idée à un autre exemple, avec un niveau d’aide explicite.",
+        "student": "Expliquez ce qui reste valable et ce qui change ; distinguez votre raisonnement de l’aide reçue.",
+        "teacher": "Choisissez un cas réellement différent et indiquez si une aide était disponible.",
+        "objective": "Examiner si l’idée peut servir au-delà de l’exemple travaillé.",
+        "limit": "Terminer l’activité initiale n’est ni un test de transfert ni une mesure de rétention différée.",
+        "method": "Transfert et application autonome"
+      }
+    },
+    "trace": {
+      "source": "docs/user/learner-report.md",
+      "en": {
+        "title": "Activity trace",
+        "what": "A record of selected actions and submitted text, with its declared origin.",
+        "student": "Check the recording choice and export contents. Reading this help is not recorded as a learning action.",
+        "teacher": "Read missing or partial traces as incomplete coverage, never as proof that no work or help occurred.",
+        "objective": "Make a selected learning process inspectable and discussable.",
+        "limit": "An action log does not authenticate a person or prove learning; this help does not change privacy settings.",
+        "method": "Process documentation with explicit recording boundaries"
+      },
+      "fr": {
+        "title": "Trace d’activité",
+        "what": "Un relevé d’actions sélectionnées et de textes soumis, avec leur origine déclarée.",
+        "student": "Vérifiez le choix d’enregistrement et l’export. Lire cette aide n’est pas enregistré comme une action d’apprentissage.",
+        "teacher": "Interprétez une trace absente ou partielle comme une couverture incomplète, jamais comme une absence de travail ou d’aide.",
+        "objective": "Rendre un processus sélectionné consultable et discutable.",
+        "limit": "Un journal n’authentifie pas une personne et ne prouve pas un apprentissage ; cette aide ne change aucun réglage de confidentialité.",
+        "method": "Documentation du processus et limites explicites de collecte"
+      }
+    },
+    "provenance": {
+      "source": "docs/adr/0001-astra-analyses-shape-and-ara-trace.md",
+      "en": {
+        "title": "ASTRA, ARA and MySTRA",
+        "what": "ASTRA structures analyses and decisions; ARA records exploration paths; MySTRA presents provenance for reading.",
+        "student": "Follow a source or result back to the material and choices that produced it.",
+        "teacher": "Inspect inputs, alternatives, checks and review status before accepting a claim.",
+        "objective": "Keep the origin and limits of a result reviewable.",
+        "limit": "Hashes establish file integrity, not scientific truth, execution authenticity or teaching approval.",
+        "method": "Provenance and reproducibility records"
+      },
+      "fr": {
+        "title": "ASTRA, ARA et MySTRA",
+        "what": "ASTRA structure analyses et décisions ; ARA décrit les parcours explorés ; MySTRA présente la provenance à lire.",
+        "student": "Remontez d’une source ou d’un résultat aux matériaux et aux choix qui l’ont produit.",
+        "teacher": "Examinez les entrées, variantes, contrôles et statuts de revue avant d’accepter une affirmation.",
+        "objective": "Garder l’origine et les limites d’un résultat vérifiables.",
+        "limit": "Les empreintes établissent l’intégrité des fichiers, pas la vérité scientifique, l’authenticité d’une exécution ou l’approbation pédagogique.",
+        "method": "Provenance et documentation de la reproductibilité"
+      }
+    },
+    "review": {
+      "source": "docs/user/reviewed-synthesis.md",
+      "en": {
+        "title": "Teacher review",
+        "what": "A human checks the suitability and accuracy of a particular content revision.",
+        "student": "A checked format is not the same as a teacher-approved course; follow your teacher’s activity instructions.",
+        "teacher": "Review the source links, difficulty, alternatives and generated content; plan approval and student release are separate.",
+        "objective": "Keep responsibility for educational choices visible.",
+        "limit": "Opening this viewer or passing automated checks does not approve or distribute content.",
+        "method": "Human review of educational material"
+      },
+      "fr": {
+        "title": "Revue enseignante",
+        "what": "Une personne vérifie l’adéquation et l’exactitude d’une révision précise du contenu.",
+        "student": "Un format vérifié n’est pas un cours approuvé ; suivez les consignes de votre enseignant.",
+        "teacher": "Relisez sources, difficulté, variantes et contenu généré ; approbation du plan et diffusion étudiante sont distinctes.",
+        "objective": "Rendre visible la responsabilité des choix pédagogiques.",
+        "limit": "Ouvrir ce viewer ou réussir les contrôles automatiques n’approuve ni ne diffuse le contenu.",
+        "method": "Revue humaine du matériau pédagogique"
+      }
+    },
+    "mastery": {
+      "source": "docs/features.md",
+      "en": {
+        "title": "Progress and mastery estimates",
+        "what": "Indicators summarize selected responses using the prototype’s rules.",
+        "student": "Use feedback to choose what to practise; ask for the evidence behind a suggested route.",
+        "teacher": "Inspect observations, sample size, missing records and assistance before interpreting a score.",
+        "objective": "Guide a conversation about the next learning step.",
+        "limit": "A model estimate is not a diagnosis, a fixed ability or a certified grade. Counts are not learning gains.",
+        "method": "Formative assessment: feedback used to guide practice"
+      },
+      "fr": {
+        "title": "Progression et estimation de maîtrise",
+        "what": "Des indicateurs résument certaines réponses selon les règles du prototype.",
+        "student": "Utilisez le retour pour choisir quoi travailler ; demandez les preuves du parcours proposé.",
+        "teacher": "Examinez observations, effectif, données manquantes et aide reçue avant d’interpréter un score.",
+        "objective": "Éclairer la discussion sur la prochaine étape d’apprentissage.",
+        "limit": "Une estimation n’est ni un diagnostic, ni une aptitude fixe, ni une note certifiée. Un décompte n’est pas un gain d’apprentissage.",
+        "method": "Évaluation formative : retour pour orienter la pratique"
+      }
+    },
+    "validity": {
+      "source": "docs/guides/observatory.md",
+      "en": {
+        "title": "Evaluation and validity",
+        "what": "Checks measure a named property of software, content or a recorded run.",
+        "student": "Read what was actually tested and whether the example used real or synthetic inputs.",
+        "teacher": "Match each conclusion to its test, population and evidence; keep technical and learning outcomes separate.",
+        "objective": "Know what a successful check can and cannot support.",
+        "limit": "A green validator or a simulated session does not establish educational effectiveness.",
+        "method": "Validity: evidence for the intended interpretation"
+      },
+      "fr": {
+        "title": "Évaluation et validité",
+        "what": "Les contrôles mesurent une propriété nommée du logiciel, du contenu ou d’une exécution enregistrée.",
+        "student": "Lisez ce qui a été testé et si l’exemple utilise des entrées réelles ou synthétiques.",
+        "teacher": "Reliez chaque conclusion à son test, son public et ses preuves ; séparez résultats techniques et apprentissage.",
+        "objective": "Comprendre ce qu’un contrôle réussi permet ou non de conclure.",
+        "limit": "Un validateur vert ou une séance simulée ne démontre pas l’efficacité pédagogique.",
+        "method": "Validité : preuves de l’interprétation proposée"
+      }
+    },
+    "visuals": {
+      "source": "docs/guides/sourced-and-generated-media.md",
+      "en": {
+        "title": "Visual and audio support",
+        "what": "A representation can make relations or observations easier to inspect.",
+        "student": "Read the caption, units, source and alternatives; ask for a textual explanation if needed.",
+        "teacher": "Choose the representation for the task and accessibility needs; distinguish source material from generated explanation.",
+        "objective": "Give another way to examine the same concept or evidence.",
+        "limit": "AI-generated media can be inaccurate. A diagram is not proof, and a preference is not a fixed learning style.",
+        "method": "Multiple representations and accessible alternatives"
+      },
+      "fr": {
+        "title": "Supports visuels et audio",
+        "what": "Une représentation peut faciliter l’examen de relations ou d’observations.",
+        "student": "Lisez légende, unités, source et alternatives ; demandez une explication textuelle au besoin.",
+        "teacher": "Choisissez selon la tâche et l’accessibilité ; distinguez matériau source et explication générée.",
+        "objective": "Donner un autre moyen d’examiner le même concept ou les mêmes preuves.",
+        "limit": "Les médias générés peuvent être inexacts. Un schéma n’est pas une preuve et une préférence n’est pas un style d’apprentissage fixe.",
+        "method": "Représentations multiples et alternatives accessibles"
+      }
+    },
+    "harness": {
+      "source": "docs/guides/agent-harness-matrix.md",
+      "en": {
+        "title": "AI harness",
+        "what": "The application operating the agent, such as Copilot, Claude Code or Codex.",
+        "student": "Ask it to explain a method or build a representation; keep your submitted answers your own.",
+        "teacher": "Declare permitted tools, sources, costs and privacy rules; check outputs before using them in teaching.",
+        "objective": "Use flexible tools within an explicit learning activity.",
+        "limit": "An installed skill is guidance, not a guarantee. Provider access, privacy and costs depend on the actual client.",
+        "method": "Tool-supported learning with explicit authorship"
+      },
+      "fr": {
+        "title": "Harnais IA",
+        "what": "L’application qui fait fonctionner l’agent, comme Copilot, Claude Code ou Codex.",
+        "student": "Demandez une explication de méthode ou une représentation ; gardez vos réponses soumises personnelles.",
+        "teacher": "Précisez outils, sources, coûts et règles de confidentialité ; vérifiez les sorties avant usage pédagogique.",
+        "objective": "Utiliser des outils souples dans une activité pédagogique explicite.",
+        "limit": "Un skill fournit des consignes, pas une garantie. Accès, confidentialité et coûts dépendent du client réel.",
+        "method": "Apprentissage outillé et contribution personnelle explicite"
+      }
+    },
+    "critical": {
+      "source": "docs/user/student-guide.md",
+      "en": {
+        "title": "Critical review",
+        "what": "Assess a proposed explanation against evidence, including when it comes from AI.",
+        "student": "Give a reason for accepting or challenging a claim; do not assume every item contains an error.",
+        "teacher": "Use both sound and flawed examples and ask for evidence behind each judgment.",
+        "objective": "Practise justified trust instead of automatic acceptance or rejection.",
+        "limit": "Disagreement alone is not critical thinking, and a plausible AI answer may be wrong.",
+        "method": "Evidence-based critique and calibrated trust"
+      },
+      "fr": {
+        "title": "Examen critique",
+        "what": "Évaluer une explication à partir de preuves, y compris lorsqu’elle vient d’une IA.",
+        "student": "Justifiez l’accord ou l’objection ; ne supposez pas que chaque élément contient une erreur.",
+        "teacher": "Utilisez des exemples corrects et erronés et demandez les preuves de chaque jugement.",
+        "objective": "Exercer une confiance justifiée plutôt que l’acceptation ou le rejet automatiques.",
+        "limit": "Le désaccord seul n’est pas une pensée critique ; une réponse IA plausible peut être fausse.",
+        "method": "Critique fondée sur des preuves et confiance ajustée"
+      }
+    },
+    "universes": {
+      "source": "docs/features.md",
+      "en": {
+        "title": "Explored alternatives",
+        "what": "Named configurations record different choices or support conditions.",
+        "student": "Compare what changes and what stays fixed; ask what prompted a change of route.",
+        "teacher": "Inspect the selection and its evidence rather than treating one configuration as universally best.",
+        "objective": "Make alternatives and adaptation decisions inspectable.",
+        "limit": "An explored configuration is not a parallel real-world experiment or a fixed category of student.",
+        "method": "Comparison of explicit alternatives"
+      },
+      "fr": {
+        "title": "Variantes explorées",
+        "what": "Des configurations nommées décrivent différents choix ou niveaux d’accompagnement.",
+        "student": "Comparez ce qui change et ce qui reste fixe ; demandez ce qui motive un changement de parcours.",
+        "teacher": "Examinez la sélection et ses preuves sans supposer qu’une configuration est toujours préférable.",
+        "objective": "Rendre les variantes et les décisions d’adaptation consultables.",
+        "limit": "Une variante explorée n’est ni une expérience réelle parallèle ni une catégorie fixe d’étudiant.",
+        "method": "Comparaison de variantes explicites"
+      }
+    }
+  },
+  "scene_topics": {
+    "intro": "objective",
+    "concept": "visuals",
+    "quiz": "scaffolding",
+    "meta_checkpoint": "confidence",
+    "reproduction": "experiment",
+    "ai_critique": "critical",
+    "discussion": "reflection",
+    "spot_the_flaw": "critical",
+    "explain_back": "reflection",
+    "comparison": "experiment",
+    "summary_audit": "critical",
+    "prompt_practice": "harness",
+    "communication_sim": "transfer"
+  }
+}

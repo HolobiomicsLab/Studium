@@ -6,8 +6,11 @@ body {
 }
 #graph {
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 34px;
+  top: 64px; left: 0; right: 0; bottom: 34px;
 }
+/* Reserve a reachable help control above the graph canvas. */
+body > .studium-help { z-index: 2; margin: .5rem; max-width: calc(100% - 1rem); }
+body > .studium-help .studium-help-box { max-height: calc(100vh - 8rem); overflow-y: auto; }
 #legend {
   position: absolute;
   left: 0; right: 0; bottom: 0;

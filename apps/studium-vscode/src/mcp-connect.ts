@@ -157,6 +157,19 @@ export function resolveLogSink(explicit?: LogSink): LogSink {
 export type McpCall = (name: string, args: Record<string, any>) => Promise<Record<string, any>>;
 export interface LessonMcp { call: McpCall; close: () => void; }
 
+/** Connect an SDK client and close partial resources if startup fails. */
+export async function connectOrClose<TTransport>(
+  client: { connect: (transport: TTransport) => Promise<unknown>; close: () => Promise<unknown> },
+  transport: TTransport,
+): Promise<void> {
+  try {
+    await client.connect(transport);
+  } catch (error) {
+    await client.close().catch(() => {});
+    throw error;
+  }
+}
+
 /** Connect to a fresh lesson-mcp subprocess. `call` throws on a tool error; `close` tears the transport
  *  down. The server's stderr is piped to `opts.log` (default: the Studium output channel) — never
  *  discarded, so a server that dies at startup is diagnosable. */
@@ -167,7 +180,7 @@ export async function connectLessonMcp(opts: { launch: ServerLaunch; env: Record
     env: { ...launch.env, ...opts.env }, stderr: "pipe" });
   forwardStderr(transport.stderr, log); // piped stderr is readable BEFORE start(): no early output lost
   const client = new Client({ name: "studium-vscode", version: "0.1.0" });
-  await client.connect(transport);
+  await connectOrClose(client, transport);
   const call: McpCall = async (name, args) => parseToolResult(name, await client.callTool({ name, arguments: args }));
   return { call, close: () => { client.close().catch(() => {}); } };
 }

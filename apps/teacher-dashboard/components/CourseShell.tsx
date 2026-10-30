@@ -1,6 +1,14 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import CourseNav, { type CourseDestination } from "./CourseNav";
+import { ContextHelp } from '@studium/activity-presentation/react';
+
+const HELP_TOPICS = {
+  progress: 'mastery', 'course-progress': 'mastery', calibration: 'confidence',
+  'trust-calibration': 'critical', autonomy: 'scaffolding', trajectory: 'mastery',
+  'ai-literacy': 'critical', reasoning: 'reflection', journal: 'trace',
+  cooperation: 'reflection', blueprint: 'objective', submissions: 'review',
+} as const;
 
 type Props = {
   token: string;
@@ -39,6 +47,7 @@ export default function CourseShell({
         <header className="page-heading">
           <p className="eyebrow">{eyebrow}</p>
           <h2>{title}</h2>
+          <ContextHelp topic={HELP_TOPICS[active]} audience="teacher" />
           {description ? <div className="page-heading__description">{description}</div> : null}
         </header>
         <div className="content-stack">{children}</div>

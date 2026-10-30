@@ -4,7 +4,7 @@
 
 {% block content %}
 <p class="eyebrow">Focused audit · read-only</p>
-<h1>{{ review.course_id }} — scene review</h1>
+<h1>{{ review.course_id }} — scene review</h1>{{ help_tip("review") }}
 <p class="lede">One section per judged bundle, worst case first. Failure scenarios and quotes are the judge’s record about the bundle’s own content.</p>
 <div class="actions screen-only">
   <a class="button primary" href="/courses/{{ review.course_id | urlencode }}/mystra">Open complete MySTRA report</a>

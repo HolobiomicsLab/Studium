@@ -1,3 +1,4 @@
+import { helpStyles, lessonHelpTemplates, graphHelp } from "./contextual-help.js";
 // extension.ts — Studium in VS Code.
 //
 // The extension host is an MCP client to the lesson-mcp server (the same server VS Code Copilot
@@ -6,13 +7,14 @@
 // scene + get_scene_artifacts and posts them to the pane; the pane posts the learner's responses
 // back, which the extension feeds to submit_response / request_hint.
 import * as vscode from "vscode";
-import { readFileSync, existsSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import {
   connectLessonMcp, describeServerLaunch, resolveLogSink, resolveServerLaunch,
-  serverBuildWarning, serverInfoLine, setLessonMcpLog,
+  serverBuildWarning, serverInfoLine, setLessonMcpLog, type LessonMcp,
 } from "./mcp-connect.js";
+import { LessonPanelLifecycle, type ActionResult } from "./panel-lifecycle.js";
 import { registerStudiumChat } from "./chat.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
@@ -25,6 +27,7 @@ import { StudiumTreeProvider } from "./tree.js";
 import { buildLessonTree, type CommunityItem, type TreeNode } from "./lesson-tree.js";
 import { discoverCoursesInRoot, needsLessonPicker, toLessonPickerChoices, type LessonCourse, type LessonPickerChoice } from "./lesson-picker.js";
 import { browserPhrases, phrase, type Locale } from "./phrases.js";
+import { inlineImageAsset } from "./asset-path.js";
 
 type Json = Record<string, any>;
 
@@ -38,6 +41,9 @@ let activeLesson: {
   isDisposed: () => boolean;
   advance: (presentation: Json, explanation?: Json) => Promise<void>;
   done: (message: string) => void;
+  runExclusive: <TResult>(action: () => Promise<TResult>) => Promise<ActionResult<TResult>>;
+  pending: (message: string) => void;
+  settled: () => void;
 } | null = null;
 
 /** The activity-bar sidebar; module-level so pushScene can toggle its "reproduction scene is live" state. */
@@ -193,6 +199,18 @@ async function runReproductionScene() {
     return;
   }
   const lesson = activeLesson;
+  const result = await lesson.runExclusive(async () => {
+    lesson.pending(phrase("extension_running", {}, lesson.locale()));
+    try { await runReproductionForLesson(lesson); }
+    finally { lesson.settled(); }
+  });
+  if (result.status === "busy") {
+    vscode.window.showInformationMessage(phrase("extension_action_busy", {}, lesson.locale()));
+  }
+}
+
+/** Execute one reproduction after the caller has acquired the lesson panel's exclusive gate. */
+async function runReproductionForLesson(lesson: NonNullable<typeof activeLesson>) {
   const locale = lesson.locale();
   let manifest: RunManifest | null;
   try {
@@ -487,13 +505,32 @@ async function openLesson(
   );
   panel.webview.html = paneHtml(panel.webview, context.extensionPath, assets, extensionLocale);
 
+  // Register disposal BEFORE the asynchronous connection starts. If the learner closes the pane
+  // while the subprocess is still opening, the lifecycle closes the late connection on arrival.
+  const lifecycle = new LessonPanelLifecycle<LessonMcp>();
+  let panelDisposed = false;
+  panel.onDidDispose(() => { panelDisposed = true; lifecycle.dispose(); });
+
   // 1) connect to lesson-mcp over stdio
   const env: Record<string, string> = { ...process.env as any, BUNDLES_ROOT: bundlesRoot };
   if (consent) { env["STUDIUM_DATA_DIR"] = join(bundlesRoot, "data"); env["STUDIUM_TELEMETRY_CONSENT"] = "granted"; }
   const mcpLog = resolveLogSink();
   mcpLog(`[studium] lesson-mcp launch: ${describeServerLaunch(serverLaunch)}`);
-  const mcp = await connectLessonMcp({ launch: serverLaunch, env });
+  let mcp: LessonMcp | null;
+  try {
+    mcp = await lifecycle.connect(() => connectLessonMcp({ launch: serverLaunch, env }));
+  } catch (e: any) {
+    if (panelDisposed) return;
+    panel.webview.postMessage({
+      type: "error",
+      message: phrase("extension_connection_failed", { error: e.message }, extensionLocale),
+    });
+    vscode.window.showErrorMessage(`Studium: could not connect to lesson-mcp — ${e.message}`);
+    return;
+  }
+  if (!mcp) return;
   const call = mcp.call;
+  panel.webview.postMessage({ type: "loading", message: phrase("extension_service_ready", {}, extensionLocale) });
   // Say which server actually answered (version, bundled-vs-source, build date, git sha) in the
   // output channel, so a stale VSIX or a source checkout is a readable fact rather than a guess
   // (audit 2026-10-29, P11/V2). Best-effort: an older server without get_server_info still runs.
@@ -504,10 +541,7 @@ async function openLesson(
     if (warning) mcpLog(warning);
   }
   catch (e: any) { mcpLog(`[studium] get_server_info unavailable: ${e?.message ?? e}`); }
-  // Track disposal so async callbacks (which may resume after the user closes the panel) never
-  // postMessage to a dead webview.
-  let panelDisposed = false;
-  panel.onDidDispose(() => { panelDisposed = true; mcp.close(); });
+  if (panelDisposed) return;
 
   let sid = "";
   let locale: Locale = extensionLocale;
@@ -549,18 +583,8 @@ async function openLesson(
     } catch { /* the graph is best-effort; never let it break the lesson */ }
   };
 
-  // Resolve a figure path on disk into a webview-safe data URI so <img> renders under the CSP.
-  // (Text artifacts — orbital .cube, spectrum, molecule — are inlined server-side by get_scene_artifacts.)
-  const inlineImage = (a: Json) => {
-    if (!a.path || a.kind !== "image" && a.kind !== "executed_result") return a;
-    try {
-      const b64 = readFileSync(a.path).toString("base64");
-      const ext = (a.path.split(".").pop() || "png").toLowerCase();
-      return { ...a, dataUri: `data:image/${ext === "jpg" ? "jpeg" : ext};base64,${b64}` };
-    } catch { return a; }
-  };
-
   const pushScene = async (presentation: Json, explanation?: Json, verdict?: Json) => {
+    if (panelDisposed || lifecycle.isDisposed()) return;
     locale = presentation.locale === "en" ? "en" : "fr";
     extensionLocale = locale;
     treeProvider?.setLocale(locale);
@@ -588,7 +612,10 @@ async function openLesson(
       strings: browserPhrases(locale),
       // Modality-adaptive: reorder + emphasis-tag the (image-inlined) assets for the learner's
       // preference before posting. 'balanced' returns the authored order unchanged, all 'normal'.
-      scene_assets: selectRenderOrder(artifacts.map(inlineImage), modalityPref),
+      scene_assets: selectRenderOrder(
+        artifacts.map((asset: Json) => inlineImageAsset(bundlesRoot, bundleRef, asset)),
+        modalityPref,
+      ),
       modalityPreference: modalityPref,
       scene: presentation.scene,
       progress: { index: (presentation.index ?? 0) + 1, total: presentation.total },
@@ -623,9 +650,12 @@ async function openLesson(
     call,
     sid: () => sid,
     locale: () => locale,
-    isDisposed: () => panelDisposed,
+    isDisposed: () => panelDisposed || lifecycle.isDisposed(),
     advance: (presentation: Json, explanation?: Json) => pushScene(presentation, explanation),
     done: (message: string) => { if (!panelDisposed) panel.webview.postMessage({ type: "done", message }); },
+    runExclusive: <TResult>(action: () => Promise<TResult>) => lifecycle.runExclusive(action),
+    pending: (message: string) => { if (!panelDisposed) panel.webview.postMessage({ type: "action_pending", message }); },
+    settled: () => { if (!panelDisposed) panel.webview.postMessage({ type: "action_settled" }); },
   };
   activeLesson = thisLesson;
   panel.onDidDispose(() => {
@@ -636,47 +666,57 @@ async function openLesson(
   // 2) learner actions from the pane → MCP calls → next render (pair by pair)
   panel.webview.onDidReceiveMessage(async (msg: Json) => {
     try {
-      if (msg.type === "hint") {
-        const h = (await call("request_hint", { session_id: sid })).hint;
-        if (!panelDisposed) panel.webview.postMessage({ type: "hint", hint: h?.hint ?? null, remaining: h?.remaining });
-        return;
-      }
-      if (msg.type === "end") {
-        // Right to be forgotten: forget_session emits forget_requested and PURGES the durable per-learner
-        // state on disk (in consented/durable mode). Irreversible, so confirm first; closing the panel
-        // alone only drops the transport and leaves the saved state intact (so a learner can resume).
-        const ok = await vscode.window.showWarningMessage(
-          phrase("extension_forget_prompt", {}, locale),
-          { modal: true }, phrase("extension_forget_action", {}, locale),
-        );
-        if (ok === phrase("extension_forget_action", {}, locale)) {
-          try { await call("forget_session", { session_id: sid }); } catch { /* already gone */ }
-          panel.dispose();
-        }
-        return;
-      }
-      if (msg.type === "turn") {
-        // a discussion turn: score it (reasoning signal) + get the Socratic tutor's reply, WITHOUT
-        // advancing the scene. The pane appends both to the transcript; the learner ends the scene
-        // with the "Terminer" ack (a normal respond). After max_turns the server no-ops the turn.
-        const r = await call("submit_turn", { session_id: sid, text: String(msg.text ?? "") });
-        if (!panelDisposed) panel.webview.postMessage({ type: "turn_result", reasoning: r.reasoning ?? null, tutor: r.tutor ?? null });
-        return;
-      }
-      if (msg.type === "respond") {
-        const t = (await call("submit_response", { session_id: sid, input: msg.input })).transition;
-        if (panelDisposed) return;
-        if (t.kind === "complete") {
-          panel.webview.postMessage({ type: "done", message: phrase("extension_done", {
-            count: t.summary.scenesCompleted,
-            autonomy: t.summary.autonomyRatio.toFixed(2),
-          }, locale) });
+      const result = await lifecycle.runExclusive(async () => {
+        if (msg.type === "hint") {
+          const h = (await call("request_hint", { session_id: sid })).hint;
+          if (!panelDisposed) panel.webview.postMessage({ type: "hint", hint: h?.hint ?? null, remaining: h?.remaining });
           return;
         }
-        await pushScene(t.presentation, t.kind === "replay" || t.kind === "remediate_alt" || t.kind === "remediate"
-          ? { rule_id: t.navigation?.rule_id ?? t.kind, explanation_short: t.reason } : undefined, t.verdict);
+        if (msg.type === "end") {
+          // Right to be forgotten: forget_session emits forget_requested and PURGES the durable per-learner
+          // state on disk (in consented/durable mode). Irreversible, so confirm first; closing the panel
+          // alone only drops the transport and leaves the saved state intact (so a learner can resume).
+          const ok = await vscode.window.showWarningMessage(
+            phrase("extension_forget_prompt", {}, locale),
+            { modal: true }, phrase("extension_forget_action", {}, locale),
+          );
+          if (ok === phrase("extension_forget_action", {}, locale)) {
+            try { await call("forget_session", { session_id: sid }); } catch { /* already gone */ }
+            panel.dispose();
+          } else if (!panelDisposed) {
+            panel.webview.postMessage({ type: "action_settled" });
+          }
+          return;
+        }
+        if (msg.type === "turn") {
+          // a discussion turn: score it (reasoning signal) + get the Socratic tutor's reply, WITHOUT
+          // advancing the scene. The pane appends both to the transcript; the learner ends the scene
+          // with the "Terminer" ack (a normal respond). After max_turns the server no-ops the turn.
+          const r = await call("submit_turn", { session_id: sid, text: String(msg.text ?? "") });
+          if (!panelDisposed) panel.webview.postMessage({ type: "turn_result", reasoning: r.reasoning ?? null, tutor: r.tutor ?? null });
+          return;
+        }
+        if (msg.type === "respond") {
+          const t = (await call("submit_response", { session_id: sid, input: msg.input })).transition;
+          if (panelDisposed) return;
+          if (t.kind === "complete") {
+            panel.webview.postMessage({ type: "done", message: phrase("extension_done", {
+              count: t.summary.scenesCompleted,
+              autonomy: t.summary.autonomyRatio.toFixed(2),
+            }, locale) });
+            return;
+          }
+          await pushScene(t.presentation, t.kind === "replay" || t.kind === "remediate_alt" || t.kind === "remediate"
+            ? { rule_id: t.navigation?.rule_id ?? t.kind, explanation_short: t.reason } : undefined, t.verdict);
+        }
+      });
+      if (result.status === "busy") {
+        return;
       }
-    } catch (e: any) { vscode.window.showErrorMessage(`Studium: ${e.message}`); }
+    } catch (e: any) {
+      if (!panelDisposed) panel.webview.postMessage({ type: "action_error", message: e.message });
+      if (!panelDisposed) vscode.window.showErrorMessage(`Studium: ${e.message}`);
+    }
   });
 
   // 3) start
@@ -687,10 +727,11 @@ async function openLesson(
     vscode.window.showInformationMessage(phrase("extension_started", { bundle: bundleRef }, locale));
   } catch (e: any) {
     // Replace the loading placeholder with an in-pane error so the panel is never stuck on "Chargement…".
-    if (!panelDisposed) panel.webview.postMessage({
-      type: "error",
-      message: phrase("extension_start_failed", { error: e.message }, locale),
-    });
+    if (panelDisposed) return;
+    lifecycle.dispose();
+    if (activeLesson === thisLesson) activeLesson = null;
+    setReproductionContext(false);
+    panel.webview.postMessage({ type: "error", message: phrase("extension_start_failed", { error: e.message }, locale) });
     vscode.window.showErrorMessage(phrase("extension_start_failed_notification", { error: e.message }, locale));
   }
 }
@@ -723,12 +764,15 @@ function paneHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "
        media("vendor/vega.min.js"), media("vendor/vega-lite.min.js"), media("vendor/vega-embed.min.js"),
        media("vendor/3Dmol-min.js")]
   ).map((src) => `<script defer nonce="${n}" src="${src}"></script>`).join("\n");
-  return `<!doctype html><html><head><meta charset="utf-8">
+  const strings = JSON.stringify(browserPhrases(locale)).replace(/</g, "\\u003c");
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <link rel="stylesheet" href="${media("artifact-pane.css")}">
 <link rel="stylesheet" href="${katexCss}">
 ${libs}
-</head><body><div id="pane"><div class="loading">⏳ ${phrase("extension_loading_lesson", {}, locale)}</div></div>
+<style>${helpStyles}</style>
+</head><body>${lessonHelpTemplates()}<div id="pane"><div class="loading" role="status"><span class="loading-mark" aria-hidden="true"></span><div><strong>${phrase("pane_opening", {}, locale)}</strong><span>${phrase("extension_loading_lesson", {}, locale)}</span></div></div></div>
+<script type="application/json" id="studium-strings" nonce="${n}">${strings}</script>
 <script defer nonce="${n}" src="${media("artifact-pane.js")}"></script>
 </body></html>`;
 }
@@ -753,11 +797,12 @@ function graphHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | 
        "https://cdn.jsdelivr.net/npm/cytoscape-dagre@4.0.0/dist/cytoscape-dagre.js"]
     : [media("vendor/cytoscape.min.js"), media("vendor/dagre.min.js"), media("vendor/cytoscape-dagre.js")]
   ).map((src) => `<script defer nonce="${n}" src="${src}"></script>`).join("\n");
-  return `<!doctype html><html><head><meta charset="utf-8">
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <link rel="stylesheet" href="${media("graph-pane.css")}">
 ${libs}
-</head><body><div id="graph"></div><div id="legend"></div>
+<style>${helpStyles}</style>
+</head><body>${graphHelp()}<div id="graph"></div><div id="legend"></div>
 <script nonce="${n}" src="${media("graph-pane.js")}"></script>
 </body></html>`;
 }

@@ -1,0 +1,13 @@
+{
+  "schema": "studium/operator-context/v1",
+  "session_id": "archaeology-demo",
+  "scene": {
+    "id": "observe_object",
+    "title": "Reading an archaeological photograph",
+    "objective_refs": [
+      "distinguish_observation_inference"
+    ],
+    "source_content": "Distinguish visible features, museum metadata and interpretations requiring additional evidence."
+  },
+  "run_manifest": null
+}

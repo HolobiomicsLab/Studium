@@ -1,60 +1,137 @@
 <!doctype html>
-<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'">
-<title>Studium · A score is a question</title>
+<title>Studium · Follow the evidence</title>
 <style>
-:root{--paper:#f1eee5;--ink:#17343b;--muted:#52696c;--line:#c8cec3;--teal:#007a72;--orange:#b75928;--white:#fffdf5}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 Avenir,"Trebuchet MS",sans-serif}a{color:var(--teal)}button,input,textarea{font:inherit}button{min-height:44px;border:1px solid var(--ink);background:var(--ink);color:white;padding:10px 18px;cursor:pointer}input,textarea{accent-color:var(--teal)}:focus-visible{outline:3px solid var(--orange);outline-offset:3px}.skip{position:absolute;top:-100px}.skip:focus{top:0;background:white;padding:16px;z-index:3}header{border-bottom:1px solid var(--ink);padding:20px 5vw;display:flex;justify-content:space-between;gap:20px}.brand{font-size:23px;letter-spacing:.05em}.eyebrow{text-transform:uppercase;letter-spacing:.13em;font-size:12px}main{max-width:1440px;margin:auto;padding:50px 5vw}.intro{display:grid;grid-template-columns:1.5fr 1fr;gap:8vw;margin-bottom:36px}h1{font:clamp(46px,6.5vw,86px)/1.01 Iowan Old Style,Georgia,serif;margin:14px 0 22px;letter-spacing:-.035em}h2{font:30px/1.2 Iowan Old Style,Georgia,serif;margin:0 0 18px}h3{font-size:16px;margin-top:0}.lede{max-width:660px;font-size:18px}.source{border-left:2px solid var(--orange);padding:12px 0 12px 24px;align-self:end;color:var(--muted)}.source p{margin:8px 0}.workspace{background:var(--white);border:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) 280px}.chart{padding:28px;min-width:0}.charthead{display:flex;justify-content:space-between;gap:15px;align-items:start}.tag{font-size:12px;text-transform:uppercase;letter-spacing:.08em;padding:6px 9px;background:#e4e8de;white-space:nowrap}svg{display:block;width:100%;height:auto;overflow:visible}.controls{padding:28px;border-left:1px solid var(--line);background:#edf0e7}.control{margin:28px 0}.control label{display:block;cursor:pointer}.control input[type=range]{width:100%;height:44px}.control input[type=checkbox]{width:22px;height:22px;vertical-align:middle;margin:0 7px 0 0}.legend{display:flex;gap:20px;flex-wrap:wrap;font-size:13px}.legend span:before{content:' ';display:inline-block;width:22px;height:3px;margin:0 7px 4px 0;background:var(--teal)}.legend .shift:before{background:var(--orange)}.readouts{display:grid;grid-template-columns:1fr 1fr;margin-top:20px;border-top:1px solid var(--line)}.number{font:43px Georgia,serif;display:block}.readouts>div{padding:20px 0}.readouts>div+div{border-left:1px solid var(--line);padding-left:24px}.muted,small{color:var(--muted)}small{display:block;line-height:1.5}.lower{display:grid;grid-template-columns:1fr 1fr;gap:5vw;margin-top:44px}.question{font:24px/1.3 Georgia,serif}.reflection{padding:28px;background:#e3e8dc}.reflection textarea{display:block;width:100%;height:130px;margin:14px 0;border:1px solid var(--line);padding:12px;resize:vertical;background:var(--white)}.reflection label{display:block}.reflection input[type=range]{width:100%;height:44px}.tablewrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:right;padding:8px;border-bottom:1px solid var(--line)}td:last-child,th:last-child{text-align:left}details{margin:25px 0}summary{cursor:pointer;min-height:44px;padding:10px 0}.hash{font:11px monospace;overflow-wrap:anywhere}.notice{border-top:1px solid var(--line);padding:16px 0;margin-top:24px}footer{padding:28px 5vw;border-top:1px solid var(--ink);font-size:13px}.actions{display:flex;gap:10px;flex-wrap:wrap}.actions button+button{background:transparent;color:var(--ink)}@media(max-width:780px){main{padding:28px 20px}.intro,.lower{grid-template-columns:1fr;gap:24px}.source{margin-top:0}.workspace{grid-template-columns:1fr}.controls{border-left:0;border-top:1px solid var(--line)}.chart{padding:18px}.charthead{display:block}.charthead .tag{display:inline-block;margin-bottom:12px}header{padding:16px 20px}.readouts{gap:10px}.number{font-size:34px}}@media print{button,textarea,input{display:none}.workspace,.intro,.lower{display:block}.controls{border:0}body{background:white}main{padding:20px}.reflection{break-inside:avoid}footer{padding:10px}}
+:root{--paper:#f2efe7;--ink:#17343b;--muted:#587074;--line:#bdc9c2;--teal:#007a72;--orange:#b75928;--blue:#355f8a;--white:#fffdf7;--soft:#e5ebe3}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 Avenir,"Trebuchet MS",sans-serif}button,input,textarea{font:inherit}:focus-visible{outline:3px solid var(--orange);outline-offset:3px}button{min-height:44px;border:1px solid var(--ink);padding:9px 16px;background:var(--ink);color:white;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.secondary{background:transparent;color:var(--ink)}.skip{position:absolute;top:-100px}.skip:focus{top:0;left:0;background:white;padding:16px;z-index:5}header{padding:18px 5vw;border-bottom:1px solid var(--ink);display:flex;justify-content:space-between;gap:20px}.brand{font-size:22px;letter-spacing:.06em}.eyebrow{text-transform:uppercase;letter-spacing:.13em;font-size:12px}.tag{padding:5px 8px;background:var(--soft);font-size:12px;text-transform:uppercase;letter-spacing:.07em}main{max-width:1420px;margin:auto;padding:42px 5vw}h1{font:clamp(44px,6vw,76px)/1.02 Iowan Old Style,Georgia,serif;letter-spacing:-.035em;margin:12px 0 18px}h2{font:30px/1.2 Iowan Old Style,Georgia,serif;margin:0 0 14px}h3{margin:0 0 10px}.intro{display:grid;grid-template-columns:1.4fr 1fr;gap:8vw;margin-bottom:30px}.lede{font-size:19px;max-width:690px}.source{border-left:2px solid var(--orange);padding:10px 0 10px 22px;align-self:end}.muted,small{color:var(--muted)}small{display:block}.prediction{background:var(--ink);color:white;padding:26px;display:grid;grid-template-columns:1fr 1.2fr;gap:36px;margin-bottom:30px}.prediction textarea,.notes textarea{width:100%;min-height:100px;padding:12px;border:1px solid var(--line);background:var(--white);resize:vertical}.prediction small{color:#d2dfdc}.prediction .actions{margin-top:12px}.prediction button{background:var(--orange);border-color:white}.workspace{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,.75fr);background:var(--white);border:1px solid var(--line)}.panel{padding:26px;min-width:0}.controls{border-left:1px solid var(--line);background:#edf1e9}.controls input[type=range]{width:100%;height:44px}.presets{display:grid;gap:8px;margin:18px 0}.presets button{text-align:left}.readouts{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);margin:16px 0}.readouts>div{padding:13px}.readouts>div+div{border-left:1px solid var(--line)}.number{font:30px Georgia,serif;display:block}.network-wrap{border:1px solid var(--line);background:#f9f8f2}.network{width:100%;height:auto;display:block}.network-node{cursor:pointer}.network-node circle{fill:var(--white);stroke:var(--ink);stroke-width:2}.network-node[aria-pressed=true] circle{fill:#d8e9e4;stroke:var(--teal);stroke-width:5}.network-node text{font:13px Avenir,"Trebuchet MS",sans-serif;fill:var(--ink);text-anchor:middle;pointer-events:none}.edge-current{stroke:var(--teal);stroke-width:5}.edge-baseline{stroke:var(--orange);stroke-width:2;stroke-dasharray:7 6}.edge-added{stroke:var(--blue)}.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;margin:10px 0}.legend span:before{content:"";display:inline-block;width:24px;height:3px;background:var(--teal);margin:0 7px 4px 0}.legend .baseline:before{background:repeating-linear-gradient(90deg,var(--orange),var(--orange) 6px,transparent 6px,transparent 10px)}.legend .added:before{background:var(--blue)}.linked{display:grid;grid-template-columns:1.15fr .85fr;gap:24px;margin-top:30px}.card{border:1px solid var(--line);background:var(--white);padding:24px}.mirror{width:100%;height:auto}.candidate-table{width:100%;border-collapse:collapse;font-size:13px}.candidate-table th,.candidate-table td{text-align:left;padding:9px;border-bottom:1px solid var(--line)}.candidate-table tr.selected{background:#d8e9e4}.candidate-table button{padding:5px 9px;min-height:38px}.questions{margin-top:30px;display:grid;grid-template-columns:1fr 1fr;gap:24px}.notes{background:var(--soft)}.notes label{display:block;margin:12px 0 5px}.actions{display:flex;gap:10px;flex-wrap:wrap}.limitations{border-left:2px solid var(--orange);padding-left:20px}.hash{font:11px monospace;overflow-wrap:anywhere;white-space:pre-line}footer{padding:24px 5vw;border-top:1px solid var(--ink);font-size:13px}[hidden]{display:none!important}@media(max-width:850px){main{padding:28px 20px}.intro,.prediction,.workspace,.linked,.questions{grid-template-columns:1fr}.controls{border-left:0;border-top:1px solid var(--line)}header{padding:14px 20px}.readouts{grid-template-columns:1fr}.readouts>div+div{border-left:0;border-top:1px solid var(--line)}}@media print{button,input,textarea,.prediction{display:none}.workspace,.linked,.questions{display:block}.controls{border:0}.card{break-inside:avoid}body{background:white}main{padding:20px}}
+header>*{min-width:0}h2{overflow-wrap:anywhere}.card{min-width:0}.actions>*{max-width:100%}.actions input[type=number]{max-width:100%}.hash{white-space:pre-wrap;word-break:break-all}.controls>label{display:block;margin-top:8px}@media(max-width:850px){.candidate-table{table-layout:fixed}.candidate-table th,.candidate-table td{overflow-wrap:anywhere}.network-node text{font-size:11px}}
 </style>
-<a class="skip" href="#main">Skip to experiment</a><header><div class="brand">STUDIUM <span class="eyebrow">/ Field notes 01</span></div><span class="eyebrow">Literature → experiment → judgment</span></header>
-<main id="main" tabindex="-1"><section class="intro"><div><div class="eyebrow">An experience built by the harness</div><h1>A score is<br>a question.</h1><p class="lede">Two spectra. A precursor shift. Explore which peaks become comparable, then decide what the evidence allows you to claim.</p></div><aside class="source"><span class="eyebrow">Scientific starting point</span><p><a id="sourceLink" target="_blank" rel="noreferrer"></a></p><p><span id="sourceGoal"></span></p><small>Source fetched with Perspicacité. These spectra are illustrative, synthetic inputs. This draft exercise does not reproduce the paper or establish a compound identity.</small></aside></section>
-<section class="workspace" aria-label="Spectrum comparison"><div class="chart"><div class="charthead"><div><span class="eyebrow">01 / Inspect the relationship</span><h2>Same evidence. Different matching.</h2></div><span class="tag">Synthetic spectra · real calculation</span></div><svg id="spectra" viewBox="0 0 960 370" role="img" aria-label="Experimental and reference spectra with matched peak connections"></svg><div class="legend"><span>Direct peak match</span><span class="shift">Precursor-shift match</span></div><div class="readouts" aria-live="polite"><div><span class="eyebrow">Current exploration</span><strong class="number" id="score"></strong><small><span id="matches"></span> matched peaks · recalculated in this viewer</small></div><div><span class="eyebrow">External run, recorded baseline</span><strong class="number" id="baseline"></strong><small id="baselineNote"></small></div></div></div>
-<aside class="controls"><span class="eyebrow">Change one assumption</span><div class="control"><label for="shift"><input id="shift" type="checkbox" checked>Allow precursor shift</label><small id="shiftValue"></small></div><div class="control"><label for="tolerance">Fragment tolerance <strong id="tolValue"></strong></label><input id="tolerance" type="range" min="0.00005" max="0.1" value="0.02" step="0.00005"><small>Mass tolerance in Da. Intensities use L2 normalization.</small></div><button id="reset">Reset to run settings</button><p class="notice muted">Changing these controls creates an exploration. It does not rerun the scientific capsule or update your mastery.</p></aside></section>
-<section class="lower"><div><span class="eyebrow">02 / Explain what changed</span><p class="question">Which part of the higher score comes from the matching rule, and which part supports a scientific conclusion?</p><p>Compare direct matching with precursor-aware matching. Inspect the matched peaks. State what extra evidence you would need before making a stronger identification claim.</p><details><summary>Inspect every matched peak</summary><div class="tablewrap"><table><thead><tr><th>Experimental m/z</th><th>Reference m/z</th><th>Contribution</th><th>Match</th></tr></thead><tbody id="pairs"></tbody></table></div></details><details><summary>Input and rendering provenance</summary><p id="context"></p><div id="hashes" class="hash"></div><p class="muted">The build manifest also records the viewer code and HTML hashes. No student assessment or approval is implied.</p></details></div><div class="reflection"><span class="eyebrow">03 / Your judgment</span><h2>Keep the reasoning yours.</h2><label for="reflection">Your interpretation, limits and next check</label><textarea id="reflection" placeholder="The score changes because… This result supports… It does not establish…"></textarea><label for="confidence">Your confidence <strong id="confidenceValue">not recorded</strong></label><input id="confidence" type="range" min="0" max="4" step="1" value="0"><small>Move the control to record your confidence: 0 = guessing, 4 = certain.</small><div class="actions"><button id="save">Download my observation</button><button id="print">Print</button></div><p id="saved" role="status" class="muted">Private to this page until you choose to download. Nothing is graded or submitted.</p></div></section></main><footer>Studium provides the public scene context. The harness creates and runs this viewer. Teacher review precedes student publication.</footer>
+</head><body>
+<a class="skip" href="#main">Skip to experiment</a><header><div class="brand">STUDIUM <span class="eyebrow">/ Field notes 02</span></div><span class="eyebrow">Predict → reveal → observe → conclude</span></header>
+<main id="main" tabindex="-1"><section class="intro"><div><span class="eyebrow">Linked synthetic evidence</span><h1>Follow one ID<br>across every view.</h1><p class="lede">Predict what a threshold will change. Then trace the same spectrum from network node to mirror plot to candidate row, and decide what similarity can support.</p></div><aside class="source"><span class="eyebrow">Scientific starting point</span><p><a id="sourceLink" target="_blank" rel="noreferrer"></a></p><p id="sourceGoal"></p><!-- HELP:evidence --><small>Source-linked computation on explicitly synthetic spectra. The expanded network is a teaching construction, not a reproduction of the paper.</small></aside></section>
+<section class="prediction" id="prediction-before-reveal"><div><span class="eyebrow">01 / Prediction before reveal</span><h2>What will the threshold change?</h2><!-- HELP:prediction --><p>Predict whether lowering the score threshold changes edges, nodes, both, or neither. The fixed node IDs become available after this prediction.</p></div><div><label for="prediction">Your prediction</label><textarea id="prediction" placeholder="I predict… because…"></textarea><div class="actions"><button id="reveal" disabled>Keep my prediction and reveal calculations</button></div><small id="predictionStatus" role="status">Your text remains in this page unless you explicitly export it.</small></div></section>
+<div id="exploration" hidden><section class="workspace"><div class="panel"><div><span class="eyebrow">02 / Molecular network</span><h2>Thresholded links, stable nodes</h2><!-- HELP:experiment --></div><div class="network-wrap"><svg id="networkGraph" class="network" viewBox="0 0 760 390" role="group" aria-label="Synthetic molecular network; use Tab then Enter or Space to select a node"></svg></div><div class="legend"><span>Current and baseline edge</span><span class="added">Added at current threshold</span><span class="baseline">Baseline preserved for comparison</span></div><p id="selectionStatus" role="status"></p></div>
+<aside class="panel controls"><span class="eyebrow">Change one parameter</span><label for="threshold">Edge threshold <strong id="thresholdValue"></strong></label><input id="threshold" type="range" min="0" max="1" step="0.01"><div id="presets" class="presets"></div><div class="readouts" aria-live="polite"><div><span class="eyebrow">Nodes</span><strong class="number" id="nodeCount"></strong><small>membership never changes</small></div><div><span class="eyebrow">Current edges</span><strong class="number" id="edgeCount"></strong></div><div><span class="eyebrow">Difference</span><strong class="number" id="differenceCount"></strong><small id="differenceText"></small></div></div><p class="muted">Baseline threshold: <strong id="baselineThreshold"></strong>. Thresholds include edges whose score is exactly on the boundary.</p></aside></section>
+<section class="linked"><div class="card"><span class="eyebrow">03 / Linked mirror spectra</span><h2 id="mirrorTitle"></h2><svg id="mirror" class="mirror" viewBox="0 0 760 390" role="img" aria-label="Mirror spectrum for the focal and selected network nodes"></svg><p>Current score <strong id="score"></strong> · <strong id="matches"></strong> matched peaks. Recorded external pair baseline <strong id="baseline"></strong>.</p><div class="actions"><label for="shift"><input id="shift" type="checkbox" checked> Allow precursor shift</label><label for="tolerance">Tolerance <input id="tolerance" type="number" min="0.00005" max="0.1" step="0.00005"></label><button class="secondary" id="reset">Reset pair calculation</button></div><small id="pairScore">Matched peaks use the same declared calculation as the network. Pair controls are a local exploration; the external baseline stays fixed.</small></div><div class="card"><span class="eyebrow">04 / Candidate table</span><h2>Same fixed node IDs</h2><div style="overflow-x:auto"><table class="candidate-table"><thead><tr><th>Node ID</th><th>Candidate</th><th>Baseline similarity<br><small>shift on · 0.02 Da</small></th><th></th></tr></thead><tbody id="candidateRows"></tbody></table></div><p class="muted"><strong>Candidate similarity is not compound identification.</strong> Table scores stay at the declared network baseline when pair controls change. Formula values are deliberately unassigned.</p></div></section>
+<section class="questions"><div class="card"><span class="eyebrow">05 / Cross-view questions</span><h2>Explain the link</h2><!-- HELP:visuals --><ol id="crossViewQuestions"></ol><div class="limitations"><p><strong>Scientific limit.</strong> Scores show how these synthetic peak lists behave under one declared calculation. They do not establish identity, novelty, an MSI level, or a learning-style claim.</p><p><strong>Computation limit.</strong> Greedy matching can depend on tie handling; this implementation resolves equal products by stable peak index. A threshold change is a local exploration, not a rerun or attested scientific result.</p></div><details><summary>Generation brief and provenance</summary><pre id="generationBrief" class="hash"></pre><p id="context"></p><div id="hashes" class="hash"></div></details></div>
+<div class="card notes"><span class="eyebrow">06 / Learner-owned notes</span><h2>Observe, then conclude.</h2><!-- HELP:reflection --><label for="observation">Observation: what changed, or stayed stable?</label><textarea id="observation" placeholder="At threshold… I observed…"></textarea><label for="conclusion">Conclusion: what does this evidence support, and what remains unknown?</label><textarea id="conclusion" placeholder="This supports… It does not establish…"></textarea><label for="confidence">Confidence <strong id="confidenceValue">not recorded</strong></label><input id="confidence" type="range" min="0" max="4" step="1" value="0"><small>0 = guessing, 4 = certain. Moving this control is optional.</small><div class="actions"><button id="export">Export my notes</button><button class="secondary" id="print">Print</button></div><p id="exportStatus" role="status" class="muted">Nothing is saved, graded or submitted automatically.</p></div></section></div></main>
+<footer>Studium supplies public context. The harness renders this local viewer. A teacher review is still required before student publication.</footer>
 <script>
+/* LINKED_CORE */
 /* EXPERIENCE_DATA */
-const $ = id => document.getElementById(id);
-const NS = 'http://www.w3.org/2000/svg';
-let confidence = null;
-let current;
-function node(tag, attrs, text) { const el=document.createElementNS(NS,tag); for(const [key,value] of Object.entries(attrs)) el.setAttribute(key,value); if(text!==undefined)el.textContent=text; $('spectra').append(el); return el; }
-function compute(tolerance, shifted) {
-  const {experimental:a, reference:b}=INPUT.spectra;
-  const normA=Math.hypot(...a.peaks.map(p=>p[1])), normB=Math.hypot(...b.peaks.map(p=>p[1]));
-  const shift=a.precursor_mz-b.precursor_mz, candidates=[];
-  a.peaks.forEach((p,i)=>b.peaks.forEach((q,j)=>{ const direct=Math.abs(p[0]-q[0])<=tolerance;
-    if(direct||(shifted&&Math.abs(p[0]-q[0]-shift)<=tolerance)) candidates.push({i,j,product: normA&&normB?p[1]*q[1]/normA/normB:0,kind:direct?'direct':'shift'});
-  }));
-  candidates.sort((a,b)=>b.product-a.product||b.i-a.i||b.j-a.j);
-  const usedA=new Set(),usedB=new Set(),pairs=[];
-  for(const pair of candidates)if(!usedA.has(pair.i)&&!usedB.has(pair.j)){pairs.push(pair);usedA.add(pair.i);usedB.add(pair.j);}
-  return {score: Math.min(1,pairs.reduce((n,p)=>n+p.product,0)),pairs};
+const $ = (id) => document.getElementById(id), SVG_NS = "http://www.w3.org/2000/svg";
+let selectedId = INPUT.spectra.reference.id, confidence = null, lastComparison;
+
+function svgElement(parent, tag, attributes, text) {
+  const element = document.createElementNS(SVG_NS, tag);
+  Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, value));
+  if (text !== undefined) element.textContent = text;
+  parent.append(element); return element;
 }
-function draw() {
-  const tolerance=Number($('tolerance').value); current=compute(tolerance,$('shift').checked);
-  $('tolValue').textContent=tolerance.toFixed(5)+' Da'; $('score').textContent=current.score.toFixed(4); $('matches').textContent=current.pairs.length;
-  $('spectra').replaceChildren(); $('pairs').replaceChildren();
-  const a=INPUT.spectra.experimental.peaks,b=INPUT.spectra.reference.peaks,max=Math.max(...a.map(p=>p[0]),...b.map(p=>p[0]))*1.06;
-  const x=mz=>64+mz/max*850;
-  for(let tick=0;tick<=max;tick+=100){const xx=x(tick);node('line',{x1:xx,y1:55,x2:xx,y2:310,stroke:'#e5e6dd'});node('text',{x:xx,y:335,'text-anchor':'middle',fill:'#52696c','font-size':13},tick);}
-  node('text',{x:930,y:357,'text-anchor':'end',fill:'#52696c','font-size':14},'m/z');
-  for(const [peaks,base,sign,label] of [[a,175,-1,'Experimental'],[b,210,1,'Reference']]){
-    node('line',{x1:64,y1:base,x2:925,y2:base,stroke:'#7d8c88'});node('text',{x:64,y:sign<0?30:363,fill:'#17343b','font-size':15},label);
-    const norm=Math.max(...peaks.map(p=>p[1]))||1;
-    peaks.forEach(p=>node('line',{x1:x(p[0]),x2:x(p[0]),y1:base,y2:base+sign*p[1]/norm*115,stroke:'#82978f','stroke-width':3}));
-  }
-  for(const pair of current.pairs){const p=a[pair.i],q=b[pair.j],color=pair.kind==='direct'?'#007a72':'#b75928';
-    node('line',{x1:x(p[0]),y1:175,x2:x(q[0]),y2:210,stroke:color,'stroke-width':2});
-    const tr=document.createElement('tr');for(const value of [p[0].toFixed(4),q[0].toFixed(4),pair.product.toFixed(4),pair.kind]){const td=document.createElement('td');td.textContent=value;tr.append(td);}$('pairs').append(tr);
-  }
+
+function selectNode(nodeId) {
+  selectedId = nodeId;
+  document.querySelectorAll("[data-node-id]").forEach((element) => {
+    const isSelected = element.dataset.nodeId === selectedId;
+    element.setAttribute("aria-pressed", String(isSelected));
+    element.closest("tr")?.classList.toggle("selected", isSelected);
+  });
+  drawMirror();
+  $("selectionStatus").textContent = `Selected ${selectedId}; the mirror spectrum and candidate row now use this same ID.`;
 }
-$('sourceLink').textContent=INPUT.source.title; $('sourceLink').href='https://doi.org/'+INPUT.source.doi; $('sourceGoal').textContent=INPUT.brief.goal;
-$('baseline').textContent=INPUT.result.score.toFixed(4); $('baselineNote').textContent=INPUT.result.matched_peaks+' matched peaks · supplied external Python run';
-$('shiftValue').textContent='Δ precursor = '+(INPUT.spectra.experimental.precursor_mz-INPUT.spectra.reference.precursor_mz).toFixed(4)+' Da';
-$('context').textContent='Public context: '+INPUT.context.scene.title+' · '+INPUT.context.scene.id;
-$('hashes').textContent=INPUT.hashes.map((h,i)=>['Spectra','Run result','Public context'][i]+': '+h).join('\n');
-$('tolerance').value=INPUT.spectra.fragment_tol_da; $('tolerance').addEventListener('input',draw);$('shift').addEventListener('change',draw);
-$('reset').addEventListener('click',()=>{$('shift').checked=true;$('tolerance').value=INPUT.spectra.fragment_tol_da;draw();});
-$('confidence').addEventListener('input',()=>{confidence=Number($('confidence').value);$('confidenceValue').textContent=confidence+'/4';});
-$('save').addEventListener('click',()=>{const note={kind:'exploration_notes',scene_id:INPUT.context.scene.id,input_sha256:INPUT.hashes,judgment:$('reflection').value,confidence,settings:{tolerance:Number($('tolerance').value),precursor_shift:$('shift').checked},exploration_score:current.score,assessed:false};const url=URL.createObjectURL(new Blob([JSON.stringify(note,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='studium-observation.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);$('saved').textContent='Observation downloaded. No response was submitted to Studium.';});
-$('print').addEventListener('click',()=>window.print());draw();
-</script></html>
+
+function drawNetwork() {
+  const graph = $("networkGraph"); graph.replaceChildren();
+  const nodePositions = layoutPositions(INPUT.network.nodes);
+  const baselineIds = new Set(lastComparison.baseline.visible_edges.map((edge) => edge.id));
+  lastComparison.baseline.visible_edges.forEach((edge) => drawEdge(graph, edge, nodePositions, "edge-baseline"));
+  lastComparison.current.visible_edges.forEach((edge) => drawEdge(graph, edge, nodePositions, baselineIds.has(edge.id) ? "edge-current" : "edge-current edge-added"));
+  INPUT.network.nodes.forEach((node) => drawNode(graph, node, nodePositions.get(node.id)));
+}
+
+function layoutPositions(nodes) {
+  const centerX=380,centerY=195,radius=Math.min(145,125+nodes.length*3);
+  return new Map(nodes.map((node,index)=>{const angle=-Math.PI/2+2*Math.PI*index/nodes.length;return [node.id,[centerX+Math.cos(angle)*radius,centerY+Math.sin(angle)*radius]];}));
+}
+
+function drawEdge(graph, edge, nodePositions, className) {
+  const [x1,y1] = nodePositions.get(edge.source), [x2,y2] = nodePositions.get(edge.target);
+  const line = svgElement(graph,"line",{x1,y1,x2,y2,"class":className,"data-edge-id":edge.id});
+  svgElement(graph,"title",{},`${edge.id}: ${edge.score.toFixed(4)}`); return line;
+}
+
+function drawNode(graph, node, [x,y]) {
+  const group = svgElement(graph,"g",{class:"network-node",role:"button",tabindex:"0","aria-pressed":String(node.id===selectedId),"aria-label":`Select ${node.label}; ID ${node.id}`,"data-node-id":node.id});
+  svgElement(group,"circle",{cx:x,cy:y,r:55}); svgElement(group,"text",{x,y:y-5},node.label);
+  svgElement(group,"text",{x,y:y+18},node.id);
+  group.addEventListener("click",()=>selectNode(node.id));
+  group.addEventListener("keydown",(event)=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();selectNode(node.id);}});
+}
+
+function drawMirror() {
+  const focal = INPUT.network.nodes.find((node) => node.id === INPUT.network.focal_id);
+  const selected = INPUT.network.nodes.find((node) => node.id === selectedId);
+  const tolerance = Number($("tolerance").value), mirror = $("mirror");
+  if(!$("tolerance").value||!Number.isFinite(tolerance)||tolerance<=0||tolerance>0.1){$("tolerance").setAttribute("aria-invalid","true");$("score").textContent="—";$("matches").textContent="—";$("pairScore").textContent="Enter a tolerance above 0 and at most 0.1 Da to calculate this pair.";mirror.replaceChildren();return;}
+  $("tolerance").setAttribute("aria-invalid","false");const result = modifiedCosine(focal, selected, tolerance, $("shift").checked);mirror.replaceChildren();
+  const maximumMz = Math.max(...focal.peaks.concat(selected.peaks).map((peak)=>peak[0])) * 1.05;
+  const x = (mz) => 45 + mz / maximumMz * 680;
+  for(let tick=0;tick<=maximumMz;tick+=100){const tickX=x(tick);svgElement(mirror,"line",{x1:tickX,y1:45,x2:tickX,y2:325,stroke:"#e2e5df"});svgElement(mirror,"text",{x:tickX,y:342,"text-anchor":"middle",fill:"#587074","font-size":12},tick);}
+  svgElement(mirror,"text",{x:728,y:356,"text-anchor":"end",fill:"#587074","font-size":12},"m/z");
+  svgElement(mirror,"text",{x:14,y:180,transform:"rotate(-90 14 180)","text-anchor":"middle",fill:"#587074","font-size":12},"Relative intensity (%)");
+  [[focal,175,-1,"Focal"],[selected,195,1,"Selected"]].forEach(([node,base,direction,label]) => drawSpectrum(mirror,node,base,direction,label,x));
+  $("mirrorTitle").textContent = `${focal.id} ↔ ${selected.id}`;
+  $("score").textContent = result.score.toFixed(4); $("matches").textContent = result.pairs.length;$("pairScore").textContent="Matched peaks use the same declared calculation as the network. Pair controls are a local exploration; the external baseline stays fixed.";
+}
+
+function drawSpectrum(mirror, spectrum, base, direction, label, x) {
+  svgElement(mirror,"line",{x1:45,y1:base,x2:730,y2:base,stroke:"#7d8c88"});
+  svgElement(mirror,"text",{x:45,y:direction<0?28:378,fill:"#17343b"},`${label}: ${spectrum.id}`);
+  const maximumIntensity = Math.max(...spectrum.peaks.map((peak)=>peak[1]));
+  spectrum.peaks.forEach(([mz,intensity])=>svgElement(mirror,"line",{x1:x(mz),x2:x(mz),y1:base,y2:base+direction*intensity/maximumIntensity*125,stroke:direction<0?"#007a72":"#b75928","stroke-width":3}));
+  svgElement(mirror,"text",{x:35,y:base+direction*125+(direction<0?-3:12),"text-anchor":"end",fill:"#587074","font-size":11},"100");
+}
+
+function renderCandidates() {
+  const focal = INPUT.network.nodes.find((node) => node.id === INPUT.network.focal_id);
+  $("candidateRows").replaceChildren();
+  INPUT.network.candidates.forEach((candidate) => {
+    const node = INPUT.network.nodes.find((item) => item.id === candidate.node_id);
+    const score = modifiedCosine(focal,node,INPUT.network.fragment_tol_da).score;
+    const row = document.createElement("tr"); row.dataset.nodeId = node.id;
+    [node.id,candidate.candidate,score.toFixed(4)].forEach((value)=>{const cell=document.createElement("td");cell.textContent=value;row.append(cell);});
+    const action=document.createElement("td"),button=document.createElement("button");button.textContent="Select";button.className="secondary";button.dataset.nodeId=node.id;button.setAttribute("aria-pressed","false");button.addEventListener("click",()=>selectNode(node.id));action.append(button);row.append(action);$("candidateRows").append(row);
+  });
+}
+
+function updateThreshold() {
+  const threshold = Number($("threshold").value); lastComparison = compareWithBaseline(INPUT.network,threshold);
+  $("thresholdValue").textContent = threshold.toFixed(2); $("nodeCount").textContent = lastComparison.current.node_ids.length;
+  $("edgeCount").textContent = lastComparison.current.visible_edges.length;
+  $("differenceCount").textContent = lastComparison.added.length + lastComparison.removed.length;
+  $("differenceText").textContent = lastComparison.has_change ? `${lastComparison.added.length} added · ${lastComparison.removed.length} removed` : "no change from baseline";
+  drawNetwork(); selectNode(selectedId);
+}
+
+function revealCalculations() {
+  if (!$("prediction").value.trim()) return;
+  $("exploration").hidden = false; $("reveal").disabled = true; $("prediction").readOnly = true;
+  $("predictionStatus").textContent = "Prediction kept in this page. Calculations revealed; no response was submitted.";
+  updateThreshold(); $("exploration").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function exportNotes() {
+  const note={schema:"studium/linked-viewer-notes/v1",scene_id:INPUT.context.scene.id,prediction:$("prediction").value,observation:$("observation").value,conclusion:$("conclusion").value,confidence,selected_node_id:selectedId,threshold:Number($("threshold").value),assessed:false,submitted:false};
+  const url=URL.createObjectURL(new Blob([JSON.stringify(note,null,2)],{type:"application/json"})),link=document.createElement("a");
+  link.href=url;link.download="studium-linked-viewer-notes.json";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  $("exportStatus").textContent="Your local notes file was downloaded. Nothing was submitted to Studium.";
+}
+
+$("sourceLink").textContent=INPUT.source.title;$("sourceLink").href=`https://doi.org/${INPUT.source.doi}`;$("sourceGoal").textContent=INPUT.network.generation_brief.learning_goal;
+$("context").textContent=`Public context: ${INPUT.context.scene.title} · ${INPUT.context.scene.id}`;$("hashes").textContent=INPUT.hashes.map((hash,index)=>`${["Spectra","Run result","Public context"][index]}: ${hash}`).join("\n");
+$("generationBrief").textContent=JSON.stringify(INPUT.network.generation_brief,null,2);$("baselineThreshold").textContent=INPUT.network.baseline_threshold.toFixed(2);$("threshold").value=INPUT.network.baseline_threshold;$("tolerance").value=INPUT.network.fragment_tol_da;$("baseline").textContent=INPUT.result.score.toFixed(4);
+INPUT.network.generation_brief.cross_view_questions.forEach((question)=>{const item=document.createElement("li");item.textContent=question;$("crossViewQuestions").append(item);});
+INPUT.network.threshold_presets.forEach((preset)=>{const button=document.createElement("button");button.className="secondary";button.textContent=`${preset.label} (${preset.value.toFixed(2)})`;button.addEventListener("click",()=>{$("threshold").value=preset.value;updateThreshold();});$("presets").append(button);});
+renderCandidates();$("prediction").addEventListener("input",()=>{$("reveal").disabled=!$("prediction").value.trim();});$("reveal").addEventListener("click",revealCalculations);$("threshold").addEventListener("input",updateThreshold);$("shift").addEventListener("change",drawMirror);$("tolerance").addEventListener("input",drawMirror);$("reset").addEventListener("click",()=>{$("shift").checked=true;$("tolerance").value=INPUT.network.fragment_tol_da;drawMirror();});
+$("confidence").addEventListener("input",()=>{confidence=Number($("confidence").value);$("confidenceValue").textContent=`${confidence}/4`;});$("export").addEventListener("click",exportNotes);$("print").addEventListener("click",()=>window.print());
+</script></body></html>

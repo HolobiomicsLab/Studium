@@ -1,7 +1,7 @@
 // apps/lesson-server/src/server.ts
 import Fastify, { type FastifyInstance } from "fastify";
 import type { ResponseInput } from "@studium/lesson-session";
-import { SessionHost, SessionHostNotFoundError, PeerRoomError, resolveCourse } from "@studium/lesson-session-host";
+import { SessionHost, SessionHostNotFoundError, PeerRoomError, resolveCourse, publicPresentation, publicTransition } from "@studium/lesson-session-host";
 import { ok, err } from "./envelope.js";
 import {
   CreateSessionBody, RespondBody, TurnBody,
@@ -23,21 +23,21 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (!parsed.success) return reply.code(400).send(err(`invalid body: ${parsed.error.message}`));
     try {
       const { sessionId, presentation } = await host.create(parsed.data.bundle_ref, parsed.data.learner_id);
-      return reply.code(201).send(ok({ session_id: sessionId, presentation }));
+      return reply.code(201).send(ok({ session_id: sessionId, presentation: publicPresentation(presentation) }));
     } catch (e) {
       return reply.code(400).send(err((e as Error).message)); // bad bundle_ref / load failure
     }
   });
 
   app.get<{ Params: { id: string } }>("/sessions/:id", async (req, reply) => {
-    try { return reply.send(ok({ presentation: host.currentPresentation(req.params.id) })); }
+    try { return reply.send(ok({ presentation: publicPresentation(host.currentPresentation(req.params.id)) })); }
     catch (e) { return reply.code(notFound(e)).send(err((e as Error).message)); }
   });
 
   app.post<{ Params: { id: string } }>("/sessions/:id/respond", async (req, reply) => {
     const parsed = RespondBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send(err(`invalid input: ${parsed.error.message}`));
-    try { return reply.send(ok({ transition: await host.respond(req.params.id, parsed.data.input as ResponseInput) })); }
+    try { return reply.send(ok({ transition: publicTransition(await host.respond(req.params.id, parsed.data.input as ResponseInput)) })); }
     catch (e) {
       if (e instanceof SessionHostNotFoundError) return reply.code(404).send(err(e.message));
       return reply.code(409).send(err((e as Error).message)); // grading / already-complete

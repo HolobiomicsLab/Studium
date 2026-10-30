@@ -1,7 +1,7 @@
 #!/usr/bin/env -S npx tsx
 // session-runner-cli.ts — the runnable OPERATOR HARNESS for the `.studium-session/` file channel.
 //
-//   tsx apps/lesson-mcp/src/session-runner-cli.ts <bundleRef> [--dir=DIR] [--bundles-root=DIR] [--stub]
+//   tsx apps/lesson-mcp/src/session-runner-cli.ts <bundleRef> [--dir=DIR] [--bundles-root=DIR] [--language=BCP47] [--stub]
 //
 // Default (--watch): Studium writes `<dir>/task.md` and WAITS. You — or an agentic assistant in this
 //   same workspace (Claude Code / Copilot / Codex / opencode) — read task.md, do the real work, and
@@ -24,6 +24,7 @@ function main(): Promise<void> {
   const bundleRef = positionals[0] ?? "capsule-judgment-demo/lesson.json";
   const bundlesRoot = eq("bundles-root", process.env.BUNDLES_ROOT ?? resolve(process.cwd(), "fixtures"));
   const dir = eq("dir", join(process.cwd(), ".studium-session"));
+  const presentationLanguage = eq("language", "") || undefined;
   const mode = flags.includes("--stub") ? "stub" : "watch";
 
   const host = new SessionHost({ bundlesRoot, live: false });
@@ -33,7 +34,8 @@ function main(): Promise<void> {
   if (mode === "watch") {
     console.error(`[studium] read ${dir}/task.md → write your judgment to ${dir}/response.json (atomic) → repeat.`);
   }
-  return runStudiumSession(host, bundleRef, dir, operator).then((res) => {
+  const options = presentationLanguage ? { presentationLanguage } : {};
+  return runStudiumSession(host, bundleRef, dir, operator, options).then((res) => {
     console.error(`[studium] ${res.completed ? "complete ✔" : "stopped"} after ${res.steps} steps: ${res.transitions.join(" → ")}`);
   });
 }

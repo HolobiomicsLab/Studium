@@ -13,6 +13,11 @@
     pane_image_unresolved: "image : {path} (non résolue)",
   };
   let strings = { ...DEFAULT_STRINGS };
+  const initialStrings = document.getElementById("studium-strings");
+  if (initialStrings) {
+    try { strings = { ...strings, ...JSON.parse(initialStrings.textContent) }; }
+    catch { /* A standalone preview can omit the initial catalogue. */ }
+  }
   function t(key, params) {
     const template = strings[key] || key;
     return template.replace(/\{([a-z_]+)\}/gi, (token, name) =>
@@ -31,6 +36,44 @@
     for (const c of kids) n.append(c && c.nodeType ? c : document.createTextNode(c == null ? "" : String(c)));
     return n;
   };
+  let actionPending = false;
+  const disabledBeforePending = new WeakMap();
+
+  function setActionPending(pending, message) {
+    actionPending = pending;
+    const root = $("#pane");
+    if (!root) return;
+    root.setAttribute("aria-busy", pending ? "true" : "false");
+    root.querySelectorAll("button, textarea").forEach((control) => {
+      if (pending) {
+        if (!disabledBeforePending.has(control)) disabledBeforePending.set(control, control.disabled);
+        control.disabled = true;
+      } else if (disabledBeforePending.has(control)) {
+        control.disabled = disabledBeforePending.get(control);
+        disabledBeforePending.delete(control);
+      }
+    });
+    const status = root.querySelector("#action-status");
+    if (status) {
+      status.className = "action-status" + (pending ? " pending" : "");
+      status.textContent = message || "";
+    }
+  }
+
+  function postAction(message, pendingText) {
+    if (actionPending || !window.__send) return false;
+    setActionPending(true, pendingText || t("pane_updating"));
+    window.__send(message);
+    return true;
+  }
+
+  function showActionError(message) {
+    setActionPending(false);
+    const status = $("#action-status");
+    if (!status) return;
+    status.className = "action-status error";
+    status.textContent = t("pane_action_failed", { error: message || t("pane_retry") });
+  }
 
   function badge(kind) {
     const labels = {
@@ -234,19 +277,24 @@
   // --- whole pane ----------------------------------------------------------
   function renderPane(state) {
     if (state.strings && typeof state.strings === "object") strings = { ...DEFAULT_STRINGS, ...state.strings };
+    if (state.locale) document.documentElement.lang = state.locale;
     const root = $("#pane"); root.innerHTML = "";
+    actionPending = false;
+    root.setAttribute("aria-busy", "false");
     // Self-authored lesson: the host's fixed, already-localized notice, shown above the scene.
     const notice = state.authoring && state.authoring.notice;
     if (notice) root.append(el("div", { class: "authoring-notice", role: "note" }, notice));
     const sc = state.scene || {};
     const head = el("div", { class: "scene-head" });
+    const help = document.getElementById("studium-help-" + sc.type);
+    if (help instanceof HTMLTemplateElement) head.append(help.content.cloneNode(true));
     const crumbs = el("div", { class: "crumbs" },
       el("span", { class: "stype" }, sc.type || ""),
       state.progress ? el("span", { class: "prog" }, `${state.progress.index}/${state.progress.total}`) : "");
-    // Right to be forgotten: a subtle, always-available control that asks the host to end_session
+    // Right to be forgotten: a subtle, always-available control that asks the host to forget_session
     // (purges the durable per-learner state). The host confirms before erasing.
     const forget = el("button", { class: "ghost forget", title: t("pane_forget_title") }, t("pane_forget"));
-    forget.addEventListener("click", () => window.__send && window.__send({ type: "end" }));
+    forget.addEventListener("click", () => postAction({ type: "end" }, t("pane_forget_pending")));
     crumbs.append(forget);
     head.append(crumbs);
     head.append(el("h2", { class: "scene-title" }, sc.title || ""));
@@ -399,30 +447,34 @@
   // interactive controls the learner uses to advance — posts back to the extension host.
   function renderControls(sc) {
     const wrap = el("div", { class: "controls" });
-    const send = (msg) => () => (window.__send ? window.__send(msg) : null);
+    wrap.append(el("div", { id: "action-status", class: "action-status", role: "status", "aria-live": "polite" }));
+    const send = (msg, label) => () => postAction(msg, label);
     if (sc.type === "quiz") {
       const cr = confidenceRow(); wrap.append(cr.node);
       (sc.choices || []).forEach((c) => {
         const b = el("button", { class: "choice" }, c.id + ") " + c.text);
-        b.addEventListener("click", () => window.__send && window.__send({ type: "respond", input: withConf({ kind: "quiz_choice", choiceId: c.id }, cr) }));
+        b.addEventListener("click", () => postAction(
+          { type: "respond", input: withConf({ kind: "quiz_choice", choiceId: c.id }, cr) },
+          t("pane_sending_response"),
+        ));
         wrap.append(b);
       });
-      const hb = el("button", { class: "ghost" }, t("pane_hint")); hb.addEventListener("click", send({ type: "hint" })); wrap.append(hb);
+      const hb = el("button", { class: "ghost" }, t("pane_hint")); hb.addEventListener("click", send({ type: "hint" }, t("pane_finding_hint"))); wrap.append(hb);
     } else if (sc.type === "meta_checkpoint") {
       const labels = Array.isArray(sc.scale_labels) ? sc.scale_labels : [];
-      [0, 1, 2, 3, 4].forEach((v) => { const b = el("button", { class: "choice" }, labels[v] != null ? `${v} · ${labels[v]}` : t("pane_confidence_fallback", { value: v })); b.addEventListener("click", send({ type: "respond", input: { kind: "confidence", value: v } })); wrap.append(b); });
+      [0, 1, 2, 3, 4].forEach((v) => { const b = el("button", { class: "choice" }, labels[v] != null ? `${v} · ${labels[v]}` : t("pane_confidence_fallback", { value: v })); b.addEventListener("click", send({ type: "respond", input: { kind: "confidence", value: v } }, t("pane_sending_response"))); wrap.append(b); });
     } else if (sc.type === "discussion") {
       // multi-turn: each "Envoyer" posts a {type:"turn"} (scored reasoning + Socratic reply, appended
       // to the transcript) WITHOUT advancing; "Terminer" advances the scene with an ack.
       const ta = el("textarea", { class: "critique", placeholder: t("pane_discussion_placeholder") });
       const sendBtn = el("button", { class: "primary" }, t("pane_send"));
       sendBtn.addEventListener("click", () => {
-        const t = ta.value.trim(); if (!t || !window.__send) return;
-        appendTurn("learner", t); ta.value = "";
-        window.__send({ type: "turn", text: t });
+        const text = ta.value.trim(); if (!text || !window.__send) return;
+        if (!postAction({ type: "turn", text }, t("pane_tutor_pending"))) return;
+        appendTurn("learner", text); ta.value = "";
       });
       const fin = el("button", { class: "ghost" }, t("pane_finish_discussion"));
-      fin.addEventListener("click", send({ type: "respond", input: { kind: "ack" } }));
+      fin.addEventListener("click", send({ type: "respond", input: { kind: "ack" } }, t("pane_next_step")));
       wrap.append(ta, sendBtn, fin);
     } else if (sc.type === "spot_the_flaw" && Array.isArray(sc.deck) && sc.deck.length) {
       // VERDICT DECK (D1): the DESTINATION made interactive. The host ships a shuffled, label-stripped
@@ -440,10 +492,13 @@
       if (f.prefill && sc[f.prefill]) ta.value = sc[f.prefill];
       const cr = confidenceRow();
       const b = el("button", { class: "primary" }, t(f.label));
-      b.addEventListener("click", () => window.__send && window.__send({ type: "respond", input: withConf({ kind: f.kind, text: ta.value }, cr) }));
+      b.addEventListener("click", () => postAction(
+        { type: "respond", input: withConf({ kind: f.kind, text: ta.value }, cr) },
+        t("pane_sending_response"),
+      ));
       wrap.append(ta, cr.node, b);
     } else {
-      const b = el("button", { class: "primary" }, t("pane_continue")); b.addEventListener("click", send({ type: "respond", input: { kind: "ack" } })); wrap.append(b);
+      const b = el("button", { class: "primary" }, t("pane_continue")); b.addEventListener("click", send({ type: "respond", input: { kind: "ack" } }, t("pane_next_step"))); wrap.append(b);
     }
     return wrap;
   }
@@ -475,10 +530,10 @@
     });
     const cr = confidenceRow();
     const submit = el("button", { class: "primary deck-submit" }, t("pane_submit_judgment"));
-    submit.addEventListener("click", () => window.__send && window.__send({
+    submit.addEventListener("click", () => postAction({
       type: "respond",
       input: withConf({ kind: "flaw_verdicts", verdicts: verdicts.map((v) => ({ token: v.token, flagged: v.flagged })) }, cr),
-    }));
+    }, t("pane_sending_judgment")));
     box.append(cr.node, submit);
     return box;
   }
@@ -674,16 +729,20 @@
   window.addEventListener("message", (ev) => {
     const d = ev.data || {};
     if (d.type === "render") renderPane(d);
-    else if (d.type === "hint") { const h = document.getElementById("hint"); if (h) h.textContent = d.hint ? ("💡 " + d.hint + (d.remaining != null ? t("pane_hint_remaining", { count: d.remaining }) : "")) : t("pane_no_more_hints"); }
+    else if (d.type === "hint") { setActionPending(false); const h = document.getElementById("hint"); if (h) h.textContent = d.hint ? ("💡 " + d.hint + (d.remaining != null ? t("pane_hint_remaining", { count: d.remaining }) : "")) : t("pane_no_more_hints"); }
     else if (d.type === "turn_result") {
+      setActionPending(false);
       // the Socratic tutor's reply to the last discussion turn (+ the scored reasoning signal).
       const meta = d.reasoning ? t("pane_signal", { signal: d.reasoning.signal, confidence: d.reasoning.confidence != null ? " (" + d.reasoning.confidence.toFixed(2) + ")" : "" }) : "";
       if (d.tutor && d.tutor.text) appendTurn("tutor", d.tutor.text, meta);
       else if (meta) { const box = document.getElementById("turns"); if (box) box.append(el("div", { class: "turn-meta" }, meta)); }
     }
-    else if (d.type === "loading") { const r = $("#pane"); r.innerHTML = ""; r.append(el("div", { class: "loading" }, "⏳ " + (d.message || t("pane_loading")))); }
-    else if (d.type === "error") { const r = $("#pane"); r.innerHTML = ""; r.append(el("div", { class: "error-pane" }, "⚠ " + (d.message || t("pane_error")))); }
-    else if (d.type === "done") { const r = $("#pane"); r.innerHTML = ""; r.append(el("div", { class: "done" }, "✔ " + (d.message || t("pane_complete")))); }
+    else if (d.type === "action_pending") setActionPending(true, d.message);
+    else if (d.type === "action_settled") setActionPending(false);
+    else if (d.type === "action_error") showActionError(d.message);
+    else if (d.type === "loading") { const r = $("#pane"); r.innerHTML = ""; r.setAttribute("aria-busy", "true"); r.append(el("div", { class: "loading", role: "status" }, el("span", { class: "loading-mark", "aria-hidden": "true" }), el("div", {}, el("strong", {}, t("pane_opening")), el("span", {}, d.message || t("pane_loading"))))); }
+    else if (d.type === "error") { actionPending = false; const r = $("#pane"); r.innerHTML = ""; r.setAttribute("aria-busy", "false"); r.append(el("section", { class: "error-pane", role: "alert" }, el("div", { class: "error-kicker" }, t("pane_local_service")), el("h2", {}, t("pane_connection_interrupted")), el("p", {}, d.message || t("pane_error")), el("p", { class: "error-recovery" }, t("pane_error_recovery")))); }
+    else if (d.type === "done") { actionPending = false; const r = $("#pane"); r.innerHTML = ""; r.setAttribute("aria-busy", "false"); r.append(el("div", { class: "done" }, "✔ " + (d.message || t("pane_complete")))); }
   });
   window.__render = renderPane;
   const vscode = typeof acquireVsCodeApi === "function" ? acquireVsCodeApi() : null;

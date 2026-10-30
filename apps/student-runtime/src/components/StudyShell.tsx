@@ -1,3 +1,5 @@
+import { ContextHelp } from "@studium/activity-presentation/react";
+import "../../../../ui/context-help.css";
 import { useEffect, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -26,7 +28,7 @@ export default function StudyShell({ children, welcome = false, lesson = false }
           </nav>
         )}
       </header>
-      <div id="study-content" tabIndex={-1}>{children}</div>
+      <div id="study-content" tabIndex={-1}><ContextHelp topic={lesson ? "scaffolding" : "studium"} />{children}</div>
       <footer className="study-footer"><span>Studium</span><span>Observer · Comprendre · Pratiquer</span></footer>
     </div>
   );

@@ -24,6 +24,7 @@ import type { GraphView } from "@studium/typed-graph-lens";
 import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
 import { SessionRegistry, type SessionEntry } from "./registry.js";
 import type { Clock } from "@studium/lesson-session";
+import { ExperimentJournal, experimentRevision, type ExperimentDocument } from "./experiment-journal.js";
 import { buildHostDeps, durableDataDir, durableScopeDir } from "./deps.js";
 import { resolveBundle, assetBaseDir } from "./bundle-resolver.js";
 import { discoverCommunityBundleEntries, type CommunityBundleEntry } from "./community-bundles.js";
@@ -39,6 +40,18 @@ import {
 const TEXT_INLINE_KINDS = new Set<RenderAsset["kind"]>([
   "orbital", "mol_3d", "spectrum", "code", "data_csv", "protocol_md", "svg",
 ]);
+
+function normalizePresentationLanguage(language: string): string {
+  const trimmed = language.trim();
+  if (!trimmed) throw new Error("Presentation language must be a valid BCP 47 language tag");
+  try {
+    const [canonical] = Intl.getCanonicalLocales(trimmed);
+    if (!canonical) throw new Error();
+    return canonical;
+  } catch {
+    throw new Error("Presentation language must be a valid BCP 47 language tag");
+  }
+}
 
 /** If an asset references a text file by relative path (and carries no inline payload), read it from
  * the bundle dir and inline it as `payload`. Confined to baseDir, with the canonical (symlink-
@@ -603,6 +616,11 @@ export interface SessionStartResult {
   due?: RoutedReinforcementTarget[];
 }
 
+export interface SessionStartOptions {
+  nowMs?: number;
+  presentationLanguage?: string;
+}
+
 /** A presentation as the host serves it: the engine's view plus the lesson's authoring block. */
 function servedPresentation(presentation: Presentation, authoring: AuthoringBlock): Presentation {
   return { ...presentation, authoring };
@@ -621,6 +639,7 @@ export class PeerRoomError extends Error {
 /** Multi-session host shared by the HTTP and MCP drivers. */
 export class SessionHost {
   private readonly registry = new SessionRegistry();
+  private readonly experiments = new Map<string, ExperimentJournal>();
   // D1 PeerStudio: ephemeral rooms indexed by id and by join_code.
   private readonly rooms = new Map<string, RoomEntry>();
   private readonly joinCodeIndex = new Map<string, string>(); // join_code → room_id
@@ -632,7 +651,13 @@ export class SessionHost {
     this.profileStore = dataDir ? new FileLearnerProfileStore(dataDir) : new InMemoryLearnerProfileStore();
   }
 
-  async create(bundleRef: string, learnerId = "anonymous", nowMs?: number): Promise<SessionStartResult> {
+  /** Start or resume a lesson; legacy third-argument clocks and languages remain supported. */
+  async create(bundleRef: string, learnerId = "anonymous", options?: SessionStartOptions | number | string): Promise<SessionStartResult> {
+    const { nowMs, presentationLanguage } = typeof options === "number" ? { nowMs: options }
+      : typeof options === "string" ? { presentationLanguage: options } : options ?? {};
+    const normalizedPresentationLanguage = presentationLanguage === undefined
+      ? undefined
+      : normalizePresentationLanguage(presentationLanguage);
     // Quiz-choice order is shuffled per scene id (same for all learners → aligned item analytics).
     // Opt in to PER-LEARNER answer order (anti answer-sharing) with STUDIUM_PER_LEARNER_SHUFFLE:
     // the learnerId salts the permutation so each learner gets a distinct-but-reproducible order.
@@ -644,6 +669,7 @@ export class SessionHost {
     // host dir pseudonym === session pseudonym (no salt drift / split-brain).
     const dataDir = durableDataDir();
     let deps;
+    let journalDirectory: string | undefined;
     let prior: LearnerState | null = null;
     if (dataDir) {
       // Build deps once to obtain the (fail-closed) pseudonym provider, derive the scope dir, then
@@ -652,6 +678,9 @@ export class SessionHost {
       const probe = buildHostDeps(this.opts.live, undefined, this.opts.clock);
       const pseudonym = await probe.pseudonym.get(learnerId, bundle.bundle_id);
       const scopeDir = durableScopeDir(dataDir, pseudonym, bundle.bundle_id);
+      // Shared default identities must not carry raw learner text into another session.
+      if (learnerId.trim() && learnerId !== "anonymous" && learnerId !== "agent-operator")
+        journalDirectory = join(scopeDir, "experiments");
       deps = buildHostDeps(this.opts.live, scopeDir, this.opts.clock);
       // #3 RESUME: load any prior LearnerState for this (pseudonym, bundle_id). FileStateStore.load
       // returns null on missing/parse-error, so a fresh learner falls back to defaultLearnerState.
@@ -677,7 +706,11 @@ export class SessionHost {
     const presentation = servedPresentation(await session.start(), authoring);
     const sessionId = randomUUID();
     const baseDir = assetBaseDir(this.opts.bundlesRoot, bundleRef);
-    this.registry.create(sessionId, { session, deps, bundle, baseDir, assetCache: new Map(), profilePseudonym });
+    this.registry.create(sessionId, {
+      session, deps, bundle, baseDir, assetCache: new Map(), profilePseudonym,
+      ...(normalizedPresentationLanguage ? { presentationLanguage: normalizedPresentationLanguage } : {}),
+    });
+    this.experiments.set(sessionId, new ExperimentJournal(experimentRevision(bundle), journalDirectory));
     const resume = resumeFor(bundle, initial, profile, presentation.scene.id);
     return {
       sessionId,
@@ -770,6 +803,39 @@ export class SessionHost {
   /** A live host wires the model judge; an offline one grades production scenes by keywords only. */
   private authoringOfBundle(bundle: LessonBundle): AuthoringBlock {
     return authoringOf(bundle, { judge: this.opts.live });
+  }
+
+  /** Read the public presentation-language policy for a live session. */
+  sessionLanguage(id: string) {
+    const entry = this.require(id);
+    const sourceLanguage = entry.bundle.metadata.language;
+    const selectedLanguage = entry.presentationLanguage ?? null;
+    return {
+      source_language: sourceLanguage,
+      selected_language: selectedLanguage,
+      effective_language: selectedLanguage ?? sourceLanguage,
+      translation_required: selectedLanguage !== null && selectedLanguage !== sourceLanguage,
+    };
+  }
+
+  /** Change presentation language only; null restores the bundle's source-language fallback. */
+  setPresentationLanguage(id: string, language: string | null) {
+    const entry = this.require(id);
+    if (language === null) delete entry.presentationLanguage;
+    else entry.presentationLanguage = normalizePresentationLanguage(language);
+    return this.sessionLanguage(id);
+  }
+
+  /** Learner-private journal; never included in public scene context or teacher aggregates. */
+  experimentJournal(id: string): ExperimentDocument {
+    this.require(id);
+    return this.experiments.get(id)!.read();
+  }
+
+  /** Append an explicitly learner-owned contribution without grading or moving the lesson. */
+  recordExperiment(id: string, input: unknown): ExperimentDocument {
+    const scene = this.require(id).session.currentPresentation().scene;
+    return this.experiments.get(id)!.record(input, scene.id);
   }
   /** The normalized render manifest for the current scene — the artifacts a UI pairs with this
    * scene (figure, equation, interactive plot, executed reference run, …). Empty for a plain quiz. */
@@ -1100,10 +1166,12 @@ export class SessionHost {
     await this.flushSessionOutputs(entry);
     await this.mergeSessionIntoProfile(entry, false);
     this.registry.delete(id);
+    this.experiments.delete(id);
   }
 
   async forget(id: string): Promise<void> {
     const e = this.require(id);
+    this.experiments.get(id)!.erase();
     const lessonId = e.session.getState().lesson_id;
     // reuse the session's already-salted pseudonym (no re-derivation / no stored learnerId needed).
     const pseudonym = e.session.getPseudonym();
@@ -1120,5 +1188,6 @@ export class SessionHost {
     // "right to be forgotten" covers data carried across lessons, not just this bundle's state.
     if (e.profilePseudonym) await this.profileStore.delete(e.profilePseudonym);
     this.registry.delete(id);
+    this.experiments.delete(id);
   }
 }

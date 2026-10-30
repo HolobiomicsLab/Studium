@@ -1,0 +1,4 @@
+interface:
+  display_name: "Studium · Rapport étudiant"
+  short_description: "Relire les actions choisies avec ASTRA et MySTRA"
+  default_prompt: "Utilise $studium-learner-report pour préparer un rapport local de mon activité sans inclure mes textes privés."

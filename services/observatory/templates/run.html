@@ -16,10 +16,10 @@
 </p>
 {{ markers(run.unreadable) }}
 
-<h2>Dimension scores</h2>
+<h2>Dimension scores</h2>{{ help_tip("validity") }}
 {{ kv(run.dimension_scores) }}
 
-<h2>Findings</h2>
+<h2>Findings</h2>{{ help_tip("review") }}
 {% if run.findings %}
 <table>
   <thead><tr><th>Dimension</th><th>Severity</th><th>Summary</th><th>Evidence</th><th>Backlog</th></tr></thead>
@@ -44,7 +44,7 @@
 <p class="none">no finding</p>
 {% endif %}
 
-<h2>Persona sessions</h2>
+<h2>Persona sessions</h2>{{ help_tip("validity") }}
 <p class="synthetic">Each row is a synthetic persona: a scripted driver, not a person. No learner
 identifier, pseudonym or free-text answer is read into this page.</p>
 {% if run.personas %}
@@ -70,7 +70,7 @@ identifier, pseudonym or free-text answer is read into this page.</p>
 <p class="none">no persona session</p>
 {% endif %}
 
-<h2>Harness signals</h2>
+<h2>Harness signals</h2>{{ help_tip("harness") }}
 {{ kv(run.harness_signals) }}
 
 <h2>Audit persona signals</h2>

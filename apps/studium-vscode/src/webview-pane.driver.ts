@@ -24,7 +24,7 @@ function expect(cond: boolean, msg: string) { checks++; if (!cond) failures.push
 
 // A fresh DOM + a freshly-evaluated pane per scene, with __send overridden to CAPTURE host messages.
 function mount(withRenderLibraries: boolean | "marked" = false) {
-  const dom = new JSDOM(`<!doctype html><html><body><div id="pane"></div></body></html>`, {
+  const dom = new JSDOM(`<!doctype html><html><body><script type="application/json" id="studium-strings">${JSON.stringify(browserPhrases("fr"))}</script><div id="pane"></div></body></html>`, {
     runScripts: "outside-only", pretendToBeVisual: true,
   });
   const win = dom.window as any;
@@ -464,6 +464,49 @@ function submitFreeText(scene: any, answer: string) {
   const legacy = mount();
   legacy.render(baseState({ type: "concept", title: "C", markdown: "x" }));
   expect(!legacy.$(".authoring-notice"), "a presentation without authoring renders no banner");
+}
+
+// --- 14) pending actions: a double click posts once, disables controls, and recovers inline ----------
+{
+  const m = mount();
+  m.render(baseState({ type: "quiz", title: "Q", question: "?", choices: [{ id: "a", text: "A" }, { id: "b", text: "B" }] }));
+  const choices = m.$all(".controls .choice") as HTMLButtonElement[];
+  const choice = choices[0] ?? null;
+  choices[1]!.disabled = true;
+  m.click(choice); m.click(choice);
+  expect(m.sent.filter((message) => message.type === "respond").length === 1, "a rapid double click posts one response");
+  expect(choice?.disabled === true, "scene controls are disabled while an action is pending");
+  expect(m.$("#pane")?.getAttribute("aria-busy") === "true", "the pane exposes its pending state to assistive technology");
+  expect(m.text().includes("Envoi de ta réponse"), "the pending state tells the learner what is happening");
+
+  m.post({ type: "action_error", message: "NETWORK_DOWN" });
+  expect(!!m.$(".scene-head"), "an action error preserves the current scene and learner context");
+  expect(choice?.disabled === false, "controls are re-enabled after an action error");
+  expect(choices[1]!.disabled === true, "settling an action preserves controls that were disabled beforehand");
+  expect(m.text().includes("NETWORK_DOWN"), "an action error is visible inside the pane");
+}
+
+// --- 15) fatal startup error: explain the recovery path instead of showing a bare warning -----------
+{
+  const m = mount();
+  m.post({ type: "error", message: "SERVICE_FAILED" });
+  expect(m.text().includes("Connexion interrompue"), "a fatal error has a meaningful heading");
+  expect(m.text().includes("Output") && m.text().includes("Open Lesson"), "a fatal error names the logs and retry path");
+}
+
+// --- 16) lifecycle messages keep the lesson locale and self-study notice ----------------------------
+{
+  const m = mount();
+  m.render(baseState({ type: "quiz", title: "Q", question: "?", choices: [{ id: "a", text: "A" }] }, {
+    locale: "en", authoring: { notice: "Self-authored lesson notice" },
+  }));
+  m.click(m.$(".controls .choice"));
+  expect(m.text().includes("Sending your response…"), "pending feedback follows the English lesson locale");
+  expect(m.win.document.documentElement.lang === "en", "contextual help follows the lesson language");
+  expect(m.$(".authoring-notice")?.textContent === "Self-authored lesson notice", "pending actions retain the self-study notice");
+  m.post({ type: "action_error", message: "RETRY" });
+  expect(m.text().includes("Action failed · RETRY"), "recoverable errors follow the English lesson locale");
+  expect(m.$(".controls .choice")?.disabled === false, "localized errors still release the action gate");
 }
 
 if (failures.length) {

@@ -87,11 +87,23 @@ d'une carte n'est pas une preuve de réussite locale. Le
 ## 5. Décider de la suite
 
 Relire objectifs, prérequis, exactitude scientifique, questions, critères de
-réponse, charge de travail et permissions des matériaux. Dans le brouillon
-`author-response.json`, relier chaque scène aux identifiants de `concepts` avec
-`concept_refs`, puis déclarer sur chaque concept les identifiants dont il dépend
-dans `prerequisites`. Relancer `check` : il ne doit signaler ni identifiant inconnu
-ni scène sans concept. Puis convertir le dossier vérifié en squelette jouable :
+réponse, charge de travail et permissions des matériaux. Le dossier vérifié n'est
+pas un `LessonBundle` étudiant et ne doit pas être simplement renommé en
+`lesson.json`. Le premier livrable de ce tutoriel reste un brouillon sourcé et une
+revue humaine préparée.
+
+Dans `author-response.json`, relier chaque scène aux identifiants de `concepts`
+avec `concept_refs`, puis déclarer sur chaque concept les identifiants dont il
+dépend dans `prerequisites`. Relancer `check` : il ne doit signaler ni identifiant
+inconnu ni scène sans concept.
+
+Pour la voie enseignant, continuer avec [la revue de révision et la synthèse liée](../user/reviewed-synthesis.md) :
+importer ce dossier dans un espace enseignant, conserver les éditions, puis
+approuver son empreinte après revue. Un orchestrateur configuré reçoit ce plan
+exact ; le contenu qu'il produit reste à relire avant toute diffusion étudiante.
+
+Pour obtenir en parallèle un squelette local jouable, utiliser la conversion
+explicite plutôt qu'un renommage :
 
 ```sh
 .venv/bin/python tools/experience_packet.py bundle --course /ABS/PATH/studium-tutorial/courses/spectral-evidence --out /ABS/PATH/studium-tutorial/bundles/spectral-evidence/lesson.json

@@ -9,6 +9,21 @@ Help the teacher reach a small, inspectable teaching outcome. Use their language
 existing harness and available account. Do not require another API provider just
 to generate a draft with the current agent.
 
+## Direct API without an editor
+
+If the user chooses HTTP or wants to switch harnesses without an editor, follow
+[the local API guide](../../docs/guides/api-and-harness.md). Discover `/v1/operations`
+and use the JSON-file client; keep credentials in the environment, never prompts.
+Reuse the same server and session ID across harnesses. Inspect current context
+before acting. Preserve the original request file/ID for uncertain retries;
+scene-sensitive mutations also require the current `expected_scene_id`.
+Do not invent responses or re-create a session on a connection error. `end_session`
+closes the active handle while keeping durable progress and the private journal;
+`forget_session` explicitly erases them. A restart invalidates active session IDs;
+start with the same learner and bundle to resume durable state, then inspect `resume`.
+The chosen harness supplies tools for execution, research and visuals under its
+existing permissions. The API does not require another model provider or VS Code.
+
 ## Locate the materials
 
 Resolve this skill's real path if loaded through a symlink. Its repository root
@@ -66,10 +81,13 @@ data, tools, dependency installation and new content. Do not present MySTRA hash
 or schema validity as scientific approval. Follow the real approval boundary;
 never insert the teacher's name or set `approved` on their behalf.
 
-The current draft-to-author-UI import and unchanged-approved-plan-to-synthesis
-flow are incomplete. The teacher guide records CORS and unconfigured synthesis
-limits. Do not promise an end-to-end publication button, rename a draft to
-`lesson.json`, or silently replan after approval.
+For a checked source-backed draft, use the [reviewed synthesis workflow](../../docs/user/reviewed-synthesis.md).
+Import to a local teacher workspace, preserve edits to its actual `plan.json`,
+and let the teacher review before recording approval of that exact revision.
+Verify the receipt before synthesis with an explicitly configured orchestrator.
+The CLI preserves the approved input; the older browser export alone does not.
+Generated content still needs teacher review before students receive it. Do not
+rename a draft to `lesson.json` or silently replan after approval.
 
 ## Close with a usable checkpoint
 
@@ -79,3 +97,21 @@ preview is not publication; respect existing authorization before distribution.
 When the teacher wants to try a lesson, use [studium-harness](../studium-harness/SKILL.md)
 with a labelled demonstration, or [studium-student](../studium-student/SKILL.md)
 for the student's own first session. Do not fabricate learner answers in either.
+
+## Interactive activities and learner reports
+
+Use [studium-activity-templates](../studium-activity-templates/SKILL.md) to turn a
+public scene into an editable activity with a baseline and source-linked checks.
+Use [studium-learner-report](../studium-learner-report/SKILL.md) to inspect a report
+the learner selected for review. Technical action traces do not establish learning
+or permission to inspect the full private journal. Keep proposed patterns distinct
+from runnable templates and content review distinct from schema conformance.
+
+For photographs, reusable narrated introductions or short clips, use
+[studium-visual-support](../studium-visual-support/SKILL.md) and the
+[media preparation guide](../../docs/guides/sourced-and-generated-media.md).
+Prefer reviewed teacher preparation once, with optional learner generation through
+their own available harness. Record source/rights, keep generated reconstructions
+distinct from evidence, provide text alternatives/transcripts/captions, and place
+primary observation material before prediction. A generated explanation does not
+change the learning objective or constitute approval of new teaching content.

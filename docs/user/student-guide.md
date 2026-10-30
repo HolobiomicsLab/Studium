@@ -19,6 +19,12 @@ Pour essayer immédiatement, utilise `atomistique-l1`, livré dans le dépôt.
    pour travailler avec un agent. [D'autres harnais](../getting-started/harnesses-and-api.md) sont possibles.
 3. Fais le [tutoriel première séance](../tutorials/first-lesson.md).
 
+Si l'enseignant fournit seulement une activité portable `index.html`, tu peux
+l'ouvrir dans un navigateur sans installer le moteur. Pour une séance pilotée
+par Claude Code, Codex ou OpenCode sans VS Code, suis les
+[recettes par harnais](../getting-started/harnesses-and-api.md). L'API permet de
+changer de harnais en gardant le même serveur actif.
+
 Laisse d'abord la télémétrie désactivée et utilise un identifiant de test sans
 nom réel. Le professeur précise les règles du pilote avant une collecte de classe.
 La [confidentialité](../privacy-and-limits.md) distingue les données Studium de
@@ -81,20 +87,45 @@ Tu fixes l'objectif, fournis la source et sa licence, relis le plan proposé ;
 l'agent rédige les scènes à partir des passages cités.
 
 Sache-le dès le départ : les quiz et les défauts à repérer d'une telle leçon ont
-une clé écrite de ton côté. C'est un **livre ouvert**, pas un contrôle. Sans juge modèle, le réglage par
-défaut, tes explications, comparaisons et audits de résumé reçoivent un retour
-par mots-clés mais aucune évaluation certifiée : seul ce quiz fait bouger ta
-maîtrise. Un juge modèle configuré rend l'évaluation de ces textes externe.
+une clé écrite de ton côté. C'est un **livre ouvert**, pas un contrôle. Sans juge
+modèle, tes explications, comparaisons et audits de résumé reçoivent un retour
+par mots-clés mais aucune évaluation certifiée ; seules les reproductions exécutées
+portent une évaluation externe. Les scènes à clé peuvent alimenter la maîtrise,
+mais leur corrigé n'est pas indépendant. Un juge modèle configuré rend l'évaluation
+des textes de production externe.
 Pour ne pas gâcher l'essai, laisse l'agent écrire et n'ouvre pas `plan.json` ni
 `lesson.json` avant de jouer. Une leçon auto-rédigée n'est relue par aucun
 enseignant et n'est diffusée à personne.
 
+## Choisir la langue et demander une représentation
+
+Précise ta langue au début ou demande « Continue en français ». Le harnais
+applique cette préférence à ses explications, en conservant tes réponses et les
+sources originales. Dans les activités portables, le sélecteur utilise les
+traductions fournies ; un texte non traduit reste signalé dans sa langue source.
+
+Tu peux demander une équation lisible, un schéma Mermaid, une structure chimique
+ou une explication textuelle. Une image, un audio ou un clip généré est facultatif
+et dépend des outils et de l'allocation de ton harnais. Les médias préparés par
+l'enseignant peuvent être réutilisés. Le symbole `?` explique le rôle de la
+prédiction, de la confiance, des preuves ou de la trace. Voir les
+[cas d'usage](../tutorials/use-cases.md) et [supports](../guides/language-and-scientific-presentation.md).
+
+Pour conserver tes actions, suis [activité → rapport](../tutorials/activity-to-report.md).
+Tu choisis la trace et l'inclusion de tes textes ; produire le rapport ne l'envoie
+pas à l'enseignant.
+
 ## Terminer ou reprendre
 
-Note le cours, la révision et ce que tu veux reprendre. Le panneau et un chat MCP
+Note le cours, la révision et ce que tu veux reprendre. Avec l'API, conserve le
+`session_id` et le même serveur actif ; le nouveau harnais relit le contexte
+avant d'agir. Un redémarrage perd ce `session_id`, mais une nouvelle séance avec
+le même identifiant d'apprenant et le même bundle reprend le premier passage
+inachevé si son état durable a été conservé. Le panneau et un chat MCP
 indépendant ont des sessions distinctes. Fermer une fenêtre ne prouve pas que
-des données persistantes ont été effacées. L'oubli concerne l'état géré par Studium ;
-les dossiers d'expérience et l'historique du harnais ont leur propre conservation.
+des données persistantes ont été effacées : `end_session` ferme en les conservant,
+alors que `forget_session` efface l'état Studium et le profil inter-leçons.
+Les dossiers d'expérience et l'historique du harnais ont leur propre conservation.
 Voir [confidentialité](../privacy-and-limits.md).
 
 En cas de difficulté, utilise le [dépannage](../troubleshooting.md) et transmets

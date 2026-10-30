@@ -8,8 +8,11 @@ Leurs sources sont versionnées dans `skills/` du dépôt Studium.
 |---|---|---|
 | `studium-teacher` | Installation enseignant, premier brouillon sourcé, revue MySTRA | « Aide-moi à préparer mon premier cours à partir de cet article. » |
 | `studium-student` | Installation étudiante, choix du harnais et première activité | « J'ai Copilot Student ; aide-moi à démarrer le cours. » |
-| `studium-harness` | Boucle MCP/fichier, réponses personnelles, runs et exploration | « Pilote cette séance et attends mes réponses. » |
+| `studium-harness` | Boucle API/MCP/fichier, réponses personnelles, runs et exploration | « Pilote cette séance et attends mes réponses. » |
 | `studium-self-learner` | Apprenant sans enseignant : leçon d'auto-apprentissage à partir de ses propres références | « Construis une leçon à partir de ce chapitre, puis fais-la-moi jouer. » |
+| `studium-activity-templates` | Choisir et adapter une activité interactive liée à la scène | « Fais-moi explorer ce résultat avec un template. » |
+| `studium-visual-support` | Photographie sourcée, carte conceptuelle, image, audio ou clip adapté | « Prépare une aide avec un équivalent textuel, puis utilise mon harnais si une génération est utile. » |
+| `studium-learner-report` | Export local et revue des actions choisies dans ASTRA/MySTRA | « Prépare mon rapport sans inclure mes textes privés. » |
 
 ## Les utiliser dans un clone du projet
 
@@ -42,7 +45,9 @@ la méthode portable est explicite :
 > Lis `skills/studium-teacher/SKILL.md` dans ce dépôt et applique-le pour mon
 > onboarding enseignant.
 
-Remplacer le nom par `studium-student`, `studium-harness` ou `studium-self-learner` selon le besoin.
+Remplacer le nom par `studium-student`, `studium-harness`, `studium-self-learner`,
+`studium-activity-templates`, `studium-visual-support` ou `studium-learner-report`
+selon le besoin.
 Cette lecture directe reste utilisable quand les liens de découverte ne sont
 pas suivis. Le skill doit résoudre sa source réelle pour trouver les guides.
 
@@ -63,7 +68,7 @@ Sur Windows sans symlinks, utiliser le chemin source explicite dans le prompt.
 ## Ce qui permet de dire « prêt »
 
 Le harnais a lu le skill choisi, trouvé la bonne installation et exécuté une
-vérification pertinente : outils MCP et scène publique pour l'étudiant, ou
+vérification pertinente : opérations API/MCP et scène publique pour l'étudiant, ou
 packet/check/revue pour l'enseignant. Une activation de skill ne prouve pas une
 connexion MCP. Une démo automatisée ne prouve pas un apprentissage.
 
@@ -72,3 +77,11 @@ Les paramètres de compte et d'API restent dans les guides
 d'onboarding n'autorise pas implicitement un achat, une diffusion étudiante ou
 la publication de données. Les skills reprennent les autorisations déjà données
 et ne redemandent pas confirmation pour les étapes locales déjà convenues.
+
+## Templates et traces
+
+Les [templates d’activité](../user/activity-templates.md) fournissent une structure
+au harnais ; le viewer ne contient pas un agent. Le
+[rapport étudiant](../user/learner-report.md) utilise les contrats ASTRA/ARA communs
+et MySTRA, avec un fichier d’actions Studium versionné. Il couvre les événements
+enregistrés explicitement, pas toute la conversation ni une preuve d’autonomie.

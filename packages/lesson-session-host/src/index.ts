@@ -1,7 +1,7 @@
 // packages/lesson-session-host/src/index.ts
 export {
   SessionHost, SessionHostNotFoundError, RunRequiredError, RUN_REQUIRED_MESSAGE, PeerRoomError,
-  type SessionHostOptions,
+  type SessionHostOptions, type SessionStartOptions, type SessionStartResult, type SessionResume,
 } from "./host.js";
 export { operatorContext } from "./operator-context.js";
 export {
@@ -20,6 +20,7 @@ export { authoringOf, SELF_STUDY_NOTICE, type AuthoringBlock } from "./authoring
 export { SCENE_KEY_CLASS, keyClassOf, type KeyClass } from "./key-class.js";
 export { shuffleQuizChoices } from "./shuffle-choices.js";
 export { ResponseInputSchema } from "./response-input-schema.js";
+export { ExperimentInputSchema, type ExperimentInput, type ExperimentDocument } from "./experiment-journal.js";
 export {
   publicScene, publicPresentation, publicTransition, REDACTED_SCENE_FIELDS, type PublicScene,
 } from "./public-scene.js";

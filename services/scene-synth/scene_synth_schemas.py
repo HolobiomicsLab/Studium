@@ -71,7 +71,7 @@ ABSAssetType = Literal[
 # ---------------------------------------------------------------------------
 
 RenderAssetKind = Literal[
-    "image", "svg", "equation_latex", "plot_spec", "code", "data_csv",
+    "image", "audio", "video", "svg", "equation_latex", "plot_spec", "code", "data_csv",
     "protocol_md", "executed_result",
     # interactive scientific kinds (3Dmol.js / RDKit.js / Vega-Lite):
     "orbital", "mol_3d", "spectrum",

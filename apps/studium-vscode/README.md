@@ -21,6 +21,9 @@ pair** with the tutoring loop:
 Each turn the extension pulls the current scene (server-redacted via `publicScene`) +
 `get_scene_artifacts` and presents them; the learner answers in the surface; the response goes back
 over `submit_response` / `submit_turn` / `request_hint`; the engine adapts; the next scene repaints.
+The pane closes a connection that finishes opening after the panel was dismissed, serializes learner
+actions, disables controls while a turn is pending, and keeps recoverable action errors beside the
+current scene. Startup failures name the local output channel and the command to retry.
 
 ## Scene coverage
 
@@ -75,7 +78,8 @@ shown as an explicit unresolved-image caption until the extension host gains a b
 - **Community contributions** (`studium.communityContributions`) — open peer-authored, teacher-
   approved bundles discovered under the course's `community/` dir; the canonical course is immutable.
 - **Right to be forgotten** — the pane's "🗑 M'oublier" control (or the notebook `forget` directive)
-  calls `end_session` to purge the durable per-learner state. Closing a panel/notebook only drops the
+  calls `forget_session` to purge the durable per-learner state and cross-lesson profile. `end_session`
+  closes a session while keeping that state. Closing a panel/notebook only drops the
   transport, so saved progress survives a resume.
 
 ## Settings
@@ -153,11 +157,11 @@ companion, not a replacement. No answer key reaches the chat: the scene is redac
 
 ## Tests
 
-The extension ships a headless verification suite (no VS Code host needed) — **12 drivers, 300+
+The extension ships a headless verification suite (no VS Code host needed) — **15 drivers, 300+
 assertions** (`pnpm --filter studium-vscode test`):
 
 ```
-pnpm --filter studium-vscode test          # tsc --noEmit + all 12 registered drivers
+pnpm --filter studium-vscode test          # tsc --noEmit + all 15 registered drivers
 ```
 
 - `scene-io.driver` — the scene→response-kind contract (must match the graders) + a text-parity
@@ -172,6 +176,7 @@ pnpm --filter studium-vscode test          # tsc --noEmit + all 12 registered dr
 - `lesson-tree` — available-courses/community shaping and current-course marker.
 - `lesson-picker` (standalone) — pure discovery plus a temporary-filesystem adapter check; run with
   `node --import tsx src/lesson-picker.driver.ts [bundles-root]` from this package.
+- `panel-lifecycle` / `mcp-connect` — late-close cleanup, exclusive actions, and failed-connect cleanup.
 
 > Scope note: the **webview** front-end is executed live (jsdom). The **notebook** controller uses
 > `vscode.*` APIs that only run inside a real Extension Host, so its input mapping is covered live

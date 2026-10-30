@@ -67,10 +67,10 @@ export async function runStudiumSession(
   bundleRef: string,
   dir: string,
   operator: Operator,
-  opts: { maxSteps?: number; learnerId?: string } = {},
+  opts: { maxSteps?: number; learnerId?: string; presentationLanguage?: string } = {},
 ): Promise<SessionRunResult> {
   const maxSteps = opts.maxSteps ?? 100;
-  const { sessionId } = await host.create(bundleRef, opts.learnerId ?? "agent-operator");
+  const { sessionId } = await host.create(bundleRef, opts.learnerId ?? "agent-operator", opts.presentationLanguage);
   const ws = new SessionWorkspace(host, dir);
   const transitions: string[] = [];
 
@@ -190,18 +190,20 @@ export function watchOperator(opts: { pollMs?: number; timeoutMs?: number } = {}
   return async (_task, ctx) => {
     // a learner-time RUN scene waits for run_result.json (the operator ran it in the workspace);
     // any other scene waits for response.json. Studium never produces either — the operator does.
-    const path = join(ctx.dir, ctx.expects === "run" ? RUN_RESULT : RESPONSE);
+    const paths = [join(ctx.dir, "experiment-action.json"), join(ctx.dir, ctx.expects === "run" ? RUN_RESULT : RESPONSE)];
     const start = Date.now();
     for (;;) {
-      try {
-        await access(path);
-        JSON.parse(await readFile(path, "utf8")); // require a COMPLETE write (atomic rename guarantees this)
-        return;
-      } catch {
-        /* absent or partial — keep waiting */
+      for (const path of paths) {
+        try {
+          await access(path);
+          JSON.parse(await readFile(path, "utf8")); // require a COMPLETE write (atomic rename guarantees this)
+          return;
+        } catch {
+          /* absent or partial — keep waiting */
+        }
       }
       if (timeoutMs && Date.now() - start > timeoutMs) {
-        throw new Error("watchOperator: timed out waiting for response.json");
+        throw new Error("watchOperator: timed out waiting for response.json, run_result.json or experiment-action.json");
       }
       await new Promise((r) => setTimeout(r, pollMs));
     }

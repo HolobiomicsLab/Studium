@@ -99,15 +99,37 @@ export function operatorContext(host: SessionHost, sessionId: string) {
   const run = host.runManifest(sessionId);
   const authoring = host.authoring(sessionId);
   const selfStudy = authoring.notice !== null;
+  const language = host.sessionLanguage(sessionId);
   return {
     schema: "studium/operator-context/v1" as const,
     session_id: sessionId,
     scene: displayScene(scene),
     scene_assets: host.sceneArtifacts(sessionId).map(displayAsset),
     run_manifest: run,
+    language: {
+      ...language,
+      instructions: language.selected_language === null
+        ? `No presentation language is selected. Present explanations, support text, captions, and output in the source language (${language.source_language}).`
+        : `Present all explanations, support text, captions, and output in ${language.selected_language}. ` +
+          "Translate public lesson text for presentation only. Keep the original available and do not alter canonical bundle content or learner answers. " +
+          "Preserve scientific notation, quantities, numbers, units, code, identifiers, citations, and source links exactly. " +
+          "Label translated quotations as translations and retain the original quotation.",
+    },
     response: responseFor(scene, run !== null),
     authoring,
     exploration: {
+      journal: {
+        record_tool: "record_experiment", read_tool: "get_experiment_journal",
+        file: "experiment-action.json", snapshot: "experiment.json",
+        sequence: ["predict", "begin", "observe", "conclude"],
+        instructions: "Opt in only with the learner's consent. Record their prediction, justification and confidence (0–4) " +
+          "before begin and before revealing experiment results. Preserve their exact text; never answer for them. " +
+          "Use a new experiment_id for a new attempt. Record observe and conclude later using that same ID. " +
+          "Both MCP arguments and the file envelope are {session_id, scene_id, input}. " +
+          "This private, ungraded journal is separate from response.json and teacher analytics. " +
+          "Durability requires STUDIUM_DATA_DIR and the same learner, bundle revision and pseudonym secret. " +
+          "Attribution is declared; recorded order does not prove absence of outside assistance.",
+      },
       capabilities: "discover-in-current-harness" as const,
       workflow: ["predict", "baseline", "vary", "compare", "judge", "transfer"],
       recordTool: "tools/experience_exploration.py",

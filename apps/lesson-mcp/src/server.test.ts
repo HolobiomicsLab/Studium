@@ -91,11 +91,14 @@ describe("lesson-mcp tools", () => {
     expect(info["version"]).toBe(packageJson.version);
     expect(info["tools"]).toEqual(names);
     expect(info["tools"]).toEqual([...names].sort());
-    expect(names).toHaveLength(22);
+    expect(names).toHaveLength(25);
     expect(names).toContain("forget_session");
     expect(names).toContain("list_community_bundles");
     expect(names).toContain("get_operator_context");
     expect(names).toContain("get_server_info");
+    expect(names).toContain("record_experiment");
+    expect(names).toContain("get_experiment_journal");
+    expect(names).toContain("set_session_language");
 
     const description = (name: string) => tools.find((tool) => tool.name === name)?.description ?? "";
     expect(description("submit_response")).toContain("submit_run_result first");

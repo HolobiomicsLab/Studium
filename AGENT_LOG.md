@@ -2575,3 +2575,302 @@ docs worktree. No product/test edit, API call, student session or publication.
 Personal links are added only when missing after canonical integration; existing
 studium-harness links remain untouched. Client catalogue refresh may require a
 new session; automatic discovery in every authenticated client is not claimed.
+
+# 2026-09-11 — Private experiment journal (INT044 / S1)
+
+Typed predict/begin/observe/conclude records are separate from grading and public
+operator context. Exact learner text, justification and confidence persist by
+learner/lesson/revision in durable mode; forget erases revision journals. MCP and
+file transports share host validation; stale scene/session envelopes are rejected.
+The file watcher wakes for experiment actions without advancing the lesson.
+Attribution is declared and consent explicit; neither establishes independent
+authorship or absence of outside help. Exported harness copies retain their own
+privacy/erasure boundary. Filesystem writes use lock plus atomic rename.
+
+Red evidence: journal module absent; host recordExperiment absent and file action
+ignored; watcher timed out waiting only for responses/results. All became green.
+Focused journal/host/runner8 tests and MCP15 pass; host suite184 passes. Full pnpm
+test passed, pnpm build:libs passed, lint0 errors/194 existing warnings. MCP types
+rechecked after adding stale-scene validation. No teaching-model/benchmark call or student publication; development used Codex Astra and Sol high.
+
+## INT044 review correction — locale-independent revisions
+
+A red-first canonical-key vector showed localeCompare ordered uppercase/lowercase
+keys differently from the portable code-unit order. Test committed3948dc6; revision
+hashing now uses explicit lexical comparison. Journal+host8 tests pass unchanged.
+This is pre-release work; no real learner journal was migrated or relabelled.
+
+## INT044 review correction — anonymous session privacy
+
+A red-first host test23add6f reproduced private journal persistence under the shared
+anonymous identity. Anonymous, agent-operator and blank IDs now remain ephemeral;
+unique stable learner IDs are required for durable contributions. The existing
+grading/profile behavior is unchanged. Host experiment4 and type build pass.
+
+# 2026-09-11 — Linked pedagogical MS/MS viewer (INT044 / S2)
+
+Sol-high leaf built a self-contained synthetic network/mirror/candidate viewer
+with stable IDs, threshold baseline/differences, prediction before reveal, own-text
+export and a reusable generation brief. Parent review corrected focal selection,
+flexible layout, baseline labels, axis units, mobile overflow, prediction wording
+and temporary invalid tolerance recovery. Parent separated lower spectrum caption
+from axis ticks after screenshot inspection. Original pair calculation retained.
+
+Focused numerical/build/legacy/fixture20 tests pass. Final real fixture+MCP+Chrome
+demo /tmp/studium-int044-final-demo passes18/18 browser checks, no console errors
+or external requests, desktop/direct/mobile captured. Python baseline0.6477 with
+7matched peaks; direct-only0.1871. All data are synthetic, not paper reproduction.
+Viewer notes are distinct from the private host journal; neither auto-submits.
+
+# 2026-09-11 — Reviewed revision to synthesis (INT044 / S3)
+
+Sol-high leaf delivered import/attach-exploration/approve/verify/synthesize CLI.
+Canonical hashes bind the exact editable plan and supporting inputs; synthesis
+uses a captured verified snapshot without replanning. Post-call disk and in-memory
+mutation checks quarantine stale generated artifacts. Failures are retryable;
+reapproval archives prior synthesis records. Artifact URI/hash and source/check
+references are visible in MySTRA. Technical exploration summaries omit structured
+learner fields and copy no blobs or portable receipts. They are checked on attach,
+not continuously attested. Plan approval never approves generated content/release.
+
+Parent review corrections covered concurrent edits, in-memory mutation, stale
+synthesis bindings, conditional failure wording and receipt privacy. Leaf final
+focused95 pass; parent plan/packet/review47 pass. Production ConceptAgent and
+bundler exercised with deterministic fake model/critic; scene-synth231 pass1skip.
+No real teaching model called. CLI needs an explicitly configured local orchestrator;
+identity remains locally declared and the older author-web/HTTP paths stay separate.
+
+# INT044 final integration verification
+
+All three local capabilities implemented; docs and three existing shared skills
+updated without copying skill sources. Sol-high independent S1 review found no
+additional consequential defect; direct parent review covered S2/S3.
+Final pnpm test:1111 passed across18 packages. Python wrapper:16 suites,0failing.
+Library, host/MCP, author-web and extension builds pass; packaged stdio prediction
+roundtrip/forget passed. Lint0errors194warnings. Final browser18/18 plus numeric
+fixture20 pass; no external browser requests.76 local doc links and three skill
+validators checked.
+
+Local runtime Node26.3.0/pnpm9.15.9/Python3.13.13; CI Node20/Python3.12 not rerun.
+Known existing CJS import.meta warning remains, packaged entrypoint verified.
+Work remains on codex/studium-experiment-continuity; no push, student release,
+real teacher approval, new benchmark, external model evaluation or manuscript change.
+The32-session protocol is unchanged/unrun and must freeze the chosen code first.
+
+# 2026-09-11 — Harness activity templates and learner reports (INT045)
+
+Three runnable templates (linked representations, controlled parameter comparison,
+evidence/claim) and two explicitly proposed patterns share the strict
+studium/learner-actions/v1 schema. The linked template reuses the numerical viewer
+core. Recording is optional and local; synthetic fixtures are labelled. Source
+binding includes identifiers and the prepared activity's content digest.
+
+Reports reuse ASTRA0.0.14, ARA0.1.0 and the existing MySTRA renderer/Observatory;
+no parallel provenance contract. Selected browser and host-journal streams remain
+separate. Original text is excluded by default. Two portable skills and a French
+end-to-end tutorial route harness preparation and explicit report export. Existing
+teacher/student/harness skills link to them; project-local discovery symlinks share
+one source. No global skill link points at this temporary checkout.
+
+Two Sol-high leaves delivered bounded implementations. Focused template/trace/report
+tests:60 passed; activity browser audit:41/41, no console errors/external requests.
+Parent complete demo:34/34 additional report checks, including actual native MySTRA,
+mobile and unchanged artifacts after viewing. Independent skill forward-test prepared
+an evidence/claim activity without fabricating a learner response; clarified that
+scene identifiers do not make sample data source-derived and that base UI is English.
+Full pnpm test:1111 passed /18 packages; Python:16 suites,0 failing; author-web build
+passed; lint:0 errors,194 existing warnings; packaged MCP smoke:14 passed.
+
+Review checkpoint: optional confidence currently renders None/4 in the portable
+report. A separate regression-first correction follows this feature checkpoint.
+Runtime Node26.3.0/pnpm9.15.9/Python3.13.13, not exact CI20/3.12. No paid teaching
+model, student study, manuscript change, release, merge or push.
+
+## INT045 final review corrections and verification
+
+Committed regression9cd4211 reproduced None/4 for absent confidence; report rendering
+now omits absent confidence and preserves explicit0/4. Committed regression0296058
+records the proposed-template CLI refusal; expected validation failures now produce
+a concise error. Closed validation of nested linked-network fields precedes browser
+embedding and numerical verification. Templates retain shared source and ID checks.
+Markdown hard breaks were replaced with blank lines to pass whitespace checking.
+
+The template leaf delivered late validation/CLI edits after its first stable notice;
+the parent stopped further writes and reran verification on the final combined tree.
+No claim of mechanical test-edit protection is made; existing assertions were retained.
+Final focused tests:63 passed,1 existing Starlette/httpx deprecation warning.
+Full Python rerun:16 suites,0 failing. Final reproducible demo has41 activity checks
+and34 report checks, all passing, zero browser errors or external requests. Native
+MySTRA and portable report screenshots inspected; optional confidence renders correctly.
+99 local documentation links resolve;6 Studium skill validators and4 new discovery
+symlinks pass. Lint remains0 errors,194 existing warnings. Earlier unchanged TS and
+author-web verification remain applicable. All worker turns complete.
+
+Final demo: .studium-session/int045-demo-verified/index.html. This is synthetic test
+data, including browser-generated learner actions and a separate real-host transport
+probe; no measured learning or scientific approval. Existing MySTRA retains its
+course-review framing and shows absent teacher review as missing. No preview server
+remains; regenerate with tools/demo-template-reports.py into a new directory.
+
+## 2026-09-12 — Five practical activity templates (INT046)
+
+Implemented the owner's request to complete both proposed patterns and improve
+activities through practice. Diagnose-analysis and conclusion-robustness now use
+closed, configurable captured-result contracts and the existing action/ASTRA/ARA/
+MySTRA formats. Examples expose actual invented inputs and checkable arithmetic.
+Five distinct science configurations exercise signed/zero values, both threshold
+operators and all/some/no support; source-backed shapes are also checked. These
+are software fixtures, not pedagogical or empirical validation.
+
+Practical review corrected small-value rounding, inaccessible range labels,
+misleading no-trace assistance, absent no-trace completion, and fused choice labels.
+Progress/focus, mobile wrapping, signed bars and a non-wrapping brand improve the
+shared viewer. Native controls retain common trace semantics. Off-grid baseline/
+variation values are refused instead of being silently snapped by the browser.
+Regression commits:752be84 (practical browser),a90c230 (step grid),d305cb2
+(choice readability). No regression assertions weakened; existing proposal tests
+now exercise a proposed catalogue entry via monkeypatch after the two promotions.
+Two Sol-high leaves delivered isolated files, then stopped before final verification.
+
+Final evidence:136 focused Python tests pass; full Python16 suites,0 failing;
+TypeScript1111 tests/18 packages pass on retry. First TS run had a native Node26
+V8 ToLocalChecked abort after passing lesson-mcp assertions; no code or test change
+between runs. Author-web build passes; lint0errors/194existing warnings.
+Final demo .studium-session/int046-final:65 common activity,51 practical and50
+portable/native report browser checks, all green; no browser errors or external
+requests. All6 reports verify, including a separate synthetic host journal.
+Final screenshots inspected after the choice-label and mobile-brand corrections.
+Updated skill validates;16 changed-document relative links resolve.
+
+Runtime Node26.3.0/pnpm9.15.9/Python3.13.13, not exact CI20/3.12. Common contracts
+unchanged; no model embedded, paid teaching-model run, real student, manuscript
+change, teacher approval, student distribution, merge or push. All artifacts are
+local; project-local skill discovery continues using the same shared source files.
+
+## 2026-09-12 — INT047 common viewer charter
+
+Shared local theme for prepared activities, portable reports and native
+Observatory/MySTRA. Completed trace-choice/prediction sections are reopenable,
+keyboard focus follows the activity, named table regions scroll on mobile, print
+preserves report titles. Exact pre-theme report verification remains supported;
+rehashed HTML tampering is rejected for both renderers. Future theme revisions
+must freeze this CSS/renderer before changing them (viewer-charter.md).
+
+Regression commit 2ad99f2 includes historical synthetic export and new browser/
+compatibility tests. Existing kappa test now checks main content rather than
+unrelated CSS dimensions; API rejection and explicit missing-value checks remain.
+Red evidence covered collapsed steps and absent print title. Mobile header width
+was corrected after actual screenshot review; full-page captures reset scroll.
+
+Python16 suites/0 failing, TS1111 tests, build pass; lint0errors/194 existing
+warnings. Final .studium-session/int047-complete:80 activity +51 practical +92
+portable/native report browser checks pass,6 report packages verify. Desktop,
+mobile and A4 print inspected; historical export unchanged. These are synthetic
+technical tests, not student trials or a complete accessibility certification.
+No push, release, scientific acceptance, model call or private learner data.
+INT048 visual-support skill and figure-path fix are a separate slice.
+
+## 2026-09-12 — INT048 grounded visual support and directory figures
+
+Added studium-visual-support with project-local Claude/Codex discovery, capability
+matrix, differentiation workflow, original Mermaid source and RenderAsset example.
+Inspected upstream Lightcone audience-aware-skills and official OpenAI vision/image
+editing docs. No global communication profile, model account or provider installed.
+Automatic paper/ASB import, ZIP media transport, native Mermaid and private-history
+adaptation remain explicitly designed follow-ups, not claimed shipped.
+
+VS Code pane now uses the notebook's shared asset-path logic for image and
+executed_result. Canonical confinement accepts relative/in-bundle absolute paths;
+external absolute files must be copied into the lesson. Traversal/symlink escapes
+and missing files keep the existing fallback. Preserved nested-bundle coverage,
+added a real PNG and a valid two-dot filename regression; general containment
+checks parent path components rather than a broad string prefix.
+
+Sol-high leaf's final package test, typecheck and build pass (12 registered
+drivers,16 asset-path assertions). Existing CJS import.meta build warning remains.
+Skill frontmatter validates and relative guide links resolve. No real signed-in
+VS Code session, image-generation call, real student trial or learning-effect
+claim. Common RenderAsset, ASTRA/ARA and learner action formats remain unchanged.
+
+## 2026-09-12 — INT051 contextual pedagogical help (Codex)
+
+One authored EN/FR catalogue (18 topics, 13 public scene mappings), shared passive
+renderers/CSS, help beside activity/report/Observatory sections, React web shells
+and teacher metric pages, VS Code scene/graph help. Generic method guidance only;
+no answer keys, help telemetry, model calls, scoring or schema changes. Native
+disclosures preserve script-free portable reports and exact v1/v2 compatibility.
+Added generated-task guidance, harness/template skill instructions and public guide.
+
+Verification: full Python 16 suites/0 failing; full pnpm test 1117 Vitest +3 Node
+and package drivers; full build/lint pass (194 existing warnings). Latest focused
+31 and Observatory242 passed; two skills valid. Browser:80 activity+51 practical+
+92 report+29 help+17 React+18 linked+5 extension-layout =292 assertions, plus11 native
+MySTRA views, print restoration and read-only fixture checks. New extension driver
+checks all13 scene help mappings and zero host messages. Synthetic checks only.
+
+Review corrections: implicit HTML heads dropped helper CSS (new browser regression),
+React package resolution, controlled print expansion excluding optional help, author
+input box sizing on mobile, and graph canvas leaving room for a clickable help icon.
+Only the existing print audit selector was narrowed to its original report-content
+scope; a new check ensures help is not force-opened. Source/template hashes and old
+report integrity checks remain strict. No push, merge, student release or sibling write.
+See the hub audit and docs/guides/contextual-help.md for coverage and limitations.
+
+## 2026-09-12 — INT052 API and independent harness access
+
+Owner requests direct API, smoother VS Code integration and learning through an
+independent harness. Baseline6351212; plan/spec/intent committed first in hub70e234e.
+22 operation declarations now shared by MCP and authenticated loopback HTTP v1.
+Adds schema discovery, JSON-file CLI, serialized calls, request receipts, stale-scene
+checks, bounded queues/cache, bundle realpath containment and forgetting of cached
+session outputs. Backend models require explicit API activation. Sessions remain
+process-local; legacy REST and VS Code MCP are separate processes. Legacy REST
+create/current/respond now use the existing public projections, fixing exposed
+quiz keys without changing response envelopes or old tests.
+
+Sol-high leaf owns only extension files: connection/disposal cleanup, shared gate
+for pane/native reproduction mutations, disabled-state preservation, actionable
+errors, native themes and 44px primary controls. Lead reviewed correction of false
+restart-retention wording and native-task race. No full Extension Host test.
+Three existing portable skills and user guides now cover API, resume, execution,
+standard journal/report export and intentional erasure; no global skill copies.
+
+Evidence:1135 Vitest passed plus existing3 Node tests and14 extension drivers;
+16 Python suites/0failing. Full build and lint pass (201warnings/0errors).
+New API32 tests including existing MCP contracts; legacy REST33 including2 new
+redaction regressions; extension webview97/lifecycle9/MCP23/realstdio12 assertions.
+Actual API entry+pnpm JSON client smoke10checks; ASTRA/ARA/MySTRA export verifies.
+Reproducible Chrome pane audit9checks incl localKaTeX/light-dark/narrow/pending.
+Artifacts:.studium-session/int052-api-verified and int052-vscode-verified.
+Logs:/tmp/studium-int052-{final-test,final-build,final-lint,python}.log.
+
+Workspace post-agent audit:164 repository snapshots/live-default checks and data
+mtime sweep, only this checkout with recent sampled data; foodomeai_dev remote
+lookup timed out. No global before-snapshot, so no claim of exclusive attribution.
+Canonical/live dev33bf561 unchanged; no push/merge/release/paid call, manuscript or
+LabOS write. Hub audit/handoff records exact output and limitations.
+
+## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
+
+Reorganized the GitHub README/docs entry points around visual lessons, local
+harnesses and HTTP. Added a dated 10–12 September development digest and seven
+practical use cases: self-learning, literature authoring, ASB/spectral experiments,
+analysis diagnosis/robustness, archaeology imagery, language/media support and
+learner reports. Updated capability coverage, role guides, troubleshooting,
+privacy, skills and explicit Claude Code/Codex/OpenCode onboarding. Provider
+setup references were opened on 12 September. Remote dev/main still lack the
+latest local slices; installation now states the revision requirement explicitly.
+
+Corrected obsolete “no language switch” instructions in the activity tutorial
+and its skill, and the frozen 14-check MCP count (actual smoke now has 19).
+No runtime, schema, tests or dependency changes. No paid provider calls, global
+configuration writes, publication or student distribution.
+
+Validation: real MCP smoke 19/19; real HTTP/CLI continuity and standard report
+smoke 10/10 (`.studium-session/int053-api`); file runner completes four synthetic
+steps; French conclusion-robustness activity prepared with translations/supports
+(`.studium-session/int053-activity`); 88 targeted template/presentation tests pass;
+both changed skills validate. Relative Markdown links/anchors, shell syntax and
+JSON/TOML examples checked. Authenticated provider UIs, fresh-machine installation
+and the actual VS Code Extension Host were not exercised. Full regression counts
+in the dated digest are attributed to baseline 2691a5a, not rerun for this docs slice.

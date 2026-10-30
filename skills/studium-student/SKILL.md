@@ -9,6 +9,21 @@ Help the student reach one working activity and submit their own response.
 Match their language and existing tools. Keep installation details proportional
 to what is missing; do not turn a learning request into repository development.
 
+## Direct API without an editor
+
+If the user chooses HTTP or wants to switch harnesses without an editor, follow
+[the local API guide](../../docs/guides/api-and-harness.md). Discover `/v1/operations`
+and use the JSON-file client; keep credentials in the environment, never prompts.
+Reuse the same server and session ID across harnesses. Inspect current context
+before acting. Preserve the original request file/ID for uncertain retries;
+scene-sensitive mutations also require the current `expected_scene_id`.
+Do not invent responses or re-create a session on a connection error. `end_session`
+closes the active handle while keeping durable progress and the private journal;
+`forget_session` explicitly erases them. A restart invalidates active session IDs;
+start with the same learner and bundle to resume durable state, then inspect `resume`.
+The chosen harness supplies tools for execution, research and visuals under its
+existing permissions. The API does not require another model provider or VS Code.
+
 ## Find the starting point
 
 Resolve this skill's real directory through any symlink; the Studium root is two
@@ -58,6 +73,9 @@ public scene and its materials, then wait for the student's response.
 - For experiments, elicit a prediction before execution and a personal conclusion
   afterwards. Use the [agentic tutorial](../../docs/tutorials/agentic-experiment.md)
   within the teacher's scope. Missing tools or failed runs remain visible.
+  Offer the [private experiment journal](../../docs/user/experiment-journal.md)
+  when the student wants to save those contributions and resume in another harness.
+  Explain ephemeral versus durable storage; never infer consent or confidence.
 
 ## Verify and hand back
 
@@ -67,7 +85,16 @@ not evidence of student learning. If blocked, use [troubleshooting](../../docs/t
 and report the failing step with a small anonymized error, not a claim of success.
 
 Provide the next activity or a short resume note with course/revision, public
-context and relevant local files. Do not silently invoke `end_session` merely
-because the conversation ends: it requests forgetting. Explain the scope if the
+context and relevant local files. Use `end_session` to close while preserving progress.
+Use `forget_session` only for an explicit erasure request. Explain the scope if the
 student asks to erase. Harness history and experiment folders have separate
 retention; see [privacy](../../docs/privacy-and-limits.md).
+
+## Experiment and keep a report
+
+For an interactive example tied to the current scene, use
+[studium-activity-templates](../studium-activity-templates/SKILL.md). The learner
+chooses whether to export semantic actions; this is not recording every chat or
+keystroke. For a local portfolio or teacher copy, use
+[studium-learner-report](../studium-learner-report/SKILL.md). Original free text is
+excluded by default; the learner chooses whether to include it for that report.

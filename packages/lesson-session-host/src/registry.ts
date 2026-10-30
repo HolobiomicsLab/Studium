@@ -14,6 +14,8 @@ export interface SessionEntry {
   /** the LEARNER-level pseudonym (fixed scope, stable across lessons) keying the cross-lesson profile —
    * used to merge this session's concept_states forward on completion. */
   profilePseudonym?: string;
+  /** Optional BCP 47 presentation preference. Canonical bundle text and learner input stay unchanged. */
+  presentationLanguage?: string;
 }
 
 export class SessionRegistry {
