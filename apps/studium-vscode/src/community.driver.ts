@@ -15,9 +15,9 @@ import {
   COMMUNITY_DIR,
 } from "./community.js";
 import { isolateFromHome } from "./driver-isolation.js";
-import { readConceptTitles } from "./bundle-titles.js";
+import { MAX_LESSON_BYTES, MAX_ZIP_BYTES, readConceptTitles, zipEntry } from "./bundle-titles.js";
 import { makeZip } from "./zip-fixture.js";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -149,6 +149,27 @@ const COMMUNITY_FS = `${BUNDLES_ROOT}/atomistique-l1/${COMMUNITY_DIR}`;
   expect(Object.keys(readConceptTitles(join(dir, "community-empty.zip"))).length === 0, "a .zip without lesson.json gives no titles");
   expect(Object.keys(readConceptTitles(join(dir, "community-broken.zip"))).length === 0, "an unreadable .zip gives no titles");
   expect(Object.keys(readConceptTitles(join(dir, "missing.zip"))).length === 0, "a missing file gives no titles");
+
+  // SEC-5: a classmate's .zip is read in the extension host, so its size is capped before anything is inflated.
+  // A lesson.json that inflates past MAX_LESSON_BYTES (8 MB) is refused, whether its central directory says so
+  // or lies about it (the inflate itself is bounded); an archive or a lesson file past their caps is not read.
+  const big = JSON.stringify({ concepts: [{ id: "c1", title: "T" }], pad: " ".repeat(MAX_LESSON_BYTES + 1024) });
+  writeFileSync(join(dir, "community-bomb.zip"), makeZip({ "lesson.json": big }, true));
+  const liar = makeZip({ "lesson.json": big }, true);
+  const centralAt = liar.readUInt32LE(liar.length - 22 + 16);
+  liar.writeUInt32LE(1000, centralAt + 24); // the central directory now claims 1000 bytes uncompressed
+  writeFileSync(join(dir, "community-liar.zip"), liar);
+  writeFileSync(join(dir, "huge-plain.json"), big);
+  expect(zipEntry(readFileSync(join(dir, "community-bomb.zip")), "lesson.json") === null, "an entry declared bigger than the cap is not inflated");
+  let liarThrew = false;
+  try { zipEntry(liar, "lesson.json"); } catch { liarThrew = true; }
+  expect(liarThrew, "an entry that inflates past the cap despite its header stops at the cap (maxOutputLength)");
+  for (const name of ["community-bomb.zip", "community-liar.zip", "huge-plain.json"]) {
+    expect(Object.keys(readConceptTitles(join(dir, name))).length === 0, `${name}: past the cap, no titles are read`);
+  }
+  const sparse = join(dir, "community-oversize.zip");
+  writeFileSync(sparse, makeZip({ "assets/blob.bin": Buffer.alloc(MAX_ZIP_BYTES), "lesson.json": lesson }, false)); // valid, past the cap
+  expect(Object.keys(readConceptTitles(sparse)).length === 0, "an archive past MAX_ZIP_BYTES is not read at all");
 }
 
 expect(isolation.homeUntouched(), `I-10: nothing was written into the home directory (${isolation.home})`);

@@ -11,7 +11,7 @@ import { resolve, relative, isAbsolute, dirname, join } from "node:path";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
 import { BundleSchemaError, loadBundleZip, loadBundleJson } from "@studium/lesson-session/node";
 import { shuffleQuizChoices } from "./shuffle-choices.js";
-import { scanCatalog, nearestRefs } from "./lesson-catalog.js";
+import { scanCatalog, nearestRefs, learnerMinutesPerDay } from "./lesson-catalog.js";
 
 export interface ResolvedBundle {
   bundle: LessonBundle;
@@ -23,6 +23,8 @@ export interface ResolvedBundle {
   baseDir: string;
   /** sha256 of the lesson.json bytes, binding an approval record (C5); null for a .zip. */
   sha256: string | null;
+  /** RFR-06: the learner's minutes a day kept in the lesson file (learnerMinutesPerDay); null when none. */
+  minutesPerDay: number | null;
 }
 
 /** The on-disk directory a bundle's relative render-asset paths (e.g. "assets/orbitals/2pz.cube")
@@ -85,6 +87,7 @@ export async function loadResolvedBundle(
   const { root, path } = await locate(typeof roots === "string" ? [roots] : roots, ref);
   let bundle: LessonBundle;
   let sha256: string | null = null;
+  let minutesPerDay: number | null = null;
   if (path.endsWith(".json")) {
     const bytes = await readFile(path);
     sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -93,6 +96,7 @@ export async function loadResolvedBundle(
     catch { throw new Error(`lesson ${ref} is not valid JSON`); }
     try { bundle = loadBundleJson(raw); }
     catch (error) { throw invalidLesson(ref, error); }
+    minutesPerDay = learnerMinutesPerDay(raw) ?? null;
   } else {
     try { bundle = await loadBundleZip(path); }
     catch (error) { throw error instanceof BundleSchemaError ? invalidLesson(ref, error) : new Error(`lesson ${ref} could not be read as a bundle archive`); }
@@ -106,6 +110,7 @@ export async function loadResolvedBundle(
     path,
     baseDir: path.endsWith(".json") ? dirname(path) : "",
     sha256,
+    minutesPerDay,
   };
 }
 

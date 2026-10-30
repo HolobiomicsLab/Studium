@@ -14,9 +14,17 @@
 //               « due for review » (fr « À revoir »), never as one to relearn.
 // `next_due_at` is the earliest FUTURE review of any kind, so it is never in the past while
 // nothing is listed (it used to be computed over every concept while `due` excluded the weak ones).
+//
+// Every date is a day in one time zone, the host's (calendar.ts, RFR-13): due_date and
+// next_review_date name the day display_markdown prints. The next step's arguments carry the plan's
+// language to the tool that takes one (L-4). With the minutes a day the learner said they have
+// (RFR-06), the next step says how long it takes: a lesson longer than that is proposed in several
+// sittings, and a review session longer than that is cut with max_items.
 import { nextCourseLesson } from "@studium/lesson-bundle-schema";
 import { dueAt, dueForReinforcement, isDue, retrievability, type ConceptMemoryState } from "./fsrs-memory.js";
 import { formatReviewDate, type DisplayLocale } from "./chat-display.js";
+import { calendarDate, localTimeZone } from "./calendar.js";
+import { DEFAULT_REVIEW_ITEMS } from "./review-session.js";
 import type { Catalog, CatalogLesson } from "./lesson-catalog.js";
 import type { StudyRecord } from "./study-record.js";
 
@@ -71,7 +79,8 @@ export interface StudyItem {
   lesson: { bundle_ref: string; title: string } | null;
   scene_id: string | null;
   due_at: number;
-  /** yyyy-mm-dd (UTC). */
+  /** yyyy-mm-dd, the day of due_at in the server's time zone (get_server_info.time_zone): the day
+   * display_markdown prints. */
   due_date: string;
   /** start_review_session has a scene to replay it with (a retrieval scene playable outside its
    * lesson). An unplayable concept stays listed but never becomes the next step. */
@@ -89,11 +98,20 @@ export interface StudyPlan {
   next_lesson: { bundle_ref: string; title: string } | null;
   next_review_at: number | null;
   next_review_date: string | null;
+  /** RFR-06: the minutes a day the learner said they have (their study record, else the self-study
+   * lesson the plan proposes), or null. */
+  minutes_per_day: number | null;
   next_step: {
     action: "review" | "continue" | "start" | "author" | "wait";
     tool: string | null;
-    arguments: Record<string, string>;
+    /** The call's arguments: learner_id when the caller named one, bundle_ref for a lesson, language
+     * for start_review_session and get_authoring_guide (L-4), max_items for a review cut to the
+     * learner's minutes a day. */
+    arguments: Record<string, string | number>;
     text: string;
+    /** RFR-06, with minutes_per_day: about how long the step takes (what is left of a lesson in
+     * progress; a review as cut by max_items). */
+    estimated_minutes?: number;
   };
   display_markdown: string;
 }
@@ -111,9 +129,24 @@ export interface StudyPlanInput {
   /** The due or relearn concepts start_review_session can play now — decided by the host with the
    * same lesson lookup and scene choice the review session uses (reviewSources + pickReviewScene). */
   playableReviews: ReadonlySet<string>;
+  /** For each playable review, the lesson and scene start_review_session plays it from (L-8): the
+   * item names them, so the plan and the review agree. Absent ⇒ the lesson it was last graded in, else
+   * the first lesson on disk that lists it. */
+  reviewFrom?: ReadonlyMap<string, { bundle_ref: string; title: string; scene_id: string }>;
   /** The concepts a graded attempt measured (ConceptState.total_attempts > 0); see scheduleFromMemory. */
   measured: ReadonlySet<string>;
+  /** The time zone every date is taken in (calendar.ts): the host's. Absent ⇒ the machine's. */
+  timeZone?: string;
+  /** RFR-06: the learner's minutes a day when the caller knows it; else the study record's, else the
+   * one kept in the self-study lesson the plan proposes (CatalogLesson.minutes_per_day). */
+  minutesPerDay?: number;
+  /** RFR-06: each playable review's estimated seconds (its review scene's estimated_seconds); a
+   * review without one counts DEFAULT_REVIEW_SECONDS. */
+  reviewSeconds?: ReadonlyMap<string, number>;
 }
+
+/** What a review scene takes when nothing says (RFR-06's estimate of a review session). */
+export const DEFAULT_REVIEW_SECONDS = 60;
 
 const PLAN = {
   fr: {
@@ -135,6 +168,12 @@ const PLAN = {
     author: "aucune leçon n'est encore disponible. Choisis un sujet et tes sources : l'assistant prépare une leçon avec toi.",
     wait: "rien à revoir pour l'instant.",
     wait_next: "rien à revoir pour l'instant. Prochaine révision : {date}.",
+    lesson_fits: "Elle dure environ {minutes} minutes, dans tes {budget} minutes par jour.",
+    lesson_split: "Elle dure environ {minutes} minutes : avec tes {budget} minutes par jour, fais-la en {sittings} fois.",
+    left_fits: "Il en reste environ {minutes} minutes, dans tes {budget} minutes par jour.",
+    left_split: "Il en reste environ {minutes} minutes : avec tes {budget} minutes par jour, finis-la en {sittings} fois.",
+    review_fits: "Elle dure environ {minutes} minutes, dans tes {budget} minutes par jour.",
+    review_cut: "Avec tes {budget} minutes par jour, elle en reprend {count} aujourd'hui (environ {minutes} minutes).",
   },
   en: {
     heading: "### Your study plan",
@@ -155,14 +194,18 @@ const PLAN = {
     author: "no lesson is available yet. Choose a topic and your sources: the assistant prepares a lesson with you.",
     wait: "nothing to review right now.",
     wait_next: "nothing to review right now. Next review: {date}.",
+    lesson_fits: "It takes about {minutes} minutes, within your {budget} minutes a day.",
+    lesson_split: "It takes about {minutes} minutes: with your {budget} minutes a day, take it in {sittings} sittings.",
+    left_fits: "About {minutes} minutes are left, within your {budget} minutes a day.",
+    left_split: "About {minutes} minutes are left: with your {budget} minutes a day, take them in {sittings} sittings.",
+    review_fits: "It takes about {minutes} minutes, within your {budget} minutes a day.",
+    review_cut: "With your {budget} minutes a day, it takes {count} of them today (about {minutes} minutes).",
   },
 } as const;
 
 function fill(template: string, params: Record<string, string | number>): string {
   return template.replace(/\{([a-z_]+)\}/g, (token, name: string) => (params[name] === undefined ? token : String(params[name])));
 }
-
-const isoDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 /** A recorded lesson is still there when the catalog lists it. The catalog does not list community
  * .zip bundles, so a route to one is trusted as is. */
@@ -183,13 +226,35 @@ function lessonFor(conceptId: string, input: StudyPlanInput): { lesson: StudyIte
   return { lesson: listing ? { bundle_ref: listing.bundle_ref, title: listing.title } : null, scene_id: null, concept };
 }
 
-function toItem(s: ScheduledConcept, input: StudyPlanInput): StudyItem {
+function toItem(s: ScheduledConcept, input: StudyPlanInput, timeZone: string): StudyItem {
   const where = lessonFor(s.concept_id, input);
+  const from = input.reviewFrom?.get(s.concept_id);
   return {
-    concept_id: s.concept_id, concept: where.concept, lesson: where.lesson, scene_id: where.scene_id,
-    due_at: Math.round(s.due_at), due_date: isoDate(s.due_at),
-    playable: where.lesson !== null && input.playableReviews.has(s.concept_id),
+    concept_id: s.concept_id, concept: where.concept,
+    lesson: from ? { bundle_ref: from.bundle_ref, title: from.title } : where.lesson,
+    scene_id: from ? from.scene_id : where.scene_id,
+    due_at: Math.round(s.due_at), due_date: calendarDate(s.due_at, timeZone),
+    playable: from !== undefined || (where.lesson !== null && input.playableReviews.has(s.concept_id)),
   };
+}
+
+/** RFR-06: the learner's minutes a day — given, kept in their study record, else kept in the
+ * self-study lesson the plan proposes, else in the newest lesson of their library that keeps one. */
+function dailyBudget(input: StudyPlanInput, proposed: readonly (string | undefined)[]): number | null {
+  if (input.minutesPerDay !== undefined) return input.minutesPerDay;
+  if (input.record.minutes_per_day !== undefined) return input.record.minutes_per_day;
+  const byRef = (ref: string | undefined) => input.catalog.lessons.find((l) => l.bundle_ref === ref);
+  const own = proposed.map(byRef).find((l) => l?.minutes_per_day !== undefined);
+  const library = input.catalog.lessons.filter((l) => l.root === "library" && l.minutes_per_day !== undefined)
+    .sort((a, b) => b.modified_at - a.modified_at)[0];
+  return own?.minutes_per_day ?? library?.minutes_per_day ?? null;
+}
+
+/** The sentence a lesson step gets with a daily budget: how long it takes, in how many sittings. */
+function lessonBudgetText(t: (typeof PLAN)[DisplayLocale], minutes: number, budget: number, left: boolean): string {
+  const sittings = Math.ceil(minutes / budget);
+  const key = sittings > 1 ? (left ? "left_split" : "lesson_split") : (left ? "left_fits" : "lesson_fits");
+  return fill(t[key], { minutes, budget, sittings });
 }
 
 /** The next lesson: a course's next unlocked lesson (a course the learner has started first), else the
@@ -210,10 +275,11 @@ function nextLesson(input: StudyPlanInput, started: ReadonlySet<string>): Catalo
 
 export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
   const t = PLAN[input.locale];
+  const timeZone = input.timeZone ?? localTimeZone();
   const schedule = scheduleFromMemory(input.memory, input.mastery, input.nowMs, input.measured);
-  const due = schedule.due.map((s) => toItem(s, input));
-  const relearn = schedule.relearn.map((s) => toItem(s, input));
-  const unmeasured = schedule.unmeasured.map((s) => toItem(s, input));
+  const due = schedule.due.map((s) => toItem(s, input, timeZone));
+  const relearn = schedule.relearn.map((s) => toItem(s, input, timeZone));
+  const unmeasured = schedule.unmeasured.map((s) => toItem(s, input, timeZone));
   const inProgress = Object.values(input.record.lessons)
     .filter((l) => !l.completed && l.scenes_completed > 0 && !input.completedLessons.includes(l.bundle_id))
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
@@ -221,6 +287,8 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
   const started = new Set(Object.keys(input.record.lessons));
   const next = nextLesson(input, started);
   const learner: Record<string, string> = input.learnerId ? { learner_id: input.learnerId } : {};
+  const budget = dailyBudget(input, [inProgress[0]?.bundle_ref, next?.bundle_ref]);
+  const durationOf = (ref: string) => input.catalog.lessons.find((l) => l.bundle_ref === ref)?.duration_minutes;
 
   let nextStep: StudyPlan["next_step"];
   // A review no scene can play (its lesson is gone, or teaches it only through scenes a review cannot
@@ -228,23 +296,52 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
   // « nothing to review », the memory would never move, and the learner would be sent back every day.
   const reviewItems = [...due, ...relearn, ...unmeasured].filter((i) => i.playable);
   if (reviewItems.length) {
-    nextStep = { action: "review", tool: "start_review_session", arguments: learner,
-      text: fill(t.review, { count: reviewItems.length, list: reviewItems.map((i) => i.concept).join(", ") }) };
+    const text = fill(t.review, { count: reviewItems.length, list: reviewItems.map((i) => i.concept).join(", ") });
+    nextStep = { action: "review", tool: "start_review_session", arguments: { ...learner, language: input.locale }, text };
+    if (budget !== null) {
+      // The session takes its items in this order, DEFAULT_REVIEW_ITEMS of them unless told otherwise.
+      const seconds = reviewItems.slice(0, DEFAULT_REVIEW_ITEMS)
+        .map((i) => input.reviewSeconds?.get(i.concept_id) ?? DEFAULT_REVIEW_SECONDS);
+      let count = 0;
+      let total = 0;
+      for (const s of seconds) {
+        if (count > 0 && total + s > budget * 60) break;
+        count += 1;
+        total += s;
+      }
+      const minutes = Math.max(1, Math.ceil(total / 60));
+      const cut = count < seconds.length;
+      if (cut) nextStep.arguments["max_items"] = count;
+      nextStep.estimated_minutes = minutes;
+      nextStep.text = `${text} ${fill(cut ? t.review_cut : t.review_fits, { budget, count, minutes })}`;
+    }
   } else if (inProgress[0]) {
-    nextStep = { action: "continue", tool: "start_lesson_session", arguments: { bundle_ref: inProgress[0].bundle_ref, ...learner },
-      text: fill(t.continue, { title: inProgress[0].title }) };
+    const current = inProgress[0];
+    nextStep = { action: "continue", tool: "start_lesson_session", arguments: { bundle_ref: current.bundle_ref, ...learner },
+      text: fill(t.continue, { title: current.title }) };
+    const duration = durationOf(current.bundle_ref);
+    if (budget !== null && duration !== undefined && current.total_scenes > 0) {
+      const minutes = Math.max(1, Math.ceil(duration * (current.total_scenes - current.scenes_completed) / current.total_scenes));
+      nextStep.estimated_minutes = minutes;
+      nextStep.text = `${nextStep.text} ${lessonBudgetText(t, minutes, budget, true)}`;
+    }
   } else if (next) {
     nextStep = { action: "start", tool: "start_lesson_session", arguments: { bundle_ref: next.bundle_ref, ...learner },
       text: fill(t.start, { title: next.title }) };
+    if (budget !== null && next.duration_minutes !== undefined) {
+      nextStep.estimated_minutes = next.duration_minutes;
+      nextStep.text = `${nextStep.text} ${lessonBudgetText(t, next.duration_minutes, budget, false)}`;
+    }
   } else if (input.catalog.lessons.length === 0) {
-    nextStep = { action: "author", tool: "get_authoring_guide", arguments: {}, text: t.author };
+    nextStep = { action: "author", tool: "get_authoring_guide", arguments: { language: input.locale }, text: t.author };
   } else {
     nextStep = { action: "wait", tool: null, arguments: {},
-      text: schedule.next_due_at !== null ? fill(t.wait_next, { date: formatReviewDate(schedule.next_due_at, input.locale) }) : t.wait };
+      text: schedule.next_due_at !== null
+        ? fill(t.wait_next, { date: formatReviewDate(schedule.next_due_at, input.locale, timeZone) }) : t.wait };
   }
 
   const line = (i: StudyItem) => fill(t.due_line, {
-    concept: i.concept, date: formatReviewDate(i.due_at, input.locale),
+    concept: i.concept, date: formatReviewDate(i.due_at, input.locale, timeZone),
     lesson: (i.lesson ? fill(t.lesson_suffix, { title: i.lesson.title }) : "") + (i.playable ? "" : t.unplayable_suffix),
   });
   const sections = [
@@ -264,7 +361,8 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
     in_progress: inProgress,
     next_lesson: next ? { bundle_ref: next.bundle_ref, title: next.title } : null,
     next_review_at: schedule.next_due_at === null ? null : Math.round(schedule.next_due_at),
-    next_review_date: schedule.next_due_at === null ? null : isoDate(schedule.next_due_at),
+    next_review_date: schedule.next_due_at === null ? null : calendarDate(schedule.next_due_at, timeZone),
+    minutes_per_day: budget,
     next_step: nextStep,
     display_markdown: sections.join("\n\n"),
   };

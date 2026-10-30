@@ -9,16 +9,17 @@
 // a quiz without one right answer, or any ERROR of the repository linter. Nothing is written
 // unless the whole lesson passes.
 import { randomBytes } from "node:crypto";
-import { lstat, mkdir, realpath, rename, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, sep } from "node:path";
 import { LessonBundleSchema, formatBundleError, type BundleIssue, type LessonBundle } from "@studium/lesson-bundle-schema";
+import { isTeacherValidated } from "../authoring.js";
 import { COURSE_ID_PATTERN } from "../community-bundles.js";
 import { SCENE_KEY_CLASS, type KeyClass } from "../key-class.js";
 import { LessonDraftSchema, type DraftScene, type DraftSceneType, type LessonDraft } from "./draft-schema.js";
 import { lintBundleData, placeholderPaths, type LintFinding } from "./lint.js";
 import { checkQuote, sourceSpan } from "./quotes.js";
 import { asciiSlug } from "./slug.js";
-import { AuthoringInputError, readSourceSet, type SourceSet } from "./source-set.js";
+import { AuthoringInputError, DEFAULT_LICENSE, readSourceSet, type SourceSet } from "./source-set.js";
 
 /** The `validated_by` of a lesson no teacher validated (the same marker as experience_packet.py). */
 export const SELF_STUDY_VALIDATED_BY = "SELF-STUDY — not teacher-validated";
@@ -34,7 +35,8 @@ const LOCALIZED = Object.freeze({
   fr: {
     target: "Apprenant autonome",
     scale_labels: ["Pas du tout", "Un peu", "Moyennement", "Plutôt bien", "Tout à fait"],
-    replay: "Deux erreurs sur ce concept : on reprend la scène avec un appui.",
+    // French typography (L-5): a no-break space before the colon.
+    replay: "Deux erreurs sur ce concept\u00a0: on reprend la scène avec un appui.",
   },
   en: {
     target: "Self-directed learner",
@@ -64,9 +66,16 @@ export interface CreateLessonInput {
   overwrite?: boolean | undefined;
 }
 
+/** A finding of create_lesson: the linter's, or the builder's own advice, with a hint when the
+ * builder knows what to change in the draft. */
+export type CreateLessonFinding = LintFinding & { hint?: string };
+
 export interface CreateLessonOptions {
   /** The build time (validated_at, evidence timestamps); the wall clock by default. */
   now?: () => Date;
+  /** Whether the server already serves a lesson of this course id from a folder it reads before the
+   * library (BUNDLES_ROOT): a lesson written under that id would never be the one played. */
+  servedElsewhere?: (courseId: string) => boolean;
 }
 
 /** The lesson as the agent may show it to the learner before they play: no key of any kind. */
@@ -84,7 +93,7 @@ export type KeyClasses = Record<KeyClass, string[]>;
 export type CreateLessonResult =
   | {
     ok: true; course_id: string; course_ref: string; lesson_path: string; bundle: LessonBundle;
-    outline: LessonOutline; key_classes: KeyClasses; findings: LintFinding[];
+    outline: LessonOutline; key_classes: KeyClasses; findings: CreateLessonFinding[];
   }
   | { ok: false; errors: BundleIssue[] };
 
@@ -110,6 +119,12 @@ export async function createLesson(libraryRoot: string, input: CreateLessonInput
         hint: "use lowercase letters, digits, dots, dashes or underscores, starting with a letter or a digit (at most 64)",
       }]);
     }
+    if (options.servedElsewhere?.(courseId)) {
+      return refused([{
+        path: "course_id", message: `${JSON.stringify(courseId)} is already a lesson in the lessons folder this server reads before the library`,
+        hint: "choose another course_id",
+      }]);
+    }
     const now = (options.now ?? (() => new Date()))();
     const built = buildBundle(draft, sourceSet, courseId, now);
     if (!built.ok) return built;
@@ -122,7 +137,11 @@ export async function createLesson(libraryRoot: string, input: CreateLessonInput
     return {
       ok: true, course_id: courseId, course_ref: `${courseId}/${LESSON_FILENAME}`, lesson_path: written.path, bundle,
       outline: outlineOf(bundle, draft), key_classes: keyClassesOf(bundle),
-      findings: [...lint.findings, ...diagnosticFindings(draft)],
+      findings: [
+        ...lint.findings.map((item) => withHint(item, draft)),
+        ...diagnosticFindings(bundle, Boolean(draft.learner_profile)),
+        ...dailyBudgetFindings(draft, bundle),
+      ],
     };
   } catch (error) {
     if (error instanceof AuthoringInputError) return refused(error.issues);
@@ -151,7 +170,7 @@ function buildBundle(draft: LessonDraft, sourceSet: SourceSet, courseId: string,
       duration_minutes: draft.duration_minutes ?? Math.max(1, Math.ceil(seconds / 60)),
       language: draft.language,
       discipline: draft.discipline ?? "",
-      authoring: { mode: "self_study", author_is_learner: false, drafted_by: "agent", note: goal },
+      authoring: { mode: "self_study", author_is_learner: false, drafted_by: "agent", note: goal, ...profileOf(draft) },
     },
     concepts: draft.concepts.map((concept) => ({
       id: concept.id, title: concept.label, description: concept.description ?? concept.label, bloom_level_target: concept.bloom,
@@ -166,7 +185,16 @@ function buildBundle(draft: LessonDraft, sourceSet: SourceSet, courseId: string,
     learning_workflow_graph: graphOf(draft, bundleId),
   });
   // The draft schema mirrors the bundle's, so this only fails on a builder bug: report it as is.
-  return parsed.success ? { ok: true, bundle: parsed.data } : refused(formatBundleError(parsed.error));
+  if (!parsed.success) return refused(formatBundleError(parsed.error));
+  return { ok: true, bundle: parsed.data };
+}
+
+/** RFR-06: the scheduling part of the learner profile (the study plan reads minutes_per_day), or
+ * nothing. A lesson file can be shared, so prior knowledge and interests stay out of it. */
+function profileOf(draft: LessonDraft): { learner_profile?: { minutes_per_day?: number; target_date?: string } } {
+  const { minutes_per_day, target_date } = draft.learner_profile ?? {};
+  if (minutes_per_day === undefined && target_date === undefined) return {};
+  return { learner_profile: { ...(minutes_per_day !== undefined ? { minutes_per_day } : {}), ...(target_date !== undefined ? { target_date } : {}) } };
 }
 
 /** Everything wrong with a schema-valid draft, in reading order. */
@@ -306,7 +334,8 @@ function hasRubric(type: DraftSceneType): boolean {
 }
 
 /** ADR 014 evidence of a scene: one bibliographic ref per quote, its excerpt in the source's own
- * characters, `prov_derived_from` the source URL (or `source:<id>` for a text without one). */
+ * characters, `prov_derived_from` the source URL (or `source:<id>` for a text without one) and
+ * `license` the source's declared licence. */
 function evidenceOf(quotes: ReadonlyArray<{ passage_id: string; text: string }>, sourceSet: SourceSet, now: Date): Record<string, unknown> | undefined {
   if (quotes.length === 0) return undefined;
   return {
@@ -317,6 +346,9 @@ function evidenceOf(quotes: ReadonlyArray<{ passage_id: string; text: string }>,
       return {
         perspicacite_doc_id: passage.id, title: source.title, authors: [], excerpt: sourceSpan(quote.text, passage.text),
         relevance_score: 1, prov_derived_from: source.url ?? `source:${source.source_id}`,
+        // L-3: an attribution licence is honoured only if it travels with the citation. A source
+        // prepared without one records DEFAULT_LICENSE, which is no licence to show.
+        ...(source.license === DEFAULT_LICENSE ? {} : { license: source.license }),
       };
     }),
     enrichment_metadata: { enricher_version: ENRICHER_VERSION, perspicacite_mode_used: "passages", timestamp: now.toISOString(), degraded: false },
@@ -374,29 +406,73 @@ export function keyClassesOf(bundle: Pick<LessonBundle, "scenes">): KeyClasses {
 }
 
 /** SL-6: with a learner profile, the guide asks for an opening diagnostic — a meta_checkpoint and a
- * short production scene, right after the intro. Advice, not a refusal. */
-function diagnosticFindings(draft: LessonDraft): LintFinding[] {
-  if (!draft.learner_profile) return [];
-  const opening = draft.scenes.filter((scene) => scene.type !== "intro").slice(0, 2);
+ * short production scene, first or right after the intro, both marked `diagnostic: true`. Advice,
+ * not a refusal. The flags matter: once any scene of a bundle is flagged, the review picker no
+ * longer infers the diagnostic from its position (L-8), so an unflagged diagnostic production
+ * scene could come back as a review. */
+function diagnosticFindings(bundle: LessonBundle, hasProfile: boolean): LintFinding[] {
+  if (!hasProfile) return [];
+  const opening = bundle.scenes.filter((scene) => scene.type !== "intro").slice(0, 2);
   const hasCheckpoint = opening.some((scene) => scene.type === "meta_checkpoint");
   const hasProduction = opening.some((scene) => SCENE_KEY_CLASS[scene.type] === "production");
-  if (hasCheckpoint && hasProduction) return [];
+  if (!hasCheckpoint || !hasProduction) {
+    return [{
+      level: "WARN", code: "no_opening_diagnostic",
+      message: "learner_profile is given but the lesson does not open (after its intro, if it has one) with the two-item " +
+        "diagnostic: a meta_checkpoint and a short production scene, both marked diagnostic: true",
+    }];
+  }
+  const unflagged = opening.filter((scene) => scene.diagnostic !== true).map((scene) => scene.id);
+  if (unflagged.length === 0) return [];
   return [{
-    level: "WARN", code: "no_opening_diagnostic",
-    message: "learner_profile is given but the lesson does not open, after its intro, with the two-item diagnostic: a meta_checkpoint and a short production scene",
+    level: "WARN", code: "no_opening_diagnostic_flag",
+    message: `the opening diagnostic is not marked: set diagnostic: true on ${unflagged.join(" and ")}, so that ` +
+      "neither diagnostic scene is ever replayed as a review",
   }];
 }
 
-/** Write atomically; refuse an existing lesson without `overwrite`, and a course folder that
- * resolves outside the library (a link). */
+/** RFR-17: the linter's unmeasurable-prerequisite WARN, with the draft concept to give a quiz and
+ * the concepts that depend on it. Other findings are returned as they are. */
+function withHint(item: LintFinding, draft: LessonDraft): CreateLessonFinding {
+  if (item.code !== "lwg_prereq_unassessable") return item;
+  const conceptId = /^concept:(\S+) /.exec(item.message)?.[1];
+  if (conceptId === undefined) return item;
+  const dependents = draft.concepts.filter((concept) => (concept.prerequisites ?? []).includes(conceptId)).map((concept) => concept.id);
+  const of = dependents.length > 0 ? ` (a prerequisite of ${dependents.join(", ")})` : "";
+  return {
+    ...item,
+    hint: `add a quiz on "${conceptId}"${of} with concept_refs ["${conceptId}", …]: without a judge model only a quiz ` +
+      "or an ai_critique measures a concept, so the learner otherwise moves on with this prerequisite never checked",
+  };
+}
+
+/** RFR-06: a lesson longer than the learner's minutes a day is advice to split it, not a refusal. */
+function dailyBudgetFindings(draft: LessonDraft, bundle: LessonBundle): LintFinding[] {
+  const budget = draft.learner_profile?.minutes_per_day;
+  const minutes = bundle.metadata.duration_minutes;
+  if (budget === undefined || minutes <= budget) return [];
+  return [{
+    level: "WARN", code: "duration_over_daily_minutes",
+    message: `the lesson takes about ${minutes} minutes, more than the learner's ${budget} minutes a day: split it into ` +
+      "two lessons, or keep fewer scenes",
+  }];
+}
+
+/** Write atomically; refuse an existing lesson without `overwrite`, an existing lesson that is not
+ * a self-study lesson (SEC-1: overwrite never replaces a teacher's or an approved lesson), and a
+ * course folder that resolves outside the library (a link). */
 async function writeLesson(root: string, courseId: string, bundle: LessonBundle, overwrite: boolean): Promise<{ ok: true; path: string } | Refusal> {
   const courseDir = join(root, courseId);
   const lessonPath = join(courseDir, LESSON_FILENAME);
-  if (!overwrite && await exists(lessonPath)) {
-    return refused([{
-      path: "course_id", message: `a lesson already exists at ${courseId}/${LESSON_FILENAME}`,
-      hint: "pass overwrite: true to replace it, or choose another course_id",
-    }]);
+  if (await exists(lessonPath)) {
+    if (!overwrite) {
+      return refused([{
+        path: "course_id", message: `a lesson already exists at ${courseId}/${LESSON_FILENAME}`,
+        hint: "pass overwrite: true to replace it, or choose another course_id",
+      }]);
+    }
+    const kept = await replaceableIssue(courseDir, `${courseId}/${LESSON_FILENAME}`);
+    if (kept) return refused([kept]);
   }
   await mkdir(courseDir, { recursive: true });
   const placed = relative(await realpath(root), await realpath(courseDir));
@@ -407,6 +483,35 @@ async function writeLesson(root: string, courseId: string, bundle: LessonBundle,
   await writeFile(temporary, `${JSON.stringify(bundle, null, 2)}\n`, "utf8");
   await rename(temporary, lessonPath);
   return { ok: true, path: lessonPath };
+}
+
+/** Why the lesson in `courseDir` must not be replaced, or null: only a self-study lesson that no
+ * teacher validated and nobody approved (no approval.json) may be overwritten. */
+async function replaceableIssue(courseDir: string, shown: string): Promise<BundleIssue | null> {
+  const hint = "choose another course_id";
+  if (await exists(join(courseDir, "approval.json"))) {
+    return { path: "course_id", message: `${shown} has an approval.json: overwrite replaces only a self-study lesson nobody approved`, hint };
+  }
+  let existing: unknown;
+  try {
+    existing = JSON.parse(await readFile(join(courseDir, LESSON_FILENAME), "utf8"));
+  } catch {
+    return { path: "course_id", message: `${shown} is unreadable: overwrite replaces only a self-study lesson`, hint };
+  }
+  const metadata = isRecord(existing) && isRecord(existing["metadata"]) ? existing["metadata"] : undefined;
+  const authoring = metadata && isRecord(metadata["authoring"]) ? metadata["authoring"] : undefined;
+  if (authoring?.["mode"] !== "self_study") {
+    return { path: "course_id", message: `${shown} is not a self-study lesson: overwrite replaces only those`, hint };
+  }
+  const validatedBy = typeof existing === "object" && existing !== null ? (existing as Record<string, unknown>)["validated_by"] : undefined;
+  if (typeof validatedBy !== "string" || isTeacherValidated(validatedBy)) {
+    return { path: "course_id", message: `${shown} was validated by a teacher: overwrite replaces only a self-study lesson nobody validated`, hint };
+  }
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 async function exists(path: string): Promise<boolean> {

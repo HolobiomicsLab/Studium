@@ -5,7 +5,7 @@ import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type De
 import { buildLwgMastery, buildLwgEffectiveMastery, buildLwgCalibration, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept, sceneConceptId } from "./graph-nav.js";
 import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary, HintResult, Verdict, Navigation } from "./types.js";
 import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
-import { SessionNotStartedError, SessionAlreadyCompleteError, SelfRatingNotRequestedError, InvalidSelfRatingError } from "./errors.js";
+import { SessionNotStartedError, SessionAlreadyCompleteError, SelfRatingNotRequestedError, SelfRatingExpiredError, InvalidSelfRatingError } from "./errors.js";
 import { grade } from "./grading/index.js";
 import { thetaForVariant, resolveActiveVariant } from "./universe.js";
 import { buildMasteryClaims } from "./mastery-claims.js";
@@ -85,8 +85,12 @@ export class LessonSession {
   /** Epoch ms at which the current scene was entered: the client_timestamp of its scene_entered
    * event, so measuring time on scene costs no extra clock read (RT-8). NaN before any entry. */
   private sceneEnteredAtMs = Number.NaN;
-  /** C4: scenes whose last answer asked for a self-rating not given yet, with the concept it rates. */
-  private pendingSelfRatings = new Map<string, { conceptId: string }>();
+  /** C4: scenes whose last answer asked for a self-rating not given yet, with the concepts it rates.
+   * L-9: restored from, and saved with, the LearnerState (`self_rating_requests`). */
+  private pendingSelfRatings = new Map<string, { conceptIds: string[]; requestedAt: string }>();
+  /** L-9: scenes whose last answer asked for a self-rating in a state saved by a server that kept the
+   * request in memory only (no `self_rating_requests` field): the request expired with that process. */
+  private expiredSelfRatings = new Set<string>();
   private readonly locale: Locale;
 
   constructor(
@@ -101,6 +105,24 @@ export class LessonSession {
     private readonly completedInProfile = false,
   ) {
     this.locale = localeFromLanguage(bundle.metadata.language);
+    this.restoreSelfRatingRequests(state);
+  }
+
+  /** L-9: a state written since requests are persisted carries `self_rating_requests` (`{}` when none
+   * is pending) and is authoritative. A state without the field was saved by a server that kept them in
+   * memory: a scene whose last answer there was uncertified had a request that expired with it. */
+  private restoreSelfRatingRequests(state: LearnerState): void {
+    if (state.self_rating_requests) {
+      for (const [sceneId, request] of Object.entries(state.self_rating_requests)) {
+        this.pendingSelfRatings.set(sceneId, { conceptIds: [...request.concept_ids], requestedAt: request.requested_at });
+      }
+      return;
+    }
+    const lastAnswerCertified = new Map<string, boolean>();
+    for (const entry of state.history) {
+      if (entry.signal.kind === "answer_submitted") lastAnswerCertified.set(entry.scene_id, entry.signal.correct !== undefined);
+    }
+    for (const [sceneId, certified] of lastAnswerCertified) if (!certified) this.expiredSelfRatings.add(sceneId);
   }
 
   async start(): Promise<Presentation> {
@@ -171,6 +193,8 @@ export class LessonSession {
   private engineStateWithReplays(): LearnerState {
     const st = this.engine.getState();
     for (const [sceneId, n] of Object.entries(this.replayCounts)) st.scenes_replayed[sceneId] = n;
+    st.self_rating_requests = Object.fromEntries([...this.pendingSelfRatings].map(([sceneId, request]) =>
+      [sceneId, { concept_ids: [...request.conceptIds], requested_at: request.requestedAt }]));
     return st;
   }
 
@@ -331,7 +355,7 @@ export class LessonSession {
     this.emit({ type: "scene_completed", scene_id: scene.id, duration_ms: timeMs, ...(success === undefined ? {} : { success }) });
     this.lastSuccess = signal.kind === "answer_submitted" ? signal.correct : undefined;
     const verdict = this.verdictOf(scene, signal, detail, coverage);
-    const selfRating = this.selfRatingFor(scene, signal);
+    const selfRating = await this.selfRatingFor(scene, signal, answeredAtMs);
     const t = this.navigate(decision, scene, answeredAtMs);
     this.lastSuccess = undefined;
     return { ...t, verdict, ...(selfRating ? { self_rating: selfRating } : {}) };
@@ -339,13 +363,25 @@ export class LessonSession {
 
   /** C4: a production answer no judge certified (graded, `correct` absent) asks the learner to rate
    * their own recall; any other answer clears a pending request for that scene. */
-  private selfRatingFor(scene: Scene, signal: Signal): SelfRatingRequest | undefined {
+  private async selfRatingFor(scene: Scene, signal: Signal, answeredAtMs: number): Promise<SelfRatingRequest | undefined> {
+    // A new answer settles whatever an older process left on this scene.
+    this.expiredSelfRatings.delete(scene.id);
     if (signal.kind === "answer_submitted" && signal.correct === undefined) {
-      this.pendingSelfRatings.set(scene.id, { conceptId: signal.concept_id });
+      const refs = "concept_refs" in scene ? scene.concept_refs.filter((id) => id !== "") : [];
+      const conceptIds = refs.length > 0 ? [...new Set(refs)] : [signal.concept_id];
+      const requestedAt = Number.isFinite(answeredAtMs) ? new Date(answeredAtMs).toISOString() : "";
+      this.pendingSelfRatings.set(scene.id, { conceptIds, requestedAt });
+      await this.saveState();
       return selfRatingRequest();
     }
-    this.pendingSelfRatings.delete(scene.id);
+    if (this.pendingSelfRatings.delete(scene.id)) await this.saveState();
     return undefined;
+  }
+
+  /** Save the state as the session holds it now (L-9: after a self-rating request changed). */
+  private async saveState(): Promise<void> {
+    this.state = this.engineStateWithReplays();
+    await this.deps.stateStore.save(this.bundle.bundle_id, this.state);
   }
 
   /** C4: the learner's own recall rating for a scene whose last answer asked for one. Validated,
@@ -356,10 +392,14 @@ export class LessonSession {
     this.assertStarted();
     if (!isSelfRating(grade)) throw new InvalidSelfRatingError(String(grade));
     const pending = this.pendingSelfRatings.get(sceneId);
-    if (!pending) throw new SelfRatingNotRequestedError(sceneId);
+    if (!pending) {
+      if (this.expiredSelfRatings.has(sceneId)) throw new SelfRatingExpiredError(sceneId);
+      throw new SelfRatingNotRequestedError(sceneId);
+    }
     this.pendingSelfRatings.delete(sceneId);
+    await this.saveState();
     const record: SelfRatingRecord = {
-      scene_id: sceneId, concept_id: pending.conceptId, grade, fsrs_grade: fsrsGradeOf(grade),
+      scene_id: sceneId, concept_id: pending.conceptIds[0]!, concept_ids: [...pending.conceptIds], grade, fsrs_grade: fsrsGradeOf(grade),
       source: "self_rated", rated_at: this.deps.clock.now(),
     };
     await this.deps.eventLog.append({
@@ -379,11 +419,12 @@ export class LessonSession {
     let feedback: string | undefined;
     if (scene.type === "quiz" && correct !== undefined) feedback = correct ? scene.feedback_correct : scene.feedback_incorrect;
     if (graded && scene.type !== "quiz") feedback = feedbackFor(scene, this.locale, detail, coverage);
-    const reference = graded ? referenceOf(scene, coverage) : undefined;
+    const reference = graded ? referenceOf(scene, coverage, correct) : undefined;
     return {
       scene_id: scene.id,
       graded,
       signal: signal.kind,
+      assessed_by: assessedBy(scene, graded, correct, detail, coverage),
       ...(correct === undefined ? {} : { correct }),
       ...(feedback ? { feedback } : {}),
       ...(detail ? { detail } : {}),
@@ -769,11 +810,28 @@ const isKeyPointScene = (scene: Scene): scene is KeyPointScene => scene.type ===
 
 const isAuditScene = (scene: Scene): scene is AuditScene => scene.type === "spot_the_flaw" || scene.type === "summary_audit";
 
+/** L-7: who assessed an answer. A quiz choice and the verdict deck (`detail`) are scored against the
+ * author's key by identity; an LLM evaluation certifies `correct`, and an LLM audit judge's coverage is
+ * a judge's measurement even when the evaluator degraded and certified no pass (H7); anything else —
+ * an unjudged production answer, an acknowledgement — nobody assessed. */
+function assessedBy(
+  scene: Scene, graded: boolean, correct: boolean | undefined, detail?: GradeDetail, coverage?: JudgedCoverage,
+): Verdict["assessed_by"] {
+  if (!graded) return "none";
+  if (scene.type === "quiz" || detail) return "key";
+  return correct !== undefined || coverage ? "judge" : "none";
+}
+
 /** I-1: the reference of a graded key-point, audit or critique scene, released with its verdict; with a
- * judge's coverage, a key-point reference also names the points it found missing. */
+ * judge's coverage, a key-point reference also names the points it found missing. L-2: a quiz answered
+ * wrong releases the text of its correct choice(s) (`correct_choice`); a right one releases nothing. */
 function referenceOf(
-  scene: Scene, coverage?: JudgedCoverage,
+  scene: Scene, coverage?: JudgedCoverage, correct?: boolean,
 ): Pick<Verdict, "key_points" | "key_points_missing" | "model_answer" | "reference_kind"> | undefined {
+  if (scene.type === "quiz") {
+    const right = scene.choices.filter((choice) => choice.correct).map((choice) => choice.text);
+    return correct === false && right.length > 0 ? { key_points: right, reference_kind: "correct_choice" } : undefined;
+  }
   if (isKeyPointScene(scene)) {
     return {
       key_points: scene.key_points.map((point) => point.text),

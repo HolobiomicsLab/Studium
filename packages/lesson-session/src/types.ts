@@ -75,8 +75,14 @@ export interface CompletionSummary {
  * free-text graders report their signal kind in `signal` and no boolean. */
 export interface Verdict {
   scene_id: string;
+  /** An answer was submitted (`answer_submitted`): NOT a claim that anything assessed it — read
+   * `assessed_by` for that. */
   graded: boolean;
   signal: string;
+  /** Who assessed the answer (L-7): the author's key (a quiz choice, the verdict deck — scored by
+   * identity), a judge (an LLM evaluation, or an LLM audit judge's measured counts even when no pass
+   * was certified), or nobody (an unjudged production answer, an acknowledgement). Additive. */
+  assessed_by: "key" | "judge" | "none";
   correct?: boolean;
   feedback?: string;
   detail?: { caught: number; planted: number; false_positives: number; sound_total: number };
@@ -93,9 +99,11 @@ export interface Verdict {
   /** The model answer of a graded key-point scene, or the model correction of an audit (I-1). */
   model_answer?: string;
   /** What `key_points` holds, so a surface can label it: the key points an answer should cover, the
-   * planted flaws an audit should have caught, or the claims a critique should have challenged
-   * (`flawed_claims`, ai_critique). Set whenever `key_points` is. */
-  reference_kind?: "key_points" | "planted_flaws" | "flawed_claims";
+   * planted flaws an audit should have caught, the claims a critique should have challenged
+   * (`flawed_claims`, ai_critique), or the text of the correct choice(s) of an author-keyed quiz the
+   * learner answered wrong (`correct_choice`, L-2 — held back on a retry of the item like the rest of
+   * the reference, I-2). Set whenever `key_points` is. */
+  reference_kind?: "key_points" | "planted_flaws" | "flawed_claims" | "correct_choice";
 }
 
 /** The ONE navigation decision behind a transition, stated once. Before this field the same

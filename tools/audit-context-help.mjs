@@ -28,7 +28,7 @@ try {
  check('explanation has student objective',await prediction.locator('[data-help-locale="en"]').last().innerText().then(s=>s.includes('For students')&&s.includes('Objective')));
  check('result remains concealed',!await page.locator('#result').isVisible());
  await prediction.locator('[data-help-locale="en"] .studium-help-more > summary').click();
- check('teacher rationale and source available',await prediction.innerText().then(s=>s.includes('For teachers')&&s.includes('docs/user/activity-templates.md')));
+ check('teacher rationale and source available',await prediction.innerText().then(s=>s.includes('For teachers')&&s.includes('docs/teach/activity-templates.md')));
  await page.screenshot({path:out+'/activity-help-desktop.png',fullPage:true});
  await prediction.locator('[data-help-locale="en"] .studium-help-more > summary').focus();await page.keyboard.press('Escape');
  check('Escape dismisses and restores focus',await prediction.getAttribute('open')===null && await prediction.locator(':scope > summary').evaluate(n=>document.activeElement===n));

@@ -8,7 +8,7 @@
   "command.refreshLessons.title": "Studium : Rafraîchir la vue des leçons",
   "view.lessons.name": "Leçons",
   "configuration.title": "Studium",
-  "configuration.repoRoot.description": "Chemin d'un clone de prototype-build (mode développement : lesson-mcp est lancé depuis ses sources via tsx). Facultatif pour un VSIX installé : le serveur embarqué dist/lesson-mcp.mjs est utilisé quand aucun clone n'est trouvé.",
+  "configuration.repoRoot.description": "Chemin d'un clone de prototype-build (mode développement : lesson-mcp est lancé depuis ses sources via tsx). Facultatif pour un VSIX installé : le serveur embarqué dist/lesson-mcp.cjs est utilisé quand aucun clone n'est trouvé.",
   "configuration.bundlesRoot.description": "Dossier dans lequel le serveur lesson-mcp résout bundle_ref (BUNDLES_ROOT). Laisser vide pour utiliser le dossier fixtures/ du dépôt quand l'extension tourne depuis un dépôt Studium, sinon votre bibliothèque personnelle (~/.studium/library, ou <STUDIUM_HOME>/library), où arrivent les leçons qu'un assistant prépare pour vous.",
   "configuration.bundleRef.description": "Le bundle à ouvrir (relatif à bundlesRoot). Par défaut la démo atomistique L1.",
   "configuration.communityBundlesRoot.description": "Racine dans laquelle la commande « Contributions de la classe » découvre les bundles approuvés écrits par les apprenants : la racine de tous les cours, où le chemin decide_item de scene-synth dépose <racine>/<cours>/community/community-<item>.zip. Laisser vide pour réutiliser studium.bundlesRoot. Le cours canonique n'est jamais modifié ; les contributions s'ajoutent.",

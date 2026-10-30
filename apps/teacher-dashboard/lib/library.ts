@@ -1,4 +1,7 @@
 /** Server filesystem boundary for the teacher library. Never return a raw bundle to a page. */
+// The linter's own placeholder rule (the module declares its types by pattern; this reference brings them in).
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
+/// <reference path="../../../packages/lesson-session-host/src/authoring-draft/bundle-lint.d.ts" />
 import { constants } from "node:fs";
 import { lstat, open, readdir, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -6,6 +9,7 @@ import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { LessonBundleSchema } from "../../../packages/lesson-bundle-schema/src";
 import { keyClassOf, type KeyClass } from "../../../packages/lesson-session-host/src/key-class";
+import { placeholderPaths } from "../../../tools/bundle_lint.mjs";
 
 export type LessonStatus = "draft" | "checked" | "approved";
 export type ReviewSource = { title: string; url?: string };
@@ -50,15 +54,6 @@ function validApproval(receipt: Record<string, unknown>): boolean {
     && text(receipt.tool).trim().length > 0;
 }
 
-/** Same placeholder rule as experience_packet.py: identifiers todo-* are allowed, prose is not. */
-export function countTodos(value: unknown, key = ""): number {
-  if (Array.isArray(value)) return value.reduce((sum, item) => sum + countTodos(item, key), 0);
-  if (value && typeof value === "object") return Object.entries(value).reduce((sum, [name, item]) => sum + countTodos(item, name), 0);
-  if (typeof value !== "string") return 0;
-  if ((key === "id" || key.endsWith("_id") || key.endsWith("_ids")) && /^todo-/i.test(value)) return 0;
-  return /^TODO\b|TODO:/.test(value.trimStart()) ? 1 : 0;
-}
-
 function sourceUrl(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   try {
@@ -93,7 +88,9 @@ export function inspectLesson(bytes: Buffer, receipt: unknown): LessonInspection
   const matches = validApproval(approval)
     && approval.bundle_sha256 === createHash("sha256").update(bytes).digest("hex");
   const parsed = LessonBundleSchema.safeParse(bundle);
-  const todoCount = countTodos(bundle);
+  // CQ-5: the linter's implementation (tools/bundle_lint.mjs placeholderPaths), the one review_lesson and
+  // `experience_packet.py approve` refuse on, so the library cannot call a lesson a draft that they call finished.
+  const todoCount = placeholderPaths(bundle).length;
   return {
     title: text(metadata.title, text(bundle.bundle_id, "Untitled lesson")), language: text(metadata.language, "—"),
     bundleId: text(bundle.bundle_id), sourcePlanId: text(bundle.source_plan_id),

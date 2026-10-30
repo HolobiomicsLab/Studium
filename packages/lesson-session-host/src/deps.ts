@@ -12,6 +12,15 @@ import {
   HttpLlmAuditJudge,
 } from "@studium/lesson-session/node";
 
+/** STUDIUM_PSEUDO_SECRET, or undefined when it is unset or blank (L-11: SEC-7, CC-7, CQ-2). A variable a
+ * harness exported empty (`STUDIUM_PSEUDO_SECRET=`, or the .env.example line uncommented) is unset, as
+ * persistence.ts treats every setting: a durable host then keys its learners with the data folder's own
+ * secret, never with an empty HMAC key anyone can recompute. A secret that is set is used as written. */
+export function envPseudoSecret(): string | undefined {
+  const value = process.env["STUDIUM_PSEUDO_SECRET"];
+  return value !== undefined && value.trim() !== "" ? value : undefined;
+}
+
 /** #4 fail-closed: refuse a missing/empty/"dev-secret" secret whenever ANY production-ish signal
  * is present — i.e. when `live === true` (LiteLLM wired) OR `NODE_ENV === "production"` OR
  * `STUDIUM_ENV === "production"`. This prevents a real production deployment that doesn't use
@@ -22,7 +31,7 @@ import {
  * (`installSecret`, pseudonym-secret.ts), which is random per install and so passes the production
  * check — unless it is the legacy "dev-secret" a folder written before I-6 keeps. */
 function resolvePseudoSecret(live: boolean, installSecret?: string): string {
-  const env = process.env["STUDIUM_PSEUDO_SECRET"];
+  const env = envPseudoSecret();
   const secret = env !== undefined ? env : installSecret;
   const isProd = live
     || process.env["NODE_ENV"] === "production"

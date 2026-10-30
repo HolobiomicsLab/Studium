@@ -1,6 +1,7 @@
 // packages/lesson-session-host/src/host.ts
 import { randomUUID } from "node:crypto";
-import { readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import { rm, rmdir } from "node:fs/promises";
 import { join, isAbsolute, relative, dirname, resolve } from "node:path";
 import {
   LessonSession, enrichEvent, bundleVersionOf,
@@ -26,8 +27,12 @@ import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
 import { SessionRegistry, type HeldSources, type SessionEntry } from "./registry.js";
 import type { Clock } from "@studium/lesson-session";
 import { ExperimentJournal, experimentRevision, type ExperimentDocument } from "./experiment-journal.js";
-import { buildHostDeps, durableDataDir, durableScopeDir } from "./deps.js";
-import { installSecret } from "./pseudonym-secret.js";
+import { buildHostDeps, durableDataDir, durableScopeDir, envPseudoSecret } from "./deps.js";
+import {
+  installSecret, currentInstallSecret, holdsLearners, markEnvKeyed, SECRET_FILE, KEY_SOURCE_FILE, LEGACY_PSEUDO_SECRET,
+  type InstallSecret,
+} from "./pseudonym-secret.js";
+import { LearnerDataError, tightenFolder, withFileLock } from "./learner-files.js";
 import { loadResolvedBundle } from "./bundle-resolver.js";
 import { discoverCommunityBundleEntries, type CommunityBundleEntry } from "./community-bundles.js";
 import { authoringOf, readApproval, draftedByOf, type AuthoringBlock, type DraftedBy } from "./authoring.js";
@@ -42,15 +47,20 @@ import {
 import { publicScene, citedSources, type CitedSource } from "./public-scene.js";
 import {
   presentationMarkdown, transitionMarkdown, verdictMarkdown, recallRatedMarkdown, nothingToReviewMarkdown,
-  type DisplayLocale,
+  lessonListMarkdown, forgetMarkdown, type DisplayLocale,
 } from "./chat-display.js";
+import { OffsetClock, checkNowMs } from "./session-clock.js";
+import { calendarDate, checkTimeZone, localTimeZone } from "./calendar.js";
 import { scanCatalog, type Catalog, type CatalogLesson, type LessonRoot } from "./lesson-catalog.js";
 import { buildStudyPlan, scheduleFromMemory, type StudyPlan } from "./study-plan.js";
 import {
   emptyStudyRecord, FileStudyRecordStore, InMemoryStudyRecordStore,
   type ConceptRoute, type StudyRecord, type StudyRecordStore,
 } from "./study-record.js";
-import { RETRIEVAL_SCENE_TYPES, REVIEW_BUNDLE_ID, buildReviewBundle, pickReviewScene, type ReviewSource } from "./review-session.js";
+import {
+  RETRIEVAL_SCENE_TYPES, REVIEW_BUNDLE_ID, DEFAULT_REVIEW_ITEMS, MAX_REVIEW_ITEMS, buildReviewBundle, pickReviewScene,
+  type ReviewSource,
+} from "./review-session.js";
 import { persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceInfo } from "./persistence.js";
 import { replyToInput, checkDisplayedChoice } from "./reply-mapping.js";
 import type { HostResponseInput } from "./response-input-schema.js";
@@ -101,8 +111,21 @@ function escapes(base: string, target: string): boolean {
   return rel.startsWith("..") || isAbsolute(rel);
 }
 
+/** RFR-14, R-en-06: an unknown session id says how to go on, in one line. It still starts with
+ * « session not found: », which the HTTP adapter maps to a 404. */
 export class SessionHostNotFoundError extends Error {
-  constructor(id: string) { super(`session not found: ${id}`); this.name = "SessionHostNotFoundError"; }
+  /** `erased` (L-11): the learner's data was erased — by forget_session here or in another server on
+   * the same data folder, or the folder itself — while the session was open. */
+  constructor(id: string, cause: "unknown" | "erased" = "unknown") {
+    super(cause === "erased"
+      ? `session not found: ${id} (the learner's data was erased while this session was open): call ` +
+        "start_lesson_session with the same bundle_ref and learner_id to start the lesson afresh, or " +
+        "start_review_session with the same learner_id for a review"
+      : `session not found: ${id} (the server may have restarted, or the session was closed): call ` +
+        "start_lesson_session with the same bundle_ref and learner_id to resume the lesson where it stopped, or " +
+        "start_review_session with the same learner_id to start the review again");
+    this.name = "SessionHostNotFoundError";
+  }
 }
 
 export const RUN_REQUIRED_MESSAGE =
@@ -543,8 +566,6 @@ function gradedInHistory(state: LearnerState): Set<string> {
     signal.kind === "answer_submitted" && signal.correct !== undefined ? [signal.concept_id] : []));
 }
 
-const isoDate = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-
 /** Quiz-choice order is shuffled per scene id (same for all learners → aligned item analytics).
  * Opt in to PER-LEARNER answer order (anti answer-sharing) with STUDIUM_PER_LEARNER_SHUFFLE: the
  * learnerId salts the permutation so each learner gets a distinct-but-reproducible order — the same
@@ -555,6 +576,15 @@ function shuffleSaltFor(learnerId: string): string {
 
 function displayLocale(language: string | undefined): DisplayLocale {
   return LessonSession.localeFromLanguage(language) === "en" ? "en" : "fr";
+}
+
+/** L-4: the language the study tools speak when neither the call nor the learner's lessons say. */
+const DEFAULT_LOCALE: DisplayLocale = "en";
+
+/** L-4: a `language` argument of the study tools — fr or en — else one readable line. */
+function checkLocale(language: string): DisplayLocale {
+  if (language === "fr" || language === "en") return language;
+  throw new RangeError(`language must be fr or en (got ${JSON.stringify(language)})`);
 }
 
 const conceptsOf = (scene: Scene): readonly string[] => ("concept_refs" in scene ? scene.concept_refs : []);
@@ -657,14 +687,22 @@ export interface SessionHostOptions {
   judgmentGenerator?: JudgmentGenerator;
   /** OPTIONAL clock. Stamps every session's history and memory AND is the default "now" of the
    * review/reinforcement reads, so a test with a fixed clock sees a consistent timeline. Absent ⇒
-   * wall-clock. */
+   * wall-clock. A session started with now_ms runs on an OffsetClock anchored there, over this one (L-1). */
   clock?: Clock;
+  /** RFR-13: the time zone every date is a day in — the yyyy-mm-dd of the JSON and the date
+   * display_markdown prints. An IANA name ("Europe/Paris", "UTC"); absent ⇒ the machine's (TZ). */
+  timeZone?: string;
 }
 
 export interface SessionResume {
   kind: "new" | "resumed" | "completed";
   scene_id: string;
   scenes_completed: number;
+}
+
+/** L-11: the one line a served result carries when the learner's progress could not be saved. */
+function persistenceWarning(error: unknown): string {
+  return `the learner's progress could not be saved (this session goes on): ${(error as Error).message}`;
 }
 
 /** A presentation as the host serves it: the engine's view, who wrote the lesson (with its approval
@@ -686,6 +724,9 @@ export type ServedTransition = Transition & {
   display_markdown: string;
   self_rating?: SelfRatingRequest & { scene_id: string };
   review_plan?: ReviewPlan;
+  /** L-11 (CC-6): the answer counts and the session moved on, but the learner's progress could not be
+   * saved — why, in one line (display_markdown says so to the learner). */
+  persistence_warning?: string;
 };
 
 export interface SessionStartResult {
@@ -704,14 +745,22 @@ export interface SessionStartOptions {
   presentationLanguage?: string;
 }
 
-/** C4: what a self-rating changed — the rated concept's next review. Never its mastery. */
+/** C4: what a self-rating changed — the rated concepts' next review. Never their mastery. */
 export interface RecallRating {
   scene_id: string;
+  /** The rated scene's first concept (concept_ids[0]), kept for consumers that schedule one concept. */
   concept_id: string;
+  /** L-9: every concept the rating scheduled — the rated scene's concept_refs. */
+  concept_ids: string[];
   grade: SelfRating;
   source: "self_rated";
+  /** The earliest next review of the rated concepts. */
   next_review_at: number;
   next_review_date: string;
+  /** UX-11: rated after the lesson's last answer, when its concepts come back now. */
+  review_plan?: ReviewPlan;
+  /** L-11: the rating counts in this session but could not be saved (why, in one line). */
+  persistence_warning?: string;
   display_markdown: string;
 }
 
@@ -736,6 +785,28 @@ export interface LessonListing {
   courses: Array<{ course_ref: string; course_id: string; title: string; lessons: Array<{ lesson_id: string; bundle_ref: string }> }>;
   /** Files named like a lesson that do not load. */
   skipped: number;
+  /** L-4: the list as a chat shows it, in the language asked for, else the learner's. */
+  display_markdown: string;
+}
+
+/** L-13: one thing forget_session erased or kept. `lessons` names lessons by title; `path` is a
+ * folder or file left on disk. */
+export interface ForgetItem {
+  kind: "lesson_progress" | "learner_profile" | "study_record" | "other_lessons_progress" | "library_lessons"
+    | "lesson_sources" | "pseudonym_key";
+  lessons?: string[];
+  path?: string;
+}
+
+/** L-13: what forget_session did — scope `lesson` (forget(session)) or `learner` (forgetLearner) —
+ * and what stays, with the text to show. The install's pseudonym key is reported in `kept` (it holds
+ * no learner data) and never named in display_markdown. */
+export interface ForgetReport {
+  forgotten: true;
+  scope: "lesson" | "learner";
+  erased: ForgetItem[];
+  kept: ForgetItem[];
+  display_markdown: string;
 }
 
 export interface ReviewItem { concept_id: string; concept: string; lesson_title: string; scene_id: string }
@@ -752,10 +823,6 @@ export type ReviewStartResult =
 export class PeerRoomError extends Error {
   constructor(msg: string) { super(msg); this.name = "PeerRoomError"; }
 }
-
-/** Reviews in one session unless the caller asks for fewer or more. */
-const DEFAULT_REVIEW_ITEMS = 10;
-const MAX_REVIEW_ITEMS = 50;
 
 const REVIEW_TITLE: Readonly<Record<DisplayLocale, string>> = { fr: "Séance de révision", en: "Review session" };
 
@@ -775,14 +842,32 @@ export class SessionHost {
   /** The last write-through queued per learner: two sessions of one learner write one after the other,
    * so neither saves over the other's update (each write is a load, a merge and a save). */
   private readonly learnerWrites = new Map<string, Promise<void>>();
+  /** RFR-13: the time zone of every date this host names (calendar.ts). */
+  private readonly zone: string;
+  /** L-11: learners forgotten in this host, by profile pseudonym, with when (this host's sequence of
+   * opens and forgets): a session of theirs opened before that never writes them back. */
+  private readonly forgotten = new Map<string, number>();
+  /** L-11: one step per session opened and per learner forgotten, so « opened before the forget » never
+   * depends on two events falling in distinct milliseconds of the wall clock. */
+  private sequence = 0;
+  /** L-11: sessions closed because their learner's data was erased: a later call says so, and points
+   * to a fresh start, rather than to a restart of the server. */
+  private readonly erasedIds = new Set<string>();
   constructor(private readonly opts: SessionHostOptions) {
+    this.zone = checkTimeZone(opts.timeZone ?? localTimeZone());
     this.dataDir = opts.dataDir !== undefined ? opts.dataDir : durableDataDir();
     this.profileStore = this.dataDir ? new FileLearnerProfileStore(this.dataDir) : new InMemoryLearnerProfileStore();
     this.studyStore = this.dataDir ? new FileStudyRecordStore(this.dataDir) : new InMemoryStudyRecordStore();
+    // L-11 (SEC-8): the data folder holds learners' answers and progress — this user's alone.
+    if (this.dataDir) tightenFolder(this.dataDir);
   }
 
   /** The root a bundle_ref is looked up in first. */
   get bundlesRoot(): string { return this.opts.bundlesRoot; }
+  /** C6, L-12: the learner's library — where authored lessons and their sources go — or null. */
+  get libraryRoot(): string | null { return this.opts.libraryRoot ?? null; }
+  /** RFR-13: the IANA time zone every date of this host is a day in (get_server_info reports it). */
+  get timeZone(): string { return this.zone; }
   /** C6: the learner_id used when a caller names none. */
   get defaultLearnerId(): string { return this.opts.defaultLearnerId ?? DEFAULT_LEARNER_ID; }
   /** Whether a judge model grades production scenes here (the authoring notices depend on it). */
@@ -814,17 +899,51 @@ export class SessionHost {
   }
 
   /** I-6: the data folder's own pseudonym secret, read (or created) the first time a durable host
-   * needs one while STUDIUM_PSEUDO_SECRET is unset; none in ephemeral mode. */
+   * needs one while STUDIUM_PSEUDO_SECRET is unset (or blank, L-11); none in ephemeral mode. */
   private installSecretValue: string | undefined;
+  private installSource: InstallSecret["source"] | undefined;
+  /** L-11: STUDIUM_PSEUDO_SECRET was recorded as what keys this data folder (pseudonym-secret.ts). */
+  private envKeyRecorded = false;
   private pseudoSecret(): string | undefined {
-    if (process.env["STUDIUM_PSEUDO_SECRET"] !== undefined || this.dataDir === null) return undefined;
-    this.installSecretValue ??= installSecret(this.dataDir).secret;
+    if (this.dataDir === null) return undefined;
+    if (envPseudoSecret() !== undefined) {
+      if (!this.envKeyRecorded) { markEnvKeyed(this.dataDir); this.envKeyRecorded = true; }
+      return undefined;
+    }
+    // L-11 (SEC-4 host side): a data folder erased under this server — its marker, or its secret file,
+    // is gone — is keyed afresh: the secret kept in memory would write learners no later server can
+    // read, and folders left without a secret would make the next one fall back to the legacy secret.
+    if (this.installSecretValue !== undefined && !this.keyFilesIntact()) {
+      this.installSecretValue = undefined;
+      this.installSource = undefined;
+    }
+    if (this.installSecretValue === undefined) {
+      const found = installSecret(this.dataDir);
+      this.installSecretValue = found.secret;
+      this.installSource = found.source;
+    }
     return this.installSecretValue;
   }
 
-  /** A session's ports, keyed by this host's pseudonym secret (buildHostDeps). */
-  private deps(scopeDir?: string) {
-    return buildHostDeps(this.opts.live, scopeDir, this.opts.clock, this.pseudoSecret());
+  /** The data folder still holds what keys this host's learners: its marker and, for a per-install
+   * secret, that very secret (a legacy folder has none, and none may have appeared since). */
+  private keyFilesIntact(): boolean {
+    if (this.dataDir === null) return true;
+    if (!existsSync(join(this.dataDir, KEY_SOURCE_FILE))) return false;
+    const current = currentInstallSecret(this.dataDir);
+    return this.installSource === "legacy" ? current === null : current === this.installSecretValue;
+  }
+
+  /** A session's ports, keyed by this host's pseudonym secret (buildHostDeps), on `clock` when given
+   * (a session started with now_ms, L-1), else on the host's. */
+  private deps(scopeDir?: string, clock?: Clock) {
+    return buildHostDeps(this.opts.live, scopeDir, clock ?? this.opts.clock, this.pseudoSecret());
+  }
+
+  /** L-1: the clock of a session started with `nowMs` — anchored there, moving with the host's clock —
+   * or undefined (the host's clock). */
+  private sessionClock(nowMs: number | undefined): Clock | undefined {
+    return nowMs === undefined ? undefined : new OffsetClock(nowMs, this.opts.clock);
   }
 
   /** The learner-level pseudonym keying the profile and the study record (RGPD: never the raw id). */
@@ -834,8 +953,11 @@ export class SessionHost {
 
   /** Start or resume a lesson; legacy third-argument clocks and languages remain supported. */
   async create(bundleRef: string, learnerId: string = this.defaultLearnerId, options?: SessionStartOptions | number | string): Promise<SessionStartResult> {
-    const { nowMs, presentationLanguage } = typeof options === "number" ? { nowMs: options }
+    const { nowMs: requestedNow, presentationLanguage } = typeof options === "number" ? { nowMs: options }
       : typeof options === "string" ? { presentationLanguage: options } : options ?? {};
+    // L-1: a session started with now_ms stamps its answers, ratings and memory on a clock anchored there.
+    const nowMs = requestedNow === undefined ? undefined : checkNowMs(requestedNow);
+    const clock = this.sessionClock(nowMs);
     const normalizedPresentationLanguage = presentationLanguage === undefined
       ? undefined
       : normalizePresentationLanguage(presentationLanguage);
@@ -849,6 +971,7 @@ export class SessionHost {
     // session uses in start() (session.ts), guaranteeing the host dir pseudonym === session pseudonym.
     let deps;
     let journalDirectory: string | undefined;
+    let scopeDir: string | undefined;
     let prior: LearnerState | null = null;
     if (this.dataDir) {
       // Build deps once to obtain the (fail-closed) pseudonym provider, derive the scope dir, then
@@ -856,16 +979,16 @@ export class SessionHost {
       // buildHostDeps, so a misconfigured prod still throws BEFORE any dir is touched.
       const probe = this.deps();
       const pseudonym = await probe.pseudonym.get(learnerId, bundle.bundle_id);
-      const scopeDir = durableScopeDir(this.dataDir, pseudonym, bundle.bundle_id);
+      scopeDir = durableScopeDir(this.dataDir, pseudonym, bundle.bundle_id);
       // Shared default identities must not carry raw learner text into another session.
       if (learnerId.trim() && learnerId !== "anonymous" && learnerId !== "agent-operator")
         journalDirectory = join(scopeDir, "experiments");
-      deps = this.deps(scopeDir);
+      deps = this.deps(scopeDir, clock);
       // #3 RESUME: load any prior LearnerState for this (pseudonym, bundle_id). FileStateStore.load
       // returns null on missing/parse-error, so a fresh learner falls back to defaultLearnerState.
       prior = await deps.stateStore.load(bundle.bundle_id);
     } else {
-      deps = this.deps();
+      deps = this.deps(undefined, clock);
     }
     // CROSS-LESSON warm-start: seed the working state from the learner-level profile, so a concept
     // mastered in ANOTHER lesson resumes warm here — its mastery (seedConceptStatesFromProfile never
@@ -880,8 +1003,10 @@ export class SessionHost {
     const session = new LessonSession(bundle, deps, initial, learnerId, completed);
     const entry = this.newEntry({
       session, deps, bundle, bundleRef, baseDir: resolved.baseDir, profilePseudonym, authoring, kind: "lesson",
-      memory: initial.concept_memory ?? {},
+      memory: initial.concept_memory ?? {}, profileSeen: profile !== null,
       ...(normalizedPresentationLanguage ? { presentationLanguage: normalizedPresentationLanguage } : {}),
+      ...(scopeDir ? { scopeDir } : {}),
+      ...(resolved.minutesPerDay !== null ? { minutesPerDay: resolved.minutesPerDay } : {}),
     });
     const started = await session.start();
     const sessionId = randomUUID();
@@ -903,15 +1028,20 @@ export class SessionHost {
   /** A registry entry with the per-session bookkeeping the host keeps beside the engine. */
   private newEntry(
     fields: Omit<SessionEntry,
-      "assetCache" | "engineMemory" | "selfRated" | "moved" | "responses" | "conceptStatesAtStart" | "withheldSources">,
+      "assetCache" | "engineMemory" | "selfRated" | "moved" | "responses" | "conceptStatesAtStart" | "withheldSources"
+      | "openedAt" | "keyedBy" | "erased">,
   ): SessionEntry {
     const states = fields.session.getState().concept_states; // before start(): the initial state
+    // L-11: the secret this session's folders are keyed by, when it is the data folder's own.
+    const keyedBy = this.dataDir !== null && envPseudoSecret() === undefined ? this.installSecretValue : undefined;
     return {
       ...fields,
       memory: structuredClone(fields.memory),
       engineMemory: structuredClone(fields.memory),
       assetCache: new Map(), selfRated: new Set(), moved: new Set(), responses: 0, withheldSources: [],
       conceptStatesAtStart: Object.fromEntries(Object.entries(states).map(([id, cs]) => [id, JSON.stringify(cs)])),
+      openedAt: ++this.sequence,
+      ...(keyedBy !== undefined ? { keyedBy } : {}),
     };
   }
 
@@ -919,32 +1049,46 @@ export class SessionHost {
    * concepts whose recall is due, then reviewed ones still weak, then self-rated ones (I-3) — taken
    * from the lessons they were learned in, across lessons. Graded like any lesson; its answers move
    * the concepts' memory and mastery, nothing else is kept (no lesson state on disk, never a
-   * completed lesson). */
+   * completed lesson).
+   *
+   * L-8 (H2, CC-4): the concepts no lesson on disk can review are set aside BEFORE max_items is taken,
+   * with the same scene choice the study plan uses (pickReviewScene), and named in not_playable. L-1:
+   * with nowMs the session runs on a clock anchored there. L-4: `language` (fr|en) is the review's
+   * language; by default the learner's last lesson's, else the first lesson reviewed's. */
   async startReview(
     learnerId: string = this.defaultLearnerId,
-    opts: { maxItems?: number; nowMs?: number; presentationLanguage?: string } = {},
+    opts: { maxItems?: number; nowMs?: number; presentationLanguage?: string; language?: DisplayLocale } = {},
   ): Promise<ReviewStartResult> {
-    const nowMs = opts.nowMs ?? this.nowMs();
-    const deps = this.deps();
+    const nowMs = this.nowOr(opts.nowMs);
+    const requestedLanguage = opts.language === undefined ? undefined : checkLocale(opts.language);
+    const deps = this.deps(undefined, this.sessionClock(opts.nowMs));
     const profilePseudonym = await deps.pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
     const [profile, record] = await Promise.all([this.profileStore.load(profilePseudonym), this.studyStore.load(profilePseudonym)]);
     const memory = profile?.concept_memory ?? {};
     const schedule = scheduleFromMemory(memory, masteryFromProfile(profile), nowMs, measuredOf(profile?.concept_states));
     const limit = Math.max(1, Math.min(MAX_REVIEW_ITEMS, Math.trunc(opts.maxItems ?? DEFAULT_REVIEW_ITEMS)));
-    const wanted = [...schedule.due, ...schedule.relearn, ...schedule.unmeasured].slice(0, limit);
-    const sources = await this.reviewSources(wanted.map((w) => w.concept_id), record, shuffleSaltFor(learnerId));
-    const locale = displayLocale(sources[0]?.bundle.metadata.language ?? this.recordLanguage(record));
-    const built = buildReviewBundle(sources, { title: REVIEW_TITLE[locale], nowIso: new Date(nowMs).toISOString() });
+    const wanted = [...schedule.due, ...schedule.relearn, ...schedule.unmeasured].map((w) => w.concept_id);
+    const sources = await this.reviewSources(wanted, record, shuffleSaltFor(learnerId));
+    const playable = sources.filter((s) => this.reviewSceneOf(s) !== null);
+    const taken = playable.slice(0, limit);
+    const reviewLanguage = requestedLanguage ?? this.recordLanguage(record) ?? taken[0]?.bundle.metadata.language
+      ?? sources[0]?.bundle.metadata.language ?? DEFAULT_LOCALE;
+    const locale = displayLocale(reviewLanguage);
+    const built = buildReviewBundle(taken, {
+      title: REVIEW_TITLE[locale], nowIso: new Date(nowMs).toISOString(), judge: this.opts.live, language: reviewLanguage,
+    });
     // A due concept no review scene grades stays due: say which, so a harness can explain why.
-    const graded = new Set(built?.bundle.scenes.map((scene) => scene.concept_refs[0]) ?? []);
-    const notPlayable = wanted.map((w) => w.concept_id).filter((id) => !graded.has(id));
+    const playableIds = new Set(playable.map((s) => s.conceptId));
+    const notPlayable = wanted.filter((id) => !playableIds.has(id));
     const unplayable = notPlayable.length ? { not_playable: notPlayable } : {};
     if (!built) {
+      const titleOf = (conceptId: string) =>
+        sources.flatMap((s) => s.bundle.concepts).find((c) => c.id === conceptId)?.title ?? conceptId;
       return {
         status: "nothing_due",
         next_review_at: schedule.next_due_at === null ? null : Math.round(schedule.next_due_at),
-        next_review_date: schedule.next_due_at === null ? null : isoDate(schedule.next_due_at),
-        display_markdown: nothingToReviewMarkdown(schedule.next_due_at, locale),
+        next_review_date: schedule.next_due_at === null ? null : calendarDate(schedule.next_due_at, this.zone),
+        display_markdown: nothingToReviewMarkdown(schedule.next_due_at, locale, this.zone, notPlayable.map(titleOf)),
         ...unplayable,
       };
     }
@@ -958,7 +1102,7 @@ export class SessionHost {
     const language = opts.presentationLanguage === undefined ? undefined : normalizePresentationLanguage(opts.presentationLanguage);
     const entry = this.newEntry({
       session, deps, bundle, bundleRef: REVIEW_BUNDLE_ID, baseDir: "", profilePseudonym, authoring, kind: "review",
-      reviewOrigins: built.origins, memory: initial.concept_memory ?? {},
+      reviewOrigins: built.origins, memory: initial.concept_memory ?? {}, profileSeen: profile !== null,
       ...(language ? { presentationLanguage: language } : {}),
     });
     const started = await session.start();
@@ -983,8 +1127,16 @@ export class SessionHost {
     };
   }
 
-  /** For each concept, the lesson it was learned in: the study record's route, else a lesson on disk
-   * that teaches it. A lesson that no longer loads is skipped. */
+  /** The scene a review plays for `source`, or null (review-session.ts pickReviewScene). The study plan
+   * and the review session decide playability with this one function (L-8). */
+  private reviewSceneOf(source: ReviewSource): Scene | null {
+    return pickReviewScene(source.bundle, source.conceptId, source.lastSceneId, { judge: this.opts.live });
+  }
+
+  /** For each concept, the lesson it is reviewed from: the one the study record says it was last
+   * graded in, while that lesson loads and still has a scene to review it with; else a lesson on disk
+   * that teaches it, one with such a scene first. A concept no lesson on disk teaches has no source;
+   * one whose lessons have no such scene keeps a source the review cannot play. */
   private async reviewSources(conceptIds: readonly string[], record: StudyRecord | null, shuffleSalt: string): Promise<ReviewSource[]> {
     const loaded = new Map<string, Promise<{ bundle: LessonBundle; baseDir: string } | null>>();
     const load = (ref: string) => {
@@ -997,16 +1149,23 @@ export class SessionHost {
     const sources: ReviewSource[] = [];
     for (const conceptId of conceptIds) {
       const route = record?.concepts[conceptId];
-      let ref = route?.bundle_ref;
-      let lesson = ref === undefined ? null : await load(ref);
-      if (!lesson) { // never routed, or its lesson is gone: a lesson on disk that teaches the concept
+      const routed = route ? await load(route.bundle_ref) : null;
+      const found: ReviewSource[] = routed && route
+        ? [{ conceptId, bundleRef: route.bundle_ref, bundle: routed.bundle, baseDir: routed.baseDir, lastSceneId: route.scene_id }]
+        : [];
+      if (!found.some((source) => this.reviewSceneOf(source))) {
+        // Never routed, its lesson is gone, or it no longer reviews the concept: a lesson on disk that does.
         catalog ??= await this.catalog();
-        ref = catalog.lessons.find((l) => l.concepts.some((c) => c.id === conceptId))?.bundle_ref;
-        lesson = ref === undefined ? null : await load(ref);
+        for (const listed of catalog.lessons) {
+          if (listed.bundle_ref === route?.bundle_ref || !listed.concepts.some((c) => c.id === conceptId)) continue;
+          const lesson = await load(listed.bundle_ref);
+          if (!lesson) continue;
+          const source = { conceptId, bundleRef: listed.bundle_ref, bundle: lesson.bundle, baseDir: lesson.baseDir, lastSceneId: null };
+          if (this.reviewSceneOf(source)) { found.unshift(source); break; }
+          found.push(source);
+        }
       }
-      if (!lesson || ref === undefined) continue;
-      const lastSceneId = ref === route?.bundle_ref ? route.scene_id : null;
-      sources.push({ conceptId, bundleRef: ref, bundle: lesson.bundle, baseDir: lesson.baseDir, lastSceneId });
+      if (found[0]) sources.push(found[0]);
     }
     return sources;
   }
@@ -1029,23 +1188,26 @@ export class SessionHost {
    * reinforce now, most-urgent first, from the PERSISTED `concept_memory` in their profile + mastery
    * from the profile's concept_states. Empty when no profile / no memory. `nowMs` injected for
    * deterministic review scheduling. */
-  async dueReinforcements(learnerId: string = this.defaultLearnerId, nowMs: number = this.nowMs()): Promise<ReinforcementTarget[]> {
-    return this.dueReinforcementsForProfile(await this.profilePseudonymOf(learnerId), nowMs);
+  async dueReinforcements(learnerId: string = this.defaultLearnerId, nowMs?: number): Promise<ReinforcementTarget[]> {
+    const at = this.nowOr(nowMs);
+    return this.dueReinforcementsForProfile(await this.profilePseudonymOf(learnerId), at);
   }
 
   /** Profile-keyed variant used by live sessions without retaining the raw learner id. */
-  async dueReinforcementsForProfile(profilePseudonym: string, nowMs: number = this.nowMs()): Promise<ReinforcementTarget[]> {
+  async dueReinforcementsForProfile(profilePseudonym: string, nowMs?: number): Promise<ReinforcementTarget[]> {
+    const at = this.nowOr(nowMs);
     const profile = await this.profileStore.load(profilePseudonym);
     if (!profile?.concept_memory) return [];
-    return dueReinforcementTargetsFromMemory(profile.concept_memory, masteryFromProfile(profile), nowMs);
+    return dueReinforcementTargetsFromMemory(profile.concept_memory, masteryFromProfile(profile), at);
   }
 
   /** Profile-only reinforcement status for a learner who has no live session. Each target names the
    * lesson and scene the concept was last graded in (HJ-1). */
   async reinforcementStatusForLearner(
     learnerId: string = this.defaultLearnerId,
-    nowMs: number = this.nowMs(),
+    requestedNow?: number,
   ): Promise<ReinforcementStatus> {
+    const nowMs = this.nowOr(requestedNow);
     const pseudonym = await this.profilePseudonymOf(learnerId);
     const [profile, record] = await Promise.all([this.profileStore.load(pseudonym), this.studyStore.load(pseudonym)]);
     const status = statusOf(profile?.concept_memory ?? {}, masteryFromProfile(profile), measuredOf(profile?.concept_states),
@@ -1062,7 +1224,8 @@ export class SessionHost {
    * a mis-authored unmet/cyclic prereq) — disambiguated via isCourseComplete. A still-due concept keeps
    * surfacing `reinforce` even past the last lesson (review never stops). Loads the profile ONCE.
    * `nowMs` injected for deterministic scheduling. */
-  async nextCourseStep(course: Course, learnerId: string = this.defaultLearnerId, nowMs: number = this.nowMs()): Promise<CourseStep> {
+  async nextCourseStep(course: Course, learnerId: string = this.defaultLearnerId, requestedNow?: number): Promise<CourseStep> {
+    const nowMs = this.nowOr(requestedNow);
     const profile = await this.profileStore.load(await this.profilePseudonymOf(learnerId));
     if (profile?.concept_memory) {
       const top = dueReinforcementTargetsFromMemory(profile.concept_memory, masteryFromProfile(profile), nowMs)[0];
@@ -1076,27 +1239,37 @@ export class SessionHost {
   }
 
   /** get_study_plan (HJ-5, R2): what to do now — reviews due (dated), concepts to relearn, lessons in
-   * progress, the next lesson — and one sentence saying which. `locale` defaults to the language of the
-   * lesson the learner touched last. */
-  async studyPlan(learnerId: string = this.defaultLearnerId, opts: { nowMs?: number; locale?: DisplayLocale } = {}): Promise<StudyPlan> {
+   * progress, the next lesson — and one sentence saying which. L-4: `language` (fr|en; `locale` is its
+   * older name) defaults to the language of the lesson the learner touched last, else of the newest
+   * lesson on disk, else English. RFR-06: the learner's minutes a day size the next step. */
+  async studyPlan(
+    learnerId: string = this.defaultLearnerId, opts: { nowMs?: number; locale?: DisplayLocale; language?: DisplayLocale } = {},
+  ): Promise<StudyPlan> {
+    const nowMs = this.nowOr(opts.nowMs);
+    const requested = opts.language ?? opts.locale;
+    const language = requested === undefined ? undefined : checkLocale(requested);
     const pseudonym = await this.profilePseudonymOf(learnerId);
     const [profile, stored, catalog] = await Promise.all([
       this.profileStore.load(pseudonym), this.studyStore.load(pseudonym), this.catalog(),
     ]);
     const record = stored ?? emptyStudyRecord();
     const newestLesson = [...catalog.lessons].sort((a, b) => b.modified_at - a.modified_at)[0];
-    const nowMs = opts.nowMs ?? this.nowMs();
     const memory = profile?.concept_memory ?? {};
     const mastery = masteryFromProfile(profile);
     const measured = measuredOf(profile?.concept_states);
     // Playability is decided exactly as startReview decides it, so the plan never points at a review
-    // that would answer « nothing to review » (R2).
+    // that would answer « nothing to review » (R2, L-8).
     const schedule = scheduleFromMemory(memory, mastery, nowMs, measured);
     const sources = await this.reviewSources(
       [...schedule.due, ...schedule.relearn, ...schedule.unmeasured].map((s) => s.concept_id), record, shuffleSaltFor(learnerId));
-    const playableReviews = new Set(sources
-      .filter((s) => pickReviewScene(s.bundle, s.conceptId, s.lastSceneId) !== null)
-      .map((s) => s.conceptId));
+    const reviewSeconds = new Map<string, number>();
+    const reviewFrom = new Map<string, { bundle_ref: string; title: string; scene_id: string }>();
+    for (const source of sources) {
+      const scene = this.reviewSceneOf(source);
+      if (!scene) continue;
+      reviewSeconds.set(source.conceptId, scene.estimated_seconds);
+      reviewFrom.set(source.conceptId, { bundle_ref: source.bundleRef, title: source.bundle.metadata.title, scene_id: scene.id });
+    }
     return buildStudyPlan({
       nowMs,
       memory,
@@ -1104,25 +1277,33 @@ export class SessionHost {
       record,
       completedLessons: profile?.completed_lessons ?? [],
       catalog,
-      locale: opts.locale ?? displayLocale(this.recordLanguage(record) ?? newestLesson?.language ?? "en"),
+      locale: language ?? displayLocale(this.recordLanguage(record) ?? newestLesson?.language ?? DEFAULT_LOCALE),
       learnerId,
-      playableReviews,
+      playableReviews: new Set(reviewSeconds.keys()),
+      reviewFrom,
       measured,
+      timeZone: this.zone,
+      reviewSeconds,
     });
   }
 
   /** list_lessons (HJ-5): the lessons on disk now, in the bundles root and the learner's library, with
    * the learner's progress when `learnerId` is given. `query` keeps lessons whose title, ref,
-   * discipline or concepts contain every word of it (case and accents ignored). */
-  async listLessons(opts: { query?: string; learnerId?: string } = {}): Promise<LessonListing> {
+   * discipline or concepts contain every word of it (case and accents ignored). L-4: display_markdown
+   * speaks `language` (fr|en), else the language of the learner's last lesson, else of the newest
+   * lesson on disk, else English. */
+  async listLessons(opts: { query?: string; learnerId?: string; language?: DisplayLocale } = {}): Promise<LessonListing> {
+    const language = opts.language === undefined ? undefined : checkLocale(opts.language);
     const catalog = await this.catalog();
     const words = foldText(opts.query ?? "").split(/\s+/).filter(Boolean);
     const haystack = (l: CatalogLesson) => foldText([l.title, l.bundle_ref, l.discipline, ...l.concepts.map((c) => c.title)].join(" "));
     const lessons = catalog.lessons.filter((l) => words.every((w) => haystack(l).includes(w)));
     let progress: ((l: CatalogLesson) => NonNullable<ListedLesson["status"]>) | null = null;
+    let learnerLanguage: string | undefined;
     if (opts.learnerId !== undefined) {
       const pseudonym = await this.profilePseudonymOf(opts.learnerId);
       const [profile, record] = await Promise.all([this.profileStore.load(pseudonym), this.studyStore.load(pseudonym)]);
+      learnerLanguage = this.recordLanguage(record);
       progress = (l) => {
         const seen = record?.lessons[l.bundle_id];
         const done = profile?.completed_lessons?.includes(l.bundle_id) || seen?.completed === true;
@@ -1133,17 +1314,23 @@ export class SessionHost {
         };
       };
     }
+    const listed: ListedLesson[] = lessons.map((l) => ({
+      bundle_ref: l.bundle_ref, title: l.title, language: l.language, discipline: l.discipline, source: l.root,
+      authoring: l.authoring, validated: l.validated, concepts: l.concepts.map((c) => c.title), scene_count: l.scene_count,
+      ...(progress ? { status: progress(l) } : {}),
+    }));
+    const newestLesson = [...catalog.lessons].sort((a, b) => b.modified_at - a.modified_at)[0];
+    const locale = language ?? displayLocale(learnerLanguage ?? newestLesson?.language ?? DEFAULT_LOCALE);
     return {
-      lessons: lessons.map((l) => ({
-        bundle_ref: l.bundle_ref, title: l.title, language: l.language, discipline: l.discipline, source: l.root,
-        authoring: l.authoring, validated: l.validated, concepts: l.concepts.map((c) => c.title), scene_count: l.scene_count,
-        ...(progress ? { status: progress(l) } : {}),
-      })),
+      lessons: listed,
       courses: catalog.courses.map(({ course_ref, course }) => ({
         course_ref, course_id: course.course_id, title: course.title,
         lessons: course.lessons.map((cl) => ({ lesson_id: cl.lesson_id, bundle_ref: cl.bundle_ref })),
       })),
       skipped: catalog.skipped,
+      display_markdown: lessonListMarkdown(listed.map((l) => ({
+        title: l.title, scene_count: l.scene_count, drafted_by: l.authoring.drafted_by, ...(l.status ? { status: l.status } : {}),
+      })), locale, opts.query),
     };
   }
 
@@ -1157,7 +1344,7 @@ export class SessionHost {
 
   private require(id: string): SessionEntry {
     const e = this.registry.get(id);
-    if (!e) throw new SessionHostNotFoundError(id);
+    if (!e) throw new SessionHostNotFoundError(id, this.erasedIds.has(id) ? "erased" : "unknown");
     return e;
   }
 
@@ -1182,10 +1369,13 @@ export class SessionHost {
    * neither the scene's passages, kept on the entry and released with the answer that leaves it
    * (releasedSources), nor its reference (key points, model answer), nor a request to rate recall
    * against that reference: the retried item's own verdict brings its reference. */
-  private servedTransition(entry: SessionEntry, transition: Transition): ServedTransition {
+  private servedTransition(entry: SessionEntry, transition: Transition, warning?: string): ServedTransition {
     const sceneTitle = (sceneId: string) => entry.bundle.scenes.find((s) => s.id === sceneId)?.title;
     const conceptLabel = (conceptId: string) => entry.bundle.concepts.find((c) => c.id === conceptId)?.title ?? conceptId;
-    const ctx = { sceneTitle, conceptLabel, locale: displayLocale(entry.bundle.metadata.language), review: entry.kind === "review" };
+    const ctx = {
+      sceneTitle, conceptLabel, locale: displayLocale(entry.bundle.metadata.language), review: entry.kind === "review",
+      timeZone: this.zone,
+    };
     const answered = transition.verdict ? entry.bundle.scenes.find((s) => s.id === transition.verdict?.scene_id) : undefined;
     const leaving = answered === undefined || leavesForGood(transition, answered);
     const sources = transition.verdict ? releasedSources(entry, transition, answered, leaving) : [];
@@ -1201,7 +1391,8 @@ export class SessionHost {
       ...(presentation ? { presentation } : {}),
       ...(selfRating ? { self_rating: selfRating } : {}),
       ...(reviewPlan ? { review_plan: reviewPlan } : {}),
-    } as Transition & { self_rating?: SelfRatingRequest & { scene_id: string }; review_plan?: ReviewPlan };
+      ...(warning ? { persistence_warning: warning } : {}),
+    } as Transition & { self_rating?: SelfRatingRequest & { scene_id: string }; review_plan?: ReviewPlan; persistence_warning?: string };
     return {
       ...base,
       ...(verdict ? { verdict: {
@@ -1219,7 +1410,7 @@ export class SessionHost {
     const first = reviewed[0];
     return {
       next_due_at: first ? Math.round(first.at) : null,
-      next_due_date: first ? isoDate(first.at) : null,
+      next_due_date: first ? calendarDate(first.at, this.zone) : null,
       concepts: reviewed.map((r) => r.id),
     };
   }
@@ -1263,6 +1454,7 @@ export class SessionHost {
 
   /** Append an explicitly learner-owned contribution without grading or moving the lesson. */
   recordExperiment(id: string, input: unknown): ExperimentDocument {
+    this.assertNotErased(id, this.require(id));
     const scene = this.require(id).session.currentPresentation().scene;
     return this.experiments.get(id)!.record(input, scene.id);
   }
@@ -1364,18 +1556,29 @@ export class SessionHost {
     return this.applyResponse(id, engineInput);
   }
 
-  /** Apply a validated response; run ingestion uses this after its own gate. */
+  /** Apply a validated response; run ingestion uses this after its own gate.
+   *
+   * L-11 (CC-6): once the engine recorded the answer the session has moved on, so a write-through that
+   * fails (an unreadable profile, a full disk, a folder it cannot write) does not lose the transition:
+   * it is served with `persistence_warning`, and a retry is never graded against the next scene. */
   private async applyResponse(id: string, input: ResponseInput): Promise<ServedTransition> {
     const e = this.require(id);
+    this.assertNotErased(id, e);
     const transition = await e.session.respond(input);
     e.responses += 1;
     const moved = this.carryEngineMemory(e, e.session.getState());
     const complete = transition.kind === "complete";
-    // Persist local mastery claims when the lesson completes (no-op for the in-memory sink; writes the
-    // .jsonld for FileMasteryClaimSink). NOT flushed on forget() — that is the RGPD-delete path.
-    if (complete) await this.flushSessionOutputs(e);
-    await this.persistLearner(e, { moved, sceneId: transition.verdict?.scene_id ?? null, complete });
-    return this.servedTransition(e, transition);
+    if (complete) e.completed = true;
+    let warning: string | undefined;
+    try {
+      // Persist local mastery claims when the lesson completes (no-op for the in-memory sink; writes the
+      // .jsonld for FileMasteryClaimSink). NOT flushed on forget() — that is the RGPD-delete path.
+      if (complete) await this.flushSessionOutputs(e);
+      await this.persistLearner(e, { moved, sceneId: transition.verdict?.scene_id ?? null, complete });
+    } catch (error) {
+      warning = persistenceWarning(error);
+    }
+    return this.servedTransition(e, transition, warning);
   }
 
   /** Carry the graded answers the engine just folded into its memory (RT-3) over to the learner's. A
@@ -1404,23 +1607,33 @@ export class SessionHost {
    * already rated) and an unknown grade. */
   async rateRecall(id: string, sceneId: string, grade: SelfRating): Promise<RecallRating> {
     const e = this.require(id);
+    this.assertNotErased(id, e);
     const rating = await e.session.rateRecall(sceneId, grade);
+    // L-1: the rating is stamped by the session's clock (anchored at its now_ms), and so is the review.
     const ratedAt = Date.parse(rating.rated_at);
-    const conceptId = rating.concept_id;
-    const memory = reviewMemory(
-      e.memory[conceptId] ?? defaultMemoryState(conceptId), rating.fsrs_grade, Number.isNaN(ratedAt) ? this.nowMs() : ratedAt,
-    );
-    e.memory[conceptId] = memory;
-    e.selfRated.add(conceptId);
-    e.moved.add(conceptId);
-    await this.persistLearner(e, { moved: [conceptId], sceneId, complete: false });
-    const next = Math.round(dueAt(memory));
+    const at = Number.isNaN(ratedAt) ? this.sessionNow(e) : ratedAt;
+    // L-9 (RFR-10): the rating schedules every concept of the rated scene — its concept_refs, which the
+    // session recorded with the request — not only the first one.
+    const conceptIds = rating.concept_ids.length ? [...new Set(rating.concept_ids)] : [rating.concept_id];
+    for (const conceptId of conceptIds) {
+      e.memory[conceptId] = reviewMemory(e.memory[conceptId] ?? defaultMemoryState(conceptId), rating.fsrs_grade, at);
+      e.selfRated.add(conceptId);
+      e.moved.add(conceptId);
+    }
+    let warning: string | undefined;
+    try { await this.persistLearner(e, { moved: conceptIds, sceneId, complete: false }); }
+    catch (error) { warning = persistenceWarning(error); } // L-11: the rating counts in this session
+    const next = Math.round(Math.min(...conceptIds.map((conceptId) => dueAt(e.memory[conceptId]!))));
     return {
-      scene_id: sceneId, concept_id: conceptId, grade, source: "self_rated",
-      next_review_at: next, next_review_date: isoDate(next),
-      display_markdown: recallRatedMarkdown(next, displayLocale(e.bundle.metadata.language)),
+      scene_id: sceneId, concept_id: conceptIds[0]!, concept_ids: conceptIds, grade, source: "self_rated",
+      next_review_at: next, next_review_date: calendarDate(next, this.zone),
+      // UX-11: rated after the last answer, the lesson's review plan as the rating left it.
+      ...(e.completed ? { review_plan: this.reviewPlanOf(e) } : {}),
+      ...(warning ? { persistence_warning: warning } : {}),
+      display_markdown: recallRatedMarkdown(next, displayLocale(e.bundle.metadata.language), this.zone, warning !== undefined),
     };
   }
+
 
   private async flushSessionOutputs(entry: SessionEntry): Promise<void> {
     await entry.deps.masteryClaimSink?.flush();
@@ -1443,22 +1656,45 @@ export class SessionHost {
     finally { if (this.learnerWrites.get(pseudonym) === queued) this.learnerWrites.delete(pseudonym); }
   }
 
+  /** L-11: one load, merge and save of the learner's files at a time across processes — the lock file of
+   * their folder in durable mode — and no empty folder left behind when nothing was written. */
+  private async underLearnerLock<T>(pseudonym: string, fn: () => Promise<T>): Promise<T> {
+    if (this.dataDir === null) return fn();
+    const dir = join(this.dataDir, safeSegment(pseudonym));
+    try { return await withFileLock(dir, fn); }
+    finally { await removeIfEmpty(dir); }
+  }
+
   private async writeLearner(
+    entry: SessionEntry, pseudonym: string, change: { moved: readonly string[]; sceneId: string | null; complete: boolean },
+  ): Promise<void> {
+    // L-11: a learner forgotten in this host after the session opened is never written back.
+    if (this.erasedUnder(entry)) { entry.erased = true; return; }
+    await this.underLearnerLock(pseudonym, () => this.mergeLearner(entry, pseudonym, change));
+  }
+
+  private async mergeLearner(
     entry: SessionEntry, pseudonym: string, change: { moved: readonly string[]; sceneId: string | null; complete: boolean },
   ): Promise<void> {
     const now = entry.deps.clock.now();
     const state = entry.session.getState();
-    const base = (await this.profileStore.load(pseudonym))
-      ?? defaultLearnerProfile(pseudonym, now);
+    const stored = await this.profileStore.load(pseudonym); // L-11: an unreadable file throws, never reads as none
+    // L-11: a profile this session read or wrote and that is gone now was erased — by a forget here or in
+    // another server on the same folder: never write the learner back.
+    if (stored === null && entry.profileSeen) { entry.erased = true; return; }
+    const base = stored ?? defaultLearnerProfile(pseudonym, now);
     const changed = Object.fromEntries(Object.entries(state.concept_states)
       .filter(([id, cs]) => JSON.stringify(cs) !== entry.conceptStatesAtStart[id]));
     let profile = mergeConceptStatesIntoProfile(base, { ...state, concept_states: changed }, now);
     profile = mergeConceptMemoryIntoProfile(profile, notOlderThan(entry.memory, profile.concept_memory), now);
     if (change.complete && entry.kind === "lesson") profile = recordCompletedLesson(profile, state.lesson_id);
     await this.profileStore.save(profile);
+    entry.profileSeen = true;
 
     if (!change.moved.length && (entry.kind === "review" || entry.responses === 0)) return;
     const record = (await this.studyStore.load(pseudonym)) ?? emptyStudyRecord();
+    // RFR-06: the minutes a day the learner gave for the lesson they play are theirs from now on.
+    if (entry.minutesPerDay !== undefined) record.minutes_per_day = entry.minutesPerDay;
     for (const conceptId of change.moved) {
       const route = this.routeOf(entry, conceptId, change.sceneId);
       if (route) record.concepts[conceptId] = route;
@@ -1495,8 +1731,16 @@ export class SessionHost {
 
   /** Pull the next authored hint for the current quiz scene (scaffolding-gated, M5 discount).
    * Returns null when the scene is not a quiz, has no hints, or the per-visit cap is reached. */
-  requestHint(id: string): HintResult | null { return this.require(id).session.requestHint(); }
-  async submitTurn(id: string, text: string): Promise<void> { await this.require(id).session.submitTurn(text); }
+  requestHint(id: string): HintResult | null {
+    const entry = this.require(id);
+    this.assertNotErased(id, entry);
+    return entry.session.requestHint();
+  }
+  async submitTurn(id: string, text: string): Promise<void> {
+    const entry = this.require(id);
+    this.assertNotErased(id, entry);
+    await entry.session.submitTurn(text);
+  }
   /** The Socratic tutor move generated on the last discussion turn (null outside a discussion
    * or when no tutor is wired). */
   lastTutorMove(id: string): { text: string; move_kind: string; revealed: boolean } | null {
@@ -1530,6 +1774,18 @@ export class SessionHost {
     return this.opts.clock ? Date.parse(this.opts.clock.now()) : Date.now();
   }
 
+  /** L-1: `nowMs` when the caller gives one — an integer epoch a Date can hold, else a RangeError —
+   * else the host's now. */
+  private nowOr(nowMs: number | undefined): number {
+    return nowMs === undefined ? this.nowMs() : checkNowMs(nowMs);
+  }
+
+  /** L-1: a session's now — its own clock, anchored at the now_ms it was started with — unless the
+   * caller gives one. */
+  private sessionNow(entry: SessionEntry, nowMs?: number): number {
+    return nowMs === undefined ? Date.parse(entry.deps.clock.now()) : checkNowMs(nowMs);
+  }
+
   /** The concepts this lesson has reviewed: graded in its history (a resumed lesson included) or moved
    * in this session (an answer, a self-rating). Their memory is the session's; any other concept's is
    * the profile's. */
@@ -1540,9 +1796,9 @@ export class SessionHost {
   /** Spaced-repetition read: per concept this lesson has reviewed, whether it is due for review now,
    * when it next falls due, and its current retrievability. `nowMs` is injectable for deterministic
    * tests; defaults to the host's clock. A UI renders the due items as a "À réviser" cue. */
-  reviewQueue(id: string, nowMs: number = this.nowMs()): ReviewQueueItem[] {
+  reviewQueue(id: string, nowMs?: number): ReviewQueueItem[] {
     const entry = this.require(id);
-    return reviewQueueFromMemory(pick(entry.memory, this.ownConcepts(entry)), nowMs);
+    return reviewQueueFromMemory(pick(entry.memory, this.ownConcepts(entry)), this.sessionNow(entry, nowMs));
   }
 
   /** Union of this lesson's memory and the learner's cross-lesson memory, this lesson winning per
@@ -1550,9 +1806,10 @@ export class SessionHost {
    * earliest review still ahead. */
   async reinforcementStatusForSession(
     id: string,
-    nowMs: number = this.nowMs(),
+    requestedNow?: number,
   ): Promise<ReinforcementStatus> {
     const entry = this.require(id);
+    const nowMs = this.sessionNow(entry, requestedNow);
     const own = this.ownConcepts(entry);
     const [profile, record] = entry.profilePseudonym
       ? await Promise.all([this.profileStore.load(entry.profilePseudonym), this.studyStore.load(entry.profilePseudonym)])
@@ -1575,16 +1832,16 @@ export class SessionHost {
 
   /** Spaced-repetition ROUTER (vs the reviewQueue readout): the single most-urgent concept this lesson
    * reviewed to reinforce now, or null — the decision a selection loop acts on. */
-  nextReinforcement(id: string, nowMs: number = this.nowMs()): ReinforcementTarget | null {
+  nextReinforcement(id: string, nowMs?: number): ReinforcementTarget | null {
     const entry = this.require(id);
     const memory = pick(entry.memory, this.ownConcepts(entry));
-    return dueReinforcementTargetsFromMemory(memory, masteryFromState(entry.session.getState()), nowMs)[0] ?? null;
+    return dueReinforcementTargetsFromMemory(memory, masteryFromState(entry.session.getState()), this.sessionNow(entry, nowMs))[0] ?? null;
   }
 
   /** ROUTE the FSRS decision to CONTENT: the id of the bundle scene that addresses the most-urgent
    * due concept (its `concept_refs` includes it), or null when nothing is due. A driver surfaces
    * this scene for a reinforcement pass instead of advancing linearly. */
-  nextReinforcementScene(id: string, nowMs: number = this.nowMs()): string | null {
+  nextReinforcementScene(id: string, nowMs?: number): string | null {
     const target = this.nextReinforcement(id, nowMs);
     return target ? reinforcementSceneForConcept(this.require(id).bundle, target.concept_id) : null;
   }
@@ -1700,18 +1957,176 @@ export class SessionHost {
     };
   }
 
-  /** Close a live handle while preserving both bundle state and longitudinal memory. */
-  async close(id: string): Promise<void> {
+  /** Close a live handle while preserving both bundle state and longitudinal memory. The session closes
+   * even when its last write-through fails (L-11): the reply then says why the progress was not saved.
+   * A session whose learner's data was erased while it was open closes without writing anything. */
+  async close(id: string): Promise<{ persistence_warning?: string }> {
     const entry = this.require(id);
-    await this.flushSessionOutputs(entry);
-    await this.persistLearner(entry, { moved: [], sceneId: null, complete: false });
-    this.registry.delete(id);
-    this.experiments.delete(id);
+    let warning: string | undefined;
+    try {
+      if (!this.erasedUnder(entry)) {
+        await this.flushSessionOutputs(entry);
+        await this.persistLearner(entry, { moved: [], sceneId: null, complete: false });
+      }
+    } catch (error) {
+      warning = persistenceWarning(error);
+    } finally {
+      this.registry.delete(id);
+      this.experiments.delete(id);
+    }
+    return warning ? { persistence_warning: warning } : {};
   }
 
-  async forget(id: string): Promise<void> {
+  /** L-11: whether the learner's data was erased while this session was open — forgotten in this host
+   * after it opened; its profile gone although the session read or wrote it (a forget in another
+   * server on the same data folder); or the data folder erased, or keyed afresh, under it. */
+  private erasedUnder(entry: SessionEntry): boolean {
+    if (entry.erased) return true;
+    const pseudonym = entry.profilePseudonym;
+    const forgottenAt = pseudonym ? this.forgotten.get(pseudonym) : undefined;
+    if (forgottenAt !== undefined && forgottenAt > entry.openedAt) return true;
+    if (this.dataDir === null) return false;
+    if (entry.keyedBy !== undefined) {
+      if (!existsSync(join(this.dataDir, KEY_SOURCE_FILE))) return true;
+      const current = currentInstallSecret(this.dataDir);
+      if (entry.keyedBy === LEGACY_PSEUDO_SECRET ? current !== null : current !== entry.keyedBy) return true;
+    }
+    return pseudonym !== undefined && entry.profileSeen
+      && !existsSync(join(this.dataDir, safeSegment(pseudonym), "profile.json"));
+  }
+
+  /** L-11: refuse — and close — a session whose learner's data was erased while it was open, before it
+   * writes anything (its answer, its lesson state, its journal): nothing brings the learner back. */
+  private assertNotErased(id: string, entry: SessionEntry): void {
+    if (!this.erasedUnder(entry)) return;
+    entry.erased = true;
+    this.erasedIds.add(id);
+    this.registry.delete(id);
+    this.experiments.delete(id);
+    throw new SessionHostNotFoundError(id, "erased");
+  }
+
+  /** L-11: close a session of a learner being forgotten without erasing its lesson, which stays on disk
+   * (forget names it as kept): its outputs are flushed, nothing is written to the learner's profile. */
+  private async detach(id: string, entry: SessionEntry): Promise<void> {
+    entry.erased = true;
+    this.erasedIds.add(id);
+    this.registry.delete(id);
+    this.experiments.delete(id);
+    await this.flushSessionOutputs(entry).catch(() => undefined);
+  }
+
+  /** The learner's profile and study record as forget reports them: a file that exists and does not
+   * parse is erased like any other (it reads as present). */
+  private async recordsToErase(pseudonym: string): Promise<[LearnerProfile | null, StudyRecord | null]> {
+    const present = <T>(load: Promise<T | null>, unreadable: T) =>
+      load.catch((error: unknown) => (error instanceof LearnerDataError ? unreadable : Promise.reject(error)));
+    return Promise.all([
+      present(this.profileStore.load(pseudonym), defaultLearnerProfile(pseudonym, new Date(0).toISOString())),
+      present(this.studyStore.load(pseudonym), emptyStudyRecord()),
+    ]);
+  }
+
+  /** forget_session {session_id} (L-13): erase this lesson's progress — its state, answers, mastery
+   * claims, telemetry and experiment journal, the whole folder it has on disk — and the learner's
+   * cross-lesson profile and review schedule. Says what it erased and what stays: the progress in the
+   * learner's other lessons, the lessons of the library and their sources. No empty folder is left. */
+  async forget(id: string): Promise<ForgetReport> {
     const e = this.require(id);
-    this.experiments.get(id)!.erase();
+    const pseudonym = e.profilePseudonym;
+    // L-11: from now on no session of this learner opened before writes them back, queued writes included.
+    if (pseudonym) this.forgotten.set(pseudonym, ++this.sequence);
+    if (pseudonym) await this.learnerWrites.get(pseudonym);
+    const [profile, record] = pseudonym ? await this.recordsToErase(pseudonym) : [null, null];
+    await this.eraseSession(id, e);
+    // L-11 (CC-2): the learner's other live sessions close. Another session of this lesson is this
+    // lesson's progress too, and is erased with it (what it holds would bring its folder back); the
+    // other lessons stay on disk (named as kept).
+    for (const [otherId, other] of this.registry.entries()) {
+      if (!pseudonym || other.profilePseudonym !== pseudonym) continue;
+      if (sameLesson(other, e)) await this.eraseSession(otherId, other);
+      else await this.detach(otherId, other);
+    }
+    const erased: ForgetItem[] = e.kind === "lesson" ? [{ kind: "lesson_progress", lessons: [e.bundle.metadata.title] }] : [];
+    // RGPD: also erase the learner-level CROSS-LESSON profile and study record (the learner's
+    // longitudinal aggregate) — "right to be forgotten" covers data carried across lessons too.
+    if (pseudonym) {
+      await this.eraseLearnerRecords(pseudonym);
+      if (profile) erased.push({ kind: "learner_profile" });
+      if (record) erased.push({ kind: "study_record" });
+    }
+    const others = Object.values(record?.lessons ?? {})
+      .filter((lesson) => e.kind === "review" || lesson.bundle_id !== e.bundle.bundle_id).map((lesson) => lesson.title);
+    const kept: ForgetItem[] = [
+      ...(others.length ? [{ kind: "other_lessons_progress" as const, lessons: sortedTitles(others) }] : []),
+      ...this.keptOnDisk(await this.catalog()),
+    ];
+    this.afterForget();
+    return this.forgetReport("lesson", erased, kept, displayLocale(e.bundle.metadata.language));
+  }
+
+  /** forget_session {learner_id} (L-13, R-en-07): erase everything this host keeps of the learner, with
+   * no live session needed — every lesson's progress (their live sessions are closed), the
+   * cross-lesson profile and the review schedule — and say what stays, as forget does. */
+  async forgetLearner(learnerId: string = this.defaultLearnerId): Promise<ForgetReport> {
+    if (this.holdsNoLearner()) return this.forgetReport("learner", [], this.keptOnDisk(await this.catalog()), DEFAULT_LOCALE);
+    const pseudonymOf = this.deps().pseudonym;
+    const profilePseudonym = await pseudonymOf.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
+    // L-11: from now on no session of this learner opened before writes them back.
+    this.forgotten.set(profilePseudonym, ++this.sequence);
+    await this.learnerWrites.get(profilePseudonym);
+    const [[profile, record], catalog] = await Promise.all([this.recordsToErase(profilePseudonym), this.catalog()]);
+    const lessons = new Map<string, string>(); // bundle_id → title, of every lesson erased
+    let locale = displayLocale(this.recordLanguage(record) ?? DEFAULT_LOCALE);
+    for (const [id, entry] of this.registry.entries()) {
+      if (entry.profilePseudonym !== profilePseudonym) continue;
+      if (entry.kind === "lesson") {
+        lessons.set(entry.bundle.bundle_id, entry.bundle.metadata.title);
+        if (!record) locale = displayLocale(entry.bundle.metadata.language);
+      }
+      await this.eraseSession(id, entry);
+    }
+    if (this.dataDir) {
+      // A lesson folder is keyed by the pseudonym of (learner, lesson): look for each lesson the learner
+      // may have opened — in their record, completed, on disk now, or named by a folder of the data dir.
+      const candidates = new Set([
+        ...Object.keys(record?.lessons ?? {}), ...(profile?.completed_lessons ?? []),
+        ...catalog.lessons.map((lesson) => lesson.bundle_id), ...lessonFolderNames(this.dataDir),
+      ]);
+      for (const bundleId of candidates) {
+        const scopeDir = durableScopeDir(this.dataDir, await pseudonymOf.get(learnerId, bundleId), bundleId);
+        if (!existsSync(scopeDir)) continue;
+        await rm(scopeDir, { recursive: true, force: true });
+        await removeIfEmpty(dirname(scopeDir));
+        lessons.set(bundleId, record?.lessons[bundleId]?.title
+          ?? catalog.lessons.find((lesson) => lesson.bundle_id === bundleId)?.title ?? bundleId);
+      }
+    }
+    for (const [bundleId, lesson] of Object.entries(record?.lessons ?? {})) lessons.set(bundleId, lesson.title);
+    await this.eraseLearnerRecords(profilePseudonym);
+    const erased: ForgetItem[] = [
+      ...(lessons.size ? [{ kind: "lesson_progress" as const, lessons: sortedTitles([...lessons.values()]) }] : []),
+      ...(profile ? [{ kind: "learner_profile" as const }] : []),
+      ...(record ? [{ kind: "study_record" as const }] : []),
+    ];
+    this.afterForget();
+    return this.forgetReport("learner", erased, this.keptOnDisk(catalog), locale);
+  }
+
+  /** L-11: a data folder keyed by the legacy secret that no learner holds any more gets its own secret
+   * at the next session, in this server too: the legacy secret never keys a learner after a forget
+   * emptied the folder. Only once no other session of this server is open (theirs are keyed by it). */
+  private afterForget(): void {
+    if (this.installSource !== "legacy" || this.dataDir === null || this.registry.size > 0) return;
+    if (holdsLearners(this.dataDir)) return;
+    this.installSecretValue = undefined;
+    this.installSource = undefined;
+  }
+
+  /** Erase one live session: its telemetry event, its stores (the engine's erase), its experiment
+   * journal and, in durable mode, its whole lesson folder; then drop it. */
+  private async eraseSession(id: string, e: SessionEntry): Promise<void> {
+    this.experiments.get(id)?.erase();
     const lessonId = e.session.getState().lesson_id;
     // reuse the session's already-salted pseudonym (no re-derivation / no stored learnerId needed).
     const pseudonym = e.session.getPseudonym();
@@ -1724,15 +2139,89 @@ export class SessionHost {
     // #4 REAL erasure: purge the learner's state + mastery .jsonld + event log + telemetry. Then
     // drop the registry entry. forget() used to be a no-op (only the event + registry delete).
     await e.session.erase();
-    // RGPD: also erase the learner-level CROSS-LESSON profile and study record (the learner's
-    // longitudinal aggregate) — "right to be forgotten" covers data carried across lessons too.
-    if (e.profilePseudonym) {
-      await this.profileStore.delete(e.profilePseudonym);
-      await this.studyStore.delete(e.profilePseudonym);
+    // L-13: the lesson folder holds only this learner's data for this lesson (mastery claims of earlier
+    // sessions, the journal, an emptied log): it goes too, and its pseudonym folder once empty.
+    if (e.scopeDir) {
+      await rm(e.scopeDir, { recursive: true, force: true });
+      await removeIfEmpty(dirname(e.scopeDir));
     }
+    e.erased = true;
+    this.erasedIds.add(id);
     this.registry.delete(id);
     this.experiments.delete(id);
   }
+
+  /** Erase the learner's profile and study record once the writes already queued for them are done —
+   * holding their lock, so no other server's write lands in between (L-11) — and their folder once
+   * empty. */
+  private async eraseLearnerRecords(profilePseudonym: string): Promise<void> {
+    await this.learnerWrites.get(profilePseudonym);
+    await this.underLearnerLock(profilePseudonym, async () => {
+      await this.profileStore.delete(profilePseudonym);
+      await this.studyStore.delete(profilePseudonym);
+    });
+  }
+
+  /** What forget leaves on disk (L-13): the lessons of the learner's library and the sources they were
+   * built from, which the learner may believe gone, and the install's pseudonym key (no learner data). */
+  private keptOnDisk(catalog: Catalog): ForgetItem[] {
+    const kept: ForgetItem[] = [];
+    const library = this.opts.libraryRoot;
+    if (library) {
+      const titles = catalog.lessons.filter((lesson) => lesson.root === "library").map((lesson) => lesson.title);
+      if (titles.length) kept.push({ kind: "library_lessons", lessons: sortedTitles(titles), path: library });
+      const sources = join(library, "_sources");
+      if (existsSync(sources)) kept.push({ kind: "lesson_sources", path: sources });
+    }
+    const secret = this.dataDir ? join(this.dataDir, SECRET_FILE) : null;
+    if (secret && existsSync(secret)) kept.push({ kind: "pseudonym_key", path: secret });
+    return kept;
+  }
+
+  private forgetReport(scope: ForgetReport["scope"], erased: ForgetItem[], kept: ForgetItem[], locale: DisplayLocale): ForgetReport {
+    return { forgotten: true, scope, erased, kept, display_markdown: forgetMarkdown({ erased, kept }, locale) };
+  }
+
+  /** A durable data folder no learner was ever written to: no pseudonym secret yet and no learner
+   * folder, where naming a learner's folders would create a secret (pseudonym-secret.ts). Nothing of
+   * anyone is there to erase. */
+  private holdsNoLearner(): boolean {
+    if (this.dataDir === null || envPseudoSecret() !== undefined || this.installSecretValue !== undefined) return false;
+    if (existsSync(join(this.dataDir, SECRET_FILE))) return false;
+    try { return !readdirSync(this.dataDir, { withFileTypes: true }).some((entry) => entry.isDirectory() && LEARNER_FOLDER.test(entry.name)); }
+    catch { return true; } // no data folder yet
+  }
+}
+
+/** A learner folder of the data dir: a 16-hex pseudonym (HmacPseudonymProvider, pseudonym-secret.ts). */
+const LEARNER_FOLDER = /^[0-9a-f]{16}$/;
+
+/** Lesson titles once each, in the reading order of their language. */
+function sortedTitles(titles: readonly string[]): string[] {
+  return [...new Set(titles)].sort((a, b) => a.localeCompare(b));
+}
+
+/** Two lesson sessions of one lesson (any revision): one lesson folder holds what both keep. */
+function sameLesson(a: SessionEntry, b: SessionEntry): boolean {
+  return a.kind === "lesson" && b.kind === "lesson" && a.bundle.bundle_id === b.bundle.bundle_id;
+}
+
+/** The pseudonym folder name of the stores (FileLearnerProfileStore, deps.ts). */
+function safeSegment(segment: string): string { return segment.replace(/[^A-Za-z0-9_.-]/g, "_"); }
+
+/** Remove `dir` when it is empty; anything else (absent, not empty) leaves it as it is. */
+async function removeIfEmpty(dir: string): Promise<void> {
+  try { await rmdir(dir); } catch { /* absent or not empty */ }
+}
+
+/** The lesson folder names under every pseudonym folder of the data dir: a lesson the catalog no
+ * longer lists may still have a folder there (bundle ids are path-safe in practice). */
+function lessonFolderNames(dataDir: string): string[] {
+  try {
+    return readdirSync(dataDir, { withFileTypes: true }).filter((entry) => entry.isDirectory())
+      .flatMap((entry) => readdirSync(join(dataDir, entry.name), { withFileTypes: true })
+        .filter((child) => child.isDirectory()).map((child) => child.name));
+  } catch { return []; }
 }
 
 /** Lower case without accents, for list_lessons' query. */

@@ -1,7 +1,7 @@
 // packages/lesson-session-host/src/study-record.test.ts
 //
 // The study record (HJ-1, HJ-5): where each concept was last graded and how far each lesson got,
-// kept next to the learner's profile under the same pseudonym, read fail-safe, erased with it.
+// kept next to the learner's profile under the same pseudonym, read strictly (L-11), erased with it.
 import { describe, it, expect, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,7 +19,7 @@ const RECORD: StudyRecord = {
 };
 
 describe("FileStudyRecordStore", () => {
-  it("round-trips <dataDir>/<pseudonym>/study.json, reads garbage as absent, and deletes it", async () => {
+  it("round-trips <dataDir>/<pseudonym>/study.json, refuses garbage naming the file, and deletes it", async () => {
     const dataDir = mkdtempSync(join(tmpdir(), "study-record-")); dirs.push(dataDir);
     const store = new FileStudyRecordStore(dataDir);
     expect(await store.load("0123abcd")).toBeNull();
@@ -27,11 +27,15 @@ describe("FileStudyRecordStore", () => {
     expect(JSON.parse(readFileSync(join(dataDir, "0123abcd", "study.json"), "utf8"))).toEqual(RECORD);
     expect(await store.load("0123abcd")).toEqual(RECORD);
 
+    // L-11 (CC-7): a study record that exists and does not parse used to read as absent, so the next
+    // answer saved an empty record over it and the learner's lessons were gone: it is an error now,
+    // naming the file, and the file is left as it is.
     mkdirSync(join(dataDir, "badbad"));
     writeFileSync(join(dataDir, "badbad", "study.json"), "{ not json");
-    expect(await store.load("badbad")).toBeNull();
+    await expect(store.load("badbad")).rejects.toThrow(/badbad\/study\.json exists but cannot be read \(not JSON/);
     writeFileSync(join(dataDir, "badbad", "study.json"), JSON.stringify({ schema: "other/1" }));
-    expect(await store.load("badbad")).toBeNull();
+    await expect(store.load("badbad")).rejects.toThrow(/badbad\/study\.json exists but cannot be read \(not a valid record/);
+    expect(readFileSync(join(dataDir, "badbad", "study.json"), "utf8")).toBe(JSON.stringify({ schema: "other/1" }));
 
     await store.delete("0123abcd");
     expect(existsSync(join(dataDir, "0123abcd", "study.json"))).toBe(false);

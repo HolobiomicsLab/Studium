@@ -29,12 +29,55 @@ const FRESH = { reinforcement: null, due: [], reason: "no_history", next_due_at:
   expect(parseReinforcement(null as any).dueCount === 0, "a null payload is an empty status");
 }
 
+// H3: relearn and unmeasured concepts due for review count too (get_study_plan and start_review_session would play
+// them), each labelled with its own words (I-3); and UX-06: they are named by title, never by raw id.
+const MIXED = {
+  reinforcement: null, due: [], reason: "nothing_due", next_due_at: 1_800_000_000_000,
+  relearn: [{ ...target("concept:generalite-collectif"), concept_title: "Généralité du collectif" }],
+  unmeasured: [target("c3"), target("c4")],
+};
+{
+  const s = parseReinforcement(MIXED, (id) => (id === "c3" ? "Troisième notion" : undefined));
+  expect(s.dueCount === 3 && s.hasHistory, `relearn and unmeasured items are counted as due for review (got ${s.dueCount})`);
+  expect(JSON.stringify(s.counts) === '{"due":0,"relearn":1,"unmeasured":2}', `each group keeps its own count (got ${JSON.stringify(s.counts)})`);
+  // H3 / I-3: the status bar never announces an unmeasured concept as a review of something learnt. Changed: this
+  // used to expect « Studium · 3 à réviser » for one relearn and two unmeasured concepts (the finding).
+  expect(statusBarText(s, "fr")?.text === "Studium · 3 à travailler", `a mixed status bar is worded neutrally (got ${statusBarText(s, "fr")?.text})`);
+  expect(statusBarText(s, "en")?.text === "Studium · 3 to work on", `in English too (got ${statusBarText(s, "en")?.text})`);
+  expect(statusBarText(s, "fr")?.tooltip === "1 notion à reprendre, 2 notions pas encore mesurées. Ouvre le panneau Studium.",
+    `the tooltip names each group in its own words (got ${statusBarText(s, "fr")?.tooltip})`);
+  expect(statusBarText(s, "en")?.tooltip === "1 concept to take up again, 2 concepts not measured yet. Open the Studium panel.",
+    `the English tooltip too (got ${statusBarText(s, "en")?.tooltip})`);
+  const all = parseReinforcement({ ...MIXED, due: [target("c5"), target("c6")] });
+  expect(statusBarText(all, "fr")?.tooltip === "2 notions à réviser, 1 notion à reprendre, 2 notions pas encore mesurées. Ouvre le panneau Studium.",
+    `all three groups, due first (got ${statusBarText(all, "fr")?.tooltip})`);
+  const node = reviewsNode(s, "fr", (ms) => `D${ms}`)!;
+  const labels = (node.children ?? []).map((c) => `${c.label}|${c.description ?? ""}`);
+  expect(JSON.stringify(labels) === JSON.stringify([
+    `Généralité du collectif|${hostPhrase("reviews_group_relearn", {}, "fr")}`,
+    `Troisième notion|${hostPhrase("reviews_group_unmeasured", {}, "fr")}`,
+    `c4|${hostPhrase("reviews_group_unmeasured", {}, "fr")}`,
+  ]), `concepts are named by the host's title, else the lesson's, else the id without its prefix, with their group (got ${JSON.stringify(labels)})`);
+  expect(!labels.some((l) => l.includes("concept:")), "never a raw concept: id");
+  const one = parseReinforcement({ ...MIXED, unmeasured: [] });
+  // Changed: the one-item tooltip is now the relearn group's own wording (it was the generic « 1 notion à réviser »).
+  expect(statusBarText(one, "fr")?.tooltip === "1 notion à reprendre. Ouvre le panneau Studium." && !statusBarText(one, "fr")!.tooltip.includes("(s)"),
+    `one item reads in the singular, never « notion(s) » (got ${statusBarText(one, "fr")?.tooltip})`);
+  // Changed: the plural is now per group (« 2 notions pas encore mesurées »), no longer one total « 3 notions ».
+  expect(!statusBarText(s, "fr")!.tooltip.includes("(s)") && statusBarText(s, "fr")!.tooltip.includes("2 notions"), "several read in the plural");
+  // An older server sends only `due`: unchanged behaviour.
+  expect(JSON.stringify(parseReinforcement(DUE).counts) === '{"due":3,"relearn":0,"unmeasured":0}', "an older payload counts its due list alone");
+}
+
 // statusBarText: shown only when something is due
 {
   const s = parseReinforcement(DUE);
   expect(statusBarText(s, "fr")?.text === "Studium · 3 à réviser", "French status bar text");
   expect(statusBarText(s, "en")?.text === "Studium · 3 to review", "English status bar text");
   expect(!!statusBarText(s, "en")?.tooltip.includes("3"), "the tooltip carries the count");
+  expect(statusBarText(s, "fr")?.tooltip === "3 notions à réviser. Ouvre le panneau Studium.", `only due items: « à réviser » (got ${statusBarText(s, "fr")?.tooltip})`);
+  expect(statusBarText(parseReinforcement({ reason: "due", due: [target("c1")] }), "fr")?.tooltip === "1 notion à réviser. Ouvre le panneau Studium.",
+    "one due item reads in the singular");
   expect(statusBarText(parseReinforcement(LATER), "fr") === null, "nothing due → no status bar item");
   expect(statusBarText(parseReinforcement(FRESH), "fr") === null, "no history → no status bar item");
   expect(statusBarText(null, "fr") === null, "unknown status → no status bar item");

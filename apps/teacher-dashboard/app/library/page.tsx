@@ -48,7 +48,7 @@ export default async function LibraryPage() {
                 </ul>
                 <ul className="key-mix" aria-label={t.keyClasses}>{Object.entries(lesson.keyClasses).filter(([, count]) => count > 0).map(([key, count]) => <li key={key} className={`key-mix__item key-mix__item--${key}`}>{t[key as keyof typeof t] ?? key} <b>{count}</b></li>)}</ul>
               </div>
-              <Link className="review-link" href={`/library/${lesson.routeId}/review`} aria-label={`${t.review} : ${lesson.title}`}>{t.review}<span aria-hidden="true">↗</span></Link>
+              <Link className="review-link" href={`/library/${lesson.routeId}/review`} aria-label={`${t.review}${t.colon}${lesson.title}`}>{t.review}<span aria-hidden="true">↗</span></Link>
             </li>)}
           </ol>}
         <p className="library-status-help">{t.statusHelp}</p>

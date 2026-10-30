@@ -63,7 +63,7 @@ export function getTelemetryEndpoint(fallback: string | null): string | null {
  *
  * Le niveau retenu est B parce que c'est celui que l'écran de consentement montre à
  * l'apprenant sous « Indicateurs … pour l'enseignant … transmis » : c'est la case qu'il a
- * cochée. `docs/user/student-guide.md` numérote autrement (C) — la contradiction entre les
+ * cochée. `docs/learn/student-guide.md` numérote autrement (C) — la contradiction entre les
  * deux surfaces appartient au propriétaire du produit, pas à ce portillon.
  */
 export function resolveTelemetryEndpoint(

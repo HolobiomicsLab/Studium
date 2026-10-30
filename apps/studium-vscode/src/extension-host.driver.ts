@@ -16,6 +16,8 @@ import { hostPhrase } from "./host-phrases.js";
 import { freeTextInput } from "./scene-io.js";
 import { isolateFromHome } from "./driver-isolation.js";
 import { makeZip } from "./zip-fixture.js";
+import { liveLessonMcpCount } from "./mcp-connect.js";
+import { phrase } from "./phrases.js";
 
 // I-10: the lesson-mcp the extension spawns inherits this environment. Its durable state goes to the fake
 // globalStorageUri below (STUDIUM_DATA_DIR, set by lessonServerEnv); everything else stays out of ~.
@@ -58,7 +60,7 @@ const settings: Json = { learnerId: "e2e-learner", showGraph: false, repoRoot };
 const seen = {
   errors: [] as string[], infos: [] as string[], warnings: [] as Array<{ message: string; options: Json; items: string[] }>,
   panels: [] as any[], tasksRun: [] as any[], commands: new Map<string, (...a: any[]) => any>(),
-  uriHandler: undefined as any, executed: [] as string[], serializers: new Map<string, any>(), treeProviders: new Map<string, any>(), statusItems: [] as any[],
+  outputLines: [] as string[], uriHandler: undefined as any, chatHandler: undefined as any, executed: [] as string[], serializers: new Map<string, any>(), treeProviders: new Map<string, any>(), statusItems: [] as any[],
 };
 let warningAnswer: ((items: string[]) => string | undefined) = () => undefined;
 const noop = () => ({ dispose() {} });
@@ -111,7 +113,7 @@ const fakeVscode: Json = {
     registerNotebookSerializer: noop, openNotebookDocument: async () => ({}), onDidCloseNotebookDocument: noop,
   },
   notebooks: { createNotebookController: () => ({ dispose() {}, supportedLanguages: [] }) },
-  chat: { createChatParticipant: () => ({ dispose() {}, iconPath: undefined }) },
+  chat: { createChatParticipant: (_id: string, handler: any) => { seen.chatHandler = handler; return { dispose() {}, iconPath: undefined }; } },
   tasks: {
     executeTask: async (task: any) => {
       const pty = await task.execution.callback();
@@ -125,7 +127,7 @@ const fakeVscode: Json = {
   },
   window: {
     activeTextEditor: undefined,
-    createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
+    createOutputChannel: () => ({ appendLine(line: string) { seen.outputLines.push(line); }, dispose() {} }),
     registerTreeDataProvider: (id: string, provider: unknown) => { seen.treeProviders.set(id, provider); return noop(); },
     registerUriHandler: (h: unknown) => { seen.uriHandler = h; return noop(); },
     registerWebviewPanelSerializer: (type: string, s: unknown) => { seen.serializers.set(type, s); return noop(); },
@@ -263,7 +265,7 @@ async function main() {
     const completion = done?.completion;
     expect(Array.isArray(completion?.actions) && completion.actions.includes("restart") && completion.actions.includes("pick"),
       `the completion declares its actions (got ${JSON.stringify(completion?.actions)})`);
-    const listed = [...(completion?.consolidated ?? []), ...(completion?.to_revisit ?? [])];
+    const listed = [...(completion?.consolidated ?? []), ...(completion?.practised ?? []), ...(completion?.not_measured ?? [])];
     expect(listed.every((c: Json) => c?.id === "c-kinetics" && c?.label === "Cinetique du premier ordre"),
       `any completion concept carries the bundle's title, not only the id (got ${JSON.stringify(listed)})`);
     pane.dispose();
@@ -306,7 +308,8 @@ async function main() {
     const warningsBefore = seen.warnings.length;
     const tasksBefore = seen.tasksRun.length;
     await seen.commands.get("studium.runReproduction")!();
-    expect(seen.errors.at(-1)?.includes(key === "run_refused_parent" ? "sort de votre espace" : "chemin absolu") === true, `${key}: the learner is told why`);
+    // Changed (L-5): the learner is « tu » in the host messages too (« ton espace », was « votre espace »).
+    expect(seen.errors.at(-1)?.includes(key === "run_refused_parent" ? "sort de ton espace" : "chemin absolu") === true, `${key}: the learner is told why`);
     expect(seen.warnings.length === warningsBefore && seen.tasksRun.length === tasksBefore, `${key}: no prompt, no task`);
     pane.dispose();
   }
@@ -334,6 +337,50 @@ async function main() {
     expect(orphan.disposed, "a restored pane with nothing to restore is closed");
   }
 
+  // CQ-3 / CQ-4: the @studium chat streams the host's own text (the authoring notice of a self-study lesson
+  // included) and sends the learner's words as {kind: "reply", text}, showing the host's refusal when it cannot
+  // read them. Its lesson-mcp runs on the extension's storage, like the pane's.
+  const chat = async (prompt: string, command?: string) => {
+    let out = "";
+    await seen.chatHandler({ prompt, command }, {}, { markdown: (text: string) => { out += text; } }, {});
+    return out;
+  };
+  {
+    const lesson = JSON.parse(readFileSync(join(extensionPath, "src", "fixtures", "wave-scenes.json"), "utf8"));
+    lesson.bundle_id = "chat-wave-001";
+    lesson.metadata.authoring = { mode: "self_study", author_is_learner: true };
+    lesson.scenes.splice(2, 0, {
+      id: "s-quiz", type: "quiz", title: "Quiz", objective_refs: [], concept_refs: ["c1"], estimated_seconds: 60,
+      adaptation_hooks: [], question: "2+2 ?", choices: [{ id: "a", text: "3", correct: false }, { id: "b", text: "4", correct: true }],
+      feedback_correct: "Oui", feedback_incorrect: "Non", hints: [],
+    });
+    mkdirSync(join(lib, "chat"), { recursive: true });
+    writeFileSync(join(lib, "chat", "lesson.json"), JSON.stringify(lesson));
+    settings["bundlesRoot"] = lib;
+    settings["bundleRef"] = "chat/lesson.json";
+    const started = await chat("", "start");
+    expect(started.includes("Leçon auto-rédigée"), `the chat shows the host's authoring notice on the first screen (got ${started.slice(0, 300)})`);
+    await chat("continuer");
+    const quiz = await chat("continuer");
+    expect(quiz.includes("2+2"), `the chat reaches the quiz (got ${quiz.slice(0, 200)})`);
+    const refused = await chat("purple");
+    // Changed: the refusal used to embed the host's raw reason (English, agent-facing: « displayed choice ids: a, b;
+    // reply with the learner's letter »). The learner now reads the localised line and how this scene is answered;
+    // the raw reason goes to the output channel.
+    expect(refused.startsWith(phrase("chat_refused", {}, "fr")), `an unreadable quiz reply shows the localised refusal (got ${refused})`);
+    expect(!/displayed choice|reply with|learner|submit_/.test(refused), `no agent-facing host text reaches the learner (got ${refused})`);
+    expect(refused.trim().endsWith(quiz.trim().split("\n\n").at(-1)!.trim()), `then how the quiz is answered (got ${refused})`);
+    expect(seen.outputLines.some((l) => l.includes("displayed choice ids")), "the host's reason is logged to the output channel");
+    // The host shuffles displayed choices: answer with the id it shows for "4".
+    const right = /\*\*(\w+)\)\*\* 4\b/.exec(quiz)?.[1] ?? "b";
+    const answered = await chat(`Réponse : ${right}`);
+    expect(answered.includes("✓"), `« Réponse : ${right} » is mapped by the host (the old chat parser refused it) (got ${answered.slice(0, 200)})`);
+    expect(!/errors_threshold|rule_\w/.test(started + quiz + refused + answered), "no reason code or rule id reaches the chat");
+    const stored = listFiles(storage);
+    expect(stored.length > 0, "the chat's lesson-mcp writes its learner state under the extension storage");
+    settings["bundleRef"] = undefined;
+  }
+
   // ENG-03: forget my data erases storage, trust memory and the last lesson
   {
     warningAnswer = (items) => items[0];
@@ -346,6 +393,15 @@ async function main() {
     expect(prompt.includes(harnessData), `the confirmation names where the assistants' data lives (got ${prompt})`);
     expect(existsSync(join(harnessData, "keep.txt")), "and that data is left in place");
     expect(!existsSync(storage) || readdirSync(storage).length === 0, "the stored learner data is erased");
+    // SEC-4: the chat's own lesson-mcp was closed before the erase, so nothing it holds can be written back.
+    expect(liveLessonMcpCount() === 0, `no lesson-mcp is left running after the erase (got ${liveLessonMcpCount()})`);
+    await sleep(300);
+    expect(!existsSync(storage) || listFiles(storage).length === 0, "and nothing was written back after it");
+    settings["bundleRef"] = "chat/lesson.json";
+    const restarted = await chat("continuer");
+    settings["bundleRef"] = undefined;
+    expect(restarted.includes(phrase("chat_started", { bundle: "chat/lesson.json" }, "fr")),
+      `the chat starts a fresh lesson instead of answering on a closed server (got ${restarted.slice(0, 120)})`);
     expect(!globalStateData.has("studium.trustedRuns") && !globalStateData.has("studium.lastLesson"), "the trust memory and the last lesson are forgotten");
     expect(seen.infos.at(-1) === hostPhrase("forget_data_done", {}, "fr"), "the learner is told it is done");
   }
@@ -398,10 +454,24 @@ async function main() {
     }
     expect(rated, "a production answer asked the learner for a self-rating (C4)");
     expect(!!done, "the wave lesson reached its completion screen");
-    const listed = [...(done?.completion?.consolidated ?? []), ...(done?.completion?.to_revisit ?? [])];
+    // Changed (L-6): the lists are now consolidated / practised / not_measured (to_revisit is gone); one right quiz
+    // answer makes c1 practised with one graded answer, never consolidated.
+    const listed = [...(done?.completion?.consolidated ?? []), ...(done?.completion?.practised ?? []), ...(done?.completion?.not_measured ?? [])];
     expect(listed.length > 0 && listed.every((c: Json) => c.id === "c1" && c.label === "Concept 1"),
       `graded concepts are listed by title (got ${JSON.stringify(listed)})`);
+    expect(JSON.stringify(done?.completion?.practised) === '[{"id":"c1","label":"Concept 1","answers":1}]' && !(done?.completion?.consolidated ?? []).length,
+      `one right answer is practised (1 answer), never consolidated (got ${JSON.stringify(done?.completion)})`);
     expect(!JSON.stringify(done?.completion ?? {}).match(/mastery|0\.\d{2}/), "the completion data carries no score");
+    // UX-11: the last answer asks for a rating; rating it sends the end screen the review date it produced.
+    const lastRequest = done?.self_rating ?? done?.verdict?.self_rating;
+    expect(lastRequest?.requested === true, "the lesson's last (production) answer asks for a rating");
+    if (lastRequest?.requested) {
+      const before = pane.posted.length;
+      await pane.handler({ type: "rateRecall", sceneId: lastRequest.scene_id ?? done?.verdict?.scene_id, grade: "easy" });
+      const reply = pane.posted.slice(before).at(-1);
+      expect(reply?.type === "recall_rated" && typeof reply.completion?.next_review_at === "number",
+        `the rating on the last scene carries the updated next review (got ${JSON.stringify(reply)})`);
+    }
 
     // « Revoir le parcours » restarts the lesson in the pane; « Choisir un autre cours » opens the picker.
     const beforeRestart = pane.posted.length;
@@ -443,7 +513,7 @@ async function main() {
       if (next.type === "done") done = next;
     }
     expect(!!done, "the community lesson reached its completion screen");
-    const listed = [...(done?.completion?.consolidated ?? []), ...(done?.completion?.to_revisit ?? [])];
+    const listed = [...(done?.completion?.consolidated ?? []), ...(done?.completion?.practised ?? []), ...(done?.completion?.not_measured ?? [])];
     expect(listed.length > 0 && listed.every((c: Json) => c.id === "c1" && c.label === "Concept 1"),
       `a community .zip lesson lists its concepts by title, not the bare id (got ${JSON.stringify(listed)})`);
     pane.dispose();

@@ -10,11 +10,13 @@
  * Host → pane (window.postMessage):
  *   render {scene, scene_assets, progress, verdict, navigation, self_rating, sources, calibration,
  *           reviewDue, mastery, authoring, modalityPreference, explanation (older hosts), strings, locale}
- *   done {message, verdict?, self_rating?, sources?, calibration?, completion?}
- *   hint, turn_result, recall_rated, action_pending, action_settled, action_notice, action_error, loading, error
+ *   done {message, verdict?, self_rating?, sources?, calibration?, completion?, authoring?}
+ *   hint, turn_result, recall_rated {sceneId, grade, completion?}, action_pending, action_settled, action_notice,
+ *   action_error {message, action?, sceneId?}, loading, error
  * Pane → host (window.__send): respond, turn, hint, end, run, rateRecall, reviewNow, restartLesson,
  *   pickCourse.
- * Concepts (reviewDue, completion.consolidated / to_revisit) arrive as {id, label}; a bare string is an id.
+ * Concepts (reviewDue, completion.consolidated / practised / not_measured, and to_revisit from older hosts) arrive
+ * as {id, label} (practised ones also carry `answers`, the graded answers counted); a bare string is an id.
  * The pane never holds an answer key: the host strips it (publicScene) and releases the feedback with
  * the verdict, after the answer.
  */
@@ -96,7 +98,11 @@
   // Live nodes of the current screen. The pane keeps references rather than looking ids up, so an id
   // inside an authored SVG can never capture the hint box or the status line.
   let ui = blankUi();
-  function blankUi() { return { status: null, hint: null, turns: null, keys: null, rating: null }; }
+  function blankUi() { return { status: null, hint: null, turns: null, keys: null, rating: null, pendingTurn: null }; }
+  // The lesson's authoring block as last sent (the feedback of an AI-drafted lesson names its key, L-7), and the
+  // end-of-lesson data waiting behind the last feedback step (a rating may still update its next review, UX-11).
+  let lastAuthoring = null;
+  let pendingDone = null;
 
   // --- announcements and focus (VSC-3) ---------------------------------------------------------------
   // One persistent polite region outside #pane (paneHtml writes it; a bare preview gets one here).
@@ -150,6 +156,14 @@
   function showActionError(message) {
     setActionPending(false);
     if (ui.rating) ui.rating.failed();
+    // UX-07: a discussion turn the host did not take is not in the transcript; its text goes back in the box.
+    if (ui.pendingTurn) {
+      const turn = ui.pendingTurn;
+      ui.pendingTurn = null;
+      turn.line.remove();
+      if (!turn.textarea.value) turn.textarea.value = turn.text;
+      turn.sync();
+    }
     if (!ui.status) return;
     ui.status.className = "action-status error";
     ui.status.textContent = t("pane_action_failed", { error: message || t("pane_retry") });
@@ -458,6 +472,7 @@
   // --- the scene ----------------------------------------------------------------------------------------
   function renderPane(state) {
     applyLanguage(state);
+    if (isObject(state.authoring)) lastAuthoring = state.authoring;
     const scene = isObject(state.scene) ? state.scene : {};
     const total = state.progress && Number(state.progress.total);
     if (total && memory.total && total !== memory.total) memory = freshMemory(); // another lesson
@@ -468,7 +483,7 @@
     if (verdict && (verdict.graded || rating)) {
       recordOutcome(verdict);
       renderFeedbackStep({
-        verdict, rating, calibration: state.calibration, sources: sourcesOf(state, verdict),
+        verdict, rating, calibration: state.calibration, sources: sourcesOf(state, verdict), authoring: lastAuthoring,
         // The scene shown again is the one just answered: its feedback would give the answer away.
         withheld: !!scene.id && scene.id === verdict.scene_id,
         onContinue: () => renderScene(state),
@@ -761,6 +776,10 @@
     const title = el("h2", { class: "scene-title", id: nextId("feedback-title"), tabindex: "-1" }, titleText);
     const step = el("section", { class: "feedback-step", "aria-labelledby": title.id },
       el("p", { class: "st-eyebrow" }, t("pane_feedback_eyebrow")), title, feedbackCard(v, kind, fb.withheld));
+    // L-7: an author-keyed verdict of a lesson an AI drafted says whose key it is, and where to check it.
+    if (v.assessed_by === "key" && isObject(fb.authoring) && fb.authoring.drafted_by === "agent") {
+      step.append(el("p", { class: "feedback-key-note" }, t("pane_ai_key_note")));
+    }
     if (!fb.withheld) {
       [keyPointsBlock(v), modelAnswerBlock(v), sourcesBlock(fb.sources)]
         .forEach((node) => { if (node) step.append(node); });
@@ -804,7 +823,8 @@
   // key points to cover, an audit's planted flaws or a critique's claims that hid a flaw. A point a judge
   // found missing (key_points_missing) is marked in words, once, in this list; the feedback above only
   // gives the count, so nothing is said twice.
-  const REFERENCE_LABEL = { key_points: "pane_key_points", planted_flaws: "pane_planted_flaws", flawed_claims: "pane_flawed_claims" };
+  const REFERENCE_LABEL = { key_points: "pane_key_points", planted_flaws: "pane_planted_flaws", flawed_claims: "pane_flawed_claims",
+    correct_choice: "pane_correct_choice" };
   function keyPointsBlock(v) {
     const items = (Array.isArray(v.key_points) ? v.key_points : [])
       .map((p) => (typeof p === "string" ? p : isObject(p) ? p.text : "")).filter(Boolean);
@@ -839,8 +859,10 @@
     sources.forEach((s) => {
       const name = String(s.title || s.url || "");
       const link = s.url && isSafeLink(s.url) ? el("a", { href: String(s.url).trim(), target: "_blank", rel: "noopener" }, name) : name;
+      // L-3: the source's licence completes its attribution (« titre, CC BY-SA 4.0 »).
+      const licence = typeof s.license === "string" && s.license.trim() ? `, ${s.license.trim()}` : "";
       box.append(el("figure", { class: "source" },
-        s.quote ? el("blockquote", {}, String(s.quote)) : null, el("figcaption", {}, link)));
+        s.quote ? el("blockquote", {}, String(s.quote)) : null, el("figcaption", {}, link, licence)));
     });
     return box;
   }
@@ -904,11 +926,14 @@
   // --- the end of the lesson (VSC-6) -------------------------------------------------------------------
   function showDone(d) {
     applyLanguage(d);
+    if (isObject(d.authoring)) lastAuthoring = d.authoring;
     const verdict = isObject(d.verdict) ? d.verdict : null;
     const rating = selfRatingOf(d, verdict);
     if (verdict && (verdict.graded || rating)) {
       recordOutcome(verdict);
-      renderFeedbackStep({ verdict, rating, calibration: d.calibration, sources: sourcesOf(d, verdict), withheld: false, onContinue: () => renderCompletion(d) });
+      pendingDone = d;
+      renderFeedbackStep({ verdict, rating, calibration: d.calibration, sources: sourcesOf(d, verdict), authoring: lastAuthoring, withheld: false,
+        onContinue: () => { pendingDone = null; renderCompletion(d); } });
       return;
     }
     renderCompletion(d);
@@ -944,10 +969,20 @@
     focusHeading(title);
   }
 
+  // L-6: consolidated only past the host's attempt floor and threshold; below it a concept was practised (named with
+  // its number of graded answers); without a graded answer it is not measured yet. An older host's to_revisit list
+  // is still shown under its own heading.
   function summaryGroups(summary) {
     const named = (list) => (Array.isArray(list) ? list : []).map(conceptName).filter(Boolean);
+    const practised = (Array.isArray(summary.practised) ? summary.practised : []).map((c) => {
+      const name = conceptName(c);
+      const n = isObject(c) && Number.isFinite(c.answers) ? c.answers : null;
+      return n === null || !name ? name : `${name} ${t(n === 1 ? "pane_completion_answers_one" : "pane_completion_answers", { count: n })}`;
+    }).filter(Boolean);
     return [
       { name: "consolidated", label: t("pane_completion_consolidated"), items: named(summary.consolidated) },
+      { name: "practised", label: t("pane_completion_practised"), items: practised },
+      { name: "not-measured", label: t("pane_completion_not_measured"), items: named(summary.not_measured) },
       { name: "to-revisit", label: t("pane_completion_to_revisit"), items: named(summary.to_revisit) },
     ].filter((g) => g.items.length);
   }
@@ -1116,14 +1151,20 @@
   // the transcript) WITHOUT advancing; "Terminer" advances the scene with an ack.
   function discussionControls(wrap) {
     const field = answerField(t("pane_discussion_placeholder"));
+    const sendBtn = el("button", { type: "button", class: "st-button st-button--primary primary", disabled: true }, t("pane_send"));
+    const sync = requireText(field.textarea, sendBtn);
+    // UX-07: the turn is shown as pending until the host answers; if it fails, it leaves the transcript and its
+    // text returns to the box (showActionError).
     const sendTurn = () => {
       const text = field.textarea.value.trim();
       if (!text || !window.__send) return;
       if (!postAction({ type: "turn", text }, t("pane_tutor_pending"))) return;
-      appendTurn("learner", text);
+      const line = appendTurn("learner", text);
+      if (line) line.classList.add("turn-pending");
+      ui.pendingTurn = line ? { line, text, textarea: field.textarea, sync } : null;
       field.textarea.value = "";
+      sync();
     };
-    const sendBtn = el("button", { type: "button", class: "st-button st-button--primary primary" }, t("pane_send"));
     sendBtn.addEventListener("click", sendTurn);
     const fin = el("button", { type: "button", class: "st-button st-button--quiet" }, t("pane_finish_discussion"));
     fin.addEventListener("click", () => postAction({ type: "respond", input: { kind: "ack" } }, t("pane_next_step")));
@@ -1142,9 +1183,19 @@
       t("pane_sending_response"),
     );
     const button = el("button", { type: "button", class: "st-button st-button--primary primary" }, t(f.label));
-    button.addEventListener("click", submit);
+    requireText(field.textarea, button);
+    button.addEventListener("click", () => { if (field.textarea.value.trim()) submit(); });
     wrap.append(field.node, confidence.node, el("div", { class: "st-actions" }, button));
-    ui.keys = { textarea: field.textarea, submitText: submit };
+    ui.keys = { textarea: field.textarea, submitText: () => { if (field.textarea.value.trim()) submit(); } };
+  }
+
+  // UX-08: an empty answer box is not an answer — its submit button waits for text, as « Valider » waits for a
+  // choice (VSC-8). Returns the sync function (called again when the box is emptied by the pane itself).
+  function requireText(textarea, button) {
+    const sync = () => { if (!actionPending) button.disabled = !textarea.value.trim(); };
+    textarea.addEventListener("input", sync);
+    sync();
+    return sync;
   }
 
   // A reproduction the LEARNER must run (run_manifest): the host refuses to advance before the run,
@@ -1222,12 +1273,13 @@
   // append one dialogue turn to the discussion transcript. `meta` is an optional reasoning-signal
   // note shown under a tutor reply. No-op when the scene has no transcript.
   function appendTurn(role, text, meta) {
-    if (!ui.turns) return;
+    if (!ui.turns) return null;
     const line = el("div", { class: "turn turn-" + role });
     line.append(el("span", { class: "turn-who st-eyebrow" }, t(role === "learner" ? "pane_you" : "pane_tutor")));
     line.append(el("div", { class: "turn-text", html: renderMarkdown(text) }));
     if (meta) line.append(el("div", { class: "turn-meta" }, meta));
     ui.turns.append(line);
+    return line;
   }
 
   // --- keyboard (VSC-8) -------------------------------------------------------------------------------
@@ -1247,7 +1299,10 @@
       return;
     }
     if (ev.ctrlKey || ev.metaKey || !keys.choices) return;
-    if (target && target.closest("textarea, select, .confrow, input:not([type=radio])")) return;
+    // UX-02 (WCAG 2.1.4): a letter or a digit picks a card only while focus is inside the choices — never from a
+    // link, the hint button or the heading, where a dictated word or a screen reader's keys would answer.
+    if (!target || !keys.choices.fieldset.contains(target)) return;
+    if (target.closest("textarea, select, .confrow, input:not([type=radio])")) return;
     if (ev.key === "Enter") {
       if (target && target.type === "radio" && target.checked) { ev.preventDefault(); keys.choices.submit(); }
       return;
@@ -1459,6 +1514,12 @@
     }
     else if (d.type === "turn_result") {
       setActionPending(false);
+      if (ui.pendingTurn) {
+        const turn = ui.pendingTurn;
+        ui.pendingTurn = null;
+        turn.line.classList.remove("turn-pending");
+        turn.sync();
+      }
       // the Socratic tutor's reply to the last discussion turn, with the kind of reasoning noticed
       // in words (an unknown signal is not shown: it would print a raw code).
       const signal = d.reasoning && REASONING_SIGNALS.has(d.reasoning.signal)
@@ -1470,11 +1531,18 @@
     }
     else if (d.type === "recall_rated") {
       if (ui.rating && ui.rating.sceneId === d.sceneId && RECALL_GRADES.includes(d.grade)) ui.rating.confirmed(d.grade);
+      // UX-11: the rating moved the next review; the end screen behind this feedback shows the new date.
+      if (pendingDone && isObject(d.completion)) pendingDone.completion = { ...(isObject(pendingDone.completion) ? pendingDone.completion : {}), ...d.completion };
     }
     else if (d.type === "action_pending") setActionPending(true, d.message);
     else if (d.type === "action_settled") setActionPending(false);
     else if (d.type === "action_notice") showActionNotice(d.message);
-    else if (d.type === "action_error") showActionError(d.message);
+    else if (d.type === "action_error") {
+      // UX-09: a rating's error belongs to the feedback step that asked for it; once that screen is gone it is
+      // dropped instead of being shown on an unrelated scene.
+      if (d.action === "rateRecall" && !(ui.rating && (!d.sceneId || ui.rating.sceneId === d.sceneId))) return;
+      showActionError(d.message);
+    }
     else if (d.type === "loading") {
       const r = resetPane();
       memory = freshMemory();

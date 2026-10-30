@@ -12,7 +12,7 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
-  SessionHost, publicPresentation, operatorContext, type SelfRating,
+  SessionHost, NowMsSchema, publicPresentation, operatorContext, type SelfRating,
 } from "@studium/lesson-session-host";
 import { lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type ToolResult } from "./operations.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools } from "./authoring-tools.js";
@@ -30,14 +30,19 @@ export const TOOL_NAMES: readonly string[] = [
 /** C4 self-rating grades, in FSRS order (lesson-session's SELF_RATING_CHOICES; a test pins the match). */
 export const RECALL_GRADES = ["again", "hard", "good", "easy"] as const satisfies readonly SelfRating[];
 
+/** The reply call written the way submit_response takes it (RT-8a): the instructions and both prompts
+ * use it, so a harness that follows them literally sends a valid call. */
+export const REPLY_CALL = "submit_response {session_id, input: {kind: \"reply\", text}}";
+
 /** What a harness reads once, at connection (MCP `instructions`). */
 export const SERVER_INSTRUCTIONS = [
   "Studium teaches through the learner's own answers: you relay, the learner answers.",
-  "- Start with get_study_plan: its next_step names the call to make (start_review_session, start_lesson_session, or the authoring tools).",
+  "- Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools).",
   "- Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.",
+  "- Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.",
   "- Show display_markdown as it is: on a presentation; after an answer, verdict.display_markdown first, then the transition's.",
   "- On the first screen, relay the authoring notice; if persistence.durable is false, tell the learner progress is lost at restart.",
-  "- Wait for the learner's answer and send their words with submit_response {kind: \"reply\", text}; never answer, choose or rate for them.",
+  `- Wait for the learner's answer and send their words with ${REPLY_CALL}; never answer, choose or rate for them.`,
   "- When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.",
   "- start_review_session plays every review due, across lessons; list_lessons shows what can be started.",
   "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session.",
@@ -74,7 +79,12 @@ function operation<S extends z.ZodRawShape>(
 
 const learnerIdArg = z.string().min(1).max(200).optional()
   .describe("one stable id per learner; defaults to persistence.learner_id_default");
-const nowMsArg = z.number().optional().describe("epoch ms, for deterministic scheduling; defaults to the server clock");
+/** L-1: an integer epoch a Date can hold, refused otherwise in one line (session-clock.ts). */
+const nowMsArg = NowMsSchema.optional();
+/** L-4: the language the study tools speak. */
+const languageArg = z.enum(["fr", "en"], { errorMap: () => ({ message: "language must be fr or en" }) }).optional()
+  .describe("fr or en: the language of display_markdown and of the next step; defaults to the language of the " +
+    "learner's last lesson, else the server's");
 
 /** The C1 study tools, transport-independent like lessonOperations (an HTTP surface can add them as is). */
 export function studyOperations(host: SessionHost): Operation[] {
@@ -83,34 +93,43 @@ export function studyOperations(host: SessionHost): Operation[] {
       "List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson " +
       "written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who " +
       "wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). " +
-      "`query` keeps the lessons whose title, ref, discipline or concepts contain every word of it.",
-      { query: z.string().max(200).optional(), learner_id: z.string().min(1).max(200).optional() },
-      async ({ query, learner_id }) => host.listLessons({
+      "`query` keeps the lessons whose title, ref, discipline or concepts contain every word of it. display_markdown " +
+      "is the list in `language`, ready to show.",
+      { query: z.string().max(200).optional(), learner_id: z.string().min(1).max(200).optional(), language: languageArg },
+      async ({ query, learner_id, language }) => host.listLessons({
         ...(query === undefined ? {} : { query }), ...(learner_id === undefined ? {} : { learnerId: learner_id }),
+        ...(language === undefined ? {} : { language }),
       })),
 
     operation("get_study_plan",
       "Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, " +
       "the next lesson, and next_step {action: review|continue|start|author|wait, tool, arguments, text} naming the " +
-      "call to make. display_markdown is the plan in the learner's language, ready to show.",
-      { learner_id: learnerIdArg, now_ms: nowMsArg },
-      async ({ learner_id, now_ms }) => host.studyPlan(learner_id, now_ms === undefined ? {} : { nowMs: now_ms })),
+      "call to make with its arguments (language included where the tool takes one). With the minutes a day the " +
+      "learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in " +
+      "`language`, ready to show. Dates (due_date, next_review_date) are days in get_server_info.time_zone.",
+      { learner_id: learnerIdArg, now_ms: nowMsArg, language: languageArg },
+      async ({ learner_id, now_ms, language }) => host.studyPlan(learner_id, {
+        ...(now_ms === undefined ? {} : { nowMs: now_ms }), ...(language === undefined ? {} : { language }),
+      })),
 
     operation("start_review_session",
       "Start a review session: one retrieval scene per concept due, taken from the lessons the learner studied — " +
       "mastered concepts whose recall is due, then reviewed ones still weak. Play it like a lesson (submit_response, " +
       "rate_recall); its answers update the learner's memory and mastery, and it is never recorded as a lesson " +
-      "completed. Returns {status: \"started\", session_id, review: {items}, presentation, ...}, or {status: " +
-      "\"nothing_due\", next_review_at, next_review_date, display_markdown} saying when the next review falls.",
+      "completed. With now_ms it runs on a clock anchored there (its answers and ratings are dated from it). Returns " +
+      "{status: \"started\", session_id, review: {items, not_playable?}, presentation, ...}, or {status: " +
+      "\"nothing_due\", next_review_at, next_review_date, display_markdown, not_playable?} saying when the next review " +
+      "falls; not_playable names the concepts due that no lesson on disk can review any more.",
       {
         learner_id: learnerIdArg, max_items: z.number().int().min(1).max(50).optional(), now_ms: nowMsArg,
-        presentation_language: z.string().optional(),
+        presentation_language: z.string().optional(), language: languageArg,
       },
-      async ({ learner_id, max_items, now_ms, presentation_language }) => {
+      async ({ learner_id, max_items, now_ms, presentation_language, language }) => {
         const r = await host.startReview(learner_id, {
           ...(max_items === undefined ? {} : { maxItems: max_items }),
           ...(now_ms === undefined ? {} : { nowMs: now_ms }),
           ...(presentation_language === undefined ? {} : { presentationLanguage: presentation_language }),
+          ...(language === undefined ? {} : { language }),
         });
         if (r.status === "nothing_due") return r;
         // The answer keys stay on the server: only the public projection of the scene ships.
@@ -134,41 +153,64 @@ export function studyOperations(host: SessionHost): Operation[] {
   ];
 }
 
-/** Where create_lesson writes (D3, C6, integration item 1): the folder this server looks lessons up in
- * first. That is the C6 library, <STUDIUM_HOME>/library, unless BUNDLES_ROOT names another folder; then
- * that folder, where review_lesson and class_report read lessons too, so a lesson just written is
- * listed, started and reviewed at once. */
+/** Where create_lesson and prepare_sources write (L-12, SEC-1, RT-8d): always the learner's library, the
+ * C6 library <STUDIUM_HOME>/library, never the folder BUNDLES_ROOT names — a repository's fixtures,
+ * where the full text of the learner's sources would be committed and a teacher's lesson replaced.
+ * list_lessons and start_lesson_session search the library after BUNDLES_ROOT, so a lesson just written
+ * is listed and started at once, and persistence.library_root names it. A host with no library refuses. */
 function authoringRoot(host: SessionHost): string {
-  return host.bundlesRoot;
+  const library = host.libraryRoot;
+  if (!library) {
+    throw new Error("this server has no learner library to write lessons into: lessons and their sources go to " +
+      "<STUDIUM_HOME>/library (persistence.library_root), never into BUNDLES_ROOT; start the server with the C6 defaults");
+  }
+  return library;
 }
 
 type PromptLocale = "en" | "fr";
 
-const PROMPTS: Record<PromptLocale, { learn: (topic?: string, learnerId?: string) => string; review: (learnerId?: string) => string }> = {
+/** The arguments a prompt names in the calls it asks for: learner_id, then language (L-4). */
+function callArgs(locale: PromptLocale, learnerId?: string, language?: PromptLocale): string {
+  const named = [
+    ...(learnerId ? [locale === "fr" ? `learner_id « ${learnerId} »` : `learner_id "${learnerId}"`] : []),
+    ...(language ? [locale === "fr" ? `language « ${language} »` : `language "${language}"`] : []),
+  ];
+  if (!named.length) return "";
+  return locale === "fr" ? ` avec ${named.join(" et ")}` : ` with ${named.join(" and ")}`;
+}
+
+/** RFR-16, R-en-10: list_lessons only when the plan does not already say to author a lesson. RT-8a: the
+ * reply call as submit_response takes it. */
+const PROMPTS: Record<PromptLocale, {
+  learn: (topic?: string, learnerId?: string, language?: PromptLocale) => string;
+  review: (learnerId?: string, language?: PromptLocale) => string;
+}> = {
   en: {
-    learn: (topic, learnerId) =>
+    learn: (topic, learnerId, language) =>
       `I want to learn ${topic ? `“${topic}”` : "something new"} with Studium. Call get_study_plan` +
-      `${learnerId ? ` with learner_id "${learnerId}"` : ""} and follow its next step. If no lesson covers what I want ` +
-      "(list_lessons), ask me for my sources and build one with get_authoring_guide, prepare_sources and create_lesson. " +
-      "Show each display_markdown as it is, wait for my own answer and send it with submit_response {kind: \"reply\", text}. " +
-      "Never answer for me.",
-    review: (learnerId) =>
-      `Run my Studium reviews: call start_review_session${learnerId ? ` with learner_id "${learnerId}"` : ""}. ` +
-      "Show each display_markdown as it is, wait for my answer and send it with submit_response {kind: \"reply\", text}. " +
+      `${callArgs("en", learnerId, language)} and follow its next step. If its next_step is author, ask me for my ` +
+      "sources and build a lesson with get_authoring_guide, prepare_sources and create_lesson. Otherwise, if what it " +
+      `proposes does not cover what I want, call list_lessons${callArgs("en", learnerId, language)} to find a lesson, ` +
+      "or build one from my sources the same way. Show each display_markdown as it is, wait for my own answer and send " +
+      `it with ${REPLY_CALL}. Never answer for me.`,
+    review: (learnerId, language) =>
+      `Run my Studium reviews: call start_review_session${callArgs("en", learnerId, language)}. ` +
+      `Show each display_markdown as it is, wait for my answer and send it with ${REPLY_CALL}. ` +
       "When a transition carries self_rating, ask me to rate my recall (again, hard, good or easy) and pass my rating " +
       "to rate_recall. If nothing is due, tell me when my next review is.",
   },
   fr: {
-    learn: (topic, learnerId) =>
+    learn: (topic, learnerId, language) =>
       `Je veux apprendre ${topic ? `« ${topic} »` : "quelque chose de nouveau"} avec Studium. Appelle get_study_plan` +
-      `${learnerId ? ` avec learner_id « ${learnerId} »` : ""} et suis son étape suivante. Si aucune leçon ne couvre ce ` +
-      "que je veux (list_lessons), demande-moi mes sources et prépare une leçon avec get_authoring_guide, prepare_sources " +
-      "et create_lesson. Montre chaque display_markdown tel quel, attends ma propre réponse et transmets-la avec " +
-      "submit_response {kind: \"reply\", text}. Ne réponds jamais à ma place.",
-    review: (learnerId) =>
-      `Lance mes révisions Studium : appelle start_review_session${learnerId ? ` avec learner_id « ${learnerId} »` : ""}. ` +
-      "Montre chaque display_markdown tel quel, attends ma réponse et transmets-la avec submit_response {kind: \"reply\", " +
-      "text}. Quand une transition porte self_rating, demande-moi de noter mon rappel (again, hard, good ou easy) et " +
+      `${callArgs("fr", learnerId, language)}, puis suis son étape suivante. Si son next_step est author, demande-moi ` +
+      "mes sources et prépare une leçon avec get_authoring_guide, prepare_sources et create_lesson. Sinon, si ce qu'il " +
+      `propose ne couvre pas ce que je veux, appelle list_lessons${callArgs("fr", learnerId, language)} pour trouver une ` +
+      "leçon, ou prépare-la de la même façon à partir de mes sources. Montre chaque display_markdown tel quel, attends " +
+      `ma propre réponse et transmets-la avec ${REPLY_CALL}. Ne réponds jamais à ma place.`,
+    review: (learnerId, language) =>
+      `Lance mes révisions Studium : appelle start_review_session${callArgs("fr", learnerId, language)}. ` +
+      `Montre chaque display_markdown tel quel, attends ma réponse et transmets-la avec ${REPLY_CALL}. ` +
+      "Quand une transition porte self_rating, demande-moi de noter mon rappel (again, hard, good ou easy) et " +
       "transmets ma note à rate_recall. S'il n'y a rien à réviser, dis-moi quand tombe ma prochaine révision.",
   },
 };
@@ -185,12 +227,12 @@ function registerPrompts(server: McpServer): void {
     title: "Learn with Studium",
     description: "Learn a topic with Studium: follow the study plan, or build a lesson from your own sources.",
     argsSchema: { topic: z.string().optional().describe("what to learn"), learner_id: promptLearner, language: promptLocale },
-  }, ({ topic, learner_id, language }) => userMessage(PROMPTS[language ?? "en"].learn(topic, learner_id)));
+  }, ({ topic, learner_id, language }) => userMessage(PROMPTS[language ?? "en"].learn(topic, learner_id, language)));
   server.registerPrompt("review", {
     title: "Review with Studium",
     description: "Play the Studium reviews due today, across every lesson studied.",
     argsSchema: { learner_id: promptLearner, language: promptLocale },
-  }, ({ learner_id, language }) => userMessage(PROMPTS[language ?? "en"].review(learner_id)));
+  }, ({ learner_id, language }) => userMessage(PROMPTS[language ?? "en"].review(learner_id, language)));
 }
 
 /** The MCP server over `host`: lesson operations, study, authoring and teacher tools, instructions and

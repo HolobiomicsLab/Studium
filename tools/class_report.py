@@ -174,13 +174,17 @@ def build_report(run_dir: Path, min_learners: int = MIN_LEARNERS_DEFAULT,
     # (sessions/<persona>/telemetry.jsonl) and the durable MCP-host layout
     # (data/<pseudonym>/<bundle_id>/telemetry.jsonl). Each file = one learner-session.
     streams = sorted(str(p) for p in Path(run_dir).rglob("telemetry.jsonl"))
-    # per-concept accumulators (aggregated across learners). `members` is the population R1
-    # requires each row to name: the raw (lesson, pseudonym, stream) triples of the events
-    # pooled into THIS row, resolved under the run's one identity rule after the scan.
+    # per-concept accumulators (aggregated across learners). Each figure names the population R1
+    # requires: the raw (lesson, pseudonym, stream) triples of the learners it is computed over,
+    # resolved under the run's one identity rule after the scan, and floored on its own (SEC-2: a
+    # row's floor used to count everyone who sent an event, hint-only learners included, while its
+    # accuracy, gap and time were computed over the answers of fewer). The rules are the MCP
+    # class_report's (apps/lesson-mcp/src/teacher-tools.ts); a parity test runs both on one stream.
     by_concept: dict[str, dict] = defaultdict(lambda: {
-        "attempts": 0, "correct": 0, "hint_requests": 0, "conf_sum": 0.0,
+        "attempts": 0, "measured": 0, "correct": 0,
+        "rated_n": 0, "rated_correct": 0, "rated_conf_sum": 0.0,
         "overconfident": 0, "underconfident": 0, "time_ms": 0, "timed": 0,
-        "members": set(),
+        "attempting": set(), "measured_by": set(), "rated_by": set(), "timed_by": set(), "hinted_by": set(),
     })
     trust_by_scene: dict[str, dict] = defaultdict(lambda: {
         "planted": 0, "missed": 0, "fp": 0, "sound": 0, "members": set(),
@@ -225,36 +229,50 @@ def build_report(run_dir: Path, min_learners: int = MIN_LEARNERS_DEFAULT,
             elif t == "quiz_answered":
                 c = s2c.get(e.get("scene_id"), e.get("scene_id"))
                 a = by_concept[c]
-                a["members"].add(member)
+                correct = bool(e.get("correct"))
+                a["attempting"].add(member)
                 a["attempts"] += 1
-                a["correct"] += 1 if e.get("correct") else 0
-                # I-5: confidence is optional. An unrated answer carries NO self-rated confidence, so it
-                # stays calibration-neutral like a critique item (conf == accuracy, gap 0) and never
-                # lands in the over/under-confidence tails; a rating of 0.0 is a real rating.
+                a["measured"] += 1
+                a["measured_by"].add(member)
+                a["correct"] += 1 if correct else 0
+                # I-5 / H5: confidence is optional. An unrated answer carries NO self-rated
+                # confidence: it is left out of the calibration figures entirely (not 0.0, and not
+                # conf == correctness, which diluted a rated gap toward 0 and showed 0.0 —
+                # "perfectly calibrated" — for a concept nobody rated). A rating of 0.0 is a rating.
                 raw_conf = e.get("confidence")
-                rated = isinstance(raw_conf, (int, float)) and not isinstance(raw_conf, bool)
-                conf = float(raw_conf) if rated else (1.0 if e.get("correct") else 0.0)
-                a["conf_sum"] += conf
-                if rated and conf >= 0.6 and not e.get("correct"):
-                    a["overconfident"] += 1
-                if rated and conf <= 0.4 and e.get("correct"):
-                    a["underconfident"] += 1
-                a["time_ms"] += int(e.get("response_time_ms") or 0)
-                a["timed"] += 1
+                if isinstance(raw_conf, (int, float)) and not isinstance(raw_conf, bool):
+                    conf = float(raw_conf)
+                    a["rated_n"] += 1
+                    a["rated_correct"] += 1 if correct else 0
+                    a["rated_conf_sum"] += conf
+                    a["rated_by"].add(member)
+                    if conf >= 0.6 and not correct:
+                        a["overconfident"] += 1
+                    if conf <= 0.4 and correct:
+                        a["underconfident"] += 1
+                # Only an answer that carries a time is timed: a missing time is not 0 s.
+                raw_ms = e.get("response_time_ms")
+                if isinstance(raw_ms, (int, float)) and not isinstance(raw_ms, bool):
+                    a["time_ms"] += raw_ms
+                    a["timed"] += 1
+                    a["timed_by"].add(member)
             elif t == "critique_submitted":
-                # Scored free-response scenes (ai_critique / spot_the_flaw / explain_back) roll up
-                # into the SAME per-concept accuracy as quizzes: a pass is llm_score >= 0.6. These
-                # items carry NO self-rated confidence, so they must stay CALIBRATION-NEUTRAL: conf_sum
-                # gets the SAME binary as `correct` (1.0 on pass else 0.0), making their contribution to
-                # calibration_gap exactly 0 (conf == accuracy). Adding the raw score instead would falsely
-                # shift the gap on concepts that mix quizzes and critiques. No response_time → not `timed`.
+                # Scored free-response scenes (ai_critique / spot_the_flaw / explain_back) count as an
+                # attempt; they reach accuracy only when a model judge or a verdict deck scored them
+                # (score_source "llm" / "verdict_deck"), a pass being llm_score >= 0.6. A keyword score
+                # nobody judged is not a measure of understanding (RT-3): it used to rank a concept
+                # first for re-teaching on the strength of a keyword match. These items carry no
+                # self-rated confidence and no response time, so they never enter calibration or time.
                 c = s2c.get(e.get("scene_id"), e.get("scene_id"))
                 a = by_concept[c]
-                a["members"].add(member)
+                a["attempting"].add(member)
                 a["attempts"] += 1
-                passed = float(e.get("llm_score") or 0.0) >= 0.6
-                a["correct"] += 1 if passed else 0
-                a["conf_sum"] += 1.0 if passed else 0.0
+                if e.get("score_source") in ("llm", "verdict_deck"):
+                    score = e.get("llm_score")
+                    passed = isinstance(score, (int, float)) and not isinstance(score, bool) and score >= 0.6
+                    a["measured"] += 1
+                    a["measured_by"].add(member)
+                    a["correct"] += 1 if passed else 0
             elif t == "ai_audit_result":
                 sid = str(e.get("scene_id") or "")
                 a = trust_by_scene[sid]
@@ -265,8 +283,7 @@ def build_report(run_dir: Path, min_learners: int = MIN_LEARNERS_DEFAULT,
                 a["sound"] += int(e.get("sound_total") or 0)
             elif t == "hint_requested":
                 c = s2c.get(e.get("scene_id"), e.get("scene_id"))
-                by_concept[c]["hint_requests"] += 1
-                by_concept[c]["members"].add(member)
+                by_concept[c]["hinted_by"].add(member)
             elif t == "adaptation_applied":
                 rid = str(e.get("rule_id") or "")
                 rule_counts[rid] += 1
@@ -322,25 +339,28 @@ def build_report(run_dir: Path, min_learners: int = MIN_LEARNERS_DEFAULT,
     concepts = []
     withheld_concepts = False
     for cid, a in by_concept.items():
-        concept_population = _population(a["members"], rule)
+        if not a["attempts"]:
+            continue  # hints only: no answer, nothing to report or withhold
+        concept_population = _population(a["attempting"], rule)
         if concept_population.below_floor(min_learners):
             withheld_concepts = True
             continue
-        n = a["attempts"] or 1
+        figures, withheld_figures = _concept_figures(a, rule, min_learners)
+        withheld_concepts = withheld_concepts or bool(withheld_figures)
         concepts.append({
             "concept": cid,
             "n_attempts": a["attempts"],
-            "accuracy": round(a["correct"] / n, 3),
-            "hint_reliance": round(a["hint_requests"] / n, 3),
-            "calibration_gap": round((a["conf_sum"] / n) - (a["correct"] / n), 3),  # + = overconfident
-            "overconfidence_rate": round(a["overconfident"] / n, 3),
-            "mean_time_s": round(a["time_ms"] / (a["timed"] or 1) / 1000, 1),  # only timed (quiz) items
+            "n_measured": a["measured"],
+            **figures,
+            "withheld_figures": withheld_figures,
             # The band, not the count: an exact contributor count per concept moves once per
             # contributor and is read against the roster the teacher holds.
             "cohort_band": cohort_band(concept_population.size, min_learners),
         })
-    # surface the concepts most in need of re-teaching: low accuracy, then high hint-reliance
-    concepts.sort(key=lambda x: (x["accuracy"], -x["hint_reliance"]))
+    # surface the concepts most in need of re-teaching: low accuracy (unmeasured last), then high
+    # hint-reliance, then the concept id — the MCP report's order.
+    concepts.sort(key=lambda x: (2 if x["accuracy"] is None else x["accuracy"],
+                                 -(x["hint_reliance"] or 0), x["concept"]))
 
     completion = _population(completion_members, rule)
     return {
@@ -374,10 +394,47 @@ def build_report(run_dir: Path, min_learners: int = MIN_LEARNERS_DEFAULT,
         # the class and reads against a roster (the R1 lesson: a count moved to a neighbouring
         # key, or into the prose, is the same count).
         "withheld_below_floor": withheld_concepts,
-        "reteach_priority": [c["concept"] for c in concepts if c["accuracy"] < 0.8][:5],
+        "reteach_priority": [c["concept"] for c in concepts
+                             if c["accuracy"] is not None and c["accuracy"] < 0.8][:5],
         "trust_calibration": _trust_section(trust_by_scene, s2c, rule, min_learners),
         "non_attribution": NON_ATTRIBUTION,
     }
+
+
+def _concept_figures(a: dict, rule: str, floor: int) -> tuple[dict, list[str]]:
+    """One concept's figures, each over its own population and None below the floor, plus the names
+    of the figures held back for that reason (an empty population is not measured, not withheld).
+    A figure is published by the row's own rule, `Population.below_floor`: per lesson, because a
+    union across lessons counts learner-lesson pairs and cannot lift one lesson over the floor.
+    Same rules as `figures` in apps/lesson-mcp/src/teacher-tools.ts (one bundle there)."""
+    def state(members: set) -> str:
+        if not members:
+            return "empty"
+        return "withheld" if _population(members, rule).below_floor(floor) else "published"
+
+    def size(members: set) -> int:
+        return _population(members, rule).size if members else 0
+
+    measured, rated, timed = state(a["measured_by"]), state(a["rated_by"]), state(a["timed_by"])
+    attempting = size(a["attempting"])
+    hinted = size(a["hinted_by"] & a["attempting"])
+    rated_n = a["rated_n"]
+    figures = {
+        "accuracy": round(a["correct"] / a["measured"], 3) if measured == "published" else None,
+        # learners who asked for a hint over learners who answered: a share of people, in [0, 1]
+        "hint_reliance": round(hinted / attempting, 3) if attempting else None,
+        # + = over-confident, over RATED answers only (I-5)
+        "calibration_gap": (round(a["rated_conf_sum"] / rated_n - a["rated_correct"] / rated_n, 3)
+                            if rated == "published" else None),
+        "overconfidence_rate": round(a["overconfident"] / rated_n, 3) if rated == "published" else None,
+        "mean_time_s": round(a["time_ms"] / a["timed"] / 1000, 1) if timed == "published" else None,
+    }
+    # Names only, never a count: which figures a population too small held back, so the report can
+    # say "withheld" rather than "not measured" for a figure that was measured.
+    withheld = [name for name, st in (("accuracy", measured), ("calibration_gap", rated),
+                                      ("overconfidence_rate", rated), ("mean_time_s", timed))
+                if st == "withheld"]
+    return figures, withheld
 
 
 def _trust_section(trust_by_scene: dict[str, dict], s2c: dict, rule: str,
@@ -460,16 +517,27 @@ def _md(rep: dict) -> str:
              f"*{_COLLECTOR_AUTONOMY_NAME}* is a different measurement under the same wire key.")
     L.append("")
     L.append("## Concepts (worst first — candidates to re-teach)")
-    L.append("| concept | cohort | n | accuracy | hint-reliance | calibration gap | overconf. | mean time (s) |")
-    L.append("|---|:-:|--:|--:|--:|--:|--:|--:|")
+    L.append("| concept | cohort | answers | graded | accuracy | hint-reliance | calibration gap | overconf. | mean time (s) |")
+    L.append("|---|:-:|--:|--:|--:|--:|--:|--:|--:|")
+
+    def shown(c: dict, key: str, signed: bool = False) -> str:
+        # None is "not measured" — or, when the figure was measured over fewer learners than the
+        # floor, "withheld" — never 0.
+        value = c[key]
+        if value is None:
+            return ("withheld (fewer than k)" if key in c.get("withheld_figures", ())
+                    else "not measured")
+        return f"{value:+}" if signed else f"{value}"
+
     for c in rep["concepts"]:
-        L.append(f"| {c['concept']} | {c['cohort_band']} | {c['n_attempts']} | {c['accuracy']} | "
-                 f"{c['hint_reliance']} | "
-                 f"{c['calibration_gap']:+} | {c['overconfidence_rate']} | {c['mean_time_s']} |")
+        L.append(f"| {c['concept']} | {c['cohort_band']} | {c['n_attempts']} | {c['n_measured']} | "
+                 f"{shown(c, 'accuracy')} | {shown(c, 'hint_reliance')} | "
+                 f"{shown(c, 'calibration_gap', signed=True)} | {shown(c, 'overconfidence_rate')} | "
+                 f"{shown(c, 'mean_time_s')} |")
     if rep["withheld_below_floor"]:
         L.append("")
-        L.append("> At least one concept is not shown: fewer learners contributed to it than "
-                 "the floor allows. How many were withheld is not stated — that number grows "
+        L.append("> At least one concept or figure is not shown: fewer learners contributed to it "
+                 "than the floor allows. How many were withheld is not stated — that number grows "
                  "with the class and can be read against the list of names you hold.")
     L.append("")
     L.append("## Trust calibration (judgment over real artifacts)")
@@ -494,8 +562,10 @@ def _md(rep: dict) -> str:
     L.append("")
     L.append(f"**Re-teach priority:** {', '.join(rep['reteach_priority']) or '(none — class above 0.8)'}")
     L.append(f"\n**Top adaptations fired:** {rep['top_adaptation_rules']}")
-    L.append("\n> Calibration gap > 0 = class over-confident on that concept. No learner is named; "
-             "individual mastery records never leave the learner's device.")
+    L.append("\n> Calibration gap > 0 = class over-confident on that concept, over the answers learners "
+             "rated (an unrated answer is left out). Accuracy counts only answers a key or a model judge "
+             "graded; a keyword score is an answer, not a grade. No learner is named; individual "
+             "mastery records never leave the learner's device.")
     L.append(f"\n> {rep['non_attribution']}.")
     return "\n".join(L)
 

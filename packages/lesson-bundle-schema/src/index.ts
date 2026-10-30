@@ -47,6 +47,12 @@ export const BundleAuthoringSchema = z.object({
    * self-study bundle, `teacher` otherwise (draftedByOf in @studium/lesson-session-host). */
   drafted_by: DraftedBySchema.optional(),
   note: z.string().optional(),
+  /** What the study plan needs from the learner's intake: minutes a day and a target date. What the
+   * learner already knows or likes shapes the draft and is never stored with a shareable lesson. */
+  learner_profile: z.object({
+    minutes_per_day: z.number().int().min(1).max(600).optional(),
+    target_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  }).optional(),
 });
 export type AuthoringMode = z.infer<typeof AuthoringModeSchema>;
 export type DraftedBy = z.infer<typeof DraftedBySchema>;

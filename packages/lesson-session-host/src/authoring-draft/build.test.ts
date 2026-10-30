@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LessonBundleSchema } from "@studium/lesson-bundle-schema";
@@ -136,7 +136,8 @@ describe("createLesson: a valid draft", () => {
       id: "prerequisite:c-organique:c-mecanique", relation: "prerequisite_for",
       source: "concept:c-organique", target: "concept:c-mecanique",
     }]);
-    expect(bundle.rules.map((rule) => rule.explanation_short)).toEqual(["Deux erreurs sur ce concept : on reprend la scène avec un appui."]);
+    // L-5: French typography, a no-break space before the colon.
+    expect(bundle.rules.map((rule) => rule.explanation_short)).toEqual(["Deux erreurs sur ce concept\u00a0: on reprend la scène avec un appui."]);
     expect(bundle.metadata.duration_minutes).toBe(14);
   });
 
@@ -147,6 +148,8 @@ describe("createLesson: a valid draft", () => {
     expect(refs).toEqual([{
       perspicacite_doc_id: P1, title: "Deux formes de solidarité", authors: [],
       excerpt: "comme les molécules d’un corps inerte", relevance_score: 1, prov_derived_from: "https://example.org/solidarite",
+      // L-3: the licence the learner's source was prepared with travels with every citation.
+      license: "CC-BY-4.0",
     }]);
     expect(bundle.scenes[5]!.evidence?.enrichment_metadata).toEqual({
       enricher_version: "studium-authoring-draft/1", perspicacite_mode_used: "passages", timestamp: NOW.toISOString(), degraded: false,
@@ -308,14 +311,14 @@ describe("createLesson: the learner profile (SL-6)", () => {
     expect(ok.findings).toContainEqual(expect.objectContaining({ level: "WARN", code: "no_opening_diagnostic" }));
   });
 
-  it("is satisfied by a meta_checkpoint and a production scene after the intro", async () => {
+  it("is satisfied by a meta_checkpoint and a production scene after the intro, both flagged diagnostic", async () => {
     const { root, set } = await prepared();
     const draft = validDraft();
     const diagnostic = [
-      { type: "meta_checkpoint", title: "Où en êtes-vous ?", concept_refs: ["c-mecanique"],
+      { type: "meta_checkpoint", title: "Où en êtes-vous ?", concept_refs: ["c-mecanique"], diagnostic: true,
         pre_question: "Avant : à quel point savez-vous ce qui fait tenir une société ?",
         post_question: "Après : et maintenant ?", quotes: [] },
-      { type: "explain_back", title: "Ce que vous savez déjà", concept_refs: ["c-mecanique"],
+      { type: "explain_back", title: "Ce que vous savez déjà", concept_refs: ["c-mecanique"], diagnostic: true,
         prompt: "Dites en deux phrases ce qui fait tenir ensemble des gens qui se ressemblent.",
         key_points: [{ text: "Les mêmes croyances", cues: ["croyance", "partag"] }],
         model_explanation: "Ils partagent les mêmes croyances et les mêmes sentiments.",
@@ -326,8 +329,172 @@ describe("createLesson: the learner profile (SL-6)", () => {
       source_set_id: set.source_set_id, draft: { ...draft, learner_profile: { interests: ["droit"] } },
     }, { now: () => NOW }));
     expect(ok.findings.map((item) => item.code)).not.toContain("no_opening_diagnostic");
+    expect(ok.findings.map((item) => item.code)).not.toContain("no_opening_diagnostic_flag");
     const meta = ok.bundle.scenes[1]!;
     if (meta.type !== "meta_checkpoint") throw new Error("expected a meta_checkpoint");
     expect(meta.scale_labels).toEqual(["Pas du tout", "Un peu", "Moyennement", "Plutôt bien", "Tout à fait"]);
+  });
+
+  it("asks for both diagnostic flags when the opening has the right shape but only its meta_checkpoint is flagged", async () => {
+    const { root, set } = await prepared();
+    const draft = validDraft();
+    draft.scenes.splice(1, 0,
+      { type: "meta_checkpoint", title: "Où en es-tu ?", concept_refs: ["c-mecanique"], diagnostic: true,
+        pre_question: "Avant : à quel point sais-tu ce qui fait tenir une société ?",
+        post_question: "Après : et maintenant ?", quotes: [] },
+      { type: "explain_back", title: "Ce que tu sais déjà", concept_refs: ["c-mecanique"],
+        prompt: "Dis en deux phrases ce qui fait tenir ensemble des gens qui se ressemblent.",
+        key_points: [{ text: "Les mêmes croyances", cues: ["croyance", "partag"] }],
+        model_explanation: "Ils partagent les mêmes croyances et les mêmes sentiments.",
+        quotes: [{ passage_id: P1, text: "tous partagent les mêmes croyances et les mêmes sentiments" }] },
+    );
+    const ok = okResult(await createLesson(root, {
+      source_set_id: set.source_set_id, draft: { ...draft, learner_profile: { interests: ["droit"] } },
+    }, { now: () => NOW }));
+    const codes = ok.findings.map((item) => item.code);
+    expect(codes).not.toContain("no_opening_diagnostic");
+    const flag = ok.findings.find((item) => item.code === "no_opening_diagnostic_flag");
+    expect(flag).toMatchObject({ level: "WARN" });
+    expect(flag?.message).toContain("s3-explain_back");
+    expect(flag?.message).not.toContain("s2-meta_checkpoint");
+  });
+});
+
+describe("createLesson: the source licence (L-3)", () => {
+  it("leaves the licence out of a citation whose source declared none", async () => {
+    const root = mkdtempSync(join(tmpdir(), "authoring-build-"));
+    roots.push(root);
+    const { license: _declared, ...withoutLicense } = FRENCH_SOURCE;
+    const set = await prepareSources(root, [withoutLicense], { goal: GOAL, language: "fr" });
+    const bundle = okResult(await createLesson(root, { source_set_id: set.source_set_id, draft: validDraft() }, { now: () => NOW })).bundle;
+    const refs = bundle.scenes.flatMap((scene) => scene.evidence?.bibliographic_refs ?? []);
+    expect(refs.length).toBeGreaterThan(0);
+    for (const ref of refs) expect(ref).not.toHaveProperty("license");
+  });
+
+  it("writes the licence of each cited source into lesson.json", async () => {
+    const { root, result } = await created();
+    const written = JSON.parse(readFileSync(join(root, okResult(result).course_ref), "utf8")) as { scenes: Array<{ evidence?: { bibliographic_refs: Array<{ license?: string }> } }> };
+    const licences = written.scenes.flatMap((scene) => (scene.evidence?.bibliographic_refs ?? []).map((ref) => ref.license));
+    expect(licences.length).toBeGreaterThan(0);
+    expect(new Set(licences)).toEqual(new Set(["CC-BY-4.0"]));
+  });
+});
+
+describe("createLesson: diagnostic scenes (L-8)", () => {
+  it("keeps the draft's diagnostic flag on the scene, and no flag on the others", async () => {
+    const { root, set } = await prepared();
+    const draft = validDraft();
+    draft.scenes[4]!["diagnostic"] = true;
+    const bundle = okResult(await createLesson(root, { source_set_id: set.source_set_id, draft }, { now: () => NOW })).bundle;
+    expect(bundle.scenes[4]).toMatchObject({ id: "s5-explain_back", diagnostic: true });
+    expect(bundle.scenes.filter((scene) => scene.diagnostic !== undefined).map((scene) => scene.id)).toEqual(["s5-explain_back"]);
+  });
+});
+
+describe("createLesson: an unmeasurable prerequisite (RFR-17)", () => {
+  it("names the concept to give a quiz, and the concept that depends on it", async () => {
+    const { root, set } = await prepared();
+    const draft = validDraft();
+    draft.scenes.splice(2, 1); // the only quiz on c-mecanique, the prerequisite of c-organique
+    const ok = okResult(await createLesson(root, { source_set_id: set.source_set_id, draft }, { now: () => NOW }));
+    const warning = ok.findings.find((item) => item.code === "lwg_prereq_unassessable");
+    expect(warning).toMatchObject({ level: "WARN", message: expect.stringContaining("concept:c-mecanique") });
+    expect(warning?.hint).toMatch(/add a quiz on "c-mecanique"/);
+    expect(warning?.hint).toContain("c-organique");
+    expect(warning?.hint).toMatch(/without a judge model/);
+  });
+});
+
+describe("createLesson: the learner profile is kept (RFR-06)", () => {
+  const profile = { prior: "lycée", minutes_per_day: 10, target_date: "2026-12-01" };
+
+  it("stores only the scheduling part of the learner profile in metadata.authoring of the written lesson", async () => {
+    const { root, set } = await prepared();
+    const draft = { ...validDraft(), learner_profile: profile };
+    const ok = okResult(await createLesson(root, { source_set_id: set.source_set_id, draft }, { now: () => NOW }));
+    const written = JSON.parse(readFileSync(join(root, ok.course_ref), "utf8")) as { metadata: { authoring: Record<string, unknown> } };
+    // A lesson file can be shared; what the learner already knows and what interests them shaped the
+    // draft and stay out of it. The study plan needs only the minutes a day and the target date.
+    const scheduling = { minutes_per_day: 10, target_date: "2026-12-01" };
+    expect(written.metadata.authoring).toEqual({ mode: "self_study", author_is_learner: false, drafted_by: "agent", note: GOAL, learner_profile: scheduling });
+    expect(LessonBundleSchema.parse(written).metadata.authoring?.learner_profile).toEqual(scheduling);
+  });
+
+  it("writes no learner_profile when the profile has no scheduling field", async () => {
+    const { root, set } = await prepared();
+    const draft = { ...validDraft(), learner_profile: { prior: "lycée", interests: ["droit"] } };
+    const ok = okResult(await createLesson(root, { source_set_id: set.source_set_id, draft }, { now: () => NOW }));
+    const written = JSON.parse(readFileSync(join(root, ok.course_ref), "utf8")) as { metadata: { authoring: Record<string, unknown> } };
+    expect(written.metadata.authoring).not.toHaveProperty("learner_profile");
+  });
+
+  it("warns when the lesson takes longer than the learner's minutes a day, and not otherwise", async () => {
+    const { root, set } = await prepared();
+    const over = okResult(await createLesson(root, {
+      source_set_id: set.source_set_id, draft: { ...validDraft(), learner_profile: profile },
+    }, { now: () => NOW }));
+    expect(over.bundle.metadata.duration_minutes).toBe(14);
+    expect(over.findings).toContainEqual(expect.objectContaining({
+      level: "WARN", code: "duration_over_daily_minutes", message: expect.stringMatching(/about 14 minutes.*10 minutes a day/),
+    }));
+    const within = okResult(await createLesson(root, {
+      source_set_id: set.source_set_id, draft: { ...validDraft(), learner_profile: { minutes_per_day: 15 } }, overwrite: true,
+    }, { now: () => NOW }));
+    expect(within.findings.map((item) => item.code)).not.toContain("duration_over_daily_minutes");
+  });
+});
+
+describe("createLesson: overwrite replaces only a self-study lesson (SEC-1)", () => {
+  async function withExisting(lesson: Record<string, unknown>, approval = false) {
+    const { root, set } = await prepared();
+    const dir = join(root, "solidarite-mecanique-et-organique");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "lesson.json"), JSON.stringify(lesson));
+    if (approval) writeFileSync(join(dir, "approval.json"), JSON.stringify({ reviewer: "Prof" }));
+    const result = await createLesson(root, { source_set_id: set.source_set_id, draft: validDraft(), overwrite: true }, { now: () => NOW });
+    return { dir, result };
+  }
+
+  it("refuses to replace a teacher's lesson", async () => {
+    const teacher = { metadata: { title: "Cours", authoring: { mode: "teacher" } }, validated_by: "Prof. Martin" };
+    const { dir, result } = await withExisting(teacher);
+    expect(errorsOf(result)).toEqual([{
+      path: "course_id", message: "solidarite-mecanique-et-organique/lesson.json is not a self-study lesson: overwrite replaces only those",
+      hint: "choose another course_id",
+    }]);
+    expect(JSON.parse(readFileSync(join(dir, "lesson.json"), "utf8"))).toEqual(teacher);
+  });
+
+  it("refuses to replace a lesson with no authoring record, an approval or a teacher's validation", async () => {
+    expect(errorsOf((await withExisting({ metadata: { title: "Ancien" }, validated_by: "SELF-STUDY" })).result)[0]).toMatchObject({ path: "course_id" });
+    const approved = { metadata: { authoring: { mode: "self_study" } }, validated_by: "SELF-STUDY — not teacher-validated" };
+    expect(errorsOf((await withExisting(approved, true)).result)[0]).toMatchObject({ path: "course_id", message: expect.stringContaining("approval.json") });
+    const released = { metadata: { authoring: { mode: "self_study", author_is_learner: true } }, validated_by: "Prof. Martin" };
+    expect(errorsOf((await withExisting(released)).result)[0]).toMatchObject({ path: "course_id", message: expect.stringContaining("validated by a teacher") });
+  });
+
+  it("refuses to replace an unreadable lesson.json", async () => {
+    const { root, set } = await prepared();
+    const dir = join(root, "solidarite-mecanique-et-organique");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "lesson.json"), "{ not json");
+    const result = await createLesson(root, { source_set_id: set.source_set_id, draft: validDraft(), overwrite: true }, { now: () => NOW });
+    expect(errorsOf(result)[0]).toMatchObject({ path: "course_id" });
+    expect(readFileSync(join(dir, "lesson.json"), "utf8")).toBe("{ not json");
+  });
+});
+
+describe("createLesson: a course id another lessons folder already serves is refused", () => {
+  it("refuses before writing when the server reads a lesson of that id first, and names the fix", async () => {
+    const { root, set } = await prepared();
+    const servedElsewhere = (id: string) => id === "taken";
+    const result = await createLesson(root, { source_set_id: set.source_set_id, draft: validDraft(), course_id: "taken" }, { now: () => NOW, servedElsewhere });
+    expect(errorsOf(result)).toEqual([{
+      path: "course_id", message: "\"taken\" is already a lesson in the lessons folder this server reads before the library",
+      hint: "choose another course_id",
+    }]);
+    expect(existsSync(join(root, "taken"))).toBe(false);
+    okResult(await createLesson(root, { source_set_id: set.source_set_id, draft: validDraft(), course_id: "free" }, { now: () => NOW, servedElsewhere }));
   });
 });

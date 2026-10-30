@@ -3,6 +3,10 @@ export type PhraseParams = Record<string, string | number>;
 
 // FR: learner-facing French. Entries that were still English on 2026-10-29 (feedback words,
 // engine explanations) were translated by the lead; the EN catalogue keeps them in English.
+// L-5 (2026-10-30): « tu » throughout, accents restored in the file-channel strings, and the table is
+// typeset by frenchSpacing below — write plain spaces here. L-6: the navigation explanations are
+// neutral: they name no engine notion (item, threshold, remediation, universe) and claim neither a
+// correct answer nor a lack of mastery that nothing measured.
 const FR = {
   planted_flaws_found: "{found}/{total} défauts plantés trouvés",
   key_points_covered: "{covered}/{total} points clés couverts",
@@ -12,13 +16,13 @@ const FR = {
   // (key points, planted flaws, flawed claims, model answer) is data on the verdict, worded by each
   // surface (lesson-session-host chat-display.ts referenceMarkdown), not a phrase of this catalogue.
 
-  explanation_graph_universe_escalated: "remédiations répétées — passage à l'univers de remédiation",
-  explanation_replay_budget_exhausted: "revu plusieurs fois sans succès — on avance",
-  explanation_graph_prereq_gate: "prérequis pas encore maîtrisé — retour en remédiation",
-  explanation_graph_prereq_gate_passed: "item du prérequis réussi, maîtrise encore sous le seuil — on avance",
-  explanation_graph_prereq_gate_released: "prérequis toujours non maîtrisé après plusieurs remédiations — on avance quand même",
-  explanation_graph_prereq_unassessable: "prérequis non acquis et aucune scène ne peut l'évaluer — on avance quand même",
-  explanation_graph_skip_mastered: "concept déjà maîtrisé — sauté",
+  explanation_graph_universe_escalated: "plusieurs détours — la suite sera plus guidée",
+  explanation_replay_budget_exhausted: "étape déjà revue plusieurs fois — on continue",
+  explanation_graph_prereq_gate: "d'abord, retour sur une notion préalable",
+  explanation_graph_prereq_gate_passed: "notion préalable travaillée — on continue",
+  explanation_graph_prereq_gate_released: "notion préalable revue plusieurs fois — on continue",
+  explanation_graph_prereq_unassessable: "cette notion préalable n'a pas pu être mesurée ici — on continue",
+  explanation_graph_skip_mastered: "notion déjà maîtrisée — étape passée",
 
   tutor_justification: "Quel est le maillon le plus faible de ton raisonnement ? Quel serait le meilleur argument contre ?",
   tutor_hypothesis: "Qu'observerais-tu si c'était vrai ? Comment pourrais-tu le vérifier toi-même ?",
@@ -27,63 +31,63 @@ const FR = {
   tutor_synthesis: "Formule-le comme une seule règle, puis nomme un cas qu'elle ne couvre pas.",
   tutor_scaffold_hint: "Avance d'un pas : qu'est-ce que tu sais déjà qui pourrait t'aider, sans donner la réponse ?",
 
-  calibration_well: "Ta confiance était bien calibrée : ton ressenti collait à ta maîtrise réelle.",
+  calibration_well: "Ta confiance était bien calibrée : ton ressenti collait à ce que montrent tes réponses.",
   calibration_over: "Tu étais un peu surconfiant·e : tu te sentais plus sûr·e que ne le montrent tes réponses. Vérifie ce concept avant de passer à la suite.",
-  calibration_under: "Tu étais un peu sous-confiant·e : tu maîtrises ce concept mieux que tu ne le penses. Fais-toi confiance.",
+  calibration_under: "Tu étais un peu sous-confiant·e : tes réponses ont été meilleures que ta confiance ne le laissait penser. Fais-leur un peu plus confiance.",
 
   workspace_feedback_heading: "# Feedback",
-  workspace_missing_response: "⚠️ Pas de `response.json` valide trouve. Ecris ta reponse puis relance.",
-  workspace_invalid_response: "⚠️ Reponse invalide pour cette scene ({error}). Attendu : `{ \"kind\": \"{kind}\", \"text\": \"…\" }` (ou simplement `{ \"text\": \"…\" }`). Reecris `response.json` et relance.",
-  workspace_run_required: "⚠️ {message}. Canal fichier : lis `run.json`, lance sa commande dans CET espace de travail, puis ecris `run_result.json`.",
-  workspace_run_result_invalid: "⚠️ `run_result.json` invalide ou partiel. Reecris-le (ecriture atomique).",
-  workspace_run_advance_failed: "⚠️ Run ingere mais l'avancement a echoue ({error}).",
-  workspace_run_incomplete: "⚠️ Le run n'a pas abouti (`ran:false`). Provisionne l'env (installe les dependances de `run.json`), relance la commande, puis reecris `run_result.json`.",
-  workspace_run_checks_failed: "⚠️ Run produit mais verifications echouees : {checks}. Corrige et relance.",
+  workspace_missing_response: "⚠️ Pas de `response.json` valide trouvé. Écris ta réponse puis relance.",
+  workspace_invalid_response: "⚠️ Réponse invalide pour cette scène ({error}). Attendu : `{ \"kind\": \"{kind}\", \"text\": \"…\" }` (ou simplement `{ \"text\": \"…\" }`). Réécris `response.json` et relance.",
+  workspace_run_required: "⚠️ {message}. Canal fichier : lis `run.json`, lance sa commande dans CET espace de travail, puis écris `run_result.json`.",
+  workspace_run_result_invalid: "⚠️ `run_result.json` invalide ou partiel. Réécris-le (écriture atomique).",
+  workspace_run_advance_failed: "⚠️ Run ingéré, mais l'avancement a échoué ({error}).",
+  workspace_run_incomplete: "⚠️ Le run n'a pas abouti (`ran:false`). Provisionne l'environnement (installe les dépendances de `run.json`), relance la commande, puis réécris `run_result.json`.",
+  workspace_run_checks_failed: "⚠️ Run produit mais vérifications échouées : {checks}. Corrige et relance.",
   workspace_run_checks_fallback: "voir expected_outputs",
-  workspace_run_ignored: "⚠️ `run_result.json` ignore : la scene courante n'est pas une scene a executer.",
+  workspace_run_ignored: "⚠️ `run_result.json` ignoré : la scène courante n'est pas une scène à exécuter.",
 
-  workspace_instruction_spot_the_flaw: "Audite la lecture IA ci-dessous d'un resultat REELLEMENT execute. Repere ce qui est faux (avec justification).",
-  workspace_instruction_ai_critique: "Critique les affirmations ci-dessous : repere les biais / defauts.",
-  workspace_instruction_explain_back: "Explique le concept avec tes propres mots.",
-  workspace_instruction_comparison: "Compare A et B et nomme les differences / la valeur ajoutee.",
-  workspace_instruction_summary_audit: "Audite le resume IA : quelles omissions ou distorsions ?",
-  workspace_instruction_prompt_practice: "Ecris (ou affine) un prompt pour la tache ci-dessous.",
-  workspace_instruction_communication_sim: "Redige la communication demandee pour la situation ci-dessous.",
-  workspace_instruction_quiz: "Reponds : { \"kind\": \"quiz_choice\", \"choiceId\": \"<id>\" }.",
-  workspace_instruction_meta_checkpoint: "Auto-evalue ta confiance : { \"kind\": \"confidence\", \"value\": 0-4 }.",
-  workspace_instruction_default: "Lis, puis reponds pour avancer.",
+  workspace_instruction_spot_the_flaw: "Audite la lecture IA ci-dessous d'un résultat RÉELLEMENT exécuté. Repère ce qui est faux (avec justification).",
+  workspace_instruction_ai_critique: "Critique les affirmations ci-dessous : repère les biais et les défauts.",
+  workspace_instruction_explain_back: "Explique la notion avec tes propres mots.",
+  workspace_instruction_comparison: "Compare A et B et nomme les différences ou la valeur ajoutée.",
+  workspace_instruction_summary_audit: "Audite le résumé IA : quelles omissions ou distorsions ?",
+  workspace_instruction_prompt_practice: "Écris (ou affine) un prompt pour la tâche ci-dessous.",
+  workspace_instruction_communication_sim: "Rédige la communication demandée pour la situation ci-dessous.",
+  workspace_instruction_quiz: "Réponds : `{ \"kind\": \"quiz_choice\", \"choiceId\": \"<id>\" }`.",
+  workspace_instruction_meta_checkpoint: "Auto-évalue ta confiance : `{ \"kind\": \"confidence\", \"value\": 0-4 }`.",
+  workspace_instruction_default: "Lis, puis réponds pour avancer.",
 
-  workspace_task_title: "# Studium — etape {step} : {title}",
-  workspace_run_already_recorded: "**Run deja enregistre** (mesure : `{landmark}`). Pas besoin de re-provisionner :",
-  workspace_run_already_recorded_action: "reponds `{ \"kind\": \"ack\" }` pour continuer, ou relance et ecris `run_result.json` pour un resultat frais.",
-  workspace_scene_type: "**Type de scene :** `{type}`",
-  workspace_ai_reading: "## Lecture IA a auditer",
+  workspace_task_title: "# Studium — étape {step} : {title}",
+  workspace_run_already_recorded: "**Run déjà enregistré** (mesure : `{landmark}`). Pas besoin de le re-provisionner :",
+  workspace_run_already_recorded_action: "réponds `{ \"kind\": \"ack\" }` pour continuer, ou relance-le et écris `run_result.json` pour un résultat frais.",
+  workspace_scene_type: "**Type de scène :** `{type}`",
+  workspace_ai_reading: "## Lecture IA à auditer",
   workspace_source: "**Source :**",
-  workspace_ai_summary: "**Resume IA :**",
+  workspace_ai_summary: "**Résumé IA :**",
   workspace_situation: "**Situation :** {text}",
-  workspace_task: "**Tache :** {text}",
-  workspace_executed_result: "## Resultat reellement execute (verite terrain — audite la lecture IA CONTRE ce resultat)",
+  workspace_task: "**Tâche :** {text}",
+  workspace_executed_result: "## Résultat réellement exécuté (vérité terrain — audite la lecture IA CONTRE ce résultat)",
   workspace_measure: "- **Mesure (landmark) :** `{text}`",
-  workspace_figure: "- **Figure :** `{text}` (rendue nativement par l'hote / le notebook)",
+  workspace_figure: "- **Figure :** `{text}` (rendue nativement par l'hôte ou le notebook)",
   workspace_command: "- **Commande :** `{text}`",
-  workspace_checks_passed: "- **Verifications passees :** {text}",
-  workspace_respond_heading: "## Repondre",
-  workspace_write_response: "Ecris ta reponse dans `response.json` (ce dossier) :",
-  workspace_response_shorthand: "_(ou simplement `{ \"text\": \"...\" }` — Studium deduit le bon type d'entree.)_",
+  workspace_checks_passed: "- **Vérifications passées :** {text}",
+  workspace_respond_heading: "## Répondre",
+  workspace_write_response: "Écris ta réponse dans `response.json` (ce dossier) :",
+  workspace_response_shorthand: "_(ou simplement `{ \"text\": \"...\" }` — Studium déduit le bon type d'entrée.)_",
 
   workspace_verdict_incorrect: "✗ Faux",
   workspace_verdict_correct: "✓ Juste",
-  workspace_feedback_next: "✓ Reponse enregistree — passage a l'etape suivante (`task.md` mis a jour).",
-  workspace_feedback_replay: "↻ A revoir : {reason}. La prochaine tache revient dessus.",
-  workspace_feedback_replay_default: "maitrise insuffisante",
-  workspace_feedback_remediate_alt: "↻ Remediation : {reason}. Une variante est proposee.",
-  workspace_feedback_remediate: "↻ Prerequis non maitrise : {reason}. Detour par une scene du prerequis{returns_to}.",
-  workspace_feedback_returns_to: " ; retour ensuite a `{scene}`",
-  workspace_feedback_calibration: "⚖️ Point de calibration : compare ta confiance a ta maitrise reelle.",
-  workspace_feedback_complete: "✔ Lecon terminee — {count} scenes.",
+  workspace_feedback_next: "✓ Réponse enregistrée — passage à l'étape suivante (`task.md` mis à jour).",
+  workspace_feedback_replay: "↻ À revoir : la prochaine tâche revient sur cette étape.",
+  workspace_feedback_replay_default: "on reprend cette étape",
+  workspace_feedback_remediate_alt: "↻ Autre question sur ce point.",
+  workspace_feedback_remediate: "↻ Notion préalable : {reason}. Détour par une scène de cette notion{returns_to}.",
+  workspace_feedback_returns_to: " ; retour ensuite à `{scene}`",
+  workspace_feedback_calibration: "⚖️ Point de calibration : compare ta confiance à ce que montrent tes réponses.",
+  workspace_feedback_complete: "✔ Leçon terminée — {count} scènes.",
 
-  workspace_run_task_title: "# Studium — etape {step} : {title} (reproduction)",
-  workspace_run_scene_type: "**Type de scene :** `reproduction` — execution PAR L'APPRENANT (l'hote provisionne, tu lances).",
+  workspace_run_task_title: "# Studium — étape {step} : {title} (reproduction)",
+  workspace_run_scene_type: "**Type de scène :** `reproduction` — exécution PAR L'APPRENANT (l'hôte provisionne, tu lances).",
   workspace_run_heading: "## Provisionne et lance (dans CET espace de travail)",
   workspace_question: "**Question :** {text}",
   workspace_capsule: "- **Capsule :** `{text}`",
@@ -91,14 +95,14 @@ const FR = {
   workspace_launch: "- **Lance :** `{command}`{working_dir}",
   workspace_working_dir: " (dans `{text}`)",
   workspace_expected_outputs: "- **Sorties attendues :** {text}",
-  workspace_verify: "- **Verifie :**",
+  workspace_verify: "- **Vérifie :**",
   workspace_run_report_heading: "## Rends compte du run",
-  workspace_run_report_instruction: "Quand le run a produit les sorties, ecris `run_result.json` (ce dossier) :",
+  workspace_run_report_instruction: "Quand le run a produit ses sorties, écris `run_result.json` (ce dossier) :",
   workspace_run_landmark_example: "<la mesure que TON run a produite, depuis stdout>",
-  workspace_run_attestation: "_(Studium ne lance rien : c'est TON run reel dans l'espace de travail qui fait foi.)_",
+  workspace_run_attestation: "_(Studium ne lance rien : c'est TON run réel dans l'espace de travail qui fait foi.)_",
   workspace_run_measure: " (mesure : `{text}`)",
-  workspace_run_complete: "✔ Run ingere{measure} — lecon terminee ({count} scenes).",
-  workspace_run_next: "✓ Run ingere{measure} — tu as reproduit le resultat toi-meme. Etape suivante (`task.md` mis a jour).",
+  workspace_run_complete: "✔ Run ingéré{measure} — leçon terminée ({count} scènes).",
+  workspace_run_next: "✓ Run ingéré{measure} — tu as reproduit le résultat toi-même. Étape suivante (`task.md` mis à jour).",
 } as const;
 
 export type PhraseKey = keyof typeof FR;
@@ -109,13 +113,13 @@ const EN: Record<PhraseKey, string> = {
   claims_addressed: "{covered}/{total} claims addressed",
   deck_detail: "{caught}/{planted} planted flaws found; {false_positives}/{sound_total} false positives",
 
-  explanation_graph_universe_escalated: "repeated remediation — escalated to the remedial universe",
-  explanation_replay_budget_exhausted: "reviewed several times without success — moving on",
-  explanation_graph_prereq_gate: "prerequisite not yet mastered — routed to remediation",
-  explanation_graph_prereq_gate_passed: "prerequisite item answered correctly, mastery still below threshold — advancing",
-  explanation_graph_prereq_gate_released: "prerequisite still unmastered after repeated remediation — advancing anyway",
-  explanation_graph_prereq_unassessable: "prerequisite unmet and no scene can assess it — advancing anyway",
-  explanation_graph_skip_mastered: "concept already mastered — skipped",
+  explanation_graph_universe_escalated: "several detours — what follows will be more guided",
+  explanation_replay_budget_exhausted: "step already reviewed several times — moving on",
+  explanation_graph_prereq_gate: "first, back to a prerequisite",
+  explanation_graph_prereq_gate_passed: "prerequisite practised — moving on",
+  explanation_graph_prereq_gate_released: "prerequisite revisited several times — moving on",
+  explanation_graph_prereq_unassessable: "this prerequisite could not be measured here — moving on",
+  explanation_graph_skip_mastered: "concept already mastered — step skipped",
 
   tutor_justification: "What is the weakest link in your reasoning? What would be the strongest counterargument?",
   tutor_hypothesis: "What would you observe if it were true? How could you verify it yourself?",
@@ -124,9 +128,9 @@ const EN: Record<PhraseKey, string> = {
   tutor_synthesis: "State it as a single rule, then name one case it does not cover.",
   tutor_scaffold_hint: "One step at a time: what do you already know that could help you, without being given the answer?",
 
-  calibration_well: "Your confidence was well calibrated: how you felt matched your actual command of the concept.",
+  calibration_well: "Your confidence was well calibrated: how sure you felt matched what your answers showed.",
   calibration_over: "You were slightly overconfident: you felt more certain than your answers showed. Check this concept before moving on.",
-  calibration_under: "You were slightly underconfident: you understand this concept better than you think. Trust yourself.",
+  calibration_under: "You were slightly underconfident: your answers were better than your confidence suggested. Trust them a little more.",
 
   workspace_feedback_heading: "# Feedback",
   workspace_missing_response: "⚠️ No valid `response.json` was found. Write your answer, then run again.",
@@ -146,8 +150,8 @@ const EN: Record<PhraseKey, string> = {
   workspace_instruction_summary_audit: "Audit the AI summary: what does it omit or distort?",
   workspace_instruction_prompt_practice: "Write or refine a prompt for the task below.",
   workspace_instruction_communication_sim: "Write the requested communication for the situation below.",
-  workspace_instruction_quiz: "Respond with: { \"kind\": \"quiz_choice\", \"choiceId\": \"<id>\" }.",
-  workspace_instruction_meta_checkpoint: "Rate your confidence: { \"kind\": \"confidence\", \"value\": 0-4 }.",
+  workspace_instruction_quiz: "Respond with: `{ \"kind\": \"quiz_choice\", \"choiceId\": \"<id>\" }`.",
+  workspace_instruction_meta_checkpoint: "Rate your confidence: `{ \"kind\": \"confidence\", \"value\": 0-4 }`.",
   workspace_instruction_default: "Read, then respond to continue.",
 
   workspace_task_title: "# Studium — step {step}: {title}",
@@ -171,12 +175,12 @@ const EN: Record<PhraseKey, string> = {
   workspace_verdict_incorrect: "✗ Incorrect",
   workspace_verdict_correct: "✓ Correct",
   workspace_feedback_next: "✓ Answer recorded — moving to the next step (`task.md` updated).",
-  workspace_feedback_replay: "↻ Review needed: {reason}. The next task returns to it.",
-  workspace_feedback_replay_default: "insufficient command",
-  workspace_feedback_remediate_alt: "↻ Remediation: {reason}. An alternative is proposed.",
-  workspace_feedback_remediate: "↻ Prerequisite not mastered: {reason}. Detouring through a prerequisite scene{returns_to}.",
+  workspace_feedback_replay: "↻ Review needed: the next task returns to this step.",
+  workspace_feedback_replay_default: "this step again",
+  workspace_feedback_remediate_alt: "↻ Another question on this point.",
+  workspace_feedback_remediate: "↻ Prerequisite: {reason}. Detouring through a scene on it{returns_to}.",
   workspace_feedback_returns_to: "; then returning to `{scene}`",
-  workspace_feedback_calibration: "⚖️ Calibration checkpoint: compare your confidence with your actual command of the concept.",
+  workspace_feedback_calibration: "⚖️ Calibration checkpoint: compare your confidence with what your answers show.",
   workspace_feedback_complete: "✔ Lesson complete — {count} scenes.",
 
   workspace_run_task_title: "# Studium — step {step}: {title} (reproduction)",
@@ -198,7 +202,24 @@ const EN: Record<PhraseKey, string> = {
   workspace_run_next: "✓ Run ingested{measure} — you reproduced the result yourself. Next step (`task.md` updated).",
 };
 
-const CATALOGUES: Record<Locale, Record<PhraseKey, string>> = { fr: FR, en: EN };
+/** L-5: French typography for the French catalogue — a narrow no-break space (U+202F) before ; ! ?,
+ * a no-break space (U+00A0) before : and », and after « — outside `code spans`, which stay as written.
+ * The same rule as the VS Code pane catalogue (apps/studium-vscode/src/phrases.ts frenchSpacing). */
+export function frenchSpacing(text: string): string {
+  return text.split(/(`[^`]*`)/).map((part, index) => (index % 2 === 1 ? part : part
+    .replace(/[ \u00a0\u202f]+([;!?])/g, "\u202f$1")
+    .replace(/[ \u00a0\u202f]+([:»])/g, "\u00a0$1")
+    .replace(/«[ \u00a0\u202f]+/g, "«\u00a0"))).join("");
+}
+
+const FR_TYPESET = Object.fromEntries(
+  Object.entries(FR).map(([key, text]) => [key, frenchSpacing(text)]),
+) as Record<PhraseKey, string>;
+
+/** Every key of the catalogue, for consumers and tests that walk it. */
+export const PHRASE_KEYS = Object.keys(FR) as PhraseKey[];
+
+const CATALOGUES: Record<Locale, Record<PhraseKey, string>> = { fr: FR_TYPESET, en: EN };
 
 /** Resolve the learner-facing locale once from bundle metadata; unsupported languages retain French. */
 export function localeFromLanguage(language: string | undefined): Locale {

@@ -32,13 +32,19 @@ describe("pickReviewScene", () => {
     scene("flaw-run", "spot_the_flaw", ["c1"], { reference_from_run: "tc" }),
   ]);
 
-  it("takes a retrieval scene that grades the concept first, other than the one answered last", () => {
+  it("takes a retrieval scene that grades the concept, other than the one answered last when a judge grades them all", () => {
     expect(pickReviewScene(lesson, "c1", null)?.id).toBe("q-1");
-    expect(pickReviewScene(lesson, "c1", "q-1")?.id).toBe("e-1");
+    // L-8: without a judge only the quiz re-measures, so it is replayed even when answered last; with a
+    // judge every retrieval scene measures, and the other one comes first (this used to be the rule
+    // whatever the judge).
+    expect(pickReviewScene(lesson, "c1", "q-1")?.id).toBe("q-1");
+    expect(pickReviewScene(lesson, "c1", "q-1", { judge: true })?.id).toBe("e-1");
   });
 
-  it("falls back to a scene that only covers it, and never to a run-bound scene or an intro", () => {
+  it("takes only a scene whose first concept is the concept, never a run-bound scene or an intro", () => {
+    // L-8: q-other grades c2 (its first concept); it used to be the fallback for c1, which it only mentions.
     expect(pickReviewScene(lesson, "c2", null)?.id).toBe("q-other");
+    expect(pickReviewScene(bundle("O", [scene("q-other", "quiz", ["c2", "c1"])]), "c1", null)).toBeNull();
     const runOnly = bundle("R", [scene("intro", "intro", ["c1"]), scene("run", "reproduction", ["c1"], { run_manifest: {} })]);
     expect(pickReviewScene(runOnly, "c1", null)).toBeNull();
   });

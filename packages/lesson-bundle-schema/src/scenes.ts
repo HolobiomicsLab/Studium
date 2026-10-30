@@ -12,6 +12,9 @@ export const BibliographicRefSchema = z.object({
   excerpt: z.string().max(500),
   relevance_score: z.number().min(0).max(1),
   prov_derived_from: z.string().min(1),
+  // The source's licence as the author declared it (for example "CC BY-SA 4.0"), shown with every
+  // citation so an attribution licence is honoured. Optional: older bundles carry none.
+  license: z.string().min(1).optional(),
 });
 
 export const CaseStudySchema = z.object({
@@ -85,6 +88,9 @@ export const SceneBaseSchema = z.object({
   // the passages it cites. On a graded scene a cited passage can state the answer, so a client
   // projection must not ship it before the learner has answered.
   evidence: EvidenceSchema.optional(),
+  // A pre-lesson diagnostic ("what do you already know?"): played once, never replayed as a spaced
+  // review item. Optional; absent means an ordinary scene.
+  diagnostic: z.boolean().optional(),
 });
 
 // ADR 010 — flat shape : champs métier à la racine, pas d'enveloppe `content`.

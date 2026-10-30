@@ -100,6 +100,8 @@ class BibliographicRef(BaseModel):
     excerpt: str = Field(max_length=500)
     relevance_score: float = Field(ge=0, le=1)
     prov_derived_from: str = Field(min_length=1)
+    # The source licence as declared (e.g. "CC BY-SA 4.0"); mirror of Zod BibliographicRefSchema.
+    license: Optional[str] = Field(default=None, min_length=1)
 
 
 class CaseStudy(BaseModel):
@@ -144,6 +146,16 @@ AuthoringMode = Literal["teacher", "self_study"]
 DraftedBy = Literal["agent", "learner", "teacher"]
 
 
+class BundleLearnerProfile(BaseModel):
+    """Scheduling part of the learner's intake (mirror of Zod BundleAuthoringSchema.learner_profile).
+
+    Prior knowledge and interests shape the draft and are never stored with a lesson.
+    """
+
+    minutes_per_day: Optional[int] = Field(default=None, ge=1, le=600)
+    target_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
 class BundleAuthoring(BaseModel):
     """Who wrote the bundle (mirror of Zod BundleAuthoringSchema).
 
@@ -156,6 +168,7 @@ class BundleAuthoring(BaseModel):
     author_is_learner: bool = False
     drafted_by: Optional[DraftedBy] = None
     note: Optional[str] = None
+    learner_profile: Optional[BundleLearnerProfile] = None
 
 
 class BundleMetadata(BaseModel):
@@ -184,6 +197,8 @@ class _SceneBase(BaseModel):
     # conversational author binds each item to the passages it cites. Declared on intro, concept and
     # reproduction only before, so it was silently dropped from every other type.
     evidence: Optional[Evidence] = None
+    # A pre-lesson diagnostic, never replayed in spaced review (mirror of Zod SceneBaseSchema).
+    diagnostic: Optional[bool] = None
 
 
 # ---------------------------------------------------------------------------
@@ -724,6 +739,7 @@ __all__ = [
     "BloomLevel",
     "Bundle",
     "BundleAuthoring",
+    "BundleLearnerProfile",
     "CaseStudy",
     "Claim",
     "CommunicationSimScene",

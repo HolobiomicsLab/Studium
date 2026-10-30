@@ -24,7 +24,7 @@
   },
   "topics": {
     "studium": {
-      "source": "docs/user/student-guide.md",
+      "source": "docs/learn/student-guide.md",
       "en": {
         "title": "Studium",
         "what": "A learning path connects concepts, tasks, evidence and reflection. Your AI harness helps operate it.",
@@ -45,7 +45,7 @@
       }
     },
     "objective": {
-      "source": "docs/user/teacher-guide.md",
+      "source": "docs/teach/teacher-guide.md",
       "en": {
         "title": "Learning objective",
         "what": "The capability this activity is designed to practise.",
@@ -66,7 +66,7 @@
       }
     },
     "prediction": {
-      "source": "docs/user/activity-templates.md",
+      "source": "docs/teach/activity-templates.md",
       "en": {
         "title": "Prediction",
         "what": "State what you expect and why, before viewing the result.",
@@ -87,7 +87,7 @@
       }
     },
     "confidence": {
-      "source": "docs/user/student-guide.md",
+      "source": "docs/learn/student-guide.md",
       "en": {
         "title": "Confidence",
         "what": "Your own estimate of how sure you are about a response.",
@@ -108,7 +108,7 @@
       }
     },
     "evidence": {
-      "source": "docs/user/teacher-guide.md",
+      "source": "docs/teach/teacher-guide.md",
       "en": {
         "title": "Sources and evidence",
         "what": "Material used to support a claim: a passage, photograph, dataset or observed result.",
@@ -129,7 +129,7 @@
       }
     },
     "experiment": {
-      "source": "docs/guides/grounded-exploration.md",
+      "source": "docs/teach/literature-and-evidence.md",
       "en": {
         "title": "Compare and experiment",
         "what": "Compare a declared baseline with a variation, keeping the relevant controls visible.",
@@ -150,7 +150,7 @@
       }
     },
     "reflection": {
-      "source": "docs/user/experiment-journal.md",
+      "source": "docs/learn/experiment-journal.md",
       "en": {
         "title": "Observation and conclusion",
         "what": "Record what happened, then explain what that observation supports.",
@@ -171,7 +171,7 @@
       }
     },
     "scaffolding": {
-      "source": "docs/features.md",
+      "source": "docs/concepts/capabilities.md",
       "en": {
         "title": "Hints and adaptation",
         "what": "Support can change with the task, prerequisites and recorded responses.",
@@ -192,7 +192,7 @@
       }
     },
     "transfer": {
-      "source": "docs/user/teacher-guide.md",
+      "source": "docs/teach/teacher-guide.md",
       "en": {
         "title": "Transfer to a new case",
         "what": "Apply the idea to a different example, with the permitted level of help stated.",
@@ -213,7 +213,7 @@
       }
     },
     "trace": {
-      "source": "docs/user/learner-report.md",
+      "source": "docs/learn/learner-report.md",
       "en": {
         "title": "Activity trace",
         "what": "A record of selected actions and submitted text, with its declared origin.",
@@ -234,7 +234,7 @@
       }
     },
     "provenance": {
-      "source": "docs/adr/0001-astra-analyses-shape-and-ara-trace.md",
+      "source": "docs/design-records/adr/0001-astra-analyses-shape-and-ara-trace.md",
       "en": {
         "title": "ASTRA, ARA and MySTRA",
         "what": "ASTRA structures analyses and decisions; ARA records exploration paths; MySTRA presents provenance for reading.",
@@ -255,7 +255,7 @@
       }
     },
     "review": {
-      "source": "docs/user/reviewed-synthesis.md",
+      "source": "docs/teach/review-and-approve.md",
       "en": {
         "title": "Teacher review",
         "what": "A human checks the suitability and accuracy of a particular content revision.",
@@ -276,7 +276,7 @@
       }
     },
     "mastery": {
-      "source": "docs/features.md",
+      "source": "docs/concepts/capabilities.md",
       "en": {
         "title": "Progress and mastery estimates",
         "what": "Indicators summarize selected responses using the prototype’s rules.",
@@ -297,7 +297,7 @@
       }
     },
     "validity": {
-      "source": "docs/guides/observatory.md",
+      "source": "docs/teach/observatory.md",
       "en": {
         "title": "Evaluation and validity",
         "what": "Checks measure a named property of software, content or a recorded run.",
@@ -318,7 +318,7 @@
       }
     },
     "visuals": {
-      "source": "docs/guides/sourced-and-generated-media.md",
+      "source": "docs/teach/media-and-visual-support.md",
       "en": {
         "title": "Visual and audio support",
         "what": "A representation can make relations or observations easier to inspect.",
@@ -339,7 +339,7 @@
       }
     },
     "harness": {
-      "source": "docs/guides/agent-harness-matrix.md",
+      "source": "docs/start/harnesses.md",
       "en": {
         "title": "AI harness",
         "what": "The application operating the agent, such as Copilot, Claude Code or Codex.",
@@ -360,7 +360,7 @@
       }
     },
     "critical": {
-      "source": "docs/user/student-guide.md",
+      "source": "docs/learn/student-guide.md",
       "en": {
         "title": "Critical review",
         "what": "Assess a proposed explanation against evidence, including when it comes from AI.",
@@ -381,7 +381,7 @@
       }
     },
     "universes": {
-      "source": "docs/features.md",
+      "source": "docs/concepts/capabilities.md",
       "en": {
         "title": "Explored alternatives",
         "what": "Named configurations record different choices or support conditions.",

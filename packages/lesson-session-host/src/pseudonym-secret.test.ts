@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HmacPseudonymProvider } from "@studium/lesson-session/node";
+import { defaultLearnerProfile } from "@studium/learner-state";
 import { SessionHost } from "./host.js";
 import { PROFILE_PSEUDONYM_SCOPE } from "./learner-profile-store.js";
 import { LEGACY_PSEUDO_SECRET, SECRET_FILE, installSecret } from "./pseudonym-secret.js";
@@ -110,7 +111,9 @@ describe("I-6 — a per-install pseudonym secret for durable state", () => {
     const dataDir = tmp();
     const legacy = await profilePseudonym(LEGACY_PSEUDO_SECRET, "ana");
     mkdirSync(join(dataDir, legacy));
-    writeFileSync(join(dataDir, legacy, "profile.json"), "{}");
+    // The profile an older version saved for ana: a real one, as L-11 refuses a profile that does not
+    // parse (this fixture was "{}", which the old fail-safe read took for « no profile »).
+    writeFileSync(join(dataDir, legacy, "profile.json"), JSON.stringify(defaultLearnerProfile(legacy, "2026-10-01T00:00:00.000Z")));
     const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 
     const root = bundles();

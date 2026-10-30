@@ -8,7 +8,7 @@
   "command.refreshLessons.title": "Studium: Refresh the lessons view",
   "view.lessons.name": "Lessons",
   "configuration.title": "Studium",
-  "configuration.repoRoot.description": "Path to a prototype-build clone (development mode: lesson-mcp is launched from its sources through tsx). Optional for an installed VSIX: the embedded server dist/lesson-mcp.mjs is used when no clone is found.",
+  "configuration.repoRoot.description": "Path to a prototype-build clone (development mode: lesson-mcp is launched from its sources through tsx). Optional for an installed VSIX: the embedded server dist/lesson-mcp.cjs is used when no clone is found.",
   "configuration.bundlesRoot.description": "Directory the lesson-mcp server resolves bundle_ref against (BUNDLES_ROOT). Leave empty to use the checkout's fixtures/ folder when the extension runs from a Studium checkout, else your personal library (~/.studium/library, or <STUDIUM_HOME>/library), where lessons an assistant builds for you land.",
   "configuration.bundleRef.description": "The bundle to open (relative to bundlesRoot). Defaults to the L1 atomistique demo.",
   "configuration.communityBundlesRoot.description": "Root the 'Community contributions' command discovers approved learner-authored bundles against: the root of all courses, where scene-synth's decide_item path emits <root>/<course>/community/community-<item>.zip. Leave empty to reuse studium.bundlesRoot. The canonical course is never mutated; community items are additive.",

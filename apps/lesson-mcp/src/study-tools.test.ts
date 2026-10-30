@@ -189,7 +189,14 @@ describe("the study tools (C1)", () => {
     expect(rated).toMatchObject({ scene_id: "s-e", concept_id: "c-signe", grade: "hard", source: "self_rated" });
     expect(rated.next_review_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(rated.display_markdown).toContain("jamais ta maîtrise");
-    expect(parse(await call("get_session_state", { session_id: sid }))).toEqual(before);
+    // L-9 (group A): the pending self-rating request now lives in the learner state, and the rating
+    // consumes it. Everything else, mastery included, is exactly as before the rating.
+    const after = parse(await call("get_session_state", { session_id: sid }));
+    const { self_rating_requests: pendingBefore, ...stateBefore } = before.state;
+    const { self_rating_requests: pendingAfter, ...stateAfter } = after.state;
+    expect(stateAfter).toEqual(stateBefore);
+    expect(Object.keys(pendingBefore ?? {})).toEqual(["s-e"]);
+    expect(pendingAfter ?? {}).toEqual({});
     const again = await call("rate_recall", { session_id: sid, scene_id: "s-e", grade: "good" });
     expect(parse(again).error).toMatch(/no self-rating was requested for scene "s-e"/);
   });

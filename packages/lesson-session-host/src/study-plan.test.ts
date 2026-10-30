@@ -87,8 +87,9 @@ describe("buildStudyPlan", () => {
 
   it("puts a due review first, naming the lesson and scene it is played from", () => {
     const plan = buildStudyPlan(input({ memory: { "c-a": mem("c-a", NOW - 30 * DAY) }, mastery: { "c-a": 0.9 }, record, catalog }));
+    // L-4: the arguments carry the plan's language to start_review_session (they used to carry learner_id alone).
     expect(plan.next_step).toEqual({
-      action: "review", tool: "start_review_session", arguments: { learner_id: "ana" },
+      action: "review", tool: "start_review_session", arguments: { learner_id: "ana", language: "fr" },
       text: "tu as 1 notion(s) à revoir (Notion c-a). Lance une séance de révision.",
     });
     expect(plan.due_reviews).toEqual([expect.objectContaining({

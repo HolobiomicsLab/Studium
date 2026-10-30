@@ -1,9 +1,11 @@
-// chat-format.ts — pure formatting for the @studium chat participant (no vscode import, unit-testable).
-// Turns a REDACTED scene (the PublicScene the host already stripped of answer keys) into chat markdown, and
-// maps a learner's chat reply back to the ResponseInput the graders expect. Chat is text-only, so rich
-// artifacts (KaTeX / 3D / the interactive verdict deck) still need the webview — but the verdict deck works
-// here too, via numbers.
-import { phrase, type Locale } from "./phrases.js";
+// chat-format.ts — pure formatting for the @studium chat participant and the notebook (no vscode import,
+// unit-testable). The host serves its own chat text (presentation / transition / verdict display_markdown) and
+// the chat streams it as it is (CQ-3); these formatters are the fallback for an older server that does not.
+// Turns a REDACTED scene (the PublicScene the host already stripped of answer keys) into chat markdown. Replies
+// are NOT parsed here: the chat sends the learner's words as {kind: "reply", text} and the host maps them, or
+// refuses them in one line (L-10, packages/lesson-session-host/src/reply-mapping.ts).
+import { phrase, type Locale, type PhraseKey } from "./phrases.js";
+import { FREE_TEXT_KIND } from "./scene-io.js";
 
 /** A redacted scene as it arrives over MCP (a plain object; only learner-facing fields are present). */
 export interface ChatScene {
@@ -28,19 +30,6 @@ export interface ChatScene {
   scenario?: string;
   starter_prompt?: string;
 }
-
-export interface ChatInput { kind: string; [k: string]: unknown }
-
-// free-text scene type → the ResponseInput kind its grader requires (mirrors artifact-pane.js FREE_TEXT).
-const FREE_TEXT_KIND: Record<string, string> = {
-  ai_critique: "critique",
-  spot_the_flaw: "flaw_report",
-  explain_back: "explanation",
-  comparison: "comparison",
-  summary_audit: "summary_audit",
-  prompt_practice: "prompt_submission",
-  communication_sim: "communication",
-};
 
 /** Render a scene as chat markdown, including how the learner should reply. Only redacted fields are read. */
 export function formatSceneForChat(
@@ -85,6 +74,7 @@ function replyHint(scene: ChatScene, locale: Locale): string {
  * verdict may carry no feedback text at all. */
 export interface ChatVerdict {
   correct?: boolean;
+  graded?: boolean;
   feedback?: string;
   key_points?: string[];
   key_points_missing?: string[];
@@ -100,9 +90,11 @@ export interface ChatVerdict {
 export function verdictForChat(verdict: ChatVerdict | undefined, locale: Locale = "fr"): string {
   if (!verdict) return "";
   if (typeof verdict.display_markdown === "string" && verdict.display_markdown.trim()) return verdict.display_markdown;
-  const feedback = typeof verdict.feedback === "string" && verdict.feedback.trim()
-    ? `${verdict.correct === false ? "✗" : "✓"} ${verdict.feedback}` : "";
-  return [feedback, referenceForChat(verdict, locale)].filter(Boolean).join("\n\n");
+  // CQ-6 / L-7: ✓ only when correct === true, ✗ only when false; a graded answer nobody assessed says so.
+  const mark = verdict.correct === true ? "✓ " : verdict.correct === false ? "✗ " : "";
+  const recorded = verdict.correct === undefined && verdict.graded === true ? phrase("chat_verdict_recorded", {}, locale) : "";
+  const feedback = typeof verdict.feedback === "string" && verdict.feedback.trim() ? `${mark}${verdict.feedback}` : "";
+  return [recorded, feedback, referenceForChat(verdict, locale)].filter(Boolean).join("\n\n");
 }
 
 /** The verdict's reference under its own headings. MIRRORS referenceMarkdown in
@@ -111,7 +103,8 @@ export function verdictForChat(verdict: ChatVerdict | undefined, locale: Locale 
 export function referenceForChat(verdict: ChatVerdict, locale: Locale = "fr"): string {
   const audit = verdict.reference_kind === "planted_flaws";
   const heading = audit ? "chat_reference_planted_flaws"
-    : verdict.reference_kind === "flawed_claims" ? "chat_reference_flawed_claims" : "chat_reference_key_points";
+    : verdict.reference_kind === "flawed_claims" ? "chat_reference_flawed_claims"
+    : verdict.reference_kind === "correct_choice" ? "chat_reference_correct_choice" : "chat_reference_key_points";
   const points = (Array.isArray(verdict.key_points) ? verdict.key_points : [])
     .filter((point): point is string => typeof point === "string" && point.trim() !== "");
   const missing = new Set(Array.isArray(verdict.key_points_missing) ? verdict.key_points_missing : []);
@@ -126,34 +119,66 @@ export function referenceForChat(verdict: ChatVerdict, locale: Locale = "fr"): s
   return blocks.join("\n\n");
 }
 
-/** A reply that is one of the self-rating grades the transition offered (again / hard / good / easy), or
- * null: after a verdict that asks the learner to rate their recall, a bare grade is that rating. */
+// UX-10: the words a learner may rate with — the API grade, the pane's button label and the host's gloss, in
+// both languages (« good (bien) », « Je ne savais pas »). Compared without case, accents or surrounding marks.
+const GRADE_WORDS: Record<string, readonly string[]> = {
+  again: ["again", "a revoir", "je ne savais pas", "i didn't know", "i did not know"],
+  hard: ["hard", "difficile"],
+  good: ["good", "bien"],
+  easy: ["easy", "facile"],
+};
+function plainWords(text: string): string {
+  return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[’]/g, "'")
+    .replace(/^[\s"'«»“”*_`.!?:;,()[\]-]+|[\s"'«»“”*_`.!?:;,()[\]-]+$/g, "").replace(/\s+/g, " ");
+}
+
+/** A reply that is one of the self-rating grades the transition offered (again / hard / good / easy, or their
+ * French and English labels), or null: after a verdict that asks the learner to rate their recall, a bare
+ * grade is that rating. */
 export function recallGradeOf(reply: string, grades: readonly string[]): string | null {
-  const word = reply.trim().toLowerCase();
-  return grades.includes(word) ? word : null;
+  const word = plainWords(reply);
+  if (!word) return null;
+  return grades.find((grade) => (GRADE_WORDS[grade] ?? [grade]).includes(word)) ?? null;
 }
 
-/** Map a learner's chat reply to the ResponseInput its grader expects, or null if it can't be interpreted. */
-export function replyToInput(scene: ChatScene, reply: string): ChatInput | null {
-  const t = scene.type;
-  const text = reply.trim();
-  if (t === "quiz") {
-    const choice = (scene.choices || []).find((c) => new RegExp(`^${escapeRe(c.id)}\\b`, "i").test(text));
-    return choice ? { kind: "quiz_choice", choiceId: choice.id } : null;
-  }
-  if (t === "meta_checkpoint") {
-    const n = text.match(/[0-4]/);
-    return n ? { kind: "confidence", value: Number(n[0]) } : null;
-  }
-  if (t === "spot_the_flaw" && scene.deck?.length) return deckVerdicts(scene.deck, text);
-  if (t && FREE_TEXT_KIND[t]) return text ? { kind: FREE_TEXT_KIND[t]!, text } : null;
-  return { kind: "ack" }; // intro / concept / reproduction ack
+const GRADE_LABEL: Record<string, PhraseKey> = {
+  again: "pane_grade_again", hard: "pane_grade_hard", good: "pane_grade_good", easy: "pane_grade_easy",
+};
+
+/** UX-10 / L-5: the prompt asking again for a self-rating, the grades named as the pane's buttons name them, in
+ * the learner's language and in the running sentence's case (« je ne savais pas / difficile / bien / facile »);
+ * each name is one recallGradeOf reads back as that grade. A grade without a label keeps its API code. */
+export function ratingAgainPrompt(grades: readonly string[], locale: Locale): string {
+  const names = grades.map((grade) => {
+    const key = GRADE_LABEL[grade];
+    if (!key) return grade;
+    const label = phrase(key, {}, locale);
+    return /^I\b/.test(label) ? label : label.charAt(0).toLocaleLowerCase(locale) + label.slice(1);
+  });
+  return phrase("chat_rating_again", { grades: names.join(" / ") }, locale);
 }
 
-/** Parse a "1,3" style reply into per-token flag/sound verdicts over the deck (numbers are 1-based). */
-function deckVerdicts(deck: Array<{ token: string; text: string }>, reply: string): ChatInput {
-  const flagged = new Set((reply.match(/\d+/g) || []).map((n) => Number(n) - 1));
-  return { kind: "flaw_verdicts", verdicts: deck.map((d, i) => ({ token: d.token, flagged: flagged.has(i) })) };
+const NAVIGATION_PHRASE: Record<string, PhraseKey> = {
+  replay: "chat_nav_replay",
+  remediate_alt: "chat_nav_remediate_alt",
+  remediate: "chat_nav_remediate",
+};
+
+/** UX-04 / L-6: where the lesson goes next, worded from navigation.kind alone — never the engine's reason
+ * code or rule id — and empty for an ordinary advance. For an older server that serves no display text. */
+export function navigationNote(navigation: { kind?: unknown; [key: string]: unknown } | null | undefined, locale: Locale = "fr"): string {
+  const key = typeof navigation?.kind === "string" ? NAVIGATION_PHRASE[navigation.kind] : undefined;
+  return key ? phrase(key, {}, locale) : "";
+}
+
+const REASONING_SIGNALS = new Set(["justification", "hypothesis", "question", "counterexample", "synthesis"]);
+
+/** The kind of reasoning a discussion turn showed, in words (the pane's pane_signal_* names), never its
+ * raw code or a decimal confidence; empty for a signal the pane does not name. */
+export function reasoningNote(reasoning: { signal?: unknown; [key: string]: unknown } | null | undefined, locale: Locale = "fr"): string {
+  const signal = typeof reasoning?.signal === "string" ? reasoning.signal : "";
+  if (!REASONING_SIGNALS.has(signal)) return "";
+  return phrase("chat_reasoning_signal", { signal: phrase(`pane_signal_${signal}` as PhraseKey, {}, locale) }, locale);
 }
 
 function choiceList(choices?: Array<{ id: string; text: string }>): string {
@@ -164,4 +189,3 @@ function deckList(deck?: Array<{ token: string; text: string }>): string {
 }
 function md(s?: string): string { return s ? String(s) : ""; }
 function flag(s: string): string { return `**${s}**`; }
-function escapeRe(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }

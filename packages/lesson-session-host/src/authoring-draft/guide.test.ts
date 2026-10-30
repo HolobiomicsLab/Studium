@@ -41,6 +41,38 @@ describe("authoringGuide", () => {
     expect(firstQuestion).toBeLessThanOrEqual(1);
   });
 
+  it.each(["fr", "en"] as const)("asks to flag the opening diagnostic and lets its meta_checkpoint replace the intro (%s)", (language) => {
+    const { markdown } = authoringGuide({ language });
+    expect(markdown).toContain("`diagnostic: true`");
+    expect(markdown).toContain(language === "fr" ? "peut remplacer l'intro" : "can replace the intro");
+  });
+
+  it.each(["fr", "en"] as const)("asks for a quiz on each prerequisite concept when no judge is configured (%s)", (language) => {
+    const { markdown } = authoringGuide({ language });
+    expect(markdown).toMatch(language === "fr"
+      ? /[Ss]ans juge modèle, chaque concept prérequis a au moins un quiz/
+      : /[Ww]ithout a judge model, every prerequisite concept has at least one quiz/);
+  });
+
+  it.each(["fr", "en"] as const)("caps quizzes only beyond the one each prerequisite needs, so the two rules agree (%s)", (language) => {
+    // A lesson with three prerequisite concepts needs three quizzes without a judge: the cap of
+    // « one or two » must count only the quizzes beyond those, or the two rules cannot both hold.
+    const { markdown } = authoringGuide({ language });
+    expect(markdown).toMatch(language === "fr"
+      ? /[Ee]n plus du quiz que demande chaque concept prérequis sans juge[^\n]*ajoutez au plus un ou deux quiz ou spot_the_flaw/
+      : /[Bb]esides the quiz each prerequisite concept needs without a judge[^\n]*add at most one or two quiz or spot_the_flaw scenes/);
+  });
+
+  it.each(["fr", "en"] as const)("asks for « tu » in a French lesson (%s)", (language) => {
+    const { markdown } = authoringGuide({ language });
+    expect(markdown).toContain(language === "fr" ? "tutoyez l'apprenant (« tu »)" : "address the learner as « tu »");
+  });
+
+  it("writes its French example to the learner with « tu »", () => {
+    const { example } = authoringGuide({ language: "fr" });
+    expect(JSON.stringify(example.draft)).not.toMatch(/\b(vous|votre|vos|Relisez|Racontez)\b/i);
+  });
+
   it("says in teacher mode that this route writes self-study lessons and names the teacher route", () => {
     expect(authoringGuide({ language: "en", mode: "teacher" }).markdown).toMatch(/self-study lessons only[\s\S]*experience_packet\.py approve/);
     expect(authoringGuide({ language: "fr", mode: "teacher" }).markdown).toMatch(/uniquement des leçons d'auto-apprentissage[\s\S]*experience_packet\.py approve/);

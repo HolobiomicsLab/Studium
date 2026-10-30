@@ -210,7 +210,8 @@ describe("SessionHost — durable + learner-scoped + resumable (#3)", () => {
       expect(readdirSync(masteryDir).filter(f => f.endsWith(".jsonld")).length).toBeGreaterThan(0);
 
       await host.forget(sessionId);
-      expect(readdirSync(masteryDir).filter(f => f.endsWith(".jsonld"))).toEqual([]);
+      // L-13: the learner's whole lesson folder goes, mastery folder included (no empty folder left).
+      expect(existsSync(masteryDir)).toBe(false);
     });
   });
 });

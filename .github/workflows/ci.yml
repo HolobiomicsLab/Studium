@@ -112,6 +112,14 @@ jobs:
             services/planner/tests/test_provenance_astra_validate_timeout.py \
             eval/tests/test_runner_max_turns_constant.py -q
 
+      - name: Documentation check (links, EN/FR pairs, generated reference)
+        # tools/docs/check.mjs: relative links and anchors in every .md file, a page.fr.md for every
+        # docs/ page (design-records/ and internal/ excepted), every MCP tool documented, and the
+        # generated sections of docs/reference/ equal to what `pnpm docs:gen` writes from the code.
+        run: |
+          node --test tools/docs/check.test.mjs
+          node tools/docs/check.mjs
+
   tester-path:
     name: Tester onboarding path
     runs-on: ubuntu-latest

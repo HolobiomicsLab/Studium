@@ -105,7 +105,12 @@ function createDispatcher(options:HttpOptions, operations:Operation[]) {
     }
     if (mutation && (receipts.size >= maxRequests || receiptBytes >= MAX_RECEIPT_BYTES) && !SESSION_ENDINGS.has(operation.name)) throw new HttpError(503,'receipt_limit','Mutation receipt limit reached; read/export your session before starting a new server');
     z.object(operation.inputSchema).strict().parse(input.arguments);
-    if (SESSION_ENDINGS.has(operation.name)) options.host.getState(String(input.arguments.session_id));
+    // L-13: forget_session may name a learner instead of a session; only a named session must exist.
+    if (SESSION_ENDINGS.has(operation.name) && input.arguments.session_id !== undefined) options.host.getState(String(input.arguments.session_id));
+    // The sessions a forget by learner_id may close: their cached outputs are invalidated with it.
+    const liveBefore = operation.name === 'forget_session' && input.arguments.session_id === undefined
+      ? [...new Set([...receipts.values()].map(receipt => receipt.sessionId ?? ''))].filter(id => id && options.host.has(id))
+      : [];
     await validateBundle(options.bundlesRoot,input.arguments);
     if (SCENE_ACTIONS.has(operation.name)) {
       if (!input.expected_scene_id) throw new HttpError(400,'scene_required','Fetch current scene and provide expected_scene_id');
@@ -117,7 +122,10 @@ function createDispatcher(options:HttpOptions, operations:Operation[]) {
     const reply = result.isError ? problem(String(body.error).startsWith('session not found:') ? 404 : 422,'operation_failed',String(body.error)) : {status:200,body};
     if (mutation && input.request_id) {
       const sessionId = String(input.arguments.session_id ?? body.session_id ?? '');
-      if (SESSION_ENDINGS.has(operation.name) && !result.isError) invalidateReceipts(receipts,sessionId,operation.name === 'forget_session');
+      if (SESSION_ENDINGS.has(operation.name) && !result.isError) {
+        if (sessionId) invalidateReceipts(receipts,sessionId,operation.name === 'forget_session');
+        for (const closed of liveBefore) if (!options.host.has(closed)) invalidateReceipts(receipts,closed,true);
+      }
       receipts.set(input.request_id,{digest,reply,sessionId});
       receiptBytes = [...receipts.values()].reduce((total,receipt) => total + Buffer.byteLength(JSON.stringify(receipt.reply)),0);
     }

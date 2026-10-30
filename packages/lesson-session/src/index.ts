@@ -22,6 +22,7 @@ export {
   SessionAlreadyCompleteError,
   SceneGradingError,
   SelfRatingNotRequestedError,
+  SelfRatingExpiredError,
   InvalidSelfRatingError,
 } from "./errors.js";
 

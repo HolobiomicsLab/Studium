@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -321,7 +321,30 @@ describe("lesson-mcp tools", () => {
     const forgotten = parse(await client.callTool({
       name: "forget_session", arguments: { session_id: second["session_id"] },
     }) as never);
-    expect(forgotten).toEqual({ forgotten: true });
+    // L-13: the reply says what was erased and what stays (it used to be {forgotten: true} alone).
+    expect(forgotten).toMatchObject({ forgotten: true, scope: "lesson" });
+    expect(forgotten["erased"]).toEqual(expect.arrayContaining([{ kind: "lesson_progress", lessons: ["M"] }]));
+    expect(typeof forgotten["display_markdown"]).toBe("string");
+  });
+
+  it("end_session says when the learner's progress could not be kept, rather than state_kept: true (L-11, CC-6)", async () => {
+    await withDurableData(async (dataDir) => {
+      const d = mkdtempSync(join(tmpdir(), "mcp-")); dirs.push(d);
+      writeFileSync(join(d, "A.json"), JSON.stringify(quizBundle("lesson-A", "c-a", "q-a")));
+      const client = await connect(d);
+      const a = parse(await client.callTool({
+        name: "start_lesson_session", arguments: { bundle_ref: "A.json", learner_id: "kepler" },
+      }) as never);
+      await client.callTool({
+        name: "submit_response",
+        arguments: { session_id: a.session_id, input: { kind: "quiz_choice", choiceId: displayedChoiceId(a) } },
+      });
+      const folder = readdirSync(dataDir).find((name) => existsSync(join(dataDir, name, "profile.json")));
+      writeFileSync(join(dataDir, folder!, "profile.json"), "{ torn");
+      const ended = parse(await client.callTool({ name: "end_session", arguments: { session_id: a.session_id } }) as never);
+      expect(ended).toMatchObject({ closed: true, state_kept: false });
+      expect(ended["persistence_warning"]).toMatch(/profile\.json/);
+    });
   });
 
   it("closing lesson A keeps mastery and profile reinforcement for lesson B and learner-only routing", async () => {
@@ -427,9 +450,10 @@ describe("lesson-mcp tools", () => {
       await client.callTool({
         name: "submit_response", arguments: { session_id: warm.session_id, input: { kind: "ack" } },
       });
+      // L-13: the reply says what was erased and what stays (it used to be {forgotten: true} alone).
       expect(parse(await client.callTool({
         name: "forget_session", arguments: { session_id: warm.session_id },
-      }) as never)).toEqual({ forgotten: true });
+      }) as never)).toMatchObject({ forgotten: true, scope: "lesson", erased: expect.arrayContaining([{ kind: "learner_profile" }]) });
 
       const cold = parse(await client.callTool({
         name: "start_lesson_session", arguments: { bundle_ref: "B.json", learner_id: "erase-me" },
@@ -638,37 +662,56 @@ describe("lesson-mcp — community bundles and authoring", () => {
   });
 });
 
-// Integration item 1 (W1/W2/W7 needs_lead): create_lesson writes where this server looks lessons up
-// first — the C6 library, or the folder BUNDLES_ROOT names when it is set — so the lesson is listed and
-// started at once, and review_lesson and class_report, which read the bundles root, find it too.
+// L-12 (SEC-1, RT-8d): create_lesson and prepare_sources always write into the learner's library, the
+// C6 library <STUDIUM_HOME>/library, never into the folder BUNDLES_ROOT names (a repository's
+// fixtures, where the full text of the learner's sources would be committed and a teacher's lesson
+// could be replaced). list_lessons and start_lesson_session search the library after BUNDLES_ROOT, so
+// the lesson is listed and started at once; persistence.library_root names where it went. This test
+// pinned the previous rule (integration item 1: write into BUNDLES_ROOT so review_lesson finds it).
 describe("lesson-mcp — where an authored lesson goes", () => {
-  it("with BUNDLES_ROOT set, create_lesson writes there: list, start and review_lesson see it at once", async () => {
-    const bundlesRoot = bundlesDir();
-    const libraryRoot = mkdtempSync(join(tmpdir(), "mcp-library-"));
-    dirs.push(libraryRoot);
-    const host = new SessionHost({ bundlesRoot, libraryRoot, live: false, dataDir: null });
+  async function authoringClient(host: SessionHost) {
     const server = buildMcpServer(host);
     const [clientT, serverT] = InMemoryTransport.createLinkedPair();
     await server.connect(serverT);
     const client = new Client({ name: "authoring-root", version: "1.0.0" });
     await client.connect(clientT);
     const call = async (name: string, args: Record<string, unknown> = {}) =>
-      parse(await client.callTool({ name, arguments: args }) as { content: Array<{ type: string; text?: string }> });
+      client.callTool({ name, arguments: args }) as Promise<{ content: Array<{ type: string; text?: string }>; isError?: boolean }>;
+    return { client, call };
+  }
 
-    const guide = await call("get_authoring_guide", { language: "fr" });
+  it("with BUNDLES_ROOT set, create_lesson writes into the library: BUNDLES_ROOT gets nothing, list and start see it", async () => {
+    const bundlesRoot = bundlesDir();
+    const libraryRoot = mkdtempSync(join(tmpdir(), "mcp-library-"));
+    dirs.push(libraryRoot);
+    const host = new SessionHost({ bundlesRoot, libraryRoot, live: false, dataDir: null });
+    const { client, call } = await authoringClient(host);
+    const guide = parse(await call("get_authoring_guide", { language: "fr" }));
     const { source, draft } = guide["example"] as { source: Record<string, unknown>; draft: Record<string, unknown> };
-    const prepared = await call("prepare_sources", { sources: [source], goal: draft["goal"], language: "fr" });
-    const created = await call("create_lesson", { source_set_id: prepared["source_set_id"], draft });
+    const prepared = parse(await call("prepare_sources", { sources: [source], goal: draft["goal"], language: "fr" }));
+    const created = parse(await call("create_lesson", { source_set_id: prepared["source_set_id"], draft }));
     expect(created).toMatchObject({ ok: true });
     const courseRef = String(created["course_ref"]);
-    expect(existsSync(join(bundlesRoot, courseRef))).toBe(true);
-    expect(existsSync(join(libraryRoot, courseRef))).toBe(false);
+    expect(existsSync(join(libraryRoot, courseRef))).toBe(true);
+    expect(existsSync(join(libraryRoot, "_sources", `${String(prepared["source_set_id"])}.json`))).toBe(true);
+    expect(existsSync(join(bundlesRoot, courseRef))).toBe(false);
+    expect(existsSync(join(bundlesRoot, "_sources"))).toBe(false);
 
-    const listed = await call("list_lessons", {}) as { lessons: Array<{ bundle_ref: string }> };
-    expect(listed.lessons.map((lesson) => lesson.bundle_ref)).toContain(courseRef);
-    expect(await call("start_lesson_session", { bundle_ref: courseRef })).toHaveProperty("session_id");
-    const review = await call("review_lesson", { course_ref: courseRef.replace(/\/lesson\.json$/, "") });
-    expect(review).toMatchObject({ schema_valid: true });
+    const listed = parse(await call("list_lessons", {})) as { lessons: Array<{ bundle_ref: string; source: string }> };
+    expect(listed.lessons.find((lesson) => lesson.bundle_ref === courseRef)).toMatchObject({ source: "library" });
+    const started = parse(await call("start_lesson_session", { bundle_ref: courseRef }));
+    expect(started).toHaveProperty("session_id");
+    expect(started["persistence"]).toMatchObject({ library_root: libraryRoot });
+    await client.close();
+  });
+
+  it("a server with no learner library refuses to write a lesson rather than write into BUNDLES_ROOT", async () => {
+    const bundlesRoot = bundlesDir();
+    const { client, call } = await authoringClient(new SessionHost({ bundlesRoot, live: false, dataDir: null }));
+    const refused = await call("prepare_sources", { sources: [{ title: "Note", text: "Un texte assez long pour former un passage citable par la leçon." }] });
+    expect(refused.isError).toBe(true);
+    expect(JSON.stringify(parse(refused))).toMatch(/no learner library/);
+    expect(existsSync(join(bundlesRoot, "_sources"))).toBe(false);
     await client.close();
   });
 });

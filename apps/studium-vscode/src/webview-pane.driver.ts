@@ -80,6 +80,13 @@ function mount(withRenderLibraries: boolean | "marked" = false, opts: { remoteIm
   };
 }
 type Mounted = ReturnType<typeof mount>;
+/** Type into an answer box as the learner does: the value, then the input event a keystroke fires. Changed
+ * (UX-08): the drivers used to set `.value` alone; the submit button now waits for text and listens to input. */
+function fill(textarea: any, text: string) {
+  if (!textarea) return;
+  textarea.value = text;
+  textarea.dispatchEvent(new textarea.ownerDocument.defaultView.Event("input", { bubbles: true }));
+}
 
 const baseState = (scene: any, extra: any = {}) => {
   const locale: Locale = extra.locale === "en" ? "en" : "fr";
@@ -110,7 +117,7 @@ function submitFreeText(scene: any, answer: string) {
   const btn = m.$(".controls .primary");
   expect(!!ta, `[${scene.type}] renders a <textarea>`);
   expect(!!btn, `[${scene.type}] renders a submit button`);
-  if (ta) (ta as any).value = answer;
+  fill(ta, answer);
   m.click(btn);
   const respond = m.sent.find((x) => x.type === "respond");
   return { m, respond };
@@ -183,7 +190,7 @@ function submitFreeText(scene: any, answer: string) {
   expect(m.text().includes("SEED_CLAIM"), "discussion shows the seed_claim");
   expect(!!m.$("#turns"), "discussion renders a transcript container");
   const ta = m.$("textarea");
-  if (ta) (ta as any).value = "Je pense que oui car…";
+  fill(ta, "Je pense que oui car…");
   const sendBtn = m.$all(".controls button").find((b: any) => /Envoyer/.test(b.textContent));
   m.click(sendBtn);
   const turn = m.sent.find((x) => x.type === "turn");
@@ -273,7 +280,7 @@ function submitFreeText(scene: any, answer: string) {
   m.render(baseState({ type: "spot_the_flaw", title: "F", flawed_content: "FLAWED" }));
   expect(m.$all(".confrow .conf").length === 5, "free-text renders a 0-4 confidence tap");
   m.click(m.$all(".confrow .conf")[1]);              // confidence = 1
-  const ta = m.$("textarea"); if (ta) (ta as any).value = "mes erreurs";
+  const ta = m.$("textarea"); fill(ta, "mes erreurs");
   m.click(m.$(".controls .primary"));
   const r = m.sent.find((x) => x.type === "respond");
   expect(!!r && r.input?.kind === "flaw_report" && r.input?.confidence === 1, "free-text submit carries the tapped confidence");
@@ -881,20 +888,35 @@ function submitFreeText(scene: any, answer: string) {
   m.render(baseState(quiz("qA", "Quiz A")));
   const validate = m.$(".controls .validate");
   expect(validate?.disabled === true, "« Valider » waits for a choice");
+  // Changed (UX-02, WCAG 2.1.4): the keys used to be pressed on the document body; a character shortcut now acts only
+  // while focus is inside the choices, so they are pressed on a choice. Outside it they do nothing.
   m.key(null, "b");
+  m.key(m.$(".scene-title"), "b");
+  m.key(m.$(".controls .hint-button"), "a");
+  expect(!m.$all(".controls .choice input").some((i: any) => i.checked), "a letter typed outside the choices picks nothing (heading, hint button, body)");
+  const first = m.$all(".controls .choice input")[0];
+  m.key(first, "b");
   expect(m.$all(".controls .choice input")[1]?.checked === true && validate?.disabled === false, "the key B selects choice b");
-  m.key(null, "3");
+  m.key(m.$all(".controls .choice input")[1], "3");
   expect(m.$all(".controls .choice input")[2]?.checked === true, "the key 3 selects the third choice");
   m.key(m.$all(".controls .choice input")[2], "Enter");
   const r = posted(m, "respond");
   expect(r.length === 1 && r[0].input.choiceId === "c", "Enter on a selected choice submits it");
   expect(m.text().includes(ph("pane_choice_shortcuts", { letters: "A–C", count: 3 }, "fr")), "the shortcuts are written under the choices");
+  // UX-02: the keys work only once a choice has focus, and the hint says so (it used to read « Raccourcis : … »).
+  const plain = (text: string) => text.replace(/[\u00a0\u202f]/g, " ");
+  expect(plain(ph("pane_choice_shortcuts", { letters: "A–C", count: 3 }, "fr")).startsWith("Dans la liste des choix : A–C ou 1 à 3"),
+    `the French hint says where the keys work (got ${ph("pane_choice_shortcuts", { letters: "A–C", count: 3 }, "fr")})`);
+  expect(ph("pane_choice_shortcuts", { letters: "A–C", count: 3 }, "en").startsWith("In the list of choices: A–C or 1 to 3"),
+    "the English hint too");
+  expect(plain(ph("pane_meta_shortcuts", {}, "fr")).startsWith("Dans l'échelle : 0 à 4") && ph("pane_meta_shortcuts", {}, "en").startsWith("On the scale: 0 to 4"),
+    "the checkpoint hint says where its keys work");
 }
 {
   const m = mount();
   m.render(baseState({ id: "e1", type: "explain_back", title: "Explique", prompt: "?" }));
   const ta = m.$(".controls textarea");
-  if (ta) ta.value = "mon explication";
+  fill(ta, "mon explication");
   m.key(ta, "b");
   expect(!posted(m, "respond").length, "letters typed in the answer box are never shortcuts");
   m.key(ta, "Enter", { ctrlKey: true });
@@ -1275,6 +1297,100 @@ async function axePass(): Promise<void> {
     const found = await axeViolations(m);
     expect(found.length === 0, `axe (${label}): no WCAG A/AA violation (${found.join("; ")})`);
   }
+}
+
+// --- sprint verification fixes (group E) ---------------------------------------------------------------
+// UX-08: an empty answer box cannot be submitted, by button or by Ctrl+Enter.
+{
+  const m = mount();
+  m.render(baseState({ id: "e1", type: "explain_back", title: "Explique", prompt: "?" }));
+  const ta = m.$(".controls textarea");
+  const button = m.$(".controls .primary");
+  expect(button?.disabled === true, "the submit button waits for text");
+  fill(ta, "   ");
+  m.key(ta, "Enter", { ctrlKey: true });
+  m.click(button);
+  expect(!posted(m, "respond").length && button?.disabled === true, "blank text is not an answer");
+  fill(ta, "une vraie réponse");
+  expect(button?.disabled === false, "text enables it");
+  const prefilled = mount();
+  prefilled.render(baseState({ type: "prompt_practice", title: "P", task: "T", starter_prompt: "STARTER" }));
+  expect(prefilled.$(".controls .primary")?.disabled === false, "a prefilled prompt can be sent as it is");
+}
+// UX-07: a discussion turn is pending until the host answers; when it fails, it leaves the transcript and its text
+// returns to the box.
+{
+  const m = mount();
+  m.render(baseState({ type: "discussion", title: "Débat", topic: "T", seed_claim: "S" }));
+  const ta = m.$("textarea");
+  const send = m.$all(".controls button").find((b: any) => b.textContent === FR.pane_send);
+  expect(send?.disabled === true, "« Envoyer » waits for text");
+  fill(ta, "MON_ARGUMENT");
+  m.click(send);
+  expect(!!m.$(".turn-learner.turn-pending") && ta.value === "", "the sent turn is shown as pending");
+  m.post({ type: "action_error", action: "turn", message: "KO" });
+  expect(!m.text().includes("MON_ARGUMENT") || ta.value === "MON_ARGUMENT", "the failed turn's text is back in the box");
+  expect(!m.$(".turn-learner") && ta.value === "MON_ARGUMENT" && send?.disabled === false, "and it is no longer in the transcript");
+  m.click(send);
+  m.post({ type: "turn_result", reasoning: null, tutor: { text: "TUTEUR" } });
+  expect(!!m.$(".turn-learner") && !m.$(".turn-pending") && send?.disabled === true, "a confirmed turn stays, no longer pending; the empty box waits again");
+}
+// UX-09: a rating's error that arrives after the learner left its feedback step is dropped, not shown elsewhere.
+{
+  const m = mount();
+  answered(m, { id: "eA", type: "explain_back", title: "E", prompt: "?" }, { id: "cB", type: "concept", title: "B", markdown: "x" },
+    {}, { nextExtra: { self_rating: { requested: true, grades: ["again", "good"] } } });
+  m.click(m.$all(".self-rating button[data-grade]")[1]);
+  m.click(m.$(".feedback-step .continue"));
+  m.post({ type: "action_error", action: "rateRecall", sceneId: "eA", message: "LATE_RATING_ERROR" });
+  expect(!m.text().includes("LATE_RATING_ERROR"), "a late rating error is not shown on the next scene");
+}
+// L-2: the correct choice of a quiz left wrong is labelled « La bonne réponse »; L-3: a source line carries its
+// licence; L-7: an AI-drafted lesson's key says whose it is.
+{
+  const m = mount();
+  answered(m, quiz("qA", "Quiz A"), { id: "cB", type: "concept", title: "B", markdown: "x" },
+    { correct: false, assessed_by: "key", feedback: "Non.", key_points: ["Quatre"], reference_kind: "correct_choice" },
+    { firstExtra: { authoring: { mode: "self_study", drafted_by: "agent", notice: "N" } },
+      nextExtra: { sources: [{ title: "Wikipédia — Photosynthèse", url: "https://fr.wikipedia.org/wiki/Photosynth%C3%A8se", license: "CC BY-SA 4.0", quote: "Q" }] } });
+  expect(m.$(".key-points .st-eyebrow")?.textContent === FR.pane_correct_choice && FR.pane_correct_choice === "La bonne réponse", "the correct choice is « La bonne réponse »");
+  expect(m.text().includes("Quatre"), "and it is shown");
+  expect((m.$(".feedback-sources figcaption")?.textContent ?? "").endsWith("Wikipédia — Photosynthèse, CC BY-SA 4.0"), `the source line ends with its licence (got ${m.$(".feedback-sources figcaption")?.textContent})`);
+  expect(m.$(".feedback-key-note")?.textContent === FR.pane_ai_key_note, "an author-keyed verdict of an AI-drafted lesson names its key");
+  const teacher = mount();
+  answered(teacher, quiz("qA", "Quiz A"), { id: "cB", type: "concept", title: "B", markdown: "x" },
+    { correct: false, assessed_by: "key", feedback: "Non." }, { firstExtra: { authoring: { mode: "teacher", drafted_by: "teacher", notice: null } } });
+  expect(!teacher.$(".feedback-key-note"), "a teacher's key carries no such note");
+  expect(EN.pane_correct_choice === "The right answer", "“The right answer” in English");
+}
+// L-6: the completion lists — consolidated, practised (with the number of graded answers), not measured yet.
+{
+  const m = mount();
+  m.render(baseState(quiz("qA", "Quiz A")));
+  m.post({ type: "done", message: "Fin.", completion: {
+    consolidated: [{ id: "c1", label: "Acquise" }], practised: [{ id: "c2", label: "Vue une fois", answers: 1 }, { id: "c3", label: "Vue deux fois", answers: 2 }],
+    not_measured: [{ id: "c4", label: "Jamais notée" }], actions: [],
+  } });
+  const group = (name: string) => m.$all(`.completion-group[data-group='${name}'] li`).map((li: any) => li.textContent).join("|");
+  expect(group("consolidated") === "Acquise", "consolidated");
+  expect(group("practised") === `Vue une fois ${FR.pane_completion_answers_one}|Vue deux fois ${ph("pane_completion_answers", { count: 2 })}`,
+    `practised, with the number of answers (got ${group("practised")})`);
+  expect(group("not-measured") === "Jamais notée", "not measured yet");
+  expect(!m.text().includes(FR.pane_completion_to_revisit), "no « à revoir » list is invented");
+}
+// UX-11: a rating on the last answer updates the end screen's next review.
+{
+  const m = mount();
+  m.render(baseState({ id: "eA", type: "explain_back", title: "E", prompt: "?" }));
+  m.post({ type: "done", message: "Fin.", verdict: { scene_id: "eA", graded: true, signal: "answer_submitted" },
+    self_rating: { requested: true, scene_id: "eA", grades: ["again", "good"] },
+    completion: { consolidated: [], next_review_at: Date.UTC(2026, 10, 1, 9), due_now: 0, actions: ["restart"] } });
+  m.click(m.$all(".self-rating button[data-grade]")[1]);
+  const later = Date.UTC(2026, 10, 20, 9);
+  m.post({ type: "recall_rated", sceneId: "eA", grade: "good", completion: { next_review_at: later, due_now: 0, actions: ["restart"] } });
+  m.click(m.$(".feedback-step .continue"));
+  const words = new Intl.DateTimeFormat("fr", { weekday: "long", day: "numeric", month: "long" }).format(new Date(later));
+  expect(m.text().includes(ph("pane_completion_next", { date: words })), `the end screen shows the date the rating produced (got ${m.$(".completion-review")?.textContent})`);
 }
 
 axePass().catch((e) => { expect(false, `the axe pass ran (${e?.message ?? e})`); }).finally(() => {

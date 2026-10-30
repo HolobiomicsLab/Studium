@@ -13,7 +13,10 @@
 // What class_report bands and what it does not (lead decision I-8): learner counts are banded
 // (`cohort_band`, for the whole run and for each row); per-row attempt counts (`n_attempts`,
 // `n_measured`) are exact, so on a scene each learner answers once they equal that row's learner
-// count. The floor bounds each report, not the difference between two: a report run before and after
+// count. Inside one report the floor applies to the learners each figure is computed over (answering,
+// graded, rated, timed, started: SEC-2), and a concept is rebuilt from the published figures of its
+// published scenes only, so subtracting scene rows from a concept row isolates nobody (SEC-3).
+// The floor bounds each report, not the difference between two: a report run before and after
 // one more learner plays can be subtracted to recover that learner's figures. A live aggregate always
 // allows this; it is a documented limit, not something this tool prevents.
 //
@@ -28,14 +31,13 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile, readdir, realpath, stat } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { BundleSchemaError, loadBundleJson } from "@studium/lesson-session/node";
 import {
-  COURSE_ID_PATTERN, REDACTED_SCENE_FIELDS, SCENE_KEY_CLASS, authoringOf, placeholderPaths, publicScene, readApproval,
+  COURSE_ID_PATTERN, REDACTED_SCENE_FIELDS, SCENE_KEY_CLASS, authoringOf, lintBundleData, placeholderPaths, publicScene, readApproval,
   type ApprovalStatus, type AuthoringBlock, type KeyClass,
 } from "@studium/lesson-session-host";
 
@@ -51,11 +53,14 @@ export const K_FLOOR = 5;
 export interface TeacherToolsContext {
   /** Root holding the course directories (`<course_id>/lesson.json`). */
   bundlesRoot: string;
+  /** The learner's library (<STUDIUM_HOME>/library), where create_lesson writes (L-12). A course is
+   * looked up under bundlesRoot first, then here; absent, or a folder that does not exist, is skipped. */
+  libraryRoot?: string | null;
   /** Root of durable learner data (`<pseudonym>/<bundle_id>/telemetry.jsonl`); null when ephemeral. */
   dataDir: string | null;
-  /** Runs the bundle linter on one lesson.json. Defaults to tools/bundle_lint.mjs. */
+  /** Runs the bundle linter on one lesson.json. Defaults to the linter's core (lintBundleData), in process. */
   lint?: LintRunner;
-  /** Path of tools/bundle_lint.mjs when it is not next to this checkout. */
+  /** Run this copy of tools/bundle_lint.mjs in a subprocess instead of the in-process linter. */
   lintScript?: string;
   /**
    * Optional sub-folder of `dataDir` (relative or absolute, confined to it) to aggregate instead of the
@@ -112,6 +117,24 @@ async function insideRoot(root: string, target: string, what: string, ref: strin
 const confine = (root: string, ref: string, what: string): Promise<string> =>
   insideRoot(root, resolve(root, ref), what, ref);
 
+/** The roots a course is looked up in, in order: bundlesRoot, then the learner's library when it
+ * exists and is another folder. */
+function lessonRoots(ctx: TeacherToolsContext): string[] {
+  const library = ctx.libraryRoot;
+  return library && existsSync(library) && resolve(library) !== resolve(ctx.bundlesRoot)
+    ? [ctx.bundlesRoot, library] : [ctx.bundlesRoot];
+}
+
+/** `ref` confined under the first root where it exists, or under bundlesRoot when it exists nowhere. */
+async function findUnderRoots(ctx: TeacherToolsContext, ref: string, what: string): Promise<{ root: string; target: string }> {
+  const roots = lessonRoots(ctx);
+  for (const root of roots) {
+    const target = await confine(root, ref, what);
+    if (existsSync(target)) return { root, target };
+  }
+  return { root: roots[0]!, target: await confine(roots[0]!, ref, what) };
+}
+
 const sha256 = (data: Buffer | string): string => createHash("sha256").update(data).digest("hex");
 
 function text(data: unknown): { content: Array<{ type: "text"; text: string }> } {
@@ -128,13 +151,13 @@ async function locateLesson(ctx: TeacherToolsContext, courseRef: string): Promis
   if (/\.zip$/i.test(courseRef)) {
     throw new TeacherToolError("zip bundles cannot be reviewed here: point course_ref at the course folder holding lesson.json");
   }
-  const target = await confine(ctx.bundlesRoot, courseRef, "course_ref");
+  const { root, target } = await findUnderRoots(ctx, courseRef, "course_ref");
   let info;
   try { info = await stat(target); } catch { throw new TeacherToolError(`no such course: ${courseRef}`); }
   if (info.isDirectory()) {
     const lessonJson = join(target, "lesson.json");
     if (!existsSync(lessonJson)) throw new TeacherToolError(`no lesson.json in course folder: ${courseRef}`);
-    return { lessonJson: await insideRoot(ctx.bundlesRoot, lessonJson, "course_ref", courseRef), courseDir: target };
+    return { lessonJson: await insideRoot(root, lessonJson, "course_ref", courseRef), courseDir: target };
   }
   if (!target.endsWith(".json")) throw new TeacherToolError(`course_ref must be a course folder or a .json bundle: ${courseRef}`);
   // Only a file named lesson.json sits in a course folder of its own; a flat bundle shares its folder.
@@ -186,14 +209,26 @@ function keyStrings(raw: unknown): string[] {
   return [...out].sort((a, b) => b.length - a.length);
 }
 
-/** Linter messages can quote the key: the flaw keyword, a parser snippet. Say where, not what. */
+/** Linter messages can quote the key: the flaw keyword, a field excerpt, a parser snippet. Say where,
+ * not what. A finding whose message quotes a field value is rebuilt from its location alone (SEC-6: an
+ * excerpt cut at 60 characters, or JSON-escaped, never equals the key string it came from); every
+ * other message is still scrubbed of key strings, raw and JSON-escaped. */
 function sanitizeFinding(finding: LintFinding, keys: string[]): LintFinding {
   let message = finding.message;
   if (finding.code === "flaw_reveal_gap") {
-    message = message.replace(/flaw ".*?" is absent from model_correction/, "a planted flaw (keyword withheld) is absent from model_correction");
+    const scene = /^(.*?): flaw "/.exec(message)?.[1];
+    message = `${scene ?? "a scene"}: a planted flaw (keyword withheld) is absent from model_correction`;
+  }
+  if (finding.code === "unfilled_placeholder") {
+    const path = /^(.*?): unfilled placeholder\b/.exec(message)?.[1];
+    message = `${path ?? "a field"}: unfilled placeholder`;
   }
   if (finding.code === "invalid_json") message = "lesson.json is not valid JSON";
-  for (const key of keys) message = message.split(key).join("[withheld]");
+  for (const key of keys) {
+    message = message.split(key).join("[withheld]");
+    const escaped = JSON.stringify(key).slice(1, -1);
+    if (escaped !== key) message = message.split(escaped).join("[withheld]");
+  }
   return { level: finding.level, code: finding.code, message };
 }
 
@@ -220,13 +255,15 @@ function scriptLintRunner(script: string): LintRunner {
   };
 }
 
-function defaultLintScript(ctx: TeacherToolsContext): string | null {
-  if (ctx.lintScript) return existsSync(ctx.lintScript) ? ctx.lintScript : null;
-  try {
-    const guess = fileURLToPath(new URL("../../../tools/bundle_lint.mjs", import.meta.url));
-    return existsSync(guess) ? guess : null;
-  } catch { return null; } // bundled build without a file URL
-}
+/** The default runner: the linter's own core (tools/bundle_lint.mjs lintBundleData, re-exported by
+ * @studium/lesson-session-host), in process. It needs no script on disk and no file URL, so it runs
+ * the same in a checkout and in the bundled CJS server, where `import.meta` is empty (CC-5, RT-1). */
+const inProcessLintRunner: LintRunner = async (lessonJson) => {
+  let bundle: unknown;
+  try { bundle = JSON.parse(await readFile(lessonJson, "utf8")); }
+  catch { return [{ level: "ERROR", code: "invalid_json", message: "lesson.json is not valid JSON" }]; }
+  return lintBundleData(bundle, { bundleDir: dirname(lessonJson) }).findings;
+};
 
 export type LintSummary =
   | { status: "ok"; errors: number; warnings: number; infos: number; findings: LintFinding[] }
@@ -234,11 +271,11 @@ export type LintSummary =
 
 async function runLint(ctx: TeacherToolsContext, lessonJson: string, keys: string[]): Promise<LintSummary> {
   let runner = ctx.lint;
-  if (!runner) {
-    const script = defaultLintScript(ctx);
-    if (!script) return { status: "unavailable", reason: "tools/bundle_lint.mjs was not found next to this server", findings: [] };
-    runner = scriptLintRunner(script);
+  if (!runner && ctx.lintScript !== undefined) {
+    if (!existsSync(ctx.lintScript)) return { status: "unavailable", reason: "the configured bundle linter script was not found", findings: [] };
+    runner = scriptLintRunner(ctx.lintScript);
   }
+  runner ??= inProcessLintRunner;
   try {
     const findings = (await runner(lessonJson)).map((f) => sanitizeFinding(f, keys));
     const count = (level: LintFinding["level"]): number => findings.filter((f) => f.level === level).length;
@@ -405,55 +442,99 @@ const CLASS_REPORT_TEXT = {
     floor: (k: number) => `k-anonymity floor: a class report needs at least ${k} distinct learners in the lesson and this lesson has fewer. The size is withheld for the same reason.`,
     identity: "No cohort can be established: at least one telemetry event carries no learner_pseudonym or no lesson_id, so the population would be partly unknown. Nothing is published.",
     no_data: "No telemetry was found for this course. Telemetry is written only for learners who consented (STUDIUM_TELEMETRY_CONSENT) in a durable data folder; check the folder, or that anyone has played the lesson.",
-    withheld: "At least one scene or concept is not shown: too few learners contributed to it. How many were withheld is not stated.",
+    withheld: "At least one scene, concept or figure is not shown: too few learners contributed to it. How many were withheld is not stated.",
     not_included: ["trust calibration (use tools/class_report.py)", "per-learner anything (never produced)"],
   },
   fr: {
-    non_attribution: "Lecture au niveau de la classe sur les contributeurs que ce rapport nomme, et non une affirmation sur un étudiant : elle décrit comment un groupe a travaillé, rien ici ne la ramène à une personne.",
-    floor: (k: number) => `Seuil d'anonymat : un rapport de classe exige au moins ${k} apprenants distincts dans la leçon, et cette leçon en compte moins. L'effectif est tu pour la même raison.`,
-    identity: "Aucune cohorte ne peut être établie : au moins un événement de télémétrie n'a ni learner_pseudonym ni lesson_id, la population serait en partie inconnue. Rien n'est publié.",
-    no_data: "Aucune télémétrie trouvée pour ce cours. Elle n'est écrite que pour les apprenants consentants (STUDIUM_TELEMETRY_CONSENT) dans un dossier de données durable ; vérifiez le dossier, ou que quelqu'un a joué la leçon.",
-    withheld: "Au moins une scène ou un concept n'est pas montré : trop peu d'apprenants y ont contribué. Leur nombre n'est pas indiqué.",
+    non_attribution: "Lecture au niveau de la classe sur les contributeurs que ce rapport nomme, et non une affirmation sur un étudiant\u00a0: elle décrit comment un groupe a travaillé, rien ici ne la ramène à une personne.",
+    floor: (k: number) => `Seuil d'anonymat\u00a0: un rapport de classe exige au moins ${k} apprenants distincts dans la leçon, et cette leçon en compte moins. L'effectif est tu pour la même raison.`,
+    identity: "Aucune cohorte ne peut être établie\u00a0: au moins un événement de télémétrie n'a ni learner_pseudonym ni lesson_id, la population serait en partie inconnue. Rien n'est publié.",
+    no_data: "Aucune télémétrie trouvée pour ce cours. Elle n'est écrite que pour les apprenants consentants (STUDIUM_TELEMETRY_CONSENT) dans un dossier de données durable\u202f; vérifiez le dossier, ou que quelqu'un a joué la leçon.",
+    withheld: "Au moins une scène, un concept ou un chiffre n'est pas montré\u00a0: trop peu d'apprenants y ont contribué. Leur nombre n'est pas indiqué.",
     not_included: ["calibration de la confiance (utiliser tools/class_report.py)", "tout chiffre individuel (jamais produit)"],
   },
 };
 
+/** One scene's (or, rebuilt from published scenes, one concept's) answers, and for each figure the
+ * learners it is computed over: the floor applies to that population, not to everyone who sent an
+ * event (SEC-2: a scene where four learners only asked for a hint and one answered published that one
+ * learner's figures). */
 interface Acc {
-  attempts: number; measured: number; correct: number; hints: number;
+  attempts: number; measured: number; correct: number;
   /** Quiz answers the learner rated (confidence present), their correct ones and their summed confidence. */
-  ratedN: number; ratedCorrect: number; confSum: number; timeMs: number; timed: number; members: Set<string>;
+  ratedN: number; ratedCorrect: number; confSum: number; timeMs: number; timed: number;
+  /** Learners who answered (any attempt), whose answer a key or a judge graded, who rated, who were timed. */
+  attempting: Set<string>; measuredBy: Set<string>; ratedBy: Set<string>; timedBy: Set<string>;
+  /** Learners who asked for a hint here. */
+  hintedBy: Set<string>;
 }
-const newAcc = (): Acc => ({ attempts: 0, measured: 0, correct: 0, hints: 0, ratedN: 0, ratedCorrect: 0, confSum: 0, timeMs: 0, timed: 0, members: new Set() });
+const newAcc = (): Acc => ({
+  attempts: 0, measured: 0, correct: 0, ratedN: 0, ratedCorrect: 0, confSum: 0, timeMs: 0, timed: 0,
+  attempting: new Set(), measuredBy: new Set(), ratedBy: new Set(), timedBy: new Set(), hintedBy: new Set(),
+});
 
 const round = (value: number, digits: number): number => { const f = 10 ** digits; return Math.round(value * f) / f; };
+const countIn = (members: Set<string>, within: Set<string>): number => [...members].filter((m) => within.has(m)).length;
 
 export interface Figures {
-  /** The row's learner count, banded. */
+  /** The row's count of answering learners, banded. */
   cohort_band: string;
   /** Exact counts (lead decision I-8): on a scene each learner answers once, so these equal the row's
    * learner count; only learner counts are banded. */
   n_attempts: number;
   n_measured: number;
+  /** Over graded answers, null unless at least `floor` learners were graded. */
   accuracy: number | null;
+  /** Learners who asked for a hint over learners who answered: a share of people, within [0, 1]. */
   hint_reliance: number | null;
+  /** Over rated quiz answers, null unless at least `floor` learners rated. */
   calibration_gap: number | null;
+  /** Over timed answers, null unless at least `floor` learners were timed. */
   mean_time_s: number | null;
 }
 
-function figures(acc: Acc, floor: number): Figures {
+/** Each figure over its own population, withheld (null) under the floor; `withheld` says whether any
+ * figure was held back for that reason (an empty population is "not measured", not withheld). */
+function figures(acc: Acc, floor: number): { figures: Figures; withheld: boolean } {
+  const reaches = (members: Set<string>): boolean => members.size >= floor;
+  const short = (members: Set<string>): boolean => members.size > 0 && members.size < floor;
   return {
-    cohort_band: cohortBand(acc.members.size, floor),
-    n_attempts: acc.attempts,
-    // `measured` = answers a key or a model judge graded. A keyword score nobody judged is not a
-    // measure of understanding, so it counts as an attempt and never as accuracy.
-    n_measured: acc.measured,
-    accuracy: acc.measured > 0 ? round(acc.correct / acc.measured, 3) : null,
-    hint_reliance: acc.attempts > 0 ? round(acc.hints / acc.attempts, 3) : null,
-    // + = over-confident; only quiz answers carry a self-rated confidence, and only the rated ones
-    // count (lead decision I-5: an answer the learner did not rate has no confidence, not 0).
-    calibration_gap: acc.ratedN > 0 ? round(acc.confSum / acc.ratedN - acc.ratedCorrect / acc.ratedN, 3) : null,
-    mean_time_s: acc.timed > 0 ? round(acc.timeMs / acc.timed / 1000, 1) : null,
+    figures: {
+      cohort_band: cohortBand(acc.attempting.size, floor),
+      n_attempts: acc.attempts,
+      // `measured` = answers a key or a model judge graded. A keyword score nobody judged is not a
+      // measure of understanding, so it counts as an attempt and never as accuracy.
+      n_measured: acc.measured,
+      accuracy: reaches(acc.measuredBy) ? round(acc.correct / acc.measured, 3) : null,
+      hint_reliance: acc.attempting.size > 0 ? round(countIn(acc.hintedBy, acc.attempting) / acc.attempting.size, 3) : null,
+      // + = over-confident; only quiz answers carry a self-rated confidence, and only the rated ones
+      // count (lead decision I-5: an answer the learner did not rate has no confidence, not 0).
+      calibration_gap: reaches(acc.ratedBy) ? round(acc.confSum / acc.ratedN - acc.ratedCorrect / acc.ratedN, 3) : null,
+      mean_time_s: reaches(acc.timedBy) ? round(acc.timeMs / acc.timed / 1000, 1) : null,
+    },
+    withheld: short(acc.measuredBy) || short(acc.ratedBy) || short(acc.timedBy),
   };
+}
+
+/** Add a published scene to its concept, figure by figure: a part enters the concept only when the scene
+ * published that figure, so the concept row minus the scene rows recovers nothing the floor withheld
+ * (SEC-3). */
+function addPublished(concept: Acc, scene: Acc, published: Figures): void {
+  concept.attempts += scene.attempts;
+  for (const m of scene.attempting) concept.attempting.add(m);
+  for (const m of scene.hintedBy) if (scene.attempting.has(m)) concept.hintedBy.add(m);
+  if (published.accuracy !== null) {
+    concept.measured += scene.measured; concept.correct += scene.correct;
+    for (const m of scene.measuredBy) concept.measuredBy.add(m);
+  }
+  if (published.calibration_gap !== null) {
+    concept.ratedN += scene.ratedN; concept.ratedCorrect += scene.ratedCorrect; concept.confSum += scene.confSum;
+    for (const m of scene.ratedBy) concept.ratedBy.add(m);
+  }
+  if (published.mean_time_s !== null) {
+    concept.timeMs += scene.timeMs; concept.timed += scene.timed;
+    for (const m of scene.timedBy) concept.timedBy.add(m);
+  }
 }
 
 /** Same on-disk segment as deps.ts `durableScopeDir`: a bundle_id is one sanitized path segment. */
@@ -479,13 +560,20 @@ async function findStreams(root: string, segment: string): Promise<string[]> {
 export type SceneRow = { scene_id: string; title: string | null; type: string | null; concept: string } & Figures;
 export type ConceptRow = { concept: string; title: string | null } & Figures;
 
+export interface DataFolder { label: string; fingerprint: string }
+
 export type ClassReportResult =
   | { status: "suppressed"; min_learners: number; has_data: true; reason: string }
   | { status: "no_data"; min_learners: number; has_data: false; reason: string }
   | {
     status: "ok"; course_id: string; bundle_id: string; min_learners: number;
+    /** Which folder was aggregated, without its path: the folder's name (and the configured sub-folder
+     * under it, when there is one) and the first 8 hex of the sha256 of its real path, to tell two
+     * folders of the same name apart (RT-5). */
+    data_folder: DataFolder;
     /** The whole run's learner count, banded. */
     cohort_band: string;
+    /** Completed over started, null unless at least `min_learners` learners started. */
     completion_rate: number | null;
     scenes: SceneRow[];
     concepts: ConceptRow[];
@@ -498,7 +586,7 @@ export type ClassReportResult =
 
 export async function classReport(ctx: TeacherToolsContext, courseId: string): Promise<ClassReportResult> {
   if (!COURSE_ID_PATTERN.test(courseId)) throw new TeacherToolError(`invalid course_id: ${courseId}`);
-  const lessonPath = await confine(ctx.bundlesRoot, join(courseId, "lesson.json"), "course_id");
+  const lessonPath = (await findUnderRoots(ctx, join(courseId, "lesson.json"), "course_id")).target;
   if (!existsSync(lessonPath)) throw new TeacherToolError(`unknown course: ${courseId}`);
   if ((await stat(lessonPath)).size > MAX_LESSON_BYTES) throw new TeacherToolError("lesson.json is too large to read here");
   let bundle: Bundle;
@@ -519,8 +607,8 @@ export async function classReport(ctx: TeacherToolsContext, courseId: string): P
   const conceptOf = (sceneId: string): string => sceneInfo.get(sceneId)?.concept_refs[0] ?? sceneId;
 
   const scenes = new Map<string, Acc>();
-  const concepts = new Map<string, Acc>();
   const learners = new Set<string>();
+  const startedBy = new Set<string>();
   let started = 0;
   let completed = 0;
   let unknownIdentity = false;
@@ -540,25 +628,25 @@ export async function classReport(ctx: TeacherToolsContext, courseId: string): P
       if (lesson !== bundle.bundle_id) continue; // another lesson's event: not this class
       learners.add(pseudonym);
       const type = e["type"];
-      if (type === "lesson_started") { started += 1; continue; }
+      if (type === "lesson_started") { started += 1; startedBy.add(pseudonym); continue; }
       if (type === "lesson_completed") { completed += 1; continue; }
       if (type !== "quiz_answered" && type !== "critique_submitted" && type !== "hint_requested") continue;
       const sceneId = typeof e["scene_id"] === "string" ? e["scene_id"] : "";
       if (sceneId === "") continue;
-      for (const acc of [scenes.get(sceneId) ?? scenes.set(sceneId, newAcc()).get(sceneId)!,
-        concepts.get(conceptOf(sceneId)) ?? concepts.set(conceptOf(sceneId), newAcc()).get(conceptOf(sceneId))!]) {
-        acc.members.add(pseudonym);
-        if (type === "hint_requested") { acc.hints += 1; continue; }
-        acc.attempts += 1;
-        if (type === "quiz_answered") {
-          const ok = e["correct"] === true;
-          acc.measured += 1; acc.correct += ok ? 1 : 0;
-          if (typeof e["confidence"] === "number") { acc.ratedN += 1; acc.ratedCorrect += ok ? 1 : 0; acc.confSum += e["confidence"]; }
-          if (typeof e["response_time_ms"] === "number") { acc.timeMs += e["response_time_ms"]; acc.timed += 1; }
-        } else if (e["score_source"] === "llm" || e["score_source"] === "verdict_deck") {
-          acc.measured += 1;
-          acc.correct += typeof e["llm_score"] === "number" && e["llm_score"] >= 0.6 ? 1 : 0;
+      const acc = scenes.get(sceneId) ?? scenes.set(sceneId, newAcc()).get(sceneId)!;
+      if (type === "hint_requested") { acc.hintedBy.add(pseudonym); continue; }
+      acc.attempts += 1;
+      acc.attempting.add(pseudonym);
+      if (type === "quiz_answered") {
+        const ok = e["correct"] === true;
+        acc.measured += 1; acc.correct += ok ? 1 : 0; acc.measuredBy.add(pseudonym);
+        if (typeof e["confidence"] === "number") {
+          acc.ratedN += 1; acc.ratedCorrect += ok ? 1 : 0; acc.confSum += e["confidence"]; acc.ratedBy.add(pseudonym);
         }
+        if (typeof e["response_time_ms"] === "number") { acc.timeMs += e["response_time_ms"]; acc.timed += 1; acc.timedBy.add(pseudonym); }
+      } else if (e["score_source"] === "llm" || e["score_source"] === "verdict_deck") {
+        acc.measured += 1; acc.measuredBy.add(pseudonym);
+        acc.correct += typeof e["llm_score"] === "number" && e["llm_score"] >= 0.6 ? 1 : 0;
       }
     }
   }
@@ -567,35 +655,46 @@ export async function classReport(ctx: TeacherToolsContext, courseId: string): P
   if (learners.size === 0) return { status: "no_data" as const, min_learners: floor, has_data: false, reason: T.no_data };
   if (learners.size < floor) return { status: "suppressed" as const, min_learners: floor, has_data: true, reason: T.floor(floor) };
 
+  // A scene is published when at least `floor` learners answered it; inside it, each figure needs its own
+  // population at the floor. A concept is rebuilt from the published figures of its published scenes only.
   let withheld = false;
-  const publishable = <K extends string>(map: Map<K, Acc>): Array<[K, Acc]> => {
-    const rows = [...map].filter(([, acc]) => acc.members.size >= floor);
-    if (rows.length < map.size) withheld = true;
-    return rows;
-  };
-  const sceneRows = publishable(scenes).map(([id, acc]): SceneRow => {
+  const sceneRows: SceneRow[] = [];
+  const concepts = new Map<string, Acc>();
+  for (const [id, acc] of scenes) {
+    if (acc.attempting.size === 0) continue; // hints only: no answer, nothing to report or withhold
+    if (acc.attempting.size < floor) { withheld = true; continue; }
+    const { figures: published, withheld: partly } = figures(acc, floor);
+    if (partly) withheld = true;
     const scene = sceneInfo.get(id);
-    return { scene_id: id, title: scene?.title ?? null, type: scene?.type ?? null, concept: conceptOf(id), ...figures(acc, floor) };
-  }).sort((a, b) => (a.accuracy ?? 2) - (b.accuracy ?? 2) || a.scene_id.localeCompare(b.scene_id));
-  const conceptRows = publishable(concepts).map(([id, acc]): ConceptRow => ({
-    concept: id, title: conceptTitle.get(id) ?? null, ...figures(acc, floor),
+    sceneRows.push({ scene_id: id, title: scene?.title ?? null, type: scene?.type ?? null, concept: conceptOf(id), ...published });
+    const concept = concepts.get(conceptOf(id)) ?? concepts.set(conceptOf(id), newAcc()).get(conceptOf(id))!;
+    addPublished(concept, acc, published);
+  }
+  sceneRows.sort((a, b) => (a.accuracy ?? 2) - (b.accuracy ?? 2) || a.scene_id.localeCompare(b.scene_id));
+  const conceptRows = [...concepts].map(([id, acc]): ConceptRow => ({
+    concept: id, title: conceptTitle.get(id) ?? null, ...figures(acc, floor).figures,
   })).sort((a, b) => (a.accuracy ?? 2) - (b.accuracy ?? 2) || (b.hint_reliance ?? 0) - (a.hint_reliance ?? 0) || a.concept.localeCompare(b.concept));
 
+  const anyWithheld = withheld || (startedBy.size > 0 && startedBy.size < floor);
+  const dataRoot = await realpath(ctx.dataDir);
+  const sub = relative(dataRoot, root);
   return {
     status: "ok" as const,
     course_id: courseId,
     bundle_id: bundle.bundle_id,
     min_learners: floor,
+    data_folder: { label: sub === "" ? basename(dataRoot) : `${basename(dataRoot)}/${sub.split(sep).join("/")}`, fingerprint: sha256(root).slice(0, 8) },
     cohort_band: cohortBand(learners.size, floor),
-    completion_rate: started > 0 ? round(completed / started, 3) : null,
+    // The figure's population is the learners who started the lesson.
+    completion_rate: startedBy.size >= floor ? round(completed / started, 3) : null,
     scenes: sceneRows,
     concepts: conceptRows,
-    withheld_below_floor: withheld,
+    withheld_below_floor: anyWithheld,
     // Concepts a class most needs re-taught: measured accuracy under 0.8, worst first.
     reteach_priority: conceptRows.filter((c) => c.accuracy !== null && c.accuracy < 0.8).map((c) => c.concept).slice(0, 5),
     not_included: T.not_included,
     non_attribution: T.non_attribution,
-    ...(withheld ? { note: T.withheld } : {}),
+    ...(anyWithheld ? { note: T.withheld } : {}),
   };
 }
 
@@ -606,6 +705,14 @@ export async function classReport(ctx: TeacherToolsContext, courseId: string): P
  * Both are read-only. The floor and the roots come from `ctx`, never from tool arguments: no argument
  * lets the model change which learners a report covers (see TeacherToolsContext.telemetryDir).
  */
+/** class_report takes course_id and nothing else: an extra argument is refused with a message, never
+ * stripped (RT-5: a caller passing telemetry_dir got the whole folder and believed it narrowed). */
+const CLASS_REPORT_INPUT = z.object({ course_id: z.string().min(1).max(64) }, {
+  errorMap: (issue, ctx) => issue.code === "unrecognized_keys"
+    ? { message: `class_report takes only course_id; ${issue.keys.join(", ")} refused: the data folder (telemetry_dir) is server configuration (STUDIUM_DATA_DIR / STUDIUM_HOME), never a tool argument` }
+    : { message: ctx.defaultError },
+}).strict();
+
 export function registerTeacherTools(server: McpServer, ctx: TeacherToolsContext): string[] {
   server.registerTool("review_lesson", {
     description: "Teacher: review a lesson draft before approving it. Returns the scene plan, who holds each answer key " +
@@ -618,12 +725,16 @@ export function registerTeacherTools(server: McpServer, ctx: TeacherToolsContext
   });
   server.registerTool("class_report", {
     description: "Teacher: class-level report for a course over consented telemetry: per scene and per concept accuracy " +
-      "(only where a key or a model judge graded), hint reliance, calibration gap, completion. Aggregate only, behind a " +
-      "minimum-cohort floor; never a learner identifier, and a scene or concept with too few contributors is withheld. " +
-      "Learner counts are banded (cohort_band); per-row attempt counts are exact. Each report respects the floor, but two " +
-      "reports taken before and after a learner plays can be compared: treat figures as a live class view, not a release. " +
-      "It covers the whole data folder the server is configured with; the folder cannot be narrowed from here. Read-only.",
-    inputSchema: { course_id: z.string().min(1).max(64) },
+      "(only where a key or a model judge graded), hint reliance (share of answering learners who asked for a hint), " +
+      "calibration gap (rated answers only), completion. Aggregate only, behind a minimum-cohort floor applied to the " +
+      "learners each figure is computed over; never a learner identifier, and a scene, concept or figure with too few " +
+      "contributors is withheld. Learner counts are banded (cohort_band); per-row attempt counts are exact. Each report " +
+      "respects the floor, but two reports taken before and after a learner plays can be compared: treat figures as a live " +
+      "class view, not a release. course_id is the name of the course's top-level folder under the server's lessons root " +
+      "(the folder holding lesson.json; lowercase letters, digits, '.', '_' or '-', no '/'). It covers the whole data folder " +
+      "the server is configured with, named by data_folder; the folder is server configuration and cannot be chosen from " +
+      "here. Read-only.",
+    inputSchema: CLASS_REPORT_INPUT,
   }, async ({ course_id }) => {
     try { return text(await classReport(ctx, course_id)); }
     catch (e) { return fail(e instanceof TeacherToolError ? e.message : "class_report failed"); }

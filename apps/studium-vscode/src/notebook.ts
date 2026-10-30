@@ -6,16 +6,14 @@
 // VS Code's built-in notebook renderer). Interactive 3D (orbital/molecule) is surfaced as a note +
 // served by the companion artifact pane; a dedicated NotebookRenderer is the documented next step.
 import * as vscode from "vscode";
-import { resolve, join } from "node:path";
 import { readFile } from "node:fs/promises";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { resolveTsx } from "./mcp-connect.js";
+import { connectLessonMcp, resolveLogSink, type LessonMcp } from "./mcp-connect.js";
+import { lessonServerConfig } from "./lesson-server.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 import { freeTextInput, extractConfidence } from "./scene-io.js";
 import { assetPathFor, imageMime } from "./asset-path.js";
 import { phrase, type Locale } from "./phrases.js";
-import { verdictForChat, recallGradeOf } from "./chat-format.js";
+import { verdictForChat, recallGradeOf, navigationNote, reasoningNote } from "./chat-format.js";
 
 type Json = Record<string, any>;
 const NB_TYPE = "studium-lesson";
@@ -26,7 +24,7 @@ function cfg<T>(key: string, fallback: T): T {
 }
 
 interface Sess {
-  client: Client;
+  mcp: LessonMcp;
   sid: string;
   locale: Locale;
   bundleRef: string;
@@ -86,24 +84,14 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
   controller.supportsExecutionOrder = true;
   controller.description = phrase("notebook_runtime");
 
+  // The notebook's lesson-mcp runs like the pane's: same launch, same bundles root and the learner's state in the
+  // extension's storage (so « Oublier mes données » closes it and erases what it wrote), stderr in the output channel.
   async function startSession(notebook: vscode.NotebookDocument): Promise<Sess> {
-    const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
-    const tsx = resolveTsx(repoRoot);
-    const mcpDir = resolve(repoRoot, "apps/lesson-mcp");
-    const bundlesRoot = cfg<string>("bundlesRoot", join(repoRoot, "fixtures"));
-    const bundleRef = (notebook.metadata?.bundle_ref as string) || cfg<string>("bundleRef", "atomistique-l1/lesson.json");
-    const learnerId = (notebook.metadata?.learner_id as string) || cfg<string>("learnerId", "vscode-learner");
-    const env: Record<string, string> = { ...process.env as any, BUNDLES_ROOT: bundlesRoot };
-    const transport = new StdioClientTransport({ command: tsx, args: ["src/index.ts"], cwd: mcpDir, env, stderr: "ignore" });
-    const client = new Client({ name: "studium-notebook", version: "0.1.0" });
-    await client.connect(transport);
-    const call = async (n: string, a: Json): Promise<Json> => {
-      const r: any = await client.callTool({ name: n, arguments: a });
-      const data = JSON.parse(r.content?.[0]?.text ?? "{}");
-      if (r.isError) throw new Error(`${n}: ${data.error}`);
-      return data;
-    };
-    return { client, sid: "", locale: "fr", bundleRef, learnerId, bundlesRoot, call };
+    const server = lessonServerConfig(context);
+    const bundleRef = (notebook.metadata?.bundle_ref as string) || server.bundleRef;
+    const learnerId = (notebook.metadata?.learner_id as string) || server.learnerId;
+    const mcp = await connectLessonMcp({ launch: server.serverLaunch, env: server.env });
+    return { mcp, sid: "", locale: "fr", bundleRef, learnerId, bundlesRoot: server.bundlesRoot, call: mcp.call };
   }
 
   // `d` is the RAW (untrimmed-of-case) cell text so free-text answers keep their casing; only the
@@ -113,9 +101,11 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
     // the answer and attach it to the input. A meta_checkpoint's bare digit is NOT a token (left as-is).
     const { confidence, rest } = extractConfidence(d);
     const withConf = (input: Json): Json => (confidence === undefined ? input : { ...input, confidence });
-    const lc = rest.toLowerCase();
-    if (scene.type === "quiz") return withConf({ kind: "quiz_choice", choiceId: /^[a-f]$/.test(lc) ? lc : (scene.choices?.[0]?.id ?? "a") });
-    if (scene.type === "meta_checkpoint") { const v = parseInt(d.trim(), 10); return { kind: "confidence", value: Number.isNaN(v) ? 2 : Math.max(0, Math.min(4, v)) }; }
+    // A quiz cell naming a displayed id answers with it (with its confidence); anything else — and every
+    // checkpoint — is the learner's reply, which the host maps or refuses (L-10): never a guessed choice or value.
+    const choice = (scene.choices as Json[] | undefined)?.find((c) => String(c.id).toLowerCase() === rest.trim().toLowerCase());
+    if (scene.type === "quiz") return choice ? withConf({ kind: "quiz_choice", choiceId: choice.id }) : { kind: "reply", text: rest };
+    if (scene.type === "meta_checkpoint") return { kind: "reply", text: d };
     // every single-submit free-text active-learning scene (ai_critique / spot_the_flaw / explain_back /
     // comparison / summary_audit / prompt_practice / communication_sim) maps to the kind its grader
     // requires — see scene-io.ts. Anything else (intro / concept / reproduction / discussion) is ack.
@@ -148,9 +138,10 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       total: presentation.total,
     }, locale)}\n\n`;
     if (transition?.verdict) head += verdictQuote(transition.verdict, locale);
-    if (transition && (transition.kind === "replay" || transition.kind === "remediate_alt" || transition.kind === "remediate")) head += `> ⟳ ${transition.reason}\n\n`;
-    // adaptation rationale (parity with the lesson pane): why the engine routed here this turn.
-    else if (presentation.explanation) head += `> ⟳ ${presentation.explanation.rule_id} — ${presentation.explanation.explanation_short}\n\n`;
+    // UX-04: where the lesson goes next, worded from navigation.kind (as the pane does) — never a reason code,
+    // a rule id or the engine's explanation.
+    const nav = navigationNote(transition?.navigation ?? (transition ? { kind: transition.kind } : null), locale);
+    if (nav) head += `> ⟳ ${nav}\n\n`;
     if (sc.markdown) head += sc.markdown + "\n";
     // active-learning bodies (answer keys + model_* reveals are never included):
     if (sc.type === "spot_the_flaw" && sc.flawed_content) head += `\n${phrase("notebook_flaw_passage", {}, locale)}\n\n${sc.flawed_content}\n`;
@@ -239,7 +230,9 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       outs.push(new vscode.NotebookCellOutput([md(phrase("notebook_discussion_instruction", {}, locale))]));
     }
 
-    const mastery = presentation.learnerSnapshot?.conceptMastery || {};
+    // Live mastery is a teacher/demo signal (it leaks the answer during a quiz): shown only with studium.showMastery,
+    // like the pane.
+    const mastery = cfg<boolean>("showMastery", false) ? presentation.learnerSnapshot?.conceptMastery || {} : {};
     const mk = Object.entries(mastery);
     if (mk.length) outs.push(new vscode.NotebookCellOutput([md(phrase("notebook_mastery", {
       items: mk.map(([k, v]) => `${k.replace(/^concept:/, "")} ${(v as number).toFixed(2)}`).join("  ·  "),
@@ -266,6 +259,8 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
     const key = notebook.uri.toString();
     try {
       let sess = sessions.get(key);
+      // A session whose server was closed under it (« Oublier mes données » closes them all) starts again.
+      if (sess?.mcp.isClosed()) { sessions.delete(key); sess = undefined; }
       if (!sess) {
         sess = await startSession(notebook);
         sessions.set(key, sess);
@@ -310,7 +305,7 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       // progress survives for a resume — only this explicit directive erases it.
       if (/^(forget|oublier)$/i.test(directive)) {
         await sess.call("forget_session", { session_id: sess.sid });
-        sess.client.close().catch(() => {});
+        void sess.mcp.close();
         sessions.delete(key);
         exec.replaceOutput([new vscode.NotebookCellOutput([md(phrase("notebook_erased", {}, sess.locale))])]);
         exec.end(true, Date.now());
@@ -322,10 +317,8 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       if (scene.type === "discussion" && directive && !/^(next|continue|done|fin)$/i.test(directive)) {
         const r = await sess.call("submit_turn", { session_id: sess.sid, text: directive });
         const parts = [phrase("notebook_you", { text: directive }, sess.locale)];
-        if (r.reasoning) parts.push(phrase("notebook_reasoning", {
-          signal: r.reasoning.signal,
-          confidence: r.reasoning.confidence != null ? ` (${r.reasoning.confidence.toFixed(2)})` : "",
-        }, sess.locale));
+        const signal = reasoningNote(r.reasoning, sess.locale);
+        if (signal) parts.push(signal);
         if (r.tutor && r.tutor.text) parts.push(phrase("notebook_tutor", { text: r.tutor.text }, sess.locale));
         parts.push(phrase("notebook_continue_discussion", {}, sess.locale));
         exec.replaceOutput([new vscode.NotebookCellOutput([md(parts.join("\n\n"))])]);
@@ -333,7 +326,22 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
         return;
       }
       const input = directiveToInput(directive, scene);
-      const t = (await sess.call("submit_response", { session_id: sess.sid, input })).transition;
+      let t: Json;
+      try {
+        t = (await sess.call("submit_response", { session_id: sess.sid, input })).transition;
+      } catch (e: any) {
+        if (input.kind !== "reply") throw e;
+        // The host could not read the reply: say so in the learner's language, then how this scene is answered,
+        // and keep the session (the cell can simply be run again). The host's reason is addressed to an agent
+        // (English, API fields): it goes to the output channel.
+        resolveLogSink()(`notebook: reply refused: ${String(e?.message ?? e)}`);
+        const how = scene.type === "meta_checkpoint"
+          ? phrase("notebook_meta_instruction", { question: scene.pre_question ?? "" }, sess.locale)
+          : `${((scene.choices as Json[] | undefined) ?? []).map((c) => `- \`${c.id}\`  ${c.text}`).join("\n")}\n\n${phrase("notebook_quiz_instruction", {}, sess.locale)}`;
+        exec.replaceOutput([new vscode.NotebookCellOutput([md(`${phrase("chat_refused", {}, sess.locale)}\n\n${how}`)])]);
+        exec.end(true, Date.now());
+        return;
+      }
       rememberRating(sess, t);
       if (t.kind === "complete") {
         exec.replaceOutput([new vscode.NotebookCellOutput([md(verdictQuote(t.verdict, sess.locale) + phrase("notebook_complete", {
@@ -349,7 +357,7 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       // any failure (MCP transport crash, RPC error) → drop the dead session so the next run
       // reconnects instead of retrying on a broken transport forever.
       const dead = sessions.get(key);
-      if (dead) { dead.client.close().catch(() => {}); sessions.delete(key); }
+      if (dead) { void dead.mcp.close(); sessions.delete(key); }
       exec.replaceOutput([new vscode.NotebookCellOutput([
         vscode.NotebookCellOutputItem.error(e as Error),
         md(phrase("notebook_reset", {}, dead?.locale ?? "fr")),
@@ -363,7 +371,7 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
   const closeSub = vscode.workspace.onDidCloseNotebookDocument((nb) => {
     const key = nb.uri.toString();
     const s = sessions.get(key);
-    if (s) { s.client.close().catch(() => {}); sessions.delete(key); }
+    if (s) { void s.mcp.close(); sessions.delete(key); }
     cellQueues.delete(key);
   });
 

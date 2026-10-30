@@ -172,6 +172,25 @@ describe("authoring over MCP, end to end", () => {
     expect(presented(1)).toContain(quoteOfScene(1)); // concept: ungraded, the citation is the reading
   });
 
+  // L-3 (RFR-03, R-en-12): the licence given to prepare_sources reaches every citation of the lesson,
+  // and RFR-17: the WARN on an unmeasurable prerequisite names the concept to give a quiz.
+  it("carries the source licence into the lesson and names a prerequisite that needs a quiz", async () => {
+    const { library, call } = await connected();
+    const prepared = await call("prepare_sources", {
+      sources: [{ title: FRENCH_SOURCE.title, text: FRENCH_SOURCE.text, url: FRENCH_SOURCE.url, license: "CC BY-SA 4.0" }],
+    });
+    const created = await call("create_lesson", { source_set_id: prepared.body["source_set_id"], draft: draftOver(prepared.body["passages"] as Passage[]) });
+    expect(created.isError).toBe(false);
+    const raw = JSON.parse(readFileSync(join(library, "deux-solidarites", "lesson.json"), "utf8")) as {
+      scenes: Array<{ evidence?: { bibliographic_refs: Array<{ license?: string; prov_derived_from: string }> } }>;
+    };
+    const refs = raw.scenes.flatMap((scene) => scene.evidence?.bibliographic_refs ?? []);
+    expect(refs.length).toBe(3);
+    for (const ref of refs) expect(ref).toMatchObject({ license: "CC BY-SA 4.0", prov_derived_from: FRENCH_SOURCE.url });
+    const findings = created.body["findings"] as Array<{ code: string; hint?: string }>;
+    expect(findings.find((item) => item.code === "lwg_prereq_unassessable")?.hint).toMatch(/^add a quiz on "c-mecanique" \(a prerequisite of c-organique\)/);
+  });
+
   it("returns readable errors for a quote the passage does not hold, and writes nothing", async () => {
     const { written, call } = await connected();
     const prepared = await call("prepare_sources", { sources: [{ title: FRENCH_SOURCE.title, text: FRENCH_SOURCE.text }] });

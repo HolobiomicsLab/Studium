@@ -1,5 +1,5 @@
 # Le planner est un service, pas une bibliothèque. Cette métadonnée existe pour
-# que les deux commandes documentées fonctionnent — `docs/user/teacher-guide.md`
+# que les deux commandes documentées fonctionnent — `docs/teach/teacher-guide.md`
 # et le job `Demo M6` de la CI installent toutes deux ce répertoire en éditable,
 # et échouaient jusqu'ici sur « neither 'setup.py' nor 'pyproject.toml' found »
 # (INT-STUDIUM-032).

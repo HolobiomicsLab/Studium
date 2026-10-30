@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { createHash } from "node:crypto";
 import {
-  approvalCommand, countTodos, inspectLesson, listLessons, readLesson,
+  approvalCommand, inspectLesson, listLessons, readLesson,
   encodeLessonRef, decodeLessonRef, bundlesRoot, LibraryReadError,
 } from "./library";
 
@@ -66,8 +66,19 @@ describe("C5 approval is bound to the exact lesson bytes", () => {
     bundle.scenes[0].markdown = "TODO: write the introduction";
     expect(inspectLesson(Buffer.from(JSON.stringify(bundle)), null)).toMatchObject({ status: "draft", todoCount: 1 });
   });
-  it("counts prose and grading TODOs while allowing todo-* identifiers", () => {
-    expect(countTodos({ id: "TODO-scene", concept_ids: ["todo-c"], title: "TODO title", answer: "Fill TODO: key", nested: ["TODO"] })).toBe(3);
+  it("counts TODOs with the linter's own rule: todo-* identifiers allowed, quoted evidence never scanned (CQ-5)", async () => {
+    // The library page, review_lesson and `experience_packet.py approve` must agree on whether a lesson is finished.
+    const bundle = await fixture();
+    bundle.scenes[0].title = "TODO title";
+    bundle.scenes[0].markdown = "Fill TODO: the introduction";
+    bundle.concepts[0].description = "TODOéléments: a word that only starts with TODO"; // Unicode letter after TODO: prose
+    expect(inspectLesson(Buffer.from(JSON.stringify(bundle)), null)).toMatchObject({ status: "draft", todoCount: 2 });
+
+    const quoted = await fixture();
+    quoted.scenes[0].evidence = { bibliographic_refs: [{ perspicacite_doc_id: "p:src:1", title: "A programming text",
+      authors: [], excerpt: "TODO: refactor this function before release", relevance_score: 1, prov_derived_from: "source:src" }],
+    enrichment_metadata: { enricher_version: "1", perspicacite_mode_used: "passages", timestamp: "2026-10-30T00:00:00Z", degraded: false } };
+    expect(inspectLesson(Buffer.from(JSON.stringify(quoted)), null)).toMatchObject({ status: "checked", todoCount: 0 });
   });
   it("projects titles, concepts and source references without any answer fields", async () => {
     const bundle = await fixture();

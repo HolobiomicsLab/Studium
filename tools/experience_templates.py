@@ -684,7 +684,7 @@ The viewer's question-mark controls explain the purpose, student action, teacher
 limits and project source. Reuse `ui/context-help.json` for chat or custom viewers,
 in the learner's requested language. Give a brief explanation at first use and expand
 on request; never reveal an expected result to explain the method. Reading this help
-does not create a learner event. See `docs/guides/contextual-help.md`.
+does not create a learner event. See `docs/learn/language-and-supports.md`.
 
 ## Expected source inputs
 
@@ -703,7 +703,7 @@ Open `index.html` locally. Its explicit **Export activity trace** control downlo
 .venv/bin/python tools/learner_report.py verify {output_dir.resolve()}-report
 ```
 
-See `docs/user/learner-report.md` for optional journal and original-text choices. Report sharing and student release remain separate explicit decisions.
+See `docs/learn/learner-report.md` for optional journal and original-text choices. Report sharing and student release remain separate explicit decisions.
 """
 
 

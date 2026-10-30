@@ -67,6 +67,40 @@ describe("replyToInput", () => {
   });
 });
 
+describe("L-10 — a choice id followed by the learner's reason (RFR-11, R-en-08)", () => {
+  it.each([
+    "b, je dirais le glucose et l'oxygène",
+    "b - 42 is bigger than 17 so it can only be after it",
+    "b) parce que la liaison est polaire",
+    "b: the bond is polar",
+    "B. Because the bond is polar",
+    "b because it is a reduction",
+    "b car il y a deux liaisons",
+    "(b) since a molecule needs it",
+    "I think it's b, because the bond is polar",
+    "je dirais b, car la liaison est polaire",
+    "Je pense que c'est la b.",
+    "Option b, because a molecule needs it",
+    "réponse b : il y a trois atomes",
+  ])("reads the leading or named id in %j", (text) => {
+    expect(replyToInput(quiz, text)).toEqual({ kind: "quiz_choice", choiceId: "b" });
+  });
+
+  it.each(["a, b", "a ou b", "b or c", "b, ou peut-être c", "c'est b ou c", "b - no wait, c", "a/b", "b et d", "b, a et c sont fausses"])(
+    "refuses %j, which names more than one choice, keeping the refusal's first words", (text) => {
+      expect(() => replyToInput(quiz, text)).toThrow(ResponseInputError);
+      expect(() => replyToInput(quiz, text)).toThrow(/^this quiz takes one of the displayed choice ids: a, b, c, d; this reply names more than one/);
+    });
+
+  it("refuses a reason that names no displayed id at its head or after « it's », « c'est », « je dirais »", () => {
+    // « Trois, comme dans la question a. » answers by the text of b and mentions « a » in passing: it is
+    // refused rather than graded as a.
+    for (const text of ["e, because", "je pense que c'est juste", "the bond is polar", "Trois, comme dans la question a."]) {
+      expect(() => replyToInput(quiz, text)).toThrow(/^this quiz takes one of the displayed choice ids: a, b, c, d; reply with the learner's letter/);
+    }
+  });
+});
+
 describe("checkDisplayedChoice", () => {
   it("accepts a displayed id, whatever its case, and normalizes it", () => {
     expect(checkDisplayedChoice(quiz, { kind: "quiz_choice", choiceId: "C" })).toEqual({ kind: "quiz_choice", choiceId: "c" });

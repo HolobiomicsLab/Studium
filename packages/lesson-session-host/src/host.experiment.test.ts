@@ -40,8 +40,14 @@ it("resumes learner contributions across hosts, isolates learners/revisions and 
   expect(second.experimentJournal(newer.sessionId).experiments).toEqual([]);
   second.recordExperiment(newer.sessionId, prediction);
   await second.forget(newer.sessionId);
-  expect(second.experimentJournal(resumed.sessionId).experiments).toEqual([]);
+  // L-11 (CC-2): forget closes the learner's other sessions, so the revision-1 session no longer stays
+  // open with an emptied journal (as it did): it is closed too. Its journal is erased on disk as well —
+  // a fresh session of revision 1 finds nothing of the prediction and the begin recorded above.
+  expect(() => second.experimentJournal(resumed.sessionId)).toThrow(/not found/);
   expect(() => second.experimentJournal(newer.sessionId)).toThrow(/not found/);
+  writeFileSync(join(root, "lesson.json"), JSON.stringify(bundle));
+  const afresh = await second.create("lesson.json", "alice");
+  expect(second.experimentJournal(afresh.sessionId).experiments).toEqual([]);
 });
 
 it("uses the file channel without grading, preserves retries and clears stale private exports", async () => {

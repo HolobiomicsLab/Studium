@@ -3,7 +3,8 @@
 // LessonDraft (contract C2): what an agent sends to create_lesson. A draft is a LessonBundle 1.4
 // without its bookkeeping: scenes are the bundle's scene objects with every identifier optional
 // (scene ids, choice, key point and claim ids), base fields defaulted and, per scene, the
-// `quotes` it rests on. The builder (build.ts) fills ids, graph, evidence and metadata.authoring.
+// `quotes` it rests on. A scene may carry the bundle's `diagnostic: true` (an opening diagnostic,
+// never replayed as a review). The builder (build.ts) fills ids, graph, evidence and metadata.authoring.
 //
 // The scene schemas are derived from the bundle's own, so a field added to a bundle scene is a
 // draft field too. Objects are strict: a misspelt optional field ("hint" for "hints") is an error,
@@ -98,8 +99,9 @@ export const DraftConceptSchema = z.object({
   description: z.string().min(1).max(1000).optional(),
 }).strict();
 
-/** Optional intake (SL-6): it shapes the draft (examples, the opening diagnostic) and is not stored
- * in the lesson. */
+/** Optional intake (SL-6): it shapes the draft (examples, the opening diagnostic). Only minutes_per_day
+ * and target_date are kept, in the lesson's metadata.authoring.learner_profile, where the study plan
+ * reads them (RFR-06). */
 export const LearnerProfileSchema = z.object({
   prior: z.string().min(1).max(1000).optional(),
   interests: z.array(z.string().min(1).max(200)).max(10).optional(),

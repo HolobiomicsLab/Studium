@@ -3,13 +3,17 @@
 // Where a learner studied, kept beside their cross-lesson profile (<dataDir>/<pseudonym>/study.json):
 //   - concepts: for each concept, the lesson and scene where it was last graded, so a review asked
 //     for by learner_id alone routes to a playable scene (HJ-1: it used to return scene_id null);
-//   - lessons: for each lesson started, how far the learner got (the study plan's "in progress").
+//   - lessons: for each lesson started, how far the learner got (the study plan's "in progress");
+//   - minutes_per_day: the minutes a day the learner said they have (RFR-06), read from the
+//     learner_profile of the self-study lesson they play; the study plan sizes its next step with it.
 // The profile itself (concept_states, concept_memory, completed_lessons) belongs to
 // @studium/learner-state; this record is the host's own and needs no schema change there. Same
-// RGPD-safe pseudonym key as the profile, and erased with it by forget().
-import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
+// RGPD-safe pseudonym key as the profile, and erased with it by forget(). Written whole and read
+// strictly (learner-files.ts, L-11).
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { readJsonFile, writeFileAtomic } from "./learner-files.js";
 
 const ConceptRouteSchema = z.object({
   bundle_ref: z.string(),
@@ -31,6 +35,7 @@ export const StudyRecordSchema = z.object({
   schema: z.literal("studium-study/1"),
   concepts: z.record(z.string(), ConceptRouteSchema),
   lessons: z.record(z.string(), LessonProgressSchema),
+  minutes_per_day: z.number().int().min(1).max(600).optional(),
 });
 export type ConceptRoute = z.infer<typeof ConceptRouteSchema>;
 export type LessonProgress = z.infer<typeof LessonProgressSchema>;
@@ -59,20 +64,18 @@ export class InMemoryStudyRecordStore implements StudyRecordStore {
   async delete(pseudonym: string): Promise<void> { this.byPseudonym.delete(pseudonym); }
 }
 
-/** <dataDir>/<pseudonym>/study.json, next to profile.json. load() is fail-safe (null on any error). */
+/** <dataDir>/<pseudonym>/study.json, next to profile.json. L-11: load() returns null when there is no
+ * file and throws a LearnerDataError when one exists that does not parse; save() writes it whole
+ * (temporary file and rename), 0600 in a 0700 folder. */
 export class FileStudyRecordStore implements StudyRecordStore {
   constructor(private readonly dataDir: string) {}
   private dir(pseudonym: string): string { return join(this.dataDir, sanitizeSegment(pseudonym)); }
   private path(pseudonym: string): string { return join(this.dir(pseudonym), "study.json"); }
   async load(pseudonym: string): Promise<StudyRecord | null> {
-    try {
-      const parsed = StudyRecordSchema.safeParse(JSON.parse(await readFile(this.path(pseudonym), "utf8")));
-      return parsed.success ? parsed.data : null;
-    } catch { return null; }
+    return readJsonFile(this.path(pseudonym), (value) => StudyRecordSchema.safeParse(value));
   }
   async save(pseudonym: string, record: StudyRecord): Promise<void> {
-    await mkdir(this.dir(pseudonym), { recursive: true });
-    await writeFile(this.path(pseudonym), JSON.stringify(record, null, 2), "utf8");
+    await writeFileAtomic(this.path(pseudonym), JSON.stringify(record, null, 2));
   }
   async delete(pseudonym: string): Promise<void> { await rm(this.path(pseudonym), { force: true }); }
 }

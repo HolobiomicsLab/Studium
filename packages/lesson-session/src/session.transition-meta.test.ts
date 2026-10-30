@@ -47,7 +47,8 @@ describe("transition meta — verdict and navigation", () => {
     await s.start();
     const t = await s.respond({ kind: "ack" });
     expect(t.kind).toBe("next");
-    expect(t.verdict).toEqual({ scene_id: "i-base", graded: false, signal: "scene_completed" });
+    // L-7 (2026-10-30): every verdict says who assessed it; nobody assesses an acknowledgement.
+    expect(t.verdict).toEqual({ scene_id: "i-base", graded: false, signal: "scene_completed", assessed_by: "none" });
     expect(t.navigation).toMatchObject({ kind: "advance", scene_id: "q-base", rule_id: null });
   });
 

@@ -1772,7 +1772,14 @@ def test_approve_preserves_bundle_content_and_writes_hash_bound_record(tmp_path,
     comparable_after = {key: value for key, value in after.items() if key not in {"validated_by", "validated_at"}}
     assert status == 0
     assert captured.err == ""
-    assert captured.out == f"{(lesson.parent / 'approval.json').resolve()}\n"
+    # RT-7: a short summary for the teacher, then the record's path as the last line (as `bundle` does).
+    lines = captured.out.splitlines()
+    assert lines[-1] == str((lesson.parent / "approval.json").resolve())
+    summary = "\n".join(lines[:-1])
+    assert "Approved by Professor Example" in summary
+    assert hashlib.sha256(lesson.read_bytes()).hexdigest() in summary
+    assert "lint: 0 error(s), 0 warning(s)" in summary
+    assert "any edit to lesson.json makes this approval stale" in summary
     assert comparable_after == comparable_before
     assert after["validated_by"] == "Professor Example"
     assert after["validated_at"] == approval["reviewed_at"]
@@ -1824,5 +1831,20 @@ def test_approve_refuses_self_study_even_when_finished(tmp_path, capsys):
     status = main(["approve", "--bundle", str(lesson), "--validated-by", "Professor Example"])
 
     assert status == 2
-    assert "self-study" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "self-study" in err
+    # RT-7: the refusal names the next step.
+    assert "prepare, check and bundle" in err and "teacher route" in err
     assert not (lesson.parent / "approval.json").exists()
+
+
+def test_approve_help_lists_checklist_keys_and_says_what_it_rewrites(capsys):
+    """RT-7: a teacher who is not a developer reads --help, not the source."""
+    with pytest.raises(SystemExit) as exit_info:
+        main(["approve", "--help"])
+    assert exit_info.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "sources=read" in help_text and "keys=checked" in help_text
+    assert "validated_by and validated_at are rewritten" in help_text
+    assert "normalized" in help_text
+    assert "Preserve an edited teacher bundle" not in help_text

@@ -6,6 +6,12 @@
 // numbers of the claims judged wrong. A reply that cannot be read is refused in one line saying what
 // the scene takes, rather than graded on a guess.
 //
+// L-10 (RFR-11, R-en-08): a quiz reply may give the letter, then the learner's reason — « b, je dirais
+// le glucose », "b - 42 is bigger", « b) parce que… », "b because…", "I think it's b, …" — and is read
+// when it names exactly one displayed id where a reply names its choice (its head, or after « c'est »,
+// "it's", « je dirais »…); a reply naming two ids (« a ou b », "b - no wait, c") is refused, never
+// graded on a guess.
+//
 // `checkDisplayedChoice` closes the matching hole on an explicit quiz_choice: the grader marks any id
 // it does not know as a wrong answer, so a stale or source id silently cost the learner an attempt.
 import type { ResponseInput } from "@studium/lesson-session";
@@ -28,14 +34,46 @@ function normalize(text: string): string {
 // « réponse b », « Answer: b », « option B », « je choisis b » — a cue word, then the id alone.
 const CHOICE_CUE = /^(?:ma\s+)?(?:r[ée]ponse|answer|option|choix|choice|lettre|letter|je\s+choisis|i\s+choose|i\s+pick)\s*[:\-–]?\s*\(?([\p{L}\p{N}_-]+)\)?$/u;
 
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// An id named as a choice is a token of its own (« c'est » holds no « c »)…
+const TOKEN_START = String.raw`(?<![\p{L}\p{N}_'’-])`;
+// …followed by the end of the reply, a punctuation mark, a dash, or a word that gives a reason or
+// another option (so « a » in "a molecule" or « il y a deux » names nothing).
+const AFTER_CHOICE = String.raw`(?=\s*(?:$|[,;:.!?)/]|[-–—](?:\s|$))|\s+(?:or|ou|and|et|because|car|parce|puisque|since|as|but|mais)\b)`;
+// Where a reply names its choice: its head, or after « c'est », "it's", « je dirais », "answer"…
+const CHOICE_HEAD = String.raw`(?:^|\b(?:it['’]?s|it\s+is|is|c['’]est|est|answer|r[ée]ponse|option|choice|choix|letter|lettre|choose|choisis|pick|say|dirais|dis|think|pense|crois|go\s+with|prends|opte\s+pour)\s*(?:[:\-–]\s*)?(?:(?:the|la|le|option|choice|choix|answer|r[ée]ponse|letter|lettre)\s+)*)`;
+
+/** L-10: the displayed ids a reply names, where it names its choice (`chosen`) and anywhere (`named`). */
+function namedChoices(choices: readonly Choice[], text: string): { chosen: Choice[]; named: Choice[] } {
+  const reply = text.normalize("NFKC").trim().toLowerCase().replace(/^[\s([."'«»“”*_]+/u, "");
+  const chosen: Choice[] = [];
+  const named: Choice[] = [];
+  for (const choice of choices) {
+    const id = escapeRegExp(choice.id.toLowerCase());
+    if (new RegExp(`${CHOICE_HEAD}\\s*${TOKEN_START}${id}${AFTER_CHOICE}`, "u").test(reply)) chosen.push(choice);
+    if (new RegExp(`${TOKEN_START}${id}${AFTER_CHOICE}`, "u").test(reply)) named.push(choice);
+  }
+  return { chosen, named };
+}
+
 function quizChoice(scene: { choices?: Choice[] }, text: string): ResponseInput {
   const choices = scene.choices ?? [];
   const reply = normalize(text);
+  const ids = choices.map((c) => c.id).join(", ");
   const byId = (id: string | undefined) => (id === undefined ? undefined : choices.find((c) => c.id.toLowerCase() === id));
-  const choice = byId(reply) ?? byId(CHOICE_CUE.exec(reply)?.[1]) ?? choices.find((c) => normalize(c.text) === reply);
+  let choice = byId(reply) ?? byId(CHOICE_CUE.exec(reply)?.[1]) ?? choices.find((c) => normalize(c.text) === reply);
   if (!choice) {
-    throw new ResponseInputError(`this quiz takes one of the displayed choice ids: ${choices.map((c) => c.id).join(", ")}; ` +
-      `reply with the learner's letter`);
+    // L-10: the letter, then the learner's reason — read only when it names one displayed id.
+    const { chosen, named } = namedChoices(choices, text);
+    const all = [...new Set([...chosen, ...named])];
+    if (all.length > 1) {
+      throw new ResponseInputError(`this quiz takes one of the displayed choice ids: ${ids}; this reply names more ` +
+        `than one (${all.map((c) => c.id).join(", ")}): reply with the learner's one letter`);
+    }
+    if (chosen.length === 1) choice = chosen[0];
+  }
+  if (!choice) {
+    throw new ResponseInputError(`this quiz takes one of the displayed choice ids: ${ids}; reply with the learner's letter`);
   }
   return { kind: "quiz_choice", choiceId: choice.id };
 }

@@ -18,6 +18,8 @@ describe("buildHostDeps + registry", () => {
       // The host's per-session bookkeeping (study loop): typed fields only, the registry stores the entry as is.
       bundleRef: "lesson.json", kind: "lesson" as const, authoring: {} as never, memory: {}, engineMemory: {},
       selfRated: new Set<string>(), moved: new Set<string>(), responses: 0, conceptStatesAtStart: {}, withheldSources: [],
+      // L-11: when it opened (a forget after that closes it) and whether it read the learner's profile.
+      openedAt: 0, profileSeen: false,
     };
     r.create("id1", entry);
     expect(r.has("id1")).toBe(true);

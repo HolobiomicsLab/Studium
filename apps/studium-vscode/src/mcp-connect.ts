@@ -172,7 +172,38 @@ export function resolveLogSink(explicit?: LogSink): LogSink {
 }
 
 export type McpCall = (name: string, args: Record<string, any>) => Promise<Record<string, any>>;
-export interface LessonMcp { call: McpCall; close: () => void; }
+/** A live lesson-mcp connection. `close` resolves once the subprocess has exited (callers may ignore it);
+ * `isClosed` turns true as soon as it is closed, by its owner or by closeAllLessonMcp. */
+export interface LessonMcp { call: McpCall; close: () => Promise<void>; isClosed: () => boolean; }
+
+// SEC-4: every lesson-mcp this extension starts (lesson panes, the @studium chat, notebook sessions, a status
+// refresh) is registered here from the moment its subprocess is spawned, so erasing the learner's data can close
+// all of them first: a server left running would write its profile, study record and state straight back.
+const liveConnections = new Set<{ close: () => Promise<void> }>();
+let paused: Promise<void> | null = null;
+
+/** How many lesson-mcp subprocesses this extension currently owns (connecting or connected). */
+export function liveLessonMcpCount(): number {
+  return liveConnections.size;
+}
+
+/**
+ * Run `action` with no lesson-mcp running: close every connection this extension owns (waiting until each
+ * subprocess has exited), keep new connections waiting while `action` runs, then let them through. Used to
+ * erase the learner's data (forgetMyData): nothing can write it back while it is deleted.
+ */
+export async function withLessonMcpPaused<T>(action: () => Promise<T> | T): Promise<T> {
+  while (paused) await paused.catch(() => {});
+  let release!: () => void;
+  paused = new Promise<void>((resolve) => { release = resolve; });
+  try {
+    await Promise.all([...liveConnections].map((connection) => connection.close().catch(() => {})));
+    return await action();
+  } finally {
+    paused = null;
+    release();
+  }
+}
 
 /** Connect an SDK client and close partial resources if startup fails. */
 export async function connectOrClose<TTransport>(
@@ -191,13 +222,28 @@ export async function connectOrClose<TTransport>(
  *  down. The server's stderr is piped to `opts.log` (default: the Studium output channel) — never
  *  discarded, so a server that dies at startup is diagnosable. */
 export async function connectLessonMcp(opts: { launch: ServerLaunch; env: Record<string, string>; log?: LogSink }): Promise<LessonMcp> {
+  while (paused) await paused.catch(() => {}); // the learner's data is being erased: start after it is gone
   const log = resolveLogSink(opts.log);
   const { launch } = opts;
   const transport = new StdioClientTransport({ command: launch.command, args: launch.args, cwd: launch.cwd,
     env: { ...launch.env, ...opts.env }, stderr: "pipe" });
   forwardStderr(transport.stderr, log); // piped stderr is readable BEFORE start(): no early output lost
   const client = new Client({ name: "studium-vscode", version: "0.1.0" });
-  await connectOrClose(client, transport);
+  let closing: Promise<void> | null = null;
+  const entry = {
+    close: (): Promise<void> => {
+      closing ??= client.close().catch(() => {}).finally(() => { liveConnections.delete(entry); });
+      return closing;
+    },
+  };
+  liveConnections.add(entry);
+  try {
+    await connectOrClose(client, transport);
+  } catch (error) {
+    liveConnections.delete(entry);
+    throw error;
+  }
+  if (closing) throw new Error("lesson-mcp: closed while connecting (the learner's data was being erased)");
   const call: McpCall = async (name, args) => parseToolResult(name, await client.callTool({ name, arguments: args }));
-  return { call, close: () => { client.close().catch(() => {}); } };
+  return { call, close: entry.close, isClosed: () => closing !== null };
 }

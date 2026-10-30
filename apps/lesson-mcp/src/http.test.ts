@@ -109,6 +109,19 @@ describe('local lesson HTTP API', () => {
     expect((await start(call)).status).toBe(410);
     expect((await call('get_current_scene',{session_id})).status).toBe(404);
   });
+  it('forgets a learner by learner_id, with no session to name, and retires the request IDs of the sessions it closed', async () => {
+    // L-13: forget_session {learner_id} erases a learner who has no live session; one still open closes.
+    const {call} = await setup();
+    const started = await call('start_lesson_session', {...startArgs, learner_id:'ana'}, {request_id:'start-ana'});
+    expect(started.status).toBe(200);
+    const forgotten = await call('forget_session', {learner_id:'ana'}, {request_id:'forget-ana'});
+    expect(forgotten.status).toBe(200);
+    expect(forgotten.body).toMatchObject({forgotten:true, scope:'learner'});
+    const stale = await call('start_lesson_session', {...startArgs, learner_id:'ana'}, {request_id:'start-ana'});
+    expect(stale.status).toBe(410);
+    expect(stale.body.code).toBe('forgotten');
+    expect((await call('get_current_scene', {session_id:started.body.session_id})).status).toBe(404);
+  });
   it('rejects traversal and symlink bundles outside the configured root', async () => {
     const dir = mkdtempSync(resolve(tmpdir(),'http-bundles-')); dirs.push(dir);
     symlinkSync(resolve(root, startArgs.bundle_ref),resolve(dir,'outside.json'));

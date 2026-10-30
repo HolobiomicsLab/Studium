@@ -1,6 +1,7 @@
 {
   "name": "@studium/lesson-plan-schema",
   "version": "1.0.0",
+  "license": "Apache-2.0",
   "description": "Lesson plan sub-schema (v1) — JSON Schema + TypeScript types + Pydantic mirror",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

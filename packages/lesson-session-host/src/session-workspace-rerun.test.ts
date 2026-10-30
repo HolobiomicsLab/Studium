@@ -49,7 +49,8 @@ describe("run scene revisited after a recorded run", () => {
     const ws = new SessionWorkspace(host, dir);
     await ws.writeStep(sessionId);
     const task = readFileSync(join(dir, "task.md"), "utf8");
-    expect(task).toContain("Run deja enregistre");
+    // L-5 (group A, packages/lesson-session/src/phrases.ts): the engine's French phrase gained its accents.
+    expect(task).toContain("Run déjà enregistré");
     expect(task).toContain("k_fit=0.42");
     expect(existsSync(join(dir, "run.json"))).toBe(false);
     const idx = JSON.parse(readFileSync(join(dir, "index.json"), "utf8"));

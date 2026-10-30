@@ -127,11 +127,18 @@ describe("RT-1 — offline free-text feedback asserts no coverage", () => {
     expectReferenceAsData(transition.verdict, ["Le résumé omet la règle de Hund"], "Le résumé doit citer la règle de Hund.", "planted_flaws");
   });
 
-  it("a quiz verdict and an acknowledgement carry no reference fields", async () => {
+  // L-2 (2026-10-30, RFR-02): a WRONG quiz answer now releases its correct choice as reference data
+  // (`correct_choice`), so the learner who leaves the item still wrong learns the right answer; this
+  // test answered wrong and pinned "no reference", so it now pins that on a RIGHT answer, and that the
+  // wrong one carries the correct choice and still no model answer.
+  it("a right quiz verdict carries no reference fields; a wrong one only the correct choice", async () => {
+    const right = await answer([quiz(), quiz("q2")], { kind: "quiz_choice", choiceId: "b" });
+    expect(right.transition.verdict).not.toHaveProperty("key_points");
+    expect(right.transition.verdict).not.toHaveProperty("model_answer");
+    expect(right.transition.verdict).not.toHaveProperty("reference_kind");
     const { transition } = await answer([quiz(), quiz("q2")], { kind: "quiz_choice", choiceId: "a" });
-    expect(transition.verdict).not.toHaveProperty("key_points");
+    expect(transition.verdict).toMatchObject({ key_points: ["B"], reference_kind: "correct_choice" });
     expect(transition.verdict).not.toHaveProperty("model_answer");
-    expect(transition.verdict).not.toHaveProperty("reference_kind");
   });
 
   // Integration tail T3 (2026-10-30): the ai_critique reference — each claim that hid a flaw, with the
@@ -219,12 +226,13 @@ describe("RT-1 — with a judge, the feedback is built from the ids it found cov
     expect(transition.verdict?.feedback).not.toContain("n=3 prouve l'effet");
   });
 
+  // L-5 (2026-10-30): the French catalogue is typeset — a narrow no-break space before « ; ».
   it("spot_the_flaw with the audit judge counts caught flaws and false alarms", async () => {
     const auditJudge: AuditJudge = { async judge() { return { caught_flaw_ids: ["f-hund"], wrongly_flagged_sound_ids: ["ok"], source: "llm" }; } };
     const deps = buildTestDeps({ critiqueEvaluator: new StubCritiqueEvaluator(), auditJudge });
     const scene = spotTheFlaw({ sound_claims: [{ id: "ok", text: "N a 7 électrons" }] });
     const { transition } = await answer([scene], { kind: "flaw_report", text: "hund" }, deps);
-    expect(transition.verdict?.feedback).toContain("1/2 défauts plantés trouvés ; 1/1 fausses alertes");
+    expect(transition.verdict?.feedback).toContain("1/2 défauts plantés trouvés\u202f; 1/1 fausses alertes");
   });
 
   it("the verdict deck keeps its identity-scored counts", async () => {
@@ -232,7 +240,7 @@ describe("RT-1 — with a judge, the feedback is built from the ids it found cov
     const deck = verdictDeck(scene.claims, scene.sound_claims, scene.id);
     const verdicts = deck.map((item) => ({ token: item.token, flagged: item.flawed }));
     const { transition } = await answer([scene], { kind: "flaw_verdicts", verdicts });
-    expect(transition.verdict?.feedback).toContain("2/2 défauts plantés trouvés ; 0/1 fausses alertes");
+    expect(transition.verdict?.feedback).toContain("2/2 défauts plantés trouvés\u202f; 0/1 fausses alertes");
   });
 });
 

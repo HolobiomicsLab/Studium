@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { strToU8, zipSync } from "fflate";
 import { LessonBundleSchema } from "@studium/lesson-bundle-schema";
-import { BundleSchemaError, loadBundleJson, loadBundleZip } from "./bundle-loader.js";
+import { BundleSchemaError, MAX_LESSON_JSON_BYTES, loadBundleJson, loadBundleZip } from "./bundle-loader.js";
 
 const m3 = fileURLToPath(new URL("../../../../fixtures/m3/demo-metabolomics-bundle.zip", import.meta.url));
 const m6 = fileURLToPath(new URL("../../../../fixtures/m6/demo-atomistique-bundle.zip", import.meta.url));
@@ -96,5 +96,65 @@ describe("a bundle that does not match the schema", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+// SEC-5 (2026-10-30): a community .zip is untrusted. The loader inflated every entry whole (fflate
+// unzipSync), so a tiny archive could exhaust the server. It now inflates lesson.json only, refuses one
+// whose declared size exceeds MAX_LESSON_JSON_BYTES (8 MB), and stops inflating at that cap when the
+// archive lies about the size.
+describe("SEC-5 — an archive cannot make the loader inflate more than the cap", () => {
+  const written = (): Record<string, unknown> => JSON.parse(readFileSync(capsuleLoop, "utf8"));
+  const withTmp = async (fn: (dir: string) => Promise<void>) => {
+    const dir = mkdtempSync(join(tmpdir(), "bundle-loader-cap-"));
+    try { await fn(dir); } finally { rmSync(dir, { recursive: true, force: true }); }
+  };
+  /** Rewrite the uncompressed size of every central-directory entry (offset 24) — what a forged zip does. */
+  const lieAboutSize = (zip: Uint8Array, size: number): Uint8Array => {
+    const out = new Uint8Array(zip);
+    const view = new DataView(out.buffer);
+    for (let i = 0; i + 46 <= out.length; i++) if (view.getUint32(i, true) === 0x02014b50) view.setUint32(i + 24, size, true);
+    return out;
+  };
+
+  it("exports the 8 MB cap", () => {
+    expect(MAX_LESSON_JSON_BYTES).toBe(8 * 1024 * 1024);
+  });
+
+  it("refuses a lesson.json declared larger than the cap", async () => {
+    await withTmp(async (dir) => {
+      const zip = join(dir, "big.zip");
+      const padded = JSON.stringify({ ...written(), padding: "x".repeat(MAX_LESSON_JSON_BYTES + 16) });
+      writeFileSync(zip, zipSync({ "lesson.json": strToU8(padded) }));
+      await expect(loadBundleZip(zip)).rejects.toThrow(/lesson\.json.*(exceeds|larger)/);
+    });
+  });
+
+  it("stops inflating at the cap when the declared size lies", async () => {
+    await withTmp(async (dir) => {
+      const zip = join(dir, "forged.zip");
+      const padded = JSON.stringify({ ...written(), padding: "x".repeat(MAX_LESSON_JSON_BYTES + 16) });
+      writeFileSync(zip, lieAboutSize(zipSync({ "lesson.json": strToU8(padded) }), 1000));
+      await expect(loadBundleZip(zip)).rejects.toThrow(/lesson\.json.*(exceeds|larger)/);
+    });
+  });
+
+  it("never inflates the other entries, however large", async () => {
+    await withTmp(async (dir) => {
+      const zip = join(dir, "assets.zip");
+      const bytes = zipSync({ "lesson.json": strToU8(JSON.stringify(written())), "media/huge.bin": new Uint8Array(MAX_LESSON_JSON_BYTES * 2) });
+      writeFileSync(zip, lieAboutSize(bytes, 0) /* both entries now claim 0 bytes */);
+      // lesson.json claims 0 bytes but inflates to the real JSON (under the cap): it still loads.
+      const b = await loadBundleZip(zip);
+      expect(b.scenes.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("loads a stored (uncompressed) lesson.json", async () => {
+    await withTmp(async (dir) => {
+      const zip = join(dir, "stored.zip");
+      writeFileSync(zip, zipSync({ "lesson.json": [strToU8(JSON.stringify(written())), { level: 0 }] }));
+      expect((await loadBundleZip(zip)).scenes.length).toBeGreaterThan(0);
+    });
   });
 });

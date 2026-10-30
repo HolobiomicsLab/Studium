@@ -57,7 +57,7 @@ export default async function ReviewPage({ params }: { params: { lesson: string 
         <aside className="review-sidebar" aria-label={t.reviewReadiness}>
           <section className="readiness-panel"><p className="eyebrow">{t.reviewReadiness}</p><dl className="readiness-counts"><div><dt>{t.remaining}</dt><dd>{lesson.todoCount}</dd></div><div><dt>{t.schemaIssues}</dt><dd>{lesson.schemaIssueCount}</dd></div></dl>
             <p className="readiness-note">{t.statusHelp}</p>
-            {lesson.approval.matches ? <div className="approval-receipt"><h3>{t.approvalRecorded}</h3>{lesson.approval.reviewer && <p>{t.reviewer} : {lesson.approval.reviewer}</p>}{lesson.approval.reviewedAt && <p>{t.reviewedAt} : <time dateTime={lesson.approval.reviewedAt}>{lesson.approval.reviewedAt}</time></p>}</div> : <p className="approval-note">{lesson.approval.recorded ? t.staleApproval : t.noApproval}</p>}
+            {lesson.approval.matches ? <div className="approval-receipt"><h3>{t.approvalRecorded}</h3>{lesson.approval.reviewer && <p>{t.reviewer}{t.colon}{lesson.approval.reviewer}</p>}{lesson.approval.reviewedAt && <p>{t.reviewedAt}{t.colon}<time dateTime={lesson.approval.reviewedAt}>{lesson.approval.reviewedAt}</time></p>}</div> : <p className="approval-note">{lesson.approval.recorded ? t.staleApproval : t.noApproval}</p>}
           </section>
           <section className="approval-panel"><h2>{t.approvalHeading}</h2>
             {lesson.authoringMode === "self_study" ? <p className="approval-note">{t.selfStudyApproval}</p> : <>

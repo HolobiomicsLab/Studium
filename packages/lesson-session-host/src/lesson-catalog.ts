@@ -31,6 +31,11 @@ export interface CatalogLesson {
   scene_count: number;
   /** File modification time (epoch ms): the most recent lesson of the library comes first. */
   modified_at: number;
+  /** The lesson's estimated duration (metadata.duration_minutes). */
+  duration_minutes?: number;
+  /** RFR-06: the minutes a day the learner said they have, kept in a self-study lesson's
+   * metadata.authoring.learner_profile (see learnerMinutesPerDay). */
+  minutes_per_day?: number;
 }
 
 export interface CatalogCourse { course_ref: string; root: RootKind; course: Course }
@@ -97,6 +102,7 @@ async function readEntry(root: string, ref: string, kind: RootKind, catalog: Cat
   if (!lessonCandidate || !isBundleLike(raw)) return;
   try {
     const bundle = loadBundleJson(raw);
+    const minutesPerDay = learnerMinutesPerDay(raw);
     catalog.lessons.push({
       bundle_ref: ref,
       root: kind,
@@ -109,8 +115,21 @@ async function readEntry(root: string, ref: string, kind: RootKind, catalog: Cat
       concepts: bundle.concepts.map((c) => ({ id: c.id, title: c.title })),
       scene_count: bundle.scenes.length,
       modified_at: (await stat(join(root, ref))).mtimeMs,
+      duration_minutes: bundle.metadata.duration_minutes,
+      ...(minutesPerDay === undefined ? {} : { minutes_per_day: minutesPerDay }),
     });
   } catch { catalog.skipped += 1; }
+}
+
+/** RFR-06: the learner's minutes a day in a lesson file's metadata.authoring.learner_profile, where
+ * create_lesson keeps the profile the learner gave. Read from the file's JSON: the bundle schema does
+ * not declare the profile, so a parsed bundle no longer carries it. An integer from 1 to 600, else none. */
+export function learnerMinutesPerDay(raw: unknown): number | undefined {
+  const metadata = isRecord(raw) ? raw["metadata"] : undefined;
+  const authoring = isRecord(metadata) ? metadata["authoring"] : undefined;
+  const profile = isRecord(authoring) ? authoring["learner_profile"] : undefined;
+  const minutes = isRecord(profile) ? profile["minutes_per_day"] : undefined;
+  return typeof minutes === "number" && Number.isInteger(minutes) && minutes >= 1 && minutes <= 600 ? minutes : undefined;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {

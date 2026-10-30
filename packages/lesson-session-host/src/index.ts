@@ -4,18 +4,23 @@ export {
   type SessionHostOptions, type SessionStartOptions, type SessionStartResult, type SessionResume,
   type ServedPresentation, type ServedTransition, type ServedVerdict, type ReviewPlan, type RecallRating,
   type ListedLesson, type LessonListing, type ReviewItem, type ReviewStartResult,
-  type ReinforcementStatus, type RoutedReinforcementTarget,
+  type ReinforcementStatus, type RoutedReinforcementTarget, type ForgetReport, type ForgetItem,
 } from "./host.js";
+// The 2026-10-30 verification fixes: a session's clock and now_ms (L-1), one time zone for every date
+// (RFR-13), the review scene choice (L-8).
+export { NowMsSchema, NOW_MS_MAX, checkNowMs, OffsetClock } from "./session-clock.js";
+export { calendarDate, checkTimeZone, localTimeZone } from "./calendar.js";
+export { pickReviewScene, isDiagnosticScene, DEFAULT_REVIEW_ITEMS, MAX_REVIEW_ITEMS } from "./review-session.js";
 // The study loop (sprint 2026-10-30, W2): where lessons and learner data live (C6), the chat text of
 // every presentation and transition (HJ-4), a chat reply as an answer, the self-rating grades (C4).
 export { resolvePersistence, persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceConfig, type PersistenceInfo } from "./persistence.js";
 export {
   presentationMarkdown, transitionMarkdown, verdictMarkdown, recallRatedMarkdown, nothingToReviewMarkdown, formatReviewDate,
-  type DisplayLocale,
+  lessonListMarkdown, forgetMarkdown, type DisplayLocale, type ListedLessonLine, type ForgetDisplayItem,
 } from "./chat-display.js";
 export { replyToInput, checkDisplayedChoice, ResponseInputError } from "./reply-mapping.js";
 export { type SelfRating } from "./fsrs-memory.js";
-export { type StudyPlan, type StudyItem } from "./study-plan.js";
+export { type StudyPlan, type StudyItem, DEFAULT_REVIEW_SECONDS } from "./study-plan.js";
 export { type CatalogLesson, type LessonRoot } from "./lesson-catalog.js";
 export { operatorContext } from "./operator-context.js";
 export {

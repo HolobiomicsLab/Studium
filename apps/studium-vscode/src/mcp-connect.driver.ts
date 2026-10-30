@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { connectOrClose, describeServerLaunch, resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, serverBuildWarning, serverInfoLine, setLessonMcpLog, lessonMcpEnv, type LogSink, type ServerInfo } from "./mcp-connect.js";
+import { connectLessonMcp, liveLessonMcpCount, withLessonMcpPaused, connectOrClose, describeServerLaunch, resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, serverBuildWarning, serverInfoLine, setLessonMcpLog, lessonMcpEnv, type LogSink, type ServerInfo } from "./mcp-connect.js";
 import { isolateFromHome } from "./driver-isolation.js";
 
 // I-10: no driver may write into the developer's home, even one that starts no server.
@@ -185,6 +185,32 @@ console.log(`OK — mcp-connect (resolveTsx + parseToolResult + stderr diagnosti
   expect(on["STUDIUM_DATA_DIR"] === "/vscode/global/studium" && on["STUDIUM_TELEMETRY_CONSENT"] === "granted", "consent adds the flag and keeps the same data dir");
   expect(base.STUDIUM_DATA_DIR === "/somewhere/else", "the input environment is not mutated");
   expect(!("STUDIUM_DATA_DIR" in lessonMcpEnv({ baseEnv: {}, bundlesRoot: "/l", storageDir: undefined, telemetryConsent: false })) , "no storage dir known → the variable is left unset (ephemeral), never pointed at the bundles folder");
+}
+
+// SEC-4: erasing the learner's data first closes EVERY lesson-mcp the extension owns (waiting for the
+// subprocesses to exit), and a connection asked for meanwhile waits until the erase is over.
+{
+  const launch = resolveServerLaunch(resolve(repoRoot, "apps", "studium-vscode"), repoRoot);
+  const env = { ...process.env, BUNDLES_ROOT: resolve(repoRoot, "fixtures") } as Record<string, string>;
+  const quiet: LogSink = () => {};
+  const one = await connectLessonMcp({ launch, env, log: quiet });
+  const two = await connectLessonMcp({ launch, env, log: quiet });
+  expect(liveLessonMcpCount() === 2, `both connections are registered (got ${liveLessonMcpCount()})`);
+  let lateConnected = false;
+  let late: Promise<Awaited<ReturnType<typeof connectLessonMcp>>> | undefined;
+  const seenInside = await withLessonMcpPaused(async () => {
+    const inside = { count: liveLessonMcpCount(), closed: one.isClosed() && two.isClosed() };
+    late = connectLessonMcp({ launch, env, log: quiet }).then((c) => { lateConnected = true; return c; });
+    await new Promise((r) => setTimeout(r, 300));
+    return { ...inside, lateConnected };
+  });
+  expect(seenInside.count === 0 && seenInside.closed, `inside the pause no lesson-mcp is left running (got ${JSON.stringify(seenInside)})`);
+  expect(!seenInside.lateConnected, "a connection asked for during the pause waits until it is over");
+  const third = await late!;
+  expect(lateConnected && !third.isClosed() && liveLessonMcpCount() === 1, `after the pause it connects (live ${liveLessonMcpCount()})`);
+  expect((await third.call("get_server_info", {})).name !== undefined, "and it answers");
+  await third.close();
+  expect(liveLessonMcpCount() === 0 && third.isClosed(), "closing it unregisters it");
 }
 
 expect(isolation.homeUntouched(), `I-10: nothing was written into the home directory (${isolation.home})`);

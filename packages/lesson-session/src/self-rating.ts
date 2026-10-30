@@ -20,7 +20,10 @@ export interface SelfRatingRequest {
 /** What LessonSession.rateRecall recorded: the FSRS grade, its provenance, and when. */
 export interface SelfRatingRecord {
   scene_id: string;
+  /** The rated scene's first concept — kept for consumers that schedule one concept. */
   concept_id: string;
+  /** Every concept of the rated scene (its concept_refs, L-9): the rating schedules each of them. */
+  concept_ids: string[];
   grade: SelfRating;
   fsrs_grade: ReviewGrade;
   source: "self_rated";

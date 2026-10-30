@@ -36,12 +36,16 @@ export interface DisplayContext {
   locale?: DisplayLocale;
   /** A review session numbers its items « Révision n sur N ». */
   review?: boolean;
+  /** The time zone review dates are printed in (calendar.ts): the host's, the one its JSON dates use. */
+  timeZone?: string;
 }
 
 /** Host additions to a served transition (see host.ts servedTransition). */
 export interface TransitionExtras {
   self_rating?: { requested: true; scene_id?: string; grades: readonly string[] };
   review_plan?: { next_due_at: number | null; concepts: readonly string[] };
+  /** L-11: the learner's progress could not be saved; the transition says so first. */
+  persistence_warning?: string;
 }
 
 const PHRASES = {
@@ -49,6 +53,7 @@ const PHRASES = {
     progress: "Étape {n} sur {total}",
     review_progress: "Révision {n} sur {total}",
     not_durable: "Attention : ta progression n'est gardée qu'en mémoire et sera perdue au redémarrage du serveur.",
+    not_saved: "Attention : ta progression n'a pas pu être enregistrée ; cette séance continue.",
     ai_reading: "**Lecture IA à auditer** : juge chaque affirmation.",
     ai_summary: "**Résumé IA à auditer**",
     source: "**Source**",
@@ -91,11 +96,39 @@ const PHRASES = {
     no_review: "Aucune révision n'est encore planifiée.",
     nothing_due: "Rien à réviser pour l'instant. Prochaine révision : {date}.",
     nothing_scheduled: "Rien à réviser pour l'instant : aucune révision n'est encore planifiée. Une leçon terminée en programme.",
+    nothing_playable_one: "Rien à réviser pour l'instant : la notion {list} est à revoir, mais aucune question de tes leçons ne la reprend.",
+    nothing_playable_many: "Rien à réviser pour l'instant : les notions {list} sont à revoir, mais aucune question de tes leçons ne les reprend.",
+    nothing_playable_next: "Prochaine révision : {date}.",
+    lessons_heading: "### Leçons disponibles",
+    lessons_none: "Aucune leçon n'est encore disponible.",
+    lessons_no_match: "Aucune leçon ne correspond à « {query} ».",
+    lesson_line: "- « {title} » — {details}",
+    lesson_steps_one: "1 étape",
+    lesson_steps_many: "{count} étapes",
+    lesson_agent: "rédigée par l'IA",
+    lesson_learner: "écrite par toi",
+    lesson_new: "pas encore commencée",
+    lesson_in_progress: "en cours : {done} sur {total}",
+    lesson_completed: "terminée",
+    forget_done: "**Tes données sont effacées.**",
+    forget_nothing: "Rien à effacer : aucune donnée n'est enregistrée pour toi ici.",
+    forget_erased: "Effacé : {items}.",
+    forget_kept: "Conservé : {items}.",
+    forget_lesson_progress: "ta progression dans {lessons} (réponses, état de la leçon, journal d'expériences)",
+    forget_learner_profile: "ton profil d'apprentissage, commun à toutes tes leçons",
+    forget_study_record: "ton calendrier de révisions",
+    forget_other_lessons: "ta progression dans {lessons} : demande à effacer toutes tes données pour l'effacer aussi",
+    forget_library: "les leçons de ta bibliothèque ({lessons}), dans {path}",
+    forget_library_unnamed: "les leçons de ta bibliothèque, dans {path}",
+    forget_sources: "le texte des sources préparées pour elles, dans {path}",
+    forget_delete_yourself: "Supprime ces dossiers toi-même si tu veux qu'ils disparaissent aussi.",
+    list_and: " et ",
   },
   en: {
     progress: "Step {n} of {total}",
     review_progress: "Review {n} of {total}",
     not_durable: "Note: your progress is kept in memory only and will be lost when the server restarts.",
+    not_saved: "Note: your progress could not be saved; this session goes on.",
     ai_reading: "**AI reading to audit**: judge each claim.",
     ai_summary: "**AI summary to audit**",
     source: "**Source**",
@@ -138,6 +171,33 @@ const PHRASES = {
     no_review: "No review is scheduled yet.",
     nothing_due: "Nothing to review right now. Next review: {date}.",
     nothing_scheduled: "Nothing to review right now: no review is scheduled yet. Finishing a lesson schedules some.",
+    nothing_playable_one: "Nothing to review right now: {list} is due again, but no question in your lessons covers it.",
+    nothing_playable_many: "Nothing to review right now: {list} are due again, but no question in your lessons covers them.",
+    nothing_playable_next: "Next review: {date}.",
+    lessons_heading: "### Lessons available",
+    lessons_none: "No lesson is available yet.",
+    lessons_no_match: "No lesson matches “{query}”.",
+    lesson_line: "- “{title}” — {details}",
+    lesson_steps_one: "1 step",
+    lesson_steps_many: "{count} steps",
+    lesson_agent: "AI-drafted",
+    lesson_learner: "written by you",
+    lesson_new: "not started yet",
+    lesson_in_progress: "in progress: {done} of {total}",
+    lesson_completed: "completed",
+    forget_done: "**Your data is erased.**",
+    forget_nothing: "Nothing to erase: no data is recorded for you here.",
+    forget_erased: "Erased: {items}.",
+    forget_kept: "Kept: {items}.",
+    forget_lesson_progress: "your progress in {lessons} (answers, lesson state, experiment journal)",
+    forget_learner_profile: "your learning profile, shared by all your lessons",
+    forget_study_record: "your review schedule",
+    forget_other_lessons: "your progress in {lessons}: ask to erase all your data to erase it too",
+    forget_library: "the lessons in your library ({lessons}), in {path}",
+    forget_library_unnamed: "the lessons in your library, in {path}",
+    forget_sources: "the text of the sources prepared for them, in {path}",
+    forget_delete_yourself: "Delete those folders yourself if you want them gone too.",
+    list_and: " and ",
   },
 } as const;
 
@@ -151,9 +211,11 @@ function say(locale: DisplayLocale, key: PhraseKey, params: Record<string, strin
 /** The concept FSRS treats as mastered for review (`dueForReinforcement`'s default minMastery). */
 const CONSOLIDATED_MASTERY = 0.6;
 
-/** A plain, localized date for a review (« jeudi 6 novembre 2026 »). */
-export function formatReviewDate(epochMs: number, locale: DisplayLocale): string {
-  return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "full" }).format(epochMs);
+/** A plain, localized date for a review (« jeudi 6 novembre 2026 »), in `timeZone` — the host's, the
+ * one its yyyy-mm-dd dates are taken in (calendar.ts) — or the machine's when none is given. */
+export function formatReviewDate(epochMs: number, locale: DisplayLocale, timeZone?: string): string {
+  return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", { dateStyle: "full", ...(timeZone ? { timeZone } : {}) })
+    .format(epochMs);
 }
 
 type PublicSceneFields = Record<string, unknown> & { type?: string; title?: string };
@@ -305,7 +367,7 @@ function completionBlock(t: Transition & TransitionExtras, locale: DisplayLocale
     say(locale, ctx.review ? "review_complete" : "complete"),
     consolidated.length ? say(locale, "consolidated", { list: consolidated.join(", ") }) : "",
     toReview.length ? say(locale, "to_review", { list: toReview.join(", ") }) : "",
-    next != null ? say(locale, "next_review", { date: formatReviewDate(next, locale) }) : say(locale, "no_review"),
+    next != null ? say(locale, "next_review", { date: formatReviewDate(next, locale, ctx.timeZone) }) : say(locale, "no_review"),
   ];
 }
 
@@ -333,21 +395,106 @@ export function verdictMarkdown(
  * then the next scene — or, at the end, what is consolidated, what to review and when. */
 export function transitionMarkdown(t: Transition & TransitionExtras, ctx: DisplayContext = {}): string {
   const locale = localeOf(t, ctx);
-  const head = [navigationLine(t, locale, ctx), ...completionBlock(t, locale, ctx)]
-    .filter((b) => b.trim() !== "").join("\n\n");
+  const head = [
+    t.persistence_warning ? `> ${say(locale, "not_saved")}` : "",
+    navigationLine(t, locale, ctx), ...completionBlock(t, locale, ctx),
+  ].filter((b) => b.trim() !== "").join("\n\n");
   if (!("presentation" in t)) return head;
   const next = presentationMarkdown(t.presentation, { review: ctx.review ?? false });
   return head ? `${head}\n\n---\n\n${next}` : next;
 }
 
-/** The line rate_recall answers with: the next review date, and that mastery did not move. */
-export function recallRatedMarkdown(nextReviewAt: number, locale: DisplayLocale): string {
-  return say(locale, "recall_rated", { date: formatReviewDate(nextReviewAt, locale) });
+/** The line rate_recall answers with: the next review date, and that mastery did not move — and, when
+ * the rating could not be saved (L-11), that it counts for this session only. */
+export function recallRatedMarkdown(nextReviewAt: number, locale: DisplayLocale, timeZone?: string, notSaved = false): string {
+  const line = say(locale, "recall_rated", { date: formatReviewDate(nextReviewAt, locale, timeZone) });
+  return notSaved ? `${line}\n\n> ${say(locale, "not_saved")}` : line;
 }
 
-/** What start_review_session answers when nothing is due: when the next review falls, if any. */
-export function nothingToReviewMarkdown(nextReviewAt: number | null, locale: DisplayLocale): string {
+/** Titles quoted and joined the way the locale writes a list: « A », « B » et « C ». */
+function quotedList(titles: readonly string[], locale: DisplayLocale): string {
+  const quoted = titles.map((title) => (locale === "fr" ? `« ${title} »` : `“${title}”`));
+  return quoted.length > 1 ? `${quoted.slice(0, -1).join(", ")}${say(locale, "list_and")}${quoted.at(-1)}` : quoted[0] ?? "";
+}
+
+/** What start_review_session answers when nothing is due: when the next review falls, if any — and,
+ * when concepts are due that no lesson on disk can review any more (H2), which ones, by name, rather
+ * than « no review is scheduled ». */
+export function nothingToReviewMarkdown(
+  nextReviewAt: number | null, locale: DisplayLocale, timeZone?: string, unplayable: readonly string[] = [],
+): string {
+  if (unplayable.length) {
+    const key = unplayable.length > 1 ? "nothing_playable_many" : "nothing_playable_one";
+    const due = say(locale, key, { list: quotedList(unplayable, locale) });
+    return nextReviewAt === null ? due
+      : `${due} ${say(locale, "nothing_playable_next", { date: formatReviewDate(nextReviewAt, locale, timeZone) })}`;
+  }
   return nextReviewAt === null
     ? say(locale, "nothing_scheduled")
-    : say(locale, "nothing_due", { date: formatReviewDate(nextReviewAt, locale) });
+    : say(locale, "nothing_due", { date: formatReviewDate(nextReviewAt, locale, timeZone) });
+}
+
+/** One lesson of list_lessons, as its display line needs it. */
+export interface ListedLessonLine {
+  title: string;
+  scene_count: number;
+  drafted_by: "agent" | "learner" | "teacher";
+  status?: { state: "new" | "in_progress" | "completed"; scenes_completed: number; total_scenes: number };
+}
+
+/** list_lessons' display_markdown (L-4): the lessons, how many steps, who wrote them and, with a
+ * learner, how far they got — or that there is none (matching `query`). */
+export function lessonListMarkdown(lessons: readonly ListedLessonLine[], locale: DisplayLocale, query?: string): string {
+  if (!lessons.length) {
+    const asked = query?.trim();
+    return `${say(locale, "lessons_heading")}\n\n${asked ? say(locale, "lessons_no_match", { query: asked }) : say(locale, "lessons_none")}`;
+  }
+  const line = (l: ListedLessonLine) => {
+    const details = [l.scene_count === 1 ? say(locale, "lesson_steps_one") : say(locale, "lesson_steps_many", { count: l.scene_count })];
+    if (l.drafted_by === "agent") details.push(say(locale, "lesson_agent"));
+    if (l.drafted_by === "learner") details.push(say(locale, "lesson_learner"));
+    if (l.status?.state === "new") details.push(say(locale, "lesson_new"));
+    if (l.status?.state === "in_progress") {
+      details.push(say(locale, "lesson_in_progress", { done: l.status.scenes_completed, total: l.status.total_scenes }));
+    }
+    if (l.status?.state === "completed") details.push(say(locale, "lesson_completed"));
+    return say(locale, "lesson_line", { title: l.title, details: details.join(", ") });
+  };
+  return `${say(locale, "lessons_heading")}\n\n${lessons.map(line).join("\n")}`;
+}
+
+/** What forget_session erased and kept, as the host reports it (L-13). */
+export interface ForgetDisplayItem { kind: string; lessons?: readonly string[]; path?: string }
+
+/** forget_session's display_markdown (L-13, UX-01): what was erased, and what stays and where — the
+ * lessons of the library and their sources, which a learner may believe gone with the rest. The
+ * install's pseudonym key holds no learner data and is not named. */
+export function forgetMarkdown(
+  report: { erased: readonly ForgetDisplayItem[]; kept: readonly ForgetDisplayItem[] }, locale: DisplayLocale,
+): string {
+  if (!report.erased.length) return say(locale, "forget_nothing");
+  const lessons = (item: ForgetDisplayItem) => quotedList(item.lessons ?? [], locale);
+  const erased = report.erased.flatMap((item) => {
+    if (item.kind === "lesson_progress") return item.lessons?.length ? [say(locale, "forget_lesson_progress", { lessons: lessons(item) })] : [];
+    if (item.kind === "learner_profile") return [say(locale, "forget_learner_profile")];
+    if (item.kind === "study_record") return [say(locale, "forget_study_record")];
+    return [];
+  });
+  const kept = report.kept.flatMap((item) => {
+    if (item.kind === "other_lessons_progress") return [say(locale, "forget_other_lessons", { lessons: lessons(item) })];
+    if (item.kind === "library_lessons") {
+      return [item.lessons?.length ? say(locale, "forget_library", { lessons: lessons(item), path: item.path ?? "" })
+        : say(locale, "forget_library_unnamed", { path: item.path ?? "" })];
+    }
+    if (item.kind === "lesson_sources") return [say(locale, "forget_sources", { path: item.path ?? "" })];
+    return [];
+  });
+  const onDisk = report.kept.some((item) => item.kind === "library_lessons" || item.kind === "lesson_sources");
+  const separator = locale === "fr" ? " ; " : "; ";
+  return [
+    say(locale, "forget_done"),
+    say(locale, "forget_erased", { items: erased.join(separator) }),
+    kept.length ? say(locale, "forget_kept", { items: kept.join(separator) }) : "",
+    onDisk ? say(locale, "forget_delete_yourself") : "",
+  ].filter(Boolean).join("\n\n");
 }

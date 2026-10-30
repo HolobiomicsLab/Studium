@@ -163,6 +163,13 @@ export const ConceptMemoryStateSchema = z.object({
 });
 export type ConceptMemoryState = z.infer<typeof ConceptMemoryStateSchema>;
 
+/** One pending self-rating request (C4 / L-9), as persisted on the per-bundle LearnerState. */
+export const SelfRatingRequestStateSchema = z.object({
+  concept_ids: z.array(z.string()).min(1),
+  requested_at: z.string(),
+});
+export type SelfRatingRequestState = z.infer<typeof SelfRatingRequestStateSchema>;
+
 export const LearnerStateSchema = z.object({
   lesson_id: z.string(),
   schema_version: z.literal("1.0"),
@@ -176,6 +183,12 @@ export const LearnerStateSchema = z.object({
   // or the engine keeps current instead of replaying the capped history. Optional + back-compatible
   // (absent ⇒ no retention evidence). The session reads it for EFFECTIVE mastery (see below).
   concept_memory: z.record(z.string(), ConceptMemoryStateSchema).optional(),
+  // C4 / L-9: self-rating requests not answered yet, keyed by scene id — the concepts the rating will
+  // schedule (every concept_ref of the scene) and when the answer that asked for it was given. Saved
+  // with the state so a request survives a server restart. Optional + back-compatible: a state saved
+  // before 2026-10-30 has no field at all (its requests lived in memory only); a state written since
+  // always carries it, `{}` when nothing is pending.
+  self_rating_requests: z.record(z.string(), SelfRatingRequestStateSchema).optional(),
 });
 
 export type LearnerState = z.infer<typeof LearnerStateSchema>;

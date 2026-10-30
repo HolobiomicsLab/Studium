@@ -290,7 +290,9 @@ def test_metadata_authoring_is_optional_and_mirrors_zod():
     assert meta.authoring == BundleAuthoring(mode="self_study", author_is_learner=False, note=None)
     full = BundleAuthoring(mode="self_study", author_is_learner=True, note="Durkheim ch. 1")
     assert full.model_dump() == {
+        # learner_profile: declared on 2026-10-30 (RFR-06), optional like in Zod.
         "mode": "self_study", "author_is_learner": True, "drafted_by": None, "note": "Durkheim ch. 1",
+        "learner_profile": None,
     }
     import pytest
 
@@ -363,3 +365,17 @@ def test_every_scene_type_keeps_its_evidence(scene_type):
     parsed = TypeAdapter(Scene).validate_python(scene)
     assert parsed.evidence is not None
     assert parsed.evidence.model_dump(mode="json", exclude_none=True) == _EVIDENCE
+
+
+def test_metadata_authoring_learner_profile_mirrors_zod():
+    """RFR-06: only the scheduling part of the learner's intake travels with a lesson."""
+    from lesson_bundle_schema import BundleAuthoring
+
+    a = BundleAuthoring(mode="self_study", learner_profile={"minutes_per_day": 20, "target_date": "2026-12-01"})
+    assert a.learner_profile.minutes_per_day == 20 and a.learner_profile.target_date == "2026-12-01"
+    # Like Zod's z.object, unknown keys are dropped, so an older lesson holding prior/interests still reads.
+    old = BundleAuthoring(mode="self_study", learner_profile={"prior": "lycée", "minutes_per_day": 10})
+    assert old.learner_profile.model_dump() == {"minutes_per_day": 10, "target_date": None}
+    for bad in ({"minutes_per_day": 0}, {"minutes_per_day": 601}, {"target_date": "1er décembre"}):
+        with pytest.raises(Exception):
+            BundleAuthoring(mode="self_study", learner_profile=bad)

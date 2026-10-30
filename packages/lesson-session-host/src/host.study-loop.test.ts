@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { SessionHost } from "./host.js";
 import { ResponseInputError } from "./reply-mapping.js";
 import { AGENT_DRAFTED_NOTICE } from "./authoring.js";
+import { calendarDate } from "./calendar.js";
 
 const DAY = 86_400_000;
 const T0 = Date.parse("2026-11-02T09:00:00Z");
@@ -152,7 +153,8 @@ describe("start_review_session — a due concept can be reviewed (SL-2, HJ-1)", 
     // HJ-1: a finished lesson says when its concepts come back.
     expect(done.review_plan).toMatchObject({ concepts: ["c-signe"] });
     expect(done.review_plan!.next_due_at).toBeGreaterThan(T0);
-    expect(done.review_plan!.next_due_date).toBe(new Date(done.review_plan!.next_due_at!).toISOString().slice(0, 10));
+    // RFR-13: the day of next_due_at in the host's time zone (it was the UTC day, whatever the display said).
+    expect(done.review_plan!.next_due_date).toBe(calendarDate(done.review_plan!.next_due_at!, host.timeZone));
     expect(done.display_markdown).toContain("**Leçon terminée.**");
     expect(done.display_markdown).toContain("Prochaine révision :");
 
@@ -292,7 +294,8 @@ describe("rate_recall — a self-rating schedules reviews, never mastery (C4, D5
     const rated = await host.rateRecall(s.sessionId, "s-e", "good");
     expect(rated).toMatchObject({ scene_id: "s-e", concept_id: "c-signe", grade: "good", source: "self_rated" });
     expect(rated.next_review_at).toBeGreaterThan(T0);
-    expect(rated.next_review_date).toBe(new Date(rated.next_review_at).toISOString().slice(0, 10));
+    // RFR-13: the day of next_review_at in the host's time zone, the day display_markdown prints.
+    expect(rated.next_review_date).toBe(calendarDate(rated.next_review_at, host.timeZone));
     expect(rated.display_markdown).toMatch(/^Note enregistrée\. Prochaine révision : .+\. Elle règle tes révisions, jamais ta maîtrise\.$/);
     expect(host.getState(s.sessionId).concept_states).toEqual(mastery);
     expect(host.reviewQueue(s.sessionId)).toEqual([expect.objectContaining({ concept_id: "c-signe", reps: 1 })]);

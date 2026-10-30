@@ -2078,7 +2078,10 @@ def approve_lesson_bundle(
     metadata = bundle.get("metadata")
     authoring = metadata.get("authoring") if isinstance(metadata, dict) else None
     if isinstance(authoring, dict) and authoring.get("mode") == SELF_STUDY_MODE:
-        raise PacketError("self-study bundles cannot receive teacher approval")
+        raise PacketError(
+            "self-study bundles cannot receive teacher approval; to approve this lesson for a class, "
+            "rebuild it through prepare, check and bundle (the teacher route), fill it, then approve"
+        )
     remaining = placeholder_paths(bundle)
     if remaining:
         raise PacketError(
@@ -2107,6 +2110,21 @@ def approve_lesson_bundle(
     approval_path = bundle_path.parent / "approval.json"
     _write_json_file(approval_path, approval, "approval record")
     return approval_path
+
+
+def _approval_summary(approval_path: Path) -> list[str]:
+    """What a teacher reads after ``approve``: who, which exact file, the lint counts, and the one
+    rule that keeps the record honest (RT-7)."""
+    approval, _ = _load_json(approval_path, "approval record")
+    lint = approval.get("lint") or {}
+    return [
+        f"Approved by {approval['reviewer']} at {approval['reviewed_at']}",
+        f"lesson.json SHA-256: {approval['bundle_sha256']}",
+        f"lint: {lint.get('errors', 0)} error(s), {lint.get('warnings', 0)} warning(s)",
+        "validated_by and validated_at were rewritten and the file normalized; "
+        "any edit to lesson.json makes this approval stale (approve again after editing).",
+        "Approval record:",
+    ]
 
 
 def _add_prepare_parser(commands: Any) -> None:
@@ -2174,8 +2192,13 @@ def _add_approve_parser(commands: Any) -> None:
         "approve",
         help="record teacher approval for an already-filled LessonBundle",
         description=(
-            "Preserve an edited teacher bundle, refuse placeholders or lint errors, and write "
-            "a hash-bound approval.json record. Self-study bundles cannot be approved."
+            "Approve a filled teacher bundle: refuse remaining TODO placeholders or bundle-lint "
+            "errors, then write approval.json next to it, bound to the SHA-256 of the exact "
+            "lesson.json bytes. The lesson's content is kept, but the file is rewritten: "
+            "validated_by and validated_at are rewritten (your name, the time of approval) and "
+            "the JSON is normalized (keys sorted, standard indentation), so its SHA-256 changes "
+            "once. Any later edit to lesson.json makes the approval stale. Self-study bundles "
+            "cannot be approved: rebuild them through prepare, check and bundle (the teacher route)."
         ),
     )
     approve.add_argument("--bundle", type=Path, required=True, metavar="LESSON_JSON")
@@ -2185,7 +2208,10 @@ def _add_approve_parser(commands: Any) -> None:
         nargs="*",
         default=[],
         metavar="KEY=VALUE",
-        help="optional review checklist entries",
+        help=(
+            "optional review checklist entries recorded in approval.json, for example "
+            "sources=read keys=checked scientific_accuracy=yes licence=checked level=fits"
+        ),
     )
 
 
@@ -2379,6 +2405,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "bundle":
         bundle, _ = _load_json(output, "generated LessonBundle")
         print(f"Remaining placeholders: {len(placeholder_paths(bundle))}")
+    if args.command == "approve":
+        print("\n".join(_approval_summary(output)))
     print(output)
     return 0
 

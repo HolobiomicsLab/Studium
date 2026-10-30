@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { SessionHost, ResponseInputSchema, ExperimentInputSchema, RunResultSchema, publicPresentation, publicTransition, operatorContext } from "@studium/lesson-session-host";
+import {
+  SessionHost, ResponseInputSchema, ExperimentInputSchema, RunResultSchema, NowMsSchema, publicPresentation, publicTransition,
+  operatorContext,
+} from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
 
@@ -13,16 +16,23 @@ function transportTarget(target: RoutedReinforcementTarget): RoutedReinforcement
   return { ...target, due_at: Math.round(target.due_at) };
 }
 
+/** L-8 (H3): every review due counts — mastered concepts to recall, weak ones to relearn, self-rated
+ * ones never measured — in `reason`, in `counts` and in `reinforcement` (the first of them), so a status
+ * bar agrees with get_study_plan and start_review_session. */
 function reinforcementResult(status: ReinforcementStatus): Record<string, unknown> {
   const due = status.due.map(transportTarget);
-  const reason = due.length > 0 ? "due" : status.has_history ? "nothing_due" : "no_history";
+  // Reviewed concepts still below the gate after graded attempts (the study plan's « À reprendre »).
+  const relearn = status.relearn.map(transportTarget);
+  // Reviewed concepts no graded attempt measured, due for review (« À revoir »), never called weak.
+  const unmeasured = status.unmeasured.map(transportTarget);
+  const total = due.length + relearn.length + unmeasured.length;
+  const reason = total > 0 ? "due" : status.has_history ? "nothing_due" : "no_history";
   return {
-    reinforcement: due[0] ?? null,
+    reinforcement: due[0] ?? relearn[0] ?? unmeasured[0] ?? null,
     due,
-    // Reviewed concepts still below the gate after graded attempts (the study plan's « À reprendre »).
-    relearn: status.relearn.map(transportTarget),
-    // Reviewed concepts no graded attempt measured, due for review (« À revoir »), never called weak.
-    unmeasured: status.unmeasured.map(transportTarget),
+    relearn,
+    unmeasured,
+    counts: { due: due.length, relearn: relearn.length, unmeasured: unmeasured.length, total },
     reason,
     next_due_at: reason === "nothing_due" && status.next_due_at !== null
       ? Math.round(status.next_due_at) : null,
@@ -126,6 +136,8 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
       data_dir: persistence.data_dir,
       // C6: where lessons and learner data live, and the warning to relay when nothing is durable.
       persistence,
+      // RFR-13: every date Studium returns (yyyy-mm-dd) and prints is a day in this IANA time zone.
+      time_zone: host.timeZone,
       model_backend: process.env["LITELLM_BASE_URL"] ? "configured" : "none",
     });
   });
@@ -163,9 +175,10 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         "A completed lesson starts at scene zero as a retake and includes due profile-backed review targets. " +
         "The authoring block (also on every presentation) says who wrote the lesson; when authoring.notice " +
         "is set (a self-authored lesson), show it to the learner. " +
-        "Optionally select a BCP 47 presentation_language; when omitted, use the bundle's source language.",
+        "Optionally select a BCP 47 presentation_language; when omitted, use the bundle's source language. " +
+        "With now_ms the session runs on a clock anchored there: its answers, ratings and reviews are dated from it.",
       inputSchema: {
-        bundle_ref: z.string(), learner_id: z.string().optional(), now_ms: z.number().optional(),
+        bundle_ref: z.string(), learner_id: z.string().optional(), now_ms: NowMsSchema.optional(),
         presentation_language: z.string().optional(),
       },
     },
@@ -206,9 +219,11 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   server.registerTool(
     "submit_response",
     {
-      description: "Submit a response to the current scene. In a chat, send the learner's own words as " +
-        "{kind:\"reply\", text}: Studium maps them to the scene's answer (a choice letter or text, a confidence, a " +
-        "free-text answer). A scene carrying run_manifest requires " +
+      description: "Submit a response to the current scene: {session_id, input}. In a chat, send the learner's own " +
+        "words as input {kind:\"reply\", text}, that is submit_response {session_id, input: {kind:\"reply\", text}}: " +
+        "Studium maps them to the scene's answer (a choice letter, alone or followed by the learner's reason, or " +
+        "the choice text; a confidence; a free-text answer) and refuses a reply naming two choices. A scene " +
+        "carrying run_manifest requires " +
         "get_run_manifest, an actual run, and submit_run_result first. Quiz choices are reshuffled and relettered " +
         "per session: send the DISPLAYED choice id, never a memorized source id. Confidence checkpoints accept " +
         "{kind:\"confidence\", pre, post} (legacy value remains accepted). Returns next/replay/remediate_alt/" +
@@ -245,12 +260,15 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
       description: "FSRS ROUTER: the single most-urgent concept to REINFORCE now (mastered earlier but " +
         "whose recall is decaying), plus every due target in priority order. With session_id it unions " +
         "session and cross-lesson profile memory; learner_id works without a live session. " +
-        "Returns reinforcement, due, reason (due|nothing_due|no_history), and next_due_at. " +
-        "`now_ms` (epoch ms) is injectable for deterministic review scheduling; defaults to wall-clock.",
+        "Returns reinforcement (the first of due, else of relearn, else of unmeasured), due, relearn (graded " +
+        "weak), unmeasured (self-rated only), counts {due, relearn, unmeasured, total}, reason " +
+        "(due|nothing_due|no_history: due when any of the three lists is not empty), and next_due_at. " +
+        "`now_ms` (epoch ms) is injectable for deterministic review scheduling; defaults to the session's clock " +
+        "with session_id, else the server clock.",
       inputSchema: {
         session_id: z.string().min(1).optional(),
         learner_id: z.string().min(1).optional(),
-        now_ms: z.number().optional(),
+        now_ms: NowMsSchema.optional(),
       },
     },
     async ({ session_id, learner_id, now_ms }) => {
@@ -258,10 +276,9 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         if (session_id === undefined && learner_id === undefined) {
           return fail("at least one of session_id or learner_id is required");
         }
-        const nowMs = now_ms ?? Date.now();
         const status = session_id !== undefined
-          ? await host.reinforcementStatusForSession(session_id, nowMs)
-          : await host.reinforcementStatusForLearner(learner_id, nowMs);
+          ? await host.reinforcementStatusForSession(session_id, now_ms)
+          : await host.reinforcementStatusForLearner(learner_id, now_ms);
         return text(reinforcementResult(status));
       } catch (e) { return fail((e as Error).message); }
     },
@@ -389,11 +406,18 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     "end_session",
     {
       description: "Closes a session and keeps durable lesson state and cross-lesson memory. " +
-        "Use forget_session for irreversible erasure.",
+        "Use forget_session for irreversible erasure. When the progress could not be saved, the reply says " +
+        "state_kept: false with a persistence_warning to pass on to the learner.",
       inputSchema: { session_id: z.string() },
     },
     async ({ session_id }) => {
-      try { await host.close(session_id); return text({ closed: true, state_kept: true }); }
+      try {
+        // L-11 (CC-6): a close whose write-through failed still closes, and says the state was not kept.
+        const closed = await host.close(session_id);
+        return text(closed.persistence_warning
+          ? { closed: true, state_kept: false, persistence_warning: closed.persistence_warning }
+          : { closed: true, state_kept: true });
+      }
       catch (e) { return fail((e as Error).message); }
     },
   );
@@ -401,12 +425,19 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   server.registerTool(
     "forget_session",
     {
-      description: "Right to be forgotten: erases this learner's durable state for this lesson AND " +
-        "the cross-lesson profile; irreversible. To merely close, use end_session.",
-      inputSchema: { session_id: z.string() },
+      description: "Right to be forgotten; irreversible. Pass exactly one of session_id or learner_id. With session_id: " +
+        "erases this learner's durable state for this lesson AND the cross-lesson profile and review schedule. With " +
+        "learner_id (no live session needed): every lesson's progress too, and the learner's live sessions close. " +
+        "Returns {forgotten, scope: lesson|learner, erased: [{kind, lessons?}], kept: [{kind, lessons?, path?}], " +
+        "display_markdown}: kept names what stays on disk (the library's lessons and their sources); show " +
+        "display_markdown to the learner. To merely close, use end_session.",
+      inputSchema: { session_id: z.string().min(1).optional(), learner_id: z.string().min(1).max(200).optional() },
     },
-    async ({ session_id }) => {
-      try { await host.forget(session_id); return text({ forgotten: true }); }
+    async ({ session_id, learner_id }) => {
+      try {
+        if ((session_id === undefined) === (learner_id === undefined)) return fail("pass exactly one of session_id or learner_id");
+        return text(session_id !== undefined ? await host.forget(session_id) : await host.forgetLearner(learner_id));
+      }
       catch (e) { return fail((e as Error).message); }
     },
   );

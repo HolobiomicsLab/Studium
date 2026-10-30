@@ -1,11 +1,24 @@
 // W7 — teacher tools in the harness: review_lesson (a draft's plan, never its answer keys) and
 // class_report (aggregate over consented telemetry, k = 5 floor, never a learner id).
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
+
+// Counts the subprocesses review_lesson starts, so a test can prove the default linter runs in process
+// (CC-5 / RT-1: the bundled CJS server has no file URL, so a script found through import.meta.url
+// never ran there). Every call still goes to the real execFile.
+const spawned = vi.hoisted(() => ({ count: 0 }));
+vi.mock("node:child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:child_process")>();
+  const { promisify } = await import("node:util");
+  const execFile = ((...args: Parameters<typeof actual.execFile>) => { spawned.count += 1; return actual.execFile(...args); }) as typeof actual.execFile;
+  const custom = (actual.execFile as unknown as Record<symbol, (...a: unknown[]) => unknown>)[promisify.custom]!;
+  (execFile as unknown as Record<symbol, unknown>)[promisify.custom] = (...args: unknown[]) => { spawned.count += 1; return custom(...args); };
+  return { ...actual, execFile };
+});
 import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -230,6 +243,51 @@ describe("review_lesson", () => {
     expect(out.lint.findings[0]!.message.startsWith("s2:")).toBe(true);
   });
 
+  it("lints in process by default (no script, no subprocess), so a bundled server is not left without a verdict", async () => {
+    // CC-5 / RT-1 / L-14: the default runner is lintBundleData; a subprocess runs only for an explicit ctx.lintScript.
+    const { root } = library();
+    spawned.count = 0;
+    const out = await reviewLesson({ bundlesRoot: root, dataDir: null }, "teach");
+    expect(out.lint).toMatchObject({ status: "ok", errors: 0 });
+    expect(out.ready_for_approval).toBe(true);
+    expect(spawned.count).toBe(0);
+
+    const script = join(REPO_ROOT, "tools", "bundle_lint.mjs");
+    const viaScript = await reviewLesson({ bundlesRoot: root, dataDir: null, lintScript: script }, "teach");
+    expect(viaScript.lint).toMatchObject({ status: "ok", errors: 0 });
+    expect(spawned.count).toBe(1);
+  });
+
+  it("reports a malformed lesson.json as one invalid_json lint finding in process", async () => {
+    const { root, lessonJson } = library();
+    writeFileSync(lessonJson, `{"scenes": [ "${KEYS.correctChoice}" oops`);
+    const out = await reviewLesson({ bundlesRoot: root, dataDir: null }, "teach");
+    expect(out.lint).toMatchObject({ status: "ok", errors: 1 });
+    expect(out.lint.findings).toEqual([{ level: "ERROR", code: "invalid_json", message: "lesson.json is not valid JSON" }]);
+    assertNoKeys(out);
+  });
+
+  it("never echoes a key value in an unfilled_placeholder finding, however long or escaped (SEC-6)", async () => {
+    // The linter quotes the first 60 characters of the field, JSON-escaped: an exact-string scrub misses both.
+    const longKey = `KEYLONG-opening-71 ${"x".repeat(70)} TODO: finish the key`;
+    const quotedKey = 'KEYQ"uote\\72 TODO: fill';
+    const b = bundle();
+    const scenes = b["scenes"] as Array<Record<string, unknown>>;
+    (scenes[1]!["choices"] as Array<Record<string, unknown>>)[1]!["text"] = longKey;
+    scenes[1]!["feedback_correct"] = quotedKey;
+    const { root } = library("teach", b);
+    const out = await reviewLesson({ bundlesRoot: root, dataDir: null }, "teach");
+    const placeholders = out.lint.findings.filter((f) => f.code === "unfilled_placeholder");
+    expect(placeholders.map((f) => f.message).sort()).toEqual([
+      "scenes.1.choices.1.text: unfilled placeholder",
+      "scenes.1.feedback_correct: unfilled placeholder",
+    ]);
+    const json = JSON.stringify(out);
+    expect(json).not.toContain("KEYLONG-opening");
+    expect(json).not.toContain("KEYQ");
+    expect(out.ready_for_approval).toBe(false);
+  });
+
   it("runs the real bundle linter and withholds the flaw it quotes", async () => {
     // The flaw keyword is absent from model_correction -> the real linter prints it in its message.
     const b = bundle();
@@ -338,6 +396,26 @@ describe("review_lesson", () => {
   });
 });
 
+describe("the learner's library (L-12)", () => {
+  it("finds a lesson written to the library when BUNDLES_ROOT names another folder, BUNDLES_ROOT first", async () => {
+    const bundlesRoot = tmp("fixtures");
+    const { root: libraryRoot } = library("from-library", bundle({ bundle_id: "lib-1" }));
+    expect((await reviewLesson(ctxFor(bundlesRoot, { libraryRoot }), "from-library")).bundle_id).toBe("lib-1");
+    await expect(classReport(ctxFor(bundlesRoot, { libraryRoot, dataDir: tmp("data") }), "from-library"))
+      .resolves.toMatchObject({ status: "no_data" });
+    mkdirSync(join(bundlesRoot, "from-library"));
+    writeFileSync(join(bundlesRoot, "from-library", "lesson.json"), JSON.stringify(bundle({ bundle_id: "fixture-1" })));
+    expect((await reviewLesson(ctxFor(bundlesRoot, { libraryRoot }), "from-library")).bundle_id).toBe("fixture-1");
+  });
+
+  it("ignores a library folder that does not exist and still refuses an escape", async () => {
+    const { root } = library();
+    expect((await reviewLesson(ctxFor(root, { libraryRoot: join(tmp("home"), "library") }), "teach")).bundle_id).toBeTruthy();
+    const { root: libraryRoot } = library("x");
+    await expect(reviewLesson(ctxFor(root, { libraryRoot }), "../x")).rejects.toBeInstanceOf(TeacherToolError);
+  });
+});
+
 // ---------------------------------------------------------------------------------------------
 // class_report
 // ---------------------------------------------------------------------------------------------
@@ -361,6 +439,7 @@ function writeStream(dataDir: string, pseudonym: string, bundleId: string, event
 }
 
 const PSEUDOS = ["aaaa000000000001", "aaaa000000000002", "aaaa000000000003", "aaaa000000000004", "aaaa000000000005", "aaaa000000000006"];
+const EIGHT = [...PSEUDOS, "aaaa000000000007", "aaaa000000000008"];
 
 /** Quiz-only learner stream: s1 (concept c1) answered with the given correctness / confidence / time. */
 function quizStream(pseudo: string, correct: boolean, confidence: number, ms: number, extra: Array<Record<string, unknown>> = []) {
@@ -434,17 +513,18 @@ describe("class_report", () => {
   it("computes the calibration gap over rated quiz answers only (an unrated answer has no confidence)", async () => {
     const { root } = library();
     const dataDir = tmp("data");
-    // Six correct answers: three rated 0.9, three unrated (lead decision I-5: confidence omitted, skipped here).
-    PSEUDOS.forEach((p, i) => writeStream(dataDir, p, "teach-001", [
+    // Eight correct answers: five rated 0.9, three unrated (lead decision I-5: confidence omitted, skipped here).
+    // Five rated learners, so the gap's own population reaches the floor (SEC-2).
+    EIGHT.forEach((p, i) => writeStream(dataDir, p, "teach-001", [
       event(p, "lesson_started", { bundle_uri: "x" }),
-      event(p, "quiz_answered", { scene_id: "s1", item_id: "i", correct: true, response_time_ms: 1000, ...(i < 3 ? { confidence: 0.9 } : {}) }),
+      event(p, "quiz_answered", { scene_id: "s1", item_id: "i", correct: true, response_time_ms: 1000, ...(i < 5 ? { confidence: 0.9 } : {}) }),
       event(p, "lesson_completed", { total_duration_ms: 1000, autonomy_ratio: 0.5 }),
     ]));
     const out = await classReport(ctxFor(root, { dataDir }), "teach");
     if (out.status !== "ok") throw new Error("expected ok");
     const scene = out.scenes.find((s) => s.scene_id === "s1")!;
-    expect(scene).toMatchObject({ n_attempts: 6, n_measured: 6, accuracy: 1 });
-    expect(scene.calibration_gap).toBe(-0.1); // 0.9 - 1 over the three rated answers, not (2.7 + 0) / 6 - 1
+    expect(scene).toMatchObject({ n_attempts: 8, n_measured: 8, accuracy: 1 });
+    expect(scene.calibration_gap).toBe(-0.1); // 0.9 - 1 over the five rated answers, not (4.5 + 0) / 8 - 1
     // No rated answer at all: no calibration figure.
     const unrated = tmp("data");
     PSEUDOS.forEach((p) => writeStream(unrated, p, "teach-001", [
@@ -601,13 +681,160 @@ describe("class_report", () => {
     const tool = (await client.listTools()).tools.find((t) => t.name === "class_report")!;
     expect(Object.keys((tool.inputSchema as { properties: Record<string, unknown> }).properties)).toEqual(["course_id"]);
 
-    const read = async (args: Record<string, unknown>) =>
-      (await client.callTool({ name: "class_report", arguments: args })).content as Array<{ text: string }>;
-    const whole = await read({ course_id: "teach" });
-    const withDir = await read({ course_id: "teach", telemetry_dir: "cohort-a" });
-    // Whatever the model passes, the report covers the same learners.
-    expect(withDir[0]!.text).toBe(whole[0]!.text);
-    expect(JSON.parse(whole[0]!.text).cohort_band).toBeDefined();
+    const call = (args: Record<string, unknown>) => client.callTool({ name: "class_report", arguments: args });
+    const whole = await call({ course_id: "teach" });
+    expect(whole.isError).toBeFalsy();
+    expect(JSON.parse((whole.content as Array<{ text: string }>)[0]!.text).cohort_band).toBeDefined();
+    // RT-5 / L-14: an extra telemetry_dir is refused with a message, never silently stripped (the report it would
+    // have produced covered the whole folder while the caller believed it was narrowed).
+    const withDir = await call({ course_id: "teach", telemetry_dir: "cohort-a" });
+    expect(withDir.isError).toBe(true);
+    const message = (withDir.content as Array<{ text: string }>)[0]!.text;
+    expect(message).toMatch(/telemetry_dir/);
+    expect(message).toMatch(/server configuration/);
+    expect((tool.inputSchema as { additionalProperties?: unknown }).additionalProperties).toBe(false);
+    // The description says what a course_id is.
+    expect(tool.description).toMatch(/top-level folder/);
+  });
+
+  it("names the folder it aggregated with a non-identifying label", async () => {
+    const { root, dataDir } = sixLearners();
+    const out = await classReport(ctxFor(root, { dataDir }), "teach");
+    if (out.status !== "ok") throw new Error("expected ok");
+    expect(out.data_folder.label).toBe(basename(dataDir));
+    expect(out.data_folder.fingerprint).toMatch(/^[0-9a-f]{8}$/);
+    expect(JSON.stringify(out)).not.toContain(dataDir);
+    const cohort = join(dataDir, "cohort-a");
+    mkdirSync(cohort);
+    PSEUDOS.forEach((p) => writeStream(cohort, p, "teach-001", quizStream(p, true, 0.9, 1000)));
+    const narrowed = await classReport(ctxFor(root, { dataDir, telemetryDir: cohort }), "teach");
+    if (narrowed.status !== "ok") throw new Error("expected ok");
+    expect(narrowed.data_folder.label).toBe(`${basename(dataDir)}/cohort-a`);
+    expect(narrowed.data_folder.fingerprint).not.toBe(out.data_folder.fingerprint);
+  });
+
+  describe("the floor applies to the population of each figure (SEC-2, SEC-3, L-14)", () => {
+    it("does not publish a scene whose answers come from fewer than k learners, however many asked for a hint", async () => {
+      const { root } = library();
+      const dataDir = tmp("data");
+      // Six learners in the lesson; on s2 one learner answers and four only ask for a hint.
+      PSEUDOS.forEach((p, i) => {
+        const extra = i === 0 ? [event(p, "quiz_answered", { scene_id: "s2", item_id: "j", correct: false, response_time_ms: 9000, confidence: 0.95 })]
+          : i < 5 ? [event(p, "hint_requested", { scene_id: "s2", hint_index: 0 })] : [];
+        writeStream(dataDir, p, "teach-001", quizStream(p, true, 0.9, 1000, extra));
+      });
+      const out = await classReport(ctxFor(root, { dataDir }), "teach");
+      if (out.status !== "ok") throw new Error("expected ok");
+      expect(out.scenes.map((s) => s.scene_id)).toEqual(["s1"]);
+      expect(out.concepts.map((c) => c.concept)).toEqual(["c1"]);
+      expect(out.withheld_below_floor).toBe(true);
+      expect(JSON.stringify(out)).not.toMatch(/0\.95|"s2"|9000/);
+    });
+
+    it("withholds accuracy, calibration and mean time when their own population is under k, and keeps hint reliance within [0, 1]", async () => {
+      const { root } = library();
+      const dataDir = tmp("data");
+      PSEUDOS.forEach((p, i) => writeStream(dataDir, p, "teach-001", [
+        event(p, "lesson_started", { bundle_uri: "x" }),
+        // s1: six answers, one rated and one timed; the first learner asks for a hint three times.
+        event(p, "quiz_answered", { scene_id: "s1", item_id: "i", correct: i !== 0,
+          ...(i === 0 ? { confidence: 0.95, response_time_ms: 9000 } : {}) }),
+        ...(i === 0 ? [0, 1, 2].map((h) => event(p, "hint_requested", { scene_id: "s1", hint_index: h })) : []),
+        // s3: five unjudged keyword scores and one model-judged critique.
+        event(p, "critique_submitted", { scene_id: "s3", llm_score: i === 0 ? 0.1 : 1, completion_rate: 1, scene_type: "explain_back",
+          score_source: i === 0 ? "llm" : "keyword" }),
+      ]));
+      const out = await classReport(ctxFor(root, { dataDir }), "teach");
+      if (out.status !== "ok") throw new Error("expected ok");
+      const s1 = out.scenes.find((s) => s.scene_id === "s1")!;
+      expect(s1).toMatchObject({ n_attempts: 6, n_measured: 6, accuracy: 0.833, calibration_gap: null, mean_time_s: null });
+      // Learners who asked for a hint over learners who answered: 1 / 6, not 3 hint events / 6 answers.
+      expect(s1.hint_reliance).toBe(0.167);
+      const s3 = out.scenes.find((s) => s.scene_id === "s3")!;
+      expect(s3).toMatchObject({ n_attempts: 6, n_measured: 1, accuracy: null });
+      expect(out.withheld_below_floor).toBe(true);
+      expect(JSON.stringify(out)).not.toMatch(/0\.95|"mean_time_s":9\b/);
+    });
+
+    it("builds a concept only from the published figures of its scenes, so concept minus scenes isolates nobody", async () => {
+      const { root } = library();
+      const dataDir = tmp("data");
+      PSEUDOS.forEach((p, i) => writeStream(dataDir, p, "teach-001", [
+        // c2 = s2 (six answers, all correct) + s3 (one judged critique, failing; five keyword scores).
+        event(p, "quiz_answered", { scene_id: "s2", item_id: "j", correct: true, response_time_ms: 1000, confidence: 0.8 }),
+        event(p, "critique_submitted", { scene_id: "s3", llm_score: i === 0 ? 0.1 : 1, completion_rate: 1, scene_type: "explain_back",
+          score_source: i === 0 ? "llm" : "keyword" }),
+        // s1 (c1): only two learners, so the scene and its concept are withheld.
+        ...(i < 2 ? [event(p, "quiz_answered", { scene_id: "s1", item_id: "i", correct: false, response_time_ms: 1000, confidence: 0.9 })] : []),
+      ]));
+      const out = await classReport(ctxFor(root, { dataDir }), "teach");
+      if (out.status !== "ok") throw new Error("expected ok");
+      const c2 = out.concepts.find((c) => c.concept === "c2")!;
+      const s2 = out.scenes.find((s) => s.scene_id === "s2")!;
+      // The judged failure on s3 is withheld at the scene and must not reach the concept: 6/6, not 6/7.
+      expect(c2).toMatchObject({ n_measured: 6, accuracy: 1, calibration_gap: s2.calibration_gap, mean_time_s: s2.mean_time_s });
+      expect(c2.n_attempts).toBe(out.scenes.filter((s) => s.concept === "c2").reduce((n, s) => n + s.n_attempts, 0));
+      expect(out.concepts.map((c) => c.concept)).toEqual(["c2"]);
+    });
+
+    it("gives no completion rate when fewer than k learners started the lesson", async () => {
+      const { root } = library();
+      const dataDir = tmp("data");
+      PSEUDOS.forEach((p, i) => writeStream(dataDir, p, "teach-001", [
+        ...(i < 2 ? [event(p, "lesson_started", { bundle_uri: "x" }), event(p, "lesson_completed", { total_duration_ms: 1, autonomy_ratio: 1 })] : []),
+        event(p, "quiz_answered", { scene_id: "s1", item_id: "i", correct: true, response_time_ms: 1000, confidence: 0.9 }),
+      ]));
+      const out = await classReport(ctxFor(root, { dataDir }), "teach");
+      if (out.status !== "ok") throw new Error("expected ok");
+      expect(out.completion_rate).toBeNull();
+    });
+  });
+
+  // RT-3 / CQ-1 / H5: both surfaces on one mixed stream (rated and unrated answers, a keyword-scored and a
+  // judged critique, missing times, repeated hints).
+  it.skipIf(!existsSync(PYTHON))("matches tools/class_report.py on mixed data (unrated answers, keyword scores, missing times)", async () => {
+    const { root } = library();
+    const dataDir = tmp("data");
+    const s1: Array<[boolean, number | null, number | null]> = [
+      [true, 0.9, 2000], [true, 0.8, 4000], [false, 0.7, 3000], [true, 0.6, 5000], [false, 0.9, 6000], [true, null, null],
+    ];
+    const s2Scores = [1, 1, 0.5, 0.7, 0.2, 0.9];
+    PSEUDOS.forEach((p, i) => {
+      const [correct, confidence, ms] = s1[i]!;
+      writeStream(dataDir, p, "teach-001", [
+        event(p, "lesson_started", { bundle_uri: "x" }),
+        event(p, "quiz_answered", { scene_id: "s1", item_id: "i", correct,
+          ...(confidence === null ? {} : { confidence }), ...(ms === null ? {} : { response_time_ms: ms }) }),
+        ...(i === 0 ? [event(p, "hint_requested", { scene_id: "s1", hint_index: 0 }), event(p, "hint_requested", { scene_id: "s1", hint_index: 1 })] : []),
+        ...(i === 1 ? [event(p, "hint_requested", { scene_id: "s1", hint_index: 0 })] : []),
+        event(p, "critique_submitted", { scene_id: "s2", llm_score: s2Scores[i], completion_rate: 1, scene_type: "spot_the_flaw", score_source: "verdict_deck" }),
+        event(p, "critique_submitted", { scene_id: "s3", llm_score: 1, completion_rate: 1, scene_type: "explain_back", score_source: "keyword" }),
+        ...(i < 4 ? [event(p, "lesson_completed", { total_duration_ms: 1000, autonomy_ratio: 0.5 })] : []),
+      ]);
+    });
+    const outDir = tmp("pyout");
+    execFileSync(PYTHON, [join(REPO_ROOT, "tools", "class_report.py"), dataDir, "--bundle", join(root, "teach", "lesson.json"), "--out", outDir],
+      { encoding: "utf8" });
+    const py = JSON.parse(readFileSync(join(outDir, "class_report.json"), "utf8"));
+    const ts = await classReport(ctxFor(root, { dataDir }), "teach");
+    if (ts.status !== "ok") throw new Error("expected ok");
+    const fields = ["n_attempts", "n_measured", "accuracy", "hint_reliance", "calibration_gap", "mean_time_s", "cohort_band"] as const;
+    const pick = (row: Record<string, unknown>) => Object.fromEntries(fields.map((f) => [f, row[f]]));
+    for (const id of ["c1", "c2"]) {
+      const tsRow = ts.concepts.find((c) => c.concept === id)!;
+      const pyRow = py.concepts.find((c: { concept: string }) => c.concept === id);
+      expect(pick(pyRow), id).toEqual(pick(tsRow as unknown as Record<string, unknown>));
+    }
+    // The figures themselves, so a shared mistake cannot pass: c1 rated = five answers (gap 0.78 - 0.6), timed = five.
+    expect(pick(ts.concepts.find((c) => c.concept === "c1") as unknown as Record<string, unknown>)).toMatchObject({
+      n_attempts: 6, n_measured: 6, accuracy: 0.667, hint_reliance: 0.333, calibration_gap: 0.18, mean_time_s: 4,
+    });
+    // c2: the keyword-scored explain_back counts as an attempt, never as accuracy; no rated or timed answer.
+    expect(pick(ts.concepts.find((c) => c.concept === "c2") as unknown as Record<string, unknown>)).toMatchObject({
+      n_attempts: 12, n_measured: 6, accuracy: 0.667, calibration_gap: null, mean_time_s: null,
+    });
+    expect(ts.completion_rate).toBe(py.completion_rate);
+    expect(ts.reteach_priority).toEqual(py.reteach_priority);
   });
 
   it("only reads telemetry.jsonl, never the learner's events, state or mastery files", async () => {

@@ -22,13 +22,18 @@ export const AUTHORING_TOOL_NAMES = ["create_lesson", "get_authoring_guide", "pr
 
 /** What the server wires in. Nothing here is controllable by the model calling the tools. */
 export interface AuthoringToolsContext {
-  /** The learner's library: source sets go to `_sources/`, lessons to `<course_id>/lesson.json`. server.ts
-   * passes the server's bundles root: the C6 library, or the folder BUNDLES_ROOT names. */
+  /** The learner's library, where source sets go to `_sources/` and lessons to `<course_id>/lesson.json`:
+   * always the C6 library, <STUDIUM_HOME>/library (L-12), never the folder BUNDLES_ROOT names (a
+   * repository's fixtures, where the full texts of the learner's sources must not land and a teacher's
+   * lesson must not be replaced; SEC-1). list_lessons and start_lesson_session search it. */
   libraryRoot(): string;
   /** Called with the course_ref of each lesson written, so that the host serves it at once. */
   onLessonWritten(courseRef: string): void;
   /** Whether a judge model grades production scenes (it changes the notice); false when absent. */
   judge?(): boolean;
+  /** Whether a lesson of this course id is served from a folder read before the library (BUNDLES_ROOT);
+   * create_lesson then refuses the id. Absent: no other folder. */
+  servedElsewhere?(courseId: string): boolean;
 }
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: true };
@@ -88,11 +93,12 @@ export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsCon
   server.registerTool("create_lesson", {
     description: "Check a complete LessonDraft (see get_authoring_guide) against its source set — every quote to the " +
       "character, no TODO, a sound concept graph — then build the lesson and write it to the learner's library. Returns " +
-      "{ok: true, course_ref, outline, key_classes, findings, notice} or {ok: false, errors: [{path, message, hint}]}: fix " +
+      "{ok: true, course_ref, outline, key_classes, findings: [{level, code, message, hint?}], notice} or {ok: false, " +
+      "errors: [{path, message, hint}]}: fix " +
       "the draft and call again (errors may quote the draft's own keys: keep them from the learner). The outline holds " +
       "no key; show it to the learner and never show a key. Then start the " +
       "lesson with start_lesson_session {bundle_ref: course_ref} and relay the notice. An existing lesson is replaced only " +
-      "with overwrite: true.",
+      "with overwrite: true, and only a self-study lesson no teacher validated or approved.",
     inputSchema: {
       source_set_id: z.string(),
       draft: z.record(z.string(), z.unknown()),
@@ -101,7 +107,8 @@ export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsCon
     },
   }, async ({ source_set_id, draft, course_id, overwrite }) => {
     try {
-      const result = await createLesson(ctx.libraryRoot(), { source_set_id, draft, course_id, overwrite });
+      const result = await createLesson(ctx.libraryRoot(), { source_set_id, draft, course_id, overwrite },
+        ctx.servedElsewhere ? { servedElsewhere: (id) => ctx.servedElsewhere!(id) } : {});
       if (!result.ok) return refuse(result);
       ctx.onLessonWritten(result.course_ref);
       const { notice } = authoringOf(result.bundle, { judge: ctx.judge?.() ?? false });

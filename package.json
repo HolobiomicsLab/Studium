@@ -2,6 +2,7 @@
   "name": "studium-prototype",
   "private": true,
   "version": "0.0.0",
+  "license": "Apache-2.0",
   "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": ">=20",
@@ -11,7 +12,9 @@
     "test": "pnpm -r test",
     "lint": "eslint . --ext .ts,.tsx --no-error-on-unmatched-pattern",
     "build": "pnpm -r build",
-    "build:libs": "pnpm --filter \"./packages/**\" run build"
+    "build:libs": "pnpm --filter \"./packages/**\" run build",
+    "docs:gen": "node tools/docs/gen-mcp-tools.mjs && node tools/docs/gen-lesson-bundle.mjs",
+    "docs:check": "node --test tools/docs/check.test.mjs && node tools/docs/check.mjs"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.0.0",

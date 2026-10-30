@@ -5,12 +5,17 @@
 // answers are written back into the learner's FSRS memory; it is never recorded as a completed
 // lesson, and nothing of it is kept on disk except that memory and the concepts' mastery.
 //
-// Scene choice: a retrieval scene of the lesson the concept was learned in, preferring one whose
-// FIRST concept is that concept (the one the graders score) and one other than the scene answered
-// last time, so a review is not always the same item. Scenes that only make sense inside their
-// lesson are left out: a learner-time run, and a judgment grounded on the learner's own run.
+// Scene choice (L-8): a retrieval scene of the lesson the concept was learned in whose FIRST concept
+// is that concept — the one the graders score; a scene that only mentions it would grade another
+// concept, and the concept would stay due for ever (H1). Never a diagnostic (« what do you already
+// know? »), which makes sense once, before the lesson. Without a judge model, an answer-graded scene
+// (a quiz, a spot_the_flaw verdict deck) comes first, even the one answered last time: nothing else
+// re-measures the concept (RFR-07, R-en-09). Otherwise one other than the scene answered last time, so
+// a review is not always the same item. Scenes that only make sense inside their lesson are left out:
+// a learner-time run, and a judgment grounded on the learner's own run.
 import type { LessonBundle, Scene, AuthoringMode } from "@studium/lesson-bundle-schema";
 import { draftedByOf, isTeacherValidated, type DraftedBy } from "./authoring.js";
+import { keyClassOf } from "./key-class.js";
 
 /** Scene types that RE-TEST recall (active retrieval), preferred for reinforcement over a passive
  * intro/exposition — reinforcement is about retrieval practice, not re-reading. */
@@ -19,6 +24,10 @@ export const RETRIEVAL_SCENE_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 export const REVIEW_BUNDLE_ID = "studium-review";
+
+/** Reviews in one session unless the caller asks for fewer or more (start_review_session max_items). */
+export const DEFAULT_REVIEW_ITEMS = 10;
+export const MAX_REVIEW_ITEMS = 50;
 
 /** Where a review scene comes from: its lesson, its id there, and the folder its assets resolve in. */
 export interface ReviewOrigin {
@@ -38,17 +47,35 @@ export interface ReviewSource {
   lastSceneId: string | null;
 }
 
-const covers = (scene: Scene, conceptId: string) => (scene.concept_refs ?? []).includes(conceptId);
 const playableOutsideItsLesson = (scene: Scene) => {
   const s = scene as { run_manifest?: unknown; reference_from_run?: unknown };
   return !s.run_manifest && !s.reference_from_run;
 };
+const diagnosticFlag = (scene: Scene): unknown => (scene as { diagnostic?: unknown }).diagnostic;
 
-export function pickReviewScene(bundle: LessonBundle, conceptId: string, lastSceneId: string | null): Scene | null {
-  const candidates = bundle.scenes.filter((s) =>
-    RETRIEVAL_SCENE_TYPES.has(s.type) && covers(s, conceptId) && playableOutsideItsLesson(s));
-  const primary = candidates.filter((s) => s.concept_refs[0] === conceptId);
-  const pool = primary.length ? primary : candidates;
+/** A pre-lesson diagnostic: a scene flagged `diagnostic: true` — or, in a bundle written before the
+ * flag existed (no scene carries it), the production scene right after a meta_checkpoint, the
+ * opening « what do you already know? » the authoring guide asked for. */
+export function isDiagnosticScene(bundle: LessonBundle, scene: Scene): boolean {
+  if (bundle.scenes.some((s) => typeof diagnosticFlag(s) === "boolean")) return diagnosticFlag(scene) === true;
+  const at = bundle.scenes.findIndex((s) => s.id === scene.id);
+  return at > 0 && bundle.scenes[at - 1]!.type === "meta_checkpoint" && keyClassOf(scene.type) === "production";
+}
+
+/** Graded against an answer key, with no judge model: a quiz, a spot_the_flaw played as a verdict deck. */
+function answerGraded(scene: Scene): boolean {
+  return scene.type === "quiz" || (scene.type === "spot_the_flaw" && (scene as { verdict_deck?: unknown }).verdict_deck === true);
+}
+
+/** The scene a review of `conceptId` plays from `bundle`, or null when none can (see the header).
+ * `judge`: a judge model grades production scenes on this server. */
+export function pickReviewScene(
+  bundle: LessonBundle, conceptId: string, lastSceneId: string | null, opts: { judge?: boolean } = {},
+): Scene | null {
+  const candidates = bundle.scenes.filter((s) => RETRIEVAL_SCENE_TYPES.has(s.type) && s.concept_refs[0] === conceptId
+    && playableOutsideItsLesson(s) && !isDiagnosticScene(bundle, s));
+  const graded = opts.judge ? [] : candidates.filter(answerGraded);
+  const pool = graded.length ? graded : candidates;
   return pool.find((s) => s.id !== lastSceneId) ?? pool[0] ?? null;
 }
 
@@ -65,16 +92,17 @@ function combinedAuthoring(bundles: readonly LessonBundle[]): { mode: AuthoringM
 /**
  * Assemble the review lesson. Scene ids are namespaced (`r<n>:<id>`) because two lessons may reuse
  * an id; choices keep the order and letters their own lesson shuffled them into. Returns null when no
- * source has a playable scene.
+ * source has a playable scene. `language` is the review's language (its chrome: « Révision n sur
+ * N »), by default the first lesson's; `judge` as for pickReviewScene.
  */
 export function buildReviewBundle(
   sources: readonly ReviewSource[],
-  opts: { title: string; nowIso: string },
+  opts: { title: string; nowIso: string; judge?: boolean; language?: string },
 ): { bundle: LessonBundle; origins: Record<string, ReviewOrigin> } | null {
   const picked: Array<{ scene: Scene; source: ReviewSource }> = [];
   const seen = new Set<string>();
   for (const source of sources) {
-    const scene = pickReviewScene(source.bundle, source.conceptId, source.lastSceneId);
+    const scene = pickReviewScene(source.bundle, source.conceptId, source.lastSceneId, { judge: opts.judge ?? false });
     const key = scene ? `${source.bundle.bundle_id}\u0000${scene.id}` : "";
     if (!scene || seen.has(key)) continue;
     seen.add(key);
@@ -105,7 +133,7 @@ export function buildReviewBundle(
       title: opts.title,
       target: first.metadata.target,
       duration_minutes: Math.max(1, Math.ceil(scenes.reduce((sum, s) => sum + s.estimated_seconds, 0) / 60)),
-      language: first.metadata.language,
+      language: opts.language ?? first.metadata.language,
       discipline: first.metadata.discipline,
       authoring,
     },

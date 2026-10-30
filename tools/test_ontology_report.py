@@ -1,6 +1,6 @@
 """Tests for the ontology conformance generator. Run: python -m pytest tools/test_ontology_report.py
 (tools/ is outside pytest.ini testpaths, so run it explicitly; the tool's __main__ smoke check also guards
-the core derivations). The staleness test is what keeps docs/ontology/conformance.md honest in review."""
+the core derivations). The staleness test is what keeps docs/design-records/ontology-conformance.md honest in review."""
 import sys
 from pathlib import Path
 
@@ -28,7 +28,7 @@ def test_bundle_scene_mirrors_agree_and_simulation_is_a_graph_only_ghost():
 
 def test_conformance_doc_is_not_stale():
     committed = ort.DOC.read_text()
-    assert committed == ort.build(), "docs/ontology/conformance.md is stale — run: python tools/ontology_report.py"
+    assert committed == ort.build(), "docs/design-records/ontology-conformance.md is stale — run: python tools/ontology_report.py"
 
 
 if __name__ == "__main__":

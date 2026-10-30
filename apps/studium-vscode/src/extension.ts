@@ -13,7 +13,7 @@ import { spawn } from "node:child_process";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import {
   connectLessonMcp, describeServerLaunch, lessonMcpEnv, resolveLogSink, resolveServerLaunch,
-  serverBuildWarning, serverInfoLine, setLessonMcpLog, type LessonMcp,
+  serverBuildWarning, serverInfoLine, setLessonMcpLog, withLessonMcpPaused, type LessonMcp,
 } from "./mcp-connect.js";
 import { LessonPanelLifecycle, type ActionResult } from "./panel-lifecycle.js";
 import { registerStudiumChat } from "./chat.js";
@@ -35,7 +35,8 @@ import { isTrusted, runConsent, runFingerprint, withTrusted } from "./run-trust.
 import { checkLessonPath, parseOpenLessonQuery, rawQuery, type OpenLessonResult } from "./lesson-uri.js";
 import { parseReinforcement, reviewStartReply, statusBarText, type StudyStatus } from "./study-status.js";
 import { readConceptTitles } from "./bundle-titles.js";
-import { parseRateRecall } from "./pane-messages.js";
+import { assetBundleRef, parseRateRecall, reviewContext, type ReviewContext } from "./pane-messages.js";
+import { completionSplit, lessonNextReviewAfterRating, type LessonReviewPlan } from "./completion.js";
 
 type Json = Record<string, any>;
 
@@ -57,6 +58,9 @@ let activeLesson: {
   pending: (message: string) => void;
   settled: () => void;
 } | null = null;
+
+/** Close functions of every open lesson pane (forgetMyData closes them all, not only the latest). */
+const openLessonPanels = new Set<() => void>();
 
 /** What a transition carries for the pane besides the scene: the ONE navigation decision and the C4 request. */
 interface SceneExtras { navigation?: Json; self_rating?: Json }
@@ -222,7 +226,8 @@ async function refreshStudyStatus(context: vscode.ExtensionContext): Promise<voi
     const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
     const launch = resolveServerLaunch(context.extensionPath, repoRoot);
     mcp = await connectLessonMcp({ launch, env: lessonServerEnv(context, resolveLessonBundlesRoot(context)) });
-    studyStatus = parseReinforcement(await mcp.call("get_next_reinforcement", { learner_id: cfg<string>("learnerId", "vscode-learner") }));
+    const payload = await mcp.call("get_next_reinforcement", { learner_id: cfg<string>("learnerId", "vscode-learner") });
+    studyStatus = parseReinforcement(payload, reinforcementTitles(context, payload));
   } catch (e: any) {
     resolveLogSink()(`[studium] review status unavailable: ${e?.message ?? e}`);
   } finally {
@@ -230,6 +235,23 @@ async function refreshStudyStatus(context: vscode.ExtensionContext): Promise<voi
     studyStatusRefreshing = false;
   }
   applyStudyStatus();
+}
+
+/** UX-06: how the Reviews node names a due concept the payload does not title — from the lesson it was last
+ * graded in (bundle_ref, read under the lessons root), else from the last lesson opened. */
+function reinforcementTitles(context: vscode.ExtensionContext, payload: Json): (id: string) => string | undefined {
+  const root = resolveLessonBundlesRoot(context);
+  const refs = new Set<string>();
+  for (const group of ["due", "relearn", "unmeasured"]) {
+    for (const target of Array.isArray(payload?.[group]) ? payload[group] : []) {
+      if (typeof target?.bundle_ref === "string" && bundleExists(root, target.bundle_ref)) refs.add(target.bundle_ref);
+    }
+  }
+  const titles: Record<string, string> = {};
+  const last = context.globalState.get<LastLesson>(LAST_LESSON_KEY);
+  if (last) Object.assign(titles, readConceptTitles(join(last.bundlesRoot, last.bundleRef)));
+  for (const ref of refs) Object.assign(titles, readConceptTitles(join(root, ref)));
+  return (id) => titles[id];
 }
 
 /** Tell the learner why a lesson path or link was refused. */
@@ -275,8 +297,11 @@ async function forgetMyData(context: vscode.ExtensionContext): Promise<void> {
     hostPhrase("forget_data_prompt", { harness_data: harnessData }, locale), { modal: true }, action);
   if (choice !== action) return;
   try {
-    activeLesson?.close(); // a running lesson would write its state straight back
-    rmSync(learnerDataDir(context), { recursive: true, force: true });
+    // SEC-4: every lesson-mcp the extension owns (each lesson pane, the @studium chat, notebook sessions, a status
+    // refresh in flight) would write its state straight back: close them all, and keep new ones waiting, until the
+    // storage is gone.
+    for (const close of [...openLessonPanels]) close();
+    await withLessonMcpPaused(() => rmSync(learnerDataDir(context), { recursive: true, force: true }));
     await context.globalState.update(TRUSTED_RUNS_KEY, undefined);
     await context.globalState.update(LAST_LESSON_KEY, undefined);
   } catch (e: any) {
@@ -706,10 +731,12 @@ async function openLesson(
   const bundleRef = bundleRefOverride ?? configuredRef!;
   const learnerId = cfg<string>("learnerId", "vscode-learner");
   const conceptTitles = readConceptTitles(join(bundlesRoot, bundleRef));
-  /** Concept ids as the pane names them: the bundle's title, else the id without its "concept:" prefix. */
+  // UX-03: a review session plays scenes of several lessons; it names their concepts and origins.
+  let review: ReviewContext | null = null;
+  /** Concept ids as the pane names them: the review's or the bundle's title, else the id without its prefix. */
   const named = (ids: string[]): NamedConcept[] => ids.map((id) => {
     const bare = id.replace(/^concept:/, "");
-    return { id, label: conceptTitles[id] ?? conceptTitles[bare] ?? bare };
+    return { id, label: review?.titles[id] ?? review?.titles[bare] ?? conceptTitles[id] ?? conceptTitles[bare] ?? bare };
   });
 
   const assets = cfg<"vendor" | "cdn">("assets", "vendor");
@@ -801,8 +828,10 @@ async function openLesson(
     } catch { /* the graph is best-effort; never let it break the lesson */ }
   };
 
+  let lastAuthoring: Json | null = null;
   const pushScene = async (presentation: Json, explanation?: Json, verdict?: Json, extras: SceneExtras = {}) => {
     if (panelDisposed || lifecycle.isDisposed()) return;
+    if (presentation.authoring) lastAuthoring = presentation.authoring;
     locale = presentation.locale === "en" ? "en" : "fr";
     extensionLocale = locale;
     treeProvider?.setLocale(locale);
@@ -831,7 +860,7 @@ async function openLesson(
       // Modality-adaptive: reorder + emphasis-tag the (image-inlined) assets for the learner's
       // preference before posting. 'balanced' returns the authored order unchanged, all 'normal'.
       scene_assets: selectRenderOrder(
-        artifacts.map((asset: Json) => inlineImageAsset(bundlesRoot, bundleRef, asset)),
+        artifacts.map((asset: Json) => inlineImageAsset(bundlesRoot, assetBundleRef(asset, presentation.scene?.id, review, bundleRef), asset)),
         modalityPref,
       ),
       modalityPreference: modalityPref,
@@ -865,30 +894,51 @@ async function openLesson(
     }
   };
 
-  /** VSC-6: the end-of-lesson screen. Concepts are named, never scored: only concepts with a graded attempt
-   * are claimed consolidated (mastery >= 0.6, the threshold of chat-display.ts) or to revisit. */
+  /** VSC-6 / L-6: the end-of-lesson screen. Concepts are named, never scored, in the host's split (completion.ts):
+   * consolidated, practised (with their number of graded answers) or not measured yet. H3: what is due counts the
+   * relearn and unmeasured reviews too. */
+  const reviewSchedule = async (): Promise<{ dueNow: number; nextDueAt: number | null }> => {
+    try {
+      const status = parseReinforcement(await call("get_next_reinforcement", { session_id: sid }));
+      return { dueNow: status.dueCount, nextDueAt: status.nextDueAt };
+    } catch { return { dueNow: 0, nextDueAt: null }; }
+  };
   const completionPayload = async (t: Json): Promise<Json> => {
-    const mastery: Record<string, number> = t.summary?.mastery ?? {};
-    const states: Record<string, Json> = t.summary?.finalState?.concept_states ?? {};
-    const graded = Object.keys(mastery).filter((id) => (states[id]?.total_attempts ?? 0) > 0);
-    let dueNow = 0;
-    try { dueNow = parseReinforcement(await call("get_next_reinforcement", { session_id: sid })).dueCount; } catch { /* best-effort */ }
+    const split = completionSplit(t);
+    const { dueNow } = await reviewSchedule();
     return {
-      consolidated: named(graded.filter((id) => mastery[id]! >= 0.6)),
-      to_revisit: named(graded.filter((id) => mastery[id]! < 0.6)),
+      consolidated: named(split.consolidated),
+      practised: split.practised.map((p) => ({ ...named([p.id])[0]!, answers: p.answers })),
+      not_measured: named(split.not_measured),
       detours: Object.values((t.summary?.scenes_detoured ?? {}) as Record<string, number>).reduce((a, b) => a + b, 0),
       next_review_at: t.review_plan?.next_due_at ?? null,
       due_now: dueNow,
       actions: [...(dueNow > 0 ? ["review"] : []), "restart", "pick"],
     };
   };
-  const donePayload = async (t: Json, message: string): Promise<Json> => ({
-    message,
-    verdict: t.verdict ?? null,            // the last answer's verdict: the pane shows it as a step first
-    self_rating: t.self_rating ?? null,
-    calibration: calibrationVerdicts(t.summary?.finalState ?? {}, locale),
-    completion: await completionPayload(t),
-  });
+  /** The lesson ended on an answer that still waits for its rating: once rated, its end screen is updated. */
+  let completedAwaitingRating = false;
+  /** The finished lesson's review plan (the complete transition's review_plan), which a last rating updates. */
+  let lastReviewPlan: LessonReviewPlan | null = null;
+  const reviewPlanOf = (t: Json): LessonReviewPlan | null => {
+    const plan = t.review_plan;
+    if (!plan || typeof plan !== "object") return null;
+    return {
+      next_due_at: typeof plan.next_due_at === "number" ? plan.next_due_at : null,
+      concepts: Array.isArray(plan.concepts) ? plan.concepts.filter((c: unknown): c is string => typeof c === "string") : [],
+    };
+  };
+  const donePayload = async (t: Json, message: string): Promise<Json> => {
+    lastReviewPlan = reviewPlanOf(t);
+    return {
+      message,
+      authoring: t.presentation?.authoring ?? lastAuthoring,
+      verdict: t.verdict ?? null,            // the last answer's verdict: the pane shows it as a step first
+      self_rating: t.self_rating ?? null,
+      calibration: calibrationVerdicts(t.summary?.finalState ?? {}, locale),
+      completion: await completionPayload(t),
+    };
+  };
 
   // Expose this lesson to the top-level "Run reproduction" command (it drives get_run_manifest →
   // native task → submit_run_result against this live session). Latest open wins; cleared on dispose.
@@ -904,6 +954,7 @@ async function openLesson(
     advance: (presentation: Json, explanation?: Json, verdict?: Json, extras?: SceneExtras) =>
       pushScene(presentation, explanation, verdict, extras),
     done: async (t: Json, message: string) => {
+      completedAwaitingRating = !!t.self_rating?.requested;
       const payload = await donePayload(t, message);
       if (!panelDisposed) panel.webview.postMessage({ type: "done", ...payload });
       void refreshStudyStatus(context);
@@ -913,7 +964,9 @@ async function openLesson(
     settled: () => { if (!panelDisposed) panel.webview.postMessage({ type: "action_settled" }); },
   };
   activeLesson = thisLesson;
+  openLessonPanels.add(thisLesson.close);
   panel.onDidDispose(() => {
+    openLessonPanels.delete(thisLesson.close);
     if (activeLesson === thisLesson) activeLesson = null;
     setReproductionContext(false); // the run action is scene-scoped; clear it when the lesson closes
   });
@@ -927,8 +980,23 @@ async function openLesson(
           // untrusted: check the message shape here; the server validates the grade again.
           const rating = parseRateRecall(msg);
           if (!rating) return;
-          await call("rate_recall", { session_id: sid, scene_id: rating.sceneId, grade: rating.grade });
-          if (!panelDisposed) panel.webview.postMessage({ type: "recall_rated", sceneId: rating.sceneId, grade: rating.grade });
+          const rated = await call("rate_recall", { session_id: sid, scene_id: rating.sceneId, grade: rating.grade });
+          // UX-11: the rating moved the next review. Refresh the status bar and the Reviews node, and when the lesson
+          // is over send its end screen the review date this rating produced.
+          void refreshStudyStatus(context);
+          let completion: Json | undefined;
+          if (completedAwaitingRating) {
+            // The end screen's date is this lesson's earliest review (its review_plan), never the cross-lesson
+            // reinforcement date; when this reply cannot tell it, the screen keeps the date it shows.
+            const schedule = await reviewSchedule();
+            const next = lessonNextReviewAfterRating(lastReviewPlan, rated);
+            if (next !== undefined && lastReviewPlan) lastReviewPlan = { ...lastReviewPlan, next_due_at: next };
+            completion = {
+              ...(next !== undefined ? { next_review_at: next } : {}),
+              due_now: schedule.dueNow, actions: [...(schedule.dueNow > 0 ? ["review"] : []), "restart", "pick"],
+            };
+          }
+          if (!panelDisposed) panel.webview.postMessage({ type: "recall_rated", sceneId: rating.sceneId, grade: rating.grade, ...(completion ? { completion } : {}) });
           return;
         }
         if (msg.type === "hint") {
@@ -945,8 +1013,11 @@ async function openLesson(
             { modal: true }, phrase("extension_forget_action", {}, locale),
           );
           if (ok === phrase("extension_forget_action", {}, locale)) {
-            try { await call("forget_session", { session_id: sid }); } catch { /* already gone */ }
+            let forgotten = false;
+            try { await call("forget_session", { session_id: sid }); forgotten = true; } catch { /* already gone */ }
             panel.dispose();
+            if (forgotten) vscode.window.showInformationMessage(phrase("extension_forget_done", {}, locale));
+            void refreshStudyStatus(context);
           } else if (!panelDisposed) {
             panel.webview.postMessage({ type: "action_settled" });
           }
@@ -978,6 +1049,8 @@ async function openLesson(
             return;
           }
           sid = r.session_id;
+          review = reviewContext(r);
+          completedAwaitingRating = false;
           await pushScene(r.presentation);
           return;
         }
@@ -986,6 +1059,8 @@ async function openLesson(
           const started = await call("start_lesson_session", { bundle_ref: bundleRef, learner_id: learnerId });
           if (panelDisposed) return;
           sid = started.session_id;
+          review = null;
+          completedAwaitingRating = false;
           await pushScene(started.presentation);
           return;
         }
@@ -999,6 +1074,7 @@ async function openLesson(
           if (panelDisposed) return;
           if (t.kind === "complete") {
             void refreshStudyStatus(context); // the next review date may have just changed
+            completedAwaitingRating = !!t.self_rating?.requested;
             panel.webview.postMessage({ type: "done",
               ...(await donePayload(t, phrase("extension_done", { count: t.summary.scenesCompleted }, locale))) });
             return;
@@ -1013,8 +1089,13 @@ async function openLesson(
         return;
       }
     } catch (e: any) {
-      if (!panelDisposed) panel.webview.postMessage({ type: "action_error", message: e.message });
-      if (!panelDisposed) vscode.window.showErrorMessage(`Studium: ${e.message}`);
+      // UX-09: the learner reads a localised, actionable line; the server's own words (tool name, scene ids) go to
+      // the output channel. The error names the action it answers, so the pane can drop a stale one.
+      resolveLogSink()(`[studium] ${String(msg?.type)} failed: ${e?.message ?? e}`);
+      if (!panelDisposed) {
+        panel.webview.postMessage({ type: "action_error", action: msg?.type, ...(msg?.type === "rateRecall" ? { sceneId: msg.sceneId } : {}),
+          message: phrase("extension_action_failed", {}, locale) });
+      }
     }
   });
 

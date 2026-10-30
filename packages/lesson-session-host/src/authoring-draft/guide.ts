@@ -6,7 +6,7 @@
 import type { LessonDraft } from "./draft-schema.js";
 import type { SourceInput } from "./source-set.js";
 
-export const GUIDE_VERSION = "2026-10-30.2";
+export const GUIDE_VERSION = "2026-10-30.4";
 export type GuideLanguage = "fr" | "en";
 export type GuideMode = "self_study" | "teacher";
 
@@ -44,17 +44,18 @@ You draft, Studium checks and writes. The learner will play what you write; no t
 
 ## Rules of a draft
 
-- Write the lesson in the learner's language. Quotes stay in the language of their passage.
+- Write the lesson in the learner's language. Quotes stay in the language of their passage. In a French lesson, address the learner as « tu » unless they asked otherwise.
 - Every scene except intro and meta_checkpoint cites 1 to 5 \`quotes: [{passage_id, text}]\`. A quote is copied character for character from that passage (15 to 500 characters); Studium folds only no-break spaces, runs of whitespace and typographic apostrophes. A quote it cannot find is refused with the closest wording.
 - Ask early: at most one reading scene (intro or concept) before the first question, and a question after each concept scene. The learner should answer on the first or second screen.
-- Prefer production scenes, where the learner writes: explain_back, comparison, summary_audit, prompt_practice, communication_sim, discussion, ai_critique. Use at most one or two quiz or spot_the_flaw scenes: you write their key and the learner cannot see whether it is right.
+- Prefer production scenes, where the learner writes: explain_back, comparison, summary_audit, prompt_practice, communication_sim, discussion, ai_critique. Besides the quiz each prerequisite concept needs without a judge (next rule), add at most one or two quiz or spot_the_flaw scenes: you write their key and the learner cannot see whether it is right.
+- Without a judge model, every prerequisite concept has at least one quiz (with that concept first in its \`concept_refs\`): it is the only scene that measures it before the concepts that depend on it. One quiz per prerequisite is enough: a correct answer lets the learner go on.
 - Give each key point 2 to 4 short \`cues\`: stems or synonyms the learner would write ("depend", "speciali"), never a sentence (at most 40 characters). A cue counts when it appears inside the answer, accents and case ignored.
 - In summary_audit and spot_the_flaw, every entry of \`flaws_expected\` is one planted flaw: one phrasing per flaw, no alternatives, and name each one in \`model_correction\`.
 - A quiz has exactly one correct choice, \`feedback_correct\`, \`feedback_incorrect\` and at most 3 \`hints\`.
 - Concepts have short lowercase ids (\`c-solidarity\`). \`prerequisites\` lists the concepts to learn first; order the scenes so a prerequisite is taught before what depends on it. With several concepts, every scene names its \`concept_refs\`.
 - Leave ids, rubric, timings and the graph out: Studium fills them. No TODO and no placeholder anywhere: an unfinished draft is refused.
 - Titles name the topic, never the answer.
-- With a \`learner_profile\`, open (right after the intro) with a two-item diagnostic: a meta_checkpoint, then a short production scene on what the learner already knows.
+- With a \`learner_profile\`, open with a two-item diagnostic: a meta_checkpoint, then a short production scene on what the learner already knows. Mark both \`diagnostic: true\`: they are played once and never come back as reviews. The meta_checkpoint can replace the intro: the learner then answers on the first screen.
 - No reproduction scene here: it needs an executed capsule (teacher route).
 
 ## What to tell the learner
@@ -74,17 +75,18 @@ Vous rédigez, Studium vérifie et écrit. L'apprenant jouera ce que vous écriv
 
 ## Règles d'un brouillon
 
-- Écrivez la leçon dans la langue de l'apprenant. Les citations restent dans la langue de leur passage.
+- Écrivez la leçon dans la langue de l'apprenant. Les citations restent dans la langue de leur passage. En français, tutoyez l'apprenant (« tu ») dans tout le texte de la leçon, sauf s'il a demandé le vouvoiement.
 - Chaque scène, sauf intro et meta_checkpoint, cite 1 à 5 \`quotes: [{passage_id, text}]\`. Une citation est copiée au caractère près depuis ce passage (15 à 500 caractères) ; Studium ne tolère que les espaces insécables, les suites d'espaces et les apostrophes typographiques. Une citation introuvable est refusée avec la formulation la plus proche.
 - Faites répondre tôt : au plus une scène de lecture (intro ou concept) avant la première question, et une question après chaque scène concept. L'apprenant doit répondre au premier ou au deuxième écran.
-- Préférez les scènes de production, où l'apprenant écrit : explain_back, comparison, summary_audit, prompt_practice, communication_sim, discussion, ai_critique. Limitez-vous à un ou deux quiz ou spot_the_flaw : vous en écrivez la clé et l'apprenant ne peut pas voir si elle est juste.
+- Préférez les scènes de production, où l'apprenant écrit : explain_back, comparison, summary_audit, prompt_practice, communication_sim, discussion, ai_critique. En plus du quiz que demande chaque concept prérequis sans juge (règle suivante), ajoutez au plus un ou deux quiz ou spot_the_flaw : vous en écrivez la clé et l'apprenant ne peut pas voir si elle est juste.
+- Sans juge modèle, chaque concept prérequis a au moins un quiz (ce concept en premier dans ses \`concept_refs\`) : c'est la seule scène qui le mesure avant les concepts qui en dépendent. Un quiz par prérequis suffit : une bonne réponse laisse l'apprenant continuer.
 - Donnez à chaque point clé 2 à 4 indices courts (\`cues\`) : des radicaux ou synonymes que l'apprenant écrirait (« dépend », « spécialis »), jamais une phrase (40 caractères au plus). Un indice compte quand il apparaît dans la réponse, accents et casse ignorés.
 - Dans summary_audit et spot_the_flaw, chaque entrée de \`flaws_expected\` est un défaut planté : une formulation par défaut, sans variante, et nommez chacun dans \`model_correction\`.
 - Un quiz a exactement un choix correct, \`feedback_correct\`, \`feedback_incorrect\` et au plus 3 aides (\`hints\`).
 - Les concepts ont des ids courts en minuscules (\`c-solidarite\`). \`prerequisites\` liste les concepts à apprendre d'abord ; ordonnez les scènes pour qu'un prérequis soit enseigné avant ce qui en dépend. Avec plusieurs concepts, chaque scène nomme ses \`concept_refs\`.
 - Laissez de côté les ids, la grille, les durées et le graphe : Studium les remplit. Aucun TODO ni texte provisoire : un brouillon inachevé est refusé.
 - Les titres nomment le sujet, jamais la réponse.
-- Avec un \`learner_profile\`, ouvrez (juste après l'intro) par un diagnostic en deux items : un meta_checkpoint, puis une courte scène de production sur ce que l'apprenant sait déjà.
+- Avec un \`learner_profile\`, ouvrez par un diagnostic en deux items : un meta_checkpoint, puis une courte scène de production sur ce que l'apprenant sait déjà. Marquez les deux \`diagnostic: true\` : ils sont joués une fois et ne reviennent jamais en révision. Le meta_checkpoint peut remplacer l'intro : l'apprenant répond alors dès le premier écran.
 - Pas de scène reproduction ici : elle demande une capsule exécutée (voie enseignant).
 
 ## Ce qu'il faut dire à l'apprenant
@@ -124,7 +126,7 @@ const EXAMPLE_DRAFT: Record<GuideLanguage, LessonDraft> = {
       },
       {
         type: "explain_back", title: "Le trajet d'une goutte",
-        prompt: "Racontez avec vos mots le trajet d'une goutte d'eau, de l'océan jusqu'à son retour à la mer.",
+        prompt: "Raconte avec tes mots le trajet d'une goutte d'eau, de l'océan jusqu'à son retour à la mer.",
         key_points: [
           { text: "L'eau s'évapore sous l'effet de la chaleur", cues: ["évapor", "chaleur", "vapeur"] },
           { text: "La vapeur se condense en nuages", cues: ["condens", "nuage"] },
@@ -142,7 +144,7 @@ const EXAMPLE_DRAFT: Record<GuideLanguage, LessonDraft> = {
           { text: "Son infiltration dans le sol", correct: false },
         ],
         feedback_correct: "Oui : en se refroidissant, la vapeur se condense en gouttelettes.",
-        feedback_incorrect: "Relisez le passage sur l'altitude et la condensation.",
+        feedback_incorrect: "Relis le passage sur l'altitude et la condensation.",
         quotes: [{ passage_id: "p:le-cycle-de-l-eau:1", text: "La vapeur monte, se refroidit en altitude" }],
       },
     ],
