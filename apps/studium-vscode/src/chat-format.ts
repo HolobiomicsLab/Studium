@@ -79,6 +79,60 @@ function replyHint(scene: ChatScene, locale: Locale): string {
   return phrase("chat_reply_continue", {}, locale);
 }
 
+/** A verdict as it arrives over MCP: the engine's Verdict (packages/lesson-session types.ts) plus the
+ * host's `display_markdown`. Since lead decision I-1 the reference — key points, planted flaws or a
+ * critique's flawed claims, and the model answer — is data on the verdict, and an offline key-point
+ * verdict may carry no feedback text at all. */
+export interface ChatVerdict {
+  correct?: boolean;
+  feedback?: string;
+  key_points?: string[];
+  key_points_missing?: string[];
+  model_answer?: string;
+  reference_kind?: string;
+  display_markdown?: string;
+  [k: string]: unknown;
+}
+
+/** What the learner earned by answering, as chat markdown: the served `verdict.display_markdown` as it is
+ * (it already holds the verdict, the feedback, the reference, the cited passages and any self-rating
+ * request); without it, the feedback with its mark, then the reference built from the fields. */
+export function verdictForChat(verdict: ChatVerdict | undefined, locale: Locale = "fr"): string {
+  if (!verdict) return "";
+  if (typeof verdict.display_markdown === "string" && verdict.display_markdown.trim()) return verdict.display_markdown;
+  const feedback = typeof verdict.feedback === "string" && verdict.feedback.trim()
+    ? `${verdict.correct === false ? "✗" : "✓"} ${verdict.feedback}` : "";
+  return [feedback, referenceForChat(verdict, locale)].filter(Boolean).join("\n\n");
+}
+
+/** The verdict's reference under its own headings. MIRRORS referenceMarkdown in
+ * packages/lesson-session-host/src/chat-display.ts (the extension cannot import the host package);
+ * chat-format.driver.ts pins the headings against that source. */
+export function referenceForChat(verdict: ChatVerdict, locale: Locale = "fr"): string {
+  const audit = verdict.reference_kind === "planted_flaws";
+  const heading = audit ? "chat_reference_planted_flaws"
+    : verdict.reference_kind === "flawed_claims" ? "chat_reference_flawed_claims" : "chat_reference_key_points";
+  const points = (Array.isArray(verdict.key_points) ? verdict.key_points : [])
+    .filter((point): point is string => typeof point === "string" && point.trim() !== "");
+  const missing = new Set(Array.isArray(verdict.key_points_missing) ? verdict.key_points_missing : []);
+  const blocks: string[] = [];
+  if (points.length) {
+    blocks.push(phrase(heading, {}, locale), points
+      .map((point) => `- ${point}${missing.has(point) ? ` ${phrase("chat_key_point_missing", {}, locale)}` : ""}`).join("\n"));
+  }
+  if (typeof verdict.model_answer === "string" && verdict.model_answer.trim()) {
+    blocks.push(phrase(audit ? "chat_model_correction" : "chat_model_answer", {}, locale), verdict.model_answer);
+  }
+  return blocks.join("\n\n");
+}
+
+/** A reply that is one of the self-rating grades the transition offered (again / hard / good / easy), or
+ * null: after a verdict that asks the learner to rate their recall, a bare grade is that rating. */
+export function recallGradeOf(reply: string, grades: readonly string[]): string | null {
+  const word = reply.trim().toLowerCase();
+  return grades.includes(word) ? word : null;
+}
+
 /** Map a learner's chat reply to the ResponseInput its grader expects, or null if it can't be interpreted. */
 export function replyToInput(scene: ChatScene, reply: string): ChatInput | null {
   const t = scene.type;

@@ -1,0 +1,204 @@
+{
+  "source_revision": "7ad27cfb6071b5a4c631879e03113da3c4977db9",
+  "scope": "Only files created by this mission. Excludes concurrent docs/assets/viewers work.",
+  "file_count": 49,
+  "total_bytes": 1302536,
+  "files": [
+    {
+      "path": "design/README.fr.md",
+      "bytes": 7077
+    },
+    {
+      "path": "design/README.md",
+      "bytes": 6232
+    },
+    {
+      "path": "design/components.css",
+      "bytes": 14989
+    },
+    {
+      "path": "design/evidence/contrast.md",
+      "bytes": 3790
+    },
+    {
+      "path": "design/evidence/files.json",
+      "bytes": 4539
+    },
+    {
+      "path": "design/evidence/verification.md",
+      "bytes": 6537
+    },
+    {
+      "path": "design/preview.css",
+      "bytes": 5361
+    },
+    {
+      "path": "design/preview.html",
+      "bytes": 26765
+    },
+    {
+      "path": "design/preview.js",
+      "bytes": 2128
+    },
+    {
+      "path": "design/scripts/build-tokens.mjs",
+      "bytes": 2699
+    },
+    {
+      "path": "design/scripts/check-assets.py",
+      "bytes": 3132
+    },
+    {
+      "path": "design/scripts/check-contrast.mjs",
+      "bytes": 2831
+    },
+    {
+      "path": "design/scripts/check-preview.mjs",
+      "bytes": 9375
+    },
+    {
+      "path": "design/tokens.css",
+      "bytes": 18503
+    },
+    {
+      "path": "design/tokens.json",
+      "bytes": 8986
+    },
+    {
+      "path": "design/vscode-bridge.css",
+      "bytes": 7445
+    },
+    {
+      "path": "docs/assets/brand/README.md",
+      "bytes": 3557
+    },
+    {
+      "path": "docs/assets/brand/generate-assets.py",
+      "bytes": 8088
+    },
+    {
+      "path": "docs/assets/brand/hero-dark-880.png",
+      "bytes": 19668
+    },
+    {
+      "path": "docs/assets/brand/hero-light-880.png",
+      "bytes": 19728
+    },
+    {
+      "path": "docs/assets/brand/render-assets.py",
+      "bytes": 1625
+    },
+    {
+      "path": "docs/assets/brand/render-check.png",
+      "bytes": 26814
+    },
+    {
+      "path": "docs/assets/brand/render-check.svg",
+      "bytes": 5405
+    },
+    {
+      "path": "docs/assets/brand/studium-icon.png",
+      "bytes": 3651
+    },
+    {
+      "path": "docs/assets/brand/studium-icon.svg",
+      "bytes": 742
+    },
+    {
+      "path": "docs/assets/brand/studium-mark-mono.svg",
+      "bytes": 663
+    },
+    {
+      "path": "docs/assets/brand/studium-mark.svg",
+      "bytes": 648
+    },
+    {
+      "path": "docs/assets/brand/studium-wordmark-dark.svg",
+      "bytes": 947
+    },
+    {
+      "path": "docs/assets/brand/studium-wordmark-light.svg",
+      "bytes": 948
+    },
+    {
+      "path": "docs/assets/diagrams/README.md",
+      "bytes": 6933
+    },
+    {
+      "path": "docs/assets/diagrams/architecture-dark.svg",
+      "bytes": 22470
+    },
+    {
+      "path": "docs/assets/diagrams/architecture-light.svg",
+      "bytes": 22470
+    },
+    {
+      "path": "docs/assets/diagrams/generate.mjs",
+      "bytes": 25424
+    },
+    {
+      "path": "docs/assets/diagrams/learning-loop-dark.svg",
+      "bytes": 24861
+    },
+    {
+      "path": "docs/assets/diagrams/learning-loop-light.svg",
+      "bytes": 24861
+    },
+    {
+      "path": "docs/assets/diagrams/rendered/architecture-dark-880.png",
+      "bytes": 108438
+    },
+    {
+      "path": "docs/assets/diagrams/rendered/architecture-light-880.png",
+      "bytes": 109720
+    },
+    {
+      "path": "docs/assets/diagrams/rendered/learning-loop-dark-880.png",
+      "bytes": 134380
+    },
+    {
+      "path": "docs/assets/diagrams/rendered/learning-loop-light-880.png",
+      "bytes": 135179
+    },
+    {
+      "path": "docs/assets/diagrams/rendered/self-learner-journey-dark-880.png",
+      "bytes": 80424
+    },
+    {
+      "path": "docs/assets/diagrams/rendered/self-learner-journey-light-880.png",
+      "bytes": 80847
+    },
+    {
+      "path": "docs/assets/diagrams/rendered/teacher-journey-dark-880.png",
+      "bytes": 105333
+    },
+    {
+      "path": "docs/assets/diagrams/rendered/teacher-journey-light-880.png",
+      "bytes": 106125
+    },
+    {
+      "path": "docs/assets/diagrams/self-learner-journey-dark.svg",
+      "bytes": 15814
+    },
+    {
+      "path": "docs/assets/diagrams/self-learner-journey-light.svg",
+      "bytes": 15814
+    },
+    {
+      "path": "docs/assets/diagrams/teacher-journey-dark.svg",
+      "bytes": 27744
+    },
+    {
+      "path": "docs/assets/diagrams/teacher-journey-light.svg",
+      "bytes": 27744
+    },
+    {
+      "path": "docs/assets/hero-dark.svg",
+      "bytes": 2541
+    },
+    {
+      "path": "docs/assets/hero-light.svg",
+      "bytes": 2541
+    }
+  ]
+}

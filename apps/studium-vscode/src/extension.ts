@@ -7,11 +7,12 @@ import { helpStyles, lessonHelpTemplates, graphHelp } from "./contextual-help.js
 // scene + get_scene_artifacts and posts them to the pane; the pane posts the learner's responses
 // back, which the extension feeds to submit_response / request_hint.
 import * as vscode from "vscode";
-import { existsSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { spawn } from "node:child_process";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import {
-  connectLessonMcp, describeServerLaunch, resolveLogSink, resolveServerLaunch,
+  connectLessonMcp, describeServerLaunch, lessonMcpEnv, resolveLogSink, resolveServerLaunch,
   serverBuildWarning, serverInfoLine, setLessonMcpLog, type LessonMcp,
 } from "./mcp-connect.js";
 import { LessonPanelLifecycle, type ActionResult } from "./panel-lifecycle.js";
@@ -22,12 +23,19 @@ import { reviewDueConcepts } from "./review-fsrs.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 import { discoverCommunityBundles, toPickItems } from "./community.js";
 import { calibrationVerdicts, type CalibrationVerdict } from "./calibration.js";
-import { runManifestToTaskSpec, buildRunResult, extractLandmark, type RunManifest, type RunResult } from "./run-task.js";
+import { runManifestToTaskSpec, buildRunResult, extractLandmark, workingDirProblem, type RunManifest, type RunResult } from "./run-task.js";
 import { StudiumTreeProvider } from "./tree.js";
 import { buildLessonTree, type CommunityItem, type TreeNode } from "./lesson-tree.js";
 import { discoverCoursesInRoot, needsLessonPicker, toLessonPickerChoices, type LessonCourse, type LessonPickerChoice } from "./lesson-picker.js";
-import { browserPhrases, phrase, type Locale } from "./phrases.js";
+import { browserPhrases, localeFromLanguage, phrase, type Locale } from "./phrases.js";
 import { inlineImageAsset } from "./asset-path.js";
+import { hostPhrase } from "./host-phrases.js";
+import { defaultBundlesRoot, studiumHome } from "./data-paths.js";
+import { isTrusted, runConsent, runFingerprint, withTrusted } from "./run-trust.js";
+import { checkLessonPath, parseOpenLessonQuery, rawQuery, type OpenLessonResult } from "./lesson-uri.js";
+import { parseReinforcement, reviewStartReply, statusBarText, type StudyStatus } from "./study-status.js";
+import { readConceptTitles } from "./bundle-titles.js";
+import { parseRateRecall } from "./pane-messages.js";
 
 type Json = Record<string, any>;
 
@@ -38,17 +46,40 @@ let activeLesson: {
   call: (name: string, args: Json) => Promise<Json>;
   sid: () => string;
   locale: () => Locale;
+  /** Absolute path of the bundle file this lesson was opened from (fingerprinted for the run trust memory). */
+  bundlePath: string;
+  /** Close the lesson panel (used when the learner erases their data). */
+  close: () => void;
   isDisposed: () => boolean;
-  advance: (presentation: Json, explanation?: Json) => Promise<void>;
-  done: (message: string) => void;
+  advance: (presentation: Json, explanation?: Json, verdict?: Json, extras?: SceneExtras) => Promise<void>;
+  done: (transition: Json, message: string) => Promise<void>;
   runExclusive: <TResult>(action: () => Promise<TResult>) => Promise<ActionResult<TResult>>;
   pending: (message: string) => void;
   settled: () => void;
 } | null = null;
 
+/** What a transition carries for the pane besides the scene: the ONE navigation decision and the C4 request. */
+interface SceneExtras { navigation?: Json; self_rating?: Json }
+
+/** A concept as the pane names it: its id and the bundle's title for it (W4 review: never the bare id). */
+interface NamedConcept { id: string; label: string }
+
 /** The activity-bar sidebar; module-level so pushScene can toggle its "reproduction scene is live" state. */
 let treeProvider: StudiumCoursesTreeProvider | undefined;
 let extensionLocale: Locale = "fr";
+/** The extension context, for globalState (run trust memory, last lesson) and globalStorageUri. */
+let extensionContext: vscode.ExtensionContext | undefined;
+/** What is due for review (get_next_reinforcement); feeds the status-bar item and the Reviews node. */
+let studyStatus: StudyStatus | null = null;
+let studyStatusItem: vscode.StatusBarItem | undefined;
+let studyStatusRefreshing = false;
+
+const TRUSTED_RUNS_KEY = "studium.trustedRuns";
+const LAST_LESSON_KEY = "studium.lastLesson";
+const LESSON_VIEW_TYPE = "studiumLesson";
+
+/** What the restored pane needs to reopen the lesson it showed before a window reload. */
+interface LastLesson { bundlesRoot: string; bundleRef: string; rootKind: "lesson" | "community"; }
 
 interface TreeContents {
   courses: LessonCourse[];
@@ -60,6 +91,7 @@ interface TreeContents {
 class StudiumCoursesTreeProvider extends StudiumTreeProvider {
   private onReproductionScene = false;
   private locale: Locale = extensionLocale;
+  private reviews: StudyStatus | null = null;
 
   constructor(private readonly discoverContents: () => TreeContents) {
     super(() => discoverContents().community);
@@ -68,6 +100,11 @@ class StudiumCoursesTreeProvider extends StudiumTreeProvider {
   override setReproductionScene(on: boolean): void {
     this.onReproductionScene = on;
     super.setReproductionScene(on);
+  }
+
+  setReviews(reviews: StudyStatus | null): void {
+    this.reviews = reviews;
+    this.refresh();
   }
 
   setLocale(locale: Locale): void {
@@ -85,7 +122,11 @@ class StudiumCoursesTreeProvider extends StudiumTreeProvider {
   override getChildren(node?: TreeNode): TreeNode[] {
     if (node) return node.children ?? [];
     const contents = this.safeDiscoverContents();
-    return buildLessonTree({ ...contents, onReproductionScene: this.onReproductionScene, locale: this.locale });
+    // An empty tree lets the view's welcome content (viewsWelcome) show its buttons.
+    return buildLessonTree({
+      ...contents, onReproductionScene: this.onReproductionScene, locale: this.locale,
+      reviews: this.reviews, emptyAsWelcome: true,
+    });
   }
 
   private safeDiscoverContents(): TreeContents {
@@ -101,6 +142,9 @@ class StudiumCoursesTreeProvider extends StudiumTreeProvider {
 const MCP_OUTPUT_CHANNEL = "Studium — lesson-mcp";
 
 export function activate(context: vscode.ExtensionContext) {
+  extensionContext = context;
+  // The interface follows VS Code's display language until a lesson brings its own (VSC-5).
+  extensionLocale = localeFromLanguage(vscode.env.language);
   // Every lesson-mcp subprocess pipes its stderr here (lesson panel AND @studium chat), so a server
   // that dies at startup leaves a readable diagnostic instead of vanishing.
   const mcpOutput = vscode.window.createOutputChannel(MCP_OUTPUT_CHANNEL);
@@ -116,12 +160,133 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("studium.communityContributions", () => openCommunityContribution(context)),
     vscode.commands.registerCommand("studium.runReproduction", () => runReproductionScene()),
     vscode.commands.registerCommand("studium.openWalkthrough", () => openWalkthrough(context)),
-    vscode.commands.registerCommand("studium.refreshLessons", () => treeProvider?.refresh()),
+    vscode.commands.registerCommand("studium.refreshLessons", () => { treeProvider?.refresh(); void refreshStudyStatus(context); }),
+    vscode.commands.registerCommand("studium.openThisLesson", (resource?: unknown) => openThisLesson(context, resource)),
+    vscode.commands.registerCommand("studium.forgetMyData", () => forgetMyData(context)),
+    // A harness (Codex, Claude Code) hands a lesson over with `code --open-url vscode://<id>/open?bundle=…`.
+    vscode.window.registerUriHandler({ handleUri: (uri) => handleLessonUri(context, uri) }),
+    // After a window reload VS Code gives the pane back to us; reopen its lesson and resume (VSC-7).
+    vscode.window.registerWebviewPanelSerializer(LESSON_VIEW_TYPE, {
+      deserializeWebviewPanel: (panel) => restoreLessonPanel(context, panel),
+    }),
   );
   registerStudiumNotebook(context);
   registerStudiumChat(context);
+  setUpStudyStatus(context);
 }
 export function deactivate() {}
+
+/** Where learner state lives: VS Code's own per-user storage, independent of the telemetry setting (ENG-03). */
+function learnerDataDir(context: vscode.ExtensionContext): string {
+  return context.globalStorageUri.fsPath;
+}
+
+/** Environment for a lesson-mcp subprocess: bundles root, learner data in VS Code storage, consent from the setting. */
+function lessonServerEnv(context: vscode.ExtensionContext, bundlesRoot: string): Record<string, string> {
+  const storageDir = learnerDataDir(context);
+  try { mkdirSync(storageDir, { recursive: true }); } catch { /* the server will report an unwritable dir itself */ }
+  return lessonMcpEnv({
+    baseEnv: process.env, bundlesRoot, storageDir, telemetryConsent: cfg<boolean>("telemetryConsent", false),
+  });
+}
+
+/** The status-bar item "Studium · n à réviser" and the Reviews node, fed by get_next_reinforcement (VSC-6). */
+function setUpStudyStatus(context: vscode.ExtensionContext) {
+  studyStatusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
+  studyStatusItem.command = "workbench.view.extension.studium";
+  context.subscriptions.push(studyStatusItem);
+  // Spawning the server is only worth it for someone who has studied here before: no stored state, no check.
+  if (hasLearnerData(context)) void refreshStudyStatus(context);
+}
+
+function hasLearnerData(context: vscode.ExtensionContext): boolean {
+  try { return readdirSync(learnerDataDir(context)).length > 0; } catch { return false; }
+}
+
+function applyStudyStatus() {
+  treeProvider?.setReviews(studyStatus);
+  const shown = statusBarText(studyStatus, extensionLocale);
+  if (!studyStatusItem) return;
+  if (!shown) { studyStatusItem.hide(); return; }
+  studyStatusItem.text = shown.text;
+  studyStatusItem.tooltip = shown.tooltip;
+  studyStatusItem.show();
+}
+
+/** Ask a short-lived lesson-mcp what is due for this learner. Best-effort: a failure keeps the last status. */
+async function refreshStudyStatus(context: vscode.ExtensionContext): Promise<void> {
+  if (studyStatusRefreshing) return;
+  studyStatusRefreshing = true;
+  let mcp: LessonMcp | null = null;
+  try {
+    const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
+    const launch = resolveServerLaunch(context.extensionPath, repoRoot);
+    mcp = await connectLessonMcp({ launch, env: lessonServerEnv(context, resolveLessonBundlesRoot(context)) });
+    studyStatus = parseReinforcement(await mcp.call("get_next_reinforcement", { learner_id: cfg<string>("learnerId", "vscode-learner") }));
+  } catch (e: any) {
+    resolveLogSink()(`[studium] review status unavailable: ${e?.message ?? e}`);
+  } finally {
+    mcp?.close();
+    studyStatusRefreshing = false;
+  }
+  applyStudyStatus();
+}
+
+/** Tell the learner why a lesson path or link was refused. */
+function reportLessonPathError(result: Extract<OpenLessonResult, { ok: false }>) {
+  vscode.window.showErrorMessage(hostPhrase(result.error.key, { path: result.error.path ?? "" }, extensionLocale));
+}
+
+/** vscode://<publisher>.studium-vscode/open?bundle=<path of lesson.json> (C7). */
+async function handleLessonUri(context: vscode.ExtensionContext, uri: vscode.Uri): Promise<void> {
+  if (uri.path !== "/open") return;
+  const result = parseOpenLessonQuery(rawQuery(uri.toString()), existsSync);
+  if (!result.ok) { reportLessonPathError(result); return; }
+  await openLesson(context, result.bundleRef, "lesson", { bundlesRoot: result.bundlesRoot });
+}
+
+/** "Studium : Ouvrir cette leçon" on a lesson.json (explorer or editor tab menu, or the active editor). */
+async function openThisLesson(context: vscode.ExtensionContext, resource?: unknown): Promise<void> {
+  const uri = resource instanceof vscode.Uri ? resource : vscode.window.activeTextEditor?.document.uri;
+  if (!uri || uri.scheme !== "file") {
+    vscode.window.showInformationMessage(hostPhrase("open_this_no_file", {}, extensionLocale));
+    return;
+  }
+  const result = checkLessonPath(uri.fsPath, existsSync);
+  if (!result.ok) { reportLessonPathError(result); return; }
+  await openLesson(context, result.bundleRef, "lesson", { bundlesRoot: result.bundlesRoot });
+}
+
+/** Reopen the lesson a restored pane was showing and resume it (the learner id picks the saved progress up). */
+async function restoreLessonPanel(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
+  const last = context.globalState.get<LastLesson>(LAST_LESSON_KEY);
+  if (!last || !existsSync(join(last.bundlesRoot, last.bundleRef))) { panel.dispose(); return; }
+  await openLesson(context, last.bundleRef, last.rootKind, { bundlesRoot: last.bundlesRoot, panel });
+}
+
+/** "Studium : Oublier mes données": erase what THIS extension keeps (its VS Code storage, the run trust memory and
+ * the last lesson), after a confirmation that names where an assistant's Studium data lives
+ * (<STUDIUM_HOME>/data, written by lesson-mcp under Claude Code or Codex), which it does not touch. */
+async function forgetMyData(context: vscode.ExtensionContext): Promise<void> {
+  const locale = extensionLocale;
+  const action = hostPhrase("forget_data_action", {}, locale);
+  const harnessData = join(studiumHome(process.env, homedir()), "data");
+  const choice = await vscode.window.showWarningMessage(
+    hostPhrase("forget_data_prompt", { harness_data: harnessData }, locale), { modal: true }, action);
+  if (choice !== action) return;
+  try {
+    activeLesson?.close(); // a running lesson would write its state straight back
+    rmSync(learnerDataDir(context), { recursive: true, force: true });
+    await context.globalState.update(TRUSTED_RUNS_KEY, undefined);
+    await context.globalState.update(LAST_LESSON_KEY, undefined);
+  } catch (e: any) {
+    vscode.window.showErrorMessage(hostPhrase("forget_data_failed", { error: e?.message ?? String(e) }, locale));
+    return;
+  }
+  studyStatus = null;
+  applyStudyStatus();
+  vscode.window.showInformationMessage(hostPhrase("forget_data_done", {}, locale));
+}
 
 /** Open the Getting-Started walkthrough. Its id is `${extensionId}#${walkthroughId}`; deriving the extension
  *  id from context.extension.id is correct whether unpublished (undefined_publisher.studium-vscode) or
@@ -209,6 +374,32 @@ async function runReproductionScene() {
   }
 }
 
+/** Read the bundle file for fingerprinting; null when it is missing or unreasonably large. */
+function readBundleBytes(path: string): Buffer | null {
+  try {
+    if (statSync(path).size > 64 * 1024 * 1024) return null;
+    return readFileSync(path);
+  } catch { return null; }
+}
+
+/** The run confirmation (ENG-02): a modal with the exact command, packages and folder. A bundle the learner
+ * chose to trust is remembered by fingerprint, so the same bundle does not ask twice. Returns whether to run. */
+async function confirmRun(lesson: NonNullable<typeof activeLesson>, manifest: RunManifest, spec: ReturnType<typeof runManifestToTaskSpec>, cwd: string): Promise<boolean> {
+  const locale = lesson.locale();
+  const fingerprint = runFingerprint(readBundleBytes(lesson.bundlePath), manifest);
+  const trusted = extensionContext?.globalState.get<string[]>(TRUSTED_RUNS_KEY, []) ?? [];
+  if (isTrusted(trusted, fingerprint)) return true;
+  const consent = runConsent(manifest, spec, cwd, locale);
+  const choice = await vscode.window.showWarningMessage(consent.message, { modal: true, detail: consent.detail }, consent.runLabel, consent.trustLabel);
+  if (choice === consent.trustLabel) {
+    await extensionContext?.globalState.update(TRUSTED_RUNS_KEY, withTrusted(trusted, fingerprint));
+    return true;
+  }
+  if (choice === consent.runLabel) return true;
+  vscode.window.showInformationMessage(hostPhrase("run_declined", {}, locale));
+  return false;
+}
+
 /** Execute one reproduction after the caller has acquired the lesson panel's exclusive gate. */
 async function runReproductionForLesson(lesson: NonNullable<typeof activeLesson>) {
   const locale = lesson.locale();
@@ -223,7 +414,17 @@ async function runReproductionForLesson(lesson: NonNullable<typeof activeLesson>
   const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!wsFolder) { vscode.window.showErrorMessage(phrase("extension_open_workspace", {}, locale)); return; }
 
+  // ENG-02: the bundle chose this command, package list and folder. Refuse a folder outside the workspace,
+  // then show exactly what will run and wait for the learner's go-ahead before anything starts.
+  const dirProblem = workingDirProblem(manifest.working_dir);
+  if (dirProblem) {
+    vscode.window.showErrorMessage(hostPhrase(dirProblem === "absolute" ? "run_refused_absolute" : "run_refused_parent",
+      { dir: manifest.working_dir ?? "" }, locale));
+    return;
+  }
   const spec = runManifestToTaskSpec(manifest);
+  const cwd = join(wsFolder, spec.cwd);
+  if (!(await confirmRun(lesson, manifest, spec, cwd))) return;
   // A CustomExecution backed by a Pseudoterminal so we CAPTURE the run's stdout (a plain ShellExecution
   // hands us only the exit code). The learner's OWN landmark is parsed from that stdout — without it the
   // run has landmark=null and attestation quarantines it, so the judgment falls back to a canned number
@@ -231,7 +432,7 @@ async function runReproductionForLesson(lesson: NonNullable<typeof activeLesson>
   // the extension is the operator's harness (VS Code = the operator's environment), and lesson-mcp only
   // ever receives the finished run_result. Capture is in-process (child_process) → cross-platform, no
   // workspace-polluting `tee`.
-  const { pty, done } = spawnCapturingPty(spec.command, join(wsFolder, spec.cwd), manifest.timeout_s);
+  const { pty, done } = spawnCapturingPty(spec.command, cwd, manifest.timeout_s);
   const task = new vscode.Task(
     { type: "studium-run", capsule: manifest.capsule_ref },
     vscode.TaskScope.Workspace, spec.name, "studium",
@@ -269,10 +470,11 @@ async function runReproductionForLesson(lesson: NonNullable<typeof activeLesson>
           phrase("extension_run_quarantined", { why }, locale),
         );
       }
-      if (r.transition.kind === "complete") lesson.done(phrase("extension_lesson_complete", {
+      if (r.transition.kind === "complete") await lesson.done(r.transition, phrase("extension_lesson_complete", {
         count: r.transition.summary?.scenesCompleted ?? "?",
       }, locale));
-      else await lesson.advance(r.transition.presentation);
+      else await lesson.advance(r.transition.presentation, undefined, r.transition.verdict,
+        { navigation: r.transition.navigation, self_rating: r.transition.self_rating });
     } else {
       vscode.window.showWarningMessage(phrase("extension_run_rejected", { status: r.status }, locale));
     }
@@ -351,7 +553,9 @@ function configuredValue<T>(key: string): T | undefined {
 /** Resolve the lesson BUNDLES_ROOT used by course discovery and canonical lesson opens. */
 function resolveLessonBundlesRoot(context: vscode.ExtensionContext): string {
   const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
-  return cfg<string>("bundlesRoot", join(repoRoot, "fixtures"));
+  // Unset: a checkout's fixtures/, else the personal library (~/.studium/library), where a lesson an
+  // assistant built lands. A packaged VSIX has no checkout, so it must not default to a folder that cannot exist.
+  return cfg<string>("bundlesRoot", defaultBundlesRoot({ repoRoot, exists: existsSync, env: process.env, homedir: homedir() }));
 }
 
 /** Resolve the optional community root while preserving the lesson root as its fallback. */
@@ -383,7 +587,7 @@ async function openCommunityContribution(context: vscode.ExtensionContext) {
   try {
     bundles = discoverCommunityBundles(bundlesRoot, canonicalRef);
   } catch (e: any) {
-    vscode.window.showErrorMessage(`Studium: could not scan community contributions — ${e.message}`);
+    vscode.window.showErrorMessage(hostPhrase("community_scan_failed", { error: e.message }, extensionLocale));
     return;
   }
   if (bundles.length === 0) {
@@ -409,7 +613,7 @@ type LessonRootKind = "lesson" | "community";
 /** Let the learner choose a discovered course or another bundles root, persist it, then open it. */
 async function pickLesson(context: vscode.ExtensionContext) {
   let bundlesRoot = resolveLessonBundlesRoot(context);
-  while (true) {
+  for (;;) {
     const chosen = await showLessonChoices(bundlesRoot);
     if (!chosen) return;
     if (chosen.action === "folder") {
@@ -463,10 +667,15 @@ async function saveAndOpenLesson(context: vscode.ExtensionContext, bundlesRoot: 
   await openLesson(context, bundleRef, "lesson");
 }
 
+/** Where an open comes from when it is not the settings: an explicit bundles root (a link, "Open this lesson",
+ * a restored pane) and, for a restored pane, the panel VS Code already created. */
+interface OpenLessonOptions { bundlesRoot?: string; panel?: vscode.WebviewPanel; }
+
 async function openLesson(
   context: vscode.ExtensionContext,
   bundleRefOverride?: string,
   rootKind: LessonRootKind = "lesson",
+  options: OpenLessonOptions = {},
 ) {
   // The extension ships inside the monorepo (apps/studium-vscode); default repoRoot = ../../ .
   const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
@@ -493,27 +702,35 @@ async function openLesson(
   // When opening a community bundle, root BUNDLES_ROOT at the SAME root discovery used
   // (resolveCommunityBundlesRoot honours studium.communityBundlesRoot) so the community ref resolves; a
   // canonical open keeps the plain lesson bundlesRoot.
-  const bundlesRoot = rootKind === "community" ? resolveCommunityBundlesRoot(context) : lessonBundlesRoot;
+  const bundlesRoot = options.bundlesRoot ?? (rootKind === "community" ? resolveCommunityBundlesRoot(context) : lessonBundlesRoot);
   const bundleRef = bundleRefOverride ?? configuredRef!;
   const learnerId = cfg<string>("learnerId", "vscode-learner");
-  const consent = cfg<boolean>("telemetryConsent", false);
+  const conceptTitles = readConceptTitles(join(bundlesRoot, bundleRef));
+  /** Concept ids as the pane names them: the bundle's title, else the id without its "concept:" prefix. */
+  const named = (ids: string[]): NamedConcept[] => ids.map((id) => {
+    const bare = id.replace(/^concept:/, "");
+    return { id, label: conceptTitles[id] ?? conceptTitles[bare] ?? bare };
+  });
 
   const assets = cfg<"vendor" | "cdn">("assets", "vendor");
-  const panel = vscode.window.createWebviewPanel(
-    "studiumLesson", phrase("extension_lesson_panel", {}, extensionLocale), vscode.ViewColumn.Beside,
-    { enableScripts: true, localResourceRoots: [vscode.Uri.file(join(context.extensionPath, "media"))], retainContextWhenHidden: true },
+  const paneOptions = { enableScripts: true, localResourceRoots: [vscode.Uri.file(join(context.extensionPath, "media"))] };
+  // A restored pane arrives already created, without its options or content: give it both.
+  const panel = options.panel ?? vscode.window.createWebviewPanel(
+    LESSON_VIEW_TYPE, phrase("extension_lesson_panel", {}, extensionLocale), vscode.ViewColumn.Beside,
+    { ...paneOptions, retainContextWhenHidden: true },
   );
+  if (options.panel) { panel.webview.options = paneOptions; panel.title = phrase("extension_lesson_panel", {}, extensionLocale); }
   panel.webview.html = paneHtml(panel.webview, context.extensionPath, assets, extensionLocale);
 
   // Register disposal BEFORE the asynchronous connection starts. If the learner closes the pane
   // while the subprocess is still opening, the lifecycle closes the late connection on arrival.
   const lifecycle = new LessonPanelLifecycle<LessonMcp>();
   let panelDisposed = false;
-  panel.onDidDispose(() => { panelDisposed = true; lifecycle.dispose(); });
+  panel.onDidDispose(() => { panelDisposed = true; lifecycle.dispose(); void refreshStudyStatus(context); });
 
   // 1) connect to lesson-mcp over stdio
-  const env: Record<string, string> = { ...process.env as any, BUNDLES_ROOT: bundlesRoot };
-  if (consent) { env["STUDIUM_DATA_DIR"] = join(bundlesRoot, "data"); env["STUDIUM_TELEMETRY_CONSENT"] = "granted"; }
+  // Learner state goes to VS Code's own storage whatever the telemetry setting says (ENG-03).
+  const env = lessonServerEnv(context, bundlesRoot);
   const mcpLog = resolveLogSink();
   mcpLog(`[studium] lesson-mcp launch: ${describeServerLaunch(serverLaunch)}`);
   let mcp: LessonMcp | null;
@@ -525,7 +742,7 @@ async function openLesson(
       type: "error",
       message: phrase("extension_connection_failed", { error: e.message }, extensionLocale),
     });
-    vscode.window.showErrorMessage(`Studium: could not connect to lesson-mcp — ${e.message}`);
+    vscode.window.showErrorMessage(hostPhrase("connect_failed_notification", { error: e.message }, extensionLocale));
     return;
   }
   if (!mcp) return;
@@ -565,7 +782,7 @@ async function openLesson(
       "studiumGraph", phrase("extension_graph_panel", {}, extensionLocale), vscode.ViewColumn.Beside,
       { enableScripts: true, localResourceRoots: [vscode.Uri.file(join(context.extensionPath, "media"))], retainContextWhenHidden: true },
     );
-    gp.webview.html = graphHtml(gp.webview, context.extensionPath, assets);
+    gp.webview.html = graphHtml(gp.webview, context.extensionPath, assets, extensionLocale);
     gp.onDidDispose(() => { if (graphPanel === gp) graphPanel = undefined; });
     graphPanel = gp;
   }
@@ -577,13 +794,14 @@ async function openLesson(
       if (!g || !graphPanel) return; // graphPanel may have been disposed during the await
       const view = graphMode === "student" ? egoFilter(g) : g;
       graphPanel.webview.postMessage({
-        type: "graph", elements: toCytoscape(view), style: buildStylesheet(),
+        // VSC-5: graph-pane.js words its chrome from these (its built-in defaults are French).
+        type: "graph", locale, strings: browserPhrases(locale), elements: toCytoscape(view), style: buildStylesheet(),
         title: g.title ?? "", legend: g.legend ?? [], focus: g.focus ?? null, mode: graphMode,
       });
     } catch { /* the graph is best-effort; never let it break the lesson */ }
   };
 
-  const pushScene = async (presentation: Json, explanation?: Json, verdict?: Json) => {
+  const pushScene = async (presentation: Json, explanation?: Json, verdict?: Json, extras: SceneExtras = {}) => {
     if (panelDisposed || lifecycle.isDisposed()) return;
     locale = presentation.locale === "en" ? "en" : "fr";
     extensionLocale = locale;
@@ -596,11 +814,11 @@ async function openLesson(
     // packages/adaptation-engine/src/fsrs.ts). Derived from the learner state get_session_state
     // already exposes. Best-effort — never let it break the lesson; it is a recall-timing cue, not
     // a mastery score, so it is always shown to the learner (no answer leak).
-    let reviewDue: string[] = [];
+    let reviewDue: NamedConcept[] = [];
     let calibration: CalibrationVerdict[] = [];
     try {
       const st = (await call("get_session_state", { session_id: sid })).state;
-      reviewDue = reviewDueConcepts(st);
+      reviewDue = named(reviewDueConcepts(st));
       // Metacognitive calibration mirror (B1): a NUMBER-FREE "bien/sur/sous calibré·e" verdict per
       // concept, derived from the same state. Safe to show — it never exposes mastery or the raw gap.
       calibration = calibrationVerdicts(st, locale);
@@ -627,6 +845,11 @@ async function openLesson(
       // only, never the other branch; ungraded scenes: an acknowledgement). The engine releases
       // it on the transition; before 2026-10-29 the pane never showed it (audit P2).
       verdict: verdict ?? null,
+      // The ONE navigation decision behind this scene: the pane words it from navigation.kind and never
+      // prints rule_id or reason (VSC-2).
+      navigation: extras.navigation ?? null,
+      // C4: the self-rating request of an uncertified production answer; it names its scene.
+      self_rating: extras.self_rating ?? null,
       // Who wrote the lesson; a self-authored one carries a notice the pane shows above the scene.
       authoring: presentation.authoring ?? null,
     });
@@ -642,6 +865,31 @@ async function openLesson(
     }
   };
 
+  /** VSC-6: the end-of-lesson screen. Concepts are named, never scored: only concepts with a graded attempt
+   * are claimed consolidated (mastery >= 0.6, the threshold of chat-display.ts) or to revisit. */
+  const completionPayload = async (t: Json): Promise<Json> => {
+    const mastery: Record<string, number> = t.summary?.mastery ?? {};
+    const states: Record<string, Json> = t.summary?.finalState?.concept_states ?? {};
+    const graded = Object.keys(mastery).filter((id) => (states[id]?.total_attempts ?? 0) > 0);
+    let dueNow = 0;
+    try { dueNow = parseReinforcement(await call("get_next_reinforcement", { session_id: sid })).dueCount; } catch { /* best-effort */ }
+    return {
+      consolidated: named(graded.filter((id) => mastery[id]! >= 0.6)),
+      to_revisit: named(graded.filter((id) => mastery[id]! < 0.6)),
+      detours: Object.values((t.summary?.scenes_detoured ?? {}) as Record<string, number>).reduce((a, b) => a + b, 0),
+      next_review_at: t.review_plan?.next_due_at ?? null,
+      due_now: dueNow,
+      actions: [...(dueNow > 0 ? ["review"] : []), "restart", "pick"],
+    };
+  };
+  const donePayload = async (t: Json, message: string): Promise<Json> => ({
+    message,
+    verdict: t.verdict ?? null,            // the last answer's verdict: the pane shows it as a step first
+    self_rating: t.self_rating ?? null,
+    calibration: calibrationVerdicts(t.summary?.finalState ?? {}, locale),
+    completion: await completionPayload(t),
+  });
+
   // Expose this lesson to the top-level "Run reproduction" command (it drives get_run_manifest →
   // native task → submit_run_result against this live session). Latest open wins; cleared on dispose.
   // The dispose-clear guards by OBJECT IDENTITY (not sid value) so it can't null a different live
@@ -650,9 +898,16 @@ async function openLesson(
     call,
     sid: () => sid,
     locale: () => locale,
+    bundlePath: join(bundlesRoot, bundleRef),
+    close: () => { if (!panelDisposed) panel.dispose(); },
     isDisposed: () => panelDisposed || lifecycle.isDisposed(),
-    advance: (presentation: Json, explanation?: Json) => pushScene(presentation, explanation),
-    done: (message: string) => { if (!panelDisposed) panel.webview.postMessage({ type: "done", message }); },
+    advance: (presentation: Json, explanation?: Json, verdict?: Json, extras?: SceneExtras) =>
+      pushScene(presentation, explanation, verdict, extras),
+    done: async (t: Json, message: string) => {
+      const payload = await donePayload(t, message);
+      if (!panelDisposed) panel.webview.postMessage({ type: "done", ...payload });
+      void refreshStudyStatus(context);
+    },
     runExclusive: <TResult>(action: () => Promise<TResult>) => lifecycle.runExclusive(action),
     pending: (message: string) => { if (!panelDisposed) panel.webview.postMessage({ type: "action_pending", message }); },
     settled: () => { if (!panelDisposed) panel.webview.postMessage({ type: "action_settled" }); },
@@ -667,6 +922,15 @@ async function openLesson(
   panel.webview.onDidReceiveMessage(async (msg: Json) => {
     try {
       const result = await lifecycle.runExclusive(async () => {
+        if (msg.type === "rateRecall") {
+          // The learner's self-rating of a recall (C4) feeds spaced review only, never mastery. The webview is
+          // untrusted: check the message shape here; the server validates the grade again.
+          const rating = parseRateRecall(msg);
+          if (!rating) return;
+          await call("rate_recall", { session_id: sid, scene_id: rating.sceneId, grade: rating.grade });
+          if (!panelDisposed) panel.webview.postMessage({ type: "recall_rated", sceneId: rating.sceneId, grade: rating.grade });
+          return;
+        }
         if (msg.type === "hint") {
           const h = (await call("request_hint", { session_id: sid })).hint;
           if (!panelDisposed) panel.webview.postMessage({ type: "hint", hint: h?.hint ?? null, remaining: h?.remaining });
@@ -696,21 +960,56 @@ async function openLesson(
           if (!panelDisposed) panel.webview.postMessage({ type: "turn_result", reasoning: r.reasoning ?? null, tutor: r.tutor ?? null });
           return;
         }
+        if (msg.type === "run") {
+          // VSC-8: the pane's « Lancer la reproduction » button. Same flow as the command, inside the gate this
+          // handler already holds (runReproductionScene would take it again and report busy).
+          thisLesson.pending(phrase("extension_running", {}, locale));
+          try { await runReproductionForLesson(thisLesson); } finally { thisLesson.settled(); }
+          return;
+        }
+        if (msg.type === "reviewNow") {
+          // VSC-6: « Réviser maintenant » plays the due reviews (C1 start_review_session) in this pane.
+          const r = await call("start_review_session", { learner_id: learnerId });
+          if (panelDisposed) return;
+          if (r.status !== "started") {
+            // Nothing due is a calm notice with the next review date, in the lesson's language; any other reply
+            // that did not start stays an action error, never an empty one.
+            panel.webview.postMessage(reviewStartReply(r, locale));
+            return;
+          }
+          sid = r.session_id;
+          await pushScene(r.presentation);
+          return;
+        }
+        if (msg.type === "restartLesson") {
+          // « Revoir le parcours »: a completed lesson restarts at scene zero as a retake (start_lesson_session).
+          const started = await call("start_lesson_session", { bundle_ref: bundleRef, learner_id: learnerId });
+          if (panelDisposed) return;
+          sid = started.session_id;
+          await pushScene(started.presentation);
+          return;
+        }
+        if (msg.type === "pickCourse") {
+          if (!panelDisposed) panel.webview.postMessage({ type: "action_settled" });
+          void vscode.commands.executeCommand("studium.pickLesson");
+          return;
+        }
         if (msg.type === "respond") {
           const t = (await call("submit_response", { session_id: sid, input: msg.input })).transition;
           if (panelDisposed) return;
           if (t.kind === "complete") {
-            panel.webview.postMessage({ type: "done", message: phrase("extension_done", {
-              count: t.summary.scenesCompleted,
-              autonomy: t.summary.autonomyRatio.toFixed(2),
-            }, locale) });
+            void refreshStudyStatus(context); // the next review date may have just changed
+            panel.webview.postMessage({ type: "done",
+              ...(await donePayload(t, phrase("extension_done", { count: t.summary.scenesCompleted }, locale))) });
             return;
           }
-          await pushScene(t.presentation, t.kind === "replay" || t.kind === "remediate_alt" || t.kind === "remediate"
-            ? { rule_id: t.navigation?.rule_id ?? t.kind, explanation_short: t.reason } : undefined, t.verdict);
+          resolveLogSink()(`[studium] navigation ${JSON.stringify(t.navigation ?? null)}`); // raw ids stay in the log
+          await pushScene(t.presentation, undefined, t.verdict, { navigation: t.navigation, self_rating: t.self_rating });
         }
       });
       if (result.status === "busy") {
+        // A busy gate must answer, or the pane stays pending.
+        if (!panelDisposed) panel.webview.postMessage({ type: "action_error", message: phrase("extension_action_busy", {}, locale) });
         return;
       }
     } catch (e: any) {
@@ -723,6 +1022,8 @@ async function openLesson(
   try {
     const started = await call("start_lesson_session", { bundle_ref: bundleRef, learner_id: learnerId });
     sid = started.session_id;
+    // Remember what this pane shows, so a window reload can reopen it (see restoreLessonPanel).
+    void context.globalState.update(LAST_LESSON_KEY, { bundlesRoot, bundleRef, rootKind } satisfies LastLesson);
     await pushScene(started.presentation);
     vscode.window.showInformationMessage(phrase("extension_started", { bundle: bundleRef }, locale));
   } catch (e: any) {
@@ -741,45 +1042,58 @@ function nonce() { return Array.from({ length: 16 }, () => "abcdef0123456789"[Ma
 function paneHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "cdn", locale: Locale): string {
   const media = (f: string) => webview.asWebviewUri(vscode.Uri.file(join(extPath, "media", f)));
   const n = nonce();
-  // Marked + KaTeX + Vega(-Lite/-Embed) make prose, equations, and plots rich; if they do not load, the renderer
-  // degrades to styled code + an inline-SVG bar chart (same code path). `vendor` ships the libs
-  // inside media/vendor (air-gap safe); `cdn` pulls them from jsdelivr.
+  // Marked + KaTeX + Vega(-Lite/-Embed) + 3Dmol make prose, equations, plots and molecules rich; if they do not
+  // load, the renderer degrades to styled code + an inline-SVG bar chart (same code path). `vendor` (the default)
+  // ships the libs inside media/vendor: air-gap safe, and the pane loads nothing from the network. `cdn` is the
+  // learner's opt-in to network assets: the same files from jsdelivr, pinned to the vendored versions and checked
+  // by Subresource Integrity, and only then may remote images load (ENG-10).
   const cdn = assets === "cdn";
   const origin = cdn ? "https://cdn.jsdelivr.net" : "";
   const csp = [
     `default-src 'none'`,
-    `img-src ${webview.cspSource} data: https:`,
+    `img-src ${webview.cspSource} data:${cdn ? " https:" : ""}`,
     `style-src ${webview.cspSource} ${origin} 'unsafe-inline'`,
     `font-src ${webview.cspSource} ${origin}`,
     `script-src 'nonce-${n}' ${origin}`,
   ].join("; ");
-  const katexCss = cdn ? "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" : media("vendor/katex/katex.min.css");
-  const libs = (cdn
-    ? ["https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js",
-       "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js",
-       "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js",
-       "https://cdn.jsdelivr.net/npm/vega@5", "https://cdn.jsdelivr.net/npm/vega-lite@5", "https://cdn.jsdelivr.net/npm/vega-embed@6",
-       "https://cdn.jsdelivr.net/npm/3dmol@2.5.5/build/3Dmol-min.js"]
-    : [media("vendor/marked.min.js"), media("vendor/katex/katex.min.js"), media("vendor/katex/mhchem.min.js"),
-       media("vendor/vega.min.js"), media("vendor/vega-lite.min.js"), media("vendor/vega-embed.min.js"),
-       media("vendor/3Dmol-min.js")]
-  ).map((src) => `<script defer nonce="${n}" src="${src}"></script>`).join("\n");
+  // [jsdelivr path, vendored copy, sha384 of those exact bytes]: the CDN file must be the vendored one.
+  type Lib = readonly [cdnPath: string, vendored: string, integrity: string];
+  const katexCss: Lib = ["katex@0.16.9/dist/katex.min.css", "vendor/katex/katex.min.css", "sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"];
+  const scripts: Lib[] = [
+    ["marked@15.0.12/marked.min.js", "vendor/marked.min.js", "sha384-948ahk4ZmxYVYOc+rxN1H2gM1EJ2Duhp7uHtZ4WSLkV4Vtx5MUqnV+l7u9B+jFv+"],
+    ["katex@0.16.9/dist/katex.min.js", "vendor/katex/katex.min.js", "sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"],
+    ["katex@0.16.9/dist/contrib/mhchem.min.js", "vendor/katex/mhchem.min.js", "sha384-ifpG+NlgMq0kvOSGqGQxW1mJKpjjMDmZdpKGq3tbvD3WPhyshCEEYClriK/wRVU0"],
+    ["vega@5.33.1/build/vega.min.js", "vendor/vega.min.js", "sha384-NMXhl2TbCXxcN7o4ROC56Funm78m4AylL8gMg/7Kn4YU+wrm23K9l7cY8lDRXQ9d"],
+    ["vega-lite@5.23.0/build/vega-lite.min.js", "vendor/vega-lite.min.js", "sha384-D9LYH0esGjcxQJsBuxOuXtCDJGXRWW1+KhluzWPqi0rLJmiR/ygPChefaD+rFFDQ"],
+    ["vega-embed@6.29.0/build/vega-embed.min.js", "vendor/vega-embed.min.js", "sha384-M+Ax7e/WFJpxSOF09HzI+Sj4wg9ottVd/uxmV2ItGGh02fLH28t2FAOJx3TJBap5"],
+    ["3dmol@2.5.5/build/3Dmol-min.js", "vendor/3Dmol-min.js", "sha384-OsczYbldvrHgslr9fFp/i4GiLSeuw9l+QIlv99ITw8soOwXcoGeflFMLg+CU/X1d"],
+  ];
+  const source = ([cdnPath, vendored]: Lib) => (cdn ? `https://cdn.jsdelivr.net/npm/${cdnPath}` : String(media(vendored)));
+  const integrity = (lib: Lib) => (cdn ? ` integrity="${lib[2]}" crossorigin="anonymous"` : "");
+  const libs = scripts.map((lib) => `<script defer nonce="${n}" src="${source(lib)}"${integrity(lib)}></script>`).join("\n");
   const strings = JSON.stringify(browserPhrases(locale)).replace(/</g, "\\u003c");
+  // C8: the design tokens, their components, then the bridge to the editor theme; the pane's own sheet last, so
+  // it also repaints the shared contextual help. `st-scope` keeps the host's vscode-* body classes.
   return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
-<link rel="stylesheet" href="${media("artifact-pane.css")}">
-<link rel="stylesheet" href="${katexCss}">
+<link rel="stylesheet" href="${media("studium-tokens.css")}">
+<link rel="stylesheet" href="${media("studium-components.css")}">
+<link rel="stylesheet" href="${media("studium-vscode-bridge.css")}">
+<link rel="stylesheet" href="${source(katexCss)}"${integrity(katexCss)}>
 ${libs}
 <style>${helpStyles}</style>
-</head><body>${lessonHelpTemplates()}<div id="pane"><div class="loading" role="status"><span class="loading-mark" aria-hidden="true"></span><div><strong>${phrase("pane_opening", {}, locale)}</strong><span>${phrase("extension_loading_lesson", {}, locale)}</span></div></div></div>
+<link rel="stylesheet" href="${media("artifact-pane.css")}">
+</head><body class="st-scope" data-remote-images="${cdn ? "allowed" : "blocked"}">${lessonHelpTemplates()}<div id="pane"><div class="loading" role="status"><span class="loading-mark" aria-hidden="true"></span><div><strong>${phrase("pane_opening", {}, locale)}</strong><span>${phrase("extension_loading_lesson", {}, locale)}</span></div></div></div>
+<div id="pane-live" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
 <script type="application/json" id="studium-strings" nonce="${n}">${strings}</script>
 <script defer nonce="${n}" src="${media("artifact-pane.js")}"></script>
 </body></html>`;
 }
 
 // The companion GRAPH webview: Cytoscape + dagre (+ the cytoscape-dagre adapter). The elements and
-// stylesheet are computed host-side from the GraphView; graph-pane.js only lays out + renders.
-function graphHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "cdn"): string {
+// stylesheet are computed host-side from the GraphView; graph-pane.js only lays out + renders. It speaks the
+// lesson language (VSC-3 lang, VSC-5 strings), paints with the design tokens (C8) and pins CDN files by SRI.
+function graphHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "cdn", locale: Locale): string {
   const media = (f: string) => webview.asWebviewUri(vscode.Uri.file(join(extPath, "media", f)));
   const n = nonce();
   const cdn = assets === "cdn";
@@ -791,18 +1105,25 @@ function graphHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | 
     `font-src ${webview.cspSource}`,
     `script-src 'nonce-${n}' ${origin}`,
   ].join("; ");
-  const libs = (cdn
-    ? ["https://cdn.jsdelivr.net/npm/cytoscape@3.34.0/dist/cytoscape.min.js",
-       "https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js",
-       "https://cdn.jsdelivr.net/npm/cytoscape-dagre@4.0.0/dist/cytoscape-dagre.js"]
-    : [media("vendor/cytoscape.min.js"), media("vendor/dagre.min.js"), media("vendor/cytoscape-dagre.js")]
-  ).map((src) => `<script defer nonce="${n}" src="${src}"></script>`).join("\n");
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8">
+  // [jsdelivr path, vendored copy, sha384 of those exact bytes] (ENG-10: the CDN file must be the vendored one).
+  type Lib = readonly [cdnPath: string, vendored: string, integrity: string];
+  const scripts: Lib[] = [
+    ["cytoscape@3.34.0/dist/cytoscape.min.js", "vendor/cytoscape.min.js", "sha384-K+k+ywfDuvV9dwg+bwsVE0WGkrTnqFamaER+ydBgMFQTtlI0jdI9no9AjkQHwh/T"],
+    ["dagre@0.8.5/dist/dagre.min.js", "vendor/dagre.min.js", "sha384-2IH3T69EIKYC4c+RXZifZRvaH5SRUdacJW7j6HtE5rQbvLhKKdawxq6vpIzJ7j9M"],
+    ["cytoscape-dagre@4.0.0/dist/cytoscape-dagre.js", "vendor/cytoscape-dagre.js", "sha384-NF9TNU/y06b6xPvq8ROT3WRFrfmNyut2Z/UZ/TSHCB8I/nbFqO3ZpeGF1ERvj2Sd"],
+  ];
+  const libs = scripts.map(([cdnPath, vendored, integrity]) => cdn
+    ? `<script defer nonce="${n}" src="https://cdn.jsdelivr.net/npm/${cdnPath}" integrity="${integrity}" crossorigin="anonymous"></script>`
+    : `<script defer nonce="${n}" src="${media(vendored)}"></script>`).join("\n");
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
+<link rel="stylesheet" href="${media("studium-tokens.css")}">
+<link rel="stylesheet" href="${media("studium-components.css")}">
+<link rel="stylesheet" href="${media("studium-vscode-bridge.css")}">
 <link rel="stylesheet" href="${media("graph-pane.css")}">
 ${libs}
 <style>${helpStyles}</style>
-</head><body>${graphHelp()}<div id="graph"></div><div id="legend"></div>
+</head><body class="st-scope">${graphHelp()}<div id="graph"></div><div id="legend"></div>
 <script nonce="${n}" src="${media("graph-pane.js")}"></script>
 </body></html>`;
 }

@@ -3,6 +3,7 @@
 
 import { courseDescription, type LessonCourse } from "./lesson-picker.js";
 import { phrase, type Locale } from "./phrases.js";
+import { reviewsNode, type StudyStatus } from "./study-status.js";
 
 /** One node of the Studium activity-bar tree. `command`(+`args`) runs on click; `children` nest. */
 export interface TreeNode {
@@ -38,9 +39,19 @@ export function buildLessonTree(opts: {
   community: CommunityItem[];
   onReproductionScene: boolean;
   locale?: Locale;
+  /** What is due for review (get_next_reinforcement); adds the Reviews node for a learner with history. */
+  reviews?: StudyStatus | null;
+  /** Return an empty tree when there is nothing to list, so the view's welcome content (buttons) shows
+   * instead of a list of actions beside an empty "no course found" placeholder. */
+  emptyAsWelcome?: boolean;
 }): TreeNode[] {
   const locale = opts.locale ?? "fr";
+  const reviews = reviewsNode(opts.reviews ?? null, locale);
+  if (opts.emptyAsWelcome && !(opts.courses?.length) && !opts.community.length && !opts.onReproductionScene && !reviews) {
+    return [];
+  }
   const nodes: TreeNode[] = primary(locale);
+  if (reviews) nodes.push(reviews);
   if (opts.onReproductionScene) {
     nodes.push({ id: "run", label: phrase("tree_run", {}, locale), icon: "beaker", command: "studium.runReproduction" });
   }

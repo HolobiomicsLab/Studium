@@ -6,7 +6,11 @@ import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { connectOrClose, describeServerLaunch, resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, serverBuildWarning, serverInfoLine, setLessonMcpLog, type LogSink, type ServerInfo } from "./mcp-connect.js";
+import { connectOrClose, describeServerLaunch, resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, serverBuildWarning, serverInfoLine, setLessonMcpLog, lessonMcpEnv, type LogSink, type ServerInfo } from "./mcp-connect.js";
+import { isolateFromHome } from "./driver-isolation.js";
+
+// I-10: no driver may write into the developer's home, even one that starts no server.
+const isolation = isolateFromHome("mcp-connect");
 
 async function main() {
 
@@ -169,6 +173,21 @@ console.log(`OK — mcp-connect (resolveTsx + parseToolResult + stderr diagnosti
     `a dirty server build emits a WARNING (got: ${dirty})`);
 }
 
+// ENG-03: learner state always lands in the extension's storage; consent decides only whether telemetry is sent.
+{
+  const base = { PATH: "/bin", STUDIUM_DATA_DIR: "/somewhere/else", STUDIUM_TELEMETRY_CONSENT: "granted" };
+  const off = lessonMcpEnv({ baseEnv: base, bundlesRoot: "/lessons", storageDir: "/vscode/global/studium", telemetryConsent: false });
+  expect(off["STUDIUM_DATA_DIR"] === "/vscode/global/studium", "the data dir is the extension storage even WITHOUT telemetry consent");
+  expect(off["BUNDLES_ROOT"] === "/lessons", "BUNDLES_ROOT is passed");
+  expect(off["STUDIUM_TELEMETRY_CONSENT"] === undefined, "no consent in the settings → the consent flag is removed, even if the shell had set it");
+  expect(off["PATH"] === "/bin", "the rest of the environment is kept");
+  const on = lessonMcpEnv({ baseEnv: {}, bundlesRoot: "/lessons", storageDir: "/vscode/global/studium", telemetryConsent: true });
+  expect(on["STUDIUM_DATA_DIR"] === "/vscode/global/studium" && on["STUDIUM_TELEMETRY_CONSENT"] === "granted", "consent adds the flag and keeps the same data dir");
+  expect(base.STUDIUM_DATA_DIR === "/somewhere/else", "the input environment is not mutated");
+  expect(!("STUDIUM_DATA_DIR" in lessonMcpEnv({ baseEnv: {}, bundlesRoot: "/l", storageDir: undefined, telemetryConsent: false })) , "no storage dir known → the variable is left unset (ephemeral), never pointed at the bundles folder");
+}
+
+expect(isolation.homeUntouched(), `I-10: nothing was written into the home directory (${isolation.home})`);
 if (failures.length) { console.error(`FAIL (${failures.length}/${checks}):`); for (const f of failures) console.error("  - " + f); process.exit(1); }
 console.log(`OK — mcp-connect driver passed all ${checks} assertions`);
 }

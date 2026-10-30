@@ -15,6 +15,7 @@ import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 import { freeTextInput, extractConfidence } from "./scene-io.js";
 import { assetPathFor, imageMime } from "./asset-path.js";
 import { phrase, type Locale } from "./phrases.js";
+import { verdictForChat, recallGradeOf } from "./chat-format.js";
 
 type Json = Record<string, any>;
 const NB_TYPE = "studium-lesson";
@@ -32,6 +33,24 @@ interface Sess {
   learnerId: string;
   bundlesRoot: string;
   call: (n: string, a: Json) => Promise<Json>;
+  /** The self-rating the last verdict asked for (C4): a cell holding a bare grade is that rating. */
+  rating?: { sceneId: string; grades: readonly string[] };
+}
+
+const RECALL_GRADES = ["again", "hard", "good", "easy"] as const;
+
+/** The verdict's text (I-1) as a blockquote: the served display_markdown, or the feedback and the reference. */
+function verdictQuote(verdict: Json | undefined, locale: Locale): string {
+  const text = verdictForChat(verdict, locale);
+  return text ? `${text.split("\n").map((line) => (line ? `> ${line}` : ">")).join("\n")}\n\n` : "";
+}
+
+/** Remember the self-rating a transition asks for, so the next cell can answer it. */
+function rememberRating(sess: Sess, transition: Json): void {
+  const request = transition.self_rating;
+  sess.rating = request?.requested && request.scene_id
+    ? { sceneId: String(request.scene_id), grades: Array.isArray(request.grades) ? request.grades : RECALL_GRADES }
+    : undefined;
 }
 
 function driverCells(locale: Locale = "fr"): vscode.NotebookCellData[] {
@@ -128,7 +147,7 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       index: (presentation.index ?? 0) + 1,
       total: presentation.total,
     }, locale)}\n\n`;
-    if (transition?.verdict?.feedback) head += `> ${transition.verdict.correct === false ? "✗" : "✓"} ${transition.verdict.feedback}\n\n`;
+    if (transition?.verdict) head += verdictQuote(transition.verdict, locale);
     if (transition && (transition.kind === "replay" || transition.kind === "remediate_alt" || transition.kind === "remediate")) head += `> ⟳ ${transition.reason}\n\n`;
     // adaptation rationale (parity with the lesson pane): why the engine routed here this turn.
     else if (presentation.explanation) head += `> ⟳ ${presentation.explanation.rule_id} — ${presentation.explanation.explanation_short}\n\n`;
@@ -257,6 +276,17 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
         exec.end(true, Date.now());
         return;
       }
+      // A bare grade right after a verdict that asked for it is the learner's self-rating (rate_recall):
+      // it schedules the next review and never changes mastery. Any other cell lets the request lapse.
+      const pending = sess.rating;
+      sess.rating = undefined;
+      const grade = pending ? recallGradeOf(cell.document.getText(), pending.grades) : null;
+      if (pending && grade) {
+        const r = await sess.call("rate_recall", { session_id: sess.sid, scene_id: pending.sceneId, grade });
+        exec.replaceOutput([new vscode.NotebookCellOutput([md(String(r.display_markdown ?? ""))])]);
+        exec.end(true, Date.now());
+        return;
+      }
       const cur = await sess.call("get_current_scene", { session_id: sess.sid });
       sess.locale = cur.presentation?.locale === "en" ? "en" : "fr";
       const scene = cur.presentation.scene;
@@ -304,8 +334,9 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
       }
       const input = directiveToInput(directive, scene);
       const t = (await sess.call("submit_response", { session_id: sess.sid, input })).transition;
+      rememberRating(sess, t);
       if (t.kind === "complete") {
-        exec.replaceOutput([new vscode.NotebookCellOutput([md(phrase("notebook_complete", {
+        exec.replaceOutput([new vscode.NotebookCellOutput([md(verdictQuote(t.verdict, sess.locale) + phrase("notebook_complete", {
           count: t.summary.scenesCompleted,
           autonomy: (t.summary.autonomyRatio ?? 0).toFixed(2),
         }, sess.locale))])]);

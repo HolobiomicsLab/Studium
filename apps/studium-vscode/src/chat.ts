@@ -4,13 +4,23 @@
 // tutor move — no client LLM, so the answer key stays server-side (publicScene). Chat is text-only, so rich
 // artifacts (3D / KaTeX) still need the webview; the verdict deck works here via numbers.
 import * as vscode from "vscode";
+import { existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { resolve, join } from "node:path";
-import { connectLessonMcp, resolveServerLaunch, type LessonMcp } from "./mcp-connect.js";
-import { formatSceneForChat, replyToInput, type ChatScene } from "./chat-format.js";
+import { connectLessonMcp, lessonMcpEnv, resolveServerLaunch, type LessonMcp } from "./mcp-connect.js";
+import { defaultBundlesRoot } from "./data-paths.js";
+import { formatSceneForChat, replyToInput, verdictForChat, recallGradeOf, type ChatScene } from "./chat-format.js";
 import { phrase, type Locale } from "./phrases.js";
 
-// One active chat lesson at a time (mirrors the single-active-lesson model of the panel).
-let chatLesson: { mcp: LessonMcp; sid: string; scene: ChatScene; locale: Locale } | null = null;
+// One active chat lesson at a time (mirrors the single-active-lesson model of the panel). `rating` is the
+// self-rating the last verdict asked for (C4): a bare grade as the next reply is that rating. `ended`
+// keeps a completed lesson open only for that rating.
+interface ChatLesson {
+  mcp: LessonMcp; sid: string; scene: ChatScene; locale: Locale;
+  rating?: { sceneId: string; grades: readonly string[] }; ended?: boolean;
+}
+let chatLesson: ChatLesson | null = null;
+const RECALL_GRADES = ["again", "hard", "good", "easy"] as const;
 
 export function registerStudiumChat(context: vscode.ExtensionContext): void {
   const participant = vscode.chat.createChatParticipant("studium.tutor",
@@ -26,6 +36,10 @@ async function handle(context: vscode.ExtensionContext, request: vscode.ChatRequ
     const cmd = request.command;
     if (cmd === "hint") return await doHint(stream);
     if (cmd === "discuss") return await doDiscuss(stream, request.prompt);
+    if (chatLesson?.ended && !(chatLesson.rating && recallGradeOf(request.prompt || "", chatLesson.rating.grades))) {
+      chatLesson.mcp.close();
+      chatLesson = null;
+    }
     if (cmd === "start" || !chatLesson) return await doStart(context, stream);
     await doAnswer(stream, request.prompt);
   } catch (e: any) {
@@ -40,9 +54,13 @@ function launch(context: vscode.ExtensionContext) {
     return v === undefined || v === "" ? fb : v;
   };
   const repoRoot = get<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
-  const bundlesRoot = get<string>("bundlesRoot", join(repoRoot, "fixtures"));
-  const env: Record<string, string> = { ...process.env as any, BUNDLES_ROOT: bundlesRoot };
-  if (get<boolean>("telemetryConsent", false)) { env["STUDIUM_DATA_DIR"] = join(bundlesRoot, "data"); env["STUDIUM_TELEMETRY_CONSENT"] = "granted"; }
+  const bundlesRoot = get<string>("bundlesRoot", defaultBundlesRoot({ repoRoot, exists: existsSync, env: process.env, homedir: homedir() }));
+  // Learner state goes to VS Code's own storage whatever the telemetry setting says; consent only governs sending (ENG-03).
+  const storageDir = context.globalStorageUri.fsPath;
+  try { mkdirSync(storageDir, { recursive: true }); } catch { /* the server reports an unwritable dir itself */ }
+  const env = lessonMcpEnv({
+    baseEnv: process.env, bundlesRoot, storageDir, telemetryConsent: get<boolean>("telemetryConsent", false),
+  });
   return {
     serverLaunch: resolveServerLaunch(context.extensionPath, repoRoot),
     env,
@@ -76,17 +94,36 @@ function present(stream: vscode.ChatResponseStream, presentation: any): void {
 
 async function doAnswer(stream: vscode.ChatResponseStream, prompt: string): Promise<void> {
   if (!chatLesson) return;
-  const locale = chatLesson.locale;
-  const input = replyToInput(chatLesson.scene, prompt || "");
-  if (!input) { stream.markdown(`${phrase("chat_unrecognized", {}, locale)}\n\n` + formatSceneForChat(chatLesson.scene, undefined, locale)); return; }
-  const t = (await chatLesson.mcp.call("submit_response", { session_id: chatLesson.sid, input })).transition;
+  const lesson = chatLesson;
+  const locale = lesson.locale;
+  // A bare grade right after a verdict that asked for it is the learner's self-rating (rate_recall): it
+  // schedules the next review and never changes mastery. Any other reply is an answer; the request lapses.
+  const pending = lesson.rating;
+  lesson.rating = undefined;
+  const grade = pending ? recallGradeOf(prompt || "", pending.grades) : null;
+  if (pending && grade) {
+    const r = await lesson.mcp.call("rate_recall", { session_id: lesson.sid, scene_id: pending.sceneId, grade });
+    if (r.display_markdown) stream.markdown(`${r.display_markdown}\n\n`);
+    if (lesson.ended) { lesson.mcp.close(); chatLesson = null; return; }
+    stream.markdown(formatSceneForChat(lesson.scene, undefined, locale));
+    return;
+  }
+  const input = replyToInput(lesson.scene, prompt || "");
+  if (!input) { stream.markdown(`${phrase("chat_unrecognized", {}, locale)}\n\n` + formatSceneForChat(lesson.scene, undefined, locale)); return; }
+  const t = (await lesson.mcp.call("submit_response", { session_id: lesson.sid, input })).transition;
+  // The verdict's own text (I-1): the served display_markdown, or the feedback and the reference.
+  const verdict = verdictForChat(t.verdict, locale);
+  if (verdict) stream.markdown(`${verdict}\n\n`);
+  if (t.self_rating?.requested && t.self_rating.scene_id) {
+    lesson.rating = { sceneId: String(t.self_rating.scene_id), grades: Array.isArray(t.self_rating.grades) ? t.self_rating.grades : RECALL_GRADES };
+  }
   if (t.kind === "complete") {
     stream.markdown(phrase("chat_complete", { count: t.summary?.scenesCompleted ?? "?" }, locale));
-    chatLesson.mcp.close();
+    if (lesson.rating) { lesson.ended = true; return; }
+    lesson.mcp.close();
     chatLesson = null;
     return;
   }
-  if (t.verdict?.feedback) stream.markdown(`${t.verdict.correct === false ? "✗" : "✓"} ${t.verdict.feedback}\n\n`);
   if (t.kind === "replay" || t.kind === "remediate_alt" || t.kind === "remediate") {
     stream.markdown(`${phrase("chat_review", { reason: t.reason || "" }, locale)}\n\n`);
   }

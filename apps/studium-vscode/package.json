@@ -1,7 +1,7 @@
 {
   "name": "studium-vscode",
   "displayName": "Studium",
-  "description": "Run a Studium adaptive lesson in VS Code: a tutoring loop driven over the lesson-mcp server, with an artifact pane that renders each scene's figures, equations, interactive plots, and executed reference runs — pair by pair.",
+  "description": "%extension.description%",
   "version": "0.1.0",
   "private": true,
   "publisher": "holobiomicslab",
@@ -26,7 +26,12 @@
     "onCommand:studium.communityContributions",
     "onCommand:studium.runReproduction",
     "onCommand:studium.openWalkthrough",
-    "onChatParticipant:studium.tutor"
+    "onChatParticipant:studium.tutor",
+    "onStartupFinished",
+    "onUri",
+    "onWebviewPanel:studiumLesson",
+    "onCommand:studium.openThisLesson",
+    "onCommand:studium.forgetMyData"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -59,6 +64,14 @@
         "command": "studium.refreshLessons",
         "title": "%command.refreshLessons.title%",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "studium.openThisLesson",
+        "title": "%command.openThisLesson.title%"
+      },
+      {
+        "command": "studium.forgetMyData",
+        "title": "%command.forgetMyData.title%"
       }
     ],
     "viewsContainers": {
@@ -91,37 +104,98 @@
           "command": "studium.refreshLessons",
           "when": "false"
         }
+      ],
+      "explorer/context": [
+        {
+          "command": "studium.openThisLesson",
+          "when": "resourceFilename == lesson.json",
+          "group": "navigation@100"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "studium.openThisLesson",
+          "when": "resourceFilename == lesson.json",
+          "group": "navigation@100"
+        }
       ]
     },
     "walkthroughs": [
       {
         "id": "studium.gettingStarted",
-        "title": "Prise en main de Studium / Get started with Studium",
-        "description": "Apprends à juger la sortie de l'IA dans ton éditeur : ouvre une leçon, exécute une reproduction, audite le résultat.",
+        "title": "%walkthrough.title%",
+        "description": "%walkthrough.description%",
         "steps": [
           {
             "id": "open",
-            "title": "Choisis et ouvre une leçon / Pick and open a lesson",
-            "description": "Depuis la barre d'activité Studium, choisis un cours découvert dans ton dossier de bundles, puis ouvre-le. Le panneau Studium affiche chaque scène — figures, équations, plots — et te pose des questions.\n[Choisir un cours](command:studium.pickLesson) · [Ouvrir le cours courant](command:studium.openLesson)",
+            "title": "%walkthrough.step.open.title%",
+            "description": "%walkthrough.step.open.description%",
             "media": {
-              "markdown": "media/walkthrough/01-open.md"
-            }
+              "image": {
+                "dark": "media/walkthrough/pane-dark.svg",
+                "light": "media/walkthrough/pane-light.svg",
+                "hc": "media/walkthrough/pane-dark.svg",
+                "altText": "%walkthrough.media.pane.alt%"
+              }
+            },
+            "completionEvents": [
+              "onCommand:studium.openLesson",
+              "onCommand:studium.pickLesson"
+            ]
+          },
+          {
+            "id": "selfStudy",
+            "title": "%walkthrough.step.selfStudy.title%",
+            "description": "%walkthrough.step.selfStudy.description%",
+            "media": {
+              "markdown": "media/walkthrough/self-study.md"
+            },
+            "completionEvents": [
+              "onStepSelected"
+            ]
           },
           {
             "id": "judge",
-            "title": "Juge la sortie de l'IA / Judge the AI's output",
-            "description": "Sur une scène « spot the flaw », un jeu de cartes te demande, pour chaque affirmation, si elle est erronée ou correcte. C'est le cœur de Studium : calibrer ton jugement de la sortie de l'IA.",
+            "title": "%walkthrough.step.judge.title%",
+            "description": "%walkthrough.step.judge.description%",
             "media": {
-              "markdown": "media/walkthrough/02-judge.md"
-            }
+              "image": {
+                "dark": "media/walkthrough/deck-dark.svg",
+                "light": "media/walkthrough/deck-light.svg",
+                "hc": "media/walkthrough/deck-dark.svg",
+                "altText": "%walkthrough.media.deck.alt%"
+              }
+            },
+            "completionEvents": [
+              "onStepSelected"
+            ]
           },
           {
             "id": "run",
-            "title": "Exécute une reproduction / Run a reproduction",
-            "description": "Une scène de reproduction fait tourner une vraie capsule dans ton espace de travail (Studium n'exécute jamais lui-même). Le résultat que TU produis fonde le jugement — s'il est attesté.\n[Lancer la reproduction](command:studium.runReproduction)",
+            "title": "%walkthrough.step.run.title%",
+            "description": "%walkthrough.step.run.description%",
             "media": {
               "markdown": "media/walkthrough/03-run.md"
-            }
+            },
+            "completionEvents": [
+              "onCommand:studium.runReproduction"
+            ]
+          },
+          {
+            "id": "review",
+            "title": "%walkthrough.step.review.title%",
+            "description": "%walkthrough.step.review.description%",
+            "media": {
+              "image": {
+                "dark": "media/walkthrough/review-dark.svg",
+                "light": "media/walkthrough/review-light.svg",
+                "hc": "media/walkthrough/review-dark.svg",
+                "altText": "%walkthrough.media.review.alt%"
+              }
+            },
+            "completionEvents": [
+              "onView:studiumLessons"
+            ]
           }
         ]
       }
@@ -131,20 +205,20 @@
         "id": "studium.tutor",
         "name": "studium",
         "fullName": "Studium",
-        "description": "Ouvre une leçon et juge la sortie de l'IA, directement dans le chat",
+        "description": "%chat.participant.description%",
         "isSticky": true,
         "commands": [
           {
             "name": "start",
-            "description": "Démarrer (ou redémarrer) la leçon"
+            "description": "%chat.command.start.description%"
           },
           {
             "name": "hint",
-            "description": "Demander un indice"
+            "description": "%chat.command.hint.description%"
           },
           {
             "name": "discuss",
-            "description": "Prendre un tour de discussion (argumente une position)"
+            "description": "%chat.command.discuss.description%"
           }
         ]
       }
@@ -259,18 +333,24 @@
           "description": "%configuration.modalityPreference.description%"
         }
       }
-    }
+    },
+    "viewsWelcome": [
+      {
+        "view": "studiumLessons",
+        "contents": "%viewsWelcome.empty%"
+      }
+    ]
   },
   "scripts": {
     "build": "esbuild src/extension.ts --loader:.css=text --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js && esbuild src/lesson-mcp-entry.ts --bundle --platform=node --format=cjs --outfile=dist/lesson-mcp.cjs --define:__STUDIUM_BUILD__='{\"origin\":\"bundled\",\"built_at\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"git_sha\":\"'\"$(git describe --always --dirty --abbrev=7)\"'\"}'",
     "watch": "pnpm build --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "pnpm typecheck && for d in context-help scene-io asset-path webview-pane community modality review-fsrs run-task lesson-tree lesson-picker chat-format mcp-connect panel-lifecycle contributes lesson-walk; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
-    "package": "pnpm build && npx --yes @vscode/vsce package --no-dependencies -o studium.vsix",
+    "test": "pnpm typecheck && for d in context-help scene-io asset-path webview-pane community modality review-fsrs run-task run-trust host-phrases data-paths lesson-uri pane-messages study-status lesson-tree lesson-picker chat-format mcp-connect panel-lifecycle contributes lesson-walk extension-host; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
+    "package": "pnpm vendor && pnpm build && vsce package --no-dependencies -o studium.vsix",
     "vendor": "mkdir -p media/vendor/katex/fonts && cp node_modules/marked/marked.min.js media/vendor/marked.min.js && cp node_modules/katex/dist/katex.min.js node_modules/katex/dist/katex.min.css node_modules/katex/dist/contrib/mhchem.min.js media/vendor/katex/ && cp -R node_modules/katex/dist/fonts/. media/vendor/katex/fonts/ && cp node_modules/vega/build/vega.min.js node_modules/vega-lite/build/vega-lite.min.js node_modules/vega-embed/build/vega-embed.min.js media/vendor/ && cp node_modules/cytoscape/dist/cytoscape.min.js node_modules/dagre/dist/dagre.min.js node_modules/cytoscape-dagre/dist/cytoscape-dagre.js node_modules/3dmol/build/3Dmol-min.js media/vendor/"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@studium/typed-graph-lens": "workspace:*"
   },
   "devDependencies": {
@@ -278,6 +358,8 @@
     "@types/jsdom": "^28.0.3",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "3.2.1",
+    "axe-core": "4.10.3",
     "cytoscape": "^3.34.0",
     "cytoscape-dagre": "^4.0.0",
     "dagre": "^0.8.5",
@@ -289,5 +371,10 @@
     "vega": "^5.33.1",
     "vega-embed": "^6.29.0",
     "vega-lite": "^5.23.0"
+  },
+  "icon": "media/walkthrough/studium-icon-128.png",
+  "galleryBanner": {
+    "color": "#13252c",
+    "theme": "dark"
   }
 }

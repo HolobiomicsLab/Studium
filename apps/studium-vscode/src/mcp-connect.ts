@@ -74,6 +74,23 @@ export function serverBuildWarning(
   return `[studium] WARNING: lesson-mcp sha=${serverSha} differs from repoRoot HEAD=${repoHead}.`;
 }
 
+/** The environment for a lesson-mcp subprocess (ENG-03). Learner state (progress, FSRS memory) is always
+ * written to `storageDir` (the extension's globalStorageUri) so reviews survive a restart; the telemetry
+ * setting decides ONLY whether pseudonymised class telemetry is sent: STUDIUM_TELEMETRY_CONSENT is set
+ * from the setting alone, never inherited from the shell. Pure: `baseEnv` is copied, not mutated. */
+export function lessonMcpEnv(opts: {
+  baseEnv: Record<string, string | undefined>;
+  bundlesRoot: string;
+  storageDir: string | undefined;
+  telemetryConsent: boolean;
+}): Record<string, string> {
+  const env: Record<string, string | undefined> = { ...opts.baseEnv, BUNDLES_ROOT: opts.bundlesRoot };
+  delete env["STUDIUM_TELEMETRY_CONSENT"];
+  if (opts.storageDir) env["STUDIUM_DATA_DIR"] = opts.storageDir;
+  if (opts.telemetryConsent) env["STUDIUM_TELEMETRY_CONSENT"] = "granted";
+  return Object.fromEntries(Object.entries(env).filter((e): e is [string, string] => e[1] !== undefined));
+}
+
 /** Decide how to launch lesson-mcp, in order of preference:
  *  1. a repo checkout (live sources via tsx) — dev mode, keeps edits hot;
  *  2. the server bundled INSIDE the extension (dist/lesson-mcp.cjs, produced by `pnpm build`),

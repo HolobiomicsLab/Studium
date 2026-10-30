@@ -1,0 +1,143 @@
+/* Load after tokens.css and components.css. Apply tokens to the webview body;
+   the host, never the operating-system preference, owns its theme. */
+/* Immutable theme palettes come from tokens.json, independently of OS preference. */
+body:is(.vscode-light, .vscode-high-contrast-light) {
+  --st-palette-canvas: var(--st-palette-light-canvas);
+  --st-palette-surface: var(--st-palette-light-surface);
+  --st-palette-surface-raised: var(--st-palette-light-surface-raised);
+  --st-palette-surface-muted: var(--st-palette-light-surface-muted);
+  --st-palette-text: var(--st-palette-light-text);
+  --st-palette-muted: var(--st-palette-light-muted);
+  --st-palette-accent: var(--st-palette-light-accent);
+  --st-palette-accent-hover: var(--st-palette-light-accent-hover);
+  --st-palette-on-accent: var(--st-palette-light-on-accent);
+  --st-palette-accent-2: var(--st-palette-light-accent-2);
+  --st-palette-success: var(--st-palette-light-success);
+  --st-palette-warning: var(--st-palette-light-warning);
+  --st-palette-danger: var(--st-palette-light-danger);
+  --st-palette-info: var(--st-palette-light-info);
+  --st-palette-focus: var(--st-palette-light-focus);
+  --st-palette-border: var(--st-palette-light-border);
+  color-scheme: light;
+}
+body:is(.vscode-dark, .vscode-high-contrast) {
+  --st-palette-canvas: var(--st-palette-dark-canvas);
+  --st-palette-surface: var(--st-palette-dark-surface);
+  --st-palette-surface-raised: var(--st-palette-dark-surface-raised);
+  --st-palette-surface-muted: var(--st-palette-dark-surface-muted);
+  --st-palette-text: var(--st-palette-dark-text);
+  --st-palette-muted: var(--st-palette-dark-muted);
+  --st-palette-accent: var(--st-palette-dark-accent);
+  --st-palette-accent-hover: var(--st-palette-dark-accent-hover);
+  --st-palette-on-accent: var(--st-palette-dark-on-accent);
+  --st-palette-accent-2: var(--st-palette-dark-accent-2);
+  --st-palette-success: var(--st-palette-dark-success);
+  --st-palette-warning: var(--st-palette-dark-warning);
+  --st-palette-danger: var(--st-palette-dark-danger);
+  --st-palette-info: var(--st-palette-dark-info);
+  --st-palette-focus: var(--st-palette-dark-focus);
+  --st-palette-border: var(--st-palette-dark-border);
+  color-scheme: dark;
+}
+
+body:is(.vscode-light, .vscode-dark, .vscode-high-contrast, .vscode-high-contrast-light) {
+  --st-canvas: var(--vscode-editor-background, var(--st-palette-canvas));
+  --st-surface: var(--vscode-editorWidget-background, var(--vscode-editor-background, var(--st-palette-surface)));
+  --st-surface-raised: var(--vscode-editorWidget-background, var(--vscode-editor-background, var(--st-palette-surface-raised)));
+  --st-surface-muted: var(--vscode-textBlockQuote-background, var(--vscode-editor-background, var(--st-palette-surface-muted)));
+  --st-text: var(--vscode-editor-foreground, var(--vscode-foreground, var(--st-palette-text)));
+  --st-muted: var(--vscode-descriptionForeground, var(--st-palette-muted));
+  --st-accent: var(--vscode-textLink-foreground, var(--st-palette-accent));
+  --st-accent-hover: var(--vscode-textLink-activeForeground, var(--st-accent));
+  --st-accent-soft: var(--st-surface);
+  --st-on-accent: var(--vscode-button-foreground, var(--st-palette-on-accent));
+  --st-accent-2: var(--vscode-editorWarning-foreground, var(--st-palette-accent-2));
+  --st-accent-2-soft: var(--st-surface);
+  --st-success: var(--vscode-testing-iconPassed, var(--st-palette-success));
+  --st-success-soft: var(--st-surface);
+  --st-warning: var(--vscode-editorWarning-foreground, var(--st-palette-warning));
+  --st-warning-soft: var(--st-surface);
+  --st-danger: var(--vscode-errorForeground, var(--st-palette-danger));
+  --st-danger-soft: var(--st-surface);
+  --st-info: var(--vscode-editorInfo-foreground, var(--st-palette-info));
+  --st-info-soft: var(--st-surface);
+  --st-focus: var(--vscode-focusBorder, var(--st-palette-focus));
+  --st-border: var(--vscode-panel-border, var(--vscode-widget-border, var(--st-palette-border)));
+  --st-border-strong: var(--vscode-input-border, var(--vscode-contrastBorder, var(--st-muted)));
+  --st-button-background: var(--vscode-button-background, var(--st-palette-accent));
+  --st-button-foreground: var(--vscode-button-foreground, var(--st-palette-on-accent));
+  --st-button-hover-background: var(--vscode-button-hoverBackground, var(--st-palette-accent-hover));
+  --st-input-background: var(--vscode-input-background, var(--st-surface));
+  --st-input-foreground: var(--vscode-input-foreground, var(--st-text));
+  --st-input-border: var(--vscode-input-border, var(--st-border-strong));
+  --st-input-placeholder: var(--vscode-input-placeholderForeground, var(--st-muted));
+  --st-font-display: var(--vscode-font-family, var(--st-font-text));
+  /* The display tracking is tuned for Studium's serif; on the editor's UI font it looks cramped. */
+  --st-tracking-display: normal;
+  --st-font-text: var(--vscode-font-family, 'Avenir Next', Avenir, 'Segoe UI', system-ui, sans-serif);
+  --st-font-mono: var(--vscode-editor-font-family, ui-monospace, 'SFMono-Regular', Consolas, monospace);
+  --st-scene-ungraded: var(--st-muted);
+  --st-scene-ungraded-soft: var(--st-surface);
+  --st-scene-author-keyed: var(--st-warning);
+  --st-scene-author-keyed-soft: var(--st-surface);
+  --st-scene-production: var(--st-info);
+  --st-scene-production-soft: var(--st-surface);
+  --st-scene-externally-grounded: var(--st-success);
+  --st-scene-externally-grounded-soft: var(--st-surface);
+  --st-node-concept: var(--st-accent);
+  --st-node-concept-soft: var(--st-surface);
+  --st-node-task: var(--st-info);
+  --st-node-task-soft: var(--st-surface);
+  --st-node-mastered: var(--st-success);
+  --st-node-mastered-soft: var(--st-surface);
+  --st-node-due: var(--st-warning);
+  --st-node-due-soft: var(--st-surface);
+  background: var(--st-canvas);
+  color: var(--st-text);
+}
+
+/* High-contrast users choose the palette. Shape, borders and words carry status. */
+body:is(.vscode-high-contrast, .vscode-high-contrast-light) {
+  --st-surface: var(--vscode-editor-background, var(--st-palette-canvas));
+  --st-surface-raised: var(--st-surface);
+  --st-surface-muted: var(--st-surface);
+  --st-muted: var(--st-text);
+  --st-success: var(--st-text);
+  --st-warning: var(--st-text);
+  --st-danger: var(--st-text);
+  --st-info: var(--st-text);
+  --st-accent-2: var(--st-text);
+  --st-border: var(--vscode-contrastBorder, var(--st-text));
+  --st-border-strong: var(--vscode-contrastBorder, var(--st-text));
+  --st-input-border: var(--st-border-strong);
+  --st-focus: var(--vscode-focusBorder, var(--vscode-contrastActiveBorder, var(--st-text)));
+  --st-shadow-small: none;
+  --st-shadow-raised: none;
+}
+body.vscode-high-contrast { color-scheme: dark; }
+body.vscode-high-contrast-light { color-scheme: light; }
+
+body:is(.vscode-high-contrast, .vscode-high-contrast-light) :is(.st-chip, .st-feedback, .st-notice, .st-node, .st-state, .st-toast) {
+  border-width: var(--st-border-width-strong);
+}
+
+body:is(.vscode-light, .vscode-dark, .vscode-high-contrast, .vscode-high-contrast-light) :focus-visible {
+  outline: var(--st-border-width-focus) solid var(--st-focus);
+  outline-offset: 3px;
+}
+
+@media (forced-colors: active) {
+  body:is(.vscode-light, .vscode-dark, .vscode-high-contrast, .vscode-high-contrast-light) {
+    --st-canvas: Canvas;
+    --st-surface: Canvas;
+    --st-surface-raised: Canvas;
+    --st-surface-muted: Canvas;
+    --st-text: CanvasText;
+    --st-muted: CanvasText;
+    --st-border: CanvasText;
+    --st-border-strong: CanvasText;
+    --st-focus: Highlight;
+    --st-shadow-small: none;
+    --st-shadow-raised: none;
+  }
+}

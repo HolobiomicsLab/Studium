@@ -1,6 +1,7 @@
 // lesson-tree.driver.ts — unit test for the pure sidebar-tree shaping (buildLessonTree). No vscode APIs.
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/lesson-tree.driver.ts
 import { buildLessonTree, type TreeNode } from "./lesson-tree.js";
+import { browserPhrases } from "./phrases.js";
 
 const failures: string[] = [];
 let checks = 0;
@@ -44,7 +45,9 @@ const byId = (nodes: TreeNode[], id: string) => nodes.find((n) => n.id === id);
   ];
   const t = buildLessonTree({ courses, currentRef: "beta/lesson.json", community: [], onReproductionScene: false });
   const available = byId(t, "courses");
-  expect(available?.label === "Cours disponibles / Courses", "tree has the bilingual courses subtree");
+  // Changed (VSC-5): the French label was slash-bilingual (« Cours disponibles / Courses »); labels are now
+  // real translations, so the French tree says only « Cours disponibles ».
+  expect(available?.label === "Cours disponibles", "tree has the French courses subtree (VSC-5: no slash-bilingual labels)");
   expect(available?.children?.length === 2, "courses subtree lists one leaf per discovered course");
   const alpha = available?.children?.[0];
   const beta = available?.children?.[1];
@@ -57,6 +60,15 @@ const byId = (nodes: TreeNode[], id: string) => nodes.find((n) => n.id === id);
   const empty = byId(buildLessonTree({ courses: [], currentRef: "", community: [], onReproductionScene: false }), "courses");
   expect(empty?.children?.length === 1 && empty.children[0]?.id === "courses:empty", "empty bundles root shows a courses placeholder");
   expect(!empty?.children?.[0]?.command, "empty courses placeholder is not clickable");
+}
+
+// VSC-5: the sidebar and picker labels are real translations in both languages, never « français / English ».
+for (const locale of ["fr", "en"] as const) {
+  const catalogue = browserPhrases(locale) as Record<string, string>;
+  for (const [key, value] of Object.entries(catalogue)) {
+    if (!/^(?:tree|picker)_/.test(key)) continue;
+    expect(!/ \/ /.test(value), `${locale} ${key} is not a slash-bilingual label (${JSON.stringify(value)})`);
+  }
 }
 
 if (failures.length) {

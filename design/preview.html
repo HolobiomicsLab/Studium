@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Studium component catalogue: accessible lesson, feedback, mastery and authoring patterns in two themes.">
+  <title>Studium — Design system</title>
+  <link rel="icon" href="../docs/assets/brand/studium-icon.png" type="image/png">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="components.css">
+  <link rel="stylesheet" href="preview.css">
+  <script src="preview.js" defer></script>
+</head>
+<body class="st-scope">
+  <a class="preview-skip" href="#components">Skip to components</a>
+  <div class="preview-shell">
+    <header class="preview-masthead"><img class="preview-wordmark" src="../docs/assets/brand/studium-wordmark-light.svg" width="380" height="100" alt="Studium"><span class="preview-edition">Design system / 01<br>Paper · ink · learning</span></header>
+    <main>
+      <div class="preview-intro"><div><p class="st-eyebrow">A shared visual language</p><h1>Room to think.</h1></div><p class="preview-intro__copy">Clear lessons. Visible evidence. Honest feedback.<br>One language for teaching, learning and returning to an idea.</p></div>
+      <nav class="preview-index" aria-label="Component index"><a href="#light-lesson"><span>01</span>Lesson</a><a href="#light-classes"><span>02</span>Scene classes</a><a href="#light-feedback"><span>03</span>Feedback</a><a href="#light-graph"><span>04</span>Learning map</a><a href="#light-authoring"><span>05</span>Authorship</a><a href="#light-states"><span>06</span>States</a></nav>
+      <div class="preview-pair" id="components">
+  <section class="preview-theme st-scope" data-theme="light" aria-labelledby="light-title">
+    <header class="preview-theme__heading">
+      <div><p class="st-eyebrow">light theme</p><h2 class="preview-theme__name" id="light-title">Paper &amp; daylight</h2></div>
+      <span class="preview-theme__sample" aria-hidden="true"></span>
+    </header>
+
+    <section class="preview-section" id="light-lesson" aria-labelledby="light-lesson-label">
+      <div class="preview-section__heading"><span class="preview-section__number" aria-hidden="true">01</span><h3 id="light-lesson-label">The lesson surface</h3></div>
+      <div class="preview-lesson">
+        <header class="st-scene">
+          <div class="st-scene__top"><span class="st-eyebrow">Reading scientific claims</span><span class="st-chip" data-key-class="author_keyed">Quiz · Author keyed</span></div>
+          <h4 class="st-scene__title">From a claim to its evidence</h4>
+          <p class="st-scene__context">Look for an observation that can be checked independently.</p>
+          <div class="st-progress" role="progressbar" aria-label="Lesson position" aria-valuemin="1" aria-valuemax="8" aria-valuenow="3" aria-valuetext="Step 3 of 8; 2 completed">
+            <div class="st-progress__label" aria-hidden="true"><strong>Step 3 of 8</strong><span>2 completed</span></div>
+            <div class="st-segments" aria-hidden="true"><span data-state="complete"></span><span data-state="complete"></span><span data-state="current"></span><span></span><span></span><span></span><span></span><span></span></div>
+          </div>
+        </header>
+        <form class="st-answer" data-answer-form>
+          <fieldset class="st-choices">
+            <legend>Which is the strongest support for a claim?</legend>
+            <label class="st-choice"><input type="radio" name="light-choice" value="wording" required><span>A confident explanation of the result.</span></label>
+            <label class="st-choice"><input type="radio" name="light-choice" value="evidence" checked><span>Independent measurements that support the result.</span></label>
+            <label class="st-choice"><input type="radio" name="light-choice" value="familiarity"><span>A claim that sounds familiar.</span></label>
+          </fieldset>
+          <div class="st-field">
+            <label class="st-field__label" for="light-reasoning">Explain your reasoning</label>
+            <textarea class="st-input" id="light-reasoning" name="reasoning" rows="3" placeholder="What makes this evidence convincing?" aria-describedby="light-reasoning-help"></textarea>
+            <p class="st-field__help" id="light-reasoning-help">Use your own words. A short explanation is enough.</p>
+          </div>
+          <div class="st-confidence">
+            <div class="st-confidence__heading"><label class="st-field__label" for="light-confidence">How sure are you?</label><output for="light-confidence" data-confidence-value>3 / 4 · Fairly sure</output></div>
+            <input type="range" id="light-confidence" name="confidence" min="0" max="4" step="1" value="3" data-confidence aria-describedby="light-confidence-help" aria-valuetext="Fairly sure">
+            <div class="st-confidence__ends" aria-hidden="true"><span>Not sure yet</span><span>Very sure</span></div>
+            <span class="st-field__help" id="light-confidence-help">Confidence describes how you feel; it is separate from mastery.</span>
+          </div>
+          <div class="st-actions"><button class="st-button st-button--primary" type="submit">Preview response <svg class="st-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button><button class="st-button" type="reset">Start again</button></div>
+          <div class="st-feedback" data-verdict="acknowledged" data-demo-response role="status" hidden>
+            <div class="st-feedback__heading"><span class="st-feedback__symbol" aria-hidden="true">↳</span>Response received</div><p data-response-copy></p>
+          </div>
+        </form>
+        <details class="st-hint"><summary>Open a hint</summary><div class="st-hint__body"><p>Ask whether another person could repeat the observation and challenge the conclusion.</p><p>In a lesson, hints can reduce mastery credit.</p></div></details>
+      </div>
+      <p class="preview-notice-copy">Interactive specimen with example content. No answer is sent or graded.</p>
+    </section>
+
+    <section class="preview-section" id="light-classes" aria-labelledby="light-classes-label">
+      <div class="preview-section__heading"><span class="preview-section__number" aria-hidden="true">02</span><h3 id="light-classes-label">Four ways to establish an answer</h3></div>
+      <dl class="preview-chip-list">
+        <div><dt><span class="st-chip" data-key-class="ungraded">○ Ungraded</span></dt><dd>Introduction, concept and confidence checkpoint.</dd></div>
+        <div><dt><span class="st-chip" data-key-class="author_keyed">◇ Author keyed</span></dt><dd>Quiz and spot the flaw. Self-authored keys make these open book.</dd></div>
+        <div><dt><span class="st-chip" data-key-class="production">↗ Production</span></dt><dd>Reasoning, critique and communication. The evaluation source must be shown.</dd></div>
+        <div><dt><span class="st-chip" data-key-class="externally_grounded">⌘ Externally grounded</span></dt><dd>Reproduction, with an executed reference result.</dd></div>
+      </dl>
+    </section>
+
+    <section class="preview-section" id="light-feedback" aria-labelledby="light-feedback-label">
+      <div class="preview-section__heading"><span class="preview-section__number" aria-hidden="true">03</span><h3 id="light-feedback-label">Feedback that says what it knows</h3></div>
+      <div class="st-stack">
+        <div class="st-feedback" data-verdict="correct"><div class="st-feedback__heading"><span class="st-feedback__symbol" aria-hidden="true">✓</span>Correct · matches the answer key</div><p>Independent measurements give others something they can verify.</p></div>
+        <div class="st-feedback" data-verdict="incorrect"><div class="st-feedback__heading"><span class="st-feedback__symbol" aria-hidden="true">×</span>Not yet · revisit the evidence</div><p>Confidence in an explanation does not establish that the claim is supported.</p></div>
+        <div class="st-feedback" data-verdict="acknowledged"><div class="st-feedback__heading"><span class="st-feedback__symbol" aria-hidden="true">↳</span>Acknowledged · no grade</div><p>Your reflection has been recorded. This scene does not assess mastery.</p></div>
+        <div class="st-feedback" data-verdict="keyword-only"><div class="st-feedback__heading"><span class="st-feedback__symbol" aria-hidden="true">≈</span>Keyword feedback <span class="st-feedback__qualification">Not certified</span></div><p>Your answer includes expected terms. This does not establish correctness or change mastery or the review schedule.</p></div>
+      </div>
+    </section>
+
+    <section class="preview-section" id="light-graph" aria-labelledby="light-graph-label">
+      <div class="preview-section__heading"><span class="preview-section__number" aria-hidden="true">04</span><h3 id="light-graph-label">Learning over time</h3></div>
+      <div class="st-stack">
+        <div class="st-mastery">
+          <div class="st-mastery__heading"><label for="light-mastery">Evaluating evidence</label><output for="light-mastery">68%</output></div>
+          <meter id="light-mastery" min="0" max="100" value="68" aria-describedby="light-mastery-note">68%</meter>
+          <p class="st-mastery__note" id="light-mastery-note">Estimated mastery · 4 graded attempts. A learning signal, not a course grade.</p>
+        </div>
+        <div class="st-row"><span class="st-chip st-chip--due"><svg class="st-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>Review due · today</span></div>
+        <div class="preview-node-grid" aria-label="Graph node and state examples">
+          <div class="st-node" data-kind="concept"><span class="st-node__shape" aria-hidden="true"></span><div class="st-node__copy"><span class="st-node__kind">Concept</span><strong class="st-node__title">Evidence</strong></div></div>
+          <div class="st-node" data-kind="task"><span class="st-node__shape" aria-hidden="true"></span><div class="st-node__copy"><span class="st-node__kind">Task</span><strong class="st-node__title">Compare two claims</strong></div></div>
+          <div class="st-node" data-kind="concept" data-state="mastered"><span class="st-node__shape" aria-hidden="true"></span><div class="st-node__copy"><span class="st-node__kind">Concept</span><strong class="st-node__title">Observation</strong><span class="st-node__state"><svg class="st-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>Mastered</span></div></div>
+          <div class="st-node" data-kind="concept" data-state="due"><span class="st-node__shape" aria-hidden="true"></span><div class="st-node__copy"><span class="st-node__kind">Concept</span><strong class="st-node__title">Uncertainty</strong><span class="st-node__state"><svg class="st-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>Review due</span></div></div>
+        </div>
+        <p class="preview-note">Circle = concept. Square = task. Mastery and review are states of a node; they do not change its kind.</p>
+      </div>
+    </section>
+
+    <section class="preview-section" id="light-authoring" aria-labelledby="light-authoring-label">
+      <div class="preview-section__heading"><span class="preview-section__number" aria-hidden="true">05</span><h3 id="light-authoring-label">The source of the lesson stays visible</h3></div>
+      <aside class="st-notice" aria-labelledby="light-notice-title"><strong class="st-notice__title" id="light-notice-title">Self-authored lesson · open book</strong><p>Quiz and spot-the-flaw keys were written by the learner. Without a judge model, production scenes give keyword feedback with no certified assessment. Only executed reproductions carry an external assessment.</p></aside>
+      <p class="preview-notice-copy">The host supplies the authoring notice. Its meaning must survive every surface and theme.</p>
+    </section>
+
+    <section class="preview-section" id="light-states" aria-labelledby="light-states-label">
+      <div class="preview-section__heading"><span class="preview-section__number" aria-hidden="true">06</span><h3 id="light-states-label">Useful even before the first answer</h3></div>
+      <div class="st-stack">
+        <div class="st-state"><strong class="st-state__title">Your next lesson starts here</strong><p class="st-state__detail">Open a lesson from your harness or choose a course to begin.</p><span class="st-eyebrow">Empty state</span></div>
+        <div class="st-state" role="status"><strong class="st-state__title">Preparing the lesson…</strong><p class="st-state__detail">Reading scenes and the learning graph.</p><div class="st-loading-track" aria-hidden="true"></div></div>
+        <div class="st-state st-state--error"><strong class="st-state__title">The lesson could not be opened</strong><p class="st-state__detail">The lesson host is unavailable. Your current answer is still here.</p><div class="st-actions"><button class="st-button" type="button" data-retry>Try again</button></div></div>
+        <div class="st-field"><label class="st-field__label" for="light-invalid">Lesson name</label><input class="st-input" id="light-invalid" value="" aria-invalid="true" aria-describedby="light-invalid-help"><span class="st-field__error" id="light-invalid-help">Enter a lesson name to continue.</span></div>
+        <div class="st-actions"><button class="st-button" type="button" data-show-toast>Show a toast</button><button class="st-button" type="button" disabled>Unavailable action</button></div>
+        <div class="st-toast" data-toast><div class="st-toast__message" role="status" aria-live="polite" aria-atomic="true"><span data-toast-message>Progress saved locally.</span></div><button class="st-toast__dismiss" type="button" aria-label="Dismiss notification" data-dismiss-toast><svg class="st-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div>
+      </div>
+    </section>
+  </section>
+  <section class="preview-theme st-scope" data-theme="dark" aria-labelledby="dark-title">
+    <header class="preview-theme__heading">
+      <div><p class="st-eyebrow">dark theme</p><h2 class="preview-theme__name" id="dark-title">Ink &amp; quiet</h2></div>
+      <span class="preview-theme__sample" aria-hidden="true"></span>
+    </header>
+
+    <section class="preview-section" id="dark-lesson" aria-labelledby="dark-lesson-label">
+      <div class="preview-section__heading"><span class="preview-section__number" aria-hidden="true">01</span><h3 id="dark-lesson-label">The lesson surface</h3></div>
+      <div class="preview-lesson">
+        <header class="st-scene">
+          <div class="st-scene__top"><span class="st-eyebrow">Reading scientific claims</span><span class="st-chip" data-key-class="author_keyed">Quiz · Author keyed</span></div>
+          <h4 class="st-scene__title">From a claim to its evidence</h4>
+          <p class="st-scene__context">Look for an observation that can be checked independently.</p>
+          <div class="st-progress" role="progressbar" aria-label="Lesson position" aria-valuemin="1" aria-valuemax="8" aria-valuenow="3" aria-valuetext="Step 3 of 8; 2 completed">
+            <div class="st-progress__label" aria-hidden="true"><strong>Step 3 of 8</strong><span>2 completed</span></div>
+            <div class="st-segments" aria-hidden="true"><span data-state="complete"></span><span data-state="complete"></span><span data-state="current"></span><span></span><span></span><span></span><span></span><span></span></div>
+          </div>
+        </header>
+        <form class="st-answer" data-answer-form>
+          <fieldset class="st-choices">
+            <legend>Which is the strongest support for a claim?</legend>
+            <label class="st-choice"><input type="radio" name="dark-choice" value="wording" required><span>A confident explanation of the result.</span></label>
+            <label class="st-choice"><input type="radio" name="dark-choice" value="evidence" checked><span>Independent measurements that support the result.</span></label>
+            <label class="st-choice"><input type="radio" name="dark-choice" value="familiarity"><span>A claim that sounds familiar.</span></label>
+          </fieldset>
+          <div class="st-field">
+            <label class="st-field__label" for="dark-reasoning">Explain your reasoning</label>
+            <textarea class="st-input" id="dark-reasoning" name="reasoning" rows="3" placeholder="What makes this evidence convincing?" aria-describedby="dark-reasoning-help"></textarea>
+            <p class="st-field__help" id="dark-reasoning-help">Use your own words. A short explanation is enough.</p>
+          </div>
+          <div class="st-confidence">
+            <div class="st-confidence__heading"><label class="st-field__label" for="dark-confidence">How sure are you?</label><output for="dark-confidence" data-confidence-value>3 / 4 · Fairly sure</output></div>
+            <input type="range" id="dark-confidence" name="confidence" min="0" max="4" step="1" value="3" data-confidence aria-describedby="dark-confidence-help" aria-valuetext="Fairly sure">
+            <div class="st-confidence__ends" aria-hidden="true"><span>Not sure yet</span><span>Very sure</span></div>
+            <span class="st-field__help" id="dark-confidence-help">Confidence describes how you feel; it is separate from mastery.</span>
+          </div>
+          <div class="st-actions"><button class="st-button st-button--primary" type="submit">Preview response <svg class="st-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button><button class="st-button" type="reset">Start again</button></div>
+          <div class="st-feedback" data-verdict="acknowledged" data-demo-response role="status" hidden>
+            <div class="st-feedback__heading"><span class="st-feedback__symbol" aria-hidden="true">↳</span>Response received</div><p data-response-copy></p>
+          </div>
+        </form>
+        <details class="st-hint"><summary>Open a hint</summary><div class="st-hint__body"><p>Ask whether another person could repeat the observation and challenge the conclusion.</p><p>In a lesson, hints can reduce mastery credit.</p></div></details>
+      </div>
+      <p class="preview-notice-copy">Interactive specimen with example content. No answer is sent or graded.</p>
+    </section>
+
+    <section class="preview-section" id="dark-classes" aria-labelledby="dark-classes-label">
+      <div class="preview-section__heading"><span class="preview-section__number" aria-hidden="true">02</span><h3 id="dark-classes-label">Four ways to establish an answer</h3></div>
+      <dl class="preview-chip-list">
+        <div><dt><span class="st-chip" data-key-class="ungraded">○ Ungraded</span></dt><dd>Introduction, concept and confidence checkpoint.</dd></div>
+        <div><dt><span class="st-chip" data-key-class="author_keyed">◇ Author keyed</span></dt><dd>Quiz and spot the flaw. Self-authored keys make these open book.</dd></div>
+        <div><dt><span class="st-chip" data-key-class="production">↗ Production</span></dt><dd>Reasoning, critique and communication. The evaluation source must be shown.</dd></div>
+        <div><dt><span class="st-chip" data-key-class="externally_grounded">⌘ Externally grounded</span></dt><dd>Reproduction, with an executed reference result.</dd></div>
+      </dl>
+    </section>
+
+    <section class="preview-section" id="dark-feedback" aria-labelledby="dark-feedback-label">
+      <div class="preview-section__heading"><span class="preview-section__number" aria-hidden="true">03</span><h3 id="dark-feedback-label">Feedback that says what it knows</h3></div>
+      <div class="st-stack">
+        <div class="st-feedback" data-verdict="correct"><div class="st-feedback__heading"><span class="st-feedback__symbol" aria-hidden="true">✓</span>Correct · matches the answer key</div><p>Independent measurements give others something they can verify.</p></div>
+        <div class="st-feedback" data-verdict="incorrect"><div class="st-feedback__heading"><span class="st-feedback__symbol" aria-hidden="true">×</span>Not yet · revisit the evidence</div><p>Confidence in an explanation does not establish that the claim is supported.</p></div>
+        <div class="st-feedback" data-verdict="acknowledged"><div class="st-feedback__heading"><span class="st-feedback__symbol" aria-hidden="true">↳</span>Acknowledged · no grade</div><p>Your reflection has been recorded. This scene does not assess mastery.</p></div>
+        <div class="st-feedback" data-verdict="keyword-only"><div class="st-feedback__heading"><span class="st-feedback__symbol" aria-hidden="true">≈</span>Keyword feedback <span class="st-feedback__qualification">Not certified</span></div><p>Your answer includes expected terms. This does not establish correctness or change mastery or the review schedule.</p></div>
+      </div>
+    </section>
+
+    <section class="preview-section" id="dark-graph" aria-labelledby="dark-graph-label">
+      <div class="preview-section__heading"><span class="preview-section__number" aria-hidden="true">04</span><h3 id="dark-graph-label">Learning over time</h3></div>
+      <div class="st-stack">
+        <div class="st-mastery">
+          <div class="st-mastery__heading"><label for="dark-mastery">Evaluating evidence</label><output for="dark-mastery">68%</output></div>
+          <meter id="dark-mastery" min="0" max="100" value="68" aria-describedby="dark-mastery-note">68%</meter>
+          <p class="st-mastery__note" id="dark-mastery-note">Estimated mastery · 4 graded attempts. A learning signal, not a course grade.</p>
+        </div>
+        <div class="st-row"><span class="st-chip st-chip--due"><svg class="st-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>Review due · today</span></div>
+        <div class="preview-node-grid" aria-label="Graph node and state examples">
+          <div class="st-node" data-kind="concept"><span class="st-node__shape" aria-hidden="true"></span><div class="st-node__copy"><span class="st-node__kind">Concept</span><strong class="st-node__title">Evidence</strong></div></div>
+          <div class="st-node" data-kind="task"><span class="st-node__shape" aria-hidden="true"></span><div class="st-node__copy"><span class="st-node__kind">Task</span><strong class="st-node__title">Compare two claims</strong></div></div>
+          <div class="st-node" data-kind="concept" data-state="mastered"><span class="st-node__shape" aria-hidden="true"></span><div class="st-node__copy"><span class="st-node__kind">Concept</span><strong class="st-node__title">Observation</strong><span class="st-node__state"><svg class="st-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>Mastered</span></div></div>
+          <div class="st-node" data-kind="concept" data-state="due"><span class="st-node__shape" aria-hidden="true"></span><div class="st-node__copy"><span class="st-node__kind">Concept</span><strong class="st-node__title">Uncertainty</strong><span class="st-node__state"><svg class="st-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>Review due</span></div></div>
+        </div>
+        <p class="preview-note">Circle = concept. Square = task. Mastery and review are states of a node; they do not change its kind.</p>
+      </div>
+    </section>
+
+    <section class="preview-section" id="dark-authoring" aria-labelledby="dark-authoring-label">
+      <div class="preview-section__heading"><span class="preview-section__number" aria-hidden="true">05</span><h3 id="dark-authoring-label">The source of the lesson stays visible</h3></div>
+      <aside class="st-notice" aria-labelledby="dark-notice-title"><strong class="st-notice__title" id="dark-notice-title">Self-authored lesson · open book</strong><p>Quiz and spot-the-flaw keys were written by the learner. Without a judge model, production scenes give keyword feedback with no certified assessment. Only executed reproductions carry an external assessment.</p></aside>
+      <p class="preview-notice-copy">The host supplies the authoring notice. Its meaning must survive every surface and theme.</p>
+    </section>
+
+    <section class="preview-section" id="dark-states" aria-labelledby="dark-states-label">
+      <div class="preview-section__heading"><span class="preview-section__number" aria-hidden="true">06</span><h3 id="dark-states-label">Useful even before the first answer</h3></div>
+      <div class="st-stack">
+        <div class="st-state"><strong class="st-state__title">Your next lesson starts here</strong><p class="st-state__detail">Open a lesson from your harness or choose a course to begin.</p><span class="st-eyebrow">Empty state</span></div>
+        <div class="st-state" role="status"><strong class="st-state__title">Preparing the lesson…</strong><p class="st-state__detail">Reading scenes and the learning graph.</p><div class="st-loading-track" aria-hidden="true"></div></div>
+        <div class="st-state st-state--error"><strong class="st-state__title">The lesson could not be opened</strong><p class="st-state__detail">The lesson host is unavailable. Your current answer is still here.</p><div class="st-actions"><button class="st-button" type="button" data-retry>Try again</button></div></div>
+        <div class="st-field"><label class="st-field__label" for="dark-invalid">Lesson name</label><input class="st-input" id="dark-invalid" value="" aria-invalid="true" aria-describedby="dark-invalid-help"><span class="st-field__error" id="dark-invalid-help">Enter a lesson name to continue.</span></div>
+        <div class="st-actions"><button class="st-button" type="button" data-show-toast>Show a toast</button><button class="st-button" type="button" disabled>Unavailable action</button></div>
+        <div class="st-toast" data-toast><div class="st-toast__message" role="status" aria-live="polite" aria-atomic="true"><span data-toast-message>Progress saved locally.</span></div><button class="st-toast__dismiss" type="button" aria-label="Dismiss notification" data-dismiss-toast><svg class="st-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div>
+      </div>
+    </section>
+  </section>
+      </div>
+    </main>
+    <footer class="preview-footer"><span>Local component specimens · example data</span><div class="st-row"><a href="README.md">Design guide</a><a href="README.fr.md" lang="fr">Guide en français</a><a href="tokens.json">Tokens</a></div></footer>
+  </div>
+</body>
+</html>

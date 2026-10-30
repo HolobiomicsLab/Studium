@@ -14,6 +14,15 @@ import {
   toPickItems,
   COMMUNITY_DIR,
 } from "./community.js";
+import { isolateFromHome } from "./driver-isolation.js";
+import { readConceptTitles } from "./bundle-titles.js";
+import { makeZip } from "./zip-fixture.js";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+// I-10: no driver may write into the developer's home, even one that starts no server.
+const isolation = isolateFromHome("community");
 
 const failures: string[] = [];
 let checks = 0;
@@ -120,6 +129,29 @@ const COMMUNITY_FS = `${BUNDLES_ROOT}/atomistique-l1/${COMMUNITY_DIR}`;
   expect(!JSON.stringify(items).includes("hmac-"), "no pseudonym token in picker items");
 }
 
+// --- concept titles of a community bundle (W4 review: the pane never shows the bare id) ------------------
+// A community bundle is a .zip holding lesson.json; the titles come from inside it, as for a lesson.json file.
+{
+  const dir = mkdtempSync(join(tmpdir(), "studium-titles-"));
+  const lesson = JSON.stringify({ concepts: [{ id: "concept:c1", title: "Énergie d'ionisation" }, { id: "c2", title: "" }, { title: "no id" }] });
+  const want = (t: Record<string, string>) => t["concept:c1"] === "Énergie d'ionisation" && t["c2"] === "c2" && Object.keys(t).length === 2;
+  writeFileSync(join(dir, "plain.json"), lesson);
+  mkdirSync(join(dir, "folder"));
+  writeFileSync(join(dir, "folder", "lesson.json"), lesson);
+  writeFileSync(join(dir, "community-deflated.zip"), makeZip({ "assets/a.txt": "x", "lesson.json": lesson }, true));
+  writeFileSync(join(dir, "community-stored.zip"), makeZip({ "lesson.json": lesson }, false));
+  writeFileSync(join(dir, "community-empty.zip"), makeZip({ "other.json": lesson }));
+  writeFileSync(join(dir, "community-broken.zip"), "not a zip at all");
+  expect(want(readConceptTitles(join(dir, "plain.json"))), "titles from a lesson.json file");
+  expect(want(readConceptTitles(join(dir, "folder"))), "titles from a bundle folder holding lesson.json");
+  expect(want(readConceptTitles(join(dir, "community-deflated.zip"))), "titles from inside a deflated community .zip");
+  expect(want(readConceptTitles(join(dir, "community-stored.zip"))), "titles from inside a stored community .zip");
+  expect(Object.keys(readConceptTitles(join(dir, "community-empty.zip"))).length === 0, "a .zip without lesson.json gives no titles");
+  expect(Object.keys(readConceptTitles(join(dir, "community-broken.zip"))).length === 0, "an unreadable .zip gives no titles");
+  expect(Object.keys(readConceptTitles(join(dir, "missing.zip"))).length === 0, "a missing file gives no titles");
+}
+
+expect(isolation.homeUntouched(), `I-10: nothing was written into the home directory (${isolation.home})`);
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} community-picker assertions failed:`);
   for (const f of failures) console.error("  - " + f);

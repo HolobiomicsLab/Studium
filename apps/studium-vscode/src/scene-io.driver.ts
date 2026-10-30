@@ -10,6 +10,8 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FREE_TEXT_KIND, freeTextInput, extractConfidence } from "./scene-io.js";
 import { calibrationVerdict } from "./calibration.js";
+import { browserPhrases } from "./phrases.js";
+import { RECALL_GRADES } from "./pane-messages.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const failures: string[] = [];
@@ -74,6 +76,53 @@ expect((calibrationVerdict({ concept_id: "c", total_attempts: 3, confidence_cali
 }
 // parity: the webview pane must also attach a `confidence` to a submitted input (the tap mirrors this).
 expect(/confidence/.test(pane), "artifact-pane.js attaches a confidence to a submitted input (the tap)");
+
+// 5) VSC-5: both catalogues are complete and distinct. English inherited from the French table (the old
+//    `...FR` spread) is what put « Hint » and « Continue ▸ » in a French pane; a value equal in both
+//    languages must be a true cognate, listed here on purpose.
+{
+  const fr = browserPhrases("fr") as Record<string, string>;
+  const en = browserPhrases("en") as Record<string, string>;
+  const SAME_ON_PURPOSE = new Set([
+    "chat_source", "chat_situation", "notebook_figure", "pane_badge_code", "pane_badge_image", "pane_situation",
+    "pane_signal_justification", "pane_signal_question", "pane_type_discussion", "pane_type_intro",
+    "pane_type_quiz", "pane_type_reproduction",
+  ]);
+  expect(Object.keys(fr).sort().join("|") === Object.keys(en).sort().join("|"), "fr and en catalogues define the same keys");
+  for (const key of Object.keys(fr)) {
+    if (SAME_ON_PURPOSE.has(key)) expect(fr[key] === en[key], `"${key}" is listed as a cognate, so fr and en are equal`);
+    else expect(fr[key] !== en[key], `"${key}" is translated (fr and en differ: "${fr[key]}")`);
+  }
+  // The French pane chrome speaks French: none of these English words may be a French value.
+  for (const key of Object.keys(fr).filter((k) => k.startsWith("pane_") || k.startsWith("graph_"))) {
+    expect(!/\b(?:Hint|Continue|Mastery|Artifacts?|Reference run|landmark|Lesson complete|Submit critique|no artifact)\b/.test(fr[key]), `fr "${key}" carries no English chrome ("${fr[key]}")`);
+  }
+}
+
+// 6) The pane's key-class table (which chip a scene type wears) mirrors the canonical table of
+//    packages/lesson-session-host/src/key-class.ts; the pane is browser JS and cannot import it.
+{
+  const canonicalSrc = readFileSync(resolve(here, "..", "..", "..", "packages", "lesson-session-host", "src", "key-class.ts"), "utf8");
+  const tableOf = (src: string, anchor: RegExp) => {
+    const start = src.search(anchor);
+    const body = start < 0 ? "" : src.slice(start, src.indexOf("}", start));
+    return Object.fromEntries([...body.matchAll(/(\w+):\s*"(ungraded|author_keyed|production|externally_grounded)"/g)].map((m) => [m[1], m[2]]));
+  };
+  const canonical = tableOf(canonicalSrc, /SCENE_KEY_CLASS[^=]*=/);
+  const mirrored = tableOf(pane, /const KEY_CLASS\s*=/);
+  expect(Object.keys(canonical).length === 13, `the canonical key-class table lists the 13 scene types (got ${Object.keys(canonical).length})`);
+  expect(JSON.stringify(Object.entries(mirrored).sort()) === JSON.stringify(Object.entries(canonical).sort()), "artifact-pane.js KEY_CLASS mirrors SCENE_KEY_CLASS");
+}
+
+// 7) C4 and VSC-8: the messages the pane posts for a self-rating and for an in-pane run, with the grade
+//    list the host validates (pane-messages.ts RECALL_GRADES).
+expect(/type:\s*"rateRecall",\s*sceneId[^}]*grade/.test(pane), `artifact-pane.js posts {type:"rateRecall", sceneId, grade}`);
+expect(/type:\s*"run"/.test(pane), `artifact-pane.js posts a {type:"run"} message`);
+{
+  const m = pane.match(/const RECALL_GRADES\s*=\s*\[([^\]]*)\]/);
+  const grades = m ? [...m[1].matchAll(/"([a-z]+)"/g)].map((g) => g[1]) : [];
+  expect(grades.join("|") === RECALL_GRADES.join("|"), `artifact-pane.js offers exactly the grades the host accepts (got ${grades.join(",")})`);
+}
 
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} scene-io assertions failed:`);
