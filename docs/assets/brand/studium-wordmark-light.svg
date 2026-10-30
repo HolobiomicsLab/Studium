@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="100" viewBox="0 0 380 100" role="img" aria-labelledby="title desc">
+  <title id="title">Studium</title>
+  <desc id="desc">Studium wordmark for a light canvas. An S-shaped path joins three nodes.</desc>
+  <g transform="translate(0 10) scale(3.25)">
+    <path fill="#176b60" d="M18 3.875H9a4.625 4.625 0 0 0 0 9.25h6a2.375 2.375 0 0 1 0 4.75H6v2.25h9a4.625 4.625 0 0 0 0-9.25H9a2.375 2.375 0 0 1 0-4.75h9Z"/>
+    <path fill="#176b60" d="M20.5 5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0ZM8.5 19a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0Z"/>
+    <path fill="#b87927" d="M14.25 12a2.25 2.25 0 1 1-4.5 0a2.25 2.25 0 1 1 4.5 0Z"/>
+  </g>
+  <text x="99" y="74" fill="#172d38" font-family="Georgia, &#x27;Iowan Old Style&#x27;, &#x27;Palatino Linotype&#x27;, &#x27;Book Antiqua&#x27;, serif" font-size="72" font-weight="400" letter-spacing="-2.5">Studium</text>
+</svg>

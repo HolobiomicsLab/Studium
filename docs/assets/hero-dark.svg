@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="title desc">
+  <title id="title">Studium — adaptive lessons, grounded in knowledge</title>
+  <desc id="desc">For teachers, students and self-learners. An abstract learning-path motif echoes the Studium S; it does not depict a real course or learner data.</desc>
+  <rect width="1280" height="420" fill="#13252c"/>
+  <g transform="translate(60 89) scale(4.5)">
+    <path fill="#8bd5c4" d="M18 3.875H9a4.625 4.625 0 0 0 0 9.25h6a2.375 2.375 0 0 1 0 4.75H6v2.25h9a4.625 4.625 0 0 0 0-9.25H9a2.375 2.375 0 0 1 0-4.75h9Z"/>
+    <path fill="#8bd5c4" d="M20.5 5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0ZM8.5 19a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0Z"/>
+    <path fill="#edc184" d="M14.25 12a2.25 2.25 0 1 1-4.5 0a2.25 2.25 0 1 1 4.5 0Z"/>
+  </g>
+  <text x="190" y="181" fill="#f2f2e9" font-family="Georgia, &#x27;Iowan Old Style&#x27;, &#x27;Palatino Linotype&#x27;, &#x27;Book Antiqua&#x27;, serif" font-size="104" font-weight="400" letter-spacing="-3.64">Studium</text>
+  <text x="76" y="264" fill="#f2f2e9" font-family="&#x27;Avenir Next&#x27;, Avenir, &#x27;Segoe UI&#x27;, system-ui, sans-serif" font-size="30" font-weight="500">Adaptive lessons, grounded in knowledge.</text>
+  <text x="76" y="310" fill="#b2c4c7" font-family="&#x27;Avenir Next&#x27;, Avenir, &#x27;Segoe UI&#x27;, system-ui, sans-serif" font-size="22" font-weight="400">For teachers, students and self-learners.</text>
+  <g aria-hidden="true">
+    <path d="M1118 94H1010a52 52 0 0 0 0 104h94a52 52 0 0 1 0 104h-106" fill="none" stroke="#3b535b" stroke-width="2"/>
+    <path d="M1010 94V58M1010 198h-86M1104 302v50M1156 250h50" fill="none" stroke="#3b535b" stroke-width="2"/>
+    <path d="M1010 94a52 52 0 0 0 0 104h94" fill="none" stroke="#8bd5c4" stroke-width="3"/>
+    <circle cx="1118" cy="94" r="10" fill="#13252c" stroke="#8bd5c4" stroke-width="2"/>
+    <circle cx="1010" cy="94" r="10" fill="#8bd5c4"/>
+    <circle cx="1010" cy="198" r="10" fill="#8bd5c4"/>
+    <circle cx="1104" cy="198" r="10" fill="#edc184"/>
+    <circle cx="1104" cy="302" r="10" fill="#13252c" stroke="#829b9e" stroke-width="2"/>
+    <circle cx="998" cy="302" r="10" fill="#13252c" stroke="#829b9e" stroke-width="2"/>
+    <circle cx="1010" cy="58" r="3" fill="#829b9e"/>
+    <circle cx="924" cy="198" r="3" fill="#829b9e"/>
+    <circle cx="1104" cy="352" r="3" fill="#829b9e"/>
+    <circle cx="1206" cy="250" r="3" fill="#829b9e"/>
+  </g>
+</svg>

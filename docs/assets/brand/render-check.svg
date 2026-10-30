@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="360" viewBox="0 0 880 360" role="img" aria-labelledby="title desc">
+  <title id="title">Studium brand rendering check</title>
+  <desc id="desc">Both canvas themes, with monochrome and colour marks at 24 and 96 pixels, and wordmark compositions.</desc>
+  <rect x="0" width="440" height="360" fill="#f5f2eb"/>
+  <text x="32" y="31" fill="#52646b" font-family="&#x27;Avenir Next&#x27;, Avenir, &#x27;Segoe UI&#x27;, system-ui, sans-serif" font-size="14">24 px / activity bar</text>
+  <g transform="translate(36 50)">
+    <path fill="#172d38" d="M18 3.875H9a4.625 4.625 0 0 0 0 9.25h6a2.375 2.375 0 0 1 0 4.75H6v2.25h9a4.625 4.625 0 0 0 0-9.25H9a2.375 2.375 0 0 1 0-4.75h9Z"/>
+    <path fill="#172d38" d="M20.5 5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0ZM8.5 19a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0Z"/>
+    <path fill="#172d38" d="M14.25 12a2.25 2.25 0 1 1-4.5 0a2.25 2.25 0 1 1 4.5 0Z"/>
+  </g>
+  <g transform="translate(92 50)">
+    <path fill="#176b60" d="M18 3.875H9a4.625 4.625 0 0 0 0 9.25h6a2.375 2.375 0 0 1 0 4.75H6v2.25h9a4.625 4.625 0 0 0 0-9.25H9a2.375 2.375 0 0 1 0-4.75h9Z"/>
+    <path fill="#176b60" d="M20.5 5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0ZM8.5 19a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0Z"/>
+    <path fill="#b87927" d="M14.25 12a2.25 2.25 0 1 1-4.5 0a2.25 2.25 0 1 1 4.5 0Z"/>
+  </g>
+  <g transform="translate(20 108) scale(4)">
+    <path fill="#172d38" d="M18 3.875H9a4.625 4.625 0 0 0 0 9.25h6a2.375 2.375 0 0 1 0 4.75H6v2.25h9a4.625 4.625 0 0 0 0-9.25H9a2.375 2.375 0 0 1 0-4.75h9Z"/>
+    <path fill="#172d38" d="M20.5 5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0ZM8.5 19a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0Z"/>
+    <path fill="#172d38" d="M14.25 12a2.25 2.25 0 1 1-4.5 0a2.25 2.25 0 1 1 4.5 0Z"/>
+  </g>
+  <g transform="translate(148 108) scale(4)">
+    <path fill="#176b60" d="M18 3.875H9a4.625 4.625 0 0 0 0 9.25h6a2.375 2.375 0 0 1 0 4.75H6v2.25h9a4.625 4.625 0 0 0 0-9.25H9a2.375 2.375 0 0 1 0-4.75h9Z"/>
+    <path fill="#176b60" d="M20.5 5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0ZM8.5 19a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0Z"/>
+    <path fill="#b87927" d="M14.25 12a2.25 2.25 0 1 1-4.5 0a2.25 2.25 0 1 1 4.5 0Z"/>
+  </g>
+  <g transform="translate(20 252) scale(3.25)">
+    <path fill="#176b60" d="M18 3.875H9a4.625 4.625 0 0 0 0 9.25h6a2.375 2.375 0 0 1 0 4.75H6v2.25h9a4.625 4.625 0 0 0 0-9.25H9a2.375 2.375 0 0 1 0-4.75h9Z"/>
+    <path fill="#176b60" d="M20.5 5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0ZM8.5 19a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0Z"/>
+    <path fill="#b87927" d="M14.25 12a2.25 2.25 0 1 1-4.5 0a2.25 2.25 0 1 1 4.5 0Z"/>
+  </g>
+  <text x="119" y="316" fill="#172d38" font-family="Georgia, &#x27;Iowan Old Style&#x27;, &#x27;Palatino Linotype&#x27;, &#x27;Book Antiqua&#x27;, serif" font-size="72" font-weight="400" letter-spacing="-2.5">Studium</text>
+  <rect x="440" width="440" height="360" fill="#13252c"/>
+  <text x="472" y="31" fill="#b2c4c7" font-family="&#x27;Avenir Next&#x27;, Avenir, &#x27;Segoe UI&#x27;, system-ui, sans-serif" font-size="14">24 px / activity bar</text>
+  <g transform="translate(476 50)">
+    <path fill="#f2f2e9" d="M18 3.875H9a4.625 4.625 0 0 0 0 9.25h6a2.375 2.375 0 0 1 0 4.75H6v2.25h9a4.625 4.625 0 0 0 0-9.25H9a2.375 2.375 0 0 1 0-4.75h9Z"/>
+    <path fill="#f2f2e9" d="M20.5 5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0ZM8.5 19a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0Z"/>
+    <path fill="#f2f2e9" d="M14.25 12a2.25 2.25 0 1 1-4.5 0a2.25 2.25 0 1 1 4.5 0Z"/>
+  </g>
+  <g transform="translate(532 50)">
+    <path fill="#8bd5c4" d="M18 3.875H9a4.625 4.625 0 0 0 0 9.25h6a2.375 2.375 0 0 1 0 4.75H6v2.25h9a4.625 4.625 0 0 0 0-9.25H9a2.375 2.375 0 0 1 0-4.75h9Z"/>
+    <path fill="#8bd5c4" d="M20.5 5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0ZM8.5 19a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0Z"/>
+    <path fill="#edc184" d="M14.25 12a2.25 2.25 0 1 1-4.5 0a2.25 2.25 0 1 1 4.5 0Z"/>
+  </g>
+  <g transform="translate(460 108) scale(4)">
+    <path fill="#f2f2e9" d="M18 3.875H9a4.625 4.625 0 0 0 0 9.25h6a2.375 2.375 0 0 1 0 4.75H6v2.25h9a4.625 4.625 0 0 0 0-9.25H9a2.375 2.375 0 0 1 0-4.75h9Z"/>
+    <path fill="#f2f2e9" d="M20.5 5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0ZM8.5 19a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0Z"/>
+    <path fill="#f2f2e9" d="M14.25 12a2.25 2.25 0 1 1-4.5 0a2.25 2.25 0 1 1 4.5 0Z"/>
+  </g>
+  <g transform="translate(588 108) scale(4)">
+    <path fill="#8bd5c4" d="M18 3.875H9a4.625 4.625 0 0 0 0 9.25h6a2.375 2.375 0 0 1 0 4.75H6v2.25h9a4.625 4.625 0 0 0 0-9.25H9a2.375 2.375 0 0 1 0-4.75h9Z"/>
+    <path fill="#8bd5c4" d="M20.5 5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0ZM8.5 19a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0Z"/>
+    <path fill="#edc184" d="M14.25 12a2.25 2.25 0 1 1-4.5 0a2.25 2.25 0 1 1 4.5 0Z"/>
+  </g>
+  <g transform="translate(460 252) scale(3.25)">
+    <path fill="#8bd5c4" d="M18 3.875H9a4.625 4.625 0 0 0 0 9.25h6a2.375 2.375 0 0 1 0 4.75H6v2.25h9a4.625 4.625 0 0 0 0-9.25H9a2.375 2.375 0 0 1 0-4.75h9Z"/>
+    <path fill="#8bd5c4" d="M20.5 5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0ZM8.5 19a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0Z"/>
+    <path fill="#edc184" d="M14.25 12a2.25 2.25 0 1 1-4.5 0a2.25 2.25 0 1 1 4.5 0Z"/>
+  </g>
+  <text x="559" y="316" fill="#f2f2e9" font-family="Georgia, &#x27;Iowan Old Style&#x27;, &#x27;Palatino Linotype&#x27;, &#x27;Book Antiqua&#x27;, serif" font-size="72" font-weight="400" letter-spacing="-2.5">Studium</text>
+</svg>
