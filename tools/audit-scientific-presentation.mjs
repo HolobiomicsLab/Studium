@@ -1,0 +1,67 @@
+/** Exercise actual local scientific renderers and language changes in Chrome. */
+import {createRequire} from 'node:module';
+import {readFile, writeFile, mkdir} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
+const require = createRequire(new URL('../apps/teacher-dashboard/package.json', import.meta.url));
+const {chromium} = require('@playwright/test');
+const [activityArg, outputArg] = process.argv.slice(2);
+const activity = resolve(activityArg), output = resolve(outputArg);
+await mkdir(output, {recursive:false});
+const browser = await chromium.launch({channel:'chrome',headless:true});
+const page = await browser.newPage({viewport:{width:1280,height:950}});
+const report = {checks:[],errors:[],requests:[]};
+const check = (name, passed) => {report.checks.push({name,passed:!!passed}); if (!passed) throw Error(name);};
+page.on('pageerror', error => report.errors.push(String(error)));
+page.on('request', request => {if (/^https?:/.test(request.url())) report.requests.push(request.url());});
+try {
+  await page.goto(pathToFileURL(activity+'/index.html').href);
+  check('supports unavailable before prediction', !await page.locator('#visualSupport').isVisible());
+  await page.locator('#noTrace').click();
+  await page.locator('#prediction').fill('Ma prédiction originale — test synthétique.');
+  await page.locator('#activityLanguage').selectOption('en');
+  check('switch preserves own words', await page.locator('#prediction').inputValue() === 'Ma prédiction originale — test synthétique.');
+  await page.locator('#reveal').click();
+  await page.locator('#visualSupport summary').first().click();
+  await page.waitForFunction(() => document.querySelector('#supportAssets .scientific-support'));
+  check('KaTeX real equation', await page.locator('#supportAssets .katex math').count() > 0);
+  check('Mermaid real diagram', await page.locator('#supportAssets .scientific-support__visual svg').count() > 0);
+  check('no unexpected render fallback', await page.locator('#supportAssets .scientific-support__fallback').count() === 0);
+  await page.locator('#activityLanguage').selectOption('fr');
+  check('language applied document-wide', await page.locator('html').getAttribute('lang') === 'fr');
+  check('committed prediction unchanged', await page.locator('#prediction').inputValue() === 'Ma prédiction originale — test synthétique.');
+  const rendererChecks = await page.evaluate(async () => {
+    const container = document.createElement('div'); container.id='rendererAudit'; document.querySelector('main').append(container);
+    const meta={alt:'Ethanol connectivity; synthetic renderer audit.'};
+    await window.StudiumSupport.render(container,[{kind:'mol_3d',format:'smiles',payload:'CCO',title:'Ethanol · 2D',provenance:'Original simple teaching input; no calculation.',meta}]);
+    const structure=container.querySelector('svg.scientific-support__molecule');
+    const molecule=!!structure && structure.querySelectorAll('path,line,text,circle,polygon').length > 0 && structure.getBoundingClientRect().width > 0;
+    const equation=document.createElement('p'); equation.textContent='A description: \\(x^2 + y^2 = r^2\\).';container.append(equation);
+    window.StudiumSupport.renderMath(equation);
+    const math=!!equation.querySelector('.katex');
+    const bad=document.createElement('div');container.append(bad);
+    await window.StudiumSupport.render(bad,[{kind:'code',language:'mermaid',payload:'flowchart LR\nA --> B\nclick A "https://example.com"',provenance:'Malicious-input test.',meta}]);
+    const map=document.createElement('div');container.append(map);
+    await window.StudiumSupport.render(map,[{kind:'code',language:'mermaid',payload:'mindmap\n  root((Evidence))\n    Source\n    Check\n    Claim',provenance:'Synthetic concept map audit.',meta}]);
+    const mindmap=!!map.querySelector('svg') && !map.querySelector('.scientific-support__fallback');
+    const image=document.createElement('div');container.append(image);
+    await window.StudiumSupport.render(image,[{kind:'image',path:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jNCsAAAAASUVORK5CYII=',provenance:'Tiny synthetic fixture testing the generated label; no model used.',meta:{...meta,origin:'generated',ai_disclaimer:'Extra note cannot remove standard notice.'}}]);
+    const label=image.querySelector('figcaption')?.textContent || '';
+    const generatedLabel=/AI-generated/.test(label)&&/inaccurate/.test(label);
+    return {molecule,math,mindmap,generatedLabel,blocked:!!bad.querySelector('.scientific-support__fallback')&&!bad.querySelector('svg')};
+  });
+  for (const [name,passed] of Object.entries(rendererChecks)) check(name,passed);
+  await page.evaluate(()=>window.scrollTo(0,0));
+  await page.locator('#supportAssets').screenshot({path:output+'/supports.png'});
+  await page.locator('#rendererAudit').screenshot({path:output+'/chemistry-math.png'});
+  await page.setViewportSize({width:390,height:844});
+  check('mobile no horizontal page overflow',await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
+  await page.screenshot({path:output+'/mobile.png',fullPage:true});
+  check('no remote requests',report.requests.length===0);
+  check('no browser errors',report.errors.length===0);
+  report.passed=true;
+} finally {
+  await writeFile(output+'/report.json',JSON.stringify(report,null,2));
+  await browser.close();
+}
+console.log(JSON.stringify(report));

@@ -237,7 +237,12 @@ def test_a_scene_the_preflight_never_saw_is_withheld(cfg, tmp_path, monkeypatch)
     family = collector_column(_cfg(cfg, store=root), STORE_COURSE)["progress"]
 
     assert "s3-appended" not in family.get("scenes", {}), family
-    assert family["n_withheld_scenes"] >= 1, family
+    # INT-STUDIUM-030, R2: the flag says a scene was withheld and WHY, and `n_withheld_scenes`
+    # is gone rather than relaxed. The assertion that replaces it is the stronger one — that
+    # the family publishes no withheld COUNT at all — because the count was the channel.
+    assert family["withheld_unseen"] is True, family
+    assert family["withheld_below_floor"] is False, family
+    assert not [key for key in family if key.startswith("n_withheld")], family
 
 
 def test_a_lesson_the_preflight_never_saw_is_withheld(cfg, tmp_path, monkeypatch):
@@ -254,7 +259,11 @@ def test_a_lesson_the_preflight_never_saw_is_withheld(cfg, tmp_path, monkeypatch
     family = collector_column(_cfg(cfg, store=root), STORE_COURSE)["course_completion"]
 
     assert "appended-lesson" not in family.get("lessons", {}), family
-    assert family["n_withheld_lessons"] >= 1, family
+    assert family["withheld_unseen"] is True, family
+    assert not [key for key in family if key.startswith("n_withheld")], family
+    # A total beside a withheld lesson states what that lesson contributed, by subtraction.
+    assert family["total_completions"] is None, family
+    assert "by subtraction" in family["reason"], family
 
 
 # --------------------------------------------------------------------------------------
@@ -365,7 +374,8 @@ def test_a_key_the_scan_rejected_is_not_reported_as_a_late_arrival(cfg, tmp_path
     assert family["status"] == "ok", family
     assert "s1-quiz" in family["scenes"], family
     assert "7" not in family["scenes"], family
-    assert family["n_withheld_scenes"] == 1, family
+    assert family["withheld_unseen"] is True, family
+    assert not [key for key in family if key.startswith("n_withheld")], family
     assert "first seen when the reader ran" not in json.dumps(family), family
 
 

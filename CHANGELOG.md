@@ -1,0 +1,87 @@
+# Changelog
+
+All notable changes to Studium are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). A release takes the version of `apps/studium-vscode/package.json`. The sections below 0.2.0 are development lines, grouped by month, from before the first tagged release.
+
+## Unreleased
+
+## 0.2.0 — 2026-10-30
+
+The first tagged release, from the production sprint: learning on your own from a conversation, durable study over days, honest feedback, a redesigned VS Code pane, teacher tools, a visual identity and a production pipeline.
+
+### Added
+
+- **Learn a topic from a conversation.** Three MCP tools, `get_authoring_guide`, `prepare_sources` and `create_lesson`, let an AI assistant turn sources the learner chose into a playable lesson without a shell. `prepare_sources` accepts up to 20 sources and 200 000 characters; every quote must match a source passage character for character (no-break spaces, whitespace runs and typographic apostrophes are folded). The draft is validated and linted before it is written, and the lesson is marked as agent-drafted and not teacher-validated.
+- **Study over days.** MCP tools `list_lessons`, `get_study_plan`, `start_review_session` and `rate_recall`. The study plan lists due reviews, "To relearn" (graded and weak) and "Due for review" (self-rated only, never measured); a concept that no lesson can replay is listed but never proposed. The server declares connection instructions and two prompts, `learn` and `review`. The MCP server now has 34 tools.
+- **Teacher tools.** MCP tools `review_lesson` and `class_report` (aggregated, with a floor of five learners that cannot be lowered from the tool). `tools/experience_packet.py approve` writes `approval.json`, bound to the SHA-256 of the exact `lesson.json`, and refuses a bundle with placeholders or lint errors. Teacher dashboard library and review pages; Observatory restyled.
+- **VS Code.** Redesigned lesson pane: design tokens bridged to the editor theme, WCAG 2.2 AA (contrast, visible focus, live regions, labels, language), keyboard and screen-reader support, feedback as its own step, a completion screen with review actions, self-rating buttons. New command **Studium: Open this lesson** and a `vscode://` link to open a lesson, restore on reload, due reviews in the status bar, **Studium: Forget my data**, a confirmation before a reproduction runs code, and a time limit on landmark patterns.
+- **Visual identity.** `design/` (tokens, VS Code bridge, components, preview), logo and hero under `docs/assets/`, four light and dark diagrams, screenshots.
+- **Python tools.** `experience_packet.py` gains `approve`, structured `check` findings (`--json`) and self-study passages.
+- **Production.** VSIX and standalone MCP server built and checked in CI; a release workflow that attaches both to a draft GitHub release when a `vX.Y.Z` tag matches the extension version, and publishes to the Visual Studio Marketplace, Open VSX and npm (`studium-mcp`) for each registry whose token is configured.
+- **Licence.** Apache-2.0 for the code; CC BY 4.0 for the documentation, the visual identity and the lessons written by the project (`LICENSE`, `LICENSES/`, `NOTICE`). Lesson sources record their licence, and each source line shows it.
+- **Documentation.** English and French sibling pages, a portal by role, contributing, code of conduct, security policy and citation files.
+
+### Changed
+
+- Learner state is durable by default under `~/.studium` (`STUDIUM_HOME`): lessons in `library/`, progress in `data/`. `STUDIUM_EPHEMERAL=1` keeps state in memory. In VS Code, state is kept in the extension's storage independently of the telemetry consent, which only governs sending.
+- On-disk learner folders are HMAC pseudonyms keyed by `STUDIUM_PSEUDO_SECRET` or a per-install `<data dir>/.studium-secret` (mode 0600) created on a fresh data directory; an existing data directory keeps its earlier secret.
+- A graded verdict carries its reference as data (`key_points`, `key_points_missing` when a judge measured coverage, `model_answer`, `reference_kind`). Cited passages and the reference are released only when the learner leaves the scene for good.
+- Without a judge model, open answers are shown with the reference to compare, never with a keyword "X/Y covered" count. Self-rating (again, hard, good, easy) schedules reviews with FSRS and never moves mastery. The notice says who wrote the key (teacher, learner or agent) and whether a judge assessed.
+- CI runs on Node 22 with a blocking audit of critical advisories. Dependencies upgraded (MCP SDK 1.32 or later, Next 14.2.35, Fastify 5).
+- The planner answers 503 when no model is configured; the deterministic mock runs only with `STUDIUM_LLM_MODE=mock`.
+- Surfaces and maturity declared: harnesses and the VS Code extension are supported; lesson-server, teacher dashboard and Observatory are maintained; the Tauri app is frozen and built on manual request only; `author-web` is legacy.
+
+### Security
+
+- No answer key before an answer on any host: the cited source passages of graded scenes are released after the answer, and `lesson-server` redacts answer keys.
+- A reproduction command runs only after the learner confirms it, and the consent is tied to the exact bundle.
+
+## 2026-10 — October line
+
+### Added
+
+- Self-study from your own references: `experience_packet.py passages` captures a URL, HTML page, PDF or text as passages; `bundle --self-study` builds an open-book lesson; an authoring block (`mode`, `author_is_learner`, `validated`, `judge`, `notice`) reaches every presentation; new lint rules for self-study lessons; the `studium-self-learner` skill and its tutorial (`7ad27cf`).
+- `list_community_bundles` MCP tool (`7ad27cf`).
+- Full Markdown in the lesson pane (GFM through a vendored marked and an allowlist sanitizer), KaTeX and mhchem in prose, code colouring (`62a9646`).
+- `forget_session` separates erasure from `end_session`, which now closes and keeps progress; `get_next_reinforcement` accepts a session or a learner and returns due reviews in priority order; a lesson resumes at the first unfinished scene (`cac18ba`).
+- `get_server_info` reports name, version, build origin, build time and git revision; a lesson picker and first-run choice in VS Code (`eb5b1e1`).
+- French and English manifests for the extension's commands, views and settings (`77b3368`).
+
+### Changed
+
+- Public scenes no longer carry feedback or hints; transitions carry a `verdict` and a `navigation` record (kind, rule, reason, return target) (`eb5b1e1`).
+- `tools/bundle_lint.mjs` rewritten without dependencies, with `--root` and graph rules (edge direction, cycles, locked first concept, unassessable prerequisite) (`eb5b1e1`).
+- The engine announces a prerequisite gate once, gives feedback on non-quiz graded scenes, records confidence before and after quiz items, and resolves its French or English phrases from the lesson language (`3e701f8`).
+- The September line was merged into the October line; the MCP surface became the union of both (25 lesson tools) (`ef33b4f`).
+
+### Fixed
+
+- Spaced-review reads use an injected clock instead of the wall clock; durable stores keep paired confidence checkpoints (`77b3368`).
+- A reproduction scene cannot be acknowledged without a recorded run (`3e701f8`).
+
+## 2026-09 — September line
+
+### Added
+
+- Local HTTP API exposing the operations shared with MCP, with local authentication, request identifiers for retries and refusal of answers aimed at a previous scene (`3dcf246`).
+- Five interactive activity templates and standardised learner reports for ASTRA, ARA and MySTRA (`3223f70`, `7dee0cc`).
+- Private experiment journal (prediction, observation, conclusion) preserved across harnesses (`0fbcc9c`).
+- Reviewed plans bound to synthesis and MySTRA evidence; linked spectrum and candidate views (`5a5c58d`, `416971f`).
+- Teacher and reviewer MySTRA viewer, literature drafts and harness-built viewers, grounded exploration records (`1a32942`, `0949131`, `bc438df`).
+- Presentation language chosen and changed from the harness; optional scientific supports (Mermaid, KaTeX, SMILES structures, figures with provenance); sourced and generated media; shared contextual help (`afbd0e3`, `3c6ca1e`, `639e8d5`, `6351212`).
+- A shared accessible visual system for viewers and adaptive visual support (`b772e00`, `d26cf6c`).
+- Portable teacher and student onboarding skills and tutorials (`7f2d1f4`, `33bf561`); a harness-neutral `AGENTS.md` (`bb3036a`).
+- Observatory Review and Sessions pages and its Harness tab (`8ff6046`, `4d3c82f`, `b36245a`).
+
+### Changed
+
+- Keyword scores no longer certify an answer; telemetry records which grader produced a critique score (`97cf72f`, `d9b1b1e`).
+- Class-level surfaces apply one k-anonymity floor over learners and never narrow to a person chosen by the caller; every published number names its population (`a900b57`, `2815bca`, `e0f9bc2`).
+- Toolchain pinned (pnpm 9.15.9, Python 3.12) and the tester onboarding path run in CI (`d8ba6e9`, `f37905d`).
+
+### Fixed
+
+- Remediation loops are bounded so a lesson always ends (`74f74e5`).
+- The prerequisite gate says when it opens (`1470199`).
+- An unmeasured calibration is absent from the adaptation context rather than counted as zero (`b6891d6`).
+
+The dated September note, in French, is kept in [design records](docs/design-records/updates/2026-09-12.md).

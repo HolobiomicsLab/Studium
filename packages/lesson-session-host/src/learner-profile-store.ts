@@ -4,9 +4,10 @@
 // The PROFILE is keyed by a LEARNER-level pseudonym (salted by a fixed scope, NOT the bundle_id), so a
 // concept mastered in lesson A can be SEEDED warm into lesson B. The host seeds it on create() and merges
 // it back on completion. The pseudonym (RGPD-safe) is the only on-disk key — never the raw learnerId.
-import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { LearnerProfileSchema, type LearnerProfile } from "@studium/learner-state";
+import { ensurePrivateDirectory, readJsonFile, writeFileAtomic } from "./learner-files.js";
 
 /** A fixed pseudonym scope so the learner profile key is STABLE across the learner's lessons (the
  * per-bundle pseudonym is salted by bundle_id and therefore differs per lesson). */
@@ -30,20 +31,19 @@ export class InMemoryLearnerProfileStore implements LearnerProfileStore {
 }
 
 /** Durable profile store: <dataDir>/<pseudonym>/profile.json — a per-learner tree shared across the
- * learner's bundles. load() is fail-safe (null on missing/parse/validation error). */
+ * learner's bundles. L-11: load() returns null when there is no file, and throws a LearnerDataError
+ * when one exists that does not parse (never « no profile », which the next save would write over);
+ * save() writes the file whole (temporary file and rename), 0600 in a 0700 folder. */
 export class FileLearnerProfileStore implements LearnerProfileStore {
   constructor(private readonly dataDir: string) {}
   private dir(pseudonym: string): string { return join(this.dataDir, sanitizeSegment(pseudonym)); }
   private path(pseudonym: string): string { return join(this.dir(pseudonym), "profile.json"); }
   async load(pseudonym: string): Promise<LearnerProfile | null> {
-    try {
-      const parsed = LearnerProfileSchema.safeParse(JSON.parse(await readFile(this.path(pseudonym), "utf8")));
-      return parsed.success ? parsed.data : null;
-    } catch { return null; }
+    return readJsonFile(this.path(pseudonym), (value) => LearnerProfileSchema.safeParse(value));
   }
   async save(profile: LearnerProfile): Promise<void> {
-    await mkdir(this.dir(profile.pseudonym), { recursive: true });
-    await writeFile(this.path(profile.pseudonym), JSON.stringify(profile, null, 2), "utf8");
+    await ensurePrivateDirectory(this.dataDir);
+    await writeFileAtomic(this.path(profile.pseudonym), JSON.stringify(profile, null, 2));
   }
   async delete(pseudonym: string): Promise<void> { await rm(this.path(pseudonym), { force: true }); }
 }

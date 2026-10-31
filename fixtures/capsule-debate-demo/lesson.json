@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.4",
+  "bundle_id": "capsule-debate-demo",
+  "source_plan_id": "plan-capsule-debate",
+  "metadata": {
+    "title": "Debats ce que ton resultat autorise a conclure (judgment)",
+    "target": "grad",
+    "duration_minutes": 15,
+    "language": "fr",
+    "discipline": "chemistry"
+  },
+  "concepts": [
+    {
+      "id": "c-kinetics",
+      "title": "Cinetique du premier ordre",
+      "description": "Constante de vitesse k, demi-vie, et ce qu'un ajustement autorise a conclure",
+      "bloom_level_target": "evaluate"
+    }
+  ],
+  "rules": [],
+  "scenes": [
+    {
+      "id": "s-intro",
+      "type": "intro",
+      "title": "Un ajustement n'est pas une conclusion",
+      "objective_refs": [],
+      "concept_refs": ["c-kinetics"],
+      "estimated_seconds": 20,
+      "adaptation_hooks": [],
+      "markdown": "La capsule ajuste une decroissance et sort k = 0.4212 s^-1, demi-vie 1.6457 s. Le chiffre est solide. La question qui suit ne l'est pas : elle porte sur ce que ce chiffre AUTORISE a dire. Tu vas defendre une position, et on te repondra."
+    },
+    {
+      "id": "s-debate",
+      "type": "discussion",
+      "title": "Est-ce que ce k decrit le systeme, ou seulement la fenetre mesuree ?",
+      "objective_refs": ["c-kinetics"],
+      "concept_refs": ["c-kinetics"],
+      "estimated_seconds": 300,
+      "adaptation_hooks": [],
+      "topic": "portee d'une constante de vitesse ajustee sur une fenetre finie",
+      "seed_claim": "L'ajustement donne k = 0.4212 s^-1 sur 10 s : la constante du systeme est donc connue.",
+      "target_signals": ["justification", "counterexample", "hypothesis"],
+      "max_turns": 6
+    },
+    {
+      "id": "s-meta",
+      "type": "meta_checkpoint",
+      "title": "Ce que tu retiens de l'echange",
+      "objective_refs": [],
+      "concept_refs": ["c-kinetics"],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "pre_question": "Avant l'echange : dans quelle mesure penses-tu qu'un ajustement sur une fenetre finie fixe la constante du systeme ?",
+      "post_question": "Apres l'echange : qu'est-ce qui te ferait changer d'avis sur cette valeur de k ?",
+      "scale_labels": [
+        "pas du tout",
+        "un peu",
+        "moyennement",
+        "beaucoup",
+        "completement"
+      ]
+    }
+  ],
+  "validated_by": "capsule-debate-demo",
+  "validated_at": "2026-09-10T08:00:00Z"
+}

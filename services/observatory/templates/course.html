@@ -4,17 +4,22 @@
 {% set s = course.summary %}
 <h1>{{ s.id }}{% if s.name %} — {{ s.name }}{% endif %}</h1>
 <p class="path">{{ s.path }}</p>
+<div class="actions">
+  <a class="button primary" href="/courses/{{ s.id | urlencode }}/mystra">Open complete MySTRA report</a>
+  <a class="button" href="/courses/{{ s.id | urlencode }}/review">Focused scene review</a>
+</div>
 <p>
   ASTRA version {{ s.version or "unknown" }} ·
   {{ s.n_analyses }} analysis/analyses · {{ s.n_decisions }} decisions · {{ s.n_findings }} findings ·
   validator <span class="{{ validation.status }}">{{ validation.status|replace("_", " ") }}</span>
   (<a href="/courses/{{ s.id | urlencode }}/validation">run it</a>) ·
   <a href="/courses/{{ s.id | urlencode }}/provenance.myst.md">MyST page</a> ·
+  <a href="/courses/{{ s.id | urlencode }}/mystra">MySTRA viewer</a> ·
   <a href="/courses/{{ s.id | urlencode }}/review">scene review</a>
 </p>
 {{ markers(course.absent) }}
 
-<h2>Analyses</h2>
+<h2>Analyses</h2>{{ help_tip("provenance") }}
 {% for analysis in course.analyses %}
 <h3>{{ analysis.slug }}{% if analysis.name %} — {{ analysis.name }}{% endif %}</h3>
 {% if analysis.description %}<p>{{ analysis.description }}</p>{% endif %}
@@ -26,7 +31,7 @@
   {%- for decision in analysis.decisions %}
     <tr>
       <td>{{ decision.id }}<br><span class="path">{{ decision.source_edge_id }}</span></td>
-      <td>{{ decision.label }}{% if decision.tags %}<br><span class="path">{{ decision.tags|join(", ") }}</span>{% endif %}</td>
+      <td>{{ decision.label }}{% if decision.tags_unreadable %}<p class="absent">unreadable decision tags</p>{% endif %}{% if decision.tags %}<br><span class="path">{{ decision.tags|join(", ") }}</span>{% endif %}</td>
       <td>{{ decision.default or "—" }}</td>
       <td>
         {%- for option in decision.options %}
@@ -52,11 +57,7 @@
       <td>{{ finding.id }}<br><span class="path">{{ finding.source_edge_id }}</span></td>
       <td>{{ finding.claim }}{% if finding.notes %}<br><span class="path">{{ finding.notes }}</span>{% endif %}</td>
       <td>
-        {%- for item in finding.evidence %}
-        <div>{{ item.id }} — {{ item.artifact or "—" }}
-          {%- if item.quote_exact %}<br><span class="path">“{{ item.quote_exact }}”</span>{% endif %}</div>
-        {%- else %}<span class="none">none</span>
-        {%- endfor %}
+        {% with evidence=finding.evidence %}{% include "_evidence.html" %}{% endwith %}
       </td>
     </tr>
   {%- endfor %}
@@ -67,7 +68,7 @@
 <p class="none">no analysis in this document</p>
 {% endfor %}
 
-<h2>Universes</h2>
+<h2>Universes</h2>{{ help_tip("universes") }}
 {% for universe in course.universes %}
 <h3>{{ universe.id }}</h3>
 {% if universe.description %}<p>{{ universe.description }}</p>{% endif %}
@@ -88,7 +89,7 @@
 <p class="none">no universe file</p>
 {% endfor %}
 
-<h2>Exploration trace</h2>
+<h2>Exploration trace</h2>{{ help_tip("trace") }}
 {% if course.trace_bullets or course.trace_mermaid %}
 <p class="path">schema version {{ course.trace_schema_version or "unknown" }}</p>
 {% if course.trace_bullets %}<pre>{{ course.trace_bullets }}</pre>{% endif %}
@@ -99,13 +100,13 @@
 <p class="none">no trace file</p>
 {% endif %}
 
-<h2>Review</h2>
-{% if course.review %}
-<p>{{ course.review.n_decisions }} reviewed decisions, {{ course.review.n_non_pass }} not passing.</p>
+<h2>Review</h2>{{ help_tip("review") }}
+{% if course.review_summary %}
+<p>{{ course.review_summary.n_decisions }} reviewed decisions, {{ course.review_summary.n_non_pass }} not passing.</p>
 <table>
   <thead><tr><th>Decision</th><th>Verdict</th><th>Scene</th></tr></thead>
   <tbody>
-  {%- for row in course.review.rows %}
+  {%- for row in course.review_summary.rows %}
     <tr><td>{{ row.id }}<br><span class="path">{{ row.source_edge_id }}</span></td>
       <td>{{ row.default or "—" }}</td><td>{{ row.label }}</td></tr>
   {%- endfor %}

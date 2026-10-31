@@ -9,6 +9,7 @@ Agrégation à la lecture comme les autres metrics (pas de pré-agrégat).
 
 import json
 import os
+import re
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -20,9 +21,36 @@ def _data_dir() -> Path:
     return Path(os.environ.get("ANALYTICS_DATA_DIR", "data"))
 
 
+# A course token names one directory under the data dir and nothing else (AC-1). ASCII letters,
+# digits, dot, underscore, hyphen; it must start with a letter or digit so ``.`` / ``..`` / hidden
+# names are impossible by construction.
+_COURSE_TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+
+class InvalidCourseToken(ValueError):
+    """The course token or course id is not a safe single path segment."""
+
+
+def course_dir(data_dir: Path, course: str) -> Path:
+    """Directory holding one course's data, guaranteed to resolve inside ``data_dir``.
+
+    Two checks, because the pattern alone does not see a symlink planted inside the data dir:
+    the token must match ``_COURSE_TOKEN_RE`` (and contain no ``..``), and the resolved path must
+    be a direct child of the resolved data dir."""
+    if not isinstance(course, str) or not _COURSE_TOKEN_RE.fullmatch(course) or ".." in course:
+        raise InvalidCourseToken(
+            "course token must be 1-64 characters from [A-Za-z0-9._-] and start with a letter or digit"
+        )
+    root = data_dir.resolve()
+    target = (data_dir / course).resolve()
+    if target.parent != root:
+        raise InvalidCourseToken("course token resolves outside the data directory")
+    return data_dir / course
+
+
 def append_events(course_token: str, events: list[BaseModel]) -> int:
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    target = _data_dir() / course_token / f"{today}.jsonl"
+    target = course_dir(_data_dir(), course_token) / f"{today}.jsonl"
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("a", encoding="utf-8") as f:
         for ev in events:
@@ -41,11 +69,11 @@ def read_events_for_course(
     champ ``bundle_version`` matche exactement. Les events legacy sans
     champ ``bundle_version`` sont traités comme ``"unversioned"``.
     """
-    course_dir = data_dir / course
-    if not course_dir.exists():
+    cdir = course_dir(data_dir, course)
+    if not cdir.exists():
         return []
     out: list[dict] = []
-    for f in sorted(course_dir.glob("*.jsonl")):
+    for f in sorted(cdir.glob("*.jsonl")):
         for line in f.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line:
@@ -71,7 +99,7 @@ _MASTERY_TRIGGER_EVENTS = frozenset({"lesson_completed", "scene_completed"})
 
 
 def _mastery_path(data_dir: Path, course: str, day: date) -> Path:
-    return data_dir / course / day.isoformat() / _MASTERY_FILENAME
+    return course_dir(data_dir, course) / day.isoformat() / _MASTERY_FILENAME
 
 
 def _mastery_key(row: dict) -> tuple[str, str]:
@@ -150,12 +178,12 @@ def read_concept_mastery_history(
 
     Trié par date croissante. Filtres optionnels appliqués au moment de la lecture.
     """
-    course_dir = data_dir / course
-    if not course_dir.exists():
+    cdir = course_dir(data_dir, course)
+    if not cdir.exists():
         return {}
 
     out: dict[str, list[dict]] = {}
-    for day_dir in sorted(p for p in course_dir.iterdir() if p.is_dir()):
+    for day_dir in sorted(p for p in cdir.iterdir() if p.is_dir()):
         # day_dir name is a YYYY-MM-DD string
         try:
             d = date.fromisoformat(day_dir.name)

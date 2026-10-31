@@ -1,0 +1,28 @@
+{
+  "schema": "studium/activity-template-config/v1",
+  "template_id": "parameter-comparison",
+  "data_status": "synthetic teaching fixture",
+  "scope": "Compare the computed response of one fixed synthetic input under a baseline gain and one varied gain. The activity supports model interpretation, not a causal or empirical scientific claim.",
+  "prediction_prompt": "With the input fixed at 4.0 a.u., predict how the computed response changes when gain moves from 1.5 to 2.0.",
+  "expected_source_inputs": [
+    "A public scene objective naming the comparison to interpret",
+    "A fixed input, one baseline parameter and one varied parameter with units",
+    "A documented input-to-output rule and an independent numerical oracle"
+  ],
+  "independent_checks": [
+    {"id": "baseline_output", "description": "At gain 1.5, 1.5 × 4.0 equals a response of 6.0 a.u."},
+    {"id": "variation_output", "description": "At gain 2.0, 2.0 × 4.0 equals a response of 8.0 a.u."},
+    {"id": "single_factor", "description": "The synthetic input remains 4.0 a.u.; only gain changes."}
+  ],
+  "parameter": {"id": "gain", "label": "Gain", "unit": "×", "min": 0.5, "max": 3.0, "step": 0.5, "baseline": 1.5, "variation": 2.0},
+  "model": {"kind": "linear_gain", "fixed_input": 4.0, "input_label": "Synthetic input signal", "input_unit": "a.u.", "output_label": "Computed response", "output_unit": "a.u.", "equation": "response = gain × input"},
+  "oracle": {"baseline_output": 6.0, "variation_output": 8.0, "delta": 2.0},
+  "control": "The input remains fixed at 4.0 a.u. and the same equation is used; only gain changes.",
+  "source": {
+    "id": "synthetic_comparison_fixture",
+    "title": "Studium controlled-comparison teaching fixture",
+    "locator": "examples/activity-templates/parameter-comparison/config.json",
+    "source_kind": "synthetic_fixture",
+    "statement": "The values are invented for teaching and the displayed outputs are exact arithmetic derived from them."
+  }
+}

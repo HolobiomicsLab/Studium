@@ -13,12 +13,15 @@ These tests pin the convention on the Python side:
   - ``community_emit_dir(courseRoot)`` == ``<courseRoot>/community``;
   - an approved bundle emitted into ``community_emit_dir(courseRoot)`` is a sibling
     of (never inside / never overwriting) the canonical ``lesson.json``;
-  - the scene_synth_app default emit dir IS the configured course root's
-    ``community/`` subdir (so the live HTTP path and TS discovery agree).
+  - the scene_synth_app emit dir of a course IS
+    ``<BUNDLES_ROOT>/<course_id>/community``, or
+    ``<COMMUNITY_BUNDLES_ROOT>/<course_id>/community`` when that is set, so the live
+    HTTP path and TS discovery rooted at ``<root>/<course_id>`` agree. Since V15
+    (2026-10-30) ``COMMUNITY_BUNDLES_ROOT`` names the root of ALL courses' bundles,
+    not the root of one course.
 """
 from __future__ import annotations
 
-import importlib
 import json
 import os
 import sys
@@ -174,23 +177,26 @@ def test_temp_and_dotfile_guard_survives_in_community_subdir(tmp_path):
     assert _PSEUDONYM not in body
 
 
-def test_app_default_emit_dir_is_configured_course_root_community_subdir(tmp_path, monkeypatch):
-    """The live HTTP path (scene_synth_app) must default its emit dir to
-    <COMMUNITY_BUNDLES_ROOT>/community, so a decide on the running server lands
-    exactly where a SessionHost rooted at COMMUNITY_BUNDLES_ROOT discovers it."""
-    course_root = tmp_path / "atomistique-l1"
-    course_root.mkdir()
-    monkeypatch.setenv("COMMUNITY_BUNDLES_ROOT", str(course_root))
-    # LEARNER_DATA_ROOT still drives the ledger location.
-    monkeypatch.setenv("LEARNER_DATA_ROOT", str(tmp_path / "ledger"))
-
+def test_app_emit_dir_is_the_course_community_subdir_of_bundles_root(tmp_path, monkeypatch):
+    """The live HTTP path (scene_synth_app) emits a course's approved bundles into
+    <BUNDLES_ROOT>/<course_id>/community, exactly where a SessionHost rooted at
+    <BUNDLES_ROOT>/<course_id> discovers them."""
     import scene_synth_app
 
-    importlib.reload(scene_synth_app)
-    try:
-        assert scene_synth_app._learner_bundles_root == course_root / COMMUNITY_DIR
-    finally:
-        # reload again with the env cleared so module state does not leak to other tests
-        monkeypatch.delenv("COMMUNITY_BUNDLES_ROOT", raising=False)
-        monkeypatch.delenv("LEARNER_DATA_ROOT", raising=False)
-        importlib.reload(scene_synth_app)
+    monkeypatch.setenv("BUNDLES_ROOT", str(tmp_path / "bundles"))
+    monkeypatch.delenv("COMMUNITY_BUNDLES_ROOT", raising=False)
+    assert scene_synth_app._course_emit_dir("atomistique-l1") == (
+        tmp_path / "bundles" / "atomistique-l1" / COMMUNITY_DIR
+    )
+
+
+def test_community_bundles_root_is_the_root_of_all_courses(tmp_path, monkeypatch):
+    """V15: COMMUNITY_BUNDLES_ROOT replaces BUNDLES_ROOT for emission only, with the
+    same <course_id>/community join; it no longer names one course's root."""
+    import scene_synth_app
+
+    monkeypatch.setenv("BUNDLES_ROOT", str(tmp_path / "bundles"))
+    monkeypatch.setenv("COMMUNITY_BUNDLES_ROOT", str(tmp_path / "courses"))
+    assert scene_synth_app._course_emit_dir("atomistique-l1") == (
+        tmp_path / "courses" / "atomistique-l1" / COMMUNITY_DIR
+    )

@@ -61,8 +61,10 @@ def test_get_reasoning_returns_aggregates(tmp_path, monkeypatch):
     _seed_jsonl(tmp_path, "course-x", events)
     from analytics_collector_app import app
     client = TestClient(app)
+    # No `&pseudonyme=` since INT-STUDIUM-030 removed the drill-down. `scene_id` survives — a
+    # scene is an artifact scope, not a person. One learner is seeded, so s1's score is unchanged.
     r = client.get(
-        "/metrics/reasoning?course=course-x&pseudonyme=hmac:la",
+        "/metrics/reasoning?course=course-x",
         headers={"X-Course-Token": "course-x"},
     )
     assert r.status_code == 200

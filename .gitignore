@@ -48,6 +48,8 @@ packages/*/src/**/*.js.map
 packages/*/src/**/*.d.ts.map
 apps/*/src/**/*.js
 apps/*/src/**/*.d.ts
+# Hand-written declaration of tools/bundle_lint.mjs (no emitted file): tracked.
+!packages/lesson-session-host/src/authoring-draft/bundle-lint.d.ts
 apps/*/src/**/*.js.map
 apps/*/src/**/*.d.ts.map
 
@@ -62,3 +64,6 @@ fixtures/data/
 
 # Studium agentic-session file channel (run by the operator CLIs / demo)
 .studium-session/
+
+# scene-synth emits approved learner items under <BUNDLES_ROOT>/<course>/community/ (default root = fixtures/)
+fixtures/*/community/

@@ -1,0 +1,72 @@
+/** Exercise method help through actual generated artifacts, without learner assessment. */
+import {createRequire} from 'node:module';
+import {mkdir, readFile, writeFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
+const require = createRequire(new URL('../apps/teacher-dashboard/package.json', import.meta.url));
+const {chromium} = require('@playwright/test');
+const [demoArg, base, outArg] = process.argv.slice(2);
+if (!outArg) throw Error('Usage: node tools/audit-context-help.mjs DEMO_DIR OBSERVATORY_URL NEW_AUDIT_DIR');
+const demo=resolve(demoArg), out=resolve(outArg);
+await mkdir(out,{recursive:false});
+const browser=await chromium.launch({channel:'chrome'});
+const page=await browser.newPage({viewport:{width:1280,height:950}});
+const result={checks:[],errors:[],external:[],scope:'Synthetic browser interaction; no learning outcome or real student.'};
+const check=(name,passed)=>{result.checks.push({name,passed:!!passed});if(!passed)throw Error(name);};
+page.on('pageerror', e=>result.errors.push(String(e)));
+page.on('request', r=>{if(/^https?:/.test(r.url()) && !r.url().startsWith(base))result.external.push(r.url());});
+const activity=pathToFileURL(demo+'/activities/parameter-comparison/index.html').href;
+try {
+ await page.goto(activity);
+ check('method help exists before prediction',await page.locator('[data-help-topic="prediction"]').isVisible());
+ check('helper is a compact symbol',await page.locator('[data-help-topic="prediction"] > summary').evaluate(n=>n.getBoundingClientRect().width<=44));
+ check('only active help locale is visible',!await page.locator('[data-help-topic="prediction"] .studium-help-sr[data-help-locale="fr"]').isVisible());
+ check('help initially unobtrusive',await page.locator('.studium-help[open]').count()===0);
+ const prediction=page.locator('[data-help-topic="prediction"]');
+ await prediction.locator(':scope > summary').focus();await page.keyboard.press('Enter');
+ check('keyboard opens named help',await prediction.getAttribute('open')!==null);
+ check('explanation has student objective',await prediction.locator('[data-help-locale="en"]').last().innerText().then(s=>s.includes('For students')&&s.includes('Objective')));
+ check('result remains concealed',!await page.locator('#result').isVisible());
+ await prediction.locator('[data-help-locale="en"] .studium-help-more > summary').click();
+ check('teacher rationale and source available',await prediction.innerText().then(s=>s.includes('For teachers')&&s.includes('docs/teach/activity-templates.md')));
+ await page.screenshot({path:out+'/activity-help-desktop.png',fullPage:true});
+ await prediction.locator('[data-help-locale="en"] .studium-help-more > summary').focus();await page.keyboard.press('Escape');
+ check('Escape dismisses and restores focus',await prediction.getAttribute('open')===null && await prediction.locator(':scope > summary').evaluate(n=>document.activeElement===n));
+ await page.locator('#noTrace').click();await page.locator('#prediction').fill('My own unchanged reasoning.');
+ await prediction.locator(':scope > summary').click();await page.locator('#goal').click();
+ check('outside click dismisses help',await prediction.getAttribute('open')===null);
+ await page.locator('#activityLanguage').selectOption('fr');
+ await prediction.locator(':scope > summary').click();
+ check('help follows French without replacing response',await prediction.innerText().then(s=>s.includes('Prédiction')&&s.includes('Pour les étudiants')) && await page.locator('#prediction').inputValue()==='My own unchanged reasoning.');
+ check('translated help has matching accessible name',await page.getByText('À propos: Prédiction',{exact:true}).count()===1);
+ await page.setViewportSize({width:390,height:844});
+ check('mobile has no page overflow',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await page.screenshot({path:out+'/activity-help-mobile-fr.png',fullPage:true});
+ await page.locator('#reveal').click();await page.locator('#complete').click();
+ check('help did not enable trace',/sans création|without creating/.test(await page.locator('#traceStatus').innerText()));
+ const reportDir=demo+'/reports/host-journal';
+ const html=await readFile(reportDir+'/index.html','utf8');
+ check('portable report contains no script',!/<script/i.test(html));
+ const passive=await browser.newContext({javaScriptEnabled:false,viewport:{width:390,height:844}});
+ const report=await passive.newPage();await report.goto(pathToFileURL(reportDir+'/index.html').href);
+ const tip=report.locator('[data-help-topic="trace"]').first();await tip.locator(':scope > summary').click();
+ check('report help works with JavaScript disabled',await tip.getAttribute('open')!==null);
+ check('report help is bounded on mobile',await report.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await report.screenshot({path:out+'/report-help-nojs.png',fullPage:true});await passive.close();
+ await page.setViewportSize({width:1280,height:950});
+ for(const route of ['/','/courses/review-demo/mystra','/courses/review-demo','/courses/review-demo/review','/sessions','/harness','/eval/validity']) {
+  await page.goto(base+route);check('Observatory help present '+route,await page.locator('.studium-help').count()>0);
+ }
+ await page.goto(base+'/courses/review-demo/mystra');
+ const provenance=page.locator('[data-help-topic="provenance"]').first();await provenance.locator(':scope > summary').click();
+ check('MySTRA explains reader purpose',await provenance.innerText().then(s=>s.includes('For teachers')&&s.includes('ASTRA')));
+ await page.screenshot({path:out+'/mystra-help-desktop.png',fullPage:true});
+ await page.getByRole('button',{name:'expand all',exact:true}).click();
+ check('bulk expansion does not force open all help',await page.locator('.studium-help[open]').count()<await page.locator('.studium-help').count());
+ await page.setViewportSize({width:390,height:844});await provenance.locator(':scope > summary').click();
+ check('MySTRA help does not overflow mobile',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ check('no browser errors',result.errors.length===0);check('no external request',result.external.length===0);
+ result.passed=true;
+} catch(error) {result.failure=String(error);result.passed=false;process.exitCode=1;}
+finally {await writeFile(out+'/report.json',JSON.stringify(result,null,2)+'\n');await browser.close();}
+console.log(JSON.stringify(result));

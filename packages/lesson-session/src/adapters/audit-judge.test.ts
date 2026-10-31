@@ -57,3 +57,27 @@ describe("HttpLlmAuditJudge (live, OpenAI-compatible)", () => {
     expect(r.wrongly_flagged_sound_ids).toEqual([]);
   });
 });
+
+// RT-1: a judgement says how it was reached, so a keyword catch is never shown to the learner as a
+// measured count ("1/2 planted flaws found") — the stub and every degradation say "keyword".
+describe("AuditJudgement provenance", () => {
+  it("the stub says keyword", async () => {
+    expect((await new StubAuditJudge().judge(input)).source).toBe("keyword");
+  });
+
+  it("the HTTP judge says llm when the model's verdict parsed", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({ caught_flaw_ids: ["f-unit"], wrongly_flagged_sound_ids: [] }) } }],
+    }), { status: 200 }));
+    expect((await new HttpLlmAuditJudge("http://x").judge(input)).source).toBe("llm");
+  });
+
+  it("the HTTP judge says keyword when it degraded (non-200, malformed reply)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("boom", { status: 500 }));
+    expect((await new HttpLlmAuditJudge("http://x").judge(input)).source).toBe("keyword");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify({
+      choices: [{ message: { content: "not json at all" } }],
+    }), { status: 200 }));
+    expect((await new HttpLlmAuditJudge("http://x").judge(input)).source).toBe("keyword");
+  });
+});

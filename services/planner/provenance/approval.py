@@ -36,6 +36,7 @@ from typing import Any, Optional
 
 from provenance.indicium_schema_vendored import assert_claim_conformant
 from provenance.astra_emit import analysis_body, source_edge_id
+from provenance.astra_read import summary_lines, universe_summary
 
 LWG_JSONLD = "lwg.indicium.jsonld"
 LWG_GRAPH_JSON = "lwg.graph.json"
@@ -320,6 +321,10 @@ def build_course_audit_report(
                 universes[u["id"]] = {
                     "description": u.get("description"),
                     "decisions": _universe_decisions(u),
+                    # Computed here, while `astra` is still in hand: `_render_markdown` runs
+                    # from the report alone. The full selection stays above — the report is
+                    # also read as data — and only the SECTION shows the delta (nit 3).
+                    "summary": universe_summary(u, astra),
                 }
 
     history = _load_approval_history(course_dir)
@@ -480,9 +485,14 @@ def _render_markdown(report: dict[str, Any]) -> str:
         lines.append("")
     lines.append("## Pedagogical universes")
     lines.append("")
+    if report.get("universes"):
+        lines.append("Each universe is a delta: the decisions it moves, then a count of the "
+                     "ones it leaves at their default.")
+        lines.append("")
     for uid, u in (report.get("universes") or {}).items():
         lines.append(f"- **{uid}** — {u.get('description') or ''}")
-        for did, opt in (u.get("decisions") or {}).items():
-            lines.append(f"  - {did}: `{opt}`")
+        # A report written before `summary` existed still renders, from its full selection.
+        lines += (summary_lines(u["summary"]) if isinstance(u.get("summary"), dict)
+                  else [f"  - {did}: `{opt}`" for did, opt in (u.get("decisions") or {}).items()])
     lines.append("")
     return "\n".join(lines)

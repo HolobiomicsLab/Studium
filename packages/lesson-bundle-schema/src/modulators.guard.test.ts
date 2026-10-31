@@ -58,8 +58,8 @@ describe("modulator mirrors — pinned to the registry active set (no drift)", (
 });
 
 describe("modulator doc — lists every registry entry", () => {
-  it("docs/ontology/modulators.md mentions each id and its status", () => {
-    const doc = read("../../../docs/ontology/modulators.md");
+  it("docs/concepts/modulators.md mentions each id and its status", () => {
+    const doc = read("../../../docs/concepts/modulators.md");
     for (const m of MODULATORS) {
       expect(doc, `doc must mention ${m.id}`).toContain(m.id);
       expect(doc, `doc must state ${m.id} status`).toMatch(new RegExp(`${m.id}[^\\n]*${m.status}`, "i"));

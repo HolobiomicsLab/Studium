@@ -32,13 +32,13 @@ _CREATED = "2026-06-26T10:00:00Z"
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    # Point the app at a tmp ledger + bundles root, and a fixed HMAC secret so
-    # pseudonyms are deterministic across the test.
+    # Point the app at a tmp ledger, read the canonical course from the default
+    # BUNDLES_ROOT (the repo fixtures) but emit under tmp, and fix the HMAC secret
+    # so pseudonyms are deterministic across the test.
     store = LearnerItemsStore(tmp_path / "learner_items.jsonl")
     monkeypatch.setattr(scene_synth_app, "_learner_store", store, raising=False)
-    monkeypatch.setattr(
-        scene_synth_app, "_learner_bundles_root", tmp_path / "bundles", raising=False
-    )
+    monkeypatch.delenv("BUNDLES_ROOT", raising=False)
+    monkeypatch.setenv("COMMUNITY_BUNDLES_ROOT", str(tmp_path / "bundles"))
     monkeypatch.setenv("LEARNER_PSEUDONYM_SECRET", "test-secret")
     return TestClient(app)
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { tauri, ConsentRecord } from "../lib/tauri";
 import { useTelemetry } from "../hooks/useTelemetry";
+import StudyShell from "../components/StudyShell";
 
 export default function ConsentScreen() {
   const [a, setA] = useState(false);
@@ -38,8 +39,14 @@ export default function ConsentScreen() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-8">
-      <div className="max-w-2xl w-full bg-white shadow rounded-lg p-8">
+    <StudyShell welcome>
+    <main className="welcome-page">
+      <aside className="welcome-aside">
+        <p className="eyebrow">Avant la première leçon</p>
+        <p className="welcome-title">Un espace pour<br /><em>faire ton chemin.</em></p>
+        <p>Lis les choix ci-contre et prends le temps de décider avant de commencer.</p>
+      </aside>
+      <div className="consent-card">
         <h1 className="text-2xl font-bold mb-2">Bienvenue dans Studium</h1>
         <p className="text-gray-600 mb-6">Avant de démarrer, nous avons besoin de ton accord.</p>
 
@@ -67,6 +74,7 @@ export default function ConsentScreen() {
         </div>
       </div>
     </main>
+    </StudyShell>
   );
 }
 
@@ -78,7 +86,7 @@ function Item({ id, label, desc, checked, onChange }: {
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label htmlFor={id} className="flex items-start gap-3 mb-4 cursor-pointer">
+    <label htmlFor={id} className="consent-option flex items-start gap-3 cursor-pointer">
       <input
         id={id}
         type="checkbox"

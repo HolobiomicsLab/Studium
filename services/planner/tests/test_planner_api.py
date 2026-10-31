@@ -28,6 +28,54 @@ def client():
     return TestClient(_app)
 
 
+def test_plan_endpoint_without_model_returns_explicit_503(client, monkeypatch):
+    monkeypatch.delenv("STUDIUM_LLM_MODE", raising=False)
+
+    response = client.post("/plan", json=SAMPLE_REQUEST)
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "planner model not configured"}
+
+
+def test_litellm_failure_never_falls_back_to_unrelated_mock(monkeypatch):
+    from agents.base import BaseAgent
+    import httpx
+
+    mock_calls = []
+
+    class ProbeAgent(BaseAgent):
+        def _mock_response(self, reason: str = "") -> str:
+            mock_calls.append(reason)
+            return "unrelated mock"
+
+    monkeypatch.setenv("STUDIUM_LLM_MODE", "litellm")
+
+    def fail_request(*args, **kwargs):
+        raise httpx.ConnectError("model offline")
+
+    monkeypatch.setattr(httpx, "post", fail_request)
+
+    with pytest.raises(RuntimeError, match="planner model request failed: model offline"):
+        ProbeAgent()._call_llm("author this lesson")
+    assert mock_calls == []
+
+
+def test_plan_endpoint_surfaces_configured_model_failure(client, monkeypatch):
+    import planner_app
+
+    monkeypatch.setenv("STUDIUM_LLM_MODE", "litellm")
+
+    def fail_generation(*args, **kwargs):
+        raise ValueError("model offline")
+
+    monkeypatch.setattr(planner_app._planner, "generate", fail_generation)
+
+    response = client.post("/plan", json=SAMPLE_REQUEST)
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "planner model unavailable"}
+
+
 def test_plan_endpoint_returns_200(client):
     resp = client.post("/plan", json=SAMPLE_REQUEST)
     assert resp.status_code == 200

@@ -1,0 +1,109 @@
+{
+  "schema_version": "1.4",
+  "bundle_id": "bundle-lint-flipped-edge",
+  "source_plan_id": "bundle-lint-tests",
+  "metadata": {
+    "title": "Flipped prerequisite edge",
+    "target": "Lint tests",
+    "duration_minutes": 5,
+    "language": "en",
+    "discipline": "testing"
+  },
+  "concepts": [
+    { "id": "root", "title": "Root", "description": "The first prerequisite.", "bloom_level_target": "remember" },
+    { "id": "foundation", "title": "Foundation", "description": "First.", "bloom_level_target": "understand" },
+    { "id": "advanced", "title": "Advanced", "description": "Second.", "bloom_level_target": "apply" }
+  ],
+  "scenes": [
+    {
+      "id": "s-root",
+      "type": "concept",
+      "title": "Root",
+      "objective_refs": [],
+      "concept_refs": ["root"],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "markdown": "Root first."
+    },
+    {
+      "id": "s-foundation",
+      "type": "concept",
+      "title": "Foundation",
+      "objective_refs": [],
+      "concept_refs": ["foundation"],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "markdown": "Foundation first."
+    },
+    {
+      "id": "s-advanced",
+      "type": "concept",
+      "title": "Advanced",
+      "objective_refs": [],
+      "concept_refs": ["advanced"],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "markdown": "Advanced second."
+    },
+    {
+      "id": "s-advanced-quiz-1",
+      "type": "quiz",
+      "title": "Advanced check 1",
+      "objective_refs": [],
+      "concept_refs": ["advanced"],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "question": "Choose advanced.",
+      "choices": [
+        { "id": "a", "text": "Advanced", "correct": true },
+        { "id": "b", "text": "Foundation", "correct": false }
+      ],
+      "feedback_correct": "Correct.",
+      "feedback_incorrect": "Try again.",
+      "hints": []
+    },
+    {
+      "id": "s-advanced-quiz-2",
+      "type": "quiz",
+      "title": "Advanced check 2",
+      "objective_refs": [],
+      "concept_refs": ["advanced"],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "question": "Which comes second?",
+      "choices": [
+        { "id": "a", "text": "Advanced", "correct": true },
+        { "id": "b", "text": "Foundation", "correct": false }
+      ],
+      "feedback_correct": "Correct.",
+      "feedback_incorrect": "Try again.",
+      "hints": []
+    }
+  ],
+  "rules": [],
+  "validated_by": "bundle-lint tests",
+  "validated_at": "2026-10-29T00:00:00.000Z",
+  "learning_workflow_graph": {
+    "schema_version": "1.0",
+    "course_id": "bundle-lint-flipped-edge",
+    "nodes": [
+      { "id": "concept:root", "node_kind": "concept", "title": "Root", "bloom_level": "remember" },
+      { "id": "concept:foundation", "node_kind": "concept", "title": "Foundation", "bloom_level": "understand" },
+      { "id": "concept:advanced", "node_kind": "concept", "title": "Advanced", "bloom_level": "apply" }
+    ],
+    "edges": [
+      {
+        "id": "edge-natural-reading-root",
+        "relation": "prerequisite_for",
+        "source": "concept:root",
+        "target": "concept:foundation"
+      },
+      {
+        "id": "edge-natural-reading",
+        "relation": "prerequisite_for",
+        "source": "concept:foundation",
+        "target": "concept:advanced"
+      }
+    ]
+  }
+}

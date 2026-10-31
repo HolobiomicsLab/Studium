@@ -19,6 +19,39 @@ const SCENE_SYNTH_BASE =
 const LESSON_SERVER_BASE =
   process.env.LESSON_SERVER_BASE_URL ?? "http://localhost:8010";
 
+type Service = "analytics-collector" | "scene-synth" | "lesson-server";
+const SERVICE_SETUP: Record<Service, string> = {
+  "analytics-collector": "Démarrez analytics-collector sur le port 8003 et vérifiez ANALYTICS_BASE_URL.",
+  "scene-synth": "Démarrez scene-synth sur le port 8002 et vérifiez SCENE_SYNTH_BASE_URL.",
+  "lesson-server": "Démarrez lesson-server sur le port 8010 et vérifiez LESSON_SERVER_BASE_URL.",
+};
+
+/** Keep internal URLs, teacher keys and upstream response bodies out of user-facing errors. */
+function serviceFailure(service: Service, status?: number): Error {
+  const reason = status ? ` (HTTP ${status})` : "";
+  const fix = status === 401 || status === 403
+    ? "Vérifiez l’identifiant du cours et les droits d’accès, puis réessayez."
+    : status === 404
+      ? "Vérifiez que le cours ou la ressource existe sur ce service, puis actualisez."
+      : status === 400 || status === 422
+        ? "Vérifiez les champs du formulaire et la référence de la leçon, puis réessayez."
+        : `${SERVICE_SETUP[service]} Actualisez ensuite cette page.`;
+  return new Error(`Le service ${service} ne peut pas terminer la demande${reason}. ${fix}`);
+}
+
+async function serviceFetch(service: Service, url: string, options: RequestInit): Promise<Response> {
+  let response: Response;
+  try { response = await fetch(url, { ...options, signal: options.signal ?? AbortSignal.timeout(10_000) }); }
+  catch { throw serviceFailure(service); }
+  if (!response.ok) throw serviceFailure(service, response.status);
+  return response;
+}
+
+async function serviceJson<T>(service: Service, response: Response): Promise<T> {
+  try { return await response.json() as T; }
+  catch { throw serviceFailure(service); }
+}
+
 export type ProgressResponse = {
   scenes: Record<string, { completion_rate: number; n_learners: number }>;
 };
@@ -28,9 +61,31 @@ export type ProgressMetricsResponse = {
   scenes_total?: number;
 };
 
+/**
+ * What a judgement number says about the population it was computed over (INT-STUDIUM-030 R1).
+ *
+ * The collector accumulates this where the number is computed, not from a second predicate
+ * afterwards, so the band belongs to THAT population: a per-scene row carries the auditors of
+ * that scene, which can be far fewer than the course cohort the endpoint floored on the way
+ * out. A row that passed the endpoint's floor can still be one person's judgement published
+ * under a scene's name — that gap is the whole reason this block exists.
+ *
+ * `cohort_band` is a BAND (`5–9`, `10–19`, `20+`), never a count: an exact class size printed
+ * beside a characterological reading is, for a reader who holds the roster, one more coordinate
+ * on the way to a person. `null` means no population could be established, and `cohort_counts`
+ * then says WHICH absence it is — nobody contributed, or the contributors could not be counted
+ * by the one rule. The two need different actions from the reader.
+ */
+export type Judgement = {
+  cohort_band: string | null;
+  cohort_counts: string;
+  non_attribution: string;
+};
+
 export type CalibrationResponse = {
   brier_score: number | null;
   n_items: number;
+  judgement: Judgement;
 };
 
 export type AutonomyResponse = {
@@ -38,6 +93,7 @@ export type AutonomyResponse = {
   autonomy_ratio: number;
   n_critique: number;
   n_hints: number;
+  judgement: Judgement;
 };
 
 // trust_calibration (judgment-over-artifact) — distinct from CalibrationResponse
@@ -47,9 +103,21 @@ export type AutonomyResponse = {
 export type TrustCalibrationResponse = {
   trust_calibration: number | null;
   band: "bien" | "sur" | "sous" | null;
+  /** PUBLISHED scorable scenes, pooled per scene_id — scenes withheld under the floor are
+   * dropped before they reach this tally, because a scorable-scene count that included them
+   * would republish, from a neighbouring key, exactly the number `withheld_below_floor`
+   * replaced. */
   n_audits: number;
   over_trust: number | null;
   over_distrust: number | null;
+  /** A flag, never a count. How many scenes were withheld is cohort information about the
+   * classes the floor exists to protect; a boolean says the reading is incomplete without
+   * saying how incomplete. */
+  withheld_below_floor: boolean;
+  /** Only on the unpublished branch: says whether nothing was scorable or the cohort was too
+   * small. Rendering one for the other sends a teacher looking for a scene that is there. */
+  reason?: string;
+  /** Published scenes only. Each row is its own population — see `Judgement`. */
   per_scene: Array<{
     scene_id: string;
     gap: number | null;
@@ -58,7 +126,9 @@ export type TrustCalibrationResponse = {
     planted_errors: number;
     missed: number;
     false_positives: number;
-  }>;
+    sound_total: number;
+  } & Judgement>;
+  judgement: Judgement;
 };
 
 /**
@@ -83,15 +153,32 @@ export function isSuppressed(data: unknown): data is Suppressed {
   );
 }
 
+/**
+ * A surface the collector has WITHDRAWN, for every cohort (INT-STUDIUM-030).
+ *
+ * Distinct from `Suppressed`, which is this class being too small today and would serve
+ * numbers tomorrow. `unavailable` says the route publishes nothing at all, and the `reason`
+ * says why — rendering the two the same way would tell a teacher their class is too small
+ * when the truth is that the instrument was never wired.
+ */
+export type Unavailable = {
+  status: "unavailable";
+  reason: string;
+};
+
+export function isUnavailable(data: unknown): data is Unavailable {
+  return (
+    typeof data === "object" && data !== null &&
+    (data as { status?: unknown }).status === "unavailable"
+  );
+}
+
 async function fetchJson<T>(path: string, courseToken: string): Promise<T> {
-  const r = await fetch(`${BASE}${path}`, {
+  const r = await serviceFetch("analytics-collector", `${BASE}${path}`, {
     headers: { "X-Course-Token": courseToken },
     cache: "no-store",
   });
-  if (!r.ok) {
-    throw new Error(`Analytics API ${path} failed: ${r.status} ${r.statusText}`);
-  }
-  return r.json() as Promise<T>;
+  return serviceJson<T>("analytics-collector", r);
 }
 
 export function getProgress(courseToken: string): Promise<ProgressResponse | Suppressed> {
@@ -108,13 +195,16 @@ export function getProgressMetrics(courseToken: string): Promise<ProgressMetrics
   );
 }
 
+// INT-STUDIUM-030: the `learner` / `pseudonyme` arguments are gone from every class-level
+// helper below. No Studium surface exposes a control that narrows a published aggregate to a
+// caller-chosen subset of the cohort — a floor with a drill-down behind it is not a floor.
+// The two individual reads an ADR authorises (getAILiteracy, postBlueprintScore) still take a
+// pseudonym, and it is REQUIRED there rather than optional, which is the whole distinction.
 export function getCalibration(
   courseToken: string,
-  learner?: string,
 ): Promise<CalibrationResponse | Suppressed> {
-  const learnerParam = learner ? `&learner=${encodeURIComponent(learner)}` : "";
   return fetchJson<CalibrationResponse | Suppressed>(
-    `/metrics/calibration?course=${encodeURIComponent(courseToken)}${learnerParam}`,
+    `/metrics/calibration?course=${encodeURIComponent(courseToken)}`,
     courseToken,
   );
 }
@@ -128,11 +218,9 @@ export function getAutonomy(courseToken: string): Promise<AutonomyResponse | Sup
 
 export function getTrustCalibration(
   courseToken: string,
-  learner?: string,
 ): Promise<TrustCalibrationResponse | Suppressed> {
-  const learnerParam = learner ? `&learner=${encodeURIComponent(learner)}` : "";
   return fetchJson<TrustCalibrationResponse | Suppressed>(
-    `/metrics/trust-calibration?course=${encodeURIComponent(courseToken)}${learnerParam}`,
+    `/metrics/trust-calibration?course=${encodeURIComponent(courseToken)}`,
     courseToken,
   );
 }
@@ -165,15 +253,19 @@ export type ConceptMasteryHistoryResponse = {
   concepts: Record<string, MasteryPoint[]>;
 };
 
+/**
+ * Withdrawn at the collector (INT-STUDIUM-030): the rows are keyed by pseudonym, so no
+ * parameter list makes this route class-level, and the snapshots behind it were never written.
+ * The helper stays so the page has something to render the refusal from — see `Unavailable`.
+ */
 export function getConceptMasteryHistory(
   courseToken: string,
-  opts: { pseudonyme?: string; concept_id?: string; since?: string } = {},
-): Promise<ConceptMasteryHistoryResponse | Suppressed> {
+  opts: { concept_id?: string; since?: string } = {},
+): Promise<ConceptMasteryHistoryResponse | Suppressed | Unavailable> {
   const params = new URLSearchParams({ course: courseToken });
-  if (opts.pseudonyme) params.set("pseudonyme", opts.pseudonyme);
   if (opts.concept_id) params.set("concept_id", opts.concept_id);
   if (opts.since) params.set("since", opts.since);
-  return fetchJson<ConceptMasteryHistoryResponse | Suppressed>(
+  return fetchJson<ConceptMasteryHistoryResponse | Suppressed | Unavailable>(
     `/metrics/concept-mastery-history?${params.toString()}`,
     courseToken,
   );
@@ -212,15 +304,21 @@ export type ReasoningSceneEntry = {
   score: number | null;
   n_signals: number;
   breakdown: Record<string, number>;
+} & Judgement;
+/** `scenes` holds the PUBLISHED scenes only; rows whose own contributors fell under the floor
+ * are dropped by the collector, and `withheld_below_floor` says so without saying how many. */
+export type ReasoningResponse = {
+  scenes: Record<string, ReasoningSceneEntry>;
+  withheld_below_floor: boolean;
+  judgement: Judgement;
 };
-export type ReasoningResponse = { scenes: Record<string, ReasoningSceneEntry> };
 
+// `scene_id` survives the INT-STUDIUM-030 removal: a scene is an artifact scope, not a person.
 export function getReasoningDepth(
   courseToken: string,
-  opts: { pseudonyme?: string; scene_id?: string } = {},
+  opts: { scene_id?: string } = {},
 ): Promise<ReasoningResponse | Suppressed> {
   const params = new URLSearchParams({ course: courseToken });
-  if (opts.pseudonyme) params.set("pseudonyme", opts.pseudonyme);
   if (opts.scene_id) params.set("scene_id", opts.scene_id);
   return fetchJson<ReasoningResponse | Suppressed>(
     `/metrics/reasoning?${params.toString()}`,
@@ -237,10 +335,9 @@ export type JournalStatsResponse = {
 
 export function getJournalStats(
   courseToken: string,
-  opts: { pseudonyme?: string; bundle_version?: string } = {},
+  opts: { bundle_version?: string } = {},
 ): Promise<JournalStatsResponse | Suppressed> {
   const params = new URLSearchParams({ course: courseToken });
-  if (opts.pseudonyme) params.set("pseudonyme", opts.pseudonyme);
   if (opts.bundle_version) params.set("bundle_version", opts.bundle_version);
   return fetchJson<JournalStatsResponse | Suppressed>(
     `/metrics/journal?${params.toString()}`,
@@ -292,7 +389,7 @@ export async function postBlueprintScore(
   blueprint: AssessmentBlueprintInput,
   bundle_version?: string,
 ): Promise<BlueprintScoreResponse> {
-  const r = await fetch(`${BASE}/metrics/blueprint`, {
+  const r = await serviceFetch("analytics-collector", `${BASE}/metrics/blueprint`, {
     method: "POST",
     cache: "no-store",
     headers: {
@@ -306,10 +403,7 @@ export async function postBlueprintScore(
       blueprint,
     }),
   });
-  if (!r.ok) {
-    throw new Error(`Analytics API /metrics/blueprint failed: ${r.status} ${r.statusText}`);
-  }
-  return r.json() as Promise<BlueprintScoreResponse>;
+  return serviceJson<BlueprintScoreResponse>("analytics-collector", r);
 }
 
 // ---------------------------------------------------------------------------
@@ -395,14 +489,11 @@ export async function getLearnerItems(
   state: LAReviewState = "submitted",
 ): Promise<LearnerItemsListResponse> {
   const params = new URLSearchParams({ course: courseToken, state });
-  const r = await fetch(`${SCENE_SYNTH_BASE}/learner-items?${params.toString()}`, {
+  const r = await serviceFetch("scene-synth", `${SCENE_SYNTH_BASE}/learner-items?${params.toString()}`, {
     headers: { "X-Course-Token": courseToken },
     cache: "no-store",
   });
-  if (!r.ok) {
-    throw new Error(`scene-synth /learner-items failed: ${r.status} ${r.statusText}`);
-  }
-  return r.json() as Promise<LearnerItemsListResponse>;
+  return serviceJson<LearnerItemsListResponse>("scene-synth", r);
 }
 
 export type DecideLearnerItemArgs = {
@@ -429,7 +520,7 @@ export async function decideLearnerItem(
     reviewed_at: args.reviewed_at,
   };
   if (args.note_code) body.note_code = args.note_code;
-  const r = await fetch(
+  const r = await serviceFetch("scene-synth",
     `${SCENE_SYNTH_BASE}/learner-items/${encodeURIComponent(itemId)}/decide`,
     {
       method: "POST",
@@ -441,12 +532,7 @@ export async function decideLearnerItem(
       body: JSON.stringify(body),
     },
   );
-  if (!r.ok) {
-    throw new Error(
-      `scene-synth /learner-items/${itemId}/decide failed: ${r.status} ${r.statusText}`,
-    );
-  }
-  return r.json() as Promise<LearnerItemView>;
+  return serviceJson<LearnerItemView>("scene-synth", r);
 }
 
 /**
@@ -479,14 +565,12 @@ export type RoomState = {
 };
 
 async function roomFetch<T>(path: string, opts?: RequestInit): Promise<T> {
-  const r = await fetch(`${LESSON_SERVER_BASE}${path}`, {
+  const r = await serviceFetch("lesson-server", `${LESSON_SERVER_BASE}${path}`, {
     ...opts,
     headers: { "Content-Type": "application/json", ...opts?.headers },
     cache: "no-store",
   });
-  const json = (await r.json()) as Record<string, unknown>;
-  if (!r.ok) throw new Error(`lesson-server ${path} failed: ${r.status} — ${String(json["error"] ?? json["message"] ?? "")}`);
-  return json as T;
+  return serviceJson<T>("lesson-server", r);
 }
 
 export async function openRoom(bundleRef: string): Promise<{ room_id: string; join_code: string; teacher_key: string }> {

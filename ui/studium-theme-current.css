@@ -1,0 +1,580 @@
+/*
+ * Token-native Observatory composition.
+ *
+ * Load order is ui/studium-tokens.css, the frozen INT-047
+ * ui/studium-theme.css compatibility layer, then this file. The legacy file
+ * remains byte-stable because exact portable report verification includes its
+ * CSS. Regenerate the local token copy with:
+ *   node ui/sync-studium-tokens.mjs --write
+ */
+:root {
+  --st-viewer-measure: 74rem;
+  --studium-canvas: var(--st-canvas);
+  --studium-surface: var(--st-surface);
+  --studium-ink: var(--st-text);
+  --studium-muted: var(--st-muted);
+  --studium-rule: var(--st-border);
+  --studium-accent: var(--st-accent);
+  --studium-accent-strong: var(--st-accent-hover);
+  --studium-accent-soft: var(--st-accent-soft);
+  --studium-warning: var(--st-warning);
+  --studium-warning-soft: var(--st-warning-soft);
+  --studium-danger: var(--st-danger);
+  --studium-font: var(--st-font-text);
+  --studium-mono: var(--st-font-mono);
+  --studium-radius: var(--st-radius-medium);
+  --studium-measure: var(--st-viewer-measure);
+  --paper: var(--st-surface);
+  --white: var(--st-surface-raised);
+  --ivory: var(--st-canvas);
+  --ink: var(--st-text);
+  --muted: var(--st-muted);
+  --ink-soft: var(--st-muted);
+  --line: var(--st-border);
+  --rule: var(--st-border);
+  --accent: var(--st-accent);
+  --teal: var(--st-accent);
+  --teal-deep: var(--st-accent-hover);
+  --soft: var(--st-accent-soft);
+  --teal-pale: var(--st-accent-soft);
+  --warm: var(--st-warning);
+  --ochre: var(--st-warning);
+  --ochre-pale: var(--st-warning-soft);
+  --red: var(--st-danger);
+  --shadow: var(--st-shadow-small);
+}
+
+body.studium-viewer {
+  min-width: 18rem;
+  color: var(--st-text);
+  background: var(--st-canvas);
+  font: var(--st-size-base) / var(--st-leading-body) var(--st-font-text);
+  text-rendering: optimizeLegibility;
+}
+
+.studium-viewer *,
+.studium-viewer *::before,
+.studium-viewer *::after {
+  box-sizing: border-box;
+}
+
+.studium-viewer main {
+  width: min(var(--st-viewer-measure), calc(100% - var(--st-space-12)));
+  max-width: var(--st-viewer-measure);
+  padding: var(--st-space-10) 0 var(--st-space-20);
+}
+
+.studium-viewer :where(h1, h2, h3, h4) {
+  color: var(--st-text);
+  font-family: var(--st-font-display);
+  font-weight: var(--st-weight-semibold);
+  line-height: var(--st-leading-tight);
+  letter-spacing: var(--st-tracking-display);
+}
+
+.studium-viewer h1 {
+  max-width: 25ch;
+  margin: var(--st-space-2) 0 var(--st-space-4);
+  font-size: clamp(var(--st-size-2xl), 5vw, var(--st-size-3xl));
+}
+
+.studium-viewer h2 {
+  margin: var(--st-space-10) 0 var(--st-space-4);
+  padding-block-end: var(--st-space-2);
+  border-block-end: var(--st-border-width-default) solid var(--st-border);
+  font-size: clamp(var(--st-size-xl), 3vw, var(--st-size-2xl));
+}
+
+.studium-viewer h2::before {
+  display: inline-block;
+  width: var(--st-space-8);
+  height: var(--st-border-width-strong);
+  margin: 0 var(--st-space-3) 0.35em 0;
+  background: var(--st-brand-ochre);
+  content: "";
+}
+
+.studium-viewer h3 {
+  margin: var(--st-space-8) 0 var(--st-space-2);
+  font-size: var(--st-size-lg);
+}
+
+.studium-viewer h4 {
+  margin: var(--st-space-6) 0 var(--st-space-2);
+  font-size: var(--st-size-md);
+  letter-spacing: 0;
+}
+
+.studium-viewer p {
+  max-width: var(--st-layout-measure);
+  margin: var(--st-space-3) 0;
+}
+
+.studium-viewer .lead,
+.studium-viewer .lede {
+  max-width: var(--st-layout-measure);
+  margin: var(--st-space-3) 0 var(--st-space-6);
+  color: var(--st-muted);
+  font: var(--st-size-md) / var(--st-leading-body) var(--st-font-display);
+}
+
+.studium-viewer .eyebrow,
+.studium-viewer .viewer-kicker {
+  color: var(--st-accent);
+  font: var(--st-weight-bold) var(--st-size-xs) / var(--st-leading-body) var(--st-font-text);
+  letter-spacing: var(--st-tracking-label);
+  text-transform: uppercase;
+}
+
+.studium-viewer .meta,
+.studium-viewer .path,
+.studium-viewer .privacy {
+  color: var(--st-muted);
+  font-size: var(--st-size-xs);
+  line-height: var(--st-leading-body);
+  overflow-wrap: anywhere;
+}
+
+.studium-viewer a {
+  color: var(--st-accent);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.2em;
+}
+
+.studium-viewer a:hover {
+  color: var(--st-accent-hover);
+}
+
+.studium-viewer :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: var(--st-border-width-focus) solid var(--st-focus);
+  outline-offset: 3px;
+}
+
+.studium-viewer .site-header,
+.studium-viewer > header,
+.studium-viewer .viewer-header {
+  padding: var(--st-space-3) max(var(--st-space-6), calc((100vw - var(--st-viewer-measure)) / 2));
+  border-block-start: var(--st-border-width-strong) solid var(--st-brand-ochre);
+  border-block-end: var(--st-border-width-default) solid var(--st-border);
+  background: var(--st-surface);
+  box-shadow: var(--st-shadow-small);
+}
+
+.studium-viewer .mystra-report > .viewer-header {
+  padding: 0 0 var(--st-space-6);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.studium-viewer .viewer-header .viewer-summary {
+  margin: var(--st-space-3) 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  /* The card rule below gives every .viewer-summary a shadow; the header's summary is running text. */
+  box-shadow: none;
+}
+
+.studium-viewer .brand,
+.studium-viewer .site-title {
+  color: var(--st-text);
+  font: var(--st-weight-semibold) var(--st-size-md) / var(--st-leading-snug) var(--st-font-display);
+  letter-spacing: 0.01em;
+}
+
+.studium-viewer .site-title::before {
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  margin-inline-end: var(--st-space-2);
+  border: var(--st-border-width-strong) solid var(--st-brand-ochre);
+  transform: rotate(45deg);
+  content: "";
+}
+
+.studium-viewer .global-nav a,
+.studium-viewer .controls button {
+  border-radius: var(--st-radius-small);
+  color: var(--st-text);
+  font: var(--st-weight-semibold) var(--st-size-sm) / var(--st-leading-snug) var(--st-font-text);
+}
+
+.studium-viewer .global-nav a:hover {
+  background: var(--st-accent-soft);
+  color: var(--st-accent-hover);
+}
+
+.studium-viewer .card,
+.studium-viewer .analysis-card,
+.studium-viewer .review-bundle,
+.studium-viewer .viewer-summary {
+  border: var(--st-border-width-default) solid var(--st-border);
+  border-radius: var(--st-radius-large);
+  background: var(--st-surface);
+  box-shadow: var(--st-shadow-small);
+}
+
+.studium-viewer .card,
+.studium-viewer .analysis-card,
+.studium-viewer .review-bundle {
+  margin: var(--st-space-4) 0;
+  padding: var(--st-space-6);
+}
+
+.studium-viewer .notice,
+.studium-viewer .status-note,
+.studium-viewer .banner {
+  max-width: none;
+  margin: var(--st-space-4) 0;
+  padding: var(--st-space-3) var(--st-space-4);
+  border: var(--st-border-width-default) solid var(--st-info);
+  border-inline-start-width: var(--st-border-width-focus);
+  border-radius: var(--st-radius-medium);
+  background: var(--st-info-soft);
+  color: var(--st-text);
+  font-size: var(--st-size-sm);
+}
+
+.studium-viewer .banner,
+.studium-viewer .absent {
+  border-color: var(--st-warning);
+  color: var(--st-warning);
+}
+
+.studium-viewer .banner {
+  background: var(--st-warning-soft);
+  color: var(--st-text);
+}
+
+.studium-viewer .none,
+.studium-viewer .not_run,
+.studium-viewer .not_installed {
+  color: var(--st-muted);
+}
+
+.studium-viewer .ok,
+.studium-viewer .pass {
+  color: var(--st-success);
+}
+
+.studium-viewer .failed,
+.studium-viewer .timed_out,
+.studium-viewer .defect {
+  color: var(--st-danger);
+}
+
+.studium-viewer .suspect,
+.studium-viewer .suppressed,
+.studium-viewer .unmeasured,
+.studium-viewer .unreadable,
+.studium-viewer .empty {
+  color: var(--st-warning);
+}
+
+.studium-viewer button,
+.studium-viewer .button {
+  min-height: var(--st-layout-target);
+  padding: var(--st-space-2) var(--st-space-4);
+  border: var(--st-border-width-default) solid var(--st-button-background);
+  border-radius: var(--st-radius-medium);
+  background: var(--st-button-background);
+  color: var(--st-button-foreground);
+  font: var(--st-weight-semibold) var(--st-size-sm) / var(--st-leading-snug) var(--st-font-text);
+  transition:
+    background-color var(--st-duration-fast) var(--st-ease-standard),
+    border-color var(--st-duration-fast) var(--st-ease-standard);
+}
+
+.studium-viewer button:hover,
+.studium-viewer .button:hover {
+  border-color: var(--st-button-hover-background);
+  background: var(--st-button-hover-background);
+  color: var(--st-button-foreground);
+}
+
+.studium-viewer button.secondary,
+.studium-viewer .button:not(.primary),
+.studium-viewer .controls button {
+  border-color: var(--st-border-strong);
+  background: var(--st-surface);
+  color: var(--st-text);
+}
+
+.studium-viewer button.secondary:hover,
+.studium-viewer .button:not(.primary):hover,
+.studium-viewer .controls button:hover {
+  border-color: var(--st-accent);
+  background: var(--st-accent-soft);
+  color: var(--st-text);
+}
+
+.studium-viewer .node-list button[aria-pressed="true"] {
+  border-color: var(--st-accent);
+  background: var(--st-accent);
+  color: var(--st-on-accent);
+}
+
+.studium-viewer button:disabled {
+  border-color: var(--st-border-strong);
+  background: var(--st-surface-muted);
+  color: var(--st-muted);
+  opacity: 1;
+}
+
+.studium-viewer :where(input, textarea, select) {
+  border-color: var(--st-input-border);
+  background: var(--st-input-background);
+  color: var(--st-input-foreground);
+  font: inherit;
+}
+
+.studium-viewer :where(textarea, select):disabled {
+  background: var(--st-surface-muted);
+  color: var(--st-muted);
+  -webkit-text-fill-color: var(--st-muted);
+}
+
+.studium-viewer input[type="range"],
+.studium-viewer input[type="radio"],
+.studium-viewer input[type="checkbox"] {
+  accent-color: var(--st-accent);
+}
+
+.studium-viewer .prediction,
+.studium-viewer .choice:has(input:checked) {
+  border-color: var(--st-accent);
+  background: var(--st-accent-soft);
+  color: var(--st-text);
+}
+
+.studium-viewer fieldset {
+  border-color: var(--st-border);
+  border-radius: var(--st-radius-medium);
+}
+
+.studium-viewer .readouts,
+.studium-viewer code,
+.studium-viewer pre {
+  background: var(--st-surface-muted);
+}
+
+.studium-viewer .number,
+.studium-viewer .metric .value {
+  color: var(--st-text);
+  font-family: var(--st-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.studium-viewer .metric-grid {
+  gap: var(--st-space-3);
+}
+
+.studium-viewer .metric {
+  min-height: 6.5rem;
+  padding: var(--st-space-4);
+  border: var(--st-border-width-default) solid var(--st-border);
+  border-block-start: var(--st-border-width-focus) solid var(--st-accent);
+  border-radius: var(--st-radius-medium);
+  background: var(--st-surface);
+  box-shadow: var(--st-shadow-small);
+}
+
+.studium-viewer .metric .value {
+  font-size: var(--st-size-xl);
+}
+
+.studium-viewer .metric .label {
+  color: var(--st-muted);
+}
+
+.studium-viewer .section-nav,
+.studium-viewer .progress {
+  top: var(--st-space-2);
+  margin: var(--st-space-6) 0;
+  padding: var(--st-space-2);
+  gap: var(--st-space-1);
+  border: var(--st-border-width-default) solid var(--st-border);
+  border-radius: var(--st-radius-medium);
+  background: var(--st-surface);
+  box-shadow: var(--st-shadow-raised);
+  scrollbar-color: var(--st-border-strong) transparent;
+}
+
+.studium-viewer .section-nav a {
+  min-height: var(--st-layout-target);
+  padding: var(--st-space-2) var(--st-space-3);
+  border-radius: var(--st-radius-small);
+  color: var(--st-text);
+  font: var(--st-weight-semibold) var(--st-size-sm) / var(--st-leading-body) var(--st-font-text);
+}
+
+.studium-viewer .section-nav a:hover,
+.studium-viewer .progress li[aria-current="step"] {
+  background: var(--st-accent-soft);
+  color: var(--st-accent-hover);
+}
+
+.studium-viewer table {
+  border: var(--st-border-width-default) solid var(--st-border);
+  border-radius: var(--st-radius-medium);
+  background: var(--st-surface);
+  color: var(--st-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.studium-viewer thead {
+  background: var(--st-surface-muted);
+  color: var(--st-text);
+}
+
+.studium-viewer th,
+.studium-viewer td {
+  border-block-end-color: var(--st-border);
+}
+
+.studium-viewer tbody th,
+.studium-viewer tbody tr:hover {
+  background: var(--st-accent-soft);
+  color: var(--st-text);
+}
+
+.studium-viewer .table-scroll {
+  border-radius: var(--st-radius-medium);
+  scrollbar-color: var(--st-border-strong) transparent;
+}
+
+.studium-viewer code,
+.studium-viewer pre {
+  color: var(--st-text);
+  font-family: var(--st-font-mono);
+}
+
+.studium-viewer pre {
+  border-color: var(--st-border);
+  border-inline-start-color: var(--st-accent);
+}
+
+.studium-viewer details {
+  border-color: var(--st-border);
+  border-radius: var(--st-radius-medium);
+  background: var(--st-surface);
+}
+
+.studium-viewer summary {
+  color: var(--st-text);
+}
+
+.studium-viewer summary::marker {
+  color: var(--st-accent);
+}
+
+.studium-viewer blockquote.evidence {
+  border-inline-start-color: var(--st-warning);
+  background: var(--st-warning-soft);
+  color: var(--st-text);
+  font-family: var(--st-font-display);
+}
+
+.studium-viewer .record-meta {
+  border-color: var(--st-border);
+}
+
+@media (max-width: 47.5rem) {
+  .studium-viewer main {
+    width: calc(100% - var(--st-space-8));
+    padding: var(--st-space-6) 0 var(--st-space-12);
+  }
+
+  .studium-viewer .site-header,
+  .studium-viewer > header,
+  .studium-viewer .viewer-header {
+    padding: var(--st-space-3) var(--st-space-4);
+  }
+
+  .studium-viewer .card,
+  .studium-viewer .analysis-card,
+  .studium-viewer .review-bundle {
+    padding: var(--st-space-4);
+  }
+
+  .studium-viewer .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .studium-viewer .section-nav,
+  .studium-viewer .progress {
+    top: var(--st-space-1);
+    margin: var(--st-space-4) 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studium-viewer,
+  .studium-viewer *,
+  .studium-viewer *::before,
+  .studium-viewer *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .studium-viewer :where(.card, .metric, .notice, .status-note, .banner, table, details, button, .button, input, textarea, select) {
+    border-color: CanvasText;
+  }
+
+  .studium-viewer :focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+@media print {
+  :root,
+  :root:not([data-theme="light"]),
+  [data-theme="dark"] {
+    --st-canvas: var(--st-palette-light-surface-raised);
+    --st-surface: var(--st-palette-light-surface-raised);
+    --st-surface-raised: var(--st-palette-light-surface-raised);
+    --st-surface-muted: var(--st-palette-light-surface-muted);
+    --st-text: var(--st-palette-light-text);
+    --st-muted: var(--st-palette-light-muted);
+    --st-accent: var(--st-palette-light-accent);
+    --st-accent-hover: var(--st-palette-light-accent-hover);
+    --st-accent-soft: var(--st-palette-light-accent-soft);
+    --st-on-accent: var(--st-palette-light-on-accent);
+    --st-border: var(--st-palette-light-border);
+    --st-border-strong: var(--st-palette-light-border-strong);
+    --st-focus: var(--st-palette-light-focus);
+    --st-success: var(--st-palette-light-success);
+    --st-success-soft: var(--st-palette-light-success-soft);
+    --st-warning: var(--st-palette-light-warning);
+    --st-warning-soft: var(--st-palette-light-warning-soft);
+    --st-danger: var(--st-palette-light-danger);
+    --st-danger-soft: var(--st-palette-light-danger-soft);
+    --st-info: var(--st-palette-light-info);
+    --st-info-soft: var(--st-palette-light-info-soft);
+    --st-brand-ochre: var(--st-palette-light-brand-ochre);
+    color-scheme: light;
+  }
+
+  body.studium-viewer {
+    color: var(--st-text);
+    background: var(--st-surface-raised);
+    font-size: 10pt;
+  }
+
+  .studium-viewer .card,
+  .studium-viewer .analysis-card,
+  .studium-viewer .review-bundle,
+  .studium-viewer .metric {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .studium-viewer thead {
+    background: var(--st-surface-muted);
+    color: var(--st-text);
+  }
+}

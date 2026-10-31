@@ -1,0 +1,4 @@
+interface:
+  display_name: "Studium · Activités interactives"
+  short_description: "Adapter un template à une question scientifique"
+  default_prompt: "Utilise $studium-activity-templates pour préparer une activité interactive reliée à ma scène Studium."

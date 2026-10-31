@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "studium": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/apps/studium-vscode/dist/lesson-mcp.cjs"],
+      "env": {
+        "BUNDLES_ROOT": "${workspaceFolder}/fixtures",
+        "LITELLM_BASE_URL": ""
+      }
+    }
+  }
+}

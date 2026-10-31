@@ -1,0 +1,4 @@
+interface:
+  display_name: "Studium · Enseignant"
+  short_description: "Préparer et relire un premier cours sourcé"
+  default_prompt: "Utilise $studium-teacher pour m’aider à installer Studium et préparer un premier cours sourcé."

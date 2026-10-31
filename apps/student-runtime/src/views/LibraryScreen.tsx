@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { tauri, type BundleEntry } from "../lib/tauri";
+import StudyShell from "../components/StudyShell";
 
 /**
  * The library: the bundles this installation can open (INT-STUDIUM-034).
@@ -46,9 +47,13 @@ export default function LibraryScreen() {
   const [installed, setInstalled] = useState<BundleEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [staged, setStaged] = useState<string | null>(stagedBundlePath);
+  const [query, setQuery] = useState("");
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   useEffect(() => {
     let live = true;
+    setInstalled(null);
+    setError(null);
     tauri.listBundles().then(
       (listed) => {
         if (live) setInstalled(listed);
@@ -56,13 +61,13 @@ export default function LibraryScreen() {
       (e: unknown) => {
         // An empty library and a broken bridge look identical to a learner, and they need
         // different actions — so the failure is named rather than folded into "no lessons".
-        if (live) setError((e as Error).message);
+        if (live) setError(e instanceof Error ? e.message : String(e));
       },
     );
     return () => {
       live = false;
     };
-  }, []);
+  }, [reloadVersion]);
 
   useEffect(() => {
     const t = setInterval(() => setStaged((prev) => stagedBundlePath() ?? prev), STAGED_POLL_MS);
@@ -78,22 +83,45 @@ export default function LibraryScreen() {
       ? installed
       : [head, ...(installed ?? []).filter((b) => b.path !== staged)];
 
-  return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-3xl mx-auto">
-        <header className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Bibliothèque</h1>
-          <Link to="/settings" className="text-sm text-blue-600 underline">Réglages</Link>
-        </header>
+  const search = normalizeSearch(query.trim());
+  const visible = rows?.filter((row) => normalizeSearch(`${row.title} ${row.bundle_id}`).includes(search));
 
-        {rows && rows.length > 0 ? (
-          <ul className="space-y-4">
-            {rows.map((b) => (
-              <li key={b.path} className="bg-white shadow rounded-lg p-6 hover:shadow-md transition">
-                <h2 className="text-xl font-semibold">{b.title}</h2>
-                <p className="text-gray-600 mt-1">
-                  {b.staged ? b.path : `${b.bundle_id} · ${b.n_scenes} scènes`}
-                </p>
+  return (
+    <StudyShell>
+      <main className="library-page">
+        <header className="library-intro">
+          <div>
+            <p className="eyebrow">Ta bibliothèque</p>
+            <h1>Le temps de<br /><em>comprendre.</em></h1>
+            <p className="intro-copy">Un concept à la fois. Choisis une leçon, explore les idées et mets-les en pratique.</p>
+          </div>
+          <div className="library-emblem" aria-hidden="true">
+            <span className="emblem-axis" /><span className="emblem-orbit orbit-one" /><span className="emblem-orbit orbit-two" />
+            <span className="emblem-core">S</span><span className="emblem-caption">L’apprentissage en mouvement</span>
+          </div>
+        </header>
+        <div className="library-toolbar">
+          <h2>Mes leçons <span className="count-badge" aria-label="Nombre de leçons">{rows?.length ?? "…"}</span></h2>
+          <label className="search-field">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><circle cx="10" cy="10" r="6" /><path d="m15 15 5 5" /></svg>
+            <input type="search" aria-label="Rechercher une leçon" placeholder="Rechercher une leçon…" value={query} onChange={(event) => setQuery(event.target.value)} />
+          </label>
+        </div>
+        {error && (
+          <div role="alert" className="notice notice-error">
+            <p>Impossible de lire la bibliothèque : {error}</p>
+            <button className="button-secondary" onClick={() => setReloadVersion((version) => version + 1)}>Réessayer</button>
+          </div>
+        )}
+        {visible && visible.length > 0 ? (
+          <ul className="lesson-grid">
+            {visible.map((b, index) => (
+              <li key={b.path} className="lesson-card">
+                <div className="lesson-card-art" aria-hidden="true"><span>{String(index + 1).padStart(2, "0")}</span><i /><i /><i /></div>
+                <div className="lesson-card-body">
+                  <p className="eyebrow">{b.staged ? "Leçon préparée" : `${b.n_scenes} scènes`}</p>
+                  <h3>{b.title}</h3>
+                  {b.staged && <p className="staged-path">{b.path}</p>}
                 <button
                   type="button"
                   data-testid="library-load-bundle"
@@ -104,24 +132,36 @@ export default function LibraryScreen() {
                         `?bundle=${encodeURIComponent(b.path)}`,
                     )
                   }
-                  className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded"
+                  className="button-primary lesson-start"
+                  aria-label={`Démarrer la leçon : ${b.title}`}
                 >
-                  Démarrer la leçon
+                  Démarrer la leçon <span aria-hidden="true">↗</span>
                 </button>
+                </div>
               </li>
             ))}
           </ul>
-        ) : error ? (
-          <p className="text-red-600">Impossible de lire la bibliothèque : {error}</p>
-        ) : rows === null ? (
-          <p className="text-gray-500">Chargement de la bibliothèque…</p>
+        ) : rows && rows.length > 0 ? (
+          <div className="empty-state" role="status">
+            <h3>Aucune leçon ne correspond à ta recherche.</h3>
+            <button className="button-secondary" onClick={() => setQuery("")}>Effacer la recherche</button>
+          </div>
+        ) : error ? null : rows === null ? (
+          <div className="empty-state" role="status">Chargement de la bibliothèque…</div>
         ) : (
-          <p className="text-gray-600">
-            Aucune leçon installée. Déposez un bundle <code>.zip</code> dans le dossier des
-            leçons (<code>STUDIUM_BUNDLES_DIR</code>) puis rouvrez cet écran.
-          </p>
+          <div className="empty-state">
+            <p className="eyebrow">Une place pour tes prochaines découvertes</p>
+            <h3>Aucune leçon installée.</h3>
+            <p>Les leçons installées sur cet appareil apparaîtront ici.</p>
+            <details><summary>Comment ajouter une leçon ?</summary><p>Dépose un bundle <code>.zip</code> dans le dossier des leçons (<code>STUDIUM_BUNDLES_DIR</code>), puis actualise la bibliothèque.</p></details>
+            <button className="button-secondary" onClick={() => setReloadVersion((version) => version + 1)}>Actualiser la bibliothèque</button>
+          </div>
         )}
-      </div>
-    </main>
+      </main>
+    </StudyShell>
   );
+}
+
+function normalizeSearch(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr");
 }

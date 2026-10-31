@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400" role="img" aria-label="Studium verdict deck: three claims, one flagged as incorrect, and a submit button">
+<rect width="640" height="400" rx="10" fill="#13252c"/>
+<rect x="16" y="16" width="608" height="368" rx="8" fill="#1a3038" stroke="#3b535b"/>
+<rect x="16" y="16" width="608" height="28" rx="8" fill="#263e45"/>
+<circle cx="34" cy="30" r="4" fill="#829b9e"/><circle cx="50" cy="30" r="4" fill="#829b9e"/><circle cx="66" cy="30" r="4" fill="#829b9e"/>
+<rect x="40" y="62" width="240" height="12" rx="4" fill="#f2f2e9"/>
+<rect x="40" y="86" width="400" height="8" rx="4" fill="#3b535b"/>
+<rect x="40" y="110" width="560" height="48" rx="6" fill="#223c44" stroke="#3b535b" stroke-width="1"/>
+<rect x="60" y="124" width="380" height="8" rx="4" fill="#b2c4c7"/>
+<rect x="60" y="138" width="300" height="8" rx="4" fill="#3b535b"/>
+<polygon points="540,122 562,129 540,136" fill="none" stroke="#829b9e" stroke-width="2"/>
+<line x1="540" y1="122" x2="540" y2="148" stroke="#829b9e" stroke-width="2"/>
+<rect x="40" y="170" width="560" height="48" rx="6" fill="#4a2e2c" stroke="#ffb4a6" stroke-width="2"/>
+<rect x="60" y="184" width="380" height="8" rx="4" fill="#f2f2e9"/>
+<rect x="60" y="198" width="300" height="8" rx="4" fill="#3b535b"/>
+<polygon points="540,182 562,189 540,196" fill="#ffb4a6" stroke="#ffb4a6" stroke-width="2"/>
+<line x1="540" y1="182" x2="540" y2="208" stroke="#ffb4a6" stroke-width="2"/>
+<rect x="40" y="230" width="560" height="48" rx="6" fill="#223c44" stroke="#3b535b" stroke-width="1"/>
+<rect x="60" y="244" width="380" height="8" rx="4" fill="#b2c4c7"/>
+<rect x="60" y="258" width="300" height="8" rx="4" fill="#3b535b"/>
+<polygon points="540,242 562,249 540,256" fill="none" stroke="#829b9e" stroke-width="2"/>
+<line x1="540" y1="242" x2="540" y2="268" stroke="#829b9e" stroke-width="2"/>
+<rect x="40" y="304" width="176" height="34" rx="6" fill="#8bd5c4"/>
+<rect x="62" y="317" width="132" height="8" rx="4" fill="#13252c"/>
+</svg>

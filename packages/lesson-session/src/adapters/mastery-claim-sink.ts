@@ -20,10 +20,10 @@ export class FileMasteryClaimSink implements MasteryClaimSink {
     if (this.buffer.length === 0) return;
     const docs = this.buffer;
     this.buffer = [];
-    await mkdir(this.dir, { recursive: true });
+    await mkdir(this.dir, { recursive: true, mode: 0o700 }); // L-11: learner folders 0700, files 0600
     for (const doc of docs) {
       const name = this.fileFor(doc);
-      await writeFile(join(this.dir, name), JSON.stringify(doc, null, 2), "utf8");
+      await writeFile(join(this.dir, name), JSON.stringify(doc, null, 2), { encoding: "utf8", mode: 0o600 });
       this.written.push(name);
     }
   }

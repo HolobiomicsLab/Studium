@@ -19,10 +19,15 @@ import argparse
 import os
 import sys
 from dataclasses import asdict
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+from contextual_help import help_tip
 
 from observatory_config import (
     DEFAULT_HOST,
@@ -30,8 +35,10 @@ from observatory_config import (
     ENV_COURSE_ROOT,
     ENV_COURSES,
     ENV_EVAL_ROOT,
+    ENV_HARNESS_REFRESH,
     ENV_HOST,
     ENV_PORT,
+    ENV_SESSION_DIRS,
     ENV_SESSIONS_ROOT,
     ENV_VALIDATOR_TIMEOUT,
     ENV_VALIDITY_ROOT,
@@ -39,6 +46,7 @@ from observatory_config import (
 )
 from observatory_discovery import CourseRef, Inventory, RunRef, discover
 from observatory_evaluation import run_detail, summarize_run, summarize_suite
+from observatory_harness import harness_detail
 from observatory_paths import TEMPLATES_DIR
 from observatory_provenance import course_detail, myst_page, reviews_detail, summarize_course
 from observatory_sessions import sessions_detail, store_courses
@@ -46,6 +54,7 @@ from observatory_validation import ValidationCache
 
 TITLE = "studium-observatory"
 VERSION = "0.1.0"
+THEME_DIR = TEMPLATES_DIR.parents[2] / "ui"
 
 
 def create_app(cfg: ObservatoryConfig) -> FastAPI:
@@ -53,7 +62,8 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
     app = FastAPI(title=TITLE, version=VERSION)
     app.state.cfg = cfg
     app.state.validation = ValidationCache(cfg.validator_timeout)
-    templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+    templates = Jinja2Templates(directory=[str(TEMPLATES_DIR), str(THEME_DIR)])
+    templates.env.globals["help_tip"] = lambda topic: Markup(help_tip(topic, "teacher"))
 
     def inventory() -> Inventory:
         return discover(app.state.cfg)
@@ -110,6 +120,23 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
     def api_course(course_id: str) -> dict:
         ref = course(course_id)
         return course_detail(ref) if ref is not None else _unknown("course")
+
+    def mystra_view(ref: CourseRef) -> dict:
+        """Reuse the artifact views and cached schema verdict for the printable report."""
+        return {"course": course_detail(ref), "review": reviews_detail(ref),
+                "validation": asdict(app.state.validation.get(ref.path, run=False))}
+
+    @app.get("/courses/{course_id}/mystra", response_class=HTMLResponse)
+    def course_mystra(request: Request, course_id: str) -> HTMLResponse:
+        ref = course(course_id)
+        if ref is None:
+            return _unknown("course")
+        return templates.TemplateResponse(request, "mystra.html", mystra_view(ref))
+
+    @app.get("/api/courses/{course_id}/mystra")
+    def api_course_mystra(course_id: str) -> dict:
+        ref = course(course_id)
+        return mystra_view(ref) if ref is not None else _unknown("course")
 
     @app.get("/courses/{course_id}/provenance.myst.md", response_class=PlainTextResponse)
     def course_myst(course_id: str) -> PlainTextResponse:
@@ -189,6 +216,17 @@ def create_app(cfg: ObservatoryConfig) -> FastAPI:
             return _unknown("course")
         return sessions_detail(app.state.cfg, course_id)
 
+    @app.get("/harness", response_class=HTMLResponse)
+    def harness_page(request: Request) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request, "harness.html", {"detail": harness_detail(app.state.cfg)})
+
+    @app.get("/api/harness")
+    def api_harness() -> dict:
+        # No refresh header on the JSON twin: a client that polls owns its own interval,
+        # and the page's meta refresh is a property of the page (plan D4).
+        return harness_detail(app.state.cfg)
+
     return app
 
 
@@ -216,6 +254,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="collector store root (<store>/<course>/<YYYY-MM-DD>.jsonl)")
     parser.add_argument("--sessions-root",
                         help="one directory of telemetry.jsonl streams, read whole")
+    parser.add_argument("--session-dir", action="append", default=[],
+                        help="an agentic-session workspace, or its .studium-session/ (repeatable)")
+    parser.add_argument("--harness-refresh", type=int,
+                        help="seconds between Harness page refreshes (0 disables)")
     parser.add_argument("--host", help=f"bind address (default {DEFAULT_HOST})")
     parser.add_argument("--port", type=int)
     parser.add_argument("--validator-timeout", type=float, help="seconds before astra validate is killed")
@@ -230,6 +272,10 @@ def main(argv: list[str] | None = None) -> int:
             env[name] = value
     if args.course:
         env[ENV_COURSES] = os.pathsep.join(args.course)
+    if args.session_dir:
+        env[ENV_SESSION_DIRS] = os.pathsep.join(args.session_dir)
+    if args.harness_refresh is not None:
+        env[ENV_HARNESS_REFRESH] = str(args.harness_refresh)
     if args.port is not None:
         env[ENV_PORT] = str(args.port)
     if args.validator_timeout is not None:

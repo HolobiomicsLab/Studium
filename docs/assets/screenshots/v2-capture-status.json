@@ -1,0 +1,40 @@
+{
+  "recorded_at": "2026-10-30T11:57:30.731430+00:00",
+  "status": "blocked",
+  "screenshots": [],
+  "browser": "/Users/nothiasl/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell",
+  "barriers": [
+    {
+      "probe": "Explicit Playwright launch of installed headless Chromium",
+      "evidence": "bootstrap_check_in: Permission denied (1100); SIGTRAP"
+    },
+    {
+      "probe": "Installed Google Chrome headless about:blank",
+      "exit_code": 134
+    },
+    {
+      "probe": "Next start on 127.0.0.1:3107",
+      "exit_code": 1,
+      "evidence": "listen EPERM"
+    }
+  ],
+  "prepared_script": "docs/assets/screenshots/capture-web.mjs",
+  "script_checks": [
+    {
+      "command": "node --check docs/assets/screenshots/capture-web.mjs",
+      "exit_code": 0
+    },
+    {
+      "command": "node docs/assets/screenshots/capture-web.mjs --check",
+      "exit_code": 0,
+      "browser_launched": false
+    }
+  ],
+  "optional_pane": {
+    "path": "/private/tmp/claude-502/-Users-nothiasl-git/a0fed7d0-0208-4880-a9de-285b07349593/scratchpad/pane-snapshots",
+    "exists": false,
+    "disposition": "skipped; absent"
+  },
+  "next_action": "Caller runs the two services and capture command documented in v2-verification.md, then inspects the actual images.",
+  "visual_acceptance": "pending"
+}

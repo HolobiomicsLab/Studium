@@ -25,6 +25,13 @@ type Props = {
   onDecide: DecideAction;
 };
 
+export function formatSubmissionError(_error: unknown): string {
+  return (
+    "scene-synth n’a pas pu enregistrer la décision. " +
+    "Vérifiez que le service scene-synth est démarré et accessible, puis réessayez."
+  );
+}
+
 /** De-identify the author for the teacher view: items carry NO author identity
  * (the client-safe LearnerItemView omits author_pseudonym entirely). We surface
  * a stable, non-identifying tag derived from the item_id so the teacher can
@@ -40,7 +47,7 @@ function ValidationBadge({ ok, errors }: { ok: boolean; errors: string[] }) {
       <span
         data-testid="validation-badge"
         data-ok="true"
-        className="inline-block text-xs font-semibold px-2 py-0.5 rounded bg-green-100 text-green-800"
+        className="status-badge status-badge--valid"
       >
         ✓ Validation OK
       </span>
@@ -50,7 +57,7 @@ function ValidationBadge({ ok, errors }: { ok: boolean; errors: string[] }) {
     <span
       data-testid="validation-badge"
       data-ok="false"
-      className="inline-block text-xs font-semibold px-2 py-0.5 rounded bg-red-100 text-red-800"
+      className="status-badge status-badge--error"
       title={errors.join("\n")}
     >
       ✗ {errors.length} erreur{errors.length > 1 ? "s" : ""}
@@ -63,27 +70,23 @@ function ValidationBadge({ ok, errors }: { ok: boolean; errors: string[] }) {
  * visible so a teacher cannot bulk-approve blind. */
 function SceneBody({ scene }: { scene: LearnerItemView["scene"] }) {
   return (
-    <div data-testid="scene-body" className="bg-gray-50 rounded p-3 text-sm space-y-2">
-      <p className="font-medium">
+    <div data-testid="scene-body" className="scene-review">
+      <p className="scene-review__title">
         {scene.title}{" "}
-        <code className="text-xs text-gray-500">[{scene.type}]</code>
+        <code className="scene-review__type">[{scene.type}]</code>
       </p>
-      {scene.question && <p className="text-gray-800">{scene.question}</p>}
+      {scene.question && <p className="scene-review__question">{scene.question}</p>}
       {Array.isArray(scene.choices) && (
-        <ul data-testid="answer-key" className="space-y-1">
+        <ul data-testid="answer-key" className="answer-key">
           {scene.choices.map((c) => (
             <li
               key={c.id}
               data-correct={c.correct ? "true" : "false"}
-              className={
-                "flex items-center gap-2 " +
-                (c.correct ? "text-green-700 font-semibold" : "text-gray-700")
-              }
             >
               <span aria-hidden>{c.correct ? "●" : "○"}</span>
               <span>{c.text}</span>
               {c.correct && (
-                <span className="text-[10px] uppercase tracking-wide bg-green-600 text-white px-1 rounded">
+                <span className="answer-key__badge">
                   bonne réponse
                 </span>
               )}
@@ -92,14 +95,14 @@ function SceneBody({ scene }: { scene: LearnerItemView["scene"] }) {
         </ul>
       )}
       {scene.feedback_correct && (
-        <p className="text-xs text-gray-600">
-          <span className="font-semibold">Feedback (correct) :</span>{" "}
+        <p className="scene-review__feedback">
+          <strong>Feedback (correct) :</strong>{" "}
           {scene.feedback_correct}
         </p>
       )}
       {scene.feedback_incorrect && (
-        <p className="text-xs text-gray-600">
-          <span className="font-semibold">Feedback (incorrect) :</span>{" "}
+        <p className="scene-review__feedback">
+          <strong>Feedback (incorrect) :</strong>{" "}
           {scene.feedback_incorrect}
         </p>
       )}
@@ -123,7 +126,7 @@ function SubmissionCard({
     try {
       await onDecide(item.item_id, decision, noteCode);
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(formatSubmissionError(e));
     } finally {
       setBusy(false);
     }
@@ -133,21 +136,21 @@ function SubmissionCard({
     <li
       data-testid="submission-card"
       data-item-id={item.item_id}
-      className="bg-white shadow rounded p-4 space-y-3"
+      className="submission-card"
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-gray-500">{authorTag(item)}</span>
+      <div className="submission-card__meta">
+        <span className="submission-card__author">{authorTag(item)}</span>
         <ValidationBadge ok={item.validation.ok} errors={item.validation.errors} />
       </div>
 
       <SceneBody scene={item.scene} />
 
-      <div className="flex flex-wrap gap-2 pt-1">
+      <div className="submission-card__actions">
         <button
           type="button"
           disabled={busy}
           onClick={() => decide("approve")}
-          className="text-sm px-3 py-1 rounded bg-green-600 text-white disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+          className="primary-button"
         >
           Approuver
         </button>
@@ -155,7 +158,7 @@ function SubmissionCard({
           type="button"
           disabled={busy}
           onClick={() => decide("request_revision", "ambiguous_distractor")}
-          className="text-sm px-3 py-1 rounded bg-amber-500 text-white disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+          className="secondary-button"
         >
           Demander révision
         </button>
@@ -163,12 +166,14 @@ function SubmissionCard({
           type="button"
           disabled={busy}
           onClick={() => decide("reject", "off_topic")}
-          className="text-sm px-3 py-1 rounded bg-red-600 text-white disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+          className="danger-button"
         >
           Rejeter
         </button>
       </div>
-      {err && <p className="text-xs text-red-600">Erreur : {err}</p>}
+      {err && (
+        <p className="inline-error" role="alert">Erreur : {err}</p>
+      )}
     </li>
   );
 }
@@ -198,13 +203,13 @@ export function makeDecideAction(
 export default function SubmissionsQueue({ items, onDecide }: Props) {
   if (items.length === 0) {
     return (
-      <p data-testid="empty-queue" className="text-sm text-gray-600">
+      <p data-testid="empty-queue" className="empty-state empty-state--panel">
         Aucune soumission en attente de modération.
       </p>
     );
   }
   return (
-    <ul data-testid="submissions-queue" className="space-y-4">
+    <ul data-testid="submissions-queue" className="submission-list">
       {items.map((item) => (
         <SubmissionCard key={item.item_id} item={item} onDecide={onDecide} />
       ))}

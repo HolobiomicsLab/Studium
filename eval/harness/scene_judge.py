@@ -158,6 +158,12 @@ def judge_bundle(bundle: dict, llm: Any) -> dict:
             per_dim.setdefault(v["dimension"], []).append(v["verdict"])
     return {
         "bundle_id": bundle.get("bundle_id", "?"),
+        # One stamp per review, taken here (INT-STUDIUM-010 nit 2). `emit_review_astra` used
+        # to read the wall clock at emission, so `verdicts.json` and `review/astra.yaml`
+        # named two different instants and two `write_review` calls on the SAME review
+        # differed. A review that becomes an evaluation artifact has to be tied to one moment,
+        # and the moment that means something is when the judging happened.
+        "judged_at": datetime.now(timezone.utc).isoformat(),
         "scenes": scenes,
         "skipped": skipped,
         "worst_case": {d: worst(vs) for d, vs in per_dim.items()},
@@ -222,14 +228,18 @@ def emit_review_astra(review: dict, *, created_at: str | None = None) -> dict:
     excluded with the judge's reasoning; defects become findings with the quote.
 
     In-schema per astra-spec 0.0.14 (INT-STUDIUM-010): every finding carries
-    `created_at` (ISO 8601; default = now, UTC), a quote is a TextQuoteSelector
+    `created_at` (ISO 8601; the review's own `judged_at`, else now, UTC), a quote is a
+    TextQuoteSelector
     (`{exact: ...}`, omitted when empty), the sub-analysis declares its input
     (the lesson bundle) and the `verdicts` output declares its format. Evidence
     ids and the grounding output for `lesson.json#<scene>` come from the emitter."""
     ensure_planner_importable()
     from provenance.astra_emit import emit_astra
 
-    stamp = created_at or datetime.now(timezone.utc).isoformat()
+    # The review's own stamp before the clock: re-emitting a stored review must reproduce
+    # the document it produced the first time. The wall clock stays as the last resort, for a
+    # review dict built before `judged_at` existed.
+    stamp = created_at or review.get("judged_at") or datetime.now(timezone.utc).isoformat()
     decisions, findings = [], []
     for sid, vs in review["scenes"].items():
         for v in vs:

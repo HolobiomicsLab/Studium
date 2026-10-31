@@ -13,10 +13,19 @@ import type { TrustCalibrationResponse } from "@/lib/api";
 const base: TrustCalibrationResponse = {
   trust_calibration: 0, band: "bien", n_audits: 2,
   over_trust: 0, over_distrust: 0, per_scene: [],
+  // INT-STUDIUM-030 R1: the population of the OVERALL gap is the union of the PUBLISHED
+  // scorable scenes' auditors — not the course cohort, which is what the endpoint's floor
+  // checked and what a reader would otherwise assume.
+  withheld_below_floor: false,
+  judgement: {
+    cohort_band: "10–19",
+    cohort_counts: "distinct learners within one lesson",
+    non_attribution: "class-level reading over the contributors this family names",
+  },
 };
 
-function render(data: TrustCalibrationResponse, learner?: string) {
-  return renderToStaticMarkup(createElement(TrustCalibrationChart, { data, learner }));
+function render(data: TrustCalibrationResponse) {
+  return renderToStaticMarkup(createElement(TrustCalibrationChart, { data }));
 }
 
 describe("TrustCalibrationChart", () => {
@@ -70,8 +79,54 @@ describe("TrustCalibrationChart", () => {
     expect(html).not.toContain("seule la surconfiance est mesurée");
   });
 
-  it("labels the learner when a pseudonym is given", () => {
-    const html = render(base, "hmac:p1");
-    expect(html).toContain("hmac:p1");
+  it("names the reading as aggregated, and cannot name a person", () => {
+    // Replaces "labels the learner when a pseudonym is given" (INT-STUDIUM-030). The chart no
+    // longer takes a `learner` prop because the collector no longer serves a narrowed number,
+    // and a per-learner TITLE over class-wide DATA would be the worst of the three states.
+    const html = render(base);
+    expect(html).toContain("agrégée");
+    expect(html).not.toContain("hmac:");
+  });
+
+  it("names the population behind the gap, not just the scene count (INT-STUDIUM-030 R1)", () => {
+    // « Calculé sur 2 scènes » is a count of ARTIFACTS. Two scenes can be two people, and the
+    // panel gave a reader nothing to tell the difference with — the scene count reads as
+    // reassurance about cohort size while saying nothing about it.
+    const html = render(base);
+    expect(html).toContain('data-testid="cohort-line"');
+    expect(html).toContain("10–19");
+  });
+
+  it("distinguishes a withheld measurement from an unmeasured one", () => {
+    // Both arrive as band=null. « Aucun audit n'a encore été joué » is false when the audits
+    // ran and were withheld under the floor, and it is the more expensive falsehood of the
+    // two: it sends a teacher to repair a bundle that is correct.
+    const withheld = render({
+      ...base, band: null, trust_calibration: null, n_audits: 0,
+      over_trust: null, over_distrust: null, withheld_below_floor: true,
+      judgement: { cohort_band: null,
+                   cohort_counts: "no contributors: this number was computed over nobody",
+                   non_attribution: base.judgement.non_attribution },
+    });
+    expect(withheld).toContain("plancher");
+    expect(withheld).not.toContain("n’a encore été joué");
+  });
+
+  it("says a reading was withheld without saying how much of it was", () => {
+    // The R1 lesson the collector's own property test surfaced: a count removed from one key
+    // comes back from a neighbouring one. On this panel the neighbour is `n_audits`, which
+    // now counts PUBLISHED scenes only — so one withheld scene and three withheld scenes
+    // reach the page as the same payload, and must leave it as the same markup.
+    const on = render({ ...base, withheld_below_floor: true });
+    const off = render(base);
+    expect(off).not.toContain('data-testid="withheld-notice"');
+    const notice = on.match(/<p[^>]*data-testid="withheld-notice"[^>]*>.*?<\/p>/s);
+    expect(notice).not.toBeNull();
+    // The flag adds a sentence and changes NO number: strip the notice and the withheld
+    // render is the un-withheld one, character for character.
+    expect(on.replace(notice![0], "")).toEqual(off);
+    // Digits stripped of tags: Tailwind class names carry numbers (`text-amber-700`), and a
+    // colour ramp is not a disclosure.
+    expect(notice![0].replace(/<[^>]*>/g, "")).not.toMatch(/\d/);
   });
 });

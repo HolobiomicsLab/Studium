@@ -32,7 +32,8 @@ def source_edge_id(body: Mapping[str, Any], key: str) -> str:
     written before that, else the container key itself (pre-slug files were keyed
     by the raw id). Raw ids contain colons, so the tag splits on its first colon."""
     prefix = SOURCE_ID_FIELD + ":"
-    for tag in body.get("tags") or []:
+    tags = body.get("tags")
+    for tag in tags if isinstance(tags, list) else []:
         if isinstance(tag, str) and tag.startswith(prefix):
             return tag[len(prefix):]
     legacy = body.get(SOURCE_ID_FIELD)
@@ -123,7 +124,16 @@ def _keyed_by_astra_id(entries: list[dict[str, Any]], *, grounding: _Grounding |
         raw = entry["id"]
         slug = slugify_id(raw, taken)
         body = {k: v for k, v in entry.items() if k not in ("id", SOURCE_ID_FIELD)}
-        body["tags"] = [*(body.get("tags") or []), f"{SOURCE_ID_FIELD}:{raw}"]
+        # Re-emitting a body that already carries the tag must not append a second one
+        # (INT-STUDIUM-010 nit 5). `source_edge_id` returns the FIRST match, so the value read
+        # back stayed correct and only the file grew — which is the kind of defect that is
+        # invisible until someone diffs two emissions of the same document and finds them
+        # unequal. No caller re-emits today; the guard is what keeps that from mattering.
+        prefix = SOURCE_ID_FIELD + ":"
+        tags = [*(body.get("tags") or [])]
+        if not any(isinstance(t, str) and t.startswith(prefix) for t in tags):
+            tags.append(f"{prefix}{raw}")
+        body["tags"] = tags
         if grounding is not None:
             body = _in_schema_insight(slug, body, grounding)
         out[slug] = body

@@ -28,8 +28,17 @@ describe("Démo M6 atomistique — 2 sessions cross-session", () => {
     "ai_critique",
   ];
 
-  const installFetchCounter = async (): Promise<void> => {
-    await browser.execute(() => {
+  /**
+   * Pose les hooks `window.__x` du harnais et compte les events postés au collector.
+   *
+   * `seed` : `browser.url(...)` est une navigation document. Elle détruit `window`, donc TOUT
+   * ce que cette fonction installe — le chemin du bundle, l'endpoint, le token du cours, le
+   * patch de `fetch` et le compteur. La session 2 repart de la bibliothèque par une navigation ;
+   * sans report explicite, « ≥ 50 cumulés » serait lu sur un compteur que le rechargement vient
+   * de remettre à zéro et ne mesurerait que la session 2. (INT-STUDIUM-033)
+   */
+  const installFetchCounter = async (seed = 0): Promise<void> => {
+    await browser.execute((initial: number) => {
       const w = window as unknown as {
         __telemetry_endpoint?: string;
         __course_token?: string;
@@ -40,7 +49,7 @@ describe("Démo M6 atomistique — 2 sessions cross-session", () => {
       };
       w.__telemetry_endpoint = "http://localhost:8003/telemetry";
       w.__course_token = "demo-m6";
-      w.__emitted_count = 0;
+      w.__emitted_count = initial;
       w.__test_bundle_path = "/tmp/studium-e2e/demo-atomistique.zip";
 
       const realFetch = w.fetch.bind(window);
@@ -68,7 +77,7 @@ describe("Démo M6 atomistique — 2 sessions cross-session", () => {
         }
         return realFetch(input as RequestInfo, init);
       }) as typeof fetch;
-    });
+    }, seed);
   };
 
   const getEmittedCount = async (): Promise<number> =>
@@ -78,11 +87,27 @@ describe("Démo M6 atomistique — 2 sessions cross-session", () => {
     })) as number;
 
   /**
+   * Les hooks posés par `installFetchCounter` sont-ils encore là ?
+   *
+   * `getEmittedCount` renvoie 0 aussi bien pour « aucun event » que pour « le compteur n'existe
+   * plus », et c'est cette confusion qui a fait passer une assertion cumulée pour une mesure.
+   * Le harnais doit donc constater l'absence, pas la lire comme un zéro.
+   */
+  const counterIsArmed = async (): Promise<boolean> =>
+    (await browser.execute(() => {
+      const w = window as unknown as {
+        __emitted_count?: number;
+        __test_bundle_path?: string;
+      };
+      return typeof w.__emitted_count === "number" && typeof w.__test_bundle_path === "string";
+    })) as boolean;
+
+  /**
    * Parcours complet :
    *   consent (1ʳᵉ session uniquement) → library load bundle → boucle scènes → fin.
    *
    * Selectors identiques à `m5-end-to-end.spec.ts` :
-   *   - Consent A   : `#a` (checkbox HTML id)
+   *   - Consent A   : `#a` (checkbox HTML id) ; B : `#b`, exigé pour transmettre
    *   - Continuer   : `button*=Continuer`
    *   - Library     : `[data-testid='library-load-bundle']`
    *   - Player      : `[data-testid='lesson-player']`
@@ -91,12 +116,28 @@ describe("Démo M6 atomistique — 2 sessions cross-session", () => {
   const playFullParcours = async (skipConsent = false): Promise<void> => {
     await browser.pause(1500);
 
+    // Une navigation ajoutée n'importe où dans ce parcours effacerait les hooks sans rien
+    // casser de visible : la bibliothèque se viderait et le compteur repartirait de zéro, et
+    // l'assertion finale mesurerait alors autre chose que ce que son libellé annonce.
+    if (!(await counterIsArmed())) {
+      throw new Error(
+        "hooks du harnais absents : une navigation document a réinitialisé `window`. " +
+          "Rappeler installFetchCounter(compteurReporté) après chaque browser.url().",
+      );
+    }
+
     if (!skipConsent) {
       const consentUrl = await browser.getUrl();
       if (consentUrl.includes("/consent")) {
         const aBox = await $("#a");
         if (await aBox.isExisting()) {
           await aBox.click();
+        }
+        // B — « Indicateurs … transmis ». Exigé pour transmettre depuis INT-STUDIUM-030 :
+        // sans lui le portillon échoue fermée et le collector ne reçoit rien.
+        const bBox = await $("#b");
+        if (await bBox.isExisting()) {
+          await bBox.click();
         }
         const continueBtn = await $("button*=Continuer");
         if (await continueBtn.isExisting()) {
@@ -188,7 +229,16 @@ describe("Démo M6 atomistique — 2 sessions cross-session", () => {
     // Pas de reset : la session 1 a posé l'état SQLCipher.
     // On retourne à la Library pour relancer un parcours — l'état Beta
     // (consent, profil pseudonyme) doit persister.
+    //
+    // Le compteur est lu AVANT la navigation, qui va détruire `window` avec tout ce que le
+    // harnais y avait posé, puis reposé comme graine juste après. C'est ce report qui fait de
+    // l'assertion ci-dessous un cumul des deux sessions ; sans lui elle ne mesurait que la
+    // seconde. (INT-STUDIUM-033)
+    const carried = await getEmittedCount();
+    expect(carried).toBeGreaterThan(0);
+
     await browser.url("/library");
+    await installFetchCounter(carried);
     await browser.pause(1000);
 
     await playFullParcours(true);

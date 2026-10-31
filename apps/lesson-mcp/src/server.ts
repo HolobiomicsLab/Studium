@@ -1,298 +1,271 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+// apps/lesson-mcp/src/server.ts
+//
+// The Studium MCP server: the lesson operations (operations.ts), the tools of the 2026-10-30
+// production sprint (contract C1) — the study tools defined here (list_lessons, get_study_plan,
+// start_review_session, rate_recall), the authoring tools (authoring-tools.ts: get_authoring_guide,
+// prepare_sources, create_lesson) and the teacher tools (teacher-tools.ts: review_lesson,
+// class_report) — the instructions a harness reads at connection, and the `learn` and `review`
+// prompts. get_server_info lists exactly the tools registered here.
+//
+// The study, authoring and teacher tools are MCP-only this sprint (lead decision I-11): the HTTP
+// adapter (http.ts) serves the 25 lesson operations alone.
 import { z } from "zod";
-import { SessionHost, ResponseInputSchema, RunResultSchema, publicPresentation, publicTransition } from "@studium/lesson-session-host";
-import type { ResponseInput } from "@studium/lesson-session";
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { SelfRatingExpiredError } from "@studium/lesson-session";
+import {
+  SessionHost, NowMsSchema, publicPresentation, operatorContext, type SelfRating,
+} from "@studium/lesson-session-host";
+import { lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type ToolResult } from "./operations.js";
+import { AUTHORING_TOOL_NAMES, registerAuthoringTools } from "./authoring-tools.js";
+import { TEACHER_TOOL_NAMES, registerTeacherTools } from "./teacher-tools.js";
+import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
 
-type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
+/** C1 study tools, defined in this file. */
+export const STUDY_TOOL_NAMES = ["get_study_plan", "list_lessons", "rate_recall", "start_review_session"] as const;
+/** Every tool buildMcpServer registers, sorted: the lesson operations, the study tools, the authoring
+ * tools and the teacher tools. */
+export const TOOL_NAMES: readonly string[] = [
+  ...LESSON_TOOL_NAMES, ...STUDY_TOOL_NAMES, ...AUTHORING_TOOL_NAMES, ...TEACHER_TOOL_NAMES,
+].sort();
+
+/** C4 self-rating grades, in FSRS order (lesson-session's SELF_RATING_CHOICES; a test pins the match). */
+export const RECALL_GRADES = ["again", "hard", "good", "easy"] as const satisfies readonly SelfRating[];
+
+/** The reply call written the way submit_response takes it (RT-8a): the instructions and both prompts
+ * use it, so a harness that follows them literally sends a valid call. */
+export const REPLY_CALL = "submit_response {session_id, input: {kind: \"reply\", text}}";
+
+/** What a harness reads once, at connection (MCP `instructions`). */
+export const SERVER_INSTRUCTIONS = [
+  "Studium teaches through the learner's own answers: you relay, the learner answers.",
+  "- Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools).",
+  "- Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.",
+  "- Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.",
+  "- Show display_markdown as it is: on a presentation; after an answer, verdict.display_markdown first, then the transition's.",
+  "- On the first screen, relay the authoring notice; if persistence.durable is false, tell the learner progress is lost at restart.",
+  `- Wait for the learner's answer and send their words with ${REPLY_CALL}; never answer, choose or rate for them.`,
+  "- When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.",
+  "- start_review_session plays every review due, across lessons; list_lessons shows what can be started.",
+  "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session.",
+  "- Never call forget_session unless the learner asks to erase their data: it deletes their progress for good.",
+].join("\n");
+
+let hasLoggedStartup = false;
+
+function logStartup(toolCount: number): void {
+  if (hasLoggedStartup) return;
+  const build = getBuildInfo();
+  process.stderr.write(
+    `[studium-lesson] v${SERVER_VERSION} ${build.origin} ${build.built_at ?? "unbuilt"} tools=${toolCount}\n`,
+  );
+  hasLoggedStartup = true;
+}
+
 const text = (data: unknown): ToolResult => ({ content: [{ type: "text", text: JSON.stringify(data) }] });
-const fail = (message: string): ToolResult => ({ content: [{ type: "text", text: JSON.stringify({ error: message }) }], isError: true });
+const fail = (error: unknown): ToolResult => ({
+  content: [{ type: "text", text: JSON.stringify({
+    error: (error as Error).message,
+    ...(error instanceof SelfRatingExpiredError ? { code: "self_rating_expired" } : {}),
+  }) }],
+  isError: true,
+});
 
-/**
- * Builds the MCP server exposing the lesson-session loop as tools over a SessionHost.
- *
- * SDK API used (1.29.0): McpServer.registerTool(name, { description, inputSchema }, cb)
- * where inputSchema is a ZodRawShapeCompat (Record<string, ZodTypeAny>).
- * The discriminated-union ResponseInputSchema satisfies AnySchema and can appear as a
- * value in the ZodRawShapeCompat record for the `input` field.
- */
-export function buildMcpServer(host: SessionHost): McpServer {
-  const server = new McpServer({ name: "studium-lesson", version: "0.1.0" });
+/** An operation whose arguments are checked against its schema, as operations.ts does. */
+function operation<S extends z.ZodRawShape>(
+  name: string, description: string, inputSchema: S, run: (args: z.infer<z.ZodObject<S>>) => Promise<unknown>,
+): Operation {
+  return {
+    name, description, inputSchema,
+    invoke: async (args) => {
+      try { return text(await run(z.object(inputSchema).strict().parse(args))); }
+      catch (error) { return fail(error); }
+    },
+  };
+}
 
-  server.registerTool(
-    "start_lesson_session",
-    {
-      description: "Start a lesson session from a bundle_ref and return the first scene presentation.",
-      inputSchema: { bundle_ref: z.string(), learner_id: z.string().optional() },
-    },
-    async ({ bundle_ref, learner_id }) => {
-      try {
-        const r = await host.create(bundle_ref, learner_id);
-        // Redact the answer key (quiz `correct`, claims/key_points/cues, model_* reveals) at the
-        // client boundary — the server keeps the full scene; only this projection ships.
-        return text({ session_id: r.sessionId, presentation: publicPresentation(r.presentation) });
-      } catch (e) { return fail((e as Error).message); }
-    },
-  );
+const learnerIdArg = z.string().min(1).max(200).optional()
+  .describe("one stable id per learner; defaults to persistence.learner_id_default");
+/** L-1: an integer epoch a Date can hold, refused otherwise in one line (session-clock.ts). */
+const nowMsArg = NowMsSchema.optional();
+/** L-4: the language the study tools speak. */
+const languageArg = z.enum(["fr", "en"], { errorMap: () => ({ message: "language must be fr or en" }) }).optional()
+  .describe("fr or en: the language of display_markdown and of the next step; defaults to the language of the " +
+    "learner's last lesson, else the server's");
 
-  server.registerTool(
-    "get_current_scene",
-    {
-      description: "Get the current scene/presentation for a session.",
-      inputSchema: { session_id: z.string() },
-    },
-    async ({ session_id }) => {
-      try { return text({ presentation: publicPresentation(host.currentPresentation(session_id)) }); }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
+/** The C1 study tools, transport-independent like lessonOperations (an HTTP surface can add them as is). */
+export function studyOperations(host: SessionHost): Operation[] {
+  return [
+    operation("list_lessons",
+      "List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson " +
+      "written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who " +
+      "wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). " +
+      "`query` keeps the lessons whose title, ref, discipline or concepts contain every word of it. display_markdown " +
+      "is the list in `language`, ready to show.",
+      { query: z.string().max(200).optional(), learner_id: z.string().min(1).max(200).optional(), language: languageArg },
+      async ({ query, learner_id, language }) => host.listLessons({
+        ...(query === undefined ? {} : { query }), ...(learner_id === undefined ? {} : { learnerId: learner_id }),
+        ...(language === undefined ? {} : { language }),
+      })),
 
-  server.registerTool(
-    "submit_response",
-    {
-      description: "Submit a response to the current scene (ack | quiz_choice | confidence | critique); returns the transition (next/replay/calibration/complete).",
-      inputSchema: { session_id: z.string(), input: ResponseInputSchema },
-    },
-    async ({ session_id, input }) => {
-      try { return text({ transition: publicTransition(await host.respond(session_id, input as ResponseInput)) }); }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
+    operation("get_study_plan",
+      "Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, " +
+      "the next lesson, and next_step {action: review|continue|start|author|wait, tool, arguments, text} naming the " +
+      "call to make with its arguments (language included where the tool takes one). With the minutes a day the " +
+      "learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in " +
+      "`language`, ready to show. Dates (due_date, next_review_date) are days in get_server_info.time_zone.",
+      { learner_id: learnerIdArg, now_ms: nowMsArg, language: languageArg },
+      async ({ learner_id, now_ms, language }) => host.studyPlan(learner_id, {
+        ...(now_ms === undefined ? {} : { nowMs: now_ms }), ...(language === undefined ? {} : { language }),
+      })),
 
-  server.registerTool(
-    "get_scene_artifacts",
-    {
-      description: "Get the normalized render manifest (scene_assets[]) for the current scene — the " +
-        "artifacts a UI pairs with this scene: {kind: image|svg|equation_latex|plot_spec|code|data_csv|" +
-        "protocol_md|executed_result, title?, payload?, path?, meta?}. Empty for a plain quiz. A webview " +
-        "calls this each turn to repaint the artifact pane in lockstep with the lesson.",
-      inputSchema: { session_id: z.string() },
-    },
-    async ({ session_id }) => {
-      try { return text({ scene_assets: host.sceneArtifacts(session_id) }); }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
-
-  server.registerTool(
-    "get_next_reinforcement",
-    {
-      description: "FSRS ROUTER: the single most-urgent concept to REINFORCE now (mastered earlier but " +
-        "whose recall is decaying), with the bundle scene that addresses it — or null when nothing is due. " +
-        "A native driver calls this to route the learner to a spaced-repetition pass instead of advancing " +
-        "linearly. Returns {reinforcement: {concept_id, scene_id, due_at, retrievability} | null}. " +
-        "`now_ms` (epoch ms) is injectable for deterministic review scheduling; defaults to wall-clock.",
-      inputSchema: { session_id: z.string(), now_ms: z.number().optional() },
-    },
-    async ({ session_id, now_ms }) => {
-      try {
-        const nowMs = now_ms ?? Date.now();
-        const target = host.nextReinforcement(session_id, nowMs);
-        const scene_id = target ? host.nextReinforcementScene(session_id, nowMs) : null;
-        return text({ reinforcement: target ? { ...target, scene_id } : null });
-      } catch (e) { return fail((e as Error).message); }
-    },
-  );
-
-  // ---------------------------------------------------------------------------
-  // Learner-time RUN protocol — MCP parity with the file channel (.studium-session/ run.json /
-  // run_result.json). Studium NEVER executes: the operator provisions + runs the capsule in the
-  // workspace, then submits the result. The native VS Code surface drives the run + judgment loop here.
-  // ---------------------------------------------------------------------------
-
-  server.registerTool(
-    "get_run_manifest",
-    {
-      description: "Get the learner-time RUN manifest for the current scene — the provisioning/run " +
-        "instructions {capsule_ref, cmd, working_dir?, timeout_s?, requirements?, expected_outputs[], " +
-        "verify_checks[], research_question?} — when the current scene is a reproduction the LEARNER must " +
-        "run, else null. NON-answer-bearing (no expected values, no author landmark): the operator " +
-        "provisions the env, installs the deps, runs `cmd` IN THE WORKSPACE, then calls submit_run_result.",
-      inputSchema: { session_id: z.string() },
-    },
-    async ({ session_id }) => {
-      try { return text({ run_manifest: host.runManifest(session_id) }); }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
-
-  server.registerTool(
-    "submit_run_result",
-    {
-      description: "Submit the result of the learner running the capsule in the workspace (Studium NEVER " +
-        "executes). Gates advance on ran && passed: a passing run records the learner's OWN executed " +
-        "result (so a later judgment scene is grounded on it) and advances; a ran:false / failed-checks " +
-        "run does NOT advance. Returns {status: ran|run_incomplete|run_failed_checks|not_a_run_scene, " +
-        "learner_run_recorded, transition?} — transition (redacted) present only on a passing run.",
-      inputSchema: { session_id: z.string(), run_result: RunResultSchema },
-    },
-    async ({ session_id, run_result }) => {
-      try {
-        const r = await host.ingestRunResult(session_id, run_result);
-        return text({
-          status: r.status,
-          learner_run_recorded: r.learnerRunRecorded,
-          // Attestation: an unverifiable run advances but is quarantined from grounding a judgment
-          // (so it never feeds trust_calibration). Surfaced so a driver/teacher can see quarantined runs.
-          attested: r.attested,
-          attestation_reasons: r.attestationReasons,
-          transition: r.transition ? publicTransition(r.transition) : null,
-        });
-      } catch (e) { return fail((e as Error).message); }
-    },
-  );
-
-  server.registerTool(
-    "request_hint",
-    {
-      description: "Request the next authored hint for the current quiz scene. Returns {hint, index, remaining} " +
-        "or {hint: null} when the scene is not a quiz, has no hints, or the per-visit hint cap is reached. " +
-        "Each hint discounts the mastery credit of the eventual answer (M5 anti-offloading).",
-      inputSchema: { session_id: z.string() },
-    },
-    async ({ session_id }) => {
-      try { return text({ hint: host.requestHint(session_id) }); }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
-
-  server.registerTool(
-    "submit_turn",
-    {
-      description: "Submit a free-text discussion turn; returns the scored reasoning signal and the Socratic tutor's reply move (so the client can render the dialogue turn-by-turn).",
-      inputSchema: { session_id: z.string(), text: z.string() },
-    },
-    async ({ session_id, text: turn }) => {
-      try {
-        await host.submitTurn(session_id, turn);
-        return text({ accepted: true, reasoning: host.lastReasoning(session_id), tutor: host.lastTutorMove(session_id) });
-      }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
-
-  server.registerTool(
-    "explain_last_adaptation",
-    {
-      description: "Explain the last adaptation decision (rule_id + modulator + short explanation), or null.",
-      inputSchema: { session_id: z.string() },
-    },
-    async ({ session_id }) => {
-      try { return text({ explanation: host.explainLast(session_id) }); }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
-
-  server.registerTool(
-    "get_workflow_graph",
-    {
-      description: "Get the Learning Workflow Graph for the session as a normalized GraphView with " +
-        "LIVE per-concept state (mastered/current/available/locked) from the learner's running mastery. " +
-        "Shape: {schema, domain, title?, nodes:[{id,type,label,group?,state?,value?}], edges:[{id,source,target,type}], focus?, legend?}. " +
-        "A graph webview repaints this each turn; the same payload drives a teacher (full) or student (ego) view. null when the bundle has no LWG.",
-      inputSchema: { session_id: z.string() },
-    },
-    async ({ session_id }) => {
-      try { return text({ graph: host.workflowGraph(session_id) }); }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
-
-  server.registerTool(
-    "get_session_state",
-    {
-      description: "Get the learner state (concept mastery, completed scenes, history) for a session.",
-      inputSchema: { session_id: z.string() },
-    },
-    async ({ session_id }) => {
-      try { return text({ state: host.getState(session_id) }); }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
-
-  server.registerTool(
-    "end_session",
-    {
-      description: "End a session: emits forget_requested and drops it (right to be forgotten).",
-      inputSchema: { session_id: z.string() },
-    },
-    async ({ session_id }) => {
-      try { await host.forget(session_id); return text({ forgotten: true }); }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
-
-  // ---------------------------------------------------------------------------
-  // D1 PeerStudio — ephemeral room tools
-  // ---------------------------------------------------------------------------
-
-  server.registerTool(
-    "open_peer_room",
-    {
-      description: "Teacher opens a PeerStudio room for a bundle. Returns a human-typable join_code for learners and a secret teacher_key for room management. The room is ephemeral and in-memory; close it with close_peer_room when the session ends.",
-      inputSchema: { bundle_ref: z.string() },
-    },
-    async ({ bundle_ref }) => {
-      try { return text(host.openRoom(bundle_ref)); }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
-
-  server.registerTool(
-    "join_peer_room",
-    {
-      description: "Learner joins an open PeerStudio room using the 6-character join_code the teacher provided, linking their active session into the room for peer review.",
-      inputSchema: { join_code: z.string(), session_id: z.string() },
-    },
-    async ({ join_code, session_id }) => {
-      try { return text(host.joinRoom(join_code, session_id)); }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
-
-  server.registerTool(
-    "submit_peer_rating",
-    {
-      description: "Learner submits a peer rating for another session's response. Returns whether the target is still k-suppressed (fewer than 3 independent ratings) and the current rating count k.",
-      inputSchema: {
-        room_id: z.string(),
-        rater_session_id: z.string(),
-        target_session_id: z.string(),
-        passed: z.boolean(),
-        rating: z.number().int().min(1).max(5),
-        helpful: z.boolean(),
+    operation("start_review_session",
+      "Start a review session: one retrieval scene per concept due, taken from the lessons the learner studied — " +
+      "mastered concepts whose recall is due, then reviewed ones still weak. Play it like a lesson (submit_response, " +
+      "rate_recall); its answers update the learner's memory and mastery, and it is never recorded as a lesson " +
+      "completed. With now_ms it runs on a clock anchored there (its answers and ratings are dated from it). Returns " +
+      "{status: \"started\", session_id, review: {items, not_playable?}, presentation, ...}, or {status: " +
+      "\"nothing_due\", next_review_at, next_review_date, display_markdown, not_playable?} saying when the next review " +
+      "falls; not_playable names the concepts due that no lesson on disk can review any more.",
+      {
+        learner_id: learnerIdArg, max_items: z.number().int().min(1).max(50).optional(), now_ms: nowMsArg,
+        presentation_language: z.string().optional(), language: languageArg,
       },
-    },
-    async ({ room_id, rater_session_id, target_session_id, passed, rating, helpful }) => {
-      try {
-        return text(host.submitRoomRating(room_id, rater_session_id, target_session_id, { passed, rating, helpful }));
-      }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
+      async ({ learner_id, max_items, now_ms, presentation_language, language }) => {
+        const r = await host.startReview(learner_id, {
+          ...(max_items === undefined ? {} : { maxItems: max_items }),
+          ...(now_ms === undefined ? {} : { nowMs: now_ms }),
+          ...(presentation_language === undefined ? {} : { presentationLanguage: presentation_language }),
+          ...(language === undefined ? {} : { language }),
+        });
+        if (r.status === "nothing_due") return r;
+        // The answer keys stay on the server: only the public projection of the scene ships.
+        return {
+          status: r.status, session_id: r.sessionId, review: r.review, authoring: r.authoring,
+          presentation: publicPresentation(r.presentation), language: operatorContext(host, r.sessionId).language,
+          resume: r.resume, persistence: r.persistence,
+        };
+      }),
 
-  server.registerTool(
-    "get_peer_room_state",
-    {
-      description: "Teacher reads the current PeerStudio room state: session count, rating count, and k-suppressed per-target aggregates (passed_rate, avg_rating, avg_helpful). Gated by the teacher_key.",
-      inputSchema: { room_id: z.string(), teacher_key: z.string() },
-    },
-    async ({ room_id, teacher_key }) => {
-      try { return text(host.getRoomState(room_id, teacher_key)); }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
+    operation("rate_recall",
+      "After an answer whose transition carries self_rating {requested: true} (a production answer no judge assessed), " +
+      "ask the LEARNER how well they recalled it — again, hard, good or easy — and pass their rating; never rate for " +
+      "them. It sets the concept's next review (source self_rated) and never changes mastery. One rating per " +
+      "request; scene_id is self_rating.scene_id. Returns the next review date and a line to show.",
+      {
+        session_id: z.string(), scene_id: z.string(),
+        grade: z.enum(RECALL_GRADES, { errorMap: () => ({ message: `grade must be one of ${RECALL_GRADES.join(", ")}` }) }),
+      },
+      async ({ session_id, scene_id, grade }) => host.rateRecall(session_id, scene_id, grade)),
+  ];
+}
 
-  server.registerTool(
-    "close_peer_room",
-    {
-      description: "Teacher closes the PeerStudio room. Returns the final k-suppressed aggregates for each target that reached the 3-rater floor. The caller may forward these aggregates to the scene-synth /decide_item endpoint to promote approved learner responses into the community bundle. Gated by the teacher_key.",
-      inputSchema: { room_id: z.string(), teacher_key: z.string() },
-    },
-    async ({ room_id, teacher_key }) => {
-      try { return text(host.closeRoom(room_id, teacher_key)); }
-      catch (e) { return fail((e as Error).message); }
-    },
-  );
+/** Where create_lesson and prepare_sources write (L-12, SEC-1, RT-8d): always the learner's library, the
+ * C6 library <STUDIUM_HOME>/library, never the folder BUNDLES_ROOT names — a repository's fixtures,
+ * where the full text of the learner's sources would be committed and a teacher's lesson replaced.
+ * list_lessons and start_lesson_session search the library after BUNDLES_ROOT, so a lesson just written
+ * is listed and started at once, and persistence.library_root names it. A host with no library refuses. */
+function authoringRoot(host: SessionHost): string {
+  const library = host.libraryRoot;
+  if (!library) {
+    throw new Error("this server has no learner library to write lessons into: lessons and their sources go to " +
+      "<STUDIUM_HOME>/library (persistence.library_root), never into BUNDLES_ROOT; start the server with the C6 defaults");
+  }
+  return library;
+}
 
+type PromptLocale = "en" | "fr";
+
+/** The arguments a prompt names in the calls it asks for: learner_id, then language (L-4). */
+function callArgs(locale: PromptLocale, learnerId?: string, language?: PromptLocale): string {
+  const named = [
+    ...(learnerId ? [locale === "fr" ? `learner_id « ${learnerId} »` : `learner_id "${learnerId}"`] : []),
+    ...(language ? [locale === "fr" ? `language « ${language} »` : `language "${language}"`] : []),
+  ];
+  if (!named.length) return "";
+  return locale === "fr" ? ` avec ${named.join(" et ")}` : ` with ${named.join(" and ")}`;
+}
+
+/** RFR-16, R-en-10: list_lessons only when the plan does not already say to author a lesson. RT-8a: the
+ * reply call as submit_response takes it. */
+const PROMPTS: Record<PromptLocale, {
+  learn: (topic?: string, learnerId?: string, language?: PromptLocale) => string;
+  review: (learnerId?: string, language?: PromptLocale) => string;
+}> = {
+  en: {
+    learn: (topic, learnerId, language) =>
+      `I want to learn ${topic ? `“${topic}”` : "something new"} with Studium. Call get_study_plan` +
+      `${callArgs("en", learnerId, language)} and follow its next step. If its next_step is author, ask me for my ` +
+      "sources and build a lesson with get_authoring_guide, prepare_sources and create_lesson. Otherwise, if what it " +
+      `proposes does not cover what I want, call list_lessons${callArgs("en", learnerId, language)} to find a lesson, ` +
+      "or build one from my sources the same way. Show each display_markdown as it is, wait for my own answer and send " +
+      `it with ${REPLY_CALL}. Never answer for me.`,
+    review: (learnerId, language) =>
+      `Run my Studium reviews: call start_review_session${callArgs("en", learnerId, language)}. ` +
+      `Show each display_markdown as it is, wait for my answer and send it with ${REPLY_CALL}. ` +
+      "When a transition carries self_rating, ask me to rate my recall (again, hard, good or easy) and pass my rating " +
+      "to rate_recall. If nothing is due, tell me when my next review is.",
+  },
+  fr: {
+    learn: (topic, learnerId, language) =>
+      `Je veux apprendre ${topic ? `« ${topic} »` : "quelque chose de nouveau"} avec Studium. Appelle get_study_plan` +
+      `${callArgs("fr", learnerId, language)}, puis suis son étape suivante. Si son next_step est author, demande-moi ` +
+      "mes sources et prépare une leçon avec get_authoring_guide, prepare_sources et create_lesson. Sinon, si ce qu'il " +
+      `propose ne couvre pas ce que je veux, appelle list_lessons${callArgs("fr", learnerId, language)} pour trouver une ` +
+      "leçon, ou prépare-la de la même façon à partir de mes sources. Montre chaque display_markdown tel quel, attends " +
+      `ma propre réponse et transmets-la avec ${REPLY_CALL}. Ne réponds jamais à ma place.`,
+    review: (learnerId, language) =>
+      `Lance mes révisions Studium : appelle start_review_session${callArgs("fr", learnerId, language)}. ` +
+      `Montre chaque display_markdown tel quel, attends ma réponse et transmets-la avec ${REPLY_CALL}. ` +
+      "Quand une transition porte self_rating, demande-moi de noter mon rappel (again, hard, good ou easy) et " +
+      "transmets ma note à rate_recall. S'il n'y a rien à réviser, dis-moi quand tombe ma prochaine révision.",
+  },
+};
+
+const promptLocale = z.enum(["en", "fr"]).optional().describe("language of the request: en (default) or fr");
+const promptLearner = z.string().optional().describe("the learner's stable id");
+
+function userMessage(textValue: string) {
+  return { messages: [{ role: "user" as const, content: { type: "text" as const, text: textValue } }] };
+}
+
+function registerPrompts(server: McpServer): void {
+  server.registerPrompt("learn", {
+    title: "Learn with Studium",
+    description: "Learn a topic with Studium: follow the study plan, or build a lesson from your own sources.",
+    argsSchema: { topic: z.string().optional().describe("what to learn"), learner_id: promptLearner, language: promptLocale },
+  }, ({ topic, learner_id, language }) => userMessage(PROMPTS[language ?? "en"].learn(topic, learner_id, language)));
+  server.registerPrompt("review", {
+    title: "Review with Studium",
+    description: "Play the Studium reviews due today, across every lesson studied.",
+    argsSchema: { learner_id: promptLearner, language: promptLocale },
+  }, ({ learner_id, language }) => userMessage(PROMPTS[language ?? "en"].review(learner_id, language)));
+}
+
+/** The MCP server over `host`: lesson operations, study, authoring and teacher tools, instructions and
+ * prompts. */
+export function buildMcpServer(host: SessionHost): McpServer {
+  const server = new McpServer({ name: "studium-lesson", version: SERVER_VERSION }, { instructions: SERVER_INSTRUCTIONS });
+  const registered: string[] = [];
+  // get_server_info reads `registered` when it is called, so it lists every tool added below.
+  for (const op of [...lessonOperations(host, { toolNames: () => registered }), ...studyOperations(host)]) {
+    server.registerTool(op.name, { description: op.description, inputSchema: op.inputSchema }, async (args) => op.invoke(args));
+    registered.push(op.name);
+  }
+  registered.push(...registerAuthoringTools(server, {
+    libraryRoot: () => authoringRoot(host),
+    servedElsewhere: (id) => resolve(host.bundlesRoot) !== resolve(host.libraryRoot ?? "") && existsSync(join(host.bundlesRoot, id)),
+    // Nothing to refresh: list_lessons scans the roots afresh on every call and start_lesson_session
+    // resolves a bundle_ref on disk, so a lesson written a moment ago is listed and starts at once
+    // (learn-and-review.e2e.test.ts proves it through this server).
+    onLessonWritten: () => {},
+    judge: () => host.judge,
+  }));
+  registered.push(...registerTeacherTools(server, {
+    bundlesRoot: host.bundlesRoot, libraryRoot: host.libraryRoot, dataDir: host.persistence().data_dir,
+  }));
+  registerPrompts(server);
+  logStartup(registered.length);
   return server;
 }

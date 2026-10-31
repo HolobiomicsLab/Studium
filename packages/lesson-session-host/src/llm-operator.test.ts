@@ -27,8 +27,12 @@ describe("makeLlmOperator — LLM-backed operator drives the full run + judgment
       return { ran: true, passed: true, landmark: "LANDMARK k_fit=0.4212 half_life=1.6457", artifacts: ["outputs/stats.csv", "figures/decay.png"], checks: [{ check: "file exists: outputs/stats.csv", passed: true }, { check: "file exists: figures/decay.png", passed: true }] };
     };
 
-    const r = await runStudiumSession(host, BUNDLE, dir, makeLlmOperator({ llm, runCapsule }), { maxSteps: 20 });
+    // H6 requires a separate learner rating: this synthetic learner supplies it, never the LLM.
+    let ratings = 0;
+    const recallRating = async () => { ratings += 1; return "good" as const; };
+    const r = await runStudiumSession(host, BUNDLE, dir, makeLlmOperator({ llm, runCapsule, recallRating }), { maxSteps: 20 });
     expect(r.completed).toBe(true);
+    expect(ratings).toBe(1);
 
     // the operator OWNED execution: it ran the capsule once on the run scene, from the manifest
     expect(runCalls.length).toBe(1);

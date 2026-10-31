@@ -248,6 +248,20 @@ def test_audit_report_joins_evidence_and_astra(tmp_path):
     assert "baseline" in rep["universes"] and "remedial" in rep["universes"]
     assert "prereq0" in rep["decisions"]
 
+    # The report is read as data AND rendered, so the full selection stays in the JSON and
+    # only the SECTION shows the delta (INT-STUDIUM-010 nit 3). `_render_markdown` runs from
+    # the report alone, which is why the summary is computed at build time.
+    remedial = rep["universes"]["remedial"]
+    assert remedial["decisions"], "the full selection must stay in the JSON"
+    assert remedial["summary"]["at_default"] == len(remedial["decisions"]) - len(
+        remedial["summary"]["changed"])
+    # This fixture writes universes over `pedagogical_decisions()` while the document
+    # emits the EDGE decisions, so no selection here has a declared default — the shape a
+    # course whose universes were written against another analysis really has. Every
+    # selection is therefore a change, and each records `None` as the value it moved from.
+    assert remedial["summary"]["changed"]["scaffolding"] == [None, "heavy"]
+    assert remedial["summary"]["at_default"] == 0
+
 
 def test_audit_report_after_approval_reflects_verified(tmp_path):
     course_dir = _make_course_dir(tmp_path)
@@ -330,6 +344,12 @@ def test_audit_report_surfaces_flagged_edges_from_raw_graph(tmp_path):
     assert "Flagged" in md  # e.g. "## Flagged / low-confidence edges"
     assert "prereq1" in md
     assert "flagged_for_review" in md
+
+    # And the universes section reads as a delta. No selection in this fixture has a
+    # declared default, so none is printed: ``default `None``` would put a default on a
+    # teacher's page that no artifact records.
+    assert "- scaffolding: `heavy` (no default recorded)" in md
+    assert "default `None`" not in md
 
 
 def test_audit_report_low_confidence_edge_without_quality_flags_is_flagged(tmp_path):

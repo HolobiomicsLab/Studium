@@ -12,6 +12,14 @@ if TYPE_CHECKING:
     from lesson_plan_schema import LessonPlan
 
 _APPLY_SCENE_TYPES = {SceneType.simulation, SceneType.reproduction}
+
+# Parmi celles-ci, celles que scene-synth ne sait PAS produire. Un plan dont la couverture apply
+# ne repose que sur elles passe la vérification Bloom ci-dessous, puis perd la scène à la synthèse
+# (l'orchestrateur saute les types sans agent avec un warning que personne ne lit) : l'objectif de
+# haut niveau se retrouve sans scène, et rien ne l'a dit. La source de vérité est
+# KNOWN_UNSUPPORTED_SCENE_TYPES dans services/scene-synth/orchestrator.py ;
+# tests/test_apply_scene_buildability.py échoue si les deux divergent.
+_UNBUILDABLE_APPLY_SCENE_TYPES = {SceneType.simulation}
 _HIGH_BLOOM = {BloomLevel.apply, BloomLevel.analyze, BloomLevel.evaluate, BloomLevel.create}
 
 
@@ -71,12 +79,23 @@ class CriticAgent(BaseAgent):
         warnings: list[str] = []
         scene_types = {s.type for s in plan.scene_outlines}
         high_bloom_objs = [o for o in plan.learning_objectives if o.bloom_level in _HIGH_BLOOM]
-        if high_bloom_objs and not (_APPLY_SCENE_TYPES & scene_types):
+        covering = _APPLY_SCENE_TYPES & scene_types
+        if high_bloom_objs and not covering:
             levels = ", ".join(o.bloom_level.value for o in high_bloom_objs)
             warnings.append(
                 f"Objectifs de niveau [{levels}] présents mais aucune scène 'reproduction' ou 'simulation'."
             )
             return False, warnings
+        # Le plan est cohérent — mais si tout ce qui couvre l'apply est un type que scene-synth
+        # abandonne, la cohérence ne survivra pas à la synthèse. On le dit ici, au moment où
+        # l'auteur peut encore changer le plan.
+        if high_bloom_objs and not (covering - _UNBUILDABLE_APPLY_SCENE_TYPES):
+            names = ", ".join(sorted(t.value for t in covering))
+            warnings.append(
+                f"Couverture 'apply' assurée uniquement par des scènes [{names}] que scene-synth "
+                f"ne sait pas produire : elles seront abandonnées à la synthèse et l'objectif "
+                f"restera sans scène. Prévoir une scène 'reproduction'."
+            )
         return True, warnings
 
     def _check_ontology_warnings(self, plan: "LessonPlan") -> list[str]:
@@ -120,7 +139,8 @@ class CriticAgent(BaseAgent):
             "score": 0.78,
             "annotations": [
                 "Le plan couvre bien les objectifs de niveau understand.",
-                "Suggérer une scène simulation pour renforcer l'apply.",
+                # 'reproduction' : buildable de bout en bout. Voir critic.py pour le détail.
+                "Suggérer une scène reproduction pour renforcer l'apply.",
                 "Références corpus présentes et traçables.",
             ],
         })

@@ -14,6 +14,13 @@ ADR 006 amendment v1.4 (RC-2) adds an optional `scene_type` discriminator on
 `critique_submitted` so the collector can gate anti-offloading aggregates to
 genuine AI-critique scenes (back-compat: untagged → ai_critique).
 
+ADR 006 amendment v1.6 adds `score_source` on `critique_submitted` — which
+grader produced `llm_score`: a semantic evaluator ("llm"), the substring
+matcher the session falls back to when the critique service is absent or errors
+("keyword", INT-STUDIUM-035), or the spot_the_flaw verdict deck
+("verdict_deck"). Back-compat: absent → unknown provenance. It tags `llm_score`
+alone; `completion_rate` is keyword-derived on every path.
+
 ADR 006 amendment v1.5 adds `sound_total` on `ai_audit_result` — the SOUND
 population the over-distrust rate is normalized by, so the collector computes
 the same trust gap as the engine (back-compat: absent → 0 → unmeasured).
@@ -55,7 +62,10 @@ class SceneCompleted(_Base):
     type: Literal["scene_completed"]
     scene_id: str
     duration_ms: int = Field(ge=0)
-    success: bool
+    # Optionnel depuis l'ADR 006 v1.7 (INT-STUDIUM-035) : absent = la scène a été jouée et personne
+    # n'a corrigé. `False` dirait un échec jamais observé, `True` certifierait par la télémétrie ce
+    # que la décision a retiré de la postérieure. Miroir exact de `events.ts`.
+    success: bool | None = None
 
 
 class QuizAnswered(_Base):
@@ -64,7 +74,9 @@ class QuizAnswered(_Base):
     item_id: str
     correct: bool
     response_time_ms: int = Field(ge=0)
-    confidence: float = Field(ge=0, le=1)
+    # Optionnel depuis 2026-10-30 (I-5) : absent = l'apprenant n'a pas noté sa confiance ; les
+    # consommateurs de calibration (Brier, sur/sous-confiance) ignorent ces réponses. Miroir de `events.ts`.
+    confidence: float | None = Field(default=None, ge=0, le=1)
 
 
 class AdaptationApplied(_Base):
@@ -90,6 +102,11 @@ class CritiqueSubmitted(_Base):
         "comparison", "summary_audit", "prompt_practice",
         "communication_sim",
     ] | None = None
+    # ADR 006 amendment v1.6 — which grader produced `llm_score`. Tags that
+    # field ALONE: `completion_rate` is computed by the keyword matcher on
+    # every path, evaluator or not (INT-STUDIUM-035). Back-compat: absent →
+    # unknown provenance, which is what old events honestly are.
+    score_source: Literal["llm", "keyword", "verdict_deck"] | None = None
 
 
 class LessonCompleted(_Base):

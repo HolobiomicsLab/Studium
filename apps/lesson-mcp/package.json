@@ -1,14 +1,41 @@
 {
   "name": "@studium/lesson-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
-  "scripts": { "test": "vitest run", "test:watch": "vitest", "build": "tsc", "start": "tsx src/index.ts" },
+  "description": "Studium lesson server for MCP clients (Codex, Claude Code, Copilot): plays and reviews Studium lessons over stdio.",
+  "bin": {
+    "studium-mcp": "dist/studium-mcp.cjs"
+  },
+  "files": [
+    "dist/studium-mcp.cjs"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "api": "tsx src/http-entry.ts",
+    "api:call": "tsx src/http-client.ts",
+    "bundle": "esbuild ../studium-vscode/src/lesson-mcp-entry.ts --bundle --platform=node --format=cjs --banner:js='#!/usr/bin/env node' --outfile=dist/studium-mcp.cjs --define:__STUDIUM_BUILD__='{\"origin\":\"bundled\",\"built_at\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"git_sha\":\"'\"$(git describe --always --dirty --abbrev=7)\"'\"}'",
+    "prepack": "pnpm run bundle"
+  },
   "dependencies": {
     "@studium/lesson-session": "workspace:*",
     "@studium/lesson-session-host": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^3.23.8"
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "3.25.2"
   },
-  "devDependencies": { "@types/node": "^20", "tsx": "^4.16.0", "vitest": "^1.6.1", "typescript": "^5.5.0" }
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.16.0",
+    "vitest": "^1.6.1",
+    "typescript": "^5.5.0",
+    "esbuild": "^0.21.0"
+  }
 }

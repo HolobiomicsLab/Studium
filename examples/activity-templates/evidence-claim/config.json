@@ -1,0 +1,31 @@
+{
+  "schema": "studium/activity-template-config/v1",
+  "template_id": "evidence-claim",
+  "data_status": "synthetic teaching fixture",
+  "scope": "Choose the narrowest claim entailed by a supplied synthetic source excerpt. This fixture demonstrates evidence discipline, not an empirical finding.",
+  "prediction_prompt": "Before seeing the candidate claims, state what this source excerpt can and cannot establish.",
+  "expected_source_inputs": [
+    "A public scene objective that asks for an evidence-grounded judgment",
+    "A source title, locator and exact excerpt available to the learner",
+    "Candidate claims whose support can be checked directly against the excerpt"
+  ],
+  "independent_checks": [
+    {"id": "source_visible", "description": "The exact supplied excerpt and locator remain visible during judgment."},
+    {"id": "bounded_entailment", "description": "Only claim_supported restates the observed comparison without adding causality or generality."},
+    {"id": "limits_visible", "description": "The feedback names the inference that the source cannot support."}
+  ],
+  "source": {
+    "id": "synthetic_growth_note",
+    "title": "Synthetic controlled-growth note",
+    "locator": "urn:studium:synthetic:evidence-claim:v1",
+    "source_kind": "synthetic_fixture",
+    "statement": "In this teaching dataset, culture A reached an optical density of 0.80 and culture B reached 0.60 after 12 hours under the stated conditions. No intervention was randomized."
+  },
+  "claims": [
+    {"id": "claim_supported", "text": "In the supplied dataset and conditions, culture A had the higher 12-hour optical density."},
+    {"id": "claim_causal", "text": "The culture label caused a 0.20 increase in optical density."},
+    {"id": "claim_universal", "text": "Culture A always grows faster than culture B."}
+  ],
+  "supported_claim_id": "claim_supported",
+  "feedback": "The source supports the bounded comparison only. It does not establish causality or a result beyond the stated synthetic conditions."
+}

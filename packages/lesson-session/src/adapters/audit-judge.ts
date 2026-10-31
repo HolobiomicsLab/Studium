@@ -13,6 +13,8 @@
 //     the critique semantically and returns the two id-lists. Validated (rule 002) — a malformed reply
 //     degrades to the keyword fallback (caught by tokens, no false positives) so a flaky model never
 //     fabricates an over-distrust signal.
+//   Each judgement carries its `source` ("llm" | "keyword") so the learner-facing feedback never shows
+//   a keyword catch as a measured count (RT-1).
 import { z } from "zod";
 import type { AuditJudge, AuditInput, AuditJudgement } from "../ports.js";
 
@@ -28,7 +30,7 @@ function keywordCatch(input: AuditInput): AuditJudgement {
   const caught_flaw_ids = input.flawed_claims
     .filter((c) => { const ts = tokens(c.text); return ts.length > 0 && ts.every((t) => crit.includes(t)); })
     .map((c) => c.id);
-  return { caught_flaw_ids, wrongly_flagged_sound_ids: [] };
+  return { caught_flaw_ids, wrongly_flagged_sound_ids: [], source: "keyword" };
 }
 
 export class StubAuditJudge implements AuditJudge {
@@ -82,6 +84,7 @@ export class HttpLlmAuditJudge implements AuditJudge {
       return {
         caught_flaw_ids: parsed.caught_flaw_ids.filter((id) => flawIds.has(id)),
         wrongly_flagged_sound_ids: parsed.wrongly_flagged_sound_ids.filter((id) => soundIds.has(id)),
+        source: "llm",
       };
     } catch {
       return keywordCatch(input); // degrade: catch by keyword, never fabricate over-distrust

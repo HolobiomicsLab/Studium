@@ -1,55 +1,88 @@
 "use client";
 
 import type { ProgressResponse, ProgressMetricsResponse } from "@/lib/api";
+import ChartDataTable from "./ChartDataTable";
 
-type Props = { data: ProgressResponse; metrics?: ProgressMetricsResponse };
+type Props = {
+  data: ProgressResponse;
+  metrics?: ProgressMetricsResponse;
+  sceneTitles?: Record<string, string>;
+};
 
 function colorFor(rate: number): string {
-  if (rate >= 0.8) return "bg-emerald-500";
-  if (rate >= 0.6) return "bg-emerald-300";
-  if (rate >= 0.4) return "bg-amber-300";
-  if (rate >= 0.2) return "bg-orange-400";
-  return "bg-red-400";
+  if (rate >= 0.8) return "strong";
+  if (rate >= 0.6) return "good";
+  if (rate >= 0.4) return "watch";
+  if (rate >= 0.2) return "low";
+  return "critical";
 }
 
-export default function ProgressHeatmap({ data, metrics }: Props) {
+export default function ProgressHeatmap({ data, metrics, sceneTitles = {} }: Props) {
   const entries = Object.entries(data.scenes).sort(([a], [b]) => a.localeCompare(b));
   if (entries.length === 0) {
     return (
-      <p className="text-gray-500 italic">
+      <p className="empty-state">
         Aucun événement <code>scene_completed</code> reçu pour ce cours.
       </p>
     );
   }
   return (
-    <div className="w-full">
+    <figure className="analytics-figure chart-panel" data-testid="progress-heatmap">
+      <figcaption className="analytics-figure__caption">
+        <span className="analytics-figure__title">Progression par scène</span>
+        <span className="analytics-figure__description">
+          Taux de complétion et nombre d’apprenant·e·s par scène.
+        </span>
+      </figcaption>
       {metrics?.scenes_with_evidence !== undefined && metrics?.scenes_total !== undefined && (
-        <div className="mb-4 p-3 bg-blue-50 rounded">
-          <div className="text-sm text-gray-700">
-            Scènes enrichies : <strong>{metrics.scenes_with_evidence}/{metrics.scenes_total}</strong>
-          </div>
-        </div>
+        <p className="metric-summary">
+          Scènes enrichies : <strong>{metrics.scenes_with_evidence}/{metrics.scenes_total}</strong>
+        </p>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="metric-grid">
         {entries.map(([sceneId, m]) => (
           <div
             key={sceneId}
-            className={`rounded p-3 text-white ${colorFor(m.completion_rate)}`}
+            className={`progress-cell progress-cell--${colorFor(m.completion_rate)}`}
             data-testid="progress-cell"
           >
-            <div className="font-mono text-xs opacity-75">{sceneId}</div>
-            <div className="text-2xl font-bold">{Math.round(m.completion_rate * 100)}%</div>
-            <div className="text-xs">{m.n_learners} apprenant·e·s</div>
+            <p className="metric-label">{sceneTitles[sceneId] ?? sceneId}</p>
+            {sceneTitles[sceneId] ? <code className="metric-id">{sceneId}</code> : null}
+            <p className="metric-value">{Math.round(m.completion_rate * 100)}%</p>
+            <p className="metric-caption">{m.n_learners} apprenant·e·s</p>
           </div>
         ))}
       </div>
-      <div className="mt-4 text-xs text-gray-500 flex gap-3">
-        <span>≥80% vert foncé</span>
-        <span>≥60% vert clair</span>
-        <span>≥40% ambre</span>
-        <span>≥20% orange</span>
-        <span>&lt;20% rouge</span>
-      </div>
-    </div>
+      <ul className="legend" aria-label="Légende de progression">
+        <li><span className="legend__swatch legend__swatch--strong" />≥80%</li>
+        <li><span className="legend__swatch legend__swatch--good" />≥60%</li>
+        <li><span className="legend__swatch legend__swatch--watch" />≥40%</li>
+        <li><span className="legend__swatch legend__swatch--low" />≥20%</li>
+        <li><span className="legend__swatch legend__swatch--critical" />&lt;20%</li>
+      </ul>
+      <ChartDataTable
+        caption="Données de progression par scène"
+        rows={entries}
+        rowKey={([sceneId]) => sceneId}
+        columns={[
+          {
+            key: "scene",
+            label: "Scène",
+            rowHeader: true,
+            render: ([sceneId]) => sceneTitles[sceneId] ?? sceneId,
+          },
+          {
+            key: "completion",
+            label: "Taux de complétion",
+            render: ([, metric]) => `${Math.round(metric.completion_rate * 100)} %`,
+          },
+          {
+            key: "learners",
+            label: "Apprenant·e·s",
+            render: ([, metric]) => metric.n_learners,
+          },
+        ]}
+      />
+    </figure>
   );
 }

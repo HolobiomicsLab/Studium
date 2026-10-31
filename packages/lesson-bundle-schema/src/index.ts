@@ -13,6 +13,7 @@ export * from "./rules";
 export * from "./blueprint";
 export * from "./learner-item";
 export * from "./course";
+export * from "./errors";
 
 export const BloomLevelSchema = z.enum([
   "remember", "understand", "apply", "analyze", "evaluate", "create",
@@ -26,12 +27,45 @@ export const ConceptSchema = z.object({
   bloom_level_target: BloomLevelSchema,
 });
 
+/**
+ * Who wrote the bundle, so that every surface can say it honestly.
+ * `teacher`: the ordinary route (a teacher drafts, reviews and validates).
+ * `self_study`: the learner (or their agent) authored the lesson from references
+ * they chose themselves; no teacher validated it.
+ */
+export const AuthoringModeSchema = z.enum(["teacher", "self_study"]);
+/**
+ * Who drafted the content and its answer keys (contract C3, sprint 2026-10-30), which `mode`
+ * alone does not say: `agent` (a harness agent, from sources the learner chose; the learner has
+ * not seen the keys), `learner` (open book: the person who answers wrote the key) or `teacher`.
+ */
+export const DraftedBySchema = z.enum(["agent", "learner", "teacher"]);
+export const BundleAuthoringSchema = z.object({
+  mode: AuthoringModeSchema,
+  author_is_learner: z.boolean().default(false),
+  /** Absent on bundles built before 2026-10-30; readers then default it by mode: `learner` for a
+   * self-study bundle, `teacher` otherwise (draftedByOf in @studium/lesson-session-host). */
+  drafted_by: DraftedBySchema.optional(),
+  note: z.string().optional(),
+  /** What the study plan needs from the learner's intake: minutes a day and a target date. What the
+   * learner already knows or likes shapes the draft and is never stored with a shareable lesson. */
+  learner_profile: z.object({
+    minutes_per_day: z.number().int().min(1).max(600).optional(),
+    target_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  }).optional(),
+});
+export type AuthoringMode = z.infer<typeof AuthoringModeSchema>;
+export type DraftedBy = z.infer<typeof DraftedBySchema>;
+export type BundleAuthoring = z.infer<typeof BundleAuthoringSchema>;
+
 export const BundleMetadataSchema = z.object({
   title: z.string(),
   target: z.string(),
   duration_minutes: z.number().int().positive(),
   language: z.string().min(2),
   discipline: z.string(),
+  /** Absent on bundles built before 2026-10-30; readers treat absent as `teacher`. */
+  authoring: BundleAuthoringSchema.optional(),
 });
 
 export const UniverseVariantSchema = z.object({
@@ -57,6 +91,8 @@ export const LessonBundleSchema = z.object({
   validated_by: z.string().min(3),
   validated_at: z.string().datetime(),
   assessment_blueprint: AssessmentBlueprintSchema.optional(),
+  /** For `prerequisite_for`, `source` is the dependent concept and `target` is its prerequisite.
+   * This engine convention is consumed by `packages/lesson-session/src/graph-nav.ts`, so reverse an edge written in the relation name's natural reading. */
   learning_workflow_graph: LearningWorkflowGraphSchema.nullish(),
   universes: UniversesSchema.nullish(),
 });

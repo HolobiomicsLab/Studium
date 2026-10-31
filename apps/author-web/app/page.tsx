@@ -52,12 +52,12 @@ export default function UploadPage() {
         <label>
           Niveau cible *
           <input name="target" type="text" placeholder="ex: L3, M1, PhD" required defaultValue="L3"
-            style={{ display: "block", marginTop: 4, padding: "4px 8px", width: "100%" }} />
+            style={{ display: "block", marginTop: 4, padding: "4px 8px", width: "100%", boxSizing: "border-box" }} />
         </label>
         <label>
           Mots-clés (optionnel)
           <input name="keywords" type="text" placeholder="ex: metabolomics, LC-MS"
-            style={{ display: "block", marginTop: 4, padding: "4px 8px", width: "100%" }} />
+            style={{ display: "block", marginTop: 4, padding: "4px 8px", width: "100%", boxSizing: "border-box" }} />
         </label>
         <button type="submit" disabled={loading}
           style={{ padding: "8px 16px", background: "#0070f3", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>

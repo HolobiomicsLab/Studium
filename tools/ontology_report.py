@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate docs/ontology/conformance.md from the schemas ON DISK — never hand-written, so the paper's
+"""Generate docs/design-records/ontology-conformance.md from the schemas ON DISK — never hand-written, so the paper's
 ontology claims and the code cannot silently diverge. Mirrors the ASB "indexes derived from disk" discipline:
 each row is read from source (modulator set, scene types across the three schema sites, edge relations
 declared-vs-produced, referential-integrity enforcement), so a stale table becomes a diff, not a lie.
@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-DOC = REPO / "docs" / "ontology" / "conformance.md"
+DOC = REPO / "docs" / "design-records" / "ontology-conformance.md"
 
 
 def _read(rel: str) -> str:
@@ -77,7 +77,7 @@ def build() -> str:
         "silently diverge. A stale row is a diff, not a lie.",
         "",
         "## Modulators",
-        f"Active runtime set: **{', '.join(mods)}** ({len(mods)}). Definitions + retired ids: `docs/ontology/modulators.md`.",
+        f"Active runtime set: **{', '.join(mods)}** ({len(mods)}). Definitions + retired ids: `docs/concepts/modulators.md`.",
         "",
         "## Scene types — the three schema sites",
         _table(["site", "count", "scene types"], [[k, str(len(v)), ", ".join(sorted(v))] for k, v in sites.items()]),
@@ -119,7 +119,7 @@ def main(argv: list[str]) -> int:
     if "--check" in argv:
         current = DOC.read_text() if DOC.exists() else ""
         if current != content:
-            print("docs/ontology/conformance.md is STALE — run: python tools/ontology_report.py", file=sys.stderr)
+            print("docs/design-records/ontology-conformance.md is STALE — run: python tools/ontology_report.py", file=sys.stderr)
             return 1
         print("ontology conformance doc is up to date.")
         return 0

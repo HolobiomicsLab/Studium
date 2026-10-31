@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.4",
+  "bundle_id": "bundle-lint-unassessable",
+  "source_plan_id": "bundle-lint-tests",
+  "metadata": {
+    "title": "Unassessable prerequisite",
+    "target": "Lint tests",
+    "duration_minutes": 5,
+    "language": "en",
+    "discipline": "testing"
+  },
+  "concepts": [
+    { "id": "foundation", "title": "Foundation", "description": "First.", "bloom_level_target": "understand" },
+    { "id": "advanced", "title": "Advanced", "description": "Second.", "bloom_level_target": "apply" }
+  ],
+  "scenes": [
+    {
+      "id": "s-foundation",
+      "type": "concept",
+      "title": "Foundation",
+      "objective_refs": [],
+      "concept_refs": ["foundation"],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "markdown": "No graded scene exists for this concept."
+    },
+    {
+      "id": "s-advanced",
+      "type": "concept",
+      "title": "Advanced",
+      "objective_refs": [],
+      "concept_refs": ["advanced"],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "markdown": "Advanced follows the foundation."
+    }
+  ],
+  "rules": [],
+  "validated_by": "bundle-lint tests",
+  "validated_at": "2026-10-29T00:00:00.000Z",
+  "learning_workflow_graph": {
+    "schema_version": "1.0",
+    "course_id": "bundle-lint-unassessable",
+    "nodes": [
+      { "id": "concept:foundation", "node_kind": "concept", "title": "Foundation", "bloom_level": "understand" },
+      { "id": "concept:advanced", "node_kind": "concept", "title": "Advanced", "bloom_level": "apply" }
+    ],
+    "edges": [
+      { "id": "edge-advanced-foundation", "relation": "prerequisite_for", "source": "concept:advanced", "target": "concept:foundation" }
+    ]
+  }
+}

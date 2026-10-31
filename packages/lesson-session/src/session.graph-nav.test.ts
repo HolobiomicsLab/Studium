@@ -47,7 +47,7 @@ describe("LessonSession — graph-aware navigation", () => {
     const s = new LessonSession(bundle(true), buildTestDeps());
     await s.start();
     const t = await s.respond({ kind: "quiz_choice", choiceId: "a" }); // wrong on fourier
-    expect(t.kind).toBe("next");
+    expect(t.kind).toBe("remediate"); // a graph detour is announced as such, not as a plain advance
     expect((t as any).presentation.scene.id).toBe("q-fourier"); // remediated back to the prereq
   });
 

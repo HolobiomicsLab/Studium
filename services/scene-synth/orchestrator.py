@@ -1,13 +1,14 @@
 """SceneSynthOrchestrator (A.7).
 
-Wires the seven SceneAgents (intro, concept, quiz, meta_checkpoint,
-reproduction, ai_critique, spot_the_flaw) to the bundler and returns the result
-of ``synthesize_lesson`` in the shape expected by the FastAPI endpoint
+Wires the registered SceneAgents (``SUPPORTED_SCENE_TYPES``) to the bundler and returns the
+result of ``synthesize_lesson`` in the shape expected by the FastAPI endpoint
 ``POST /scenes/synthesize``.
 
 Design choices:
 - Unsupported scene types are logged as warnings and skipped (never fail
-  the lesson on a single bad outline).
+  the lesson on a single bad outline). Because that skip is silent to every caller, the gap
+  between what a plan may ASK FOR and what this service can BUILD is declared in
+  ``KNOWN_UNSUPPORTED_SCENE_TYPES`` and guarded by ``tests/test_scene_type_vocabulary.py``.
 - ``ai_critique`` scenes are skipped when ``options.include_critique``
   is False.
 - ``SceneSynthError`` from any agent bubbles up to the caller (the
@@ -42,6 +43,84 @@ from scene_synth_schemas import ReferenceRun
 
 log = logging.getLogger(__name__)
 
+# THE SCENE-TYPE VOCABULARY, DECLARED.
+#
+# Three lists name scene types and none of them used to be compared: what the planner may EMIT
+# (``lesson_plan_schema.SceneType``), what this service can BUILD (the agents below), and what the
+# runtime bundle can REPRESENT (``scene_synth_schemas.SceneType``, which the learner runtime
+# grades). An outline naming a type with no agent is skipped with a warning that no caller reads —
+# so a scene simply disappears between the plan and the bundle while every plan-level check that
+# counted it still passes.
+#
+# That is how ``simulation`` survived: plannable, counted by the critic's apply-level bloom check,
+# recommended by the critic's canned offline verdict, built by nothing, and not representable in a
+# bundle. Declaring the gap does not close it — it makes it a decision somebody took, with a
+# reason, instead of a silence.
+_AGENT_CLASSES: dict[str, type] = {
+    "intro": IntroAgent,
+    "concept": ConceptAgent,
+    "quiz": QuizAgent,
+    "meta_checkpoint": MetaCheckpointAgent,
+    "reproduction": ReproductionAgent,
+    "ai_critique": AICritiqueAgent,
+    # capsule-grounded judgment scene: a flawed AI reading of a REAL executed result, graded by
+    # flawGrader. Was schema-only (orchestrator skipped it) - now generative.
+    "spot_the_flaw": SpotTheFlawAgent,
+}
+
+#: Scene types this service can synthesize - derived from the agents actually registered, so
+#: adding an agent widens the vocabulary without anyone updating a second list.
+SUPPORTED_SCENE_TYPES: frozenset[str] = frozenset(_AGENT_CLASSES)
+
+#: Why the five active-learning scene types below are graded but not authorable. Shared, because
+#: it is one decision and not five: every one of them is graded by matching the learner's free
+#: text against authored `cues`, so writing them automatically means GENERATING the grading key -
+#: exactly the mechanism INT-STUDIUM-035 puts in question. Until that is decided, generating them
+#: would industrialise the defect rather than close the gap.
+_ACTIVE_LEARNING_GAP = (
+    "Graded by the runtime and, since 2026-10-29, plannable (lesson_plan_schema) but authorable "
+    "only by hand or as a TODO skeleton (tools/experience_packet.py bundle): an agent would have to "
+    "generate the `cues` that ARE the grading key, which is gated on the INT-STUDIUM-035 decision."
+)
+
+#: Scene types a plan may legitimately name that this service cannot build, each with the reason.
+#: An entry here is a promise that the skip is known, not a bug in hiding; the guard test fails on
+#: any plannable type in neither set, and on any entry that has since gained an agent.
+KNOWN_UNSUPPORTED_SCENE_TYPES: dict[str, str] = {
+    "discussion": (
+        "Representable in a bundle and playable by the runtime, but no authoring agent: a "
+        "multi-turn Socratic exchange has no single generated artefact the way a quiz or a "
+        "concept card does. A plan that asks for one loses it here, silently, which is why the "
+        "skip now names this reason."
+    ),
+    "simulation": (
+        "Not buildable AND not representable: the bundle vocabulary "
+        "(scene_synth_schemas.SceneType) has no simulation member, so even a written scene could "
+        "not be carried to a learner. Kept plannable on purpose - the enum member carries real "
+        "routing in evidence enrichment, the perspicacite mapper, ABS asset extraction and the "
+        "critic's apply-level bloom-consistency check, and deleting it would delete that. "
+        "Building it means auto-generating the grading cues, which is gated on the "
+        "INT-STUDIUM-035 decision about how free-text answers are graded at all."
+    ),
+    # The five active-learning types became plannable on 2026-10-29 (teacher `bundle` command,
+    # audit of the three web cases); they stay unbuildable here for the reason above.
+    "explain_back": _ACTIVE_LEARNING_GAP,
+    "comparison": _ACTIVE_LEARNING_GAP,
+    "summary_audit": _ACTIVE_LEARNING_GAP,
+    "prompt_practice": _ACTIVE_LEARNING_GAP,
+    "communication_sim": _ACTIVE_LEARNING_GAP,
+}
+
+#: The other direction of the same drift: scene types the RUNTIME can grade that no plan can ask
+#: for and no agent can write, so they exist only where a human authored them by hand (the
+#: atomistique-l1 bundle). They are not a defect - a hand-authored scene is a legitimate product
+#: state - but an UNDECLARED one is, because nothing else in the pipeline reveals that the
+#: authoring path stops short of the grading path.
+#: Empty since 2026-10-29: the five active-learning types that lived here became plannable and
+#: moved to KNOWN_UNSUPPORTED_SCENE_TYPES (the guard test accepts either table as a declaration).
+HAND_AUTHORED_ONLY_SCENE_TYPES: dict[str, str] = {}
+
+
 # Project a tools/capsule_runner result into a ReferenceRun dict. Canonical home is
 # tools/ground_judgment.reference_result_from_capsule — imported here (with a path insert)
 # so the projection is NEVER duplicated. The import is ATTEMPTED at module load; if tools/ is
@@ -69,18 +148,14 @@ class SceneSynthOrchestrator:
         bundler_fn: Callable = build_bundle,
         capsule_runner: Callable | None = None,
     ) -> None:
+        # Built from the module-level table so `set(self.agents) == SUPPORTED_SCENE_TYPES` holds
+        # by construction rather than by anyone remembering.
+        _extra: dict[str, dict[str, Any]] = {
+            "reproduction": {"abs_capsule_root": abs_capsule_root},
+        }
         self.agents = {
-            "intro": IntroAgent(llm_client, critic),
-            "concept": ConceptAgent(llm_client, critic),
-            "quiz": QuizAgent(llm_client, critic),
-            "meta_checkpoint": MetaCheckpointAgent(llm_client, critic),
-            "reproduction": ReproductionAgent(
-                llm_client, critic, abs_capsule_root=abs_capsule_root
-            ),
-            "ai_critique": AICritiqueAgent(llm_client, critic),
-            # capsule-grounded judgment scene: a flawed AI reading of a REAL executed result,
-            # graded by flawGrader. Was schema-only (orchestrator skipped it) — now generative.
-            "spot_the_flaw": SpotTheFlawAgent(llm_client, critic),
+            name: cls(llm_client, critic, **_extra.get(name, {}))
+            for name, cls in _AGENT_CLASSES.items()
         }
         self.output_dir = Path(output_dir)
         self.prov_seed = prov_seed or {
@@ -110,7 +185,16 @@ class SceneSynthOrchestrator:
             scene_type = outline.get("type")
             agent = self.agents.get(scene_type)
             if agent is None:
-                msg = f"unsupported scene type '{scene_type}' skipped"
+                # Name the declared reason when there is one: a reader of `warnings` should be
+                # able to tell "known gap, decided" from "the planner emitted something nobody
+                # knows about".
+                reason = KNOWN_UNSUPPORTED_SCENE_TYPES.get(scene_type)
+                msg = (
+                    f"unsupported scene type '{scene_type}' skipped - {reason}"
+                    if reason
+                    else f"unsupported scene type '{scene_type}' skipped (undeclared: in neither "
+                    f"SUPPORTED_SCENE_TYPES nor KNOWN_UNSUPPORTED_SCENE_TYPES)"
+                )
                 log.warning(msg)
                 warnings.append(msg)
                 continue

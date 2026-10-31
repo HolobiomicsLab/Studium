@@ -1,0 +1,121 @@
+English · [Français](http-api.fr.md)
+
+# HTTP API
+
+Studium has two local HTTP servers. Use the **lesson API** of `apps/lesson-mcp` to drive lessons
+from a script or a harness without MCP; it speaks the same operations as the
+[MCP tools](mcp-tools.md). The older **lesson-server** (`apps/lesson-server`) serves the teacher
+dashboard's peer rooms and course pages. Both hide answer keys: a scene is sent as its public
+projection, never with its key.
+
+| | Lesson API | lesson-server |
+|---|---|---|
+| Start | `pnpm --filter @studium/lesson-mcp api` | `pnpm --filter @studium/lesson-server start` |
+| Address | `http://127.0.0.1:8130` (`STUDIUM_API_PORT`) | `http://127.0.0.1:8010` (`PORT`) |
+| Authentication | Bearer token, loopback only, browser origins refused | none (loopback only) |
+| Operations | the 25 lesson tools, with discovery | sessions, peer rooms, courses |
+| Retries | idempotent with `request_id` | none |
+
+Neither is meant for a class on the internet: both listen on 127.0.0.1 only, and their sessions
+belong to the running process. Session ids are not interchangeable between the two.
+
+## Lesson API
+
+### Start it
+
+```bash
+export STUDIUM_API_TOKEN="$(openssl rand -hex 32)"   # at least 32 characters; share it with clients, not in chat or Git
+BUNDLES_ROOT="$PWD/fixtures" pnpm --filter @studium/lesson-mcp api
+```
+
+The API never calls a model unless `STUDIUM_API_LIVE=1` and `LITELLM_BASE_URL` are set. Learner
+state stays in memory unless `STUDIUM_DATA_DIR` is set (see [Configuration](configuration.md)).
+
+### Call it
+
+| Route | Method | Purpose |
+|---|---|---|
+| `/health` | GET | `{schema: "studium/http/v1", status: "ready", sessions: "process-local"}` |
+| `/v1/operations` | GET | Every operation: `name`, `description`, `mutating`, `requires_scene_id`, `input_schema` (JSON Schema) |
+| `/v1/operations/<name>` | POST | Run one operation. The result has the same fields as the MCP tool, without the MCP envelope. |
+
+Every request carries `Authorization: Bearer <token>`; a POST body is JSON (`content-type:
+application/json`, at most 1 MiB) in this envelope:
+
+```json
+{
+  "request_id": "start-001",
+  "expected_scene_id": "s-intro",
+  "arguments": { "bundle_ref": "capsule-judgment-demo/lesson.json", "learner_id": "local-student" }
+}
+```
+
+| Field | When |
+|---|---|
+| `arguments` | Always: the tool's arguments, checked against its schema. |
+| `request_id` | Every mutating operation. Reuse it, with identical arguments, to retry safely: the stored reply is returned and nothing runs twice. |
+| `expected_scene_id` | `submit_response`, `submit_turn`, `submit_run_result`, `request_hint`, `record_experiment`: the scene the learner is answering. A changed scene gives `409 stale_scene`. |
+
+```bash
+curl -s -H "Authorization: Bearer $STUDIUM_API_TOKEN" http://127.0.0.1:8130/v1/operations
+curl -s -X POST -H "Authorization: Bearer $STUDIUM_API_TOKEN" -H 'content-type: application/json' \
+  -d '{"request_id":"start-001","arguments":{"bundle_ref":"capsule-judgment-demo/lesson.json","learner_id":"local-student"}}' \
+  http://127.0.0.1:8130/v1/operations/start_lesson_session
+```
+
+The repository also ships a small client that reads the token from the environment and never
+prints it:
+
+```bash
+pnpm --silent --filter @studium/lesson-mcp api:call health
+pnpm --silent --filter @studium/lesson-mcp api:call operations
+pnpm --silent --filter @studium/lesson-mcp api:call start_lesson_session /absolute/path/start.json
+```
+
+Read-only operations (`get_*`, `explain_last_adaptation`, `list_community_bundles`) need no
+`request_id` and are recomputed on each call. `forget_session` takes `session_id` or `learner_id`, as
+over MCP; with `learner_id` no session needs to be open, and a retried request on one of the sessions it
+closed answers `410 forgotten`. The study, authoring and teacher tools are not served here in this version; use MCP for
+them.
+
+### Errors
+
+Errors are `{error, code}` with these statuses:
+
+| Status | Codes | What to do |
+|---|---|---|
+| 400 | `invalid_json`, `invalid_input`, `request_id_required`, `scene_required`, `invalid_bundle` | Fix the request from the discovery schema; nothing was recorded. |
+| 401, 403 | `unauthorized`, `local_only`, `origin_rejected` | Check the token and that the client is local and not a browser. |
+| 404 | `not_found`, `session_not_found` | Unknown route or session (a restart ends every session). Do not invent a resume. |
+| 409 | `stale_scene`, `request_conflict` | Re-read the current scene; or a `request_id` was reused with different content. |
+| 410 | `session_closed`, `forgotten` | The session was ended or erased; start a new one, never recreate erased data. |
+| 413, 415 | `body_too_large`, `media_type` | Send JSON under 1 MiB; pass media as references. |
+| 422 | `operation_failed` | The lesson engine refused the operation; read `error`. |
+| 503 | `busy`, `receipt_limit` | Retry with the same `request_id`; or export and restart after 512 mutations (16 MiB of stored replies). |
+
+Operations run one at a time. After a network error, resend the same file with the same
+`request_id` rather than a second answer. To switch harnesses mid-lesson, hand over the address, the
+`session_id` and the language, and start with `get_operator_context`; do not restart the lesson.
+
+## lesson-server
+
+A Fastify server for the teacher dashboard. Replies are `{success, ok, ...}` on success and
+`{success: false, ok: false, error}` otherwise.
+
+| Route | Method | Body or query | Reply |
+|---|---|---|---|
+| `/sessions` | POST | `{bundle_ref, learner_id?}` | `201 {session_id, presentation}` |
+| `/sessions/:id` | GET | | `{presentation}` |
+| `/sessions/:id/respond` | POST | `{input}` (a response, as in `submit_response`) | `{transition}`; `409` when the session cannot take it |
+| `/sessions/:id/turns` | POST | `{text}` | `{accepted: true}` |
+| `/sessions/:id/state` | GET | | `{state}` |
+| `/sessions/:id` | DELETE | | `{forgotten: true}`: erases the session |
+| `/rooms` | POST | `{bundle_ref}` | `201`, the new peer room |
+| `/rooms/join` | POST | `{join_code, session_id}` | the room |
+| `/rooms/:id/ratings` | POST | `{rater_session_id, target_session_id, passed, rating (1–5), helpful}` | the rating |
+| `/rooms/:id` | GET | `?teacher_key=` | the room state |
+| `/rooms/:id/close` | POST | `{teacher_key}` | the closed room |
+| `/courses` | GET | `?ref=` (a path under `BUNDLES_ROOT`) | `{course}`: the course order and prerequisites |
+
+It has no authentication: keep it on a machine you control. Configuration (`BUNDLES_ROOT`, `PORT`,
+`LITELLM_BASE_URL`) is in [Configuration](configuration.md#lesson-server).

@@ -49,6 +49,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
+from provenance.astra_emit import analysis_body   # the flat-document rule, one definition
+
 ASTRA_FILE = "astra.yaml"
 UNIVERSES_DIR = "universes"
 TRACE_FILE = "trace/exploration_tree.yaml"
@@ -119,6 +121,150 @@ def load_yaml(path: Path) -> dict[str, Any] | None:
     if not path.is_file():
         return None
     return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _mapping(value: Any) -> Mapping[str, Any]:
+    """`value` when it is a mapping, an empty one otherwise.
+
+    No emitter writes a list where the schema says mapping, but a hand-edited or
+    half-written file does, and every caller here summarises a whole course: one such
+    file must not take the surface down.
+    """
+    return value if isinstance(value, Mapping) else {}
+
+
+def evidence_view(evidence: Mapping[str, Any]) -> dict[str, Any]:
+    """Project ASTRA 0.0.14 evidence and legacy quotes into safe, complete display fields.
+
+    Both report formats share this projection. Source paths remain plain text; they
+    are never opened. Wrong-shaped optional fields remain absent, not coerced facts.
+    """
+    strings = ("id", "artifact", "doi", "snapshot", "source_commit", "notes")
+    view = {key: evidence.get(key) if isinstance(evidence.get(key), str) else None
+            for key in strings}
+    quote = evidence.get("quote")
+    selector = quote if isinstance(quote, Mapping) else {}
+    exact = selector.get("exact", quote)
+    if not isinstance(exact, str):
+        exact = evidence.get("quote_exact")
+    view["quote_exact"] = exact if isinstance(exact, str) else None
+    for key in ("prefix", "suffix"):
+        value = selector.get(key)
+        view[f"quote_{key}"] = value if isinstance(value, str) else None
+    location = _mapping(evidence.get("location"))
+    value = location.get("value")
+    view["location_value"] = value if isinstance(value, str) else None
+    for key, value in (("version", evidence.get("version")), ("location_page", location.get("page"))):
+        view[key] = value if isinstance(value, int) and not isinstance(value, bool) and value >= 1 else None
+    labels = {"doi": "DOI", "version": "Version", "snapshot": "Snapshot",
+              "source_commit": "Source commit", "quote_prefix": "Quote prefix",
+              "quote_suffix": "Quote suffix", "location_value": "Location", "location_page": "Page"}
+    view["details"] = {label: view[key] for key, label in labels.items() if view[key] is not None}
+    return view
+
+
+def analyses_of(doc: Mapping[str, Any] | None) -> list[tuple[str, Mapping[str, Any]]]:
+    """(slug, body) pairs. A nested document yields its `analyses`; a pre-nesting flat
+    document is its own single body, the rule `astra_emit.analysis_body` applies."""
+    if not doc or not isinstance(doc, Mapping):
+        return []
+    analyses = doc.get("analyses")
+    if isinstance(analyses, Mapping) and analyses:
+        return [(str(slug), _mapping(body)) for slug, body in analyses.items()]
+    if analyses:
+        # The document declares a container and wrote something else. It is not a flat
+        # legacy document either, so there is no body to show: an empty analyses list,
+        # not the `analysis_body` traversal that would raise on it.
+        LOGGER.warning("astra.yaml has a non-mapping `analyses` block: %r", type(analyses).__name__)
+        return []
+    slug, body = analysis_body(dict(doc))
+    return [(slug or "root", _mapping(body))]
+
+
+def _defaults_by_analysis(doc: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
+    return {slug: {did: _mapping(d).get("default")
+                   for did, d in _mapping(body.get("decisions")).items()}
+            for slug, body in analyses_of(doc)}
+
+
+def universe_diff(universe: Mapping[str, Any],
+                  doc: Mapping[str, Any] | None) -> dict[str, list[Any]]:
+    """`{decision: [default, chosen]}` for every option this universe moves away from
+    the default of the analysis it nests under.
+
+    Lives here rather than in any one renderer: three surfaces ask the same question of a
+    universe — the MyST page, the course audit report and the Observatory — and R9 allows
+    one definition, not three that drift.
+    """
+    per_analysis = _defaults_by_analysis(doc)
+    merged: dict[str, Any] = {}
+    for defaults in per_analysis.values():
+        merged.update(defaults)
+
+    diff: dict[str, list[Any]] = {}
+    nested = universe.get("analyses")
+    pairs: list[tuple[dict[str, Any], Mapping[str, Any]]]
+    if isinstance(nested, Mapping) and nested:
+        pairs = [(per_analysis.get(str(slug), merged), _mapping(_mapping(body).get("decisions")))
+                 for slug, body in nested.items()]
+    else:
+        pairs = [(merged, _mapping(universe_selection(universe)))]
+    for defaults, selection in pairs:
+        for did, chosen in selection.items():
+            default = defaults.get(did)
+            if chosen != default:
+                diff[did] = [default, chosen]
+    return diff
+
+
+def universe_summary(universe: Mapping[str, Any],
+                     doc: Mapping[str, Any] | None) -> dict[str, Any]:
+    """What a universe CHANGES, and how many decisions it leaves alone.
+
+    A universe is a delta from the defaults, and a section that prints every decision
+    hides the delta inside it: the emitter assigns EVERY decision of the analysis so no
+    selection reads `[MISSING_DECISION]`, so the complete list is mostly the default list
+    repeated once per universe. Printing the changes and counting the rest states the same
+    fact in the form the reader came for (INT-STUDIUM-010 nit 3).
+
+    `at_default` counts the decisions this universe selected and did not move — not the
+    decisions of the analysis. A universe that names a decision the document does not
+    declare is a change (its default is unknown, hence `None`), and one the document
+    declares but the universe never names is neither: it is not part of this selection.
+    """
+    changed = universe_diff(universe, doc)
+    selected = universe_selection(universe)
+    return {"changed": changed, "at_default": max(len(selected) - len(changed), 0)}
+
+
+def summary_lines(summary: Mapping[str, Any], *, indent: str = "  ") -> list[str]:
+    """The Markdown bullets both page renderers emit for one universe's selection.
+
+    Takes the summary rather than the universe, so a caller that computed it while it still
+    held the ASTRA document — the course audit report does, its renderer runs later from the
+    report alone — formats it the same way as one that has both to hand.
+    """
+    changed = _mapping(summary.get("changed"))
+    lines = [f"{indent}- {did}: `{pair[1]}` "
+             # A decision the document does not declare, or declares with no default, has
+             # nothing to have moved FROM. Rendering that as ``default `None``` would put a
+             # default on the page that no artifact records — the shape a course whose
+             # universes were written against a different analysis really has.
+             + (f"(default `{pair[0]}`)" if pair[0] is not None else "(no default recorded)")
+             for did, pair in changed.items() if isinstance(pair, (list, tuple)) and len(pair) == 2]
+    at_default = summary.get("at_default") or 0
+    if at_default:
+        lines.append(f"{indent}- {at_default} decision{'' if at_default == 1 else 's'} at default")
+    elif not lines:
+        lines.append(f"{indent}- no selection")
+    return lines
+
+
+def universe_summary_lines(universe: Mapping[str, Any],
+                           doc: Mapping[str, Any] | None,
+                           *, indent: str = "  ") -> list[str]:
+    """`summary_lines` for a caller holding the universe and the document."""
+    return summary_lines(universe_summary(universe, doc), indent=indent)
 
 
 def universe_selection(universe: Mapping[str, Any]) -> dict[str, Any]:

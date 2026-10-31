@@ -1,6 +1,8 @@
 import type { LearningWorkflowGraph } from "@studium/learning-workflow-schema";
-import { isAvailable, remediationTarget, DEFAULT_THETA, type Mastery } from "@studium/adaptation-engine";
-import { masteryOf, isMiscalibrated, isTrustMiscalibrated, type ConceptState } from "@studium/learner-state";
+import { isAvailable, remediationTarget, retrievability, DEFAULT_THETA, type Mastery } from "@studium/adaptation-engine";
+import {
+  masteryOf, effectiveMastery, isMiscalibrated, isTrustMiscalibrated, type ConceptState, type ConceptMemoryState,
+} from "@studium/learner-state";
 
 /** Minimum total_attempts a concept must accumulate before its mastery can count as MASTERED.
  * Without this floor, mastery is trivially cheap: 2 correct quiz answers push alpha/(alpha+beta)
@@ -21,6 +23,28 @@ export function buildLwgMastery(
   for (const [cid, cs] of Object.entries(conceptStates)) {
     if (cs.total_attempts < minAttempts) continue; // below the floor -> not yet masterable -> omit
     m[`concept:${cid}`] = masteryOf(cs);
+  }
+  return m;
+}
+
+/** The SKIP view of mastery (RT-2): EFFECTIVE mastery per concept — the posterior times the FSRS
+ * retrievability at `nowMs` (learner-state `effectiveMastery`) — with the same minimum-attempts floor
+ * as buildLwgMastery. A concept with no reviewed memory keeps its posterior (no retention evidence is
+ * not a decay), and so does every concept when the time is unknown. Only skip-on-mastery reads it:
+ * the prerequisite gates and the mastery claims stay on the posterior, whose termination and
+ * certification contracts were built on it. */
+export function buildLwgEffectiveMastery(
+  conceptStates: Record<string, ConceptState>,
+  memory: Record<string, ConceptMemoryState> | undefined,
+  nowMs: number,
+  minAttempts: number = MIN_MASTERY_ATTEMPTS,
+): Mastery {
+  const m: Mastery = {};
+  for (const [cid, cs] of Object.entries(conceptStates)) {
+    if (cs.total_attempts < minAttempts) continue;
+    const mem = memory?.[cid];
+    const reviewed = mem !== undefined && mem.reps > 0 && mem.last_reviewed_at !== null && Number.isFinite(nowMs);
+    m[`concept:${cid}`] = effectiveMastery(masteryOf(cs), reviewed ? retrievability(mem, nowMs) : undefined);
   }
   return m;
 }
@@ -55,11 +79,32 @@ export function firstSceneForConcept(scenes: { concept_refs?: string[] }[], conc
   return scenes.findIndex((s) => sceneConceptId(s) === conceptId);
 }
 
-/** Scene types whose grading emits an answer_submitted signal (updates per-concept mastery).
- * Routing remediation to any other type cannot improve mastery -> would loop, so it's excluded. */
-const ANSWER_GRADED_TYPES = new Set(["quiz", "ai_critique"]);
+/** Scene types this router will send a learner back to for remediation.
+ *
+ * The comment here used to read "scene types whose grading emits an answer_submitted signal". That
+ * was never true and is measurably not true now: EIGHT types emit one (quiz plus the seven
+ * free-text types), and this set names two of them. `answer-graded-types.contract.test.ts` runs the
+ * real graders and pins the three-way gap, so the numbers below cannot go stale silently.
+ *
+ * Since INT-STUDIUM-035 candidate 2 (the owner's decision of 2026-09-10) emitting an
+ * `answer_submitted` no longer implies moving mastery either: offline only `quiz` and
+ * `spot_the_flaw`'s VERDICT DECK carry a `correct`, because those two are scored against the key by
+ * identity. The other six carry one only when a live evaluator declares `source: "llm"`. So the
+ * predicate a router actually wants — "can a detour here raise mastery?" — is no longer a property
+ * of the scene type alone, and this set matches neither the emitting types nor the certifying ones.
+ *
+ * INT-STUDIUM-037 deliberately leaves the MEMBERSHIP alone. Widening it would route offline
+ * learners into scenes that provably cannot converge, and shrinking it would cost a live deployment
+ * its free-text remediation; choosing between them is the routing decision that intent files and
+ * does not take. What it does fix is the SILENCE when this set finds nothing — see
+ * `gate_unassessable` below. */
+export const ANSWER_GRADED_TYPES: ReadonlySet<string> = new Set(["quiz", "ai_critique"]);
 
-/** Index of the first ANSWER-GRADED scene for the concept (one that can move mastery), or -1. */
+/** Mastery pacing may remove authored exposition/checks, but never judgment or practice scenes. */
+export const MASTERY_SKIPPABLE_TYPES: ReadonlySet<string> = new Set(["intro", "concept", "quiz"]);
+
+/** Index of the first scene of a remediable type for the concept, or -1 when there is none —
+ * the case `gate_unassessable` reports. */
 export function firstAnswerGradedSceneForConcept(
   scenes: { concept_refs?: string[]; type?: string }[],
   conceptId: string,
@@ -78,18 +123,36 @@ export function firstUnseenAnswerGradedSceneForConcept(
   );
 }
 
-export type GraphNavReason = "advance" | "remediate" | "skip_mastered";
+/** How many times the gate may route a learner back to the SAME unmet prerequisite before it
+ * gives up and lets them through. Remediation assumes mastery rises on replay; for a learner
+ * whose answers keep grading wrong it never does, and without a bound the lesson never ends
+ * (observed on atomistique-l1: 199 replays of one scene in 400 steps, no completion). Three is
+ * a real second and third chance, not an unbounded one. */
+export const MAX_PREREQ_DETOURS = 3;
+
+export type GraphNavReason = "advance" | "remediate" | "skip_mastered" | "gate_released" | "gate_unassessable";
 export interface GraphNavResult {
   index: number | null; // null => no scene to advance to (caller completes)
   reason: GraphNavReason;
+  /** The LOCKED candidate the gate is holding the learner back from (remediate / gate_released /
+   * gate_unassessable). Lets the caller say where the detour returns to, and release the gate
+   * without re-running the router. */
+  gated?: number;
+  /** The unmet prerequisite responsible for a remediation or open gate. */
+  prerequisite?: string;
 }
 
 /** Choose the next scene (graph-aware). Used only when the bundle carries an LWG.
  * - skipMastered (pacing=skip_on_mastery): skip forward over scenes whose concept is already
  *   mastered (>= theta), stopping at the first concept-less or unmastered scene.
  * - landed candidate available (or concept-less) => advance there.
- * - landed candidate LOCKED => remediate to an answer-graded scene for the weakest unmet prereq
- *   (mastery rises on replay -> converges); if none exists, advance to the candidate (no loop). */
+ * - landed candidate LOCKED => remediate to an answer-graded scene for the weakest unmet prereq,
+ *   but at most MAX_PREREQ_DETOURS times for that prereq: remediation only converges if the
+ *   learner's mastery actually rises, and for one whose answers keep grading wrong it does not.
+ *   Past the budget the gate RELEASES (reason "gate_released") and the lesson advances unmastered;
+ *   if no remedial scene exists at all the gate opens immediately, reported as "gate_unassessable"
+ *   — a different fact, and one about the bundle rather than the learner. Either way the lesson
+ *   ends, and either way the caller says so out loud. */
 export function graphAwareNextIndex(
   scenes: { concept_refs?: string[]; type?: string }[],
   currentIdx: number,
@@ -98,28 +161,66 @@ export function graphAwareNextIndex(
   theta: number = DEFAULT_THETA,
   skipMastered = false,
   calibrated: Record<string, boolean> = {},
+  /** Detours ALREADY spent per prerequisite concept id, this session. Omitted ⇒ unbounded
+   * (the previous behaviour), so existing callers are unaffected. */
+  prereqDetours: Record<string, number> = {},
+  /** Scene ids already served in this session; unseen remediation items take priority. */
+  seen: ReadonlySet<string> = new Set(),
+  /** Correctly answered prerequisites count as passed even while posterior mastery is below theta. */
+  passedPrerequisites: ReadonlySet<string> = new Set(),
+  /** What skip-on-mastery reads (buildLwgEffectiveMastery). Omitted ⇒ `mastery`, the previous
+   * behaviour. The gates always read `mastery`. */
+  skipMastery: Mastery = mastery,
 ): GraphNavResult {
+  const routingMastery: Mastery = { ...mastery };
+  for (const conceptId of passedPrerequisites) routingMastery[conceptId] = 1;
   let candidate = currentIdx + 1;
   let skipped = false;
   if (skipMastered) {
     while (candidate < scenes.length) {
-      const c = sceneConceptId(scenes[candidate]!);
+      const scene = scenes[candidate]!;
+      const c = sceneConceptId(scene);
       // stop at: concept-less, unmastered, OR mastered-but-MISCALIBRATED (calibration gate — don't
       // skip a concept the learner's self-assessment is out of band on; let them do the scene).
-      if (c === null || (mastery[c] ?? 0) < theta || calibrated[c] === false) break;
+      // Judgment/practice/reproduction scenes are never skippable: quiz mastery is not evidence that
+      // the learner can evaluate an AI output, explain, compare, communicate, or perform the task.
+      // A session-local prerequisite pass releases dependency gates only; it is not posterior
+      // mastery and therefore must not make ordinary authored scenes skippable.
+      if (!MASTERY_SKIPPABLE_TYPES.has(scene.type ?? "")
+        || c === null || (skipMastery[c] ?? 0) < theta || calibrated[c] === false) break;
       candidate += 1;
       skipped = true;
     }
   }
   if (candidate >= scenes.length) return { index: null, reason: "advance" };
   const cid = sceneConceptId(scenes[candidate]!);
-  if (cid === null || isAvailable(lwg, cid, mastery, theta)) {
+  if (cid === null || isAvailable(lwg, cid, routingMastery, theta)) {
     return { index: candidate, reason: skipped ? "skip_mastered" : "advance" };
   }
-  const remedial = remediationTarget(lwg, cid, mastery, theta);
+  const remedial = remediationTarget(lwg, cid, routingMastery, theta);
   if (remedial) {
-    const ri = firstAnswerGradedSceneForConcept(scenes, remedial);
-    if (ri >= 0) return { index: ri, reason: "remediate" };
+    // BUDGET FIRST: past it, stop routing back and let the learner into the gated scene. The
+    // release is a fact the caller reports (graph_prereq_gate_released) — an unmastered pass is
+    // a worse outcome than a mastered one, but a strictly better one than a lesson that ends
+    // nowhere. `>=` because the count is detours already SPENT.
+    if ((prereqDetours[remedial] ?? 0) >= MAX_PREREQ_DETOURS) {
+      return { index: candidate, reason: "gate_released", gated: candidate };
+    }
+    const unseen = firstUnseenAnswerGradedSceneForConcept(scenes, remedial, new Set(seen));
+    const ri = unseen >= 0 ? unseen : firstAnswerGradedSceneForConcept(scenes, remedial);
+    if (ri >= 0) return { index: ri, reason: "remediate", gated: candidate };
+    // NO REMEDIAL SCENE AT ALL. The prerequisite is unmet and the lesson holds nothing this router
+    // can send the learner back to, so the gate opens on the first try — without spending a detour
+    // and, until INT-STUDIUM-037, without saying anything: this returned a plain "advance", which
+    // is what the caller emits for an ordinary next-scene step. Measured on atomistique-l1, a
+    // learner who has mastered nothing walks into a gated scene FOUR times this way and
+    // `graph_prereq_gate_released` fires zero times.
+    //
+    // It is a distinct fact from the budget release and must not borrow its rule_id: "we tried
+    // three times and it did not take" is a statement about the learner; "there was nothing to
+    // try" is a statement about the BUNDLE — the prerequisite has no scene this router can use to
+    // assess it. The caller announces it separately (graph_prereq_unassessable).
+    return { index: candidate, reason: "gate_unassessable", gated: candidate, prerequisite: remedial };
   }
   return { index: candidate, reason: skipped ? "skip_mastered" : "advance" };
 }

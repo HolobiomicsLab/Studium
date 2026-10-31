@@ -10,7 +10,7 @@ const fmtPct = (n: number | null) =>
 export default function CooperationStats({ data }: Props) {
   return (
     <div
-      className="grid grid-cols-2 md:grid-cols-4 gap-4"
+      className="stat-grid"
       data-testid="cooperation-stats"
     >
       <Kpi label="Sessions" value={data.n_sessions} />
@@ -23,9 +23,9 @@ export default function CooperationStats({ data }: Props) {
 
 function Kpi({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="bg-white shadow rounded p-4">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
+    <div className="stat-card">
+      <p className="stat-card__label">{label}</p>
+      <p className="stat-card__value">{value}</p>
     </div>
   );
 }

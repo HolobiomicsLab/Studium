@@ -42,6 +42,19 @@ describe("classifyTurn", () => {
     expect(await classifyTurn(slow, "x", "t", { timeoutMs: 100 })).toBeNull();
   });
 
+  it("writes the prompt in the lesson's language (RT-9): English for locale en, French by default", async () => {
+    const prompts: string[] = [];
+    const recording: LLMClient = {
+      complete: vi.fn(async (prompt: string) => { prompts.push(prompt); return JSON.stringify({ signal: "question", confidence: 0.5 }); }),
+    };
+    await classifyTurn(recording, "Why two lobes?", "Orbitals", { locale: "en" });
+    await classifyTurn(recording, "Pourquoi deux lobes ?", "Orbitales");
+    expect(prompts[0]).toContain("You classify dialogic reasoning signals");
+    expect(prompts[0]).toContain("The learner's turn is in English");
+    expect(prompts[0]).toContain("Why two lobes?");
+    expect(prompts[1]).toContain("Tu es un classificateur");
+  });
+
   it("clears timeout when LLM resolves before timeout", async () => {
     vi.useFakeTimers();
     const fast: LLMClient = {

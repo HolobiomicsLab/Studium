@@ -1,0 +1,51 @@
+{
+  "schema": "studium/linked-spectrum-network/v1",
+  "note": "Four explicitly synthetic MS/MS nodes for teaching linked evidence; no node represents a compound identification.",
+  "focal_id": "exp_feature_412",
+  "fragment_tol_da": 0.02,
+  "baseline_threshold": 0.65,
+  "threshold_presets": [
+    {"id": "baseline", "label": "Recorded baseline", "value": 0.65},
+    {"id": "meaningful-change", "label": "Lower threshold: new edges", "value": 0.64},
+    {"id": "stable-case", "label": "Higher threshold: no edge change", "value": 0.70}
+  ],
+  "nodes": [
+    {
+      "id": "exp_feature_412", "label": "Feature 412", "role": "query", "precursor_mz": 448.3084,
+      "peaks": [[85.0284, 0.12], [107.0491, 0.30], [151.0754, 0.55], [163.0754, 0.22], [214.1176, 0.85], [271.2057, 0.18], [289.2162, 0.65], [337.2733, 0.40], [430.2979, 0.45]]
+    },
+    {
+      "id": "MassBank_analogue_CH2", "label": "Analogue reference", "role": "candidate", "precursor_mz": 434.2928,
+      "peaks": [[85.0284, 0.10], [107.0491, 0.34], [151.0754, 0.60], [175.0754, 0.15], [196.0863, 0.80], [257.1900, 0.20], [275.2006, 0.70], [323.2577, 0.38], [416.2822, 1.00]]
+    },
+    {
+      "id": "synthetic_replicate_like", "label": "Replicate-like candidate", "role": "candidate", "precursor_mz": 448.3084,
+      "peaks": [[85.0284, 0.12], [107.0491, 0.30], [151.0754, 0.55], [163.0754, 0.22], [214.1176, 0.85], [271.2057, 0.18], [289.2162, 0.65], [337.2733, 0.40], [430.2979, 0.45]]
+    },
+    {
+      "id": "synthetic_decoy", "label": "Dissimilar decoy", "role": "candidate", "precursor_mz": 510.0,
+      "peaks": [[54.0, 0.80], [71.0, 0.45], [123.0, 0.65], [248.0, 1.00], [381.0, 0.30]]
+    }
+  ],
+  "candidates": [
+    {"node_id": "exp_feature_412", "candidate": "Observed query spectrum", "formula": "not assigned", "scope": "focal input"},
+    {"node_id": "MassBank_analogue_CH2", "candidate": "Synthetic analogue", "formula": "not assigned", "scope": "analogue-level comparison"},
+    {"node_id": "synthetic_replicate_like", "candidate": "Synthetic replicate-like pattern", "formula": "not assigned", "scope": "calculation control"},
+    {"node_id": "synthetic_decoy", "candidate": "Synthetic decoy", "formula": "not assigned", "scope": "negative control"}
+  ],
+  "generation_brief": {
+    "id": "linked-spectrum-network",
+    "learning_goal": "Relate one threshold choice to network edges, a mirror-spectrum comparison and a candidate row without turning similarity into identity.",
+    "inputs": ["fixed synthetic node spectra", "existing pairwise modified-cosine result", "source-linked public scene context"],
+    "reference_calculation": "Greedy one-to-one precursor-aware modified cosine with L2-normalized intensities and an inclusive score threshold.",
+    "allowed_parameters": ["selected node ID", "edge similarity threshold from 0 to 1"],
+    "hidden_information": ["pair scores", "edge differences", "mirror-spectrum matched peaks", "candidate similarities until prediction-before-reveal"],
+    "cross_view_questions": [
+      "When an edge appears, where does the same node ID appear in the mirror spectrum and candidate table?",
+      "Which threshold change alters edges, and which tested threshold leaves the network unchanged?",
+      "What additional evidence would be needed before any compound identification claim?"
+    ],
+    "learner_sequence": ["prediction", "reveal", "observation", "conclusion", "optional learner-owned export"],
+    "export_policy": "Create a local JSON download only after the learner presses Export my notes; never submit automatically."
+  }
+}

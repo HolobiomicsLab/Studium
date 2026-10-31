@@ -2,6 +2,7 @@
 // B1 — the spaced-repetition (FSRS) review queue + the learner-facing calibration verdict are
 // computed by the engine today but were invisible. These cover the host reads that SURFACE them.
 import { describe, it, expect, afterEach } from "vitest";
+import { FixedClock } from "@studium/lesson-session/testing";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -209,9 +210,11 @@ function correctChoice(h: SessionHost, sid: string) {
 
 describe("SessionHost.reviewQueue / calibrationFor (integration)", () => {
   it("reviewQueue surfaces the just-answered concept and reflects its FSRS schedule", async () => {
-    const host = new SessionHost({ bundlesRoot: bundlesDir(), live: false });
-    const { sessionId } = await host.create("mini.json");
+    // The answer is stamped by the host clock and the FSRS replay reads that stamp, so the clock
+    // is fixed at t0: with the wall-clock the test turned red once the calendar passed t0 + 90 days.
     const t0 = Date.parse("2026-06-20T10:00:00Z");
+    const host = new SessionHost({ bundlesRoot: bundlesDir(), live: false, clock: new FixedClock("2026-06-20T10:00:00Z") });
+    const { sessionId } = await host.create("mini.json");
     await host.respond(sessionId, correctChoice(host, sessionId));
 
     const now = host.reviewQueue(sessionId, t0);

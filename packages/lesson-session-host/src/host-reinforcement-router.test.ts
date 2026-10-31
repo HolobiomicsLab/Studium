@@ -13,11 +13,14 @@ import {
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
 import {
   conceptMemoryFromState,
+  dueReinforcementsFromState,
   nextReinforcementFromState,
+  reinforcementSceneForConcept,
   reinforcementSceneFromState,
 } from "./host.js";
 // Authoritative scheduler (relative file import; no @studium/adaptation-engine package dep — same
-// approach as host-fsrs.parity.test.ts). Pins the host's INLINED reinforcement mirror against it.
+// approach as host-fsrs.parity.test.ts). Pins the host's router — which imports this scheduler through
+// fsrs-memory.ts since RT-3 — against the engine's own decision.
 import {
   defaultMemoryState as engineDefaultMemory,
   reviewMemory as engineReviewMemory,
@@ -92,6 +95,18 @@ describe("FSRS-as-router — nextReinforcementFromState", () => {
     const state = stateWith([{ id: "c-seen-never-answered", mastery: 0.9, answers: [] }]);
     expect(nextReinforcementFromState(state, t0 + 30 * DAY)).toBeNull();
   });
+
+  it("returns every due concept in the same most-urgent-first order", () => {
+    const state = stateWith([
+      { id: "c-high", mastery: 0.9, answers: [{ correct: true, hint_count: 0, atMs: t0 }] },
+      { id: "c-low", mastery: 0.7, answers: [{ correct: true, hint_count: 0, atMs: t0 }] },
+    ]);
+
+    const due = dueReinforcementsFromState(state, t0 + 30 * DAY);
+
+    expect(due.map((target) => target.concept_id)).toEqual(["c-high", "c-low"]);
+    expect(due[0]).toEqual(nextReinforcementFromState(state, t0 + 30 * DAY));
+  });
 });
 
 describe("FSRS-as-router — conceptMemoryFromState", () => {
@@ -145,12 +160,21 @@ describe("FSRS-as-router — reinforcementSceneFromState (route to content)", ()
     const bundle = bundleWithScenes([{ id: "s-other", concept_refs: ["c-other"] }]);
     expect(reinforcementSceneFromState(bundle, state, t0 + 30 * DAY)).toBeNull();
   });
+
+  it("maps any concept id onto its preferred retrieval scene", () => {
+    const bundle = bundleWithScenes([
+      { id: "s-passive", type: "intro", concept_refs: ["c-fit"] },
+      { id: "s-active", type: "quiz", concept_refs: ["c-fit"] },
+    ]);
+
+    expect(reinforcementSceneForConcept(bundle, "c-fit")).toBe("s-active");
+    expect(reinforcementSceneForConcept(bundle, "c-missing")).toBeNull();
+  });
 });
 
-describe("FSRS-as-router — host mirror is in LOCKSTEP with the authoritative engine", () => {
-  // host.ts inlines the FSRS reinforcement mirror (it cannot import @studium/adaptation-engine). This
-  // pins the host's nextReinforcementFromState decision to the engine's nextReinforcement over the SAME
-  // replayed history + mastery, so the copied reinforcementPriority/dueForReinforcement cannot drift.
+describe("FSRS-as-router — the host router agrees with the authoritative engine", () => {
+  // This pins the host's nextReinforcementFromState decision (history replay + mastery gate + priority)
+  // to the engine's nextReinforcement over the SAME replayed history + mastery.
   it("host nextReinforcementFromState == engine nextReinforcement for the same answers + mastery", () => {
     const answers = [
       { id: "c-fit", mastery: 0.9, ans: { correct: true, hint_count: 0, atMs: t0 } },

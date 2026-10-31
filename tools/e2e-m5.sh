@@ -5,7 +5,7 @@
 #   - WDIO spec m5-end-to-end : joue 2 sessions consécutives, asserte
 #     ≥ 30 events (session 1) puis ≥ 60 events cumulés (session 2)
 #   - 4 curl-assertions M5 :
-#       /metrics/concept-mastery-history?course=…  → ≥ 2 snapshots
+#       /metrics/concept-mastery-history?course=…  → retirée + motif (INT-STUDIUM-030)
 #       /metrics/ai-literacy?course=…&pseudonyme=… → value != null
 #       /metrics/reasoning?course=…                → ≥ 1 scene
 #       /metrics/ai-audit?course=…                 → n_scenes ≥ 1
@@ -33,6 +33,7 @@ COLLECTOR_PORT="${COLLECTOR_PORT:-8003}"
 DASH_PORT="${DASH_PORT:-3001}"
 DATA_DIR="${ANALYTICS_DATA_DIR:-/tmp/c2-e2e-data}"
 COURSE_TOKEN="e2e-course"
+BUNDLE_DIR="${BUNDLE_DIR:-/tmp/studium-e2e}"
 PSEUDO_FILE="/tmp/test-pseudo"
 WDIO_LOG="/tmp/m5-wdio.log"
 DRY_RUN="${1:-}"
@@ -125,6 +126,11 @@ else
   echo "[M5] building student-runtime (tauri:build)"
   pnpm --filter @studium/student-runtime tauri:build
 
+  # `m5-end-to-end.spec.ts` joue `$BUNDLE_DIR/demo-fresh.zip`, qu'aucun script
+  # n'écrivait (INT-STUDIUM-033).
+  echo "[M5] baking demo-fresh.zip"
+  BUNDLE_DIR="$BUNDLE_DIR" python3 "$ROOT/tools/bake_demo_fresh.py"
+
   echo "[M5] running WDIO m5-end-to-end.spec.ts"
   pnpm --filter @studium/student-runtime wdio:run \
     --spec tests-e2e/specs/m5-end-to-end.spec.ts | tee "$WDIO_LOG"
@@ -139,16 +145,25 @@ else
 fi
 
 # ── 4. Assertions M5 (curl + jq) ───────────────────────────────────────
-echo "[M5] [assertion] concept-mastery-history ≥ 2 snapshots cumulés"
-HISTORY_COUNT="$(
+# Cette assertion demandait « ≥ 2 snapshots cumulés ». Elle n'a jamais pu passer : les
+# instantanés sont écrits par `store.process_event_for_mastery` à partir de `concept_states`,
+# un champ que le schéma strict `TelemetryEvent` ne déclare pas, donc la route a toujours
+# répondu `{"concepts": {}}` → 0 → FATAL. Comme A.10 et C.8 avant elle (INT-STUDIUM-033), la
+# marche était rouge par construction et personne ne l'a su, faute d'exécution.
+# INT-STUDIUM-030 a retiré la surface — ses lignes sont indexées par pseudonyme, donc aucune
+# liste de paramètres n'en fait une vue de classe. Le harnais vérifie donc ce qui est vrai et
+# vérifiable : la route se retire, et elle dit pourquoi.
+echo "[M5] [assertion] concept-mastery-history retirée, avec son motif (INT-STUDIUM-030)"
+HISTORY_BODY="$(
   curl -fs -H "X-Course-Token: $COURSE_TOKEN" \
-    "http://localhost:$COLLECTOR_PORT/metrics/concept-mastery-history?course=$COURSE_TOKEN" \
-    | jq '[.concepts // {} | to_entries | .[].value | length] | add // 0'
+    "http://localhost:$COLLECTOR_PORT/metrics/concept-mastery-history?course=$COURSE_TOKEN"
 )"
-echo "[M5] concept-mastery-history snapshots = $HISTORY_COUNT (attendu ≥ 2)"
-if [[ "$DRY_RUN" != "--dry-run" ]] && [[ "$HISTORY_COUNT" -lt 2 ]]; then
-  echo "[M5] FATAL: concept-mastery-history < 2 snapshots"
-  exit 1
+echo "[M5] concept-mastery-history → $(echo "$HISTORY_BODY" | jq -c '{status, has_rows: has("concepts")}')"
+if [[ "$DRY_RUN" != "--dry-run" ]]; then
+  if ! echo "$HISTORY_BODY" | jq -e '.status == "unavailable" and (.reason | length > 0) and (has("concepts") | not)' >/dev/null; then
+    echo "[M5] FATAL: concept-mastery-history ne se retire pas proprement"
+    exit 1
+  fi
 fi
 
 echo "[M5] [assertion] ai-literacy value != null"

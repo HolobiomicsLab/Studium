@@ -1,0 +1,65 @@
+{% macro astra_table(rows) -%}
+<table>
+  <thead><tr><th>Decision</th><th>Verdict</th><th>Scene — dimension</th><th>Rationale</th></tr></thead>
+  <tbody>
+  {%- for row in rows.rows %}
+    <tr>
+      <td>{{ row.id }}<br><span class="path">{{ row.source_edge_id }}</span>
+        {%- if row.bundle_id is defined and row.bundle_id %}<br><span class="path">bundle {{ row.bundle_id }}</span>{% endif %}
+        {%- if row.analysis_id is defined and row.analysis_id %}<br><span class="path">analysis {{ row.analysis_id }}</span>{% endif %}
+        {%- if row.rel is defined and row.rel %}<br><span class="path">{{ row.rel }}</span>{% endif %}</td>
+      <td class="{{ row.default }}">{{ row.default or "—" }}</td><td>{{ row.label }}</td>
+      <td>{{ row.rationale if row.rationale is defined and row.rationale else "—" }}</td>
+    </tr>
+  {%- else %}<tr><td colspan="4" class="none">no decision</td></tr>{%- endfor %}
+  </tbody>
+</table>
+{%- endmacro %}
+
+{% macro findings_table(findings) -%}
+<table>
+  <thead><tr><th>Finding</th><th>Claim</th><th>Evidence</th></tr></thead>
+  <tbody>
+  {%- for finding in findings %}
+    <tr><td>{{ finding.id }}<br><span class="path">{{ finding.source_edge_id }}</span>
+      {%- if finding.analysis_id is defined and finding.analysis_id %}<br><span class="path">analysis {{ finding.analysis_id }}</span>{% endif %}</td>
+      <td>{{ finding.claim or "—" }}{% if finding.notes %}<br><span class="path">{{ finding.notes }}</span>{% endif %}</td>
+      <td>{% with evidence=finding.evidence %}{% include "_evidence.html" %}{% endwith %}</td></tr>
+  {%- else %}<tr><td colspan="3" class="none">no finding</td></tr>{%- endfor %}
+  </tbody>
+</table>
+{%- endmacro %}
+
+{% macro render_bundle(bundle, markers, heading_level=2) -%}
+<section class="review-bundle">
+<h{{ heading_level }}>{{ bundle.bundle_id or "(no bundle id)" }}{% if bundle.worst_overall %} — <span class="{{ bundle.worst_overall }}">{{ bundle.worst_overall }}</span>{% else %} — <span class="none">not judged</span>{% endif %}</h{{ heading_level }}>
+<p class="record-meta path"><span>{{ bundle.rel }}</span><span>bundle id from {{ bundle.bundle_id_source }}</span>
+  {% if bundle.dir_slug and bundle.dir_slug != bundle.bundle_id %}<span>stored under <code>review/{{ bundle.dir_slug }}/</code></span>{% endif %}{% if bundle.legacy %}<span>legacy review layout</span>{% endif %}</p>
+{% if bundle.verdicts_absent %}{{ markers({bundle.verdicts_rel: bundle.verdicts_absent}) }}{% endif %}
+{% for problem in bundle.problems %}{{ markers({bundle.verdicts_rel ~ " " ~ problem.field: problem.reason}) }}{% endfor %}
+
+{% if bundle.scenes %}
+<p><strong>{{ bundle.n_scenes }}</strong> scene(s) judged · <strong>{{ bundle.n_defects }}</strong> defect verdict(s) · <strong>{{ bundle.n_skipped }}</strong> skipped{% if bundle.worst_case %} · worst case per dimension: {% for dimension, verdict in bundle.worst_case.items() %}{{ dimension }} <span class="{{ verdict }}">{{ verdict }}</span>{{ ", " if not loop.last }}{% endfor %}{% endif %}</p>
+<table><thead><tr><th>Scene</th><th>Worst</th><th>Dimension</th><th>Verdict</th><th>Failure scenario</th><th>Quote</th></tr></thead><tbody>
+  {%- for scene in bundle.scenes %}
+    {%- for row in scene.verdicts %}<tr>
+      {%- if loop.first %}<td rowspan="{{ scene.verdicts|length }}">{{ scene.scene_id }}</td><td rowspan="{{ scene.verdicts|length }}" class="{{ scene.worst or 'none' }}">{{ scene.worst or "—" }}</td>{%- endif %}
+      <td>{{ row.dimension or "—" }}</td><td class="{{ row.verdict }}">{{ row.verdict or "—" }}{% if row.confidence is not none %} <span class="path">({{ row.confidence }})</span>{% endif %}</td><td>{{ row.failure_scenario or "—" }}</td><td>{% if row.quote %}“{{ row.quote }}”{% else %}—{% endif %}</td>
+    </tr>{%- else %}<tr><td>{{ scene.scene_id }}</td><td class="none">—</td><td colspan="4" class="none">no verdict on this scene</td></tr>{%- endfor %}
+  {%- endfor %}
+</tbody></table>
+{% else %}<p class="none">no scene verdicts available for this bundle</p>{% endif %}
+
+{% if bundle.skipped %}
+<h{{ heading_level + 1 }}>Skipped scenes</h{{ heading_level + 1 }}>
+<table><thead><tr><th>Scene</th><th>Reason</th></tr></thead><tbody>{% for entry in bundle.skipped %}<tr><td>{{ entry.scene_id }}</td><td>{{ entry.reason }}</td></tr>{% endfor %}</tbody></table>
+{% endif %}
+
+{% if bundle.calibration %}<p class="status-note">Calibration (corrupted-scene separation): kappa{% if bundle.calibration.kappa is not none %} {{ "%.2f"|format(bundle.calibration.kappa) }}{% else %} not computed{% endif %} · separates: {% if bundle.calibration.separates is none %}not recorded{% else %}{{ "yes" if bundle.calibration.separates else "no" }}{% endif %} · {% if bundle.calibration.pairs is none %}pair count not recorded{% else %}{{ bundle.calibration.pairs }} pair(s){% endif %}</p>{% endif %}
+
+{% if bundle.astra_rows %}
+  {% if bundle.scenes %}<details><summary>the same verdicts as ASTRA decisions ({{ bundle.astra_rows.n_decisions }}, {{ bundle.astra_rows.n_non_pass }} not passing)</summary>{{ astra_table(bundle.astra_rows) }}{% if bundle.astra_rows.findings is defined and bundle.astra_rows.findings %}<h4>Review findings and evidence</h4>{{ findings_table(bundle.astra_rows.findings) }}{% endif %}</details>
+  {% else %}<h{{ heading_level + 1 }}>ASTRA decisions ({{ bundle.astra_rows.n_decisions }}, {{ bundle.astra_rows.n_non_pass }} not passing)</h{{ heading_level + 1 }}>{{ astra_table(bundle.astra_rows) }}{% if bundle.astra_rows.findings is defined %}<h{{ heading_level + 1 }}>Review findings and evidence</h{{ heading_level + 1 }}>{{ findings_table(bundle.astra_rows.findings) }}{% endif %}{% endif %}
+{% else %}<p class="none">no ASTRA review decisions available for this bundle</p>{% endif %}
+</section>
+{%- endmacro %}

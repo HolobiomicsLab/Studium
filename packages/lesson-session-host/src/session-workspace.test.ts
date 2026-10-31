@@ -47,15 +47,24 @@ describe("SessionWorkspace — file-based agentic session channel (.studium-sess
       text: "La demi-vie n'est pas une heure : k est un taux par unite de temps, la demi-vie vaut ln2/k. Probleme d'unites.",
     }));
     r = await ws.ingest(sessionId);
-    expect(["next", "replay", "remediate_alt", "calibration", "complete"]).toContain(r.transition);
+    // H6 changed the file protocol: an unjudged production answer pauses before the already-computed
+    // next route until the learner supplies their own recall grade.
+    expect(r.transition).toBe("awaiting_recall");
+    expect(await ws.pendingRecall(sessionId)).not.toBeNull();
 
     // feedback must not leak the reveal either
     expect(readFileSync(join(dir, "feedback.md"), "utf8")).not.toContain("model_correction");
 
+    writeFileSync(join(dir, "response.json"), JSON.stringify({ kind: "recall", grade: "good" }));
+    r = await ws.ingest(sessionId);
+    expect(["recall_rated", "complete"]).toContain(r.transition);
+    expect(await ws.pendingRecall(sessionId)).toBeNull();
+
     // --- the judgment was REALLY graded: index marks the spot_the_flaw step graded ---
     index = JSON.parse(readFileSync(join(dir, "index.json"), "utf8"));
-    expect(index.entries.some((e: any) => e.scene_type === "spot_the_flaw" && e.status === "graded")).toBe(true);
-    expect(index.entries.some((e: any) => e.scene_type === "intro" && e.status === "graded")).toBe(true);
+    const entries = index.entries as Array<{ scene_type: string; status: string }>;
+    expect(entries.some((e) => e.scene_type === "spot_the_flaw" && e.status === "graded")).toBe(true);
+    expect(entries.some((e) => e.scene_type === "intro" && e.status === "graded")).toBe(true);
 
     // grading touched the concept's mastery state (host actually scored the judgment, not just logged it)
     expect(JSON.stringify(host.getState(sessionId))).toContain("c-kinetics");

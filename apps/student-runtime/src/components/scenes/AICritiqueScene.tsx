@@ -3,11 +3,13 @@ import type { Scene } from "@studium/lesson-bundle-schema";
 import type { Signal } from "@studium/learner-state";
 import type { TelemetryEmit } from "../../hooks/useTelemetry";
 import { matchClaimsAgainstCritique } from "../../lib/aiAuditMatcher";
+import { describeEndpointFailure, getCritiqueEvalEndpoint } from "../../lib/serviceEndpoints";
 
 type Props = {
   scene: Extract<Scene, { type: "ai_critique" }>;
   onSignal: (s: Signal) => Promise<unknown>;
   onContinue: () => void;
+  /** Surcharge explicite ; sinon `getCritiqueEvalEndpoint` (lib/serviceEndpoints) décide. */
   endpoint?: string;
   emit?: TelemetryEmit;
 };
@@ -34,7 +36,7 @@ export default function AICritiqueScene({ scene, onSignal, onContinue, endpoint,
     setSubmitting(true);
     setError(null);
     try {
-      const url = endpoint ?? "http://localhost:8002/scenes/critique-eval";
+      const url = getCritiqueEvalEndpoint(endpoint);
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -84,7 +86,9 @@ export default function AICritiqueScene({ scene, onSignal, onContinue, endpoint,
         difficulty: 0.7,
       });
     } catch (e) {
-      setError((e as Error).message);
+      // Le diagnostic nomme l'URL tentée et distingue « injoignable » de « a répondu une
+      // erreur ». « Failed to fetch » ne disait ni l'un ni l'autre.
+      setError(describeEndpointFailure(getCritiqueEvalEndpoint(endpoint), e));
     } finally {
       setSubmitting(false);
     }

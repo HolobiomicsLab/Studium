@@ -31,6 +31,8 @@ function memoryFromHistory(concept_id: string, state: LearnerState): ConceptMemo
   for (const h of state.history) {
     const sig = h.signal;
     if (sig.kind !== "answer_submitted" || sig.concept_id !== concept_id) continue;
+    // an ungraded answer is not a retrieval — see memoryFromHistory in lesson-session-host
+    if (sig.correct === undefined) continue;
     const t = Date.parse(h.timestamp);
     if (Number.isNaN(t)) continue;
     mem = reviewMemory(mem, gradeFromAnswer({ correct: sig.correct, hint_count: sig.hint_count }), t);

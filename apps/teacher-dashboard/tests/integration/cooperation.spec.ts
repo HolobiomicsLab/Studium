@@ -12,10 +12,10 @@ test.describe("/courses/[token]/cooperation", () => {
     await page.goto(`/courses/${encodeURIComponent(COURSE_TOKEN)}/cooperation`);
     const container = page.locator('[data-testid="cooperation-stats"]');
     await expect(container).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText(/Sessions/i)).toBeVisible();
-    await expect(page.getByText(/Convergence/i)).toBeVisible();
-    await expect(page.getByText(/Couverture rôles/i)).toBeVisible();
-    await expect(page.getByText(/Votes\/session/i)).toBeVisible();
+    await expect(container.getByText(/Sessions/i)).toBeVisible();
+    await expect(container.getByText(/Convergence/i)).toBeVisible();
+    await expect(container.getByText(/Couverture rôles/i)).toBeVisible();
+    await expect(container.getByText(/Votes\/session/i)).toBeVisible();
   });
 
   test("nav active is Coopération", async ({ page }) => {

@@ -1,0 +1,13 @@
+[mcp_servers.studium]
+command = "node"
+args = ["/ABS/PATH/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]
+
+[mcp_servers.studium.env]
+BUNDLES_ROOT = "/ABS/PATH/studium/fixtures"
+LITELLM_BASE_URL = ""
+# Learner state (mastery, review schedule) is durable by default in ~/.studium/data (STUDIUM_HOME).
+# Set STUDIUM_DATA_DIR to keep it elsewhere, or STUDIUM_EPHEMERAL = "1" to keep it in memory only.
+# STUDIUM_DATA_DIR = "/ABS/PATH/studium-data"
+
+# A profile with approval_policy = "never" refuses every MCP call of a local stdio server:
+# run `codex exec --approve-for-me …` non-interactively, or answer the prompts interactively.

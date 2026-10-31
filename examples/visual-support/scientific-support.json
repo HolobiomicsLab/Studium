@@ -1,0 +1,33 @@
+{
+  "render_assets": [
+    {
+      "kind": "equation_latex",
+      "title": "Controlled response model",
+      "payload": "y = g \\times x",
+      "provenance": "Author-created from the parameter-comparison teaching fixture.",
+      "meta": {
+        "alt": "The response y equals gain g multiplied by the fixed input x."
+      }
+    },
+    {
+      "kind": "code",
+      "title": "Evidence-to-claim check",
+      "language": "mermaid",
+      "payload": "flowchart LR\n  evidence[Supplied evidence] --> check[Independent check]\n  check --> claim[Bounded claim]",
+      "provenance": "Author-created explanatory diagram for the five activity templates.",
+      "meta": {
+        "alt": "Supplied evidence leads to an independent check, which leads to a bounded claim."
+      }
+    },
+    {
+      "kind": "mol_3d",
+      "title": "Ethanol — two-dimensional structure",
+      "format": "smiles",
+      "payload": "CCO",
+      "provenance": "Author-supplied SMILES teaching input; structure rendering only.",
+      "meta": {
+        "alt": "Two-dimensional skeletal formula of ethanol, a two-carbon chain ending in an oxygen atom."
+      }
+    }
+  ]
+}

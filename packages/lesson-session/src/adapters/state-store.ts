@@ -30,11 +30,11 @@ export class FileStateStore implements StateStore {
   }
   async save(lessonId: string, state: LearnerState): Promise<void> {
     const target = this.path(lessonId);
-    await mkdir(this.dir, { recursive: true });
+    await mkdir(this.dir, { recursive: true, mode: 0o700 }); // L-11: learner folders 0700
     // Atomic write: write to a temp file in this.dir then rename over the target, so a mid-write
     // crash never leaves a truncated state file. mkdir above also removes the prior ENOENT crash.
     const tmp = join(this.dir, `.state-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`);
-    await writeFile(tmp, JSON.stringify(state, null, 2), "utf8");
+    await writeFile(tmp, JSON.stringify(state, null, 2), { encoding: "utf8", mode: 0o600 }); // L-11: learner files 0600
     try { await rename(tmp, target); }
     catch (err) { await rm(tmp, { force: true }); throw err; }
   }

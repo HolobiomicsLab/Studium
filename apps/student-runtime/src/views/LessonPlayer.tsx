@@ -5,13 +5,15 @@ import { defaultLearnerState, type LearnerState } from "@studium/learner-state";
 import type { Scene } from "@studium/lesson-bundle-schema";
 import { tauri } from "../lib/tauri";
 import { useAdaptation } from "../hooks/useAdaptation";
-import { useTelemetry, getTelemetryEndpoint, getTelemetryCourseToken } from "../hooks/useTelemetry";
+import { useTelemetry, resolveTelemetryEndpoint, getTelemetryCourseToken } from "../hooks/useTelemetry";
 import SceneRouter from "../components/scenes/SceneRouter";
 import CalibrationPanel from "../components/CalibrationPanel";
 import CalibrationFeedback from "../components/CalibrationFeedback";
 import ReviewDueIndicator from "../components/ReviewDueIndicator";
 import AdaptationButton from "../components/AdaptationButton";
 import type { Signal } from "@studium/learner-state";
+import StudyShell from "../components/StudyShell";
+import LessonExit from "../components/LessonExit";
 
 // INT-STUDIUM-034: there is no BUNDLE_PATH constant any more. The player plays what it is
 // given — `?bundle=<path>`, set by the library when a row is clicked. A default here is what
@@ -40,14 +42,14 @@ export default function LessonPlayer() {
       } catch (e) {
         // Named, not swallowed: an unreadable bundle otherwise leaves "Chargement de la
         // leçon…" on screen for ever, which reads as a slow load rather than a broken file.
-        setError((e as Error).message);
+        setError(e instanceof Error ? e.message : String(e));
       }
     })();
   }, [lessonId, bundlePath]);
 
   if (!bundlePath) {
     return (
-      <main className="p-8">
+      <StudyShell><main className="settings-page empty-state">
         <p className="text-gray-700 mb-3">
           Aucun bundle n&apos;a été choisi pour cette leçon.
         </p>
@@ -58,14 +60,14 @@ export default function LessonPlayer() {
         >
           Retour à la bibliothèque
         </button>
-      </main>
+      </main></StudyShell>
     );
   }
 
   if (error) {
     return (
-      <main className="p-8">
-        <p className="text-red-600 mb-3">Leçon illisible : {error}</p>
+      <StudyShell><main className="settings-page empty-state">
+        <p role="alert" className="text-red-600 mb-3">Leçon illisible : {error}</p>
         <button
           type="button"
           onClick={() => navigate("/")}
@@ -73,12 +75,12 @@ export default function LessonPlayer() {
         >
           Retour à la bibliothèque
         </button>
-      </main>
+      </main></StudyShell>
     );
   }
 
   if (!bundle || !initialState) {
-    return <p className="p-8 text-gray-500">Chargement de la leçon…</p>;
+    return <StudyShell><main className="settings-page empty-state"><p role="status">Chargement de la leçon…</p></main></StudyShell>;
   }
 
   return (
@@ -105,11 +107,38 @@ function Player({
   setSceneIdx: (i: number) => void;
   navigate: ReturnType<typeof useNavigate>;
 }) {
-  const { emit } = useTelemetry({
-    endpoint: getTelemetryEndpoint(null),
+  // Le consentement et le pseudonyme sont LUS, pas supposés. Les deux valeurs qui étaient
+  // écrites en dur ici — un endpoint qui ignorait l'accord de l'apprenant, et le littéral
+  // "anonymous" à la place du pseudonyme par leçon que `pseudonyme.rs` calcule déjà — sont
+  // les deux moitiés de ce que l'écran de consentement promet.
+  const [consent, setConsent] = useState<{ level_b?: boolean } | null>(null);
+  const [pseudonym, setPseudonym] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      // Chaque lecture échoue FERMÉE : sans consentement lisible on ne transmet pas, et sans
+      // pseudonyme lisible on n'invente pas d'identifiant de remplacement.
+      try {
+        const record = await tauri.getConsent();
+        if (!cancelled) setConsent(record ?? null);
+      } catch {
+        if (!cancelled) setConsent(null);
+      }
+      try {
+        const value = await tauri.getPseudonyme(bundle.bundle_id);
+        if (!cancelled) setPseudonym(typeof value === "string" && value ? value : null);
+      } catch {
+        if (!cancelled) setPseudonym(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [bundle.bundle_id]);
+
+  const { emit, flush } = useTelemetry({
+    endpoint: pseudonym ? resolveTelemetryEndpoint(consent, null) : null,
     courseToken: getTelemetryCourseToken(""),
     context: {
-      learner_pseudonym: "anonymous",
+      learner_pseudonym: pseudonym ?? "anonymous",
       lesson_id: bundle.bundle_id,
       bundle_version: bundle.schema_version,
     },
@@ -195,13 +224,18 @@ function Player({
   };
 
   return (
-    <main data-testid="lesson-player" className="min-h-screen p-6 bg-gray-50">
-      <div className="max-w-3xl mx-auto mb-4 flex items-center justify-between gap-3">
-        <span className="text-sm text-gray-500">
+    <StudyShell lesson>
+    <main data-testid="lesson-player" className="player-page">
+      <LessonExit onExit={async () => { await flush(); navigate("/library"); }} />
+      <header className="player-heading">
+        <div><p className="eyebrow">Leçon en cours</p><h1>{bundle.metadata.title}</h1></div>
+        <span className="player-position">
           Scène {sceneIdx + 1} / {bundle.scenes.length}
         </span>
         <ReviewDueIndicator state={state} />
-      </div>
+      </header>
+      <progress className="scene-progress" aria-label="Position dans la leçon" value={sceneIdx + 1} max={bundle.scenes.length} />
+      <div className="scene-paper">
       {/* `key` is the scene identity: SceneRouter dispatches on `scene.type` and returns the
           scene component directly, so without it two consecutive scenes of the same type are
           one component instance to React — the mount effects do not run again and `submitted`,
@@ -214,6 +248,7 @@ function Player({
         onContinue={onContinue}
         emit={emit}
       />
+      </div>
       {calibTarget && (
         <CalibrationPanel
           conceptId={calibTarget}
@@ -230,5 +265,6 @@ function Player({
       )}
       <AdaptationButton decision={decision} />
     </main>
+    </StudyShell>
   );
 }

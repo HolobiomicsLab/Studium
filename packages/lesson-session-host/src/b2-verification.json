@@ -1,0 +1,520 @@
+{
+  "schema": "studium-b2-verification/1",
+  "baseline": "6f7aa15",
+  "branch": "feat/2026-10-30-production-sprint",
+  "status": "partial",
+  "summary": "Implementation integrated; host and lesson-server gates pass, root lint has zero errors. MCP HTTP and the prescribed VS Code driver command remain blocked by sandbox socket restrictions. No commits, pushes, dist builds or Markdown source edits.",
+  "lead": {
+    "id": "/root",
+    "model": "gpt-6-astra",
+    "effort": "max"
+  },
+  "children": [
+    {
+      "id": "/root/storage_safety",
+      "model": "gpt-6-astra",
+      "effort": "max",
+      "state": "completed",
+      "depth": 0,
+      "scope": [
+        "learner-files.ts",
+        "learner-profile-store.ts",
+        "study-record.ts",
+        "pseudonym-secret.ts",
+        "learner-storage-safety.test.ts",
+        "pseudonym-secret.test.ts",
+        "pseudonym-secret.race.test.ts"
+      ],
+      "result": "Durable tombstone/lock helper, safe lock ownership/recovery, private directories/key files, atomic marker publication. Final leaf suites: 5 files / 25 tests passed, including 3 actual Node subprocesses."
+    },
+    {
+      "id": "/root/learner_rendering",
+      "model": "gpt-5.6-sol",
+      "effort": "max",
+      "state": "completed",
+      "depth": 0,
+      "scope": [
+        "authoring.ts and test",
+        "chat-display.ts and test",
+        "session-workspace.ts and three workspace tests",
+        "study-plan.ts and test"
+      ],
+      "result": "Completion split, provenance, notices, references/licences, neutral navigation, French/English text, explicit file recall. Leaf final: 10 files / 72 tests passed; read-only evidence follow-up completed."
+    }
+  ],
+  "changed_files": [
+    {
+      "path": "apps/lesson-mcp/src/learn-and-review.e2e.test.ts",
+      "sha256": "0b9fd1323cf1e664402051427bc62233bd60b3199b79855a442c9ca2a0342621"
+    },
+    {
+      "path": "apps/lesson-mcp/src/operations.ts",
+      "sha256": "e7b861cc0340a179a4a9e4ff451927d999603485468d96e5b112f1e21551976d"
+    },
+    {
+      "path": "apps/lesson-mcp/src/server.b2.test.ts",
+      "sha256": "adea8ab23a3ebb33e31cd37fcea4a084103e80335c515c6a90b881b4d13ecda8"
+    },
+    {
+      "path": "apps/lesson-mcp/src/server.test.ts",
+      "sha256": "3a2856e0ff4001079dec826507f1294cedcf0dfed7e595f16719f0f4e87527a1"
+    },
+    {
+      "path": "apps/lesson-mcp/src/server.ts",
+      "sha256": "115683b4c29a18037c9a932055ba766fafcc921a53acce35c67cfa6f7d174e1b"
+    },
+    {
+      "path": "apps/lesson-mcp/src/teacher-tools.ts",
+      "sha256": "7eeddc4cd8a58fc761d6550887889ec39df56486170828e5e316d01dda44963c"
+    },
+    {
+      "path": "packages/lesson-session-host/src/authoring.test.ts",
+      "sha256": "99180adb9f85d706241e60845938ebc701d346daecfd5328b52b6efa156cf2e5"
+    },
+    {
+      "path": "packages/lesson-session-host/src/authoring.ts",
+      "sha256": "f45475ffe3abfab07d65d772aec8fada1e5533d8e4460e0c7e805b4df84d9c17"
+    },
+    {
+      "path": "packages/lesson-session-host/src/b2-iface.txt",
+      "sha256": "541ddce83399364dd353e1b372bc8b00991c4367f6d1f42ad1b8acb291bf28ab"
+    },
+    {
+      "path": "packages/lesson-session-host/src/chat-display.test.ts",
+      "sha256": "93d98f8dcff154131f2c65dec2851022b8f71c3176e4e67d73d675f88957e6d1"
+    },
+    {
+      "path": "packages/lesson-session-host/src/chat-display.ts",
+      "sha256": "bb060d9cbea10670a6b0cab354f844a433a79e7839fab9e82677104194207496"
+    },
+    {
+      "path": "packages/lesson-session-host/src/host.fixwave-b2.test.ts",
+      "sha256": "b2c5a06ed8b23edd85c75b35ebb0710562147fcaa5a51da334ae7b54890bf945"
+    },
+    {
+      "path": "packages/lesson-session-host/src/host.forget-learner.test.ts",
+      "sha256": "707cbb8a1660e94ac4f0ad177a4f11273ca97b9818380ab32ed5d0a3eb6e999f"
+    },
+    {
+      "path": "packages/lesson-session-host/src/host.judged-reference.test.ts",
+      "sha256": "af8600326084ee86755056e1e57c9da33cbaad26c4ca3907d39ced9e3824f88c"
+    },
+    {
+      "path": "packages/lesson-session-host/src/host.release-on-leave.test.ts",
+      "sha256": "569041be939c4f2bf0079c2b9441b87c28aeeb73173a939aad839cc3a874ba5f"
+    },
+    {
+      "path": "packages/lesson-session-host/src/host.self-rating.test.ts",
+      "sha256": "73a1d2e01fe43fb41bff7a1d0577624841a1882ca236cdc10b7cea0e76414da6"
+    },
+    {
+      "path": "packages/lesson-session-host/src/host.storage-safety.test.ts",
+      "sha256": "f77cacf954b8c32056ae1f72a0bef2655e78e3fe1624a143e463574d01594e65"
+    },
+    {
+      "path": "packages/lesson-session-host/src/host.study-loop.test.ts",
+      "sha256": "1a5540ba2002272e87a1065463669f871123ec4d4175099eb45286c3afcbbb3f"
+    },
+    {
+      "path": "packages/lesson-session-host/src/host.ts",
+      "sha256": "7c8361af1ba0494957e28529cf5d354fc2d3dfd15c6ee3e9e35fd62508c6b788"
+    },
+    {
+      "path": "packages/lesson-session-host/src/learner-files.ts",
+      "sha256": "f14154daabff370e724457b176af619ad6538ef290593c1c8e1a58abffc478eb"
+    },
+    {
+      "path": "packages/lesson-session-host/src/learner-profile-store.ts",
+      "sha256": "5964501991f77a173b79f7d3b0b997af1caf69105c74d321fc31c1670ba4cae1"
+    },
+    {
+      "path": "packages/lesson-session-host/src/learner-storage-safety.test.ts",
+      "sha256": "e7be03211e2a79676e3906700cc45c0780cc6761b22ded79872d703310a5f93b"
+    },
+    {
+      "path": "packages/lesson-session-host/src/llm-operator.test.ts",
+      "sha256": "a39949519b4e9141d5efe79a3be8fc937efd76f3d2f0d98449e5f60b7cfa943d"
+    },
+    {
+      "path": "packages/lesson-session-host/src/operator-context.test.ts",
+      "sha256": "0de773bcc13dee9033d75c4dbb8ab1865e63be88922e1f6b50f7d3601e36c237"
+    },
+    {
+      "path": "packages/lesson-session-host/src/pseudonym-secret.race.test.ts",
+      "sha256": "65b0f4f72a5fcc2ab5914bb0d52077b67ecf113a9e6571ab0eea352e3d35b43c"
+    },
+    {
+      "path": "packages/lesson-session-host/src/pseudonym-secret.test.ts",
+      "sha256": "26faa6108f3d6da0648b34e730dde7f6376a25b29b185d6fec06c5a9e581e336"
+    },
+    {
+      "path": "packages/lesson-session-host/src/pseudonym-secret.ts",
+      "sha256": "1ae03be2fda57989f63b80f6127c11a92b2e8dd851bb7021bab4efe2e13ed258"
+    },
+    {
+      "path": "packages/lesson-session-host/src/public-scene.test.ts",
+      "sha256": "732532c85f4f7b3e0d54a7a352d23c7d02a996b5212ad5461752c3529cb02e27"
+    },
+    {
+      "path": "packages/lesson-session-host/src/public-scene.ts",
+      "sha256": "76608b7ca81c749c1c153c0beaf6c0dcdd8a84d77e98d4c0ea78015be4b75409"
+    },
+    {
+      "path": "packages/lesson-session-host/src/registry.ts",
+      "sha256": "e37395fdb85e49931e91e268aff66080a75eed4c3c11b440ee75773a654587a1"
+    },
+    {
+      "path": "packages/lesson-session-host/src/review-choice.test.ts",
+      "sha256": "a0b78dac4fc31bb741e39b9716ce61af8bcfb7152a6bc49d70d02f481e80ac17"
+    },
+    {
+      "path": "packages/lesson-session-host/src/session-runner.recall.test.ts",
+      "sha256": "457406841d25f291cf524ed39604b5695c3fb94371b51938122f0bd5c81c454f"
+    },
+    {
+      "path": "packages/lesson-session-host/src/session-runner.test.ts",
+      "sha256": "bd7392419bb38fd963574594456218d05c317b0f17dbb0b80c4c48cc64b2edf4"
+    },
+    {
+      "path": "packages/lesson-session-host/src/session-runner.ts",
+      "sha256": "965d2fb6fb8af7e72178cdefa336e8051b80e4a13089f4f13da73e20e3b31d6f"
+    },
+    {
+      "path": "packages/lesson-session-host/src/session-workspace-loop.test.ts",
+      "sha256": "9b5f8bd4422e45e97d024c9f7a4f796a8e862061c0ec44779a3cf4783c436385"
+    },
+    {
+      "path": "packages/lesson-session-host/src/session-workspace.study-loop.test.ts",
+      "sha256": "e19f96cafacd9f7f9fa567b9d25359b1a917f16abc9d1d8f46ead723073dd247"
+    },
+    {
+      "path": "packages/lesson-session-host/src/session-workspace.test.ts",
+      "sha256": "4095e8eb69865a1e5a3e4981005bd21473ae46e8227631b684e7538ebb613966"
+    },
+    {
+      "path": "packages/lesson-session-host/src/session-workspace.ts",
+      "sha256": "86cf755e52971a0dabba417e9d6302291c8cf1923ec8970f83b71c46139c7fb5"
+    },
+    {
+      "path": "packages/lesson-session-host/src/study-plan.test.ts",
+      "sha256": "4106c3f76db38bef8123768ed2bfda71c29a2aa683ba3bf58b5c6e626344453a"
+    },
+    {
+      "path": "packages/lesson-session-host/src/study-plan.ts",
+      "sha256": "25809eb21a914008eb4939b63c1476c62b5cd02f6a4bed1c8a3392ded3b24ffd"
+    },
+    {
+      "path": "packages/lesson-session-host/src/study-record.ts",
+      "sha256": "41909efd2a1579b8851675848704c8f71ed70492fd4dc9052c3b0a7fd457d92c"
+    },
+    {
+      "path": "packages/lesson-session-host/src/b2-verification.json",
+      "role": "coordination artifact, self hash omitted"
+    }
+  ],
+  "red_first": [
+    {
+      "area": "L-3 licence",
+      "command": "cd packages/lesson-session-host && STUDIUM_EPHEMERAL=1 npx --no-install vitest run src/public-scene.test.ts",
+      "exit_code": 1,
+      "summary": "Test Files 1 failed (1); Tests 1 failed | 15 passed (16); missing licence"
+    },
+    {
+      "area": "host presentation/completion/provenance/review shuffle",
+      "command": "cd packages/lesson-session-host && STUDIUM_EPHEMERAL=1 npx --no-install vitest run src/host.fixwave-b2.test.ts",
+      "exit_code": 1,
+      "summary": "AssertionError: expected {} to deeply equal { consolidated: null, …(2) }\nAssertionError: expected '✓ **Right.**\\n\\nYes.' to contain 'per the AI-drafted key — see the cite…'\nAssertionError: expected '> AI-drafted lesson from your sources…' to match /approval.*(?:changed|match)|(?:chang…/i\nAssertionError: expected [ { id: 'a', …(2) }, …(5) ] to not deeply equal [ { id: 'a', …(2) }, …(5) ]\nTest Files  1 failed (1)\nTests  4 failed | 1 passed (5)"
+    },
+    {
+      "area": "MCP wiring, expired recall, shuffle description",
+      "command": "cd apps/lesson-mcp && STUDIUM_EPHEMERAL=1 npx --no-install vitest run src/server.b2.test.ts",
+      "exit_code": 1,
+      "summary": "AssertionError: expected true to be false // Object.is equality\nAssertionError: expected false to be true // Object.is equality\nAssertionError: expected { Object (error) } to match object { code: 'self_rating_expired', …(1) }\nAssertionError: expected 'Submit a response to the current scen…' to contain 'review day'\nTest Files  1 failed (1)\nTests  4 failed (4)"
+    },
+    {
+      "area": "rate_recall review plan and review asset origin",
+      "command": "cd packages/lesson-session-host && STUDIUM_EPHEMERAL=1 npx --no-install vitest run src/host.self-rating.test.ts src/host.fixwave-b2.test.ts",
+      "exit_code": 1,
+      "summary": "AssertionError: expected {} to deeply equal { consolidated: null, …(2) }\nAssertionError: expected '✓ **Right.**\\n\\nYes.' to contain 'per the AI-drafted key — see the cite…'\nAssertionError: expected '> AI-drafted lesson from your sources…' to match /approval.*(?:changed|match)|(?:chang…/i\nAssertionError: expected { status: 'started', …(6) } to match object { status: 'started', review: { …(1) } }\nAssertionError: expected [ { id: 'a', …(2) }, …(5) ] to not deeply equal [ { id: 'a', …(2) }, …(5) ]\nAssertionError: expected undefined to deeply equal { next_due_at: 1793817360000, …(2) }\nTest Files  2 failed (2)\nTests  6 failed | 4 passed (10)"
+    },
+    {
+      "area": "durable tombstones and forget versus engine writes",
+      "command": "cd packages/lesson-session-host && STUDIUM_EPHEMERAL=1 npx --no-install vitest run src/host.storage-safety.test.ts",
+      "exit_code": 1,
+      "summary": "AssertionError: promise resolved \"{ kind: 'next', …(4) }\" instead of rejecting\nAssertionError: expected true to be false // Object.is equality\nTest Files  1 failed (1)\nTests  4 failed | 18 passed (22)"
+    },
+    {
+      "area": "file runner explicit recall turn",
+      "command": "cd packages/lesson-session-host && STUDIUM_EPHEMERAL=1 npx --no-install vitest run src/session-runner.recall.test.ts",
+      "exit_code": 1,
+      "summary": "AssertionError: expected [ Array(3) ] to deeply equal [ 'explain_back', 'recall' ]\nAssertionError: promise resolved \"undefined\" instead of rejecting\nAssertionError: expected [] to deeply equal [ { …(5) } ]\nTest Files  1 failed (1)\nTests  3 failed (3)"
+    },
+    {
+      "area": "parent integration refinement",
+      "command": "STUDIUM_EPHEMERAL=1 npx --no-install vitest run src/authoring.test.ts --reporter=dot",
+      "exit_code": 1,
+      "summary": "5 failed | 11 passed; English opening notice cannot say reference above before one is shown."
+    },
+    {
+      "area": "parent integration refinement",
+      "command": "STUDIUM_EPHEMERAL=1 npx --no-install vitest run src/session-workspace.study-loop.test.ts --reporter=dot",
+      "exit_code": 1,
+      "summary": "AssertionError: expected '# Feedback\\n\\n✓ **Juste.**\\n\\nBRAVO-R…' to contain 'Signe — Travaillée (1 réponse)'\nError: lesson lesson.json does not match the bundle schema: scenes.0.evidence.enrichment_metadata: required field is missing — add \"enrichment_metadata\"\nAssertionError: expected '# Studium — étape 0 : Scène s-q\\n\\n**…' to contain 'Attention : cette leçon a été modifié…'\nAssertionError: expected '# Feedback\\n\\nNote enregistrée. Proch…' to contain 'Signe — Pas encore mesurée'\nTest Files  1 failed (1)\nTests  4 failed | 2 passed (6)"
+    },
+    {
+      "area": "parent integration refinement",
+      "command": "STUDIUM_EPHEMERAL=1 npx --no-install vitest run src/session-workspace.study-loop.test.ts -t 'reading scene' --reporter=dot",
+      "exit_code": 1,
+      "summary": "AssertionError: expected '# Studium — étape 0 : Scène s-r\\n\\n**…' to contain '**Source**\\n\\n> « PASSAGE-LISIBLE » —…'\nTest Files  1 failed (1)\nTests  1 failed | 5 skipped (6)"
+    },
+    {
+      "area": "parent integration refinement",
+      "command": "STUDIUM_EPHEMERAL=1 npx --no-install vitest run src/chat-display.test.ts -t 'wrong quiz' --reporter=dot",
+      "exit_code": 1,
+      "summary": "AssertionError: expected '**La bonne réponse**\\n\\n- Carbon diox…' to contain '**La bonne réponse :**\\n\\n- Carbon di…'\nTest Files  1 failed (1)\nTests  1 failed | 17 skipped (18)"
+    },
+    {
+      "area": "parent integration refinement",
+      "command": "STUDIUM_EPHEMERAL=1 npx --no-install vitest run src/host.fixwave-b2.test.ts -t 'workflow graph' --reporter=dot",
+      "exit_code": 1,
+      "summary": "AssertionError: expected false to be true // Object.is equality\nTest Files  1 failed (1)\nTests  1 failed | 6 skipped (7)"
+    },
+    {
+      "area": "parent integration refinement",
+      "command": "STUDIUM_EPHEMERAL=1 npx --no-install vitest run src/study-plan.test.ts -t 'agrees English' --reporter=dot",
+      "exit_code": 1,
+      "summary": "AssertionError: expected '### Your study plan\\n\\n**In progress*…' to contain '1 of 3 steps'\nTest Files  1 failed (1)\nTests  1 failed | 2 passed | 14 skipped (17)"
+    },
+    {
+      "area": "rendering leaf",
+      "command": "STUDIUM_EPHEMERAL=1 npx --no-install vitest run src/chat-display.test.ts src/authoring.test.ts src/session-workspace.study-loop.test.ts src/study-plan.test.ts",
+      "exit_code": 134,
+      "summary": "Vitest printed 4 failed files; 24 failed / 28 passed before a Node/V8 abort. Every requested file ran. Child retained aggregate and behavior map, not a reliable 24-row failure transcript."
+    },
+    {
+      "area": "storage leaf initial",
+      "command": "focused learner-storage-safety and pseudonym-secret suites",
+      "exit_code": 1,
+      "summary": "10 failed / 8 passed before implementation; later unknown-owner stale-lock and reused legacy-marker permission regressions each separately failed (exit 1)."
+    },
+    {
+      "area": "VS Code reference heading parity",
+      "command": "STUDIUM_EPHEMERAL=1 node --import tsx src/chat-format.driver.ts",
+      "exit_code": 1,
+      "summary": "2/76 assertions failed: right-answer headings lacked the fallback's colon. Fixed in host; unchanged driver then passed all 76."
+    }
+  ],
+  "red_first_limits": [
+    "Already present at baseline, so no newly induced red: all-concept recall scheduling and session-clock timestamps; L-10 reply mapping (43 tests); base atomic writes, strict parse handling, blank-secret behavior, write-through warnings and local forget/session closing.",
+    "Rendering leaf reports no separately observed red for inconsistent null mastery with nonzero attempts, ignoring finalState-only concept keys, the returns_to-title refinement, the exact French provenance sentence, English completion singular/plural variants, or malformed/recreated-workspace recall recovery. These were refinements after the main red run; parent did not reverse implementation solely to manufacture red evidence.",
+    "The 24-failure rendering aggregate was followed by a V8 abort (exit 134); all four requested files ran, but the compacted child record does not retain a reliable row-by-row transcript.",
+    "Header-comment correction and teacher ReviewAuthoring Omit adjustment are documentation/type-only, with no runtime red test. Changed expected display/shape values carry contract comments.",
+    "File-source fixture initially lacked required enrichment_metadata; it was corrected and then observed fail on the missing formatted source before implementation. That fixture-schema error is not counted as the meaningful red."
+  ],
+  "final_checks": [
+    {
+      "cwd": "packages/lesson-session-host",
+      "command": "env -u STUDIUM_EPHEMERAL npx --no-install tsc --noEmit -p . && env -u STUDIUM_EPHEMERAL npx --no-install vitest run",
+      "exit_code": 0,
+      "summary": "Test Files  72 passed (72)\nTests  568 passed (568)"
+    },
+    {
+      "cwd": "packages/lesson-session-host",
+      "command": "STUDIUM_EPHEMERAL=1 npx --no-install tsc --noEmit -p . && STUDIUM_EPHEMERAL=1 npx --no-install vitest run",
+      "exit_code": 0,
+      "summary": "Test Files  72 passed (72)\nTests  568 passed (568)"
+    },
+    {
+      "cwd": "apps/lesson-mcp",
+      "command": "STUDIUM_EPHEMERAL=1 npx --no-install tsc --noEmit -p . && STUDIUM_EPHEMERAL=1 npx --no-install vitest run --exclude src/http.test.ts",
+      "exit_code": 0,
+      "summary": "Test Files  13 passed (13)\nTests  117 passed (117)"
+    },
+    {
+      "cwd": "apps/lesson-server",
+      "command": "STUDIUM_EPHEMERAL=1 npx --no-install tsc --noEmit -p . && STUDIUM_EPHEMERAL=1 npx --no-install vitest run",
+      "exit_code": 0,
+      "summary": "Test Files  9 passed (9)\nTests  34 passed (34)"
+    },
+    {
+      "cwd": "",
+      "command": "pnpm lint",
+      "exit_code": 0,
+      "summary": "258 problems (0 errors, 258 warnings)"
+    },
+    {
+      "kind": "check",
+      "command": "STUDIUM_EPHEMERAL=1 pnpm test",
+      "cwd": "apps/studium-vscode",
+      "exit_code": 1,
+      "summary": "typecheck passed; first tsx driver launch rejected listen EPERM on tsx IPC pipe"
+    },
+    {
+      "kind": "check",
+      "command": "env -u STUDIUM_EPHEMERAL npx --no-install tsc --noEmit -p . && env -u STUDIUM_EPHEMERAL npx --no-install vitest run",
+      "cwd": "apps/lesson-mcp",
+      "exit_code": 1,
+      "summary": "Test Files 1 failed | 13 passed (14); Tests 11 failed | 117 passed (128); Errors 22 errors. All failures: HTTP listen EPERM 127.0.0.1."
+    },
+    {
+      "kind": "check",
+      "command": "STUDIUM_EPHEMERAL=1 node --import tsx src/lesson-walk.driver.ts",
+      "cwd": "apps/studium-vscode",
+      "exit_code": 0,
+      "summary": "OK — lesson-walk passed all 864 assertions (both bundles completed, every wired scene type round-tripped without a grading error)."
+    },
+    {
+      "kind": "check",
+      "command": "STUDIUM_EPHEMERAL=1 node --import tsx src/completion.driver.ts",
+      "cwd": "apps/studium-vscode",
+      "exit_code": 0,
+      "summary": "OK — completion (L-6 split, host rule mirrored) passed all 18 assertions."
+    },
+    {
+      "kind": "check",
+      "command": "STUDIUM_EPHEMERAL=1 npx --no-install tsc --noEmit -p . && STUDIUM_EPHEMERAL=1 npx --no-install vitest run",
+      "cwd": "apps/lesson-mcp",
+      "exit_code": 1,
+      "summary": "Test Files 1 failed | 13 passed (14); Tests 11 failed | 117 passed (128); Errors 22 errors. All failures: HTTP listen EPERM 127.0.0.1."
+    },
+    {
+      "kind": "check",
+      "command": "STUDIUM_EPHEMERAL=1 node --import tsx src/chat-format.driver.ts",
+      "cwd": "apps/studium-vscode",
+      "exit_code": 0,
+      "summary": "OK — chat-format (@studium formatting + reply parsing) passed all 76 assertions."
+    }
+  ],
+  "supplemental_vscode": {
+    "command": "STUDIUM_EPHEMERAL=1 node --import tsx src/<driver>.driver.ts for each of the 23 drivers in package.json",
+    "summary": "21/23 pass after reference heading fix. This does not replace the prescribed pnpm test, which fails before its first driver because tsx CLI cannot bind its IPC socket.",
+    "drivers": [
+      {
+        "driver": "context-help",
+        "exit_code": 0,
+        "summary": "OK — shared help for 13 scene types, graph, bundled CSS and zero host messages."
+      },
+      {
+        "driver": "scene-io",
+        "exit_code": 0,
+        "summary": "OK — scene-io + calibration + webview-parity passed all 598 assertions."
+      },
+      {
+        "driver": "asset-path",
+        "exit_code": 0,
+        "summary": "OK — asset-path (notebook figure-render helpers) passed all 16 assertions."
+      },
+      {
+        "driver": "webview-pane",
+        "exit_code": 0,
+        "summary": "OK — webview-pane (live jsdom render + click + axe-core structural pass) passed all 473 assertions."
+      },
+      {
+        "driver": "community",
+        "exit_code": 0,
+        "summary": "OK — community-picker discovery + shaping passed all 33 assertions."
+      },
+      {
+        "driver": "modality",
+        "exit_code": 0,
+        "summary": "OK — modality render-selection passed all 26 assertions."
+      },
+      {
+        "driver": "review-fsrs",
+        "exit_code": 0,
+        "summary": "OK — extension FSRS mirror matches fsrs.ts on all 36 checks."
+      },
+      {
+        "driver": "run-task",
+        "exit_code": 0,
+        "summary": "OK — run-task (manifest→task + verify + run_result gate) passed all 85 assertions."
+      },
+      {
+        "driver": "run-trust",
+        "exit_code": 0,
+        "summary": "OK — run-trust (confirmation + trust memory) passed all 20 assertions."
+      },
+      {
+        "driver": "host-phrases",
+        "exit_code": 0,
+        "summary": "OK — host-phrases (fr/en parity) passed all 2045 assertions."
+      },
+      {
+        "driver": "data-paths",
+        "exit_code": 0,
+        "summary": "OK — data-paths (default lesson root) passed all 6 assertions."
+      },
+      {
+        "driver": "lesson-uri",
+        "exit_code": 0,
+        "summary": "OK — lesson-uri (URI handler + open-this-lesson resolution) passed all 16 assertions."
+      },
+      {
+        "driver": "pane-messages",
+        "exit_code": 0,
+        "summary": "OK — pane-messages (rateRecall validation) passed all 16 assertions."
+      },
+      {
+        "driver": "study-status",
+        "exit_code": 0,
+        "summary": "OK — study-status (status bar + Reviews node) passed all 46 assertions."
+      },
+      {
+        "driver": "lesson-tree",
+        "exit_code": 0,
+        "summary": "OK — lesson-tree (sidebar shaping) passed all 57 assertions."
+      },
+      {
+        "driver": "lesson-picker",
+        "exit_code": 0,
+        "summary": "OK — lesson-picker (course discovery) passed all 8 assertions."
+      },
+      {
+        "driver": "chat-format",
+        "exit_code": 0,
+        "summary": "76 assertions passed after fixing the host reference heading colon (earlier 2/76 failed)."
+      },
+      {
+        "driver": "mcp-connect",
+        "exit_code": 1,
+        "summary": "OK — mcp-connect (resolveTsx + parseToolResult + stderr diagnostics) passed all 19 assertions.\n\nMcpError: MCP error -32000: Connection closed\n    at McpError.fromError (/Users/nothiasl/git/prototype-build/node_modules/.pnpm/@modelcontextprotocol+sdk@1.32.2_zod@3.25.76/node_modules/@modelcontextprotocol/sdk/src/types.ts:2330:16)\n    at Client._onclose (/Users/nothiasl/git/prototype-build/node_modules/.pnpm/@modelcontextprotocol+sdk@1.32.2_zod@3.25.76/node_modules/@modelcontextprotocol/sdk/src/shared/protocol.ts:667:32)\n    at StdioClientTransport._transport.onclose (/Users/nothiasl/git/prototype-build/node_modules/.pnpm/@modelcontextprotocol+sdk@1.32.2_zod@3.25.76/node_modules/@modelcontextprotocol/sdk/src/shared/protocol.ts:623:18)\n    at ChildProcess.<anonymous> (/Users/nothiasl/git/prototype-build/node_modules/.pnpm/@modelcontextprotocol+sdk@1.32.2_zod@3.25.76/node_modules/@modelcontextprotocol/sdk/src/client/stdio.ts:152:31)\n    at ChildProcess.emit (node:events:509:20)\n    at maybeClose (node:internal/child_process:1108:16)\n    at ChildProcess._handle.onexit (node:internal/child_process:305:5) {\n  code: -32000,\n  data: undefined\n}"
+      },
+      {
+        "driver": "panel-lifecycle",
+        "exit_code": 0,
+        "summary": "OK — panel lifecycle passed all 9 assertions."
+      },
+      {
+        "driver": "contributes",
+        "exit_code": 0,
+        "summary": "OK — contributes (package.json manifest) passed all 228 assertions."
+      },
+      {
+        "driver": "extension-host",
+        "exit_code": 1,
+        "summary": "TypeError: pane.handler is not a function\n    at main (/Users/nothiasl/git/prototype-build/apps/studium-vscode/src/extension-host.driver.ts:221:16)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)"
+      },
+      {
+        "driver": "completion",
+        "exit_code": 0,
+        "summary": "18 assertions passed"
+      },
+      {
+        "driver": "lesson-walk",
+        "exit_code": 0,
+        "summary": "864 assertions passed, both bundles completed and every wired scene type round-tripped"
+      }
+    ]
+  },
+  "iface_artifact": "packages/lesson-session-host/src/b2-iface.txt",
+  "acceptance_open_items": [
+    "Rerun the full MCP command both without STUDIUM_EPHEMERAL and with STUDIUM_EPHEMERAL=1 where loopback bind is permitted. Here both return exit 1: 13 files / 117 tests pass; 11 HTTP tests fail with 22 listen EPERM errors.",
+    "Rerun apps/studium-vscode pnpm test where tsx IPC is permitted. Typecheck passes here; the prescribed command exits 1 on its first tsx socket. Direct-loader mcp-connect still fails Connection closed, and extension-host fails pane.handler is not a function. Both invoke nested server launches through the tsx CLI; that source evidence suggests the same restriction, but their full end-to-end behavior remains unverified here.",
+    "Caller owns docs sync using b2-iface.txt and all commit/push/dist/integration decisions. No dependent acceptance or publication is claimed."
+  ],
+  "residual_limits": [
+    "Interrupted dead-owner lock recovery can leave .lock.reap; recovery then fails closed/times out until repaired.",
+    "Durable forget tokens depend on .learner-locks surviving ordinary forget; deleting the entire data directory requires client lifecycle coordination (the existing extension work owns that boundary).",
+    "Review sessions are process-local and keep their shuffled bundle while open. Persisted lesson resume is tested across days/restarts; no new cross-process review-session resume API is introduced."
+  ]
+}

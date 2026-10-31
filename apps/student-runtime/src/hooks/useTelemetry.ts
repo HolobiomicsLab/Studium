@@ -47,6 +47,34 @@ export function getTelemetryEndpoint(fallback: string | null): string | null {
 }
 
 /**
+ * L'endpoint effectif POUR UN APPRENANT DONNÉ, consentement compris.
+ *
+ * `getTelemetryEndpoint` ci-dessus résout une CONFIGURATION ; il ne sait rien de ce que
+ * l'apprenant a accepté, et son propre commentaire promettait déjà le contraire (« peut être
+ * `null` si l'apprenant n'a pas consenti niveau B »). Aucun appelant ne lisait le
+ * consentement : l'écran le stockait, et la transmission partait quand même dès qu'un
+ * endpoint était configuré. Cette fonction est le portillon manquant.
+ *
+ * Elle échoue FERMÉE, et c'est le point : pas d'enregistrement, lecture impossible, ou
+ * enregistrement sans le niveau B → `null`, donc rien ne part. Une transmission est un accord
+ * donné, pas un défaut dont on se retire, et l'override de test `window.__telemetry_endpoint`
+ * ne le contourne pas — sinon le portillon ne tiendrait précisément pas dans le seul mode où
+ * l'application transmet réellement.
+ *
+ * Le niveau retenu est B parce que c'est celui que l'écran de consentement montre à
+ * l'apprenant sous « Indicateurs … pour l'enseignant … transmis » : c'est la case qu'il a
+ * cochée. `docs/learn/student-guide.md` numérote autrement (C) — la contradiction entre les
+ * deux surfaces appartient au propriétaire du produit, pas à ce portillon.
+ */
+export function resolveTelemetryEndpoint(
+  consent: { level_b?: boolean } | null | undefined,
+  fallback: string | null,
+): string | null {
+  if (!consent?.level_b) return null;
+  return getTelemetryEndpoint(fallback);
+}
+
+/**
  * Résout le X-Course-Token effectif. Même logique d'override test que
  * `getTelemetryEndpoint`, via `window.__course_token`.
  */
@@ -62,6 +90,7 @@ export function getTelemetryCourseToken(fallback: string): string {
 
 export function useTelemetry(opts: Options) {
   const buffer = useRef<TelemetryEvent[]>([]);
+  const inFlight = useRef<Promise<void> | null>(null);
   const batchSize = opts.batchSize ?? 20;
   const flushInterval = opts.flushIntervalMs ?? 30_000;
   const ctxRef = useRef(opts.context);
@@ -81,8 +110,14 @@ export function useTelemetry(opts: Options) {
         });
         if (!r.ok) throw new Error(`status ${r.status}`);
       } catch {
-        for (const ev of events) {
-          await invoke("telemetry_outbox_push", { eventJson: JSON.stringify(ev) });
+        for (let index = 0; index < events.length; index += 1) {
+          try {
+            await invoke("telemetry_outbox_push", { eventJson: JSON.stringify(events[index]) });
+          } catch (error) {
+            // Keep only the suffix not durably queued.
+            buffer.current.unshift(...events.slice(index));
+            throw error;
+          }
         }
       }
     },
@@ -90,8 +125,13 @@ export function useTelemetry(opts: Options) {
   );
 
   const flush = useCallback(async () => {
+    while (inFlight.current) await inFlight.current;
     const events = buffer.current.splice(0, buffer.current.length);
-    await sendBatch(events);
+    if (events.length === 0) return;
+    const pending = sendBatch(events);
+    inFlight.current = pending;
+    try { await pending; }
+    finally { inFlight.current = null; }
   }, [sendBatch]);
 
   const emit = useCallback(
@@ -99,7 +139,7 @@ export function useTelemetry(opts: Options) {
       const event = enrichEvent(partial, ctxRef.current);
       buffer.current.push(event);
       if (buffer.current.length >= batchSize) {
-        void flush();
+        void flush().catch(() => { /* Buffered suffix retries later. */ });
       }
     },
     [batchSize, flush],
@@ -133,7 +173,7 @@ export function useTelemetry(opts: Options) {
 
   // Periodic flush
   useEffect(() => {
-    const id = setInterval(() => void flush(), flushInterval);
+    const id = setInterval(() => void flush().catch(() => { /* Buffered suffix retries later. */ }), flushInterval);
     return () => clearInterval(id);
   }, [flush, flushInterval]);
 

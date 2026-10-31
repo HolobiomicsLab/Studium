@@ -1,0 +1,34 @@
+{
+  "bundle_revision": "308781ee000d15f648016b4e91584bf2f920447f2307fecc4354e0ab4c3b19b0",
+  "experiments": [
+    {
+      "events": [
+        {
+          "input": {
+            "authorship": "learner",
+            "confidence": 2,
+            "consent": true,
+            "experiment_id": "synthetic-export-check",
+            "justification": "[redacted]",
+            "kind": "predict",
+            "prediction": "[redacted]"
+          },
+          "recorded_at": "2026-09-11T22:17:05.172Z",
+          "sequence": 1
+        },
+        {
+          "input": {
+            "experiment_id": "synthetic-export-check",
+            "kind": "begin"
+          },
+          "recorded_at": "2026-09-11T22:17:05.172Z",
+          "sequence": 2
+        }
+      ],
+      "experiment_id": "synthetic-export-check",
+      "scene_id": "s-intro"
+    }
+  ],
+  "schema": "studium/experiment-journal/v1",
+  "storage": "ephemeral"
+}

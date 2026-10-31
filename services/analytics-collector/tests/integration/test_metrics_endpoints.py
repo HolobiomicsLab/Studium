@@ -52,8 +52,11 @@ def test_get_calibration_endpoint(tmp_path, monkeypatch):
     _seed_jsonl(tmp_path, "course-x", events)
     from analytics_collector_app import app
     client = TestClient(app)
+    # No `&learner=` since INT-STUDIUM-030 removed the drill-down. The numbers below are
+    # unchanged: one learner is seeded, so the class aggregate IS this learner's read. Leaving
+    # the parameter in the URL would have kept passing while asserting nothing about it.
     r = client.get(
-        "/metrics/calibration?course=course-x&learner=hmac:la",
+        "/metrics/calibration?course=course-x",
         headers={"X-Course-Token": "course-x"},
     )
     assert r.status_code == 200

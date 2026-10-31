@@ -18,8 +18,10 @@ from metrics import (
     compute_trust_calibration,
 )
 from store import (
+    InvalidCourseToken,
     _data_dir,
     append_events,
+    course_dir,
     process_event_for_mastery,
     read_concept_mastery_history,
 )
@@ -28,11 +30,20 @@ from store import (
 app = FastAPI(title="analytics-collector", version="0.1.0")
 
 
+def _check_course_segment(value: str) -> None:
+    """400 when a course token / id is not a safe single path segment (AC-1)."""
+    try:
+        course_dir(_data_dir(), value)
+    except InvalidCourseToken as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
 def _require_course_token(x_course_token: str | None, course: str) -> None:
     if not x_course_token:
         raise HTTPException(status_code=401, detail="missing X-Course-Token")
     if x_course_token != course:
         raise HTTPException(status_code=403, detail="token does not match course")
+    _check_course_segment(course)
 
 
 def _validate_bundle_version(bundle_version: str | None) -> str | None:
@@ -76,6 +87,7 @@ def post_telemetry(
 ) -> TelemetryResponse:
     if not x_course_token:
         raise HTTPException(status_code=401, detail="missing X-Course-Token")
+    _check_course_segment(x_course_token)
     n = append_events(x_course_token, batch.events)
     # M5.1 : snapshot maîtrise/concept si l'event porte concept_states.
     # Aujourd'hui le schema strict TelemetryEvent ne déclare pas ce champ,
@@ -105,15 +117,22 @@ def get_progress(
 @app.get("/metrics/calibration")
 def get_calibration(
     course: str,
-    learner: str | None = None,
     bundle_version: str | None = None,
     x_course_token: str | None = Header(default=None),
 ) -> dict:
+    """Class-level confidence calibration.
+
+    `?learner=` is gone (INT-STUDIUM-030). It applied the floor to the course cohort and then
+    handed back one person inside it, which is the arrangement that defeats the floor: twenty
+    aggregates over caller-chosen subsets reconstruct an individual without any one of them
+    falling under five. `compute_calibration` keeps its `learner` argument — /metrics/blueprint
+    calls it in-process for the ADR 013 formative read, where a pseudonym is MANDATORY and the
+    exemption is named. What is removed is the caller's ability to choose the subset."""
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
     if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
         return below
-    return compute_calibration(_data_dir(), course, learner=learner, bundle_version=bv)
+    return compute_calibration(_data_dir(), course, bundle_version=bv)
 
 
 @app.get("/metrics/course-completion")
@@ -138,7 +157,6 @@ def get_course_completion(
 @app.get("/metrics/trust-calibration")
 def get_trust_calibration(
     course: str,
-    learner: str | None = None,
     bundle_version: str | None = None,
     x_course_token: str | None = Header(default=None),
 ) -> dict:
@@ -149,12 +167,16 @@ def get_trust_calibration(
     over-distrust (méfiance IA), "bien" = within band. The verdict-deck grader
     emits real false_positives and sound_total, so "sous" IS reachable; only the
     free-text keyword path is structurally fp=0/sound=0, which reports as
-    UNMEASURED, not zero (see metrics.compute_trust_calibration)."""
+    UNMEASURED, not zero (see metrics.compute_trust_calibration).
+
+    `?learner=` is gone (INT-STUDIUM-030) — see get_calibration. Over-trust is the most
+    characterological reading this instrument produces, so it is the last one that should have
+    been available per student to a reader holding the roster."""
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
     if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
         return below
-    return compute_trust_calibration(_data_dir(), course, learner=learner, bundle_version=bv)
+    return compute_trust_calibration(_data_dir(), course, bundle_version=bv)
 
 
 @app.get("/metrics/autonomy")
@@ -189,35 +211,38 @@ def get_scene_breakdown(
 @app.get("/metrics/reasoning")
 def get_reasoning(
     course: str,
-    pseudonyme: str | None = None,
     scene_id: str | None = None,
     bundle_version: str | None = None,
     x_course_token: str | None = Header(default=None),
 ) -> dict:
+    """Class-level reasoning depth.
+
+    `?pseudonyme=` is gone (INT-STUDIUM-030). `scene_id` stays: a scene is an ARTIFACT scope,
+    not a person, and narrowing to one scene tells the reader which material the number is
+    about — the distinction INT-STUDIUM-026 drew on the Observatory's blank columns."""
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
     if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
         return below
     return compute_reasoning_depth_score(
-        _data_dir(), course, pseudonyme=pseudonyme, scene_id=scene_id,
-        bundle_version=bv,
+        _data_dir(), course, scene_id=scene_id, bundle_version=bv,
     )
 
 
 @app.get("/metrics/ai-audit")
 def get_ai_audit(
     course: str,
-    pseudonyme: str | None = None,
     bundle_version: str | None = None,
     x_course_token: str | None = Header(default=None),
 ) -> dict:
+    """Class-level AI-audit accuracy. `?pseudonyme=` is gone (INT-STUDIUM-030) — see
+    get_calibration. No dashboard page reached it; the parameter was the drill-down waiting
+    for a page to be written against it."""
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
     if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
         return below
-    return compute_ai_audit_accuracy(
-        _data_dir(), course, pseudonyme=pseudonyme, bundle_version=bv,
-    )
+    return compute_ai_audit_accuracy(_data_dir(), course, bundle_version=bv)
 
 
 @app.get("/metrics/ai-literacy")
@@ -251,22 +276,20 @@ def get_ai_literacy(
 @app.get("/metrics/journal")
 def get_journal(
     course: str,
-    pseudonyme: str | None = None,
     bundle_version: str | None = None,
     x_course_token: str | None = Header(default=None),
 ) -> dict:
     """Journal entry counters (ADR 006 v1.3, ADR 011-style garde-fou).
 
-    Counters only — texte journal local jamais transmis.
+    Counters only — texte journal local jamais transmis. `?pseudonyme=` is gone
+    (INT-STUDIUM-030): the text never leaves the device, but HOW OFTEN a named student writes
+    in their journal is a reading about that student all the same.
     """
     _require_course_token(x_course_token, course)
     bv = _validate_bundle_version(bundle_version)
     if (below := cohort_state(_data_dir(), course, bundle_version=bv)) is not None:
         return below
-    return compute_journal_metrics(
-        _data_dir(), course,
-        pseudonyme=pseudonyme, bundle_version=bv,
-    )
+    return compute_journal_metrics(_data_dir(), course, bundle_version=bv)
 
 
 @app.get("/metrics/cooperation")
@@ -359,25 +382,34 @@ def post_blueprint(
 @app.get("/metrics/concept-mastery-history")
 def get_concept_mastery_history(
     course: str,
-    pseudonyme: str | None = None,
-    concept_id: str | None = None,
-    since: str | None = None,
     x_course_token: str | None = Header(default=None),
 ) -> dict:
-    """concept_mastery_history (M5.1 + M5.5).
+    """concept_mastery_history (M5.1 + M5.5) — UNAVAILABLE, and it says why.
 
-    Retourne ``{concepts: {concept_id: [{date, pseudonyme, alpha, beta, mastery, n_attempts}]}}``.
-    Auth ``X-Course-Token == course`` (parité C.4).
+    This route returned ``{concepts: {cid: [{date, pseudonyme, alpha, beta, mastery, …}]}}`` —
+    rows keyed BY PERSON. Dropping its `?pseudonyme=` filter would not have made it class-level;
+    the shape narrows to individuals with no parameter at all, so the route is a per-student
+    report wearing a class-level path (INT-STUDIUM-030's R2).
+
+    It is unreachable today, which is why this is a finding and not a breach: the snapshots it
+    reads are written by ``store.process_event_for_mastery``, and the strict ``TelemetryEvent``
+    schema does not declare ``concept_states``, so ``ev.model_dump()`` never carries the field
+    and no snapshot has ever been written (the call site says so at :80). It therefore answers
+    with an empty ``concepts`` map for every caller.
+
+    Failing closed rather than silently returning ``{}``: an empty map reads as "this class has
+    no trajectory", which is a claim about the class, and a false one — the claim belongs to the
+    pipeline. And an empty answer would have become a per-student answer the day M5.1's writer
+    landed, with nobody deciding that. The reader and the writer are left in place and still
+    tested; what is withdrawn is the SURFACE, until a shape exists that a class-level page may
+    publish. Auth ``X-Course-Token == course`` (parité C.4) still applies.
     """
-    from datetime import date as _date_type
-
     _require_course_token(x_course_token, course)
-    if (below := cohort_state(_data_dir(), course)) is not None:
-        return below
-    since_date = _date_type.fromisoformat(since) if since else None
     return {
-        "concepts": read_concept_mastery_history(
-            _data_dir(), course,
-            pseudonyme=pseudonyme, since=since_date, concept_id=concept_id,
-        )
+        "status": "unavailable",
+        "reason": (
+            "trajectoire de maîtrise indisponible : les instantanés par concept ne sont jamais "
+            "écrits (le schéma strict TelemetryEvent ne déclare pas `concept_states`), et la "
+            "route renvoyait des lignes par pseudonyme — ce qu'une vue de classe ne publie pas."
+        ),
     }

@@ -21,7 +21,14 @@ export {
   SessionNotStartedError,
   SessionAlreadyCompleteError,
   SceneGradingError,
+  SelfRatingNotRequestedError,
+  SelfRatingExpiredError,
+  InvalidSelfRatingError,
 } from "./errors.js";
+
+// Self-rating after an uncertified production answer (contract C4): FSRS input, never mastery.
+export { SELF_RATING_CHOICES } from "./self-rating.js";
+export type { SelfRatingRequest, SelfRatingRecord } from "./self-rating.js";
 
 // Telemetry helpers
 export { enrichEvent, bundleVersionOf } from "./telemetry.js";

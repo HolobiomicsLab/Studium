@@ -1,0 +1,104 @@
+{
+  "status": "partial",
+  "summary": "Implemented the teacher library/review, token-based web themes, accessible charts, FR/EN preferences, print styles and legacy author banner. Automated checks pass; real screenshots remain sandbox-blocked.",
+  "evidence": [
+    {
+      "path": "docs/assets/screenshots/v2-verification.md",
+      "detail": "Dashboard: 129 tests passed, TypeScript and production build exit 0. Observatory: 242 passed. Report/theme/help: 29 passed. Author-web: 52 passed and TypeScript exit 0. Contrast: 128 checks, 0 failures. Includes leaf review dispositions and capture commands."
+    },
+    {
+      "path": "docs/assets/screenshots/v2-files.json",
+      "detail": "Lists 53 implementation/capture files with sizes and SHA-256, plus four evidence artifacts. Concurrent package.json changes are excluded. Shared schema dependency hashes identify the checked target."
+    },
+    {
+      "path": "apps/teacher-dashboard/lib/library.ts",
+      "detail": "Confined server filesystem reads; exact-byte C5 receipts; C6 default root; whitelist review projection; separate missing/unreadable errors. Eighteen library tests and eight server-page tests pass."
+    },
+    {
+      "path": "ui/README.md",
+      "detail": "Canonical tokens are directly imported by Next and deterministically copied for Observatory. Frozen INT-047 theme bytes and exact historical report verification are preserved."
+    },
+    {
+      "path": "docs/assets/screenshots/v2-capture-status.json",
+      "detail": "No PNG screenshots produced. Installed Chromium launch failed with Permission denied (1100)/SIGTRAP; Chrome probe exited 134; local Next listen failed with EPERM. Optional pane snapshots absent. Capture script is prepared, not visually accepted."
+    }
+  ],
+  "checks": [
+    {
+      "command": "pnpm --filter @studium/teacher-dashboard test",
+      "exit_code": 0
+    },
+    {
+      "command": "pnpm --filter @studium/teacher-dashboard exec tsc --noEmit",
+      "exit_code": 0
+    },
+    {
+      "command": "NEXT_TELEMETRY_DISABLED=1 pnpm --filter @studium/teacher-dashboard build",
+      "exit_code": 0
+    },
+    {
+      "command": "pnpm --filter @studium/author-web test",
+      "exit_code": 0
+    },
+    {
+      "command": "pnpm --filter @studium/author-web exec tsc --noEmit",
+      "exit_code": 0
+    },
+    {
+      "command": ".venv/bin/python -m pytest services/observatory -q",
+      "exit_code": 0
+    },
+    {
+      "command": ".venv/bin/python -m pytest tools/test_learner_report.py tools/test_report_theme.py tools/test_context_help.py -q",
+      "exit_code": 0
+    },
+    {
+      "command": "node design/scripts/check-contrast.mjs",
+      "exit_code": 0
+    },
+    {
+      "command": "node ui/sync-studium-tokens.mjs --check",
+      "exit_code": 0
+    },
+    {
+      "command": "node --check docs/assets/screenshots/capture-web.mjs",
+      "exit_code": 0
+    },
+    {
+      "command": "node docs/assets/screenshots/capture-web.mjs --check",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check -- apps/teacher-dashboard apps/author-web services/observatory/templates ui",
+      "exit_code": 0
+    }
+  ],
+  "artifacts": [
+    "/Users/nothiasl/git/prototype-build/docs/assets/screenshots/v2-verification.md",
+    "/Users/nothiasl/git/prototype-build/docs/assets/screenshots/v2-files.json",
+    "/Users/nothiasl/git/prototype-build/docs/assets/screenshots/v2-capture-status.json",
+    "/Users/nothiasl/git/prototype-build/docs/assets/screenshots/capture-web.mjs",
+    "/Users/nothiasl/git/prototype-build/docs/assets/screenshots/v2-result.json"
+  ],
+  "children": [
+    {
+      "id": "/root/dashboard_components",
+      "model": "gpt-5.6-sol",
+      "effort": "max",
+      "status": "completed",
+      "summary": "Accessible analytics components and semantic CSS integrated; bounded library review findings addressed and checked by the coordinator."
+    },
+    {
+      "id": "/root/observatory_theme",
+      "model": "gpt-5.6-sol",
+      "effort": "max",
+      "status": "completed",
+      "summary": "Observatory token composition and deterministic sync integrated; legacy theme kept byte-identical; tests reproduced."
+    }
+  ],
+  "open_items": [
+    "Caller must run the prepared local capture packet and inspect light/dark, 1440 px desktop, 390 px mobile, focus and print rendering. No browser or screenshot pass is claimed.",
+    "Portable reports/activity exports still use frozen ui/studium-theme.css. Full token migration needs a versioned renderer outside this mission’s permitted paths to preserve exact legacy verification.",
+    "Optional VS Code pane screenshots remain skipped because the supplied HTML snapshot directory was absent."
+  ]
+}

@@ -23,6 +23,11 @@
       "minItems": 1,
       "items": { "$ref": "#/$defs/SceneOutline" }
     },
+    "concepts": {
+      "type": "array",
+      "default": [],
+      "items": { "$ref": "#/$defs/Concept" }
+    },
     "corpus_refs": {
       "type": "array",
       "items": { "$ref": "#/$defs/CorpusRef" },
@@ -59,6 +64,25 @@
     "case_framework_uri": { "type": "string" }
   },
   "$defs": {
+    "Concept": {
+      "type": "object",
+      "required": ["id", "title", "description", "bloom_level_target"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "bloom_level_target": {
+          "type": "string",
+          "enum": ["remember", "understand", "apply", "analyze", "evaluate", "create"]
+        },
+        "prerequisites": {
+          "type": "array",
+          "default": [],
+          "items": { "type": "string" }
+        }
+      }
+    },
     "LearningObjective": {
       "type": "object",
       "required": ["id", "description", "bloom_level"],
@@ -167,6 +191,11 @@
         "title": { "type": "string", "minLength": 1 },
         "objective_refs": {
           "type": "array",
+          "items": { "type": "string" }
+        },
+        "concept_refs": {
+          "type": "array",
+          "default": [],
           "items": { "type": "string" }
         },
         "notes": { "type": "string" },

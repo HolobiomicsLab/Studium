@@ -11,9 +11,12 @@ test.describe("/courses/[token]/reasoning", () => {
 
   test("renders breakdown container or empty state", async ({ page }) => {
     await page.goto(`/courses/${encodeURIComponent(COURSE_TOKEN)}/reasoning`);
-    const container = page.locator(
-      '[data-testid="reasoning-breakdown"], text=/Aucun signal/i',
-    );
+    // Three states, not two (INT-STUDIUM-030 R1): the breakdown, "no signals arrived", and
+    // "signals arrived but every scene's own contributors were under the floor". The third
+    // used to render as the second, which is a false claim about the course rather than a
+    // missing state — and a locator listing only two states would have kept passing on it.
+    const container = page.getByTestId("reasoning-breakdown")
+      .or(page.getByTestId("withheld-notice")).or(page.getByText(/Aucun signal/i));
     await expect(container.first()).toBeVisible({ timeout: 10_000 });
   });
 });

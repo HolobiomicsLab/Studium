@@ -1,0 +1,18 @@
+{
+  "artifacts": {
+    "astra.yaml": "057bcf2be962f8f78c8377af7aedc6801de8778069a59acef6f7ec52879483a6",
+    "course_provenance.myst.md": "7af3687965babf844d66111e23ef9caba5ea3983784bd06c2caaf8e08366bc32",
+    "index.html": "5b83da15d7496d49db5da88c058700c647c0d6202af35baaf97b923b41b4614d",
+    "report.json": "6826227ed676bd4b130de4f5b23639851022cdd46399c54af18373f9d96f0e59",
+    "sources/experiment-journal.json": "a6970115918945efd35d5b21ddb3a79d5dde3c63b6a447bca035eb6ef4a36168",
+    "trace/exploration_tree.yaml": "d6ed753dd33455924f233ee9cfbc44c54d754226872f32b81d70c0de5bb6bee0"
+  },
+  "astra": {
+    "astra_spec": "0.0.14",
+    "evidence_resolution": "skipped",
+    "status": "passed",
+    "validator": "astra-tools"
+  },
+  "generated_at": "2026-09-12T07:39:13.328568Z",
+  "schema": "studium/learner-report-checks/v1"
+}

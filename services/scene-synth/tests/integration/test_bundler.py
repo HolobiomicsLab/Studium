@@ -128,3 +128,35 @@ def test_build_bundle_includes_prov_graph(tmp_path):
         raw = json.loads(zf.read("lesson.json"))
         LessonBundle.model_validate(raw)
         assert "prov_graph" not in raw
+
+
+def test_build_bundle_forwards_the_plan_authoring(tmp_path):
+    lesson_plan = _make_lesson_plan()
+    lesson_plan["metadata"]["authoring"] = {"mode": "self_study", "author_is_learner": True}
+    out = tmp_path / "demo.zip"
+    build_bundle(
+        lesson_plan=lesson_plan,
+        scenes=_make_scenes(),
+        output_path=out,
+        prov_seed={"agent": "scene-synth", "version": "0.1.0"},
+    )
+
+    with zipfile.ZipFile(out) as zf:
+        raw = json.loads(zf.read("lesson.json"))
+    assert raw["metadata"]["authoring"] == {"mode": "self_study", "author_is_learner": True}
+    assert LessonBundle.model_validate(raw).metadata.authoring.mode == "self_study"
+
+
+def test_build_bundle_leaves_authoring_absent_not_null_when_the_plan_has_none(tmp_path):
+    # The TS reader declares `authoring` .optional(): absence parses, null does not.
+    out = tmp_path / "demo.zip"
+    build_bundle(
+        lesson_plan=_make_lesson_plan(),
+        scenes=_make_scenes(),
+        output_path=out,
+        prov_seed={"agent": "scene-synth", "version": "0.1.0"},
+    )
+
+    with zipfile.ZipFile(out) as zf:
+        raw = json.loads(zf.read("lesson.json"))
+    assert "authoring" not in raw["metadata"]

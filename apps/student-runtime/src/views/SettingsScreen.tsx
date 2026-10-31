@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { tauri } from "../lib/tauri";
 import { useTelemetry } from "../hooks/useTelemetry";
+import StudyShell from "../components/StudyShell";
 
 const DEMO_BUNDLE_ID = "demo-metabolomics-001";
 
@@ -36,8 +37,10 @@ export default function SettingsScreen() {
   };
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-2xl mx-auto bg-white shadow rounded-lg p-6">
+    <StudyShell>
+    <main className="settings-page">
+      <div className="settings-card">
+        <p className="eyebrow">Ton espace personnel</p>
         <h1 className="text-2xl font-bold mb-4">Réglages › Mes données</h1>
         <p className="mb-2">Ton pseudonyme pour ce cours :</p>
         <code className="block bg-gray-100 p-2 rounded text-xs break-all">{pseudo || "…"}</code>
@@ -68,5 +71,6 @@ export default function SettingsScreen() {
         <Link to="/library" className="text-blue-600 underline">Retour à la bibliothèque</Link>
       </div>
     </main>
+    </StudyShell>
   );
 }

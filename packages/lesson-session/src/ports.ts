@@ -5,6 +5,7 @@ import type { MasteryClaimsDoc } from "./mastery-claims.js";
 import type { ClassifyResult } from "@studium/reasoning-scorer";
 import type { Scene } from "@studium/lesson-bundle-schema";
 import type { TutorMove, TutorInput } from "./socratic-tutor/types.js";
+import type { Locale } from "./phrases.js";
 
 type AICritiqueScene = Extract<Scene, { type: "ai_critique" }>;
 export type Claim = AICritiqueScene["claims"][number];
@@ -46,11 +47,26 @@ export interface TelemetrySink {
  * makes distinct learners on the same lesson resolve to distinct pseudonyms. */
 export interface PseudonymProvider { get(learnerId: string, lessonId: string): Promise<string>; }
 
-export interface ReasoningScorer { score(turn: string, topic: string): Promise<ClassifyResult | null>; }
+/** `locale` is the lesson's language, so an LLM-backed scorer can read the turn in it (RT-9). */
+export interface ReasoningScorer { score(turn: string, topic: string, locale?: Locale): Promise<ClassifyResult | null>; }
 
 export interface SocraticTutor { respond(input: TutorInput): Promise<TutorMove | null>; }
 
-export interface CritiqueEvaluation { score: number; feedback: string; }
+/** What a critique evaluation says, and WHERE THE SCORE CAME FROM.
+ *
+ * `source` exists because the degradation was silent. `HttpCritiqueEvaluator` catches ANY error
+ * — service down, 500, unparseable body — and returns the keyword fallback with the same shape
+ * as a real evaluation, so a session graded by substring matching was indistinguishable from a
+ * session graded by an LLM at every layer above: the grader, the telemetry, the dashboard. A
+ * fallback is a legitimate design (spec §8.3, graceful degradation); an unrecorded one is not.
+ *
+ * Optional so a custom evaluator that does not say stays honest as UNKNOWN rather than being
+ * defaulted into a claim it never made. See INT-STUDIUM-035 for what the keyword path scores.
+ *
+ * `covered_ids` (RT-1): the ids of the key points or claims the JUDGE found covered. Only an `llm`
+ * evaluation's ids reach the learner as a count ("2/4 key points covered"); the keyword fallback
+ * never sets them, because a substring match is not a measurement of coverage. */
+export interface CritiqueEvaluation { score: number; feedback: string; source?: "llm" | "keyword"; covered_ids?: string[]; }
 export interface CritiqueEvaluator {
   evaluate(input: { claims: Claim[]; rubric: AICritiqueRubric; critique: string }): Promise<CritiqueEvaluation>;
 }
@@ -68,6 +84,10 @@ export interface AuditJudgement {
   caught_flaw_ids: string[];
   /** ids of SOUND claims the critique wrongly called flawed → feeds over-distrust. */
   wrongly_flagged_sound_ids: string[];
+  /** How the judgement was reached (RT-1): "llm" when a model judged the critique, "keyword" for the
+   * token catch (the offline stub, or the HTTP judge's degradation). Only an "llm" judgement is shown
+   * to the learner as a count; absent means unknown and is treated as unmeasured. */
+  source?: "llm" | "keyword";
 }
 export interface AuditInput {
   flawed_content: string;

@@ -1,8 +1,9 @@
 import type { LearnerState, ConceptState, Signal, Decision } from "@studium/learner-state";
 import { defaultConceptState, recordConfidenceSample, CALIBRATION_ANSWER_LAMBDA, recordJudgmentAudit, recordJudgmentSdt } from "@studium/learner-state";
 import type { AdaptationRule } from "@studium/lesson-bundle-schema";
-import { updateBeta } from "./beta-updater";
+import { updateBeta, recordUngradedAttempt } from "./beta-updater";
 import { matchesCondition } from "./condition-matcher";
+import { defaultMemoryState, gradeFromAnswer, reviewMemory } from "./fsrs";
 
 function masteryOf(s: ConceptState): number {
   return s.alpha / (s.alpha + s.beta);
@@ -19,18 +20,41 @@ function buildContext(state: LearnerState, signal: Signal): Record<string, numbe
   const ctx: Record<string, number | string | boolean> = {};
   if (signal.kind === "answer_submitted") {
     const cs = state.concept_states[signal.concept_id] ?? defaultConceptState(signal.concept_id);
-    ctx.answer_correct = signal.correct;
+    // An answer whose correctness was never measured publishes NO `answer_correct` (INT-STUDIUM-035
+    // candidate 2). `matchesCondition` refuses a rule whose key is absent from the context, so no
+    // rule fires on it — which is the whole point: `answer_correct: false` here would send the
+    // learner into remediation for an answer nobody graded, moving the false claim rather than
+    // removing it. The count is published either way, so a bundle CAN route on "ungradeable here".
+    if (signal.correct !== undefined) ctx.answer_correct = signal.correct;
+    ctx.ungraded_attempts = cs.ungraded_attempts ?? 0;
     ctx.hint_count = signal.hint_count;
     ctx.time_on_scene = signal.time_ms / 1000;
     ctx.consecutive_errors_same_concept = cs.consecutive_errors;
     ctx.mastery_c = masteryOf(cs);
     ctx.total_attempts = cs.total_attempts;
     ctx.total_correct = cs.total_correct;
-    ctx.confidence_calibration_abs = Math.abs(cs.confidence_calibration);
-    // expose the FRESHLY-updated trust calibration (judgment-over-artifact) so a bundle rule can route
-    // on it (e.g. show_explanation_panel when trust_calibration_abs is high). Signed + abs; 0 if unmeasured.
-    ctx.trust_calibration = cs.trust_calibration ?? 0;
-    ctx.trust_calibration_abs = Math.abs(cs.trust_calibration ?? 0);
+    // A calibration that was never measured is NOT a calibration of zero, and both axes used to
+    // publish one anyway: confidence_calibration defaults to 0, trust_calibration was read as `?? 0`.
+    // A learner who had declared no confidence and audited no AI output therefore reached a bundle
+    // rule as PERFECTLY CALIBRATED on both — and an audit catching every planted flaw measures that
+    // very same 0, so the number could not tell the two apart. learner-state already draws the line
+    // (isCalibrated / isTrustCalibrated require >=1 sample before reading the gap), and
+    // matchesCondition makes absence a first-class answer (`if (!(key in ctx)) return false`), so an
+    // unmeasured axis now fires no rule instead of firing the wrong one. The sample COUNTS are
+    // published either way, so a bundle that wants to route ON "never asked" can say so. (INT-STUDIUM-029)
+    const confidenceSamples = cs.calibration_samples ?? 0;
+    ctx.calibration_samples = confidenceSamples;
+    if (confidenceSamples >= 1) {
+      ctx.confidence_calibration_abs = Math.abs(cs.confidence_calibration);
+    }
+    // the FRESHLY-updated trust calibration (judgment-over-artifact), signed + abs, so a bundle rule
+    // can route on it (e.g. show_explanation_panel when trust_calibration_abs is high).
+    const trustSamples = cs.trust_calibration_samples ?? 0;
+    ctx.trust_calibration_samples = trustSamples;
+    if (trustSamples >= 1) {
+      ctx.trust_calibration = cs.trust_calibration ?? 0;
+      ctx.trust_calibration_abs = Math.abs(cs.trust_calibration ?? 0);
+    }
   }
   if (signal.kind === "confidence_declared") {
     ctx.confidence_pre = signal.value;
@@ -40,6 +64,10 @@ function buildContext(state: LearnerState, signal: Signal): Record<string, numbe
       const cs = state.concept_states[signal.concept_id] ?? defaultConceptState(signal.concept_id);
       ctx.confidence_calibration = cs.confidence_calibration;             // signed (direction-specific rules)
       ctx.confidence_calibration_abs = Math.abs(cs.confidence_calibration);
+      // no gate needed here — recordConfidenceSample ran above, so this branch is measured BY
+      // CONSTRUCTION. The count is published all the same, so `calibration_samples` means the same
+      // thing on both signal kinds and a bundle rule can be written once. (INT-STUDIUM-029)
+      ctx.calibration_samples = cs.calibration_samples ?? 0;
       ctx.total_attempts = cs.total_attempts;
       ctx.mastery_c = masteryOf(cs);
     }
@@ -64,14 +92,25 @@ export class AdaptationEngine {
   private state: LearnerState;
   private lastDecision: Decision | null = null;
 
-  constructor(private readonly rules: AdaptationRule[], initialState: LearnerState) {
+  /** `now` stamps the history entries and the FSRS reviews folded into `concept_memory`. Injected by
+   * the session from its clock port so a fixed test clock gives one consistent timeline; defaults to
+   * wall-clock. */
+  constructor(
+    private readonly rules: AdaptationRule[],
+    initialState: LearnerState,
+    private readonly now: () => string = () => new Date().toISOString(),
+  ) {
     this.state = JSON.parse(JSON.stringify(initialState));
   }
 
   onSignal(signal: Signal): Decision {
+    // One instant per signal: the history entry and the FSRS review of an answer share it.
+    const nowIso = this.now();
     if (signal.kind === "answer_submitted") {
       const cs = ensureConceptState(this.state, signal.concept_id);
-      const afterBeta = updateBeta(cs, signal);
+      // INT-STUDIUM-035 candidate 2: an answer with no `correct` was not graded, so it updates no
+      // posterior. It is still recorded as an attempt that happened.
+      const afterBeta = signal.correct === undefined ? recordUngradedAttempt(cs) : updateBeta(cs, signal);
       // PER-ANSWER (CONTINUOUS) calibration capture: when the answer carries a self-rated confidence
       // (fed by the confidence-tap UI), fold it into calibration against the POST-answer mastery — the
       // competence the answer just demonstrated — using CALIBRATION_ANSWER_LAMBDA (<1) so accumulated
@@ -90,6 +129,9 @@ export class AdaptationEngine {
         next = recordJudgmentSdt(next, signal.judgment_audit);
       }
       this.state.concept_states[signal.concept_id] = next;
+      if (signal.correct !== undefined) {
+        this.foldReview(signal.concept_id, gradeFromAnswer({ correct: signal.correct, hint_count: signal.hint_count }), nowIso);
+      }
     }
     if (signal.kind === "confidence_declared" && signal.concept_id) {
       // M3: compare declared confidence against the concept's accumulated competence and
@@ -115,7 +157,7 @@ export class AdaptationEngine {
         };
         this.lastDecision = decision;
         this.state.last_decision = decision;
-        this.appendHistory(signal, decision);
+        this.appendHistory(signal, decision, nowIso);
         return decision;
       }
     }
@@ -125,13 +167,25 @@ export class AdaptationEngine {
     };
     this.lastDecision = fallback;
     this.state.last_decision = fallback;
-    this.appendHistory(signal, fallback);
+    this.appendHistory(signal, fallback, nowIso);
     return fallback;
   }
 
-  private appendHistory(signal: Signal, decision: Decision): void {
+  /** RT-3: the FSRS memory is first-class. Every graded answer is folded here as it happens — the
+   * history is capped at 50 entries, so a memory rebuilt from it under-counts a long lesson. An answer
+   * nobody graded (`correct` absent) is not a retrieval and is never folded: `gradeFromAnswer` would
+   * read it as a failure. A clock that does not parse folds nothing rather than a review at NaN. */
+  private foldReview(conceptId: string, grade: ReturnType<typeof gradeFromAnswer>, nowIso: string): void {
+    const at = Date.parse(nowIso);
+    if (Number.isNaN(at)) return;
+    const memory = this.state.concept_memory ?? {};
+    memory[conceptId] = reviewMemory(memory[conceptId] ?? defaultMemoryState(conceptId), grade, at);
+    this.state.concept_memory = memory;
+  }
+
+  private appendHistory(signal: Signal, decision: Decision, timestamp: string): void {
     this.state.history.push({
-      timestamp: new Date().toISOString(),
+      timestamp,
       scene_id: "scene_id" in signal ? signal.scene_id : "",
       signal, decision,
     });

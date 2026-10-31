@@ -1,0 +1,171 @@
+{
+  "lesson_plan": {
+    "schema_version": "1.0",
+    "id": "self-study-durkheim-fait-social-draft",
+    "title": "Comprendre le fait social chez Durkheim",
+    "language": "fr",
+    "target": "Licence 1 — étude autonome",
+    "duration_minutes": 18,
+    "learning_objectives": [
+      {
+        "id": "objective-definition",
+        "description": "Définir un fait social par son extériorité, son pouvoir de coercition et son existence propre.",
+        "bloom_level": "understand"
+      },
+      {
+        "id": "objective-distinction",
+        "description": "Distinguer la généralité d’un phénomène de son caractère collectif chez Durkheim.",
+        "bloom_level": "analyze"
+      }
+    ],
+    "concepts": [
+      {
+        "id": "fait-social",
+        "title": "Fait social",
+        "description": "Une manière d’agir, de penser ou de sentir qui existe hors des consciences individuelles et peut s’imposer à elles.",
+        "bloom_level_target": "understand",
+        "prerequisites": []
+      },
+      {
+        "id": "generalite-collectif",
+        "title": "Généralité et caractère collectif",
+        "description": "La diffusion d’un phénomène ne suffit pas à le rendre social : elle doit être rapportée à une réalité collective qui s’impose aux individus.",
+        "bloom_level_target": "analyze",
+        "prerequisites": [
+          "fait-social"
+        ]
+      }
+    ],
+    "scene_outlines": [
+      {
+        "id": "scene-intro",
+        "type": "intro",
+        "title": "Trois repères pour reconnaître un fait social",
+        "objective_refs": [
+          "objective-definition"
+        ],
+        "concept_refs": [
+          "fait-social"
+        ],
+        "duration_minutes": 4,
+        "prov_derived_from": [
+          "passage:f374b898412fe395acd0c12f"
+        ]
+      },
+      {
+        "id": "scene-quiz",
+        "type": "quiz",
+        "title": "Repérer la coercition",
+        "objective_refs": [
+          "objective-definition"
+        ],
+        "concept_refs": [
+          "fait-social"
+        ],
+        "notes": "Quel indice montre le plus directement, chez Durkheim, qu’une règle exerce une coercition sociale ?",
+        "duration_minutes": 3,
+        "prov_derived_from": [
+          "passage:10563f967dc271c82a2717c4"
+        ]
+      },
+      {
+        "id": "scene-comparison",
+        "type": "comparison",
+        "title": "Général parce que collectif, et non l’inverse",
+        "objective_refs": [
+          "objective-distinction"
+        ],
+        "concept_refs": [
+          "generalite-collectif"
+        ],
+        "duration_minutes": 5,
+        "prov_derived_from": [
+          "passage:cc366f6ef7cca24e2147e8a5"
+        ]
+      },
+      {
+        "id": "scene-explain",
+        "type": "explain_back",
+        "title": "Expliquer la définition sans la réciter",
+        "objective_refs": [
+          "objective-definition",
+          "objective-distinction"
+        ],
+        "concept_refs": [
+          "fait-social",
+          "generalite-collectif"
+        ],
+        "duration_minutes": 6,
+        "prov_derived_from": [
+          "passage:f374b898412fe395acd0c12f",
+          "passage:8d55ba5977289c0552700790"
+        ]
+      }
+    ],
+    "corpus_refs": [
+      {
+        "ref_id": "passage:f374b898412fe395acd0c12f",
+        "ref_type": "offline",
+        "title": "Définition synthétique du fait social"
+      },
+      {
+        "ref_id": "passage:10563f967dc271c82a2717c4",
+        "ref_type": "offline",
+        "title": "La coercition révélée par la résistance"
+      },
+      {
+        "ref_id": "passage:cc366f6ef7cca24e2147e8a5",
+        "ref_type": "offline",
+        "title": "Le collectif et le général"
+      },
+      {
+        "ref_id": "passage:8d55ba5977289c0552700790",
+        "ref_type": "offline",
+        "title": "Définition finale du chapitre"
+      }
+    ],
+    "status": "draft",
+    "validated_by": null,
+    "metadata": {
+      "subject": "Sociologie",
+      "author": "Apprenant autonome — exemple Studium",
+      "created": "2026-10-30",
+      "tags": [
+        "Durkheim",
+        "fait social",
+        "méthode sociologique"
+      ]
+    },
+    "prov_derived_from": [
+      "passage:f374b898412fe395acd0c12f",
+      "passage:10563f967dc271c82a2717c4",
+      "passage:cc366f6ef7cca24e2147e8a5",
+      "passage:8d55ba5977289c0552700790"
+    ],
+    "dct_subject": "Sociologie",
+    "dct_language": "fr"
+  },
+  "source_links": [
+    {
+      "scene_id": "scene-intro",
+      "evidence_id": "passage:f374b898412fe395acd0c12f",
+      "quote": "des manières d’agir, de penser et de sentir, extérieures à l’individu, et qui sont douées d’un pouvoir de coercition"
+    },
+    {
+      "scene_id": "scene-quiz",
+      "evidence_id": "passage:10563f967dc271c82a2717c4",
+      "quote": "la preuve, c’est qu’elle s’affirme dès que je tente de résister"
+    },
+    {
+      "scene_id": "scene-comparison",
+      "evidence_id": "passage:cc366f6ef7cca24e2147e8a5",
+      "quote": "s’il est général, c’est parce qu’il est collectif (c’est-à-dire plus ou moins obligatoire), bien loin qu’il soit collectif parce qu’il est général"
+    },
+    {
+      "scene_id": "scene-explain",
+      "evidence_id": "passage:8d55ba5977289c0552700790",
+      "quote": "susceptible d’exercer sur l’individu une contrainte extérieure ; ou bien encore, qui est générale dans l’étendue d’une société donnée tout en ayant une existence propre, indépendante de ses manifestations individuelles"
+    }
+  ],
+  "viewers": []
+}

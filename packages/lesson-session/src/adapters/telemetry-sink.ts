@@ -10,8 +10,8 @@ export class JsonlTelemetrySink implements TelemetrySink {
   async flush(): Promise<void> {
     if (this.buffer.length === 0) return;
     const events = this.buffer; this.buffer = [];
-    await mkdir(dirname(this.file), { recursive: true });
-    await appendFile(this.file, events.map((e) => JSON.stringify(e)).join("\n") + "\n", "utf8");
+    await mkdir(dirname(this.file), { recursive: true, mode: 0o700 }); // L-11: learner folders 0700, files 0600
+    await appendFile(this.file, events.map((e) => JSON.stringify(e)).join("\n") + "\n", { encoding: "utf8", mode: 0o600 });
   }
   /** RGPD erasure (#4): clear the in-memory buffer AND delete the telemetry file on disk.
    * The per-session file carries the learner's pseudonym + event refs — erase it for real.

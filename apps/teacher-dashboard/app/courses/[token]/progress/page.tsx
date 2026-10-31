@@ -1,6 +1,8 @@
+import { findLessonByToken } from "@/lib/library";
 import { getProgress, isSuppressed } from "@/lib/api";
 import ProgressHeatmap from "@/components/ProgressHeatmap";
-import CourseNav from "@/components/CourseNav";
+import CourseShell from "@/components/CourseShell";
+import { ApiError } from "@/components/DashboardNotice";
 import SuppressedNotice from "@/components/SuppressedNotice";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +11,7 @@ type Props = { params: { token: string } };
 
 export default async function ProgressPage({ params }: Props) {
   const token = decodeURIComponent(params.token);
+  const lesson = await findLessonByToken(token);
   let data;
   let error: string | null = null;
   try {
@@ -17,19 +20,22 @@ export default async function ProgressPage({ params }: Props) {
     error = (e as Error).message;
   }
   return (
-    <main className="max-w-5xl mx-auto p-8">
-      <h1 className="text-xl font-bold mb-2">
-        Cours <code className="text-base">{token}</code>
-      </h1>
-      <CourseNav token={token} active="progress" />
-      <h2 className="text-lg font-semibold mb-4">Progression par scène</h2>
+    <CourseShell
+      token={token}
+      active="progress"
+      eyebrow="Vue d’ensemble"
+      title="Progression par scène"
+      description="Une lecture synthétique des scènes terminées, pour localiser les avancées et les points d’attention du cours."
+    >
       {error ? (
-        <p className="text-red-600">Erreur API : {error}</p>
+        <ApiError message={error} />
       ) : isSuppressed(data) ? (
         <SuppressedNotice info={data} />
       ) : data ? (
-        <ProgressHeatmap data={data} />
-      ) : null}
-    </main>
+        <ProgressHeatmap data={data} sceneTitles={Object.fromEntries((lesson?.outline ?? []).map((scene) => [scene.id, scene.title]))} />
+      ) : (
+        <p className="empty-state">Aucune lecture de progression disponible.</p>
+      )}
+    </CourseShell>
   );
 }

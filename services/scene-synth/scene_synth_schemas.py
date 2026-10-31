@@ -2,7 +2,7 @@
 
 ADR 010 — flat shape : tous les types de scène ont leurs champs métier à la
 racine, sans enveloppe ``content``. schema_version bumped to 1.1.
-ADR 014 — Evidence fields on IntroScene/ConceptScene/ReproductionScene.
+ADR 014 — Evidence field on every scene (the scene base since 2026-10-30).
 schema_version bumped to 1.4.
 
 Convention rule 004 : ce module n'est jamais importé sous le nom `schemas`
@@ -71,7 +71,7 @@ ABSAssetType = Literal[
 # ---------------------------------------------------------------------------
 
 RenderAssetKind = Literal[
-    "image", "svg", "equation_latex", "plot_spec", "code", "data_csv",
+    "image", "audio", "video", "svg", "equation_latex", "plot_spec", "code", "data_csv",
     "protocol_md", "executed_result",
     # interactive scientific kinds (3Dmol.js / RDKit.js / Vega-Lite):
     "orbital", "mol_3d", "spectrum",
@@ -100,6 +100,8 @@ class BibliographicRef(BaseModel):
     excerpt: str = Field(max_length=500)
     relevance_score: float = Field(ge=0, le=1)
     prov_derived_from: str = Field(min_length=1)
+    # The source licence as declared (e.g. "CC BY-SA 4.0"); mirror of Zod BibliographicRefSchema.
+    license: Optional[str] = Field(default=None, min_length=1)
 
 
 class CaseStudy(BaseModel):
@@ -139,12 +141,44 @@ class Concept(BaseModel):
     bloom_level_target: BloomLevel
 
 
+AuthoringMode = Literal["teacher", "self_study"]
+# Who drafted the content and its answer keys (contract C3, 2026-10-30; mirror of Zod DraftedBySchema).
+DraftedBy = Literal["agent", "learner", "teacher"]
+
+
+class BundleLearnerProfile(BaseModel):
+    """Scheduling part of the learner's intake (mirror of Zod BundleAuthoringSchema.learner_profile).
+
+    Prior knowledge and interests shape the draft and are never stored with a lesson.
+    """
+
+    minutes_per_day: Optional[int] = Field(default=None, ge=1, le=600)
+    target_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+class BundleAuthoring(BaseModel):
+    """Who wrote the bundle (mirror of Zod BundleAuthoringSchema).
+
+    ``drafted_by`` is absent on bundles built before 2026-10-30; readers then default it by mode
+    (``learner`` for ``self_study``, ``teacher`` otherwise). This mirror must carry it: dropped on a
+    round trip, an agent-drafted key would be read back as the learner's own (open book).
+    """
+
+    mode: AuthoringMode
+    author_is_learner: bool = False
+    drafted_by: Optional[DraftedBy] = None
+    note: Optional[str] = None
+    learner_profile: Optional[BundleLearnerProfile] = None
+
+
 class BundleMetadata(BaseModel):
     title: str
     target: str
     duration_minutes: int = Field(gt=0)
     language: str = Field(min_length=2)
     discipline: str
+    # Absent on bundles built before 2026-10-30; readers treat absent as "teacher".
+    authoring: Optional[BundleAuthoring] = None
 
 
 class _SceneBase(BaseModel):
@@ -159,6 +193,12 @@ class _SceneBase(BaseModel):
     # explicit typed artifacts rendered pair-by-pair with this scene/cell (orbital, spectrum,
     # equation, plot…). Flattened client-side by sceneRenderAssets(); optional + back-compatible.
     render_assets: Optional[list[RenderAsset]] = None
+    # ADR 014 evidence, on every scene type since 2026-10-30 (mirror of Zod SceneBaseSchema): the
+    # conversational author binds each item to the passages it cites. Declared on intro, concept and
+    # reproduction only before, so it was silently dropped from every other type.
+    evidence: Optional[Evidence] = None
+    # A pre-lesson diagnostic, never replayed in spaced review (mirror of Zod SceneBaseSchema).
+    diagnostic: Optional[bool] = None
 
 
 # ---------------------------------------------------------------------------
@@ -175,14 +215,12 @@ class QuizChoice(BaseModel):
 class IntroScene(_SceneBase):
     type: Literal["intro"]
     markdown: str
-    evidence: Optional[Evidence] = None
 
 
 class ConceptScene(_SceneBase):
     type: Literal["concept"]
     markdown: str
     image_path: Optional[str] = None
-    evidence: Optional[Evidence] = None
 
 
 class QuizScene(_SceneBase):
@@ -285,7 +323,6 @@ class ReproductionScene(_SceneBase):
     # OPTIONAL learner-time run (parity with TS): when present, the learner reproduces the capsule at
     # session time (host/operator provisions + runs), not merely views a pre-baked author run.
     run_manifest: Optional[RunManifest] = None
-    evidence: Optional[Evidence] = None
 
 
 class Claim(BaseModel):
@@ -571,6 +608,10 @@ class CritiqueEvalRequest(BaseModel):
 class CritiqueEvalResponse(BaseModel):
     score: float = Field(ge=0, le=1)
     feedback: str
+    # Ids of the request's claims / key points the judge found covered. [] = measured, none covered;
+    # None = not measured, and then the key is OMITTED from the response (the endpoint excludes None):
+    # the TS client reads an absent key as "use keywords for the count" and a [] as an LLM judgement.
+    covered_ids: Optional[list[str]] = None
 
 
 # ---------------------------------------------------------------------------
@@ -693,9 +734,12 @@ __all__ = [
     "AICritiqueRubric",
     "AICritiqueScene",
     "AdaptationRule",
+    "AuthoringMode",
     "BibliographicRef",
     "BloomLevel",
     "Bundle",
+    "BundleAuthoring",
+    "BundleLearnerProfile",
     "CaseStudy",
     "Claim",
     "CommunicationSimScene",

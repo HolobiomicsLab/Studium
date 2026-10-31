@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+<title>Learner activity technical report</title>
+<style id="report-layout">
+html{scroll-behavior:smooth}.skip-link{position:fixed;z-index:100;top:.5rem;left:.5rem;transform:translateY(-180%);padding:.65rem 1rem;background:#193039;color:white;border-radius:.25rem}.skip-link:focus{transform:translateY(0)}.viewer-header>div:first-child{max-width:76ch}.viewer-header .viewer-summary{padding:0;border:0;background:transparent}.resource-links{display:flex;gap:.5rem 1rem;flex-wrap:wrap}.report-section{margin:0 0 2rem}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}@media print{.skip-link{display:none}}
+</style>
+<style id="studium-theme">
+/* Studium viewer charter v1 — local, shared, and inlined into portable exports. */
+:root {
+  --studium-canvas: #f4f7f6;
+  --studium-surface: #ffffff;
+  --studium-ink: #193039;
+  --studium-muted: #53666e;
+  --studium-rule: #d4dfdc;
+  --studium-accent: #006b60;
+  --studium-accent-strong: #004e47;
+  --studium-accent-soft: #e8f2ee;
+  --studium-warning: #875b20;
+  --studium-warning-soft: #fbf3e5;
+  --studium-danger: #a03f35;
+  --studium-font: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+  --studium-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --studium-radius: 10px;
+  --studium-measure: 1180px;
+  --paper: var(--studium-surface);
+  --white: var(--studium-surface);
+  --ivory: var(--studium-canvas);
+  --ink: var(--studium-ink);
+  --muted: var(--studium-muted);
+  --ink-soft: var(--studium-muted);
+  --line: var(--studium-rule);
+  --rule: var(--studium-rule);
+  --accent: var(--studium-accent);
+  --teal: var(--studium-accent);
+  --teal-deep: var(--studium-accent-strong);
+  --soft: var(--studium-accent-soft);
+  --teal-pale: var(--studium-accent-soft);
+  --warm: var(--studium-warning);
+  --ochre: var(--studium-warning);
+  --ochre-pale: var(--studium-warning-soft);
+  --red: var(--studium-danger);
+  --shadow: none;
+}
+body.studium-viewer {
+  margin: 0;
+  min-width: 0;
+  color: var(--studium-ink);
+  background: var(--studium-canvas);
+  font: 16px/1.6 var(--studium-font);
+  -webkit-font-smoothing: antialiased;
+}
+.studium-viewer *, .studium-viewer *::before, .studium-viewer *::after { box-sizing: border-box; }
+.studium-viewer main {
+  width: min(var(--studium-measure), calc(100% - 56px));
+  max-width: var(--studium-measure);
+  margin: 0 auto;
+  padding: 34px 0 64px;
+}
+.studium-viewer h1, .studium-viewer h2, .studium-viewer h3, .studium-viewer h4 {
+  color: var(--studium-ink);
+  font-family: var(--studium-font);
+  font-weight: 650;
+  line-height: 1.22;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+.studium-viewer h1 { max-width: 32ch; margin: 8px 0 16px; font-size: clamp(28px, 3.5vw, 42px); }
+.studium-viewer h2 { margin: 24px 0 12px; padding: 0; border: 0; font-size: clamp(21px, 2.2vw, 27px); }
+.studium-viewer h2::before { display: none; }
+.studium-viewer h3 { margin: 20px 0 8px; font-size: 19px; }
+.studium-viewer h4 { margin: 18px 0 8px; font-size: 16px; letter-spacing: 0; }
+.studium-viewer p { max-width: 76ch; margin: 10px 0; }
+.studium-viewer .lead, .studium-viewer .lede {
+  max-width: 74ch; margin: 10px 0 20px; color: var(--studium-muted);
+  font: 17px/1.6 var(--studium-font);
+}
+.studium-viewer .eyebrow, .studium-viewer .viewer-kicker {
+  color: var(--studium-accent); font: 700 11px/1.5 var(--studium-font);
+  letter-spacing: .1em; text-transform: uppercase;
+}
+.studium-viewer .meta, .studium-viewer .path, .studium-viewer .privacy {
+  color: var(--studium-muted); font-size: 12px; line-height: 1.55; overflow-wrap: anywhere;
+}
+.studium-viewer a { color: var(--studium-accent-strong); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.studium-viewer a:hover { color: var(--studium-accent); }
+.studium-viewer :focus-visible { outline: 3px solid var(--studium-warning); outline-offset: 3px; }
+.studium-viewer .site-header, .studium-viewer > header, .studium-viewer .viewer-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px 24px;
+  padding: 14px max(24px, calc((100vw - var(--studium-measure)) / 2));
+  border-bottom: 1px solid var(--studium-rule); background: var(--studium-surface);
+}
+.studium-viewer .mystra-report > .viewer-header { display: block; padding: 0 0 20px; background: transparent; }
+.studium-viewer .viewer-header .viewer-summary { margin: 12px 0; padding: 0; border: 0; background: transparent; }
+.studium-viewer .mystra-report .report-actions { display: flex; flex-wrap: wrap; }
+.studium-viewer .skip-link { top: -100px; transform: none; }
+.studium-viewer .skip-link:focus { top: .5rem; color: white; }
+.studium-viewer .brand, .studium-viewer .site-title {
+  flex-shrink: 0; white-space: nowrap; color: var(--studium-ink);
+  font: 750 14px/1.4 var(--studium-font); letter-spacing: .06em; text-decoration: none;
+}
+.studium-viewer .site-title::before { content: none; }
+.studium-viewer .card, .studium-viewer .analysis-card, .studium-viewer .review-bundle {
+  margin: 16px 0; padding: 24px; border: 1px solid var(--studium-rule);
+  border-radius: var(--studium-radius); background: var(--studium-surface); box-shadow: none;
+  min-width: 0;
+}
+.studium-viewer .card > h2, .studium-viewer .analysis-card > h3 { margin-top: 4px; }
+.studium-viewer .notice, .studium-viewer .status-note, .studium-viewer .banner {
+  max-width: none; margin: 16px 0; padding: 12px 16px;
+  border: 0; border-left: 3px solid var(--studium-accent);
+  border-radius: 0 6px 6px 0; background: var(--studium-accent-soft);
+  color: var(--studium-ink); font-size: 14px; line-height: 1.6;
+}
+.studium-viewer .banner { border-color: var(--studium-warning); background: var(--studium-warning-soft); }
+.studium-viewer .absent { color: var(--studium-warning); }
+.studium-viewer button, .studium-viewer .button {
+  min-height: 44px; padding: 10px 16px; border: 1px solid var(--studium-accent-strong);
+  border-radius: 7px; background: var(--studium-accent-strong); color: white;
+  font: 650 14px/1.4 var(--studium-font); cursor: pointer;
+}
+.studium-viewer button:hover, .studium-viewer .button:hover { background: var(--studium-accent); color: white; }
+.studium-viewer button.secondary, .studium-viewer .button:not(.primary), .studium-viewer .controls button {
+  background: var(--studium-surface); color: var(--studium-ink); border-color: var(--studium-rule);
+}
+.studium-viewer button.secondary:hover, .studium-viewer .button:not(.primary):hover { border-color: var(--studium-accent); background: var(--studium-accent-soft); }
+.studium-viewer .node-list button[aria-pressed=true] { background: var(--studium-accent-strong); color: white; border-color: var(--studium-accent-strong); }
+.studium-viewer button:disabled { cursor: not-allowed; opacity: .5; }
+.studium-viewer input, .studium-viewer textarea, .studium-viewer select { font: inherit; }
+.studium-viewer textarea, .studium-viewer select {
+  width: 100%; border: 1px solid #adbeb8; border-radius: 6px;
+  padding: 10px 12px; background: var(--studium-surface); color: var(--studium-ink);
+}
+.studium-viewer textarea:disabled, .studium-viewer select:disabled { color: var(--studium-muted); background: #f0f4f2; opacity: 1; -webkit-text-fill-color: var(--studium-muted); }
+.studium-viewer input[type=range], .studium-viewer input[type=radio] { accent-color: var(--studium-accent); }
+.studium-viewer label { font-size: 14px; font-weight: 550; }
+.studium-viewer .actions { gap: 10px; margin-top: 16px; }
+.studium-viewer .prediction { color: var(--studium-ink); background: #f0f6f3; border-color: #bed5ca; }
+.studium-viewer .prediction .eyebrow { color: var(--studium-accent); }
+.studium-viewer .prediction textarea, .studium-viewer .notes textarea { min-height: 88px; }
+.studium-viewer .field { margin: 12px 0; }
+.studium-viewer .feedback { border-radius: 0 6px 6px 0; font-size: 14px; }
+.studium-viewer .choice { margin: 10px 0; padding: 14px 16px; border-radius: 7px; background: var(--studium-surface); }
+.studium-viewer .choice:has(input:checked) { border-color: var(--studium-accent); background: #f1f7f4; }
+.studium-viewer .choice-title, .studium-viewer .choice-detail { display: block; }
+.studium-viewer .choice-detail { margin-top: 4px; color: var(--studium-muted); font-size: 14px; font-weight: 400; }
+.studium-viewer fieldset { min-width: 0; margin: 18px 0; padding: 16px; border: 1px solid var(--studium-rule); border-radius: 8px; }
+.studium-viewer legend { padding: 0 8px; font-size: 12px; font-weight: 700; color: var(--studium-muted); }
+.studium-viewer .readouts { border-radius: 8px; overflow: hidden; background: #f8faf9; }
+.studium-viewer .number, .studium-viewer .metric .value { font-family: var(--studium-mono); font-variant-numeric: tabular-nums; letter-spacing: -.035em; }
+.studium-viewer .number { margin-top: 7px; font-size: 25px; }
+.studium-viewer .metric-grid { grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 10px; }
+.studium-viewer .metric { min-height: 100px; padding: 16px; border: 1px solid var(--studium-rule); border-radius: 8px; box-shadow: none; background: var(--studium-surface); }
+.studium-viewer .metric .value { font-size: 29px; }
+.studium-viewer .metric .label { margin-top: 10px; font-size: 10px; letter-spacing: .055em; }
+.studium-viewer .section-nav, .studium-viewer .progress {
+  position: sticky; z-index: 20; top: 8px; display: flex; flex-wrap: nowrap;
+  max-width: 100%; margin: 22px 0; padding: 6px; gap: 4px; overflow-x: auto;
+  border: 1px solid var(--studium-rule); border-radius: 9px;
+  background: var(--studium-surface); box-shadow: 0 3px 12px #19303908;
+}
+.studium-viewer .section-nav a { flex-shrink: 0; min-height: 44px; padding: 10px 14px; border-radius: 5px; font: 650 13px/1.6 var(--studium-font); white-space: nowrap; text-decoration: none; }
+.studium-viewer .section-nav a:hover { background: var(--studium-accent-soft); }
+.studium-viewer .progress ol { width: 100%; margin: 0; }
+.studium-viewer .progress li { border: 0; border-radius: 5px; padding: 10px 14px; font-size: 13px; }
+.studium-viewer .progress li[aria-current=step] { background: var(--studium-accent-soft); color: var(--studium-accent-strong); }
+.studium-viewer .report-section, .studium-viewer section[id] { scroll-margin-top: 90px; }
+.studium-viewer table {
+  display: block; max-width: 100%; width: 100%; margin: 12px 0;
+  overflow-x: auto; border: 1px solid var(--studium-rule); border-collapse: separate;
+  border-spacing: 0; border-radius: 7px; background: var(--studium-surface); box-shadow: none;
+  font-size: 14px; font-variant-numeric: tabular-nums;
+}
+.studium-viewer thead { color: var(--studium-ink); background: #edf3f0; }
+.studium-viewer th, .studium-viewer td { padding: 12px 14px; border: 0; border-bottom: 1px solid var(--studium-rule); vertical-align: top; text-align: left; overflow-wrap: anywhere; }
+.studium-viewer th { font-size: 12px; font-weight: 700; letter-spacing: .015em; }
+.studium-viewer tbody th { background: #f3f7f5; }
+.studium-viewer tbody tr:last-child > * { border-bottom: 0; }
+.studium-viewer tbody tr:hover { background: #f5f9f7; }
+.studium-viewer .table-scroll { max-width: 100%; overflow-x: auto; border-radius: 8px; }
+.studium-viewer .table-scroll table { display: table; min-width: 650px; }
+.studium-viewer code, .studium-viewer pre { font-family: var(--studium-mono); font-size: .84em; overflow-wrap: anywhere; }
+.studium-viewer code { background: #edf2f0; border-radius: 4px; padding: 2px 5px; }
+.studium-viewer pre { max-width: 100%; padding: 16px; border: 1px solid var(--studium-rule); border-radius: 7px; background: #f8faf9; white-space: pre-wrap; }
+.studium-viewer details { margin: 16px 0; border: 1px solid var(--studium-rule); border-radius: 8px; background: var(--studium-surface); }
+.studium-viewer summary { min-height: 44px; padding: 14px 18px; color: var(--studium-ink); cursor: pointer; font-size: 14px; font-weight: 650; }
+.studium-viewer summary::marker { color: var(--studium-accent); }
+.studium-viewer details.completed-step { padding: 0 24px; }
+.studium-viewer details.completed-step > summary { margin: 0 -24px; padding: 16px 24px; }
+.studium-viewer details.completed-step[open] { padding-bottom: 20px; }
+.studium-viewer details.completed-step > p { max-width: 76ch; }
+.studium-viewer .status { color: var(--studium-accent-strong); font-size: 13px; }
+.studium-viewer .record-meta { font-size: 12px; border-color: var(--studium-rule); }
+.studium-viewer blockquote.evidence { border-radius: 0 6px 6px 0; background: #f8f4ec; font: 15px/1.65 var(--studium-font); }
+.studium-viewer .viewer-summary { margin: 18px 0; padding: 20px 24px; border: 1px solid var(--studium-rule); border-radius: 10px; background: var(--studium-surface); }
+@media (max-width: 760px) {
+  .studium-viewer main { width: calc(100% - 32px); padding: 22px 0 40px; }
+  .studium-viewer .site-header, .studium-viewer > header, .studium-viewer .viewer-header { padding: 14px 16px; gap: 10px; }
+  .studium-viewer .card, .studium-viewer .analysis-card, .studium-viewer .review-bundle { padding: 18px; }
+  .studium-viewer h1 { font-size: 29px; }
+  .studium-viewer .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .studium-viewer .section-nav { top: 4px; margin: 16px 0; max-height: none; }
+  .studium-viewer .progress { top: 4px; margin: 16px 0; }
+  .studium-viewer .progress li { padding: 10px 8px; }
+  .studium-viewer th, .studium-viewer td { min-width: 0; padding: 10px 12px; }
+  .studium-viewer .table-scroll th, .studium-viewer .table-scroll td { min-width: 70px; }
+}
+@media (prefers-reduced-motion: reduce) { .studium-viewer { scroll-behavior: auto; } }
+@media print {
+  body.studium-viewer { color: #172d38; background: white; font-size: 10pt; }
+  .studium-viewer main { width: 100%; padding: 0; }
+  .studium-viewer .section-nav, .studium-viewer .progress, .studium-viewer .screen-only { display: none !important; }
+  .studium-viewer h1 { font-size: 24pt; }
+  .studium-viewer h2 { font-size: 16pt; break-after: avoid; }
+  .studium-viewer .card, .studium-viewer .analysis-card, .studium-viewer .review-bundle { box-shadow: none; border-radius: 0; }
+  .studium-viewer table, .studium-viewer .table-scroll table { display: table; min-width: 0; width: 100%; overflow: visible; border-radius: 0; font-size: 8pt; }
+  .studium-viewer .table-scroll { overflow: visible; }
+  .studium-viewer th, .studium-viewer td { min-width: 0; padding: 6px 8px; overflow-wrap: anywhere; }
+  .studium-viewer thead { display: table-header-group; }
+  .studium-viewer tr { break-inside: avoid; }
+  .studium-viewer pre { overflow: visible; white-space: pre-wrap; }
+  .studium-viewer .metric { break-inside: avoid; }
+}
+</style></head>
+<body class="studium-viewer" data-viewer="report">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="viewer-header"><div><p class="viewer-kicker">Studium · local technical export</p><h1>Learner activity technical report</h1><p class="viewer-summary">A privacy-defaulted reading copy of selected learner activity and host-journal records. The two timelines remain separate.</p></div></header>
+<main id="main">
+<nav class="section-nav" aria-label="Report sections"><a href="#overview">Overview</a><a href="#context">Context</a><a href="#activity">Activity</a><a href="#journal">Host journal</a><a href="#source">MySTRA source</a></nav>
+<section class="report-section card" id="overview"><h2>Overview</h2><p class="notice">Technical integrity only. Scientific validation: not performed. Learning assessment: not performed. Zero learning judgments is the intended report scope.</p>
+<p class="privacy">Privacy: excluded_by_default. Assistance coverage: Unknown: missing trace does not establish that no help occurred.</p>
+<p>The activity and host-journal timelines are displayed separately. Shared scene identifiers show overlap only; they do not authenticate a learner, bundle or session.</p>
+<p class="resource-links"><a href="course_provenance.myst.md">MySTRA source</a><a href="astra.yaml">ASTRA</a><a href="trace/exploration_tree.yaml">ARA trace</a><a href="checks.json">Integrity checks</a></p></section>
+<section class="report-section card" id="context"><h2>Activity context</h2><p class="notice">Context unavailable: no prepared activity definition was selected. Identifiers are shown without inferred catalogue labels.</p></section>
+<section class="report-section" id="activity"><h2>Browser or harness reported activity</h2><div class="table-scroll" tabindex="0" role="region" aria-label="Activity events table"><table><thead><tr><th>Sequence</th><th>Reported UTC time</th><th>Actor</th><th>Action</th><th>Detail</th></tr></thead><tbody><tr><td colspan="5">No activity sidecar selected.</td></tr></tbody></table></div></section>
+<section class="report-section" id="journal"><h2>Host journal snapshot</h2><div class="table-scroll" tabindex="0" role="region" aria-label="Host journal events table"><table><thead><tr><th>Experiment</th><th>Sequence</th><th>Host time</th><th>Input</th></tr></thead><tbody><tr><td>threshold</td><td>1</td><td>2026-09-11T09:00:01Z</td><td>{&quot;authorship&quot;: &quot;learner&quot;, &quot;confidence&quot;: 2, &quot;consent&quot;: true, &quot;experiment_id&quot;: &quot;threshold&quot;, &quot;justification&quot;: &quot;[redacted]&quot;, &quot;kind&quot;: &quot;predict&quot;, &quot;prediction&quot;: &quot;[redacted]&quot;}</td></tr>
+<tr><td>threshold</td><td>2</td><td>2026-09-11T09:00:02Z</td><td>{&quot;experiment_id&quot;: &quot;threshold&quot;, &quot;kind&quot;: &quot;begin&quot;}</td></tr>
+<tr><td>threshold</td><td>3</td><td>2026-09-11T09:00:03Z</td><td>{&quot;authorship&quot;: &quot;learner&quot;, &quot;consent&quot;: true, &quot;evidence_refs&quot;: [&quot;[redacted]&quot;], &quot;experiment_id&quot;: &quot;threshold&quot;, &quot;kind&quot;: &quot;observe&quot;, &quot;text&quot;: &quot;[redacted]&quot;}</td></tr>
+<tr><td>threshold</td><td>4</td><td>2026-09-11T09:00:04Z</td><td>{&quot;authorship&quot;: &quot;learner&quot;, &quot;confidence&quot;: 3, &quot;consent&quot;: true, &quot;experiment_id&quot;: &quot;threshold&quot;, &quot;kind&quot;: &quot;conclude&quot;, &quot;text&quot;: &quot;[redacted]&quot;}</td></tr></tbody></table></div></section>
+<section class="report-section" id="source"><h2>Shared source rendering</h2><details><summary>MySTRA source</summary><pre>---
+title: &quot;Learner activity technical report — course provenance&quot;
+---
+
+# Learner activity technical report
+
+&gt; Rendered from the versioned artifacts in `host-journal/` (ASTRA 0.0.14, analyses `learner_activity_report`). Generated by `tools/astra_render.py`; do not edit by hand.
+
+## Document context
+
+**Inputs:**
+- `course_manifest` — data
+  - Course manifest and corpus references for Learner activity technical report.
+
+**Outputs:**
+- `learner_activity_report_experiment_journal_result` — from `learner_activity_report.experiment_journal`
+- `learner_activity_report_learner_report_result` — from `learner_activity_report.learner_report`
+- `learner_activity_report_ara_trace_result` — from `learner_activity_report.ara_trace`
+- `learner_activity_report_mystra_report_result` — from `learner_activity_report.mystra_report`
+- `learner_activity_report_browser_report_result` — from `learner_activity_report.browser_report`
+- `learner_activity_report_report_checks_result` — from `learner_activity_report.report_checks`
+
+## Analyses
+
+### Analysis `learner_activity_report` — Learner activity technical report
+
+**Inputs:**
+- `experiment_journal_input` — data
+  - Selected sanitized source sources/experiment-journal.json.
+
+**Outputs:**
+- `experiment_journal` — data; json
+  - Sanitized selected record at sources/experiment-journal.json; SHA-256 a6970115918945efd35d5b21ddb3a79d5dde3c63b6a447bca035eb6ef4a36168.
+- `learner_report` — data; json
+  - report.json: technical summary; no learning assessment.
+- `ara_trace` — data; yaml
+  - trace/exploration_tree.yaml: source-separated export path.
+- `mystra_report` — report; md
+  - course_provenance.myst.md rendered by the shared MySTRA renderer.
+- `browser_report` — report; html
+  - index.html: escaped local technical report.
+- `report_checks` — data; json
+  - checks.json: hashes and ASTRA validator result.
+
+## Decisions
+
+### Analysis `learner_activity_report` — Learner activity technical report
+
+**Learner free-text export** (`privacy_export`) — chose **Free text redacted**
+: Original learner and assistance words require an explicit local export choice.
+  - alternative: Original text included explicitly
+
+**Selected report sources** (`source_binding`) — chose **One selected source**
+: Scene overlap checks identifiers only; it does not authenticate learner, bundle or session identity, and clocks remain separate.
+  - alternative: Two sources with scene identifier overlap
+
+## Exploration trace
+
+Schema 0.1.0 — the build&#x27;s journey, alternatives included.
+
+```{mermaid}
+flowchart TB
+  N01[&quot;Which selected records and privacy choice produced this technical learner report?&quot;]
+  N01 --&gt; N02
+  N02{&quot;Learner free-text export&quot;}
+  N01 --&gt; N03
+  N03{&quot;Selected report sources&quot;}
+  N01 --&gt; N04
+  N04[&quot;Imported host journal snapshot (separate, unauthenticated timeline)&quot;]
+  N04 --&gt; N05
+  N05[&quot;Journal threshold sequence 1 · learner declaration · Predict · prediction: [redacted]; justification: [redacted]; confidence 2/4&quot;]
+  N04 --&gt; N06
+  N06[&quot;Journal threshold sequence 2 · host marker · Begin · experiment start recorded&quot;]
+  N04 --&gt; N07
+  N07[&quot;Journal threshold sequence 3 · learner declaration · Observe · observation: [redacted]; 1 evidence reference(s)&quot;]
+  N04 --&gt; N08
+  N08[&quot;Journal threshold sequence 4 · learner declaration · Conclude · conclusion: [redacted]; confidence 3/4&quot;]
+```
+
+- `N01` **question** — Which selected records and privacy choice produced this technical learner report?
+  - `N02` **decision** — Learner free-text export → chose *Free text redacted*
+    - alternative: Original text included explicitly
+  - `N03` **decision** — Selected report sources → chose *One selected source*
+    - alternative: Two sources with scene identifier overlap
+  - `N04` **question** — Imported host journal snapshot (separate, unauthenticated timeline)
+    - `N05` **experiment** — Journal threshold sequence 1 · learner declaration · Predict · prediction: [redacted]; justification: [redacted]; confidence 2/4
+    - `N06` **experiment** — Journal threshold sequence 2 · host marker · Begin · experiment start recorded
+    - `N07` **experiment** — Journal threshold sequence 3 · learner declaration · Observe · observation: [redacted]; 1 evidence reference(s)
+    - `N08` **experiment** — Journal threshold sequence 4 · learner declaration · Conclude · conclusion: [redacted]; confidence 3/4
+
+## Findings
+
+### Analysis `learner_activity_report` — Learner activity technical report
+
+- `validated_experiment_journal` — The selected sanitized host_journal_snapshot record contains 1 validated experiment sequence(s). This is a technical integrity statement, not a learning outcome.
+  - Evidence `validated_experiment_journal_ev0` — artifact `experiment_journal`
+- `assistance_coverage_unknown` — The selected records contain no assistance event; missing trace does not establish that no help occurred.
+  - Evidence `assistance_coverage_unknown_ev0` — artifact `experiment_journal`
+
+## Artifact gaps
+
+- `review/astra.yaml` — **missing**
+</pre></details></section>
+</main></body></html>

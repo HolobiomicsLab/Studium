@@ -10,12 +10,26 @@
  * Implements the FSRS-4.5 power-forgetting curve and stability/difficulty update with the
  * published default weights (tunable per-cohort later). Pure + dependency-free; time is
  * always passed in as an explicit `nowMs` (epoch ms) so the scheduler is deterministic and
- * testable. NOT yet wired into LearnerState serialization — when it is, add a Zod
- * `ConceptMemoryStateSchema` in @studium/learner-state and persist `concept_memory` beside
- * `concept_states`, updating it on each `answer_submitted` via `reviewMemory(...)`.
+ * testable. This module is the ONE scheduler (RT-3): the engine folds `reviewMemory(...)` into
+ * `LearnerState.concept_memory` at every graded answer (engine.ts), and the session host — which
+ * imports this module instead of the copy it used to keep — folds the learner's self-ratings and
+ * carries the memory across lessons on the profile (`LearnerProfile.concept_memory`). The history,
+ * capped at 50 entries, is replayed only once, to migrate a state saved before the memory existed.
  */
 
 export type ReviewGrade = 1 | 2 | 3 | 4; // again | hard | good | easy
+
+/** The learner's own recall rating after seeing the model answer (contract C4, Anki/FSRS native
+ * input). It schedules reviews only: it is not evidence of mastery. */
+export type SelfRating = "again" | "hard" | "good" | "easy";
+
+export const SELF_RATING_GRADES: Readonly<Record<SelfRating, ReviewGrade>> = Object.freeze({
+  again: 1, hard: 2, good: 3, easy: 4,
+});
+
+export function gradeFromSelfRating(rating: SelfRating): ReviewGrade {
+  return SELF_RATING_GRADES[rating];
+}
 
 export interface ConceptMemoryState {
   concept_id: string;

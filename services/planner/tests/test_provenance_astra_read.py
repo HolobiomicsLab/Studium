@@ -13,7 +13,9 @@ import pytest
 import yaml
 
 from astra_course_fixture import build_course_set, build_review_set  # noqa: E402
-from provenance.astra_read import load_course, universe_selection  # noqa: E402
+from provenance.astra_read import (  # noqa: E402
+    load_course, summary_lines, universe_selection, universe_summary, universe_summary_lines,
+)
 
 BROKEN_YAML = "id: [unclosed"
 
@@ -71,6 +73,63 @@ def test_universe_selection_flat_and_nested():
         {"analyses": {"s1": {"decisions": {"a": "y"}}, "s2": {"decisions": {"b": "z"}}}}
     ) == {"a": "y", "b": "z"}
     assert universe_selection({}) == {}
+
+
+def test_a_universe_summary_is_what_it_changes_and_a_count_of_the_rest():
+    """INT-STUDIUM-010 nit 3. A universe IS a delta from the defaults, but the emitter
+    assigns every decision of the analysis so that no selection reads `[MISSING_DECISION]`
+    — so the complete list is the default list repeated once per universe, and the delta is
+    buried inside it. The section prints what moved and counts what did not."""
+    doc = {"analyses": {"a": {"decisions": {"d1": {"default": "x"}, "d2": {"default": "y"},
+                                           "d3": {"default": "z"}}}}}
+    universe = {"id": "remedial",
+                "analyses": {"a": {"decisions": {"d1": "x", "d2": "heavy", "d3": "z"}}}}
+
+    assert universe_summary(universe, doc) == {"changed": {"d2": ["y", "heavy"]},
+                                               "at_default": 2}
+    assert universe_summary_lines(universe, doc) == [
+        "  - d2: `heavy` (default `y`)", "  - 2 decisions at default"]
+
+    # A universe that moves nothing says so as a count, not as an empty section.
+    baseline = {"id": "baseline", "analyses": {"a": {"decisions": {"d1": "x", "d2": "y"}}}}
+    assert universe_summary_lines(baseline, doc) == ["  - 2 decisions at default"]
+    # It counts what this universe selected, not what the analysis declares: `d3` is
+    # unnamed here, and the third decision is not part of this selection.
+    assert universe_summary(baseline, doc)["at_default"] == 2
+
+
+def test_a_selection_the_document_does_not_declare_counts_as_a_change():
+    """`at_default` counts the decisions this universe SELECTED and did not move, never the
+    decisions of the analysis. A universe naming a decision the document does not declare has
+    no default to sit at, and calling it "at default" would assert agreement with a value
+    that does not exist."""
+    doc = {"analyses": {"a": {"decisions": {"d1": {"default": "x"}}}}}
+    universe = {"id": "u", "analyses": {"a": {"decisions": {"d1": "x", "ghost": "v"}}}}
+    assert universe_summary(universe, doc) == {"changed": {"ghost": [None, "v"]},
+                                               "at_default": 1}
+    # And the line says so rather than naming `None` as the default it moved from.
+    assert universe_summary_lines(universe, doc)[0] == "  - ghost: `v` (no default recorded)"
+    # And a decision the document declares but the universe never names is neither: it is
+    # not part of this selection at all.
+    assert universe_summary({"id": "u", "decisions": {}}, doc) == {"changed": {},
+                                                                   "at_default": 0}
+    assert summary_lines({"changed": {}, "at_default": 0}) == ["  - no selection"]
+
+
+def test_the_flat_legacy_universe_shape_summarises_too():
+    doc = {"id": "flat", "decisions": {"d1": {"default": "x"}, "d2": {"default": "y"}}}
+    assert universe_summary({"id": "u", "decisions": {"d1": "moved", "d2": "y"}}, doc) == {
+        "changed": {"d1": ["x", "moved"]}, "at_default": 1}
+
+
+def test_a_wrong_shaped_summary_renders_rather_than_raising():
+    """`summary_lines` reads a report written by an earlier version, and a report is a file
+    on disk: a block of the wrong shape contributes nothing instead of taking the page."""
+    assert summary_lines({}) == ["  - no selection"]
+    assert summary_lines({"changed": "not a mapping", "at_default": 2}) == [
+        "  - 2 decisions at default"]
+    assert summary_lines({"changed": {"d": "not a pair"}, "at_default": 0}) == [
+        "  - no selection"]
 
 
 def test_unreadable_reason_names_the_type_and_nothing_else(tmp_path):

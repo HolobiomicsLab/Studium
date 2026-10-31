@@ -6,13 +6,33 @@ import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, setLessonMcpLog, type LogSink } from "./mcp-connect.js";
+import { connectLessonMcp, liveLessonMcpCount, withLessonMcpPaused, connectOrClose, describeServerLaunch, resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, serverBuildWarning, serverInfoLine, setLessonMcpLog, lessonMcpEnv, type LogSink, type ServerInfo } from "./mcp-connect.js";
+import { isolateFromHome } from "./driver-isolation.js";
+
+// I-10: no driver may write into the developer's home, even one that starts no server.
+const isolation = isolateFromHome("mcp-connect");
+
+async function main() {
 
 const failures: string[] = [];
 let checks = 0;
 function expect(cond: boolean, msg: string) { checks++; if (!cond) failures.push(msg); }
 
 const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", ".."); // apps/studium-vscode/src -> repo root
+
+// A failed SDK connect must release the partially-started client/process.
+{
+  let closes = 0;
+  const client = {
+    connect: async () => { throw new Error("spawn failed"); },
+    close: async () => { closes++; },
+  };
+  let message = "";
+  try { await connectOrClose(client, {}); }
+  catch (error: any) { message = String(error.message); }
+  expect(message === "spawn failed", "connectOrClose preserves the connection error");
+  expect(closes === 1, `connectOrClose cleans up a failed client once (got ${closes})`);
+}
 
 // 1) in the real monorepo it finds an existing tsx binary (not the PATH fallback).
 {
@@ -103,6 +123,8 @@ console.log(`OK — mcp-connect (resolveTsx + parseToolResult + stderr diagnosti
   const launch = resolveServerLaunch("/no/such/extension/path", repoRoot);
   expect(launch.args[0] === "src/index.ts" && launch.cwd.endsWith("apps/lesson-mcp"),
     "resolveServerLaunch prefers the repo checkout (tsx on live sources)");
+  expect(describeServerLaunch(launch) === `source (${resolve(launch.cwd, "src/index.ts")})`,
+    "describeServerLaunch names the resolved source entry path");
 }
 
 // 9) resolveServerLaunch: no repo -> the bundled server next to the extension, run as node.
@@ -115,6 +137,8 @@ console.log(`OK — mcp-connect (resolveTsx + parseToolResult + stderr diagnosti
     "resolveServerLaunch falls back to the bundled server via the host executable");
   expect(launch.env?.ELECTRON_RUN_AS_NODE === "1",
     "bundled launch sets ELECTRON_RUN_AS_NODE so the Electron host runs it as node");
+  expect(describeServerLaunch(launch) === "bundled (dist/lesson-mcp.cjs)",
+    "describeServerLaunch names the embedded bundle");
 }
 
 // 10) resolveServerLaunch: neither -> an actionable error naming the setting.
@@ -125,5 +149,73 @@ console.log(`OK — mcp-connect (resolveTsx + parseToolResult + stderr diagnosti
   expect(msg.includes("studium.repoRoot"), "missing-everything error names the studium.repoRoot setting");
 }
 
+// 11) get_server_info is rendered as one diagnostic line with build and runtime identity.
+{
+  const info: ServerInfo = {
+    name: "studium-lesson",
+    version: "0.1.0",
+    build: { origin: "bundled", built_at: "2026-10-29T09:30:00Z", git_sha: "33bf561" },
+    tools: ["get_server_info", "start_lesson_session"],
+    bundles_root: "/lessons",
+    data_dir: null,
+    model_backend: "none",
+  };
+  const line = serverInfoLine(info);
+  expect(line === "[studium-lesson] v0.1.0 bundled 2026-10-29T09:30:00Z sha=33bf561 tools=2 bundles_root=/lessons data_dir=none model_backend=none",
+    `serverInfoLine formats the complete payload (got: ${line})`);
+  expect(serverBuildWarning(info, repoRoot, () => "33bf561") === null,
+    "matching clean bundled and checkout SHAs produce no warning");
+  const stale = serverBuildWarning(info, repoRoot, () => "eb5b1e1");
+  expect(!!stale?.includes("WARNING") && stale.includes("33bf561") && stale.includes("eb5b1e1"),
+    `a stale bundled server reports both identities (got: ${stale})`);
+  const dirty = serverBuildWarning({ ...info, build: { ...info.build, git_sha: "eb5b1e1-dirty" } }, repoRoot, () => "eb5b1e1");
+  expect(!!dirty?.includes("WARNING") && dirty.includes("dirty"),
+    `a dirty server build emits a WARNING (got: ${dirty})`);
+}
+
+// ENG-03: learner state always lands in the extension's storage; consent decides only whether telemetry is sent.
+{
+  const base = { PATH: "/bin", STUDIUM_DATA_DIR: "/somewhere/else", STUDIUM_TELEMETRY_CONSENT: "granted" };
+  const off = lessonMcpEnv({ baseEnv: base, bundlesRoot: "/lessons", storageDir: "/vscode/global/studium", telemetryConsent: false });
+  expect(off["STUDIUM_DATA_DIR"] === "/vscode/global/studium", "the data dir is the extension storage even WITHOUT telemetry consent");
+  expect(off["BUNDLES_ROOT"] === "/lessons", "BUNDLES_ROOT is passed");
+  expect(off["STUDIUM_TELEMETRY_CONSENT"] === undefined, "no consent in the settings → the consent flag is removed, even if the shell had set it");
+  expect(off["PATH"] === "/bin", "the rest of the environment is kept");
+  const on = lessonMcpEnv({ baseEnv: {}, bundlesRoot: "/lessons", storageDir: "/vscode/global/studium", telemetryConsent: true });
+  expect(on["STUDIUM_DATA_DIR"] === "/vscode/global/studium" && on["STUDIUM_TELEMETRY_CONSENT"] === "granted", "consent adds the flag and keeps the same data dir");
+  expect(base.STUDIUM_DATA_DIR === "/somewhere/else", "the input environment is not mutated");
+  expect(!("STUDIUM_DATA_DIR" in lessonMcpEnv({ baseEnv: {}, bundlesRoot: "/l", storageDir: undefined, telemetryConsent: false })) , "no storage dir known → the variable is left unset (ephemeral), never pointed at the bundles folder");
+}
+
+// SEC-4: erasing the learner's data first closes EVERY lesson-mcp the extension owns (waiting for the
+// subprocesses to exit), and a connection asked for meanwhile waits until the erase is over.
+{
+  const launch = resolveServerLaunch(resolve(repoRoot, "apps", "studium-vscode"), repoRoot);
+  const env = { ...process.env, BUNDLES_ROOT: resolve(repoRoot, "fixtures") } as Record<string, string>;
+  const quiet: LogSink = () => {};
+  const one = await connectLessonMcp({ launch, env, log: quiet });
+  const two = await connectLessonMcp({ launch, env, log: quiet });
+  expect(liveLessonMcpCount() === 2, `both connections are registered (got ${liveLessonMcpCount()})`);
+  let lateConnected = false;
+  let late: Promise<Awaited<ReturnType<typeof connectLessonMcp>>> | undefined;
+  const seenInside = await withLessonMcpPaused(async () => {
+    const inside = { count: liveLessonMcpCount(), closed: one.isClosed() && two.isClosed() };
+    late = connectLessonMcp({ launch, env, log: quiet }).then((c) => { lateConnected = true; return c; });
+    await new Promise((r) => setTimeout(r, 300));
+    return { ...inside, lateConnected };
+  });
+  expect(seenInside.count === 0 && seenInside.closed, `inside the pause no lesson-mcp is left running (got ${JSON.stringify(seenInside)})`);
+  expect(!seenInside.lateConnected, "a connection asked for during the pause waits until it is over");
+  const third = await late!;
+  expect(lateConnected && !third.isClosed() && liveLessonMcpCount() === 1, `after the pause it connects (live ${liveLessonMcpCount()})`);
+  expect((await third.call("get_server_info", {})).name !== undefined, "and it answers");
+  await third.close();
+  expect(liveLessonMcpCount() === 0 && third.isClosed(), "closing it unregisters it");
+}
+
+expect(isolation.homeUntouched(), `I-10: nothing was written into the home directory (${isolation.home})`);
 if (failures.length) { console.error(`FAIL (${failures.length}/${checks}):`); for (const f of failures) console.error("  - " + f); process.exit(1); }
 console.log(`OK — mcp-connect driver passed all ${checks} assertions`);
+}
+
+main().catch((error) => { console.error(error); process.exit(1); });

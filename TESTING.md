@@ -1,105 +1,79 @@
-# Testing Studium — the atomistique lesson
+English · [Français](TESTING.fr.md)
 
-This is the entry point for a colleague testing the prototype without the author
-present. It is short and single-path. The demo course and its full walkthrough are
-in **French**; this page gets you there and points at the French guide, which is the
-richer document.
+# Testing Studium
 
-## 1. What you are testing
+This page is for a colleague who tries Studium without the authors present. In about 20 minutes you play an adaptive first-year chemistry lesson (atomistique) in VS Code, then tell us what is right, wrong or missing. No API key is needed, and no network access once setup is done: the rendering libraries are copied locally.
 
-An adaptive L1 chemistry lesson (atomistique) that runs **inside VS Code**. You move
-concept by concept, unlock the next one by demonstrating mastery, and manipulate
-generated scientific objects (3D atomic orbitals, the hydrogen emission spectrum,
-periodic trends, 3D molecules) while a workflow graph lights up in real time. About
-**20 minutes**. **No API key** and **no internet** are needed after install — the
-render libraries are vendored locally.
+The demo lesson and its detailed walkthrough are in French. Developers looking for the test suites should read [Testing (develop)](docs/develop/testing.md) instead.
 
-## 2. Prerequisites
+## What you are testing
 
-- **macOS** and **VS Code**.
-- **Node 20+** and **pnpm 9+**. The reliable way to get a matching pnpm is
-  `corepack enable` (ships with Node).
-- **`gh auth login` before you clone.** The repo is private, so an unauthenticated
-  clone fails.
+You move concept by concept and unlock the next one by showing that you master the current one. Along the way you manipulate generated scientific objects (3D atomic orbitals, the hydrogen emission spectrum, periodic trends, 3D molecules) while a graph of the lesson updates as you progress. After an answer, the feedback appears as its own step; at the end, a completion screen offers the reviews to come.
 
-Python is **not** needed for the lesson. It is needed only for the optional eval
-harness and the teacher class report — and note that a stock macOS `python3` is 3.9,
-which is too old; those tools want a real 3.12+ (`brew install python@3.12`).
+## Prerequisites
 
-> Troubleshooting the clone: an unauthenticated clone of a private repo fails with
-> `Repository not found`. That means authentication, not a missing repo — run
-> `gh auth login` and clone again.
+| You need | Why | How |
+|---|---|---|
+| macOS or Linux, with VS Code | The lesson runs in a VS Code pane; `setup.sh` is a bash script | [code.visualstudio.com](https://code.visualstudio.com) |
+| Node 22 (Node 20 or newer works) | Builds and runs the extension | [nodejs.org](https://nodejs.org) |
+| pnpm 9 | Installs the workspace | `corepack enable` (ships with Node) |
+| Access to the repository | The clone must succeed | `gh auth login` if the clone says `Repository not found` |
 
-## 3. Setup
+Python is not needed for the lesson. It is used only by the optional evaluation harness and the teacher's class report, and needs Python 3.12 or newer (a stock macOS `python3` is too old).
 
-Clone, then run the one setup command:
+## Set up
 
 ```bash
 git clone https://github.com/HolobiomicsLab/studium.git
 cd studium
+corepack enable
 ./setup.sh
 ```
 
-`setup.sh` checks your toolchain, installs the workspace, vendors the render
-libraries offline, and builds the extension. When it finishes, its last line tells
-you the next step: open `apps/studium-vscode` in VS Code and press F5.
+`setup.sh` checks your toolchain, installs the workspace, builds the libraries the lesson server needs, copies the rendering libraries for offline use, builds the extension, and verifies the result. Its last line tells you the next step. It is safe to run again.
 
-## 4. Run the lesson
+## Run the lesson
 
-1. In VS Code, **File ▸ Open Folder…** and open `apps/studium-vscode`.
-2. Press **F5** (on a Mac, **fn+F5** if F5 is a media key). A second window opens,
-   titled `[Extension Development Host]` — that is where you test.
-3. In that second window, open the Command Palette (`Cmd+Shift+P`) and run
-   **Studium: Open Lesson**.
+1. In VS Code, choose **File > Open Folder…** and open `apps/studium-vscode`.
+2. Press **F5** (on a Mac, **fn+F5** if F5 is a media key). A second window opens, titled `[Extension Development Host]`: test in that window.
+3. Open the Command Palette (`Cmd+Shift+P` on a Mac, `Ctrl+Shift+P` elsewhere) and run **Studium: Open lesson**.
 
-It runs zero-config against `fixtures/atomistique-l1`. No settings to change to start.
+The extension opens `fixtures/atomistique-l1` with no setting to change. Your progress is kept between sessions; run **Studium: Forget my data** to start again from scratch.
 
-## 5. The detailed walkthrough
+## Follow the walkthrough
 
-- **[`fixtures/atomistique-l1/GUIDE-TEST-ELISE.md`](fixtures/atomistique-l1/GUIDE-TEST-ELISE.md)**
-  — the full student and teacher walkthrough, in French. This is the richer document;
-  read it for the scene-by-scene tour (Partie 2, student) and the teacher side
-  (Partie 3).
-- **[`apps/studium-vscode/README.md`](apps/studium-vscode/README.md)** — the
-  extension's settings, commands, and scene types.
+- [`fixtures/atomistique-l1/GUIDE-TEST-ELISE.md`](fixtures/atomistique-l1/GUIDE-TEST-ELISE.md), in French: Part 2 is the student tour, scene by scene; Part 3 is the teacher side; Part 4 lists the questions below.
+- [`apps/studium-vscode/README.md`](apps/studium-vscode/README.md): the extension's commands, settings and scene types.
 
-## 6. What feedback we want
+For the teacher side, Part 3 of the guide uses `tools/class_report.py` to produce an aggregated, anonymous class report offline; no web application is needed.
 
-These questions are the ones already written in Partie 4 of the French guide and in
-[`docs/guides/learner-as-author-test-guide.md`](docs/guides/learner-as-author-test-guide.md):
+Want to try learning with your own AI assistant instead? The [quickstart](README.md#quickstart-5-minutes) registers the same server in Claude Code or Codex.
 
-- **Chemical accuracy** — are the statements, correct answers, feedback, and numeric
-  values right?
-- **Pedagogy** — is the order of concepts, the prerequisites, and the quiz relevance
-  right for an L1 level?
-- **Artifacts** — are the generated objects (orbitals, Balmer spectrum, periodic
-  trends, 3D molecules) accurate and useful? What is missing for your students?
-- **Teacher graph** — does the `teacher` graph view reflect your prerequisite logic?
-- **Class report** — does it point at the right concepts to rework, and would the
-  hint / calibration signals be useful to you?
-- **Scene types** — is a scene type missing (beyond quiz) for what you want your
-  students to do?
+## The feedback we want
 
-Send it by opening a GitHub issue (there is a **Tester feedback** issue form), or by email
-to Louis-Félix Nothias — `louisfelix.nothias@gmail.com`.
+- **Scientific accuracy.** Are the statements, correct answers, feedback and numerical values right?
+- **Teaching.** Are the order of concepts, the prerequisites and the questions relevant for first-year students?
+- **Scientific objects.** Are the orbitals, the Balmer spectrum, the periodic trends and the 3D molecules accurate and useful? What is missing for your students?
+- **Feedback and honesty.** Is it clear who wrote the answer key, and what was or was not assessed?
+- **Teacher graph.** Does the `teacher` view of the graph reflect your logic of prerequisites?
+- **Class report.** Does it point to the right concepts to rework? Would the hint and calibration signals help you?
+- **Scene types.** Is a kind of activity missing for what you want your students to do?
+- **Accessibility.** Can you complete the lesson with the keyboard alone, in light and dark themes?
 
-## 7. Troubleshooting
+Send your feedback through the **Tester feedback** issue form on GitHub (French or English), or by email to Louis-Félix Nothias, `louisfelix.nothias@gmail.com`. Please do not include personal data about students.
+
+## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| Clone fails with `Repository not found` | `gh auth login`, then clone again — the repo is private |
-| An orbital renders as plain text instead of 3D | re-run the vendor step: `pnpm --filter studium-vscode vendor` |
-| Wrong Node or pnpm version | `corepack enable`, then re-run `./setup.sh` |
-| Tempted to build every package | **You do not need `pnpm -r build`** — it succeeds (measured 2026-09-08), but it builds apps the tester path never launches and costs minutes; `setup.sh` builds only what you need |
+| The clone fails with `Repository not found` | Run `gh auth login`, then clone again: this is an access problem, not a missing repository |
+| `setup.sh` reports a Node or pnpm version that is too old | Install Node 22, run `corepack enable`, then `./setup.sh` again |
+| An orbital or an equation appears as plain text | Copy the rendering libraries again: `pnpm --filter studium-vscode vendor` |
+| Nothing happens on F5 | Check that the open folder is `apps/studium-vscode`, not the repository root |
+| You want to start the lesson over | Run **Studium: Forget my data** |
 
-## 8. Out of scope for testers
+More cases are covered in [Troubleshooting](docs/start/troubleshooting.md).
 
-VS Code is *the* interactive surface. You do not need — and should not try to build —
-the other apps:
+## Out of scope for this test
 
-- `student-runtime` (Tauri) — needs a Rust toolchain.
-- `author-web` and `teacher-dashboard` — web apps not needed for this test.
-
-For the teacher side, read **Partie 3** of the French guide: it uses the offline
-`tools/class_report.py` to produce an aggregated, anonymous class report — no web app
-required.
+VS Code is the surface under test. You do not need to build the other applications: the Tauri student app (`apps/student-runtime`, frozen, needs Rust), `author-web` (legacy) and the teacher dashboard. You do not need `pnpm -r build` either: `setup.sh` builds only what the lesson uses.

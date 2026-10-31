@@ -7,7 +7,7 @@ test.describe("/courses/[token]/blueprint", () => {
   test("renders mandatory ADR 013 disclaimer", async ({ page }) => {
     await page.goto(`/courses/${encodeURIComponent(COURSE_TOKEN)}/blueprint`);
     await expect(page.locator("text=/formatif uniquement/i")).toBeVisible();
-    await expect(page.locator("text=/ADR 013/")).toBeVisible();
+    await expect(page.getByRole("note").locator("p").filter({ hasText: /ADR 013/ })).toBeVisible();
   });
 
   test("renders radar after pseudonyme provided", async ({ page }) => {

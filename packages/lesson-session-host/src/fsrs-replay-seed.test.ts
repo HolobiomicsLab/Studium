@@ -89,7 +89,7 @@ describe("conceptMemoryFromState(state, seed) — seeded cross-lesson FSRS repla
   });
 
   it("a MALFORMED seed (reps>=1 but stability<=0 / null last) is not a usable anchor → replays from scratch", () => {
-    // would otherwise trip fsrsReviewMemory's re-init branch and silently reset reps→1 mid-fold.
+    // would otherwise trip reviewMemory's re-init branch and silently reset reps→1 mid-fold.
     const bad = { concept_id: "c", stability: 0, difficulty: 5, last_reviewed_at: null, reps: 4, lapses: 0 };
     const state = stateWith("c", [answer("c", true, t0), answer("c", true, t0 + 10 * DAY)]);
     const out = conceptMemoryFromState(state, { c: bad });

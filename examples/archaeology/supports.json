@@ -1,0 +1,22 @@
+{
+  "render_assets": [
+    {
+      "kind": "image",
+      "title": "Source photograph · The Met, object 544227",
+      "path": "museum-photo.jpg",
+      "provenance": "The Metropolitan Museum of Art, Hippopotamus (\"William\"), object 544227. Gift of Edward S. Harkness, 1917. Museum API public-domain flag checked 2026-09-12; unmodified web-size photograph. https://www.metmuseum.org/art/collection/search/544227",
+      "meta": {
+        "alt": "A blue-green hippopotamus-shaped figurine with dark plant-like markings, photographed against a neutral background. Its head points to the right.",
+        "origin": "source",
+        "placement": "before_prediction",
+        "rights": {
+          "creator": "The Metropolitan Museum of Art",
+          "license": "CC0 1.0 (Met Open Access; object marked public domain)",
+          "evidence_url": "https://www.metmuseum.org/hubs/open-access",
+          "scope": "public",
+          "adaptations": "None; museum web-size photograph."
+        }
+      }
+    }
+  ]
+}

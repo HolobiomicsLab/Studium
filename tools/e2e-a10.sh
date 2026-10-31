@@ -11,8 +11,9 @@ PLANNER_PORT="${PLANNER_PORT:-8001}"
 SYNTH_PORT="${SYNTH_PORT:-8002}"
 
 echo "[A.10] starting planner on :$PLANNER_PORT"
+# The planner answers 503 without a model; this demo selects the deterministic mock explicitly.
 ( cd "$ROOT/services/planner" && \
-  uvicorn planner_app:app --port "$PLANNER_PORT" >/tmp/planner.log 2>&1 ) &
+  STUDIUM_LLM_MODE=mock uvicorn planner_app:app --port "$PLANNER_PORT" >/tmp/planner.log 2>&1 ) &
 PLANNER_PID=$!
 
 echo "[A.10] starting scene-synth on :$SYNTH_PORT"
@@ -30,6 +31,12 @@ sleep 3
 echo "[A.10] running pytest pipeline E2E"
 ( cd "$ROOT" && \
   python -m pytest services/scene-synth/tests/e2e/test_full_pipeline.py -v )
+
+# Le spec charge `$BUNDLE_DIR/demo-fresh.zip` via `window.__test_bundle_path` ; rien ne
+# l'écrivait, donc le spec s'arrêtait à la bibliothèque (INT-STUDIUM-033). Le bundle est
+# ÉMIS par le pipeline scene-synth, pas stocké : c'est ce que ce harnais mesure.
+echo "[A.10] baking demo-fresh.zip"
+BUNDLE_DIR="$BUNDLE_DIR" python3 "$ROOT/tools/bake_demo_fresh.py"
 
 echo "[A.10] running wdio runtime E2E (requires release bundle)"
 ( cd "$ROOT/apps/student-runtime" && \

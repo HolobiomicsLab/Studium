@@ -1,0 +1,60 @@
+{
+  "bundle_revision": "revision-a",
+  "experiments": [
+    {
+      "events": [
+        {
+          "input": {
+            "authorship": "learner",
+            "confidence": 2,
+            "consent": true,
+            "experiment_id": "threshold",
+            "justification": "[redacted]",
+            "kind": "predict",
+            "prediction": "[redacted]"
+          },
+          "recorded_at": "2026-09-11T09:00:01Z",
+          "sequence": 1
+        },
+        {
+          "input": {
+            "experiment_id": "threshold",
+            "kind": "begin"
+          },
+          "recorded_at": "2026-09-11T09:00:02Z",
+          "sequence": 2
+        },
+        {
+          "input": {
+            "authorship": "learner",
+            "consent": true,
+            "evidence_refs": [
+              "[redacted]"
+            ],
+            "experiment_id": "threshold",
+            "kind": "observe",
+            "text": "[redacted]"
+          },
+          "recorded_at": "2026-09-11T09:00:03Z",
+          "sequence": 3
+        },
+        {
+          "input": {
+            "authorship": "learner",
+            "confidence": 3,
+            "consent": true,
+            "experiment_id": "threshold",
+            "kind": "conclude",
+            "text": "[redacted]"
+          },
+          "recorded_at": "2026-09-11T09:00:04Z",
+          "sequence": 4
+        }
+      ],
+      "experiment_id": "threshold",
+      "scene_id": "scene_01"
+    }
+  ],
+  "schema": "studium/experiment-journal/v1",
+  "storage": "private-local"
+}

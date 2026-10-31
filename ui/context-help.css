@@ -1,0 +1,21 @@
+/* Shared help owns no page typography, controls or assessment styles. */
+.studium-help.studium-help { display: block; position: relative; margin: .35rem 0 .7rem; border: 0; padding: 0; background: transparent; max-width: 38rem; font: 400 .9rem/1.55 "Avenir Next", Avenir, "Segoe UI", sans-serif; color: #263d43; letter-spacing: normal; }
+.studium-help > summary { display: flex; align-items: center; justify-content: center; width: 36px; min-height: 36px; padding: 0; margin: 0; border: 1px solid #71938e; border-radius: 50%; background: #f5faf8; color: #245e55; font: 700 1rem/1 sans-serif; cursor: pointer; list-style: none; }
+.studium-help > summary::-webkit-details-marker { display: none; }
+.studium-help > summary:hover, .studium-help[open] > summary { background: #e4f0ec; }
+.studium-help summary:focus-visible { outline: 3px solid #ac711c; outline-offset: 3px; }
+.studium-help .studium-help-box { margin: .45rem 0 0; padding: .85rem 1rem; border: 1px solid #c2d7d0; border-left: 3px solid #427c70; border-radius: .35rem; background: #f6faf8; max-width: 100%; overflow-wrap: anywhere; text-align: left; }
+.studium-help .studium-help-box h3 { font: 650 1rem/1.4 "Avenir Next", Avenir, sans-serif; color: #234d44; margin: 0 0 .45rem; }
+.studium-help .studium-help-box p { margin: .45rem 0; max-width: 65ch; font-size: inherit; }
+.studium-help .studium-help-more { margin: .7rem 0 0; padding: 0; border: 0; background: transparent; }
+.studium-help .studium-help-more > summary { cursor: pointer; color: #245e55; font: inherit; padding: .3rem 0; }
+.studium-help-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.studium-help [data-help-locale="fr"] { display: none; }
+html:lang(fr) .studium-help [data-help-locale="en"] { display: none; }
+html:lang(fr) .studium-help [data-help-locale="fr"] { display: block; }
+.studium-help[data-help-language="en"] [data-help-locale="en"] { display: block; }
+.studium-help[data-help-language="en"] [data-help-locale="fr"] { display: none; }
+.studium-help[data-help-language="fr"] [data-help-locale="en"] { display: none; }
+.studium-help[data-help-language="fr"] [data-help-locale="fr"] { display: block; }
+@media (pointer: coarse) { .studium-help > summary { width: 44px; min-height: 44px; } }
+@media print { .studium-help:not([open]) { display: none; } .studium-help[open] > summary { display: none; } .studium-help .studium-help-box { background: white; box-shadow: none; } }

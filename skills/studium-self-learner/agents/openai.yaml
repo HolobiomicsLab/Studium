@@ -1,0 +1,4 @@
+interface:
+  display_name: "Studium · Apprenant autonome"
+  short_description: "Construire et jouer une leçon à partir de ses références"
+  default_prompt: "Utilise $studium-self-learner pour construire une leçon à partir de mes références, puis la jouer en attendant mes propres réponses."

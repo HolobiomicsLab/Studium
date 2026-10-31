@@ -1,6 +1,7 @@
 {
   "name": "@studium/lesson-server",
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +14,7 @@
   "dependencies": {
     "@studium/lesson-session": "workspace:*",
     "@studium/lesson-session-host": "workspace:*",
-    "fastify": "^4.28.1",
+    "fastify": "^5.12.7",
     "zod": "^3.23.8"
   },
   "devDependencies": {

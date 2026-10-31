@@ -81,12 +81,18 @@ describe("Telemetry end-to-end pipeline (C.8)", () => {
       }) as typeof fetch;
     });
 
-    // ── Étape 2 : Consentement niveau A ─────────────────────────────────
+    // ── Étape 2 : Consentement niveaux A et B ───────────────────────────
+    // B est le niveau que l'écran présente comme « Indicateurs … transmis », et depuis
+    // INT-STUDIUM-030 il est EXIGÉ pour transmettre : `resolveTelemetryEndpoint` échoue fermée
+    // sans lui, même avec `window.__telemetry_endpoint` posé. Ce spec ne cochait que A et
+    // vérifiait pourtant une transmission — il mesurait une fuite, pas une fonctionnalité.
     await browser.pause(1500);
     const consentUrl = await browser.getUrl();
     if (consentUrl.includes("/consent")) {
       const aBox = await $("#a");
       await aBox.click();
+      const bBox = await $("#b");
+      await bBox.click();
       const continueBtn = await $("button*=Continuer");
       await continueBtn.click();
       await browser.pause(500);

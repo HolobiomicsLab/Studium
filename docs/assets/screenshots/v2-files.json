@@ -1,0 +1,419 @@
+{
+  "mission": "Studium production sprint V2",
+  "recorded_at": "2026-10-30T11:57:30.731430+00:00",
+  "head": "ef33b4f279ef0528269558e0a5dd67b05acd7b05",
+  "dirty": true,
+  "runtime": {
+    "node": "v24.16.0",
+    "pnpm": "9.15.9",
+    "python": "3.13.13",
+    "next": "14.2.35"
+  },
+  "files": [
+    {
+      "path": "apps/author-web/app/globals.css",
+      "change": "new",
+      "bytes": 1490,
+      "sha256": "ebe502fc5013641a41520a39eebc9f5e3f7aa38d2dfb489da48b214126da4f75"
+    },
+    {
+      "path": "apps/author-web/app/layout.tsx",
+      "change": "modified",
+      "bytes": 1098,
+      "sha256": "a85b7ad9b5a57e4b6b7e35b5c8deaa4e7ed0168f9d262e2b6069659f99be7b97"
+    },
+    {
+      "path": "apps/teacher-dashboard/README.md",
+      "change": "new",
+      "bytes": 4161,
+      "sha256": "a4f50c302be576ea893e7ff8fabba2eb071e2b097dcaf72034c02118da2496ca"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/analytics.css",
+      "change": "new",
+      "bytes": 20702,
+      "sha256": "d6fa615dec3a78a9102423b229384401e9c10d1fda1f05f87fd488b8ff9154aa"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/courses/[token]/journal/page.tsx",
+      "change": "modified",
+      "bytes": 1604,
+      "sha256": "4c75668faa8c2b5f65e1794041f57fe7165caf24e8417d9246c45810ee4065e7"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/courses/[token]/progress/page.tsx",
+      "change": "modified",
+      "bytes": 1430,
+      "sha256": "7e281506ba75288891c084a33f23272156ea9fcfb6c7d0e1ceaee37d592ed714"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/courses/[token]/reasoning/page.tsx",
+      "change": "modified",
+      "bytes": 2092,
+      "sha256": "7747085b7674be729e04b29728e1fcc834382cca937a0e5aed961a49c662f28a"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/courses/[token]/trajectory/page.tsx",
+      "change": "modified",
+      "bytes": 1905,
+      "sha256": "fb0af536fdbab99d09ceea04c355db90dd6af0c2ef6111e3766474996690612c"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/globals.css",
+      "change": "modified",
+      "bytes": 28664,
+      "sha256": "bcbc701a6f0e70f12c39034262da08f6a66f4bc05b036fcdfc33c16ca4bb4381"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/layout.tsx",
+      "change": "modified",
+      "bytes": 1048,
+      "sha256": "bcb65c206846e0a8e3add95bf18b5f3af5fcb0a3c38d2754143b87f8e88ef017"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/library.css",
+      "change": "new",
+      "bytes": 13091,
+      "sha256": "1b70af7c4840d9848b466688a3201b1f1f4d4fe5997d57746f3634e0577a58da"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/library/[lesson]/review/not-found.tsx",
+      "change": "new",
+      "bytes": 405,
+      "sha256": "1fcba6177650c89b1b1a30b9a3b1c193e5856ed8d4aef3175dd70e7668e0254e"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/library/[lesson]/review/page.tsx",
+      "change": "new",
+      "bytes": 5221,
+      "sha256": "a5bc0e18c0d926c66e1002c62b8dc7369b57b72e31bf025e684471765d6a1f2d"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/library/page.tsx",
+      "change": "new",
+      "bytes": 3876,
+      "sha256": "ca14e18718829f5b2fc6459a292732f1568c1e23a670630d3b1b9d286c67e1e7"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/page.tsx",
+      "change": "modified",
+      "bytes": 2873,
+      "sha256": "8846c7a63c145c71e9fce823a0b619b42ad2fae0c77966fde2ad89250539c111"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/preferences.ts",
+      "change": "new",
+      "bytes": 579,
+      "sha256": "66f3f8d53f7e2b7e1e09bb6493c8fac86f3777a68b48fa99f40af90c0c74d4f6"
+    },
+    {
+      "path": "apps/teacher-dashboard/app/room/page.tsx",
+      "change": "modified",
+      "bytes": 544,
+      "sha256": "ccbfdbac6aa0bb0eeac8241cf19f9f68d9bbb6f9cc4ed04e981ae31c92f71515"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/AILiteracyCard.tsx",
+      "change": "modified",
+      "bytes": 3316,
+      "sha256": "672e22f31304602eb47a1da4be3bb170cacca6460bf81066040314dca9182606"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/AutonomyBar.tsx",
+      "change": "modified",
+      "bytes": 4386,
+      "sha256": "878e71b9615bbca79f5611fbacf3084d0e079313cfb020b6ccda05a129b1aa4b"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/BlueprintRadar.tsx",
+      "change": "modified",
+      "bytes": 2712,
+      "sha256": "0438ac5f50eae6f16412b505adb53efaaca67848b46c0656940d3134ba941bb3"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/CalibrationChart.tsx",
+      "change": "modified",
+      "bytes": 2888,
+      "sha256": "a3f8c79d9977008fa461b4cdb2afe874d0dbf0cd657a1cc5117ceccc3adae399"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/ChartDataTable.tsx",
+      "change": "new",
+      "bytes": 1387,
+      "sha256": "605c793179cac16a1123c96fc9af6abdf5bee42bfc79ca0e257eef9dacc4a5e2"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/CourseProgress.tsx",
+      "change": "modified",
+      "bytes": 4128,
+      "sha256": "fa1afed7e956380ad490b53516dda4bfa6db908c8eea2325471ebb64998ac7fe"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/CourseShell.tsx",
+      "change": "modified",
+      "bytes": 2216,
+      "sha256": "a295b63356c4df813b2e1246336de4bcdcad4a27c5ba6fb0d305aa2d26b5e47a"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/DashboardHeader.tsx",
+      "change": "modified",
+      "bytes": 2367,
+      "sha256": "fb1c3975ec50cdd0bac62598c17b7e7bfc99d2ce8eb06cc74387740a070b2b5b"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/DashboardNotice.tsx",
+      "change": "modified",
+      "bytes": 848,
+      "sha256": "9f03c31855ff827c49bd9d87fcfa781357bf51ada95a867eb51ed2083ab48d5e"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/JournalStatsCard.tsx",
+      "change": "modified",
+      "bytes": 3255,
+      "sha256": "a3288902fedd20752e6afd061b08c69141f7cbb6a5accc6896a4862f665c4832"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/LessonStatus.tsx",
+      "change": "new",
+      "bytes": 432,
+      "sha256": "c99dbe37e2daf45b461c5d7b32d1d470ca3b5645f2ddfff33af648b29b5df7c7"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/PeerRoomPanel.tsx",
+      "change": "modified",
+      "bytes": 7717,
+      "sha256": "b0df7e8756554fbd7f5966ecfbd0a301a4277c94d2d15b656190326b0bac4c28"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/PrintButton.tsx",
+      "change": "new",
+      "bytes": 207,
+      "sha256": "22070b4ac49eaabeead245a710f03c04a4b9d380b0ef632a7e5c0e752ed4721c"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/ProgressHeatmap.tsx",
+      "change": "modified",
+      "bytes": 3283,
+      "sha256": "0152cfb6391e170691e0b71b63d214d00ff65c24627c617b5dcd583f458e2010"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/ReasoningBreakdown.tsx",
+      "change": "modified",
+      "bytes": 4326,
+      "sha256": "a79b9189e7f37e9e1aa3b5e18d19ecf973135d3196289f92a38fcfdb40dc5cd9"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/SubmissionsQueue.tsx",
+      "change": "modified",
+      "bytes": 6368,
+      "sha256": "384340ad5629bae2fbd8ca57b6247597bf307bc6921ac14faa0386086a7a0247"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/TrajectoryChart.tsx",
+      "change": "modified",
+      "bytes": 3403,
+      "sha256": "2c71d53079b466b952133bb6751c5a40ec6ac8e96e9c2a227008c7704d428b09"
+    },
+    {
+      "path": "apps/teacher-dashboard/components/TrustCalibrationChart.tsx",
+      "change": "modified",
+      "bytes": 7572,
+      "sha256": "97ecb6c98ade42296e10f4e546b4eeb52ab816248d61a4af3e17d3d692326863"
+    },
+    {
+      "path": "apps/teacher-dashboard/lib/api.ts",
+      "change": "modified",
+      "bytes": 22173,
+      "sha256": "e861ef2c6fffb920be90a2d54d6961b3f802bdd4cc765aa05ddd56d8d2568f1c"
+    },
+    {
+      "path": "apps/teacher-dashboard/lib/chart-palette.ts",
+      "change": "new",
+      "bytes": 959,
+      "sha256": "a983a11e90cba33c4830a518079b84d6fe88c5d9b46c9b9c97f17b1c212252eb"
+    },
+    {
+      "path": "apps/teacher-dashboard/lib/i18n.test.ts",
+      "change": "new",
+      "bytes": 774,
+      "sha256": "ac97b4d3e72c865c4a6eb00d7b297cb533acb42546d0bbfd1ee64d45e22f6e8e"
+    },
+    {
+      "path": "apps/teacher-dashboard/lib/i18n.ts",
+      "change": "new",
+      "bytes": 10009,
+      "sha256": "5cbd502d32d30ba78d6f5c0252ca67a378a3e7eac7eaaa26ce675c8f7746d532"
+    },
+    {
+      "path": "apps/teacher-dashboard/lib/library.test.ts",
+      "change": "new",
+      "bytes": 8216,
+      "sha256": "032d3c1c755bae99f5daa35719ce82d40a11be4ee97a1a245a9898390d432138"
+    },
+    {
+      "path": "apps/teacher-dashboard/lib/library.ts",
+      "change": "new",
+      "bytes": 12998,
+      "sha256": "0c8e6c50bf0f68afab471bc0417821e4edd23f68698a793d2b1f83e7e3c273bb"
+    },
+    {
+      "path": "apps/teacher-dashboard/lib/observatory-link.ts",
+      "change": "new",
+      "bytes": 938,
+      "sha256": "26d5af30bd8f9f2d502bbe7e8661cc492517ac0d3ea4dcafe772b9fd0616ba09"
+    },
+    {
+      "path": "apps/teacher-dashboard/lib/request-locale.ts",
+      "change": "new",
+      "bytes": 250,
+      "sha256": "919eb9ca87d70dc7e263013831adf14e45285058ed0c45b95607e1944298b441"
+    },
+    {
+      "path": "apps/teacher-dashboard/lib/service-read-errors.test.ts",
+      "change": "new",
+      "bytes": 1225,
+      "sha256": "8b66e34497f0b311c59eca96e5c1ab1b1729fdcebd0bde5a8b1744e53a7c6224"
+    },
+    {
+      "path": "apps/teacher-dashboard/next.config.mjs",
+      "change": "modified",
+      "bytes": 417,
+      "sha256": "4111130f9b54f0bf6808417b47bdf15918f2b8834808069abb5d9f4492039156"
+    },
+    {
+      "path": "apps/teacher-dashboard/tests/chart-accessibility.test.tsx",
+      "change": "new",
+      "bytes": 7674,
+      "sha256": "c238c496b05cf23a8d2af1b1325d9031fd580ccf2384a0e6612bdb2ca8a3b39d"
+    },
+    {
+      "path": "apps/teacher-dashboard/tests/library-pages.test.tsx",
+      "change": "new",
+      "bytes": 5627,
+      "sha256": "18a983d9d532da35c4773301cfdc05a0b31e476ab710553fc5e81724852b611f"
+    },
+    {
+      "path": "docs/assets/screenshots/capture-web.mjs",
+      "change": "new",
+      "bytes": 7943,
+      "sha256": "7e3a3a9d1375611273e4ff54dce037b0d858051ddb68d257d63baa6723dabcf4"
+    },
+    {
+      "path": "services/observatory/templates/base.html",
+      "change": "modified",
+      "bytes": 12535,
+      "sha256": "d1d169ac3a1d839c5c6e7c7c2cf469ebb84a149486dd70d5cee8137ba9466068"
+    },
+    {
+      "path": "ui/README.md",
+      "change": "new",
+      "bytes": 1466,
+      "sha256": "9b6f37e83e0e7f0ff95b978141fc94ad72991720c5f34f3a56cab549279bc115"
+    },
+    {
+      "path": "ui/studium-theme-current.css",
+      "change": "new",
+      "bytes": 15650,
+      "sha256": "28ceabfdbc39cec8eac06c095450f7e83af41f22d10ecd22fc925337451ca27e"
+    },
+    {
+      "path": "ui/studium-tokens.css",
+      "change": "new",
+      "bytes": 18492,
+      "sha256": "f6224a26ba8bce87114e6576838c37e59340dbaad10825915608a0e134c36670"
+    },
+    {
+      "path": "ui/sync-studium-tokens.mjs",
+      "change": "new",
+      "bytes": 1661,
+      "sha256": "ef5dadc7780a3999070a2ea6028d0e030340b5f4527f419d0e3f93dd6b26fddd"
+    }
+  ],
+  "evidence_files": [
+    "docs/assets/screenshots/v2-verification.md",
+    "docs/assets/screenshots/v2-files.json",
+    "docs/assets/screenshots/v2-capture-status.json",
+    "docs/assets/screenshots/v2-result.json"
+  ],
+  "excluded_peer_changes": [
+    "apps/teacher-dashboard/package.json"
+  ],
+  "unchanged_dependencies": [
+    {
+      "path": "design/tokens.css",
+      "bytes": 18503,
+      "sha256": "fbb156f2cebe4bde5468c08b92573378eecd6ce54d1ab64acee44d7a32f724a5"
+    },
+    {
+      "path": "ui/studium-theme.css",
+      "bytes": 13930,
+      "sha256": "c68f49670366c3eeb5bc7587a0ca0a329fca62a19c37a2578984904ac364319c"
+    }
+  ],
+  "read_dependencies": [
+    {
+      "path": "apps/teacher-dashboard/package.json",
+      "sha256": "acb07b38d3acbd94b2c1224663f2c035a6e7f9e4083400180cc5acf3be5cf67e"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/authoring.test.ts",
+      "sha256": "c3eaeb229e336b76b47e1873e9dcd5e880b191782d6e8f1d0acaeb79b1b6d1a7"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/blueprint.ts",
+      "sha256": "5d1220631c6d72e4247863326f97cadad51e0f12ef2a9b41f326b0299ae74cb2"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/course.ts",
+      "sha256": "c8d943be713ca7e3e268893effedbc2cec065027c94adae3206eb3dc2e3345de"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/errors.test.ts",
+      "sha256": "acc6bbfa9c6b76f74c90f4961a8ad1c714ff3cd83dc4d3e31bbb5876ec172272"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/errors.ts",
+      "sha256": "aaf82b016c301cf67d7abcdeb7df5f45e483fee28eba41f23fd5798def5cba8e"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/index.ts",
+      "sha256": "231e308bd3a37773774d27c1ff68e1982784bafdd4c9075441857de72a76cc8c"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/learner-item.ts",
+      "sha256": "c8850d4039da9533606c831978716e57a6fc43d2597c6437c70f7020f683855c"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/modulators.guard.test.ts",
+      "sha256": "af29166af4e68d360ac4d4da159a73515297b7a3975dfee63b9d4980d2a83959"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/modulators.ts",
+      "sha256": "e3e46caabd8240f1a2d6421491e910cbfb321607909e35659c61709e8a15c3bb"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/render-asset.ts",
+      "sha256": "b61a1bf6b4ede86a750a92d356a81b771b713f99f3a968f63a602642247769d1"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/rules.ts",
+      "sha256": "402146c92530c4b329980893c2f16d629c6c3ed1e40d1d7fc66e1dd50bdc9e62"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/scene-assets.ts",
+      "sha256": "eb28685699c96bacadc3e74f3700cd610ec12607c6a8b5347e8cc16c49b0a1c1"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/scene-evidence.test.ts",
+      "sha256": "b206269cb840461a15e91293115086a0b76b94092ab5b6187f0e9d57576e16c3"
+    },
+    {
+      "path": "packages/lesson-bundle-schema/src/scenes.ts",
+      "sha256": "3adf5d434a27a8454e037bd0ded06127af1f1e659f3085d8cd4b2655fefdf930"
+    },
+    {
+      "path": "packages/lesson-session-host/src/key-class.ts",
+      "sha256": "0b222d1db960b191f3eac8263b074d4519a769a05debeaa513ef0cc2a856a00e"
+    }
+  ]
+}

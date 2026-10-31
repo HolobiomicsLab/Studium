@@ -1,6 +1,6 @@
 // packages/lesson-session-host/src/deps.ts  (moved from server-deps.ts; renamed buildServerDeps → buildHostDeps)
 import { join } from "node:path";
-import type { SessionDeps } from "@studium/lesson-session";
+import type { Clock, SessionDeps } from "@studium/lesson-session";
 import {
   SystemClock, RandomIdGen, HmacPseudonymProvider,
   InMemoryStateStore, InMemoryEventLog, InMemoryTelemetrySink,
@@ -12,23 +12,37 @@ import {
   HttpLlmAuditJudge,
 } from "@studium/lesson-session/node";
 
+/** STUDIUM_PSEUDO_SECRET, or undefined when it is unset or blank (L-11: SEC-7, CC-7, CQ-2). A variable a
+ * harness exported empty (`STUDIUM_PSEUDO_SECRET=`, or the .env.example line uncommented) is unset, as
+ * persistence.ts treats every setting: a durable host then keys its learners with the data folder's own
+ * secret, never with an empty HMAC key anyone can recompute. A secret that is set is used as written. */
+export function envPseudoSecret(): string | undefined {
+  const value = process.env["STUDIUM_PSEUDO_SECRET"];
+  return value !== undefined && value.trim() !== "" ? value : undefined;
+}
+
 /** #4 fail-closed: refuse a missing/empty/"dev-secret" secret whenever ANY production-ish signal
  * is present — i.e. when `live === true` (LiteLLM wired) OR `NODE_ENV === "production"` OR
  * `STUDIUM_ENV === "production"`. This prevents a real production deployment that doesn't use
  * LiteLLM from silently falling back to the shared guessable HMAC key.
- * dev/test: permissive — default to "dev-secret" only when none of those signals are set. */
-function resolvePseudoSecret(live: boolean): string {
-  const env = process.env["STUDIUM_PSEUDO_SECRET"];
+ * dev/test: permissive — default to "dev-secret" only when none of those signals are set.
+ *
+ * I-6: STUDIUM_PSEUDO_SECRET wins; without it a durable host passes its data folder's own secret
+ * (`installSecret`, pseudonym-secret.ts), which is random per install and so passes the production
+ * check — unless it is the legacy "dev-secret" a folder written before I-6 keeps. */
+function resolvePseudoSecret(live: boolean, installSecret?: string): string {
+  const env = envPseudoSecret();
+  const secret = env !== undefined ? env : installSecret;
   const isProd = live
     || process.env["NODE_ENV"] === "production"
     || process.env["STUDIUM_ENV"] === "production";
-  if (isProd && (!env || env === "dev-secret")) {
+  if (isProd && (!secret || secret === "dev-secret")) {
     throw new Error(
       "STUDIUM_PSEUDO_SECRET must be set (and not 'dev-secret') in production mode " +
       "(live=true, NODE_ENV=production, or STUDIUM_ENV=production)",
     );
   }
-  return env ?? "dev-secret";
+  return secret ?? "dev-secret";
 }
 
 /** Sanitize a bundle_id as a single path segment — bundle_ids may contain ':' or '/'. The
@@ -72,9 +86,11 @@ export function telemetryConsentGranted(): boolean {
  * When `scopeDir` is omitted the behavior is byte-for-byte the previous in-memory default (the gate
  * is opt-in; the 18 host tests + server/mcp baselines stay green). pseudonym/clock/idGen/scorers
  * are identical in both modes — crucially the SAME HmacPseudonymProvider instance the host uses to
- * derive `scopeDir`, so the host dir pseudonym === session pseudonym (no salt drift). */
-export function buildHostDeps(live: boolean, scopeDir?: string): SessionDeps {
-  const pseudonym = new HmacPseudonymProvider(resolvePseudoSecret(live));
+ * derive `scopeDir`, so the host dir pseudonym === session pseudonym (no salt drift).
+ * `installSecret` is the durable data folder's own pseudonym secret (I-6), used when
+ * STUDIUM_PSEUDO_SECRET is unset. */
+export function buildHostDeps(live: boolean, scopeDir?: string, clock?: Clock, installSecret?: string): SessionDeps {
+  const pseudonym = new HmacPseudonymProvider(resolvePseudoSecret(live, installSecret));
   const durable = scopeDir !== undefined;
   // Consented telemetry: durable mode + explicit opt-in → write the pseudonymized ADR-006 event
   // stream to telemetry.jsonl under the per-learner scope dir (a teacher's class_report aggregates
@@ -87,7 +103,7 @@ export function buildHostDeps(live: boolean, scopeDir?: string): SessionDeps {
     eventLog: durable ? new JsonlEventLog(join(scopeDir, "events.jsonl")) : new InMemoryEventLog(),
     telemetry,
     pseudonym,
-    clock: new SystemClock(),
+    clock: clock ?? new SystemClock(),
     idGen: new RandomIdGen(),
     reasoningScorer: live
       ? new LiteLLMReasoningScorer({

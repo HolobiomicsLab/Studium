@@ -1,15 +1,18 @@
-# Exécute une reproduction / Run a reproduction
+# Run a reproduction
 
-Certaines scènes te demandent de **reproduire une vraie opération scientifique** — l'opération est le
-*véhicule*, le jugement calibré est la *destination*.
+Some scenes ask you to **reproduce a real scientific operation**. The operation is the *vehicle*; a
+calibrated judgment is the *destination*.
 
-- Sur une scène de reproduction, lance **« Lancer la reproduction »** (barre d'activité ou palette).
-- La capsule s'installe et tourne **dans ton espace de travail** — Studium n'exécute jamais lui-même.
-- Le **repère (landmark)** que TU produis (p. ex. `MODIFIED_COSINE=0.6477`) fonde la scène de jugement
-  suivante.
+- On a reproduction scene, click **Run the reproduction** in the lesson pane (also in the Studium sidebar).
+- Studium first shows you a window with the **exact command**, the **packages to install** and the **folder**
+  it runs in. Nothing starts until you confirm. **"Run and trust this course"** remembers that choice for
+  this exact version of the course; any change to the course asks again.
+- The capsule installs and runs **in your workspace folder**, and Studium itself never executes anything.
+  A run folder that is an absolute path or leaves the workspace (`..`) is refused.
+- The **landmark** YOU produce (for example `MODIFIED_COSINE=0.6477`) grounds the next judgment scene.
 
-Après le run, Studium indique si ton exécution est **attestée** (elle fonde le jugement) ou **mise en
-quarantaine** (incohérente avec le manifeste — le jugement utilisera alors le run de référence).
+After the run, Studium tells you whether your run is **attested** (it grounds the judgment) or
+**quarantined** (inconsistent with the declared manifest; the judgment then uses the reference run).
 
-> « Attesté » = cohérent avec le manifeste déclaré, **pas** « authentifié » : l'attestation est
-> structurelle, pas cryptographique.
+> "Attested" means consistent with the declared manifest, **not** "authenticated": attestation is
+> structural, not cryptographic.

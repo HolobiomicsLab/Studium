@@ -1,12 +1,22 @@
-// asset-path.ts — pure helpers for rendering a figure render-asset (executed_result / image) in the
-// notebook surface. Kept separate from notebook.ts so the path + MIME logic is unit-testable without
-// the VS Code Extension Host (notebook.ts itself uses vscode.* and is type-checked only).
-import { isAbsolute, resolve, dirname } from "node:path";
+// asset-path.ts — shared helpers for rendering image/executed_result assets in the notebook and pane.
+import { readFileSync, realpathSync } from "node:fs";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
-/** Resolve a render-asset `path`: an absolute path is used as-is; a relative one (e.g. "decay.png") is
- * resolved against the bundle directory (`<bundlesRoot>/<dirname(bundleRef)>`), where the asset lives. */
+type ImageAsset = { kind?: string; path?: string; [key: string]: unknown };
+
+function isInside(baseDir: string, candidate: string): boolean {
+  const rel = relative(baseDir, candidate);
+  return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+/** Resolve a readable asset under the selected bundle's canonical directory.
+ * Relative and in-bundle absolute paths are accepted; missing files and lexical/symlink escapes throw. */
 export function assetPathFor(bundlesRoot: string, bundleRef: string, p: string): string {
-  return isAbsolute(p) ? p : resolve(bundlesRoot, dirname(bundleRef), p);
+  const bundleDir = realpathSync(resolve(bundlesRoot, dirname(bundleRef)));
+  const candidate = isAbsolute(p) ? p : resolve(bundleDir, p);
+  const canonical = realpathSync(candidate);
+  if (!isInside(bundleDir, canonical)) throw new Error("figure path escapes selected bundle");
+  return canonical;
 }
 
 /** Best-effort image MIME from a file extension (defaults to PNG). */
@@ -17,4 +27,17 @@ export function imageMime(p: string): string {
   if (e.endsWith(".gif")) return "image/gif";
   if (e.endsWith(".webp")) return "image/webp";
   return "image/png";
+}
+
+/** Inline an image-like render asset for the lesson pane. Unreadable or out-of-bundle paths remain
+ * unchanged so the renderer can show its existing graceful fallback. */
+export function inlineImageAsset<T extends ImageAsset>(bundlesRoot: string, bundleRef: string, asset: T): T & { dataUri?: string } {
+  if (!asset.path || (asset.kind !== "image" && asset.kind !== "executed_result")) return asset;
+  try {
+    const path = assetPathFor(bundlesRoot, bundleRef, asset.path);
+    const payload = readFileSync(path).toString("base64");
+    return { ...asset, dataUri: `data:${imageMime(path)};base64,${payload}` };
+  } catch {
+    return asset;
+  }
 }

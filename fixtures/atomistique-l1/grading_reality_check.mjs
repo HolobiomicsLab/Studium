@@ -1,0 +1,132 @@
+// GRADING REALITY CHECK — a diagnostic, not an assertion.
+//
+// The other drivers in this directory answer the active-learning scenes with text built FROM the
+// authored cue strings, so they prove the pipeline runs; they cannot prove it grades. This one
+// answers as real L1 students would — correct chemistry in the student's own words, and wrong
+// chemistry that happens to contain the cue words — and prints where Studium's verdict parts
+// company with a teacher's.
+//
+// Offline (the default tester path: no LITELLM_BASE_URL, no :8002 shim) every free-text scene is
+// scored by matchClaimsAgainstCritique, which credits a claim when its cue string appears
+// ANYWHERE in the answer. It has no notion of negation, of who is asserting what, or of whether
+// there are sentences at all. Run it and read the ✗ rows:
+//   node_modules/.pnpm/node_modules/.bin/tsx fixtures/atomistique-l1/grading_reality_check.mjs
+// Exits 0 always — it reports, it does not gate.
+//
+// SINCE INT-STUDIUM-035 CANDIDATE 2 (owner's decision, 2026-09-10) this table has THREE verdict
+// states, not two. That score is still computed and still published to the teacher as a coverage
+// hint, but it no longer certifies: offline, `answer_submitted` carries no `correct` at all, and
+// the STUDIUM column reads `—` for "nobody graded this". Printing `FAIL` there would be the same
+// defect as before pointing the other way — reporting a failure that was never observed — so the
+// two counts below are kept apart: answers actively graded AGAINST the teacher, and answers left
+// uncertified. The score column is unchanged, which is the point of candidate 2: what the teacher
+// reads about coverage is exactly what it was; what disappeared is the claim about mastery.
+//
+// The last block answers a different question, added for INT-STUDIUM-037: candidate 3 of the same
+// intent proposes thresholding this score instead of retiring it, so it prints what the best
+// possible threshold over the EXISTING cues would reach on these twelve answers.
+import { readFileSync } from "node:fs";
+import { grade } from "../../packages/lesson-session/src/grading/index.ts";
+import { StubCritiqueEvaluator } from "../../packages/lesson-session/src/adapters/critique-evaluator.ts";
+
+const deps = { critiqueEvaluator: new StubCritiqueEvaluator() };
+const bundle = JSON.parse(readFileSync(new URL("./lesson.json", import.meta.url), "utf8"));
+const byId = Object.fromEntries(bundle.scenes.map((s) => [s.id, s]));
+const KIND = { spot_the_flaw: "flaw_report", explain_back: "explanation", comparison: "comparison",
+  summary_audit: "summary_audit", prompt_practice: "prompt_submission", communication_sim: "communication" };
+
+// teacher = the mark a chemistry teacher would give this answer for this scene.
+const CASES = [
+  { s: "s5b-spot-azote", teacher: "PASS", p: "correct: names the miscount and the unpaired electrons, never says 'Hund' or 'célibataire'",
+    t: "La configuration est fausse : l'azote a 7 électrons, donc 1s² 2s² 2p³ et non 2p⁴. Dans une sous-couche p à moitié remplie les trois électrons restent non appariés, chacun dans une orbitale différente, spins parallèles." },
+  { s: "s5b-spot-azote", teacher: "FAIL", p: "denies there is any flaw, in the scene's own vocabulary",
+    t: "Je ne vois aucune erreur dans ce texte. La règle de Hund est bien respectée, l'azote n'a pas d'électrons célibataires et la configuration 2p3 donnée est correcte." },
+  { s: "s5b-spot-azote", teacher: "FAIL", p: "the three cue words, no sentence", t: "hund celibataires 2p3" },
+  { s: "s5b-spot-azote", teacher: "FAIL", p: "blank-ish (control)", t: "je ne sais pas" },
+
+  { s: "s3b-explain-2p", teacher: "PASS", p: "correct teach-back in the student's own words",
+    t: "L'amplitude de l'électron change de sens de part et d'autre du noyau : positive d'un côté, négative de l'autre, d'où les deux lobes. Entre les deux elle s'annule, donc l'électron ne s'y trouve jamais, et les lobes sont les régions où on a le plus de chances de le trouver." },
+  { s: "s3b-explain-2p", teacher: "FAIL", p: "the cue words inside a physically wrong explanation",
+    t: "La fonction d onde a deux lobes de signe oppose parce que l'electron tourne sur une orbite en huit ; le plan nodal est l'endroit ou il va le plus vite et la probabilite presence y est maximale." },
+
+  { s: "s4b-audit-spectres", teacher: "PASS", p: "correct audit, natural phrasing",
+    t: "Le résumé passe sous silence le caractère discret des niveaux — la raison même des raies. Il ne donne pas la relation entre l'énergie de la transition et la fréquence émise. Et il nomme la série sans dire qu'elle correspond aux transitions vers n=2, dans le domaine que l'œil perçoit." },
+  { s: "s4b-audit-spectres", teacher: "FAIL", p: "praises the summary while listing the words",
+    t: "Le résumé IA est fidèle et complet : il parle bien de l'énergie du photon, du fait que c'est quantifié, et de la série de Balmer dans le visible. Rien ne manque." },
+
+  { s: "s3d-communicate-2p", teacher: "PASS", p: "good jargon-free analogy — a different image from the authored one",
+    t: "Imagine deux bulles collées de part et d'autre du noyau. L'électron passe son temps dans l'une ou dans l'autre, comme quelqu'un qui fait des allers-retours entre deux chambres. Juste au milieu, sur la cloison, il n'est jamais là." },
+  { s: "s3d-communicate-2p", teacher: "FAIL", p: "pure jargon — exactly what this scene forbids",
+    t: "Deux zones de densité électronique, image d'une fonction propre de l'hamiltonien ; l'électron ne passe jamais par le plan nodal, un couloir de probabilité nulle." },
+
+  { s: "s5d-prompt-hund", teacher: "PASS", p: "a genuinely good prompt, worded freely",
+    t: "Tu t'adresses à un étudiant de première année qui connaît déjà Klechkowski et Pauli. Détaille le raisonnement qui justifie la règle de Hund, appuie-toi sur le cas de l'azote, et présente le résultat en cases quantiques, étape par étape." },
+  { s: "s5d-prompt-hund", teacher: "FAIL", p: "four cue words in a row", t: "explique l1 exemple schema" },
+];
+
+const pad = (s, n) => String(s).padEnd(n);
+const rows = [];
+for (const c of CASES) {
+  const sc = byId[c.s];
+  const r = await grade(sc, { kind: KIND[sc.type], text: c.t }, deps);
+  const tel = r.telemetry.find((x) => x.type === "critique_submitted");
+  // three states: certified pass, certified fail, or NOT GRADED (the offline path since candidate 2)
+  const studium = r.signal.correct === undefined ? "—" : r.signal.correct ? "PASS" : "FAIL";
+  const scored = tel.llm_score >= 0.6 ? "PASS" : "FAIL"; // what the score ALONE would have said
+  rows.push({
+    ...c, studium, scored, score: tel.llm_score, cover: tel.completion_rate,
+    // an ungraded answer agrees with nothing and contradicts nothing
+    agree: studium === "—" ? null : studium === c.teacher,
+  });
+}
+console.log(`\n  ${pad("SCENE", 22)} ${pad("TEACHER", 8)} ${pad("STUDIUM", 8)} ${pad("score", 6)} ${pad("cover", 6)} ANSWER`);
+console.log("  " + "-".repeat(128));
+for (const r of rows) {
+  const mark = r.agree === null ? "· " : r.agree ? "  " : "✗ ";
+  console.log(`${mark}${pad(r.s, 22)} ${pad(r.teacher, 8)} ${pad(r.studium, 8)} ${pad(r.score.toFixed(2), 6)} ${pad(r.cover.toFixed(2), 6)} ${r.p}`);
+}
+const certified = rows.filter((r) => r.studium !== "—");
+const wrongWay = rows.filter((r) => r.agree === false);
+console.log(`\n  ${rows.length} answers, ${certified.length} certified by Studium, ${rows.length - certified.length} left UNGRADED (·).`);
+console.log(`  Of the certified: ${certified.filter((r) => r.teacher === "PASS" && r.studium === "FAIL").length} correct marked wrong; ` +
+  `${certified.filter((r) => r.teacher === "FAIL" && r.studium === "PASS").length} wrong marked right; ${wrongWay.length} disagreements in all.`);
+// What the SCORE alone would have certified, had it still been allowed to — the size of the claim
+// candidate 2 withdrew, kept visible so the decision stays arguable rather than merely applied.
+const wouldHave = rows.filter((r) => r.studium === "—" && r.scored !== r.teacher);
+console.log(`  The score alone would have got ${wouldHave.length} of the ${rows.length - certified.length} ungraded answers wrong ` +
+  `(${wouldHave.filter((r) => r.teacher === "FAIL").length} wrong answers passed, ` +
+  `${wouldHave.filter((r) => r.teacher === "PASS").length} correct answers failed).`);
+
+// ─── CANDIDATE 3's CEILING ────────────────────────────────────────────────────────────────────
+// INT-STUDIUM-035 lists a third direction: "author several cues per key point and require a
+// proportion". The intent calls it "cheaper, and still stuffable", which is an argument. This is
+// the measurement, and it is a stronger statement than stuffability: a proportion rule is a
+// THRESHOLD on this score, so before anyone authors cues it is worth knowing whether any threshold
+// on it could work at all — the ceiling, ahead of the extractor.
+//
+// SCOPE, precisely. This measures a proportion rule over the cues that EXIST. Candidate 3 proposes
+// cues that do not, and no driver can score answers against unwritten keys. What it does establish
+// is the SIGN of the relationship, and that is the part a threshold cannot fix: if more cues per
+// point raised the score for both populations, the ordering below would survive re-authoring. A
+// student who never writes "Hund" gains nothing from five more ways to write it that they also do
+// not write; someone pasting cue words gains five more strings to paste.
+const P = rows.filter((r) => r.teacher === "PASS");
+const F = rows.filter((r) => r.teacher === "FAIL");
+const mean = (xs) => xs.reduce((a, b) => a + b.score, 0) / (xs.length || 1);
+let best = { t: null, acc: -1 };
+for (let t = 0; t <= 1.0001; t += 0.05) {
+  const acc = rows.filter((r) => (r.score >= t ? "PASS" : "FAIL") === r.teacher).length / rows.length;
+  if (acc > best.acc) best = { t: +t.toFixed(2), acc };
+}
+// AUC by pairwise concordance: over every (correct, wrong) pair, how often does the score rank the
+// correct answer higher? 0.5 is a coin flip; below 0.5 the score is INVERTED, and a threshold on an
+// inverted quantity is not a tuning problem.
+let conc = 0, pairs = 0;
+for (const a of P) for (const b of F) { pairs += 1; conc += a.score > b.score ? 1 : a.score === b.score ? 0.5 : 0; }
+const alwaysFail = F.length / rows.length;
+console.log(`\n  CANDIDATE 3 — what a proportion rule over the EXISTING cues could reach:`);
+console.log(`    mean score: ${mean(P).toFixed(2)} on the ${P.length} answers a teacher passes, ` +
+  `${mean(F).toFixed(2)} on the ${F.length} a teacher fails — the wrong way round.`);
+console.log(`    best threshold: score>=${best.t} → ${(best.acc * 100).toFixed(0)}%, ` +
+  `against ${(alwaysFail * 100).toFixed(0)}% for refusing to grade at all (always-FAIL).`);
+console.log(`    AUC ${(conc / pairs).toFixed(3)} over ${pairs} pairs (0.5 = coin flip; below it, inverted).\n`);

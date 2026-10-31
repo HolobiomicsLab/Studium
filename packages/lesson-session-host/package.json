@@ -1,11 +1,13 @@
 {
   "name": "@studium/lesson-session-host",
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
   "exports": { ".": "./src/index.ts" },
   "scripts": { "test": "vitest run", "test:watch": "vitest", "build": "tsc" },
   "dependencies": {
+    "@studium/adaptation-engine": "workspace:*",
     "@studium/lesson-session": "workspace:*",
     "@studium/lesson-bundle-schema": "workspace:*",
     "@studium/learner-state": "workspace:*",

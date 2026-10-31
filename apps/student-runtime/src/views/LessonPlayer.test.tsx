@@ -10,7 +10,7 @@ import { defaultLearnerState } from "@studium/learner-state";
 
 afterEach(cleanup);
 
-const { emitMock, flushMock, bundle } = vi.hoisted(() => {
+const { emitMock, flushMock, bundle, getConsentMock } = vi.hoisted(() => {
   const b: LessonBundle = {
     schema_version: "1.4",
     bundle_id: "demo-001",
@@ -60,14 +60,27 @@ const { emitMock, flushMock, bundle } = vi.hoisted(() => {
     emitMock: vi.fn(),
     flushMock: vi.fn().mockResolvedValue(undefined),
     bundle: b,
+    // Hoisted with the rest: `vi.mock` factories run before module-level statements, and the
+    // consent record is read by the module under test at mount.
+    getConsentMock: vi.fn().mockResolvedValue({ level_a: true, level_b: true, level_c: false }),
   };
 });
 
-vi.mock("../hooks/useTelemetry", () => ({
-  useTelemetry: () => ({ emit: emitMock, flush: flushMock }),
-  getTelemetryEndpoint: (x: string | null) => x,
-  getTelemetryCourseToken: (x: string) => x,
-}));
+// Only `useTelemetry` is replaced. `resolveTelemetryEndpoint` stays REAL: it is the consent
+// gate under test below, and a stub for it would make the assertions measure the stub
+// (INT-STUDIUM-030). The options the player passes are captured instead.
+let lastTelemetryOptions: { endpoint: string | null; context: { learner_pseudonym: string } } | null =
+  null;
+vi.mock("../hooks/useTelemetry", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../hooks/useTelemetry")>();
+  return {
+    ...actual,
+    useTelemetry: (opts: typeof lastTelemetryOptions) => {
+      lastTelemetryOptions = opts;
+      return { emit: emitMock, flush: flushMock };
+    },
+  };
+});
 
 vi.mock("../lib/tauri", () => ({
   tauri: {
@@ -76,6 +89,7 @@ vi.mock("../lib/tauri", () => ({
     saveState: vi.fn().mockResolvedValue(undefined),
     appendEvent: vi.fn().mockResolvedValue(undefined),
     getPseudonyme: vi.fn().mockResolvedValue("pseudo-1"),
+    getConsent: getConsentMock,
   },
 }));
 
@@ -157,6 +171,48 @@ describe("LessonPlayer telemetry", () => {
         autonomy_ratio: expect.any(Number),
       }),
     );
+  });
+});
+
+describe("LessonPlayer — what the consent screen promised", () => {
+  const w = window as unknown as { __telemetry_endpoint?: string };
+
+  afterEach(() => {
+    delete w.__telemetry_endpoint;
+    getConsentMock.mockResolvedValue({ level_a: true, level_b: true, level_c: false });
+  });
+
+  it("transmits nowhere until the learner has granted it, override or not", async () => {
+    // The override is what a deployment and the E2E harness set. It used to be enough on its
+    // own: the player passed `getTelemetryEndpoint(null)` and never read the record.
+    w.__telemetry_endpoint = "http://localhost:8003/telemetry";
+    getConsentMock.mockResolvedValue({ level_a: true, level_b: false, level_c: false });
+    renderAt();
+    await waitFor(() => screen.getByText(/Bienvenue/));
+    await waitFor(() => expect(getConsentMock).toHaveBeenCalled());
+    await waitFor(() => expect(lastTelemetryOptions?.endpoint).toBeNull());
+  });
+
+  it("transmits under the learner's OWN per-lesson pseudonym once granted", async () => {
+    w.__telemetry_endpoint = "http://localhost:8003/telemetry";
+    renderAt();
+    await waitFor(() => screen.getByText(/Bienvenue/));
+    await waitFor(() =>
+      expect(lastTelemetryOptions?.endpoint).toBe("http://localhost:8003/telemetry"));
+    // `pseudonyme.rs` computes HMAC(secret, lesson_id) and exposes it as `get_pseudonyme`.
+    // The player used to send the literal "anonymous" instead — the same value for every
+    // learner, which is neither a pseudonym nor anonymity.
+    expect(lastTelemetryOptions?.context.learner_pseudonym).toBe("pseudo-1");
+    expect(lastTelemetryOptions?.context.learner_pseudonym).not.toBe("anonymous");
+  });
+
+  it("a consent read that fails transmits nothing rather than falling back to open", async () => {
+    w.__telemetry_endpoint = "http://localhost:8003/telemetry";
+    getConsentMock.mockRejectedValue(new Error("store locked"));
+    renderAt();
+    await waitFor(() => screen.getByText(/Bienvenue/));
+    await waitFor(() => expect(getConsentMock).toHaveBeenCalled());
+    await waitFor(() => expect(lastTelemetryOptions?.endpoint).toBeNull());
   });
 });
 

@@ -6,11 +6,15 @@ export const metadata = {
 
 export default function RoomPage() {
   return (
-    <div className="p-6">
-      <h2 className="text-xl font-bold mb-6">
-        PeerStudio — Salle de révision par les pairs / Peer-review room
-      </h2>
+    <main className="room-page" id="contenu" lang="fr">
+      <header className="page-heading">
+        <p className="eyebrow">Animation en direct</p>
+        <h1>PeerStudio</h1>
+        <div className="page-heading__description">
+          <p>Salle de révision par les pairs / Peer-review room</p>
+        </div>
+      </header>
       <PeerRoomPanel />
-    </div>
+    </main>
   );
 }

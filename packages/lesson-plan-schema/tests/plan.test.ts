@@ -60,6 +60,33 @@ describe("validatePlan", () => {
     const result = validatePlan(bad);
     expect(result.valid).toBe(false);
   });
+
+  it("validates optional concept_refs and prerequisites as string arrays", () => {
+    const plan = {
+      ...samplePlan,
+      concepts: [
+        {
+          id: "dependent",
+          title: "Dependent",
+          description: "Builds on a prerequisite",
+          bloom_level_target: "apply",
+          prerequisites: ["prerequisite"],
+        },
+      ],
+      scene_outlines: [
+        { ...samplePlan.scene_outlines[0], concept_refs: ["dependent"] },
+      ],
+    };
+    expect(validatePlan(plan).valid).toBe(true);
+    expect(validatePlan({
+      ...plan,
+      scene_outlines: [{ ...plan.scene_outlines[0], concept_refs: "dependent" }],
+    }).valid).toBe(false);
+    expect(validatePlan({
+      ...plan,
+      concepts: [{ ...plan.concepts[0], prerequisites: "prerequisite" }],
+    }).valid).toBe(false);
+  });
 });
 
 describe("loadSchema", () => {

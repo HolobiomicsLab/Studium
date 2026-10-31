@@ -39,9 +39,10 @@ def _events():
         {"type": "quiz_answered", "scene_id": "q-quiz", "correct": True, "confidence": 0.5, "response_time_ms": 5000},
         # mixed concept: a quiz (correct, 5s) + a passing critique (no time)
         {"type": "quiz_answered", "scene_id": "q-mixed", "correct": True, "confidence": 0.5, "response_time_ms": 5000},
-        {"type": "critique_submitted", "scene_id": "cr-mixed", "llm_score": 0.8, "completion_rate": 1.0},
+        # A model judge scored both critiques (score_source "llm"): only a judged score is a measure (RT-3).
+        {"type": "critique_submitted", "scene_id": "cr-mixed", "llm_score": 0.8, "completion_rate": 1.0, "score_source": "llm"},
         # critique-only concept: passing critique
-        {"type": "critique_submitted", "scene_id": "cr-crit", "llm_score": 0.9, "completion_rate": 1.0},
+        {"type": "critique_submitted", "scene_id": "cr-crit", "llm_score": 0.9, "completion_rate": 1.0, "score_source": "llm"},
         {"type": "lesson_completed", "autonomy_ratio": 1.0},
     ]
 
@@ -59,9 +60,10 @@ def test_critique_foldin_calibration_and_time(tmp_path):
     assert "c-crit" in by and "c-mixed" in by
     assert by["c-crit"]["n_attempts"] == 2 and by["c-crit"]["accuracy"] == 1.0
 
-    # AR-1: critique items are CALIBRATION-NEUTRAL (conf_sum gets the binary pass, not the raw score),
-    # so a critique-only concept has gap exactly 0 — a raw-score fold-in would have given -0.1/-0.2.
-    assert by["c-crit"]["calibration_gap"] == 0.0
+    # H5 / RT-3: critique items carry no self-rated confidence, so a critique-only concept has NO calibration
+    # figure. It used to show 0.0, which read as "perfectly calibrated" for a gap nobody measured.
+    assert by["c-crit"]["calibration_gap"] is None
+    assert by["c-crit"]["overconfidence_rate"] is None
     # the pure-quiz concept keeps its real miscalibration (conf 0.5 vs accuracy 1.0)
     assert by["c-quiz"]["calibration_gap"] == -0.5
 
@@ -180,6 +182,45 @@ def test_k_floor_counts_distinct_pseudonyms_not_streams(tmp_path):
 
     ok = build_report(tmp_path, min_learners=2, bundle_path=bundle)
     assert ok["status"] == "ok" and ok["n_learners"] == 2 and ok["n_streams"] == 3
+    # No event here names a lesson, so the run is one lesson and the report says which of the
+    # two things it did (INT-STUDIUM-030 R1: the rule that counted is published, not implied).
+    assert "taken as one lesson" in ok["lesson_scope"]
+
+
+def test_the_floor_is_per_lesson_and_a_union_across_lessons_cannot_lift_it(tmp_path):
+    """R1, clause 3, where the events name their lessons — which every ADR-006 event does
+    (`lesson_id` is required on the base model), so this is the case that runs in production.
+
+    Four people, two in each of two lessons. A union counts four members and would clear a
+    floor of three; those are learner-lesson pairs, and no lesson has three people in it."""
+    bundle = _bundle(tmp_path)
+    for lesson, pseudonyms in (("l1", ("p-1", "p-2")), ("l2", ("p-3", "p-4"))):
+        for pseudonym in pseudonyms:
+            events = [dict(e, lesson_id=lesson) for e in _pseudonymized(pseudonym)]
+            _write_stream(tmp_path, f"data/{pseudonym}/{lesson}", events)
+
+    assert build_report(tmp_path, min_learners=3, bundle_path=bundle)["status"] == "suppressed"
+
+    ok = build_report(tmp_path, min_learners=2, bundle_path=bundle)
+    assert ok["status"] == "ok" and ok["n_lessons"] == 2
+    # Two lessons, so the members are learner-lesson pairs — and the payload says so by
+    # changing the KEY, not by publishing a pair count under the word "learners".
+    assert ok["n_learners"] is None and ok["n_learner_lesson_pairs"] == 4
+    assert ok["cohort_counts"] == "learner-lesson pairs across the lessons in scope"
+    assert ok["lesson_scope"] == "as named by the events (lesson_id)"
+
+
+def test_a_run_that_mixes_named_and_unnamed_lessons_is_refused(tmp_path):
+    """Clause 2 again, one level down. Counting both under one key would put events from
+    different lessons into one population — the thing the per-lesson floor exists to stop."""
+    bundle = _bundle(tmp_path)
+    _write_stream(tmp_path, "data/p-1/l1",
+                  [dict(e, lesson_id="l1") for e in _pseudonymized("p-1")])
+    _write_stream(tmp_path, "data/p-2/l1", _pseudonymized("p-2"))
+
+    rep = build_report(tmp_path, min_learners=1, bundle_path=bundle)
+    assert rep["status"] == "suppressed"
+    assert "some carry a lesson_id and some do not" in rep["reason"]
 
 
 def test_streams_without_a_pseudonym_still_count_one_learner_each(tmp_path):
@@ -262,3 +303,287 @@ def test_the_floor_is_documented_as_a_restraint_not_as_anonymity():
     assert "not a guarantee\n    of anonymity" in doc
     assert "re-identifiable" not in doc, "the withdrawn guarantee is back in the docstring"
     assert class_report.MIN_LEARNERS_DEFAULT == 5, "the claim changed, the floor must not"
+
+
+# ---------------------------------------------------------------------------
+# INT-STUDIUM-030 R1 (stage 2) — every published number names the population it was
+# computed over, that population is counted by exactly one rule, and the rule operates
+# inside one lesson.
+# ---------------------------------------------------------------------------
+
+def _quiz(scene, learner, correct=True):
+    return [
+        {"type": "lesson_started", "learner_pseudonym": learner},
+        {"type": "quiz_answered", "scene_id": scene, "correct": correct,
+         "confidence": 0.5, "response_time_ms": 5000, "learner_pseudonym": learner},
+        {"type": "lesson_completed", "autonomy_ratio": 1.0, "learner_pseudonym": learner},
+    ]
+
+
+def test_a_concept_attempted_by_one_learner_is_not_published(tmp_path):
+    """THE defect this stage exists for, on the surface a teacher actually reads.
+
+    The floor was applied once, over the whole run. Inside a class that clears it, a concept
+    attempted by a single learner published that learner's accuracy, calibration gap,
+    hint-reliance and mean time under the concept's name — a per-student report reached by
+    reading a class report carefully. `fixtures/atomistique-l1/GUIDE-TEST-ELISE.md` promises
+    the teacher this document is aggregate; this is the assertion behind that sentence.
+    """
+    bundle = _bundle(tmp_path)
+    for i in range(5):
+        _write_learner(tmp_path, f"L{i}", _quiz("q-quiz", f"p{i}"))
+    _write_learner(tmp_path, "solo", _quiz("q-mixed", "p-solo"))
+
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert rep["status"] == "ok"
+    assert [c["concept"] for c in rep["concepts"]] == ["c-quiz"]
+    assert rep["withheld_below_floor"] is True
+
+
+def test_every_published_concept_names_its_own_cohort_as_a_band(tmp_path):
+    bundle = _bundle(tmp_path)
+    for i in range(12):
+        _write_learner(tmp_path, f"L{i}", _quiz("q-quiz", f"p{i}"))
+
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert [c["cohort_band"] for c in rep["concepts"]] == ["10–19"]
+    assert rep["identity_rule"] == "pseudonym"
+    assert rep["cohort_counts"] == "distinct learners within one lesson"
+
+
+def test_the_withheld_flag_does_not_encode_how_many(tmp_path):
+    """One withheld concept and three produce the same payload — including the prose, which
+    is where the count survived the first time this repair was made (INT-STUDIUM-030 R1 on the
+    Observatory: a count moved into a sentence is the same count)."""
+    bundle = _bundle(tmp_path)
+
+    def report(extra_scenes):
+        run = tmp_path / f"run{len(extra_scenes)}"
+        for i in range(5):
+            _write_learner(run, f"L{i}", _quiz("q-quiz", f"p{i}"))
+        for n, scene in enumerate(extra_scenes):
+            _write_learner(run, f"solo{n}", _quiz(scene, f"p-solo{n}"))
+        return build_report(run, min_learners=5, bundle_path=bundle)
+
+    one = report(["q-mixed"])
+    three = report(["q-mixed", "cr-mixed", "cr-crit"])
+    assert one["concepts"] == three["concepts"]
+    assert one["withheld_below_floor"] == three["withheld_below_floor"] is True
+    assert not [k for k in one if k.startswith("n_withheld")]
+
+
+def test_a_mixed_directory_is_refused_rather_than_summed(tmp_path):
+    """R1 clause 2, and the line this replaces: `learner_ids |= stream_ids or {stream}`. Where
+    some streams carried a pseudonym and some did not, the union was part people and part
+    files — a number with no definition, to which the floor was then applied."""
+    bundle = _bundle(tmp_path)
+    for i in range(5):
+        _write_learner(tmp_path, f"L{i}", _quiz("q-quiz", f"p{i}"))
+    _write_learner(tmp_path, "anon", [dict(e) for e in _events()])   # no learner_pseudonym
+
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert rep["status"] == "suppressed"
+    assert "part people and part files" in rep["reason"], rep["reason"]
+
+
+def test_the_eval_layout_still_counts_one_stream_one_learner(tmp_path):
+    """The other rule, unchanged: a directory where NO stream carries a pseudonym is counted
+    by streams, and says so. The repair refuses the MIXED case, not the second rule."""
+    bundle = _bundle(tmp_path)
+    for learner in ("alice", "bob", "carol", "dave", "erin"):
+        _write_learner(tmp_path, learner, _events())
+
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert rep["status"] == "ok" and rep["n_learners"] == 5
+    assert rep["identity_rule"] == "stream"
+    assert "one telemetry stream, one learner" in rep["identity_rule_note"]
+
+
+def test_the_judgement_vocabulary_is_the_collectors_own_objects(tmp_path):
+    """One definition of the band, the floor and the non-attribution line, in the collector's
+    `metrics`, shared by this report, the live endpoints and the Observatory page. Three
+    copies of a sentence say three different things within a release or two — the TS/Py
+    `over_distrust` drift is the precedent this repository already paid for."""
+    import class_report
+    import metrics
+
+    assert class_report.NON_ATTRIBUTION is metrics.NON_ATTRIBUTION
+    assert class_report.cohort_band is metrics.cohort_band
+    assert class_report.MIN_LEARNERS_DEFAULT is metrics.MIN_LEARNERS
+
+    bundle = _bundle(tmp_path)
+    for i in range(5):
+        _write_learner(tmp_path, f"L{i}", _quiz("q-quiz", f"p{i}"))
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert rep["non_attribution"] is metrics.NON_ATTRIBUTION
+    assert rep["autonomy_cohort"]["non_attribution"] is metrics.NON_ATTRIBUTION
+
+
+def test_unrated_quiz_answers_leave_calibration_unmeasured(tmp_path):
+    """I-5: quiz_answered.confidence is optional. An answer without it has no confidence: not 0.0 (that
+    read as `underconfident` on every correct answer) and not conf == accuracy either (H5: a concept no
+    learner rated showed gap 0.0, "perfectly calibrated", and unrated answers diluted a rated gap). The
+    gap and the over-confidence rate are computed over rated answers only, None when there are none."""
+    bundle = _bundle(tmp_path)
+    for learner in ("alice", "bob"):
+        _write_learner(tmp_path, learner, [
+            {"type": "lesson_started"},
+            {"type": "quiz_answered", "scene_id": "q-quiz", "correct": True, "response_time_ms": 4000},
+            {"type": "lesson_completed", "autonomy_ratio": 1.0},
+        ])
+    rep = build_report(tmp_path, min_learners=2, bundle_path=bundle)
+    assert rep["status"] == "ok"
+    quiz = {c["concept"]: c for c in rep["concepts"]}["c-quiz"]
+    assert quiz["n_attempts"] == 2 and quiz["accuracy"] == 1.0
+    assert quiz["calibration_gap"] is None
+    assert quiz["overconfidence_rate"] is None
+    assert quiz["mean_time_s"] == 4.0
+
+
+def test_a_wrong_unrated_answer_is_not_overconfident_either(tmp_path):
+    bundle = _bundle(tmp_path)
+    for learner in ("alice", "bob"):
+        _write_learner(tmp_path, learner, [
+            {"type": "quiz_answered", "scene_id": "q-quiz", "correct": False, "response_time_ms": 4000},
+        ])
+    rep = build_report(tmp_path, min_learners=2, bundle_path=bundle)
+    quiz = {c["concept"]: c for c in rep["concepts"]}["c-quiz"]
+    assert quiz["calibration_gap"] is None
+    assert quiz["overconfidence_rate"] is None
+
+
+# ---------------------------------------------------------------------------
+# RT-3 / H5 / CQ-1 / SEC-2 (L-14): the same rules as the MCP class_report (apps/lesson-mcp/src/teacher-tools.ts),
+# whose parity test runs both on one mixed stream.
+# ---------------------------------------------------------------------------
+
+def _pseudo_stream(run_dir, pseudonym, events):
+    _write_stream(run_dir, f"data/{pseudonym}/teach", [dict(e, learner_pseudonym=pseudonym, lesson_id="teach") for e in events])
+
+
+def test_a_keyword_score_nobody_judged_is_an_attempt_not_accuracy(tmp_path):
+    bundle = _bundle(tmp_path)
+    for i in range(5):
+        _pseudo_stream(tmp_path, f"p{i}", [
+            {"type": "critique_submitted", "scene_id": "cr-crit", "llm_score": 0.2, "score_source": "keyword"},
+        ])
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    crit = {c["concept"]: c for c in rep["concepts"]}["c-crit"]
+    assert crit["n_attempts"] == 5 and crit["n_measured"] == 0
+    assert crit["accuracy"] is None
+    assert rep["reteach_priority"] == []          # an unmeasured concept is never ranked for re-teaching
+    assert "not measured" in class_report_md(rep)
+
+
+def test_judged_critiques_count_as_measured(tmp_path):
+    bundle = _bundle(tmp_path)
+    for i, source in enumerate(["llm", "verdict_deck", "llm", "verdict_deck", "llm"]):
+        _pseudo_stream(tmp_path, f"p{i}", [
+            {"type": "critique_submitted", "scene_id": "cr-crit", "llm_score": 0.9 if i < 3 else 0.1, "score_source": source},
+        ])
+    crit = {c["concept"]: c for c in build_report(tmp_path, min_learners=5, bundle_path=bundle)["concepts"]}["c-crit"]
+    assert crit["n_measured"] == 5 and crit["accuracy"] == 0.6
+
+
+def test_unrated_answers_do_not_dilute_a_rated_gap(tmp_path):
+    """H5's own example: one rated over-confident miss among nine unrated answers is +1.0, not +0.1."""
+    bundle = _bundle(tmp_path)
+    _pseudo_stream(tmp_path, "rated", [
+        {"type": "quiz_answered", "scene_id": "q-quiz", "correct": False, "confidence": 1.0, "response_time_ms": 1000},
+    ])
+    for i in range(9):
+        _pseudo_stream(tmp_path, f"p{i}", [
+            {"type": "quiz_answered", "scene_id": "q-quiz", "correct": True, "response_time_ms": 1000},
+        ])
+    quiz = {c["concept"]: c for c in build_report(tmp_path, min_learners=1, bundle_path=bundle)["concepts"]}["c-quiz"]
+    assert quiz["calibration_gap"] == 1.0
+    assert quiz["overconfidence_rate"] == 1.0
+    assert quiz["accuracy"] == 0.9
+
+
+def test_each_figure_needs_its_own_population_at_the_floor(tmp_path):
+    """SEC-2 on this surface: a figure computed over fewer than k learners is withheld, even in a published row."""
+    bundle = _bundle(tmp_path)
+    for i in range(5):
+        answer = {"type": "quiz_answered", "scene_id": "q-quiz", "correct": True}
+        if i < 2:
+            answer.update(confidence=0.95, response_time_ms=9000)
+        _pseudo_stream(tmp_path, f"p{i}", [answer])
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    quiz = {c["concept"]: c for c in rep["concepts"]}["c-quiz"]
+    assert quiz["accuracy"] == 1.0
+    assert quiz["calibration_gap"] is None and quiz["overconfidence_rate"] is None
+    assert quiz["mean_time_s"] is None
+    assert rep["withheld_below_floor"] is True
+    assert "0.95" not in json.dumps(rep) and "9.0" not in json.dumps(rep)
+
+
+def test_a_figure_floor_is_per_lesson_not_over_the_union_of_lessons(tmp_path):
+    """SEC-2 across lessons: two lessons with three rated learners each are six learner-lesson
+    pairs, not a lesson of six. A pseudonym is salted per lesson, so the union cannot lift either
+    lesson's rated population over a floor of five (the row's own rule, Population.below_floor)."""
+    bundle = _bundle(tmp_path)
+    for lesson in ("lessonA", "lessonB"):
+        for i in range(5):
+            answer = {"type": "quiz_answered", "scene_id": "q-quiz", "correct": i % 2 == 0,
+                      "learner_pseudonym": f"{lesson}-p{i}", "lesson_id": lesson}
+            if i < 3:
+                answer.update(confidence=0.9, response_time_ms=1000)
+            _write_stream(tmp_path, f"data/{lesson}-p{i}/{lesson}", [answer])
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert rep["n_lessons"] == 2
+    quiz = {c["concept"]: c for c in rep["concepts"]}["c-quiz"]
+    assert quiz["accuracy"] == 0.6                # five answering learners in each lesson
+    assert quiz["calibration_gap"] is None and quiz["overconfidence_rate"] is None
+    assert quiz["mean_time_s"] is None
+    assert rep["withheld_below_floor"] is True
+
+
+def test_markdown_says_withheld_for_a_figure_held_back_and_not_measured_for_an_empty_one(tmp_path):
+    """A figure measured over fewer than k learners was measured: the cell says it is withheld,
+    and keeps "not measured" for a population nobody contributed to. No count is shown."""
+    bundle = _bundle(tmp_path)
+    for i in range(5):
+        _pseudo_stream(tmp_path, f"p{i}", [
+            dict({"type": "quiz_answered", "scene_id": "q-quiz", "correct": True},
+                 **({"confidence": 0.95} if i < 2 else {})),
+        ])
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    quiz = {c["concept"]: c for c in rep["concepts"]}["c-quiz"]
+    assert quiz["withheld_figures"] == ["calibration_gap", "overconfidence_rate"]
+    row = next(line for line in class_report_md(rep).splitlines() if line.startswith("| c-quiz |"))
+    cells = [c.strip() for c in row.strip("|").split("|")]
+    # concept | cohort | answers | graded | accuracy | hint-reliance | calibration gap | overconf. | mean time
+    assert cells[6] == cells[7] == "withheld (fewer than k)"
+    assert cells[8] == "not measured"             # nobody was timed
+
+
+def test_hint_only_learners_do_not_lift_a_concept_over_the_floor(tmp_path):
+    """SEC-2: four learners who only asked for a hint and one who answered are one answering learner."""
+    bundle = _bundle(tmp_path)
+    for i in range(5):
+        _pseudo_stream(tmp_path, f"p{i}", [
+            {"type": "quiz_answered", "scene_id": "q-quiz", "correct": True, "confidence": 0.5, "response_time_ms": 1000},
+            {"type": "hint_requested", "scene_id": "q-mixed"} if i else
+            {"type": "quiz_answered", "scene_id": "q-mixed", "correct": False, "confidence": 0.95, "response_time_ms": 9000},
+        ])
+    rep = build_report(tmp_path, min_learners=5, bundle_path=bundle)
+    assert [c["concept"] for c in rep["concepts"]] == ["c-quiz"]
+    assert rep["withheld_below_floor"] is True
+
+
+def test_hint_reliance_is_a_share_of_answering_learners(tmp_path):
+    """One learner asking three times among two who answered is 0.5, never 1.5 (a rate above 100 %)."""
+    bundle = _bundle(tmp_path)
+    for i in range(2):
+        hints = [{"type": "hint_requested", "scene_id": "q-quiz"}] * (3 if i == 0 else 0)
+        _pseudo_stream(tmp_path, f"p{i}", hints + [
+            {"type": "quiz_answered", "scene_id": "q-quiz", "correct": True, "confidence": 0.5, "response_time_ms": 1000},
+        ])
+    quiz = {c["concept"]: c for c in build_report(tmp_path, min_learners=2, bundle_path=bundle)["concepts"]}["c-quiz"]
+    assert quiz["hint_reliance"] == 0.5
+
+
+def class_report_md(rep):
+    import class_report
+    return class_report._md(rep)

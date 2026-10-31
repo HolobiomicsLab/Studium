@@ -13,6 +13,8 @@ WITHOUT importing `planner_app` (`test_graph_builder.py`,
 import os
 import sys
 
+import pytest
+
 _DIR = os.path.dirname(os.path.abspath(__file__))
 if _DIR not in sys.path:
     sys.path.insert(0, _DIR)
@@ -20,3 +22,9 @@ if _DIR not in sys.path:
 from planner_paths import ensure_importable  # noqa: E402
 
 ensure_importable()
+
+
+@pytest.fixture(autouse=True)
+def explicit_research_mock(monkeypatch):
+    """Keep deterministic planner fixtures behind an explicit mock selection."""
+    monkeypatch.setenv("STUDIUM_LLM_MODE", "mock")

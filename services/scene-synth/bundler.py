@@ -134,6 +134,7 @@ def _coerce_metadata(lesson_plan: dict) -> dict:
         "duration_minutes": int(md.get("duration_minutes", 30)),
         "language": md.get("language", "fr"),
         "discipline": md.get("discipline", "general"),
+        "authoring": md.get("authoring"),
     }
 
 

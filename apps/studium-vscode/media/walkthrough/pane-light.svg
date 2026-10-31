@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400" role="img" aria-label="Studium lesson pane: a scene with a figure, three answer choices and a continue button">
+<rect width="640" height="400" rx="10" fill="#f5f2eb"/>
+<rect x="16" y="16" width="608" height="368" rx="8" fill="#fffdf8" stroke="#cbc8be"/>
+<rect x="16" y="16" width="608" height="28" rx="8" fill="#eae6dd"/>
+<circle cx="34" cy="30" r="4" fill="#748184"/><circle cx="50" cy="30" r="4" fill="#748184"/><circle cx="66" cy="30" r="4" fill="#748184"/>
+<rect x="40" y="62" width="220" height="12" rx="4" fill="#172d38"/>
+<rect x="40" y="86" width="560" height="6" rx="3" fill="#eae6dd"/>
+<rect x="40" y="86" width="250" height="6" rx="3" fill="#176b60"/>
+<rect x="40" y="108" width="330" height="8" rx="4" fill="#cbc8be"/>
+<rect x="40" y="124" width="290" height="8" rx="4" fill="#cbc8be"/>
+<rect x="40" y="148" width="270" height="130" rx="6" fill="#e3edf5" stroke="#cbc8be"/>
+<polyline points="56,258 100,220 140,236 190,180 240,196 292,162" fill="none" stroke="#245e86" stroke-width="3" stroke-linejoin="round"/>
+<line x1="56" y1="266" x2="296" y2="266" stroke="#748184"/>
+<rect x="334" y="148" width="266" height="34" rx="6" fill="#ffffff" stroke="#cbc8be" stroke-width="1"/>
+<circle cx="352" cy="165" r="6" fill="none" stroke="#748184" stroke-width="2"/>
+<rect x="368" y="161" width="150" height="8" rx="4" fill="#cbc8be"/>
+<rect x="334" y="192" width="266" height="34" rx="6" fill="#dceae5" stroke="#176b60" stroke-width="2"/>
+<circle cx="352" cy="209" r="6" fill="#176b60" stroke="#176b60" stroke-width="2"/>
+<rect x="368" y="205" width="170" height="8" rx="4" fill="#52646b"/>
+<rect x="334" y="236" width="266" height="34" rx="6" fill="#ffffff" stroke="#cbc8be" stroke-width="1"/>
+<circle cx="352" cy="253" r="6" fill="none" stroke="#748184" stroke-width="2"/>
+<rect x="368" y="249" width="190" height="8" rx="4" fill="#cbc8be"/>
+<rect x="462" y="302" width="138" height="34" rx="6" fill="#176b60"/>
+<rect x="490" y="315" width="82" height="8" rx="4" fill="#fffdf8"/>
+<rect x="40" y="310" width="160" height="8" rx="4" fill="#cbc8be"/>
+</svg>

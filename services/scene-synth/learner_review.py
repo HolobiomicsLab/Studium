@@ -15,6 +15,9 @@ IRI). So learner-authored scenes get a DEDICATED gate here. This module mirrors
     ``prior_author`` (mirrors ``approve_course``'s ``prior_assertions``); it is
     asserted-scrubbed from BOTH ``lesson.json`` and ``prov.json`` of the emitted
     community bundle;
+  - the emitted bundle inherits its course's language, target and discipline, and
+    says who wrote it: ``metadata.authoring = {mode: teacher, author_is_learner:
+    true}`` (learner-authored, validated by the deciding teacher);
   - reject / request_revision record the decision but leave NO bundle.
 
 ``decide_item`` is the EXCLUSIVE surfacing path: only here does an item reach
@@ -50,11 +53,11 @@ COMMUNITY_DIR = "community"
 def community_emit_dir(course_bundles_root: str | Path) -> Path:
     """The directory an approved community bundle is emitted into for a course.
 
-    Given the COURSE bundles root (the dir holding the immutable canonical
-    ``lesson.json``), return ``<root>/community`` — exactly where the TS
-    ``discoverCommunityBundles(course_bundles_root)`` scans. Pass the result as
-    ``decide_item(..., bundles_root=...)`` so the emitted ``community-<id>.zip``
-    is DISCOVERABLE without ever touching the canonical course.
+    Given a course's directory (``<BUNDLES_ROOT>/<course_id>``, holding the
+    immutable canonical ``lesson.json``), return its ``community`` subdir — exactly
+    where the TS ``discoverCommunityBundles(course_bundles_root)`` scans. Pass the
+    result as ``decide_item(..., bundles_root=...)`` so the emitted
+    ``community-<id>.zip`` is DISCOVERABLE without ever touching the canonical course.
     """
     return Path(course_bundles_root) / COMMUNITY_DIR
 
@@ -77,19 +80,27 @@ _NON_APPROVE_STATE = {
     "request_revision": "revision_requested",
 }
 
+# Approved item: learner-written, validated by the deciding teacher.
+_COMMUNITY_AUTHORING = {"mode": "teacher", "author_is_learner": True}
+
+# Canonical course metadata an emitted community bundle inherits.
+_INHERITED_METADATA_FIELDS = ("language", "target", "discipline")
+
 
 def _synthesize_single_concept_plan(
     env: LAItemEnvelope,
     *,
     course_concepts: list[dict],
-    reviewer: str,
+    course_metadata: Optional[dict],
 ) -> dict:
     """Build a minimal single-scene ``lesson_plan`` for the approved scene.
 
-    The plan references the ONE course concept the scene's ``concept_refs`` point
-    at (so ``build_bundle``'s ``concept_refs ⊆ course concepts`` gate passes), and
-    seeds ``validated_by`` = the teacher IRI (rule-003 vouching). The learner
-    ``author_pseudonym`` is NEVER placed in the plan — it stays in the ledger.
+    The plan references the course concepts the scene's ``concept_refs`` point at
+    (so ``build_bundle``'s ``concept_refs ⊆ course concepts`` gate passes), inherits
+    the course's language, target and discipline from ``course_metadata`` (the
+    bundler's defaults when it is None), and carries the community ``authoring``
+    block. The learner ``author_pseudonym`` is NEVER placed in the plan — it stays
+    in the ledger; ``validated_by`` comes from ``decide_item``'s prov seed.
     """
     scene_dict = env.scene.model_dump(exclude_none=True)
     refs = set(scene_dict.get("concept_refs") or [])
@@ -98,6 +109,8 @@ def _synthesize_single_concept_plan(
     concepts = [c for c in course_concepts if c.get("id") in refs]
     if not concepts and course_concepts:
         concepts = [course_concepts[0]]
+    canonical = course_metadata or {}
+    inherited = {k: canonical[k] for k in _INHERITED_METADATA_FIELDS if k in canonical}
 
     lesson_id = f"community-{env.item_id}"
     return {
@@ -106,12 +119,11 @@ def _synthesize_single_concept_plan(
         "title": scene_dict.get("title", "Community item"),
         "metadata": {
             "title": scene_dict.get("title", "Community item"),
-            "target": "L1",
             "duration_minutes": max(
                 1, round((scene_dict.get("estimated_seconds") or 60) / 60)
             ),
-            "language": "fr",
-            "discipline": "general",
+            **inherited,
+            "authoring": dict(_COMMUNITY_AUTHORING),
         },
         "concepts": concepts,
         "scenes": [scene_dict],
@@ -235,6 +247,7 @@ def decide_item(
     reviewed_at: str,
     bundles_root: str | Path,
     course_concepts: list[dict],
+    course_metadata: Optional[dict] = None,
     note_code: Optional[LAReviewNoteCode] = None,
 ) -> LAItemEnvelope:
     """Teacher decision on a learner-submitted item (rule-003 chokepoint).
@@ -256,6 +269,9 @@ def decide_item(
     course_concepts:
         The owning course's concept dicts; the synthesized plan references the
         one(s) the scene cites so the bundle validates.
+    course_metadata:
+        The owning course's canonical ``metadata``; the emitted bundle inherits
+        its ``language``, ``target`` and ``discipline`` (bundler defaults if None).
     note_code:
         Optional review note enum recorded on the envelope.
 
@@ -319,7 +335,7 @@ def decide_item(
 
     # Synthesize a minimal single-concept plan and emit the community bundle.
     plan = _synthesize_single_concept_plan(
-        approved, course_concepts=course_concepts, reviewer=reviewer
+        approved, course_concepts=course_concepts, course_metadata=course_metadata
     )
     bundles_root = Path(bundles_root)
     bundles_root.mkdir(parents=True, exist_ok=True)

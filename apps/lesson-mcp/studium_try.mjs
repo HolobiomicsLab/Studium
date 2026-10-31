@@ -30,7 +30,8 @@ const p = (s = "") => out.push(s);
 async function main() {
   const transport = new StdioClientTransport({
     command: TSX, args: ["src/index.ts"], cwd: HERE,
-    env: { BUNDLES_ROOT, PATH: process.env.PATH }, stderr: "ignore",   // no STUDIUM_DATA_DIR → in-memory, deterministic
+    // STUDIUM_EPHEMERAL=1 → in memory, deterministic, and nothing written to ~/.studium (I-10).
+    env: { BUNDLES_ROOT, PATH: process.env.PATH, STUDIUM_EPHEMERAL: "1" }, stderr: "ignore",
   });
   const client = new Client({ name: "studium-try", version: "0.1.0" });
   await client.connect(transport);

@@ -1,13 +1,30 @@
+English · [Français](README.fr.md)
+
 # Observatory
 
-A read-only localhost page over the artifacts Studium already writes: the ASTRA
-provenance of each generated course, the ASTRA validator's verdict on demand, the
-evaluation runs under `eval/reports/`, and the validity scorecards under
-`eval/validity/`. It is an operator surface. It is not the teacher dashboard and it
-is never shown to learners.
+A read-only localhost page over the artifacts Studium already writes: the ASTRA provenance of each
+generated course, the ASTRA validator's verdict on demand, the MySTRA reviewer report, the evaluation runs
+under `eval/reports/`, the validity scorecards under `eval/validity/`, class sessions and live agentic
+sessions. It is an operator and reviewer surface. It is not the teacher dashboard and it is never shown
+to learners.
 
-Slices 1 and 2 (INT-STUDIUM-008): provenance, evaluation, validity, the scene-review
-tab and the two session sources. The harness tab arrives in slice 3.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/screenshots/observatory-mystra-dark.png">
+  <img src="../../docs/assets/screenshots/observatory-mystra-light.png" alt="The Observatory MySTRA reviewer report of a course, with its decisions, findings and evidence">
+</picture>
+
+| | |
+|---|---|
+| Status | **maintained** (decision D6) |
+| Run | `.venv/bin/python services/observatory/observatory_app.py --course-root <dir>` |
+| Port | 8004 on 127.0.0.1 (`--port`, `STUDIUM_OBS_PORT`) |
+| Reads | planner course folders (`.lwg/<id>/astra.yaml`), `eval/reports/`, `eval/validity/`, the analytics collector's store on disk, session folders |
+| Calls | nothing over the network; runs `astra validate` on request |
+| Linked from | the [teacher dashboard](../../apps/teacher-dashboard/README.md) review page (`OBSERVATORY_BASE_URL`) |
+| Tests | `.venv/bin/python -m pytest services/observatory` |
+
+User guide: [The Observatory](../../docs/teach/observatory.md). The rest of this page is for developers
+and operators.
 
 ## What it shows
 
@@ -16,21 +33,23 @@ tab and the two session sources. The harness tab arrives in slice 3.
 | `/` | every course, evaluation run and validity suite found on disk, with a banner for any misconfigured root |
 | `/courses/<id>` | the course's analyses, decisions with their options and rationale, findings with their evidence anchors, universes with what each one changes from the defaults, the exploration trace, and the scene-review rows |
 | `/courses/<id>/validation` | runs `astra validate` on that course and shows the verdict; the only page that starts a subprocess |
+| `/courses/<id>/mystra` | the printable MySTRA reviewer report built from the course and review readers |
 | `/courses/<id>/provenance.myst.md` | the MyST page `tools/astra_render.py` writes, verbatim |
 | `/courses/<id>/review` | one section per judged bundle, worst case first: the per-scene verdicts `eval/harness/scene_judge.py` wrote, with its failure scenario and quote, the corrupted-scene calibration when the review carries one, and the same verdicts as ASTRA decisions |
 | `/eval/runs/<id>` | the run's dimension scores, findings, harness signals, synthetic-persona sessions and `report.md` |
 | `/eval/validity` | one card per validity suite with the scalar fields of its result files |
 | `/sessions` | the session-runs column on its own — that tree has no course dimension, so it needs no id |
 | `/sessions/<course>` | both session sources side by side: the collector store for that course, the session runs, the indicators that are comparable, and the two that are shown and never flagged |
+| `/harness` | one named agentic-session workspace per section: `index.json` as a step table, the current `task.md`, the last `feedback.md`, each file's modification time; the page refreshes itself |
 
 Every page has a JSON twin under `/api/…` with the same data.
 
 ## Start it
 
-From the repository root, with the project's virtual environment active:
+From the repository root, with the virtual environment installed:
 
 ```bash
-python services/observatory/observatory_app.py --course-root services/planner/.lwg --eval-root eval/reports
+.venv/bin/python services/observatory/observatory_app.py --course-root services/planner/.lwg --eval-root eval/reports
 ```
 
 Or, from this directory, with any ASGI server:
@@ -43,7 +62,8 @@ The wrapper prints one line per configuration fault to stderr and exits 2 when t
 is no course root and no `--course`. Everything else is fail-soft: an unreadable file
 becomes a marker in the page, never an error page. Flags: `--course-root`,
 `--course` (repeatable), `--eval-root`, `--validity-root`, `--analytics-data-dir`,
-`--sessions-root`, `--host`, `--port`, `--validator-timeout`.
+`--sessions-root`, `--session-dir` (repeatable), `--harness-refresh`, `--host`, `--port`,
+`--validator-timeout`.
 
 ## Configuration
 
@@ -60,6 +80,8 @@ Flags override these; each variable has a default that works in a fresh clone.
 | `STUDIUM_OBS_VALIDATOR_TIMEOUT` | `60` | seconds before `astra validate` is killed |
 | `STUDIUM_OBS_ANALYTICS_DATA_DIR` | unset | the analytics collector's event store, as an **absolute** path; unset means no live column rather than a guessed directory |
 | `STUDIUM_OBS_SESSIONS_ROOT` | unset | **one** directory of `telemetry.jsonl` streams, read whole by `class_report.build_report`; unset means no session-runs column |
+| `STUDIUM_OBS_SESSION_DIRS` | empty | agentic-session workspaces, one by one, separated by the platform path separator; either the workspace or its `.studium-session/` is accepted |
+| `STUDIUM_OBS_HARNESS_REFRESH` | `5` | seconds between the Harness page's own refresh; `0` turns it off |
 
 A course is any directory holding an `astra.yaml`. A run is any directory holding an
 `audit.json` or a `sessions/` directory. A suite is any directory holding a
@@ -69,7 +91,7 @@ reload without a restart.
 ### The analytics store, and why it has its own variable
 
 The collector resolves its own `ANALYTICS_DATA_DIR` (default: the **relative** `"data"`)
-against *its* working directory, and the teacher guide starts it after a `cd`. The same
+against *its* working directory, and `tools/e2e-demo-m6.sh` starts it after a `cd`. The same
 string therefore names two different directories depending on where each process was
 started. The Observatory takes its own variable, resolves it to an absolute path, and
 prints the result in the index banner, so a divergence is visible on the page instead of
@@ -124,6 +146,36 @@ identity. The Observatory does not accept that: an event without both a pseudony
 lesson id is an unknown identity, and the source is suppressed with that reason rather than
 counted. Point `--sessions-root` at a durable host tree to get a column.
 
+## The Harness tab
+
+`--session-dir <workspace>` (repeatable) or `STUDIUM_OBS_SESSION_DIRS` names the workspaces
+to watch. They are named **one by one and never scanned for**: a `.studium-session/` folder
+sits at the root of whatever workspace an operator is driving, and nothing puts several of
+them under a common parent, so a `<root>/<session>` convention would name a layout no writer
+produces. Either form of path works — the workspace, or the `.studium-session/` inside it.
+
+The page re-requests itself every `STUDIUM_OBS_HARNESS_REFRESH` seconds. The poll is the
+page's, not the server's: the spec asks for polling and forbids a file-watcher dependency,
+and a server-side loop would be state in a service that has none. `--harness-refresh 0`
+turns it off for a session you are reading rather than watching. The JSON twin carries the
+interval as a number and sets no refresh header — a client that polls owns its own interval.
+
+**Three of the six protocol files are read, and the omission is the point.**
+`.studium-session/` also holds `response.json` and `run_result.json`, which are the
+learner's own submission and their own executed result; those two names appear on the page
+only as the stated omission. `task.md` is safe by construction — `publicScene` strips the
+answer key before the file is written — and `feedback.md` cannot echo a response, because
+`renderFeedback` is a closed set of transition messages. `index.json` is rendered as a step
+table and never as text: its entries carry artifact paths, which the table reduces to
+basenames, and the raw document would put them back unfiltered. A test writes a canary
+string into both learner files and asserts it reaches no payload and no page; another
+records every file opened under a session directory and compares the set to the three.
+
+The file names live in TypeScript (`FILES` in
+`packages/lesson-session-host/src/session-workspace.ts`) and Python cannot import them, so
+the Python names are a mirror — and a *checked* one: a test reads that source, extracts the
+literal, and fails naming the drift if a name is renamed or a seventh file is added.
+
 ## Read-only
 
 Every route is a `GET`. The service writes nothing under any root it reads and starts
@@ -176,13 +228,52 @@ readable source is suppressed, the other is suppressed with it: a number shown o
 and withheld on the other is the withheld one, by subtraction. A source that is *absent* or
 *unreadable* withholds nothing, so the other column still renders alone. An unreadable
 source names a basename and an exception class and nothing else — every path segment above
-a `telemetry.jsonl` is a pseudonym, and an exception message carries the path.
+a `telemetry.jsonl` is a pseudonym, and an exception message carries the path. A reader called
+wrongly by this page is a sixth state, `broken`, and not an unreadable source: the old wording
+sent an operator to hunt through their own telemetry for a defect that is in the projection.
+
+### What a published number may say about the people behind it (INT-STUDIUM-030, R1)
+
+* **One identity rule, and it is the preflight's.** The cohort count published for the session
+  runs column is the population this page actually floored, never `build_report`'s own figure —
+  that reader falls back to a stream's file path when a stream carries no pseudonym, so its
+  count can include one synthetic learner per pseudonym-less stream. `build_report`'s figure is
+  still shown, under the name it honestly has: `n_streams`. The divergence row therefore
+  compares two populations counted the same way, or it compares nothing.
+* **A judgement metric names its population as a band.** Trust calibration, over-trust,
+  over-distrust and autonomy carry `cohort_band` (`5–9`, `10–19`, `20+` at the default floor),
+  `cohort_counts` saying whether that band counts people or learner-lesson pairs, and a
+  `non_attribution` sentence stating that the number is a class reading and not a statement
+  about a student. An exact cohort size moves once per contributor — nineteen transitions over
+  a class of twenty-four, each timeable against the roster; the band moves twice. Participation
+  counts stay exact: "six of your twenty-four did this lesson" is something the teacher already
+  has from the room.
+* **What was withheld is a reason, never a count.** `withheld_below_floor`,
+  `withheld_unseen` and `withheld_unreadable` replace `n_withheld_scenes` and
+  `n_withheld_lessons`, and the prose beside them carries no number either. A reader still
+  cannot mistake a course of eight scenes for one of twelve, and still learns why a key is
+  missing; what is gone is the monotone integer. One boolean per reason also makes the old
+  disagreement unrepresentable — the integers summed three differently-caused populations while
+  the sentence distinguished all three.
+* **`ok` means a number was computed.** Every family carries `measured`. When it is false the
+  family says why the null is itself the measurement — no lesson was started, or every audit was
+  ungrounded — instead of publishing a blank an operator reads as a zero. The flag is computed
+  from the value actually published and never copied from a reader's own claim; where the class
+  report's own `measured` disagrees, the page says so.
 
 ## Tests
 
 ```bash
-python -m pytest services/observatory -q
+.venv/bin/python -m pytest services/observatory -q
 ```
 
 The two validator tests need `astra-tools`; they fail under `CI` and skip locally when
 the CLI is absent.
+
+## MySTRA reviewer view
+
+`/courses/{id}/mystra` presents a printable report from the shared course and review
+readers; `/api/courses/{id}/mystra` exposes the same structured context. The existing
+`/courses/{id}/provenance.myst.md` exports the MyST source. All remain GET-only.
+Opening the viewer reads the cached validation verdict; only the validation routes
+run the validator. See [the Observatory guide](../../docs/teach/observatory.md).

@@ -12,6 +12,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Iterator
 
+from store import course_dir
+
 #: The smallest cohort a class-level number may be computed over. Its value is the product
 #: owner's (RGPD), and it lives here — the deepest module both the live collector and the
 #: offline `tools/class_report.py` already share — so there is exactly one definition
@@ -35,6 +37,121 @@ def min_learners() -> int:
         return int(raw) if raw else MIN_LEARNERS
     except ValueError:
         return MIN_LEARNERS
+
+
+#: Where a judgement cohort's band changes. A band is what a judgement metric publishes about
+#: its population INSTEAD of an exact size: an exact count moves once per contributor, and each
+#: move is an event a reader holding the roster can time against it (INT-STUDIUM-030, R1).
+BAND_EDGES = (10, 20)
+
+#: The sentence every judgement metric carries, wherever it is published. It lives here, with
+#: the floor, because three surfaces publish these metrics — the Observatory operator page, the
+#: live endpoints, and `tools/class_report.py` — and a sentence copied three times is a sentence
+#: that will say three different things (the TS/Py `over_distrust` drift is the precedent).
+NON_ATTRIBUTION = (
+    "class-level reading over the contributors this family names, and not a statement about "
+    "any student: it describes how a group judged, and no control on this surface narrows it "
+    "to a person")
+
+
+def cohort_band(size: int, floor: int | None = None) -> str:
+    """A judgement cohort's size as a band: `5-9`, `10-19`, `20+` at the default floor of 5.
+
+    The lowest band starts at the floor, because a cohort under the floor was never published,
+    and each later band starts at its edge. What the reader gains is the order of magnitude
+    that makes a judgement metric interpretable; what they lose is the per-read increment.
+    """
+    floor = min_learners() if floor is None else floor
+    lower = floor
+    for edge in BAND_EDGES:
+        if size < edge:
+            return f"{lower}\u2013{edge - 1}"
+        lower = max(edge, floor)
+    return f"{lower}+"
+
+
+class Population:
+    """The population a number was ACTUALLY computed over, accumulated where it is computed.
+
+    R1 requires every published number to name its population, that the population be counted
+    by exactly one rule, and that the rule operate inside one lesson. This class is that rule,
+    used at the point of accumulation rather than re-derived afterwards from a second predicate
+    — a second predicate is a second definition, and it drifts.
+
+    The member of a population is a `(lesson, identity)` pair because a pseudonym is
+    `HMAC(learnerId:lessonId)`: within ONE lesson those identities are people, and across
+    lessons the same human holds one per lesson, so a union counts learner-lesson pairs. The
+    payload says which of the two it is rather than calling both "learners".
+    """
+
+    def __init__(self) -> None:
+        self._per_lesson: dict[str, set[str]] = defaultdict(set)
+        self.unknown_identity = False
+
+    def add(self, lesson: object, identity: object) -> None:
+        """Count one contributor. Either half missing makes the population unestablished:
+        an event that cannot be attributed to a person within a lesson cannot be counted by
+        the one rule, and silently dropping it would report a cohort smaller than the one the
+        number was computed over — the wrong side of a privacy floor to be wrong on."""
+        if not isinstance(lesson, str) or not lesson or not isinstance(identity, str) or not identity:
+            self.unknown_identity = True
+            return
+        self._per_lesson[lesson].add(identity)
+
+    def add_event(self, ev: dict) -> None:
+        """`add` for a telemetry event, using the ADR-006 identity fields."""
+        self.add(ev.get("lesson_id"), ev.get("learner_pseudonym"))
+
+    def merge(self, other: "Population") -> None:
+        """Absorb another population — for a number aggregated from parts, whose own
+        population is the union of the parts that fed it and never the whole store."""
+        for lesson, ids in other._per_lesson.items():
+            self._per_lesson[lesson] |= ids
+        self.unknown_identity = self.unknown_identity or other.unknown_identity
+
+    @property
+    def n_lessons(self) -> int:
+        return len(self._per_lesson)
+
+    @property
+    def size(self) -> int:
+        """Members across every lesson: people when `n_lessons <= 1`, learner-lesson pairs
+        otherwise. `counts_note` is what says which, and travels with the number."""
+        return sum(len(ids) for ids in self._per_lesson.values())
+
+    @property
+    def counts_note(self) -> str:
+        return ("distinct learners within one lesson" if self.n_lessons <= 1
+                else "learner-lesson pairs across the lessons in scope")
+
+    def below_floor(self, floor: int | None = None) -> bool:
+        """True when ANY lesson that contributed is under the floor. Per lesson, because a
+        union across lessons counts pairs and cannot lift one lesson over the floor."""
+        floor = min_learners() if floor is None else floor
+        if self.unknown_identity or not self._per_lesson:
+            return True
+        return any(len(ids) < floor for ids in self._per_lesson.values())
+
+    def judgement(self, floor: int | None = None) -> dict:
+        """What a judgement metric publishes about its own population: the band, the unit the
+        band counts, and what the number is not. `cohort_band` is `None` — never a placeholder
+        size — when no population could be established."""
+        if self.unknown_identity:
+            return {"cohort_band": None,
+                    "cohort_counts": ("no population: at least one counted event carries no "
+                                      "learner_pseudonym or no lesson_id"),
+                    "non_attribution": NON_ATTRIBUTION}
+        if not self._per_lesson:
+            # Distinct from the line above, and the distinction is the whole point: nobody
+            # contributed, versus contributors who could not be counted by the one rule. One
+            # is an empty store, the other is a defect in the events; reading the second
+            # message on the first sends the reader looking for a fault that is not there.
+            return {"cohort_band": None,
+                    "cohort_counts": "no contributors: this number was computed over nobody",
+                    "non_attribution": NON_ATTRIBUTION}
+        return {"cohort_band": cohort_band(self.size, floor),
+                "cohort_counts": self.counts_note,
+                "non_attribution": NON_ATTRIBUTION}
 
 
 def cohort_state(
@@ -106,10 +223,10 @@ def _iter_events(
     le champ ``bundle_version`` matche exactement. Les events legacy sans
     champ ``bundle_version`` sont traités comme ``"unversioned"``.
     """
-    course_dir = data_dir / course
-    if not course_dir.exists():
+    cdir = course_dir(data_dir, course)  # raises InvalidCourseToken on an unsafe course (AC-1)
+    if not cdir.exists():
         return
-    for f in sorted(course_dir.glob("*.jsonl")):
+    for f in sorted(cdir.glob("*.jsonl")):
         for line in f.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line:
@@ -149,8 +266,21 @@ def compute_progress(
     course: str,
     bundle_version: str | None = None,
 ) -> dict:
-    """Completion rate by scene_id, with n_learners (distinct pseudonyms)."""
-    completions: dict[str, list[bool]] = defaultdict(list)
+    """Taux de réussite par scene_id, avec n_learners (pseudonymes distincts).
+
+    ``success`` est OPTIONNEL depuis l'ADR 006 v1.7 (INT-STUDIUM-035, décision candidat 2) :
+    une scène de texte libre corrigée hors ligne par l'appariement de sous-chaînes n'affirme
+    plus si la réponse était juste. Ces événements sont EXCLUS du taux au lieu d'être comptés
+    comme des échecs — ``bool(ev.get("success", False))`` transformait « personne n'a corrigé »
+    en « tout le monde a raté », la faute même que ce dépôt a déjà enregistrée sous
+    « une mesure vide rendue comme un zéro ».
+
+    Une scène dont aucun événement n'est corrigé vaut donc ``None``, jamais ``0.0``, et le
+    dénominateur réellement utilisé (``n_graded``) est publié à côté du taux, avec le nombre
+    d'événements écartés (``n_ungraded``), pour qu'aucun lecteur n'ait à le deviner.
+    """
+    graded: dict[str, list[bool]] = defaultdict(list)
+    ungraded: dict[str, int] = defaultdict(int)
     learners: dict[str, set[str]] = defaultdict(set)
     for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if ev.get("type") != "scene_completed":
@@ -158,17 +288,26 @@ def compute_progress(
         sid = ev.get("scene_id")
         if sid is None:
             continue
-        completions[sid].append(bool(ev.get("success", False)))
+        success = ev.get("success")
+        if success is None:
+            ungraded[sid] += 1
+        else:
+            graded[sid].append(bool(success))
         pseudo = ev.get("learner_pseudonym")
         if pseudo:
             learners[sid].add(pseudo)
+    scene_ids = set(graded) | set(ungraded)
     return {
         "scenes": {
             sid: {
-                "completion_rate": sum(1 for s in vals if s) / len(vals) if vals else 0.0,
+                "completion_rate": (
+                    sum(1 for s in graded[sid] if s) / len(graded[sid]) if graded[sid] else None
+                ),
+                "n_graded": len(graded[sid]),
+                "n_ungraded": ungraded[sid],
                 "n_learners": len(learners[sid]),
             }
-            for sid, vals in completions.items()
+            for sid in scene_ids
         }
     }
 
@@ -230,6 +369,9 @@ def compute_calibration(
     Lower is better-calibrated.
     """
     items = []
+    # R1: the population is accumulated HERE, on the events actually scored, not re-derived
+    # afterwards from a second predicate that would drift from this one.
+    population = Population()
     for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if ev.get("type") != "quiz_answered":
             continue
@@ -241,10 +383,11 @@ def compute_calibration(
             continue
         outcome = 1.0 if correct else 0.0
         items.append((float(confidence), outcome))
+        population.add_event(ev)
     if not items:
-        return {"brier_score": None, "n_items": 0}
+        return {"brier_score": None, "n_items": 0, "judgement": population.judgement()}
     brier = sum((c - o) ** 2 for c, o in items) / len(items)
-    return {"brier_score": brier, "n_items": len(items)}
+    return {"brier_score": brier, "n_items": len(items), "judgement": population.judgement()}
 
 
 _REASONING_WEIGHTS: dict[str, float] = {
@@ -262,6 +405,7 @@ def compute_reasoning_depth_score(
     pseudonyme: str | None = None,
     scene_id: str | None = None,
     bundle_version: str | None = None,
+    floor: int | None = None,
 ) -> dict:
     """Reasoning depth score (M5.2) — score [0, 1] par scène.
 
@@ -281,9 +425,18 @@ def compute_reasoning_depth_score(
     consommateur de croiser avec scene_entered/scene_completed s'il veut).
 
     Filtres optionnels : ``pseudonyme`` (1 étudiant) et ``scene_id`` (1 scène).
+
+    R1 (INT-STUDIUM-030 stage 2) — une scène est une population à elle seule, plus étroite que
+    la cohorte du cours que l'endpoint contrôle : un score de raisonnement sur une scène jouée
+    par une seule personne est le score de cette personne sous un autre nom. Chaque scène porte
+    donc sa propre population, en bande, et une scène sous le plancher n'est pas publiée — le
+    payload dit qu'il y en a eu, jamais combien. ``floor=0`` lit la formule brute ; la valeur
+    par défaut est celle qui se publie, pour qu'un appelant qui oublie l'argument retienne
+    plutôt qu'il ne divulgue.
     """
     # counts[scene_id][signal] = count
     counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    scene_population: dict[str, Population] = defaultdict(Population)
     for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if ev.get("type") != "reasoning_signal":
             continue
@@ -298,12 +451,14 @@ def compute_reasoning_depth_score(
         if signal not in _REASONING_WEIGHTS:
             continue
         counts[sid][signal] += 1
+        scene_population[sid].add_event(ev)
 
     scenes: dict[str, dict] = {}
     for sid, by_signal in counts.items():
         total = sum(by_signal.values())
         if total == 0:
-            scenes[sid] = {"score": None, "n_signals": 0, "breakdown": {}}
+            scenes[sid] = {"score": None, "n_signals": 0, "breakdown": {},
+                           **scene_population[sid].judgement(floor)}
             continue
         # choix B (binarisé) : un signal présent au moins une fois compte 1 × weight.
         score = sum(
@@ -317,8 +472,19 @@ def compute_reasoning_depth_score(
             "score": score,
             "n_signals": total,
             "breakdown": breakdown,
+            **scene_population[sid].judgement(floor),
         }
-    return {"scenes": scenes}
+    floor = min_learners() if floor is None else floor
+    withheld = [sid for sid in scenes if scene_population[sid].below_floor(floor)]
+    if floor > 0 and withheld:
+        scenes = {sid: row for sid, row in scenes.items() if sid not in withheld}
+    population = Population()
+    for sid in scenes:
+        population.merge(scene_population[sid])
+    # A payload of judgement rows carries the judgement block too: the sentence saying what
+    # these numbers are not belongs on the surface that publishes them, not only in the rows.
+    return {"scenes": scenes, "withheld_below_floor": bool(floor > 0 and withheld),
+            "judgement": population.judgement(floor)}
 
 
 def compute_ai_audit_accuracy(
@@ -326,6 +492,7 @@ def compute_ai_audit_accuracy(
     course: str,
     pseudonyme: str | None = None,
     bundle_version: str | None = None,
+    floor: int | None = None,
 ) -> dict:
     """AI audit accuracy (M5.3) — score [0, 1] par scène ai_audit / ai_critique.
 
@@ -341,11 +508,18 @@ def compute_ai_audit_accuracy(
     Filtre optionnel : ``pseudonyme`` (1 étudiant). Si plusieurs events
     ``ai_audit_result`` ciblent la même (scene_id, pseudonyme), on agrège en
     sommant les compteurs (TP/FP/planted/missed) avant de calculer l'accuracy.
+
+    R1 (INT-STUDIUM-030 stage 2) — même population, même plancher que
+    ``compute_trust_calibration``, et pour la même raison : ces deux surfaces lisent les mêmes
+    ``ai_audit_result``, et une accuracy par scène auditée par une seule personne est
+    l'accuracy de cette personne. Traiter l'une et pas l'autre laisserait la divulgation
+    intacte à un endpoint de distance.
     """
     # counters[scene_id] = {tp, fp, planted, missed}
     counters: dict[str, dict[str, int]] = defaultdict(
         lambda: {"tp": 0, "fp": 0, "planted": 0, "missed": 0}
     )
+    scene_population: dict[str, Population] = defaultdict(Population)
     for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if ev.get("type") != "ai_audit_result":
             continue
@@ -354,15 +528,23 @@ def compute_ai_audit_accuracy(
             continue
         if pseudonyme is not None and ev.get("learner_pseudonym") != pseudonyme:
             continue
+        scene_population[sid].add_event(ev)
         c = counters[sid]
         c["tp"] += int(ev.get("true_positives", 0))
         c["fp"] += int(ev.get("false_positives", 0))
         c["planted"] += int(ev.get("planted_errors", 0))
         c["missed"] += int(ev.get("missed", 0))
 
+    floor = min_learners() if floor is None else floor
+    withheld = False
+    population = Population()
+
     per_scene: list[dict] = []
     scorable_accuracies: list[float] = []
     for sid, c in counters.items():
+        if floor > 0 and scene_population[sid].below_floor(floor):
+            withheld = True
+            continue
         planted = c["planted"]
         tp = c["tp"]
         fp = c["fp"]
@@ -373,6 +555,7 @@ def compute_ai_audit_accuracy(
             # clamp strict [0, 1]
             accuracy = max(0.0, min(1.0, raw))
             scorable_accuracies.append(accuracy)
+        population.merge(scene_population[sid])
         per_scene.append({
             "scene_id": sid,
             "accuracy": accuracy,
@@ -380,6 +563,7 @@ def compute_ai_audit_accuracy(
             "false_positives": fp,
             "planted_errors": planted,
             "missed": c["missed"],
+            **scene_population[sid].judgement(floor),
         })
 
     overall = (
@@ -389,8 +573,12 @@ def compute_ai_audit_accuracy(
     )
     return {
         "overall_accuracy": overall,
+        # PUBLISHED scenes: a tally that counted the withheld ones would republish the number
+        # `withheld_below_floor` replaced.
         "n_scenes": len(per_scene),
         "per_scene": per_scene,
+        "withheld_below_floor": withheld,
+        "judgement": population.judgement(floor),
     }
 
 
@@ -417,6 +605,7 @@ def compute_trust_calibration(
     course: str,
     learner: str | None = None,
     bundle_version: str | None = None,
+    floor: int | None = None,
 ) -> dict:
     """trust_calibration (judgment-over-artifact) — teacher surface.
 
@@ -466,11 +655,28 @@ def compute_trust_calibration(
     when none did.
 
     Filtre optionnel : ``learner`` (1 pseudonyme).
+
+    R1 (INT-STUDIUM-030 stage 2) — EVERY number here is floored over the population it was
+    actually computed over, not over the course cohort the endpoint checked. A per-scene row
+    is a reading over the learners who audited that scene, which can be one person inside a
+    class of thirty; over-trust is the most characterological reading this instrument
+    produces, so a row under the floor is not published and the payload says only THAT one
+    was, never how many. The overall gap is floored over the union of the scorable scenes,
+    because a single scorable scene makes the overall that scene's row under another name.
+
+    ``floor`` defaults to ``min_learners()``. Pass ``floor=0`` to read the raw maths — the
+    formulas are unit-tested that way, and the default is the publishable one so that a caller
+    who forgets the argument withholds rather than discloses.
     """
     # counters[scene_id] = {fp, planted, missed, sound}
     counters: dict[str, dict[str, int]] = defaultdict(
         lambda: {"fp": 0, "planted": 0, "missed": 0, "sound": 0}
     )
+    # R1: a per-scene row is a number over the learners who audited THAT scene, which is a
+    # narrower population than the course cohort the endpoint floors. Each row therefore
+    # carries its own, accumulated on the events pooled into it.
+    scene_population: dict[str, Population] = defaultdict(Population)
+    population = Population()
     for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         if ev.get("type") != "ai_audit_result":
             continue
@@ -479,17 +685,27 @@ def compute_trust_calibration(
             continue
         if learner is not None and ev.get("learner_pseudonym") != learner:
             continue
+        scene_population[sid].add_event(ev)
         c = counters[sid]
         c["fp"] += int(ev.get("false_positives", 0))
         c["planted"] += int(ev.get("planted_errors", 0))
         c["missed"] += int(ev.get("missed", 0))
         c["sound"] += int(ev.get("sound_total", 0))  # absent in pre-v1.5 JSONL
 
+    floor = min_learners() if floor is None else floor
+    withheld = False
+
     per_scene: list[dict] = []
     gaps: list[float] = []
     over_trusts: list[float] = []
     over_distrusts: list[float] = []
     for sid, c in counters.items():
+        # R1: a scene is a population of its own. It is dropped BEFORE its numbers reach any
+        # aggregate, not only before they reach the payload — a mean over two scenes, one of
+        # them a single learner, is half that learner's judgement published as the class's.
+        if floor > 0 and scene_population[sid].below_floor(floor):
+            withheld = True
+            continue
         planted = c["planted"]
         if planted == 0:
             per_scene.append({
@@ -497,6 +713,7 @@ def compute_trust_calibration(
                 "over_trust": None, "over_distrust": None,
                 "planted_errors": 0, "missed": c["missed"],
                 "false_positives": c["fp"], "sound_total": c["sound"],
+                **scene_population[sid].judgement(floor),
             })
             continue
         over_trust = c["missed"] / planted
@@ -508,17 +725,33 @@ def compute_trust_calibration(
         over_trusts.append(over_trust)
         if over_distrust is not None:
             over_distrusts.append(over_distrust)
+        population.merge(scene_population[sid])
         per_scene.append({
             "scene_id": sid, "gap": gap,
             "over_trust": over_trust, "over_distrust": over_distrust,
             "planted_errors": planted, "missed": c["missed"],
             "false_positives": c["fp"], "sound_total": c["sound"],
+            **scene_population[sid].judgement(floor),
         })
 
-    if not gaps:
+    if not gaps or (floor > 0 and population.below_floor(floor)):
         return {
             "trust_calibration": None, "band": None, "n_audits": 0,
             "over_trust": None, "over_distrust": None, "per_scene": per_scene,
+            # A flag, never a count. `n_audits` above is 0 for the same reason it counts only
+            # published scenes below: a scorable-scene tally that included the withheld ones
+            # would republish exactly the number the flag replaced. That is the R1 lesson from
+            # the Observatory — a count moved into a neighbouring key is the same count.
+            "withheld_below_floor": withheld,
+            # Two different absences, and they need different actions from the reader: nothing
+            # to measure is a bundle without planted flaws, and a withheld measurement is a
+            # cohort too small. Reporting the first when the second happened sends a teacher
+            # looking for a missing scene that is there.
+            "reason": ("trust calibration was measured but not published: the learners who "
+                       "audited these scenes are fewer than the floor in at least one lesson"
+                       if withheld else
+                       "no scene carried a planted flaw, so trust calibration was not measured"),
+            "judgement": population.judgement(floor),
         }
     overall = sum(gaps) / len(gaps)
     if abs(overall) <= TRUST_WELL_BAND:
@@ -530,7 +763,8 @@ def compute_trust_calibration(
     return {
         "trust_calibration": overall,
         "band": band,
-        # n_audits = number of SCORABLE scenes (planted>0), pooled per scene_id —
+        "withheld_below_floor": withheld,
+        # n_audits = number of PUBLISHED scorable scenes (planted>0), pooled per scene_id —
         # NOT a count of ai_audit_result events (mirrors compute_ai_audit_accuracy's
         # n_scenes; named n_audits here for the teacher-facing "audited scenes" sense).
         "n_audits": len(gaps),
@@ -540,6 +774,10 @@ def compute_trust_calibration(
             sum(over_distrusts) / len(over_distrusts) if over_distrusts else None
         ),
         "per_scene": per_scene,
+        # R1: the population of the OVERALL gap is the union of the PUBLISHED scorable scenes',
+        # not the course cohort — scenes nobody could be scored on, and scenes under the floor,
+        # contribute no one to it and no number to the mean.
+        "judgement": population.judgement(floor),
     }
 
 
@@ -1128,10 +1366,21 @@ def compute_autonomy(
 
     - autonomy_ratio = n_critique_submitted / (n_critique_submitted + n_hints_applied)
     - critique_completion_rate = mean(completion_rate of critique_submitted events)
+    - keyword_graded_rate = share of those events whose score came from the SUBSTRING MATCHER
+      rather than a semantic evaluator (`score_source`, ADR 006 v1.6). It is reported beside
+      the completion rate because it says how much that number is worth: the matcher credits a
+      point of the answer key when its cue string appears anywhere in the learner's text, with
+      no notion of negation or of who is asserting what (INT-STUDIUM-035). A cohort graded that
+      way and a cohort graded by an LLM used to arrive here as the same number.
+      `n_score_source_known` is the denominator: events predating v1.6 carry no tag, and a rate
+      over an empty denominator is not zero — it is unmeasured, so it is reported as None.
     """
     n_critique = 0
     sum_completion = 0.0
     n_hints = 0
+    n_source_known = 0
+    n_keyword = 0
+    population = Population()
     for ev in _iter_events(data_dir, course, bundle_version=bundle_version):
         t = ev.get("type")
         if t == "critique_submitted":
@@ -1139,14 +1388,28 @@ def compute_autonomy(
                 continue  # RC-2: explain_back (teach-back) is not an AI-critique signal
             n_critique += 1
             sum_completion += float(ev.get("completion_rate", 0))
+            src = ev.get("score_source")
+            if src:
+                n_source_known += 1
+                if src == "keyword":
+                    n_keyword += 1
+            population.add_event(ev)
         elif t == "adaptation_applied" and ev.get("signal") == "hint":
             n_hints += 1
+            population.add_event(ev)
     total = n_critique + n_hints
     return {
         "critique_completion_rate": (sum_completion / n_critique) if n_critique else 0.0,
         "autonomy_ratio": (n_critique / total) if total else 0.0,
         "n_critique": n_critique,
         "n_hints": n_hints,
+        # None, not 0.0: no tagged event means the question was not answered, and a dashboard
+        # showing "0 % keyword-graded" for an untagged cohort would be the reassuring reading of
+        # a missing measurement.
+        "keyword_graded_rate": (n_keyword / n_source_known) if n_source_known else None,
+        "n_score_source_known": n_source_known,
+        # R1: both terms of the ratio contribute, so both contribute to its population.
+        "judgement": population.judgement(),
     }
 
 

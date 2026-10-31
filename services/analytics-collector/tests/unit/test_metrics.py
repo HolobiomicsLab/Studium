@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import metrics
 from metrics import (
     compute_progress, compute_calibration, compute_autonomy,
     compute_progress_metrics, compute_scene_type_breakdown,
@@ -61,9 +62,43 @@ def test_compute_calibration_brier(tmp_path):
     assert cal["n_items"] == 4
 
 
+def test_compute_calibration_skips_answers_the_learner_did_not_rate(tmp_path):
+    """I-5: quiz_answered.confidence is optional. An unrated answer is neither scored as a 0.0
+    confidence nor counted in n_items; the rated ones keep their Brier."""
+    base = {"type": "quiz_answered", "scene_id": "q", "learner_pseudonym": "hmac:learner-a",
+            "response_time_ms": 1000}
+    events = [
+        {**_base(0), **base, "item_id": "i0", "correct": True, "confidence": 0.8},
+        {**_base(1), **base, "item_id": "i1", "correct": False, "confidence": 0.8},
+        {**_base(2), **base, "item_id": "i2", "correct": True},   # unrated: no confidence key
+        {**_base(3), **base, "item_id": "i3", "correct": False},  # unrated
+    ]
+    data_dir = _write_events(tmp_path, "c1", events)
+    cal = compute_calibration(data_dir, "c1", learner="hmac:learner-a")
+    # Brier over the two rated answers only = ((0.8-1)^2 + (0.8-0)^2) / 2 = 0.34
+    assert cal["n_items"] == 2
+    assert abs(cal["brier_score"] - 0.34) < 1e-9
+
+
+def test_compute_calibration_with_only_unrated_answers_is_unmeasured(tmp_path):
+    events = [{**_base(i), "type": "quiz_answered", "scene_id": "q", "item_id": f"i{i}",
+               "correct": True, "response_time_ms": 1000} for i in range(3)]
+    data_dir = _write_events(tmp_path, "c1", events)
+    cal = compute_calibration(data_dir, "c1")
+    assert cal["brier_score"] is None and cal["n_items"] == 0
+
+
 def test_compute_calibration_no_data(tmp_path):
     cal = compute_calibration(tmp_path, "c-empty")
-    assert cal == {"brier_score": None, "n_items": 0}
+    # The exact shape, so a new key has to be argued for here rather than appearing. The
+    # judgement block is INT-STUDIUM-030 R1: every published number names the population it
+    # was computed over, and this one was computed over nobody — which is a different
+    # sentence from "the contributors could not be counted", and must not borrow it.
+    assert cal == {"brier_score": None, "n_items": 0,
+                   "judgement": {"cohort_band": None,
+                                 "cohort_counts": "no contributors: this number was computed "
+                                                  "over nobody",
+                                 "non_attribution": metrics.NON_ATTRIBUTION}}
 
 
 def test_compute_autonomy(tmp_path):

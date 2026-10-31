@@ -33,7 +33,8 @@ const p = (s = "") => out.push(s);
 
 const transport = new StdioClientTransport({
   command: TSX, args: ["src/index.ts"], cwd: HERE,
-  env: { BUNDLES_ROOT: "/tmp/studium_live", PATH: process.env.PATH,
+  // STUDIUM_EPHEMERAL=1: in memory, nothing written to ~/.studium (I-10).
+  env: { BUNDLES_ROOT: "/tmp/studium_live", PATH: process.env.PATH, STUDIUM_EPHEMERAL: "1",
     // when set, switches the host to LIVE mode → HttpCritiqueEvaluator (the :8002 critique shim)
     ...(process.env.LITELLM_BASE_URL ? { LITELLM_BASE_URL: process.env.LITELLM_BASE_URL } : {}),
     ...(process.env.LITELLM_API_KEY ? { LITELLM_API_KEY: process.env.LITELLM_API_KEY } : {}),

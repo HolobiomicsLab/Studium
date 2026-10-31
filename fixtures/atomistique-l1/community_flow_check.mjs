@@ -56,7 +56,8 @@ from learner_items_store import LAItemEnvelope, LearnerItemsStore
 from learner_review import decide_item, record_peer_review, community_emit_dir
 
 root = ${JSON.stringify(root)}
-concepts = json.load(open(${JSON.stringify(CANONICAL)}, encoding="utf-8"))["concepts"]
+canonical = json.load(open(${JSON.stringify(CANONICAL)}, encoding="utf-8"))
+concepts = canonical["concepts"]
 concept_ids = [c["id"] for c in concepts]
 
 scene = {
@@ -96,6 +97,7 @@ pub = decide_item(
   store, ${JSON.stringify(ITEM_ID)}, decision="approve",
   reviewer=${JSON.stringify(TEACHER)}, reviewed_at="2026-06-26T15:30:00Z",
   bundles_root=community_emit_dir(root), course_concepts=concepts, note_code="ok",
+  course_metadata=canonical["metadata"],
 )
 assert pub.review_state == "published", pub.review_state
 print(pub.published_bundle_ref)
@@ -111,7 +113,7 @@ console.log(`● Python half emitted (author -> peer -> approve -> publish):\n  
 
 // --- 1. P4 discovery finds the emitted bundle alongside the canonical course ------------
 const host = new SessionHost({ bundlesRoot: root, live: false });
-const refs = await host.listCommunityBundles();
+const refs = (await host.listCommunityBundles()).map((b) => b.bundle_ref);
 const direct = await discoverCommunityBundles(root);
 if (JSON.stringify(refs) !== JSON.stringify(direct)) fail("host.listCommunityBundles != discoverCommunityBundles");
 const expectedRef = `${COMMUNITY_DIR}/community-${ITEM_ID}.zip`;

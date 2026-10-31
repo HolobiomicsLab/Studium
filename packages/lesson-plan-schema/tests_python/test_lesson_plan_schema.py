@@ -110,6 +110,26 @@ def test_scene_outline_optional_ontology_fields():
     assert scene.prov_derived_from == ["doi:10.1073/pnas.1319030111"]
 
 
+def test_scene_type_accepts_runtime_active_learning_vocabulary():
+    from lesson_plan_schema import SceneType
+
+    expected = {
+        "explain_back",
+        "comparison",
+        "summary_audit",
+        "prompt_practice",
+        "communication_sim",
+    }
+    assert expected <= {scene_type.value for scene_type in SceneType}
+
+
+def test_scene_type_keeps_simulation_as_deprecated_legacy_value():
+    from lesson_plan_schema import SceneType
+
+    assert SceneType("simulation") is SceneType.simulation
+    assert "deprecated" in (SceneType.__doc__ or "").lower()
+
+
 def test_lesson_plan_optional_provenance_fields():
     from lesson_plan_schema import LessonPlan, LearningObjective, SceneOutline, BloomLevel, SceneType
     plan = LessonPlan(
@@ -264,6 +284,34 @@ def test_lesson_plan_concepts_defaults_empty():
         scene_outlines=[{"id": "s1", "type": "intro", "title": "I", "objective_refs": []}],
     )
     assert plan.concepts == []
+
+
+def test_concept_links_are_optional_and_default_empty():
+    from lesson_plan_schema import Concept, SceneOutline
+
+    concept = Concept(
+        id="dependent",
+        title="Dependent concept",
+        description="Builds on the prerequisite.",
+        bloom_level_target="apply",
+        prerequisites=["prerequisite"],
+    )
+    linked_scene = SceneOutline(
+        id="linked",
+        type="concept",
+        title="Linked scene",
+        concept_refs=["dependent"],
+    )
+
+    assert concept.prerequisites == ["prerequisite"]
+    assert linked_scene.concept_refs == ["dependent"]
+    assert Concept(
+        id="standalone",
+        title="Standalone",
+        description="No prerequisite.",
+        bloom_level_target="remember",
+    ).prerequisites == []
+    assert SceneOutline(id="legacy", type="intro", title="Legacy").concept_refs == []
 
 
 def test_corpus_ref_accepts_aligns_concept_ids():

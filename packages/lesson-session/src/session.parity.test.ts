@@ -22,12 +22,21 @@ describe("golden parity — final learner state", () => {
     await s.start();
     for (const input of script) await s.respond(input);
     const state = s.getState();
-    // c1: quiz correct + critique passed (stub score 0.8 ≥ 0.6) → 2 successes; c2: no answers
-    expect(state.concept_states.c1).toMatchObject({ total_attempts: 2, total_correct: 2, consecutive_errors: 0 });
+    // c1: the QUIZ alone is evidence. The critique is answered on this script too and the stub
+    // still scores it 0.8, but since INT-STUDIUM-035 candidate 2 (owner's decision, 2026-09-10) an
+    // offline keyword score no longer certifies — so it is counted as an UNGRADED attempt and moves
+    // neither total_attempts nor total_correct. This golden is the ledger of that decision: before
+    // it, a session that typed the cue words was recorded as two successes.
+    expect(state.concept_states.c1).toMatchObject({
+      total_attempts: 1, total_correct: 1, consecutive_errors: 0, ungraded_attempts: 1,
+    });
     expect(state.scenes_completed).toEqual([
       "s-intro", "s-concept-1", "s-quiz-1", "s-critique", "s-discussion", "s-concept-2", "s-repro", "s-meta",
     ]);
-    expect(state.scenes_replayed).toEqual({}); // preserved quirk: never incremented
+    // empty because THIS script never replays (every answer is correct), not because the field is
+    // inert: it used to be, and is now stamped from the session's own tally — see
+    // session.prereq-gate-termination.test.ts.
+    expect(state.scenes_replayed).toEqual({});
     // History timestamps come from FixedClock — assert they are normalizable ISO strings.
     for (const h of state.history) expect(() => new Date(h.timestamp).toISOString()).not.toThrow();
   });

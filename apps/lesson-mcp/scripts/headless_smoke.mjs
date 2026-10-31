@@ -23,6 +23,7 @@ const TSX = [
 const CORE_TOOLS = [
   "start_lesson_session", "get_current_scene", "submit_response", "get_scene_artifacts",
   "request_hint", "explain_last_adaptation", "get_run_manifest", "submit_run_result",
+  "get_operator_context", "set_session_language",
 ];
 
 const failures = [];
@@ -31,7 +32,8 @@ const expect = (cond, msg) => { checks++; if (!cond) failures.push(msg); };
 
 const transport = new StdioClientTransport({
   command: TSX, args: ["src/index.ts"], cwd: MCP_DIR,
-  env: { ...process.env, BUNDLES_ROOT: resolve(REPO_ROOT, "fixtures") }, stderr: "pipe",
+  // I-10: a smoke keeps nothing — in memory, never the developer's STUDIUM_DATA_DIR or ~/.studium.
+  env: { ...process.env, BUNDLES_ROOT: resolve(REPO_ROOT, "fixtures"), STUDIUM_EPHEMERAL: "1", STUDIUM_DATA_DIR: "" }, stderr: "pipe",
 });
 transport.stderr?.on("data", () => {});
 const client = new Client({ name: "headless-smoke", version: "0.0.1" });
@@ -43,10 +45,17 @@ const tools = (await client.listTools()).tools.map((t) => t.name);
 for (const t of CORE_TOOLS) expect(tools.includes(t), `tool surface misses ${t}`);
 
 const started = payload(await client.callTool({ name: "start_lesson_session",
-  arguments: { bundle_ref: "atomistique-l1/lesson.json", learner_id: "headless-smoke" } }));
+  arguments: { bundle_ref: "atomistique-l1/lesson.json", learner_id: "headless-smoke", presentation_language: "en-GB" } }));
 expect(typeof started.session_id === "string" && started.session_id.length > 0, "no session_id");
 expect(started.presentation != null, "no first-scene presentation");
+expect(started.language?.selected_language === "en-GB", "initial presentation language missing");
 const sid = started.session_id;
+
+const changedLanguage = payload(await client.callTool({ name: "set_session_language",
+  arguments: { session_id: sid, presentation_language: "fr-CA" } }));
+expect(changedLanguage.language?.selected_language === "fr-CA", "presentation language did not change");
+const operatorContext = payload(await client.callTool({ name: "get_operator_context", arguments: { session_id: sid } }));
+expect(operatorContext.language?.selected_language === "fr-CA", "operator context language drifted");
 
 const scene = payload(await client.callTool({ name: "get_current_scene", arguments: { session_id: sid } }));
 expect(scene.presentation != null || scene.scene != null, "get_current_scene returned nothing");

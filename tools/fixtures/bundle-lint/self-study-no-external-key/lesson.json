@@ -1,0 +1,139 @@
+{
+  "schema_version": "1.4",
+  "bundle_id": "bundle-lint-self-study-no-external-key",
+  "source_plan_id": "bundle-lint-tests",
+  "metadata": {
+    "title": "Self-study lesson graded only by its author",
+    "target": "Lint tests",
+    "duration_minutes": 5,
+    "language": "en",
+    "discipline": "testing",
+    "authoring": {
+      "mode": "self_study",
+      "author_is_learner": true
+    }
+  },
+  "concepts": [
+    {
+      "id": "foundation",
+      "title": "Foundation",
+      "description": "A prerequisite concept.",
+      "bloom_level_target": "understand"
+    },
+    {
+      "id": "advanced",
+      "title": "Advanced",
+      "description": "A dependent concept.",
+      "bloom_level_target": "apply"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s-foundation",
+      "type": "concept",
+      "title": "Foundation",
+      "objective_refs": [],
+      "concept_refs": [
+        "foundation"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "markdown": "Foundation first."
+    },
+    {
+      "id": "s-foundation-quiz-1",
+      "type": "quiz",
+      "title": "Foundation check 1",
+      "objective_refs": [],
+      "concept_refs": [
+        "foundation"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "question": "Choose the foundation.",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Foundation",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Advanced",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Correct.",
+      "feedback_incorrect": "Try again.",
+      "hints": []
+    },
+    {
+      "id": "s-foundation-quiz-2",
+      "type": "quiz",
+      "title": "Foundation check 2",
+      "objective_refs": [],
+      "concept_refs": [
+        "foundation"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "question": "Which comes first?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Foundation",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Advanced",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Correct.",
+      "feedback_incorrect": "Try again.",
+      "hints": []
+    },
+    {
+      "id": "s-advanced",
+      "type": "concept",
+      "title": "Advanced",
+      "objective_refs": [],
+      "concept_refs": [
+        "advanced"
+      ],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "markdown": "Advanced follows the foundation."
+    }
+  ],
+  "rules": [],
+  "validated_by": "SELF-STUDY — not teacher-validated",
+  "validated_at": "2026-10-29T00:00:00.000Z",
+  "learning_workflow_graph": {
+    "schema_version": "1.0",
+    "course_id": "bundle-lint-self-study-no-external-key",
+    "nodes": [
+      {
+        "id": "concept:foundation",
+        "node_kind": "concept",
+        "title": "Foundation",
+        "bloom_level": "understand"
+      },
+      {
+        "id": "concept:advanced",
+        "node_kind": "concept",
+        "title": "Advanced",
+        "bloom_level": "apply"
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-advanced-foundation",
+        "relation": "prerequisite_for",
+        "source": "concept:advanced",
+        "target": "concept:foundation"
+      }
+    ]
+  }
+}

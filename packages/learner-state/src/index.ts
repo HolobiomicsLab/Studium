@@ -8,6 +8,13 @@ export const ConceptStateSchema = z.object({
   consecutive_errors: z.number().int().nonnegative(),
   total_attempts: z.number().int().nonnegative(),
   total_correct: z.number().int().nonnegative(),
+  // Attempts on this concept whose correctness was never measured (INT-STUDIUM-035 candidate 2:
+  // a free-text answer graded offline by the substring matcher). Deliberately NOT folded into
+  // `total_attempts`, which is read as evidence — a rule keyed on `total_attempts >= n` must not
+  // be satisfied by answers nobody graded. Published so the absence is countable rather than
+  // invisible, the same reason the collector publishes `n_score_source_known` beside
+  // `keyword_graded_rate`. Optional + back-compatible (absent ⇒ 0).
+  ungraded_attempts: z.number().int().nonnegative().optional(),
   confidence_calibration: z.number().min(-1).max(1),
   // How many confidence observations have fed confidence_calibration. Optional + back-compatible
   // (absent ⇒ 0 ⇒ "never measured"). This is what lets a calibration GATE tell a well-calibrated
@@ -50,14 +57,31 @@ export type ConceptState = z.infer<typeof ConceptStateSchema>;
 export const SignalSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("answer_submitted"),
     concept_id: z.string(), scene_id: z.string(),
-    correct: z.boolean(), time_ms: z.number().nonnegative(),
+    // CORRECTNESS IS OPTIONAL, and its absence means UNMEASURED — never `false`. An answer graded
+    // by `matchClaimsAgainstCritique` is graded on whether an authored cue string appears in the
+    // text, which is a statement about vocabulary; INT-STUDIUM-035 measured it against a teacher on
+    // the real atomistique-l1 bundle and 11 of 12 answers came back inverted. On the owner's
+    // decision (candidate 2, 2026-09-10) that path still publishes its score as a COVERAGE HINT
+    // (`critique_submitted.llm_score` / `completion_rate`) but no longer certifies: it emits this
+    // signal with no `correct`, so the Beta posterior, FSRS and the concept gates receive nothing.
+    // `false` would be the same defect pointing the other way — the learner may well have been
+    // right. Readers must branch on presence, following INT-STUDIUM-029: `matchesCondition` already
+    // treats an absent context key as a first-class answer, so no adaptation rule fires on it.
+    // Still certified: `quiz` (a marked choice), the verdict deck (marks scored against the key by
+    // identity) and a live evaluator (`source: "llm"`).
+    correct: z.boolean().optional(), time_ms: z.number().nonnegative(),
     hint_count: z.number().int().nonnegative(),
     difficulty: z.number().min(0).max(1),
     // optional per-answer self-rated confidence (0..4) — the path toward CONTINUOUS calibration.
-    // CAPTURE-READY but currently UNFED: no UI supplies per-answer confidence yet, so the only LIVE
-    // calibration input today is the confidence_declared meta-checkpoint. When present, the engine
-    // folds it into confidence_calibration on this answer + counts a sample.
+    // Fed by the VS Code pane's confidence tap on quiz answers; harness clients may send it too.
+    // When present, the engine folds it into confidence_calibration on this answer + counts a sample.
     confidence: z.number().int().min(0).max(4).optional(),
+    // The chance of answering this item right WITHOUT knowing it: k/n for a choice item with k right
+    // choices out of n (set by the quiz grader). Absent ⇒ no guessing to correct for (free text graded
+    // by a judge, a verdict deck scored by identity, legacy history). The Beta update uses it to
+    // correct for guessing (adaptation-engine beta-updater, RT-2). Below 1: an item every choice of
+    // which is right carries no evidence to correct.
+    guess_rate: z.number().min(0).lt(1).optional(),
     // JUDGMENT audit breakdown — set ONLY by the flawGrader when the spot_the_flaw scene is GROUNDED
     // in a real executed result (carries a reference_result). The engine folds it into
     // trust_calibration. `grounded` distinguishes a real-artifact judgment from an ungrounded one; a
@@ -80,7 +104,14 @@ export const SignalSchema = z.discriminatedUnion("kind", [
     scene_id: z.string(), value: z.number().int().min(0).max(4),
     // M3: the concept this self-assessment is about. Optional for backward-compat —
     // when absent, the calibration loop is a no-op (no concept to attach the gap to).
-    concept_id: z.string().optional() }),
+    concept_id: z.string().optional(),
+    // Paired checkpoint (pre_question/post_question): the two declarations and their delta. `value`
+    // stays the post declaration (what the calibration loop compares). Optional: a single-question
+    // checkpoint carries none. Declared here so a durable store (FileStateStore parses on load)
+    // keeps them — a zod object strips unknown keys, which silently dropped them before.
+    pre: z.number().int().min(0).max(4).optional(),
+    post: z.number().int().min(0).max(4).optional(),
+    confidence_delta: z.number().int().min(-4).max(4).optional() }),
   z.object({ kind: z.literal("scene_entered"), scene_id: z.string() }),
   z.object({ kind: z.literal("scene_completed"),
     scene_id: z.string(), duration_ms: z.number().nonnegative() }),
@@ -114,6 +145,31 @@ export const HistoryEntrySchema = z.object({
   decision: DecisionSchema,
 });
 
+// FSRS per-concept memory. Mirrors ConceptMemoryState in @studium/adaptation-engine/src/fsrs.ts —
+// kept structurally identical (learner-state can't import the engine: the engine depends on
+// learner-state, not the reverse). Persisted on the cross-lesson profile (`concept_memory`), so
+// spaced-repetition routing sees a concept reviewed in lesson A while the learner is in lesson B, and
+// optionally on the per-bundle LearnerState (below).
+export const ConceptMemoryStateSchema = z.object({
+  concept_id: z.string(),
+  /** Memory stability in DAYS; 0 = unseen. */
+  stability: z.number(),
+  /** Item difficulty in [1,10]; 0 = unseen. */
+  difficulty: z.number(),
+  /** Epoch ms of the last review; null = unseen. */
+  last_reviewed_at: z.number().nullable(),
+  reps: z.number().int().nonnegative(),
+  lapses: z.number().int().nonnegative(),
+});
+export type ConceptMemoryState = z.infer<typeof ConceptMemoryStateSchema>;
+
+/** One pending self-rating request (C4 / L-9), as persisted on the per-bundle LearnerState. */
+export const SelfRatingRequestStateSchema = z.object({
+  concept_ids: z.array(z.string()).min(1),
+  requested_at: z.string(),
+});
+export type SelfRatingRequestState = z.infer<typeof SelfRatingRequestStateSchema>;
+
 export const LearnerStateSchema = z.object({
   lesson_id: z.string(),
   schema_version: z.literal("1.0"),
@@ -123,12 +179,47 @@ export const LearnerStateSchema = z.object({
   history: z.array(HistoryEntrySchema).max(50),
   session_started_at: z.string(),
   last_decision: DecisionSchema.nullable(),
+  // Per-bundle FSRS memory, keyed by concept id: the first-class retention state (RT-3) that a host
+  // or the engine keeps current instead of replaying the capped history. Optional + back-compatible
+  // (absent ⇒ no retention evidence). The session reads it for EFFECTIVE mastery (see below).
+  concept_memory: z.record(z.string(), ConceptMemoryStateSchema).optional(),
+  // C4 / L-9: self-rating requests not answered yet, keyed by scene id — the concepts the rating will
+  // schedule (every concept_ref of the scene) and when the answer that asked for it was given. Saved
+  // with the state so a request survives a server restart. Optional + back-compatible: a state saved
+  // before 2026-10-30 has no field at all (its requests lived in memory only); a state written since
+  // always carries it, `{}` when nothing is pending.
+  self_rating_requests: z.record(z.string(), SelfRatingRequestStateSchema).optional(),
 });
 
 export type LearnerState = z.infer<typeof LearnerStateSchema>;
 
 export function masteryOf(s: ConceptState): number {
   return s.alpha / (s.alpha + s.beta);
+}
+
+/**
+ * EFFECTIVE MASTERY — how much of a demonstrated mastery the learner can still use now (RT-2).
+ *
+ *   p      = alpha / (alpha + beta)                  the Beta posterior (masteryOf). Its update caps the
+ *                                                    pseudo-counts at alpha + beta <= 20 and corrects
+ *                                                    choice items for guessing (adaptation-engine
+ *                                                    beta-updater.ts).
+ *   R(t)   = (1 + 19/81 · t / S) ^ -0.5             FSRS-4.5 retrievability, t = days since the last
+ *                                                    review, S = memory stability in days
+ *                                                    (adaptation-engine fsrs.ts `retrievability`).
+ *   m_eff  = p · R(t)                                when the concept has an FSRS memory
+ *   m_eff  = p                                       when it has none
+ *
+ * Both factors are probabilities and are clamped to [0, 1]. A concept that was never reviewed has no
+ * retention evidence: that is not a forgotten concept, so its posterior stands (unmeasured ≠ zero).
+ * Callers pass `undefined` for such a concept — never the 0 that `retrievability` returns for an
+ * unseen memory. Pure.
+ */
+export function effectiveMastery(posterior: number, retrievability?: number | null): number {
+  const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+  const p = clamp01(posterior);
+  if (retrievability === undefined || retrievability === null || Number.isNaN(retrievability)) return p;
+  return p * clamp01(retrievability);
 }
 
 /** M3 metacognitive calibration smoothing factor. λ=1.0 means a single meta_checkpoint
@@ -310,23 +401,8 @@ export function defaultConceptState(concept_id: string): ConceptState {
 // session's working state; the profile is the longitudinal carry-forward seeded in / merged out by the host.
 // ---------------------------------------------------------------------------
 
-// FSRS per-concept memory, persisted on the cross-lesson profile (NOT on the per-bundle LearnerState,
-// where it is derived by replaying answer history). Mirrors ConceptMemoryState in
-// @studium/adaptation-engine/src/fsrs.ts — kept structurally identical (learner-state can't import the
-// engine: the engine depends on learner-state, not the reverse). Persisting it here lets spaced-
-// repetition routing see a concept reviewed in lesson A while the learner is in lesson B.
-export const ConceptMemoryStateSchema = z.object({
-  concept_id: z.string(),
-  /** Memory stability in DAYS; 0 = unseen. */
-  stability: z.number(),
-  /** Item difficulty in [1,10]; 0 = unseen. */
-  difficulty: z.number(),
-  /** Epoch ms of the last review; null = unseen. */
-  last_reviewed_at: z.number().nullable(),
-  reps: z.number().int().nonnegative(),
-  lapses: z.number().int().nonnegative(),
-});
-export type ConceptMemoryState = z.infer<typeof ConceptMemoryStateSchema>;
+// FSRS per-concept memory (ConceptMemoryStateSchema) is declared above LearnerStateSchema, which can
+// carry a per-bundle copy; the profile below carries the cross-lesson one.
 
 export const LearnerProfileSchema = z.object({
   pseudonym: z.string(),

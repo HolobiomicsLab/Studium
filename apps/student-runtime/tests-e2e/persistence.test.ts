@@ -1,3 +1,5 @@
+import { stageBundle } from "./support/staged-bundle";
+
 describe("State persistence across restarts", () => {
   it("resumes lesson at the correct scene after app restart", async () => {
     await browser.pause(1500);
@@ -6,7 +8,11 @@ describe("State persistence across restarts", () => {
     await $("#a").then((b) => b.click());
     await $("button*=Continuer").then((b) => b.click());
     await browser.pause(500);
-    await $("a*=Démarrer").then((l) => l.click());
+    // INT-STUDIUM-034 : la bibliothèque liste des bundles, et son contrôle de démarrage est
+    // un <button data-testid='library-load-bundle'> — plus le lien `a*=Démarrer` d'avant.
+    const start = await $("[data-testid='library-load-bundle']");
+    await start.waitForDisplayed({ timeout: 10_000 });
+    await start.click();
     await browser.pause(500);
 
     // Play 3 scenes
@@ -30,13 +36,18 @@ describe("State persistence across restarts", () => {
 
     // Simulate "restart" by navigating away and back
     await browser.url("/");
+    // Une navigation document détruit `window` : le bundle mis en scène par `wdio.conf.ts`
+    // disparaît avec elle et la bibliothèque revient vide. (INT-STUDIUM-033)
+    await stageBundle(browser);
     await browser.pause(1500);
 
     // Should skip consent (already given) and go to library
     expect(await browser.getUrl()).toContain("/library");
 
     // Re-enter lesson
-    await $("a*=Démarrer").then((l) => l.click());
+    const reenter = await $("[data-testid='library-load-bundle']");
+    await reenter.waitForDisplayed({ timeout: 10_000 });
+    await reenter.click();
     await browser.pause(500);
 
     // State should be persisted — we may be past scene 1

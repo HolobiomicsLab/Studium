@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Harness{% endblock %}
+
+{#- R7 asks for polling and forbids a file watcher; R8 forbids server state. So the poll is the
+    page's, and it is visible in the markup rather than hidden in a background task. -#}
+{% block head_extra %}
+{%- if detail.refresh_seconds %}
+<meta http-equiv="refresh" content="{{ detail.refresh_seconds }}">
+{%- endif %}
+{% endblock %}
+
+{#- A file's state, and when it last changed. `absent` is not a fault: `feedback.md` does not
+    exist until a first response is graded. -#}
+{% macro filestate(name, f) -%}
+{%- if f.state == "ok" %}<span class="path">{{ name }} · {{ f.mtime }}</span>
+{%- elif f.state == "absent" %}<span class="none">{{ name }} — not written yet</span>
+{%- else %}<span class="unreadable">{{ name }} — unreadable: {{ f.reason }}</span>
+{%- endif %}
+{%- endmacro %}
+
+{% block content %}
+<h1>Harness</h1>{{ help_tip("harness") }}
+<p class="path">The agentic-session file protocol (<code>.studium-session/</code>), read-only.
+{% if detail.refresh_seconds %}This page refreshes every {{ detail.refresh_seconds }}s.
+{% else %}Automatic refresh is off.{% endif %}</p>
+
+<p class="banner">{{ detail.note }}
+Read here: {% for f in detail.read_files %}<code>{{ f }}</code>{{ ", " if not loop.last }}{% endfor %}.
+Never read: {% for f in detail.not_read %}<code>{{ f }}</code>{{ ", " if not loop.last }}{% endfor %}.</p>
+
+{% if not detail.configured %}
+<p class="none">No session workspace named. Start the service with
+<code>--session-dir &lt;workspace&gt;</code> (repeatable), or set
+<code>STUDIUM_OBS_SESSION_DIRS</code>. Either the workspace or its
+<code>.studium-session/</code> is accepted.</p>
+{% endif %}
+
+{% for s in detail.sessions %}
+<h2>{{ s.name }}</h2>
+<p class="path">{{ s.path }}{% if s.resolved and s.resolved != s.path %} → {{ s.resolved }}{% endif %}</p>
+
+{%- if s.problem %}
+<p class="absent">{{ s.problem }}</p>
+{%- else %}
+
+<table class="kv"><tbody>
+  <tr><th>session id</th><td>{% if s.session_id %}<code>{{ s.session_id }}</code>{% else %}<span class="none">—</span>{% endif %}</td></tr>
+  <tr><th>current step</th><td>{% if s.current_step is not none %}{{ s.current_step }}{% else %}<span class="none">—</span>{% endif %}</td></tr>
+  <tr><th>status</th><td>{% if s.status %}<span class="{{ s.status }}">{{ s.status }}</span>{% else %}<span class="none">—</span>{% endif %}</td></tr>
+  <tr><th>files</th><td>{% for name in detail.read_files %}{{ filestate(name, s.files[name]) }}{{ " · " if not loop.last }}{% endfor %}</td></tr>
+</tbody></table>
+
+<h3>Steps</h3>
+{%- if s.steps_problem %}
+<p class="absent">{{ s.steps_problem }}</p>
+{%- elif s.steps %}
+<table>
+  <thead><tr><th>step</th><th>scene</th><th>type</th><th>status</th><th>run</th></tr></thead>
+  <tbody>
+  {%- for e in s.steps %}
+    <tr>
+      <td>{{ e.step if e.step is not none else "—" }}</td>
+      <td>{% if e.malformed %}<span class="absent">{{ e.malformed }}</span>{% else %}<code>{{ e.scene_id or "—" }}</code>{% endif %}</td>
+      <td>{{ e.scene_type or "" }}</td>
+      <td>{% if e.status %}<span class="{{ e.status }}">{{ e.status }}</span>{% endif %}</td>
+      <td>
+        {%- if e.landmark %}<code>{{ e.landmark }}</code>{% endif %}
+        {%- if e.passed is not none %} <span class="{{ 'pass' if e.passed else 'failed' }}">{{ "passed" if e.passed else "failed" }}</span>{% endif %}
+        {%- if e.artifacts %} <span class="path">{{ e.artifacts|join(", ") }}</span>{% endif %}
+      </td>
+    </tr>
+  {%- endfor %}
+  </tbody>
+</table>
+{%- else %}
+<p class="none">no step recorded yet</p>
+{%- endif %}
+
+<h3>Current task <span class="path">({{ detail.task_file }})</span></h3>
+{%- if s.files[detail.task_file].state == "ok" %}
+<pre>{{ s.files[detail.task_file].text }}</pre>
+{%- else %}
+<p class="none">{{ filestate(detail.task_file, s.files[detail.task_file]) }}</p>
+{%- endif %}
+
+<h3>Last feedback <span class="path">({{ detail.feedback_file }})</span></h3>
+{%- if s.files[detail.feedback_file].state == "ok" %}
+<pre>{{ s.files[detail.feedback_file].text }}</pre>
+{%- else %}
+<p class="none">{{ filestate(detail.feedback_file, s.files[detail.feedback_file]) }}</p>
+{%- endif %}
+
+{%- endif %}
+{% endfor %}
+{% endblock %}

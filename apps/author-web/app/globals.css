@@ -1,0 +1,14 @@
+@import "../../../design/tokens.css";
+
+/* The M1 app keeps its existing forms. Only the surrounding shell is maintained. */
+html { background: var(--st-canvas); color: var(--st-text); }
+body { max-width: 960px; margin: 0 auto; padding: var(--st-space-6); font-family: var(--st-font-text); line-height: var(--st-leading-body); }
+.author-header { border-bottom: 1px solid var(--st-border); padding-bottom: var(--st-space-4); margin-bottom: var(--st-space-6); }
+.author-header h1 { margin: 0; font-family: var(--st-font-display); font-weight: var(--st-weight-regular); font-size: var(--st-size-xl); }
+.legacy-banner { padding: var(--st-space-4) var(--st-space-5); border: 1px solid var(--st-border-strong); border-left: 4px solid var(--st-warning); border-radius: var(--st-radius-medium); background: var(--st-warning-soft); color: var(--st-text); margin-bottom: var(--st-space-6); }
+.legacy-banner strong { color: var(--st-warning); }
+.legacy-banner p { margin: var(--st-space-1) 0 0; font-size: var(--st-size-sm); }
+.author-content { background: var(--st-surface); padding: var(--st-space-6); border: 1px solid var(--st-border); border-radius: var(--st-radius-medium); }
+:focus-visible { outline: 3px solid var(--st-focus); outline-offset: 3px; }
+@media (max-width: 600px) { body { padding: var(--st-space-4); } .author-content { padding: var(--st-space-4); } }
+@media print { body { max-width: none; padding: 0; color: #000; background: #fff; } .author-content { border: 0; padding: 0; } }

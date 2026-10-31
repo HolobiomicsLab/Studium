@@ -393,7 +393,11 @@ def test_a_kappa_outside_its_range_is_not_a_measurement(client, course_root) -> 
     bundle = _bundle(api, "b1")
     assert bundle["calibration"]["kappa"] is None
     assert _problem(bundle, "calibration.kappa")
-    assert "42" not in page                               # never the value, only the field
+    # Inspect displayed content: shared CSS can legitimately contain numeric sizes.
+    # The response must still suppress the malformed value and show the gap.
+    content = re.search(r"<main\b[^>]*>(.*?)</main>", page, re.DOTALL).group(1)
+    assert "42" not in content
+    assert "kappa not computed" in content
 
 
 def test_a_string_separates_is_not_read_as_a_boolean(client, course_root) -> None:

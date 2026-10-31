@@ -20,20 +20,29 @@ type Props = {
   onCloseRoom?: CloseRoomAction;
 };
 
+export function formatRoomError(_error: unknown): string {
+  return (
+    "lesson-server n’a pas pu terminer l’opération. " +
+    "Vérifiez que le service lesson-server est démarré et accessible, puis réessayez."
+  );
+}
+
 function AggregateRow({ agg }: { agg: TargetAggregate }) {
   const pct = (n: number) => `${Math.round(n * 100)} %`;
   const tag = agg.target_session_id.slice(-6).toUpperCase();
   return (
-    <tr data-testid="aggregate-row" data-target={agg.target_session_id} className="border-t">
-      <td className="py-1 pr-4 font-mono text-xs text-gray-500">#{tag}</td>
-      <td className="py-1 pr-4 text-center">{agg.k}</td>
-      <td className="py-1 pr-4 text-center">
-        <span className={agg.passed_rate >= 0.6 ? "text-green-700 font-semibold" : "text-red-600"}>
+    <tr data-testid="aggregate-row" data-target={agg.target_session_id}>
+      <td className="room-session-tag">#{tag}</td>
+      <td>{agg.k}</td>
+      <td>
+        <span
+          className={`metric-reading metric-reading--${agg.passed_rate >= 0.6 ? "strong" : "watch"}`}
+        >
           {pct(agg.passed_rate)}
         </span>
       </td>
-      <td className="py-1 pr-4 text-center">{agg.avg_rating.toFixed(1)}/5</td>
-      <td className="py-1 text-center">{pct(agg.avg_helpful)}</td>
+      <td>{agg.avg_rating.toFixed(1)}/5</td>
+      <td>{pct(agg.avg_helpful)}</td>
     </tr>
   );
 }
@@ -45,16 +54,16 @@ function RoomStateView({ state, onRefresh, onClose, busy }: {
   busy: boolean;
 }) {
   return (
-    <div data-testid="room-state" className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <span className="text-sm text-gray-600">
+    <div data-testid="room-state" className="room-stack">
+      <div className="room-toolbar">
+        <span className="room-meta">
           {state.session_count} participant{state.session_count !== 1 ? "s" : ""} &middot;{" "}
           {state.rating_count} note{state.rating_count !== 1 ? "s" : ""}
         </span>
         {state.closed ? (
           <span
             data-testid="closed-badge"
-            className="text-xs font-semibold px-2 py-0.5 rounded bg-gray-200 text-gray-700"
+            className="status-badge status-badge--neutral"
           >
             Salle fermée / Room closed
           </span>
@@ -63,7 +72,7 @@ function RoomStateView({ state, onRefresh, onClose, busy }: {
             type="button"
             onClick={onRefresh}
             disabled={busy}
-            className="text-xs px-2 py-0.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+            className="secondary-button"
           >
             Rafraîchir / Refresh
           </button>
@@ -71,18 +80,18 @@ function RoomStateView({ state, onRefresh, onClose, busy }: {
       </div>
 
       {state.aggregates.length > 0 ? (
-        <div>
-          <p className="text-xs text-gray-500 mb-1">
+        <div className="table-scroll">
+          <p className="room-help">
             Agrégats ≥ k=3 / Aggregates (k≥3 raters):
           </p>
-          <table className="text-sm w-full">
+          <table className="data-table">
             <thead>
-              <tr className="text-xs text-gray-500 text-left">
-                <th className="pr-4 pb-1">Session</th>
-                <th className="pr-4 pb-1 text-center">k</th>
-                <th className="pr-4 pb-1 text-center">Réussi / Passed</th>
-                <th className="pr-4 pb-1 text-center">Note moy.</th>
-                <th className="pb-1 text-center">Utile / Helpful</th>
+              <tr>
+                <th>Session</th>
+                <th>k</th>
+                <th>Réussi / Passed</th>
+                <th>Note moy.</th>
+                <th>Utile / Helpful</th>
               </tr>
             </thead>
             <tbody>
@@ -92,19 +101,19 @@ function RoomStateView({ state, onRefresh, onClose, busy }: {
             </tbody>
           </table>
           {state.closed && (
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="room-help room-help--spaced">
               Transmettez ces résultats à{" "}
-              <code className="bg-gray-100 px-1 rounded">scene-synth/decide_item</code>{" "}
+              <code>scene-synth/decide_item</code>{" "}
               pour publier dans le bundle communautaire.
               <br />
-              <span className="text-gray-400">
+              <span className="room-help__translation">
                 Forward these aggregates to scene-synth/decide_item to publish in the community bundle.
               </span>
             </p>
           )}
         </div>
       ) : (
-        <p className="text-sm text-gray-500">
+        <p className="empty-state empty-state--panel">
           Aucun agrégat disponible (seuil k=3 non atteint). / No aggregates yet (k=3 floor not reached).
         </p>
       )}
@@ -115,7 +124,7 @@ function RoomStateView({ state, onRefresh, onClose, busy }: {
           onClick={onClose}
           disabled={busy}
           data-testid="close-room-btn"
-          className="text-sm px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+          className="danger-button"
         >
           Fermer la salle / Close room
         </button>
@@ -138,7 +147,7 @@ export default function PeerRoomPanel({
   const wrap = useCallback(async (fn: () => Promise<void>) => {
     setBusy(true);
     setError(null);
-    try { await fn(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+    try { await fn(); } catch (e) { setError(formatRoomError(e)); } finally { setBusy(false); }
   }, []);
 
   async function handleOpen(e: React.FormEvent) {
@@ -161,15 +170,15 @@ export default function PeerRoomPanel({
   }
 
   return (
-    <div data-testid="peer-room-panel" className="space-y-6 max-w-xl">
-      <h3 className="font-semibold text-base">
+    <div data-testid="peer-room-panel" className="room-panel">
+      <h3 className="room-panel__title">
         PeerStudio — Gestion de salle / Room management
       </h3>
 
       {!room ? (
-        <form onSubmit={handleOpen} className="space-y-3">
-          <label className="block text-sm">
-            <span className="block text-gray-700 mb-1">
+        <form onSubmit={handleOpen} className="room-stack">
+          <label className="field-group">
+            <span className="field-group__label">
               Référence du bundle / Bundle ref
             </span>
             <input
@@ -177,7 +186,7 @@ export default function PeerRoomPanel({
               type="text"
               value={bundleRef}
               onChange={(e) => setBundleRef(e.target.value)}
-              className="w-full border rounded px-3 py-1.5 text-sm font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="st-input room-input"
               required
             />
           </label>
@@ -185,24 +194,24 @@ export default function PeerRoomPanel({
             type="submit"
             disabled={busy || !bundleRef.trim()}
             data-testid="open-room-btn"
-            className="text-sm px-4 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            className="primary-button"
           >
             Ouvrir une salle / Open room
           </button>
         </form>
       ) : (
-        <div className="space-y-4">
+        <div className="room-stack">
           <div
             data-testid="join-code-display"
-            className="p-4 rounded-lg border-2 border-blue-400 bg-blue-50 text-center space-y-1"
+            className="join-code"
           >
-            <p className="text-xs text-blue-600 uppercase tracking-wide font-medium">
+            <p className="join-code__label">
               Code d&apos;accès / Join code
             </p>
-            <p className="text-4xl font-mono font-bold tracking-widest text-blue-900" aria-label="join code">
+            <p className="join-code__value" aria-label="join code">
               {room.join_code}
             </p>
-            <p className="text-xs text-blue-500">
+            <p className="join-code__hint">
               Les étudiant·es saisissent ce code dans l&apos;interface pair-à-pair.
               <br />
               Students enter this code in the peer interface.
@@ -215,7 +224,7 @@ export default function PeerRoomPanel({
               onClick={handleRefresh}
               disabled={busy}
               data-testid="load-state-btn"
-              className="text-sm px-3 py-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+              className="secondary-button"
             >
               Charger l&apos;état / Load state
             </button>
@@ -231,7 +240,7 @@ export default function PeerRoomPanel({
       )}
 
       {error && (
-        <p role="alert" data-testid="room-error" className="text-xs text-red-600">
+        <p role="alert" data-testid="room-error" className="inline-error">
           Erreur : {error}
         </p>
       )}

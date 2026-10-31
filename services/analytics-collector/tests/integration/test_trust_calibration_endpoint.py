@@ -53,8 +53,10 @@ def test_returns_over_trust_band(tmp_path, monkeypatch):
     _seed_jsonl(tmp_path, "course-x", events)
     from analytics_collector_app import app
     client = TestClient(app)
+    # No `&learner=` since INT-STUDIUM-030 removed the drill-down. One learner is seeded, so
+    # the class aggregate is numerically identical and the band below is unchanged.
     r = client.get(
-        "/metrics/trust-calibration?course=course-x&learner=hmac:la",
+        "/metrics/trust-calibration?course=course-x",
         headers={"X-Course-Token": "course-x"},
     )
     assert r.status_code == 200

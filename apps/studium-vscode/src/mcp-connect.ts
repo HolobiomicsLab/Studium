@@ -1,6 +1,7 @@
 // mcp-connect.ts — spawn lesson-mcp over stdio and expose a typed call() + close(). Shared by the lesson
 // panel (extension.ts) and the @studium chat participant (chat.ts) so the connection logic lives once.
 import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -14,6 +15,81 @@ export type LogSink = (line: string) => void;
 
 /** How to launch lesson-mcp: the executable, its args, its cwd, extra env. */
 export interface ServerLaunch { command: string; args: string[]; cwd: string; env?: Record<string, string>; }
+
+export interface ServerInfo {
+  name: string;
+  version: string;
+  build: { origin: "source" | "bundled"; built_at: string | null; git_sha: string | null };
+  tools: string[];
+  bundles_root: string;
+  data_dir: string | null;
+  model_backend: "none" | "configured";
+}
+
+const GIT_TIMEOUT_MS = 1_000;
+export type RepoHeadReader = (repoRoot: string) => string | null;
+
+/** Describe whether a launch uses live TypeScript sources or the VSIX bundle. */
+export function describeServerLaunch(launch: ServerLaunch): string {
+  const entry = launch.args[0] ?? "";
+  if (entry.endsWith("lesson-mcp.cjs")) return "bundled (dist/lesson-mcp.cjs)";
+  return `source (${resolve(launch.cwd, entry)})`;
+}
+
+/** Format get_server_info for the Studium output channel. */
+export function serverInfoLine(info: ServerInfo): string {
+  const sha = info.build.git_sha ? ` sha=${info.build.git_sha}` : "";
+  return `[${info.name}] v${info.version} ${info.build.origin} ${info.build.built_at ?? "unbuilt"}${sha} ` +
+    `tools=${info.tools.length} bundles_root=${info.bundles_root} data_dir=${info.data_dir ?? "none"} ` +
+    `model_backend=${info.model_backend}`;
+}
+
+/** Read a checkout's HEAD identity in the same format as the bundle command. */
+export function readRepoHead(repoRoot: string): string | null {
+  try {
+    return execFileSync("git", ["describe", "--always", "--abbrev=7"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      timeout: GIT_TIMEOUT_MS,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Explain a dirty or stale lesson-mcp build; return null when identities agree. */
+export function serverBuildWarning(
+  info: ServerInfo,
+  repoRoot: string,
+  readHead: RepoHeadReader = readRepoHead,
+): string | null {
+  const serverSha = info.build.git_sha;
+  if (!serverSha) return null;
+  if (serverSha.endsWith("-dirty")) {
+    return `[studium] WARNING: lesson-mcp reports dirty build identity ${serverSha}.`;
+  }
+  const repoHead = readHead(repoRoot);
+  if (!repoHead || repoHead === serverSha) return null;
+  return `[studium] WARNING: lesson-mcp sha=${serverSha} differs from repoRoot HEAD=${repoHead}.`;
+}
+
+/** The environment for a lesson-mcp subprocess (ENG-03). Learner state (progress, FSRS memory) is always
+ * written to `storageDir` (the extension's globalStorageUri) so reviews survive a restart; the telemetry
+ * setting decides ONLY whether pseudonymised class telemetry is sent: STUDIUM_TELEMETRY_CONSENT is set
+ * from the setting alone, never inherited from the shell. Pure: `baseEnv` is copied, not mutated. */
+export function lessonMcpEnv(opts: {
+  baseEnv: Record<string, string | undefined>;
+  bundlesRoot: string;
+  storageDir: string | undefined;
+  telemetryConsent: boolean;
+}): Record<string, string> {
+  const env: Record<string, string | undefined> = { ...opts.baseEnv, BUNDLES_ROOT: opts.bundlesRoot };
+  delete env["STUDIUM_TELEMETRY_CONSENT"];
+  if (opts.storageDir) env["STUDIUM_DATA_DIR"] = opts.storageDir;
+  if (opts.telemetryConsent) env["STUDIUM_TELEMETRY_CONSENT"] = "granted";
+  return Object.fromEntries(Object.entries(env).filter((e): e is [string, string] => e[1] !== undefined));
+}
 
 /** Decide how to launch lesson-mcp, in order of preference:
  *  1. a repo checkout (live sources via tsx) — dev mode, keeps edits hot;
@@ -96,19 +172,78 @@ export function resolveLogSink(explicit?: LogSink): LogSink {
 }
 
 export type McpCall = (name: string, args: Record<string, any>) => Promise<Record<string, any>>;
-export interface LessonMcp { call: McpCall; close: () => void; }
+/** A live lesson-mcp connection. `close` resolves once the subprocess has exited (callers may ignore it);
+ * `isClosed` turns true as soon as it is closed, by its owner or by closeAllLessonMcp. */
+export interface LessonMcp { call: McpCall; close: () => Promise<void>; isClosed: () => boolean; }
+
+// SEC-4: every lesson-mcp this extension starts (lesson panes, the @studium chat, notebook sessions, a status
+// refresh) is registered here from the moment its subprocess is spawned, so erasing the learner's data can close
+// all of them first: a server left running would write its profile, study record and state straight back.
+const liveConnections = new Set<{ close: () => Promise<void> }>();
+let paused: Promise<void> | null = null;
+
+/** How many lesson-mcp subprocesses this extension currently owns (connecting or connected). */
+export function liveLessonMcpCount(): number {
+  return liveConnections.size;
+}
+
+/**
+ * Run `action` with no lesson-mcp running: close every connection this extension owns (waiting until each
+ * subprocess has exited), keep new connections waiting while `action` runs, then let them through. Used to
+ * erase the learner's data (forgetMyData): nothing can write it back while it is deleted.
+ */
+export async function withLessonMcpPaused<T>(action: () => Promise<T> | T): Promise<T> {
+  while (paused) await paused.catch(() => {});
+  let release!: () => void;
+  paused = new Promise<void>((resolve) => { release = resolve; });
+  try {
+    await Promise.all([...liveConnections].map((connection) => connection.close().catch(() => {})));
+    return await action();
+  } finally {
+    paused = null;
+    release();
+  }
+}
+
+/** Connect an SDK client and close partial resources if startup fails. */
+export async function connectOrClose<TTransport>(
+  client: { connect: (transport: TTransport) => Promise<unknown>; close: () => Promise<unknown> },
+  transport: TTransport,
+): Promise<void> {
+  try {
+    await client.connect(transport);
+  } catch (error) {
+    await client.close().catch(() => {});
+    throw error;
+  }
+}
 
 /** Connect to a fresh lesson-mcp subprocess. `call` throws on a tool error; `close` tears the transport
  *  down. The server's stderr is piped to `opts.log` (default: the Studium output channel) — never
  *  discarded, so a server that dies at startup is diagnosable. */
 export async function connectLessonMcp(opts: { launch: ServerLaunch; env: Record<string, string>; log?: LogSink }): Promise<LessonMcp> {
+  while (paused) await paused.catch(() => {}); // the learner's data is being erased: start after it is gone
   const log = resolveLogSink(opts.log);
   const { launch } = opts;
   const transport = new StdioClientTransport({ command: launch.command, args: launch.args, cwd: launch.cwd,
     env: { ...launch.env, ...opts.env }, stderr: "pipe" });
   forwardStderr(transport.stderr, log); // piped stderr is readable BEFORE start(): no early output lost
   const client = new Client({ name: "studium-vscode", version: "0.1.0" });
-  await client.connect(transport);
+  let closing: Promise<void> | null = null;
+  const entry = {
+    close: (): Promise<void> => {
+      closing ??= client.close().catch(() => {}).finally(() => { liveConnections.delete(entry); });
+      return closing;
+    },
+  };
+  liveConnections.add(entry);
+  try {
+    await connectOrClose(client, transport);
+  } catch (error) {
+    liveConnections.delete(entry);
+    throw error;
+  }
+  if (closing) throw new Error("lesson-mcp: closed while connecting (the learner's data was being erased)");
   const call: McpCall = async (name, args) => parseToolResult(name, await client.callTool({ name, arguments: args }));
-  return { call, close: () => { client.close().catch(() => {}); } };
+  return { call, close: entry.close, isClosed: () => closing !== null };
 }

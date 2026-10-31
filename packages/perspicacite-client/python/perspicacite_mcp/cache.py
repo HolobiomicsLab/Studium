@@ -3,6 +3,9 @@ from __future__ import annotations
 import hashlib, json, os
 from pathlib import Path
 
+# Old normalized responses lost live-flat passage text and DOI.
+NORMALIZATION_CACHE_VERSION = 2
+
 
 def _enabled() -> bool:
     return os.getenv("STUDIUM_PERSPICACITE_CACHE", "on") != "off"
@@ -13,7 +16,8 @@ def _dir() -> Path:
 
 
 def _key(kb_names: list[str], query: str, k: int) -> str:
-    raw = json.dumps({"kb": sorted(kb_names), "q": query, "k": k}, sort_keys=True)
+    raw = json.dumps({"kb": sorted(kb_names), "q": query, "k": k,
+                      "normalization": NORMALIZATION_CACHE_VERSION}, sort_keys=True)
     return hashlib.sha256(raw.encode()).hexdigest()
 
 

@@ -27,7 +27,15 @@ export const SceneCompletedSchema = BaseEventSchema.extend({
   type: z.literal("scene_completed"),
   scene_id: z.string(),
   duration_ms: z.number().int().nonnegative(),
-  success: z.boolean(),
+  // OPTIONAL since ADR 006 v1.7 (INT-STUDIUM-035, the owner's candidate-2 decision of 2026-09-10):
+  // absent means the scene was answered but NOBODY GRADED IT — the offline substring matcher scores
+  // free-text answers on whether an authored cue string appears, which is a coverage hint and not a
+  // verdict, so it no longer asserts correctness anywhere, telemetry included. A reader must treat
+  // absence as UNMEASURED: `success: false` would report a failure that was never observed, and
+  // `true` would certify through this channel what the decision withdrew from the posterior. The
+  // collector excludes unmeasured events from `completion_rate` and publishes `n_graded` beside it.
+  // Every event written before v1.7 carries the field, so existing cohorts are unaffected.
+  success: z.boolean().optional(),
 });
 
 export const QuizAnsweredSchema = BaseEventSchema.extend({
@@ -36,7 +44,10 @@ export const QuizAnsweredSchema = BaseEventSchema.extend({
   item_id: z.string(),
   correct: z.boolean(),
   response_time_ms: z.number().int().nonnegative(),
-  confidence: z.number().min(0).max(1),
+  // The learner's own per-answer rating (0..4 → 0..1). Optional since 2026-10-30 (I-5): an answer
+  // the learner did not rate carries none, rather than a made-up 0.5 that calibration consumers
+  // (Brier, over/under-confidence) would read as a measurement. They skip answers without it.
+  confidence: z.number().min(0).max(1).optional(),
 });
 
 export const AdaptationAppliedSchema = BaseEventSchema.extend({
@@ -58,6 +69,16 @@ export const CritiqueSubmittedSchema = BaseEventSchema.extend({
   llm_score: z.number().min(0).max(1),
   completion_rate: z.number().min(0).max(1),
   scene_type: z.enum(["ai_critique", "spot_the_flaw", "explain_back", "comparison", "summary_audit", "prompt_practice", "communication_sim"]).optional(),
+  // ADR 006 amendment v1.6 — WHO GRADED THIS. `llm_score` had no provenance, and the two
+  // producers are not comparable: a semantic evaluator, or the substring matcher the session
+  // falls back to whenever the critique service is absent or errors (INT-STUDIUM-035). Both
+  // arrived as the same number, so a dashboard could not tell a semantically-graded cohort from
+  // a keyword-graded one, and neither could a teacher. Same shape and the same reason as
+  // `scene_type` above. "verdict_deck" is the third producer: the spot_the_flaw deck path, which
+  // grades marks rather than text and calls no evaluator at all.
+  // NOTE, deliberately: this tags `llm_score` ONLY. `completion_rate` is computed by the keyword
+  // matcher on EVERY path, evaluator or not — that is the finding, not an omission here.
+  score_source: z.enum(["llm", "keyword", "verdict_deck"]).optional(),
 });
 
 export const LessonCompletedSchema = BaseEventSchema.extend({

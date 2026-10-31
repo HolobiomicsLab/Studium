@@ -10,6 +10,8 @@
 // this can't import @studium/* — the RunManifest / RunResult shapes are mirrored here, kept in lockstep
 // with packages/lesson-bundle-schema RunManifestSchema + packages/lesson-session-host run-result.ts).
 
+import { runInNewContext } from "node:vm";
+
 /** Mirror of RunManifestSchema (packages/lesson-bundle-schema/src/scenes.ts). NON-answer-bearing. */
 export interface RunManifest {
   capsule_ref: string;
@@ -78,6 +80,53 @@ export function runManifestToTaskSpec(m: RunManifest, opts: { pip?: string } = {
   return { name: `Studium · run ${m.capsule_ref}`, command: parts.join(" && "), cwd };
 }
 
+/** Longest landmark_pattern the extension will compile. A form matcher is a line of text, not a program. */
+export const MAX_PATTERN_LENGTH = 200;
+/** At most this many unbounded quantifiers (`*`, `+`, `{n,}`) per pattern: a handful is plenty for
+ * `KEY=([0-9.]+)` and a dozen is an attack. */
+const MAX_UNBOUNDED_QUANTIFIERS = 4;
+/** Only the last part of stdout is scanned: a capsule prints its headline statistic last. */
+const MAX_SCAN_CHARS = 8000;
+/** Hard wall-clock limit for one match. A normal landmark match takes well under a millisecond; V8
+ * interrupts a regex that backtracks past this, which no syntactic filter can promise. */
+export const MATCH_TIMEOUT_MS = 50;
+
+/** Compile a bundle-supplied pattern (landmark_pattern, `landmark matches:`), or null when it is invalid
+ * or unsafe. ENG-02: the pattern comes from the bundle and runs on the learner's stdout in the extension
+ * host. Two layers: this cheap syntactic filter (length cap, cap on unbounded quantifiers, no unbounded
+ * repeat of a group) removes the obvious shapes, but it cannot prove a pattern safe (`(.*a){8}x` and
+ * `\d*\d*\d*\d*x` pass it), so every match also runs under {@link MATCH_TIMEOUT_MS} in
+ * {@link execBounded}, and that limit is the real guard. */
+export function compileBoundedPattern(pattern: string): RegExp | null {
+  if (pattern.length > MAX_PATTERN_LENGTH) return null;
+  // Escapes and character classes hold literal parentheses and quantifier characters; flatten them first.
+  const flat = pattern.replace(/\\./g, "E").replace(/\[(?:\\.|[^\]\\])*\]/g, "C");
+  const unbounded = flat.match(/[*+]|\{\d+,\}/g) ?? [];
+  if (unbounded.length > MAX_UNBOUNDED_QUANTIFIERS) return null;
+  if (/\)\s*(?:[*+]|\{\d+,\d*\})/.test(flat)) return null; // an unbounded repeat of a group
+  try { return new RegExp(pattern); } catch { return null; }
+}
+
+/** `re.exec(text)` under {@link MATCH_TIMEOUT_MS}; null on no match AND on timeout (a pattern that cannot
+ * finish quickly on a short tail is treated as not matching, so the run is quarantined, not hung). */
+export function execBounded(re: RegExp, text: string): RegExpExecArray | null {
+  try {
+    return runInNewContext("re.exec(text)", { re, text }, { timeout: MATCH_TIMEOUT_MS }) as RegExpExecArray | null;
+  } catch {
+    return null;
+  }
+}
+
+/** Why a bundle's `working_dir` is refused, or null when it stays inside the workspace folder. ENG-02:
+ * the run executes in `join(workspace, working_dir)`, so an absolute path (POSIX, UNC or drive letter) or
+ * any `..` segment would let a community bundle run commands anywhere on the disk. Pure. */
+export function workingDirProblem(workingDir: string | undefined): "absolute" | "parent" | null {
+  if (!workingDir) return null;
+  if (/^[\\/]/.test(workingDir) || /^[A-Za-z]:/.test(workingDir)) return "absolute";
+  if (workingDir.split(/[\\/]+/).includes("..")) return "parent";
+  return null;
+}
+
 /** Extract the learner's OWN landmark from captured stdout. With a `landmark_pattern` (regex) the first
  * capturing group — or the whole match — is the landmark; without one, the last non-empty line is used
  * (a deterministic capsule prints its headline statistic last, e.g. `MODIFIED_COSINE=0.6477 …`). Returns
@@ -86,10 +135,9 @@ export function runManifestToTaskSpec(m: RunManifest, opts: { pip?: string } = {
 export function extractLandmark(stdout: string | null | undefined, pattern?: string): string | null {
   const text = stdout ?? "";
   if (pattern) {
-    let re: RegExp | null = null;
-    try { re = new RegExp(pattern); } catch { re = null; }
+    const re = compileBoundedPattern(pattern);
     if (!re) return null;
-    const mm = re.exec(text);
+    const mm = execBounded(re, text.slice(-MAX_SCAN_CHARS));
     return mm ? (mm[1] ?? mm[0]).trim() : null;
   }
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
@@ -121,9 +169,8 @@ export function evaluateChecks(
       return { check, passed: stdout.includes(mm[1].trim()) };
     }
     if ((mm = /^landmark matches:\s*(.+)$/i.exec(t)) && mm[1]) {
-      let re: RegExp | null = null;
-      try { re = new RegExp(mm[1].trim()); } catch { re = null; }
-      return { check, passed: !!re && re.test(landmark) };
+      const re = compileBoundedPattern(mm[1].trim());
+      return { check, passed: !!re && execBounded(re, landmark.slice(-MAX_SCAN_CHARS)) !== null };
     }
     return { check, passed: false };
   });
