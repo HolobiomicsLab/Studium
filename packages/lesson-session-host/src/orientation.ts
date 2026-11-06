@@ -4,7 +4,9 @@
 // surface, without asking: the step out of the total, the concept on screen, the minutes left, the
 // reviews due, what is expected of them, and why the lesson last adapted. `orientationOf` gives it as
 // data, `statusLine` as one line of at most 80 characters. `voicesOf` (F5) says who speaks: who signs
-// the lesson a screen comes from and whether it was reviewed, and who assessed an answer. Two
+// the lesson a screen comes from and whether it was reviewed, and who assessed an answer. `helpOf`
+// (F7) says which help is open now, in the order to try it: reread, a hint, an explanation, the
+// reference; an explanation of a question comes after a first try at it. Two
 // consumers read this module, so that every surface says the same thing: the panel presenter
 // (packages/lesson-panel) and the conversation text (chat-display.ts).
 //
@@ -62,6 +64,12 @@ export interface OrientationFacts {
   reviews_due: number;
   last_navigation: LastNavigation | null;
   detour_returns_to: string | null;
+  /** The screen is a question that has authored hints. */
+  has_hints: boolean;
+  /** Hint requests still open on this visit of the screen. */
+  hints_left: number;
+  /** The learner already submitted an answer to this very scene (it is being asked again). */
+  tried: boolean;
 }
 
 const bare = (conceptId: string): string => conceptId.replace(/^concept:/, "");
@@ -91,7 +99,8 @@ export function orientationFacts(
   const presentation = entry.session.currentPresentation();
   const scene = presentation.scene;
   const refs: readonly string[] = "concept_refs" in scene ? scene.concept_refs : [];
-  const answered = entry.session.learnerPath().steps.at(-1)?.scene_id;
+  const steps = entry.session.learnerPath().steps;
+  const answered = steps.at(-1)?.scene_id;
   const requests = entry.session.getState().self_rating_requests ?? {};
   const first = refs[0] === undefined ? undefined : bare(refs[0]);
   const node = first === undefined ? undefined : host.conceptMap?.nodes.find((n) => n.id === first);
@@ -111,6 +120,9 @@ export function orientationFacts(
     reviews_due: host.reviewsDue,
     last_navigation: entry.lastNavigation ?? null,
     detour_returns_to: completed ? null : entry.detourReturnsTo ?? null,
+    has_hints: !completed && scene.type === "quiz" && scene.hints.length > 0,
+    hints_left: completed ? 0 : entry.session.hintsLeft(),
+    tried: !completed && steps.some((step) => step.scene_id === scene.id && step.answered),
   };
 }
 
@@ -195,6 +207,47 @@ export function verdictVoice(verdict: AssessedBy | null | undefined): Voice | un
 export function voicesOf(host: SessionHost, sessionId: string, verdict?: AssessedBy | null): Voices {
   const assessed = verdictVoice(verdict);
   return { scene: host.authorVoice(sessionId), ...(assessed ? { verdict: assessed } : {}) };
+}
+
+/** One kind of help, in the order to try them: read the screen again, take an authored hint, ask for
+ * an explanation, compare with the reference. `cost` says what taking it changes; `why_not` why it
+ * is closed now. Both are phrases for the learner, in the session's language. */
+export interface HelpRung { kind: "reread" | "hint" | "explain" | "reference"; available: boolean; cost?: string; why_not?: string }
+export interface Help { rungs: HelpRung[] }
+
+interface HelpWords { hint_cost: string; no_hint: string; hints_used: string; try_first: string; after_answer: string; no_reference: string }
+const HELP_WORDS: Record<"fr" | "en", HelpWords> = {
+  fr: {
+    hint_cost: "un indice réduit le crédit de cette réponse", no_hint: "pas d'indice pour cet écran",
+    hints_used: "plus d'indice pour cet essai", try_first: "essaie d'abord de répondre",
+    after_answer: "la référence s'affiche après ta réponse", no_reference: "pas de référence pour cet écran",
+  },
+  en: {
+    hint_cost: "a hint lowers the credit of this answer", no_hint: "no hint on this screen",
+    hints_used: "no hint left for this try", try_first: "try an answer first",
+    after_answer: "the reference shows after your answer", no_reference: "no reference on this screen",
+  },
+};
+
+/** The help ladder those facts open. An explanation waits for a first try only where an answer is
+ * expected: on a screen to read, during a self-rating or a run, nothing is given away by explaining.
+ * The reference is the one the verdict released: it is on screen while the learner rates their own
+ * answer, and never before an answer. */
+export function helpFrom(facts: OrientationFacts, locale: "fr" | "en"): Help {
+  const w = HELP_WORDS[locale];
+  const waiting = waitingOf(facts);
+  const hint: HelpRung = facts.hints_left > 0 ? { kind: "hint", available: true, cost: w.hint_cost }
+    : { kind: "hint", available: false, why_not: facts.has_hints ? w.hints_used : w.no_hint };
+  const explain: HelpRung = waiting !== "answer" || facts.tried ? { kind: "explain", available: true }
+    : { kind: "explain", available: false, why_not: w.try_first };
+  const reference: HelpRung = waiting === "self_rating" ? { kind: "reference", available: true }
+    : { kind: "reference", available: false, why_not: waiting === "answer" ? w.after_answer : w.no_reference };
+  return { rungs: [{ kind: "reread", available: true }, hint, explain, reference] };
+}
+
+/** Which help is open on this session's screen now. */
+export function helpOf(host: SessionHost, sessionId: string, locale: "fr" | "en"): Help {
+  return helpFrom(host.orientationFacts(sessionId), locale);
 }
 
 export const STATUS_LINE_MAX = 80;

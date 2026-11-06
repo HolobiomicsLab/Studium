@@ -3313,6 +3313,30 @@ Checked: six tests failed first (`voicesOf is not a function`), then the 19 test
 `orientation.test.ts` pass; `pnpm build` (a first run failed on a type the session barrel does
 not export, fixed), `pnpm lint`, the session-host suite (609 tests). No existing test changed.
 
+## 2026-11-06 (aide) — The help ladder: try first, then an explanation
+
+INT-STUDIUM-058, lot 1, task 1.3. `orientation.ts` gains `helpOf(host, sessionId, locale)`: the
+four kinds of help in the order to try them, each open or closed, with what it costs or why it
+is closed, as phrases in French or English.
+
+- `reread`: always open.
+- `hint`: open while the question has hint requests left on this visit, with its cost ("a hint
+  lowers the credit of this answer"); closed on a screen with no hint and once the visit's hints
+  are used.
+- `explain`: closed on a question not tried yet ("try an answer first"), open after a first answer
+  to that very scene, and open at once where no answer is expected (a screen to read, a run, a
+  self-rating, a finished lesson).
+- `reference`: open while the learner rates their own answer (the verdict released it), never
+  before an answer.
+
+`LessonSession.hintsLeft()` makes the hint budget of the visit readable (it was private). The rule
+"after a first try" is literal: an alternate question on the same point counts as not tried.
+
+Checked: five tests failed first (`helpOf is not a function`), then the 24 tests of
+`orientation.test.ts` pass, one of them on `fixtures/atomistique-l1` (a recall question asked
+again after a wrong answer). `pnpm build`, `pnpm lint`, the engine suite (440 tests), the
+session-host suite (614) and the server suite (141) pass. No existing test changed.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

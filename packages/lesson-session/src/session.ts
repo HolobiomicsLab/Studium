@@ -204,6 +204,13 @@ export class LessonSession {
     return presentation;
   }
 
+  /** Hint requests the learner can still make on this visit of the current scene (the budget
+   * `requestHint` spends): 0 on a scene with no hint and once the visit's hints are used. */
+  hintsLeft(): number {
+    this.assertStarted();
+    return this.hintsAvailable();
+  }
+
   private hintsAvailable(): number {
     const scene = this.scene();
     if (scene.type !== "quiz") return 0;

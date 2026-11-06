@@ -25,8 +25,8 @@ export { type CatalogLesson, type LessonRoot } from "./lesson-catalog.js";
 export { operatorContext } from "./operator-context.js";
 // INT-STUDIUM-058: where the learner is, as data and as one status line (every surface reads these).
 export {
-  orientationOf, orientationFrom, statusLine, STATUS_LINE_MAX, voicesOf, authorVoice, verdictVoice,
-  type Orientation, type OrientationFacts, type Waiting, type LastNavigation, type Voice, type Voices,
+  orientationOf, orientationFrom, statusLine, STATUS_LINE_MAX, voicesOf, authorVoice, verdictVoice, helpOf, helpFrom,
+  type Orientation, type OrientationFacts, type Waiting, type LastNavigation, type Voice, type Voices, type Help, type HelpRung,
 } from "./orientation.js";
 export {
   buildConceptMap, type ConceptMap, type ConceptMapNode, type ConceptMapEdge, type ConceptMapState, type ConceptMapMoment,

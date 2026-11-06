@@ -12,7 +12,7 @@ import { dirname, join, resolve } from "node:path";
 import { SessionHost } from "./host.js";
 import { operatorContext } from "./operator-context.js";
 import { createHash } from "node:crypto";
-import { orientationOf, statusLine, voicesOf, type Orientation } from "./orientation.js";
+import { helpOf, orientationOf, statusLine, voicesOf, type Orientation } from "./orientation.js";
 
 const T0 = Date.parse("2026-11-06T09:00:00Z");
 const DAY = 24 * 60 * 60 * 1000;
@@ -226,6 +226,82 @@ describe("voicesOf — who wrote a screen, who assessed an answer", () => {
     expect(voicesOf(host, sid, answered.verdict).verdict).toEqual({ kind: "key" });
     expect(voicesOf(host, sid, { assessed_by: "judge" }).verdict).toEqual({ kind: "judge" });
     expect(voicesOf(host, sid, { assessed_by: "none" })).not.toHaveProperty("verdict");
+  });
+});
+
+describe("helpOf — the help ladder: try first, then an explanation", () => {
+  const rung = (host: SessionHost, sid: string, kind: string, locale: "fr" | "en" = "fr") =>
+    helpOf(host, sid, locale).rungs.find((r) => r.kind === kind)!;
+
+  it("on a quiz not tried yet: a hint with its cost, no explanation and no reference before an answer", async () => {
+    const { host, sid } = await open(threeScenes());
+    await host.respond(sid, { kind: "ack" });
+    const help = helpOf(host, sid, "fr");
+    expect(help.rungs).toEqual([
+      { kind: "reread", available: true },
+      { kind: "hint", available: true, cost: "un indice réduit le crédit de cette réponse" },
+      { kind: "explain", available: false, why_not: "essaie d'abord de répondre" },
+      { kind: "reference", available: false, why_not: "la référence s'affiche après ta réponse" },
+    ]);
+    expect(helpOf(host, sid, "en").rungs).toEqual([
+      { kind: "reread", available: true },
+      { kind: "hint", available: true, cost: "a hint lowers the credit of this answer" },
+      { kind: "explain", available: false, why_not: "try an answer first" },
+      { kind: "reference", available: false, why_not: "the reference shows after your answer" },
+    ]);
+    for (const secret of SECRETS) expect(JSON.stringify(help)).not.toContain(secret);
+  });
+
+  it("on a screen to read: an explanation at once, and no hint", async () => {
+    const { host, sid } = await open(threeScenes());
+    expect(rung(host, sid, "explain")).toEqual({ kind: "explain", available: true });
+    expect(rung(host, sid, "hint")).toEqual({ kind: "hint", available: false, why_not: "pas d'indice pour cet écran" });
+    expect(rung(host, sid, "reference")).toEqual({ kind: "reference", available: false, why_not: "pas de référence pour cet écran" });
+  });
+
+  it("has no hint left once the hints of this try are used", async () => {
+    const { host, sid } = await open(threeScenes());
+    await host.respond(sid, { kind: "ack" });
+    expect(host.requestHint(sid)).not.toBeNull();
+    expect(host.requestHint(sid)).toBeNull();
+    expect(rung(host, sid, "hint")).toEqual({ kind: "hint", available: false, why_not: "plus d'indice pour cet essai" });
+    expect(rung(host, sid, "hint", "en")).toEqual({ kind: "hint", available: false, why_not: "no hint left for this try" });
+  });
+
+  it("while the learner rates their own answer: the reference to compare with, and an explanation", async () => {
+    const { host, sid } = await open(lesson([explainBack("s-e", "c-un", 30), quiz("s-q1", "c-deux", 30), quiz("s-q2", "c-deux", 30)]));
+    await host.respond(sid, { kind: "reply", text: "Le signe change avec la phase." });
+    expect(orientationOf(host, sid).waiting).toBe("self_rating");
+    expect(rung(host, sid, "reference")).toEqual({ kind: "reference", available: true });
+    expect(rung(host, sid, "explain")).toEqual({ kind: "explain", available: true });
+  });
+
+  it("explains after a first try on the same scene (fixtures/atomistique-l1, a replayed recall question)", async () => {
+    const root = resolve(__dirname, "../../../fixtures");
+    const ref = "atomistique-l1/lesson.json";
+    const bundle = JSON.parse(readFileSync(`${root}/${ref}`, "utf8")) as {
+      scenes: { id: string; choices?: { text: string; correct: boolean }[] }[];
+    };
+    const keyOf = (id: string) => bundle.scenes.find((s) => s.id === id)!.choices!.filter((c) => c.correct).map((c) => c.text);
+    const host = new SessionHost({ bundlesRoot: root, live: false });
+    const sid = (await host.create(ref, "auto-test-orientation-help")).sessionId;
+    const current = () => host.currentPresentation(sid).scene as { id: string; type: string; choices?: { id: string; text: string }[] };
+    const answer = (wrong: boolean) => {
+      const scene = current();
+      const key = scene.type === "quiz" ? keyOf(scene.id) : [];
+      return host.respond(sid, (scene.type === "quiz"
+        ? { kind: "quiz_choice", choiceId: scene.choices!.find((c) => key.includes(c.text) !== wrong)!.id, confidence: 2 }
+        : operatorContext(host, sid).response.example) as never);
+    };
+    for (let step = 0; step < 40 && current().id !== "s2-quiz-4f"; step++) await answer(false);
+    await answer(true); // wrong on s2-quiz-4f: a detour to a recall question
+    expect(current().id).toBe("s9-rappel-3d");
+    expect(rung(host, sid, "explain")).toMatchObject({ available: false });
+    const replay = await answer(true); // wrong again: the same question is asked once more
+    expect(replay.navigation).toMatchObject({ kind: "replay" });
+    expect(current().id).toBe("s9-rappel-3d");
+    expect(rung(host, sid, "explain")).toEqual({ kind: "explain", available: true });
+    expect(rung(host, sid, "hint")).toMatchObject({ available: true });
   });
 });
 
