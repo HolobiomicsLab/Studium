@@ -4067,6 +4067,24 @@ Not verified: no learner has seen a prompt on any surface, and no model has read
 that carries one. No VS Code driver clicks a prompt; the Claude Code pane was drawn by the plugin
 tester only. The wording of the conversation line was not read by a teacher.
 
+## 2026-11-06 (suggest skill) — In a session, the server's prompts replace the agent's own
+
+INT-STUDIUM-058, lot 5, task 5.3 (requirement F7, spec § 2.6). `skills/studium-suggest/SKILL.md`
+gains the section "In a session, the server proposes": the agent relays the server's proposal as it
+is, adds none of its own (reviews, a break, the next lesson, the map, forms), sends the learner's
+answer with the action the view gives and never answers for them, does what the server says after a
+yes, and still answers what the learner asks for. The table "Inside a lesson" gives way to the
+server's proposals; its end-of-lesson row applies only when the server proposed nothing.
+
+One reading to confirm: for a session played with the session tools alone, where the server proposes
+nothing yet (limit of `975211c`), the skill keeps the agent's own offers of "Inside a lesson", one at
+most and never while a question waits.
+
+Checked: docs check (256 files, 0 problem) and `pnpm test:tools` (9 tests). No code changes; the
+other checks were not run again.
+
+Not verified: no model has read the new section. Installed copies of the skill are not changed.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local
