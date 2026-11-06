@@ -65,7 +65,9 @@ import {
 } from "./review-session.js";
 import { persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceInfo } from "./persistence.js";
 import { replyToInput, checkDisplayedChoice } from "./reply-mapping.js";
-import { authorVoice, orientationFacts, recordNavigation, type OrientationFacts, type Voice } from "./orientation.js";
+import {
+  authorVoice, orientationFacts, orientationFrom, recordNavigation, statusLine, voiceLine, type OrientationFacts, type Voice,
+} from "./orientation.js";
 import type { HostResponseInput } from "./response-input-schema.js";
 
 // Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /
@@ -644,6 +646,8 @@ function releasedSources(entry: SessionEntry, transition: Transition, answered: 
 }
 
 type Verdict = NonNullable<Transition["verdict"]>;
+/** INT-STUDIUM-058: the two lines a screen's conversation text says about itself (screenLines). */
+interface ScreenLines { statusLine: string; voiceLine?: string }
 
 const hasReference = (verdict: Verdict | undefined): boolean => (verdict?.key_points?.length ?? 0) > 0
   || verdict?.model_answer !== undefined;
@@ -1405,8 +1409,11 @@ export class SessionHost {
   }
 
   /** A presentation as served: the authoring block and its chat text. The first screen of a session —
-   * before any answer — carries the authoring notice, and a warning when nothing is durable. */
-  private served(entry: SessionEntry, presentation: Presentation): ServedPresentation {
+   * before any answer — carries the authoring notice, and a warning when nothing is durable. Every
+   * screen carries its `lines`: the voice where it is due, the status line. */
+  private served(
+    entry: SessionEntry, presentation: Presentation, lines: ScreenLines = this.screenLines(entry, presentation),
+  ): ServedPresentation {
     const withAuthoring = {
       ...presentation, authoring: entry.authoring,
       learnerSnapshot: { ...presentation.learnerSnapshot, conceptMastery: this.publicMastery(entry) },
@@ -1417,8 +1424,25 @@ export class SessionHost {
       ...withAuthoring,
       display_markdown: presentationMarkdown(withAuthoring, {
         firstScreen, notDurable: this.dataDir === null, review: entry.kind === "review",
-        ...(plan ? { conceptMap: plan } : {}),
+        ...(plan ? { conceptMap: plan } : {}), ...lines,
       }),
+    };
+  }
+
+  /** INT-STUDIUM-058: what the conversation text of the session's current screen says about itself.
+   * The status line, always. The lesson's voice on the first screen, unless a notice there already
+   * says who wrote the lesson or that it changed since its approval; on every later screen while the
+   * lesson was drafted by an AI and no teacher read this version. A review has no such line: it mixes
+   * lessons, and one line would speak for items it does not describe. */
+  private screenLines(entry: SessionEntry, presentation: Presentation): ScreenLines {
+    const locale: DisplayLocale = presentation.locale === "en" ? "en" : "fr";
+    const voice = this.authorVoiceOf(entry);
+    const noticed = !!entry.authoring.notice || (entry.authoring.approval.recorded && !entry.authoring.approval.matches);
+    const unreviewedAi = voice.kind === "author" && !voice.reviewed && voice.drafted_by === "agent";
+    const voiced = entry.kind !== "review" && (entry.responses === 0 ? !noticed : unreviewedAi);
+    return {
+      statusLine: statusLine(orientationFrom(this.orientationFactsOf(entry)), entry.bundle.metadata.title, locale),
+      ...(voiced ? { voiceLine: voiceLine(voice, locale) } : {}),
     };
   }
 
@@ -1536,10 +1560,12 @@ export class SessionHost {
   private servedTransition(entry: SessionEntry, transition: Transition, warning?: string): ServedTransition {
     const sceneTitle = (sceneId: string) => entry.bundle.scenes.find((s) => s.id === sceneId)?.title;
     const conceptLabel = (conceptId: string) => entry.bundle.concepts.find((c) => c.id === conceptId)?.title ?? conceptId;
+    const lines = "presentation" in transition ? this.screenLines(entry, transition.presentation) : undefined;
     const ctx = {
       sceneTitle, conceptLabel, locale: displayLocale(entry.bundle.metadata.language), review: entry.kind === "review",
       timeZone: this.zone,
       authoring: entry.authoring,
+      ...lines,
     };
     const answered = transition.verdict ? entry.bundle.scenes.find((s) => s.id === transition.verdict?.scene_id) : undefined;
     const leaving = answered === undefined || leavesForGood(transition, answered);
@@ -1548,7 +1574,7 @@ export class SessionHost {
     const selfRating = transition.self_rating && verdict && (leaving || !hasReference(transition.verdict))
       ? { ...transition.self_rating, scene_id: verdict.scene_id } : undefined;
     const reviewPlan = transition.kind === "complete" ? this.reviewPlanOf(entry) : undefined;
-    const presentation = "presentation" in transition ? this.served(entry, transition.presentation) : undefined;
+    const presentation = "presentation" in transition ? this.served(entry, transition.presentation, lines) : undefined;
     const { self_rating: _engineRequest, ...engineTransition } = transition;
     const summary = transition.kind === "complete" ? { ...transition.summary, mastery: this.publicMastery(entry) } : undefined;
     const mapMoment = this.conceptMapMoment(entry, transition);
@@ -1597,19 +1623,25 @@ export class SessionHost {
    * types, titles and durations only: no scene text, key, hint or reveal. `nowMs` sets the moment
    * reviews are due at. */
   orientationFacts(id: string, nowMs?: number): OrientationFacts {
-    const entry = this.require(id);
-    const run = entry.completed ? null : this.runStatus(id);
+    return this.orientationFactsOf(this.require(id), nowMs);
+  }
+  /** The same from the entry: a first screen is served before its session can be looked up by id. */
+  private orientationFactsOf(entry: SessionEntry, nowMs?: number): OrientationFacts {
+    const run = entry.completed ? null : this.runStatusOf(entry);
     return orientationFacts(entry, {
       conceptMap: this.conceptMapOf(entry, "on_request"),
-      reviewsDue: this.reviewQueue(id, nowMs).filter((item) => item.due).length,
+      reviewsDue: this.reviewQueueOf(entry, nowMs).filter((item) => item.due).length,
       runPending: run !== null && run.run_manifest !== null && !run.learner_run_recorded,
     });
   }
   /** INT-STUDIUM-058: the voice of this session's lesson — who signs it, whether it was reviewed, who
    * drafted it (orientation.ts authorVoice). */
-  authorVoice(id: string): Voice {
-    const entry = this.require(id);
-    return authorVoice(entry.authoring, entry.bundle.validated_by);
+  authorVoice(id: string): Voice { return this.authorVoiceOf(this.require(id)); }
+  /** Nobody signs a review as a whole: its `validated_by` is a placeholder (review-session.ts), never a
+   * name. */
+  private authorVoiceOf(entry: SessionEntry): Voice {
+    const voice = authorVoice(entry.authoring, entry.bundle.validated_by);
+    return entry.kind === "review" && voice.kind === "author" ? { ...voice, name: null } : voice;
   }
   /** Who wrote this session's lesson, whether a teacher validated it, its approval record and whether
    * this host has a judge model (see authoringOf). Read once, when the session started. */
@@ -1709,8 +1741,11 @@ export class SessionHost {
    * current scene's task card (a revisit after a graph detour). When it does, a harness may re-run or
    * simply `submit_response {kind:"ack"}`; nobody has to re-provision an environment to move on. */
   runStatus(id: string): { run_manifest: RunManifest | null; learner_run_recorded: boolean; landmark: string | null } {
-    const scene = this.require(id).session.currentPresentation().scene as { run_manifest?: RunManifest; task_card_id?: string };
-    const run = scene.run_manifest && scene.task_card_id ? this.require(id).session.learnerRunFor(scene.task_card_id) : null;
+    return this.runStatusOf(this.require(id));
+  }
+  private runStatusOf(entry: SessionEntry): { run_manifest: RunManifest | null; learner_run_recorded: boolean; landmark: string | null } {
+    const scene = entry.session.currentPresentation().scene as { run_manifest?: RunManifest; task_card_id?: string };
+    const run = scene.run_manifest && scene.task_card_id ? entry.session.learnerRunFor(scene.task_card_id) : null;
     return { run_manifest: scene.run_manifest ?? null, learner_run_recorded: !!run, landmark: run?.landmark ?? null };
   }
 
@@ -2042,7 +2077,9 @@ export class SessionHost {
    * when it next falls due, and its current retrievability. `nowMs` is injectable for deterministic
    * tests; defaults to the host's clock. A UI renders the due items as a "À réviser" cue. */
   reviewQueue(id: string, nowMs?: number): ReviewQueueItem[] {
-    const entry = this.require(id);
+    return this.reviewQueueOf(this.require(id), nowMs);
+  }
+  private reviewQueueOf(entry: SessionEntry, nowMs?: number): ReviewQueueItem[] {
     return reviewQueueFromMemory(pick(entry.memory, this.ownConcepts(entry)), this.sessionNow(entry, nowMs));
   }
 

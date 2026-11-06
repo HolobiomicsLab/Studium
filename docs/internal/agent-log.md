@@ -3392,6 +3392,53 @@ first.
 Checked together with the next entry: every repository check passes on the tree that holds both
 changes, and the first screen of `fixtures/atomistique-l1` was read again from the rebuilt server.
 
+## 2026-11-06 (texte) — The conversation text says where the learner is and who speaks
+
+INT-STUDIUM-058, lot 1, task 1.5. A model that relays a lesson shows `display_markdown` and adds
+nothing, so the text itself now carries the orientation and the voices that
+`packages/lesson-session-host/src/orientation.ts` computes for the panel view.
+
+- Every served screen ends with its status line, as inline code:
+  `` `Leçon O · étape 2/3 · 3 min · à toi de répondre` ``. It is the same line as the panel view's
+  `status_line`. A finished lesson has no screen, so no status line.
+- A screen opens with the lesson's voice (`voiceLine`, new, 110 characters at most, a long name is
+  cut): « Leçon validée par Prof. Test. », « Leçon rédigée par l'IA, non relue par un enseignant. ».
+  On the first screen it is there unless a notice already says who wrote the lesson or that the
+  lesson changed since its approval. On later screens it is there only while the lesson was
+  drafted by an AI and no teacher read this version.
+- A verdict marked right or wrong says who assessed it: « Évalué par la clé de l'auteur. » or
+  « Évalué par un juge (modèle). ». Nothing is added where the verdict already names the assessor
+  (an AI-drafted key, an answer compared with the key, evidence a judge measured) or where nobody
+  assessed.
+- A review session has the status line and no voice line: it mixes lessons, and one line would
+  speak for items it does not describe. Its author voice has no name either, in the text and in
+  the panel view: the `validated_by` of a review is a placeholder (`review of teacher-validated
+  lessons`), which task 1.2 passed on as a person's name.
+- `host.ts`: `served` and `servedTransition` pass the two lines to the text builders. The
+  orientation facts, the run status, the review queue and the author voice are read from the
+  session entry (`orientationFactsOf`, `runStatusOf`, `reviewQueueOf`, `authorVoiceOf`), because a
+  first screen is served before its session can be looked up by id; the public methods delegate.
+
+A screen grows by 200 characters at most. Two points are left to the owner. The line « Étape n sur
+total » under the title is kept, so the step is said twice. The name in the voice line is the
+lesson's `validated_by` as written: an e-mail address in `fixtures/atomistique-l1`, a slug in the
+capsule demos.
+
+Test decision: none, no existing test changed. Fourteen new tests: five in `chat-display.test.ts`,
+nine in `orientation.test.ts`.
+
+Checked: against the code before the change, twelve of the fourteen fail; the other two assert an
+absence and a bound that already held. Then every repository check passes on this tree: install,
+`pnpm build:libs`, `pnpm build`, `pnpm lint`, `pnpm -r --no-bail test`, `tools/pytest_all.py`, the
+bundle lint, the docs check, the headless smoke and `tools/panel-probe.mjs` on a rebuilt bundle.
+The text of the first steps of `fixtures/atomistique-l1` was read from the rebuilt server with a
+labelled synthetic learner; that reading found the review placeholder above and the concept map
+defect of the previous entry.
+
+Not verified: no person has read these lines in a client. Whether a model relays the inline-code
+line unchanged has not been measured. No review session was read from the rebuilt server, only
+through the host in a test.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

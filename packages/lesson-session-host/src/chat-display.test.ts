@@ -329,3 +329,55 @@ describe("transitionMarkdown", () => {
     });
   });
 });
+
+// INT-STUDIUM-058, lot 1, task 1.5: the conversation text says where the learner is and who speaks.
+// The model relays this text and adds nothing, so the status line and the voices have to be in it.
+describe("the status line and the voices in the conversation text", () => {
+  const quiz = ATOMISTIQUE.scenes.find((s) => s.type === "quiz")!;
+  const STATUS = "Atomistique · étape 2/32 · 74 min · à toi de répondre";
+  const VOICE = "Leçon rédigée par l'IA, non relue par un enseignant.";
+  const verdictOf = (verdict: Record<string, unknown>, authoring: Record<string, unknown> = {}, locale = "fr") => verdictMarkdown({
+    kind: "next", presentation: presentation(quiz, 1, { locale, authoring: { mode: "teacher", author_is_learner: false, validated: true, judge: false, notice: null, ...authoring } }),
+    verdict: { scene_id: "s", graded: true, signal: "answer_submitted", ...verdict },
+  } as never, []);
+
+  it("ends a screen with the status line it is given, and adds nothing else", () => {
+    const plain = presentationMarkdown(presentation(quiz, 1));
+    const md = presentationMarkdown(presentation(quiz, 1), { statusLine: STATUS });
+    expect(md).toBe(`${plain}\n\n\`${STATUS}\``);
+    expect(md.length - plain.length).toBeLessThanOrEqual(200);
+  });
+
+  it("opens a screen with the voice line it is given", () => {
+    const plain = presentationMarkdown(presentation(quiz, 1));
+    const md = presentationMarkdown(presentation(quiz, 1), { voiceLine: VOICE, statusLine: STATUS });
+    expect(md.startsWith(`> ${VOICE}\n\n### `)).toBe(true);
+    expect(md.endsWith(`\`${STATUS}\``)).toBe(true);
+    expect(md.length - plain.length).toBeLessThanOrEqual(200);
+  });
+
+  it("carries both onto the next screen of a transition", () => {
+    const transition = { kind: "next", presentation: presentation(quiz, 1), navigation: { kind: "replay", scene_id: quiz.id, rule_id: null, reason: null, modulator: null } };
+    const md = transitionMarkdown(transition as never, { statusLine: STATUS, voiceLine: VOICE });
+    expect(md.endsWith(`\`${STATUS}\``)).toBe(true);
+    expect(md).toContain(`---\n\n> ${VOICE}\n\n### `);
+  });
+
+  it("says who assessed an answer: the author's key, or a judge", () => {
+    expect(verdictOf({ assessed_by: "key", correct: true })).toBe("✓ **Juste.**\n\nÉvalué par la clé de l'auteur.");
+    expect(verdictOf({ assessed_by: "judge", correct: false })).toContain("Évalué par un juge (modèle).");
+    expect(verdictOf({ assessed_by: "key", correct: true }, {}, "en")).toContain("Assessed by the author's key.");
+    expect(verdictOf({ assessed_by: "judge", correct: true }, {}, "en")).toContain("Assessed by a judge model.");
+  });
+
+  it("does not name the assessor twice, and names none when nobody assessed", () => {
+    const agentKey = verdictOf({ assessed_by: "key", correct: true }, { drafted_by: "agent" });
+    expect(agentKey).toContain("Selon la clé rédigée par l'IA");
+    expect(agentKey).not.toContain("clé de l'auteur");
+    const compared = verdictOf({ assessed_by: "key" });
+    expect(compared).toContain("Réponse comparée à la clé.");
+    expect(compared).not.toContain("Évalué par");
+    expect(verdictOf({ assessed_by: "judge" })).not.toContain("Évalué par");
+    expect(verdictOf({ assessed_by: "none" })).not.toContain("Évalué par");
+  });
+});

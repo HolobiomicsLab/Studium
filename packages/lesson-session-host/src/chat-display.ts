@@ -56,6 +56,12 @@ export interface DisplayContext {
   timeZone?: string;
   /** Needed on a complete transition, which carries no presentation, for keyed-verdict provenance. */
   authoring?: DisplayAuthoring;
+  /** INT-STUDIUM-058: where the learner is on the next screen, in one line (orientation.ts statusLine).
+   * It closes that screen. */
+  statusLine?: string;
+  /** INT-STUDIUM-058: who wrote the lesson and whether it was reviewed (orientation.ts voiceLine). It
+   * opens the next screen. */
+  voiceLine?: string;
 }
 
 export interface CompletionSplit {
@@ -117,6 +123,8 @@ const PHRASES = {
     model_correction: "**Correction modèle**",
     self_rating: "Compare ta réponse à la référence ci-dessus, puis note ton rappel : **je ne savais pas** (`again`), **difficile** (`hard`), **bien** (`good`) ou **facile** (`easy`). Cette note fixe la date de ta prochaine révision ; elle ne change jamais ta maîtrise.",
     ai_key_provenance: "Selon la clé rédigée par l'IA — voir le passage cité.",
+    assessed_by_key: "Évalué par la clé de l'auteur.",
+    assessed_by_judge: "Évalué par un juge (modèle).",
     recall_rated: "Note enregistrée. Prochaine révision : {date}. Elle règle tes révisions, jamais ta maîtrise.",
     nav_replay: "On reprend cette question.",
     nav_remediate_alt: "Voici une autre question sur le même point.",
@@ -206,6 +214,8 @@ const PHRASES = {
     model_correction: "**Model correction**",
     self_rating: "Compare your answer with the reference above, then rate your recall: **again**, **hard**, **good** or **easy**. This rating sets the date of your next review; it never changes your mastery.",
     ai_key_provenance: "Per the AI-drafted key — see the cited passage.",
+    assessed_by_key: "Assessed by the author's key.",
+    assessed_by_judge: "Assessed by a judge model.",
     recall_rated: "Rating recorded. Next review: {date}. It schedules your reviews and never changes your mastery.",
     nav_replay: "Let's take this question again.",
     nav_remediate_alt: "Here is another question on the same point.",
@@ -343,15 +353,18 @@ function replyHint(scene: PublicSceneFields, locale: DisplayLocale): string {
 }
 
 /** The learner-facing block for one presentation. `firstScreen` adds the authoring notice (and, when
- * nothing is durable, a one-line warning) — the start of a lesson or a review session. */
+ * nothing is durable, a one-line warning) — the start of a lesson or a review session. The model
+ * relays this text and adds nothing, so what the learner must know on every screen is in it
+ * (INT-STUDIUM-058): `voiceLine` opens the block, `statusLine` closes it, as inline code. */
 export function presentationMarkdown(
   p: DisplayPresentation,
-  opts: { firstScreen?: boolean; notDurable?: boolean; review?: boolean; conceptMap?: string } = {},
+  opts: { firstScreen?: boolean; notDurable?: boolean; review?: boolean; conceptMap?: string; statusLine?: string; voiceLine?: string } = {},
 ): string {
   const locale: DisplayLocale = p.locale === "en" ? "en" : "fr";
   const scene = publicScene(p.scene as Scene) as PublicSceneFields;
   const authoring = p.authoring as DisplayAuthoring | undefined;
   const blocks: string[] = [];
+  if (opts.voiceLine) blocks.push(`> ${opts.voiceLine}`);
   if (opts.firstScreen && p.authoring?.notice) blocks.push(`> ${p.authoring.notice}`);
   const approvalNotice = opts.firstScreen ? approvalNoticeMarkdown(authoring, locale) : "";
   if (approvalNotice) blocks.push(`> ${approvalNotice}`);
@@ -366,6 +379,8 @@ export function presentationMarkdown(
   if (readingSources) blocks.push(readingSources);
   if ((p.hints_available ?? 0) > 0) blocks.push(say(locale, "hint_available"));
   blocks.push(replyHint(scene, locale));
+  // A backquote in a lesson title would close the inline code early.
+  if (opts.statusLine) blocks.push(`\`${opts.statusLine.replace(/`/g, "'")}\``);
   return blocks.filter((b) => b.trim() !== "").join("\n\n");
 }
 
@@ -384,6 +399,17 @@ function verdictLine(t: PublicTransition, locale: DisplayLocale): string {
   if (v.assessed_by === "judge") return say(locale, "verdict_judge_measured");
   if (v.assessed_by === "key") return say(locale, "verdict_key_recorded");
   return say(locale, "verdict_recorded");
+}
+
+/** INT-STUDIUM-058: who assessed an answer marked right or wrong, the author's key or a judge model.
+ * Empty where the verdict line already names the assessor (an answer compared with the key, evidence
+ * a judge measured) and where nobody assessed. */
+function assessorLine(t: PublicTransition, locale: DisplayLocale): string {
+  const v = t.verdict;
+  if (!v || v.signal === "confidence_declared" || !v.graded || typeof v.correct !== "boolean") return "";
+  if (v.assessed_by === "key") return say(locale, "assessed_by_key");
+  if (v.assessed_by === "judge") return say(locale, "assessed_by_judge");
+  return "";
 }
 
 /** Where the lesson goes next, in words derived only from the public navigation kind. Engine reasons
@@ -503,7 +529,7 @@ export function verdictMarkdown(
     && (presentationAuthoring?.drafted_by ?? ctx.authoring?.drafted_by) === "agent";
   return [
     verdictLine(t, locale),
-    keyedByAgent ? say(locale, "ai_key_provenance") : "",
+    keyedByAgent ? say(locale, "ai_key_provenance") : assessorLine(t, locale),
     t.verdict?.feedback ?? "",
     referenceMarkdown(t.verdict, locale),
     sourcesMarkdown(sources, locale),
@@ -521,7 +547,10 @@ export function transitionMarkdown(t: PublicTransition & TransitionExtras, ctx: 
     t.concept_map ? (t.concept_map.show === "map" ? t.concept_map.display_markdown : t.concept_map.position_line) : "",
   ].filter((b) => b.trim() !== "").join("\n\n");
   if (!("presentation" in t)) return head;
-  const next = presentationMarkdown(t.presentation, { review: ctx.review ?? false });
+  const next = presentationMarkdown(t.presentation, {
+    review: ctx.review ?? false,
+    ...(ctx.statusLine ? { statusLine: ctx.statusLine } : {}), ...(ctx.voiceLine ? { voiceLine: ctx.voiceLine } : {}),
+  });
   return head ? `${head}\n\n---\n\n${next}` : next;
 }
 

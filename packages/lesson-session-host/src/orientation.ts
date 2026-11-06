@@ -209,6 +209,45 @@ export function voicesOf(host: SessionHost, sessionId: string, verdict?: Assesse
   return { scene: host.authorVoice(sessionId), ...(assessed ? { verdict: assessed } : {}) };
 }
 
+/** Longest voice line. With the status line and the Markdown around both, a screen grows by 200
+ * characters at most. */
+export const VOICE_LINE_MAX = 110;
+
+interface VoiceWords {
+  drafted: Record<DraftedBy, string>;
+  validated_by: string; validated: string; changed_since: string; unreviewed: string;
+}
+const VOICE_WORDS: Record<"fr" | "en", VoiceWords> = {
+  fr: {
+    drafted: { agent: "Leçon rédigée par l'IA", learner: "Leçon que tu as rédigée", teacher: "Leçon" },
+    validated_by: "validée par {name}", validated: "validée par un enseignant",
+    changed_since: "modifiée depuis sa validation par {name}", unreviewed: "non relue par un enseignant",
+  },
+  en: {
+    drafted: { agent: "AI-drafted lesson", learner: "Lesson you wrote", teacher: "Lesson" },
+    validated_by: "validated by {name}", validated: "validated by a teacher",
+    changed_since: "changed since {name} validated it", unreviewed: "not reviewed by a teacher",
+  },
+};
+
+/** The lesson's voice as one line for the conversation text, `VOICE_LINE_MAX` characters at most: who
+ * drafted it, and whether a teacher read this version of it. A long name is cut. Empty for a voice
+ * that is not the lesson's author. */
+export function voiceLine(voice: Voice, locale: "fr" | "en"): string {
+  if (voice.kind !== "author") return "";
+  const w = VOICE_WORDS[locale];
+  const drafted = w.drafted[voice.drafted_by];
+  const compose = (name: string | null): string => {
+    const review = voice.reviewed ? (name ? w.validated_by : w.validated) : name ? w.changed_since : w.unreviewed;
+    const text = `${drafted}${voice.drafted_by === "teacher" ? " " : ", "}${review.replace("{name}", name ?? "")}`;
+    return /[.…]$/.test(text) ? text : `${text}.`;
+  };
+  const line = compose(voice.name);
+  if (line.length <= VOICE_LINE_MAX || !voice.name) return line;
+  const room = voice.name.length - (line.length - VOICE_LINE_MAX) - 1;
+  return compose(`${voice.name.slice(0, Math.max(1, room)).trimEnd()}…`);
+}
+
 /** One kind of help, in the order to try them: read the screen again, take an authored hint, ask for
  * an explanation, compare with the reference. `cost` says what taking it changes; `why_not` why it
  * is closed now. Both are phrases for the learner, in the session's language. */

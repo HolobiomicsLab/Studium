@@ -12,7 +12,7 @@ import { dirname, join, resolve } from "node:path";
 import { SessionHost } from "./host.js";
 import { operatorContext } from "./operator-context.js";
 import { createHash } from "node:crypto";
-import { helpOf, orientationOf, statusLine, voicesOf, type Orientation } from "./orientation.js";
+import { helpOf, orientationOf, statusLine, voiceLine, voicesOf, VOICE_LINE_MAX, type Orientation, type Voice } from "./orientation.js";
 
 const T0 = Date.parse("2026-11-06T09:00:00Z");
 const DAY = 24 * 60 * 60 * 1000;
@@ -302,6 +302,113 @@ describe("helpOf — the help ladder: try first, then an explanation", () => {
     expect(current().id).toBe("s9-rappel-3d");
     expect(rung(host, sid, "explain")).toEqual({ kind: "explain", available: true });
     expect(rung(host, sid, "hint")).toMatchObject({ available: true });
+  });
+});
+
+describe("voiceLine — the lesson's voice in one line", () => {
+  const author = (over: Partial<Extract<Voice, { kind: "author" }>> = {}): Voice =>
+    ({ kind: "author", name: null, reviewed: false, drafted_by: "teacher", ...over });
+
+  it("says who drafted the lesson and whether a teacher read this version of it", () => {
+    expect(voiceLine(author({ name: "Prof. Test", reviewed: true }), "fr")).toBe("Leçon validée par Prof. Test.");
+    expect(voiceLine(author({ reviewed: true }), "fr")).toBe("Leçon validée par un enseignant.");
+    expect(voiceLine(author({ name: "Prof. Test" }), "fr")).toBe("Leçon modifiée depuis sa validation par Prof. Test.");
+    expect(voiceLine(author({ drafted_by: "agent" }), "fr")).toBe("Leçon rédigée par l'IA, non relue par un enseignant.");
+    expect(voiceLine(author({ drafted_by: "agent", name: "Mme Durand", reviewed: true }), "fr")).toBe("Leçon rédigée par l'IA, validée par Mme Durand.");
+    expect(voiceLine(author({ drafted_by: "learner" }), "fr")).toBe("Leçon que tu as rédigée, non relue par un enseignant.");
+    expect(voiceLine(author({ drafted_by: "agent" }), "en")).toBe("AI-drafted lesson, not reviewed by a teacher.");
+    expect(voiceLine(author({ name: "Dr Lee", reviewed: true }), "en")).toBe("Lesson validated by Dr Lee.");
+    expect(voiceLine(author({ name: "Dr Lee" }), "en")).toBe("Lesson changed since Dr Lee validated it.");
+    expect(voiceLine(author({ drafted_by: "learner", reviewed: true }), "en")).toBe("Lesson you wrote, validated by a teacher.");
+  });
+
+  it("stays within its length: a long name is cut", () => {
+    const long = Array.from({ length: 20 }, () => "Professeure").join(" ");
+    for (const locale of ["fr", "en"] as const) {
+      for (const reviewed of [true, false]) {
+        const line = voiceLine(author({ name: long, reviewed, drafted_by: "agent" }), locale);
+        expect(line.length).toBeLessThanOrEqual(VOICE_LINE_MAX);
+        expect(line).toContain("Professeure");
+        expect(line).toContain("…");
+      }
+    }
+  });
+
+  it("is empty for a voice that is not the lesson's author", () => {
+    expect(voiceLine({ kind: "key" }, "fr")).toBe("");
+    expect(voiceLine({ kind: "judge" }, "en")).toBe("");
+  });
+});
+
+describe("the conversation text carries the orientation and the voices (task 1.5)", () => {
+  const agentDrafted = { authoring: { mode: "self_study", drafted_by: "agent" }, validated_by: "SELF-STUDY (non validée)" };
+
+  it("ends every screen with the status line of that screen, on each way the host serves it", async () => {
+    const { host, sid } = await open(threeScenes());
+    expect(host.currentPresentation(sid).display_markdown.endsWith("`Leçon O · étape 1/3 · 4 min · à lire`")).toBe(true);
+    const next = await host.respond(sid, { kind: "ack" });
+    const second = "`Leçon O · étape 2/3 · 3 min · à toi de répondre`";
+    expect(next.display_markdown.endsWith(second)).toBe(true);
+    expect(next.kind === "next" && next.presentation.display_markdown.endsWith(second)).toBe(true);
+    expect(host.currentPresentation(sid).display_markdown.endsWith(second)).toBe(true);
+    for (const secret of SECRETS) expect(next.display_markdown).not.toContain(secret);
+  });
+
+  it("names who validated a teacher's lesson on the first screen only", async () => {
+    const { host, sid } = await open(threeScenes());
+    expect(host.currentPresentation(sid).display_markdown).toContain("> Leçon validée par Prof. Test.");
+    const next = await host.respond(sid, { kind: "ack" });
+    expect(next.display_markdown).not.toContain("Leçon validée par");
+  });
+
+  it("opens every later screen of an unreviewed agent-drafted lesson with its voice; the first has the notice", async () => {
+    const { host, sid } = await open(lesson([concept("s-c", "c-un", 60), quiz("s-q1", "c-deux", 60), quiz("s-q2", "c-deux", 60)], agentDrafted));
+    const voice = "> Leçon rédigée par l'IA, non relue par un enseignant.";
+    const first = host.currentPresentation(sid).display_markdown;
+    expect(first.startsWith("> Leçon rédigée par l'IA à partir de tes sources")).toBe(true);
+    expect(first).not.toContain(voice);
+    const next = await host.respond(sid, { kind: "ack" });
+    expect(next.kind === "next" && next.presentation.display_markdown.startsWith(`${voice}\n\n### `)).toBe(true);
+    const third = await host.respond(sid, { kind: "quiz_choice", choiceId: choice(host, sid, "Juste"), confidence: 2 });
+    expect(third.kind === "next" && third.presentation.display_markdown.startsWith(`${voice}\n\n### `)).toBe(true);
+  });
+
+  it("says the author's key assessed a quiz answer of a teacher's lesson", async () => {
+    const { host, sid } = await open(threeScenes());
+    await host.respond(sid, { kind: "ack" });
+    const answered = await host.respond(sid, { kind: "quiz_choice", choiceId: choice(host, sid, "Juste"), confidence: 2 });
+    expect(answered.verdict?.display_markdown).toContain("Évalué par la clé de l'auteur.");
+  });
+
+  it("a review mixes lessons: its screens carry the status line, and no person's name as the lesson's voice", async () => {
+    const root = tmp();
+    writeFileSync(join(root, "O.json"), JSON.stringify(lesson([quiz("s-q1", "c-un", 60)])));
+    let now = T0;
+    const host = new SessionHost({ bundlesRoot: root, live: false, dataDir: tmp(), clock: { now: () => new Date(now).toISOString() } });
+    const learner = "auto-test-orientation-review";
+    const started = await host.create("O.json", learner);
+    const done = await host.respond(started.sessionId, { kind: "quiz_choice", choiceId: choice(host, started.sessionId, "Juste"), confidence: 2 });
+    expect(done.kind).toBe("complete");
+    // A finished lesson has no screen, so no status line.
+    expect(done.display_markdown).not.toMatch(/`[^`]*étape[^`]*`/);
+    now = T0 + 30 * DAY;
+    const review = await host.startReview(learner);
+    if (review.status !== "started") throw new Error(`expected a review, got ${review.status}`);
+    const text = review.presentation.display_markdown;
+    expect(text).toMatch(/`Séance de révision · étape 1\/1 · 1 min · [^`]*à toi de répondre`$/);
+    // The review's own `validated_by` is a placeholder, not a person: it is never shown as a name.
+    expect(text).not.toContain("review of teacher-validated lessons");
+    expect(text).not.toContain("validée par");
+    expect(host.authorVoice(review.sessionId)).toEqual({ kind: "author", name: null, reviewed: true, drafted_by: "teacher" });
+  });
+
+  it("adds at most 200 characters to a screen", async () => {
+    const { host, sid } = await open(lesson([concept("s-c", "c-un", 60), quiz("s-q1", "c-deux", 60)], agentDrafted));
+    const next = await host.respond(sid, { kind: "ack" });
+    if (next.kind !== "next") throw new Error("expected a next screen");
+    const served = next.presentation.display_markdown;
+    const body = served.slice(served.indexOf("### "), served.lastIndexOf("\n\n`"));
+    expect(served.length - body.length).toBeLessThanOrEqual(200);
   });
 });
 
