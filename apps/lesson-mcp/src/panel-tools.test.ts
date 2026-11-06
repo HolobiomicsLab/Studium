@@ -29,13 +29,23 @@ it("opens, reads and advances a panel over MCP with no UI metadata or pre-answer
     const opened = await call("open_lesson_panel", { bundle_ref: "atomistique-l1/lesson.json", learner_id: "panel-test" });
     expect(opened.isError).not.toBe(true);
     const panel = opened.structuredContent?.panel as Record<string, any>;
-    expect(panel).toMatchObject({ kind: "scene", schema: "studium/panel-view/1", progress: { index: 1 }, mastery: {} });
+    expect(panel).toMatchObject({ kind: "scene", schema: "studium/panel-view/2", progress: { index: 1 }, mastery: {} });
+    // INT-STUDIUM-058: the view says where the learner is, who speaks and which help is open.
+    expect(panel).toMatchObject({
+      orientation: { step: { index: 1, total: 32 }, waiting: "read", reviews_due: 0 },
+      voices: { scene: { kind: "author", reviewed: true, drafted_by: "teacher" } },
+      prompts: [], attention: "normal", surface: { rank: 3, kind: "panel" },
+    });
+    expect(panel.status_line).toContain("étape 1/32");
+    expect(panel.status_line.length).toBeLessThanOrEqual(80);
+    expect(panel.help.rungs.map((r: { kind: string }) => r.kind)).toEqual(["reread", "hint", "explain", "reference"]);
     expect(JSON.stringify(panel)).not.toMatch(/"(?:answer|correct|expected|key|solution)"\s*:/);
     expect(opened.content[1]).toMatchObject({ type: "text", text: expect.stringContaining(panel.lesson_title) });
     expect((await call("get_panel_view", { session_id: panel.session_id })).structuredContent?.panel).toEqual(panel);
     const next = await call("panel_action", { session_id: panel.session_id, action: { type: "respond", input: { kind: "ack" } } });
     expect(next.isError).not.toBe(true);
     expect(next.structuredContent?.panel).toMatchObject({ progress: { index: 2 }, navigation: expect.any(Object) });
+    expect(next.structuredContent?.panel).toMatchObject({ schema: "studium/panel-view/2", orientation: { step: { index: 2, total: 32 } } });
     expect((await call("panel_action", { session_id: panel.session_id, action: { type: "end" } })).isError).toBe(true);
   } finally { await client.close(); await server.close(); }
 });
@@ -90,6 +100,7 @@ it("advertises and serves exactly two UI resources only after a UI-capable hands
         expect(read.contents[0]).toMatchObject({ mimeType: "text/html;profile=mcp-app", _meta: { ui: { csp: { resourceDomains: ["https://cdn.jsdelivr.net"] }, prefersBorder: true } } });
         const html = (read.contents[0] as { text: string }).text;
         expect(html).toContain("studium/panel-view/1");
+        if (resource.uri.includes("lesson-panel")) expect(html).toContain("studium/panel-view/2");
         expect(Buffer.byteLength(html)).toBeLessThanOrEqual(1_500_000);
       }
     } finally { await client.close(); await server.close(); }

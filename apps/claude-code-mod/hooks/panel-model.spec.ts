@@ -57,6 +57,32 @@ describe("PanelView boundary", () => {
       .toThrow("incompatible lesson view");
   });
 
+  // INT-STUDIUM-058: the server writes version 2; the pane reads both versions.
+  const V2: StudiumPanelView = {
+    ...PANEL, schema: "studium/panel-view/2",
+    orientation: { step: { index: 2, total: 9 }, reviews_due: 0, waiting: "answer" },
+    status_line: "Atomistique · étape 2/9 · à toi de répondre",
+    voices: { scene: { kind: "author", name: "Prof. Test", reviewed: true, drafted_by: "teacher" } },
+    help: { rungs: [{ kind: "reread", available: true }, { kind: "explain", available: false, why_not: "essaie d'abord de répondre" }] },
+    prompts: [], attention: "normal", surface: { rank: 3, kind: "pane", available: ["text", "pane"] },
+  };
+
+  test("accepts a version-2 view", () => {
+    expect(isPanelView(V2)).toBe(true);
+    expect(panelFromMcpResult({ structuredContent: { panel: V2 } })).toEqual(V2);
+  });
+
+  test.each([
+    ["orientation", { ...V2, orientation: { step: { index: "2", total: 9 }, reviews_due: 0, waiting: "answer" } }],
+    ["waiting", { ...V2, orientation: { ...V2.orientation, waiting: "sleeping" } }],
+    ["status line", { ...V2, status_line: 7 }],
+    ["voice", { ...V2, voices: { scene: { kind: "narrator" } } }],
+    ["help rung", { ...V2, help: { rungs: [{ kind: "reread", available: "yes" }] } }],
+    ["missing orientation", { ...V2, orientation: undefined }],
+  ])("rejects a version-2 view with a malformed %s", (_name, value) => {
+    expect(isPanelView(value)).toBe(false);
+  });
+
   test("surfaces an MCP error message", () => {
     expect(() => panelFromMcpResult({ isError: true, content: [{ type: "text", text: "lesson unavailable" }] }))
       .toThrow("lesson unavailable");

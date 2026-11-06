@@ -3337,6 +3337,41 @@ Checked: five tests failed first (`helpOf is not a function`), then the 24 tests
 again after a wrong answer). `pnpm build`, `pnpm lint`, the engine suite (440 tests), the
 session-host suite (614) and the server suite (141) pass. No existing test changed.
 
+## 2026-11-06 (vue 2) — The panel view says where the learner is, who speaks and which help is open
+
+INT-STUDIUM-058, lot 1, task 1.4. The view that panels, the Claude Code pane and the VS Code
+extension read gains seven fields: `orientation`, `status_line`, `voices`, `help` (computed by
+`packages/lesson-session-host/src/orientation.ts`), and `prompts` (empty), `attention` (`normal`)
+and `surface` (a panel), which lots 5 and 2 will set.
+
+- `packages/lesson-panel`: a backend that gives the orientation (`getOrientation`) makes the view
+  `studium/panel-view/2`. One that cannot still writes `studium/panel-view/1`, as does the notice
+  of a forgotten session, where no session places the learner any more. `PanelViewSchema` reads
+  both versions and refuses a version-2 view that lacks one of the seven fields. No field of
+  version 1 is removed or retyped.
+- `apps/lesson-mcp`: the host backend implements `getOrientation`, so `open_lesson_panel`,
+  `get_panel_view` and `panel_action` serve version 2.
+- Readers: the MCP App bridge, the renderer and the Claude Code pane compared the schema id with
+  `studium/panel-view/1`; a version-2 view would have been ignored by the panel and refused by
+  the pane. They accept both versions now. They do not show the new fields yet (tasks 2.5, 2.6).
+  The pane's declarations (`types/index.d.ts`) carry the new fields: its two compile-time drift
+  guards against the core schema pass.
+
+Test decision: `panel-tools.test.ts` expects `studium/panel-view/2` from the real server (it
+expected version 1). The other existing tests are unchanged: their mock backend has no
+`getOrientation`, so the presenter still writes version 1 for them.
+`packages/lesson-panel/test-support/panel-view-1.json` is a view recorded from the bundled server
+before this change (one answered step of `fixtures/atomistique-l1`); the schema still reads it.
+
+Checked: the new tests failed first (four in `lesson-panel`, two in `lesson-mcp`, two in
+`lesson-panel-ui`, one in the pane), one of mine was wrong and was corrected (it expected a text
+the renderer never shows; it now compares a version-2 render with a version-1 render). Then
+every repository check passes: install, `pnpm build:libs`, `pnpm build`, `pnpm lint`,
+`pnpm -r --no-bail test`, `tools/pytest_all.py`, the bundle lint, the docs check, the headless
+smoke and `tools/panel-probe.mjs` on a rebuilt bundle.
+
+Not verified: no person has seen a version-2 view in a panel or a pane.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

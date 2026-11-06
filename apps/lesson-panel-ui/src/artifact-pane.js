@@ -1574,7 +1574,8 @@ let renderView;
   let previousBase = "";
   /** Paint a complete public PanelView, replaying effects once per changed payload. */
   renderView = function (view) {
-    if (view.schema !== "studium/panel-view/1") { handleMessage(view); return; }
+    // Both versions of the view are painted: version 2 adds fields, it retypes none.
+    if (view.schema !== "studium/panel-view/1" && view.schema !== "studium/panel-view/2") { handleMessage(view); return; }
     if (previousView && previousView.session_id !== view.session_id) {
       memory = freshMemory(); previousBase = ""; lastAuthoring = null;
     }

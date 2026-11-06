@@ -3,7 +3,7 @@
 # Panneau de leçon partagé
 
 Les mêmes renderers de leçon et de graphe servent VS Code et les MCP Apps. Le serveur fournit une
-vue publique `studium/panel-view/1` ; le navigateur ne note pas les réponses et ne lit aucun fichier
+vue publique `studium/panel-view/2` (une vue `studium/panel-view/1` reste lue) ; le navigateur ne note pas les réponses et ne lit aucun fichier
 apprenant. `src/artifact-pane.js` exporte `renderView`, avec les indices, discussions, autoévaluations
 et fins de leçon. Le build classique conserve les messages historiques pour les pilotes existants.
 

@@ -29,7 +29,8 @@ export async function connectMcpApp(app, env = { window, document, renderView: w
   function receive(result) {
     if (result.isError) throw new Error(result.content?.find(c => c.type === "text")?.text ?? "Tool failed");
     const payload = result.structuredContent ?? JSON.parse(result.content?.find(c => c.type === "text")?.text ?? "{}");
-    if (payload.panel?.schema === "studium/panel-view/1") current = payload.panel;
+    // Both versions of the view are read: version 2 adds fields, it retypes none.
+    if (["studium/panel-view/1", "studium/panel-view/2"].includes(payload.panel?.schema)) current = payload.panel;
     if (Object.prototype.hasOwnProperty.call(payload, "graph")) {
       graph = payload.graph;
       if (!graph && doc.getElementById("graph")) doc.getElementById("graph").textContent = words().graph_unavailable;

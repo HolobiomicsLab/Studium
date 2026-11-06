@@ -5,7 +5,12 @@ import type {
   StudiumPublicScene,
 } from "../types/index.js";
 
-const PANEL_SCHEMA = "studium/panel-view/1";
+/** Version 1 and version 2 (INT-STUDIUM-058) are both read; version 2 adds fields and retypes none. */
+const PANEL_SCHEMAS = new Set(["studium/panel-view/1", "studium/panel-view/2"]);
+const PANEL_SCHEMA_V2 = "studium/panel-view/2";
+const WAITING = new Set(["read", "answer", "self_rating", "run", "nothing"]);
+const VOICE_KINDS = new Set(["author", "key", "judge", "agent"]);
+const HELP_KINDS = new Set(["reread", "hint", "explain", "reference"]);
 const PANEL_KINDS = new Set(["scene", "done", "notice", "error"]);
 const ACTIONS = new Set<StudiumPanelActionName>([
   "respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse",
@@ -141,9 +146,27 @@ function isMastery(value: unknown): boolean {
   return isRecord(value) && Object.values(value).every(score => score === null || (typeof score === "number" && Number.isFinite(score)));
 }
 
+function isVoice(value: unknown): boolean {
+  if (!isRecord(value) || !VOICE_KINDS.has(String(value.kind))) return false;
+  return value.kind !== "author" || ((value.name === null || typeof value.name === "string") && typeof value.reviewed === "boolean");
+}
+
+/** What version 2 adds: where the learner is, the same in one line, who speaks, which help is open. */
+function hasValidOrientation(value: Record<string, unknown>): boolean {
+  const { orientation, voices, help } = value;
+  if (!isRecord(orientation) || !hasValidProgress(orientation.step) || !WAITING.has(String(orientation.waiting))) return false;
+  if (typeof orientation.reviews_due !== "number" || typeof value.status_line !== "string") return false;
+  if (!isRecord(voices) || !isVoice(voices.scene) || (voices.verdict !== undefined && !isVoice(voices.verdict))) return false;
+  return isRecord(help) && Array.isArray(help.rungs) && help.rungs.every(rung => (
+    isRecord(rung) && HELP_KINDS.has(String(rung.kind)) && typeof rung.available === "boolean"
+    && [rung.cost, rung.why_not].every(isOptionalString)
+  ));
+}
+
 /** Validate every PanelView field the mod reads before accepting an MCP result. */
 export function isPanelView(value: unknown): value is StudiumPanelView {
-  if (!isRecord(value) || value.schema !== PANEL_SCHEMA || !PANEL_KINDS.has(String(value.kind))) return false;
+  if (!isRecord(value) || !PANEL_SCHEMAS.has(String(value.schema)) || !PANEL_KINDS.has(String(value.kind))) return false;
+  if (value.schema === PANEL_SCHEMA_V2 && !hasValidOrientation(value)) return false;
   if (![value.session_id, value.learner_id, value.bundle_ref, value.lesson_title].every(item => typeof item === "string")) return false;
   if ((value.locale !== "fr" && value.locale !== "en") || !isStringRecord(value.strings)) return false;
   if (!hasValidProgress(value.progress) || !Array.isArray(value.scene_assets) || !value.scene_assets.every(isAsset)) return false;

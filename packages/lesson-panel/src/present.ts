@@ -6,7 +6,10 @@ import { reviewDueConcepts } from "./review-fsrs.js";
 import { selectRenderOrder } from "./modality.js";
 import { assetBundleRef } from "./pane-messages.js";
 import { completionSplit } from "./completion.js";
-import { PANEL_VIEW_SCHEMA, PanelViewSchema, PublicSceneSchema, type PublicScene, type PanelView, type NamedConcept } from "./view.js";
+import {
+  PANEL_VIEW_SCHEMA, PANEL_VIEW_SCHEMA_V1, PanelViewSchema, PublicSceneSchema,
+  type PublicScene, type PanelView, type NamedConcept, type Surface,
+} from "./view.js";
 import type { PanelBackend, PanelContext, Payload } from "./backend.js";
 
 const FORBIDDEN_FIELDS = new Set(["answer", "correct", "expected", "key", "solution"]);
@@ -46,7 +49,7 @@ export async function reviewSchedule(backend: PanelBackend, sessionId: string): 
 function baseView(ctx: PanelContext, presentation: Payload): PanelView {
   const locale = ctx.locale ?? (presentation.locale === "en" ? "en" : "fr");
   return {
-    schema: PANEL_VIEW_SCHEMA, kind: "scene", session_id: ctx.sessionId, learner_id: ctx.learnerId,
+    schema: PANEL_VIEW_SCHEMA_V1, kind: "scene", session_id: ctx.sessionId, learner_id: ctx.learnerId,
     bundle_ref: ctx.bundleRef, lesson_title: ctx.lessonTitle, locale, strings: browserPhrases(locale),
     progress: { index: (presentation.index ?? 0) + 1, total: presentation.total ?? ctx.lastView?.progress.total ?? 0 },
     scene_assets: [], modalityPreference: ctx.modalityPreference ?? "balanced", reviewDue: [], calibration: [],
@@ -92,13 +95,27 @@ async function doneView(backend: PanelBackend, ctx: PanelContext): Promise<Panel
   return view;
 }
 
-/** Compose a complete public view; only earned transition feedback may carry correctness. */
+/** The surface a view is composed for until the host says which one it plays on: a panel, with the
+ * conversation text always there to fall back on. */
+const DEFAULT_SURFACE: Surface = { rank: 3, kind: "panel", available: ["text", "panel"] };
+
+/** Compose a complete public view; only earned transition feedback may carry correctness. With a
+ * backend that gives the orientation the view is version 2: where the learner is, who speaks, which
+ * help is open, no prompt yet, the attention level and the surface. */
 export async function presentPanel(backend: PanelBackend, ctx: PanelContext): Promise<PanelView> {
   const view = ctx.transition?.kind === "complete" ? await doneView(backend, ctx) : await sceneView(backend, ctx);
   view.verdict = ctx.transition?.verdict ?? null;
   view.navigation = ctx.transition?.navigation ?? null;
   view.self_rating = ctx.transition?.self_rating ?? null;
   if (view.self_rating?.requested) view.actions.push("rateRecall");
+  if (backend.getOrientation) {
+    const placed = await backend.getOrientation(ctx.sessionId, {
+      locale: view.locale, lessonTitle: view.lesson_title, verdict: ctx.transition?.verdict ?? null,
+    });
+    Object.assign(view, placed, {
+      schema: PANEL_VIEW_SCHEMA, prompts: [], attention: ctx.attention ?? "normal", surface: ctx.surface ?? DEFAULT_SURFACE,
+    });
+  }
   ctx.lastView = PanelViewSchema.parse({ ...view, ...ctx.effects });
   return ctx.lastView;
 }

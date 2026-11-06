@@ -99,8 +99,48 @@ export type StudiumCompletion = {
   actions: Array<"review" | "restart" | "pick">;
 };
 
+/** Where the learner is (version 2 of the view, INT-STUDIUM-058). */
+export type StudiumOrientation = {
+  step: { index: number; total: number; detour?: { returns_to: string } };
+  concept?: { id: string; title: string; state: "acquired" | "to_review" | "current" | "seen" | "upcoming" };
+  minutes_left?: number;
+  reviews_due: number;
+  waiting: "read" | "answer" | "self_rating" | "run" | "nothing";
+  last_adaptation?: { kind: string; reason: string; detail?: { rule_id: string; evidence: string[] } };
+  resumed?: { cause: "restart" | "surface_change" | "paused"; seen_through: string };
+};
+
+/** Who speaks: the lesson's author, the author's key, a judge model, or the assistant. */
+export type StudiumVoice =
+  | { kind: "author"; name: string | null; reviewed: boolean; drafted_by: "agent" | "learner" | "teacher" }
+  | { kind: "key" }
+  | { kind: "judge" }
+  | { kind: "agent" };
+
+export type StudiumHelpRung = {
+  kind: "reread" | "hint" | "explain" | "reference";
+  available: boolean;
+  cost?: string;
+  why_not?: string;
+};
+
+export type StudiumPrompt = {
+  id: string;
+  kind: "review_due" | "break" | "next_lesson" | "map_offer" | "forms_offer" | "resume_notice" | "adaptation_notice";
+  reason: string;
+  actions: Array<{ label: string; action: StudiumPromptAction }>;
+  expires: "scene" | "session";
+};
+
+/** The action a prompt offers, as the core schema infers it: the input of `respond` is optional there. */
+export type StudiumPromptAction =
+  | Exclude<StudiumPanelAction, { type: "respond" }>
+  | { type: "respond"; input?: unknown };
+
+export type StudiumSurfaceKind = "text" | "form" | "pane" | "panel";
+
 export type StudiumPanelView = {
-  schema: "studium/panel-view/1";
+  schema: "studium/panel-view/1" | "studium/panel-view/2";
   kind: "scene" | "done" | "notice" | "error";
   session_id: string;
   learner_id: string;
@@ -143,6 +183,14 @@ export type StudiumPanelView = {
   message?: string;
   actions: StudiumPanelActionName[];
   pending?: string;
+  /** Version 2 only, and then all present. */
+  orientation?: StudiumOrientation;
+  status_line?: string;
+  voices?: { scene: StudiumVoice; verdict?: StudiumVoice };
+  help?: { rungs: StudiumHelpRung[] };
+  prompts?: StudiumPrompt[];
+  attention?: "quiet" | "normal" | "coached";
+  surface?: { rank: 1 | 2 | 3; kind: StudiumSurfaceKind; available: StudiumSurfaceKind[] };
 };
 
 export type StudiumDeckFlags = { sceneId: string; tokens: string[] };

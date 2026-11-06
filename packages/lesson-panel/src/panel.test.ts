@@ -117,3 +117,76 @@ describe("shared panel contract", () => {
     expect(JSON.stringify(panel)).not.toContain("confidence_calibration");
   });
 });
+
+// INT-STUDIUM-058, lot 1, task 1.4: version 2 of the view adds where the learner is, who speaks and
+// which help is open. A reader of version 1 still reads its views; a backend that cannot give the
+// orientation still writes version 1.
+describe("panel view version 2", () => {
+  const extras = {
+    orientation: { step: { index: 2, total: 3 }, reviews_due: 0, waiting: "answer" as const },
+    status_line: "Leçon · étape 2/3 · à toi de répondre",
+    voices: { scene: { kind: "author" as const, name: "Prof. Test", reviewed: true, drafted_by: "teacher" as const } },
+    help: { rungs: [{ kind: "reread" as const, available: true }, { kind: "explain" as const, available: false, why_not: "essaie d'abord de répondre" }] },
+  };
+  const recorded = () => JSON.parse(readFileSync(new URL("../test-support/panel-view-1.json", import.meta.url), "utf8"));
+
+  it("writes version 2 with the orientation, the status line, the voices and the help the backend gives", async () => {
+    const { ctx, backend } = setup();
+    const getOrientation = vi.fn(async () => extras);
+    const panel = await presentPanel({ ...backend, getOrientation }, ctx);
+    expect(panel).toMatchObject({
+      schema: "studium/panel-view/2", ...extras, prompts: [], attention: "normal",
+      surface: { rank: 3, kind: "panel", available: ["text", "panel"] },
+    });
+    expect(getOrientation).toHaveBeenCalledWith("s1", { locale: "fr", lessonTitle: lesson.metadata.title, verdict: null });
+    expect(PanelViewSchema.parse(panel)).toEqual(panel);
+    expect(JSON.stringify(panel)).not.toMatch(/"(?:answer|correct|expected|key|solution)"\s*:/);
+  });
+
+  it("hands the verdict of the answer just given to the backend, which tells its voice", async () => {
+    const { ctx, backend } = setup();
+    const getOrientation = vi.fn(async () => ({ ...extras, voices: { ...extras.voices, verdict: { kind: "key" as const } } }));
+    const panel = await applyPanelAction({ ...backend, getOrientation }, ctx, { type: "respond", input: { kind: "ack" } });
+    expect(getOrientation).toHaveBeenCalledWith("s1", expect.objectContaining({ verdict: expect.objectContaining({ scene_id: "previous" }) }));
+    expect(panel.voices).toEqual({ scene: extras.voices.scene, verdict: { kind: "key" } });
+  });
+
+  it("carries the surface and the attention level the host set", async () => {
+    const { ctx, backend } = setup();
+    ctx.surface = { rank: 2, kind: "form", available: ["text", "form"] };
+    ctx.attention = "quiet";
+    const panel = await presentPanel({ ...backend, getOrientation: vi.fn(async () => extras) }, ctx);
+    expect(panel).toMatchObject({ surface: { rank: 2, kind: "form", available: ["text", "form"] }, attention: "quiet" });
+  });
+
+  it("writes version 1, with no orientation, when the backend cannot give one", async () => {
+    const { ctx, backend } = setup();
+    const panel = await presentPanel(backend, ctx);
+    expect(panel.schema).toBe("studium/panel-view/1");
+    for (const field of ["orientation", "status_line", "voices", "help", "prompts", "attention", "surface"]) expect(panel).not.toHaveProperty(field);
+  });
+
+  it("still reads a version-1 view recorded from the server before version 2", () => {
+    const view = recorded();
+    expect(view.schema).toBe("studium/panel-view/1");
+    expect(PanelViewSchema.parse(view)).toEqual(view);
+  });
+
+  it("refuses a version-2 view that lacks what version 2 promises, and a status line over 80 characters", () => {
+    const view = recorded();
+    expect(PanelViewSchema.safeParse({ ...view, schema: "studium/panel-view/2" }).success).toBe(false);
+    const complete = { ...view, schema: "studium/panel-view/2", ...extras, prompts: [], attention: "normal", surface: { rank: 3, kind: "panel", available: ["text", "panel"] } };
+    expect(PanelViewSchema.safeParse(complete).success).toBe(true);
+    expect(PanelViewSchema.safeParse({ ...complete, status_line: "x".repeat(81) }).success).toBe(false);
+  });
+
+  it("shows the notice of a forgotten session without an orientation: there is no session to place the learner in", async () => {
+    const { ctx, backend } = setup();
+    const v2 = { ...backend, getOrientation: vi.fn(async () => extras) };
+    await presentPanel(v2, ctx);
+    const notice = await applyPanelAction(v2, ctx, { type: "end", confirmed: true });
+    expect(notice).toMatchObject({ schema: "studium/panel-view/1", kind: "notice" });
+    expect(notice).not.toHaveProperty("orientation");
+    expect(notice).not.toHaveProperty("status_line");
+  });
+});

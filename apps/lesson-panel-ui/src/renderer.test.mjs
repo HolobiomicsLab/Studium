@@ -44,3 +44,13 @@ test("the legacy envelope carries a complete view without replaying its effects 
   assert.match(dom.window.document.querySelector(".turn-tutor").textContent, /A single tutor reply/);
   dom.window.close();
 });
+// INT-STUDIUM-058: version 2 adds fields; the renderer paints the scene and ignores what it does not show yet.
+test("a version-2 view paints its scene like a version-1 one", () => {
+  const first = mount();
+  first.window.renderView(view());
+  const second = mount();
+  second.window.renderView(view({ schema: "studium/panel-view/2", ...{ orientation: { step: { index: 1, total: 2 }, reviews_due: 0, waiting: "read" }, status_line: "Lesson · step 1/2 · to read", voices: { scene: { kind: "author", name: "Prof. Test", reviewed: true, drafted_by: "teacher" } }, help: { rungs: [{ kind: "reread", available: true }] }, prompts: [], attention: "normal", surface: { rank: 3, kind: "panel", available: ["text", "panel"] } } }));
+  assert.match(second.window.document.body.textContent, /Discussion/);
+  assert.equal(second.window.document.body.textContent, first.window.document.body.textContent);
+  first.window.close(); second.window.close();
+});

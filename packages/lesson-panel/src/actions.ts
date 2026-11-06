@@ -1,4 +1,4 @@
-import { PanelActionSchema, PanelViewSchema, type PanelAction, type PanelView } from "./view.js";
+import { PANEL_VIEW_SCHEMA_V1, PANEL_VIEW_V2_FIELDS, PanelActionSchema, PanelViewSchema, type PanelAction, type PanelView } from "./view.js";
 import type { PanelBackend, PanelContext, Payload } from "./backend.js";
 import { presentPanel } from "./present.js";
 import { reviewContext } from "./pane-messages.js";
@@ -55,7 +55,10 @@ export async function applyPanelAction(backend: PanelBackend, ctx: PanelContext,
   if (action.type === "end" && action.confirmed) {
     const previous = ctx.lastView ?? await presentPanel(backend, ctx);
     await backend.forgetSession(ctx.sessionId);
-    ctx.lastView = { ...previous, kind: "notice", scene: undefined, scene_assets: [], mastery: {}, actions: ["pickCourse"], message: phrase("extension_forget_done", {}, previous.locale) };
+    // The session is gone: nothing places the learner any more, so the notice is a version-1 view.
+    const notice: PanelView = { ...previous, schema: PANEL_VIEW_SCHEMA_V1, kind: "notice", scene: undefined, scene_assets: [], mastery: {}, actions: ["pickCourse"], message: phrase("extension_forget_done", {}, previous.locale) };
+    for (const field of PANEL_VIEW_V2_FIELDS) delete notice[field];
+    ctx.lastView = notice;
     return PanelViewSchema.parse(ctx.lastView);
   }
   if (action.type !== "end" && action.type !== "pickCourse") ctx.effects = await execute(backend, ctx, action);

@@ -1,7 +1,10 @@
 // MCP adapter for the pure panel presenter; sessions remain owned by SessionHost.
 import { z } from "zod";
 import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SessionHost, ResponseInputSchema, publicPresentation, publicTransition, loadResolvedBundle } from "@studium/lesson-session-host";
+import {
+  SessionHost, ResponseInputSchema, publicPresentation, publicTransition, loadResolvedBundle,
+  orientationOf, statusLine, voicesOf, helpOf,
+} from "@studium/lesson-session-host";
 import { scanCatalog } from "../../../packages/lesson-session-host/src/lesson-catalog.js";
 import { reviewContext } from "../../../packages/lesson-panel/src/pane-messages.js";
 import {
@@ -40,6 +43,15 @@ export function hostBackend(host: SessionHost, bundlesRoot: string): PanelBacken
     },
     forgetSession: id => host.forget(id),
     getNextReinforcement: id => host.reinforcementStatusForSession(id),
+    getOrientation: async (id, ask) => {
+      const orientation = orientationOf(host, id);
+      const assessed = ask.verdict?.assessed_by;
+      return {
+        orientation, status_line: statusLine(orientation, ask.lessonTitle, ask.locale),
+        voices: voicesOf(host, id, assessed === "key" || assessed === "judge" ? { assessed_by: assessed } : null),
+        help: helpOf(host, id, ask.locale),
+      };
+    },
     inlineImage: async (asset, bundleRef) => {
       if (!asset.path || (asset.kind !== "image" && asset.kind !== "executed_result")) return asset;
       try {

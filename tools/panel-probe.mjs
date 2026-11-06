@@ -62,6 +62,8 @@ for (const supportsUi of [false, true]) {
     const opened = await client.callTool({ name: "open_lesson_panel", arguments: { bundle_ref: "atomistique-l1", learner_id: "panel-probe" } });
     assert.notEqual(opened.isError, true, JSON.stringify(opened));
     assert.doesNotMatch(JSON.stringify(opened.structuredContent.panel), /"(?:answer|correct|expected|key|solution)"\s*:/);
+    assert.equal(opened.structuredContent.panel.schema, "studium/panel-view/2");
+    assert.ok(opened.structuredContent.panel.status_line.length <= 80);
     const sizes = {};
     let app;
     if (supportsUi) for (const resource of resources) {
@@ -69,6 +71,7 @@ for (const supportsUi of [false, true]) {
       assert.equal(content.mimeType, "text/html;profile=mcp-app");
       assert.deepEqual(content._meta.ui.csp.resourceDomains, ["https://cdn.jsdelivr.net"]);
       assert.ok(content.text.includes("studium/panel-view/1"));
+      if (resource.uri.includes("lesson-panel")) assert.ok(content.text.includes("studium/panel-view/2"));
       sizes[resource.uri] = Buffer.byteLength(content.text); assert.ok(sizes[resource.uri] <= 1_500_000);
       if (resource.uri.includes("lesson-panel")) app = await proveEmbeddedApp(client, content.text, opened);
     }

@@ -114,3 +114,13 @@ test("late scientific script loading repaints the graph and leaves a cleared gra
   assert.equal(paints, before + 1);
   m.dom.window.close();
 });
+// INT-STUDIUM-058: the server now writes version 2 of the view; this reader accepts both versions.
+test("a version-2 tool result renders, and a view of an unknown version is ignored", async () => {
+  const m = setup();
+  const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: { ...initial, schema: "studium/panel-view/3" } } });
+  assert.doesNotMatch(m.dom.window.document.body.textContent, /Introduction/);
+  bridge.receive({ structuredContent: { panel: { ...initial, schema: "studium/panel-view/2", ...{ orientation: { step: { index: 1, total: 2 }, reviews_due: 0, waiting: "read" }, status_line: "Lesson · step 1/2 · to read", voices: { scene: { kind: "author", name: "Prof. Test", reviewed: true, drafted_by: "teacher" } }, help: { rungs: [{ kind: "reread", available: true }] }, prompts: [], attention: "normal", surface: { rank: 3, kind: "panel", available: ["text", "panel"] } } } } });
+  assert.match(m.dom.window.document.body.textContent, /Introduction/);
+  m.dom.window.close();
+});

@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-export const PANEL_VIEW_SCHEMA = "studium/panel-view/1" as const;
+/** Version 1 (INT-STUDIUM-057). Still written by a backend that cannot give the orientation, and for
+ * the notice of a forgotten session; every reader keeps reading it. */
+export const PANEL_VIEW_SCHEMA_V1 = "studium/panel-view/1" as const;
+/** Version 2 (INT-STUDIUM-058): version 1 plus where the learner is, who speaks, which help is open,
+ * the prompts, the attention level and the surface. Fields are added, none is removed or retyped. */
+export const PANEL_VIEW_SCHEMA = "studium/panel-view/2" as const;
+export const PANEL_VIEW_SCHEMAS = [PANEL_VIEW_SCHEMA_V1, PANEL_VIEW_SCHEMA] as const;
 export const RecallGradeSchema = z.enum(["again", "hard", "good", "easy"]);
 export const PanelActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("respond"), input: z.unknown() }).strict(),
@@ -58,8 +64,57 @@ export const CompletionSchema = z.object({
   due_now: z.number(), actions: z.array(z.enum(["review", "restart", "pick"])),
 });
 export type Completion = z.infer<typeof CompletionSchema>;
+/** Where the learner is (lesson-session-host orientation.ts computes it; this is its wire shape). */
+export const OrientationSchema = z.object({
+  step: z.object({ index: z.number(), total: z.number(), detour: z.object({ returns_to: z.string() }).optional() }),
+  concept: z.object({ id: z.string(), title: z.string(), state: z.enum(["acquired", "to_review", "current", "seen", "upcoming"]) }).optional(),
+  minutes_left: z.number().optional(),
+  reviews_due: z.number(),
+  waiting: z.enum(["read", "answer", "self_rating", "run", "nothing"]),
+  last_adaptation: z.object({
+    kind: z.string(), reason: z.string(), detail: z.object({ rule_id: z.string(), evidence: z.array(z.string()) }).optional(),
+  }).optional(),
+  resumed: z.object({ cause: z.enum(["restart", "surface_change", "paused"]), seen_through: z.string() }).optional(),
+});
+export type Orientation = z.infer<typeof OrientationSchema>;
+/** Who speaks: the lesson's author, the author's key, a judge model, or the assistant. */
+export const VoiceSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("author"), name: z.string().nullable(), reviewed: z.boolean(), drafted_by: z.enum(["agent", "learner", "teacher"]) }),
+  z.object({ kind: z.literal("key") }),
+  z.object({ kind: z.literal("judge") }),
+  z.object({ kind: z.literal("agent") }),
+]);
+export type Voice = z.infer<typeof VoiceSchema>;
+export const VoicesSchema = z.object({ scene: VoiceSchema, verdict: VoiceSchema.optional() });
+export type Voices = z.infer<typeof VoicesSchema>;
+export const HelpSchema = z.object({
+  rungs: z.array(z.object({
+    kind: z.enum(["reread", "hint", "explain", "reference"]), available: z.boolean(), cost: z.string().optional(), why_not: z.string().optional(),
+  })),
+});
+export type Help = z.infer<typeof HelpSchema>;
+/** A proposal the learner may accept or dismiss (spec § 2.6): two actions at most. */
+export const PromptSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["review_due", "break", "next_lesson", "map_offer", "forms_offer", "resume_notice", "adaptation_notice"]),
+  reason: z.string(),
+  actions: z.array(z.object({ label: z.string(), action: PanelActionSchema })).max(2),
+  expires: z.enum(["scene", "session"]),
+});
+export type Prompt = z.infer<typeof PromptSchema>;
+export const AttentionSchema = z.enum(["quiet", "normal", "coached"]);
+export type Attention = z.infer<typeof AttentionSchema>;
+const SurfaceKindSchema = z.enum(["text", "form", "pane", "panel"]);
+/** The surface the lesson is played on, its rank on the ladder (3 panel or pane, 2 forms, 1 text) and
+ * the ones the host could use instead. */
+export const SurfaceSchema = z.object({ rank: z.union([z.literal(1), z.literal(2), z.literal(3)]), kind: SurfaceKindSchema, available: z.array(SurfaceKindSchema) });
+export type Surface = z.infer<typeof SurfaceSchema>;
+export const STATUS_LINE_MAX = 80;
+/** The fields version 2 adds; a version-2 view carries every one of them. */
+export const PANEL_VIEW_V2_FIELDS = ["orientation", "status_line", "voices", "help", "prompts", "attention", "surface"] as const;
+
 export const PanelViewSchema = z.object({
-  schema: z.literal(PANEL_VIEW_SCHEMA), kind: z.enum(["scene", "done", "notice", "error"]),
+  schema: z.enum(PANEL_VIEW_SCHEMAS), kind: z.enum(["scene", "done", "notice", "error"]),
   session_id: z.string(), learner_id: z.string(), bundle_ref: z.string(), lesson_title: z.string(),
   locale: z.enum(["fr", "en"]), strings: z.record(z.string()), progress: z.object({ index: z.number(), total: z.number() }),
   scene: PublicSceneSchema.optional(), scene_assets: z.array(SceneAssetSchema), modalityPreference: z.enum(["balanced", "visual", "textual"]),
@@ -71,5 +126,12 @@ export const PanelViewSchema = z.object({
   turn_result: z.object({ reasoning: object.nullable(), tutor: object.nullable() }).optional(),
   recall_rated: z.object({ sceneId: z.string(), grade: RecallGradeSchema }).optional(),
   completion: CompletionSchema.optional(), message: z.string().optional(), actions: z.array(PanelActionNameSchema), pending: z.string().optional(),
-}).strict();
+  orientation: OrientationSchema.optional(), status_line: z.string().max(STATUS_LINE_MAX).optional(), voices: VoicesSchema.optional(),
+  help: HelpSchema.optional(), prompts: z.array(PromptSchema).optional(), attention: AttentionSchema.optional(), surface: SurfaceSchema.optional(),
+}).strict().superRefine((view, ctx) => {
+  if (view.schema !== PANEL_VIEW_SCHEMA) return;
+  for (const field of PANEL_VIEW_V2_FIELDS) {
+    if (view[field] === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: `a ${PANEL_VIEW_SCHEMA} view carries ${field}` });
+  }
+});
 export type PanelView = z.infer<typeof PanelViewSchema>;

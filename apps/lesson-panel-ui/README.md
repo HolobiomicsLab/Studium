@@ -3,7 +3,8 @@ English · [Français](README.fr.md)
 # Shared lesson panel
 
 The lesson and graph renderers serve VS Code and MCP Apps. The server supplies a public
-`studium/panel-view/1` view; the browser never grades answers or reads learner files.
+`studium/panel-view/2` view (a `studium/panel-view/1` view is still read); the browser never grades
+answers or reads learner files.
 `src/artifact-pane.js` exports `renderView`, including full-state hint, discussion, rating and
 completion replay. The classic build preserves the older message protocol for existing drivers.
 
