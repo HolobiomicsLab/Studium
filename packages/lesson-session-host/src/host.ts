@@ -586,6 +586,8 @@ function checkLocale(language: string): DisplayLocale {
 }
 
 const conceptsOf = (scene: Scene): readonly string[] => ("concept_refs" in scene ? scene.concept_refs : []);
+/** One line of an equation's legend: what a symbol stands for. */
+export type NotationEntry = NonNullable<RenderAsset["legend"]>[number];
 /** Normalize authored answer text for the conservative pre-retry reveal check. */
 function normalizedRevealText(text: string): string[] {
   return text.normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
@@ -1529,6 +1531,33 @@ export class SessionHost {
     // produces a fresh result by running it (parity with the file channel + publicScene).
     if ((scene as { run_manifest?: unknown }).run_manifest) return assets.filter((a) => a.kind !== "executed_result");
     return assets;
+  }
+  /** The notation the lesson has already given for the current scene's concepts: the legends of the
+   * equations carried by the scenes up to this one (in lesson order) that share a concept with it,
+   * each symbol once, first meaning kept. Public material only — legends travel with the public scene
+   * — so a harness may show it at any time, and it is not a metered hint (no M5 discount). Empty when
+   * the scene names no concept or no such equation has a legend. */
+  sceneNotation(id: string): NotationEntry[] {
+    const e = this.require(id);
+    const { scene, index } = e.session.currentPresentation();
+    const concepts = new Set(conceptsOf(scene));
+    if (concepts.size === 0) return [];
+    const upTo = e.bundle.scenes.findIndex((s) => s.id === scene.id);
+    const scenes = e.bundle.scenes.slice(0, (upTo >= 0 ? upTo : index) + 1);
+    const seen = new Set<string>();
+    const notation: NotationEntry[] = [];
+    for (const earlier of scenes) {
+      if (!conceptsOf(earlier).some((c) => concepts.has(c))) continue;
+      for (const asset of sceneRenderAssets(earlier)) {
+        if (asset.kind !== "equation_latex") continue;
+        for (const { symbol, meaning } of asset.legend ?? []) {
+          if (seen.has(symbol)) continue;
+          seen.add(symbol);
+          notation.push({ symbol, meaning });
+        }
+      }
+    }
+    return notation;
   }
   /** Record a learner-time capsule run (the learner's OWN executed result) on the session, keyed by
    * task_card_id, so a later spot_the_flaw with `reference_from_run` grounds on it. Called after the

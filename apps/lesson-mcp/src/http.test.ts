@@ -189,12 +189,15 @@ describe('local lesson HTTP API', () => {
     expect(presentation.scene.id).toBe('s2-quiz-4f');
 
     const wrong = await respond({kind:'quiz_choice',choiceId:displayedId(presentation,'5')});
-    expect(wrong.presentation.scene.id).toBe('s2-quiz-4f');
+    // The gate now sends the learner to another item of the same concept (the closing recall item,
+    // unseen so far) instead of the question just missed; the reference stays held back meanwhile.
+    expect(wrong.presentation.scene.id).toBe('s9-rappel-3d');
+    expect(wrong.verdict.key_points).toBeUndefined();
     expect(wrong.verdict.feedback).toContain('compte les valeurs entières');
     expect(wrong.verdict.display_markdown).toContain('✗');
     expect(wrong.verdict.display_markdown).not.toMatch(/(^|[^\p{L}\p{N}])7([^\p{L}\p{N}]|$)/u);
 
-    await respond({kind:'quiz_choice',choiceId:displayedId(presentation,keyedText('s2-quiz-4f'))});
+    await respond({kind:'quiz_choice',choiceId:displayedId(presentation,keyedText('s9-rappel-3d'))});
     expect(presentation.scene.id).toBe('s3-concept-orbitales');
     await respond({kind:'ack'});
     await respond({kind:'quiz_choice',choiceId:displayedId(presentation,keyedText('s3-quiz-noeuds'))});

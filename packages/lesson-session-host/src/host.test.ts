@@ -333,4 +333,38 @@ describe("SessionHost — consented telemetry sink (ADR-006)", () => {
     expect(h1?.hint).toBe("re-read the prompt");
     expect(host.requestHint(sessionId)).toBeNull();          // standard cap = 1
   });
+
+  it("sceneNotation() recalls the legends already shown for the current scene's concepts, and no others", async () => {
+    const d = mkdtempSync(join(tmpdir(), "host-notation-")); dirs.push(d);
+    const eq = (payload: string, legend: { symbol: string; meaning: string }[]) => ({ kind: "equation_latex", payload, legend });
+    const concept = (id: string, c: string, assets: unknown[]) => ({
+      id, type: "concept", title: id, objective_refs: [], concept_refs: [c], estimated_seconds: 0, adaptation_hooks: [],
+      markdown: "x", render_assets: assets,
+    });
+    const quiz = (id: string, c: string) => ({ ...MINI.scenes[1], id, concept_refs: [c], hints: ["a hint"] });
+    const NOTATION = { ...MINI, bundle_id: "notation-001",
+      concepts: [MINI.concepts[0], { ...MINI.concepts[0], id: "c2", title: "C2" }],
+      scenes: [
+        concept("k1", "c1", [eq("A = Z + N", [{ symbol: "A", meaning: "mass number" }, { symbol: "Z", meaning: "proton number" }])]),
+        quiz("q1", "c1"),
+        concept("k2", "c2", [eq("E = h\\nu", [{ symbol: "h", meaning: "Planck constant" }, { symbol: "A", meaning: "another A" }])]),
+        quiz("q2", "c2"),
+        concept("k1b", "c1", [eq("N = A - Z", [{ symbol: "N", meaning: "neutron number" }])]),
+      ] };
+    writeFileSync(join(d, "notation.json"), JSON.stringify(NOTATION));
+    const host = new SessionHost({ bundlesRoot: d, live: false });
+    const { sessionId } = await host.create("notation.json", "bob");
+    expect(host.sceneNotation(sessionId)).toEqual([{ symbol: "A", meaning: "mass number" }, { symbol: "Z", meaning: "proton number" }]);
+    await host.respond(sessionId, { kind: "ack" });           // k1 → q1: same concept, same notation
+    const onQuiz = host.sceneNotation(sessionId);
+    expect(onQuiz).toEqual([{ symbol: "A", meaning: "mass number" }, { symbol: "Z", meaning: "proton number" }]);
+    // Not a metered hint: asking for the notation leaves the hint budget untouched, and it outlives it.
+    expect(host.requestHint(sessionId)?.hint).toBe("a hint");
+    expect(host.requestHint(sessionId)).toBeNull();
+    expect(host.sceneNotation(sessionId)).toEqual(onQuiz);
+    const shown = host.currentPresentation(sessionId).scene as unknown as { choices: { id: string; text: string }[] };
+    await host.respond(sessionId, { kind: "quiz_choice", choiceId: shown.choices.find((c) => c.text === "B")!.id, confidence: 2 });
+    // k2: another concept — its own legend only; the later c1 legend (N) is not announced early.
+    expect(host.sceneNotation(sessionId)).toEqual([{ symbol: "h", meaning: "Planck constant" }, { symbol: "A", meaning: "another A" }]);
+  });
 });

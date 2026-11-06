@@ -341,11 +341,18 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     {
       description: "Request the next authored hint for the current quiz scene. Returns {hint, index, remaining} " +
         "or {hint: null} when the scene is not a quiz, has no hints, or the per-visit hint cap is reached. " +
-        "Each hint discounts the mastery credit of the eventual answer (M5 anti-offloading).",
+        "Each hint discounts the mastery credit of the eventual answer (M5 anti-offloading). When the lesson " +
+        "has already given a legend for the symbols of this scene's concepts, the reply also carries " +
+        "notation: [{symbol, meaning}] — a reminder of what was shown, not a hint: it is never metered and " +
+        "stays available once the hints are spent.",
       inputSchema: { session_id: z.string() },
     },
     async ({ session_id }) => {
-      try { return text({ hint: host.requestHint(session_id) }); }
+      try {
+        const hint = host.requestHint(session_id);
+        const notation = host.sceneNotation(session_id);
+        return text({ hint, ...(notation.length ? { notation } : {}) });
+      }
       catch (e) { return fail((e as Error).message); }
     },
   );

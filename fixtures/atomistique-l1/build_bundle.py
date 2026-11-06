@@ -192,7 +192,10 @@ def build_scenes() -> list[dict]:
         "markdown": "## Forme des orbitales — fais-les tourner\n\nUne orbitale est la région où la probabilité de "
                     "présence de l'électron est élevée. La **2p** a deux lobes de **signe opposé** séparés par un "
                     "plan nodal ; la **3d_z²** a un lobe axial et une couronne équatoriale.\n\nFais tourner les "
-                    "orbitales ci-contre : les deux isosurfaces (+ / −) sont les deux signes de la fonction d'onde.",
+                    "orbitales ci-contre : les deux isosurfaces (+ / −) sont les deux signes de la fonction d'onde."
+                    "\n\nUn **nœud** est un endroit où la fonction d'onde s'annule : la probabilité de présence "
+                    "y est nulle. Un nœud **radial** est une sphère centrée sur le noyau ; une orbitale en compte "
+                    "n − ℓ − 1.",
         "render_assets": [
             orbital("assets/orbitals/2pz.cube", "Orbitale 2p_z"),
             orbital("assets/orbitals/3dz2.cube", "Orbitale 3d_z²"),
@@ -327,12 +330,13 @@ def build_scenes() -> list[dict]:
         "objective_refs": [], "concept_refs": concept_refs("c-spectres"),
         "estimated_seconds": 240, "adaptation_hooks": [],
         "markdown": "## Reconnaître un gaz à ses raies\n\nLes niveaux d'énergie sont **quantifiés**. Une transition "
-                    "de n₂ vers n₁ émet un photon d'énergie E = hν. Pour l'hydrogène, les transitions vers n=2 "
+                    "de n₂ vers n₁ émet un photon d'énergie E = hν (h : constante de Planck, ν : fréquence du photon). Pour l'hydrogène, les transitions vers n=2 "
                     "donnent la **série de Balmer**, dans le visible — la signature qui permet de *reconnaître un "
                     "gaz inconnu*.",
         "render_assets": [
             eq(r"E_{photon} = h\nu = \left| E_{n_2} - E_{n_1} \right|", "Énergie d'un photon émis", [
                 ("Ephoton", "énergie du photon émis"),
+                ("h", "constante de Planck"),
                 ("ν", "fréquence du photon"),
                 ("Eₙ₂", "énergie du niveau initial n₂"),
                 ("Eₙ₁", "énergie du niveau inférieur n₁"),
@@ -353,7 +357,7 @@ def build_scenes() -> list[dict]:
             {"id": "d", "text": "n = 1 → n = 3", "correct": False},
         ],
         "feedback_correct": "Exact : Hα = première raie de Balmer, n=3 → n=2.",
-        "feedback_incorrect": "Balmer = transitions vers n=2. La plus proche (n=3→2) est Hα, la plus rouge.",
+        "feedback_incorrect": "Les raies de Balmer arrivent toutes sur le même niveau. Hα est la moins énergétique de la série : de quel niveau part-elle ?",
         "hints": ["La série de Balmer arrive sur n=2.", "Hα est la transition la plus basse en énergie de la série."],
     })
 
@@ -521,6 +525,26 @@ def build_scenes() -> list[dict]:
         "rubric": {"completeness": 0.6, "evidence_quality": 0.3, "tone": 0.1},
     })
 
+    # The in-flow assessment of c-configuration (the carbone quiz is keyed on c-remplissage first):
+    # without it the periodicity gate has nothing in the flow to read and detours every learner to
+    # the closing item. Drafted by an agent on 2026-11-06 — to be reviewed by the teacher.
+    S.append({
+        "id": "s5e-quiz-oxygene", "type": "quiz", "title": "Quiz : configuration de l'oxygène",
+        "objective_refs": [], "concept_refs": concept_refs("c-configuration"),
+        "estimated_seconds": 60, "adaptation_hooks": ["rule_2err_replay_concept"],
+        "question": "Quelle est la configuration électronique de l'oxygène (Z=8) ?",
+        "choices": [
+            {"id": "a", "text": "1s² 2s² 2p⁴", "correct": True},
+            {"id": "b", "text": "1s² 2s² 2p⁶", "correct": False},
+            {"id": "c", "text": "1s² 2s⁴ 2p²", "correct": False},
+            {"id": "d", "text": "1s² 2s² 3s² 3p²", "correct": False},
+        ],
+        "feedback_correct": "Exact : 2 + 2 + 4 = 8 électrons (Z=8), dans l'ordre 1s, 2s, 2p.",
+        "feedback_incorrect": "Vérifie deux choses : le total d'électrons doit valoir Z, et chaque sous-couche "
+                              "doit être pleine avant de passer à la suivante.",
+        "hints": ["Une sous-couche s contient au plus 2 électrons.", "Ordre : 1s, 2s, 2p."],
+    })
+
     S.append({
         "id": "s6-concept-periodicite", "type": "concept", "title": "Périodicité : ionisation et rayon",
         "objective_refs": [], "concept_refs": concept_refs("c-periodicite"),
@@ -547,7 +571,7 @@ def build_scenes() -> list[dict]:
             {"id": "d", "text": "Les deux ↓", "correct": False},
         ],
         "feedback_correct": "Exact : charge nucléaire ↑ à couche constante → électrons plus liés (ionisation ↑, rayon ↓).",
-        "feedback_incorrect": "À couche constante, Z↑ attire plus les électrons : ionisation ↑ et rayon ↓.",
+        "feedback_incorrect": "Le long d'une période la couche de valence reste la même alors que Z augmente : demande-toi ce que cela change pour l'attraction exercée sur les électrons.",
         "hints": ["Que fait la charge nucléaire effective le long d'une période ?"],
     })
 
@@ -633,6 +657,70 @@ def build_scenes() -> list[dict]:
         ],
     })
 
+    # ── Rappel final ──────────────────────────────────────────────────────────
+    # One second answer-graded item per prerequisite concept, placed after the last gated scene. A
+    # prerequisite gate prefers an item the learner has not seen yet (graph-nav): until the lesson
+    # reaches this block these are the unseen ones, so a gate no longer sends the learner back to a
+    # question whose answer has just been shown. A learner who never needed them meets them here as a
+    # closing retrieval round. Drafted by an agent on 2026-11-06 — to be reviewed by the teacher.
+    def recall(sid: str, title: str, concept: str, question: str, choices: list[tuple[str, bool]],
+               ok: str, ko: str, hints: list[str]) -> dict:
+        return {
+            "id": sid, "type": "quiz", "title": title,
+            "objective_refs": [], "concept_refs": concept_refs(concept),
+            "estimated_seconds": 60, "adaptation_hooks": ["rule_2err_replay_concept"],
+            "question": question,
+            "choices": [{"id": "abcd"[i], "text": text, "correct": correct}
+                        for i, (text, correct) in enumerate(choices)],
+            "feedback_correct": ok, "feedback_incorrect": ko, "hints": hints,
+        }
+
+    S.append(recall(
+        "s9-rappel-carbone14", "Rappel : le carbone 14", "c-particules",
+        "Le carbone 14 (¹⁴C) a Z=6. Combien contient-il de neutrons ?",
+        [("8", True), ("6", False), ("14", False), ("20", False)],
+        "Exact : N = A − Z = 14 − 6 = 8.",
+        "Repère A (le nombre en exposant) et Z, puis applique N = A − Z.",
+        ["Le nombre en exposant est le nombre de masse A.", "A = Z + N."]))
+    S.append(recall(
+        "s9-rappel-3d", "Rappel : la sous-couche 3d", "c-nombres-quantiques",
+        "Combien d'orbitales (valeurs de mℓ) la sous-couche 3d (n=3, ℓ=2) compte-t-elle ?",
+        [("5", True), ("3", False), ("10", False), ("2", False)],
+        "Exact : mℓ va de −2 à +2, soit 2ℓ+1 = 5 orbitales (donc 10 électrons).",
+        "Pour une sous-couche d, repère ℓ puis compte les valeurs entières de mℓ entre −ℓ et +ℓ.",
+        ["Nombre d'orbitales = 2ℓ+1.", "ℓ vaut 2 pour une sous-couche d."]))
+    S.append(recall(
+        "s9-rappel-noeuds-3s", "Rappel : nœuds de la 3s", "c-orbitales-formes",
+        "Combien de nœuds RADIAUX possède une orbitale 3s ?",
+        [("2", True), ("0", False), ("1", False), ("3", False)],
+        "Exact : n − ℓ − 1 = 3 − 0 − 1 = 2 nœuds radiaux (deux sphères).",
+        "Identifie n et ℓ pour une orbitale 3s, puis applique la formule des nœuds radiaux.",
+        ["Pour une orbitale s, ℓ = 0.", "Nœuds radiaux = n − ℓ − 1."]))
+    S.append(recall(
+        "s9-rappel-hbeta", "Rappel : la raie Hβ", "c-spectres",
+        "Dans la série de Balmer de l'hydrogène, quelle transition produit la raie Hβ (bleu-vert, ~486 nm), "
+        "la deuxième de la série ?",
+        [("n = 4 → n = 2", True), ("n = 3 → n = 2", False), ("n = 2 → n = 1", False), ("n = 4 → n = 3", False)],
+        "Exact : Hβ est la deuxième raie de Balmer, n=4 → n=2.",
+        "Les raies de Balmer arrivent toutes sur le même niveau ; Hα part du niveau juste au-dessus, Hβ du suivant.",
+        ["La série de Balmer arrive sur n=2.", "Hα part de n=3 ; Hβ est la raie suivante."]))
+    S.append(recall(
+        "s9-rappel-klechkowski", "Rappel : après la 3p", "c-remplissage",
+        "Selon la règle de Klechkowski, quelle sous-couche se remplit juste après la 3p ?",
+        [("4s", True), ("3d", False), ("4p", False), ("3s", False)],
+        "Exact : (n+ℓ) vaut 4 pour 4s et 5 pour 3d ; 4s se remplit donc avant 3d.",
+        "Compare la valeur de (n+ℓ) pour chaque sous-couche proposée : la plus petite se remplit d'abord.",
+        ["Calcule n+ℓ pour 3d et pour 4s.", "À (n+ℓ) égal, c'est le n le plus petit qui passe d'abord."]))
+    S.append(recall(
+        "s9-rappel-magnesium", "Rappel : configuration du magnésium", "c-configuration",
+        "Quelle est la configuration électronique du magnésium (Z=12) ?",
+        [("1s² 2s² 2p⁶ 3s²", True), ("1s² 2s² 2p⁸", False), ("1s² 2s² 2p⁶ 3p²", False),
+         ("1s² 2s² 2p⁶ 3s¹ 3p¹", False)],
+        "Exact : 2 + 2 + 6 + 2 = 12 électrons, dans l'ordre 1s, 2s, 2p, 3s.",
+        "Remplis les sous-couches dans l'ordre de Klechkowski en respectant leur capacité maximale, jusqu'à "
+        "placer les 12 électrons.",
+        ["Ordre : 1s, 2s, 2p, 3s.", "Une sous-couche p contient au plus 6 électrons."]))
+
     return S
 
 
@@ -668,9 +756,16 @@ def build_lwg() -> dict:
         "s5b-spot-azote": ("c-remplissage", "spot_the_flaw"),
         "s5c-compare-remplissage": ("c-remplissage", "comparison"),
         "s5d-prompt-hund": ("c-remplissage", "prompt_practice"),
+        "s5e-quiz-oxygene": ("c-configuration", "quiz"),
         "s6b-prompt-configuration": ("c-configuration", "prompt_practice"),
         "s6-quiz-tendance": ("c-periodicite", "quiz"),
         "s8-reproduction-periodique": ("c-periodicite", "reproduction"),
+        "s9-rappel-carbone14": ("c-particules", "quiz"),
+        "s9-rappel-3d": ("c-nombres-quantiques", "quiz"),
+        "s9-rappel-noeuds-3s": ("c-orbitales-formes", "quiz"),
+        "s9-rappel-hbeta": ("c-spectres", "quiz"),
+        "s9-rappel-klechkowski": ("c-remplissage", "quiz"),
+        "s9-rappel-magnesium": ("c-configuration", "quiz"),
     }
     for tid, (_c, stype) in task_assess.items():
         nodes.append({"id": f"task:{tid}", "node_kind": "task", "title": tid, "scene_type": stype})

@@ -372,7 +372,7 @@ Record a consenting learner's own prediction, begin, observation or conclusion i
 
 ### request_hint
 
-Request the next authored hint for the current quiz scene. Returns {hint, index, remaining} or {hint: null} when the scene is not a quiz, has no hints, or the per-visit hint cap is reached. Each hint discounts the mastery credit of the eventual answer (M5 anti-offloading).
+Request the next authored hint for the current quiz scene. Returns {hint, index, remaining} or {hint: null} when the scene is not a quiz, has no hints, or the per-visit hint cap is reached. Each hint discounts the mastery credit of the eventual answer (M5 anti-offloading). When the lesson has already given a legend for the symbols of this scene's concepts, the reply also carries notation: [{symbol, meaning}] — a reminder of what was shown, not a hint: it is never metered and stays available once the hints are spent.
 
 | Field | Type | Required |
 |---|---|---|

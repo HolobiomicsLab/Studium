@@ -177,7 +177,10 @@ Other lesson tools:
 
 - `submit_turn {session_id, text}` per discussion turn, then `submit_response` with `ack`.
 - `request_hint {session_id}` on a quiz: the next authored hint (each discounts
-  mastery; `hint: null` at the per-visit cap).
+  mastery; `hint: null` at the per-visit cap). The reply may also carry `notation`
+  (`[{symbol, meaning}]`): the legends the lesson has already shown for this scene's
+  concepts. It is a reminder, not a hint: never metered, also in `get_operator_context`.
+  Show it when the learner asks what a symbol means.
 - `explain_last_adaptation`, `get_workflow_graph` (per-concept state),
   `get_session_state` (mastery, completed scenes, history), all `{session_id}`.
 - `get_next_reinforcement {session_id?, learner_id?, now_ms?}`: the most urgent concept

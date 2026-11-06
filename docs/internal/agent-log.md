@@ -2883,6 +2883,38 @@ commands despite equivalent `node --import tsx` checks. The Python aggregate
 also retains an unrelated capsule-run failure. Work is intentionally left
 uncommitted for owner review; no push, PR, tag, paid route or learner-home write.
 
+## 2026-11-06 (suite) — Trial follow-up: recall items, notation reminder, lesson gaps
+
+The first batch was committed as `c3b4a84` after the full gates passed outside the
+sandbox (the previous entry's blocked commands all ran green there). One regression
+was caught in review and undone before the commit: regenerating `lesson.json` had
+replaced two carbon-quiz distractors, because `build_bundle.py` had fallen behind
+the committed lesson.
+
+Owner decision for the case left open (a prerequisite gate sending the learner
+back to a question whose answer had just been shown): give each prerequisite
+concept a second answer-graded item. `graph-nav` already prefers an item the
+learner has not seen, wherever it sits in the lesson, so six recall quizzes
+(`s9-rappel-*`) now close `atomistique-l1`, after the last gated scene; until the
+lesson reaches them they are the unseen items a gate picks. `c-configuration` had
+no answer-graded scene of its own, which would have detoured every learner to its
+recall item, so it also gets an in-flow quiz (`s5e-quiz-oxygene`). The lesson goes
+from 25 to 32 scenes and lints without warning. No engine change. The seven
+questions were drafted by an agent and await teacher review.
+
+Lesson gaps found in the trial: "nœud radial" is now defined before the quiz that
+asks for it, `h` is defined in the text and the legend, and two feedbacks that
+still stated the answer in a form the token rule cannot see (Hα, periodicity) are
+rewritten.
+
+Notation reminder: `SessionHost.sceneNotation` returns the legends already shown
+for the current scene's concepts. `request_hint` replies with it next to the hint
+and `get_operator_context` carries it. It is public material, not a hint: never
+metered, still there once the hints are spent.
+
+Test decisions: `http.test.ts` now expects the gate to route a wrong `s2-quiz-4f`
+answer to `s9-rappel-3d`; `server.test.ts` and `host.test.ts` gain notation cases.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

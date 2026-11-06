@@ -237,6 +237,10 @@ describe("lesson-mcp tools", () => {
     // standard scaffolding caps at 1 hint per visit → second request yields null
     const h2 = parse(await client.callTool({ name: "request_hint", arguments: { session_id: sid } }) as never);
     expect(h2["hint"]).toBeNull();
+    // The legend shown on the intro's equation comes back as a notation reminder: with the hint, and
+    // still once the hints are spent — it is public material, not a metered hint.
+    expect(h1["notation"]).toEqual([{ symbol: "θ", meaning: "angle" }]);
+    expect(h2["notation"]).toEqual([{ symbol: "θ", meaning: "angle" }]);
   });
   it("drives intro → quiz to a next transition and reads state", async () => {
     const client = await connect(bundlesDir());

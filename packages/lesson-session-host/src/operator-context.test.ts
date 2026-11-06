@@ -79,6 +79,7 @@ describe("public operator context", () => {
       { symbol: "A", meaning: "mass number" },
       { symbol: "Z", meaning: "proton number" },
     ]);
+    expect(result.notation).toEqual(host.sceneNotation(sessionId));
     expect(result.response.kind).toBe("quiz_choice");
     expect(result.rendering.instructions).toContain("learner");
     expect(JSON.stringify(result)).not.toContain("PRIVATE-");
