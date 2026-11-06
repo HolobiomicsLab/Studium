@@ -36,7 +36,7 @@ Call the Studium tool get_server_info and tell me the version, the build date, t
 whether my progress is durable. Then call get_study_plan.
 ```
 
-The answer should list 34 tools (25 lesson, 4 study, 3 authoring, 2 teacher tools; see
+The answer should list 36 tools (25 lesson, 5 study, 3 authoring, 2 teacher tools and 1 form tool; see
 [MCP tools](../reference/mcp-tools.md)) and `persistence.durable: true`. If `durable` is false, progress is
 lost when the server stops. When the server connects, the assistant also receives Studium's instructions
 (relay each `display_markdown` as it is, wait for your own answer, never answer or rate for you) and two
@@ -69,6 +69,12 @@ One run per line: a difference of a second between two lines is not established.
 relay in Claude Code; it does not measure the other clients on this page, or what anyone learns. Lowering
 the reasoning effort changed nothing measurable. The last line is the trap: an agent placed between you and
 the server makes two models write every screen.
+
+A prototype goes one step further: where the client can show forms (MCP elicitation), `play_in_forms` lets
+Studium ask the questions itself. You read a screen or pick a choice in a form, the verdict opens the next
+form, and no model writes anything in between; the conversation resumes when a step needs your own words or
+when you close a form to ask something. Ask your assistant to "play the next steps in forms". How each
+client draws a long screen or a formula in such a form has not been tried yet.
 
 ## Codex
 

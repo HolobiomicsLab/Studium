@@ -3166,6 +3166,46 @@ line, so a difference of a second is not established.
 Test decision: `study-tools.test.ts` also expects "add nothing of your own" in the server
 instructions; `tools/test_latency_bench.py` is new (10 cases, no paid call).
 
+## 2026-11-06 (formulaires) — play_in_forms: a prototype of answers with no model turn
+
+Second step of the latency work (previous entry). A relayed turn cannot go under 3 to 5 s:
+the model retypes a screen the server already holds. For a screen to read and for a keyed
+question the model has nothing to decide, and MCP elicitation lets the server ask the learner
+directly.
+
+- `apps/lesson-mcp/src/form-tools.ts`, tool `play_in_forms {session_id, max_steps?}`
+  (MCP-only: a form needs the client). It loops: build a form from the public screen (an
+  `intro` or `concept` scene has nothing to fill in, accepting it is "continue"; a `quiz` has
+  the displayed choice ids and an optional confidence 0 to 4), wait for the learner, call the
+  same `host.respond` the conversation uses, and open the next form with the verdict of the
+  answer just given. It returns `needs_conversation` when a scene takes written words,
+  `paused` when the learner declines or closes a form, `complete`, `limit` or `unsupported`,
+  with the steps played, the current public presentation and the `display_markdown` to show.
+- The key cannot leak into a form by construction: forms are built from `publicPresentation`
+  and `publicTransition`, the same public views the conversation gets. A test pins it.
+- A learner may think for a long time: the elicitation request waits up to one hour (the SDK
+  default is one minute).
+- Registered in `server.ts` (36 tools), listed by `get_server_info`, a `form` group in the
+  generated MCP reference; tool counts corrected in the docs (they still said 34, missing
+  `export_concept_map` since 0c73ae7).
+- Offered once, on the learner's yes: one bullet in `studium-harness` ("Keep each turn short")
+  and in the `studium-lesson` agent, one paragraph in `docs/start/harnesses`.
+
+Checked: 8 tests through a real MCP client whose elicitation handler plays the learner
+(accept, decline, cancel, no capability, max_steps, end of lesson, written scene, unknown
+session). In a headless Claude Code session (`claude -p`) the client cancels the form: the
+tool answers `paused` / `cancelled` and nothing is answered for the learner.
+
+Not verified, and the reason this stays a prototype: no person has used it in an interactive
+client. How Claude Code (terminal, desktop), VS Code or Cursor draw a long screen, Markdown
+or a formula in an elicitation dialog, whether an empty form reads as "continue", and how
+long each keeps a tool call open are all untried. Hints are not offered in the form (closing
+it returns to the conversation). Written scenes, self-ratings and checkpoints stay in the
+conversation.
+
+Test decision: `server.test.ts` expects 36 tools and `play_in_forms`;
+`form-tools.test.ts` is new.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

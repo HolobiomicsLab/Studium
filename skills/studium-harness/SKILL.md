@@ -45,6 +45,13 @@ So, by default:
   process, 2 to 4 s each time.
 - **Relay, do not rewrite.** Show `display_markdown` as it is and add nothing unless the learner
   asks. Relay an answer and its confidence in one `submit_response`.
+- **Where the client shows forms, offer the fast lane once (prototype).** `play_in_forms
+  {session_id}` lets the server show screens and quizzes in forms and grade them with no model
+  turn in between; it returns when a scene needs written words, when the learner closes a form
+  to talk, or at the end. Show its `display_markdown`, do not replay its `steps`, and call it
+  again after the conversation step. `status: "unsupported"` means this client has no forms.
+  How clients draw a long screen or a formula in a form is untried: if the learner finds it
+  worse, go back to the conversation.
 - **Give depth on request, from a stronger model.** A question that needs a real explanation goes
   to the `studium-explainer` agent (Claude Code) or to the session's larger model, never between
   a question and the learner's answer when it is the idea that question tests.

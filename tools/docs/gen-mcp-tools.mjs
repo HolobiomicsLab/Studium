@@ -16,6 +16,7 @@ const GROUPS = [
   ["authoring", "Authoring tools", "Turn sources the learner chose into a playable lesson."],
   ["lesson", "Lesson tools", "Play one lesson: scenes, answers, hints, runs, experiments, peer rooms and data."],
   ["teacher", "Teacher tools", "Review a lesson and read an aggregated class report."],
+  ["form", "Form tool (prototype)", "Answer screens and quizzes in forms the client shows, with no model turn in between."],
 ];
 
 /** The first sentence of a description, for the summary table. */

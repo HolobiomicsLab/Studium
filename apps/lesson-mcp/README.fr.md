@@ -46,7 +46,7 @@ Des configurations prêtes à l'emploi se trouvent dans [`docs/examples/`](../..
 
 ## Ce qu'il propose
 
-34 outils, deux prompts (`learn` et `review`) et des instructions de serveur qui demandent à l'assistant
+36 outils, deux prompts (`learn` et `review`) et des instructions de serveur qui demandent à l'assistant
 d'attendre les réponses de l'apprenant lui-même. Le contrat complet figure dans la
 [référence des outils MCP](../../docs/reference/mcp-tools.fr.md).
 

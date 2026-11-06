@@ -81,7 +81,7 @@ are kept as legacy and research code; they are not a supported authoring route.
 
 | Unit | Role | README |
 |---|---|---|
-| `apps/lesson-mcp` | MCP server (34 tools, stdio) and HTTP adapter for lesson operations | [README](../../apps/lesson-mcp/README.md) |
+| `apps/lesson-mcp` | MCP server (36 tools, stdio) and HTTP adapter for lesson operations | [README](../../apps/lesson-mcp/README.md) |
 | `apps/studium-vscode` | VS Code extension: lesson pane, chat participant, bundled MCP server | [README](../../apps/studium-vscode/README.md) |
 | `apps/lesson-server` | Fastify HTTP server for lessons, answer keys redacted | [README](../../apps/lesson-server/README.md) |
 | `apps/teacher-dashboard` | Next.js dashboard: class analytics, lesson library and review pages | [README](../../apps/teacher-dashboard/README.md) |

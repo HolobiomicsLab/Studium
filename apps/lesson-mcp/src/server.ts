@@ -21,14 +21,15 @@ import {
 import { lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type ToolResult } from "./operations.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools } from "./authoring-tools.js";
 import { TEACHER_TOOL_NAMES, registerTeacherTools } from "./teacher-tools.js";
+import { FORM_TOOL_NAMES, registerFormTools } from "./form-tools.js";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
 
 /** C1 study tools, defined in this file. */
 export const STUDY_TOOL_NAMES = ["export_concept_map", "get_study_plan", "list_lessons", "rate_recall", "start_review_session"] as const;
 /** Every tool buildMcpServer registers, sorted: the lesson operations, the study tools, the authoring
- * tools and the teacher tools. */
+ * tools, the teacher tools and the form tool (form-tools.ts, a prototype). */
 export const TOOL_NAMES: readonly string[] = [
-  ...LESSON_TOOL_NAMES, ...STUDY_TOOL_NAMES, ...AUTHORING_TOOL_NAMES, ...TEACHER_TOOL_NAMES,
+  ...LESSON_TOOL_NAMES, ...STUDY_TOOL_NAMES, ...AUTHORING_TOOL_NAMES, ...TEACHER_TOOL_NAMES, ...FORM_TOOL_NAMES,
 ].sort();
 
 /** C4 self-rating grades, in FSRS order (lesson-session's SELF_RATING_CHOICES; a test pins the match). */
@@ -283,6 +284,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
   registered.push(...registerTeacherTools(server, {
     bundlesRoot: host.bundlesRoot, libraryRoot: host.libraryRoot, dataDir: host.persistence().data_dir,
   }));
+  registered.push(...registerFormTools(server, host));
   registerPrompts(server);
   logStartup(registered.length);
   return server;
