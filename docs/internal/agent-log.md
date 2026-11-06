@@ -4085,6 +4085,30 @@ other checks were not run again.
 
 Not verified: no model has read the new section. Installed copies of the skill are not changed.
 
+## 2026-11-06 (interaction events) — Seven event types in the telemetry contract, no content
+
+INT-STUDIUM-058, lot 7, first half of task 7.1 (requirement F14, spec § 2.10). `interaction`,
+`prompt_shown`, `prompt_outcome`, `help_used`, `contest`, `resume` and `review_receipt` join
+`packages/telemetry-events` on the TypeScript side and in its Python reader. They carry closed
+labels, counts, delays and references, never a text, and refuse an unknown field on both sides.
+
+Deviation from the plan: the task is split in two. This commit is the contract; nothing emits these
+events yet, so the test "nothing is written without consent" belongs to the commit that wires the
+emission. The closed lists are copied from the server's own (`lesson-panel`, `lesson-session-host`);
+no test ties the copies to their sources yet. Whose pseudonym a `review_receipt` carries is to be
+settled with the emission.
+
+Test decision: none. New tests, failing first: one file of examples read by a vitest file and a
+pytest file (nine valid events, fourteen refused), and a no-free-text check. Two mutations confirm
+the refusals bite. The existing parity gate passes.
+
+Checked: every repository check passes on this tree at its first run (install, build, lint,
+`pnpm -r test`, the Python suites, bundle lint, docs check, headless smoke, the MCP bundle,
+`tools/panel-probe.mjs`), and `pnpm test:tools` (9 tests). The package's own suites: 63 vitest tests
+and 60 pytest tests, the parity gate among them.
+
+Not verified: no event of these types was written or read from a real telemetry file.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

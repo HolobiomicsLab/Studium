@@ -1,0 +1,36 @@
+{
+  "base": {
+    "event_id": "01923456-7890-1234-5678-abcdef012345",
+    "learner_pseudonym": "hmac:abc",
+    "lesson_id": "demo",
+    "bundle_version": "1.4:demo@2026-11-06T00:00:00Z",
+    "client_timestamp": "2026-11-06T10:00:00Z"
+  },
+  "valid": [
+    { "type": "interaction", "act": "respond", "lane": "fast", "surface_rank": 3, "server_ms": 3, "client_ms": 41, "scene_id": "q1" },
+    { "type": "interaction", "act": "ask", "lane": "companion", "surface_rank": 1, "server_ms": 2 },
+    { "type": "prompt_shown", "kind": "review_due", "attention": "normal", "surface_rank": 2, "scene_id": "c1" },
+    { "type": "prompt_shown", "kind": "resume_notice", "attention": "quiet", "surface_rank": 1 },
+    { "type": "prompt_outcome", "kind": "forms_offer", "outcome": "ignored" },
+    { "type": "help_used", "rung": "hint", "scene_id": "q1" },
+    { "type": "contest", "concept_id": "c-un", "claim": "known", "outcome": "confirmed", "questions": 2 },
+    { "type": "resume", "cause": "restart" },
+    { "type": "review_receipt", "decision": "approved", "items": 12, "opened": 9, "not_opened": 3 }
+  ],
+  "invalid": [
+    { "why": "an act outside the panel's list", "event": { "type": "interaction", "act": "typed a long question", "lane": "fast", "surface_rank": 3, "server_ms": 3 } },
+    { "why": "a lane that does not exist", "event": { "type": "interaction", "act": "respond", "lane": "slow", "surface_rank": 3, "server_ms": 3 } },
+    { "why": "a surface rank outside 1 to 3", "event": { "type": "interaction", "act": "respond", "lane": "fast", "surface_rank": 4, "server_ms": 3 } },
+    { "why": "a negative delay", "event": { "type": "interaction", "act": "respond", "lane": "fast", "surface_rank": 3, "server_ms": -1 } },
+    { "why": "a prompt kind outside the closed list", "event": { "type": "prompt_shown", "kind": "streak", "attention": "normal", "surface_rank": 3 } },
+    { "why": "an outcome for a notice, which asks nothing", "event": { "type": "prompt_outcome", "kind": "resume_notice", "outcome": "accepted" } },
+    { "why": "an outcome outside accepted, dismissed, ignored", "event": { "type": "prompt_outcome", "kind": "break", "outcome": "postponed" } },
+    { "why": "a help rung that does not exist", "event": { "type": "help_used", "rung": "answer", "scene_id": "q1" } },
+    { "why": "a claim outside known and unsure", "event": { "type": "contest", "concept_id": "c-un", "claim": "bored", "outcome": "confirmed", "questions": 2 } },
+    { "why": "a resume cause outside the list", "event": { "type": "resume", "cause": "felt like it" } },
+    { "why": "a receipt decision outside approved and returned", "event": { "type": "review_receipt", "decision": "skimmed", "items": 1, "opened": 0, "not_opened": 1 } },
+    { "why": "the reason of a prompt, which is text", "event": { "type": "prompt_shown", "kind": "break", "attention": "normal", "surface_rank": 3, "reason": "26 minutes de séance sans pause" } },
+    { "why": "the text of a question asked to the companion", "event": { "type": "interaction", "act": "ask", "lane": "companion", "surface_rank": 1, "server_ms": 2, "text": "Pourquoi 2p ?" } },
+    { "why": "a reviewer's note", "event": { "type": "review_receipt", "decision": "returned", "items": 1, "opened": 1, "not_opened": 0, "note": "clé fausse scène 3" } }
+  ]
+}

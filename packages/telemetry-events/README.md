@@ -20,6 +20,7 @@ From [src/index.ts](src/index.ts) (re-exporting [src/events.ts](src/events.ts)):
 | `CritiqueSubmittedSchema`, `AIAuditResultSchema`, `ReasoningSignalSchema`, `TutorMoveSchema` | AI critique, audits of flawed output, reasoning labels, tutor moves. |
 | `JournalEntrySubmittedSchema`, `CooperativeVoteSchema`, `CooperativeConvergenceSchema`, `UniverseSelectedSchema` | Reflective writing, group scenes, scenario variants. |
 | `ConsentGrantedSchema`, `ForgetRequestedSchema` | Consent and erasure requests. |
+| `InteractionSchema`, `PromptShownSchema`, `PromptOutcomeSchema`, `HelpUsedSchema`, `ContestEventSchema`, `ResumeSchema`, `ReviewReceiptEventSchema` | How a lesson was used (INT-STUDIUM-058): acts with their lane, surface rank and delays, proposals shown and what became of them, help used, contests, resumes, the counts of a review receipt. Strict: closed labels, counts and references; an unknown field is refused. Nothing emits them yet. |
 
 Python: `telemetry_events` in [python/](python/telemetry_events/__init__.py), with `TelemetryEvent` as a Pydantic discriminated union.
 
