@@ -3561,6 +3561,38 @@ from its documented form and not tried in a session. With two lessons open on on
 window shows the one that moved last; closing the session that wrote last blanks the line until
 another session moves. A pid reused by another process after a restart would let a stale file show.
 
+## 2026-11-06 (pane) — Status, voices, help and ask in the Claude Code pane
+
+INT-STUDIUM-058, lot 2, task 2.5. The Claude Code pane (`apps/claude-code-mod`) shows what a
+version-2 view says about itself; a version-1 view is drawn as before.
+
+- `hooks/panel-model.ts`: `headerLine` (the status line, else the step), `voiceChip` (who signs the
+  lesson over the scene, who assessed the answer over its verdict), `helpControls` (one control per
+  rung of the help ladder: label, open or closed, its note, what it sends), `askControl`.
+- `hooks/register.tsx`: the status line replaces « Étape n sur total » under the title, so the step
+  is said once; a voice line over the scene and one over a verdict somebody assessed; the ladder as
+  buttons (`help-reread`, `help-hint`, `help-explain`, `help-reference`), a closed rung greyed with
+  its reason in its label, an open hint with its cost; « Poser une question » (`ask`), which sends
+  the `ask` action. A rung with nothing to send (read again, the reference, a closed rung) shows its
+  note as a toast. An open explanation sends `ask` with the request « Explique-moi cet écran. ».
+- `packages/lesson-panel/src/phrases.ts`: sixteen labels in French and English (`pane_help_*`,
+  `pane_ask`, `pane_voice_*`), carried by `view.strings`; the pane has the same words as fallbacks.
+  The HTML panel will read the same keys (task 2.6).
+- The two READMEs of the pane say what a version-2 view adds, and no longer say the pane accepts
+  version 1 only (it has read both since task 1.4).
+
+Deviation from the plan: files beyond the three the task named are `register.spec.ts`,
+`register.test.tsx`, `phrases.ts` and the two READMEs.
+
+Test decision: none, no existing test changed. Five new tests in `panel-model.spec.ts`, three in
+`register.spec.ts` (two failed first; the third pins what a version-1 view keeps and passed
+already), one in `register.test.tsx` for `claude plugin test`.
+
+Not verified: nobody has seen the pane in a Claude Code session. `claude plugin test` mounts it on
+the four surfaces with the SDK's test host, which is not a person looking at it. Whether a greyed
+button that still answers a press reads well is for the owner's trial. After `ask`, the learner
+writes in the conversation; the brief the assistant then reads is lot 3.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

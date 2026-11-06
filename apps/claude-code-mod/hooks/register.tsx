@@ -16,14 +16,19 @@ import type {
 } from "../types/index.js";
 import {
   answerAction,
+  askControl,
   completionMarkdown,
   errorView,
   feedbackMarkdown,
+  headerLine,
+  helpControls,
   isPanelView,
   panelFromMcpResult,
   pngPayload,
   sceneMarkdown,
   sourcesMarkdown,
+  voiceChip,
+  type HelpControl,
 } from "./panel-model.js";
 
 const PANE_ID = "studium";
@@ -145,13 +150,6 @@ async function readPanel($: EngineInterface): Promise<StudiumPanelView | null> {
   return isPanelView(value) ? value : null;
 }
 
-function progressText(view: StudiumPanelView): string {
-  const fallback = view.locale === "fr" ? "Étape {position} sur {total}" : "Step {position} of {total}";
-  return (view.strings.pane_progress ?? fallback)
-    .replace("{position}", String(view.progress.index))
-    .replace("{total}", String(view.progress.total));
-}
-
 function objectText(value: Record<string, unknown> | null | undefined): string | undefined {
   if (!value) return undefined;
   for (const key of ["text", "message", "reply", "content"]) {
@@ -172,15 +170,20 @@ async function renderPane($: EngineInterface, event: RenderInput<"Pane">) {
   const feedback = feedbackMarkdown(view);
   const sources = sourcesMarkdown(view);
   const tutor = objectText(view.turn_result?.tutor);
+  // INT-STUDIUM-058: who speaks in each block. The scene's voice only over a scene.
+  const sceneVoice = view.kind === "scene" ? voiceChip(view, "scene") : "";
+  const verdictVoice = feedback ? voiceChip(view, "verdict") : "";
 
   return (
     <Box flexDirection="column" gap={1}>
       <Text size="title" weight="bold" dimColor={isDimmed}>{view.lesson_title}</Text>
-      <Text dimColor={isDimmed}>{progressText(view)}</Text>
+      <Text dimColor={isDimmed}>{headerLine(view)}</Text>
       {view.pending && <Text color="warning" dimColor>{view.pending}</Text>}
       {view.authoring?.notice && <Text dimColor>{view.authoring.notice}</Text>}
+      {sceneVoice && <Text key="voice-scene" dimColor>{sceneVoice}</Text>}
       {renderMainView(view, isDimmed, { Box, Markdown, Text })}
       {renderAssets(view, isDimmed, image, { Box, Text })}
+      {verdictVoice && <Text key="voice-verdict" dimColor>{verdictVoice}</Text>}
       {feedback && <Markdown text={feedback} dimColor={isDimmed} />}
       {tutor && <Markdown text={tutor} dimColor={isDimmed} />}
       {sources && <Markdown text={sources} dimColor={isDimmed} />}
@@ -241,7 +244,12 @@ function renderControls(
   if (view.kind === "scene" && view.actions.includes("respond")) {
     nodes.push(...responseControls($, view, flags, elements));
   }
-  if (view.actions.includes("hint")) nodes.push(actionButton($, view, "hint", { type: "hint" }, dim, Button));
+  // A version-2 scene shows the whole help ladder, its hint included; version 1 keeps the one button.
+  const ladder = view.kind === "scene" ? helpControls(view) : [];
+  if (ladder.length > 0) nodes.push(...ladder.map(rung => helpButton($, rung, dim, Button)));
+  else if (view.actions.includes("hint")) nodes.push(actionButton($, view, "hint", { type: "hint" }, dim, Button));
+  const ask = askControl(view);
+  if (ask) nodes.push(<Button key="ask" dimColor={dim} onPress={() => applyAction($, ask.action, ask.label)}>{ask.label}</Button>);
   if (view.actions.includes("reviewNow")) nodes.push(actionButton($, view, "reviewNow", { type: "reviewNow" }, dim, Button));
   if (view.actions.includes("restartLesson")) nodes.push(actionButton($, view, "restartLesson", { type: "restartLesson" }, dim, Button));
   if (view.actions.includes("pickCourse")) nodes.push(pickCourseButton($, view, dim, Button));
@@ -352,6 +360,23 @@ function actionButton(
     restartLesson: phrase(view, "pane_restart", "Restart lesson", "Revoir le parcours"),
   };
   return <Button key={name} dimColor={dim} onPress={() => applyAction($, action, labels[name])}>{labels[name]}</Button>;
+}
+
+/** One rung of the help ladder. Open with something to send: it sends it. Otherwise pressing it says
+ * its note: why the rung is closed, or where the text it points to is. A closed rung is greyed. */
+function helpButton(
+  $: EngineInterface,
+  rung: HelpControl,
+  dim: boolean,
+  Button: CommonElements["Button"],
+): RenderElement {
+  const text = rung.note && (!rung.available || rung.action) ? `${rung.label} — ${rung.note}` : rung.label;
+  const press = () => {
+    if (rung.action) return applyAction($, rung.action, rung.label);
+    if (rung.note) $.ui.toast(rung.note, { timeoutMs: 8_000 });
+    return undefined;
+  };
+  return <Button key={`help-${rung.kind}`} dimColor={dim || !rung.available} onPress={press}>{text}</Button>;
 }
 
 function pickCourseButton(

@@ -1,4 +1,5 @@
 import type {
+  StudiumHelpRung,
   StudiumPanelAction,
   StudiumPanelActionName,
   StudiumPanelView,
@@ -220,6 +221,97 @@ function confidenceAction(answer: string): StudiumPanelAction {
   const value = Number(answer);
   if (!Number.isInteger(value) || value < 0 || value > 4) throw new Error("Choose a confidence value from 0 to 4.");
   return { type: "respond", input: { kind: "confidence", value } };
+}
+
+function phraseOf(view: StudiumPanelView, key: string, fr: string, en: string): string {
+  return view.strings[key] ?? (view.locale === "fr" ? fr : en);
+}
+
+/** The step of the lesson, for a version-1 view. */
+export function progressText(view: StudiumPanelView): string {
+  return phraseOf(view, "pane_progress", "Étape {position} sur {total}", "Step {position} of {total}")
+    .replace("{position}", String(view.progress.index))
+    .replace("{total}", String(view.progress.total));
+}
+
+/** The line under the lesson's title (INT-STUDIUM-058): the status line of a version-2 view, which
+ * says the step, the time left, the reviews due and what is expected; else the step alone. */
+export function headerLine(view: StudiumPanelView): string {
+  return view.status_line ? view.status_line : progressText(view);
+}
+
+/** Who speaks in a block of the pane, as a short chip: the lesson's author over the scene, who
+ * assessed the answer over its verdict. Empty for a version-1 view and for a verdict nobody assessed. */
+export function voiceChip(view: StudiumPanelView, block: "scene" | "verdict"): string {
+  const voice = view.voices?.[block];
+  if (!voice) return "";
+  if (voice.kind === "key") return phraseOf(view, "pane_voice_key", "Évalué par la clé de l'auteur", "Assessed by the author's key");
+  if (voice.kind === "judge") return phraseOf(view, "pane_voice_judge", "Évalué par un juge (modèle)", "Assessed by a judge (model)");
+  if (voice.kind === "agent") return phraseOf(view, "pane_voice_agent", "Texte de l'assistant, hors leçon", "Assistant's text, not part of the lesson");
+  if (voice.reviewed) {
+    return voice.name
+      ? phraseOf(view, "pane_voice_validated_by", "Leçon validée par {name}", "Lesson validated by {name}").replace("{name}", voice.name)
+      : phraseOf(view, "pane_voice_validated", "Leçon validée par un enseignant", "Lesson validated by a teacher");
+  }
+  if (voice.name) return phraseOf(view, "pane_voice_changed", "Leçon modifiée depuis sa validation", "Lesson changed since its validation");
+  if (voice.drafted_by === "agent") {
+    return phraseOf(view, "pane_voice_ai_unreviewed", "Leçon rédigée par l'IA, non relue par un enseignant", "AI-drafted lesson, not reviewed by a teacher");
+  }
+  if (voice.drafted_by === "learner") {
+    return phraseOf(view, "pane_voice_learner_unreviewed", "Leçon que tu as rédigée, non relue par un enseignant", "Lesson you wrote, not reviewed by a teacher");
+  }
+  return phraseOf(view, "pane_voice_unreviewed", "Leçon non relue par un enseignant", "Lesson not reviewed by a teacher");
+}
+
+/** One rung of the help ladder as the pane draws it. `note`: what taking it costs, why it is closed,
+ * or where to look. `action`: what pressing it sends; a rung without one only says its note. */
+export type HelpControl = {
+  kind: StudiumHelpRung["kind"];
+  label: string;
+  available: boolean;
+  note?: string;
+  action?: StudiumPanelAction;
+};
+
+/** The help ladder of a version-2 view, in the order to try the rungs. An open hint asks for the
+ * authored hint; an open explanation hands over to the assistant with the learner's request. Reading
+ * again and the reference need no server call: the text is in the pane. */
+export function helpControls(view: StudiumPanelView): HelpControl[] {
+  return (view.help?.rungs ?? []).map(rung => {
+    const note = rung.available ? rung.cost ?? openNote(view, rung.kind) : rung.why_not;
+    const action = rung.available ? rungAction(view, rung.kind) : undefined;
+    return {
+      kind: rung.kind, label: rungLabel(view, rung.kind), available: rung.available,
+      ...(note ? { note } : {}), ...(action ? { action } : {}),
+    };
+  });
+}
+
+function rungLabel(view: StudiumPanelView, kind: StudiumHelpRung["kind"]): string {
+  if (kind === "reread") return phraseOf(view, "pane_help_reread", "Relire", "Read again");
+  if (kind === "hint") return phraseOf(view, "pane_hint", "Indice", "Hint");
+  if (kind === "explain") return phraseOf(view, "pane_help_explain", "Explication", "Explanation");
+  return phraseOf(view, "pane_help_reference", "Référence", "Reference");
+}
+
+function openNote(view: StudiumPanelView, kind: StudiumHelpRung["kind"]): string | undefined {
+  if (kind === "reread") return phraseOf(view, "pane_help_reread_note", "Le texte de cet écran est au-dessus.", "This screen's text is above.");
+  if (kind === "reference") return phraseOf(view, "pane_help_reference_note", "La référence est affichée avec le verdict.", "The reference is shown with the verdict.");
+  return undefined;
+}
+
+function rungAction(view: StudiumPanelView, kind: StudiumHelpRung["kind"]): StudiumPanelAction | undefined {
+  if (kind === "hint" && view.actions.includes("hint")) return { type: "hint" };
+  if (kind === "explain" && view.actions.includes("ask")) {
+    return { type: "ask", text: phraseOf(view, "pane_help_explain_question", "Explique-moi cet écran.", "Explain this screen to me.") };
+  }
+  return undefined;
+}
+
+/** « Poser une question »: the gesture that hands over to the assistant, where the view offers it. */
+export function askControl(view: StudiumPanelView): { label: string; action: StudiumPanelAction } | undefined {
+  if (!view.actions.includes("ask")) return undefined;
+  return { label: phraseOf(view, "pane_ask", "Poser une question", "Ask a question"), action: { type: "ask" } };
 }
 
 /** The scene prose rendered through Claude Code's native Markdown element. */

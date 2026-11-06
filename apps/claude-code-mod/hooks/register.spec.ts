@@ -247,6 +247,83 @@ describe("portable Claude host boundary", () => {
       .toMatchObject({ kind: "error", message: "server offline", pending: undefined });
   });
 
+  // INT-STUDIUM-058, task 2.5: status line, voices, help ladder and the ask gesture of a version-2 view.
+  const V2: StudiumPanelView = {
+    ...PANEL, schema: "studium/panel-view/2",
+    actions: ["respond", "hint", "end", "ask"],
+    orientation: { step: { index: 2, total: 9 }, reviews_due: 0, waiting: "answer" },
+    status_line: "Atomistique · étape 2/9 · 12 min · à toi de répondre",
+    voices: { scene: { kind: "author", name: "Prof. Test", reviewed: true, drafted_by: "teacher" }, verdict: { kind: "key" } },
+    verdict: { scene_id: "s0", graded: true, feedback: "Bien vu." },
+    help: { rungs: [
+      { kind: "reread", available: true },
+      { kind: "hint", available: true, cost: "un indice réduit le crédit de cette réponse" },
+      { kind: "explain", available: false, why_not: "essaie d'abord de répondre" },
+      { kind: "reference", available: false, why_not: "la référence s'affiche après ta réponse" },
+    ] },
+    prompts: [], attention: "normal", surface: { rank: 3, kind: "pane", available: ["text", "pane"] },
+  };
+  const texts = (node: PortableNode | PortableNode[]): string[] => {
+    if (Array.isArray(node)) return node.flatMap(texts);
+    if (typeof node === "string") return [node];
+    const own = typeof node.props.children === "string" ? [node.props.children] : [];
+    const markdown = typeof node.props.text === "string" ? [node.props.text] : [];
+    return [...own, ...markdown, ...texts(node.children)];
+  };
+  const label = (button: PortableElement | undefined): string => (button ? texts(button).join("") : "");
+
+  test("a version-2 view: the status line leads, each block names its voice, the ladder shows every rung", async () => {
+    const host = new Host(V2);
+    const tree = await hook("ui.render")(host.engine, PANE_EVENT, event => event) as PortableElement;
+    const shown = texts(tree);
+    expect(shown[0]).toBe("Atomistique"); // the lesson's title
+    expect(shown[1]).toBe("Atomistique · étape 2/9 · 12 min · à toi de répondre"); // then the status line
+    expect(shown).not.toContain("Étape 2 sur 9"); // the step is said once
+    expect(texts(find(tree, element => element.key === "voice-scene")!)).toEqual(["Leçon validée par Prof. Test"]);
+    expect(texts(find(tree, element => element.key === "voice-verdict")!)).toEqual(["Évalué par la clé de l'auteur"]);
+    // The scene's voice comes before the question, the verdict's before its feedback.
+    expect(shown.indexOf("Leçon validée par Prof. Test")).toBeLessThan(shown.indexOf("Combien contient-il de neutrons ?"));
+    expect(shown.indexOf("Évalué par la clé de l'auteur")).toBeLessThan(shown.indexOf("Bien vu."));
+
+    expect(label(find(tree, element => element.key === "help-reread"))).toBe("Relire");
+    expect(label(find(tree, element => element.key === "help-hint"))).toBe("Indice — un indice réduit le crédit de cette réponse");
+    const explain = find(tree, element => element.key === "help-explain");
+    expect(label(explain)).toBe("Explication — essaie d'abord de répondre");
+    expect(explain?.props.dimColor).toBe(true); // closed: greyed, with its reason
+    expect(find(tree, element => element.key === "help-hint")?.props.dimColor).toBe(false);
+    expect(find(tree, element => element.key === "hint")).toBeUndefined(); // one hint control, in the ladder
+    expect(label(find(tree, element => element.key === "ask"))).toBe("Poser une question");
+  });
+
+  test("a closed rung says why and sends nothing; an open hint and « Poser une question » send their action", async () => {
+    const host = new Host(V2);
+    let tree = await hook("ui.render")(host.engine, PANE_EVENT, event => event) as PortableElement;
+    await (find(tree, element => element.key === "help-explain")?.props.onPress as () => unknown)();
+    await (find(tree, element => element.key === "help-reread")?.props.onPress as () => unknown)();
+    expect(host.toasts).toEqual(["essaie d'abord de répondre", "Le texte de cet écran est au-dessus."]);
+    expect(host.calls).toEqual([]);
+
+    host.queue(response(V2));
+    await (find(tree, element => element.key === "help-hint")?.props.onPress as () => Promise<void>)();
+    expect((host.calls[0]?.args as { action: unknown }).action).toEqual({ type: "hint" });
+
+    host.queue(response({ ...V2, kind: "notice", message: "Pose ta question dans la conversation. La leçon t'attend ici, à la même étape." }));
+    tree = await hook("ui.render")(host.engine, PANE_EVENT, event => event) as PortableElement;
+    await (find(tree, element => element.key === "ask")?.props.onPress as () => Promise<void>)();
+    expect(host.calls[1]).toEqual({ server: "studium-lesson", tool: "panel_action", args: { session_id: "session-1", action: { type: "ask" } } });
+    const after = await hook("ui.render")(host.engine, PANE_EVENT, event => event) as PortableElement;
+    expect(texts(after)).toContain("Pose ta question dans la conversation. La leçon t'attend ici, à la même étape.");
+  });
+
+  test("a version-1 view keeps its step line and its single hint button", async () => {
+    const host = new Host(PANEL);
+    const tree = await hook("ui.render")(host.engine, PANE_EVENT, event => event) as PortableElement;
+    expect(texts(tree)[1]).toBe("Étape 2 sur 9");
+    expect(find(tree, element => element.key === "hint")).toBeDefined();
+    expect(find(tree, element => element.key === "help-hint")).toBeUndefined();
+    expect(find(tree, element => element.key === "ask")).toBeUndefined();
+  });
+
   test("turns pick-course into localized, actionable native help", async () => {
     const host = new Host({ ...PANEL, actions: ["pickCourse"] });
     const tree = await hook("ui.render")(host.engine, PANE_EVENT, event => event) as PortableElement;

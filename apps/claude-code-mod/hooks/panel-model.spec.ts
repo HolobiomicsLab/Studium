@@ -3,14 +3,18 @@ import { describe, expect, test } from "vitest";
 import type { StudiumPanelView } from "../types/index.js";
 import {
   answerAction,
+  askControl,
   completionMarkdown,
   errorView,
   feedbackMarkdown,
+  headerLine,
+  helpControls,
   isPanelView,
   panelFromMcpResult,
   pngPayload,
   sceneMarkdown,
   sourcesMarkdown,
+  voiceChip,
 } from "./panel-model.js";
 
 const PANEL: StudiumPanelView = {
@@ -140,5 +144,78 @@ describe("pane behavior model", () => {
     expect(pngPayload("data:image/png;base64,aGVsbG8=")).toBe("aGVsbG8=");
     expect(pngPayload("data:image/jpeg;base64,aGVsbG8=")).toBeUndefined();
     expect(errorView(PANEL, new Error("offline"))).toMatchObject({ kind: "error", message: "offline", pending: undefined });
+  });
+});
+
+// INT-STUDIUM-058, task 2.5: what the pane shows of a version-2 view — where the learner is, who
+// speaks in each block, which help is open, and the gesture that hands over to the assistant.
+describe("pane model of a version-2 view", () => {
+  const V2: StudiumPanelView = {
+    ...PANEL, schema: "studium/panel-view/2",
+    actions: ["respond", "hint", "end", "ask", "setLanguage", "setAttention", "replan"],
+    orientation: { step: { index: 2, total: 9 }, reviews_due: 0, waiting: "answer" },
+    status_line: "Atomistique · étape 2/9 · 12 min · à toi de répondre",
+    voices: { scene: { kind: "author", name: "Prof. Test", reviewed: true, drafted_by: "teacher" } },
+    help: { rungs: [
+      { kind: "reread", available: true },
+      { kind: "hint", available: true, cost: "un indice réduit le crédit de cette réponse" },
+      { kind: "explain", available: false, why_not: "essaie d'abord de répondre" },
+      { kind: "reference", available: false, why_not: "la référence s'affiche après ta réponse" },
+    ] },
+    prompts: [], attention: "normal", surface: { rank: 3, kind: "pane", available: ["text", "pane"] },
+  };
+
+  test("the header is the status line; a version-1 view keeps its step", () => {
+    expect(headerLine(V2)).toBe("Atomistique · étape 2/9 · 12 min · à toi de répondre");
+    expect(headerLine(PANEL)).toBe("Étape 2 sur 9");
+    expect(headerLine({ ...PANEL, strings: { pane_progress: "Écran {position}/{total}" } })).toBe("Écran 2/9");
+  });
+
+  test("one voice chip per block: the lesson's author on the scene, the assessor on the verdict", () => {
+    expect(voiceChip(V2, "scene")).toBe("Leçon validée par Prof. Test");
+    expect(voiceChip(V2, "verdict")).toBe(""); // nobody assessed anything yet
+    expect(voiceChip({ ...V2, voices: { ...V2.voices!, verdict: { kind: "key" } } }, "verdict")).toBe("Évalué par la clé de l'auteur");
+    expect(voiceChip({ ...V2, voices: { ...V2.voices!, verdict: { kind: "judge" } } }, "verdict")).toBe("Évalué par un juge (modèle)");
+    expect(voiceChip({ ...V2, voices: { scene: { kind: "author", name: null, reviewed: false, drafted_by: "agent" } } }, "scene"))
+      .toBe("Leçon rédigée par l'IA, non relue par un enseignant");
+    expect(voiceChip({ ...V2, voices: { scene: { kind: "author", name: null, reviewed: false, drafted_by: "learner" } } }, "scene"))
+      .toBe("Leçon que tu as rédigée, non relue par un enseignant");
+    expect(voiceChip({ ...V2, voices: { scene: { kind: "author", name: null, reviewed: true, drafted_by: "teacher" } } }, "scene"))
+      .toBe("Leçon validée par un enseignant");
+    expect(voiceChip({ ...V2, voices: { scene: { kind: "author", name: "Prof. Test", reviewed: false, drafted_by: "teacher" } } }, "scene"))
+      .toBe("Leçon modifiée depuis sa validation");
+    expect(voiceChip({ ...V2, locale: "en", voices: { scene: { kind: "agent" } } }, "scene")).toBe("Assistant's text, not part of the lesson");
+    expect(voiceChip({ ...V2, strings: { pane_voice_validated_by: "Signée {name}" } }, "scene")).toBe("Signée Prof. Test"); // the view's own words win
+    expect(voiceChip(PANEL, "scene")).toBe(""); // version 1 says nothing of voices
+  });
+
+  test("the help ladder: each rung a control, a closed rung with its reason, an open hint with its cost", () => {
+    expect(helpControls(V2)).toEqual([
+      { kind: "reread", label: "Relire", available: true, note: "Le texte de cet écran est au-dessus." },
+      { kind: "hint", label: "Indice", available: true, note: "un indice réduit le crédit de cette réponse", action: { type: "hint" } },
+      { kind: "explain", label: "Explication", available: false, note: "essaie d'abord de répondre" },
+      { kind: "reference", label: "Référence", available: false, note: "la référence s'affiche après ta réponse" },
+    ]);
+    expect(helpControls(PANEL)).toEqual([]); // version 1: the pane keeps its single hint button
+  });
+
+  test("an open explanation hands over to the assistant with the learner's request; an open reference says where it is", () => {
+    const tried: StudiumPanelView = { ...V2, help: { rungs: [
+      { kind: "explain", available: true }, { kind: "reference", available: true },
+    ] } };
+    expect(helpControls(tried)).toEqual([
+      { kind: "explain", label: "Explication", available: true, action: { type: "ask", text: "Explique-moi cet écran." } },
+      { kind: "reference", label: "Référence", available: true, note: "La référence est affichée avec le verdict." },
+    ]);
+    // A view that does not offer the action gives a rung nothing to send.
+    expect(helpControls({ ...tried, actions: ["respond"] })[0]).toEqual({ kind: "explain", label: "Explication", available: true });
+    expect(helpControls({ ...V2, actions: ["respond"] })[1])
+      .toEqual({ kind: "hint", label: "Indice", available: true, note: "un indice réduit le crédit de cette réponse" });
+  });
+
+  test("« Poser une question » sends the ask action, where the view offers it", () => {
+    expect(askControl(V2)).toEqual({ label: "Poser une question", action: { type: "ask" } });
+    expect(askControl({ ...V2, locale: "en" })).toEqual({ label: "Ask a question", action: { type: "ask" } });
+    expect(askControl(PANEL)).toBeUndefined();
   });
 });
