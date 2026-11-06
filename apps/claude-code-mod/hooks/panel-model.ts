@@ -14,6 +14,7 @@ const HELP_KINDS = new Set(["reread", "hint", "explain", "reference"]);
 const PANEL_KINDS = new Set(["scene", "done", "notice", "error"]);
 const ACTIONS = new Set<StudiumPanelActionName>([
   "respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse",
+  "ask", "setAttention", "setLanguage", "replan",
 ]);
 const FREE_TEXT_KINDS: Record<string, string> = {
   ai_critique: "critique",

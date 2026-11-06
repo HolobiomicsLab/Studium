@@ -14,7 +14,16 @@ The presenter calls the existing [publicScene projection](../lesson-session-host
 
 ## Backends and actions
 
-`presentPanel(backend, ctx)` reads the current view. `applyPanelAction(backend, ctx, action)` validates and applies respond, turn, hint, rateRecall, reviewNow, restartLesson, end or pickCourse. The host owns the mutable `PanelContext`: session identity, concept titles, modality and mastery options, review origins, earned transition and latest view. Serialize actions against that context. Review and restart can replace its session id; use the id returned in the view.
+`presentPanel(backend, ctx)` reads the current view. `applyPanelAction(backend, ctx, action)` validates and applies respond, turn, hint, rateRecall, reviewNow, restartLesson, end or pickCourse, and refuses an unknown or malformed action in one line. The host owns the mutable `PanelContext`: session identity, concept titles, modality and mastery options, review origins, earned transition and latest view. Serialize actions against that context. Review and restart can replace its session id; use the id returned in the view.
+
+Four more actions, offered on a version-2 scene, change how the lesson is shown and never an answer:
+
+| Action | Effect |
+|---|---|
+| `setLanguage {presentation_language}` | Shows the panel's own text (labels, status line) in French or English; a regional tag keeps its base language, `null` returns to the lesson's. The lesson's content stays in its own language: only the conversation translates it. The session notes the language asked for, whatever it is; for a language other than these two, the view says the panel has no text for it. |
+| `setAttention {level}` | Sets `attention` to `quiet`, `normal` or `coached`: how much the session may propose. |
+| `replan {minutes}` | Answers « I have N minutes » with a prompt (`prompts`, kind `replan`): the reviews due first, then whether the lesson ends in time. Nothing is cut; the prompt leaves with the scene. |
+| `ask {text?}` | Hands over to the conversation: a `notice` view with the scene unchanged, nothing submitted. `text` is kept in the context (`question`). |
 
 The [MCP adapter](../../apps/lesson-mcp/src/panel-tools.ts) provides `hostBackend(SessionHost, bundlesRoot)`, with filesystem-confined image reads. It observes ordinary lesson transitions too, including a native reproduction run, so completion stays consistent. The [VS Code adapter](../../apps/studium-vscode/src/extension.ts) provides `mcpBackend(call, {bundlesRoot})` over the existing operation names. The extension normally consumes open_lesson_panel, get_panel_view and panel_action directly. The backend also reads get_next_reinforcement for the completion screen's due count.
 

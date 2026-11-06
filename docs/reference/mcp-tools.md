@@ -121,7 +121,7 @@ The server registers 39 tools.
 | [play_in_forms](#play_in_forms) | Form tool (prototype) | Play the next scenes of a session in forms the client shows to the learner (MCP elicitation), with no model turn between an answer and its verdict (a prototy... |
 | [get_panel_view](#get_panel_view) | Panel | Read the current public lesson panel, including earned feedback and completion. |
 | [open_lesson_panel](#open_lesson_panel) | Panel | Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). |
-| [panel_action](#panel_action) | Panel | Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker. |
+| [panel_action](#panel_action) | Panel | Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the... |
 
 ## Study tools
 
@@ -527,21 +527,25 @@ Open or resume a lesson by bundle_ref or existing session_id, on the best surfac
 | `modality_preference` | one of `balanced`, `visual`, `textual` | no |  |
 | `locale` | one of `fr`, `en` | no |  |
 | `surface` | one of `text`, `form`, `pane`, `panel` | no | The surface to play on. Omit it: the server picks the best one this client renders. "pane" is for a native pane adapter; "text" when the learner prefers the conversation. |
+| `attention` | one of `quiet`, `normal`, `coached` | no | How much the session may propose: nothing, the default, or more. |
 
 ### panel_action
 
-Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker.
+Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `session_id` | string (non-empty) | yes |  |
-| `action` | object, one of 8 shapes | yes |  |
-| `action.type` | one of `respond`, `turn`, `hint`, `rateRecall`, `reviewNow`, `restartLesson`, `end`, `pickCourse` | yes |  |
+| `action` | object, one of 12 shapes | yes |  |
+| `action.type` | one of `respond`, `turn`, `hint`, `rateRecall`, `reviewNow`, `restartLesson`, `end`, `pickCourse`, `ask`, `setAttention`, `setLanguage`, `replan` | yes |  |
 | `action.input` | any | no | Only in type `respond`. |
-| `action.text` | string | in `turn` |  |
+| `action.text` | string or string (non-empty) | in `turn` | Only in type `turn`, `ask`. |
 | `action.sceneId` | string (non-empty) | in `rateRecall` |  |
 | `action.grade` | one of `again`, `hard`, `good`, `easy` | in `rateRecall` |  |
 | `action.confirmed` | boolean | in `end` |  |
+| `action.level` | one of `quiet`, `normal`, `coached` | in `setAttention` |  |
+| `action.presentation_language` | string (at least 2 chars) or null | in `setLanguage` |  |
+| `action.minutes` | integer (1–600) | in `replan` |  |
 
 ## Prompts
 

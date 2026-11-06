@@ -72,6 +72,16 @@ describe("PanelView boundary", () => {
     expect(panelFromMcpResult({ structuredContent: { panel: V2 } })).toEqual(V2);
   });
 
+  // Task 2.2: a version-2 scene offers four more actions; a pane that refused them would go blank.
+  test("accepts a version-2 view that offers ask, setLanguage, setAttention and replan, and a replan prompt", () => {
+    const offered = {
+      ...V2, actions: [...V2.actions, "ask", "setLanguage", "setAttention", "replan"],
+      prompts: [{ id: "replan", kind: "replan", reason: "Tu as 10 min.", actions: [{ label: "Réviser maintenant", action: { type: "reviewNow" } }], expires: "scene" }],
+    };
+    expect(isPanelView(offered)).toBe(true);
+    expect(isPanelView({ ...V2, actions: [...V2.actions, "teleport"] })).toBe(false);
+  });
+
   test.each([
     ["orientation", { ...V2, orientation: { step: { index: "2", total: 9 }, reviews_due: 0, waiting: "answer" } }],
     ["waiting", { ...V2, orientation: { ...V2.orientation, waiting: "sleeping" } }],

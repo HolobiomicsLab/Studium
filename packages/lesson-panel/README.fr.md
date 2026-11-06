@@ -14,7 +14,16 @@ Le présentateur réutilise [publicScene](../lesson-session-host/src/public-scen
 
 ## Backends et actions
 
-`presentPanel(backend, ctx)` lit la vue. `applyPanelAction(backend, ctx, action)` valide et applique respond, turn, hint, rateRecall, reviewNow, restartLesson, end ou pickCourse. L'hôte possède le `PanelContext` mutable : identité, titres des concepts, préférences, origines des révisions, transition acquise et dernière vue. Il sérialise les actions. Réviser ou recommencer peut remplacer l'identifiant de session ; reprendre celui de la vue renvoyée.
+`presentPanel(backend, ctx)` lit la vue. `applyPanelAction(backend, ctx, action)` valide et applique respond, turn, hint, rateRecall, reviewNow, restartLesson, end ou pickCourse, et refuse en une ligne une action inconnue ou mal formée. L'hôte possède le `PanelContext` mutable : identité, titres des concepts, préférences, origines des révisions, transition acquise et dernière vue. Il sérialise les actions. Réviser ou recommencer peut remplacer l'identifiant de session ; reprendre celui de la vue renvoyée.
+
+Quatre autres actions, proposées sur une scène en version 2, changent la façon de montrer la leçon et jamais une réponse :
+
+| Action | Effet |
+|---|---|
+| `setLanguage {presentation_language}` | Affiche le texte propre au panneau (libellés, ligne d'état) en français ou en anglais ; une variante régionale garde sa langue de base, `null` revient à la langue de la leçon. Le contenu de la leçon reste dans sa langue : seule la conversation le traduit. La séance note la langue demandée, quelle qu'elle soit ; pour une autre langue que ces deux-là, la vue dit que le panneau n'a pas de texte pour elle. |
+| `setAttention {level}` | Règle `attention` sur `quiet`, `normal` ou `coached` : ce que la séance peut proposer. |
+| `replan {minutes}` | Répond à « j'ai N minutes » par une invite (`prompts`, genre `replan`) : les révisions dues d'abord, puis si la leçon se termine à temps. Rien n'est coupé ; l'invite part avec la scène. |
+| `ask {text?}` | Passe la main à la conversation : une vue `notice`, la scène inchangée, rien de soumis. `text` est gardé dans le contexte (`question`). |
 
 L'[adaptateur MCP](../../apps/lesson-mcp/src/panel-tools.ts) fournit `hostBackend(SessionHost, bundlesRoot)`, avec lecture des images confinée au dossier de la leçon. Il observe aussi les transitions des outils ordinaires, dont une reproduction native, afin de préserver la complétion. L'[adaptateur VS Code](../../apps/studium-vscode/src/extension.ts) fournit `mcpBackend(call, {bundlesRoot})` sur les opérations existantes. L'extension consomme normalement open_lesson_panel, get_panel_view et panel_action directement. Le backend lit aussi get_next_reinforcement pour compter les révisions dues en fin de leçon.
 

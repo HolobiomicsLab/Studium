@@ -190,3 +190,28 @@ it("negotiateSurface — the ladder", () => {
   expect(negotiateSurface({ ui: true, forms: true }, "pane")).toEqual({ rank: 3, kind: "pane", available: ["text", "form", "panel", "pane"] });
   expect(negotiateSurface({ ui: true, forms: true }, "form")).toMatchObject({ rank: 2, kind: "form" });
 });
+
+// Task 2.2: the acts of the fast lane that need no model turn, through the real server.
+it("applies language, attention, replan and ask through panel_action", async () => {
+  const { open, call, close } = await connected({});
+  try {
+    const opened = await open({ attention: "coached" });
+    const panel = opened.structuredContent!.panel;
+    expect(panel.attention).toBe("coached");
+    const act = async (action: Record<string, unknown>) =>
+      (await call("panel_action", { session_id: panel.session_id, action })).structuredContent!.panel;
+    const en = await act({ type: "setLanguage", presentation_language: "en" });
+    expect(en.locale).toBe("en");
+    expect(en.status_line).toContain("step 1/32");
+    expect((await act({ type: "setAttention", level: "quiet" })).attention).toBe("quiet");
+    const planned = await act({ type: "replan", minutes: 10 });
+    expect(planned.prompts).toHaveLength(1);
+    expect(planned.prompts[0]).toMatchObject({ kind: "replan", expires: "scene", actions: [] });
+    expect(planned.prompts[0].reason).toMatch(/10 min.*78/);
+    const asked = await act({ type: "ask", text: "Why does Z define the element?" });
+    expect(asked).toMatchObject({ kind: "notice", scene: { id: panel.scene.id }, progress: { index: 1 }, attention: "quiet" });
+    expect(asked.message).toContain("conversation");
+    expect(JSON.stringify(asked)).not.toMatch(/"(?:answer|correct|expected|key|solution)"\s*:/);
+    expect((await call("panel_action", { session_id: panel.session_id, action: { type: "teleport" } })).isError).toBe(true);
+  } finally { await close(); }
+});

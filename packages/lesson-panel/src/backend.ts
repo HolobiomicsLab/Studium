@@ -1,6 +1,6 @@
 import type { ModalityPreference } from "./modality.js";
 import type { ReviewContext, RecallGrade } from "./pane-messages.js";
-import type { Attention, Help, Orientation, PanelView, SceneAsset, Surface, Voices } from "./view.js";
+import type { Attention, Help, Orientation, PanelView, Prompt, SceneAsset, Surface, Voices } from "./view.js";
 
 /** Transport payloads stay server-side until the presenter projects a PanelView. */
 export type Payload = Record<string, any>;
@@ -21,6 +21,9 @@ export interface PanelBackend {
    * (lesson-session-host orientation.ts). `verdict` is the verdict of the answer just given, whose
    * voice is told. A backend without this method writes version-1 views. */
   getOrientation?(sessionId: string, ask: { locale: "fr" | "en"; lessonTitle: string; verdict: Payload | null }): Promise<PanelOrientation>;
+  /** The language the conversation presents the session in (null: the lesson's own). A panel only
+   * has French and English text of its own; the session notes any language. */
+  setSessionLanguage?(sessionId: string, language: string | null): Promise<unknown>;
 }
 
 /** What a backend adds to a view to make it version 2. */
@@ -45,4 +48,8 @@ export interface PanelContext {
   surface?: Surface;
   /** How much the session may propose; `normal` when the host does not say. */
   attention?: Attention;
+  /** What the view proposes now. A prompt that expires with its scene leaves at the next answer. */
+  prompts?: Prompt[];
+  /** The question of the learner's last `ask`, for the companion's brief; absent when none was written. */
+  question?: string;
 }

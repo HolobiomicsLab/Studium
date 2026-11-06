@@ -43,6 +43,7 @@ export function hostBackend(host: SessionHost, bundlesRoot: string): PanelBacken
     },
     forgetSession: id => host.forget(id),
     getNextReinforcement: id => host.reinforcementStatusForSession(id),
+    setSessionLanguage: async (id, language) => host.setPresentationLanguage(id, language),
     getOrientation: async (id, ask) => {
       const orientation = orientationOf(host, id);
       const assessed = ask.verdict?.assessed_by;
@@ -145,6 +146,7 @@ class Panels {
     if (options.show_mastery !== undefined) ctx.showMastery = options.show_mastery;
     if (options.modality_preference !== undefined) ctx.modalityPreference = options.modality_preference;
     if (options.locale !== undefined) ctx.locale = options.locale;
+    if (options.attention !== undefined) ctx.attention = options.attention;
     return presentPanel(this.backend, ctx);
   }
 
@@ -226,6 +228,7 @@ export function registerPanelTools(server: McpServer, host: SessionHost) {
       bundle_ref: z.string().min(1).optional(), session_id: z.string().min(1).optional(), learner_id: z.string().min(1).optional(),
       show_mastery: z.boolean().optional(), modality_preference: z.enum(["balanced", "visual", "textual"]).optional(), locale: z.enum(["fr", "en"]).optional(),
       surface,
+      attention: z.enum(["quiet", "normal", "coached"]).optional().describe("How much the session may propose: nothing, the default, or more."),
     },
   }, async args => { try { return panelResult(await panels.open(args)); } catch (e) { return toolError(e); } });
   const getTool = server.registerTool("get_panel_view", {
@@ -236,7 +239,7 @@ export function registerPanelTools(server: McpServer, host: SessionHost) {
     } catch (e) { return toolError(e); }
   });
   const actionTool = server.registerTool("panel_action", {
-    description: "Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker.",
+    description: "Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer.",
     inputSchema: { ...session, action: PanelActionSchema },
   }, async ({ session_id, action }) => {
     try { return panelResult(await panels.act(session_id, action)); } catch (e) { return toolError(e); }

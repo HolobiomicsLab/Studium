@@ -3476,6 +3476,49 @@ capabilities this reads has not been observed on a live client. A host that rend
 shows the panel for any `open_lesson_panel` call, `surface: "text"` included: the view says text,
 the renderer does not act on it yet (task 2.6).
 
+## 2026-11-06 (actions) — Language, attention, replan and ask as panel actions
+
+INT-STUDIUM-058, lot 2, task 2.2. Four acts of the fast lane that need no model turn, in
+`packages/lesson-panel` (`applyPanelAction`). They change how the lesson is shown, never an answer.
+
+- `setLanguage {presentation_language}`: the panel's own text (labels, status line) in French or
+  English; a regional tag keeps its base language, `null` returns to the lesson's. The session
+  notes the language (new optional backend method `setSessionLanguage`, wired to
+  `host.setPresentationLanguage`). The lesson's content is not translated in a panel: only the
+  conversation does that. For any other language the view says the panel has no text for it.
+- `setAttention {level}`: `quiet`, `normal` or `coached`. `open_lesson_panel` takes `attention` too.
+- `replan {minutes}`: a prompt in `prompts` whose reason cites the minutes: the reviews due first
+  (with the one action that starts them), then whether the lesson ends in time. Nothing is cut or
+  skipped. The prompt is replaced when asked again and leaves at the next answer. On a version-1
+  view the same sentence comes as a notice.
+- `ask {text?}`: a `notice` view, the scene unchanged, nothing submitted. The question, when the
+  surface sends one, is kept in the context (`question`) for the companion's brief (lot 3).
+- An unknown or malformed action is refused in one line (`unknown panel action "x"; known: …`).
+- A version-2 scene lists the four actions in `actions`. The Claude Code pane accepted a closed list
+  of action names and would have refused such a view: its list and its declarations carry them.
+
+Deviations from the plan and the spec. `replan` reads the orientation of the view (minutes left,
+reviews due in this session); the spec has it ask `get_study_plan` for a new step, which needs a
+minutes argument the study plan does not take: left for lot 5, where the server's proposal rules
+live. The prompt kind `replan` is added to the closed list of the spec: it answers the learner's
+own request, so it is not a proposal to count. Files beyond the three the task named:
+`backend.ts`, `present.ts`, `phrases.ts`, the two READMEs, `apps/lesson-mcp/src/panel-tools.ts`
+and its test, the pane's `panel-model.ts`, its spec and `types/index.d.ts`, the regenerated tool
+reference.
+
+Test decision: none, no existing test changed. Eight new tests in `panel.test.ts`, one in
+`panel-tools.test.ts` (the real server), one in the pane's `panel-model.spec.ts`; all failed first.
+
+Checked: every repository check passes: install, `pnpm build:libs`, `pnpm build` (the pane's two
+type guards against the core schema included), `pnpm lint`, `pnpm -r --no-bail test`,
+`tools/pytest_all.py`, the bundle lint, the docs check, the headless smoke and
+`tools/panel-probe.mjs` on a rebuilt bundle.
+
+Not verified: no surface sends these actions yet (tasks 2.5 and 2.6), so nobody has used them.
+How a reader shows a `notice` that still carries its scene is theirs to decide. Through MCP, the
+SDK validates `panel_action` before `applyPanelAction` does, so the one-line refusal reaches only
+callers that use the package directly.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

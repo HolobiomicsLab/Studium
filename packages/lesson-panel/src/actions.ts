@@ -1,4 +1,7 @@
-import { PANEL_VIEW_SCHEMA_V1, PANEL_VIEW_V2_FIELDS, PanelActionSchema, PanelViewSchema, type PanelAction, type PanelView } from "./view.js";
+import {
+  PANEL_ACTION_NAMES, PANEL_VIEW_SCHEMA_V1, PANEL_VIEW_V2_FIELDS, PanelActionSchema, PanelViewSchema,
+  type Orientation, type PanelAction, type PanelView, type Prompt,
+} from "./view.js";
 import type { PanelBackend, PanelContext, Payload } from "./backend.js";
 import { presentPanel } from "./present.js";
 import { reviewContext } from "./pane-messages.js";
@@ -31,9 +34,57 @@ async function rate(backend: PanelBackend, ctx: PanelContext, action: Extract<Pa
   return { recall_rated: { sceneId: action.sceneId, grade: action.grade } };
 }
 
+/** The locale a view of this context is written in before the lesson's own is known. */
+function localeOf(ctx: PanelContext): "fr" | "en" { return ctx.locale ?? ctx.lastView?.locale ?? "fr"; }
+
+/** The panel's own text (labels, status line) exists in French and English. A regional tag keeps its
+ * base language; null returns to the lesson's language. The lesson's content is not translated here:
+ * only the conversation does that, and the session notes the language for it, whatever it is. For
+ * any other language the panel says it has no text of its own. */
+async function setLanguage(backend: PanelBackend, ctx: PanelContext, language: string | null): Promise<Partial<PanelView>> {
+  await backend.setSessionLanguage?.(ctx.sessionId, language);
+  const base = language?.toLowerCase().split(/[-_]/)[0];
+  if (language === null) delete ctx.locale;
+  else if (base === "fr" || base === "en") ctx.locale = base;
+  else return { kind: "notice", message: phrase("panel_language_unsupported", {}, localeOf(ctx)) };
+  return {};
+}
+
+/** What fits in the minutes the learner has, from where the view places them: the reviews due first,
+ * then whether the lesson ends in time. Nothing is cut or skipped: the learner stops when they want. */
+function replanReason(minutes: number, o: Orientation | undefined, locale: "fr" | "en"): { reason: string; reviews: number } {
+  const left = o?.minutes_left;
+  const time = left === undefined ? phrase("panel_replan_open", { minutes }, locale)
+    : phrase(left <= minutes ? "panel_replan_fits" : "panel_replan_longer", { minutes, left }, locale);
+  const reviews = o?.reviews_due ?? 0;
+  const due = reviews === 0 ? "" : phrase(reviews === 1 ? "panel_replan_review_one" : "panel_replan_review_many", { count: reviews }, locale);
+  return { reason: due ? `${time} ${due}` : time, reviews };
+}
+
+/** « I have N minutes »: a prompt on a view that places the learner, a notice otherwise. Asked again,
+ * the prompt is replaced. The session is read afresh: the last view may predate an answer given in
+ * the conversation. */
+async function replan(backend: PanelBackend, ctx: PanelContext, minutes: number): Promise<Partial<PanelView>> {
+  const placed = await presentPanel(backend, ctx);
+  const locale = placed.locale;
+  const { reason, reviews } = replanReason(minutes, placed.orientation, locale);
+  if (!placed.orientation) return { kind: "notice", message: reason };
+  const prompt: Prompt = {
+    id: "replan", kind: "replan", reason, expires: "scene",
+    actions: reviews > 0 ? [{ label: phrase("panel_replan_review_label", {}, locale), action: { type: "reviewNow" } }] : [],
+  };
+  ctx.prompts = [...(ctx.prompts ?? []).filter(p => p.id !== prompt.id), prompt];
+  return {};
+}
+
+/** The scene changed, or the session did: what was proposed for that scene leaves with it. */
+function leaveScene(ctx: PanelContext): void {
+  if (ctx.prompts) ctx.prompts = ctx.prompts.filter(p => p.expires !== "scene");
+}
+
 async function execute(backend: PanelBackend, ctx: PanelContext, action: PanelAction): Promise<Partial<PanelView>> {
   switch (action.type) {
-    case "respond": ctx.transition = await backend.submitResponse(ctx.sessionId, action.input); return {};
+    case "respond": ctx.transition = await backend.submitResponse(ctx.sessionId, action.input); leaveScene(ctx); return {};
     case "turn": {
       const turn = await backend.submitTurn(ctx.sessionId, action.text);
       return { turn_result: { reasoning: turn.reasoning ?? null, tutor: turn.tutor ?? null } };
@@ -43,15 +94,34 @@ async function execute(backend: PanelBackend, ctx: PanelContext, action: PanelAc
       return { hint: { hint: hint?.hint ?? null, ...(hint?.remaining === undefined ? {} : { remaining: hint.remaining }) } };
     }
     case "rateRecall": return rate(backend, ctx, action);
-    case "reviewNow": return startAgain(backend, ctx, true);
-    case "restartLesson": return startAgain(backend, ctx, false);
+    case "reviewNow": leaveScene(ctx); return startAgain(backend, ctx, true);
+    case "restartLesson": leaveScene(ctx); return startAgain(backend, ctx, false);
+    case "setAttention": ctx.attention = action.level; return {};
+    case "setLanguage": return setLanguage(backend, ctx, action.presentation_language);
+    case "replan": return replan(backend, ctx, action.minutes);
+    case "ask": {
+      // Nothing is submitted and the scene stays: the learner goes to the conversation and comes back.
+      if (action.text === undefined) delete ctx.question; else ctx.question = action.text;
+      return { kind: "notice", message: phrase("panel_ask_notice", {}, localeOf(ctx)) };
+    }
     default: return {};
   }
 }
 
+/** Read an action, or say in one line why it is refused. */
+function readAction(input: unknown): PanelAction {
+  const parsed = PanelActionSchema.safeParse(input);
+  if (parsed.success) return parsed.data;
+  const type = typeof input === "object" && input !== null ? (input as { type?: unknown }).type : undefined;
+  if (typeof type !== "string") throw new Error("a panel action is an object with a type");
+  if (!(PANEL_ACTION_NAMES as readonly string[]).includes(type)) throw new Error(`unknown panel action "${type}"; known: ${PANEL_ACTION_NAMES.join(", ")}`);
+  const issue = parsed.error.issues[0];
+  throw new Error(`invalid ${type} action: ${[issue?.path.join("."), issue?.message].filter(Boolean).join(" ")}`);
+}
+
 /** Validate and apply a learner action. Native picking/confirmation stays with the host. */
 export async function applyPanelAction(backend: PanelBackend, ctx: PanelContext, input: PanelAction): Promise<PanelView> {
-  const action = PanelActionSchema.parse(input);
+  const action = readAction(input);
   if (action.type === "end" && action.confirmed) {
     const previous = ctx.lastView ?? await presentPanel(backend, ctx);
     await backend.forgetSession(ctx.sessionId);

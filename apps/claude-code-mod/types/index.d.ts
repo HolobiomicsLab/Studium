@@ -8,7 +8,11 @@ export type StudiumPanelActionName =
   | "reviewNow"
   | "restartLesson"
   | "end"
-  | "pickCourse";
+  | "pickCourse"
+  | "ask"
+  | "setAttention"
+  | "setLanguage"
+  | "replan";
 
 export type StudiumPanelAction =
   | { type: "respond"; input: unknown }
@@ -18,7 +22,11 @@ export type StudiumPanelAction =
   | { type: "reviewNow" }
   | { type: "restartLesson" }
   | { type: "end"; confirmed: boolean }
-  | { type: "pickCourse" };
+  | { type: "pickCourse" }
+  | { type: "ask"; text?: string }
+  | { type: "setAttention"; level: "quiet" | "normal" | "coached" }
+  | { type: "setLanguage"; presentation_language: string | null }
+  | { type: "replan"; minutes: number };
 
 export type StudiumNamedConcept = { id: string; label: string };
 export type StudiumSource = {
@@ -126,7 +134,7 @@ export type StudiumHelpRung = {
 
 export type StudiumPrompt = {
   id: string;
-  kind: "review_due" | "break" | "next_lesson" | "map_offer" | "forms_offer" | "resume_notice" | "adaptation_notice";
+  kind: "review_due" | "break" | "next_lesson" | "map_offer" | "forms_offer" | "resume_notice" | "adaptation_notice" | "replan";
   reason: string;
   actions: Array<{ label: string; action: StudiumPromptAction }>;
   expires: "scene" | "session";

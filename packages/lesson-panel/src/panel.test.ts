@@ -190,3 +190,113 @@ describe("panel view version 2", () => {
     expect(notice).not.toHaveProperty("status_line");
   });
 });
+
+// INT-STUDIUM-058, lot 2, task 2.2: four acts of the fast lane that need no model turn. The learner
+// changes the language, says how much the session may propose, says how much time they have, or hands
+// over to the conversation to ask a question.
+describe("panel actions: language, attention, replan and ask", () => {
+  /** A backend that places the learner: version-2 views, with a status line in the asked language. */
+  function placing(backend: ReturnType<typeof setup>["backend"], place: { minutes_left?: number; reviews_due?: number } = {}) {
+    const getOrientation = vi.fn(async (_id: string, ask: { locale: "fr" | "en" }) => ({
+      orientation: { step: { index: 2, total: 3 }, reviews_due: place.reviews_due ?? 0, waiting: "answer" as const, ...(place.minutes_left === undefined ? {} : { minutes_left: place.minutes_left }) },
+      status_line: ask.locale === "en" ? "Lesson · step 2/3 · your answer" : "Leçon · étape 2/3 · à toi de répondre",
+      voices: { scene: { kind: "author" as const, name: null, reviewed: true, drafted_by: "teacher" as const } },
+      help: { rungs: [{ kind: "reread" as const, available: true }] },
+    }));
+    const setSessionLanguage = vi.fn(async () => ({}));
+    return { ...backend, getOrientation, setSessionLanguage };
+  }
+
+  it("setLanguage shows the view in the asked language, and null returns to the lesson's", async () => {
+    const { ctx, backend } = setup();
+    const b = placing(backend);
+    const en = await applyPanelAction(b, ctx, { type: "setLanguage", presentation_language: "en" });
+    expect(en).toMatchObject({ locale: "en", status_line: "Lesson · step 2/3 · your answer", kind: "scene" });
+    expect(en.strings["panel_review_unavailable"]).toBe("The review session could not start.");
+    expect(b.setSessionLanguage).toHaveBeenLastCalledWith("s1", "en");
+    // A regional tag keeps its base language for the panel.
+    expect((await applyPanelAction(b, ctx, { type: "setLanguage", presentation_language: "en-GB" })).locale).toBe("en");
+    const back = await applyPanelAction(b, ctx, { type: "setLanguage", presentation_language: null });
+    expect(back).toMatchObject({ locale: "fr", status_line: "Leçon · étape 2/3 · à toi de répondre" });
+    expect(b.setSessionLanguage).toHaveBeenLastCalledWith("s1", null);
+  });
+
+  it("setLanguage to a language the panel has no text for says so, and keeps the scene", async () => {
+    const { ctx, backend } = setup();
+    const b = placing(backend);
+    const es = await applyPanelAction(b, ctx, { type: "setLanguage", presentation_language: "es" });
+    expect(es).toMatchObject({ kind: "notice", locale: "fr", scene: { id: scene.id } });
+    expect(es.message).toContain("français ou en anglais");
+    // The session still notes it: the conversation can answer in that language.
+    expect(b.setSessionLanguage).toHaveBeenLastCalledWith("s1", "es");
+  });
+
+  it("setAttention changes how much the session may propose", async () => {
+    const { ctx, backend } = setup();
+    const b = placing(backend);
+    expect((await presentPanel(b, ctx)).attention).toBe("normal");
+    expect((await applyPanelAction(b, ctx, { type: "setAttention", level: "quiet" })).attention).toBe("quiet");
+    expect((await presentPanel(b, ctx)).attention).toBe("quiet");
+  });
+
+  it("replan answers « I have ten minutes » with a prompt whose reason cites them", async () => {
+    const { ctx, backend } = setup();
+    const longer = await applyPanelAction(placing(backend, { minutes_left: 74 }), ctx, { type: "replan", minutes: 10 });
+    expect(longer.prompts).toEqual([{ id: "replan", kind: "replan", reason: expect.stringContaining("10 min"), actions: [], expires: "scene" }]);
+    expect(longer.prompts![0]!.reason).toContain("74");
+    expect(longer.prompts![0]!.reason).toContain("progression est gardée");
+    expect(longer).toMatchObject({ kind: "scene", scene: { id: scene.id } });
+    // The lesson fits in the time given.
+    const fits = await applyPanelAction(placing(backend, { minutes_left: 8 }), ctx, { type: "replan", minutes: 10 });
+    expect(fits.prompts![0]!.reason).toMatch(/10 min.*8 min.*finir/);
+    // Reviews due come first, with the one action that starts them.
+    const due = await applyPanelAction(placing(backend, { minutes_left: 74, reviews_due: 2 }), ctx, { type: "replan", minutes: 10 });
+    expect(due.prompts![0]!.reason).toContain("2 révisions sont dues");
+    expect(due.prompts![0]!.actions).toEqual([{ label: "Réviser maintenant", action: { type: "reviewNow" } }]);
+    // No duration known: the minutes are still cited.
+    const open = await applyPanelAction(placing(backend), ctx, { type: "replan", minutes: 10 });
+    expect(open.prompts![0]!.reason).toContain("10 min");
+    // Asked again, the prompt is replaced, not stacked; it leaves with the scene.
+    expect(open.prompts).toHaveLength(1);
+    expect((await applyPanelAction(placing(backend), ctx, { type: "respond", input: { kind: "ack" } })).prompts).toEqual([]);
+  });
+
+  it("replan on a backend that cannot place the learner answers with a notice that cites the minutes", async () => {
+    const { ctx, backend } = setup();
+    const view = await applyPanelAction(backend, ctx, { type: "replan", minutes: 10 });
+    expect(view).toMatchObject({ schema: "studium/panel-view/1", kind: "notice", scene: { id: scene.id } });
+    expect(view.message).toContain("10 min");
+  });
+
+  it("ask hands over to the conversation: a notice, the scene unchanged, nothing submitted", async () => {
+    const { ctx, backend } = setup();
+    const b = placing(backend);
+    const before = await presentPanel(b, ctx);
+    const asked = await applyPanelAction(b, ctx, { type: "ask", text: "Pourquoi Z définit-il l'élément ?" });
+    expect(asked).toMatchObject({ kind: "notice", scene: before.scene, progress: before.progress, status_line: before.status_line });
+    expect(asked.message).toContain("conversation");
+    expect(backend.submitResponse).not.toHaveBeenCalled();
+    // The question is kept for the companion's brief; without one, nothing is kept.
+    expect(ctx.question).toBe("Pourquoi Z définit-il l'élément ?");
+    await applyPanelAction(b, ctx, { type: "ask" });
+    expect(ctx.question).toBeUndefined();
+  });
+
+  it("offers the four actions on a version-2 scene, not on a version-1 view", async () => {
+    const { ctx, backend } = setup();
+    expect((await presentPanel(placing(backend), ctx)).actions).toEqual(expect.arrayContaining(["ask", "setLanguage", "setAttention", "replan"]));
+    const v1 = (await presentPanel(backend, { ...ctx })).actions;
+    for (const name of ["ask", "setLanguage", "setAttention", "replan"]) expect(v1).not.toContain(name);
+  });
+
+  it("refuses an unknown or malformed action in one line", async () => {
+    const { ctx, backend } = setup();
+    const unknown = await applyPanelAction(backend, ctx, { type: "teleport" } as never).catch((e: Error) => e.message);
+    expect(unknown).toMatch(/^unknown panel action "teleport"; known: respond, /);
+    expect(unknown).not.toContain("\n");
+    const malformed = await applyPanelAction(backend, ctx, { type: "replan", minutes: 0 } as never).catch((e: Error) => e.message);
+    expect(malformed).toMatch(/^invalid replan action: minutes/);
+    expect(malformed).not.toContain("\n");
+    expect(await applyPanelAction(backend, ctx, "respond" as never).catch((e: Error) => e.message)).toMatch(/^a panel action is an object with a type/);
+  });
+});

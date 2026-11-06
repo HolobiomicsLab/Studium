@@ -8,6 +8,9 @@ export const PANEL_VIEW_SCHEMA_V1 = "studium/panel-view/1" as const;
 export const PANEL_VIEW_SCHEMA = "studium/panel-view/2" as const;
 export const PANEL_VIEW_SCHEMAS = [PANEL_VIEW_SCHEMA_V1, PANEL_VIEW_SCHEMA] as const;
 export const RecallGradeSchema = z.enum(["again", "hard", "good", "easy"]);
+/** How much the session may propose: nothing, the default, or more (spec § 2.6). */
+export const AttentionSchema = z.enum(["quiet", "normal", "coached"]);
+export type Attention = z.infer<typeof AttentionSchema>;
 export const PanelActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("respond"), input: z.unknown() }).strict(),
   z.object({ type: z.literal("turn"), text: z.string() }).strict(),
@@ -17,10 +20,21 @@ export const PanelActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("restartLesson") }).strict(),
   z.object({ type: z.literal("end"), confirmed: z.boolean() }).strict(),
   z.object({ type: z.literal("pickCourse") }).strict(),
+  // INT-STUDIUM-058: acts of the fast lane that need no model turn.
+  /** Hand over to the conversation to ask a question; `text` is the question when the surface has it. */
+  z.object({ type: z.literal("ask"), text: z.string().min(1).optional() }).strict(),
+  z.object({ type: z.literal("setAttention"), level: AttentionSchema }).strict(),
+  /** A language tag (`en`, `fr-CA`); null returns to the lesson's language. */
+  z.object({ type: z.literal("setLanguage"), presentation_language: z.string().min(2).nullable() }).strict(),
+  /** « I only have ten minutes »: the minutes the learner has now. */
+  z.object({ type: z.literal("replan"), minutes: z.number().int().min(1).max(600) }).strict(),
 ]);
 export type PanelAction = z.infer<typeof PanelActionSchema>;
 export type PanelActionName = PanelAction["type"];
-export const PanelActionNameSchema = z.enum(["respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse"]);
+export const PANEL_ACTION_NAMES = [
+  "respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse", "ask", "setAttention", "setLanguage", "replan",
+] as const satisfies readonly PanelActionName[];
+export const PanelActionNameSchema = z.enum(PANEL_ACTION_NAMES);
 export const NamedConceptSchema = z.object({ id: z.string(), label: z.string() });
 export type NamedConcept = z.infer<typeof NamedConceptSchema>;
 const object = z.record(z.unknown());
@@ -93,17 +107,16 @@ export const HelpSchema = z.object({
   })),
 });
 export type Help = z.infer<typeof HelpSchema>;
-/** A proposal the learner may accept or dismiss (spec § 2.6): two actions at most. */
+/** A proposal the learner may accept or dismiss (spec § 2.6): two actions at most. `replan` is the
+ * answer to the learner's own « I have N minutes »: asked for, so never counted as a proposal. */
 export const PromptSchema = z.object({
   id: z.string(),
-  kind: z.enum(["review_due", "break", "next_lesson", "map_offer", "forms_offer", "resume_notice", "adaptation_notice"]),
+  kind: z.enum(["review_due", "break", "next_lesson", "map_offer", "forms_offer", "resume_notice", "adaptation_notice", "replan"]),
   reason: z.string(),
   actions: z.array(z.object({ label: z.string(), action: PanelActionSchema })).max(2),
   expires: z.enum(["scene", "session"]),
 });
 export type Prompt = z.infer<typeof PromptSchema>;
-export const AttentionSchema = z.enum(["quiet", "normal", "coached"]);
-export type Attention = z.infer<typeof AttentionSchema>;
 const SurfaceKindSchema = z.enum(["text", "form", "pane", "panel"]);
 /** The surface the lesson is played on, its rank on the ladder (3 panel or pane, 2 forms, 1 text) and
  * the ones the host could use instead. */

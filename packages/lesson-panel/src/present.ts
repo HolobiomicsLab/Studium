@@ -113,8 +113,10 @@ export async function presentPanel(backend: PanelBackend, ctx: PanelContext): Pr
       locale: view.locale, lessonTitle: view.lesson_title, verdict: ctx.transition?.verdict ?? null,
     });
     Object.assign(view, placed, {
-      schema: PANEL_VIEW_SCHEMA, prompts: [], attention: ctx.attention ?? "normal", surface: ctx.surface ?? DEFAULT_SURFACE,
+      schema: PANEL_VIEW_SCHEMA, prompts: ctx.prompts ?? [], attention: ctx.attention ?? "normal", surface: ctx.surface ?? DEFAULT_SURFACE,
     });
+    // What a placed learner can do on any scene without a model turn (applyPanelAction).
+    if (view.kind === "scene") view.actions.push("ask", "setLanguage", "setAttention", "replan");
   }
   ctx.lastView = PanelViewSchema.parse({ ...view, ...ctx.effects });
   return ctx.lastView;
