@@ -173,6 +173,34 @@ chaque session une session de leçon. Dans une session déjà ouverte, `/model h
 apporte l'essentiel du même gain. Ne demandez pas à un grand modèle de confier chaque réponse à l'agent
 (voir [Garder des réponses rapides](#garder-des-réponses-rapides)).
 
+### La ligne d'état
+
+En mode durable, Studium note où en est la leçon dans `status.json`, dans votre dossier d'apprenant, à
+chaque écran et à chaque réponse. Le script `tools/studium_statusline.mjs` en affiche la ligne, celle qui
+termine chaque écran :
+
+```text
+Les atomes · étape 2/3 · 3 min · à toi de répondre
+```
+
+Pour l'afficher dans la ligne d'état de Claude Code, ajoutez ceci à `~/.claude/settings.json` :
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node /path/to/studium/tools/studium_statusline.mjs"
+  }
+}
+```
+
+Le script ne demande aucune installation et n'affiche rien quand aucune leçon n'est en cours : séance
+fermée, serveur arrêté, ou progression gardée en mémoire seulement (`STUDIUM_EPHEMERAL=1`), où rien n'est
+écrit. Il trouve le dossier de données comme le serveur (`STUDIUM_DATA_DIR`, sinon `<STUDIUM_HOME>/data`) ;
+`--data-dir=DOSSIER` en désigne un autre. Si vous avez donné `STUDIUM_DATA_DIR` ou `STUDIUM_HOME` au serveur
+dans `.mcp.json`, donnez le même au script. Avec plusieurs leçons ouvertes sur une machine, il montre celle
+qui a bougé en dernier, dans toutes les fenêtres de Claude Code.
+
 Cette configuration vise Claude Code, pas l'application de bureau Claude.
 
 ## Copilot dans VS Code

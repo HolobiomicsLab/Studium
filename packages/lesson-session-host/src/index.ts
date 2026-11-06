@@ -14,6 +14,7 @@ export { pickReviewScene, isDiagnosticScene, DEFAULT_REVIEW_ITEMS, MAX_REVIEW_IT
 // The study loop (sprint 2026-10-30, W2): where lessons and learner data live (C6), the chat text of
 // every presentation and transition (HJ-4), a chat reply as an answer, the self-rating grades (C4).
 export { resolvePersistence, persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceConfig, type PersistenceInfo } from "./persistence.js";
+export { STATUS_FILE, STATUS_SCHEMA, statusFilePath, type StatusFile } from "./status-file.js";
 export {
   presentationMarkdown, transitionMarkdown, verdictMarkdown, recallRatedMarkdown, nothingToReviewMarkdown, formatReviewDate,
   lessonListMarkdown, forgetMarkdown, type DisplayLocale, type ListedLessonLine, type ForgetDisplayItem,

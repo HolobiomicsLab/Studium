@@ -34,6 +34,7 @@ import {
   type InstallSecret,
 } from "./pseudonym-secret.js";
 import { LearnerDataError, tightenFolder, withLearnerLock, readLearnerTombstone, writeLearnerTombstone } from "./learner-files.js";
+import { removeStatusFile, statusFileOwner, writeStatusFile } from "./status-file.js";
 import { loadResolvedBundle } from "./bundle-resolver.js";
 import { discoverCommunityBundleEntries, type CommunityBundleEntry } from "./community-bundles.js";
 import { authoringOf, readApproval, draftedByOf, type AuthoringBlock, type DraftedBy } from "./authoring.js";
@@ -893,6 +894,9 @@ export class SessionHost {
   /** The last write-through queued per learner: two sessions of one learner write one after the other,
    * so neither saves over the other's update (each write is a load, a merge and a save). */
   private readonly learnerWrites = new Map<string, Promise<void>>();
+  /** INT-STUDIUM-058: the session that last wrote each learner's status file from this host
+   * (publishStatus): only that session takes the file away when it closes. */
+  private readonly statusWriters = new Map<string, SessionEntry>();
   /** RFR-13: the time zone of every date this host names (calendar.ts). */
   private readonly zone: string;
   /** L-11: learners forgotten in this host, by profile pseudonym, with when (this host's sequence of
@@ -1065,6 +1069,7 @@ export class SessionHost {
       this.registry.create(sessionId, entry);
       this.experiments.set(sessionId, new ExperimentJournal(experimentRevision(bundle), journalDirectory));
       const presentation = this.served(entry, started);
+      await this.publishStatus(entry);
       const resume = resumeFor(bundle, initial, profile, presentation.scene.id);
       const record = resume.kind === "completed" ? await this.studyStore.load(profilePseudonym) : null;
       const conceptMap = this.conceptMapOf(entry, "start");
@@ -1168,6 +1173,7 @@ export class SessionHost {
       this.registry.create(sessionId, entry);
       this.experiments.set(sessionId, new ExperimentJournal(experimentRevision(bundle), undefined));
       const presentation = this.served(entry, started);
+      await this.publishStatus(entry);
       const items = bundle.scenes.map((scene): ReviewItem => {
         const origin = built.origins[scene.id]!;
         const conceptId = scene.concept_refs[0] ?? "";
@@ -1838,7 +1844,36 @@ export class SessionHost {
     } catch (error) {
       warning = persistenceWarning(error);
     }
+    await this.publishStatus(e);
     return this.servedTransition(e, transition, warning);
+  }
+
+  /** INT-STUDIUM-058 (N8): in durable mode, say where this session stands in the learner's folder, for
+   * a harness status line (status-file.ts) — the same line its screens end with. Called once the
+   * session has moved (a first screen, an answer, a self-rating), while the learner's lock is held.
+   * Nothing in memory-only mode, nothing for a learner erased under the session. A status that cannot
+   * be written is left as it was: the answer is recorded and served without it. */
+  private async publishStatus(entry: SessionEntry): Promise<void> {
+    const pseudonym = entry.profilePseudonym;
+    if (this.dataDir === null || !pseudonym || entry.erased) return;
+    const orientation = orientationFrom(this.orientationFactsOf(entry));
+    const line = statusLine(orientation, entry.bundle.metadata.title, displayLocale(entry.bundle.metadata.language));
+    try {
+      await writeStatusFile(this.dataDir, pseudonym, { status_line: line, orientation });
+      this.statusWriters.set(pseudonym, entry);
+    } catch { /* a display aid: see above */ }
+  }
+
+  /** Take the learner's status file away when the session that wrote it closes: no session plays any
+   * more. Left alone when another session of the learner, here or in another server on the same data
+   * folder, wrote it since. */
+  private async retireStatus(entry: SessionEntry): Promise<void> {
+    const pseudonym = entry.profilePseudonym;
+    if (this.dataDir === null || !pseudonym || this.statusWriters.get(pseudonym) !== entry) return;
+    this.statusWriters.delete(pseudonym);
+    try {
+      if (await statusFileOwner(this.dataDir, pseudonym) === process.pid) await removeStatusFile(this.dataDir, pseudonym);
+    } catch { /* the file stays until this server stops; the status-line script then ignores it */ }
   }
 
   /** Carry the graded answers the engine just folded into its memory (RT-3) over to the learner's. A
@@ -1885,6 +1920,7 @@ export class SessionHost {
     let warning: string | undefined;
     try { await this.persistLearner(e, { moved: conceptIds, sceneId, complete: false }); }
     catch (error) { warning = persistenceWarning(error); } // L-11: the rating counts in this session
+    await this.publishStatus(e);
     const next = Math.round(Math.min(...conceptIds.map((conceptId) => dueAt(e.memory[conceptId]!))));
     return {
       scene_id: sceneId, concept_id: conceptIds[0]!, concept_ids: conceptIds, grade, source: "self_rated",
@@ -2257,6 +2293,7 @@ export class SessionHost {
         this.registry.delete(id);
         this.experiments.delete(id);
       }
+      await this.retireStatus(entry);
       return warning ? { persistence_warning: warning } : {};
     });
   }
@@ -2446,7 +2483,11 @@ export class SessionHost {
   private async eraseLearnerRecords(profilePseudonym: string): Promise<void> {
     await this.profileStore.delete(profilePseudonym);
     await this.studyStore.delete(profilePseudonym);
-    if (this.dataDir) await removeIfEmpty(join(this.dataDir, safeSegment(profilePseudonym)));
+    this.statusWriters.delete(profilePseudonym);
+    if (this.dataDir) {
+      await removeStatusFile(this.dataDir, profilePseudonym);
+      await removeIfEmpty(join(this.dataDir, safeSegment(profilePseudonym)));
+    }
   }
 
   /** What forget leaves on disk (L-13): the lessons of the learner's library and the sources they were

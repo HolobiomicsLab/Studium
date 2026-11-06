@@ -169,6 +169,34 @@ session there a lesson session. In a session that is already open, `/model haiku
 gives most of the same gain. Do not ask a large model to hand each answer to the agent (see
 [Keep answers fast](#keep-answers-fast)).
 
+### The status line
+
+In durable mode, Studium notes where the lesson stands in `status.json`, in your learner folder, at each
+screen and each answer. The script `tools/studium_statusline.mjs` prints its line, the one each screen ends
+with:
+
+```text
+Les atomes · étape 2/3 · 3 min · à toi de répondre
+```
+
+To show it in Claude Code's status line, add this to `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node /path/to/studium/tools/studium_statusline.mjs"
+  }
+}
+```
+
+The script needs no install and prints nothing when no lesson is being played: the session was closed, the
+server stopped, or progress is kept in memory only (`STUDIUM_EPHEMERAL=1`), where nothing is written. It
+finds the data folder as the server does (`STUDIUM_DATA_DIR`, else `<STUDIUM_HOME>/data`); `--data-dir=DIR`
+names another. If you gave the server `STUDIUM_DATA_DIR` or `STUDIUM_HOME` in `.mcp.json`, give the script
+the same. With several lessons open on one machine, it shows the one that moved last, in every Claude Code
+window.
+
 This configures Claude Code, not the Claude desktop app.
 
 ## Copilot in VS Code

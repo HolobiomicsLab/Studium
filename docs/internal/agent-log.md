@@ -3519,6 +3519,48 @@ How a reader shows a `notice` that still carries its scene is theirs to decide. 
 SDK validates `panel_action` before `applyPanelAction` does, so the one-line refusal reaches only
 callers that use the package directly.
 
+## 2026-11-06 (status file) — A status file for a harness status line
+
+INT-STUDIUM-058, lot 2, task 2.4 (requirement N8). In durable mode the host writes where the
+learner's session stands in `<data folder>/<pseudonym>/status.json`, and a script with no dependency
+prints its line for a harness status line.
+
+- `packages/lesson-session-host/src/status-file.ts`: the file (`studium-status/1`) holds
+  `status_line` (the line each screen ends with), `orientation`, `updated_at` (the machine's clock,
+  never a session's anchored clock) and `pid` (the server that wrote it). Titles, steps and
+  durations only: no scene text, key, hint or reveal. Written whole through `writeFileAtomic`
+  (temporary file, then rename), 0600 in the learner's 0700 folder.
+- `host.ts`: `publishStatus` after a first screen (lesson or review), an answer, a recorded run
+  (it goes through the same answer path) and a self-rating, while the learner's lock is held.
+  `retireStatus` removes the file when the session that wrote it closes, unless another session of
+  the learner, here or in another server on the same data folder, wrote it since. Forget erases it
+  with the learner's profile and study record. Nothing is written in memory-only mode.
+- A status that cannot be written is left as it was and raises no `persistence_warning`: the
+  progress is saved, and the warning would say it was not.
+- `tools/studium_statusline.mjs` (Node built-ins only): prints the `status_line` of the newest
+  status file whose server still runs; prints nothing, exit 0, otherwise. It finds the data folder
+  as the server does (`--data-dir`, `STUDIUM_DATA_DIR`, `<STUDIUM_HOME>/data`), reads learner
+  folders only, and turns control characters into spaces, so a lesson title cannot send an escape
+  sequence to a terminal.
+- Docs: the Claude Code section of `docs/start/harnesses.md` and `.fr.md` gains the status-line
+  setting; `docs/concepts/privacy-and-limits.md` and `.fr.md` name the file and say forget erases
+  it. `pnpm test` now also runs `pnpm test:tools` (the script's own tests), so CI covers them.
+
+Deviations from the plan and the spec. Beyond `status_line`, `orientation` and a time, the file
+carries `schema` and `pid`: without `pid`, a file left by a server that stopped without closing
+its sessions (the usual case: the client was closed) would show a lesson nobody plays. The file is
+written at the first screen too, not only at transitions, and removed at close. Files beyond the
+four the task named: `host.ts`, `index.ts`, the root `package.json`, five doc pages.
+
+Test decision: none, no existing test changed. Ten new tests in `status-file.test.ts` (one runs
+the real script on the file the host wrote), nine in `tools/studium_statusline.test.mjs`; all
+failed first.
+
+Not verified: no harness has shown the line. The `statusLine` setting of Claude Code was written
+from its documented form and not tried in a session. With two lessons open on one machine every
+window shows the one that moved last; closing the session that wrote last blanks the line until
+another session moves. A pid reused by another process after a restart would let a stale file show.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local
