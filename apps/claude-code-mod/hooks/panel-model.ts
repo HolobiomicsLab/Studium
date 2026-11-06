@@ -3,6 +3,7 @@ import type {
   StudiumMapConcept,
   StudiumMapEvidence,
   StudiumPanelAction,
+  StudiumPrompt,
   StudiumPanelActionName,
   StudiumPanelView,
   StudiumPublicScene,
@@ -196,6 +197,17 @@ function isMapConcept(value: unknown): boolean {
     && (value.contest === undefined || isMapContest(value.contest));
 }
 
+/** Prompts are optional; each one shown is read whole: its reason, and the label and action of each answer. */
+function hasValidPrompts(value: unknown): boolean {
+  if (value === undefined) return true;
+  return Array.isArray(value) && value.every(prompt => (
+    isRecord(prompt) && typeof prompt.id === "string" && typeof prompt.kind === "string" && typeof prompt.reason === "string"
+    && Array.isArray(prompt.actions) && prompt.actions.every(answer => (
+      isRecord(answer) && typeof answer.label === "string" && isRecord(answer.action) && typeof answer.action.type === "string"
+    ))
+  ));
+}
+
 /** The map is optional; one that is sent is read whole, so it is checked whole. */
 function hasValidMap(value: unknown): boolean {
   if (value === undefined) return true;
@@ -214,7 +226,7 @@ export function isPanelView(value: unknown): value is StudiumPanelView {
   if ((value.kind === "scene" && !isScene(value.scene)) || (value.scene !== undefined && !isScene(value.scene))) return false;
   if (!Array.isArray(value.reviewDue) || !value.reviewDue.every(isNamedConcept)) return false;
   if (!isCalibration(value.calibration) || !isMastery(value.mastery)) return false;
-  return hasValidActions(value.actions) && hasValidFeedback(value) && hasValidMap(value.map);
+  return hasValidActions(value.actions) && hasValidFeedback(value) && hasValidMap(value.map) && hasValidPrompts(value.prompts);
 }
 
 function errorText(result: McpResult): string {
@@ -350,6 +362,25 @@ function rungAction(view: StudiumPanelView, kind: StudiumHelpRung["kind"]): Stud
 export function askControl(view: StudiumPanelView): { label: string; action: StudiumPanelAction } | undefined {
   if (!view.actions.includes("ask")) return undefined;
   return { label: phraseOf(view, "pane_ask", "Poser une question", "Ask a question"), action: { type: "ask" } };
+}
+
+/** One proposal of the server as the pane draws it: its reason and one button per answer. A notice has
+ * no button. */
+export type PromptControl = { id: string; kind: StudiumPrompt["kind"]; reason: string; buttons: StudiumPrompt["actions"] };
+
+/** What the server proposes, as the pane shows it under its controls (spec § 2.6). The server decides
+ * what is proposed and how often; while an answer or a self-rating is owed the pane shows notices
+ * only, and a proposal made at an earlier pause waits for the next one. A button whose action the view
+ * does not offer is left out. */
+export function promptControls(view: StudiumPanelView): PromptControl[] {
+  const waiting = view.orientation?.waiting;
+  const busy = waiting === "answer" || waiting === "self_rating";
+  return (view.prompts ?? [])
+    .filter(prompt => !busy || prompt.actions.length === 0)
+    .map(prompt => ({
+      id: prompt.id, kind: prompt.kind, reason: prompt.reason,
+      buttons: prompt.actions.filter(answer => view.actions.includes(answer.action.type)),
+    }));
 }
 
 /** The button that opens the concept map, or closes it, where the view offers one. */

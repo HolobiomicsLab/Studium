@@ -68,8 +68,15 @@ et `coached`, chaque proposition faite une fois ; voir [`prompts.ts`](../lesson-
 La vue donne à chaque proposition deux actions, toutes deux des actions `prompt` : la première accepte, la
 seconde refuse. Une notice (`adaptation_notice`, `resume_notice`) n'a pas d'action. La vue ne propose
 `prompt` que si une proposition attend une réponse. L'invite `replan`, demandée par l'apprenant, vient
-après celles du serveur et n'est pas comptée. Aucune surface ne dessine encore `prompts` : un modèle les
-lit dans la vue d'une leçon jouée en conversation.
+après celles du serveur et n'est pas comptée.
+
+Trois surfaces les montrent. Le panneau et le volet VS Code dessinent chacune sous la scène : sa raison,
+puis un bouton par action que la vue propose ; tant qu'une réponse ou une auto-évaluation est attendue, ils
+ne dessinent que les notices. Le volet Claude Code affiche la raison et les mêmes boutons après ses
+commandes. Dans le texte de conversation, le serveur dit chacune une fois, en ligne citée avant la ligne
+d'état, sur le premier écran qui n'attend pas de réponse ; une notice est dite aussitôt. Le texte dit ce
+qu'une surface a présenté au registre de la séance : une leçon jouée avec les seuls outils de séance, sans
+vue de panneau demandée, ne propose encore rien.
 
 Une vue porte `strings`, le catalogue des libellés de l'interface dans la langue de la leçon (environ
 24 ko), pour la surface qui la dessine. Le serveur MCP le laisse vide là où rien ne dessine la vue

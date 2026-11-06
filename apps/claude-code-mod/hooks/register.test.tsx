@@ -120,6 +120,34 @@ test("the pane draws the map as a list, with its button, a claim button and the 
   }
 });
 
+// INT-STUDIUM-058 § 2.6, task 5.2: a proposal of the server is a reason and one button per answer.
+test("the pane draws a proposal with its reason and a button per answer", async ($, on) => {
+  const answer = (outcome: "accept" | "dismiss") => ({ type: "prompt" as const, id: "review_due:start", outcome });
+  const PROPOSING: StudiumPanelView = {
+    ...PANEL, schema: "studium/panel-view/2", actions: ["respond", "end", "prompt"],
+    scene: { id: "s0-intro", type: "concept", title: "Une page", markdown: "À lire." },
+    orientation: { step: { index: 1, total: 9 }, reviews_due: 3, waiting: "read" },
+    status_line: "Atomistique · étape 1/9 · à lire",
+    voices: { scene: { kind: "author", name: "Prof. Test", reviewed: true, drafted_by: "teacher" } },
+    help: { rungs: [] }, attention: "normal", surface: { rank: 3, kind: "pane", available: ["text", "pane"] },
+    prompts: [{
+      id: "review_due:start", kind: "review_due", reason: "3 notions à revoir aujourd'hui", expires: "scene",
+      actions: [{ label: "Réviser maintenant", action: answer("accept") }, { label: "Plus tard", action: answer("dismiss") }],
+    }],
+  };
+  on("state.get", () => ({
+    value: { value: { shape: "panel-view-1", value: PROPOSING }, version: 1 },
+  }));
+
+  for (const surface of ["terminal", "desktop", "vscode", "mobile"] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface });
+    expect(await ui.find({ type: "Text", text: /3 notions à revoir aujourd'hui/ })).toBeDefined();
+    expect(await ui.find({ type: "Button", key: "prompt-review_due:start-0" })).toBeDefined();
+    expect(await ui.find({ type: "Button", key: "prompt-review_due:start-1" })).toBeDefined();
+    await ui.unmount();
+  }
+});
+
 test("a stored value with an older shape is declined cleanly", async ($, on) => {
   on("state.get", () => ({ value: { value: PANEL, version: 1 } }));
   const ui = await $.ui.mount({ ...PANE, surface: "desktop" });

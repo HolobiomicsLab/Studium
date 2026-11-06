@@ -27,6 +27,7 @@ import {
   mapMarkdown,
   isPanelView,
   panelFromMcpResult,
+  promptControls,
   pngPayload,
   sceneMarkdown,
   sourcesMarkdown,
@@ -195,6 +196,7 @@ async function renderPane($: EngineInterface, event: RenderInput<"Pane">) {
       {sources && <Markdown text={sources} dimColor={isDimmed} />}
       {sceneMessage && <Text key="scene-message" dimColor={isDimmed}>{sceneMessage}</Text>}
       {controls}
+      {promptNodes($, view, isDimmed, { Button, Text })}
       {map && <Markdown key="map" text={map} dimColor={isDimmed} />}
       {map && contestButtons($, view, isDimmed, { Button, Text })}
     </Box>
@@ -337,6 +339,22 @@ function deckControls(
 async function submitDeck($: EngineInterface, view: StudiumPanelView, selected: string[]): Promise<void> {
   const verdicts = (view.scene?.deck ?? []).map(item => ({ token: item.token, flagged: selected.includes(item.token) }));
   await applyAction($, { type: "respond", input: { kind: "flaw_verdicts", verdicts } }, pendingAnswer(view));
+}
+
+/** Under the controls: what the server proposes, each with its reason and one button per answer. */
+function promptNodes(
+  $: EngineInterface,
+  view: StudiumPanelView,
+  dim: boolean,
+  elements: Pick<CommonElements, "Button" | "Text">,
+): RenderElement[] {
+  const { Button, Text } = elements;
+  return promptControls(view).flatMap(prompt => [
+    <Text key={`prompt-reason-${prompt.id}`} dimColor={dim}>{prompt.reason}</Text>,
+    ...prompt.buttons.map((answer, index) => (
+      <Button key={`prompt-${prompt.id}-${index}`} dimColor={dim} onPress={() => applyAction($, answer.action as StudiumPanelAction, answer.label)}>{answer.label}</Button>
+    )),
+  ]);
 }
 
 /** Under the open map: one claim button per concept the server lets the learner contest. */

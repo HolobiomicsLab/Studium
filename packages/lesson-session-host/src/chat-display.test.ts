@@ -381,3 +381,36 @@ describe("the status line and the voices in the conversation text", () => {
     expect(verdictOf({ assessed_by: "none" })).not.toContain("Évalué par");
   });
 });
+
+// INT-STUDIUM-058 § 2.6, task 5.2: what the server proposes, in the conversation text.
+describe("the server's prompts in the conversation text", () => {
+  const concept = ATOMISTIQUE.scenes.find((s) => s.type === "concept")!;
+  const STATUS = "Atomistique · étape 1/32 · 75 min · à lire";
+  const REVIEW = { kind: "review_due", reason: "3 notions à revoir aujourd'hui", asks: true };
+  const NOTICE = { kind: "adaptation_notice", reason: "Retour sur un prérequis.", asks: false };
+
+  it("says a proposal after the screen and before the status line, with how to answer it", () => {
+    const plain = presentationMarkdown(presentation(concept, 0), { statusLine: STATUS });
+    const md = presentationMarkdown(presentation(concept, 0), { statusLine: STATUS, prompts: [REVIEW] });
+    const body = plain.slice(0, -`\n\n\`${STATUS}\``.length);
+    expect(md).toBe(`${body}\n\n> **Proposition\u00a0:** 3 notions à revoir aujourd'hui\n> _Tu peux accepter, ou dire «\u00a0plus tard\u00a0»._\n\n\`${STATUS}\``);
+  });
+
+  it("says a notice as it is: there is nothing to answer", () => {
+    const md = presentationMarkdown(presentation(concept, 0), { statusLine: STATUS, prompts: [NOTICE, REVIEW] });
+    expect(md).toContain("\n\n> Retour sur un prérequis.\n\n> **Proposition\u00a0:** 3 notions à revoir aujourd'hui\n");
+  });
+
+  it("is worded in the screen's language, and adds nothing when there is no prompt", () => {
+    const en = presentationMarkdown(presentation(concept, 0, { locale: "en" }), { prompts: [{ ...REVIEW, reason: "3 concepts to review today" }] });
+    expect(en.endsWith("> **Suggestion:** 3 concepts to review today\n> _You can accept, or say “later”._")).toBe(true);
+    expect(presentationMarkdown(presentation(concept, 0), { statusLine: STATUS, prompts: [] }))
+      .toBe(presentationMarkdown(presentation(concept, 0), { statusLine: STATUS }));
+  });
+
+  it("carries the prompts onto the next screen of a transition", () => {
+    const transition = { kind: "next", presentation: presentation(concept, 0), navigation: { kind: "advance", scene_id: concept.id, rule_id: null, reason: null, modulator: null } };
+    const md = transitionMarkdown(transition as never, { statusLine: STATUS, prompts: [REVIEW] });
+    expect(md.endsWith(`> **Proposition\u00a0:** 3 notions à revoir aujourd'hui\n> _Tu peux accepter, ou dire «\u00a0plus tard\u00a0»._\n\n\`${STATUS}\``)).toBe(true);
+  });
+});

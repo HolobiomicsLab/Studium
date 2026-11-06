@@ -157,7 +157,7 @@ let renderView;
   // verdict of the answer before, whose feedback the learner already read and left. Only such a view
   // skips that feedback: the same verdict on any other view is a new answer (a question replayed and
   // answered the same way) and is shown.
-  const KEEPS_SCENE = new Set(["openMap", "closeMap", "hint", "ask"]);
+  const KEEPS_SCENE = new Set(["openMap", "closeMap", "hint", "ask", "prompt"]);
   let sameSceneAwaited = false;
 
   function postAction(message, pendingText) {
@@ -585,6 +585,8 @@ let renderView;
     if (ladder) root.append(ladder);
     ui.hint = el("div", { id: "hint", class: "hint", "aria-live": "polite" });
     root.append(ui.hint);
+    const proposals = promptsRegion(state);
+    if (proposals) root.append(proposals);
     const mapButton = conceptMapButton(state);
     if (mapButton) root.append(mapButton);
     const map = conceptMap(state);
@@ -603,6 +605,39 @@ let renderView;
       ? t("pane_live_step", { position: memory.furthest, total: memory.total || state.progress.total, title })
       : t("pane_live_scene", { title }));
     focusHeading($(".scene-title", head));
+  }
+
+  // --- the server's proposals (INT-STUDIUM-058 § 2.6) ---------------------------------------------------
+  // The server decides what is proposed, when and how often; the panel shows what the view carries,
+  // under the scene's own controls, and sends back the answer the learner picks. While an answer or a
+  // self-rating is owed only notices show: a proposal made at an earlier pause waits for the next one.
+  // Nothing is announced: a proposal is there to be found, not to interrupt.
+  function promptsRegion(state) {
+    const all = Array.isArray(state.prompts) ? state.prompts.filter((p) => isObject(p) && p.id && typeof p.reason === "string" && p.reason) : [];
+    const waiting = isObject(state.orientation) ? state.orientation.waiting : null;
+    const busy = waiting === "answer" || waiting === "self_rating";
+    const asks = (prompt) => Array.isArray(prompt.actions) && prompt.actions.length > 0;
+    const shown = all.filter((prompt) => !busy || !asks(prompt));
+    if (!shown.length) return null;
+    const offered = Array.isArray(state.actions) ? state.actions : [];
+    const region = el("section", { class: "prompts", "aria-label": t("pane_prompts_heading") });
+    for (const prompt of shown) {
+      const reason = el("p", { class: "prompt-reason", id: nextId("prompt-reason") }, prompt.reason);
+      const item = el("div", { class: "prompt", "data-kind": String(prompt.kind || "") }, reason);
+      const answers = (asks(prompt) ? prompt.actions : [])
+        .filter((answer) => isObject(answer) && answer.label && isObject(answer.action) && offered.includes(answer.action.type));
+      if (answers.length) {
+        const row = el("div", { class: "prompt-actions" });
+        for (const answer of answers) {
+          const button = el("button", { type: "button", class: "st-button st-button--quiet prompt-action", "aria-describedby": reason.id }, String(answer.label));
+          button.addEventListener("click", () => postAction(answer.action, t("pane_updating")));
+          row.append(button);
+        }
+        item.append(row);
+      }
+      region.append(item);
+    }
+    return region;
   }
 
   // --- the concept map, as a list (INT-STUDIUM-058 § 2.7) -----------------------------------------------

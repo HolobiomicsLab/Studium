@@ -15,6 +15,7 @@ import {
   mapMarkdown,
   panelFromMcpResult,
   pngPayload,
+  promptControls,
   sceneMarkdown,
   sourcesMarkdown,
   voiceChip,
@@ -111,6 +112,9 @@ describe("PanelView boundary", () => {
     ["voice", { ...V2, voices: { scene: { kind: "narrator" } } }],
     ["help rung", { ...V2, help: { rungs: [{ kind: "reread", available: "yes" }] } }],
     ["missing orientation", { ...V2, orientation: undefined }],
+    ["prompts list", { ...V2, prompts: "none" }],
+    ["prompt without a reason", { ...V2, prompts: [{ id: "break:1", kind: "break", actions: [] }] }],
+    ["prompt answer", { ...V2, prompts: [{ id: "break:1", kind: "break", reason: "26 minutes", actions: [{ label: 3, action: { type: "prompt" } }] }] }],
   ])("rejects a version-2 view with a malformed %s", (_name, value) => {
     expect(isPanelView(value)).toBe(false);
   });
@@ -309,5 +313,41 @@ describe("the concept map of a pane", () => {
     expect(isPanelView({ ...OPEN, map: { concepts: [{ id: "a" }], edges: [] } })).toBe(false);
     expect(isPanelView({ ...OPEN, map: { concepts: MAP.concepts, edges: [{ from: "a" }] } })).toBe(false);
     expect(isPanelView({ ...OPEN, map: { concepts: [{ ...MAP.concepts[0], state: "mastered" }], edges: [] } })).toBe(false);
+  });
+});
+
+// INT-STUDIUM-058 § 2.6, task 5.2: the server's proposals in the pane.
+describe("the proposals of a pane", () => {
+  const answer = (id: string, outcome: "accept" | "dismiss") => ({ type: "prompt" as const, id, outcome });
+  const REVIEW = {
+    id: "review_due:start", kind: "review_due" as const, reason: "3 notions à revoir aujourd'hui", expires: "scene" as const,
+    actions: [{ label: "Réviser maintenant", action: answer("review_due:start", "accept") }, { label: "Plus tard", action: answer("review_due:start", "dismiss") }],
+  };
+  const NOTICE = { id: "adaptation_notice:s1", kind: "adaptation_notice" as const, reason: "Retour sur un prérequis.", expires: "scene" as const, actions: [] };
+  const V2: StudiumPanelView = {
+    ...PANEL, schema: "studium/panel-view/2", actions: ["respond", "end", "prompt"],
+    orientation: { step: { index: 2, total: 9 }, reviews_due: 3, waiting: "read" },
+    status_line: "Atomistique · étape 2/9 · à lire",
+    voices: { scene: { kind: "author", name: "Prof. Test", reviewed: true, drafted_by: "teacher" } },
+    help: { rungs: [] }, prompts: [REVIEW, NOTICE], attention: "normal", surface: { rank: 3, kind: "pane", available: ["text", "pane"] },
+  };
+
+  test("at a pause each proposal is a reason and one button per answer; a notice is a reason alone", () => {
+    expect(promptControls(V2)).toEqual([
+      { id: "review_due:start", kind: "review_due", reason: "3 notions à revoir aujourd'hui", buttons: REVIEW.actions },
+      { id: "adaptation_notice:s1", kind: "adaptation_notice", reason: "Retour sur un prérequis.", buttons: [] },
+    ]);
+    expect(promptControls(PANEL)).toEqual([]);                        // a version-1 view carries none
+  });
+
+  test("while an answer or a self-rating is owed only notices show", () => {
+    for (const waiting of ["answer", "self_rating"] as const) {
+      const busy = { ...V2, orientation: { ...V2.orientation!, waiting } };
+      expect(promptControls(busy).map(prompt => prompt.kind)).toEqual(["adaptation_notice"]);
+    }
+  });
+
+  test("a view that does not offer the action a button sends shows the reason without the button", () => {
+    expect(promptControls({ ...V2, actions: ["respond", "end"] }).map(prompt => prompt.buttons)).toEqual([[], []]);
   });
 });

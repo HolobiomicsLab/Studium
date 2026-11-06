@@ -4027,6 +4027,46 @@ this tree, since each view now asks the session's book: 40 panel actions with a 
 Not verified: no surface draws a prompt and no learner has seen one; no model has read a view that
 carries one. The phrases were not read by a teacher. Outcomes live in memory and go with the session.
 
+## 2026-11-06 (prompts drawn) — The server's proposals are shown on the three surfaces
+
+INT-STUDIUM-058, lot 5, second half of task 5.2 (requirement F7, spec § 2.6). The proposals the view
+carries since `29a1a14` are now drawn.
+
+- `apps/lesson-panel-ui` (the MCP Apps panel and the VS Code pane): a region under the scene. Each
+  proposal shows its reason and one button per action the view offers; a notice shows its reason
+  only. While an answer or a self-rating is owed, only the notices are drawn.
+- `apps/claude-code-mod`: the pane shows the reason and the same buttons after its controls, under
+  the same rule; a view whose `prompts` are malformed is refused whole.
+- `packages/lesson-session-host`: in the conversation text a proposal is a quoted line before the
+  status line, a notice a quoted line with its reason. The host says each one once, on the first
+  screen that does not wait for an answer. It reads the session's book and proposes nothing itself.
+- One phrase added, French and English; the READMEs of `packages/lesson-panel` and
+  `apps/claude-code-mod` say how each surface shows a prompt, in both languages.
+
+Limit: a lesson played with the session tools alone, where no panel view is asked, has an empty
+book, so its text proposes nothing yet. Feeding the book from the session tools is not in the plan's
+task 5.2.
+
+Test decision: none. New tests: three in `renderer.test.mjs`, three in `panel-model.spec.ts`, one in
+`register.test.tsx`, four in `chat-display.test.ts`, one in `host.prompts.test.ts`. The four tests of `chat-display.test.ts` and the host test failed first, three of them on the
+non-breaking spaces French text carries, which their expected strings now write. The renderer's and
+the mod's tests were written with their code, so each rule was broken in turn instead (eleven
+mutations: a proposal drawn or said over a question, a button for an action the view does not offer,
+no region, no pane node, malformed prompts accepted, a proposal said twice, prompts not passed to the
+screen, a notice worded as a proposal). Nine were caught at once; two were not (a proposal held while
+a question waits in the text, malformed prompts in the mod), and each got a test that fails under its
+mutation: one case in `host.prompts.test.ts`, three rows in the mod's table of refused views.
+
+Checked: every repository check passes on this tree at its first run (install, build, lint,
+`pnpm -r test`, the Python suites, bundle lint, docs check, headless smoke, the MCP bundle,
+`tools/panel-probe.mjs`), `pnpm test:tools` (9 tests) and `claude plugin test` (6 tests). The three
+refusal rows of the mod's spec were added after that run; the mod's suite (43 tests), its `tsc` build,
+the plugin tester and the lint were run again after them.
+
+Not verified: no learner has seen a prompt on any surface, and no model has read a text or a view
+that carries one. No VS Code driver clicks a prompt; the Claude Code pane was drawn by the plugin
+tester only. The wording of the conversation line was not read by a teacher.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

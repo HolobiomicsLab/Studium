@@ -64,8 +64,14 @@ owed, a budget per session of 0, 3 or 6 proposals for `quiet`, `normal` and `coa
 once; see [`prompts.ts`](../lesson-session-host/src/prompts.ts)). The view gives each proposal two
 actions, both `prompt` actions: the first accepts, the second refuses. A notice (`adaptation_notice`,
 `resume_notice`) has no action. The view offers `prompt` only when a proposal can be answered. The
-learner's own `replan` prompt is added after the server's and is not counted. No surface draws `prompts`
-yet: a model reads them in the view of a lesson played in the conversation.
+learner's own `replan` prompt is added after the server's and is not counted.
+
+Three surfaces show them. The panel and the VS Code pane draw each one under the scene: its reason, then
+one button per action the view offers; while an answer or a self-rating is owed they draw the notices
+only. The Claude Code pane shows the reason and the same buttons after its controls. In the conversation
+text the server says each one once, as a quoted line before the status line, on the first screen that is
+not waiting for an answer; a notice is said at once. The text says what a surface put to the session's
+book: a lesson played with the session tools alone, with no panel view asked, proposes nothing yet.
 
 A view carries `strings`, the interface's phrase catalogue in the lesson's language (some 24 kB), for the
 surface that draws it. The MCP server leaves it empty where nothing draws the view (forms, the conversation):

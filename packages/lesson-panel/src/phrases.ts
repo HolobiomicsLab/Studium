@@ -327,6 +327,7 @@ const FR = {
   pane_ask: "Poser une question",
   pane_ask_prompt: "Ta question pour l'assistant",
   // INT-STUDIUM-058: the concept map as a list (apps/lesson-panel-ui conceptMap).
+  pane_prompts_heading: "Propositions",
   pane_map_open: "Carte des notions",
   pane_map_close: "Fermer la carte",
   pane_map_state_acquired: "acquise",
@@ -778,6 +779,7 @@ const EN: Record<PhraseKey, string> = {
   pane_help_reference_note: "The reference is shown with the verdict.",
   pane_ask: "Ask a question",
   pane_ask_prompt: "Your question for the assistant",
+  pane_prompts_heading: "Suggestions",
   pane_map_open: "Concept map",
   pane_map_close: "Close the map",
   pane_map_state_acquired: "acquired",

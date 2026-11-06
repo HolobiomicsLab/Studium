@@ -65,6 +65,8 @@ export interface SessionEntry {
    * (null once the lesson is complete; absent until first read). */
   prompts?: PromptBook;
   promptScene?: string | null;
+  /** The prompts the conversation text already said: each is said once. */
+  promptsSaid?: Set<string>;
   /** The contests settled in this session, oldest first. In memory, like the session. */
   contests?: ContestRecord[];
   /** What the concept map already told the learner (host.conceptMapMoment): the concepts whose

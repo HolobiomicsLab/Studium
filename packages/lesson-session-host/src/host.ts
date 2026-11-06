@@ -50,7 +50,7 @@ import { publicScene, citedSources, type CitedSource, type PublicPresentation, t
 import { buildConceptMapRecord, type ConceptMapRecord } from "./concept-map-record.js";
 import {
   presentationMarkdown, transitionMarkdown, verdictMarkdown, recallRatedMarkdown, nothingToReviewMarkdown,
-  lessonListMarkdown, forgetMarkdown, conceptMapExportMarkdown, completionSplit, completionGroupsMarkdown, type CompletionSplit, type DisplayLocale,
+  lessonListMarkdown, forgetMarkdown, conceptMapExportMarkdown, completionSplit, completionGroupsMarkdown, type CompletionSplit, type DisplayLocale, type ScreenPrompt,
 } from "./chat-display.js";
 import { OffsetClock, checkNowMs } from "./session-clock.js";
 import { calendarDate, checkTimeZone, localTimeZone } from "./calendar.js";
@@ -71,7 +71,7 @@ import {
 } from "./orientation.js";
 import { COMPANION_RULES, noteAct, takeActs, type CompanionBrief, type Lane } from "./companion.js";
 import { ContestRefusedError, checkScenes, claimFor, contestOutcome, type ContestClaim, type RecordContest } from "./contest.js";
-import { PromptBook, promptCandidates, type PromptAttention, type PromptCandidate, type PromptRecord } from "./prompts.js";
+import { NOTICE_KINDS, PromptBook, promptCandidates, type PromptAttention, type PromptCandidate, type PromptRecord } from "./prompts.js";
 import type { HostResponseInput } from "./response-input-schema.js";
 
 // Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /
@@ -654,7 +654,7 @@ function releasedSources(entry: SessionEntry, transition: Transition, answered: 
 
 type Verdict = NonNullable<Transition["verdict"]>;
 /** INT-STUDIUM-058: the two lines a screen's conversation text says about itself (screenLines). */
-interface ScreenLines { statusLine: string; voiceLine?: string }
+interface ScreenLines { statusLine: string; voiceLine?: string; prompts?: ScreenPrompt[] }
 
 const hasReference = (verdict: Verdict | undefined): boolean => (verdict?.key_points?.length ?? 0) > 0
   || verdict?.model_answer !== undefined;
@@ -1458,10 +1458,28 @@ export class SessionHost {
     const noticed = !!entry.authoring.notice || (entry.authoring.approval.recorded && !entry.authoring.approval.matches);
     const unreviewedAi = voice.kind === "author" && !voice.reviewed && voice.drafted_by === "agent";
     const voiced = entry.kind !== "review" && (entry.responses === 0 ? !noticed : unreviewedAi);
+    const orientation = orientationFrom(this.orientationFactsOf(entry));
+    const prompts = this.promptsToSay(entry, presentation.scene.id, orientation.waiting);
     return {
-      statusLine: statusLine(orientationFrom(this.orientationFactsOf(entry)), entry.bundle.metadata.title, locale),
+      statusLine: statusLine(orientation, entry.bundle.metadata.title, locale),
       ...(voiced ? { voiceLine: voiceLine(voice, locale) } : {}),
+      ...(prompts.length ? { prompts } : {}),
     };
+  }
+
+  /** INT-STUDIUM-058 § 2.6: the open prompts the conversation text of this screen says. The text is
+   * linear, so each prompt is said once, on the first screen after it was made; it stays open to an
+   * answer. While an answer or a self-rating is owed a proposal waits for the next pause; a notice is
+   * said at once. Nothing is proposed here: the book is fed by the surface that asks (sessionPrompts). */
+  private promptsToSay(entry: SessionEntry, sceneId: string, waiting: string): ScreenPrompt[] {
+    const book = entry.prompts;
+    if (!book) return [];
+    if (entry.promptScene !== undefined && entry.promptScene !== sceneId) { book.sceneChanged(); entry.promptScene = sceneId; }
+    const busy = waiting === "answer" || waiting === "self_rating";
+    const said = (entry.promptsSaid ??= new Set<string>());
+    const now = book.open().filter((prompt) => !said.has(prompt.id) && (!busy || NOTICE_KINDS.has(prompt.kind)));
+    for (const prompt of now) said.add(prompt.id);
+    return now.map((prompt) => ({ kind: prompt.kind, reason: prompt.reason, asks: !NOTICE_KINDS.has(prompt.kind) }));
   }
 
   /** The learner's concept map now (concept-map.ts), drawn from what the session served and how it

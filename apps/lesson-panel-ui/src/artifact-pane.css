@@ -180,6 +180,11 @@ body { margin: 0; }
 .ask-question textarea.st-input { min-height: 4.5rem; }
 .ask-question-buttons { display: flex; flex-wrap: wrap; gap: var(--st-space-3); }
 .hint { margin: var(--st-space-2) 0; font-size: var(--st-size-sm); }
+/* INT-STUDIUM-058: what the server proposes, under the scene's controls. */
+.prompts { display: grid; gap: var(--st-space-2); margin: var(--st-space-3) 0; }
+.prompt { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--st-space-2) var(--st-space-3); padding: var(--st-space-2) var(--st-space-3); border-inline-start: 3px solid var(--st-info); }
+.prompt-reason { margin: 0; font-size: var(--st-size-sm); }
+.prompt-actions { display: flex; flex-wrap: wrap; gap: var(--st-space-2) var(--st-space-3); }
 /* INT-STUDIUM-058: the concept map as a list. The state is said in words; the left rule only repeats it. */
 .map-button { margin: var(--st-space-2) 0; }
 .concept-map { margin: var(--st-space-4) 0; padding-block-start: var(--st-space-3); border-block-start: 1px solid var(--st-border); }

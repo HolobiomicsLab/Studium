@@ -105,6 +105,39 @@ describe("the prompts of a session", () => {
     expect(host.promptRecords(sid)).toEqual([{ id: "map_offer", kind: "map_offer", scene_id: null, outcome: "accepted" }]);
   });
 
+  it("says a proposal once in the conversation text, at a pause, and never over a question", async () => {
+    const { host, sid } = await open(lesson([concept("s-c", "c-un"), concept("s-c2", "c-un"), quiz("s-q", "c-un"), concept("s-c3", "c-deux")]));
+    const inText = { ...ASK, surfaceRank: 1 as const, formsAvailable: true };
+    const text = () => host.currentPresentation(sid).display_markdown as string;
+    expect(text()).not.toContain("Proposition");                          // nothing was proposed yet
+    expect(host.sessionPrompts(sid, inText).map((p) => p.id)).toEqual(["forms_offer"]);
+    const first = text();
+    expect(first).toContain("> **Proposition\u00a0:** Cette leçon peut se jouer en formulaires");
+    expect(first.indexOf("**Proposition\u00a0:**")).toBeLessThan(first.lastIndexOf("`Leçon P"));   // before the status line
+    // Said once: the next screens do not repeat it, though it stays open to an answer.
+    expect(text()).not.toContain("Proposition");
+    const second = await host.respond(sid, { kind: "ack" });
+    expect(second.display_markdown).not.toContain("Proposition");
+    expect(host.sessionPrompts(sid, inText).map((p) => p.id)).toEqual(["forms_offer"]);
+    // A proposal made while a question waits is not said over it: it is said at the next pause.
+    const other = await open(lesson([concept("s-c", "c-un"), quiz("s-q", "c-un"), concept("s-c3", "c-deux"), concept("s-c4", "c-deux")]));
+    const onQuestion = await other.host.respond(other.sid, { kind: "ack" });
+    expect(other.host.sessionPrompts(other.sid, inText)).toEqual([]);
+    expect(onQuestion.display_markdown).not.toContain("Proposition");
+    const answered = await other.host.respond(other.sid, { kind: "quiz_choice", choiceId: choice(other.host, other.sid, "Juste"), confidence: 2 });
+    expect(answered.display_markdown).not.toContain("Proposition");       // the book is asked by the surface, after the answer
+    expect(other.host.sessionPrompts(other.sid, inText).map((p) => p.id)).toEqual(["forms_offer"]);
+    expect(other.host.currentPresentation(other.sid).display_markdown).toContain("> **Proposition\u00a0:**");
+    // A proposal made on a reading screen and not said yet waits while the next screen asks a question.
+    const held = await open(lesson([concept("s-c", "c-un"), quiz("s-q", "c-un"), concept("s-c3", "c-deux"), concept("s-c4", "c-deux")]));
+    expect(held.host.sessionPrompts(held.sid, inText).map((p) => p.id)).toEqual(["forms_offer"]);
+    const question = await held.host.respond(held.sid, { kind: "ack" });
+    expect(question.display_markdown).toContain("Question ?");
+    expect(question.display_markdown).not.toContain("Proposition");
+    const after = await held.host.respond(held.sid, { kind: "quiz_choice", choiceId: choice(held.host, held.sid, "Juste"), confidence: 2 });
+    expect(after.display_markdown).toContain("> **Proposition\u00a0:** Cette leçon peut se jouer en formulaires");
+  });
+
   it("proposes nothing in quiet mode, and follows the level the learner sets", async () => {
     const { host, sid } = await open(lesson([concept("s-c", "c-un"), concept("s-c2", "c-deux"), concept("s-c3", "c-deux")]));
     const inText = { ...ASK, surfaceRank: 1 as const, formsAvailable: true };

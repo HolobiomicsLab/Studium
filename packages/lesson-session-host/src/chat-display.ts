@@ -62,6 +62,19 @@ export interface DisplayContext {
   /** INT-STUDIUM-058: who wrote the lesson and whether it was reviewed (orientation.ts voiceLine). It
    * opens the next screen. */
   voiceLine?: string;
+  /** INT-STUDIUM-058 § 2.6: what the server proposes on the next screen (prompts.ts). */
+  prompts?: readonly ScreenPrompt[];
+}
+
+/** A prompt as the conversation text says it: its reason, and whether it asks for an answer (a
+ * proposal) or only informs (a notice). */
+export interface ScreenPrompt { kind: string; reason: string; asks: boolean }
+
+/** The prompts of a screen, after its text and before its status line. A proposal says how to answer
+ * it in words: the assistant sends the learner's own answer. A notice is said as it is. */
+function promptBlocks(prompts: readonly ScreenPrompt[] | undefined, locale: DisplayLocale): string[] {
+  return (prompts ?? []).filter((prompt) => prompt.reason.trim() !== "")
+    .map((prompt) => (prompt.asks ? say(locale, "prompt_proposal", { reason: prompt.reason }) : `> ${locale === "fr" ? frenchSpacing(prompt.reason) : prompt.reason}`));
 }
 
 export interface CompletionSplit {
@@ -98,6 +111,7 @@ const PHRASES = {
     protocol: "**Protocole**",
     discussion: "**Discussion : {topic}**",
     hint_available: "_Besoin d'aide ? Un indice est disponible : demande-le._",
+    prompt_proposal: "> **Proposition :** {reason}\n> _Tu peux accepter, ou dire « plus tard »._",
     run_recorded: "Ta reproduction est déjà enregistrée : tu peux continuer sans la relancer.",
     reply_quiz: "_Réponds avec la lettre de ton choix : {ids}._",
     reply_meta: "_Réponds avec un chiffre de 0 à 4 ({scale})._",
@@ -189,6 +203,7 @@ const PHRASES = {
     protocol: "**Protocol**",
     discussion: "**Discussion: {topic}**",
     hint_available: "_Need help? A hint is available: ask for it._",
+    prompt_proposal: "> **Suggestion:** {reason}\n> _You can accept, or say “later”._",
     run_recorded: "Your reproduction is already recorded: you can continue without running it again.",
     reply_quiz: "_Answer with the letter of your choice: {ids}._",
     reply_meta: "_Answer with a number from 0 to 4 ({scale})._",
@@ -358,7 +373,10 @@ function replyHint(scene: PublicSceneFields, locale: DisplayLocale): string {
  * (INT-STUDIUM-058): `voiceLine` opens the block, `statusLine` closes it, as inline code. */
 export function presentationMarkdown(
   p: DisplayPresentation,
-  opts: { firstScreen?: boolean; notDurable?: boolean; review?: boolean; conceptMap?: string; statusLine?: string; voiceLine?: string } = {},
+  opts: {
+    firstScreen?: boolean; notDurable?: boolean; review?: boolean; conceptMap?: string; statusLine?: string; voiceLine?: string;
+    prompts?: readonly ScreenPrompt[];
+  } = {},
 ): string {
   const locale: DisplayLocale = p.locale === "en" ? "en" : "fr";
   const scene = publicScene(p.scene as Scene) as PublicSceneFields;
@@ -379,6 +397,7 @@ export function presentationMarkdown(
   if (readingSources) blocks.push(readingSources);
   if ((p.hints_available ?? 0) > 0) blocks.push(say(locale, "hint_available"));
   blocks.push(replyHint(scene, locale));
+  blocks.push(...promptBlocks(opts.prompts, locale));
   // A backquote in a lesson title would close the inline code early.
   if (opts.statusLine) blocks.push(`\`${opts.statusLine.replace(/`/g, "'")}\``);
   return blocks.filter((b) => b.trim() !== "").join("\n\n");
@@ -550,6 +569,7 @@ export function transitionMarkdown(t: PublicTransition & TransitionExtras, ctx: 
   const next = presentationMarkdown(t.presentation, {
     review: ctx.review ?? false,
     ...(ctx.statusLine ? { statusLine: ctx.statusLine } : {}), ...(ctx.voiceLine ? { voiceLine: ctx.voiceLine } : {}),
+    ...(ctx.prompts?.length ? { prompts: ctx.prompts } : {}),
   });
   return head ? `${head}\n\n---\n\n${next}` : next;
 }

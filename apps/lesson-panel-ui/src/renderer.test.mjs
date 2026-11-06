@@ -383,3 +383,67 @@ test("closing the map gives the keyboard back to its button, and a notice stays 
   assert.match(doc.querySelector("#action-status").className, /notice/);
   dom.window.close();
 });
+
+// INT-STUDIUM-058 § 2.6, task 5.2: the server's proposals in the panel. Shown at a pause, under the
+// scene's own controls; each answer is one button; a notice is shown whatever the lesson waits for.
+const PROMPT_WORDS = { ...MAP_WORDS, pane_prompts_heading: "Suggestions" };
+const answerTo = (id, outcome) => ({ type: "prompt", id, outcome });
+const REVIEW_PROMPT = {
+  id: "review_due:start", kind: "review_due", reason: "3 concepts to review today", expires: "scene",
+  actions: [{ label: "Review now", action: answerTo("review_due:start", "accept") }, { label: "Later", action: answerTo("review_due:start", "dismiss") }],
+};
+const NOTICE_PROMPT = { id: "adaptation_notice:quiz", kind: "adaptation_notice", reason: "Back to a prerequisite.", expires: "scene", actions: [] };
+const READING = { id: "intro", type: "concept", title: "A page", markdown: "Read this." };
+const pausedView = (extra = {}) => quizV2({
+  strings: PROMPT_WORDS, scene: READING, actions: ["respond", "end", "ask", "prompt"],
+  orientation: { ...V2.orientation, waiting: "read" }, prompts: [REVIEW_PROMPT, NOTICE_PROMPT], ...extra,
+});
+
+test("at a pause the panel shows each proposal with its reason and one button per answer, after the scene's controls", () => {
+  const { dom, doc, sent } = mountWithSend();
+  dom.window.renderView(pausedView());
+  const region = doc.querySelector(".prompts");
+  assert.ok(region, "the proposals are drawn");
+  assert.equal(region.getAttribute("aria-label"), "Suggestions");
+  const items = [...region.querySelectorAll(".prompt")];
+  assert.deepEqual(items.map((item) => item.getAttribute("data-kind")), ["review_due", "adaptation_notice"]);
+  assert.deepEqual(items.map((item) => text(item.querySelector(".prompt-reason"))), ["3 concepts to review today", "Back to a prerequisite."]);
+  assert.deepEqual([...items[0].querySelectorAll(".prompt-action")].map(text), ["Review now", "Later"]);
+  assert.equal(items[1].querySelector(".prompt-action"), null);                // a notice asks nothing
+  // Reading order: the scene's own control first, then the proposals.
+  const focusable = [...doc.querySelectorAll("button, input, summary, textarea")];
+  const continueAt = focusable.indexOf(doc.querySelector(".controls button"));
+  assert.ok(continueAt >= 0 && continueAt < focusable.indexOf(items[0].querySelector(".prompt-action")));
+  // One gesture refuses: the second button sends the dismissal.
+  items[0].querySelectorAll(".prompt-action")[1].click();
+  assert.deepEqual(plain(sent[0][0]), answerTo("review_due:start", "dismiss"));
+  dom.window.close();
+});
+
+test("while an answer is owed the panel shows no proposal, only notices; without the action it offers no button", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(quizV2({ strings: PROMPT_WORDS, actions: ["respond", "hint", "end", "ask", "prompt"], prompts: [REVIEW_PROMPT, NOTICE_PROMPT] }));
+  assert.deepEqual([...doc.querySelectorAll(".prompt")].map((item) => item.getAttribute("data-kind")), ["adaptation_notice"]);
+  dom.window.renderView(quizV2({ session_id: "two", strings: PROMPT_WORDS, prompts: [REVIEW_PROMPT] }));
+  assert.equal(doc.querySelector(".prompts"), null);
+  // A view that does not offer the action its buttons send (an older server) shows the reason alone.
+  dom.window.renderView(pausedView({ session_id: "three", actions: ["respond", "end"] }));
+  assert.equal(text(doc.querySelector(".prompt-reason")), "3 concepts to review today");
+  assert.equal(doc.querySelector(".prompt-action"), null);
+  // No prompt, no region.
+  dom.window.renderView(pausedView({ session_id: "four", prompts: [] }));
+  assert.equal(doc.querySelector(".prompts"), null);
+  dom.window.close();
+});
+
+test("dismissing a proposal does not bring back the feedback of the answer before", () => {
+  const { dom, doc } = mountWithSend();
+  const verdict = { scene_id: "previous", graded: true, correct: true, assessed_by: "key", feedback: "Yes." };
+  dom.window.renderView(pausedView({ verdict }));
+  doc.querySelector(".continue").click();
+  doc.querySelectorAll(".prompt-action")[1].click();
+  dom.window.renderView(pausedView({ verdict, prompts: [NOTICE_PROMPT] }));
+  assert.equal(doc.querySelector(".feedback-step"), null);
+  assert.deepEqual([...doc.querySelectorAll(".prompt")].map((item) => item.getAttribute("data-kind")), ["adaptation_notice"]);
+  dom.window.close();
+});
