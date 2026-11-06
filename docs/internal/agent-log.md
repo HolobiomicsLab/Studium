@@ -2915,6 +2915,57 @@ metered, still there once the hints are spent.
 Test decisions: `http.test.ts` now expects the gate to route a wrong `s2-quiz-4f`
 answer to `s9-rappel-3d`; `server.test.ts` and `host.test.ts` gain notation cases.
 
+## 2026-11-06 (simulations) — Prerequisite routing: three defects found by synthetic learners
+
+Owner request: run simulations on the trial fixes to check they hold and to find
+problems. Sixty-four labelled synthetic learners (flawless, wrong on each first
+visit, wrong on the first item of each concept, always wrong, and two random groups
+of thirty at p = 0.5 and p = 0.75) played `atomistique-l1` in process, on the
+corrected lesson and on the lesson as it was before the trial fixes. Every run
+completed, no answer was visible before a same-scene retry, every requested
+self-rating was recorded. Three engine defects came out; the recall items added in
+`d6bb411` made the first two reachable on this lesson.
+
+1. Two unmet prerequisites of one scene. A correct answer on the detour for
+   prerequisite A was credited only if the router then chose A again. When it chose
+   B, the answer was lost and the learner went back and forth between the two items
+   until the detour budget released the gate (`s5e-quiz-oxygene` and `s4-quiz-balmer`
+   three times each before `s6-concept-periodicite`). When it chose A, the gate
+   opened with B never checked. `LessonSession.navigate` now credits the detour
+   prerequisite before routing and routes again after each credit, so each
+   prerequisite is judged on its own answer; `gate_passed` is announced when the
+   gated scene is reached that way.
+2. An item answered correctly out of order (a detour or an alternate) was served a
+   second time when the lesson reached it. `graphAwareNextIndex` takes the ids of
+   the answer-graded scenes answered correctly in the session and passes over
+   them; the path without a graph does the same. Session-local, like the
+   prerequisite passes: a lesson played again asks its questions again.
+3. An alternate item placed further down the lesson (`remediate_alt`) made the
+   session resume after the alternate, so every scene between the question and its
+   alternate was never served. It now resumes after the scene just left, unless the
+   alternate is the very next scene (the case the existing tests pin).
+
+Measured on the corrected lesson, before and after: wrong on each first visit, 48
+steps and 9 questions asked again after their answer was shown, now 38 and 0; wrong
+on the first item of each concept, 38 and 6, now 32 and 0; random p = 0.5, 39.8
+steps and 3.8 on average, now 35.8 and 0.4. The flawless path (32 steps) and the
+always-wrong path (79 steps) are unchanged.
+
+Left open, reported to the owner, not changed: a learner who keeps failing is asked
+the same two items of a concept five or six times, because the replay budget and
+the detour budget add up (79 steps, about 134 estimated minutes); the lesson
+declares 60 minutes and the flawless path is estimated at 78; step numbers jump by
+up to 24 positions on a detour to a closing recall item; and `get_workflow_graph`
+derives a concept's state from posterior mastery alone, so at step 16 it reports
+the first concept as current and every other as locked, the one being studied
+included.
+
+Test decisions: new `session.multi-prereq-gate.test.ts` (six cases); no existing
+assertion changed. Gates green with `STUDIUM_EPHEMERAL=1`: `pnpm build:libs`,
+`pnpm lint` (0 errors), `pnpm -r --no-bail test`, `tools/pytest_all.py` (16 suites,
+0 failing), `tools/bundle_lint.test.sh`, `node tools/docs/check.mjs`,
+`headless_smoke.mjs` (19 assertions).
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local
