@@ -3752,6 +3752,28 @@ first, the fifth describes behaviour a host without message support already had.
 Not verified: no MCP Apps host has run this. Whether a host shows a message sent by a panel, and how a
 model uses the context update, is unknown; the bridge was run in a browser against a fake host only.
 
+## 2026-11-06 (lean view) — A view no surface draws carries no phrase catalogue
+
+INT-STUDIUM-058, lot 3, found while preparing task 3.2 (requirement N10, a sober tool surface). Measured
+on `fixtures/atomistique-l1`: `open_lesson_panel` returned 25.2 kB of text to its caller, of which 24.0 kB
+were `strings`, the interface's phrase catalogue; `start_lesson_session` returns 6.4 kB. A panel or a pane
+draws the view and needs those labels. Below a panel (forms, the conversation) nothing draws it: the
+reader is a model, which read some 24 kB of labels for nothing on every panel tool call.
+
+- `apps/lesson-mcp/src/panel-tools.ts`: `forSurface` empties `strings` when the negotiated surface is
+  rank 1 or 2, in the structured content and in its text mirror, for `open_lesson_panel`,
+  `get_panel_view` and `panel_action`. Rank 3 (an MCP Apps panel, a native pane that asks for `pane`)
+  is unchanged. The first screen of the demo lesson now takes 2.0 kB at ranks 1 and 2.
+- The VS Code extension and the Claude Code plugin both open with `surface: "pane"`, and the session
+  keeps that surface: they still receive the catalogue.
+- Docs: the tool description, the regenerated reference, `packages/lesson-panel/README.md` and `.fr.md`.
+
+Not in the plan: recorded as a deviation. Test decision: none, no existing test changed; one new test
+(five kinds of client), which failed first.
+
+Not verified: no client other than the repository's own adapters was tried. An adapter that draws the
+view without asking for `pane` and without the MCP Apps extension would now get no labels.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

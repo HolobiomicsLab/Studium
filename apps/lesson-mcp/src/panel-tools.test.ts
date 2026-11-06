@@ -182,6 +182,34 @@ it("lets the learner or the adapter ask for a surface, and falls to the one belo
   } finally { await forms.close(); }
 });
 
+// The view carries the interface's phrase catalogue (some 24 kB of labels) for a surface that draws it.
+// Below a panel nothing draws the view: its reader is a model, which would read those labels for nothing.
+it("leaves the phrase catalogue out where no surface draws the view: forms and the conversation", async () => {
+  const cases = [
+    { capabilities: UI, extra: {}, drawn: true },                      // an MCP Apps panel
+    { capabilities: {}, extra: { surface: "pane" }, drawn: true },     // a native pane, which says so
+    { capabilities: FORMS, extra: {}, drawn: false },
+    { capabilities: {}, extra: {}, drawn: false },
+    { capabilities: UI, extra: { surface: "text" }, drawn: false },    // the learner prefers the conversation
+  ];
+  for (const c of cases) {
+    const { open, call, close } = await connected(c.capabilities);
+    try {
+      const opened = await open(c.extra);
+      const panel = opened.structuredContent!.panel;
+      const text = opened.content[0]!.text!;
+      expect(JSON.parse(text).panel).toEqual(panel);  // the text block mirrors the structured view
+      const next = await call("panel_action", { session_id: panel.session_id, action: { type: "respond", input: { kind: "ack" } } });
+      const read = await call("get_panel_view", { session_id: panel.session_id });
+      for (const view of [panel, next.structuredContent!.panel, read.structuredContent!.panel]) {
+        if (c.drawn) expect(Object.keys(view.strings).length).toBeGreaterThan(100);
+        else expect(view.strings).toEqual({});
+      }
+      if (!c.drawn) expect(text.length).toBeLessThan(4000);
+    } finally { await close(); }
+  }
+});
+
 it("negotiateSurface — the ladder", () => {
   expect(negotiateSurface({ ui: true, forms: true })).toEqual({ rank: 3, kind: "panel", available: ["text", "form", "panel"] });
   expect(negotiateSurface({ ui: false, forms: true })).toEqual({ rank: 2, kind: "form", available: ["text", "form"] });

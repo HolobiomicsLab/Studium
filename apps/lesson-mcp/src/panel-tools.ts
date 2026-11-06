@@ -90,7 +90,16 @@ const CONTINUE_ON: Record<1 | 2, string> = {
   1: "Surface: conversation. Show the learner the display_markdown of get_current_scene as it is, and send their own reply with submit_response.",
 };
 
-function panelResult(panel: PanelView) {
+/** The view as its reader needs it. A panel or a pane draws it and takes its labels from `strings`,
+ * the interface's phrase catalogue (some 24 kB). Below a panel nothing draws the view: its reader is
+ * a model, and the catalogue is left out. */
+function forSurface(panel: PanelView): PanelView {
+  const rank = panel.surface?.rank;
+  return rank === 1 || rank === 2 ? { ...panel, strings: {} } : panel;
+}
+
+function panelResult(view: PanelView) {
+  const panel = forSurface(view);
   const stem = panel.scene?.question ?? panel.scene?.prompt ?? panel.scene?.title ?? panel.message ?? "";
   const rank = panel.kind === "scene" ? panel.surface?.rank : undefined;
   const summary = [
@@ -224,7 +233,7 @@ export function registerPanelTools(server: McpServer, host: SessionHost) {
   const surface = z.enum(SURFACE_KINDS).optional()
     .describe("The surface to play on. Omit it: the server picks the best one this client renders. \"pane\" is for a native pane adapter; \"text\" when the learner prefers the conversation.");
   const openTool = server.registerTool("open_lesson_panel", {
-    description: "Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). Returns a public PanelView whose `surface` says which, and a short summary that says how to continue; wait for the learner's own actions.",
+    description: "Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). Returns a public PanelView whose `surface` says which, and a short summary that says how to continue; wait for the learner's own actions. Below a panel the view's `strings` (the interface's labels) is empty: nothing draws it.",
     inputSchema: {
       bundle_ref: z.string().min(1).optional(), session_id: z.string().min(1).optional(), learner_id: z.string().min(1).optional(),
       show_mastery: z.boolean().optional(), modality_preference: z.enum(["balanced", "visual", "textual"]).optional(), locale: z.enum(["fr", "en"]).optional(),

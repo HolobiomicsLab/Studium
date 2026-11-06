@@ -517,7 +517,7 @@ Read the current public lesson panel, including earned feedback and completion.
 
 ### open_lesson_panel
 
-Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). Returns a public PanelView whose `surface` says which, and a short summary that says how to continue; wait for the learner's own actions.
+Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). Returns a public PanelView whose `surface` says which, and a short summary that says how to continue; wait for the learner's own actions. Below a panel the view's `strings` (the interface's labels) is empty: nothing draws it.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
