@@ -3639,6 +3639,51 @@ through its pure function, not in an extension host. The keyboard path is checke
 no positive tabindex, not by pressing Tab in a browser. `client_ms` is measured to the end of the
 renderer's synchronous work, which precedes the browser's paint by a frame.
 
+## 2026-11-06 (bench, lanes without a model) — The latency bench times the form and panel lanes
+
+INT-STUDIUM-058, lot 2, task 2.7 (requirement N1). `tools/latency_bench.py` gains two modes that call no
+model and need no `--live`: the script is then the MCP client.
+
+- `McpClient`: a minimal MCP client over stdio (one JSON-RPC message per line). It initializes with the
+  capabilities of the lane (`elicitation` for forms, the MCP Apps extension for the panel), calls tools,
+  answers the server's `elicitation/create` requests, and stamps each message on arrival. A server that
+  exits is reported with the end of its stderr.
+- `--mode forms`: `start_lesson_session`, then `play_in_forms`. Each form is answered at once (a screen
+  is accepted, a quiz gets the first choice displayed, confidence 2). A `form` row holds the delay from
+  that answer to what shows its outcome: the next form, which opens with the verdict, or the end of the
+  call. A scene that takes written words goes through `submit_response` (a `conversation` row), then
+  `rate_recall` when a self-rating is asked. At the cap the next form is cancelled.
+- `--mode panel`: `open_lesson_panel`, then `panel_action` per act; an `action` row holds the delay from
+  the call to the view it returns.
+- The report gives the median, the 95th centile (nearest rank) and the maximum in milliseconds, and says
+  whether the 95th centile is within the 50 ms server target. `--durable` makes the server save the
+  learner's state to a temporary folder deleted with the run; `--turns` caps the answers (40 by default
+  for these lanes, 6 as before with a model). A reproduction scene stops the run: the bench runs no capsule.
+- Docs: `tools/README.md` and `.fr.md`; `docs/start/harnesses.md` and `.fr.md` state the measured figure.
+
+Measured on `fixtures/atomistique-l1` (this machine, while a backup ran; three runs per line, 32 form
+answers or 40 panel actions each, the same path each time since the learner always takes the first
+choice):
+
+| Lane | State | Median | 95th centile | Maximum |
+|---|---|---|---|---|
+| forms | in memory | 1.3 ms | 2.7 to 3.2 ms | 4.2 ms |
+| forms | saved to disk | 5.2 to 7.1 ms | 8.3 to 10.6 ms | 10.7 ms |
+| panel | in memory | 2.6 ms | 9.2 to 10.1 ms | 45 ms |
+| panel | saved to disk | 6.1 to 6.6 ms | 13.4 to 15.7 ms | 39 ms |
+
+All within the 50 ms server target of N1. One panel action per run takes 34 to 45 ms (the same quiz
+answer each time; not investigated).
+
+Deviation from the plan: `--durable` and the two doc pages were not in the task. Test decision: none, no
+existing test changed. Nine new tests (a stub MCP server for both lanes, the caps, the summary, a server
+that exits, and three runs against the real server, skipped where node or the installed workspace is
+absent); they failed first.
+
+Not verified: the learner's side of N1 (one second at the 95th centile) needs a real client, whose
+drawing time the bench does not see. The synthetic learner answers most quizzes wrongly, so the path
+measured is one of replays and detours, not a typical learner's.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

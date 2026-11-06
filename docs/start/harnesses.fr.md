@@ -79,6 +79,12 @@ conversation reprend quand une étape demande vos propres mots ou quand vous fer
 une question. Demandez à votre assistant de « jouer les prochaines étapes en formulaires ». La façon dont
 chaque client affiche un écran long ou une formule dans un tel formulaire n'a pas encore été essayée.
 
+Sans modèle entre les deux, la part du serveur est petite : une réponse donnée dans un formulaire ou sur un
+panneau reçoit son verdict en moins de 20 ms au 95e centile, transport compris (même script, `--mode forms`
+et `--mode panel`, trois exécutions de 32 à 40 réponses chacune, l'état de l'apprenant enregistré sur
+disque, 6 novembre 2026). Le temps qu'un client met ensuite à dessiner l'écran n'est pas dans ce chiffre et
+n'a pas été mesuré.
+
 ## Codex
 
 Installez Codex et connectez-vous selon le [démarrage Codex](https://learn.chatgpt.com/docs/quickstart) ;

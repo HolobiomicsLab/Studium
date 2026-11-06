@@ -76,6 +76,11 @@ form, and no model writes anything in between; the conversation resumes when a s
 when you close a form to ask something. Ask your assistant to "play the next steps in forms". How each
 client draws a long screen or a formula in such a form has not been tried yet.
 
+With no model in between, the server's own part is small: an answer given in a form or on a panel gets its
+verdict in under 20 ms at the 95th centile, transport included (same script, `--mode forms` and
+`--mode panel`, three runs of 32 to 40 answers each, the learner's state saved to disk, 6 November 2026).
+The time a client then takes to draw the screen is not in that figure and has not been measured.
+
 ## Codex
 
 Install and sign in following the [Codex quickstart](https://learn.chatgpt.com/docs/quickstart); MCP options are in [MCP in Codex](https://learn.chatgpt.com/docs/extend/mcp?surface=cli). Then add the
