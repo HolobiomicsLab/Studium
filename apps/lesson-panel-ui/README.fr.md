@@ -18,6 +18,14 @@ mesure le délai entre une action et l'affichage de la vue qui y répond, et le 
 l'action suivante (`window.__send(action, { client_ms })`) ; le pont MCP App le passe à `panel_action` dans
 `client_ms`, le pont VS Code à l'extension, qui fait de même.
 
+Le pont MCP App tient aussi l'assistant de l'hôte au courant, là où l'hôte dit le permettre
+(`getHostCapabilities()`). Après chaque `panel_action`, il lit `get_companion_brief` avec `peek: true` (le
+curseur ne bouge pas) et place le brief dans le contexte du modèle par `updateModelContext`, sous la forme
+d'une ligne de note suivie du brief en JSON. « Poser une question » ouvre un petit formulaire. Les mots de
+l'apprenant partent dans la conversation de l'hôte par `sendMessage`, après un brief lu sans `peek`, puis
+l'action `ask` marque le passage de main. Un hôte qui ne prend pas de message reçoit l'action `ask` seule,
+dont l'avis renvoie l'apprenant à la conversation. Un brief illisible ne fait jamais échouer le panneau.
+
 Depuis la racine : `pnpm --filter @studium/lesson-panel-ui build`. Le build utilise esbuild et deux
 gabarits HTML, régénère les fichiers vendor depuis les paquets installés et écrit
 `dist/lesson-panel.html`, `dist/graph-panel.html`, les exports JavaScript des ressources embarquées

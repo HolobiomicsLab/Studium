@@ -27,10 +27,13 @@ export function registerCompanionTools(server: McpServer, host: SessionHost): st
       "correct?, confidence?}], since_last_count, help{rungs}, rules[3]}}. since_last holds the twelve latest acts; " +
       "since_last_count counts them all. Reading it moves the cursor: the next call lists what came after. It " +
       "holds no scene text and no key, hint or reference; follow its rules.",
-    inputSchema: { session_id: z.string().min(1) },
-  }, async ({ session_id }): Promise<ToolResult> => {
+    inputSchema: {
+      session_id: z.string().min(1),
+      peek: z.boolean().optional().describe("Read without moving the cursor. For a panel that keeps the model's context up to date; an assistant omits it."),
+    },
+  }, async ({ session_id, peek }): Promise<ToolResult> => {
     try {
-      return { content: [{ type: "text", text: JSON.stringify({ brief: host.companionBrief(session_id) }) }] };
+      return { content: [{ type: "text", text: JSON.stringify({ brief: host.companionBrief(session_id, peek === true ? { peek: true } : {}) }) }] };
     } catch (error) {
       return { content: [{ type: "text", text: JSON.stringify({ error: (error as Error).message }) }], isError: true };
     }

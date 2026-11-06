@@ -1831,8 +1831,8 @@ export class SessionHost {
 
   /** INT-STUDIUM-058 § 2.5: where the learner is and what they did since the last brief, for an agent
    * the learner turns to after acts on the fast lane (companion.ts). Reading it moves the session's
-   * cursor: the next brief lists what came after. No scene text, key, hint or reference. */
-  companionBrief(id: string): CompanionBrief {
+   * cursor: the next brief lists what came after, unless `peek`. No scene text, key, hint or reference. */
+  companionBrief(id: string, opts: { peek?: boolean } = {}): CompanionBrief {
     const entry = this.require(id);
     this.assertNotErased(id, entry);
     const locale = displayLocale(entry.bundle.metadata.language);
@@ -1841,7 +1841,7 @@ export class SessionHost {
     const scene = entry.session.currentPresentation().scene;
     return {
       session_id: id,
-      ...takeActs(entry),
+      ...takeActs(entry, opts.peek === true),
       status_line: statusLine(orientation, entry.bundle.metadata.title, locale),
       where: {
         lesson_title: entry.bundle.metadata.title, step: orientation.step,

@@ -140,3 +140,114 @@ test("ask goes through, and the display delay rides beside the action as client_
   assert.deepEqual(m.calls[2], { name: "panel_action", arguments: { session_id: "one", action: { type: "ask" } } });
   m.dom.window.close();
 });
+// INT-STUDIUM-058, task 3.3: the panel keeps the agent informed and hands it a question.
+const BRIEF = { session_id: "one", cursor: 1, status_line: "Lesson · step 2/2", since_last: [{ scene_id: "intro", act: "read", lane: "fast" }], since_last_count: 1, rules: ["r1", "r2", "r3"] };
+/** A host that takes context updates and messages; `events` keeps the order of everything it received. */
+function informedHost(options = {}) {
+  const events = [];
+  const asking = { ...initial, actions: [...initial.actions, "ask"] };
+  const m = setup({
+    getHostCapabilities: () => ({ updateModelContext: { text: {} }, message: { text: {} }, ...options.capabilities }),
+    updateModelContext: async params => { events.push(["context", params]); return {}; },
+    sendMessage: async params => { events.push(["message", params]); return options.messageResult ?? {}; },
+    callServerTool: async request => {
+      events.push(["tool", request.name, request.arguments]);
+      if (request.name === "get_companion_brief") return options.briefResult ?? { content: [{ type: "text", text: JSON.stringify({ brief: BRIEF }) }] };
+      return { structuredContent: { panel: asking } };
+    },
+  });
+  return { ...m, events, asking };
+}
+test("after each panel action the model's context gets the brief, read without moving its cursor", async () => {
+  const m = informedHost();
+  const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: m.asking } });
+  await bridge.act({ type: "respond", input: { kind: "ack" } });
+  assert.deepEqual(m.events.map(event => event.slice(0, 2)), [["tool", "panel_action"], ["tool", "get_companion_brief"], ["context", m.events[2][1]]]);
+  assert.deepEqual(m.events[1][2], { session_id: "one", peek: true });
+  const context = m.events[2][1];
+  assert.equal(context.content.length, 1);
+  assert.equal(context.content[0].type, "text");
+  assert.match(context.content[0].text, /^Studium/);
+  assert.deepEqual(JSON.parse(context.content[0].text.split("\n").at(-1)), { brief: BRIEF });
+  m.dom.window.close();
+});
+test("a host that takes no context update is asked for no brief, and a brief that fails leaves the panel as it is", async () => {
+  const silent = informedHost({ capabilities: { updateModelContext: undefined } });
+  const bridge = await connectMcpApp(silent.app, silent.env);
+  bridge.receive({ structuredContent: { panel: silent.asking } });
+  await bridge.act({ type: "respond", input: { kind: "ack" } });
+  assert.deepEqual(silent.events.map(event => event[1]), ["panel_action"]);
+  silent.dom.window.close();
+
+  const failing = informedHost({ briefResult: { isError: true, content: [{ type: "text", text: "session not found" }] } });
+  const second = await connectMcpApp(failing.app, failing.env);
+  second.receive({ structuredContent: { panel: failing.asking } });
+  await second.act({ type: "respond", input: { kind: "ack" } });
+  assert.deepEqual(failing.events.map(event => event[0]), ["tool", "tool"]);  // no context update
+  assert.doesNotMatch(failing.dom.window.document.body.textContent, /session not found/);
+  assert.match(failing.dom.window.document.body.textContent, /Introduction/);
+  failing.dom.window.close();
+});
+test("« ask a question » takes the learner's words and sends them to the host's conversation, after the brief", async () => {
+  const m = informedHost();
+  const doc = m.dom.window.document;
+  const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: m.asking } });
+  const asked = bridge.act({ type: "ask" });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const form = doc.querySelector("form.ask-question");
+  assert.ok(form, "a form takes the question");
+  assert.equal(m.events.length, 0);  // nothing is sent before the learner writes
+  const field = form.querySelector("textarea");
+  assert.ok(field.labels.length === 1 && field.labels[0].textContent.length > 0);
+  form.querySelector('button[type="submit"]').click();  // empty: nothing happens, the form stays
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.ok(doc.querySelector("form.ask-question"));
+  assert.equal(m.events.length, 0);
+  field.value = "  Pourquoi 30 neutrons ?  ";
+  form.querySelector('button[type="submit"]').click();
+  await asked;
+  assert.equal(doc.querySelector("form.ask-question"), null);
+  assert.deepEqual(m.events.map(event => event.slice(0, 2)), [
+    ["tool", "get_companion_brief"], ["context", m.events[1][1]], ["message", m.events[2][1]], ["tool", "panel_action"]]);
+  assert.deepEqual(m.events[0][2], { session_id: "one" });  // the agent is told now: the cursor moves
+  assert.deepEqual(m.events[2][1], { role: "user", content: [{ type: "text", text: "Pourquoi 30 neutrons ?" }] });
+  assert.deepEqual(m.events[3][2], { session_id: "one", action: { type: "ask", text: "Pourquoi 30 neutrons ?" } });
+  m.dom.window.close();
+});
+test("a question the learner gives up sends nothing; one that already has its words needs no form", async () => {
+  const m = informedHost();
+  const doc = m.dom.window.document;
+  const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: m.asking } });
+  const cancelled = bridge.act({ type: "ask" });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  doc.querySelector("form.ask-question textarea").value = "Peu importe";
+  doc.querySelector('form.ask-question button[type="button"]').click();
+  await cancelled;
+  assert.equal(doc.querySelector("form.ask-question"), null);
+  assert.equal(m.events.length, 0);
+  await bridge.act({ type: "ask", text: "Explique-moi cet écran." });  // the « explanation » rung
+  assert.equal(doc.querySelector("form.ask-question"), null);
+  assert.deepEqual(m.events.find(event => event[0] === "message")[1].content[0].text, "Explique-moi cet écran.");
+  assert.deepEqual(m.events.at(-1).slice(1), ["panel_action", { session_id: "one", action: { type: "ask", text: "Explique-moi cet écran." } }]);
+  m.dom.window.close();
+});
+test("a host that refuses the message still gets the ask action, whose notice sends the learner to the conversation", async () => {
+  const refused = informedHost({ messageResult: { isError: true } });
+  const bridge = await connectMcpApp(refused.app, refused.env);
+  bridge.receive({ structuredContent: { panel: refused.asking } });
+  await bridge.act({ type: "ask", text: "Une question" });
+  assert.deepEqual(refused.events.at(-1).slice(1), ["panel_action", { session_id: "one", action: { type: "ask", text: "Une question" } }]);
+  refused.dom.window.close();
+
+  const mute = informedHost({ capabilities: { message: undefined } });  // no message support: no form, the action goes straight
+  const second = await connectMcpApp(mute.app, mute.env);
+  second.receive({ structuredContent: { panel: mute.asking } });
+  await second.act({ type: "ask" });
+  assert.equal(mute.dom.window.document.querySelector("form.ask-question"), null);
+  assert.deepEqual(mute.events[0].slice(1), ["panel_action", { session_id: "one", action: { type: "ask" } }]);
+  assert.equal(mute.events.some(event => event[0] === "message"), false);
+  mute.dom.window.close();
+});

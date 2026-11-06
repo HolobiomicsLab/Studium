@@ -66,7 +66,8 @@ l'apprenant et aucun modèle n'écrit. Dans la conversation, un assistant relaie
 son dernier regard (les douze derniers actes et leur nombre, chacun avec sa voie), où il en est, quelle
 aide est ouverte et trois règles à suivre. Il ne contient ni texte de scène, ni corrigé, ni indice, ni
 référence. Les actes sont gardés en mémoire pour la séance et repartent de zéro après un redémarrage du
-serveur.
+serveur. Lire le brief avance son curseur. Avec `peek: true` il ne bouge pas, ce qu'utilise un panneau
+pour tenir à jour le contexte du modèle.
 
 Ce que le serveur garantit :
 

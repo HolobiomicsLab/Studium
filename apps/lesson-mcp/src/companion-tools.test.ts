@@ -83,6 +83,21 @@ describe("get_companion_brief", () => {
     } finally { await t.close(); }
   });
 
+  it("can be read without moving the cursor, for a panel that keeps the model's context up to date", async () => {
+    const t = await connect();
+    try {
+      const id = (await t.panel("open_lesson_panel", { bundle_ref: ATOMS, learner_id: "auto-companion-test" })).session_id as string;
+      await t.act(id, ACK);
+      const peek = async () => (await t.call("get_companion_brief", { session_id: id, peek: true })).brief as Json;
+      const first = await peek();
+      expect(first).toMatchObject({ cursor: 1, since_last_count: 1, since_last: [{ act: "read", lane: "fast" }] });
+      await t.act(id, ACK);
+      expect(await peek()).toMatchObject({ cursor: 2, since_last_count: 2 });  // the first act is still listed
+      expect(await t.brief(id)).toMatchObject({ cursor: 2, since_last_count: 2 });  // the agent looks: the cursor moves
+      expect(await peek()).toMatchObject({ cursor: 2, since_last_count: 0, since_last: [] });
+    } finally { await t.close(); }
+  });
+
   it("says which lane each act came through: answers, hints and self-ratings", async () => {
     const t = await connect();
     try {

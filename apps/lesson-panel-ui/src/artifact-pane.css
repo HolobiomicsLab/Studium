@@ -175,6 +175,10 @@ body { margin: 0; }
 .help-note { color: var(--st-muted); font-size: var(--st-size-sm); }
 .help-rung[aria-disabled="true"] { opacity: 0.6; cursor: not-allowed; }
 .ask-button { justify-self: start; }
+/* the question form the MCP Apps bridge opens (bridge-mcp-app.js askQuestion) */
+.ask-question { margin: var(--st-space-4) 0; }
+.ask-question textarea.st-input { min-height: 4.5rem; }
+.ask-question-buttons { display: flex; flex-wrap: wrap; gap: var(--st-space-3); }
 .hint { margin: var(--st-space-2) 0; font-size: var(--st-size-sm); }
 .hint:not(:empty) { padding: var(--st-space-3) var(--st-space-4); border: 1px solid var(--st-border); border-inline-start: 3px solid var(--st-info); border-radius: var(--st-radius-medium); background: var(--st-surface); }
 .hint-body > p { margin: var(--st-space-1) 0; }

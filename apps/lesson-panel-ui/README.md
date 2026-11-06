@@ -18,6 +18,14 @@ The renderer measures the delay between an action and the display of the view th
 it once to the bridge with the next action (`window.__send(action, { client_ms })`); the MCP App bridge
 passes it to `panel_action` as `client_ms`, the VS Code bridge to the extension, which does the same.
 
+The MCP App bridge also keeps the host's assistant informed, where the host says it can
+(`getHostCapabilities()`). After each `panel_action` it reads `get_companion_brief` with `peek: true` (the
+cursor does not move) and puts the brief in the model's context with `updateModelContext`: one line of
+note, then the brief as JSON. « Ask a question » opens a small form; the learner's words go to the host's
+conversation with `sendMessage`, after a brief read without `peek`, and the `ask` action then marks the
+hand-over. A host that takes no message gets the `ask` action alone, whose notice sends the learner to the
+conversation. A brief that cannot be read never fails the panel.
+
 Run `pnpm --filter @studium/lesson-panel-ui build` from the repository root. The build uses esbuild
 and two small HTML templates, regenerates vendor files from installed packages, and writes
 `dist/lesson-panel.html`, `dist/graph-panel.html`, the embedded JavaScript resource exports and

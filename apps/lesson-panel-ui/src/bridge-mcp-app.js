@@ -5,6 +5,9 @@ const ACTIONS = new Set(["respond", "turn", "hint", "rateRecall", "reviewNow", "
 /** A display delay the renderer measured (client_ms), when it is one: a whole number of milliseconds, not negative. */
 const delayOf = meta => (Number.isInteger(meta?.client_ms) && meta.client_ms >= 0 ? { client_ms: meta.client_ms } : {});
 
+/** What the model reads above a brief (one line: the brief is the last line, as JSON). */
+const MODEL_NOTE = "Studium: the learner is following a lesson on a panel, where the server answers them. This is where they are and what they did there since you last looked. Do not show these scenes again, and follow the rules of the brief.";
+
 /** Connect an MCP App to the public renderer, with injected DOM/renderers for tests. */
 export async function connectMcpApp(app, env = { window, document, renderView: window.renderView, renderGraph: window.renderGraph }) {
   const { window: win, document: doc } = env;
@@ -53,6 +56,41 @@ export async function connectMcpApp(app, env = { window, document, renderView: w
       cancel.onclick = () => { section.remove(); resolve(false); };
     });
   }
+  /** What the host said it supports (`updateModelContext`, `message`); nothing for a host that says nothing. */
+  const hostCan = capability => Boolean(app.getHostCapabilities?.()?.[capability]);
+  /** INT-STUDIUM-058 § 2.5: put the companion brief in the model's context, so that an assistant the
+   * learner turns to knows what they did on the panel. `peek` reads it without moving its cursor (after
+   * an act); a question moves it, since the assistant is told now. Never fails the panel. */
+  async function inform(peek) {
+    if (!current || !hostCan("updateModelContext")) return;
+    try {
+      const result = await app.callServerTool({ name: "get_companion_brief", arguments: { session_id: current.session_id, ...(peek ? { peek: true } : {}) } });
+      if (result.isError) return;
+      const payload = result.structuredContent ?? JSON.parse(result.content?.find(c => c.type === "text")?.text ?? "{}");
+      if (payload.brief) await app.updateModelContext({ content: [{ type: "text", text: `${MODEL_NOTE}\n${JSON.stringify({ brief: payload.brief })}` }] });
+    } catch { /* the lesson goes on without the assistant's context */ }
+  }
+  /** A small form for the learner's question; resolves to their words, or null when they give up. */
+  function askQuestion() {
+    status("action_settled");
+    const form = doc.createElement("form"); form.className = "st-field ask-question";
+    const label = doc.createElement("label"); label.className = "st-field__label"; label.htmlFor = "ask-question-text"; label.textContent = words().pane_ask_prompt;
+    const field = doc.createElement("textarea"); field.id = "ask-question-text"; field.className = "st-input"; field.rows = 3;
+    const send = doc.createElement("button"); send.type = "submit"; send.className = "st-button st-button--primary"; send.textContent = words().pane_send;
+    const cancel = doc.createElement("button"); cancel.type = "button"; cancel.className = "st-button"; cancel.textContent = words().pane_cancel;
+    const buttons = doc.createElement("div"); buttons.className = "ask-question-buttons"; buttons.append(send, cancel);
+    form.append(label, field, buttons);
+    doc.querySelector("form.ask-question")?.remove(); doc.body.append(form); field.focus(); resize();
+    return new Promise(resolve => {
+      form.addEventListener("submit", event => {
+        event.preventDefault();
+        const text = field.value.trim();
+        if (!text) { field.focus(); return; }
+        form.remove(); resize(); resolve(text);
+      });
+      cancel.onclick = () => { form.remove(); resize(); resolve(null); };
+    });
+  }
   async function pickCourse() {
     const result = await app.callServerTool({ name: "list_lessons", arguments: {} });
     if (result.isError) throw new Error(result.content?.[0]?.text ?? words().pane_retry);
@@ -91,10 +129,22 @@ export async function connectMcpApp(app, env = { window, document, renderView: w
         if (!(await confirmErase())) return;
         action = { type: "end", confirmed: true };
       }
+      // A host that takes messages: the question goes to its conversation, in the learner's words,
+      // after the brief; the ask action then marks the hand-over on the server. A host that refuses the
+      // message changes nothing here: the action's notice sends the learner to the conversation.
+      const asks = action.type === "ask" && hostCan("message");
+      if (asks) {
+        const text = action.text ?? await askQuestion();
+        if (!text) return;
+        action = { type: "ask", text };
+        await inform(false);
+        try { await app.sendMessage({ role: "user", content: [{ type: "text", text }] }); } catch { /* see above */ }
+      }
       paint();
       const result = await app.callServerTool({ name: "panel_action", arguments: { session_id: current.session_id, action, ...delayOf(meta) } });
       busy = false;
       receive(result);
+      if (!asks) await inform(true);
     } catch (error) { busy = false; status("action_error", error.message); }
     finally { busy = false; }
   }

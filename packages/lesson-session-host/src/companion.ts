@@ -63,10 +63,11 @@ export function noteAct(entry: SessionEntry, act: CompanionAct): void {
   if (log.latest.length > BRIEF_ACTS_MAX) log.latest.shift();
 }
 
-/** The acts since the last brief, and move the cursor past them. */
-export function takeActs(entry: SessionEntry): Pick<CompanionBrief, "cursor" | "since_last" | "since_last_count"> {
+/** The acts since the last brief. The cursor moves past them, unless `peek`: a panel that keeps the
+ * model's context up to date reads without consuming, so the agent's own look still finds them. */
+export function takeActs(entry: SessionEntry, peek = false): Pick<CompanionBrief, "cursor" | "since_last" | "since_last_count"> {
   const log = (entry.companion ??= { seen: 0, pending: 0, latest: [] });
-  const taken = { cursor: log.seen + log.pending, since_last: log.latest, since_last_count: log.pending };
-  entry.companion = { seen: taken.cursor, pending: 0, latest: [] };
+  const taken = { cursor: log.seen + log.pending, since_last: [...log.latest], since_last_count: log.pending };
+  if (!peek) entry.companion = { seen: taken.cursor, pending: 0, latest: [] };
   return taken;
 }

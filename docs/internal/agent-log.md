@@ -3720,6 +3720,38 @@ lanes; they failed first (no tool).
 Not verified: no agent has read a brief; the rule that makes one call the tool is task 3.2. The `ask`
 action and `play_in_forms` do not return the brief yet, which the spec's table asks for.
 
+## 2026-11-06 (MCP Apps bridge) — The panel keeps the agent informed and hands it a question
+
+INT-STUDIUM-058, lot 3, task 3.3 (spec § 2.5, the MCP Apps row of « poser une question »).
+
+- `apps/lesson-panel-ui/src/bridge-mcp-app.js`: after each `panel_action` that returned a view, the
+  bridge reads `get_companion_brief` with `peek: true` and puts it in the model's context with
+  `updateModelContext` (one line of note, then the brief as JSON), where the host says it takes context
+  updates. A brief that cannot be read, or a host that refuses, never fails the panel.
+- « Ask a question »: where the host takes messages, the bridge opens a small form (a labelled text
+  field, send, cancel). The learner's words go to the host's conversation with `sendMessage`, after a
+  brief read without `peek` (the assistant is told now, so the cursor moves); the `ask` action then
+  marks the hand-over on the server. An action that already carries its words (the « explanation »
+  rung) needs no form. A host that takes no message gets the `ask` action alone, as before.
+- `get_companion_brief` gains `peek` (read without moving the cursor): a panel that updates the model's
+  context after each act must not consume the acts, or the assistant's own look would find none.
+- One phrase in French and English (`pane_ask_prompt`); the form uses the panel's own field and button
+  classes. Docs: `apps/lesson-panel-ui/README.md` and `.fr.md`, `apps/lesson-mcp/README.md` and `.fr.md`,
+  the regenerated tool reference.
+
+Method names were read in the types of `@modelcontextprotocol/ext-apps` 2.0.4 before the tests were
+written: `updateModelContext`, `sendMessage`, and the host capabilities `updateModelContext` and
+`message`.
+
+Deviations from the plan: `peek` on the tool, and files beyond the two the task named (the host, the
+tool, the phrase catalogue, the stylesheet, four READMEs). Test decision: none, no existing test
+changed; the test of task 2.6 (« ask goes through ») still passes, since its host declares no message
+support. Five new bridge tests and one tool test; four of the bridge tests and the tool test failed
+first, the fifth describes behaviour a host without message support already had.
+
+Not verified: no MCP Apps host has run this. Whether a host shows a message sent by a panel, and how a
+model uses the context update, is unknown; the bridge was run in a browser against a fake host only.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

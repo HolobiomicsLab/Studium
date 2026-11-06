@@ -557,9 +557,10 @@ Tell the agent what the learner did on a panel or in forms since it last looked.
 
 Read what the learner did on a panel, a pane or in forms since you last looked, before you answer them. Call it at the learner's first message after such acts, instead of showing the scene again. Returns {brief: {session_id, cursor, status_line, where{lesson_title, step{index, total}, scene{id, type, title}, waiting}, since_last[{scene_id, act: read | answer | hint | self_rating | contest, lane: fast | companion, correct?, confidence?}], since_last_count, help{rungs}, rules[3]}}. since_last holds the twelve latest acts; since_last_count counts them all. Reading it moves the cursor: the next call lists what came after. It holds no scene text and no key, hint or reference; follow its rules.
 
-| Field | Type | Required |
-|---|---|---|
-| `session_id` | string (non-empty) | yes |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `session_id` | string (non-empty) | yes |  |
+| `peek` | boolean | no | Read without moving the cursor. For a panel that keeps the model's context up to date; an assistant omits it. |
 
 ## Prompts
 
