@@ -85,7 +85,21 @@
         {
           "kind": "equation_latex",
           "title": "Nombre de masse",
-          "payload": "A = Z + N"
+          "payload": "A = Z + N",
+          "legend": [
+            {
+              "symbol": "A",
+              "meaning": "nombre de masse"
+            },
+            {
+              "symbol": "Z",
+              "meaning": "numéro atomique, égal au nombre de protons"
+            },
+            {
+              "symbol": "N",
+              "meaning": "nombre de neutrons"
+            }
+          ]
         }
       ]
     },
@@ -125,7 +139,7 @@
         }
       ],
       "feedback_correct": "Exact : N = A − Z = 56 − 26 = 30.",
-      "feedback_incorrect": "N = A − Z. Ici 56 − 26 = 30 neutrons.",
+      "feedback_incorrect": "Le nombre de neutrons se déduit de A et de Z : N = A − Z. Refais le calcul.",
       "hints": [
         "A = Z + N, donc N = A − Z."
       ]
@@ -181,7 +195,25 @@
         {
           "kind": "equation_latex",
           "title": "Valeurs autorisées",
-          "payload": "\\ell \\in \\{0,1,\\dots,n-1\\}\\quad m_\\ell \\in \\{-\\ell,\\dots,+\\ell\\}\\quad m_s = \\pm\\tfrac{1}{2}"
+          "payload": "\\ell \\in \\{0,1,\\dots,n-1\\}\\quad m_\\ell \\in \\{-\\ell,\\dots,+\\ell\\}\\quad m_s = \\pm\\tfrac{1}{2}",
+          "legend": [
+            {
+              "symbol": "n",
+              "meaning": "nombre quantique principal : la couche"
+            },
+            {
+              "symbol": "ℓ",
+              "meaning": "nombre quantique azimutal : la sous-couche"
+            },
+            {
+              "symbol": "mℓ",
+              "meaning": "nombre quantique magnétique : l'orbitale dans la sous-couche"
+            },
+            {
+              "symbol": "ms",
+              "meaning": "nombre quantique de spin"
+            }
+          ]
         }
       ]
     },
@@ -221,7 +253,7 @@
         }
       ],
       "feedback_correct": "Exact : mℓ va de −3 à +3, soit 2ℓ+1 = 7 orbitales (donc 14 électrons).",
-      "feedback_incorrect": "mℓ ∈ {−ℓ … +ℓ}. Pour ℓ=3 : −3,−2,−1,0,1,2,3 → 7 orbitales.",
+      "feedback_incorrect": "Pour une sous-couche f, détermine ℓ puis compte les valeurs entières de mℓ entre −ℓ et +ℓ.",
       "hints": [
         "Nombre d'orbitales = 2ℓ+1.",
         "ℓ vaut 3 pour une sous-couche f."
@@ -295,7 +327,7 @@
         }
       ],
       "feedback_correct": "Exact : nœuds radiaux = n − ℓ − 1 = 2 − 1 − 1 = 0 (le plan nodal de la 2p est angulaire).",
-      "feedback_incorrect": "Nœuds radiaux = n − ℓ − 1. Pour la 2p : 2 − 1 − 1 = 0.",
+      "feedback_incorrect": "Les nœuds radiaux se calculent avec n − ℓ − 1. Identifie n et ℓ pour une orbitale 2p, puis refais le calcul.",
       "hints": [
         "Distingue nœud radial (sphère) et nœud angulaire (plan).",
         "n − ℓ − 1."
@@ -483,7 +515,25 @@
         {
           "kind": "equation_latex",
           "title": "Énergie d'un photon émis",
-          "payload": "E_{photon} = h\\nu = \\left| E_{n_2} - E_{n_1} \\right|"
+          "payload": "E_{photon} = h\\nu = \\left| E_{n_2} - E_{n_1} \\right|",
+          "legend": [
+            {
+              "symbol": "Ephoton",
+              "meaning": "énergie du photon émis"
+            },
+            {
+              "symbol": "ν",
+              "meaning": "fréquence du photon"
+            },
+            {
+              "symbol": "Eₙ₂",
+              "meaning": "énergie du niveau initial n₂"
+            },
+            {
+              "symbol": "Eₙ₁",
+              "meaning": "énergie du niveau inférieur n₁"
+            }
+          ]
         },
         {
           "kind": "spectrum",
@@ -551,7 +601,21 @@
         {
           "kind": "equation_latex",
           "title": "Règle de Klechkowski",
-          "payload": "\\text{ordre} : (n+\\ell)\\ \\nearrow,\\ \\text{puis } n\\ \\nearrow"
+          "payload": "\\text{ordre} : (n+\\ell)\\ \\nearrow,\\ \\text{puis } n\\ \\nearrow",
+          "legend": [
+            {
+              "symbol": "n",
+              "meaning": "nombre quantique principal : la couche"
+            },
+            {
+              "symbol": "ℓ",
+              "meaning": "nombre quantique azimutal : la sous-couche"
+            },
+            {
+              "symbol": "↗",
+              "meaning": "ordre croissant"
+            }
+          ]
         }
       ]
     },
@@ -592,7 +656,7 @@
         }
       ],
       "feedback_correct": "Exact : 2 + 2 + 2 = 6 électrons (Z=6).",
-      "feedback_incorrect": "Klechkowski : 1s → 2s → 2p. Avec 6 e⁻ : 1s² 2s² 2p².",
+      "feedback_incorrect": "Applique l'ordre de Klechkowski (1s → 2s → 2p), puis répartis les 6 électrons en respectant Pauli.",
       "hints": [
         "Ordre 1s, 2s, 2p.",
         "2 électrons max par orbitale (Pauli)."

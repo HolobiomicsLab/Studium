@@ -22,7 +22,7 @@
 // This module is the canonical learner-facing chat rendering. Clients, including the VS Code chat,
 // stream its `display_markdown`; their local formatters are compatibility fallbacks for older hosts.
 import type { CompletionSummary, Presentation, Transition } from "@studium/lesson-session";
-import type { Scene } from "@studium/lesson-bundle-schema";
+import { sceneRenderAssets, type Scene } from "@studium/lesson-bundle-schema";
 import {
   publicScene, citedSources, type CitedSource, type PublicPresentation,
   type PublicTransition,
@@ -304,6 +304,17 @@ function sceneBody(scene: PublicSceneFields, locale: DisplayLocale): string[] {
   return [str(scene["prompt"]) || str(scene["markdown"])]; // intro / concept / explain_back
 }
 
+function equationBlocks(scene: PublicSceneFields, locale: DisplayLocale): string[] {
+  return sceneRenderAssets(scene as Scene).flatMap((asset) => {
+    if (asset.kind !== "equation_latex" || typeof asset.payload !== "string" || !asset.payload.trim()) return [];
+    const title = typeof asset.title === "string" && asset.title.trim()
+      ? asset.title.trim()
+      : locale === "fr" ? "Équation" : "Equation";
+    const legend = (asset.legend ?? []).map(({ symbol, meaning }) => `- ${symbol} : ${meaning}`).join("\n");
+    return [`**${title}**\n\n$$\n${asset.payload}\n$$${legend ? `\n\n${legend}` : ""}`];
+  });
+}
+
 function replyHint(scene: PublicSceneFields, locale: DisplayLocale): string {
   const t = scene.type ?? "";
   if (t === "quiz") {
@@ -339,6 +350,7 @@ export function presentationMarkdown(
   blocks.push(`### ${scene.title || scene.type || ""}`);
   blocks.push(`_${say(locale, opts.review ? "review_progress" : "progress", { n: p.index + 1, total: p.total })}_`);
   blocks.push(...sceneBody(scene, locale));
+  blocks.push(...equationBlocks(scene, locale));
   const readingSources = sourcesMarkdown(citedSources(scene as unknown as Scene), locale);
   if (readingSources) blocks.push(readingSources);
   if ((p.hints_available ?? 0) > 0) blocks.push(say(locale, "hint_available"));

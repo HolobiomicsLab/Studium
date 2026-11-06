@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionHost } from '@studium/lesson-session-host';
 import { resolve } from 'node:path';
-import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { request as httpRequest, type Server } from 'node:http';
+import { Readable } from 'node:stream';
 import { createLessonHttpServer } from './http.js';
 
 const root = resolve(import.meta.dirname, '../../../fixtures');
@@ -31,6 +32,25 @@ async function setup(options: {bundlesRoot?: string; maxRequests?: number} = {})
 const startArgs = {bundle_ref:'capsule-judgment-demo/lesson.json'};
 const start = (call:any) => call('start_lesson_session', startArgs, {request_id:'start'});
 
+/** Exercise the real HTTP request handler without opening a socket (some sandboxes forbid listen()). */
+async function callInProcess(server:Server,name:string,args:Record<string,unknown>,extra:Record<string,unknown> = {}) {
+  const body = Buffer.from(JSON.stringify({arguments:args,...extra}));
+  const request = new Readable({read() { this.push(body); this.push(null); }}) as any;
+  Object.assign(request, {
+    method:'POST', url:`/v1/operations/${name}`,
+    headers:{authorization:`Bearer ${token}`,'content-type':'application/json',host:'127.0.0.1'},
+    socket:{remoteAddress:'127.0.0.1',localAddress:'127.0.0.1'},
+  });
+  return new Promise<{status:number;body:any}>((accept) => {
+    let status = 0;
+    const response = {
+      writeHead(code:number) { status = code; },
+      end(payload:string) { accept({status,body:JSON.parse(payload)}); },
+    } as any;
+    server.emit('request',request,response);
+  });
+}
+
 describe('local lesson HTTP API', () => {
   it('requires auth; rejects origins and hostile hosts', async () => {
     const {base} = await setup();
@@ -53,8 +73,15 @@ describe('local lesson HTTP API', () => {
     expect(submit.mutating).toBe(true);
     expect(submit.requires_scene_id).toBe(true);
     expect(body.operations.some((x:any) => x.name === 'record_experiment')).toBe(true);
-    // The lesson operations only: the study, authoring and teacher tools are MCP-only this sprint (I-11).
-    expect(body.operations).toHaveLength(25);
+    // Contract decision C1/C2 (owner request 2026-11-05): the 25 lesson operations plus rate_recall;
+    // the other study operations and every authoring/teacher operation remain MCP-only (I-11).
+    expect(body.operations).toHaveLength(26);
+    expect(body.operations.find((operation:{name:string;mutating:boolean;requires_scene_id:boolean}) =>
+      operation.name === 'rate_recall')).toMatchObject({mutating:true,requires_scene_id:false});
+    for (const name of ['get_study_plan','list_lessons','start_review_session','get_authoring_guide',
+      'prepare_sources','create_lesson','review_lesson','class_report']) {
+      expect(body.operations.some((operation:{name:string}) => operation.name === name)).toBe(false);
+    }
     for (const name of ['get_server_info', 'list_community_bundles']) {
       expect(body.operations.find((operation:{name:string;mutating:boolean}) => operation.name === name)?.mutating).toBe(false);
     }
@@ -80,6 +107,104 @@ describe('local lesson HTTP API', () => {
     expect(advanced.status).toBe(200);
     expect(JSON.stringify(advanced.body)).not.toContain('flaws_expected');
     expect((await call('get_current_scene', {session_id})).status).toBe(200);
+  });
+  it('records a requested self-rating without an expected scene id and refuses a second rating', async () => {
+    const dir = mkdtempSync(resolve(tmpdir(),'http-self-rating-')); dirs.push(dir);
+    writeFileSync(resolve(dir,'lesson.json'), JSON.stringify({
+      schema_version:'1.4', bundle_id:'http-self-rating', source_plan_id:'p',
+      metadata:{title:'HTTP self-rating',target:'L1',duration_minutes:2,language:'en',discipline:'chemistry'},
+      concepts:[{id:'c-sign',title:'Sign',description:'A sign change',bloom_level_target:'understand'}],
+      scenes:[
+        {id:'s-explain',type:'explain_back',title:'Explain',objective_refs:[],concept_refs:['c-sign'],
+          estimated_seconds:30,adaptation_hooks:[],prompt:'Explain why the sign changes.',
+          key_points:[{id:'kp',text:'The sign changes between lobes.',cues:['sign']}],
+          model_explanation:'The sign changes between lobes.',rubric:{completeness:1,evidence_quality:1,tone:1}},
+        {id:'s-quiz',type:'quiz',title:'Check',objective_refs:[],concept_refs:['c-sign'],estimated_seconds:30,
+          adaptation_hooks:[],question:'Does the sign change?',choices:[
+            {id:'yes',text:'Yes',correct:true},{id:'no',text:'No',correct:false}],
+          feedback_correct:'Correct.',feedback_incorrect:'Try again.',hints:[]},
+      ],
+      rules:[],validated_by:'Test',validated_at:'2026-11-05T00:00:00Z',
+    }));
+    const host = new SessionHost({bundlesRoot:dir,live:false,dataDir:null});
+    const server = createLessonHttpServer({host,token,bundlesRoot:dir});
+    const call = (name:string,args:Record<string,unknown>,extra:Record<string,unknown> = {}) =>
+      callInProcess(server,name,args,extra);
+    const started = await call('start_lesson_session',{bundle_ref:'lesson.json'},{request_id:'start-rating'});
+    expect(started.status).toBe(200);
+    const session_id = started.body.session_id;
+    const scene_id = host.currentPresentation(session_id).scene.id;
+    const answered = await call('submit_response',
+      {session_id,input:{kind:'reply',text:'The sign changes between the lobes.'}},
+      {request_id:'answer-rating',expected_scene_id:scene_id});
+    expect(answered.status).toBe(200);
+    expect(answered.body.transition.self_rating).toEqual({
+      requested:true,grades:['again','hard','good','easy'],scene_id:'s-explain',
+    });
+
+    expect((await call('rate_recall',{session_id,scene_id:'s-explain',grade:'hard'})).status).toBe(400);
+    const rated = await call('rate_recall',{session_id,scene_id:'s-explain',grade:'hard'},{request_id:'rate-once'});
+    expect(rated).toMatchObject({status:200,body:{scene_id:'s-explain',concept_id:'c-sign',grade:'hard',source:'self_rated'}});
+    expect(await call('rate_recall',{session_id,scene_id:'s-explain',grade:'hard'},{request_id:'rate-once'})).toEqual(rated);
+    const second = await call('rate_recall',{session_id,scene_id:'s-explain',grade:'good'},{request_id:'rate-twice'});
+    expect(second).toMatchObject({status:422,body:{code:'operation_failed'}});
+    expect(second.body.error).toMatch(/no self-rating was requested for scene "s-explain"/);
+  });
+  it('plays the two live-trial regressions through the HTTP handler on atomistique-l1', async () => {
+    const host = new SessionHost({bundlesRoot:root,live:false,dataDir:null});
+    const server = createLessonHttpServer({host,token,bundlesRoot:root});
+    const call = (name:string,args:Record<string,unknown>,extra:Record<string,unknown> = {}) =>
+      callInProcess(server,name,args,extra);
+    const fixture = JSON.parse(readFileSync(resolve(root,'atomistique-l1/lesson.json'),'utf8')) as any;
+    const keyedText = (sceneId:string) => fixture.scenes.find((scene:any) => scene.id === sceneId)
+      .choices.find((choice:any) => choice.correct).text as string;
+    const displayedId = (presentation:any,text:string) => {
+      const choice = presentation.scene.choices.find((candidate:any) => candidate.text === text);
+      if (!choice) throw new Error(`displayed choice not found: ${text}`);
+      return choice.id as string;
+    };
+
+    const started = await call('start_lesson_session',
+      {bundle_ref:'atomistique-l1/lesson.json',learner_id:'http-trial-regression'},
+      {request_id:'trial-start'});
+    expect(started.status).toBe(200);
+    const session_id = started.body.session_id as string;
+    let presentation = started.body.presentation;
+    let request = 0;
+    const respond = async (input:Record<string,unknown>) => {
+      const sceneId = presentation.scene.id as string;
+      const answered = await call('submit_response',{session_id,input},
+        {request_id:`trial-answer-${++request}`,expected_scene_id:sceneId});
+      expect(answered.status, JSON.stringify(answered.body)).toBe(200);
+      const transition = answered.body.transition;
+      if (transition.presentation) presentation = transition.presentation;
+      return transition;
+    };
+
+    await respond({kind:'ack'}); // intro
+    await respond({kind:'ack'}); // particles concept
+    await respond({kind:'quiz_choice',choiceId:displayedId(presentation,keyedText('s1-quiz-fer'))});
+    await respond({kind:'summary_audit',text:'A et Z permettent de vérifier protons et neutrons.'});
+    await respond({kind:'ack'}); // quantum-numbers concept
+    expect(presentation.scene.id).toBe('s2-quiz-4f');
+
+    const wrong = await respond({kind:'quiz_choice',choiceId:displayedId(presentation,'5')});
+    expect(wrong.presentation.scene.id).toBe('s2-quiz-4f');
+    expect(wrong.verdict.feedback).toContain('compte les valeurs entières');
+    expect(wrong.verdict.display_markdown).toContain('✗');
+    expect(wrong.verdict.display_markdown).not.toMatch(/(^|[^\p{L}\p{N}])7([^\p{L}\p{N}]|$)/u);
+
+    await respond({kind:'quiz_choice',choiceId:displayedId(presentation,keyedText('s2-quiz-4f'))});
+    expect(presentation.scene.id).toBe('s3-concept-orbitales');
+    await respond({kind:'ack'});
+    await respond({kind:'quiz_choice',choiceId:displayedId(presentation,keyedText('s3-quiz-noeuds'))});
+    expect(presentation.scene.id).toBe('s3b-explain-2p');
+    const explained = await respond({kind:'explanation',text:'Les deux lobes ont des signes opposés de part et d’autre du plan nodal.'});
+    expect(explained.self_rating).toMatchObject({requested:true,scene_id:'s3b-explain-2p'});
+    const rated = await call('rate_recall',
+      {session_id,scene_id:'s3b-explain-2p',grade:'good'},
+      {request_id:'trial-rate-s3b'});
+    expect(rated).toMatchObject({status:200,body:{scene_id:'s3b-explain-2p',grade:'good',source:'self_rated'}});
   });
   it('deduplicates concurrent submissions and rejects changed retry payloads and stale scenes', async () => {
     const {call,host} = await setup();

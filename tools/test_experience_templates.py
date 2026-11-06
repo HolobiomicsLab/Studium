@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 import experience_templates as templates
+from exploration_public_context import validate_public_fields
 from experience_templates import (
     CATALOGUE_SCHEMA,
     PreparedActivity,
@@ -66,6 +67,21 @@ def test_catalogue_lists_five_ready_templates() -> None:
         assert item["learning_goal"]
         assert item["version"] == "1.0.0"
         assert item["sample_config"]
+
+
+def test_public_context_accepts_only_the_equation_legend_contract() -> None:
+    context = {
+        "schema": "studium/operator-context/v1",
+        "scene_assets": [{
+            "kind": "equation_latex",
+            "payload": "A=Z+N",
+            "legend": [{"symbol": "A", "meaning": "mass number"}],
+        }],
+    }
+    validate_public_fields(context)
+    context["scene_assets"][0]["legend"][0]["private_note"] = "not public"
+    with pytest.raises(ValueError, match="outside the public"):
+        validate_public_fields(context)
 
 
 @pytest.mark.parametrize(

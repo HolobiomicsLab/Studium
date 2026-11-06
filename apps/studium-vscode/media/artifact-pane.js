@@ -198,11 +198,22 @@
   // --- per-kind renderers --------------------------------------------------
   function renderEquation(a) {
     const box = el("div", { class: "eq" });
+    const formula = el("div", { class: "eq-formula" });
     if (window.katex) {
-      try { window.katex.render(a.payload || "", box, { displayMode: true, throwOnError: false }); return box; }
+      try { window.katex.render(a.payload || "", formula, { displayMode: true, throwOnError: false }); }
       catch (e) { /* fall through */ }
     }
-    box.append(el("code", { class: "eq-fallback" }, a.payload || ""));
+    if (!formula.childNodes.length) formula.append(el("code", { class: "eq-fallback" }, a.payload || ""));
+    box.append(formula);
+    if (Array.isArray(a.legend) && a.legend.length) {
+      const legend = el("ul", { class: "eq-legend" });
+      a.legend.forEach((entry) => {
+        if (entry && typeof entry.symbol === "string" && typeof entry.meaning === "string") {
+          legend.append(el("li", { class: "eq-legend-entry" }, `${entry.symbol} : ${entry.meaning}`));
+        }
+      });
+      if (legend.childNodes.length) box.append(legend);
+    }
     return box;
   }
 

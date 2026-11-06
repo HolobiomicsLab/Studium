@@ -3,6 +3,12 @@ import { readFileSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 type ImageAsset = { kind?: string; path?: string; [key: string]: unknown };
+type EquationAsset = {
+  kind?: string;
+  title?: unknown;
+  payload?: unknown;
+  legend?: unknown;
+};
 
 function isInside(baseDir: string, candidate: string): boolean {
   const rel = relative(baseDir, candidate);
@@ -27,6 +33,19 @@ export function imageMime(p: string): string {
   if (e.endsWith(".gif")) return "image/gif";
   if (e.endsWith(".webp")) return "image/webp";
   return "image/png";
+}
+
+/** Markdown for the notebook's native equation renderer, including the authored symbol legend. */
+export function equationAssetMarkdown(asset: EquationAsset): string {
+  if (asset.kind !== "equation_latex" || typeof asset.payload !== "string" || !asset.payload) return "";
+  const title = typeof asset.title === "string" && asset.title ? asset.title : asset.kind;
+  const legend = Array.isArray(asset.legend)
+    ? asset.legend.flatMap((entry) => entry && typeof entry === "object"
+      && typeof (entry as { symbol?: unknown }).symbol === "string"
+      && typeof (entry as { meaning?: unknown }).meaning === "string"
+      ? [`- ${(entry as { symbol: string }).symbol} : ${(entry as { meaning: string }).meaning}`] : [])
+    : [];
+  return [`**${title}**`, `$$\n${asset.payload}\n$$`, legend.join("\n")].filter(Boolean).join("\n\n");
 }
 
 /** Inline an image-like render asset for the lesson pane. Unreadable or out-of-bundle paths remain

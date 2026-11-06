@@ -586,6 +586,27 @@ function checkLocale(language: string): DisplayLocale {
 }
 
 const conceptsOf = (scene: Scene): readonly string[] => ("concept_refs" in scene ? scene.concept_refs : []);
+/** Normalize authored answer text for the conservative pre-retry reveal check. */
+function normalizedRevealText(text: string): string[] {
+  return text.normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+/** Whether `answer` occurs in `feedback` with Unicode alphanumeric token boundaries. */
+function containsWholeAnswer(feedback: string, answer: string): boolean {
+  const text = normalizedRevealText(feedback);
+  const needle = normalizedRevealText(answer);
+  if (needle.length === 0 || needle.length > text.length) return false;
+  for (let start = 0; start <= text.length - needle.length; start += 1) {
+    if (needle.every((token, offset) => text[start + offset] === token)) return true;
+  }
+  return false;
+}
+
+/** Whether a wrong quiz's authored feedback states one of its keyed choices. */
+function feedbackRevealsCorrectChoice(scene: Scene | undefined, verdict: Verdict): boolean {
+  if (scene?.type !== "quiz" || verdict.correct !== false || verdict.feedback === undefined) return false;
+  return scene.choices.some((choice) => choice.correct && containsWholeAnswer(verdict.feedback!, choice.text));
+}
 
 /** I-2: whether an answer leaves its scene for good — a right answer, the end of the session, or a
  * next scene that is neither the same item again (a replay, or a detour that returns to it) nor
@@ -622,9 +643,13 @@ type Verdict = NonNullable<Transition["verdict"]>;
 const hasReference = (verdict: Verdict | undefined): boolean => (verdict?.key_points?.length ?? 0) > 0
   || verdict?.model_answer !== undefined;
 
-/** A verdict without its reference, for an answer that does not leave its scene yet (I-2). */
-function withoutReference(verdict: Verdict): Verdict {
+/** A verdict without its reference, nor answer-revealing quiz feedback, before a retry (I-2). */
+function withoutReference(verdict: Verdict, answered: Scene | undefined): Verdict {
   const { key_points: _points, key_points_missing: _missing, model_answer: _model, reference_kind: _kind, ...rest } = verdict;
+  if (feedbackRevealsCorrectChoice(answered, verdict)) {
+    const { feedback: _feedback, ...safe } = rest;
+    return safe;
+  }
   return rest;
 }
 
@@ -1409,7 +1434,7 @@ export class SessionHost {
     const answered = transition.verdict ? entry.bundle.scenes.find((s) => s.id === transition.verdict?.scene_id) : undefined;
     const leaving = answered === undefined || leavesForGood(transition, answered);
     const sources = transition.verdict ? releasedSources(entry, transition, answered, leaving) : [];
-    const verdict = transition.verdict && !leaving ? withoutReference(transition.verdict) : transition.verdict;
+    const verdict = transition.verdict && !leaving ? withoutReference(transition.verdict, answered) : transition.verdict;
     const selfRating = transition.self_rating && verdict && (leaving || !hasReference(transition.verdict))
       ? { ...transition.self_rating, scene_id: verdict.scene_id } : undefined;
     const reviewPlan = transition.kind === "complete" ? this.reviewPlanOf(entry) : undefined;

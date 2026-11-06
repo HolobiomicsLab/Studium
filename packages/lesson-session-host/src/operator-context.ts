@@ -60,6 +60,7 @@ function displayScene(scene: Record<string, unknown>): Record<string, unknown> {
 function displayAsset(asset: RenderAsset): RenderAsset {
   const display: Record<string, unknown> = {};
   for (const key of ASSET_TEXT) if (typeof asset[key] === "string") display[key] = asset[key];
+  if (asset.legend) display.legend = asset.legend.map(({ symbol, meaning }) => ({ symbol, meaning }));
   if (asset.kind === "executed_result") {
     const meta = asset.meta ?? {};
     display.meta = {

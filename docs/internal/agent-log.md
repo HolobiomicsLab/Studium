@@ -2852,6 +2852,37 @@ lookup timed out. No global before-snapshot, so no claim of exclusive attributio
 Canonical/live dev33bf561 unchanged; no push/merge/release/paid call, manuscript or
 LabOS write. Hub audit/handoff records exact output and limitations.
 
+## 2026-11-06 — Live learner-trial fixes: retry feedback, equation legends and HTTP recall ratings
+
+Addressed the three defects recorded during the 5 November atomistique learner
+trial. Wrong quiz feedback that contains a correct choice is now withheld only
+when the learner can retry before leaving the scene; non-revealing feedback and
+feedback released on departure are unchanged. The bundle linter reports this
+authoring problem, the affected fixture feedback is now methodological rather
+than answer-revealing, and both authoring guides state the retry constraint.
+
+Render assets now accept an optional validated symbol legend. Legends survive
+the public-scene, MCP artifact and operator-context projections and render under
+equations in chat, the VS Code pane and notebooks, and portable scientific
+activities. All shipped equation fixtures carry lesson-grounded meanings; the
+linter warns when a legend is absent, and generated bundle references document
+the field. Learner reports were not an equation-rendering surface.
+
+The HTTP API now exposes `rate_recall` as the one study-tool exception to I-11,
+with mutation receipts and idempotent resend semantics and without a stale-scene
+argument. The pinned HTTP operation contract grows from 25 to 26, while all
+other study, authoring and teacher tools remain MCP-only. An in-process HTTP
+trial covers hidden retry feedback and a successful recall rating after the
+requested explanation scene.
+
+Focused TypeScript, Python, bundle-lint, schema, HTTP and rendering checks pass,
+as do build and lint. In this managed sandbox, commands that launch the `tsx`
+CLI cannot create its Unix IPC socket (`listen EPERM`); this blocks the exact
+full `pnpm test`, documentation-generation, parity-test and headless-smoke
+commands despite equivalent `node --import tsx` checks. The Python aggregate
+also retains an unrelated capsule-run failure. Work is intentionally left
+uncommitted for owner review; no push, PR, tag, paid route or learner-home write.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

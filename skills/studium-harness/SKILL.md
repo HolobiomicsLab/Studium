@@ -6,10 +6,10 @@ description: Operate a Studium lesson through an AI harness such as Codex, Claud
 # studium-harness: Studium as the lesson brain, this harness as the hands
 
 Studium (GitHub `HolobiomicsLab/studium`) serves lessons through an MCP server
-(`apps/lesson-mcp`), a local HTTP API with the same lesson operations, and a file
-channel. The harness shows scenes, runs any code and relays the learner's answers;
-Studium presents, grades, adapts, schedules reviews, attests and records. Three
-invariants shape every step:
+(`apps/lesson-mcp`), a local HTTP API with the same 25 lesson operations plus
+`rate_recall`, and a file channel. The harness shows scenes, runs any code and relays
+the learner's answers; Studium presents, grades, adapts, schedules reviews, attests
+and records. Three invariants shape every step:
 
 - **The learner answers, you relay.** Never answer, choose, rate or state confidence
   for them. Distinguish teaching (wait for the learner), labelled automated testing
@@ -248,13 +248,16 @@ raters; they are not part of a single-learner run.
 
 ## 7. Other channels
 
-**HTTP API.** `pnpm --filter @studium/lesson-mcp api` serves the 25 lesson operations
-on `127.0.0.1:8130` (`STUDIUM_API_TOKEN` of at least 32 characters, in the environment,
-never in a prompt); `pnpm --silent --filter @studium/lesson-mcp api:call operations`
-lists them. Study, authoring and teacher tools are MCP-only. Each mutation carries a
-unique `request_id`; scene-sensitive mutations also need the current
-`expected_scene_id`. Resend an uncertain request with the same id; do not re-create a
-session on a connection error. See [Direct HTTP API](../../docs/start/harnesses.md#direct-http-api)
+**HTTP API.** `pnpm --filter @studium/lesson-mcp api` serves 26 operations: the 25
+lesson operations plus `rate_recall`, on `127.0.0.1:8130` (`STUDIUM_API_TOKEN` of at
+least 32 characters, in the environment, never in a prompt). Run
+`pnpm --silent --filter @studium/lesson-mcp api:call operations` to list them. The other
+study tools (`get_study_plan`, `list_lessons`, `start_review_session`) and all authoring
+and teacher tools are MCP-only. Each mutation carries a unique `request_id`;
+scene-sensitive mutations also need the current `expected_scene_id`. `rate_recall` needs no
+`expected_scene_id` because its `scene_id` argument identifies the self-rating request.
+Resend an uncertain request with the same id; do not re-create a session on a connection
+error. See [Direct HTTP API](../../docs/start/harnesses.md#direct-http-api)
 and the [HTTP API reference](../../docs/reference/http-api.md).
 
 **File channel.** From the repository root, the runner writes each step and waits:

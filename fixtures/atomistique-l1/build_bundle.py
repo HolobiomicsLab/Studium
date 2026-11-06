@@ -50,8 +50,9 @@ def mol(rel: str, title: str) -> dict:
             "provenance": "idealized VSEPR geometry (generate_assets.py)"}
 
 
-def eq(latex: str, title: str) -> dict:
-    return {"kind": "equation_latex", "title": title, "payload": latex}
+def eq(latex: str, title: str, entries: list[tuple[str, str]]) -> dict:
+    return {"kind": "equation_latex", "title": title, "payload": latex,
+            "legend": [{"symbol": symbol, "meaning": meaning} for symbol, meaning in entries]}
 
 
 # ── concepts (LWG concept nodes too) ──────────────────────────────────────────
@@ -94,7 +95,11 @@ def build_scenes() -> list[dict]:
                     "électronique**.\n\n- **Z** (numéro atomique) = nombre de protons → définit l'élément.\n"
                     "- **A** (nombre de masse) = Z + N (N = neutrons).\n- **Isotopes** : même Z, A différent.\n\n"
                     "Le noyau (~10⁻¹⁵ m) est 10⁵ fois plus petit que l'atome (~10⁻¹⁰ m).",
-        "render_assets": [eq("A = Z + N", "Nombre de masse")],
+        "render_assets": [eq("A = Z + N", "Nombre de masse", [
+            ("A", "nombre de masse"),
+            ("Z", "numéro atomique, égal au nombre de protons"),
+            ("N", "nombre de neutrons"),
+        ])],
     })
 
     S.append({
@@ -109,7 +114,7 @@ def build_scenes() -> list[dict]:
             {"id": "d", "text": "82", "correct": False},
         ],
         "feedback_correct": "Exact : N = A − Z = 56 − 26 = 30.",
-        "feedback_incorrect": "N = A − Z. Ici 56 − 26 = 30 neutrons.",
+        "feedback_incorrect": "Le nombre de neutrons se déduit de A et de Z : N = A − Z. Refais le calcul.",
         "hints": ["A = Z + N, donc N = A − Z."],
     })
 
@@ -156,7 +161,12 @@ def build_scenes() -> list[dict]:
                     "(magnétique) : −ℓ … +ℓ → l'orbitale dans la sous-couche.\n- **ms** (spin) : −½ ou +½.\n\n"
                     "Une sous-couche ℓ contient (2ℓ+1) orbitales, soit 2(2ℓ+1) électrons.",
         "render_assets": [eq(r"\ell \in \{0,1,\dots,n-1\}\quad m_\ell \in \{-\ell,\dots,+\ell\}\quad m_s = \pm\tfrac{1}{2}",
-                             "Valeurs autorisées")],
+                             "Valeurs autorisées", [
+                                 ("n", "nombre quantique principal : la couche"),
+                                 ("ℓ", "nombre quantique azimutal : la sous-couche"),
+                                 ("mℓ", "nombre quantique magnétique : l'orbitale dans la sous-couche"),
+                                 ("ms", "nombre quantique de spin"),
+                             ])],
     })
 
     S.append({
@@ -171,7 +181,7 @@ def build_scenes() -> list[dict]:
             {"id": "d", "text": "14", "correct": False},
         ],
         "feedback_correct": "Exact : mℓ va de −3 à +3, soit 2ℓ+1 = 7 orbitales (donc 14 électrons).",
-        "feedback_incorrect": "mℓ ∈ {−ℓ … +ℓ}. Pour ℓ=3 : −3,−2,−1,0,1,2,3 → 7 orbitales.",
+        "feedback_incorrect": "Pour une sous-couche f, détermine ℓ puis compte les valeurs entières de mℓ entre −ℓ et +ℓ.",
         "hints": ["Nombre d'orbitales = 2ℓ+1.", "ℓ vaut 3 pour une sous-couche f."],
     })
 
@@ -200,7 +210,7 @@ def build_scenes() -> list[dict]:
             {"id": "c", "text": "2", "correct": False},
         ],
         "feedback_correct": "Exact : nœuds radiaux = n − ℓ − 1 = 2 − 1 − 1 = 0 (le plan nodal de la 2p est angulaire).",
-        "feedback_incorrect": "Nœuds radiaux = n − ℓ − 1. Pour la 2p : 2 − 1 − 1 = 0.",
+        "feedback_incorrect": "Les nœuds radiaux se calculent avec n − ℓ − 1. Identifie n et ℓ pour une orbitale 2p, puis refais le calcul.",
         "hints": ["Distingue nœud radial (sphère) et nœud angulaire (plan).", "n − ℓ − 1."],
     })
 
@@ -321,7 +331,12 @@ def build_scenes() -> list[dict]:
                     "donnent la **série de Balmer**, dans le visible — la signature qui permet de *reconnaître un "
                     "gaz inconnu*.",
         "render_assets": [
-            eq(r"E_{photon} = h\nu = \left| E_{n_2} - E_{n_1} \right|", "Énergie d'un photon émis"),
+            eq(r"E_{photon} = h\nu = \left| E_{n_2} - E_{n_1} \right|", "Énergie d'un photon émis", [
+                ("Ephoton", "énergie du photon émis"),
+                ("ν", "fréquence du photon"),
+                ("Eₙ₂", "énergie du niveau initial n₂"),
+                ("Eₙ₁", "énergie du niveau inférieur n₁"),
+            ]),
             spectrum("assets/spectra/H_balmer.spectrum.json", "Série de Balmer de l'hydrogène"),
         ],
     })
@@ -350,7 +365,11 @@ def build_scenes() -> list[dict]:
                     "(n+ℓ) égal → 1s, 2s, 2p, 3s, 3p, **4s, 3d**, 4p, …\n- **Pauli** : 2 électrons max par orbitale "
                     "(spins opposés).\n- **Hund** : on remplit d'abord à spins parallèles dans une sous-couche "
                     "dégénérée.",
-        "render_assets": [eq(r"\text{ordre} : (n+\ell)\ \nearrow,\ \text{puis } n\ \nearrow", "Règle de Klechkowski")],
+        "render_assets": [eq(r"\text{ordre} : (n+\ell)\ \nearrow,\ \text{puis } n\ \nearrow", "Règle de Klechkowski", [
+            ("n", "nombre quantique principal : la couche"),
+            ("ℓ", "nombre quantique azimutal : la sous-couche"),
+            ("↗", "ordre croissant"),
+        ])],
     })
 
     S.append({
@@ -360,12 +379,12 @@ def build_scenes() -> list[dict]:
         "question": "Quelle est la configuration électronique du carbone (Z=6) ?",
         "choices": [
             {"id": "a", "text": "1s² 2s² 2p²", "correct": True},
-            {"id": "b", "text": "1s² 2s⁴", "correct": False},
+            {"id": "b", "text": "1s² 2s¹ 2p³", "correct": False},
             {"id": "c", "text": "1s² 2p⁴", "correct": False},
-            {"id": "d", "text": "1s⁴ 2s²", "correct": False},
+            {"id": "d", "text": "1s² 2s² 3p²", "correct": False},
         ],
         "feedback_correct": "Exact : 2 + 2 + 2 = 6 électrons (Z=6).",
-        "feedback_incorrect": "Klechkowski : 1s → 2s → 2p. Avec 6 e⁻ : 1s² 2s² 2p².",
+        "feedback_incorrect": "Applique l'ordre de Klechkowski (1s → 2s → 2p), puis répartis les 6 électrons en respectant Pauli.",
         "hints": ["Ordre 1s, 2s, 2p.", "2 électrons max par orbitale (Pauli)."],
     })
 

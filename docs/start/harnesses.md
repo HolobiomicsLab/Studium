@@ -191,9 +191,10 @@ Merge this into `.cursor/mcp.json` and enable the tools as the
 
 ## Direct HTTP API
 
-For scripts and custom clients, Studium also runs as a local JSON API. It serves the 25 lesson operations
-only; the study, authoring and teacher tools are MCP-only in this version. Start it in a terminal you keep
-open:
+For scripts and custom clients, Studium also runs as a local JSON API. It serves 26 operations: the 25
+lesson operations plus `rate_recall`, so a self-rating requested by an HTTP lesson transition can be
+recorded. The other study tools (`get_study_plan`, `list_lessons`, `start_review_session`) and all authoring
+and teacher tools are MCP-only in this version. Start it in a terminal you keep open:
 
 ```bash
 export STUDIUM_API_TOKEN="$(openssl rand -hex 32)"   # at least 32 characters, shared with your clients
@@ -224,6 +225,8 @@ with `start.json`:
 Every mutation needs a unique `request_id`; resending the identical request with the same id returns the
 first result instead of acting twice, which makes a retry after a network error safe. `submit_response`,
 `submit_turn`, `request_hint`, `record_experiment` and `submit_run_result` also need `expected_scene_id`.
+`rate_recall` needs a `request_id` but no `expected_scene_id`: pass the requested scene as its
+`arguments.scene_id`.
 Routes, status codes and limits are in the [HTTP API reference](../reference/http-api.md). The older REST
 service `apps/lesson-server` (port 8010, answer keys redacted) is a separate process whose session ids are
 not interchangeable with this API's; use this API for a new harness integration.

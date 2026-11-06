@@ -69,6 +69,16 @@ describe("presentationMarkdown", () => {
     for (const c of (quiz as { choices: Array<{ text: string }> }).choices) expect(md).toContain(c.text);
   });
 
+  it("includes an equation, its title and legend for a text-only chat harness", () => {
+    const scene = ATOMISTIQUE.scenes.find((candidate) => candidate.id === "s1-concept-particules")!;
+    const md = presentationMarkdown(presentation(scene, ATOMISTIQUE.scenes.indexOf(scene)));
+    expect(md).toContain("**Nombre de masse**");
+    expect(md).toContain("$$\nA = Z + N\n$$");
+    expect(md).toContain("- A : nombre de masse");
+    expect(md).toContain("- Z : numéro atomique, égal au nombre de protons");
+    expect(md).toContain("- N : nombre de neutrons");
+  });
+
   it("shows the authoring notice on the first screen only, and warns when nothing is durable", () => {
     const notice = "Leçon rédigée par l'IA à partir de vos sources, non vérifiée par un enseignant.";
     const p = presentation(ATOMISTIQUE.scenes[0], 0, {

@@ -245,7 +245,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     {
       description: "Get the normalized render manifest (scene_assets[]) for the current scene — the " +
         "artifacts a UI pairs with this scene: {kind: image|svg|equation_latex|plot_spec|code|data_csv|" +
-        "protocol_md|executed_result, title?, payload?, path?, meta?}. Empty for a plain quiz. A webview " +
+        "protocol_md|executed_result, title?, payload?, path?, legend?: [{symbol, meaning}], meta?}. Empty for a plain quiz. A webview " +
         "calls this each turn to repaint the artifact pane in lockstep with the lesson. reference_result and " +
         "executed_result are EVIDENCE to judge against, not an answer key.",
       inputSchema: { session_id: z.string() },
