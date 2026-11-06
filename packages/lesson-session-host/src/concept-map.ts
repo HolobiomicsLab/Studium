@@ -62,12 +62,14 @@ const WORDS = {
     acquired: "acquise", to_review: "à revoir", current: "en cours", seen: "vue, pas encore évaluée", upcoming: "à venir",
     correct: "juste", wrong: "faux", recorded: "enregistrée", recorded_many: "{n} réponses enregistrées", requires: "demande {list}",
     from: "Tu viens de « {c} »", at: "tu es sur « {c} »", next: "ensuite « {c} »", done: "la leçon est terminée",
+    first: "la leçon commence par « {c} »",
   },
   en: {
     title: "Concept map", step: "step {n}", sep: ": ",
     acquired: "acquired", to_review: "to review", current: "in progress", seen: "seen, not assessed yet", upcoming: "upcoming",
     correct: "correct", wrong: "wrong", recorded: "recorded", recorded_many: "{n} answers recorded", requires: "needs {list}",
     from: "You come from “{c}”", at: "you are on “{c}”", next: "next “{c}”", done: "the lesson is complete",
+    first: "the lesson starts with “{c}”",
   },
 } as const;
 
@@ -125,15 +127,20 @@ export function buildConceptMap(input: ConceptMapInput): ConceptMap {
   })));
 
   const visited = path.steps.map((step) => refsOf(step.scene_id)[0]).filter((c): c is string => c !== undefined && c !== current);
+  // No current scene: the lesson is finished. A current scene that names no concept (an introduction)
+  // is not the end: what comes next is the first concept still ahead.
+  const finished = currentSceneId === null;
+  const ahead = current === null ? order : order.slice(order.indexOf(current) + 1);
   const position = {
     from: visited.at(-1) ?? null,
     at: current,
-    next: current === null ? null : order.slice(order.indexOf(current) + 1).find((id) => stateOf.get(id) === "upcoming") ?? null,
+    next: finished ? null : ahead.find((id) => stateOf.get(id) === "upcoming") ?? null,
   };
+  const nothingYet = position.from === null && position.at === null;
   const positionLine = sentence([
     position.from ? w.from.replace("{c}", titleOf(position.from)) : "",
-    position.at ? w.at.replace("{c}", titleOf(position.at)) : w.done,
-    position.next ? w.next.replace("{c}", titleOf(position.next)) : "",
+    position.at ? w.at.replace("{c}", titleOf(position.at)) : finished ? w.done : "",
+    position.next ? (nothingYet ? w.first : w.next).replace("{c}", titleOf(position.next)) : "",
   ]);
 
   // Graded answers one by one; answers nobody assessed as a count once there are several.
@@ -154,7 +161,8 @@ export function buildConceptMap(input: ConceptMapInput): ConceptMap {
     const suffix = detail(node) ? ` (${detail(node)})` : "";
     return node.state === "current" ? `- **${text}**${suffix}` : `- ${text}${suffix}`;
   });
-  const displayMarkdown = [`**${w.title}** (${w.step.replace("{n}", String(step))})`, lines.join("\n"), positionLine].join("\n\n");
+  const displayMarkdown = [`**${w.title}** (${w.step.replace("{n}", String(step))})`, lines.join("\n"), positionLine]
+    .filter((block) => block !== "").join("\n\n");
 
   const key = (id: string): string => `n_${id.replace(/[^A-Za-z0-9]/g, "_")}`;
   const label = (text: string): string => text.replaceAll("\"", "#quot;");

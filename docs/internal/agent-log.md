@@ -3372,6 +3372,26 @@ smoke and `tools/panel-probe.mjs` on a rebuilt bundle.
 
 Not verified: no person has seen a version-2 view in a panel or a pane.
 
+## 2026-11-06 (carte) — The concept map no longer says a lesson is finished on its first screen
+
+Found while reading the text the rebuilt server serves for `fixtures/atomistique-l1` (task 1.5 of
+INT-STUDIUM-058). The lesson opens on an introduction that names no concept, and the concept map
+shown on that first screen ended with « La leçon est terminée. ». `buildConceptMap`
+(`packages/lesson-session-host/src/concept-map.ts`) treated « no current concept » as « no current
+scene ».
+
+- Only a session with no current scene is finished. On a screen that names no concept, the
+  position sentence says what comes next: « La leçon commence par « Particules de l'atome ». » on
+  the first screen, « Tu viens de « A », ensuite « B ». » later in the lesson. `position.next` is
+  then the first concept still ahead (it was `null`).
+- The map text no longer ends with an empty block when there is nothing to say.
+
+Test decision: none, no existing test changed. One new test in `concept-map.test.ts`; it failed
+first.
+
+Checked together with the next entry: every repository check passes on the tree that holds both
+changes, and the first screen of `fixtures/atomistique-l1` was read again from the rebuilt server.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local
