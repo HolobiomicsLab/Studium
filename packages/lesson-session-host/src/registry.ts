@@ -1,6 +1,7 @@
 // packages/lesson-session-host/src/registry.ts
 import type { CompanionLog } from "./companion.js";
-import type { LessonSession, SessionDeps } from "@studium/lesson-session";
+import type { ContestRecord, LessonSession, SessionDeps } from "@studium/lesson-session";
+import type { ContestPending } from "./contest.js";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
 import type { AuthoringBlock } from "./authoring.js";
 import type { ConceptMemoryState } from "./fsrs-memory.js";
@@ -57,6 +58,10 @@ export interface SessionEntry {
   responses: number;
   /** INT-STUDIUM-058: the learner's acts not yet told to the agent (companion.ts). */
   companion?: CompanionLog;
+  /** INT-STUDIUM-058 § 2.7: the contest whose check questions are being asked (contest.ts). */
+  contest?: ContestPending;
+  /** The contests settled in this session, oldest first. In memory, like the session. */
+  contests?: ContestRecord[];
   /** What the concept map already told the learner (host.conceptMapMoment): the concepts whose
    * opening was announced, the scenes shown as a synthesis, and whether a prerequisite detour is
    * under way. Created at the first transition. */

@@ -41,6 +41,18 @@ rated their own recall; the result is then `rated`) or `none` (nobody assessed t
 has not rated it; the result is `recorded`). `edges` go from a prerequisite to the concept that needs it.
 The view quotes no passage and carries none of the learner's words. A closed map is not read.
 
+With the map open, `contest {concept_id, claim}` is the learner's declaration on a concept: `known`
+(« I know it ») of a concept not acquired, `unsure` (« I am not sure ») of an acquired one. The claim
+changes no mastery and skips no scene. The backend (`contestConcept`) moves the session to check
+questions on that concept, taken from scenes graded against the author's key: two, or one when the lesson
+has a single such scene, the outcome then being `partial`. Each answer is graded as any answer; its verdict
+carries no reference, since the question may come again in the lesson. After the last one the lesson
+resumes on the scene the learner was on, and the view's `message` says what the check showed. Each concept
+of `map` carries `contest`: `allowed` (it can be contested now), `claim` (the one its state takes),
+`questions` (how many check questions follow), `check_pending` while its check is under way, and `outcome`
+(`confirmed`, `refuted` or `partial`) once one was settled. A contest refused by the backend (a claim the
+state does not take, no key-graded question, another contest under way) is an error in one line.
+
 A view carries `strings`, the interface's phrase catalogue in the lesson's language (some 24 kB), for the
 surface that draws it. The MCP server leaves it empty where nothing draws the view (forms, the conversation):
 its reader is then a model.

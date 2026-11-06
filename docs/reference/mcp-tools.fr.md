@@ -537,13 +537,13 @@ Open or resume a lesson by bundle_ref or existing session_id, on the best surfac
 
 ### panel_action
 
-Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer; openMap adds the concept map to the view (map: each concept's state, the answers behind it with their day, who assessed them and the hints taken, what the state establishes and what it does not) until closeMap, from forms upwards and for a lesson, not a review session. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.
+Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer; openMap adds the concept map to the view (map: each concept's state, the answers behind it with their day, who assessed them and the hints taken, what the state establishes and what it does not) until closeMap, from forms upwards and for a lesson, not a review session; contest {concept_id, claim} is the learner's own declaration on a concept of the open map, known for a concept not acquired, unsure for an acquired one: the claim changes no mastery and skips no scene, the lesson asks check questions on that concept (two, or one when it has a single key-graded scene on it, the outcome then being partial), graded as any answer, then resumes where the learner was; a contest the state does not take, or made while another is under way, is refused in one line. Never contest for the learner. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `session_id` | string (non-empty) | yes |  |
-| `action` | object, one of 14 shapes | yes |  |
-| `action.type` | one of `respond`, `turn`, `hint`, `rateRecall`, `reviewNow`, `restartLesson`, `end`, `pickCourse`, `ask`, `setAttention`, `setLanguage`, `replan`, `openMap`, `closeMap` | yes |  |
+| `action` | object, one of 15 shapes | yes |  |
+| `action.type` | one of `respond`, `turn`, `hint`, `rateRecall`, `reviewNow`, `restartLesson`, `end`, `pickCourse`, `ask`, `setAttention`, `setLanguage`, `replan`, `openMap`, `closeMap`, `contest` | yes |  |
 | `action.input` | any | no | Only in type `respond`. |
 | `action.text` | string or string (non-empty) | in `turn` | Only in type `turn`, `ask`. |
 | `action.sceneId` | string (non-empty) | in `rateRecall` |  |
@@ -552,6 +552,8 @@ Apply the learner's own panel action. end erases progress only with confirmed:tr
 | `action.level` | one of `quiet`, `normal`, `coached` | in `setAttention` |  |
 | `action.presentation_language` | string (at least 2 chars) or null | in `setLanguage` |  |
 | `action.minutes` | integer (1–600) | in `replan` |  |
+| `action.concept_id` | string (non-empty) | in `contest` |  |
+| `action.claim` | one of `known`, `unsure` | in `contest` |  |
 | `client_ms` | integer (0–600000) | no |  |
 
 ## Companion tool

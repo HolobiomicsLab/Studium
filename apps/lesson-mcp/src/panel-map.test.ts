@@ -92,6 +92,48 @@ describe("the concept map in the panel", () => {
     } finally { await t.close(); }
   });
 
+  it("contest: check questions follow the claim, the map says the check is under way, then what it showed", async () => {
+    const t = await connect();
+    try {
+      const opened = await t.open({ surface: "pane" });
+      const id = opened.session_id as string;
+      const map = await t.act(id, { type: "openMap" });
+      expect(map.actions).toContain("contest");
+      const concept = (view: Json, conceptId: string) => view.map.concepts.find((c: Json) => c.id === conceptId);
+      expect(concept(map, "c-particules").contest).toEqual({ allowed: true, claim: "known", questions: 2 });
+      expect(concept(map, "c-periodicite").contest).toEqual({ allowed: true, claim: "known", questions: 1 });
+      expect(concept(map, "c-geometrie").contest).toEqual({ allowed: false, claim: "known", questions: 0 });
+
+      const first = await t.act(id, { type: "contest", concept_id: "c-particules", claim: "known" });
+      expect(first.scene.id).toBe("s1-quiz-fer");
+      expect(first.message).toBe(first.strings.panel_contest_two);
+      expect(concept(first, "c-particules").contest).toEqual({ allowed: false, check_pending: true, claim: "known", questions: 2 });
+      expect(first.map.concepts.some((c: Json) => c.contest.allowed)).toBe(false);
+
+      // A labelled synthetic learner answers the two questions with the first choice shown.
+      const pick = (view: Json) => ({ type: "respond", input: { kind: "quiz_choice", choiceId: view.scene.choices[0].id, confidence: 2 } });
+      const second = await t.act(id, pick(first));
+      expect(second.scene.id).toBe("s9-rappel-carbone14");
+      expect(second.verdict).not.toHaveProperty("reference_kind");   // the question may come again in the lesson
+      const back = await t.act(id, pick(second));
+      expect(back.scene.id).toBe(opened.scene.id);                   // the lesson resumes where the learner was
+      const rights = [second.verdict.correct, back.verdict.correct];
+      const outcome = rights.every(Boolean) ? "confirmed" : "refuted";
+      expect(back.message).toBe(back.strings[`panel_contest_${outcome}_known`]);
+      expect(concept(back, "c-particules").contest).toMatchObject({ outcome, questions: expect.any(Number) });
+      expect(concept(back, "c-particules").contest).not.toHaveProperty("check_pending");
+      expect(concept(back, "c-particules").evidence.map((e: Json) => e.scene_id)).toEqual(["s1-quiz-fer", "s9-rappel-carbone14"]);
+      // The assistant's next brief says a contest was made on the fast lane.
+      const brief = (await t.call("get_companion_brief", { session_id: id })).brief;
+      expect(brief.since_last[0]).toEqual({ scene_id: opened.scene.id, act: "contest", lane: "fast" });
+
+      // A claim the state does not take is refused in one line.
+      const refused = await t.call("panel_action", { session_id: id, action: { type: "contest", concept_id: "c-geometrie", claim: "known" } })
+        .then(() => "accepted", (error: Error) => error.message);
+      expect(refused).toMatch(/no question graded against a key/);
+    } finally { await t.close(); }
+  });
+
   it("is offered from forms upwards, never in the conversation alone", async () => {
     const t = await connect();
     try {

@@ -34,12 +34,15 @@ export const PanelActionSchema = z.discriminatedUnion("type", [
   /** Show the concept map beside the scene (`map` on the view), until closeMap. Nothing is answered. */
   z.object({ type: z.literal("openMap") }).strict(),
   z.object({ type: z.literal("closeMap") }).strict(),
+  /** « I know it » (`known`) of a concept not acquired, « I am not sure » (`unsure`) of an acquired one:
+   * check questions follow, graded as any answer. The claim itself changes nothing. */
+  z.object({ type: z.literal("contest"), concept_id: z.string().min(1), claim: z.enum(["known", "unsure"]) }).strict(),
 ]);
 export type PanelAction = z.infer<typeof PanelActionSchema>;
 export type PanelActionName = PanelAction["type"];
 export const PANEL_ACTION_NAMES = [
   "respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse", "ask", "setAttention", "setLanguage", "replan",
-  "openMap", "closeMap",
+  "openMap", "closeMap", "contest",
 ] as const satisfies readonly PanelActionName[];
 export const PanelActionNameSchema = z.enum(PANEL_ACTION_NAMES);
 export const NamedConceptSchema = z.object({ id: z.string(), label: z.string() });
@@ -138,12 +141,21 @@ export const MapEvidenceSchema = z.object({
   result: z.enum(["right", "wrong", "rated", "recorded"]), hints: z.number().int().nonnegative().nullable(),
 });
 export type MapEvidence = z.infer<typeof MapEvidenceSchema>;
+/** What the learner may contest of a concept (spec § 2.7): the claim its state takes (`unsure` of an
+ * acquired concept, `known` of any other), whether it can be made now, how many check questions follow
+ * (one: the outcome will be partial), whether its check is under way, and what the last one showed. */
+export const MapContestSchema = z.object({
+  allowed: z.boolean(), check_pending: z.boolean().optional(), claim: z.enum(["known", "unsure"]),
+  questions: z.number().int().nonnegative(), outcome: z.enum(["confirmed", "refuted", "partial"]).optional(),
+});
+export type MapContest = z.infer<typeof MapContestSchema>;
 /** The concept map as a view of the session: each concept with its state, the evidence, what the state
  * establishes and what it does not; the prerequisite links, from a prerequisite to what needs it. */
 export const MapViewSchema = z.object({
   concepts: z.array(z.object({
     id: z.string(), title: z.string(), state: z.enum(["acquired", "to_review", "current", "seen", "upcoming"]),
     evidence: z.array(MapEvidenceSchema), establishes: z.string(), does_not_establish: z.string(),
+    contest: MapContestSchema.optional(),
   })),
   edges: z.array(z.object({ from: z.string(), to: z.string() })),
 });

@@ -57,7 +57,8 @@ procedure for all of this is the `studium-concept-map` skill ([Skills](../start/
 | Concepts shown | Dims the concepts of a state |
 
 The record holds no learner identifier and none of your words: results, not answers. For each answer it
-also keeps the day, the hints you took before it and whether you then rated your own recall. It stays on your
+also keeps the day, the hints you took before it and whether you then rated your own recall, and, for each
+concept you contested (« I know it », « I am not sure »), what the check questions showed. It stays on your
 machine until you share the folder. `forget_session` does not delete exports; it names the folder so you
 can delete it yourself.
 

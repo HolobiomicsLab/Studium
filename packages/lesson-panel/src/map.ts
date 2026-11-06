@@ -4,7 +4,7 @@
 // what the state establishes and one on what it does not. It quotes no passage and carries none of
 // the learner's words: titles, states, scene ids, days and counts only.
 import { phrase, type Locale } from "./phrases.js";
-import type { MapEvidence, MapView } from "./view.js";
+import type { MapContest, MapEvidence, MapView } from "./view.js";
 
 type MapState = MapView["concepts"][number]["state"];
 
@@ -15,6 +15,13 @@ export interface MapRecord {
   scenes: readonly { scene_id: string; concept_ids: readonly string[] }[];
   path: readonly { step: number; scene_id: string; answered: boolean; correct: boolean | null; assessed_by: string | null }[];
   evidence?: readonly { step: number; day: string; hints: number; self_rated: boolean }[];
+  /** The learner's contests: the one under way, how many check questions each concept can be asked
+   * now, those settled. Absent from a record written by a server that takes no contest. */
+  contest?: {
+    pending: { concept_id: string; claim: "known" | "unsure"; asked: number; answered: number } | null;
+    questions: Readonly<Record<string, number>>;
+    history: readonly { concept_id: string; outcome: "confirmed" | "refuted" | "partial" }[];
+  };
 }
 
 /** The map of one session, in the view's language. Pure. */
@@ -33,12 +40,27 @@ export function mapView(record: MapRecord, locale: Locale): MapView {
         hints: fact?.hints ?? null,
       };
     });
+  const contests = record.contest;
+  const contestOf = (node: { id: string; state: MapState }): MapContest | undefined => {
+    if (!contests) return undefined;
+    const pending = contests.pending?.concept_id === node.id ? contests.pending : null;
+    const questions = pending ? pending.asked : contests.questions[node.id] ?? 0;
+    const last = contests.history.filter((settled) => settled.concept_id === node.id).at(-1);
+    return {
+      allowed: !contests.pending && questions > 0, ...(pending ? { check_pending: true } : {}),
+      claim: node.state === "acquired" ? "unsure" : "known", questions, ...(last ? { outcome: last.outcome } : {}),
+    };
+  };
   return {
-    concepts: record.map.nodes.map((node) => ({
-      id: node.id, title: node.title, state: node.state, evidence: evidenceOf(node.id),
-      establishes: phrase(`map_establishes_${node.state}`, {}, locale),
-      does_not_establish: phrase(`map_not_established_${node.state}`, {}, locale),
-    })),
+    concepts: record.map.nodes.map((node) => {
+      const contest = contestOf(node);
+      return {
+        id: node.id, title: node.title, state: node.state, evidence: evidenceOf(node.id),
+        establishes: phrase(`map_establishes_${node.state}`, {}, locale),
+        does_not_establish: phrase(`map_not_established_${node.state}`, {}, locale),
+        ...(contest ? { contest } : {}),
+      };
+    }),
     edges: record.map.edges.map((edge) => ({ from: edge.from, to: edge.to })),
   };
 }

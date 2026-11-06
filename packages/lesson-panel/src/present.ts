@@ -124,6 +124,8 @@ export async function presentPanel(backend: PanelBackend, ctx: PanelContext): Pr
       const record = ctx.mapOpen ? await backend.getConceptMapRecord(ctx.sessionId) : null;
       if (record) view.map = mapView(record, view.locale);
       view.actions.push(view.map ? "closeMap" : "openMap");
+      // The contest buttons live on the map: offered with it, on a scene, when the backend can check.
+      if (view.map && view.kind === "scene" && backend.contestConcept) view.actions.push("contest");
     }
   }
   ctx.lastView = PanelViewSchema.parse({ ...view, ...ctx.effects });

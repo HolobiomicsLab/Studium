@@ -3841,6 +3841,62 @@ a teacher. A self-rating made before a server restart shows as "recorded" after 
 pane's backend does not give the record: it offers no map. The saved history is capped at 50 entries,
 so a long session resumed after a restart shows the evidence of its latest steps only.
 
+## 2026-11-06 (contest) — Contesting a concept asks check questions, never moves mastery
+
+INT-STUDIUM-058, lot 4, task 4.2 (requirement F10, spec § 2.7). A learner may say « I know it » of a
+concept the map does not show as acquired, or « I am not sure » of an acquired one. The claim moves no
+mastery and skips no scene: the lesson asks check questions on that concept, graded as any answer,
+then resumes where the learner was.
+
+- `packages/lesson-session`: `insertChecks(sceneIds)` serves scenes of the lesson one after the
+  other, then returns to the scene the learner was on. The lesson's routing (replays, detours,
+  prerequisite gates, skips) does not run on a check answer, and a check question answered right is
+  still asked when the lesson reaches it. `recordContest` writes the contest and its outcome to the
+  event log (`concept_contested`).
+- `packages/lesson-session-host`: `contest.ts` holds the rules. The check questions are scenes graded
+  against the author's key (a quiz, a verdict deck) whose first concept is the contested one, as a
+  review session picks them: never a diagnostic, never a scene that needs a run, never the scene on
+  screen; those not yet answered first; two at most. The outcome is `confirmed` when both answers go
+  the claim's way, `refuted` otherwise, `partial` when the lesson had a single question.
+  `host.contest` opens it and refuses in one line a claim the state does not take, a concept without
+  a key-graded question, a second contest. The answer that ends the check carries the outcome. A
+  check answer releases neither its reference nor its passages: the question may come again. The
+  record `studium/concept-map-record/v1` gains `contest`, and the companion brief lists the act.
+- `packages/lesson-panel`: the action `contest {concept_id, claim}`, offered with the open map; each
+  concept of `map` carries `contest`; the view's `message` says how many questions follow, then what
+  the check showed (seven sentences, French and English).
+- `apps/lesson-mcp`: `hostBackend.contestConcept`; the description of `panel_action`; the tool
+  reference is regenerated. `apps/claude-code-mod` accepts a view that offers the action.
+- `tools/bundle_lint.mjs`: a lesson with two concepts or more warns
+  (`concept_few_recall_questions`) for each concept with fewer than two key-graded recall questions.
+  `fixtures/atomistique-l1` gets two warnings (`c-periodicite` has one question, `c-geometrie` none).
+
+Deviations from the spec. `contest` on a concept of the view carries `claim`, `questions` and
+`outcome` beside `allowed` and `check_pending`. The lint warns only for a lesson with two concepts or
+more: a lesson with one concept has no map, so nothing to contest. A check answer never releases its
+reference, right or wrong. The event is written to the session's event log; the consented telemetry
+stream is lot 7.
+
+Test decision: `tools/fixtures/bundle-lint/clean/lesson.json` gains two quizzes on its second
+concept, which had none: the fixture is the lint's "clean" lesson and would otherwise carry the new
+warning. No existing assertion changed. New tests: `session.contest-check.test.ts` (3),
+`contest.test.ts` (8, on `fixtures/atomistique-l1`), seven in `map.test.ts`, one in
+`panel-map.test.ts` (a real MCP client), four cases in `bundle_lint.test.sh`. The host, panel and
+lint tests failed first; the session test was written before its implementation and first run after
+it.
+
+Checked: every repository check passes on this tree at its first run (install, build, lint, pnpm -r
+test, the Python suites, bundle lint, docs check, headless smoke, the MCP bundle,
+tools/panel-probe.mjs), and pnpm test:tools.
+
+Not verified: no surface draws the contest buttons yet and nobody has contested a concept; the seven
+sentences were not read by a teacher, and the owner's rule (two questions) was not reviewed by the
+teacher who validates the lessons. A contest lives in memory: a session resumed after a server
+restart has no check pending and keeps no outcome on its map (the event log keeps it). A check
+question answered during a check is marked completed in the saved state, so a lesson resumed after a
+restart exactly on that scene starts after it. Only the panel action opens a contest: the
+conversation has no tool for it.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

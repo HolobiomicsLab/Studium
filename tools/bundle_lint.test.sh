@@ -225,6 +225,24 @@ expect_finding "unexplained planted flaw" 1 "flaw_reveal_gap" "$TMP/orphan-flaw.
 mutate sound-flaw.json "b.scenes.push(flaw('Hund requires parallel spins'))"
 expect_clean "covered planted flaw" "$TMP/sound-flaw.json"
 
+# INT-STUDIUM-058 § 2.7: a learner who contests a concept gets two check questions, from two scenes of
+# that concept graded against the author's key. A lesson with a concept map (two concepts or more)
+# warns for each concept that has fewer; a lesson with one concept has no map and nothing to contest.
+RECALL="const q=(id,concept)=>({...quiz([{id:'a',text:'A',correct:true},{id:'b',text:'B',correct:false}]),id,concept_refs:[concept]});\
+b.concepts.push({...b.concepts[0],id:'c-second'});b.scenes.push(q('q-k1','c-kinetics'),q('q-k2','c-kinetics'),q('q-s1','c-second'))"
+mutate recall-few.json "$RECALL"
+expect_finding "a concept with a single recall question" 0 "concept_few_recall_questions" "$TMP/recall-few.json"
+[ "$(grep -c '  concept_few_recall_questions  ' <<<"$OUTPUT")" -eq 1 ] || { echo "FAIL: expected one concept short of recall questions"; echo "$OUTPUT"; exit 1; }
+grep -Eq '^WARN  .+  concept_few_recall_questions  c-second has 1 recall question ' <<<"$OUTPUT" || { echo "FAIL: the warning does not name the concept and its count"; echo "$OUTPUT"; exit 1; }
+mutate recall-none.json "$RECALL;b.scenes=b.scenes.filter(s=>s.id!=='q-s1')"
+expect_finding "a concept with no recall question" 0 "concept_few_recall_questions" "$TMP/recall-none.json"
+grep -Eq '^WARN  .+  concept_few_recall_questions  c-second has no recall question ' <<<"$OUTPUT" || { echo "FAIL: the warning does not say the concept has none"; echo "$OUTPUT"; exit 1; }
+mutate recall-two.json "$RECALL;b.scenes.push(q('q-s2','c-second'))"
+expect_clean "two recall questions for each concept" "$TMP/recall-two.json"
+# A question that only mentions the concept (not its first) and a diagnostic do not count.
+mutate recall-mention.json "$RECALL;b.scenes.push({...q('q-s2','c-kinetics'),concept_refs:['c-kinetics','c-second']},{...q('q-s3','c-second'),diagnostic:true})"
+expect_finding "a mention and a diagnostic are not recall questions" 0 "concept_few_recall_questions" "$TMP/recall-mention.json"
+
 run_lint
 [ "$STATUS" -eq 0 ] || { echo "FAIL: repo fixtures do not pass"; echo "$OUTPUT"; exit 1; }
 grep -Eq '^ERROR  ' <<<"$OUTPUT" && { echo "FAIL: repo fixtures emitted an ERROR"; echo "$OUTPUT"; exit 1; }

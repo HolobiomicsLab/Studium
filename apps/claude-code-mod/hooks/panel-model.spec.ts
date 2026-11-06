@@ -96,7 +96,7 @@ describe("PanelView boundary", () => {
       }],
       edges: [],
     };
-    expect(isPanelView({ ...V2, actions: [...V2.actions, "closeMap"], map })).toBe(true);
+    expect(isPanelView({ ...V2, actions: [...V2.actions, "closeMap", "contest"], map })).toBe(true);
   });
 
   test.each([

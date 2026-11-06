@@ -43,6 +43,19 @@ l'apprenant ne l'a pas notée ; le résultat est `recorded`). Les `edges` vont d
 qui le demande. La vue ne cite aucun passage et ne porte aucun mot de l'apprenant. Une carte fermée n'est
 pas lue.
 
+Carte ouverte, `contest {concept_id, claim}` est la déclaration de l'apprenant sur une notion : `known`
+(« je le sais ») pour une notion non acquise, `unsure` (« je n'en suis pas sûr ») pour une notion acquise.
+La déclaration ne change aucune maîtrise et ne saute aucune scène. Le backend (`contestConcept`) amène la
+séance sur des questions de contrôle de cette notion, prises dans des scènes notées par la clé de
+l'auteur : deux, ou une seule quand la leçon n'a qu'une telle scène, l'issue étant alors `partial`. Chaque
+réponse est notée comme toute réponse ; son verdict ne porte aucune référence, car la question peut revenir
+dans la leçon. Après la dernière, la leçon reprend sur la scène où était l'apprenant, et le `message` de la
+vue dit ce que le contrôle a montré. Chaque notion de `map` porte `contest` : `allowed` (elle peut être
+contestée maintenant), `claim` (la déclaration que son état admet), `questions` (le nombre de questions de
+contrôle), `check_pending` pendant son contrôle, et `outcome` (`confirmed`, `refuted` ou `partial`) une
+fois un contrôle terminé. Une contestation refusée par le backend (déclaration que l'état n'admet pas,
+aucune question notée par une clé, autre contestation en cours) est une erreur en une ligne.
+
 Une vue porte `strings`, le catalogue des libellés de l'interface dans la langue de la leçon (environ
 24 ko), pour la surface qui la dessine. Le serveur MCP le laisse vide là où rien ne dessine la vue
 (formulaires, conversation). Son lecteur est alors un modèle.

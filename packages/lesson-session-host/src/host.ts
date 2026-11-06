@@ -26,7 +26,7 @@ import { buildConceptMap, type ConceptMap, type ConceptMapMoment } from "./conce
 import type { GraphView } from "@studium/typed-graph-lens";
 import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
 import { SessionRegistry, type HeldSources, type SessionEntry } from "./registry.js";
-import type { Clock } from "@studium/lesson-session";
+import type { Clock, ContestRecord } from "@studium/lesson-session";
 import { ExperimentJournal, experimentRevision, type ExperimentDocument } from "./experiment-journal.js";
 import { buildHostDeps, durableDataDir, durableScopeDir, envPseudoSecret } from "./deps.js";
 import {
@@ -70,6 +70,7 @@ import {
   authorVoice, helpFrom, orientationFacts, orientationFrom, recordNavigation, statusLine, voiceLine, type OrientationFacts, type Voice,
 } from "./orientation.js";
 import { COMPANION_RULES, noteAct, takeActs, type CompanionBrief, type Lane } from "./companion.js";
+import { ContestRefusedError, checkScenes, claimFor, contestOutcome, type ContestClaim, type RecordContest } from "./contest.js";
 import type { HostResponseInput } from "./response-input-schema.js";
 
 // Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /
@@ -622,6 +623,9 @@ function feedbackRevealsCorrectChoice(scene: Scene | undefined, verdict: Verdict
  * another item on the same point reached by a detour (remediate_alt, or a prerequisite gate that
  * sends the learner to an unseen item of the concept just answered). */
 function leavesForGood(transition: Transition, answered: Scene): boolean {
+  // A check question (a contested concept) may come again when the lesson reaches it: right or wrong,
+  // its answer releases neither its reference nor its passages.
+  if (transition.navigation?.rule_id === "contest_check" || transition.navigation?.rule_id === "contest_check_done") return false;
   if (transition.verdict?.correct === true || transition.kind === "complete") return true;
   const next = transition.presentation.scene;
   if (next.id === answered.id || transition.navigation?.returns_to === answered.id) return false;
@@ -762,6 +766,8 @@ export type ServedTransition = ServedTransitionBase & {
   review_plan?: ReviewPlan;
   /** The host's evidence-based completion groups, shared by chat and graphical clients. */
   completion?: CompletionSplit;
+  /** INT-STUDIUM-058 § 2.7: this answer was the last check question of a contest; what it showed. */
+  contest?: ContestRecord;
   /** L-11 (CC-6): the answer counts and the session moved on, but the learner's progress could not be
    * saved — why, in one line (display_markdown says so to the learner). */
   persistence_warning?: string;
@@ -830,6 +836,10 @@ export interface LessonListing {
   /** L-4: the list as a chat shows it, in the language asked for, else the learner's. */
   display_markdown: string;
 }
+
+/** What contest returns: the concept and the claim taken, how many check questions follow (two, or
+ * one when the lesson has a single key-graded scene on the concept), and the first of them. */
+export interface ContestStart { concept_id: string; claim: ContestClaim; questions: number; presentation: ServedPresentation }
 
 /** What export_concept_map returns: the record, and where it was written (null without a library). */
 export interface ConceptMapExport {
@@ -1468,7 +1478,7 @@ export class SessionHost {
     if (!map) return null;
     return buildConceptMapRecord({
       bundle: entry.bundle, map, path: entry.session.learnerPath(), authoring: entry.authoring,
-      answers: entry.session.answerFacts(), timeZone: this.zone,
+      answers: entry.session.answerFacts(), timeZone: this.zone, contest: this.contestStateOf(entry, map),
       currentSceneId: entry.completed ? null : entry.session.currentPresentation().scene.id,
       withheldSceneIds: new Set(entry.withheldSources.map((held) => held.sceneId)),
       completed: entry.completed === true, lessonSha256: entry.lessonSha256 ?? null,
@@ -1816,7 +1826,10 @@ export class SessionHost {
       const engineInput = input.kind === "reply"
         ? replyToInput(scene, input.text, (publicScene(scene) as { deck?: Array<{ token: string }> }).deck)
         : checkDisplayedChoice(scene, input);
-      const served = await this.applyResponseLocked(entry, engineInput);
+      const answeredCheck = entry.session.checkPending();
+      const applied = await this.applyResponseLocked(entry, engineInput);
+      const settled = answeredCheck ? await this.settleContest(entry, applied.verdict?.correct === true) : undefined;
+      const served = settled ? { ...applied, contest: settled } : applied;
       // INT-STUDIUM-058: the act, for the next companion brief. `lane` says who carried it: the
       // conversation tools by default, "fast" from a panel, a pane or a form.
       const correct = served.verdict?.correct;
@@ -1828,6 +1841,67 @@ export class SessionHost {
       });
       return served;
     });
+  }
+
+  /** INT-STUDIUM-058 § 2.7 (F10): the learner contests a concept — « I know it » (`known`) of a concept
+   * the map does not show as acquired, « I am not sure » (`unsure`) of an acquired one. The claim moves
+   * no mastery and skips no scene: the lesson asks check questions on that concept (contest.ts), each
+   * graded as any answer, then resumes on the scene the learner was on. Returns the first question.
+   * Refused in one line (ContestRefusedError) when the state does not take the claim, when the lesson
+   * has no key-graded question on the concept, or while another contest is under way. */
+  async contest(id: string, conceptId: string, claim: ContestClaim, lane: Lane = "companion"): Promise<ContestStart> {
+    return this.sessionWrite(id, async (entry) => {
+      if (entry.kind === "review") throw new ContestRefusedError("a review session has no concept map to contest");
+      if (entry.completed) throw new ContestRefusedError("the lesson is complete: nothing is left to check");
+      if (entry.contest || entry.session.checkPending()) throw new ContestRefusedError("check questions are already being asked: answer them first");
+      const node = this.conceptMapOf(entry, "on_request")?.nodes.find((n) => n.id === conceptId);
+      if (!node) throw new ContestRefusedError(`no concept "${conceptId}" on this session's map`);
+      if (claimFor(node.state) !== claim) {
+        throw new ContestRefusedError(node.state === "acquired"
+          ? `"${conceptId}" is acquired: the claim it takes is "unsure"`
+          : `"${conceptId}" is not acquired: the claim it takes is "known"`);
+      }
+      const current = entry.session.currentPresentation().scene.id;
+      const sceneIds = checkScenes(entry.bundle, conceptId, { currentSceneId: current, answered: this.answeredScenesOf(entry) });
+      if (sceneIds.length === 0) throw new ContestRefusedError(`this lesson has no question graded against a key on "${conceptId}"`);
+      const first = entry.session.insertChecks(sceneIds);
+      entry.contest = { concept_id: conceptId, claim, scene_ids: sceneIds, results: [] };
+      noteAct(entry, { scene_id: current, act: "contest", lane });
+      await this.publishStatus(entry);
+      return { concept_id: conceptId, claim, questions: sceneIds.length, presentation: this.served(entry, first) };
+    });
+  }
+
+  private answeredScenesOf(entry: SessionEntry): Set<string> {
+    return new Set(entry.session.learnerPath().steps.filter((step) => step.answered).map((step) => step.scene_id));
+  }
+
+  /** One check answer of the contest under way; once the last is in, the contest is settled: kept on
+   * the session, written to the event log (`concept_contested`) and returned. A log that cannot be
+   * written does not undo the answer. */
+  private async settleContest(entry: SessionEntry, right: boolean): Promise<ContestRecord | undefined> {
+    const pending = entry.contest;
+    if (!pending) return undefined;
+    pending.results.push(right);
+    if (pending.results.length < pending.scene_ids.length) return undefined;
+    const record: ContestRecord = { ...pending, outcome: contestOutcome(pending.claim, pending.results) };
+    delete entry.contest;
+    (entry.contests ??= []).push(record);
+    try { await entry.session.recordContest(record); } catch { /* the outcome stays on the session and in the answer served */ }
+    return record;
+  }
+
+  /** The contests of the session for the concept-map record: the one under way, what can be contested
+   * now, those settled. */
+  private contestStateOf(entry: SessionEntry, map: ConceptMap): RecordContest {
+    const pending = entry.contest;
+    const open = !pending && !entry.completed;
+    const session = { currentSceneId: entry.completed ? null : entry.session.currentPresentation().scene.id, answered: this.answeredScenesOf(entry) };
+    return {
+      pending: pending ? { concept_id: pending.concept_id, claim: pending.claim, asked: pending.scene_ids.length, answered: pending.results.length } : null,
+      questions: Object.fromEntries(map.nodes.map((node) => [node.id, open ? checkScenes(entry.bundle, node.id, session).length : 0])),
+      history: (entry.contests ?? []).map((record) => ({ ...record, scene_ids: [...record.scene_ids], results: [...record.results] })),
+    };
   }
 
   /** INT-STUDIUM-058 § 2.5: where the learner is and what they did since the last brief, for an agent

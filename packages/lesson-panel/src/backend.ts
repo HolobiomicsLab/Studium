@@ -29,6 +29,10 @@ export interface PanelBackend {
    * session has no map (a review session, a lesson with fewer than two concepts). A backend without
    * this method offers no map. */
   getConceptMapRecord?(sessionId: string): Promise<MapRecord | null>;
+  /** The learner contests a concept: the session moves to the first check question; `questions` says
+   * how many follow (two, or one when the lesson has a single key-graded scene on the concept). Throws,
+   * with one line, when the contest is refused. A backend without this method takes no contest. */
+  contestConcept?(sessionId: string, conceptId: string, claim: "known" | "unsure"): Promise<{ questions: number }>;
 }
 
 /** What a backend adds to a view to make it version 2. */

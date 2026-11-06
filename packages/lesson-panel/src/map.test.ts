@@ -92,6 +92,42 @@ describe("mapView", () => {
   });
 });
 
+describe("mapView: what can be contested", () => {
+  const contested = (contest: NonNullable<MapRecord["contest"]>) => mapView({ ...record(), contest }, "fr").concepts.map((c) => c.contest);
+
+  it("offers « I am not sure » of an acquired concept, « I know it » of the others, when the lesson has a check question", () => {
+    expect(contested({ pending: null, questions: { a: 2, b: 1, c: 0, d: 2 }, history: [] })).toEqual([
+      { allowed: true, claim: "unsure", questions: 2 }, { allowed: true, claim: "known", questions: 1 },
+      { allowed: false, claim: "known", questions: 0 }, { allowed: true, claim: "known", questions: 2 },
+      { allowed: false, claim: "known", questions: 0 },                // a concept the record does not count
+    ]);
+  });
+
+  it("says which concept is being checked, and allows no other contest meanwhile", () => {
+    const during = contested({ pending: { concept_id: "b", claim: "known", asked: 2, answered: 1 }, questions: { a: 0, b: 0, c: 0, d: 0, e: 0 }, history: [] });
+    expect(during[1]).toEqual({ allowed: false, check_pending: true, claim: "known", questions: 2 });
+    expect(during.filter((c) => c?.allowed)).toEqual([]);
+    expect(during[0]).not.toHaveProperty("check_pending");
+  });
+
+  it("keeps the outcome of the last contest of a concept", () => {
+    const history = [
+      { concept_id: "a", claim: "unsure" as const, outcome: "refuted" as const, scene_ids: ["quiz-a", "quiz-ab"], results: [true, false] },
+      { concept_id: "a", claim: "unsure" as const, outcome: "confirmed" as const, scene_ids: ["quiz-a", "quiz-ab"], results: [false, false] },
+    ];
+    const after = contested({ pending: null, questions: { a: 2 }, history });
+    expect(after[0]).toEqual({ allowed: true, claim: "unsure", questions: 2, outcome: "confirmed" });
+    expect(after[1]).not.toHaveProperty("outcome");
+    const view = mapView({ ...record(), contest: { pending: null, questions: { a: 2 }, history } }, "fr");
+    expect(MapViewSchema.parse(view)).toEqual(view);
+    expect(JSON.stringify(view)).not.toContain("results");           // the view says the outcome, not each answer again
+  });
+
+  it("says nothing of contests for a record that does not tell them (an older server)", () => {
+    expect(mapView(record(), "fr").concepts.every((c) => c.contest === undefined)).toBe(true);
+  });
+});
+
 describe("panel actions: openMap and closeMap", () => {
   function setup(surface?: Surface) {
     const presentation = { scene: quiz, index: 1, total: lesson.scenes.length, locale: "fr" };
@@ -177,6 +213,58 @@ describe("panel actions: openMap and closeMap", () => {
     const forgotten = await applyPanelAction(backend, ctx, { type: "end", confirmed: true });
     expect(forgotten.kind).toBe("notice");
     expect(forgotten.map).toBeUndefined();
+  });
+
+  it("contest asks the backend for check questions, shows the first and says how many follow", async () => {
+    const { ctx, backend } = setup();
+    const contestConcept = vi.fn(async () => ({ questions: 2 }));
+    const b = { ...backend, contestConcept };
+    expect((await presentPanel(b, ctx)).actions).not.toContain("contest");   // the map carries the contest buttons
+    const open = await applyPanelAction(b, ctx, { type: "openMap" });
+    expect(open.actions).toContain("contest");
+    await applyPanelAction(b, ctx, { type: "respond", input: { kind: "ack" } });
+    expect(ctx.transition).toBeDefined();
+
+    const started = await applyPanelAction(b, ctx, { type: "contest", concept_id: "b", claim: "known" });
+    expect(contestConcept).toHaveBeenCalledWith("s1", "b", "known");
+    expect(started).toMatchObject({ kind: "scene", message: phrase("panel_contest_two", {}, "fr") });
+    expect(started.verdict).toBeNull();                              // the previous answer's verdict leaves with its scene
+    expect(ctx.transition).toBeUndefined();
+    expect(backend.submitResponse).toHaveBeenCalledTimes(1);         // contesting answers nothing
+
+    contestConcept.mockResolvedValueOnce({ questions: 1 });
+    const single = await applyPanelAction(b, ctx, { type: "contest", concept_id: "b", claim: "known" });
+    expect(single.message).toBe(phrase("panel_contest_one", {}, "fr"));
+    expect(single.message).toMatch(/partiel/);
+  });
+
+  it("says what the check showed with the answer that ends it", async () => {
+    const { ctx, backend } = setup();
+    const b = { ...backend, contestConcept: vi.fn(async () => ({ questions: 2 })) };
+    const settled = (claim: string, outcome: string) => {
+      backend.submitResponse.mockResolvedValueOnce({
+        kind: "next", presentation: { scene: quiz, index: 1, total: lesson.scenes.length, locale: "fr" },
+        verdict: { scene_id: "previous", graded: true, correct: true }, navigation: { kind: "advance" },
+        contest: { concept_id: "b", claim, outcome, scene_ids: ["q1", "q2"], results: [true, true] },
+      } as never);
+      return applyPanelAction(b, ctx, { type: "respond", input: { kind: "ack" } });
+    };
+    expect((await settled("known", "confirmed")).message).toBe(phrase("panel_contest_confirmed_known", {}, "fr"));
+    expect((await settled("known", "refuted")).message).toBe(phrase("panel_contest_refuted_known", {}, "fr"));
+    expect((await settled("unsure", "confirmed")).message).toBe(phrase("panel_contest_confirmed_unsure", {}, "fr"));
+    expect((await settled("unsure", "refuted")).message).toBe(phrase("panel_contest_refuted_unsure", {}, "fr"));
+    const partial = await settled("known", "partial");
+    expect(partial).toMatchObject({ kind: "scene", message: phrase("panel_contest_partial", {}, "fr") });
+    // An ordinary answer says nothing of a contest.
+    expect((await applyPanelAction(b, ctx, { type: "respond", input: { kind: "ack" } })).message).toBeUndefined();
+  });
+
+  it("refuses contest in one line on a backend that cannot check, and a malformed one", async () => {
+    const { ctx, backend } = setup();
+    expect(await applyPanelAction(backend, ctx, { type: "contest", concept_id: "b", claim: "known" }).catch((e: Error) => e.message))
+      .toBe("this server cannot check a contested concept");
+    expect(await applyPanelAction(backend, ctx, { type: "contest", concept_id: "b", claim: "sure" } as never).catch((e: Error) => e.message))
+      .toMatch(/^invalid contest action: claim/);
   });
 
   it("a backend that cannot read the record offers no map (a version-1 view, or an older server)", async () => {

@@ -5,7 +5,7 @@ import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type De
 import { ANSWER_GRADED_TYPES, buildLwgMastery, buildLwgEffectiveMastery, buildLwgCalibration, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept, sceneConceptId, type GraphNavResult } from "./graph-nav.js";
 import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary, HintResult, Verdict, Navigation } from "./types.js";
 import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
-import { SessionNotStartedError, SessionAlreadyCompleteError, SelfRatingNotRequestedError, SelfRatingExpiredError, InvalidSelfRatingError } from "./errors.js";
+import { SessionError, SessionNotStartedError, SessionAlreadyCompleteError, SelfRatingNotRequestedError, SelfRatingExpiredError, InvalidSelfRatingError } from "./errors.js";
 import { grade } from "./grading/index.js";
 import { thetaForVariant, resolveActiveVariant } from "./universe.js";
 import { buildMasteryClaims } from "./mastery-claims.js";
@@ -54,6 +54,15 @@ export interface LearnerPath { steps: PathStep[]; passed_prerequisites: string[]
  * own recall. Read beside the path, by `step`. A self-rating is not in the saved history: a session
  * resumed after a restart no longer knows it. */
 export interface AnswerFact { step: number; scene_id: string; at: string; hints: number; self_rated: boolean }
+/** A learner's declaration on a concept (« I know it », « I am not sure ») and what the check questions
+ * that followed showed (INT-STUDIUM-058 § 2.7). Scene ids and results only: none of the learner's words. */
+export interface ContestRecord {
+  concept_id: string;
+  claim: "known" | "unsure";
+  outcome: "confirmed" | "refuted" | "partial";
+  scene_ids: string[];
+  results: boolean[];
+}
 
 /** The saved history holds, per answered step, the answer and then the scene's completion: fold the
  * pair into one step. The history is capped, so a long session resumes with its latest steps only. */
@@ -422,11 +431,14 @@ export class LessonSession {
     if (signal.kind === "answer_submitted") {
       this.facts.push({ step: this.trail.length, scene_id: scene.id, at: answeredAt, hints: signal.hint_count, self_rated: false });
     }
-    if (this.lastSuccess === true) this.answeredRight.add(scene.id);
-    else if (this.lastSuccess === false) this.answeredRight.delete(scene.id);
+    // A check question answered right is still asked when the lesson reaches it: a check skips nothing.
+    if (!this.check) {
+      if (this.lastSuccess === true) this.answeredRight.add(scene.id);
+      else if (this.lastSuccess === false) this.answeredRight.delete(scene.id);
+    }
     const verdict = this.verdictOf(scene, signal, detail, coverage);
     const selfRating = await this.selfRatingFor(scene, signal, answeredAtMs);
-    const t = this.navigate(decision, scene, answeredAtMs);
+    const t = this.check ? this.afterCheck(decision) : this.navigate(decision, scene, answeredAtMs);
     this.lastSuccess = undefined;
     const served = this.trail.at(-1);
     if (served) {
@@ -555,6 +567,8 @@ export class LessonSession {
   private trail: PathStep[] = [];
   /** One fact per answered step of the trail (answerFacts). */
   private facts: AnswerFact[] = [];
+  /** Check questions being asked (insertChecks): the scenes still to serve, and where the lesson resumes. */
+  private check: { queue: number[]; returnIdx: number } | null = null;
   /** Answer-graded scenes whose latest answer in this session was correct. Session-local, like
    * `passedPrerequisites`: a lesson played again from the start asks its questions again. */
   private answeredRight = new Set<string>();
@@ -781,6 +795,53 @@ export class LessonSession {
     if (nextIdx >= this.bundle.scenes.length) return this.complete(decision);
     this.idx = nextIdx; this.enterScene();
     return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav(decision, "advance", null) };
+  }
+
+  /** Insert check questions (a contested concept): serve these scenes of the lesson one after the
+   * other, each graded as any answer, then resume on the scene the learner was on. The routing of the
+   * lesson (replays, detours, prerequisite gates, skips) does not run on a check answer, so a check
+   * skips nothing and credits no prerequisite; mastery moves by the usual grading only. Kept in
+   * memory: a session resumed after a restart has no check pending. */
+  insertChecks(sceneIds: readonly string[]): Presentation {
+    this.assertStarted();
+    if (this.completed) throw new SessionAlreadyCompleteError();
+    if (this.check) throw new SessionError("check questions are already being asked");
+    if (sceneIds.length === 0) throw new SessionError("a check asks at least one question");
+    const queue = sceneIds.map((id) => {
+      const at = this.bundle.scenes.findIndex((scene) => scene.id === id);
+      if (at < 0) throw new SessionError(`no scene "${id}" in this lesson`);
+      return at;
+    });
+    this.check = { queue: queue.slice(1), returnIdx: this.idx };
+    this.idx = queue[0]!;
+    this.enterScene();
+    return this.currentPresentation();
+  }
+
+  /** Check questions are being asked: the next answers are theirs. */
+  checkPending(): boolean { return this.check !== null; }
+
+  /** After a check answer: the next check question, or back to the scene the learner was on. */
+  private afterCheck(decision: Decision): Transition {
+    const check = this.check!;
+    const next = check.queue.shift();
+    this.activeNavigationExplanation = null;
+    if (next === undefined) { this.idx = check.returnIdx; this.check = null; } else this.idx = next;
+    this.enterScene();
+    return {
+      kind: "next", presentation: this.currentPresentation(),
+      navigation: { ...this.nav(decision, "advance", null), rule_id: next === undefined ? "contest_check_done" : "contest_check", modulator: null },
+    };
+  }
+
+  /** Record a contest and its outcome in the event log (`concept_contested`). It moves no mastery. */
+  async recordContest(record: ContestRecord): Promise<void> {
+    this.assertStarted();
+    await this.deps.eventLog.append({
+      event_id: this.deps.idGen.uuid(), session_id: this.sessionId, pseudonyme: this.pseudonym,
+      lesson_id: this.bundle.bundle_id, schema_version: "1.0", timestamp: this.deps.clock.now(),
+      event_type: "concept_contested", payload: record,
+    });
   }
 
   protected enterScene(): void {

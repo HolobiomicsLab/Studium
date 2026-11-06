@@ -2,7 +2,8 @@
 // with who assessed each answer and how the session routed after it, and, for every scene, what its
 // content rests on (the passages cited, where they come from, who wrote the key), and, for every
 // answer, the day it was given, the hints taken before it and whether the learner then rated their
-// own recall (`evidence`, read by the panel's map view, INT-STUDIUM-058 § 2.7). It is the declared
+// own recall (`evidence`, read by the panel's map view, INT-STUDIUM-058 § 2.7), with the learner's
+// contests and what their check questions showed (`contest`). It is the declared
 // artifact that tools/concept_map_report.py wraps in an ASTRA document, an ARA trace and an
 // interactive page. It carries no learner identifier and none of the learner's words.
 //
@@ -15,6 +16,7 @@ import type { AuthoringBlock } from "./authoring.js";
 import { CONVERSATION_PROVENANCE_PREFIX } from "./authoring-draft/build.js";
 import { calendarDate } from "./calendar.js";
 import type { ConceptMap } from "./concept-map.js";
+import type { RecordContest } from "./contest.js";
 import { keyClassOf, type KeyClass } from "./key-class.js";
 import { citedReferences, referenceUrl, type CitedReference } from "./public-scene.js";
 
@@ -81,6 +83,8 @@ export interface ConceptMapRecord {
   scenes: RecordScene[];
   path: RecordStep[];
   evidence: RecordEvidence[];
+  /** The learner's contests (contest.ts): the one under way, what can be contested now, those settled. */
+  contest: RecordContest;
 }
 
 export interface ConceptMapRecordInput {
@@ -91,6 +95,7 @@ export interface ConceptMapRecordInput {
   answers: readonly AnswerFact[];
   /** The zone the days of `evidence` are counted in (the server's, as get_server_info names it). */
   timeZone: string;
+  contest: RecordContest;
   authoring: AuthoringBlock;
   /** The scene on screen; null once the lesson is complete. */
   currentSceneId: string | null;
@@ -161,5 +166,6 @@ export function buildConceptMapRecord(input: ConceptMapRecordInput): ConceptMapR
       step: fact.step, scene_id: fact.scene_id, day: calendarDate(Date.parse(fact.at), input.timeZone),
       hints: fact.hints, self_rated: fact.self_rated,
     })),
+    contest: input.contest,
   };
 }

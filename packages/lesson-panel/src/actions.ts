@@ -78,6 +78,13 @@ async function replan(backend: PanelBackend, ctx: PanelContext, minutes: number)
   return {};
 }
 
+/** What a contest's check showed, in one sentence: the claim, the answers, and that no step is skipped. */
+function contestMessage(settled: { claim?: string; outcome?: string }, locale: "fr" | "en"): string {
+  if (settled.outcome === "partial") return phrase("panel_contest_partial", {}, locale);
+  const claim = settled.claim === "unsure" ? "unsure" : "known";
+  return phrase(`panel_contest_${settled.outcome === "confirmed" ? "confirmed" : "refuted"}_${claim}`, {}, locale);
+}
+
 /** The scene changed, or the session did: what was proposed for that scene leaves with it. */
 function leaveScene(ctx: PanelContext): void {
   if (ctx.prompts) ctx.prompts = ctx.prompts.filter(p => p.expires !== "scene");
@@ -85,7 +92,13 @@ function leaveScene(ctx: PanelContext): void {
 
 async function execute(backend: PanelBackend, ctx: PanelContext, action: PanelAction): Promise<Partial<PanelView>> {
   switch (action.type) {
-    case "respond": ctx.transition = await backend.submitResponse(ctx.sessionId, action.input); leaveScene(ctx); return {};
+    case "respond": {
+      ctx.transition = await backend.submitResponse(ctx.sessionId, action.input);
+      leaveScene(ctx);
+      // The answer that ends a contest's check says what the check showed.
+      const settled = ctx.transition?.contest as { claim?: string; outcome?: string } | undefined;
+      return settled ? { message: contestMessage(settled, localeOf(ctx)) } : {};
+    }
     case "turn": {
       const turn = await backend.submitTurn(ctx.sessionId, action.text);
       return { turn_result: { reasoning: turn.reasoning ?? null, tutor: turn.tutor ?? null } };
@@ -111,6 +124,14 @@ async function execute(backend: PanelBackend, ctx: PanelContext, action: PanelAc
       return ctx.mapOpen ? {} : { kind: "notice", message: phrase("panel_map_unavailable", {}, localeOf(ctx)) };
     }
     case "closeMap": delete ctx.mapOpen; return {};
+    case "contest": {
+      if (!backend.contestConcept) throw new Error("this server cannot check a contested concept");
+      const started = await backend.contestConcept(ctx.sessionId, action.concept_id, action.claim);
+      // The session is now on the first check question: the previous answer's verdict leaves with its scene.
+      delete ctx.transition;
+      leaveScene(ctx);
+      return { message: phrase(started.questions === 1 ? "panel_contest_one" : "panel_contest_two", {}, localeOf(ctx)) };
+    }
     default: return {};
   }
 }

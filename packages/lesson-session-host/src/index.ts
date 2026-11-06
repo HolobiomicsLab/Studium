@@ -4,7 +4,7 @@ export {
   type SessionHostOptions, type SessionStartOptions, type SessionStartResult, type SessionResume,
   type ServedPresentation, type ServedTransition, type ServedVerdict, type ReviewPlan, type RecallRating,
   type ListedLesson, type LessonListing, type ReviewItem, type ReviewStartResult,
-  type ReinforcementStatus, type RoutedReinforcementTarget, type ForgetReport, type ForgetItem, type ConceptMapExport,
+  type ReinforcementStatus, type RoutedReinforcementTarget, type ForgetReport, type ForgetItem, type ConceptMapExport, type ContestStart,
 } from "./host.js";
 // The 2026-10-30 verification fixes: a session's clock and now_ms (L-1), one time zone for every date
 // (RFR-13), the review scene choice (L-8).
@@ -32,6 +32,10 @@ export {
 } from "./orientation.js";
 // INT-STUDIUM-058 § 2.5: what the learner did since the agent last looked.
 export { BRIEF_ACTS_MAX, COMPANION_RULES, type ActKind, type CompanionAct, type CompanionBrief, type Lane } from "./companion.js";
+export {
+  CONTEST_QUESTIONS, ContestRefusedError, checkScenes, claimFor, contestOutcome,
+  type ContestClaim, type ContestOutcome, type RecordContest,
+} from "./contest.js";
 export {
   buildConceptMap, type ConceptMap, type ConceptMapNode, type ConceptMapEdge, type ConceptMapState, type ConceptMapMoment,
 } from "./concept-map.js";

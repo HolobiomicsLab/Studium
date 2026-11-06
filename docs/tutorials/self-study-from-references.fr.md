@@ -141,6 +141,7 @@ node tools/bundle_lint.mjs "$WORK/bundles/durkheim-fait-social/lesson.json"
 | `INFO self_study_authoring` | La leçon se déclare auto-rédigée |
 | `WARN self_study_open_book` | Liste les scènes `author_keyed` : le quiz est à livre ouvert |
 | `INFO lwg_single_graded_item` / `WARN lwg_prereq_unassessable` | Une notion n'a qu'une scène, ou aucune, évaluée par une clé : attendu avec surtout des scènes de production |
+| `WARN concept_few_recall_questions` | Une notion a moins de deux quiz qui lui sont propres : un apprenant qui dit « je le sais » de cette notion reçoit une question de contrôle, ou aucune, au lieu de deux |
 | `WARN self_study_no_external_key` | Aucune scène de production ni de reproduction : en ajouter une plutôt qu'ignorer l'avertissement |
 
 Une `ERROR` fait échouer la commande et doit être corrigée. Les règles pour compléter un squelette
