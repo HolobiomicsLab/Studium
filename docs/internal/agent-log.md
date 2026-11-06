@@ -3293,6 +3293,26 @@ Checked: `orientation.test.ts` first failed (module absent), then 13 tests pass,
 headless smoke (19 assertions) pass. A thousand reads take 41 ms on the demo lesson. No existing
 test changed.
 
+## 2026-11-06 (voix) — Who wrote a screen, who assessed an answer
+
+INT-STUDIUM-058, lot 1, task 1.2. `orientation.ts` gains `voicesOf(host, sessionId, verdict?)`:
+
+- `scene`: the lesson's voice, `{ kind: "author", name, reviewed, drafted_by }`. `name` is the
+  teacher who signs the lesson (the bundle's validator, or the reviewer whose approval record is
+  bound to this exact file), null when nobody does. `reviewed` is false for a lesson no teacher
+  validated and for one changed since its approval: when an approval record sits next to the
+  lesson it decides, because it is bound to the file's bytes.
+- `verdict`: `{ kind: "key" }` when the author's key assessed the answer, `{ kind: "judge" }` when
+  a judge model did, absent when nobody did (an acknowledgement, an unjudged written answer).
+
+Difference from the spec's type: the author voice carries `drafted_by` (agent, learner, teacher),
+and an agent-drafted lesson has `name: null`. The plan asked for "the agent's name", which no
+bundle records. `{ kind: "agent" }` stays in the type for text the assistant generates (lot 3).
+
+Checked: six tests failed first (`voicesOf is not a function`), then the 19 tests of
+`orientation.test.ts` pass; `pnpm build` (a first run failed on a type the session barrel does
+not export, fixed), `pnpm lint`, the session-host suite (609 tests). No existing test changed.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

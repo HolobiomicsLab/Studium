@@ -11,7 +11,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { SessionHost } from "./host.js";
 import { operatorContext } from "./operator-context.js";
-import { orientationOf, statusLine, type Orientation } from "./orientation.js";
+import { createHash } from "node:crypto";
+import { orientationOf, statusLine, voicesOf, type Orientation } from "./orientation.js";
 
 const T0 = Date.parse("2026-11-06T09:00:00Z");
 const DAY = 24 * 60 * 60 * 1000;
@@ -34,21 +35,33 @@ const explainBack = (id: string, c: string, seconds: number) => ({
   key_points: [{ id: "kp", text: "RÉVÉLÉ : le signe suit la phase.", cues: ["signe"] }], model_explanation: "RÉVÉLÉ : modèle.",
   rubric: { completeness: 1, evidence_quality: 1, tone: 1 },
 });
-function lesson(scenes: object[], title = "Leçon O") {
+function lesson(scenes: object[], who: { authoring?: object; validated_by?: string } = {}) {
   return {
     schema_version: "1.4", bundle_id: "lesson-o", source_plan_id: "p",
-    metadata: { title, target: "L1", duration_minutes: 5, language: "fr", discipline: "chimie" },
+    metadata: {
+      title: "Leçon O", target: "L1", duration_minutes: 5, language: "fr", discipline: "chimie",
+      ...(who.authoring ? { authoring: who.authoring } : {}),
+    },
     concepts: ["c-un", "c-deux"].map((c) => ({ id: c, title: `Notion ${c}`, description: "d", bloom_level_target: "understand" })),
-    scenes, rules: [], validated_by: "Prof. Test", validated_at: "2026-10-01T00:00:00Z",
+    scenes, rules: [], validated_by: who.validated_by ?? "Prof. Test", validated_at: "2026-10-01T00:00:00Z",
   };
 }
 /** Concept, quiz, quiz: the lesson of the plan's task 1.1. */
 const threeScenes = () => lesson([concept("s-c", "c-un", 60), quiz("s-q1", "c-un", 90), quiz("s-q2", "c-deux", 45)]);
 
-async function open(bundle: object) {
+/** Start a session on `bundle`. `approval` writes the reviewer's record next to the lesson: bound to
+ * these exact bytes (`current`) or to an earlier version of the file (`stale`). */
+async function open(bundle: object, approval?: "current" | "stale") {
   const root = tmp();
   mkdirSync(dirname(join(root, "O.json")), { recursive: true });
-  writeFileSync(join(root, "O.json"), JSON.stringify(bundle));
+  const bytes = JSON.stringify(bundle);
+  writeFileSync(join(root, "O.json"), bytes);
+  if (approval) {
+    writeFileSync(join(root, "approval.json"), JSON.stringify({
+      schema: "studium-approval/1", reviewer: "Prof. Relu", reviewed_at: "2026-11-01T00:00:00Z",
+      bundle_sha256: approval === "current" ? createHash("sha256").update(bytes).digest("hex") : "0".repeat(64),
+    }));
+  }
   const host = new SessionHost({ bundlesRoot: root, live: false, dataDir: null, clock: { now: () => new Date(T0).toISOString() } });
   const started = await host.create("O.json", "auto-test-orientation");
   return { host, sid: started.sessionId };
@@ -172,6 +185,47 @@ describe("orientationOf — an adaptation, on fixtures/atomistique-l1", () => {
     }
     expect(detourSeen).toBe(true);
     expect(returned).toBe(true);
+  });
+});
+
+describe("voicesOf — who wrote a screen, who assessed an answer", () => {
+  const agentDrafted = { authoring: { mode: "self_study", drafted_by: "agent" }, validated_by: "SELF-STUDY (non validée)" };
+
+  it("names the teacher who signs a validated lesson", async () => {
+    const { host, sid } = await open(threeScenes());
+    expect(voicesOf(host, sid)).toEqual({ scene: { kind: "author", name: "Prof. Test", reviewed: true, drafted_by: "teacher" } });
+  });
+
+  it("says a lesson an agent drafted was not reviewed, and names nobody", async () => {
+    const { host, sid } = await open(lesson([concept("s-c", "c-un", 60), quiz("s-q1", "c-deux", 60)], agentDrafted));
+    expect(voicesOf(host, sid).scene).toEqual({ kind: "author", name: null, reviewed: false, drafted_by: "agent" });
+  });
+
+  it("says who drafted a self-study lesson the learner wrote", async () => {
+    const who = { authoring: { mode: "self_study", author_is_learner: true }, validated_by: "SELF-STUDY (non validée)" };
+    const { host, sid } = await open(lesson([concept("s-c", "c-un", 60), quiz("s-q1", "c-deux", 60)], who));
+    expect(voicesOf(host, sid).scene).toEqual({ kind: "author", name: null, reviewed: false, drafted_by: "learner" });
+  });
+
+  it("names the reviewer whose approval is bound to this exact lesson file", async () => {
+    const { host, sid } = await open(lesson([concept("s-c", "c-un", 60), quiz("s-q1", "c-deux", 60)], agentDrafted), "current");
+    expect(voicesOf(host, sid).scene).toEqual({ kind: "author", name: "Prof. Relu", reviewed: true, drafted_by: "agent" });
+  });
+
+  it("says a lesson changed since its approval is not reviewed, even one a teacher signed", async () => {
+    const { host, sid } = await open(threeScenes(), "stale");
+    expect(voicesOf(host, sid).scene).toEqual({ kind: "author", name: "Prof. Test", reviewed: false, drafted_by: "teacher" });
+  });
+
+  it("says the author's key assessed a quiz answer, a judge a judged one, and nobody an unassessed one", async () => {
+    const { host, sid } = await open(threeScenes());
+    const read = await host.respond(sid, { kind: "ack" });
+    expect(voicesOf(host, sid, read.verdict)).not.toHaveProperty("verdict");
+    const answered = await host.respond(sid, { kind: "quiz_choice", choiceId: choice(host, sid, "Juste"), confidence: 2 });
+    expect(answered.verdict).toMatchObject({ assessed_by: "key" });
+    expect(voicesOf(host, sid, answered.verdict).verdict).toEqual({ kind: "key" });
+    expect(voicesOf(host, sid, { assessed_by: "judge" }).verdict).toEqual({ kind: "judge" });
+    expect(voicesOf(host, sid, { assessed_by: "none" })).not.toHaveProperty("verdict");
   });
 });
 

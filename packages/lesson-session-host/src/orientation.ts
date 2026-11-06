@@ -3,13 +3,15 @@
 // INT-STUDIUM-058 (spec 2026-11-06, F4 and § 2.3) — where the learner is, at any moment and on any
 // surface, without asking: the step out of the total, the concept on screen, the minutes left, the
 // reviews due, what is expected of them, and why the lesson last adapted. `orientationOf` gives it as
-// data, `statusLine` as one line of at most 80 characters. Two consumers read this module, so that
-// every surface says the same thing: the panel presenter (packages/lesson-panel) and the conversation
-// text (chat-display.ts).
+// data, `statusLine` as one line of at most 80 characters. `voicesOf` (F5) says who speaks: who signs
+// the lesson a screen comes from and whether it was reviewed, and who assessed an answer. Two
+// consumers read this module, so that every surface says the same thing: the panel presenter
+// (packages/lesson-panel) and the conversation text (chat-display.ts).
 //
 // Public by construction: an orientation is built from scene ids and types, concept ids and titles,
 // authored durations and the learner's own path. No scene text, key, hint or reveal enters it.
 import type { Transition } from "@studium/lesson-session";
+import type { AuthoringBlock, DraftedBy } from "./authoring.js";
 import type { ConceptMap, ConceptMapState } from "./concept-map.js";
 import { expectedKind } from "./operator-context.js";
 import type { SessionEntry } from "./registry.js";
@@ -149,6 +151,50 @@ export function orientationFrom(facts: OrientationFacts): Orientation {
  * session's own clock when absent). */
 export function orientationOf(host: SessionHost, sessionId: string, opts: { nowMs?: number } = {}): Orientation {
   return orientationFrom(host.orientationFacts(sessionId, opts.nowMs));
+}
+
+/** Who speaks. `author`: the lesson — `name` is the teacher who signs it (the bundle's validator, or
+ * the reviewer whose approval is bound to this exact file), null when nobody does; `reviewed` is
+ * false for a lesson no teacher validated and for one changed since its approval; `drafted_by` says
+ * who wrote the content and its keys. `key`: the author's answer key assessed the answer. `judge`: a
+ * judge model did. `agent`: text the assistant generated at the learner's request, which the lesson's
+ * author did not write. */
+export type Voice =
+  | { kind: "author"; name: string | null; reviewed: boolean; drafted_by: DraftedBy }
+  | { kind: "key" }
+  | { kind: "judge" }
+  | { kind: "agent" };
+
+/** The part of a transition's verdict a voice reads: who assessed the answer. */
+export type AssessedBy = Pick<NonNullable<Transition["verdict"]>, "assessed_by">;
+
+/** The voice of the screen and, after an answer somebody assessed, the voice of its verdict. */
+export interface Voices { scene: Voice; verdict?: Voice }
+
+/** The lesson's voice. An approval record next to the lesson, when there is one, decides `reviewed`:
+ * it is bound to the file's bytes, so it says whether this very version was read. */
+export function authorVoice(authoring: AuthoringBlock, validatedBy: string): Voice {
+  const approval = authoring.approval;
+  const approved = approval.recorded && approval.matches;
+  return {
+    kind: "author",
+    name: authoring.validated ? validatedBy : approved ? approval.reviewer ?? null : null,
+    reviewed: approval.recorded ? approval.matches : authoring.validated,
+    drafted_by: authoring.drafted_by,
+  };
+}
+
+/** Who assessed an answer; nothing when nobody did (an acknowledgement, an unjudged written answer). */
+export function verdictVoice(verdict: AssessedBy | null | undefined): Voice | undefined {
+  if (verdict?.assessed_by === "key") return { kind: "key" };
+  if (verdict?.assessed_by === "judge") return { kind: "judge" };
+  return undefined;
+}
+
+/** Who speaks on this session's screen, and in `verdict` when an answer was just assessed. */
+export function voicesOf(host: SessionHost, sessionId: string, verdict?: AssessedBy | null): Voices {
+  const assessed = verdictVoice(verdict);
+  return { scene: host.authorVoice(sessionId), ...(assessed ? { verdict: assessed } : {}) };
 }
 
 export const STATUS_LINE_MAX = 80;

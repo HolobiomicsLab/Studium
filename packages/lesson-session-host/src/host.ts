@@ -65,7 +65,7 @@ import {
 } from "./review-session.js";
 import { persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceInfo } from "./persistence.js";
 import { replyToInput, checkDisplayedChoice } from "./reply-mapping.js";
-import { orientationFacts, recordNavigation, type OrientationFacts } from "./orientation.js";
+import { authorVoice, orientationFacts, recordNavigation, type OrientationFacts, type Voice } from "./orientation.js";
 import type { HostResponseInput } from "./response-input-schema.js";
 
 // Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /
@@ -1604,6 +1604,12 @@ export class SessionHost {
       reviewsDue: this.reviewQueue(id, nowMs).filter((item) => item.due).length,
       runPending: run !== null && run.run_manifest !== null && !run.learner_run_recorded,
     });
+  }
+  /** INT-STUDIUM-058: the voice of this session's lesson — who signs it, whether it was reviewed, who
+   * drafted it (orientation.ts authorVoice). */
+  authorVoice(id: string): Voice {
+    const entry = this.require(id);
+    return authorVoice(entry.authoring, entry.bundle.validated_by);
   }
   /** Who wrote this session's lesson, whether a teacher validated it, its approval record and whether
    * this host has a judge model (see authoringOf). Read once, when the session started. */
