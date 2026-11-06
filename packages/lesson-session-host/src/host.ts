@@ -22,6 +22,7 @@ import {
   type RenderAsset, type ReferenceRun, type RunManifest, type Course, type CourseLesson, type LessonBundle, type Scene,
 } from "@studium/lesson-bundle-schema";
 import { runResultToReferenceRun, verifyRunAttestation, type RunResult } from "./run-result.js";
+import { buildConceptMap, type ConceptMap, type ConceptMapMoment } from "./concept-map.js";
 import type { GraphView } from "@studium/typed-graph-lens";
 import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
 import { SessionRegistry, type HeldSources, type SessionEntry } from "./registry.js";
@@ -756,11 +757,15 @@ export type ServedTransition = ServedTransitionBase & {
   /** L-11 (CC-6): the answer counts and the session moved on, but the learner's progress could not be
    * saved — why, in one line (display_markdown says so to the learner). */
   persistence_warning?: string;
+  /** The learner's concept map, at the moments it is worth showing (ConceptMap.moment); absent otherwise. */
+  concept_map?: ConceptMap;
 };
 
 export interface SessionStartResult {
   sessionId: string;
   presentation: ServedPresentation;
+  /** The lesson's concept map as the session opens; absent for a lesson with fewer than two concepts. */
+  concept_map?: ConceptMap;
   resume: SessionResume;
   /** Who wrote the lesson (also on `presentation.authoring`). */
   authoring: AuthoringBlock;
@@ -1045,9 +1050,11 @@ export class SessionHost {
       const presentation = this.served(entry, started);
       const resume = resumeFor(bundle, initial, profile, presentation.scene.id);
       const record = resume.kind === "completed" ? await this.studyStore.load(profilePseudonym) : null;
+      const conceptMap = this.conceptMapOf(entry, "start");
       return {
         sessionId,
         presentation,
+        ...(conceptMap ? { concept_map: conceptMap } : {}),
         resume,
         authoring,
         persistence: this.persistence(),
@@ -1391,12 +1398,61 @@ export class SessionHost {
       ...presentation, authoring: entry.authoring,
       learnerSnapshot: { ...presentation.learnerSnapshot, conceptMastery: this.publicMastery(entry) },
     };
+    const firstScreen = entry.responses === 0;
+    const plan = firstScreen ? this.conceptMapOf(entry, "start")?.display_markdown : undefined;
     return {
       ...withAuthoring,
       display_markdown: presentationMarkdown(withAuthoring, {
-        firstScreen: entry.responses === 0, notDurable: this.dataDir === null, review: entry.kind === "review",
+        firstScreen, notDurable: this.dataDir === null, review: entry.kind === "review",
+        ...(plan ? { conceptMap: plan } : {}),
       }),
     };
+  }
+
+  /** The learner's concept map now (concept-map.ts), drawn from what the session served and how it
+   * was answered. null for a review session and for a lesson with fewer than two concepts. */
+  conceptMap(id: string, moment: ConceptMapMoment = "on_request"): ConceptMap | null {
+    return this.conceptMapOf(this.require(id), moment);
+  }
+
+  private conceptMapOf(entry: SessionEntry, moment: ConceptMapMoment): ConceptMap | null {
+    if (entry.kind !== "lesson" || entry.bundle.concepts.length < 2) return null;
+    return buildConceptMap({
+      concepts: entry.bundle.concepts,
+      scenes: entry.bundle.scenes.map((scene) => ({
+        id: scene.id, type: scene.type, concept_refs: "concept_refs" in scene ? scene.concept_refs : [],
+      })),
+      lwg: entry.bundle.learning_workflow_graph ?? null,
+      path: entry.session.learnerPath(),
+      currentSceneId: entry.completed ? null : entry.session.currentPresentation().scene.id,
+      moment, locale: displayLocale(entry.bundle.metadata.language),
+    });
+  }
+
+  /** Whether this transition is a moment to show the concept map, and which. Not on every question:
+   * a prerequisite detour and the return from it, a scene that draws on several concepts, the end of
+   * the lesson (the whole map); the first scene of a concept (one position line). */
+  private conceptMapMoment(entry: SessionEntry, transition: Transition): ConceptMapMoment | null {
+    if (entry.kind !== "lesson" || entry.bundle.concepts.length < 2) return null;
+    const primaryOf = (sceneId: string): string | undefined => {
+      const scene = entry.bundle.scenes.find((s) => s.id === sceneId);
+      return scene && "concept_refs" in scene ? scene.concept_refs[0] : undefined;
+    };
+    const seen = (entry.conceptMapSeen ??= {
+      // Everything already served counts as announced, so a resumed lesson does not re-announce it.
+      concepts: new Set(entry.session.learnerPath().steps.map((step) => primaryOf(step.scene_id)).filter((c): c is string => c !== undefined)),
+      syntheses: new Set(), onDetour: false,
+    });
+    if (transition.kind === "complete") return "complete";
+    const next = transition.presentation.scene;
+    const refs = "concept_refs" in next ? next.concept_refs : [];
+    const opens = refs[0] !== undefined && !seen.concepts.has(refs[0]);
+    if (refs[0] !== undefined) seen.concepts.add(refs[0]);
+    const navigation = transition.navigation?.kind;
+    if (navigation === "remediate") { seen.onDetour = true; return "detour"; }
+    if (seen.onDetour && navigation !== "replay" && navigation !== "remediate_alt") { seen.onDetour = false; return "detour_return"; }
+    if (refs.length >= 2 && !seen.syntheses.has(next.id)) { seen.syntheses.add(next.id); return "synthesis"; }
+    return opens ? "new_concept" : null;
   }
 
   /** Every lesson concept, with null until a graded answer actually measured it. */
@@ -1443,8 +1499,11 @@ export class SessionHost {
     const presentation = "presentation" in transition ? this.served(entry, transition.presentation) : undefined;
     const { self_rating: _engineRequest, ...engineTransition } = transition;
     const summary = transition.kind === "complete" ? { ...transition.summary, mastery: this.publicMastery(entry) } : undefined;
+    const mapMoment = this.conceptMapMoment(entry, transition);
+    const conceptMap = mapMoment ? this.conceptMapOf(entry, mapMoment) : null;
     const base = {
       ...engineTransition,
+      ...(conceptMap ? { concept_map: conceptMap } : {}),
       ...(summary ? { summary, completion: completionSplit(summary) } : {}),
       ...(verdict ? { verdict } : {}),
       ...(presentation ? { presentation } : {}),
@@ -1453,6 +1512,7 @@ export class SessionHost {
       ...(warning ? { persistence_warning: warning } : {}),
     } as PublicTransition & {
       self_rating?: SelfRatingRequest & { scene_id: string }; review_plan?: ReviewPlan; persistence_warning?: string; completion?: CompletionSplit;
+      concept_map?: ConceptMap;
     };
     return {
       ...base,

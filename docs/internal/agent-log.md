@@ -2966,6 +2966,51 @@ assertion changed. Gates green with `STUDIUM_EPHEMERAL=1`: `pnpm build:libs`,
 0 failing), `tools/bundle_lint.test.sh`, `node tools/docs/check.mjs`,
 `headless_smoke.mjs` (19 assertions).
 
+## 2026-11-06 (carte) — Learner concept map, and a lesson from a conversation
+
+Owner requests of 6 Nov, after the simulation report: build the concept map proposed
+there; and make it fluid to call Studium from a Claude or Codex conversation already
+under way, in self-study, with no teacher validating the lesson. Branch
+`feat/2026-11-06-learner-concept-map`, cut from `fix/2026-11-05-trial-findings`
+(PR 13), so it merges after it.
+
+Concept map. `get_workflow_graph` derives a concept's state from posterior mastery
+alone; at step 16 of `atomistique-l1` it reported the first concept as current and
+the seven others as locked. The map is drawn from session facts instead.
+`LessonSession.learnerPath()` returns the steps served, in order, with their outcome,
+and the prerequisites the session credited (rebuilt from the saved history on a
+resume). `buildConceptMap` (`lesson-session-host/src/concept-map.ts`) turns them into
+`studium/concept-map/v1`: nodes with a state (`acquired`, `to_review`, `current`,
+`seen`, `upcoming`), the questions answered with their step and result, prerequisite
+edges travelled or not, the position (from, at, next), a Mermaid flowchart and a
+list. `seen` is a concept whose answers nobody assessed: it is not called acquired.
+Served at a few moments only: `start_lesson_session` and the first screen; then, on
+a transition, a prerequisite detour, the return from it, a scene drawing on several
+concepts and the end of the lesson (the whole map), and the first scene of a concept
+(one position line). `display_markdown` carries it; `get_workflow_graph` returns it
+on request. On a flawless run of `atomistique-l1`: five whole maps in 32 steps. The
+`state` field of `get_workflow_graph` is unchanged (the VS Code pane reads it).
+
+Lesson from a conversation. `tools/conversation_sources.py` reads a Claude Code
+transcript (`.jsonl`) or a text export and prints `prepare_sources` input: the
+user's and the assistant's text with numbered turns; sub-agent threads, harness
+messages, compaction summaries and private reasoning left out; tool results only on
+request; credential-looking strings replaced. `prepare_sources` accepts
+`kind: "conversation"` on a source (recorded only then, so existing source sets keep
+their id); `create_lesson` marks such a citation `prov_derived_from:
+conversation:<id>`; the self-study notice then adds that the sources are excerpts of
+a conversation with an AI assistant whose assertions were not checked. New skill
+`studium-from-conversation` (one question at most, four tool calls, when to stop and
+ask) and use case 9 in `docs/tutorials/use-cases`. Played end to end on the
+transcript of the session that wrote this entry: 19 of 62 turns kept, 39 passages, a
+six-scene lesson created on the first call and played with the map. No Codex
+transcript parser: it needs a sample.
+
+Not verified: how each harness renders the Mermaid block; any effect of the map on
+learning. Test decisions: new `concept-map.test.ts`, `host.concept-map.test.ts`,
+`session.learner-path.test.ts`, `tools/test_conversation_sources.py`; cases added to
+`source-set.test.ts` and `build.test.ts`; no existing assertion changed.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

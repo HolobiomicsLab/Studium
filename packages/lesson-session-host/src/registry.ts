@@ -51,6 +51,10 @@ export interface SessionEntry {
   moved: Set<string>;
   /** Responses applied in this session (0 = the first screen). */
   responses: number;
+  /** What the concept map already told the learner (host.conceptMapMoment): the concepts whose
+   * opening was announced, the scenes shown as a synthesis, and whether a prerequisite detour is
+   * under way. Created at the first transition. */
+  conceptMapSeen?: { concepts: Set<string>; syntheses: Set<string>; onDetour: boolean };
   /** Each concept state as the session started (JSON): only what the session changed is written back
    * to the profile, so a concept warm-seeded from it never overwrites a newer state with its old copy. */
   conceptStatesAtStart: Readonly<Record<string, string>>;

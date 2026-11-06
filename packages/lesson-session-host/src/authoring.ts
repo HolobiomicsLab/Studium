@@ -42,6 +42,14 @@ const AGENT_DRAFTED = {
   en: "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; challenge any " +
     "key you think is wrong. ",
 };
+/** Added when the lesson cites excerpts of a conversation with an AI assistant. */
+const FROM_CONVERSATION = {
+  fr: " Ses sources sont des extraits d'une conversation avec un assistant IA : ce que l'assistant y affirme " +
+    "n'a pas été vérifié ; ce qui vient d'un fichier ou d'un résultat d'outil cité est une observation.",
+  en: " Its sources are excerpts of a conversation with an AI assistant: what the assistant asserted there was " +
+    "not checked; what comes from a quoted file or tool result is an observation.",
+};
+const CONVERSATION_PROVENANCE_PREFIX = "conversation:";
 const NO_JUDGE = {
   fr: "Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée " +
     "et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise.",
@@ -108,6 +116,9 @@ export function authoringOf(
   const notices = texts[locale];
   const reproduction = bundle.scenes?.some((scene) => scene.type === "reproduction")
     ? ` ${REPRODUCTION_ASSESSMENT[locale]}` : "";
+  const fromConversation = bundle.scenes?.some((scene) => (scene.evidence?.bibliographic_refs ?? [])
+    .some((reference) => reference.prov_derived_from?.startsWith(CONVERSATION_PROVENANCE_PREFIX)))
+    ? (locale === "fr" ? frenchSpacing(FROM_CONVERSATION.fr) : FROM_CONVERSATION.en) : "";
   return {
     mode,
     author_is_learner: bundle.metadata.authoring?.author_is_learner ?? false,
@@ -115,7 +126,7 @@ export function authoringOf(
     validated: isTeacherValidated(bundle.validated_by),
     judge: host.judge,
     notice: mode === "self_study"
-      ? notices[host.judge ? "with_judge" : "without_judge"] + reproduction
+      ? notices[host.judge ? "with_judge" : "without_judge"] + reproduction + fromConversation
       : null,
     approval: { ...(host.approval ?? NO_APPROVAL) },
   };

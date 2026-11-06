@@ -36,6 +36,18 @@ describe("prepareSources", () => {
     expect(await readSourceSet(root, set.source_set_id)).toEqual(set);
   });
 
+  it("records that a source is a conversation, and leaves a document's record and id as they were", async () => {
+    const root = library();
+    const document = await prepareSources(root, [FRENCH_SOURCE], { goal: "g", language: "fr" });
+    const explicit = await prepareSources(root, [{ ...FRENCH_SOURCE, kind: "document" }], { goal: "g", language: "fr" });
+    expect(explicit.source_set_id).toBe(document.source_set_id);
+    expect(document.sources[0]).not.toHaveProperty("kind");
+    const conversation = await prepareSources(root, [{ ...FRENCH_SOURCE, url: undefined, kind: "conversation" }], { goal: "g", language: "fr" });
+    expect(conversation.sources[0]!.kind).toBe("conversation");
+    expect(conversation.source_set_id).not.toBe(document.source_set_id);
+    expect(await readSourceSet(root, conversation.source_set_id)).toEqual(conversation);
+  });
+
   it("gives the same id for the same preparation and another for another goal", async () => {
     const root = library();
     const first = await prepareSources(root, [FRENCH_SOURCE], { goal: "g" });

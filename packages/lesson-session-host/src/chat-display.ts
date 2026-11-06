@@ -72,6 +72,9 @@ export interface TransitionExtras {
   persistence_warning?: string;
   /** L-6: the host-computed completion categories consumed by every client. */
   completion?: CompletionSplit;
+  /** The learner's concept map at a moment worth showing it (concept-map.ts): the whole map, or the
+   * position line alone when a new concept opens. */
+  concept_map?: { show: "map" | "line"; display_markdown: string; position_line: string };
 }
 
 const PHRASES = {
@@ -337,7 +340,7 @@ function replyHint(scene: PublicSceneFields, locale: DisplayLocale): string {
  * nothing is durable, a one-line warning) — the start of a lesson or a review session. */
 export function presentationMarkdown(
   p: DisplayPresentation,
-  opts: { firstScreen?: boolean; notDurable?: boolean; review?: boolean } = {},
+  opts: { firstScreen?: boolean; notDurable?: boolean; review?: boolean; conceptMap?: string } = {},
 ): string {
   const locale: DisplayLocale = p.locale === "en" ? "en" : "fr";
   const scene = publicScene(p.scene as Scene) as PublicSceneFields;
@@ -347,6 +350,8 @@ export function presentationMarkdown(
   const approvalNotice = opts.firstScreen ? approvalNoticeMarkdown(authoring, locale) : "";
   if (approvalNotice) blocks.push(`> ${approvalNotice}`);
   if (opts.firstScreen && opts.notDurable) blocks.push(`> ${say(locale, "not_durable")}`);
+  // The lesson's plan before its first scene: every concept and how they depend on each other.
+  if (opts.firstScreen && opts.conceptMap) blocks.push(opts.conceptMap, "---");
   blocks.push(`### ${scene.title || scene.type || ""}`);
   blocks.push(`_${say(locale, opts.review ? "review_progress" : "progress", { n: p.index + 1, total: p.total })}_`);
   blocks.push(...sceneBody(scene, locale));
@@ -507,6 +512,7 @@ export function transitionMarkdown(t: PublicTransition & TransitionExtras, ctx: 
   const head = [
     t.persistence_warning ? `> ${say(locale, "not_saved")}` : "",
     navigationLine(t, locale), ...completionBlock(t, locale, ctx),
+    t.concept_map ? (t.concept_map.show === "map" ? t.concept_map.display_markdown : t.concept_map.position_line) : "",
   ].filter((b) => b.trim() !== "").join("\n\n");
   if (!("presentation" in t)) return head;
   const next = presentationMarkdown(t.presentation, { review: ctx.review ?? false });

@@ -21,6 +21,7 @@ propres sources. Chaque skill est un dossier contenant un `SKILL.md` ; son en-
 |---|---|---|
 | [`studium-student`](studium-student/SKILL.md) | étudiants | installer ou connecter Studium, activer une offre Copilot Student éligible ou un autre assistant, et commencer une première leçon avec vos propres réponses |
 | [`studium-self-learner`](studium-self-learner/SKILL.md) | apprenants sans enseignant | transformer une page web, un PDF ou un texte que vous avez choisi en leçon d'auto-apprentissage jouable, puis la jouer |
+| [`studium-from-conversation`](studium-from-conversation/SKILL.md) | toute personne qui travaille avec un assistant | transformer la conversation en cours, ou une séance passée, en courte leçon pour vérifier et approfondir ce que vous en avez compris |
 | [`studium-teacher`](studium-teacher/SKILL.md) | enseignants | installer Studium, connecter un assistant, préparer un brouillon de leçon appuyé sur la littérature ou une capsule et le relire dans MySTRA avant un pilote |
 | [`studium-harness`](studium-harness/SKILL.md) | tout assistant qui fait jouer une leçon | présenter les scènes publiques, recueillir les réponses de l'apprenant lui-même, exécuter les capsules honnêtement, par MCP, HTTP ou le canal fichier |
 | [`studium-activity-templates`](studium-activity-templates/SKILL.md) | enseignants et apprenants | choisir et adapter une activité interactive (représentations liées, comparaison de paramètres, diagnostic d'analyse, robustesse, preuve et affirmation) |
@@ -28,7 +29,8 @@ propres sources. Chaque skill est un dossier contenant un `SKILL.md` ; son en-
 | [`studium-learner-report`](studium-learner-report/SKILL.md) | apprenants et enseignants | exporter ou examiner une trace d'activité choisie par l'apprenant ou un journal d'expérience sous forme de rapport ASTRA/MySTRA |
 | [`studium-observatory`](studium-observatory/SKILL.md) | opérateurs et relecteurs | lancer et lire l'[Observatory](../services/observatory/README.fr.md) |
 
-Les skills de rôle (`studium-student`, `studium-teacher`, `studium-self-learner`) renvoient à
+Les skills de rôle (`studium-student`, `studium-teacher`, `studium-self-learner`,
+`studium-from-conversation`) renvoient à
 `studium-harness` pour la boucle de leçon elle-même.
 
 ## Comment les assistants les trouvent

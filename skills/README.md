@@ -20,6 +20,7 @@ self-study lesson from your own sources. Each skill is a folder with a `SKILL.md
 |---|---|---|
 | [`studium-student`](studium-student/SKILL.md) | students | install or connect Studium, set up an eligible Copilot Student plan or another assistant, and start a first lesson with your own answers |
 | [`studium-self-learner`](studium-self-learner/SKILL.md) | learners without a teacher | turn a web page, PDF or text you chose into a playable self-study lesson, then play it |
+| [`studium-from-conversation`](studium-from-conversation/SKILL.md) | anyone working with an assistant | turn the conversation in progress, or a past session, into a short lesson to check and deepen your understanding of it |
 | [`studium-teacher`](studium-teacher/SKILL.md) | teachers | install Studium, connect an assistant, prepare a literature- or capsule-grounded lesson draft and review it in MySTRA before a pilot |
 | [`studium-harness`](studium-harness/SKILL.md) | any assistant running a lesson | present public scenes, collect the learner's own answers, run capsules honestly, over MCP, HTTP or the file channel |
 | [`studium-activity-templates`](studium-activity-templates/SKILL.md) | teachers and learners | choose and adapt an interactive activity (linked representations, parameter comparison, analysis diagnosis, robustness, evidence and claim) |
@@ -27,7 +28,7 @@ self-study lesson from your own sources. Each skill is a folder with a `SKILL.md
 | [`studium-learner-report`](studium-learner-report/SKILL.md) | learners and teachers | export or inspect a learner-selected activity trace or experiment journal as an ASTRA/MySTRA report |
 | [`studium-observatory`](studium-observatory/SKILL.md) | operators and reviewers | run and read the [Observatory](../services/observatory/README.md) |
 
-Role skills (`studium-student`, `studium-teacher`, `studium-self-learner`) point to `studium-harness` for
+Role skills (`studium-student`, `studium-teacher`, `studium-self-learner`, `studium-from-conversation`) point to `studium-harness` for
 the ongoing lesson loop.
 
 ## How assistants find them

@@ -24,6 +24,9 @@ export { type StudyPlan, type StudyItem, DEFAULT_REVIEW_SECONDS } from "./study-
 export { type CatalogLesson, type LessonRoot } from "./lesson-catalog.js";
 export { operatorContext } from "./operator-context.js";
 export {
+  buildConceptMap, type ConceptMap, type ConceptMapNode, type ConceptMapEdge, type ConceptMapState, type ConceptMapMoment,
+} from "./concept-map.js";
+export {
   reviewQueueFromState, conceptMemoryFromState, nextReinforcementFromState, reinforcementSceneFromState,
   dueReinforcementTargetsFromMemory,
   type ReviewQueueItem, type ReinforcementTarget, type CourseStep,
@@ -44,7 +47,7 @@ export { SCENE_KEY_CLASS, keyClassOf, type KeyClass } from "./key-class.js";
 // binds these to the get_authoring_guide, prepare_sources and create_lesson tools.
 export {
   AuthoringInputError, GUIDE_VERSION, LessonDraftSchema, authoringGuide, createLesson, guideLanguageOf, prepareSources,
-  MAX_SOURCES, MAX_SOURCE_CHARS, MAX_TOTAL_SOURCE_CHARS, lintBundleData, placeholderPaths,
+  MAX_SOURCES, MAX_SOURCE_CHARS, MAX_TOTAL_SOURCE_CHARS, SOURCE_KINDS, lintBundleData, placeholderPaths,
   type CreateLessonInput, type CreateLessonResult, type LessonDraft, type SourceSet, type LintFinding as BundleLintFinding,
 } from "./authoring-draft/index.js";
 export { shuffleQuizChoices } from "./shuffle-choices.js";

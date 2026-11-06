@@ -173,6 +173,14 @@ The reply is `{transition}`, with `kind` (`next`, `replay`, `remediate_alt`,
 Without a judge, written answers get the reference to compare with, never a keyword
 count presented as an assessment.
 
+- `concept_map`, at a few moments only (`moment`: `start` on `start_lesson_session`, then
+  `new_concept`, `detour`, `detour_return`, `synthesis`, `complete`): the lesson's concepts with
+  their state for this learner (`acquired`, `to_review`, `current`, `seen`, `upcoming`), the questions
+  already answered with their step, where the learner comes from and what comes next.
+  `display_markdown` already includes it, as a list or as one position line (`show`: `map` or
+  `line`). A harness that draws diagrams may render `concept_map.mermaid` in place of the list. On
+  the learner's request, `get_workflow_graph` returns the current `concept_map`.
+
 Other lesson tools:
 
 - `submit_turn {session_id, text}` per discussion turn, then `submit_response` with `ack`.
