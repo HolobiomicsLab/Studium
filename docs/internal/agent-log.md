@@ -3954,6 +3954,37 @@ Not verified: nobody has read the list or contested a concept from it; the 32 ph
 by a teacher. No test drives the map in VS Code. The Claude Code pane was drawn by the plugin tester
 only. On a contest the message sits in the status line under the controls.
 
+## 2026-11-06 (prompt rules) — What the server may propose in a session, and how often
+
+INT-STUDIUM-058, lot 5, task 5.1 (requirement F7, spec § 2.6). `packages/lesson-session-host/src/prompts.ts`
+holds the rules of the server's prompts, with no surface.
+
+- `PromptBook`, one per session. A proposal (review now, a break, the next lesson, the map, forms) is
+  never put out while the learner owes an answer or a self-rating, is made once per session, and stops
+  at the budget of the attention level: 0 quiet, 3 normal, 6 coached. A notice (an adaptation, a
+  resume) always goes out and is never counted. The list of kinds is closed.
+- Outcomes are kept: accepted, dismissed, or ignored when the scene a proposal was bound to changes,
+  or the session ends, without an answer.
+- `promptCandidates`: the closed list of triggers (reviews due at the start and at the end of a
+  session, a session longer than the learner chose, the end of a lesson, forms available while the
+  lesson is played in the conversation), with reasons in French and English.
+
+Nothing calls the module yet: the view, the action and the surfaces are task 5.2.
+
+Readings of the spec, for the owner to confirm: a notice is shown while an answer is owed too (it asks
+nothing); a proposal held back is put out at the next pause; a break is proposed again at each
+multiple of the chosen length; the label and the action of a prompt are added where the view is built.
+
+Test decision: none. Twelve new tests in `prompts.test.ts`, written before the module and first run
+after it, where they passed; each of nine rules was then broken in turn and a test failed each time.
+
+Checked: every repository check passes on this tree at its first run (install, build, lint,
+`pnpm -r test`, the Python suites, bundle lint, docs check, headless smoke, the MCP bundle,
+`tools/panel-probe.mjs`), and `pnpm test:tools`.
+
+Not verified: no session uses the rules and no learner has seen a prompt; the reasons were not read by
+a teacher; the budgets are the spec's starting values.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

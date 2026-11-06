@@ -33,6 +33,10 @@ export {
 // INT-STUDIUM-058 § 2.5: what the learner did since the agent last looked.
 export { BRIEF_ACTS_MAX, COMPANION_RULES, type ActKind, type CompanionAct, type CompanionBrief, type Lane } from "./companion.js";
 export {
+  NOTICE_KINDS, PROMPT_BUDGET, PROMPT_KINDS, PromptBook, PromptRefusedError, noticeCandidate, promptCandidates,
+  type PromptAttention, type PromptCandidate, type PromptKind, type PromptOutcome, type PromptRecord, type PromptWaiting, type TriggerFacts,
+} from "./prompts.js";
+export {
   CONTEST_QUESTIONS, ContestRefusedError, checkScenes, claimFor, contestOutcome,
   type ContestClaim, type ContestOutcome, type RecordContest,
 } from "./contest.js";
