@@ -65,6 +65,7 @@ import {
 } from "./review-session.js";
 import { persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceInfo } from "./persistence.js";
 import { replyToInput, checkDisplayedChoice } from "./reply-mapping.js";
+import { orientationFacts, recordNavigation, type OrientationFacts } from "./orientation.js";
 import type { HostResponseInput } from "./response-input-schema.js";
 
 // Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /
@@ -1591,6 +1592,19 @@ export class SessionHost {
     const entry = this.require(id);
     return this.served(entry, entry.session.currentPresentation());
   }
+  /** INT-STUDIUM-058: the facts behind the learner's orientation (orientation.ts) — the screen's
+   * position, its concept, the durations left, what the session waits for, how it last routed. Ids,
+   * types, titles and durations only: no scene text, key, hint or reveal. `nowMs` sets the moment
+   * reviews are due at. */
+  orientationFacts(id: string, nowMs?: number): OrientationFacts {
+    const entry = this.require(id);
+    const run = entry.completed ? null : this.runStatus(id);
+    return orientationFacts(entry, {
+      conceptMap: this.conceptMapOf(entry, "on_request"),
+      reviewsDue: this.reviewQueue(id, nowMs).filter((item) => item.due).length,
+      runPending: run !== null && run.run_manifest !== null && !run.learner_run_recorded,
+    });
+  }
   /** Who wrote this session's lesson, whether a teacher validated it, its approval record and whether
    * this host has a judge model (see authoringOf). Read once, when the session started. */
   authoring(id: string): AuthoringBlock { return this.require(id).authoring; }
@@ -1770,6 +1784,7 @@ export class SessionHost {
   private async applyResponseLocked(e: SessionEntry, input: ResponseInput): Promise<ServedTransition> {
     const transition = await e.session.respond(input);
     e.responses += 1;
+    recordNavigation(e, transition);
     const moved = this.carryEngineMemory(e, e.session.getState());
     const complete = transition.kind === "complete";
     if (complete) e.completed = true;

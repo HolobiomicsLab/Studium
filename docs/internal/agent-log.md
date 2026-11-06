@@ -3258,6 +3258,41 @@ Not verified: no person has used the panel, the pane or the forms in an interact
 Code 2.1.309) is committed because the workspace build type-checks the plugin against it; to
 reconsider before the repository is public.
 
+## 2026-11-06 (orientation) — Where the learner is, as data and as one status line
+
+INT-STUDIUM-058, lot 1, task 1.1. A learner had to ask to know where they were: the step, what
+was expected of them, why the lesson had just sent them elsewhere. `packages/lesson-session-host`
+gains `orientation.ts`:
+
+- `orientationOf(host, sessionId)` returns the step out of the total (with the scene a
+  prerequisite detour returns to), the concept on screen in its concept-map state, the minutes
+  left (authored durations, rounded up), the concepts of this session due for review, what the
+  session waits for (`read`, `answer`, `self_rating`, `run`, `nothing`) and, when the session did
+  anything but advance, the navigation kind, its reason and the rule and scenes behind it.
+- `statusLine(orientation, lessonTitle, locale)` says the same in 80 characters at most, in
+  French or English: `Leçon O · étape 2/3 · 3 min · 2 révisions dues · à toi de répondre`. A long
+  title is cut, then dropped; the step and what is expected always stay.
+
+It is built from scene ids and types, concept ids and titles, durations and the learner's path:
+no scene text, key, hint or reveal. Nothing reads it yet; the panel view and the conversation
+text come with tasks 1.4 and 1.5.
+
+Choices to know about:
+- The host now remembers how the session routed after the last response (`SessionEntry.lastNavigation`,
+  `detourReturnsTo`; one line in `applyResponseLocked`) and serves the facts through
+  `SessionHost.orientationFacts`. In memory only: after a restart there is no last adaptation.
+- `reviews_due` counts the concepts of this session, read synchronously. The learner's other
+  lessons are not counted: `get_study_plan` and `start_review_session` read them.
+- `waiting` is `self_rating` only while the rating asked by the answer just given is pending; a
+  rating the learner skipped does not hold the session's status.
+- `last_adaptation` describes the routing that led to the current screen, not an older one.
+
+Checked: `orientation.test.ts` first failed (module absent), then 13 tests pass, one of them on
+`fixtures/atomistique-l1` (detour opened by a wrong answer, closed at the return). `pnpm build`,
+`pnpm lint`, the session-host suite (603 tests), the server suite (141), the panel suite and the
+headless smoke (19 assertions) pass. A thousand reads take 41 ms on the demo lesson. No existing
+test changed.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

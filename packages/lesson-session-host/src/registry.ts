@@ -5,6 +5,7 @@ import type { AuthoringBlock } from "./authoring.js";
 import type { ConceptMemoryState } from "./fsrs-memory.js";
 import type { ReviewOrigin } from "./review-session.js";
 import type { CitedSource } from "./public-scene.js";
+import type { LastNavigation } from "./orientation.js";
 
 /** I-2: the passages of a scene answered and not yet left for good, with what settles them. */
 export interface HeldSources {
@@ -80,6 +81,11 @@ export interface SessionEntry {
   erased?: boolean;
   /** The session served its `complete` transition (a rating after it reports the review plan, UX-11). */
   completed?: boolean;
+  /** INT-STUDIUM-058: how the session routed after the last response (orientation.ts). In memory only:
+   * a session resumed after a restart has none. */
+  lastNavigation?: LastNavigation;
+  /** INT-STUDIUM-058: on a prerequisite detour, the scene it returns to (orientation.ts). */
+  detourReturnsTo?: string;
 }
 
 export class SessionRegistry {

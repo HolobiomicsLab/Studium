@@ -23,6 +23,11 @@ export { type SelfRating } from "./fsrs-memory.js";
 export { type StudyPlan, type StudyItem, DEFAULT_REVIEW_SECONDS } from "./study-plan.js";
 export { type CatalogLesson, type LessonRoot } from "./lesson-catalog.js";
 export { operatorContext } from "./operator-context.js";
+// INT-STUDIUM-058: where the learner is, as data and as one status line (every surface reads these).
+export {
+  orientationOf, orientationFrom, statusLine, STATUS_LINE_MAX,
+  type Orientation, type OrientationFacts, type Waiting, type LastNavigation,
+} from "./orientation.js";
 export {
   buildConceptMap, type ConceptMap, type ConceptMapNode, type ConceptMapEdge, type ConceptMapState, type ConceptMapMoment,
 } from "./concept-map.js";
