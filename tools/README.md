@@ -66,6 +66,7 @@ inputs of the lint and report tools.
 | `bash tools/bundle_lint.test.sh` | contract tests of the bundle lint |
 | `node tools/docs/check.mjs` | the documentation gate: links, language pairs, generated reference pages |
 | `node tools/docs/gen-mcp-tools.mjs`, `node tools/docs/gen-lesson-bundle.mjs` | regenerate the MCP tools and lesson bundle references (`--check` to verify) |
+| `.venv/bin/python tools/latency_bench.py --live` | time a learner turn when an assistant relays a lesson: a headless Claude Code session, the server of this checkout, a labelled synthetic learner; compares a relay (`--mode relay --model`), the lesson agent (`--mode agent --agent-file`) and a hand-over on every answer (`--mode delegate`); `--probe` also asks for the answer and for a deep explanation. Paid: nothing runs without `--live` |
 | `node tools/audit-*.mjs`, `.venv/bin/python tools/audit-*.py` | browser and accessibility audits of the learner, teacher, VS Code and Observatory surfaces; each names its inputs in its header |
 
 ## End-to-end and demonstrations

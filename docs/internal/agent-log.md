@@ -3114,6 +3114,58 @@ description (no trigger evaluation was run); the skills reach `~/.claude/skills`
 only once a durable checkout holds them. Test decision: `study-tools.test.ts` also
 expects `export_concept_map` in the instructions.
 
+## 2026-11-06 (latence) — A fast lesson agent by default, and a bench to time a learner turn
+
+Owner's request after the live trial ("c'était un petit peu lent"), then: recommend or make
+default a fast subagent, in Studium's usage and skills. Audit and figures:
+`studium_dev/docs/superpowers/audits/2026-11-06-audit-hci-latence-et-interface.md`.
+
+What was measured (`tools/latency_bench.py`, lesson `atomistique-l1`, one run of six learner
+turns per line, medians; end of the reply / first text token):
+
+| Who relays | End | First word |
+|---|---|---|
+| real trial: large model, shell calls, long desktop session | 27 s | about 20 s |
+| Fable 5.1, short session, MCP tools | 8.2 s | 5.4 s |
+| Haiku 5.5, short session, MCP tools | 5.4 s | 2.0 s |
+| `studium-lesson` agent as the session | 5.5 s | 1.9 s |
+| Fable 5.1 handing each answer to the `studium-lesson` subagent | 16.1 s | 13.5 s |
+
+Decision. A fast agent helps when it is the session, not when it sits between the learner and
+the server: a hand-over on every answer makes two models write the same screen (and the
+subagent reloads its tools each time). So the default is a short session run as the agent, and
+a stronger model called on request for depth.
+
+- `.claude/agents/studium-lesson.md` (model `haiku`): strict relay, the three invariants, what
+  to do on each kind of learner message. `.claude/agents/studium-explainer.md` (model `sonnet`,
+  no lesson tools): one explanation, never the answer to a waiting question.
+  Checked: `claude --agent studium-lesson` and `{"agent": "studium-lesson"}` in
+  `.claude/settings.json` both run the session on the fast model.
+- Probes on the agent (bench `--probe`): asked for the answer on a quiz, it refuses and offers
+  the authored hint (1.1 s); asked to explain the idea the waiting quiz tests, it says the
+  explanation waits for the try (2.5 s); asked for depth on a screen where nothing waits, it
+  hands over to the explainer, acknowledges in 7 s and shows the explanation 13 s later while
+  the lesson stays usable. Two wordings were corrected after the probes: a first version
+  explained the tested idea before the answer, and described a hint as "an attempt".
+- Server instructions: the display line now says to add nothing unless the learner asks
+  (still 12 lines).
+- Skills: `studium-harness` gains "Keep each turn short" (the defaults above);
+  `studium-from-conversation` and `studium-self-learner` offer to play the lesson in its own
+  short session once it is created; `studium-student` says the same; `studium-suggest` goes by
+  what the person says about being upset, not by an inferred mood.
+- Docs: "Keep answers fast" and "The lesson agent" in `docs/start/harnesses` (EN and FR), one
+  paragraph in `docs/learn/learn-with-your-assistant`, the bench in `tools/README`.
+- `tools/latency_bench.py`: three modes (`relay`, `agent`, `delegate`), a labelled synthetic
+  learner whose reply follows the scene type, time to the first text token, `--probe`. It calls
+  a paid model, so nothing runs without `--live`. Tests run against a stub assistant.
+
+Not verified: any harness other than Claude Code; the desktop app; the quality of the fast
+model's answers beyond the three probes; whether learners find the lesson better. One run per
+line, so a difference of a second is not established.
+
+Test decision: `study-tools.test.ts` also expects "add nothing of your own" in the server
+instructions; `tools/test_latency_bench.py` is new (10 cases, no paid call).
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

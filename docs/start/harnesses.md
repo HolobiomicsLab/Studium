@@ -42,6 +42,34 @@ lost when the server stops. When the server connects, the assistant also receive
 (relay each `display_markdown` as it is, wait for your own answer, never answer or rate for you) and two
 prompts, `learn` and `review`, in clients that support MCP prompts.
 
+## Keep answers fast
+
+Studium grades an answer and chooses the next screen in a few milliseconds. What you wait for is the
+assistant that relays it. Three choices decide most of that wait:
+
+- **A session for the lesson.** Play a lesson in a new, short session, not at the end of a long working
+  conversation: every answer carries the whole conversation behind it.
+- **A fast model.** Relaying needs no reasoning, since Studium grades and routes. Keep the larger model for
+  a question that needs a real explanation.
+- **The MCP connection** described on this page, not shell calls to the HTTP API: each shell call starts a
+  process.
+
+Measured on the demo lesson `atomistique-l1` with `tools/latency_bench.py` (Claude Code, medians over six
+answers, 6 November 2026):
+
+| Who relays | End of the reply | First word |
+|---|---|---|
+| a large model, through shell calls, at the end of a long working session (a real trial, desktop app) | 27 s | about 20 s |
+| the same large model, short session, MCP tools | 8.2 s | 5.4 s |
+| the fast model, short session, MCP tools | 5.4 s | 2.0 s |
+| the lesson agent `studium-lesson` as the session (see [Claude Code](#claude-code)) | 5.5 s | 1.9 s |
+| a large model handing every answer to that fast agent | 16.1 s | 13.5 s |
+
+One run per line: a difference of a second between two lines is not established. The bench measures a
+relay in Claude Code; it does not measure the other clients on this page, or what anyone learns. Lowering
+the reasoning effort changed nothing measurable. The last line is the trap: an agent placed between you and
+the server makes two models write every screen.
+
 ## Codex
 
 Install and sign in following the [Codex quickstart](https://learn.chatgpt.com/docs/quickstart); MCP options are in [MCP in Codex](https://learn.chatgpt.com/docs/extend/mcp?surface=cli). Then add the
@@ -111,6 +139,29 @@ claude -p --mcp-config .mcp.json --strict-mcp-config \
   --allowedTools "mcp__studium__*" --permission-mode dontAsk --max-budget-usd 2 \
   "Call get_server_info, then get_study_plan, and show me the result."
 ```
+
+### The lesson agent
+
+The repository ships two agent definitions in `.claude/agents/`. `studium-lesson` plays a lesson or a review
+as a strict relay on the fast model: it shows each screen as Studium wrote it, sends your words, and adds
+nothing. `studium-explainer` is a stronger model it calls when your question needs a real explanation; the
+lesson goes on while the explanation is written. From the checkout:
+
+```bash
+claude --agent studium-lesson
+```
+
+To use them from any folder, link them into your user agents once:
+
+```bash
+mkdir -p ~/.claude/agents
+ln -s "$PWD/.claude/agents/studium-lesson.md" "$PWD/.claude/agents/studium-explainer.md" ~/.claude/agents/
+```
+
+In a folder you only use to study, `{"agent": "studium-lesson"}` in `.claude/settings.json` makes every
+session there a lesson session. In a session that is already open, `/model haiku` for the time of the lesson
+gives most of the same gain. Do not ask a large model to hand each answer to the agent (see
+[Keep answers fast](#keep-answers-fast)).
 
 This configures Claude Code, not the Claude desktop app.
 

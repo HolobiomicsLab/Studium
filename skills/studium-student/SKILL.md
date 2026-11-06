@@ -59,6 +59,9 @@ Read [studium-harness](../studium-harness/SKILL.md) for the loop and use
 `learner_id` and pass it on every call. Relay the lesson's `authoring.notice` when
 present, show each `display_markdown`, then wait for the student.
 
+- Keep answers fast: play the lesson in a short session of its own, on the harness's fast model
+  (Claude Code: `claude --agent studium-lesson`), and add nothing to a screen unless the student
+  asks. See "Keep each turn short" in [studium-harness](../studium-harness/SKILL.md).
 - Do not read answer keys in the raw bundle, give the answer before the attempt, or
   submit a schema example as the student's work.
 - Send their words with `submit_response {session_id, input: {kind: "reply", text}}`.

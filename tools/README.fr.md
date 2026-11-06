@@ -68,6 +68,7 @@ contient les entrées de test du lint et des rapports.
 | `bash tools/bundle_lint.test.sh` | tests de contrat du lint des bundles |
 | `node tools/docs/check.mjs` | le contrôle de la documentation : liens, paires de langues, pages de référence générées |
 | `node tools/docs/gen-mcp-tools.mjs`, `node tools/docs/gen-lesson-bundle.mjs` | régénérer les références des outils MCP et du bundle de leçon (`--check` pour vérifier) |
+| `.venv/bin/python tools/latency_bench.py --live` | chronométrer un tour d'apprenant quand un assistant relaie une leçon : une session Claude Code sans interface, le serveur de ce checkout, un apprenant synthétique étiqueté ; compare un relais (`--mode relay --model`), l'agent de leçon (`--mode agent --agent-file`) et une délégation à chaque réponse (`--mode delegate`) ; `--probe` demande aussi la réponse et une explication approfondie. Payant : rien ne s'exécute sans `--live` |
 | `node tools/audit-*.mjs`, `.venv/bin/python tools/audit-*.py` | audits navigateur et accessibilité des surfaces apprenant, enseignant, VS Code et Observatory ; chacun indique ses entrées en tête de fichier |
 
 ## De bout en bout et démonstrations

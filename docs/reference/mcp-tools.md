@@ -500,7 +500,7 @@ Studium teaches through the learner's own answers: you relay, the learner answer
 - Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools).
 - Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.
 - Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.
-- Show display_markdown as it is: on a presentation; after an answer, verdict.display_markdown first, then the transition's.
+- Show display_markdown as it is and add nothing of your own unless the learner asks (they wait on every word): on a presentation; after an answer, verdict.display_markdown first, then the transition's.
 - On the first screen, relay the authoring notice; if persistence.durable is false, tell the learner progress is lost at restart.
 - Wait for the learner's answer and send their words with submit_response {session_id, input: {kind: "reply", text}}; never answer, choose or rate for them.
 - When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.

@@ -44,6 +44,34 @@ Studium (montrer chaque `display_markdown` tel quel, attendre votre propre répo
 noter à votre place) et deux prompts, `learn` et `review`, dans les clients qui prennent en charge les
 prompts MCP.
 
+## Garder des réponses rapides
+
+Studium note une réponse et choisit l'écran suivant en quelques millisecondes. Ce que vous attendez, c'est
+l'assistant qui relaie. Trois choix décident de l'essentiel de cette attente :
+
+- **Une session pour la leçon.** Jouez une leçon dans une session neuve et courte, pas à la fin d'une longue
+  conversation de travail : chaque réponse traîne toute la conversation derrière elle.
+- **Un modèle rapide.** Relayer ne demande aucun raisonnement, puisque Studium note et oriente. Gardez le
+  grand modèle pour une question qui demande une vraie explication.
+- **La connexion MCP** décrite sur cette page, et non des appels shell à l'API HTTP : chaque appel shell
+  lance un processus.
+
+Mesuré sur la leçon de démonstration `atomistique-l1` avec `tools/latency_bench.py` (Claude Code, médianes
+sur six réponses, 6 novembre 2026) :
+
+| Qui relaie | Fin de la réponse | Premier mot |
+|---|---|---|
+| un grand modèle, par appels shell, à la fin d'une longue session de travail (essai réel, application de bureau) | 27 s | environ 20 s |
+| le même grand modèle, session courte, outils MCP | 8,2 s | 5,4 s |
+| le modèle rapide, session courte, outils MCP | 5,4 s | 2,0 s |
+| l'agent de leçon `studium-lesson` comme session (voir [Claude Code](#claude-code)) | 5,5 s | 1,9 s |
+| un grand modèle qui confie chaque réponse à cet agent rapide | 16,1 s | 13,5 s |
+
+Une exécution par ligne : un écart d'une seconde entre deux lignes n'est pas établi. Le banc mesure un
+relais dans Claude Code ; il ne mesure ni les autres clients de cette page, ni ce que quiconque apprend.
+Baisser l'effort de raisonnement n'a rien changé de mesurable. La dernière ligne est le piège : un agent
+placé entre vous et le serveur fait écrire chaque écran par deux modèles.
+
 ## Codex
 
 Installez Codex et connectez-vous selon le [démarrage Codex](https://learn.chatgpt.com/docs/quickstart) ;
@@ -114,6 +142,29 @@ claude -p --mcp-config .mcp.json --strict-mcp-config \
   --allowedTools "mcp__studium__*" --permission-mode dontAsk --max-budget-usd 2 \
   "Appelle get_server_info, puis get_study_plan, et montre-moi le résultat."
 ```
+
+### L'agent de leçon
+
+Le dépôt fournit deux définitions d'agent dans `.claude/agents/`. `studium-lesson` joue une leçon ou une
+révision en relais strict sur le modèle rapide : il montre chaque écran tel que Studium l'a écrit, envoie
+vos mots et n'ajoute rien. `studium-explainer` est un modèle plus fort qu'il appelle quand votre question
+demande une vraie explication ; la leçon continue pendant que l'explication s'écrit. Depuis le checkout :
+
+```bash
+claude --agent studium-lesson
+```
+
+Pour les utiliser depuis n'importe quel dossier, liez-les une fois à vos agents personnels :
+
+```bash
+mkdir -p ~/.claude/agents
+ln -s "$PWD/.claude/agents/studium-lesson.md" "$PWD/.claude/agents/studium-explainer.md" ~/.claude/agents/
+```
+
+Dans un dossier qui ne sert qu'à étudier, `{"agent": "studium-lesson"}` dans `.claude/settings.json` fait de
+chaque session une session de leçon. Dans une session déjà ouverte, `/model haiku` le temps de la leçon
+apporte l'essentiel du même gain. Ne demandez pas à un grand modèle de confier chaque réponse à l'agent
+(voir [Garder des réponses rapides](#garder-des-réponses-rapides)).
 
 Cette configuration vise Claude Code, pas l'application de bureau Claude.
 

@@ -113,7 +113,8 @@ Avoid a menu of features, a sales tone, and an offer that hides its cost.
 - the material is not theirs alone to reuse and they have not said a lesson may be made from it:
   they called it confidential, or it holds other people's data or production output. A lesson
   stays local, but it is a new file holding excerpts; when in doubt, name what you would leave out;
-- they are upset: help first;
+- they say they are upset or discouraged: help first. Go by what they say, not by a mood you
+  read into their messages;
 - Studium is not connected and the need is slight. One line at the very end is the most it earns.
 
 ## After the answer
