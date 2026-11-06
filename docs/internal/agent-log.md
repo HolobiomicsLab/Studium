@@ -3593,6 +3593,52 @@ the four surfaces with the SDK's test host, which is not a person looking at it.
 button that still answers a press reads well is for the owner's trial. After `ask`, the learner
 writes in the conversation; the brief the assistant then reads is lot 3.
 
+## 2026-11-06 (panel) — Orientation, voices, help ladder and keyboard path in the HTML panel
+
+INT-STUDIUM-058, lot 2, task 2.6. The HTML panel (MCP Apps and the VS Code pane share
+`apps/lesson-panel-ui/src/artifact-pane.js`) shows what a version-2 view says about itself, and the
+VS Code status bar shows the lesson's status line. A version-1 view is drawn as before.
+
+- Orientation line over the progress rail (the view's `status_line`); the rail keeps its segments
+  and drops its own label, so the step is said once.
+- Who signs the lesson, over the scene; who assessed the answer, over a verdict.
+- The help ladder under the answer controls: one button per rung with its cost or the reason it is
+  closed, and « Poser une question » (`ask`). A closed rung is `aria-disabled`, never `disabled`:
+  it takes the keyboard focus, so its reason can be read, and pressing it says the reason and sends
+  nothing. « Relire » moves the focus back to the scene's title. An open explanation sends `ask`
+  with the request « Explique-moi cet écran. ». The quiz's own hint button gives way to the ladder.
+- `client_ms`: the renderer measures the delay between an action and the display of the view that
+  answers it and hands it once to the bridge with the next action. The MCP App bridge passes it to
+  `panel_action` (it also lets `ask` through, which its closed list refused); the VS Code bridge
+  passes it to the extension, which takes it out of the message before the strict action schema
+  reads it. `panel_action` takes `client_ms` (`ClientMsSchema`, 0 to 600000 ms) and refuses what is
+  not a delay. Nothing reads the value yet: the interaction log of lot 7 will.
+- VS Code: while a lesson plays, the status-bar item shows the view's `status_line` (one line, no
+  control character); what is due stays in its tooltip; it returns to the review count when the
+  pane closes or the lesson ends.
+- `pane_help_heading` joins the phrase catalogue; the MCP tool reference is regenerated; the READMEs
+  of the panel UI and of the panel package say the above in both languages.
+
+Deviations from the plan: files beyond those the task named are the two bridges and `bridge.test.mjs`,
+`packages/lesson-panel/src/view.ts` and `phrases.ts`, `apps/lesson-mcp/src/panel-tools.ts` and its
+test (the plan lists `client_ms` there), `study-status.ts`, its driver and `host-phrases.ts` of the
+extension, four READMEs and the tool reference.
+
+Test decision: `renderer.test.mjs` had « a version-2 view paints its scene like a version-1 one »,
+written in task 1.4 for a renderer that ignored the new fields; it is replaced by seven tests of
+what a version-2 view now shows, and one that pins what a version-1 view keeps. New elsewhere: one
+bridge test, one server test, eight assertions in the status driver. All failed first.
+
+Checked beyond the suites: the built panel is 1173121 bytes (limit 1.5 MB); a standalone page of
+the renderer with the real French catalogue was opened in a browser: orientation line, rail, voice,
+ladder with greyed closed rungs, feedback step with its voice; a closed rung took the focus, said
+its reason and sent nothing; the hint rung sent `hint`; no console error.
+
+Not verified: no MCP Apps host and no VS Code window has shown it; the status bar was tested
+through its pure function, not in an extension host. The keyboard path is checked as DOM order with
+no positive tabindex, not by pressing Tab in a browser. `client_ms` is measured to the end of the
+renderer's synchronous work, which precedes the browser's paint by a frame.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

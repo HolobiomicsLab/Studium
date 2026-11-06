@@ -531,7 +531,7 @@ Open or resume a lesson by bundle_ref or existing session_id, on the best surfac
 
 ### panel_action
 
-Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer.
+Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -546,6 +546,7 @@ Apply the learner's own panel action. end erases progress only with confirmed:tr
 | `action.level` | one of `quiet`, `normal`, `coached` | in `setAttention` |  |
 | `action.presentation_language` | string (at least 2 chars) or null | in `setLanguage` |  |
 | `action.minutes` | integer (1–600) | in `replan` |  |
+| `client_ms` | integer (0–600000) | no |  |
 
 ## Prompts
 

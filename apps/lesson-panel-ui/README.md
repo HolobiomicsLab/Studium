@@ -8,6 +8,16 @@ answers or reads learner files.
 `src/artifact-pane.js` exports `renderView`, including full-state hint, discussion, rating and
 completion replay. The classic build preserves the older message protocol for existing drivers.
 
+For a version-2 view the lesson renderer also shows: an orientation line over the progress rail (the
+view's `status_line`; the rail keeps its segments and drops its own label, so the step is said once); who
+signs the lesson, over the scene, and who assessed the answer, over a verdict; the help ladder under the
+answer controls, one button per rung, each with its cost or the reason it is closed; and « Ask a question »,
+which sends the `ask` action. A closed rung is `aria-disabled`, not `disabled`: it takes the keyboard focus,
+so its reason can be read, and pressing it sends nothing. Every control is reached with Tab in reading order.
+The renderer measures the delay between an action and the display of the view that answers it, and hands
+it once to the bridge with the next action (`window.__send(action, { client_ms })`); the MCP App bridge
+passes it to `panel_action` as `client_ms`, the VS Code bridge to the extension, which does the same.
+
 Run `pnpm --filter @studium/lesson-panel-ui build` from the repository root. The build uses esbuild
 and two small HTML templates, regenerates vendor files from installed packages, and writes
 `dist/lesson-panel.html`, `dist/graph-panel.html`, the embedded JavaScript resource exports and

@@ -19,7 +19,7 @@ import { LessonPanelLifecycle, type ActionResult } from "./panel-lifecycle.js";
 import { registerStudiumChat } from "./chat.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
-import { PanelActionSchema, type PanelView, type PanelBackend } from "@studium/lesson-panel";
+import { ClientMsSchema, PanelActionSchema, type PanelView, type PanelBackend } from "@studium/lesson-panel";
 import { type ModalityPreference } from "./modality.js";
 import { discoverCommunityBundles, toPickItems } from "./community.js";
 import { runManifestToTaskSpec, buildRunResult, extractLandmark, workingDirProblem, type RunManifest, type RunResult } from "./run-task.js";
@@ -71,6 +71,8 @@ let extensionContext: vscode.ExtensionContext | undefined;
 /** What is due for review (get_next_reinforcement); feeds the status-bar item and the Reviews node. */
 let studyStatus: StudyStatus | null = null;
 let studyStatusItem: vscode.StatusBarItem | undefined;
+/** INT-STUDIUM-058: the status line of the lesson being played in the pane, or null when none is. */
+let lessonStatusLine: string | null = null;
 let studyStatusRefreshing = false;
 
 const TRUSTED_RUNS_KEY = "studium.trustedRuns";
@@ -204,7 +206,7 @@ function hasLearnerData(context: vscode.ExtensionContext): boolean {
 
 function applyStudyStatus() {
   treeProvider?.setReviews(studyStatus);
-  const shown = statusBarText(studyStatus, extensionLocale);
+  const shown = statusBarText(studyStatus, extensionLocale, lessonStatusLine);
   if (!studyStatusItem) return;
   if (!shown) { studyStatusItem.hide(); return; }
   studyStatusItem.text = shown.text;
@@ -824,6 +826,9 @@ async function openLesson(
     panel.title = phrase("extension_lesson_panel", {}, locale);
     if (graphPanel) graphPanel.title = phrase("extension_graph_panel", {}, locale);
     panel.webview.postMessage({ ...legacyPanelMessage(view), view });
+    // The status bar shows where the lesson stands (a version-2 view says it in one line).
+    lessonStatusLine = view.kind === "done" ? null : view.status_line ?? null;
+    applyStudyStatus();
     const isReproScene = view.kind === "scene" && view.scene?.type === "reproduction" && !!view.scene.run_manifest;
     setReproductionContext(isReproScene);
     if (isReproScene) vscode.window.showInformationMessage(phrase("extension_reproduction_notice", {}, locale));
@@ -853,7 +858,7 @@ async function openLesson(
   openLessonPanels.add(thisLesson.close);
   panel.onDidDispose(() => {
     openLessonPanels.delete(thisLesson.close);
-    if (activeLesson === thisLesson) activeLesson = null;
+    if (activeLesson === thisLesson) { activeLesson = null; lessonStatusLine = null; applyStudyStatus(); }
     setReproductionContext(false); // the run action is scene-scoped; clear it when the lesson closes
   });
 
@@ -871,8 +876,11 @@ async function openLesson(
           void vscode.commands.executeCommand("studium.pickLesson");
           return;
         }
-        if (msg.type === "rateRecall" && !parseRateRecall(msg)) return;
-        let action = msg;
+        // The display delay the pane measured travels beside the action, never inside it.
+        const { client_ms: reportedDelay, ...sent } = msg;
+        const delay = ClientMsSchema.safeParse(reportedDelay);
+        if (sent.type === "rateRecall" && !parseRateRecall(sent)) return;
+        let action: Json = sent;
         if (msg.type === "end") {
           const ok = await vscode.window.showWarningMessage(phrase("extension_forget_prompt", {}, locale),
             { modal: true }, phrase("extension_forget_action", {}, locale));
@@ -884,7 +892,9 @@ async function openLesson(
         }
         const parsed = PanelActionSchema.safeParse(action);
         if (!parsed.success) return;
-        const view: PanelView = (await call("panel_action", { session_id: sid, action: parsed.data })).panel;
+        const view: PanelView = (await call("panel_action", {
+          session_id: sid, action: parsed.data, ...(delay.success ? { client_ms: delay.data } : {}),
+        })).panel;
         if (parsed.data.type === "end" && parsed.data.confirmed) {
           panel.dispose();
           vscode.window.showInformationMessage(phrase("extension_forget_done", {}, locale));

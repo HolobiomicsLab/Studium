@@ -8,7 +8,7 @@ import {
 import { scanCatalog } from "../../../packages/lesson-session-host/src/lesson-catalog.js";
 import { reviewContext } from "../../../packages/lesson-panel/src/pane-messages.js";
 import {
-  presentPanel, applyPanelAction, PanelActionSchema, type PanelBackend, type PanelContext, type PanelView, type Payload, type Surface,
+  presentPanel, applyPanelAction, PanelActionSchema, ClientMsSchema, type PanelBackend, type PanelContext, type PanelView, type Payload, type Surface,
 } from "../../../packages/lesson-panel/src/index.js";
 import * as imageAssets from "../../studium-vscode/src/asset-path.js";
 import type { ToolResult } from "./operations.js";
@@ -239,8 +239,10 @@ export function registerPanelTools(server: McpServer, host: SessionHost) {
     } catch (e) { return toolError(e); }
   });
   const actionTool = server.registerTool("panel_action", {
-    description: "Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer.",
-    inputSchema: { ...session, action: PanelActionSchema },
+    description: "Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.",
+    // client_ms is validated here and read by nothing yet: the interaction log (INT-STUDIUM-058, lot 7)
+    // records it under consent. Surfaces send it from now on, so they need no change then.
+    inputSchema: { ...session, action: PanelActionSchema, client_ms: ClientMsSchema.optional() },
   }, async ({ session_id, action }) => {
     try { return panelResult(await panels.act(session_id, action)); } catch (e) { return toolError(e); }
   });

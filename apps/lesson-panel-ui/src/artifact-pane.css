@@ -164,6 +164,17 @@ body { margin: 0; }
 .action-status.pending::before { content: ""; display: inline-block; width: 0.5rem; height: 0.5rem; margin-inline-end: var(--st-space-2); border-radius: 50%; background: var(--st-accent); animation: st-pulse 1.1s ease-in-out infinite; }
 .action-status.error { padding-inline-start: var(--st-space-2); border-inline-start: 3px solid var(--st-danger); color: var(--st-text); }
 .action-status.notice { padding-inline-start: var(--st-space-2); border-inline-start: 3px solid var(--st-info); color: var(--st-text); }
+/* INT-STUDIUM-058: where the learner is, who speaks, which help is open. */
+.orientation-line { margin: 0 0 var(--st-space-2); color: var(--st-text); font: var(--st-weight-semibold) var(--st-size-sm) / var(--st-leading-snug) var(--st-font-text); }
+.voice { margin: var(--st-space-2) 0; color: var(--st-muted); font-size: var(--st-size-sm); }
+.voice::before { content: "✎"; margin-inline-end: var(--st-space-2); }
+.voice-verdict::before { content: "⚖"; }
+.help-ladder { display: grid; gap: var(--st-space-3); margin: var(--st-space-2) 0; }
+.help-rungs { display: grid; gap: var(--st-space-2); }
+.help-rung-item { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--st-space-2) var(--st-space-3); }
+.help-note { color: var(--st-muted); font-size: var(--st-size-sm); }
+.help-rung[aria-disabled="true"] { opacity: 0.6; cursor: not-allowed; }
+.ask-button { justify-self: start; }
 .hint { margin: var(--st-space-2) 0; font-size: var(--st-size-sm); }
 .hint:not(:empty) { padding: var(--st-space-3) var(--st-space-4); border: 1px solid var(--st-border); border-inline-start: 3px solid var(--st-info); border-radius: var(--st-radius-medium); background: var(--st-surface); }
 .hint-body > p { margin: var(--st-space-1) 0; }

@@ -124,3 +124,19 @@ test("a version-2 tool result renders, and a view of an unknown version is ignor
   assert.match(m.dom.window.document.body.textContent, /Introduction/);
   m.dom.window.close();
 });
+// INT-STUDIUM-058, task 2.6: the bridge carries the ask action and the display delay the renderer measured.
+test("ask goes through, and the display delay rides beside the action as client_ms", async () => {
+  const asking = { ...initial, actions: [...initial.actions, "ask"] };
+  const calls = [];
+  const m = setup({ callServerTool: async request => { calls.push(request); return { structuredContent: { panel: asking } }; } });
+  m.calls = calls;
+  const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: asking } });
+  await bridge.act({ type: "ask" }, { client_ms: 42 });
+  assert.deepEqual(m.calls[0], { name: "panel_action", arguments: { session_id: "one", action: { type: "ask" }, client_ms: 42 } });
+  await bridge.act({ type: "ask" });
+  assert.deepEqual(m.calls[1], { name: "panel_action", arguments: { session_id: "one", action: { type: "ask" } } });
+  await bridge.act({ type: "ask" }, { client_ms: -3 }); // not a delay: left out
+  assert.deepEqual(m.calls[2], { name: "panel_action", arguments: { session_id: "one", action: { type: "ask" } } });
+  m.dom.window.close();
+});

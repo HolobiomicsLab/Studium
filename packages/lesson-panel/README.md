@@ -25,6 +25,8 @@ Four more actions, offered on a version-2 scene, change how the lesson is shown 
 | `replan {minutes}` | Answers « I have N minutes » with a prompt (`prompts`, kind `replan`): the reviews due first, then whether the lesson ends in time. Nothing is cut; the prompt leaves with the scene. |
 | `ask {text?}` | Hands over to the conversation: a `notice` view with the scene unchanged, nothing submitted. `text` is kept in the context (`question`). |
 
+A surface may send `client_ms` beside an action (`ClientMsSchema`, a whole number of milliseconds from 0 to 600000): the delay between the learner's previous action and the display of the view that answered it. It is never part of the action. `panel_action` validates it; nothing reads it yet, the interaction log will record it under consent.
+
 The [MCP adapter](../../apps/lesson-mcp/src/panel-tools.ts) provides `hostBackend(SessionHost, bundlesRoot)`, with filesystem-confined image reads. It observes ordinary lesson transitions too, including a native reproduction run, so completion stays consistent. The [VS Code adapter](../../apps/studium-vscode/src/extension.ts) provides `mcpBackend(call, {bundlesRoot})` over the existing operation names. The extension normally consumes open_lesson_panel, get_panel_view and panel_action directly. The backend also reads get_next_reinforcement for the completion screen's due count.
 
 ## Add a host

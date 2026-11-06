@@ -25,6 +25,8 @@ Quatre autres actions, proposées sur une scène en version 2, changent la faço
 | `replan {minutes}` | Répond à « j'ai N minutes » par une invite (`prompts`, genre `replan`) : les révisions dues d'abord, puis si la leçon se termine à temps. Rien n'est coupé ; l'invite part avec la scène. |
 | `ask {text?}` | Passe la main à la conversation : une vue `notice`, la scène inchangée, rien de soumis. `text` est gardé dans le contexte (`question`). |
 
+Une surface peut envoyer `client_ms` à côté d'une action (`ClientMsSchema`, un nombre entier de millisecondes de 0 à 600000) : le délai entre l'action précédente de l'apprenant et l'affichage de la vue qui y a répondu. Il ne fait jamais partie de l'action. `panel_action` le valide ; rien ne le lit encore, le journal d'interaction l'enregistrera sous consentement.
+
 L'[adaptateur MCP](../../apps/lesson-mcp/src/panel-tools.ts) fournit `hostBackend(SessionHost, bundlesRoot)`, avec lecture des images confinée au dossier de la leçon. Il observe aussi les transitions des outils ordinaires, dont une reproduction native, afin de préserver la complétion. L'[adaptateur VS Code](../../apps/studium-vscode/src/extension.ts) fournit `mcpBackend(call, {bundlesRoot})` sur les opérations existantes. L'extension consomme normalement open_lesson_panel, get_panel_view et panel_action directement. Le backend lit aussi get_next_reinforcement pour compter les révisions dues en fin de leçon.
 
 ## Ajouter un hôte

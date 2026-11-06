@@ -1,7 +1,9 @@
 // The host transports actions; the server owns all grading and learner state.
 import { browserPhrases, localeFromLanguage } from "../../../packages/lesson-panel/src/phrases.ts";
 import { toCytoscape, buildStylesheet, egoFilter } from "@studium/typed-graph-lens";
-const ACTIONS = new Set(["respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse"]);
+const ACTIONS = new Set(["respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse", "ask"]);
+/** A display delay the renderer measured (client_ms), when it is one: a whole number of milliseconds, not negative. */
+const delayOf = meta => (Number.isInteger(meta?.client_ms) && meta.client_ms >= 0 ? { client_ms: meta.client_ms } : {});
 
 /** Connect an MCP App to the public renderer, with injected DOM/renderers for tests. */
 export async function connectMcpApp(app, env = { window, document, renderView: window.renderView, renderGraph: window.renderGraph }) {
@@ -74,7 +76,7 @@ export async function connectMcpApp(app, env = { window, document, renderView: w
     const cancel = doc.createElement("button"); cancel.textContent = words().pane_cancel; cancel.onclick = () => section.remove(); section.append(cancel);
     doc.querySelector(".course-picker")?.remove(); doc.body.append(section); status("action_settled"); resize();
   }
-  async function act(action) {
+  async function act(action, meta) {
     if (action.type === "nodeClick") {
       const details = doc.getElementById("graph-node-details") ?? doc.createElement("p");
       details.id = "graph-node-details"; details.textContent = action.label ?? action.id; doc.body.append(details); resize(); return;
@@ -90,7 +92,7 @@ export async function connectMcpApp(app, env = { window, document, renderView: w
         action = { type: "end", confirmed: true };
       }
       paint();
-      const result = await app.callServerTool({ name: "panel_action", arguments: { session_id: current.session_id, action } });
+      const result = await app.callServerTool({ name: "panel_action", arguments: { session_id: current.session_id, action, ...delayOf(meta) } });
       busy = false;
       receive(result);
     } catch (error) { busy = false; status("action_error", error.message); }

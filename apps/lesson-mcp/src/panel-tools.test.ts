@@ -215,3 +215,19 @@ it("applies language, attention, replan and ask through panel_action", async () 
     expect((await call("panel_action", { session_id: panel.session_id, action: { type: "teleport" } })).isError).toBe(true);
   } finally { await close(); }
 });
+
+// INT-STUDIUM-058 § 2.3: a surface reports the delay between the learner's previous action and its
+// display. The server takes it beside the action; the interaction log of lot 7 records it under consent.
+it("panel_action takes a display delay (client_ms) and refuses what is not a delay", async () => {
+  const { open, call, close } = await connected({});
+  try {
+    const panel = (await open({})).structuredContent!.panel;
+    const action = { type: "setAttention", level: "quiet" };
+    const taken = await call("panel_action", { session_id: panel.session_id, action, client_ms: 180 });
+    expect(taken.isError).toBeFalsy();
+    expect(taken.structuredContent!.panel.attention).toBe("quiet");
+    for (const bad of [-1, 1.5, 700_000, "180"]) {
+      expect((await call("panel_action", { session_id: panel.session_id, action, client_ms: bad })).isError, `client_ms ${JSON.stringify(bad)}`).toBe(true);
+    }
+  } finally { await close(); }
+});

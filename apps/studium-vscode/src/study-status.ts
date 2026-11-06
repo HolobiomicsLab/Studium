@@ -73,7 +73,17 @@ const TOOLTIP_PHRASE = {
   unmeasured: ["status_tooltip_unmeasured_one", "status_tooltip_unmeasured"],
 } as const;
 
-export function statusBarText(status: StudyStatus | null, locale: Locale): { text: string; tooltip: string } | null {
+export function statusBarText(
+  status: StudyStatus | null, locale: Locale, lessonLine?: string | null,
+): { text: string; tooltip: string } | null {
+  // INT-STUDIUM-058: while a lesson plays, the bar shows the lesson's own status line (the view's
+  // status_line); what is due moves to the tooltip. One line, no control character (\p{Cc}: U+0000 to
+  // U+001F and U+007F to U+009F).
+  const line = (lessonLine ?? "").replace(/\p{Cc}/gu, " ").replace(/\s+/g, " ").trim();
+  if (line) {
+    const due = statusBarText(status, locale);
+    return { text: line, tooltip: due ? due.tooltip : hostPhrase("status_tooltip_lesson", {}, locale) };
+  }
   if (!status || status.dueCount === 0) return null;
   const counts = status.counts;
   const groups = GROUPS.filter((group) => counts[group] > 0)

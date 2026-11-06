@@ -11,6 +11,9 @@ export const RecallGradeSchema = z.enum(["again", "hard", "good", "easy"]);
 /** How much the session may propose: nothing, the default, or more (spec § 2.6). */
 export const AttentionSchema = z.enum(["quiet", "normal", "coached"]);
 export type Attention = z.infer<typeof AttentionSchema>;
+/** The delay, in milliseconds, between the learner's previous action and the display of the view that
+ * answered it, as the surface measured it (spec § 2.3). Sent beside the next action, never inside it. */
+export const ClientMsSchema = z.number().int().min(0).max(600_000);
 export const PanelActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("respond"), input: z.unknown() }).strict(),
   z.object({ type: z.literal("turn"), text: z.string() }).strict(),
