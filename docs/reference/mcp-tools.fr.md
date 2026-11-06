@@ -125,7 +125,7 @@ The server registers 39 tools.
 | [review_lesson](#review_lesson) | Teacher | Teacher: review a lesson draft before approving it. |
 | [play_in_forms](#play_in_forms) | Form tool (prototype) | Play the next scenes of a session in forms the client shows to the learner (MCP elicitation), with no model turn between an answer and its verdict (a prototy... |
 | [get_panel_view](#get_panel_view) | Panel | Read the current public lesson panel, including earned feedback and completion. |
-| [open_lesson_panel](#open_lesson_panel) | Panel | Open a shared lesson panel by bundle_ref or existing session_id. |
+| [open_lesson_panel](#open_lesson_panel) | Panel | Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). |
 | [panel_action](#panel_action) | Panel | Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker. |
 
 ## Study tools
@@ -514,22 +514,24 @@ Open a lesson as a panel the host renders next to the conversation, and act on i
 
 Read the current public lesson panel, including earned feedback and completion.
 
-| Field | Type | Required |
-|---|---|---|
-| `session_id` | string (non-empty) | yes |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `session_id` | string (non-empty) | yes |  |
+| `surface` | one of `text`, `form`, `pane`, `panel` | no | The surface to play on. Omit it: the server picks the best one this client renders. "pane" is for a native pane adapter; "text" when the learner prefers the conversation. |
 
 ### open_lesson_panel
 
-Open a shared lesson panel by bundle_ref or existing session_id. Returns a public PanelView and a short summary; wait for the learner's own actions.
+Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). Returns a public PanelView whose `surface` says which, and a short summary that says how to continue; wait for the learner's own actions.
 
-| Field | Type | Required |
-|---|---|---|
-| `bundle_ref` | string (non-empty) | no |
-| `session_id` | string (non-empty) | no |
-| `learner_id` | string (non-empty) | no |
-| `show_mastery` | boolean | no |
-| `modality_preference` | one of `balanced`, `visual`, `textual` | no |
-| `locale` | one of `fr`, `en` | no |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `bundle_ref` | string (non-empty) | no |  |
+| `session_id` | string (non-empty) | no |  |
+| `learner_id` | string (non-empty) | no |  |
+| `show_mastery` | boolean | no |  |
+| `modality_preference` | one of `balanced`, `visual`, `textual` | no |  |
+| `locale` | one of `fr`, `en` | no |  |
+| `surface` | one of `text`, `form`, `pane`, `panel` | no | The surface to play on. Omit it: the server picks the best one this client renders. "pane" is for a native pane adapter; "text" when the learner prefers the conversation. |
 
 ### panel_action
 

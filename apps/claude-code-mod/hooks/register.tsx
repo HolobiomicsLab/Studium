@@ -68,7 +68,8 @@ async function runStudiumCommand($: EngineInterface, rawArgs: string) {
       text: "No active Studium lesson. Open one with /studium <bundle_ref>.",
       exitCode: 1,
     };
-    const result = await $.mcp.call(MCP_SERVER, "open_lesson_panel", input);
+    // The server cannot detect a native pane: this adapter says it is one (INT-STUDIUM-058 § 2.4).
+    const result = await $.mcp.call(MCP_SERVER, "open_lesson_panel", { ...input, surface: "pane" });
     const panel = panelFromMcpResult(result);
     await replacePanel($, panel);
     await $.ui.open({ id: PANE_ID, title: panel.lesson_title });

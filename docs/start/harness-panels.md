@@ -24,6 +24,23 @@ The Codex stdio entry remains `node /absolute/path/to/studium-mcp.cjs`. Rebuild 
 only then does the server expose two resources and annotate the three panel tools and
 `get_workflow_graph`. The model should wait for the learner while an interactive panel is open.
 
+### The surface a lesson plays on
+
+`open_lesson_panel` opens or resumes the lesson on the best surface the client can render, and the
+view it returns says which in `surface` (`rank`, `kind` and the kinds `available`).
+
+| Rank | Surface | The server reads |
+|---|---|---|
+| 3 | `panel`, an MCP Apps panel | the client advertises `io.modelcontextprotocol/ui` |
+| 3 | `pane`, a native pane | the adapter calls `open_lesson_panel` with `surface: "pane"` (the Claude Code mod and the VS Code extension do) |
+| 2 | `form`, forms the client shows | the client declares elicitation |
+| 1 | `text`, the conversation | always available |
+
+Pass `surface: "text"` when the learner prefers the conversation. A surface the client cannot
+render falls to the best one below it. At ranks 2 and 1 the summary written for the model says how
+to continue: `play_in_forms`, or relaying the text of `get_current_scene`. `get_panel_view` takes
+the same `surface` field; without it, a session keeps the surface it was opened on.
+
 The MCP pane includes course selection and an explicit erasure confirmation. Capsule reproduction
 requires the VS Code terminal; the panel explains this when selected. The graph shows the learner's
 current neighborhood, and selecting a node displays its label locally.

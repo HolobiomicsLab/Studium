@@ -24,6 +24,24 @@ avec `open_lesson_panel`. L'hôte annonce `io.modelcontextprotocol/ui` à l'init
 expose alors deux ressources et annote les trois outils de panneau et `get_workflow_graph`. Le
 modèle attend les actions de la personne qui apprend lorsqu'un panneau interactif est ouvert.
 
+### La surface sur laquelle la leçon se joue
+
+`open_lesson_panel` ouvre ou reprend la leçon sur la meilleure surface que le client sait afficher,
+et la vue rendue dit laquelle dans `surface` (`rank`, `kind` et les genres `available`).
+
+| Rang | Surface | Ce que lit le serveur |
+|---|---|---|
+| 3 | `panel`, un panneau MCP Apps | le client annonce `io.modelcontextprotocol/ui` |
+| 3 | `pane`, un volet natif | l'adaptateur appelle `open_lesson_panel` avec `surface: "pane"` (le mod Claude Code et l'extension VS Code le font) |
+| 2 | `form`, des formulaires affichés par le client | le client déclare l'élicitation |
+| 1 | `text`, la conversation | toujours disponible |
+
+Passer `surface: "text"` quand la personne préfère la conversation. Une surface que le client ne
+sait pas afficher retombe sur la meilleure en dessous. Aux rangs 2 et 1, le résumé écrit pour le
+modèle dit comment continuer : `play_in_forms`, ou relayer le texte de `get_current_scene`.
+`get_panel_view` accepte le même champ `surface` ; sans lui, une séance garde la surface sur
+laquelle elle a été ouverte.
+
 Le panneau MCP propose un sélecteur de cours et une confirmation explicite avant effacement. Une
 reproduction de capsule nécessite le terminal VS Code ; le panneau l'explique. Le graphe montre le
 voisinage actuel de l'apprenant ; cliquer sur un nœud en affiche le libellé localement.

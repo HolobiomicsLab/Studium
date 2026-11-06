@@ -3439,6 +3439,43 @@ Not verified: no person has read these lines in a client. Whether a model relays
 line unchanged has not been measured. No review session was read from the rebuilt server, only
 through the host in a test.
 
+## 2026-11-06 (surface) — open_lesson_panel picks the surface the host can render
+
+INT-STUDIUM-058, lot 2, task 2.1 (the surface ladder, spec § 2.4). Until now every view said it
+played on a panel. The server now reads what the client declared and says where the lesson plays.
+
+- `apps/lesson-mcp/src/panel-tools.ts`: `negotiateSurface`. An MCP Apps panel (rank 3) when the
+  client advertises `io.modelcontextprotocol/ui`; forms (rank 2) when it declares elicitation; the
+  conversation (rank 1) always. A native pane cannot be detected, so its adapter asks for it with
+  `surface: "pane"`. A surface the client cannot render falls to the best one below it.
+- `open_lesson_panel` and `get_panel_view` take an optional `surface` (`text`, `form`, `pane`,
+  `panel`). A session keeps the surface it was opened on, for `get_panel_view` and `panel_action`,
+  until a call asks for another. `surface: "text"` is the learner's « I prefer the conversation ».
+- At ranks 2 and 1 the summary written for the model gains one line that says how to continue:
+  `play_in_forms`, or relaying the text of `get_current_scene`.
+- The two native adapters say what they are: the Claude Code mod (`hooks/register.tsx`) and the VS
+  Code extension (`extension.ts`) open with `surface: "pane"`. This goes beyond the two files the
+  task named; without it their views would have claimed forms or text.
+- Docs: `docs/start/harness-panels.md` and `.fr.md` gain the ladder; the MCP tool reference is
+  regenerated. `tools/panel-probe.mjs` checks the surface of both of its clients.
+
+Test decisions. `panel-tools.test.ts`: its first client declares nothing, so it now expects the
+conversation (`rank: 1, kind: "text"`), where task 1.4 had written the fixed default `panel`.
+`register.spec.ts` (the mod): the open call carries `surface: "pane"`. Three new tests in
+`panel-tools.test.ts`; they failed first, as did the two changed expectations.
+
+Checked: install, `pnpm build:libs`, `pnpm build`, `pnpm lint`, `tools/pytest_all.py`, the bundle
+lint, the docs check, the headless smoke and `tools/panel-probe.mjs` on a rebuilt bundle pass.
+`pnpm -r --no-bail test` failed on its first run: eleven tests of `packages/lesson-session-host`,
+which this change does not touch, exceeded their 5 s limit while other processes loaded the
+machine (load average 10). That suite alone then passed (629 tests in 4 s), and the whole test
+step, run again on the same tree, passed with no timeout.
+
+Not verified: no real host. Whether Claude Code, Codex Desktop or VS Code Copilot declare the
+capabilities this reads has not been observed on a live client. A host that renders MCP Apps
+shows the panel for any `open_lesson_panel` call, `surface: "text"` included: the view says text,
+the renderer does not act on it yet (task 2.6).
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

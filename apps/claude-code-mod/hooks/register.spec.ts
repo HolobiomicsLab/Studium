@@ -188,7 +188,8 @@ describe("portable Claude host boundary", () => {
     host.queue(response());
     const commandResult = await hook("command.run")(host.engine, { args: PANEL.bundle_ref }, event => event);
     expect(commandResult).toEqual({ text: "Opened Studium — Atomistique." });
-    expect(host.calls[0]).toEqual({ server: "studium-lesson", tool: "open_lesson_panel", args: { bundle_ref: PANEL.bundle_ref } });
+    // INT-STUDIUM-058 § 2.4: a native pane cannot be detected by the server, so the adapter says so.
+    expect(host.calls[0]).toEqual({ server: "studium-lesson", tool: "open_lesson_panel", args: { bundle_ref: PANEL.bundle_ref, surface: "pane" } });
     expect(host.opens).toEqual([{ id: "studium", title: "Atomistique" }]);
 
     const tree = await hook("ui.render")(host.engine, PANE_EVENT, event => event) as PortableElement;

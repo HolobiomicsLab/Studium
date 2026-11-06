@@ -2,7 +2,7 @@ import { it, expect } from "vitest";
 import { resolve } from "node:path";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { hostBackend, registerPanelTools } from "./panel-tools.js";
+import { hostBackend, negotiateSurface, registerPanelTools } from "./panel-tools.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -34,7 +34,7 @@ it("opens, reads and advances a panel over MCP with no UI metadata or pre-answer
     expect(panel).toMatchObject({
       orientation: { step: { index: 1, total: 32 }, waiting: "read", reviews_due: 0 },
       voices: { scene: { kind: "author", reviewed: true, drafted_by: "teacher" } },
-      prompts: [], attention: "normal", surface: { rank: 3, kind: "panel" },
+      prompts: [], attention: "normal", surface: { rank: 1, kind: "text", available: ["text"] },
     });
     expect(panel.status_line).toContain("étape 1/32");
     expect(panel.status_line.length).toBeLessThanOrEqual(80);
@@ -105,4 +105,88 @@ it("advertises and serves exactly two UI resources only after a UI-capable hands
       }
     } finally { await client.close(); await server.close(); }
   }
+});
+
+// INT-STUDIUM-058 § 2.4, lot 2, task 2.1: one call opens the lesson on the best surface the host can
+// render, from what the client declared and what the adapter or the learner asked for, and says which.
+const UI = { extensions: { "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] } } };
+const FORMS = { elicitation: {} };
+
+async function connected(capabilities: Record<string, unknown>) {
+  const host = new SessionHost({ bundlesRoot: resolve("../../fixtures"), live: false, dataDir: null });
+  const server = buildMcpServer(host);
+  const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverT);
+  const client = new Client({ name: "surface-test", version: "1" }, { capabilities });
+  await client.connect(clientT);
+  const call = async (name: string, args: Record<string, unknown>) => await client.callTool({ name, arguments: args }) as {
+    isError?: boolean; structuredContent?: { panel: Record<string, any> }; content: Array<{ type: string; text?: string }>;
+  };
+  const open = (extra: Record<string, unknown> = {}) =>
+    call("open_lesson_panel", { bundle_ref: "atomistique-l1/lesson.json", learner_id: "auto-test-surface", ...extra });
+  return { call, open, close: async () => { await client.close(); await server.close(); } };
+}
+/** The line of the result written for the model. */
+const forModel = (result: { content: Array<{ text?: string }> }) => result.content[1]?.text ?? "";
+
+it("picks the surface from what the client declared: panel, forms, or the conversation", async () => {
+  const cases = [
+    { capabilities: UI, surface: { rank: 3, kind: "panel", available: ["text", "panel"] }, says: null },
+    { capabilities: FORMS, surface: { rank: 2, kind: "form", available: ["text", "form"] }, says: "play_in_forms" },
+    { capabilities: {}, surface: { rank: 1, kind: "text", available: ["text"] }, says: "get_current_scene" },
+  ];
+  for (const c of cases) {
+    const { open, call, close } = await connected(c.capabilities);
+    try {
+      const opened = await open();
+      expect(opened.isError).not.toBe(true);
+      const panel = opened.structuredContent!.panel;
+      expect(panel.surface).toEqual(c.surface);
+      // Below a panel, the text for the model says in one line how the lesson goes on.
+      if (c.says) expect(forModel(opened)).toContain(c.says);
+      else expect(forModel(opened)).not.toMatch(/play_in_forms|get_current_scene/);
+      // The same surface on a later read and after an action.
+      expect((await call("get_panel_view", { session_id: panel.session_id })).structuredContent!.panel.surface).toEqual(c.surface);
+      const next = await call("panel_action", { session_id: panel.session_id, action: { type: "respond", input: { kind: "ack" } } });
+      expect(next.structuredContent!.panel.surface).toEqual(c.surface);
+    } finally { await close(); }
+  }
+});
+
+it("lets the learner or the adapter ask for a surface, and falls to the one below when the client lacks it", async () => {
+  // The learner prefers the conversation: rank 1 whatever the client can render.
+  const rich = await connected({ ...UI, ...FORMS });
+  try {
+    const opened = await rich.open({ surface: "text" });
+    expect(opened.structuredContent!.panel.surface).toEqual({ rank: 1, kind: "text", available: ["text", "form", "panel"] });
+    expect(forModel(opened)).toContain("get_current_scene");
+  } finally { await rich.close(); }
+  // A native pane cannot be detected: its adapter says so. The session keeps it, until a read asks otherwise.
+  const plain = await connected({});
+  try {
+    const pane = { rank: 3, kind: "pane", available: ["text", "pane"] };
+    const opened = await plain.open({ surface: "pane" });
+    const sid = opened.structuredContent!.panel.session_id;
+    expect(opened.structuredContent!.panel.surface).toEqual(pane);
+    expect((await plain.call("get_panel_view", { session_id: sid })).structuredContent!.panel.surface).toEqual(pane);
+    const read = await plain.call("get_panel_view", { session_id: sid, surface: "text" });
+    expect(read.structuredContent!.panel.surface).toEqual({ rank: 1, kind: "text", available: ["text"] });
+    // Asked for a panel this client cannot render: the conversation.
+    expect((await plain.open({ surface: "panel" })).structuredContent!.panel.surface).toMatchObject({ rank: 1, kind: "text" });
+    expect((await plain.call("open_lesson_panel", { bundle_ref: "atomistique-l1/lesson.json", surface: "window" })).isError).toBe(true);
+  } finally { await plain.close(); }
+  // Asked for a panel on a client that only shows forms: forms.
+  const forms = await connected(FORMS);
+  try {
+    expect((await forms.open({ surface: "panel" })).structuredContent!.panel.surface).toEqual({ rank: 2, kind: "form", available: ["text", "form"] });
+  } finally { await forms.close(); }
+});
+
+it("negotiateSurface — the ladder", () => {
+  expect(negotiateSurface({ ui: true, forms: true })).toEqual({ rank: 3, kind: "panel", available: ["text", "form", "panel"] });
+  expect(negotiateSurface({ ui: false, forms: true })).toEqual({ rank: 2, kind: "form", available: ["text", "form"] });
+  expect(negotiateSurface({ ui: false, forms: false })).toEqual({ rank: 1, kind: "text", available: ["text"] });
+  expect(negotiateSurface({ ui: true, forms: false }, "form")).toEqual({ rank: 1, kind: "text", available: ["text", "panel"] });
+  expect(negotiateSurface({ ui: true, forms: true }, "pane")).toEqual({ rank: 3, kind: "pane", available: ["text", "form", "panel", "pane"] });
+  expect(negotiateSurface({ ui: true, forms: true }, "form")).toMatchObject({ rank: 2, kind: "form" });
 });

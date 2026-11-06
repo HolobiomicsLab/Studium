@@ -64,6 +64,10 @@ for (const supportsUi of [false, true]) {
     assert.doesNotMatch(JSON.stringify(opened.structuredContent.panel), /"(?:answer|correct|expected|key|solution)"\s*:/);
     assert.equal(opened.structuredContent.panel.schema, "studium/panel-view/2");
     assert.ok(opened.structuredContent.panel.status_line.length <= 80);
+    // The surface ladder: a panel for a client that negotiated MCP Apps, the conversation otherwise.
+    assert.deepEqual(opened.structuredContent.panel.surface, supportsUi
+      ? { rank: 3, kind: "panel", available: ["text", "panel"] } : { rank: 1, kind: "text", available: ["text"] });
+    assert.equal(opened.content[1].text.includes("get_current_scene"), !supportsUi);
     const sizes = {};
     let app;
     if (supportsUi) for (const resource of resources) {

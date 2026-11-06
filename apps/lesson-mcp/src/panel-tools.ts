@@ -8,7 +8,7 @@ import {
 import { scanCatalog } from "../../../packages/lesson-session-host/src/lesson-catalog.js";
 import { reviewContext } from "../../../packages/lesson-panel/src/pane-messages.js";
 import {
-  presentPanel, applyPanelAction, PanelActionSchema, type PanelBackend, type PanelContext, type PanelView, type Payload,
+  presentPanel, applyPanelAction, PanelActionSchema, type PanelBackend, type PanelContext, type PanelView, type Payload, type Surface,
 } from "../../../packages/lesson-panel/src/index.js";
 import * as imageAssets from "../../studium-vscode/src/asset-path.js";
 import type { ToolResult } from "./operations.js";
@@ -63,11 +63,41 @@ export function hostBackend(host: SessionHost, bundlesRoot: string): PanelBacken
   };
 }
 
+type SurfaceKind = Surface["kind"];
+const SURFACE_KINDS = ["text", "form", "pane", "panel"] as const satisfies readonly SurfaceKind[];
+const SURFACE_RANK: Record<SurfaceKind, Surface["rank"]> = { panel: 3, pane: 3, form: 2, text: 1 };
+
+/** INT-STUDIUM-058 § 2.4, the surface ladder. What the client declared says which surfaces exist: an
+ * MCP Apps panel (rank 3), forms (rank 2), the conversation (rank 1, always). A native pane cannot be
+ * detected, so its adapter says so by asking for it. `asked` is the adapter's or the learner's choice;
+ * one the client cannot render falls to the best surface below it. */
+export function negotiateSurface(client: { ui: boolean; forms: boolean }, asked?: SurfaceKind): Surface {
+  const available: SurfaceKind[] = [
+    "text", ...(client.forms ? ["form" as const] : []), ...(client.ui ? ["panel" as const] : []), ...(asked === "pane" ? ["pane" as const] : []),
+  ];
+  const best = (ceiling: number): SurfaceKind =>
+    available.filter(kind => SURFACE_RANK[kind] <= ceiling).sort((a, b) => SURFACE_RANK[b] - SURFACE_RANK[a])[0] ?? "text";
+  const kind = asked === undefined ? best(3) : available.includes(asked) ? asked : best(SURFACE_RANK[asked]);
+  return { rank: SURFACE_RANK[kind], kind, available };
+}
+
+/** Below a panel nothing on screen takes the learner's actions: one line tells the model how the
+ * lesson goes on. */
+const CONTINUE_ON: Record<1 | 2, string> = {
+  2: "Surface: forms. Call play_in_forms with this session_id: the learner reads and answers in forms, without a model turn.",
+  1: "Surface: conversation. Show the learner the display_markdown of get_current_scene as it is, and send their own reply with submit_response.",
+};
+
 function panelResult(panel: PanelView) {
   const stem = panel.scene?.question ?? panel.scene?.prompt ?? panel.scene?.title ?? panel.message ?? "";
+  const rank = panel.kind === "scene" ? panel.surface?.rank : undefined;
+  const summary = [
+    `${panel.lesson_title} — ${panel.progress.index}/${panel.progress.total}`, stem, `Actions: ${panel.actions.join(", ")}`,
+    ...(rank === 1 || rank === 2 ? [CONTINUE_ON[rank]] : []),
+  ].join("\n");
   return {
     structuredContent: { panel },
-    content: [{ type: "text" as const, text: JSON.stringify({ panel }) }, { type: "text" as const, text: `${panel.lesson_title} — ${panel.progress.index}/${panel.progress.total}\n${stem}\nActions: ${panel.actions.join(", ")}` }],
+    content: [{ type: "text" as const, text: JSON.stringify({ panel }) }, { type: "text" as const, text: summary }],
   };
 }
 
@@ -80,12 +110,20 @@ class Panels {
   readonly contexts = new Map<string, PanelContext>();
   readonly busy = new Set<PanelContext>();
   readonly backend: PanelBackend;
-  constructor(readonly host: SessionHost) { this.backend = hostBackend(host, host.bundlesRoot); }
+  /** `client` reads what the connected client declared it can render (see negotiateSurface). */
+  constructor(readonly host: SessionHost, private readonly client: () => { ui: boolean; forms: boolean }) {
+    this.backend = hostBackend(host, host.bundlesRoot);
+  }
 
+  /** The session's panel context. Its surface is negotiated when the context is created, and again
+   * whenever a call asks for one (`options.surface`). */
   async context(id: string, options: Payload = {}): Promise<PanelContext> {
     const state = this.host.getState(id); // Validate liveness even for a cached view.
     const existing = this.contexts.get(id);
-    if (existing) return existing;
+    if (existing) {
+      if (options.surface !== undefined) existing.surface = negotiateSurface(this.client(), options.surface);
+      return existing;
+    }
     const roots = [this.host.bundlesRoot, ...(this.host.libraryRoot ? [this.host.libraryRoot] : [])];
     const catalog = options.bundle_ref ? null : await scanCatalog(roots.map(dir => ({ dir, kind: "bundles" })));
     const ref = options.bundle_ref ?? catalog?.lessons.find(l => l.bundle_id === state.lesson_id)?.bundle_ref ?? "";
@@ -94,6 +132,7 @@ class Panels {
       sessionId: id, learnerId: options.learner_id ?? this.host.defaultLearnerId,
       bundleRef: ref, lessonTitle: resolved?.bundle.metadata.title ?? state.lesson_id,
       conceptTitles: Object.fromEntries((resolved?.bundle.concepts ?? []).map(c => [c.id, c.title])),
+      surface: negotiateSurface(this.client(), options.surface),
     };
     this.contexts.set(id, ctx);
     return ctx;
@@ -173,20 +212,28 @@ function registerPanelUi(server: McpServer) {
 
 /** Register panel actions and negotiate optional resources without changing legacy replies. */
 export function registerPanelTools(server: McpServer, host: SessionHost) {
-  const panels = new Panels(host);
+  const panels = new Panels(host, () => {
+    const declared = server.server.getClientCapabilities();
+    return { ui: Boolean(declared?.extensions?.[UI_EXTENSION]), forms: Boolean(declared?.elicitation) };
+  });
   const attachTool = registerPanelUi(server);
   const session = { session_id: z.string().min(1) };
+  const surface = z.enum(SURFACE_KINDS).optional()
+    .describe("The surface to play on. Omit it: the server picks the best one this client renders. \"pane\" is for a native pane adapter; \"text\" when the learner prefers the conversation.");
   const openTool = server.registerTool("open_lesson_panel", {
-    description: "Open a shared lesson panel by bundle_ref or existing session_id. Returns a public PanelView and a short summary; wait for the learner's own actions.",
+    description: "Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). Returns a public PanelView whose `surface` says which, and a short summary that says how to continue; wait for the learner's own actions.",
     inputSchema: {
       bundle_ref: z.string().min(1).optional(), session_id: z.string().min(1).optional(), learner_id: z.string().min(1).optional(),
       show_mastery: z.boolean().optional(), modality_preference: z.enum(["balanced", "visual", "textual"]).optional(), locale: z.enum(["fr", "en"]).optional(),
+      surface,
     },
   }, async args => { try { return panelResult(await panels.open(args)); } catch (e) { return toolError(e); } });
   const getTool = server.registerTool("get_panel_view", {
-    description: "Read the current public lesson panel, including earned feedback and completion.", inputSchema: session,
-  }, async ({ session_id }) => {
-    try { return panelResult(await presentPanel(panels.backend, await panels.context(session_id))); } catch (e) { return toolError(e); }
+    description: "Read the current public lesson panel, including earned feedback and completion.", inputSchema: { ...session, surface },
+  }, async ({ session_id, surface: asked }) => {
+    try {
+      return panelResult(await presentPanel(panels.backend, await panels.context(session_id, asked === undefined ? {} : { surface: asked })));
+    } catch (e) { return toolError(e); }
   });
   const actionTool = server.registerTool("panel_action", {
     description: "Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker.",

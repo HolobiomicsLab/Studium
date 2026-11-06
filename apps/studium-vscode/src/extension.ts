@@ -911,7 +911,10 @@ async function openLesson(
 
   // 3) start
   try {
-    const opened = await call("open_lesson_panel", { bundle_ref: bundleRef, learner_id: learnerId, show_mastery: showMastery, modality_preference: modalityPref });
+    // The server cannot detect this webview: the extension says it is a native pane (INT-STUDIUM-058 § 2.4).
+    const opened = await call("open_lesson_panel", {
+      bundle_ref: bundleRef, learner_id: learnerId, show_mastery: showMastery, modality_preference: modalityPref, surface: "pane",
+    });
     sid = opened.panel.session_id;
     // Remember what this pane shows, so a window reload can reopen it (see restoreLessonPanel).
     void context.globalState.update(LAST_LESSON_KEY, { bundlesRoot, bundleRef, rootKind } satisfies LastLesson);
