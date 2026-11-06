@@ -94,7 +94,7 @@ let renderView;
   // the notices already shown in full and the scenes already self-rated.
   let memory = freshMemory();
   function freshMemory() {
-    return { titles: new Map(), concepts: new Map(), outcomes: new Map(), furthest: 0, total: 0, notices: new Set(), rated: new Set() };
+    return { titles: new Map(), concepts: new Map(), outcomes: new Map(), furthest: 0, total: 0, notices: new Set(), rated: new Set(), mapOpen: null, left: null };
   }
   // Live nodes of the current screen. The pane keeps references rather than looking ids up, so an id
   // inside an authored SVG can never capture the hint box or the status line.
@@ -153,8 +153,17 @@ let renderView;
   let actionSentAt = null;
   let displayDelayMs = null;
 
+  // Actions that leave the learner on the same scene: the view that answers one may still carry the
+  // verdict of the answer before, whose feedback the learner already read and left. Only such a view
+  // skips that feedback: the same verdict on any other view is a new answer (a question replayed and
+  // answered the same way) and is shown.
+  const KEEPS_SCENE = new Set(["openMap", "closeMap", "hint", "ask"]);
+  let sameSceneAwaited = false;
+
   function postAction(message, pendingText) {
     if (actionPending || !window.__send) return false;
+    sameSceneAwaited = isObject(message) && KEEPS_SCENE.has(message.type);
+    if (!sameSceneAwaited) memory.left = null;
     setActionPending(true, pendingText || t("pane_updating"));
     const delay = displayDelayMs;
     displayDelayMs = null;
@@ -509,14 +518,17 @@ let renderView;
     remember(scene);
     const verdict = isObject(state.verdict) ? state.verdict : null;
     const rating = selfRatingOf(state, verdict);
-    if (verdict && (verdict.graded || rating)) {
+    const verdictKey = verdict ? JSON.stringify(verdict) : null;
+    const alreadyLeft = sameSceneAwaited && verdictKey !== null && memory.left === verdictKey;
+    sameSceneAwaited = false;
+    if (verdict && (verdict.graded || rating) && !alreadyLeft) {
       recordOutcome(verdict);
       renderFeedbackStep({
         verdict, rating, calibration: state.calibration, sources: sourcesOf(state, verdict), authoring: lastAuthoring,
         // The scene shown again is the one just answered: its feedback would give the answer away.
         withheld: !!scene.id && scene.id === verdict.scene_id,
         voices: state.voices,
-        onContinue: () => renderScene(state),
+        onContinue: () => { memory.left = verdictKey; renderScene(state); },
       });
       return;
     }
@@ -573,13 +585,108 @@ let renderView;
     if (ladder) root.append(ladder);
     ui.hint = el("div", { id: "hint", class: "hint", "aria-live": "polite" });
     root.append(ui.hint);
+    const mapButton = conceptMapButton(state);
+    if (mapButton) root.append(mapButton);
+    const map = conceptMap(state);
+    if (map) root.append(map);
     const mastery = masteryPanel(state.mastery);
     if (mastery) root.append(mastery);
+    // What the server says about the action just taken on this scene (a contest's check questions).
+    if (typeof state.message === "string" && state.message) showActionNotice(state.message);
+    const wasOpen = memory.mapOpen;
+    memory.mapOpen = !!map;
+    // The map was just opened: the position goes to its heading; just closed: back to its button.
+    if (map && wasOpen === false) { announce(t("pane_map_open")); focusQuietly($(".map-title", map)); return; }
+    if (!map && wasOpen === true && mapButton) { focusQuietly(mapButton); return; }
     const title = sc.title || "";
     announce(state.progress
       ? t("pane_live_step", { position: memory.furthest, total: memory.total || state.progress.total, title })
       : t("pane_live_scene", { title }));
     focusHeading($(".scene-title", head));
+  }
+
+  // --- the concept map, as a list (INT-STUDIUM-058 § 2.7) -----------------------------------------------
+  // The server decides whether the map is offered (the view's actions name openMap or closeMap) and
+  // sends it only while it is open. The list says in words what a drawing says with shapes: each
+  // concept's state, what it needs, the answers behind the state, what the state establishes and
+  // what it does not, and the claim the learner may make. Nothing here is computed from the lesson.
+  const MAP_STATES = new Set(["acquired", "to_review", "current", "seen", "upcoming"]);
+  const MAP_ASSESSORS = new Set(["key", "judge", "self", "none"]);
+  const MAP_RESULTS = new Set(["right", "wrong", "rated", "recorded"]);
+  const MAP_OUTCOMES = new Set(["confirmed", "refuted", "partial"]);
+
+  function focusQuietly(node) { try { node.focus(); } catch { /* a node that cannot take the focus */ } }
+
+  function conceptMapButton(state) {
+    const offered = Array.isArray(state.actions) ? state.actions : [];
+    const open = offered.includes("closeMap");
+    if (!open && !offered.includes("openMap")) return null;
+    const button = el("button", { type: "button", class: "st-button st-button--quiet map-button", "aria-expanded": open ? "true" : "false" }, t("pane_map_open"));
+    button.addEventListener("click", () => postAction({ type: open ? "closeMap" : "openMap" }, t("pane_updating")));
+    return button;
+  }
+
+  function conceptMap(state) {
+    const map = isObject(state.map) ? state.map : null;
+    const concepts = map && Array.isArray(map.concepts) ? map.concepts.filter((c) => isObject(c) && c.id) : [];
+    if (!map || !concepts.length) return null;
+    const offered = Array.isArray(state.actions) ? state.actions : [];
+    const titles = new Map(concepts.map((c) => [c.id, String(c.title || conceptKey(c.id))]));
+    const edges = Array.isArray(map.edges) ? map.edges.filter((e) => isObject(e) && titles.has(e.from) && titles.has(e.to)) : [];
+    const title = el("h3", { class: "map-title", id: nextId("map-title"), tabindex: "-1" }, t("pane_map_open"));
+    const close = el("button", { type: "button", class: "st-button st-button--quiet map-close" }, t("pane_map_close"));
+    close.addEventListener("click", () => postAction({ type: "closeMap" }, t("pane_updating")));
+    const list = el("ul", { class: "map-list" });
+    for (const concept of concepts) {
+      const needs = edges.filter((e) => e.to === concept.id).map((e) => titles.get(e.from));
+      list.append(mapConcept(concept, titles.get(concept.id), needs, offered.includes("contest")));
+    }
+    return el("section", { class: "concept-map", "aria-labelledby": title.id }, el("div", { class: "map-head" }, title, close), list);
+  }
+
+  function mapConcept(concept, titleText, needs, canContest) {
+    const state = MAP_STATES.has(concept.state) ? concept.state : "upcoming";
+    const title = el("span", { class: "map-concept-title", id: nextId("map-concept") }, titleText);
+    const item = el("li", { class: "map-concept", "data-state": state },
+      el("div", { class: "map-concept-head" }, title, " ", el("span", { class: "map-state", "data-state": state }, t("pane_map_state_" + state))));
+    if (needs.length) item.append(el("p", { class: "map-needs" }, t("pane_map_needs", { list: needs.join(", ") })));
+    const contest = isObject(concept.contest) ? concept.contest : null;
+    if (contest && contest.check_pending) item.append(el("p", { class: "map-check-pending" }, t("pane_map_check_pending")));
+    if (contest && MAP_OUTCOMES.has(contest.outcome)) item.append(el("p", { class: "map-outcome" }, t("pane_map_outcome_" + contest.outcome)));
+    item.append(el("details", { class: "map-details" }, el("summary", {}, t("pane_map_details")), mapScope(concept), mapEvidence(concept)));
+    const claim = contest && contest.allowed && canContest && (contest.claim === "known" || contest.claim === "unsure") ? contest.claim : null;
+    if (claim) {
+      const note = el("span", { class: "map-contest-note", id: nextId("map-note") }, t(Number(contest.questions) >= 2 ? "pane_map_contest_two" : "pane_map_contest_one"));
+      const button = el("button", { type: "button", class: "st-button st-button--quiet map-claim", "aria-describedby": `${title.id} ${note.id}` }, t("pane_map_claim_" + claim));
+      button.addEventListener("click", () => postAction({ type: "contest", concept_id: concept.id, claim }, t("pane_updating")));
+      item.append(el("div", { class: "map-contest" }, button, " ", note));
+    }
+    return item;
+  }
+
+  function mapScope(concept) {
+    const scope = el("dl", { class: "map-scope" });
+    for (const [label, sentence] of [["pane_map_establishes", concept.establishes], ["pane_map_not_established", concept.does_not_establish]]) {
+      if (typeof sentence === "string" && sentence) scope.append(el("dt", {}, t(label)), " ", el("dd", {}, sentence), " ");
+    }
+    return scope;
+  }
+
+  function mapEvidence(concept) {
+    const evidence = (Array.isArray(concept.evidence) ? concept.evidence : []).filter(isObject);
+    if (!evidence.length) return el("p", { class: "map-no-evidence" }, t("pane_map_no_evidence"));
+    const list = el("ul", { class: "map-evidence", "aria-label": t("pane_map_evidence") });
+    for (const fact of evidence) {
+      const hints = Number(fact.hints);
+      const parts = [
+        typeof fact.day === "string" && fact.day ? fact.day : t("pane_map_day_unknown"),
+        t("pane_map_by_" + (MAP_ASSESSORS.has(fact.assessed_by) ? fact.assessed_by : "none")),
+        t("pane_map_result_" + (MAP_RESULTS.has(fact.result) ? fact.result : "recorded")),
+        hints === 1 ? t("pane_map_hints_one") : hints > 1 ? t("pane_map_hints_many", { count: hints }) : null,
+      ].filter(Boolean);
+      list.append(el("li", {}, parts.join(" · ")));
+    }
+    return list;
   }
 
   // Self-authored lesson: the host's notice in full on the first screen, then one click away.
@@ -1687,7 +1794,8 @@ let renderView;
         handleMessage({ type, ...effect, ...(view.completion ? { completion: view.completion } : {}) });
       }
     }
-    setActionPending(Boolean(pending), pending);
+    // Nothing pending and nothing to release: the status line keeps what this paint wrote in it.
+    if (pending || actionPending) setActionPending(Boolean(pending), pending);
     previousView = view;
     if (!pending) noteDisplayed();
   };

@@ -1,5 +1,7 @@
 import type {
   StudiumHelpRung,
+  StudiumMapConcept,
+  StudiumMapEvidence,
   StudiumPanelAction,
   StudiumPanelActionName,
   StudiumPanelView,
@@ -168,6 +170,39 @@ function hasValidOrientation(value: Record<string, unknown>): boolean {
   ));
 }
 
+const MAP_STATES = new Set(["acquired", "to_review", "current", "seen", "upcoming"]);
+const MAP_ASSESSORS = new Set(["key", "judge", "self", "none"]);
+const MAP_RESULTS = new Set(["right", "wrong", "rated", "recorded"]);
+const MAP_OUTCOMES = new Set(["confirmed", "refuted", "partial"]);
+
+function isMapEvidence(value: unknown): boolean {
+  return isRecord(value) && typeof value.scene_id === "string"
+    && (value.day === null || typeof value.day === "string")
+    && MAP_ASSESSORS.has(String(value.assessed_by)) && MAP_RESULTS.has(String(value.result))
+    && (value.hints === null || typeof value.hints === "number");
+}
+
+function isMapContest(value: unknown): boolean {
+  return isRecord(value) && typeof value.allowed === "boolean" && (value.claim === "known" || value.claim === "unsure")
+    && typeof value.questions === "number"
+    && (value.check_pending === undefined || typeof value.check_pending === "boolean")
+    && (value.outcome === undefined || MAP_OUTCOMES.has(String(value.outcome)));
+}
+
+function isMapConcept(value: unknown): boolean {
+  return isRecord(value) && typeof value.id === "string" && typeof value.title === "string" && MAP_STATES.has(String(value.state))
+    && typeof value.establishes === "string" && typeof value.does_not_establish === "string"
+    && Array.isArray(value.evidence) && value.evidence.every(isMapEvidence)
+    && (value.contest === undefined || isMapContest(value.contest));
+}
+
+/** The map is optional; one that is sent is read whole, so it is checked whole. */
+function hasValidMap(value: unknown): boolean {
+  if (value === undefined) return true;
+  return isRecord(value) && Array.isArray(value.concepts) && value.concepts.every(isMapConcept)
+    && Array.isArray(value.edges) && value.edges.every(edge => isRecord(edge) && typeof edge.from === "string" && typeof edge.to === "string");
+}
+
 /** Validate every PanelView field the mod reads before accepting an MCP result. */
 export function isPanelView(value: unknown): value is StudiumPanelView {
   if (!isRecord(value) || !PANEL_SCHEMAS.has(String(value.schema)) || !PANEL_KINDS.has(String(value.kind))) return false;
@@ -179,7 +214,7 @@ export function isPanelView(value: unknown): value is StudiumPanelView {
   if ((value.kind === "scene" && !isScene(value.scene)) || (value.scene !== undefined && !isScene(value.scene))) return false;
   if (!Array.isArray(value.reviewDue) || !value.reviewDue.every(isNamedConcept)) return false;
   if (!isCalibration(value.calibration) || !isMastery(value.mastery)) return false;
-  return hasValidActions(value.actions) && hasValidFeedback(value);
+  return hasValidActions(value.actions) && hasValidFeedback(value) && hasValidMap(value.map);
 }
 
 function errorText(result: McpResult): string {
@@ -315,6 +350,93 @@ function rungAction(view: StudiumPanelView, kind: StudiumHelpRung["kind"]): Stud
 export function askControl(view: StudiumPanelView): { label: string; action: StudiumPanelAction } | undefined {
   if (!view.actions.includes("ask")) return undefined;
   return { label: phraseOf(view, "pane_ask", "Poser une question", "Ask a question"), action: { type: "ask" } };
+}
+
+/** The button that opens the concept map, or closes it, where the view offers one. */
+export function mapControl(view: StudiumPanelView): { label: string; open: boolean; action: StudiumPanelAction } | undefined {
+  if (view.actions.includes("closeMap")) {
+    return { label: phraseOf(view, "pane_map_close", "Fermer la carte", "Close the map"), open: true, action: { type: "closeMap" } };
+  }
+  if (view.actions.includes("openMap")) {
+    return { label: phraseOf(view, "pane_map_open", "Carte des notions", "Concept map"), open: false, action: { type: "openMap" } };
+  }
+  return undefined;
+}
+
+/** A label and what follows it, with the colon of the view's language. */
+function labelled(view: StudiumPanelView, label: string, rest: string): string {
+  return `${label}${view.locale === "fr" ? " : " : ": "}${rest}`;
+}
+
+const MAP_STATE_WORDS: Record<StudiumMapConcept["state"], [string, string]> = {
+  acquired: ["acquise", "acquired"], to_review: ["à revoir", "to review"], current: ["en cours", "in progress"],
+  seen: ["vue, pas encore évaluée", "seen, not assessed yet"], upcoming: ["à venir", "upcoming"],
+};
+const MAP_ASSESSOR_WORDS: Record<StudiumMapEvidence["assessed_by"], [string, string]> = {
+  key: ["notée avec la clé de l'auteur", "graded against the author's key"], judge: ["évaluée par un modèle juge", "assessed by a judge model"],
+  self: ["évaluée par toi", "rated by you"], none: ["évaluée par personne", "assessed by nobody"],
+};
+const MAP_RESULT_WORDS: Record<StudiumMapEvidence["result"], [string, string]> = {
+  right: ["juste", "right"], wrong: ["fausse", "wrong"], rated: ["rappel auto-évalué", "recall self-rated"], recorded: ["enregistrée", "recorded"],
+};
+const MAP_OUTCOME_WORDS: Record<"confirmed" | "refuted" | "partial", [string, string]> = {
+  confirmed: ["Dernier contrôle : déclaration confirmée", "Last check: claim confirmed"],
+  refuted: ["Dernier contrôle : déclaration non confirmée", "Last check: claim not confirmed"],
+  partial: ["Dernier contrôle : résultat partiel", "Last check: partial result"],
+};
+
+function evidenceLine(view: StudiumPanelView, fact: StudiumMapEvidence): string {
+  const hints = fact.hints ?? 0;
+  return [
+    fact.day ?? phraseOf(view, "pane_map_day_unknown", "jour inconnu", "day unknown"),
+    phraseOf(view, `pane_map_by_${fact.assessed_by}`, ...MAP_ASSESSOR_WORDS[fact.assessed_by]),
+    phraseOf(view, `pane_map_result_${fact.result}`, ...MAP_RESULT_WORDS[fact.result]),
+    hints === 1 ? phraseOf(view, "pane_map_hints_one", "1 indice", "1 hint")
+      : hints > 1 ? phraseOf(view, "pane_map_hints_many", "{count} indices", "{count} hints").replace("{count}", String(hints)) : "",
+  ].filter(Boolean).join(" · ");
+}
+
+/** The open concept map as a list in words, for Claude Code's Markdown element: each concept with its
+ * state, what it needs, its checks, what the state establishes and what it does not, and the answers
+ * behind it. Empty when the view carries no map. Nothing here is computed from the lesson. */
+export function mapMarkdown(view: StudiumPanelView): string {
+  const map = view.map;
+  if (!map || map.concepts.length === 0) return "";
+  const titles = new Map(map.concepts.map(concept => [concept.id, concept.title]));
+  const lines = [`**${phraseOf(view, "pane_map_open", "Carte des notions", "Concept map")}**`, ""];
+  for (const concept of map.concepts) {
+    lines.push(`- ${labelled(view, `**${concept.title}**`, phraseOf(view, `pane_map_state_${concept.state}`, ...MAP_STATE_WORDS[concept.state]))}`);
+    const needs = map.edges.filter(edge => edge.to === concept.id).map(edge => titles.get(edge.from)).filter((title): title is string => !!title);
+    if (needs.length > 0) lines.push(`  - ${phraseOf(view, "pane_map_needs", "Prérequis : {list}", "Needs: {list}").replace("{list}", needs.join(", "))}`);
+    if (concept.contest?.check_pending) lines.push(`  - ${phraseOf(view, "pane_map_check_pending", "Contrôle en cours", "Check under way")}`);
+    const outcome = concept.contest?.outcome;
+    if (outcome) lines.push(`  - ${phraseOf(view, `pane_map_outcome_${outcome}`, ...MAP_OUTCOME_WORDS[outcome])}`);
+    lines.push(`  - ${labelled(view, phraseOf(view, "pane_map_establishes", "Ce que cet état établit", "What this state establishes"), concept.establishes)}`);
+    lines.push(`  - ${labelled(view, phraseOf(view, "pane_map_not_established", "Ce qu'il n'établit pas", "What it does not establish"), concept.does_not_establish)}`);
+    if (concept.evidence.length === 0) {
+      lines.push(`  - ${phraseOf(view, "pane_map_no_evidence", "Aucune réponse sur cette notion pour l'instant.", "No answer on this concept yet.")}`);
+    } else lines.push(...concept.evidence.map(fact => `  - ${evidenceLine(view, fact)}`));
+  }
+  return lines.join("\n");
+}
+
+/** One claim the learner may make on a concept of the open map: the server then asks its check questions. */
+export type ContestControl = { concept_id: string; label: string; note: string; action: StudiumPanelAction };
+
+/** A claim button per concept the server lets the learner contest, where the view offers the action. */
+export function contestControls(view: StudiumPanelView): ContestControl[] {
+  if (!view.map || !view.actions.includes("contest")) return [];
+  return view.map.concepts.flatMap(concept => {
+    const contest = concept.contest;
+    if (!contest?.allowed) return [];
+    const claim = contest.claim === "known"
+      ? phraseOf(view, "pane_map_claim_known", "Je la connais", "I know it")
+      : phraseOf(view, "pane_map_claim_unsure", "J'ai un doute", "I am not sure");
+    const note = contest.questions >= 2
+      ? phraseOf(view, "pane_map_contest_two", "Deux questions de contrôle suivront.", "Two check questions will follow.")
+      : phraseOf(view, "pane_map_contest_one", "Une seule question de contrôle suivra : le résultat sera partiel.", "One check question will follow: the result will be partial.");
+    return [{ concept_id: concept.id, label: labelled(view, concept.title, claim), note, action: { type: "contest", concept_id: concept.id, claim: contest.claim } }];
+  });
 }
 
 /** The scene prose rendered through Claude Code's native Markdown element. */

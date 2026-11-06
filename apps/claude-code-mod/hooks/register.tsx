@@ -17,11 +17,14 @@ import type {
 import {
   answerAction,
   askControl,
+  contestControls,
   completionMarkdown,
   errorView,
   feedbackMarkdown,
   headerLine,
   helpControls,
+  mapControl,
+  mapMarkdown,
   isPanelView,
   panelFromMcpResult,
   pngPayload,
@@ -173,6 +176,9 @@ async function renderPane($: EngineInterface, event: RenderInput<"Pane">) {
   // INT-STUDIUM-058: who speaks in each block. The scene's voice only over a scene.
   const sceneVoice = view.kind === "scene" ? voiceChip(view, "scene") : "";
   const verdictVoice = feedback ? voiceChip(view, "verdict") : "";
+  // What the server says about the action just taken on this scene (a contest's check questions).
+  const sceneMessage = view.kind === "scene" ? view.message : undefined;
+  const map = view.kind === "scene" ? mapMarkdown(view) : "";
 
   return (
     <Box flexDirection="column" gap={1}>
@@ -187,7 +193,10 @@ async function renderPane($: EngineInterface, event: RenderInput<"Pane">) {
       {feedback && <Markdown text={feedback} dimColor={isDimmed} />}
       {tutor && <Markdown text={tutor} dimColor={isDimmed} />}
       {sources && <Markdown text={sources} dimColor={isDimmed} />}
+      {sceneMessage && <Text key="scene-message" dimColor={isDimmed}>{sceneMessage}</Text>}
       {controls}
+      {map && <Markdown key="map" text={map} dimColor={isDimmed} />}
+      {map && contestButtons($, view, isDimmed, { Button, Text })}
     </Box>
   );
 }
@@ -250,6 +259,8 @@ function renderControls(
   else if (view.actions.includes("hint")) nodes.push(actionButton($, view, "hint", { type: "hint" }, dim, Button));
   const ask = askControl(view);
   if (ask) nodes.push(<Button key="ask" dimColor={dim} onPress={() => applyAction($, ask.action, ask.label)}>{ask.label}</Button>);
+  const mapButton = view.kind === "scene" ? mapControl(view) : undefined;
+  if (mapButton) nodes.push(<Button key="map" dimColor={dim} onPress={() => applyAction($, mapButton.action, mapButton.label)}>{mapButton.label}</Button>);
   if (view.actions.includes("reviewNow")) nodes.push(actionButton($, view, "reviewNow", { type: "reviewNow" }, dim, Button));
   if (view.actions.includes("restartLesson")) nodes.push(actionButton($, view, "restartLesson", { type: "restartLesson" }, dim, Button));
   if (view.actions.includes("pickCourse")) nodes.push(pickCourseButton($, view, dim, Button));
@@ -326,6 +337,20 @@ function deckControls(
 async function submitDeck($: EngineInterface, view: StudiumPanelView, selected: string[]): Promise<void> {
   const verdicts = (view.scene?.deck ?? []).map(item => ({ token: item.token, flagged: selected.includes(item.token) }));
   await applyAction($, { type: "respond", input: { kind: "flaw_verdicts", verdicts } }, pendingAnswer(view));
+}
+
+/** Under the open map: one claim button per concept the server lets the learner contest. */
+function contestButtons(
+  $: EngineInterface,
+  view: StudiumPanelView,
+  dim: boolean,
+  elements: Pick<CommonElements, "Button" | "Text">,
+): RenderElement[] {
+  const { Button, Text } = elements;
+  return contestControls(view).flatMap(control => [
+    <Button key={`contest-${control.concept_id}`} dimColor={dim} onPress={() => applyAction($, control.action, control.label)}>{control.label}</Button>,
+    <Text key={`contest-note-${control.concept_id}`} dimColor>{control.note}</Text>,
+  ]);
 }
 
 function ratingButtons(

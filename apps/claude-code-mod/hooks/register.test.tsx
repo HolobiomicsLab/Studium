@@ -91,6 +91,35 @@ test("the pane draws the status line, the voices, the help ladder and the ask bu
   }
 });
 
+// INT-STUDIUM-058, task 4.3: the concept map as a list, its button, a claim button and the view's message.
+test("the pane draws the map as a list, with its button, a claim button and the message of the scene", async ($, on) => {
+  const OPEN: StudiumPanelView = {
+    ...PANEL, actions: ["respond", "end", "closeMap", "contest"],
+    message: "Deux questions de contrôle sur cette notion.",
+    map: {
+      concepts: [{
+        id: "c-particules", title: "Particules", state: "acquired",
+        establishes: "Ta dernière réponse notée était juste.", does_not_establish: "Cela ne dit pas que tu t'en souviendras.",
+        evidence: [{ scene_id: "s1-quiz-fer", day: "2026-11-06", assessed_by: "key", result: "right", hints: 0 }],
+        contest: { allowed: true, claim: "unsure", questions: 2 },
+      }],
+      edges: [],
+    },
+  };
+  on("state.get", () => ({
+    value: { value: { shape: "panel-view-1", value: OPEN }, version: 1 },
+  }));
+
+  for (const surface of ["terminal", "desktop", "vscode", "mobile"] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface });
+    expect(await ui.find({ type: "Markdown", text: /\*\*Particules\*\* : acquise/ })).toBeDefined();
+    expect(await ui.find({ type: "Button", key: "map" })).toBeDefined();
+    expect(await ui.find({ type: "Button", key: "contest-c-particules" })).toBeDefined();
+    expect(await ui.find({ type: "Text", text: /Deux questions de contrôle sur cette notion/ })).toBeDefined();
+    await ui.unmount();
+  }
+});
+
 test("a stored value with an older shape is declined cleanly", async ($, on) => {
   on("state.get", () => ({ value: { value: PANEL, version: 1 } }));
   const ui = await $.ui.mount({ ...PANE, surface: "desktop" });

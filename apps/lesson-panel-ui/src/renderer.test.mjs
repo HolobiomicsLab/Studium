@@ -204,3 +204,182 @@ test("the delay between an action and the display of its answer is joined to the
   assert.ok(Number.isInteger(sent[3][1].client_ms));
   dom.window.close();
 });
+
+// INT-STUDIUM-058, task 4.3: the concept map in the panel, as a list. Every concept with its state in
+// words, the answers behind it, what the state establishes and what it does not, and the claim the
+// learner may make; the whole of it reachable from the keyboard.
+const MAP_WORDS = {
+  ...WORDS,
+  pane_map_open: "Concept map", pane_map_close: "Close the map",
+  pane_map_state_acquired: "acquired", pane_map_state_to_review: "to review", pane_map_state_current: "in progress",
+  pane_map_state_seen: "seen, not assessed yet", pane_map_state_upcoming: "upcoming",
+  pane_map_details: "Evidence and scope", pane_map_establishes: "What this state establishes",
+  pane_map_not_established: "What it does not establish", pane_map_evidence: "Answers",
+  pane_map_no_evidence: "No answer on this concept yet.",
+  pane_map_by_key: "graded against the author's key", pane_map_by_judge: "assessed by a judge model",
+  pane_map_by_self: "rated by you", pane_map_by_none: "assessed by nobody",
+  pane_map_result_right: "right", pane_map_result_wrong: "wrong", pane_map_result_rated: "recall self-rated", pane_map_result_recorded: "recorded",
+  pane_map_hints_one: "1 hint", pane_map_hints_many: "{count} hints", pane_map_day_unknown: "day unknown",
+  pane_map_needs: "Needs: {list}", pane_map_claim_known: "I know it", pane_map_claim_unsure: "I am not sure",
+  pane_map_contest_two: "Two check questions will follow.", pane_map_contest_one: "One check question will follow: the result will be partial.",
+  pane_map_check_pending: "Check under way",
+  pane_map_outcome_confirmed: "Last check: claim confirmed", pane_map_outcome_refuted: "Last check: claim not confirmed", pane_map_outcome_partial: "Last check: partial result",
+};
+const MAP = {
+  concepts: [
+    { id: "a", title: "Particles", state: "acquired", establishes: "Your last graded answer was right.", does_not_establish: "It does not say you will remember it.",
+      evidence: [
+        { scene_id: "q1", day: "2026-11-05", assessed_by: "key", result: "right", hints: 1 },
+        { scene_id: "w1", day: "2026-11-06", assessed_by: "self", result: "rated", hints: 0 },
+      ],
+      contest: { allowed: true, claim: "unsure", questions: 2, outcome: "refuted" } },
+    { id: "b", title: "Orbitals", state: "current", establishes: "This is the concept of your step.", does_not_establish: "The map concludes nothing yet.",
+      evidence: [{ scene_id: "q2", day: null, assessed_by: "none", result: "recorded", hints: null }],
+      contest: { allowed: true, claim: "known", questions: 1 } },
+    { id: "c", title: "Spectra", state: "upcoming", establishes: "Not shown yet.", does_not_establish: "The map knows nothing of it.", evidence: [],
+      contest: { allowed: false, claim: "known", questions: 0 } },
+  ],
+  edges: [{ from: "a", to: "b" }, { from: "a", to: "c" }, { from: "b", to: "c" }],
+};
+const mapView = (extra = {}) => quizV2({ strings: MAP_WORDS, actions: ["respond", "hint", "end", "ask", "openMap"], ...extra });
+const openMapView = (extra = {}) => mapView({ actions: ["respond", "hint", "end", "ask", "closeMap", "contest"], map: MAP, ...extra });
+
+test("a view that offers the map shows a button for it, and one that does not shows none", () => {
+  const { dom, doc, sent } = mountWithSend();
+  dom.window.renderView(quizV2());
+  assert.equal(doc.querySelector(".map-button"), null);
+  dom.window.renderView(mapView({ session_id: "two" }));
+  const button = doc.querySelector(".map-button");
+  assert.equal(text(button), "Concept map");
+  assert.equal(button.getAttribute("aria-expanded"), "false");
+  assert.equal(doc.querySelector(".concept-map"), null);
+  button.click();
+  assert.deepEqual(plain(sent[0][0]), { type: "openMap" });
+  dom.window.close();
+});
+
+test("an open map lists every concept with its state, its answers and what the state establishes", () => {
+  const { dom, doc, sent } = mountWithSend();
+  dom.window.renderView(mapView());
+  dom.window.renderView(openMapView());
+  const map = doc.querySelector(".concept-map");
+  assert.ok(map, "the map is drawn");
+  assert.equal(map.getAttribute("aria-labelledby"), map.querySelector(".map-title").id);
+  assert.equal(text(map.querySelector(".map-title")), "Concept map");
+  // The map was just opened: the keyboard and the screen reader land on its heading.
+  assert.equal(doc.activeElement, map.querySelector(".map-title"));
+  const items = [...map.querySelectorAll("ul.map-list > li.map-concept")];
+  assert.deepEqual(items.map((li) => text(li.querySelector(".map-concept-title"))), ["Particles", "Orbitals", "Spectra"]);
+  assert.deepEqual(items.map((li) => text(li.querySelector(".map-state"))), ["acquired", "in progress", "upcoming"]);
+  assert.deepEqual(items.map((li) => li.getAttribute("data-state")), ["acquired", "current", "upcoming"]);
+  // What a concept needs, in words: a list has no arrows.
+  assert.deepEqual(items.map((li) => text(li.querySelector(".map-needs"))), [null, "Needs: Particles", "Needs: Particles, Orbitals"]);
+  const first = items[0];
+  assert.equal(text(first.querySelector("details > summary")), "Evidence and scope");
+  assert.match(text(first.querySelector(".map-scope")), /What this state establishes Your last graded answer was right\. What it does not establish It does not say you will remember it\./);
+  assert.deepEqual([...first.querySelectorAll(".map-evidence li")].map(text), [
+    "2026-11-05 · graded against the author's key · right · 1 hint",
+    "2026-11-06 · rated by you · recall self-rated",
+  ]);
+  assert.deepEqual([...items[1].querySelectorAll(".map-evidence li")].map(text), ["day unknown · assessed by nobody · recorded"]);
+  assert.equal(text(items[2].querySelector(".map-no-evidence")), "No answer on this concept yet.");
+  // The button now closes the map.
+  const button = doc.querySelector(".map-button");
+  assert.equal(button.getAttribute("aria-expanded"), "true");
+  map.querySelector(".map-close").click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "closeMap" });
+  dom.window.close();
+});
+
+test("the claim a concept takes is a button; one question only, a check under way and the last outcome are said", () => {
+  const { dom, doc, sent } = mountWithSend();
+  dom.window.renderView(openMapView());
+  const items = [...doc.querySelectorAll(".map-concept")];
+  const claim = (li) => li.querySelector(".map-claim");
+  assert.equal(text(claim(items[0])), "I am not sure");
+  assert.equal(text(items[0].querySelector(".map-contest-note")), "Two check questions will follow.");
+  assert.equal(text(items[0].querySelector(".map-outcome")), "Last check: claim not confirmed");
+  assert.equal(text(claim(items[1])), "I know it");
+  assert.equal(text(items[1].querySelector(".map-contest-note")), "One check question will follow: the result will be partial.");
+  assert.equal(claim(items[2]), null);                                 // nothing to check this concept with
+  claim(items[1]).click();
+  assert.deepEqual(plain(sent[0][0]), { type: "contest", concept_id: "b", claim: "known" });
+
+  // While a check is under way no claim is offered, and the concept says so.
+  const pending = structuredClone(MAP);
+  pending.concepts[0].contest = { allowed: false, claim: "unsure", questions: 2 };
+  pending.concepts[1].contest = { allowed: false, check_pending: true, claim: "known", questions: 2 };
+  dom.window.renderView(openMapView({ session_id: "two", map: pending }));
+  const during = [...doc.querySelectorAll(".map-concept")];
+  assert.equal(doc.querySelector(".map-claim"), null);
+  assert.equal(text(during[1].querySelector(".map-check-pending")), "Check under way");
+
+  // A view that carries the map without the contest action (an older server) offers no claim.
+  dom.window.renderView(openMapView({ session_id: "three", actions: ["respond", "closeMap"] }));
+  assert.equal(doc.querySelector(".map-claim"), null);
+  dom.window.close();
+});
+
+test("the map is reached from the keyboard after the scene's own controls, in reading order", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(openMapView());
+  const focusable = [...doc.querySelectorAll("button, input, summary, textarea, [tabindex='0']")];
+  const order = (selector) => {
+    const node = doc.querySelector(selector);
+    assert.ok(node, `${selector} exists`);
+    const at = focusable.indexOf(node);
+    assert.ok(at >= 0, `${selector} is focusable`);
+    assert.notEqual(node.getAttribute("tabindex"), "-1");
+    return at;
+  };
+  const sequence = [".validate", ".map-button", ".map-close", ".map-concept details > summary", ".map-claim"].map(order);
+  assert.deepEqual(sequence, [...sequence].sort((a, b) => a - b));
+  dom.window.close();
+});
+
+test("a scene view's message is said in the status line (what a contest's check showed)", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(openMapView({ message: "Two check questions on this concept." }));
+  assert.equal(text(doc.querySelector("#action-status")), "Two check questions on this concept.");
+  assert.match(doc.querySelector("#action-status").className, /notice/);
+  dom.window.close();
+});
+
+test("feedback the learner already left is not shown again when the map opens", () => {
+  const { dom, doc } = mountWithSend();
+  const verdict = { scene_id: "previous", graded: true, correct: true, assessed_by: "key", feedback: "Yes." };
+  dom.window.renderView(mapView({ verdict }));
+  assert.ok(doc.querySelector(".feedback-step"), "the answer's feedback comes first");
+  doc.querySelector(".continue").click();
+  assert.ok(doc.querySelector(".map-button"), "then the scene");
+  // The server answers openMap with the same verdict still on the view: the scene stays.
+  doc.querySelector(".map-button").click();
+  dom.window.renderView(openMapView({ verdict }));
+  assert.equal(doc.querySelector(".feedback-step"), null);
+  assert.ok(doc.querySelector(".concept-map"));
+  // The same verdict on a view that answers no such action is a new answer (a question replayed and
+  // answered the same way): its feedback is its own step.
+  dom.window.renderView(openMapView({ verdict, scene: { ...QUIZ, title: "The question again" } }));
+  assert.ok(doc.querySelector(".feedback-step"));
+  doc.querySelector(".continue").click();
+  // A new answer's feedback is shown as ever.
+  doc.querySelector(".choices input").click();
+  doc.querySelector(".validate").click();
+  dom.window.renderView(openMapView({ session_id: "one", verdict: { ...verdict, correct: false, feedback: "No." } }));
+  assert.ok(doc.querySelector(".feedback-step"));
+  dom.window.close();
+});
+
+test("closing the map gives the keyboard back to its button, and a notice stays in the status line", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(mapView());
+  dom.window.renderView(openMapView());
+  dom.window.renderView(mapView());
+  assert.equal(doc.activeElement, doc.querySelector(".map-button"));
+  assert.equal(doc.querySelector(".concept-map"), null);
+  // A notice about the scene on screen (the map could not be read) is still there once the view is painted.
+  dom.window.renderView(mapView({ kind: "notice", message: "The map cannot be shown yet." }));
+  assert.equal(text(doc.querySelector("#action-status")), "The map cannot be shown yet.");
+  assert.match(doc.querySelector("#action-status").className, /notice/);
+  dom.window.close();
+});

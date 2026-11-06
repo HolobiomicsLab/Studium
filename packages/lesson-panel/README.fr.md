@@ -56,6 +56,10 @@ contrôle), `check_pending` pendant son contrôle, et `outcome` (`confirmed`, `r
 fois un contrôle terminé. Une contestation refusée par le backend (déclaration que l'état n'admet pas,
 aucune question notée par une clé, autre contestation en cours) est une erreur en une ligne.
 
+Deux surfaces dessinent `map`, toutes deux en liste de mots et aucune en graphe : le panneau de leçon
+([`apps/lesson-panel-ui`](../../apps/lesson-panel-ui/src/artifact-pane.js)) et le volet de Claude Code
+([`apps/claude-code-mod`](../../apps/claude-code-mod/README.fr.md)). Leurs mots sont les phrases `pane_map_*`.
+
 Une vue porte `strings`, le catalogue des libellés de l'interface dans la langue de la leçon (environ
 24 ko), pour la surface qui la dessine. Le serveur MCP le laisse vide là où rien ne dessine la vue
 (formulaires, conversation). Son lecteur est alors un modèle.

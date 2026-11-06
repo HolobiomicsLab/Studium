@@ -151,6 +151,31 @@ export type StudiumPromptAction =
   | Exclude<StudiumPanelAction, { type: "respond" }>
   | { type: "respond"; input?: unknown };
 
+/** One answer behind a concept's state on the map. */
+export type StudiumMapEvidence = {
+  scene_id: string;
+  day: string | null;
+  assessed_by: "key" | "judge" | "self" | "none";
+  result: "right" | "wrong" | "rated" | "recorded";
+  hints: number | null;
+};
+
+export type StudiumMapConcept = {
+  id: string;
+  title: string;
+  state: "acquired" | "to_review" | "current" | "seen" | "upcoming";
+  establishes: string;
+  does_not_establish: string;
+  evidence: StudiumMapEvidence[];
+  contest?: { allowed: boolean; check_pending?: boolean; claim: "known" | "unsure"; questions: number; outcome?: "confirmed" | "refuted" | "partial" };
+};
+
+/** The concept map of an open lesson, sent while the learner has it open (INT-STUDIUM-058 § 2.7). */
+export type StudiumMapView = {
+  concepts: StudiumMapConcept[];
+  edges: Array<{ from: string; to: string }>;
+};
+
 export type StudiumSurfaceKind = "text" | "form" | "pane" | "panel";
 
 export type StudiumPanelView = {
@@ -195,6 +220,7 @@ export type StudiumPanelView = {
   recall_rated?: { sceneId: string; grade: StudiumRecallGrade };
   completion?: StudiumCompletion;
   message?: string;
+  map?: StudiumMapView;
   actions: StudiumPanelActionName[];
   pending?: string;
   /** Version 2 only, and then all present. */

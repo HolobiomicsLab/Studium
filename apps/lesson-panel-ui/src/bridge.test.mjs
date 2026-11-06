@@ -140,6 +140,20 @@ test("ask goes through, and the display delay rides beside the action as client_
   assert.deepEqual(m.calls[2], { name: "panel_action", arguments: { session_id: "one", action: { type: "ask" } } });
   m.dom.window.close();
 });
+// INT-STUDIUM-058, task 4.3: the bridge carries the three actions of the concept map, and still no unknown one.
+test("the map's actions go through: open, close and contest", async () => {
+  const mapped = { ...initial, actions: [...initial.actions, "openMap", "closeMap", "contest"] };
+  const calls = [];
+  const m = setup({ callServerTool: async request => { calls.push(request); return { structuredContent: { panel: mapped } }; } });
+  const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: mapped } });
+  const actions = [{ type: "openMap" }, { type: "contest", concept_id: "c1", claim: "known" }, { type: "closeMap" }];
+  for (const action of actions) await bridge.act(action);
+  assert.deepEqual(calls.map(call => call.arguments.action), actions);
+  await bridge.act({ type: "drawMap" });
+  assert.equal(calls.length, 3);
+  m.dom.window.close();
+});
 // INT-STUDIUM-058, task 3.3: the panel keeps the agent informed and hands it a question.
 const BRIEF = { session_id: "one", cursor: 1, status_line: "Lesson · step 2/2", since_last: [{ scene_id: "intro", act: "read", lane: "fast" }], since_last_count: 1, rules: ["r1", "r2", "r3"] };
 /** A host that takes context updates and messages; `events` keeps the order of everything it received. */

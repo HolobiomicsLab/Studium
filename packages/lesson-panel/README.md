@@ -53,6 +53,10 @@ of `map` carries `contest`: `allowed` (it can be contested now), `claim` (the on
 (`confirmed`, `refuted` or `partial`) once one was settled. A contest refused by the backend (a claim the
 state does not take, no key-graded question, another contest under way) is an error in one line.
 
+Two surfaces draw `map`, both as a list in words and neither as a graph: the lesson panel
+([`apps/lesson-panel-ui`](../../apps/lesson-panel-ui/src/artifact-pane.js)) and the Claude Code pane
+([`apps/claude-code-mod`](../../apps/claude-code-mod/README.md)). Their words are the `pane_map_*` phrases.
+
 A view carries `strings`, the interface's phrase catalogue in the lesson's language (some 24 kB), for the
 surface that draws it. The MCP server leaves it empty where nothing draws the view (forms, the conversation):
 its reader is then a model.

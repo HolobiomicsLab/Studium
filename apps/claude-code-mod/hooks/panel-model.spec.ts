@@ -5,11 +5,14 @@ import {
   answerAction,
   askControl,
   completionMarkdown,
+  contestControls,
   errorView,
   feedbackMarkdown,
   headerLine,
   helpControls,
   isPanelView,
+  mapControl,
+  mapMarkdown,
   panelFromMcpResult,
   pngPayload,
   sceneMarkdown,
@@ -230,5 +233,79 @@ describe("pane model of a version-2 view", () => {
     expect(askControl(V2)).toEqual({ label: "Poser une question", action: { type: "ask" } });
     expect(askControl({ ...V2, locale: "en" })).toEqual({ label: "Ask a question", action: { type: "ask" } });
     expect(askControl(PANEL)).toBeUndefined();
+  });
+});
+
+// INT-STUDIUM-058, task 4.3: the concept map in the pane, as a list in words.
+describe("the concept map of a pane", () => {
+  const MAP: NonNullable<StudiumPanelView["map"]> = {
+    concepts: [
+      { id: "a", title: "Particules", state: "acquired", establishes: "Ta dernière réponse notée était juste.", does_not_establish: "Cela ne dit pas que tu t'en souviendras.",
+        evidence: [
+          { scene_id: "q1", day: "2026-11-05", assessed_by: "key", result: "right", hints: 1 },
+          { scene_id: "w1", day: "2026-11-06", assessed_by: "self", result: "rated", hints: 0 },
+        ],
+        contest: { allowed: true, claim: "unsure", questions: 2, outcome: "refuted" } },
+      { id: "b", title: "Orbitales", state: "current", establishes: "C'est la notion de ton étape.", does_not_establish: "La carte ne conclut rien encore.",
+        evidence: [{ scene_id: "q2", day: null, assessed_by: "none", result: "recorded", hints: null }],
+        contest: { allowed: true, claim: "known", questions: 1 } },
+      { id: "c", title: "Spectres", state: "upcoming", establishes: "Pas encore montrée.", does_not_establish: "La carte n'en sait rien.", evidence: [],
+        contest: { allowed: false, check_pending: true, claim: "known", questions: 0 } },
+    ],
+    edges: [{ from: "a", to: "b" }, { from: "a", to: "c" }, { from: "b", to: "c" }],
+  };
+  const CLOSED: StudiumPanelView = { ...PANEL, actions: ["respond", "end", "openMap"] };
+  const OPEN: StudiumPanelView = { ...PANEL, actions: ["respond", "end", "closeMap", "contest"], map: MAP };
+
+  test("a view that offers the map has one control for it, which opens or closes it", () => {
+    expect(mapControl(PANEL)).toBeUndefined();
+    expect(mapControl(CLOSED)).toEqual({ label: "Carte des notions", open: false, action: { type: "openMap" } });
+    expect(mapControl(OPEN)).toEqual({ label: "Fermer la carte", open: true, action: { type: "closeMap" } });
+    expect(mapControl({ ...OPEN, locale: "en" })).toMatchObject({ label: "Close the map" });
+    // The server's words win over the mod's own.
+    expect(mapControl({ ...CLOSED, strings: { pane_map_open: "Carte" } })).toMatchObject({ label: "Carte" });
+  });
+
+  test("an open map is a list in words: state, prerequisites, checks, scope and answers", () => {
+    expect(mapMarkdown(CLOSED)).toBe("");
+    expect(mapMarkdown(OPEN)).toBe([
+      "**Carte des notions**",
+      "",
+      "- **Particules** : acquise",
+      "  - Dernier contrôle : déclaration non confirmée",
+      "  - Ce que cet état établit : Ta dernière réponse notée était juste.",
+      "  - Ce qu'il n'établit pas : Cela ne dit pas que tu t'en souviendras.",
+      "  - 2026-11-05 · notée avec la clé de l'auteur · juste · 1 indice",
+      "  - 2026-11-06 · évaluée par toi · rappel auto-évalué",
+      "- **Orbitales** : en cours",
+      "  - Prérequis : Particules",
+      "  - Ce que cet état établit : C'est la notion de ton étape.",
+      "  - Ce qu'il n'établit pas : La carte ne conclut rien encore.",
+      "  - jour inconnu · évaluée par personne · enregistrée",
+      "- **Spectres** : à venir",
+      "  - Prérequis : Particules, Orbitales",
+      "  - Contrôle en cours",
+      "  - Ce que cet état établit : Pas encore montrée.",
+      "  - Ce qu'il n'établit pas : La carte n'en sait rien.",
+      "  - Aucune réponse sur cette notion pour l'instant.",
+    ].join("\n"));
+    expect(mapMarkdown({ ...OPEN, locale: "en" })).toContain("- **Orbitales**: in progress\n  - Needs: Particules");
+  });
+
+  test("each concept that can be checked has a claim button, with what the check will be", () => {
+    expect(contestControls(CLOSED)).toEqual([]);
+    expect(contestControls(OPEN)).toEqual([
+      { concept_id: "a", label: "Particules : J'ai un doute", note: "Deux questions de contrôle suivront.", action: { type: "contest", concept_id: "a", claim: "unsure" } },
+      { concept_id: "b", label: "Orbitales : Je la connais", note: "Une seule question de contrôle suivra : le résultat sera partiel.", action: { type: "contest", concept_id: "b", claim: "known" } },
+    ]);
+    // A map without the contest action (an older server) offers no claim.
+    expect(contestControls({ ...OPEN, actions: ["respond", "closeMap"] })).toEqual([]);
+  });
+
+  test("a view whose map is not a map is refused", () => {
+    expect(isPanelView(OPEN)).toBe(true);
+    expect(isPanelView({ ...OPEN, map: { concepts: [{ id: "a" }], edges: [] } })).toBe(false);
+    expect(isPanelView({ ...OPEN, map: { concepts: MAP.concepts, edges: [{ from: "a" }] } })).toBe(false);
+    expect(isPanelView({ ...OPEN, map: { concepts: [{ ...MAP.concepts[0], state: "mastered" }], edges: [] } })).toBe(false);
   });
 });

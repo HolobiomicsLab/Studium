@@ -31,6 +31,17 @@ nouvelle notion, une ligne dit où vous êtes. Demandez la carte quand vous voul
 `get_workflow_graph` et affiche `concept_map`. Un harnais qui dessine des diagrammes peut rendre
 `concept_map.mermaid`.
 
+## Dans le panneau de leçon
+
+Dans le panneau de leçon et dans le volet de Claude Code, « Carte des notions » ouvre la carte en liste
+sous la scène. Rien n'est soumis et la scène reste où elle est. Chaque notion dit son état en mots et ce
+qu'elle demande d'abord. « Preuves et portée » montre ce que l'état établit, ce qu'il n'établit pas, et
+les réponses qui le fondent : le jour, qui a évalué la réponse, le résultat et les indices pris. Quand une
+notion peut être contrôlée, un bouton porte votre déclaration (« Je la connais » ou « J'ai un doute ») :
+la leçon pose alors une ou deux questions de contrôle et dit ce qu'elles ont montré. Votre déclaration
+seule ne change rien. « Fermer la carte » range la liste. Le panneau ne dessine pas le graphe ; la page
+exportée ci-dessous le fait.
+
 ## Exporter une page interactive
 
 Demandez à votre assistant d'exporter la carte. Il appelle `export_concept_map`, qui écrit un
@@ -58,7 +69,7 @@ suit votre assistant est le skill `studium-concept-map` ([Skills](../start/skill
 
 L'enregistrement ne contient ni identifiant d'apprenant ni vos mots : des résultats, pas des réponses. Pour
 chaque réponse, il garde aussi le jour, les indices pris avant elle et si vous avez ensuite noté vous-même
-votre rappel, et, pour chaque notion que vous avez contestée (« je le sais », « je n'en suis pas sûr »),
+votre rappel, et, pour chaque notion que vous avez contestée (« Je la connais », « J'ai un doute »),
 ce que les questions de contrôle ont montré. Il
 reste sur votre machine tant que vous ne partagez pas le dossier. `forget_session` ne supprime pas les
 exports ; il nomme le dossier pour que vous puissiez le supprimer vous-même.

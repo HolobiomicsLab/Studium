@@ -3897,6 +3897,63 @@ question answered during a check is marked completed in the saved state, so a le
 restart exactly on that scene starts after it. Only the panel action opens a contest: the
 conversation has no tool for it.
 
+## 2026-11-06 (map list) — The panel and the Claude Code pane draw the concept map as a list
+
+INT-STUDIUM-058, lot 4, task 4.3 (requirements F9, F10, N4; spec § 2.7). The two surfaces that draw
+the lesson now draw its concept map, as a list in words, and let the learner contest a concept.
+
+- `apps/lesson-panel-ui` (`artifact-pane.js`, shared by the MCP Apps panel and the VS Code pane): a
+  view that offers `openMap` or `closeMap` shows « Concept map » after the scene's controls and help.
+  An open map is a section under them: each concept with its state in words, what it needs first (the
+  prerequisite links said in a sentence), a check under way or the last one's outcome, and, behind
+  « Evidence and scope », what the state establishes, what it does not, and each answer (day, who
+  assessed it, result, hints). A concept the server lets the learner contest has one button for the
+  claim its state takes. Opening the map puts the keyboard on its heading; closing it gives it back to
+  the button. A scene view's `message` is said in the status line.
+- Two faults of the renderer, found on the way and fixed. A notice or a message written in the status
+  line was wiped at the end of the same paint, so the `ask` and review notices never showed in the
+  panel. A view that changed while still carrying the last verdict showed that answer's feedback
+  again after the learner had left it. A view that answers an action which keeps the scene (the map,
+  a hint, a question) no longer shows that feedback again; the same verdict on any other view is a
+  new answer and is shown.
+- `bridge-mcp-app.js` lets `openMap`, `closeMap` and `contest` through.
+- `apps/claude-code-mod`: `mapControl`, `mapMarkdown`, `contestControls`; the pane shows the map
+  button, the list as Markdown under the controls, one claim button per contestable concept and a
+  scene view's message. `isPanelView` checks a map whole. The types gain `StudiumMapView`.
+- `packages/lesson-panel`: 32 `pane_map_*` phrases, French and English.
+- Docs: « In the lesson panel » on the learner's concept-map page; the mod's README and the panel
+  package's README; both languages.
+
+Deviation from the plan: no graph view in the panel, only the list. The list says everything the view
+carries, edges included; the graph of the same record is the exported page.
+
+Test decision: none, no existing test changed. New tests: seven in `renderer.test.mjs`, one in
+`bridge.test.mjs`, four in `panel-model.spec.ts`, one in `register.test.tsx`. The six first renderer
+tests and the four model tests failed before their implementation; the seventh renderer test failed
+with the old status-line code put back; the bridge test and the pane rendering test were first run
+after their implementation. Two existing guards of the VS Code drivers caught faults of the first
+draft, fixed in the code with neither test changed: `webview-pane` refuses a chip class the pane does
+not repaint (the state of a concept now has its own style), and `lesson-walk` requires a graded
+verdict to be its own step (the first draft hid the verdict of a question replayed and answered the
+same way).
+
+Checked: on the final tree every repository check passes (install, build, lint, the Python suites,
+bundle lint, docs check, headless smoke, the MCP bundle, `tools/panel-probe.mjs`), `pnpm -r test`,
+`pnpm test:tools` and `claude plugin test` (5 tests). The test step took four runs. The first two
+failed on the two VS Code guards above. In the third, after the 648 tests of
+`packages/lesson-session-host` (which this commit does not touch) had passed, Node 24.16 aborted with
+a V8 fatal error (`v8::ToLocalChecked Empty MaybeLocal`) and the step stopped there; that suite alone,
+then the whole step run again on the same tree, passed. The list was also looked at in a browser: a
+real view from the server (`fixtures/atomistique-l1`, a labelled synthetic learner, the map opened
+after a graded answer) painted by the renderer with the real styles, dark and light, and at 375 px
+with no horizontal scroll. The map button sent `openMap`, a claim button sent `contest`, and the view
+after it showed the check question, the message in the status line and « Contrôle en cours » on the
+concept.
+
+Not verified: nobody has read the list or contested a concept from it; the 32 phrases were not read
+by a teacher. No test drives the map in VS Code. The Claude Code pane was drawn by the plugin tester
+only. On a contest the message sits in the status line under the controls.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local
