@@ -45,7 +45,8 @@ chemin et son empreinte SHA-256. Puis, depuis la racine du dépôt :
 .venv/bin/python tools/concept_map_report.py verify reports/concept-map
 ```
 
-Ouvrez `reports/concept-map/index.html`. La page ne demande ni réseau ni serveur.
+Ouvrez `reports/concept-map/index.html`. La page ne demande ni réseau ni serveur. La procédure que
+suit votre assistant est le skill `studium-concept-map` ([Skills](../start/skills.fr.md)).
 
 | Sur la page | Effet |
 |---|---|

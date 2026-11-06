@@ -3067,6 +3067,53 @@ two new fields on each step (assertion extended, behaviour unchanged);
 `host.concept-map-record.test.ts` and `tools/test_concept_map_report.py`; one case
 added to `study-tools.test.ts`.
 
+## 2026-11-06 (skills) — Skills to operate the map and to offer features at the right moment
+
+Owner request of 6 Nov, after PR 14 was opened: skills to operate these features well
+and to recommend them proactively, depending on the context. Same branch.
+
+`studium-concept-map` is the procedure: what a state means and does not mean, the map
+in the conversation (the server chooses the moments; on request `get_workflow_graph`;
+no comment while a question waits), when to offer the page, export and verification,
+how to read the page with a learner, the teacher viewpoint with class figures, and
+what stays on disk. For the class view it tells the teacher to take the record from a
+session just started on a server that keeps nothing (`STUDIUM_EPHEMERAL=1`, no
+`STUDIUM_DATA_DIR`): on the class's server a started session emits `lesson_started`
+and would count as one more learner in `class_report`.
+
+`studium-suggest` is the judgement: which feature to offer, when, in which words, and
+when to say nothing. One offer at a pause, in one sentence that starts from the
+person's words and states the cost; nothing added while a lesson question waits,
+except what the learner asks for and the authored hint; a no holds for the session;
+free read-only calls implied by the request need no offer, anything that writes,
+spends or shares waits for a yes; offer only what `get_server_info` shows the setup
+can deliver. Two tables map a signal to an offer and to the skill that carries it
+out. Its description triggers on learning needs stated without naming Studium.
+
+Decision: one line added to the server instructions (12 lines, the cap the tests
+set), so that a harness without skills also shows the map on request and offers the
+page at the end and a lesson from the conversation, on the learner's yes. The tool
+reference is regenerated.
+
+Defect fixed: `studium-from-conversation` (commit `0c73ae7`) was never linked from
+`.claude/skills` and `.agents/skills`, so no assistant discovered it. The three
+skills are now linked from both folders and have their `agents/openai.yaml`.
+`skills/README`, `docs/start/skills` and the neighbouring skills (harness, teacher,
+from-conversation) point to the two new ones.
+
+Checked with four fresh-context sub-agents (Sonnet) on realistic situations: an
+offer that is due, a question waiting for its answer, an incident, a teacher's class
+view. All four did what was intended (one offer in the person's words with its cost;
+the map on request, the answer refused and a hint offered; nothing during the
+incident, one offer after it; the class view built on a separate ephemeral server).
+What they found unclear was fixed: an offer never replaces the help asked for; a
+hint is called on the learner's yes; `get_server_info` once before the first offer;
+how to reach an ephemeral server and the exact `start_lesson_session` call; where
+the reteach marks come from. Not verified: that a client loads `studium-suggest` on its own from its
+description (no trigger evaluation was run); the skills reach `~/.claude/skills`
+only once a durable checkout holds them. Test decision: `study-tools.test.ts` also
+expects `export_concept_map` in the instructions.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

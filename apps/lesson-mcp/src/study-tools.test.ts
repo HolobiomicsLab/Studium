@@ -90,7 +90,7 @@ describe("what a harness reads first", () => {
     const { client } = await connect({ bundlesRoot: tmp() });
     const instructions = client.getInstructions() ?? "";
     expect(instructions.split("\n").length).toBeLessThanOrEqual(12);
-    for (const expected of ["get_study_plan", "learner_id", "display_markdown", "{kind: \"reply\", text}", "rate_recall", "forget_session"]) {
+    for (const expected of ["get_study_plan", "learner_id", "display_markdown", "{kind: \"reply\", text}", "rate_recall", "export_concept_map", "forget_session"]) {
       expect(instructions).toContain(expected);
     }
     expect((await client.listPrompts()).prompts.map((p) => p.name).sort()).toEqual(["learn", "review"]);

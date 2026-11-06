@@ -45,7 +45,8 @@ repository root:
 .venv/bin/python tools/concept_map_report.py verify reports/concept-map
 ```
 
-Open `reports/concept-map/index.html`. The page needs no network and no server.
+Open `reports/concept-map/index.html`. The page needs no network and no server. Your assistant's
+procedure for all of this is the `studium-concept-map` skill ([Skills](../start/skills.md)).
 
 | On the page | What it does |
 |---|---|

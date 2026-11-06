@@ -185,7 +185,8 @@ count presented as an assessment.
   `tools/concept_map_report.py export <saved_to> <new-dir> --expect-sha256 <sha256>`, `verify` it and
   give them `index.html`: a concept opens its steps, its sources and its trace nodes, with a learner
   and a teacher viewpoint. See [Concept map](../../docs/learn/concept-map.md). Export only on request:
-  the record holds the learner's results.
+  the record holds the learner's results. How to read the map with a learner, when to offer the
+  page and the teacher viewpoint: [studium-concept-map](../studium-concept-map/SKILL.md).
 
 Other lesson tools:
 
@@ -347,6 +348,8 @@ custom viewers or new libraries, follow
 content stays a draft for teacher review. For activities, reports and visual supports,
 use [studium-activity-templates](../studium-activity-templates/SKILL.md),
 [studium-learner-report](../studium-learner-report/SKILL.md) and
-[studium-visual-support](../studium-visual-support/SKILL.md).
+[studium-visual-support](../studium-visual-support/SKILL.md). To decide which of these to offer, and
+when, use [studium-suggest](../studium-suggest/SKILL.md): one offer, at a pause, never between a
+question and its answer.
 
 Protocol details: [Agentic session protocol](../../docs/reference/agentic-session-protocol.md).

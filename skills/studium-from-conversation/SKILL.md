@@ -105,12 +105,10 @@ When the lesson ends, say in two lines what the map shows (acquired, to review, 
 assessed) and go back to the conversation's task. The lesson stays in the learner's library and its
 concepts come back through `start_review_session`.
 
-If the learner wants to see what each concept rests on, offer the interactive map:
-`export_concept_map {session_id}`, then `tools/concept_map_report.py export <saved_to> <new-dir>
---expect-sha256 <sha256>` and `verify`. The page shows, per concept, the turns of the conversation
-that were quoted, marked as coming from a conversation with an assistant, and who assessed each
-answer; it comes with an ASTRA document and an ARA trace of the session. See
-[Concept map](../../docs/learn/concept-map.md).
+Offer the map as a page, once: for a lesson drawn from a conversation it shows, per concept, the
+turns that were quoted, marked as coming from a conversation with an assistant, and who assessed
+each answer. On a yes, follow [studium-concept-map](../studium-concept-map/SKILL.md)
+(`export_concept_map`, then `tools/concept_map_report.py export` and `verify`).
 
 ## What this does not give
 

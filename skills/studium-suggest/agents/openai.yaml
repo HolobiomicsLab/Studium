@@ -1,0 +1,4 @@
+interface:
+  display_name: "Studium · Suggestions"
+  short_description: "Proposer la bonne fonction de Studium au bon moment"
+  default_prompt: "Utilise $studium-suggest pour me dire ce que Studium peut m'apporter ici, en une seule proposition, et attends mon accord."

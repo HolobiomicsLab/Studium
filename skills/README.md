@@ -21,6 +21,8 @@ self-study lesson from your own sources. Each skill is a folder with a `SKILL.md
 | [`studium-student`](studium-student/SKILL.md) | students | install or connect Studium, set up an eligible Copilot Student plan or another assistant, and start a first lesson with your own answers |
 | [`studium-self-learner`](studium-self-learner/SKILL.md) | learners without a teacher | turn a web page, PDF or text you chose into a playable self-study lesson, then play it |
 | [`studium-from-conversation`](studium-from-conversation/SKILL.md) | anyone working with an assistant | turn the conversation in progress, or a past session, into a short lesson to check and deepen your understanding of it |
+| [`studium-concept-map`](studium-concept-map/SKILL.md) | learners and teachers | show where a learner stands on each concept, export the map as a page that says what each concept rests on, and lay class figures over it |
+| [`studium-suggest`](studium-suggest/SKILL.md) | any assistant | notice when a Studium feature would serve the person and offer it once, at the right moment |
 | [`studium-teacher`](studium-teacher/SKILL.md) | teachers | install Studium, connect an assistant, prepare a literature- or capsule-grounded lesson draft and review it in MySTRA before a pilot |
 | [`studium-harness`](studium-harness/SKILL.md) | any assistant running a lesson | present public scenes, collect the learner's own answers, run capsules honestly, over MCP, HTTP or the file channel |
 | [`studium-activity-templates`](studium-activity-templates/SKILL.md) | teachers and learners | choose and adapt an interactive activity (linked representations, parameter comparison, analysis diagnosis, robustness, evidence and claim) |
@@ -29,7 +31,8 @@ self-study lesson from your own sources. Each skill is a folder with a `SKILL.md
 | [`studium-observatory`](studium-observatory/SKILL.md) | operators and reviewers | run and read the [Observatory](../services/observatory/README.md) |
 
 Role skills (`studium-student`, `studium-teacher`, `studium-self-learner`, `studium-from-conversation`) point to `studium-harness` for
-the ongoing lesson loop.
+the ongoing lesson loop. `studium-suggest` decides what to offer and when, then hands off to the
+skill that knows how.
 
 ## How assistants find them
 
