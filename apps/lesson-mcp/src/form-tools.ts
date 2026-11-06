@@ -25,6 +25,7 @@
 // in real clients before this becomes a default.
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { ElicitRequestFormParams } from "@modelcontextprotocol/sdk/types.js";
 import { SessionHost, publicPresentation, publicTransition } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
 
@@ -43,7 +44,8 @@ type Transition = {
   verdict?: { correct?: boolean; display_markdown?: string };
 };
 type Step = { scene_id: string; scene_type: string; correct?: boolean; confidence?: number };
-type FormSchema = { type: "object"; properties: Record<string, Record<string, unknown>>; required?: string[] };
+/** The SDK's own form shape: a flat object of primitive fields. Typed from the SDK so that `tsc` checks each field. */
+type FormSchema = ElicitRequestFormParams["requestedSchema"];
 type Form = { schema: FormSchema; toInput: (content: Record<string, unknown>) => { input: ResponseInput; confidence?: number } };
 
 const LABELS = {

@@ -3206,6 +3206,22 @@ conversation.
 Test decision: `server.test.ts` expects 36 tools and `play_in_forms`;
 `form-tools.test.ts` is new.
 
+## 2026-11-06 (formulaires, correctif) — play_in_forms did not compile under `pnpm build`
+
+CI on PR 15 failed at "Workspace compiles (TypeScript)": `apps/lesson-mcp/src/form-tools.ts`
+typed its form as `Record<string, Record<string, unknown>>`, which `tsc` refuses where the SDK
+expects its own form shape. The form type now comes from the SDK
+(`ElicitRequestFormParams["requestedSchema"]`), so each field is checked.
+
+Why it was missed: the checks run before the previous two commits were `pnpm build:libs`,
+`pnpm lint`, the test suites, the bundle lint, the docs check and the headless smoke. None of
+them runs `tsc` on `apps/lesson-mcp` (vitest does not type-check), and the previous entry's
+"all gates" did not include `pnpm build`, which CI runs and `docs/develop/testing.md` lists.
+`pnpm build` is part of the local checks before a push from now on.
+
+Checked: `pnpm build` (exit 0, was TS2322), `pnpm lint`, `pnpm --filter @studium/lesson-mcp test`
+(137 passed, 2 skipped). No behaviour change, no test changed.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local
