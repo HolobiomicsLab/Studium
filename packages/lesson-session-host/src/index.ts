@@ -30,6 +30,8 @@ export {
   helpOf, helpFrom,
   type Orientation, type OrientationFacts, type Waiting, type LastNavigation, type Voice, type Voices, type Help, type HelpRung,
 } from "./orientation.js";
+// INT-STUDIUM-058 § 2.5: what the learner did since the agent last looked.
+export { BRIEF_ACTS_MAX, COMPANION_RULES, type ActKind, type CompanionAct, type CompanionBrief, type Lane } from "./companion.js";
 export {
   buildConceptMap, type ConceptMap, type ConceptMapNode, type ConceptMapEdge, type ConceptMapState, type ConceptMapMoment,
 } from "./concept-map.js";

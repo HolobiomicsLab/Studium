@@ -26,13 +26,14 @@ export function hostBackend(host: SessionHost, bundlesRoot: string): PanelBacken
     getCurrentScene: async id => publicPresentation(host.currentPresentation(id)),
     getSceneArtifacts: async id => host.sceneArtifacts(id),
     getSessionState: async id => host.getState(id),
-    submitResponse: async (id, input) => publicTransition(await host.respond(id, ResponseInputSchema.parse(input))),
+    // A panel, a pane and a form are the fast lane: the companion brief says so (companion.ts).
+    submitResponse: async (id, input) => publicTransition(await host.respond(id, ResponseInputSchema.parse(input), "fast")),
     submitTurn: async (id, text) => {
       await host.submitTurn(id, text);
       return { reasoning: host.lastReasoning(id), tutor: host.lastTutorMove(id) };
     },
-    requestHint: async id => host.requestHint(id),
-    rateRecall: (id, sceneId, grade) => host.rateRecall(id, sceneId, grade),
+    requestHint: async id => host.requestHint(id, "fast"),
+    rateRecall: (id, sceneId, grade) => host.rateRecall(id, sceneId, grade, "fast"),
     startReviewSession: async learnerId => {
       const r = await host.startReview(learnerId);
       return r.status === "nothing_due" ? r : { ...r, session_id: r.sessionId, presentation: publicPresentation(r.presentation) };

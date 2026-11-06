@@ -3684,6 +3684,42 @@ Not verified: the learner's side of N1 (one second at the 95th centile) needs a 
 drawing time the bench does not see. The synthetic learner answers most quizzes wrongly, so the path
 measured is one of replays and detours, not a typical learner's.
 
+## 2026-11-06 (companion brief) — get_companion_brief: what the learner did since the agent last looked
+
+INT-STUDIUM-058, lot 3, task 3.1 (spec § 2.5, requirements F6, N2, N10). A lesson is played on two lanes:
+on a panel, a pane or in forms the server answers and no model writes; in the conversation an agent
+relays. When the learner turns to the agent after acts on the fast lane, the agent now has a tool that
+says what happened there.
+
+- `packages/lesson-session-host/src/companion.ts`: the acts of a session (`read`, `answer`, `hint`,
+  `self_rating`; `contest` is reserved for lot 4), each with its lane, and the brief's shape. Only the
+  twelve latest acts not yet briefed are kept, with their count, so a session nobody briefs does not grow.
+- `host.ts`: `respond`, `rateRecall` and `requestHint` take a lane, `companion` by default (the
+  conversation tools and the HTTP API), `fast` from the panel backend and from `play_in_forms`. An act is
+  noted once the engine accepted it: a refused answer, or a hint when none is left, is no act.
+  `companionBrief(id)` returns `{session_id, cursor, status_line, where, since_last, since_last_count,
+  help, rules}` and moves the session's cursor.
+- `apps/lesson-mcp/src/companion-tools.ts`: the tool `get_companion_brief {session_id}`, the fortieth,
+  and the only one the two-lane interface adds for the model. The server's instructions are unchanged.
+- The brief is built from the orientation (ids, types, titles, durations) and the noted acts: no scene
+  text, key, hint or reference. Its three rules are in the lesson's language.
+- Docs: the generated tool reference gains a « Companion tool » group; the tool count reads 40 in the
+  READMEs and guides; `apps/lesson-mcp/README.md` and `.fr.md` describe the two lanes and the brief, and
+  their tool table now also lists `export_concept_map` and `play_in_forms`, which it lacked.
+
+Deviations from the spec and the plan. (1) The spec's type had no field for « puis un compte »: the
+count is `since_last_count`, and `since_last` holds the twelve latest. (2) The acts live in memory: a
+session resumed after a server restart starts with none. (3) `rules` follow the lesson's language. (4)
+Files beyond the four the task named: `companion.ts`, `host.ts`, `registry.ts`, `index.ts`,
+`panel-tools.ts`, `form-tools.ts`, the docs generator and the pages that count the tools.
+
+Test decisions: `server.test.ts`, `panel-tools.test.ts` and `tools/panel-probe.mjs` expect 40 tools
+where they expected 39. Six new tests in `companion-tools.test.ts`, through a real MCP client on both
+lanes; they failed first (no tool).
+
+Not verified: no agent has read a brief; the rule that makes one call the tool is task 3.2. The `ask`
+action and `play_in_forms` do not return the brief yet, which the spec's table asks for.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

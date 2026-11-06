@@ -36,7 +36,7 @@ Call the Studium tool get_server_info and tell me the version, the build date, t
 whether my progress is durable. Then call get_study_plan.
 ```
 
-The answer should list 39 tools (25 lesson, 5 study, 3 authoring, 2 teacher tools, 1 form tool and 3 panel tools; see
+The answer should list 40 tools (25 lesson, 5 study, 3 authoring, 2 teacher tools, 1 form tool, 3 panel tools and 1 companion tool; see
 [MCP tools](../reference/mcp-tools.md)) and `persistence.durable: true`. If `durable` is false, progress is
 lost when the server stops. When the server connects, the assistant also receives Studium's instructions
 (relay each `display_markdown` as it is, wait for your own answer, never answer or rate for you) and two

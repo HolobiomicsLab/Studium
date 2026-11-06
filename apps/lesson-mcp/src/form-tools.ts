@@ -131,7 +131,7 @@ export async function playInForms(server: McpServer, host: SessionHost, sessionI
     try {
       const built = form.toInput(answer.content ?? {});
       confidence = built.confidence;
-      transition = publicTransition(await host.respond(sessionId, built.input)) as Transition;
+      transition = publicTransition(await host.respond(sessionId, built.input, "fast")) as Transition;
     } catch (error) {
       unseen = "";
       return out("needs_conversation", (error as Error).message);

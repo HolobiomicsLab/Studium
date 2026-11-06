@@ -37,7 +37,7 @@ Appelle l'outil Studium get_server_info et donne-moi la version, la date du buil
 si ma progression est durable. Appelle ensuite get_study_plan.
 ```
 
-La réponse doit annoncer 39 outils (25 de leçon, 5 d'étude, 3 de rédaction, 2 pour l'enseignant, 1 de formulaires, 3 de panneau ; voir
+La réponse doit annoncer 40 outils (25 de leçon, 5 d'étude, 3 de rédaction, 2 pour l'enseignant, 1 de formulaires, 3 de panneau, 1 d'accompagnement ; voir
 [Outils MCP](../reference/mcp-tools.fr.md)) et `persistence.durable: true`. Si `durable` vaut false, la
 progression est perdue à l'arrêt du serveur. À la connexion, l'assistant reçoit aussi les instructions de
 Studium (montrer chaque `display_markdown` tel quel, attendre votre propre réponse, ne jamais répondre ni

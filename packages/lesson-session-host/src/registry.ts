@@ -1,4 +1,5 @@
 // packages/lesson-session-host/src/registry.ts
+import type { CompanionLog } from "./companion.js";
 import type { LessonSession, SessionDeps } from "@studium/lesson-session";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
 import type { AuthoringBlock } from "./authoring.js";
@@ -54,6 +55,8 @@ export interface SessionEntry {
   moved: Set<string>;
   /** Responses applied in this session (0 = the first screen). */
   responses: number;
+  /** INT-STUDIUM-058: the learner's acts not yet told to the agent (companion.ts). */
+  companion?: CompanionLog;
   /** What the concept map already told the learner (host.conceptMapMoment): the concepts whose
    * opening was announced, the scenes shown as a synthesis, and whether a prerequisite detour is
    * under way. Created at the first transition. */

@@ -67,8 +67,9 @@ import {
 import { persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceInfo } from "./persistence.js";
 import { replyToInput, checkDisplayedChoice } from "./reply-mapping.js";
 import {
-  authorVoice, orientationFacts, orientationFrom, recordNavigation, statusLine, voiceLine, type OrientationFacts, type Voice,
+  authorVoice, helpFrom, orientationFacts, orientationFrom, recordNavigation, statusLine, voiceLine, type OrientationFacts, type Voice,
 } from "./orientation.js";
+import { COMPANION_RULES, noteAct, takeActs, type CompanionBrief, type Lane } from "./companion.js";
 import type { HostResponseInput } from "./response-input-schema.js";
 
 // Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /
@@ -1806,7 +1807,7 @@ export class SessionHost {
 
   /** Submit a response. A chat reply (`{kind: "reply", text}`) becomes the current scene's input, and a
    * quiz choice must name a displayed id — both refused in one line otherwise (reply-mapping.ts). */
-  async respond(id: string, input: HostResponseInput): Promise<ServedTransition> {
+  async respond(id: string, input: HostResponseInput, lane: Lane = "companion"): Promise<ServedTransition> {
     return this.sessionWrite(id, async (entry) => {
       const runStatus = this.runStatus(id);
       if (runStatus.run_manifest && !runStatus.learner_run_recorded) throw new RunRequiredError();
@@ -1814,8 +1815,41 @@ export class SessionHost {
       const engineInput = input.kind === "reply"
         ? replyToInput(scene, input.text, (publicScene(scene) as { deck?: Array<{ token: string }> }).deck)
         : checkDisplayedChoice(scene, input);
-      return this.applyResponseLocked(entry, engineInput);
+      const served = await this.applyResponseLocked(entry, engineInput);
+      // INT-STUDIUM-058: the act, for the next companion brief. `lane` says who carried it: the
+      // conversation tools by default, "fast" from a panel, a pane or a form.
+      const correct = served.verdict?.correct;
+      const confidence = "confidence" in engineInput ? engineInput.confidence : undefined;
+      noteAct(entry, {
+        scene_id: scene.id, act: engineInput.kind === "ack" ? "read" : "answer", lane,
+        ...(typeof correct === "boolean" ? { correct } : {}),
+        ...(typeof confidence === "number" ? { confidence } : {}),
+      });
+      return served;
     });
+  }
+
+  /** INT-STUDIUM-058 § 2.5: where the learner is and what they did since the last brief, for an agent
+   * the learner turns to after acts on the fast lane (companion.ts). Reading it moves the session's
+   * cursor: the next brief lists what came after. No scene text, key, hint or reference. */
+  companionBrief(id: string): CompanionBrief {
+    const entry = this.require(id);
+    this.assertNotErased(id, entry);
+    const locale = displayLocale(entry.bundle.metadata.language);
+    const facts = this.orientationFactsOf(entry);
+    const orientation = orientationFrom(facts);
+    const scene = entry.session.currentPresentation().scene;
+    return {
+      session_id: id,
+      ...takeActs(entry),
+      status_line: statusLine(orientation, entry.bundle.metadata.title, locale),
+      where: {
+        lesson_title: entry.bundle.metadata.title, step: orientation.step,
+        scene: { id: scene.id, type: scene.type, title: scene.title }, waiting: orientation.waiting,
+      },
+      help: helpFrom(facts, locale),
+      rules: [...COMPANION_RULES[locale]],
+    };
   }
 
   /** Apply a validated response; run ingestion uses this after its own gate.
@@ -1900,8 +1934,12 @@ export class SessionHost {
    * hard | good | easy). FSRS input only: the rated concept's memory moves, source `self_rated`; its
    * mastery never does. The session refuses a rating no answer asked for (a certified answer, a scene
    * already rated) and an unknown grade. */
-  async rateRecall(id: string, sceneId: string, grade: SelfRating): Promise<RecallRating> {
-    return this.sessionWrite(id, (entry) => this.rateRecallLocked(entry, sceneId, grade));
+  async rateRecall(id: string, sceneId: string, grade: SelfRating, lane: Lane = "companion"): Promise<RecallRating> {
+    return this.sessionWrite(id, async (entry) => {
+      const rating = await this.rateRecallLocked(entry, sceneId, grade);
+      noteAct(entry, { scene_id: sceneId, act: "self_rating", lane });
+      return rating;
+    });
   }
 
   private async rateRecallLocked(e: SessionEntry, sceneId: string, grade: SelfRating): Promise<RecallRating> {
@@ -2040,10 +2078,12 @@ export class SessionHost {
 
   /** Pull the next authored hint for the current quiz scene (scaffolding-gated, M5 discount).
    * Returns null when the scene is not a quiz, has no hints, or the per-visit cap is reached. */
-  requestHint(id: string): HintResult | null {
+  requestHint(id: string, lane: Lane = "companion"): HintResult | null {
     const entry = this.require(id);
     this.assertNotErased(id, entry);
-    return entry.session.requestHint();
+    const hint = entry.session.requestHint();
+    if (hint) noteAct(entry, { scene_id: entry.session.currentPresentation().scene.id, act: "hint", lane });
+    return hint;
   }
   async submitTurn(id: string, text: string): Promise<void> {
     return this.sessionWrite(id, (entry) => entry.session.submitTurn(text));

@@ -104,8 +104,10 @@ describe("lesson-mcp tools", () => {
     // prepare_sources, create_lesson) and the two C1 teacher tools (review_lesson, class_report),
     // wired at integration: 29 + 5 = 34; + export_concept_map (study tool, 2026-11-06) = 35;
     // + play_in_forms (form tool, a prototype, 2026-11-06) = 36; + the three shared-panel tools
-    // (INT-STUDIUM-057, merged 2026-11-06) = 39.
-    expect(names).toHaveLength(39);
+    // (INT-STUDIUM-057, merged 2026-11-06) = 39; + get_companion_brief (INT-STUDIUM-058, the one tool
+    // the two-lane interface adds for the model) = 40.
+    expect(names).toHaveLength(40);
+    expect(names).toContain("get_companion_brief");
     expect(names).toContain("export_concept_map");
     expect(names).toContain("play_in_forms");
     expect(names).toEqual(expect.arrayContaining(["open_lesson_panel", "get_panel_view", "panel_action"]));

@@ -18,7 +18,7 @@ it("opens, reads and advances a panel over MCP with no UI metadata or pre-answer
   await client.connect(clientT);
   try {
     const tools = (await client.listTools()).tools;
-    expect(tools).toHaveLength(39);
+    expect(tools).toHaveLength(40);
     for (const name of ["open_lesson_panel", "get_panel_view", "panel_action"]) {
       expect(tools.find(t => t.name === name)).toBeDefined();
       expect(tools.find(t => t.name === name)?._meta?.ui).toBeUndefined();

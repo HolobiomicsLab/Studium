@@ -22,15 +22,18 @@ import { lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools } from "./authoring-tools.js";
 import { TEACHER_TOOL_NAMES, registerTeacherTools } from "./teacher-tools.js";
 import { FORM_TOOL_NAMES, registerFormTools } from "./form-tools.js";
+import { COMPANION_TOOL_NAMES, registerCompanionTools } from "./companion-tools.js";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
 import { PANEL_TOOL_NAMES, registerPanelTools } from "./panel-tools.js";
 
 /** C1 study tools, defined in this file. */
 export const STUDY_TOOL_NAMES = ["export_concept_map", "get_study_plan", "list_lessons", "rate_recall", "start_review_session"] as const;
 /** Every tool buildMcpServer registers, sorted: the lesson operations, the study tools, the authoring
- * tools, the teacher tools, the form tool (form-tools.ts, a prototype) and the panel tools (panel-tools.ts). */
+ * tools, the teacher tools, the form tool (form-tools.ts, a prototype), the panel tools (panel-tools.ts)
+ * and the companion tool (companion-tools.ts). */
 export const TOOL_NAMES: readonly string[] = [
   ...LESSON_TOOL_NAMES, ...STUDY_TOOL_NAMES, ...AUTHORING_TOOL_NAMES, ...TEACHER_TOOL_NAMES, ...FORM_TOOL_NAMES, ...PANEL_TOOL_NAMES,
+  ...COMPANION_TOOL_NAMES,
 ].sort();
 
 /** C4 self-rating grades, in FSRS order (lesson-session's SELF_RATING_CHOICES; a test pins the match). */
@@ -292,6 +295,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
     bundlesRoot: host.bundlesRoot, libraryRoot: host.libraryRoot, dataDir: host.persistence().data_dir,
   }));
   registered.push(...registerFormTools(server, host));
+  registered.push(...registerCompanionTools(server, host));
   registerPrompts(server);
   logStartup(registered.length);
   return server;

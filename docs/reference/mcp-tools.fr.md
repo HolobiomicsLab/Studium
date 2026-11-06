@@ -84,7 +84,7 @@ temps écoulé depuis le début de la session.
 
 <!-- BEGIN GENERATED: mcp-tools (tools/docs/gen-mcp-tools.mjs; do not edit by hand) -->
 
-The server registers 39 tools.
+The server registers 40 tools.
 
 | Tool | Group | Summary |
 |---|---|---|
@@ -127,6 +127,7 @@ The server registers 39 tools.
 | [get_panel_view](#get_panel_view) | Panel | Read the current public lesson panel, including earned feedback and completion. |
 | [open_lesson_panel](#open_lesson_panel) | Panel | Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). |
 | [panel_action](#panel_action) | Panel | Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the... |
+| [get_companion_brief](#get_companion_brief) | Companion tool | Read what the learner did on a panel, a pane or in forms since you last looked, before you answer them. |
 
 ## Study tools
 
@@ -552,6 +553,18 @@ Apply the learner's own panel action. end erases progress only with confirmed:tr
 | `action.presentation_language` | string (at least 2 chars) or null | in `setLanguage` |  |
 | `action.minutes` | integer (1–600) | in `replan` |  |
 | `client_ms` | integer (0–600000) | no |  |
+
+## Companion tool
+
+Tell the agent what the learner did on a panel or in forms since it last looked.
+
+### get_companion_brief
+
+Read what the learner did on a panel, a pane or in forms since you last looked, before you answer them. Call it at the learner's first message after such acts, instead of showing the scene again. Returns {brief: {session_id, cursor, status_line, where{lesson_title, step{index, total}, scene{id, type, title}, waiting}, since_last[{scene_id, act: read | answer | hint | self_rating | contest, lane: fast | companion, correct?, confidence?}], since_last_count, help{rungs}, rules[3]}}. since_last holds the twelve latest acts; since_last_count counts them all. Reading it moves the cursor: the next call lists what came after. It holds no scene text and no key, hint or reference; follow its rules.
+
+| Field | Type | Required |
+|---|---|---|
+| `session_id` | string (non-empty) | yes |
 
 ## Prompts
 

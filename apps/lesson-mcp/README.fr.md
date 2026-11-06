@@ -46,17 +46,27 @@ Des configurations prêtes à l'emploi se trouvent dans [`docs/examples/`](../..
 
 ## Ce qu'il propose
 
-39 outils, deux prompts (`learn` et `review`) et des instructions de serveur qui demandent à l'assistant
+40 outils, deux prompts (`learn` et `review`) et des instructions de serveur qui demandent à l'assistant
 d'attendre les réponses de l'apprenant lui-même. Le contrat complet figure dans la
 [référence des outils MCP](../../docs/reference/mcp-tools.fr.md).
 
 | Groupe | Outils |
 |---|---|
 | Leçon (25) | `start_lesson_session`, `get_current_scene`, `submit_response`, `request_hint`, `submit_turn`, `get_session_state`, `get_operator_context`, `explain_last_adaptation`, `get_workflow_graph`, `get_scene_artifacts`, `get_run_manifest`, `submit_run_result`, `record_experiment`, `get_experiment_journal`, `get_next_reinforcement`, `set_session_language`, `end_session`, `forget_session`, `get_server_info`, `list_community_bundles`, `open_peer_room`, `join_peer_room`, `get_peer_room_state`, `submit_peer_rating`, `close_peer_room` |
-| Étudier dans la durée (4) | `list_lessons`, `get_study_plan`, `start_review_session`, `rate_recall` |
+| Étudier dans la durée (5) | `list_lessons`, `get_study_plan`, `start_review_session`, `rate_recall`, `export_concept_map` |
 | Créer à partir de sources (3) | `get_authoring_guide`, `prepare_sources`, `create_lesson` |
 | Enseignant (2) | `review_lesson`, `class_report` |
+| Formulaires, un prototype (1) | `play_in_forms` |
 | Panneau partagé (3) | `open_lesson_panel`, `get_panel_view`, `panel_action` |
+| Accompagnement (1) | `get_companion_brief` |
+
+Une leçon se joue sur deux voies. Sur un panneau, un volet ou des formulaires, le serveur répond à
+l'apprenant et aucun modèle n'écrit. Dans la conversation, un assistant relaie.
+`get_companion_brief {session_id}` dit à l'assistant ce que l'apprenant a fait sur la voie rapide depuis
+son dernier regard (les douze derniers actes et leur nombre, chacun avec sa voie), où il en est, quelle
+aide est ouverte et trois règles à suivre. Il ne contient ni texte de scène, ni corrigé, ni indice, ni
+référence. Les actes sont gardés en mémoire pour la séance et repartent de zéro après un redémarrage du
+serveur.
 
 Ce que le serveur garantit :
 
