@@ -46,7 +46,7 @@ Des configurations prêtes à l'emploi se trouvent dans [`docs/examples/`](../..
 
 ## Ce qu'il propose
 
-34 outils, deux prompts (`learn` et `review`) et des instructions de serveur qui demandent à l'assistant
+37 outils, deux prompts (`learn` et `review`) et des instructions de serveur qui demandent à l'assistant
 d'attendre les réponses de l'apprenant lui-même. Le contrat complet figure dans la
 [référence des outils MCP](../../docs/reference/mcp-tools.fr.md).
 
@@ -56,6 +56,7 @@ d'attendre les réponses de l'apprenant lui-même. Le contrat complet figure dan
 | Étudier dans la durée (4) | `list_lessons`, `get_study_plan`, `start_review_session`, `rate_recall` |
 | Créer à partir de sources (3) | `get_authoring_guide`, `prepare_sources`, `create_lesson` |
 | Enseignant (2) | `review_lesson`, `class_report` |
+| Panneau partagé (3) | `open_lesson_panel`, `get_panel_view`, `panel_action` |
 
 Ce que le serveur garantit :
 

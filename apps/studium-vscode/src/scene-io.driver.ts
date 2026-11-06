@@ -41,7 +41,7 @@ for (const type of ["intro", "concept", "quiz", "meta_checkpoint", "reproduction
 
 // 2) webview PARITY — media/artifact-pane.js must post every one of those kinds, plus the new
 //    discussion-turn + forget messages, so the pane agrees with the notebook + the graders.
-const pane = readFileSync(resolve(here, "..", "media", "artifact-pane.js"), "utf8");
+const pane = readFileSync(resolve(here, "..", "..", "lesson-panel-ui", "dist", "vscode", "artifact-pane.js"), "utf8");
 for (const kind of new Set(Object.values(EXPECTED))) {
   expect(new RegExp(`kind:\\s*"${kind}"`).test(pane), `artifact-pane.js posts input kind "${kind}"`);
 }

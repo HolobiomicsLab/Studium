@@ -1,0 +1,196 @@
+// MCP adapter for the pure panel presenter; sessions remain owned by SessionHost.
+import { z } from "zod";
+import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { SessionHost, ResponseInputSchema, publicPresentation, publicTransition, loadResolvedBundle } from "@studium/lesson-session-host";
+import { scanCatalog } from "../../../packages/lesson-session-host/src/lesson-catalog.js";
+import { reviewContext } from "../../../packages/lesson-panel/src/pane-messages.js";
+import {
+  presentPanel, applyPanelAction, PanelActionSchema, type PanelBackend, type PanelContext, type PanelView, type Payload,
+} from "../../../packages/lesson-panel/src/index.js";
+import * as imageAssets from "../../studium-vscode/src/asset-path.js";
+import type { ToolResult } from "./operations.js";
+
+import { lessonHtml, graphHtml } from "../../lesson-panel-ui/dist/resources.js";
+
+export const PANEL_TOOL_NAMES = ["open_lesson_panel", "get_panel_view", "panel_action"] as const;
+
+// The extension is CJS; source tsx and bundled builds expose it differently.
+const { inlineImageAsset } = (Reflect.get(imageAssets, "default") as typeof imageAssets | undefined) ?? imageAssets;
+
+/** Adapt the existing host operations; disk access stays outside lesson-panel. */
+export function hostBackend(host: SessionHost, bundlesRoot: string): PanelBackend {
+  return {
+    getCurrentScene: async id => publicPresentation(host.currentPresentation(id)),
+    getSceneArtifacts: async id => host.sceneArtifacts(id),
+    getSessionState: async id => host.getState(id),
+    submitResponse: async (id, input) => publicTransition(await host.respond(id, ResponseInputSchema.parse(input))),
+    submitTurn: async (id, text) => {
+      await host.submitTurn(id, text);
+      return { reasoning: host.lastReasoning(id), tutor: host.lastTutorMove(id) };
+    },
+    requestHint: async id => host.requestHint(id),
+    rateRecall: (id, sceneId, grade) => host.rateRecall(id, sceneId, grade),
+    startReviewSession: async learnerId => {
+      const r = await host.startReview(learnerId);
+      return r.status === "nothing_due" ? r : { ...r, session_id: r.sessionId, presentation: publicPresentation(r.presentation) };
+    },
+    startLessonSession: async (bundleRef, learnerId) => {
+      const r = await host.create(bundleRef, learnerId);
+      return { ...r, session_id: r.sessionId, presentation: publicPresentation(r.presentation) };
+    },
+    forgetSession: id => host.forget(id),
+    getNextReinforcement: id => host.reinforcementStatusForSession(id),
+    inlineImage: async (asset, bundleRef) => {
+      if (!asset.path || (asset.kind !== "image" && asset.kind !== "executed_result")) return asset;
+      try {
+        const roots = [bundlesRoot, ...(host.libraryRoot ? [host.libraryRoot] : [])];
+        const resolved = await loadResolvedBundle(roots, bundleRef);
+        return resolved.baseDir ? inlineImageAsset(resolved.root, resolved.path, asset) : asset;
+      } catch { return asset; }
+    },
+  };
+}
+
+function panelResult(panel: PanelView) {
+  const stem = panel.scene?.question ?? panel.scene?.prompt ?? panel.scene?.title ?? panel.message ?? "";
+  return {
+    structuredContent: { panel },
+    content: [{ type: "text" as const, text: JSON.stringify({ panel }) }, { type: "text" as const, text: `${panel.lesson_title} — ${panel.progress.index}/${panel.progress.total}\n${stem}\nActions: ${panel.actions.join(", ")}` }],
+  };
+}
+
+function toolError(error: unknown) {
+  return { content: [{ type: "text" as const, text: JSON.stringify({ error: error instanceof Error ? error.message : String(error) }) }], isError: true as const };
+}
+
+/** Per-server contexts retain earned feedback, including transitions from the native run protocol. */
+class Panels {
+  readonly contexts = new Map<string, PanelContext>();
+  readonly busy = new Set<PanelContext>();
+  readonly backend: PanelBackend;
+  constructor(readonly host: SessionHost) { this.backend = hostBackend(host, host.bundlesRoot); }
+
+  async context(id: string, options: Payload = {}): Promise<PanelContext> {
+    const state = this.host.getState(id); // Validate liveness even for a cached view.
+    const existing = this.contexts.get(id);
+    if (existing) return existing;
+    const roots = [this.host.bundlesRoot, ...(this.host.libraryRoot ? [this.host.libraryRoot] : [])];
+    const catalog = options.bundle_ref ? null : await scanCatalog(roots.map(dir => ({ dir, kind: "bundles" })));
+    const ref = options.bundle_ref ?? catalog?.lessons.find(l => l.bundle_id === state.lesson_id)?.bundle_ref ?? "";
+    const resolved = ref ? await loadResolvedBundle(roots, ref) : null;
+    const ctx: PanelContext = {
+      sessionId: id, learnerId: options.learner_id ?? this.host.defaultLearnerId,
+      bundleRef: ref, lessonTitle: resolved?.bundle.metadata.title ?? state.lesson_id,
+      conceptTitles: Object.fromEntries((resolved?.bundle.concepts ?? []).map(c => [c.id, c.title])),
+    };
+    this.contexts.set(id, ctx);
+    return ctx;
+  }
+
+  async open(options: Payload): Promise<PanelView> {
+    if (!options.session_id && !options.bundle_ref) throw new Error("pass bundle_ref or session_id");
+    const started = options.session_id ? null : await this.backend.startLessonSession(options.bundle_ref, options.learner_id ?? this.host.defaultLearnerId);
+    const ctx = await this.context(options.session_id ?? started!.session_id, options);
+    if (options.show_mastery !== undefined) ctx.showMastery = options.show_mastery;
+    if (options.modality_preference !== undefined) ctx.modalityPreference = options.modality_preference;
+    if (options.locale !== undefined) ctx.locale = options.locale;
+    return presentPanel(this.backend, ctx);
+  }
+
+  async act(id: string, action: z.infer<typeof PanelActionSchema>): Promise<PanelView> {
+    const ctx = await this.context(id);
+    if (this.busy.has(ctx)) throw new Error("a panel action is already in progress");
+    this.busy.add(ctx);
+    try {
+      const view = await applyPanelAction(this.backend, ctx, action);
+      if (ctx.sessionId !== id || (action.type === "end" && action.confirmed)) this.contexts.delete(id);
+      if (!(action.type === "end" && action.confirmed)) this.contexts.set(ctx.sessionId, ctx);
+      return view;
+    } finally { this.busy.delete(ctx); }
+  }
+
+  async observe(name: string, args: Payload, result: ToolResult): Promise<void> {
+    if (result.isError) return;
+    const reply = JSON.parse(result.content[0]?.text ?? "{}");
+    if (name === "start_lesson_session" || (name === "start_review_session" && reply.status === "started")) {
+      const started = await this.context(reply.session_id, args);
+      if (reply.review) started.review = reviewContext(reply);
+    }
+    const ctx = this.contexts.get(args.session_id);
+    if (ctx && reply.transition) { ctx.transition = reply.transition; delete ctx.effects; }
+    if (name === "forget_session" || name === "end_session") {
+      this.contexts.delete(args.session_id);
+      if (args.learner_id) for (const [id, context] of this.contexts) {
+        if (context.learnerId === args.learner_id) this.contexts.delete(id);
+      }
+    }
+  }
+}
+
+const UI_EXTENSION = "io.modelcontextprotocol/ui";
+const UI_MIME = "text/html;profile=mcp-app";
+const UI_META = { ui: { csp: { resourceDomains: ["https://cdn.jsdelivr.net"] }, prefersBorder: true } };
+
+/** Advertise resources only to clients that negotiated the MCP Apps extension. */
+function registerPanelUi(server: McpServer) {
+  const tools = new Map<string, RegisteredTool>();
+  const supportsUi = () => Boolean(server.server.getClientCapabilities()?.extensions?.[UI_EXTENSION]);
+  const resources = [["lesson", lessonHtml], ["graph", graphHtml]].map(([kind, html]) => {
+    const uri = `ui://studium/${kind}-panel.html`;
+    const resource = server.registerResource(`studium-${kind}-panel`, uri, { mimeType: UI_MIME, _meta: UI_META }, async () => {
+      if (!supportsUi()) throw new Error("MCP Apps capability was not negotiated");
+      return { contents: [{ uri, mimeType: UI_MIME, text: html!, _meta: UI_META }] };
+    });
+    resource.disable();
+    return resource;
+  });
+  const previous = server.server.oninitialized;
+  server.server.oninitialized = () => {
+    previous?.();
+    if (!supportsUi()) return;
+    for (const resource of resources) resource.enable();
+    for (const [name, tool] of tools) {
+      const kind = name === "get_workflow_graph" ? "graph" : "lesson";
+      tool.update({ _meta: { ui: { resourceUri: `ui://studium/${kind}-panel.html` } } });
+    }
+  };
+  return (name: string, tool: RegisteredTool) => {
+    if (name === "get_workflow_graph" || (PANEL_TOOL_NAMES as readonly string[]).includes(name)) tools.set(name, tool);
+  };
+}
+
+/** Register panel actions and negotiate optional resources without changing legacy replies. */
+export function registerPanelTools(server: McpServer, host: SessionHost) {
+  const panels = new Panels(host);
+  const attachTool = registerPanelUi(server);
+  const session = { session_id: z.string().min(1) };
+  const openTool = server.registerTool("open_lesson_panel", {
+    description: "Open a shared lesson panel by bundle_ref or existing session_id. Returns a public PanelView and a short summary; wait for the learner's own actions.",
+    inputSchema: {
+      bundle_ref: z.string().min(1).optional(), session_id: z.string().min(1).optional(), learner_id: z.string().min(1).optional(),
+      show_mastery: z.boolean().optional(), modality_preference: z.enum(["balanced", "visual", "textual"]).optional(), locale: z.enum(["fr", "en"]).optional(),
+    },
+  }, async args => { try { return panelResult(await panels.open(args)); } catch (e) { return toolError(e); } });
+  const getTool = server.registerTool("get_panel_view", {
+    description: "Read the current public lesson panel, including earned feedback and completion.", inputSchema: session,
+  }, async ({ session_id }) => {
+    try { return panelResult(await presentPanel(panels.backend, await panels.context(session_id))); } catch (e) { return toolError(e); }
+  });
+  const actionTool = server.registerTool("panel_action", {
+    description: "Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker.",
+    inputSchema: { ...session, action: PanelActionSchema },
+  }, async ({ session_id, action }) => {
+    try { return panelResult(await panels.act(session_id, action)); } catch (e) { return toolError(e); }
+  });
+  attachTool("open_lesson_panel", openTool);
+  attachTool("get_panel_view", getTool);
+  attachTool("panel_action", actionTool);
+  return {
+    attachTool,
+    names: PANEL_TOOL_NAMES,
+    observe: async (name: string, args: Payload, result: ToolResult) => {
+      try { await panels.observe(name, args, result); }
+      catch { /* Panel bookkeeping must not change legacy replies. */ }
+    },
+  };
+}

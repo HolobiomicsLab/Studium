@@ -101,8 +101,8 @@ describe("lesson-mcp tools", () => {
     // 25 lesson operations + the four C1 study tools (sprint 2026-10-30): list_lessons, get_study_plan,
     // start_review_session, rate_recall; + the three C1 authoring tools (get_authoring_guide,
     // prepare_sources, create_lesson) and the two C1 teacher tools (review_lesson, class_report),
-    // wired at integration: 29 + 5 = 34.
-    expect(names).toHaveLength(34);
+    // and the three shared-panel tools: 29 + 5 + 3 = 37.
+    expect(names).toHaveLength(37);
     for (const name of ["get_authoring_guide", "prepare_sources", "create_lesson", "review_lesson", "class_report"]) {
       expect(names).toContain(name);
     }

@@ -21,13 +21,14 @@ import { lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools } from "./authoring-tools.js";
 import { TEACHER_TOOL_NAMES, registerTeacherTools } from "./teacher-tools.js";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
+import { PANEL_TOOL_NAMES, registerPanelTools } from "./panel-tools.js";
 
 /** C1 study tools, defined in this file. */
 export const STUDY_TOOL_NAMES = ["get_study_plan", "list_lessons", "rate_recall", "start_review_session"] as const;
 /** Every tool buildMcpServer registers, sorted: the lesson operations, the study tools, the authoring
  * tools and the teacher tools. */
 export const TOOL_NAMES: readonly string[] = [
-  ...LESSON_TOOL_NAMES, ...STUDY_TOOL_NAMES, ...AUTHORING_TOOL_NAMES, ...TEACHER_TOOL_NAMES,
+  ...LESSON_TOOL_NAMES, ...STUDY_TOOL_NAMES, ...AUTHORING_TOOL_NAMES, ...TEACHER_TOOL_NAMES, ...PANEL_TOOL_NAMES,
 ].sort();
 
 /** C4 self-rating grades, in FSRS order (lesson-session's SELF_RATING_CHOICES; a test pins the match). */
@@ -247,10 +248,16 @@ function registerPrompts(server: McpServer): void {
  * prompts. */
 export function buildMcpServer(host: SessionHost): McpServer {
   const server = new McpServer({ name: "studium-lesson", version: SERVER_VERSION }, { instructions: SERVER_INSTRUCTIONS });
-  const registered: string[] = [];
+  const panels = registerPanelTools(server, host);
+  const registered: string[] = [...panels.names];
   // get_server_info reads `registered` when it is called, so it lists every tool added below.
   for (const op of [...lessonOperations(host, { toolNames: () => registered }), ...studyOperations(host)]) {
-    server.registerTool(op.name, { description: op.description, inputSchema: op.inputSchema }, async (args) => op.invoke(args));
+    const registeredTool = server.registerTool(op.name, { description: op.description, inputSchema: op.inputSchema }, async (args) => {
+      const result = await op.invoke(args);
+      await panels.observe(op.name, args, result);
+      return result;
+    });
+    panels.attachTool(op.name, registeredTool);
     registered.push(op.name);
   }
   registered.push(...registerAuthoringTools(server, {

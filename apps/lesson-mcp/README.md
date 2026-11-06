@@ -45,7 +45,7 @@ Ready-made harness configurations are in [`docs/examples/`](../../docs/examples/
 
 ## What it offers
 
-34 tools, two prompts (`learn` and `review`) and server instructions that tell the assistant to wait for
+37 tools, two prompts (`learn` and `review`) and server instructions that tell the assistant to wait for
 the learner's own answers. The full contract is in the [MCP tools reference](../../docs/reference/mcp-tools.md).
 
 | Group | Tools |
@@ -54,6 +54,7 @@ the learner's own answers. The full contract is in the [MCP tools reference](../
 | Study over days (4) | `list_lessons`, `get_study_plan`, `start_review_session`, `rate_recall` |
 | Authoring from sources (3) | `get_authoring_guide`, `prepare_sources`, `create_lesson` |
 | Teacher (2) | `review_lesson`, `class_report` |
+| Shared panel (3) | `open_lesson_panel`, `get_panel_view`, `panel_action` |
 
 What the server guarantees:
 

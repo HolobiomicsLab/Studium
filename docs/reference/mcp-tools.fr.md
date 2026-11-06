@@ -84,7 +84,7 @@ temps écoulé depuis le début de la session.
 
 <!-- BEGIN GENERATED: mcp-tools (tools/docs/gen-mcp-tools.mjs; do not edit by hand) -->
 
-The server registers 34 tools.
+The server registers 37 tools.
 
 | Tool | Group | Summary |
 |---|---|---|
@@ -122,6 +122,9 @@ The server registers 34 tools.
 | [submit_turn](#submit_turn) | Lesson | Submit a free-text discussion turn; returns the scored reasoning signal and the Socratic tutor's reply move (so the client can render the dialogue turn-by-tu... |
 | [class_report](#class_report) | Teacher | Teacher: class-level report for a course over consented telemetry: per scene and per concept accuracy (only where a key or a model judge graded), hint relian... |
 | [review_lesson](#review_lesson) | Teacher | Teacher: review a lesson draft before approving it. |
+| [get_panel_view](#get_panel_view) | Other tools (other) | Read the current public lesson panel, including earned feedback and completion. |
+| [open_lesson_panel](#open_lesson_panel) | Other tools (other) | Open a shared lesson panel by bundle_ref or existing session_id. |
+| [panel_action](#panel_action) | Other tools (other) | Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker. |
 
 ## Study tools
 
@@ -478,6 +481,44 @@ Teacher: review a lesson draft before approving it. Returns the scene plan, who 
 | Field | Type | Required |
 |---|---|---|
 | `course_ref` | string (1–512 chars) | yes |
+
+## Other tools (other)
+
+### get_panel_view
+
+Read the current public lesson panel, including earned feedback and completion.
+
+| Field | Type | Required |
+|---|---|---|
+| `session_id` | string (non-empty) | yes |
+
+### open_lesson_panel
+
+Open a shared lesson panel by bundle_ref or existing session_id. Returns a public PanelView and a short summary; wait for the learner's own actions.
+
+| Field | Type | Required |
+|---|---|---|
+| `bundle_ref` | string (non-empty) | no |
+| `session_id` | string (non-empty) | no |
+| `learner_id` | string (non-empty) | no |
+| `show_mastery` | boolean | no |
+| `modality_preference` | one of `balanced`, `visual`, `textual` | no |
+| `locale` | one of `fr`, `en` | no |
+
+### panel_action
+
+Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `session_id` | string (non-empty) | yes |  |
+| `action` | object, one of 8 shapes | yes |  |
+| `action.type` | one of `respond`, `turn`, `hint`, `rateRecall`, `reviewNow`, `restartLesson`, `end`, `pickCourse` | yes |  |
+| `action.input` | any | no | Only in type `respond`. |
+| `action.text` | string | in `turn` |  |
+| `action.sceneId` | string (non-empty) | in `rateRecall` |  |
+| `action.grade` | one of `again`, `hard`, `good`, `easy` | in `rateRecall` |  |
+| `action.confirmed` | boolean | in `end` |  |
 
 ## Prompts
 

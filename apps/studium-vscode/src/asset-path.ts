@@ -2,7 +2,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
-type ImageAsset = { kind?: string; path?: string; [key: string]: unknown };
+type ImageAsset = { kind?: string | undefined; path?: string | undefined; [key: string]: unknown };
 
 function isInside(baseDir: string, candidate: string): boolean {
   const rel = relative(baseDir, candidate);

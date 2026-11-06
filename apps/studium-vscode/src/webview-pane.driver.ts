@@ -18,7 +18,7 @@ import { browserPhrases, phrase, type Locale } from "./phrases.js";
 const here = fileURLToPath(new URL(".", import.meta.url));
 const extensionDir = resolve(here, "..");
 const repoRoot = resolve(extensionDir, "..", "..");
-const paneSrc = readFileSync(resolve(extensionDir, "media", "artifact-pane.js"), "utf8");
+const paneSrc = readFileSync(resolve(extensionDir, "..", "lesson-panel-ui", "dist", "vscode", "artifact-pane.js"), "utf8");
 const markedSrc = readFileSync(resolve(extensionDir, "node_modules", "marked", "marked.min.js"), "utf8");
 const katexSrc = readFileSync(resolve(extensionDir, "node_modules", "katex", "dist", "katex.min.js"), "utf8");
 const mhchemSrc = readFileSync(resolve(extensionDir, "node_modules", "katex", "dist", "contrib", "mhchem.min.js"), "utf8");
@@ -1057,7 +1057,7 @@ function submitFreeText(scene: any, answer: string) {
     ["studium-tokens.css", "tokens.css"], ["studium-components.css", "components.css"], ["studium-vscode-bridge.css", "vscode-bridge.css"],
   ];
   for (const [media, source] of copies) {
-    const mediaPath = resolve(extensionDir, "media", media);
+    const mediaPath = resolve(extensionDir, "..", "lesson-panel-ui", "dist", "vscode", media);
     expect(existsSync(mediaPath) && readFileSync(mediaPath, "utf8").includes("--st-"), `media/${media} exists and defines --st- tokens`);
     const sourcePath = resolve(repoRoot, "design", source);
     if (existsSync(sourcePath)) {
@@ -1067,7 +1067,7 @@ function submitFreeText(scene: any, answer: string) {
   // Brand colours are accents and fallbacks only: outside var(--x, fallback), no colour literal may paint.
   const stripVars = (css: string) => { let out = css.replace(/\/\*[\s\S]*?\*\//g, ""); for (let i = 0; i < 6; i++) out = out.replace(/var\([^()]*\)/g, ""); return out; };
   for (const file of ["artifact-pane.css", "graph-pane.css"]) {
-    const css = stripVars(readFileSync(resolve(extensionDir, "media", file), "utf8"));
+    const css = stripVars(readFileSync(resolve(extensionDir, "..", "lesson-panel-ui", "dist", "vscode", file), "utf8"));
     const literals = css.match(/#[0-9a-fA-F]{3,8}\b|\b(?:rgb|rgba|hsl|hsla)\(|:\s*(?:white|black)\b/g) || [];
     expect(literals.length === 0, `${file} paints only with theme tokens (literals outside var(): ${literals.join(", ")})`);
   }
@@ -1087,22 +1087,22 @@ function submitFreeText(scene: any, answer: string) {
   };
   expect(statusInkOnText(".a-chip { border-color: var(--st-info); color: var(--st-success); } .b .ok-symbol { color: var(--st-danger); }").join() === ".a-chip",
     "the status-ink guard flags text painted with a status colour and lets a glyph through");
-  const paneCss = readFileSync(resolve(extensionDir, "media", "artifact-pane.css"), "utf8");
+  const paneCss = readFileSync(resolve(extensionDir, "..", "lesson-panel-ui", "dist", "vscode", "artifact-pane.css"), "utf8");
   // W4 needs_lead 7: the shared components themselves no longer paint the TEXT of the two components the pane
   // draws, the chip and the verdict heading, in status ink (design/components.css, copied verbatim to media/);
   // the ink stays on their borders and symbols. Integration tail T7: the notice title (warning ink), the field
   // error and the error state's title (danger ink) and the graph node no longer paint their words in status
   // ink either, which failed AA under the VS Code bridge in light themes.
-  const componentInk = statusInkOnText(readFileSync(resolve(extensionDir, "media", "studium-components.css"), "utf8"));
+  const componentInk = statusInkOnText(readFileSync(resolve(extensionDir, "..", "lesson-panel-ui", "dist", "vscode", "studium-components.css"), "utf8"));
   for (const selector of [".st-chip", ".st-feedback__heading", ".st-notice__title", ".st-field__error", ".st-state--error .st-state__title", ".st-node"]) {
     expect(!componentInk.includes(selector), `studium-components.css paints ${selector} text in --st-text, not status ink (offenders: ${componentInk.join(", ")})`);
   }
   for (const file of ["artifact-pane.css", "graph-pane.css"]) {
-    const inkOnText = statusInkOnText(readFileSync(resolve(extensionDir, "media", file), "utf8"));
+    const inkOnText = statusInkOnText(readFileSync(resolve(extensionDir, "..", "lesson-panel-ui", "dist", "vscode", file), "utf8"));
     expect(inkOnText.length === 0, `${file} never paints text with a status colour (${inkOnText.join(", ")})`);
   }
   // The bridge maps the display face to the editor's UI font, where Studium's tight display tracking looks cramped.
-  expect(/--st-tracking-display:\s*normal/.test(readFileSync(resolve(extensionDir, "media", "studium-vscode-bridge.css"), "utf8")),
+  expect(/--st-tracking-display:\s*normal/.test(readFileSync(resolve(extensionDir, "..", "lesson-panel-ui", "dist", "vscode", "studium-vscode-bridge.css"), "utf8")),
     "the VS Code bridge resets --st-tracking-display to normal");
   // The pane still repaints chip and verdict-heading text itself (belt and braces for an older components.css).
   expect(/\.scene-type\.st-chip,\s*\.review-due\.st-chip\s*\{\s*color:\s*var\(--st-text\)/.test(paneCss)

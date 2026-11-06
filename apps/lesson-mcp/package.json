@@ -15,13 +15,13 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "vitest run",
+    "test": "pnpm --filter @studium/lesson-panel-ui build && vitest run",
     "test:watch": "vitest",
     "build": "tsc",
-    "start": "tsx src/index.ts",
-    "api": "tsx src/http-entry.ts",
+    "start": "pnpm --filter @studium/lesson-panel-ui build && tsx src/index.ts",
+    "api": "pnpm --filter @studium/lesson-panel-ui build && tsx src/http-entry.ts",
     "api:call": "tsx src/http-client.ts",
-    "bundle": "esbuild ../studium-vscode/src/lesson-mcp-entry.ts --bundle --platform=node --format=cjs --banner:js='#!/usr/bin/env node' --outfile=dist/studium-mcp.cjs --define:__STUDIUM_BUILD__='{\"origin\":\"bundled\",\"built_at\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"git_sha\":\"'\"$(git describe --always --dirty --abbrev=7)\"'\"}'",
+    "bundle": "pnpm --filter @studium/lesson-panel-ui build && esbuild ../studium-vscode/src/lesson-mcp-entry.ts --loader:.html=text --bundle --platform=node --format=cjs --banner:js='#!/usr/bin/env node' --outfile=dist/studium-mcp.cjs --define:__STUDIUM_BUILD__='{\"origin\":\"bundled\",\"built_at\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"git_sha\":\"'\"$(git describe --always --dirty --abbrev=7)\"'\"}'",
     "prepack": "pnpm run bundle"
   },
   "dependencies": {
@@ -29,7 +29,8 @@
     "@studium/lesson-session-host": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "zod": "^3.23.8",
-    "zod-to-json-schema": "3.25.2"
+    "zod-to-json-schema": "3.25.2",
+    "@studium/lesson-panel-ui": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20",

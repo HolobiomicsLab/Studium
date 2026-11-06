@@ -20,6 +20,7 @@
  * The pane never holds an answer key: the host strips it (publicScene) and releases the feedback with
  * the verdict, after the answer.
  */
+let renderView;
 (function () {
   "use strict";
   const DEFAULT_STRINGS = {
@@ -1499,8 +1500,7 @@
   }
 
   // wiring: receive renders from the extension host; (the preview build calls window.__render directly)
-  window.addEventListener("message", (ev) => {
-    const d = ev.data || {};
+  function handleMessage(d) {
     if (d.type === "render") renderPane(d);
     else if (d.type === "hint") {
       setActionPending(false);
@@ -1558,8 +1558,35 @@
         el("p", { class: "error-recovery" }, t("pane_error_recovery"))));
     }
     else if (d.type === "done") showDone(d);
+  }
+  let previousView = null;
+  let previousBase = "";
+  /** Paint a complete public PanelView, replaying effects once per changed payload. */
+  renderView = function (view) {
+    if (view.schema !== "studium/panel-view/1") { handleMessage(view); return; }
+    if (previousView && previousView.session_id !== view.session_id) {
+      memory = freshMemory(); previousBase = ""; lastAuthoring = null;
+    }
+    const { hint, turn_result, recall_rated, pending, ...base } = view;
+    const signature = JSON.stringify(base);
+    const hasNewBase = signature !== previousBase;
+    if (hasNewBase) {
+      const type = { scene: "render", done: "done", notice: "action_notice", error: "action_error" }[view.kind];
+      handleMessage({ ...base, type });
+      previousBase = signature;
+    }
+    for (const [type, effect] of Object.entries({ hint, turn_result, recall_rated })) {
+      if (effect && (hasNewBase || (type === "turn_result" && ui.pendingTurn) || JSON.stringify(effect) !== JSON.stringify(previousView?.[type]))) {
+        handleMessage({ type, ...effect, ...(view.completion ? { completion: view.completion } : {}) });
+      }
+    }
+    setActionPending(Boolean(pending), pending);
+    previousView = view;
+  };
+  window.addEventListener("message", (ev) => {
+    if (ev.data?.type !== "view") renderView(ev.data?.view ?? ev.data ?? {});
   });
   window.__render = renderPane;
-  const vscode = typeof acquireVsCodeApi === "function" ? acquireVsCodeApi() : null;
-  window.__send = (msg) => { if (vscode) vscode.postMessage(msg); };
+  window.renderView = renderView;
 })();
+export { renderView };

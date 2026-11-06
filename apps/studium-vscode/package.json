@@ -343,16 +343,18 @@
     ]
   },
   "scripts": {
-    "build": "esbuild src/extension.ts --loader:.css=text --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js && esbuild src/lesson-mcp-entry.ts --bundle --platform=node --format=cjs --outfile=dist/lesson-mcp.cjs --define:__STUDIUM_BUILD__='{\"origin\":\"bundled\",\"built_at\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"git_sha\":\"'\"$(git describe --always --dirty --abbrev=7)\"'\"}'",
+    "build": "pnpm vendor && esbuild src/extension.ts --loader:.css=text --loader:.html=text --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js && esbuild src/lesson-mcp-entry.ts --loader:.html=text --bundle --platform=node --format=cjs --outfile=dist/lesson-mcp.cjs --define:__STUDIUM_BUILD__='{\"origin\":\"bundled\",\"built_at\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"git_sha\":\"'\"$(git describe --always --dirty --abbrev=7)\"'\"}'",
     "watch": "pnpm build --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm typecheck && for d in context-help scene-io asset-path webview-pane community modality review-fsrs run-task run-trust host-phrases data-paths lesson-uri pane-messages study-status lesson-tree lesson-picker completion chat-format mcp-connect panel-lifecycle contributes lesson-walk extension-host; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
     "package": "pnpm vendor && pnpm build && vsce package --no-dependencies -o studium.vsix",
-    "vendor": "mkdir -p media/vendor/katex/fonts && cp node_modules/marked/marked.min.js media/vendor/marked.min.js && cp node_modules/katex/dist/katex.min.js node_modules/katex/dist/katex.min.css node_modules/katex/dist/contrib/mhchem.min.js media/vendor/katex/ && cp -R node_modules/katex/dist/fonts/. media/vendor/katex/fonts/ && cp node_modules/vega/build/vega.min.js node_modules/vega-lite/build/vega-lite.min.js node_modules/vega-embed/build/vega-embed.min.js media/vendor/ && cp node_modules/cytoscape/dist/cytoscape.min.js node_modules/dagre/dist/dagre.min.js node_modules/cytoscape-dagre/dist/cytoscape-dagre.js node_modules/3dmol/build/3Dmol-min.js media/vendor/"
+    "vendor": "pnpm --filter @studium/lesson-panel-ui build && mkdir -p dist/panel && cp -R ../lesson-panel-ui/dist/vscode/. dist/panel/"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
-    "@studium/typed-graph-lens": "workspace:*"
+    "@studium/typed-graph-lens": "workspace:*",
+    "@studium/lesson-panel": "workspace:*",
+    "@studium/lesson-panel-ui": "workspace:*"
   },
   "devDependencies": {
     "3dmol": "^2.5.5",

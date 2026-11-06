@@ -33,10 +33,14 @@ require extension/package.nls.json
 require extension/package.nls.fr.json
 require extension/dist/extension.js
 require extension/dist/lesson-mcp.cjs
-require extension/media/vendor/marked.min.js
-require extension/media/vendor/katex/katex.min.js
-require extension/media/vendor/katex/katex.min.css
-require extension/media/vendor/3Dmol-min.js
+require extension/dist/panel/artifact-pane.js
+require extension/dist/panel/graph-pane.js
+require extension/dist/panel/bridge-vscode.js
+require extension/dist/panel/VENDOR-LICENSES.md
+require extension/dist/panel/vendor/marked.min.js
+require extension/dist/panel/vendor/katex/katex.min.js
+require extension/dist/panel/vendor/katex/katex.min.css
+require extension/dist/panel/vendor/3Dmol-min.js
 forbid '^extension/src/'
 forbid '^extension/node_modules/'
 

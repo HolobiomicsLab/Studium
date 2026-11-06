@@ -15,7 +15,7 @@ runInNewContext(compiled.outputFiles[0].text, { module: container, exports: cont
 const help = container.exports;
 assert.ok(help.helpStyles.includes('.studium-help'));
 assert.ok(help.graphHelp().includes('data-help-topic="universes"'));
-const source = readFileSync(new URL('../media/artifact-pane.js', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../../lesson-panel-ui/dist/vscode/artifact-pane.js', import.meta.url), 'utf8');
 const dom = new JSDOM(`<html lang="fr"><body>${help.lessonHelpTemplates()}<div id="pane"></div></body></html>`, { runScripts: 'outside-only' });
 dom.window.eval(source);
 const messages: unknown[] = [];
