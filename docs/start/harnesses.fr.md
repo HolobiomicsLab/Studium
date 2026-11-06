@@ -161,7 +161,11 @@ claude -p --mcp-config .mcp.json --strict-mcp-config \
 Le dépôt fournit deux définitions d'agent dans `.claude/agents/`. `studium-lesson` joue une leçon ou une
 révision en relais strict sur le modèle rapide : il montre chaque écran tel que Studium l'a écrit, envoie
 vos mots et n'ajoute rien. `studium-explainer` est un modèle plus fort qu'il appelle quand votre question
-demande une vraie explication ; la leçon continue pendant que l'explication s'écrit. Depuis le checkout :
+demande une vraie explication ; la leçon continue pendant que l'explication s'écrit. Son texte s'ouvre par
+« Explication générée », pour que vous le distinguiez de celui de la leçon. L'agent de leçon ouvre une
+leçon sur la meilleure surface que votre client sait afficher (un panneau ou un volet, des formulaires, ou
+la conversation). Quand vous revenez vers lui après y avoir joué, il lit d'abord ce que vous avez fait,
+pour ne pas vous remontrer un écran. Depuis le checkout :
 
 ```bash
 claude --agent studium-lesson

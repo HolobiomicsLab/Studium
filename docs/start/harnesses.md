@@ -156,7 +156,10 @@ claude -p --mcp-config .mcp.json --strict-mcp-config \
 The repository ships two agent definitions in `.claude/agents/`. `studium-lesson` plays a lesson or a review
 as a strict relay on the fast model: it shows each screen as Studium wrote it, sends your words, and adds
 nothing. `studium-explainer` is a stronger model it calls when your question needs a real explanation; the
-lesson goes on while the explanation is written. From the checkout:
+lesson goes on while the explanation is written; its text opens with « Generated explanation », so that
+you can tell it from the lesson's. The lesson agent opens a lesson on the best surface your client shows (a
+panel or a pane, forms, or the conversation), and when you come back to it after playing there, it first
+reads what you did, so that it does not show you a screen again. From the checkout:
 
 ```bash
 claude --agent studium-lesson

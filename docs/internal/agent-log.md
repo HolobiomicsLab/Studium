@@ -3774,6 +3774,27 @@ Not in the plan: recorded as a deviation. Test decision: none, no existing test 
 Not verified: no client other than the repository's own adapters was tried. An adapter that draws the
 view without asking for `pane` and without the MCP Apps extension would now get no labels.
 
+## 2026-11-06 (agents) — The lesson agent opens on the best surface and reads a brief
+
+INT-STUDIUM-058, lot 3, task 3.2. Text only: two agent definitions, the harness skill, the guide.
+
+- `.claude/agents/studium-lesson.md`: the agent opens a lesson with `open_lesson_panel` and follows
+  the surface the view names (rank 3: the learner plays beside the conversation and the agent writes
+  nothing between their acts; rank 2: `play_in_forms` at once; rank 1: relay). A new section, « When
+  the learner played without you »: at the learner's first message after acts on a panel, a pane or in
+  forms, it calls `get_companion_brief` before answering, follows its rules and does not show again a
+  scene the brief lists.
+- `.claude/agents/studium-explainer.md`: the explanation opens with its voice (« Explication générée »,
+  "Generated explanation") and ends with the passages of the lesson it rests on, when it was given any.
+- `skills/studium-harness/SKILL.md`: `open_lesson_panel` as the way to play on the best surface, and
+  the brief after acts the assistant did not see.
+- `docs/start/harnesses.md` and `.fr.md`: the lesson-agent paragraph says both.
+
+Not verified, and this matters: no model has played a lesson with these definitions. The plan asks for
+bench probes (`--probe`, paid) on the owner's go; none was run. Opening with `open_lesson_panel` costs
+the agent one more call than `start_lesson_session` on a conversation-only client (the view, then
+`get_current_scene` for the text to show): its effect on the first screen's delay is not measured.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local
