@@ -34,9 +34,11 @@ describe("learnerPath", () => {
     await session.respond({ kind: "quiz_choice", choiceId: "right" });       // q-a2 right → gate passed
     expect(session.learnerPath()).toEqual({
       steps: [
-        { step: 1, scene_id: "c-a", answered: false, correct: null },
-        { step: 2, scene_id: "q-a", answered: true, correct: false },
-        { step: 3, scene_id: "q-a2", answered: true, correct: true },
+        { step: 1, scene_id: "c-a", answered: false, correct: null, navigation: { kind: "advance", rule_id: null } },
+        { step: 2, scene_id: "q-a", answered: true, correct: false, assessed_by: "key",
+          navigation: { kind: "remediate", rule_id: "graph_prereq_gate", returns_to: "c-dep" } },
+        { step: 3, scene_id: "q-a2", answered: true, correct: true, assessed_by: "key",
+          navigation: { kind: "gate_passed", rule_id: "graph_prereq_gate_passed" } },
       ],
       passed_prerequisites: ["a"],
     });

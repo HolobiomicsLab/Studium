@@ -3011,6 +3011,62 @@ learning. Test decisions: new `concept-map.test.ts`, `host.concept-map.test.ts`,
 `session.learner-path.test.ts`, `tools/test_conversation_sources.py`; cases added to
 `source-set.test.ts` and `build.test.ts`; no existing assertion changed.
 
+## 2026-11-06 (carte interactive) — Concept map as an explorable page, with its provenance
+
+Owner request of 6 Nov: the map shown in the conversation is a static block; build the
+interactive page, with ASTRA provenance and an ARA trace. Same branch,
+`feat/2026-11-06-learner-concept-map`.
+
+Record. The server writes what the page needs, so no harness copies JSON by hand.
+`buildConceptMapRecord` (`lesson-session-host/src/concept-map-record.ts`) produces
+`studium/concept-map-record/v1`: the lesson (id, title, language, SHA-256 of the
+lesson file), how it was authored (mode, who drafted it, validated or not, judge or
+not, recorded approval, drawn from a conversation or not), the map, each scene (type,
+concepts, key class, cited sources with their origin: conversation, web, DOI,
+document) and the steps played. A passage is quoted only once the learner has left
+the scene that cites it; the record holds no learner id and none of the learner's
+words. `PathStep` gains `assessed_by` and `navigation` (kind, rule, return scene),
+set when the step is played; a step rebuilt from the saved history after a restart
+has neither. `SessionHost.exportConceptMap` writes the record under
+`<library>/_exports/concept-maps/` (never overwritten) and returns its path and
+SHA-256; `forget_session` names that folder among what stays on disk. New MCP study
+tool `export_concept_map {session_id}` (35 tools; MCP only, like the other study
+tools).
+
+Page. `tools/concept_map_report.py export RECORD OUTPUT [--class-report FILE]
+[--expect-sha256 HEX] [--language fr|en]` builds a package beside the learner report,
+on the same pattern: the record copied unchanged, `report.json`, `astra.yaml` (ASTRA
+0.0.14: the record as a declared artifact, three decisions, findings; no custom
+field), `trace/exploration_tree.yaml` (ARA 0.1.0: one node per step, one pivot per
+detour), `course_provenance.myst.md` and `index.html`, with `checks.json` holding the
+digest of every file. `verify DIRECTORY` recomputes everything from the record and
+runs the `astra-tools` validator. The page is one self-contained file (inline CSS,
+one inline script allowed by its hash in the CSP, no network): a layered graph drawn
+server-side; a click on a concept opens its panel (prerequisites, the learner's
+steps with who assessed each, sources and key class per scene, trace nodes); a click
+on a step opens its concept; a learner or teacher viewpoint; a filter by state.
+Every panel is in the HTML, so the page reads stacked without JavaScript.
+`--class-report` takes the output of the teacher tool `class_report` and shows its
+aggregate figures per concept in the teacher viewpoint; figures under its learner
+floor stay hidden. The Observatory serves the package like a learner report.
+
+Checked in a browser on four packages exported from real records (`atomistique-l1`
+at step 16 and completed, a lesson drafted from a conversation, one with class
+figures): concept and step clicks, both viewpoints, the state filter, hash
+navigation, no console error, no horizontal scroll at 375 px.
+
+Observation, not changed here: after a wrong answer the engine can return navigation
+`gate_passed` when the next scene's prerequisite was credited by an earlier flawless
+answer (step 14 of the completed `atomistique-l1` run). The routing looks right; the
+sentence the learner reads at that moment should be checked.
+
+Not verified: the page with a real `class_report` output (synthetic figures only);
+Mermaid in each harness. Test decisions: `session.learner-path.test.ts` expects the
+two new fields on each step (assertion extended, behaviour unchanged);
+`server.test.ts` counts 35 tools instead of 34 and names the new one; new
+`host.concept-map-record.test.ts` and `tools/test_concept_map_report.py`; one case
+added to `study-tools.test.ts`.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

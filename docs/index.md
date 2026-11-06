@@ -31,6 +31,7 @@ You choose the sources; your assistant builds the lesson; Studium checks it and 
 - [Student guide](learn/student-guide.md): play a lesson, answer, ask for a hint, read feedback.
 - [Experiment journal](learn/experiment-journal.md): a private record of prediction, observation and conclusion.
 - [Learner report](learn/learner-report.md): review a chosen trace before sharing it; your own texts are included only on request.
+- [Concept map](learn/concept-map.md): where you stand on each concept, and an interactive page showing what each one rests on.
 - [Languages and scientific supports](learn/language-and-supports.md): change the presentation language; equations, diagrams, structures and figures with their provenance.
 - [Tutorial: first lesson](tutorials/first-lesson.md).
 

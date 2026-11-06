@@ -180,6 +180,12 @@ count presented as an assessment.
   `display_markdown` already includes it, as a list or as one position line (`show`: `map` or
   `line`). A harness that draws diagrams may render `concept_map.mermaid` in place of the list. On
   the learner's request, `get_workflow_graph` returns the current `concept_map`.
+- For a page the learner can explore, `export_concept_map {session_id}` writes the session's record
+  under their library and returns `saved_to` and `sha256`; then run
+  `tools/concept_map_report.py export <saved_to> <new-dir> --expect-sha256 <sha256>`, `verify` it and
+  give them `index.html`: a concept opens its steps, its sources and its trace nodes, with a learner
+  and a teacher viewpoint. See [Concept map](../../docs/learn/concept-map.md). Export only on request:
+  the record holds the learner's results.
 
 Other lesson tools:
 

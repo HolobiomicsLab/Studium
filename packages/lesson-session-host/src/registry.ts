@@ -29,6 +29,8 @@ export interface SessionEntry {
   presentationLanguage?: string;
   /** The ref the session was started with (list_lessons and the study record name lessons by it). */
   bundleRef: string;
+  /** sha256 of the lesson.json bytes that were loaded; null for a bundle that is not one file. */
+  lessonSha256?: string | null;
   /** Durable mode: the folder holding this learner's data for this lesson (deps.ts durableScopeDir),
    * which forget removes. Absent in memory, and for a review session (it keeps no lesson state). */
   scopeDir?: string;

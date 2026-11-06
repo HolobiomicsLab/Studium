@@ -43,6 +43,10 @@ export interface PathStep {
   answered: boolean;
   /** true / false when a key or a judge assessed the answer, null otherwise. */
   correct: boolean | null;
+  /** Who assessed the answer. Absent for an acknowledged scene and for a step rebuilt from history. */
+  assessed_by?: Verdict["assessed_by"];
+  /** How the session routed after this step. Absent for a step rebuilt from the saved history. */
+  navigation?: { kind: Navigation["kind"]; rule_id: string | null; returns_to?: string };
 }
 export interface LearnerPath { steps: PathStep[]; passed_prerequisites: string[] }
 
@@ -320,7 +324,7 @@ export class LessonSession {
    * where the learner is: it stays under theta long after a gate was passed. */
   learnerPath(): LearnerPath {
     return {
-      steps: this.trail.map((step) => ({ ...step })),
+      steps: this.trail.map((step) => ({ ...step, ...(step.navigation ? { navigation: { ...step.navigation } } : {}) })),
       passed_prerequisites: [...this.passedPrerequisites].map((id) => id.replace(/^concept:/, "")),
     };
   }
@@ -402,6 +406,16 @@ export class LessonSession {
     const selfRating = await this.selfRatingFor(scene, signal, answeredAtMs);
     const t = this.navigate(decision, scene, answeredAtMs);
     this.lastSuccess = undefined;
+    const served = this.trail.at(-1);
+    if (served) {
+      if (served.answered) served.assessed_by = verdict.assessed_by;
+      if (t.navigation) {
+        served.navigation = {
+          kind: t.navigation.kind, rule_id: t.navigation.rule_id,
+          ...(t.navigation.returns_to === undefined ? {} : { returns_to: t.navigation.returns_to }),
+        };
+      }
+    }
     return { ...t, verdict, ...(selfRating ? { self_rating: selfRating } : {}) };
   }
 

@@ -21,6 +21,7 @@ principales.
 | Commande | Rôle |
 |---|---|
 | `.venv/bin/python tools/conversation_sources.py` | transformer une transcription Claude Code (`.jsonl`) ou un export texte d'une conversation en entrée de `prepare_sources`, de type `conversation` ; local, résultats d'outils écartés par défaut, chaînes ressemblant à des identifiants remplacées (`--focus`, `--last`, `--include-tool-results`, `--language`, `--out`) |
+| `.venv/bin/python tools/concept_map_report.py export` / `verify` | transformer l'enregistrement écrit par `export_concept_map` en page interactive autonome de la carte des notions, avec son document ASTRA, sa trace ARA et sa page MySTRA, puis le vérifier (`--class-report`, `--expect-sha256`, `--language`) ; voir [Carte des notions](../docs/learn/concept-map.fr.md) |
 | `.venv/bin/python tools/experience_packet.py passages` | capturer une URL, une page HTML, un PDF ou un texte choisi par l'apprenant en enveloppe de passages (`--url`, `--html`, `--pdf`, `--text`, `--out`) |
 | `.venv/bin/python tools/experience_packet.py prepare` | transformer des passages en paquet de création hors ligne (`--passages`, `--out`, `--title`) |
 | `.venv/bin/python tools/experience_packet.py check` | valider une réponse d'auteur au regard du paquet (`--packet`, `--response`, `--out` ; `--json` pour des constats structurés) |

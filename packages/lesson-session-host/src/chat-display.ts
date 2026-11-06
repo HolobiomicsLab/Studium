@@ -161,6 +161,9 @@ const PHRASES = {
     forget_library: "les leçons de ta bibliothèque ({lessons}), dans {path}",
     forget_library_unnamed: "les leçons de ta bibliothèque, dans {path}",
     forget_sources: "le texte des sources préparées pour elles, dans {path}",
+    forget_exports: "les cartes de notions que tu as exportées, dans {path}",
+    map_export_saved: "Carte des notions exportée dans `{path}`. Elle contient tes résultats de séance, sans identifiant ni texte de réponse, et reste sur cette machine tant que tu ne la partages pas.",
+    map_export_unsaved: "Carte des notions exportée (champ `record`). Ce serveur n'a pas de bibliothèque où l'écrire : enregistre `record` tel quel dans un fichier pour en faire une page.",
     forget_delete_yourself: "Supprime ces dossiers toi-même si tu veux qu'ils disparaissent aussi.",
     list_and: " et ",
   },
@@ -247,6 +250,9 @@ const PHRASES = {
     forget_library: "the lessons in your library ({lessons}), in {path}",
     forget_library_unnamed: "the lessons in your library, in {path}",
     forget_sources: "the text of the sources prepared for them, in {path}",
+    forget_exports: "the concept maps you exported, in {path}",
+    map_export_saved: "Concept map exported to `{path}`. It holds your session results, with no identifier and none of your answers' text, and stays on this machine until you share it.",
+    map_export_unsaved: "Concept map exported (field `record`). This server has no library to write it to: save `record` unchanged to a file to make a page from it.",
     forget_delete_yourself: "Delete those folders yourself if you want them gone too.",
     list_and: " and ",
   },
@@ -581,6 +587,11 @@ export function lessonListMarkdown(lessons: readonly ListedLessonLine[], locale:
 /** What forget_session erased and kept, as the host reports it (L-13). */
 export interface ForgetDisplayItem { kind: string; lessons?: readonly string[]; path?: string }
 
+/** What export_concept_map shows: where the record was written, what it holds and that it stays local. */
+export function conceptMapExportMarkdown(path: string | null, locale: DisplayLocale): string {
+  return path === null ? say(locale, "map_export_unsaved") : say(locale, "map_export_saved", { path });
+}
+
 /** forget_session's display_markdown (L-13, UX-01): what was erased, and what stays and where — the
  * lessons of the library and their sources, which a learner may believe gone with the rest. The
  * install's pseudonym key holds no learner data and is not named. */
@@ -602,9 +613,11 @@ export function forgetMarkdown(
         : say(locale, "forget_library_unnamed", { path: item.path ?? "" })];
     }
     if (item.kind === "lesson_sources") return [say(locale, "forget_sources", { path: item.path ?? "" })];
+    if (item.kind === "map_exports") return [say(locale, "forget_exports", { path: item.path ?? "" })];
     return [];
   });
-  const onDisk = report.kept.some((item) => item.kind === "library_lessons" || item.kind === "lesson_sources");
+  const onDisk = report.kept.some((item) => item.kind === "library_lessons" || item.kind === "lesson_sources"
+    || item.kind === "map_exports");
   const separator = locale === "fr" ? " ; " : "; ";
   return [
     say(locale, "forget_done"),

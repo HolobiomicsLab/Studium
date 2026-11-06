@@ -1,7 +1,7 @@
 // packages/lesson-session-host/src/host.ts
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
-import { rm, rmdir } from "node:fs/promises";
+import { mkdir, rm, rmdir, writeFile } from "node:fs/promises";
 import { join, isAbsolute, relative, dirname, resolve } from "node:path";
 import {
   LessonSession, enrichEvent, bundleVersionOf,
@@ -46,9 +46,10 @@ import {
   dueForReinforcement, type ConceptMemoryState, type SelfRating,
 } from "./fsrs-memory.js";
 import { publicScene, citedSources, type CitedSource, type PublicPresentation, type PublicTransition } from "./public-scene.js";
+import { buildConceptMapRecord, type ConceptMapRecord } from "./concept-map-record.js";
 import {
   presentationMarkdown, transitionMarkdown, verdictMarkdown, recallRatedMarkdown, nothingToReviewMarkdown,
-  lessonListMarkdown, forgetMarkdown, completionSplit, completionGroupsMarkdown, type CompletionSplit, type DisplayLocale,
+  lessonListMarkdown, forgetMarkdown, conceptMapExportMarkdown, completionSplit, completionGroupsMarkdown, type CompletionSplit, type DisplayLocale,
 } from "./chat-display.js";
 import { OffsetClock, checkNowMs } from "./session-clock.js";
 import { calendarDate, checkTimeZone, localTimeZone } from "./calendar.js";
@@ -823,11 +824,22 @@ export interface LessonListing {
   display_markdown: string;
 }
 
+/** What export_concept_map returns: the record, and where it was written (null without a library). */
+export interface ConceptMapExport {
+  record: ConceptMapRecord;
+  saved_to: string | null;
+  sha256: string | null;
+  display_markdown: string;
+}
+
+/** Folder of the learner's library that holds exports of their sessions (forget reports it as kept). */
+const EXPORTS_DIR = "_exports";
+
 /** L-13: one thing forget_session erased or kept. `lessons` names lessons by title; `path` is a
  * folder or file left on disk. */
 export interface ForgetItem {
   kind: "lesson_progress" | "learner_profile" | "study_record" | "other_lessons_progress" | "library_lessons"
-    | "lesson_sources" | "pseudonym_key";
+    | "lesson_sources" | "map_exports" | "pseudonym_key";
   lessons?: string[];
   path?: string;
 }
@@ -1038,7 +1050,7 @@ export class SessionHost {
       const session = new LessonSession(bundle, deps, initial, learnerId, completed);
       const entry = this.newEntry({
         session, deps, bundle, bundleRef, baseDir: resolved.baseDir, profilePseudonym, authoring, kind: "lesson",
-        memory: initial.concept_memory ?? {}, profileSeen: profile !== null,
+        memory: initial.concept_memory ?? {}, profileSeen: profile !== null, lessonSha256: resolved.sha256 ?? null,
         ...(normalizedPresentationLanguage ? { presentationLanguage: normalizedPresentationLanguage } : {}),
         ...(scopeDir ? { scopeDir } : {}),
         ...(resolved.minutesPerDay !== null ? { minutesPerDay: resolved.minutesPerDay } : {}),
@@ -1413,6 +1425,45 @@ export class SessionHost {
    * was answered. null for a review session and for a lesson with fewer than two concepts. */
   conceptMap(id: string, moment: ConceptMapMoment = "on_request"): ConceptMap | null {
     return this.conceptMapOf(this.require(id), moment);
+  }
+
+  /** The exportable record behind the concept map (concept-map-record.ts): the map, the steps with who
+   * assessed each answer and how the session routed, and what each scene rests on. No learner
+   * identifier, none of the learner's words. null when the session has no map. */
+  conceptMapRecord(id: string): ConceptMapRecord | null {
+    const entry = this.require(id);
+    const map = this.conceptMapOf(entry, "on_request");
+    if (!map) return null;
+    return buildConceptMapRecord({
+      bundle: entry.bundle, map, path: entry.session.learnerPath(), authoring: entry.authoring,
+      currentSceneId: entry.completed ? null : entry.session.currentPresentation().scene.id,
+      withheldSceneIds: new Set(entry.withheldSources.map((held) => held.sceneId)),
+      completed: entry.completed === true, lessonSha256: entry.lessonSha256 ?? null,
+      generatedAt: new Date(this.sessionNow(entry)).toISOString(),
+    });
+  }
+
+  /** Export the record, and write it under the learner's library (`_exports/concept-maps/`) when the
+   * host has one, so that no harness has to copy it by hand. `sha256` is the digest of the bytes
+   * written. forget_session reports that folder among what stays on disk. */
+  async exportConceptMap(id: string): Promise<ConceptMapExport | null> {
+    const record = this.conceptMapRecord(id);
+    if (!record) return null;
+    const locale = displayLocale(record.lesson.language);
+    const library = this.opts.libraryRoot;
+    if (!library) return { record, saved_to: null, sha256: null, display_markdown: conceptMapExportMarkdown(null, locale) };
+    const dir = join(library, EXPORTS_DIR, "concept-maps");
+    await mkdir(dir, { recursive: true });
+    const stamp = record.generated_at.replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+    const base = `${safeSegment(record.lesson.bundle_id)}-${stamp}`;
+    let path = join(dir, `${base}.json`);
+    for (let n = 2; existsSync(path); n += 1) path = join(dir, `${base}-${n}.json`);
+    const bytes = Buffer.from(`${JSON.stringify(record, null, 2)}\n`, "utf-8");
+    await writeFile(path, bytes, { flag: "wx" });
+    return {
+      record, saved_to: path, sha256: createHash("sha256").update(bytes).digest("hex"),
+      display_markdown: conceptMapExportMarkdown(path, locale),
+    };
   }
 
   private conceptMapOf(entry: SessionEntry, moment: ConceptMapMoment): ConceptMap | null {
@@ -2350,6 +2401,8 @@ export class SessionHost {
       if (titles.length) kept.push({ kind: "library_lessons", lessons: sortedTitles(titles), path: library });
       const sources = join(library, "_sources");
       if (existsSync(sources)) kept.push({ kind: "lesson_sources", path: sources });
+      const exports = join(library, EXPORTS_DIR);
+      if (existsSync(exports)) kept.push({ kind: "map_exports", path: exports });
     }
     const secret = this.dataDir ? join(this.dataDir, SECRET_FILE) : null;
     if (secret && existsSync(secret)) kept.push({ kind: "pseudonym_key", path: secret });

@@ -84,10 +84,11 @@ temps écoulé depuis le début de la session.
 
 <!-- BEGIN GENERATED: mcp-tools (tools/docs/gen-mcp-tools.mjs; do not edit by hand) -->
 
-The server registers 34 tools.
+The server registers 35 tools.
 
 | Tool | Group | Summary |
 |---|---|---|
+| [export_concept_map](#export_concept_map) | Study | On the learner's request, export the concept map of a lesson session as a record (studium/concept-map-record/v1): the map, each step with who assessed the an... |
 | [get_study_plan](#get_study_plan) | Study | Start here: what the learner should do now. |
 | [list_lessons](#list_lessons) | Study | List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson written a moment ago is listed): bundle_ref (pass... |
 | [rate_recall](#rate_recall) | Study | After an answer whose transition carries self_rating {requested: true} (a production answer no judge assessed), ask the LEARNER how well they recalled it — a... |
@@ -126,6 +127,14 @@ The server registers 34 tools.
 ## Study tools
 
 What to do now, and reviews over days.
+
+### export_concept_map
+
+On the learner's request, export the concept map of a lesson session as a record (studium/concept-map-record/v1): the map, each step with who assessed the answer and how the session routed after it, and for every scene what it rests on (sources cited and their origin, key class, who drafted the lesson and whether a teacher validated it). No learner identifier and none of the learner's words; a passage is quoted only for a scene already left. When the server has a library the record is written under &lt;library&gt;/_exports/concept-maps/ and saved_to and sha256 name the file; tools/concept_map_report.py turns it into an interactive page with its ASTRA document and ARA trace. Show display_markdown. Fails for a review session and for a lesson with fewer than two concepts.
+
+| Field | Type | Required |
+|---|---|---|
+| `session_id` | string | yes |
 
 ### get_study_plan
 

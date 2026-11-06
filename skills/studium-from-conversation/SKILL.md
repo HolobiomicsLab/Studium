@@ -103,9 +103,14 @@ If your harness draws diagrams, render `concept_map.mermaid` in place of the lis
 
 When the lesson ends, say in two lines what the map shows (acquired, to review, seen but not
 assessed) and go back to the conversation's task. The lesson stays in the learner's library and its
-concepts come back through `start_review_session`. For a record of the session with its provenance
-(ASTRA, ARA trace, MySTRA page), use
-[studium-learner-report](../studium-learner-report/SKILL.md).
+concepts come back through `start_review_session`.
+
+If the learner wants to see what each concept rests on, offer the interactive map:
+`export_concept_map {session_id}`, then `tools/concept_map_report.py export <saved_to> <new-dir>
+--expect-sha256 <sha256>` and `verify`. The page shows, per concept, the turns of the conversation
+that were quoted, marked as coming from a conversation with an assistant, and who assessed each
+answer; it comes with an ASTRA document and an ARA trace of the session. See
+[Concept map](../../docs/learn/concept-map.md).
 
 ## What this does not give
 
