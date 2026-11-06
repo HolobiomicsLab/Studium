@@ -37,12 +37,15 @@ export const PanelActionSchema = z.discriminatedUnion("type", [
   /** « I know it » (`known`) of a concept not acquired, « I am not sure » (`unsure`) of an acquired one:
    * check questions follow, graded as any answer. The claim itself changes nothing. */
   z.object({ type: z.literal("contest"), concept_id: z.string().min(1), claim: z.enum(["known", "unsure"]) }).strict(),
+  /** The learner's answer to a proposal of the view (`prompts`): accept it or dismiss it. The server
+   * keeps the outcome; accepting then does what the proposal said. */
+  z.object({ type: z.literal("prompt"), id: z.string().min(1), outcome: z.enum(["accept", "dismiss"]) }).strict(),
 ]);
 export type PanelAction = z.infer<typeof PanelActionSchema>;
 export type PanelActionName = PanelAction["type"];
 export const PANEL_ACTION_NAMES = [
   "respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse", "ask", "setAttention", "setLanguage", "replan",
-  "openMap", "closeMap", "contest",
+  "openMap", "closeMap", "contest", "prompt",
 ] as const satisfies readonly PanelActionName[];
 export const PanelActionNameSchema = z.enum(PANEL_ACTION_NAMES);
 export const NamedConceptSchema = z.object({ id: z.string(), label: z.string() });

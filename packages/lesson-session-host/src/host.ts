@@ -71,6 +71,7 @@ import {
 } from "./orientation.js";
 import { COMPANION_RULES, noteAct, takeActs, type CompanionBrief, type Lane } from "./companion.js";
 import { ContestRefusedError, checkScenes, claimFor, contestOutcome, type ContestClaim, type RecordContest } from "./contest.js";
+import { PromptBook, promptCandidates, type PromptAttention, type PromptCandidate, type PromptRecord } from "./prompts.js";
 import type { HostResponseInput } from "./response-input-schema.js";
 
 // Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /
@@ -1642,6 +1643,45 @@ export class SessionHost {
    * reviews are due at. */
   orientationFacts(id: string, nowMs?: number): OrientationFacts {
     return this.orientationFactsOf(this.require(id), nowMs);
+  }
+  /** INT-STUDIUM-058 § 2.6: what the session proposes to the learner now. The host reads the moment
+   * (the first screen, a pause, the end of the lesson) and what the lesson waits for, puts the
+   * triggers' proposals to the session's book (prompts.ts) and returns what is open: the book holds a
+   * proposal back while an answer is owed, makes it once, and stops at the budget of `attention`.
+   * A proposal bound to a scene that went by is counted ignored. A review session is proposed no
+   * review. `surfaceRank` and `formsAvailable` say where the lesson is played (a panel by default);
+   * `nowMs` sets the moment reviews are due at. */
+  sessionPrompts(id: string, ask: {
+    locale: "fr" | "en"; attention?: PromptAttention; surfaceRank?: 1 | 2 | 3; formsAvailable?: boolean;
+    breakAfterMinutes?: number | null; hasNextLesson?: boolean; nowMs?: number;
+  }): PromptCandidate[] {
+    const entry = this.require(id);
+    const book = (entry.prompts ??= new PromptBook(ask.attention ?? "normal"));
+    if (ask.attention) book.setAttention(ask.attention);
+    const facts = this.orientationFactsOf(entry, ask.nowMs);
+    const sceneId = facts.completed ? null : facts.scene.id;
+    if (entry.promptScene !== undefined && entry.promptScene !== sceneId) book.sceneChanged();
+    entry.promptScene = sceneId;
+    const moment = facts.completed ? "lesson_end" : entry.responses === 0 ? "session_start" : "pause";
+    book.emit(promptCandidates({
+      moment, locale: ask.locale,
+      reviewsDue: entry.kind === "review" ? 0 : facts.reviews_due,
+      // No setting holds the length of session the learner wants yet: without one, no break is proposed.
+      minutesInSession: 0, breakAfterMinutes: ask.breakAfterMinutes ?? null,
+      surfaceRank: ask.surfaceRank ?? 3, formsAvailable: ask.formsAvailable ?? false,
+      hasMap: entry.kind === "lesson" && entry.bundle.concepts.length >= 2, hasNextLesson: ask.hasNextLesson ?? false,
+    }), { waiting: orientationFrom(facts).waiting, sceneId });
+    return book.open();
+  }
+  /** The learner answered a proposal of this session: accepted or dismissed. Refused in one line when
+   * no such proposal is open (PromptRefusedError). */
+  settlePrompt(id: string, promptId: string, outcome: "accepted" | "dismissed"): PromptRecord {
+    const entry = this.require(id);
+    return (entry.prompts ??= new PromptBook()).settle(promptId, outcome);
+  }
+  /** What became of each proposal of this session answered or gone by, in the order they were made. */
+  promptRecords(id: string): PromptRecord[] {
+    return this.require(id).prompts?.records() ?? [];
   }
   /** The same from the entry: a first screen is served before its session can be looked up by id. */
   private orientationFactsOf(entry: SessionEntry, nowMs?: number): OrientationFacts {

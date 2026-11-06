@@ -32,6 +32,7 @@ révision n'en a pas) :
 |---|---|
 | `openMap` | Ajoute `map` à chaque vue jusqu'à `closeMap` : rien n'est soumis, la scène reste. Une séance sans carte (moins de deux notions) répond par une vue `notice`. |
 | `closeMap` | Retire `map`. Une séance qui recommence s'ouvre carte fermée. |
+| `prompt {id, outcome}` | La réponse de l'apprenant à une proposition de `prompts` : `accept` ou `dismiss`. Le backend garde l'issue (`settlePrompt`). Acceptée, une révision due démarre la séance de révision et l'offre de carte ouvre la carte ; une pause, les formulaires et la leçon suivante répondent par une vue `notice` qui dit comment. Refusée, la scène reste. Répondre à une invite qui n'est pas ouverte est une erreur en une ligne. |
 
 `map` (`MapViewSchema`, construit par `mapView(record, locale)`) est tiré de l'enregistrement de la séance
 `studium/concept-map-record/v1`, qu'un backend donne par `getConceptMapRecord` ; un backend sans cette
@@ -59,6 +60,16 @@ aucune question notée par une clé, autre contestation en cours) est une erreur
 Deux surfaces dessinent `map`, toutes deux en liste de mots et aucune en graphe : le panneau de leçon
 ([`apps/lesson-panel-ui`](../../apps/lesson-panel-ui/src/artifact-pane.js)) et le volet de Claude Code
 ([`apps/claude-code-mod`](../../apps/claude-code-mod/README.fr.md)). Leurs mots sont les phrases `pane_map_*`.
+
+`prompts` porte ce que la séance propose maintenant. Un backend qui a `getPrompts` est interrogé à chaque
+vue, avec le niveau d'attention et la surface : les règles sont celles du serveur (rien tant qu'une réponse
+ou une auto-évaluation est attendue, un plafond par séance de 0, 3 ou 6 propositions pour `quiet`, `normal`
+et `coached`, chaque proposition faite une fois ; voir [`prompts.ts`](../lesson-session-host/src/prompts.ts)).
+La vue donne à chaque proposition deux actions, toutes deux des actions `prompt` : la première accepte, la
+seconde refuse. Une notice (`adaptation_notice`, `resume_notice`) n'a pas d'action. La vue ne propose
+`prompt` que si une proposition attend une réponse. L'invite `replan`, demandée par l'apprenant, vient
+après celles du serveur et n'est pas comptée. Aucune surface ne dessine encore `prompts` : un modèle les
+lit dans la vue d'une leçon jouée en conversation.
 
 Une vue porte `strings`, le catalogue des libellés de l'interface dans la langue de la leçon (environ
 24 ko), pour la surface qui la dessine. Le serveur MCP le laisse vide là où rien ne dessine la vue

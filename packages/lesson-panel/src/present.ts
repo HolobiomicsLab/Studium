@@ -8,9 +8,9 @@ import { assetBundleRef } from "./pane-messages.js";
 import { completionSplit } from "./completion.js";
 import {
   PANEL_VIEW_SCHEMA, PANEL_VIEW_SCHEMA_V1, PanelViewSchema, PublicSceneSchema,
-  type PublicScene, type PanelView, type NamedConcept, type Surface,
+  type PublicScene, type PanelView, type NamedConcept, type Prompt, type Surface,
 } from "./view.js";
-import type { PanelBackend, PanelContext, Payload } from "./backend.js";
+import type { PanelBackend, PanelContext, Payload, ServedPrompt } from "./backend.js";
 import { mapView } from "./map.js";
 
 const FORBIDDEN_FIELDS = new Set(["answer", "correct", "expected", "key", "solution"]);
@@ -96,6 +96,31 @@ async function doneView(backend: PanelBackend, ctx: PanelContext): Promise<Panel
   return view;
 }
 
+/** How each kind of proposal is answered: the words of « yes » and of « no » (spec § 2.6: two actions
+ * at most, refusing always possible). A notice has none: it asks nothing. */
+const PROMPT_LABELS: Partial<Record<Prompt["kind"], readonly [accept: Parameters<typeof phrase>[0], dismiss: Parameters<typeof phrase>[0]]>> = {
+  review_due: ["panel_prompt_review_accept", "panel_prompt_later"],
+  break: ["panel_prompt_break_accept", "panel_prompt_break_dismiss"],
+  next_lesson: ["panel_prompt_next_accept", "panel_prompt_later"],
+  map_offer: ["panel_prompt_map_accept", "panel_prompt_later"],
+  forms_offer: ["panel_prompt_forms_accept", "panel_prompt_forms_dismiss"],
+};
+const NOTICE_PROMPTS: ReadonlySet<string> = new Set(["resume_notice", "adaptation_notice"]);
+
+/** A served prompt as the view shows it: both answers go back to the server as a `prompt` action, so
+ * the outcome is kept whichever the learner picks. A kind this view has no words for is left out. */
+function promptOf(served: ServedPrompt, locale: "fr" | "en"): Prompt[] {
+  const kind = served.kind as Prompt["kind"];
+  const base = { id: served.id, kind, reason: served.reason, expires: served.expires };
+  if (NOTICE_PROMPTS.has(served.kind)) return [{ ...base, actions: [] }];
+  const labels = PROMPT_LABELS[kind];
+  if (!labels) return [];
+  return [{ ...base, actions: [
+    { label: phrase(labels[0], {}, locale), action: { type: "prompt", id: served.id, outcome: "accept" } },
+    { label: phrase(labels[1], {}, locale), action: { type: "prompt", id: served.id, outcome: "dismiss" } },
+  ] }];
+}
+
 /** The surface a view is composed for until the host says which one it plays on: a panel, with the
  * conversation text always there to fall back on. */
 const DEFAULT_SURFACE: Surface = { rank: 3, kind: "panel", available: ["text", "panel"] };
@@ -113,9 +138,13 @@ export async function presentPanel(backend: PanelBackend, ctx: PanelContext): Pr
     const placed = await backend.getOrientation(ctx.sessionId, {
       locale: view.locale, lessonTitle: view.lesson_title, verdict: ctx.transition?.verdict ?? null,
     });
-    Object.assign(view, placed, {
-      schema: PANEL_VIEW_SCHEMA, prompts: ctx.prompts ?? [], attention: ctx.attention ?? "normal", surface: ctx.surface ?? DEFAULT_SURFACE,
-    });
+    const attention = ctx.attention ?? "normal";
+    const surface = ctx.surface ?? DEFAULT_SURFACE;
+    // The server's proposals first, then the answer to the learner's own « I have N minutes ».
+    const served = backend.getPrompts ? await backend.getPrompts(ctx.sessionId, { attention, surface, locale: view.locale }) : [];
+    const prompts = [...served.flatMap(prompt => promptOf(prompt, view.locale)), ...(ctx.prompts ?? [])];
+    Object.assign(view, placed, { schema: PANEL_VIEW_SCHEMA, prompts, attention, surface });
+    if (prompts.some(prompt => prompt.actions.some(offered => offered.action.type === "prompt"))) view.actions.push("prompt");
     // What a placed learner can do on any scene without a model turn (applyPanelAction).
     if (view.kind === "scene") view.actions.push("ask", "setLanguage", "setAttention", "replan");
     // The map (spec § 2.7): on request, from forms upwards, for a lesson (a review session has none).

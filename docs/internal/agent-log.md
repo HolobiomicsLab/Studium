@@ -3985,6 +3985,48 @@ Checked: every repository check passes on this tree at its first run (install, b
 Not verified: no session uses the rules and no learner has seen a prompt; the reasons were not read by
 a teacher; the budgets are the spec's starting values.
 
+## 2026-11-06 (prompts on the view) — The server's proposals reach the view and are answered by `prompt`
+
+INT-STUDIUM-058, lot 5, first half of task 5.2 (requirement F7, spec § 2.6). The rules of `a2fa4f5`
+now run in a live session and reach the view; drawing them on the surfaces is the second half.
+
+- `packages/lesson-session-host`: a session holds a `PromptBook`. `host.sessionPrompts` reads the
+  moment (the first screen, a pause, the end of the lesson) and what the lesson waits for, puts the
+  triggers' proposals to the book and returns what is open; a proposal whose scene went by is counted
+  ignored. `host.settlePrompt` keeps the learner's answer; `host.promptRecords` lists the outcomes.
+- `packages/lesson-panel`: a backend with `getPrompts` is asked at each view. Each proposal of
+  `prompts` carries two actions, both the new action `prompt {id, outcome}`: the first accepts, the
+  second refuses. A notice has none. Accepted, a due review starts the review session and the map
+  offer opens the map; a break, forms and the next lesson answer with a notice that says how.
+- `apps/lesson-mcp`: `hostBackend` gives `getPrompts` and `settlePrompt`; the description of
+  `panel_action` tells the agent never to answer a prompt for the learner and to add no proposal of
+  its own during a session. `apps/claude-code-mod` and the MCP Apps bridge accept the action.
+
+What fires today: forms offered once to a lesson played in the conversation by a client that can show
+forms; the reviews due on the first screen of a lesson taken up again; the map when a lesson with a
+map ends. Not yet: a break (no setting holds the session length the learner wants), the next lesson
+(the server does not know the library has one), the two notices.
+
+Correction to `a2fa4f5`: the forms offer fires from the first screen, not only at a pause.
+
+Deviations from the plan: task 5.2 is split in two commits, this one without any rendering. Both
+answers of a proposal are `prompt` actions, where the spec allowed any panel action: otherwise an
+accepted review would leave no outcome.
+
+Test decision: none. New tests: five in `host.prompts.test.ts` and six in `panel.test.ts`, all
+failing first; two in `panel-prompts.test.ts` (a real MCP client), written with the adapter and first
+run after it; one assertion in the mod's spec; one in `prompts.test.ts`.
+
+Checked: every repository check passes on this tree at its first run (install, build, lint,
+`pnpm -r test`, the Python suites, bundle lint, docs check, headless smoke, the MCP bundle,
+`tools/panel-probe.mjs`), `pnpm test:tools` and `claude plugin test` (5 tests). The model-free bench
+(`tools/latency_bench.py --mode panel`, then `--mode forms`, on `fixtures/atomistique-l1`) was run on
+this tree, since each view now asks the session's book: 40 panel actions with a median of 2.9 ms and a
+95th centile of 9.6 ms (one at 44 ms), 32 form acts with a 95th centile of 2.6 ms, transport included.
+
+Not verified: no surface draws a prompt and no learner has seen one; no model has read a view that
+carries one. The phrases were not read by a teacher. Outcomes live in memory and go with the session.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

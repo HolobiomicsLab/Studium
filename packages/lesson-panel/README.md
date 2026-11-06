@@ -31,6 +31,7 @@ Two actions show the concept map, from forms upwards and for a lesson (a review 
 |---|---|
 | `openMap` | Adds `map` to every view until `closeMap`: nothing is submitted and the scene stays. A session without a map (fewer than two concepts) answers with a `notice`. |
 | `closeMap` | Removes `map`. A session that starts again opens with its map closed. |
+| `prompt {id, outcome}` | The learner's answer to a proposal of `prompts`: `accept` or `dismiss`. The backend keeps the outcome (`settlePrompt`). Accepted, a due review starts the review session and the map offer opens the map; a break, forms and the next lesson answer with a `notice` that says how. Dismissed, the scene stays. An answer to a prompt that is not open is an error in one line. |
 
 `map` (`MapViewSchema`, built by `mapView(record, locale)`) is drawn from the session's record
 `studium/concept-map-record/v1`, which a backend gives through `getConceptMapRecord`; a backend without
@@ -56,6 +57,15 @@ state does not take, no key-graded question, another contest under way) is an er
 Two surfaces draw `map`, both as a list in words and neither as a graph: the lesson panel
 ([`apps/lesson-panel-ui`](../../apps/lesson-panel-ui/src/artifact-pane.js)) and the Claude Code pane
 ([`apps/claude-code-mod`](../../apps/claude-code-mod/README.md)). Their words are the `pane_map_*` phrases.
+
+`prompts` holds what the session proposes now. A backend with `getPrompts` is asked at each view, with the
+attention level and the surface: the rules are the server's (nothing while an answer or a self-rating is
+owed, a budget per session of 0, 3 or 6 proposals for `quiet`, `normal` and `coached`, each proposal made
+once; see [`prompts.ts`](../lesson-session-host/src/prompts.ts)). The view gives each proposal two
+actions, both `prompt` actions: the first accepts, the second refuses. A notice (`adaptation_notice`,
+`resume_notice`) has no action. The view offers `prompt` only when a proposal can be answered. The
+learner's own `replan` prompt is added after the server's and is not counted. No surface draws `prompts`
+yet: a model reads them in the view of a lesson played in the conversation.
 
 A view carries `strings`, the interface's phrase catalogue in the lesson's language (some 24 kB), for the
 surface that draws it. The MCP server leaves it empty where nothing draws the view (forms, the conversation):

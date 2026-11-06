@@ -147,6 +147,8 @@ describe("what triggers a proposal", () => {
     expect(promptCandidates({ ...FACTS, surfaceRank: 1, formsAvailable: true })).toEqual([
       { id: "forms_offer", kind: "forms_offer", reason: "Cette leçon peut se jouer en formulaires : la réponse suivante arrive sans attendre l'assistant.", expires: "session" },
     ]);
+    expect(promptCandidates({ ...FACTS, moment: "session_start", surfaceRank: 1, formsAvailable: true }).map(p => p.id)).toEqual(["forms_offer"]);
+    expect(promptCandidates({ ...FACTS, moment: "lesson_end", surfaceRank: 1, formsAvailable: true })).toEqual([]);
     expect(promptCandidates({ ...FACTS, surfaceRank: 1, formsAvailable: false })).toEqual([]);
     expect(promptCandidates({ ...FACTS, surfaceRank: 2, formsAvailable: true })).toEqual([]);
     // The book emits the id once, so the trigger may fire at every pause.

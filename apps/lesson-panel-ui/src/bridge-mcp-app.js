@@ -1,7 +1,7 @@
 // The host transports actions; the server owns all grading and learner state.
 import { browserPhrases, localeFromLanguage } from "../../../packages/lesson-panel/src/phrases.ts";
 import { toCytoscape, buildStylesheet, egoFilter } from "@studium/typed-graph-lens";
-const ACTIONS = new Set(["respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse", "ask", "openMap", "closeMap", "contest"]);
+const ACTIONS = new Set(["respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse", "ask", "openMap", "closeMap", "contest", "prompt"]);
 /** A display delay the renderer measured (client_ms), when it is one: a whole number of milliseconds, not negative. */
 const delayOf = meta => (Number.isInteger(meta?.client_ms) && meta.client_ms >= 0 ? { client_ms: meta.client_ms } : {});
 

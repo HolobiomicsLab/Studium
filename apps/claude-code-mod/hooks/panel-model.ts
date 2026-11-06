@@ -20,7 +20,7 @@ const ACTIONS = new Set<StudiumPanelActionName>([
   "ask", "setAttention", "setLanguage", "replan",
   // The concept map (INT-STUDIUM-058 § 2.7). This pane does not draw it yet: a view that offers it,
   // or carries it, is still a view it shows.
-  "openMap", "closeMap", "contest",
+  "openMap", "closeMap", "contest", "prompt",
 ]);
 const FREE_TEXT_KINDS: Record<string, string> = {
   ai_critique: "critique",

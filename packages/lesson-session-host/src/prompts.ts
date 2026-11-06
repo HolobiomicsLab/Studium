@@ -187,7 +187,8 @@ export function promptCandidates(facts: TriggerFacts): PromptCandidate[] {
     const times = Math.floor(facts.minutesInSession / facts.breakAfterMinutes);
     out.push({ id: `break:${times}`, kind: "break", reason: count(w.break, Math.floor(facts.minutesInSession)), expires: "scene" });
   }
-  if (facts.moment === "pause" && facts.surfaceRank === 1 && facts.formsAvailable) {
+  // From the first screen on: the sooner the learner knows, the fewer answers wait for a model turn.
+  if ((facts.moment === "session_start" || facts.moment === "pause") && facts.surfaceRank === 1 && facts.formsAvailable) {
     out.push({ id: "forms_offer", kind: "forms_offer", reason: w.forms_offer, expires: "session" });
   }
   if (facts.moment === "lesson_end") {

@@ -15,7 +15,8 @@ export type StudiumPanelActionName =
   | "replan"
   | "openMap"
   | "closeMap"
-  | "contest";
+  | "contest"
+  | "prompt";
 
 export type StudiumPanelAction =
   | { type: "respond"; input: unknown }
@@ -32,7 +33,8 @@ export type StudiumPanelAction =
   | { type: "replan"; minutes: number }
   | { type: "openMap" }
   | { type: "closeMap" }
-  | { type: "contest"; concept_id: string; claim: "known" | "unsure" };
+  | { type: "contest"; concept_id: string; claim: "known" | "unsure" }
+  | { type: "prompt"; id: string; outcome: "accept" | "dismiss" };
 
 export type StudiumNamedConcept = { id: string; label: string };
 export type StudiumSource = {

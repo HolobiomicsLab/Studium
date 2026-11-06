@@ -33,6 +33,21 @@ export interface PanelBackend {
    * how many follow (two, or one when the lesson has a single key-graded scene on the concept). Throws,
    * with one line, when the contest is refused. A backend without this method takes no contest. */
   contestConcept?(sessionId: string, conceptId: string, claim: "known" | "unsure"): Promise<{ questions: number }>;
+  /** What the session proposes to the learner now (spec § 2.6). The rules are the server's: nothing
+   * while an answer is owed, a budget set by `attention`, each proposal made once. The view adds the
+   * label and the action of each. A backend without this method proposes nothing. */
+  getPrompts?(sessionId: string, ask: { attention: Attention; surface: Surface; locale: "fr" | "en" }): Promise<ServedPrompt[]>;
+  /** The learner accepted or dismissed a proposal: the server keeps the outcome and says the kind of
+   * the prompt. Throws, with one line, when no such proposal is open. */
+  settlePrompt?(sessionId: string, promptId: string, outcome: "accepted" | "dismissed"): Promise<{ kind: string }>;
+}
+
+/** A prompt as the server's rules hold it: its kind and its reason, no label and no action. */
+export interface ServedPrompt {
+  id: string;
+  kind: string;
+  reason: string;
+  expires: "scene" | "session";
 }
 
 /** What a backend adds to a view to make it version 2. */

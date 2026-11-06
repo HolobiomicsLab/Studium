@@ -49,6 +49,12 @@ export function hostBackend(host: SessionHost, bundlesRoot: string): PanelBacken
     getConceptMapRecord: async id => host.conceptMapRecord(id),
     // A contest made on a panel, a pane or a form is an act of the fast lane.
     contestConcept: async (id, conceptId, claim) => ({ questions: (await host.contest(id, conceptId, claim, "fast")).questions }),
+    // INT-STUDIUM-058 § 2.6: the session's book decides what is proposed; forms are « available » when
+    // the client can show them and the lesson is not played in them.
+    getPrompts: async (id, ask) => host.sessionPrompts(id, {
+      locale: ask.locale, attention: ask.attention, surfaceRank: ask.surface.rank, formsAvailable: ask.surface.available.includes("form"),
+    }),
+    settlePrompt: async (id, promptId, outcome) => ({ kind: host.settlePrompt(id, promptId, outcome).kind }),
     getOrientation: async (id, ask) => {
       const orientation = orientationOf(host, id);
       const assessed = ask.verdict?.assessed_by;
@@ -253,7 +259,7 @@ export function registerPanelTools(server: McpServer, host: SessionHost) {
     } catch (e) { return toolError(e); }
   });
   const actionTool = server.registerTool("panel_action", {
-    description: "Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer; openMap adds the concept map to the view (map: each concept's state, the answers behind it with their day, who assessed them and the hints taken, what the state establishes and what it does not) until closeMap, from forms upwards and for a lesson, not a review session; contest {concept_id, claim} is the learner's own declaration on a concept of the open map, known for a concept not acquired, unsure for an acquired one: the claim changes no mastery and skips no scene, the lesson asks check questions on that concept (two, or one when it has a single key-graded scene on it, the outcome then being partial), graded as any answer, then resumes where the learner was; a contest the state does not take, or made while another is under way, is refused in one line. Never contest for the learner. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.",
+    description: "Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer; openMap adds the concept map to the view (map: each concept's state, the answers behind it with their day, who assessed them and the hints taken, what the state establishes and what it does not) until closeMap, from forms upwards and for a lesson, not a review session; contest {concept_id, claim} is the learner's own declaration on a concept of the open map, known for a concept not acquired, unsure for an acquired one: the claim changes no mastery and skips no scene, the lesson asks check questions on that concept (two, or one when it has a single key-graded scene on it, the outcome then being partial), graded as any answer, then resumes where the learner was; a contest the state does not take, or made while another is under way, is refused in one line. Never contest for the learner. prompt {id, outcome} is the learner's answer to a proposal of the view (prompts: a review that is due, a break, the map, forms): accept does what it said, dismiss keeps the scene, and the server keeps the outcome; it proposes nothing while an answer is owed and no more than the attention level allows. Never answer a prompt for the learner, and add no proposal of your own during a session. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.",
     // client_ms is validated here and read by nothing yet: the interaction log (INT-STUDIUM-058, lot 7)
     // records it under consent. Surfaces send it from now on, so they need no change then.
     inputSchema: { ...session, action: PanelActionSchema, client_ms: ClientMsSchema.optional() },

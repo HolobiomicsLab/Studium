@@ -2,6 +2,7 @@
 import type { CompanionLog } from "./companion.js";
 import type { ContestRecord, LessonSession, SessionDeps } from "@studium/lesson-session";
 import type { ContestPending } from "./contest.js";
+import type { PromptBook } from "./prompts.js";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
 import type { AuthoringBlock } from "./authoring.js";
 import type { ConceptMemoryState } from "./fsrs-memory.js";
@@ -60,6 +61,10 @@ export interface SessionEntry {
   companion?: CompanionLog;
   /** INT-STUDIUM-058 § 2.7: the contest whose check questions are being asked (contest.ts). */
   contest?: ContestPending;
+  /** INT-STUDIUM-058 § 2.6: the prompts of this session (prompts.ts), and the scene they were last read on
+   * (null once the lesson is complete; absent until first read). */
+  prompts?: PromptBook;
+  promptScene?: string | null;
   /** The contests settled in this session, oldest first. In memory, like the session. */
   contests?: ContestRecord[];
   /** What the concept map already told the learner (host.conceptMapMoment): the concepts whose

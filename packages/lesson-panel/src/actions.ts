@@ -132,8 +132,24 @@ async function execute(backend: PanelBackend, ctx: PanelContext, action: PanelAc
       leaveScene(ctx);
       return { message: phrase(started.questions === 1 ? "panel_contest_one" : "panel_contest_two", {}, localeOf(ctx)) };
     }
+    case "prompt": {
+      if (!backend.settlePrompt) throw new Error("this server holds no prompt to answer");
+      const settled = await backend.settlePrompt(ctx.sessionId, action.id, action.outcome === "accept" ? "accepted" : "dismissed");
+      // Dismissed: the outcome is kept and nothing else happens. Accepted: what the proposal said.
+      return action.outcome === "accept" ? acceptPrompt(backend, ctx, settled.kind) : {};
+    }
     default: return {};
   }
+}
+
+/** Do what an accepted proposal said. A review and the map are the panel's own actions; a break, the
+ * forms and the next lesson are the learner's to take, so the view says how in one line. */
+async function acceptPrompt(backend: PanelBackend, ctx: PanelContext, kind: string): Promise<Partial<PanelView>> {
+  if (kind === "review_due") return execute(backend, ctx, { type: "reviewNow" });
+  if (kind === "map_offer") return execute(backend, ctx, { type: "openMap" });
+  const notice = { break: "panel_prompt_break_notice", forms_offer: "panel_prompt_forms_notice", next_lesson: "panel_prompt_next_notice" } as const;
+  const key = notice[kind as keyof typeof notice];
+  return key ? { kind: "notice", message: phrase(key, {}, localeOf(ctx)) } : {};
 }
 
 /** Read an action, or say in one line why it is refused. */

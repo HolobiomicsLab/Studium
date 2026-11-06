@@ -92,6 +92,8 @@ describe("PanelView boundary", () => {
   // INT-STUDIUM-058 § 2.7: a view may offer the concept map and carry it once opened.
   test("accepts a view that offers the map, and one that carries it", () => {
     expect(isPanelView({ ...V2, actions: [...V2.actions, "openMap"] })).toBe(true);
+    // A view that carries a proposal offers the `prompt` action (task 5.2): it is read, not refused.
+    expect(isPanelView({ ...V2, actions: [...V2.actions, "prompt"] })).toBe(true);
     const map = {
       concepts: [{
         id: "c-a", title: "Notion", state: "acquired", establishes: "Établi.", does_not_establish: "Pas établi.",

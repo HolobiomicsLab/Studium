@@ -300,3 +300,113 @@ describe("panel actions: language, attention, replan and ask", () => {
     expect(await applyPanelAction(backend, ctx, "respond" as never).catch((e: Error) => e.message)).toMatch(/^a panel action is an object with a type/);
   });
 });
+
+// INT-STUDIUM-058 § 2.6, task 5.2: the server's prompts on the view, answered by the `prompt` action.
+describe("the server's prompts on the view", () => {
+  const extras = {
+    orientation: { step: { index: 2, total: 3 }, reviews_due: 3, waiting: "read" as const },
+    status_line: "Leçon · étape 2/3 · à lire",
+    voices: { scene: { kind: "author" as const, name: "Prof. Test", reviewed: true, drafted_by: "teacher" as const } },
+    help: { rungs: [{ kind: "reread" as const, available: true }] },
+  };
+  type Served = { id: string; kind: string; reason: string; expires: "scene" | "session" };
+  const REVIEW: Served = { id: "review_due:start", kind: "review_due", reason: "3 notions à revoir aujourd'hui", expires: "scene" };
+  /** A backend whose book holds `open`; a settled prompt leaves it, an unknown one is refused in the server's words. */
+  function prompting(backend: ReturnType<typeof setup>["backend"], open: Served[]) {
+    const getPrompts = vi.fn(async () => open.map(prompt => ({ ...prompt })));
+    const settlePrompt = vi.fn(async (_id: string, promptId: string) => {
+      const at = open.findIndex(prompt => prompt.id === promptId);
+      if (at < 0) throw new Error(`no open prompt "${promptId}"`);
+      return { kind: open.splice(at, 1)[0]!.kind };
+    });
+    return { ...backend, getOrientation: vi.fn(async () => extras), getPrompts, settlePrompt };
+  }
+  const accept = (id: string) => ({ type: "prompt" as const, id, outcome: "accept" as const });
+  const dismiss = (id: string) => ({ type: "prompt" as const, id, outcome: "dismiss" as const });
+
+  it("shows a proposal with one way to accept it and one to refuse it, and offers the prompt action", async () => {
+    const { ctx, backend } = setup();
+    const b = prompting(backend, [REVIEW]);
+    const panel = await presentPanel(b, ctx);
+    expect(panel.prompts).toEqual([{ ...REVIEW, actions: [
+      { label: "Réviser maintenant", action: accept("review_due:start") },
+      { label: "Plus tard", action: dismiss("review_due:start") },
+    ] }]);
+    expect(panel.actions).toContain("prompt");
+    expect(b.getPrompts).toHaveBeenCalledWith("s1", { attention: "normal", surface: { rank: 3, kind: "panel", available: ["text", "panel"] }, locale: "fr" });
+    expect(PanelViewSchema.safeParse(panel).success).toBe(true);
+  });
+
+  it("words each kind of proposal, in the view's language; a notice asks nothing", async () => {
+    const { ctx, backend } = setup();
+    const kinds: Served[] = ["break", "next_lesson", "map_offer", "forms_offer", "adaptation_notice", "resume_notice"]
+      .map(kind => ({ id: kind, kind, reason: `raison ${kind}`, expires: "session" as const }));
+    const labels = async (locale: "fr" | "en") =>
+      (await presentPanel(prompting(backend, kinds), { ...ctx, locale })).prompts!.map(prompt => prompt.actions.map(action => action.label));
+    expect(await labels("fr")).toEqual([
+      ["Faire une pause", "Continuer"], ["Choisir une leçon", "Plus tard"], ["Voir la carte", "Plus tard"],
+      ["Jouer en formulaires", "Rester en conversation"], [], [],
+    ]);
+    expect(await labels("en")).toEqual([
+      ["Take a break", "Keep going"], ["Pick a lesson", "Later"], ["See the map", "Later"],
+      ["Play in forms", "Stay in the conversation"], [], [],
+    ]);
+    // Only notices: nothing to answer, so no prompt action.
+    const informed = await presentPanel(prompting(backend, kinds.slice(4)), ctx);
+    expect(informed.prompts).toHaveLength(2);
+    expect(informed.actions).not.toContain("prompt");
+  });
+
+  it("asks the server with the attention level and the surface of the session, and keeps the learner's own replan prompt", async () => {
+    const { ctx, backend } = setup();
+    const b = prompting(backend, [REVIEW]);
+    ctx.attention = "quiet";
+    ctx.surface = { rank: 1, kind: "text", available: ["text", "form"] };
+    await applyPanelAction(b, ctx, { type: "replan", minutes: 10 });
+    expect(b.getPrompts).toHaveBeenLastCalledWith("s1", { attention: "quiet", surface: ctx.surface, locale: "fr" });
+    expect(ctx.lastView!.prompts!.map(prompt => prompt.kind)).toEqual(["review_due", "replan"]);
+  });
+
+  it("dismissing a proposal settles it and keeps the scene: nothing is submitted", async () => {
+    const { ctx, backend } = setup();
+    const b = prompting(backend, [REVIEW]);
+    const before = await presentPanel(b, ctx);
+    const after = await applyPanelAction(b, ctx, dismiss("review_due:start"));
+    expect(b.settlePrompt).toHaveBeenCalledWith("s1", "review_due:start", "dismissed");
+    expect(after).toMatchObject({ kind: "scene", session_id: "s1", scene: { id: before.scene!.id }, prompts: [] });
+    expect(after.actions).not.toContain("prompt");
+    expect(backend.submitResponse).not.toHaveBeenCalled();
+    expect(backend.startReviewSession).not.toHaveBeenCalled();
+  });
+
+  it("accepting does what the proposal said: the review starts, the map opens, a break keeps the step", async () => {
+    const reviewed = setup();
+    const b = prompting(reviewed.backend, [REVIEW]);
+    expect(await applyPanelAction(b, reviewed.ctx, accept("review_due:start"))).toMatchObject({ session_id: "review" });
+    expect(b.settlePrompt).toHaveBeenCalledWith("s1", "review_due:start", "accepted");
+
+    const mapped = setup();
+    const getConceptMapRecord = vi.fn(async () => null);
+    const withMap = { ...prompting(mapped.backend, [{ id: "map_offer", kind: "map_offer", reason: "La carte.", expires: "session" }]), getConceptMapRecord };
+    await applyPanelAction(withMap, mapped.ctx, accept("map_offer"));
+    expect(getConceptMapRecord).toHaveBeenCalledWith("s1");
+
+    const paused = setup();
+    const resting = prompting(paused.backend, [{ id: "break:1", kind: "break", reason: "26 minutes de séance sans pause", expires: "scene" }]);
+    const view = await applyPanelAction(resting, paused.ctx, accept("break:1"));
+    expect(view).toMatchObject({ kind: "notice", scene: { id: scene.id }, message: "La leçon t'attend ici, à la même étape." });
+    expect(paused.backend.submitResponse).not.toHaveBeenCalled();
+  });
+
+  it("refuses an answer to a prompt that is not open in the server's words, and on a server that holds none", async () => {
+    const { ctx, backend } = setup();
+    const b = prompting(backend, []);
+    expect(await applyPanelAction(b, ctx, dismiss("gone")).catch((e: Error) => e.message)).toBe('no open prompt "gone"');
+    expect(await applyPanelAction(backend, ctx, dismiss("gone")).catch((e: Error) => e.message)).toBe("this server holds no prompt to answer");
+    expect(await applyPanelAction(backend, ctx, { type: "prompt", id: "x", outcome: "maybe" } as never).catch((e: Error) => e.message)).toMatch(/^invalid prompt action: outcome/);
+    // A backend without prompts shows none and offers no prompt action.
+    const plain = await presentPanel({ ...backend, getOrientation: vi.fn(async () => extras) }, ctx);
+    expect(plain.prompts).toEqual([]);
+    expect(plain.actions).not.toContain("prompt");
+  });
+});
