@@ -31,6 +31,7 @@ Vous choisissez les sources, votre assistant construit la leçon, Studium la vé
 - [Guide étudiant](learn/student-guide.fr.md) : suivre une leçon, répondre, demander un indice, lire le retour.
 - [Journal d'expérience](learn/experiment-journal.fr.md) : la trace privée de vos prédictions, observations et conclusions.
 - [Rapport de l'apprenant](learn/learner-report.fr.md) : relire une trace choisie avant de la partager ; vos propres textes n'y figurent que sur demande.
+- [Carte des notions](learn/concept-map.fr.md) : où vous en êtes sur chaque notion, et une page interactive qui montre sur quoi chacune repose.
 - [Langues et supports scientifiques](learn/language-and-supports.fr.md) : changer la langue de présentation ; équations, schémas, structures et figures avec leur provenance.
 - [Tutoriel : première séance](tutorials/first-lesson.fr.md).
 

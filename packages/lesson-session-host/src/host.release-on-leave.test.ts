@@ -82,12 +82,46 @@ describe("I-2 — cited passages are released when the learner leaves the scene 
     const wrong = await host.respond(sessionId, { kind: "quiz_choice", choiceId: choiceOf(presentation, "Faux") });
     expect(wrong.kind).toBe("replay");
     expect(wrong.verdict).toMatchObject({ scene_id: "q1", correct: false });
+    expect(wrong.verdict?.feedback).toBe("Relis le passage.");
+    expect(wrong.verdict?.display_markdown).toContain("Relis le passage.");
     expect(wrong.verdict?.sources).toBeUndefined();
     expect(served(wrong)).not.toContain("PASSAGE-Q1");
 
     const right = await host.respond(sessionId, { kind: "quiz_choice", choiceId: choiceOf(host.currentPresentation(sessionId), "Juste") });
     expect(right.verdict?.sources).toEqual([{ title: "Atkins", quote: "PASSAGE-Q1", url: "https://example.org/atkins" }]);
     expect(right.verdict?.display_markdown).toContain("«\u00a0PASSAGE-Q1\u00a0»");
+  });
+
+  it("a retry omits answer-revealing quiz feedback but keeps the verdict and hint invitation coherent", async () => {
+    const revealing = {
+      ...quiz("q1", "c1", "PASSAGE-Q1"),
+      choices: [{ id: "a", text: "7", correct: true }, { id: "b", text: "17", correct: false }],
+      feedback_incorrect: "Pour ℓ=3 : −3,−2,−1,0,1,2,3 → 7 orbitales.",
+      hints: ["Nombre d'orbitales = 2ℓ+1."],
+    };
+    const { host, sessionId, presentation } = await start(lesson([revealing, ending("c2")], [RETRY_ON_WRONG]));
+    const wrong = await host.respond(sessionId, { kind: "quiz_choice", choiceId: choiceOf(presentation, "17") });
+
+    expect(wrong.kind).toBe("replay");
+    expect(wrong.verdict).toMatchObject({ scene_id: "q1", correct: false });
+    expect(wrong.verdict).not.toHaveProperty("feedback");
+    expect(wrong.verdict?.display_markdown).toContain("✗ **Pas tout à fait.**");
+    expect(wrong.verdict?.display_markdown).not.toContain("7 orbitales");
+    expect(wrong.display_markdown).toContain("Besoin d'aide");
+    expect(wrong.display_markdown).toContain("Un indice est disponible");
+  });
+
+  it("a whole-token match does not mistake 7 for 17 before a retry", async () => {
+    const nonRevealing = {
+      ...quiz("q1", "c1", "PASSAGE-Q1"),
+      choices: [{ id: "a", text: "7", correct: true }, { id: "b", text: "5", correct: false }],
+      feedback_incorrect: "Reprends l'étape 17 du passage.",
+    };
+    const { host, sessionId, presentation } = await start(lesson([nonRevealing, ending("c2")], [RETRY_ON_WRONG]));
+    const wrong = await host.respond(sessionId, { kind: "quiz_choice", choiceId: choiceOf(presentation, "5") });
+
+    expect(wrong.kind).toBe("replay");
+    expect(wrong.verdict?.feedback).toBe("Reprends l'étape 17 du passage.");
   });
 
   it("another item on the same point holds both passages back until the learner moves on", async () => {
@@ -125,9 +159,16 @@ describe("I-2 — cited passages are released when the learner leaves the scene 
   });
 
   it("a wrong answer that moves on to another point releases the passage", async () => {
-    const { host, sessionId, presentation } = await start(lesson([quiz("q1", "c1", "PASSAGE-Q1"), ending("c2")]));
-    const wrong = await host.respond(sessionId, { kind: "quiz_choice", choiceId: choiceOf(presentation, "Faux") });
+    const revealing = {
+      ...quiz("q1", "c1", "PASSAGE-Q1"),
+      choices: [{ id: "a", text: "30", correct: true }, { id: "b", text: "26", correct: false }],
+      feedback_incorrect: "N = A − Z = 30 neutrons.",
+    };
+    const { host, sessionId, presentation } = await start(lesson([revealing, ending("c2")]));
+    const wrong = await host.respond(sessionId, { kind: "quiz_choice", choiceId: choiceOf(presentation, "26") });
     expect(wrong.kind).toBe("next");
+    expect(wrong.verdict?.feedback).toBe("N = A − Z = 30 neutrons.");
+    expect(wrong.verdict?.display_markdown).toContain("N = A − Z = 30 neutrons.");
     expect(wrong.verdict?.sources).toEqual([{ title: "Atkins", quote: "PASSAGE-Q1", url: "https://example.org/atkins" }]);
   });
 });

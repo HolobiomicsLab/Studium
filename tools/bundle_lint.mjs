@@ -177,6 +177,20 @@ function resolveTargets(parsed) {
   return { targets: [...targets.values()].sort((a, b) => a.name.localeCompare(b.name)), findings: scanned.findings, isDefaultRun };
 }
 
+function validateLegend(legend, path) {
+  const issues = [];
+  if (!Array.isArray(legend) || legend.length === 0) return [`${path} must be a non-empty array`];
+  legend.forEach((entry, index) => {
+    if (!isRecord(entry)) issues.push(`${path}.${index} must be an object`);
+    else for (const field of ["symbol", "meaning"]) {
+      if (typeof entry[field] !== "string" || entry[field].trim().length === 0) {
+        issues.push(`${path}.${index}.${field} must be a non-empty string`);
+      }
+    }
+  });
+  return issues;
+}
+
 function validateRenderAsset(asset, path) {
   if (!isRecord(asset)) return [`${path} must be an object`];
   const issues = [];
@@ -188,6 +202,7 @@ function validateRenderAsset(asset, path) {
   if (isMetaBacked && (!isRecord(asset.meta) || (hasPayload && hasPath))) {
     issues.push(`${path} executed_result needs meta and at most one of payload or path`);
   }
+  if (asset.legend !== undefined) issues.push(...validateLegend(asset.legend, `${path}.legend`));
   return issues;
 }
 
@@ -201,6 +216,10 @@ function validateScene(scene, index) {
   if (scene.render_assets !== undefined) {
     if (!Array.isArray(scene.render_assets)) issues.push(`${path}.render_assets must be an array`);
     else scene.render_assets.forEach((asset, assetIndex) => issues.push(...validateRenderAsset(asset, `${path}.render_assets.${assetIndex}`)));
+  }
+  const absAsset = scene.evidence?.abs_asset;
+  if (isRecord(absAsset) && absAsset.legend !== undefined) {
+    issues.push(...validateLegend(absAsset.legend, `${path}.evidence.abs_asset.legend`));
   }
   if (scene.type === "quiz" && (!Array.isArray(scene.choices) || scene.choices.length < 2 || scene.choices.length > 6)) {
     issues.push(`${path}.choices must contain 2 to 6 choices`);
@@ -269,12 +288,44 @@ function quizAnswerKeyFindings(bundle) {
     .map(({ id, count }) => finding("ERROR", "quiz_answer_key", `${id}: ${count} correct choices (expected ${EXPECTED_CORRECT_CHOICES})`));
 }
 
+function normalizedRevealText(text) {
+  return text.normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+/** Whether answer text occurs in feedback with Unicode alphanumeric token boundaries. */
+export function feedbackRevealsAnswer(feedback, answer) {
+  const text = normalizedRevealText(feedback);
+  const needle = normalizedRevealText(answer);
+  if (needle.length === 0 || needle.length > text.length) return false;
+  for (let start = 0; start <= text.length - needle.length; start += 1) {
+    if (needle.every((token, offset) => text[start + offset] === token)) return true;
+  }
+  return false;
+}
+
+function quizFeedbackRevealFindings(bundle) {
+  if (!Array.isArray(bundle.scenes)) return [];
+  return bundle.scenes.flatMap((scene) => {
+    if (scene?.type !== "quiz" || typeof scene.feedback_incorrect !== "string" || !Array.isArray(scene.choices)) return [];
+    const revealed = scene.choices.find((choice) => choice?.correct === true && typeof choice.text === "string"
+      && feedbackRevealsAnswer(scene.feedback_incorrect, choice.text));
+    return revealed
+      ? [finding("WARN", "quiz_feedback_reveals_answer", `${scene.id}: feedback_incorrect includes correct choice ${JSON.stringify(revealed.text)}`)]
+      : [];
+  });
+}
+
 function sceneRenderAssets(scene) {
   const assets = Array.isArray(scene.render_assets) ? [...scene.render_assets] : [];
   if (typeof scene.image_path === "string") assets.push({ kind: "image", path: scene.image_path });
   const absAsset = scene.evidence?.abs_asset;
   const absKind = ABS_ASSET_KINDS.get(absAsset?.asset_type);
-  if (absKind) assets.push({ kind: absKind, payload: absAsset.payload_inline, path: absAsset.payload_path });
+  if (absKind) assets.push({
+    kind: absKind,
+    payload: absAsset.payload_inline,
+    path: absAsset.payload_path,
+    legend: absAsset.legend,
+  });
   const referenceResult = scene.reference_result;
   if (referenceResult?.ran && typeof referenceResult.figure_path === "string") {
     assets.push({ kind: "executed_result", path: referenceResult.figure_path, meta: {} });
@@ -287,6 +338,13 @@ function unresolvedAssetFindings(bundle, bundleDirectory) {
   return bundle.scenes.flatMap((scene) => sceneRenderAssets(scene)
     .filter((asset) => typeof asset.path === "string" && !existsSync(resolve(bundleDirectory, asset.path)))
     .map((asset) => finding("ERROR", "unresolved_asset", `${scene.id}: unresolved render asset (${asset.kind}) -> ${asset.path}`)));
+}
+
+function equationLegendFindings(bundle) {
+  if (!Array.isArray(bundle.scenes)) return [];
+  return bundle.scenes.flatMap((scene) => sceneRenderAssets(scene)
+    .filter((asset) => asset.kind === "equation_latex" && (!Array.isArray(asset.legend) || asset.legend.length === 0))
+    .map(() => finding("WARN", "equation_without_legend", `${scene.id}: equation_latex asset has no legend`)));
 }
 
 function normalizeText(text) {
@@ -602,7 +660,9 @@ export function lintBundleData(bundle, { bundleDir, name = BUNDLE_FILENAME }) {
     ...schemaFindings(bundle),
     ...duplicateIdFindings(bundle),
     ...quizAnswerKeyFindings(bundle),
+    ...quizFeedbackRevealFindings(bundle),
     ...unresolvedAssetFindings(bundle, bundleDir),
+    ...equationLegendFindings(bundle),
     ...flawReport.findings,
     ...graphFindings(bundle),
     ...unfilledPlaceholderFindings(bundle),

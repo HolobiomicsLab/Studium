@@ -1,0 +1,4 @@
+interface:
+  display_name: "Studium · Carte des notions"
+  short_description: "Lire la carte d'une leçon et l'exporter en page explorable"
+  default_prompt: "Utilise $studium-concept-map pour me montrer où j'en suis dans cette leçon et, si je le demande, exporter la carte en page."

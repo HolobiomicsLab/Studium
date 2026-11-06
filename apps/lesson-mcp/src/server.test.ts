@@ -18,7 +18,8 @@ const MINI = {
   concepts: [{ id: "c1", title: "C1", description: "d", bloom_level_target: "understand" }],
   scenes: [
     { id: "s0", type: "intro", title: "I", objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [], markdown: "hi",
-      evidence: { abs_asset: { asset_type: "equation_latex", payload_inline: "\\cos\\theta", prov_derived_from: "doi:x" },
+      evidence: { abs_asset: { asset_type: "equation_latex", payload_inline: "\\cos\\theta", prov_derived_from: "doi:x",
+        legend: [{ symbol: "θ", meaning: "angle" }] },
         enrichment_metadata: { enricher_version: "1", perspicacite_mode_used: "basic", timestamp: "t", degraded: false } } },
     { id: "s1", type: "quiz", title: "Q", objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [],
       question: "?", choices: [{ id: "a", text: "A", correct: false }, { id: "b", text: "B", correct: true }], feedback_correct: "y", feedback_incorrect: "n", hints: ["look again at the prompt"] },
@@ -101,8 +102,13 @@ describe("lesson-mcp tools", () => {
     // 25 lesson operations + the four C1 study tools (sprint 2026-10-30): list_lessons, get_study_plan,
     // start_review_session, rate_recall; + the three C1 authoring tools (get_authoring_guide,
     // prepare_sources, create_lesson) and the two C1 teacher tools (review_lesson, class_report),
-    // and the three shared-panel tools: 29 + 5 + 3 = 37.
-    expect(names).toHaveLength(37);
+    // wired at integration: 29 + 5 = 34; + export_concept_map (study tool, 2026-11-06) = 35;
+    // + play_in_forms (form tool, a prototype, 2026-11-06) = 36; + the three shared-panel tools
+    // (INT-STUDIUM-057, merged 2026-11-06) = 39.
+    expect(names).toHaveLength(39);
+    expect(names).toContain("export_concept_map");
+    expect(names).toContain("play_in_forms");
+    expect(names).toEqual(expect.arrayContaining(["open_lesson_panel", "get_panel_view", "panel_action"]));
     for (const name of ["get_authoring_guide", "prepare_sources", "create_lesson", "review_lesson", "class_report"]) {
       expect(names).toContain(name);
     }
@@ -218,10 +224,11 @@ describe("lesson-mcp tools", () => {
     const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json" } }) as never);
     const sid = started["session_id"] as string;
     const a = parse(await client.callTool({ name: "get_scene_artifacts", arguments: { session_id: sid } }) as never);
-    const assets = a["scene_assets"] as Array<{ kind: string; payload?: string }>;
+    const assets = a["scene_assets"] as Array<{ kind: string; payload?: string; legend?: Array<{ symbol: string; meaning: string }> }>;
     expect(assets.length).toBe(1);
     expect(assets[0]!.kind).toBe("equation_latex");
     expect(assets[0]!.payload).toBe("\\cos\\theta");
+    expect(assets[0]!.legend).toEqual([{ symbol: "θ", meaning: "angle" }]);
   });
   it("request_hint returns an authored hint on a quiz, then null once the per-visit cap is reached", async () => {
     const client = await connect(bundlesDir());
@@ -235,6 +242,10 @@ describe("lesson-mcp tools", () => {
     // standard scaffolding caps at 1 hint per visit → second request yields null
     const h2 = parse(await client.callTool({ name: "request_hint", arguments: { session_id: sid } }) as never);
     expect(h2["hint"]).toBeNull();
+    // The legend shown on the intro's equation comes back as a notation reminder: with the hint, and
+    // still once the hints are spent — it is public material, not a metered hint.
+    expect(h1["notation"]).toEqual([{ symbol: "θ", meaning: "angle" }]);
+    expect(h2["notation"]).toEqual([{ symbol: "θ", meaning: "angle" }]);
   });
   it("drives intro → quiz to a next transition and reads state", async () => {
     const client = await connect(bundlesDir());

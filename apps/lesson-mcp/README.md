@@ -45,7 +45,7 @@ Ready-made harness configurations are in [`docs/examples/`](../../docs/examples/
 
 ## What it offers
 
-37 tools, two prompts (`learn` and `review`) and server instructions that tell the assistant to wait for
+39 tools, two prompts (`learn` and `review`) and server instructions that tell the assistant to wait for
 the learner's own answers. The full contract is in the [MCP tools reference](../../docs/reference/mcp-tools.md).
 
 | Group | Tools |
@@ -91,8 +91,8 @@ surface.
 
 ## HTTP adapter
 
-[`src/http.ts`](src/http.ts) exposes the lesson operations (not the study, authoring or teacher tools)
-to a local client under `/v1/operations`. It listens on 127.0.0.1 only and requires a bearer token of at
+[`src/http.ts`](src/http.ts) exposes the 25 lesson operations plus `rate_recall` (not the other study,
+authoring or teacher tools) to a local client under `/v1/operations`. It listens on 127.0.0.1 only and requires a bearer token of at
 least 32 characters:
 
 ```bash

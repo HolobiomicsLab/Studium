@@ -2852,6 +2852,412 @@ lookup timed out. No global before-snapshot, so no claim of exclusive attributio
 Canonical/live dev33bf561 unchanged; no push/merge/release/paid call, manuscript or
 LabOS write. Hub audit/handoff records exact output and limitations.
 
+## 2026-11-06 — Live learner-trial fixes: retry feedback, equation legends and HTTP recall ratings
+
+Addressed the three defects recorded during the 5 November atomistique learner
+trial. Wrong quiz feedback that contains a correct choice is now withheld only
+when the learner can retry before leaving the scene; non-revealing feedback and
+feedback released on departure are unchanged. The bundle linter reports this
+authoring problem, the affected fixture feedback is now methodological rather
+than answer-revealing, and both authoring guides state the retry constraint.
+
+Render assets now accept an optional validated symbol legend. Legends survive
+the public-scene, MCP artifact and operator-context projections and render under
+equations in chat, the VS Code pane and notebooks, and portable scientific
+activities. All shipped equation fixtures carry lesson-grounded meanings; the
+linter warns when a legend is absent, and generated bundle references document
+the field. Learner reports were not an equation-rendering surface.
+
+The HTTP API now exposes `rate_recall` as the one study-tool exception to I-11,
+with mutation receipts and idempotent resend semantics and without a stale-scene
+argument. The pinned HTTP operation contract grows from 25 to 26, while all
+other study, authoring and teacher tools remain MCP-only. An in-process HTTP
+trial covers hidden retry feedback and a successful recall rating after the
+requested explanation scene.
+
+Focused TypeScript, Python, bundle-lint, schema, HTTP and rendering checks pass,
+as do build and lint. In this managed sandbox, commands that launch the `tsx`
+CLI cannot create its Unix IPC socket (`listen EPERM`); this blocks the exact
+full `pnpm test`, documentation-generation, parity-test and headless-smoke
+commands despite equivalent `node --import tsx` checks. The Python aggregate
+also retains an unrelated capsule-run failure. Work is intentionally left
+uncommitted for owner review; no push, PR, tag, paid route or learner-home write.
+
+## 2026-11-06 (suite) — Trial follow-up: recall items, notation reminder, lesson gaps
+
+The first batch was committed as `c3b4a84` after the full gates passed outside the
+sandbox (the previous entry's blocked commands all ran green there). One regression
+was caught in review and undone before the commit: regenerating `lesson.json` had
+replaced two carbon-quiz distractors, because `build_bundle.py` had fallen behind
+the committed lesson.
+
+Owner decision for the case left open (a prerequisite gate sending the learner
+back to a question whose answer had just been shown): give each prerequisite
+concept a second answer-graded item. `graph-nav` already prefers an item the
+learner has not seen, wherever it sits in the lesson, so six recall quizzes
+(`s9-rappel-*`) now close `atomistique-l1`, after the last gated scene; until the
+lesson reaches them they are the unseen items a gate picks. `c-configuration` had
+no answer-graded scene of its own, which would have detoured every learner to its
+recall item, so it also gets an in-flow quiz (`s5e-quiz-oxygene`). The lesson goes
+from 25 to 32 scenes and lints without warning. No engine change. The seven
+questions were drafted by an agent and await teacher review.
+
+Lesson gaps found in the trial: "nœud radial" is now defined before the quiz that
+asks for it, `h` is defined in the text and the legend, and two feedbacks that
+still stated the answer in a form the token rule cannot see (Hα, periodicity) are
+rewritten.
+
+Notation reminder: `SessionHost.sceneNotation` returns the legends already shown
+for the current scene's concepts. `request_hint` replies with it next to the hint
+and `get_operator_context` carries it. It is public material, not a hint: never
+metered, still there once the hints are spent.
+
+Test decisions: `http.test.ts` now expects the gate to route a wrong `s2-quiz-4f`
+answer to `s9-rappel-3d`; `server.test.ts` and `host.test.ts` gain notation cases.
+
+## 2026-11-06 (simulations) — Prerequisite routing: three defects found by synthetic learners
+
+Owner request: run simulations on the trial fixes to check they hold and to find
+problems. Sixty-four labelled synthetic learners (flawless, wrong on each first
+visit, wrong on the first item of each concept, always wrong, and two random groups
+of thirty at p = 0.5 and p = 0.75) played `atomistique-l1` in process, on the
+corrected lesson and on the lesson as it was before the trial fixes. Every run
+completed, no answer was visible before a same-scene retry, every requested
+self-rating was recorded. Three engine defects came out; the recall items added in
+`d6bb411` made the first two reachable on this lesson.
+
+1. Two unmet prerequisites of one scene. A correct answer on the detour for
+   prerequisite A was credited only if the router then chose A again. When it chose
+   B, the answer was lost and the learner went back and forth between the two items
+   until the detour budget released the gate (`s5e-quiz-oxygene` and `s4-quiz-balmer`
+   three times each before `s6-concept-periodicite`). When it chose A, the gate
+   opened with B never checked. `LessonSession.navigate` now credits the detour
+   prerequisite before routing and routes again after each credit, so each
+   prerequisite is judged on its own answer; `gate_passed` is announced when the
+   gated scene is reached that way.
+2. An item answered correctly out of order (a detour or an alternate) was served a
+   second time when the lesson reached it. `graphAwareNextIndex` takes the ids of
+   the answer-graded scenes answered correctly in the session and passes over
+   them; the path without a graph does the same. Session-local, like the
+   prerequisite passes: a lesson played again asks its questions again.
+3. An alternate item placed further down the lesson (`remediate_alt`) made the
+   session resume after the alternate, so every scene between the question and its
+   alternate was never served. It now resumes after the scene just left, unless the
+   alternate is the very next scene (the case the existing tests pin).
+
+Measured on the corrected lesson, before and after: wrong on each first visit, 48
+steps and 9 questions asked again after their answer was shown, now 38 and 0; wrong
+on the first item of each concept, 38 and 6, now 32 and 0; random p = 0.5, 39.8
+steps and 3.8 on average, now 35.8 and 0.4. The flawless path (32 steps) and the
+always-wrong path (79 steps) are unchanged.
+
+Left open, reported to the owner, not changed: a learner who keeps failing is asked
+the same two items of a concept five or six times, because the replay budget and
+the detour budget add up (79 steps, about 134 estimated minutes); the lesson
+declares 60 minutes and the flawless path is estimated at 78; step numbers jump by
+up to 24 positions on a detour to a closing recall item; and `get_workflow_graph`
+derives a concept's state from posterior mastery alone, so at step 16 it reports
+the first concept as current and every other as locked, the one being studied
+included.
+
+Test decisions: new `session.multi-prereq-gate.test.ts` (six cases); no existing
+assertion changed. Gates green with `STUDIUM_EPHEMERAL=1`: `pnpm build:libs`,
+`pnpm lint` (0 errors), `pnpm -r --no-bail test`, `tools/pytest_all.py` (16 suites,
+0 failing), `tools/bundle_lint.test.sh`, `node tools/docs/check.mjs`,
+`headless_smoke.mjs` (19 assertions).
+
+## 2026-11-06 (carte) — Learner concept map, and a lesson from a conversation
+
+Owner requests of 6 Nov, after the simulation report: build the concept map proposed
+there; and make it fluid to call Studium from a Claude or Codex conversation already
+under way, in self-study, with no teacher validating the lesson. Branch
+`feat/2026-11-06-learner-concept-map`, cut from `fix/2026-11-05-trial-findings`
+(PR 13), so it merges after it.
+
+Concept map. `get_workflow_graph` derives a concept's state from posterior mastery
+alone; at step 16 of `atomistique-l1` it reported the first concept as current and
+the seven others as locked. The map is drawn from session facts instead.
+`LessonSession.learnerPath()` returns the steps served, in order, with their outcome,
+and the prerequisites the session credited (rebuilt from the saved history on a
+resume). `buildConceptMap` (`lesson-session-host/src/concept-map.ts`) turns them into
+`studium/concept-map/v1`: nodes with a state (`acquired`, `to_review`, `current`,
+`seen`, `upcoming`), the questions answered with their step and result, prerequisite
+edges travelled or not, the position (from, at, next), a Mermaid flowchart and a
+list. `seen` is a concept whose answers nobody assessed: it is not called acquired.
+Served at a few moments only: `start_lesson_session` and the first screen; then, on
+a transition, a prerequisite detour, the return from it, a scene drawing on several
+concepts and the end of the lesson (the whole map), and the first scene of a concept
+(one position line). `display_markdown` carries it; `get_workflow_graph` returns it
+on request. On a flawless run of `atomistique-l1`: five whole maps in 32 steps. The
+`state` field of `get_workflow_graph` is unchanged (the VS Code pane reads it).
+
+Lesson from a conversation. `tools/conversation_sources.py` reads a Claude Code
+transcript (`.jsonl`) or a text export and prints `prepare_sources` input: the
+user's and the assistant's text with numbered turns; sub-agent threads, harness
+messages, compaction summaries and private reasoning left out; tool results only on
+request; credential-looking strings replaced. `prepare_sources` accepts
+`kind: "conversation"` on a source (recorded only then, so existing source sets keep
+their id); `create_lesson` marks such a citation `prov_derived_from:
+conversation:<id>`; the self-study notice then adds that the sources are excerpts of
+a conversation with an AI assistant whose assertions were not checked. New skill
+`studium-from-conversation` (one question at most, four tool calls, when to stop and
+ask) and use case 9 in `docs/tutorials/use-cases`. Played end to end on the
+transcript of the session that wrote this entry: 19 of 62 turns kept, 39 passages, a
+six-scene lesson created on the first call and played with the map. No Codex
+transcript parser: it needs a sample.
+
+Not verified: how each harness renders the Mermaid block; any effect of the map on
+learning. Test decisions: new `concept-map.test.ts`, `host.concept-map.test.ts`,
+`session.learner-path.test.ts`, `tools/test_conversation_sources.py`; cases added to
+`source-set.test.ts` and `build.test.ts`; no existing assertion changed.
+
+## 2026-11-06 (carte interactive) — Concept map as an explorable page, with its provenance
+
+Owner request of 6 Nov: the map shown in the conversation is a static block; build the
+interactive page, with ASTRA provenance and an ARA trace. Same branch,
+`feat/2026-11-06-learner-concept-map`.
+
+Record. The server writes what the page needs, so no harness copies JSON by hand.
+`buildConceptMapRecord` (`lesson-session-host/src/concept-map-record.ts`) produces
+`studium/concept-map-record/v1`: the lesson (id, title, language, SHA-256 of the
+lesson file), how it was authored (mode, who drafted it, validated or not, judge or
+not, recorded approval, drawn from a conversation or not), the map, each scene (type,
+concepts, key class, cited sources with their origin: conversation, web, DOI,
+document) and the steps played. A passage is quoted only once the learner has left
+the scene that cites it; the record holds no learner id and none of the learner's
+words. `PathStep` gains `assessed_by` and `navigation` (kind, rule, return scene),
+set when the step is played; a step rebuilt from the saved history after a restart
+has neither. `SessionHost.exportConceptMap` writes the record under
+`<library>/_exports/concept-maps/` (never overwritten) and returns its path and
+SHA-256; `forget_session` names that folder among what stays on disk. New MCP study
+tool `export_concept_map {session_id}` (35 tools; MCP only, like the other study
+tools).
+
+Page. `tools/concept_map_report.py export RECORD OUTPUT [--class-report FILE]
+[--expect-sha256 HEX] [--language fr|en]` builds a package beside the learner report,
+on the same pattern: the record copied unchanged, `report.json`, `astra.yaml` (ASTRA
+0.0.14: the record as a declared artifact, three decisions, findings; no custom
+field), `trace/exploration_tree.yaml` (ARA 0.1.0: one node per step, one pivot per
+detour), `course_provenance.myst.md` and `index.html`, with `checks.json` holding the
+digest of every file. `verify DIRECTORY` recomputes everything from the record and
+runs the `astra-tools` validator. The page is one self-contained file (inline CSS,
+one inline script allowed by its hash in the CSP, no network): a layered graph drawn
+server-side; a click on a concept opens its panel (prerequisites, the learner's
+steps with who assessed each, sources and key class per scene, trace nodes); a click
+on a step opens its concept; a learner or teacher viewpoint; a filter by state.
+Every panel is in the HTML, so the page reads stacked without JavaScript.
+`--class-report` takes the output of the teacher tool `class_report` and shows its
+aggregate figures per concept in the teacher viewpoint; figures under its learner
+floor stay hidden. The Observatory serves the package like a learner report.
+
+Checked in a browser on four packages exported from real records (`atomistique-l1`
+at step 16 and completed, a lesson drafted from a conversation, one with class
+figures): concept and step clicks, both viewpoints, the state filter, hash
+navigation, no console error, no horizontal scroll at 375 px.
+
+Observation, not changed here: after a wrong answer the engine can return navigation
+`gate_passed` when the next scene's prerequisite was credited by an earlier flawless
+answer (step 14 of the completed `atomistique-l1` run). The routing looks right; the
+sentence the learner reads at that moment should be checked.
+
+Not verified: the page with a real `class_report` output (synthetic figures only);
+Mermaid in each harness. Test decisions: `session.learner-path.test.ts` expects the
+two new fields on each step (assertion extended, behaviour unchanged);
+`server.test.ts` counts 35 tools instead of 34 and names the new one; new
+`host.concept-map-record.test.ts` and `tools/test_concept_map_report.py`; one case
+added to `study-tools.test.ts`.
+
+## 2026-11-06 (skills) — Skills to operate the map and to offer features at the right moment
+
+Owner request of 6 Nov, after PR 14 was opened: skills to operate these features well
+and to recommend them proactively, depending on the context. Same branch.
+
+`studium-concept-map` is the procedure: what a state means and does not mean, the map
+in the conversation (the server chooses the moments; on request `get_workflow_graph`;
+no comment while a question waits), when to offer the page, export and verification,
+how to read the page with a learner, the teacher viewpoint with class figures, and
+what stays on disk. For the class view it tells the teacher to take the record from a
+session just started on a server that keeps nothing (`STUDIUM_EPHEMERAL=1`, no
+`STUDIUM_DATA_DIR`): on the class's server a started session emits `lesson_started`
+and would count as one more learner in `class_report`.
+
+`studium-suggest` is the judgement: which feature to offer, when, in which words, and
+when to say nothing. One offer at a pause, in one sentence that starts from the
+person's words and states the cost; nothing added while a lesson question waits,
+except what the learner asks for and the authored hint; a no holds for the session;
+free read-only calls implied by the request need no offer, anything that writes,
+spends or shares waits for a yes; offer only what `get_server_info` shows the setup
+can deliver. Two tables map a signal to an offer and to the skill that carries it
+out. Its description triggers on learning needs stated without naming Studium.
+
+Decision: one line added to the server instructions (12 lines, the cap the tests
+set), so that a harness without skills also shows the map on request and offers the
+page at the end and a lesson from the conversation, on the learner's yes. The tool
+reference is regenerated.
+
+Defect fixed: `studium-from-conversation` (commit `0c73ae7`) was never linked from
+`.claude/skills` and `.agents/skills`, so no assistant discovered it. The three
+skills are now linked from both folders and have their `agents/openai.yaml`.
+`skills/README`, `docs/start/skills` and the neighbouring skills (harness, teacher,
+from-conversation) point to the two new ones.
+
+Checked with four fresh-context sub-agents (Sonnet) on realistic situations: an
+offer that is due, a question waiting for its answer, an incident, a teacher's class
+view. All four did what was intended (one offer in the person's words with its cost;
+the map on request, the answer refused and a hint offered; nothing during the
+incident, one offer after it; the class view built on a separate ephemeral server).
+What they found unclear was fixed: an offer never replaces the help asked for; a
+hint is called on the learner's yes; `get_server_info` once before the first offer;
+how to reach an ephemeral server and the exact `start_lesson_session` call; where
+the reteach marks come from. Not verified: that a client loads `studium-suggest` on its own from its
+description (no trigger evaluation was run); the skills reach `~/.claude/skills`
+only once a durable checkout holds them. Test decision: `study-tools.test.ts` also
+expects `export_concept_map` in the instructions.
+
+## 2026-11-06 (latence) — A fast lesson agent by default, and a bench to time a learner turn
+
+Owner's request after the live trial ("c'était un petit peu lent"), then: recommend or make
+default a fast subagent, in Studium's usage and skills. Audit and figures:
+`studium_dev/docs/superpowers/audits/2026-11-06-audit-hci-latence-et-interface.md`.
+
+What was measured (`tools/latency_bench.py`, lesson `atomistique-l1`, one run of six learner
+turns per line, medians; end of the reply / first text token):
+
+| Who relays | End | First word |
+|---|---|---|
+| real trial: large model, shell calls, long desktop session | 27 s | about 20 s |
+| Fable 5.1, short session, MCP tools | 8.2 s | 5.4 s |
+| Haiku 5.5, short session, MCP tools | 5.4 s | 2.0 s |
+| `studium-lesson` agent as the session | 5.5 s | 1.9 s |
+| Fable 5.1 handing each answer to the `studium-lesson` subagent | 16.1 s | 13.5 s |
+
+Decision. A fast agent helps when it is the session, not when it sits between the learner and
+the server: a hand-over on every answer makes two models write the same screen (and the
+subagent reloads its tools each time). So the default is a short session run as the agent, and
+a stronger model called on request for depth.
+
+- `.claude/agents/studium-lesson.md` (model `haiku`): strict relay, the three invariants, what
+  to do on each kind of learner message. `.claude/agents/studium-explainer.md` (model `sonnet`,
+  no lesson tools): one explanation, never the answer to a waiting question.
+  Checked: `claude --agent studium-lesson` and `{"agent": "studium-lesson"}` in
+  `.claude/settings.json` both run the session on the fast model.
+- Probes on the agent (bench `--probe`): asked for the answer on a quiz, it refuses and offers
+  the authored hint (1.1 s); asked to explain the idea the waiting quiz tests, it says the
+  explanation waits for the try (2.5 s); asked for depth on a screen where nothing waits, it
+  hands over to the explainer, acknowledges in 7 s and shows the explanation 13 s later while
+  the lesson stays usable. Two wordings were corrected after the probes: a first version
+  explained the tested idea before the answer, and described a hint as "an attempt".
+- Server instructions: the display line now says to add nothing unless the learner asks
+  (still 12 lines).
+- Skills: `studium-harness` gains "Keep each turn short" (the defaults above);
+  `studium-from-conversation` and `studium-self-learner` offer to play the lesson in its own
+  short session once it is created; `studium-student` says the same; `studium-suggest` goes by
+  what the person says about being upset, not by an inferred mood.
+- Docs: "Keep answers fast" and "The lesson agent" in `docs/start/harnesses` (EN and FR), one
+  paragraph in `docs/learn/learn-with-your-assistant`, the bench in `tools/README`.
+- `tools/latency_bench.py`: three modes (`relay`, `agent`, `delegate`), a labelled synthetic
+  learner whose reply follows the scene type, time to the first text token, `--probe`. It calls
+  a paid model, so nothing runs without `--live`. Tests run against a stub assistant.
+
+Not verified: any harness other than Claude Code; the desktop app; the quality of the fast
+model's answers beyond the three probes; whether learners find the lesson better. One run per
+line, so a difference of a second is not established.
+
+Test decision: `study-tools.test.ts` also expects "add nothing of your own" in the server
+instructions; `tools/test_latency_bench.py` is new (10 cases, no paid call).
+
+## 2026-11-06 (formulaires) — play_in_forms: a prototype of answers with no model turn
+
+Second step of the latency work (previous entry). A relayed turn cannot go under 3 to 5 s:
+the model retypes a screen the server already holds. For a screen to read and for a keyed
+question the model has nothing to decide, and MCP elicitation lets the server ask the learner
+directly.
+
+- `apps/lesson-mcp/src/form-tools.ts`, tool `play_in_forms {session_id, max_steps?}`
+  (MCP-only: a form needs the client). It loops: build a form from the public screen (an
+  `intro` or `concept` scene has nothing to fill in, accepting it is "continue"; a `quiz` has
+  the displayed choice ids and an optional confidence 0 to 4), wait for the learner, call the
+  same `host.respond` the conversation uses, and open the next form with the verdict of the
+  answer just given. It returns `needs_conversation` when a scene takes written words,
+  `paused` when the learner declines or closes a form, `complete`, `limit` or `unsupported`,
+  with the steps played, the current public presentation and the `display_markdown` to show.
+- The key cannot leak into a form by construction: forms are built from `publicPresentation`
+  and `publicTransition`, the same public views the conversation gets. A test pins it.
+- A learner may think for a long time: the elicitation request waits up to one hour (the SDK
+  default is one minute).
+- Registered in `server.ts` (36 tools), listed by `get_server_info`, a `form` group in the
+  generated MCP reference; tool counts corrected in the docs (they still said 34, missing
+  `export_concept_map` since 0c73ae7).
+- Offered once, on the learner's yes: one bullet in `studium-harness` ("Keep each turn short")
+  and in the `studium-lesson` agent, one paragraph in `docs/start/harnesses`.
+
+Checked: 8 tests through a real MCP client whose elicitation handler plays the learner
+(accept, decline, cancel, no capability, max_steps, end of lesson, written scene, unknown
+session). In a headless Claude Code session (`claude -p`) the client cancels the form: the
+tool answers `paused` / `cancelled` and nothing is answered for the learner.
+
+Not verified, and the reason this stays a prototype: no person has used it in an interactive
+client. How Claude Code (terminal, desktop), VS Code or Cursor draw a long screen, Markdown
+or a formula in an elicitation dialog, whether an empty form reads as "continue", and how
+long each keeps a tool call open are all untried. Hints are not offered in the form (closing
+it returns to the conversation). Written scenes, self-ratings and checkpoints stay in the
+conversation.
+
+Test decision: `server.test.ts` expects 36 tools and `play_in_forms`;
+`form-tools.test.ts` is new.
+
+## 2026-11-06 (formulaires, correctif) — play_in_forms did not compile under `pnpm build`
+
+CI on PR 15 failed at "Workspace compiles (TypeScript)": `apps/lesson-mcp/src/form-tools.ts`
+typed its form as `Record<string, Record<string, unknown>>`, which `tsc` refuses where the SDK
+expects its own form shape. The form type now comes from the SDK
+(`ElicitRequestFormParams["requestedSchema"]`), so each field is checked.
+
+Why it was missed: the checks run before the previous two commits were `pnpm build:libs`,
+`pnpm lint`, the test suites, the bundle lint, the docs check and the headless smoke. None of
+them runs `tsc` on `apps/lesson-mcp` (vitest does not type-check), and the previous entry's
+"all gates" did not include `pnpm build`, which CI runs and `docs/develop/testing.md` lists.
+`pnpm build` is part of the local checks before a push from now on.
+
+Checked: `pnpm build` (exit 0, was TS2322), `pnpm lint`, `pnpm --filter @studium/lesson-mcp test`
+(137 passed, 2 skipped). No behaviour change, no test changed.
+
+## 2026-11-06 (panneaux, fusion) — Panel prototype committed and joined with the fast-lesson line
+
+INT-STUDIUM-058, lot 0. Two lines of work had grown apart: the panel prototype of 31 October
+(INT-STUDIUM-057), left uncommitted in its worktree, and the chain of pull requests 13 to 15 (trial
+fixes, concept map, fast lesson agent, `play_in_forms`). They are now one tree on
+`feat/2026-11-06-two-lane-interface`. Nothing is pushed.
+
+- `b81ed5c`, on `feat/2026-10-31-harness-panels`: the prototype as it stood. `packages/lesson-panel`
+  (view `studium/panel-view/1`, presenter, actions, two backends), `apps/lesson-panel-ui` (the
+  renderer moved out of the VS Code extension, with bridges for VS Code, MCP Apps and a standalone
+  page), `apps/claude-code-mod` (the `/studium` pane), the tools `open_lesson_panel`,
+  `get_panel_view` and `panel_action`. Committed on the owner's decision of 6 November, which
+  lifts the earlier "do not commit".
+- The merge of `feat/2026-11-06-fast-lesson-relay` (`8825a20`) into it. Nine files conflicted, all
+  on the tool list, the tool count or one type: `server.ts` registers the form tool and the panel
+  tools; `asset-path.ts` keeps the equation asset type of one side and the widened image asset of
+  the other. The server now lists 39 tools (25 lesson, 5 study, 3 authoring, 2 teacher, 1 form,
+  3 panel). The MCP reference generator gained a `panel` group, and both reference pages were
+  regenerated.
+
+Test decision: `server.test.ts` and `panel-tools.test.ts` expect 39 tools (36 and 37 on the two
+sides), and `tools/panel-probe.mjs` asserts the same count. No other test changed.
+
+Checked on the merged tree: `pnpm install --frozen-lockfile`, `pnpm build:libs`, `pnpm build`,
+`pnpm lint`, `pnpm -r --no-bail test`, `tools/pytest_all.py` (16 suites, 0 failing), the bundle
+lint, the docs check (256 files, 0 problem), the headless smoke (19 assertions), and
+`tools/panel-probe.mjs` after `pnpm --filter @studium/lesson-mcp bundle` (39 tools; with the UI
+extension, 4 annotated tools, 2 resources, one action through the embedded app). The first run of
+the test suites failed on the `panel-tools.test.ts` count, and the probe on a server bundle built
+on 31 October: the probe reads `apps/lesson-mcp/dist/studium-mcp.cjs`, which no check rebuilds.
+
+Not verified: no person has used the panel, the pane or the forms in an interactive client.
+`apps/claude-code-mod/.claude-plugin/types/claude-code/index.d.ts` (850 KB, written by Claude
+Code 2.1.309) is committed because the workspace build type-checks the plugin against it; to
+reconsider before the repository is public.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

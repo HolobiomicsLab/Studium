@@ -11,6 +11,7 @@ export type { Disposition, SyntheticLearner, GateValidityRow } from "./gate-vali
 
 // Core class
 export { LessonSession } from "./session.js";
+export type { PathStep, LearnerPath } from "./session.js";
 
 // Grading
 export { grade } from "./grading/index.js";

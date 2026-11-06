@@ -19,7 +19,8 @@ const kinds = (xs: Array<{ kind: string }>) => xs.map((x) => x.kind).join(",");
 // A scene with mixed modalities, authored in a deliberately interleaved order so a reorder is
 // observable (orbital is visual; equation is textual; image visual; protocol textual; plot visual).
 const scene = [
-  { kind: "equation_latex", title: "Schrödinger", payload: "i\\hbar\\partial_t\\psi" },
+  { kind: "equation_latex", title: "Schrödinger", payload: "i\\hbar\\partial_t\\psi",
+    legend: [{ symbol: "ψ", meaning: "wave function" }] },
   { kind: "orbital", title: "2p_z orbital", payload: "CUBE..." },
   { kind: "protocol_md", title: "Procedure", payload: "1. ..." },
   { kind: "image", title: "Energy diagram", path: "/x.png" },
@@ -39,6 +40,8 @@ for (const pref of ["visual", "textual", "balanced"] as ModalityPreference[]) {
   expect(out.every((a) => !!a.emphasis), `[${pref}] every asset tagged with emphasis`);
   // original payloads/titles preserved (objects only decorated, not mutated away)
   expect(out.every((a) => a.title !== undefined), `[${pref}] titles preserved`);
+  expect(out.find((a) => a.kind === "equation_latex")?.legend?.[0]?.meaning === "wave function",
+    `[${pref}] equation legend preserved`);
 }
 
 // --- 2) 'balanced' is the identity transform (authored order, all 'normal') ------------------------

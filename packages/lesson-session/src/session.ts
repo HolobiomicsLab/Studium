@@ -2,7 +2,7 @@ import type { LessonBundle, Scene, ReferenceRun } from "@studium/lesson-bundle-s
 import { AdaptationEngine, DEFAULT_THETA, type SelfRating } from "@studium/adaptation-engine";
 import type { TelemetryEvent } from "@studium/telemetry-events";
 import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type Decision } from "@studium/learner-state";
-import { buildLwgMastery, buildLwgEffectiveMastery, buildLwgCalibration, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept, sceneConceptId } from "./graph-nav.js";
+import { ANSWER_GRADED_TYPES, buildLwgMastery, buildLwgEffectiveMastery, buildLwgCalibration, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept, sceneConceptId, type GraphNavResult } from "./graph-nav.js";
 import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary, HintResult, Verdict, Navigation } from "./types.js";
 import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
 import { SessionNotStartedError, SessionAlreadyCompleteError, SelfRatingNotRequestedError, SelfRatingExpiredError, InvalidSelfRatingError } from "./errors.js";
@@ -34,6 +34,37 @@ export const MAX_SCENE_REPLAYS = 3;
 const MASTERY_CLAIM_THRESHOLD = DEFAULT_THETA;
 const BASELINE_UNIVERSE_ID = "baseline";
 const REMEDIAL_UNIVERSE_ID = "remedial";
+
+/** One served step of a session: an answer (graded or not) or an acknowledged scene. */
+export interface PathStep {
+  step: number;
+  scene_id: string;
+  /** The learner submitted an answer; false for an acknowledged scene. */
+  answered: boolean;
+  /** true / false when a key or a judge assessed the answer, null otherwise. */
+  correct: boolean | null;
+  /** Who assessed the answer. Absent for an acknowledged scene and for a step rebuilt from history. */
+  assessed_by?: Verdict["assessed_by"];
+  /** How the session routed after this step. Absent for a step rebuilt from the saved history. */
+  navigation?: { kind: Navigation["kind"]; rule_id: string | null; returns_to?: string };
+}
+export interface LearnerPath { steps: PathStep[]; passed_prerequisites: string[] }
+
+/** The saved history holds, per answered step, the answer and then the scene's completion: fold the
+ * pair into one step. The history is capped, so a long session resumes with its latest steps only. */
+function trailFromHistory(history: LearnerState["history"]): PathStep[] {
+  const trail: PathStep[] = [];
+  for (const entry of history) {
+    const last = trail.at(-1);
+    if (entry.signal.kind === "answer_submitted") {
+      trail.push({ step: trail.length + 1, scene_id: entry.scene_id, answered: true,
+        correct: typeof entry.signal.correct === "boolean" ? entry.signal.correct : null });
+    } else if (entry.signal.kind === "scene_completed" && !(last?.answered && last.scene_id === entry.scene_id)) {
+      trail.push({ step: trail.length + 1, scene_id: entry.scene_id, answered: false, correct: null });
+    }
+  }
+  return trail;
+}
 
 export class LessonSession {
   /** Shared localization seam for consumers that only depend on the public LessonSession class. */
@@ -132,6 +163,7 @@ export class LessonSession {
     this.engine = new AdaptationEngine(this.bundle.rules, this.state, () => this.deps.clock.now());
     this.state = this.engine.getState();
     this.idx = this.startingSceneIndex();
+    if (this.idx > 0) this.trail = trailFromHistory(this.state.history);
     this.startIso = this.deps.clock.now();
     this.started = true;
     const u = this.bundle.universes ?? null;
@@ -287,6 +319,16 @@ export class LessonSession {
     return { conceptMastery, scenesCompleted: this.state.scenes_completed.length };
   }
 
+  /** The session facts behind a learner-facing map: each step served with its outcome, and the
+   * prerequisites the session credited (bare concept ids). Posterior mastery alone cannot tell
+   * where the learner is: it stays under theta long after a gate was passed. */
+  learnerPath(): LearnerPath {
+    return {
+      steps: this.trail.map((step) => ({ ...step, ...(step.navigation ? { navigation: { ...step.navigation } } : {}) })),
+      passed_prerequisites: [...this.passedPrerequisites].map((id) => id.replace(/^concept:/, "")),
+    };
+  }
+
   /** Every graded attempt on the concept (LWG `concept:` id) was correct, and there was at least one. */
   private hasFlawlessRecord(lwgConceptId: string): boolean {
     const cs = this.state.concept_states[lwgConceptId.replace(/^concept:/, "")];
@@ -354,10 +396,26 @@ export class LessonSession {
     const success = this.successOf(signal);
     this.emit({ type: "scene_completed", scene_id: scene.id, duration_ms: timeMs, ...(success === undefined ? {} : { success }) });
     this.lastSuccess = signal.kind === "answer_submitted" ? signal.correct : undefined;
+    this.trail.push({
+      step: this.trail.length + 1, scene_id: scene.id, answered: signal.kind === "answer_submitted",
+      correct: signal.kind === "answer_submitted" && typeof signal.correct === "boolean" ? signal.correct : null,
+    });
+    if (this.lastSuccess === true) this.answeredRight.add(scene.id);
+    else if (this.lastSuccess === false) this.answeredRight.delete(scene.id);
     const verdict = this.verdictOf(scene, signal, detail, coverage);
     const selfRating = await this.selfRatingFor(scene, signal, answeredAtMs);
     const t = this.navigate(decision, scene, answeredAtMs);
     this.lastSuccess = undefined;
+    const served = this.trail.at(-1);
+    if (served) {
+      if (served.answered) served.assessed_by = verdict.assessed_by;
+      if (t.navigation) {
+        served.navigation = {
+          kind: t.navigation.kind, rule_id: t.navigation.rule_id,
+          ...(t.navigation.returns_to === undefined ? {} : { returns_to: t.navigation.returns_to }),
+        };
+      }
+    }
     return { ...t, verdict, ...(selfRating ? { self_rating: selfRating } : {}) };
   }
 
@@ -468,6 +526,12 @@ export class LessonSession {
    * a graph detour that would re-serve the scene the learner JUST got right is pointless (mastery
    * rises too slowly for one correct answer to clear theta), so the gate is passed instead. */
   private lastSuccess: boolean | undefined = undefined;
+  /** What the learner did, in the order it was served: the facts a learner-facing map is drawn from
+   * (learnerPath). Rebuilt from the saved history when a lesson is resumed part-way. */
+  private trail: PathStep[] = [];
+  /** Answer-graded scenes whose latest answer in this session was correct. Session-local, like
+   * `passedPrerequisites`: a lesson played again from the start asks its questions again. */
+  private answeredRight = new Set<string>();
 
   /** The one navigation record behind a transition (see Navigation in types.ts). `rule_id` /
    * `modulator` come from the graph explanation when the graph routed, else from the rule engine. */
@@ -500,7 +564,10 @@ export class LessonSession {
       const altIdx = firstUnseenAnswerGradedSceneForConcept(this.bundle.scenes, concept, seen);
       if (altIdx >= 0) {
         // present an UNSEEN alternate item for the same concept (different-item remediation)
-        const resumeIdx = Math.max(this.idx, altIdx) + 1;
+        // Resume right after the alternate only when it is the very next scene. An alternate
+        // further down (a closing recall item) is a detour: the lesson resumes after the scene
+        // just left, or everything between the two would never be served.
+        const resumeIdx = altIdx === this.idx + 1 ? altIdx + 1 : this.idx + 1;
         this.pendingDetourReturnIdx = resumeIdx;
         this.scaffoldingEvents += 1; // remediation is still a scaffold the learner relied on
         this.idx = altIdx;
@@ -561,7 +628,7 @@ export class LessonSession {
       const routeStartIdx = this.pendingDetourReturnIdx === undefined
         ? this.idx
         : this.pendingDetourReturnIdx - 1;
-      const routed = graphAwareNextIndex(
+      const route = (): GraphNavResult => graphAwareNextIndex(
         this.bundle.scenes, routeStartIdx, lwg,
         buildLwgMastery(this.state.concept_states), this.theta, this.skipMastered,
         buildLwgCalibration(this.state.concept_states),
@@ -569,8 +636,40 @@ export class LessonSession {
         new Set(this.state.scenes_completed),
         this.passedPrerequisites,
         buildLwgEffectiveMastery(this.state.concept_states, this.state.concept_memory, nowMs),
+        this.answeredRight,
       );
-      let { index: nextIdx, reason } = routed;
+      // PREREQUISITE PASSED. Two cases credit a prerequisite still below theta instead of drilling
+      // it: (a) the learner just answered one of its items correctly while on a graph detour for
+      // it; (b) its record is flawless — every graded attempt correct — so the low posterior is
+      // only the prior's inertia (one correct answer moves 0.5 -> 0.54; the 2026-10-29 trials
+      // re-served the same item up to the detour limit). A prerequisite with recorded errors and
+      // no correct detour answer stays gated: that posterior is evidence, and the detour budget
+      // plus escalation are the designed answer. A pass is remembered for the session (W1), so
+      // later scenes gated on the same prerequisite do not re-open it.
+      //
+      // The credit is given BEFORE routing, and the route is taken again after each one, so that
+      // a scene with several unmet prerequisites is judged on each of them. Crediting only when
+      // the router chose the same prerequisite again (the previous rule) had two faults, found by
+      // simulation on atomistique-l1 on 6 Nov 2026: when the router chose the other prerequisite
+      // the correct answer was lost and the learner went back and forth between the two until the
+      // budget released the gate; when it chose the same one the gate opened on the scene with the
+      // other prerequisite never checked.
+      let openedGate: number | undefined;
+      const detourPrerequisite = this.graphDetourPrerequisite;
+      if (detourPrerequisite !== undefined && sceneConceptId(scene) === detourPrerequisite && this.lastSuccess === true) {
+        this.passedPrerequisites.add(detourPrerequisite);
+        openedGate = this.pendingDetourReturnIdx;
+      }
+      let routed = route();
+      while (routed.reason === "remediate" && routed.index !== null && routed.gated != null) {
+        const flawless = sceneConceptId(this.bundle.scenes[routed.index] as { concept_refs?: string[] });
+        if (flawless === null || !this.hasFlawlessRecord(flawless)) break;
+        this.passedPrerequisites.add(flawless);
+        openedGate = routed.gated;
+        routed = route();
+      }
+      const nextIdx = routed.index;
+      let reason: GraphNavResult["reason"] | "gate_passed" = routed.reason;
       if (nextIdx === null) {
         this.pendingDetourReturnIdx = undefined;
         return this.complete(decision);
@@ -580,25 +679,8 @@ export class LessonSession {
         && this.announcedUnassessablePrerequisites.has(routed.prerequisite)) {
         reason = "advance";
       }
-      // GATE PASSED. The router wants to send the learner back to an item of a prerequisite still
-      // below theta. Two cases pass the gate instead of drilling: (a) the prerequisite's record is
-      // flawless — every graded attempt correct — so the low posterior is only the prior's inertia
-      // (one correct answer moves 0.5 -> 0.54; the 2026-10-29 trials re-served the same item up to
-      // the detour limit); (b) the learner just answered an item of that prerequisite correctly while
-      // on a graph detour for it. A prerequisite with recorded errors stays gated: that posterior is
-      // evidence, and the detour budget plus escalation are the designed answer. A pass is remembered
-      // for the session (W1), so later scenes gated on the same prerequisite do not re-open it.
+      if (reason === "advance" && openedGate !== undefined && nextIdx === openedGate) reason = "gate_passed";
       const routedConcept = sceneConceptId(this.bundle.scenes[nextIdx] as { concept_refs?: string[] });
-      const answeredConcept = sceneConceptId(scene);
-      const passedOnDetour = this.graphDetourPrerequisite !== undefined
-        && this.graphDetourPrerequisite === routedConcept && answeredConcept === routedConcept
-        && this.lastSuccess === true;
-      if (reason === "remediate" && routed.gated != null && routedConcept !== null
-        && (this.hasFlawlessRecord(routedConcept) || passedOnDetour)) {
-        nextIdx = routed.gated;
-        reason = "gate_passed" as typeof reason;
-        this.passedPrerequisites.add(routedConcept);
-      }
       this.graphDetourPrerequisite = reason === "remediate" && routedConcept !== null ? routedConcept : undefined;
       if (reason === "remediate" && routed.gated !== undefined) {
         this.pendingDetourReturnIdx = routed.gated;
@@ -607,6 +689,7 @@ export class LessonSession {
       }
       const skippedSceneIds = reason === "skip_mastered"
         ? this.bundle.scenes.slice(routeStartIdx + 1, nextIdx).map((skipped) => skipped.id)
+          .filter((id) => !this.answeredRight.has(id))
         : [];
       this.idx = nextIdx;
       this.enterScene();
@@ -629,7 +712,7 @@ export class LessonSession {
         const reasonText = explanation.explanation_short;
         return { kind: "remediate", reason: reasonText, presentation: this.currentPresentation(),
           navigation: this.nav(decision, "remediate", reasonText, gatedId ? { returns_to: gatedId } : {}) };
-      } else if ((reason as string) === "gate_passed") {
+      } else if (reason === "gate_passed") {
         const explanation = { rule_id: "graph_prereq_gate_passed", explanation_short: phrase("explanation_graph_prereq_gate_passed", {}, this.locale), modulator: "M6" };
         this.rememberExplanation(explanation);
         this.emit({ type: "adaptation_applied", rule_id: "graph_prereq_gate_passed", signal: "navigate", modulator: "M6", value: 0 });
@@ -664,8 +747,11 @@ export class LessonSession {
       }
       return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav(decision, "advance", null) };
     }
-    const nextIdx = this.pendingDetourReturnIdx ?? this.idx + 1;
+    let nextIdx = this.pendingDetourReturnIdx ?? this.idx + 1;
     this.pendingDetourReturnIdx = undefined;
+    // An item already answered correctly as an alternate is not asked again when the lesson reaches it.
+    while (nextIdx < this.bundle.scenes.length
+      && ANSWER_GRADED_TYPES.has(this.bundle.scenes[nextIdx]!.type) && this.answeredRight.has(this.bundle.scenes[nextIdx]!.id)) nextIdx += 1;
     if (nextIdx >= this.bundle.scenes.length) return this.complete(decision);
     this.idx = nextIdx; this.enterScene();
     return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav(decision, "advance", null) };

@@ -60,6 +60,7 @@ function displayScene(scene: Record<string, unknown>): Record<string, unknown> {
 function displayAsset(asset: RenderAsset): RenderAsset {
   const display: Record<string, unknown> = {};
   for (const key of ASSET_TEXT) if (typeof asset[key] === "string") display[key] = asset[key];
+  if (asset.legend) display.legend = asset.legend.map(({ symbol, meaning }) => ({ symbol, meaning }));
   if (asset.kind === "executed_result") {
     const meta = asset.meta ?? {};
     display.meta = {
@@ -109,6 +110,8 @@ export function operatorContext(host: SessionHost, sessionId: string) {
     session_id: sessionId,
     scene: displayScene(scene),
     scene_assets: host.sceneArtifacts(sessionId).map(displayAsset),
+    // What the symbols of this scene's concepts mean, from the legends the lesson has already shown.
+    notation: host.sceneNotation(sessionId),
     run_manifest: run,
     language: {
       ...language,

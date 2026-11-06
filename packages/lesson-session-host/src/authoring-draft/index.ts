@@ -5,7 +5,7 @@
 // learner's library (create_lesson). apps/lesson-mcp/src/authoring-tools.ts binds them to MCP.
 export { chunkText, DEFAULT_MAX_CHARS, DEFAULT_MIN_CHARS, type ChunkedText } from "./passages.js";
 export {
-  AuthoringInputError, MAX_SOURCE_CHARS, MAX_SOURCES, MAX_TOTAL_SOURCE_CHARS, prepareSources, readSourceSet, SOURCE_SET_ID_PATTERN, SOURCES_DIR,
+  AuthoringInputError, MAX_SOURCE_CHARS, MAX_SOURCES, MAX_TOTAL_SOURCE_CHARS, prepareSources, SOURCE_KINDS, type SourceKind, readSourceSet, SOURCE_SET_ID_PATTERN, SOURCES_DIR,
   type Passage, type PrepareOptions, type SourceInput, type SourceSet,
 } from "./source-set.js";
 export { checkQuote, MAX_QUOTE_CHARS, MIN_QUOTE_CHARS, normalizeQuoteText, sourceSpan, type QuoteCheck } from "./quotes.js";

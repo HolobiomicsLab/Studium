@@ -58,6 +58,7 @@ export function sceneRenderAssets(scene: Scene): RenderAsset[] {
         ...(abs.payload_path ? { path: abs.payload_path } : {}),
         ...(abs.asset_type === "code_snippet" || abs.asset_type === "script_snippet" ? { language: "python" } : {}),
         provenance: abs.prov_derived_from,
+        ...(abs.legend ? { legend: abs.legend } : {}),
       });
     }
   }

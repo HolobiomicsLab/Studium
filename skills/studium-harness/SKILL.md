@@ -6,10 +6,10 @@ description: Operate a Studium lesson through an AI harness such as Codex, Claud
 # studium-harness: Studium as the lesson brain, this harness as the hands
 
 Studium (GitHub `HolobiomicsLab/studium`) serves lessons through an MCP server
-(`apps/lesson-mcp`), a local HTTP API with the same lesson operations, and a file
-channel. The harness shows scenes, runs any code and relays the learner's answers;
-Studium presents, grades, adapts, schedules reviews, attests and records. Three
-invariants shape every step:
+(`apps/lesson-mcp`), a local HTTP API with the same 25 lesson operations plus
+`rate_recall`, and a file channel. The harness shows scenes, runs any code and relays
+the learner's answers; Studium presents, grades, adapts, schedules reviews, attests
+and records. Three invariants shape every step:
 
 - **The learner answers, you relay.** Never answer, choose, rate or state confidence
   for them. Distinguish teaching (wait for the learner), labelled automated testing
@@ -23,6 +23,41 @@ invariants shape every step:
 
 `tools/list` on the running server and `get_server_info` are the authoritative tool
 surface. Every tool and its arguments: [MCP tools](../../docs/reference/mcp-tools.md).
+
+## Keep each turn short
+
+Studium grades an answer and picks the next screen in a few milliseconds. The learner waits for
+the model around it, on every word it writes. Measured on one lesson (figures and method in
+[Keep answers fast](../../docs/start/harnesses.md#keep-answers-fast)): 27 s per answer when a
+large model relayed through shell calls inside a long working session, 5 to 6 s when a short
+session ran as the fast lesson agent, 16 s when a large model handed each answer to that agent.
+So, by default:
+
+- **Play a lesson in a short session of its own, on a fast model.** In Claude Code:
+  `claude --agent studium-lesson` (`.claude/agents/`, strict relay on the fast model). In another
+  harness: a new session, on its fast model. When a lesson is accepted in the middle of a long
+  working conversation, say so in one line and give the command, or open that session if your
+  harness can open one for the person. If they prefer to stay, play it here.
+- **Do not put an agent between the learner and the server.** Handing every answer to a subagent
+  makes two models write the same screen, and is slower than either alone. A fast agent helps
+  when it is the session, or when it works in the background.
+- **Use the MCP tools, not shell calls**, when the server is connected: a shell call starts a
+  process, 2 to 4 s each time.
+- **Relay, do not rewrite.** Show `display_markdown` as it is and add nothing unless the learner
+  asks. Relay an answer and its confidence in one `submit_response`.
+- **Where the client shows forms, offer the fast lane once (prototype).** `play_in_forms
+  {session_id}` lets the server show screens and quizzes in forms and grade them with no model
+  turn in between; it returns when a scene needs written words, when the learner closes a form
+  to talk, or at the end. Show its `display_markdown`, do not replay its `steps`, and call it
+  again after the conversation step. `status: "unsupported"` means this client has no forms.
+  How clients draw a long screen or a formula in a form is untried: if the learner finds it
+  worse, go back to the conversation.
+- **Give depth on request, from a stronger model.** A question that needs a real explanation goes
+  to the `studium-explainer` agent (Claude Code) or to the session's larger model, never between
+  a question and the learner's answer when it is the idea that question tests.
+- **Keep slow work out of the learner's way.** Draw or generate a support only on request. Run
+  exports, reports and lesson building in a background agent when the harness has one, say that
+  it is running, and let the learner go on.
 
 ## 1. Locate the installation
 
@@ -173,11 +208,29 @@ The reply is `{transition}`, with `kind` (`next`, `replay`, `remediate_alt`,
 Without a judge, written answers get the reference to compare with, never a keyword
 count presented as an assessment.
 
+- `concept_map`, at a few moments only (`moment`: `start` on `start_lesson_session`, then
+  `new_concept`, `detour`, `detour_return`, `synthesis`, `complete`): the lesson's concepts with
+  their state for this learner (`acquired`, `to_review`, `current`, `seen`, `upcoming`), the questions
+  already answered with their step, where the learner comes from and what comes next.
+  `display_markdown` already includes it, as a list or as one position line (`show`: `map` or
+  `line`). A harness that draws diagrams may render `concept_map.mermaid` in place of the list. On
+  the learner's request, `get_workflow_graph` returns the current `concept_map`.
+- For a page the learner can explore, `export_concept_map {session_id}` writes the session's record
+  under their library and returns `saved_to` and `sha256`; then run
+  `tools/concept_map_report.py export <saved_to> <new-dir> --expect-sha256 <sha256>`, `verify` it and
+  give them `index.html`: a concept opens its steps, its sources and its trace nodes, with a learner
+  and a teacher viewpoint. See [Concept map](../../docs/learn/concept-map.md). Export only on request:
+  the record holds the learner's results. How to read the map with a learner, when to offer the
+  page and the teacher viewpoint: [studium-concept-map](../studium-concept-map/SKILL.md).
+
 Other lesson tools:
 
 - `submit_turn {session_id, text}` per discussion turn, then `submit_response` with `ack`.
 - `request_hint {session_id}` on a quiz: the next authored hint (each discounts
-  mastery; `hint: null` at the per-visit cap).
+  mastery; `hint: null` at the per-visit cap). The reply may also carry `notation`
+  (`[{symbol, meaning}]`): the legends the lesson has already shown for this scene's
+  concepts. It is a reminder, not a hint: never metered, also in `get_operator_context`.
+  Show it when the learner asks what a symbol means.
 - `explain_last_adaptation`, `get_workflow_graph` (per-concept state),
   `get_session_state` (mastery, completed scenes, history), all `{session_id}`.
 - `get_next_reinforcement {session_id?, learner_id?, now_ms?}`: the most urgent concept
@@ -248,13 +301,16 @@ raters; they are not part of a single-learner run.
 
 ## 7. Other channels
 
-**HTTP API.** `pnpm --filter @studium/lesson-mcp api` serves the 25 lesson operations
-on `127.0.0.1:8130` (`STUDIUM_API_TOKEN` of at least 32 characters, in the environment,
-never in a prompt); `pnpm --silent --filter @studium/lesson-mcp api:call operations`
-lists them. Study, authoring and teacher tools are MCP-only. Each mutation carries a
-unique `request_id`; scene-sensitive mutations also need the current
-`expected_scene_id`. Resend an uncertain request with the same id; do not re-create a
-session on a connection error. See [Direct HTTP API](../../docs/start/harnesses.md#direct-http-api)
+**HTTP API.** `pnpm --filter @studium/lesson-mcp api` serves 26 operations: the 25
+lesson operations plus `rate_recall`, on `127.0.0.1:8130` (`STUDIUM_API_TOKEN` of at
+least 32 characters, in the environment, never in a prompt). Run
+`pnpm --silent --filter @studium/lesson-mcp api:call operations` to list them. The other
+study tools (`get_study_plan`, `list_lessons`, `start_review_session`) and all authoring
+and teacher tools are MCP-only. Each mutation carries a unique `request_id`;
+scene-sensitive mutations also need the current `expected_scene_id`. `rate_recall` needs no
+`expected_scene_id` because its `scene_id` argument identifies the self-rating request.
+Resend an uncertain request with the same id; do not re-create a session on a connection
+error. See [Direct HTTP API](../../docs/start/harnesses.md#direct-http-api)
 and the [HTTP API reference](../../docs/reference/http-api.md).
 
 **File channel.** From the repository root, the runner writes each step and waits:
@@ -327,6 +383,8 @@ custom viewers or new libraries, follow
 content stays a draft for teacher review. For activities, reports and visual supports,
 use [studium-activity-templates](../studium-activity-templates/SKILL.md),
 [studium-learner-report](../studium-learner-report/SKILL.md) and
-[studium-visual-support](../studium-visual-support/SKILL.md).
+[studium-visual-support](../studium-visual-support/SKILL.md). To decide which of these to offer, and
+when, use [studium-suggest](../studium-suggest/SKILL.md): one offer, at a pause, never between a
+question and its answer.
 
 Protocol details: [Agentic session protocol](../../docs/reference/agentic-session-protocol.md).

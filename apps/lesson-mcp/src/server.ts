@@ -2,13 +2,14 @@
 //
 // The Studium MCP server: the lesson operations (operations.ts), the tools of the 2026-10-30
 // production sprint (contract C1) — the study tools defined here (list_lessons, get_study_plan,
-// start_review_session, rate_recall), the authoring tools (authoring-tools.ts: get_authoring_guide,
+// start_review_session, rate_recall, and export_concept_map since 2026-11-06), the authoring tools (authoring-tools.ts: get_authoring_guide,
 // prepare_sources, create_lesson) and the teacher tools (teacher-tools.ts: review_lesson,
 // class_report) — the instructions a harness reads at connection, and the `learn` and `review`
 // prompts. get_server_info lists exactly the tools registered here.
 //
-// The study, authoring and teacher tools are MCP-only this sprint (lead decision I-11): the HTTP
-// adapter (http.ts) serves the 25 lesson operations alone.
+// Lead decision I-11 keeps authoring, teacher and most study tools MCP-only. Owner exception of
+// 2026-11-05: HTTP also exposes rate_recall because its own lesson transition requests that rating;
+// http.ts and http.test.ts pin the exact 25 lesson + 1 study operation surface.
 import { z } from "zod";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -20,15 +21,16 @@ import {
 import { lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type ToolResult } from "./operations.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools } from "./authoring-tools.js";
 import { TEACHER_TOOL_NAMES, registerTeacherTools } from "./teacher-tools.js";
+import { FORM_TOOL_NAMES, registerFormTools } from "./form-tools.js";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
 import { PANEL_TOOL_NAMES, registerPanelTools } from "./panel-tools.js";
 
 /** C1 study tools, defined in this file. */
-export const STUDY_TOOL_NAMES = ["get_study_plan", "list_lessons", "rate_recall", "start_review_session"] as const;
+export const STUDY_TOOL_NAMES = ["export_concept_map", "get_study_plan", "list_lessons", "rate_recall", "start_review_session"] as const;
 /** Every tool buildMcpServer registers, sorted: the lesson operations, the study tools, the authoring
- * tools and the teacher tools. */
+ * tools, the teacher tools, the form tool (form-tools.ts, a prototype) and the panel tools (panel-tools.ts). */
 export const TOOL_NAMES: readonly string[] = [
-  ...LESSON_TOOL_NAMES, ...STUDY_TOOL_NAMES, ...AUTHORING_TOOL_NAMES, ...TEACHER_TOOL_NAMES, ...PANEL_TOOL_NAMES,
+  ...LESSON_TOOL_NAMES, ...STUDY_TOOL_NAMES, ...AUTHORING_TOOL_NAMES, ...TEACHER_TOOL_NAMES, ...FORM_TOOL_NAMES, ...PANEL_TOOL_NAMES,
 ].sort();
 
 /** C4 self-rating grades, in FSRS order (lesson-session's SELF_RATING_CHOICES; a test pins the match). */
@@ -44,12 +46,13 @@ export const SERVER_INSTRUCTIONS = [
   "- Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools).",
   "- Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.",
   "- Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.",
-  "- Show display_markdown as it is: on a presentation; after an answer, verdict.display_markdown first, then the transition's.",
+  "- Show display_markdown as it is and add nothing of your own unless the learner asks (they wait on every word): on a presentation; after an answer, verdict.display_markdown first, then the transition's.",
   "- On the first screen, relay the authoring notice; if persistence.durable is false, tell the learner progress is lost at restart.",
   `- Wait for the learner's answer and send their words with ${REPLY_CALL}; never answer, choose or rate for them.`,
   "- When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.",
   "- start_review_session plays every review due, across lessons; list_lessons shows what can be started.",
   "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session.",
+  "- When the learner asks where they are, show the map (get_workflow_graph). Offer once, at a pause, never between a question and its answer: at the end, the map as a page on the learner's yes (export_concept_map); in a working conversation, a short lesson from it when the person wants to understand it (prepare_sources, kind \"conversation\").",
   "- Never call forget_session unless the learner asks to erase their data: it deletes their progress for good.",
 ].join("\n");
 
@@ -159,6 +162,22 @@ export function studyOperations(host: SessionHost): Operation[] {
         grade: z.enum(RECALL_GRADES, { errorMap: () => ({ message: `grade must be one of ${RECALL_GRADES.join(", ")}` }) }),
       },
       async ({ session_id, scene_id, grade }) => host.rateRecall(session_id, scene_id, grade)),
+
+    operation("export_concept_map",
+      "On the learner's request, export the concept map of a lesson session as a record " +
+      "(studium/concept-map-record/v1): the map, each step with who assessed the answer and how the session routed " +
+      "after it, and for every scene what it rests on (sources cited and their origin, key class, who drafted the " +
+      "lesson and whether a teacher validated it). No learner identifier and none of the learner's words; a passage " +
+      "is quoted only for a scene already left. When the server has a library the record is written under " +
+      "<library>/_exports/concept-maps/ and saved_to and sha256 name the file; tools/concept_map_report.py turns it " +
+      "into an interactive page with its ASTRA document and ARA trace. Show display_markdown. Fails for a review " +
+      "session and for a lesson with fewer than two concepts.",
+      { session_id: z.string() },
+      async ({ session_id }) => {
+        const exported = await host.exportConceptMap(session_id);
+        if (!exported) throw new Error("this session has no concept map (a review session, or a lesson with fewer than two concepts)");
+        return exported;
+      }),
   ];
 }
 
@@ -272,6 +291,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
   registered.push(...registerTeacherTools(server, {
     bundlesRoot: host.bundlesRoot, libraryRoot: host.libraryRoot, dataDir: host.persistence().data_dir,
   }));
+  registered.push(...registerFormTools(server, host));
   registerPrompts(server);
   logStartup(registered.length);
   return server;

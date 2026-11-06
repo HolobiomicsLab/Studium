@@ -6,6 +6,7 @@ import { LessonBundleSchema } from "@studium/lesson-bundle-schema";
 import { createLesson, SELF_STUDY_VALIDATED_BY, type CreateLessonResult } from "./build.js";
 import { lintBundleData } from "./lint.js";
 import { prepareSources, type SourceSet } from "./source-set.js";
+import { authoringOf } from "../authoring.js";
 import { FRENCH_SOURCE, P1, P2, P3 } from "./test-fixtures.js";
 
 const NOW = new Date("2026-10-30T09:00:00.000Z");
@@ -154,6 +155,20 @@ describe("createLesson: a valid draft", () => {
     expect(bundle.scenes[5]!.evidence?.enrichment_metadata).toEqual({
       enricher_version: "studium-authoring-draft/1", perspicacite_mode_used: "passages", timestamp: NOW.toISOString(), degraded: false,
     });
+  });
+
+  it("marks a citation taken from a conversation excerpt, and the lesson's notice says what it rests on", async () => {
+    const root = mkdtempSync(join(tmpdir(), "authoring-build-"));
+    roots.push(root);
+    const set = await prepareSources(root, [{ ...FRENCH_SOURCE, url: undefined, kind: "conversation" }], { goal: GOAL, language: "fr" });
+    const bundle = okResult(await createLesson(root, { source_set_id: set.source_set_id, draft: validDraft() }, { now: () => NOW })).bundle;
+    expect(bundle.scenes[1]!.evidence?.bibliographic_refs?.[0]?.prov_derived_from).toBe("conversation:deux-formes-de-solidarite");
+    const notice = authoringOf(bundle, { judge: false }).notice!;
+    expect(notice).toContain("extraits d'une conversation avec un assistant IA");
+    expect(notice).toContain("n'a pas été vérifié");
+    // A lesson from documents keeps the notice it had.
+    const fromDocuments = okResult((await created()).result).bundle;
+    expect(authoringOf(fromDocuments, { judge: false }).notice).not.toContain("conversation");
   });
 
   it("returns an outline and key classes without any key", async () => {

@@ -37,18 +37,27 @@ export class AuthoringInputError extends Error {
   }
 }
 
+/** What a source is. A `conversation` is an excerpt of an exchange with an AI assistant: the lesson
+ * built on it says so, because what an assistant asserted there is not a checked reference. */
+export const SOURCE_KINDS = ["document", "conversation"] as const;
+export type SourceKind = (typeof SOURCE_KINDS)[number];
+
 /** One text the harness fetched, as prepare_sources receives it. */
 export interface SourceInput {
   title: string;
   text: string;
   url?: string | undefined;
   license?: string | undefined;
+  /** Absent means a document. */
+  kind?: SourceKind | undefined;
 }
 
 const PassageSchema = z.object({ id: z.string(), source_id: z.string(), text: z.string() });
 const SourceRecordSchema = z.object({
   source_id: z.string(), title: z.string(), url: z.string().nullable(), license: z.string(),
   sha256: z.string(), chars: z.number().int(), passages: z.number().int(),
+  // Recorded only for a conversation, so the sets prepared before the field keep their id.
+  kind: z.literal("conversation").optional(),
 });
 const SourceSetSchema = z.object({
   schema: z.literal(SOURCE_SET_SCHEMA),
@@ -151,6 +160,7 @@ function buildSourceSet(sources: SourceInput[], options: PrepareOptions): Source
       source_id: sourceId, title: source.title.trim(), url: source.url ?? null,
       license: source.license?.trim() || DEFAULT_LICENSE, sha256: sha256(source.text), chars: source.text.length,
       passages: chunked.passages.length,
+      ...(source.kind === "conversation" ? { kind: "conversation" as const } : {}),
     });
   });
   if (issues.length > 0) throw new AuthoringInputError(issues);

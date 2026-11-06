@@ -18,6 +18,8 @@ The [CLI reference](../docs/reference/cli.md) documents the options of the main 
 
 | Command | What it does |
 |---|---|
+| `.venv/bin/python tools/conversation_sources.py` | turn a Claude Code transcript (`.jsonl`) or a text export of a conversation into `prepare_sources` input, kind `conversation`; local, tool results off by default, credential-looking strings redacted (`--focus`, `--last`, `--include-tool-results`, `--language`, `--out`) |
+| `.venv/bin/python tools/concept_map_report.py export` / `verify` | turn the record `export_concept_map` wrote into a self-contained interactive page of the concept map with its ASTRA document, ARA trace and MySTRA page, then verify it (`--class-report`, `--expect-sha256`, `--language`); see [Concept map](../docs/learn/concept-map.md) |
 | `.venv/bin/python tools/experience_packet.py passages` | capture a learner-chosen URL, HTML page, PDF or text file as a passage envelope (`--url`, `--html`, `--pdf`, `--text`, `--out`) |
 | `.venv/bin/python tools/experience_packet.py prepare` | turn passages into an offline authoring packet (`--passages`, `--out`, `--title`) |
 | `.venv/bin/python tools/experience_packet.py check` | validate an author response against the packet (`--packet`, `--response`, `--out`; `--json` for structured findings) |
@@ -64,6 +66,7 @@ inputs of the lint and report tools.
 | `bash tools/bundle_lint.test.sh` | contract tests of the bundle lint |
 | `node tools/docs/check.mjs` | the documentation gate: links, language pairs, generated reference pages |
 | `node tools/docs/gen-mcp-tools.mjs`, `node tools/docs/gen-lesson-bundle.mjs` | regenerate the MCP tools and lesson bundle references (`--check` to verify) |
+| `.venv/bin/python tools/latency_bench.py --live` | time a learner turn when an assistant relays a lesson: a headless Claude Code session, the server of this checkout, a labelled synthetic learner; compares a relay (`--mode relay --model`), the lesson agent (`--mode agent --agent-file`) and a hand-over on every answer (`--mode delegate`); `--probe` also asks for the answer and for a deep explanation. Paid: nothing runs without `--live` |
 | `node tools/audit-*.mjs`, `.venv/bin/python tools/audit-*.py` | browser and accessibility audits of the learner, teacher, VS Code and Observatory surfaces; each names its inputs in its header |
 
 ## End-to-end and demonstrations

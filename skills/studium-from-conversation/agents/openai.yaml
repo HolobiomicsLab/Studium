@@ -1,0 +1,4 @@
+interface:
+  display_name: "Studium · Depuis une conversation"
+  short_description: "Tirer une courte leçon de la conversation en cours"
+  default_prompt: "Utilise $studium-from-conversation pour tirer une courte leçon de cette conversation, puis la jouer en attendant mes propres réponses."

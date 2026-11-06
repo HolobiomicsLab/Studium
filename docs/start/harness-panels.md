@@ -36,7 +36,7 @@ when finished. It has no production authentication or deployment contract.
 
 ## Verify and extend
 
-`STUDIUM_EPHEMERAL=1 node tools/panel-probe.mjs` checks 37 tools, the 2/4 UI resource/tool counts,
+`STUDIUM_EPHEMERAL=1 node tools/panel-probe.mjs` checks 39 tools, the 2/4 UI resource/tool counts,
 capability isolation, HTML sizes, answer-key redaction and the exact embedded App's postMessage
 handshake and action round trip in a DOM. Optional `--http=http://127.0.0.1:3001/mcp` exercises the
 local HTTP adapter; `--dom=/absolute/path/panel.html` saves the rendered DOM. This automated contract

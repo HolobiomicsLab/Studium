@@ -29,6 +29,8 @@ export interface SessionEntry {
   presentationLanguage?: string;
   /** The ref the session was started with (list_lessons and the study record name lessons by it). */
   bundleRef: string;
+  /** sha256 of the lesson.json bytes that were loaded; null for a bundle that is not one file. */
+  lessonSha256?: string | null;
   /** Durable mode: the folder holding this learner's data for this lesson (deps.ts durableScopeDir),
    * which forget removes. Absent in memory, and for a review session (it keeps no lesson state). */
   scopeDir?: string;
@@ -51,6 +53,10 @@ export interface SessionEntry {
   moved: Set<string>;
   /** Responses applied in this session (0 = the first screen). */
   responses: number;
+  /** What the concept map already told the learner (host.conceptMapMoment): the concepts whose
+   * opening was announced, the scenes shown as a synthesis, and whether a prerequisite detour is
+   * under way. Created at the first transition. */
+  conceptMapSeen?: { concepts: Set<string>; syntheses: Set<string>; onDetour: boolean };
   /** Each concept state as the session started (JSON): only what the session changed is written back
    * to the profile, so a concept warm-seeded from it never overwrites a newer state with its old copy. */
   conceptStatesAtStart: Readonly<Record<string, string>>;

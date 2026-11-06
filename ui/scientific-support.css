@@ -115,6 +115,15 @@
   padding-block: 0.5rem;
 }
 
+.scientific-support__legend {
+  margin: 0.5rem 0 0;
+  padding-inline-start: 1.5rem;
+}
+
+.scientific-support__legend-entry + .scientific-support__legend-entry {
+  margin-block-start: 0.25rem;
+}
+
 .scientific-support__notice,
 .scientific-support__provenance,
 .scientific-support__alternative,

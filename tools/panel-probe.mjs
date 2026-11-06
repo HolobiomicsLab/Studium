@@ -54,7 +54,7 @@ for (const supportsUi of [false, true]) {
   try {
     await client.connect(transport);
     const tools = (await client.listTools()).tools;
-    assert.equal(tools.length, 37);
+    assert.equal(tools.length, 39);
     const uiTools = tools.filter(tool => tool._meta?.ui);
     assert.equal(uiTools.length, supportsUi ? 4 : 0);
     const resources = (await client.listResources()).resources;

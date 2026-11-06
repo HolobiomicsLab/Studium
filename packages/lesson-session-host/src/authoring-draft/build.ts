@@ -333,8 +333,13 @@ function hasRubric(type: DraftSceneType): boolean {
   return !["intro", "concept", "quiz", "meta_checkpoint", "discussion"].includes(type);
 }
 
+/** `prov_derived_from` of a citation taken from a conversation excerpt (source kind `conversation`).
+ * authoringOf reads it to tell the learner what the lesson rests on. */
+export const CONVERSATION_PROVENANCE_PREFIX = "conversation:";
+
 /** ADR 014 evidence of a scene: one bibliographic ref per quote, its excerpt in the source's own
- * characters, `prov_derived_from` the source URL (or `source:<id>` for a text without one) and
+ * characters, `prov_derived_from` the source URL (`source:<id>` for a text without one,
+ * `conversation:<id>` for a conversation excerpt) and
  * `license` the source's declared licence. */
 function evidenceOf(quotes: ReadonlyArray<{ passage_id: string; text: string }>, sourceSet: SourceSet, now: Date): Record<string, unknown> | undefined {
   if (quotes.length === 0) return undefined;
@@ -345,7 +350,9 @@ function evidenceOf(quotes: ReadonlyArray<{ passage_id: string; text: string }>,
       const source = sourceSet.sources.find((candidate) => candidate.source_id === passage.source_id)!;
       return {
         perspicacite_doc_id: passage.id, title: source.title, authors: [], excerpt: sourceSpan(quote.text, passage.text),
-        relevance_score: 1, prov_derived_from: source.url ?? `source:${source.source_id}`,
+        relevance_score: 1,
+        prov_derived_from: source.kind === "conversation" ? `${CONVERSATION_PROVENANCE_PREFIX}${source.source_id}`
+          : source.url ?? `source:${source.source_id}`,
         // L-3: an attribution licence is honoured only if it travels with the citation. A source
         // prepared without one records DEFAULT_LICENSE, which is no licence to show.
         ...(source.license === DEFAULT_LICENSE ? {} : { license: source.license }),

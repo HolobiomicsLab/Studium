@@ -19,7 +19,7 @@ Pour des exemples faits pour être lus et copiés, voir [`examples/`](../example
 
 | Fixture | Contenu | Utilisée par |
 |---|---|---|
-| [`atomistique-l1/`](atomistique-l1/README.md) | chimie L1, chapitre 1 (atomes, orbitales, périodicité) : 25 scènes avec orbitales interactives, spectre d'émission, tendances périodiques et molécules 3D | le cours par défaut de VS Code (`studium.bundleRef`) ; ses propres scripts `*_check.mjs` |
+| [`atomistique-l1/`](atomistique-l1/README.md) | chimie L1, chapitre 1 (atomes, orbitales, périodicité) : 32 scènes avec orbitales interactives, spectre d'émission, tendances périodiques et molécules 3D | le cours par défaut de VS Code (`studium.bundleRef`) ; ses propres scripts `*_check.mjs` |
 | `capsule-run-demo/` | reproduire un ajustement de décroissance au moment de l'apprentissage (2 scènes) | tests d'exécution de l'hôte de séance, serveur de leçons, pilote `extension-host` de VS Code |
 | `capsule-loop-demo/` | l'exécuter, puis juger son propre résultat (3 scènes) | tests du serveur MCP et du graphe de cours |
 | `capsule-debate-demo/` | débattre de ce que votre résultat permet de conclure (3 scènes) | démonstration seulement |

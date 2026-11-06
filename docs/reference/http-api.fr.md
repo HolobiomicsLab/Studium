@@ -3,8 +3,8 @@
 # API HTTP
 
 Studium propose deux serveurs HTTP locaux. Utilisez l'**API de leçon** d'`apps/lesson-mcp` pour
-piloter des leçons depuis un script ou un harnais sans MCP ; elle expose les mêmes opérations que
-les [outils MCP](mcp-tools.fr.md). L'ancien **lesson-server** (`apps/lesson-server`) sert les salles
+piloter des leçons depuis un script ou un harnais sans MCP ; elle expose les 25 opérations de leçon
+des [outils MCP](mcp-tools.fr.md), ainsi que `rate_recall`. L'ancien **lesson-server** (`apps/lesson-server`) sert les salles
 entre pairs et les pages de cours du tableau de bord enseignant. Les deux cachent les clés de
 réponse : une scène est envoyée dans sa projection publique, jamais avec sa clé.
 
@@ -13,7 +13,7 @@ réponse : une scène est envoyée dans sa projection publique, jamais avec sa 
 | Démarrage | `pnpm --filter @studium/lesson-mcp api` | `pnpm --filter @studium/lesson-server start` |
 | Adresse | `http://127.0.0.1:8130` (`STUDIUM_API_PORT`) | `http://127.0.0.1:8010` (`PORT`) |
 | Authentification | jeton Bearer, boucle locale uniquement, origines de navigateur refusées | aucune (boucle locale uniquement) |
-| Opérations | les 25 outils de leçon, avec découverte | sessions, salles entre pairs, cours |
+| Opérations | 26 : les 25 outils de leçon et `rate_recall`, avec découverte | sessions, salles entre pairs, cours |
 | Relances | idempotentes avec `request_id` | aucune |
 
 Aucun des deux n'est fait pour une classe sur Internet : ils n'écoutent que sur 127.0.0.1 et leurs
@@ -58,6 +58,13 @@ Chaque requête porte `Authorization: Bearer <jeton>` ; le corps d'un POST est
 | `request_id` | Pour toute opération qui modifie l'état. Réutilisez-le, avec des arguments identiques, pour relancer sans risque : la réponse conservée est renvoyée et rien ne s'exécute deux fois. |
 | `expected_scene_id` | `submit_response`, `submit_turn`, `submit_run_result`, `request_hint`, `record_experiment` : la scène à laquelle l'apprenant répond. Une scène qui a changé donne `409 stale_scene`. |
 
+Quand `submit_response` renvoie `self_rating: {requested: true, scene_id, ...}`, demandez à
+l'apprenant de choisir `again`, `hard`, `good` ou `easy`, puis appelez `rate_recall` avec un nouveau
+`request_id` et `arguments: {session_id, scene_id, grade}`. Cette opération n'exige pas
+`expected_scene_id`, car son argument `scene_id` identifie la demande d'auto-évaluation consommée.
+Une relance identique avec le même `request_id` renvoie la réponse conservée ; un autre identifiant
+ne peut pas enregistrer une seconde note pour la même demande.
+
 ```bash
 curl -s -H "Authorization: Bearer $STUDIUM_API_TOKEN" http://127.0.0.1:8130/v1/operations
 curl -s -X POST -H "Authorization: Bearer $STUDIUM_API_TOKEN" -H 'content-type: application/json' \
@@ -77,7 +84,8 @@ pnpm --silent --filter @studium/lesson-mcp api:call start_lesson_session /chemin
 Les opérations en lecture seule (`get_*`, `explain_last_adaptation`, `list_community_bundles`)
 n'exigent pas de `request_id` et sont recalculées à chaque appel. `forget_session` prend `session_id` ou
 `learner_id`, comme par MCP ; avec `learner_id`, aucune session n'a besoin d'être ouverte, et une requête
-rejouée sur l'une des sessions qu'il a fermées répond `410 forgotten`. Les outils d'étude, d'auteur et
+rejouée sur l'une des sessions qu'il a fermées répond `410 forgotten`. Les autres outils d'étude
+(`get_study_plan`, `list_lessons`, `start_review_session`) et tous les outils d'auteur et
 d'enseignant ne sont pas servis ici dans cette version ; passez par MCP.
 
 ### Erreurs

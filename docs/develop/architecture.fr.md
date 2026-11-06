@@ -83,7 +83,7 @@ sont conservés comme code hérité et de recherche ; ce n'est pas une voie d'
 
 | Unité | Rôle | README |
 |---|---|---|
-| `apps/lesson-mcp` | serveur MCP (37 outils, stdio) et adaptateur HTTP des opérations de leçon | [README](../../apps/lesson-mcp/README.fr.md) |
+| `apps/lesson-mcp` | serveur MCP (39 outils, stdio) et adaptateur HTTP des opérations de leçon | [README](../../apps/lesson-mcp/README.fr.md) |
 | `apps/studium-vscode` | extension VS Code : panneau de leçon, participant de chat, serveur MCP embarqué | [README](../../apps/studium-vscode/README.fr.md) |
 | `apps/lesson-panel-ui` | Rendu partagé des leçons et graphes, adaptateurs VS Code et MCP Apps | [README](../../apps/lesson-panel-ui/README.fr.md) |
 | `apps/claude-code-mod` | Plugin Claude Code : panneau natif utilisant les outils partagés | [README](../../apps/claude-code-mod/README.fr.md) |
@@ -135,6 +135,6 @@ sont conservés comme code hérité et de recherche ; ce n'est pas une voie d'
 
 ## Limites
 
-L'adaptateur HTTP n'expose que les opérations de leçon ; les outils d'étude, d'auteur et enseignant
-n'existent qu'en MCP. Aucun canal unique ne relie l'hôte aux deux surfaces de relecture : elles lisent sur
+L'adaptateur HTTP expose les 25 opérations de leçon et `rate_recall` ; les autres outils d'étude et les
+outils d'auteur et enseignant n'existent qu'en MCP. Aucun canal unique ne relie l'hôte aux deux surfaces de relecture : elles lisent sur
 disque les artefacts de cours et de relecture.

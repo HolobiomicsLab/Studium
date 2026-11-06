@@ -176,7 +176,8 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         "The authoring block (also on every presentation) says who wrote the lesson; when authoring.notice " +
         "is set (a self-authored lesson), show it to the learner. " +
         "Optionally select a BCP 47 presentation_language; when omitted, use the bundle's source language. " +
-        "With now_ms the session runs on a clock anchored there: its answers, ratings and reviews are dated from it.",
+        "With now_ms the session runs on a clock anchored there: its answers, ratings and reviews are dated from it. " +
+        "concept_map is the lesson's concept map as the session opens (see get_workflow_graph); the first presentation's display_markdown already shows it.",
       inputSchema: {
         bundle_ref: z.string(), learner_id: z.string().optional(), now_ms: NowMsSchema.optional(),
         presentation_language: z.string().optional(),
@@ -194,6 +195,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
           session_id: r.sessionId,
           authoring: r.authoring,
           presentation: publicPresentation(r.presentation),
+          ...(r.concept_map ? { concept_map: r.concept_map } : {}),
           language: operatorContext(host, r.sessionId).language,
           resume: r.resume,
           persistence: r.persistence,
@@ -231,7 +233,10 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         "{kind:\"confidence\", pre, post} (legacy value remains accepted). Returns next/replay/remediate_alt/" +
         "remediate/calibration/complete with verdict and navigation; navigation.returns_to is the scene resumed " +
         "after the detour. A complete summary documents skipped_scene_ids, scenes_detoured, and mastery. Show " +
-        "verdict.display_markdown first, then the transition's display_markdown.",
+        "verdict.display_markdown first, then the transition's display_markdown. At a few moments the transition " +
+        "carries concept_map (see get_workflow_graph), with moment start/new_concept/detour/detour_return/synthesis/complete " +
+        "and show map/line; display_markdown already includes the list or the position line. A harness that draws " +
+        "diagrams may render concept_map.mermaid in place of the list.",
       inputSchema: { session_id: z.string(), input: ResponseInputSchema },
     },
     async ({ session_id, input }) => {
@@ -245,7 +250,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     {
       description: "Get the normalized render manifest (scene_assets[]) for the current scene — the " +
         "artifacts a UI pairs with this scene: {kind: image|svg|equation_latex|plot_spec|code|data_csv|" +
-        "protocol_md|executed_result, title?, payload?, path?, meta?}. Empty for a plain quiz. A webview " +
+        "protocol_md|executed_result, title?, payload?, path?, legend?: [{symbol, meaning}], meta?}. Empty for a plain quiz. A webview " +
         "calls this each turn to repaint the artifact pane in lockstep with the lesson. reference_result and " +
         "executed_result are EVIDENCE to judge against, not an answer key.",
       inputSchema: { session_id: z.string() },
@@ -341,11 +346,18 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     {
       description: "Request the next authored hint for the current quiz scene. Returns {hint, index, remaining} " +
         "or {hint: null} when the scene is not a quiz, has no hints, or the per-visit hint cap is reached. " +
-        "Each hint discounts the mastery credit of the eventual answer (M5 anti-offloading).",
+        "Each hint discounts the mastery credit of the eventual answer (M5 anti-offloading). When the lesson " +
+        "has already given a legend for the symbols of this scene's concepts, the reply also carries " +
+        "notation: [{symbol, meaning}] — a reminder of what was shown, not a hint: it is never metered and " +
+        "stays available once the hints are spent.",
       inputSchema: { session_id: z.string() },
     },
     async ({ session_id }) => {
-      try { return text({ hint: host.requestHint(session_id) }); }
+      try {
+        const hint = host.requestHint(session_id);
+        const notation = host.sceneNotation(session_id);
+        return text({ hint, ...(notation.length ? { notation } : {}) });
+      }
       catch (e) { return fail((e as Error).message); }
     },
   );
@@ -383,11 +395,15 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
       description: "Get the Learning Workflow Graph for the session as a normalized GraphView with " +
         "LIVE per-concept state (mastered/current/available/locked) from the learner's running mastery. " +
         "Shape: {schema, domain, title?, nodes:[{id,type,label,group?,state?,value?}], edges:[{id,source,target,type}], focus?, legend?}. " +
-        "A graph webview repaints this each turn; the same payload drives a teacher (full) or student (ego) view. null when the bundle has no LWG.",
+        "A graph webview repaints this each turn; the same payload drives a teacher (full) or student (ego) view. null when the bundle has no LWG. " +
+        "Also returns concept_map, the learner's map drawn from what this session served and how it was answered " +
+        "(studium/concept-map/v1): nodes with state acquired/to_review/current/seen/upcoming and the questions asked with their step, " +
+        "prerequisite edges, position {from, at, next}, a Mermaid flowchart and display_markdown. Show it when the learner asks where they are; " +
+        "start_lesson_session and submit_response already carry it at the moments worth showing it. null for a review session or a lesson with fewer than two concepts.",
       inputSchema: { session_id: z.string() },
     },
     async ({ session_id }) => {
-      try { return text({ graph: host.workflowGraph(session_id) }); }
+      try { return text({ graph: host.workflowGraph(session_id), concept_map: host.conceptMap(session_id) }); }
       catch (e) { return fail((e as Error).message); }
     },
   );

@@ -871,6 +871,21 @@ function submitFreeText(scene: any, answer: string) {
   expect(mol?.getAttribute("role") === "img" && (mol.getAttribute("aria-label") || "").includes("Benzène"), "a 3D viewer has role=img and a label naming it");
 }
 {
+  const m = mount(true);
+  m.render(baseState({ id: "c1", type: "concept", title: "C", markdown: "x" }, {
+    scene_assets: [{
+      kind: "equation_latex", title: "Nombre de masse", payload: "A = Z + N",
+      legend: [
+        { symbol: "A", meaning: "nombre de masse" },
+        { symbol: "Z", meaning: "nombre de protons" },
+      ],
+    }],
+  }));
+  const legend = m.$(".asset-equation_latex .eq-legend");
+  expect(!!legend && legend.textContent.includes("A : nombre de masse") && legend.textContent.includes("Z : nombre de protons"),
+    "an equation legend is shown under its formula");
+}
+{
   // hint: the cost is stated before asking, and the hint is announced when it arrives
   const m = mount();
   m.render(baseState(quiz("qA", "Quiz A")));

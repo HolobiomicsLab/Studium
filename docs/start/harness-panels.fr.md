@@ -36,7 +36,7 @@ L'arrêter après usage. Il ne fournit ni authentification ni contrat de déploi
 
 ## Vérifier et étendre
 
-`STUDIUM_EPHEMERAL=1 node tools/panel-probe.mjs` vérifie 37 outils, les comptes 2/4 des ressources et
+`STUDIUM_EPHEMERAL=1 node tools/panel-probe.mjs` vérifie 39 outils, les comptes 2/4 des ressources et
 outils UI, l'isolation par capacité, les tailles HTML, l'absence de clé et le handshake postMessage
 avec une action du véritable App embarqué dans un DOM. `--http=http://127.0.0.1:3001/mcp` vérifie
 l'adaptateur HTTP local ; `--dom=/chemin/absolu/panneau.html` conserve le DOM rendu. Cet hôte automatisé

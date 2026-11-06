@@ -18,6 +18,9 @@ assistant its instructions, and the `learn` and `review` prompts start the two e
 | `studium-teacher` | install, connect an assistant, draft a lesson from literature, review it before a pilot | "Help me prepare my first course from this article." |
 | `studium-harness` | run the lesson loop over MCP, HTTP or the file channel: present scenes, collect the learner's answers, run capsules honestly | "Drive this session and wait for my answers." |
 | `studium-self-learner` | turn references you chose (a web page, a PDF, a text) into a self-study lesson with the Python packet tools, then play it | "Build a lesson from this chapter, then play it with me." |
+| `studium-from-conversation` | turn the conversation in progress, or a past session, into a short lesson that quotes it, with a concept map | "Make a short lesson from this conversation so I can check I understood why the gate sent me back." |
+| `studium-concept-map` | show where you stand on each concept of a lesson, and export the map as a page to explore, with what each concept rests on | "Where am I in this lesson? Then export the map as a page." |
+| `studium-suggest` | let the assistant offer the right Studium feature at the right moment, once, and wait for your yes | "Tell me when a short lesson or a review would help, and ask first." |
 | `studium-activity-templates` | choose and adapt an interactive activity tied to a scene | "Let me explore this result with a template." |
 | `studium-visual-support` | inspect source photographs or request an adapted image, map, audio or video through your assistant | "Prepare a visual aid with a text equivalent." |
 | `studium-learner-report` | export a recorded activity trace or experiment journal as a local report | "Prepare my report without my private texts." |

@@ -4,7 +4,8 @@
 // server instructions and prompts, the persistence block, display_markdown on the wire with no key
 // before the answer, a chat reply as an answer, and input errors in one readable line (HJ-7).
 import { describe, it, expect, afterEach } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -89,7 +90,7 @@ describe("what a harness reads first", () => {
     const { client } = await connect({ bundlesRoot: tmp() });
     const instructions = client.getInstructions() ?? "";
     expect(instructions.split("\n").length).toBeLessThanOrEqual(12);
-    for (const expected of ["get_study_plan", "learner_id", "display_markdown", "{kind: \"reply\", text}", "rate_recall", "forget_session"]) {
+    for (const expected of ["get_study_plan", "learner_id", "display_markdown", "add nothing of your own", "{kind: \"reply\", text}", "rate_recall", "export_concept_map", "forget_session"]) {
       expect(instructions).toContain(expected);
     }
     expect((await client.listPrompts()).prompts.map((p) => p.name).sort()).toEqual(["learn", "review"]);
@@ -272,5 +273,39 @@ describe("the study tools (C1)", () => {
     expect(started.presentation.scene.id).toBe("s-q");
     const escape = await call("start_lesson_session", { bundle_ref: "../outside.json" });
     expect(parse(escape).error).toMatch(/escapes bundles root/);
+  });
+
+  it("export_concept_map writes the record of the session under the library, with no key ahead of the answer", async () => {
+    const root = tmp();
+    const library = join(root, "library");
+    write(library, "signes/lesson.json", lesson("signes", [
+      quiz("s-q", "c-signe", { evidence: EVIDENCE }), explainBack("s-e", "c-phase"),
+    ], "Les signes"));
+    const { call } = await connect({ bundlesRoot: library, libraryRoot: library });
+    const started = parse(await call("start_lesson_session", { bundle_ref: "signes/lesson.json", learner_id: "ana" }));
+
+    const before = parse(await call("export_concept_map", { session_id: started.session_id }));
+    expect(before.record.schema).toBe("studium/concept-map-record/v1");
+    expect(before.saved_to).toBe(join(library, "_exports", "concept-maps", readdirSync(join(library, "_exports", "concept-maps"))[0]!));
+    expect(before.sha256).toBe(createHash("sha256").update(readFileSync(before.saved_to)).digest("hex"));
+    expect(before.display_markdown).toContain(before.saved_to);
+    expect(before.record.scenes[0]).toMatchObject({
+      scene_id: "s-q", key_class: "author_keyed", served: false, passages_released: false,
+      sources: [{ title: "Atkins, Chimie physique", origin: "web", url: "https://example.org/atkins" }],
+    });
+    const wire = JSON.stringify(before);
+    for (const secret of ["PASSAGE-QUI-RÉPOND", "BRAVO-RÉVÉLÉ", "POINT-CLÉ-SECRET", "MODÈLE-SECRET", "ana"]) expect(wire).not.toContain(secret);
+
+    await call("submit_response", { session_id: started.session_id, input: { kind: "quiz_choice", choiceId: idOf(started.presentation), confidence: 3 } });
+    const after = parse(await call("export_concept_map", { session_id: started.session_id }));
+    expect(after.record.scenes[0].sources[0].quote).toBe("PASSAGE-QUI-RÉPOND");
+    expect(after.record.path).toEqual([expect.objectContaining({ step: 1, scene_id: "s-q", correct: true, assessed_by: "key" })]);
+    expect(JSON.stringify(after)).not.toContain("MODÈLE-SECRET");
+
+    const single = join(root, "single");
+    write(single, "un/lesson.json", lesson("un", [quiz("s-q", "c-signe")]));
+    const other = await connect({ bundlesRoot: single });
+    const one = parse(await other.call("start_lesson_session", { bundle_ref: "un/lesson.json" }));
+    expect(errorText(await other.call("export_concept_map", { session_id: one.session_id }))).toMatch(/no concept map/);
   });
 });

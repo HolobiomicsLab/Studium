@@ -25,6 +25,8 @@ try {
   await page.locator('#visualSupport summary').first().click();
   await page.waitForFunction(() => document.querySelector('#supportAssets .scientific-support'));
   check('KaTeX real equation', await page.locator('#supportAssets .katex math').count() > 0);
+  check('equation legend follows equation', await page.locator('#supportAssets .scientific-support__equation + .scientific-support__legend').count() === 1);
+  check('equation legend names symbols', /y\s*:\s*response/.test(await page.locator('#supportAssets .scientific-support__legend').innerText()));
   check('Mermaid real diagram', await page.locator('#supportAssets .scientific-support__visual svg').count() > 0);
   check('no unexpected render fallback', await page.locator('#supportAssets .scientific-support__fallback').count() === 0);
   await page.locator('#activityLanguage').selectOption('fr');

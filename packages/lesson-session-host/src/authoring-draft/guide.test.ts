@@ -63,6 +63,16 @@ describe("authoringGuide", () => {
       : /[Bb]esides the quiz each prerequisite concept needs without a judge[^\n]*add at most one or two quiz or spot_the_flaw scenes/);
   });
 
+  it.each(["fr", "en"] as const)("keeps retry feedback non-revealing and requires equation legends (%s)", (language) => {
+    const { markdown } = authoringGuide({ language });
+    expect(markdown).toContain("`feedback_incorrect`");
+    expect(markdown).toMatch(language === "fr"
+      ? /avant une éventuelle nouvelle tentative[^\n]*ne doit donc jamais donner la réponse/
+      : /before a possible retry[^\n]*must never state the answer/);
+    expect(markdown).toContain("`equation_latex`");
+    expect(markdown).toContain("`legend: [{symbol, meaning}]`");
+  });
+
   it.each(["fr", "en"] as const)("asks for « tu » in a French lesson (%s)", (language) => {
     const { markdown } = authoringGuide({ language });
     expect(markdown).toContain(language === "fr" ? "tutoyez l'apprenant (« tu »)" : "address the learner as « tu »");

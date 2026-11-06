@@ -46,7 +46,7 @@ Des configurations prêtes à l'emploi se trouvent dans [`docs/examples/`](../..
 
 ## Ce qu'il propose
 
-37 outils, deux prompts (`learn` et `review`) et des instructions de serveur qui demandent à l'assistant
+39 outils, deux prompts (`learn` et `review`) et des instructions de serveur qui demandent à l'assistant
 d'attendre les réponses de l'apprenant lui-même. Le contrat complet figure dans la
 [référence des outils MCP](../../docs/reference/mcp-tools.fr.md).
 
@@ -95,8 +95,8 @@ de toutes les surfaces.
 
 ## Adaptateur HTTP
 
-[`src/http.ts`](src/http.ts) expose les opérations de leçon (pas les outils d'étude, de création ni
-d'enseignant) à un client local, sous `/v1/operations`. Il n'écoute que sur 127.0.0.1 et exige un jeton
+[`src/http.ts`](src/http.ts) expose les 25 opérations de leçon et `rate_recall` (pas les autres outils
+d'étude, ni les outils de création ou d'enseignant) à un client local, sous `/v1/operations`. Il n'écoute que sur 127.0.0.1 et exige un jeton
 porteur d'au moins 32 caractères :
 
 ```bash

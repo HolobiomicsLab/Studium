@@ -18,7 +18,7 @@ Studium transforme des sources que vous jugez fiables en leçons adaptatives, à
 | Apprendre seul un sujet avec un assistant IA | [Apprendre avec votre assistant](docs/learn/learn-with-your-assistant.fr.md) | Une leçon construite à partir des sources choisies, puis des révisions espacées les jours suivants |
 | Étudier dans une classe | [Guide étudiant](docs/learn/student-guide.fr.md) | Une leçon approuvée par l'enseignant, dans VS Code ou dans votre assistant, avec un retour après chaque réponse |
 | Enseigner | [Guide enseignant](docs/teach/teacher-guide.fr.md) | Une leçon sourcée, un enregistrement d'approbation lié à son contenu exact et un rapport de classe agrégé |
-| Construire sur Studium | [Architecture](docs/develop/architecture.fr.md) et [outils MCP](docs/reference/mcp-tools.fr.md) | Les contrats du moteur, les 34 outils MCP et le format des leçons |
+| Construire sur Studium | [Architecture](docs/develop/architecture.fr.md) et [outils MCP](docs/reference/mcp-tools.fr.md) | Les contrats du moteur, les 39 outils MCP et le format des leçons |
 
 Le [portail de la documentation](docs/index.fr.md) classe toutes les pages par rôle.
 
@@ -102,7 +102,7 @@ Pour aller plus loin : [démarrage rapide](docs/start/quickstart.fr.md), [insta
 | Domaine | Où | Rôle |
 |---|---|---|
 | Clients apprenant | [`apps/studium-vscode`](apps/studium-vscode) | Extension VS Code : panneau de leçon, notebook, participant de chat, révisions dans la barre d'état |
-| Hôtes | [`apps/lesson-mcp`](apps/lesson-mcp), [`packages/lesson-session-host`](packages/lesson-session-host), [`apps/lesson-server`](apps/lesson-server) | Serveur MCP (34 outils), hôte multi-séances à état durable, adaptateurs HTTP |
+| Hôtes | [`apps/lesson-mcp`](apps/lesson-mcp), [`packages/lesson-session-host`](packages/lesson-session-host), [`apps/lesson-server`](apps/lesson-server) | Serveur MCP (39 outils), hôte multi-séances à état durable, adaptateurs HTTP |
 | Moteur adaptatif | [`packages/lesson-session`](packages/lesson-session), [`packages/adaptation-engine`](packages/adaptation-engine), [`packages/learner-state`](packages/learner-state) | Navigation selon le graphe, maîtrise, remédiation, indices, calibration, révision espacée |
 | Contrats | [`packages/lesson-bundle-schema`](packages/lesson-bundle-schema), [`packages/learning-workflow-schema`](packages/learning-workflow-schema), [`packages/telemetry-events`](packages/telemetry-events) | Schémas typés (Zod, avec miroirs Pydantic) des leçons, des graphes et des événements |
 | Préparation et relecture | [`services/`](services), [`tools/`](tools), [`eval/`](eval) | Planificateur Python, synthèse de scènes, ingestion, Observatory, CLI d'auteur (`tools/experience_packet.py`), banc d'évaluation |
@@ -120,7 +120,7 @@ Pour aller plus loin : [démarrage rapide](docs/start/quickstart.fr.md), [insta
 
 ## État et limites
 
-Studium est un prototype de recherche, en version 0.2.0. Le moteur adaptatif, les outils d'auteur, les enregistrements de provenance et le banc d'évaluation sont implémentés et testés, mais l'effet de Studium sur les apprentissages n'a pas été évalué. Un enseignant doit relire et approuver une leçon avant que des étudiants l'utilisent. Une leçon construite par un assistant IA à partir de vos sources est signalée comme rédigée par un agent et non validée par un enseignant. Sans modèle juge configuré, les réponses ouvertes sont comparées à la référence plutôt que notées. L'adaptateur HTTP n'expose que les opérations de leçon ; les outils d'étude, d'auteur et enseignant n'existent que par MCP. Le workflow de version peut publier sur la Marketplace VS Code, Open VSX et npm dès que leurs jetons sont configurés ; d'ici là, une version est une release GitHub en brouillon avec le VSIX et le fichier du serveur. Les [capacités](docs/concepts/capabilities.fr.md) détaillent chaque surface.
+Studium est un prototype de recherche, en version 0.2.0. Le moteur adaptatif, les outils d'auteur, les enregistrements de provenance et le banc d'évaluation sont implémentés et testés, mais l'effet de Studium sur les apprentissages n'a pas été évalué. Un enseignant doit relire et approuver une leçon avant que des étudiants l'utilisent. Une leçon construite par un assistant IA à partir de vos sources est signalée comme rédigée par un agent et non validée par un enseignant. Sans modèle juge configuré, les réponses ouvertes sont comparées à la référence plutôt que notées. L'adaptateur HTTP expose les 25 opérations de leçon et `rate_recall` ; les autres outils d'étude et tous les outils d'auteur et enseignant n'existent que par MCP. Le workflow de version peut publier sur la Marketplace VS Code, Open VSX et npm dès que leurs jetons sont configurés ; d'ici là, une version est une release GitHub en brouillon avec le VSIX et le fichier du serveur. Les [capacités](docs/concepts/capabilities.fr.md) détaillent chaque surface.
 
 ## Une famille de projets
 
