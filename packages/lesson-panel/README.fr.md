@@ -25,6 +25,24 @@ Quatre autres actions, proposées sur une scène en version 2, changent la faço
 | `replan {minutes}` | Répond à « j'ai N minutes » par une invite (`prompts`, genre `replan`) : les révisions dues d'abord, puis si la leçon se termine à temps. Rien n'est coupé ; l'invite part avec la scène. |
 | `ask {text?}` | Passe la main à la conversation : une vue `notice`, la scène inchangée, rien de soumis. `text` est gardé dans le contexte (`question`). |
 
+Deux actions montrent la carte des notions, à partir des formulaires et pour une leçon (une séance de
+révision n'en a pas) :
+
+| Action | Effet |
+|---|---|
+| `openMap` | Ajoute `map` à chaque vue jusqu'à `closeMap` : rien n'est soumis, la scène reste. Une séance sans carte (moins de deux notions) répond par une vue `notice`. |
+| `closeMap` | Retire `map`. Une séance qui recommence s'ouvre carte fermée. |
+
+`map` (`MapViewSchema`, construit par `mapView(record, locale)`) est tiré de l'enregistrement de la séance
+`studium/concept-map-record/v1`, qu'un backend donne par `getConceptMapRecord` ; un backend sans cette
+méthode ne propose pas de carte. Pour chaque notion, la vue porte l'état, les preuves (une entrée par
+réponse sur cette notion : scène, jour, qui l'a notée, le résultat, les indices pris avant) et deux phrases
+du catalogue, `establishes` et `does_not_establish`. `assessed_by` vaut `key`, `judge`, `self` (l'apprenant
+a noté lui-même son rappel ; le résultat est alors `rated`) ou `none` (personne n'a noté la réponse et
+l'apprenant ne l'a pas notée ; le résultat est `recorded`). Les `edges` vont d'un prérequis à la notion
+qui le demande. La vue ne cite aucun passage et ne porte aucun mot de l'apprenant. Une carte fermée n'est
+pas lue.
+
 Une vue porte `strings`, le catalogue des libellés de l'interface dans la langue de la leçon (environ
 24 ko), pour la surface qui la dessine. Le serveur MCP le laisse vide là où rien ne dessine la vue
 (formulaires, conversation). Son lecteur est alors un modèle.

@@ -3795,6 +3795,52 @@ bench probes (`--probe`, paid) on the owner's go; none was run. Opening with `op
 the agent one more call than `start_lesson_session` on a conversation-only client (the view, then
 `get_current_scene` for the text to show): its effect on the first screen's delay is not measured.
 
+## 2026-11-06 (map view) — The concept map as a view of the session, with its evidence
+
+INT-STUDIUM-058, lot 4, task 4.1 (requirement F9, spec § 2.7). The panel action `openMap` adds the
+concept map to the view until `closeMap`: for each concept its state, the answers behind that state,
+and one sentence on what the state establishes and one on what it does not.
+
+- `packages/lesson-session`: `answerFacts()`, one fact per answered step (when it was answered on the
+  session clock, the hints taken on that visit, whether the learner then rated their own recall).
+  Rebuilt from the saved history at a resume, except the self-ratings, which the history does not
+  hold. `learnerPath()` keeps its shape.
+- `packages/lesson-session-host`: the record `studium/concept-map-record/v1` gains `evidence`, one
+  entry per answered step of `path` (step, scene, calendar day in the server's time zone, hints,
+  `self_rated`). Nothing else of the record changes.
+- `packages/lesson-panel`: `map.ts` builds the view from the record (`mapView`); `view.ts` gains
+  `MapViewSchema`, the optional `map` field and the actions `openMap` and `closeMap`; ten sentences
+  in the phrase catalogue, French and English, two per state. The map is offered from forms upwards,
+  for a lesson, when the backend can read the record (`getConceptMapRecord`). It stays open across
+  answers and is read again at each view; a closed map is not read. A session without a map answers
+  `openMap` with a notice.
+- `apps/lesson-mcp`: `hostBackend` reads `host.conceptMapRecord`; the description of `panel_action`
+  names the two actions; the tool reference is regenerated.
+- `apps/claude-code-mod`: the pane accepts a view that offers or carries the map (it refused a view
+  listing an action it did not know). It does not draw the map yet: task 4.3.
+
+Deviations from the spec. An evidence entry may say `assessed_by: "none"` with `result: "recorded"`
+(nobody assessed the answer and the learner has not rated it): the spec lists key, judge and self
+only. `day` and `hints` may be null, for a record written by a server that kept no such fact. The
+facts live beside the path (`answerFacts`, `evidence`) instead of inside each step, so that the path
+and the record's `path` keep the exact shape their tests state. `contest` is absent: task 4.2.
+
+Test decision: none, no existing assertion changed; one helper of
+`host.concept-map-record.test.ts` returns one more value. New tests: `session.answer-facts.test.ts`
+(3), one in `host.concept-map-record.test.ts`, `map.test.ts` (9), `panel-map.test.ts` (3, a real MCP
+client on `fixtures/atomistique-l1`), one in the mod's `panel-model.spec.ts`. The session, panel and
+mod tests failed first; the record test and the real-server test were written with their
+implementation and never seen failing.
+
+Checked: the repository checks pass, with one rerun: in the full run six tests of five
+durable-storage files of `lesson-session-host` timed out at 5 s while another process was writing to
+disk; the five files passed alone and the whole test step passed when run again.
+
+Not verified: no surface draws the map yet and nobody has read it; the ten sentences were not read by
+a teacher. A self-rating made before a server restart shows as "recorded" after it. The VS Code
+pane's backend does not give the record: it offers no map. The saved history is capped at 50 entries,
+so a long session resumed after a restart shows the evidence of its latest steps only.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

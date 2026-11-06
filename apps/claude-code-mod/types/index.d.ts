@@ -12,7 +12,9 @@ export type StudiumPanelActionName =
   | "ask"
   | "setAttention"
   | "setLanguage"
-  | "replan";
+  | "replan"
+  | "openMap"
+  | "closeMap";
 
 export type StudiumPanelAction =
   | { type: "respond"; input: unknown }
@@ -26,7 +28,9 @@ export type StudiumPanelAction =
   | { type: "ask"; text?: string }
   | { type: "setAttention"; level: "quiet" | "normal" | "coached" }
   | { type: "setLanguage"; presentation_language: string | null }
-  | { type: "replan"; minutes: number };
+  | { type: "replan"; minutes: number }
+  | { type: "openMap" }
+  | { type: "closeMap" };
 
 export type StudiumNamedConcept = { id: string; label: string };
 export type StudiumSource = {

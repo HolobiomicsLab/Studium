@@ -11,6 +11,7 @@ import {
   type PublicScene, type PanelView, type NamedConcept, type Surface,
 } from "./view.js";
 import type { PanelBackend, PanelContext, Payload } from "./backend.js";
+import { mapView } from "./map.js";
 
 const FORBIDDEN_FIELDS = new Set(["answer", "correct", "expected", "key", "solution"]);
 
@@ -117,6 +118,13 @@ export async function presentPanel(backend: PanelBackend, ctx: PanelContext): Pr
     });
     // What a placed learner can do on any scene without a model turn (applyPanelAction).
     if (view.kind === "scene") view.actions.push("ask", "setLanguage", "setAttention", "replan");
+    // The map (spec § 2.7): on request, from forms upwards, for a lesson (a review session has none).
+    // A closed map is not read: it costs the fast lane nothing.
+    if (backend.getConceptMapRecord && !ctx.review && (view.surface?.rank ?? 3) >= 2) {
+      const record = ctx.mapOpen ? await backend.getConceptMapRecord(ctx.sessionId) : null;
+      if (record) view.map = mapView(record, view.locale);
+      view.actions.push(view.map ? "closeMap" : "openMap");
+    }
   }
   ctx.lastView = PanelViewSchema.parse({ ...view, ...ctx.effects });
   return ctx.lastView;

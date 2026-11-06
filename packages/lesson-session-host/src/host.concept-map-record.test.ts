@@ -65,7 +65,7 @@ async function hostWithLesson(options: { library?: boolean } = {}) {
     bundlesRoot: root, live: false, dataDir: null, ...(options.library === false ? {} : { libraryRoot: root }),
   });
   const start = await host.create(created.course_ref, LEARNER);
-  return { host, root, sid: start.sessionId, lessonPath: created.lesson_path };
+  return { host, root, sid: start.sessionId, lessonPath: created.lesson_path, courseRef: created.course_ref };
 }
 
 const sceneOfType = (scenes: RecordScene[], type: string) => scenes.find((scene) => scene.type === type)!;
@@ -120,6 +120,30 @@ describe("concept map record", () => {
     expect(quiz).toMatchObject({ served: true, passages_released: false });
     expect(quiz.sources[0]!.quote).toBeUndefined();
     expect(record.path.at(-1)).toMatchObject({ correct: false, assessed_by: "key" });
+  });
+
+  it("says when each answer was given, with how many hints, and whether the learner rated their recall", async () => {
+    const { host, courseRef } = await hostWithLesson();
+    // A clock anchored at midday: the same calendar day in any time zone a test machine may run in.
+    const sid = (await host.create(courseRef, `${LEARNER}-evidence`, { nowMs: Date.parse("2026-11-03T12:00:00Z") })).sessionId;
+    await host.respond(sid, { kind: "ack" });
+    expect(host.conceptMapRecord(sid)!.evidence).toEqual([]);         // a screen read is not an answer
+    await answerQuiz(host, sid, RIGHT);
+    await host.respond(sid, { kind: "ack" });
+    const written = await host.respond(sid, { kind: "explanation", text: "Chacun dépend des autres.", confidence: 2 });
+    expect(written.self_rating?.requested).toBe(true);
+    const record = host.conceptMapRecord(sid)!;
+    const quiz = sceneOfType(record.scenes, "quiz").scene_id;
+    const explain = sceneOfType(record.scenes, "explain_back").scene_id;
+    expect(record.evidence).toEqual([
+      { step: 2, scene_id: quiz, day: "2026-11-03", hints: 0, self_rated: false },
+      { step: 4, scene_id: explain, day: "2026-11-03", hints: 0, self_rated: false },
+    ]);
+    await host.rateRecall(sid, explain, "good");
+    const rated = host.conceptMapRecord(sid)!;
+    expect(rated.evidence.at(-1)).toEqual({ step: 4, scene_id: explain, day: "2026-11-03", hints: 0, self_rated: true });
+    expect(JSON.stringify(rated)).not.toContain("Chacun dépend des autres.");   // none of the learner's words
+    expect(JSON.stringify(rated)).not.toContain(`${LEARNER}-evidence`);
   });
 
   it("writes the export under the library, and forget reports it as kept", async () => {

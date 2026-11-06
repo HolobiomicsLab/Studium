@@ -21,6 +21,7 @@ async function startAgain(backend: PanelBackend, ctx: PanelContext, review: bool
   ctx.sessionId = reply.session_id;
   ctx.review = review ? reviewContext(reply) : null;
   delete ctx.transition;
+  delete ctx.mapOpen;
   return {};
 }
 
@@ -104,6 +105,12 @@ async function execute(backend: PanelBackend, ctx: PanelContext, action: PanelAc
       if (action.text === undefined) delete ctx.question; else ctx.question = action.text;
       return { kind: "notice", message: phrase("panel_ask_notice", {}, localeOf(ctx)) };
     }
+    case "openMap": {
+      // Nothing is submitted: the scene stays, the map shows beside it until closeMap.
+      ctx.mapOpen = Boolean(await backend.getConceptMapRecord?.(ctx.sessionId));
+      return ctx.mapOpen ? {} : { kind: "notice", message: phrase("panel_map_unavailable", {}, localeOf(ctx)) };
+    }
+    case "closeMap": delete ctx.mapOpen; return {};
     default: return {};
   }
 }
@@ -128,6 +135,8 @@ export async function applyPanelAction(backend: PanelBackend, ctx: PanelContext,
     // The session is gone: nothing places the learner any more, so the notice is a version-1 view.
     const notice: PanelView = { ...previous, schema: PANEL_VIEW_SCHEMA_V1, kind: "notice", scene: undefined, scene_assets: [], mastery: {}, actions: ["pickCourse"], message: phrase("extension_forget_done", {}, previous.locale) };
     for (const field of PANEL_VIEW_V2_FIELDS) delete notice[field];
+    delete notice.map;
+    delete ctx.mapOpen;
     ctx.lastView = notice;
     return PanelViewSchema.parse(ctx.lastView);
   }

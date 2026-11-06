@@ -1468,6 +1468,7 @@ export class SessionHost {
     if (!map) return null;
     return buildConceptMapRecord({
       bundle: entry.bundle, map, path: entry.session.learnerPath(), authoring: entry.authoring,
+      answers: entry.session.answerFacts(), timeZone: this.zone,
       currentSceneId: entry.completed ? null : entry.session.currentPresentation().scene.id,
       withheldSceneIds: new Set(entry.withheldSources.map((held) => held.sceneId)),
       completed: entry.completed === true, lessonSha256: entry.lessonSha256 ?? null,

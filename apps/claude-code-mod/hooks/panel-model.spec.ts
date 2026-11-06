@@ -86,6 +86,19 @@ describe("PanelView boundary", () => {
     expect(isPanelView({ ...V2, actions: [...V2.actions, "teleport"] })).toBe(false);
   });
 
+  // INT-STUDIUM-058 § 2.7: a view may offer the concept map and carry it once opened.
+  test("accepts a view that offers the map, and one that carries it", () => {
+    expect(isPanelView({ ...V2, actions: [...V2.actions, "openMap"] })).toBe(true);
+    const map = {
+      concepts: [{
+        id: "c-a", title: "Notion", state: "acquired", establishes: "Établi.", does_not_establish: "Pas établi.",
+        evidence: [{ scene_id: "s1", day: "2026-11-06", assessed_by: "key", result: "right", hints: 0 }],
+      }],
+      edges: [],
+    };
+    expect(isPanelView({ ...V2, actions: [...V2.actions, "closeMap"], map })).toBe(true);
+  });
+
   test.each([
     ["orientation", { ...V2, orientation: { step: { index: "2", total: 9 }, reviews_due: 0, waiting: "answer" } }],
     ["waiting", { ...V2, orientation: { ...V2.orientation, waiting: "sleeping" } }],

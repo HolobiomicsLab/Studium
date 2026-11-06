@@ -45,6 +45,8 @@ export function hostBackend(host: SessionHost, bundlesRoot: string): PanelBacken
     forgetSession: id => host.forget(id),
     getNextReinforcement: id => host.reinforcementStatusForSession(id),
     setSessionLanguage: async (id, language) => host.setPresentationLanguage(id, language),
+    // The map view reads the exportable record (INT-STUDIUM-058 § 2.7), never get_workflow_graph.
+    getConceptMapRecord: async id => host.conceptMapRecord(id),
     getOrientation: async (id, ask) => {
       const orientation = orientationOf(host, id);
       const assessed = ask.verdict?.assessed_by;
@@ -249,7 +251,7 @@ export function registerPanelTools(server: McpServer, host: SessionHost) {
     } catch (e) { return toolError(e); }
   });
   const actionTool = server.registerTool("panel_action", {
-    description: "Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.",
+    description: "Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer; openMap adds the concept map to the view (map: each concept's state, the answers behind it with their day, who assessed them and the hints taken, what the state establishes and what it does not) until closeMap, from forms upwards and for a lesson, not a review session. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.",
     // client_ms is validated here and read by nothing yet: the interaction log (INT-STUDIUM-058, lot 7)
     // records it under consent. Surfaces send it from now on, so they need no change then.
     inputSchema: { ...session, action: PanelActionSchema, client_ms: ClientMsSchema.optional() },

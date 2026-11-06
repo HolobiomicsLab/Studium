@@ -31,11 +31,15 @@ export const PanelActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("setLanguage"), presentation_language: z.string().min(2).nullable() }).strict(),
   /** « I only have ten minutes »: the minutes the learner has now. */
   z.object({ type: z.literal("replan"), minutes: z.number().int().min(1).max(600) }).strict(),
+  /** Show the concept map beside the scene (`map` on the view), until closeMap. Nothing is answered. */
+  z.object({ type: z.literal("openMap") }).strict(),
+  z.object({ type: z.literal("closeMap") }).strict(),
 ]);
 export type PanelAction = z.infer<typeof PanelActionSchema>;
 export type PanelActionName = PanelAction["type"];
 export const PANEL_ACTION_NAMES = [
   "respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse", "ask", "setAttention", "setLanguage", "replan",
+  "openMap", "closeMap",
 ] as const satisfies readonly PanelActionName[];
 export const PanelActionNameSchema = z.enum(PANEL_ACTION_NAMES);
 export const NamedConceptSchema = z.object({ id: z.string(), label: z.string() });
@@ -125,6 +129,25 @@ const SurfaceKindSchema = z.enum(["text", "form", "pane", "panel"]);
  * the ones the host could use instead. */
 export const SurfaceSchema = z.object({ rank: z.union([z.literal(1), z.literal(2), z.literal(3)]), kind: SurfaceKindSchema, available: z.array(SurfaceKindSchema) });
 export type Surface = z.infer<typeof SurfaceSchema>;
+/** One answer behind a concept's state (spec § 2.7): its scene, the calendar day, who assessed it and
+ * with what result, and the hints taken before it. `self` and `rated`: the learner rated their own
+ * recall. `none` and `recorded`: nobody assessed the answer and the learner has not rated it. `day`
+ * and `hints` are null when the server kept no such fact. */
+export const MapEvidenceSchema = z.object({
+  scene_id: z.string(), day: z.string().nullable(), assessed_by: z.enum(["key", "judge", "self", "none"]),
+  result: z.enum(["right", "wrong", "rated", "recorded"]), hints: z.number().int().nonnegative().nullable(),
+});
+export type MapEvidence = z.infer<typeof MapEvidenceSchema>;
+/** The concept map as a view of the session: each concept with its state, the evidence, what the state
+ * establishes and what it does not; the prerequisite links, from a prerequisite to what needs it. */
+export const MapViewSchema = z.object({
+  concepts: z.array(z.object({
+    id: z.string(), title: z.string(), state: z.enum(["acquired", "to_review", "current", "seen", "upcoming"]),
+    evidence: z.array(MapEvidenceSchema), establishes: z.string(), does_not_establish: z.string(),
+  })),
+  edges: z.array(z.object({ from: z.string(), to: z.string() })),
+});
+export type MapView = z.infer<typeof MapViewSchema>;
 export const STATUS_LINE_MAX = 80;
 /** The fields version 2 adds; a version-2 view carries every one of them. */
 export const PANEL_VIEW_V2_FIELDS = ["orientation", "status_line", "voices", "help", "prompts", "attention", "surface"] as const;
@@ -144,6 +167,8 @@ export const PanelViewSchema = z.object({
   completion: CompletionSchema.optional(), message: z.string().optional(), actions: z.array(PanelActionNameSchema), pending: z.string().optional(),
   orientation: OrientationSchema.optional(), status_line: z.string().max(STATUS_LINE_MAX).optional(), voices: VoicesSchema.optional(),
   help: HelpSchema.optional(), prompts: z.array(PromptSchema).optional(), attention: AttentionSchema.optional(), surface: SurfaceSchema.optional(),
+  /** The concept map, present after the action openMap and until closeMap. */
+  map: MapViewSchema.optional(),
 }).strict().superRefine((view, ctx) => {
   if (view.schema !== PANEL_VIEW_SCHEMA) return;
   for (const field of PANEL_VIEW_V2_FIELDS) {

@@ -537,13 +537,13 @@ Open or resume a lesson by bundle_ref or existing session_id, on the best surfac
 
 ### panel_action
 
-Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.
+Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer; openMap adds the concept map to the view (map: each concept's state, the answers behind it with their day, who assessed them and the hints taken, what the state establishes and what it does not) until closeMap, from forms upwards and for a lesson, not a review session. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `session_id` | string (non-empty) | yes |  |
-| `action` | object, one of 12 shapes | yes |  |
-| `action.type` | one of `respond`, `turn`, `hint`, `rateRecall`, `reviewNow`, `restartLesson`, `end`, `pickCourse`, `ask`, `setAttention`, `setLanguage`, `replan` | yes |  |
+| `action` | object, one of 14 shapes | yes |  |
+| `action.type` | one of `respond`, `turn`, `hint`, `rateRecall`, `reviewNow`, `restartLesson`, `end`, `pickCourse`, `ask`, `setAttention`, `setLanguage`, `replan`, `openMap`, `closeMap` | yes |  |
 | `action.input` | any | no | Only in type `respond`. |
 | `action.text` | string or string (non-empty) | in `turn` | Only in type `turn`, `ask`. |
 | `action.sceneId` | string (non-empty) | in `rateRecall` |  |

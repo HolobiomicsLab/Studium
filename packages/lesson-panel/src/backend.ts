@@ -1,6 +1,7 @@
 import type { ModalityPreference } from "./modality.js";
 import type { ReviewContext, RecallGrade } from "./pane-messages.js";
 import type { Attention, Help, Orientation, PanelView, Prompt, SceneAsset, Surface, Voices } from "./view.js";
+import type { MapRecord } from "./map.js";
 
 /** Transport payloads stay server-side until the presenter projects a PanelView. */
 export type Payload = Record<string, any>;
@@ -24,6 +25,10 @@ export interface PanelBackend {
   /** The language the conversation presents the session in (null: the lesson's own). A panel only
    * has French and English text of its own; the session notes any language. */
   setSessionLanguage?(sessionId: string, language: string | null): Promise<unknown>;
+  /** The record behind the session's concept map (studium/concept-map-record/v1), or null when the
+   * session has no map (a review session, a lesson with fewer than two concepts). A backend without
+   * this method offers no map. */
+  getConceptMapRecord?(sessionId: string): Promise<MapRecord | null>;
 }
 
 /** What a backend adds to a view to make it version 2. */
@@ -50,6 +55,8 @@ export interface PanelContext {
   attention?: Attention;
   /** What the view proposes now. A prompt that expires with its scene leaves at the next answer. */
   prompts?: Prompt[];
+  /** The learner opened the concept map (openMap) and has not closed it: each view carries it. */
+  mapOpen?: boolean;
   /** The question of the learner's last `ask`, for the companion's brief; absent when none was written. */
   question?: string;
 }

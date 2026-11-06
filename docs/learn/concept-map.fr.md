@@ -56,7 +56,9 @@ suit votre assistant est le skill `studium-concept-map` ([Skills](../start/skill
 | Point de vue : Enseignant | Montre la structure, ce sur quoi repose chaque notion et, s'ils sont joints, les chiffres de la classe |
 | Notions affichées | Estompe les notions d'un état |
 
-L'enregistrement ne contient ni identifiant d'apprenant ni vos mots : des résultats, pas des réponses. Il
+L'enregistrement ne contient ni identifiant d'apprenant ni vos mots : des résultats, pas des réponses. Pour
+chaque réponse, il garde aussi le jour, les indices pris avant elle et si vous avez ensuite noté vous-même
+votre rappel. Il
 reste sur votre machine tant que vous ne partagez pas le dossier. `forget_session` ne supprime pas les
 exports ; il nomme le dossier pour que vous puissiez le supprimer vous-même.
 

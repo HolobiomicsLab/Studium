@@ -25,6 +25,22 @@ Four more actions, offered on a version-2 scene, change how the lesson is shown 
 | `replan {minutes}` | Answers « I have N minutes » with a prompt (`prompts`, kind `replan`): the reviews due first, then whether the lesson ends in time. Nothing is cut; the prompt leaves with the scene. |
 | `ask {text?}` | Hands over to the conversation: a `notice` view with the scene unchanged, nothing submitted. `text` is kept in the context (`question`). |
 
+Two actions show the concept map, from forms upwards and for a lesson (a review session has none):
+
+| Action | Effect |
+|---|---|
+| `openMap` | Adds `map` to every view until `closeMap`: nothing is submitted and the scene stays. A session without a map (fewer than two concepts) answers with a `notice`. |
+| `closeMap` | Removes `map`. A session that starts again opens with its map closed. |
+
+`map` (`MapViewSchema`, built by `mapView(record, locale)`) is drawn from the session's record
+`studium/concept-map-record/v1`, which a backend gives through `getConceptMapRecord`; a backend without
+that method offers no map. For each concept it holds the state, the evidence (one entry per answer on that
+concept: scene, calendar day, who assessed it, the result, the hints taken before it) and two sentences of
+the catalogue, `establishes` and `does_not_establish`. `assessed_by` is `key`, `judge`, `self` (the learner
+rated their own recall; the result is then `rated`) or `none` (nobody assessed the answer and the learner
+has not rated it; the result is `recorded`). `edges` go from a prerequisite to the concept that needs it.
+The view quotes no passage and carries none of the learner's words. A closed map is not read.
+
 A view carries `strings`, the interface's phrase catalogue in the lesson's language (some 24 kB), for the
 surface that draws it. The MCP server leaves it empty where nothing draws the view (forms, the conversation):
 its reader is then a model.

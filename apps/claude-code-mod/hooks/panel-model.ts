@@ -16,6 +16,9 @@ const PANEL_KINDS = new Set(["scene", "done", "notice", "error"]);
 const ACTIONS = new Set<StudiumPanelActionName>([
   "respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse",
   "ask", "setAttention", "setLanguage", "replan",
+  // The concept map (INT-STUDIUM-058 § 2.7). This pane does not draw it yet: a view that offers it,
+  // or carries it, is still a view it shows.
+  "openMap", "closeMap",
 ]);
 const FREE_TEXT_KINDS: Record<string, string> = {
   ai_critique: "critique",
