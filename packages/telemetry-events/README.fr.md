@@ -20,7 +20,7 @@ Depuis [src/index.ts](src/index.ts) (qui réexporte [src/events.ts](src/events.t
 | `CritiqueSubmittedSchema`, `AIAuditResultSchema`, `ReasoningSignalSchema`, `TutorMoveSchema` | Critique d'IA, audits de productions fautives, étiquettes de raisonnement, interventions du tuteur. |
 | `JournalEntrySubmittedSchema`, `CooperativeVoteSchema`, `CooperativeConvergenceSchema`, `UniverseSelectedSchema` | Écrit réflexif, scènes de groupe, variantes de scénario. |
 | `ConsentGrantedSchema`, `ForgetRequestedSchema` | Consentement et demandes d'effacement. |
-| `InteractionSchema`, `PromptShownSchema`, `PromptOutcomeSchema`, `HelpUsedSchema`, `ContestEventSchema`, `ResumeSchema`, `ReviewReceiptEventSchema` | L'usage d'une leçon (INT-STUDIUM-058) : les actes avec leur voie, le rang de la surface et les délais, les propositions montrées et leur issue, les aides utilisées, les contestations, les reprises, les comptes d'un reçu de relecture. Stricts : étiquettes fermées, comptes et références ; un champ inconnu est refusé. Rien ne les émet encore. |
+| `InteractionSchema`, `PromptShownSchema`, `PromptOutcomeSchema`, `HelpUsedSchema`, `ContestEventSchema`, `ResumeSchema`, `ReviewReceiptEventSchema` | L'usage d'une leçon (INT-STUDIUM-058) : les actes avec leur voie, le rang de la surface et les délais, les propositions montrées et leur issue, les aides utilisées, les contestations, les reprises, les comptes d'un reçu de relecture. Stricts : étiquettes fermées, comptes et références ; un champ inconnu est refusé. L'hôte de séance émet `prompt_shown` et `prompt_outcome` ; rien n'émet encore les cinq autres. |
 
 Python : `telemetry_events`, dans [python/](python/telemetry_events/__init__.py), avec `TelemetryEvent` en union discriminée Pydantic.
 

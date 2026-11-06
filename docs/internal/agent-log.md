@@ -4109,6 +4109,26 @@ and 60 pytest tests, the parity gate among them.
 
 Not verified: no event of these types was written or read from a real telemetry file.
 
+## 2026-11-06 (prompt events written) — The host writes what became of each proposal
+
+INT-STUDIUM-058, lot 7, second half of task 7.1 (requirement F14, spec § 2.10). The host adds
+`prompt_shown` when the session's book lets a proposal or a notice out, and `prompt_outcome` when the
+learner answers a proposal, when its scene goes by, and when the session closes with it still open
+(a case nothing counted before: the book's `sessionEnded` was never called). The events go through
+the session's own sink, which keeps nothing without consent; a proposal's words are never sent.
+
+Still emitted by nothing: `interaction`, `help_used`, `contest`, `resume`, `review_receipt`.
+
+Test decision: none. New file `host.prompt-events.test.ts` (2 tests): the four events of a lesson
+with consent, in order, valid against the contract, without the words or the learner's id (failed
+first); nothing written without consent (passed first: the sink's existing rule).
+
+Checked: every repository check passes on this tree at its first run (install, build, lint,
+`pnpm -r test`, the Python suites, bundle lint, docs check, headless smoke, the MCP bundle,
+`tools/panel-probe.mjs`), and `pnpm test:tools` (9 tests).
+
+Not verified: no real learner's file holds these events; the Python readers were not run on one.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

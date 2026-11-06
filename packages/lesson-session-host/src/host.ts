@@ -1474,7 +1474,7 @@ export class SessionHost {
   private promptsToSay(entry: SessionEntry, sceneId: string, waiting: string): ScreenPrompt[] {
     const book = entry.prompts;
     if (!book) return [];
-    if (entry.promptScene !== undefined && entry.promptScene !== sceneId) { book.sceneChanged(); entry.promptScene = sceneId; }
+    if (entry.promptScene !== undefined && entry.promptScene !== sceneId) { this.emitPromptOutcomes(entry, book.sceneChanged()); entry.promptScene = sceneId; }
     const busy = waiting === "answer" || waiting === "self_rating";
     const said = (entry.promptsSaid ??= new Set<string>());
     const now = book.open().filter((prompt) => !said.has(prompt.id) && (!busy || NOTICE_KINDS.has(prompt.kind)));
@@ -1678,10 +1678,10 @@ export class SessionHost {
     if (ask.attention) book.setAttention(ask.attention);
     const facts = this.orientationFactsOf(entry, ask.nowMs);
     const sceneId = facts.completed ? null : facts.scene.id;
-    if (entry.promptScene !== undefined && entry.promptScene !== sceneId) book.sceneChanged();
+    if (entry.promptScene !== undefined && entry.promptScene !== sceneId) this.emitPromptOutcomes(entry, book.sceneChanged());
     entry.promptScene = sceneId;
     const moment = facts.completed ? "lesson_end" : entry.responses === 0 ? "session_start" : "pause";
-    book.emit(promptCandidates({
+    const shown = book.emit(promptCandidates({
       moment, locale: ask.locale,
       reviewsDue: entry.kind === "review" ? 0 : facts.reviews_due,
       // No setting holds the length of session the learner wants yet: without one, no break is proposed.
@@ -1689,13 +1689,39 @@ export class SessionHost {
       surfaceRank: ask.surfaceRank ?? 3, formsAvailable: ask.formsAvailable ?? false,
       hasMap: entry.kind === "lesson" && entry.bundle.concepts.length >= 2, hasNextLesson: ask.hasNextLesson ?? false,
     }), { waiting: orientationFrom(facts).waiting, sceneId });
+    for (const prompt of shown) {
+      this.emitSessionEvent(entry, {
+        type: "prompt_shown", kind: prompt.kind, attention: book.attention, surface_rank: ask.surfaceRank ?? 3,
+        ...(sceneId ? { scene_id: sceneId } : {}),
+      });
+    }
     return book.open();
   }
   /** The learner answered a proposal of this session: accepted or dismissed. Refused in one line when
    * no such proposal is open (PromptRefusedError). */
   settlePrompt(id: string, promptId: string, outcome: "accepted" | "dismissed"): PromptRecord {
     const entry = this.require(id);
-    return (entry.prompts ??= new PromptBook()).settle(promptId, outcome);
+    const record = (entry.prompts ??= new PromptBook()).settle(promptId, outcome);
+    this.emitPromptOutcomes(entry, [record]);
+    return record;
+  }
+  /** INT-STUDIUM-058 § 2.10: what became of proposals, for the consented stream. Labels and
+   * references only: the proposal's words are never sent. */
+  private emitPromptOutcomes(entry: SessionEntry, records: readonly PromptRecord[]): void {
+    for (const record of records) {
+      if (NOTICE_KINDS.has(record.kind)) continue;
+      this.emitSessionEvent(entry, {
+        type: "prompt_outcome", kind: record.kind as "review_due" | "break" | "next_lesson" | "map_offer" | "forms_offer",
+        outcome: record.outcome, ...(record.scene_id ? { scene_id: record.scene_id } : {}),
+      });
+    }
+  }
+  /** An event the host itself adds to a session's telemetry, under the session's own pseudonym. The
+   * sink decides whether anything is kept: without the learner's consent it keeps nothing. */
+  private emitSessionEvent(entry: SessionEntry, partial: Parameters<typeof enrichEvent>[0]): void {
+    entry.deps.telemetry.emit(enrichEvent(partial, {
+      learnerPseudonym: entry.session.getPseudonym(), lessonId: entry.session.getState().lesson_id, bundleVersion: bundleVersionOf(entry.bundle),
+    }, entry.deps.clock, entry.deps.idGen));
   }
   /** What became of each proposal of this session answered or gone by, in the order they were made. */
   promptRecords(id: string): PromptRecord[] {
@@ -2457,6 +2483,8 @@ export class SessionHost {
       let warning: string | undefined;
       try {
         if (!this.erasedUnder(entry)) {
+          // A proposal still open when the session closes went unanswered: counted ignored.
+          if (entry.prompts) this.emitPromptOutcomes(entry, entry.prompts.sessionEnded());
           await this.flushSessionOutputs(entry);
           await this.persistLearner(entry, { moved: [], sceneId: null, complete: false });
         }
