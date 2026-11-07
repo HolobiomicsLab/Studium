@@ -161,7 +161,12 @@ nothing. `studium-explainer` is a stronger model it calls when your question nee
 lesson goes on while the explanation is written; its text opens with « Generated explanation », so that
 you can tell it from the lesson's. The lesson agent opens a lesson on the best surface your client shows (a
 panel or a pane, forms, or the conversation), and when you come back to it after playing there, it first
-reads what you did, so that it does not show you a screen again. From the checkout:
+reads what you did, so that it does not show you a screen again. A client that renders MCP Apps may show
+the panel even when the lesson is played in the conversation or in forms: the panel then says so (« This
+lesson is played in the conversation », « The panel is not the surface negotiated for this session. ») and
+draws no scene and no answer control, so you answer where the lesson is played. Its « Play here » button,
+shown when your client can render the panel, asks the server to move the session to the panel. From the
+checkout:
 
 ```bash
 claude --agent studium-lesson

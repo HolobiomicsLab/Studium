@@ -478,6 +478,11 @@ const FR = {
   pane_session_lost: "Séance perdue (le serveur a redémarré ou la séance a été fermée). Rouvre la leçon : ta progression est conservée.",
   pane_reopen_lesson: "Rouvrir la leçon",
   pane_reopen_command: "Pour la rouvrir : {command}",
+  // INT-STUDIUM-058 § 2.1: the panel shown for a conversation or forms surface draws only this notice.
+  pane_surface_text: "Cette leçon se joue dans la conversation",
+  pane_surface_form: "Cette leçon se joue en formulaires",
+  pane_surface_not_negotiated: "Le panneau n'est pas la surface négociée pour cette séance.",
+  pane_play_here: "Jouer ici",
   pane_retry: "Réessaie dans un instant.",
   pane_forget_pending: "Confirmation de l'effacement…",
 
@@ -939,6 +944,10 @@ const EN: Record<PhraseKey, string> = {
   pane_session_lost: "Session lost (the server restarted or the session was closed). Reopen the lesson: your progress is kept.",
   pane_reopen_lesson: "Reopen the lesson",
   pane_reopen_command: "To reopen it: {command}",
+  pane_surface_text: "This lesson is played in the conversation",
+  pane_surface_form: "This lesson is played in forms",
+  pane_surface_not_negotiated: "The panel is not the surface negotiated for this session.",
+  pane_play_here: "Play here",
   pane_retry: "Try again in a moment.",
   pane_forget_pending: "Confirming erasure…",
 

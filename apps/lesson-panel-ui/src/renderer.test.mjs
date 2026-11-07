@@ -590,3 +590,57 @@ test("a key verdict names the AI-drafted key, the learner's own key, or the auth
   assert.equal(chip("learner", "b"), "Assessed by the key you wrote");
   assert.equal(chip("teacher", "c"), "Assessed by the author's key");
 });
+
+// INT-STUDIUM-058 § 2.1, surface negotiation: a host that renders MCP Apps shows the panel for any call of
+// open_lesson_panel, a conversation or forms surface included. The panel is then not the surface: it draws a
+// short notice in the view's language, never the scene, its answer controls, the settings or the map, so
+// no act is taken there at the wrong rank. « Play here » is offered when the client can render a panel.
+const { browserPhrases } = await import("../../../packages/lesson-panel/src/phrases.ts");
+const offSurface = (kind, locale, available = ["text", "form", "panel"]) => settingsView({
+  locale, strings: browserPhrases(locale), surface: { rank: kind === "text" ? 1 : 2, kind, available },
+  actions: ["respond", "hint", "end", "ask", "setLanguage", "setAttention", "replan", "openMap"],
+});
+const NOTICES = {
+  text: { fr: /^Cette leçon se joue dans la conversation/, en: /^This lesson is played in the conversation/ },
+  form: { fr: /^Cette leçon se joue en formulaires/, en: /^This lesson is played in forms/ },
+};
+const NOT_NEGOTIATED = { fr: /Le panneau n'est pas la surface négociée pour cette séance\./, en: /The panel is not the surface negotiated for this session\./ };
+for (const kind of ["text", "form"]) for (const locale of ["fr", "en"]) {
+  test(`a ${kind} surface draws the notice in ${locale}, without the scene, its controls, the settings or the map`, () => {
+    const { dom, doc, sent } = mountWithSend();
+    dom.window.renderView(offSurface(kind, locale));
+    const notice = doc.querySelector(".surface-elsewhere");
+    assert.ok(notice, "the notice is drawn");
+    assert.match(text(notice.querySelector(".surface-elsewhere-title")), NOTICES[kind][locale]);
+    assert.match(text(notice), NOT_NEGOTIATED[locale]);
+    assert.equal(text(doc.querySelector(".surface-elsewhere .orientation-line")), "Test · step 1/2 · 3 min · your answer", "the status line stays");
+    for (const selector of [".scene-title", ".controls", ".choices", ".validate", ".settings", ".map-button", ".concept-map", ".help-ladder", ".scene-head", ".prompts"]) {
+      assert.equal(doc.querySelector(selector), null, `${selector} is not drawn`);
+    }
+    assert.equal(doc.querySelectorAll("#pane input, #pane textarea").length, 0, "no answer field");
+    const play = doc.querySelector(".surface-elsewhere .play-here");
+    assert.equal(text(play), locale === "fr" ? "Jouer ici" : "Play here");
+    assert.equal(sent.length, 0, "nothing is sent on its own");
+    play.click();
+    assert.deepEqual(plain(sent.at(-1)[0]), { type: "playHere" });
+    dom.window.close();
+  });
+}
+
+test("no « Play here » when the client cannot render a panel", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(offSurface("form", "en", ["text", "form"]));
+  assert.ok(doc.querySelector(".surface-elsewhere"));
+  assert.equal(doc.querySelector(".play-here"), null);
+  dom.window.close();
+});
+
+test("a panel surface still draws the scene with its controls and settings (guard)", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(settingsView({ locale: "en", strings: browserPhrases("en"), surface: { rank: 3, kind: "panel", available: ["text", "form", "panel"] } }));
+  assert.equal(doc.querySelector(".surface-elsewhere"), null);
+  assert.ok(doc.querySelector(".scene-title"));
+  assert.ok(doc.querySelector(".choices"));
+  assert.ok(doc.querySelector(".settings"));
+  dom.window.close();
+});

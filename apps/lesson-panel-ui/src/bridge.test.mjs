@@ -293,3 +293,29 @@ test("a lost session shows the notice; reopen sends open_lesson_panel with the v
   assert.equal(doc.querySelector(".session-lost"), null);
   m.dom.window.close();
 });
+
+// INT-STUDIUM-058 § 2.1: a panel shown for a conversation or forms surface draws a notice; its « Play here »
+// asks the server for the panel on the same session (open_lesson_panel renegotiates when it is given a
+// surface), on the learner's click only.
+test("« Play here » on an off-surface notice sends open_lesson_panel with the session and surface: \"panel\"", async () => {
+  const requests = [];
+  const m = setup({
+    getHostContext: () => ({ locale: "en-US" }),
+    callServerTool: async request => {
+      requests.push(request);
+      return { structuredContent: { panel: { ...initial, schema: "studium/panel-view/2", surface: { rank: 3, kind: "panel", available: ["text", "panel"] }, scene: { ...initial.scene, title: "Played here" } } } };
+    },
+  });
+  const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: { ...initial, schema: "studium/panel-view/2", surface: { rank: 1, kind: "text", available: ["text", "panel"] } } } });
+  const doc = m.dom.window.document;
+  assert.match(doc.querySelector(".surface-elsewhere").textContent, /This lesson is played in the conversation/);
+  assert.equal(doc.querySelector(".scene-title"), null);
+  assert.equal(requests.length, 0, "nothing is sent on its own");
+  doc.querySelector(".surface-elsewhere .play-here").click();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(requests, [{ name: "open_lesson_panel", arguments: { session_id: "one", bundle_ref: "course", learner_id: "learner", locale: "en", surface: "panel" } }]);
+  assert.match(doc.body.textContent, /Played here/);
+  assert.equal(doc.querySelector(".surface-elsewhere"), null);
+  m.dom.window.close();
+});

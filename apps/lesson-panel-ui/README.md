@@ -27,6 +27,15 @@ that sends `reopen` once, on a click; nothing is retried on its own. The MCP App
 with `open_lesson_panel` for the `bundle_ref`, `learner_id` and `surface` of the last view, in the
 current locale; the VS Code bridge passes it to the extension. Any other action error keeps the scene
 and the « Action failed » status line.
+A view whose `surface.kind` is `text` or `form` (a host that renders MCP Apps shows the panel for any call
+of `open_lesson_panel`, a conversation or forms surface included) is not drawn as a scene: the panel shows
+« This lesson is played in the conversation » (or « …in forms »), « The panel is not the surface negotiated
+for this session. » and the view's `status_line`, with no scene body, answer control, settings or map, so
+no act is taken at a rank the server did not negotiate. When `surface.available` holds `panel`, a « Play
+here » button sends `playHere` once, on a click; the MCP App bridge answers it with `open_lesson_panel` for
+the view's `session_id`, `bundle_ref` and `learner_id` with `surface: "panel"`, which renegotiates the live
+session's surface (the interaction log records the change of rank). A `pane` or `panel` view is drawn as
+before.
 The renderer measures the delay between an action and the display of the view that answers it, and hands
 it once to the bridge with the next action (`window.__send(action, { client_ms })`); the MCP App bridge
 passes it to `panel_action` as `client_ms`, the VS Code bridge to the extension, which does the same.

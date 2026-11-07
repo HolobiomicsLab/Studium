@@ -26,7 +26,16 @@ réglages compris, par l'avis « Séance perdue » et un bouton « Rouvrir la le
 fois, sur un clic ; rien n'est relancé tout seul. Le pont MCP App répond à `reopen` par
 `open_lesson_panel` avec le `bundle_ref`, le `learner_id` et le `surface` de la dernière vue, dans la
 langue courante ; le pont VS Code le passe à l'extension. Toute autre erreur d'action garde la scène et la
-ligne d'état « Échec de l'action ». Le renderer
+ligne d'état « Échec de l'action ». Une vue dont le `surface.kind` vaut `text` ou `form` (un hôte qui affiche
+les MCP Apps montre le panneau à tout appel de `open_lesson_panel`, surface conversation ou formulaires
+comprise) n'est pas dessinée comme une scène : le panneau affiche « Cette leçon se joue dans la
+conversation » (ou « …en formulaires »), « Le panneau n'est pas la surface négociée pour cette séance. » et
+la `status_line` de la vue, sans corps de scène, contrôle de réponse, réglages ni carte, pour qu'aucun acte
+ne soit pris à un rang que le serveur n'a pas négocié. Quand `surface.available` contient `panel`, un bouton
+« Jouer ici » envoie `playHere` une fois, sur un clic ; le pont MCP App y répond par `open_lesson_panel` avec
+le `session_id`, le `bundle_ref` et le `learner_id` de la vue et `surface: "panel"`, ce qui renégocie la
+surface de la séance vivante (le journal d'interaction note le changement de rang). Une vue `pane` ou
+`panel` est dessinée comme avant. Le renderer
 mesure le délai entre une action et l'affichage de la vue qui y répond, et le remet une fois au pont avec
 l'action suivante (`window.__send(action, { client_ms })`) ; le pont MCP App le passe à `panel_action` dans
 `client_ms`, le pont VS Code à l'extension, qui fait de même.

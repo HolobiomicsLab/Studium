@@ -227,6 +227,34 @@ let renderView;
     announce(t("pane_session_lost"));
   }
 
+  // INT-STUDIUM-058 § 2.1, surface negotiation: a host that renders MCP Apps shows this panel for any call of
+  // open_lesson_panel, a conversation (rank 1) or forms (rank 2) surface included. The panel is then not the
+  // surface: it says where the lesson is played, and draws no scene, no answer control, no settings and no
+  // map, so no act is taken here at a rank the server did not negotiate. The status line stays, as a plain
+  // line. « Play here » asks for the panel, on the learner's click only, when the client can render one.
+  const ELSEWHERE = { text: "pane_surface_text", form: "pane_surface_form" };
+  function playedElsewhere(view) {
+    return isObject(view.surface) && Object.prototype.hasOwnProperty.call(ELSEWHERE, view.surface.kind);
+  }
+  function showPlayedElsewhere(view) {
+    const root = resetPane();
+    applyLanguage(view);
+    const notice = el("section", { class: "surface-elsewhere", "data-surface": view.surface.kind },
+      el("h2", { class: "surface-elsewhere-title" }, t(ELSEWHERE[view.surface.kind])),
+      el("p", {}, t("pane_surface_not_negotiated")));
+    if (typeof view.status_line === "string" && view.status_line) notice.append(el("p", { class: "orientation-line" }, view.status_line));
+    const available = Array.isArray(view.surface.available) ? view.surface.available : [];
+    if (window.__send && available.includes("panel")) {
+      const play = el("button", { type: "button", class: "st-button st-button--primary play-here" }, t("pane_play_here"));
+      play.addEventListener("click", () => postAction({ type: "playHere" }, t("pane_opening")));
+      notice.append(play);
+    }
+    ui.status = el("p", { id: "action-status", class: "action-status", role: "status", "aria-live": "polite" });
+    notice.append(ui.status);
+    root.append(notice);
+    announce(t(ELSEWHERE[view.surface.kind]));
+  }
+
   // A calm answer to an action that changed nothing (« Réviser maintenant » with nothing due): release the
   // gate and say it in the status line, worded as information, never as a failure.
   function showActionNotice(message) {
@@ -1910,6 +1938,13 @@ let renderView;
     const { hint, turn_result, recall_rated, pending, ...base } = view;
     const signature = JSON.stringify(base);
     const hasNewBase = signature !== previousBase;
+    if (playedElsewhere(view)) {
+      if (hasNewBase) { showPlayedElsewhere(base); previousBase = signature; }
+      if (pending || actionPending) setActionPending(Boolean(pending), pending);
+      previousView = view;
+      if (!pending) noteDisplayed();
+      return;
+    }
     if (hasNewBase) {
       const type = { scene: "render", done: "done", notice: "action_notice", error: "action_error" }[view.kind];
       handleMessage({ ...base, type });

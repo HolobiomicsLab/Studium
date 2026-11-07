@@ -116,12 +116,16 @@ export async function connectMcpApp(app, env = { window, document, renderView: w
   }
   /** Walkthrough 2026-11-07: the server lost the session (it restarted, or the session was closed). The renderer's
    * notice offers to reopen: the same lesson for the same learner, from the view the panel last had, on the learner's
-   * click only. The server resumes the learner's progress. */
-  async function reopen() {
+   * click only. The server resumes the learner's progress.
+   * INT-STUDIUM-058 § 2.1: `surface` (« Play here » on the notice of a conversation or forms surface) asks for
+   * that surface on the session the view names: open_lesson_panel renegotiates a live session's surface when a
+   * call gives one, and the interaction log records the change of rank. */
+  async function reopen(surface) {
     busy = true;
     try {
-      const surface = typeof current.surface?.kind === "string" ? { surface: current.surface.kind } : {};
-      const opened = await app.callServerTool({ name: "open_lesson_panel", arguments: { bundle_ref: current.bundle_ref, learner_id: current.learner_id, locale: locale(), ...surface } });
+      const asked = surface ? { surface } : typeof current.surface?.kind === "string" ? { surface: current.surface.kind } : {};
+      const session = surface ? { session_id: current.session_id } : {};
+      const opened = await app.callServerTool({ name: "open_lesson_panel", arguments: { ...session, bundle_ref: current.bundle_ref, learner_id: current.learner_id, locale: locale(), ...asked } });
       busy = false;
       receive(opened);
     } catch (error) { busy = false; status("action_error", error.message); }
@@ -135,6 +139,7 @@ export async function connectMcpApp(app, env = { window, document, renderView: w
     if (busy || !current) return;
     if (action.type === "run") { status("action_notice", words().pane_native_run_required); return; }
     if (action.type === "reopen") { await reopen(); return; }
+    if (action.type === "playHere") { await reopen("panel"); return; }
     if (!ACTIONS.has(action.type) || !current.actions.includes(action.type)) { status("action_error", words().pane_retry); return; }
     busy = true;
     try {

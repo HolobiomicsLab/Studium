@@ -4343,6 +4343,26 @@ rank 2 (nothing is proposed at a forms pause on atomistique-l1 before the end). 
 `review_due` is a candidate at session start and end only, so a learner resumed on a question is
 never proposed the due review during that session (same on panels).
 
+## 2026-11-07 (surface notice) — A conversation or forms surface draws no playable scene in the MCP Apps panel
+
+INT-STUDIUM-058 task 2.1 reserve from the cognitive walkthrough. A host that renders MCP Apps showed
+the full scene, controls and settings for any `open_lesson_panel` call, including one negotiated at
+rank 1 (conversation) or 2 (forms), so a learner could act on a surface the server had not
+negotiated. The renderer now draws, for a `text` or `form` view, only a notice in the view's locale
+(« Cette leçon se joue dans la conversation / en formulaires », « Le panneau n'est pas la surface
+négociée pour cette séance. ») with the status line. When the client can render a panel, a
+« Jouer ici » button calls `open_lesson_panel` with the session and `surface: "panel"` through the
+bridge's `reopen`; the server already renegotiates a live session's surface (`Panels.context`) and
+logs the rank change. The tool's summary already names the surface and is unchanged.
+
+Test decisions: none. Panel UI 44 → 51 (six renderer tests and one bridge test, each seen failing
+first except the panel guard); VS Code drivers and lesson-mcp green.
+
+Checked by the subagent that wrote it (Opus, 7 Nov, Node 24): `pnpm --filter @studium/lesson-panel build`, `pnpm --filter @studium/lesson-panel-ui build` and `test` (51 pass, 0 fail), `pnpm --filter studium-vscode test` (every driver OK, webview-pane 485, lesson-walk 1280, extension-host 81), `pnpm --filter @studium/lesson-mcp test` (171 passed, 2 skipped), eslint 0 errors on the TypeScript files (the two panel JS files match an ignore pattern). The lead's full gates run after the afternoon's commits, before the push.
+
+Not verified: no MCP Apps host has shown the notice or re-rendered after « Jouer ici »; the
+server's renegotiation on an open with `session_id` is read from the code, not tested here.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

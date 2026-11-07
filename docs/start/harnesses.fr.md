@@ -168,7 +168,12 @@ demande une vraie explication ; la leçon continue pendant que l'explication s
 « Explication générée », pour que vous le distinguiez de celui de la leçon. L'agent de leçon ouvre une
 leçon sur la meilleure surface que votre client sait afficher (un panneau ou un volet, des formulaires, ou
 la conversation). Quand vous revenez vers lui après y avoir joué, il lit d'abord ce que vous avez fait,
-pour ne pas vous remontrer un écran. Depuis le checkout :
+pour ne pas vous remontrer un écran. Un client qui affiche les MCP Apps peut montrer le panneau même quand
+la leçon se joue dans la conversation ou en formulaires : le panneau le dit alors (« Cette leçon se joue dans
+la conversation », « Le panneau n'est pas la surface négociée pour cette séance. ») et ne dessine ni
+scène ni contrôle de réponse, pour que vous répondiez là où la leçon se joue. Son bouton « Jouer ici »,
+présent quand votre client sait afficher le panneau, demande au serveur de passer la séance sur le
+panneau. Depuis le checkout :
 
 ```bash
 claude --agent studium-lesson
