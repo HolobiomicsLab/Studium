@@ -18,7 +18,7 @@ export { resolvePersistence, persistenceInfo, DEFAULT_LEARNER_ID, type Persisten
 export { STATUS_FILE, STATUS_SCHEMA, statusFilePath, type StatusFile } from "./status-file.js";
 export {
   presentationMarkdown, replyHintMarkdown, transitionMarkdown, verdictMarkdown, recallRatedMarkdown, nothingToReviewMarkdown, formatReviewDate,
-  lessonListMarkdown, forgetMarkdown, promptsMarkdown, promptAnswerMarkdown, type DisplayLocale, type ListedLessonLine, type ForgetDisplayItem,
+  lessonListMarkdown, forgetMarkdown, promptsMarkdown, promptAnswerMarkdown, contestOpenedMarkdown, type DisplayLocale, type ListedLessonLine, type ForgetDisplayItem,
 } from "./chat-display.js";
 export { replyToInput, checkDisplayedChoice, ResponseInputError } from "./reply-mapping.js";
 export { type SelfRating } from "./fsrs-memory.js";

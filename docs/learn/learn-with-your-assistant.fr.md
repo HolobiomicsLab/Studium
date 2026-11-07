@@ -71,6 +71,16 @@ chiffre de 0 à 4 ou vos propres mots) et, sur sa dernière ligne, où vous en �
 Répondez vous-même : l'assistant transmet vos mots et ne doit ni répondre, ni choisir, ni noter à votre
 place.
 
+La carte des notions (demandez « où en suis-je ? ») nomme chaque notion avec son identifiant, par exemple
+« Nombres quantiques (`c-nombres-quantiques`) : à venir ». Si vous connaissez déjà une notion que la carte ne
+montre pas acquise, ou doutez d'une notion qu'elle montre acquise, dites-le : l'assistant la conteste pour
+vous avec `submit_response {kind: "contest", concept_id, claim}` (`known` ou `unsure`), et jamais de lui-même.
+Votre déclaration ne change rien à votre maîtrise et ne saute aucune scène. La leçon s'ouvre sur une ligne,
+« Contrôle sur « Nombres quantiques » : 2 questions. Ta déclaration ne change rien à ta maîtrise ; la
+leçon reprend ensuite où tu étais. », pose une ou deux questions de contrôle sur cette notion, évaluées comme
+toute réponse (la dernière ligne dit `contrôle 1/2`), puis reprend où vous étiez. En formulaires, refusez le
+formulaire et dites-le dans la conversation.
+
 Si chaque réponse tarde, jouez la leçon dans une session neuve et courte, sur le modèle rapide de votre
 assistant (dans Claude Code, `claude --agent studium-lesson`) : voir
 [Garder des réponses rapides](../start/harnesses.fr.md#garder-des-réponses-rapides).

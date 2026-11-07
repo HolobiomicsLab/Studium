@@ -170,12 +170,12 @@ describe("play_in_forms", () => {
     expect(result.display_markdown).toContain("Explique pourquoi");
   });
 
-  // Walkthrough of 7 Nov, finding 3: in a form nothing can be said, and a hint, a question, the map or
-  // an answer to a proposal all go through the conversation. Each form says how, in the lesson's language.
+  // Walkthrough of 7 Nov, finding 3: in a form nothing can be said, and a hint, a question, the map, an
+  // answer to a proposal or a contest of a concept (lot 4) all go through the conversation. Each form says how, in the lesson's language.
   it("tells in every form how to get the rest, and never asks to say « continuer »", async () => {
     const help = {
-      fr: /Pour un indice, une question, la carte ou une proposition\s?: refuse ce formulaire et dis-le dans la conversation\./,
-      en: /For a hint, a question, the map or a proposal: decline this form and say it in the conversation\./,
+      fr: /Pour un indice, une question, la carte, une proposition ou contester une notion\s?: refuse ce formulaire et dis-le dans la conversation\./,
+      en: /For a hint, a question, the map, a proposal or to contest a concept: decline this form and say it in the conversation\./,
     };
     for (const language of ["fr", "en"] as const) {
       const { call, forms, session_id } = await play([concept("k1"), quiz("q1"), concept("k2")], [accept(), choose("Juste"), accept()], language);

@@ -4382,6 +4382,25 @@ Checked by the subagent that wrote it (Opus, 7 Nov): `python -m pytest tools/tes
 
 Not verified: the French wording by a French-speaking teacher.
 
+## 2026-11-07 (contest from the conversation) — Contesting a concept is no longer a panel-only act
+
+INT-STUDIUM-058 lot 4, walkthrough reserve. `submit_response` takes a third input
+`{kind:"contest", concept_id, claim:"known"|"unsure"}`, routed to `host.contest(…, "companion")`
+inside `settleAct(CONVERSATION("contest"))`. The reply opens with « Contrôle sur « titre » : n
+questions… » (`contestOpenedMarkdown`), followed by the first check question served at rank 1,
+whose status line says « contrôle 1/n ». The concept map's Markdown list prints each concept's id
+after its title so the assistant can name it; the forms help line says to contest in the
+conversation; the tool description and the server instructions say how.
+
+Test decisions: eight concept-map list assertions take the id after the title; the forms help
+regex takes the new clause. Host 709 → 711, lesson-mcp 170 → 172 (`conversation-contest.test.ts`:
+a real MCP client on atomistique-l1, two checks, resume where the learner was, one-line refusals,
+one `contest` interaction at companion / rank 1), smoke 19/19.
+
+Checked by the subagent that wrote it (Opus, 7 Nov): host `build` and `test` (711), lesson-mcp `build` and `test` (172 passed, 2 skipped), `pnpm --filter @studium/lesson-mcp bundle` then `node apps/lesson-mcp/scripts/headless_smoke.mjs` (all 19 assertions passed), `pnpm docs:gen` (the lead checked the mcp-tools diff: the submit_response paragraph and the two shape-3 rows only), eslint 0 errors. The lead's full gates run on this commit before the push.
+
+Not verified: the EN opening line through the server; a contest in a review session end to end.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

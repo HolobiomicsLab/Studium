@@ -75,6 +75,16 @@ which answers nothing on the scene and returns the call to make next (`start_rev
 `get_workflow_graph`, `play_in_forms` or `get_study_plan`), never making it itself. With telemetry
 consent, each proposal shown is logged as `prompt_shown` with the rank of the surface that said it.
 
+A learner who says they already know a concept of the map, or doubt one they got, contests it through the
+conversation too: the assistant sends `submit_response {input: {kind: "contest", concept_id, claim: "known" |
+"unsure"}}`, with the id the map's list prints after each title (``Nombres quantiques
+(`c-nombres-quantiques`)``). It returns `{contest: {concept_id, claim, questions}, presentation,
+display_markdown}`: one line saying the check and that the claim changes nothing, then the first check
+question, whose status line says « contrôle 1/n ». The answers go as usual, and the lesson then resumes where
+the learner was. A claim the state does not take, or a second contest under way, is refused in the host's one
+line. With telemetry consent the act is logged once, `interaction` with `act: "contest"`, lane `companion`,
+rank 1. In forms, the help line says to decline the form and say it in the conversation.
+
 What the server guarantees:
 
 - No answer key before an answer: scenes are redacted before they leave the server, and cited source

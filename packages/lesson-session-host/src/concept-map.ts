@@ -157,7 +157,9 @@ export function buildConceptMap(input: ConceptMapInput): ConceptMap {
   ].join(", ");
   const step = path.steps.length + (currentSceneId === null ? 0 : 1);
   const lines = nodes.map((node) => {
-    const text = `${node.title}${w.sep}${w[node.state]}`;
+    // The id after the title, so that the learner's assistant can name the concept to contest
+    // (submit_response {kind: "contest", concept_id}).
+    const text = `${node.title} (\`${node.id}\`)${w.sep}${w[node.state]}`;
     const suffix = detail(node) ? ` (${detail(node)})` : "";
     return node.state === "current" ? `- **${text}**${suffix}` : `- ${text}${suffix}`;
   });

@@ -95,6 +95,13 @@ export function promptAnswerMarkdown(kind: string, outcome: "accepted" | "dismis
   return key ? say(locale, key) : say(locale, "prompt_dismissed");
 }
 
+/** INT-STUDIUM-058 lot 4: the line that opens the conversation's reply to a contest — the concept
+ * checked, how many check questions follow, and that the claim moves nothing. The check question's own
+ * screen follows it. */
+export function contestOpenedMarkdown(conceptTitle: string, questions: number, locale: DisplayLocale): string {
+  return say(locale, questions === 1 ? "contest_opened_one" : "contest_opened_many", { title: conceptTitle, n: questions });
+}
+
 export interface CompletionSplit {
   consolidated: string[];
   practised: Array<{ concept_id: string; answers: number }>;
@@ -131,6 +138,8 @@ const PHRASES = {
     hint_available: "_Besoin d'aide ? Un indice est disponible : demande-le._",
     prompt_proposal: "> **Proposition :** {reason} (proposition `{id}`)\n> _Tu peux accepter, ou dire « plus tard »._",
     prompt_dismissed: "C'est noté, plus tard : la leçon continue.",
+    contest_opened_one: "Contrôle sur « {title} » : 1 question. Ta déclaration ne change rien à ta maîtrise ; la leçon reprend ensuite où tu étais.",
+    contest_opened_many: "Contrôle sur « {title} » : {n} questions. Ta déclaration ne change rien à ta maîtrise ; la leçon reprend ensuite où tu étais.",
     prompt_accepted_review: "Révision acceptée : l'assistant ouvre la session de révision (`start_review_session`).",
     prompt_accepted_map: "Carte acceptée : l'assistant affiche ta carte des notions (`get_workflow_graph`).",
     prompt_accepted_forms: "Formulaires acceptés : l'assistant ouvre les formulaires (`play_in_forms`).",
@@ -229,6 +238,8 @@ const PHRASES = {
     hint_available: "_Need help? A hint is available: ask for it._",
     prompt_proposal: "> **Suggestion:** {reason} (suggestion `{id}`)\n> _You can accept, or say “later”._",
     prompt_dismissed: "Noted, later: the lesson goes on.",
+    contest_opened_one: "Check on “{title}”: 1 question. Your claim changes nothing; the lesson then resumes where you were.",
+    contest_opened_many: "Check on “{title}”: {n} questions. Your claim changes nothing; the lesson then resumes where you were.",
     prompt_accepted_review: "Review accepted: the assistant opens the review session (`start_review_session`).",
     prompt_accepted_map: "Map accepted: the assistant shows your concept map (`get_workflow_graph`).",
     prompt_accepted_forms: "Forms accepted: the assistant opens the forms (`play_in_forms`).",

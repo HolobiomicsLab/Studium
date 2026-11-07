@@ -58,13 +58,13 @@ const LABELS = {
     unsupported: "ce client n'affiche pas de formulaires : continuer dans la conversation",
     // A form takes no spoken words: what the conversation asks to say, the form asks to do.
     continue: "_Valide le formulaire pour continuer._",
-    help: "_Pour un indice, une question, la carte ou une proposition : refuse ce formulaire et dis-le dans la conversation._",
+    help: "_Pour un indice, une question, la carte, une proposition ou contester une notion : refuse ce formulaire et dis-le dans la conversation._",
   },
   en: {
     choice: "Your choice", confidence: "Your confidence, from 0 (a guess) to 4 (certain); optional",
     unsupported: "this client does not show forms: go on in the conversation",
     continue: "_Submit the form to continue._",
-    help: "_For a hint, a question, the map or a proposal: decline this form and say it in the conversation._",
+    help: "_For a hint, a question, the map, a proposal or to contest a concept: decline this form and say it in the conversation._",
   },
 };
 

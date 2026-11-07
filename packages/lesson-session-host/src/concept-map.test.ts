@@ -76,10 +76,10 @@ describe("buildConceptMap", () => {
     const steps = [ack(1, "c-a"), answer(2, "q-a", true), ack(3, "c-b"), answer(4, "q-b", false)];
     const fr = mapAt(steps, "c-c", { moment: "detour" });
     expect(fr.display_markdown).toContain("**Carte des notions**");
-    expect(fr.display_markdown).toContain("- Alpha : acquise (Q2 juste)");
-    expect(fr.display_markdown).toContain("- Beta : à revoir (Q4 faux)");
-    expect(fr.display_markdown).toContain("- **Gamma \"g\" : en cours**");
-    expect(fr.display_markdown).toContain("- Delta : à venir (demande Beta)");
+    expect(fr.display_markdown).toContain("- Alpha (`a`) : acquise (Q2 juste)");
+    expect(fr.display_markdown).toContain("- Beta (`b`) : à revoir (Q4 faux)");
+    expect(fr.display_markdown).toContain("- **Gamma \"g\" (`c`) : en cours**");
+    expect(fr.display_markdown).toContain("- Delta (`d`) : à venir (demande Beta)");
     expect(fr.position_line).toBe("Tu viens de « Beta », tu es sur « Gamma \"g\" », ensuite « Delta ».");
     expect(fr.mermaid).toContain("flowchart TD");
     expect(fr.mermaid).toContain('n_a["Alpha<br/>acquise · Q2 juste"]:::acquired');
@@ -87,7 +87,7 @@ describe("buildConceptMap", () => {
     expect(fr.mermaid).toContain("n_a --> n_b");
     expect(fr.mermaid).toContain("n_b -.-> n_d");
     const en = mapAt(steps, "c-c", { locale: "en" });
-    expect(en.display_markdown).toContain("- Alpha: acquired (Q2 correct)");
+    expect(en.display_markdown).toContain("- Alpha (`a`): acquired (Q2 correct)");
     expect(en.position_line).toBe("You come from “Beta”, you are on “Gamma \"g\"”, next “Delta”.");
   });
 

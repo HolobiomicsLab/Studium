@@ -69,6 +69,15 @@ In the chat, each step arrives ready to read: its title, the question, how to an
 0 to 4, or your own words) and, on its last line, where you are (`step 2/6 · 4 min · your answer`).
 Answer yourself. The assistant passes your words on and must not answer, choose or rate for you.
 
+The concept map (ask "where am I?") names each concept with its id, for example "Quantum numbers
+(`c-nombres-quantiques`): upcoming". If you already know a concept the map does not show as acquired, or doubt
+one it does, say so: the assistant contests it for you with `submit_response {kind: "contest", concept_id,
+claim}` (`known` or `unsure`), and never on its own. Your claim changes nothing about your mastery and skips
+no scene. The lesson opens with one line, "Check on “Quantum numbers”: 2 questions. Your claim changes
+nothing; the lesson then resumes where you were.", asks one or two check questions on that concept, graded
+like any answer (the last line says `check 1/2`), then resumes where you were. In forms, decline the form and
+say it in the conversation.
+
 If each answer is slow to come, play the lesson in a new, short session on your assistant's fast model (in
 Claude Code, `claude --agent studium-lesson`): see [Keep answers fast](../start/harnesses.md#keep-answers-fast).
 

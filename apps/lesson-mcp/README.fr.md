@@ -69,6 +69,17 @@ référence. Les actes sont gardés en mémoire pour la séance et repartent de 
 serveur. Lire le brief avance son curseur. Avec `peek: true` il ne bouge pas, ce qu'utilise un panneau
 pour tenir à jour le contexte du modèle.
 
+L'apprenant qui dit connaître déjà une notion de la carte, ou douter d'une notion acquise, la conteste aussi
+par la conversation : l'assistant envoie `submit_response {input: {kind: "contest", concept_id, claim: "known" |
+"unsure"}}`, avec l'identifiant que la liste de la carte écrit après chaque titre (``Nombres quantiques
+(`c-nombres-quantiques`)``). La réponse est `{contest: {concept_id, claim, questions}, presentation,
+display_markdown}` : une ligne qui annonce le contrôle et dit que la déclaration ne change rien, puis la
+première question de contrôle, dont la ligne d'état dit « contrôle 1/n ». Les réponses partent comme
+d'habitude, puis la leçon reprend où en était l'apprenant. Une déclaration que l'état ne prend pas, ou une
+seconde contestation en cours, est refusée en une ligne, celle de l'hôte. Avec le consentement à la
+télémétrie, l'acte est journalisé une fois : `interaction` avec `act: "contest"`, voie `companion`, rang 1.
+En formulaires, la ligne d'aide dit de refuser le formulaire et de le dire dans la conversation.
+
 Ce que le serveur garantit :
 
 - Aucun corrigé avant la réponse : les scènes sont expurgées avant de quitter le serveur, et les

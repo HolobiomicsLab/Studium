@@ -61,8 +61,8 @@ describe("concept map on atomistique-l1", () => {
     expect(map.nodes.find((n) => n.id === "c-periodicite")!.requires).toEqual(["c-spectres"]);
     expect(map.position).toEqual({ from: "c-spectres", at: "c-remplissage", next: "c-configuration" });
     // Written answers nobody assessed are counted, not listed one by one.
-    expect(map.display_markdown).toContain("- Forme des orbitales atomiques : acquise (Q9 juste, 3 réponses enregistrées)");
-    expect(map.display_markdown).toContain("- Particules de l'atome : acquise (Q3 juste, Q4 enregistrée)");
+    expect(map.display_markdown).toContain("- Forme des orbitales atomiques (`c-orbitales-formes`) : acquise (Q9 juste, 3 réponses enregistrées)");
+    expect(map.display_markdown).toContain("- Particules de l'atome (`c-particules`) : acquise (Q3 juste, Q4 enregistrée)");
   });
 
   it("shows the map at a detour, its return, a synthesis scene and the end; a line at a new concept", async () => {
@@ -77,7 +77,7 @@ describe("concept map on atomistique-l1", () => {
     const whole = transitions.filter((t) => t.transition.concept_map?.show === "map").length;
     expect(whole).toBeLessThanOrEqual(8);
     const detour = transitions.find((t) => t.from === "s2-quiz-4f")!.transition;
-    expect(detour.display_markdown).toContain("- **Nombres quantiques : en cours** (Q6 faux)");
+    expect(detour.display_markdown).toContain("- **Nombres quantiques (`c-nombres-quantiques`) : en cours** (Q6 faux)");
     const opened = transitions.find((t) => t.from === "s0-intro")!.transition;
     expect(opened.display_markdown).toContain("Tu es sur « Particules de l'atome », ensuite « Nombres quantiques ».");
     expect(opened.display_markdown).not.toContain("**Carte des notions**");

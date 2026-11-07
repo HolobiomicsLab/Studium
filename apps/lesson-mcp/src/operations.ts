@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   SessionHost, ResponseInputSchema, ExperimentInputSchema, RunResultSchema, NowMsSchema, publicPresentation, publicTransition,
-  operatorContext, promptAnswerMarkdown, type ActReceived, type InteractionAct, type PromptSurface,
+  operatorContext, promptAnswerMarkdown, contestOpenedMarkdown, type ActReceived, type InteractionAct, type PromptSurface,
 } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
@@ -50,13 +50,21 @@ export const PromptAnswerSchema = z.object({
   kind: z.literal("prompt"), id: z.string().min(1), outcome: z.enum(["accepted", "dismissed"]),
 }).strict();
 
-/** What submit_response takes: an answer to the scene, or an answer to a proposal. A refusal names the
- * one field at fault (HJ-7), from the branch the input's kind belongs to, never the union's dump. */
-const SubmitInputSchema = z.union([ResponseInputSchema, PromptAnswerSchema], {
+/** INT-STUDIUM-058 lot 4: the learner's own declaration on a concept of the map, which the conversation
+ * relays: « je connais déjà cette notion » (`known`, a concept not acquired) or « j'ai un doute sur
+ * celle-ci » (`unsure`, an acquired one). The assistant never contests for the learner. */
+export const ContestInputSchema = z.object({
+  kind: z.literal("contest"), concept_id: z.string().min(1), claim: z.enum(["known", "unsure"]),
+}).strict();
+
+/** What submit_response takes: an answer to the scene, an answer to a proposal, or a contest. A refusal
+ * names the one field at fault (HJ-7), from the branch the input's kind belongs to, never the union's
+ * dump. */
+const SubmitInputSchema = z.union([ResponseInputSchema, PromptAnswerSchema, ContestInputSchema], {
   errorMap: (issue, ctx) => {
     if (issue.code !== z.ZodIssueCode.invalid_union) return { message: ctx.defaultError };
     const kind = (ctx.data as { kind?: unknown } | undefined)?.kind;
-    const first = issue.unionErrors[kind === "prompt" ? 1 : 0]?.issues[0];
+    const first = issue.unionErrors[kind === "prompt" ? 1 : kind === "contest" ? 2 : 0]?.issues[0];
     return { message: first?.message ?? ctx.defaultError };
   },
 });
@@ -78,6 +86,26 @@ export async function answerPrompt(host: SessionHost, sessionId: string, answer:
     prompt: { id: record.id, kind: record.kind, outcome: record.outcome },
     ...(next ? { next_call: { tool: next } } : {}),
     display_markdown: promptAnswerMarkdown(record.kind, answer.outcome, locale),
+  };
+}
+
+/** Contest a concept for the learner, as the conversation relays it: the check questions start and the
+ * reply opens with one line saying so, then the first question's screen (rank 1, its status line saying
+ * « contrôle 1/n »). A claim the host does not take is refused in the host's one line. */
+export async function contestFromConversation(
+  host: SessionHost, sessionId: string, input: z.infer<typeof ContestInputSchema>, promptSurface: PromptSurface,
+): Promise<Record<string, unknown>> {
+  // The concept's title as the map shows it, read before the contest (it does not change with it).
+  const title = host.conceptMap(sessionId)?.nodes.find((node) => node.id === input.concept_id)?.title ?? input.concept_id;
+  const started = await host.settleAct(sessionId, CONVERSATION("contest"), () => host.contest(sessionId, input.concept_id, input.claim, "companion"));
+  // The first check question is the current presentation: served again here with the conversation's
+  // screen lines, as get_current_scene would.
+  const presentation = publicPresentation(host.currentPresentation(sessionId, { promptSurface }));
+  const locale = presentation.locale === "en" ? "en" : "fr";
+  return {
+    contest: { concept_id: started.concept_id, claim: started.claim, questions: started.questions },
+    presentation,
+    display_markdown: [contestOpenedMarkdown(title, started.questions, locale), presentation.display_markdown].join("\n\n"),
   };
 }
 
@@ -288,12 +316,21 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         "due, the map, forms) that names itself, e.g. (proposition review_due:start): when the learner accepts it or " +
         "says « later », send submit_response {session_id, input: {kind:\"prompt\", id:\"<id>\", outcome:\"accepted\"|" +
         "\"dismissed\"}}. It answers nothing on the scene; it returns {prompt, next_call?, display_markdown}: show " +
-        "display_markdown, then make next_call (start_review_session takes the same learner_id) when there is one.",
+        "display_markdown, then make next_call (start_review_session takes the same learner_id) when there is one. " +
+        "When the learner says they already know a concept of the map (« je connais déjà cette notion ») or doubt " +
+        "one they got (« j'ai un doute sur celle-ci »), relay it as submit_response {session_id, input: {kind:\"contest\", " +
+        "concept_id:\"<id>\", claim:\"known\"|\"unsure\"}}, with the concept's id as the map names it in parentheses: " +
+        "known for a concept not acquired, unsure for an acquired one. The claim changes no mastery and skips no scene: " +
+        "the lesson asks check questions on that concept (two, or one), graded as any answer, then resumes where the " +
+        "learner was. It returns {contest: {concept_id, claim, questions}, presentation, display_markdown}: show " +
+        "display_markdown (a line saying the check, then the first question) and send the answers as usual. A contest " +
+        "the state does not take, or made while another is under way, is refused in one line. Never contest for the learner.",
       inputSchema: { session_id: z.string(), input: SubmitInputSchema },
     },
     async ({ session_id, input }) => {
       try {
         if (input.kind === "prompt") return text(await answerPrompt(host, session_id, input as z.infer<typeof PromptAnswerSchema>));
+        if (input.kind === "contest") return text(await contestFromConversation(host, session_id, input as z.infer<typeof ContestInputSchema>, surface().promptSurface));
         return text({ transition: publicTransition(await host.settleAct(session_id, CONVERSATION("respond"), () => host.respond(session_id, input as ResponseInput, "companion", surface()))) });
       }
       catch (e) { return fail((e as Error).message); }
