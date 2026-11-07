@@ -31,7 +31,7 @@ export {
   type Orientation, type OrientationFacts, type Waiting, type LastNavigation, type Voice, type Voices, type Help, type HelpRung,
 } from "./orientation.js";
 // INT-STUDIUM-058 § 2.5: what the learner did since the agent last looked.
-export { BRIEF_ACTS_MAX, COMPANION_RULES, type ActKind, type CompanionAct, type CompanionBrief, type Lane } from "./companion.js";
+export { BRIEF_ACTS_MAX, COMPANION_RULES, type ActKind, type ActReceived, type CompanionAct, type CompanionBrief, type InteractionAct, type Lane } from "./companion.js";
 export {
   NOTICE_KINDS, PROMPT_BUDGET, PROMPT_KINDS, PromptBook, PromptRefusedError, noticeCandidate, promptCandidates,
   type PromptAttention, type PromptCandidate, type PromptKind, type PromptOutcome, type PromptRecord, type PromptWaiting, type TriggerFacts,

@@ -7,6 +7,7 @@ import {
 } from "@studium/lesson-session-host";
 import { scanCatalog } from "../../../packages/lesson-session-host/src/lesson-catalog.js";
 import { reviewContext } from "../../../packages/lesson-panel/src/pane-messages.js";
+import { phrase } from "../../../packages/lesson-panel/src/phrases.js";
 import {
   presentPanel, applyPanelAction, PanelActionSchema, ClientMsSchema, type PanelBackend, type PanelContext, type PanelView, type Payload, type Surface,
 } from "../../../packages/lesson-panel/src/index.js";
@@ -73,6 +74,13 @@ export function hostBackend(host: SessionHost, bundlesRoot: string): PanelBacken
       } catch { return asset; }
     },
   };
+}
+
+/** The pane's help ladder asks for an explanation with these words (task 2.5); any other question
+ * handed to the conversation is not that rung. Only the label goes to the log, never the words. */
+const EXPLAIN_QUESTIONS = new Set((["fr", "en"] as const).map(locale => phrase("pane_help_explain_question", {}, locale)));
+function asksExplanation(action: z.infer<typeof PanelActionSchema>): boolean {
+  return action.type === "ask" && action.text !== undefined && EXPLAIN_QUESTIONS.has(action.text.trim());
 }
 
 type SurfaceKind = Surface["kind"];
@@ -142,7 +150,12 @@ class Panels {
     const state = this.host.getState(id); // Validate liveness even for a cached view.
     const existing = this.contexts.get(id);
     if (existing) {
-      if (options.surface !== undefined) existing.surface = negotiateSurface(this.client(), options.surface);
+      if (options.surface !== undefined) {
+        const was = existing.surface?.rank;
+        existing.surface = negotiateSurface(this.client(), options.surface);
+        // The lesson is taken up on a surface of another rank: the interaction log says so.
+        if (was !== undefined && existing.surface.rank !== was) this.host.surfaceChanged(id);
+      }
       return existing;
     }
     const roots = [this.host.bundlesRoot, ...(this.host.libraryRoot ? [this.host.libraryRoot] : [])];
@@ -170,12 +183,16 @@ class Panels {
     return presentPanel(this.backend, ctx);
   }
 
-  async act(id: string, action: z.infer<typeof PanelActionSchema>): Promise<PanelView> {
+  async act(id: string, action: z.infer<typeof PanelActionSchema>, clientMs?: number): Promise<PanelView> {
     const ctx = await this.context(id);
     if (this.busy.has(ctx)) throw new Error("a panel action is already in progress");
     this.busy.add(ctx);
     try {
-      const view = await applyPanelAction(this.backend, ctx, action);
+      // A panel, a pane and a form are the fast lane; the act is logged on the session it came in on.
+      const view = await this.host.settleAct(id, {
+        act: action.type, lane: "fast", surfaceRank: ctx.surface?.rank ?? 1,
+        ...(clientMs === undefined ? {} : { clientMs }), ...(asksExplanation(action) ? { help: "explain" as const } : {}),
+      }, () => applyPanelAction(this.backend, ctx, action));
       if (ctx.sessionId !== id || (action.type === "end" && action.confirmed)) this.contexts.delete(id);
       if (!(action.type === "end" && action.confirmed)) this.contexts.set(ctx.sessionId, ctx);
       return view;
@@ -260,11 +277,10 @@ export function registerPanelTools(server: McpServer, host: SessionHost) {
   });
   const actionTool = server.registerTool("panel_action", {
     description: "Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer; openMap adds the concept map to the view (map: each concept's state, the answers behind it with their day, who assessed them and the hints taken, what the state establishes and what it does not) until closeMap, from forms upwards and for a lesson, not a review session; contest {concept_id, claim} is the learner's own declaration on a concept of the open map, known for a concept not acquired, unsure for an acquired one: the claim changes no mastery and skips no scene, the lesson asks check questions on that concept (two, or one when it has a single key-graded scene on it, the outcome then being partial), graded as any answer, then resumes where the learner was; a contest the state does not take, or made while another is under way, is refused in one line. Never contest for the learner. prompt {id, outcome} is the learner's answer to a proposal of the view (prompts: a review that is due, a break, the map, forms): accept does what it said, dismiss keeps the scene, and the server keeps the outcome; it proposes nothing while an answer is owed and no more than the attention level allows. Never answer a prompt for the learner, and add no proposal of your own during a session. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.",
-    // client_ms is validated here and read by nothing yet: the interaction log (INT-STUDIUM-058, lot 7)
-    // records it under consent. Surfaces send it from now on, so they need no change then.
+    // client_ms goes to the interaction log (INT-STUDIUM-058 § 2.10), under consent.
     inputSchema: { ...session, action: PanelActionSchema, client_ms: ClientMsSchema.optional() },
-  }, async ({ session_id, action }) => {
-    try { return panelResult(await panels.act(session_id, action)); } catch (e) { return toolError(e); }
+  }, async ({ session_id, action, client_ms }) => {
+    try { return panelResult(await panels.act(session_id, action, client_ms)); } catch (e) { return toolError(e); }
   });
   attachTool("open_lesson_panel", openTool);
   attachTool("get_panel_view", getTool);

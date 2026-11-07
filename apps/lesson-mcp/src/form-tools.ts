@@ -35,6 +35,8 @@ export const FORM_TOOL_NAMES = ["play_in_forms"] as const;
 const FORM_TIMEOUT_MS = 60 * 60 * 1000;
 const DEFAULT_MAX_STEPS = 20;
 const SEPARATOR = "\n\n---\n\n";
+/** Forms are rank 2 of the surface ladder (panel-tools.ts negotiateSurface). */
+const FORMS_RANK = 2;
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
 type PublicScene = { id: string; type: string; choices?: Array<{ id: string }> };
@@ -131,7 +133,9 @@ export async function playInForms(server: McpServer, host: SessionHost, sessionI
     try {
       const built = form.toInput(answer.content ?? {});
       confidence = built.confidence;
-      transition = publicTransition(await host.respond(sessionId, built.input, "fast")) as Transition;
+      // Timed around the server's answer only, never the learner's time on the form.
+      const served = await host.settleAct(sessionId, { act: "respond", lane: "fast", surfaceRank: FORMS_RANK }, () => host.respond(sessionId, built.input, "fast"));
+      transition = publicTransition(served) as Transition;
     } catch (error) {
       unseen = "";
       return out("needs_conversation", (error as Error).message);

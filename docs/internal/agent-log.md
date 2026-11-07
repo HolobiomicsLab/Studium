@@ -4200,6 +4200,28 @@ Checked: every repository check passes on this tree at its first run (install, b
 Not verified: no teacher has used the inbox or the commands; the teacher's per-item verdicts
 reach no receipt yet; the `review_receipt` telemetry event is emitted by nothing.
 
+## 2026-11-07 (interaction log) — The host logs each act, help, contest and resume
+
+INT-STUDIUM-058, lot 7, task 7.1 completed (requirement F14, spec § 2.10). `SessionHost.settleAct`
+is the one place an `interaction` is written: the tool handlers of the panel lane, the forms and
+the conversation wrap their host call with the act's name, lane and rank; the host adds the scene,
+the server's time and the surface's `client_ms`. `help_used` (a hint given, the pane's explain
+request), `contest` (an outcome) and `resume` (a lesson taken up again, a surface renegotiated)
+go the same way, under the session's pseudonym, through its own sink. Not emitted, with the
+reasons in the telemetry-events README: `review_receipt`, the reread and reference rungs,
+`resume: paused`.
+
+Test decision: none. Two host tests and one real-server test, seen failing first. Bench without
+a model: 95th centile 10.3 to 11.8 ms over three runs (9.6 ms noted at `29a1a14`), not separated
+from noise; all under the 50 ms target.
+
+Checked: every repository check passes on this tree at its first run (install, build, lint,
+`pnpm -r test`, the Python suites, bundle lint, docs check, headless smoke, the MCP bundle,
+`tools/panel-probe.mjs`), and `pnpm test:tools` (9 tests).
+
+Not verified: no real learner's stream holds these events; the interaction report has not been
+run on one.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

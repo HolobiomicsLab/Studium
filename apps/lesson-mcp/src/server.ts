@@ -18,7 +18,7 @@ import { SelfRatingExpiredError } from "@studium/lesson-session";
 import {
   SessionHost, NowMsSchema, publicPresentation, operatorContext, type SelfRating,
 } from "@studium/lesson-session-host";
-import { lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type ToolResult } from "./operations.js";
+import { CONVERSATION, lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type ToolResult } from "./operations.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools } from "./authoring-tools.js";
 import { TEACHER_TOOL_NAMES, registerTeacherTools } from "./teacher-tools.js";
 import { FORM_TOOL_NAMES, registerFormTools } from "./form-tools.js";
@@ -164,7 +164,7 @@ export function studyOperations(host: SessionHost): Operation[] {
         session_id: z.string(), scene_id: z.string(),
         grade: z.enum(RECALL_GRADES, { errorMap: () => ({ message: `grade must be one of ${RECALL_GRADES.join(", ")}` }) }),
       },
-      async ({ session_id, scene_id, grade }) => host.rateRecall(session_id, scene_id, grade)),
+      async ({ session_id, scene_id, grade }) => host.settleAct(session_id, CONVERSATION("rateRecall"), () => host.rateRecall(session_id, scene_id, grade))),
 
     operation("export_concept_map",
       "On the learner's request, export the concept map of a lesson session as a record " +

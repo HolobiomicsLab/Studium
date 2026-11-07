@@ -16,6 +16,17 @@ export type Lane = "fast" | "companion";
 export type ActKind = "read" | "answer" | "hint" | "self_rating" | "contest";
 export interface CompanionAct { scene_id: string; act: ActKind; lane: Lane; correct?: boolean; confidence?: number }
 
+/** INT-STUDIUM-058 § 2.10: the acts of the interaction log, one per act the server settles (the panel's
+ * actions; the conversation's tools map onto the same names). Mirrors InteractionSchema.act. */
+export type InteractionAct =
+  | "respond" | "turn" | "hint" | "rateRecall" | "reviewNow" | "restartLesson" | "end" | "pickCourse" | "ask"
+  | "setAttention" | "setLanguage" | "replan" | "openMap" | "closeMap" | "contest" | "prompt";
+/** What a caller knows of an act when it receives it: its name, its lane, the surface's rank, the
+ * delay the surface measured, and `help` when the act asked for an explanation. */
+export interface ActReceived {
+  act: InteractionAct; lane: Lane; surfaceRank: 1 | 2 | 3; clientMs?: number; help?: "explain";
+}
+
 /** The acts a brief lists at most; older ones are counted, not listed. */
 export const BRIEF_ACTS_MAX = 12;
 

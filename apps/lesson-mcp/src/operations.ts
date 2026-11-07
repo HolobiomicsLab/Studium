@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   SessionHost, ResponseInputSchema, ExperimentInputSchema, RunResultSchema, NowMsSchema, publicPresentation, publicTransition,
-  operatorContext,
+  operatorContext, type ActReceived, type InteractionAct,
 } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
@@ -38,6 +38,10 @@ function reinforcementResult(status: ReinforcementStatus): Record<string, unknow
       ? Math.round(status.next_due_at) : null,
   };
 }
+
+/** INT-STUDIUM-058 § 2.10: an act made through a session tool is the conversation's, the companion lane
+ * at rank 1, whatever surface the session was negotiated on elsewhere. */
+export const CONVERSATION = (act: InteractionAct): ActReceived => ({ act, lane: "companion", surfaceRank: 1 });
 
 export const TOOL_NAMES = [
   "close_peer_room",
@@ -116,7 +120,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     inputSchema: { session_id: z.string(), presentation_language: z.string().nullable() },
   }, async ({ session_id, presentation_language }) => {
     try {
-      host.setPresentationLanguage(session_id, presentation_language);
+      await host.settleAct(session_id, CONVERSATION("setLanguage"), () => host.setPresentationLanguage(session_id, presentation_language));
       return text({ language: operatorContext(host, session_id).language });
     }
     catch (e) { return fail((e as Error).message); }
@@ -240,7 +244,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
       inputSchema: { session_id: z.string(), input: ResponseInputSchema },
     },
     async ({ session_id, input }) => {
-      try { return text({ transition: publicTransition(await host.respond(session_id, input as ResponseInput)) }); }
+      try { return text({ transition: publicTransition(await host.settleAct(session_id, CONVERSATION("respond"), () => host.respond(session_id, input as ResponseInput))) }); }
       catch (e) { return fail((e as Error).message); }
     },
   );
@@ -354,7 +358,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     },
     async ({ session_id }) => {
       try {
-        const hint = host.requestHint(session_id);
+        const hint = await host.settleAct(session_id, CONVERSATION("hint"), () => host.requestHint(session_id));
         const notation = host.sceneNotation(session_id);
         return text({ hint, ...(notation.length ? { notation } : {}) });
       }
@@ -370,7 +374,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     },
     async ({ session_id, text: turn }) => {
       try {
-        await host.submitTurn(session_id, turn);
+        await host.settleAct(session_id, CONVERSATION("turn"), () => host.submitTurn(session_id, turn));
         return text({ accepted: true, reasoning: host.lastReasoning(session_id), tutor: host.lastTutorMove(session_id) });
       }
       catch (e) { return fail((e as Error).message); }
@@ -431,7 +435,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     async ({ session_id }) => {
       try {
         // L-11 (CC-6): a close whose write-through failed still closes, and says the state was not kept.
-        const closed = await host.close(session_id);
+        const closed = await host.settleAct(session_id, CONVERSATION("end"), () => host.close(session_id));
         return text(closed.persistence_warning
           ? { closed: true, state_kept: false, persistence_warning: closed.persistence_warning }
           : { closed: true, state_kept: true });

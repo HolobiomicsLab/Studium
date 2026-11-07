@@ -69,7 +69,7 @@ import { replyToInput, checkDisplayedChoice } from "./reply-mapping.js";
 import {
   authorVoice, helpFrom, orientationFacts, orientationFrom, recordNavigation, statusLine, voiceLine, type OrientationFacts, type Voice,
 } from "./orientation.js";
-import { COMPANION_RULES, noteAct, takeActs, type CompanionBrief, type Lane } from "./companion.js";
+import { COMPANION_RULES, noteAct, takeActs, type ActReceived, type CompanionBrief, type Lane } from "./companion.js";
 import { ContestRefusedError, checkScenes, claimFor, contestOutcome, type ContestClaim, type RecordContest } from "./contest.js";
 import { NOTICE_KINDS, PromptBook, promptCandidates, type PromptAttention, type PromptCandidate, type PromptRecord } from "./prompts.js";
 import type { HostResponseInput } from "./response-input-schema.js";
@@ -1083,6 +1083,8 @@ export class SessionHost {
       const presentation = this.served(entry, started);
       await this.publishStatus(entry);
       const resume = resumeFor(bundle, initial, profile, presentation.scene.id);
+      // Taken up again after a close or a server restart: the consented stream says why.
+      if (resume.kind === "resumed") this.emitSessionEvent(entry, { type: "resume", cause: "restart" });
       const record = resume.kind === "completed" ? await this.studyStore.load(profilePseudonym) : null;
       const conceptMap = this.conceptMapOf(entry, "start");
       return {
@@ -1716,6 +1718,41 @@ export class SessionHost {
       });
     }
   }
+  /** INT-STUDIUM-058 § 2.10 (F14): run one act of the learner and log it, whatever surface carried it.
+   * The one place an `interaction` is written, so that no surface forgets it: callers name the act and
+   * wrap the host call. `server_ms` is the time `run` took (monotonic clock); `scene_id` the scene on
+   * screen when the act came in. An act that fails is not settled and logs nothing. The event goes to
+   * the session the act came in on, even when the act closed it (end) or moved the learner to another
+   * one (a restart, a review); a session whose learner was erased logs nothing. */
+  async settleAct<T>(id: string, received: ActReceived, run: () => Promise<T> | T): Promise<T> {
+    const entry = this.registry.get(id);
+    if (!entry) return run();
+    const sceneId = received.act === "end" || received.act === "pickCourse" ? undefined : this.sceneOnScreen(entry);
+    const started = performance.now();
+    const result = await run();
+    const serverMs = Math.round((performance.now() - started) * 10) / 10;
+    if (entry.erased || this.erasedIds.has(id)) return result;
+    const closed = this.registry.get(id) !== entry;
+    if (closed && this.erasedUnder(entry)) return result;
+    if (received.help === "explain" && sceneId) this.emitSessionEvent(entry, { type: "help_used", rung: "explain", scene_id: sceneId });
+    this.emitSessionEvent(entry, {
+      type: "interaction", act: received.act, lane: received.lane, surface_rank: received.surfaceRank, server_ms: serverMs,
+      ...(received.clientMs === undefined ? {} : { client_ms: received.clientMs }), ...(sceneId ? { scene_id: sceneId } : {}),
+    });
+    // A closed session flushed its sink already: what came after its close is written now.
+    if (closed) { try { await entry.deps.telemetry.flush(); } catch { /* a log that cannot be written does not undo the act */ } }
+    return result;
+  }
+  /** The surface a session is played on was renegotiated to another rank: the lesson is taken up there. */
+  surfaceChanged(id: string): void {
+    const entry = this.registry.get(id);
+    if (entry && !entry.erased) this.emitSessionEvent(entry, { type: "resume", cause: "surface_change" });
+  }
+  /** The scene on screen, or none once the lesson is complete. */
+  private sceneOnScreen(entry: SessionEntry): string | undefined {
+    if (entry.completed) return undefined;
+    try { return entry.session.currentPresentation().scene.id; } catch { return undefined; }
+  }
   /** An event the host itself adds to a session's telemetry, under the session's own pseudonym. The
    * sink decides whether anything is kept: without the learner's consent it keeps nothing. */
   private emitSessionEvent(entry: SessionEntry, partial: Parameters<typeof enrichEvent>[0]): void {
@@ -1972,6 +2009,10 @@ export class SessionHost {
     delete entry.contest;
     (entry.contests ??= []).push(record);
     try { await entry.session.recordContest(record); } catch { /* the outcome stays on the session and in the answer served */ }
+    // Beside the event log's concept_contested: the consented stream gets labels and a count only.
+    this.emitSessionEvent(entry, {
+      type: "contest", concept_id: record.concept_id, claim: record.claim, outcome: record.outcome, questions: record.scene_ids.length,
+    });
     return record;
   }
 
@@ -2241,7 +2282,12 @@ export class SessionHost {
     const entry = this.require(id);
     this.assertNotErased(id, entry);
     const hint = entry.session.requestHint();
-    if (hint) noteAct(entry, { scene_id: entry.session.currentPresentation().scene.id, act: "hint", lane });
+    if (hint) {
+      const sceneId = entry.session.currentPresentation().scene.id;
+      noteAct(entry, { scene_id: sceneId, act: "hint", lane });
+      // A hint refused at the cap is no help taken: only one given is logged.
+      this.emitSessionEvent(entry, { type: "help_used", rung: "hint", scene_id: sceneId });
+    }
     return hint;
   }
   async submitTurn(id: string, text: string): Promise<void> {
