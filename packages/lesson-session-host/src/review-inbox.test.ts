@@ -121,6 +121,41 @@ describe("buildReviewInbox", () => {
     expect(inbox.items[0]!.checks.map((c) => c.check)).toEqual(["schema", "todo"]);
   });
 
+  // Walkthrough fix 1: the inbox shows what it asks to judge, the scene's public face, never a key.
+  it("gives each item a preview: title, kind, the learner-facing text, and a quiz's choice texts without any correct flag", () => {
+    const titled = { ...quiz, title: "Le quiz", feedback_correct: "FEEDBACK-KEY", hints: ["HINT-KEY"] };
+    const inbox = build({ rawScenes: [intro, titled] });
+    const item = (id: string) => inbox.items.find((i) => i.id === id)!;
+    expect(item("s1").preview).toEqual({ title: "Le quiz", kind: "quiz", text: "Q?", choices: ["x", "y"] });
+    expect(item("s0").preview).toEqual({ title: "s0", kind: "intro", text: "Welcome." });
+    const json = JSON.stringify(inbox);
+    expect(json).not.toContain('"correct"');
+    expect(json).not.toContain("FEEDBACK-KEY");
+    expect(json).not.toContain("HINT-KEY");
+  });
+
+  it("never takes the preview text from a key or reveal field, and cuts it at 280 characters", () => {
+    const keyed = {
+      id: "k", type: "explain_back", title: "T",
+      reveal: "REVEAL-KEY", answer_key: "ANSWER-KEY", expected: "EXPECTED-KEY", key_points: [{ id: "p", text: "POINT-KEY" }],
+      model_answer: "MODEL-KEY", model_explanation: "EXPLANATION-KEY", prompt: `Explain  it\n${"é".repeat(400)}`,
+    };
+    const onlyKeys = { id: "k2", type: "comparison", reveal: "REVEAL-KEY", answer_key: "ANSWER-KEY", model_answer: "MODEL-KEY" };
+    const inbox = build({ rawScenes: [keyed, onlyKeys] });
+    const preview = inbox.items.find((i) => i.id === "k")!.preview;
+    expect(preview.text.startsWith("Explain it éé")).toBe(true);
+    expect(Array.from(preview.text).length).toBeLessThanOrEqual(280);
+    expect(preview.text.endsWith("…")).toBe(true);
+    expect(inbox.items.find((i) => i.id === "k2")!.preview.text).toBe("");
+    const json = JSON.stringify(inbox.items.map((i) => i.preview));
+    for (const key of ["REVEAL-KEY", "ANSWER-KEY", "EXPECTED-KEY", "POINT-KEY", "MODEL-KEY", "EXPLANATION-KEY"]) expect(json).not.toContain(key);
+  });
+
+  it("leaves the fingerprint unchanged: the preview is derived, not part of what is hashed", () => {
+    const item = build({ rawScenes: [intro] }).items[0]!;
+    expect(item.sha256).toBe(sceneFingerprint(intro));
+  });
+
   it("returns no items when scenes is not an array", () => {
     const inbox = build({ rawScenes: null });
     expect(inbox.items).toEqual([]);

@@ -4289,6 +4289,27 @@ Checked by the subagent that wrote it (Opus, 7 Nov, Node 24.16): `pnpm --filter 
 Not verified: no real host has shown the notice or the reopen control; the tests inject the error
 text; the MCP App reopen relies on `callServerTool("open_lesson_panel")` as `pickCourse` does.
 
+## 2026-11-07 (review path) — The inbox shows what it asks to judge; lint reaches the dashboard; the voice is previewed
+
+INT-STUDIUM-058 lot 6, findings 2 and 12 of the cognitive walkthrough. Each review-inbox item now
+carries a derived `preview` (title, kind, first 280 characters of learner text through
+`publicScene`'s projection, choice texts without flags), stored nowhere and hashed nowhere. The
+dashboard's review page unfolds it under each row; `review_lesson` returns it without a quiz's
+choices, since the correct choice's text is key material in that learner-readable response
+(SEC-6). The dashboard's `readLesson` runs the bundle linter in process (`lintBundleData`), so lint
+errors block there as in `review_lesson`, and a linter failure is shown, never a pass.
+`experience_packet.py approve` and the dashboard's approval panel preview the « Leçon validée par
+NAME » voice learners read on every screen, and note when the name is an e-mail address.
+
+Test decisions: the dashboard's projection test and two page tests now expect the choice text and
+the lesson body inside the folded previews only, with feedback, hints and `correct` still absent.
+Python 144 pass, dashboard 141 → 150, host review-inbox 19, lesson-mcp 167.
+
+Checked by the subagent that wrote it (Opus, 7 Nov): `python -m pytest tools/test_experience_packet.py tools/test_review_receipt_parity.py -q` (144 passed, receipt bytes unchanged), dashboard `npx vitest run` (150), `pnpm --filter @studium/teacher-dashboard build` (compiled, lint and types pass), `pnpm --filter @studium/lesson-mcp build` and `test` (167 passed, 4 skipped), host `review-inbox.test.ts` (19), `pnpm docs:gen` (diff limited to the review_lesson sentence). The lead's full gates run after the three walkthrough commits of the day, before the push.
+
+Not verified: the name field and the folded previews in a browser; the linter's asset checks were
+not audited for reads outside the lesson directory (same behaviour as `review_lesson`).
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

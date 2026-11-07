@@ -7,14 +7,16 @@
 export type CommandLocale = "fr" | "en";
 
 const quote = (value: string) => `'${value.replaceAll("'", `'"'"'`)}'`;
-const placeholder = (locale: CommandLocale) => quote(locale === "fr" ? "VOTRE NOM" : "YOUR NAME");
+/** The name the commands carry: the one the teacher typed, or a placeholder to replace. */
+export const placeholderName = (locale: CommandLocale) => (locale === "fr" ? "VOTRE NOM" : "YOUR NAME");
+const nameArg = (locale: CommandLocale, name?: string) => quote(name?.trim() || placeholderName(locale));
 const openedFlag = (opened: readonly string[] | undefined) => (opened && opened.length > 0 ? ` --opened ${quote(opened.join(","))}` : "");
 
-export function approvalCommand(bundlePath: string, locale: CommandLocale, opened?: readonly string[]): string {
-  return `.venv/bin/python tools/experience_packet.py approve --bundle ${quote(bundlePath)} --validated-by ${placeholder(locale)}${openedFlag(opened)}`;
+export function approvalCommand(bundlePath: string, locale: CommandLocale, opened?: readonly string[], name?: string): string {
+  return `.venv/bin/python tools/experience_packet.py approve --bundle ${quote(bundlePath)} --validated-by ${nameArg(locale, name)}${openedFlag(opened)}`;
 }
 
 /** Send the lesson back: writes a `returned` receipt only, the lesson stays unapproved. */
-export function returnCommand(bundlePath: string, locale: CommandLocale, opened?: readonly string[]): string {
-  return `.venv/bin/python tools/experience_packet.py receipt --bundle ${quote(bundlePath)} --reviewer ${placeholder(locale)} --decision returned${openedFlag(opened)}`;
+export function returnCommand(bundlePath: string, locale: CommandLocale, opened?: readonly string[], name?: string): string {
+  return `.venv/bin/python tools/experience_packet.py receipt --bundle ${quote(bundlePath)} --reviewer ${nameArg(locale, name)} --decision returned${openedFlag(opened)}`;
 }

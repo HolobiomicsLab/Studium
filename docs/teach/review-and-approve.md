@@ -54,6 +54,14 @@ the last review receipt in the course's `reviews/` folder, and which checks (sch
 passes. A scene that holds a key gets no fingerprint (`sha256`) in the response: a hash of its keys
 would let a learner test guesses against it. The receipt on disk keeps every fingerprint.
 
+Each item also carries a `preview`, what the item asks you to judge: the scene's `title`, its type
+(`kind`) and `text`, the first 280 characters of what the learner reads (the question, prompt or
+body). It is read from the learner's view of the scene, so it never holds a key, a hint, a feedback or
+a reveal. In `review_lesson` the preview leaves a quiz's choices out: the correct choice's text is
+treated as key material in that response, and the authored order (learners get a shuffled one) would
+tell its position. The dashboard's review page shows the choices too. The preview is computed on
+each read: the receipt and the fingerprints do not change.
+
 The teacher dashboard shows the same status per lesson, read-only:
 
 <picture>
@@ -68,6 +76,19 @@ The teacher dashboard shows the same status per lesson, read-only:
 | Approved | An `approval.json` record matches the SHA-256 of the current `lesson.json` |
 
 Starting the dashboard is described in [follow a class](follow-a-class.md#the-teacher-dashboard).
+
+The dashboard's review page shows the same inbox. Each line unfolds, on demand, what the learner sees:
+the scene's text and, for a quiz, its choices in authored order, without saying which one is correct.
+A grading line still says that the key is not on the page: open `lesson.json` to check it. The page
+runs the same linter as `review_lesson`, so a scene with a lint error comes first, as blocking, with a
+failed Lint check. When the linter cannot run, the page says so in one line and the Lint check is left
+out of every line rather than shown as passed.
+
+The approval panel has a field for your name. The two commands carry it, and the panel shows what
+learners will read on every screen of the lesson, « Leçon validée par <name> » or "validated by
+<name>" depending on the lesson's language. When the name is an e-mail address, the panel notes that
+learners will see it and suggests a name instead. Nothing is refused: the command writes the name you
+typed.
 
 What to look at, beyond the checks: whether each source-to-scene link says what the source says,
 the proposed prerequisites, cognitive load, assessment criteria and representations. Try a hesitant
@@ -84,8 +105,12 @@ student, a partly right answer, an unavailable tool and a null result.
 `approve` refuses a lesson that still has a placeholder, a lesson with lint errors, and any
 self-study lesson. It then sets `validated_by` and `validated_at` in `lesson.json`, rewrites the file
 in a normalised form (keys sorted, standard indentation, so its SHA-256 changes once) and writes
-`approval.json` next to it. It prints who approved and when, the SHA-256, the lint counts and a
-reminder that any edit makes the approval stale, then the path of `approval.json` as its last line.
+`approval.json` next to it. It prints who approved and when, what learners will read as the
+lesson's voice on every screen (`learners read on every screen: « Leçon validée par <NAME> » /
+"validated by <NAME>"`, with the name as given), the SHA-256, the lint counts and a reminder that any
+edit makes the approval stale, then the path of `approval.json` as its last line. When the name
+contains `@`, a second line notes that it is an e-mail address learners will see, and suggests
+`--validated-by "Prénom Nom"`; the approval goes through all the same.
 The record holds:
 
 | Field | Content |

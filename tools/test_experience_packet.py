@@ -1794,6 +1794,32 @@ def test_approve_preserves_bundle_content_and_writes_hash_bound_record(tmp_path,
     }
 
 
+def test_approve_summary_shows_the_voice_learners_will_read(tmp_path, capsys):
+    """Walkthrough fix 3: the name given to --validated-by is what every learner screen shows."""
+    lesson = _finished_teacher_bundle(tmp_path)
+
+    assert main(["approve", "--bundle", str(lesson), "--validated-by", "Marie Curie"]) == 0
+
+    out = capsys.readouterr().out
+    assert 'learners read on every screen: « Leçon validée par Marie Curie » / "validated by Marie Curie"' in out
+    assert "e-mail address" not in out
+
+
+def test_approve_summary_notes_an_email_address_as_the_voice(tmp_path, capsys):
+    lesson = _finished_teacher_bundle(tmp_path)
+
+    assert main(["approve", "--bundle", str(lesson), "--validated-by", "m.curie@example.org"]) == 0
+
+    out = capsys.readouterr().out
+    lines = out.splitlines()
+    voice = 'learners read on every screen: « Leçon validée par m.curie@example.org » / "validated by m.curie@example.org"'
+    assert voice in lines
+    note = 'note: this is an e-mail address; learners will see it — prefer a name (--validated-by "Prénom Nom")'
+    assert lines[lines.index(voice) + 1] == note
+    # No refusal, nothing else changed: the address is written as given.
+    assert json.loads(lesson.read_text())["validated_by"] == "m.curie@example.org"
+
+
 def test_approve_refuses_placeholders_without_mutating_bundle(tmp_path, capsys):
     course = checked_course(tmp_path)
     lesson = build_lesson_bundle(course_dir=course, output_path=tmp_path / "lesson.json")

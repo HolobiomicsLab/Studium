@@ -98,14 +98,17 @@ teaching fixtures, start it with `BUNDLES_ROOT="$PWD/fixtures"`.
 Each lesson has a review page (see [review and approve](review-and-approve.md#review-the-lesson-file))
 with a link to its MySTRA view when the Observatory serves a course folder of the same name
 (`OBSERVATORY_BASE_URL`, default `http://localhost:8004`). Pages are read-only: they show titles,
-scene types, concepts and references, never lesson bodies, choices or keys. Language and theme are
+scene types, concepts and references, and, folded under each inbox line, what the learner reads (the
+scene's text, a quiz's choices), never a key, a hint, a feedback or a reveal. Language and theme are
 chosen in the header menu.
 
 The review page opens with a review inbox: one line per scene, scenes that block first, then those
 that hold a grading key, then wording and media, each marked new, changed or unchanged since the last
-review receipt. Give your own verdict on a grading line (Correct or To fix) before its automatic
-verdict unfolds. The approval command, and the command that sends the lesson back, list the scenes you
-opened in `--opened`; the page warns about grading lines you have not opened, and writes nothing itself.
+review receipt. Each line unfolds what the learner sees; the page runs the bundle linter, so a scene with
+a lint error blocks. Give your own verdict on a grading line (Correct or To fix) before its automatic
+verdict unfolds. The approval command, and the command that sends the lesson back, carry the name you
+type (the panel shows it as learners will read it) and list the scenes you opened in `--opened`; the
+page warns about grading lines you have not opened, and writes nothing itself.
 
 The course analytics pages (`/courses/<course_id>/progress` and the pages next to it: calibration,
 trajectory, reasoning, autonomy, AI literacy) read the analytics collector on `localhost:8003`; the

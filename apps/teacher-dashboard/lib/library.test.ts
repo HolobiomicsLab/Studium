@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { createHash } from "node:crypto";
@@ -84,11 +84,19 @@ describe("C5 approval is bound to the exact lesson bytes", () => {
   it("projects titles, concepts and source references without any answer fields", async () => {
     const bundle = await fixture();
     const quiz = bundle.scenes.find((s: { type: string }) => s.type === "quiz");
+    // Test decision (walkthrough fix 1): a choice's text now reaches the review page, in the inbox
+    // preview, because the teacher is asked to judge the scene; what stays on the server is the key —
+    // which choice is correct, the feedback that restates it, the hints.
     quiz.choices[0].text = "PRIVATE_ANSWER_CANARY";
+    quiz.feedback_correct = "FEEDBACK_CANARY";
+    quiz.hints = ["HINT_CANARY"];
     const result = inspectLesson(Buffer.from(JSON.stringify(bundle)), null);
     expect(result.outline[0].title).toBe(bundle.scenes[0].title);
     expect(result.keyClasses.author_keyed).toBeGreaterThan(0);
-    expect(JSON.stringify(result)).not.toContain("PRIVATE_ANSWER_CANARY");
+    expect(JSON.stringify(result.outline)).not.toContain("PRIVATE_ANSWER_CANARY");
+    expect(result.inbox.items.find((item) => item.id === quiz.id)?.preview.choices).toContain("PRIVATE_ANSWER_CANARY");
+    expect(JSON.stringify(result)).not.toContain("FEEDBACK_CANARY");
+    expect(JSON.stringify(result)).not.toContain("HINT_CANARY");
     expect(JSON.stringify(result)).not.toContain('"correct"');
   });
 });
@@ -178,8 +186,38 @@ describe("review inbox (INT-STUDIUM-058 task 6.3)", () => {
     expect(result.inbox.lastReceipt).toBeNull();
     // No sha256 of any kind reaches a page: a key-holding scene's hash would be an answer oracle.
     expect(JSON.stringify(result.inbox)).not.toMatch(/sha256|[0-9a-f]{64}/);
-    // The library does not run the linter: the lint check is absent, not passed.
+    // inspectLesson alone runs no linter (readLesson does): the lint check is absent, not passed.
     expect(result.inbox.items[0].checks.map((c) => c.check)).toEqual(["schema", "todo"]);
+  });
+  it("gives each item the scene's public face: title, kind, learner text, a quiz's choice texts without the key", async () => {
+    const bundle = await fixture();
+    const quiz = bundle.scenes[2];
+    const result = inspectLesson(Buffer.from(JSON.stringify(bundle)), null);
+    const item = result.inbox.items.find((i) => i.id === quiz.id)!;
+    expect(item.preview).toEqual({
+      title: quiz.title, kind: "quiz", text: quiz.question.replace(/\s+/g, " ").trim().slice(0, 280),
+      choices: quiz.choices.map((c: { text: string }) => c.text),
+    });
+    const audit = result.inbox.items.find((i) => i.id === bundle.scenes[3].id)!;
+    expect(audit.preview.kind).toBe("summary_audit");
+    expect(JSON.stringify(result.inbox)).not.toContain(bundle.scenes[3].model_correction.slice(0, 40));
+    expect(JSON.stringify(result.inbox)).not.toContain(quiz.feedback_correct.slice(0, 40));
+  });
+  it("runs the bundle linter in readLesson: a lint ERROR naming a scene puts it first, as blocks (walkthrough fix 2)", async () => {
+    const base = await root();
+    const bundle = await fixture();
+    // A quiz with two correct choices: bundle_lint's quiz_answer_key ERROR, "<scene id>: 2 correct choices".
+    const quiz = bundle.scenes[5];
+    for (const choice of quiz.choices.slice(0, 2)) choice.correct = true;
+    await put(base, "course", bundle);
+    await cp(resolve(__dirname, "../../../fixtures/atomistique-l1/assets"), join(base, "course/assets"), { recursive: true });
+    const lesson = await readLesson(base, "course");
+    expect(lesson.inbox.items[0]).toMatchObject({ id: quiz.id, consequence: "blocks" });
+    expect(lesson.inbox.items[0].checks).toContainEqual({ check: "lint", passed: false });
+    expect(lesson.inbox.items.filter((i) => i.consequence === "blocks").map((i) => i.id)).toEqual([quiz.id]);
+    expect(lesson.lintUnavailable).toBe(false);
+    // The linter's message is never copied to the page.
+    expect(JSON.stringify(lesson)).not.toContain("correct choices");
   });
   it("marks what changed against the last receipt in the course's reviews/ folder", async () => {
     const base = await root();

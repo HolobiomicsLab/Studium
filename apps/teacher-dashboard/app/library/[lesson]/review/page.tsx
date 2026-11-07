@@ -39,7 +39,8 @@ export default async function ReviewPage({ params }: { params: { lesson: string 
   const entries: InboxEntry[] = lesson.inbox.items.map((item) => {
     const index = sceneIndex.get(item.id) ?? Number(item.id.replace(/^#/, ""));
     const scene = lesson.outline[index];
-    return { id: item.id, index, title: scene?.title ?? item.id, type: scene?.type ?? "unknown", consequence: item.consequence, whatChanged: item.whatChanged, checks: item.checks };
+    return { id: item.id, index, title: scene?.title ?? item.id, type: scene?.type ?? "unknown", consequence: item.consequence, whatChanged: item.whatChanged, checks: item.checks,
+      preview: { text: item.preview.text, ...(item.preview.choices ? { choices: item.preview.choices } : {}) } };
   });
   const lastReceipt = lesson.inbox.lastReceipt;
   return (
@@ -53,6 +54,7 @@ export default async function ReviewPage({ params }: { params: { lesson: string 
       <ReviewSession entries={entries} locale={locale}>
       <div className="review-grid">
         <div className="review-main">
+        {lesson.lintUnavailable && <p className="approval-note" role="note">{t.lintUnavailable}</p>}
         <ReviewInboxList lastReceipt={lastReceipt && { reviewer: lastReceipt.reviewer, decidedAt: lastReceipt.decidedAt, decision: lastReceipt.decision }} unreadableReceipts={lesson.inbox.unreadableReceipts} />
         <section aria-labelledby="outline-heading" className="review-outline">
           <header className="section-heading"><h2 id="outline-heading">{t.outline}</h2><p>{t.outlineHelp}</p></header>

@@ -52,8 +52,9 @@ par un apprenant ou un enseignant en leçon, hors ligne et sans modèle. L'ordre
 - `approve` refuse un bundle d'autoformation, un gabarit restant ou une erreur de relecture. Il
   renseigne `validated_by` et `validated_at`, normalise le fichier et écrit `approval.json` à côté du
   bundle, lié à l'empreinte SHA-256 de ses octets finaux. Il affiche un résumé (relecteur et heure,
-  SHA-256, nombre d'erreurs et d'avertissements, rappel qu'une modification rend l'approbation
-  périmée), puis le chemin d'`approval.json` en dernière ligne. Il écrit aussi le reçu de relecture
+  voix que les apprenants liront sur chaque écran, `learners read on every screen: « Leçon validée par <NAME> » / "validated by <NAME>"`, SHA-256, nombre d'erreurs et
+  d'avertissements, rappel qu'une modification rend l'approbation périmée), puis le chemin
+  d'`approval.json` en dernière ligne. Un nom qui contient `@` ajoute `note: this is an e-mail address; learners will see it — prefer a name (--validated-by "Prénom Nom")` ; il n'est pas refusé. Il écrit aussi le reçu de relecture
   `reviews/<date>-<sha>.json` à côté du bundle (un élément par scène : empreinte, conséquence,
   ouverte ou non ; `--opened` nomme les scènes lues, un identifiant inconnu est refusé avant toute
   écriture) et signale les scènes `grading` non ouvertes. Un reçu n'est jamais écrasé : les mêmes

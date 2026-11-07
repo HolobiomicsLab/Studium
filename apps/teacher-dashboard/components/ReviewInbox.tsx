@@ -5,9 +5,9 @@
 // the teacher runs (see lib/review-commands.ts), not through a file written by the dashboard.
 // A grading item is never counted opened by this page: it shows no key (the library is a whitelist
 // projection), so a verdict click is not a reading and the receipt must not attest one.
-import { createContext, useContext, useReducer, type ReactNode, type SyntheticEvent } from "react";
+import { createContext, useContext, useReducer, useState, type ReactNode, type SyntheticEvent } from "react";
 import { fill, messages, sceneTypeLabel, type Locale } from "@/lib/i18n";
-import { approvalCommand, returnCommand } from "@/lib/review-commands";
+import { approvalCommand, placeholderName, returnCommand } from "@/lib/review-commands";
 
 export type Verdict = "ok" | "to_fix";
 /** One inbox item joined with its outline entry; `index` is the scene's position in the lesson. */
@@ -16,6 +16,8 @@ export type InboxEntry = {
   consequence: "blocks" | "grading" | "wording" | "media";
   whatChanged: "new" | "changed" | "unchanged";
   checks: Array<{ check: "schema" | "todo" | "lint"; passed: boolean }>;
+  /** The scene's public face (lib/library.ts InboxItem.preview): learner text and choice texts, never a key. */
+  preview?: { text: string; choices?: string[] };
 };
 export type InboxReceiptView = { reviewer: string; decidedAt: string; decision: "approved" | "returned" } | null;
 export type ReviewState = { opened: ReadonlySet<string>; verdicts: Readonly<Record<string, Verdict>> };
@@ -62,6 +64,19 @@ function Checks({ entry, locale }: { entry: InboxEntry; locale: Locale }) {
   </li>)}</ul>;
 }
 
+/** What the learner sees, folded under the row. Opening it marks a non-grading item opened (its content
+ * is all there is to read); a grading item's key is not on this page, so it stays unopened here. */
+function Preview({ entry, locale, onToggle }: { entry: InboxEntry; locale: Locale; onToggle?: (event: SyntheticEvent<HTMLDetailsElement>) => void }) {
+  const t = messages(locale);
+  if (!entry.preview) return null;
+  const { text, choices } = entry.preview;
+  return <details className="inbox-preview" onToggle={onToggle}>
+    <summary>{t.previewSummary}{entry.consequence === "grading" && <span className="inbox-preview__nokey"> {t.previewNoKey}</span>}</summary>
+    {text ? <p className="inbox-preview__text">{text}</p> : <p className="inbox-preview__text">{t.previewEmpty}</p>}
+    {choices && choices.length > 0 && <ol className="inbox-preview__choices">{choices.map((choice, i) => <li key={i}>{choice}</li>)}</ol>}
+  </details>;
+}
+
 export function ReviewInboxList({ lastReceipt, unreadableReceipts }: { lastReceipt: InboxReceiptView; unreadableReceipts: number }) {
   const { entries, locale, state, dispatch } = useSession();
   const t = messages(locale);
@@ -89,6 +104,7 @@ export function ReviewInboxList({ lastReceipt, unreadableReceipts }: { lastRecei
           </div>
           <h3>{entry.title}</h3>
           <p className="inbox-item__changed"><b>{changed[entry.whatChanged]}</b> · {since} · <code>{entry.id}</code></p>
+          <Preview entry={entry} locale={locale} onToggle={grading ? undefined : onToggle} />
           {grading && <div className="inbox-verdict" role="group" aria-label={`${t.yourVerdict} — ${entry.title}`}>
             <button type="button" aria-pressed={verdict === "ok"} onClick={() => dispatch({ type: "verdict", id: entry.id, verdict: "ok" })}>{t.verdictOk}</button>
             <button type="button" aria-pressed={verdict === "to_fix"} onClick={() => dispatch({ type: "verdict", id: entry.id, verdict: "to_fix" })}>{t.verdictToFix}</button>
@@ -104,10 +120,13 @@ export function ReviewInboxList({ lastReceipt, unreadableReceipts }: { lastRecei
   );
 }
 
-/** The warning and the two commands, rebuilt as items are opened. */
-export function ReviewApproval({ bundlePath }: { bundlePath: string }) {
+/** The warning, the name learners will read and the two commands, rebuilt as items are opened and as
+ * the name is typed. `initialName` seeds the field (tests). The name stays on this page. */
+export function ReviewApproval({ bundlePath, initialName }: { bundlePath: string; initialName?: string }) {
   const { entries, locale, state } = useSession();
   const t = messages(locale);
+  const [name, setName] = useState(initialName ?? "");
+  const shown = name.trim() || placeholderName(locale);
   const unopened = unopenedGrading(entries, state);
   const opened = openedInSceneOrder(entries, state);
   return <>
@@ -116,9 +135,15 @@ export function ReviewApproval({ bundlePath }: { bundlePath: string }) {
       {unopened.length > 0 ? fill(unopened.length === 1 ? t.inboxWarningOne : t.inboxWarningMany, { n: unopened.length, ids: unopened.join(", ") }) : null}
     </p>
     <p>{t.approvalHelp}</p>
-    <pre className="approval-command"><code>{approvalCommand(bundlePath, locale, opened)}</code></pre>
+    <label className="approval-name">{t.validatorName}
+      <input type="text" name="validated-by" autoComplete="name" value={name} onChange={(event) => setName(event.currentTarget.value)} />
+    </label>
+    <pre className="approval-command"><code>{approvalCommand(bundlePath, locale, opened, name)}</code></pre>
+    {/* The voice line every learner screen carries (lesson-session-host orientation.ts voiceLine). */}
+    <p className="approval-voice">{fill(t.voicePreview, { name: shown })}</p>
+    {shown.includes("@") && <p className="approval-note">{t.voiceEmailNote}</p>}
     <h3 className="return-heading">{t.returnHeading}</h3>
     <p>{t.returnHelp}</p>
-    <pre className="approval-command"><code>{returnCommand(bundlePath, locale, opened)}</code></pre>
+    <pre className="approval-command"><code>{returnCommand(bundlePath, locale, opened, name)}</code></pre>
   </>;
 }

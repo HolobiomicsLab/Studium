@@ -9,17 +9,21 @@ import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { LessonBundleSchema } from "../../../packages/lesson-bundle-schema/src";
 import { keyClassOf, type KeyClass } from "../../../packages/lesson-session-host/src/key-class";
-import { placeholderPaths } from "../../../tools/bundle_lint.mjs";
-import { buildReviewInbox, readLastReceipt, type Consequence, type ReviewReceipt, type ReviewInbox, type WhatChanged } from "../../../packages/lesson-session-host/src/review-inbox";
+import { lintBundleData, placeholderPaths } from "../../../tools/bundle_lint.mjs";
+import { buildReviewInbox, readLastReceipt, type Consequence, type ReviewReceipt, type ReviewInbox, type ScenePreview, type WhatChanged } from "../../../packages/lesson-session-host/src/review-inbox";
 
 export type LessonStatus = "draft" | "checked" | "approved";
 export type ReviewSource = { title: string; url?: string };
 export type OutlineScene = { id: string; title: string; type: string; concepts: string[]; sources: ReviewSource[] };
-/** An inbox item as a page sees it: never a sha256 (a key-holding scene's hash is an answer oracle). */
+/** An inbox item as a page sees it: never a sha256 (a key-holding scene's hash is an answer oracle).
+ * `preview` is the scene's public face (title, kind, learner text, choice texts), never a key. */
 export type InboxItem = {
   id: string; consequence: Consequence; whatChanged: WhatChanged; holdsKey: boolean;
   checks: Array<{ check: "schema" | "todo" | "lint"; passed: boolean }>;
+  preview: ScenePreview;
 };
+/** Linter findings as the inbox reads them: located by their message, never copied to a page. */
+export type LintFindings = ReadonlyArray<{ level: string; code?: string; message: string }>;
 export type InboxReceipt = { reviewer: string; decidedAt: string; decision: "approved" | "returned"; opened: number; notOpened: number };
 export type LessonInbox = { items: InboxItem[]; lastReceipt: InboxReceipt | null; counts: ReviewInbox["counts"]; unreadableReceipts: number };
 export type LessonInspection = {
@@ -29,6 +33,9 @@ export type LessonInspection = {
   schemaIssueCount: number; outline: OutlineScene[]; conceptTitles: Record<string, string>;
   approval: { recorded: boolean; matches: boolean; reviewer?: string; reviewedAt?: string };
   inbox: LessonInbox;
+  /** True when readLesson tried to run the bundle linter and it did not complete: the lint check is then
+   * left out of every item, and the page says so in one line. */
+  lintUnavailable: boolean;
 };
 export type LibraryLesson = LessonInspection & { ref: string; routeId: string; bundlePath: string };
 export type LibraryIndex = { lessons: LibraryLesson[]; issues: string[]; root: string };
@@ -71,8 +78,15 @@ function sourceUrl(value: unknown): string | undefined {
   } catch { return undefined; }
 }
 
-/** A whitelist projection: evidence excerpts, prompts, choices and grading fields stay on the server. */
-export function inspectLesson(bytes: Buffer, receipt: unknown, lastReview: { receipt: ReviewReceipt | null; unreadable: number } = { receipt: null, unreadable: 0 }): LessonInspection {
+/** A whitelist projection: evidence excerpts and grading fields stay on the server. The inbox preview
+ * carries each scene's public face (title, learner text, choice texts in authored order), what a learner
+ * reads, never which choice is correct, a feedback, a hint or a reveal. `lint` is the linter's findings
+ * (null: not run, the lint check is left out; "unavailable": it was run and did not complete). */
+export function inspectLesson(
+  bytes: Buffer, receipt: unknown,
+  lastReview: { receipt: ReviewReceipt | null; unreadable: number } = { receipt: null, unreadable: 0 },
+  lint: LintFindings | null | "unavailable" = null,
+): LessonInspection {
   const bundle = record(JSON.parse(bytes.toString("utf8")));
   const metadata = record(bundle.metadata);
   const authoring = record(metadata.authoring);
@@ -109,17 +123,17 @@ export function inspectLesson(bytes: Buffer, receipt: unknown, lastReview: { rec
     const id = text(scenes[index]?.id) || `#${index}`; // buildReviewInbox's id for a scene without one
     todoPerScene.set(id, (todoPerScene.get(id) ?? 0) + 1);
   }
-  // The library does not run the linter (review_lesson does): lintFindings null leaves the lint check
-  // out of each item rather than claiming it passed.
+  // readLesson runs the linter (as review_lesson does) and passes its findings; when it was not run or
+  // did not complete, lintFindings null leaves the lint check out of each item rather than claiming it passed.
   const built = buildReviewInbox({
-    rawScenes: bundle.scenes, lintFindings: null, todoPerScene, schemaValid: parsed.success,
+    rawScenes: bundle.scenes, lintFindings: lint === "unavailable" ? null : lint, todoPerScene, schemaValid: parsed.success,
     schemaErrors: parsed.success ? [] : parsed.error.issues.map((issue) => ({ path: issue.path.join(".") })),
     lastReceipt: lastReview.receipt, unreadableReceipts: lastReview.unreadable,
   });
   const last = built.last_receipt;
   const inbox: LessonInbox = {
     // Whitelist projection: sha256 is dropped from every item, not only key-holding ones; the page does not need it.
-    items: built.items.map((item) => ({ id: item.id, consequence: item.consequence, whatChanged: item.what_changed, holdsKey: item.holds_key, checks: item.checks.map((c) => ({ check: c.check, passed: c.passed })) })),
+    items: built.items.map((item) => ({ id: item.id, consequence: item.consequence, whatChanged: item.what_changed, holdsKey: item.holds_key, checks: item.checks.map((c) => ({ check: c.check, passed: c.passed })), preview: item.preview })),
     lastReceipt: last ? { reviewer: last.reviewer, decidedAt: last.decided_at, decision: last.decision, opened: last.opened, notOpened: last.not_opened } : null,
     counts: built.counts, unreadableReceipts: built.unreadable_receipts ?? 0,
   };
@@ -135,7 +149,18 @@ export function inspectLesson(bytes: Buffer, receipt: unknown, lastReview: { rec
     outline, conceptTitles,
     approval: { recorded, matches, ...(matches && text(approval.reviewer) ? { reviewer: text(approval.reviewer) } : {}), ...(matches && text(approval.reviewed_at) ? { reviewedAt: text(approval.reviewed_at) } : {}) },
     inbox,
+    lintUnavailable: lint === "unavailable",
   };
+}
+
+/** The bundle linter's core (tools/bundle_lint.mjs lintBundleData), in process, as review_lesson runs it by
+ * default: Node built-ins only, synchronous. Any failure to run it is "unavailable", never a pass. */
+export function lintLesson(bytes: Buffer, bundleDir: string): LintFindings | "unavailable" {
+  let bundle: unknown;
+  try { bundle = JSON.parse(bytes.toString("utf8")); }
+  catch { return [{ level: "ERROR", code: "invalid_json", message: "lesson.json is not valid JSON" }]; }
+  try { return lintBundleData(bundle, { bundleDir }).findings; }
+  catch { return "unavailable"; }
 }
 
 export function bundlesRoot(): string {
@@ -218,7 +243,7 @@ export async function readLesson(root: string, ref: string): Promise<LibraryLess
     }
     // readLastReceipt keeps its reads inside this (already confined) lesson folder.
     const lastReview = await readLastReceipt(directory);
-    return { ...inspectLesson(bytes, receipt, lastReview), ref, routeId: encodeLessonRef(ref), bundlePath: join(directory, "lesson.json") };
+    return { ...inspectLesson(bytes, receipt, lastReview, lintLesson(bytes, directory)), ref, routeId: encodeLessonRef(ref), bundlePath: join(directory, "lesson.json") };
   } catch (error) {
     if (error instanceof LibraryReadError) throw error;
     const code = record(error).code;

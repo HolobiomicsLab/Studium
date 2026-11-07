@@ -74,23 +74,33 @@ serait-ce qu'un espace dans la leçon rompt la correspondance d'empreinte. Une m
 `validated_by` n'accorde jamais ce statut. La correspondance d'un enregistrement ancien ne dépend pas des
 évolutions ultérieures du validateur de schéma installé.
 
-La page de relecture n'affiche que les titres, types de scène, notions et références bibliographiques.
-Elle n'envoie au navigateur ni corps de leçon, ni consignes, ni choix, ni champs de notation, ni extraits
-de preuve. La commande d'approbation affichée cite le chemin local exact et doit être lancée depuis la
+La page de relecture affiche les titres, types de scène, notions et références bibliographiques et, replié
+sous chaque ligne de la boîte de relecture, le visage public de la scène : ce que lit l'apprenant (les 280
+premiers caractères de son texte) et le texte des choix d'un quiz dans l'ordre de rédaction. Elle n'envoie
+au navigateur aucun champ de notation (le choix juste, rétroactions, indices, affirmations, points clés,
+corrigés) ni aucun extrait de preuve. La commande d'approbation affichée cite le chemin local exact et doit être lancée depuis la
 racine du dépôt ; la page elle-même n'écrit rien. Pour une leçon d'auto-apprentissage, la page affiche la
 règle de refus de l'outil au lieu d'une commande vouée à l'échec.
 
 Au-dessus du parcours, la boîte de relecture donne une ligne par scène, triée selon ce que coûterait
 une erreur à cet endroit : bloque (erreur de schéma ou TODO dans la scène), note (la scène porte une
 clé), formulation, média. Chaque ligne dit si la scène est nouvelle, modifiée ou inchangée depuis le
-dernier reçu du dossier `reviews/` de la leçon, et donne les vérifications automatiques (schéma, TODO ;
-la bibliothèque ne lance pas le linter, il n'y a donc pas de vérification lint ici). Pour une ligne
+dernier reçu du dossier `reviews/` de la leçon, et donne les vérifications automatiques (schéma, TODO,
+lint). `readLesson` lance le linter dans le processus (`lintBundleData` de `tools/bundle_lint.mjs`, comme
+`review_lesson`) : une ERROR de lint qui nomme une scène la rend bloquante ; les messages du linter
+n'atteignent jamais la page. Quand le linter ne peut pas tourner, la vérification lint disparaît de chaque
+ligne et la page le dit en une ligne (`lintUnavailable`). Pour une ligne
 « note », l'avis automatique reste replié tant que l'enseignant n'a pas cliqué Correct ou À corriger.
 Avant l'approbation, la page signale, sans bloquer, les lignes « note » non ouvertes. Une ligne « note » n'est jamais comptée ouverte par la page, puisqu'elle n'affiche aucune clé. La page n'écrit
 toujours rien : les identifiants ouverts à l'écran entrent dans l'option `--opened` des deux commandes
 affichées, `experience_packet.py approve` et `experience_packet.py receipt --decision returned` (renvoyer
 la leçon), et le reçu est écrit quand l'enseignant en lance une. Les empreintes des scènes n'atteignent
 jamais le navigateur.
+
+Le panneau d'approbation a un champ pour le nom de l'enseignant : les deux commandes le reprennent, et le
+panneau montre la ligne que les apprenants liront sur chaque écran, « Leçon validée par NOM » / "validated
+by NOM", avec une note quand le nom est une adresse électronique (les apprenants la verraient). Rien n'est
+refusé ; le nom reste sur la page jusqu'à ce que l'enseignant lance la commande.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/screenshots/teacher-review-dark.png">

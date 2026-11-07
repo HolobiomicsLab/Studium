@@ -2405,6 +2405,17 @@ def approve_lesson_bundle(
     return approval_path
 
 
+def _voice_preview(name: str) -> list[str]:
+    """The lesson's voice as learners read it on every screen (the host's voice line), so the teacher
+    sees what --validated-by turns into; an e-mail address is noted, never refused."""
+    lines = [f'learners read on every screen: « Leçon validée par {name} » / "validated by {name}"']
+    if "@" in name:
+        lines.append(
+            'note: this is an e-mail address; learners will see it — prefer a name (--validated-by "Prénom Nom")'
+        )
+    return lines
+
+
 def _approval_summary(approval_path: Path) -> list[str]:
     """What a teacher reads after ``approve``: who, which exact file, the lint counts, and the one
     rule that keeps the record honest (RT-7)."""
@@ -2412,6 +2423,7 @@ def _approval_summary(approval_path: Path) -> list[str]:
     lint = approval.get("lint") or {}
     return [
         f"Approved by {approval['reviewer']} at {approval['reviewed_at']}",
+        *_voice_preview(approval["reviewer"]),
         f"lesson.json SHA-256: {approval['bundle_sha256']}",
         f"lint: {lint.get('errors', 0)} error(s), {lint.get('warnings', 0)} warning(s)",
         "validated_by and validated_at were rewritten and the file normalized; "

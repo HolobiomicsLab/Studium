@@ -49,8 +49,11 @@ What to expect:
   "SELF-STUDY — not teacher-validated".
 - `approve` refuses a self-study bundle, a remaining placeholder or a lint error. It sets
   `validated_by` and `validated_at`, normalises the file and writes `approval.json` next to the
-  bundle, bound to the SHA-256 of its final bytes. It prints a summary (reviewer and time, SHA-256,
-  lint counts, the stale-approval reminder), then the path of `approval.json` as its last line.
+  bundle, bound to the SHA-256 of its final bytes. It prints a summary (reviewer and time, the voice
+  learners will read on every screen, `learners read on every screen: « Leçon validée par <NAME> » /
+  "validated by <NAME>"`, SHA-256, lint counts, the stale-approval reminder), then the path of
+  `approval.json` as its last line. A name containing `@` adds `note: this is an e-mail address;
+  learners will see it — prefer a name (--validated-by "Prénom Nom")`; it is not refused.
   It also writes the review receipt `reviews/<date>-<sha>.json` next to the bundle (one item per
   scene: fingerprint, consequence, opened or not; `--opened` names the scenes read, an unknown id is
   refused before any write) and warns about `grading` scenes not opened. A receipt is never

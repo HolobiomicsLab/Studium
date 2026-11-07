@@ -105,15 +105,18 @@ démonstration du dépôt, lancez-le avec `BUNDLES_ROOT="$PWD/fixtures"`.
 Chaque leçon a une page de relecture (voir [relire et approuver](review-and-approve.fr.md#relire-le-fichier-de-leçon))
 avec un lien vers sa vue MySTRA quand l'Observatoire sert un dossier de cours du même nom
 (`OBSERVATORY_BASE_URL`, par défaut `http://localhost:8004`). Les pages sont en lecture seule : elles
-montrent titres, types de scènes, concepts et références, jamais le corps des leçons, les choix ni les
-clés. Langue et thème se choisissent dans le menu de l'en-tête.
+montrent titres, types de scènes, concepts et références et, replié sous chaque ligne de la boîte de
+relecture, ce que lit l'apprenant (le texte de la scène, les choix d'un quiz), jamais une clé, un
+indice, une rétroaction ni un corrigé. Langue et thème se choisissent dans le menu de l'en-tête.
 
 La page de relecture s'ouvre sur une boîte de relecture : une ligne par scène, d'abord les scènes qui
 bloquent, puis celles qui portent une clé de notation, puis la formulation et les médias, chacune
-marquée nouvelle, modifiée ou inchangée depuis le dernier reçu de relecture. Donnez votre propre avis
-sur une ligne « note » (Correct ou À corriger) avant que son avis automatique se déplie. La commande
-d'approbation, et celle qui renvoie la leçon, listent dans `--opened` les scènes que vous avez ouvertes ;
-la page signale les lignes « note » non ouvertes et n'écrit elle-même rien.
+marquée nouvelle, modifiée ou inchangée depuis le dernier reçu de relecture. Chaque ligne déplie ce que
+voit l'apprenant ; la page lance le linter, si bien qu'une scène qui a une erreur de lint bloque. Donnez
+votre propre avis sur une ligne « note » (Correct ou À corriger) avant que son avis automatique se
+déplie. La commande d'approbation, et celle qui renvoie la leçon, reprennent le nom que vous saisissez
+(le panneau le montre tel que les apprenants le liront) et listent dans `--opened` les scènes que vous
+avez ouvertes ; la page signale les lignes « note » non ouvertes et n'écrit elle-même rien.
 
 Les pages d'analyse d'un cours (`/courses/<course_id>/progress` et les pages voisines : calibration,
 trajectoire, raisonnement, autonomie, littératie IA) lisent le collecteur d'analyses sur

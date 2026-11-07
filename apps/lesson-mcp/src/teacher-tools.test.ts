@@ -475,6 +475,20 @@ describe("review_lesson inbox (INT-STUDIUM-058 § 2.9)", () => {
     for (const scene of scenesOf(b).slice(1, 4)) expect(text).not.toContain(sceneFingerprint(scene));
   });
 
+  // Walkthrough fix 1: the inbox shows what it asks to judge. Over MCP, a quiz's choice texts stay out:
+  // the correct choice's text is key material here (assertNoKeys, keyStrings) and the authored order,
+  // which learners never see (they get a shuffled order), would tell its position.
+  it("carries each item's public preview, without a quiz's choices and without any key", async () => {
+    const { root } = library("teach", inboxBundle());
+    const out = await reviewLesson(ctxFor(root), "teach");
+    assertNoKeys(out);
+    const item = (id: string) => out.inbox.items.find((i) => i.id === id)!;
+    expect(item("s1").preview).toEqual({ title: "Title s1", kind: "quiz", text: "Which one?" });
+    expect(item("s2").preview).toEqual({ title: "Title s2", kind: "spot_the_flaw", text: "A flawed paragraph." });
+    expect(item("s3").preview.text).toBe("Explain it back.");
+    expect(item("s5").preview).toEqual({ title: "Title s5", kind: "concept", text: "Plain words." });
+  });
+
   it("gives an empty inbox when lesson.json does not parse", async () => {
     const { root, lessonJson } = library();
     writeFileSync(lessonJson, "{ not json");

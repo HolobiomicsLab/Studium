@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 import { readFile, readdir, realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, relative } from "node:path";
 import { sceneRenderAssets, type Scene } from "@studium/lesson-bundle-schema";
-import { REDACTED_SCENE_FIELDS } from "./public-scene.js";
+import { REDACTED_SCENE_FIELDS, publicScene } from "./public-scene.js";
 
 export const REVIEW_RECEIPT_SCHEMA = "studium/review-receipt/v1";
 export const CONSEQUENCES = ["blocks", "grading", "wording", "media"] as const;
@@ -29,6 +29,20 @@ export interface ReviewItem {
   what_changed: WhatChanged;
   holds_key: boolean;
   checks: Array<{ check: "schema" | "todo" | "lint"; passed: boolean }>;
+  /** What the teacher is asked to judge: the scene's public face, derived on each read (never stored in
+   * the receipt, never part of the fingerprint) and never a key. */
+  preview: ScenePreview;
+}
+
+export interface ScenePreview {
+  title: string;
+  /** The scene type. */
+  kind: string;
+  /** The first learner-facing text of the scene (whitespace collapsed, at most PREVIEW_TEXT_MAX
+   * characters), "" when it has none. */
+  text: string;
+  /** The choice texts in authored order, without any correct flag, when the scene has choices. */
+  choices?: string[];
 }
 
 export interface ReviewReceipt {
@@ -105,6 +119,49 @@ function hasRenderAssets(rawScene: Json): boolean {
   catch { return false; } // a malformed asset field: the schema check reports it
 }
 
+/** Learner-facing text fields, in the order a preview reads them (the same list review_lesson's plan
+ * excerpt uses). None is an answer key: the text is read from publicScene's projection, and only from
+ * these fields, so a key or reveal field (REDACTED_SCENE_FIELDS, `reveal`, `answer_key`, `expected`...)
+ * can never be picked. */
+export const PREVIEW_TEXT_FIELDS = ["question", "prompt", "task", "topic", "scenario", "pre_question", "flawed_content", "source_content", "markdown"] as const;
+export const PREVIEW_TEXT_MAX = 280;
+
+/** publicScene's projection, or, for a raw scene it cannot read (the inbox takes unvalidated scenes),
+ * the same redaction done by hand: the key fields dropped, the choices without their flag. */
+function publicFace(record: Json): Json {
+  try { return publicScene(record as unknown as Scene) as Json; }
+  catch {
+    const out: Json = {};
+    for (const [key, value] of Object.entries(record)) {
+      if (!(REDACTED_SCENE_FIELDS as readonly string[]).includes(key)) out[key] = value;
+    }
+    return out;
+  }
+}
+
+/** The scene's public face as the inbox shows it (see ReviewItem.preview). */
+export function scenePreview(rawScene: unknown, fallbackTitle: string): ScenePreview {
+  const record = isRecord(rawScene) ? rawScene : {};
+  const view = publicFace(record);
+  let text = "";
+  for (const field of PREVIEW_TEXT_FIELDS) {
+    const value = view[field];
+    if (typeof value === "string" && value.trim() !== "") { text = value.replace(/\s+/g, " ").trim(); break; }
+  }
+  const chars = Array.from(text);
+  if (chars.length > PREVIEW_TEXT_MAX) text = `${chars.slice(0, PREVIEW_TEXT_MAX - 1).join("")}…`;
+  const preview: ScenePreview = {
+    title: typeof record["title"] === "string" && record["title"].trim() !== "" ? record["title"] : fallbackTitle,
+    kind: typeof record["type"] === "string" ? record["type"] : "unknown",
+    text,
+  };
+  // Only the text of each choice is read: never `correct`, `feedback` or any other field of it.
+  if (Array.isArray(view["choices"])) {
+    preview.choices = view["choices"].map((c) => (typeof c === "string" ? c : isRecord(c) && typeof c["text"] === "string" ? c["text"] : ""));
+  }
+  return preview;
+}
+
 export interface BuildReviewInboxInput {
   /** The lesson's `scenes` as parsed, unvalidated; anything but an array gives no items. */
   rawScenes: unknown;
@@ -154,6 +211,7 @@ export function buildReviewInbox(input: BuildReviewInboxInput): ReviewInbox {
     const before = previous.get(id);
     const item: ReviewItem = {
       id, consequence, what_changed: before === undefined ? "new" : before === sha ? "unchanged" : "changed", holds_key: holdsKey, checks,
+      preview: scenePreview(scene, id),
     };
     if (!holdsKey) item.sha256 = sha;
     return item;

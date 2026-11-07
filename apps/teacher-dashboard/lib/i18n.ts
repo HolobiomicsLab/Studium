@@ -51,6 +51,12 @@ const fr = {
   checkSchema: "Schéma", checkTodo: "TODO", checkLint: "Lint", checkPassed: "conforme", checkFailed: "à corriger",
   inboxWarningOne: "1 élément «\u00a0note\u00a0» non ouvert ici\u00a0: {ids}. Cette page ne montre pas les clés\u00a0: ouvrez-le dans lesson.json et ajoutez son identifiant à --opened. Approuver reste possible\u00a0; le reçu le gardera.",
   inboxWarningMany: "{n} éléments «\u00a0note\u00a0» non ouverts ici\u00a0: {ids}. Cette page ne montre pas les clés\u00a0: ouvrez-les dans lesson.json et ajoutez leurs identifiants à --opened. Approuver reste possible\u00a0; le reçu le gardera.",
+  previewSummary: "Ce que voit l’apprenant", previewNoKey: "(sans la clé\u00a0: elle reste dans lesson.json)",
+  previewEmpty: "Cette scène n’a pas de texte pour l’apprenant.",
+  validatorName: "Votre nom, tel que les apprenants le liront",
+  voicePreview: "Les apprenants liront sur chaque écran\u00a0: «\u00a0Leçon validée par {name}\u00a0» / “validated by {name}”",
+  voiceEmailNote: "Note\u00a0: c’est une adresse électronique\u00a0; les apprenants la verront. Préférez un nom (--validated-by 'Prénom Nom').",
+  lintUnavailable: "Le linter n’a pas pu tourner\u00a0: la vérification Lint manque à chaque scène. Lancez node tools/bundle_lint.mjs sur ce lesson.json.",
   returnHeading: "Renvoyer la leçon", returnHelp: "Pour renvoyer la leçon à son auteur sans l’approuver, cette commande écrit seulement un reçu «\u00a0renvoyée\u00a0».",
 };
 const en: typeof fr = {
@@ -93,6 +99,12 @@ const en: typeof fr = {
   checkSchema: "Schema", checkTodo: "TODO", checkLint: "Lint", checkPassed: "passes", checkFailed: "to fix",
   inboxWarningOne: "1 grading item not opened here: {ids}. This page shows no key: open it in lesson.json and add its id to --opened. Approving stays possible; the receipt will keep it.",
   inboxWarningMany: "{n} grading items not opened here: {ids}. This page shows no key: open them in lesson.json and add their ids to --opened. Approving stays possible; the receipt will keep it.",
+  previewSummary: "What the learner sees", previewNoKey: "(without the key: it stays in lesson.json)",
+  previewEmpty: "This scene has no text for the learner.",
+  validatorName: "Your name, as learners will read it",
+  voicePreview: "Learners will read on every screen: «\u00a0Leçon validée par {name}\u00a0» / “validated by {name}”",
+  voiceEmailNote: "Note: this is an e-mail address; learners will see it. Prefer a name (--validated-by 'First Last').",
+  lintUnavailable: "The bundle linter could not run: each scene lacks its Lint check. Run node tools/bundle_lint.mjs on this lesson.json.",
   returnHeading: "Send the lesson back", returnHelp: "To send the lesson back to its author without approving it, this command writes a \u201creturned\u201d receipt only.",
 };
 export function messages(locale: Locale) { return locale === "en" ? en : fr; }

@@ -366,7 +366,8 @@ export interface ReviewLessonResult {
   /** INT-STUDIUM-058 § 2.9: one item per scene, sorted by consequence (blocks, grading, wording, media),
    * marked new / changed / unchanged against the last receipt in `<course>/reviews/`. A key-holding item
    * has no sha256 here (owner's option a): the fingerprint covers the keys, so a learner reading this
-   * response could hash candidate answers and compare. The receipt on disk keeps every fingerprint. */
+   * response could hash candidate answers and compare. The receipt on disk keeps every fingerprint.
+   * Each item's preview (title, kind, text) leaves out a quiz's choices; see reviewLesson. */
   inbox: ReviewInbox;
 }
 
@@ -416,6 +417,13 @@ export async function reviewLesson(ctx: TeacherToolsContext, courseRef: string):
     schemaErrors,
     lastReceipt: lastReceipt.receipt,
     unreadableReceipts: lastReceipt.unreadable,
+  });
+  // The preview travels without a quiz's choices: the correct choice's text is key material in this
+  // response (keyStrings scrubs it from lint messages), and the authored order, which learners never see
+  // (they get a shuffled one), would tell its position. The dashboard's review page shows them.
+  inbox.items = inbox.items.map((item) => {
+    const { choices: _choices, ...preview } = item.preview;
+    return { ...item, preview };
   });
   return {
     ok: true as const,
@@ -737,7 +745,9 @@ export function registerTeacherTools(server: McpServer, ctx: TeacherToolsContext
       "approval record exists for this exact lesson.json. Also returns a review inbox: one item per scene, sorted by " +
       "consequence (blocks, grading, wording, media) and marked new / changed / unchanged since the last review receipt; " +
       "a scene that holds an answer key gets no fingerprint, because a hash of its keys would let anyone test guesses " +
-      "against it. Never returns answer keys, hints or reveals. Read-only.",
+      "against it. Each inbox item carries a preview of what learners see: the scene's title, type and first 280 " +
+      "characters of its learner-facing text (a quiz's choices are left out). Never returns answer keys, hints or " +
+      "reveals. Read-only.",
     inputSchema: { course_ref: z.string().min(1).max(512) },
   }, async ({ course_ref }) => {
     try { return text(await reviewLesson(ctx, course_ref)); }

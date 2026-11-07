@@ -117,3 +117,65 @@ describe("approval panel", () => {
     expect(html).toContain("Renvoyer la leçon");
   });
 });
+
+// Walkthrough fix 1: the inbox shows what it asks to judge, folded under each row until asked for.
+describe("scene preview", () => {
+  const withPreview: InboxEntry[] = [
+    { ...ENTRIES[1]!, preview: { text: "Which particle carries no charge?", choices: ["Proton", "Neutron", "Electron"] } },
+    { ...ENTRIES[3]!, preview: { text: "Welcome to the atom." } },
+  ];
+  const render = (state: ReviewState, locale: "fr" | "en" = "fr") => renderToStaticMarkup(createElement(ReviewSession, { entries: withPreview, locale, initialState: state },
+    createElement(ReviewInboxList, { lastReceipt: null, unreadableReceipts: 0 })));
+
+  it("renders the learner text and the choice texts in a folded details under each row", () => {
+    const quiz = itemHtml(render(emptyReviewState()), "s3-quiz");
+    expect(quiz).toMatch(/<details class="inbox-preview"(?![^>]*open)/);
+    expect(quiz).toContain("Ce que voit l’apprenant");
+    expect(quiz).toContain("Which particle carries no charge?");
+    // itemHtml stops at the first </li>, a choice's here: read the choices from the whole list.
+    expect(render(emptyReviewState())).toMatch(/<ol class="inbox-preview__choices"><li>Proton<\/li><li>Neutron<\/li><li>Electron<\/li><\/ol>/);
+    expect(itemHtml(render(emptyReviewState(), "en"), "s3-quiz")).toContain("What the learner sees");
+    const intro = itemHtml(render(emptyReviewState()), "s0-intro");
+    expect(intro).toContain("Welcome to the atom.");
+    expect(intro).not.toContain("inbox-preview__choices");
+  });
+  it("keeps the grading warning: the preview never shows the key", () => {
+    const html = page(emptyReviewState());
+    expect(html).toContain("Cette page ne montre pas les clés");
+    expect(itemHtml(render(emptyReviewState()), "s3-quiz")).toContain("sans la clé");
+  });
+  it("renders no preview for an entry that has none", () => {
+    expect(itemHtml(page(emptyReviewState()), "s0-intro")).not.toContain("inbox-preview");
+  });
+});
+
+// Walkthrough fix 3: what learners will read as the lesson's voice, under the name the command carries.
+describe("voice preview in the approval panel", () => {
+  const approval = (locale: "fr" | "en", initialName?: string) => renderToStaticMarkup(createElement(ReviewSession, { entries: ENTRIES, locale },
+    createElement(ReviewApproval, { bundlePath: "/lib/course/lesson.json", initialName })));
+
+  it("shows the voice line with the name typed, and puts the name in both commands", () => {
+    const fr = approval("fr", "Marie Curie");
+    expect(fr).toContain("Les apprenants liront sur chaque écran : « Leçon validée par Marie Curie » / “validated by Marie Curie”");
+    expect(fr).toContain("--validated-by &#x27;Marie Curie&#x27;");
+    expect(fr).toContain("--reviewer &#x27;Marie Curie&#x27;");
+    expect(fr).toMatch(/<input[^>]*value="Marie Curie"/);
+    expect(fr).not.toContain("adresse électronique");
+    const en = approval("en", "Marie Curie");
+    expect(en).toContain("Learners will read on every screen: « Leçon validée par Marie Curie » / “validated by Marie Curie”");
+    expect(en).not.toContain("e-mail address");
+  });
+  it("falls back to the placeholder name when nothing is typed", () => {
+    expect(approval("fr")).toContain("Leçon validée par VOTRE NOM");
+    expect(approval("en")).toContain("validated by YOUR NAME");
+    expect(approval("fr")).toContain("--validated-by &#x27;VOTRE NOM&#x27;");
+  });
+  it("notes an e-mail address, without refusing it", () => {
+    const fr = approval("fr", "m.curie@example.org");
+    expect(fr).toContain("Leçon validée par m.curie@example.org");
+    expect(fr).toContain("c’est une adresse électronique ; les apprenants la verront");
+    expect(fr).toContain("--validated-by &#x27;m.curie@example.org&#x27;");
+    const en = approval("en", "m.curie@example.org");
+    expect(en).toContain("this is an e-mail address; learners will see it");
+  });
+});

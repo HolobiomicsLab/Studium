@@ -96,6 +96,14 @@
 .inbox-checks summary { width: fit-content; min-height: var(--st-layout-target); align-content: center; cursor: pointer; color: var(--st-accent); }
 .inbox-checks__later { color: var(--st-muted); }
 .inbox-checks__list { margin: 0; padding-left: var(--st-space-4); }
+.inbox-preview { font-size: var(--st-size-sm); }
+.inbox-preview summary { width: fit-content; min-height: var(--st-layout-target); align-content: center; cursor: pointer; color: var(--st-accent); }
+.inbox-preview__nokey { color: var(--st-muted); }
+.inbox-preview__text { margin: 0 0 var(--st-space-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.inbox-preview__choices { margin: 0; padding-left: var(--st-space-4); }
+.approval-name { display: grid; gap: var(--st-space-2); font-size: var(--st-size-sm); }
+.approval-name input { min-height: var(--st-layout-target); border: 1px solid var(--st-border); border-radius: var(--st-radius-small); padding: 0 var(--st-space-3); background: var(--st-canvas); color: var(--st-text); font: inherit; }
+.approval-voice { font-size: var(--st-size-sm); overflow-wrap: anywhere; }
 .inbox-check--failed { color: var(--st-danger); }
 .inbox-warning { color: var(--st-warning); background: var(--st-warning-soft); border-radius: var(--st-radius-small); padding: var(--st-space-3); font-size: var(--st-size-sm); overflow-wrap: anywhere; }
 .inbox-warning:empty { display: none; }

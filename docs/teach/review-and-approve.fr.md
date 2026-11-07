@@ -58,6 +58,15 @@ elle passe. Une scène qui porte une clé n'a pas d'empreinte (`sha256`) dans la
 de ses clés permettrait à un apprenant d'y tester ses hypothèses. Le reçu sur disque garde toutes les
 empreintes.
 
+Chaque élément porte aussi un aperçu (`preview`), ce qu'il vous demande de juger : le titre de la scène
+(`title`), son type (`kind`) et `text`, les 280 premiers caractères de ce que lit l'apprenant (la
+question, la consigne ou le corps). Il est lu dans la vue de la scène qu'a l'apprenant : il ne contient
+donc jamais de clé, d'indice, de rétroaction ni de corrigé. Dans `review_lesson`, l'aperçu laisse de
+côté les choix d'un quiz : le texte du bon choix y est traité comme une partie de la clé, et l'ordre
+de rédaction (l'apprenant reçoit un ordre mélangé) en trahirait la position. La page de relecture du
+tableau de bord montre aussi les choix. L'aperçu est calculé à chaque lecture : ni le reçu ni les
+empreintes ne changent.
+
 Le tableau de bord enseignant affiche le même état pour chaque leçon, en lecture seule :
 
 <picture>
@@ -72,6 +81,20 @@ Le tableau de bord enseignant affiche le même état pour chaque leçon, en lect
 | Approuvé | Un enregistrement `approval.json` correspond au SHA-256 du `lesson.json` actuel |
 
 Le lancement du tableau de bord est décrit dans [suivre une classe](follow-a-class.fr.md#le-tableau-de-bord-enseignant).
+
+La page de relecture du tableau de bord montre la même boîte de relecture. Chaque ligne déplie, à la
+demande, ce que voit l'apprenant : le texte de la scène et, pour un quiz, ses choix dans l'ordre de
+rédaction, sans dire lequel est juste. Une ligne « note » rappelle toujours que la clé n'est pas sur la
+page : ouvrez `lesson.json` pour la vérifier. La page lance le même linter que `review_lesson` : une
+scène qui a une erreur de lint passe en tête, comme bloquante, avec une vérification Lint en échec.
+Quand le linter ne peut pas tourner, la page le dit en une ligne et la vérification Lint disparaît de
+chaque ligne au lieu d'apparaître réussie.
+
+Le panneau d'approbation a un champ pour votre nom. Les deux commandes le reprennent, et le panneau
+montre ce que les apprenants liront sur chaque écran de la leçon, « Leçon validée par <nom> » ou
+"validated by <nom>" selon la langue de la leçon. Si le nom est une adresse électronique, le panneau
+signale que les apprenants la verront et propose de mettre un nom. Rien n'est refusé : la commande
+écrit le nom saisi.
 
 Au-delà des contrôles, regardez : si chaque lien entre source et scène dit bien ce que dit la source,
 les prérequis proposés, la charge cognitive, les critères d'évaluation et les représentations. Essayez
@@ -89,8 +112,12 @@ un étudiant hésitant, une réponse en partie juste, un outil indisponible et u
 lint et toute leçon d'auto-apprentissage. Elle renseigne ensuite `validated_by` et `validated_at` dans
 `lesson.json`, réécrit le fichier sous une forme normalisée (clés triées, indentation standard, si bien
 que son SHA-256 change une fois) et écrit `approval.json` à côté. Elle affiche qui a approuvé et quand,
-le SHA-256, le nombre d'erreurs et d'avertissements du lint et un rappel : toute modification rend
-l'approbation périmée ; puis, en dernière ligne, le chemin d'`approval.json`. L'enregistrement
+ce que les apprenants liront sur chaque écran comme voix de la leçon (`learners read on every screen:
+« Leçon validée par <NAME> » / "validated by <NAME>"`, avec le nom tel que donné), le SHA-256, le
+nombre d'erreurs et d'avertissements du lint et un rappel : toute modification rend l'approbation
+périmée ; puis, en dernière ligne, le chemin d'`approval.json`. Si le nom contient `@`, une seconde
+ligne signale une adresse électronique que les apprenants verront et propose `--validated-by "Prénom
+Nom"` ; l'approbation se fait quand même. L'enregistrement
 contient :
 
 | Champ | Contenu |
