@@ -212,7 +212,8 @@ export const TutorMoveSchema = BaseEventSchema.extend({
 // a text (a prompt's reason, a question asked, a reviewer's note) cannot ride along.
 // The lists mirror the ones the server uses: the panel's actions (packages/lesson-panel view.ts),
 // the prompt kinds and outcomes (packages/lesson-session-host prompts.ts), the help rungs, the
-// contest claims and outcomes, the resume causes.
+// contest claims and outcomes, the resume causes. apps/lesson-mcp/src/telemetry-lists.test.ts ties
+// each of them to its source at runtime, or at the type level where only a type exists.
 const SurfaceRankSchema = z.number().int().min(1).max(3);
 const SERVER_PROMPT_KINDS = ["review_due", "break", "next_lesson", "map_offer", "forms_offer"] as const;
 
@@ -223,6 +224,10 @@ export const InteractionSchema = BaseEventSchema.extend({
     "setLanguage", "replan", "openMap", "closeMap", "contest", "prompt",
   ]),
   lane: z.enum(["fast", "companion"]),
+  // The rank of the surface the session is played on (as negotiated: 3 a panel or a pane, 2 forms,
+  // 1 the conversation, 1 when none was negotiated). `lane` says how the act came in, not where the
+  // session lives: « companion, rank 3 » is a learner who used the conversation while a panel was
+  // open, and the fast-lane indicator counts it (tools/interaction_report.py).
   surface_rank: SurfaceRankSchema,
   server_ms: z.number().nonnegative(),
   client_ms: z.number().nonnegative().optional(),   // measured by a surface that can; absent otherwise

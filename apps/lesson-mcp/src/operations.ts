@@ -39,9 +39,14 @@ function reinforcementResult(status: ReinforcementStatus): Record<string, unknow
   };
 }
 
-/** INT-STUDIUM-058 § 2.10: an act made through a session tool is the conversation's, the companion lane
- * at rank 1, whatever surface the session was negotiated on elsewhere. */
-export const CONVERSATION = (act: InteractionAct): ActReceived => ({ act, lane: "companion", surfaceRank: 1 });
+/** The rank of the surface a session is played on: 3 a panel or a pane, 2 forms, 1 the conversation. */
+export type SurfaceRank = 1 | 2 | 3;
+
+/** INT-STUDIUM-058 § 2.10: an act made through a conversation tool is the companion lane's, on the rank
+ * the session is played on (1 when none was negotiated). The pair « companion, rank 3 » is a learner who
+ * used the conversation while a panel was open, which the fast-lane indicator must count. */
+export const CONVERSATION = (act: InteractionAct, surfaceRank: SurfaceRank = 1): ActReceived =>
+  ({ act, lane: "companion", surfaceRank });
 
 /** INT-STUDIUM-058 § 2.6: the learner's answer to a proposal the conversation text named
  * (« (proposition review_due:start) »). The assistant relays the learner's yes or « later » as this
@@ -76,8 +81,10 @@ const NEXT_CALL: Record<string, string> = {
 };
 
 /** Settle a proposal of the session and say so: the conversation's own answer to a proposal. */
-export async function answerPrompt(host: SessionHost, sessionId: string, answer: z.infer<typeof PromptAnswerSchema>): Promise<Record<string, unknown>> {
-  const record = await host.settleAct(sessionId, CONVERSATION("prompt"), () => host.settlePrompt(sessionId, answer.id, answer.outcome));
+export async function answerPrompt(
+  host: SessionHost, sessionId: string, answer: z.infer<typeof PromptAnswerSchema>, surfaceRank: SurfaceRank = 1,
+): Promise<Record<string, unknown>> {
+  const record = await host.settleAct(sessionId, CONVERSATION("prompt", surfaceRank), () => host.settlePrompt(sessionId, answer.id, answer.outcome));
   // The lesson's own language, as its screens are written; read without serving a screen, which would
   // count as said a proposal still to say.
   const locale = host.sessionLanguage(sessionId).source_language.toLowerCase().startsWith("en") ? "en" : "fr";
@@ -93,11 +100,11 @@ export async function answerPrompt(host: SessionHost, sessionId: string, answer:
  * reply opens with one line saying so, then the first question's screen (rank 1, its status line saying
  * « contrôle 1/n »). A claim the host does not take is refused in the host's one line. */
 export async function contestFromConversation(
-  host: SessionHost, sessionId: string, input: z.infer<typeof ContestInputSchema>, promptSurface: PromptSurface,
+  host: SessionHost, sessionId: string, input: z.infer<typeof ContestInputSchema>, promptSurface: PromptSurface, surfaceRank: SurfaceRank = 1,
 ): Promise<Record<string, unknown>> {
   // The concept's title as the map shows it, read before the contest (it does not change with it).
   const title = host.conceptMap(sessionId)?.nodes.find((node) => node.id === input.concept_id)?.title ?? input.concept_id;
-  const started = await host.settleAct(sessionId, CONVERSATION("contest"), () => host.contest(sessionId, input.concept_id, input.claim, "companion"));
+  const started = await host.settleAct(sessionId, CONVERSATION("contest", surfaceRank), () => host.contest(sessionId, input.concept_id, input.claim, "companion"));
   // The first check question is the current presentation: served again here with the conversation's
   // screen lines, as get_current_scene would.
   const presentation = publicPresentation(host.currentPresentation(sessionId, { promptSurface }));
@@ -151,11 +158,16 @@ export interface LessonOperationsOptions {
   /** Whether the client can show forms (MCP elicitation), read at each call: a lesson played in the
    * conversation is then offered them (prompts.ts). Without it, false. */
   formsAvailable?: () => boolean;
+  /** The rank of the surface a session was negotiated on, read at each act; without it, 1 (the
+   * conversation, as the HTTP adapter and a server with no panel tools play it). */
+  surfaceRankOf?: (sessionId: string) => SurfaceRank;
 }
 
 /** Build transport-independent operations using the canonical host and schemas. */
 export function lessonOperations(host: SessionHost, opts: LessonOperationsOptions = {}): Operation[] {
   const operations: Operation[] = [];
+  // The conversation tools log the rank the session is played on, not always the conversation's own.
+  const rankOf = (sessionId: string): SurfaceRank => opts.surfaceRankOf?.(sessionId) ?? 1;
   // INT-STUDIUM-058 § 2.6: the screens these tools serve are read in the conversation (rank 1).
   const surface = (): { promptSurface: PromptSurface } => ({ promptSurface: { rank: 1, formsAvailable: opts.formsAvailable?.() ?? false } });
   const server = {
@@ -191,7 +203,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     inputSchema: { session_id: z.string(), presentation_language: z.string().nullable() },
   }, async ({ session_id, presentation_language }) => {
     try {
-      await host.settleAct(session_id, CONVERSATION("setLanguage"), () => host.setPresentationLanguage(session_id, presentation_language));
+      await host.settleAct(session_id, CONVERSATION("setLanguage", rankOf(session_id)), () => host.setPresentationLanguage(session_id, presentation_language));
       return text({ language: operatorContext(host, session_id).language });
     }
     catch (e) { return fail((e as Error).message); }
@@ -329,9 +341,9 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     },
     async ({ session_id, input }) => {
       try {
-        if (input.kind === "prompt") return text(await answerPrompt(host, session_id, input as z.infer<typeof PromptAnswerSchema>));
-        if (input.kind === "contest") return text(await contestFromConversation(host, session_id, input as z.infer<typeof ContestInputSchema>, surface().promptSurface));
-        return text({ transition: publicTransition(await host.settleAct(session_id, CONVERSATION("respond"), () => host.respond(session_id, input as ResponseInput, "companion", surface()))) });
+        if (input.kind === "prompt") return text(await answerPrompt(host, session_id, input as z.infer<typeof PromptAnswerSchema>, rankOf(session_id)));
+        if (input.kind === "contest") return text(await contestFromConversation(host, session_id, input as z.infer<typeof ContestInputSchema>, surface().promptSurface, rankOf(session_id)));
+        return text({ transition: publicTransition(await host.settleAct(session_id, CONVERSATION("respond", rankOf(session_id)), () => host.respond(session_id, input as ResponseInput, "companion", surface()))) });
       }
       catch (e) { return fail((e as Error).message); }
     },
@@ -446,7 +458,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     },
     async ({ session_id }) => {
       try {
-        const hint = await host.settleAct(session_id, CONVERSATION("hint"), () => host.requestHint(session_id));
+        const hint = await host.settleAct(session_id, CONVERSATION("hint", rankOf(session_id)), () => host.requestHint(session_id));
         const notation = host.sceneNotation(session_id);
         return text({ hint, ...(notation.length ? { notation } : {}) });
       }
@@ -462,7 +474,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     },
     async ({ session_id, text: turn }) => {
       try {
-        await host.settleAct(session_id, CONVERSATION("turn"), () => host.submitTurn(session_id, turn));
+        await host.settleAct(session_id, CONVERSATION("turn", rankOf(session_id)), () => host.submitTurn(session_id, turn));
         return text({ accepted: true, reasoning: host.lastReasoning(session_id), tutor: host.lastTutorMove(session_id) });
       }
       catch (e) { return fail((e as Error).message); }
@@ -523,7 +535,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     async ({ session_id }) => {
       try {
         // L-11 (CC-6): a close whose write-through failed still closes, and says the state was not kept.
-        const closed = await host.settleAct(session_id, CONVERSATION("end"), () => host.close(session_id));
+        const closed = await host.settleAct(session_id, CONVERSATION("end", rankOf(session_id)), () => host.close(session_id));
         return text(closed.persistence_warning
           ? { closed: true, state_kept: false, persistence_warning: closed.persistence_warning }
           : { closed: true, state_kept: true });

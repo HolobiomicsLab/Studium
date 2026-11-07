@@ -9,7 +9,9 @@ contract (`interaction`, `prompt_shown`, `prompt_outcome`, `help_used`, `contest
 `review_receipt`, in `packages/telemetry-events`). It publishes the § 2.10 indicators:
 
   * fast-lane share: `interaction` acts with lane `fast` among all `interaction` acts, on hosts of
-    surface_rank >= 2 (target 0.8);
+    surface_rank >= 2 (target 0.8). `surface_rank` is the rank the session is played on, so a
+    companion act logged at rank >= 2 is a learner who fell back to the conversation while a panel
+    or forms were open: it counts in the denominator, which is what makes the share honest;
   * verdict delay: 95th percentile (nearest rank) of `client_ms` over `interaction` acts
     `respond` that carry one (target 1000 ms);
   * prompt outcomes: accepted / dismissed / ignored per `kind`; a kind with at least 30 outcomes

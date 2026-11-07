@@ -288,6 +288,9 @@ export function registerPanelTools(server: McpServer, host: SessionHost) {
   return {
     attachTool,
     names: PANEL_TOOL_NAMES,
+    /** The rank of the surface the session was negotiated on; 1 when no panel context holds it (a
+     * session the panel tools never saw). The conversation tools log their acts on that rank. */
+    surfaceRankOf: (id: string): Surface["rank"] => panels.contexts.get(id)?.surface?.rank ?? 1,
     observe: async (name: string, args: Payload, result: ToolResult) => {
       try { await panels.observe(name, args, result); }
       catch { /* Panel bookkeeping must not change legacy replies. */ }

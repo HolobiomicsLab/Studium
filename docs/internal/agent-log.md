@@ -4527,6 +4527,37 @@ commit: the dashboard and mod suites stand as at `a55cf92`.
 
 Not verified: no teacher has approved a lesson since; no real class stream holds a review event.
 
+## 2026-11-07 (interaction rank, contract lists) — A conversation act carries the rank the session is played on
+
+INT-STUDIUM-058 § 2.10. The session tools logged every `interaction` at rank 1 whatever surface the
+session had been negotiated on, so a learner who fell back to the conversation while a panel was open
+left the fast-lane denominator (acts on hosts of rank 2 or more). `lessonOperations` and
+`studyOperations` take `surfaceRankOf(sessionId)`, wired from the panel contexts; a conversation act
+carries the session's negotiated rank (1 without a panel context and on the HTTP adapter), lane
+`companion`. The contract comment and the telemetry-events README (FR/EN) define `surface_rank` (the
+rank the session is played on) and `lane` (how the act came in). `telemetry-lists.test.ts` ties the
+contract's copied lists (actions, prompt kinds and outcomes, help rungs, contest claims and outcomes,
+resume causes) to the server's own, at runtime where a list exists and at the type level otherwise.
+Codex DeepSeek V4.1 Flash mission (`TASK-interaction-rank-and-lists.md`), reviewed by the lead.
+
+Tests: `apps/lesson-mcp/src/interaction-events.test.ts` — the existing brief changed as a stated
+decision (a `request_hint` on the pane session logs `companion` at rank 3; the second session,
+started by `start_lesson_session` in a client that declares elicitation, ends at rank 2, the surface
+the panel tools negotiated for it); a new test: a client with no capability logs rank 1, and a pane
+renegotiated to `text` logs 3 then 1 for two hints. `apps/lesson-mcp/src/telemetry-lists.test.ts`
+(new, five tests): the panel's actions, the prompt kinds shown and answered, the help rungs, the
+contest claims and outcomes at runtime; `InteractionAct`, `ContestClaim`, `ContestOutcome` and the
+resume causes at the type level (`Equal` both ways, a `Record<T, true>` built from each list), the
+resume causes also read from the host's two emit sites, `paused` named as the one cause nothing
+emits. Each seen red first (option removed, a literal broken, then restored).
+`conversation-contest.test.ts` unchanged: its session is started in a capability-less client.
+
+Checked: the eleven gates green at their first run on the mission's tree (install, build:libs, build,
+lint, `pnpm -r test` with lesson-mcp at 188 passed and 2 skipped, `tools/pytest_all.py`, bundle, docs
+check, headless smoke, bundle MCP, probe), `pnpm test:tools` 9; `git diff --check` clean.
+
+Not verified: no real stream holds a conversation act at rank 3; the share was not recomputed on data.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local
