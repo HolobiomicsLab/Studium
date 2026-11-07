@@ -141,6 +141,56 @@ describe("orientationOf — where the learner is", () => {
     expect(orientationOf(host, sid).reviews_due).toBe(0);
     expect(orientationOf(host, sid, { nowMs: T0 + 400 * DAY }).reviews_due).toBe(1);
   });
+
+  it("counts due concepts carried from the learner's other lessons, without counting a shared concept twice", async () => {
+    const root = tmp();
+    const data = tmp();
+    const bundle = (id: string, conceptId: string, sceneId: string) => ({
+      ...lesson([quiz(sceneId, conceptId, 30)]), bundle_id: id,
+      concepts: [{ id: conceptId, title: `Notion ${conceptId}`, description: "d", bloom_level_target: "understand" }],
+    });
+    writeFileSync(join(root, "A.json"), JSON.stringify(bundle("lesson-A", "c-a", "s-a")));
+    writeFileSync(join(root, "B.json"), JSON.stringify(bundle("lesson-B", "c-b", "s-b")));
+    const host = new SessionHost({
+      bundlesRoot: root, live: false, dataDir: data, clock: { now: () => new Date(T0).toISOString() },
+    });
+    const a = await host.create("A.json", "auto-test-orientation");
+    await host.respond(a.sessionId, { kind: "quiz_choice", choiceId: choice(host, a.sessionId, "Juste") });
+    await host.close(a.sessionId);
+
+    const b = await host.create("B.json", "auto-test-orientation");
+    expect(orientationOf(host, b.sessionId).reviews_due).toBe(0);
+    expect(orientationOf(host, b.sessionId, { nowMs: T0 + 400 * DAY }).reviews_due).toBe(1);
+    await host.respond(b.sessionId, { kind: "quiz_choice", choiceId: choice(host, b.sessionId, "Juste") });
+    expect(orientationOf(host, b.sessionId, { nowMs: T0 + 400 * DAY }).reviews_due).toBe(2);
+
+    writeFileSync(join(root, "C.json"), JSON.stringify(bundle("lesson-C", "c-a", "s-c")));
+    const c = await host.create("C.json", "auto-test-orientation");
+    expect(orientationOf(host, c.sessionId, { nowMs: T0 + 400 * DAY }).reviews_due).toBe(2);
+  });
+
+  it("keeps a review session's count scoped to concepts it has reviewed", async () => {
+    const root = tmp();
+    const data = tmp();
+    const bundle = (id: string, conceptId: string, sceneId: string) => ({
+      ...lesson([quiz(sceneId, conceptId, 30)]), bundle_id: id,
+      concepts: [{ id: conceptId, title: `Notion ${conceptId}`, description: "d", bloom_level_target: "understand" }],
+    });
+    writeFileSync(join(root, "A.json"), JSON.stringify(bundle("lesson-A", "c-a", "s-a")));
+    writeFileSync(join(root, "B.json"), JSON.stringify(bundle("lesson-B", "c-b", "s-b")));
+    const host = new SessionHost({
+      bundlesRoot: root, live: false, dataDir: data, clock: { now: () => new Date(T0).toISOString() },
+    });
+    for (const ref of ["A.json", "B.json"]) {
+      const started = await host.create(ref, "auto-test-orientation");
+      await host.respond(started.sessionId, { kind: "quiz_choice", choiceId: choice(host, started.sessionId, "Juste") });
+      await host.close(started.sessionId);
+    }
+    const review = await host.startReview("auto-test-orientation", { nowMs: T0 + 400 * DAY });
+    if (review.status !== "started") throw new Error("expected two due review concepts");
+    // Existing review-session semantics: selected concepts enter ownConcepts only after their answer.
+    expect(orientationOf(host, review.sessionId, { nowMs: T0 + 400 * DAY }).reviews_due).toBe(0);
+  });
 });
 
 describe("orientationOf — an adaptation, on fixtures/atomistique-l1", () => {

@@ -144,14 +144,16 @@ describe("get_companion_brief", () => {
     } finally { await t.close(); }
   });
 
-  it("counts a screen accepted in a form as an act of the fast lane", async () => {
+  it("counts a screen accepted in a form as an act of the fast lane, told in the hand-back's own brief", async () => {
     const t = await connect({ forms: true });
     try {
       const started = await t.call("start_lesson_session", { bundle_ref: ATOMS, learner_id: "auto-companion-test" });
       const played = await t.call("play_in_forms", { session_id: started.session_id, max_steps: 2 });
       expect(played.steps).toHaveLength(2);
-      expect((await t.brief(started.session_id)).since_last).toEqual(
+      // The brief rides with the hand-back and moves the cursor: a call after it lists nothing.
+      expect(played.brief.since_last).toEqual(
         played.steps.map((step: Json) => ({ scene_id: step.scene_id, act: "read", lane: "fast" })));
+      expect((await t.brief(started.session_id)).since_last).toEqual([]);
     } finally { await t.close(); }
   });
 

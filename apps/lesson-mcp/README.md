@@ -63,6 +63,9 @@ writes; in the conversation an assistant relays. `get_companion_brief {session_i
 the learner did on the fast lane since it last looked (the twelve latest acts and their count, each with
 its lane), where they are, which help is open and three rules to follow. It holds no scene text and no key,
 hint or reference. The acts are kept in memory for the session and start empty after a server restart.
+After `play_in_forms`, its return carries that brief and moves the cursor; `panel_action ask` carries a
+peeked brief. For a lesson, `reviews_due` in its orientation counts its own due concepts plus those carried
+from the learner's other lessons, without double-counting a shared concept.
 Reading the brief moves its cursor; with `peek: true` it does not, which is what a panel uses to keep the
 model's context up to date.
 

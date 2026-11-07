@@ -20,8 +20,9 @@ type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: bo
 /** Register the companion tool on the MCP server; returns its name. */
 export function registerCompanionTools(server: McpServer, host: SessionHost): string[] {
   server.registerTool("get_companion_brief", {
-    description: "Read what the learner did on a panel, a pane or in forms since you last looked, before you answer " +
-      "them. Call it at the learner's first message after such acts, instead of showing the scene again. Returns " +
+    description: "Read what the learner did on a panel or a pane since you last looked, before you answer " +
+      "them. Call it at the learner's first message after such acts, instead of showing the scene again. After play_in_forms, " +
+      "use the brief in its return instead. Returns " +
       "{brief: {session_id, cursor, status_line, where{lesson_title, step{index, total}, scene{id, type, title}, " +
       "waiting}, since_last[{scene_id, act: read | answer | hint | self_rating | contest, lane: fast | companion, " +
       "correct?, confidence?}], since_last_count, help{rungs}, rules[3]}}. since_last holds the twelve latest acts; " +

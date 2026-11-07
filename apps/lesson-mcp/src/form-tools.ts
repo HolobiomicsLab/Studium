@@ -173,7 +173,9 @@ export async function playInForms(server: McpServer, host: SessionHost, sessionI
     ...(presentation ? { presentation } : {}),
     display_markdown: [unseen, screen].filter(Boolean).join(SEPARATOR),
     note: "The learner saw and answered the listed steps in forms: do not show them again. Show display_markdown, " +
-      "go on in the conversation, and call play_in_forms again once the scene that needed the conversation is done.",
+      "go on in the conversation, and call play_in_forms again once the scene that needed the conversation is done. " +
+      "The brief of these acts is in brief: do not call get_companion_brief for them.",
+    ...(status === "unsupported" ? {} : { brief: host.companionBrief(sessionId) }),
   });
 
   if (!forms) return out("unsupported", labels.unsupported);
@@ -326,9 +328,10 @@ export function registerFormTools(server: McpServer, host: SessionHost): string[
       "words, when the learner declines or closes a form (they want to talk, or a hint), at the end of the lesson, " +
       "or after max_steps. Returns {status: complete | needs_conversation | paused | limit | unsupported, reason?, " +
       "steps[{scene_id, scene_type, correct?, confidence?} | {scene_id, scene_type:\"map\"} | " +
-      "{scene_id, scene_type:\"contest\", concept_id, claim}], presentation?, display_markdown, note}. Show " +
+      "{scene_id, scene_type:\"contest\", concept_id, claim}], presentation?, display_markdown, note, brief?}. Show " +
       "display_markdown, do not replay the listed steps (the learner saw them), and call it again once the " +
-      "conversation step is done. Offer it once, on the learner's yes; status unsupported means this client shows " +
+      "conversation step is done. Every hand-back except unsupported carries brief, the get_companion_brief object " +
+      "with its cursor moved: do not call get_companion_brief for these acts. Offer it once, on the learner's yes; status unsupported means this client shows " +
       "no forms: relay in the conversation.",
     inputSchema: {
       session_id: z.string(),

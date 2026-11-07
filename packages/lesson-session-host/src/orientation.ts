@@ -35,8 +35,8 @@ export interface Orientation {
   /** Authored durations of this screen and the ones after it, in minutes rounded up. Absent when the
    * lesson states none. */
   minutes_left?: number;
-  /** Concepts of this session due for review now. The learner's other lessons are not counted here:
-   * `get_study_plan` and `start_review_session` read them. */
+  /** For a lesson, its due concepts plus those carried from the learner's other lessons, each counted
+   * once: the set `start_review_session` would play. A review session counts its own concepts only. */
   reviews_due: number;
   waiting: Waiting;
   /** How the session routed to this screen, when it did anything but advance: the engine's

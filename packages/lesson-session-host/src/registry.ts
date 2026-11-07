@@ -49,6 +49,9 @@ export interface SessionEntry {
   /** The learner's FSRS memory of this session's concepts (RT-3): the engine's graded answers plus
    * the learner's self-ratings, written through to the profile after each of them. */
   memory: Record<string, ConceptMemoryState>;
+  /** INT-STUDIUM-058: the learner profile's memory as last read or saved, every lesson included, for
+   * the orientation's count of due reviews (host.ts `reviewsDueOf`). Empty without a profile. */
+  carriedMemory: Record<string, ConceptMemoryState>;
   /** The engine's memory as last seen, to tell which concepts an answer just moved. */
   engineMemory: Record<string, ConceptMemoryState>;
   /** Concepts a self-rating moved in this session: their memory is ahead of the engine's. */

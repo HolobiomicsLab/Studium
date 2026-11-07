@@ -4558,6 +4558,45 @@ check, headless smoke, bundle MCP, probe), `pnpm test:tools` 9; `git diff --chec
 
 Not verified: no real stream holds a conversation act at rank 3; the share was not recomputed on data.
 
+## 2026-11-07 (brief in the hand-back, reviews due across lessons) — The fast lane hands back with its brief; `reviews_due` counts the learner's lessons
+
+INT-STUDIUM-058 § 2.5 and § 2.2. (1) `play_in_forms` returns `brief` (the `get_companion_brief`
+object, cursor moved: the model that called it is its reader) on every status but `unsupported`;
+`panel_action {type: "ask"}` returns the brief read with `peek` (the pane's agent reads its own at
+the learner's message, the MCP Apps bridge already reads one). The tool descriptions, the MCP
+reference (EN/FR), the lesson-mcp README (EN/FR), the harness skill and the `studium-lesson` agent
+say that after `play_in_forms` the brief is in its return. (2) `reviews_due` of a lesson counts its
+own due concepts and those carried from the learner's other lessons (`SessionEntry.carriedMemory`,
+the profile as last read or saved), a shared concept once: the set `start_review_session` would
+play, so the proposal « n notions à revoir » can fire at the start of a lesson; a review session
+counts its own, as before. Codex Kimi K3.1 Pro mission (`TASK-brief-handback-and-reviews-due.md`,
+5 min), diff read by the lead, who put a test fixture back, updated the companion test and the agent
+file the mission could not write.
+
+Tests: `apps/lesson-mcp/src/form-tools.test.ts` — the hand-back on `needs_conversation` carries
+`brief.since_last` with the read and the two answers at `lane: "fast"`, `brief.where.scene.id` the
+scene that needs words, no secret string, and a `get_companion_brief` after it lists nothing; a
+`paused` hand-back carries its brief; `unsupported` carries none. `panel-tools.test.ts` — `ask`
+returns the brief in `structuredContent` and in the JSON text, a `get_companion_brief` after it
+still lists the acts (the cursor did not move); `respond` and `setAttention` return none.
+`companion-tools.test.ts` — the forms test reads the acts from the hand-back's brief and expects the
+tool to list nothing after it (changed by decision). `packages/lesson-session-host/src/orientation.test.ts`
+— with a durable folder, lesson A answered and closed, lesson B counts 0 at once and 1 at 400 days
+(A's concept carried), 2 after its own answer, and a lesson C on A's concept counts 2 (once); a
+review session on two due concepts counts 0 before any answer, as before. Each seen red first by the
+mission; the lead's three edits (fixture put back, the companion test, the agent file) re-run green.
+
+Checked: the eleven gates run on the mission's tree plus the lead's edits: install, lint, `pnpm -r test`
+(lesson-session-host 715, lesson-mcp 189 passed and 2 skipped), `tools/pytest_all.py`, bundle, docs
+check, headless smoke (19), bundle MCP and probe (40 tools) green at their first run; build:libs and
+build failed once, on `registry.test.ts`, whose entry literal lacked the new required field
+`carriedMemory` (vitest does not type-check); after that one-line fix build:libs, build, lint, the host
+suite and `git diff --check` were run again green, the other steps not. `pnpm test:tools` 9.
+
+Not verified: no agent has read a brief from a hand-back; no learner with two lessons has seen the
+count on a surface; the proposal at a lesson's start with another lesson's concept due was not
+played end to end.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

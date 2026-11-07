@@ -68,6 +68,9 @@ aide est ouverte et trois règles à suivre. Il ne contient ni texte de scène, 
 référence. Les actes sont gardés en mémoire pour la séance et repartent de zéro après un redémarrage du
 serveur. Lire le brief avance son curseur. Avec `peek: true` il ne bouge pas, ce qu'utilise un panneau
 pour tenir à jour le contexte du modèle.
+Après `play_in_forms`, son retour porte ce brief et avance le curseur ; `panel_action ask` porte un brief
+lu sans avancer le curseur. Pour une leçon, `reviews_due` dans son orientation compte ses notions dues et
+celles apportées des autres leçons de l'apprenant, sans compter deux fois une notion partagée.
 
 L'apprenant qui dit connaître déjà une notion de la carte, ou douter d'une notion acquise, la conteste aussi
 par la conversation : l'assistant envoie `submit_response {input: {kind: "contest", concept_id, claim: "known" |

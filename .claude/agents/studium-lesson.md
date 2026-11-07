@@ -57,8 +57,9 @@ open the same lesson again with the same `learner_id`: it resumes.
 ## When the learner played without you
 
 On a panel, a pane or in forms the learner moves on without you, and you do not see what they
-did. At their first message after such acts (the surface is rank 2 or 3, or `play_in_forms` has
-just returned), call `get_companion_brief {session_id}` before you answer. It says where they are
+did. At their first message after acts on a panel or a pane (the surface is rank 3), call
+`get_companion_brief {session_id}` before you answer; after `play_in_forms`, the same brief is in
+its return (`brief`), so do not call the tool for those acts. It says where they are
 (`where`, `status_line`), what they did since you last looked (`since_last`, the twelve latest
 acts, and `since_last_count`), which help is open (`help`) and three rules.
 

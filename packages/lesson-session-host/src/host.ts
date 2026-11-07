@@ -1093,6 +1093,7 @@ export class SessionHost {
         ...(scopeDir ? { scopeDir } : {}),
         ...(resolved.minutesPerDay !== null ? { minutesPerDay: resolved.minutesPerDay } : {}),
       });
+      entry.carriedMemory = structuredClone(profile?.concept_memory ?? {});
       const started = await session.start();
       const sessionId = randomUUID();
       this.registry.create(sessionId, entry);
@@ -1123,7 +1124,7 @@ export class SessionHost {
   /** A registry entry with the per-session bookkeeping the host keeps beside the engine. */
   private newEntry(
     fields: Omit<SessionEntry,
-      "assetCache" | "engineMemory" | "selfRated" | "moved" | "responses" | "conceptStatesAtStart" | "withheldSources"
+      "assetCache" | "carriedMemory" | "engineMemory" | "selfRated" | "moved" | "responses" | "conceptStatesAtStart" | "withheldSources"
       | "openedAt" | "keyedBy" | "erased" | "learnerTombstone">,
   ): SessionEntry {
     const states = fields.session.getState().concept_states; // before start(): the initial state
@@ -1132,6 +1133,7 @@ export class SessionHost {
     return {
       ...fields,
       memory: structuredClone(fields.memory),
+      carriedMemory: {},
       engineMemory: structuredClone(fields.memory),
       assetCache: new Map(), selfRated: new Set(), moved: new Set(), responses: 0, withheldSources: [],
       conceptStatesAtStart: Object.fromEntries(Object.entries(states).map(([id, cs]) => [id, JSON.stringify(cs)])),
@@ -1824,7 +1826,7 @@ export class SessionHost {
     const run = entry.completed ? null : this.runStatusOf(entry);
     return orientationFacts(entry, {
       conceptMap: this.conceptMapOf(entry, "on_request"),
-      reviewsDue: this.reviewQueueOf(entry, nowMs).filter((item) => item.due).length,
+      reviewsDue: this.reviewsDueOf(entry, nowMs),
       runPending: run !== null && run.run_manifest !== null && !run.learner_run_recorded,
     });
   }
@@ -2308,6 +2310,7 @@ export class SessionHost {
     if (change.complete && entry.kind === "lesson") profile = recordCompletedLesson(profile, state.lesson_id);
     await this.profileStore.save(profile);
     entry.profileSeen = true;
+    entry.carriedMemory = structuredClone(profile.concept_memory ?? {});
 
     if (!change.moved.length && (entry.kind === "review" || entry.responses === 0)) return;
     const record = (await this.studyStore.load(pseudonym)) ?? emptyStudyRecord();
@@ -2434,6 +2437,18 @@ export class SessionHost {
   }
   private reviewQueueOf(entry: SessionEntry, nowMs?: number): ReviewQueueItem[] {
     return reviewQueueFromMemory(pick(entry.memory, this.ownConcepts(entry)), this.sessionNow(entry, nowMs));
+  }
+
+  /** INT-STUDIUM-058: the reviews due the orientation says. A lesson counts its own due concepts and
+   * those carried from the learner's other lessons (the profile as last read or saved), a concept in
+   * both counted once; a review session counts the concepts it has reviewed only. */
+  private reviewsDueOf(entry: SessionEntry, nowMs?: number): number {
+    const at = this.sessionNow(entry, nowMs);
+    const own = this.ownConcepts(entry);
+    const sessionDue = reviewQueueFromMemory(pick(entry.memory, own), at).filter(item => item.due).length;
+    if (entry.kind !== "lesson") return sessionDue;
+    const carriedDue = reviewQueueFromMemory(omit(entry.carriedMemory, own), at).filter(item => item.due).length;
+    return sessionDue + carriedDue;
   }
 
   /** Union of this lesson's memory and the learner's cross-lesson memory, this lesson winning per

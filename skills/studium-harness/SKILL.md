@@ -52,7 +52,8 @@ So, by default:
   again after the conversation step. `status: "unsupported"` means this client has no forms.
   How clients draw a long screen or a formula in a form is untried: if the learner finds it
   worse, go back to the conversation.
-- **After the learner played without you, read the brief.** On a panel, a pane or in forms the
+- **After the learner played without you, read the brief.** After `play_in_forms`, use the `brief`
+  in its return; `get_companion_brief {session_id}` is for acts on a panel or a pane. On those surfaces the
   server answers the learner and you do not see their acts. At their first message after such
   acts, call `get_companion_brief {session_id}` before you answer: where they are, what they did
   since you last looked (the twelve latest acts and their count, each with its lane), which help

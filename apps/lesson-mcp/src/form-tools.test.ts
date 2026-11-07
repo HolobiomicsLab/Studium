@@ -122,6 +122,15 @@ describe("play_in_forms", () => {
     expect(result.display_markdown.indexOf("BRAVO-RÉVÉLÉ")).toBeLessThan(result.display_markdown.indexOf("Explique pourquoi"));
     expect(result.display_markdown.indexOf("BRAVO-RÉVÉLÉ")).toBeGreaterThanOrEqual(0);
     expect(JSON.stringify(result)).not.toMatch(/POINT-CLÉ-SECRET|MODÈLE-SECRET|INDICE-SECRET/);
+    // The hand-back carries the brief of these acts, its cursor moved: the model that called the tool is its reader.
+    expect(result.brief.where.scene.id).toBe("e1");
+    expect(result.brief.since_last).toEqual([
+      { scene_id: "k1", act: "read", lane: "fast" },
+      { scene_id: "q1", act: "answer", lane: "fast", correct: false, confidence: 4 },
+      { scene_id: "q2", act: "answer", lane: "fast", correct: true },
+    ]);
+    expect(JSON.stringify(result.brief)).not.toMatch(/RÉVÉLÉ|INDICE-SECRET|POINT-CLÉ-SECRET|MODÈLE-SECRET/);
+    expect((await call("get_companion_brief", { session_id })).brief.since_last).toEqual([]);
     expect(await currentScene()).toBe("e1");
   });
 
@@ -131,6 +140,7 @@ describe("play_in_forms", () => {
       const result = await call("play_in_forms", { session_id });
       expect(forms).toHaveLength(2);
       expect(result).toMatchObject({ status: "paused", reason, steps: [{ scene_id: "k1", scene_type: "concept" }] });
+      expect(result.brief.since_last).toEqual([{ scene_id: "k1", act: "read", lane: "fast" }]);
       expect(result.display_markdown).toContain("Question q1 ?");
       expect(await currentScene()).toBe("q1");
     }
@@ -140,6 +150,7 @@ describe("play_in_forms", () => {
     const { call, session_id, currentScene } = await play([concept("k1"), quiz("q1")], null);
     const result = await call("play_in_forms", { session_id });
     expect(result).toMatchObject({ status: "unsupported", steps: [] });
+    expect(result.brief).toBeUndefined();
     expect(result.display_markdown).toContain("Texte de la notion k1.");
     expect(await currentScene()).toBe("k1");
   });

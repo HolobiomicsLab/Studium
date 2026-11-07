@@ -116,7 +116,7 @@ function forSurface(panel: PanelView): PanelView {
   return rank === 1 || rank === 2 ? { ...panel, strings: {} } : panel;
 }
 
-function panelResult(view: PanelView) {
+function panelResult(view: PanelView, brief?: ReturnType<SessionHost["companionBrief"]>) {
   const panel = forSurface(view);
   const stem = panel.scene?.question ?? panel.scene?.prompt ?? panel.scene?.title ?? panel.message ?? "";
   const rank = panel.kind === "scene" ? panel.surface?.rank : undefined;
@@ -125,8 +125,8 @@ function panelResult(view: PanelView) {
     ...(rank === 1 || rank === 2 ? [CONTINUE_ON[rank]] : []),
   ].join("\n");
   return {
-    structuredContent: { panel },
-    content: [{ type: "text" as const, text: JSON.stringify({ panel }) }, { type: "text" as const, text: summary }],
+    structuredContent: { panel, ...(brief ? { brief } : {}) },
+    content: [{ type: "text" as const, text: JSON.stringify({ panel, ...(brief ? { brief } : {}) }) }, { type: "text" as const, text: summary }],
   };
 }
 
@@ -276,11 +276,15 @@ export function registerPanelTools(server: McpServer, host: SessionHost) {
     } catch (e) { return toolError(e); }
   });
   const actionTool = server.registerTool("panel_action", {
-    description: "Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is; setLanguage, setAttention and replan change how the lesson is shown, never an answer; openMap adds the concept map to the view (map: each concept's state, the answers behind it with their day, who assessed them and the hints taken, what the state establishes and what it does not) until closeMap, from forms upwards and for a lesson, not a review session; contest {concept_id, claim} is the learner's own declaration on a concept of the open map, known for a concept not acquired, unsure for an acquired one: the claim changes no mastery and skips no scene, the lesson asks check questions on that concept (two, or one when it has a single key-graded scene on it, the outcome then being partial), graded as any answer, then resumes where the learner was; a contest the state does not take, or made while another is under way, is refused in one line. Never contest for the learner. prompt {id, outcome} is the learner's answer to a proposal of the view (prompts: a review that is due, a break, the map, forms): accept does what it said, dismiss keeps the scene, and the server keeps the outcome; it proposes nothing while an answer is owed and no more than the attention level allows. Never answer a prompt for the learner, and add no proposal of your own during a session. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.",
+    description: "Apply the learner's own panel action. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is, returning brief (the get_companion_brief object, read with peek:true so its cursor does not move); other actions return no brief; setLanguage, setAttention and replan change how the lesson is shown, never an answer; openMap adds the concept map to the view (map: each concept's state, the answers behind it with their day, who assessed them and the hints taken, what the state establishes and what it does not) until closeMap, from forms upwards and for a lesson, not a review session; contest {concept_id, claim} is the learner's own declaration on a concept of the open map, known for a concept not acquired, unsure for an acquired one: the claim changes no mastery and skips no scene, the lesson asks check questions on that concept (two, or one when it has a single key-graded scene on it, the outcome then being partial), graded as any answer, then resumes where the learner was; a contest the state does not take, or made while another is under way, is refused in one line. Never contest for the learner. prompt {id, outcome} is the learner's answer to a proposal of the view (prompts: a review that is due, a break, the map, forms): accept does what it said, dismiss keeps the scene, and the server keeps the outcome; it proposes nothing while an answer is owed and no more than the attention level allows. Never answer a prompt for the learner, and add no proposal of your own during a session. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.",
     // client_ms goes to the interaction log (INT-STUDIUM-058 § 2.10), under consent.
     inputSchema: { ...session, action: PanelActionSchema, client_ms: ClientMsSchema.optional() },
   }, async ({ session_id, action, client_ms }) => {
-    try { return panelResult(await panels.act(session_id, action, client_ms)); } catch (e) { return toolError(e); }
+    try {
+      const view = await panels.act(session_id, action, client_ms);
+      // A pane's agent reads its own brief at the learner's message: peek leaves those acts for it.
+      return panelResult(view, action.type === "ask" ? host.companionBrief(session_id, { peek: true }) : undefined);
+    } catch (e) { return toolError(e); }
   });
   attachTool("open_lesson_panel", openTool);
   attachTool("get_panel_view", getTool);

@@ -120,7 +120,8 @@ async function connected(capabilities: Record<string, unknown>) {
   const client = new Client({ name: "surface-test", version: "1" }, { capabilities });
   await client.connect(clientT);
   const call = async (name: string, args: Record<string, unknown>) => await client.callTool({ name, arguments: args }) as {
-    isError?: boolean; structuredContent?: { panel: Record<string, any> }; content: Array<{ type: string; text?: string }>;
+    isError?: boolean; structuredContent?: { panel: Record<string, any>; brief?: Record<string, any> };
+    content: Array<{ type: string; text?: string }>;
   };
   const open = (extra: Record<string, unknown> = {}) =>
     call("open_lesson_panel", { bundle_ref: "atomistique-l1/lesson.json", learner_id: "auto-test-surface", ...extra });
@@ -241,6 +242,27 @@ it("applies language, attention, replan and ask through panel_action", async () 
     expect(asked.message).toContain("conversation");
     expect(JSON.stringify(asked)).not.toMatch(/"(?:answer|correct|expected|key|solution)"\s*:/);
     expect((await call("panel_action", { session_id: panel.session_id, action: { type: "teleport" } })).isError).toBe(true);
+  } finally { await close(); }
+});
+
+it("returns a peeked companion brief only when panel_action asks the conversation", async () => {
+  const { open, call, close } = await connected({});
+  try {
+    const panel = (await open({})).structuredContent!.panel;
+    const session_id = panel.session_id;
+    const read = await call("panel_action", { session_id, action: { type: "respond", input: { kind: "ack" } } });
+    expect(read.structuredContent!.brief).toBeUndefined();
+    const attention = await call("panel_action", { session_id, action: { type: "setAttention", level: "quiet" } });
+    expect(attention.structuredContent!.brief).toBeUndefined();
+
+    const asked = await call("panel_action", { session_id, action: { type: "ask", text: "Why?" } });
+    expect(asked.structuredContent!.brief!.since_last).toEqual([
+      { scene_id: panel.scene.id, act: "read", lane: "fast" },
+    ]);
+    // settleAct logs ask as an interaction, but ask submits nothing and companion.ts notes no act for it.
+    expect(JSON.parse(asked.content[0]!.text!).brief).toEqual(asked.structuredContent!.brief);
+    const again = await call("get_companion_brief", { session_id });
+    expect(JSON.parse(again.content[0]!.text!).brief.since_last).toEqual(asked.structuredContent!.brief!.since_last);
   } finally { await close(); }
 });
 
