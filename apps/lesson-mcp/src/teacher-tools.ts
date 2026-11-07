@@ -37,8 +37,8 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { BundleSchemaError, loadBundleJson } from "@studium/lesson-session/node";
 import {
-  COURSE_ID_PATTERN, REDACTED_SCENE_FIELDS, SCENE_KEY_CLASS, authoringOf, lintBundleData, placeholderPaths, publicScene, readApproval,
-  type ApprovalStatus, type AuthoringBlock, type KeyClass,
+  COURSE_ID_PATTERN, REDACTED_SCENE_FIELDS, SCENE_KEY_CLASS, authoringOf, buildReviewInbox, lintBundleData, placeholderPaths, publicScene,
+  readApproval, readLastReceipt, type ApprovalStatus, type AuthoringBlock, type KeyClass, type ReviewInbox,
 } from "@studium/lesson-session-host";
 
 const execFileAsync = promisify(execFile);
@@ -363,6 +363,11 @@ export interface ReviewLessonResult {
   approval: ApprovalStatus;
   ready_for_approval: boolean;
   note: string;
+  /** INT-STUDIUM-058 § 2.9: one item per scene, sorted by consequence (blocks, grading, wording, media),
+   * marked new / changed / unchanged against the last receipt in `<course>/reviews/`. A key-holding item
+   * has no sha256 here (owner's option a): the fingerprint covers the keys, so a learner reading this
+   * response could hash candidate answers and compare. The receipt on disk keeps every fingerprint. */
+  inbox: ReviewInbox;
 }
 
 export async function reviewLesson(ctx: TeacherToolsContext, courseRef: string): Promise<ReviewLessonResult> {
@@ -402,6 +407,16 @@ export async function reviewLesson(ctx: TeacherToolsContext, courseRef: string):
   }
 
   const lintClean = lint.status === "ok" && lint.errors === 0;
+  const lastReceipt = await readLastReceipt(courseDir);
+  const inbox = buildReviewInbox({
+    rawScenes: isRecord(raw) ? raw["scenes"] : null,
+    lintFindings: lint.status === "ok" ? lint.findings : null,
+    todoPerScene: todo.perScene,
+    schemaValid: bundle !== null,
+    schemaErrors,
+    lastReceipt: lastReceipt.receipt,
+    unreadableReceipts: lastReceipt.unreadable,
+  });
   return {
     ok: true as const,
     course_ref: courseRef,
@@ -420,6 +435,7 @@ export async function reviewLesson(ctx: TeacherToolsContext, courseRef: string):
     approval,
     ready_for_approval: bundle !== null && todo.count === 0 && lintClean,
     note: REVIEW_NOTE[locale],
+    inbox,
   };
 }
 
@@ -718,7 +734,10 @@ export function registerTeacherTools(server: McpServer, ctx: TeacherToolsContext
   server.registerTool("review_lesson", {
     description: "Teacher: review a lesson draft before approving it. Returns the scene plan, who holds each answer key " +
       "(author_keyed / production / externally_grounded), the linter's verdict, remaining TODO placeholders, and whether an " +
-      "approval record exists for this exact lesson.json. Never returns answer keys, hints or reveals. Read-only.",
+      "approval record exists for this exact lesson.json. Also returns a review inbox: one item per scene, sorted by " +
+      "consequence (blocks, grading, wording, media) and marked new / changed / unchanged since the last review receipt; " +
+      "a scene that holds an answer key gets no fingerprint, because a hash of its keys would let anyone test guesses " +
+      "against it. Never returns answer keys, hints or reveals. Read-only.",
     inputSchema: { course_ref: z.string().min(1).max(512) },
   }, async ({ course_ref }) => {
     try { return text(await reviewLesson(ctx, course_ref)); }

@@ -19,7 +19,7 @@ Depuis [src/index.ts](src/index.ts), par thème :
 | Persistance | `resolvePersistence(env, homedir)`, `persistenceInfo`, `DEFAULT_LEARNER_ID`, `buildHostDeps`, `durableDataDir`, `FileLearnerProfileStore`, `telemetryConsentGranted`. |
 | Leçons | `resolveBundle`, `loadResolvedBundle`, `discoverCommunityBundles`, `resolveCourse`, `shuffleQuizChoices`. |
 | Masquage | `publicScene`, `publicPresentation`, `publicTransition`, `citedSources`, `REDACTED_SCENE_FIELDS`. |
-| Provenance | `authoringOf`, `draftedByOf`, `readApproval`, `isTeacherValidated`, `keyClassOf`, `SELF_STUDY_NOTICE`, `AGENT_DRAFTED_NOTICE`. |
+| Provenance | `authoringOf`, `draftedByOf`, `readApproval`, `buildReviewInbox` et `readLastReceipt` (la boîte de relecture et ses reçus), `isTeacherValidated`, `keyClassOf`, `SELF_STUDY_NOTICE`, `AGENT_DRAFTED_NOTICE`. |
 | Discussion | `presentationMarkdown`, `transitionMarkdown`, `verdictMarkdown`, `replyToInput`, `ResponseInputSchema`. |
 | Auteur conversationnel | `authoringGuide`, `prepareSources`, `createLesson`, `LessonDraftSchema`, `lintBundleData`, `MAX_SOURCES`, `MAX_TOTAL_SOURCE_CHARS`. |
 | Révision | `reviewQueueFromState`, `conceptMemoryFromState`, `nextReinforcementFromState`, `dueReinforcementTargetsFromMemory`, `pickReviewScene`, `isDiagnosticScene`. |

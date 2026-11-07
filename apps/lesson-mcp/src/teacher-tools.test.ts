@@ -27,6 +27,7 @@ import {
   registerTeacherTools, reviewLesson, classReport, TEACHER_TOOL_NAMES, TeacherToolError,
   type LintFinding, type TeacherToolsContext,
 } from "./teacher-tools.js";
+import { sceneFingerprint } from "@studium/lesson-session-host";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
 const PYTHON = join(REPO_ROOT, ".venv", "bin", "python");
@@ -393,6 +394,93 @@ describe("review_lesson", () => {
       await expect(reviewLesson(ctxFor(root), "pack.zip")).rejects.toThrow(/zip/);
       await expect(reviewLesson(ctxFor(root), "missing")).rejects.toBeInstanceOf(TeacherToolError);
     });
+  });
+});
+
+describe("review_lesson inbox (INT-STUDIUM-058 § 2.9)", () => {
+  // s0 blocked by a lint ERROR naming it, three key-holding scenes, a plain concept, a concept with a figure.
+  function inboxBundle(): Record<string, unknown> {
+    const b = bundle();
+    (b["scenes"] as unknown[]).push(
+      { ...base("s4", "concept", "c1"), markdown: "Look at the figure.", image_path: "assets/figure.png" },
+      { ...base("s5", "concept", "c2"), markdown: "Plain words." },
+    );
+    return b;
+  }
+  const lintNaming = (sceneId: string): NonNullable<TeacherToolsContext["lint"]> =>
+    async () => [{ level: "ERROR", code: "quiz_answer_key", message: `${sceneId}: something to fix` }];
+  const scenesOf = (b: Record<string, unknown>) => b["scenes"] as Array<Record<string, unknown>>;
+
+  it("sorts items blocks, grading, wording, media and marks every item new without an earlier receipt", async () => {
+    const { root } = library("teach", inboxBundle());
+    const out = await reviewLesson(ctxFor(root, { lint: lintNaming("s0") }), "teach");
+    expect(out.inbox.items.map((i) => [i.id, i.consequence])).toEqual([
+      ["s0", "blocks"], ["s1", "grading"], ["s2", "grading"], ["s3", "grading"], ["s5", "wording"], ["s4", "media"],
+    ]);
+    expect(out.inbox.items.every((i) => i.what_changed === "new")).toBe(true);
+    expect(out.inbox.last_receipt).toBeNull();
+    expect(out.inbox.counts.consequence).toEqual({ blocks: 1, grading: 3, wording: 1, media: 1 });
+    expect(out.inbox.items.find((i) => i.id === "s0")!.checks).toContainEqual({ check: "lint", passed: false });
+  });
+
+  it("after a receipt in reviews/, a scene whose key changed is changed (grading), an untouched one unchanged", async () => {
+    const before = inboxBundle();
+    const after = inboxBundle();
+    const choices = scenesOf(after)[1]!["choices"] as Array<Record<string, unknown>>;
+    choices[1]!["text"] = "KEYCHOICE-giraffe-78";
+    const { root } = library("teach", after);
+    mkdirSync(join(root, "teach", "reviews"));
+    const receipt = {
+      schema: "studium/review-receipt/v1", reviewer: "Dr Example", decided_at: "2026-11-06T09:00:00Z", bundle_ref: "teach",
+      bundle_sha256: "b".repeat(64), decision: "returned", opened: 6, not_opened: 0,
+      items: scenesOf(before).map((s) => ({ id: s["id"], sha256: sceneFingerprint(s), consequence: "wording", opened: true })),
+    };
+    writeFileSync(join(root, "teach", "reviews", "2026-11-06-bbbbbbbb.json"), JSON.stringify(receipt));
+    const out = await reviewLesson(ctxFor(root), "teach");
+    const item = (id: string) => out.inbox.items.find((i) => i.id === id)!;
+    expect(item("s1")).toMatchObject({ what_changed: "changed", consequence: "grading", holds_key: true });
+    expect(item("s3")).toMatchObject({ what_changed: "unchanged", consequence: "grading" });
+    expect(item("s5")).toMatchObject({ what_changed: "unchanged", consequence: "wording", sha256: sceneFingerprint(scenesOf(after)[5]) });
+    expect(out.inbox.last_receipt).toEqual({
+      reviewer: "Dr Example", decided_at: "2026-11-06T09:00:00Z", decision: "returned", bundle_sha256: "b".repeat(64), opened: 6, not_opened: 0,
+    });
+  });
+
+  it("returns no key string and no fingerprint of a key-holding scene anywhere in the response", async () => {
+    const b = inboxBundle();
+    const { root } = library("teach", b);
+    mkdirSync(join(root, "teach", "reviews"));
+    const receipt = {
+      schema: "studium/review-receipt/v1", reviewer: "Dr Example", decided_at: "2026-11-06T09:00:00Z", bundle_ref: "teach",
+      bundle_sha256: "c".repeat(64), decision: "approved", opened: 6, not_opened: 0,
+      items: scenesOf(b).map((s) => ({ id: s["id"], sha256: sceneFingerprint(s), consequence: "wording", opened: true })),
+    };
+    writeFileSync(join(root, "teach", "reviews", "2026-11-06-cccccccc.json"), JSON.stringify(receipt));
+    const server = new McpServer({ name: "t", version: "0" });
+    registerTeacherTools(server, ctxFor(root));
+    const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverT);
+    const client = new Client({ name: "c", version: "0" });
+    await client.connect(clientT);
+    const res = await client.callTool({ name: "review_lesson", arguments: { course_ref: "teach" } });
+    const text = (res.content as Array<{ text: string }>)[0]!.text;
+    const body = JSON.parse(text);
+    assertNoKeys(body);
+    const items = body.inbox.items as Array<{ id: string; holds_key: boolean; sha256?: string }>;
+    expect(items.filter((i) => i.holds_key).map((i) => i.id)).toEqual(["s1", "s2", "s3"]);
+    for (const item of items) {
+      if (item.holds_key) expect(item).not.toHaveProperty("sha256");
+      else expect(item.sha256).toMatch(/^[0-9a-f]{64}$/);
+    }
+    for (const scene of scenesOf(b).slice(1, 4)) expect(text).not.toContain(sceneFingerprint(scene));
+  });
+
+  it("gives an empty inbox when lesson.json does not parse", async () => {
+    const { root, lessonJson } = library();
+    writeFileSync(lessonJson, "{ not json");
+    const out = await reviewLesson(ctxFor(root), "teach");
+    expect(out.inbox.items).toEqual([]);
+    expect(out.inbox.last_receipt).toBeNull();
   });
 });
 

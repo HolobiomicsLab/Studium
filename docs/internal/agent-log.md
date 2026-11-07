@@ -4129,6 +4129,26 @@ Checked: every repository check passes on this tree at its first run (install, b
 
 Not verified: no real learner's file holds these events; the Python readers were not run on one.
 
+## 2026-11-07 (review inbox) — review_lesson sorts the scenes by what a mistake would cost
+
+INT-STUDIUM-058, lot 6, task 6.1 (spec § 2.9). `review_lesson` returns an inbox: one item per
+scene, sorted blocks, grading, wording, media; each new, changed or unchanged against the last
+review receipt in `<course>/reviews/`, with its checks (schema, TODO, lint). The pure logic
+(canonical JSON, scene fingerprint, holds-key rule, receipt reader) is `review-inbox.ts` in
+`@studium/lesson-session-host`, for the dashboard to reuse.
+
+Owner's option (a): an item that holds a key carries no fingerprint in the response, because a
+hash over the keys would let a learner test candidate answers. Receipts on disk keep every one.
+Known gap for task 6.2: the Python writer must format numbers the JavaScript way before hashing.
+
+Test decision: none. 13 host tests and 4 lesson-mcp tests, each seen failing first.
+
+Checked: every repository check passes on this tree at its first run (install, build, lint,
+`pnpm -r test`, the Python suites, bundle lint, docs check, headless smoke, the MCP bundle,
+`tools/panel-probe.mjs`), and `pnpm test:tools` (9 tests).
+
+Not verified: no receipt has been written by any tool yet; no teacher has read the inbox.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

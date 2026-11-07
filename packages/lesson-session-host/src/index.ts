@@ -64,6 +64,12 @@ export {
   type AuthoringBlock, type ApprovalStatus, type DraftedBy,
 } from "./authoring.js";
 export { SCENE_KEY_CLASS, keyClassOf, type KeyClass } from "./key-class.js";
+// INT-STUDIUM-058 § 2.9: the review inbox (host.js already exports a ReviewItem: the FSRS review queue).
+export {
+  buildReviewInbox, canonicalJson, readLastReceipt, sceneFingerprint, sceneHoldsKey, CONSEQUENCES, REVIEW_RECEIPT_SCHEMA,
+  type BuildReviewInboxInput, type Consequence, type ReceiptSummary, type ReviewInbox, type ReviewItem as ReviewInboxItem,
+  type ReviewReceipt, type WhatChanged,
+} from "./review-inbox.js";
 // The conversational author (sprint 2026-10-30, W1; C1, C2): apps/lesson-mcp/src/authoring-tools.ts
 // binds these to the get_authoring_guide, prepare_sources and create_lesson tools.
 export {

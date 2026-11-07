@@ -483,7 +483,7 @@ Teacher: class-level report for a course over consented telemetry: per scene and
 
 ### review_lesson
 
-Teacher: review a lesson draft before approving it. Returns the scene plan, who holds each answer key (author_keyed / production / externally_grounded), the linter's verdict, remaining TODO placeholders, and whether an approval record exists for this exact lesson.json. Never returns answer keys, hints or reveals. Read-only.
+Teacher: review a lesson draft before approving it. Returns the scene plan, who holds each answer key (author_keyed / production / externally_grounded), the linter's verdict, remaining TODO placeholders, and whether an approval record exists for this exact lesson.json. Also returns a review inbox: one item per scene, sorted by consequence (blocks, grading, wording, media) and marked new / changed / unchanged since the last review receipt; a scene that holds an answer key gets no fingerprint, because a hash of its keys would let anyone test guesses against it. Never returns answer keys, hints or reveals. Read-only.
 
 | Field | Type | Required |
 |---|---|---|

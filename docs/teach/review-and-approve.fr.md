@@ -49,6 +49,15 @@ schéma depuis un terminal :
 apps/lesson-mcp/node_modules/.bin/tsx tools/bundle_validate.ts work/library/my-course/lesson.json
 ```
 
+`review_lesson` renvoie aussi une boîte de relecture (`inbox`) : un élément par scène, d'abord les
+scènes qui bloquent l'approbation, puis celles qui portent une clé de réponse (`grading`), puis le
+texte seul (`wording`), puis celles qui ont une figure ou un autre fichier (`media`). Chaque élément
+indique si la scène est nouvelle (`new`), modifiée (`changed`) ou inchangée (`unchanged`) depuis le
+dernier reçu de relecture du dossier `reviews/` du cours, et quelles vérifications (schéma, TODO, lint)
+elle passe. Une scène qui porte une clé n'a pas d'empreinte (`sha256`) dans la réponse : une empreinte
+de ses clés permettrait à un apprenant d'y tester ses hypothèses. Le reçu sur disque garde toutes les
+empreintes.
+
 Le tableau de bord enseignant affiche le même état pour chaque leçon, en lecture seule :
 
 <picture>

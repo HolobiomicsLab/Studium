@@ -47,6 +47,13 @@ check the schema alone from a terminal:
 apps/lesson-mcp/node_modules/.bin/tsx tools/bundle_validate.ts work/library/my-course/lesson.json
 ```
 
+`review_lesson` also returns an `inbox`: one item per scene, the scenes that block approval first,
+then those that hold an answer key (`grading`), then plain text (`wording`), then those with a figure
+or another asset (`media`). Each item says whether the scene is `new`, `changed` or `unchanged` since
+the last review receipt in the course's `reviews/` folder, and which checks (schema, TODO, lint) it
+passes. A scene that holds a key gets no fingerprint (`sha256`) in the response: a hash of its keys
+would let a learner test guesses against it. The receipt on disk keeps every fingerprint.
+
 The teacher dashboard shows the same status per lesson, read-only:
 
 <picture>
