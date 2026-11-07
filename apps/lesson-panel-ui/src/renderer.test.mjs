@@ -520,3 +520,73 @@ test("the settings stay usable while an answer is owed, and a setting keeps the 
   assert.equal(doc.querySelector(".attention-level[data-level=quiet]").getAttribute("aria-pressed"), "true");
   dom.window.close();
 });
+
+// Walkthrough 2026-11-07: a session the server no longer knows (it restarted, or the session was closed) is said as
+// such, with a button that opens the same lesson again; any other error keeps the generic status line.
+const LOST_WORDS = {
+  ...SETTINGS_WORDS,
+  pane_session_lost: "Session lost (the server restarted or the session was closed). Reopen the lesson: your progress is kept.",
+  pane_reopen_lesson: "Reopen the lesson", pane_action_failed: "Action failed · {error}",
+};
+const LOST = "session not found: sid-42 (the server may have restarted, or the session was closed): call start_lesson_session…";
+
+test("an action on a lost session replaces the scene with the notice and a reopen button, sent only on a click", () => {
+  const { dom, doc, sent } = mountWithSend();
+  dom.window.renderView(settingsView({ strings: LOST_WORDS }));
+  doc.querySelector(".choices input").click();
+  doc.querySelector(".validate").click();
+  assert.equal(sent.length, 1);
+  dom.window.renderView({ type: "action_error", action: "respond", message: LOST });
+  const notice = doc.querySelector(".session-lost");
+  assert.ok(notice, "the notice is drawn");
+  assert.equal(notice.getAttribute("role"), "alert");
+  assert.match(text(notice), /^Session lost \(the server restarted or the session was closed\)\. Reopen the lesson: your progress is kept\./);
+  assert.equal(doc.querySelector(".scene-title"), null, "the stale scene is gone");
+  assert.equal(doc.querySelector(".settings"), null, "the settings stay out");
+  assert.doesNotMatch(text(doc.body), /sid-42/, "the server's own words are not shown");
+  assert.equal(sent.length, 1, "nothing is retried on its own");
+  const reopen = doc.querySelector(".session-lost .reopen-lesson");
+  assert.equal(text(reopen), "Reopen the lesson");
+  reopen.click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "reopen" });
+  assert.equal(sent.length, 2);
+  dom.window.close();
+});
+
+test("a lost session is recognised inside the tool's JSON error envelope, and a view of the new session replaces the notice", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(settingsView({ strings: LOST_WORDS }));
+  dom.window.renderView({ type: "action_error", message: JSON.stringify({ error: LOST }) });
+  assert.ok(doc.querySelector(".session-lost"));
+  dom.window.renderView(settingsView({ strings: LOST_WORDS, session_id: "fresh" }));
+  assert.equal(doc.querySelector(".session-lost"), null);
+  assert.ok(doc.querySelector(".scene-title"));
+  dom.window.close();
+});
+
+test("an unrelated action error keeps the scene and the generic status line", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(settingsView({ strings: LOST_WORDS }));
+  dom.window.renderView({ type: "action_error", message: "tool panel_action timed out (not a session not found)" });
+  assert.equal(doc.querySelector(".session-lost"), null);
+  assert.ok(doc.querySelector(".scene-title"));
+  assert.equal(text(doc.querySelector("#action-status")), "Action failed · tool panel_action timed out (not a session not found)");
+  dom.window.close();
+});
+
+// Walkthrough 2026-11-07: the verdict chip names who wrote the key, as the conversation does.
+test("a key verdict names the AI-drafted key, the learner's own key, or the author's key", () => {
+  const words = { ...WORDS, pane_voice_key_ai: "Assessed by the AI-drafted key — check it against the cited passage", pane_voice_key_own: "Assessed by the key you wrote" };
+  const verdict = { scene_id: "earlier", graded: true, correct: true, assessed_by: "key", feedback: "Well done." };
+  const chip = (drafted_by, session_id) => {
+    const { dom, doc } = mountWithSend();
+    dom.window.renderView(quizV2({ strings: words, session_id, verdict,
+      voices: { scene: { kind: "author", name: null, reviewed: false, drafted_by }, verdict: { kind: "key" } } }));
+    const value = text(doc.querySelector(".feedback-step .voice-verdict"));
+    dom.window.close();
+    return value;
+  };
+  assert.equal(chip("agent", "a"), "Assessed by the AI-drafted key — check it against the cited passage");
+  assert.equal(chip("learner", "b"), "Assessed by the key you wrote");
+  assert.equal(chip("teacher", "c"), "Assessed by the author's key");
+});

@@ -247,6 +247,26 @@ describe("portable Claude host boundary", () => {
       .toMatchObject({ kind: "error", message: "server offline", pending: undefined });
   });
 
+  // Walkthrough 2026-11-07: an answer on a session the server lost leaves the notice in the pane; its button opens the
+  // same lesson for the same learner, once, and only when pressed.
+  test("a lost session: the notice replaces the scene, and « Rouvrir la leçon » opens the same lesson again", async () => {
+    const host = new Host(PANEL);
+    host.queue({ isError: true, content: [{ type: "text", text: JSON.stringify({ error: "session not found: session-1 (the server may have restarted, or the session was closed): call start_lesson_session…" }) }] });
+    await hook("command.run")(host.engine, { args: "answer b" }, event => event);
+    expect(host.calls).toHaveLength(1);
+    const tree = await hook("ui.render")(host.engine, PANE_EVENT, event => event) as PortableElement;
+    const shown = texts(tree).join("\n");
+    expect(shown).toContain("Séance perdue (le serveur a redémarré ou la séance a été fermée).");
+    expect(shown).toContain("/studium atomistique-l1/lesson.json");
+    expect(find(tree, element => element.key === "choice-b")).toBeUndefined();
+    expect(host.calls).toHaveLength(1); // nothing retried on its own
+    host.queue(response({ ...PANEL, session_id: "session-2" }));
+    await (find(tree, element => element.key === "reopen")?.props.onPress as () => Promise<void>)();
+    expect(host.calls[1]).toEqual({ server: "studium-lesson", tool: "open_lesson_panel",
+      args: { bundle_ref: "atomistique-l1/lesson.json", learner_id: "learner-1", surface: "pane" } });
+    expect(host.value<StudiumPanelView>("panel")).toMatchObject({ kind: "scene", session_id: "session-2" });
+  });
+
   // INT-STUDIUM-058, task 2.5: status line, voices, help ladder and the ask gesture of a version-2 view.
   const V2: StudiumPanelView = {
     ...PANEL, schema: "studium/panel-view/2",

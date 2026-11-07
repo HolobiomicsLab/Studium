@@ -114,6 +114,19 @@ export async function connectMcpApp(app, env = { window, document, renderView: w
     const cancel = doc.createElement("button"); cancel.textContent = words().pane_cancel; cancel.onclick = () => section.remove(); section.append(cancel);
     doc.querySelector(".course-picker")?.remove(); doc.body.append(section); status("action_settled"); resize();
   }
+  /** Walkthrough 2026-11-07: the server lost the session (it restarted, or the session was closed). The renderer's
+   * notice offers to reopen: the same lesson for the same learner, from the view the panel last had, on the learner's
+   * click only. The server resumes the learner's progress. */
+  async function reopen() {
+    busy = true;
+    try {
+      const surface = typeof current.surface?.kind === "string" ? { surface: current.surface.kind } : {};
+      const opened = await app.callServerTool({ name: "open_lesson_panel", arguments: { bundle_ref: current.bundle_ref, learner_id: current.learner_id, locale: locale(), ...surface } });
+      busy = false;
+      receive(opened);
+    } catch (error) { busy = false; status("action_error", error.message); }
+    finally { busy = false; }
+  }
   async function act(action, meta) {
     if (action.type === "nodeClick") {
       const details = doc.getElementById("graph-node-details") ?? doc.createElement("p");
@@ -121,6 +134,7 @@ export async function connectMcpApp(app, env = { window, document, renderView: w
     }
     if (busy || !current) return;
     if (action.type === "run") { status("action_notice", words().pane_native_run_required); return; }
+    if (action.type === "reopen") { await reopen(); return; }
     if (!ACTIONS.has(action.type) || !current.actions.includes(action.type)) { status("action_error", words().pane_retry); return; }
     busy = true;
     try {

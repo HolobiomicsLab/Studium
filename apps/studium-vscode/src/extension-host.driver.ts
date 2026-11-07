@@ -519,6 +519,22 @@ async function main() {
     pane.dispose();
   }
 
+  // Walkthrough 2026-11-07: the pane's « Rouvrir la leçon » (shown when the server lost the session) closes the stale
+  // pane and opens the same lesson again, which resumes the learner's progress.
+  {
+    await seen.uriHandler.handleUri(uriFor(safePath));
+    const pane = lastPanel();
+    await waitFor(() => pane.posted.some((m: Json) => m.type === "render"), "the first scene (reopen)");
+    const panesBefore = seen.panels.length;
+    await pane.handler({ type: "reopen" });
+    expect(pane.disposed, "reopen closes the stale pane");
+    expect(seen.panels.length === panesBefore + 1, `reopen opens one new pane (got ${seen.panels.length - panesBefore})`);
+    const fresh = lastPanel();
+    await waitFor(() => fresh.posted.some((m: Json) => m.type === "render"), "the reopened lesson's scene");
+    expect(fresh.posted.some((m: Json) => m.type === "render" && m.view?.bundle_ref === "safe/lesson.json"), "the new pane shows the same lesson");
+    fresh.dispose();
+  }
+
   // W4 review: « Réviser maintenant » with nothing due is a calm notice in the pane, never an action error
   // (before, the pane showed « Échec de l'action » with the server's text, or an empty message).
   {

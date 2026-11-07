@@ -35,6 +35,7 @@ import { checkLessonPath, parseOpenLessonQuery, rawQuery, type OpenLessonResult 
 import { parseReinforcement, statusBarText, type StudyStatus } from "./study-status.js";
 import { readConceptTitles } from "./bundle-titles.js";
 import { parseRateRecall } from "./pane-messages.js";
+import { sessionLostReason } from "./session-lost.js";
 
 type Json = Record<string, any>;
 
@@ -864,6 +865,13 @@ async function openLesson(
 
   // 2) learner actions from the pane → MCP calls → next render (pair by pair)
   panel.webview.onDidReceiveMessage(async (msg: Json) => {
+    // Walkthrough 2026-11-07: the pane's « Rouvrir la leçon », offered when the server lost the session. The stale pane
+    // closes and the same lesson opens again in a new one (a fresh server, which resumes the learner's progress).
+    if (msg?.type === "reopen") {
+      if (!panelDisposed) panel.dispose();
+      await openLesson(context, bundleRef, rootKind, { bundlesRoot });
+      return;
+    }
     try {
       const result = await lifecycle.runExclusive(async () => {
         if (msg.type === "run") {
@@ -912,9 +920,11 @@ async function openLesson(
       // UX-09: the learner reads a localised, actionable line; the server's own words (tool name, scene ids) go to
       // the output channel. The error names the action it answers, so the pane can drop a stale one.
       resolveLogSink()(`[studium] ${String(msg?.type)} failed: ${e?.message ?? e}`);
+      // A session the server no longer knows: its reason goes to the pane, whose renderer says « Séance perdue » and
+      // offers to reopen (it reads only the « session not found » prefix and never shows the rest).
       if (!panelDisposed) {
         panel.webview.postMessage({ type: "action_error", action: msg?.type, ...(msg?.type === "rateRecall" ? { sceneId: msg.sceneId } : {}),
-          message: phrase("extension_action_failed", {}, locale) });
+          message: sessionLostReason(e) ?? phrase("extension_action_failed", {}, locale) });
       }
     }
   });

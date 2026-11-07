@@ -196,6 +196,37 @@ let renderView;
     ui.status.textContent = t("pane_action_failed", { error: message || t("pane_retry") });
   }
 
+  // Walkthrough 2026-11-07: the server no longer knows this session (it restarted, or the session was closed). Its error
+  // starts with « session not found »; only that prefix is read, never the rest. The tool's JSON envelope
+  // ({"error": "..."}, as the MCP App bridge passes it on) is opened first.
+  function isSessionLost(message) {
+    let reason = typeof message === "string" ? message.trim() : "";
+    if (reason.startsWith("{")) {
+      try { const parsed = JSON.parse(reason); reason = isObject(parsed) && typeof parsed.error === "string" ? parsed.error : ""; }
+      catch { reason = ""; }
+    }
+    return reason.startsWith("session not found");
+  }
+
+  // The old scene is stale: the notice replaces it, settings included. The reopen button is the learner's to press:
+  // nothing is retried on its own, so a server that keeps losing the session cannot loop.
+  function showSessionLost() {
+    const root = resetPane();
+    memory = freshMemory();
+    lastAuthoring = null;
+    pendingDone = null;
+    const notice = el("section", { class: "session-lost", role: "alert" }, el("p", {}, t("pane_session_lost")));
+    if (window.__send) {
+      const reopen = el("button", { type: "button", class: "st-button st-button--primary reopen-lesson" }, t("pane_reopen_lesson"));
+      reopen.addEventListener("click", () => postAction({ type: "reopen" }, t("pane_opening")));
+      notice.append(reopen);
+    }
+    ui.status = el("p", { id: "action-status", class: "action-status", role: "status", "aria-live": "polite" });
+    notice.append(ui.status);
+    root.append(notice);
+    announce(t("pane_session_lost"));
+  }
+
   // A calm answer to an action that changed nothing (« Réviser maintenant » with nothing due): release the
   // gate and say it in the status line, worded as information, never as a failure.
   function showActionNotice(message) {
@@ -810,6 +841,15 @@ let renderView;
   }
 
   // Who speaks in a block: the lesson's author over the scene, who assessed the answer over a verdict.
+  // The verdict's voice: a key verdict says whose key it is (walkthrough 2026-11-07), as the conversation does: the key an
+  // AI drafted, the key the learner wrote, or the author's key for a teacher's lesson.
+  function verdictVoiceText(voices) {
+    if (!isObject(voices) || !isObject(voices.verdict)) return "";
+    const drafted = isObject(voices.scene) ? voices.scene.drafted_by : null;
+    if (voices.verdict.kind === "key" && drafted === "agent") return t("pane_voice_key_ai");
+    if (voices.verdict.kind === "key" && drafted === "learner") return t("pane_voice_key_own");
+    return voiceText(voices.verdict);
+  }
   function voiceText(voice) {
     if (!isObject(voice)) return "";
     if (voice.kind === "key") return t("pane_voice_key");
@@ -1068,11 +1108,12 @@ let renderView;
     const step = el("section", { class: "feedback-step", "aria-labelledby": title.id },
       el("p", { class: "st-eyebrow" }, t("pane_feedback_eyebrow")), title);
     // INT-STUDIUM-058: who assessed this answer, over its feedback.
-    const voice = voiceText(isObject(fb.voices) ? fb.voices.verdict : null);
+    const voice = verdictVoiceText(fb.voices);
     if (voice) step.append(el("p", { class: "voice voice-verdict" }, voice));
     step.append(feedbackCard(v, kind, fb.withheld));
     // L-7: an author-keyed verdict of a lesson an AI drafted says whose key it is, and where to check it.
-    if (v.assessed_by === "key" && isObject(fb.authoring) && fb.authoring.drafted_by === "agent") {
+    // A version-2 chip that already names the AI's key says it once (walkthrough 2026-11-07).
+    if (voice !== t("pane_voice_key_ai") && v.assessed_by === "key" && isObject(fb.authoring) && fb.authoring.drafted_by === "agent") {
       step.append(el("p", { class: "feedback-key-note" }, t("pane_ai_key_note")));
     }
     if (!fb.withheld) {
@@ -1835,6 +1876,7 @@ let renderView;
     else if (d.type === "action_settled") setActionPending(false);
     else if (d.type === "action_notice") showActionNotice(d.message);
     else if (d.type === "action_error") {
+      if (isSessionLost(d.message)) { showSessionLost(); return; }
       // UX-09: a rating's error belongs to the feedback step that asked for it; once that screen is gone it is
       // dropped instead of being shown on an unrelated scene.
       if (d.action === "rateRecall" && !(ui.rating && (!d.sceneId || ui.rating.sceneId === d.sceneId))) return;

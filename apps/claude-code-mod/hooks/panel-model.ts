@@ -296,6 +296,12 @@ export function headerLine(view: StudiumPanelView): string {
 export function voiceChip(view: StudiumPanelView, block: "scene" | "verdict"): string {
   const voice = view.voices?.[block];
   if (!voice) return "";
+  // A key verdict says whose key it is, as the conversation does (walkthrough 2026-11-07).
+  const drafted = view.voices?.scene?.kind === "author" ? view.voices.scene.drafted_by : undefined;
+  if (voice.kind === "key" && drafted === "agent") {
+    return phraseOf(view, "pane_voice_key_ai", "Évalué par la clé rédigée par l'IA — vérifie-la avec le passage cité", "Assessed by the AI-drafted key — check it against the cited passage");
+  }
+  if (voice.kind === "key" && drafted === "learner") return phraseOf(view, "pane_voice_key_own", "Évalué par la clé que tu as rédigée", "Assessed by the key you wrote");
   if (voice.kind === "key") return phraseOf(view, "pane_voice_key", "Évalué par la clé de l'auteur", "Assessed by the author's key");
   if (voice.kind === "judge") return phraseOf(view, "pane_voice_judge", "Évalué par un juge (modèle)", "Assessed by a judge (model)");
   if (voice.kind === "agent") return phraseOf(view, "pane_voice_agent", "Texte de l'assistant, hors leçon", "Assistant's text, not part of the lesson");
@@ -577,5 +583,38 @@ export function errorView(view: StudiumPanelView, error: unknown): StudiumPanelV
     kind: "error",
     pending: undefined,
     message: error instanceof Error ? error.message : String(error),
+  };
+}
+
+/** Whether an error says the server no longer knows the session (it restarted, or the session was closed): the host's
+ * message starts with « session not found ». Only that prefix is read; the tool's JSON envelope ({"error": "…"}, as
+ * panelFromMcpResult passes it on) is opened first. */
+function isSessionLost(message: string | undefined): boolean {
+  let reason = (message ?? "").trim();
+  if (reason.startsWith("{")) {
+    try {
+      const parsed: unknown = JSON.parse(reason);
+      reason = isRecord(parsed) && typeof parsed.error === "string" ? parsed.error : "";
+    } catch { reason = ""; }
+  }
+  return reason.startsWith("session not found");
+}
+
+/** What the pane shows instead of the stale scene when an action reached a lost session (walkthrough 2026-11-07): the
+ * notice, the reopen button's label, the command that does the same from the prompt, and the open the button sends
+ * (the same lesson for the same learner, on this native pane). Undefined for any other view. */
+export function sessionLostNotice(view: StudiumPanelView): {
+  notice: string; button: string; command: string;
+  open: { bundle_ref: string; learner_id: string; surface: "pane" };
+} | undefined {
+  if (view.kind !== "error" || !isSessionLost(view.message)) return undefined;
+  return {
+    notice: phraseOf(view, "pane_session_lost",
+      "Séance perdue (le serveur a redémarré ou la séance a été fermée). Rouvre la leçon : ta progression est conservée.",
+      "Session lost (the server restarted or the session was closed). Reopen the lesson: your progress is kept."),
+    button: phraseOf(view, "pane_reopen_lesson", "Rouvrir la leçon", "Reopen the lesson"),
+    command: phraseOf(view, "pane_reopen_command", "Pour la rouvrir : {command}", "To reopen it: {command}")
+      .replace("{command}", `/studium ${view.bundle_ref}`),
+    open: { bundle_ref: view.bundle_ref, learner_id: view.learner_id, surface: "pane" },
   };
 }

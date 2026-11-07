@@ -19,6 +19,7 @@ import {
   replanAction,
   settingsControls,
   sceneMarkdown,
+  sessionLostNotice,
   sourcesMarkdown,
   voiceChip,
 } from "./panel-model.js";
@@ -173,6 +174,31 @@ describe("pane behavior model", () => {
   });
 });
 
+// Walkthrough 2026-11-07: after a server restart, an action on the old session_id fails with « session not found ».
+// The pane says the session is lost, how to reopen it, and offers the open of the same lesson for the same learner.
+describe("a lost session", () => {
+  const LOST = "session not found: sid-42 (the server may have restarted, or the session was closed): call start_lesson_session…";
+
+  test("an action error that starts with « session not found » is a lost session, with the notice, the command and the open", () => {
+    const lost = errorView(PANEL, new Error(LOST));
+    expect(sessionLostNotice(lost)).toEqual({
+      notice: "Séance perdue (le serveur a redémarré ou la séance a été fermée). Rouvre la leçon : ta progression est conservée.",
+      button: "Rouvrir la leçon",
+      command: "Pour la rouvrir : /studium atomistique-l1/lesson.json",
+      open: { bundle_ref: "atomistique-l1/lesson.json", learner_id: "learner-1", surface: "pane" },
+    });
+    expect(sessionLostNotice({ ...lost, locale: "en" })?.notice)
+      .toBe("Session lost (the server restarted or the session was closed). Reopen the lesson: your progress is kept.");
+  });
+
+  test("the tool's JSON error envelope is opened; any other error, or a view that is no error, is not a lost session", () => {
+    expect(sessionLostNotice(errorView(PANEL, new Error(JSON.stringify({ error: LOST }))))).toBeDefined();
+    expect(sessionLostNotice(errorView(PANEL, new Error("offline")))).toBeUndefined();
+    expect(sessionLostNotice(errorView(PANEL, new Error("the tool said: session not found")))).toBeUndefined();
+    expect(sessionLostNotice({ ...PANEL, message: LOST })).toBeUndefined();
+  });
+});
+
 // INT-STUDIUM-058, task 2.5: what the pane shows of a version-2 view — where the learner is, who
 // speaks in each block, which help is open, and the gesture that hands over to the assistant.
 describe("pane model of a version-2 view", () => {
@@ -202,6 +228,12 @@ describe("pane model of a version-2 view", () => {
     expect(voiceChip(V2, "verdict")).toBe(""); // nobody assessed anything yet
     expect(voiceChip({ ...V2, voices: { ...V2.voices!, verdict: { kind: "key" } } }, "verdict")).toBe("Évalué par la clé de l'auteur");
     expect(voiceChip({ ...V2, voices: { ...V2.voices!, verdict: { kind: "judge" } } }, "verdict")).toBe("Évalué par un juge (modèle)");
+    // Walkthrough 2026-11-07: a key verdict says whose key it is, as the conversation does.
+    const keyOf = (drafted_by: "agent" | "learner" | "teacher") => ({ ...V2, voices: { scene: { kind: "author" as const, name: null, reviewed: false, drafted_by }, verdict: { kind: "key" as const } } });
+    expect(voiceChip(keyOf("agent"), "verdict")).toBe("Évalué par la clé rédigée par l'IA — vérifie-la avec le passage cité");
+    expect(voiceChip({ ...keyOf("agent"), locale: "en" }, "verdict")).toBe("Assessed by the AI-drafted key — check it against the cited passage");
+    expect(voiceChip(keyOf("learner"), "verdict")).toBe("Évalué par la clé que tu as rédigée");
+    expect(voiceChip(keyOf("teacher"), "verdict")).toBe("Évalué par la clé de l'auteur");
     expect(voiceChip({ ...V2, voices: { scene: { kind: "author", name: null, reviewed: false, drafted_by: "agent" } } }, "scene"))
       .toBe("Leçon rédigée par l'IA, non relue par un enseignant");
     expect(voiceChip({ ...V2, voices: { scene: { kind: "author", name: null, reviewed: false, drafted_by: "learner" } } }, "scene"))

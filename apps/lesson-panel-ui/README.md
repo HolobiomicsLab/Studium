@@ -10,7 +10,8 @@ completion replay. The classic build preserves the older message protocol for ex
 
 For a version-2 view the lesson renderer also shows: an orientation line over the progress rail (the
 view's `status_line`; the rail keeps its segments and drops its own label, so the step is said once); who
-signs the lesson, over the scene, and who assessed the answer, over a verdict; the help ladder under the
+signs the lesson, over the scene, and who assessed the answer, over a verdict (a key verdict says whose
+key: the AI-drafted key, the key the learner wrote, or the author's key for a teacher's lesson); the help ladder under the
 answer controls, one button per rung, each with its cost or the reason it is closed; and « Ask a question »,
 which sends the `ask` action. A closed rung is `aria-disabled`, not `disabled`: it takes the keyboard focus,
 so its reason can be read, and pressing it sends nothing. Last comes a « Settings » region, drawn from the
@@ -19,6 +20,13 @@ actions the view offers and nothing else: « Quiet », « Normal », « Coached 
 « Replan » (`replan {minutes}`, 1 to 600). These controls answer nothing: they stay enabled while an answer
 is owed, and the feedback already left is not shown again when their view comes back.
 Every control is reached with Tab in reading order.
+An action error whose message starts with `session not found` (the server restarted, or the session was
+closed; the tool's JSON envelope `{"error": …}` is opened first, and nothing after the prefix is read)
+replaces the scene, settings included, with the « Session lost » notice and a « Reopen the lesson » button
+that sends `reopen` once, on a click; nothing is retried on its own. The MCP App bridge answers `reopen`
+with `open_lesson_panel` for the `bundle_ref`, `learner_id` and `surface` of the last view, in the
+current locale; the VS Code bridge passes it to the extension. Any other action error keeps the scene
+and the « Action failed » status line.
 The renderer measures the delay between an action and the display of the view that answers it, and hands
 it once to the bridge with the next action (`window.__send(action, { client_ms })`); the MCP App bridge
 passes it to `panel_action` as `client_ms`, the VS Code bridge to the extension, which does the same.

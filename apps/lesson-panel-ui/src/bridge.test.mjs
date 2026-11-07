@@ -265,3 +265,31 @@ test("a host that refuses the message still gets the ask action, whose notice se
   assert.equal(mute.events.some(event => event[0] === "message"), false);
   mute.dom.window.close();
 });
+
+// Walkthrough 2026-11-07: after a server restart, an action on the old session_id fails with « session not found ».
+// The panel says so; its reopen button opens the same lesson again for the same learner, once, on the learner's click.
+test("a lost session shows the notice; reopen sends open_lesson_panel with the view's bundle_ref and learner_id", async () => {
+  const requests = [];
+  const lost = { isError: true, content: [{ type: "text", text: JSON.stringify({ error: "session not found: one (the server may have restarted, or the session was closed): call start_lesson_session…" }) }] };
+  const m = setup({
+    getHostContext: () => ({ locale: "en-US" }),
+    callServerTool: async request => {
+      requests.push(request);
+      if (request.name === "panel_action") return lost;
+      return { structuredContent: { panel: { ...initial, session_id: "two", scene: { ...initial.scene, title: "Resumed scene" } } } };
+    },
+  });
+  const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: { ...initial, surface: { rank: 3, kind: "panel", available: ["text", "panel"] } } } });
+  await bridge.act({ type: "hint" });
+  const doc = m.dom.window.document;
+  assert.ok(doc.querySelector(".session-lost"), "the notice replaces the scene");
+  assert.match(doc.querySelector(".session-lost").textContent, /Session lost/);
+  assert.equal(requests.length, 1, "nothing is retried on its own");
+  doc.querySelector(".session-lost .reopen-lesson").click();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(requests[1], { name: "open_lesson_panel", arguments: { bundle_ref: "course", learner_id: "learner", locale: "en", surface: "panel" } });
+  assert.match(doc.body.textContent, /Resumed scene/);
+  assert.equal(doc.querySelector(".session-lost"), null);
+  m.dom.window.close();
+});

@@ -10,7 +10,8 @@ et fins de leçon. Le build classique conserve les messages historiques pour les
 Pour une vue version 2, le renderer de leçon affiche aussi : une ligne d'orientation au-dessus du rail de
 progression (le `status_line` de la vue ; le rail garde ses segments et perd son propre libellé, l'étape
 n'est donc dite qu'une fois) ; qui signe la leçon, au-dessus de la scène, et qui a évalué la réponse,
-au-dessus d'un verdict ; l'échelle d'aide sous les contrôles de réponse, un bouton par échelon, chacun avec
+au-dessus d'un verdict (un verdict par clé dit de qui est la clé : la clé rédigée par l'IA, la clé que
+l'apprenant a rédigée, ou la clé de l'auteur pour la leçon d'un enseignant) ; l'échelle d'aide sous les contrôles de réponse, un bouton par échelon, chacun avec
 son coût ou la raison pour laquelle il est fermé ; et « Poser une question », qui envoie l'action `ask`.
 Un échelon fermé est `aria-disabled`, pas `disabled` : il prend le focus clavier, sa raison peut donc être
 lue, et l'actionner n'envoie rien. Vient en dernier une région « Réglages », tirée des actions que la vue
@@ -18,7 +19,14 @@ propose et de rien d'autre : « Silencieux », « Normal », « Accompagné » (
 vue enfoncée), FR et EN (`setLanguage`, la `locale` de la vue enfoncée), et un champ de minutes avec
 « Replanifier » (`replan {minutes}`, de 1 à 600). Ces contrôles ne répondent à rien : ils restent actifs
 quand une réponse est attendue, et le retour déjà quitté ne revient pas quand leur vue revient.
-Chaque contrôle s'atteint avec Tab, dans l'ordre de lecture. Le renderer
+Chaque contrôle s'atteint avec Tab, dans l'ordre de lecture. Une erreur d'action dont le message
+commence par `session not found` (le serveur a redémarré ou la séance a été fermée ; l'enveloppe JSON
+`{"error": …}` de l'outil est d'abord ouverte, et rien n'est lu après le préfixe) remplace la scène,
+réglages compris, par l'avis « Séance perdue » et un bouton « Rouvrir la leçon » qui envoie `reopen` une
+fois, sur un clic ; rien n'est relancé tout seul. Le pont MCP App répond à `reopen` par
+`open_lesson_panel` avec le `bundle_ref`, le `learner_id` et le `surface` de la dernière vue, dans la
+langue courante ; le pont VS Code le passe à l'extension. Toute autre erreur d'action garde la scène et la
+ligne d'état « Échec de l'action ». Le renderer
 mesure le délai entre une action et l'affichage de la vue qui y répond, et le remet une fois au pont avec
 l'action suivante (`window.__send(action, { client_ms })`) ; le pont MCP App le passe à `panel_action` dans
 `client_ms`, le pont VS Code à l'extension, qui fait de même.

@@ -173,6 +173,32 @@ test("the pane draws the attention levels, the languages and the replan field a 
   }
 });
 
+// Walkthrough 2026-11-07: an action on a session the server lost shows the notice, the reopen button and the command,
+// in place of the stale scene; any other action error keeps its error line.
+test("a lost session shows the notice, a reopen button and the command; another error keeps its line", async ($, on) => {
+  const LOST: StudiumPanelView = {
+    ...PANEL, kind: "error", message: "session not found: sid-42 (the server may have restarted, or the session was closed): call start_lesson_session…",
+  };
+  let stored: StudiumPanelView = LOST;
+  on("state.get", () => ({ value: { value: { shape: "panel-view-1", value: stored }, version: 1 } }));
+
+  for (const surface of ["terminal", "desktop", "vscode", "mobile"] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface });
+    expect(await ui.find({ type: "Text", text: /^Séance perdue \(le serveur a redémarré ou la séance a été fermée\)\./ })).toBeDefined();
+    expect(await ui.find({ type: "Button", key: "reopen" })).toBeDefined();
+    expect(await ui.find({ type: "Text", text: /\/studium atomistique-l1\/lesson\.json/ })).toBeDefined();
+    expect(await ui.find({ type: "Button", key: "hint" })).toBeUndefined();
+    expect(await ui.find({ type: "Text", text: /sid-42/ })).toBeUndefined();
+    await ui.unmount();
+  }
+
+  stored = { ...PANEL, kind: "error", message: "offline" };
+  const ui = await $.ui.mount({ ...PANE, surface: "desktop" });
+  expect(await ui.find({ type: "Text", text: /^offline$/ })).toBeDefined();
+  expect(await ui.find({ type: "Button", key: "reopen" })).toBeUndefined();
+  await ui.unmount();
+});
+
 test("a stored value with an older shape is declined cleanly", async ($, on) => {
   on("state.get", () => ({ value: { value: PANEL, version: 1 } }));
   const ui = await $.ui.mount({ ...PANE, surface: "desktop" });

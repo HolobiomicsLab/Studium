@@ -51,7 +51,10 @@ Le panneau, le chat et le notebook lancent le serveur de leçons de la même fa�
 `request_hint`, puis affiche la scène suivante. Le panneau traite les actions de l'apprenant une à une,
 désactive les contrôles pendant un tour en cours, garde les erreurs récupérables à côté de la scène et
 ferme une connexion qui finit de s'ouvrir après la fermeture du panneau. Un échec au démarrage indique
-le canal de sortie et la commande à relancer.
+le canal de sortie et la commande à relancer. Quand une action atteint une séance que le serveur ne
+connaît plus (`session not found`), l'extension passe ce motif au panneau, qui remplace la scène par
+« Séance perdue » et un bouton « Rouvrir la leçon » ; ce bouton ferme le panneau et ouvre la même leçon
+dans un nouveau (avec un stockage durable, l'apprenant reprend où il en était).
 
 ## Commandes
 

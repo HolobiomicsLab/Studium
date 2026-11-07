@@ -1408,6 +1408,46 @@ async function axePass(): Promise<void> {
   expect(m.text().includes(ph("pane_completion_next", { date: words })), `the end screen shows the date the rating produced (got ${m.$(".completion-review")?.textContent})`);
 }
 
+// Walkthrough 2026-11-07: an action on a session the server no longer knows (extension.ts forwards the server's
+// « session not found » reason) replaces the scene with the notice and a reopen button; the button posts `reopen`
+// once, on a click; any other error keeps the generic status line.
+{
+  const m = mount();
+  m.render(baseState(quiz("qA", "Quiz A")));
+  choose(m, 0);
+  const before = m.sent.length;
+  m.post({ type: "action_error", action: "respond", message: "session not found: sid-42 (the server may have restarted, or the session was closed): call start_lesson_session" });
+  expect(!!m.$(".session-lost") && m.$(".session-lost")?.getAttribute("role") === "alert", "a lost session shows its notice as an alert");
+  expect(m.$(".session-lost p")?.textContent === FR.pane_session_lost, `the notice is the French phrase (got ${m.$(".session-lost p")?.textContent})`);
+  expect(!m.$(".scene-head") && !m.$(".settings"), "the stale scene and the settings are gone");
+  expect(!m.text().includes("sid-42"), "the server's own words are not shown");
+  expect(m.sent.length === before, "nothing is retried on its own");
+  const reopen = m.$(".session-lost .reopen-lesson");
+  expect(reopen?.textContent === FR.pane_reopen_lesson, "the notice offers « Rouvrir la leçon »");
+  m.click(reopen);
+  expect(posted(m, "reopen").length === 1 && m.sent.length === before + 1, "the button posts reopen once");
+  const other = mount();
+  other.render(baseState(quiz("qA", "Quiz A")));
+  choose(other, 0);
+  other.post({ type: "action_error", action: "respond", message: FR.pane_retry });
+  expect(!other.$(".session-lost") && !!other.$(".scene-head"), "an unrelated error keeps the scene, without the notice");
+}
+// Walkthrough 2026-11-07: the verdict chip of an AI-drafted lesson names the AI's key, as the conversation does; a
+// teacher's lesson keeps « Évalué par la clé de l'auteur ».
+{
+  const voices = (drafted_by: string) => ({ scene: { kind: "author", name: null, reviewed: false, drafted_by }, verdict: { kind: "key" } });
+  const ai = mount();
+  answered(ai, quiz("qA", "Quiz A"), { id: "cB", type: "concept", title: "B", markdown: "x" },
+    { correct: true, assessed_by: "key", feedback: "Oui." },
+    { firstExtra: { authoring: { mode: "self_study", drafted_by: "agent", notice: "N" } }, nextExtra: { voices: voices("agent") } });
+  expect(ai.$(".feedback-step .voice-verdict")?.textContent === FR.pane_voice_key_ai, `an AI-drafted key is named (got ${ai.$(".feedback-step .voice-verdict")?.textContent})`);
+  expect(!ai.$(".feedback-key-note"), "and the L-7 note does not say it a second time");
+  const teacher = mount();
+  answered(teacher, quiz("qA", "Quiz A"), { id: "cB", type: "concept", title: "B", markdown: "x" },
+    { correct: true, assessed_by: "key", feedback: "Oui." }, { nextExtra: { voices: voices("teacher") } });
+  expect(teacher.$(".feedback-step .voice-verdict")?.textContent === FR.pane_voice_key, "a teacher's key stays the author's key");
+}
+
 axePass().catch((e) => { expect(false, `the axe pass ran (${e?.message ?? e})`); }).finally(() => {
   expect(missingKeys.size === 0, `every phrase key the pane tests name exists in both catalogues (missing: ${[...missingKeys].join(", ")})`);
 

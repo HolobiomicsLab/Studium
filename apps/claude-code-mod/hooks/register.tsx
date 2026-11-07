@@ -33,6 +33,7 @@ import {
   replanAction,
   settingsControls,
   sceneMarkdown,
+  sessionLostNotice,
   sourcesMarkdown,
   voiceChip,
   type HelpControl,
@@ -153,6 +154,25 @@ async function applyAction(
   }
 }
 
+/** Open the same lesson again for the same learner after the server lost the session (walkthrough 2026-11-07). The
+ * server resumes the learner's progress; a failure stays on the notice, with its reason in a toast. */
+async function reopenLesson(
+  $: EngineInterface,
+  open: { bundle_ref: string; learner_id: string; surface: "pane" },
+  pending: string,
+): Promise<void> {
+  const current = await readPanel($);
+  if (!current || current.pending) return;
+  await update($, panelState, view => view ? { ...view, pending } : view);
+  try {
+    const panel = panelFromMcpResult(await $.mcp.call(MCP_SERVER, "open_lesson_panel", open));
+    await replacePanel($, panel);
+  } catch (error) {
+    await update($, panelState, view => view ? { ...view, pending: undefined } : view);
+    $.ui.toast(errorMessage(error), { timeoutMs: 8_000 });
+  }
+}
+
 async function toggleDeckFlag($: EngineInterface, sceneId: string, token: string): Promise<void> {
   await update($, deckFlags, current => {
     const tokens = current?.sceneId === sceneId ? current.tokens : [];
@@ -189,6 +209,20 @@ async function renderPane($: EngineInterface, event: RenderInput<"Pane">) {
   const view = await readPanel($);
   if (!view) return <Box><Text>No compatible lesson view. Run /studium &lt;bundle_ref&gt;.</Text></Box>;
   const isDimmed = view.pending !== undefined;
+  // Walkthrough 2026-11-07: the server lost the session. The notice replaces the stale scene and its controls; the
+  // reopen button is the learner's to press, so nothing loops.
+  const lost = sessionLostNotice(view);
+  if (lost) {
+    return (
+      <Box flexDirection="column" gap={1}>
+        <Text size="title" weight="bold" dimColor={isDimmed}>{view.lesson_title}</Text>
+        {view.pending && <Text color="warning" dimColor>{view.pending}</Text>}
+        <Text key="session-lost" color="warning">{lost.notice}</Text>
+        <Button key="reopen" variant="primary" dimColor={isDimmed} onPress={() => reopenLesson($, lost.open, lost.button)}>{lost.button}</Button>
+        <Text key="reopen-command" dimColor>{lost.command}</Text>
+      </Box>
+    );
+  }
   const flags = await read($, deckFlags);
   const isEndArmed = await read($, endConfirmation);
   const image = event.surface === "terminal" ? $.ui.resolve(event).Image : undefined;

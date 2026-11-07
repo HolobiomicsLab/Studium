@@ -2,10 +2,22 @@
 // (C4: the learner's self-rating of a recall). No VS Code APIs.
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/pane-messages.driver.ts
 import { assetBundleRef, parseRateRecall, reviewContext } from "./pane-messages.js";
+import { sessionLostReason } from "./session-lost.js";
 
 const failures: string[] = [];
 let checks = 0;
 function expect(cond: boolean, msg: string) { checks++; if (!cond) failures.push(msg); }
+
+// Walkthrough 2026-11-07: the tool error the extension forwards to the pane when the server lost the session. The
+// MCP client prefixes it with the tool's name (mcp-connect.ts parseToolResult); only « session not found » is matched.
+{
+  const reason = "session not found: sid-42 (the server may have restarted, or the session was closed): call start_lesson_session";
+  expect(sessionLostReason(new Error(`panel_action: ${reason}`)) === reason, "a lost session behind the tool's name is recognised, its reason kept");
+  expect(sessionLostReason(new Error(reason)) === reason, "and without the tool's name");
+  expect(sessionLostReason(new Error("panel_action: request timed out")) === null, "another tool error is not a lost session");
+  expect(sessionLostReason(new Error("panel_action: the scene says session not found")) === null, "the words elsewhere in the message do not count");
+  expect(sessionLostReason("nope") === null && sessionLostReason(undefined) === null, "a non-error is not a lost session");
+}
 
 for (const grade of ["again", "hard", "good", "easy"]) {
   const r = parseRateRecall({ type: "rateRecall", sceneId: "s3", grade });

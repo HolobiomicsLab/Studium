@@ -4268,6 +4268,27 @@ Checked: every repository check passes on this tree at its first run (install, b
 
 Not verified: no host has shown the controls; the layout at 375 px was not looked at.
 
+## 2026-11-07 (lost session, key chip) — The rank-3 surfaces say when a session is lost, and whose key assessed an answer
+
+INT-STUDIUM-058, findings 10 and 13 of the cognitive walkthrough of the same day. An action on a
+session the server no longer knows (an error beginning « session not found », after unwrapping the
+tool's JSON envelope or the VS Code tool-name prefix) now replaces the stale scene on the MCP Apps
+panel, the Claude Code pane and the VS Code pane with a FR/EN notice (« Séance perdue … Rouvre la
+leçon : ta progression est conservée. ») and a reopen control: `open_lesson_panel` with the view's
+`bundle_ref` and `learner_id` (MCP App bridge, mod; the mod also names `/studium <bundle_ref>`), or
+a fresh `openLesson` in a new pane (VS Code). Nothing is retried on its own. A key verdict's chip
+now says whose key it is (`pane_voice_key_ai` for an AI-drafted lesson, `pane_voice_key_own` for a
+learner's, the author's key for a teacher's), as the conversation text does.
+
+Test decisions: none (no existing assertion changed). Panel UI 39 → 44, mod 46 → 50 and plugin
+7 → 8, VS Code drivers extended; two driver checks and one mod spec were written after their
+implementation and not seen failing.
+
+Checked by the subagent that wrote it (Opus, 7 Nov, Node 24.16): `pnpm --filter @studium/lesson-panel build` and `test` (52), `pnpm --filter @studium/lesson-panel-ui build` and `test` (44 pass, 0 fail), `pnpm --filter studium-vscode test` (every driver OK; extension-host 81 assertions), `pnpm --filter @studium/claude-code-mod test` (50) and `test:plugin` (8 pass), both typechecks clean, `pnpm lint` 0 errors. The lead's full gates run after the three walkthrough commits of the day, before the push.
+
+Not verified: no real host has shown the notice or the reopen control; the tests inject the error
+text; the MCP App reopen relies on `callServerTool("open_lesson_panel")` as `pickCourse` does.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

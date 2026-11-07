@@ -336,3 +336,7 @@ body { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   .loading-mark, .action-status.pending::before { animation: none; }
 }
+/* Walkthrough 2026-11-07: a session the server no longer knows; the notice replaces the scene. */
+.session-lost { margin: var(--st-space-6) 0; padding: var(--st-space-5) var(--st-space-6); border: 1px solid var(--st-border); border-inline-start: 3px solid var(--st-warning); border-radius: var(--st-radius-medium); background: var(--st-surface); }
+.session-lost p { margin: var(--st-space-2) 0; }
+.session-lost .reopen-lesson { margin-top: var(--st-space-3); }
