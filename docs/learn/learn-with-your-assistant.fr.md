@@ -127,7 +127,8 @@ L'assistant appelle `get_study_plan` dans votre langue, qui liste les révisions
 nomme la seule étape à faire maintenant. `start_review_session` joue ensuite toutes les révisions dues, toutes
 leçons confondues. Voir [réviser dans la durée](review-over-time.fr.md).
 
-Si vous reprenez simplement une leçon, son premier écran le dit et, quand des révisions sont dues, les propose :
+Si vous reprenez simplement une leçon, son premier écran le dit et, quand des révisions sont dues, les propose au début
+de la séance, ou à la première pause qui suit quand la séance a commencé sur une question, une fois par séance :
 
 > **Proposition :** 1 notion à revoir aujourd'hui (proposition `review_due:start`)
 > _Tu peux accepter, ou dire « plus tard »._

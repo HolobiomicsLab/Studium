@@ -4450,6 +4450,27 @@ Checked by the lead on the whole tree (both missions and their fixes), 7 Nov 13:
 
 Not verified: a teacher using it; the page in a browser.
 
+## 2026-11-07 (due review at the first pause) — A session begun on a question still proposes the due review
+
+INT-STUDIUM-058 § 2.6, open point since `8acf9f3`, decided by the owner on 7 Nov (an Écart to the
+spec's closed trigger list: « au début de séance — ou à la première pause qui suit, si le début
+attendait une réponse — et à la fin »). `promptCandidates` puts `review_due:start` forward at
+`session_start` and at every `pause`; the book's once-per-session rule on the id keeps it to one
+proposal: held while an answer or a self-rating is owed, shown at the next reading, ignored when its
+scene goes by, never again in that session. `docs/learn/learn-with-your-assistant` (FR/EN) say so.
+Written by a Codex DeepSeek V4.1 Flash mission (`TASK-review-due-at-pause.md`), reviewed by an Opus
+reader and the lead.
+
+Tests, each seen red first: `prompts.test.ts` (a pause with two reviews due yields `review_due:start`,
+none with zero) and `host.prompts.test.ts` (a lesson taken up again on its second question 400 days
+later: nothing while the answer is owed, the proposal at the first pause, the same open proposal on a
+second call, `ignored` when the scene goes by, never again); host 712 → 713. Test decision: the pause
+assertion that read « not in the middle of a lesson » encoded the limit and now expects the candidate.
+
+Checked by the lead on the final tree, 7 Nov: the eleven gates (`pnpm install --frozen-lockfile`, `build:libs`, `build`, `lint`, `pnpm -r test` — host 713 —, `tools/pytest_all.py` 16 suites, `bundle_lint.test.sh`, `docs/check.mjs` with its generated regions, headless smoke 19/19, `lesson-mcp bundle`, `panel-probe.mjs`), then `pnpm test:tools` (9), all green at the first run. The worker's own run could not complete `docs/check.mjs` (the sandbox refuses the `tsx` IPC socket).
+
+Not verified: no learner has been proposed a review mid-session on a real surface.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

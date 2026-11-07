@@ -117,8 +117,12 @@ describe("what triggers a proposal", () => {
     expect(promptCandidates({ ...FACTS, moment: "session_start", reviewsDue: 1 })[0]?.reason).toBe("1 notion à revoir aujourd'hui");
     expect(promptCandidates({ ...FACTS, moment: "session_start", reviewsDue: 3, locale: "en" })[0]?.reason).toBe("3 concepts to review today");
     expect(promptCandidates({ ...FACTS, moment: "session_start", reviewsDue: 0 })).toEqual([]);
-    // Not in the middle of a lesson; again when the session ends.
-    expect(promptCandidates({ ...FACTS, moment: "pause", reviewsDue: 3 })).toEqual([]);
+    // The start of a session may have waited for an answer: the first pause puts them forward again.
+    expect(promptCandidates({ ...FACTS, moment: "pause", reviewsDue: 2 })).toEqual([
+      { id: "review_due:start", kind: "review_due", reason: "2 notions à revoir aujourd'hui", expires: "scene" },
+    ]);
+    expect(promptCandidates({ ...FACTS, moment: "pause", reviewsDue: 0 })).toEqual([]);
+    // Again when the session ends.
     expect(promptCandidates({ ...FACTS, moment: "session_end", reviewsDue: 2 })).toEqual([
       { id: "review_due:end", kind: "review_due", reason: "2 notions à revoir aujourd'hui", expires: "session" },
     ]);

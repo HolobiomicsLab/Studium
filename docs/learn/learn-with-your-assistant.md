@@ -119,7 +119,8 @@ Open a new conversation and ask "What should I study with Studium today?". The a
 step to take now. `start_review_session` then plays every review due, across all your lessons. See
 [review over time](review-over-time.md).
 
-If you simply take a lesson up again, its first screen says so, and when reviews are due it proposes them:
+If you simply take a lesson up again, its first screen says so, and when reviews are due it proposes them at the start
+of the session, or at the first pause after it when the session started on a question, once per session:
 
 > **Suggestion:** 1 concept to review today (suggestion `review_due:start`)
 > _You can accept, or say “later”._

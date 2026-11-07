@@ -177,15 +177,16 @@ export function resumeNoticeCandidate(step: { index: number; total: number }, lo
 }
 
 /** The proposals the facts of a moment call for. The list of triggers is closed (spec § 2.6): reviews
- * due at the start and at the end of a session; a session longer than the learner chose; the end of
- * a lesson; forms the client could show while the lesson is played in the conversation. Whether each
- * one goes out is the book's decision. */
+ * due at the start of a session or, when the start waited for an answer, at the first pause after it,
+ * and at the end of a session; a session longer than the learner chose; the end of a lesson; forms the
+ * client could show while the lesson is played in the conversation. Whether each one goes out is the
+ * book's decision. */
 export function promptCandidates(facts: TriggerFacts): PromptCandidate[] {
   const w = WORDS[facts.locale];
   const count = (text: string, n: number) => text.replace("{n}", String(n));
   const out: PromptCandidate[] = [];
-  if (facts.reviewsDue > 0 && (facts.moment === "session_start" || facts.moment === "session_end")) {
-    const start = facts.moment === "session_start";
+  if (facts.reviewsDue > 0 && (facts.moment === "session_start" || facts.moment === "pause" || facts.moment === "session_end")) {
+    const start = facts.moment !== "session_end";
     out.push({
       id: start ? "review_due:start" : "review_due:end", kind: "review_due",
       reason: facts.reviewsDue === 1 ? w.review_one : count(w.review_many, facts.reviewsDue),

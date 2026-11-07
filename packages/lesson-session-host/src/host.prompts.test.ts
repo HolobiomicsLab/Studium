@@ -78,6 +78,34 @@ describe("the prompts of a session", () => {
     expect(host.promptRecords(sid)).toEqual([{ id: "review_due:start", kind: "review_due", scene_id: "s-c2", outcome: "ignored" }]);
   }, 20_000);
 
+  it("proposes the reviews due at the first pause when the lesson is taken up again on a question, once", async () => {
+    const root = library(lesson([concept("s-c", "c-un"), quiz("s-q", "c-un"), concept("s-c2", "c-deux"), quiz("s-q2", "c-deux"), concept("s-c3", "c-deux"), concept("s-c4", "c-deux")]));
+    const data = tmp();
+    let now = T0;
+    const start = async () => {
+      const host = new SessionHost({ bundlesRoot: root, live: false, dataDir: data, clock: { now: () => new Date(now).toISOString() } });
+      return { host, sid: (await host.create("P.json", "auto-test-prompts")).sessionId };
+    };
+    const first = await start();
+    await first.host.respond(first.sid, { kind: "ack" });                  // now on the first question
+    await first.host.respond(first.sid, { kind: "quiz_choice", choiceId: choice(first.host, first.sid, "Juste"), confidence: 2 });
+    await first.host.respond(first.sid, { kind: "ack" });                  // now on the second question
+    await first.host.close(first.sid);
+
+    now = T0 + 400 * DAY;                                                   // the learner comes back much later
+    const { host, sid } = await start();                                    // resumed on the second question
+    expect(host.currentPresentation(sid).scene).toMatchObject({ id: "s-q2", type: "quiz" });
+    expect(host.sessionPrompts(sid, ASK).filter((p) => p.kind === "review_due")).toEqual([]); // an answer is owed
+    await host.respond(sid, { kind: "quiz_choice", choiceId: choice(host, sid, "Juste"), confidence: 2 });
+    const due = { id: "review_due:start", kind: "review_due", reason: "1 notion à revoir aujourd'hui", expires: "scene" };
+    expect(host.sessionPrompts(sid, ASK)).toEqual([due]);                    // the first pause after the question
+    expect(host.sessionPrompts(sid, ASK)).toEqual([due]);                    // still open, made once
+    await host.respond(sid, { kind: "ack" });
+    expect(host.sessionPrompts(sid, ASK)).toEqual([]);                       // the scene went by
+    expect(host.promptRecords(sid)).toEqual([{ id: "review_due:start", kind: "review_due", scene_id: "s-c3", outcome: "ignored" }]);
+    expect(host.sessionPrompts(sid, ASK).filter((p) => p.kind === "review_due")).toEqual([]); // not proposed again
+  }, 20_000);
+
   it("offers forms once when the lesson is played in the conversation, at a pause and never over a question", async () => {
     const { host, sid } = await open(lesson([concept("s-c", "c-un"), quiz("s-q", "c-un"), concept("s-c2", "c-deux"), concept("s-c3", "c-deux")]));
     await host.respond(sid, { kind: "ack" });                              // now on the question
