@@ -19,6 +19,7 @@ export const REVIEW_RECEIPT_SCHEMA = "studium/review-receipt/v1";
 export const CONSEQUENCES = ["blocks", "grading", "wording", "media"] as const;
 export type Consequence = (typeof CONSEQUENCES)[number];
 export type WhatChanged = "new" | "changed" | "unchanged";
+export type ReviewVerdict = "ok" | "to_fix";
 
 export interface ReviewItem {
   /** Scene id (`#<index>` when the scene has none). */
@@ -27,6 +28,8 @@ export interface ReviewItem {
   sha256?: string;
   consequence: Consequence;
   what_changed: WhatChanged;
+  /** Verdict from the last receipt, only while that exact scene fingerprint is unchanged. */
+  last_verdict?: ReviewVerdict;
   holds_key: boolean;
   checks: Array<{ check: "schema" | "todo" | "lint"; passed: boolean }>;
   /** What the teacher is asked to judge: the scene's public face, derived on each read (never stored in
@@ -49,12 +52,14 @@ export interface ReviewReceipt {
   schema: typeof REVIEW_RECEIPT_SCHEMA;
   reviewer: string; decided_at: string; bundle_ref: string; bundle_sha256: string;
   decision: "approved" | "returned";
-  items: Array<{ id: string; sha256: string; consequence: Consequence; opened: boolean; verdict?: "ok" | "to_fix" }>;
+  items: Array<{ id: string; sha256: string; consequence: Consequence; opened: boolean; verdict?: ReviewVerdict }>;
   opened: number; not_opened: number; note?: string;
 }
 
 /** The last receipt as the inbox shows it: who decided what, never the items' fingerprints. */
-export type ReceiptSummary = Pick<ReviewReceipt, "reviewer" | "decided_at" | "decision" | "bundle_sha256" | "opened" | "not_opened">;
+export type ReceiptSummary = Pick<ReviewReceipt, "reviewer" | "decided_at" | "decision" | "bundle_sha256" | "opened" | "not_opened"> & {
+  verdicts: Record<ReviewVerdict, number>;
+};
 
 export interface ReviewInbox {
   items: ReviewItem[];
@@ -185,8 +190,8 @@ const sceneIndexOf = (path: string): number | null => {
  * the path `scenes.<index>`; the message itself is never copied into the inbox. */
 export function buildReviewInbox(input: BuildReviewInboxInput): ReviewInbox {
   const scenes = Array.isArray(input.rawScenes) ? input.rawScenes : [];
-  const previous = new Map<string, string>();
-  for (const item of input.lastReceipt?.items ?? []) previous.set(item.id, item.sha256);
+  const previous = new Map<string, ReviewReceipt["items"][number]>();
+  for (const item of input.lastReceipt?.items ?? []) previous.set(item.id, item);
   const lintErrors = (input.lintFindings ?? []).filter((f) => f.level === "ERROR").map((f) => f.message);
   const schemaFailed = new Set<number>();
   if (!input.schemaValid) {
@@ -209,10 +214,13 @@ export function buildReviewInbox(input: BuildReviewInboxInput): ReviewInbox {
     const consequence: Consequence = !(schemaOk && todoOk && lintOk) ? "blocks"
       : holdsKey ? "grading" : hasRenderAssets(record) ? "media" : "wording";
     const before = previous.get(id);
+    const whatChanged: WhatChanged = before === undefined ? "new" : before.sha256 === sha ? "unchanged" : "changed";
     const item: ReviewItem = {
-      id, consequence, what_changed: before === undefined ? "new" : before === sha ? "unchanged" : "changed", holds_key: holdsKey, checks,
+      id, consequence, what_changed: whatChanged, holds_key: holdsKey, checks,
       preview: scenePreview(scene, id),
     };
+    // A changed or new scene must not inherit a judgement made on different content.
+    if (whatChanged === "unchanged" && before?.verdict) item.last_verdict = before.verdict;
     if (!holdsKey) item.sha256 = sha;
     return item;
   });
@@ -225,11 +233,13 @@ export function buildReviewInbox(input: BuildReviewInboxInput): ReviewInbox {
   };
   for (const item of items) { counts.consequence[item.consequence] += 1; counts.what_changed[item.what_changed] += 1; }
   const r = input.lastReceipt;
+  const receiptVerdicts: ReceiptSummary["verdicts"] = { ok: 0, to_fix: 0 };
+  for (const item of r?.items ?? []) if (item.verdict) receiptVerdicts[item.verdict] += 1;
   const inbox: ReviewInbox = {
     items,
     last_receipt: r ? {
       reviewer: r.reviewer, decided_at: r.decided_at, decision: r.decision, bundle_sha256: r.bundle_sha256,
-      opened: r.opened, not_opened: r.not_opened,
+      opened: r.opened, not_opened: r.not_opened, verdicts: receiptVerdicts,
     } : null,
     counts,
   };

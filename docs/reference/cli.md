@@ -36,8 +36,8 @@ chose into a lesson, offline and without a model. The usual order is
 | `prepare` | `--passages`, `--out`, `--title` | `--target`, `--capsule`, `--task-id`, `--self-study` (automatic for passages from `passages`) |
 | `check` | `--packet`, `--response`, `--out` | `--force`; `--quiet` (print only the output path) or `--json` (one machine-readable report) |
 | `bundle` | `--course`, `--out` | `--validated-by`, `--force`, `--no-default-rules`, `--self-study`, `--note TEXT` (needs `--self-study`) |
-| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...`, `--opened ID[,ID...]` (repeatable), `--note TEXT`, `--lang {en,fr}` |
-| `receipt` | `--bundle LESSON_JSON`, `--reviewer NAME`, `--decision returned` | `--opened ID[,ID...]` (repeatable), `--note TEXT`, `--lang {en,fr}` |
+| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...`, `--verdict ID=ok\|to_fix[,ID=...]` (repeatable), `--opened ID[,ID...]` (repeatable), `--note TEXT`, `--lang {en,fr}` |
+| `receipt` | `--bundle LESSON_JSON`, `--reviewer NAME`, `--decision returned` | `--verdict ID=ok\|to_fix[,ID=...]` (repeatable), `--opened ID[,ID...]` (repeatable), `--note TEXT`, `--lang {en,fr}` |
 
 What to expect:
 
@@ -55,8 +55,11 @@ What to expect:
   `approval.json` as its last line. A name containing `@` adds `note: this is an e-mail address;
   learners will see it — prefer a name (--validated-by "Prénom Nom")`; it is not refused.
   It also writes the review receipt `reviews/<date>-<sha>.json` next to the bundle (one item per
-  scene: fingerprint, consequence, opened or not; `--opened` names the scenes read, an unknown id is
-  refused before any write) and warns about `grading` scenes not opened. A receipt is never
+  scene: fingerprint, consequence, opened or not, and an optional per-item verdict; `--opened` names
+  the scenes read and `--verdict ID=ok|to_fix` records the teacher's judgement. An unknown id or
+  verdict value is refused before any write. `approve` also refuses a `to_fix` verdict: use
+  `receipt --decision returned` instead. When verdicts are present, the summary counts those marked
+  `ok` and `to_fix`. It warns about `grading` scenes not opened. A receipt is never
   overwritten: the same bytes decided twice the same day are refused.
 - `receipt --decision returned` is for a teacher who sends a lesson back (the teacher dashboard
   composes it): it writes only the receipt, bound to the current bytes, with no `approval.json` and

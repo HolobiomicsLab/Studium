@@ -97,6 +97,8 @@ affichées, `experience_packet.py approve` et `experience_packet.py receipt --de
 la leçon), et le reçu est écrit quand l'enseignant en lance une. Les empreintes des scènes n'atteignent
 jamais le navigateur.
 
+Correct et À corriger passent dans ces commandes sous la forme d'une seule option `--verdict`, ordonnée comme les scènes, puis dans le reçu ; une ligne inchangée montre l'avis précédent, tandis qu'À corriger place la commande de renvoi en premier puisque la CLI refuse l'approbation.
+
 Le panneau d'approbation a un champ pour le nom de l'enseignant : les deux commandes le reprennent, et le
 panneau montre la ligne que les apprenants liront sur chaque écran, « Leçon validée par NOM » / "validated
 by NOM", avec une note quand le nom est une adresse électronique (les apprenants la verraient). Rien n'est

@@ -4424,6 +4424,32 @@ Checked by the lead on the whole tree (both missions and their fixes), 7 Nov 13:
 
 Not verified: a real MCP client displaying the map form.
 
+## 2026-11-07 (verdicts in the receipt) — The teacher's per-item verdicts reach the review receipt
+
+INT-STUDIUM-058 lot 6, walkthrough reserve, written by a Codex Sol (max) mission (one Sol leaf for
+the Python half) from the hub brief `TASK-verdicts-in-receipt.md`, reviewed by an Opus reader (no
+bug; a page test, a stronger assertion, two U+202F and a verdict run in the frozen-clock test,
+applied by a Codex DeepSeek V4.1 Flash mission, `TASK-verdicts-fixes.md`), read by the lead.
+`approve` and `receipt` take `--verdict ID=ok|to_fix` (repeatable, comma-separated);
+unknown id/value refused (`unknown_verdict`, FR/EN); the receipt item carries `"verdict"` only
+when given (a receipt without verdicts is byte-identical to before; parity gate unchanged);
+`approve` refuses a `to_fix` verdict in one line; the summary adds the verdict counts. The reader
+gives `items[].last_verdict` only on an unchanged item and `last_receipt.verdicts {ok, to_fix}`;
+`review_lesson` passes them through. The dashboard row shows the previous verdict, the commands
+carry one scene-ordered `--verdict` flag before `--opened`, a `to_fix` verdict puts the return
+command first with a one-line explanation; the review page passes `lastVerdict` to the row (one
+line by the lead, outside the mission's allowed writes). Docs: `docs/reference/cli`,
+`docs/teach/review-and-approve`, dashboard README (FR/EN).
+
+Test decisions: the receipt-summary expectations take the verdict counts; the component's
+no-grading-id assertion is narrowed to `--opened` (ids now occur under `--verdict` by design); the
+obsolete « verdict stays here » note is replaced. Four Python, one host and five dashboard tests
+seen red first; Python 131, host 711 → 712, dashboard 151 → 156.
+
+Checked by the lead on the whole tree (both missions and their fixes), 7 Nov 13:13: the eleven gates (`pnpm install --frozen-lockfile`, `build:libs`, `build`, `lint`, `pnpm -r test` — host 712, lesson-mcp 181 passed 2 skipped, dashboard 156, lesson-session 446 — `tools/pytest_all.py` 16 suites 0 failing, `bundle_lint.test.sh`, `docs/check.mjs`, headless smoke 19/19, `lesson-mcp bundle`, `panel-probe.mjs`), then `pnpm test:tools` (9), dashboard `vitest run` (156) and the mod's `test:plugin` (8), all green. The Codex workers' own runs were inside a sandbox that refuses `127.0.0.1` binds and the `tsx` IPC socket; the gates above are the ones that count.
+
+Not verified: a teacher using it; the page in a browser.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

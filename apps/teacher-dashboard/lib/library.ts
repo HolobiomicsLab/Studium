@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import { LessonBundleSchema } from "../../../packages/lesson-bundle-schema/src";
 import { keyClassOf, type KeyClass } from "../../../packages/lesson-session-host/src/key-class";
 import { lintBundleData, placeholderPaths } from "../../../tools/bundle_lint.mjs";
-import { buildReviewInbox, readLastReceipt, type Consequence, type ReviewReceipt, type ReviewInbox, type ScenePreview, type WhatChanged } from "../../../packages/lesson-session-host/src/review-inbox";
+import { buildReviewInbox, readLastReceipt, type Consequence, type ReviewReceipt, type ReviewInbox, type ReviewVerdict, type ScenePreview, type WhatChanged } from "../../../packages/lesson-session-host/src/review-inbox";
 
 export type LessonStatus = "draft" | "checked" | "approved";
 export type ReviewSource = { title: string; url?: string };
@@ -19,12 +19,13 @@ export type OutlineScene = { id: string; title: string; type: string; concepts: 
  * `preview` is the scene's public face (title, kind, learner text, choice texts), never a key. */
 export type InboxItem = {
   id: string; consequence: Consequence; whatChanged: WhatChanged; holdsKey: boolean;
+  lastVerdict?: ReviewVerdict;
   checks: Array<{ check: "schema" | "todo" | "lint"; passed: boolean }>;
   preview: ScenePreview;
 };
 /** Linter findings as the inbox reads them: located by their message, never copied to a page. */
 export type LintFindings = ReadonlyArray<{ level: string; code?: string; message: string }>;
-export type InboxReceipt = { reviewer: string; decidedAt: string; decision: "approved" | "returned"; opened: number; notOpened: number };
+export type InboxReceipt = { reviewer: string; decidedAt: string; decision: "approved" | "returned"; opened: number; notOpened: number; verdicts: { ok: number; toFix: number } };
 export type LessonInbox = { items: InboxItem[]; lastReceipt: InboxReceipt | null; counts: ReviewInbox["counts"]; unreadableReceipts: number };
 export type LessonInspection = {
   title: string; language: string; bundleId: string; sourcePlanId: string;
@@ -133,8 +134,10 @@ export function inspectLesson(
   const last = built.last_receipt;
   const inbox: LessonInbox = {
     // Whitelist projection: sha256 is dropped from every item, not only key-holding ones; the page does not need it.
-    items: built.items.map((item) => ({ id: item.id, consequence: item.consequence, whatChanged: item.what_changed, holdsKey: item.holds_key, checks: item.checks.map((c) => ({ check: c.check, passed: c.passed })), preview: item.preview })),
-    lastReceipt: last ? { reviewer: last.reviewer, decidedAt: last.decided_at, decision: last.decision, opened: last.opened, notOpened: last.not_opened } : null,
+    items: built.items.map((item) => ({ id: item.id, consequence: item.consequence, whatChanged: item.what_changed, holdsKey: item.holds_key,
+      ...(item.last_verdict ? { lastVerdict: item.last_verdict } : {}), checks: item.checks.map((c) => ({ check: c.check, passed: c.passed })), preview: item.preview })),
+    lastReceipt: last ? { reviewer: last.reviewer, decidedAt: last.decided_at, decision: last.decision, opened: last.opened, notOpened: last.not_opened,
+      verdicts: { ok: last.verdicts.ok, toFix: last.verdicts.to_fix } } : null,
     counts: built.counts, unreadableReceipts: built.unreadable_receipts ?? 0,
   };
   return {

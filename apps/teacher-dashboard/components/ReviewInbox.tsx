@@ -7,14 +7,15 @@
 // projection), so a verdict click is not a reading and the receipt must not attest one.
 import { createContext, useContext, useReducer, useState, type ReactNode, type SyntheticEvent } from "react";
 import { fill, messages, sceneTypeLabel, type Locale } from "@/lib/i18n";
-import { approvalCommand, placeholderName, returnCommand } from "@/lib/review-commands";
+import { approvalCommand, placeholderName, returnCommand, type ReviewVerdict } from "@/lib/review-commands";
 
-export type Verdict = "ok" | "to_fix";
+export type Verdict = ReviewVerdict;
 /** One inbox item joined with its outline entry; `index` is the scene's position in the lesson. */
 export type InboxEntry = {
   id: string; index: number; title: string; type: string;
   consequence: "blocks" | "grading" | "wording" | "media";
   whatChanged: "new" | "changed" | "unchanged";
+  lastVerdict?: Verdict;
   checks: Array<{ check: "schema" | "todo" | "lint"; passed: boolean }>;
   /** The scene's public face (lib/library.ts InboxItem.preview): learner text and choice texts, never a key. */
   preview?: { text: string; choices?: string[] };
@@ -104,6 +105,7 @@ export function ReviewInboxList({ lastReceipt, unreadableReceipts }: { lastRecei
           </div>
           <h3>{entry.title}</h3>
           <p className="inbox-item__changed"><b>{changed[entry.whatChanged]}</b> · {since} · <code>{entry.id}</code></p>
+          {entry.lastVerdict && <p className="inbox-item__previous-verdict">{fill(t.previousVerdict, { verdict: entry.lastVerdict === "ok" ? t.verdictOk : t.verdictToFix })}</p>}
           <Preview entry={entry} locale={locale} onToggle={grading ? undefined : onToggle} />
           {grading && <div className="inbox-verdict" role="group" aria-label={`${t.yourVerdict} — ${entry.title}`}>
             <button type="button" aria-pressed={verdict === "ok"} onClick={() => dispatch({ type: "verdict", id: entry.id, verdict: "ok" })}>{t.verdictOk}</button>
@@ -129,6 +131,19 @@ export function ReviewApproval({ bundlePath, initialName }: { bundlePath: string
   const shown = name.trim() || placeholderName(locale);
   const unopened = unopenedGrading(entries, state);
   const opened = openedInSceneOrder(entries, state);
+  const sceneOrder = [...entries].sort((a, b) => a.index - b.index).map((entry) => entry.id);
+  const hasToFix = Object.values(state.verdicts).some((verdict) => verdict === "to_fix");
+  const approval = <>
+    <pre className="approval-command"><code>{approvalCommand(bundlePath, locale, opened, name, state.verdicts, sceneOrder)}</code></pre>
+    {/* The voice line every learner screen carries (lesson-session-host orientation.ts voiceLine). */}
+    <p className="approval-voice">{fill(t.voicePreview, { name: shown })}</p>
+    {shown.includes("@") && <p className="approval-note">{t.voiceEmailNote}</p>}
+  </>;
+  const returned = <>
+    <h3 className="return-heading">{t.returnHeading}</h3>
+    <p>{t.returnHelp}</p>
+    <pre className="approval-command"><code>{returnCommand(bundlePath, locale, opened, name, state.verdicts, sceneOrder)}</code></pre>
+  </>;
   return <>
     {/* The live region stays in the DOM (empty once all are opened) so screen readers hear the change. */}
     <p className="inbox-warning" role="status">
@@ -138,12 +153,7 @@ export function ReviewApproval({ bundlePath, initialName }: { bundlePath: string
     <label className="approval-name">{t.validatorName}
       <input type="text" name="validated-by" autoComplete="name" value={name} onChange={(event) => setName(event.currentTarget.value)} />
     </label>
-    <pre className="approval-command"><code>{approvalCommand(bundlePath, locale, opened, name)}</code></pre>
-    {/* The voice line every learner screen carries (lesson-session-host orientation.ts voiceLine). */}
-    <p className="approval-voice">{fill(t.voicePreview, { name: shown })}</p>
-    {shown.includes("@") && <p className="approval-note">{t.voiceEmailNote}</p>}
-    <h3 className="return-heading">{t.returnHeading}</h3>
-    <p>{t.returnHelp}</p>
-    <pre className="approval-command"><code>{returnCommand(bundlePath, locale, opened, name)}</code></pre>
+    {hasToFix && <p className="approval-note">{t.toFixApprovalRefusal}</p>}
+    {hasToFix ? <>{returned}{approval}</> : <>{approval}{returned}</>}
   </>;
 }

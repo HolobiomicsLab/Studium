@@ -240,9 +240,27 @@ describe("review inbox (INT-STUDIUM-058 task 6.3)", () => {
     expect(byId.get(bundle.scenes[0].id)?.whatChanged).toBe("unchanged");
     expect(byId.get(bundle.scenes[1].id)?.whatChanged).toBe("changed");
     expect(byId.get(bundle.scenes[2].id)?.whatChanged).toBe("new");
-    expect(lesson.inbox.lastReceipt).toEqual({ reviewer: "A. Teacher", decidedAt: "2026-11-01T09:00:00Z", decision: "approved", opened: 1, notOpened: 1 });
+    expect(lesson.inbox.lastReceipt).toEqual({ reviewer: "A. Teacher", decidedAt: "2026-11-01T09:00:00Z", decision: "approved", opened: 1, notOpened: 1,
+      verdicts: { ok: 0, toFix: 0 } });
     expect(lesson.inbox.unreadableReceipts).toBe(1);
     expect(JSON.stringify(lesson.inbox)).not.toMatch(/[0-9a-f]{64}/);
+  });
+  it("projects a previous verdict only for an unchanged scene and summarizes receipt verdicts", async () => {
+    const bundle = await fixture();
+    const raw = Buffer.from(JSON.stringify(bundle));
+    const receipt = {
+      schema: "studium/review-receipt/v1" as const, reviewer: "A. Teacher", decided_at: "2026-11-01T09:00:00Z",
+      bundle_ref: "course/lesson.json", bundle_sha256: "a".repeat(64), decision: "returned" as const,
+      items: [
+        { id: bundle.scenes[0].id, sha256: sceneFingerprint(bundle.scenes[0]), consequence: "wording" as const, opened: true, verdict: "ok" as const },
+        { id: bundle.scenes[1].id, sha256: "0".repeat(64), consequence: "wording" as const, opened: false, verdict: "to_fix" as const },
+      ],
+      opened: 1, not_opened: 1,
+    };
+    const lesson = inspectLesson(raw, null, { receipt, unreadable: 0 });
+    expect(lesson.inbox.items.find((item) => item.id === bundle.scenes[0].id)?.lastVerdict).toBe("ok");
+    expect(lesson.inbox.items.find((item) => item.id === bundle.scenes[1].id)).not.toHaveProperty("lastVerdict");
+    expect(lesson.inbox.lastReceipt?.verdicts).toEqual({ ok: 1, toFix: 1 });
   });
   it("adds --opened to the approval command only when items were opened", () => {
     expect(approvalCommand("/c/lesson.json", "en", [])).toBe(".venv/bin/python tools/experience_packet.py approve --bundle '/c/lesson.json' --validated-by 'YOUR NAME'");
@@ -251,6 +269,16 @@ describe("review inbox (INT-STUDIUM-058 task 6.3)", () => {
   it("composes the send-back command, which writes a receipt only", () => {
     expect(returnCommand("/c/teacher's/lesson.json", "en")).toBe(".venv/bin/python tools/experience_packet.py receipt --bundle '/c/teacher'\"'\"'s/lesson.json' --reviewer 'YOUR NAME' --decision returned");
     expect(returnCommand("/c/lesson.json", "fr", ["s1"])).toBe(".venv/bin/python tools/experience_packet.py receipt --bundle '/c/lesson.json' --reviewer 'VOTRE NOM' --decision returned --opened 's1' --lang fr");
+  });
+  it("adds one --verdict flag in scene order before --opened, with the language flag still last", () => {
+    const verdicts = { s3: "to_fix", s1: "ok" } as const;
+    const sceneOrder = ["s0", "s1", "s2", "s3"];
+    expect(approvalCommand("/c/lesson.json", "en", ["s0"], undefined, verdicts, sceneOrder)).toBe(
+      ".venv/bin/python tools/experience_packet.py approve --bundle '/c/lesson.json' --validated-by 'YOUR NAME' --verdict 's1=ok,s3=to_fix' --opened 's0'",
+    );
+    expect(returnCommand("/c/lesson.json", "fr", ["s0"], "Marie", verdicts, sceneOrder)).toBe(
+      ".venv/bin/python tools/experience_packet.py receipt --bundle '/c/lesson.json' --reviewer 'Marie' --decision returned --verdict 's1=ok,s3=to_fix' --opened 's0' --lang fr",
+    );
   });
   it("asks the CLI for its French summary when the page is in French, and adds nothing in English", () => {
     for (const command of [approvalCommand, returnCommand]) {

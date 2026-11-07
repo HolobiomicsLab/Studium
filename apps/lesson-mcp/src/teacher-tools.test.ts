@@ -433,16 +433,19 @@ describe("review_lesson inbox (INT-STUDIUM-058 § 2.9)", () => {
     const receipt = {
       schema: "studium/review-receipt/v1", reviewer: "Dr Example", decided_at: "2026-11-06T09:00:00Z", bundle_ref: "teach",
       bundle_sha256: "b".repeat(64), decision: "returned", opened: 6, not_opened: 0,
-      items: scenesOf(before).map((s) => ({ id: s["id"], sha256: sceneFingerprint(s), consequence: "wording", opened: true })),
+      items: scenesOf(before).map((s) => ({ id: s["id"], sha256: sceneFingerprint(s), consequence: "wording", opened: true,
+        ...(s["id"] === "s1" ? { verdict: "to_fix" } : s["id"] === "s3" ? { verdict: "ok" } : {}) })),
     };
     writeFileSync(join(root, "teach", "reviews", "2026-11-06-bbbbbbbb.json"), JSON.stringify(receipt));
     const out = await reviewLesson(ctxFor(root), "teach");
     const item = (id: string) => out.inbox.items.find((i) => i.id === id)!;
     expect(item("s1")).toMatchObject({ what_changed: "changed", consequence: "grading", holds_key: true });
-    expect(item("s3")).toMatchObject({ what_changed: "unchanged", consequence: "grading" });
+    expect(item("s1")).not.toHaveProperty("last_verdict");
+    expect(item("s3")).toMatchObject({ what_changed: "unchanged", consequence: "grading", last_verdict: "ok" });
     expect(item("s5")).toMatchObject({ what_changed: "unchanged", consequence: "wording", sha256: sceneFingerprint(scenesOf(after)[5]) });
     expect(out.inbox.last_receipt).toEqual({
       reviewer: "Dr Example", decided_at: "2026-11-06T09:00:00Z", decision: "returned", bundle_sha256: "b".repeat(64), opened: 6, not_opened: 0,
+      verdicts: { ok: 1, to_fix: 1 },
     });
   });
 

@@ -321,6 +321,7 @@ SUMMARY_TEXT = {
         "decision_approved": "approved",
         "decision_returned": "returned",
         "opened": "opened {opened} of {total} items",
+        "verdicts": "verdicts: {ok} ok, {to_fix} to fix",
         "unopened_grading": "warning: {count} grading item(s) not opened before approval: {ids}",
         "approval_record": "Approval record:",
         "returned_by": "Returned by {reviewer} at {at}",
@@ -348,6 +349,7 @@ SUMMARY_TEXT = {
         "decision_approved": "approuvée",
         "decision_returned": "renvoyée",
         "opened": "éléments ouverts\u00a0: {opened} sur {total}",
+        "verdicts": "avis\u00a0: {ok} correct(s), {to_fix} à corriger",
         "unopened_grading": (
             "avertissement\u00a0: {count} élément(s) de notation non ouvert(s) avant l’approbation\u00a0: {ids}"
         ),
@@ -378,6 +380,12 @@ REFUSAL_TEXT = {
         "write_bundle": "cannot write approved LessonBundle: {detail}",
         "receipt_not_written": "approval.json was written but the review receipt was not ({path}): {detail}",
         "unknown_opened": "--opened names {count} id(s) that are not scenes of this lesson: {ids}",
+        "unknown_verdict": (
+            "invalid --verdict value(s) {values}; expected SCENE_ID=ok|to_fix for a scene of this lesson"
+        ),
+        "approve_to_fix": (
+            "cannot approve while --verdict contains to_fix; use receipt --decision returned"
+        ),
         "receipt_exists": (
             "review receipt already exists: {path}; the same lesson bytes were already decided on "
             "today, and a receipt is never overwritten"
@@ -409,6 +417,14 @@ REFUSAL_TEXT = {
         ),
         "unknown_opened": (
             "--opened nomme {count} identifiant(s) qui ne sont pas des scènes de cette leçon\u00a0: {ids}"
+        ),
+        "unknown_verdict": (
+            "valeur(s) --verdict invalide(s)\u00a0: {values}\u202f; forme attendue "
+            "SCENE_ID=ok|to_fix pour une scène de cette leçon"
+        ),
+        "approve_to_fix": (
+            "approbation impossible tant que --verdict contient to_fix\u202f; "
+            "utilisez receipt --decision returned"
         ),
         "receipt_exists": (
             "le reçu de relecture existe déjà\u00a0: {path}\u202f; ces mêmes octets de leçon ont déjà "
@@ -567,6 +583,7 @@ def _sha256(data: bytes) -> str:
 # therefore be byte-for-byte the TypeScript ones; tools/test_review_receipt_parity.py holds that.
 
 REVIEW_RECEIPT_SCHEMA = "studium/review-receipt/v1"
+REVIEW_VERDICTS = frozenset({"ok", "to_fix"})
 # Mirrors REDACTED_SCENE_FIELDS of packages/lesson-session-host/src/public-scene.ts.
 KEY_HOLDING_SCENE_FIELDS = (
     "claims", "sound_claims", "key_points", "model_correction", "model_explanation", "model_answer",
@@ -700,6 +717,33 @@ def _parse_opened(values: list[str] | None) -> list[str]:
     return [part.strip() for value in values or [] for part in value.split(",") if part.strip()]
 
 
+def _parse_verdicts(values: list[str] | None) -> dict[str, str]:
+    """Parse repeatable, comma-separated ``SCENE_ID=ok|to_fix`` verdicts.
+
+    Repeating an id follows normal command-line override semantics: the last value wins. All
+    malformed values are reported together so a refusal stays on one line.
+    """
+    verdicts: dict[str, str] = {}
+    invalid: list[str] = []
+    for value in values or []:
+        parts = [part.strip() for part in value.split(",") if part.strip()]
+        if not parts:
+            invalid.append(value)
+            continue
+        for part in parts:
+            if part.count("=") != 1:
+                invalid.append(part)
+                continue
+            scene_id, verdict = (piece.strip() for piece in part.split("=", maxsplit=1))
+            if not scene_id or verdict not in REVIEW_VERDICTS:
+                invalid.append(part)
+                continue
+            verdicts[scene_id] = verdict
+    if invalid:
+        raise _refusal("unknown_verdict", values=", ".join(repr(value) for value in invalid))
+    return verdicts
+
+
 def _review_receipt(
     *,
     bundle: dict[str, Any],
@@ -710,6 +754,7 @@ def _review_receipt(
     decision: str,
     opened: list[str],
     note: str | None,
+    verdicts: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Build a v1 review receipt for the exact bytes reviewed; refuse an id that is not a scene.
 
@@ -724,6 +769,17 @@ def _review_receipt(
     unknown = sorted(set(opened) - set(ids))
     if unknown:
         raise _refusal("unknown_opened", count=len(unknown), ids=", ".join(unknown))
+    verdict_map = verdicts or {}
+    invalid_verdicts = [
+        f"{scene_id}={verdict}"
+        for scene_id, verdict in verdict_map.items()
+        if scene_id not in ids or verdict not in REVIEW_VERDICTS
+    ]
+    if invalid_verdicts:
+        raise _refusal(
+            "unknown_verdict",
+            values=", ".join(repr(value) for value in sorted(invalid_verdicts)),
+        )
     blocked: set[int] = set()
     if decision == "returned":
         for path in placeholder_paths(bundle):
@@ -739,14 +795,15 @@ def _review_receipt(
             else "media" if _scene_has_render_assets(record)
             else "wording"
         )
-        items.append(
-            {
-                "id": scene_id,
-                "sha256": _scene_fingerprint(scene),
-                "consequence": consequence,
-                "opened": scene_id in opened,
-            }
-        )
+        item = {
+            "id": scene_id,
+            "sha256": _scene_fingerprint(scene),
+            "consequence": consequence,
+            "opened": scene_id in opened,
+        }
+        if scene_id in verdict_map:
+            item["verdict"] = verdict_map[scene_id]
+        items.append(item)
     opened_count = sum(item["opened"] for item in items)
     bundle_id = bundle.get("bundle_id")
     receipt: dict[str, Any] = {
@@ -790,6 +847,16 @@ def _receipt_summary(receipt_path: Path, language: str = "en") -> list[str]:
         _summary_text(language, "receipt", decision=shown, path=receipt_path.resolve()),
         _summary_text(language, "opened", opened=receipt["opened"], total=len(items)),
     ]
+    verdicts = [item["verdict"] for item in items if item.get("verdict") in REVIEW_VERDICTS]
+    if verdicts:
+        lines.append(
+            _summary_text(
+                language,
+                "verdicts",
+                ok=verdicts.count("ok"),
+                to_fix=verdicts.count("to_fix"),
+            )
+        )
     if decision == "approved":
         unopened = [item["id"] for item in items if item["consequence"] == "grading" and not item["opened"]]
         if unopened:
@@ -800,7 +867,13 @@ def _receipt_summary(receipt_path: Path, language: str = "en") -> list[str]:
 
 
 def record_review_receipt(
-    *, bundle_path: Path, reviewer: str, decision: str, opened: list[str] | None = None, note: str | None = None
+    *,
+    bundle_path: Path,
+    reviewer: str,
+    decision: str,
+    opened: list[str] | None = None,
+    note: str | None = None,
+    verdicts: dict[str, str] | None = None,
 ) -> Path:
     """Write a receipt alone, bound to the current bytes: a teacher who sends a lesson back."""
     if decision == "approved":
@@ -817,7 +890,7 @@ def record_review_receipt(
     decided_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     receipt = _review_receipt(
         bundle=bundle, bundle_bytes=raw, bundle_path=bundle_path, reviewer=reviewer,
-        decided_at=decided_at, decision=decision, opened=opened or [], note=note,
+        decided_at=decided_at, decision=decision, opened=opened or [], note=note, verdicts=verdicts,
     )
     path = _receipt_path(bundle_path, decided_at, receipt["bundle_sha256"])
     _refuse_existing_receipt(path)
@@ -2505,6 +2578,7 @@ def approve_lesson_bundle(
     checklist: dict[str, str] | None = None,
     opened: list[str] | None = None,
     note: str | None = None,
+    verdicts: dict[str, str] | None = None,
 ) -> Path:
     """Record teacher approval for a finished bundle without rebuilding its content, and the review
     receipt (which scenes were opened) in ``reviews/`` next to it."""
@@ -2532,8 +2606,10 @@ def approve_lesson_bundle(
     # Built before any write so an unknown --opened id or an existing receipt mutates nothing.
     receipt = _review_receipt(
         bundle=bundle, bundle_bytes=final_bytes, bundle_path=bundle_path, reviewer=reviewer,
-        decided_at=reviewed_at, decision="approved", opened=opened or [], note=note,
+        decided_at=reviewed_at, decision="approved", opened=opened or [], note=note, verdicts=verdicts,
     )
+    if any(item.get("verdict") == "to_fix" for item in receipt["items"]):
+        raise _refusal("approve_to_fix")
     receipt_path = _receipt_path(bundle_path, reviewed_at, receipt["bundle_sha256"])
     _refuse_existing_receipt(receipt_path)
     approval = {
@@ -2684,6 +2760,15 @@ def _add_receipt_arguments(command: Any) -> None:
             "reviews/ marks them opened, the others not opened. An id that is not a scene is refused."
         ),
     )
+    command.add_argument(
+        "--verdict",
+        action="append",
+        metavar="ID=ok|to_fix[,ID=ok|to_fix...]",
+        help=(
+            "per-scene review verdicts (repeat or separate with commas); only matching receipt "
+            "items carry a verdict. approve refuses to_fix: use receipt --decision returned."
+        ),
+    )
     command.add_argument("--note", metavar="TEXT", help="free note kept in the review receipt")
 
 
@@ -2826,6 +2911,7 @@ def _run_approve(args: argparse.Namespace) -> Path:
         checklist=_parse_checklist(args.checklist),
         opened=_parse_opened(args.opened),
         note=args.note,
+        verdicts=_parse_verdicts(args.verdict),
     )
 
 
@@ -2836,6 +2922,7 @@ def _run_receipt(args: argparse.Namespace) -> Path:
         decision=args.decision,
         opened=_parse_opened(args.opened),
         note=args.note,
+        verdicts=_parse_verdicts(args.verdict),
     )
 
 

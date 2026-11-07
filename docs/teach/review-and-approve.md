@@ -84,6 +84,12 @@ runs the same linter as `review_lesson`, so a scene with a lint error comes firs
 failed Lint check. When the linter cannot run, the page says so in one line and the Lint check is left
 out of every line rather than shown as passed.
 
+Correct and To fix are the teacher's per-item judgements. The dashboard carries them as
+`--verdict ID=ok|to_fix` into the command, and the CLI writes them into the review receipt; an
+unchanged item shows its previous verdict on the next review. A verdict attests that judgement, not
+that the answer key was read: only `--opened` records a reading, and the dashboard never marks a
+grading item opened because it does not show its key.
+
 The approval panel has a field for your name. The two commands carry it, and the panel shows what
 learners will read on every screen of the lesson, « Leçon validée par <name> » or "validated by
 <name>" depending on the lesson's language. When the name is an e-mail address, the panel notes that
@@ -133,10 +139,10 @@ approval does not send the lesson to anyone: distribution is a separate step
 
 `approve` also writes a review receipt, `reviews/<date>-<first 12 hex of the SHA-256>.json` next to
 `lesson.json`: one item per scene with its fingerprint, its consequence (`grading`, `media`,
-`wording`) and whether you opened it. Name the scenes you read with `--opened ID[,ID...]` (an id that
+`wording`), whether you opened it, and any judgement supplied with `--verdict ID=ok|to_fix`. Name the scenes you read with `--opened ID[,ID...]` (an id that
 is not a scene is refused before anything is written) and add `--note TEXT` if you wish; the summary
 says `opened N of M items` and warns about each `grading` scene you did not open. Approving stays
-possible, the receipt keeps the fact. `review_lesson` compares the next version with this receipt to
+possible unless an item is `to_fix` (then use a returned receipt), and the receipt keeps the fact. `review_lesson` compares the next version with this receipt to
 mark scenes new, changed or unchanged. To send a lesson back instead, `receipt --decision returned
 --reviewer NAME` writes the receipt alone, without `approval.json`.
 

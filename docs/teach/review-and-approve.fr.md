@@ -90,6 +90,12 @@ scène qui a une erreur de lint passe en tête, comme bloquante, avec une vérif
 Quand le linter ne peut pas tourner, la page le dit en une ligne et la vérification Lint disparaît de
 chaque ligne au lieu d'apparaître réussie.
 
+Correct et À corriger sont les jugements de l'enseignant sur chaque élément. Le tableau de bord les
+porte dans la commande sous la forme `--verdict ID=ok|to_fix`, puis la CLI les écrit dans le reçu de
+relecture ; lors de la relecture suivante, un élément inchangé montre son avis précédent. Un avis
+atteste ce jugement, pas la lecture de la clé : seul `--opened` atteste une lecture, et le tableau de
+bord ne marque jamais ouverte une scène « note », puisqu'il n'en montre pas la clé.
+
 Le panneau d'approbation a un champ pour votre nom. Les deux commandes le reprennent, et le panneau
 montre ce que les apprenants liront sur chaque écran de la leçon, « Leçon validée par <nom> » ou
 "validated by <nom>" selon la langue de la leçon. Si le nom est une adresse électronique, le panneau
@@ -141,10 +147,12 @@ n'envoie la leçon à personne : la diffusion est une étape distincte
 
 `approve` écrit aussi un reçu de relecture, `reviews/<date>-<12 premiers caractères du SHA-256>.json`
 à côté de `lesson.json` : un élément par scène avec son empreinte, sa conséquence (`grading`,
-`media`, `wording`) et le fait que vous l'avez ouverte ou non. Nommez les scènes lues avec
+`media`, `wording`), le fait que vous l'avez ouverte ou non et tout jugement donné par
+`--verdict ID=ok|to_fix`. Nommez les scènes lues avec
 `--opened ID[,ID...]` (un identifiant qui n'est pas une scène est refusé avant toute écriture) et
 ajoutez au besoin `--note TEXTE` ; le résumé indique `opened N of M items` et signale chaque scène
-`grading` que vous n'avez pas ouverte. L'approbation reste possible, le reçu garde le fait.
+`grading` que vous n'avez pas ouverte. L'approbation reste possible sauf si un élément est `to_fix`
+(utilisez alors un reçu « renvoyée ») ; le reçu garde le fait.
 `review_lesson` compare la version suivante à ce reçu pour marquer les scènes nouvelles, modifiées ou
 inchangées. Pour renvoyer plutôt la leçon à son auteur, `receipt --decision returned --reviewer NOM`
 écrit le reçu seul, sans `approval.json`.

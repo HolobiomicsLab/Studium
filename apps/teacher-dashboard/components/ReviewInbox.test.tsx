@@ -17,7 +17,7 @@ const ok = [{ check: "schema", passed: true }, { check: "todo", passed: true }] 
 const ENTRIES: InboxEntry[] = [
   { id: "s2-todo", index: 2, title: "Scene with a TODO", type: "concept", consequence: "blocks", whatChanged: "changed", checks: [{ check: "schema", passed: true }, { check: "todo", passed: false }] },
   { id: "s3-quiz", index: 3, title: "Quiz three", type: "quiz", consequence: "grading", whatChanged: "new", checks: ok },
-  { id: "s1-quiz", index: 1, title: "Quiz one", type: "quiz", consequence: "grading", whatChanged: "unchanged", checks: ok },
+  { id: "s1-quiz", index: 1, title: "Quiz one", type: "quiz", consequence: "grading", whatChanged: "unchanged", lastVerdict: "ok", checks: ok },
   { id: "s0-intro", index: 0, title: "Intro", type: "intro", consequence: "wording", whatChanged: "unchanged", checks: ok },
 ];
 const RECEIPT = { reviewer: "A. Teacher", decidedAt: "2026-11-01T09:00:00Z", decision: "approved" as const, opened: 2, notOpened: 1 };
@@ -65,8 +65,15 @@ describe("review inbox list", () => {
     const html = itemHtml(page(after), "s3-quiz");
     expect(html).toMatch(/<details class="inbox-checks"[^>]*open/);
     expect(html).toMatch(/aria-pressed="true"[^>]*>À corriger/);
-    expect(html).toContain("Votre avis reste sur cette page");
-    expect(itemHtml(page(after, "en"), "s3-quiz")).toContain("Your verdict stays on this page");
+    expect(html).toContain("Votre avis est porté par la commande");
+    expect(itemHtml(page(after, "en"), "s3-quiz")).toContain("Your verdict is carried by the command");
+  });
+  it("shows the previous receipt's verdict without pre-selecting today's verdict", () => {
+    const fr = itemHtml(page(emptyReviewState()), "s1-quiz");
+    expect(fr).toContain("Avis précédent\u00a0: Correct");
+    expect(fr).toMatch(/aria-pressed="false"[^>]*>Correct/);
+    const en = itemHtml(page(emptyReviewState(), "en"), "s1-quiz");
+    expect(en).toContain("Previous verdict: Correct");
   });
   it("marks a non-grading item opened when its details are opened, and never un-opens it", () => {
     const opened = reviewReducer(emptyReviewState(), { type: "toggle", id: "s0-intro", open: true });
@@ -103,8 +110,8 @@ describe("approval panel", () => {
     expect(unopenedGrading(ENTRIES, state)).toEqual(["s3-quiz", "s1-quiz"]);
     const html = page(state);
     expect(html).toContain("--opened &#x27;s0-intro&#x27;");
-    expect(html).not.toContain("s1-quiz,");
-    expect(html).not.toContain(",s3-quiz");
+    // Verdict ids now belong in --verdict, but grading items still never enter --opened on this page.
+    expect(html).not.toMatch(/--opened &#x27;[^&]*(?:s1-quiz|s3-quiz)/);
   });
   it("carries --opened with the opened ids in scene order, and no flag when none", () => {
     expect(page(emptyReviewState())).not.toContain("--opened &#x27;");
@@ -115,6 +122,16 @@ describe("approval panel", () => {
     expect(html).toContain("experience_packet.py approve --bundle &#x27;/lib/course/lesson.json&#x27; --validated-by &#x27;VOTRE NOM&#x27; --opened &#x27;s0-intro,s2-todo&#x27; --lang fr</code>");
     expect(html).toContain("experience_packet.py receipt --bundle &#x27;/lib/course/lesson.json&#x27; --reviewer &#x27;VOTRE NOM&#x27; --decision returned --opened &#x27;s0-intro,s2-todo&#x27; --lang fr</code>");
     expect(html).toContain("Renvoyer la leçon");
+  });
+  it("carries verdicts in scene order and puts the return command first when one is to fix", () => {
+    let state = reviewReducer(emptyReviewState(), { type: "verdict", id: "s3-quiz", verdict: "to_fix" });
+    state = reviewReducer(state, { type: "verdict", id: "s1-quiz", verdict: "ok" });
+    const fr = page(state);
+    expect(fr).toContain("--verdict &#x27;s1-quiz=ok,s3-quiz=to_fix&#x27;");
+    expect(fr.indexOf("experience_packet.py receipt --bundle")).toBeLessThan(fr.indexOf("experience_packet.py approve --bundle"));
+    expect(fr).toContain("Avec un élément à corriger, la CLI refuse une approbation");
+    const en = page(state, "en");
+    expect(en).toContain("With an item marked To fix, the CLI refuses approval");
   });
 });
 

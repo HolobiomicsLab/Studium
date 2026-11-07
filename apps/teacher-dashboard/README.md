@@ -93,6 +93,8 @@ it shows, `experience_packet.py approve` and `experience_packet.py receipt --dec
 lesson back), and the receipt is written when the teacher runs one. Scene fingerprints never reach the
 browser.
 
+Correct and To fix travel in those commands as one scene-ordered `--verdict` flag and into the receipt; an unchanged row shows its previous verdict, while To fix puts the send-back command first because the CLI refuses approval.
+
 The approval panel has a field for the teacher's name: both commands carry it, and the panel shows the
 line learners will read on every screen, « Leçon validée par NAME » / "validated by NAME", with a note
 when the name is an e-mail address (learners would see it). Nothing is refused; the name stays on the page

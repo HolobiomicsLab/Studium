@@ -1977,6 +1977,29 @@ def test_approve_accepts_comma_separated_and_repeated_opened_ids(tmp_path, capsy
     assert receipt["opened"] == 2 and receipt["not_opened"] == 0
 
 
+def test_approve_records_ok_verdict_only_on_matching_item_and_prints_counts(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    bundle = json.loads(lesson.read_text())
+    bundle["scenes"][-1]["id"] = "s1-quiz-fer"
+    lesson.write_text(json.dumps(bundle, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    status = main(
+        [
+            "approve", "--bundle", str(lesson), "--validated-by", "Professor Example",
+            "--verdict", "s1-quiz-fer=ok", "--opened", "s1-quiz-fer",
+        ]
+    )
+
+    assert status == 0
+    receipt = json.loads(_receipts(lesson)[0].read_text())
+    items = {item["id"]: item for item in receipt["items"]}
+    assert items["s1-quiz-fer"]["verdict"] == "ok"
+    assert "verdict" not in items["scene-1"]
+    lines = capsys.readouterr().out.splitlines()
+    opened_line = lines.index("opened 1 of 2 items")
+    assert lines[opened_line + 1] == "verdicts: 1 ok, 0 to fix"
+
+
 def test_approve_refuses_an_unknown_opened_id_before_any_mutation(tmp_path, capsys):
     lesson = _finished_bundle_with_quiz(tmp_path)
     before = lesson.read_bytes()
@@ -2016,6 +2039,107 @@ def test_receipt_returned_writes_only_the_receipt(tmp_path, capsys):
     out = capsys.readouterr().out
     assert out.splitlines()[-1] == str(path.resolve())
     assert "opened 1 of 2 items" in out
+
+
+def test_receipt_returned_records_repeated_and_comma_separated_verdicts(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        [
+            "receipt", "--bundle", str(lesson), "--reviewer", "Professor Example",
+            "--decision", "returned", "--verdict", "scene-1=ok,scene-quiz=to_fix",
+            "--verdict", "scene-1=ok",
+        ]
+    )
+
+    assert status == 0
+    receipt = json.loads(_receipts(lesson)[0].read_text())
+    assert {item["id"]: item["verdict"] for item in receipt["items"]} == {
+        "scene-1": "ok",
+        "scene-quiz": "to_fix",
+    }
+    lines = capsys.readouterr().out.splitlines()
+    opened_line = lines.index("opened 0 of 2 items")
+    assert lines[opened_line + 1] == "verdicts: 1 ok, 1 to fix"
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        (
+            "en",
+            "error: cannot approve while --verdict contains to_fix; "
+            "use receipt --decision returned\n",
+        ),
+        (
+            "fr",
+            "erreur\u00a0: approbation impossible tant que --verdict contient to_fix\u202f; "
+            "utilisez receipt --decision returned\n",
+        ),
+    ],
+)
+def test_approve_refuses_to_fix_verdict_in_one_localized_line(tmp_path, capsys, language, expected):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    before = lesson.read_bytes()
+
+    status = main(
+        [
+            "approve", "--bundle", str(lesson), "--validated-by", "Professor Example",
+            "--verdict", "scene-quiz=to_fix", "--lang", language,
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert status == 2
+    assert captured.out == ""
+    assert captured.err == expected
+    assert lesson.read_bytes() == before
+    assert not (lesson.parent / "approval.json").exists()
+    assert _receipts(lesson) == []
+
+
+@pytest.mark.parametrize(
+    ("verdict", "language", "expected"),
+    [
+        (
+            "scene-9=ok",
+            "en",
+            "error: invalid --verdict value(s) 'scene-9=ok'; expected "
+            "SCENE_ID=ok|to_fix for a scene of this lesson\n",
+        ),
+        (
+            "scene-quiz=maybe",
+            "en",
+            "error: invalid --verdict value(s) 'scene-quiz=maybe'; expected "
+            "SCENE_ID=ok|to_fix for a scene of this lesson\n",
+        ),
+        (
+            "scene-quiz",
+            "fr",
+            "erreur\u00a0: valeur(s) --verdict invalide(s)\u00a0: 'scene-quiz'\u202f; "
+            "forme attendue SCENE_ID=ok|to_fix pour une scène de cette leçon\n",
+        ),
+    ],
+)
+def test_verdict_refuses_unknown_id_value_and_malformed_form_in_one_line(
+    tmp_path, capsys, verdict, language, expected
+):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    before = lesson.read_bytes()
+
+    status = main(
+        [
+            "receipt", "--bundle", str(lesson), "--reviewer", "Professor Example",
+            "--decision", "returned", "--verdict", verdict, "--lang", language,
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert status == 2
+    assert captured.out == ""
+    assert captured.err == expected
+    assert lesson.read_bytes() == before
+    assert _receipts(lesson) == []
 
 
 def test_receipt_refuses_the_approved_decision(tmp_path, capsys):
@@ -2225,6 +2349,22 @@ def test_receipt_returned_lang_fr_prints_the_french_lines(tmp_path, capsys):
     ]
 
 
+def test_receipt_verdict_summary_lang_fr_follows_the_opened_summary(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        [
+            "receipt", "--bundle", str(lesson), "--reviewer", "Professor Example",
+            "--decision", "returned", "--verdict", "scene-1=ok,scene-quiz=to_fix", "--lang", "fr",
+        ]
+    )
+
+    assert status == 0
+    lines = capsys.readouterr().out.splitlines()
+    opened_line = lines.index(f"éléments ouverts{NBSP}: 0 sur 2")
+    assert lines[opened_line + 1] == f"avis{NBSP}: 1 correct(s), 1 à corriger"
+
+
 def test_the_language_changes_no_recorded_byte(tmp_path, capsys, _frozen_clock):
     """The parity gate reads the files, never the summary: --lang fr and --lang en record the same bytes."""
     (tmp_path / "source").mkdir()
@@ -2241,16 +2381,28 @@ def test_the_language_changes_no_recorded_byte(tmp_path, capsys, _frozen_clock):
         assert main(
             ["receipt", "--bundle", str(returned), "--reviewer", "Marie Curie", "--decision", "returned", "--lang", lang]
         ) == 0
+        judged = tmp_path / lang / "judged" / "lesson.json"
+        shutil.copytree(source.parent, judged.parent)
+        assert main(
+            ["approve", "--bundle", str(judged), "--validated-by", "Marie Curie", "--verdict", "scene-1=ok", "--lang", lang]
+        ) == 0
         copies[lang] = {
             "lesson.json": approved.read_bytes(),
             "approval.json": (approved.parent / "approval.json").read_bytes(),
             "approved receipt": [p.read_bytes() for p in _receipts(approved)],
             "returned lesson.json": returned.read_bytes(),
             "returned receipt": [p.read_bytes() for p in _receipts(returned)],
+            "judged receipt": [p.read_bytes() for p in _receipts(judged)],
         }
     capsys.readouterr()
     assert json.loads(copies["fr"]["approval.json"])["reviewed_at"] == _frozen_clock
     assert len(copies["fr"]["approved receipt"]) == len(copies["fr"]["returned receipt"]) == 1
+    for key in ("approved receipt", "returned receipt"):
+        receipt = json.loads(copies["fr"][key][0])
+        assert all("verdict" not in item for item in receipt["items"])
+    [judged_bytes] = copies["fr"]["judged receipt"]
+    judged_receipt = json.loads(judged_bytes)
+    assert {item["id"]: item.get("verdict") for item in judged_receipt["items"]} == {"scene-1": "ok", "scene-quiz": None}
     assert copies["fr"] == copies["en"]
 
 

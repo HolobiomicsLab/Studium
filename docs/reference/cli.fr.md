@@ -37,8 +37,8 @@ par un apprenant ou un enseignant en leçon, hors ligne et sans modèle. L'ordre
 | `prepare` | `--passages`, `--out`, `--title` | `--target`, `--capsule`, `--task-id`, `--self-study` (automatique pour des passages issus de `passages`) |
 | `check` | `--packet`, `--response`, `--out` | `--force` ; `--quiet` (n'affiche que le chemin de sortie) ou `--json` (un rapport lisible par machine) |
 | `bundle` | `--course`, `--out` | `--validated-by`, `--force`, `--no-default-rules`, `--self-study`, `--note TEXT` (exige `--self-study`) |
-| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...`, `--opened ID[,ID...]` (répétable), `--note TEXT`, `--lang {en,fr}` |
-| `receipt` | `--bundle LESSON_JSON`, `--reviewer NAME`, `--decision returned` | `--opened ID[,ID...]` (répétable), `--note TEXT`, `--lang {en,fr}` |
+| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...`, `--verdict ID=ok\|to_fix[,ID=...]` (répétable), `--opened ID[,ID...]` (répétable), `--note TEXT`, `--lang {en,fr}` |
+| `receipt` | `--bundle LESSON_JSON`, `--reviewer NAME`, `--decision returned` | `--verdict ID=ok\|to_fix[,ID=...]` (répétable), `--opened ID[,ID...]` (répétable), `--note TEXT`, `--lang {en,fr}` |
 
 À quoi s'attendre :
 
@@ -56,8 +56,11 @@ par un apprenant ou un enseignant en leçon, hors ligne et sans modèle. L'ordre
   d'avertissements, rappel qu'une modification rend l'approbation périmée), puis le chemin
   d'`approval.json` en dernière ligne. Un nom qui contient `@` ajoute `note: this is an e-mail address; learners will see it — prefer a name (--validated-by "Prénom Nom")` ; il n'est pas refusé. Il écrit aussi le reçu de relecture
   `reviews/<date>-<sha>.json` à côté du bundle (un élément par scène : empreinte, conséquence,
-  ouverte ou non ; `--opened` nomme les scènes lues, un identifiant inconnu est refusé avant toute
-  écriture) et signale les scènes `grading` non ouvertes. Un reçu n'est jamais écrasé : les mêmes
+  ouverte ou non, et éventuellement l'avis de l'enseignant). `--opened` nomme les scènes lues et
+  `--verdict ID=ok|to_fix` enregistre le jugement ; un identifiant ou une valeur inconnus sont refusés
+  avant toute écriture. `approve` refuse aussi un avis `to_fix` : utilisez plutôt
+  `receipt --decision returned`. Quand au moins un avis est fourni, le résumé compte les éléments
+  `ok` et `to_fix`. La commande signale aussi les scènes `grading` non ouvertes. Un reçu n'est jamais écrasé : les mêmes
   octets décidés deux fois le même jour sont refusés.
 - `receipt --decision returned` sert à l'enseignant qui renvoie une leçon (le tableau de bord
   enseignant compose cette commande) : il n'écrit que le reçu, lié aux octets actuels, sans

@@ -91,9 +91,21 @@ describe("buildReviewInbox", () => {
     expect(Object.fromEntries(byId)).toEqual({ s0: "unchanged", s1: "changed", s2: "new", s3: "new", s4: "new" });
     expect(inbox.last_receipt).toEqual({
       reviewer: "Dr Example", decided_at: "2026-11-01T10:00:00Z", decision: "approved",
-      bundle_sha256: "a".repeat(64), opened: 2, not_opened: 0,
+      bundle_sha256: "a".repeat(64), opened: 2, not_opened: 0, verdicts: { ok: 1, to_fix: 0 },
     });
     expect(JSON.stringify(inbox.last_receipt)).not.toContain(sceneFingerprint(intro));
+  });
+
+  it("carries a previous verdict only onto an unchanged item and counts all receipt verdicts", () => {
+    const last = receipt([
+      { id: "s0", sha256: sceneFingerprint(intro), consequence: "wording", opened: true, verdict: "ok" },
+      { id: "s1", sha256: sceneFingerprint({ ...quiz, question: "Old?" }), consequence: "grading", opened: true, verdict: "to_fix" },
+    ]);
+    const inbox = build({ lastReceipt: last });
+    expect(inbox.items.find((item) => item.id === "s0")?.last_verdict).toBe("ok");
+    expect(inbox.items.find((item) => item.id === "s1")).not.toHaveProperty("last_verdict");
+    expect(inbox.items.find((item) => item.id === "s2")).not.toHaveProperty("last_verdict");
+    expect(inbox.last_receipt?.verdicts).toEqual({ ok: 1, to_fix: 1 });
   });
 
   it("checks schema, todo and lint per scene; a lint ERROR is attributed by its message prefix only", () => {

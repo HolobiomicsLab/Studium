@@ -40,6 +40,7 @@ export default async function ReviewPage({ params }: { params: { lesson: string 
     const index = sceneIndex.get(item.id) ?? Number(item.id.replace(/^#/, ""));
     const scene = lesson.outline[index];
     return { id: item.id, index, title: scene?.title ?? item.id, type: scene?.type ?? "unknown", consequence: item.consequence, whatChanged: item.whatChanged, checks: item.checks,
+      ...(item.lastVerdict ? { lastVerdict: item.lastVerdict } : {}),
       preview: { text: item.preview.text, ...(item.preview.choices ? { choices: item.preview.choices } : {}) } };
   });
   const lastReceipt = lesson.inbox.lastReceipt;

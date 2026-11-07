@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import LibraryPage from "../app/library/page";
 import ReviewPage from "../app/library/[lesson]/review/page";
 import { encodeLessonRef } from "../lib/library";
+import { sceneFingerprint } from "../../../packages/lesson-session-host/src/review-inbox";
 
 const request = vi.hoisted(() => ({ language: "fr", cookie: undefined as string | undefined }));
 vi.mock("next/headers", () => ({
@@ -147,6 +148,22 @@ describe("server-rendered library and review", () => {
     expect(html).not.toMatch(/[0-9a-f]{64}/);
     // Test decision (walkthrough fix 1): outside the folded previews, nothing of the lesson's text.
     expect(withoutPreviews(html)).not.toContain("PRIVATE_");
+  });
+  it("shows the previous receipt's verdict on an unchanged inbox row", async () => {
+    const root = await setup();
+    const bundle = JSON.parse(await readFile(join(root, "course/lesson.json"), "utf8"));
+    await mkdir(join(root, "course/reviews"));
+    await writeFile(join(root, "course/reviews/2026-11-01-aaaaaaaaaaaa.json"), JSON.stringify({
+      schema: "studium/review-receipt/v1", reviewer: "A. Teacher", decided_at: "2026-11-01T09:00:00Z",
+      bundle_ref: "course/lesson.json", bundle_sha256: "a".repeat(64), decision: "returned",
+      opened: 0, not_opened: 1,
+      items: [{
+        id: bundle.scenes[1].id, sha256: sceneFingerprint(bundle.scenes[1]), consequence: "wording",
+        opened: false, verdict: "ok",
+      }],
+    }));
+    const html = renderToStaticMarkup(await ReviewPage({ params: { lesson: encodeLessonRef("course") } }));
+    expect(html).toContain("Avis précédent\u00a0: Correct");
   });
   it("says in one line when the bundle linter could not run, and leaves the lint check out (walkthrough fix 2)", async () => {
     await setup();
