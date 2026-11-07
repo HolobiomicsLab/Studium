@@ -37,8 +37,8 @@ par un apprenant ou un enseignant en leçon, hors ligne et sans modèle. L'ordre
 | `prepare` | `--passages`, `--out`, `--title` | `--target`, `--capsule`, `--task-id`, `--self-study` (automatique pour des passages issus de `passages`) |
 | `check` | `--packet`, `--response`, `--out` | `--force` ; `--quiet` (n'affiche que le chemin de sortie) ou `--json` (un rapport lisible par machine) |
 | `bundle` | `--course`, `--out` | `--validated-by`, `--force`, `--no-default-rules`, `--self-study`, `--note TEXT` (exige `--self-study`) |
-| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...`, `--opened ID[,ID...]` (répétable), `--note TEXT` |
-| `receipt` | `--bundle LESSON_JSON`, `--reviewer NAME`, `--decision returned` | `--opened ID[,ID...]` (répétable), `--note TEXT` |
+| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...`, `--opened ID[,ID...]` (répétable), `--note TEXT`, `--lang {en,fr}` |
+| `receipt` | `--bundle LESSON_JSON`, `--reviewer NAME`, `--decision returned` | `--opened ID[,ID...]` (répétable), `--note TEXT`, `--lang {en,fr}` |
 
 À quoi s'attendre :
 
@@ -62,6 +62,16 @@ par un apprenant ou un enseignant en leçon, hors ligne et sans modèle. L'ordre
 - `receipt --decision returned` sert à l'enseignant qui renvoie une leçon (le tableau de bord
   enseignant compose cette commande) : il n'écrit que le reçu, lié aux octets actuels, sans
   `approval.json` ni réécriture. `--decision approved` est refusé : utilisez `approve`.
+- `--lang` choisit la langue de ce qu'affichent `approve` et `receipt` : les lignes de résumé
+  ci-dessus et leurs refus. Sans cette option, `STUDIUM_LANG` décide s'il vaut `fr` ou `en`, sinon
+  le préfixe de `LC_ALL` ou de `LANG` (`fr_…` donne le français), sinon l'anglais. Les lignes citées
+  ci-dessus sont les lignes anglaises ; avec `--lang fr`, `approve` commence par
+  `Approuvée par <NAME> le <TIME>`, la voix devient `Les apprenants liront sur chaque écran : « Leçon validée par <NAME> » / “validated by <NAME>”`,
+  la note sur une adresse électronique `note : c’est une adresse électronique ; les apprenants la verront — préférez un nom (--validated-by "Prénom Nom")`
+  et un refus commence par `erreur :`. Les fichiers enregistrés (`lesson.json`, `approval.json`, le
+  reçu) sont les mêmes octets dans les deux langues. Le tableau de bord enseignant ajoute
+  `--lang fr` aux commandes qu'il compose sur sa page française. `passages`, `prepare`, `check` et
+  `bundle` n'affichent que de l'anglais.
 
 Code de sortie : `0` succès, `1` constats bloquants (ou citation introuvable), `2` erreur d'usage ou
 de paquet. Avec `--json`, `check` affiche `{ok, findings, output, summary}`.

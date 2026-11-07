@@ -36,8 +36,8 @@ chose into a lesson, offline and without a model. The usual order is
 | `prepare` | `--passages`, `--out`, `--title` | `--target`, `--capsule`, `--task-id`, `--self-study` (automatic for passages from `passages`) |
 | `check` | `--packet`, `--response`, `--out` | `--force`; `--quiet` (print only the output path) or `--json` (one machine-readable report) |
 | `bundle` | `--course`, `--out` | `--validated-by`, `--force`, `--no-default-rules`, `--self-study`, `--note TEXT` (needs `--self-study`) |
-| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...`, `--opened ID[,ID...]` (repeatable), `--note TEXT` |
-| `receipt` | `--bundle LESSON_JSON`, `--reviewer NAME`, `--decision returned` | `--opened ID[,ID...]` (repeatable), `--note TEXT` |
+| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...`, `--opened ID[,ID...]` (repeatable), `--note TEXT`, `--lang {en,fr}` |
+| `receipt` | `--bundle LESSON_JSON`, `--reviewer NAME`, `--decision returned` | `--opened ID[,ID...]` (repeatable), `--note TEXT`, `--lang {en,fr}` |
 
 What to expect:
 
@@ -61,6 +61,13 @@ What to expect:
 - `receipt --decision returned` is for a teacher who sends a lesson back (the teacher dashboard
   composes it): it writes only the receipt, bound to the current bytes, with no `approval.json` and
   no rewrite. `--decision approved` is refused: use `approve`.
+- `--lang` sets the language of what `approve` and `receipt` print: the summary lines above and
+  their refusals. Without it, `STUDIUM_LANG` decides when it is `fr` or `en`, else the prefix of
+  `LC_ALL` or `LANG` (`fr_…` is French), else English. With `--lang fr`, `approve` starts with
+  `Approuvée par <NAME> le <TIME>` and a refusal with `erreur :`; the lines quoted above are the
+  English ones. The recorded files (`lesson.json`, `approval.json`, the receipt) are the same bytes
+  in either language. The teacher dashboard adds `--lang fr` to the commands it composes on its
+  French page. `passages`, `prepare`, `check` and `bundle` print English only.
 
 Exit status: `0` success, `1` findings that block (or an unmatched quote), `2` a usage or packet
 error. With `--json`, `check` prints `{ok, findings, output, summary}`.

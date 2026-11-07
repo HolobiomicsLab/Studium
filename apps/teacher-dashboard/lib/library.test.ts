@@ -246,10 +246,17 @@ describe("review inbox (INT-STUDIUM-058 task 6.3)", () => {
   });
   it("adds --opened to the approval command only when items were opened", () => {
     expect(approvalCommand("/c/lesson.json", "en", [])).toBe(".venv/bin/python tools/experience_packet.py approve --bundle '/c/lesson.json' --validated-by 'YOUR NAME'");
-    expect(approvalCommand("/c/lesson.json", "fr", ["s1", "#3"])).toBe(".venv/bin/python tools/experience_packet.py approve --bundle '/c/lesson.json' --validated-by 'VOTRE NOM' --opened 's1,#3'");
+    expect(approvalCommand("/c/lesson.json", "fr", ["s1", "#3"])).toBe(".venv/bin/python tools/experience_packet.py approve --bundle '/c/lesson.json' --validated-by 'VOTRE NOM' --opened 's1,#3' --lang fr");
   });
   it("composes the send-back command, which writes a receipt only", () => {
     expect(returnCommand("/c/teacher's/lesson.json", "en")).toBe(".venv/bin/python tools/experience_packet.py receipt --bundle '/c/teacher'\"'\"'s/lesson.json' --reviewer 'YOUR NAME' --decision returned");
-    expect(returnCommand("/c/lesson.json", "fr", ["s1"])).toBe(".venv/bin/python tools/experience_packet.py receipt --bundle '/c/lesson.json' --reviewer 'VOTRE NOM' --decision returned --opened 's1'");
+    expect(returnCommand("/c/lesson.json", "fr", ["s1"])).toBe(".venv/bin/python tools/experience_packet.py receipt --bundle '/c/lesson.json' --reviewer 'VOTRE NOM' --decision returned --opened 's1' --lang fr");
+  });
+  it("asks the CLI for its French summary when the page is in French, and adds nothing in English", () => {
+    for (const command of [approvalCommand, returnCommand]) {
+      expect(command("/c/lesson.json", "fr")).toMatch(/ --lang fr$/);
+      expect(command("/c/lesson.json", "fr", [], "Marie Curie")).toMatch(/'Marie Curie' (--decision returned )?--lang fr$/);
+      expect(command("/c/lesson.json", "en", ["s1"])).not.toContain("--lang");
+    }
   });
 });

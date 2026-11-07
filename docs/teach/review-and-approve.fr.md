@@ -117,8 +117,10 @@ ce que les apprenants liront sur chaque écran comme voix de la leçon (`learner
 nombre d'erreurs et d'avertissements du lint et un rappel : toute modification rend l'approbation
 périmée ; puis, en dernière ligne, le chemin d'`approval.json`. Si le nom contient `@`, une seconde
 ligne signale une adresse électronique que les apprenants verront et propose `--validated-by "Prénom
-Nom"` ; l'approbation se fait quand même. L'enregistrement
-contient :
+Nom"` ; l'approbation se fait quand même. Ajoutez `--lang fr` (ou réglez
+`STUDIUM_LANG=fr`) pour lire ce résumé, et tout refus, en français ; les fichiers enregistrés
+sont les mêmes, et la page française du tableau de bord ajoute `--lang fr` pour vous.
+L'enregistrement contient :
 
 | Champ | Contenu |
 |---|---|

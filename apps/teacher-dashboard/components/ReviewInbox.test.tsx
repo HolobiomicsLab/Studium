@@ -112,8 +112,8 @@ describe("approval panel", () => {
     state = reviewReducer(state, { type: "toggle", id: "s0-intro", open: true });
     expect(openedInSceneOrder(ENTRIES, state)).toEqual(["s0-intro", "s2-todo"]);
     const html = page(state);
-    expect(html).toContain("experience_packet.py approve --bundle &#x27;/lib/course/lesson.json&#x27; --validated-by &#x27;VOTRE NOM&#x27; --opened &#x27;s0-intro,s2-todo&#x27;");
-    expect(html).toContain("experience_packet.py receipt --bundle &#x27;/lib/course/lesson.json&#x27; --reviewer &#x27;VOTRE NOM&#x27; --decision returned --opened &#x27;s0-intro,s2-todo&#x27;");
+    expect(html).toContain("experience_packet.py approve --bundle &#x27;/lib/course/lesson.json&#x27; --validated-by &#x27;VOTRE NOM&#x27; --opened &#x27;s0-intro,s2-todo&#x27; --lang fr</code>");
+    expect(html).toContain("experience_packet.py receipt --bundle &#x27;/lib/course/lesson.json&#x27; --reviewer &#x27;VOTRE NOM&#x27; --decision returned --opened &#x27;s0-intro,s2-todo&#x27; --lang fr</code>");
     expect(html).toContain("Renvoyer la leçon");
   });
 });
@@ -164,6 +164,9 @@ describe("voice preview in the approval panel", () => {
     const en = approval("en", "Marie Curie");
     expect(en).toContain("Learners will read on every screen: « Leçon validée par Marie Curie » / “validated by Marie Curie”");
     expect(en).not.toContain("e-mail address");
+    // Both commands ask the CLI to answer in the page's language: French only on the French page.
+    expect(fr.match(/--lang fr<\/code>/g)).toHaveLength(2);
+    expect(en).not.toContain("--lang");
   });
   it("falls back to the placeholder name when nothing is typed", () => {
     expect(approval("fr")).toContain("Leçon validée par VOTRE NOM");

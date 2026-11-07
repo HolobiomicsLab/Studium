@@ -111,6 +111,8 @@ lesson's voice on every screen (`learners read on every screen: « Leçon valid�
 edit makes the approval stale, then the path of `approval.json` as its last line. When the name
 contains `@`, a second line notes that it is an e-mail address learners will see, and suggests
 `--validated-by "Prénom Nom"`; the approval goes through all the same.
+Add `--lang fr` (or set `STUDIUM_LANG=fr`) to read this summary, and any refusal, in French; the
+recorded files are the same either way, and the dashboard's French page adds `--lang fr` for you.
 The record holds:
 
 | Field | Content |

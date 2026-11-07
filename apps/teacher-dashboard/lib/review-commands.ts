@@ -10,13 +10,15 @@ const quote = (value: string) => `'${value.replaceAll("'", `'"'"'`)}'`;
 /** The name the commands carry: the one the teacher typed, or a placeholder to replace. */
 export const placeholderName = (locale: CommandLocale) => (locale === "fr" ? "VOTRE NOM" : "YOUR NAME");
 const nameArg = (locale: CommandLocale, name?: string) => quote(name?.trim() || placeholderName(locale));
+// The CLI prints its summary (and its refusals) in English unless asked: the French page asks for French.
+const langFlag = (locale: CommandLocale) => (locale === "fr" ? " --lang fr" : "");
 const openedFlag = (opened: readonly string[] | undefined) => (opened && opened.length > 0 ? ` --opened ${quote(opened.join(","))}` : "");
 
 export function approvalCommand(bundlePath: string, locale: CommandLocale, opened?: readonly string[], name?: string): string {
-  return `.venv/bin/python tools/experience_packet.py approve --bundle ${quote(bundlePath)} --validated-by ${nameArg(locale, name)}${openedFlag(opened)}`;
+  return `.venv/bin/python tools/experience_packet.py approve --bundle ${quote(bundlePath)} --validated-by ${nameArg(locale, name)}${openedFlag(opened)}${langFlag(locale)}`;
 }
 
 /** Send the lesson back: writes a `returned` receipt only, the lesson stays unapproved. */
 export function returnCommand(bundlePath: string, locale: CommandLocale, opened?: readonly string[], name?: string): string {
-  return `.venv/bin/python tools/experience_packet.py receipt --bundle ${quote(bundlePath)} --reviewer ${nameArg(locale, name)} --decision returned${openedFlag(opened)}`;
+  return `.venv/bin/python tools/experience_packet.py receipt --bundle ${quote(bundlePath)} --reviewer ${nameArg(locale, name)} --decision returned${openedFlag(opened)}${langFlag(locale)}`;
 }

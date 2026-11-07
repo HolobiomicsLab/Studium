@@ -13,6 +13,7 @@ import difflib
 import hashlib
 import json
 import math
+import os
 import re
 import shutil
 import subprocess
@@ -301,6 +302,160 @@ REVIEW_TEXT = {
 }
 
 
+# What a teacher reads after a successful approve or receipt (stdout). The recorded files never
+# depend on it: approval.json and the review receipt are the same bytes in either language.
+SUMMARY_TEXT = {
+    "en": {
+        "approved_by": "Approved by {reviewer} at {at}",
+        "voice": 'learners read on every screen: « Leçon validée par {name} » / "validated by {name}"',
+        "voice_email": (
+            'note: this is an e-mail address; learners will see it — prefer a name (--validated-by "Prénom Nom")'
+        ),
+        "sha": "lesson.json SHA-256: {sha}",
+        "lint": "lint: {errors} error(s), {warnings} warning(s)",
+        "stale": (
+            "validated_by and validated_at were rewritten and the file normalized; "
+            "any edit to lesson.json makes this approval stale (approve again after editing)."
+        ),
+        "receipt": "Review receipt ({decision}): {path}",
+        "decision_approved": "approved",
+        "decision_returned": "returned",
+        "opened": "opened {opened} of {total} items",
+        "unopened_grading": "warning: {count} grading item(s) not opened before approval: {ids}",
+        "approval_record": "Approval record:",
+        "returned_by": "Returned by {reviewer} at {at}",
+        "receipt_record": "Review receipt:",
+        "error": "error: {message}",
+    },
+    "fr": {
+        "approved_by": "Approuvée par {reviewer} le {at}",
+        "voice": (
+            "Les apprenants liront sur chaque écran\u00a0: «\u00a0Leçon validée par {name}\u00a0» "
+            "/ “validated by {name}”"
+        ),
+        "voice_email": (
+            "note\u00a0: c’est une adresse électronique\u202f; les apprenants la verront — "
+            'préférez un nom (--validated-by "Prénom Nom")'
+        ),
+        "sha": "SHA-256 de lesson.json\u00a0: {sha}",
+        "lint": "lint\u00a0: {errors} erreur(s), {warnings} avertissement(s)",
+        "stale": (
+            "validated_by et validated_at ont été réécrits et le fichier normalisé\u202f; toute "
+            "modification de lesson.json rend cette approbation caduque (approuvez de nouveau après "
+            "modification)."
+        ),
+        "receipt": "Reçu de relecture ({decision})\u00a0: {path}",
+        "decision_approved": "approuvée",
+        "decision_returned": "renvoyée",
+        "opened": "éléments ouverts\u00a0: {opened} sur {total}",
+        "unopened_grading": (
+            "avertissement\u00a0: {count} élément(s) de notation non ouvert(s) avant l’approbation\u00a0: {ids}"
+        ),
+        "approval_record": "Enregistrement d’approbation\u00a0:",
+        "returned_by": "Renvoyée par {reviewer} le {at}",
+        "receipt_record": "Reçu de relecture\u00a0:",
+        "error": "erreur\u00a0: {message}",
+    },
+}
+
+# The refusals of approve and receipt. The English text is the exception's message (what tests and
+# scripts match); main prints the French one instead when the teacher's language is French.
+REFUSAL_TEXT = {
+    "en": {
+        "read_json": "cannot read {label} JSON: {detail}",
+        "write_json": "cannot write {label}: {detail}",
+        "validated_by_empty": "--validated-by must not be empty",
+        "reviewer_empty": "--reviewer must not be empty",
+        "bundle_not_object": "LessonBundle root must be an object",
+        "self_study": (
+            "self-study bundles cannot receive teacher approval; to approve this lesson for a class, "
+            "rebuild it through prepare, check and bundle (the teacher route), fill it, then approve"
+        ),
+        "placeholders": "cannot approve: {count} placeholder(s) remain ({first})",
+        "lint_errors": "cannot approve: bundle lint reported {count} ERROR finding(s)",
+        "lint_cannot_run": "cannot run bundle lint: {detail}",
+        "lint_incomplete": "bundle lint could not complete: {detail}",
+        "write_bundle": "cannot write approved LessonBundle: {detail}",
+        "receipt_not_written": "approval.json was written but the review receipt was not ({path}): {detail}",
+        "unknown_opened": "--opened names {count} id(s) that are not scenes of this lesson: {ids}",
+        "receipt_exists": (
+            "review receipt already exists: {path}; the same lesson bytes were already decided on "
+            "today, and a receipt is never overwritten"
+        ),
+        "receipt_approved": "receipt records a returned lesson; to approve, use approve (it writes the receipt too)",
+        "unknown_decision": "unknown decision {decision!r}",
+        "write_receipt": "cannot write review receipt: {detail}",
+        "checklist_entry": "invalid checklist entry {item!r}; expected key=value",
+        "checklist_duplicate": "duplicate checklist key {key!r}",
+    },
+    "fr": {
+        "read_json": "impossible de lire le JSON {label}\u00a0: {detail}",
+        "write_json": "impossible d’écrire {label}\u00a0: {detail}",
+        "validated_by_empty": "--validated-by ne doit pas être vide",
+        "reviewer_empty": "--reviewer ne doit pas être vide",
+        "bundle_not_object": "la racine du LessonBundle doit être un objet",
+        "self_study": (
+            "une leçon d’auto-apprentissage ne peut pas recevoir d’approbation enseignante\u202f; pour "
+            "l’approuver pour une classe, reconstruisez-la par prepare, check et bundle (la voie "
+            "enseignante), complétez-la, puis approuvez-la"
+        ),
+        "placeholders": "approbation impossible\u00a0: {count} marque(s) TODO restante(s) ({first})",
+        "lint_errors": "approbation impossible\u00a0: le lint du bundle a signalé {count} erreur(s) (ERROR)",
+        "lint_cannot_run": "impossible de lancer le lint du bundle\u00a0: {detail}",
+        "lint_incomplete": "le lint du bundle n’a pas pu aboutir\u00a0: {detail}",
+        "write_bundle": "impossible d’écrire le LessonBundle approuvé\u00a0: {detail}",
+        "receipt_not_written": (
+            "approval.json a été écrit mais pas le reçu de relecture ({path})\u00a0: {detail}"
+        ),
+        "unknown_opened": (
+            "--opened nomme {count} identifiant(s) qui ne sont pas des scènes de cette leçon\u00a0: {ids}"
+        ),
+        "receipt_exists": (
+            "le reçu de relecture existe déjà\u00a0: {path}\u202f; ces mêmes octets de leçon ont déjà "
+            "fait l’objet d’une décision aujourd’hui, et un reçu n’est jamais écrasé"
+        ),
+        "receipt_approved": (
+            "receipt enregistre une leçon renvoyée\u202f; pour approuver, utilisez approve "
+            "(qui écrit aussi le reçu)"
+        ),
+        "unknown_decision": "décision inconnue {decision!r}",
+        "write_receipt": "impossible d’écrire le reçu de relecture\u00a0: {detail}",
+        "checklist_entry": "entrée de checklist invalide {item!r}\u202f; forme attendue clé=valeur",
+        "checklist_duplicate": "clé de checklist en double {key!r}",
+    },
+}
+
+
+def _cli_language(requested: str | None) -> str:
+    """The language of what approve and receipt print: --lang, else STUDIUM_LANG when it is fr or en,
+    else the LC_ALL / LANG prefix (fr_… is French), else English."""
+    if requested in ("en", "fr"):
+        return requested
+    studium = os.environ.get("STUDIUM_LANG", "").strip().lower()
+    if studium in ("en", "fr"):
+        return studium
+    for name in ("LC_ALL", "LANG"):
+        value = os.environ.get(name, "")
+        if value:
+            return "fr" if value.lower().startswith("fr") else "en"
+    return "en"
+
+
+def _summary_text(language: str, key: str, **values: Any) -> str:
+    return SUMMARY_TEXT[language][key].format(**values)
+
+
+def _refusal(key: str, **values: Any) -> "PacketError":
+    """A PacketError whose message is the English refusal and which can be shown in French."""
+    return PacketError(REFUSAL_TEXT["en"][key].format(**values), key=key, values=values)
+
+
+def _refusal_message(exc: "PacketError", language: str) -> str:
+    if exc.key is None or language == "en":
+        return str(exc)
+    return REFUSAL_TEXT[language][exc.key].format(**exc.values)
+
+
 def _locale(language: str) -> str:
     """Resolve the two supported authoring locales, defaulting safely to English."""
     return "fr" if language.lower().split("-", maxsplit=1)[0] == "fr" else "en"
@@ -312,7 +467,15 @@ def _authoring_text(language: str, key: str, **values: Any) -> str:
 
 
 class PacketError(ValueError):
-    """Raised when packet preparation or response checking cannot proceed."""
+    """Raised when packet preparation or response checking cannot proceed.
+
+    ``key`` names an entry of REFUSAL_TEXT when the refusal has a French version (approve, receipt).
+    """
+
+    def __init__(self, message: str, *, key: str | None = None, values: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.key = key
+        self.values = values or {}
 
 
 class SourceQuoteError(PacketError):
@@ -560,9 +723,7 @@ def _review_receipt(
     ids = [_scene_id(scene, index) for index, scene in enumerate(scenes)]
     unknown = sorted(set(opened) - set(ids))
     if unknown:
-        raise PacketError(
-            f"--opened names {len(unknown)} id(s) that are not scenes of this lesson: {', '.join(unknown)}"
-        )
+        raise _refusal("unknown_opened", count=len(unknown), ids=", ".join(unknown))
     blocked: set[int] = set()
     if decision == "returned":
         for path in placeholder_paths(bundle):
@@ -611,10 +772,7 @@ def _receipt_path(bundle_path: Path, decided_at: str, bundle_sha256: str) -> Pat
 
 def _refuse_existing_receipt(path: Path) -> None:
     if path.exists() or path.is_symlink():
-        raise PacketError(
-            f"review receipt already exists: {path}; the same lesson bytes were already decided on "
-            "today, and a receipt is never overwritten"
-        )
+        raise _refusal("receipt_exists", path=path)
 
 
 def _write_receipt(path: Path, receipt: dict[str, Any]) -> None:
@@ -623,18 +781,20 @@ def _write_receipt(path: Path, receipt: dict[str, Any]) -> None:
         handle.write(_json_bytes(receipt))
 
 
-def _receipt_summary(receipt_path: Path) -> list[str]:
+def _receipt_summary(receipt_path: Path, language: str = "en") -> list[str]:
     receipt, _ = _load_json(receipt_path, "review receipt")
     items = receipt.get("items") or []
+    decision = receipt["decision"]
+    shown = SUMMARY_TEXT[language].get(f"decision_{decision}", decision)
     lines = [
-        f"Review receipt ({receipt['decision']}): {receipt_path.resolve()}",
-        f"opened {receipt['opened']} of {len(items)} items",
+        _summary_text(language, "receipt", decision=shown, path=receipt_path.resolve()),
+        _summary_text(language, "opened", opened=receipt["opened"], total=len(items)),
     ]
-    if receipt["decision"] == "approved":
+    if decision == "approved":
         unopened = [item["id"] for item in items if item["consequence"] == "grading" and not item["opened"]]
         if unopened:
             lines.append(
-                f"warning: {len(unopened)} grading item(s) not opened before approval: {', '.join(unopened)}"
+                _summary_text(language, "unopened_grading", count=len(unopened), ids=", ".join(unopened))
             )
     return lines
 
@@ -644,16 +804,16 @@ def record_review_receipt(
 ) -> Path:
     """Write a receipt alone, bound to the current bytes: a teacher who sends a lesson back."""
     if decision == "approved":
-        raise PacketError("receipt records a returned lesson; to approve, use approve (it writes the receipt too)")
+        raise _refusal("receipt_approved")
     if decision != "returned":
-        raise PacketError(f"unknown decision {decision!r}")
+        raise _refusal("unknown_decision", decision=decision)
     bundle_path = bundle_path.resolve()
     reviewer = reviewer.strip()
     if not reviewer:
-        raise PacketError("--reviewer must not be empty")
+        raise _refusal("reviewer_empty")
     bundle, raw = _load_json(bundle_path, "LessonBundle")
     if not isinstance(bundle, dict):
-        raise PacketError("LessonBundle root must be an object")
+        raise _refusal("bundle_not_object")
     decided_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     receipt = _review_receipt(
         bundle=bundle, bundle_bytes=raw, bundle_path=bundle_path, reviewer=reviewer,
@@ -667,7 +827,7 @@ def record_review_receipt(
         _refuse_existing_receipt(path)
         raise
     except OSError as exc:
-        raise PacketError(f"cannot write review receipt: {exc}") from exc
+        raise _refusal("write_receipt", detail=exc) from exc
     return path
 
 
@@ -704,7 +864,7 @@ def _load_json(path: Path, label: str) -> tuple[Any, bytes]:
         raw = path.read_bytes()
         return json.loads(raw), raw
     except (OSError, json.JSONDecodeError) as exc:
-        raise PacketError(f"cannot read {label} JSON: {exc}") from exc
+        raise _refusal("read_json", label=label, detail=exc) from exc
 
 
 def _require_empty_directory(path: Path) -> None:
@@ -2248,7 +2408,7 @@ def _write_json_file(path: Path, value: Any, label: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(_json_bytes(value))
     except OSError as exc:
-        raise PacketError(f"cannot write {label}: {exc}") from exc
+        raise _refusal("write_json", label=label, detail=exc) from exc
 
 
 def build_lesson_bundle(
@@ -2307,9 +2467,9 @@ def _parse_checklist(items: list[str]) -> dict[str, str]:
         key, separator, value = item.partition("=")
         key = key.strip()
         if not separator or not key:
-            raise PacketError(f"invalid checklist entry {item!r}; expected key=value")
+            raise _refusal("checklist_entry", item=item)
         if key in checklist:
-            raise PacketError(f"duplicate checklist key {key!r}")
+            raise _refusal("checklist_duplicate", key=key)
         checklist[key] = value.strip()
     return checklist
 
@@ -2326,7 +2486,7 @@ def _bundle_lint_summary(bundle_path: Path) -> dict[str, int]:
             check=False,
         )
     except OSError as exc:
-        raise PacketError(f"cannot run bundle lint: {exc}") from exc
+        raise _refusal("lint_cannot_run", detail=exc) from exc
     lines = (result.stdout + "\n" + result.stderr).splitlines()
     summary = {
         "errors": sum(line.startswith("ERROR  ") for line in lines),
@@ -2334,7 +2494,7 @@ def _bundle_lint_summary(bundle_path: Path) -> dict[str, int]:
     }
     if result.returncode not in (0, 1) or (result.returncode and not summary["errors"]):
         detail = next((line.strip() for line in lines if line.strip()), "no diagnostic output")
-        raise PacketError(f"bundle lint could not complete: {detail}")
+        raise _refusal("lint_incomplete", detail=detail)
     return summary
 
 
@@ -2351,25 +2511,20 @@ def approve_lesson_bundle(
     bundle_path = bundle_path.resolve()
     reviewer = validated_by.strip()
     if not reviewer:
-        raise PacketError("--validated-by must not be empty")
+        raise _refusal("validated_by_empty")
     bundle, _ = _load_json(bundle_path, "LessonBundle")
     if not isinstance(bundle, dict):
-        raise PacketError("LessonBundle root must be an object")
+        raise _refusal("bundle_not_object")
     metadata = bundle.get("metadata")
     authoring = metadata.get("authoring") if isinstance(metadata, dict) else None
     if isinstance(authoring, dict) and authoring.get("mode") == SELF_STUDY_MODE:
-        raise PacketError(
-            "self-study bundles cannot receive teacher approval; to approve this lesson for a class, "
-            "rebuild it through prepare, check and bundle (the teacher route), fill it, then approve"
-        )
+        raise _refusal("self_study")
     remaining = placeholder_paths(bundle)
     if remaining:
-        raise PacketError(
-            f"cannot approve: {len(remaining)} placeholder(s) remain ({remaining[0]})"
-        )
+        raise _refusal("placeholders", count=len(remaining), first=remaining[0])
     lint = _bundle_lint_summary(bundle_path)
     if lint["errors"]:
-        raise PacketError(f"cannot approve: bundle lint reported {lint['errors']} ERROR finding(s)")
+        raise _refusal("lint_errors", count=lint["errors"])
     reviewed_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     bundle["validated_by"] = reviewer
     bundle["validated_at"] = reviewed_at
@@ -2393,43 +2548,39 @@ def approve_lesson_bundle(
     try:
         bundle_path.write_bytes(final_bytes)
     except OSError as exc:
-        raise PacketError(f"cannot write approved LessonBundle: {exc}") from exc
+        raise _refusal("write_bundle", detail=exc) from exc
     approval_path = bundle_path.parent / "approval.json"
     _write_json_file(approval_path, approval, "approval record")
     try:
         _write_receipt(receipt_path, receipt)
     except OSError as exc:
-        raise PacketError(
-            f"approval.json was written but the review receipt was not ({receipt_path}): {exc}"
-        ) from exc
+        raise _refusal("receipt_not_written", path=receipt_path, detail=exc) from exc
     return approval_path
 
 
-def _voice_preview(name: str) -> list[str]:
+def _voice_preview(name: str, language: str = "en") -> list[str]:
     """The lesson's voice as learners read it on every screen (the host's voice line), so the teacher
     sees what --validated-by turns into; an e-mail address is noted, never refused."""
-    lines = [f'learners read on every screen: « Leçon validée par {name} » / "validated by {name}"']
+    lines = [_summary_text(language, "voice", name=name)]
     if "@" in name:
-        lines.append(
-            'note: this is an e-mail address; learners will see it — prefer a name (--validated-by "Prénom Nom")'
-        )
+        lines.append(_summary_text(language, "voice_email"))
     return lines
 
 
-def _approval_summary(approval_path: Path) -> list[str]:
+def _approval_summary(approval_path: Path, language: str = "en") -> list[str]:
     """What a teacher reads after ``approve``: who, which exact file, the lint counts, and the one
     rule that keeps the record honest (RT-7)."""
     approval, _ = _load_json(approval_path, "approval record")
     lint = approval.get("lint") or {}
+    receipt_path = _receipt_path(approval_path.parent / "lesson.json", approval["reviewed_at"], approval["bundle_sha256"])
     return [
-        f"Approved by {approval['reviewer']} at {approval['reviewed_at']}",
-        *_voice_preview(approval["reviewer"]),
-        f"lesson.json SHA-256: {approval['bundle_sha256']}",
-        f"lint: {lint.get('errors', 0)} error(s), {lint.get('warnings', 0)} warning(s)",
-        "validated_by and validated_at were rewritten and the file normalized; "
-        "any edit to lesson.json makes this approval stale (approve again after editing).",
-        *_receipt_summary(_receipt_path(approval_path.parent / "lesson.json", approval["reviewed_at"], approval["bundle_sha256"])),
-        "Approval record:",
+        _summary_text(language, "approved_by", reviewer=approval["reviewer"], at=approval["reviewed_at"]),
+        *_voice_preview(approval["reviewer"], language),
+        _summary_text(language, "sha", sha=approval["bundle_sha256"]),
+        _summary_text(language, "lint", errors=lint.get("errors", 0), warnings=lint.get("warnings", 0)),
+        _summary_text(language, "stale"),
+        *_receipt_summary(receipt_path, language),
+        _summary_text(language, "approval_record"),
     ]
 
 
@@ -2520,6 +2671,7 @@ def _add_approve_parser(commands: Any) -> None:
         ),
     )
     _add_receipt_arguments(approve)
+    _add_lang_argument(approve)
 
 
 def _add_receipt_arguments(command: Any) -> None:
@@ -2533,6 +2685,17 @@ def _add_receipt_arguments(command: Any) -> None:
         ),
     )
     command.add_argument("--note", metavar="TEXT", help="free note kept in the review receipt")
+
+
+def _add_lang_argument(command: Any) -> None:
+    command.add_argument(
+        "--lang",
+        choices=("en", "fr"),
+        help=(
+            "language of the summary and of the refusals printed (the recorded files do not change); "
+            "default: STUDIUM_LANG if it is fr or en, else LC_ALL/LANG (fr_... is French), else en"
+        ),
+    )
 
 
 def _add_receipt_parser(commands: Any) -> None:
@@ -2550,6 +2713,7 @@ def _add_receipt_parser(commands: Any) -> None:
     receipt.add_argument("--reviewer", required=True, metavar="NAME")
     receipt.add_argument("--decision", required=True, choices=("returned", "approved"))
     _add_receipt_arguments(receipt)
+    _add_lang_argument(receipt)
 
 
 def _add_passages_parser(commands: Any) -> None:
@@ -2718,6 +2882,7 @@ def _print_check_json(
 def main(argv: list[str] | None = None) -> int:
     """Run a packet command and return its process status."""
     args = _parser().parse_args(argv)
+    language = _cli_language(getattr(args, "lang", None)) if args.command in ("approve", "receipt") else "en"
     try:
         output = _COMMANDS[args.command](args)
     except AuthoringFindingsError as exc:
@@ -2735,7 +2900,7 @@ def main(argv: list[str] | None = None) -> int:
             finding = _error("packet_error", str(exc))
             _print_check_json(ok=False, findings=[finding], output=None)
             return 2
-        print(f"error: {exc}", file=sys.stderr)
+        print(_summary_text(language, "error", message=_refusal_message(exc, language)), file=sys.stderr)
         return 2
     if args.command == "check":
         summary = check_summary_lines(output.output_path)
@@ -2757,13 +2922,13 @@ def main(argv: list[str] | None = None) -> int:
         bundle, _ = _load_json(output, "generated LessonBundle")
         print(f"Remaining placeholders: {len(placeholder_paths(bundle))}")
     if args.command == "approve":
-        print("\n".join(_approval_summary(output)))
+        print("\n".join(_approval_summary(output, language)))
     if args.command == "receipt":
         receipt, _ = _load_json(output, "review receipt")
-        print(f"Returned by {receipt['reviewer']} at {receipt['decided_at']}")
-        print(f"lesson.json SHA-256: {receipt['bundle_sha256']}")
-        print("\n".join(_receipt_summary(output)[1:]))
-        print("Review receipt:")
+        print(_summary_text(language, "returned_by", reviewer=receipt["reviewer"], at=receipt["decided_at"]))
+        print(_summary_text(language, "sha", sha=receipt["bundle_sha256"]))
+        print("\n".join(_receipt_summary(output, language)[1:]))
+        print(_summary_text(language, "receipt_record"))
     print(output)
     return 0
 

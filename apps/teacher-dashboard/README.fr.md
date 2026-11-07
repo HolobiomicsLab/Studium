@@ -101,6 +101,8 @@ Le panneau d'approbation a un champ pour le nom de l'enseignant : les deux comm
 panneau montre la ligne que les apprenants liront sur chaque écran, « Leçon validée par NOM » / "validated
 by NOM", avec une note quand le nom est une adresse électronique (les apprenants la verraient). Rien n'est
 refusé ; le nom reste sur la page jusqu'à ce que l'enseignant lance la commande.
+Sur la page française, les deux commandes finissent par `--lang fr` : l'outil affiche alors son
+résumé et ses refus en français ; les fichiers qu'il enregistre sont les mêmes dans les deux langues.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/screenshots/teacher-review-dark.png">

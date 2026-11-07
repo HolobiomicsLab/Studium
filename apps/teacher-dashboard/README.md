@@ -97,6 +97,8 @@ The approval panel has a field for the teacher's name: both commands carry it, a
 line learners will read on every screen, « Leçon validée par NAME » / "validated by NAME", with a note
 when the name is an e-mail address (learners would see it). Nothing is refused; the name stays on the page
 until the teacher runs the command.
+On the French page both commands end with `--lang fr`, so the CLI prints its summary and its
+refusals in French; the files it records are the same in either language.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/screenshots/teacher-review-dark.png">

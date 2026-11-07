@@ -4363,6 +4363,25 @@ Checked by the subagent that wrote it (Opus, 7 Nov, Node 24): `pnpm --filter @st
 Not verified: no MCP Apps host has shown the notice or re-rendered after « Jouer ici »; the
 server's renegotiation on an open with `session_id` is read from the code, not tested here.
 
+## 2026-11-07 (CLI language) — approve and receipt answer the teacher in French
+
+INT-STUDIUM-058 lot 6, walkthrough T.2 to T.10. `tools/experience_packet.py approve` and `receipt`
+take `--lang {en,fr}`; the default is `STUDIUM_LANG` (fr/en), then the `LC_ALL`/`LANG` prefix, then
+English. The approval and receipt summaries, the voice preview and its e-mail note, and the
+refusals of these two subcommands come from the FR/EN tables `SUMMARY_TEXT` and `REFUSAL_TEXT`;
+the English refusal stays the exception message and French replaces it on stderr. The recorded
+files (`lesson.json`, `approval.json`, review receipts) are byte-identical in both languages (a
+frozen-clock test), and the parity gate is untouched. The teacher dashboard appends `--lang fr` to
+the commands it composes on its French page. `prepare`, `check`, `bundle` and `passages` stay
+English.
+
+Test decisions: the dashboard's exact French command strings end with ` --lang fr`; an autouse
+fixture clears the locale variables for the Python suite. Python 144 → 158, dashboard 150 → 151.
+
+Checked by the subagent that wrote it (Opus, 7 Nov): `python -m pytest tools/test_experience_packet.py tools/test_review_receipt_parity.py -q` (158 passed, also with a French locale exported), dashboard `npx vitest run` (151), `pnpm --filter @studium/teacher-dashboard build` (no error), a manual French refusal on a missing file (exit 2). The lead's full gates (`tools/pytest_all.py` among them) run after the afternoon's commits, before the push.
+
+Not verified: the French wording by a French-speaking teacher.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local
