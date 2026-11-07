@@ -3,8 +3,9 @@
 // as any answer; the declaration itself moves no mastery and skips no scene. Played on
 // fixtures/atomistique-l1 by a labelled synthetic learner (the key is read from the fixture).
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
 import { checkScenes, claimFor, contestOutcome } from "./contest.js";
 import { SessionHost } from "./host.js";
@@ -14,6 +15,44 @@ const ATOMS = "atomistique-l1/lesson.json";
 const LEARNER = "auto-test-contest";
 const authored = JSON.parse(readFileSync(resolve(FIXTURES, ATOMS), "utf8")) as LessonBundle;
 type Choice = { id: string; text: string };
+
+const smallBase = (id: string, concept: string) => ({
+  id, title: `Scène ${id}`, objective_refs: [], concept_refs: [concept], estimated_seconds: 30, adaptation_hooks: [],
+});
+const smallConcept = (id: string, concept: string) => ({ ...smallBase(id, concept), type: "concept", markdown: "Le cours." });
+const smallQuiz = (id: string, concept: string) => ({
+  ...smallBase(id, concept), type: "quiz", question: "Question ?",
+  choices: [{ id: "a", text: "Juste", correct: true }, { id: "b", text: "Faux", correct: false }],
+  feedback_correct: "Oui", feedback_incorrect: "Non", hints: [],
+});
+const smallLesson = {
+  schema_version: "1.4", bundle_id: "contest-small", source_plan_id: "p",
+  metadata: { title: "Contest small", target: "L1", duration_minutes: 5, language: "fr", discipline: "chimie" },
+  concepts: [
+    { id: "c-served", title: "Notion servie", description: "d", bloom_level_target: "understand" },
+    { id: "c-later", title: "Notion suivante", description: "d", bloom_level_target: "understand" },
+    { id: "c-nokey", title: "Notion sans clé", description: "d", bloom_level_target: "understand" },
+  ],
+  scenes: [
+    smallConcept("s-served", "c-served"), smallQuiz("s-q1", "c-served"), smallQuiz("s-q2", "c-served"),
+    smallConcept("s-later", "c-later"), smallQuiz("s-q3", "c-later"), smallConcept("s-nokey", "c-nokey"),
+  ],
+  rules: [], validated_by: "Prof. Test", validated_at: "2026-10-01T00:00:00Z",
+};
+
+async function startSmall() {
+  const root = mkdtempSync(join(tmpdir(), "contest-small-"));
+  writeFileSync(join(root, "lesson.json"), JSON.stringify(smallLesson));
+  const host = new SessionHost({ bundlesRoot: root, live: false, dataDir: null });
+  const sid = (await host.create("lesson.json", LEARNER)).sessionId;
+  const answer = (right: boolean) => {
+    const shown = host.currentPresentation(sid).scene as unknown as { id: string; choices: Choice[] };
+    const scene = smallLesson.scenes.find((s) => s.id === shown.id) as unknown as { choices: Array<{ text: string; correct: boolean }> };
+    const wanted = scene.choices.find((choice) => choice.correct === right)!.text;
+    return host.respond(sid, { kind: "quiz_choice", choiceId: shown.choices.find((c) => c.text === wanted)!.id }, "fast");
+  };
+  return { host, sid, answer, root };
+}
 
 async function start() {
   const host = new SessionHost({ bundlesRoot: FIXTURES, live: false, dataDir: null });
@@ -63,7 +102,9 @@ describe("the rules of a contest", () => {
 describe("contesting a concept in a lesson", () => {
   it("« I know it »: no mastery moves on the claim, two check questions follow, then the lesson resumes where it was", async () => {
     const t = await start();
+    await t.host.respond(t.sid, { kind: "ack" });                    // the first concept is served
     const was = t.sceneId();
+    expect(was).toBe("s1-concept-particules");
     const before = t.mastery();
     expect(t.contest()).toMatchObject({ pending: null, history: [] });
     expect(t.contest().questions).toMatchObject({ "c-particules": 2, "c-periodicite": 1, "c-geometrie": 0 });
@@ -90,17 +131,20 @@ describe("contesting a concept in a lesson", () => {
 
     // Nothing was skipped: the lesson goes on with its next scene.
     await t.host.respond(t.sid, { kind: "ack" });
-    expect(t.sceneId()).toBe(authored.scenes[1]!.id);
+    expect(t.sceneId()).toBe(authored.scenes[2]!.id);
     // The checks are steps of the path and evidence on the map.
     const record = t.host.conceptMapRecord(t.sid)!;
-    expect(record.path.slice(0, 2).map((step) => step.scene_id)).toEqual(["s1-quiz-fer", "s9-rappel-carbone14"]);
+    expect(record.path.filter((step) => ["s1-quiz-fer", "s9-rappel-carbone14"].includes(step.scene_id)).map((step) => step.scene_id))
+      .toEqual(["s1-quiz-fer", "s9-rappel-carbone14"]);
     expect(record.evidence.map((fact) => fact.scene_id)).toEqual(["s1-quiz-fer", "s9-rappel-carbone14"]);
     // The agent's next brief says a contest was made, and through which lane.
-    expect(t.host.companionBrief(t.sid).since_last[0]).toEqual({ scene_id: was, act: "contest", lane: "fast" });
+    expect(t.host.companionBrief(t.sid).since_last.find((act) => act.act === "contest"))
+      .toEqual({ scene_id: was, act: "contest", lane: "fast" });
   });
 
   it("refutes « I know it » when an answer is wrong, and a check answer releases no reference", async () => {
     const t = await start();
+    await t.host.respond(t.sid, { kind: "ack" });
     await t.host.contest(t.sid, "c-particules", "known");
     const wrong = await t.answer(false);
     expect(wrong.verdict).toMatchObject({ correct: false });
@@ -113,13 +157,25 @@ describe("contesting a concept in a lesson", () => {
     expect(last.verdict).not.toHaveProperty("reference_kind");
   });
 
-  it("asks one question when the lesson has one key-graded scene on the concept: the outcome is partial", async () => {
-    const t = await start();
-    const started = await t.host.contest(t.sid, "c-periodicite", "known");
-    expect(started.questions).toBe(1);
-    const only = await t.answer(true);
-    expect(only.contest).toMatchObject({ outcome: "partial", scene_ids: ["s6-quiz-tendance"], results: [true] });
-    expect(t.contest().pending).toBeNull();
+  it("refuses an upcoming concept until the session reaches it, then contests it with its one key-graded question", async () => {
+    const { host, sid, answer, root } = await startSmall();
+    try {
+      const refused = (concept: string, claim: "known" | "unsure") =>
+        host.contest(sid, concept, claim).then(() => "accepted", (error: Error) => error.message);
+      expect(await refused("c-later", "known"))
+        .toBe('"c-later" has not been shown yet: contest it once the session reaches it');
+      await host.respond(sid, { kind: "ack" });                     // s-q1
+      await answer(true);                                           // s-q2
+      await answer(true);                                           // s-later, c-later is current
+      expect(host.conceptMap(sid)!.nodes.find((node) => node.id === "c-later")!.state).toBe("current");
+      const started = await host.contest(sid, "c-later", "known", "fast");
+      expect(started.questions).toBe(1);
+      const only = await answer(true);
+      expect(only.contest).toMatchObject({ outcome: "partial", scene_ids: ["s-q3"], results: [true] });
+      await host.respond(sid, { kind: "ack" });                     // s-q3
+      await answer(true);                                           // s-nokey
+      expect(await refused("c-nokey", "known")).toBe('this lesson has no question graded against a key on "c-nokey"');
+    } finally { rmSync(root, { recursive: true, force: true }); }
   });
 
   it("« I am not sure » of an acquired concept: confirmed when both answers are wrong", async () => {
@@ -146,10 +202,11 @@ describe("contesting a concept in a lesson", () => {
 
   it("refuses, in one line, a claim the state does not take, a concept without a key-graded question, an unknown one and a second contest", async () => {
     const t = await start();
+    await t.host.respond(t.sid, { kind: "ack" });                    // the first concept is served
     const refused = (concept: string, claim: "known" | "unsure") =>
       t.host.contest(t.sid, concept, claim).then(() => "accepted", (error: Error) => error.message);
     expect(await refused("c-particules", "unsure")).toMatch(/not acquired.*"known"/);
-    expect(await refused("c-geometrie", "known")).toMatch(/no question graded against a key/);
+    expect(await refused("c-geometrie", "known")).toMatch(/has not been shown yet/);
     expect(await refused("nowhere", "known")).toMatch(/no concept "nowhere"/);
     await t.host.contest(t.sid, "c-particules", "known");
     expect(await refused("c-periodicite", "known")).toMatch(/already/);

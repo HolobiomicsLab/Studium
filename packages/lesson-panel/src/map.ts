@@ -47,7 +47,7 @@ export function mapView(record: MapRecord, locale: Locale): MapView {
     const questions = pending ? pending.asked : contests.questions[node.id] ?? 0;
     const last = contests.history.filter((settled) => settled.concept_id === node.id).at(-1);
     return {
-      allowed: !contests.pending && questions > 0, ...(pending ? { check_pending: true } : {}),
+      allowed: node.state !== "upcoming" && !contests.pending && questions > 0, ...(pending ? { check_pending: true } : {}),
       claim: node.state === "acquired" ? "unsure" : "known", questions, ...(last ? { outcome: last.outcome } : {}),
     };
   };

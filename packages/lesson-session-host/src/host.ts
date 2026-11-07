@@ -22,7 +22,7 @@ import {
   type RenderAsset, type ReferenceRun, type RunManifest, type Course, type CourseLesson, type LessonBundle, type Scene,
 } from "@studium/lesson-bundle-schema";
 import { runResultToReferenceRun, verifyRunAttestation, type RunResult } from "./run-result.js";
-import { buildConceptMap, type ConceptMap, type ConceptMapMoment } from "./concept-map.js";
+import { buildConceptMap, type ConceptMap, type ConceptMapMoment, type ConceptMapState } from "./concept-map.js";
 import type { GraphView } from "@studium/typed-graph-lens";
 import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
 import { SessionRegistry, type HeldSources, type SessionEntry } from "./registry.js";
@@ -851,6 +851,13 @@ export interface LessonListing {
 /** What contest returns: the concept and the claim taken, how many check questions follow (two, or
  * one when the lesson has a single key-graded scene on the concept), and the first of them. */
 export interface ContestStart { concept_id: string; claim: ContestClaim; questions: number; presentation: ServedPresentation }
+
+/** The claim a concept's state takes: « unsure » of an acquired one, « known » of any other state the
+ * session has shown. An upcoming concept takes none until the session reaches it (owner's decision,
+ * 7 Nov 2026). */
+function claimOfShownState(state: ConceptMapState): ContestClaim | undefined {
+  return state === "upcoming" ? undefined : claimFor(state);
+}
 
 /** What export_concept_map returns: the record, and where it was written (null without a library). */
 export interface ConceptMapExport {
@@ -2025,8 +2032,10 @@ export class SessionHost {
       if (entry.contest || entry.session.checkPending()) throw new ContestRefusedError("check questions are already being asked: answer them first");
       const node = this.conceptMapOf(entry, "on_request")?.nodes.find((n) => n.id === conceptId);
       if (!node) throw new ContestRefusedError(`no concept "${conceptId}" on this session's map`);
-      if (claimFor(node.state) !== claim) {
-        throw new ContestRefusedError(node.state === "acquired"
+      const claimTaken = claimOfShownState(node.state);
+      if (claimTaken === undefined) throw new ContestRefusedError(`"${conceptId}" has not been shown yet: contest it once the session reaches it`);
+      if (claimTaken !== claim) {
+        throw new ContestRefusedError(claimTaken === "unsure"
           ? `"${conceptId}" is acquired: the claim it takes is "unsure"`
           : `"${conceptId}" is not acquired: the claim it takes is "known"`);
       }

@@ -95,12 +95,18 @@ describe("mapView", () => {
 describe("mapView: what can be contested", () => {
   const contested = (contest: NonNullable<MapRecord["contest"]>) => mapView({ ...record(), contest }, "fr").concepts.map((c) => c.contest);
 
-  it("offers « I am not sure » of an acquired concept, « I know it » of the others, when the lesson has a check question", () => {
-    expect(contested({ pending: null, questions: { a: 2, b: 1, c: 0, d: 2 }, history: [] })).toEqual([
+  it("offers « I am not sure » of an acquired concept, « I know it » of the states the session has shown, and none of an upcoming one", () => {
+    expect(contested({ pending: null, questions: { a: 2, b: 1, c: 0, d: 2, e: 2 }, history: [] })).toEqual([
       { allowed: true, claim: "unsure", questions: 2 }, { allowed: true, claim: "known", questions: 1 },
       { allowed: false, claim: "known", questions: 0 }, { allowed: true, claim: "known", questions: 2 },
-      { allowed: false, claim: "known", questions: 0 },                // a concept the record does not count
+      { allowed: false, claim: "known", questions: 2 },                // upcoming: no claim until the session reaches it
     ]);
+  });
+
+  it("allows a current concept with a check question, and never an upcoming one", () => {
+    const view = contested({ pending: null, questions: { c: 2, e: 2 }, history: [] });
+    expect(view[2]).toEqual({ allowed: true, claim: "known", questions: 2 });
+    expect(view[4]).toEqual({ allowed: false, claim: "known", questions: 2 });
   });
 
   it("says which concept is being checked, and allows no other contest meanwhile", () => {

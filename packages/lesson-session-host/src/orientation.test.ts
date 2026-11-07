@@ -203,6 +203,7 @@ describe("orientationOf — a contest's check questions, on fixtures/atomistique
       const key = bundle.scenes.find((s) => s.id === shown.id)!.choices!.find((c) => c.correct)!.text;
       return host.respond(sid, { kind: "quiz_choice", choiceId: shown.choices.find((c) => c.text === key)!.id, confidence: 2 });
     };
+    await host.respond(sid, { kind: "ack" });   // past the intro: c-particules is now shown, so it takes a claim
     const before = orientationOf(host, sid);
     expect(before).not.toHaveProperty("contest");
 

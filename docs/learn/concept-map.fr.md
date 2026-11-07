@@ -39,7 +39,8 @@ qu'elle demande d'abord. « Preuves et portée » montre ce que l'état établ
 les réponses qui le fondent : le jour, qui a évalué la réponse, le résultat et les indices pris. Quand une
 notion peut être contrôlée, un bouton porte votre déclaration (« Je la connais » ou « J'ai un doute ») :
 la leçon pose alors une ou deux questions de contrôle et dit ce qu'elles ont montré. Votre déclaration
-seule ne change rien. « Fermer la carte » range la liste. Le panneau ne dessine pas le graphe ; la page
+seule ne change rien. Une notion que la séance n'a pas encore montrée ne peut pas être contestée avant
+qu'elle soit atteinte. « Fermer la carte » range la liste. Le panneau ne dessine pas le graphe ; la page
 exportée ci-dessous le fait.
 
 ## Exporter une page interactive

@@ -139,10 +139,14 @@ function withMap(form: Form, labels: typeof LABELS.fr): Form {
 }
 
 function mapSchema(map: ConceptMap, labels: typeof LABELS.fr): FormSchema {
+  const contestable = map.nodes.filter((node) => node.state !== "upcoming").map((node) => node.id);
+  // An upcoming concept takes no claim until the session has shown it. With none contestable, the
+  // map form carries no fields and only returns to the scene.
+  if (contestable.length === 0) return { type: "object", properties: {} };
   return {
     type: "object",
     properties: {
-      contest_concept: { type: "string", title: labels.contest, enum: map.nodes.map((node) => node.id) },
+      contest_concept: { type: "string", title: labels.contest, enum: contestable },
       claim: { type: "string", title: labels.claim, enum: ["known", "unsure"] },
     },
   };

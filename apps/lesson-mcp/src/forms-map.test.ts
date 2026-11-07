@@ -66,6 +66,20 @@ function correctAnswer(form: Form): ElicitResult {
   return accept({ choice: displayed, confidence: 3 });
 }
 
+/** Play the fixture through the host until `sceneId` is on screen, answering each scene generically.
+ * Used only to reach a served concept before the forms are opened. */
+async function reach(host: SessionHost, sessionId: string, sceneId: string): Promise<void> {
+  for (let step = 0; step < 40; step += 1) {
+    const scene = host.currentPresentation(sessionId).scene as { id: string; type: string; choices?: Array<{ id: string; text: string }> };
+    if (scene.id === sceneId) return;
+    if (scene.type === "quiz") await host.respond(sessionId, { kind: "quiz_choice", choiceId: scene.choices![0]!.id });
+    else if (scene.type === "summary_audit") await host.respond(sessionId, { kind: "reply", text: "Le résumé omet les isotopes." });
+    else if (scene.type === "intro" || scene.type === "concept") await host.respond(sessionId, { kind: "ack" });
+    else throw new Error(`reach: ${scene.type} scene ${scene.id} needs a specific answer`);
+  }
+  throw new Error(`reach: ${sceneId} was not served`);
+}
+
 async function connect(host: SessionHost, responder: Responder) {
   const server = buildMcpServer(host);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -104,7 +118,7 @@ function contestableHost(dataDir: string | null = null) {
 }
 
 describe("the concept map in play_in_forms", () => {
-  it("opens the map from a scene form and returns to the untouched scene after an empty map form", async () => {
+  it("opens the map from a scene form and returns to the untouched scene after an empty map form; no upcoming concept is contestable", async () => {
     const host = new SessionHost({ bundlesRoot: FIXTURES, live: false, dataDir: null });
     const answers = [accept({ map: true }), accept(), decline()];
     const test = await connect(host, async () => answers.shift() ?? cancel());
@@ -118,12 +132,10 @@ describe("the concept map in play_in_forms", () => {
       });
       expect(test.forms[1]!.message).toContain("Carte des notions — là où tu en es.");
       expect(test.forms[1]!.message).toContain("Nombres quantiques (`c-nombres-quantiques`)");
-      expect(test.forms[1]!.requestedSchema).toMatchObject({
-        properties: {
-          contest_concept: { type: "string", enum: expect.arrayContaining(["c-nombres-quantiques"]) },
-          claim: { type: "string", enum: ["known", "unsure"] },
-        },
-      });
+      // Nothing is contestable on the first screen: the map form only returns to the scene.
+      expect(test.forms[1]!.requestedSchema.properties).not.toHaveProperty("contest_concept");
+      expect(test.forms[1]!.requestedSchema.properties).not.toHaveProperty("claim");
+      expect(host.conceptMap(started.session_id as string)!.nodes.every((node) => node.state === "upcoming")).toBe(true);
       expect(test.forms[1]!.requestedSchema.required).toBeUndefined();
       expect(test.forms[2]!.message).toContain("Chapitre 1 — Atomes et orbitales");
       expect(result).toMatchObject({
@@ -143,28 +155,51 @@ describe("the concept map in play_in_forms", () => {
     });
     try {
       const started = await test.call("start_lesson_session", { bundle_ref: ATOMS, learner_id: "synthetic-forms-map-contest" });
+      // Reach c-nombres-quantiques through the conversation; the forms open on its concept scene.
+      const id = started.session_id as string;
+      await reach(host, id, "s2-concept-nombres-quantiques");
       const result = await test.call("play_in_forms", { session_id: started.session_id });
 
       expect(test.forms).toHaveLength(5);
       expect(test.forms[2]!.message).toMatch(/^Contrôle sur «\u00a0Nombres quantiques\u00a0»\u00a0: 2 questions\./);
       expect(test.forms[2]!.message).toContain("contrôle 1/2");
-      expect(test.forms[4]!.message).toContain("Chapitre 1 — Atomes et orbitales");
+      expect(test.forms[4]!.message).toContain("Les nombres quantiques");
       expect(result.status).toBe("paused");
       const steps = result.steps as Json[];
       expect(steps.slice(0, 2)).toEqual([
-        { scene_id: "s0-intro", scene_type: "map" },
-        { scene_id: "s0-intro", scene_type: "contest", concept_id: "c-nombres-quantiques", claim: "known" },
+        { scene_id: "s2-concept-nombres-quantiques", scene_type: "map" },
+        { scene_id: "s2-concept-nombres-quantiques", scene_type: "contest", concept_id: "c-nombres-quantiques", claim: "known" },
       ]);
       expect(steps.slice(2).map((step) => step.scene_id)).toEqual(["s2-quiz-4f", "s9-rappel-3d"]);
       const resumed = result.presentation as { scene: { id: string } };
-      expect(resumed.scene.id).toBe("s0-intro");
+      expect(resumed.scene.id).toBe("s2-concept-nombres-quantiques");
+    } finally { await test.close(); }
+  }, 30_000);
+
+  it("offers only the concepts the session has shown in the map form's enum", async () => {
+    const host = new SessionHost({ bundlesRoot: FIXTURES, live: false, dataDir: null });
+    const answers = [accept({ map: true }), decline()];
+    const test = await connect(host, async () => answers.shift() ?? cancel());
+    try {
+      const started = await test.call("start_lesson_session", { bundle_ref: ATOMS, learner_id: "synthetic-forms-map-enum" });
+      const id = started.session_id as string;
+      await host.respond(id, { kind: "ack" });                       // c-particules is current
+      const result = await test.call("play_in_forms", { session_id: id, max_steps: 1 });
+      expect(result.status).toBe("paused");
+      const mapForm = test.forms.find((form) => form.requestedSchema.properties.contest_concept)!;
+      const map = host.conceptMap(id)!;
+      const upcoming = map.nodes.filter((node) => node.state === "upcoming").map((node) => node.id);
+      const contestable = map.nodes.filter((node) => node.state !== "upcoming").map((node) => node.id);
+      expect(upcoming.length).toBeGreaterThan(0);
+      expect(mapForm.requestedSchema.properties.contest_concept!.enum).toEqual(contestable);
+      for (const id of upcoming) expect(mapForm.requestedSchema.properties.contest_concept!.enum).not.toContain(id);
     } finally { await test.close(); }
   }, 30_000);
 
   it("keeps the map open when either half of a contest declaration is missing", async () => {
     for (const partial of [{ claim: "known" }, { contest_concept: "c-nombres-quantiques" }]) {
       const host = new SessionHost({ bundlesRoot: FIXTURES, live: false, dataDir: null });
-      const answers = [accept({ map: true }), accept(partial), decline()];
+      const answers = [accept({ map: true }), accept(partial), decline(), decline()];
       const test = await connect(host, async () => answers.shift() ?? cancel());
       try {
         const started = await test.call("start_lesson_session", {
@@ -174,7 +209,8 @@ describe("the concept map in play_in_forms", () => {
         expect(test.forms).toHaveLength(3);
         expect(test.forms[2]!.message).toMatch(/^Choisis une notion et une déclaration pour contester\./);
         expect(test.forms[2]!.message).toContain("Nombres quantiques (`c-nombres-quantiques`)");
-        expect(test.forms[2]!.requestedSchema.properties).toHaveProperty("contest_concept");
+        // The first screen has shown no concept: there is nothing to choose, so the map form has no fields.
+        expect(test.forms[2]!.requestedSchema.properties).toEqual({});
         expect(result).toMatchObject({ status: "paused", steps: [{ scene_id: "s0-intro", scene_type: "map" }] });
       } finally { await test.close(); }
     }
@@ -191,7 +227,7 @@ describe("the concept map in play_in_forms", () => {
     try {
       const started = await test.call("start_lesson_session", { bundle_ref: ATOMS, learner_id: "synthetic-forms-map-refusal" });
       const result = await test.call("play_in_forms", { session_id: started.session_id });
-      expect(test.forms[2]!.message).toMatch(/^"c-nombres-quantiques" is not acquired: the claim it takes is "known"/);
+      expect(test.forms[2]!.message).toMatch(/^"c-nombres-quantiques" has not been shown yet: contest it once the session reaches it/);
       expect(test.forms[2]!.message).toContain("Carte des notions — là où tu en es.");
       expect(result.steps).toEqual([{ scene_id: "s0-intro", scene_type: "map" }]);
     } finally { await test.close(); }
@@ -203,14 +239,11 @@ describe("the concept map in play_in_forms", () => {
     process.env["STUDIUM_TELEMETRY_CONSENT"] = "granted";
     try {
       const host = new SessionHost({ bundlesRoot: FIXTURES, live: false, dataDir });
-      const answers = [
-        accept({ map: true }),
-        accept({ contest_concept: "c-nombres-quantiques", claim: "known" }),
-        cancel(),
-      ];
+      const answers = [accept({ map: true }), accept({ contest_concept: "c-particules", claim: "known" })];
       const test = await connect(host, async () => answers.shift() ?? cancel());
       try {
         const started = await test.call("start_lesson_session", { bundle_ref: ATOMS, learner_id: "synthetic-forms-map-events" });
+        await reach(host, started.session_id as string, "s1-concept-particules");
         const result = await test.call("play_in_forms", { session_id: started.session_id });
         expect(result.status).toBe("paused");
         await test.call("end_session", { session_id: started.session_id });
@@ -223,8 +256,8 @@ describe("the concept map in play_in_forms", () => {
     const relevant = interactionEvents(dataDir).filter((event) => event["act"] === "openMap" || event["act"] === "contest");
     expect(relevant).toHaveLength(2);
     expect(relevant.map(({ act, lane, surface_rank, scene_id }) => ({ act, lane, surface_rank, scene_id }))).toEqual([
-      { act: "openMap", lane: "fast", surface_rank: 2, scene_id: "s0-intro" },
-      { act: "contest", lane: "fast", surface_rank: 2, scene_id: "s0-intro" },
+      { act: "openMap", lane: "fast", surface_rank: 2, scene_id: "s1-concept-particules" },
+      { act: "contest", lane: "fast", surface_rank: 2, scene_id: "s1-concept-particules" },
     ]);
   }, 30_000);
 
@@ -291,7 +324,7 @@ describe("the concept map in play_in_forms", () => {
         const answer = correctAnswer(form);
         return accept({ ...answer.content, map: true });
       }
-      if (index === 3) return accept({ contest_concept: "c-nombres-quantiques", claim: "known" });
+      if (index === 3) return accept({ contest_concept: "c-particules", claim: "known" });
       return decline();
     });
     try {

@@ -147,8 +147,9 @@ export const MapEvidenceSchema = z.object({
 });
 export type MapEvidence = z.infer<typeof MapEvidenceSchema>;
 /** What the learner may contest of a concept (spec § 2.7): the claim its state takes (`unsure` of an
- * acquired concept, `known` of any other), whether it can be made now, how many check questions follow
- * (one: the outcome will be partial), whether its check is under way, and what the last one showed. */
+ * acquired concept, `known` of any other state shown by the session; an upcoming concept is not
+ * contestable yet), whether it can be made now, how many check questions follow (one: the outcome
+ * will be partial), whether its check is under way, and what the last one showed. */
 export const MapContestSchema = z.object({
   allowed: z.boolean(), check_pending: z.boolean().optional(), claim: z.enum(["known", "unsure"]),
   questions: z.number().int().nonnegative(), outcome: z.enum(["confirmed", "refuted", "partial"]).optional(),

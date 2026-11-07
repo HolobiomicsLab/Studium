@@ -58,15 +58,29 @@ describe("contesting a concept in the conversation", () => {
         const reading = (await t.call("submit_response", { session_id: id, input: { kind: "ack" } })).transition.presentation.scene;
         expect(reading.id).toBe("s1-concept-particules");
 
+        // An upcoming concept takes no claim until the session has shown it: refused in one line.
+        const upcoming = await t.raw("submit_response", { session_id: id, input: { kind: "contest", concept_id: "c-nombres-quantiques", claim: "known" } });
+        expect(upcoming.isError).toBe(true);
+        expect(JSON.parse(upcoming.content[0]!.text!).error)
+          .toBe("\"c-nombres-quantiques\" has not been shown yet: contest it once the session reaches it");
+
         // A claim the state does not take is refused in one line.
         const wrong = await t.raw("submit_response", { session_id: id, input: { kind: "contest", concept_id: "c-nombres-quantiques", claim: "unsure" } });
         expect(wrong.isError).toBe(true);
-        expect(JSON.parse(wrong.content[0]!.text!).error).toBe("\"c-nombres-quantiques\" is not acquired: the claim it takes is \"known\"");
+        expect(JSON.parse(wrong.content[0]!.text!).error)
+          .toBe("\"c-nombres-quantiques\" has not been shown yet: contest it once the session reaches it");
         // A claim that is not one of the two is refused in one line, from the contest's own branch.
         const odd = await t.raw("submit_response", { session_id: id, input: { kind: "contest", concept_id: "c-nombres-quantiques", claim: "maybe" } });
         expect(odd.isError).toBe(true);
         expect(odd.content[0]!.text).toMatch(/Expected 'known' \| 'unsure', received 'maybe'/);
 
+        // Reach the concept, then contest it: the state the session showed takes « I know it ».
+        const quiz = (await t.call("submit_response", { session_id: id, input: { kind: "ack" } })).transition.presentation.scene;
+        expect(quiz.id).toBe("s1-quiz-fer");
+        const audit = (await t.call("submit_response", { session_id: id, input: { kind: "quiz_choice", choiceId: rightChoice(quiz), confidence: 3 } })).transition.presentation.scene;
+        expect(audit.id).toBe("s1b-audit-particules");
+        const next = (await t.call("submit_response", { session_id: id, input: { kind: "reply", text: "Le résumé omet les isotopes." } })).transition.presentation.scene;
+        expect(next.id).toBe("s2-concept-nombres-quantiques");
         const contest = await t.call("submit_response", { session_id: id, input: { kind: "contest", concept_id: "c-nombres-quantiques", claim: "known" } });
         expect(contest.contest).toEqual({ concept_id: "c-nombres-quantiques", claim: "known", questions: 2 });
         expect(contest.presentation.scene.id).toBe("s2-quiz-4f");
@@ -84,7 +98,7 @@ describe("contesting a concept in the conversation", () => {
         expect(second.presentation.scene.id).toBe("s9-rappel-3d");
         expect(second.presentation.display_markdown).toContain("contrôle 2/2");
         const back = (await t.call("submit_response", { session_id: id, input: { kind: "quiz_choice", choiceId: rightChoice(second.presentation.scene), confidence: 3 } })).transition;
-        expect(back.presentation.scene.id).toBe("s1-concept-particules");
+        expect(back.presentation.scene.id).toBe("s2-concept-nombres-quantiques");
         await t.call("end_session", { session_id: id });
       } finally { await t.close(); }
     } finally {
@@ -95,7 +109,7 @@ describe("contesting a concept in the conversation", () => {
     const events = files.flatMap((f) => readFileSync(join(dataDir, f), "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as Json));
     const contests = events.filter((e) => e["type"] === "interaction" && e["act"] === "contest");
     expect(contests).toHaveLength(1);
-    expect(contests[0]).toMatchObject({ lane: "companion", surface_rank: 1, scene_id: "s1-concept-particules" });
+    expect(contests[0]).toMatchObject({ lane: "companion", surface_rank: 1, scene_id: "s2-concept-nombres-quantiques" });
   });
 
   it("says how in the server's instructions and in submit_response's description, never for the learner", async () => {

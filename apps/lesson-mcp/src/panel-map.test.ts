@@ -97,11 +97,13 @@ describe("the concept map in the panel", () => {
     try {
       const opened = await t.open({ surface: "pane" });
       const id = opened.session_id as string;
+      const shown = await t.act(id, ACK);                              // past the intro: c-particules is shown and takes a claim
       const map = await t.act(id, { type: "openMap" });
       expect(map.actions).toContain("contest");
       const concept = (view: Json, conceptId: string) => view.map.concepts.find((c: Json) => c.id === conceptId);
       expect(concept(map, "c-particules").contest).toEqual({ allowed: true, claim: "known", questions: 2 });
-      expect(concept(map, "c-periodicite").contest).toEqual({ allowed: true, claim: "known", questions: 1 });
+      // Test decision (7 Nov): an upcoming concept takes no claim yet, whatever its questions.
+      expect(concept(map, "c-periodicite").contest).toEqual({ allowed: false, claim: "known", questions: 1 });
       expect(concept(map, "c-geometrie").contest).toEqual({ allowed: false, claim: "known", questions: 0 });
 
       const first = await t.act(id, { type: "contest", concept_id: "c-particules", claim: "known" });
@@ -116,7 +118,7 @@ describe("the concept map in the panel", () => {
       expect(second.scene.id).toBe("s9-rappel-carbone14");
       expect(second.verdict).not.toHaveProperty("reference_kind");   // the question may come again in the lesson
       const back = await t.act(id, pick(second));
-      expect(back.scene.id).toBe(opened.scene.id);                   // the lesson resumes where the learner was
+      expect(back.scene.id).toBe(shown.scene.id);                    // the lesson resumes where the learner was
       const rights = [second.verdict.correct, back.verdict.correct];
       const outcome = rights.every(Boolean) ? "confirmed" : "refuted";
       expect(back.message).toBe(back.strings[`panel_contest_${outcome}_known`]);
@@ -125,12 +127,12 @@ describe("the concept map in the panel", () => {
       expect(concept(back, "c-particules").evidence.map((e: Json) => e.scene_id)).toEqual(["s1-quiz-fer", "s9-rappel-carbone14"]);
       // The assistant's next brief says a contest was made on the fast lane.
       const brief = (await t.call("get_companion_brief", { session_id: id })).brief;
-      expect(brief.since_last[0]).toEqual({ scene_id: opened.scene.id, act: "contest", lane: "fast" });
+      expect(brief.since_last).toContainEqual({ scene_id: shown.scene.id, act: "contest", lane: "fast" });
 
-      // A claim the state does not take is refused in one line.
+      // A concept the session has not shown yet is refused in one line (before any claim is weighed).
       const refused = await t.call("panel_action", { session_id: id, action: { type: "contest", concept_id: "c-geometrie", claim: "known" } })
         .then(() => "accepted", (error: Error) => error.message);
-      expect(refused).toMatch(/no question graded against a key/);
+      expect(refused).toMatch(/has not been shown yet/);
     } finally { await t.close(); }
   });
 

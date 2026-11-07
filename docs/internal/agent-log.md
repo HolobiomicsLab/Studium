@@ -4471,6 +4471,27 @@ Checked by the lead on the final tree, 7 Nov: the eleven gates (`pnpm install --
 
 Not verified: no learner has been proposed a review mid-session on a real surface.
 
+## 2026-11-07 (upcoming concept) — A concept the session has not shown yet takes no claim
+
+INT-STUDIUM-058 § 2.7, walkthrough reserve (point 11), decided by the owner on 7 Nov (« masquer »): an
+upcoming concept is not contestable; the claim appears once the session reaches it. The host refuses a
+contest on it in one line; the panel view carries `allowed: false` (the three rank-3 surfaces draw no
+button); the forms lane's map form lists only contestable concepts. An Écart to the spec's « known of
+any other state ». `docs/learn/concept-map` (FR/EN) say so. Codex DeepSeek V4.1 Flash mission
+(`TASK-upcoming-no-contest.md`), reviewed by the lead.
+
+Tests seen red first: host `contest.test.ts` (an upcoming concept refused, then accepted once served),
+panel `map.test.ts` (`allowed` false for an upcoming node), `forms-map.test.ts` (the map form's enum
+holds no upcoming id; the refusal as first line) and `conversation-contest.test.ts` (one refusal through
+`submit_response`). Test decisions: every existing contest test that contested from the first screen now
+reaches a served concept first (`contest.test.ts`, `forms-map.test.ts`, `conversation-contest.test.ts`,
+and, by the lead, `orientation.test.ts` and `panel-map.test.ts`); on `atomistique-l1` the first screen's
+map form carries no contest field; `panel-map` reads the upcoming refusal for c-geometrie.
+
+Checked by the lead on the final tree, 7 Nov 15:02: the eleven gates (`pnpm install --frozen-lockfile`, `build:libs`, `build`, `lint`, `pnpm -r test` — host 713, lesson-panel 53, lesson-mcp 182 passed 2 skipped —, `tools/pytest_all.py` 16 suites, `bundle_lint.test.sh`, `docs/check.mjs`, headless smoke 19/19, `lesson-mcp bundle`, `panel-probe.mjs`), then `pnpm test:tools` (9) and the mod's `test:plugin` (8), all green at the first run. The worker's own run stopped at the two tests outside its files (host 712/713, lesson-mcp 1 failing), fixed by the lead before the gates.
+
+Not verified: no learner has looked for the claim of an upcoming concept on a real surface.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local
