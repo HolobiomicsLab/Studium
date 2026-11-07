@@ -13,7 +13,12 @@ n'est donc dite qu'une fois) ; qui signe la leçon, au-dessus de la scène, et q
 au-dessus d'un verdict ; l'échelle d'aide sous les contrôles de réponse, un bouton par échelon, chacun avec
 son coût ou la raison pour laquelle il est fermé ; et « Poser une question », qui envoie l'action `ask`.
 Un échelon fermé est `aria-disabled`, pas `disabled` : il prend le focus clavier, sa raison peut donc être
-lue, et l'actionner n'envoie rien. Chaque contrôle s'atteint avec Tab, dans l'ordre de lecture. Le renderer
+lue, et l'actionner n'envoie rien. Vient en dernier une région « Réglages », tirée des actions que la vue
+propose et de rien d'autre : « Silencieux », « Normal », « Accompagné » (`setAttention`, l'`attention` de la
+vue enfoncée), FR et EN (`setLanguage`, la `locale` de la vue enfoncée), et un champ de minutes avec
+« Replanifier » (`replan {minutes}`, de 1 à 600). Ces contrôles ne répondent à rien : ils restent actifs
+quand une réponse est attendue, et le retour déjà quitté ne revient pas quand leur vue revient.
+Chaque contrôle s'atteint avec Tab, dans l'ordre de lecture. Le renderer
 mesure le délai entre une action et l'affichage de la vue qui y répond, et le remet une fois au pont avec
 l'action suivante (`window.__send(action, { client_ms })`) ; le pont MCP App le passe à `panel_action` dans
 `client_ms`, le pont VS Code à l'extension, qui fait de même.

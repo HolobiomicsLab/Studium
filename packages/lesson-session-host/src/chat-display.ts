@@ -349,6 +349,12 @@ function equationBlocks(scene: PublicSceneFields, locale: DisplayLocale): string
   });
 }
 
+/** How the conversation tells the learner to answer a scene: the last line of its presentation. Exported
+ * for the forms lane, which cannot take spoken words and gives its own line in place of this one. */
+export function replyHintMarkdown(scene: PublicSceneFields, locale: DisplayLocale): string {
+  return replyHint(scene, locale);
+}
+
 function replyHint(scene: PublicSceneFields, locale: DisplayLocale): string {
   const t = scene.type ?? "";
   if (t === "quiz") {

@@ -75,6 +75,14 @@ book: a lesson played with the session tools alone, with no panel view asked, pr
 exception, the resume notice: the server puts it to the book itself when a lesson is taken up again, so
 its first screen says "Resumed at step n of total." in the text of `start_lesson_session` as in the view.
 
+The same three surfaces draw the learner's own settings, each only where the view offers its action
+(`setAttention`, `setLanguage`, `replan`, on a scene): the attention level as three buttons, the current one
+(`attention`) pressed; the panel's language as two buttons, French and English, the view's `locale` pressed;
+and a field for the minutes the learner has, with « Replan ». The panel and the VS Code pane put them last,
+in a « Settings » region; the Claude Code pane after its help ladder, before the proposals. They answer
+nothing, so they stay usable while an answer is owed. Their words are the `pane_attention_*`,
+`pane_language`, `pane_replan*` and `pane_settings` phrases.
+
 A view carries `strings`, the interface's phrase catalogue in the lesson's language (some 24 kB), for the
 surface that draws it. The MCP server leaves it empty where nothing draws the view (forms, the conversation):
 its reader is then a model.

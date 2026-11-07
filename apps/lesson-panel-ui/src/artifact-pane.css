@@ -185,6 +185,13 @@ body { margin: 0; }
 .prompt { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--st-space-2) var(--st-space-3); padding: var(--st-space-2) var(--st-space-3); border-inline-start: 3px solid var(--st-info); }
 .prompt-reason { margin: 0; font-size: var(--st-size-sm); }
 .prompt-actions { display: flex; flex-wrap: wrap; gap: var(--st-space-2) var(--st-space-3); }
+/* INT-STUDIUM-058 F8: the learner's settings, compact, at the bottom of the pane; the pressed choice is filled. */
+.settings { display: grid; gap: var(--st-space-2); margin: var(--st-space-6) 0 0; padding-block-start: var(--st-space-3); border-block-start: 1px solid var(--st-border); font-size: var(--st-size-sm); }
+.settings-group { display: flex; align-items: center; flex-wrap: wrap; gap: var(--st-space-2) var(--st-space-3); min-width: 0; }
+.settings-label { color: var(--st-muted); }
+.settings-choices { display: flex; flex-wrap: wrap; gap: var(--st-space-2); }
+.settings [aria-pressed="true"] { border-color: var(--st-button-background); background: var(--st-button-background); color: var(--st-button-foreground); }
+.replan-minutes { width: 5rem; max-width: 100%; padding: var(--st-space-1) var(--st-space-2); border: 1px solid var(--st-input-border); border-radius: var(--st-radius-medium); background: var(--st-input-background); color: var(--st-input-foreground); font: inherit; }
 /* INT-STUDIUM-058: the concept map as a list. The state is said in words; the left rule only repeats it. */
 .map-button { margin: var(--st-space-2) 0; }
 .concept-map { margin: var(--st-space-4) 0; padding-block-start: var(--st-space-3); border-block-start: 1px solid var(--st-border); }

@@ -26,7 +26,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ElicitRequestFormParams } from "@modelcontextprotocol/sdk/types.js";
-import { SessionHost, publicPresentation, publicTransition } from "@studium/lesson-session-host";
+import { SessionHost, publicPresentation, publicTransition, replyHintMarkdown } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
 
 export const FORM_TOOL_NAMES = ["play_in_forms"] as const;
@@ -54,12 +54,26 @@ const LABELS = {
   fr: {
     choice: "Ton choix", confidence: "Ta confiance, de 0 (au hasard) à 4 (certain) ; facultatif",
     unsupported: "ce client n'affiche pas de formulaires : continuer dans la conversation",
+    // A form takes no spoken words: what the conversation asks to say, the form asks to do.
+    continue: "_Valide le formulaire pour continuer._",
+    help: "_Pour un indice, une question, la carte ou une proposition : refuse ce formulaire et dis-le dans la conversation._",
   },
   en: {
     choice: "Your choice", confidence: "Your confidence, from 0 (a guess) to 4 (certain); optional",
     unsupported: "this client does not show forms: go on in the conversation",
+    continue: "_Submit the form to continue._",
+    help: "_For a hint, a question, the map or a proposal: decline this form and say it in the conversation._",
   },
 };
+
+/** The text of a form: the verdict not yet shown, the screen with the form's own way to go on in place
+ * of « say "continue" », then how to reach what a form cannot do (walkthrough of 7 Nov, finding 3). */
+function formMessage(unseen: string, screen: string, scene: PublicScene, locale: "fr" | "en", labels: typeof LABELS.fr): string {
+  const spoken = replyHintMarkdown(scene, locale);
+  const continueHint = replyHintMarkdown({ type: "concept" }, locale);
+  const shown = spoken === continueHint ? screen.replace(spoken, labels.continue) : screen;
+  return [unseen, shown, labels.help].filter(Boolean).join(SEPARATOR);
+}
 
 /** The form of a scene the server can settle alone, or null when the scene needs the conversation. */
 function formFor(scene: PublicScene, labels: typeof LABELS.fr): Form | null {
@@ -95,7 +109,8 @@ function formFor(scene: PublicScene, labels: typeof LABELS.fr): Form | null {
 
 export async function playInForms(server: McpServer, host: SessionHost, sessionId: string, maxSteps: number): Promise<Record<string, unknown>> {
   let presentation: Presentation | undefined = publicPresentation(host.currentPresentation(sessionId)) as Presentation;
-  const labels = (presentation.locale ?? "fr").toLowerCase().startsWith("fr") ? LABELS.fr : LABELS.en;
+  const locale = (presentation.locale ?? "fr").toLowerCase().startsWith("fr") ? "fr" : "en";
+  const labels = LABELS[locale];
   let screen = presentation.display_markdown ?? "";
   let unseen = ""; // the verdict of the last answer, which no form has shown yet
   const steps: Step[] = [];
@@ -117,7 +132,7 @@ export async function playInForms(server: McpServer, host: SessionHost, sessionI
     let answer;
     try {
       answer = await server.server.elicitInput(
-        { mode: "form", message: [unseen, screen].filter(Boolean).join(SEPARATOR), requestedSchema: form.schema },
+        { mode: "form", message: formMessage(unseen, screen, scene, locale, labels), requestedSchema: form.schema },
         { timeout: FORM_TIMEOUT_MS },
       );
     } catch (error) {

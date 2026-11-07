@@ -226,6 +226,7 @@ export function isPanelView(value: unknown): value is StudiumPanelView {
   if ((value.kind === "scene" && !isScene(value.scene)) || (value.scene !== undefined && !isScene(value.scene))) return false;
   if (!Array.isArray(value.reviewDue) || !value.reviewDue.every(isNamedConcept)) return false;
   if (!isCalibration(value.calibration) || !isMastery(value.mastery)) return false;
+  if (value.attention !== undefined && !ATTENTION_LEVELS.includes(value.attention as Attention)) return false;
   return hasValidActions(value.actions) && hasValidFeedback(value) && hasValidMap(value.map) && hasValidPrompts(value.prompts);
 }
 
@@ -392,6 +393,51 @@ export function mapControl(view: StudiumPanelView): { label: string; open: boole
     return { label: phraseOf(view, "pane_map_open", "Carte des notions", "Concept map"), open: false, action: { type: "openMap" } };
   }
   return undefined;
+}
+
+type Attention = NonNullable<StudiumPanelView["attention"]>;
+const ATTENTION_LEVELS: readonly Attention[] = ["quiet", "normal", "coached"];
+const ATTENTION_WORDS: Record<Attention, [string, string]> = {
+  quiet: ["Silencieux", "Quiet"], normal: ["Normal", "Normal"], coached: ["Accompagné", "Coached"],
+};
+// Language names are not translated: the code the panel has text in, as the learner reads it anywhere.
+const PANEL_LANGUAGES = ["fr", "en"] as const;
+const REPLAN_MINUTES = { min: 1, max: 600 };
+
+/** One setting button: `pressed` says it is the current choice. */
+export type SettingControl = { key: string; label: string; pressed: boolean; action: StudiumPanelAction };
+/** The learner's settings (INT-STUDIUM-058 F8), each drawn only when the view offers its action: how
+ * much the lesson may propose, the panel's language, and the field where the learner types the
+ * minutes they have. They answer nothing, so a pane keeps them while an answer is owed. */
+export type SettingsControls = { attention: SettingControl[]; languages: SettingControl[]; replan?: { label: string; submit: string } };
+
+export function settingsControls(view: StudiumPanelView): SettingsControls {
+  const current = view.attention ?? "normal";
+  const attention = view.actions.includes("setAttention") ? ATTENTION_LEVELS.map(level => ({
+    key: `attention-${level}`, label: phraseOf(view, `pane_attention_${level}`, ...ATTENTION_WORDS[level]), pressed: level === current,
+    action: { type: "setAttention", level } as StudiumPanelAction,
+  })) : [];
+  const languages = view.actions.includes("setLanguage") ? PANEL_LANGUAGES.map(code => ({
+    key: `language-${code}`, label: code.toUpperCase(), pressed: view.locale === code,
+    action: { type: "setLanguage", presentation_language: code } as StudiumPanelAction,
+  })) : [];
+  const replan = view.actions.includes("replan")
+    ? { label: phraseOf(view, "pane_replan_minutes", "Minutes disponibles", "Minutes available"), submit: phraseOf(view, "pane_replan", "Replanifier", "Replan") }
+    : undefined;
+  return { attention, languages, ...(replan ? { replan } : {}) };
+}
+
+/** The minutes typed in the replan field as the action, or a one-line refusal: the server takes a
+ * whole number of minutes from 1 to 600. */
+export function replanAction(view: StudiumPanelView, raw: string): StudiumPanelAction {
+  const text = raw.trim();
+  const minutes = Number(text);
+  if (!/^\d+$/.test(text) || minutes < REPLAN_MINUTES.min || minutes > REPLAN_MINUTES.max) {
+    throw new Error(view.locale === "fr"
+      ? `Indique un nombre entier de minutes, de ${REPLAN_MINUTES.min} à ${REPLAN_MINUTES.max}.`
+      : `Give a whole number of minutes, from ${REPLAN_MINUTES.min} to ${REPLAN_MINUTES.max}.`);
+  }
+  return { type: "replan", minutes };
 }
 
 /** A label and what follows it, with the colon of the view's language. */

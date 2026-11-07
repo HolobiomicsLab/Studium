@@ -157,7 +157,7 @@ let renderView;
   // verdict of the answer before, whose feedback the learner already read and left. Only such a view
   // skips that feedback: the same verdict on any other view is a new answer (a question replayed and
   // answered the same way) and is shown.
-  const KEEPS_SCENE = new Set(["openMap", "closeMap", "hint", "ask", "prompt"]);
+  const KEEPS_SCENE = new Set(["openMap", "closeMap", "hint", "ask", "prompt", "setAttention", "setLanguage", "replan"]);
   let sameSceneAwaited = false;
 
   function postAction(message, pendingText) {
@@ -593,6 +593,8 @@ let renderView;
     if (map) root.append(map);
     const mastery = masteryPanel(state.mastery);
     if (mastery) root.append(mastery);
+    const settings = settingsRegion(state);
+    if (settings) root.append(settings);
     // What the server says about the action just taken on this scene (a contest's check questions).
     if (typeof state.message === "string" && state.message) showActionNotice(state.message);
     const wasOpen = memory.mapOpen;
@@ -638,6 +640,53 @@ let renderView;
       region.append(item);
     }
     return region;
+  }
+
+  // --- the learner's settings (INT-STUDIUM-058 F8) -----------------------------------------------------
+  // How much the lesson may propose, the panel's language and « I have N minutes »: each drawn only when
+  // the view offers its action. They answer nothing, so they stay usable while an answer is owed.
+  const ATTENTION_LEVELS = ["quiet", "normal", "coached"];
+  // Language names are not translated: each is written in its own language.
+  const PANEL_LANGUAGES = [["fr", "FR", "Français"], ["en", "EN", "English"]];
+  const REPLAN_DEFAULT_MINUTES = 10;
+
+  function settingsRegion(state) {
+    const offered = Array.isArray(state.actions) ? state.actions : [];
+    const groups = [];
+    if (offered.includes("setAttention")) {
+      const current = ATTENTION_LEVELS.includes(state.attention) ? state.attention : "normal";
+      groups.push(settingsGroup(t("pane_attention"), ATTENTION_LEVELS.map((level) => {
+        const button = el("button", { type: "button", class: "st-button st-button--quiet attention-level", "data-level": level, "aria-pressed": level === current ? "true" : "false" }, t("pane_attention_" + level));
+        button.addEventListener("click", () => postAction({ type: "setAttention", level }, t("pane_updating")));
+        return button;
+      })));
+    }
+    if (offered.includes("setLanguage")) {
+      groups.push(settingsGroup(t("pane_language"), PANEL_LANGUAGES.map(([code, short, name]) => {
+        const button = el("button", { type: "button", class: "st-button st-button--quiet language-choice", "data-language": code, lang: code, "aria-label": name, "aria-pressed": state.locale === code ? "true" : "false" }, short);
+        button.addEventListener("click", () => postAction({ type: "setLanguage", presentation_language: code }, t("pane_updating")));
+        return button;
+      })));
+    }
+    if (offered.includes("replan")) {
+      const inputId = nextId("replan-minutes");
+      const minutes = el("input", { type: "number", id: inputId, class: "replan-minutes", min: "1", max: "600", step: "1", value: String(REPLAN_DEFAULT_MINUTES), inputmode: "numeric" });
+      const button = el("button", { type: "button", class: "st-button st-button--quiet replan-button" }, t("pane_replan"));
+      button.addEventListener("click", () => {
+        const value = Math.round(Number(minutes.value));
+        // The server refuses anything outside 1 to 600 minutes: nothing is sent, the field takes the focus back.
+        if (!Number.isFinite(value) || value < 1 || value > 600) { focusQuietly(minutes); return; }
+        postAction({ type: "replan", minutes: value }, t("pane_updating"));
+      });
+      groups.push(el("div", { class: "settings-group replan" }, el("label", { class: "settings-label", for: inputId }, t("pane_replan_minutes")), minutes, button));
+    }
+    if (!groups.length) return null;
+    return el("section", { class: "settings", "aria-label": t("pane_settings") }, ...groups);
+  }
+
+  function settingsGroup(label, buttons) {
+    const labelNode = el("span", { class: "settings-label", id: nextId("settings-label") }, label);
+    return el("div", { class: "settings-group", role: "group", "aria-labelledby": labelNode.id }, labelNode, el("div", { class: "settings-choices" }, ...buttons));
   }
 
   // --- the concept map, as a list (INT-STUDIUM-058 § 2.7) -----------------------------------------------

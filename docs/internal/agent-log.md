@@ -4249,6 +4249,25 @@ Checked: every repository check passes on this tree at its first run (install, b
 `pnpm -r test`, the Python suites, bundle lint, docs check, headless smoke, the MCP bundle,
 `tools/panel-probe.mjs`), and `pnpm test:tools` (9 tests).
 
+## 2026-11-07 (settings) — The learner's settings on every rank-3 surface; forms say how to get help
+
+INT-STUDIUM-058, requirement F8, after finding 3 of the cognitive walkthrough: the panel actions
+`setAttention`, `setLanguage` and `replan` had no control on any surface. The MCP Apps panel, the
+VS Code pane and the Claude Code pane now draw a settings region (attention Silencieux / Normal /
+Accompagné, language FR / EN, « I have N minutes »), each control only where the view offers the
+action, the current choice marked, usable while an answer is owed. Every form of the forms lane
+ends with how to get a hint, a question, the map or a proposal (decline the form and say it in
+the conversation), and no form asks to say « continuer ».
+
+Test decisions: optional language in the form-tools test helpers; one refusal row in the mod's
+spec; one cognate in the VS Code driver. Nine new tests, seen failing first.
+
+Checked: every repository check passes on this tree at its first run (install, build, lint,
+`pnpm -r test`, the Python suites, bundle lint, docs check, headless smoke, the MCP bundle,
+`tools/panel-probe.mjs`), and `pnpm test:tools` (9 tests).
+
+Not verified: no host has shown the controls; the layout at 375 px was not looked at.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

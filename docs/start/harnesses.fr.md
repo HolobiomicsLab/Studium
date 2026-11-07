@@ -76,7 +76,10 @@ Un prototype va un pas plus loin : là où le client sait afficher des formulai
 `play_in_forms` laisse Studium poser lui-même les questions. Vous lisez un écran ou choisissez une réponse
 dans un formulaire, le verdict ouvre le formulaire suivant, et aucun modèle n'écrit entre les deux ; la
 conversation reprend quand une étape demande vos propres mots ou quand vous fermez un formulaire pour poser
-une question. Demandez à votre assistant de « jouer les prochaines étapes en formulaires ». La façon dont
+une question. Chaque formulaire se termine par la même ligne : pour un indice, une question, la carte ou
+une proposition, refusez le formulaire et dites-le dans la conversation ; un formulaire ne vous demande
+jamais de dire « continuer », puisqu'on ne peut rien y dire. Demandez à votre assistant de « jouer les
+prochaines étapes en formulaires ». La façon dont
 chaque client affiche un écran long ou une formule dans un tel formulaire n'a pas encore été essayée.
 
 Sans modèle entre les deux, la part du serveur est petite : une réponse donnée dans un formulaire ou sur un

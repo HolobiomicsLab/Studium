@@ -80,6 +80,15 @@ vue de panneau demandée, ne propose encore rien. Seule exception, la notice de 
 présente lui-même au registre quand une leçon est reprise, et son premier écran dit « Reprise à l'étape n
 sur total. » dans le texte de `start_lesson_session` comme dans la vue.
 
+Les trois mêmes surfaces dessinent les réglages de l'apprenant, chacun seulement là où la vue propose son
+action (`setAttention`, `setLanguage`, `replan`, sur une scène) : le niveau d'attention en trois boutons,
+l'actuel (`attention`) enfoncé ; la langue du panneau en deux boutons, français et anglais, la `locale` de
+la vue enfoncée ; et un champ pour les minutes dont l'apprenant dispose, avec « Replanifier ». Le panneau et
+le volet VS Code les placent en dernier, dans une région « Réglages » ; le volet Claude Code après son
+échelle d'aide, avant les propositions. Ils ne répondent à rien : ils restent utilisables quand une réponse
+est attendue. Leurs mots sont les phrases `pane_attention_*`, `pane_language`, `pane_replan*` et
+`pane_settings`.
+
 Une vue porte `strings`, le catalogue des libellés de l'interface dans la langue de la leçon (environ
 24 ko), pour la surface qui la dessine. Le serveur MCP le laisse vide là où rien ne dessine la vue
 (formulaires, conversation). Son lecteur est alors un modèle.

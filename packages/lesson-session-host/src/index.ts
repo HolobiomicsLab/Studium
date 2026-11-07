@@ -16,7 +16,7 @@ export { pickReviewScene, isDiagnosticScene, DEFAULT_REVIEW_ITEMS, MAX_REVIEW_IT
 export { resolvePersistence, persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceConfig, type PersistenceInfo } from "./persistence.js";
 export { STATUS_FILE, STATUS_SCHEMA, statusFilePath, type StatusFile } from "./status-file.js";
 export {
-  presentationMarkdown, transitionMarkdown, verdictMarkdown, recallRatedMarkdown, nothingToReviewMarkdown, formatReviewDate,
+  presentationMarkdown, replyHintMarkdown, transitionMarkdown, verdictMarkdown, recallRatedMarkdown, nothingToReviewMarkdown, formatReviewDate,
   lessonListMarkdown, forgetMarkdown, type DisplayLocale, type ListedLessonLine, type ForgetDisplayItem,
 } from "./chat-display.js";
 export { replyToInput, checkDisplayedChoice, ResponseInputError } from "./reply-mapping.js";

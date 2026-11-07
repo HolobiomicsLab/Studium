@@ -16,6 +16,8 @@ import {
   panelFromMcpResult,
   pngPayload,
   promptControls,
+  replanAction,
+  settingsControls,
   sceneMarkdown,
   sourcesMarkdown,
   voiceChip,
@@ -115,6 +117,8 @@ describe("PanelView boundary", () => {
     ["prompts list", { ...V2, prompts: "none" }],
     ["prompt without a reason", { ...V2, prompts: [{ id: "break:1", kind: "break", actions: [] }] }],
     ["prompt answer", { ...V2, prompts: [{ id: "break:1", kind: "break", reason: "26 minutes", actions: [{ label: 3, action: { type: "prompt" } }] }] }],
+    // The pane presses the current level: a level it does not know would press none (walkthrough of 7 Nov).
+    ["attention", { ...V2, attention: "loud" }],
   ])("rejects a version-2 view with a malformed %s", (_name, value) => {
     expect(isPanelView(value)).toBe(false);
   });
@@ -349,5 +353,46 @@ describe("the proposals of a pane", () => {
 
   test("a view that does not offer the action a button sends shows the reason without the button", () => {
     expect(promptControls({ ...V2, actions: ["respond", "end"] }).map(prompt => prompt.buttons)).toEqual([[], []]);
+  });
+});
+
+// INT-STUDIUM-058 F8 (walkthrough of 7 Nov, finding 3): the learner's settings, drawn only from the
+// actions the view offers: the attention level, the panel's language, « I have N minutes ».
+describe("the settings of a pane", () => {
+  const V2: StudiumPanelView = {
+    ...PANEL, schema: "studium/panel-view/2",
+    actions: ["respond", "end", "ask", "setLanguage", "setAttention", "replan"],
+    orientation: { step: { index: 2, total: 9 }, reviews_due: 0, waiting: "answer" },
+    status_line: "Atomistique · étape 2/9 · à toi de répondre",
+    voices: { scene: { kind: "author", name: "Prof. Test", reviewed: true, drafted_by: "teacher" } },
+    help: { rungs: [] }, prompts: [], attention: "quiet", surface: { rank: 3, kind: "pane", available: ["text", "pane"] },
+  };
+
+  test("the three attention levels, then the two languages, each pressed where the view stands", () => {
+    const controls = settingsControls(V2);
+    expect(controls.attention).toEqual([
+      { key: "attention-quiet", label: "Silencieux", pressed: true, action: { type: "setAttention", level: "quiet" } },
+      { key: "attention-normal", label: "Normal", pressed: false, action: { type: "setAttention", level: "normal" } },
+      { key: "attention-coached", label: "Accompagné", pressed: false, action: { type: "setAttention", level: "coached" } },
+    ]);
+    expect(controls.languages).toEqual([
+      { key: "language-fr", label: "FR", pressed: true, action: { type: "setLanguage", presentation_language: "fr" } },
+      { key: "language-en", label: "EN", pressed: false, action: { type: "setLanguage", presentation_language: "en" } },
+    ]);
+    expect(controls.replan).toEqual({ label: "Minutes disponibles", submit: "Replanifier" });
+    expect(settingsControls({ ...V2, locale: "en", strings: {} }).attention.map(control => control.label)).toEqual(["Quiet", "Normal", "Coached"]);
+  });
+
+  test("a setting the view does not offer is not drawn", () => {
+    const attentionOnly = settingsControls({ ...V2, actions: ["respond", "setAttention"] });
+    expect(attentionOnly.attention).toHaveLength(3);
+    expect(attentionOnly.languages).toEqual([]);
+    expect(attentionOnly.replan).toBeUndefined();
+    expect(settingsControls(PANEL)).toEqual({ attention: [], languages: [] });
+  });
+
+  test("the minutes typed for a replan become the action, or are refused in one line", () => {
+    expect(replanAction(V2, " 15 ")).toEqual({ type: "replan", minutes: 15 });
+    for (const raw of ["", "0", "601", "dix", "2.5"]) expect(() => replanAction(V2, raw)).toThrow(/1.*600/);
   });
 });

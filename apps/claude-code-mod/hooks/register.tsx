@@ -3,6 +3,7 @@ import type {
   ElementConstructor,
   EngineInterface,
   ImageProps,
+  InputProps,
   Register,
   RenderElement,
   RenderInput,
@@ -29,6 +30,8 @@ import {
   panelFromMcpResult,
   promptControls,
   pngPayload,
+  replanAction,
+  settingsControls,
   sceneMarkdown,
   sourcesMarkdown,
   voiceChip,
@@ -56,7 +59,7 @@ export const register: Register = on => {
   on("session.start", async ($, event, next) => {
     await $.command.register({
       name: "studium",
-      description: "Open a Studium lesson pane: /studium [bundle_ref] or /studium answer <text>",
+      description: "Open a Studium lesson pane: /studium [bundle_ref], /studium answer <text> or /studium replan <minutes>",
     });
     return next(event);
   });
@@ -68,6 +71,7 @@ export const register: Register = on => {
 async function runStudiumCommand($: EngineInterface, rawArgs: string) {
   const args = rawArgs.trim();
   if (args === "answer" || args.startsWith("answer ")) return runTypedAnswer($, args.slice(6).trim());
+  if (args === "replan" || args.startsWith("replan ")) return runTypedReplan($, args.slice(6).trim());
   try {
     const current = await readPanel($);
     let input: { bundle_ref: string } | { session_id: string };
@@ -98,6 +102,21 @@ async function runTypedAnswer($: EngineInterface, text: string) {
     return { text: current.locale === "fr" ? "Réponse Studium envoyée." : "Studium answer sent." };
   } catch (error) {
     return { text: `Studium did not send the answer: ${errorMessage(error)}.`, exitCode: 1 };
+  }
+}
+
+/** `/studium replan <minutes>`: « I have N minutes », for a surface whose pane draws no text field. */
+async function runTypedReplan($: EngineInterface, text: string) {
+  const current = await readPanel($);
+  if (!current) return { text: "No compatible lesson view. Run /studium <bundle_ref>.", exitCode: 1 };
+  if (!current.actions.includes("replan")) return { text: current.locale === "fr" ? "Cette vue ne propose pas de replanifier." : "This view offers no replan.", exitCode: 1 };
+  try {
+    const outcome = await applyAction($, replanAction(current, text), phrase(current, "pane_updating", "Updating the lesson…", "Mise à jour de la leçon…"));
+    await $.ui.open({ id: PANE_ID, title: current.lesson_title });
+    if (!outcome.ok) return { text: `Studium did not replan: ${outcome.message}.`, exitCode: 1 };
+    return { text: current.locale === "fr" ? "Replanification envoyée." : "Replan sent." };
+  } catch (error) {
+    return { text: `Studium did not replan: ${errorMessage(error)}.`, exitCode: 1 };
   }
 }
 
@@ -163,14 +182,17 @@ function objectText(value: Record<string, unknown> | null | undefined): string |
 }
 
 async function renderPane($: EngineInterface, event: RenderInput<"Pane">) {
-  const { Box, Button, Markdown, Text } = $.ui.resolve(event);
+  const resolved = $.ui.resolve(event);
+  const { Box, Button, Markdown, Text } = resolved;
+  // The mobile app draws no text field (its element table has no Input): an Input there would be dropped.
+  const Input = event.surface !== "mobile" && "Input" in resolved ? resolved.Input : undefined;
   const view = await readPanel($);
   if (!view) return <Box><Text>No compatible lesson view. Run /studium &lt;bundle_ref&gt;.</Text></Box>;
   const isDimmed = view.pending !== undefined;
   const flags = await read($, deckFlags);
   const isEndArmed = await read($, endConfirmation);
   const image = event.surface === "terminal" ? $.ui.resolve(event).Image : undefined;
-  const controls = renderControls($, view, flags, isEndArmed, { Box, Button, Markdown, Text });
+  const controls = renderControls($, view, flags, isEndArmed, { Box, Button, Input, Markdown, Text });
   const feedback = feedbackMarkdown(view);
   const sources = sourcesMarkdown(view);
   const tutor = objectText(view.turn_result?.tutor);
@@ -203,7 +225,10 @@ async function renderPane($: EngineInterface, event: RenderInput<"Pane">) {
   );
 }
 
-type CommonElements = Pick<ReturnType<EngineInterface["ui"]["resolve"]>, "Box" | "Button" | "Markdown" | "Text">;
+type CommonElements = Pick<ReturnType<EngineInterface["ui"]["resolve"]>, "Box" | "Button" | "Markdown" | "Text"> & {
+  /** The text field; absent where the surface draws none (the mobile app). */
+  Input?: ElementConstructor<InputProps>;
+};
 
 function renderMainView(
   view: StudiumPanelView,
@@ -263,6 +288,7 @@ function renderControls(
   if (ask) nodes.push(<Button key="ask" dimColor={dim} onPress={() => applyAction($, ask.action, ask.label)}>{ask.label}</Button>);
   const mapButton = view.kind === "scene" ? mapControl(view) : undefined;
   if (mapButton) nodes.push(<Button key="map" dimColor={dim} onPress={() => applyAction($, mapButton.action, mapButton.label)}>{mapButton.label}</Button>);
+  if (view.kind === "scene") nodes.push(...settingNodes($, view, dim, elements));
   if (view.actions.includes("reviewNow")) nodes.push(actionButton($, view, "reviewNow", { type: "reviewNow" }, dim, Button));
   if (view.actions.includes("restartLesson")) nodes.push(actionButton($, view, "restartLesson", { type: "restartLesson" }, dim, Button));
   if (view.actions.includes("pickCourse")) nodes.push(pickCourseButton($, view, dim, Button));
@@ -281,7 +307,7 @@ function responseControls(
 ): RenderElement[] {
   const scene = view.scene;
   if (!scene) return [];
-  const { Box, Button, Markdown, Text } = elements;
+  const { Button } = elements;
   const dim = view.pending !== undefined;
   if (scene.type === "quiz") return (scene.choices ?? []).map(choice => (
     <Button
@@ -293,7 +319,7 @@ function responseControls(
   if (scene.type === "meta_checkpoint") return [0, 1, 2, 3, 4].map(value => (
     <Button key={`confidence-${value}`} dimColor={dim} onPress={() => applyAction($, { type: "respond", input: { kind: "confidence", value } }, pendingAnswer(view))}>{String(value)}</Button>
   ));
-  if (scene.deck?.length) return deckControls($, view, flags, { Box, Button, Markdown, Text });
+  if (scene.deck?.length) return deckControls($, view, flags, elements);
   if (scene.type === "discussion") return [
     <Button key="finish-discussion" dimColor={dim} onPress={() => applyAction($, { type: "respond", input: { kind: "ack" } }, pendingAnswer(view))}>
       {phrase(view, "pane_finish_discussion", "Finish the conversation", "Terminer l'échange")}
@@ -339,6 +365,40 @@ function deckControls(
 async function submitDeck($: EngineInterface, view: StudiumPanelView, selected: string[]): Promise<void> {
   const verdicts = (view.scene?.deck ?? []).map(item => ({ token: item.token, flagged: selected.includes(item.token) }));
   await applyAction($, { type: "respond", input: { kind: "flaw_verdicts", verdicts } }, pendingAnswer(view));
+}
+
+/** The learner's settings (INT-STUDIUM-058 F8): the attention level and the language as buttons, the
+ * current choice drawn as the primary one, then the field for the minutes the learner has. They answer
+ * nothing, so they stay while an answer is owed. */
+function settingNodes(
+  $: EngineInterface,
+  view: StudiumPanelView,
+  dim: boolean,
+  elements: Pick<CommonElements, "Button" | "Input" | "Text">,
+): RenderElement[] {
+  const { Button, Input, Text } = elements;
+  const settings = settingsControls(view);
+  const nodes = [...settings.attention, ...settings.languages].map(control => (
+    <Button key={control.key} dimColor={dim} variant={control.pressed ? "primary" : "secondary"} onPress={() => applyAction($, control.action, control.label)}>{control.label}</Button>
+  ));
+  const replan = settings.replan;
+  if (replan) {
+    nodes.push(Input
+      ? <Input key="replan" label={replan.label} placeholder="10" submitLabel={replan.submit} onSubmit={(value: string) => submitReplan($, view, value, replan.submit)} />
+      // A surface without a text field: the same action, typed as a command.
+      : <Text key="replan-command" dimColor>{`${replan.submit}${view.locale === "fr" ? " : " : ": "}/studium replan <minutes>`}</Text>);
+  }
+  return nodes;
+}
+
+async function submitReplan($: EngineInterface, view: StudiumPanelView, value: string, pending: string): Promise<void> {
+  let action: StudiumPanelAction;
+  try { action = replanAction(view, value); } catch (error) {
+    // Nothing reaches the server: the learner reads why and types again.
+    $.ui.toast(errorMessage(error), { timeoutMs: 8_000 });
+    return;
+  }
+  await applyAction($, action, pending);
 }
 
 /** Under the controls: what the server proposes, each with its reason and one button per answer. */

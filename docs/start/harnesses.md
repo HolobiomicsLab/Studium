@@ -73,7 +73,9 @@ the server makes two models write every screen.
 A prototype goes one step further: where the client can show forms (MCP elicitation), `play_in_forms` lets
 Studium ask the questions itself. You read a screen or pick a choice in a form, the verdict opens the next
 form, and no model writes anything in between; the conversation resumes when a step needs your own words or
-when you close a form to ask something. Ask your assistant to "play the next steps in forms". How each
+when you close a form to ask something. Each form ends with the same line: for a hint, a question, the map
+or a proposal, decline the form and say it in the conversation; a form never asks you to say "continue",
+since nothing can be said in it. Ask your assistant to "play the next steps in forms". How each
 client draws a long screen or a formula in such a form has not been tried yet.
 
 With no model in between, the server's own part is small: an answer given in a form or on a panel gets its

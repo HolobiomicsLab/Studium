@@ -148,6 +148,31 @@ test("the pane draws a proposal with its reason and a button per answer", async 
   }
 });
 
+// INT-STUDIUM-058 F8: the learner's settings, after the help ladder and before the proposals.
+test("the pane draws the attention levels, the languages and the replan field a view offers", async ($, on) => {
+  const SETTINGS: StudiumPanelView = {
+    ...PANEL, schema: "studium/panel-view/2", actions: ["respond", "end", "setLanguage", "setAttention", "replan"],
+    orientation: { step: { index: 2, total: 9 }, reviews_due: 0, waiting: "answer" },
+    status_line: "Atomistique · étape 2/9 · à toi de répondre",
+    voices: { scene: { kind: "author", name: "Prof. Test", reviewed: true, drafted_by: "teacher" } },
+    help: { rungs: [] }, prompts: [], attention: "quiet", surface: { rank: 3, kind: "pane", available: ["text", "pane"] },
+  };
+  on("state.get", () => ({
+    value: { value: { shape: "panel-view-1", value: SETTINGS }, version: 1 },
+  }));
+
+  for (const surface of ["terminal", "desktop", "vscode", "mobile"] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface });
+    for (const key of ["attention-quiet", "attention-normal", "attention-coached", "language-fr", "language-en"]) {
+      expect(await ui.find({ type: "Button", key })).toBeDefined();
+    }
+    // The mobile app draws no text field: the pane names the command instead.
+    if (surface === "mobile") expect(await ui.find({ type: "Text", text: /\/studium replan <minutes>/ })).toBeDefined();
+    else expect(await ui.find({ type: "Input", key: "replan" })).toBeDefined();
+    await ui.unmount();
+  }
+});
+
 test("a stored value with an older shape is declined cleanly", async ($, on) => {
   on("state.get", () => ({ value: { value: PANEL, version: 1 } }));
   const ui = await $.ui.mount({ ...PANE, surface: "desktop" });

@@ -447,3 +447,76 @@ test("dismissing a proposal does not bring back the feedback of the answer befor
   assert.deepEqual([...doc.querySelectorAll(".prompt")].map((item) => item.getAttribute("data-kind")), ["adaptation_notice"]);
   dom.window.close();
 });
+
+// INT-STUDIUM-058 F8 (walkthrough of 7 Nov, finding 3): the learner's own settings, drawn only from
+// what the view offers: the attention level (the budget of the server's proposals), the panel's
+// language, and « I have N minutes ».
+const SETTINGS_WORDS = {
+  ...PROMPT_WORDS, pane_settings: "Settings", pane_attention: "Suggestions from the lesson", pane_attention_quiet: "Quiet",
+  pane_attention_normal: "Normal", pane_attention_coached: "Coached", pane_language: "Language", pane_replan: "Replan",
+  pane_replan_minutes: "Minutes available",
+};
+const settingsView = (extra = {}) => quizV2({
+  strings: SETTINGS_WORDS, actions: ["respond", "hint", "end", "ask", "setLanguage", "setAttention", "replan"], ...extra,
+});
+
+test("the settings region draws the attention level, the language and replan, with the current choice pressed", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(settingsView({ attention: "quiet" }));
+  const region = doc.querySelector(".settings");
+  assert.ok(region, "the settings are drawn");
+  assert.equal(region.getAttribute("aria-label"), "Settings");
+  const levels = [...region.querySelectorAll(".attention-level")];
+  assert.deepEqual(levels.map(text), ["Quiet", "Normal", "Coached"]);
+  assert.deepEqual(levels.map((b) => b.getAttribute("aria-pressed")), ["true", "false", "false"]);
+  const languages = [...region.querySelectorAll(".language-choice")];
+  assert.deepEqual(languages.map(text), ["FR", "EN"]);
+  assert.deepEqual(languages.map((b) => b.getAttribute("aria-pressed")), ["false", "true"]); // the view is in English
+  assert.equal(text(region.querySelector(".replan-button")), "Replan");
+  assert.ok(region.querySelector("input.replan-minutes[type=number]"));
+  // After the scene's controls and the proposals, at the bottom of the pane.
+  const focusable = [...doc.querySelectorAll("button, input, summary, textarea")].filter((n) => !n.disabled);
+  assert.ok(focusable.indexOf(doc.querySelector(".ask-button")) < focusable.indexOf(levels[0]));
+  dom.window.close();
+});
+
+test("each setting sends its action with the shape the server reads", () => {
+  const { dom, doc, sent } = mountWithSend();
+  dom.window.renderView(settingsView());
+  doc.querySelector(".attention-level[data-level=quiet]").click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "setAttention", level: "quiet" });
+  dom.window.renderView(settingsView({ attention: "quiet" }));
+  doc.querySelector(".language-choice[data-language=fr]").click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "setLanguage", presentation_language: "fr" });
+  dom.window.renderView(settingsView({ locale: "fr" }));
+  const minutes = doc.querySelector(".replan-minutes");
+  minutes.value = "15";
+  doc.querySelector(".replan-button").click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "replan", minutes: 15 });
+  dom.window.close();
+});
+
+test("a setting not offered is not drawn; none offered, no region", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(settingsView({ actions: ["respond", "end", "setAttention"] }));
+  assert.equal(doc.querySelectorAll(".attention-level").length, 3);
+  assert.equal(doc.querySelector(".language-choice"), null);
+  assert.equal(doc.querySelector(".replan-button"), null);
+  dom.window.renderView(settingsView({ session_id: "two", actions: ["respond", "end"] }));
+  assert.equal(doc.querySelector(".settings"), null);
+  dom.window.close();
+});
+
+test("the settings stay usable while an answer is owed, and a setting keeps the feedback already left", () => {
+  const { dom, doc } = mountWithSend();
+  const verdict = { scene_id: "previous", graded: true, correct: true, assessed_by: "key", feedback: "Yes." };
+  dom.window.renderView(settingsView({ verdict })); // waiting: answer
+  doc.querySelector(".continue").click();
+  const quiet = doc.querySelector(".attention-level[data-level=quiet]");
+  assert.equal(quiet.disabled, false);
+  quiet.click();
+  dom.window.renderView(settingsView({ verdict, attention: "quiet" }));
+  assert.equal(doc.querySelector(".feedback-step"), null);
+  assert.equal(doc.querySelector(".attention-level[data-level=quiet]").getAttribute("aria-pressed"), "true");
+  dom.window.close();
+});
