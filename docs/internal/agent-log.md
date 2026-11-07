@@ -4401,6 +4401,29 @@ Checked by the subagent that wrote it (Opus, 7 Nov): host `build` and `test` (71
 
 Not verified: the EN opening line through the server; a contest in a review session end to end.
 
+## 2026-11-07 (map and contest in the forms lane) — The forms lane no longer sends the learner to the conversation for the map
+
+INT-STUDIUM-058 lot 5, walkthrough reserve, written by a Codex Sol (max) mission from the hub
+brief `TASK-map-in-forms.md`, reviewed by an Opus reader (three bugs, a misplaced FR paragraph,
+three untested paths) whose fixes came from a Codex Kimi K3.1 Pro mission
+(`TASK-forms-map-fixes.md`), read by the lead. `play_in_forms` takes
+`map: true` (only when the session has a map, never in a review session): alone it leaves the
+scene unchanged and returns the map as a form; with a quiz answer, the answer is settled first.
+The map form offers the contest (concept, claim), run through `host.contest(…, "forms")`, whose
+check questions are served in the lane; a half-filled contest and a claim the state does not take
+are refused in one localized line; a choiceless quiz form is shown again with one line instead of
+leaving the lane; a contest after an answer serves its check question; a null map logs nothing.
+Telemetry logs the map and contest steps on the forms lane. Docs: tool description, help line,
+lesson-mcp README (FR/EN), `docs/start/harnesses` (FR/EN), `mcp-tools` regenerated (the
+`play_in_forms` row only).
+
+Test decision: the help-line assertion of `form-tools.test.ts` takes the new wording.
+`forms-map.test.ts`: nine tests, each seen red first; lesson-mcp 172 → 181.
+
+Checked by the lead on the whole tree (both missions and their fixes), 7 Nov 13:13: the eleven gates (`pnpm install --frozen-lockfile`, `build:libs`, `build`, `lint`, `pnpm -r test` — host 712, lesson-mcp 181 passed 2 skipped, dashboard 156, lesson-session 446 — `tools/pytest_all.py` 16 suites 0 failing, `bundle_lint.test.sh`, `docs/check.mjs`, headless smoke 19/19, `lesson-mcp bundle`, `panel-probe.mjs`), then `pnpm test:tools` (9), dashboard `vitest run` (156) and the mod's `test:plugin` (8), all green. The Codex workers' own runs were inside a sandbox that refuses `127.0.0.1` binds and the `tsx` IPC socket; the gates above are the ones that count.
+
+Not verified: a real MCP client displaying the map form.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

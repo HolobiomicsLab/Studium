@@ -78,7 +78,14 @@ première question de contrôle, dont la ligne d'état dit « contrôle 1/n »
 d'habitude, puis la leçon reprend où en était l'apprenant. Une déclaration que l'état ne prend pas, ou une
 seconde contestation en cours, est refusée en une ligne, celle de l'hôte. Avec le consentement à la
 télémétrie, l'acte est journalisé une fois : `interaction` avec `act: "contest"`, voie `companion`, rang 1.
-En formulaires, la ligne d'aide dit de refuser le formulaire et de le dire dans la conversation.
+En formulaires, chaque formulaire de scène d'une leçon qui a une carte propose `map: true` ; le formulaire
+de la carte écrit l'identifiant de chaque notion après son titre, accepte `contest_concept` avec
+`claim: "known" | "unsure"`, et une validation vide pour revenir à la scène intacte. Une contestation ouvre
+ses questions de contrôle en formulaires, puis reprend cette scène ; un champ manquant ou une déclaration
+que l'état ne prend pas laisse la carte ouverte avec un refus en une ligne. La déclaration ne change jamais
+la maîtrise ni ne saute une scène. Avec le consentement à la télémétrie, les formulaires journalisent
+`openMap` et `contest` sur la voie rapide au rang 2 ; la conversation journalise `contest` sur la voie
+compagnon au rang 1.
 
 Ce que le serveur garantit :
 

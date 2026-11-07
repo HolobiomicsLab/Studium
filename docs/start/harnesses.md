@@ -73,10 +73,12 @@ the server makes two models write every screen.
 A prototype goes one step further: where the client can show forms (MCP elicitation), `play_in_forms` lets
 Studium ask the questions itself. You read a screen or pick a choice in a form, the verdict opens the next
 form, and no model writes anything in between; the conversation resumes when a step needs your own words or
-when you close a form to ask something. Each form ends with the same line: for a hint, a question, the map
-or a proposal, decline the form and say it in the conversation; a form never asks you to say "continue",
-since nothing can be said in it. Ask your assistant to "play the next steps in forms". How each
-client draws a long screen or a formula in such a form has not been tried yet.
+when you close a form to ask something. When the lesson has a concept map, every scene form offers `map`:
+the map form lists each concept with its id, returns to the untouched scene when accepted empty, or takes
+`contest_concept` and `claim` (`known` or `unsure`) to ask the check questions and then resume that scene.
+Only a hint, a question or a proposal still needs the conversation, as the help line says. A form never asks
+you to say "continue", since nothing can be said in it. Ask your assistant to "play the next steps in forms".
+How clients draw a long screen, a formula, or this map form has not yet been observed in a real client.
 
 With no model in between, the server's own part is small: an answer given in a form or on a panel gets its
 verdict in under 20 ms at the 95th centile, transport included (same script, `--mode forms` and

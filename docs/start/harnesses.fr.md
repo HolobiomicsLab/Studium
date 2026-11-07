@@ -76,11 +76,13 @@ Un prototype va un pas plus loin : là où le client sait afficher des formulai
 `play_in_forms` laisse Studium poser lui-même les questions. Vous lisez un écran ou choisissez une réponse
 dans un formulaire, le verdict ouvre le formulaire suivant, et aucun modèle n'écrit entre les deux ; la
 conversation reprend quand une étape demande vos propres mots ou quand vous fermez un formulaire pour poser
-une question. Chaque formulaire se termine par la même ligne : pour un indice, une question, la carte ou
-une proposition, refusez le formulaire et dites-le dans la conversation ; un formulaire ne vous demande
-jamais de dire « continuer », puisqu'on ne peut rien y dire. Demandez à votre assistant de « jouer les
-prochaines étapes en formulaires ». La façon dont
-chaque client affiche un écran long ou une formule dans un tel formulaire n'a pas encore été essayée.
+une question. Quand la leçon possède une carte des notions, chaque formulaire d'étape propose `map` : le
+formulaire de carte liste chaque notion avec son identifiant, revient à l'étape intacte s'il est validé vide,
+ou prend `contest_concept` et `claim` (`known` ou `unsure`) pour poser les questions de contrôle avant de
+reprendre cette étape. Seuls un indice, une question ou une proposition demandent encore la conversation,
+comme l'indique la ligne d'aide. Un formulaire ne vous demande jamais de dire « continuer », puisqu'on ne
+peut rien y dire. Demandez à votre assistant de « jouer les prochaines étapes en formulaires ». La façon dont
+un vrai client affiche un écran long, une formule ou ce formulaire de carte n'a pas encore été observée.
 
 Sans modèle entre les deux, la part du serveur est petite : une réponse donnée dans un formulaire ou sur un
 panneau reçoit son verdict en moins de 20 ms au 95e centile, transport compris (même script, `--mode forms`

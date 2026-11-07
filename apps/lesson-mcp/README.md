@@ -75,15 +75,14 @@ which answers nothing on the scene and returns the call to make next (`start_rev
 `get_workflow_graph`, `play_in_forms` or `get_study_plan`), never making it itself. With telemetry
 consent, each proposal shown is logged as `prompt_shown` with the rank of the surface that said it.
 
-A learner who says they already know a concept of the map, or doubt one they got, contests it through the
-conversation too: the assistant sends `submit_response {input: {kind: "contest", concept_id, claim: "known" |
-"unsure"}}`, with the id the map's list prints after each title (``Nombres quantiques
-(`c-nombres-quantiques`)``). It returns `{contest: {concept_id, claim, questions}, presentation,
-display_markdown}`: one line saying the check and that the claim changes nothing, then the first check
-question, whose status line says « contrôle 1/n ». The answers go as usual, and the lesson then resumes where
-the learner was. A claim the state does not take, or a second contest under way, is refused in the host's one
-line. With telemetry consent the act is logged once, `interaction` with `act: "contest"`, lane `companion`,
-rank 1. In forms, the help line says to decline the form and say it in the conversation.
+A learner who says they already know a concept of the map, or doubt one they got, can contest it in either
+lane. In the conversation, the assistant sends `submit_response {input: {kind: "contest", concept_id, claim:
+"known" | "unsure"}}`. In forms, every scene form whose lesson has a map offers `map: true`; the map form
+prints each concept id after its title, accepts `contest_concept` with `claim: "known" | "unsure"`, and accepts
+empty to return to the untouched scene. A contest opens its check questions in forms and resumes that scene
+afterward; a missing field or a claim the state does not take leaves the map open with a one-line refusal. The
+claim never changes mastery or skips a scene. With telemetry consent, forms record `openMap` and `contest` on
+the fast lane at rank 2; the conversation records `contest` on the companion lane at rank 1.
 
 What the server guarantees:
 
