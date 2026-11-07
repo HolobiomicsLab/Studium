@@ -3,8 +3,9 @@ import { mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from "node:f
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { createHash } from "node:crypto";
+import { sceneFingerprint } from "../../../packages/lesson-session-host/src/review-inbox";
 import {
-  approvalCommand, inspectLesson, listLessons, readLesson,
+  approvalCommand, returnCommand, inspectLesson, listLessons, readLesson,
   encodeLessonRef, decodeLessonRef, bundlesRoot, LibraryReadError,
 } from "./library";
 
@@ -159,5 +160,58 @@ describe("the library is confined to BUNDLES_ROOT", () => {
   });
   it("quotes the actual bundle path in an approval command without executing it", () => {
     expect(approvalCommand("/tmp/teacher's course/lesson.json", "en")).toBe(".venv/bin/python tools/experience_packet.py approve --bundle '/tmp/teacher'\"'\"'s course/lesson.json' --validated-by 'YOUR NAME'");
+  });
+});
+
+describe("review inbox (INT-STUDIUM-058 task 6.3)", () => {
+  it("projects the inbox sorted by consequence, without any fingerprint", async () => {
+    const bundle = await fixture();
+    bundle.scenes[2].title = "TODO title"; // a quiz with a TODO blocks
+    const result = inspectLesson(Buffer.from(JSON.stringify(bundle)), null);
+    const order = ["blocks", "grading", "wording", "media"];
+    const ranks = result.inbox.items.map((item) => order.indexOf(item.consequence));
+    expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+    expect(result.inbox.items).toHaveLength(bundle.scenes.length);
+    expect(result.inbox.items[0]).toMatchObject({ id: bundle.scenes[2].id, consequence: "blocks" });
+    expect(result.inbox.items.some((item) => item.consequence === "grading" && item.holdsKey)).toBe(true);
+    expect(result.inbox.items.every((item) => item.whatChanged === "new")).toBe(true);
+    expect(result.inbox.lastReceipt).toBeNull();
+    // No sha256 of any kind reaches a page: a key-holding scene's hash would be an answer oracle.
+    expect(JSON.stringify(result.inbox)).not.toMatch(/sha256|[0-9a-f]{64}/);
+    // The library does not run the linter: the lint check is absent, not passed.
+    expect(result.inbox.items[0].checks.map((c) => c.check)).toEqual(["schema", "todo"]);
+  });
+  it("marks what changed against the last receipt in the course's reviews/ folder", async () => {
+    const base = await root();
+    const bundle = await fixture();
+    await put(base, "course", bundle);
+    await mkdir(join(base, "course/reviews"));
+    const receipt = {
+      schema: "studium/review-receipt/v1", reviewer: "A. Teacher", decided_at: "2026-11-01T09:00:00Z",
+      bundle_ref: "course/lesson.json", bundle_sha256: "a".repeat(64), decision: "approved",
+      items: [
+        { id: bundle.scenes[0].id, sha256: sceneFingerprint(bundle.scenes[0]), consequence: "wording", opened: true },
+        { id: bundle.scenes[1].id, sha256: "0".repeat(64), consequence: "wording", opened: false },
+      ],
+      opened: 1, not_opened: 1,
+    };
+    await writeFile(join(base, "course/reviews/2026-11-01-abcd1234.json"), JSON.stringify(receipt));
+    await writeFile(join(base, "course/reviews/2026-11-02-ffff.json"), "{broken");
+    const lesson = await readLesson(base, "course");
+    const byId = new Map(lesson.inbox.items.map((item) => [item.id, item]));
+    expect(byId.get(bundle.scenes[0].id)?.whatChanged).toBe("unchanged");
+    expect(byId.get(bundle.scenes[1].id)?.whatChanged).toBe("changed");
+    expect(byId.get(bundle.scenes[2].id)?.whatChanged).toBe("new");
+    expect(lesson.inbox.lastReceipt).toEqual({ reviewer: "A. Teacher", decidedAt: "2026-11-01T09:00:00Z", decision: "approved", opened: 1, notOpened: 1 });
+    expect(lesson.inbox.unreadableReceipts).toBe(1);
+    expect(JSON.stringify(lesson.inbox)).not.toMatch(/[0-9a-f]{64}/);
+  });
+  it("adds --opened to the approval command only when items were opened", () => {
+    expect(approvalCommand("/c/lesson.json", "en", [])).toBe(".venv/bin/python tools/experience_packet.py approve --bundle '/c/lesson.json' --validated-by 'YOUR NAME'");
+    expect(approvalCommand("/c/lesson.json", "fr", ["s1", "#3"])).toBe(".venv/bin/python tools/experience_packet.py approve --bundle '/c/lesson.json' --validated-by 'VOTRE NOM' --opened 's1,#3'");
+  });
+  it("composes the send-back command, which writes a receipt only", () => {
+    expect(returnCommand("/c/teacher's/lesson.json", "en")).toBe(".venv/bin/python tools/experience_packet.py receipt --bundle '/c/teacher'\"'\"'s/lesson.json' --reviewer 'YOUR NAME' --decision returned");
+    expect(returnCommand("/c/lesson.json", "fr", ["s1"])).toBe(".venv/bin/python tools/experience_packet.py receipt --bundle '/c/lesson.json' --reviewer 'VOTRE NOM' --decision returned --opened 's1'");
   });
 });

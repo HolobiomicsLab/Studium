@@ -4169,6 +4169,37 @@ Checked: every repository check passes on this tree at its first run (install, b
 
 Not verified: no real stream holds these events; the report has run on hand-built fixtures only.
 
+## 2026-11-07 (review receipt) — The receipt says what was opened; the dashboard shows the inbox
+
+INT-STUDIUM-058, lot 6, tasks 6.2 and 6.3 (spec § 2.9), two commits.
+
+6.2: `experience_packet.py approve` also writes `<course>/reviews/<date>-<sha12>.json`
+(`studium/review-receipt/v1`): one item per scene with its fingerprint, its consequence and
+whether the teacher opened it (`--opened`), and the summary warns about grading scenes approved
+without being opened. `receipt --decision returned` records a lesson sent back. The Python
+canonical JSON reproduces `review-inbox.ts` byte for byte (ECMA-262 number formatting), and
+`tools/test_review_receipt_parity.py` runs the TypeScript through tsx on a tricky fixture and on
+every lesson under `fixtures/`. Verified end to end: a copy of `atomistique-l1` approved with one
+quiz opened reads back through `review_lesson` as 32 items all unchanged, no fingerprint on a
+grading item.
+
+6.3: the teacher dashboard's review page opens with the inbox, sorted, each line marked against
+the last receipt; a grading line keeps its automatic verdict folded until the teacher's own; the
+approval panel warns about grading lines not opened and rebuilds the approve command with
+`--opened`, plus a "send back" command. The page writes nothing (no authentication); no
+fingerprint reaches a browser. Seen in a browser on the same course copy: the warning goes from
+22 to 21 after one verdict, both commands carry `--opened`, no horizontal scroll at 375 px.
+
+Test decisions: none. 10 + 35 Python tests and 11 dashboard tests, seen failing first (the
+dashboard's component tests as one load error).
+
+Checked: every repository check passes on this tree at its first run (install, build, lint,
+`pnpm -r test`, the Python suites, bundle lint, docs check, headless smoke, the MCP bundle,
+`tools/panel-probe.mjs`), and `pnpm test:tools` (9 tests).
+
+Not verified: no teacher has used the inbox or the commands; the teacher's per-item verdicts
+reach no receipt yet; the `review_receipt` telemetry event is emitted by nothing.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

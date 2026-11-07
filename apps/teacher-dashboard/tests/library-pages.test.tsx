@@ -106,4 +106,27 @@ describe("server-rendered library and review", () => {
     expect(html).toContain("approve refuse ce mode");
     expect(html).not.toContain("experience_packet.py approve --bundle");
   });
+  it("shows the review inbox sorted by consequence, without fingerprints, between the heading and the outline", async () => {
+    const root = await setup();
+    const path = join(root, "course/lesson.json");
+    const bundle = JSON.parse(await readFile(path, "utf8"));
+    bundle.scenes[3].title = "TODO blocking title";
+    await writeFile(path, JSON.stringify(bundle));
+    const html = renderToStaticMarkup(await ReviewPage({ params: { lesson: encodeLessonRef("course") } }));
+    expect(html).toContain("Boîte de relecture");
+    expect(html.indexOf("Boîte de relecture")).toBeLessThan(html.indexOf("Parcours de la leçon"));
+    const blocking = html.indexOf(`data-item="${bundle.scenes[3].id}"`);
+    const firstQuiz = html.indexOf(`data-item="${bundle.scenes[2].id}"`);
+    // scenes[0] blocks too: setup() gives it evidence the schema refuses. scenes[1] is a plain concept.
+    const intro = html.indexOf(`data-item="${bundle.scenes[1].id}"`);
+    expect(blocking).toBeGreaterThan(0);
+    expect(blocking).toBeLessThan(firstQuiz);
+    expect(firstQuiz).toBeLessThan(intro);
+    expect(html).toContain("aucun reçu antérieur");
+    expect(html).toContain('role="status"');
+    expect(html).toContain("experience_packet.py receipt --bundle");
+    expect(html).not.toContain("--opened");
+    expect(html).not.toMatch(/[0-9a-f]{64}/);
+    expect(html).not.toContain("PRIVATE_");
+  });
 });

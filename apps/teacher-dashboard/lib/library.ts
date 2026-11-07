@@ -10,16 +10,25 @@ import { createHash } from "node:crypto";
 import { LessonBundleSchema } from "../../../packages/lesson-bundle-schema/src";
 import { keyClassOf, type KeyClass } from "../../../packages/lesson-session-host/src/key-class";
 import { placeholderPaths } from "../../../tools/bundle_lint.mjs";
+import { buildReviewInbox, readLastReceipt, type Consequence, type ReviewReceipt, type ReviewInbox, type WhatChanged } from "../../../packages/lesson-session-host/src/review-inbox";
 
 export type LessonStatus = "draft" | "checked" | "approved";
 export type ReviewSource = { title: string; url?: string };
 export type OutlineScene = { id: string; title: string; type: string; concepts: string[]; sources: ReviewSource[] };
+/** An inbox item as a page sees it: never a sha256 (a key-holding scene's hash is an answer oracle). */
+export type InboxItem = {
+  id: string; consequence: Consequence; whatChanged: WhatChanged; holdsKey: boolean;
+  checks: Array<{ check: "schema" | "todo" | "lint"; passed: boolean }>;
+};
+export type InboxReceipt = { reviewer: string; decidedAt: string; decision: "approved" | "returned"; opened: number; notOpened: number };
+export type LessonInbox = { items: InboxItem[]; lastReceipt: InboxReceipt | null; counts: ReviewInbox["counts"]; unreadableReceipts: number };
 export type LessonInspection = {
   title: string; language: string; bundleId: string; sourcePlanId: string;
   authoringMode: string; sceneCount: number; conceptCount: number; durationMinutes: number | null;
   keyClasses: Record<KeyClass | "unknown", number>; status: LessonStatus; todoCount: number;
   schemaIssueCount: number; outline: OutlineScene[]; conceptTitles: Record<string, string>;
   approval: { recorded: boolean; matches: boolean; reviewer?: string; reviewedAt?: string };
+  inbox: LessonInbox;
 };
 export type LibraryLesson = LessonInspection & { ref: string; routeId: string; bundlePath: string };
 export type LibraryIndex = { lessons: LibraryLesson[]; issues: string[]; root: string };
@@ -63,7 +72,7 @@ function sourceUrl(value: unknown): string | undefined {
 }
 
 /** A whitelist projection: evidence excerpts, prompts, choices and grading fields stay on the server. */
-export function inspectLesson(bytes: Buffer, receipt: unknown): LessonInspection {
+export function inspectLesson(bytes: Buffer, receipt: unknown, lastReview: { receipt: ReviewReceipt | null; unreadable: number } = { receipt: null, unreadable: 0 }): LessonInspection {
   const bundle = record(JSON.parse(bytes.toString("utf8")));
   const metadata = record(bundle.metadata);
   const authoring = record(metadata.authoring);
@@ -90,7 +99,30 @@ export function inspectLesson(bytes: Buffer, receipt: unknown): LessonInspection
   const parsed = LessonBundleSchema.safeParse(bundle);
   // CQ-5: the linter's implementation (tools/bundle_lint.mjs placeholderPaths), the one review_lesson and
   // `experience_packet.py approve` refuse on, so the library cannot call a lesson a draft that they call finished.
-  const todoCount = placeholderPaths(bundle).length;
+  const todo = placeholderPaths(bundle);
+  const todoCount = todo.length;
+  const todoPerScene = new Map<string, number>();
+  for (const path of todo) {
+    const match = /^scenes\.(\d+)(?:\.|$)/.exec(path);
+    if (!match) continue;
+    const index = Number(match[1]);
+    const id = text(scenes[index]?.id) || `#${index}`; // buildReviewInbox's id for a scene without one
+    todoPerScene.set(id, (todoPerScene.get(id) ?? 0) + 1);
+  }
+  // The library does not run the linter (review_lesson does): lintFindings null leaves the lint check
+  // out of each item rather than claiming it passed.
+  const built = buildReviewInbox({
+    rawScenes: bundle.scenes, lintFindings: null, todoPerScene, schemaValid: parsed.success,
+    schemaErrors: parsed.success ? [] : parsed.error.issues.map((issue) => ({ path: issue.path.join(".") })),
+    lastReceipt: lastReview.receipt, unreadableReceipts: lastReview.unreadable,
+  });
+  const last = built.last_receipt;
+  const inbox: LessonInbox = {
+    // Whitelist projection: sha256 is dropped from every item, not only key-holding ones; the page does not need it.
+    items: built.items.map((item) => ({ id: item.id, consequence: item.consequence, whatChanged: item.what_changed, holdsKey: item.holds_key, checks: item.checks.map((c) => ({ check: c.check, passed: c.passed })) })),
+    lastReceipt: last ? { reviewer: last.reviewer, decidedAt: last.decided_at, decision: last.decision, opened: last.opened, notOpened: last.not_opened } : null,
+    counts: built.counts, unreadableReceipts: built.unreadable_receipts ?? 0,
+  };
   return {
     title: text(metadata.title, text(bundle.bundle_id, "Untitled lesson")), language: text(metadata.language, "—"),
     bundleId: text(bundle.bundle_id), sourcePlanId: text(bundle.source_plan_id),
@@ -102,6 +134,7 @@ export function inspectLesson(bytes: Buffer, receipt: unknown): LessonInspection
     status: matches ? "approved" : parsed.success && todoCount === 0 ? "checked" : "draft",
     outline, conceptTitles,
     approval: { recorded, matches, ...(matches && text(approval.reviewer) ? { reviewer: text(approval.reviewer) } : {}), ...(matches && text(approval.reviewed_at) ? { reviewedAt: text(approval.reviewed_at) } : {}) },
+    inbox,
   };
 }
 
@@ -183,7 +216,9 @@ export async function readLesson(root: string, ref: string): Promise<LibraryLess
       // Distinguish an absent receipt from an existing but unusable record.
       if (record(error).code !== "ENOENT") receipt = {};
     }
-    return { ...inspectLesson(bytes, receipt), ref, routeId: encodeLessonRef(ref), bundlePath: join(directory, "lesson.json") };
+    // readLastReceipt keeps its reads inside this (already confined) lesson folder.
+    const lastReview = await readLastReceipt(directory);
+    return { ...inspectLesson(bytes, receipt, lastReview), ref, routeId: encodeLessonRef(ref), bundlePath: join(directory, "lesson.json") };
   } catch (error) {
     if (error instanceof LibraryReadError) throw error;
     const code = record(error).code;
@@ -223,7 +258,4 @@ export async function findLessonByToken(token: string): Promise<LibraryLesson | 
     return matches.length === 1 ? matches[0] : undefined;
   } catch { return undefined; }
 }
-export function approvalCommand(bundlePath: string, locale: "fr" | "en"): string {
-  const quote = (value: string) => `'${value.replaceAll("'", `'"'"'`)}'`;
-  return `.venv/bin/python tools/experience_packet.py approve --bundle ${quote(bundlePath)} --validated-by ${quote(locale === "fr" ? "VOTRE NOM" : "YOUR NAME")}`;
-}
+export { approvalCommand, returnCommand } from "./review-commands";

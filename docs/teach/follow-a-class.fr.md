@@ -108,6 +108,13 @@ avec un lien vers sa vue MySTRA quand l'Observatoire sert un dossier de cours du
 montrent titres, types de scènes, concepts et références, jamais le corps des leçons, les choix ni les
 clés. Langue et thème se choisissent dans le menu de l'en-tête.
 
+La page de relecture s'ouvre sur une boîte de relecture : une ligne par scène, d'abord les scènes qui
+bloquent, puis celles qui portent une clé de notation, puis la formulation et les médias, chacune
+marquée nouvelle, modifiée ou inchangée depuis le dernier reçu de relecture. Donnez votre propre avis
+sur une ligne « note » (Correct ou À corriger) avant que son avis automatique se déplie. La commande
+d'approbation, et celle qui renvoie la leçon, listent dans `--opened` les scènes que vous avez ouvertes ;
+la page signale les lignes « note » non ouvertes et n'écrit elle-même rien.
+
 Les pages d'analyse d'un cours (`/courses/<course_id>/progress` et les pages voisines : calibration,
 trajectoire, raisonnement, autonomie, littératie IA) lisent le collecteur d'analyses sur
 `localhost:8003` ; la page des soumissions est décrite dans

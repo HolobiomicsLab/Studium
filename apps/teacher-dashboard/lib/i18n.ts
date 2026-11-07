@@ -39,6 +39,18 @@ const fr = {
   print: "Imprimer / PDF", sceneType: "Type de scène", lessonMissing: "Leçon introuvable", lessonMissingHelp: "Le fichier a peut-être été déplacé. Revenez à la bibliothèque pour choisir une leçon disponible.",
   lessonUnreadable: "Leçon illisible", lessonUnreadableHelp: "Le tableau de bord ne peut pas lire cette leçon. Vérifiez la syntaxe de lesson.json, sa taille (10 Mo maximum) et les permissions du dossier. Les liens symboliques ne sont pas acceptés dans la bibliothèque.",
   intro: "Introduction", concept: "Concept", quiz: "Quiz", meta_checkpoint: "Point d’étape", reproduction: "Reproduction", ai_critique: "Critique de l’IA", discussion: "Discussion", spot_the_flaw: "Repérer le défaut", explain_back: "Expliquer", comparison: "Comparaison", summary_audit: "Audit de résumé", prompt_practice: "Pratique du prompt", communication_sim: "Mise en situation",
+  inbox: "Boîte de relecture", inboxHelp: "Une ligne par scène, de ce qui bloque à ce qui touche la notation, la formulation puis les médias. Ce que vous ouvrez ici entre dans la commande ci-contre\u00a0; la page n’écrit rien.",
+  blocks: "bloque", grading: "note", wording: "formulation", media: "média",
+  changedNew: "nouveau", changedChanged: "modifié", changedUnchanged: "inchangé",
+  sinceReceipt: "depuis le reçu du {date}", noEarlierReceipt: "aucun reçu antérieur",
+  lastReceipt: "Dernier reçu\u00a0: {date}, {decision} par {reviewer}.", decisionApproved: "approuvée", decisionReturned: "renvoyée",
+  unreadableReceipts: "Reçus illisibles ignorés dans reviews/\u00a0: {n}.",
+  automaticVerdict: "Avis automatique", automaticVerdictLater: "(après votre avis)",
+  yourVerdict: "Votre avis", verdictOk: "Correct", verdictToFix: "À corriger", openedMark: "ouvert",
+  checkSchema: "Schéma", checkTodo: "TODO", checkLint: "Lint", checkPassed: "conforme", checkFailed: "à corriger",
+  inboxWarningOne: "1 élément «\u00a0note\u00a0» non ouvert\u00a0: {ids}. Approuver reste possible\u00a0; le reçu le gardera.",
+  inboxWarningMany: "{n} éléments «\u00a0note\u00a0» non ouverts\u00a0: {ids}. Approuver reste possible\u00a0; le reçu le gardera.",
+  returnHeading: "Renvoyer la leçon", returnHelp: "Pour renvoyer la leçon à son auteur sans l’approuver, cette commande écrit seulement un reçu «\u00a0renvoyée\u00a0».",
 };
 const en: typeof fr = {
   teacherSpace: "Teacher workspace", home: "Home", library: "Course library", room: "Peer-review room",
@@ -68,6 +80,18 @@ const en: typeof fr = {
   print: "Print / PDF", sceneType: "Scene type", lessonMissing: "Lesson not found", lessonMissingHelp: "The file may have moved. Return to the library to choose an available lesson.",
   lessonUnreadable: "Lesson unreadable", lessonUnreadableHelp: "The dashboard cannot read this lesson. Check the syntax of lesson.json, its size (10 MB maximum) and the folder permissions. Symbolic links are not accepted inside the library.",
   intro: "Introduction", concept: "Concept", quiz: "Quiz", meta_checkpoint: "Checkpoint", reproduction: "Reproduction", ai_critique: "AI critique", discussion: "Discussion", spot_the_flaw: "Spot the flaw", explain_back: "Explain back", comparison: "Comparison", summary_audit: "Summary audit", prompt_practice: "Prompt practice", communication_sim: "Communication scenario",
+  inbox: "Review inbox", inboxHelp: "One line per scene, from what blocks to what touches grading, wording, then media. What you open here goes into the command alongside; the page writes nothing.",
+  blocks: "blocks", grading: "grading", wording: "wording", media: "media",
+  changedNew: "new", changedChanged: "changed", changedUnchanged: "unchanged",
+  sinceReceipt: "since the receipt of {date}", noEarlierReceipt: "no earlier receipt",
+  lastReceipt: "Last receipt: {date}, {decision} by {reviewer}.", decisionApproved: "approved", decisionReturned: "sent back",
+  unreadableReceipts: "Unreadable receipts skipped in reviews/: {n}.",
+  automaticVerdict: "Automatic verdict", automaticVerdictLater: "(after your verdict)",
+  yourVerdict: "Your verdict", verdictOk: "Correct", verdictToFix: "To fix", openedMark: "opened",
+  checkSchema: "Schema", checkTodo: "TODO", checkLint: "Lint", checkPassed: "passes", checkFailed: "to fix",
+  inboxWarningOne: "1 grading item not opened: {ids}. Approving stays possible; the receipt will keep it.",
+  inboxWarningMany: "{n} grading items not opened: {ids}. Approving stays possible; the receipt will keep it.",
+  returnHeading: "Send the lesson back", returnHelp: "To send the lesson back to its author without approving it, this command writes a \u201creturned\u201d receipt only.",
 };
 export function messages(locale: Locale) { return locale === "en" ? en : fr; }
 /** "1 concept", "8 concepts": French keeps the singular for 0 and 1, English only for 1. */
@@ -76,3 +100,7 @@ export function counted(n: number, one: string, many: string, locale: Locale): s
   return `${n} ${singular ? one : many}`;
 }
 export function sceneTypeLabel(type: string, locale: Locale): string { return messages(locale)[type as keyof typeof fr] ?? type; }
+/** Fill `{name}` placeholders of a message. */
+export function fill(template: string, values: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (whole, name: string) => (name in values ? String(values[name]) : whole));
+}

@@ -80,6 +80,18 @@ de preuve. La commande d'approbation affichée cite le chemin local exact et doi
 racine du dépôt ; la page elle-même n'écrit rien. Pour une leçon d'auto-apprentissage, la page affiche la
 règle de refus de l'outil au lieu d'une commande vouée à l'échec.
 
+Au-dessus du parcours, la boîte de relecture donne une ligne par scène, triée selon ce que coûterait
+une erreur à cet endroit : bloque (erreur de schéma ou TODO dans la scène), note (la scène porte une
+clé), formulation, média. Chaque ligne dit si la scène est nouvelle, modifiée ou inchangée depuis le
+dernier reçu du dossier `reviews/` de la leçon, et donne les vérifications automatiques (schéma, TODO ;
+la bibliothèque ne lance pas le linter, il n'y a donc pas de vérification lint ici). Pour une ligne
+« note », l'avis automatique reste replié tant que l'enseignant n'a pas cliqué Correct ou À corriger.
+Avant l'approbation, la page signale, sans bloquer, les lignes « note » non ouvertes. La page n'écrit
+toujours rien : les identifiants ouverts à l'écran entrent dans l'option `--opened` des deux commandes
+affichées, `experience_packet.py approve` et `experience_packet.py receipt --decision returned` (renvoyer
+la leçon), et le reçu est écrit quand l'enseignant en lance une. Les empreintes des scènes n'atteignent
+jamais le navigateur.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/screenshots/teacher-review-dark.png">
   <img src="../../docs/assets/screenshots/teacher-review-light.png" alt="La page de relecture d'une leçon avec ses scènes, notions, références et la commande d'approbation à lancer">
