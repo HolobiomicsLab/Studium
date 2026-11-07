@@ -37,6 +37,8 @@ const DEFAULT_MAX_STEPS = 20;
 const SEPARATOR = "\n\n---\n\n";
 /** Forms are rank 2 of the surface ladder (panel-tools.ts negotiateSurface). */
 const FORMS_RANK = 2;
+/** The screens forms show: the session's book is fed there at rank 2 (prompts.ts), forms being on. */
+const IN_FORMS = { promptSurface: { rank: FORMS_RANK, formsAvailable: true } } as const;
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
 type PublicScene = { id: string; type: string; choices?: Array<{ id: string }> };
@@ -108,7 +110,10 @@ function formFor(scene: PublicScene, labels: typeof LABELS.fr): Form | null {
 }
 
 export async function playInForms(server: McpServer, host: SessionHost, sessionId: string, maxSteps: number): Promise<Record<string, unknown>> {
-  let presentation: Presentation | undefined = publicPresentation(host.currentPresentation(sessionId)) as Presentation;
+  // A client that shows no forms gets this screen back in the conversation, which is where it is read.
+  const forms = Boolean(server.server.getClientCapabilities()?.elicitation);
+  const firstOn = forms ? IN_FORMS : { promptSurface: { rank: 1, formsAvailable: false } } as const;
+  let presentation: Presentation | undefined = publicPresentation(host.currentPresentation(sessionId, firstOn)) as Presentation;
   const locale = (presentation.locale ?? "fr").toLowerCase().startsWith("fr") ? "fr" : "en";
   const labels = LABELS[locale];
   let screen = presentation.display_markdown ?? "";
@@ -122,7 +127,7 @@ export async function playInForms(server: McpServer, host: SessionHost, sessionI
       "go on in the conversation, and call play_in_forms again once the scene that needed the conversation is done.",
   });
 
-  if (!server.server.getClientCapabilities()?.elicitation) return out("unsupported", labels.unsupported);
+  if (!forms) return out("unsupported", labels.unsupported);
 
   for (let step = 0; step < maxSteps; step++) {
     const scene: PublicScene = presentation.scene;
@@ -149,7 +154,7 @@ export async function playInForms(server: McpServer, host: SessionHost, sessionI
       const built = form.toInput(answer.content ?? {});
       confidence = built.confidence;
       // Timed around the server's answer only, never the learner's time on the form.
-      const served = await host.settleAct(sessionId, { act: "respond", lane: "fast", surfaceRank: FORMS_RANK }, () => host.respond(sessionId, built.input, "fast"));
+      const served = await host.settleAct(sessionId, { act: "respond", lane: "fast", surfaceRank: FORMS_RANK }, () => host.respond(sessionId, built.input, "fast", IN_FORMS));
       transition = publicTransition(served) as Transition;
     } catch (error) {
       unseen = "";

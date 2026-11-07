@@ -102,6 +102,8 @@ export const OrientationSchema = z.object({
     kind: z.string(), reason: z.string(), detail: z.object({ rule_id: z.string(), evidence: z.array(z.string()) }).optional(),
   }).optional(),
   resumed: z.object({ cause: z.enum(["restart", "surface_change", "paused"]), seen_through: z.string() }).optional(),
+  /** A contest's check question is on screen: which one, out of how many. */
+  contest: z.object({ concept_id: z.string(), question: z.number(), total: z.number() }).optional(),
 });
 export type Orientation = z.infer<typeof OrientationSchema>;
 /** Who speaks: the lesson's author, the author's key, a judge model, or the assistant. */

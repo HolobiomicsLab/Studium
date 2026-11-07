@@ -189,6 +189,11 @@ with:
 Les atomes · étape 2/3 · 3 min · à toi de répondre
 ```
 
+The line holds 80 characters at most. A long lesson title is cut before its last separator that fits
+("Atomistique L1 — Chapitre 1 (atomes, orbitales)" reads "Atomistique L1 — Chapitre 1"), so it does not
+change from one screen to the next. While you answer the check questions of a concept you contested, the step
+gives way to "check 1/2" ("contrôle 1/2" in a French lesson).
+
 To show it in Claude Code's status line, add this to `~/.claude/settings.json`:
 
 ```json
@@ -330,7 +335,11 @@ To switch assistants in the middle of a lesson, keep the same server running and
 `session_id`, the language and any pending action; it reads `get_operator_context` before acting. Do not
 restart the lesson. A server restart ends its sessions: a call on an old `session_id` answers `session not
 found` and says how to resume. With durable storage, a new `start_lesson_session` for the same learner and
-lesson resumes at the first unfinished step.
+lesson resumes at the first unfinished step. On a panel or a pane, the learner's next action on the old
+session replaces the scene with "Session lost (the server restarted or the session was closed). Reopen the
+lesson: your progress is kept." and a reopen control: the MCP Apps panel's button and the Claude Code pane's
+button open the same lesson for the same learner (the Claude Code pane also names `/studium <bundle_ref>`),
+and the VS Code pane's button closes it and opens the lesson in a new pane. Nothing is retried on its own.
 
 Export what you want to keep before stopping an in-memory server. With `context.json` holding
 `{"arguments":{"session_id":"<id>"}}`:

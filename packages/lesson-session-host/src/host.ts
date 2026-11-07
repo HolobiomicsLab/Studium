@@ -50,7 +50,7 @@ import { publicScene, citedSources, type CitedSource, type PublicPresentation, t
 import { buildConceptMapRecord, type ConceptMapRecord } from "./concept-map-record.js";
 import {
   presentationMarkdown, transitionMarkdown, verdictMarkdown, recallRatedMarkdown, nothingToReviewMarkdown,
-  lessonListMarkdown, forgetMarkdown, conceptMapExportMarkdown, completionSplit, completionGroupsMarkdown, type CompletionSplit, type DisplayLocale, type ScreenPrompt,
+  lessonListMarkdown, forgetMarkdown, conceptMapExportMarkdown, completionSplit, completionGroupsMarkdown, promptsMarkdown, type CompletionSplit, type DisplayLocale, type ScreenPrompt,
 } from "./chat-display.js";
 import { OffsetClock, checkNowMs } from "./session-clock.js";
 import { calendarDate, checkTimeZone, localTimeZone } from "./calendar.js";
@@ -67,7 +67,7 @@ import {
 import { persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceInfo } from "./persistence.js";
 import { replyToInput, checkDisplayedChoice } from "./reply-mapping.js";
 import {
-  authorVoice, helpFrom, orientationFacts, orientationFrom, recordNavigation, statusLine, voiceLine, type OrientationFacts, type Voice,
+  authorVoice, helpFrom, orientationFacts, orientationFrom, recordNavigation, recordOtherAct, statusLine, voiceLine, type OrientationFacts, type Voice,
 } from "./orientation.js";
 import { COMPANION_RULES, noteAct, takeActs, type ActReceived, type CompanionBrief, type Lane } from "./companion.js";
 import { ContestRefusedError, checkScenes, claimFor, contestOutcome, type ContestClaim, type RecordContest } from "./contest.js";
@@ -792,7 +792,17 @@ export interface SessionStartResult {
 export interface SessionStartOptions {
   nowMs?: number;
   presentationLanguage?: string;
+  /** Where the screen this call returns is shown (PromptSurface); without it, as before. */
+  promptSurface?: PromptSurface;
 }
+
+/** INT-STUDIUM-058 § 2.6: the surface a call's screen is shown on when it is not a panel — the
+ * conversation (rank 1) or forms (rank 2) — and whether the client can show forms. A call that names
+ * it has the host feed the session's prompt book when it builds that screen, so what is proposed then
+ * is said in the text it returns. A panel names none: it asks the book itself (sessionPrompts). */
+export interface PromptSurface { rank: 1 | 2; formsAvailable: boolean }
+/** The per-call option of the calls that serve a screen. */
+export interface ServeOptions { promptSurface?: PromptSurface }
 
 /** C4: what a self-rating changed — the rated concepts' next review. Never their mastery. */
 export interface RecallRating {
@@ -1020,7 +1030,7 @@ export class SessionHost {
 
   /** Start or resume a lesson; legacy third-argument clocks and languages remain supported. */
   async create(bundleRef: string, learnerId: string = this.defaultLearnerId, options?: SessionStartOptions | number | string): Promise<SessionStartResult> {
-    const { nowMs: requestedNow, presentationLanguage } = typeof options === "number" ? { nowMs: options }
+    const { nowMs: requestedNow, presentationLanguage, promptSurface } = typeof options === "number" ? { nowMs: options }
       : typeof options === "string" ? { presentationLanguage: options } : options ?? {};
     // L-1: a session started with now_ms stamps its answers, ratings and memory on a clock anchored there.
     const nowMs = requestedNow === undefined ? undefined : checkNowMs(requestedNow);
@@ -1087,7 +1097,7 @@ export class SessionHost {
         this.emitSessionEvent(entry, { type: "resume", cause: "restart" });
         this.noticeResume(entry, started);
       }
-      const presentation = this.served(entry, started);
+      const presentation = this.served(entry, started, this.screenLines(entry, started, promptSurface));
       await this.publishStatus(entry);
       const record = resume.kind === "completed" ? await this.studyStore.load(profilePseudonym) : null;
       const conceptMap = this.conceptMapOf(entry, "start");
@@ -1136,7 +1146,7 @@ export class SessionHost {
    * language; by default the learner's last lesson's, else the first lesson reviewed's. */
   async startReview(
     learnerId: string = this.defaultLearnerId,
-    opts: { maxItems?: number; nowMs?: number; presentationLanguage?: string; language?: DisplayLocale } = {},
+    opts: { maxItems?: number; nowMs?: number; presentationLanguage?: string; language?: DisplayLocale; promptSurface?: PromptSurface } = {},
   ): Promise<ReviewStartResult> {
     const nowMs = this.nowOr(opts.nowMs);
     const requestedLanguage = opts.language === undefined ? undefined : checkLocale(opts.language);
@@ -1190,7 +1200,7 @@ export class SessionHost {
       const sessionId = randomUUID();
       this.registry.create(sessionId, entry);
       this.experiments.set(sessionId, new ExperimentJournal(experimentRevision(bundle), undefined));
-      const presentation = this.served(entry, started);
+      const presentation = this.served(entry, started, this.screenLines(entry, started, opts.promptSurface));
       await this.publishStatus(entry);
       const items = bundle.scenes.map((scene): ReviewItem => {
         const origin = built.origins[scene.id]!;
@@ -1457,9 +1467,12 @@ export class SessionHost {
    * The status line, always. The lesson's voice on the first screen, unless a notice there already
    * says who wrote the lesson or that it changed since its approval; on every later screen while the
    * lesson was drafted by an AI and no teacher read this version. A review has no such line: it mixes
-   * lessons, and one line would speak for items it does not describe. */
-  private screenLines(entry: SessionEntry, presentation: Presentation): ScreenLines {
+   * lessons, and one line would speak for items it does not describe. With a `surface` (the
+   * conversation or forms), the session's book is fed first, so the proposals of this moment are said
+   * here, after any notice already open (a resume notice). */
+  private screenLines(entry: SessionEntry, presentation: Presentation, surface?: PromptSurface): ScreenLines {
     const locale: DisplayLocale = presentation.locale === "en" ? "en" : "fr";
+    if (surface) this.feedPrompts(entry, { locale, surfaceRank: surface.rank, formsAvailable: surface.formsAvailable });
     const voice = this.authorVoiceOf(entry);
     const noticed = !!entry.authoring.notice || (entry.authoring.approval.recorded && !entry.authoring.approval.matches);
     const unreviewedAi = voice.kind === "author" && !voice.reviewed && voice.drafted_by === "agent";
@@ -1492,8 +1505,9 @@ export class SessionHost {
   /** INT-STUDIUM-058 § 2.6: the open prompts the conversation text of this screen says. The text is
    * linear, so each prompt is said once, on the first screen after it was made; it stays open to an
    * answer. While an answer or a self-rating is owed a proposal waits for the next pause; a notice is
-   * said at once. Nothing is proposed here: the book is fed by the surface that asks (sessionPrompts). */
-  private promptsToSay(entry: SessionEntry, sceneId: string, waiting: string): ScreenPrompt[] {
+   * said at once. Nothing is proposed here: the book is fed by the surface that asks (sessionPrompts),
+   * or by the call that serves this screen (screenLines). `sceneId` is null once the lesson is over. */
+  private promptsToSay(entry: SessionEntry, sceneId: string | null, waiting: string): ScreenPrompt[] {
     const book = entry.prompts;
     if (!book) return [];
     if (entry.promptScene !== undefined && entry.promptScene !== sceneId) { this.emitPromptOutcomes(entry, book.sceneChanged()); entry.promptScene = sceneId; }
@@ -1501,7 +1515,16 @@ export class SessionHost {
     const said = (entry.promptsSaid ??= new Set<string>());
     const now = book.open().filter((prompt) => !said.has(prompt.id) && (!busy || NOTICE_KINDS.has(prompt.kind)));
     for (const prompt of now) said.add(prompt.id);
-    return now.map((prompt) => ({ kind: prompt.kind, reason: prompt.reason, asks: !NOTICE_KINDS.has(prompt.kind) }));
+    return now.map((prompt) => ({ id: prompt.id, kind: prompt.kind, reason: prompt.reason, asks: !NOTICE_KINDS.has(prompt.kind) }));
+  }
+
+  /** The end of a lesson has no next screen: with a surface, the book is fed at the lesson's end and
+   * what it proposes is said after the summary (transitionMarkdown). */
+  private endLines(entry: SessionEntry, surface: PromptSurface): { prompts?: ScreenPrompt[] } {
+    const locale = displayLocale(entry.bundle.metadata.language);
+    this.feedPrompts(entry, { locale, surfaceRank: surface.rank, formsAvailable: surface.formsAvailable });
+    const prompts = this.promptsToSay(entry, null, "nothing");
+    return prompts.length ? { prompts } : {};
   }
 
   /** The learner's concept map now (concept-map.ts), drawn from what the session served and how it
@@ -1616,15 +1639,16 @@ export class SessionHost {
    * neither the scene's passages, kept on the entry and released with the answer that leaves it
    * (releasedSources), nor its reference (key points, model answer), nor a request to rate recall
    * against that reference: the retried item's own verdict brings its reference. */
-  private servedTransition(entry: SessionEntry, transition: Transition, warning?: string): ServedTransition {
+  private servedTransition(entry: SessionEntry, transition: Transition, warning?: string, surface?: PromptSurface): ServedTransition {
     const sceneTitle = (sceneId: string) => entry.bundle.scenes.find((s) => s.id === sceneId)?.title;
     const conceptLabel = (conceptId: string) => entry.bundle.concepts.find((c) => c.id === conceptId)?.title ?? conceptId;
-    const lines = "presentation" in transition ? this.screenLines(entry, transition.presentation) : undefined;
+    const lines = "presentation" in transition ? this.screenLines(entry, transition.presentation, surface) : undefined;
+    const ending = !lines && surface ? this.endLines(entry, surface) : undefined;
     const ctx = {
       sceneTitle, conceptLabel, locale: displayLocale(entry.bundle.metadata.language), review: entry.kind === "review",
       timeZone: this.zone,
       authoring: entry.authoring,
-      ...lines,
+      ...lines, ...ending,
     };
     const answered = transition.verdict ? entry.bundle.scenes.find((s) => s.id === transition.verdict?.scene_id) : undefined;
     const leaving = answered === undefined || leavesForGood(transition, answered);
@@ -1673,9 +1697,10 @@ export class SessionHost {
     };
   }
 
-  currentPresentation(id: string): ServedPresentation {
+  currentPresentation(id: string, opts: ServeOptions = {}): ServedPresentation {
     const entry = this.require(id);
-    return this.served(entry, entry.session.currentPresentation());
+    const presentation = entry.session.currentPresentation();
+    return this.served(entry, presentation, this.screenLines(entry, presentation, opts.promptSurface));
   }
   /** INT-STUDIUM-058: the facts behind the learner's orientation (orientation.ts) — the screen's
    * position, its concept, the durations left, what the session waits for, how it last routed. Ids,
@@ -1695,7 +1720,10 @@ export class SessionHost {
     locale: "fr" | "en"; attention?: PromptAttention; surfaceRank?: 1 | 2 | 3; formsAvailable?: boolean;
     breakAfterMinutes?: number | null; hasNextLesson?: boolean; nowMs?: number;
   }): PromptCandidate[] {
-    const entry = this.require(id);
+    return this.feedPrompts(this.require(id), ask);
+  }
+  /** The same from the entry: a screen being built feeds the book before its session is looked up. */
+  private feedPrompts(entry: SessionEntry, ask: Parameters<SessionHost["sessionPrompts"]>[1]): PromptCandidate[] {
     const book = (entry.prompts ??= new PromptBook(ask.attention ?? "normal"));
     if (ask.attention) book.setAttention(ask.attention);
     const facts = this.orientationFactsOf(entry, ask.nowMs);
@@ -1915,7 +1943,7 @@ export class SessionHost {
    * reference_from_run judgment grounds on it) and advances via an ack; a non-completed / failed-checks
    * run does NOT advance. Guards a non-run scene (no run_manifest) so it never advances an arbitrary scene. */
   async ingestRunResult(
-    id: string, result: RunResult,
+    id: string, result: RunResult, opts: ServeOptions = {},
   ): Promise<{ status: "ran" | "run_incomplete" | "run_failed_checks" | "not_a_run_scene"; transition: ServedTransition | null; learnerRunRecorded: boolean; attested: boolean; attestationReasons: string[] }> {
     const scene = this.require(id).session.currentPresentation().scene as { run_manifest?: RunManifest; task_card_id?: string };
     if (!scene.run_manifest) return { status: "not_a_run_scene", transition: null, learnerRunRecorded: false, attested: false, attestationReasons: [] };
@@ -1934,7 +1962,7 @@ export class SessionHost {
       // (server-side) so the planted flaws match THEIR numbers — sound for a stochastic capsule too.
       if (this.opts.judgmentGenerator) await this.regenerateDownstreamJudgments(id, scene.task_card_id, learnerRun);
     }
-    const transition = await this.applyResponse(id, { kind: "ack" } as ResponseInput);
+    const transition = await this.applyResponse(id, { kind: "ack" } as ResponseInput, opts.promptSurface);
     return { status: "ran", transition, learnerRunRecorded, attested: attestation.trusted, attestationReasons: attestation.reasons };
   }
 
@@ -1959,7 +1987,7 @@ export class SessionHost {
 
   /** Submit a response. A chat reply (`{kind: "reply", text}`) becomes the current scene's input, and a
    * quiz choice must name a displayed id — both refused in one line otherwise (reply-mapping.ts). */
-  async respond(id: string, input: HostResponseInput, lane: Lane = "companion"): Promise<ServedTransition> {
+  async respond(id: string, input: HostResponseInput, lane: Lane = "companion", opts: ServeOptions = {}): Promise<ServedTransition> {
     return this.sessionWrite(id, async (entry) => {
       const runStatus = this.runStatus(id);
       if (runStatus.run_manifest && !runStatus.learner_run_recorded) throw new RunRequiredError();
@@ -1968,7 +1996,7 @@ export class SessionHost {
         ? replyToInput(scene, input.text, (publicScene(scene) as { deck?: Array<{ token: string }> }).deck)
         : checkDisplayedChoice(scene, input);
       const answeredCheck = entry.session.checkPending();
-      const applied = await this.applyResponseLocked(entry, engineInput);
+      const applied = await this.applyResponseLocked(entry, engineInput, opts.promptSurface);
       const settled = answeredCheck ? await this.settleContest(entry, applied.verdict?.correct === true) : undefined;
       const served = settled ? { ...applied, contest: settled } : applied;
       // INT-STUDIUM-058: the act, for the next companion brief. `lane` says who carried it: the
@@ -2008,6 +2036,7 @@ export class SessionHost {
       const first = entry.session.insertChecks(sceneIds);
       entry.contest = { concept_id: conceptId, claim, scene_ids: sceneIds, results: [] };
       noteAct(entry, { scene_id: current, act: "contest", lane });
+      recordOtherAct(entry);
       await this.publishStatus(entry);
       return { concept_id: conceptId, claim, questions: sceneIds.length, presentation: this.served(entry, first) };
     });
@@ -2077,12 +2106,12 @@ export class SessionHost {
    * L-11 (CC-6): once the engine recorded the answer the session has moved on, so a write-through that
    * fails (an unreadable profile, a full disk, a folder it cannot write) does not lose the transition:
    * it is served with `persistence_warning`, and a retry is never graded against the next scene. */
-  private async applyResponse(id: string, input: ResponseInput): Promise<ServedTransition> {
-    return this.sessionWrite(id, (entry) => this.applyResponseLocked(entry, input));
+  private async applyResponse(id: string, input: ResponseInput, surface?: PromptSurface): Promise<ServedTransition> {
+    return this.sessionWrite(id, (entry) => this.applyResponseLocked(entry, input, surface));
   }
 
   /** Apply and persist while holding the learner lock, so forget also waits for engine writes. */
-  private async applyResponseLocked(e: SessionEntry, input: ResponseInput): Promise<ServedTransition> {
+  private async applyResponseLocked(e: SessionEntry, input: ResponseInput, surface?: PromptSurface): Promise<ServedTransition> {
     const transition = await e.session.respond(input);
     e.responses += 1;
     recordNavigation(e, transition);
@@ -2099,7 +2128,7 @@ export class SessionHost {
       warning = persistenceWarning(error);
     }
     await this.publishStatus(e);
-    return this.servedTransition(e, transition, warning);
+    return this.servedTransition(e, transition, warning, surface);
   }
 
   /** INT-STUDIUM-058 (N8): in durable mode, say where this session stands in the learner's folder, for
@@ -2154,12 +2183,25 @@ export class SessionHost {
    * hard | good | easy). FSRS input only: the rated concept's memory moves, source `self_rated`; its
    * mastery never does. The session refuses a rating no answer asked for (a certified answer, a scene
    * already rated) and an unknown grade. */
-  async rateRecall(id: string, sceneId: string, grade: SelfRating, lane: Lane = "companion"): Promise<RecallRating> {
+  async rateRecall(id: string, sceneId: string, grade: SelfRating, lane: Lane = "companion", opts: ServeOptions = {}): Promise<RecallRating> {
     return this.sessionWrite(id, async (entry) => {
       const rating = await this.rateRecallLocked(entry, sceneId, grade);
       noteAct(entry, { scene_id: sceneId, act: "self_rating", lane });
-      return rating;
+      recordOtherAct(entry);
+      // The rating ends a wait: what was held back while it was owed is said after its line.
+      const prompts = opts.promptSurface ? this.promptsAfterRating(entry, opts.promptSurface) : "";
+      return prompts ? { ...rating, display_markdown: `${rating.display_markdown}\n\n${prompts}` } : rating;
     });
+  }
+
+  /** The prompts said after a self-rating, on the screen the session is on (or at its end). */
+  private promptsAfterRating(entry: SessionEntry, surface: PromptSurface): string {
+    if (entry.completed) {
+      const lines = this.endLines(entry, surface);
+      return promptsMarkdown(lines.prompts ?? [], displayLocale(entry.bundle.metadata.language));
+    }
+    const presentation = entry.session.currentPresentation();
+    return promptsMarkdown(this.screenLines(entry, presentation, surface).prompts ?? [], presentation.locale === "en" ? "en" : "fr");
   }
 
   private async rateRecallLocked(e: SessionEntry, sceneId: string, grade: SelfRating): Promise<RecallRating> {
@@ -2305,6 +2347,7 @@ export class SessionHost {
     if (hint) {
       const sceneId = entry.session.currentPresentation().scene.id;
       noteAct(entry, { scene_id: sceneId, act: "hint", lane });
+      recordOtherAct(entry);
       // A hint refused at the cap is no help taken: only one given is logged.
       this.emitSessionEvent(entry, { type: "help_used", rung: "hint", scene_id: sceneId });
     }

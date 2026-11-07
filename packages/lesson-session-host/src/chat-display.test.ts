@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
 import {
-  presentationMarkdown, transitionMarkdown, verdictMarkdown, referenceMarkdown, recallRatedMarkdown,
+  presentationMarkdown, transitionMarkdown, verdictMarkdown, referenceMarkdown, recallRatedMarkdown, promptsMarkdown, promptAnswerMarkdown,
   formatReviewDate, completionSplit, sourcesMarkdown,
 } from "./chat-display.js";
 import { REDACTED_SCENE_FIELDS } from "./public-scene.js";
@@ -127,6 +127,21 @@ describe("presentationMarkdown", () => {
     const md = presentationMarkdown({ ...(presentation(scene) as object), locale: "en" } as never);
     expect(md).toContain("Step 1 of");
     expect(md).not.toContain("Étape");
+  });
+
+  it("says the step once: the status line carries it, so the line under the title goes (walkthrough 2026-11-07)", () => {
+    const scene = ATOMISTIQUE.scenes[0];
+    const status = "Atomistique L1 · étape 1/32 · à lire";
+    const withStatus = presentationMarkdown(presentation(scene), { statusLine: status });
+    expect(withStatus).not.toMatch(/_Étape \d+ sur \d+_/);
+    expect(withStatus.endsWith(`\`${status}\``)).toBe(true);
+    const review = presentationMarkdown(presentation(scene), { review: true, statusLine: status });
+    expect(review).not.toMatch(/_Révision \d+ sur \d+_/);
+    const en = presentationMarkdown({ ...(presentation(scene) as object), locale: "en" } as never, { statusLine: "step 1/32 · to read" });
+    expect(en).not.toMatch(/_Step \d+ of \d+_/);
+    // Without a status line, the step stays under the title.
+    expect(presentationMarkdown(presentation(scene))).toContain(`_Étape 1 sur ${ATOMISTIQUE.scenes.length}_`);
+    expect(presentationMarkdown(presentation(scene), { review: true })).toContain(`_Révision 1 sur ${ATOMISTIQUE.scenes.length}_`);
   });
 });
 
@@ -341,10 +356,13 @@ describe("the status line and the voices in the conversation text", () => {
     verdict: { scene_id: "s", graded: true, signal: "answer_submitted", ...verdict },
   } as never, []);
 
-  it("ends a screen with the status line it is given, and adds nothing else", () => {
+  it("ends a screen with the status line it is given, which takes over the step line, and adds nothing else", () => {
     const plain = presentationMarkdown(presentation(quiz, 1));
     const md = presentationMarkdown(presentation(quiz, 1), { statusLine: STATUS });
-    expect(md).toBe(`${plain}\n\n\`${STATUS}\``);
+    // Test decision (walkthrough 2026-11-07): the step is said once, in the status line.
+    const step = `\n\n_Étape 2 sur ${ATOMISTIQUE.scenes.length}_`;
+    expect(plain).toContain(step);
+    expect(md).toBe(`${plain.replace(step, "")}\n\n\`${STATUS}\``);
     expect(md.length - plain.length).toBeLessThanOrEqual(200);
   });
 
@@ -386,24 +404,24 @@ describe("the status line and the voices in the conversation text", () => {
 describe("the server's prompts in the conversation text", () => {
   const concept = ATOMISTIQUE.scenes.find((s) => s.type === "concept")!;
   const STATUS = "Atomistique · étape 1/32 · 75 min · à lire";
-  const REVIEW = { kind: "review_due", reason: "3 notions à revoir aujourd'hui", asks: true };
-  const NOTICE = { kind: "adaptation_notice", reason: "Retour sur un prérequis.", asks: false };
+  const REVIEW = { id: "review_due:start", kind: "review_due", reason: "3 notions à revoir aujourd'hui", asks: true };
+  const NOTICE = { id: "adaptation_notice:s1", kind: "adaptation_notice", reason: "Retour sur un prérequis.", asks: false };
 
   it("says a proposal after the screen and before the status line, with how to answer it", () => {
     const plain = presentationMarkdown(presentation(concept, 0), { statusLine: STATUS });
     const md = presentationMarkdown(presentation(concept, 0), { statusLine: STATUS, prompts: [REVIEW] });
     const body = plain.slice(0, -`\n\n\`${STATUS}\``.length);
-    expect(md).toBe(`${body}\n\n> **Proposition\u00a0:** 3 notions à revoir aujourd'hui\n> _Tu peux accepter, ou dire «\u00a0plus tard\u00a0»._\n\n\`${STATUS}\``);
+    expect(md).toBe(`${body}\n\n> **Proposition\u00a0:** 3 notions à revoir aujourd'hui (proposition \`review_due:start\`)\n> _Tu peux accepter, ou dire «\u00a0plus tard\u00a0»._\n\n\`${STATUS}\``);
   });
 
   it("says a notice as it is: there is nothing to answer", () => {
     const md = presentationMarkdown(presentation(concept, 0), { statusLine: STATUS, prompts: [NOTICE, REVIEW] });
-    expect(md).toContain("\n\n> Retour sur un prérequis.\n\n> **Proposition\u00a0:** 3 notions à revoir aujourd'hui\n");
+    expect(md).toContain("\n\n> Retour sur un prérequis.\n\n> **Proposition\u00a0:** 3 notions à revoir aujourd'hui (proposition `review_due:start`)\n");
   });
 
   it("is worded in the screen's language, and adds nothing when there is no prompt", () => {
     const en = presentationMarkdown(presentation(concept, 0, { locale: "en" }), { prompts: [{ ...REVIEW, reason: "3 concepts to review today" }] });
-    expect(en.endsWith("> **Suggestion:** 3 concepts to review today\n> _You can accept, or say “later”._")).toBe(true);
+    expect(en.endsWith("> **Suggestion:** 3 concepts to review today (suggestion `review_due:start`)\n> _You can accept, or say “later”._")).toBe(true);
     expect(presentationMarkdown(presentation(concept, 0), { statusLine: STATUS, prompts: [] }))
       .toBe(presentationMarkdown(presentation(concept, 0), { statusLine: STATUS }));
   });
@@ -411,6 +429,26 @@ describe("the server's prompts in the conversation text", () => {
   it("carries the prompts onto the next screen of a transition", () => {
     const transition = { kind: "next", presentation: presentation(concept, 0), navigation: { kind: "advance", scene_id: concept.id, rule_id: null, reason: null, modulator: null } };
     const md = transitionMarkdown(transition as never, { statusLine: STATUS, prompts: [REVIEW] });
-    expect(md.endsWith(`> **Proposition\u00a0:** 3 notions à revoir aujourd'hui\n> _Tu peux accepter, ou dire «\u00a0plus tard\u00a0»._\n\n\`${STATUS}\``)).toBe(true);
+    expect(md.endsWith(`> **Proposition\u00a0:** 3 notions à revoir aujourd'hui (proposition \`review_due:start\`)\n> _Tu peux accepter, ou dire «\u00a0plus tard\u00a0»._\n\n\`${STATUS}\``)).toBe(true);
+  });
+
+  it("says the proposals of the end of a lesson after its completion, and those that follow a self-rating", () => {
+    const MAP = { id: "map_offer", kind: "map_offer", reason: "Leçon terminée : la carte montre où en est chaque notion.", asks: true };
+    const complete = { kind: "complete", summary: { scenes_completed: 3, mastery: {} } };
+    const md = transitionMarkdown(complete as never, { prompts: [MAP] });
+    expect(md.endsWith("> **Proposition\u00a0:** Leçon terminée\u00a0: la carte montre où en est chaque notion. (proposition `map_offer`)\n> _Tu peux accepter, ou dire «\u00a0plus tard\u00a0»._")).toBe(true);
+    expect(promptsMarkdown([REVIEW], "fr")).toBe("> **Proposition\u00a0:** 3 notions à revoir aujourd'hui (proposition `review_due:start`)\n> _Tu peux accepter, ou dire «\u00a0plus tard\u00a0»._");
+    expect(promptsMarkdown([], "fr")).toBe("");
+  });
+
+  it("answers a proposal in words a person reads, naming the call that follows an accepted one", () => {
+    expect(promptAnswerMarkdown("review_due", "accepted", "fr")).toBe("Révision acceptée\u00a0: l'assistant ouvre la session de révision (`start_review_session`).");
+    expect(promptAnswerMarkdown("review_due", "accepted", "en")).toBe("Review accepted: the assistant opens the review session (`start_review_session`).");
+    expect(promptAnswerMarkdown("map_offer", "accepted", "fr")).toContain("`get_workflow_graph`");
+    expect(promptAnswerMarkdown("forms_offer", "accepted", "fr")).toContain("`play_in_forms`");
+    expect(promptAnswerMarkdown("next_lesson", "accepted", "en")).toContain("`get_study_plan`");
+    expect(promptAnswerMarkdown("break", "accepted", "fr")).not.toContain("`");
+    expect(promptAnswerMarkdown("review_due", "dismissed", "fr")).toBe("C'est noté, plus tard\u00a0: la leçon continue.");
+    expect(promptAnswerMarkdown("forms_offer", "dismissed", "en")).toBe("Noted, later: the lesson goes on.");
   });
 });

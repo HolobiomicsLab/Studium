@@ -179,7 +179,9 @@ describe("start_review_session — a due concept can be reviewed (SL-2, HJ-1)", 
       { concept_id: "c-signe", concept: "Notion c-signe", lesson_title: "Leçon lesson-A", scene_id: "r1:s-q", bundle_ref: "A.json" },
     ]);
     expect(review.presentation.scene.id).toBe("r1:s-q");
-    expect(review.presentation.display_markdown).toContain("Révision 1 sur 1");
+    // Test decision (walkthrough 2026-11-07): the step is said once, in the status line.
+    expect(review.presentation.display_markdown).toMatch(/`[^`]*étape 1\/1[^`]*`$/);
+    expect(review.presentation.display_markdown).not.toContain("Révision 1 sur 1");
     expect(review.presentation.display_markdown).not.toContain("BRAVO-RÉVÉLÉ");
 
     const graded = await host.respond(review.sessionId, { kind: "reply", text: `réponse ${idOf(review.presentation)}` });
@@ -343,7 +345,9 @@ describe("display_markdown — what a chat shows, and when (HJ-4, SL-5)", () => 
     const s = await host.create("C.json", "ana");
     const first = s.presentation.display_markdown;
     expect(first).toContain("### Scène s-q");
-    expect(first).toContain("_Étape 1 sur 2_");
+    // Test decision (walkthrough 2026-11-07): the step is said once, in the status line.
+    expect(first).toMatch(/`[^`]*étape 1\/2[^`]*`$/);
+    expect(first).not.toContain("_Étape 1 sur 2_");
     expect(first).toContain("Question s-q ?");
     const right = idOf(s.presentation);
     expect(first).toContain(`**${right})** Juste`);

@@ -101,6 +101,9 @@ export interface SessionEntry {
   lastNavigation?: LastNavigation;
   /** INT-STUDIUM-058: on a prerequisite detour, the scene it returns to (orientation.ts). */
   detourReturnsTo?: string;
+  /** INT-STUDIUM-058: whether the session's last act was an answer that received a verdict
+   * (orientation.ts `answered_before`). In memory only: a resumed session starts without. */
+  answeredBefore?: boolean;
 }
 
 export class SessionRegistry {

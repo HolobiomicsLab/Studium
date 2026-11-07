@@ -53,7 +53,7 @@ A self-study lesson starts with a notice in the lesson's language (French for a 
 | Drafted by | First sentence |
 |---|---|
 | learner | "Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book)." |
-| agent | "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; challenge any key you think is wrong." |
+| agent | "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong." |
 
 | Judge | Second sentence |
 |---|---|
@@ -72,7 +72,7 @@ The licence given for each source is copied into the lesson's citations (`eviden
 
 The cited passages of a graded scene are released only after the answer, when the learner leaves the scene for good.
 
-An exact quote proves a textual link, not that the item uses it correctly. That is why the agent-drafted notice asks the learner to challenge a key.
+An exact quote proves a textual link, not that the item uses it correctly. That is why the agent-drafted notice asks the learner to tell the assistant about a key that looks wrong.
 
 ## Lint findings on authorship
 

@@ -196,6 +196,11 @@ termine chaque écran :
 Les atomes · étape 2/3 · 3 min · à toi de répondre
 ```
 
+La ligne tient en 80 caractères au plus. Un long titre de leçon est coupé avant son dernier séparateur qui
+tient (« Atomistique L1 — Chapitre 1 (atomes, orbitales) » devient « Atomistique L1 — Chapitre 1 »), pour ne
+pas changer d'un écran à l'autre. Pendant les questions de vérification d'une notion que vous avez contestée,
+l'étape laisse la place à « contrôle 1/2 » (« check 1/2 » dans une leçon en anglais).
+
 Pour l'afficher dans la ligne d'état de Claude Code, ajoutez ceci à `~/.claude/settings.json` :
 
 ```json
@@ -342,7 +347,12 @@ le `session_id`, la langue et l'éventuelle action en attente ; il lit `get_op
 Ne redémarrez pas la leçon. Un redémarrage du serveur met fin à ses sessions : un appel sur un ancien
 `session_id` répond `session not found` et dit comment reprendre. Avec un stockage durable, un
 nouveau `start_lesson_session` pour le même apprenant et la même leçon reprend à la première étape non
-terminée.
+terminée. Sur un panneau ou un volet, l'action suivante de l'apprenant sur l'ancienne session remplace la
+scène par « Séance perdue (le serveur a redémarré ou la séance a été fermée). Rouvre la leçon : ta
+progression est conservée. » et un bouton pour rouvrir : celui du panneau MCP Apps et celui du volet
+Claude Code ouvrent la même leçon pour le même apprenant (le volet Claude Code donne aussi
+`/studium <bundle_ref>`), celui du volet VS Code le ferme et ouvre la leçon dans un nouveau volet. Rien
+n'est relancé tout seul.
 
 Exportez ce que vous voulez garder avant d'arrêter un serveur en mémoire. Avec `context.json` contenant
 `{"arguments":{"session_id":"<id>"}}` :

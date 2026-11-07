@@ -85,7 +85,7 @@ Il signale aussi les avertissements de Studium, chacun avec une piste, par exemp
 longue que vos minutes par jour, et relaie l'avis d'autorat :
 
 > Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question
-> cite son passage ; conteste une clé qui te semble fausse. Sans juge modèle, les scènes de
+> cite son passage ; signale à l'agent une clé qui te semble fausse. Sans juge modèle, les scènes de
 > production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ;
 > cette note règle tes révisions, jamais ta maîtrise. […]
 

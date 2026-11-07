@@ -118,6 +118,10 @@ describe("schema tables", () => {
         anyOf: [
           { type: "object", properties: { kind: { const: "predict" }, text: { type: "string", minLength: 1 } }, required: ["kind", "text"] },
           { type: "object", properties: { kind: { const: "begin" } }, required: ["kind"] },
+          {
+            type: "object", required: ["kind", "verdicts"],
+            properties: { kind: { const: "verdicts" }, verdicts: { type: "array", items: { type: "object", properties: { token: { type: "string" } }, required: ["token"] } } },
+          },
         ],
       },
       checks: { type: "array", items: { type: "object", properties: { check: { type: "string" } }, required: ["check"] } },
@@ -129,16 +133,18 @@ describe("schema tables", () => {
     assert.equal(typeLabel(schema.properties.max_items), "integer (1–50)");
     assert.equal(typeLabel(schema.properties.grade), "one of `again`, `hard`");
     assert.equal(typeLabel(schema.properties.alias, schema), "string");
-    assert.equal(typeLabel(schema.properties.input), "object, one of 2 shapes");
+    assert.equal(typeLabel(schema.properties.input), "object, one of 3 shapes");
   });
   test("flattens nested objects, arrays and variants", () => {
     const rows = schemaRows(schema);
     const byPath = Object.fromEntries(rows.map((r) => [r.path, r]));
     assert.equal(byPath.session_id.required, "yes");
     assert.equal(byPath.grade.required, "no");
-    assert.equal(byPath["input.kind"].type, "one of `predict`, `begin`");
+    assert.equal(byPath["input.kind"].type, "one of `predict`, `begin`, `verdicts`");
     assert.equal(byPath["input.text"].required, "in `predict`");
     assert.equal(byPath["checks[].check"].required, "yes");
+    // An array of objects inside one shape of a union keeps its item rows (submit_response's verdicts).
+    assert.equal(byPath["input.verdicts[].token"]?.required, "yes");
   });
   test("escapes pipes in table cells", () => {
     assert.match(rowsTable(schemaRows(schema)), /how many \\\| at most/);

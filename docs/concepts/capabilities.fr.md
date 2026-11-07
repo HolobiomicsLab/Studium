@@ -68,8 +68,8 @@ Une leçon d'auto-apprentissage affiche un avis dès son premier écran. Il dép
 |---|---|
 | apprenant, aucun | Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise. |
 | apprenant, configuré | Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). Les scènes de production sont évaluées par le modèle. |
-| agent, aucun | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; conteste une clé qui te semble fausse. Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise. |
-| agent, configuré | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; conteste une clé qui te semble fausse. Les scènes de production sont évaluées par le modèle. |
+| agent, aucun | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; signale à l'agent une clé qui te semble fausse. Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise. |
+| agent, configuré | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; signale à l'agent une clé qui te semble fausse. Les scènes de production sont évaluées par le modèle. |
 
 Une leçon qui contient une reproduction ajoute : « Les reproductions exécutées portent une évaluation externe. »
 

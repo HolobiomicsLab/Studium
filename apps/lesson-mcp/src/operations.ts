@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   SessionHost, ResponseInputSchema, ExperimentInputSchema, RunResultSchema, NowMsSchema, publicPresentation, publicTransition,
-  operatorContext, type ActReceived, type InteractionAct,
+  operatorContext, promptAnswerMarkdown, type ActReceived, type InteractionAct, type PromptSurface,
 } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
@@ -43,6 +43,44 @@ function reinforcementResult(status: ReinforcementStatus): Record<string, unknow
  * at rank 1, whatever surface the session was negotiated on elsewhere. */
 export const CONVERSATION = (act: InteractionAct): ActReceived => ({ act, lane: "companion", surfaceRank: 1 });
 
+/** INT-STUDIUM-058 § 2.6: the learner's answer to a proposal the conversation text named
+ * (« (proposition review_due:start) »). The assistant relays the learner's yes or « later » as this
+ * input; the learner never types it. */
+export const PromptAnswerSchema = z.object({
+  kind: z.literal("prompt"), id: z.string().min(1), outcome: z.enum(["accepted", "dismissed"]),
+}).strict();
+
+/** What submit_response takes: an answer to the scene, or an answer to a proposal. A refusal names the
+ * one field at fault (HJ-7), from the branch the input's kind belongs to, never the union's dump. */
+const SubmitInputSchema = z.union([ResponseInputSchema, PromptAnswerSchema], {
+  errorMap: (issue, ctx) => {
+    if (issue.code !== z.ZodIssueCode.invalid_union) return { message: ctx.defaultError };
+    const kind = (ctx.data as { kind?: unknown } | undefined)?.kind;
+    const first = issue.unionErrors[kind === "prompt" ? 1 : 0]?.issues[0];
+    return { message: first?.message ?? ctx.defaultError };
+  },
+});
+
+/** The call that follows an accepted proposal in the conversation, when there is one. A break needs
+ * none; a refusal neither. */
+const NEXT_CALL: Record<string, string> = {
+  review_due: "start_review_session", map_offer: "get_workflow_graph", forms_offer: "play_in_forms", next_lesson: "get_study_plan",
+};
+
+/** Settle a proposal of the session and say so: the conversation's own answer to a proposal. */
+export async function answerPrompt(host: SessionHost, sessionId: string, answer: z.infer<typeof PromptAnswerSchema>): Promise<Record<string, unknown>> {
+  const record = await host.settleAct(sessionId, CONVERSATION("prompt"), () => host.settlePrompt(sessionId, answer.id, answer.outcome));
+  // The lesson's own language, as its screens are written; read without serving a screen, which would
+  // count as said a proposal still to say.
+  const locale = host.sessionLanguage(sessionId).source_language.toLowerCase().startsWith("en") ? "en" : "fr";
+  const next = answer.outcome === "accepted" ? NEXT_CALL[record.kind] : undefined;
+  return {
+    prompt: { id: record.id, kind: record.kind, outcome: record.outcome },
+    ...(next ? { next_call: { tool: next } } : {}),
+    display_markdown: promptAnswerMarkdown(record.kind, answer.outcome, locale),
+  };
+}
+
 export const TOOL_NAMES = [
   "close_peer_room",
   "end_session",
@@ -82,11 +120,16 @@ export interface LessonOperationsOptions {
   /** The tools the surface actually registers, which get_server_info lists (sorted). The MCP server
    * passes its full list (lesson, study, authoring and teacher tools); without it, TOOL_NAMES. */
   toolNames?: () => readonly string[];
+  /** Whether the client can show forms (MCP elicitation), read at each call: a lesson played in the
+   * conversation is then offered them (prompts.ts). Without it, false. */
+  formsAvailable?: () => boolean;
 }
 
 /** Build transport-independent operations using the canonical host and schemas. */
 export function lessonOperations(host: SessionHost, opts: LessonOperationsOptions = {}): Operation[] {
   const operations: Operation[] = [];
+  // INT-STUDIUM-058 § 2.6: the screens these tools serve are read in the conversation (rank 1).
+  const surface = (): { promptSurface: PromptSurface } => ({ promptSurface: { rank: 1, formsAvailable: opts.formsAvailable?.() ?? false } });
   const server = {
     registerTool<S extends z.ZodRawShape>(name: string, config: {description: string; inputSchema: S}, callback: (args: z.infer<z.ZodObject<S>>) => Promise<ToolResult>) {
       operations.push({name, ...config, invoke: async args => callback(z.object(config.inputSchema).strict().parse(args))});
@@ -192,6 +235,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         const r = await host.create(bundle_ref, learner_id, {
           ...(now_ms === undefined ? {} : { nowMs: now_ms }),
           ...(presentation_language === undefined ? {} : { presentationLanguage: presentation_language }),
+          ...surface(),
         });
         // Redact the answer key (quiz `correct`, claims/key_points/cues, model_* reveals) at the
         // client boundary — the server keeps the full scene; only this projection ships.
@@ -217,7 +261,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
       inputSchema: { session_id: z.string() },
     },
     async ({ session_id }) => {
-      try { return text({ presentation: publicPresentation(host.currentPresentation(session_id)) }); }
+      try { return text({ presentation: publicPresentation(host.currentPresentation(session_id, surface())) }); }
       catch (e) { return fail((e as Error).message); }
     },
   );
@@ -240,11 +284,18 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         "verdict.display_markdown first, then the transition's display_markdown. At a few moments the transition " +
         "carries concept_map (see get_workflow_graph), with moment start/new_concept/detour/detour_return/synthesis/complete " +
         "and show map/line; display_markdown already includes the list or the position line. A harness that draws " +
-        "diagrams may render concept_map.mermaid in place of the list.",
-      inputSchema: { session_id: z.string(), input: ResponseInputSchema },
+        "diagrams may render concept_map.mermaid in place of the list. A screen may end with a proposal (a review " +
+        "due, the map, forms) that names itself, e.g. (proposition review_due:start): when the learner accepts it or " +
+        "says « later », send submit_response {session_id, input: {kind:\"prompt\", id:\"<id>\", outcome:\"accepted\"|" +
+        "\"dismissed\"}}. It answers nothing on the scene; it returns {prompt, next_call?, display_markdown}: show " +
+        "display_markdown, then make next_call (start_review_session takes the same learner_id) when there is one.",
+      inputSchema: { session_id: z.string(), input: SubmitInputSchema },
     },
     async ({ session_id, input }) => {
-      try { return text({ transition: publicTransition(await host.settleAct(session_id, CONVERSATION("respond"), () => host.respond(session_id, input as ResponseInput))) }); }
+      try {
+        if (input.kind === "prompt") return text(await answerPrompt(host, session_id, input as z.infer<typeof PromptAnswerSchema>));
+        return text({ transition: publicTransition(await host.settleAct(session_id, CONVERSATION("respond"), () => host.respond(session_id, input as ResponseInput, "companion", surface()))) });
+      }
       catch (e) { return fail((e as Error).message); }
     },
   );
@@ -331,7 +382,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     },
     async ({ session_id, run_result }) => {
       try {
-        const r = await host.ingestRunResult(session_id, run_result);
+        const r = await host.ingestRunResult(session_id, run_result, surface());
         return text({
           status: r.status,
           learner_run_recorded: r.learnerRunRecorded,

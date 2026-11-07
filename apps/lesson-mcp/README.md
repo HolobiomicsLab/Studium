@@ -66,6 +66,15 @@ hint or reference. The acts are kept in memory for the session and start empty a
 Reading the brief moves its cursor; with `peek: true` it does not, which is what a panel uses to keep the
 model's context up to date.
 
+The server also proposes, at a pause and never over a question: a review due when a lesson starts, forms
+when the client can show them, the concept map at the end of a lesson. A panel asks for these itself. The
+session tools (rank 1) and `play_in_forms` (rank 2) have them said in the `display_markdown` of the screen
+they serve, once, with the proposal's id: `(proposition review_due:start)`. The learner answers in words;
+the assistant sends `submit_response {input: {kind: "prompt", id, outcome: "accepted" | "dismissed"}}`,
+which answers nothing on the scene and returns the call to make next (`start_review_session`,
+`get_workflow_graph`, `play_in_forms` or `get_study_plan`), never making it itself. With telemetry
+consent, each proposal shown is logged as `prompt_shown` with the rank of the surface that said it.
+
 What the server guarantees:
 
 - No answer key before an answer: scenes are redacted before they leave the server, and cited source

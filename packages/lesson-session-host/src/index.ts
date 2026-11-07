@@ -5,6 +5,7 @@ export {
   type ServedPresentation, type ServedTransition, type ServedVerdict, type ReviewPlan, type RecallRating,
   type ListedLesson, type LessonListing, type ReviewItem, type ReviewStartResult,
   type ReinforcementStatus, type RoutedReinforcementTarget, type ForgetReport, type ForgetItem, type ConceptMapExport, type ContestStart,
+  type PromptSurface, type ServeOptions,
 } from "./host.js";
 // The 2026-10-30 verification fixes: a session's clock and now_ms (L-1), one time zone for every date
 // (RFR-13), the review scene choice (L-8).
@@ -17,7 +18,7 @@ export { resolvePersistence, persistenceInfo, DEFAULT_LEARNER_ID, type Persisten
 export { STATUS_FILE, STATUS_SCHEMA, statusFilePath, type StatusFile } from "./status-file.js";
 export {
   presentationMarkdown, replyHintMarkdown, transitionMarkdown, verdictMarkdown, recallRatedMarkdown, nothingToReviewMarkdown, formatReviewDate,
-  lessonListMarkdown, forgetMarkdown, type DisplayLocale, type ListedLessonLine, type ForgetDisplayItem,
+  lessonListMarkdown, forgetMarkdown, promptsMarkdown, promptAnswerMarkdown, type DisplayLocale, type ListedLessonLine, type ForgetDisplayItem,
 } from "./chat-display.js";
 export { replyToInput, checkDisplayedChoice, ResponseInputError } from "./reply-mapping.js";
 export { type SelfRating } from "./fsrs-memory.js";
@@ -66,9 +67,9 @@ export {
 export { SCENE_KEY_CLASS, keyClassOf, type KeyClass } from "./key-class.js";
 // INT-STUDIUM-058 § 2.9: the review inbox (host.js already exports a ReviewItem: the FSRS review queue).
 export {
-  buildReviewInbox, canonicalJson, readLastReceipt, sceneFingerprint, sceneHoldsKey, CONSEQUENCES, REVIEW_RECEIPT_SCHEMA,
+  buildReviewInbox, canonicalJson, readLastReceipt, sceneFingerprint, sceneHoldsKey, scenePreview, CONSEQUENCES, REVIEW_RECEIPT_SCHEMA,
   type BuildReviewInboxInput, type Consequence, type ReceiptSummary, type ReviewInbox, type ReviewItem as ReviewInboxItem,
-  type ReviewReceipt, type WhatChanged,
+  type ReviewReceipt, type ScenePreview, type WhatChanged,
 } from "./review-inbox.js";
 // The conversational author (sprint 2026-10-30, W1; C1, C2): apps/lesson-mcp/src/authoring-tools.ts
 // binds these to the get_authoring_guide, prepare_sources and create_lesson tools.

@@ -66,15 +66,33 @@ export interface DisplayContext {
   prompts?: readonly ScreenPrompt[];
 }
 
-/** A prompt as the conversation text says it: its reason, and whether it asks for an answer (a
- * proposal) or only informs (a notice). */
-export interface ScreenPrompt { kind: string; reason: string; asks: boolean }
+/** A prompt as the conversation text says it: its id, its reason, and whether it asks for an answer
+ * (a proposal) or only informs (a notice). */
+export interface ScreenPrompt { id: string; kind: string; reason: string; asks: boolean }
 
 /** The prompts of a screen, after its text and before its status line. A proposal says how to answer
- * it in words: the assistant sends the learner's own answer. A notice is said as it is. */
+ * it in words, and names itself (its id, in code) so that the assistant can send the learner's answer
+ * to it (submit_response {kind: "prompt", id, outcome}). A notice is said as it is. */
 function promptBlocks(prompts: readonly ScreenPrompt[] | undefined, locale: DisplayLocale): string[] {
   return (prompts ?? []).filter((prompt) => prompt.reason.trim() !== "")
-    .map((prompt) => (prompt.asks ? say(locale, "prompt_proposal", { reason: prompt.reason }) : `> ${locale === "fr" ? frenchSpacing(prompt.reason) : prompt.reason}`));
+    .map((prompt) => (prompt.asks ? say(locale, "prompt_proposal", { reason: prompt.reason, id: prompt.id })
+      : `> ${locale === "fr" ? frenchSpacing(prompt.reason) : prompt.reason}`));
+}
+
+/** The same blocks on their own, for a reply that is not a screen (rate_recall). Empty without one. */
+export function promptsMarkdown(prompts: readonly ScreenPrompt[], locale: DisplayLocale): string {
+  return promptBlocks(prompts, locale).join("\n\n");
+}
+
+/** What the conversation says once the learner answered a proposal. An accepted one names the call
+ * the assistant makes next, when there is one; a break and a refusal need none. */
+export function promptAnswerMarkdown(kind: string, outcome: "accepted" | "dismissed", locale: DisplayLocale): string {
+  if (outcome === "dismissed") return say(locale, "prompt_dismissed");
+  const key = ({
+    review_due: "prompt_accepted_review", map_offer: "prompt_accepted_map", forms_offer: "prompt_accepted_forms",
+    next_lesson: "prompt_accepted_next", break: "prompt_accepted_break",
+  } as const)[kind as "review_due" | "map_offer" | "forms_offer" | "next_lesson" | "break"];
+  return key ? say(locale, key) : say(locale, "prompt_dismissed");
 }
 
 export interface CompletionSplit {
@@ -111,7 +129,13 @@ const PHRASES = {
     protocol: "**Protocole**",
     discussion: "**Discussion : {topic}**",
     hint_available: "_Besoin d'aide ? Un indice est disponible : demande-le._",
-    prompt_proposal: "> **Proposition :** {reason}\n> _Tu peux accepter, ou dire « plus tard »._",
+    prompt_proposal: "> **Proposition :** {reason} (proposition `{id}`)\n> _Tu peux accepter, ou dire « plus tard »._",
+    prompt_dismissed: "C'est noté, plus tard : la leçon continue.",
+    prompt_accepted_review: "Révision acceptée : l'assistant ouvre la session de révision (`start_review_session`).",
+    prompt_accepted_map: "Carte acceptée : l'assistant affiche ta carte des notions (`get_workflow_graph`).",
+    prompt_accepted_forms: "Formulaires acceptés : l'assistant ouvre les formulaires (`play_in_forms`).",
+    prompt_accepted_next: "Leçon suivante acceptée : l'assistant te montre ce qui peut suivre (`get_study_plan`).",
+    prompt_accepted_break: "Pause acceptée : ta progression est gardée, reprends quand tu veux.",
     run_recorded: "Ta reproduction est déjà enregistrée : tu peux continuer sans la relancer.",
     reply_quiz: "_Réponds avec la lettre de ton choix : {ids}._",
     reply_meta: "_Réponds avec un chiffre de 0 à 4 ({scale})._",
@@ -203,7 +227,13 @@ const PHRASES = {
     protocol: "**Protocol**",
     discussion: "**Discussion: {topic}**",
     hint_available: "_Need help? A hint is available: ask for it._",
-    prompt_proposal: "> **Suggestion:** {reason}\n> _You can accept, or say “later”._",
+    prompt_proposal: "> **Suggestion:** {reason} (suggestion `{id}`)\n> _You can accept, or say “later”._",
+    prompt_dismissed: "Noted, later: the lesson goes on.",
+    prompt_accepted_review: "Review accepted: the assistant opens the review session (`start_review_session`).",
+    prompt_accepted_map: "Map accepted: the assistant shows your concept map (`get_workflow_graph`).",
+    prompt_accepted_forms: "Forms accepted: the assistant opens the forms (`play_in_forms`).",
+    prompt_accepted_next: "Next lesson accepted: the assistant shows what can follow (`get_study_plan`).",
+    prompt_accepted_break: "Break accepted: your progress is kept, come back when you like.",
     run_recorded: "Your reproduction is already recorded: you can continue without running it again.",
     reply_quiz: "_Answer with the letter of your choice: {ids}._",
     reply_meta: "_Answer with a number from 0 to 4 ({scale})._",
@@ -396,7 +426,8 @@ export function presentationMarkdown(
   // The lesson's plan before its first scene: every concept and how they depend on each other.
   if (opts.firstScreen && opts.conceptMap) blocks.push(opts.conceptMap, "---");
   blocks.push(`### ${scene.title || scene.type || ""}`);
-  blocks.push(`_${say(locale, opts.review ? "review_progress" : "progress", { n: p.index + 1, total: p.total })}_`);
+  // The step is said once: the status line carries it when there is one (walkthrough 2026-11-07).
+  if (!opts.statusLine) blocks.push(`_${say(locale, opts.review ? "review_progress" : "progress", { n: p.index + 1, total: p.total })}_`);
   blocks.push(...sceneBody(scene, locale));
   blocks.push(...equationBlocks(scene, locale));
   const readingSources = sourcesMarkdown(citedSources(scene as unknown as Scene), locale);
@@ -571,7 +602,8 @@ export function transitionMarkdown(t: PublicTransition & TransitionExtras, ctx: 
     navigationLine(t, locale), ...completionBlock(t, locale, ctx),
     t.concept_map ? (t.concept_map.show === "map" ? t.concept_map.display_markdown : t.concept_map.position_line) : "",
   ].filter((b) => b.trim() !== "").join("\n\n");
-  if (!("presentation" in t)) return head;
+  // The end of a lesson has no next screen: what it proposes follows its summary.
+  if (!("presentation" in t)) return [head, ...promptBlocks(ctx.prompts, locale)].filter((b) => b.trim() !== "").join("\n\n");
   const next = presentationMarkdown(t.presentation, {
     review: ctx.review ?? false,
     ...(ctx.statusLine ? { statusLine: ctx.statusLine } : {}), ...(ctx.voiceLine ? { voiceLine: ctx.voiceLine } : {}),

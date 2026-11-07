@@ -43,7 +43,13 @@ export interface Orientation {
    * navigation kind and its one-sentence reason. `detail` says how the decision was made (the rule
    * applied, the scenes it rests on), for a teacher or a learner who asks. */
   last_adaptation?: { kind: string; reason: string; detail?: { rule_id: string; evidence: string[] } };
+  /** The screen is a check question of a contest (contest.ts): the concept contested, which question
+   * this is (1-based) and how many the contest asks. Absent on every other screen. */
+  contest?: ContestCheck;
 }
+
+/** A contest's check question on screen. */
+export interface ContestCheck { concept_id: string; question: number; total: number }
 
 /** How the session last routed, as the host keeps it between two calls (recordNavigation). */
 export interface LastNavigation { kind: string; reason: string | null; rule_id: string | null; evidence: string[] }
@@ -70,14 +76,29 @@ export interface OrientationFacts {
   hints_left: number;
   /** The learner already submitted an answer to this very scene (it is being asked again). */
   tried: boolean;
+  /** The last act of the session was an answer that received a verdict: this screen is the first
+   * after an assessed answer. False after a read, a hint, a rating, a contest and on a resumed
+   * session. */
+  answered_before: boolean;
+  /** A contest's check question is on screen. */
+  contest: ContestCheck | null;
 }
 
 const bare = (conceptId: string): string => conceptId.replace(/^concept:/, "");
 
+/** Note an act that is not an answer (a hint, a self-rating, a contest): the screen is no longer the
+ * first after an assessed answer. */
+export function recordOtherAct(entry: SessionEntry): void {
+  entry.answeredBefore = false;
+}
+
 /** Remember how the session routed after a response, for the orientations that follow. A detour opens
  * on a prerequisite remediation and closes with the first routing that is neither a replay nor an
- * alternate item: the rule the host already applies to its concept map (conceptMapMoment). */
+ * alternate item: the rule the host already applies to its concept map (conceptMapMoment). The
+ * response itself is noted too: an answer that received a verdict opens the explanation of the
+ * screen that follows it (helpFrom). */
 export function recordNavigation(entry: SessionEntry, transition: Transition): void {
+  entry.answeredBefore = transition.verdict?.graded === true;
   const navigation = transition.navigation;
   if (!navigation) return;
   const answered = transition.verdict?.scene_id;
@@ -123,7 +144,18 @@ export function orientationFacts(
     has_hints: !completed && scene.type === "quiz" && scene.hints.length > 0,
     hints_left: completed ? 0 : entry.session.hintsLeft(),
     tried: !completed && steps.some((step) => step.scene_id === scene.id && step.answered),
+    answered_before: !completed && entry.answeredBefore === true,
+    contest: completed ? null : contestCheckOf(entry, scene.id),
   };
+}
+
+/** The contest's check question on screen, if any. The question is told by the scene, not by the
+ * answers counted so far: a transition is served before the host counts the answer that led to it. */
+function contestCheckOf(entry: SessionEntry, sceneId: string): ContestCheck | null {
+  const pending = entry.contest;
+  if (!pending || !entry.session.checkPending()) return null;
+  const at = pending.scene_ids.indexOf(sceneId);
+  return at < 0 ? null : { concept_id: pending.concept_id, question: at + 1, total: pending.scene_ids.length };
 }
 
 function waitingOf(facts: OrientationFacts): Waiting {
@@ -156,6 +188,7 @@ export function orientationFrom(facts: OrientationFacts): Orientation {
         ...(navigation.rule_id === null ? {} : { detail: { rule_id: navigation.rule_id, evidence: navigation.evidence } }),
       },
     } : {}),
+    ...(facts.contest ? { contest: { ...facts.contest } } : {}),
   };
 }
 
@@ -269,7 +302,9 @@ const HELP_WORDS: Record<"fr" | "en", HelpWords> = {
 };
 
 /** The help ladder those facts open. An explanation waits for a first try only where an answer is
- * expected: on a screen to read, during a self-rating or a run, nothing is given away by explaining.
+ * expected: on a screen to read, during a self-rating or a run, nothing is given away by explaining;
+ * and on the screen right after an assessed answer it explains the answer just given, even when the
+ * lesson has moved on to a question not tried yet.
  * The reference is the one the verdict released: it is on screen while the learner rates their own
  * answer, and never before an answer. */
 export function helpFrom(facts: OrientationFacts, locale: "fr" | "en"): Help {
@@ -277,7 +312,7 @@ export function helpFrom(facts: OrientationFacts, locale: "fr" | "en"): Help {
   const waiting = waitingOf(facts);
   const hint: HelpRung = facts.hints_left > 0 ? { kind: "hint", available: true, cost: w.hint_cost }
     : { kind: "hint", available: false, why_not: facts.has_hints ? w.hints_used : w.no_hint };
-  const explain: HelpRung = waiting !== "answer" || facts.tried ? { kind: "explain", available: true }
+  const explain: HelpRung = waiting !== "answer" || facts.tried || facts.answered_before ? { kind: "explain", available: true }
     : { kind: "explain", available: false, why_not: w.try_first };
   const reference: HelpRung = waiting === "self_rating" ? { kind: "reference", available: true }
     : { kind: "reference", available: false, why_not: waiting === "answer" ? w.after_answer : w.no_reference };
@@ -293,29 +328,49 @@ export const STATUS_LINE_MAX = 80;
 /** Under this many characters a cut title reads as noise: the line goes without it. */
 const SHORTEST_TITLE = 8;
 const SEPARATOR = " · ";
+/** Where a title may be cut so that what is left reads as a whole phrase (« Atomistique L1 »). */
+const TITLE_SEPARATORS = [" — ", " – ", " : ", " (", " [", ": "];
 
 interface StatusWords {
-  step: string; detour: string; minutes: string; review: string; reviews: string;
+  step: string; check: string; detour: string; minutes: string; review: string; reviews: string;
   waiting: Record<Waiting, string>;
 }
 const WORDS: Record<"fr" | "en", StatusWords> = {
   fr: {
-    step: "étape {n}/{total}", detour: "détour", minutes: "{n} min", review: "1 révision due", reviews: "{n} révisions dues",
+    step: "étape {n}/{total}", check: "contrôle {n}/{total}", detour: "détour", minutes: "{n} min", review: "1 révision due", reviews: "{n} révisions dues",
     waiting: { read: "à lire", answer: "à toi de répondre", self_rating: "à toi de t'évaluer", run: "calcul à lancer", nothing: "terminé" },
   },
   en: {
-    step: "step {n}/{total}", detour: "detour", minutes: "{n} min", review: "1 review due", reviews: "{n} reviews due",
+    step: "step {n}/{total}", check: "check {n}/{total}", detour: "detour", minutes: "{n} min", review: "1 review due", reviews: "{n} reviews due",
     waiting: { read: "to read", answer: "your answer", self_rating: "rate your recall", run: "run to do", nothing: "done" },
   },
 };
 
-/** The orientation as one line, `STATUS_LINE_MAX` characters at most: the lesson, the step, the
- * minutes left, the reviews due, what is expected. The step and what is expected always stay; a long
- * title is cut, then dropped. */
+/** The longest part of `title` that ends right before one of its separators and fits in `room`, or
+ * null when none of `SHORTEST_TITLE` characters or more does. */
+function titleHead(title: string, room: number): string | null {
+  let best: string | null = null;
+  for (const separator of TITLE_SEPARATORS) {
+    for (let at = title.indexOf(separator); at >= 0; at = title.indexOf(separator, at + 1)) {
+      const head = title.slice(0, at).trimEnd();
+      if (head.length >= SHORTEST_TITLE && head.length <= room && head.length > (best?.length ?? 0)) best = head;
+    }
+  }
+  return best;
+}
+
+/** The orientation as one line, `STATUS_LINE_MAX` characters at most: the lesson, the step (or, on a
+ * contest's check question, which check it is), the minutes left, the reviews due, what is expected.
+ * The step and what is expected always stay. A long title is cut before its last separator that
+ * fits, so that it reads the same from one screen to the next; without one it is cut with « … »; with
+ * no room for a readable one it is dropped. */
 export function statusLine(o: Orientation, lessonTitle: string, locale: "fr" | "en"): string {
   const w = WORDS[locale];
+  const where = o.contest
+    ? w.check.replace("{n}", String(o.contest.question)).replace("{total}", String(o.contest.total))
+    : w.step.replace("{n}", String(o.step.index)).replace("{total}", String(o.step.total));
   const facts = [
-    w.step.replace("{n}", String(o.step.index)).replace("{total}", String(o.step.total)),
+    where,
     ...(o.step.detour ? [w.detour] : []),
     ...(o.minutes_left === undefined ? [] : [w.minutes.replace("{n}", String(o.minutes_left))]),
     ...(o.reviews_due === 0 ? [] : [o.reviews_due === 1 ? w.review : w.reviews.replace("{n}", String(o.reviews_due))]),
@@ -324,6 +379,6 @@ export function statusLine(o: Orientation, lessonTitle: string, locale: "fr" | "
   const title = lessonTitle.trim();
   const room = STATUS_LINE_MAX - facts.length - SEPARATOR.length;
   if (title.length === 0 || room < Math.min(title.length, SHORTEST_TITLE)) return facts.slice(0, STATUS_LINE_MAX);
-  const shown = title.length <= room ? title : `${title.slice(0, room - 1).trimEnd()}…`;
+  const shown = title.length <= room ? title : titleHead(title, room) ?? `${title.slice(0, room - 1).trimEnd()}…`;
   return `${shown}${SEPARATOR}${facts}`;
 }

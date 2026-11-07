@@ -180,6 +180,15 @@ describe("panel view version 2", () => {
     expect(PanelViewSchema.safeParse({ ...complete, status_line: "x".repeat(81) }).success).toBe(false);
   });
 
+  it("keeps the contest's check question in the orientation, and reads one without it", () => {
+    const view = recorded();
+    const base = { ...view, schema: "studium/panel-view/2", ...extras, prompts: [], attention: "normal", surface: { rank: 3, kind: "panel", available: ["text", "panel"] } };
+    const check = { ...base, orientation: { ...extras.orientation, contest: { concept_id: "c-un", question: 1, total: 2 } } };
+    expect(PanelViewSchema.parse(check)).toEqual(check);
+    expect(PanelViewSchema.parse(base)).toEqual(base);
+    expect(PanelViewSchema.safeParse({ ...check, orientation: { ...check.orientation, contest: { concept_id: "c-un" } } }).success).toBe(false);
+  });
+
   it("shows the notice of a forgotten session without an orientation: there is no session to place the learner in", async () => {
     const { ctx, backend } = setup();
     const v2 = { ...backend, getOrientation: vi.fn(async () => extras) };

@@ -80,7 +80,7 @@ reports Studium's warnings, each with a hint, for example a lesson longer than t
 gave. It also relays the authoring notice:
 
 > AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage;
-> challenge any key you think is wrong. Without a judge model, production scenes are not assessed:
+> tell the assistant about a key that looks wrong. Without a judge model, production scenes are not assessed:
 > compare your answer with the provided reference and rate your recall; that rating schedules your reviews
 > and never changes your mastery. […]
 

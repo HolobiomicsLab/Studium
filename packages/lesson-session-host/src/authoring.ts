@@ -38,9 +38,9 @@ const OPEN_BOOK = {
 };
 const AGENT_DRAFTED = {
   fr: "Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son " +
-    "passage ; conteste une clé qui te semble fausse. ",
-  en: "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; challenge any " +
-    "key you think is wrong. ",
+    "passage ; signale à l'agent une clé qui te semble fausse. ",
+  en: "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the " +
+    "assistant about a key that looks wrong. ",
 };
 /** Added when the lesson cites excerpts of a conversation with an AI assistant. */
 const FROM_CONVERSATION = {

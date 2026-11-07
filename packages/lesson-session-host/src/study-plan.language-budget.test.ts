@@ -143,10 +143,12 @@ describe("the study tools speak the language asked for, else the learner's (L-4)
     set(NOW + 7 * DAY);
     const review = await host.startReview("ana");
     if (review.status !== "started") throw new Error(`expected a review, got ${review.status}`);
-    expect(review.presentation.display_markdown).toContain("Review 1 of 1");
+    // Test decision (walkthrough 2026-11-07): the step is said once, in the status line.
+    expect(review.presentation.display_markdown).toMatch(/`[^`]*step 1\/1[^`]*`$/);
+    expect(review.presentation.display_markdown).not.toContain("Review 1 of 1");
     const fr = await host.startReview("ana", { language: "fr" });
     if (fr.status !== "started") throw new Error(`expected a review, got ${fr.status}`);
-    expect(fr.presentation.display_markdown).toContain("Révision 1 sur 1");
+    expect(fr.presentation.display_markdown).toMatch(/`[^`]*étape 1\/1[^`]*`$/);
   });
 
   it("refuses a language Studium does not speak", async () => {

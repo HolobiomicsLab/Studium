@@ -188,6 +188,44 @@ describe("orientationOf — an adaptation, on fixtures/atomistique-l1", () => {
   });
 });
 
+describe("orientationOf — a contest's check questions, on fixtures/atomistique-l1", () => {
+  const root = resolve(__dirname, "../../../fixtures");
+  const ref = "atomistique-l1/lesson.json";
+  const bundle = JSON.parse(readFileSync(`${root}/${ref}`, "utf8")) as {
+    metadata: { title: string }; scenes: { id: string; choices?: { text: string; correct: boolean }[] }[];
+  };
+
+  it("says « contrôle n/total » while a check question is on screen, and the step again once the lesson resumes", async () => {
+    const host = new SessionHost({ bundlesRoot: root, live: false, dataDir: null });
+    const sid = (await host.create(ref, "auto-test-orientation-contest")).sessionId;
+    const answerRight = () => {
+      const shown = host.currentPresentation(sid).scene as unknown as { id: string; choices: { id: string; text: string }[] };
+      const key = bundle.scenes.find((s) => s.id === shown.id)!.choices!.find((c) => c.correct)!.text;
+      return host.respond(sid, { kind: "quiz_choice", choiceId: shown.choices.find((c) => c.text === key)!.id, confidence: 2 });
+    };
+    const before = orientationOf(host, sid);
+    expect(before).not.toHaveProperty("contest");
+
+    const started = await host.contest(sid, "c-particules", "known");
+    expect(started.questions).toBe(2);
+    expect(orientationOf(host, sid).contest).toEqual({ concept_id: "c-particules", question: 1, total: 2 });
+    expect(started.presentation.display_markdown).toMatch(/· contrôle 1\/2 · [^`]*`$/);
+    expect(started.presentation.display_markdown).not.toMatch(/`[^`]*étape \d+\/\d+[^`]*`$/);
+
+    const first = await answerRight();
+    expect(orientationOf(host, sid).contest).toEqual({ concept_id: "c-particules", question: 2, total: 2 });
+    expect(first.kind === "next" && first.presentation.display_markdown).toMatch(/· contrôle 2\/2 · [^`]*`$/);
+    expect(statusLine(orientationOf(host, sid), bundle.metadata.title, "en")).toContain("check 2/2");
+
+    const second = await answerRight();
+    expect(second.contest).toMatchObject({ outcome: "confirmed" });
+    const after = orientationOf(host, sid);
+    expect(after).not.toHaveProperty("contest");
+    expect(after.step).toEqual(before.step);
+    expect(second.kind === "next" && second.presentation.display_markdown).toMatch(new RegExp(`· étape ${before.step.index}/${before.step.total} · [^\`]*\`$`));
+  });
+});
+
 describe("voicesOf — who wrote a screen, who assessed an answer", () => {
   const agentDrafted = { authoring: { mode: "self_study", drafted_by: "agent" }, validated_by: "SELF-STUDY (non validée)" };
 
@@ -276,6 +314,28 @@ describe("helpOf — the help ladder: try first, then an explanation", () => {
     expect(rung(host, sid, "explain")).toEqual({ kind: "explain", available: true });
   });
 
+  it("explains the answer just missed on the screen that follows it, until the learner does something else", async () => {
+    const { host, sid } = await open(threeScenes());
+    await host.respond(sid, { kind: "ack" });
+    const missed = await host.respond(sid, { kind: "quiz_choice", choiceId: choice(host, sid, "Faux"), confidence: 2 });
+    expect(missed.verdict).toMatchObject({ scene_id: "s-q1", correct: false });
+    expect(host.currentPresentation(sid).scene.id).toBe("s-q2");
+    expect(host.orientationFacts(sid)).toMatchObject({ tried: false, answered_before: true });
+    expect(rung(host, sid, "explain")).toEqual({ kind: "explain", available: true });
+    // A hint is an act of its own: the screen is no longer the first after the answer.
+    expect(host.requestHint(sid)).not.toBeNull();
+    expect(host.orientationFacts(sid).answered_before).toBe(false);
+    expect(rung(host, sid, "explain")).toMatchObject({ available: false });
+  });
+
+  it("keeps the explanation closed after a read when the new screen awaits an answer not tried yet", async () => {
+    const { host, sid } = await open(threeScenes());
+    expect(host.orientationFacts(sid).answered_before).toBe(false);
+    await host.respond(sid, { kind: "ack" });
+    expect(host.orientationFacts(sid)).toMatchObject({ tried: false, answered_before: false });
+    expect(rung(host, sid, "explain")).toEqual({ kind: "explain", available: false, why_not: "essaie d'abord de répondre" });
+  });
+
   it("explains after a first try on the same scene (fixtures/atomistique-l1, a replayed recall question)", async () => {
     const root = resolve(__dirname, "../../../fixtures");
     const ref = "atomistique-l1/lesson.json";
@@ -296,12 +356,19 @@ describe("helpOf — the help ladder: try first, then an explanation", () => {
     for (let step = 0; step < 40 && current().id !== "s2-quiz-4f"; step++) await answer(false);
     await answer(true); // wrong on s2-quiz-4f: a detour to a recall question
     expect(current().id).toBe("s9-rappel-3d");
+    // Test decision (walkthrough 2026-11-07): right after the missed answer the explanation is open
+    // (answered_before); a hint is an act of its own, after which this question, not tried yet, waits.
+    expect(rung(host, sid, "explain")).toEqual({ kind: "explain", available: true });
+    expect(host.requestHint(sid)).not.toBeNull();
     expect(rung(host, sid, "explain")).toMatchObject({ available: false });
     const replay = await answer(true); // wrong again: the same question is asked once more
     expect(replay.navigation).toMatchObject({ kind: "replay" });
     expect(current().id).toBe("s9-rappel-3d");
     expect(rung(host, sid, "explain")).toEqual({ kind: "explain", available: true });
     expect(rung(host, sid, "hint")).toMatchObject({ available: true });
+    // The first try alone keeps it open, after another hint too.
+    expect(host.requestHint(sid)).not.toBeNull();
+    expect(rung(host, sid, "explain")).toEqual({ kind: "explain", available: true });
   });
 });
 
@@ -436,6 +503,38 @@ describe("statusLine — the orientation in one line", () => {
       expect(line).toContain(locale === "fr" ? "à toi de répondre" : "your answer");
       expect(line).toContain("…");
     }
+  });
+
+  it("cuts a long title at its last separator that fits, the same on screens whose facts differ in length", () => {
+    const title = "Atomistique L1 — Chapitre 1 (atomes, orbitales, liaisons)";
+    const short: Orientation = { step: { index: 4, total: 32 }, minutes_left: 9, reviews_due: 0, waiting: "read" };
+    const long: Orientation = { step: { index: 16, total: 32 }, minutes_left: 45, reviews_due: 0, waiting: "answer" };
+    const shown = (o: Orientation) => {
+      const line = statusLine(o, title, "fr");
+      expect(line.length).toBeLessThanOrEqual(80);
+      return line.slice(0, line.indexOf(" · étape"));
+    };
+    expect(shown(short)).toBe("Atomistique L1 — Chapitre 1");
+    expect(shown(long)).toBe(shown(short));
+    expect(shown(short)).not.toContain("…");
+    // A title with a colon: the part before it.
+    const colon = "Thermodynamique : premier et second principes, entropie et enthalpie libre";
+    expect(statusLine(short, colon, "fr").startsWith("Thermodynamique · étape 4/32")).toBe(true);
+  });
+
+  it("falls back to a cut with an ellipsis when the title has no separator, and leaves a short title whole", () => {
+    const plain = "Atomistique orbitales liaisons hybridation géométrie moléculaire et spectroscopie";
+    const line = statusLine(second, plain, "fr");
+    expect(line.length).toBeLessThanOrEqual(80);
+    expect(line).toMatch(/^Atomistique[^·]*… · étape 2\/3/);
+    const first: Orientation = { step: { index: 1, total: 3 }, reviews_due: 0, waiting: "read" };
+    expect(statusLine(first, "Atomistique L1 — Chapitre 1", "fr")).toBe("Atomistique L1 — Chapitre 1 · étape 1/3 · à lire");
+  });
+
+  it("says when the screen is a check question of a contest, in place of the step", () => {
+    const check: Orientation = { ...second, contest: { concept_id: "c-un", question: 1, total: 2 } };
+    expect(statusLine(check, "Leçon O", "fr")).toBe("Leçon O · contrôle 1/2 · 3 min · 2 révisions dues · à toi de répondre");
+    expect(statusLine(check, "Lesson O", "en")).toBe("Lesson O · check 1/2 · 3 min · 2 reviews due · your answer");
   });
 
   it("drops the title when no room is left for a readable one", () => {

@@ -16,7 +16,7 @@ import { join, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SelfRatingExpiredError } from "@studium/lesson-session";
 import {
-  SessionHost, NowMsSchema, publicPresentation, operatorContext, type SelfRating,
+  SessionHost, NowMsSchema, publicPresentation, operatorContext, type SelfRating, type PromptSurface,
 } from "@studium/lesson-session-host";
 import { CONVERSATION, lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type ToolResult } from "./operations.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools } from "./authoring-tools.js";
@@ -102,7 +102,9 @@ const languageArg = z.enum(["fr", "en"], { errorMap: () => ({ message: "language
     "learner's last lesson, else the server's");
 
 /** The C1 study tools, transport-independent like lessonOperations (an HTTP surface can add them as is). */
-export function studyOperations(host: SessionHost): Operation[] {
+export function studyOperations(host: SessionHost, opts: { formsAvailable?: () => boolean } = {}): Operation[] {
+  // INT-STUDIUM-058 § 2.6: the screens these tools serve are read in the conversation (rank 1).
+  const promptSurface = (): PromptSurface => ({ rank: 1, formsAvailable: opts.formsAvailable?.() ?? false });
   return [
     operation("list_lessons",
       "List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson " +
@@ -145,6 +147,7 @@ export function studyOperations(host: SessionHost): Operation[] {
           ...(now_ms === undefined ? {} : { nowMs: now_ms }),
           ...(presentation_language === undefined ? {} : { presentationLanguage: presentation_language }),
           ...(language === undefined ? {} : { language }),
+          promptSurface: promptSurface(),
         });
         if (r.status === "nothing_due") return r;
         // The answer keys stay on the server: only the public projection of the scene ships.
@@ -164,7 +167,7 @@ export function studyOperations(host: SessionHost): Operation[] {
         session_id: z.string(), scene_id: z.string(),
         grade: z.enum(RECALL_GRADES, { errorMap: () => ({ message: `grade must be one of ${RECALL_GRADES.join(", ")}` }) }),
       },
-      async ({ session_id, scene_id, grade }) => host.settleAct(session_id, CONVERSATION("rateRecall"), () => host.rateRecall(session_id, scene_id, grade))),
+      async ({ session_id, scene_id, grade }) => host.settleAct(session_id, CONVERSATION("rateRecall"), () => host.rateRecall(session_id, scene_id, grade, "companion", { promptSurface: promptSurface() }))),
 
     operation("export_concept_map",
       "On the learner's request, export the concept map of a lesson session as a record " +
@@ -273,7 +276,9 @@ export function buildMcpServer(host: SessionHost): McpServer {
   const panels = registerPanelTools(server, host);
   const registered: string[] = [...panels.names];
   // get_server_info reads `registered` when it is called, so it lists every tool added below.
-  for (const op of [...lessonOperations(host, { toolNames: () => registered }), ...studyOperations(host)]) {
+  // Forms are available when the connected client declares MCP elicitation (play_in_forms is always registered).
+  const formsAvailable = () => Boolean(server.server.getClientCapabilities()?.elicitation);
+  for (const op of [...lessonOperations(host, { toolNames: () => registered, formsAvailable }), ...studyOperations(host, { formsAvailable })]) {
     const registeredTool = server.registerTool(op.name, { description: op.description, inputSchema: op.inputSchema }, async (args) => {
       const result = await op.invoke(args);
       await panels.observe(op.name, args, result);

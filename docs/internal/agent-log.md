@@ -4310,6 +4310,39 @@ Checked by the subagent that wrote it (Opus, 7 Nov): `python -m pytest tools/tes
 Not verified: the name field and the folded previews in a browser; the linter's asset checks were
 not audited for reads outside the lesson directory (same behaviour as `review_lesson`).
 
+## 2026-11-07 (orientation, proposals) — The lesson proposes without a panel; the status line reads the same on every screen
+
+INT-STUDIUM-058, findings 1, 3, 4, 8, 9 and 11 of the cognitive walkthrough, and task 5.2's recorded
+deviation, now closed: a lesson played with the conversation tools (rank 1) or `play_in_forms`
+(rank 2) proposes what is due. `SessionHost` takes a per-call `promptSurface` on `create`,
+`startReview`, `respond`, `ingestRunResult`, `rateRecall` and `currentPresentation` and feeds the
+prompt book (`feedPrompts`, extracted from `sessionPrompts`) while building the screen, after any
+resume notice. Proposals are said once in `display_markdown`, each naming its id
+(`(proposition review_due:start)`), after a lesson's summary and after a self-rating line too;
+`prompt_shown` carries the right rank. `submit_response` accepts `{kind:"prompt", id, outcome}`,
+settles it inside `settleAct("prompt")` and returns the next call without making it. The HTTP
+adapter feeds the book at rank 1 with forms off.
+
+Orientation: the status line cuts a long title before its last separator that fits, so it reads
+the same on every screen, and says « contrôle n/total » while a contest's check question is on
+screen (`Orientation.contest`; the panel's `OrientationSchema` has the optional field). The
+conversation text says the step once (the « Étape n sur total » line goes only without a status
+line). The help ladder opens the explanation on the screen right after an assessed answer
+(`SessionEntry.answeredBefore`). The AI-drafted notice says « signale à l'agent une clé qui te
+semble fausse ». The docs generator expands a one-shape field inside a union like any other, so
+`submit_response`'s `input.verdicts[]` rows are back. Troubleshooting names the lost-session notice.
+
+Test decisions: six assertions adapted to the step said once; orientation's "explains after a
+first try" now expects the rung open after a missed answer; chat-display's proposal fixtures carry
+an id; authoring.test takes the new wording. Host 702 → 709, lesson-mcp 167 → 170, smoke 19/19.
+
+Checked by the two subagents that wrote it (Opus, 7 Nov): host `build` and `test` (709), lesson-panel `build` and `test` (52), lesson-mcp `build` and `test` (170 passed, 2 skipped), lesson-server test (34), VS Code drivers (extension-host 81 assertions), mod test (50), `pnpm --filter @studium/lesson-mcp bundle` then `node apps/lesson-mcp/scripts/headless_smoke.mjs` (all 19 assertions passed), `pnpm docs:gen`, `node tools/docs/check.mjs` (256 files, 0 problems); the lead ran `node --test tools/docs/check.test.mjs` (14 pass, the new case seen failing first). The lead's full gates run on this commit before the push.
+
+Not verified: how the proposal line reads in a real client; a proposal made inside forms logged at
+rank 2 (nothing is proposed at a forms pause on atomistique-l1 before the end). Open in § 2.6:
+`review_due` is a candidate at session start and end only, so a learner resumed on a question is
+never proposed the due review during that session (same on panels).
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local
