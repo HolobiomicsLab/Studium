@@ -125,7 +125,7 @@ describe("server-rendered library and review", () => {
     expect(html).toContain("aucun reçu antérieur");
     expect(html).toContain('role="status"');
     expect(html).toContain("experience_packet.py receipt --bundle");
-    expect(html).not.toContain("--opened");
+    expect(html).not.toContain("--opened &#x27;");
     expect(html).not.toMatch(/[0-9a-f]{64}/);
     expect(html).not.toContain("PRIVATE_");
   });

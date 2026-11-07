@@ -3,6 +3,8 @@
 // teacher opened and their own verdicts. React state only: no network, no storage, nothing written.
 // The page has no authentication, so `opened` reaches the receipt through `--opened` in the command
 // the teacher runs (see lib/review-commands.ts), not through a file written by the dashboard.
+// A grading item is never counted opened by this page: it shows no key (the library is a whitelist
+// projection), so a verdict click is not a reading and the receipt must not attest one.
 import { createContext, useContext, useReducer, type ReactNode, type SyntheticEvent } from "react";
 import { fill, messages, sceneTypeLabel, type Locale } from "@/lib/i18n";
 import { approvalCommand, returnCommand } from "@/lib/review-commands";
@@ -27,7 +29,8 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
     if (!action.open || state.opened.has(action.id)) return state;
     return { ...state, opened: new Set(state.opened).add(action.id) };
   }
-  return { opened: new Set(state.opened).add(action.id), verdicts: { ...state.verdicts, [action.id]: action.verdict } };
+  // Verdict only: the page cannot show a grading item's key, so it does not count as opened.
+  return { ...state, verdicts: { ...state.verdicts, [action.id]: action.verdict } };
 }
 
 export function unopenedGrading(entries: readonly InboxEntry[], state: ReviewState): string[] {
@@ -90,6 +93,7 @@ export function ReviewInboxList({ lastReceipt, unreadableReceipts }: { lastRecei
             <button type="button" aria-pressed={verdict === "ok"} onClick={() => dispatch({ type: "verdict", id: entry.id, verdict: "ok" })}>{t.verdictOk}</button>
             <button type="button" aria-pressed={verdict === "to_fix"} onClick={() => dispatch({ type: "verdict", id: entry.id, verdict: "to_fix" })}>{t.verdictToFix}</button>
           </div>}
+          {grading && <p className="inbox-verdict__note">{t.verdictStaysHere}</p>}
           <details className="inbox-checks" open={grading ? verdict !== undefined : undefined} onToggle={grading ? undefined : onToggle}>
             <summary onClick={holdFolded}>{t.automaticVerdict}{grading && !verdict && <span className="inbox-checks__later"> {t.automaticVerdictLater}</span>}</summary>
             <Checks entry={entry} locale={locale} />

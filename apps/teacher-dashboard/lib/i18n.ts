@@ -47,9 +47,10 @@ const fr = {
   unreadableReceipts: "Reçus illisibles ignorés dans reviews/\u00a0: {n}.",
   automaticVerdict: "Avis automatique", automaticVerdictLater: "(après votre avis)",
   yourVerdict: "Votre avis", verdictOk: "Correct", verdictToFix: "À corriger", openedMark: "ouvert",
+  verdictStaysHere: "Votre avis reste sur cette page\u00a0: la commande ne le porte pas encore.",
   checkSchema: "Schéma", checkTodo: "TODO", checkLint: "Lint", checkPassed: "conforme", checkFailed: "à corriger",
-  inboxWarningOne: "1 élément «\u00a0note\u00a0» non ouvert\u00a0: {ids}. Approuver reste possible\u00a0; le reçu le gardera.",
-  inboxWarningMany: "{n} éléments «\u00a0note\u00a0» non ouverts\u00a0: {ids}. Approuver reste possible\u00a0; le reçu le gardera.",
+  inboxWarningOne: "1 élément «\u00a0note\u00a0» non ouvert ici\u00a0: {ids}. Cette page ne montre pas les clés\u00a0: ouvrez-le dans lesson.json et ajoutez son identifiant à --opened. Approuver reste possible\u00a0; le reçu le gardera.",
+  inboxWarningMany: "{n} éléments «\u00a0note\u00a0» non ouverts ici\u00a0: {ids}. Cette page ne montre pas les clés\u00a0: ouvrez-les dans lesson.json et ajoutez leurs identifiants à --opened. Approuver reste possible\u00a0; le reçu le gardera.",
   returnHeading: "Renvoyer la leçon", returnHelp: "Pour renvoyer la leçon à son auteur sans l’approuver, cette commande écrit seulement un reçu «\u00a0renvoyée\u00a0».",
 };
 const en: typeof fr = {
@@ -88,9 +89,10 @@ const en: typeof fr = {
   unreadableReceipts: "Unreadable receipts skipped in reviews/: {n}.",
   automaticVerdict: "Automatic verdict", automaticVerdictLater: "(after your verdict)",
   yourVerdict: "Your verdict", verdictOk: "Correct", verdictToFix: "To fix", openedMark: "opened",
+  verdictStaysHere: "Your verdict stays on this page: the command does not carry it yet.",
   checkSchema: "Schema", checkTodo: "TODO", checkLint: "Lint", checkPassed: "passes", checkFailed: "to fix",
-  inboxWarningOne: "1 grading item not opened: {ids}. Approving stays possible; the receipt will keep it.",
-  inboxWarningMany: "{n} grading items not opened: {ids}. Approving stays possible; the receipt will keep it.",
+  inboxWarningOne: "1 grading item not opened here: {ids}. This page shows no key: open it in lesson.json and add its id to --opened. Approving stays possible; the receipt will keep it.",
+  inboxWarningMany: "{n} grading items not opened here: {ids}. This page shows no key: open them in lesson.json and add their ids to --opened. Approving stays possible; the receipt will keep it.",
   returnHeading: "Send the lesson back", returnHelp: "To send the lesson back to its author without approving it, this command writes a \u201creturned\u201d receipt only.",
 };
 export function messages(locale: Locale) { return locale === "en" ? en : fr; }

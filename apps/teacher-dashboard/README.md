@@ -83,7 +83,7 @@ Each line says whether the scene is new, changed or unchanged since the last rec
 folder's `reviews/`, and gives the automatic checks (schema, TODO; the library does not run the linter,
 so there is no lint check here). For a grading line, the automatic verdict stays folded until the teacher
 clicks Correct or To fix. Before approving, the page warns, without blocking, about grading lines not
-opened. The page still writes nothing: the ids opened on screen go into `--opened` of the two commands
+opened. A grading line is never counted opened by the page, because it shows no key. The page still writes nothing: the ids opened on screen go into `--opened` of the two commands
 it shows, `experience_packet.py approve` and `experience_packet.py receipt --decision returned` (send the
 lesson back), and the receipt is written when the teacher runs one. Scene fingerprints never reach the
 browser.

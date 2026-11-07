@@ -86,7 +86,7 @@ clé), formulation, média. Chaque ligne dit si la scène est nouvelle, modifié
 dernier reçu du dossier `reviews/` de la leçon, et donne les vérifications automatiques (schéma, TODO ;
 la bibliothèque ne lance pas le linter, il n'y a donc pas de vérification lint ici). Pour une ligne
 « note », l'avis automatique reste replié tant que l'enseignant n'a pas cliqué Correct ou À corriger.
-Avant l'approbation, la page signale, sans bloquer, les lignes « note » non ouvertes. La page n'écrit
+Avant l'approbation, la page signale, sans bloquer, les lignes « note » non ouvertes. Une ligne « note » n'est jamais comptée ouverte par la page, puisqu'elle n'affiche aucune clé. La page n'écrit
 toujours rien : les identifiants ouverts à l'écran entrent dans l'option `--opened` des deux commandes
 affichées, `experience_packet.py approve` et `experience_packet.py receipt --decision returned` (renvoyer
 la leçon), et le reçu est écrit quand l'enseignant en lance une. Les empreintes des scènes n'atteignent

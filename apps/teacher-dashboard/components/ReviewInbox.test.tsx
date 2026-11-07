@@ -59,11 +59,14 @@ describe("review inbox list", () => {
     expect(before).toContain(">Correct<");
     expect(before).toContain("À corriger");
     const after = reviewReducer(emptyReviewState(), { type: "verdict", id: "s3-quiz", verdict: "to_fix" });
-    expect(after.opened.has("s3-quiz")).toBe(true);
+    // A verdict is not a reading: the page shows no key, so it must not count the item as opened.
+    expect(after.opened.has("s3-quiz")).toBe(false);
     expect(after.verdicts["s3-quiz"]).toBe("to_fix");
     const html = itemHtml(page(after), "s3-quiz");
     expect(html).toMatch(/<details class="inbox-checks"[^>]*open/);
     expect(html).toMatch(/aria-pressed="true"[^>]*>À corriger/);
+    expect(html).toContain("Votre avis reste sur cette page");
+    expect(itemHtml(page(after, "en"), "s3-quiz")).toContain("Your verdict stays on this page");
   });
   it("marks a non-grading item opened when its details are opened, and never un-opens it", () => {
     const opened = reviewReducer(emptyReviewState(), { type: "toggle", id: "s0-intro", open: true });
@@ -81,21 +84,36 @@ describe("approval panel", () => {
     expect(html).toContain("non ouverts");
     expect(html).toContain("s3-quiz, s1-quiz");
     expect(html).not.toContain('role="alert"');
+    // Verdicts do not clear the warning: the page never shows a grading item's key.
     let state = reviewReducer(emptyReviewState(), { type: "verdict", id: "s3-quiz", verdict: "ok" });
-    expect(page(state)).toContain("1 élément");
-    expect(page(state, "en")).toContain("1 grading item not opened");
+    expect(page(state)).toContain("2 éléments");
+    expect(page(state, "en")).toContain("2 grading items not opened");
     state = reviewReducer(state, { type: "verdict", id: "s1-quiz", verdict: "ok" });
-    expect(page(state)).not.toContain("non ouvert");
+    expect(page(state)).toContain("s3-quiz, s1-quiz");
+    expect(page(state)).toContain("Cette page ne montre pas les clés");
+    expect(page(state, "en")).toContain("This page shows no key");
+  });
+  it("keeps every grading item in the warning and out of --opened after verdicts; a toggled wording item enters --opened alone", () => {
+    let state = reviewReducer(emptyReviewState(), { type: "verdict", id: "s3-quiz", verdict: "ok" });
+    state = reviewReducer(state, { type: "verdict", id: "s1-quiz", verdict: "to_fix" });
+    expect(unopenedGrading(ENTRIES, state)).toEqual(["s3-quiz", "s1-quiz"]);
+    expect(openedInSceneOrder(ENTRIES, state)).toEqual([]);
+    expect(page(state)).not.toContain("--opened &#x27;");
+    state = reviewReducer(state, { type: "toggle", id: "s0-intro", open: true });
+    expect(unopenedGrading(ENTRIES, state)).toEqual(["s3-quiz", "s1-quiz"]);
+    const html = page(state);
+    expect(html).toContain("--opened &#x27;s0-intro&#x27;");
+    expect(html).not.toContain("s1-quiz,");
+    expect(html).not.toContain(",s3-quiz");
   });
   it("carries --opened with the opened ids in scene order, and no flag when none", () => {
-    expect(page(emptyReviewState())).not.toContain("--opened");
-    let state = reviewReducer(emptyReviewState(), { type: "verdict", id: "s3-quiz", verdict: "ok" });
+    expect(page(emptyReviewState())).not.toContain("--opened &#x27;");
+    let state = reviewReducer(emptyReviewState(), { type: "toggle", id: "s2-todo", open: true });
     state = reviewReducer(state, { type: "toggle", id: "s0-intro", open: true });
-    state = reviewReducer(state, { type: "verdict", id: "s1-quiz", verdict: "ok" });
-    expect(openedInSceneOrder(ENTRIES, state)).toEqual(["s0-intro", "s1-quiz", "s3-quiz"]);
+    expect(openedInSceneOrder(ENTRIES, state)).toEqual(["s0-intro", "s2-todo"]);
     const html = page(state);
-    expect(html).toContain("experience_packet.py approve --bundle &#x27;/lib/course/lesson.json&#x27; --validated-by &#x27;VOTRE NOM&#x27; --opened &#x27;s0-intro,s1-quiz,s3-quiz&#x27;");
-    expect(html).toContain("experience_packet.py receipt --bundle &#x27;/lib/course/lesson.json&#x27; --reviewer &#x27;VOTRE NOM&#x27; --decision returned --opened &#x27;s0-intro,s1-quiz,s3-quiz&#x27;");
+    expect(html).toContain("experience_packet.py approve --bundle &#x27;/lib/course/lesson.json&#x27; --validated-by &#x27;VOTRE NOM&#x27; --opened &#x27;s0-intro,s2-todo&#x27;");
+    expect(html).toContain("experience_packet.py receipt --bundle &#x27;/lib/course/lesson.json&#x27; --reviewer &#x27;VOTRE NOM&#x27; --decision returned --opened &#x27;s0-intro,s2-todo&#x27;");
     expect(html).toContain("Renvoyer la leçon");
   });
 });
