@@ -21,14 +21,15 @@ import {
 import { lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type ToolResult } from "./operations.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools } from "./authoring-tools.js";
 import { TEACHER_TOOL_NAMES, registerTeacherTools } from "./teacher-tools.js";
+import { FORM_TOOL_NAMES, registerFormTools } from "./form-tools.js";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
 
 /** C1 study tools, defined in this file. */
 export const STUDY_TOOL_NAMES = ["export_concept_map", "get_study_plan", "list_lessons", "rate_recall", "start_review_session"] as const;
 /** Every tool buildMcpServer registers, sorted: the lesson operations, the study tools, the authoring
- * tools and the teacher tools. */
+ * tools, the teacher tools and the form tool (form-tools.ts, a prototype). */
 export const TOOL_NAMES: readonly string[] = [
-  ...LESSON_TOOL_NAMES, ...STUDY_TOOL_NAMES, ...AUTHORING_TOOL_NAMES, ...TEACHER_TOOL_NAMES,
+  ...LESSON_TOOL_NAMES, ...STUDY_TOOL_NAMES, ...AUTHORING_TOOL_NAMES, ...TEACHER_TOOL_NAMES, ...FORM_TOOL_NAMES,
 ].sort();
 
 /** C4 self-rating grades, in FSRS order (lesson-session's SELF_RATING_CHOICES; a test pins the match). */
@@ -44,7 +45,7 @@ export const SERVER_INSTRUCTIONS = [
   "- Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools).",
   "- Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.",
   "- Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.",
-  "- Show display_markdown as it is: on a presentation; after an answer, verdict.display_markdown first, then the transition's.",
+  "- Show display_markdown as it is and add nothing of your own unless the learner asks (they wait on every word): on a presentation; after an answer, verdict.display_markdown first, then the transition's.",
   "- On the first screen, relay the authoring notice; if persistence.durable is false, tell the learner progress is lost at restart.",
   `- Wait for the learner's answer and send their words with ${REPLY_CALL}; never answer, choose or rate for them.`,
   "- When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.",
@@ -283,6 +284,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
   registered.push(...registerTeacherTools(server, {
     bundlesRoot: host.bundlesRoot, libraryRoot: host.libraryRoot, dataDir: host.persistence().data_dir,
   }));
+  registered.push(...registerFormTools(server, host));
   registerPrompts(server);
   logStartup(registered.length);
   return server;

@@ -96,6 +96,14 @@ as `document` sources next to the conversation.
 
 ## 5. Play, then return to the work
 
+A conversation long enough to draw a lesson from is a slow place to play it: every answer carries
+the whole conversation behind it, on a large model. Once the lesson is created, offer in one line
+to play it in its own short session and come back here afterwards (Claude Code:
+`claude --agent studium-lesson`, then the lesson's name; another harness: a new session on its
+fast model). The lesson is in the learner's library and their progress is kept, so both sessions
+see it. If they prefer to stay, play it here as a strict relay; see "Keep each turn short" in
+[studium-harness](../studium-harness/SKILL.md).
+
 Play the lesson as [studium-harness](../studium-harness/SKILL.md) section 4 describes. Show each
 `display_markdown` as it is: it already carries the concept map at the start, at a detour through a
 prerequisite, at a synthesis scene and at the end, and one position line when a new concept opens.

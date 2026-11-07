@@ -61,6 +61,11 @@ ln -s ../../skills/<nom> .agents/skills/<nom>
 Un skill sans ces liens n'est pas découvert. Vérifiez lesquels sont liés avec
 `ls -l .claude/skills .agents/skills`.
 
+À côté des skills, `.claude/agents/` contient deux agents Claude Code : `studium-lesson`, qui joue une leçon
+en relais strict sur le modèle rapide, et `studium-explainer`, un modèle plus fort qu'il appelle pour une
+question qui demande une vraie explication. Voir
+[Garder des réponses rapides](../docs/start/harnesses.fr.md#garder-des-réponses-rapides).
+
 ## Voir aussi
 
 - [Des skills pour votre assistant](../docs/start/skills.fr.md)

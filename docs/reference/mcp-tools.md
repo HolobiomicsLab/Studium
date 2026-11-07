@@ -79,7 +79,7 @@ the time elapsed since the session started.
 
 <!-- BEGIN GENERATED: mcp-tools (tools/docs/gen-mcp-tools.mjs; do not edit by hand) -->
 
-The server registers 35 tools.
+The server registers 36 tools.
 
 | Tool | Group | Summary |
 |---|---|---|
@@ -118,6 +118,7 @@ The server registers 35 tools.
 | [submit_turn](#submit_turn) | Lesson | Submit a free-text discussion turn; returns the scored reasoning signal and the Socratic tutor's reply move (so the client can render the dialogue turn-by-tu... |
 | [class_report](#class_report) | Teacher | Teacher: class-level report for a course over consented telemetry: per scene and per concept accuracy (only where a key or a model judge graded), hint relian... |
 | [review_lesson](#review_lesson) | Teacher | Teacher: review a lesson draft before approving it. |
+| [play_in_forms](#play_in_forms) | Form tool (prototype) | Play the next scenes of a session in forms the client shows to the learner (MCP elicitation), with no model turn between an answer and its verdict (a prototy... |
 
 ## Study tools
 
@@ -484,6 +485,19 @@ Teacher: review a lesson draft before approving it. Returns the scene plan, who 
 |---|---|---|
 | `course_ref` | string (1–512 chars) | yes |
 
+## Form tool (prototype)
+
+Answer screens and quizzes in forms the client shows, with no model turn in between.
+
+### play_in_forms
+
+Play the next scenes of a session in forms the client shows to the learner (MCP elicitation), with no model turn between an answer and its verdict (a prototype). A screen to read is acknowledged; a quiz is answered with a displayed choice and an optional confidence. Each form carries the public screen only, and the verdict of an answer opens the next form. It hands back to the conversation when a scene needs written words, when the learner declines or closes a form (they want to talk, or a hint), at the end of the lesson, or after max_steps. Returns {status: complete | needs_conversation | paused | limit | unsupported, reason?, steps[{scene_id, scene_type, correct?, confidence?}], presentation?, display_markdown, note}. Show display_markdown, do not replay the listed steps (the learner saw them), and call it again once the conversation step is done. Offer it once, on the learner's yes; status unsupported means this client shows no forms: relay in the conversation.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `session_id` | string | yes |  |
+| `max_steps` | integer (1–40) | no | forms to show at most; default 20 |
+
 ## Prompts
 
 | Prompt | Title | Description | Arguments |
@@ -500,7 +514,7 @@ Studium teaches through the learner's own answers: you relay, the learner answer
 - Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools).
 - Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.
 - Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.
-- Show display_markdown as it is: on a presentation; after an answer, verdict.display_markdown first, then the transition's.
+- Show display_markdown as it is and add nothing of your own unless the learner asks (they wait on every word): on a presentation; after an answer, verdict.display_markdown first, then the transition's.
 - On the first screen, relay the authoring notice; if persistence.durable is false, tell the learner progress is lost at restart.
 - Wait for the learner's answer and send their words with submit_response {session_id, input: {kind: "reply", text}}; never answer, choose or rate for them.
 - When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.

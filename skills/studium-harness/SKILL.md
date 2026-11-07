@@ -24,6 +24,41 @@ and records. Three invariants shape every step:
 `tools/list` on the running server and `get_server_info` are the authoritative tool
 surface. Every tool and its arguments: [MCP tools](../../docs/reference/mcp-tools.md).
 
+## Keep each turn short
+
+Studium grades an answer and picks the next screen in a few milliseconds. The learner waits for
+the model around it, on every word it writes. Measured on one lesson (figures and method in
+[Keep answers fast](../../docs/start/harnesses.md#keep-answers-fast)): 27 s per answer when a
+large model relayed through shell calls inside a long working session, 5 to 6 s when a short
+session ran as the fast lesson agent, 16 s when a large model handed each answer to that agent.
+So, by default:
+
+- **Play a lesson in a short session of its own, on a fast model.** In Claude Code:
+  `claude --agent studium-lesson` (`.claude/agents/`, strict relay on the fast model). In another
+  harness: a new session, on its fast model. When a lesson is accepted in the middle of a long
+  working conversation, say so in one line and give the command, or open that session if your
+  harness can open one for the person. If they prefer to stay, play it here.
+- **Do not put an agent between the learner and the server.** Handing every answer to a subagent
+  makes two models write the same screen, and is slower than either alone. A fast agent helps
+  when it is the session, or when it works in the background.
+- **Use the MCP tools, not shell calls**, when the server is connected: a shell call starts a
+  process, 2 to 4 s each time.
+- **Relay, do not rewrite.** Show `display_markdown` as it is and add nothing unless the learner
+  asks. Relay an answer and its confidence in one `submit_response`.
+- **Where the client shows forms, offer the fast lane once (prototype).** `play_in_forms
+  {session_id}` lets the server show screens and quizzes in forms and grade them with no model
+  turn in between; it returns when a scene needs written words, when the learner closes a form
+  to talk, or at the end. Show its `display_markdown`, do not replay its `steps`, and call it
+  again after the conversation step. `status: "unsupported"` means this client has no forms.
+  How clients draw a long screen or a formula in a form is untried: if the learner finds it
+  worse, go back to the conversation.
+- **Give depth on request, from a stronger model.** A question that needs a real explanation goes
+  to the `studium-explainer` agent (Claude Code) or to the session's larger model, never between
+  a question and the learner's answer when it is the idea that question tests.
+- **Keep slow work out of the learner's way.** Draw or generate a support only on request. Run
+  exports, reports and lesson building in a background agent when the harness has one, say that
+  it is running, and let the learner go on.
+
 ## 1. Locate the installation
 
 Resolve this skill's real path through symlinks: the repository is two levels above

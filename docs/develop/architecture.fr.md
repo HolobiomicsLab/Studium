@@ -83,7 +83,7 @@ sont conservés comme code hérité et de recherche ; ce n'est pas une voie d'
 
 | Unité | Rôle | README |
 |---|---|---|
-| `apps/lesson-mcp` | serveur MCP (34 outils, stdio) et adaptateur HTTP des opérations de leçon | [README](../../apps/lesson-mcp/README.fr.md) |
+| `apps/lesson-mcp` | serveur MCP (36 outils, stdio) et adaptateur HTTP des opérations de leçon | [README](../../apps/lesson-mcp/README.fr.md) |
 | `apps/studium-vscode` | extension VS Code : panneau de leçon, participant de chat, serveur MCP embarqué | [README](../../apps/studium-vscode/README.fr.md) |
 | `apps/lesson-server` | serveur HTTP Fastify pour les leçons, clés masquées | [README](../../apps/lesson-server/README.fr.md) |
 | `apps/teacher-dashboard` | tableau de bord Next.js : analyses de classe, bibliothèque et relecture des leçons | [README](../../apps/teacher-dashboard/README.fr.md) |

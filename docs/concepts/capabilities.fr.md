@@ -43,7 +43,7 @@ Voir le [guide de l'enseignant](../teach/teacher-guide.fr.md), [Relire et approu
 
 | Capacité | Ce qui fonctionne | Limite pratique |
 |---|---|---|
-| Serveur MCP | 34 outils sur stdio (25 de leçon, 4 d'étude, 3 de rédaction, 2 pour l'enseignant), invites `learn` et `review` | Chaque client a ses propres outils, son compte et sa séance |
+| Serveur MCP | 36 outils sur stdio (25 de leçon, 5 d'étude, 3 de rédaction, 2 pour l'enseignant, 1 outil de formulaires en prototype), invites `learn` et `review` | Chaque client a ses propres outils, son compte et sa séance |
 | API HTTP locale | Les 25 opérations de leçon et `rate_recall`, découverte des schémas, jeton porteur, protection contre les doubles soumissions | Boucle locale uniquement ; autres outils d'étude et outils de rédaction et d'enseignant réservés à MCP ; les séances actives s'arrêtent avec le processus |
 | Canal fichier | Une boucle tâche/réponse dans `.studium-session/` pour un harnais sans MCP | Formats et écritures atomiques à respecter |
 | Extension VS Code | Panneau de leçon, participant de chat, cellule de notebook, reprise au rechargement, révisions dans la barre d'état | Ses séances sont distinctes de celles du serveur MCP d'un assistant |

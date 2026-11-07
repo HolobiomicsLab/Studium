@@ -102,7 +102,7 @@ More detail: [Quickstart](docs/start/quickstart.md), [Installation](docs/start/i
 | Area | Where | What it does |
 |---|---|---|
 | Learner clients | [`apps/studium-vscode`](apps/studium-vscode) | VS Code extension: lesson pane, notebook, chat participant, reviews in the status bar |
-| Hosts | [`apps/lesson-mcp`](apps/lesson-mcp), [`packages/lesson-session-host`](packages/lesson-session-host), [`apps/lesson-server`](apps/lesson-server) | MCP server (34 tools), multi-session host with durable state, HTTP adapters |
+| Hosts | [`apps/lesson-mcp`](apps/lesson-mcp), [`packages/lesson-session-host`](packages/lesson-session-host), [`apps/lesson-server`](apps/lesson-server) | MCP server (36 tools), multi-session host with durable state, HTTP adapters |
 | Adaptive runtime | [`packages/lesson-session`](packages/lesson-session), [`packages/adaptation-engine`](packages/adaptation-engine), [`packages/learner-state`](packages/learner-state) | Graph-aware navigation, mastery, remediation, hints, calibration, spaced review |
 | Contracts | [`packages/lesson-bundle-schema`](packages/lesson-bundle-schema), [`packages/learning-workflow-schema`](packages/learning-workflow-schema), [`packages/telemetry-events`](packages/telemetry-events) | Typed schemas (Zod, with Pydantic mirrors) for lessons, graphs and events |
 | Authoring and review | [`services/`](services), [`tools/`](tools), [`eval/`](eval) | Python planner, scene synthesis, ingestion, Observatory, authoring CLI (`tools/experience_packet.py`), evaluation harness |

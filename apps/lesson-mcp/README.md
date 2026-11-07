@@ -45,7 +45,7 @@ Ready-made harness configurations are in [`docs/examples/`](../../docs/examples/
 
 ## What it offers
 
-34 tools, two prompts (`learn` and `review`) and server instructions that tell the assistant to wait for
+36 tools, two prompts (`learn` and `review`) and server instructions that tell the assistant to wait for
 the learner's own answers. The full contract is in the [MCP tools reference](../../docs/reference/mcp-tools.md).
 
 | Group | Tools |
