@@ -4149,6 +4149,26 @@ Checked: every repository check passes on this tree at its first run (install, b
 
 Not verified: no receipt has been written by any tool yet; no teacher has read the inbox.
 
+## 2026-11-07 (interaction report) — The usage indicators of the two-lane interface
+
+INT-STUDIUM-058, lot 7, task 7.2 (spec § 2.10). `tools/interaction_report.py` reads a directory
+of consented telemetry streams like `class_report.py` and gives the indicators of the spec:
+fast-lane share, verdict delay (p95 of `client_ms`), prompt outcomes per kind with the
+"under 20 % accepted over 30" flag, help per rung and per scene, contests, resumes and scenes
+shown twice, review receipts. Same identity rule and same `MIN_LEARNERS` floor as the class
+report, on the whole report, on each row and on each indicator; cohort as a band only. A stream
+without `consent_granted` is refused and counted; `--single-stream` reports one bench learner's
+file with no floor and a warning.
+
+Test decision: none. 13 new tests, fixtures validated against the Python contract, all seen
+failing first.
+
+Checked: every repository check passes on this tree at its first run (install, build, lint,
+`pnpm -r test`, the Python suites, bundle lint, docs check, headless smoke, the MCP bundle,
+`tools/panel-probe.mjs`), and `pnpm test:tools` (9 tests).
+
+Not verified: no real stream holds these events; the report has run on hand-built fixtures only.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

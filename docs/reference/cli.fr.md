@@ -13,6 +13,7 @@ après l'[installation](../start/installation.fr.md) (`pnpm install` et un `.ven
 | [`bundle_lint.mjs`](#bundle_lintmjs) | Relecture pédagogique d'un ou plusieurs `lesson.json`. |
 | [`bundle_validate.ts`](#bundle_validatets) | Validation de fichiers `lesson.json` par le schéma. |
 | [`class_report.py`](#class_reportpy) | Rapport de classe agrégé à partir de la télémétrie consentie. |
+| [`interaction_report.py`](#interaction_reportpy) | Rapport d'usage agrégé de l'interface à deux voies à partir de la télémétrie consentie. |
 | [`pytest_all.py`](#pytest_allpy) | Toutes les suites de tests Python, un processus chacune. |
 
 ## experience_packet.py
@@ -117,6 +118,29 @@ et « not measured » un chiffre auquel personne n'a contribué ; chaque lig
 Le seuil freine l'identification d'un individu ; ce n'est pas une garantie d'anonymat, puisqu'un
 enseignant connaît sa classe. L'outil MCP `class_report` offre le même rapport avec un seuil qui ne
 peut pas être abaissé (voir [Suivre une classe](../teach/follow-a-class.fr.md)).
+
+## interaction_report.py
+
+[tools/interaction_report.py](../../tools/interaction_report.py) décrit comment une classe a utilisé
+l'interface à deux voies, à partir des événements d'interaction de la télémétrie consentie : la part
+des actes réglés sans modèle, le délai des verdicts (95e centile), l'issue des propositions par
+type (un type d'au moins 30 issues et de moins de 20 % d'acceptations est signalé), l'aide utilisée
+par échelon et par scène, les contestations, les reprises et les scènes montrées deux fois après
+elles, et les accusés de relecture. Il ne mesure pas l'apprentissage (c'est le rôle de
+`class_report.py`).
+
+```bash
+.venv/bin/python tools/interaction_report.py <dossier_run> [--min-learners 5] [--out DIR] [--json]
+.venv/bin/python tools/interaction_report.py <telemetry.jsonl> --single-stream
+```
+
+Il lit chaque `telemetry.jsonl` du dossier, refuse un flux sans événement `consent_granted` (compté
+dans `refused_streams`), et tait le rapport entier sous le seuil de cinq apprenants distincts, ainsi
+que chaque chiffre, type de proposition et scène calculés sur moins d'apprenants. `--min-learners`
+peut relever le seuil, pas l'abaisser. `--out DIR` écrit `interaction_report.md` et
+`interaction_report.json`. `--single-stream` lit un seul fichier sans seuil et ne sert qu'aux
+apprenants synthétiques des bancs d'essai : le rapport précise alors que ses chiffres sont ceux
+d'un seul apprenant.
 
 ## pytest_all.py
 

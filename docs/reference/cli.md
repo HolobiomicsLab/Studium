@@ -12,6 +12,7 @@ without any assistant or editor. Run them from the repository root, after the in
 | [`bundle_lint.mjs`](#bundle_lintmjs) | Teaching-material lint of one or more `lesson.json`. |
 | [`bundle_validate.ts`](#bundle_validatets) | Schema validation of `lesson.json` files. |
 | [`class_report.py`](#class_reportpy) | Aggregated class report from consented telemetry. |
+| [`interaction_report.py`](#interaction_reportpy) | Aggregated usage report of the two-lane interface from consented telemetry. |
 | [`pytest_all.py`](#pytest_allpy) | Every Python test suite, one process each. |
 
 ## experience_packet.py
@@ -109,6 +110,27 @@ the floor and "not measured" one nobody contributed to; each concept row of the 
 The floor restrains singling out; it is not an anonymity guarantee, since a teacher knows the class.
 The MCP tool `class_report` offers the same report with a floor that cannot be lowered (see
 [Follow a class](../teach/follow-a-class.md)).
+
+## interaction_report.py
+
+[tools/interaction_report.py](../../tools/interaction_report.py) reports how a class used the
+two-lane interface, from the interaction events of consented telemetry: the share of acts settled
+without a model, the delay of verdicts (95th percentile), prompt outcomes per kind (a kind with 30
+outcomes or more and under 20 % accepted is flagged), help used per rung and per scene, contests,
+resumes and scenes shown twice after them, and review receipts. It does not measure learning
+(that is `class_report.py`).
+
+```bash
+.venv/bin/python tools/interaction_report.py <run_dir> [--min-learners 5] [--out DIR] [--json]
+.venv/bin/python tools/interaction_report.py <telemetry.jsonl> --single-stream
+```
+
+It reads every `telemetry.jsonl` under the folder, refuses a stream with no `consent_granted` event
+(counted in `refused_streams`), and withholds the whole report under the floor of five distinct
+learners, as well as each figure, prompt kind and scene computed over fewer. `--min-learners` can
+raise the floor, not lower it. `--out DIR` writes `interaction_report.md` and
+`interaction_report.json`. `--single-stream` reads one file without a floor and is meant for the
+synthetic learners of the benches only; the report then says its figures are one learner's.
 
 ## pytest_all.py
 

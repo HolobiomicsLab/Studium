@@ -68,6 +68,18 @@ protection: keep 5 or more. `--bundle path/to/lesson.zip` names the lesson when 
 the telemetry. This report also includes trust calibration
 (whether students trusted the AI when they should have), which the MCP tool leaves out.
 
+## How the interface was used
+
+```bash
+.venv/bin/python tools/interaction_report.py path/to/data --out reports/my-course-usage
+```
+
+[`tools/interaction_report.py`](../../tools/interaction_report.py) reads the same folder and
+reports how the class used the interface rather than what it learned: answers settled without a
+model, verdict delay, which prompts students accept or ignore, help per scene, contests, resumes and
+review receipts. Same floor of five learners, which here cannot be lowered, and streams without a
+recorded consent are refused (see [Command-line tools](../reference/cli.md#interaction_reportpy)).
+
 ## The teacher dashboard
 
 ```bash

@@ -74,6 +74,19 @@ cette protection : gardez 5 ou plus. `--bundle chemin/vers/lesson.zip` désigne
 n'est pas à côté de la télémétrie. Ce rapport inclut aussi la calibration de la
 confiance (les étudiants se sont-ils fiés à l'IA quand il le fallait ?), que l'outil MCP laisse de côté.
 
+## Comment l'interface a été utilisée
+
+```bash
+.venv/bin/python tools/interaction_report.py chemin/vers/donnees --out reports/my-course-usage
+```
+
+[`tools/interaction_report.py`](../../tools/interaction_report.py) lit le même dossier et décrit
+comment la classe a utilisé l'interface plutôt que ce qu'elle a appris : réponses réglées sans
+modèle, délai des verdicts, propositions acceptées ou ignorées, aide par scène, contestations,
+reprises et accusés de relecture. Même seuil de cinq apprenants, qui ici ne peut pas être abaissé, et
+les flux sans consentement enregistré sont refusés (voir
+[Outils en ligne de commande](../reference/cli.fr.md#interaction_reportpy)).
+
 ## Le tableau de bord enseignant
 
 ```bash
