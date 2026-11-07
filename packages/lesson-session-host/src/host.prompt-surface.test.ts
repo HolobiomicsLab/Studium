@@ -67,7 +67,7 @@ describe("the prompts of a lesson played in the conversation or in forms", () =>
     const started = await host.create("P.json", "auto-test-prompt-surface", { promptSurface: CONVERSATION });
     const text = started.presentation.display_markdown as string;
     expect(text).toContain(RESUMED);
-    expect(text).toContain(`${REVIEW}\n> _Tu peux accepter, ou dire « plus tard »._`);
+    expect(text).toContain(`${REVIEW}\n> _Tu peux accepter, ou dire «\u00a0plus tard\u00a0»._`);
     expect(text.indexOf(RESUMED)).toBeLessThan(text.indexOf(REVIEW));
     expect(host.currentPresentation(started.sessionId, { promptSurface: CONVERSATION }).display_markdown).not.toContain("Proposition");   // said once
     expect(host.sessionPrompts(started.sessionId, { locale: "fr" }).map((p) => p.id)).toEqual(["resume_notice:s-c2", "review_due:start"]);
