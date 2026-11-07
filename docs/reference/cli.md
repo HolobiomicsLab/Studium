@@ -60,7 +60,8 @@ What to expect:
   verdict value is refused before any write. `approve` also refuses a `to_fix` verdict: use
   `receipt --decision returned` instead. When verdicts are present, the summary counts those marked
   `ok` and `to_fix`. It warns about `grading` scenes not opened. A receipt is never
-  overwritten: the same bytes decided twice the same day are refused.
+  overwritten: the same bytes decided twice the same day are refused. Each receipt also appends one
+  `review_receipt` event to `reviews/telemetry.jsonl`, beside it, under the role label `reviewer`.
 - `receipt --decision returned` is for a teacher who sends a lesson back (the teacher dashboard
   composes it): it writes only the receipt, bound to the current bytes, with no `approval.json` and
   no rewrite. `--decision approved` is refused: use `approve`.

@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import typing
+import uuid
 from copy import deepcopy
 from pathlib import Path
 
@@ -30,6 +31,12 @@ from experience_packet import (
 from lesson_bundle_schema import LessonBundle  # noqa: E402 - importable once experience_packet set the path
 from lesson_bundle_schema import SceneType as BundleSceneType  # noqa: E402
 from self_study_passages import FetchedReference  # noqa: E402
+
+sys.path.insert(0, str(TOOLS.parent / "packages" / "telemetry-events" / "python"))
+from pydantic import TypeAdapter  # noqa: E402
+from telemetry_events import TelemetryEvent  # noqa: E402
+
+TELEMETRY = TypeAdapter(TelemetryEvent)
 
 
 PASSAGES = {
@@ -2063,6 +2070,163 @@ def test_receipt_returned_records_repeated_and_comma_separated_verdicts(tmp_path
     assert lines[opened_line + 1] == "verdicts: 1 ok, 1 to fix"
 
 
+def _review_events(lesson: Path) -> list[dict]:
+    path = lesson.parent / "reviews" / "telemetry.jsonl"
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def test_approve_writes_the_review_event_next_to_the_receipt(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    assert main(
+        ["approve", "--bundle", str(lesson), "--validated-by", "Professor Example", "--opened", "scene-quiz"]
+    ) == 0
+
+    [receipt_path] = _receipts(lesson)
+    receipt = json.loads(receipt_path.read_text())
+    [event] = _review_events(lesson)
+    TELEMETRY.validate_python(event)
+    bundle = json.loads(lesson.read_text())
+    assert event["type"] == "review_receipt"
+    assert event["learner_pseudonym"] == "reviewer"
+    assert event["lesson_id"] == bundle["bundle_id"]
+    assert event["bundle_version"] == f"{bundle['schema_version']}:{bundle['bundle_id']}@{bundle['validated_at']}"
+    assert event["client_timestamp"] == receipt["decided_at"]
+    assert event["decision"] == receipt["decision"] == "approved"
+    assert event["items"] == len(receipt["items"]) == 2
+    assert event["opened"] == receipt["opened"] == 1
+    assert event["not_opened"] == receipt["not_opened"] == 1
+    expected_id = uuid.uuid5(
+        uuid.NAMESPACE_URL,
+        f"studium:review_receipt:{receipt['bundle_sha256']}:{receipt['decided_at']}",
+    )
+    assert event["event_id"] == str(expected_id)
+    line = (lesson.parent / "reviews" / "telemetry.jsonl").read_text(encoding="utf-8")
+    assert "Professor Example" not in line
+
+
+def test_receipt_returned_appends_a_second_event_line(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    assert main(["approve", "--bundle", str(lesson), "--validated-by", "Professor Example"]) == 0
+    bundle = json.loads(lesson.read_text())
+    extra = deepcopy(QUIZ_SCENE)
+    extra["id"] = "scene-quiz-2"
+    bundle["scenes"].append(extra)
+    lesson.write_text(json.dumps(bundle, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    assert main(
+        ["receipt", "--bundle", str(lesson), "--reviewer", "Professor Example", "--decision", "returned"]
+    ) == 0
+
+    events = _review_events(lesson)
+    assert len(events) == 2
+    for event in events:
+        TELEMETRY.validate_python(event)
+    assert len({event["event_id"] for event in events}) == 2
+    returned_path = next(p for p in _receipts(lesson) if p.read_text().find('"returned"') >= 0)
+    returned = json.loads(returned_path.read_text())
+    assert events[-1]["decision"] == "returned"
+    assert events[-1]["items"] == len(returned["items"]) == 3
+    assert events[-1]["opened"] == returned["opened"] == 0
+    assert events[-1]["not_opened"] == returned["not_opened"] == 3
+    assert (lesson.parent / "reviews" / "telemetry.jsonl").read_text(encoding="utf-8").endswith("\n")
+
+
+def test_an_event_that_fails_the_contract_refuses_before_any_write(tmp_path, capsys, monkeypatch):
+    import experience_packet
+    from pydantic import BaseModel, ConfigDict
+
+    class NotAnEvent(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        only_this: int
+
+    monkeypatch.setattr(experience_packet, "_TELEMETRY_EVENT", TypeAdapter(NotAnEvent))
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    before = lesson.read_bytes()
+
+    status = main(["approve", "--bundle", str(lesson), "--validated-by", "Professor Example"])
+
+    assert status == 2
+    err = capsys.readouterr().err
+    assert "does not match the contract" in err
+    assert lesson.read_bytes() == before
+    assert not (lesson.parent / "approval.json").exists()
+    assert _receipts(lesson) == []
+    assert not (lesson.parent / "reviews" / "telemetry.jsonl").exists()
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        (
+            "en",
+            "error: the review receipt's telemetry event does not match the contract, so nothing "
+            "was written: only_this: Field required\n",
+        ),
+        (
+            "fr",
+            "erreur\u00a0: l’événement de télémétrie du reçu de relecture ne respecte pas le "
+            "contrat\u202f; rien n’a été écrit\u00a0: only_this: Field required\n",
+        ),
+    ],
+)
+def test_receipt_event_invalid_refusal_is_one_exact_localized_line(
+    tmp_path, capsys, monkeypatch, language, expected
+):
+    import experience_packet
+    from pydantic import BaseModel, ConfigDict
+
+    class NotAnEvent(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        only_this: int
+
+    monkeypatch.setattr(experience_packet, "_TELEMETRY_EVENT", TypeAdapter(NotAnEvent))
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        ["approve", "--bundle", str(lesson), "--validated-by", "Professor Example", "--lang", language]
+    )
+
+    captured = capsys.readouterr()
+    assert status == 2
+    assert captured.out == ""
+    assert captured.err == expected
+    assert captured.err.count("\n") == 1
+    assert _receipts(lesson) == []
+
+
+@pytest.mark.parametrize("command", ["approve", "receipt"])
+def test_a_failed_event_append_says_the_receipt_exists(tmp_path, capsys, monkeypatch, command):
+    import experience_packet
+
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    event_path = lesson.parent / "reviews" / "telemetry.jsonl"
+    original_open = Path.open
+
+    def fail_on_the_event_file(self, *args, **kwargs):
+        if self == event_path:
+            raise OSError("disk full")
+        return original_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", fail_on_the_event_file)
+    args = (
+        ["approve", "--bundle", str(lesson), "--validated-by", "Professor Example"]
+        if command == "approve"
+        else ["receipt", "--bundle", str(lesson), "--reviewer", "Professor Example", "--decision", "returned"]
+    )
+
+    status = main(args)
+
+    [receipt] = _receipts(lesson)
+    assert status == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == (
+        f"error: receipt written at {receipt.resolve()}; event not appended: disk full\n"
+    )
+    assert not (lesson.parent / "reviews" / "telemetry.jsonl").exists()
+
+
 @pytest.mark.parametrize(
     ("language", "expected"),
     [
@@ -2326,6 +2490,21 @@ def test_approve_language_defaults_from_studium_lang(tmp_path, capsys, monkeypat
     assert "Approved by" not in out
 
 
+def test_receipt_returned_lang_en_prints_the_event_line(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        [
+            "receipt", "--bundle", str(lesson), "--reviewer", "Professor Example",
+            "--decision", "returned", "--lang", "en",
+        ]
+    )
+
+    assert status == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert "event: reviews/telemetry.jsonl" in lines
+
+
 def test_receipt_returned_lang_fr_prints_the_french_lines(tmp_path, capsys):
     lesson = _finished_bundle_with_quiz(tmp_path)
     sha = hashlib.sha256(lesson.read_bytes()).hexdigest()
@@ -2344,6 +2523,7 @@ def test_receipt_returned_lang_fr_prints_the_french_lines(tmp_path, capsys):
         f"Renvoyée par Professor Example le {receipt['decided_at']}",
         f"SHA-256 de lesson.json{NBSP}: {sha}",
         f"éléments ouverts{NBSP}: 1 sur 2",
+        f"événement{NBSP}: reviews/telemetry.jsonl",
         f"Reçu de relecture{NBSP}:",
         str(path.resolve()),
     ]
@@ -2390,9 +2570,12 @@ def test_the_language_changes_no_recorded_byte(tmp_path, capsys, _frozen_clock):
             "lesson.json": approved.read_bytes(),
             "approval.json": (approved.parent / "approval.json").read_bytes(),
             "approved receipt": [p.read_bytes() for p in _receipts(approved)],
+            "approved events": (approved.parent / "reviews" / "telemetry.jsonl").read_bytes(),
             "returned lesson.json": returned.read_bytes(),
             "returned receipt": [p.read_bytes() for p in _receipts(returned)],
+            "returned events": (returned.parent / "reviews" / "telemetry.jsonl").read_bytes(),
             "judged receipt": [p.read_bytes() for p in _receipts(judged)],
+            "judged events": (judged.parent / "reviews" / "telemetry.jsonl").read_bytes(),
         }
     capsys.readouterr()
     assert json.loads(copies["fr"]["approval.json"])["reviewed_at"] == _frozen_clock

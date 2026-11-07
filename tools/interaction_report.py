@@ -24,6 +24,27 @@ contract (`interaction`, `prompt_shown`, `prompt_outcome`, `help_used`, `contest
   * review: number of `review_receipt`, the share fully opened (opened == items), the mean share
     of items opened (over receipts with items > 0), decisions approved / returned.
 
+Review streams. `experience_packet.py approve` and `receipt --decision returned` write the
+`review_receipt` events next to the receipts themselves, in `<course>/reviews/telemetry.jsonl`, under
+the fixed role label `learner_pseudonym: "reviewer"` (a role, never an identity: the reviewer's name
+stays in the receipt file). A stream is read as a review stream when its path ends with
+`reviews/telemetry.jsonl` AND every non-blank line parses as a `review_receipt` labelled `"reviewer"`;
+anything else at that path is read as a learner stream. That rule is what keeps a learner stream
+whose bundle id happens to be `reviews` (layout `<pseudonym>/reviews/telemetry.jsonl`) a learner
+stream: its `consent_granted` line and ordinary events make the test fail. A review stream needs no
+`consent_granted` line — a reviewer is not a learner, so no learner consent governs it — and its
+identities are NOT added to `members`, to `has_pseudonym` or to the floor. Its `review_receipt`
+events feed the review counters, and the `review` block is gated on the class's members, not on
+`review_by` (it is published with the report), carrying `"source": "reviews"` when it comes from
+these streams. An event in a review stream whose `learner_pseudonym` is not `"reviewer"` is counted
+in `invalid_events`. A `review_receipt` found in a learner's stream keeps the ordinary path (it
+counts toward that learner's members and the `review_by` gate): such receipts join the CLI's
+figures only when `review_by` passes the floor on its own, else the block carries
+`learner_receipts_withheld: true` and counts the CLI's receipts alone. An identity labelled
+`"reviewer"` in a learner stream is skipped when the members are collected: the role label is not a
+learner, though its event still follows the ordinary path. With `--single-stream` on a review
+stream, the review block is reported alone.
+
 "Order" within a stream is the order of its lines, which is the order the host appended them.
 What it does NOT measure: the agent's first word ("premier mot de l'agent") comes from the bench,
 not from telemetry; learning ("apprentissage") is `class_report.py`'s, not this report's.
@@ -95,17 +116,25 @@ ACCEPTANCE_FLOOR = 0.2
 REFUSED_NO_CONSENT = "refused: no consent_granted event in this stream"
 SINGLE_STREAM_WARNING = ("single stream: these figures are one learner's (a labelled synthetic "
                          "learner of a bench) and must not be read for a person")
+REVIEW_SINGLE_STREAM_WARNING = ("single review stream: these figures are the receipts of one "
+                                "course's reviews, not a learner's; read them as a bench sample")
 
 
 class RefusedStream(ValueError):
     """A stream that cannot be reported: it carries no recorded consent."""
 
 
-def _read_stream(path: Path) -> tuple[list[dict], int, int, bool, set[tuple]]:
+def _read_stream(path: Path, *, review: bool = False) -> tuple[list[dict], int, int, bool, set[tuple]]:
     """The stream's events of the seven types (contract-validated), its malformed and invalid
     line counts, whether it carries a `consent_granted` event, and the (lesson_id,
     learner_pseudonym) pairs its parsed events carry — every event counts toward who is in the
-    class, as in `class_report.py`, not only the seven types."""
+    class, as in `class_report.py`, not only the seven types.
+
+    `review=True` is a review stream (see `_is_review_stream`): a reviewer is not a learner, so no
+    `consent_granted` is expected or required, no identity is collected, and any event whose
+    `learner_pseudonym` is not the fixed role label `"reviewer"` is counted invalid. In a learner
+    stream an identity labelled `"reviewer"` is skipped from `identities` (a role, not a learner)
+    while its event keeps the ordinary path."""
     events: list[dict] = []
     malformed = invalid = 0
     consent = False
@@ -122,7 +151,13 @@ def _read_stream(path: Path) -> tuple[list[dict], int, int, bool, set[tuple]]:
         if not isinstance(e, dict):
             malformed += 1
             continue
-        identities.add((e.get("lesson_id"), e.get("learner_pseudonym")))
+        if review:
+            if e.get("learner_pseudonym") != "reviewer":
+                invalid += 1
+                continue
+        else:
+            if e.get("learner_pseudonym") != "reviewer":
+                identities.add((e.get("lesson_id"), e.get("learner_pseudonym")))
         t = e.get("type")
         if t == "consent_granted":
             consent = True
@@ -136,6 +171,39 @@ def _read_stream(path: Path) -> tuple[list[dict], int, int, bool, set[tuple]]:
             continue
         events.append(e)
     return events, malformed, invalid, consent, identities
+
+
+REVIEW_STREAM_SUFFIX = ("reviews", "telemetry.jsonl")
+
+
+def _is_review_stream(path: Path) -> bool:
+    """`<course>/reviews/telemetry.jsonl` whose every non-blank line is a `review_receipt` labelled
+    `"reviewer"`: the CLI's review events, next to the receipts.
+
+    The content test, not the path alone, is what keeps a learner stream under a bundle id `reviews`
+    (`<pseudonym>/reviews/telemetry.jsonl`) a learner stream: its consent line and ordinary events
+    fail it. A stream at that path with no lines, a malformed line, or any other event type is read
+    as a learner stream (and therefore needs its consent)."""
+    if len(path.parts) < 2 or path.parts[-2:] != REVIEW_STREAM_SUFFIX:
+        return False
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    seen = False
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except ValueError:
+            return False
+        if not isinstance(event, dict) or event.get("type") != "review_receipt" \
+                or event.get("learner_pseudonym") != "reviewer":
+            return False
+        seen = True
+    return seen
 
 
 class _Acc:
@@ -160,10 +228,10 @@ class _Acc:
         self.causes: Counter = Counter()
         self.twice = 0
         self.resume_by: set = set()
-        self.receipts = self.fully = 0
-        self.opened_shares: list[float] = []
-        self.decisions: Counter = Counter()
+        self.learner_receipts = _Receipts()  # found in learners' streams, gated on `review_by`
         self.review_by: set = set()
+        self.review_stream_receipts = _Receipts()  # the CLI's, gated on the class's members
+        self.review_streams = 0
 
     def add_stream(self, events: list[dict], sf: str) -> None:
         explained: set[str] = set()
@@ -211,12 +279,48 @@ class _Acc:
                 self.resume_by.add(member)
                 pending_resume = True
             elif t == "review_receipt":
-                self.receipts += 1
-                self.fully += e["opened"] == e["items"]
-                if e["items"] > 0:
-                    self.opened_shares.append(min(e["opened"], e["items"]) / e["items"])
-                self.decisions[e["decision"]] += 1
+                self.learner_receipts.add(e)
                 self.review_by.add(member)
+
+    def add_review_stream(self, events: list[dict]) -> None:
+        """A review stream's receipts feed their own counters, apart from the learners': a
+        reviewer is not a class member, so nothing is added to `review_by`."""
+        self.review_streams += 1
+        for e in events:
+            if e["type"] == "review_receipt":
+                self.review_stream_receipts.add(e)
+
+
+class _Receipts:
+    """The review counters of one kind of stream (learners' or the CLI's), kept apart so that each
+    is published under its own gate."""
+
+    def __init__(self) -> None:
+        self.receipts = self.fully = 0
+        self.opened_shares: list[float] = []
+        self.decisions: Counter = Counter()
+
+    def add(self, e: dict) -> None:
+        self.receipts += 1
+        self.fully += e["opened"] == e["items"]
+        if e["items"] > 0:
+            self.opened_shares.append(min(e["opened"], e["items"]) / e["items"])
+        self.decisions[e["decision"]] += 1
+
+    def plus(self, other: "_Receipts") -> "_Receipts":
+        merged = _Receipts()
+        merged.receipts = self.receipts + other.receipts
+        merged.fully = self.fully + other.fully
+        merged.opened_shares = self.opened_shares + other.opened_shares
+        merged.decisions = self.decisions + other.decisions
+        return merged
+
+    def figures(self) -> dict:
+        return {
+            "receipts": self.receipts, "fully_opened_share": round(self.fully / self.receipts, 3),
+            "mean_opened_share": (round(sum(self.opened_shares) / len(self.opened_shares), 3)
+                                  if self.opened_shares else None),
+            "decisions": {d: self.decisions[d] for d in _DECISIONS}}
 
 
 def _p95(values: list[float]) -> float:
@@ -226,8 +330,13 @@ def _p95(values: list[float]) -> float:
     return int(v) if float(v).is_integer() else round(v, 1)
 
 
-def _indicators(acc: _Acc, rule: str, floor: int | None) -> dict:
-    """Every § 2.10 indicator. `floor=None` (single stream) publishes without a floor."""
+def _indicators(acc: _Acc, rule: str, floor: int | None, members: set | None = None) -> dict:
+    """Every § 2.10 indicator. `floor=None` (single stream) publishes without a floor.
+
+    `members` is the class's population, used to gate the review block of the CLI's review streams:
+    a reviewer's stream adds receipts but no members, so gating it on `review_by` would withhold the
+    block the review streams exist to publish. Receipts found in learners' streams keep their own
+    `review_by` gate."""
     def state(members: set) -> str:
         if not members:
             return "empty"
@@ -288,11 +397,24 @@ def _indicators(acc: _Acc, rule: str, floor: int | None) -> dict:
     rep["resumes"] = gate(acc.resume_by, lambda: {
         "count": sum(acc.causes.values()), "by_cause": {c: acc.causes[c] for c in _CAUSES},
         "scenes_shown_twice": acc.twice, "target_scenes_shown_twice": 0})
-    rep["review"] = gate(acc.review_by, lambda: {
-        "receipts": acc.receipts, "fully_opened_share": round(acc.fully / acc.receipts, 3),
-        "mean_opened_share": (round(sum(acc.opened_shares) / len(acc.opened_shares), 3)
-                              if acc.opened_shares else None),
-        "decisions": {d: acc.decisions[d] for d in _DECISIONS}})
+    learner, reviews = acc.learner_receipts, acc.review_stream_receipts
+    if not reviews.receipts:
+        # Today's path: receipts found in learners' streams, gated on the learners who carry one.
+        rep["review"] = gate(acc.review_by, learner.figures)
+        return rep
+    # The CLI's receipts are class-level, gated on the class's members. Learner-stream receipts join
+    # them only when their own gate passes: under the floor they stay withheld, and the block says so,
+    # so that no learner's receipt is published through the class gate.
+    learners_join = bool(acc.review_by) and state(acc.review_by) == "published"
+
+    def figures() -> dict:
+        combined = reviews.plus(learner) if learners_join else reviews
+        out = {**combined.figures(), "source": "reviews"}
+        if acc.review_by and not learners_join:
+            out["learner_receipts_withheld"] = True
+        return out
+
+    rep["review"] = gate(set(members) if members else {"review-stream"}, figures)
     return rep
 
 
@@ -305,6 +427,12 @@ def build_interaction_report(run_dir: Path, *, min_learners: int = MIN_LEARNERS_
     has_pseudonym: dict[str, bool] = {}
     members: set[tuple] = set()
     for path in sorted(Path(run_dir).rglob("telemetry.jsonl")):
+        if _is_review_stream(path):
+            events, bad, wrong, _consent, _identities = _read_stream(path, review=True)
+            malformed += bad
+            invalid += wrong
+            acc.add_review_stream(events)
+            continue
         events, bad, wrong, consent, identities = _read_stream(path)
         if not consent:
             refused += 1
@@ -344,12 +472,21 @@ def build_interaction_report(run_dir: Path, *, min_learners: int = MIN_LEARNERS_
 
     return {"status": "ok", "suppressed": False, **head,
             "identity_rule": rule, **population.judgement(floor),
-            **_indicators(acc, rule, floor)}
+            **_indicators(acc, rule, floor, members)}
 
 
 def build_single_stream_report(path: Path) -> dict:
-    """One stream, no floor: for the labelled synthetic learners of the benches only. Raises
-    `RefusedStream` when the stream records no consent."""
+    """One stream, no floor: for the labelled synthetic learners of the benches only. A review
+    stream reports the review block alone (no learner figures). Raises `RefusedStream` when a
+    learner stream records no consent."""
+    if _is_review_stream(Path(path)):
+        events, malformed, invalid, _consent, _identities = _read_stream(Path(path), review=True)
+        acc = _Acc()
+        acc.add_review_stream(events)
+        return {"status": "ok", "suppressed": False, "scope": "single_stream",
+                "warning": REVIEW_SINGLE_STREAM_WARNING, "refused_streams": 0,
+                "malformed_lines": malformed, "invalid_events": invalid,
+                **_indicators(acc, "stream", None)}
     events, malformed, invalid, consent, _identities = _read_stream(Path(path))
     if not consent:
         raise RefusedStream(REFUSED_NO_CONSENT)
@@ -358,7 +495,7 @@ def build_single_stream_report(path: Path) -> dict:
     return {"status": "ok", "suppressed": False, "scope": "single_stream",
             "warning": SINGLE_STREAM_WARNING, "refused_streams": 0,
             "malformed_lines": malformed, "invalid_events": invalid,
-            **_indicators(acc, "stream", None)}
+            **_indicators(acc, "stream", None, {(None, "single-stream", str(path))})}
 
 
 def _md(rep: dict) -> str:
@@ -429,7 +566,8 @@ def _md(rep: dict) -> str:
     if head("Review receipts", rv):
         L.append(f"{rv['receipts']} receipts · fully opened {rv['fully_opened_share']} · mean share "
                  f"opened {rv['mean_opened_share']} · approved {rv['decisions']['approved']}, "
-                 f"returned {rv['decisions']['returned']}")
+                 f"returned {rv['decisions']['returned']}"
+                 + (f" · source {rv['source']}" if rv.get("source") else ""))
     if rep["scope"] == "class":
         L.append(f"\n> {NON_ATTRIBUTION}.")
     return "\n".join(L)

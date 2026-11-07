@@ -146,6 +146,12 @@ possible unless an item is `to_fix` (then use a returned receipt), and the recei
 mark scenes new, changed or unchanged. To send a lesson back instead, `receipt --decision returned
 --reviewer NAME` writes the receipt alone, without `approval.json`.
 
+Each decision also writes one telemetry event to `reviews/telemetry.jsonl`, in the same folder as
+the receipts. It carries the decision, the number of items and how many you opened, and the time of
+the receipt; it never carries your name: `learner_pseudonym` is the fixed role label `reviewer`, so
+the usage report can count reviews without naming who reviewed. It never enters a learner's
+telemetry stream.
+
 ## Optional: approve a plan before synthesis
 
 If you generate scenes with a configured synthesis orchestrator rather than filling the skeleton,

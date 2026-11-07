@@ -4492,6 +4492,41 @@ Checked by the lead on the final tree, 7 Nov 15:02: the eleven gates (`pnpm inst
 
 Not verified: no learner has looked for the claim of an upcoming concept on a real surface.
 
+## 2026-11-07 (review_receipt event) — The receipt emits its event under the role label « reviewer »
+
+INT-STUDIUM-058 § 2.10, the seventh event type, emitted by nothing until the owner chose on 7 Nov the
+fixed role label (rule B of three proposed): `approve` and `receipt --decision returned` append one
+line to `<course>/reviews/telemetry.jsonl` with `learner_pseudonym: "reviewer"` (a role, not an
+identity), the lesson id and bundle version as the server's events carry them, the receipt's
+`decided_at`, a deterministic `event_id`, the decision and the counts, validated against the Python
+contract before anything is written; bytes identical between languages. `interaction_report.py`
+reads `reviews/telemetry.jsonl` as a review stream (no consent line, no member toward the floor,
+review block published with the class report). telemetry-events README, `docs/teach/review-and-
+approve` and `docs/reference/cli` (FR/EN) say so. Codex DeepSeek V4.1 Flash mission
+(`TASK-review-receipt-event.md`), reviewed by the lead.
+
+Tests: `tools/test_experience_packet.py` and `tools/test_interaction_report.py`, 161 passed (seven new
+functions on the event: `approve` writes the line next to the receipt, `receipt` appends a second one
+with a distinct id, a contract failure refuses before any write, the one-line EN/FR refusal, a failed
+append on `approve` and on `receipt` names the receipt already written, the EN summary line; nine on
+the report: a review stream feeds the block without joining the floor, needs no consent, a foreign
+pseudonym at the reviews path is read as a learner stream, a learner-stream receipt alone stays
+withheld, the CLI's receipt is published without the learner receipt still under its floor, learner
+receipts join once their own floor passes, a reviewer-labelled event in a learner stream is not a
+learner, a learner stream under a bundle id `reviews`, `--single-stream` on a review stream); every
+new test seen red first; `tools/test_review_receipt_parity.py` unchanged. The lead changed the fix
+mission's gate, which let a learner-stream receipt through the class gate as soon as a review stream
+existed (its own test said so): the two kinds of receipt are now counted apart (`_Receipts`), a
+learner's receipts join the CLI's figures only when `review_by` passes the floor, else the block
+carries `learner_receipts_withheld: true`.
+
+Checked: the eleven gates green on the final tree (install, build:libs, build, lint, `pnpm -r test`,
+`tools/pytest_all.py` 16 suites 0 failing with tools at 621, bundle, docs check, headless smoke,
+bundle MCP, probe), `pnpm test:tools` 9; `git diff --check` clean. No TypeScript changes in this
+commit: the dashboard and mod suites stand as at `a55cf92`.
+
+Not verified: no teacher has approved a lesson since; no real class stream holds a review event.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import unicodedata
+import uuid
 from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
@@ -26,13 +27,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 ROOT = Path(__file__).resolve().parents[1]
 for package_path in (
     ROOT / "packages" / "perspicacite-client" / "python",
     ROOT / "packages" / "lesson-plan-schema" / "python",
     ROOT / "packages" / "lesson-bundle-schema" / "python",
+    ROOT / "packages" / "telemetry-events" / "python",
 ):
     if str(package_path) not in sys.path:
         sys.path.insert(0, str(package_path))
@@ -62,6 +64,7 @@ from self_study_passages import (  # noqa: E402
     build_passage_envelope,
     is_self_study_origin,
 )
+from telemetry_events import TelemetryEvent  # noqa: E402
 
 PACKET_SCHEMA_VERSION = "1.0"
 TOOL_VERSION = "1.0"
@@ -323,6 +326,7 @@ SUMMARY_TEXT = {
         "opened": "opened {opened} of {total} items",
         "verdicts": "verdicts: {ok} ok, {to_fix} to fix",
         "unopened_grading": "warning: {count} grading item(s) not opened before approval: {ids}",
+        "event": "event: {path}",
         "approval_record": "Approval record:",
         "returned_by": "Returned by {reviewer} at {at}",
         "receipt_record": "Review receipt:",
@@ -353,6 +357,7 @@ SUMMARY_TEXT = {
         "unopened_grading": (
             "avertissement\u00a0: {count} élément(s) de notation non ouvert(s) avant l’approbation\u00a0: {ids}"
         ),
+        "event": "événement\u00a0: {path}",
         "approval_record": "Enregistrement d’approbation\u00a0:",
         "returned_by": "Renvoyée par {reviewer} le {at}",
         "receipt_record": "Reçu de relecture\u00a0:",
@@ -393,6 +398,13 @@ REFUSAL_TEXT = {
         "receipt_approved": "receipt records a returned lesson; to approve, use approve (it writes the receipt too)",
         "unknown_decision": "unknown decision {decision!r}",
         "write_receipt": "cannot write review receipt: {detail}",
+        "receipt_event_not_appended": (
+            "receipt written at {path}; event not appended: {detail}"
+        ),
+        "receipt_event_invalid": (
+            "the review receipt's telemetry event does not match the contract, so nothing was "
+            "written: {detail}"
+        ),
         "checklist_entry": "invalid checklist entry {item!r}; expected key=value",
         "checklist_duplicate": "duplicate checklist key {key!r}",
     },
@@ -436,6 +448,13 @@ REFUSAL_TEXT = {
         ),
         "unknown_decision": "décision inconnue {decision!r}",
         "write_receipt": "impossible d’écrire le reçu de relecture\u00a0: {detail}",
+        "receipt_event_not_appended": (
+            "le reçu a été écrit à {path}\u202f; l’événement n’a pas été ajouté\u00a0: {detail}"
+        ),
+        "receipt_event_invalid": (
+            "l’événement de télémétrie du reçu de relecture ne respecte pas le contrat\u202f; rien "
+            "n’a été écrit\u00a0: {detail}"
+        ),
         "checklist_entry": "entrée de checklist invalide {item!r}\u202f; forme attendue clé=valeur",
         "checklist_duplicate": "clé de checklist en double {key!r}",
     },
@@ -838,6 +857,87 @@ def _write_receipt(path: Path, receipt: dict[str, Any]) -> None:
         handle.write(_json_bytes(receipt))
 
 
+REVIEW_EVENT_PATH = "reviews/telemetry.jsonl"
+REVIEWER_ROLE = "reviewer"
+_TELEMETRY_EVENT = TypeAdapter(TelemetryEvent)
+
+
+def _review_event_path(bundle_path: Path) -> Path:
+    """The review events, next to the receipts: a reviewer is a role, never in a learner's stream."""
+    return bundle_path.parent / "reviews" / "telemetry.jsonl"
+
+
+def _bundle_version(bundle: dict[str, Any]) -> str:
+    """M5.7's convention, read from the same fields `bundleVersionOf` reads; "unversioned" when one
+    is missing (the contract's own default for an ingested event)."""
+    schema_version = bundle.get("schema_version")
+    bundle_id = bundle.get("bundle_id")
+    validated_at = bundle.get("validated_at")
+    if not all(isinstance(value, str) and value for value in (schema_version, bundle_id, validated_at)):
+        return "unversioned"
+    return f"{schema_version}:{bundle_id}@{validated_at}"
+
+
+def _review_receipt_event(receipt: dict[str, Any], bundle: dict[str, Any]) -> dict[str, Any]:
+    """The `review_receipt` event of one receipt: the role label, the counts, no name.
+
+    The id is deterministic (uuid5 over the reviewed bytes' digest and the decision time), so two
+    copies of a course write the same bytes, and the event is validated against the Python contract
+    before anything is written.
+    """
+    # `ctx.lessonId` on the server is the bundle's `bundle_id`; a bare fixture with none falls back
+    # to the receipt's `bundle_ref` (the course folder's name), so the event stays usable.
+    lesson_id = bundle.get("bundle_id") or receipt.get("bundle_ref")
+    if not isinstance(lesson_id, str) or not lesson_id:
+        raise _refusal("receipt_event_invalid", detail="the receipt carries no lesson id")
+    decided_at = receipt.get("decided_at")
+    bundle_sha256 = receipt.get("bundle_sha256")
+    if not all(isinstance(value, str) and value for value in (decided_at, bundle_sha256)):
+        raise _refusal("receipt_event_invalid", detail="the receipt carries no decided_at or digest")
+    event = {
+        "type": "review_receipt",
+        "event_id": str(
+            uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                f"studium:review_receipt:{bundle_sha256}:{decided_at}",
+            )
+        ),
+        "learner_pseudonym": REVIEWER_ROLE,
+        "lesson_id": lesson_id,
+        "bundle_version": _bundle_version(bundle),
+        "client_timestamp": decided_at,
+        "decision": receipt["decision"],
+        "items": len(receipt.get("items") or []),
+        "opened": receipt["opened"],
+        "not_opened": receipt["not_opened"],
+    }
+    try:
+        _TELEMETRY_EVENT.validate_python(event)
+    except ValidationError as exc:
+        first = exc.errors()[0]
+        location = ".".join(map(str, first["loc"]))
+        raise _refusal(
+            "receipt_event_invalid", detail=f"{location}: {first['msg']}" if location else first["msg"]
+        ) from exc
+    return event
+
+
+def _append_review_event(bundle_path: Path, event: dict[str, Any], receipt_path: Path) -> Path:
+    path = _review_event_path(bundle_path)
+    # One JSONL line: the compact canonical JSON (the bytes `_scene_fingerprint` hashes), while the
+    # receipt itself stays the indented `_json_bytes`.
+    line = _canonical_json(event) + "\n"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(line)
+    except OSError as exc:
+        # The receipt (and, on approve, the bundle and approval record) already exist: running the
+        # command again would write a second receipt, so this event cannot be recovered that way.
+        raise _refusal("receipt_event_not_appended", path=receipt_path, detail=exc) from exc
+    return path
+
+
 def _receipt_summary(receipt_path: Path, language: str = "en") -> list[str]:
     receipt, _ = _load_json(receipt_path, "review receipt")
     items = receipt.get("items") or []
@@ -863,6 +963,7 @@ def _receipt_summary(receipt_path: Path, language: str = "en") -> list[str]:
             lines.append(
                 _summary_text(language, "unopened_grading", count=len(unopened), ids=", ".join(unopened))
             )
+    lines.append(_summary_text(language, "event", path=REVIEW_EVENT_PATH))
     return lines
 
 
@@ -892,6 +993,8 @@ def record_review_receipt(
         bundle=bundle, bundle_bytes=raw, bundle_path=bundle_path, reviewer=reviewer,
         decided_at=decided_at, decision=decision, opened=opened or [], note=note, verdicts=verdicts,
     )
+    # Validated before the receipt is written: a `receipt_event_invalid` refusal writes nothing.
+    event = _review_receipt_event(receipt, bundle)
     path = _receipt_path(bundle_path, decided_at, receipt["bundle_sha256"])
     _refuse_existing_receipt(path)
     try:
@@ -901,6 +1004,7 @@ def record_review_receipt(
         raise
     except OSError as exc:
         raise _refusal("write_receipt", detail=exc) from exc
+    _append_review_event(bundle_path, event, path)
     return path
 
 
@@ -2610,6 +2714,8 @@ def approve_lesson_bundle(
     )
     if any(item.get("verdict") == "to_fix" for item in receipt["items"]):
         raise _refusal("approve_to_fix")
+    # Same rule as `receipt`: the event is validated before any file is written.
+    event = _review_receipt_event(receipt, bundle)
     receipt_path = _receipt_path(bundle_path, reviewed_at, receipt["bundle_sha256"])
     _refuse_existing_receipt(receipt_path)
     approval = {
@@ -2631,6 +2737,7 @@ def approve_lesson_bundle(
         _write_receipt(receipt_path, receipt)
     except OSError as exc:
         raise _refusal("receipt_not_written", path=receipt_path, detail=exc) from exc
+    _append_review_event(bundle_path, event, receipt_path)
     return approval_path
 
 

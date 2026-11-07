@@ -62,6 +62,8 @@ par un apprenant ou un enseignant en leçon, hors ligne et sans modèle. L'ordre
   `receipt --decision returned`. Quand au moins un avis est fourni, le résumé compte les éléments
   `ok` et `to_fix`. La commande signale aussi les scènes `grading` non ouvertes. Un reçu n'est jamais écrasé : les mêmes
   octets décidés deux fois le même jour sont refusés.
+  Chaque reçu ajoute aussi un événement `review_receipt` à `reviews/telemetry.jsonl`, à côté de lui,
+  sous l'étiquette de rôle `reviewer`.
 - `receipt --decision returned` sert à l'enseignant qui renvoie une leçon (le tableau de bord
   enseignant compose cette commande) : il n'écrit que le reçu, lié aux octets actuels, sans
   `approval.json` ni réécriture. `--decision approved` est refusé : utilisez `approve`.

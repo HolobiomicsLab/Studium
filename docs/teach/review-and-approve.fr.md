@@ -157,6 +157,12 @@ ajoutez au besoin `--note TEXTE` ; le résumé indique `opened N of M items` e
 inchangées. Pour renvoyer plutôt la leçon à son auteur, `receipt --decision returned --reviewer NOM`
 écrit le reçu seul, sans `approval.json`.
 
+Chaque décision écrit aussi un événement de télémétrie dans `reviews/telemetry.jsonl`, dans le même
+dossier que les reçus. Il porte la décision, le nombre d'éléments et combien vous en avez ouverts,
+et l'heure du reçu ; il ne porte jamais votre nom : `learner_pseudonym` est l'étiquette de rôle fixe
+`reviewer`, si bien que le rapport d'usage compte les relectures sans nommer qui a relu. Il n'entre
+jamais dans le flux de télémétrie d'un apprenant.
+
 ## Facultatif, approuver un plan avant synthèse
 
 Si vous faites générer les scènes par un orchestrateur de synthèse configuré au lieu de compléter le

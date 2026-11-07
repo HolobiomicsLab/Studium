@@ -308,5 +308,176 @@ def test_out_writes_json_and_markdown(tmp_path):
     assert (out / "interaction_report.md").read_text(encoding="utf-8").startswith("#")
 
 
+# (8) review streams: the CLI's review_receipt events next to the receipts ----------------------
+
+def _review_event(sha: str, decided_at: str, body: dict | None = None) -> dict:
+    event = {
+        "event_id": f"review-{sha[:6]}",
+        "learner_pseudonym": "reviewer",
+        "lesson_id": "demo",
+        "bundle_version": "1.4:demo@2026-11-06T00:00:00Z",
+        "client_timestamp": decided_at,
+        "type": "review_receipt",
+        "decision": "approved",
+        "items": 4,
+        "opened": 2,
+        "not_opened": 2,
+    }
+    event.update(body or {})
+    return event
+
+
+def _write_review_stream(run_dir: Path, events: list[dict], *, name: str = "reviews") -> Path:
+    d = run_dir / name
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / "telemetry.jsonl"
+    p.write_text("\n".join(json.dumps(e) for e in events) + "\n", encoding="utf-8")
+    return p
+
+
+def test_a_review_stream_feeds_the_review_block_without_joining_the_floor(tmp_path):
+    _class(tmp_path)
+    without = build_interaction_report(tmp_path)
+
+    _write_review_stream(
+        tmp_path,
+        [
+            _review_event("a1", "2026-11-07T09:00:00Z"),
+            _review_event("b2", "2026-11-07T09:05:00Z", {"decision": "returned", "opened": 4, "not_opened": 0}),
+        ],
+    )
+    rep = build_interaction_report(tmp_path)
+
+    assert rep["status"] == "ok"
+    assert rep["refused_streams"] == 0
+    assert rep["invalid_events"] == 0
+    # the reviewer is a role, not a learner: the floor and the cohort do not move
+    assert rep["cohort_band"] == without["cohort_band"]
+    assert rep["cohort_counts"] == without["cohort_counts"]
+
+    rv = rep["review"]
+    assert rv["source"] == "reviews"
+    assert rv["receipts"] == 7  # the five learner-stream receipts plus the two review-stream ones
+    assert rv["fully_opened_share"] == round(3 / 7, 3)
+    assert rv["decisions"] == {"approved": 6, "returned": 1}
+    assert interaction_report._md(rep)
+
+
+def test_a_review_stream_needs_no_consent_and_is_not_refused(tmp_path):
+    _class(tmp_path)
+    _write_review_stream(tmp_path, [_review_event("a1", "2026-11-07T09:00:00Z")])
+
+    rep = build_interaction_report(tmp_path)
+
+    assert rep["refused_streams"] == 0
+    assert rep["review"]["receipts"] == 6
+
+
+def test_a_reviews_path_with_a_foreign_pseudonym_is_read_as_a_learner_stream(tmp_path):
+    """Decision: rule 5 classifies by content, so a `reviews/` path carrying any non-reviewer line
+    is a learner stream and is refused without consent, not a review stream with one invalid line."""
+    _class(tmp_path)
+    _write_review_stream(
+        tmp_path,
+        [
+            _review_event("a1", "2026-11-07T09:00:00Z"),
+            _review_event("b2", "2026-11-07T09:05:00Z", {"learner_pseudonym": "hmac:someone"}),
+        ],
+    )
+
+    rep = build_interaction_report(tmp_path)
+
+    assert rep["invalid_events"] == 0
+    assert rep["refused_streams"] == 1
+    assert rep["review"]["receipts"] == 5  # the learner receipts only
+
+
+def test_a_learner_stream_receipt_alone_keeps_the_review_block_withheld(tmp_path):
+    _class(tmp_path)
+    for i in range(2, 6):
+        healthy = _stamp(f"p-{i}", [b for b in _learner_bodies(i) if b["type"] != "review_receipt"])
+        _write_stream(tmp_path, f"p-{i}", healthy)
+
+    rep = build_interaction_report(tmp_path)
+
+    assert rep["status"] == "ok"
+    assert rep["review"] == {"measured": True, "withheld": True}
+
+
+def test_a_review_stream_publishes_without_the_learner_receipt_still_under_its_floor(tmp_path):
+    _class(tmp_path)
+    for i in range(2, 6):
+        healthy = _stamp(f"p-{i}", [b for b in _learner_bodies(i) if b["type"] != "review_receipt"])
+        _write_stream(tmp_path, f"p-{i}", healthy)
+    _write_review_stream(tmp_path, [_review_event("a1", "2026-11-07T09:00:00Z")])
+
+    rep = build_interaction_report(tmp_path)
+
+    # The CLI's receipt is class-level: the class of five lets it through. The one learner-stream
+    # receipt (p-1) keeps its own gate (one learner under a floor of five) and stays out of the
+    # figures, which say so: one receipt, not two.
+    assert rep["review"]["measured"] is True
+    assert "withheld" not in rep["review"]
+    assert rep["review"]["source"] == "reviews"
+    assert rep["review"]["receipts"] == 1
+    assert rep["review"]["decisions"] == {"approved": 1, "returned": 0}
+    assert rep["review"]["learner_receipts_withheld"] is True
+
+
+def test_learner_receipts_join_the_review_stream_once_their_own_floor_passes(tmp_path):
+    _class(tmp_path)  # five learners, each carrying one approved receipt in its own stream
+    _write_review_stream(tmp_path, [_review_event("a1", "2026-11-07T09:00:00Z")])
+
+    rep = build_interaction_report(tmp_path)
+
+    assert rep["review"]["receipts"] == 6  # five learner-stream receipts plus the CLI's
+    assert rep["review"]["decisions"] == {"approved": 6, "returned": 0}
+    assert "learner_receipts_withheld" not in rep["review"]
+
+
+def test_a_reviewer_labelled_event_in_a_learner_stream_does_not_count_as_a_learner(tmp_path):
+    for i in range(1, 5):
+        _write_stream(tmp_path, f"p-{i}", _stamp(f"p-{i}", _learner_bodies(i)))
+    ghost = _stamp("ghost", [{"type": "consent_granted", "scope": "A"},
+                             *_learner_bodies(1)[1:]])
+    for event in ghost:
+        event["learner_pseudonym"] = "reviewer"
+    _write_stream(tmp_path, "ghost", ghost)
+
+    rep = build_interaction_report(tmp_path)
+
+    # Four learners plus a "reviewer" label: a role, not a fifth learner, so the floor holds.
+    assert rep["status"] == "suppressed"
+    assert rep["min_learners"] == 5
+
+
+def test_a_learner_stream_under_a_reviews_bundle_is_read_as_a_learner_stream(tmp_path):
+    p = tmp_path / "p-1" / "reviews" / "telemetry.jsonl"
+    p.parent.mkdir(parents=True)
+    p.write_text("\n".join(json.dumps(e) for e in _stamp("p-1", _learner_bodies(1))) + "\n",
+                 encoding="utf-8")
+
+    rep = build_single_stream_report(p)
+
+    assert rep["scope"] == "single_stream"
+    assert rep["fast_lane"]["share"] == 0.8
+    assert rep["review"]["receipts"] == 1
+    assert "one learner" in rep["warning"]
+
+
+def test_single_stream_on_a_review_stream_reports_the_review_block_alone(tmp_path, capsys):
+    p = _write_review_stream(tmp_path, [_review_event("a1", "2026-11-07T09:00:00Z")])
+
+    assert main([str(p), "--single-stream", "--json"]) == 0
+    rep = json.loads(capsys.readouterr().out)
+    assert rep["review"]["measured"] is True
+    assert rep["review"]["receipts"] == 1 and rep["review"]["source"] == "reviews"
+    assert rep["fast_lane"] == {"measured": False}
+    assert rep["contests"] == {"measured": False}
+    # a review stream is not "one learner's": its warning says what it is
+    assert "one learner's" not in rep["warning"]
+    assert "review" in rep["warning"]
+
+
 if __name__ == "__main__":  # pragma: no cover
     sys.exit(pytest.main([os.path.abspath(__file__), "-q"]))
