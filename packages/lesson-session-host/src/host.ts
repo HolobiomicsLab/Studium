@@ -71,7 +71,7 @@ import {
 } from "./orientation.js";
 import { COMPANION_RULES, noteAct, takeActs, type ActReceived, type CompanionBrief, type Lane } from "./companion.js";
 import { ContestRefusedError, checkScenes, claimFor, contestOutcome, type ContestClaim, type RecordContest } from "./contest.js";
-import { NOTICE_KINDS, PromptBook, promptCandidates, type PromptAttention, type PromptCandidate, type PromptRecord } from "./prompts.js";
+import { NOTICE_KINDS, PromptBook, promptCandidates, resumeNoticeCandidate, type PromptAttention, type PromptCandidate, type PromptRecord } from "./prompts.js";
 import type { HostResponseInput } from "./response-input-schema.js";
 
 // Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /
@@ -1080,11 +1080,15 @@ export class SessionHost {
       const sessionId = randomUUID();
       this.registry.create(sessionId, entry);
       this.experiments.set(sessionId, new ExperimentJournal(experimentRevision(bundle), journalDirectory));
+      const resume = resumeFor(bundle, initial, profile, started.scene.id);
+      // Taken up again after a close or a server restart: the consented stream says why, and the
+      // learner is told where they are (fed before `served`, so the conversation text says it too).
+      if (resume.kind === "resumed") {
+        this.emitSessionEvent(entry, { type: "resume", cause: "restart" });
+        this.noticeResume(entry, started);
+      }
       const presentation = this.served(entry, started);
       await this.publishStatus(entry);
-      const resume = resumeFor(bundle, initial, profile, presentation.scene.id);
-      // Taken up again after a close or a server restart: the consented stream says why.
-      if (resume.kind === "resumed") this.emitSessionEvent(entry, { type: "resume", cause: "restart" });
       const record = resume.kind === "completed" ? await this.studyStore.load(profilePseudonym) : null;
       const conceptMap = this.conceptMapOf(entry, "start");
       return {
@@ -1467,6 +1471,22 @@ export class SessionHost {
       ...(voiced ? { voiceLine: voiceLine(voice, locale) } : {}),
       ...(prompts.length ? { prompts } : {}),
     };
+  }
+
+  /** A lesson taken up again says so on its first screen: a resume notice in the session's book, bound
+   * to that scene, with the step the status line shows. Fed at start, not by the surface that asks,
+   * because the conversation text of start_lesson_session is the first place it can be said; a panel
+   * asking afterwards finds it open. Logged as shown there, in the conversation (rank 1). */
+  private noticeResume(entry: SessionEntry, presentation: Presentation): void {
+    const book = (entry.prompts ??= new PromptBook());
+    const sceneId = presentation.scene.id;
+    entry.promptScene = sceneId;
+    const orientation = orientationFrom(this.orientationFactsOf(entry));
+    const locale = presentation.locale === "en" ? "en" : "fr";
+    const shown = book.emit([resumeNoticeCandidate(orientation.step, locale, sceneId)], { waiting: orientation.waiting, sceneId });
+    for (const prompt of shown) {
+      this.emitSessionEvent(entry, { type: "prompt_shown", kind: prompt.kind, attention: book.attention, surface_rank: 1, scene_id: sceneId });
+    }
   }
 
   /** INT-STUDIUM-058 § 2.6: the open prompts the conversation text of this screen says. The text is

@@ -76,7 +76,9 @@ ne dessinent que les notices. Le volet Claude Code affiche la raison et les mêm
 commandes. Dans le texte de conversation, le serveur dit chacune une fois, en ligne citée avant la ligne
 d'état, sur le premier écran qui n'attend pas de réponse ; une notice est dite aussitôt. Le texte dit ce
 qu'une surface a présenté au registre de la séance : une leçon jouée avec les seuls outils de séance, sans
-vue de panneau demandée, ne propose encore rien.
+vue de panneau demandée, ne propose encore rien. Seule exception, la notice de reprise : le serveur la
+présente lui-même au registre quand une leçon est reprise, et son premier écran dit « Reprise à l'étape n
+sur total. » dans le texte de `start_lesson_session` comme dans la vue.
 
 Une vue porte `strings`, le catalogue des libellés de l'interface dans la langue de la leçon (environ
 24 ko), pour la surface qui la dessine. Le serveur MCP le laisse vide là où rien ne dessine la vue

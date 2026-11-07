@@ -50,7 +50,7 @@ await host.close(sessionId);
 - A session started with `nowMs` runs on an `OffsetClock` anchored there, so its answers, ratings and review dates are stamped in that simulated time. Every date shown is a calendar day in the host's time zone (`timeZone`, default the machine's).
 - A review never replays a diagnostic scene (`isDiagnosticScene`) and, without a judge, prefers a scene graded against a key; the study plan uses the same rule (`pickReviewScene`).
 - Telemetry is written to disk only with consent (`STUDIUM_TELEMETRY_CONSENT`) and durable state.
-- The interaction log (INT-STUDIUM-058 § 2.10) is written by the host alone: `settleAct(id, {act, lane, surfaceRank, clientMs?}, run)` times `run` and adds one `interaction` event; `requestHint`, a contest's last check answer, `create` on a resumed lesson and `surfaceChanged` add `help_used`, `contest` and `resume`. Labels, ids, counts and delays only; the list of what emits what is in [telemetry-events](../telemetry-events/README.md).
+- The interaction log (INT-STUDIUM-058 § 2.10) is written by the host alone: `settleAct(id, {act, lane, surfaceRank, clientMs?}, run)` times `run` and adds one `interaction` event; `requestHint`, a contest's last check answer, `create` on a resumed lesson and `surfaceChanged` add `help_used`, `contest` and `resume`. `create` on a resumed lesson also opens a `resume_notice` in the session's prompt book ("Resumed at step n of total.", the status line's numbers), bound to that first scene: its conversation text and the panel's `prompts` both carry it. Labels, ids, counts and delays only; the list of what emits what is in [telemetry-events](../telemetry-events/README.md).
 
 ## Test
 

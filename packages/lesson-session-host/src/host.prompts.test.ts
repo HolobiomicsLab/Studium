@@ -68,9 +68,11 @@ describe("the prompts of a session", () => {
     now = T0 + 400 * DAY;                                                   // the learner comes back much later
     const { host, sid } = await start();
     const due = { id: "review_due:start", kind: "review_due", reason: "1 notion à revoir aujourd'hui", expires: "scene" };
-    expect(host.sessionPrompts(sid, ASK)).toEqual([due]);
-    expect(host.sessionPrompts(sid, ASK)).toEqual([due]);                   // still open, made once
-    expect(host.sessionPrompts(sid, { locale: "en" })).toEqual([due]);      // an open prompt keeps its words
+    // The lesson is taken up again: its resume notice (host.resume-notice.test.ts) is open beside it.
+    const resumed = { id: "resume_notice:s-c2", kind: "resume_notice", reason: "Reprise à l'étape 3 sur 4.", expires: "scene" };
+    expect(host.sessionPrompts(sid, ASK)).toEqual([resumed, due]);
+    expect(host.sessionPrompts(sid, ASK)).toEqual([resumed, due]);          // still open, made once
+    expect(host.sessionPrompts(sid, { locale: "en" })).toEqual([resumed, due]); // an open prompt keeps its words
     await host.respond(sid, { kind: "ack" });
     expect(host.sessionPrompts(sid, ASK)).toEqual([]);
     expect(host.promptRecords(sid)).toEqual([{ id: "review_due:start", kind: "review_due", scene_id: "s-c2", outcome: "ignored" }]);

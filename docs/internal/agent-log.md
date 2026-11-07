@@ -4222,6 +4222,33 @@ Checked: every repository check passes on this tree at its first run (install, b
 Not verified: no real learner's stream holds these events; the interaction report has not been
 run on one.
 
+## 2026-11-07 (walkthrough fixes) — An honest "opened" on the dashboard; a resumed lesson says so
+
+INT-STUDIUM-058, task 7.3: a cognitive walkthrough of the eight situations on each rank (hub
+audit `2026-11-07-parcours-cognitif-interface.md`, 104 step rows) found, among its reserves, two
+defects fixed at once in two commits.
+
+Dashboard: a click on Correct or To fix marked a grading item opened, though the review page
+never shows a grading item's key; the receipt would have attested a reading the screen did not
+allow. A verdict now sets the verdict only; the warning keeps every grading item and says to open
+them in `lesson.json` and add their ids to `--opened` by hand. Test decision: three assertions of
+the tests written the same day for `183122e` changed accordingly; one test added; three failed
+first.
+
+Session: a lesson taken up again came back silent. `create` now puts a `resume_notice` (« Reprise
+à l'étape n sur total. ») into the session's prompt book on the first screen, which reaches the
+panel view and the conversation text of `start_lesson_session`, with the session tools alone; the
+plan's note for task 5.2 claimed the orientation covered it, which was false. Test decision: one
+exact list in `host.prompts.test.ts` now expects the notice before the due review. Five new tests,
+four seen failing first.
+
+Still open from the walkthrough: no rank-3 surface draws `setAttention`, `setLanguage` or
+`replan` (« silencieux » unreachable); the forms do not say how to ask for a hint or a question.
+
+Checked: every repository check passes on this tree at its first run (install, build, lint,
+`pnpm -r test`, the Python suites, bundle lint, docs check, headless smoke, the MCP bundle,
+`tools/panel-probe.mjs`), and `pnpm test:tools` (9 tests).
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

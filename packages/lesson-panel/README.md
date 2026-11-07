@@ -71,7 +71,9 @@ one button per action the view offers; while an answer or a self-rating is owed 
 only. The Claude Code pane shows the reason and the same buttons after its controls. In the conversation
 text the server says each one once, as a quoted line before the status line, on the first screen that is
 not waiting for an answer; a notice is said at once. The text says what a surface put to the session's
-book: a lesson played with the session tools alone, with no panel view asked, proposes nothing yet.
+book: a lesson played with the session tools alone, with no panel view asked, proposes nothing yet. One
+exception, the resume notice: the server puts it to the book itself when a lesson is taken up again, so
+its first screen says "Resumed at step n of total." in the text of `start_lesson_session` as in the view.
 
 A view carries `strings`, the interface's phrase catalogue in the lesson's language (some 24 kB), for the
 surface that draws it. The MCP server leaves it empty where nothing draws the view (forms, the conversation):

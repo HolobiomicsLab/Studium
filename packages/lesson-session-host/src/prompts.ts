@@ -156,6 +156,7 @@ const WORDS = {
     next_lesson: "Leçon terminée : une autre leçon de ta bibliothèque peut suivre.",
     map_offer: "Leçon terminée : la carte montre où en est chaque notion.",
     forms_offer: "Cette leçon peut se jouer en formulaires : la réponse suivante arrive sans attendre l'assistant.",
+    resume_notice: "Reprise à l'étape {n} sur {total}.",
   },
   en: {
     review_one: "1 concept to review today",
@@ -164,8 +165,16 @@ const WORDS = {
     next_lesson: "Lesson finished: another lesson of your library can follow.",
     map_offer: "Lesson finished: the map shows where each concept stands.",
     forms_offer: "This lesson can be played in forms: the next answer comes without waiting for the assistant.",
+    resume_notice: "Resumed at step {n} of {total}.",
   },
 } as const;
+
+/** The notice of a lesson taken up again, on the scene it resumes at. `step` counts as the status
+ * line does (1-based, out of `total`), so the two never disagree. */
+export function resumeNoticeCandidate(step: { index: number; total: number }, locale: "fr" | "en", sceneId: string): PromptCandidate {
+  const reason = WORDS[locale].resume_notice.replace("{n}", String(step.index)).replace("{total}", String(step.total));
+  return noticeCandidate("resume_notice", reason, sceneId);
+}
 
 /** The proposals the facts of a moment call for. The list of triggers is closed (spec § 2.6): reviews
  * due at the start and at the end of a session; a session longer than the learner chose; the end of
