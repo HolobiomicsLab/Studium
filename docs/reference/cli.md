@@ -36,7 +36,8 @@ chose into a lesson, offline and without a model. The usual order is
 | `prepare` | `--passages`, `--out`, `--title` | `--target`, `--capsule`, `--task-id`, `--self-study` (automatic for passages from `passages`) |
 | `check` | `--packet`, `--response`, `--out` | `--force`; `--quiet` (print only the output path) or `--json` (one machine-readable report) |
 | `bundle` | `--course`, `--out` | `--validated-by`, `--force`, `--no-default-rules`, `--self-study`, `--note TEXT` (needs `--self-study`) |
-| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...` |
+| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...`, `--opened ID[,ID...]` (repeatable), `--note TEXT` |
+| `receipt` | `--bundle LESSON_JSON`, `--reviewer NAME`, `--decision returned` | `--opened ID[,ID...]` (repeatable), `--note TEXT` |
 
 What to expect:
 
@@ -50,6 +51,13 @@ What to expect:
   `validated_by` and `validated_at`, normalises the file and writes `approval.json` next to the
   bundle, bound to the SHA-256 of its final bytes. It prints a summary (reviewer and time, SHA-256,
   lint counts, the stale-approval reminder), then the path of `approval.json` as its last line.
+  It also writes the review receipt `reviews/<date>-<sha>.json` next to the bundle (one item per
+  scene: fingerprint, consequence, opened or not; `--opened` names the scenes read, an unknown id is
+  refused before any write) and warns about `grading` scenes not opened. A receipt is never
+  overwritten: the same bytes decided twice the same day are refused.
+- `receipt --decision returned` is for a teacher who sends a lesson back (the teacher dashboard
+  composes it): it writes only the receipt, bound to the current bytes, with no `approval.json` and
+  no rewrite. `--decision approved` is refused: use `approve`.
 
 Exit status: `0` success, `1` findings that block (or an unmatched quote), `2` a usage or packet
 error. With `--json`, `check` prints `{ok, findings, output, summary}`.

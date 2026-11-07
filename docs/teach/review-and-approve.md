@@ -104,6 +104,15 @@ you review and approve again. Free-form `validated_by` text never grants the App
 approval does not send the lesson to anyone: distribution is a separate step
 ([teacher guide](teacher-guide.md#distribute-a-lesson)).
 
+`approve` also writes a review receipt, `reviews/<date>-<first 12 hex of the SHA-256>.json` next to
+`lesson.json`: one item per scene with its fingerprint, its consequence (`grading`, `media`,
+`wording`) and whether you opened it. Name the scenes you read with `--opened ID[,ID...]` (an id that
+is not a scene is refused before anything is written) and add `--note TEXT` if you wish; the summary
+says `opened N of M items` and warns about each `grading` scene you did not open. Approving stays
+possible, the receipt keeps the fact. `review_lesson` compares the next version with this receipt to
+mark scenes new, changed or unchanged. To send a lesson back instead, `receipt --decision returned
+--reviewer NAME` writes the receipt alone, without `approval.json`.
+
 ## Optional: approve a plan before synthesis
 
 If you generate scenes with a configured synthesis orchestrator rather than filling the skeleton,

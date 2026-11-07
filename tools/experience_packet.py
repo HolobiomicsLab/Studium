@@ -12,6 +12,7 @@ import argparse
 import difflib
 import hashlib
 import json
+import math
 import re
 import shutil
 import subprocess
@@ -395,6 +396,279 @@ def _json_bytes(value: Any) -> bytes:
 
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+# --- review receipts (INT-STUDIUM-058 § 2.9, task 6.2) ------------------------------------------
+# review_lesson (packages/lesson-session-host/src/review-inbox.ts) marks each scene new / changed /
+# unchanged by comparing its fingerprints with the last receipt's. The fingerprints written here must
+# therefore be byte-for-byte the TypeScript ones; tools/test_review_receipt_parity.py holds that.
+
+REVIEW_RECEIPT_SCHEMA = "studium/review-receipt/v1"
+# Mirrors REDACTED_SCENE_FIELDS of packages/lesson-session-host/src/public-scene.ts.
+KEY_HOLDING_SCENE_FIELDS = (
+    "claims", "sound_claims", "key_points", "model_correction", "model_explanation", "model_answer",
+    "model_prompt", "model_response", "feedback_correct", "feedback_incorrect", "hints",
+)
+# The evidence.abs_asset types sceneRenderAssets renders (ABS_KIND in lesson-bundle-schema/src/scene-assets.ts).
+RENDERED_ABS_ASSET_TYPES = frozenset(
+    {
+        "spectrum_viewer_svg", "code_snippet", "script_snippet", "data_csv", "protocol_card_md",
+        "plot_spec", "equation_latex", "orbital_viewer_3d", "molecule_3d", "spectrum_data",
+    }
+)
+_PLACEHOLDER_SCENE_PATH = re.compile(r"^\$\.scenes\[(\d+)\]")
+
+
+def _js_number(value: Any) -> str:
+    """A JSON number as JavaScript's JSON.stringify writes it (ECMA-262 Number::toString).
+
+    Python writes ``1.0``, ``1e-07`` and ``1e+16``; JavaScript writes ``1``, ``1e-7`` and
+    ``10000000000000000``. ``repr`` already gives the shortest round-trip digits, as JavaScript does;
+    only the layout differs.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        if abs(value) < 2**53:
+            return str(value)
+        value = float(value)  # JavaScript holds every number as a double
+    if math.isnan(value) or math.isinf(value):
+        raise ValueError(f"{value!r} is not a JSON number")
+    if value == 0:
+        return "0"  # -0 included
+    sign = "-" if value < 0 else ""
+    mantissa, _, exponent = repr(abs(value)).partition("e")
+    integral, _, fraction = mantissa.partition(".")
+    digits = integral + fraction
+    # value = 0.<digits> x 10^n
+    n = len(integral) + (int(exponent) if exponent else 0)
+    stripped = digits.lstrip("0")
+    n -= len(digits) - len(stripped)
+    s = stripped.rstrip("0")
+    k = len(s)
+    if k <= n <= 21:
+        text = s + "0" * (n - k)
+    elif 0 < n <= 21:
+        text = s[:n] + "." + s[n:]
+    elif -6 < n <= 0:
+        text = "0." + "0" * (-n) + s
+    else:
+        e = n - 1
+        text = (s if k == 1 else s[0] + "." + s[1:]) + "e" + ("+" if e >= 0 else "-") + str(abs(e))
+    return sign + text
+
+
+def _canonical_json(value: Any) -> str:
+    """The canonical JSON of review-inbox.ts ``canonicalJson``: compact, object keys sorted by code
+    point at every depth, arrays in order, non-ASCII left as is, numbers as JavaScript writes them."""
+    if value is None:
+        return "null"
+    if isinstance(value, (bool, int, float)):
+        return _js_number(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(_canonical_json(item) for item in value) + "]"
+    if isinstance(value, dict):
+        return "{" + ",".join(
+            f"{json.dumps(key, ensure_ascii=False)}:{_canonical_json(value[key])}" for key in sorted(value)
+        ) + "}"
+    raise ValueError(f"cannot write {type(value).__name__} as JSON")
+
+
+def _scene_fingerprint(scene: Any) -> str:
+    """sha256 hex of the scene's canonical JSON: the whole raw scene, answer keys included."""
+    return _sha256(_canonical_json(scene).encode("utf-8"))
+
+
+def _non_empty(value: Any) -> bool:
+    # Same rule as review-inbox.ts: a blank string, an empty list or object, and null are empty.
+    if isinstance(value, str):
+        return value.strip() != ""
+    if isinstance(value, (list, dict)):
+        return len(value) > 0
+    return value is not None
+
+
+def _js_truthy(value: Any) -> bool:
+    # JavaScript truthiness: an empty list or object is truthy there, unlike in Python.
+    if value is None or isinstance(value, (list, dict)):
+        return value is not None
+    if isinstance(value, (bool, int, float)):
+        return bool(value) and not (isinstance(value, float) and math.isnan(value))
+    return value != ""
+
+
+def _scene_holds_key(scene: Any) -> bool:
+    """A non-empty answer-bearing field, or a quiz choice marked correct (sceneHoldsKey)."""
+    if not isinstance(scene, dict):
+        return False
+    if any(_non_empty(scene.get(field)) for field in KEY_HOLDING_SCENE_FIELDS):
+        return True
+    choices = scene.get("choices")
+    return isinstance(choices, list) and any(
+        isinstance(choice, dict) and choice.get("correct") is True for choice in choices
+    )
+
+
+def _scene_has_render_assets(scene: dict[str, Any]) -> bool:
+    """What sceneRenderAssets looks at: render_assets, image_path, a rendered evidence.abs_asset,
+    a reference_result that ran. A malformed render_assets makes the TypeScript call throw, which
+    review-inbox.ts reads as no asset: only a non-empty list counts here."""
+    render_assets = scene.get("render_assets")
+    if isinstance(render_assets, list) and render_assets:
+        return True
+    if _js_truthy(scene.get("image_path")):
+        return True
+    evidence = scene.get("evidence")
+    abs_asset = evidence.get("abs_asset") if isinstance(evidence, dict) else None
+    if isinstance(abs_asset, dict) and abs_asset.get("asset_type") in RENDERED_ABS_ASSET_TYPES:
+        return True
+    reference = scene.get("reference_result")
+    return isinstance(reference, dict) and _js_truthy(reference.get("ran"))
+
+
+def _scene_id(scene: Any, index: int) -> str:
+    scene_id = scene.get("id") if isinstance(scene, dict) else None
+    return scene_id if isinstance(scene_id, str) else f"#{index}"
+
+
+def _parse_opened(values: list[str] | None) -> list[str]:
+    return [part.strip() for value in values or [] for part in value.split(",") if part.strip()]
+
+
+def _review_receipt(
+    *,
+    bundle: dict[str, Any],
+    bundle_bytes: bytes,
+    bundle_path: Path,
+    reviewer: str,
+    decided_at: str,
+    decision: str,
+    opened: list[str],
+    note: str | None,
+) -> dict[str, Any]:
+    """Build a v1 review receipt for the exact bytes reviewed; refuse an id that is not a scene.
+
+    Consequence rule (the CLI's share of review-inbox.ts's): ``grading`` when the scene holds a
+    key, else ``media`` when it has render assets, else ``wording``. ``blocks`` (a check fails) is
+    written only for a returned lesson, for a scene with an unfilled placeholder: ``approve`` has
+    already refused placeholders and lint ERRORs, so nothing blocks at approval time.
+    """
+    raw_scenes = bundle.get("scenes")
+    scenes = raw_scenes if isinstance(raw_scenes, list) else []
+    ids = [_scene_id(scene, index) for index, scene in enumerate(scenes)]
+    unknown = sorted(set(opened) - set(ids))
+    if unknown:
+        raise PacketError(
+            f"--opened names {len(unknown)} id(s) that are not scenes of this lesson: {', '.join(unknown)}"
+        )
+    blocked: set[int] = set()
+    if decision == "returned":
+        for path in placeholder_paths(bundle):
+            match = _PLACEHOLDER_SCENE_PATH.match(path)
+            if match:
+                blocked.add(int(match.group(1)))
+    items = []
+    for index, (scene, scene_id) in enumerate(zip(scenes, ids)):
+        record = scene if isinstance(scene, dict) else {}
+        consequence = (
+            "blocks" if index in blocked
+            else "grading" if _scene_holds_key(scene)
+            else "media" if _scene_has_render_assets(record)
+            else "wording"
+        )
+        items.append(
+            {
+                "id": scene_id,
+                "sha256": _scene_fingerprint(scene),
+                "consequence": consequence,
+                "opened": scene_id in opened,
+            }
+        )
+    opened_count = sum(item["opened"] for item in items)
+    bundle_id = bundle.get("bundle_id")
+    receipt: dict[str, Any] = {
+        "schema": REVIEW_RECEIPT_SCHEMA,
+        "reviewer": reviewer,
+        "decided_at": decided_at,
+        "bundle_ref": bundle_id if isinstance(bundle_id, str) and bundle_id.strip() else bundle_path.parent.name,
+        "bundle_sha256": _sha256(bundle_bytes),
+        "decision": decision,
+        "items": items,
+        "opened": opened_count,
+        "not_opened": len(items) - opened_count,
+    }
+    if note is not None:
+        receipt["note"] = note
+    return receipt
+
+
+def _receipt_path(bundle_path: Path, decided_at: str, bundle_sha256: str) -> Path:
+    # The name readLastReceipt accepts: <YYYY-MM-DD>-<hex>.json, next to lesson.json.
+    return bundle_path.parent / "reviews" / f"{decided_at[:10]}-{bundle_sha256[:12]}.json"
+
+
+def _refuse_existing_receipt(path: Path) -> None:
+    if path.exists() or path.is_symlink():
+        raise PacketError(
+            f"review receipt already exists: {path}; the same lesson bytes were already decided on "
+            "today, and a receipt is never overwritten"
+        )
+
+
+def _write_receipt(path: Path, receipt: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("xb") as handle:  # exclusive: never overwrite a receipt
+        handle.write(_json_bytes(receipt))
+
+
+def _receipt_summary(receipt_path: Path) -> list[str]:
+    receipt, _ = _load_json(receipt_path, "review receipt")
+    items = receipt.get("items") or []
+    lines = [
+        f"Review receipt ({receipt['decision']}): {receipt_path.resolve()}",
+        f"opened {receipt['opened']} of {len(items)} items",
+    ]
+    if receipt["decision"] == "approved":
+        unopened = [item["id"] for item in items if item["consequence"] == "grading" and not item["opened"]]
+        if unopened:
+            lines.append(
+                f"warning: {len(unopened)} grading item(s) not opened before approval: {', '.join(unopened)}"
+            )
+    return lines
+
+
+def record_review_receipt(
+    *, bundle_path: Path, reviewer: str, decision: str, opened: list[str] | None = None, note: str | None = None
+) -> Path:
+    """Write a receipt alone, bound to the current bytes: a teacher who sends a lesson back."""
+    if decision == "approved":
+        raise PacketError("receipt records a returned lesson; to approve, use approve (it writes the receipt too)")
+    if decision != "returned":
+        raise PacketError(f"unknown decision {decision!r}")
+    bundle_path = bundle_path.resolve()
+    reviewer = reviewer.strip()
+    if not reviewer:
+        raise PacketError("--reviewer must not be empty")
+    bundle, raw = _load_json(bundle_path, "LessonBundle")
+    if not isinstance(bundle, dict):
+        raise PacketError("LessonBundle root must be an object")
+    decided_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    receipt = _review_receipt(
+        bundle=bundle, bundle_bytes=raw, bundle_path=bundle_path, reviewer=reviewer,
+        decided_at=decided_at, decision=decision, opened=opened or [], note=note,
+    )
+    path = _receipt_path(bundle_path, decided_at, receipt["bundle_sha256"])
+    _refuse_existing_receipt(path)
+    try:
+        _write_receipt(path, receipt)
+    except FileExistsError:
+        _refuse_existing_receipt(path)
+        raise
+    except OSError as exc:
+        raise PacketError(f"cannot write review receipt: {exc}") from exc
+    return path
 
 
 def _is_allowed_placeholder_id(value: str, key: str | None) -> bool:
@@ -2065,9 +2339,15 @@ def _bundle_lint_summary(bundle_path: Path) -> dict[str, int]:
 
 
 def approve_lesson_bundle(
-    *, bundle_path: Path, validated_by: str, checklist: dict[str, str] | None = None
+    *,
+    bundle_path: Path,
+    validated_by: str,
+    checklist: dict[str, str] | None = None,
+    opened: list[str] | None = None,
+    note: str | None = None,
 ) -> Path:
-    """Record teacher approval for a finished bundle without rebuilding its content."""
+    """Record teacher approval for a finished bundle without rebuilding its content, and the review
+    receipt (which scenes were opened) in ``reviews/`` next to it."""
     bundle_path = bundle_path.resolve()
     reviewer = validated_by.strip()
     if not reviewer:
@@ -2094,6 +2374,13 @@ def approve_lesson_bundle(
     bundle["validated_by"] = reviewer
     bundle["validated_at"] = reviewed_at
     final_bytes = _json_bytes(bundle)
+    # Built before any write so an unknown --opened id or an existing receipt mutates nothing.
+    receipt = _review_receipt(
+        bundle=bundle, bundle_bytes=final_bytes, bundle_path=bundle_path, reviewer=reviewer,
+        decided_at=reviewed_at, decision="approved", opened=opened or [], note=note,
+    )
+    receipt_path = _receipt_path(bundle_path, reviewed_at, receipt["bundle_sha256"])
+    _refuse_existing_receipt(receipt_path)
     approval = {
         "schema": APPROVAL_SCHEMA,
         "bundle_sha256": _sha256(final_bytes),
@@ -2109,6 +2396,12 @@ def approve_lesson_bundle(
         raise PacketError(f"cannot write approved LessonBundle: {exc}") from exc
     approval_path = bundle_path.parent / "approval.json"
     _write_json_file(approval_path, approval, "approval record")
+    try:
+        _write_receipt(receipt_path, receipt)
+    except OSError as exc:
+        raise PacketError(
+            f"approval.json was written but the review receipt was not ({receipt_path}): {exc}"
+        ) from exc
     return approval_path
 
 
@@ -2123,6 +2416,7 @@ def _approval_summary(approval_path: Path) -> list[str]:
         f"lint: {lint.get('errors', 0)} error(s), {lint.get('warnings', 0)} warning(s)",
         "validated_by and validated_at were rewritten and the file normalized; "
         "any edit to lesson.json makes this approval stale (approve again after editing).",
+        *_receipt_summary(_receipt_path(approval_path.parent / "lesson.json", approval["reviewed_at"], approval["bundle_sha256"])),
         "Approval record:",
     ]
 
@@ -2213,6 +2507,37 @@ def _add_approve_parser(commands: Any) -> None:
             "sources=read keys=checked scientific_accuracy=yes licence=checked level=fits"
         ),
     )
+    _add_receipt_arguments(approve)
+
+
+def _add_receipt_arguments(command: Any) -> None:
+    command.add_argument(
+        "--opened",
+        action="append",
+        metavar="ID[,ID...]",
+        help=(
+            "scene ids you opened and read (repeat or separate with commas); the review receipt in "
+            "reviews/ marks them opened, the others not opened. An id that is not a scene is refused."
+        ),
+    )
+    command.add_argument("--note", metavar="TEXT", help="free note kept in the review receipt")
+
+
+def _add_receipt_parser(commands: Any) -> None:
+    receipt = commands.add_parser(
+        "receipt",
+        help="record a review receipt for a lesson you send back",
+        description=(
+            "For a teacher who sends a lesson back to its author: write a review receipt "
+            "(reviews/<date>-<sha>.json next to lesson.json, decision returned) bound to the "
+            "current bytes, without approval.json and without rewriting the lesson. The teacher "
+            "dashboard composes this command. To approve, use approve, which writes its own receipt."
+        ),
+    )
+    receipt.add_argument("--bundle", type=Path, required=True, metavar="LESSON_JSON")
+    receipt.add_argument("--reviewer", required=True, metavar="NAME")
+    receipt.add_argument("--decision", required=True, choices=("returned", "approved"))
+    _add_receipt_arguments(receipt)
 
 
 def _add_passages_parser(commands: Any) -> None:
@@ -2264,6 +2589,7 @@ def _parser() -> argparse.ArgumentParser:
         _add_check_parser,
         _add_bundle_parser,
         _add_approve_parser,
+        _add_receipt_parser,
     ):
         add_command(commands)
     return parser
@@ -2322,6 +2648,18 @@ def _run_approve(args: argparse.Namespace) -> Path:
         bundle_path=args.bundle,
         validated_by=args.validated_by,
         checklist=_parse_checklist(args.checklist),
+        opened=_parse_opened(args.opened),
+        note=args.note,
+    )
+
+
+def _run_receipt(args: argparse.Namespace) -> Path:
+    return record_review_receipt(
+        bundle_path=args.bundle,
+        reviewer=args.reviewer,
+        decision=args.decision,
+        opened=_parse_opened(args.opened),
+        note=args.note,
     )
 
 
@@ -2331,6 +2669,7 @@ _COMMANDS = {
     "check": _run_check,
     "bundle": _run_bundle,
     "approve": _run_approve,
+    "receipt": _run_receipt,
 }
 
 
@@ -2407,6 +2746,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Remaining placeholders: {len(placeholder_paths(bundle))}")
     if args.command == "approve":
         print("\n".join(_approval_summary(output)))
+    if args.command == "receipt":
+        receipt, _ = _load_json(output, "review receipt")
+        print(f"Returned by {receipt['reviewer']} at {receipt['decided_at']}")
+        print(f"lesson.json SHA-256: {receipt['bundle_sha256']}")
+        print("\n".join(_receipt_summary(output)[1:]))
+        print("Review receipt:")
     print(output)
     return 0
 

@@ -110,6 +110,16 @@ approbation. Le texte libre de `validated_by` n'accorde jamais le statut Approuv
 n'envoie la leçon à personne : la diffusion est une étape distincte
 ([guide enseignant](teacher-guide.fr.md#diffuser-une-leçon)).
 
+`approve` écrit aussi un reçu de relecture, `reviews/<date>-<12 premiers caractères du SHA-256>.json`
+à côté de `lesson.json` : un élément par scène avec son empreinte, sa conséquence (`grading`,
+`media`, `wording`) et le fait que vous l'avez ouverte ou non. Nommez les scènes lues avec
+`--opened ID[,ID...]` (un identifiant qui n'est pas une scène est refusé avant toute écriture) et
+ajoutez au besoin `--note TEXTE` ; le résumé indique `opened N of M items` et signale chaque scène
+`grading` que vous n'avez pas ouverte. L'approbation reste possible, le reçu garde le fait.
+`review_lesson` compare la version suivante à ce reçu pour marquer les scènes nouvelles, modifiées ou
+inchangées. Pour renvoyer plutôt la leçon à son auteur, `receipt --decision returned --reviewer NOM`
+écrit le reçu seul, sans `approval.json`.
+
 ## Facultatif, approuver un plan avant synthèse
 
 Si vous faites générer les scènes par un orchestrateur de synthèse configuré au lieu de compléter le

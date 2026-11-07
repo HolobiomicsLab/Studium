@@ -37,7 +37,8 @@ par un apprenant ou un enseignant en leçon, hors ligne et sans modèle. L'ordre
 | `prepare` | `--passages`, `--out`, `--title` | `--target`, `--capsule`, `--task-id`, `--self-study` (automatique pour des passages issus de `passages`) |
 | `check` | `--packet`, `--response`, `--out` | `--force` ; `--quiet` (n'affiche que le chemin de sortie) ou `--json` (un rapport lisible par machine) |
 | `bundle` | `--course`, `--out` | `--validated-by`, `--force`, `--no-default-rules`, `--self-study`, `--note TEXT` (exige `--self-study`) |
-| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...` |
+| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...`, `--opened ID[,ID...]` (répétable), `--note TEXT` |
+| `receipt` | `--bundle LESSON_JSON`, `--reviewer NAME`, `--decision returned` | `--opened ID[,ID...]` (répétable), `--note TEXT` |
 
 À quoi s'attendre :
 
@@ -52,7 +53,14 @@ par un apprenant ou un enseignant en leçon, hors ligne et sans modèle. L'ordre
   renseigne `validated_by` et `validated_at`, normalise le fichier et écrit `approval.json` à côté du
   bundle, lié à l'empreinte SHA-256 de ses octets finaux. Il affiche un résumé (relecteur et heure,
   SHA-256, nombre d'erreurs et d'avertissements, rappel qu'une modification rend l'approbation
-  périmée), puis le chemin d'`approval.json` en dernière ligne.
+  périmée), puis le chemin d'`approval.json` en dernière ligne. Il écrit aussi le reçu de relecture
+  `reviews/<date>-<sha>.json` à côté du bundle (un élément par scène : empreinte, conséquence,
+  ouverte ou non ; `--opened` nomme les scènes lues, un identifiant inconnu est refusé avant toute
+  écriture) et signale les scènes `grading` non ouvertes. Un reçu n'est jamais écrasé : les mêmes
+  octets décidés deux fois le même jour sont refusés.
+- `receipt --decision returned` sert à l'enseignant qui renvoie une leçon (le tableau de bord
+  enseignant compose cette commande) : il n'écrit que le reçu, lié aux octets actuels, sans
+  `approval.json` ni réécriture. `--decision approved` est refusé : utilisez `approve`.
 
 Code de sortie : `0` succès, `1` constats bloquants (ou citation introuvable), `2` erreur d'usage ou
 de paquet. Avec `--json`, `check` affiche `{ok, findings, output, summary}`.

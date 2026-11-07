@@ -1848,3 +1848,222 @@ def test_approve_help_lists_checklist_keys_and_says_what_it_rewrites(capsys):
     assert "validated_by and validated_at are rewritten" in help_text
     assert "normalized" in help_text
     assert "Preserve an edited teacher bundle" not in help_text
+
+
+# --- review receipts (INT-STUDIUM-058, task 6.2) ------------------------------------------------
+
+QUIZ_SCENE = {
+    "id": "scene-quiz",
+    "type": "quiz",
+    "title": "Check",
+    "objective_refs": ["objective-1"],
+    "concept_refs": [],
+    "estimated_seconds": 60,
+    "adaptation_hooks": [],
+    "question": "Which is right?",
+    "choices": [
+        {"id": "a", "text": "This one", "correct": True},
+        {"id": "b", "text": "That one", "correct": False},
+    ],
+}
+
+
+def _finished_bundle_with_quiz(tmp_path: Path) -> Path:
+    lesson = _finished_teacher_bundle(tmp_path)
+    bundle = json.loads(lesson.read_text())
+    bundle["scenes"].append(deepcopy(QUIZ_SCENE))
+    lesson.write_text(json.dumps(bundle, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return lesson
+
+
+def _receipts(lesson: Path) -> list[Path]:
+    reviews = lesson.parent / "reviews"
+    return sorted(reviews.glob("*.json")) if reviews.exists() else []
+
+
+def test_approve_writes_a_review_receipt_with_nothing_opened(tmp_path, capsys):
+    from experience_packet import _scene_fingerprint
+
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(["approve", "--bundle", str(lesson), "--validated-by", "Professor Example"])
+
+    assert status == 0
+    final_bytes = lesson.read_bytes()
+    sha = hashlib.sha256(final_bytes).hexdigest()
+    approval = json.loads((lesson.parent / "approval.json").read_text())
+    [path] = _receipts(lesson)
+    assert path.name == f"{approval['reviewed_at'][:10]}-{sha[:12]}.json"
+    receipt = json.loads(path.read_text())
+    scenes = json.loads(final_bytes)["scenes"]
+    assert receipt["schema"] == "studium/review-receipt/v1"
+    assert receipt["reviewer"] == "Professor Example"
+    assert receipt["decided_at"] == approval["reviewed_at"]
+    assert receipt["decision"] == "approved"
+    assert receipt["bundle_sha256"] == sha == approval["bundle_sha256"]
+    assert receipt["bundle_ref"] == json.loads(final_bytes)["bundle_id"]
+    assert [item["id"] for item in receipt["items"]] == ["scene-1", "scene-quiz"]
+    assert [item["sha256"] for item in receipt["items"]] == [_scene_fingerprint(s) for s in scenes]
+    assert all(item["opened"] is False for item in receipt["items"])
+    assert receipt["opened"] == 0 and receipt["not_opened"] == len(receipt["items"]) == 2
+    assert "note" not in receipt
+    out = capsys.readouterr().out
+    assert str(path.resolve()) in out
+    assert "opened 0 of 2 items" in out
+    assert "warning: 1 grading item(s) not opened before approval: scene-quiz" in out
+    assert out.splitlines()[-1] == str((lesson.parent / "approval.json").resolve())
+
+
+def test_approve_records_the_opened_items_and_the_note(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        [
+            "approve", "--bundle", str(lesson), "--validated-by", "Professor Example",
+            "--opened", "scene-quiz", "--note", "Checked the key against the source.",
+        ]
+    )
+
+    assert status == 0
+    [path] = _receipts(lesson)
+    receipt = json.loads(path.read_text())
+    assert {item["id"]: item["opened"] for item in receipt["items"]} == {"scene-1": False, "scene-quiz": True}
+    assert receipt["opened"] == 1 and receipt["not_opened"] == 1
+    assert receipt["note"] == "Checked the key against the source."
+    out = capsys.readouterr().out
+    assert "opened 1 of 2 items" in out
+    assert "warning:" not in out
+
+
+def test_approve_accepts_comma_separated_and_repeated_opened_ids(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        [
+            "approve", "--bundle", str(lesson), "--validated-by", "Professor Example",
+            "--opened", "scene-1,scene-quiz", "--opened", "scene-1",
+        ]
+    )
+
+    assert status == 0
+    receipt = json.loads(_receipts(lesson)[0].read_text())
+    assert receipt["opened"] == 2 and receipt["not_opened"] == 0
+
+
+def test_approve_refuses_an_unknown_opened_id_before_any_mutation(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    before = lesson.read_bytes()
+
+    status = main(
+        ["approve", "--bundle", str(lesson), "--validated-by", "Professor Example", "--opened", "scene-9"]
+    )
+
+    assert status == 2
+    assert "scene-9" in capsys.readouterr().err
+    assert lesson.read_bytes() == before
+    assert not (lesson.parent / "approval.json").exists()
+    assert _receipts(lesson) == []
+
+
+def test_receipt_returned_writes_only_the_receipt(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    before = lesson.read_bytes()
+
+    status = main(
+        [
+            "receipt", "--bundle", str(lesson), "--reviewer", "Professor Example",
+            "--decision", "returned", "--opened", "scene-1", "--note", "Rewrite the quiz.",
+        ]
+    )
+
+    assert status == 0
+    assert lesson.read_bytes() == before
+    assert not (lesson.parent / "approval.json").exists()
+    [path] = _receipts(lesson)
+    receipt = json.loads(path.read_text())
+    assert path.name.endswith(f"-{hashlib.sha256(before).hexdigest()[:12]}.json")
+    assert receipt["decision"] == "returned"
+    assert receipt["bundle_sha256"] == hashlib.sha256(before).hexdigest()
+    assert receipt["opened"] == 1 and receipt["not_opened"] == 1
+    assert receipt["note"] == "Rewrite the quiz."
+    out = capsys.readouterr().out
+    assert out.splitlines()[-1] == str(path.resolve())
+    assert "opened 1 of 2 items" in out
+
+
+def test_receipt_refuses_the_approved_decision(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        ["receipt", "--bundle", str(lesson), "--reviewer", "Professor Example", "--decision", "approved"]
+    )
+
+    assert status == 2
+    assert "use approve" in capsys.readouterr().err
+    assert _receipts(lesson) == []
+
+
+def test_receipt_refuses_a_same_day_duplicate_without_touching_the_first(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    command = ["receipt", "--bundle", str(lesson), "--reviewer", "Professor Example", "--decision", "returned"]
+    assert main(command) == 0
+    [path] = _receipts(lesson)
+    first = path.read_bytes()
+    capsys.readouterr()
+
+    status = main([*command, "--note", "second"])
+
+    assert status == 2
+    assert "already exists" in capsys.readouterr().err
+    assert _receipts(lesson) == [path]
+    assert path.read_bytes() == first
+
+
+def test_receipt_help_says_what_it_is_for(capsys):
+    with pytest.raises(SystemExit) as exit_info:
+        main(["receipt", "--help"])
+    assert exit_info.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "sends a lesson back" in help_text
+    assert "dashboard" in help_text
+
+
+def test_receipt_consequence_per_scene(tmp_path, capsys):
+    lesson = tmp_path / "course" / "lesson.json"
+    lesson.parent.mkdir()
+    bundle = {
+        "bundle_id": "consequences",
+        "scenes": [
+            deepcopy(QUIZ_SCENE),
+            {"id": "figure", "type": "concept", "markdown": "See the figure.", "image_path": "fig.png"},
+            {"id": "plain", "type": "concept", "markdown": "Just prose."},
+            {"id": "todo", "type": "concept", "markdown": "TODO: write this"},
+            {"type": "concept", "markdown": "No id.", "render_assets": [{"kind": "svg", "title": "x", "payload": "<svg/>"}]},
+            {"id": "empty-assets", "type": "concept", "markdown": "Empty.", "render_assets": [], "image_path": ""},
+        ],
+    }
+    lesson.write_text(json.dumps(bundle, ensure_ascii=False), encoding="utf-8")
+
+    status = main(["receipt", "--bundle", str(lesson), "--reviewer", "R", "--decision", "returned"])
+
+    assert status == 0
+    receipt = json.loads(_receipts(lesson)[0].read_text())
+    assert receipt["bundle_ref"] == "consequences"
+    assert {item["id"]: item["consequence"] for item in receipt["items"]} == {
+        "scene-quiz": "grading",
+        "figure": "media",
+        "plain": "wording",
+        "todo": "blocks",
+        "#4": "media",
+        "empty-assets": "wording",
+    }
+
+
+def test_receipt_falls_back_to_the_course_folder_name(tmp_path, capsys):
+    lesson = tmp_path / "my-course" / "lesson.json"
+    lesson.parent.mkdir()
+    lesson.write_text(json.dumps({"scenes": [{"id": "s", "type": "concept", "markdown": "x"}]}), encoding="utf-8")
+
+    assert main(["receipt", "--bundle", str(lesson), "--reviewer", "R", "--decision", "returned"]) == 0
+
+    assert json.loads(_receipts(lesson)[0].read_text())["bundle_ref"] == "my-course"
