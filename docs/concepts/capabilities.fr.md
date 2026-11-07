@@ -43,7 +43,7 @@ Voir le [guide de l'enseignant](../teach/teacher-guide.fr.md), [Relire et approu
 
 | Capacité | Ce qui fonctionne | Limite pratique |
 |---|---|---|
-| Serveur MCP | 36 outils sur stdio (25 de leçon, 5 d'étude, 3 de rédaction, 2 pour l'enseignant, 1 outil de formulaires en prototype), invites `learn` et `review` | Chaque client a ses propres outils, son compte et sa séance |
+| Serveur MCP | 40 outils sur stdio (25 de leçon, 5 d'étude, 3 de rédaction, 2 pour l'enseignant, 1 outil de formulaires en prototype, 3 outils de panneau, 1 outil d'accompagnement), invites `learn` et `review` | Chaque client a ses propres outils, son compte et sa séance |
 | API HTTP locale | Les 25 opérations de leçon et `rate_recall`, découverte des schémas, jeton porteur, protection contre les doubles soumissions | Boucle locale uniquement ; autres outils d'étude et outils de rédaction et d'enseignant réservés à MCP ; les séances actives s'arrêtent avec le processus |
 | Canal fichier | Une boucle tâche/réponse dans `.studium-session/` pour un harnais sans MCP | Formats et écritures atomiques à respecter |
 | Extension VS Code | Panneau de leçon, participant de chat, cellule de notebook, reprise au rechargement, révisions dans la barre d'état | Ses séances sont distinctes de celles du serveur MCP d'un assistant |
@@ -68,8 +68,8 @@ Une leçon d'auto-apprentissage affiche un avis dès son premier écran. Il dép
 |---|---|
 | apprenant, aucun | Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise. |
 | apprenant, configuré | Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). Les scènes de production sont évaluées par le modèle. |
-| agent, aucun | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; conteste une clé qui te semble fausse. Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise. |
-| agent, configuré | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; conteste une clé qui te semble fausse. Les scènes de production sont évaluées par le modèle. |
+| agent, aucun | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; signale à l'agent une clé qui te semble fausse. Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise. |
+| agent, configuré | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; signale à l'agent une clé qui te semble fausse. Les scènes de production sont évaluées par le modèle. |
 
 Une leçon qui contient une reproduction ajoute : « Les reproductions exécutées portent une évaluation externe. »
 

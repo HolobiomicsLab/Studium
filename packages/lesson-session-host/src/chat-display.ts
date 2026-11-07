@@ -56,6 +56,50 @@ export interface DisplayContext {
   timeZone?: string;
   /** Needed on a complete transition, which carries no presentation, for keyed-verdict provenance. */
   authoring?: DisplayAuthoring;
+  /** INT-STUDIUM-058: where the learner is on the next screen, in one line (orientation.ts statusLine).
+   * It closes that screen. */
+  statusLine?: string;
+  /** INT-STUDIUM-058: who wrote the lesson and whether it was reviewed (orientation.ts voiceLine). It
+   * opens the next screen. */
+  voiceLine?: string;
+  /** INT-STUDIUM-058 § 2.6: what the server proposes on the next screen (prompts.ts). */
+  prompts?: readonly ScreenPrompt[];
+}
+
+/** A prompt as the conversation text says it: its id, its reason, and whether it asks for an answer
+ * (a proposal) or only informs (a notice). */
+export interface ScreenPrompt { id: string; kind: string; reason: string; asks: boolean }
+
+/** The prompts of a screen, after its text and before its status line. A proposal says how to answer
+ * it in words, and names itself (its id, in code) so that the assistant can send the learner's answer
+ * to it (submit_response {kind: "prompt", id, outcome}). A notice is said as it is. */
+function promptBlocks(prompts: readonly ScreenPrompt[] | undefined, locale: DisplayLocale): string[] {
+  return (prompts ?? []).filter((prompt) => prompt.reason.trim() !== "")
+    .map((prompt) => (prompt.asks ? say(locale, "prompt_proposal", { reason: prompt.reason, id: prompt.id })
+      : `> ${locale === "fr" ? frenchSpacing(prompt.reason) : prompt.reason}`));
+}
+
+/** The same blocks on their own, for a reply that is not a screen (rate_recall). Empty without one. */
+export function promptsMarkdown(prompts: readonly ScreenPrompt[], locale: DisplayLocale): string {
+  return promptBlocks(prompts, locale).join("\n\n");
+}
+
+/** What the conversation says once the learner answered a proposal. An accepted one names the call
+ * the assistant makes next, when there is one; a break and a refusal need none. */
+export function promptAnswerMarkdown(kind: string, outcome: "accepted" | "dismissed", locale: DisplayLocale): string {
+  if (outcome === "dismissed") return say(locale, "prompt_dismissed");
+  const key = ({
+    review_due: "prompt_accepted_review", map_offer: "prompt_accepted_map", forms_offer: "prompt_accepted_forms",
+    next_lesson: "prompt_accepted_next", break: "prompt_accepted_break",
+  } as const)[kind as "review_due" | "map_offer" | "forms_offer" | "next_lesson" | "break"];
+  return key ? say(locale, key) : say(locale, "prompt_dismissed");
+}
+
+/** INT-STUDIUM-058 lot 4: the line that opens the conversation's reply to a contest — the concept
+ * checked, how many check questions follow, and that the claim moves nothing. The check question's own
+ * screen follows it. */
+export function contestOpenedMarkdown(conceptTitle: string, questions: number, locale: DisplayLocale): string {
+  return say(locale, questions === 1 ? "contest_opened_one" : "contest_opened_many", { title: conceptTitle, n: questions });
 }
 
 export interface CompletionSplit {
@@ -92,6 +136,15 @@ const PHRASES = {
     protocol: "**Protocole**",
     discussion: "**Discussion : {topic}**",
     hint_available: "_Besoin d'aide ? Un indice est disponible : demande-le._",
+    prompt_proposal: "> **Proposition :** {reason} (proposition `{id}`)\n> _Tu peux accepter, ou dire « plus tard »._",
+    prompt_dismissed: "C'est noté, plus tard : la leçon continue.",
+    contest_opened_one: "Contrôle sur « {title} » : 1 question. Ta déclaration ne change rien à ta maîtrise ; la leçon reprend ensuite où tu étais.",
+    contest_opened_many: "Contrôle sur « {title} » : {n} questions. Ta déclaration ne change rien à ta maîtrise ; la leçon reprend ensuite où tu étais.",
+    prompt_accepted_review: "Révision acceptée : l'assistant ouvre la session de révision (`start_review_session`).",
+    prompt_accepted_map: "Carte acceptée : l'assistant affiche ta carte des notions (`get_workflow_graph`).",
+    prompt_accepted_forms: "Formulaires acceptés : l'assistant ouvre les formulaires (`play_in_forms`).",
+    prompt_accepted_next: "Leçon suivante acceptée : l'assistant te montre ce qui peut suivre (`get_study_plan`).",
+    prompt_accepted_break: "Pause acceptée : ta progression est gardée, reprends quand tu veux.",
     run_recorded: "Ta reproduction est déjà enregistrée : tu peux continuer sans la relancer.",
     reply_quiz: "_Réponds avec la lettre de ton choix : {ids}._",
     reply_meta: "_Réponds avec un chiffre de 0 à 4 ({scale})._",
@@ -117,6 +170,8 @@ const PHRASES = {
     model_correction: "**Correction modèle**",
     self_rating: "Compare ta réponse à la référence ci-dessus, puis note ton rappel : **je ne savais pas** (`again`), **difficile** (`hard`), **bien** (`good`) ou **facile** (`easy`). Cette note fixe la date de ta prochaine révision ; elle ne change jamais ta maîtrise.",
     ai_key_provenance: "Selon la clé rédigée par l'IA — voir le passage cité.",
+    assessed_by_key: "Évalué par la clé de l'auteur.",
+    assessed_by_judge: "Évalué par un juge (modèle).",
     recall_rated: "Note enregistrée. Prochaine révision : {date}. Elle règle tes révisions, jamais ta maîtrise.",
     nav_replay: "On reprend cette question.",
     nav_remediate_alt: "Voici une autre question sur le même point.",
@@ -181,6 +236,15 @@ const PHRASES = {
     protocol: "**Protocol**",
     discussion: "**Discussion: {topic}**",
     hint_available: "_Need help? A hint is available: ask for it._",
+    prompt_proposal: "> **Suggestion:** {reason} (suggestion `{id}`)\n> _You can accept, or say “later”._",
+    prompt_dismissed: "Noted, later: the lesson goes on.",
+    contest_opened_one: "Check on “{title}”: 1 question. Your claim changes nothing; the lesson then resumes where you were.",
+    contest_opened_many: "Check on “{title}”: {n} questions. Your claim changes nothing; the lesson then resumes where you were.",
+    prompt_accepted_review: "Review accepted: the assistant opens the review session (`start_review_session`).",
+    prompt_accepted_map: "Map accepted: the assistant shows your concept map (`get_workflow_graph`).",
+    prompt_accepted_forms: "Forms accepted: the assistant opens the forms (`play_in_forms`).",
+    prompt_accepted_next: "Next lesson accepted: the assistant shows what can follow (`get_study_plan`).",
+    prompt_accepted_break: "Break accepted: your progress is kept, come back when you like.",
     run_recorded: "Your reproduction is already recorded: you can continue without running it again.",
     reply_quiz: "_Answer with the letter of your choice: {ids}._",
     reply_meta: "_Answer with a number from 0 to 4 ({scale})._",
@@ -206,6 +270,8 @@ const PHRASES = {
     model_correction: "**Model correction**",
     self_rating: "Compare your answer with the reference above, then rate your recall: **again**, **hard**, **good** or **easy**. This rating sets the date of your next review; it never changes your mastery.",
     ai_key_provenance: "Per the AI-drafted key — see the cited passage.",
+    assessed_by_key: "Assessed by the author's key.",
+    assessed_by_judge: "Assessed by a judge model.",
     recall_rated: "Rating recorded. Next review: {date}. It schedules your reviews and never changes your mastery.",
     nav_replay: "Let's take this question again.",
     nav_remediate_alt: "Here is another question on the same point.",
@@ -324,6 +390,12 @@ function equationBlocks(scene: PublicSceneFields, locale: DisplayLocale): string
   });
 }
 
+/** How the conversation tells the learner to answer a scene: the last line of its presentation. Exported
+ * for the forms lane, which cannot take spoken words and gives its own line in place of this one. */
+export function replyHintMarkdown(scene: PublicSceneFields, locale: DisplayLocale): string {
+  return replyHint(scene, locale);
+}
+
 function replyHint(scene: PublicSceneFields, locale: DisplayLocale): string {
   const t = scene.type ?? "";
   if (t === "quiz") {
@@ -343,15 +415,21 @@ function replyHint(scene: PublicSceneFields, locale: DisplayLocale): string {
 }
 
 /** The learner-facing block for one presentation. `firstScreen` adds the authoring notice (and, when
- * nothing is durable, a one-line warning) — the start of a lesson or a review session. */
+ * nothing is durable, a one-line warning) — the start of a lesson or a review session. The model
+ * relays this text and adds nothing, so what the learner must know on every screen is in it
+ * (INT-STUDIUM-058): `voiceLine` opens the block, `statusLine` closes it, as inline code. */
 export function presentationMarkdown(
   p: DisplayPresentation,
-  opts: { firstScreen?: boolean; notDurable?: boolean; review?: boolean; conceptMap?: string } = {},
+  opts: {
+    firstScreen?: boolean; notDurable?: boolean; review?: boolean; conceptMap?: string; statusLine?: string; voiceLine?: string;
+    prompts?: readonly ScreenPrompt[];
+  } = {},
 ): string {
   const locale: DisplayLocale = p.locale === "en" ? "en" : "fr";
   const scene = publicScene(p.scene as Scene) as PublicSceneFields;
   const authoring = p.authoring as DisplayAuthoring | undefined;
   const blocks: string[] = [];
+  if (opts.voiceLine) blocks.push(`> ${opts.voiceLine}`);
   if (opts.firstScreen && p.authoring?.notice) blocks.push(`> ${p.authoring.notice}`);
   const approvalNotice = opts.firstScreen ? approvalNoticeMarkdown(authoring, locale) : "";
   if (approvalNotice) blocks.push(`> ${approvalNotice}`);
@@ -359,13 +437,17 @@ export function presentationMarkdown(
   // The lesson's plan before its first scene: every concept and how they depend on each other.
   if (opts.firstScreen && opts.conceptMap) blocks.push(opts.conceptMap, "---");
   blocks.push(`### ${scene.title || scene.type || ""}`);
-  blocks.push(`_${say(locale, opts.review ? "review_progress" : "progress", { n: p.index + 1, total: p.total })}_`);
+  // The step is said once: the status line carries it when there is one (walkthrough 2026-11-07).
+  if (!opts.statusLine) blocks.push(`_${say(locale, opts.review ? "review_progress" : "progress", { n: p.index + 1, total: p.total })}_`);
   blocks.push(...sceneBody(scene, locale));
   blocks.push(...equationBlocks(scene, locale));
   const readingSources = sourcesMarkdown(citedSources(scene as unknown as Scene), locale);
   if (readingSources) blocks.push(readingSources);
   if ((p.hints_available ?? 0) > 0) blocks.push(say(locale, "hint_available"));
   blocks.push(replyHint(scene, locale));
+  blocks.push(...promptBlocks(opts.prompts, locale));
+  // A backquote in a lesson title would close the inline code early.
+  if (opts.statusLine) blocks.push(`\`${opts.statusLine.replace(/`/g, "'")}\``);
   return blocks.filter((b) => b.trim() !== "").join("\n\n");
 }
 
@@ -384,6 +466,17 @@ function verdictLine(t: PublicTransition, locale: DisplayLocale): string {
   if (v.assessed_by === "judge") return say(locale, "verdict_judge_measured");
   if (v.assessed_by === "key") return say(locale, "verdict_key_recorded");
   return say(locale, "verdict_recorded");
+}
+
+/** INT-STUDIUM-058: who assessed an answer marked right or wrong, the author's key or a judge model.
+ * Empty where the verdict line already names the assessor (an answer compared with the key, evidence
+ * a judge measured) and where nobody assessed. */
+function assessorLine(t: PublicTransition, locale: DisplayLocale): string {
+  const v = t.verdict;
+  if (!v || v.signal === "confidence_declared" || !v.graded || typeof v.correct !== "boolean") return "";
+  if (v.assessed_by === "key") return say(locale, "assessed_by_key");
+  if (v.assessed_by === "judge") return say(locale, "assessed_by_judge");
+  return "";
 }
 
 /** Where the lesson goes next, in words derived only from the public navigation kind. Engine reasons
@@ -503,7 +596,7 @@ export function verdictMarkdown(
     && (presentationAuthoring?.drafted_by ?? ctx.authoring?.drafted_by) === "agent";
   return [
     verdictLine(t, locale),
-    keyedByAgent ? say(locale, "ai_key_provenance") : "",
+    keyedByAgent ? say(locale, "ai_key_provenance") : assessorLine(t, locale),
     t.verdict?.feedback ?? "",
     referenceMarkdown(t.verdict, locale),
     sourcesMarkdown(sources, locale),
@@ -520,8 +613,13 @@ export function transitionMarkdown(t: PublicTransition & TransitionExtras, ctx: 
     navigationLine(t, locale), ...completionBlock(t, locale, ctx),
     t.concept_map ? (t.concept_map.show === "map" ? t.concept_map.display_markdown : t.concept_map.position_line) : "",
   ].filter((b) => b.trim() !== "").join("\n\n");
-  if (!("presentation" in t)) return head;
-  const next = presentationMarkdown(t.presentation, { review: ctx.review ?? false });
+  // The end of a lesson has no next screen: what it proposes follows its summary.
+  if (!("presentation" in t)) return [head, ...promptBlocks(ctx.prompts, locale)].filter((b) => b.trim() !== "").join("\n\n");
+  const next = presentationMarkdown(t.presentation, {
+    review: ctx.review ?? false,
+    ...(ctx.statusLine ? { statusLine: ctx.statusLine } : {}), ...(ctx.voiceLine ? { voiceLine: ctx.voiceLine } : {}),
+    ...(ctx.prompts?.length ? { prompts: ctx.prompts } : {}),
+  });
   return head ? `${head}\n\n---\n\n${next}` : next;
 }
 

@@ -2,9 +2,9 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
-type ImageAsset = { kind?: string; path?: string; [key: string]: unknown };
+type ImageAsset = { kind?: string | undefined; path?: string | undefined; [key: string]: unknown };
 type EquationAsset = {
-  kind?: string;
+  kind?: string | undefined;
   title?: unknown;
   payload?: unknown;
   legend?: unknown;

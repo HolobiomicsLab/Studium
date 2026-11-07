@@ -23,6 +23,7 @@ Dans le dossier de données, chaque apprenant a un dossier nommé par un pseudon
 |---|---|
 | `<pseudonyme>/profile.json` | profil transversal aux leçons, mémoire de révision comprise |
 | `<pseudonyme>/study.json` | où l'apprenant a étudié |
+| `<pseudonyme>/status.json` | où en est la séance en cours (titre de la leçon, étape, minutes restantes), pour la ligne d'état d'un assistant ; retiré à la fermeture de la séance |
 | `<pseudonyme>/<leçon>/state-<leçon>.json` | état de la leçon et maîtrise |
 | `<pseudonyme>/<leçon>/events.jsonl` | journal d'événements de la séance |
 | `<pseudonyme>/<leçon>/mastery/*.jsonld` | attestations de maîtrise, quand un concept est certifié |

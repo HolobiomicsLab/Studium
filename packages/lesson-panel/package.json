@@ -1,0 +1,25 @@
+{
+  "name": "@studium/lesson-panel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@studium/lesson-session": "workspace:*",
+    "zod": "^3.23.8",
+    "@studium/lesson-session-host": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.1",
+    "typescript": "^5.5.0",
+    "@types/node": "^20"
+  }
+}

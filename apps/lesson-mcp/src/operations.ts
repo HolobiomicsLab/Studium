@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   SessionHost, ResponseInputSchema, ExperimentInputSchema, RunResultSchema, NowMsSchema, publicPresentation, publicTransition,
-  operatorContext,
+  operatorContext, promptAnswerMarkdown, contestOpenedMarkdown, type ActReceived, type InteractionAct, type PromptSurface,
 } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
@@ -36,6 +36,83 @@ function reinforcementResult(status: ReinforcementStatus): Record<string, unknow
     reason,
     next_due_at: reason === "nothing_due" && status.next_due_at !== null
       ? Math.round(status.next_due_at) : null,
+  };
+}
+
+/** The rank of the surface a session is played on: 3 a panel or a pane, 2 forms, 1 the conversation. */
+export type SurfaceRank = 1 | 2 | 3;
+
+/** INT-STUDIUM-058 § 2.10: an act made through a conversation tool is the companion lane's, on the rank
+ * the session is played on (1 when none was negotiated). The pair « companion, rank 3 » is a learner who
+ * used the conversation while a panel was open, which the fast-lane indicator must count. */
+export const CONVERSATION = (act: InteractionAct, surfaceRank: SurfaceRank = 1): ActReceived =>
+  ({ act, lane: "companion", surfaceRank });
+
+/** INT-STUDIUM-058 § 2.6: the learner's answer to a proposal the conversation text named
+ * (« (proposition review_due:start) »). The assistant relays the learner's yes or « later » as this
+ * input; the learner never types it. */
+export const PromptAnswerSchema = z.object({
+  kind: z.literal("prompt"), id: z.string().min(1), outcome: z.enum(["accepted", "dismissed"]),
+}).strict();
+
+/** INT-STUDIUM-058 lot 4: the learner's own declaration on a concept of the map, which the conversation
+ * relays: « je connais déjà cette notion » (`known`, a concept not acquired) or « j'ai un doute sur
+ * celle-ci » (`unsure`, an acquired one). The assistant never contests for the learner. */
+export const ContestInputSchema = z.object({
+  kind: z.literal("contest"), concept_id: z.string().min(1), claim: z.enum(["known", "unsure"]),
+}).strict();
+
+/** What submit_response takes: an answer to the scene, an answer to a proposal, or a contest. A refusal
+ * names the one field at fault (HJ-7), from the branch the input's kind belongs to, never the union's
+ * dump. */
+const SubmitInputSchema = z.union([ResponseInputSchema, PromptAnswerSchema, ContestInputSchema], {
+  errorMap: (issue, ctx) => {
+    if (issue.code !== z.ZodIssueCode.invalid_union) return { message: ctx.defaultError };
+    const kind = (ctx.data as { kind?: unknown } | undefined)?.kind;
+    const first = issue.unionErrors[kind === "prompt" ? 1 : kind === "contest" ? 2 : 0]?.issues[0];
+    return { message: first?.message ?? ctx.defaultError };
+  },
+});
+
+/** The call that follows an accepted proposal in the conversation, when there is one. A break needs
+ * none; a refusal neither. */
+const NEXT_CALL: Record<string, string> = {
+  review_due: "start_review_session", map_offer: "get_workflow_graph", forms_offer: "play_in_forms", next_lesson: "get_study_plan",
+};
+
+/** Settle a proposal of the session and say so: the conversation's own answer to a proposal. */
+export async function answerPrompt(
+  host: SessionHost, sessionId: string, answer: z.infer<typeof PromptAnswerSchema>, surfaceRank: SurfaceRank = 1,
+): Promise<Record<string, unknown>> {
+  const record = await host.settleAct(sessionId, CONVERSATION("prompt", surfaceRank), () => host.settlePrompt(sessionId, answer.id, answer.outcome));
+  // The lesson's own language, as its screens are written; read without serving a screen, which would
+  // count as said a proposal still to say.
+  const locale = host.sessionLanguage(sessionId).source_language.toLowerCase().startsWith("en") ? "en" : "fr";
+  const next = answer.outcome === "accepted" ? NEXT_CALL[record.kind] : undefined;
+  return {
+    prompt: { id: record.id, kind: record.kind, outcome: record.outcome },
+    ...(next ? { next_call: { tool: next } } : {}),
+    display_markdown: promptAnswerMarkdown(record.kind, answer.outcome, locale),
+  };
+}
+
+/** Contest a concept for the learner, as the conversation relays it: the check questions start and the
+ * reply opens with one line saying so, then the first question's screen (rank 1, its status line saying
+ * « contrôle 1/n »). A claim the host does not take is refused in the host's one line. */
+export async function contestFromConversation(
+  host: SessionHost, sessionId: string, input: z.infer<typeof ContestInputSchema>, promptSurface: PromptSurface, surfaceRank: SurfaceRank = 1,
+): Promise<Record<string, unknown>> {
+  // The concept's title as the map shows it, read before the contest (it does not change with it).
+  const title = host.conceptMap(sessionId)?.nodes.find((node) => node.id === input.concept_id)?.title ?? input.concept_id;
+  const started = await host.settleAct(sessionId, CONVERSATION("contest", surfaceRank), () => host.contest(sessionId, input.concept_id, input.claim, "companion"));
+  // The first check question is the current presentation: served again here with the conversation's
+  // screen lines, as get_current_scene would.
+  const presentation = publicPresentation(host.currentPresentation(sessionId, { promptSurface }));
+  const locale = presentation.locale === "en" ? "en" : "fr";
+  return {
+    contest: { concept_id: started.concept_id, claim: started.claim, questions: started.questions },
+    presentation,
+    display_markdown: [contestOpenedMarkdown(title, started.questions, locale), presentation.display_markdown].join("\n\n"),
   };
 }
 
@@ -78,11 +155,21 @@ export interface LessonOperationsOptions {
   /** The tools the surface actually registers, which get_server_info lists (sorted). The MCP server
    * passes its full list (lesson, study, authoring and teacher tools); without it, TOOL_NAMES. */
   toolNames?: () => readonly string[];
+  /** Whether the client can show forms (MCP elicitation), read at each call: a lesson played in the
+   * conversation is then offered them (prompts.ts). Without it, false. */
+  formsAvailable?: () => boolean;
+  /** The rank of the surface a session was negotiated on, read at each act; without it, 1 (the
+   * conversation, as the HTTP adapter and a server with no panel tools play it). */
+  surfaceRankOf?: (sessionId: string) => SurfaceRank;
 }
 
 /** Build transport-independent operations using the canonical host and schemas. */
 export function lessonOperations(host: SessionHost, opts: LessonOperationsOptions = {}): Operation[] {
   const operations: Operation[] = [];
+  // The conversation tools log the rank the session is played on, not always the conversation's own.
+  const rankOf = (sessionId: string): SurfaceRank => opts.surfaceRankOf?.(sessionId) ?? 1;
+  // INT-STUDIUM-058 § 2.6: the screens these tools serve are read in the conversation (rank 1).
+  const surface = (): { promptSurface: PromptSurface } => ({ promptSurface: { rank: 1, formsAvailable: opts.formsAvailable?.() ?? false } });
   const server = {
     registerTool<S extends z.ZodRawShape>(name: string, config: {description: string; inputSchema: S}, callback: (args: z.infer<z.ZodObject<S>>) => Promise<ToolResult>) {
       operations.push({name, ...config, invoke: async args => callback(z.object(config.inputSchema).strict().parse(args))});
@@ -116,7 +203,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     inputSchema: { session_id: z.string(), presentation_language: z.string().nullable() },
   }, async ({ session_id, presentation_language }) => {
     try {
-      host.setPresentationLanguage(session_id, presentation_language);
+      await host.settleAct(session_id, CONVERSATION("setLanguage", rankOf(session_id)), () => host.setPresentationLanguage(session_id, presentation_language));
       return text({ language: operatorContext(host, session_id).language });
     }
     catch (e) { return fail((e as Error).message); }
@@ -188,6 +275,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         const r = await host.create(bundle_ref, learner_id, {
           ...(now_ms === undefined ? {} : { nowMs: now_ms }),
           ...(presentation_language === undefined ? {} : { presentationLanguage: presentation_language }),
+          ...surface(),
         });
         // Redact the answer key (quiz `correct`, claims/key_points/cues, model_* reveals) at the
         // client boundary — the server keeps the full scene; only this projection ships.
@@ -213,7 +301,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
       inputSchema: { session_id: z.string() },
     },
     async ({ session_id }) => {
-      try { return text({ presentation: publicPresentation(host.currentPresentation(session_id)) }); }
+      try { return text({ presentation: publicPresentation(host.currentPresentation(session_id, surface())) }); }
       catch (e) { return fail((e as Error).message); }
     },
   );
@@ -236,11 +324,27 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         "verdict.display_markdown first, then the transition's display_markdown. At a few moments the transition " +
         "carries concept_map (see get_workflow_graph), with moment start/new_concept/detour/detour_return/synthesis/complete " +
         "and show map/line; display_markdown already includes the list or the position line. A harness that draws " +
-        "diagrams may render concept_map.mermaid in place of the list.",
-      inputSchema: { session_id: z.string(), input: ResponseInputSchema },
+        "diagrams may render concept_map.mermaid in place of the list. A screen may end with a proposal (a review " +
+        "due, the map, forms) that names itself, e.g. (proposition review_due:start): when the learner accepts it or " +
+        "says « later », send submit_response {session_id, input: {kind:\"prompt\", id:\"<id>\", outcome:\"accepted\"|" +
+        "\"dismissed\"}}. It answers nothing on the scene; it returns {prompt, next_call?, display_markdown}: show " +
+        "display_markdown, then make next_call (start_review_session takes the same learner_id) when there is one. " +
+        "When the learner says they already know a concept of the map (« je connais déjà cette notion ») or doubt " +
+        "one they got (« j'ai un doute sur celle-ci »), relay it as submit_response {session_id, input: {kind:\"contest\", " +
+        "concept_id:\"<id>\", claim:\"known\"|\"unsure\"}}, with the concept's id as the map names it in parentheses: " +
+        "known for a concept not acquired, unsure for an acquired one. The claim changes no mastery and skips no scene: " +
+        "the lesson asks check questions on that concept (two, or one), graded as any answer, then resumes where the " +
+        "learner was. It returns {contest: {concept_id, claim, questions}, presentation, display_markdown}: show " +
+        "display_markdown (a line saying the check, then the first question) and send the answers as usual. A contest " +
+        "the state does not take, or made while another is under way, is refused in one line. Never contest for the learner.",
+      inputSchema: { session_id: z.string(), input: SubmitInputSchema },
     },
     async ({ session_id, input }) => {
-      try { return text({ transition: publicTransition(await host.respond(session_id, input as ResponseInput)) }); }
+      try {
+        if (input.kind === "prompt") return text(await answerPrompt(host, session_id, input as z.infer<typeof PromptAnswerSchema>, rankOf(session_id)));
+        if (input.kind === "contest") return text(await contestFromConversation(host, session_id, input as z.infer<typeof ContestInputSchema>, surface().promptSurface, rankOf(session_id)));
+        return text({ transition: publicTransition(await host.settleAct(session_id, CONVERSATION("respond", rankOf(session_id)), () => host.respond(session_id, input as ResponseInput, "companion", surface()))) });
+      }
       catch (e) { return fail((e as Error).message); }
     },
   );
@@ -327,7 +431,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     },
     async ({ session_id, run_result }) => {
       try {
-        const r = await host.ingestRunResult(session_id, run_result);
+        const r = await host.ingestRunResult(session_id, run_result, surface());
         return text({
           status: r.status,
           learner_run_recorded: r.learnerRunRecorded,
@@ -354,7 +458,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     },
     async ({ session_id }) => {
       try {
-        const hint = host.requestHint(session_id);
+        const hint = await host.settleAct(session_id, CONVERSATION("hint", rankOf(session_id)), () => host.requestHint(session_id));
         const notation = host.sceneNotation(session_id);
         return text({ hint, ...(notation.length ? { notation } : {}) });
       }
@@ -370,7 +474,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     },
     async ({ session_id, text: turn }) => {
       try {
-        await host.submitTurn(session_id, turn);
+        await host.settleAct(session_id, CONVERSATION("turn", rankOf(session_id)), () => host.submitTurn(session_id, turn));
         return text({ accepted: true, reasoning: host.lastReasoning(session_id), tutor: host.lastTutorMove(session_id) });
       }
       catch (e) { return fail((e as Error).message); }
@@ -431,7 +535,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     async ({ session_id }) => {
       try {
         // L-11 (CC-6): a close whose write-through failed still closes, and says the state was not kept.
-        const closed = await host.close(session_id);
+        const closed = await host.settleAct(session_id, CONVERSATION("end", rankOf(session_id)), () => host.close(session_id));
         return text(closed.persistence_warning
           ? { closed: true, state_kept: false, persistence_warning: closed.persistence_warning }
           : { closed: true, state_kept: true });

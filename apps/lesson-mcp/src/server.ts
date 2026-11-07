@@ -16,20 +16,26 @@ import { join, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SelfRatingExpiredError } from "@studium/lesson-session";
 import {
-  SessionHost, NowMsSchema, publicPresentation, operatorContext, type SelfRating,
+  SessionHost, NowMsSchema, publicPresentation, operatorContext, type SelfRating, type PromptSurface,
 } from "@studium/lesson-session-host";
-import { lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type ToolResult } from "./operations.js";
+import {
+  CONVERSATION, lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type SurfaceRank, type ToolResult,
+} from "./operations.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools } from "./authoring-tools.js";
 import { TEACHER_TOOL_NAMES, registerTeacherTools } from "./teacher-tools.js";
 import { FORM_TOOL_NAMES, registerFormTools } from "./form-tools.js";
+import { COMPANION_TOOL_NAMES, registerCompanionTools } from "./companion-tools.js";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
+import { PANEL_TOOL_NAMES, registerPanelTools } from "./panel-tools.js";
 
 /** C1 study tools, defined in this file. */
 export const STUDY_TOOL_NAMES = ["export_concept_map", "get_study_plan", "list_lessons", "rate_recall", "start_review_session"] as const;
 /** Every tool buildMcpServer registers, sorted: the lesson operations, the study tools, the authoring
- * tools, the teacher tools and the form tool (form-tools.ts, a prototype). */
+ * tools, the teacher tools, the form tool (form-tools.ts, a prototype), the panel tools (panel-tools.ts)
+ * and the companion tool (companion-tools.ts). */
 export const TOOL_NAMES: readonly string[] = [
-  ...LESSON_TOOL_NAMES, ...STUDY_TOOL_NAMES, ...AUTHORING_TOOL_NAMES, ...TEACHER_TOOL_NAMES, ...FORM_TOOL_NAMES,
+  ...LESSON_TOOL_NAMES, ...STUDY_TOOL_NAMES, ...AUTHORING_TOOL_NAMES, ...TEACHER_TOOL_NAMES, ...FORM_TOOL_NAMES, ...PANEL_TOOL_NAMES,
+  ...COMPANION_TOOL_NAMES,
 ].sort();
 
 /** C4 self-rating grades, in FSRS order (lesson-session's SELF_RATING_CHOICES; a test pins the match). */
@@ -51,7 +57,7 @@ export const SERVER_INSTRUCTIONS = [
   "- When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.",
   "- start_review_session plays every review due, across lessons; list_lessons shows what can be started.",
   "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session.",
-  "- When the learner asks where they are, show the map (get_workflow_graph). Offer once, at a pause, never between a question and its answer: at the end, the map as a page on the learner's yes (export_concept_map); in a working conversation, a short lesson from it when the person wants to understand it (prepare_sources, kind \"conversation\").",
+  "- When the learner asks where they are, show the map (get_workflow_graph). Offer once, at a pause, never between a question and its answer: at the end, the map as a page on the learner's yes (export_concept_map); in a working conversation, a short lesson from it when the person wants to understand it (prepare_sources, kind \"conversation\"). When the learner says they already know a concept of the map, or doubt one they got, relay it with submit_response {kind: \"contest\", concept_id, claim}, the id as the map names it; never contest for them.",
   "- Never call forget_session unless the learner asks to erase their data: it deletes their progress for good.",
 ].join("\n");
 
@@ -98,7 +104,13 @@ const languageArg = z.enum(["fr", "en"], { errorMap: () => ({ message: "language
     "learner's last lesson, else the server's");
 
 /** The C1 study tools, transport-independent like lessonOperations (an HTTP surface can add them as is). */
-export function studyOperations(host: SessionHost): Operation[] {
+export function studyOperations(
+  host: SessionHost, opts: { formsAvailable?: () => boolean; surfaceRankOf?: (sessionId: string) => SurfaceRank } = {},
+): Operation[] {
+  // INT-STUDIUM-058 § 2.6: the screens these tools serve are read in the conversation (rank 1).
+  const promptSurface = (): PromptSurface => ({ rank: 1, formsAvailable: opts.formsAvailable?.() ?? false });
+  // The conversation tools log the rank the session is played on, not always the conversation's own.
+  const rankOf = (sessionId: string): SurfaceRank => opts.surfaceRankOf?.(sessionId) ?? 1;
   return [
     operation("list_lessons",
       "List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson " +
@@ -141,6 +153,7 @@ export function studyOperations(host: SessionHost): Operation[] {
           ...(now_ms === undefined ? {} : { nowMs: now_ms }),
           ...(presentation_language === undefined ? {} : { presentationLanguage: presentation_language }),
           ...(language === undefined ? {} : { language }),
+          promptSurface: promptSurface(),
         });
         if (r.status === "nothing_due") return r;
         // The answer keys stay on the server: only the public projection of the scene ships.
@@ -160,7 +173,7 @@ export function studyOperations(host: SessionHost): Operation[] {
         session_id: z.string(), scene_id: z.string(),
         grade: z.enum(RECALL_GRADES, { errorMap: () => ({ message: `grade must be one of ${RECALL_GRADES.join(", ")}` }) }),
       },
-      async ({ session_id, scene_id, grade }) => host.rateRecall(session_id, scene_id, grade)),
+      async ({ session_id, scene_id, grade }) => host.settleAct(session_id, CONVERSATION("rateRecall", rankOf(session_id)), () => host.rateRecall(session_id, scene_id, grade, "companion", { promptSurface: promptSurface() }))),
 
     operation("export_concept_map",
       "On the learner's request, export the concept map of a lesson session as a record " +
@@ -266,10 +279,22 @@ function registerPrompts(server: McpServer): void {
  * prompts. */
 export function buildMcpServer(host: SessionHost): McpServer {
   const server = new McpServer({ name: "studium-lesson", version: SERVER_VERSION }, { instructions: SERVER_INSTRUCTIONS });
-  const registered: string[] = [];
+  const panels = registerPanelTools(server, host);
+  const registered: string[] = [...panels.names];
   // get_server_info reads `registered` when it is called, so it lists every tool added below.
-  for (const op of [...lessonOperations(host, { toolNames: () => registered }), ...studyOperations(host)]) {
-    server.registerTool(op.name, { description: op.description, inputSchema: op.inputSchema }, async (args) => op.invoke(args));
+  // Forms are available when the connected client declares MCP elicitation (play_in_forms is always registered).
+  const formsAvailable = () => Boolean(server.server.getClientCapabilities()?.elicitation);
+  const surfaceRankOf = (id: string) => panels.surfaceRankOf(id);
+  for (const op of [
+    ...lessonOperations(host, { toolNames: () => registered, formsAvailable, surfaceRankOf }),
+    ...studyOperations(host, { formsAvailable, surfaceRankOf }),
+  ]) {
+    const registeredTool = server.registerTool(op.name, { description: op.description, inputSchema: op.inputSchema }, async (args) => {
+      const result = await op.invoke(args);
+      await panels.observe(op.name, args, result);
+      return result;
+    });
+    panels.attachTool(op.name, registeredTool);
     registered.push(op.name);
   }
   registered.push(...registerAuthoringTools(server, {
@@ -285,6 +310,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
     bundlesRoot: host.bundlesRoot, libraryRoot: host.libraryRoot, dataDir: host.persistence().data_dir,
   }));
   registered.push(...registerFormTools(server, host));
+  registered.push(...registerCompanionTools(server, host));
   registerPrompts(server);
   logStartup(registered.length);
   return server;

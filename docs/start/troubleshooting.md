@@ -40,7 +40,7 @@ message without keys, personal data or private lesson content.
 | `run required: call get_run_manifest, run it, then submit_run_result` | the step needs a real run: follow `get_run_manifest`, run the capsule, then `submit_run_result` |
 | Open answers say "check it yourself" | expected without a judge model; see [Harnesses](harnesses.md#optional-judge-model) |
 | The assistant answers or rates for you | stop it and answer yourself; the server instructions forbid it, and self-rating never moves mastery |
-| `session not found: …` | the server restarted or the session was closed; the message says how to resume: `start_lesson_session` with the same `bundle_ref` and `learner_id`, or `start_review_session` with the same `learner_id` |
+| `session not found: …` | the server restarted or the session was closed; the message says how to resume: `start_lesson_session` with the same `bundle_ref` and `learner_id`, or `start_review_session` with the same `learner_id`; the MCP Apps panel, the Claude Code pane and the VS Code pane show a "Session lost" notice with a reopen control instead of the stale scene |
 | A self-rating is refused as expired | the request was lost by an older server; answer the step again to be asked anew |
 | `now_ms must be an integer epoch in milliseconds …` | pass a whole number of milliseconds since 1970, or leave `now_ms` out to use the server clock |
 | `create_lesson` refuses the `course_id` | a lesson of that id already exists: under `BUNDLES_ROOT` it is never replaced, so choose another id; in your library, pass `overwrite: true` to replace a self-study lesson no teacher validated |

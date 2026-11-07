@@ -1,10 +1,14 @@
 // packages/lesson-session-host/src/registry.ts
-import type { LessonSession, SessionDeps } from "@studium/lesson-session";
+import type { CompanionLog } from "./companion.js";
+import type { ContestRecord, LessonSession, SessionDeps } from "@studium/lesson-session";
+import type { ContestPending } from "./contest.js";
+import type { PromptBook } from "./prompts.js";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
 import type { AuthoringBlock } from "./authoring.js";
 import type { ConceptMemoryState } from "./fsrs-memory.js";
 import type { ReviewOrigin } from "./review-session.js";
 import type { CitedSource } from "./public-scene.js";
+import type { LastNavigation } from "./orientation.js";
 
 /** I-2: the passages of a scene answered and not yet left for good, with what settles them. */
 export interface HeldSources {
@@ -45,6 +49,9 @@ export interface SessionEntry {
   /** The learner's FSRS memory of this session's concepts (RT-3): the engine's graded answers plus
    * the learner's self-ratings, written through to the profile after each of them. */
   memory: Record<string, ConceptMemoryState>;
+  /** INT-STUDIUM-058: the learner profile's memory as last read or saved, every lesson included, for
+   * the orientation's count of due reviews (host.ts `reviewsDueOf`). Empty without a profile. */
+  carriedMemory: Record<string, ConceptMemoryState>;
   /** The engine's memory as last seen, to tell which concepts an answer just moved. */
   engineMemory: Record<string, ConceptMemoryState>;
   /** Concepts a self-rating moved in this session: their memory is ahead of the engine's. */
@@ -53,6 +60,18 @@ export interface SessionEntry {
   moved: Set<string>;
   /** Responses applied in this session (0 = the first screen). */
   responses: number;
+  /** INT-STUDIUM-058: the learner's acts not yet told to the agent (companion.ts). */
+  companion?: CompanionLog;
+  /** INT-STUDIUM-058 § 2.7: the contest whose check questions are being asked (contest.ts). */
+  contest?: ContestPending;
+  /** INT-STUDIUM-058 § 2.6: the prompts of this session (prompts.ts), and the scene they were last read on
+   * (null once the lesson is complete; absent until first read). */
+  prompts?: PromptBook;
+  promptScene?: string | null;
+  /** The prompts the conversation text already said: each is said once. */
+  promptsSaid?: Set<string>;
+  /** The contests settled in this session, oldest first. In memory, like the session. */
+  contests?: ContestRecord[];
   /** What the concept map already told the learner (host.conceptMapMoment): the concepts whose
    * opening was announced, the scenes shown as a synthesis, and whether a prerequisite detour is
    * under way. Created at the first transition. */
@@ -80,6 +99,14 @@ export interface SessionEntry {
   erased?: boolean;
   /** The session served its `complete` transition (a rating after it reports the review plan, UX-11). */
   completed?: boolean;
+  /** INT-STUDIUM-058: how the session routed after the last response (orientation.ts). In memory only:
+   * a session resumed after a restart has none. */
+  lastNavigation?: LastNavigation;
+  /** INT-STUDIUM-058: on a prerequisite detour, the scene it returns to (orientation.ts). */
+  detourReturnsTo?: string;
+  /** INT-STUDIUM-058: whether the session's last act was an answer that received a verdict
+   * (orientation.ts `answered_before`). In memory only: a resumed session starts without. */
+  answeredBefore?: boolean;
 }
 
 export class SessionRegistry {

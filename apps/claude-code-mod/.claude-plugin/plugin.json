@@ -1,0 +1,11 @@
+{
+  "name": "studium-panel",
+  "version": "0.1.0",
+  "description": "Native Claude Code lesson pane for Studium.",
+  "author": {
+    "name": "HolobiomicsLab"
+  },
+  "license": "Apache-2.0",
+  "hooks": "./hooks/hooks.json",
+  "types": "./types/index.d.ts"
+}

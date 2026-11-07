@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { approvalCommand, bundlesRoot, decodeLessonRef, LibraryReadError, readLesson, type LibraryLesson } from "@/lib/library";
+import { bundlesRoot, decodeLessonRef, LibraryReadError, readLesson, type LibraryLesson } from "@/lib/library";
 import { requestLocale } from "@/lib/request-locale";
 import { counted, messages, sceneTypeLabel } from "@/lib/i18n";
 import { observatoryLink } from "@/lib/observatory-link";
 import LessonStatus from "@/components/LessonStatus";
 import PrintButton from "@/components/PrintButton";
+import { ReviewApproval, ReviewInboxList, ReviewSession, type InboxEntry } from "@/components/ReviewInbox";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -33,6 +34,16 @@ export default async function ReviewPage({ params }: { params: { lesson: string 
     </main>;
   }
   const observatory = await observatoryLink(lesson.ref);
+  // Join each inbox item to its outline entry by scene id (`#<index>` when the scene has none).
+  const sceneIndex = new Map(lesson.outline.map((scene, index) => [scene.id || `#${index}`, index]));
+  const entries: InboxEntry[] = lesson.inbox.items.map((item) => {
+    const index = sceneIndex.get(item.id) ?? Number(item.id.replace(/^#/, ""));
+    const scene = lesson.outline[index];
+    return { id: item.id, index, title: scene?.title ?? item.id, type: scene?.type ?? "unknown", consequence: item.consequence, whatChanged: item.whatChanged, checks: item.checks,
+      ...(item.lastVerdict ? { lastVerdict: item.lastVerdict } : {}),
+      preview: { text: item.preview.text, ...(item.preview.choices ? { choices: item.preview.choices } : {}) } };
+  });
+  const lastReceipt = lesson.inbox.lastReceipt;
   return (
     <main id="contenu" className="library-shell review-shell">
       <Link className="breadcrumb" href="/library"><span aria-hidden="true">←</span> {t.backLibrary}</Link>
@@ -41,7 +52,11 @@ export default async function ReviewPage({ params }: { params: { lesson: string 
         <p className="review-heading__lead">{t.reviewLead}</p>
         <div className="review-heading__meta"><LessonStatus status={lesson.status} locale={locale} /><span>{lesson.language.toUpperCase()} · {counted(lesson.sceneCount, t.sceneOne, t.scenes, locale)} · {counted(lesson.conceptCount, t.conceptOne, t.concepts, locale)}</span><PrintButton label={t.print} /></div>
       </header>
+      <ReviewSession entries={entries} locale={locale}>
       <div className="review-grid">
+        <div className="review-main">
+        {lesson.lintUnavailable && <p className="approval-note" role="note">{t.lintUnavailable}</p>}
+        <ReviewInboxList lastReceipt={lastReceipt && { reviewer: lastReceipt.reviewer, decidedAt: lastReceipt.decidedAt, decision: lastReceipt.decision }} unreadableReceipts={lesson.inbox.unreadableReceipts} />
         <section aria-labelledby="outline-heading" className="review-outline">
           <header className="section-heading"><h2 id="outline-heading">{t.outline}</h2><p>{t.outlineHelp}</p></header>
           <ol className="outline-list">{lesson.outline.map((scene, index) => <li key={`${scene.id}-${index}`} className="outline-scene">
@@ -54,6 +69,7 @@ export default async function ReviewPage({ params }: { params: { lesson: string 
             </div>
           </li>)}</ol>
         </section>
+        </div>
         <aside className="review-sidebar" aria-label={t.reviewReadiness}>
           <section className="readiness-panel"><p className="eyebrow">{t.reviewReadiness}</p><dl className="readiness-counts"><div><dt>{t.remaining}</dt><dd>{lesson.todoCount}</dd></div><div><dt>{t.schemaIssues}</dt><dd>{lesson.schemaIssueCount}</dd></div></dl>
             <p className="readiness-note">{t.statusHelp}</p>
@@ -61,8 +77,7 @@ export default async function ReviewPage({ params }: { params: { lesson: string 
           </section>
           <section className="approval-panel"><h2>{t.approvalHeading}</h2>
             {lesson.authoringMode === "self_study" ? <p className="approval-note">{t.selfStudyApproval}</p> : <>
-              <p>{t.approvalHelp}</p>
-              <pre className="approval-command"><code>{approvalCommand(lesson.bundlePath, locale)}</code></pre>
+              <ReviewApproval bundlePath={lesson.bundlePath} />
             </>}
             <p className="readiness-note">{t.approvalNotice}</p>
           </section>
@@ -71,6 +86,7 @@ export default async function ReviewPage({ params }: { params: { lesson: string 
           </section>
         </aside>
       </div>
+      </ReviewSession>
     </main>
   );
 }

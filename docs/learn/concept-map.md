@@ -31,6 +31,17 @@ concept opens, one line says where you are. Ask for the map at any time: your as
 `get_workflow_graph` and shows `concept_map`. A harness that draws diagrams can render
 `concept_map.mermaid`.
 
+## In the lesson panel
+
+In the lesson panel and in the Claude Code pane, « Concept map » opens the map as a list under the scene.
+Nothing is submitted and the scene stays where it is. Each concept says its state in words and what it
+needs first. « Evidence and scope » shows what the state establishes, what it does not, and the answers
+behind it: the day, who assessed the answer, the result and the hints taken. Where a concept can be
+checked, a button states your claim (« I know it » or « I am not sure »): the lesson then asks one or two
+check questions and says what they showed. A concept the session has not shown yet cannot be contested
+until it is reached. Your claim alone changes nothing. « Close the map » puts the list away. The panel
+does not draw the graph; the exported page below does.
+
 ## Export an interactive page
 
 Ask your assistant to export the map. It calls `export_concept_map`, which writes a record under your
@@ -56,7 +67,9 @@ procedure for all of this is the `studium-concept-map` skill ([Skills](../start/
 | Viewpoint: Teacher | Shows the structure, what each concept rests on and, when attached, the class figures |
 | Concepts shown | Dims the concepts of a state |
 
-The record holds no learner identifier and none of your words: results, not answers. It stays on your
+The record holds no learner identifier and none of your words: results, not answers. For each answer it
+also keeps the day, the hints you took before it and whether you then rated your own recall, and, for each
+concept you contested (« I know it », « I am not sure »), what the check questions showed. It stays on your
 machine until you share the folder. `forget_session` does not delete exports; it names the folder so you
 can delete it yourself.
 

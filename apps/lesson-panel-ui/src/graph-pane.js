@@ -94,6 +94,5 @@
     const d = ev.data || {};
     if (d.type === "graph") render(d);
   });
-  const vscode = typeof acquireVsCodeApi === "function" ? acquireVsCodeApi() : null;
-  window.__send = (msg) => { if (vscode) vscode.postMessage(msg); };
+  window.renderGraph = render;
 })();

@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { createHash } from "node:crypto";
+import { sceneFingerprint } from "../../../packages/lesson-session-host/src/review-inbox";
 import {
-  approvalCommand, inspectLesson, listLessons, readLesson,
+  approvalCommand, returnCommand, inspectLesson, listLessons, readLesson,
   encodeLessonRef, decodeLessonRef, bundlesRoot, LibraryReadError,
 } from "./library";
 
@@ -83,11 +84,19 @@ describe("C5 approval is bound to the exact lesson bytes", () => {
   it("projects titles, concepts and source references without any answer fields", async () => {
     const bundle = await fixture();
     const quiz = bundle.scenes.find((s: { type: string }) => s.type === "quiz");
+    // Test decision (walkthrough fix 1): a choice's text now reaches the review page, in the inbox
+    // preview, because the teacher is asked to judge the scene; what stays on the server is the key —
+    // which choice is correct, the feedback that restates it, the hints.
     quiz.choices[0].text = "PRIVATE_ANSWER_CANARY";
+    quiz.feedback_correct = "FEEDBACK_CANARY";
+    quiz.hints = ["HINT_CANARY"];
     const result = inspectLesson(Buffer.from(JSON.stringify(bundle)), null);
     expect(result.outline[0].title).toBe(bundle.scenes[0].title);
     expect(result.keyClasses.author_keyed).toBeGreaterThan(0);
-    expect(JSON.stringify(result)).not.toContain("PRIVATE_ANSWER_CANARY");
+    expect(JSON.stringify(result.outline)).not.toContain("PRIVATE_ANSWER_CANARY");
+    expect(result.inbox.items.find((item) => item.id === quiz.id)?.preview.choices).toContain("PRIVATE_ANSWER_CANARY");
+    expect(JSON.stringify(result)).not.toContain("FEEDBACK_CANARY");
+    expect(JSON.stringify(result)).not.toContain("HINT_CANARY");
     expect(JSON.stringify(result)).not.toContain('"correct"');
   });
 });
@@ -159,5 +168,123 @@ describe("the library is confined to BUNDLES_ROOT", () => {
   });
   it("quotes the actual bundle path in an approval command without executing it", () => {
     expect(approvalCommand("/tmp/teacher's course/lesson.json", "en")).toBe(".venv/bin/python tools/experience_packet.py approve --bundle '/tmp/teacher'\"'\"'s course/lesson.json' --validated-by 'YOUR NAME'");
+  });
+});
+
+describe("review inbox (INT-STUDIUM-058 task 6.3)", () => {
+  it("projects the inbox sorted by consequence, without any fingerprint", async () => {
+    const bundle = await fixture();
+    bundle.scenes[2].title = "TODO title"; // a quiz with a TODO blocks
+    const result = inspectLesson(Buffer.from(JSON.stringify(bundle)), null);
+    const order = ["blocks", "grading", "wording", "media"];
+    const ranks = result.inbox.items.map((item) => order.indexOf(item.consequence));
+    expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+    expect(result.inbox.items).toHaveLength(bundle.scenes.length);
+    expect(result.inbox.items[0]).toMatchObject({ id: bundle.scenes[2].id, consequence: "blocks" });
+    expect(result.inbox.items.some((item) => item.consequence === "grading" && item.holdsKey)).toBe(true);
+    expect(result.inbox.items.every((item) => item.whatChanged === "new")).toBe(true);
+    expect(result.inbox.lastReceipt).toBeNull();
+    // No sha256 of any kind reaches a page: a key-holding scene's hash would be an answer oracle.
+    expect(JSON.stringify(result.inbox)).not.toMatch(/sha256|[0-9a-f]{64}/);
+    // inspectLesson alone runs no linter (readLesson does): the lint check is absent, not passed.
+    expect(result.inbox.items[0].checks.map((c) => c.check)).toEqual(["schema", "todo"]);
+  });
+  it("gives each item the scene's public face: title, kind, learner text, a quiz's choice texts without the key", async () => {
+    const bundle = await fixture();
+    const quiz = bundle.scenes[2];
+    const result = inspectLesson(Buffer.from(JSON.stringify(bundle)), null);
+    const item = result.inbox.items.find((i) => i.id === quiz.id)!;
+    expect(item.preview).toEqual({
+      title: quiz.title, kind: "quiz", text: quiz.question.replace(/\s+/g, " ").trim().slice(0, 280),
+      choices: quiz.choices.map((c: { text: string }) => c.text),
+    });
+    const audit = result.inbox.items.find((i) => i.id === bundle.scenes[3].id)!;
+    expect(audit.preview.kind).toBe("summary_audit");
+    expect(JSON.stringify(result.inbox)).not.toContain(bundle.scenes[3].model_correction.slice(0, 40));
+    expect(JSON.stringify(result.inbox)).not.toContain(quiz.feedback_correct.slice(0, 40));
+  });
+  it("runs the bundle linter in readLesson: a lint ERROR naming a scene puts it first, as blocks (walkthrough fix 2)", async () => {
+    const base = await root();
+    const bundle = await fixture();
+    // A quiz with two correct choices: bundle_lint's quiz_answer_key ERROR, "<scene id>: 2 correct choices".
+    const quiz = bundle.scenes[5];
+    for (const choice of quiz.choices.slice(0, 2)) choice.correct = true;
+    await put(base, "course", bundle);
+    await cp(resolve(__dirname, "../../../fixtures/atomistique-l1/assets"), join(base, "course/assets"), { recursive: true });
+    const lesson = await readLesson(base, "course");
+    expect(lesson.inbox.items[0]).toMatchObject({ id: quiz.id, consequence: "blocks" });
+    expect(lesson.inbox.items[0].checks).toContainEqual({ check: "lint", passed: false });
+    expect(lesson.inbox.items.filter((i) => i.consequence === "blocks").map((i) => i.id)).toEqual([quiz.id]);
+    expect(lesson.lintUnavailable).toBe(false);
+    // The linter's message is never copied to the page.
+    expect(JSON.stringify(lesson)).not.toContain("correct choices");
+  });
+  it("marks what changed against the last receipt in the course's reviews/ folder", async () => {
+    const base = await root();
+    const bundle = await fixture();
+    await put(base, "course", bundle);
+    await mkdir(join(base, "course/reviews"));
+    const receipt = {
+      schema: "studium/review-receipt/v1", reviewer: "A. Teacher", decided_at: "2026-11-01T09:00:00Z",
+      bundle_ref: "course/lesson.json", bundle_sha256: "a".repeat(64), decision: "approved",
+      items: [
+        { id: bundle.scenes[0].id, sha256: sceneFingerprint(bundle.scenes[0]), consequence: "wording", opened: true },
+        { id: bundle.scenes[1].id, sha256: "0".repeat(64), consequence: "wording", opened: false },
+      ],
+      opened: 1, not_opened: 1,
+    };
+    await writeFile(join(base, "course/reviews/2026-11-01-abcd1234.json"), JSON.stringify(receipt));
+    await writeFile(join(base, "course/reviews/2026-11-02-ffff.json"), "{broken");
+    const lesson = await readLesson(base, "course");
+    const byId = new Map(lesson.inbox.items.map((item) => [item.id, item]));
+    expect(byId.get(bundle.scenes[0].id)?.whatChanged).toBe("unchanged");
+    expect(byId.get(bundle.scenes[1].id)?.whatChanged).toBe("changed");
+    expect(byId.get(bundle.scenes[2].id)?.whatChanged).toBe("new");
+    expect(lesson.inbox.lastReceipt).toEqual({ reviewer: "A. Teacher", decidedAt: "2026-11-01T09:00:00Z", decision: "approved", opened: 1, notOpened: 1,
+      verdicts: { ok: 0, toFix: 0 } });
+    expect(lesson.inbox.unreadableReceipts).toBe(1);
+    expect(JSON.stringify(lesson.inbox)).not.toMatch(/[0-9a-f]{64}/);
+  });
+  it("projects a previous verdict only for an unchanged scene and summarizes receipt verdicts", async () => {
+    const bundle = await fixture();
+    const raw = Buffer.from(JSON.stringify(bundle));
+    const receipt = {
+      schema: "studium/review-receipt/v1" as const, reviewer: "A. Teacher", decided_at: "2026-11-01T09:00:00Z",
+      bundle_ref: "course/lesson.json", bundle_sha256: "a".repeat(64), decision: "returned" as const,
+      items: [
+        { id: bundle.scenes[0].id, sha256: sceneFingerprint(bundle.scenes[0]), consequence: "wording" as const, opened: true, verdict: "ok" as const },
+        { id: bundle.scenes[1].id, sha256: "0".repeat(64), consequence: "wording" as const, opened: false, verdict: "to_fix" as const },
+      ],
+      opened: 1, not_opened: 1,
+    };
+    const lesson = inspectLesson(raw, null, { receipt, unreadable: 0 });
+    expect(lesson.inbox.items.find((item) => item.id === bundle.scenes[0].id)?.lastVerdict).toBe("ok");
+    expect(lesson.inbox.items.find((item) => item.id === bundle.scenes[1].id)).not.toHaveProperty("lastVerdict");
+    expect(lesson.inbox.lastReceipt?.verdicts).toEqual({ ok: 1, toFix: 1 });
+  });
+  it("adds --opened to the approval command only when items were opened", () => {
+    expect(approvalCommand("/c/lesson.json", "en", [])).toBe(".venv/bin/python tools/experience_packet.py approve --bundle '/c/lesson.json' --validated-by 'YOUR NAME'");
+    expect(approvalCommand("/c/lesson.json", "fr", ["s1", "#3"])).toBe(".venv/bin/python tools/experience_packet.py approve --bundle '/c/lesson.json' --validated-by 'VOTRE NOM' --opened 's1,#3' --lang fr");
+  });
+  it("composes the send-back command, which writes a receipt only", () => {
+    expect(returnCommand("/c/teacher's/lesson.json", "en")).toBe(".venv/bin/python tools/experience_packet.py receipt --bundle '/c/teacher'\"'\"'s/lesson.json' --reviewer 'YOUR NAME' --decision returned");
+    expect(returnCommand("/c/lesson.json", "fr", ["s1"])).toBe(".venv/bin/python tools/experience_packet.py receipt --bundle '/c/lesson.json' --reviewer 'VOTRE NOM' --decision returned --opened 's1' --lang fr");
+  });
+  it("adds one --verdict flag in scene order before --opened, with the language flag still last", () => {
+    const verdicts = { s3: "to_fix", s1: "ok" } as const;
+    const sceneOrder = ["s0", "s1", "s2", "s3"];
+    expect(approvalCommand("/c/lesson.json", "en", ["s0"], undefined, verdicts, sceneOrder)).toBe(
+      ".venv/bin/python tools/experience_packet.py approve --bundle '/c/lesson.json' --validated-by 'YOUR NAME' --verdict 's1=ok,s3=to_fix' --opened 's0'",
+    );
+    expect(returnCommand("/c/lesson.json", "fr", ["s0"], "Marie", verdicts, sceneOrder)).toBe(
+      ".venv/bin/python tools/experience_packet.py receipt --bundle '/c/lesson.json' --reviewer 'Marie' --decision returned --verdict 's1=ok,s3=to_fix' --opened 's0' --lang fr",
+    );
+  });
+  it("asks the CLI for its French summary when the page is in French, and adds nothing in English", () => {
+    for (const command of [approvalCommand, returnCommand]) {
+      expect(command("/c/lesson.json", "fr")).toMatch(/ --lang fr$/);
+      expect(command("/c/lesson.json", "fr", [], "Marie Curie")).toMatch(/'Marie Curie' (--decision returned )?--lang fr$/);
+      expect(command("/c/lesson.json", "en", ["s1"])).not.toContain("--lang");
+    }
   });
 });

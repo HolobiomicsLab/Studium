@@ -81,8 +81,10 @@ are kept as legacy and research code; they are not a supported authoring route.
 
 | Unit | Role | README |
 |---|---|---|
-| `apps/lesson-mcp` | MCP server (36 tools, stdio) and HTTP adapter for lesson operations | [README](../../apps/lesson-mcp/README.md) |
+| `apps/lesson-mcp` | MCP server (40 tools, stdio) and HTTP adapter for lesson operations | [README](../../apps/lesson-mcp/README.md) |
 | `apps/studium-vscode` | VS Code extension: lesson pane, chat participant, bundled MCP server | [README](../../apps/studium-vscode/README.md) |
+| `apps/lesson-panel-ui` | Shared lesson and graph renderers, with VS Code and MCP Apps bridges | [README](../../apps/lesson-panel-ui/README.md) |
+| `apps/claude-code-mod` | Claude Code plugin: native lesson pane over the shared panel tools | [README](../../apps/claude-code-mod/README.md) |
 | `apps/lesson-server` | Fastify HTTP server for lessons, answer keys redacted | [README](../../apps/lesson-server/README.md) |
 | `apps/teacher-dashboard` | Next.js dashboard: class analytics, lesson library and review pages | [README](../../apps/teacher-dashboard/README.md) |
 | `apps/student-runtime` | Tauri desktop app, frozen | [README](../../apps/student-runtime/README.md) |
@@ -98,6 +100,7 @@ are kept as legacy and research code; they are not a supported authoring route.
 | `lesson-schema` | earlier lesson schema v1 (ADR 003); the bundle schema is current | [README](../../packages/lesson-schema/README.md) |
 | `lesson-session` | one learner in one lesson: grading, navigation, tutor | [README](../../packages/lesson-session/README.md) |
 | `lesson-session-host` | multi-session host: persistence, redaction, study plan, authoring | [README](../../packages/lesson-session-host/README.md) |
+| `lesson-panel` | public view, actions and composition shared by harnesses | [README](../../packages/lesson-panel/README.md) |
 | `adaptation-engine` | Beta mastery updates, FSRS review scheduling, graph routing | [README](../../packages/adaptation-engine/README.md) |
 | `learner-state` | learner model types: mastery, calibration, trust | [README](../../packages/learner-state/README.md) |
 | `reasoning-scorer` | classifies the reasoning of a tutoring turn | [README](../../packages/reasoning-scorer/README.md) |

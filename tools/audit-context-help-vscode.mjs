@@ -11,7 +11,7 @@ const [outArg]=process.argv.slice(2);if(!outArg)throw Error('Usage: node tools/a
 const out=resolve(outArg);await mkdir(out,{recursive:false});
 const build=buildSync({entryPoints:['apps/studium-vscode/src/contextual-help.ts'],bundle:true,write:false,platform:'node',format:'cjs',loader:{'.css':'text'}});
 const module={exports:{}};runInNewContext(build.outputFiles[0].text,{module,exports:module.exports});const help=module.exports;
-const css=await readFile('apps/studium-vscode/media/graph-pane.css','utf8');
+const css=await readFile('apps/lesson-panel-ui/src/graph-pane.css','utf8');
 const pageHTML=`<!doctype html><html lang="fr"><head><style>${help.helpStyles}\n${css}</style></head><body>${help.graphHelp()}<div id="graph" style="background:#eef4f2">Graph canvas layout fixture</div><div id="legend">Synthetic layout check</div></body></html>`;
 await writeFile(out+'/graph.html',pageHTML);
 const browser=await chromium.launch({channel:'chrome'}),page=await browser.newPage({viewport:{width:390,height:844}});
@@ -24,7 +24,7 @@ try{
  check('no mobile overflow',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.screenshot({path:out+'/graph-help.png',fullPage:true});
  await tip.locator(':scope > summary').click();check('graph help dismisses',await tip.getAttribute('open')===null);
- const pane=await readFile('apps/studium-vscode/media/artifact-pane.js','utf8');
+ const pane=await readFile('apps/lesson-panel-ui/src/artifact-pane.js','utf8');
  await page.setContent(`<html lang="fr"><head><style>${help.helpStyles}</style></head><body>${help.lessonHelpTemplates()}<div id="pane"></div></body></html>`);
  await page.addScriptTag({content:pane});await page.evaluate(()=>window.__render({scene:{type:'meta_checkpoint',title:'Synthetic confidence scene'},scene_assets:[]}));
  await page.locator('#pane .studium-help > summary').click();

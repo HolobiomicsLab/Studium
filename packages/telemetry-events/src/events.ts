@@ -204,6 +204,80 @@ export const TutorMoveSchema = BaseEventSchema.extend({
   turn_index: z.number().int().nonnegative(),
 });
 
+// --- Interaction events (INT-STUDIUM-058 § 2.10) ---------------------------------------------
+// How a lesson was used, for the consented stream: which act was made on which lane and surface
+// and how long it took, which proposals were shown and what became of them, which help was used,
+// what a contest showed, why a lesson was resumed, and the counts of a review receipt. Strict:
+// closed labels, counts, delays and references only. An unknown field is refused, not dropped, so
+// a text (a prompt's reason, a question asked, a reviewer's note) cannot ride along.
+// The lists mirror the ones the server uses: the panel's actions (packages/lesson-panel view.ts),
+// the prompt kinds and outcomes (packages/lesson-session-host prompts.ts), the help rungs, the
+// contest claims and outcomes, the resume causes. apps/lesson-mcp/src/telemetry-lists.test.ts ties
+// each of them to its source at runtime, or at the type level where only a type exists.
+const SurfaceRankSchema = z.number().int().min(1).max(3);
+const SERVER_PROMPT_KINDS = ["review_due", "break", "next_lesson", "map_offer", "forms_offer"] as const;
+
+export const InteractionSchema = BaseEventSchema.extend({
+  type: z.literal("interaction"),
+  act: z.enum([
+    "respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse", "ask", "setAttention",
+    "setLanguage", "replan", "openMap", "closeMap", "contest", "prompt",
+  ]),
+  lane: z.enum(["fast", "companion"]),
+  // The rank of the surface the session is played on (as negotiated: 3 a panel or a pane, 2 forms,
+  // 1 the conversation, 1 when none was negotiated). `lane` says how the act came in, not where the
+  // session lives: « companion, rank 3 » is a learner who used the conversation while a panel was
+  // open, and the fast-lane indicator counts it (tools/interaction_report.py).
+  surface_rank: SurfaceRankSchema,
+  server_ms: z.number().nonnegative(),
+  client_ms: z.number().nonnegative().optional(),   // measured by a surface that can; absent otherwise
+  scene_id: z.string().optional(),
+}).strict();
+
+export const PromptShownSchema = BaseEventSchema.extend({
+  type: z.literal("prompt_shown"),
+  kind: z.enum([...SERVER_PROMPT_KINDS, "resume_notice", "adaptation_notice"]),
+  attention: z.enum(["quiet", "normal", "coached"]),
+  surface_rank: SurfaceRankSchema,
+  scene_id: z.string().optional(),
+}).strict();
+
+// A notice asks nothing, so it has no outcome: only the five proposals do.
+export const PromptOutcomeSchema = BaseEventSchema.extend({
+  type: z.literal("prompt_outcome"),
+  kind: z.enum(SERVER_PROMPT_KINDS),
+  outcome: z.enum(["accepted", "dismissed", "ignored"]),
+  scene_id: z.string().optional(),
+}).strict();
+
+export const HelpUsedSchema = BaseEventSchema.extend({
+  type: z.literal("help_used"),
+  rung: z.enum(["reread", "hint", "explain", "reference"]),
+  scene_id: z.string(),
+}).strict();
+
+export const ContestEventSchema = BaseEventSchema.extend({
+  type: z.literal("contest"),
+  concept_id: z.string(),
+  claim: z.enum(["known", "unsure"]),
+  outcome: z.enum(["confirmed", "refuted", "partial"]),
+  questions: z.number().int().nonnegative(),
+}).strict();
+
+export const ResumeSchema = BaseEventSchema.extend({
+  type: z.literal("resume"),
+  cause: z.enum(["restart", "surface_change", "paused"]),
+}).strict();
+
+// Counts only: which items were opened, and the reviewer's note, stay in the receipt file.
+export const ReviewReceiptEventSchema = BaseEventSchema.extend({
+  type: z.literal("review_receipt"),
+  decision: z.enum(["approved", "returned"]),
+  items: z.number().int().nonnegative(),
+  opened: z.number().int().nonnegative(),
+  not_opened: z.number().int().nonnegative(),
+}).strict();
+
 export const TelemetryEventSchema = z.discriminatedUnion("type", [
   LessonStartedSchema,
   SceneEnteredSchema,
@@ -222,6 +296,13 @@ export const TelemetryEventSchema = z.discriminatedUnion("type", [
   UniverseSelectedSchema,
   HintRequestedSchema,
   TutorMoveSchema,
+  InteractionSchema,
+  PromptShownSchema,
+  PromptOutcomeSchema,
+  HelpUsedSchema,
+  ContestEventSchema,
+  ResumeSchema,
+  ReviewReceiptEventSchema,
 ]);
 
 export type TelemetryEvent = z.infer<typeof TelemetryEventSchema>;

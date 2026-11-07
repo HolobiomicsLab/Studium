@@ -52,6 +52,12 @@ So, by default:
   again after the conversation step. `status: "unsupported"` means this client has no forms.
   How clients draw a long screen or a formula in a form is untried: if the learner finds it
   worse, go back to the conversation.
+- **After the learner played without you, read the brief.** After `play_in_forms`, use the `brief`
+  in its return; `get_companion_brief {session_id}` is for acts on a panel or a pane. On those surfaces the
+  server answers the learner and you do not see their acts. At their first message after such
+  acts, call `get_companion_brief {session_id}` before you answer: where they are, what they did
+  since you last looked (the twelve latest acts and their count, each with its lane), which help
+  is open, and three rules to follow. Do not show again a scene it lists.
 - **Give depth on request, from a stronger model.** A question that needs a real explanation goes
   to the `studium-explainer` agent (Claude Code) or to the session's larger model, never between
   a question and the learner's answer when it is the idea that question tests.
@@ -131,6 +137,12 @@ independent MCP client run separate servers with separate sessions and progress.
    `completed`), `persistence` and any `due` review targets. Relay
    `authoring.notice` when present: it says who wrote the key and whether a judge
    assesses written answers.
+5. To play on the best surface the client can show, open with `open_lesson_panel
+   {bundle_ref, learner_id, surface?}` instead. Its view's `surface` says where the
+   lesson is played, and the last line of its text how to go on: rank 3, a panel or a
+   pane beside the conversation, where the learner reads and answers and the server
+   answers them; rank 2, forms (`play_in_forms`); rank 1, the conversation (relay as
+   in section 4). `surface: "text"` when the learner prefers the conversation.
 
 With `now_ms` (an integer epoch in ms; anything else is refused) a session runs on a
 clock anchored there: its answers, ratings and review dates are stamped from it. Dates

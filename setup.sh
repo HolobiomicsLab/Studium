@@ -73,12 +73,12 @@ pnpm --filter studium-vscode build
 # install cannot masquerade as success.
 step "Verifying build output"
 [ -f apps/studium-vscode/dist/extension.js ] || fail "build produced no apps/studium-vscode/dist/extension.js"
-[ -d apps/studium-vscode/media/vendor ] || fail "vendor step produced no apps/studium-vscode/media/vendor/"
-[ -f apps/studium-vscode/media/vendor/katex/katex.min.js ] || fail "vendor step did not copy KaTeX"
-[ -f apps/studium-vscode/media/vendor/3Dmol-min.js ] || fail "vendor step did not copy 3Dmol"
+[ -d apps/studium-vscode/dist/panel/vendor ] || fail "vendor step produced no apps/studium-vscode/dist/panel/vendor/"
+[ -f apps/studium-vscode/dist/panel/vendor/katex/katex.min.js ] || fail "vendor step did not copy KaTeX"
+[ -f apps/studium-vscode/dist/panel/vendor/3Dmol-min.js ] || fail "vendor step did not copy 3Dmol"
 # Without this the extension launches and then dies on the first scene.
 [ -f packages/llm-client/dist/index.js ] || fail "workspace build produced no packages/llm-client/dist/index.js — the lesson server cannot start"
-printf '    dist/extension.js, media/vendor/, and the lesson-server deps are present\n'
+printf '    dist/extension.js, dist/panel/vendor/, and the lesson-server deps are present\n'
 
 printf '\nSetup complete.\n\n'
 printf 'Next step: open the folder apps/studium-vscode in VS Code and press F5 (fn+F5 on a Mac).\n'

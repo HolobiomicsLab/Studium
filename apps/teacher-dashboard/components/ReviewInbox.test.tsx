@@ -1,0 +1,201 @@
+/**
+ * @vitest-environment node
+ */
+// INT-STUDIUM-058 task 6.3: the review inbox on screen. This app has no DOM test library, so a click
+// is exercised through the component's own reducer (the onClick handlers dispatch exactly these
+// actions) and the markup is rendered from the resulting state.
+import { describe, it, expect } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
+import { createElement, type ReactNode } from "react";
+import {
+  ReviewSession, ReviewInboxList, ReviewApproval, reviewReducer, emptyReviewState,
+  unopenedGrading, openedInSceneOrder, type InboxEntry, type ReviewState,
+} from "./ReviewInbox";
+
+const ok = [{ check: "schema", passed: true }, { check: "todo", passed: true }] as InboxEntry["checks"];
+// Already sorted by consequence, as buildReviewInbox returns them; `index` is the scene order.
+const ENTRIES: InboxEntry[] = [
+  { id: "s2-todo", index: 2, title: "Scene with a TODO", type: "concept", consequence: "blocks", whatChanged: "changed", checks: [{ check: "schema", passed: true }, { check: "todo", passed: false }] },
+  { id: "s3-quiz", index: 3, title: "Quiz three", type: "quiz", consequence: "grading", whatChanged: "new", checks: ok },
+  { id: "s1-quiz", index: 1, title: "Quiz one", type: "quiz", consequence: "grading", whatChanged: "unchanged", lastVerdict: "ok", checks: ok },
+  { id: "s0-intro", index: 0, title: "Intro", type: "intro", consequence: "wording", whatChanged: "unchanged", checks: ok },
+];
+const RECEIPT = { reviewer: "A. Teacher", decidedAt: "2026-11-01T09:00:00Z", decision: "approved" as const, opened: 2, notOpened: 1 };
+
+function page(state: ReviewState, locale: "fr" | "en" = "fr", lastReceipt: typeof RECEIPT | null = RECEIPT): string {
+  const children: ReactNode = [
+    createElement(ReviewInboxList, { key: "list", lastReceipt, unreadableReceipts: 0 }),
+    createElement(ReviewApproval, { key: "approval", bundlePath: "/lib/course/lesson.json" }),
+  ];
+  return renderToStaticMarkup(createElement(ReviewSession, { entries: ENTRIES, locale, initialState: state }, children));
+}
+const itemHtml = (html: string, id: string) => {
+  const start = html.indexOf(`data-item="${id}"`);
+  return html.slice(start, html.indexOf("</li>", start));
+};
+
+describe("review inbox list", () => {
+  it("keeps the consequence order in the DOM and labels each item", () => {
+    const html = page(emptyReviewState());
+    const positions = ENTRIES.map((e) => html.indexOf(`data-item="${e.id}"`));
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    expect(itemHtml(html, "s2-todo")).toContain("bloque");
+    expect(itemHtml(html, "s3-quiz")).toContain("note");
+    expect(itemHtml(html, "s0-intro")).toContain("formulation");
+    expect(itemHtml(html, "s3-quiz")).toContain("Quiz three");
+    expect(itemHtml(html, "s2-todo")).toContain("modifié");
+    expect(itemHtml(html, "s2-todo")).toContain("2026-11-01");
+    expect(page(emptyReviewState(), "en")).toContain("blocks");
+  });
+  it("says there is no earlier receipt when none was found", () => {
+    expect(page(emptyReviewState(), "fr", null)).toContain("aucun reçu antérieur");
+    expect(page(emptyReviewState(), "en", null)).toContain("no earlier receipt");
+  });
+  it("folds a grading item's automatic verdict until the teacher gives their own", () => {
+    const before = itemHtml(page(emptyReviewState()), "s3-quiz");
+    expect(before).toContain("Avis automatique");
+    expect(before).toMatch(/<details class="inbox-checks"(?![^>]*open)/);
+    expect(before).toContain(">Correct<");
+    expect(before).toContain("À corriger");
+    const after = reviewReducer(emptyReviewState(), { type: "verdict", id: "s3-quiz", verdict: "to_fix" });
+    // A verdict is not a reading: the page shows no key, so it must not count the item as opened.
+    expect(after.opened.has("s3-quiz")).toBe(false);
+    expect(after.verdicts["s3-quiz"]).toBe("to_fix");
+    const html = itemHtml(page(after), "s3-quiz");
+    expect(html).toMatch(/<details class="inbox-checks"[^>]*open/);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>À corriger/);
+    expect(html).toContain("Votre avis est porté par la commande");
+    expect(itemHtml(page(after, "en"), "s3-quiz")).toContain("Your verdict is carried by the command");
+  });
+  it("shows the previous receipt's verdict without pre-selecting today's verdict", () => {
+    const fr = itemHtml(page(emptyReviewState()), "s1-quiz");
+    expect(fr).toContain("Avis précédent\u00a0: Correct");
+    expect(fr).toMatch(/aria-pressed="false"[^>]*>Correct/);
+    const en = itemHtml(page(emptyReviewState(), "en"), "s1-quiz");
+    expect(en).toContain("Previous verdict: Correct");
+  });
+  it("marks a non-grading item opened when its details are opened, and never un-opens it", () => {
+    const opened = reviewReducer(emptyReviewState(), { type: "toggle", id: "s0-intro", open: true });
+    expect(opened.opened.has("s0-intro")).toBe(true);
+    expect(reviewReducer(opened, { type: "toggle", id: "s0-intro", open: false }).opened.has("s0-intro")).toBe(true);
+  });
+});
+
+describe("approval panel", () => {
+  it("warns, as a status, about unopened grading items until all are opened", () => {
+    const html = page(emptyReviewState());
+    expect(unopenedGrading(ENTRIES, emptyReviewState())).toEqual(["s3-quiz", "s1-quiz"]);
+    expect(html).toContain('role="status"');
+    expect(html).toContain("2 éléments");
+    expect(html).toContain("non ouverts");
+    expect(html).toContain("s3-quiz, s1-quiz");
+    expect(html).not.toContain('role="alert"');
+    // Verdicts do not clear the warning: the page never shows a grading item's key.
+    let state = reviewReducer(emptyReviewState(), { type: "verdict", id: "s3-quiz", verdict: "ok" });
+    expect(page(state)).toContain("2 éléments");
+    expect(page(state, "en")).toContain("2 grading items not opened");
+    state = reviewReducer(state, { type: "verdict", id: "s1-quiz", verdict: "ok" });
+    expect(page(state)).toContain("s3-quiz, s1-quiz");
+    expect(page(state)).toContain("Cette page ne montre pas les clés");
+    expect(page(state, "en")).toContain("This page shows no key");
+  });
+  it("keeps every grading item in the warning and out of --opened after verdicts; a toggled wording item enters --opened alone", () => {
+    let state = reviewReducer(emptyReviewState(), { type: "verdict", id: "s3-quiz", verdict: "ok" });
+    state = reviewReducer(state, { type: "verdict", id: "s1-quiz", verdict: "to_fix" });
+    expect(unopenedGrading(ENTRIES, state)).toEqual(["s3-quiz", "s1-quiz"]);
+    expect(openedInSceneOrder(ENTRIES, state)).toEqual([]);
+    expect(page(state)).not.toContain("--opened &#x27;");
+    state = reviewReducer(state, { type: "toggle", id: "s0-intro", open: true });
+    expect(unopenedGrading(ENTRIES, state)).toEqual(["s3-quiz", "s1-quiz"]);
+    const html = page(state);
+    expect(html).toContain("--opened &#x27;s0-intro&#x27;");
+    // Verdict ids now belong in --verdict, but grading items still never enter --opened on this page.
+    expect(html).not.toMatch(/--opened &#x27;[^&]*(?:s1-quiz|s3-quiz)/);
+  });
+  it("carries --opened with the opened ids in scene order, and no flag when none", () => {
+    expect(page(emptyReviewState())).not.toContain("--opened &#x27;");
+    let state = reviewReducer(emptyReviewState(), { type: "toggle", id: "s2-todo", open: true });
+    state = reviewReducer(state, { type: "toggle", id: "s0-intro", open: true });
+    expect(openedInSceneOrder(ENTRIES, state)).toEqual(["s0-intro", "s2-todo"]);
+    const html = page(state);
+    expect(html).toContain("experience_packet.py approve --bundle &#x27;/lib/course/lesson.json&#x27; --validated-by &#x27;VOTRE NOM&#x27; --opened &#x27;s0-intro,s2-todo&#x27; --lang fr</code>");
+    expect(html).toContain("experience_packet.py receipt --bundle &#x27;/lib/course/lesson.json&#x27; --reviewer &#x27;VOTRE NOM&#x27; --decision returned --opened &#x27;s0-intro,s2-todo&#x27; --lang fr</code>");
+    expect(html).toContain("Renvoyer la leçon");
+  });
+  it("carries verdicts in scene order and puts the return command first when one is to fix", () => {
+    let state = reviewReducer(emptyReviewState(), { type: "verdict", id: "s3-quiz", verdict: "to_fix" });
+    state = reviewReducer(state, { type: "verdict", id: "s1-quiz", verdict: "ok" });
+    const fr = page(state);
+    expect(fr).toContain("--verdict &#x27;s1-quiz=ok,s3-quiz=to_fix&#x27;");
+    expect(fr.indexOf("experience_packet.py receipt --bundle")).toBeLessThan(fr.indexOf("experience_packet.py approve --bundle"));
+    expect(fr).toContain("Avec un élément à corriger, la CLI refuse une approbation");
+    const en = page(state, "en");
+    expect(en).toContain("With an item marked To fix, the CLI refuses approval");
+  });
+});
+
+// Walkthrough fix 1: the inbox shows what it asks to judge, folded under each row until asked for.
+describe("scene preview", () => {
+  const withPreview: InboxEntry[] = [
+    { ...ENTRIES[1]!, preview: { text: "Which particle carries no charge?", choices: ["Proton", "Neutron", "Electron"] } },
+    { ...ENTRIES[3]!, preview: { text: "Welcome to the atom." } },
+  ];
+  const render = (state: ReviewState, locale: "fr" | "en" = "fr") => renderToStaticMarkup(createElement(ReviewSession, { entries: withPreview, locale, initialState: state },
+    createElement(ReviewInboxList, { lastReceipt: null, unreadableReceipts: 0 })));
+
+  it("renders the learner text and the choice texts in a folded details under each row", () => {
+    const quiz = itemHtml(render(emptyReviewState()), "s3-quiz");
+    expect(quiz).toMatch(/<details class="inbox-preview"(?![^>]*open)/);
+    expect(quiz).toContain("Ce que voit l’apprenant");
+    expect(quiz).toContain("Which particle carries no charge?");
+    // itemHtml stops at the first </li>, a choice's here: read the choices from the whole list.
+    expect(render(emptyReviewState())).toMatch(/<ol class="inbox-preview__choices"><li>Proton<\/li><li>Neutron<\/li><li>Electron<\/li><\/ol>/);
+    expect(itemHtml(render(emptyReviewState(), "en"), "s3-quiz")).toContain("What the learner sees");
+    const intro = itemHtml(render(emptyReviewState()), "s0-intro");
+    expect(intro).toContain("Welcome to the atom.");
+    expect(intro).not.toContain("inbox-preview__choices");
+  });
+  it("keeps the grading warning: the preview never shows the key", () => {
+    const html = page(emptyReviewState());
+    expect(html).toContain("Cette page ne montre pas les clés");
+    expect(itemHtml(render(emptyReviewState()), "s3-quiz")).toContain("sans la clé");
+  });
+  it("renders no preview for an entry that has none", () => {
+    expect(itemHtml(page(emptyReviewState()), "s0-intro")).not.toContain("inbox-preview");
+  });
+});
+
+// Walkthrough fix 3: what learners will read as the lesson's voice, under the name the command carries.
+describe("voice preview in the approval panel", () => {
+  const approval = (locale: "fr" | "en", initialName?: string) => renderToStaticMarkup(createElement(ReviewSession, { entries: ENTRIES, locale },
+    createElement(ReviewApproval, { bundlePath: "/lib/course/lesson.json", initialName })));
+
+  it("shows the voice line with the name typed, and puts the name in both commands", () => {
+    const fr = approval("fr", "Marie Curie");
+    expect(fr).toContain("Les apprenants liront sur chaque écran : « Leçon validée par Marie Curie » / “validated by Marie Curie”");
+    expect(fr).toContain("--validated-by &#x27;Marie Curie&#x27;");
+    expect(fr).toContain("--reviewer &#x27;Marie Curie&#x27;");
+    expect(fr).toMatch(/<input[^>]*value="Marie Curie"/);
+    expect(fr).not.toContain("adresse électronique");
+    const en = approval("en", "Marie Curie");
+    expect(en).toContain("Learners will read on every screen: « Leçon validée par Marie Curie » / “validated by Marie Curie”");
+    expect(en).not.toContain("e-mail address");
+    // Both commands ask the CLI to answer in the page's language: French only on the French page.
+    expect(fr.match(/--lang fr<\/code>/g)).toHaveLength(2);
+    expect(en).not.toContain("--lang");
+  });
+  it("falls back to the placeholder name when nothing is typed", () => {
+    expect(approval("fr")).toContain("Leçon validée par VOTRE NOM");
+    expect(approval("en")).toContain("validated by YOUR NAME");
+    expect(approval("fr")).toContain("--validated-by &#x27;VOTRE NOM&#x27;");
+  });
+  it("notes an e-mail address, without refusing it", () => {
+    const fr = approval("fr", "m.curie@example.org");
+    expect(fr).toContain("Leçon validée par m.curie@example.org");
+    expect(fr).toContain("c’est une adresse électronique ; les apprenants la verront");
+    expect(fr).toContain("--validated-by &#x27;m.curie@example.org&#x27;");
+    const en = approval("en", "m.curie@example.org");
+    expect(en).toContain("this is an e-mail address; learners will see it");
+  });
+});

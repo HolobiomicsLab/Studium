@@ -13,6 +13,7 @@ après l'[installation](../start/installation.fr.md) (`pnpm install` et un `.ven
 | [`bundle_lint.mjs`](#bundle_lintmjs) | Relecture pédagogique d'un ou plusieurs `lesson.json`. |
 | [`bundle_validate.ts`](#bundle_validatets) | Validation de fichiers `lesson.json` par le schéma. |
 | [`class_report.py`](#class_reportpy) | Rapport de classe agrégé à partir de la télémétrie consentie. |
+| [`interaction_report.py`](#interaction_reportpy) | Rapport d'usage agrégé de l'interface à deux voies à partir de la télémétrie consentie. |
 | [`pytest_all.py`](#pytest_allpy) | Toutes les suites de tests Python, un processus chacune. |
 
 ## experience_packet.py
@@ -36,7 +37,8 @@ par un apprenant ou un enseignant en leçon, hors ligne et sans modèle. L'ordre
 | `prepare` | `--passages`, `--out`, `--title` | `--target`, `--capsule`, `--task-id`, `--self-study` (automatique pour des passages issus de `passages`) |
 | `check` | `--packet`, `--response`, `--out` | `--force` ; `--quiet` (n'affiche que le chemin de sortie) ou `--json` (un rapport lisible par machine) |
 | `bundle` | `--course`, `--out` | `--validated-by`, `--force`, `--no-default-rules`, `--self-study`, `--note TEXT` (exige `--self-study`) |
-| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...` |
+| `approve` | `--bundle LESSON_JSON`, `--validated-by NAME` | `--checklist KEY=VALUE ...`, `--verdict ID=ok\|to_fix[,ID=...]` (répétable), `--opened ID[,ID...]` (répétable), `--note TEXT`, `--lang {en,fr}` |
+| `receipt` | `--bundle LESSON_JSON`, `--reviewer NAME`, `--decision returned` | `--verdict ID=ok\|to_fix[,ID=...]` (répétable), `--opened ID[,ID...]` (répétable), `--note TEXT`, `--lang {en,fr}` |
 
 À quoi s'attendre :
 
@@ -50,8 +52,31 @@ par un apprenant ou un enseignant en leçon, hors ligne et sans modèle. L'ordre
 - `approve` refuse un bundle d'autoformation, un gabarit restant ou une erreur de relecture. Il
   renseigne `validated_by` et `validated_at`, normalise le fichier et écrit `approval.json` à côté du
   bundle, lié à l'empreinte SHA-256 de ses octets finaux. Il affiche un résumé (relecteur et heure,
-  SHA-256, nombre d'erreurs et d'avertissements, rappel qu'une modification rend l'approbation
-  périmée), puis le chemin d'`approval.json` en dernière ligne.
+  voix que les apprenants liront sur chaque écran, `learners read on every screen: « Leçon validée par <NAME> » / "validated by <NAME>"`, SHA-256, nombre d'erreurs et
+  d'avertissements, rappel qu'une modification rend l'approbation périmée), puis le chemin
+  d'`approval.json` en dernière ligne. Un nom qui contient `@` ajoute `note: this is an e-mail address; learners will see it — prefer a name (--validated-by "Prénom Nom")` ; il n'est pas refusé. Il écrit aussi le reçu de relecture
+  `reviews/<date>-<sha>.json` à côté du bundle (un élément par scène : empreinte, conséquence,
+  ouverte ou non, et éventuellement l'avis de l'enseignant). `--opened` nomme les scènes lues et
+  `--verdict ID=ok|to_fix` enregistre le jugement ; un identifiant ou une valeur inconnus sont refusés
+  avant toute écriture. `approve` refuse aussi un avis `to_fix` : utilisez plutôt
+  `receipt --decision returned`. Quand au moins un avis est fourni, le résumé compte les éléments
+  `ok` et `to_fix`. La commande signale aussi les scènes `grading` non ouvertes. Un reçu n'est jamais écrasé : les mêmes
+  octets décidés deux fois le même jour sont refusés.
+  Chaque reçu ajoute aussi un événement `review_receipt` à `reviews/telemetry.jsonl`, à côté de lui,
+  sous l'étiquette de rôle `reviewer`.
+- `receipt --decision returned` sert à l'enseignant qui renvoie une leçon (le tableau de bord
+  enseignant compose cette commande) : il n'écrit que le reçu, lié aux octets actuels, sans
+  `approval.json` ni réécriture. `--decision approved` est refusé : utilisez `approve`.
+- `--lang` choisit la langue de ce qu'affichent `approve` et `receipt` : les lignes de résumé
+  ci-dessus et leurs refus. Sans cette option, `STUDIUM_LANG` décide s'il vaut `fr` ou `en`, sinon
+  le préfixe de `LC_ALL` ou de `LANG` (`fr_…` donne le français), sinon l'anglais. Les lignes citées
+  ci-dessus sont les lignes anglaises ; avec `--lang fr`, `approve` commence par
+  `Approuvée par <NAME> le <TIME>`, la voix devient `Les apprenants liront sur chaque écran : « Leçon validée par <NAME> » / “validated by <NAME>”`,
+  la note sur une adresse électronique `note : c’est une adresse électronique ; les apprenants la verront — préférez un nom (--validated-by "Prénom Nom")`
+  et un refus commence par `erreur :`. Les fichiers enregistrés (`lesson.json`, `approval.json`, le
+  reçu) sont les mêmes octets dans les deux langues. Le tableau de bord enseignant ajoute
+  `--lang fr` aux commandes qu'il compose sur sa page française. `passages`, `prepare`, `check` et
+  `bundle` n'affichent que de l'anglais.
 
 Code de sortie : `0` succès, `1` constats bloquants (ou citation introuvable), `2` erreur d'usage ou
 de paquet. Avec `--json`, `check` affiche `{ok, findings, output, summary}`.
@@ -117,6 +142,29 @@ et « not measured » un chiffre auquel personne n'a contribué ; chaque lig
 Le seuil freine l'identification d'un individu ; ce n'est pas une garantie d'anonymat, puisqu'un
 enseignant connaît sa classe. L'outil MCP `class_report` offre le même rapport avec un seuil qui ne
 peut pas être abaissé (voir [Suivre une classe](../teach/follow-a-class.fr.md)).
+
+## interaction_report.py
+
+[tools/interaction_report.py](../../tools/interaction_report.py) décrit comment une classe a utilisé
+l'interface à deux voies, à partir des événements d'interaction de la télémétrie consentie : la part
+des actes réglés sans modèle, le délai des verdicts (95e centile), l'issue des propositions par
+type (un type d'au moins 30 issues et de moins de 20 % d'acceptations est signalé), l'aide utilisée
+par échelon et par scène, les contestations, les reprises et les scènes montrées deux fois après
+elles, et les accusés de relecture. Il ne mesure pas l'apprentissage (c'est le rôle de
+`class_report.py`).
+
+```bash
+.venv/bin/python tools/interaction_report.py <dossier_run> [--min-learners 5] [--out DIR] [--json]
+.venv/bin/python tools/interaction_report.py <telemetry.jsonl> --single-stream
+```
+
+Il lit chaque `telemetry.jsonl` du dossier, refuse un flux sans événement `consent_granted` (compté
+dans `refused_streams`), et tait le rapport entier sous le seuil de cinq apprenants distincts, ainsi
+que chaque chiffre, type de proposition et scène calculés sur moins d'apprenants. `--min-learners`
+peut relever le seuil, pas l'abaisser. `--out DIR` écrit `interaction_report.md` et
+`interaction_report.json`. `--single-stream` lit un seul fichier sans seuil et ne sert qu'aux
+apprenants synthétiques des bancs d'essai : le rapport précise alors que ses chiffres sont ceux
+d'un seul apprenant.
 
 ## pytest_all.py
 

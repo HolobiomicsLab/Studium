@@ -30,12 +30,12 @@ const explainBack = (id: string) => ({
   key_points: [{ id: "kp", text: "POINT-CLÉ-SECRET", cues: ["signe"] }], model_explanation: "MODÈLE-SECRET",
   rubric: { completeness: 1, evidence_quality: 1, tone: 1 },
 });
-function writeLesson(root: string, scenes: object[]): string {
+function writeLesson(root: string, scenes: object[], language = "fr"): string {
   const ref = "forms-demo/lesson.json";
   mkdirSync(dirname(join(root, ref)), { recursive: true });
   writeFileSync(join(root, ref), JSON.stringify({
     schema_version: "1.4", bundle_id: "forms-demo", source_plan_id: "p",
-    metadata: { title: "Leçon formulaires", target: "L1", duration_minutes: 5, language: "fr", discipline: "chimie" },
+    metadata: { title: "Leçon formulaires", target: "L1", duration_minutes: 5, language, discipline: "chimie" },
     concepts: [{ id: "c1", title: "Notion c1", description: "d", bloom_level_target: "understand" }],
     scenes, rules: [], validated_by: "Prof. Test", validated_at: "2026-10-01T00:00:00Z",
   }));
@@ -57,9 +57,9 @@ function parse(res: unknown): Record<string, any> {
 }
 
 /** A client that shows forms (learner given) or one that cannot (learner null). */
-async function play(scenes: object[], learner: Learner[] | null) {
+async function play(scenes: object[], learner: Learner[] | null, language = "fr") {
   const root = tmp();
-  const ref = writeLesson(root, scenes);
+  const ref = writeLesson(root, scenes, language);
   const server = buildMcpServer(new SessionHost({ live: false, dataDir: null, bundlesRoot: root }));
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
   await server.connect(serverT);
@@ -122,6 +122,15 @@ describe("play_in_forms", () => {
     expect(result.display_markdown.indexOf("BRAVO-RÉVÉLÉ")).toBeLessThan(result.display_markdown.indexOf("Explique pourquoi"));
     expect(result.display_markdown.indexOf("BRAVO-RÉVÉLÉ")).toBeGreaterThanOrEqual(0);
     expect(JSON.stringify(result)).not.toMatch(/POINT-CLÉ-SECRET|MODÈLE-SECRET|INDICE-SECRET/);
+    // The hand-back carries the brief of these acts, its cursor moved: the model that called the tool is its reader.
+    expect(result.brief.where.scene.id).toBe("e1");
+    expect(result.brief.since_last).toEqual([
+      { scene_id: "k1", act: "read", lane: "fast" },
+      { scene_id: "q1", act: "answer", lane: "fast", correct: false, confidence: 4 },
+      { scene_id: "q2", act: "answer", lane: "fast", correct: true },
+    ]);
+    expect(JSON.stringify(result.brief)).not.toMatch(/RÉVÉLÉ|INDICE-SECRET|POINT-CLÉ-SECRET|MODÈLE-SECRET/);
+    expect((await call("get_companion_brief", { session_id })).brief.since_last).toEqual([]);
     expect(await currentScene()).toBe("e1");
   });
 
@@ -131,6 +140,7 @@ describe("play_in_forms", () => {
       const result = await call("play_in_forms", { session_id });
       expect(forms).toHaveLength(2);
       expect(result).toMatchObject({ status: "paused", reason, steps: [{ scene_id: "k1", scene_type: "concept" }] });
+      expect(result.brief.since_last).toEqual([{ scene_id: "k1", act: "read", lane: "fast" }]);
       expect(result.display_markdown).toContain("Question q1 ?");
       expect(await currentScene()).toBe("q1");
     }
@@ -140,6 +150,7 @@ describe("play_in_forms", () => {
     const { call, session_id, currentScene } = await play([concept("k1"), quiz("q1")], null);
     const result = await call("play_in_forms", { session_id });
     expect(result).toMatchObject({ status: "unsupported", steps: [] });
+    expect(result.brief).toBeUndefined();
     expect(result.display_markdown).toContain("Texte de la notion k1.");
     expect(await currentScene()).toBe("k1");
   });
@@ -168,6 +179,25 @@ describe("play_in_forms", () => {
     expect(forms).toHaveLength(0);
     expect(result).toMatchObject({ status: "needs_conversation", steps: [] });
     expect(result.display_markdown).toContain("Explique pourquoi");
+  });
+
+  // Walkthrough of 7 Nov, finding 3: in a form nothing can be said, so a hint, a question or an answer
+  // to a proposal goes through the conversation. The map and a contest stay in forms (lot 4).
+  it("tells in every form how to get the rest, and never asks to say « continuer »", async () => {
+    const help = {
+      fr: /Pour un indice, une question ou une proposition\s?: refuse ce formulaire et dis-le dans la conversation\./,
+      en: /For a hint, a question or a proposal: decline this form and say it in the conversation\./,
+    };
+    for (const language of ["fr", "en"] as const) {
+      const { call, forms, session_id } = await play([concept("k1"), quiz("q1"), concept("k2")], [accept(), choose("Juste"), accept()], language);
+      await call("play_in_forms", { session_id });
+      expect(forms).toHaveLength(3);
+      for (const form of forms) {
+        expect(form.message).toMatch(help[language]);
+        expect(form.message).not.toMatch(/dis «\s*continuer|say “continue”/i);
+      }
+      expect(forms[0]!.message).toMatch(language === "fr" ? /Valide le formulaire pour continuer/ : /Submit the form to continue/);
+    }
   });
 
   it("refuses an unknown session in one line", async () => {

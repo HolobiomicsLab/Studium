@@ -66,9 +66,20 @@ correspond pas à ce que vous vouliez, dites-le ; l'assistant reprend le broui
 
 ## 4. Jouer, dans le chat ou dans VS Code
 
-Dans le chat, chaque étape arrive prête à lire : son titre, votre progression (« Étape 2 sur 6 »), la question
-et la façon d'y répondre (une lettre, un chiffre de 0 à 4 ou vos propres mots). Répondez vous-même :
-l'assistant transmet vos mots et ne doit ni répondre, ni choisir, ni noter à votre place.
+Dans le chat, chaque étape arrive prête à lire : son titre, la question, la façon d'y répondre (une lettre, un
+chiffre de 0 à 4 ou vos propres mots) et, sur sa dernière ligne, où vous en êtes (`étape 2/6 · 4 min · à toi de répondre`).
+Répondez vous-même : l'assistant transmet vos mots et ne doit ni répondre, ni choisir, ni noter à votre
+place.
+
+La carte des notions (demandez « où en suis-je ? ») nomme chaque notion avec son identifiant, par exemple
+« Nombres quantiques (`c-nombres-quantiques`) : à venir ». Si vous connaissez déjà une notion que la carte ne
+montre pas acquise, ou doutez d'une notion qu'elle montre acquise, dites-le : l'assistant la conteste pour
+vous avec `submit_response {kind: "contest", concept_id, claim}` (`known` ou `unsure`), et jamais de lui-même.
+Votre déclaration ne change rien à votre maîtrise et ne saute aucune scène. La leçon s'ouvre sur une ligne,
+« Contrôle sur « Nombres quantiques » : 2 questions. Ta déclaration ne change rien à ta maîtrise ; la
+leçon reprend ensuite où tu étais. », pose une ou deux questions de contrôle sur cette notion, évaluées comme
+toute réponse (la dernière ligne dit `contrôle 1/2`), puis reprend où vous étiez. En formulaires, refusez le
+formulaire et dites-le dans la conversation.
 
 Si chaque réponse tarde, jouez la leçon dans une session neuve et courte, sur le modèle rapide de votre
 assistant (dans Claude Code, `claude --agent studium-lesson`) : voir
@@ -85,14 +96,17 @@ pas dans le plan d'étude que lit votre assistant, et inversement.
 Le premier écran d'une leçon rédigée par un assistant porte un avis. Sans juge modèle, il dit :
 
 > Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son
-> passage ; conteste une clé qui te semble fausse. Sans juge modèle, les scènes de production ne sont pas
+> passage ; signale à l'agent une clé qui te semble fausse. Sans juge modèle, les scènes de production ne sont pas
 > évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes
 > révisions, jamais ta maîtrise. Les reproductions exécutées portent une évaluation externe.
 
 Concrètement :
 
 - **Qui a écrit la clé.** L'assistant a rédigé les bonnes réponses. Elles citent les passages sur lesquels
-  elles reposent, vous pouvez donc les vérifier ; une clé peut néanmoins être fausse.
+  elles reposent, vous pouvez donc les vérifier ; une clé peut néanmoins être fausse. Sur un panneau ou un volet, la ligne
+  au-dessus d'un verdict de quiz le dit aussi : « Évalué par la clé rédigée par l'IA — vérifie-la avec le
+  passage cité » (une leçon que vous avez rédigée vous-même dit « Évalué par la clé que tu as rédigée » ;
+  la leçon d'un enseignant, « Évalué par la clé de l'auteur »).
 - **Ce qui est évalué.** Les réponses aux quiz sont comparées à cette clé : ✓ si elles sont justes, ✗ si elles
   sont fausses, et une fois que vous quittez une question à laquelle vous avez mal répondu, la bonne réponse
   s'affiche. Vos réponses rédigées
@@ -112,6 +126,17 @@ Ouvrez une nouvelle conversation et demandez « Qu'est-ce que je révise avec S
 L'assistant appelle `get_study_plan` dans votre langue, qui liste les révisions dues, les leçons en cours et la leçon suivante, et
 nomme la seule étape à faire maintenant. `start_review_session` joue ensuite toutes les révisions dues, toutes
 leçons confondues. Voir [réviser dans la durée](review-over-time.fr.md).
+
+Si vous reprenez simplement une leçon, son premier écran le dit et, quand des révisions sont dues, les propose au début
+de la séance, ou à la première pause qui suit quand la séance a commencé sur une question, une fois par séance :
+
+> **Proposition :** 1 notion à revoir aujourd'hui (proposition `review_due:start`)
+> _Tu peux accepter, ou dire « plus tard »._
+
+Répondez avec vos mots. Si vous acceptez, l'assistant lance la séance de révision ; si vous dites « plus
+tard », la leçon continue. Le même genre de proposition vient à une pause, jamais par-dessus une question :
+jouer en formulaires quand votre client sait les afficher, la carte des notions à la fin de la leçon. Chacune
+n'est faite qu'une fois.
 
 Votre progression survit par défaut aux redémarrages, dans `~/.studium`. Pour la retrouver depuis un autre
 assistant, gardez le même dossier de données et le même identifiant : demandez à l'assistant de transmettre un

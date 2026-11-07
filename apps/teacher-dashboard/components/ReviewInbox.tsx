@@ -1,0 +1,159 @@
+"use client";
+// INT-STUDIUM-058 task 6.3: the review inbox and the approval commands share one state, the items the
+// teacher opened and their own verdicts. React state only: no network, no storage, nothing written.
+// The page has no authentication, so `opened` reaches the receipt through `--opened` in the command
+// the teacher runs (see lib/review-commands.ts), not through a file written by the dashboard.
+// A grading item is never counted opened by this page: it shows no key (the library is a whitelist
+// projection), so a verdict click is not a reading and the receipt must not attest one.
+import { createContext, useContext, useReducer, useState, type ReactNode, type SyntheticEvent } from "react";
+import { fill, messages, sceneTypeLabel, type Locale } from "@/lib/i18n";
+import { approvalCommand, placeholderName, returnCommand, type ReviewVerdict } from "@/lib/review-commands";
+
+export type Verdict = ReviewVerdict;
+/** One inbox item joined with its outline entry; `index` is the scene's position in the lesson. */
+export type InboxEntry = {
+  id: string; index: number; title: string; type: string;
+  consequence: "blocks" | "grading" | "wording" | "media";
+  whatChanged: "new" | "changed" | "unchanged";
+  lastVerdict?: Verdict;
+  checks: Array<{ check: "schema" | "todo" | "lint"; passed: boolean }>;
+  /** The scene's public face (lib/library.ts InboxItem.preview): learner text and choice texts, never a key. */
+  preview?: { text: string; choices?: string[] };
+};
+export type InboxReceiptView = { reviewer: string; decidedAt: string; decision: "approved" | "returned" } | null;
+export type ReviewState = { opened: ReadonlySet<string>; verdicts: Readonly<Record<string, Verdict>> };
+export type ReviewAction = { type: "toggle"; id: string; open: boolean } | { type: "verdict"; id: string; verdict: Verdict };
+
+export const emptyReviewState = (): ReviewState => ({ opened: new Set(), verdicts: {} });
+
+/** Opening is one-way: closing a panel again does not undo having looked. */
+export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewState {
+  if (action.type === "toggle") {
+    if (!action.open || state.opened.has(action.id)) return state;
+    return { ...state, opened: new Set(state.opened).add(action.id) };
+  }
+  // Verdict only: the page cannot show a grading item's key, so it does not count as opened.
+  return { ...state, verdicts: { ...state.verdicts, [action.id]: action.verdict } };
+}
+
+export function unopenedGrading(entries: readonly InboxEntry[], state: ReviewState): string[] {
+  return entries.filter((e) => e.consequence === "grading" && !state.opened.has(e.id)).map((e) => e.id);
+}
+export function openedInSceneOrder(entries: readonly InboxEntry[], state: ReviewState): string[] {
+  return entries.filter((e) => state.opened.has(e.id)).sort((a, b) => a.index - b.index).map((e) => e.id);
+}
+
+type Session = { entries: readonly InboxEntry[]; locale: Locale; state: ReviewState; dispatch: (action: ReviewAction) => void };
+const ReviewContext = createContext<Session | null>(null);
+function useSession(): Session {
+  const session = useContext(ReviewContext);
+  if (!session) throw new Error("ReviewInboxList and ReviewApproval must sit inside ReviewSession");
+  return session;
+}
+
+/** Holds the shared state; the server page passes the inbox and its own layout as children. */
+export function ReviewSession({ entries, locale, initialState, children }: { entries: InboxEntry[]; locale: Locale; initialState?: ReviewState; children: ReactNode }) {
+  const [state, dispatch] = useReducer(reviewReducer, initialState ?? emptyReviewState());
+  return <ReviewContext.Provider value={{ entries, locale, state, dispatch }}>{children}</ReviewContext.Provider>;
+}
+
+function Checks({ entry, locale }: { entry: InboxEntry; locale: Locale }) {
+  const t = messages(locale);
+  const label = { schema: t.checkSchema, todo: t.checkTodo, lint: t.checkLint };
+  return <ul className="inbox-checks__list">{entry.checks.map((c) => <li key={c.check} className={c.passed ? "inbox-check--passed" : "inbox-check--failed"}>
+    {label[c.check]}{t.colon}{c.passed ? t.checkPassed : t.checkFailed}
+  </li>)}</ul>;
+}
+
+/** What the learner sees, folded under the row. Opening it marks a non-grading item opened (its content
+ * is all there is to read); a grading item's key is not on this page, so it stays unopened here. */
+function Preview({ entry, locale, onToggle }: { entry: InboxEntry; locale: Locale; onToggle?: (event: SyntheticEvent<HTMLDetailsElement>) => void }) {
+  const t = messages(locale);
+  if (!entry.preview) return null;
+  const { text, choices } = entry.preview;
+  return <details className="inbox-preview" onToggle={onToggle}>
+    <summary>{t.previewSummary}{entry.consequence === "grading" && <span className="inbox-preview__nokey"> {t.previewNoKey}</span>}</summary>
+    {text ? <p className="inbox-preview__text">{text}</p> : <p className="inbox-preview__text">{t.previewEmpty}</p>}
+    {choices && choices.length > 0 && <ol className="inbox-preview__choices">{choices.map((choice, i) => <li key={i}>{choice}</li>)}</ol>}
+  </details>;
+}
+
+export function ReviewInboxList({ lastReceipt, unreadableReceipts }: { lastReceipt: InboxReceiptView; unreadableReceipts: number }) {
+  const { entries, locale, state, dispatch } = useSession();
+  const t = messages(locale);
+  const changed = { new: t.changedNew, changed: t.changedChanged, unchanged: t.changedUnchanged };
+  const date = lastReceipt?.decidedAt.slice(0, 10) ?? "";
+  const since = lastReceipt ? fill(t.sinceReceipt, { date }) : t.noEarlierReceipt;
+  return (
+    <section aria-labelledby="inbox-heading" className="review-inbox">
+      <header className="section-heading"><h2 id="inbox-heading">{t.inbox}</h2><p>{t.inboxHelp}</p>
+        {lastReceipt && <p>{fill(t.lastReceipt, { date, reviewer: lastReceipt.reviewer, decision: lastReceipt.decision === "approved" ? t.decisionApproved : t.decisionReturned })}</p>}
+        {unreadableReceipts > 0 && <p className="approval-note">{fill(t.unreadableReceipts, { n: unreadableReceipts })}</p>}
+      </header>
+      <ol className="inbox-list">{entries.map((entry) => {
+        const grading = entry.consequence === "grading";
+        const verdict = state.verdicts[entry.id];
+        const opened = state.opened.has(entry.id);
+        // Grading: the automatic verdict stays folded until the teacher's own verdict, so it cannot anchor it.
+        const holdFolded = (event: SyntheticEvent) => { if (grading && !verdict) event.preventDefault(); };
+        const onToggle = (event: SyntheticEvent<HTMLDetailsElement>) => dispatch({ type: "toggle", id: entry.id, open: event.currentTarget.open });
+        return <li key={entry.id} data-item={entry.id} className={`inbox-item inbox-item--${entry.consequence}`}>
+          <div className="inbox-item__head">
+            <span className={`inbox-chip inbox-chip--${entry.consequence}`}>{t[entry.consequence]}</span>
+            <span className="scene-type">{sceneTypeLabel(entry.type, locale)}</span>
+            {opened && <span className="inbox-item__opened">· {t.openedMark}</span>}
+          </div>
+          <h3>{entry.title}</h3>
+          <p className="inbox-item__changed"><b>{changed[entry.whatChanged]}</b> · {since} · <code>{entry.id}</code></p>
+          {entry.lastVerdict && <p className="inbox-item__previous-verdict">{fill(t.previousVerdict, { verdict: entry.lastVerdict === "ok" ? t.verdictOk : t.verdictToFix })}</p>}
+          <Preview entry={entry} locale={locale} onToggle={grading ? undefined : onToggle} />
+          {grading && <div className="inbox-verdict" role="group" aria-label={`${t.yourVerdict} — ${entry.title}`}>
+            <button type="button" aria-pressed={verdict === "ok"} onClick={() => dispatch({ type: "verdict", id: entry.id, verdict: "ok" })}>{t.verdictOk}</button>
+            <button type="button" aria-pressed={verdict === "to_fix"} onClick={() => dispatch({ type: "verdict", id: entry.id, verdict: "to_fix" })}>{t.verdictToFix}</button>
+          </div>}
+          {grading && <p className="inbox-verdict__note">{t.verdictStaysHere}</p>}
+          <details className="inbox-checks" open={grading ? verdict !== undefined : undefined} onToggle={grading ? undefined : onToggle}>
+            <summary onClick={holdFolded}>{t.automaticVerdict}{grading && !verdict && <span className="inbox-checks__later"> {t.automaticVerdictLater}</span>}</summary>
+            <Checks entry={entry} locale={locale} />
+          </details>
+        </li>;
+      })}</ol>
+    </section>
+  );
+}
+
+/** The warning, the name learners will read and the two commands, rebuilt as items are opened and as
+ * the name is typed. `initialName` seeds the field (tests). The name stays on this page. */
+export function ReviewApproval({ bundlePath, initialName }: { bundlePath: string; initialName?: string }) {
+  const { entries, locale, state } = useSession();
+  const t = messages(locale);
+  const [name, setName] = useState(initialName ?? "");
+  const shown = name.trim() || placeholderName(locale);
+  const unopened = unopenedGrading(entries, state);
+  const opened = openedInSceneOrder(entries, state);
+  const sceneOrder = [...entries].sort((a, b) => a.index - b.index).map((entry) => entry.id);
+  const hasToFix = Object.values(state.verdicts).some((verdict) => verdict === "to_fix");
+  const approval = <>
+    <pre className="approval-command"><code>{approvalCommand(bundlePath, locale, opened, name, state.verdicts, sceneOrder)}</code></pre>
+    {/* The voice line every learner screen carries (lesson-session-host orientation.ts voiceLine). */}
+    <p className="approval-voice">{fill(t.voicePreview, { name: shown })}</p>
+    {shown.includes("@") && <p className="approval-note">{t.voiceEmailNote}</p>}
+  </>;
+  const returned = <>
+    <h3 className="return-heading">{t.returnHeading}</h3>
+    <p>{t.returnHelp}</p>
+    <pre className="approval-command"><code>{returnCommand(bundlePath, locale, opened, name, state.verdicts, sceneOrder)}</code></pre>
+  </>;
+  return <>
+    {/* The live region stays in the DOM (empty once all are opened) so screen readers hear the change. */}
+    <p className="inbox-warning" role="status">
+      {unopened.length > 0 ? fill(unopened.length === 1 ? t.inboxWarningOne : t.inboxWarningMany, { n: unopened.length, ids: unopened.join(", ") }) : null}
+    </p>
+    <p>{t.approvalHelp}</p>
+    <label className="approval-name">{t.validatorName}
+      <input type="text" name="validated-by" autoComplete="name" value={name} onChange={(event) => setName(event.currentTarget.value)} />
+    </label>
+    {hasToFix && <p className="approval-note">{t.toFixApprovalRefusal}</p>}
+    {hasToFix ? <>{returned}{approval}</> : <>{approval}{returned}</>}
+  </>;
+}

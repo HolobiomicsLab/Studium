@@ -83,6 +83,22 @@ const MIXED = {
   expect(statusBarText(null, "fr") === null, "unknown status → no status bar item");
 }
 
+// INT-STUDIUM-058, task 2.6: while a lesson plays, the status bar shows the lesson's status line (the
+// view's status_line); what is due stays in the tooltip. It returns to the review count when the lesson closes.
+{
+  const line = "Les atomes · étape 2/3 · 3 min · à toi de répondre";
+  const playing = statusBarText(parseReinforcement(DUE), "fr", line);
+  expect(playing?.text === line, `a lesson being played shows its status line (got ${playing?.text})`);
+  expect(playing?.tooltip === "3 notions à réviser. Ouvre le panneau Studium.", `the tooltip keeps what is due (got ${playing?.tooltip})`);
+  const nothingDue = statusBarText(parseReinforcement(FRESH), "fr", line);
+  expect(nothingDue?.text === line, "the line shows even when nothing is due");
+  expect(nothingDue?.tooltip === "Leçon en cours. Ouvre le panneau Studium.", `with its own tooltip (got ${nothingDue?.tooltip})`);
+  expect(statusBarText(null, "en", line)?.tooltip === "Lesson in progress. Open the Studium panel.", "in English too");
+  expect(statusBarText(parseReinforcement(DUE), "fr", null)?.text === "Studium · 3 à réviser", "no lesson: the review count, as before");
+  expect(statusBarText(parseReinforcement(DUE), "fr", "  ")?.text === "Studium · 3 à réviser", "a blank line is no line");
+  expect(statusBarText(null, "fr", "a\nb\u001b[31m c")?.text === "a b [31m c", `one line, no control character (got ${statusBarText(null, "fr", "a\nb\u001b[31m c")?.text})`);
+}
+
 // reviewsNode
 {
   const fmt = (ms: number) => `D${ms}`;

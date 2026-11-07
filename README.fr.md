@@ -18,7 +18,7 @@ Studium transforme des sources que vous jugez fiables en leçons adaptatives, à
 | Apprendre seul un sujet avec un assistant IA | [Apprendre avec votre assistant](docs/learn/learn-with-your-assistant.fr.md) | Une leçon construite à partir des sources choisies, puis des révisions espacées les jours suivants |
 | Étudier dans une classe | [Guide étudiant](docs/learn/student-guide.fr.md) | Une leçon approuvée par l'enseignant, dans VS Code ou dans votre assistant, avec un retour après chaque réponse |
 | Enseigner | [Guide enseignant](docs/teach/teacher-guide.fr.md) | Une leçon sourcée, un enregistrement d'approbation lié à son contenu exact et un rapport de classe agrégé |
-| Construire sur Studium | [Architecture](docs/develop/architecture.fr.md) et [outils MCP](docs/reference/mcp-tools.fr.md) | Les contrats du moteur, les 36 outils MCP et le format des leçons |
+| Construire sur Studium | [Architecture](docs/develop/architecture.fr.md) et [outils MCP](docs/reference/mcp-tools.fr.md) | Les contrats du moteur, les 40 outils MCP et le format des leçons |
 
 Le [portail de la documentation](docs/index.fr.md) classe toutes les pages par rôle.
 
@@ -102,7 +102,7 @@ Pour aller plus loin : [démarrage rapide](docs/start/quickstart.fr.md), [insta
 | Domaine | Où | Rôle |
 |---|---|---|
 | Clients apprenant | [`apps/studium-vscode`](apps/studium-vscode) | Extension VS Code : panneau de leçon, notebook, participant de chat, révisions dans la barre d'état |
-| Hôtes | [`apps/lesson-mcp`](apps/lesson-mcp), [`packages/lesson-session-host`](packages/lesson-session-host), [`apps/lesson-server`](apps/lesson-server) | Serveur MCP (36 outils), hôte multi-séances à état durable, adaptateurs HTTP |
+| Hôtes | [`apps/lesson-mcp`](apps/lesson-mcp), [`packages/lesson-session-host`](packages/lesson-session-host), [`apps/lesson-server`](apps/lesson-server) | Serveur MCP (40 outils), hôte multi-séances à état durable, adaptateurs HTTP |
 | Moteur adaptatif | [`packages/lesson-session`](packages/lesson-session), [`packages/adaptation-engine`](packages/adaptation-engine), [`packages/learner-state`](packages/learner-state) | Navigation selon le graphe, maîtrise, remédiation, indices, calibration, révision espacée |
 | Contrats | [`packages/lesson-bundle-schema`](packages/lesson-bundle-schema), [`packages/learning-workflow-schema`](packages/learning-workflow-schema), [`packages/telemetry-events`](packages/telemetry-events) | Schémas typés (Zod, avec miroirs Pydantic) des leçons, des graphes et des événements |
 | Préparation et relecture | [`services/`](services), [`tools/`](tools), [`eval/`](eval) | Planificateur Python, synthèse de scènes, ingestion, Observatory, CLI d'auteur (`tools/experience_packet.py`), banc d'évaluation |

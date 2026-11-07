@@ -225,7 +225,9 @@ describe("the study tools (C1)", () => {
     const reviewRes = await call("start_review_session", { learner_id: "ana" });
     const review = parse(reviewRes);
     expect(review).toMatchObject({ status: "started", review: { items: [{ concept_id: "c-signe", scene_id: "r1:s-q" }] } });
-    expect(review.presentation.display_markdown).toContain("Révision 1 sur 1");
+    // Test decision (walkthrough 2026-11-07): the step is said once, in the status line.
+    expect(review.presentation.display_markdown).toMatch(/`[^`]*étape 1\/1[^`]*`$/);
+    expect(review.presentation.display_markdown).not.toContain("Révision 1 sur 1");
     for (const secret of ["BRAVO-RÉVÉLÉ", "\"correct\""]) expect(errorText(reviewRes)).not.toContain(secret);
     const graded = parse(await call("submit_response", {
       session_id: review.session_id, input: { kind: "reply", text: idOf(review.presentation) },

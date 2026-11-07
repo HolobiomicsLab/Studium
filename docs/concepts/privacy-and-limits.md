@@ -23,6 +23,7 @@ Inside the data folder, each learner has a folder named by a pseudonym, never by
 |---|---|
 | `<pseudonym>/profile.json` | cross-lesson profile, including review memory |
 | `<pseudonym>/study.json` | where the learner studied |
+| `<pseudonym>/status.json` | where the session being played stands (lesson title, step, minutes left), for an assistant's status line; removed when the session closes |
 | `<pseudonym>/<lesson>/state-<lesson>.json` | lesson state and mastery |
 | `<pseudonym>/<lesson>/events.jsonl` | the session's event log |
 | `<pseudonym>/<lesson>/mastery/*.jsonld` | mastery claims, when a concept is certified |
@@ -65,7 +66,7 @@ Scenes are served without their keys, and `lesson-server` redacts keys over HTTP
 | Action | What it erases | What it keeps |
 |---|---|---|
 | `end_session` | nothing | lesson state and cross-lesson memory |
-| `forget_session {session_id}` | this learner's durable state for the lesson (answers, lesson state, experiment journal), their cross-lesson profile and study record; irreversible | their progress in other lessons, which it names |
+| `forget_session {session_id}` | this learner's durable state for the lesson (answers, lesson state, experiment journal), their cross-lesson profile, study record and status file; irreversible | their progress in other lessons, which it names |
 | `forget_session {learner_id}` | the same for every lesson the learner opened, with no session needed; their live sessions close; irreversible | nothing of the learner's progress |
 | VS Code "Studium: Forget my data" | the extension's storage, its run-trust memory and last lesson, after closing every lesson server the extension started and a confirmation | an assistant's data in `<STUDIUM_HOME>/data`, which it names and does not touch |
 

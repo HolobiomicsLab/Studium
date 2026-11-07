@@ -164,7 +164,60 @@ body { margin: 0; }
 .action-status.pending::before { content: ""; display: inline-block; width: 0.5rem; height: 0.5rem; margin-inline-end: var(--st-space-2); border-radius: 50%; background: var(--st-accent); animation: st-pulse 1.1s ease-in-out infinite; }
 .action-status.error { padding-inline-start: var(--st-space-2); border-inline-start: 3px solid var(--st-danger); color: var(--st-text); }
 .action-status.notice { padding-inline-start: var(--st-space-2); border-inline-start: 3px solid var(--st-info); color: var(--st-text); }
+/* INT-STUDIUM-058: where the learner is, who speaks, which help is open. */
+.orientation-line { margin: 0 0 var(--st-space-2); color: var(--st-text); font: var(--st-weight-semibold) var(--st-size-sm) / var(--st-leading-snug) var(--st-font-text); }
+.voice { margin: var(--st-space-2) 0; color: var(--st-muted); font-size: var(--st-size-sm); }
+.voice::before { content: "✎"; margin-inline-end: var(--st-space-2); }
+.voice-verdict::before { content: "⚖"; }
+.help-ladder { display: grid; gap: var(--st-space-3); margin: var(--st-space-2) 0; }
+.help-rungs { display: grid; gap: var(--st-space-2); }
+.help-rung-item { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--st-space-2) var(--st-space-3); }
+.help-note { color: var(--st-muted); font-size: var(--st-size-sm); }
+.help-rung[aria-disabled="true"] { opacity: 0.6; cursor: not-allowed; }
+.ask-button { justify-self: start; }
+/* the question form the MCP Apps bridge opens (bridge-mcp-app.js askQuestion) */
+.ask-question { margin: var(--st-space-4) 0; }
+.ask-question textarea.st-input { min-height: 4.5rem; }
+.ask-question-buttons { display: flex; flex-wrap: wrap; gap: var(--st-space-3); }
 .hint { margin: var(--st-space-2) 0; font-size: var(--st-size-sm); }
+/* INT-STUDIUM-058: what the server proposes, under the scene's controls. */
+.prompts { display: grid; gap: var(--st-space-2); margin: var(--st-space-3) 0; }
+.prompt { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--st-space-2) var(--st-space-3); padding: var(--st-space-2) var(--st-space-3); border-inline-start: 3px solid var(--st-info); }
+.prompt-reason { margin: 0; font-size: var(--st-size-sm); }
+.prompt-actions { display: flex; flex-wrap: wrap; gap: var(--st-space-2) var(--st-space-3); }
+/* INT-STUDIUM-058 F8: the learner's settings, compact, at the bottom of the pane; the pressed choice is filled. */
+.settings { display: grid; gap: var(--st-space-2); margin: var(--st-space-6) 0 0; padding-block-start: var(--st-space-3); border-block-start: 1px solid var(--st-border); font-size: var(--st-size-sm); }
+.settings-group { display: flex; align-items: center; flex-wrap: wrap; gap: var(--st-space-2) var(--st-space-3); min-width: 0; }
+.settings-label { color: var(--st-muted); }
+.settings-choices { display: flex; flex-wrap: wrap; gap: var(--st-space-2); }
+.settings [aria-pressed="true"] { border-color: var(--st-button-background); background: var(--st-button-background); color: var(--st-button-foreground); }
+.replan-minutes { width: 5rem; max-width: 100%; padding: var(--st-space-1) var(--st-space-2); border: 1px solid var(--st-input-border); border-radius: var(--st-radius-medium); background: var(--st-input-background); color: var(--st-input-foreground); font: inherit; }
+/* INT-STUDIUM-058: the concept map as a list. The state is said in words; the left rule only repeats it. */
+.map-button { margin: var(--st-space-2) 0; }
+.concept-map { margin: var(--st-space-4) 0; padding-block-start: var(--st-space-3); border-block-start: 1px solid var(--st-border); }
+.map-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--st-space-2) var(--st-space-3); }
+.map-title { margin: 0; font: var(--st-weight-semibold) var(--st-size-md) / var(--st-leading-snug) var(--st-font-text); }
+.map-title:focus { outline: none; }
+.map-list { display: grid; gap: var(--st-space-3); margin: var(--st-space-3) 0 0; padding: 0; list-style: none; }
+.map-concept { display: grid; gap: var(--st-space-2); padding-inline-start: var(--st-space-3); border-inline-start: 3px solid var(--st-border); }
+.map-concept[data-state="acquired"] { border-inline-start-color: var(--st-node-mastered); }
+.map-concept[data-state="to_review"] { border-inline-start-color: var(--st-node-due); }
+.map-concept[data-state="current"] { border-inline-start-color: var(--st-accent); }
+.map-concept[data-state="upcoming"] { border-inline-start-style: dashed; }
+.map-concept-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--st-space-2) var(--st-space-3); }
+.map-concept-title { font-weight: var(--st-weight-semibold); }
+/* Not an .st-chip: the state's text stays in --st-text, the colour is on the border and the fill only. */
+.map-state { display: inline-flex; align-items: center; padding: var(--st-space-1) var(--st-space-3); border: 1px solid var(--st-border); border-radius: var(--st-radius-pill); color: var(--st-text); font-size: var(--st-size-sm); font-weight: var(--st-weight-semibold); line-height: var(--st-leading-snug); }
+.map-state[data-state="acquired"] { border-color: var(--st-node-mastered); background: var(--st-node-mastered-soft); }
+.map-state[data-state="to_review"] { border-color: var(--st-node-due); background: var(--st-node-due-soft); }
+.map-state[data-state="current"] { border-color: var(--st-accent); }
+.map-needs, .map-outcome, .map-check-pending, .map-no-evidence, .map-contest-note { margin: 0; color: var(--st-muted); font-size: var(--st-size-sm); }
+.map-details > summary { cursor: pointer; font-size: var(--st-size-sm); }
+.map-scope { margin: var(--st-space-2) 0; font-size: var(--st-size-sm); }
+.map-scope dt { font-weight: var(--st-weight-semibold); }
+.map-scope dd { margin: 0 0 var(--st-space-2); }
+.map-evidence { margin: var(--st-space-2) 0; padding-inline-start: var(--st-space-4); font-size: var(--st-size-sm); }
+.map-contest { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--st-space-2) var(--st-space-3); }
 .hint:not(:empty) { padding: var(--st-space-3) var(--st-space-4); border: 1px solid var(--st-border); border-inline-start: 3px solid var(--st-info); border-radius: var(--st-radius-medium); background: var(--st-surface); }
 .hint-body > p { margin: var(--st-space-1) 0; }
 .hint-remaining { color: var(--st-muted); }
@@ -283,3 +336,12 @@ body { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   .loading-mark, .action-status.pending::before { animation: none; }
 }
+/* Walkthrough 2026-11-07: a session the server no longer knows; the notice replaces the scene. */
+.session-lost { margin: var(--st-space-6) 0; padding: var(--st-space-5) var(--st-space-6); border: 1px solid var(--st-border); border-inline-start: 3px solid var(--st-warning); border-radius: var(--st-radius-medium); background: var(--st-surface); }
+.session-lost p { margin: var(--st-space-2) 0; }
+.session-lost .reopen-lesson { margin-top: var(--st-space-3); }
+/* INT-STUDIUM-058 § 2.1: the panel shown for a conversation or forms surface draws only this notice. */
+.surface-elsewhere { margin: var(--st-space-6) 0; padding: var(--st-space-5) var(--st-space-6); border: 1px solid var(--st-border); border-inline-start: 3px solid var(--st-accent); border-radius: var(--st-radius-medium); background: var(--st-surface); }
+.surface-elsewhere-title { margin: 0 0 var(--st-space-2); font-size: 1.05rem; }
+.surface-elsewhere p { margin: var(--st-space-2) 0; }
+.surface-elsewhere .play-here { margin-top: var(--st-space-3); }

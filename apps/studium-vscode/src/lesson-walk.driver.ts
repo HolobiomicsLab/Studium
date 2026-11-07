@@ -38,7 +38,7 @@ function expect(cond: boolean, msg: string) { checks++; if (!cond) failures.push
 // Every REAL transition of the walk is posted to the REAL pane script (media/artifact-pane.js in jsdom)
 // the way extension.ts posts it. The pane must show a graded verdict as its own step before the next
 // scene, never print a rule id or a reason code, and end on the completion screen.
-const paneSrc = readFileSync(resolve(here, "..", "media", "artifact-pane.js"), "utf8");
+const paneSrc = readFileSync(resolve(here, "..", "..", "lesson-panel-ui", "dist", "vscode", "artifact-pane.js"), "utf8");
 const RULE_ID = /\brule_[a-z0-9_]+/i;
 
 function mountPane() {

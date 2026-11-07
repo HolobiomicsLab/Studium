@@ -37,6 +37,39 @@ and when to say nothing. It holds no procedure. Each offer hands off to the skil
 - **Never start silently.** A lesson created, an export written or a paid route used without a
   yes costs the person's trust in every later offer.
 
+## In a session, the server proposes
+
+Once a lesson or a review session is open, the proposals belong to the server, not to you. It
+knows what you cannot count across turns: whether an answer is owed, how many proposals this
+session already made, and the level of attention the learner chose (`quiet`: none, `normal`: three
+a session, `coached`: six). It proposes from a closed list: the reviews due, a break, the next
+lesson, the map when a lesson ends, forms where the client can show them. Each is made once, never
+while an answer or a self-rating is owed, and what the learner did with it is kept.
+
+So, in a session:
+
+- **Relay the server's proposal as it is.** It arrives in the screen's text, as a quoted line
+  (« Proposition : … », "Suggestion: …") before the status line, and in the panel view's `prompts`.
+  Show the text unchanged. Do not rephrase it, repeat it on a later screen or add an argument for it.
+- **Add none of your own.** Do not offer reviews, a break, another lesson, the map or forms
+  yourself: the server has made that offer, will make it at the next pause, or has reached what the
+  learner agreed to. In `quiet` the learner asked for no proposals; that covers yours too.
+- **The answer is the learner's.** When they accept or decline, send the action the view gives for
+  that answer, unchanged (`panel_action` with `{"type": "prompt", "id": …, "outcome": "accept"}` or
+  `"dismiss"`). Never send one for them. If they say nothing about it, do nothing: the server
+  records a proposal left unanswered when the screen changes, and silence is not a no you report.
+- **After a yes, do what the server says next.** A review session starts, the map opens, or a
+  notice says what follows (for forms: play the rest with `play_in_forms`). Do that and no more.
+- **What they ask for is not a proposal.** "Where am I?", "a hint please", "can I have this in
+  English?" are requests: answer them as the rows below say, at any moment the rows allow.
+
+A notice in the same place (the lesson went back to a prerequisite, a lesson is resumed) asks
+nothing: show it, there is nothing to answer.
+
+One limit today: the server proposes when a panel view is asked. A session played with the session
+tools alone carries no proposal yet. There, the rows of "Inside a lesson" that wait for the verdict
+or the end stay yours, one offer at most, and still nothing while a question waits.
+
 ## What needs a yes, and what does not
 
 Free, read-only calls that the person's request already implies need no offer: `get_study_plan`
@@ -75,8 +108,9 @@ In an ordinary conversation:
 | A teacher asks what the class found hard, or prepares a debrief | the class report, then its figures on the lesson's map: aggregates only, from five learners | [studium-teacher](../studium-teacher/SKILL.md), [studium-concept-map](../studium-concept-map/SKILL.md) |
 | Someone asks what Studium decided or produced for a course | the Observatory, read-only | [studium-observatory](../studium-observatory/SKILL.md) |
 
-Inside a lesson. The first two rows can come up while a question is waiting; the others wait for
-the verdict or the end:
+Inside a lesson. The first two rows answer a request and can come up while a question is waiting.
+The others wait for the verdict or the end, and give way to the server's proposals
+([above](#in-a-session-the-server-proposes)): when the screen carries one, do not add yours.
 
 | You notice | Offer | Hand off to |
 |---|---|---|
@@ -86,7 +120,7 @@ the verdict or the end:
 | Trouble with the lesson's language | the lesson in their language (`set_session_language`); notation and their answers stay as written | [studium-harness](../studium-harness/SKILL.md) section 3 |
 | "What if I change this?" on a result | an activity to explore it, or the experiment journal to keep their own prediction and observation | [studium-activity-templates](../studium-activity-templates/SKILL.md), [Experiment journal](../../docs/learn/experiment-journal.md) |
 | Doubt about a statement or a key | what the scene rests on (the map's page), and for a contested claim a check against the literature | [studium-concept-map](../studium-concept-map/SKILL.md), [Literature and evidence](../../docs/teach/literature-and-evidence.md) |
-| The lesson ends | a two-line reading of the map, the page if they want to keep or check it, and the day the concepts come back | [studium-concept-map](../studium-concept-map/SKILL.md), [studium-harness](../studium-harness/SKILL.md) section 5 |
+| The lesson ends, and the server proposed nothing | a two-line reading of the map, the page if they want to keep or check it, and the day the concepts come back | [studium-concept-map](../studium-concept-map/SKILL.md), [studium-harness](../studium-harness/SKILL.md) section 5 |
 | They must show their work to a teacher or keep a portfolio | the map's page (results per concept) or the learner report (recorded actions, journal); sharing is their act | [studium-concept-map](../studium-concept-map/SKILL.md), [studium-learner-report](../studium-learner-report/SKILL.md) |
 
 When two rows fit, offer the one that answers what they just said and keep the other for later.

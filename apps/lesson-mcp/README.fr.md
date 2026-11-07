@@ -46,16 +46,49 @@ Des configurations prêtes à l'emploi se trouvent dans [`docs/examples/`](../..
 
 ## Ce qu'il propose
 
-36 outils, deux prompts (`learn` et `review`) et des instructions de serveur qui demandent à l'assistant
+40 outils, deux prompts (`learn` et `review`) et des instructions de serveur qui demandent à l'assistant
 d'attendre les réponses de l'apprenant lui-même. Le contrat complet figure dans la
 [référence des outils MCP](../../docs/reference/mcp-tools.fr.md).
 
 | Groupe | Outils |
 |---|---|
 | Leçon (25) | `start_lesson_session`, `get_current_scene`, `submit_response`, `request_hint`, `submit_turn`, `get_session_state`, `get_operator_context`, `explain_last_adaptation`, `get_workflow_graph`, `get_scene_artifacts`, `get_run_manifest`, `submit_run_result`, `record_experiment`, `get_experiment_journal`, `get_next_reinforcement`, `set_session_language`, `end_session`, `forget_session`, `get_server_info`, `list_community_bundles`, `open_peer_room`, `join_peer_room`, `get_peer_room_state`, `submit_peer_rating`, `close_peer_room` |
-| Étudier dans la durée (4) | `list_lessons`, `get_study_plan`, `start_review_session`, `rate_recall` |
+| Étudier dans la durée (5) | `list_lessons`, `get_study_plan`, `start_review_session`, `rate_recall`, `export_concept_map` |
 | Créer à partir de sources (3) | `get_authoring_guide`, `prepare_sources`, `create_lesson` |
 | Enseignant (2) | `review_lesson`, `class_report` |
+| Formulaires, un prototype (1) | `play_in_forms` |
+| Panneau partagé (3) | `open_lesson_panel`, `get_panel_view`, `panel_action` |
+| Accompagnement (1) | `get_companion_brief` |
+
+Une leçon se joue sur deux voies. Sur un panneau, un volet ou des formulaires, le serveur répond à
+l'apprenant et aucun modèle n'écrit. Dans la conversation, un assistant relaie.
+`get_companion_brief {session_id}` dit à l'assistant ce que l'apprenant a fait sur la voie rapide depuis
+son dernier regard (les douze derniers actes et leur nombre, chacun avec sa voie), où il en est, quelle
+aide est ouverte et trois règles à suivre. Il ne contient ni texte de scène, ni corrigé, ni indice, ni
+référence. Les actes sont gardés en mémoire pour la séance et repartent de zéro après un redémarrage du
+serveur. Lire le brief avance son curseur. Avec `peek: true` il ne bouge pas, ce qu'utilise un panneau
+pour tenir à jour le contexte du modèle.
+Après `play_in_forms`, son retour porte ce brief et avance le curseur ; `panel_action ask` porte un brief
+lu sans avancer le curseur. Pour une leçon, `reviews_due` dans son orientation compte ses notions dues et
+celles apportées des autres leçons de l'apprenant, sans compter deux fois une notion partagée.
+
+L'apprenant qui dit connaître déjà une notion de la carte, ou douter d'une notion acquise, la conteste aussi
+par la conversation : l'assistant envoie `submit_response {input: {kind: "contest", concept_id, claim: "known" |
+"unsure"}}`, avec l'identifiant que la liste de la carte écrit après chaque titre (``Nombres quantiques
+(`c-nombres-quantiques`)``). La réponse est `{contest: {concept_id, claim, questions}, presentation,
+display_markdown}` : une ligne qui annonce le contrôle et dit que la déclaration ne change rien, puis la
+première question de contrôle, dont la ligne d'état dit « contrôle 1/n ». Les réponses partent comme
+d'habitude, puis la leçon reprend où en était l'apprenant. Une déclaration que l'état ne prend pas, ou une
+seconde contestation en cours, est refusée en une ligne, celle de l'hôte. Avec le consentement à la
+télémétrie, l'acte est journalisé une fois : `interaction` avec `act: "contest"`, voie `companion`, rang 1.
+En formulaires, chaque formulaire de scène d'une leçon qui a une carte propose `map: true` ; le formulaire
+de la carte écrit l'identifiant de chaque notion après son titre, accepte `contest_concept` avec
+`claim: "known" | "unsure"`, et une validation vide pour revenir à la scène intacte. Une contestation ouvre
+ses questions de contrôle en formulaires, puis reprend cette scène ; un champ manquant ou une déclaration
+que l'état ne prend pas laisse la carte ouverte avec un refus en une ligne. La déclaration ne change jamais
+la maîtrise ni ne saute une scène. Avec le consentement à la télémétrie, les formulaires journalisent
+`openMap` et `contest` sur la voie rapide au rang 2 ; la conversation journalise `contest` sur la voie
+compagnon au rang 1.
 
 Ce que le serveur garantit :
 

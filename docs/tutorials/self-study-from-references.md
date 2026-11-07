@@ -136,6 +136,7 @@ node tools/bundle_lint.mjs "$WORK/bundles/durkheim-fait-social/lesson.json"
 | `INFO self_study_authoring` | The lesson declares itself self-authored |
 | `WARN self_study_open_book` | Lists the `author_keyed` scenes: the quiz is open book |
 | `INFO lwg_single_graded_item` / `WARN lwg_prereq_unassessable` | A concept has one, or no, scene graded by a key: expected with mostly production scenes |
+| `WARN concept_few_recall_questions` | A concept has fewer than two quizzes of its own: a learner who says « I know it » of that concept is asked one check question, or none, instead of two |
 | `WARN self_study_no_external_key` | No production or reproduction scene: add one rather than ignore it |
 
 An `ERROR` fails the command and must be fixed. Rules for filling a skeleton are in

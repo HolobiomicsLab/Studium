@@ -11,6 +11,8 @@
 // a teacher released a learner's bundle; a bundle without metadata.authoring gets none of them.
 // Any learner-visible or grading string a skeleton left unfilled (it starts with TODO or contains
 // "TODO:") is an ERROR unfilled_placeholder.
+// A lesson with two concepts or more warns (concept_few_recall_questions) for each concept that has
+// fewer than two key-graded recall questions: a learner who contests it cannot be asked two.
 //
 // Exit 0 means no ERROR findings; WARN and INFO findings do not fail the run.
 //
@@ -532,6 +534,32 @@ function graphFindings(bundle) {
   ];
 }
 
+/** The check questions a contested concept is asked (INT-STUDIUM-058 § 2.7): two, from two scenes of
+ * the concept graded against the author's key. Mirrors checkScenes in
+ * packages/lesson-session-host/src/contest.ts: a quiz, or a spot_the_flaw played as a verdict deck,
+ * whose FIRST concept is that one, not a diagnostic, not a scene that needs a learner-time run. */
+const CONTEST_QUESTIONS = 2;
+function isRecallQuestion(scene) {
+  if (!isRecord(scene) || scene.diagnostic === true || scene.run_manifest || scene.reference_from_run) return false;
+  return scene.type === "quiz" || (scene.type === "spot_the_flaw" && scene.verdict_deck === true);
+}
+
+/** A lesson with a concept map (two concepts or more) says which concepts a learner cannot fully
+ * contest. A lesson with one concept has no map, so nothing to contest. */
+function recallQuestionFindings(bundle) {
+  const concepts = Array.isArray(bundle.concepts) ? bundle.concepts.filter((c) => isRecord(c) && typeof c.id === "string") : [];
+  if (concepts.length < 2) return [];
+  const scenes = Array.isArray(bundle.scenes) ? bundle.scenes.filter(isRecallQuestion) : [];
+  return concepts.flatMap((concept) => {
+    const count = scenes.filter((scene) => Array.isArray(scene.concept_refs) && scene.concept_refs[0] === concept.id).length;
+    if (count >= CONTEST_QUESTIONS) return [];
+    const has = count === 0 ? "no recall question" : "1 recall question";
+    const effect = count === 0 ? "it cannot be contested" : "a contest asks one question and its outcome is partial";
+    return [finding("WARN", "concept_few_recall_questions",
+      `${concept.id} has ${has} (a quiz, or a spot_the_flaw verdict deck, with it as first concept): ${effect}; a learner who contests a concept is asked ${CONTEST_QUESTIONS}`)];
+  });
+}
+
 /** `todo-*` stays allowed in identifier fields (`id`, `*_id`, `*_ids`), never in visible prose. */
 function isAllowedPlaceholderId(value, key) {
   const isIdentifier = key === "id" || (typeof key === "string" && (key.endsWith("_id") || key.endsWith("_ids")));
@@ -665,6 +693,7 @@ export function lintBundleData(bundle, { bundleDir, name = BUNDLE_FILENAME }) {
     ...equationLegendFindings(bundle),
     ...flawReport.findings,
     ...graphFindings(bundle),
+    ...recallQuestionFindings(bundle),
     ...unfilledPlaceholderFindings(bundle),
     ...authoringFindings(bundle),
   ]);

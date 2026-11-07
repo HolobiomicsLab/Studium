@@ -76,10 +76,10 @@ describe("buildConceptMap", () => {
     const steps = [ack(1, "c-a"), answer(2, "q-a", true), ack(3, "c-b"), answer(4, "q-b", false)];
     const fr = mapAt(steps, "c-c", { moment: "detour" });
     expect(fr.display_markdown).toContain("**Carte des notions**");
-    expect(fr.display_markdown).toContain("- Alpha : acquise (Q2 juste)");
-    expect(fr.display_markdown).toContain("- Beta : à revoir (Q4 faux)");
-    expect(fr.display_markdown).toContain("- **Gamma \"g\" : en cours**");
-    expect(fr.display_markdown).toContain("- Delta : à venir (demande Beta)");
+    expect(fr.display_markdown).toContain("- Alpha (`a`) : acquise (Q2 juste)");
+    expect(fr.display_markdown).toContain("- Beta (`b`) : à revoir (Q4 faux)");
+    expect(fr.display_markdown).toContain("- **Gamma \"g\" (`c`) : en cours**");
+    expect(fr.display_markdown).toContain("- Delta (`d`) : à venir (demande Beta)");
     expect(fr.position_line).toBe("Tu viens de « Beta », tu es sur « Gamma \"g\" », ensuite « Delta ».");
     expect(fr.mermaid).toContain("flowchart TD");
     expect(fr.mermaid).toContain('n_a["Alpha<br/>acquise · Q2 juste"]:::acquired');
@@ -87,7 +87,7 @@ describe("buildConceptMap", () => {
     expect(fr.mermaid).toContain("n_a --> n_b");
     expect(fr.mermaid).toContain("n_b -.-> n_d");
     const en = mapAt(steps, "c-c", { locale: "en" });
-    expect(en.display_markdown).toContain("- Alpha: acquired (Q2 correct)");
+    expect(en.display_markdown).toContain("- Alpha (`a`): acquired (Q2 correct)");
     expect(en.position_line).toBe("You come from “Beta”, you are on “Gamma \"g\"”, next “Delta”.");
   });
 
@@ -95,6 +95,22 @@ describe("buildConceptMap", () => {
     expect(mapAt([], "c-a", { moment: "start" }).show).toBe("map");
     expect(mapAt([], "c-a", { moment: "new_concept" }).show).toBe("line");
     expect(mapAt([], "c-a", { moment: "detour" }).show).toBe("map");
+  });
+
+  it("on a screen that names no concept, says what comes next and never that the lesson is finished", () => {
+    // The introduction names no concept: the lesson has not ended, it has not begun.
+    const start = mapAt([], "intro", { moment: "start" });
+    expect(start.position).toEqual({ from: null, at: null, next: "a" });
+    expect(start.position_line).toBe("La leçon commence par « Alpha ».");
+    expect(start.display_markdown).not.toContain("terminée");
+    expect(mapAt([], "intro", { moment: "start", locale: "en" }).position_line).toBe("The lesson starts with “Alpha”.");
+    // The same kind of screen later in the lesson: where the learner comes from, and what is next.
+    const later = mapAt([ack(1, "intro"), ack(2, "c-a"), answer(3, "q-a", true)], "intro");
+    expect(later.position_line).toBe("Tu viens de « Alpha », ensuite « Beta ».");
+    // Only a finished lesson says so.
+    const done = mapAt([ack(1, "intro"), ack(2, "c-a"), answer(3, "q-a", true)], null, { moment: "complete" });
+    expect(done.position).toMatchObject({ at: null, next: null });
+    expect(done.position_line).toBe("Tu viens de « Alpha », la leçon est terminée.");
   });
 
   it("works without a graph: the concepts in lesson order, no edge", () => {

@@ -43,7 +43,7 @@ See the [teacher guide](../teach/teacher-guide.md), [Review and approve](../teac
 
 | Capability | What works | Practical limit |
 |---|---|---|
-| MCP server | 36 tools over stdio (25 lesson, 5 study, 3 authoring, 2 teacher, 1 form tool in prototype), prompts `learn` and `review` | Each client has its own tools, account and session |
+| MCP server | 40 tools over stdio (25 lesson, 5 study, 3 authoring, 2 teacher, 1 form tool in prototype, 3 panel tools, 1 companion tool), prompts `learn` and `review` | Each client has its own tools, account and session |
 | Local HTTP API | The 25 lesson operations plus `rate_recall`, schema discovery, bearer token, protection against duplicate submissions | Loopback only; other study, authoring and teacher tools are MCP-only; active sessions end with the process |
 | File channel | A task and answer loop in `.studium-session/` for a harness without MCP | Formats and atomic writes must be respected |
 | VS Code extension | Lesson pane, chat participant, notebook cell, restore on reload, reviews in the status bar | Its sessions are separate from an assistant's own MCP server |
@@ -68,8 +68,8 @@ A self-study lesson shows a notice on its first screen. It depends on who drafte
 |---|---|
 | learner, none | Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book). Without a judge model, production scenes are not assessed: compare your answer with the provided reference and rate your recall; that rating schedules your reviews and never changes your mastery. |
 | learner, configured | Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book). Production scenes are assessed by the model. |
-| agent, none | AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; challenge any key you think is wrong. Without a judge model, production scenes are not assessed: compare your answer with the provided reference and rate your recall; that rating schedules your reviews and never changes your mastery. |
-| agent, configured | AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; challenge any key you think is wrong. Production scenes are assessed by the model. |
+| agent, none | AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong. Without a judge model, production scenes are not assessed: compare your answer with the provided reference and rate your recall; that rating schedules your reviews and never changes your mastery. |
+| agent, configured | AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong. Production scenes are assessed by the model. |
 
 A lesson that holds a reproduction adds: "Executed reproductions carry an external assessment."
 

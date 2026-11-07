@@ -5,7 +5,7 @@ import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type De
 import { ANSWER_GRADED_TYPES, buildLwgMastery, buildLwgEffectiveMastery, buildLwgCalibration, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept, sceneConceptId, type GraphNavResult } from "./graph-nav.js";
 import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary, HintResult, Verdict, Navigation } from "./types.js";
 import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
-import { SessionNotStartedError, SessionAlreadyCompleteError, SelfRatingNotRequestedError, SelfRatingExpiredError, InvalidSelfRatingError } from "./errors.js";
+import { SessionError, SessionNotStartedError, SessionAlreadyCompleteError, SelfRatingNotRequestedError, SelfRatingExpiredError, InvalidSelfRatingError } from "./errors.js";
 import { grade } from "./grading/index.js";
 import { thetaForVariant, resolveActiveVariant } from "./universe.js";
 import { buildMasteryClaims } from "./mastery-claims.js";
@@ -49,21 +49,37 @@ export interface PathStep {
   navigation?: { kind: Navigation["kind"]; rule_id: string | null; returns_to?: string };
 }
 export interface LearnerPath { steps: PathStep[]; passed_prerequisites: string[] }
+/** What an answered step adds for a map that shows its evidence: when the answer was given (the
+ * session clock), the hints taken on that visit before it, and whether the learner then rated their
+ * own recall. Read beside the path, by `step`. A self-rating is not in the saved history: a session
+ * resumed after a restart no longer knows it. */
+export interface AnswerFact { step: number; scene_id: string; at: string; hints: number; self_rated: boolean }
+/** A learner's declaration on a concept (« I know it », « I am not sure ») and what the check questions
+ * that followed showed (INT-STUDIUM-058 § 2.7). Scene ids and results only: none of the learner's words. */
+export interface ContestRecord {
+  concept_id: string;
+  claim: "known" | "unsure";
+  outcome: "confirmed" | "refuted" | "partial";
+  scene_ids: string[];
+  results: boolean[];
+}
 
 /** The saved history holds, per answered step, the answer and then the scene's completion: fold the
  * pair into one step. The history is capped, so a long session resumes with its latest steps only. */
-function trailFromHistory(history: LearnerState["history"]): PathStep[] {
+function trailFromHistory(history: LearnerState["history"]): { trail: PathStep[]; facts: AnswerFact[] } {
   const trail: PathStep[] = [];
+  const facts: AnswerFact[] = [];
   for (const entry of history) {
     const last = trail.at(-1);
     if (entry.signal.kind === "answer_submitted") {
       trail.push({ step: trail.length + 1, scene_id: entry.scene_id, answered: true,
         correct: typeof entry.signal.correct === "boolean" ? entry.signal.correct : null });
+      facts.push({ step: trail.length, scene_id: entry.scene_id, at: entry.timestamp, hints: entry.signal.hint_count, self_rated: false });
     } else if (entry.signal.kind === "scene_completed" && !(last?.answered && last.scene_id === entry.scene_id)) {
       trail.push({ step: trail.length + 1, scene_id: entry.scene_id, answered: false, correct: null });
     }
   }
-  return trail;
+  return { trail, facts };
 }
 
 export class LessonSession {
@@ -163,7 +179,7 @@ export class LessonSession {
     this.engine = new AdaptationEngine(this.bundle.rules, this.state, () => this.deps.clock.now());
     this.state = this.engine.getState();
     this.idx = this.startingSceneIndex();
-    if (this.idx > 0) this.trail = trailFromHistory(this.state.history);
+    if (this.idx > 0) ({ trail: this.trail, facts: this.facts } = trailFromHistory(this.state.history));
     this.startIso = this.deps.clock.now();
     this.started = true;
     const u = this.bundle.universes ?? null;
@@ -202,6 +218,13 @@ export class LessonSession {
     };
     if (this.showHintsAvailable) presentation.hints_available = this.hintsAvailable();
     return presentation;
+  }
+
+  /** Hint requests the learner can still make on this visit of the current scene (the budget
+   * `requestHint` spends): 0 on a scene with no hint and once the visit's hints are used. */
+  hintsLeft(): number {
+    this.assertStarted();
+    return this.hintsAvailable();
   }
 
   private hintsAvailable(): number {
@@ -329,6 +352,10 @@ export class LessonSession {
     };
   }
 
+  /** When each answered step of the path was answered, with how many hints, and whether the learner
+   * then rated their own recall: the evidence a concept map shows beside each state. */
+  answerFacts(): AnswerFact[] { return this.facts.map((fact) => ({ ...fact })); }
+
   /** Every graded attempt on the concept (LWG `concept:` id) was correct, and there was at least one. */
   private hasFlawlessRecord(lwgConceptId: string): boolean {
     const cs = this.state.concept_states[lwgConceptId.replace(/^concept:/, "")];
@@ -376,7 +403,8 @@ export class LessonSession {
     const scene = this.scene();
     // RT-8: time on scene, from the scene's entry to this answer on the session clock. Graders put it
     // on the signal (the engine publishes it to rules as `time_on_scene`) and on the telemetry.
-    const answeredAtMs = Date.parse(this.deps.clock.now());
+    const answeredAt = this.deps.clock.now();
+    const answeredAtMs = Date.parse(answeredAt);
     const timeMs = elapsedMs(this.sceneEnteredAtMs, answeredAtMs);
     // M1: look up the scene concept's Bloom target from the bundle so grade() can derive
     // the IRT difficulty `w` from it (mirrors how hintCount is threaded). Absent -> grader fallback.
@@ -400,11 +428,17 @@ export class LessonSession {
       step: this.trail.length + 1, scene_id: scene.id, answered: signal.kind === "answer_submitted",
       correct: signal.kind === "answer_submitted" && typeof signal.correct === "boolean" ? signal.correct : null,
     });
-    if (this.lastSuccess === true) this.answeredRight.add(scene.id);
-    else if (this.lastSuccess === false) this.answeredRight.delete(scene.id);
+    if (signal.kind === "answer_submitted") {
+      this.facts.push({ step: this.trail.length, scene_id: scene.id, at: answeredAt, hints: signal.hint_count, self_rated: false });
+    }
+    // A check question answered right is still asked when the lesson reaches it: a check skips nothing.
+    if (!this.check) {
+      if (this.lastSuccess === true) this.answeredRight.add(scene.id);
+      else if (this.lastSuccess === false) this.answeredRight.delete(scene.id);
+    }
     const verdict = this.verdictOf(scene, signal, detail, coverage);
     const selfRating = await this.selfRatingFor(scene, signal, answeredAtMs);
-    const t = this.navigate(decision, scene, answeredAtMs);
+    const t = this.check ? this.afterCheck(decision) : this.navigate(decision, scene, answeredAtMs);
     this.lastSuccess = undefined;
     const served = this.trail.at(-1);
     if (served) {
@@ -456,6 +490,8 @@ export class LessonSession {
     }
     this.pendingSelfRatings.delete(sceneId);
     await this.saveState();
+    const rated = this.facts.filter((fact) => fact.scene_id === sceneId).at(-1);   // the latest answer to that scene
+    if (rated) rated.self_rated = true;
     const record: SelfRatingRecord = {
       scene_id: sceneId, concept_id: pending.conceptIds[0]!, concept_ids: [...pending.conceptIds], grade, fsrs_grade: fsrsGradeOf(grade),
       source: "self_rated", rated_at: this.deps.clock.now(),
@@ -529,6 +565,10 @@ export class LessonSession {
   /** What the learner did, in the order it was served: the facts a learner-facing map is drawn from
    * (learnerPath). Rebuilt from the saved history when a lesson is resumed part-way. */
   private trail: PathStep[] = [];
+  /** One fact per answered step of the trail (answerFacts). */
+  private facts: AnswerFact[] = [];
+  /** Check questions being asked (insertChecks): the scenes still to serve, and where the lesson resumes. */
+  private check: { queue: number[]; returnIdx: number } | null = null;
   /** Answer-graded scenes whose latest answer in this session was correct. Session-local, like
    * `passedPrerequisites`: a lesson played again from the start asks its questions again. */
   private answeredRight = new Set<string>();
@@ -755,6 +795,53 @@ export class LessonSession {
     if (nextIdx >= this.bundle.scenes.length) return this.complete(decision);
     this.idx = nextIdx; this.enterScene();
     return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav(decision, "advance", null) };
+  }
+
+  /** Insert check questions (a contested concept): serve these scenes of the lesson one after the
+   * other, each graded as any answer, then resume on the scene the learner was on. The routing of the
+   * lesson (replays, detours, prerequisite gates, skips) does not run on a check answer, so a check
+   * skips nothing and credits no prerequisite; mastery moves by the usual grading only. Kept in
+   * memory: a session resumed after a restart has no check pending. */
+  insertChecks(sceneIds: readonly string[]): Presentation {
+    this.assertStarted();
+    if (this.completed) throw new SessionAlreadyCompleteError();
+    if (this.check) throw new SessionError("check questions are already being asked");
+    if (sceneIds.length === 0) throw new SessionError("a check asks at least one question");
+    const queue = sceneIds.map((id) => {
+      const at = this.bundle.scenes.findIndex((scene) => scene.id === id);
+      if (at < 0) throw new SessionError(`no scene "${id}" in this lesson`);
+      return at;
+    });
+    this.check = { queue: queue.slice(1), returnIdx: this.idx };
+    this.idx = queue[0]!;
+    this.enterScene();
+    return this.currentPresentation();
+  }
+
+  /** Check questions are being asked: the next answers are theirs. */
+  checkPending(): boolean { return this.check !== null; }
+
+  /** After a check answer: the next check question, or back to the scene the learner was on. */
+  private afterCheck(decision: Decision): Transition {
+    const check = this.check!;
+    const next = check.queue.shift();
+    this.activeNavigationExplanation = null;
+    if (next === undefined) { this.idx = check.returnIdx; this.check = null; } else this.idx = next;
+    this.enterScene();
+    return {
+      kind: "next", presentation: this.currentPresentation(),
+      navigation: { ...this.nav(decision, "advance", null), rule_id: next === undefined ? "contest_check_done" : "contest_check", modulator: null },
+    };
+  }
+
+  /** Record a contest and its outcome in the event log (`concept_contested`). It moves no mastery. */
+  async recordContest(record: ContestRecord): Promise<void> {
+    this.assertStarted();
+    await this.deps.eventLog.append({
+      event_id: this.deps.idGen.uuid(), session_id: this.sessionId, pseudonyme: this.pseudonym,
+      lesson_id: this.bundle.bundle_id, schema_version: "1.0", timestamp: this.deps.clock.now(),
+      event_type: "concept_contested", payload: record,
+    });
   }
 
   protected enterScene(): void {
