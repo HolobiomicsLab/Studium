@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { RenderAssetSchema } from "./render-asset";
+import { RenderAssetLegendEntrySchema, RenderAssetSchema } from "./render-asset";
 
 // ADR 014 — Evidence schemas (Zod local copy ; lesson-plan-schema uses AJV, incompatible direct import)
 
@@ -41,6 +41,7 @@ export const ABSAssetSchema = z.object({
   payload_path: z.string().optional(),
   abs_task_card_id: z.string().optional(),
   prov_derived_from: z.string().min(1),
+  legend: z.array(RenderAssetLegendEntrySchema).min(1).optional(),
 });
 
 export const EnrichmentMetadataSchema = z.object({

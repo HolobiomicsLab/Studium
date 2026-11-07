@@ -25,6 +25,24 @@ describe("RenderAsset content source — payload XOR path", () => {
     expect(RenderAssetSchema.safeParse({ kind: "video", path: "media/observation.mp4" }).success).toBe(true);
   });
 
+  it("accepts and preserves a non-empty equation legend", () => {
+    const legend = [
+      { symbol: "E", meaning: "énergie du photon" },
+      { symbol: "ν", meaning: "fréquence du photon" },
+    ];
+    const parsed = RenderAssetSchema.parse({ kind: "equation_latex", payload: "E=h\\nu", legend });
+
+    expect(parsed.legend).toEqual(legend);
+  });
+
+  it.each([
+    { legend: [] },
+    { legend: [{ symbol: "", meaning: "énergie" }] },
+    { legend: [{ symbol: "E", meaning: "   " }] },
+  ])("rejects an empty equation legend or entry: $legend", ({ legend }) => {
+    expect(RenderAssetSchema.safeParse({ kind: "equation_latex", payload: "E=h\\nu", legend }).success).toBe(false);
+  });
+
   it("accepts an executed_result with no figure — its content is `meta` (figure_path is nullable)", () => {
     expect(RenderAssetSchema.safeParse({ kind: "executed_result", meta: FIGURE }).success).toBe(true);
     expect(RenderAssetSchema.safeParse({ kind: "executed_result", path: "decay.png", meta: FIGURE }).success).toBe(true);

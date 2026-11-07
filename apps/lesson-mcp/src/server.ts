@@ -7,8 +7,9 @@
 // class_report) — the instructions a harness reads at connection, and the `learn` and `review`
 // prompts. get_server_info lists exactly the tools registered here.
 //
-// The study, authoring and teacher tools are MCP-only this sprint (lead decision I-11): the HTTP
-// adapter (http.ts) serves the 25 lesson operations alone.
+// Lead decision I-11 keeps authoring, teacher and most study tools MCP-only. Owner exception of
+// 2026-11-05: HTTP also exposes rate_recall because its own lesson transition requests that rating;
+// http.ts and http.test.ts pin the exact 25 lesson + 1 study operation surface.
 import { z } from "zod";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";

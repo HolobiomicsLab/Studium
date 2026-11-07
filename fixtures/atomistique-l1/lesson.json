@@ -85,7 +85,21 @@
         {
           "kind": "equation_latex",
           "title": "Nombre de masse",
-          "payload": "A = Z + N"
+          "payload": "A = Z + N",
+          "legend": [
+            {
+              "symbol": "A",
+              "meaning": "nombre de masse"
+            },
+            {
+              "symbol": "Z",
+              "meaning": "numéro atomique, égal au nombre de protons"
+            },
+            {
+              "symbol": "N",
+              "meaning": "nombre de neutrons"
+            }
+          ]
         }
       ]
     },
@@ -125,7 +139,7 @@
         }
       ],
       "feedback_correct": "Exact : N = A − Z = 56 − 26 = 30.",
-      "feedback_incorrect": "N = A − Z. Ici 56 − 26 = 30 neutrons.",
+      "feedback_incorrect": "Le nombre de neutrons se déduit de A et de Z : N = A − Z. Refais le calcul.",
       "hints": [
         "A = Z + N, donc N = A − Z."
       ]
@@ -181,7 +195,25 @@
         {
           "kind": "equation_latex",
           "title": "Valeurs autorisées",
-          "payload": "\\ell \\in \\{0,1,\\dots,n-1\\}\\quad m_\\ell \\in \\{-\\ell,\\dots,+\\ell\\}\\quad m_s = \\pm\\tfrac{1}{2}"
+          "payload": "\\ell \\in \\{0,1,\\dots,n-1\\}\\quad m_\\ell \\in \\{-\\ell,\\dots,+\\ell\\}\\quad m_s = \\pm\\tfrac{1}{2}",
+          "legend": [
+            {
+              "symbol": "n",
+              "meaning": "nombre quantique principal : la couche"
+            },
+            {
+              "symbol": "ℓ",
+              "meaning": "nombre quantique azimutal : la sous-couche"
+            },
+            {
+              "symbol": "mℓ",
+              "meaning": "nombre quantique magnétique : l'orbitale dans la sous-couche"
+            },
+            {
+              "symbol": "ms",
+              "meaning": "nombre quantique de spin"
+            }
+          ]
         }
       ]
     },
@@ -221,7 +253,7 @@
         }
       ],
       "feedback_correct": "Exact : mℓ va de −3 à +3, soit 2ℓ+1 = 7 orbitales (donc 14 électrons).",
-      "feedback_incorrect": "mℓ ∈ {−ℓ … +ℓ}. Pour ℓ=3 : −3,−2,−1,0,1,2,3 → 7 orbitales.",
+      "feedback_incorrect": "Pour une sous-couche f, détermine ℓ puis compte les valeurs entières de mℓ entre −ℓ et +ℓ.",
       "hints": [
         "Nombre d'orbitales = 2ℓ+1.",
         "ℓ vaut 3 pour une sous-couche f."
@@ -237,7 +269,7 @@
       ],
       "estimated_seconds": 240,
       "adaptation_hooks": [],
-      "markdown": "## Forme des orbitales — fais-les tourner\n\nUne orbitale est la région où la probabilité de présence de l'électron est élevée. La **2p** a deux lobes de **signe opposé** séparés par un plan nodal ; la **3d_z²** a un lobe axial et une couronne équatoriale.\n\nFais tourner les orbitales ci-contre : les deux isosurfaces (+ / −) sont les deux signes de la fonction d'onde.",
+      "markdown": "## Forme des orbitales — fais-les tourner\n\nUne orbitale est la région où la probabilité de présence de l'électron est élevée. La **2p** a deux lobes de **signe opposé** séparés par un plan nodal ; la **3d_z²** a un lobe axial et une couronne équatoriale.\n\nFais tourner les orbitales ci-contre : les deux isosurfaces (+ / −) sont les deux signes de la fonction d'onde.\n\nUn **nœud** est un endroit où la fonction d'onde s'annule : la probabilité de présence y est nulle. Un nœud **radial** est une sphère centrée sur le noyau ; une orbitale en compte n − ℓ − 1.",
       "render_assets": [
         {
           "kind": "orbital",
@@ -295,7 +327,7 @@
         }
       ],
       "feedback_correct": "Exact : nœuds radiaux = n − ℓ − 1 = 2 − 1 − 1 = 0 (le plan nodal de la 2p est angulaire).",
-      "feedback_incorrect": "Nœuds radiaux = n − ℓ − 1. Pour la 2p : 2 − 1 − 1 = 0.",
+      "feedback_incorrect": "Les nœuds radiaux se calculent avec n − ℓ − 1. Identifie n et ℓ pour une orbitale 2p, puis refais le calcul.",
       "hints": [
         "Distingue nœud radial (sphère) et nœud angulaire (plan).",
         "n − ℓ − 1."
@@ -478,12 +510,34 @@
       ],
       "estimated_seconds": 240,
       "adaptation_hooks": [],
-      "markdown": "## Reconnaître un gaz à ses raies\n\nLes niveaux d'énergie sont **quantifiés**. Une transition de n₂ vers n₁ émet un photon d'énergie E = hν. Pour l'hydrogène, les transitions vers n=2 donnent la **série de Balmer**, dans le visible — la signature qui permet de *reconnaître un gaz inconnu*.",
+      "markdown": "## Reconnaître un gaz à ses raies\n\nLes niveaux d'énergie sont **quantifiés**. Une transition de n₂ vers n₁ émet un photon d'énergie E = hν (h : constante de Planck, ν : fréquence du photon). Pour l'hydrogène, les transitions vers n=2 donnent la **série de Balmer**, dans le visible — la signature qui permet de *reconnaître un gaz inconnu*.",
       "render_assets": [
         {
           "kind": "equation_latex",
           "title": "Énergie d'un photon émis",
-          "payload": "E_{photon} = h\\nu = \\left| E_{n_2} - E_{n_1} \\right|"
+          "payload": "E_{photon} = h\\nu = \\left| E_{n_2} - E_{n_1} \\right|",
+          "legend": [
+            {
+              "symbol": "Ephoton",
+              "meaning": "énergie du photon émis"
+            },
+            {
+              "symbol": "h",
+              "meaning": "constante de Planck"
+            },
+            {
+              "symbol": "ν",
+              "meaning": "fréquence du photon"
+            },
+            {
+              "symbol": "Eₙ₂",
+              "meaning": "énergie du niveau initial n₂"
+            },
+            {
+              "symbol": "Eₙ₁",
+              "meaning": "énergie du niveau inférieur n₁"
+            }
+          ]
         },
         {
           "kind": "spectrum",
@@ -530,7 +584,7 @@
         }
       ],
       "feedback_correct": "Exact : Hα = première raie de Balmer, n=3 → n=2.",
-      "feedback_incorrect": "Balmer = transitions vers n=2. La plus proche (n=3→2) est Hα, la plus rouge.",
+      "feedback_incorrect": "Les raies de Balmer arrivent toutes sur le même niveau. Hα est la moins énergétique de la série : de quel niveau part-elle ?",
       "hints": [
         "La série de Balmer arrive sur n=2.",
         "Hα est la transition la plus basse en énergie de la série."
@@ -551,7 +605,21 @@
         {
           "kind": "equation_latex",
           "title": "Règle de Klechkowski",
-          "payload": "\\text{ordre} : (n+\\ell)\\ \\nearrow,\\ \\text{puis } n\\ \\nearrow"
+          "payload": "\\text{ordre} : (n+\\ell)\\ \\nearrow,\\ \\text{puis } n\\ \\nearrow",
+          "legend": [
+            {
+              "symbol": "n",
+              "meaning": "nombre quantique principal : la couche"
+            },
+            {
+              "symbol": "ℓ",
+              "meaning": "nombre quantique azimutal : la sous-couche"
+            },
+            {
+              "symbol": "↗",
+              "meaning": "ordre croissant"
+            }
+          ]
         }
       ]
     },
@@ -592,7 +660,7 @@
         }
       ],
       "feedback_correct": "Exact : 2 + 2 + 2 = 6 électrons (Z=6).",
-      "feedback_incorrect": "Klechkowski : 1s → 2s → 2p. Avec 6 e⁻ : 1s² 2s² 2p².",
+      "feedback_incorrect": "Applique l'ordre de Klechkowski (1s → 2s → 2p), puis répartis les 6 électrons en respectant Pauli.",
       "hints": [
         "Ordre 1s, 2s, 2p.",
         "2 électrons max par orbitale (Pauli)."
@@ -771,6 +839,48 @@
       }
     },
     {
+      "id": "s5e-quiz-oxygene",
+      "type": "quiz",
+      "title": "Quiz : configuration de l'oxygène",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-configuration"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "question": "Quelle est la configuration électronique de l'oxygène (Z=8) ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "1s² 2s² 2p⁴",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "1s² 2s² 2p⁶",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "1s² 2s⁴ 2p²",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "1s² 2s² 3s² 3p²",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : 2 + 2 + 4 = 8 électrons (Z=8), dans l'ordre 1s, 2s, 2p.",
+      "feedback_incorrect": "Vérifie deux choses : le total d'électrons doit valoir Z, et chaque sous-couche doit être pleine avant de passer à la suivante.",
+      "hints": [
+        "Une sous-couche s contient au plus 2 électrons.",
+        "Ordre : 1s, 2s, 2p."
+      ]
+    },
+    {
       "id": "s6-concept-periodicite",
       "type": "concept",
       "title": "Périodicité : ionisation et rayon",
@@ -834,7 +944,7 @@
         }
       ],
       "feedback_correct": "Exact : charge nucléaire ↑ à couche constante → électrons plus liés (ionisation ↑, rayon ↓).",
-      "feedback_incorrect": "À couche constante, Z↑ attire plus les électrons : ionisation ↑ et rayon ↓.",
+      "feedback_incorrect": "Le long d'une période la couche de valence reste la même alors que Z augmente : demande-toi ce que cela change pour l'attraction exercée sur les électrons.",
       "hints": [
         "Que fait la charge nucléaire effective le long d'une période ?"
       ]
@@ -1020,6 +1130,258 @@
           }
         }
       ]
+    },
+    {
+      "id": "s9-rappel-carbone14",
+      "type": "quiz",
+      "title": "Rappel : le carbone 14",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-particules"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "question": "Le carbone 14 (¹⁴C) a Z=6. Combien contient-il de neutrons ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "8",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "6",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "14",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "20",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : N = A − Z = 14 − 6 = 8.",
+      "feedback_incorrect": "Repère A (le nombre en exposant) et Z, puis applique N = A − Z.",
+      "hints": [
+        "Le nombre en exposant est le nombre de masse A.",
+        "A = Z + N."
+      ]
+    },
+    {
+      "id": "s9-rappel-3d",
+      "type": "quiz",
+      "title": "Rappel : la sous-couche 3d",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-nombres-quantiques"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "question": "Combien d'orbitales (valeurs de mℓ) la sous-couche 3d (n=3, ℓ=2) compte-t-elle ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "5",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "3",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "10",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "2",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : mℓ va de −2 à +2, soit 2ℓ+1 = 5 orbitales (donc 10 électrons).",
+      "feedback_incorrect": "Pour une sous-couche d, repère ℓ puis compte les valeurs entières de mℓ entre −ℓ et +ℓ.",
+      "hints": [
+        "Nombre d'orbitales = 2ℓ+1.",
+        "ℓ vaut 2 pour une sous-couche d."
+      ]
+    },
+    {
+      "id": "s9-rappel-noeuds-3s",
+      "type": "quiz",
+      "title": "Rappel : nœuds de la 3s",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-orbitales-formes"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "question": "Combien de nœuds RADIAUX possède une orbitale 3s ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "2",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "0",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "1",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "3",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : n − ℓ − 1 = 3 − 0 − 1 = 2 nœuds radiaux (deux sphères).",
+      "feedback_incorrect": "Identifie n et ℓ pour une orbitale 3s, puis applique la formule des nœuds radiaux.",
+      "hints": [
+        "Pour une orbitale s, ℓ = 0.",
+        "Nœuds radiaux = n − ℓ − 1."
+      ]
+    },
+    {
+      "id": "s9-rappel-hbeta",
+      "type": "quiz",
+      "title": "Rappel : la raie Hβ",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-spectres"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "question": "Dans la série de Balmer de l'hydrogène, quelle transition produit la raie Hβ (bleu-vert, ~486 nm), la deuxième de la série ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "n = 4 → n = 2",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "n = 3 → n = 2",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "n = 2 → n = 1",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "n = 4 → n = 3",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : Hβ est la deuxième raie de Balmer, n=4 → n=2.",
+      "feedback_incorrect": "Les raies de Balmer arrivent toutes sur le même niveau ; Hα part du niveau juste au-dessus, Hβ du suivant.",
+      "hints": [
+        "La série de Balmer arrive sur n=2.",
+        "Hα part de n=3 ; Hβ est la raie suivante."
+      ]
+    },
+    {
+      "id": "s9-rappel-klechkowski",
+      "type": "quiz",
+      "title": "Rappel : après la 3p",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-remplissage"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "question": "Selon la règle de Klechkowski, quelle sous-couche se remplit juste après la 3p ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "4s",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "3d",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "4p",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "3s",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : (n+ℓ) vaut 4 pour 4s et 5 pour 3d ; 4s se remplit donc avant 3d.",
+      "feedback_incorrect": "Compare la valeur de (n+ℓ) pour chaque sous-couche proposée : la plus petite se remplit d'abord.",
+      "hints": [
+        "Calcule n+ℓ pour 3d et pour 4s.",
+        "À (n+ℓ) égal, c'est le n le plus petit qui passe d'abord."
+      ]
+    },
+    {
+      "id": "s9-rappel-magnesium",
+      "type": "quiz",
+      "title": "Rappel : configuration du magnésium",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-configuration"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "question": "Quelle est la configuration électronique du magnésium (Z=12) ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "1s² 2s² 2p⁶ 3s²",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "1s² 2s² 2p⁸",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "1s² 2s² 2p⁶ 3p²",
+          "correct": false
+        },
+        {
+          "id": "d",
+          "text": "1s² 2s² 2p⁶ 3s¹ 3p¹",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : 2 + 2 + 6 + 2 = 12 électrons, dans l'ordre 1s, 2s, 2p, 3s.",
+      "feedback_incorrect": "Remplis les sous-couches dans l'ordre de Klechkowski en respectant leur capacité maximale, jusqu'à placer les 12 électrons.",
+      "hints": [
+        "Ordre : 1s, 2s, 2p, 3s.",
+        "Une sous-couche p contient au plus 6 électrons."
+      ]
     }
   ],
   "rules": [
@@ -1179,6 +1541,12 @@
         "scene_type": "prompt_practice"
       },
       {
+        "id": "task:s5e-quiz-oxygene",
+        "node_kind": "task",
+        "title": "s5e-quiz-oxygene",
+        "scene_type": "quiz"
+      },
+      {
         "id": "task:s6b-prompt-configuration",
         "node_kind": "task",
         "title": "s6b-prompt-configuration",
@@ -1195,6 +1563,42 @@
         "node_kind": "task",
         "title": "s8-reproduction-periodique",
         "scene_type": "reproduction"
+      },
+      {
+        "id": "task:s9-rappel-carbone14",
+        "node_kind": "task",
+        "title": "s9-rappel-carbone14",
+        "scene_type": "quiz"
+      },
+      {
+        "id": "task:s9-rappel-3d",
+        "node_kind": "task",
+        "title": "s9-rappel-3d",
+        "scene_type": "quiz"
+      },
+      {
+        "id": "task:s9-rappel-noeuds-3s",
+        "node_kind": "task",
+        "title": "s9-rappel-noeuds-3s",
+        "scene_type": "quiz"
+      },
+      {
+        "id": "task:s9-rappel-hbeta",
+        "node_kind": "task",
+        "title": "s9-rappel-hbeta",
+        "scene_type": "quiz"
+      },
+      {
+        "id": "task:s9-rappel-klechkowski",
+        "node_kind": "task",
+        "title": "s9-rappel-klechkowski",
+        "scene_type": "quiz"
+      },
+      {
+        "id": "task:s9-rappel-magnesium",
+        "node_kind": "task",
+        "title": "s9-rappel-magnesium",
+        "scene_type": "quiz"
       }
     ],
     "edges": [
@@ -1342,20 +1746,62 @@
       {
         "id": "e-assess-13",
         "relation": "assesses",
-        "source": "task:s6b-prompt-configuration",
+        "source": "task:s5e-quiz-oxygene",
         "target": "concept:c-configuration"
       },
       {
         "id": "e-assess-14",
         "relation": "assesses",
-        "source": "task:s6-quiz-tendance",
-        "target": "concept:c-periodicite"
+        "source": "task:s6b-prompt-configuration",
+        "target": "concept:c-configuration"
       },
       {
         "id": "e-assess-15",
         "relation": "assesses",
+        "source": "task:s6-quiz-tendance",
+        "target": "concept:c-periodicite"
+      },
+      {
+        "id": "e-assess-16",
+        "relation": "assesses",
         "source": "task:s8-reproduction-periodique",
         "target": "concept:c-periodicite"
+      },
+      {
+        "id": "e-assess-17",
+        "relation": "assesses",
+        "source": "task:s9-rappel-carbone14",
+        "target": "concept:c-particules"
+      },
+      {
+        "id": "e-assess-18",
+        "relation": "assesses",
+        "source": "task:s9-rappel-3d",
+        "target": "concept:c-nombres-quantiques"
+      },
+      {
+        "id": "e-assess-19",
+        "relation": "assesses",
+        "source": "task:s9-rappel-noeuds-3s",
+        "target": "concept:c-orbitales-formes"
+      },
+      {
+        "id": "e-assess-20",
+        "relation": "assesses",
+        "source": "task:s9-rappel-hbeta",
+        "target": "concept:c-spectres"
+      },
+      {
+        "id": "e-assess-21",
+        "relation": "assesses",
+        "source": "task:s9-rappel-klechkowski",
+        "target": "concept:c-remplissage"
+      },
+      {
+        "id": "e-assess-22",
+        "relation": "assesses",
+        "source": "task:s9-rappel-magnesium",
+        "target": "concept:c-configuration"
       }
     ]
   },

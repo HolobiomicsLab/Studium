@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer
 
 # ---------------------------------------------------------------------------
 # Primitives partagées
@@ -78,6 +78,20 @@ RenderAssetKind = Literal[
 ]
 
 
+class RenderAssetLegendEntry(BaseModel):
+    """One source-grounded symbol definition shown with a render asset."""
+
+    symbol: str = Field(min_length=1)
+    meaning: str = Field(min_length=1)
+
+    @field_validator("symbol", "meaning")
+    @classmethod
+    def non_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("legend text must be non-empty")
+        return value
+
+
 class RenderAsset(BaseModel):
     """A normalized, render-by-kind artifact shown pair-by-pair with a scene/cell."""
 
@@ -89,6 +103,7 @@ class RenderAsset(BaseModel):
     format: Optional[str] = None  # renderer hint: "cube" | "xyz" | "smiles" | "vega-lite"
     provenance: Optional[str] = None
     meta: Optional[dict[str, Any]] = None
+    legend: Optional[list[RenderAssetLegendEntry]] = Field(default=None, min_length=1)
 
 
 class BibliographicRef(BaseModel):
@@ -116,6 +131,7 @@ class ABSAsset(BaseModel):
     payload_path: Optional[str] = None
     abs_task_card_id: Optional[str] = None
     prov_derived_from: str = Field(min_length=1)
+    legend: Optional[list[RenderAssetLegendEntry]] = Field(default=None, min_length=1)
 
 
 class EnrichmentMetadata(BaseModel):

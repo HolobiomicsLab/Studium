@@ -18,7 +18,7 @@ For examples meant to be read and copied, see [`examples/`](../examples/README.m
 
 | Fixture | Content | Used by |
 |---|---|---|
-| [`atomistique-l1/`](atomistique-l1/README.md) | L1 chemistry, chapter 1 (atoms, orbitals, periodicity): 25 scenes with interactive orbitals, an emission spectrum, periodic trends and 3D molecules | the VS Code default course (`studium.bundleRef`); its own `*_check.mjs` scripts |
+| [`atomistique-l1/`](atomistique-l1/README.md) | L1 chemistry, chapter 1 (atoms, orbitals, periodicity): 32 scenes with interactive orbitals, an emission spectrum, periodic trends and 3D molecules | the VS Code default course (`studium.bundleRef`); its own `*_check.mjs` scripts |
 | `capsule-run-demo/` | reproduce a decay fit at learner time (2 scenes) | session-host run tests, the lesson server, the VS Code extension-host driver |
 | `capsule-loop-demo/` | run it, then judge your own result (3 scenes) | MCP server and course-graph tests |
 | `capsule-debate-demo/` | debate what your result allows you to conclude (3 scenes) | demonstration only |

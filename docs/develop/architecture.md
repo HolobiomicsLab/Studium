@@ -130,5 +130,5 @@ are kept as legacy and research code; they are not a supported authoring route.
 
 ## Limits
 
-The HTTP adapter exposes lesson operations only; study, authoring and teacher tools are MCP-only. No single
+The HTTP adapter exposes the 25 lesson operations plus `rate_recall`; other study, authoring and teacher tools are MCP-only. No single
 wire connects the runtime host to both review surfaces: they read course and review artifacts from disk.

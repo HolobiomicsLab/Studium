@@ -13,17 +13,19 @@ describe("scene-assets render manifest", () => {
   });
 
   it("flattens image_path + an equation_latex abs_asset into a typed manifest", () => {
+    const legend = [{ symbol: "θ", meaning: "angle" }];
     const scene = base({
       type: "concept", markdown: "body",
       image_path: "/tmp/fig.png",
       evidence: {
-        abs_asset: { asset_type: "equation_latex", payload_inline: "\\cos\\theta", prov_derived_from: "doi:1" },
+        abs_asset: { asset_type: "equation_latex", payload_inline: "\\cos\\theta", prov_derived_from: "doi:1", legend },
         enrichment_metadata: { enricher_version: "1", perspicacite_mode_used: "basic", timestamp: "t", degraded: false },
       },
     }) as never;
     const assets = sceneRenderAssets(scene);
     expect(assets.map(a => a.kind)).toEqual(["image", "equation_latex"]);
     expect(assets[1]!.payload).toBe("\\cos\\theta");
+    expect(assets[1]!.legend).toEqual(legend);
     for (const a of assets) expect(RenderAssetSchema.safeParse(a).success).toBe(true);
   });
 
@@ -85,6 +87,18 @@ describe("scene-assets render manifest", () => {
     expect(assets.map(a => a.kind)).toEqual(["orbital", "spectrum", "image"]);
     expect(assets[0]!.format).toBe("cube");
     for (const a of assets) expect(RenderAssetSchema.safeParse(a).success).toBe(true);
+  });
+
+  it("passes an explicit equation legend through the render manifest unchanged", () => {
+    const legend = [{ symbol: "n", meaning: "nombre quantique principal" }];
+    const scene = base({
+      type: "concept", markdown: "n décrit la couche",
+      render_assets: [{ kind: "equation_latex", title: "Couche", payload: "n \\ge 1", legend }],
+    }) as never;
+
+    expect(sceneRenderAssets(scene)).toEqual([
+      { kind: "equation_latex", title: "Couche", payload: "n \\ge 1", legend },
+    ]);
   });
 
   it("returns an empty manifest for a plain quiz (no artifacts)", () => {

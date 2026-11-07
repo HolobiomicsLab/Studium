@@ -2,7 +2,7 @@
 import { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assetPathFor, imageMime, inlineImageAsset } from "./asset-path.js";
+import { assetPathFor, equationAssetMarkdown, imageMime, inlineImageAsset } from "./asset-path.js";
 
 const failures: string[] = [];
 let checks = 0;
@@ -14,6 +14,14 @@ expect(imageMime("a.PNG") === "image/png", "uppercase PNG -> png");
 expect(imageMime("fig.svg") === "image/svg+xml", "svg mime");
 expect(imageMime("p.jpg") === "image/jpeg" && imageMime("p.jpeg") === "image/jpeg", "jpg/jpeg mime");
 expect(imageMime("x.unknown") === "image/png", "unknown ext defaults to png");
+
+const equation = equationAssetMarkdown({
+  kind: "equation_latex", title: "Mass balance", payload: "A = Z + N",
+  legend: [{ symbol: "A", meaning: "mass number" }, { symbol: "Z", meaning: "proton number" }],
+});
+expect(equation.startsWith("**Mass balance**\n\n$$\nA = Z + N\n$$"), "notebook equation includes title and formula");
+expect(equation.endsWith("- A : mass number\n- Z : proton number"), "notebook equation includes its legend below the formula");
+expect(equationAssetMarkdown({kind:"image",payload:"x"}) === "", "non-equations do not produce equation markdown");
 
 // The pane resolves relative figures from the selected bundle, independent of process.cwd().
 const tempRoot = mkdtempSync(join(tmpdir(), "studium-asset-path-"));

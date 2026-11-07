@@ -245,7 +245,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     {
       description: "Get the normalized render manifest (scene_assets[]) for the current scene — the " +
         "artifacts a UI pairs with this scene: {kind: image|svg|equation_latex|plot_spec|code|data_csv|" +
-        "protocol_md|executed_result, title?, payload?, path?, meta?}. Empty for a plain quiz. A webview " +
+        "protocol_md|executed_result, title?, payload?, path?, legend?: [{symbol, meaning}], meta?}. Empty for a plain quiz. A webview " +
         "calls this each turn to repaint the artifact pane in lockstep with the lesson. reference_result and " +
         "executed_result are EVIDENCE to judge against, not an answer key.",
       inputSchema: { session_id: z.string() },
@@ -341,11 +341,18 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     {
       description: "Request the next authored hint for the current quiz scene. Returns {hint, index, remaining} " +
         "or {hint: null} when the scene is not a quiz, has no hints, or the per-visit hint cap is reached. " +
-        "Each hint discounts the mastery credit of the eventual answer (M5 anti-offloading).",
+        "Each hint discounts the mastery credit of the eventual answer (M5 anti-offloading). When the lesson " +
+        "has already given a legend for the symbols of this scene's concepts, the reply also carries " +
+        "notation: [{symbol, meaning}] — a reminder of what was shown, not a hint: it is never metered and " +
+        "stays available once the hints are spent.",
       inputSchema: { session_id: z.string() },
     },
     async ({ session_id }) => {
-      try { return text({ hint: host.requestHint(session_id) }); }
+      try {
+        const hint = host.requestHint(session_id);
+        const notation = host.sceneNotation(session_id);
+        return text({ hint, ...(notation.length ? { notation } : {}) });
+      }
       catch (e) { return fail((e as Error).message); }
     },
   );

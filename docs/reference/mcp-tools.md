@@ -66,8 +66,8 @@ the time elapsed since the session started.
 
 ### Limits
 
-- The study, authoring and teacher tools are MCP-only in this version. The [HTTP API](http-api.md)
-  serves the lesson tools alone.
+- The [HTTP API](http-api.md) serves the 25 lesson tools plus `rate_recall`. The other study tools,
+  and every authoring and teacher tool, are MCP-only in this version.
 - `prepare_sources` accepts up to 20 sources and 200 000 characters in total. Quotes in a draft must
   match a passage character for character (no-break spaces, runs of whitespace and typographic
   apostrophes are folded).
@@ -293,7 +293,7 @@ Get the learner-time RUN manifest for the current scene — the provisioning/run
 
 ### get_scene_artifacts
 
-Get the normalized render manifest (scene_assets[]) for the current scene — the artifacts a UI pairs with this scene: {kind: image|svg|equation_latex|plot_spec|code|data_csv|protocol_md|executed_result, title?, payload?, path?, meta?}. Empty for a plain quiz. A webview calls this each turn to repaint the artifact pane in lockstep with the lesson. reference_result and executed_result are EVIDENCE to judge against, not an answer key.
+Get the normalized render manifest (scene_assets[]) for the current scene — the artifacts a UI pairs with this scene: {kind: image|svg|equation_latex|plot_spec|code|data_csv|protocol_md|executed_result, title?, payload?, path?, legend?: [{symbol, meaning}], meta?}. Empty for a plain quiz. A webview calls this each turn to repaint the artifact pane in lockstep with the lesson. reference_result and executed_result are EVIDENCE to judge against, not an answer key.
 
 | Field | Type | Required |
 |---|---|---|
@@ -367,7 +367,7 @@ Record a consenting learner's own prediction, begin, observation or conclusion i
 
 ### request_hint
 
-Request the next authored hint for the current quiz scene. Returns {hint, index, remaining} or {hint: null} when the scene is not a quiz, has no hints, or the per-visit hint cap is reached. Each hint discounts the mastery credit of the eventual answer (M5 anti-offloading).
+Request the next authored hint for the current quiz scene. Returns {hint, index, remaining} or {hint: null} when the scene is not a quiz, has no hints, or the per-visit hint cap is reached. Each hint discounts the mastery credit of the eventual answer (M5 anti-offloading). When the lesson has already given a legend for the symbols of this scene's concepts, the reply also carries notation: [{symbol, meaning}] — a reminder of what was shown, not a hint: it is never metered and stays available once the hints are spent.
 
 | Field | Type | Required |
 |---|---|---|

@@ -4,6 +4,11 @@
       "kind": "equation_latex",
       "title": "Controlled response model",
       "payload": "y = g \\times x",
+      "legend": [
+        { "symbol": "y", "meaning": "response" },
+        { "symbol": "g", "meaning": "gain" },
+        { "symbol": "x", "meaning": "fixed input" }
+      ],
       "provenance": "Author-created from the parameter-comparison teaching fixture.",
       "meta": {
         "alt": "The response y equals gain g multiplied by the fixed input x."

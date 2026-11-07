@@ -44,7 +44,7 @@ See the [teacher guide](../teach/teacher-guide.md), [Review and approve](../teac
 | Capability | What works | Practical limit |
 |---|---|---|
 | MCP server | 34 tools over stdio (25 lesson, 4 study, 3 authoring, 2 teacher), prompts `learn` and `review` | Each client has its own tools, account and session |
-| Local HTTP API | The lesson operations, schema discovery, bearer token, protection against duplicate submissions | Loopback only; study, authoring and teacher tools are MCP-only; active sessions end with the process |
+| Local HTTP API | The 25 lesson operations plus `rate_recall`, schema discovery, bearer token, protection against duplicate submissions | Loopback only; other study, authoring and teacher tools are MCP-only; active sessions end with the process |
 | File channel | A task and answer loop in `.studium-session/` for a harness without MCP | Formats and atomic writes must be respected |
 | VS Code extension | Lesson pane, chat participant, notebook cell, restore on reload, reviews in the status bar | Its sessions are separate from an assistant's own MCP server |
 | ASB capsule | Task card and reproduction protocol | A capsule's tier does not attest a learner's run |

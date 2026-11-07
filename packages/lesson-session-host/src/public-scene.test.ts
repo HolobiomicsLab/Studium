@@ -8,7 +8,11 @@ function base(type: string): Record<string, unknown> {
   return {
     id: `s-${type}`, type, title: "T", objective_refs: [], concept_refs: ["c1"],
     estimated_seconds: 0, adaptation_hooks: [],
-    render_assets: [{ kind: "svg", title: "fig", payload: "<svg/>" }],
+    render_assets: [
+      { kind: "svg", title: "fig", payload: "<svg/>" },
+      { kind: "equation_latex", title: "eq", payload: "A=Z+N",
+        legend: [{ symbol: "A", meaning: "mass number" }] },
+    ],
   };
 }
 
@@ -35,6 +39,7 @@ describe("publicScene — generic transport redaction", () => {
     expect("feedback_correct" in pub).toBe(false);
     expect("feedback_incorrect" in pub).toBe(false);
     expect(pub["render_assets"]).toBeDefined();
+    expect(pub["render_assets"]).toEqual((quiz as Record<string, unknown>)["render_assets"]);
     // does not mutate the source scene (server keeps the full scene)
     expect((quiz as Record<string, unknown>)["choices"]).toEqual([
       { id: "a", text: "A", correct: false },

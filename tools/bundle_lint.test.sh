@@ -174,6 +174,33 @@ mutate() {
   node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));$PRELUDE$2;fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$BASE" "$TMP/$1"
 }
 
+# A wrong-quiz feedback that states the keyed choice makes an immediate retry meaningless. Matching
+# is case/whitespace-insensitive with Unicode alphanumeric boundaries: 7 and 30 match, 7 does not
+# match 17. This duplicates the host's intentionally small fail-closed check and pins parity examples.
+mutate quiz-feedback.json "
+const seven=quiz([{id:'a',text:'7',correct:true},{id:'b',text:'5',correct:false}]);seven.id='q-seven';seven.feedback_incorrect='Pour ℓ=3 : → 7 orbitales.';
+const thirty=quiz([{id:'a',text:'30',correct:true},{id:'b',text:'26',correct:false}]);thirty.id='q-thirty';thirty.feedback_incorrect='N = A − Z = 30 neutrons.';
+const seventeen=quiz([{id:'a',text:'7',correct:true},{id:'b',text:'5',correct:false}]);seventeen.id='q-seventeen';seventeen.feedback_incorrect=\"Reprends l'étape 17.\";
+b.scenes.push(seven,thirty,seventeen)"
+expect_finding "quiz feedback reveals a keyed answer" 0 "quiz_feedback_reveals_answer" "$TMP/quiz-feedback.json"
+[ "$(grep -c '  quiz_feedback_reveals_answer  ' <<<"$OUTPUT")" -eq 2 ] || { echo "FAIL: expected exactly the 7 and 30 reveals"; echo "$OUTPUT"; exit 1; }
+grep -Fq 'q-seven: feedback_incorrect includes correct choice "7"' <<<"$OUTPUT" || { echo "FAIL: 7 reveal missing"; echo "$OUTPUT"; exit 1; }
+grep -Fq 'q-thirty: feedback_incorrect includes correct choice "30"' <<<"$OUTPUT" || { echo "FAIL: 30 reveal missing"; echo "$OUTPUT"; exit 1; }
+grep -Fq 'q-seventeen' <<<"$OUTPUT" && { echo "FAIL: 7 falsely matched 17"; echo "$OUTPUT"; exit 1; }
+grep -Eq '^WARN  .+  quiz_feedback_reveals_answer  ' <<<"$OUTPUT" || { echo "FAIL: revealing feedback is not a WARN"; echo "$OUTPUT"; exit 1; }
+
+# Equation legends are optional in the additive schema, but their absence is an authoring warning;
+# when present, the array and both entry fields must be non-empty.
+mutate equation-no-legend.json "b.scenes[0].render_assets=[{kind:'equation_latex',payload:'E=h\\\\nu'}]"
+expect_finding "equation without a legend" 0 "equation_without_legend" "$TMP/equation-no-legend.json"
+grep -Eq '^WARN  .+  equation_without_legend  ' <<<"$OUTPUT" || { echo "FAIL: missing equation legend is not a WARN"; echo "$OUTPUT"; exit 1; }
+mutate equation-with-legend.json "b.scenes[0].render_assets=[{kind:'equation_latex',payload:'E=h\\\\nu',legend:[{symbol:'E',meaning:'photon energy'}]}]"
+expect_clean "equation with a legend" "$TMP/equation-with-legend.json"
+mutate equation-empty-legend.json "b.scenes[0].render_assets=[{kind:'equation_latex',payload:'E=h\\\\nu',legend:[]}]"
+expect_finding "empty equation legend" 1 "schema_invalid" "$TMP/equation-empty-legend.json"
+mutate equation-abs-empty-legend.json "b.scenes[0].evidence={abs_asset:{asset_type:'equation_latex',payload_inline:'E=h\\\\nu',prov_derived_from:'fixture',legend:[]}}"
+expect_finding "empty legacy ABS equation legend" 1 "schema_invalid" "$TMP/equation-abs-empty-legend.json"
+
 printf 'null' > "$TMP/null.json"
 expect_finding "a JSON null is not a bundle" 1 "schema_invalid" "$TMP/null.json"
 

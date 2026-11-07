@@ -154,7 +154,7 @@ export interface GraphNavResult {
  *   — a different fact, and one about the bundle rather than the learner. Either way the lesson
  *   ends, and either way the caller says so out loud. */
 export function graphAwareNextIndex(
-  scenes: { concept_refs?: string[]; type?: string }[],
+  scenes: { id?: string; concept_refs?: string[]; type?: string }[],
   currentIdx: number,
   lwg: LearningWorkflowGraph,
   mastery: Mastery,
@@ -171,26 +171,33 @@ export function graphAwareNextIndex(
   /** What skip-on-mastery reads (buildLwgEffectiveMastery). Omitted ⇒ `mastery`, the previous
    * behaviour. The gates always read `mastery`. */
   skipMastery: Mastery = mastery,
+  /** Ids of answer-graded scenes the learner answered correctly in this session. One that lies
+   * ahead was served out of order (a prerequisite detour or an alternate item) and is passed
+   * over: asking again a question just answered right teaches nothing, and its reference has
+   * been shown. Not reported as a skip: the scene was done. */
+  answeredRight: ReadonlySet<string> = new Set(),
 ): GraphNavResult {
   const routingMastery: Mastery = { ...mastery };
   for (const conceptId of passedPrerequisites) routingMastery[conceptId] = 1;
+  const alreadyRight = (i: number): boolean =>
+    ANSWER_GRADED_TYPES.has(scenes[i]!.type ?? "") && answeredRight.has(scenes[i]!.id ?? "");
   let candidate = currentIdx + 1;
   let skipped = false;
-  if (skipMastered) {
-    while (candidate < scenes.length) {
-      const scene = scenes[candidate]!;
-      const c = sceneConceptId(scene);
-      // stop at: concept-less, unmastered, OR mastered-but-MISCALIBRATED (calibration gate — don't
-      // skip a concept the learner's self-assessment is out of band on; let them do the scene).
-      // Judgment/practice/reproduction scenes are never skippable: quiz mastery is not evidence that
-      // the learner can evaluate an AI output, explain, compare, communicate, or perform the task.
-      // A session-local prerequisite pass releases dependency gates only; it is not posterior
-      // mastery and therefore must not make ordinary authored scenes skippable.
-      if (!MASTERY_SKIPPABLE_TYPES.has(scene.type ?? "")
-        || c === null || (skipMastery[c] ?? 0) < theta || calibrated[c] === false) break;
-      candidate += 1;
-      skipped = true;
-    }
+  while (candidate < scenes.length) {
+    if (alreadyRight(candidate)) { candidate += 1; continue; }
+    if (!skipMastered) break;
+    const scene = scenes[candidate]!;
+    const c = sceneConceptId(scene);
+    // stop at: concept-less, unmastered, OR mastered-but-MISCALIBRATED (calibration gate — don't
+    // skip a concept the learner's self-assessment is out of band on; let them do the scene).
+    // Judgment/practice/reproduction scenes are never skippable: quiz mastery is not evidence that
+    // the learner can evaluate an AI output, explain, compare, communicate, or perform the task.
+    // A session-local prerequisite pass releases dependency gates only; it is not posterior
+    // mastery and therefore must not make ordinary authored scenes skippable.
+    if (!MASTERY_SKIPPABLE_TYPES.has(scene.type ?? "")
+      || c === null || (skipMastery[c] ?? 0) < theta || calibrated[c] === false) break;
+    candidate += 1;
+    skipped = true;
   }
   if (candidate >= scenes.length) return { index: null, reason: "advance" };
   const cid = sceneConceptId(scenes[candidate]!);

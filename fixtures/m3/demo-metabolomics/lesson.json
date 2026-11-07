@@ -39,7 +39,7 @@
         { "id": "c", "text": "entre 10 et 50 kDa", "correct": false }
       ],
       "feedback_correct": "Exact — petites molécules typiquement < 1500 Da.",
-      "feedback_incorrect": "Non, les métabolites sont des petites molécules (< 1500 Da).",
+      "feedback_incorrect": "Relis la définition de la métabolomique et compare les ordres de grandeur proposés.",
       "hints": [] },
 
     { "id": "s-concept-lcms", "type": "concept", "title": "LC-MS",

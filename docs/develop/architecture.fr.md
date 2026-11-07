@@ -132,6 +132,6 @@ sont conservés comme code hérité et de recherche ; ce n'est pas une voie d'
 
 ## Limites
 
-L'adaptateur HTTP n'expose que les opérations de leçon ; les outils d'étude, d'auteur et enseignant
-n'existent qu'en MCP. Aucun canal unique ne relie l'hôte aux deux surfaces de relecture : elles lisent sur
+L'adaptateur HTTP expose les 25 opérations de leçon et `rate_recall` ; les autres outils d'étude et les
+outils d'auteur et enseignant n'existent qu'en MCP. Aucun canal unique ne relie l'hôte aux deux surfaces de relecture : elles lisent sur
 disque les artefacts de cours et de relecture.

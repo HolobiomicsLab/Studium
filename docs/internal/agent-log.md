@@ -2852,6 +2852,120 @@ lookup timed out. No global before-snapshot, so no claim of exclusive attributio
 Canonical/live dev33bf561 unchanged; no push/merge/release/paid call, manuscript or
 LabOS write. Hub audit/handoff records exact output and limitations.
 
+## 2026-11-06 — Live learner-trial fixes: retry feedback, equation legends and HTTP recall ratings
+
+Addressed the three defects recorded during the 5 November atomistique learner
+trial. Wrong quiz feedback that contains a correct choice is now withheld only
+when the learner can retry before leaving the scene; non-revealing feedback and
+feedback released on departure are unchanged. The bundle linter reports this
+authoring problem, the affected fixture feedback is now methodological rather
+than answer-revealing, and both authoring guides state the retry constraint.
+
+Render assets now accept an optional validated symbol legend. Legends survive
+the public-scene, MCP artifact and operator-context projections and render under
+equations in chat, the VS Code pane and notebooks, and portable scientific
+activities. All shipped equation fixtures carry lesson-grounded meanings; the
+linter warns when a legend is absent, and generated bundle references document
+the field. Learner reports were not an equation-rendering surface.
+
+The HTTP API now exposes `rate_recall` as the one study-tool exception to I-11,
+with mutation receipts and idempotent resend semantics and without a stale-scene
+argument. The pinned HTTP operation contract grows from 25 to 26, while all
+other study, authoring and teacher tools remain MCP-only. An in-process HTTP
+trial covers hidden retry feedback and a successful recall rating after the
+requested explanation scene.
+
+Focused TypeScript, Python, bundle-lint, schema, HTTP and rendering checks pass,
+as do build and lint. In this managed sandbox, commands that launch the `tsx`
+CLI cannot create its Unix IPC socket (`listen EPERM`); this blocks the exact
+full `pnpm test`, documentation-generation, parity-test and headless-smoke
+commands despite equivalent `node --import tsx` checks. The Python aggregate
+also retains an unrelated capsule-run failure. Work is intentionally left
+uncommitted for owner review; no push, PR, tag, paid route or learner-home write.
+
+## 2026-11-06 (suite) — Trial follow-up: recall items, notation reminder, lesson gaps
+
+The first batch was committed as `c3b4a84` after the full gates passed outside the
+sandbox (the previous entry's blocked commands all ran green there). One regression
+was caught in review and undone before the commit: regenerating `lesson.json` had
+replaced two carbon-quiz distractors, because `build_bundle.py` had fallen behind
+the committed lesson.
+
+Owner decision for the case left open (a prerequisite gate sending the learner
+back to a question whose answer had just been shown): give each prerequisite
+concept a second answer-graded item. `graph-nav` already prefers an item the
+learner has not seen, wherever it sits in the lesson, so six recall quizzes
+(`s9-rappel-*`) now close `atomistique-l1`, after the last gated scene; until the
+lesson reaches them they are the unseen items a gate picks. `c-configuration` had
+no answer-graded scene of its own, which would have detoured every learner to its
+recall item, so it also gets an in-flow quiz (`s5e-quiz-oxygene`). The lesson goes
+from 25 to 32 scenes and lints without warning. No engine change. The seven
+questions were drafted by an agent and await teacher review.
+
+Lesson gaps found in the trial: "nœud radial" is now defined before the quiz that
+asks for it, `h` is defined in the text and the legend, and two feedbacks that
+still stated the answer in a form the token rule cannot see (Hα, periodicity) are
+rewritten.
+
+Notation reminder: `SessionHost.sceneNotation` returns the legends already shown
+for the current scene's concepts. `request_hint` replies with it next to the hint
+and `get_operator_context` carries it. It is public material, not a hint: never
+metered, still there once the hints are spent.
+
+Test decisions: `http.test.ts` now expects the gate to route a wrong `s2-quiz-4f`
+answer to `s9-rappel-3d`; `server.test.ts` and `host.test.ts` gain notation cases.
+
+## 2026-11-06 (simulations) — Prerequisite routing: three defects found by synthetic learners
+
+Owner request: run simulations on the trial fixes to check they hold and to find
+problems. Sixty-four labelled synthetic learners (flawless, wrong on each first
+visit, wrong on the first item of each concept, always wrong, and two random groups
+of thirty at p = 0.5 and p = 0.75) played `atomistique-l1` in process, on the
+corrected lesson and on the lesson as it was before the trial fixes. Every run
+completed, no answer was visible before a same-scene retry, every requested
+self-rating was recorded. Three engine defects came out; the recall items added in
+`d6bb411` made the first two reachable on this lesson.
+
+1. Two unmet prerequisites of one scene. A correct answer on the detour for
+   prerequisite A was credited only if the router then chose A again. When it chose
+   B, the answer was lost and the learner went back and forth between the two items
+   until the detour budget released the gate (`s5e-quiz-oxygene` and `s4-quiz-balmer`
+   three times each before `s6-concept-periodicite`). When it chose A, the gate
+   opened with B never checked. `LessonSession.navigate` now credits the detour
+   prerequisite before routing and routes again after each credit, so each
+   prerequisite is judged on its own answer; `gate_passed` is announced when the
+   gated scene is reached that way.
+2. An item answered correctly out of order (a detour or an alternate) was served a
+   second time when the lesson reached it. `graphAwareNextIndex` takes the ids of
+   the answer-graded scenes answered correctly in the session and passes over
+   them; the path without a graph does the same. Session-local, like the
+   prerequisite passes: a lesson played again asks its questions again.
+3. An alternate item placed further down the lesson (`remediate_alt`) made the
+   session resume after the alternate, so every scene between the question and its
+   alternate was never served. It now resumes after the scene just left, unless the
+   alternate is the very next scene (the case the existing tests pin).
+
+Measured on the corrected lesson, before and after: wrong on each first visit, 48
+steps and 9 questions asked again after their answer was shown, now 38 and 0; wrong
+on the first item of each concept, 38 and 6, now 32 and 0; random p = 0.5, 39.8
+steps and 3.8 on average, now 35.8 and 0.4. The flawless path (32 steps) and the
+always-wrong path (79 steps) are unchanged.
+
+Left open, reported to the owner, not changed: a learner who keeps failing is asked
+the same two items of a concept five or six times, because the replay budget and
+the detour budget add up (79 steps, about 134 estimated minutes); the lesson
+declares 60 minutes and the flawless path is estimated at 78; step numbers jump by
+up to 24 positions on a detour to a closing recall item; and `get_workflow_graph`
+derives a concept's state from posterior mastery alone, so at step 16 it reports
+the first concept as current and every other as locked, the one being studied
+included.
+
+Test decisions: new `session.multi-prereq-gate.test.ts` (six cases); no existing
+assertion changed. Gates green with `STUDIUM_EPHEMERAL=1`: `pnpm build:libs`,
+`pnpm lint` (0 errors), `pnpm -r --no-bail test`, `tools/pytest_all.py` (16 suites,
+0 failing), `tools/bundle_lint.test.sh`, `node tools/docs/check.mjs`,
+`headless_smoke.mjs` (19 assertions).
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

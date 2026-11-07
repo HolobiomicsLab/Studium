@@ -90,8 +90,8 @@ surface.
 
 ## HTTP adapter
 
-[`src/http.ts`](src/http.ts) exposes the lesson operations (not the study, authoring or teacher tools)
-to a local client under `/v1/operations`. It listens on 127.0.0.1 only and requires a bearer token of at
+[`src/http.ts`](src/http.ts) exposes the 25 lesson operations plus `rate_recall` (not the other study,
+authoring or teacher tools) to a local client under `/v1/operations`. It listens on 127.0.0.1 only and requires a bearer token of at
 least 32 characters:
 
 ```bash

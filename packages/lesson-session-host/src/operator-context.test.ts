@@ -15,7 +15,11 @@ const scene = {
   choices: [{ id: "a", text: "The precursor", correct: true }, { id: "b", text: "Nothing", correct: false }],
   feedback_correct: "PRIVATE-FEEDBACK", feedback_incorrect: "PRIVATE-CORRECTION",
   hints: ["PRIVATE-HINT"],
-  render_assets: [{ kind: "data_csv", title: "Peaks", payload: "mz,intensity\n100,1", meta: { model_answer: "PRIVATE-ASSET" } }],
+  render_assets: [
+    { kind: "data_csv", title: "Peaks", payload: "mz,intensity\n100,1", meta: { model_answer: "PRIVATE-ASSET" } },
+    { kind: "equation_latex", title: "Mass balance", payload: "A=Z+N",
+      legend: [{ symbol: "A", meaning: "mass number" }, { symbol: "Z", meaning: "proton number" }] },
+  ],
 };
 
 const METADATA = { title: "Spectra", target: "M2", duration_minutes: 5, language: "en", discipline: "Chemistry" };
@@ -71,6 +75,11 @@ describe("public operator context", () => {
     expect(result.schema).toBe("studium/operator-context/v1");
     expect(result.scene.question).toBe("What changed?");
     expect(result.scene_assets[0]?.payload).toContain("100,1");
+    expect(result.scene_assets[1]?.legend).toEqual([
+      { symbol: "A", meaning: "mass number" },
+      { symbol: "Z", meaning: "proton number" },
+    ]);
+    expect(result.notation).toEqual(host.sceneNotation(sessionId));
     expect(result.response.kind).toBe("quiz_choice");
     expect(result.rendering.instructions).toContain("learner");
     expect(JSON.stringify(result)).not.toContain("PRIVATE-");

@@ -51,7 +51,8 @@ You draft, Studium checks and writes. The learner will play what you write; no t
 - Without a judge model, every prerequisite concept has at least one quiz (with that concept first in its \`concept_refs\`): it is the only scene that measures it before the concepts that depend on it. One quiz per prerequisite is enough: a correct answer lets the learner go on.
 - Give each key point 2 to 4 short \`cues\`: stems or synonyms the learner would write ("depend", "speciali"), never a sentence (at most 40 characters). A cue counts when it appears inside the answer, accents and case ignored.
 - In summary_audit and spot_the_flaw, every entry of \`flaws_expected\` is one planted flaw: one phrasing per flaw, no alternatives, and name each one in \`model_correction\`.
-- A quiz has exactly one correct choice, \`feedback_correct\`, \`feedback_incorrect\` and at most 3 \`hints\`.
+- A quiz has exactly one correct choice, \`feedback_correct\`, \`feedback_incorrect\` and at most 3 \`hints\`. \`feedback_incorrect\` is shown before a possible retry of the same question, so it must never state the answer.
+- Every \`equation_latex\` render asset has a non-empty \`legend: [{symbol, meaning}]\`, using definitions already stated in the lesson.
 - Concepts have short lowercase ids (\`c-solidarity\`). \`prerequisites\` lists the concepts to learn first; order the scenes so a prerequisite is taught before what depends on it. With several concepts, every scene names its \`concept_refs\`.
 - Leave ids, rubric, timings and the graph out: Studium fills them. No TODO and no placeholder anywhere: an unfinished draft is refused.
 - Titles name the topic, never the answer.
@@ -82,7 +83,8 @@ Vous rédigez, Studium vérifie et écrit. L'apprenant jouera ce que vous écriv
 - Sans juge modèle, chaque concept prérequis a au moins un quiz (ce concept en premier dans ses \`concept_refs\`) : c'est la seule scène qui le mesure avant les concepts qui en dépendent. Un quiz par prérequis suffit : une bonne réponse laisse l'apprenant continuer.
 - Donnez à chaque point clé 2 à 4 indices courts (\`cues\`) : des radicaux ou synonymes que l'apprenant écrirait (« dépend », « spécialis »), jamais une phrase (40 caractères au plus). Un indice compte quand il apparaît dans la réponse, accents et casse ignorés.
 - Dans summary_audit et spot_the_flaw, chaque entrée de \`flaws_expected\` est un défaut planté : une formulation par défaut, sans variante, et nommez chacun dans \`model_correction\`.
-- Un quiz a exactement un choix correct, \`feedback_correct\`, \`feedback_incorrect\` et au plus 3 aides (\`hints\`).
+- Un quiz a exactement un choix correct, \`feedback_correct\`, \`feedback_incorrect\` et au plus 3 aides (\`hints\`). \`feedback_incorrect\` est affiché avant une éventuelle nouvelle tentative sur la même question et ne doit donc jamais donner la réponse.
+- Chaque actif \`equation_latex\` a une liste non vide \`legend: [{symbol, meaning}]\`, avec uniquement des définitions déjà données dans la leçon.
 - Les concepts ont des ids courts en minuscules (\`c-solidarite\`). \`prerequisites\` liste les concepts à apprendre d'abord ; ordonnez les scènes pour qu'un prérequis soit enseigné avant ce qui en dépend. Avec plusieurs concepts, chaque scène nomme ses \`concept_refs\`.
 - Laissez de côté les ids, la grille, les durées et le graphe : Studium les remplit. Aucun TODO ni texte provisoire : un brouillon inachevé est refusé.
 - Les titres nomment le sujet, jamais la réponse.

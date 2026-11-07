@@ -61,6 +61,11 @@ def test_prepare_support_inlines_image_and_preserves_canonical_shapes(tmp_path: 
             "kind": "equation_latex",
             "title": "Response model",
             "payload": r"y = gx",
+            "legend": [
+                {"symbol": "y", "meaning": "response"},
+                {"symbol": "g", "meaning": "gain"},
+                {"symbol": "x", "meaning": "input"},
+            ],
             "provenance": "Authored from the stated teaching model.",
             "meta": asset_meta("The response y equals gain g times input x."),
         },
@@ -86,7 +91,8 @@ def test_prepare_support_inlines_image_and_preserves_canonical_shapes(tmp_path: 
 
     assert [asset["kind"] for asset in prepared] == ["image", "equation_latex", "code", "mol_3d"]
     assert prepared[0]["path"].startswith("data:image/png;base64,")
-    assert set(prepared[0]) <= {"kind", "title", "payload", "path", "language", "format", "provenance", "meta"}
+    assert set(prepared[0]) <= {"kind", "title", "payload", "path", "language", "format", "legend", "provenance", "meta"}
+    assert prepared[1]["legend"] == assets[1]["legend"]
     assert assets[0]["path"] == "figure.png"
 
 
@@ -124,6 +130,9 @@ def test_prepare_support_adds_brief_ai_image_notice(tmp_path: Path) -> None:
         ({"kind": "equation_latex", "payload": "x", "path": "x.png", "provenance": "x", "meta": asset_meta("x")}, "exactly one"),
         ({"kind": "equation_latex", "payload": "x", "path": None, "provenance": "x", "meta": asset_meta("x")}, "path"),
         ({"kind": "equation_latex", "title": 7, "payload": "x", "provenance": "x", "meta": asset_meta("x")}, "title"),
+        ({"kind": "equation_latex", "payload": "x", "legend": [], "provenance": "x", "meta": asset_meta("x")}, "legend"),
+        ({"kind": "equation_latex", "payload": "x", "legend": [{"symbol": " ", "meaning": "value"}], "provenance": "x", "meta": asset_meta("x")}, "symbol"),
+        ({"kind": "equation_latex", "payload": "x", "legend": [{"symbol": "x", "meaning": ""}], "provenance": "x", "meta": asset_meta("x")}, "meaning"),
         ({"kind": "code", "language": 7, "payload": "flowchart LR\nA-->B", "provenance": "x", "meta": asset_meta("x")}, "language"),
         ({"kind": "mol_3d", "format": 7, "payload": "CCO", "provenance": "x", "meta": asset_meta("x")}, "format"),
         ({"kind": "equation_latex", "payload": "x", "meta": asset_meta("x")}, "provenance"),
@@ -153,7 +162,15 @@ def test_browser_module_rejects_active_mermaid_and_accepts_scientific_examples()
         kind:'mol_3d', format:'smiles', payload:'CCO', provenance:'Original simple teaching input.',
         meta:{alt:'Two-dimensional skeletal formula of ethanol.'}
       });
-      if (!good || !bad || molecule !== '') process.exit(1);
+      const equation = validateSupportAsset({
+        kind:'equation_latex', payload:'y=gx', legend:[{symbol:'y', meaning:'response'}], provenance:'Authored.',
+        meta:{alt:'The response equals gain times input.'}
+      });
+      const malformedLegend = validateSupportAsset({
+        kind:'equation_latex', payload:'y=gx', legend:[], provenance:'Authored.',
+        meta:{alt:'The response equals gain times input.'}
+      });
+      if (!good || !bad || molecule !== '' || equation !== '' || malformedLegend === '') process.exit(1);
     """
 
     result = subprocess.run(

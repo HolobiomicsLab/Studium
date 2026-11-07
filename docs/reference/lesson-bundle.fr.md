@@ -364,6 +364,9 @@ Every scene, whatever its type, has these fields.
 | `format` | string | no |
 | `provenance` | string | no |
 | `meta` | object (free form) | no |
+| `legend` | array of objects, at least 1 item | no |
+| `legend[].symbol` | string | yes |
+| `legend[].meaning` | string | yes |
 
 ## Evidence
 
@@ -389,6 +392,9 @@ Every scene, whatever its type, has these fields.
 | `abs_asset.payload_path` | string | no |
 | `abs_asset.abs_task_card_id` | string | no |
 | `abs_asset.prov_derived_from` | string (non-empty) | yes |
+| `abs_asset.legend` | array of objects, at least 1 item | no |
+| `abs_asset.legend[].symbol` | string | yes |
+| `abs_asset.legend[].meaning` | string | yes |
 | `enrichment_metadata` | object | yes |
 | `enrichment_metadata.enricher_version` | string (non-empty) | yes |
 | `enrichment_metadata.perspicacite_mode_used` | one of `basic`, `advanced`, `profound`, `agentic`, `passages` | yes |

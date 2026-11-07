@@ -586,6 +586,29 @@ function checkLocale(language: string): DisplayLocale {
 }
 
 const conceptsOf = (scene: Scene): readonly string[] => ("concept_refs" in scene ? scene.concept_refs : []);
+/** One line of an equation's legend: what a symbol stands for. */
+export type NotationEntry = NonNullable<RenderAsset["legend"]>[number];
+/** Normalize authored answer text for the conservative pre-retry reveal check. */
+function normalizedRevealText(text: string): string[] {
+  return text.normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+/** Whether `answer` occurs in `feedback` with Unicode alphanumeric token boundaries. */
+function containsWholeAnswer(feedback: string, answer: string): boolean {
+  const text = normalizedRevealText(feedback);
+  const needle = normalizedRevealText(answer);
+  if (needle.length === 0 || needle.length > text.length) return false;
+  for (let start = 0; start <= text.length - needle.length; start += 1) {
+    if (needle.every((token, offset) => text[start + offset] === token)) return true;
+  }
+  return false;
+}
+
+/** Whether a wrong quiz's authored feedback states one of its keyed choices. */
+function feedbackRevealsCorrectChoice(scene: Scene | undefined, verdict: Verdict): boolean {
+  if (scene?.type !== "quiz" || verdict.correct !== false || verdict.feedback === undefined) return false;
+  return scene.choices.some((choice) => choice.correct && containsWholeAnswer(verdict.feedback!, choice.text));
+}
 
 /** I-2: whether an answer leaves its scene for good — a right answer, the end of the session, or a
  * next scene that is neither the same item again (a replay, or a detour that returns to it) nor
@@ -622,9 +645,13 @@ type Verdict = NonNullable<Transition["verdict"]>;
 const hasReference = (verdict: Verdict | undefined): boolean => (verdict?.key_points?.length ?? 0) > 0
   || verdict?.model_answer !== undefined;
 
-/** A verdict without its reference, for an answer that does not leave its scene yet (I-2). */
-function withoutReference(verdict: Verdict): Verdict {
+/** A verdict without its reference, nor answer-revealing quiz feedback, before a retry (I-2). */
+function withoutReference(verdict: Verdict, answered: Scene | undefined): Verdict {
   const { key_points: _points, key_points_missing: _missing, model_answer: _model, reference_kind: _kind, ...rest } = verdict;
+  if (feedbackRevealsCorrectChoice(answered, verdict)) {
+    const { feedback: _feedback, ...safe } = rest;
+    return safe;
+  }
   return rest;
 }
 
@@ -1409,7 +1436,7 @@ export class SessionHost {
     const answered = transition.verdict ? entry.bundle.scenes.find((s) => s.id === transition.verdict?.scene_id) : undefined;
     const leaving = answered === undefined || leavesForGood(transition, answered);
     const sources = transition.verdict ? releasedSources(entry, transition, answered, leaving) : [];
-    const verdict = transition.verdict && !leaving ? withoutReference(transition.verdict) : transition.verdict;
+    const verdict = transition.verdict && !leaving ? withoutReference(transition.verdict, answered) : transition.verdict;
     const selfRating = transition.self_rating && verdict && (leaving || !hasReference(transition.verdict))
       ? { ...transition.self_rating, scene_id: verdict.scene_id } : undefined;
     const reviewPlan = transition.kind === "complete" ? this.reviewPlanOf(entry) : undefined;
@@ -1504,6 +1531,33 @@ export class SessionHost {
     // produces a fresh result by running it (parity with the file channel + publicScene).
     if ((scene as { run_manifest?: unknown }).run_manifest) return assets.filter((a) => a.kind !== "executed_result");
     return assets;
+  }
+  /** The notation the lesson has already given for the current scene's concepts: the legends of the
+   * equations carried by the scenes up to this one (in lesson order) that share a concept with it,
+   * each symbol once, first meaning kept. Public material only — legends travel with the public scene
+   * — so a harness may show it at any time, and it is not a metered hint (no M5 discount). Empty when
+   * the scene names no concept or no such equation has a legend. */
+  sceneNotation(id: string): NotationEntry[] {
+    const e = this.require(id);
+    const { scene, index } = e.session.currentPresentation();
+    const concepts = new Set(conceptsOf(scene));
+    if (concepts.size === 0) return [];
+    const upTo = e.bundle.scenes.findIndex((s) => s.id === scene.id);
+    const scenes = e.bundle.scenes.slice(0, (upTo >= 0 ? upTo : index) + 1);
+    const seen = new Set<string>();
+    const notation: NotationEntry[] = [];
+    for (const earlier of scenes) {
+      if (!conceptsOf(earlier).some((c) => concepts.has(c))) continue;
+      for (const asset of sceneRenderAssets(earlier)) {
+        if (asset.kind !== "equation_latex") continue;
+        for (const { symbol, meaning } of asset.legend ?? []) {
+          if (seen.has(symbol)) continue;
+          seen.add(symbol);
+          notation.push({ symbol, meaning });
+        }
+      }
+    }
+    return notation;
   }
   /** Record a learner-time capsule run (the learner's OWN executed result) on the session, keyed by
    * task_card_id, so a later spot_the_flaw with `reference_from_run` grounds on it. Called after the
