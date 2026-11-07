@@ -18,6 +18,8 @@ The [CLI reference](../docs/reference/cli.md) documents the options of the main 
 
 | Command | What it does |
 |---|---|
+| `.venv/bin/python tools/conversation_sources.py` | turn a Claude Code transcript (`.jsonl`) or a text export of a conversation into `prepare_sources` input, kind `conversation`; local, tool results off by default, credential-looking strings redacted (`--focus`, `--last`, `--include-tool-results`, `--language`, `--out`) |
+| `.venv/bin/python tools/concept_map_report.py export` / `verify` | turn the record `export_concept_map` wrote into a self-contained interactive page of the concept map with its ASTRA document, ARA trace and MySTRA page, then verify it (`--class-report`, `--expect-sha256`, `--language`); see [Concept map](../docs/learn/concept-map.md) |
 | `.venv/bin/python tools/experience_packet.py passages` | capture a learner-chosen URL, HTML page, PDF or text file as a passage envelope (`--url`, `--html`, `--pdf`, `--text`, `--out`) |
 | `.venv/bin/python tools/experience_packet.py prepare` | turn passages into an offline authoring packet (`--passages`, `--out`, `--title`) |
 | `.venv/bin/python tools/experience_packet.py check` | validate an author response against the packet (`--packet`, `--response`, `--out`; `--json` for structured findings) |

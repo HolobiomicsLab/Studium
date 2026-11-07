@@ -2,7 +2,7 @@
 //
 // The Studium MCP server: the lesson operations (operations.ts), the tools of the 2026-10-30
 // production sprint (contract C1) — the study tools defined here (list_lessons, get_study_plan,
-// start_review_session, rate_recall), the authoring tools (authoring-tools.ts: get_authoring_guide,
+// start_review_session, rate_recall, and export_concept_map since 2026-11-06), the authoring tools (authoring-tools.ts: get_authoring_guide,
 // prepare_sources, create_lesson) and the teacher tools (teacher-tools.ts: review_lesson,
 // class_report) — the instructions a harness reads at connection, and the `learn` and `review`
 // prompts. get_server_info lists exactly the tools registered here.
@@ -24,7 +24,7 @@ import { TEACHER_TOOL_NAMES, registerTeacherTools } from "./teacher-tools.js";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
 
 /** C1 study tools, defined in this file. */
-export const STUDY_TOOL_NAMES = ["get_study_plan", "list_lessons", "rate_recall", "start_review_session"] as const;
+export const STUDY_TOOL_NAMES = ["export_concept_map", "get_study_plan", "list_lessons", "rate_recall", "start_review_session"] as const;
 /** Every tool buildMcpServer registers, sorted: the lesson operations, the study tools, the authoring
  * tools and the teacher tools. */
 export const TOOL_NAMES: readonly string[] = [
@@ -50,6 +50,7 @@ export const SERVER_INSTRUCTIONS = [
   "- When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.",
   "- start_review_session plays every review due, across lessons; list_lessons shows what can be started.",
   "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session.",
+  "- When the learner asks where they are, show the map (get_workflow_graph). Offer once, at a pause, never between a question and its answer: at the end, the map as a page on the learner's yes (export_concept_map); in a working conversation, a short lesson from it when the person wants to understand it (prepare_sources, kind \"conversation\").",
   "- Never call forget_session unless the learner asks to erase their data: it deletes their progress for good.",
 ].join("\n");
 
@@ -159,6 +160,22 @@ export function studyOperations(host: SessionHost): Operation[] {
         grade: z.enum(RECALL_GRADES, { errorMap: () => ({ message: `grade must be one of ${RECALL_GRADES.join(", ")}` }) }),
       },
       async ({ session_id, scene_id, grade }) => host.rateRecall(session_id, scene_id, grade)),
+
+    operation("export_concept_map",
+      "On the learner's request, export the concept map of a lesson session as a record " +
+      "(studium/concept-map-record/v1): the map, each step with who assessed the answer and how the session routed " +
+      "after it, and for every scene what it rests on (sources cited and their origin, key class, who drafted the " +
+      "lesson and whether a teacher validated it). No learner identifier and none of the learner's words; a passage " +
+      "is quoted only for a scene already left. When the server has a library the record is written under " +
+      "<library>/_exports/concept-maps/ and saved_to and sha256 name the file; tools/concept_map_report.py turns it " +
+      "into an interactive page with its ASTRA document and ARA trace. Show display_markdown. Fails for a review " +
+      "session and for a lesson with fewer than two concepts.",
+      { session_id: z.string() },
+      async ({ session_id }) => {
+        const exported = await host.exportConceptMap(session_id);
+        if (!exported) throw new Error("this session has no concept map (a review session, or a lesson with fewer than two concepts)");
+        return exported;
+      }),
   ];
 }
 

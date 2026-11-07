@@ -21,6 +21,7 @@ guident un assistant dans ces mêmes procédures.
 | Observer une photographie en archéologie | Une photo institutionnelle, sa notice et son statut de réutilisation | La distinction entre observation, attribution et hypothèse |
 | Recevoir une aide dans une autre langue ou modalité | La scène publique et le besoin exprimé | Texte, schéma, figure ou média, avec un équivalent accessible |
 | Préparer une restitution | Les actions ou le journal que l'étudiant choisit d'exporter | Un rapport local ASTRA/ARA/MySTRA avant partage |
+| Comprendre une conversation avec un assistant | La conversation en cours ou une séance passée | Une courte leçon qui cite l'échange, une carte des notions, ce qui est acquis et ce qui ne l'est pas |
 
 ## 1. Apprendre un sujet en conversation
 
@@ -150,3 +151,25 @@ choix distinct du stockage du journal.
 `verify`. MySTRA montre les éléments enregistrés et leurs limites. La trace ne couvre ni toute la
 conversation, ni les aides consultées, ni le travail hors outil, et elle ne prouve ni l'identité, ni
 l'autonomie, ni l'apprentissage.
+
+## 9. Comprendre une conversation que vous avez eue avec un assistant
+
+**Pour toute personne qui a travaillé avec un assistant** sur une analyse, un débogage ou une
+question de conception, et qui veut la comprendre plutôt que seulement en garder le résultat. Aucun
+enseignant ne relit la leçon : elle est générée pour apprendre, et elle le dit.
+
+> Utilise `studium-from-conversation`. Fais une courte leçon à partir de cette conversation pour que
+> je vérifie que j'ai compris pourquoi [le point]. Pose-moi une question au plus avant de commencer.
+
+L'assistant extrait de la transcription les tours utiles avec `tools/conversation_sources.py` ; les
+extraits restent sur votre machine, les résultats d'outils sont écartés sauf demande, et les chaînes
+qui ressemblent à des identifiants sont remplacées. `prepare_sources` enregistre la source comme une
+conversation, `create_lesson` vérifie chaque citation, et le premier écran dit sur quoi la leçon
+repose : ce que l'assistant y affirme n'a pas été vérifié, ce qui vient d'un fichier ou d'un
+résultat d'outil cité est une observation. Chaque scène montre le passage qu'elle cite.
+
+Une carte des notions ouvre la leçon et revient lors d'un détour par un prérequis, d'une scène de
+synthèse et à la fin, avec les questions auxquelles vous avez répondu et leur résultat. Le but est
+atteint quand vous pouvez dire, pour chaque notion, si vous l'avez réussie, si elle est à revoir ou
+si vous l'avez seulement lue. La leçon vérifie ce que vous avez compris de ce qui a été dit, pas
+que la conversation avait raison.

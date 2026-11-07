@@ -4,7 +4,7 @@ export {
   type SessionHostOptions, type SessionStartOptions, type SessionStartResult, type SessionResume,
   type ServedPresentation, type ServedTransition, type ServedVerdict, type ReviewPlan, type RecallRating,
   type ListedLesson, type LessonListing, type ReviewItem, type ReviewStartResult,
-  type ReinforcementStatus, type RoutedReinforcementTarget, type ForgetReport, type ForgetItem,
+  type ReinforcementStatus, type RoutedReinforcementTarget, type ForgetReport, type ForgetItem, type ConceptMapExport,
 } from "./host.js";
 // The 2026-10-30 verification fixes: a session's clock and now_ms (L-1), one time zone for every date
 // (RFR-13), the review scene choice (L-8).
@@ -23,6 +23,13 @@ export { type SelfRating } from "./fsrs-memory.js";
 export { type StudyPlan, type StudyItem, DEFAULT_REVIEW_SECONDS } from "./study-plan.js";
 export { type CatalogLesson, type LessonRoot } from "./lesson-catalog.js";
 export { operatorContext } from "./operator-context.js";
+export {
+  buildConceptMap, type ConceptMap, type ConceptMapNode, type ConceptMapEdge, type ConceptMapState, type ConceptMapMoment,
+} from "./concept-map.js";
+export {
+  buildConceptMapRecord, CONCEPT_MAP_RECORD_SCHEMA, type ConceptMapRecord, type RecordScene, type RecordSource,
+  type RecordSourceOrigin, type RecordStep,
+} from "./concept-map-record.js";
 export {
   reviewQueueFromState, conceptMemoryFromState, nextReinforcementFromState, reinforcementSceneFromState,
   dueReinforcementTargetsFromMemory,
@@ -44,7 +51,7 @@ export { SCENE_KEY_CLASS, keyClassOf, type KeyClass } from "./key-class.js";
 // binds these to the get_authoring_guide, prepare_sources and create_lesson tools.
 export {
   AuthoringInputError, GUIDE_VERSION, LessonDraftSchema, authoringGuide, createLesson, guideLanguageOf, prepareSources,
-  MAX_SOURCES, MAX_SOURCE_CHARS, MAX_TOTAL_SOURCE_CHARS, lintBundleData, placeholderPaths,
+  MAX_SOURCES, MAX_SOURCE_CHARS, MAX_TOTAL_SOURCE_CHARS, SOURCE_KINDS, lintBundleData, placeholderPaths,
   type CreateLessonInput, type CreateLessonResult, type LessonDraft, type SourceSet, type LintFinding as BundleLintFinding,
 } from "./authoring-draft/index.js";
 export { shuffleQuizChoices } from "./shuffle-choices.js";

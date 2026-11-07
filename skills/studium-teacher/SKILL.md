@@ -163,6 +163,11 @@ differ from the tool's when a scene is withheld, since it has no scene rows. The
 teacher dashboard shows the library and review status. See
 [Follow a class](../../docs/teach/follow-a-class.md).
 
+To read these figures on the lesson's structure, lay them over its concept map: the page's
+teacher viewpoint shows each concept's figures and marks those to reteach first. Follow
+[studium-concept-map](../studium-concept-map/SKILL.md), which also says how to get a page with
+no learner's path on it.
+
 ## Close with a usable checkpoint
 
 Return the actual paths created, what was checked, the draft, review or approval status

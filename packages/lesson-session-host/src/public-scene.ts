@@ -124,21 +124,45 @@ export interface CitedSource { title: string; quote?: string; url?: string; lice
 
 const MAX_CITED_SOURCES = 5;
 
-/** The passages `scene` cites (its `evidence.bibliographic_refs`): title, exact quote, and a link
- * when the record has a web address or a DOI. Released only after the learner answered. */
-export function citedSources(scene: Scene): CitedSource[] {
+/** A reference a scene cites, as the bundle records it (the fields a learner-facing view may show). */
+export interface CitedReference { title: string; excerpt?: string; prov_derived_from?: string; doi?: string; license?: string }
+
+/** The references `scene` cites (its `evidence.bibliographic_refs`) that carry a title, at most
+ * MAX_CITED_SOURCES, with blank fields dropped. */
+export function citedReferences(scene: Scene): CitedReference[] {
   const refs = (scene as { evidence?: { bibliographic_refs?: unknown } }).evidence?.bibliographic_refs;
   if (!Array.isArray(refs)) return [];
-  return refs.slice(0, MAX_CITED_SOURCES).flatMap((ref): CitedSource[] => {
+  return refs.slice(0, MAX_CITED_SOURCES).flatMap((ref): CitedReference[] => {
     if (!ref || typeof ref !== "object") return [];
     const r = ref as { title?: unknown; excerpt?: unknown; prov_derived_from?: unknown; doi?: unknown; license?: unknown };
     if (typeof r.title !== "string") return [];
-    const source: CitedSource = { title: r.title };
-    if (typeof r.excerpt === "string" && r.excerpt.trim()) source.quote = r.excerpt.trim();
-    if (typeof r.prov_derived_from === "string" && /^https?:\/\//.test(r.prov_derived_from)) source.url = r.prov_derived_from;
-    else if (typeof r.doi === "string" && r.doi.trim()) source.url = `https://doi.org/${r.doi.trim()}`;
-    if (typeof r.license === "string" && r.license.trim()) source.license = r.license.trim();
-    return [source];
+    const text = (value: unknown): string | undefined => (typeof value === "string" && value.trim() ? value.trim() : undefined);
+    const reference: CitedReference = { title: r.title };
+    const excerpt = text(r.excerpt), derived = text(r.prov_derived_from), doi = text(r.doi), license = text(r.license);
+    if (excerpt) reference.excerpt = excerpt;
+    if (derived) reference.prov_derived_from = derived;
+    if (doi) reference.doi = doi;
+    if (license) reference.license = license;
+    return [reference];
+  });
+}
+
+/** The web address of a reference: its `prov_derived_from` when that is one, else its DOI. */
+export function referenceUrl(reference: CitedReference): string | undefined {
+  if (reference.prov_derived_from && /^https?:\/\//.test(reference.prov_derived_from)) return reference.prov_derived_from;
+  return reference.doi ? `https://doi.org/${reference.doi}` : undefined;
+}
+
+/** The passages `scene` cites (its `evidence.bibliographic_refs`): title, exact quote, and a link
+ * when the record has a web address or a DOI. Released only after the learner answered. */
+export function citedSources(scene: Scene): CitedSource[] {
+  return citedReferences(scene).map((reference): CitedSource => {
+    const source: CitedSource = { title: reference.title };
+    if (reference.excerpt) source.quote = reference.excerpt;
+    const url = referenceUrl(reference);
+    if (url) source.url = url;
+    if (reference.license) source.license = reference.license;
+    return source;
   });
 }
 

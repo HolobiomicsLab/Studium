@@ -72,6 +72,9 @@ export interface TransitionExtras {
   persistence_warning?: string;
   /** L-6: the host-computed completion categories consumed by every client. */
   completion?: CompletionSplit;
+  /** The learner's concept map at a moment worth showing it (concept-map.ts): the whole map, or the
+   * position line alone when a new concept opens. */
+  concept_map?: { show: "map" | "line"; display_markdown: string; position_line: string };
 }
 
 const PHRASES = {
@@ -158,6 +161,9 @@ const PHRASES = {
     forget_library: "les leçons de ta bibliothèque ({lessons}), dans {path}",
     forget_library_unnamed: "les leçons de ta bibliothèque, dans {path}",
     forget_sources: "le texte des sources préparées pour elles, dans {path}",
+    forget_exports: "les cartes de notions que tu as exportées, dans {path}",
+    map_export_saved: "Carte des notions exportée dans `{path}`. Elle contient tes résultats de séance, sans identifiant ni texte de réponse, et reste sur cette machine tant que tu ne la partages pas.",
+    map_export_unsaved: "Carte des notions exportée (champ `record`). Ce serveur n'a pas de bibliothèque où l'écrire : enregistre `record` tel quel dans un fichier pour en faire une page.",
     forget_delete_yourself: "Supprime ces dossiers toi-même si tu veux qu'ils disparaissent aussi.",
     list_and: " et ",
   },
@@ -244,6 +250,9 @@ const PHRASES = {
     forget_library: "the lessons in your library ({lessons}), in {path}",
     forget_library_unnamed: "the lessons in your library, in {path}",
     forget_sources: "the text of the sources prepared for them, in {path}",
+    forget_exports: "the concept maps you exported, in {path}",
+    map_export_saved: "Concept map exported to `{path}`. It holds your session results, with no identifier and none of your answers' text, and stays on this machine until you share it.",
+    map_export_unsaved: "Concept map exported (field `record`). This server has no library to write it to: save `record` unchanged to a file to make a page from it.",
     forget_delete_yourself: "Delete those folders yourself if you want them gone too.",
     list_and: " and ",
   },
@@ -337,7 +346,7 @@ function replyHint(scene: PublicSceneFields, locale: DisplayLocale): string {
  * nothing is durable, a one-line warning) — the start of a lesson or a review session. */
 export function presentationMarkdown(
   p: DisplayPresentation,
-  opts: { firstScreen?: boolean; notDurable?: boolean; review?: boolean } = {},
+  opts: { firstScreen?: boolean; notDurable?: boolean; review?: boolean; conceptMap?: string } = {},
 ): string {
   const locale: DisplayLocale = p.locale === "en" ? "en" : "fr";
   const scene = publicScene(p.scene as Scene) as PublicSceneFields;
@@ -347,6 +356,8 @@ export function presentationMarkdown(
   const approvalNotice = opts.firstScreen ? approvalNoticeMarkdown(authoring, locale) : "";
   if (approvalNotice) blocks.push(`> ${approvalNotice}`);
   if (opts.firstScreen && opts.notDurable) blocks.push(`> ${say(locale, "not_durable")}`);
+  // The lesson's plan before its first scene: every concept and how they depend on each other.
+  if (opts.firstScreen && opts.conceptMap) blocks.push(opts.conceptMap, "---");
   blocks.push(`### ${scene.title || scene.type || ""}`);
   blocks.push(`_${say(locale, opts.review ? "review_progress" : "progress", { n: p.index + 1, total: p.total })}_`);
   blocks.push(...sceneBody(scene, locale));
@@ -507,6 +518,7 @@ export function transitionMarkdown(t: PublicTransition & TransitionExtras, ctx: 
   const head = [
     t.persistence_warning ? `> ${say(locale, "not_saved")}` : "",
     navigationLine(t, locale), ...completionBlock(t, locale, ctx),
+    t.concept_map ? (t.concept_map.show === "map" ? t.concept_map.display_markdown : t.concept_map.position_line) : "",
   ].filter((b) => b.trim() !== "").join("\n\n");
   if (!("presentation" in t)) return head;
   const next = presentationMarkdown(t.presentation, { review: ctx.review ?? false });
@@ -575,6 +587,11 @@ export function lessonListMarkdown(lessons: readonly ListedLessonLine[], locale:
 /** What forget_session erased and kept, as the host reports it (L-13). */
 export interface ForgetDisplayItem { kind: string; lessons?: readonly string[]; path?: string }
 
+/** What export_concept_map shows: where the record was written, what it holds and that it stays local. */
+export function conceptMapExportMarkdown(path: string | null, locale: DisplayLocale): string {
+  return path === null ? say(locale, "map_export_unsaved") : say(locale, "map_export_saved", { path });
+}
+
 /** forget_session's display_markdown (L-13, UX-01): what was erased, and what stays and where — the
  * lessons of the library and their sources, which a learner may believe gone with the rest. The
  * install's pseudonym key holds no learner data and is not named. */
@@ -596,9 +613,11 @@ export function forgetMarkdown(
         : say(locale, "forget_library_unnamed", { path: item.path ?? "" })];
     }
     if (item.kind === "lesson_sources") return [say(locale, "forget_sources", { path: item.path ?? "" })];
+    if (item.kind === "map_exports") return [say(locale, "forget_exports", { path: item.path ?? "" })];
     return [];
   });
-  const onDisk = report.kept.some((item) => item.kind === "library_lessons" || item.kind === "lesson_sources");
+  const onDisk = report.kept.some((item) => item.kind === "library_lessons" || item.kind === "lesson_sources"
+    || item.kind === "map_exports");
   const separator = locale === "fr" ? " ; " : "; ";
   return [
     say(locale, "forget_done"),

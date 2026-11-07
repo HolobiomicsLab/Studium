@@ -173,6 +173,21 @@ The reply is `{transition}`, with `kind` (`next`, `replay`, `remediate_alt`,
 Without a judge, written answers get the reference to compare with, never a keyword
 count presented as an assessment.
 
+- `concept_map`, at a few moments only (`moment`: `start` on `start_lesson_session`, then
+  `new_concept`, `detour`, `detour_return`, `synthesis`, `complete`): the lesson's concepts with
+  their state for this learner (`acquired`, `to_review`, `current`, `seen`, `upcoming`), the questions
+  already answered with their step, where the learner comes from and what comes next.
+  `display_markdown` already includes it, as a list or as one position line (`show`: `map` or
+  `line`). A harness that draws diagrams may render `concept_map.mermaid` in place of the list. On
+  the learner's request, `get_workflow_graph` returns the current `concept_map`.
+- For a page the learner can explore, `export_concept_map {session_id}` writes the session's record
+  under their library and returns `saved_to` and `sha256`; then run
+  `tools/concept_map_report.py export <saved_to> <new-dir> --expect-sha256 <sha256>`, `verify` it and
+  give them `index.html`: a concept opens its steps, its sources and its trace nodes, with a learner
+  and a teacher viewpoint. See [Concept map](../../docs/learn/concept-map.md). Export only on request:
+  the record holds the learner's results. How to read the map with a learner, when to offer the
+  page and the teacher viewpoint: [studium-concept-map](../studium-concept-map/SKILL.md).
+
 Other lesson tools:
 
 - `submit_turn {session_id, text}` per discussion turn, then `submit_response` with `ack`.
@@ -333,6 +348,8 @@ custom viewers or new libraries, follow
 content stays a draft for teacher review. For activities, reports and visual supports,
 use [studium-activity-templates](../studium-activity-templates/SKILL.md),
 [studium-learner-report](../studium-learner-report/SKILL.md) and
-[studium-visual-support](../studium-visual-support/SKILL.md).
+[studium-visual-support](../studium-visual-support/SKILL.md). To decide which of these to offer, and
+when, use [studium-suggest](../studium-suggest/SKILL.md): one offer, at a pause, never between a
+question and its answer.
 
 Protocol details: [Agentic session protocol](../../docs/reference/agentic-session-protocol.md).

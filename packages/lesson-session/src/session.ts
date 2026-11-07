@@ -35,6 +35,37 @@ const MASTERY_CLAIM_THRESHOLD = DEFAULT_THETA;
 const BASELINE_UNIVERSE_ID = "baseline";
 const REMEDIAL_UNIVERSE_ID = "remedial";
 
+/** One served step of a session: an answer (graded or not) or an acknowledged scene. */
+export interface PathStep {
+  step: number;
+  scene_id: string;
+  /** The learner submitted an answer; false for an acknowledged scene. */
+  answered: boolean;
+  /** true / false when a key or a judge assessed the answer, null otherwise. */
+  correct: boolean | null;
+  /** Who assessed the answer. Absent for an acknowledged scene and for a step rebuilt from history. */
+  assessed_by?: Verdict["assessed_by"];
+  /** How the session routed after this step. Absent for a step rebuilt from the saved history. */
+  navigation?: { kind: Navigation["kind"]; rule_id: string | null; returns_to?: string };
+}
+export interface LearnerPath { steps: PathStep[]; passed_prerequisites: string[] }
+
+/** The saved history holds, per answered step, the answer and then the scene's completion: fold the
+ * pair into one step. The history is capped, so a long session resumes with its latest steps only. */
+function trailFromHistory(history: LearnerState["history"]): PathStep[] {
+  const trail: PathStep[] = [];
+  for (const entry of history) {
+    const last = trail.at(-1);
+    if (entry.signal.kind === "answer_submitted") {
+      trail.push({ step: trail.length + 1, scene_id: entry.scene_id, answered: true,
+        correct: typeof entry.signal.correct === "boolean" ? entry.signal.correct : null });
+    } else if (entry.signal.kind === "scene_completed" && !(last?.answered && last.scene_id === entry.scene_id)) {
+      trail.push({ step: trail.length + 1, scene_id: entry.scene_id, answered: false, correct: null });
+    }
+  }
+  return trail;
+}
+
 export class LessonSession {
   /** Shared localization seam for consumers that only depend on the public LessonSession class. */
   static readonly phrase = phrase;
@@ -132,6 +163,7 @@ export class LessonSession {
     this.engine = new AdaptationEngine(this.bundle.rules, this.state, () => this.deps.clock.now());
     this.state = this.engine.getState();
     this.idx = this.startingSceneIndex();
+    if (this.idx > 0) this.trail = trailFromHistory(this.state.history);
     this.startIso = this.deps.clock.now();
     this.started = true;
     const u = this.bundle.universes ?? null;
@@ -287,6 +319,16 @@ export class LessonSession {
     return { conceptMastery, scenesCompleted: this.state.scenes_completed.length };
   }
 
+  /** The session facts behind a learner-facing map: each step served with its outcome, and the
+   * prerequisites the session credited (bare concept ids). Posterior mastery alone cannot tell
+   * where the learner is: it stays under theta long after a gate was passed. */
+  learnerPath(): LearnerPath {
+    return {
+      steps: this.trail.map((step) => ({ ...step, ...(step.navigation ? { navigation: { ...step.navigation } } : {}) })),
+      passed_prerequisites: [...this.passedPrerequisites].map((id) => id.replace(/^concept:/, "")),
+    };
+  }
+
   /** Every graded attempt on the concept (LWG `concept:` id) was correct, and there was at least one. */
   private hasFlawlessRecord(lwgConceptId: string): boolean {
     const cs = this.state.concept_states[lwgConceptId.replace(/^concept:/, "")];
@@ -354,12 +396,26 @@ export class LessonSession {
     const success = this.successOf(signal);
     this.emit({ type: "scene_completed", scene_id: scene.id, duration_ms: timeMs, ...(success === undefined ? {} : { success }) });
     this.lastSuccess = signal.kind === "answer_submitted" ? signal.correct : undefined;
+    this.trail.push({
+      step: this.trail.length + 1, scene_id: scene.id, answered: signal.kind === "answer_submitted",
+      correct: signal.kind === "answer_submitted" && typeof signal.correct === "boolean" ? signal.correct : null,
+    });
     if (this.lastSuccess === true) this.answeredRight.add(scene.id);
     else if (this.lastSuccess === false) this.answeredRight.delete(scene.id);
     const verdict = this.verdictOf(scene, signal, detail, coverage);
     const selfRating = await this.selfRatingFor(scene, signal, answeredAtMs);
     const t = this.navigate(decision, scene, answeredAtMs);
     this.lastSuccess = undefined;
+    const served = this.trail.at(-1);
+    if (served) {
+      if (served.answered) served.assessed_by = verdict.assessed_by;
+      if (t.navigation) {
+        served.navigation = {
+          kind: t.navigation.kind, rule_id: t.navigation.rule_id,
+          ...(t.navigation.returns_to === undefined ? {} : { returns_to: t.navigation.returns_to }),
+        };
+      }
+    }
     return { ...t, verdict, ...(selfRating ? { self_rating: selfRating } : {}) };
   }
 
@@ -470,6 +526,9 @@ export class LessonSession {
    * a graph detour that would re-serve the scene the learner JUST got right is pointless (mastery
    * rises too slowly for one correct answer to clear theta), so the gate is passed instead. */
   private lastSuccess: boolean | undefined = undefined;
+  /** What the learner did, in the order it was served: the facts a learner-facing map is drawn from
+   * (learnerPath). Rebuilt from the saved history when a lesson is resumed part-way. */
+  private trail: PathStep[] = [];
   /** Answer-graded scenes whose latest answer in this session was correct. Session-local, like
    * `passedPrerequisites`: a lesson played again from the start asks its questions again. */
   private answeredRight = new Set<string>();

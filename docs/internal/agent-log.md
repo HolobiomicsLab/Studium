@@ -2966,6 +2966,154 @@ assertion changed. Gates green with `STUDIUM_EPHEMERAL=1`: `pnpm build:libs`,
 0 failing), `tools/bundle_lint.test.sh`, `node tools/docs/check.mjs`,
 `headless_smoke.mjs` (19 assertions).
 
+## 2026-11-06 (carte) — Learner concept map, and a lesson from a conversation
+
+Owner requests of 6 Nov, after the simulation report: build the concept map proposed
+there; and make it fluid to call Studium from a Claude or Codex conversation already
+under way, in self-study, with no teacher validating the lesson. Branch
+`feat/2026-11-06-learner-concept-map`, cut from `fix/2026-11-05-trial-findings`
+(PR 13), so it merges after it.
+
+Concept map. `get_workflow_graph` derives a concept's state from posterior mastery
+alone; at step 16 of `atomistique-l1` it reported the first concept as current and
+the seven others as locked. The map is drawn from session facts instead.
+`LessonSession.learnerPath()` returns the steps served, in order, with their outcome,
+and the prerequisites the session credited (rebuilt from the saved history on a
+resume). `buildConceptMap` (`lesson-session-host/src/concept-map.ts`) turns them into
+`studium/concept-map/v1`: nodes with a state (`acquired`, `to_review`, `current`,
+`seen`, `upcoming`), the questions answered with their step and result, prerequisite
+edges travelled or not, the position (from, at, next), a Mermaid flowchart and a
+list. `seen` is a concept whose answers nobody assessed: it is not called acquired.
+Served at a few moments only: `start_lesson_session` and the first screen; then, on
+a transition, a prerequisite detour, the return from it, a scene drawing on several
+concepts and the end of the lesson (the whole map), and the first scene of a concept
+(one position line). `display_markdown` carries it; `get_workflow_graph` returns it
+on request. On a flawless run of `atomistique-l1`: five whole maps in 32 steps. The
+`state` field of `get_workflow_graph` is unchanged (the VS Code pane reads it).
+
+Lesson from a conversation. `tools/conversation_sources.py` reads a Claude Code
+transcript (`.jsonl`) or a text export and prints `prepare_sources` input: the
+user's and the assistant's text with numbered turns; sub-agent threads, harness
+messages, compaction summaries and private reasoning left out; tool results only on
+request; credential-looking strings replaced. `prepare_sources` accepts
+`kind: "conversation"` on a source (recorded only then, so existing source sets keep
+their id); `create_lesson` marks such a citation `prov_derived_from:
+conversation:<id>`; the self-study notice then adds that the sources are excerpts of
+a conversation with an AI assistant whose assertions were not checked. New skill
+`studium-from-conversation` (one question at most, four tool calls, when to stop and
+ask) and use case 9 in `docs/tutorials/use-cases`. Played end to end on the
+transcript of the session that wrote this entry: 19 of 62 turns kept, 39 passages, a
+six-scene lesson created on the first call and played with the map. No Codex
+transcript parser: it needs a sample.
+
+Not verified: how each harness renders the Mermaid block; any effect of the map on
+learning. Test decisions: new `concept-map.test.ts`, `host.concept-map.test.ts`,
+`session.learner-path.test.ts`, `tools/test_conversation_sources.py`; cases added to
+`source-set.test.ts` and `build.test.ts`; no existing assertion changed.
+
+## 2026-11-06 (carte interactive) — Concept map as an explorable page, with its provenance
+
+Owner request of 6 Nov: the map shown in the conversation is a static block; build the
+interactive page, with ASTRA provenance and an ARA trace. Same branch,
+`feat/2026-11-06-learner-concept-map`.
+
+Record. The server writes what the page needs, so no harness copies JSON by hand.
+`buildConceptMapRecord` (`lesson-session-host/src/concept-map-record.ts`) produces
+`studium/concept-map-record/v1`: the lesson (id, title, language, SHA-256 of the
+lesson file), how it was authored (mode, who drafted it, validated or not, judge or
+not, recorded approval, drawn from a conversation or not), the map, each scene (type,
+concepts, key class, cited sources with their origin: conversation, web, DOI,
+document) and the steps played. A passage is quoted only once the learner has left
+the scene that cites it; the record holds no learner id and none of the learner's
+words. `PathStep` gains `assessed_by` and `navigation` (kind, rule, return scene),
+set when the step is played; a step rebuilt from the saved history after a restart
+has neither. `SessionHost.exportConceptMap` writes the record under
+`<library>/_exports/concept-maps/` (never overwritten) and returns its path and
+SHA-256; `forget_session` names that folder among what stays on disk. New MCP study
+tool `export_concept_map {session_id}` (35 tools; MCP only, like the other study
+tools).
+
+Page. `tools/concept_map_report.py export RECORD OUTPUT [--class-report FILE]
+[--expect-sha256 HEX] [--language fr|en]` builds a package beside the learner report,
+on the same pattern: the record copied unchanged, `report.json`, `astra.yaml` (ASTRA
+0.0.14: the record as a declared artifact, three decisions, findings; no custom
+field), `trace/exploration_tree.yaml` (ARA 0.1.0: one node per step, one pivot per
+detour), `course_provenance.myst.md` and `index.html`, with `checks.json` holding the
+digest of every file. `verify DIRECTORY` recomputes everything from the record and
+runs the `astra-tools` validator. The page is one self-contained file (inline CSS,
+one inline script allowed by its hash in the CSP, no network): a layered graph drawn
+server-side; a click on a concept opens its panel (prerequisites, the learner's
+steps with who assessed each, sources and key class per scene, trace nodes); a click
+on a step opens its concept; a learner or teacher viewpoint; a filter by state.
+Every panel is in the HTML, so the page reads stacked without JavaScript.
+`--class-report` takes the output of the teacher tool `class_report` and shows its
+aggregate figures per concept in the teacher viewpoint; figures under its learner
+floor stay hidden. The Observatory serves the package like a learner report.
+
+Checked in a browser on four packages exported from real records (`atomistique-l1`
+at step 16 and completed, a lesson drafted from a conversation, one with class
+figures): concept and step clicks, both viewpoints, the state filter, hash
+navigation, no console error, no horizontal scroll at 375 px.
+
+Observation, not changed here: after a wrong answer the engine can return navigation
+`gate_passed` when the next scene's prerequisite was credited by an earlier flawless
+answer (step 14 of the completed `atomistique-l1` run). The routing looks right; the
+sentence the learner reads at that moment should be checked.
+
+Not verified: the page with a real `class_report` output (synthetic figures only);
+Mermaid in each harness. Test decisions: `session.learner-path.test.ts` expects the
+two new fields on each step (assertion extended, behaviour unchanged);
+`server.test.ts` counts 35 tools instead of 34 and names the new one; new
+`host.concept-map-record.test.ts` and `tools/test_concept_map_report.py`; one case
+added to `study-tools.test.ts`.
+
+## 2026-11-06 (skills) — Skills to operate the map and to offer features at the right moment
+
+Owner request of 6 Nov, after PR 14 was opened: skills to operate these features well
+and to recommend them proactively, depending on the context. Same branch.
+
+`studium-concept-map` is the procedure: what a state means and does not mean, the map
+in the conversation (the server chooses the moments; on request `get_workflow_graph`;
+no comment while a question waits), when to offer the page, export and verification,
+how to read the page with a learner, the teacher viewpoint with class figures, and
+what stays on disk. For the class view it tells the teacher to take the record from a
+session just started on a server that keeps nothing (`STUDIUM_EPHEMERAL=1`, no
+`STUDIUM_DATA_DIR`): on the class's server a started session emits `lesson_started`
+and would count as one more learner in `class_report`.
+
+`studium-suggest` is the judgement: which feature to offer, when, in which words, and
+when to say nothing. One offer at a pause, in one sentence that starts from the
+person's words and states the cost; nothing added while a lesson question waits,
+except what the learner asks for and the authored hint; a no holds for the session;
+free read-only calls implied by the request need no offer, anything that writes,
+spends or shares waits for a yes; offer only what `get_server_info` shows the setup
+can deliver. Two tables map a signal to an offer and to the skill that carries it
+out. Its description triggers on learning needs stated without naming Studium.
+
+Decision: one line added to the server instructions (12 lines, the cap the tests
+set), so that a harness without skills also shows the map on request and offers the
+page at the end and a lesson from the conversation, on the learner's yes. The tool
+reference is regenerated.
+
+Defect fixed: `studium-from-conversation` (commit `0c73ae7`) was never linked from
+`.claude/skills` and `.agents/skills`, so no assistant discovered it. The three
+skills are now linked from both folders and have their `agents/openai.yaml`.
+`skills/README`, `docs/start/skills` and the neighbouring skills (harness, teacher,
+from-conversation) point to the two new ones.
+
+Checked with four fresh-context sub-agents (Sonnet) on realistic situations: an
+offer that is due, a question waiting for its answer, an incident, a teacher's class
+view. All four did what was intended (one offer in the person's words with its cost;
+the map on request, the answer refused and a hint offered; nothing during the
+incident, one offer after it; the class view built on a separate ephemeral server).
+What they found unclear was fixed: an offer never replaces the help asked for; a
+hint is called on the learner's yes; `get_server_info` once before the first offer;
+how to reach an ephemeral server and the exact `start_lesson_session` call; where
+the reteach marks come from. Not verified: that a client loads `studium-suggest` on its own from its
+description (no trigger evaluation was run); the skills reach `~/.claude/skills`
+only once a durable checkout holds them. Test decision: `study-tools.test.ts` also
+expects `export_concept_map` in the instructions.
+
 ## 2026-09-12 — INT-STUDIUM-053: onboarding and recent-development documentation
 
 Reorganized the GitHub README/docs entry points around visual lessons, local

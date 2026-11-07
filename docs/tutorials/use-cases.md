@@ -20,6 +20,7 @@ assistant through these same procedures.
 | Observe a photograph in archaeology | An institutional photo, its record and reuse status | The line between observation, attribution and hypothesis |
 | Get help in another language or modality | The public scene and the stated need | Text, diagram, figure or media, with an accessible equivalent |
 | Prepare a write-up | The actions or journal the student chooses to export | A local ASTRA/ARA/MySTRA report before sharing |
+| Understand a conversation with an assistant | The conversation in progress or a past session | A short lesson quoting the exchange, a concept map, what is acquired and what is not |
 
 ## 1. Learn a topic in a conversation
 
@@ -140,3 +141,24 @@ from storing the journal.
 commands. MySTRA shows the recorded elements and their limits. The trace does not cover the whole
 conversation, the help consulted or work outside the tool, and it proves neither identity, nor
 autonomy, nor learning.
+
+## 9. Understand a conversation you had with an assistant
+
+**For anyone who worked with an assistant** on an analysis, a debugging session or a design
+question, and wants to understand it rather than only keep its result. No teacher reads the lesson
+first: it is generated to learn from, and it says so.
+
+> Use `studium-from-conversation`. Make a short lesson from this conversation so I can check that I
+> understood why [the point]. Ask me one question at most before you start.
+
+The assistant extracts the turns that matter from the session transcript, with
+`tools/conversation_sources.py`; the excerpts stay on your machine, tool results are left out unless
+you ask for them, and strings that look like credentials are replaced. `prepare_sources` records the
+source as a conversation, `create_lesson` checks every quote against it, and the first screen tells
+you what the lesson rests on: what the assistant asserted there was not checked, what comes from a
+quoted file or tool result is an observation. Each scene shows the passage it quotes.
+
+A concept map opens the lesson and returns at a detour through a prerequisite, at a synthesis scene
+and at the end, with the questions you answered and their result. Success means you can say, for
+each concept, whether you got it right, need to review it, or only read it. The lesson checks your
+understanding of what was said, not whether the conversation was right.
