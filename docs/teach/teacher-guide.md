@@ -28,6 +28,10 @@ assistant guide you through it, load the `studium-teacher` skill (see [skills](.
 | Follow a class | Read class-level aggregates, never a single student | A class report | [Follow a class](follow-a-class.md) |
 | Moderate | Review what learners propose to add | Community items | [Learner contributions](learner-contributions.md) |
 
+Approval also writes a receipt of the items you opened and your verdict on each graded item. To send a
+lesson back without approving it, record a returned receipt instead; see
+[Review and approve](review-and-approve.md#approve-the-exact-file).
+
 ## Before you start
 
 1. Install Studium: [installation](../start/installation.md).
@@ -95,6 +99,10 @@ actions, and keeps a private [experiment journal](../learn/experiment-journal.md
 them what will be shared and how you will read it: an incomplete trace does not measure autonomy.
 The default report excludes personal text and gives no access to the full journal or the
 assistant's history. See [privacy and limits](../concepts/privacy-and-limits.md).
+
+The [interaction report](follow-a-class.md#how-the-interface-was-used) shows how a consenting class used
+the interface. To lay those class figures over the lesson's concepts, use `tools/concept_map_report.py`
+and the [concept map's teacher viewpoint](../learn/concept-map.md#the-teacher-viewpoint-and-class-figures).
 
 ## Limits
 

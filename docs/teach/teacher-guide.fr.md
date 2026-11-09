@@ -28,6 +28,10 @@ assistant vous y accompagne, chargez le skill `studium-teacher` (voir [skills](.
 | Suivre une classe | Lire des agrégats de classe, jamais un étudiant isolé | Un rapport de classe | [Suivre une classe](follow-a-class.fr.md) |
 | Modérer | Relire ce que les apprenants proposent d'ajouter | Des items communautaires | [Contributions des apprenants](learner-contributions.fr.md) |
 
+L'approbation écrit aussi un reçu des items que vous avez ouverts et de votre verdict sur chaque item
+évalué. Pour renvoyer une leçon sans l'approuver, enregistrez plutôt un reçu de retour ; voir
+[Relire et approuver](review-and-approve.fr.md#approuver-le-fichier-exact).
+
 ## Avant de commencer
 
 1. Installez Studium : [installation](../start/installation.fr.md).
@@ -100,6 +104,10 @@ actions enregistrées, et tient un [journal d'expérience](../learn/experiment-j
 Discutez avec lui de ce qui sera partagé et de la façon dont vous le lirez : une trace incomplète ne
 mesure pas l'autonomie. Le rapport par défaut exclut les textes personnels et ne donne accès ni au
 journal complet ni à l'historique de l'assistant. Voir [confidentialité et limites](../concepts/privacy-and-limits.fr.md).
+
+Le [rapport d'interaction](follow-a-class.fr.md#comment-linterface-a-été-utilisée) montre comment une
+classe consentante a utilisé l'interface. Pour superposer ses chiffres aux notions de la leçon, utilisez
+`tools/concept_map_report.py` et le [point de vue enseignant de la carte des notions](../learn/concept-map.fr.md#le-point-de-vue-enseignant-et-les-chiffres-de-la-classe).
 
 ## Limites
 

@@ -84,6 +84,16 @@ L'API HTTP n'accepte que les connexions locales (boucle locale) et exige un jeto
 
 `class_report` agrège la télémétrie consentie avec un plancher de cinq apprenants, appliqué à chaque chiffre sur les apprenants dont il est calculé (notés, auto-évalués, chronométrés ou ayant commencé) : une scène ou un concept qui a moins d'apprenants ayant répondu est laissé de côté, un chiffre sous son seuil est masqué, et les effectifs sont donnés par tranches. Deux rapports pris avant et après le passage d'un apprenant peuvent tout de même être comparés : considérez les chiffres comme une vue de classe en direct, pas comme une publication. Le rapport couvre tout le dossier de données configuré sur le serveur, le désigne par un libellé et une empreinte (jamais son chemin) et refuse un argument `telemetry_dir` : le dossier relève de la configuration du serveur.
 
+### Événements d'interaction
+
+Avec votre consentement et un état durable, Studium enregistre aussi comment l'interface a été utilisée :
+la voie et la surface de chaque acte, l'aide demandée par barreau, les propositions affichées et leur
+devenir, les contestations et leur résultat, les reprises et les nombres des reçus de relecture. Ces
+événements ne contiennent ni texte libre, ni texte de scène, ni réponses, et ne sont écrits sur disque que
+dans les mêmes conditions de consentement et d'état durable que le reste de la télémétrie. Les vues de
+classe gardent le plancher de cinq apprenants. Voir [Suivre une classe](../teach/follow-a-class.fr.md#comment-linterface-a-été-utilisée)
+et le [README de telemetry-events](../../packages/telemetry-events/README.fr.md).
+
 ## Interpréter les preuves
 
 - Une citation exacte prouve un lien textuel ; elle peut tout de même être mal utilisée.
