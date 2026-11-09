@@ -84,6 +84,15 @@ The HTTP API accepts loopback connections only and requires a bearer token of at
 
 `class_report` aggregates consented telemetry with a floor of five learners, applied to each figure over the learners it is computed from (graded, rated, timed or started): a scene or concept with fewer answering learners is left out, a figure below its floor is withheld, and learner counts are banded. Two reports taken before and after one learner plays can still be compared, so treat figures as a live class view, not a publication. The report covers the whole data folder the server is configured with, names it by a label and a fingerprint (never its path), and refuses a `telemetry_dir` argument: the folder is server configuration.
 
+### Interaction events
+
+With your consent and durable state, Studium also records how the interface was used: which lane and
+surface an act came through, help requested by rung, proposals shown and their outcome, contests and their
+outcome, resumes, and review receipt counts. These events contain no free text, scene text or answers, and
+are written to disk only under the same consent and durable-state conditions as the rest of telemetry.
+Class views keep the five-learner floor. See [Follow a class](../teach/follow-a-class.md#how-the-interface-was-used)
+and the [telemetry-events README](../../packages/telemetry-events/README.md).
+
 ## Reading the evidence
 
 - An exact quote proves a textual link; it can still be used wrongly.

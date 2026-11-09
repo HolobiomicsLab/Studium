@@ -16,16 +16,20 @@ The terms you will meet in Studium's documentation, interfaces and tool results,
 | Certified mastery | A concept at mastery 0.8 or more after at least three graded attempts, with no measured overconfidence or over-trust. A mastery claim is then written. | [Learner model](learner-model.md#when-a-concept-counts-as-mastered) |
 | Class report | `class_report`: aggregate figures for a course over consented telemetry, each computed over at least five learners. | [Follow a class](../teach/follow-a-class.md) |
 | Community bundle | A lesson written by a learner and released by a teacher for others. | [Learner contributions](../teach/learner-contributions.md) |
+| Concept map | The lesson's concepts, prerequisite links and your state on each, with the path travelled and the evidence behind it. | [Concept map](../learn/concept-map.md) |
+| Contest | A claim that you know a reached concept or are unsure about it, checked by one or two questions. The claim alone changes neither mastery nor the path. | [Concept map](../learn/concept-map.md#in-the-lesson-panel) |
 | Diagnostic scene | An opening scene marked `diagnostic: true` that asks what the learner already knows. It is played once and never comes back as a review. | [Review over time](../learn/review-over-time.md#play-a-review-session) |
 | Effective mastery | Mastery discounted by recall now: posterior × retrievability, or the posterior alone when never reviewed. | [Learner model](learner-model.md#effective-mastery) |
 | File channel | A task-and-answer loop through files in `.studium-session/`, for a harness without MCP. | [Harnesses](../start/harnesses.md) |
 | FSRS | Free Spaced Repetition Scheduler: the model Studium uses to decide when a concept is due for review. | [Learner model](learner-model.md#retention-fsrs) |
 | Guess correction | On a choice item, a wrong answer also withdraws the credit a lucky guess would have earned, so random answers do not read as partial mastery. | [Learner model](learner-model.md#correction-for-guessing) |
 | Harness | The AI assistant or client that drives a Studium lesson: Codex, Claude Code, Copilot, OpenCode, Cursor or the VS Code extension. | [Harnesses](../start/harnesses.md) |
+| Help ladder | Progressive help after your own attempt: reread, hint, explanation, then the reference with the verdict. A hint discounts the credit of a correct answer. | [VS Code](../start/vscode.md#what-you-see) |
 | Hint discount | Each hint shrinks the credit of a correct answer and weakens its review grade. | [Learner model](learner-model.md#hints-discount-the-credit) |
 | Judge | A model configured on the server (`LITELLM_BASE_URL`) that assesses free-text answers. Without one, free text is not assessed. | [Honesty and provenance](honesty-and-provenance.md#the-judge) |
 | Key class | Who holds the key that grades a scene type: `ungraded`, `author_keyed`, `production` or `externally_grounded`. | [Scene types](scene-types.md) |
 | Landmark | A line a reproduction's run must return (by default the last non-empty line of its output), checked for presence, never for its value. | [Scene types](scene-types.md#reproduction) |
+| Lane (fast / companion) and surface rank | The fast lane is a panel, pane or forms; the companion lane is the conversation. The rank names the surface the session is played on: 3 for a panel or pane, 2 for forms, 1 for conversation. | [Lesson panels](../start/harness-panels.md#the-surface-a-lesson-plays-on) |
 | Learning Workflow Graph (LWG) | The graph of concepts and tasks in a lesson, with typed edges such as `prerequisite_for`. | [How Studium works](how-studium-works.md#the-graph) |
 | Lesson bundle | `lesson.json`: one lesson's metadata, concepts, graph, scenes and rules. | [Lesson bundle reference](../reference/lesson-bundle.md) |
 | MCP | Model Context Protocol: the standard through which assistants call Studium's tools. | [MCP tools](../reference/mcp-tools.md) |
@@ -35,6 +39,7 @@ The terms you will meet in Studium's documentation, interfaces and tool results,
 | Pseudonym | The HMAC of a learner id that names their data folder. | [Privacy and limits](privacy-and-limits.md#pseudonyms) |
 | Reference | What an answer is compared with after the answer: key points, planted flaws or flawed claims, and a model answer; for a quiz answered wrong, the right choice. | [Scene types](scene-types.md#free-text-answers) |
 | Retrievability | The probability, from FSRS, that the learner still recalls a concept now. | [Learner model](learner-model.md#retention-fsrs) |
+| Review receipt | A record of the review items you opened and your verdict on each graded item. A return can be recorded without approving the lesson. | [Review and approve](../teach/review-and-approve.md#approve-the-exact-file) |
 | Rule 003 | The project rule that no content is released to students without a teacher's validation. | [Honesty and provenance](honesty-and-provenance.md#rule-003-a-teacher-before-any-release) |
 | Run manifest | What a reproduction must produce and check, without the expected values. | [Scene types](scene-types.md#reproduction) |
 | Scene | One step of a lesson; there are 13 types. | [Scene types](scene-types.md) |
@@ -46,4 +51,5 @@ The terms you will meet in Studium's documentation, interfaces and tool results,
 | Universe | A variant of a lesson's path: a baseline and a more scaffolded remedial one. | [How Studium works](how-studium-works.md#the-lesson-bundle) |
 | Unmeasured | No evidence was collected. Studium never reads it as zero, wrong or forgotten. | [Learner model](learner-model.md#unmeasured-is-not-zero) |
 | Verdict deck | A `spot_the_flaw` form where the learner marks each claim flawed or sound, scored against the key. | [Scene types](scene-types.md#audits-with-a-verdict-deck) |
+| Voice | The line that says who wrote or validated the lesson, or who assessed an answer. It distinguishes a teacher, an AI draft and your own key. | [VS Code](../start/vscode.md#what-you-see) |
 | Withheld | A class-report figure some learners contributed to, but fewer than the floor of five: hidden, which is neither zero nor unmeasured. | [Follow a class](../teach/follow-a-class.md#how-to-read-the-numbers) |

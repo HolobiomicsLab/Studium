@@ -54,6 +54,23 @@ un chiffre ou vos propres mots.
   <img src="../assets/screenshots/vscode-pane-choices-light.png" width="420" alt="Le panneau de leçon VS Code avec une question de quiz, trois choix de réponse et un bouton pour continuer.">
 </picture>
 
+## En cas de blocage
+
+Essayez d'abord votre propre réponse, puis suivez l'échelle d'aide dans l'ordre : relisez l'étape, demandez
+un indice, une explication, puis lisez la référence. L'explication devient disponible après une première
+tentative et transmet votre question à l'assistant ; la référence accompagne le verdict, après votre
+réponse. Relire ne coûte rien, tandis qu'un indice réduit le crédit de maîtrise d'une bonne réponse et
+rapproche sa révision. Voir [langue et supports](language-and-supports.fr.md) pour les autres aides.
+
+## Voir votre carte des notions
+
+La carte des notions montre l'état de chaque notion, ses prérequis, le chemin parcouru et les réponses
+évaluées qui le fondent. Ouvrez-la dans le panneau ou le volet de leçon, dans les formulaires, ou demandez
+dans la conversation la carte rendue par `get_workflow_graph`. Sur une notion atteinte, vous pouvez dire
+que vous la connaissez ou avez un doute : Studium pose une ou deux questions de contrôle et donne leur
+résultat ; votre déclaration seule n'augmente jamais la maîtrise et ne saute aucune scène. Voir
+[Carte des notions](concept-map.fr.md).
+
 ## Se servir de l'assistant sans lui céder l'activité
 
 Des demandes qui vous laissent la main :
