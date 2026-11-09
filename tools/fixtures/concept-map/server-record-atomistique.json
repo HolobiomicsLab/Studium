@@ -1,0 +1,865 @@
+{
+  "schema": "studium/concept-map-record/v1",
+  "generated_at": "2026-11-09T09:34:35.349Z",
+  "lesson": {
+    "bundle_id": "atomistique-l1-chap1",
+    "title": "Atomistique L1 — Chapitre 1 (atomes, orbitales, périodicité)",
+    "language": "fr",
+    "lesson_sha256": "452df5132cb34d0fdfc5d781e8e73afa57c6a905c71b094ff050e925c21a7c3b"
+  },
+  "authoring": {
+    "mode": "teacher",
+    "drafted_by": "teacher",
+    "validated": true,
+    "judge": false,
+    "approval": {
+      "recorded": false,
+      "matches": false
+    },
+    "from_conversation": false
+  },
+  "session": {
+    "completed": false,
+    "steps": 14
+  },
+  "map": {
+    "schema": "studium/concept-map/v1",
+    "moment": "on_request",
+    "show": "map",
+    "step": 15,
+    "nodes": [
+      {
+        "id": "c-particules",
+        "title": "Particules de l'atome",
+        "state": "acquired",
+        "questions": [
+          {
+            "step": 3,
+            "scene_id": "s1-quiz-fer",
+            "result": "wrong"
+          },
+          {
+            "step": 4,
+            "scene_id": "s1b-audit-particules",
+            "result": "recorded"
+          },
+          {
+            "step": 5,
+            "scene_id": "s1-quiz-fer",
+            "result": "wrong"
+          },
+          {
+            "step": 6,
+            "scene_id": "s9-rappel-carbone14",
+            "result": "wrong"
+          },
+          {
+            "step": 7,
+            "scene_id": "s9-rappel-carbone14",
+            "result": "wrong"
+          },
+          {
+            "step": 8,
+            "scene_id": "s9-rappel-carbone14",
+            "result": "wrong"
+          },
+          {
+            "step": 9,
+            "scene_id": "s9-rappel-carbone14",
+            "result": "correct"
+          }
+        ],
+        "requires": []
+      },
+      {
+        "id": "c-nombres-quantiques",
+        "title": "Nombres quantiques",
+        "state": "current",
+        "questions": [
+          {
+            "step": 11,
+            "scene_id": "s2-quiz-4f",
+            "result": "wrong"
+          },
+          {
+            "step": 12,
+            "scene_id": "s9-rappel-3d",
+            "result": "wrong"
+          },
+          {
+            "step": 13,
+            "scene_id": "s9-rappel-3d",
+            "result": "wrong"
+          },
+          {
+            "step": 14,
+            "scene_id": "s9-rappel-3d",
+            "result": "wrong"
+          }
+        ],
+        "requires": []
+      },
+      {
+        "id": "c-orbitales-formes",
+        "title": "Forme des orbitales atomiques",
+        "state": "upcoming",
+        "questions": [],
+        "requires": []
+      },
+      {
+        "id": "c-spectres",
+        "title": "Quantification et spectres",
+        "state": "upcoming",
+        "questions": [],
+        "requires": []
+      },
+      {
+        "id": "c-remplissage",
+        "title": "Règles de remplissage",
+        "state": "upcoming",
+        "questions": [],
+        "requires": []
+      },
+      {
+        "id": "c-configuration",
+        "title": "Configuration électronique",
+        "state": "upcoming",
+        "questions": [],
+        "requires": []
+      },
+      {
+        "id": "c-periodicite",
+        "title": "Périodicité des propriétés",
+        "state": "upcoming",
+        "questions": [],
+        "requires": []
+      },
+      {
+        "id": "c-geometrie",
+        "title": "Géométrie des molécules",
+        "state": "upcoming",
+        "questions": [],
+        "requires": []
+      }
+    ],
+    "edges": [
+      {
+        "from": "c-particules",
+        "to": "c-nombres-quantiques",
+        "travelled": true
+      },
+      {
+        "from": "c-nombres-quantiques",
+        "to": "c-orbitales-formes",
+        "travelled": false
+      },
+      {
+        "from": "c-nombres-quantiques",
+        "to": "c-spectres",
+        "travelled": false
+      },
+      {
+        "from": "c-nombres-quantiques",
+        "to": "c-remplissage",
+        "travelled": false
+      },
+      {
+        "from": "c-orbitales-formes",
+        "to": "c-remplissage",
+        "travelled": false
+      },
+      {
+        "from": "c-remplissage",
+        "to": "c-configuration",
+        "travelled": false
+      },
+      {
+        "from": "c-configuration",
+        "to": "c-periodicite",
+        "travelled": false
+      },
+      {
+        "from": "c-spectres",
+        "to": "c-periodicite",
+        "travelled": false
+      },
+      {
+        "from": "c-configuration",
+        "to": "c-geometrie",
+        "travelled": false
+      }
+    ],
+    "position": {
+      "from": "c-particules",
+      "at": "c-nombres-quantiques",
+      "next": "c-orbitales-formes"
+    },
+    "position_line": "Tu viens de « Particules de l'atome », tu es sur « Nombres quantiques », ensuite « Forme des orbitales atomiques ».",
+    "mermaid": "flowchart TD\n  n_c_particules[\"Particules de l'atome<br/>acquise · Q3 faux, Q4 enregistrée, Q5 faux, Q6 faux, Q7 faux, Q8 faux, Q9 juste\"]:::acquired\n  n_c_nombres_quantiques[\"Nombres quantiques<br/>en cours · Q11 faux, Q12 faux, Q13 faux, Q14 faux\"]:::current\n  n_c_orbitales_formes[\"Forme des orbitales atomiques<br/>à venir\"]:::upcoming\n  n_c_spectres[\"Quantification et spectres<br/>à venir\"]:::upcoming\n  n_c_remplissage[\"Règles de remplissage<br/>à venir\"]:::upcoming\n  n_c_configuration[\"Configuration électronique<br/>à venir\"]:::upcoming\n  n_c_periodicite[\"Périodicité des propriétés<br/>à venir\"]:::upcoming\n  n_c_geometrie[\"Géométrie des molécules<br/>à venir\"]:::upcoming\n  n_c_particules --> n_c_nombres_quantiques\n  n_c_nombres_quantiques -.-> n_c_orbitales_formes\n  n_c_nombres_quantiques -.-> n_c_spectres\n  n_c_nombres_quantiques -.-> n_c_remplissage\n  n_c_orbitales_formes -.-> n_c_remplissage\n  n_c_remplissage -.-> n_c_configuration\n  n_c_configuration -.-> n_c_periodicite\n  n_c_spectres -.-> n_c_periodicite\n  n_c_configuration -.-> n_c_geometrie\n  classDef acquired fill:#EAF3DE,stroke:#3B6D11,color:#173404\n  classDef to_review fill:#FAEEDA,stroke:#854F0B,color:#412402\n  classDef current fill:#E6F1FB,stroke:#185FA5,color:#042C53,stroke-width:2px\n  classDef seen fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A\n  classDef upcoming fill:#F1EFE8,stroke:#888780,color:#444441,stroke-dasharray:4 3",
+    "display_markdown": "**Carte des notions** (étape 15)\n\n- Particules de l'atome (`c-particules`) : acquise (Q3 faux, Q4 enregistrée, Q5 faux, Q6 faux, Q7 faux, Q8 faux, Q9 juste)\n- **Nombres quantiques (`c-nombres-quantiques`) : en cours** (Q11 faux, Q12 faux, Q13 faux, Q14 faux)\n- Forme des orbitales atomiques (`c-orbitales-formes`) : à venir\n- Quantification et spectres (`c-spectres`) : à venir\n- Règles de remplissage (`c-remplissage`) : à venir\n- Configuration électronique (`c-configuration`) : à venir\n- Périodicité des propriétés (`c-periodicite`) : à venir\n- Géométrie des molécules (`c-geometrie`) : à venir\n\nTu viens de « Particules de l'atome », tu es sur « Nombres quantiques », ensuite « Forme des orbitales atomiques »."
+  },
+  "scenes": [
+    {
+      "scene_id": "s0-intro",
+      "title": "Chapitre 1 — Atomes et orbitales",
+      "type": "intro",
+      "concept_ids": [],
+      "key_class": "ungraded",
+      "served": true,
+      "passages_released": true,
+      "sources": []
+    },
+    {
+      "scene_id": "s1-concept-particules",
+      "title": "Particules constitutives de l'atome",
+      "type": "concept",
+      "concept_ids": [
+        "c-particules"
+      ],
+      "key_class": "ungraded",
+      "served": true,
+      "passages_released": true,
+      "sources": []
+    },
+    {
+      "scene_id": "s1-quiz-fer",
+      "title": "Quiz : l'atome de fer (Z=26)",
+      "type": "quiz",
+      "concept_ids": [
+        "c-particules"
+      ],
+      "key_class": "author_keyed",
+      "served": true,
+      "passages_released": true,
+      "sources": []
+    },
+    {
+      "scene_id": "s1b-audit-particules",
+      "title": "Audite le résumé IA — particules de l'atome",
+      "type": "summary_audit",
+      "concept_ids": [
+        "c-particules"
+      ],
+      "key_class": "production",
+      "served": true,
+      "passages_released": true,
+      "sources": []
+    },
+    {
+      "scene_id": "s2-concept-nombres-quantiques",
+      "title": "Les nombres quantiques",
+      "type": "concept",
+      "concept_ids": [
+        "c-nombres-quantiques"
+      ],
+      "key_class": "ungraded",
+      "served": true,
+      "passages_released": true,
+      "sources": []
+    },
+    {
+      "scene_id": "s2-quiz-4f",
+      "title": "Quiz : la sous-couche 4f",
+      "type": "quiz",
+      "concept_ids": [
+        "c-nombres-quantiques"
+      ],
+      "key_class": "author_keyed",
+      "served": true,
+      "passages_released": true,
+      "sources": []
+    },
+    {
+      "scene_id": "s3-concept-orbitales",
+      "title": "Forme des orbitales atomiques",
+      "type": "concept",
+      "concept_ids": [
+        "c-orbitales-formes"
+      ],
+      "key_class": "ungraded",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s3-quiz-noeuds",
+      "title": "Quiz : nœuds de la 2p",
+      "type": "quiz",
+      "concept_ids": [
+        "c-orbitales-formes"
+      ],
+      "key_class": "author_keyed",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s3b-explain-2p",
+      "title": "Explique — pourquoi la 2p a deux lobes",
+      "type": "explain_back",
+      "concept_ids": [
+        "c-orbitales-formes"
+      ],
+      "key_class": "production",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s3c-compare-noeuds",
+      "title": "Compare — cours IA vs cours de l'enseignant (nœuds radiaux)",
+      "type": "comparison",
+      "concept_ids": [
+        "c-orbitales-formes"
+      ],
+      "key_class": "production",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s3d-communicate-2p",
+      "title": "Communique — explique la 2p à un·e camarade, sans jargon",
+      "type": "communication_sim",
+      "concept_ids": [
+        "c-orbitales-formes"
+      ],
+      "key_class": "production",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s4-concept-spectres",
+      "title": "Quantification et spectres d'émission",
+      "type": "concept",
+      "concept_ids": [
+        "c-spectres"
+      ],
+      "key_class": "ungraded",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s4-quiz-balmer",
+      "title": "Quiz : la raie Hα",
+      "type": "quiz",
+      "concept_ids": [
+        "c-spectres"
+      ],
+      "key_class": "author_keyed",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s5-concept-remplissage",
+      "title": "Règles de remplissage",
+      "type": "concept",
+      "concept_ids": [
+        "c-remplissage"
+      ],
+      "key_class": "ungraded",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s5-quiz-carbone",
+      "title": "Quiz : configuration du carbone",
+      "type": "quiz",
+      "concept_ids": [
+        "c-remplissage",
+        "c-configuration"
+      ],
+      "key_class": "author_keyed",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s5b-spot-azote",
+      "title": "Repère l'erreur — configuration de l'azote",
+      "type": "spot_the_flaw",
+      "concept_ids": [
+        "c-remplissage"
+      ],
+      "key_class": "author_keyed",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s5d-prompt-hund",
+      "title": "Écris ton prompt — faire expliquer la règle de Hund par une IA",
+      "type": "prompt_practice",
+      "concept_ids": [
+        "c-remplissage"
+      ],
+      "key_class": "production",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s5c-compare-remplissage",
+      "title": "Compare — cours IA vs cours de l'enseignant (remplissage)",
+      "type": "comparison",
+      "concept_ids": [
+        "c-remplissage"
+      ],
+      "key_class": "production",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s4b-audit-spectres",
+      "title": "Audite le résumé IA — spectres d'émission",
+      "type": "summary_audit",
+      "concept_ids": [
+        "c-spectres"
+      ],
+      "key_class": "production",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s5e-quiz-oxygene",
+      "title": "Quiz : configuration de l'oxygène",
+      "type": "quiz",
+      "concept_ids": [
+        "c-configuration"
+      ],
+      "key_class": "author_keyed",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s6-concept-periodicite",
+      "title": "Périodicité : ionisation et rayon",
+      "type": "concept",
+      "concept_ids": [
+        "c-periodicite"
+      ],
+      "key_class": "ungraded",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s6-quiz-tendance",
+      "title": "Quiz : sens des tendances",
+      "type": "quiz",
+      "concept_ids": [
+        "c-periodicite"
+      ],
+      "key_class": "author_keyed",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s7-concept-geometrie",
+      "title": "Géométrie : VSEPR et hybridation",
+      "type": "concept",
+      "concept_ids": [
+        "c-geometrie"
+      ],
+      "key_class": "ungraded",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s6b-prompt-configuration",
+      "title": "Affine ton prompt — faire expliquer une configuration par une IA",
+      "type": "prompt_practice",
+      "concept_ids": [
+        "c-configuration"
+      ],
+      "key_class": "production",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s7-meta",
+      "title": "Auto-évaluation — chapitre 1",
+      "type": "meta_checkpoint",
+      "concept_ids": [
+        "c-geometrie",
+        "c-periodicite"
+      ],
+      "key_class": "ungraded",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s8-reproduction-periodique",
+      "title": "Reproduction : placer les éléments dans le tableau périodique",
+      "type": "reproduction",
+      "concept_ids": [
+        "c-configuration",
+        "c-periodicite"
+      ],
+      "key_class": "externally_grounded",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s9-rappel-carbone14",
+      "title": "Rappel : le carbone 14",
+      "type": "quiz",
+      "concept_ids": [
+        "c-particules"
+      ],
+      "key_class": "author_keyed",
+      "served": true,
+      "passages_released": true,
+      "sources": []
+    },
+    {
+      "scene_id": "s9-rappel-3d",
+      "title": "Rappel : la sous-couche 3d",
+      "type": "quiz",
+      "concept_ids": [
+        "c-nombres-quantiques"
+      ],
+      "key_class": "author_keyed",
+      "served": true,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s9-rappel-noeuds-3s",
+      "title": "Rappel : nœuds de la 3s",
+      "type": "quiz",
+      "concept_ids": [
+        "c-orbitales-formes"
+      ],
+      "key_class": "author_keyed",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s9-rappel-hbeta",
+      "title": "Rappel : la raie Hβ",
+      "type": "quiz",
+      "concept_ids": [
+        "c-spectres"
+      ],
+      "key_class": "author_keyed",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s9-rappel-klechkowski",
+      "title": "Rappel : après la 3p",
+      "type": "quiz",
+      "concept_ids": [
+        "c-remplissage"
+      ],
+      "key_class": "author_keyed",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    },
+    {
+      "scene_id": "s9-rappel-magnesium",
+      "title": "Rappel : configuration du magnésium",
+      "type": "quiz",
+      "concept_ids": [
+        "c-configuration"
+      ],
+      "key_class": "author_keyed",
+      "served": false,
+      "passages_released": false,
+      "sources": []
+    }
+  ],
+  "path": [
+    {
+      "step": 1,
+      "scene_id": "s0-intro",
+      "concept_id": null,
+      "answered": false,
+      "correct": null,
+      "assessed_by": null,
+      "navigation": {
+        "kind": "advance",
+        "rule_id": null
+      }
+    },
+    {
+      "step": 2,
+      "scene_id": "s1-concept-particules",
+      "concept_id": "c-particules",
+      "answered": false,
+      "correct": null,
+      "assessed_by": null,
+      "navigation": {
+        "kind": "advance",
+        "rule_id": null
+      }
+    },
+    {
+      "step": 3,
+      "scene_id": "s1-quiz-fer",
+      "concept_id": "c-particules",
+      "answered": true,
+      "correct": false,
+      "assessed_by": "key",
+      "navigation": {
+        "kind": "advance",
+        "rule_id": null
+      }
+    },
+    {
+      "step": 4,
+      "scene_id": "s1b-audit-particules",
+      "concept_id": "c-particules",
+      "answered": true,
+      "correct": null,
+      "assessed_by": "none",
+      "navigation": {
+        "kind": "remediate",
+        "rule_id": "graph_prereq_gate",
+        "returns_to": "s2-concept-nombres-quantiques"
+      }
+    },
+    {
+      "step": 5,
+      "scene_id": "s1-quiz-fer",
+      "concept_id": "c-particules",
+      "answered": true,
+      "correct": false,
+      "assessed_by": "key",
+      "navigation": {
+        "kind": "advance",
+        "rule_id": "contest_check_done"
+      }
+    },
+    {
+      "step": 6,
+      "scene_id": "s9-rappel-carbone14",
+      "concept_id": "c-particules",
+      "answered": true,
+      "correct": false,
+      "assessed_by": "key",
+      "navigation": {
+        "kind": "replay",
+        "rule_id": "rule_2err_replay_concept"
+      }
+    },
+    {
+      "step": 7,
+      "scene_id": "s9-rappel-carbone14",
+      "concept_id": "c-particules",
+      "answered": true,
+      "correct": false,
+      "assessed_by": "key",
+      "navigation": {
+        "kind": "replay",
+        "rule_id": "rule_2err_replay_concept"
+      }
+    },
+    {
+      "step": 8,
+      "scene_id": "s9-rappel-carbone14",
+      "concept_id": "c-particules",
+      "answered": true,
+      "correct": false,
+      "assessed_by": "key",
+      "navigation": {
+        "kind": "replay",
+        "rule_id": "rule_2err_replay_concept"
+      }
+    },
+    {
+      "step": 9,
+      "scene_id": "s9-rappel-carbone14",
+      "concept_id": "c-particules",
+      "answered": true,
+      "correct": true,
+      "assessed_by": "key",
+      "navigation": {
+        "kind": "gate_passed",
+        "rule_id": "graph_prereq_gate_passed"
+      }
+    },
+    {
+      "step": 10,
+      "scene_id": "s2-concept-nombres-quantiques",
+      "concept_id": "c-nombres-quantiques",
+      "answered": false,
+      "correct": null,
+      "assessed_by": null,
+      "navigation": {
+        "kind": "advance",
+        "rule_id": null
+      }
+    },
+    {
+      "step": 11,
+      "scene_id": "s2-quiz-4f",
+      "concept_id": "c-nombres-quantiques",
+      "answered": true,
+      "correct": false,
+      "assessed_by": "key",
+      "navigation": {
+        "kind": "remediate",
+        "rule_id": "graph_prereq_gate",
+        "returns_to": "s3-concept-orbitales"
+      }
+    },
+    {
+      "step": 12,
+      "scene_id": "s9-rappel-3d",
+      "concept_id": "c-nombres-quantiques",
+      "answered": true,
+      "correct": false,
+      "assessed_by": "key",
+      "navigation": {
+        "kind": "replay",
+        "rule_id": "rule_2err_replay_concept"
+      }
+    },
+    {
+      "step": 13,
+      "scene_id": "s9-rappel-3d",
+      "concept_id": "c-nombres-quantiques",
+      "answered": true,
+      "correct": false,
+      "assessed_by": "key",
+      "navigation": {
+        "kind": "replay",
+        "rule_id": "rule_2err_replay_concept"
+      }
+    },
+    {
+      "step": 14,
+      "scene_id": "s9-rappel-3d",
+      "concept_id": "c-nombres-quantiques",
+      "answered": true,
+      "correct": false,
+      "assessed_by": "key",
+      "navigation": {
+        "kind": "replay",
+        "rule_id": "rule_2err_replay_concept"
+      }
+    }
+  ],
+  "evidence": [
+    {
+      "step": 3,
+      "scene_id": "s1-quiz-fer",
+      "day": "2026-11-09",
+      "hints": 0,
+      "self_rated": false
+    },
+    {
+      "step": 4,
+      "scene_id": "s1b-audit-particules",
+      "day": "2026-11-09",
+      "hints": 0,
+      "self_rated": false
+    },
+    {
+      "step": 5,
+      "scene_id": "s1-quiz-fer",
+      "day": "2026-11-09",
+      "hints": 0,
+      "self_rated": false
+    },
+    {
+      "step": 6,
+      "scene_id": "s9-rappel-carbone14",
+      "day": "2026-11-09",
+      "hints": 0,
+      "self_rated": false
+    },
+    {
+      "step": 7,
+      "scene_id": "s9-rappel-carbone14",
+      "day": "2026-11-09",
+      "hints": 0,
+      "self_rated": false
+    },
+    {
+      "step": 8,
+      "scene_id": "s9-rappel-carbone14",
+      "day": "2026-11-09",
+      "hints": 0,
+      "self_rated": false
+    },
+    {
+      "step": 9,
+      "scene_id": "s9-rappel-carbone14",
+      "day": "2026-11-09",
+      "hints": 0,
+      "self_rated": false
+    },
+    {
+      "step": 11,
+      "scene_id": "s2-quiz-4f",
+      "day": "2026-11-09",
+      "hints": 0,
+      "self_rated": false
+    },
+    {
+      "step": 12,
+      "scene_id": "s9-rappel-3d",
+      "day": "2026-11-09",
+      "hints": 0,
+      "self_rated": false
+    },
+    {
+      "step": 13,
+      "scene_id": "s9-rappel-3d",
+      "day": "2026-11-09",
+      "hints": 0,
+      "self_rated": false
+    },
+    {
+      "step": 14,
+      "scene_id": "s9-rappel-3d",
+      "day": "2026-11-09",
+      "hints": 0,
+      "self_rated": false
+    }
+  ],
+  "contest": {
+    "pending": null,
+    "questions": {
+      "c-particules": 2,
+      "c-nombres-quantiques": 1,
+      "c-orbitales-formes": 2,
+      "c-spectres": 2,
+      "c-remplissage": 2,
+      "c-configuration": 2,
+      "c-periodicite": 1,
+      "c-geometrie": 0
+    },
+    "history": [
+      {
+        "concept_id": "c-particules",
+        "claim": "known",
+        "scene_ids": [
+          "s1-quiz-fer"
+        ],
+        "results": [
+          false
+        ],
+        "outcome": "partial"
+      }
+    ]
+  }
+}

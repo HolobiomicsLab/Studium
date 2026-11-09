@@ -72,6 +72,13 @@ def record() -> dict:
                  rule="graph_prereq_gate_passed"),
             step(4, "s3", "c-credit"),
         ],
+        "evidence": [
+            {"step": 2, "scene_id": "s2", "day": "2026-11-06", "hints": 1, "self_rated": False},
+            {"step": 3, "scene_id": "s2", "day": "2026-11-06", "hints": 0, "self_rated": False},
+        ],
+        "contest": {"pending": None, "questions": {"c-porte": 1, "c-credit": 0, "c-budget": 0},
+                    "history": [{"concept_id": "c-porte", "claim": "known", "outcome": "confirmed",
+                                 "scene_ids": ["s2"], "results": [True]}]},
     }
 
 
@@ -193,6 +200,11 @@ def test_class_report_feeds_the_teacher_viewpoint_and_withheld_figures_stay_hidd
     (lambda r: r["session"].update(steps=9), "session.steps"),
     (lambda r: r["scenes"][2]["sources"][0].update(url="javascript:alert(1)"), "url"),
     (lambda r: r["path"][1].update(step=5), "numbered"),
+    (lambda r: r["evidence"][0].update(scene_id="s3"), "evidence entry"),
+    (lambda r: r["evidence"][0].update(day="06/11/2026"), "day"),
+    (lambda r: r["contest"]["history"][0].update(concept_id="c-missing"), "contest names a concept"),
+    (lambda r: r["contest"]["questions"].update({"c-missing": 1}), "contest names a concept"),
+    (lambda r: r["contest"]["history"][0].update(outcome="won"), "outcome"),
 ])
 def test_a_record_with_an_unknown_field_or_a_broken_reference_is_refused(tmp_path, mutate, message) -> None:
     value = record()
@@ -250,6 +262,7 @@ def test_layout_puts_a_concept_below_its_prerequisites_and_wraps_a_wide_layer() 
     flat["map"]["edges"] = []
     flat["map"]["position"] = {"from": None, "at": None, "next": "c0"}
     flat["scenes"], flat["path"], flat["session"] = [], [], {"completed": False, "steps": 0}
+    flat["evidence"], flat["contest"] = [], {"pending": None, "questions": {}, "history": []}
     positions, width, _ = cmr._layout(cmr.ConceptMapRecord.model_validate(flat))
     assert len({y for _, y in positions.values()}) == 2 and width == 2 * cmr.PAD + 4 * cmr.NODE_W + 3 * cmr.GAP_X
 
@@ -298,3 +311,16 @@ def test_existing_observatory_serves_the_package_as_mystra_html(tmp_path) -> Non
     assert response.status_code == 200
     assert "Concept map — La porte de prérequis" in response.text
     assert "Session path: the steps served, in order" in response.text and "Concept state shown on the map" in response.text
+
+
+SERVER_RECORD = Path(__file__).parent / "fixtures" / "concept-map" / "server-record-atomistique.json"
+
+
+def test_a_record_written_by_the_server_exports_and_verifies(tmp_path) -> None:
+    """The record as export_concept_map writes it (fixture regenerated from the server, synthetic learner),
+    evidence and a settled contest included: the documented route must accept it as it is."""
+    value = json.loads(SERVER_RECORD.read_text(encoding="utf-8"))
+    assert value["evidence"] and value["contest"]["history"]
+    out = tmp_path / "map"
+    cmr.export_concept_map_report(SERVER_RECORD, out)
+    assert cmr.verify_concept_map_report(out)["ok"] is True
