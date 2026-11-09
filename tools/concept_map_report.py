@@ -173,6 +173,38 @@ class SessionRecord(StrictModel):
     steps: int
 
 
+class RecordEvidence(StrictModel):
+    """One answered step: the day, the hints taken before it, whether the learner then rated recall."""
+    step: int = Field(ge=1)
+    scene_id: str
+    day: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    hints: int = Field(ge=0)
+    self_rated: bool
+
+
+class ContestPending(StrictModel):
+    concept_id: str
+    claim: Literal["known", "unsure"]
+    asked: int = Field(ge=0)
+    answered: int = Field(ge=0)
+
+
+class ContestSettled(StrictModel):
+    concept_id: str
+    claim: Literal["known", "unsure"]
+    outcome: Literal["confirmed", "refuted", "partial"]
+    scene_ids: list[str]
+    results: list[bool]
+
+
+class RecordContest(StrictModel):
+    """The learner's contests: the one under way, how many check questions each concept would get now,
+    those settled. A claim is the learner's, its check questions are scored; neither is a learner word."""
+    pending: ContestPending | None
+    questions: dict[str, int]
+    history: list[ContestSettled] = Field(max_length=1000)
+
+
 class ConceptMapRecord(StrictModel):
     """The record export_concept_map writes. No learner identifier, none of the learner's words."""
 
@@ -184,6 +216,8 @@ class ConceptMapRecord(StrictModel):
     map: ConceptMap
     scenes: list[RecordScene] = Field(max_length=2000)
     path: list[RecordStep] = Field(max_length=5000)
+    evidence: list[RecordEvidence] = Field(max_length=5000)
+    contest: RecordContest
 
     @model_validator(mode="after")
     def consistent(self) -> "ConceptMapRecord":
@@ -203,6 +237,14 @@ class ConceptMapRecord(StrictModel):
             raise ValueError("steps are not numbered 1..n in order")
         if self.session.steps != len(self.path):
             raise ValueError("session.steps does not match the path")
+        by_step = {step.step: step.scene_id for step in self.path}
+        if any(by_step.get(fact.step) != fact.scene_id for fact in self.evidence):
+            raise ValueError("an evidence entry names a step or scene the path does not hold")
+        contested = [*self.contest.questions, *(entry.concept_id for entry in self.contest.history)]
+        if self.contest.pending is not None:
+            contested.append(self.contest.pending.concept_id)
+        if any(concept not in known for concept in contested):
+            raise ValueError("a contest names a concept the map does not hold")
         return self
 
 

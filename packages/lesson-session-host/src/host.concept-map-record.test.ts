@@ -146,6 +146,22 @@ describe("concept map record", () => {
     expect(JSON.stringify(rated)).not.toContain(`${LEARNER}-evidence`);
   });
 
+  it("keeps the shape tools/concept_map_report.py reads (its fixture is a record this server wrote)", async () => {
+    // concept_map_report.py refuses an unknown field: a field added here must reach its models and the
+    // fixture, regenerated from the server (tools/fixtures/concept-map/), or the documented export fails.
+    const fixture = JSON.parse(readFileSync(new URL("../../../tools/fixtures/concept-map/server-record-atomistique.json",
+      import.meta.url), "utf-8"));
+    const { host, sid } = await hostWithLesson();
+    await host.respond(sid, { kind: "ack" });
+    await answerQuiz(host, sid, RIGHT);
+    const record = host.conceptMapRecord(sid)!;
+    const keys = (value: object) => Object.keys(value).sort();
+    expect(keys(record)).toEqual(keys(fixture));
+    expect(keys(record.evidence[0]!)).toEqual(keys(fixture.evidence[0]));
+    expect(keys(record.contest)).toEqual(keys(fixture.contest));
+    expect(keys(record.path[0]!)).toEqual(keys(fixture.path[0]));
+  });
+
   it("writes the export under the library, and forget reports it as kept", async () => {
     const { host, root, sid } = await hostWithLesson();
     await host.respond(sid, { kind: "ack" });
