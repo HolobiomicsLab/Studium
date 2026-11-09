@@ -48,12 +48,40 @@ reprend à partir de votre progression enregistrée.
   un modèle juge évalue les réponses ouvertes.
 - **En-tête.** Le type de l'étape et sa classe de corrigé, le nombre de révisions dues, et un menu avec
   **À propos de cette leçon** et **M'oublier**.
+- **Ligne d'état.** Une ligne au-dessus de la barre de progression, de 80 caractères au plus, dit où vous
+  en êtes : la leçon, l'étape sur le total (ou quelle question de contrôle d'une contestation), un détour,
+  les minutes restantes, les révisions dues et ce qui est attendu de vous (à lire, votre réponse, votre
+  auto-évaluation, un calcul à lancer, terminé). La barre de progression garde ses segments sans répéter
+  l'étape. Pendant une leçon, la barre d'état de VS Code affiche cette même ligne ; ce qui est dû en
+  révision passe alors dans son info-bulle (voir [Révisions](#révisions)).
+- **Voix.** Au-dessus de la scène, une ligne dit qui signe la leçon : le nom d'un enseignant quand elle a
+  été validée, ou qu'elle n'a pas été relue, qu'elle a été rédigée par une IA ou par vous, ou qu'elle a
+  changé depuis son approbation. Au-dessus d'un verdict, une ligne dit qui a évalué la réponse : la clé de
+  l'auteur, un modèle juge, ou un texte que l'assistant a produit hors de la leçon ; un verdict de clé
+  nomme une clé rédigée par l'IA ou une clé que vous avez écrite.
 - **Progression.** « Étape 3 sur 8 », sans jamais reculer ; un détour vers un prérequis est signalé comme
   tel.
 - **Réponse.** Quand le focus est dans la liste des choix, `A`–`D` ou `1`–`4` choisissent et `Entrée`
   valide ; la ligne sous les choix l'indique (« Dans la liste des choix : … »). La confiance (de 0 à 4) est
-  facultative. Un indice aide, mais une bonne réponse après un indice compte moins pour la maîtrise et
-  revient plus tôt en révision.
+  facultative.
+- **Échelle d'aide.** Sous les contrôles de réponse, quatre barreaux dans l'ordre où les essayer :
+  **Relire**, **Indice**, **Explication** et **Référence**. Chacun affiche son coût ou la raison pour
+  laquelle il est fermé : une explication attend que vous ayez tenté une réponse, et la référence
+  n'apparaît qu'avec un verdict, après votre réponse. Un barreau fermé prend quand même le focus au clavier
+  et dit pourquoi, mais n'envoie rien. **Poser une question** transmet votre question à l'assistant. Une
+  bonne réponse après un indice compte moins pour la maîtrise et revient plus tôt en révision.
+- **Réglages.** À la fin de la scène, là où la leçon les propose : le niveau d'**attention**
+  (**Silencieux**, **Normal** ou **Accompagné**) règle ce que la séance peut proposer ; la **langue**
+  bascule le texte propre au panneau (libellés, ligne d'état) entre français et anglais sans traduire le
+  contenu de la leçon ; et les **minutes disponibles** avec **Replanifier** répondent par une proposition
+  qui cite le temps dont vous disposez : si la leçon y tient, et si une révision due doit venir d'abord.
+  Ces contrôles ne répondent à rien : ils restent utilisables tant qu'une réponse est attendue.
+- **Carte des notions.** **Carte des notions** ouvre la liste des notions de la leçon avec leur état
+  (acquise, à revoir, en cours, vue mais pas encore évaluée, à venir), les prérequis de chacune et, une fois
+  dépliée, ses preuves et ce que son état établit ou n'établit pas. Vous pouvez contester une notion que
+  vous avez atteinte — « Je la connais » ou « J'ai un doute » — et la leçon pose une ou deux questions de
+  contrôle tirées de scènes notées sur la clé ; la déclaration seule ne change jamais la maîtrise et ne
+  saute aucune scène. Voir [Carte des notions](../learn/concept-map.fr.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/screenshots/vscode-pane-feedback-dark.png">
@@ -84,11 +112,14 @@ reprend à partir de votre progression enregistrée.
 
 ## Révisions
 
-Si vous avez déjà étudié, la barre d'état affiche **Studium · 2 à réviser**, ou **Studium · 3 à travailler**
-quand certaines notions en attente sont à reprendre ou pas encore mesurées ; son info-bulle nomme chaque
-groupe. Un clic ouvre la barre latérale Studium, dont l'entrée **Révisions** liste les notions par groupe
-(à réviser, à reprendre, pas encore mesurées), ou la date de la prochaine révision. Le décompte est rafraîchi au démarrage, à la fermeture ou à la fin d'une leçon, et avec
-le bouton de rafraîchissement de la vue Leçons. Sans historique, rien n'est affiché.
+Si vous avez déjà étudié et qu'aucune leçon n'est ouverte, la barre d'état affiche **Studium · 2 à
+réviser**, ou **Studium · 3 à travailler** quand certaines notions en attente sont à reprendre ou pas encore
+mesurées ; son info-bulle nomme chaque groupe. Pendant une leçon, la barre affiche la ligne d'état de
+cette leçon ; les groupes de révision passent alors dans son info-bulle. Un clic ouvre la barre
+latérale Studium, dont l'entrée **Révisions** liste les notions par groupe (à réviser, à reprendre, pas
+encore mesurées), ou la date de la prochaine révision. Le décompte est rafraîchi au démarrage, à la
+fermeture ou à la fin d'une leçon, et avec le bouton de rafraîchissement de la vue Leçons. Sans
+historique, rien n'est affiché.
 
 ## Chat et notebook
 

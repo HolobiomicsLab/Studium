@@ -25,7 +25,7 @@ const http = createServer(async (request, response) => {
   if (!connection) {
     if (request.headers["mcp-session-id"] || request.method !== "POST") { response.writeHead(404).end(); return; }
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: randomUUID });
-    const server = new Server({ name: "studium-panel-dev", version: "0.2.0" }, { capabilities: { tools: {}, resources: {} } });
+    const server = new Server({ name: "studium-panel-dev", version: "0.3.0" }, { capabilities: { tools: {}, resources: {} } });
     let client, ready;
     server.oninitialized = () => {
       client = new Client({ name: "panel-http-dev", version: "1" }, { capabilities: server.getClientCapabilities() });

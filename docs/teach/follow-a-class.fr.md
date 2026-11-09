@@ -81,11 +81,32 @@ confiance (les étudiants se sont-ils fiés à l'IA quand il le fallait ?), qu
 ```
 
 [`tools/interaction_report.py`](../../tools/interaction_report.py) lit le même dossier et décrit
-comment la classe a utilisé l'interface plutôt que ce qu'elle a appris : réponses réglées sans
-modèle, délai des verdicts, propositions acceptées ou ignorées, aide par scène, contestations,
-reprises et accusés de relecture. Même seuil de cinq apprenants, qui ici ne peut pas être abaissé, et
-les flux sans consentement enregistré sont refusés (voir
-[Outils en ligne de commande](../reference/cli.fr.md#interaction_reportpy)).
+comment la classe a utilisé l'interface plutôt que ce qu'elle a appris. Il lit sept types d'événements,
+écrits seulement avec le consentement de l'apprenant : `interaction` (un par acte que le serveur
+règle), `prompt_shown` et `prompt_outcome`, `help_used`, `contest`, `resume` et `review_receipt`.
+
+- **Voie et rang de surface.** Chaque acte enregistre la voie utilisée (`fast` pour le panneau, le volet
+  natif et les formulaires ; `companion` pour la conversation et ses outils) et le rang de la surface
+  sur laquelle la séance se joue (3 panneau ou volet, 2 formulaires, 1 conversation). Un acte dans la
+  conversation alors qu'un panneau est ouvert est donc `companion` au rang 3. La part de voie rapide se
+  calcule sur les actes des séances de rang 2 ou 3, actes de conversation compris : un apprenant revenu
+  à la conversation fait baisser cette part au lieu de disparaître du calcul.
+- **Devenir des propositions.** Chaque proposition est comptée comme acceptée, ignorée ou sans réponse,
+  par type ; un type qui a au moins 30 issues et moins de 20 % d'acceptations est signalé pour
+  relecture.
+- **Aide, contestations et reprises.** L'aide est comptée par barreau (`hint`, `explain`) et par scène,
+  avec les réponses venues avant et après une explication ; les contestations par leur issue
+  (`confirmed`, `refuted`, `partial`) ; les reprises par cause, avec les scènes montrées deux fois
+  après une reprise.
+- **Accusés de relecture.** `experience_packet.py approve` et `receipt --decision returned` écrivent un
+  événement `review_receipt` à côté des reçus, sous l'étiquette de rôle `reviewer`, si bien que le
+  rapport dit combien de leçons ont été entièrement ouvertes et combien ont été approuvées ou renvoyées.
+
+Chaque chiffre garde le même seuil de cinq apprenants distincts, qui ici ne peut pas être abaissé, et un
+flux sans événement de consentement enregistré est refusé et compté, pas lu. Ce que fait chaque
+proposition, ce que signifie chaque barreau d'aide et les champs exacts sont dans
+[Outils en ligne de commande](../reference/cli.fr.md#interaction_reportpy) et le
+[README de telemetry-events](../../packages/telemetry-events/README.fr.md), plutôt que répétés ici.
 
 ## Le tableau de bord enseignant
 

@@ -6,6 +6,18 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-09 — préparation de la version 0.3.0
+
+Demande propriétaire : « Je voudrais avancer pour une release. » Branche
+`chore/2026-11-09-release-0.3.0` depuis `dev` `24dd596`. Version produit 0.3.0 (extension, serveur MCP,
+`lesson-panel-ui`, `CITATION.cff`) ; section `0.3.0` du CHANGELOG et README EN/FR (mission Codex Kimi,
+40 outils comptés sur un serveur lancé) ; quatre pages de documentation remises à jour (mission Codex
+DeepSeek Flash : principes, installation, VS Code, suivi d'une classe). Toutes les étapes de la CI
+passent en local sur l'arbre de `dev` (audit critique, lint, build, tests TS et Python, bundle lint,
+smoke MCP, docs, VSIX). Le tag reste la décision du propriétaire.
+
+---
+
 ## 2026-10-30 (matin) — lot « apprenant autonome » : une leçon depuis ses propres références
 
 Demande propriétaire : « Oui, lot autonome. Fais les choses bien. » après le constat qu'un étudiant

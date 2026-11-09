@@ -96,8 +96,8 @@ l'étiqueter.
 4. Étiquetez et poussez :
 
    ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
    ```
 
 5. [`release.yml`](../../.github/workflows/release.yml) vérifie que l'étiquette correspond à la version de

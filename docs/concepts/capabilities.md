@@ -18,6 +18,8 @@ This page lists what Studium does today, for each kind of user, with the practic
 | Reproductions | The harness runs a capsule; Studium checks the run against its manifest; VS Code asks before running code | Studium never executes; a run check is not a proof of execution |
 | Peer review | Peer rooms (`open_peer_room`, `submit_peer_rating`) aggregate ratings | Rooms live in memory; a target stays hidden below 3 raters |
 | Language | `set_session_language` and activity dictionaries | Dictionaries translate the texts provided; older interfaces are not all localised |
+| Two-lane lesson | Panels and panes, or prototype forms, handle reading, choices and verdicts without a model turn; the conversation remains available for written answers and questions, with `get_companion_brief` keeping the assistant informed | The two-lane interface has automated checks but no learner trial yet; native MCP Apps and Claude Code host trials are deferred |
+| Concept map and contest | The map shows concept states and evidence; `export_concept_map` and `tools/concept_map_report.py` produce an inspectable local page, and a learner can contest a reached concept through check questions | A map records session facts, not certified learning; the claim alone changes no mastery and skips no scene |
 | Learner report | `tools/learner_report.py export` builds a local ASTRA/MySTRA copy of actions you chose | A partial trace: proves neither learning, nor the absence of help, nor authorship |
 
 Start with [Learn with your assistant](../learn/learn-with-your-assistant.md), the [student guide](../learn/student-guide.md) and [Review over time](../learn/review-over-time.md).
@@ -47,6 +49,7 @@ See the [teacher guide](../teach/teacher-guide.md), [Review and approve](../teac
 | Local HTTP API | The 25 lesson operations plus `rate_recall`, schema discovery, bearer token, protection against duplicate submissions | Loopback only; other study, authoring and teacher tools are MCP-only; active sessions end with the process |
 | File channel | A task and answer loop in `.studium-session/` for a harness without MCP | Formats and atomic writes must be respected |
 | VS Code extension | Lesson pane, chat participant, notebook cell, restore on reload, reviews in the status bar | Its sessions are separate from an assistant's own MCP server |
+| Shared harness panels | `apps/lesson-panel-ui` supplies VS Code and MCP Apps renderers; `apps/claude-code-mod` supplies a native Claude Code pane, with orientation, voices, help, settings and concept-map views | Prototype surfaces: automated contract checks, no native host trial and no learner use yet; capsule reproduction requires the VS Code terminal |
 | ASB capsule | Task card and reproduction protocol | A capsule's tier does not attest a learner's run |
 
 See [Harnesses](../start/harnesses.md), the [MCP tools reference](../reference/mcp-tools.md) and [Architecture](../develop/architecture.md).
@@ -94,7 +97,7 @@ Web search, Perspicacité, libraries and skills are not available because a less
 
 ## Open boundaries
 
-- Deferred, by decision: item variants and misconceptions, MCP Apps (interactive UI in the chat), HTTP delivery of class telemetry, concept identity by namespace, npm and Marketplace publication.
+- Deferred, by decision: item variants and misconceptions, native MCP Apps and Claude Code host trials, HTTP delivery of class telemetry, concept identity by namespace, npm and Marketplace publication.
 - No authenticated multi-user teacher portal; the dashboard and the Observatory are local.
 - The VS Code pane and an independent MCP server do not share a session.
 - Passing software tests does not establish institutional compliance, multi-user deployment or teaching effectiveness. Start with an accompanied pilot and the rules in [Privacy and limits](privacy-and-limits.md).

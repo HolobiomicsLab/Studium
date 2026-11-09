@@ -75,10 +75,30 @@ the telemetry. This report also includes trust calibration
 ```
 
 [`tools/interaction_report.py`](../../tools/interaction_report.py) reads the same folder and
-reports how the class used the interface rather than what it learned: answers settled without a
-model, verdict delay, which prompts students accept or ignore, help per scene, contests, resumes and
-review receipts. Same floor of five learners, which here cannot be lowered, and streams without a
-recorded consent are refused (see [Command-line tools](../reference/cli.md#interaction_reportpy)).
+reports how the class used the interface rather than what it learned. It reads seven event types,
+written only under the learner's consent: `interaction` (one per act the server settles), `prompt_shown`
+and `prompt_outcome`, `help_used`, `contest`, `resume` and `review_receipt`.
+
+- **Lane and surface rank.** Each act records the lane the learner used (`fast` for the panel, the
+  native pane and forms; `companion` for the conversation and its tools) and the rank of the surface the
+  session was played on (3 panel or pane, 2 forms, 1 conversation). An act in the conversation while a
+  panel is open is therefore `companion` at rank 3. The fast-lane share is computed over the acts of
+  sessions at rank 2 or 3, conversation acts included: a learner who fell back to the conversation
+  lowers the share rather than disappearing from it.
+- **Prompt outcomes.** Each proposal is counted as accepted, dismissed or ignored, per kind; a kind with
+  at least 30 outcomes and fewer than 20% accepted is flagged for review.
+- **Help, contests and resumes.** Help is counted per rung (`hint`, `explain`) and per scene, with the
+  answers that came before and after an explanation; contests by their outcome (`confirmed`, `refuted`,
+  `partial`); resumes by cause, with scenes shown twice after a resume.
+- **Review receipts.** `experience_packet.py approve` and `receipt --decision returned` write one
+  `review_receipt` event beside the receipts, under the role label `reviewer`, so the report can say how
+  many lessons were fully opened and how many were approved or returned.
+
+Every figure keeps the same floor of five distinct learners, which here cannot be lowered, and a stream
+without a recorded consent event is refused and counted, not read. What each prompt does, what each help
+rung means and the exact fields are in
+[Command-line tools](../reference/cli.md#interaction_reportpy) and the
+[telemetry-events README](../../packages/telemetry-events/README.md), rather than repeated here.
 
 ## The teacher dashboard
 
