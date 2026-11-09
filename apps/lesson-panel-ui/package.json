@@ -16,16 +16,16 @@
     "zod": "^4.2.0"
   },
   "devDependencies": {
-    "esbuild": "^0.21.0",
+    "esbuild": "^0.28.2",
     "jsdom": "29.1.1",
     "marked": "15.0.12",
-    "katex": "0.16.9",
+    "katex": "0.19.1",
     "vega": "^5.33.1",
     "vega-lite": "^5.23.0",
     "vega-embed": "^6.29.0",
     "3dmol": "^2.5.5",
-    "cytoscape": "^3.34.0",
+    "cytoscape": "^3.34.4",
     "dagre": "^0.8.5",
-    "cytoscape-dagre": "^4.0.0"
+    "cytoscape-dagre": "^4.0.1"
   }
 }

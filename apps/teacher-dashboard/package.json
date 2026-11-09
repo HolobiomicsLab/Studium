@@ -18,7 +18,7 @@
     "@studium/activity-presentation": "workspace:*"
   },
   "devDependencies": {
-    "@playwright/test": "^1.46",
+    "@playwright/test": "^1.65",
     "@types/node": "^20",
     "@types/react": "^18.3",
     "@types/react-dom": "^18.3",
