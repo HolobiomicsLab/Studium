@@ -38,6 +38,8 @@ export function validateSupportAsset(asset) {
   if (asset.meta.placement && !["before_prediction", "after_prediction"].includes(asset.meta.placement)) {
     return "Support placement is invalid.";
   }
+  const legendProblem = validateLegend(asset.legend);
+  if (legendProblem) return legendProblem;
   if (asset.kind === "image") return validateImage(asset);
   if (asset.kind === "audio" || asset.kind === "video") return validateMedia(asset);
   if (asset.kind === "equation_latex") return validateEquation(asset);
@@ -199,17 +201,43 @@ function downloadPrompt(document, asset) {
 }
 
 function renderEquation(document, asset, katex) {
+  const wrapper = element(document, "div", "scientific-support__equation-wrap");
   const output = element(document, "div", "scientific-support__equation");
-  if (!katex || typeof katex.render !== "function") return createFallback(document, asset, "KaTeX is unavailable.");
-  try {
-    katex.render(asset.payload, output, {
-      displayMode: true, output: "htmlAndMathml", strict: "error", throwOnError: true, trust: false,
-    });
-    output.setAttribute("aria-label", asset.meta.alt);
-    return output;
-  } catch (error) {
-    return createFallback(document, asset, `Equation could not be rendered: ${errorMessage(error)}`);
+  if (!katex || typeof katex.render !== "function") {
+    wrapper.append(createFallback(document, asset, "KaTeX is unavailable."));
+  } else {
+    try {
+      katex.render(asset.payload, output, {
+        displayMode: true, output: "htmlAndMathml", strict: "error", throwOnError: true, trust: false,
+      });
+      output.setAttribute("aria-label", asset.meta.alt);
+      wrapper.append(output);
+    } catch (error) {
+      output.replaceChildren();
+      wrapper.append(createFallback(document, asset, `Equation could not be rendered: ${errorMessage(error)}`));
+    }
   }
+  if (Array.isArray(asset.legend)) wrapper.append(createEquationLegend(document, asset.legend));
+  return wrapper;
+}
+
+function validateLegend(legend) {
+  if (legend === undefined) return "";
+  if (!Array.isArray(legend) || legend.length === 0) return "Support legend must be a non-empty array.";
+  for (const [index, entry] of legend.entries()) {
+    if (!entry || typeof entry !== "object") return `Support legend entry ${index} is not an object.`;
+    if (typeof entry.symbol !== "string" || !entry.symbol.trim()) return `Support legend entry ${index} has no symbol.`;
+    if (typeof entry.meaning !== "string" || !entry.meaning.trim()) return `Support legend entry ${index} has no meaning.`;
+  }
+  return "";
+}
+
+function createEquationLegend(document, legend) {
+  const list = element(document, "ul", "scientific-support__legend");
+  for (const entry of legend) {
+    list.append(element(document, "li", "scientific-support__legend-entry", `${entry.symbol} : ${entry.meaning}`));
+  }
+  return list;
 }
 
 async function renderMermaid(document, asset, mermaid) {

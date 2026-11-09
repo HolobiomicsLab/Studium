@@ -20,6 +20,8 @@ principales.
 
 | Commande | Rôle |
 |---|---|
+| `.venv/bin/python tools/conversation_sources.py` | transformer une transcription Claude Code (`.jsonl`) ou un export texte d'une conversation en entrée de `prepare_sources`, de type `conversation` ; local, résultats d'outils écartés par défaut, chaînes ressemblant à des identifiants remplacées (`--focus`, `--last`, `--include-tool-results`, `--language`, `--out`) |
+| `.venv/bin/python tools/concept_map_report.py export` / `verify` | transformer l'enregistrement écrit par `export_concept_map` en page interactive autonome de la carte des notions, avec son document ASTRA, sa trace ARA et sa page MySTRA, puis le vérifier (`--class-report`, `--expect-sha256`, `--language`) ; voir [Carte des notions](../docs/learn/concept-map.fr.md) |
 | `.venv/bin/python tools/experience_packet.py passages` | capturer une URL, une page HTML, un PDF ou un texte choisi par l'apprenant en enveloppe de passages (`--url`, `--html`, `--pdf`, `--text`, `--out`) |
 | `.venv/bin/python tools/experience_packet.py prepare` | transformer des passages en paquet de création hors ligne (`--passages`, `--out`, `--title`) |
 | `.venv/bin/python tools/experience_packet.py check` | valider une réponse d'auteur au regard du paquet (`--packet`, `--response`, `--out` ; `--json` pour des constats structurés) |
@@ -66,6 +68,8 @@ contient les entrées de test du lint et des rapports.
 | `bash tools/bundle_lint.test.sh` | tests de contrat du lint des bundles |
 | `node tools/docs/check.mjs` | le contrôle de la documentation : liens, paires de langues, pages de référence générées |
 | `node tools/docs/gen-mcp-tools.mjs`, `node tools/docs/gen-lesson-bundle.mjs` | régénérer les références des outils MCP et du bundle de leçon (`--check` pour vérifier) |
+| `.venv/bin/python tools/latency_bench.py --live` | chronométrer un tour d'apprenant quand un assistant relaie une leçon : une session Claude Code sans interface, le serveur de ce checkout, un apprenant synthétique étiqueté ; compare un relais (`--mode relay --model`), l'agent de leçon (`--mode agent --agent-file`) et une délégation à chaque réponse (`--mode delegate`) ; `--probe` demande aussi la réponse et une explication approfondie. Payant : rien ne s'exécute sans `--live` |
+| `.venv/bin/python tools/latency_bench.py --mode forms` (ou `--mode panel`) | chronométrer les deux voies qui se passent de modèle, sans appel payant et sans `--live` : le script est le client MCP. `forms` répond aux formulaires qu'envoie `play_in_forms` et chronomètre chaque réponse jusqu'au formulaire qui en montre le verdict ; `panel` appelle `panel_action` directement. Il rapporte la médiane, le 95e centile et le maximum en millisecondes : le travail du serveur et le transport par stdio, pas le temps qu'un client met à dessiner l'écran. `--durable` fait enregistrer l'état de l'apprenant dans un dossier temporaire, comme sur la machine d'un apprenant ; `--turns` plafonne les réponses (40 par défaut) |
 | `node tools/audit-*.mjs`, `.venv/bin/python tools/audit-*.py` | audits navigateur et accessibilité des surfaces apprenant, enseignant, VS Code et Observatory ; chacun indique ses entrées en tête de fichier |
 
 ## De bout en bout et démonstrations

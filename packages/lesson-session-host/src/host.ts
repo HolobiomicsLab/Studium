@@ -1,7 +1,7 @@
 // packages/lesson-session-host/src/host.ts
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
-import { rm, rmdir } from "node:fs/promises";
+import { mkdir, rm, rmdir, writeFile } from "node:fs/promises";
 import { join, isAbsolute, relative, dirname, resolve } from "node:path";
 import {
   LessonSession, enrichEvent, bundleVersionOf,
@@ -22,10 +22,11 @@ import {
   type RenderAsset, type ReferenceRun, type RunManifest, type Course, type CourseLesson, type LessonBundle, type Scene,
 } from "@studium/lesson-bundle-schema";
 import { runResultToReferenceRun, verifyRunAttestation, type RunResult } from "./run-result.js";
+import { buildConceptMap, type ConceptMap, type ConceptMapMoment, type ConceptMapState } from "./concept-map.js";
 import type { GraphView } from "@studium/typed-graph-lens";
 import { lwgToGraphView } from "@studium/typed-graph-lens/adapters/studium";
 import { SessionRegistry, type HeldSources, type SessionEntry } from "./registry.js";
-import type { Clock } from "@studium/lesson-session";
+import type { Clock, ContestRecord } from "@studium/lesson-session";
 import { ExperimentJournal, experimentRevision, type ExperimentDocument } from "./experiment-journal.js";
 import { buildHostDeps, durableDataDir, durableScopeDir, envPseudoSecret } from "./deps.js";
 import {
@@ -33,6 +34,7 @@ import {
   type InstallSecret,
 } from "./pseudonym-secret.js";
 import { LearnerDataError, tightenFolder, withLearnerLock, readLearnerTombstone, writeLearnerTombstone } from "./learner-files.js";
+import { removeStatusFile, statusFileOwner, writeStatusFile } from "./status-file.js";
 import { loadResolvedBundle } from "./bundle-resolver.js";
 import { discoverCommunityBundleEntries, type CommunityBundleEntry } from "./community-bundles.js";
 import { authoringOf, readApproval, draftedByOf, type AuthoringBlock, type DraftedBy } from "./authoring.js";
@@ -45,9 +47,10 @@ import {
   dueForReinforcement, type ConceptMemoryState, type SelfRating,
 } from "./fsrs-memory.js";
 import { publicScene, citedSources, type CitedSource, type PublicPresentation, type PublicTransition } from "./public-scene.js";
+import { buildConceptMapRecord, type ConceptMapRecord } from "./concept-map-record.js";
 import {
   presentationMarkdown, transitionMarkdown, verdictMarkdown, recallRatedMarkdown, nothingToReviewMarkdown,
-  lessonListMarkdown, forgetMarkdown, completionSplit, completionGroupsMarkdown, type CompletionSplit, type DisplayLocale,
+  lessonListMarkdown, forgetMarkdown, conceptMapExportMarkdown, completionSplit, completionGroupsMarkdown, promptsMarkdown, type CompletionSplit, type DisplayLocale, type ScreenPrompt,
 } from "./chat-display.js";
 import { OffsetClock, checkNowMs } from "./session-clock.js";
 import { calendarDate, checkTimeZone, localTimeZone } from "./calendar.js";
@@ -63,6 +66,12 @@ import {
 } from "./review-session.js";
 import { persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceInfo } from "./persistence.js";
 import { replyToInput, checkDisplayedChoice } from "./reply-mapping.js";
+import {
+  authorVoice, helpFrom, orientationFacts, orientationFrom, recordNavigation, recordOtherAct, statusLine, voiceLine, type OrientationFacts, type Voice,
+} from "./orientation.js";
+import { COMPANION_RULES, noteAct, takeActs, type ActReceived, type CompanionBrief, type Lane } from "./companion.js";
+import { ContestRefusedError, checkScenes, claimFor, contestOutcome, type ContestClaim, type RecordContest } from "./contest.js";
+import { NOTICE_KINDS, PromptBook, promptCandidates, resumeNoticeCandidate, type PromptAttention, type PromptCandidate, type PromptRecord } from "./prompts.js";
 import type { HostResponseInput } from "./response-input-schema.js";
 
 // Text-based render-asset kinds whose payload can be served inline from a file path (so a webview /
@@ -586,12 +595,38 @@ function checkLocale(language: string): DisplayLocale {
 }
 
 const conceptsOf = (scene: Scene): readonly string[] => ("concept_refs" in scene ? scene.concept_refs : []);
+/** One line of an equation's legend: what a symbol stands for. */
+export type NotationEntry = NonNullable<RenderAsset["legend"]>[number];
+/** Normalize authored answer text for the conservative pre-retry reveal check. */
+function normalizedRevealText(text: string): string[] {
+  return text.normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+/** Whether `answer` occurs in `feedback` with Unicode alphanumeric token boundaries. */
+function containsWholeAnswer(feedback: string, answer: string): boolean {
+  const text = normalizedRevealText(feedback);
+  const needle = normalizedRevealText(answer);
+  if (needle.length === 0 || needle.length > text.length) return false;
+  for (let start = 0; start <= text.length - needle.length; start += 1) {
+    if (needle.every((token, offset) => text[start + offset] === token)) return true;
+  }
+  return false;
+}
+
+/** Whether a wrong quiz's authored feedback states one of its keyed choices. */
+function feedbackRevealsCorrectChoice(scene: Scene | undefined, verdict: Verdict): boolean {
+  if (scene?.type !== "quiz" || verdict.correct !== false || verdict.feedback === undefined) return false;
+  return scene.choices.some((choice) => choice.correct && containsWholeAnswer(verdict.feedback!, choice.text));
+}
 
 /** I-2: whether an answer leaves its scene for good — a right answer, the end of the session, or a
  * next scene that is neither the same item again (a replay, or a detour that returns to it) nor
  * another item on the same point reached by a detour (remediate_alt, or a prerequisite gate that
  * sends the learner to an unseen item of the concept just answered). */
 function leavesForGood(transition: Transition, answered: Scene): boolean {
+  // A check question (a contested concept) may come again when the lesson reaches it: right or wrong,
+  // its answer releases neither its reference nor its passages.
+  if (transition.navigation?.rule_id === "contest_check" || transition.navigation?.rule_id === "contest_check_done") return false;
   if (transition.verdict?.correct === true || transition.kind === "complete") return true;
   const next = transition.presentation.scene;
   if (next.id === answered.id || transition.navigation?.returns_to === answered.id) return false;
@@ -618,13 +653,19 @@ function releasedSources(entry: SessionEntry, transition: Transition, answered: 
 }
 
 type Verdict = NonNullable<Transition["verdict"]>;
+/** INT-STUDIUM-058: the two lines a screen's conversation text says about itself (screenLines). */
+interface ScreenLines { statusLine: string; voiceLine?: string; prompts?: ScreenPrompt[] }
 
 const hasReference = (verdict: Verdict | undefined): boolean => (verdict?.key_points?.length ?? 0) > 0
   || verdict?.model_answer !== undefined;
 
-/** A verdict without its reference, for an answer that does not leave its scene yet (I-2). */
-function withoutReference(verdict: Verdict): Verdict {
+/** A verdict without its reference, nor answer-revealing quiz feedback, before a retry (I-2). */
+function withoutReference(verdict: Verdict, answered: Scene | undefined): Verdict {
   const { key_points: _points, key_points_missing: _missing, model_answer: _model, reference_kind: _kind, ...rest } = verdict;
+  if (feedbackRevealsCorrectChoice(answered, verdict)) {
+    const { feedback: _feedback, ...safe } = rest;
+    return safe;
+  }
   return rest;
 }
 
@@ -726,14 +767,20 @@ export type ServedTransition = ServedTransitionBase & {
   review_plan?: ReviewPlan;
   /** The host's evidence-based completion groups, shared by chat and graphical clients. */
   completion?: CompletionSplit;
+  /** INT-STUDIUM-058 § 2.7: this answer was the last check question of a contest; what it showed. */
+  contest?: ContestRecord;
   /** L-11 (CC-6): the answer counts and the session moved on, but the learner's progress could not be
    * saved — why, in one line (display_markdown says so to the learner). */
   persistence_warning?: string;
+  /** The learner's concept map, at the moments it is worth showing (ConceptMap.moment); absent otherwise. */
+  concept_map?: ConceptMap;
 };
 
 export interface SessionStartResult {
   sessionId: string;
   presentation: ServedPresentation;
+  /** The lesson's concept map as the session opens; absent for a lesson with fewer than two concepts. */
+  concept_map?: ConceptMap;
   resume: SessionResume;
   /** Who wrote the lesson (also on `presentation.authoring`). */
   authoring: AuthoringBlock;
@@ -745,7 +792,17 @@ export interface SessionStartResult {
 export interface SessionStartOptions {
   nowMs?: number;
   presentationLanguage?: string;
+  /** Where the screen this call returns is shown (PromptSurface); without it, as before. */
+  promptSurface?: PromptSurface;
 }
+
+/** INT-STUDIUM-058 § 2.6: the surface a call's screen is shown on when it is not a panel — the
+ * conversation (rank 1) or forms (rank 2) — and whether the client can show forms. A call that names
+ * it has the host feed the session's prompt book when it builds that screen, so what is proposed then
+ * is said in the text it returns. A panel names none: it asks the book itself (sessionPrompts). */
+export interface PromptSurface { rank: 1 | 2; formsAvailable: boolean }
+/** The per-call option of the calls that serve a screen. */
+export interface ServeOptions { promptSurface?: PromptSurface }
 
 /** C4: what a self-rating changed — the rated concepts' next review. Never their mastery. */
 export interface RecallRating {
@@ -791,11 +848,33 @@ export interface LessonListing {
   display_markdown: string;
 }
 
+/** What contest returns: the concept and the claim taken, how many check questions follow (two, or
+ * one when the lesson has a single key-graded scene on the concept), and the first of them. */
+export interface ContestStart { concept_id: string; claim: ContestClaim; questions: number; presentation: ServedPresentation }
+
+/** The claim a concept's state takes: « unsure » of an acquired one, « known » of any other state the
+ * session has shown. An upcoming concept takes none until the session reaches it (owner's decision,
+ * 7 Nov 2026). */
+function claimOfShownState(state: ConceptMapState): ContestClaim | undefined {
+  return state === "upcoming" ? undefined : claimFor(state);
+}
+
+/** What export_concept_map returns: the record, and where it was written (null without a library). */
+export interface ConceptMapExport {
+  record: ConceptMapRecord;
+  saved_to: string | null;
+  sha256: string | null;
+  display_markdown: string;
+}
+
+/** Folder of the learner's library that holds exports of their sessions (forget reports it as kept). */
+const EXPORTS_DIR = "_exports";
+
 /** L-13: one thing forget_session erased or kept. `lessons` names lessons by title; `path` is a
  * folder or file left on disk. */
 export interface ForgetItem {
   kind: "lesson_progress" | "learner_profile" | "study_record" | "other_lessons_progress" | "library_lessons"
-    | "lesson_sources" | "pseudonym_key";
+    | "lesson_sources" | "map_exports" | "pseudonym_key";
   lessons?: string[];
   path?: string;
 }
@@ -844,6 +923,9 @@ export class SessionHost {
   /** The last write-through queued per learner: two sessions of one learner write one after the other,
    * so neither saves over the other's update (each write is a load, a merge and a save). */
   private readonly learnerWrites = new Map<string, Promise<void>>();
+  /** INT-STUDIUM-058: the session that last wrote each learner's status file from this host
+   * (publishStatus): only that session takes the file away when it closes. */
+  private readonly statusWriters = new Map<string, SessionEntry>();
   /** RFR-13: the time zone of every date this host names (calendar.ts). */
   private readonly zone: string;
   /** L-11: learners forgotten in this host, by profile pseudonym, with when (this host's sequence of
@@ -955,7 +1037,7 @@ export class SessionHost {
 
   /** Start or resume a lesson; legacy third-argument clocks and languages remain supported. */
   async create(bundleRef: string, learnerId: string = this.defaultLearnerId, options?: SessionStartOptions | number | string): Promise<SessionStartResult> {
-    const { nowMs: requestedNow, presentationLanguage } = typeof options === "number" ? { nowMs: options }
+    const { nowMs: requestedNow, presentationLanguage, promptSurface } = typeof options === "number" ? { nowMs: options }
       : typeof options === "string" ? { presentationLanguage: options } : options ?? {};
     // L-1: a session started with now_ms stamps its answers, ratings and memory on a clock anchored there.
     const nowMs = requestedNow === undefined ? undefined : checkNowMs(requestedNow);
@@ -1006,21 +1088,31 @@ export class SessionHost {
       const session = new LessonSession(bundle, deps, initial, learnerId, completed);
       const entry = this.newEntry({
         session, deps, bundle, bundleRef, baseDir: resolved.baseDir, profilePseudonym, authoring, kind: "lesson",
-        memory: initial.concept_memory ?? {}, profileSeen: profile !== null,
+        memory: initial.concept_memory ?? {}, profileSeen: profile !== null, lessonSha256: resolved.sha256 ?? null,
         ...(normalizedPresentationLanguage ? { presentationLanguage: normalizedPresentationLanguage } : {}),
         ...(scopeDir ? { scopeDir } : {}),
         ...(resolved.minutesPerDay !== null ? { minutesPerDay: resolved.minutesPerDay } : {}),
       });
+      entry.carriedMemory = structuredClone(profile?.concept_memory ?? {});
       const started = await session.start();
       const sessionId = randomUUID();
       this.registry.create(sessionId, entry);
       this.experiments.set(sessionId, new ExperimentJournal(experimentRevision(bundle), journalDirectory));
-      const presentation = this.served(entry, started);
-      const resume = resumeFor(bundle, initial, profile, presentation.scene.id);
+      const resume = resumeFor(bundle, initial, profile, started.scene.id);
+      // Taken up again after a close or a server restart: the consented stream says why, and the
+      // learner is told where they are (fed before `served`, so the conversation text says it too).
+      if (resume.kind === "resumed") {
+        this.emitSessionEvent(entry, { type: "resume", cause: "restart" });
+        this.noticeResume(entry, started);
+      }
+      const presentation = this.served(entry, started, this.screenLines(entry, started, promptSurface));
+      await this.publishStatus(entry);
       const record = resume.kind === "completed" ? await this.studyStore.load(profilePseudonym) : null;
+      const conceptMap = this.conceptMapOf(entry, "start");
       return {
         sessionId,
         presentation,
+        ...(conceptMap ? { concept_map: conceptMap } : {}),
         resume,
         authoring,
         persistence: this.persistence(),
@@ -1032,7 +1124,7 @@ export class SessionHost {
   /** A registry entry with the per-session bookkeeping the host keeps beside the engine. */
   private newEntry(
     fields: Omit<SessionEntry,
-      "assetCache" | "engineMemory" | "selfRated" | "moved" | "responses" | "conceptStatesAtStart" | "withheldSources"
+      "assetCache" | "carriedMemory" | "engineMemory" | "selfRated" | "moved" | "responses" | "conceptStatesAtStart" | "withheldSources"
       | "openedAt" | "keyedBy" | "erased" | "learnerTombstone">,
   ): SessionEntry {
     const states = fields.session.getState().concept_states; // before start(): the initial state
@@ -1041,6 +1133,7 @@ export class SessionHost {
     return {
       ...fields,
       memory: structuredClone(fields.memory),
+      carriedMemory: {},
       engineMemory: structuredClone(fields.memory),
       assetCache: new Map(), selfRated: new Set(), moved: new Set(), responses: 0, withheldSources: [],
       conceptStatesAtStart: Object.fromEntries(Object.entries(states).map(([id, cs]) => [id, JSON.stringify(cs)])),
@@ -1062,7 +1155,7 @@ export class SessionHost {
    * language; by default the learner's last lesson's, else the first lesson reviewed's. */
   async startReview(
     learnerId: string = this.defaultLearnerId,
-    opts: { maxItems?: number; nowMs?: number; presentationLanguage?: string; language?: DisplayLocale } = {},
+    opts: { maxItems?: number; nowMs?: number; presentationLanguage?: string; language?: DisplayLocale; promptSurface?: PromptSurface } = {},
   ): Promise<ReviewStartResult> {
     const nowMs = this.nowOr(opts.nowMs);
     const requestedLanguage = opts.language === undefined ? undefined : checkLocale(opts.language);
@@ -1116,7 +1209,8 @@ export class SessionHost {
       const sessionId = randomUUID();
       this.registry.create(sessionId, entry);
       this.experiments.set(sessionId, new ExperimentJournal(experimentRevision(bundle), undefined));
-      const presentation = this.served(entry, started);
+      const presentation = this.served(entry, started, this.screenLines(entry, started, opts.promptSurface));
+      await this.publishStatus(entry);
       const items = bundle.scenes.map((scene): ReviewItem => {
         const origin = built.origins[scene.id]!;
         const conceptId = scene.concept_refs[0] ?? "";
@@ -1358,18 +1452,174 @@ export class SessionHost {
   }
 
   /** A presentation as served: the authoring block and its chat text. The first screen of a session —
-   * before any answer — carries the authoring notice, and a warning when nothing is durable. */
-  private served(entry: SessionEntry, presentation: Presentation): ServedPresentation {
+   * before any answer — carries the authoring notice, and a warning when nothing is durable. Every
+   * screen carries its `lines`: the voice where it is due, the status line. */
+  private served(
+    entry: SessionEntry, presentation: Presentation, lines: ScreenLines = this.screenLines(entry, presentation),
+  ): ServedPresentation {
     const withAuthoring = {
       ...presentation, authoring: entry.authoring,
       learnerSnapshot: { ...presentation.learnerSnapshot, conceptMastery: this.publicMastery(entry) },
     };
+    const firstScreen = entry.responses === 0;
+    const plan = firstScreen ? this.conceptMapOf(entry, "start")?.display_markdown : undefined;
     return {
       ...withAuthoring,
       display_markdown: presentationMarkdown(withAuthoring, {
-        firstScreen: entry.responses === 0, notDurable: this.dataDir === null, review: entry.kind === "review",
+        firstScreen, notDurable: this.dataDir === null, review: entry.kind === "review",
+        ...(plan ? { conceptMap: plan } : {}), ...lines,
       }),
     };
+  }
+
+  /** INT-STUDIUM-058: what the conversation text of the session's current screen says about itself.
+   * The status line, always. The lesson's voice on the first screen, unless a notice there already
+   * says who wrote the lesson or that it changed since its approval; on every later screen while the
+   * lesson was drafted by an AI and no teacher read this version. A review has no such line: it mixes
+   * lessons, and one line would speak for items it does not describe. With a `surface` (the
+   * conversation or forms), the session's book is fed first, so the proposals of this moment are said
+   * here, after any notice already open (a resume notice). */
+  private screenLines(entry: SessionEntry, presentation: Presentation, surface?: PromptSurface): ScreenLines {
+    const locale: DisplayLocale = presentation.locale === "en" ? "en" : "fr";
+    if (surface) this.feedPrompts(entry, { locale, surfaceRank: surface.rank, formsAvailable: surface.formsAvailable });
+    const voice = this.authorVoiceOf(entry);
+    const noticed = !!entry.authoring.notice || (entry.authoring.approval.recorded && !entry.authoring.approval.matches);
+    const unreviewedAi = voice.kind === "author" && !voice.reviewed && voice.drafted_by === "agent";
+    const voiced = entry.kind !== "review" && (entry.responses === 0 ? !noticed : unreviewedAi);
+    const orientation = orientationFrom(this.orientationFactsOf(entry));
+    const prompts = this.promptsToSay(entry, presentation.scene.id, orientation.waiting);
+    return {
+      statusLine: statusLine(orientation, entry.bundle.metadata.title, locale),
+      ...(voiced ? { voiceLine: voiceLine(voice, locale) } : {}),
+      ...(prompts.length ? { prompts } : {}),
+    };
+  }
+
+  /** A lesson taken up again says so on its first screen: a resume notice in the session's book, bound
+   * to that scene, with the step the status line shows. Fed at start, not by the surface that asks,
+   * because the conversation text of start_lesson_session is the first place it can be said; a panel
+   * asking afterwards finds it open. Logged as shown there, in the conversation (rank 1). */
+  private noticeResume(entry: SessionEntry, presentation: Presentation): void {
+    const book = (entry.prompts ??= new PromptBook());
+    const sceneId = presentation.scene.id;
+    entry.promptScene = sceneId;
+    const orientation = orientationFrom(this.orientationFactsOf(entry));
+    const locale = presentation.locale === "en" ? "en" : "fr";
+    const shown = book.emit([resumeNoticeCandidate(orientation.step, locale, sceneId)], { waiting: orientation.waiting, sceneId });
+    for (const prompt of shown) {
+      this.emitSessionEvent(entry, { type: "prompt_shown", kind: prompt.kind, attention: book.attention, surface_rank: 1, scene_id: sceneId });
+    }
+  }
+
+  /** INT-STUDIUM-058 § 2.6: the open prompts the conversation text of this screen says. The text is
+   * linear, so each prompt is said once, on the first screen after it was made; it stays open to an
+   * answer. While an answer or a self-rating is owed a proposal waits for the next pause; a notice is
+   * said at once. Nothing is proposed here: the book is fed by the surface that asks (sessionPrompts),
+   * or by the call that serves this screen (screenLines). `sceneId` is null once the lesson is over. */
+  private promptsToSay(entry: SessionEntry, sceneId: string | null, waiting: string): ScreenPrompt[] {
+    const book = entry.prompts;
+    if (!book) return [];
+    if (entry.promptScene !== undefined && entry.promptScene !== sceneId) { this.emitPromptOutcomes(entry, book.sceneChanged()); entry.promptScene = sceneId; }
+    const busy = waiting === "answer" || waiting === "self_rating";
+    const said = (entry.promptsSaid ??= new Set<string>());
+    const now = book.open().filter((prompt) => !said.has(prompt.id) && (!busy || NOTICE_KINDS.has(prompt.kind)));
+    for (const prompt of now) said.add(prompt.id);
+    return now.map((prompt) => ({ id: prompt.id, kind: prompt.kind, reason: prompt.reason, asks: !NOTICE_KINDS.has(prompt.kind) }));
+  }
+
+  /** The end of a lesson has no next screen: with a surface, the book is fed at the lesson's end and
+   * what it proposes is said after the summary (transitionMarkdown). */
+  private endLines(entry: SessionEntry, surface: PromptSurface): { prompts?: ScreenPrompt[] } {
+    const locale = displayLocale(entry.bundle.metadata.language);
+    this.feedPrompts(entry, { locale, surfaceRank: surface.rank, formsAvailable: surface.formsAvailable });
+    const prompts = this.promptsToSay(entry, null, "nothing");
+    return prompts.length ? { prompts } : {};
+  }
+
+  /** The learner's concept map now (concept-map.ts), drawn from what the session served and how it
+   * was answered. null for a review session and for a lesson with fewer than two concepts. */
+  conceptMap(id: string, moment: ConceptMapMoment = "on_request"): ConceptMap | null {
+    return this.conceptMapOf(this.require(id), moment);
+  }
+
+  /** The exportable record behind the concept map (concept-map-record.ts): the map, the steps with who
+   * assessed each answer and how the session routed, and what each scene rests on. No learner
+   * identifier, none of the learner's words. null when the session has no map. */
+  conceptMapRecord(id: string): ConceptMapRecord | null {
+    const entry = this.require(id);
+    const map = this.conceptMapOf(entry, "on_request");
+    if (!map) return null;
+    return buildConceptMapRecord({
+      bundle: entry.bundle, map, path: entry.session.learnerPath(), authoring: entry.authoring,
+      answers: entry.session.answerFacts(), timeZone: this.zone, contest: this.contestStateOf(entry, map),
+      currentSceneId: entry.completed ? null : entry.session.currentPresentation().scene.id,
+      withheldSceneIds: new Set(entry.withheldSources.map((held) => held.sceneId)),
+      completed: entry.completed === true, lessonSha256: entry.lessonSha256 ?? null,
+      generatedAt: new Date(this.sessionNow(entry)).toISOString(),
+    });
+  }
+
+  /** Export the record, and write it under the learner's library (`_exports/concept-maps/`) when the
+   * host has one, so that no harness has to copy it by hand. `sha256` is the digest of the bytes
+   * written. forget_session reports that folder among what stays on disk. */
+  async exportConceptMap(id: string): Promise<ConceptMapExport | null> {
+    const record = this.conceptMapRecord(id);
+    if (!record) return null;
+    const locale = displayLocale(record.lesson.language);
+    const library = this.opts.libraryRoot;
+    if (!library) return { record, saved_to: null, sha256: null, display_markdown: conceptMapExportMarkdown(null, locale) };
+    const dir = join(library, EXPORTS_DIR, "concept-maps");
+    await mkdir(dir, { recursive: true });
+    const stamp = record.generated_at.replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+    const base = `${safeSegment(record.lesson.bundle_id)}-${stamp}`;
+    let path = join(dir, `${base}.json`);
+    for (let n = 2; existsSync(path); n += 1) path = join(dir, `${base}-${n}.json`);
+    const bytes = Buffer.from(`${JSON.stringify(record, null, 2)}\n`, "utf-8");
+    await writeFile(path, bytes, { flag: "wx" });
+    return {
+      record, saved_to: path, sha256: createHash("sha256").update(bytes).digest("hex"),
+      display_markdown: conceptMapExportMarkdown(path, locale),
+    };
+  }
+
+  private conceptMapOf(entry: SessionEntry, moment: ConceptMapMoment): ConceptMap | null {
+    if (entry.kind !== "lesson" || entry.bundle.concepts.length < 2) return null;
+    return buildConceptMap({
+      concepts: entry.bundle.concepts,
+      scenes: entry.bundle.scenes.map((scene) => ({
+        id: scene.id, type: scene.type, concept_refs: "concept_refs" in scene ? scene.concept_refs : [],
+      })),
+      lwg: entry.bundle.learning_workflow_graph ?? null,
+      path: entry.session.learnerPath(),
+      currentSceneId: entry.completed ? null : entry.session.currentPresentation().scene.id,
+      moment, locale: displayLocale(entry.bundle.metadata.language),
+    });
+  }
+
+  /** Whether this transition is a moment to show the concept map, and which. Not on every question:
+   * a prerequisite detour and the return from it, a scene that draws on several concepts, the end of
+   * the lesson (the whole map); the first scene of a concept (one position line). */
+  private conceptMapMoment(entry: SessionEntry, transition: Transition): ConceptMapMoment | null {
+    if (entry.kind !== "lesson" || entry.bundle.concepts.length < 2) return null;
+    const primaryOf = (sceneId: string): string | undefined => {
+      const scene = entry.bundle.scenes.find((s) => s.id === sceneId);
+      return scene && "concept_refs" in scene ? scene.concept_refs[0] : undefined;
+    };
+    const seen = (entry.conceptMapSeen ??= {
+      // Everything already served counts as announced, so a resumed lesson does not re-announce it.
+      concepts: new Set(entry.session.learnerPath().steps.map((step) => primaryOf(step.scene_id)).filter((c): c is string => c !== undefined)),
+      syntheses: new Set(), onDetour: false,
+    });
+    if (transition.kind === "complete") return "complete";
+    const next = transition.presentation.scene;
+    const refs = "concept_refs" in next ? next.concept_refs : [];
+    const opens = refs[0] !== undefined && !seen.concepts.has(refs[0]);
+    if (refs[0] !== undefined) seen.concepts.add(refs[0]);
+    const navigation = transition.navigation?.kind;
+    if (navigation === "remediate") { seen.onDetour = true; return "detour"; }
+    if (seen.onDetour && navigation !== "replay" && navigation !== "remediate_alt") { seen.onDetour = false; return "detour_return"; }
+    if (refs.length >= 2 && !seen.syntheses.has(next.id)) { seen.syntheses.add(next.id); return "synthesis"; }
+    return opens ? "new_concept" : null;
   }
 
   /** Every lesson concept, with null until a graded answer actually measured it. */
@@ -1398,26 +1648,32 @@ export class SessionHost {
    * neither the scene's passages, kept on the entry and released with the answer that leaves it
    * (releasedSources), nor its reference (key points, model answer), nor a request to rate recall
    * against that reference: the retried item's own verdict brings its reference. */
-  private servedTransition(entry: SessionEntry, transition: Transition, warning?: string): ServedTransition {
+  private servedTransition(entry: SessionEntry, transition: Transition, warning?: string, surface?: PromptSurface): ServedTransition {
     const sceneTitle = (sceneId: string) => entry.bundle.scenes.find((s) => s.id === sceneId)?.title;
     const conceptLabel = (conceptId: string) => entry.bundle.concepts.find((c) => c.id === conceptId)?.title ?? conceptId;
+    const lines = "presentation" in transition ? this.screenLines(entry, transition.presentation, surface) : undefined;
+    const ending = !lines && surface ? this.endLines(entry, surface) : undefined;
     const ctx = {
       sceneTitle, conceptLabel, locale: displayLocale(entry.bundle.metadata.language), review: entry.kind === "review",
       timeZone: this.zone,
       authoring: entry.authoring,
+      ...lines, ...ending,
     };
     const answered = transition.verdict ? entry.bundle.scenes.find((s) => s.id === transition.verdict?.scene_id) : undefined;
     const leaving = answered === undefined || leavesForGood(transition, answered);
     const sources = transition.verdict ? releasedSources(entry, transition, answered, leaving) : [];
-    const verdict = transition.verdict && !leaving ? withoutReference(transition.verdict) : transition.verdict;
+    const verdict = transition.verdict && !leaving ? withoutReference(transition.verdict, answered) : transition.verdict;
     const selfRating = transition.self_rating && verdict && (leaving || !hasReference(transition.verdict))
       ? { ...transition.self_rating, scene_id: verdict.scene_id } : undefined;
     const reviewPlan = transition.kind === "complete" ? this.reviewPlanOf(entry) : undefined;
-    const presentation = "presentation" in transition ? this.served(entry, transition.presentation) : undefined;
+    const presentation = "presentation" in transition ? this.served(entry, transition.presentation, lines) : undefined;
     const { self_rating: _engineRequest, ...engineTransition } = transition;
     const summary = transition.kind === "complete" ? { ...transition.summary, mastery: this.publicMastery(entry) } : undefined;
+    const mapMoment = this.conceptMapMoment(entry, transition);
+    const conceptMap = mapMoment ? this.conceptMapOf(entry, mapMoment) : null;
     const base = {
       ...engineTransition,
+      ...(conceptMap ? { concept_map: conceptMap } : {}),
       ...(summary ? { summary, completion: completionSplit(summary) } : {}),
       ...(verdict ? { verdict } : {}),
       ...(presentation ? { presentation } : {}),
@@ -1426,6 +1682,7 @@ export class SessionHost {
       ...(warning ? { persistence_warning: warning } : {}),
     } as PublicTransition & {
       self_rating?: SelfRatingRequest & { scene_id: string }; review_plan?: ReviewPlan; persistence_warning?: string; completion?: CompletionSplit;
+      concept_map?: ConceptMap;
     };
     return {
       ...base,
@@ -1449,9 +1706,138 @@ export class SessionHost {
     };
   }
 
-  currentPresentation(id: string): ServedPresentation {
+  currentPresentation(id: string, opts: ServeOptions = {}): ServedPresentation {
     const entry = this.require(id);
-    return this.served(entry, entry.session.currentPresentation());
+    const presentation = entry.session.currentPresentation();
+    return this.served(entry, presentation, this.screenLines(entry, presentation, opts.promptSurface));
+  }
+  /** INT-STUDIUM-058: the facts behind the learner's orientation (orientation.ts) — the screen's
+   * position, its concept, the durations left, what the session waits for, how it last routed. Ids,
+   * types, titles and durations only: no scene text, key, hint or reveal. `nowMs` sets the moment
+   * reviews are due at. */
+  orientationFacts(id: string, nowMs?: number): OrientationFacts {
+    return this.orientationFactsOf(this.require(id), nowMs);
+  }
+  /** INT-STUDIUM-058 § 2.6: what the session proposes to the learner now. The host reads the moment
+   * (the first screen, a pause, the end of the lesson) and what the lesson waits for, puts the
+   * triggers' proposals to the session's book (prompts.ts) and returns what is open: the book holds a
+   * proposal back while an answer is owed, makes it once, and stops at the budget of `attention`.
+   * A proposal bound to a scene that went by is counted ignored. A review session is proposed no
+   * review. `surfaceRank` and `formsAvailable` say where the lesson is played (a panel by default);
+   * `nowMs` sets the moment reviews are due at. */
+  sessionPrompts(id: string, ask: {
+    locale: "fr" | "en"; attention?: PromptAttention; surfaceRank?: 1 | 2 | 3; formsAvailable?: boolean;
+    breakAfterMinutes?: number | null; hasNextLesson?: boolean; nowMs?: number;
+  }): PromptCandidate[] {
+    return this.feedPrompts(this.require(id), ask);
+  }
+  /** The same from the entry: a screen being built feeds the book before its session is looked up. */
+  private feedPrompts(entry: SessionEntry, ask: Parameters<SessionHost["sessionPrompts"]>[1]): PromptCandidate[] {
+    const book = (entry.prompts ??= new PromptBook(ask.attention ?? "normal"));
+    if (ask.attention) book.setAttention(ask.attention);
+    const facts = this.orientationFactsOf(entry, ask.nowMs);
+    const sceneId = facts.completed ? null : facts.scene.id;
+    if (entry.promptScene !== undefined && entry.promptScene !== sceneId) this.emitPromptOutcomes(entry, book.sceneChanged());
+    entry.promptScene = sceneId;
+    const moment = facts.completed ? "lesson_end" : entry.responses === 0 ? "session_start" : "pause";
+    const shown = book.emit(promptCandidates({
+      moment, locale: ask.locale,
+      reviewsDue: entry.kind === "review" ? 0 : facts.reviews_due,
+      // No setting holds the length of session the learner wants yet: without one, no break is proposed.
+      minutesInSession: 0, breakAfterMinutes: ask.breakAfterMinutes ?? null,
+      surfaceRank: ask.surfaceRank ?? 3, formsAvailable: ask.formsAvailable ?? false,
+      hasMap: entry.kind === "lesson" && entry.bundle.concepts.length >= 2, hasNextLesson: ask.hasNextLesson ?? false,
+    }), { waiting: orientationFrom(facts).waiting, sceneId });
+    for (const prompt of shown) {
+      this.emitSessionEvent(entry, {
+        type: "prompt_shown", kind: prompt.kind, attention: book.attention, surface_rank: ask.surfaceRank ?? 3,
+        ...(sceneId ? { scene_id: sceneId } : {}),
+      });
+    }
+    return book.open();
+  }
+  /** The learner answered a proposal of this session: accepted or dismissed. Refused in one line when
+   * no such proposal is open (PromptRefusedError). */
+  settlePrompt(id: string, promptId: string, outcome: "accepted" | "dismissed"): PromptRecord {
+    const entry = this.require(id);
+    const record = (entry.prompts ??= new PromptBook()).settle(promptId, outcome);
+    this.emitPromptOutcomes(entry, [record]);
+    return record;
+  }
+  /** INT-STUDIUM-058 § 2.10: what became of proposals, for the consented stream. Labels and
+   * references only: the proposal's words are never sent. */
+  private emitPromptOutcomes(entry: SessionEntry, records: readonly PromptRecord[]): void {
+    for (const record of records) {
+      if (NOTICE_KINDS.has(record.kind)) continue;
+      this.emitSessionEvent(entry, {
+        type: "prompt_outcome", kind: record.kind as "review_due" | "break" | "next_lesson" | "map_offer" | "forms_offer",
+        outcome: record.outcome, ...(record.scene_id ? { scene_id: record.scene_id } : {}),
+      });
+    }
+  }
+  /** INT-STUDIUM-058 § 2.10 (F14): run one act of the learner and log it, whatever surface carried it.
+   * The one place an `interaction` is written, so that no surface forgets it: callers name the act and
+   * wrap the host call. `server_ms` is the time `run` took (monotonic clock); `scene_id` the scene on
+   * screen when the act came in. An act that fails is not settled and logs nothing. The event goes to
+   * the session the act came in on, even when the act closed it (end) or moved the learner to another
+   * one (a restart, a review); a session whose learner was erased logs nothing. */
+  async settleAct<T>(id: string, received: ActReceived, run: () => Promise<T> | T): Promise<T> {
+    const entry = this.registry.get(id);
+    if (!entry) return run();
+    const sceneId = received.act === "end" || received.act === "pickCourse" ? undefined : this.sceneOnScreen(entry);
+    const started = performance.now();
+    const result = await run();
+    const serverMs = Math.round((performance.now() - started) * 10) / 10;
+    if (entry.erased || this.erasedIds.has(id)) return result;
+    const closed = this.registry.get(id) !== entry;
+    if (closed && this.erasedUnder(entry)) return result;
+    if (received.help === "explain" && sceneId) this.emitSessionEvent(entry, { type: "help_used", rung: "explain", scene_id: sceneId });
+    this.emitSessionEvent(entry, {
+      type: "interaction", act: received.act, lane: received.lane, surface_rank: received.surfaceRank, server_ms: serverMs,
+      ...(received.clientMs === undefined ? {} : { client_ms: received.clientMs }), ...(sceneId ? { scene_id: sceneId } : {}),
+    });
+    // A closed session flushed its sink already: what came after its close is written now.
+    if (closed) { try { await entry.deps.telemetry.flush(); } catch { /* a log that cannot be written does not undo the act */ } }
+    return result;
+  }
+  /** The surface a session is played on was renegotiated to another rank: the lesson is taken up there. */
+  surfaceChanged(id: string): void {
+    const entry = this.registry.get(id);
+    if (entry && !entry.erased) this.emitSessionEvent(entry, { type: "resume", cause: "surface_change" });
+  }
+  /** The scene on screen, or none once the lesson is complete. */
+  private sceneOnScreen(entry: SessionEntry): string | undefined {
+    if (entry.completed) return undefined;
+    try { return entry.session.currentPresentation().scene.id; } catch { return undefined; }
+  }
+  /** An event the host itself adds to a session's telemetry, under the session's own pseudonym. The
+   * sink decides whether anything is kept: without the learner's consent it keeps nothing. */
+  private emitSessionEvent(entry: SessionEntry, partial: Parameters<typeof enrichEvent>[0]): void {
+    entry.deps.telemetry.emit(enrichEvent(partial, {
+      learnerPseudonym: entry.session.getPseudonym(), lessonId: entry.session.getState().lesson_id, bundleVersion: bundleVersionOf(entry.bundle),
+    }, entry.deps.clock, entry.deps.idGen));
+  }
+  /** What became of each proposal of this session answered or gone by, in the order they were made. */
+  promptRecords(id: string): PromptRecord[] {
+    return this.require(id).prompts?.records() ?? [];
+  }
+  /** The same from the entry: a first screen is served before its session can be looked up by id. */
+  private orientationFactsOf(entry: SessionEntry, nowMs?: number): OrientationFacts {
+    const run = entry.completed ? null : this.runStatusOf(entry);
+    return orientationFacts(entry, {
+      conceptMap: this.conceptMapOf(entry, "on_request"),
+      reviewsDue: this.reviewsDueOf(entry, nowMs),
+      runPending: run !== null && run.run_manifest !== null && !run.learner_run_recorded,
+    });
+  }
+  /** INT-STUDIUM-058: the voice of this session's lesson — who signs it, whether it was reviewed, who
+   * drafted it (orientation.ts authorVoice). */
+  authorVoice(id: string): Voice { return this.authorVoiceOf(this.require(id)); }
+  /** Nobody signs a review as a whole: its `validated_by` is a placeholder (review-session.ts), never a
+   * name. */
+  private authorVoiceOf(entry: SessionEntry): Voice {
+    const voice = authorVoice(entry.authoring, entry.bundle.validated_by);
+    return entry.kind === "review" && voice.kind === "author" ? { ...voice, name: null } : voice;
   }
   /** Who wrote this session's lesson, whether a teacher validated it, its approval record and whether
    * this host has a judge model (see authoringOf). Read once, when the session started. */
@@ -1505,6 +1891,33 @@ export class SessionHost {
     if ((scene as { run_manifest?: unknown }).run_manifest) return assets.filter((a) => a.kind !== "executed_result");
     return assets;
   }
+  /** The notation the lesson has already given for the current scene's concepts: the legends of the
+   * equations carried by the scenes up to this one (in lesson order) that share a concept with it,
+   * each symbol once, first meaning kept. Public material only — legends travel with the public scene
+   * — so a harness may show it at any time, and it is not a metered hint (no M5 discount). Empty when
+   * the scene names no concept or no such equation has a legend. */
+  sceneNotation(id: string): NotationEntry[] {
+    const e = this.require(id);
+    const { scene, index } = e.session.currentPresentation();
+    const concepts = new Set(conceptsOf(scene));
+    if (concepts.size === 0) return [];
+    const upTo = e.bundle.scenes.findIndex((s) => s.id === scene.id);
+    const scenes = e.bundle.scenes.slice(0, (upTo >= 0 ? upTo : index) + 1);
+    const seen = new Set<string>();
+    const notation: NotationEntry[] = [];
+    for (const earlier of scenes) {
+      if (!conceptsOf(earlier).some((c) => concepts.has(c))) continue;
+      for (const asset of sceneRenderAssets(earlier)) {
+        if (asset.kind !== "equation_latex") continue;
+        for (const { symbol, meaning } of asset.legend ?? []) {
+          if (seen.has(symbol)) continue;
+          seen.add(symbol);
+          notation.push({ symbol, meaning });
+        }
+      }
+    }
+    return notation;
+  }
   /** Record a learner-time capsule run (the learner's OWN executed result) on the session, keyed by
    * task_card_id, so a later spot_the_flaw with `reference_from_run` grounds on it. Called after the
    * host ingests the operator's run_result.json (run protocol) — closes the operation→judgment loop. */
@@ -1524,8 +1937,11 @@ export class SessionHost {
    * current scene's task card (a revisit after a graph detour). When it does, a harness may re-run or
    * simply `submit_response {kind:"ack"}`; nobody has to re-provision an environment to move on. */
   runStatus(id: string): { run_manifest: RunManifest | null; learner_run_recorded: boolean; landmark: string | null } {
-    const scene = this.require(id).session.currentPresentation().scene as { run_manifest?: RunManifest; task_card_id?: string };
-    const run = scene.run_manifest && scene.task_card_id ? this.require(id).session.learnerRunFor(scene.task_card_id) : null;
+    return this.runStatusOf(this.require(id));
+  }
+  private runStatusOf(entry: SessionEntry): { run_manifest: RunManifest | null; learner_run_recorded: boolean; landmark: string | null } {
+    const scene = entry.session.currentPresentation().scene as { run_manifest?: RunManifest; task_card_id?: string };
+    const run = scene.run_manifest && scene.task_card_id ? entry.session.learnerRunFor(scene.task_card_id) : null;
     return { run_manifest: scene.run_manifest ?? null, learner_run_recorded: !!run, landmark: run?.landmark ?? null };
   }
 
@@ -1536,7 +1952,7 @@ export class SessionHost {
    * reference_from_run judgment grounds on it) and advances via an ack; a non-completed / failed-checks
    * run does NOT advance. Guards a non-run scene (no run_manifest) so it never advances an arbitrary scene. */
   async ingestRunResult(
-    id: string, result: RunResult,
+    id: string, result: RunResult, opts: ServeOptions = {},
   ): Promise<{ status: "ran" | "run_incomplete" | "run_failed_checks" | "not_a_run_scene"; transition: ServedTransition | null; learnerRunRecorded: boolean; attested: boolean; attestationReasons: string[] }> {
     const scene = this.require(id).session.currentPresentation().scene as { run_manifest?: RunManifest; task_card_id?: string };
     if (!scene.run_manifest) return { status: "not_a_run_scene", transition: null, learnerRunRecorded: false, attested: false, attestationReasons: [] };
@@ -1555,7 +1971,7 @@ export class SessionHost {
       // (server-side) so the planted flaws match THEIR numbers — sound for a stochastic capsule too.
       if (this.opts.judgmentGenerator) await this.regenerateDownstreamJudgments(id, scene.task_card_id, learnerRun);
     }
-    const transition = await this.applyResponse(id, { kind: "ack" } as ResponseInput);
+    const transition = await this.applyResponse(id, { kind: "ack" } as ResponseInput, opts.promptSurface);
     return { status: "ran", transition, learnerRunRecorded, attested: attestation.trusted, attestationReasons: attestation.reasons };
   }
 
@@ -1580,7 +1996,7 @@ export class SessionHost {
 
   /** Submit a response. A chat reply (`{kind: "reply", text}`) becomes the current scene's input, and a
    * quiz choice must name a displayed id — both refused in one line otherwise (reply-mapping.ts). */
-  async respond(id: string, input: HostResponseInput): Promise<ServedTransition> {
+  async respond(id: string, input: HostResponseInput, lane: Lane = "companion", opts: ServeOptions = {}): Promise<ServedTransition> {
     return this.sessionWrite(id, async (entry) => {
       const runStatus = this.runStatus(id);
       if (runStatus.run_manifest && !runStatus.learner_run_recorded) throw new RunRequiredError();
@@ -1588,8 +2004,112 @@ export class SessionHost {
       const engineInput = input.kind === "reply"
         ? replyToInput(scene, input.text, (publicScene(scene) as { deck?: Array<{ token: string }> }).deck)
         : checkDisplayedChoice(scene, input);
-      return this.applyResponseLocked(entry, engineInput);
+      const answeredCheck = entry.session.checkPending();
+      const applied = await this.applyResponseLocked(entry, engineInput, opts.promptSurface);
+      const settled = answeredCheck ? await this.settleContest(entry, applied.verdict?.correct === true) : undefined;
+      const served = settled ? { ...applied, contest: settled } : applied;
+      // INT-STUDIUM-058: the act, for the next companion brief. `lane` says who carried it: the
+      // conversation tools by default, "fast" from a panel, a pane or a form.
+      const correct = served.verdict?.correct;
+      const confidence = "confidence" in engineInput ? engineInput.confidence : undefined;
+      noteAct(entry, {
+        scene_id: scene.id, act: engineInput.kind === "ack" ? "read" : "answer", lane,
+        ...(typeof correct === "boolean" ? { correct } : {}),
+        ...(typeof confidence === "number" ? { confidence } : {}),
+      });
+      return served;
     });
+  }
+
+  /** INT-STUDIUM-058 § 2.7 (F10): the learner contests a concept — « I know it » (`known`) of a concept
+   * the map does not show as acquired, « I am not sure » (`unsure`) of an acquired one. The claim moves
+   * no mastery and skips no scene: the lesson asks check questions on that concept (contest.ts), each
+   * graded as any answer, then resumes on the scene the learner was on. Returns the first question.
+   * Refused in one line (ContestRefusedError) when the state does not take the claim, when the lesson
+   * has no key-graded question on the concept, or while another contest is under way. */
+  async contest(id: string, conceptId: string, claim: ContestClaim, lane: Lane = "companion"): Promise<ContestStart> {
+    return this.sessionWrite(id, async (entry) => {
+      if (entry.kind === "review") throw new ContestRefusedError("a review session has no concept map to contest");
+      if (entry.completed) throw new ContestRefusedError("the lesson is complete: nothing is left to check");
+      if (entry.contest || entry.session.checkPending()) throw new ContestRefusedError("check questions are already being asked: answer them first");
+      const node = this.conceptMapOf(entry, "on_request")?.nodes.find((n) => n.id === conceptId);
+      if (!node) throw new ContestRefusedError(`no concept "${conceptId}" on this session's map`);
+      const claimTaken = claimOfShownState(node.state);
+      if (claimTaken === undefined) throw new ContestRefusedError(`"${conceptId}" has not been shown yet: contest it once the session reaches it`);
+      if (claimTaken !== claim) {
+        throw new ContestRefusedError(claimTaken === "unsure"
+          ? `"${conceptId}" is acquired: the claim it takes is "unsure"`
+          : `"${conceptId}" is not acquired: the claim it takes is "known"`);
+      }
+      const current = entry.session.currentPresentation().scene.id;
+      const sceneIds = checkScenes(entry.bundle, conceptId, { currentSceneId: current, answered: this.answeredScenesOf(entry) });
+      if (sceneIds.length === 0) throw new ContestRefusedError(`this lesson has no question graded against a key on "${conceptId}"`);
+      const first = entry.session.insertChecks(sceneIds);
+      entry.contest = { concept_id: conceptId, claim, scene_ids: sceneIds, results: [] };
+      noteAct(entry, { scene_id: current, act: "contest", lane });
+      recordOtherAct(entry);
+      await this.publishStatus(entry);
+      return { concept_id: conceptId, claim, questions: sceneIds.length, presentation: this.served(entry, first) };
+    });
+  }
+
+  private answeredScenesOf(entry: SessionEntry): Set<string> {
+    return new Set(entry.session.learnerPath().steps.filter((step) => step.answered).map((step) => step.scene_id));
+  }
+
+  /** One check answer of the contest under way; once the last is in, the contest is settled: kept on
+   * the session, written to the event log (`concept_contested`) and returned. A log that cannot be
+   * written does not undo the answer. */
+  private async settleContest(entry: SessionEntry, right: boolean): Promise<ContestRecord | undefined> {
+    const pending = entry.contest;
+    if (!pending) return undefined;
+    pending.results.push(right);
+    if (pending.results.length < pending.scene_ids.length) return undefined;
+    const record: ContestRecord = { ...pending, outcome: contestOutcome(pending.claim, pending.results) };
+    delete entry.contest;
+    (entry.contests ??= []).push(record);
+    try { await entry.session.recordContest(record); } catch { /* the outcome stays on the session and in the answer served */ }
+    // Beside the event log's concept_contested: the consented stream gets labels and a count only.
+    this.emitSessionEvent(entry, {
+      type: "contest", concept_id: record.concept_id, claim: record.claim, outcome: record.outcome, questions: record.scene_ids.length,
+    });
+    return record;
+  }
+
+  /** The contests of the session for the concept-map record: the one under way, what can be contested
+   * now, those settled. */
+  private contestStateOf(entry: SessionEntry, map: ConceptMap): RecordContest {
+    const pending = entry.contest;
+    const open = !pending && !entry.completed;
+    const session = { currentSceneId: entry.completed ? null : entry.session.currentPresentation().scene.id, answered: this.answeredScenesOf(entry) };
+    return {
+      pending: pending ? { concept_id: pending.concept_id, claim: pending.claim, asked: pending.scene_ids.length, answered: pending.results.length } : null,
+      questions: Object.fromEntries(map.nodes.map((node) => [node.id, open ? checkScenes(entry.bundle, node.id, session).length : 0])),
+      history: (entry.contests ?? []).map((record) => ({ ...record, scene_ids: [...record.scene_ids], results: [...record.results] })),
+    };
+  }
+
+  /** INT-STUDIUM-058 § 2.5: where the learner is and what they did since the last brief, for an agent
+   * the learner turns to after acts on the fast lane (companion.ts). Reading it moves the session's
+   * cursor: the next brief lists what came after, unless `peek`. No scene text, key, hint or reference. */
+  companionBrief(id: string, opts: { peek?: boolean } = {}): CompanionBrief {
+    const entry = this.require(id);
+    this.assertNotErased(id, entry);
+    const locale = displayLocale(entry.bundle.metadata.language);
+    const facts = this.orientationFactsOf(entry);
+    const orientation = orientationFrom(facts);
+    const scene = entry.session.currentPresentation().scene;
+    return {
+      session_id: id,
+      ...takeActs(entry, opts.peek === true),
+      status_line: statusLine(orientation, entry.bundle.metadata.title, locale),
+      where: {
+        lesson_title: entry.bundle.metadata.title, step: orientation.step,
+        scene: { id: scene.id, type: scene.type, title: scene.title }, waiting: orientation.waiting,
+      },
+      help: helpFrom(facts, locale),
+      rules: [...COMPANION_RULES[locale]],
+    };
   }
 
   /** Apply a validated response; run ingestion uses this after its own gate.
@@ -1597,14 +2117,15 @@ export class SessionHost {
    * L-11 (CC-6): once the engine recorded the answer the session has moved on, so a write-through that
    * fails (an unreadable profile, a full disk, a folder it cannot write) does not lose the transition:
    * it is served with `persistence_warning`, and a retry is never graded against the next scene. */
-  private async applyResponse(id: string, input: ResponseInput): Promise<ServedTransition> {
-    return this.sessionWrite(id, (entry) => this.applyResponseLocked(entry, input));
+  private async applyResponse(id: string, input: ResponseInput, surface?: PromptSurface): Promise<ServedTransition> {
+    return this.sessionWrite(id, (entry) => this.applyResponseLocked(entry, input, surface));
   }
 
   /** Apply and persist while holding the learner lock, so forget also waits for engine writes. */
-  private async applyResponseLocked(e: SessionEntry, input: ResponseInput): Promise<ServedTransition> {
+  private async applyResponseLocked(e: SessionEntry, input: ResponseInput, surface?: PromptSurface): Promise<ServedTransition> {
     const transition = await e.session.respond(input);
     e.responses += 1;
+    recordNavigation(e, transition);
     const moved = this.carryEngineMemory(e, e.session.getState());
     const complete = transition.kind === "complete";
     if (complete) e.completed = true;
@@ -1617,7 +2138,36 @@ export class SessionHost {
     } catch (error) {
       warning = persistenceWarning(error);
     }
-    return this.servedTransition(e, transition, warning);
+    await this.publishStatus(e);
+    return this.servedTransition(e, transition, warning, surface);
+  }
+
+  /** INT-STUDIUM-058 (N8): in durable mode, say where this session stands in the learner's folder, for
+   * a harness status line (status-file.ts) — the same line its screens end with. Called once the
+   * session has moved (a first screen, an answer, a self-rating), while the learner's lock is held.
+   * Nothing in memory-only mode, nothing for a learner erased under the session. A status that cannot
+   * be written is left as it was: the answer is recorded and served without it. */
+  private async publishStatus(entry: SessionEntry): Promise<void> {
+    const pseudonym = entry.profilePseudonym;
+    if (this.dataDir === null || !pseudonym || entry.erased) return;
+    const orientation = orientationFrom(this.orientationFactsOf(entry));
+    const line = statusLine(orientation, entry.bundle.metadata.title, displayLocale(entry.bundle.metadata.language));
+    try {
+      await writeStatusFile(this.dataDir, pseudonym, { status_line: line, orientation });
+      this.statusWriters.set(pseudonym, entry);
+    } catch { /* a display aid: see above */ }
+  }
+
+  /** Take the learner's status file away when the session that wrote it closes: no session plays any
+   * more. Left alone when another session of the learner, here or in another server on the same data
+   * folder, wrote it since. */
+  private async retireStatus(entry: SessionEntry): Promise<void> {
+    const pseudonym = entry.profilePseudonym;
+    if (this.dataDir === null || !pseudonym || this.statusWriters.get(pseudonym) !== entry) return;
+    this.statusWriters.delete(pseudonym);
+    try {
+      if (await statusFileOwner(this.dataDir, pseudonym) === process.pid) await removeStatusFile(this.dataDir, pseudonym);
+    } catch { /* the file stays until this server stops; the status-line script then ignores it */ }
   }
 
   /** Carry the graded answers the engine just folded into its memory (RT-3) over to the learner's. A
@@ -1644,8 +2194,25 @@ export class SessionHost {
    * hard | good | easy). FSRS input only: the rated concept's memory moves, source `self_rated`; its
    * mastery never does. The session refuses a rating no answer asked for (a certified answer, a scene
    * already rated) and an unknown grade. */
-  async rateRecall(id: string, sceneId: string, grade: SelfRating): Promise<RecallRating> {
-    return this.sessionWrite(id, (entry) => this.rateRecallLocked(entry, sceneId, grade));
+  async rateRecall(id: string, sceneId: string, grade: SelfRating, lane: Lane = "companion", opts: ServeOptions = {}): Promise<RecallRating> {
+    return this.sessionWrite(id, async (entry) => {
+      const rating = await this.rateRecallLocked(entry, sceneId, grade);
+      noteAct(entry, { scene_id: sceneId, act: "self_rating", lane });
+      recordOtherAct(entry);
+      // The rating ends a wait: what was held back while it was owed is said after its line.
+      const prompts = opts.promptSurface ? this.promptsAfterRating(entry, opts.promptSurface) : "";
+      return prompts ? { ...rating, display_markdown: `${rating.display_markdown}\n\n${prompts}` } : rating;
+    });
+  }
+
+  /** The prompts said after a self-rating, on the screen the session is on (or at its end). */
+  private promptsAfterRating(entry: SessionEntry, surface: PromptSurface): string {
+    if (entry.completed) {
+      const lines = this.endLines(entry, surface);
+      return promptsMarkdown(lines.prompts ?? [], displayLocale(entry.bundle.metadata.language));
+    }
+    const presentation = entry.session.currentPresentation();
+    return promptsMarkdown(this.screenLines(entry, presentation, surface).prompts ?? [], presentation.locale === "en" ? "en" : "fr");
   }
 
   private async rateRecallLocked(e: SessionEntry, sceneId: string, grade: SelfRating): Promise<RecallRating> {
@@ -1664,6 +2231,7 @@ export class SessionHost {
     let warning: string | undefined;
     try { await this.persistLearner(e, { moved: conceptIds, sceneId, complete: false }); }
     catch (error) { warning = persistenceWarning(error); } // L-11: the rating counts in this session
+    await this.publishStatus(e);
     const next = Math.round(Math.min(...conceptIds.map((conceptId) => dueAt(e.memory[conceptId]!))));
     return {
       scene_id: sceneId, concept_id: conceptIds[0]!, concept_ids: conceptIds, grade, source: "self_rated",
@@ -1742,6 +2310,7 @@ export class SessionHost {
     if (change.complete && entry.kind === "lesson") profile = recordCompletedLesson(profile, state.lesson_id);
     await this.profileStore.save(profile);
     entry.profileSeen = true;
+    entry.carriedMemory = structuredClone(profile.concept_memory ?? {});
 
     if (!change.moved.length && (entry.kind === "review" || entry.responses === 0)) return;
     const record = (await this.studyStore.load(pseudonym)) ?? emptyStudyRecord();
@@ -1783,10 +2352,18 @@ export class SessionHost {
 
   /** Pull the next authored hint for the current quiz scene (scaffolding-gated, M5 discount).
    * Returns null when the scene is not a quiz, has no hints, or the per-visit cap is reached. */
-  requestHint(id: string): HintResult | null {
+  requestHint(id: string, lane: Lane = "companion"): HintResult | null {
     const entry = this.require(id);
     this.assertNotErased(id, entry);
-    return entry.session.requestHint();
+    const hint = entry.session.requestHint();
+    if (hint) {
+      const sceneId = entry.session.currentPresentation().scene.id;
+      noteAct(entry, { scene_id: sceneId, act: "hint", lane });
+      recordOtherAct(entry);
+      // A hint refused at the cap is no help taken: only one given is logged.
+      this.emitSessionEvent(entry, { type: "help_used", rung: "hint", scene_id: sceneId });
+    }
+    return hint;
   }
   async submitTurn(id: string, text: string): Promise<void> {
     return this.sessionWrite(id, (entry) => entry.session.submitTurn(text));
@@ -1856,8 +2433,22 @@ export class SessionHost {
    * when it next falls due, and its current retrievability. `nowMs` is injectable for deterministic
    * tests; defaults to the host's clock. A UI renders the due items as a "À réviser" cue. */
   reviewQueue(id: string, nowMs?: number): ReviewQueueItem[] {
-    const entry = this.require(id);
+    return this.reviewQueueOf(this.require(id), nowMs);
+  }
+  private reviewQueueOf(entry: SessionEntry, nowMs?: number): ReviewQueueItem[] {
     return reviewQueueFromMemory(pick(entry.memory, this.ownConcepts(entry)), this.sessionNow(entry, nowMs));
+  }
+
+  /** INT-STUDIUM-058: the reviews due the orientation says. A lesson counts its own due concepts and
+   * those carried from the learner's other lessons (the profile as last read or saved), a concept in
+   * both counted once; a review session counts the concepts it has reviewed only. */
+  private reviewsDueOf(entry: SessionEntry, nowMs?: number): number {
+    const at = this.sessionNow(entry, nowMs);
+    const own = this.ownConcepts(entry);
+    const sessionDue = reviewQueueFromMemory(pick(entry.memory, own), at).filter(item => item.due).length;
+    if (entry.kind !== "lesson") return sessionDue;
+    const carriedDue = reviewQueueFromMemory(omit(entry.carriedMemory, own), at).filter(item => item.due).length;
+    return sessionDue + carriedDue;
   }
 
   /** Union of this lesson's memory and the learner's cross-lesson memory, this lesson winning per
@@ -2025,6 +2616,8 @@ export class SessionHost {
       let warning: string | undefined;
       try {
         if (!this.erasedUnder(entry)) {
+          // A proposal still open when the session closes went unanswered: counted ignored.
+          if (entry.prompts) this.emitPromptOutcomes(entry, entry.prompts.sessionEnded());
           await this.flushSessionOutputs(entry);
           await this.persistLearner(entry, { moved: [], sceneId: null, complete: false });
         }
@@ -2034,6 +2627,7 @@ export class SessionHost {
         this.registry.delete(id);
         this.experiments.delete(id);
       }
+      await this.retireStatus(entry);
       return warning ? { persistence_warning: warning } : {};
     });
   }
@@ -2223,7 +2817,11 @@ export class SessionHost {
   private async eraseLearnerRecords(profilePseudonym: string): Promise<void> {
     await this.profileStore.delete(profilePseudonym);
     await this.studyStore.delete(profilePseudonym);
-    if (this.dataDir) await removeIfEmpty(join(this.dataDir, safeSegment(profilePseudonym)));
+    this.statusWriters.delete(profilePseudonym);
+    if (this.dataDir) {
+      await removeStatusFile(this.dataDir, profilePseudonym);
+      await removeIfEmpty(join(this.dataDir, safeSegment(profilePseudonym)));
+    }
   }
 
   /** What forget leaves on disk (L-13): the lessons of the learner's library and the sources they were
@@ -2236,6 +2834,8 @@ export class SessionHost {
       if (titles.length) kept.push({ kind: "library_lessons", lessons: sortedTitles(titles), path: library });
       const sources = join(library, "_sources");
       if (existsSync(sources)) kept.push({ kind: "lesson_sources", path: sources });
+      const exports = join(library, EXPORTS_DIR);
+      if (existsSync(exports)) kept.push({ kind: "map_exports", path: exports });
     }
     const secret = this.dataDir ? join(this.dataDir, SECRET_FILE) : null;
     if (secret && existsSync(secret)) kept.push({ kind: "pseudonym_key", path: secret });

@@ -36,11 +36,54 @@ Call the Studium tool get_server_info and tell me the version, the build date, t
 whether my progress is durable. Then call get_study_plan.
 ```
 
-The answer should list 34 tools (25 lesson, 4 study, 3 authoring, 2 teacher tools; see
+The answer should list 40 tools (25 lesson, 5 study, 3 authoring, 2 teacher tools, 1 form tool, 3 panel tools and 1 companion tool; see
 [MCP tools](../reference/mcp-tools.md)) and `persistence.durable: true`. If `durable` is false, progress is
 lost when the server stops. When the server connects, the assistant also receives Studium's instructions
 (relay each `display_markdown` as it is, wait for your own answer, never answer or rate for you) and two
 prompts, `learn` and `review`, in clients that support MCP prompts.
+
+## Keep answers fast
+
+Studium grades an answer and chooses the next screen in a few milliseconds. What you wait for is the
+assistant that relays it. Three choices decide most of that wait:
+
+- **A session for the lesson.** Play a lesson in a new, short session, not at the end of a long working
+  conversation: every answer carries the whole conversation behind it.
+- **A fast model.** Relaying needs no reasoning, since Studium grades and routes. Keep the larger model for
+  a question that needs a real explanation.
+- **The MCP connection** described on this page, not shell calls to the HTTP API: each shell call starts a
+  process.
+
+Measured on the demo lesson `atomistique-l1` with `tools/latency_bench.py` (Claude Code, medians over six
+answers, 6 November 2026):
+
+| Who relays | End of the reply | First word |
+|---|---|---|
+| a large model, through shell calls, at the end of a long working session (a real trial, desktop app) | 27 s | about 20 s |
+| the same large model, short session, MCP tools | 8.2 s | 5.4 s |
+| the fast model, short session, MCP tools | 5.4 s | 2.0 s |
+| the lesson agent `studium-lesson` as the session (see [Claude Code](#claude-code)) | 5.5 s | 1.9 s |
+| a large model handing every answer to that fast agent | 16.1 s | 13.5 s |
+
+One run per line: a difference of a second between two lines is not established. The bench measures a
+relay in Claude Code; it does not measure the other clients on this page, or what anyone learns. Lowering
+the reasoning effort changed nothing measurable. The last line is the trap: an agent placed between you and
+the server makes two models write every screen.
+
+A prototype goes one step further: where the client can show forms (MCP elicitation), `play_in_forms` lets
+Studium ask the questions itself. You read a screen or pick a choice in a form, the verdict opens the next
+form, and no model writes anything in between; the conversation resumes when a step needs your own words or
+when you close a form to ask something. When the lesson has a concept map, every scene form offers `map`:
+the map form lists each concept with its id, returns to the untouched scene when accepted empty, or takes
+`contest_concept` and `claim` (`known` or `unsure`) to ask the check questions and then resume that scene.
+Only a hint, a question or a proposal still needs the conversation, as the help line says. A form never asks
+you to say "continue", since nothing can be said in it. Ask your assistant to "play the next steps in forms".
+How clients draw a long screen, a formula, or this map form has not yet been observed in a real client.
+
+With no model in between, the server's own part is small: an answer given in a form or on a panel gets its
+verdict in under 20 ms at the 95th centile, transport included (same script, `--mode forms` and
+`--mode panel`, three runs of 32 to 40 answers each, the learner's state saved to disk, 6 November 2026).
+The time a client then takes to draw the screen is not in that figure and has not been measured.
 
 ## Codex
 
@@ -111,6 +154,70 @@ claude -p --mcp-config .mcp.json --strict-mcp-config \
   --allowedTools "mcp__studium__*" --permission-mode dontAsk --max-budget-usd 2 \
   "Call get_server_info, then get_study_plan, and show me the result."
 ```
+
+### The lesson agent
+
+The repository ships two agent definitions in `.claude/agents/`. `studium-lesson` plays a lesson or a review
+as a strict relay on the fast model: it shows each screen as Studium wrote it, sends your words, and adds
+nothing. `studium-explainer` is a stronger model it calls when your question needs a real explanation; the
+lesson goes on while the explanation is written; its text opens with « Generated explanation », so that
+you can tell it from the lesson's. The lesson agent opens a lesson on the best surface your client shows (a
+panel or a pane, forms, or the conversation), and when you come back to it after playing there, it first
+reads what you did, so that it does not show you a screen again. A client that renders MCP Apps may show
+the panel even when the lesson is played in the conversation or in forms: the panel then says so (« This
+lesson is played in the conversation », « The panel is not the surface negotiated for this session. ») and
+draws no scene and no answer control, so you answer where the lesson is played. Its « Play here » button,
+shown when your client can render the panel, asks the server to move the session to the panel. From the
+checkout:
+
+```bash
+claude --agent studium-lesson
+```
+
+To use them from any folder, link them into your user agents once:
+
+```bash
+mkdir -p ~/.claude/agents
+ln -s "$PWD/.claude/agents/studium-lesson.md" "$PWD/.claude/agents/studium-explainer.md" ~/.claude/agents/
+```
+
+In a folder you only use to study, `{"agent": "studium-lesson"}` in `.claude/settings.json` makes every
+session there a lesson session. In a session that is already open, `/model haiku` for the time of the lesson
+gives most of the same gain. Do not ask a large model to hand each answer to the agent (see
+[Keep answers fast](#keep-answers-fast)).
+
+### The status line
+
+In durable mode, Studium notes where the lesson stands in `status.json`, in your learner folder, at each
+screen and each answer. The script `tools/studium_statusline.mjs` prints its line, the one each screen ends
+with:
+
+```text
+Les atomes · étape 2/3 · 3 min · à toi de répondre
+```
+
+The line holds 80 characters at most. A long lesson title is cut before its last separator that fits
+("Atomistique L1 — Chapitre 1 (atomes, orbitales)" reads "Atomistique L1 — Chapitre 1"), so it does not
+change from one screen to the next. While you answer the check questions of a concept you contested, the step
+gives way to "check 1/2" ("contrôle 1/2" in a French lesson).
+
+To show it in Claude Code's status line, add this to `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node /path/to/studium/tools/studium_statusline.mjs"
+  }
+}
+```
+
+The script needs no install and prints nothing when no lesson is being played: the session was closed, the
+server stopped, or progress is kept in memory only (`STUDIUM_EPHEMERAL=1`), where nothing is written. It
+finds the data folder as the server does (`STUDIUM_DATA_DIR`, else `<STUDIUM_HOME>/data`); `--data-dir=DIR`
+names another. If you gave the server `STUDIUM_DATA_DIR` or `STUDIUM_HOME` in `.mcp.json`, give the script
+the same. With several lessons open on one machine, it shows the one that moved last, in every Claude Code
+window.
 
 This configures Claude Code, not the Claude desktop app.
 
@@ -191,9 +298,10 @@ Merge this into `.cursor/mcp.json` and enable the tools as the
 
 ## Direct HTTP API
 
-For scripts and custom clients, Studium also runs as a local JSON API. It serves the 25 lesson operations
-only; the study, authoring and teacher tools are MCP-only in this version. Start it in a terminal you keep
-open:
+For scripts and custom clients, Studium also runs as a local JSON API. It serves 26 operations: the 25
+lesson operations plus `rate_recall`, so a self-rating requested by an HTTP lesson transition can be
+recorded. The other study tools (`get_study_plan`, `list_lessons`, `start_review_session`) and all authoring
+and teacher tools are MCP-only in this version. Start it in a terminal you keep open:
 
 ```bash
 export STUDIUM_API_TOKEN="$(openssl rand -hex 32)"   # at least 32 characters, shared with your clients
@@ -224,6 +332,8 @@ with `start.json`:
 Every mutation needs a unique `request_id`; resending the identical request with the same id returns the
 first result instead of acting twice, which makes a retry after a network error safe. `submit_response`,
 `submit_turn`, `request_hint`, `record_experiment` and `submit_run_result` also need `expected_scene_id`.
+`rate_recall` needs a `request_id` but no `expected_scene_id`: pass the requested scene as its
+`arguments.scene_id`.
 Routes, status codes and limits are in the [HTTP API reference](../reference/http-api.md). The older REST
 service `apps/lesson-server` (port 8010, answer keys redacted) is a separate process whose session ids are
 not interchangeable with this API's; use this API for a new harness integration.
@@ -232,7 +342,11 @@ To switch assistants in the middle of a lesson, keep the same server running and
 `session_id`, the language and any pending action; it reads `get_operator_context` before acting. Do not
 restart the lesson. A server restart ends its sessions: a call on an old `session_id` answers `session not
 found` and says how to resume. With durable storage, a new `start_lesson_session` for the same learner and
-lesson resumes at the first unfinished step.
+lesson resumes at the first unfinished step. On a panel or a pane, the learner's next action on the old
+session replaces the scene with "Session lost (the server restarted or the session was closed). Reopen the
+lesson: your progress is kept." and a reopen control: the MCP Apps panel's button and the Claude Code pane's
+button open the same lesson for the same learner (the Claude Code pane also names `/studium <bundle_ref>`),
+and the VS Code pane's button closes it and opens the lesson in a new pane. Nothing is retried on its own.
 
 Export what you want to keep before stopping an in-memory server. With `context.json` holding
 `{"arguments":{"session_id":"<id>"}}`:

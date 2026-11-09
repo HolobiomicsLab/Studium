@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { SessionHost } from '@studium/lesson-session-host';
 import { lessonOperations, type Operation } from './operations.js';
+import { studyOperations } from './server.js';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 const MAX_RECEIPT_BYTES = 16 * 1024 * 1024;
@@ -28,11 +29,15 @@ const problem = (status:number, code:string, error:string):Reply => ({status, bo
 /** Build a local single-owner API; caller must listen on a loopback address. */
 export function createLessonHttpServer(options:HttpOptions) {
   if (options.token.length < 32) throw new Error('STUDIUM_API_TOKEN must contain at least 32 characters');
-  // Lead decision I-11 (2026-10-30 sprint): this adapter serves the lesson operations only. The study
-  // tools (get_study_plan, list_lessons, rate_recall, start_review_session), the authoring tools
-  // (get_authoring_guide, prepare_sources, create_lesson) and the teacher tools (review_lesson,
-  // class_report) stay MCP-only this sprint: server.ts registers them, http.test.ts pins what is here.
-  const operations = lessonOperations(options.host);
+  // Lead decision I-11 (2026-10-30 sprint): this adapter serves the lesson operations. Exception by
+  // owner request on 2026-11-05: an HTTP transition asks for a self-rating, so rate_recall is exposed to
+  // complete that loop. The other study tools (get_study_plan, list_lessons, start_review_session), the
+  // authoring tools and the teacher tools stay MCP-only; http.test.ts pins the exact surface.
+  const operations:Operation[] = [];
+  operations.push(
+    ...lessonOperations(options.host, {toolNames:() => operations.map(operation => operation.name)}),
+    ...studyOperations(options.host).filter(operation => operation.name === 'rate_recall'),
+  );
   const dispatch = createDispatcher(options, operations);
   const server = createServer(async (request,response) => {
     try {

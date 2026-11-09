@@ -16,6 +16,9 @@ import { buildMcpServer, SERVER_INSTRUCTIONS, STUDY_TOOL_NAMES } from "../../../
 import { TOOL_NAMES as LESSON_TOOL_NAMES } from "../../../apps/lesson-mcp/src/operations.js";
 import { AUTHORING_TOOL_NAMES } from "../../../apps/lesson-mcp/src/authoring-tools.js";
 import { TEACHER_TOOL_NAMES } from "../../../apps/lesson-mcp/src/teacher-tools.js";
+import { FORM_TOOL_NAMES } from "../../../apps/lesson-mcp/src/form-tools.js";
+import { COMPANION_TOOL_NAMES } from "../../../apps/lesson-mcp/src/companion-tools.js";
+import { PANEL_TOOL_NAMES } from "../../../apps/lesson-mcp/src/panel-tools.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const home = mkdtempSync(join(tmpdir(), "studium-docs-"));
@@ -23,6 +26,7 @@ const env = { STUDIUM_EPHEMERAL: "1", STUDIUM_HOME: home, BUNDLES_ROOT: join(rep
 
 const groups: Record<string, readonly string[]> = {
   lesson: LESSON_TOOL_NAMES, study: STUDY_TOOL_NAMES, authoring: AUTHORING_TOOL_NAMES, teacher: TEACHER_TOOL_NAMES,
+  form: FORM_TOOL_NAMES, panel: PANEL_TOOL_NAMES, companion: COMPANION_TOOL_NAMES,
 };
 const groupOf = (name: string): string =>
   Object.entries(groups).find(([, names]) => names.includes(name))?.[0] ?? "other";

@@ -72,10 +72,35 @@ identifier, as written by `tools/experience_packet.py approve`. Changing even wh
 breaks the digest match. Free-form `validated_by` metadata never grants this status. Matching a
 historical record does not depend on later changes to the installed schema validator.
 
-The review page shows only titles, scene types, concepts and bibliographic references. It sends no lesson
-bodies, prompts, choices, grading fields or evidence excerpts to the browser. The approval command it
+The review page shows titles, scene types, concepts and bibliographic references, and, folded under each
+inbox line, the scene's public face: what the learner reads (its first 280 characters of text) and a quiz's
+choice texts in authored order. It sends no grading field (which choice is correct, feedback, hints, claims,
+key points, reveals) and no evidence excerpt to the browser. The approval command it
 displays quotes the exact local file path and must be run from the repository root; the page itself writes
 nothing. Self-study lessons show the tool's refusal rule instead of a command that cannot succeed.
+
+Above the outline, the review inbox lists one line per scene, sorted by what a mistake there would
+cost: blocks (a schema error or TODO on the scene), grading (the scene holds a key), wording, media.
+Each line says whether the scene is new, changed or unchanged since the last receipt in the lesson
+folder's `reviews/`, and gives the automatic checks (schema, TODO, lint). `readLesson` runs the bundle
+linter in process (`lintBundleData` from `tools/bundle_lint.mjs`, as `review_lesson` does), so a lint
+ERROR naming a scene makes it blocking; the linter's messages never reach the page. When the linter
+cannot run, the lint check is left out of every line and the page says so in one line
+(`lintUnavailable`). For a grading line, the automatic verdict stays folded until the teacher
+clicks Correct or To fix. Before approving, the page warns, without blocking, about grading lines not
+opened. A grading line is never counted opened by the page, because it shows no key. The page still writes nothing: the ids opened on screen go into `--opened` of the two commands
+it shows, `experience_packet.py approve` and `experience_packet.py receipt --decision returned` (send the
+lesson back), and the receipt is written when the teacher runs one. Scene fingerprints never reach the
+browser.
+
+Correct and To fix travel in those commands as one scene-ordered `--verdict` flag and into the receipt; an unchanged row shows its previous verdict, while To fix puts the send-back command first because the CLI refuses approval.
+
+The approval panel has a field for the teacher's name: both commands carry it, and the panel shows the
+line learners will read on every screen, « Leçon validée par NAME » / "validated by NAME", with a note
+when the name is an e-mail address (learners would see it). Nothing is refused; the name stays on the page
+until the teacher runs the command.
+On the French page both commands end with `--lang fr`, so the CLI prints its summary and its
+refusals in French; the files it records are the same in either language.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/screenshots/teacher-review-dark.png">

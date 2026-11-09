@@ -39,6 +39,27 @@ const fr = {
   print: "Imprimer / PDF", sceneType: "Type de scène", lessonMissing: "Leçon introuvable", lessonMissingHelp: "Le fichier a peut-être été déplacé. Revenez à la bibliothèque pour choisir une leçon disponible.",
   lessonUnreadable: "Leçon illisible", lessonUnreadableHelp: "Le tableau de bord ne peut pas lire cette leçon. Vérifiez la syntaxe de lesson.json, sa taille (10 Mo maximum) et les permissions du dossier. Les liens symboliques ne sont pas acceptés dans la bibliothèque.",
   intro: "Introduction", concept: "Concept", quiz: "Quiz", meta_checkpoint: "Point d’étape", reproduction: "Reproduction", ai_critique: "Critique de l’IA", discussion: "Discussion", spot_the_flaw: "Repérer le défaut", explain_back: "Expliquer", comparison: "Comparaison", summary_audit: "Audit de résumé", prompt_practice: "Pratique du prompt", communication_sim: "Mise en situation",
+  inbox: "Boîte de relecture", inboxHelp: "Une ligne par scène, de ce qui bloque à ce qui touche la notation, la formulation puis les médias. Ce que vous ouvrez ici entre dans la commande ci-contre\u00a0; la page n’écrit rien.",
+  blocks: "bloque", grading: "note", wording: "formulation", media: "média",
+  changedNew: "nouveau", changedChanged: "modifié", changedUnchanged: "inchangé",
+  sinceReceipt: "depuis le reçu du {date}", noEarlierReceipt: "aucun reçu antérieur",
+  lastReceipt: "Dernier reçu\u00a0: {date}, {decision} par {reviewer}.", decisionApproved: "approuvée", decisionReturned: "renvoyée",
+  unreadableReceipts: "Reçus illisibles ignorés dans reviews/\u00a0: {n}.",
+  automaticVerdict: "Avis automatique", automaticVerdictLater: "(après votre avis)",
+  yourVerdict: "Votre avis", verdictOk: "Correct", verdictToFix: "À corriger", openedMark: "ouvert",
+  previousVerdict: "Avis précédent\u00a0: {verdict}",
+  verdictStaysHere: "Votre avis est porté par la commande et sera écrit dans le reçu.",
+  toFixApprovalRefusal: "Avec un élément à corriger, la CLI refuse une approbation\u00a0: utilisez la commande de renvoi.",
+  checkSchema: "Schéma", checkTodo: "TODO", checkLint: "Lint", checkPassed: "conforme", checkFailed: "à corriger",
+  inboxWarningOne: "1 élément «\u00a0note\u00a0» non ouvert ici\u00a0: {ids}. Cette page ne montre pas les clés\u00a0: ouvrez-le dans lesson.json et ajoutez son identifiant à --opened. Approuver reste possible\u00a0; le reçu le gardera.",
+  inboxWarningMany: "{n} éléments «\u00a0note\u00a0» non ouverts ici\u00a0: {ids}. Cette page ne montre pas les clés\u00a0: ouvrez-les dans lesson.json et ajoutez leurs identifiants à --opened. Approuver reste possible\u00a0; le reçu le gardera.",
+  previewSummary: "Ce que voit l’apprenant", previewNoKey: "(sans la clé\u00a0: elle reste dans lesson.json)",
+  previewEmpty: "Cette scène n’a pas de texte pour l’apprenant.",
+  validatorName: "Votre nom, tel que les apprenants le liront",
+  voicePreview: "Les apprenants liront sur chaque écran\u00a0: «\u00a0Leçon validée par {name}\u00a0» / “validated by {name}”",
+  voiceEmailNote: "Note\u00a0: c’est une adresse électronique\u00a0; les apprenants la verront. Préférez un nom (--validated-by 'Prénom Nom').",
+  lintUnavailable: "Le linter n’a pas pu tourner\u00a0: la vérification Lint manque à chaque scène. Lancez node tools/bundle_lint.mjs sur ce lesson.json.",
+  returnHeading: "Renvoyer la leçon", returnHelp: "Pour renvoyer la leçon à son auteur sans l’approuver, cette commande écrit seulement un reçu «\u00a0renvoyée\u00a0».",
 };
 const en: typeof fr = {
   teacherSpace: "Teacher workspace", home: "Home", library: "Course library", room: "Peer-review room",
@@ -68,6 +89,27 @@ const en: typeof fr = {
   print: "Print / PDF", sceneType: "Scene type", lessonMissing: "Lesson not found", lessonMissingHelp: "The file may have moved. Return to the library to choose an available lesson.",
   lessonUnreadable: "Lesson unreadable", lessonUnreadableHelp: "The dashboard cannot read this lesson. Check the syntax of lesson.json, its size (10 MB maximum) and the folder permissions. Symbolic links are not accepted inside the library.",
   intro: "Introduction", concept: "Concept", quiz: "Quiz", meta_checkpoint: "Checkpoint", reproduction: "Reproduction", ai_critique: "AI critique", discussion: "Discussion", spot_the_flaw: "Spot the flaw", explain_back: "Explain back", comparison: "Comparison", summary_audit: "Summary audit", prompt_practice: "Prompt practice", communication_sim: "Communication scenario",
+  inbox: "Review inbox", inboxHelp: "One line per scene, from what blocks to what touches grading, wording, then media. What you open here goes into the command alongside; the page writes nothing.",
+  blocks: "blocks", grading: "grading", wording: "wording", media: "media",
+  changedNew: "new", changedChanged: "changed", changedUnchanged: "unchanged",
+  sinceReceipt: "since the receipt of {date}", noEarlierReceipt: "no earlier receipt",
+  lastReceipt: "Last receipt: {date}, {decision} by {reviewer}.", decisionApproved: "approved", decisionReturned: "sent back",
+  unreadableReceipts: "Unreadable receipts skipped in reviews/: {n}.",
+  automaticVerdict: "Automatic verdict", automaticVerdictLater: "(after your verdict)",
+  yourVerdict: "Your verdict", verdictOk: "Correct", verdictToFix: "To fix", openedMark: "opened",
+  previousVerdict: "Previous verdict: {verdict}",
+  verdictStaysHere: "Your verdict is carried by the command and will be written to the receipt.",
+  toFixApprovalRefusal: "With an item marked To fix, the CLI refuses approval: use the send-back command.",
+  checkSchema: "Schema", checkTodo: "TODO", checkLint: "Lint", checkPassed: "passes", checkFailed: "to fix",
+  inboxWarningOne: "1 grading item not opened here: {ids}. This page shows no key: open it in lesson.json and add its id to --opened. Approving stays possible; the receipt will keep it.",
+  inboxWarningMany: "{n} grading items not opened here: {ids}. This page shows no key: open them in lesson.json and add their ids to --opened. Approving stays possible; the receipt will keep it.",
+  previewSummary: "What the learner sees", previewNoKey: "(without the key: it stays in lesson.json)",
+  previewEmpty: "This scene has no text for the learner.",
+  validatorName: "Your name, as learners will read it",
+  voicePreview: "Learners will read on every screen: «\u00a0Leçon validée par {name}\u00a0» / “validated by {name}”",
+  voiceEmailNote: "Note: this is an e-mail address; learners will see it. Prefer a name (--validated-by 'First Last').",
+  lintUnavailable: "The bundle linter could not run: each scene lacks its Lint check. Run node tools/bundle_lint.mjs on this lesson.json.",
+  returnHeading: "Send the lesson back", returnHelp: "To send the lesson back to its author without approving it, this command writes a \u201creturned\u201d receipt only.",
 };
 export function messages(locale: Locale) { return locale === "en" ? en : fr; }
 /** "1 concept", "8 concepts": French keeps the singular for 0 and 1, English only for 1. */
@@ -76,3 +118,7 @@ export function counted(n: number, one: string, many: string, locale: Locale): s
   return `${n} ${singular ? one : many}`;
 }
 export function sceneTypeLabel(type: string, locale: Locale): string { return messages(locale)[type as keyof typeof fr] ?? type; }
+/** Fill `{name}` placeholders of a message. */
+export function fill(template: string, values: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (whole, name: string) => (name in values ? String(values[name]) : whole));
+}

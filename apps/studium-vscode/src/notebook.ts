@@ -11,7 +11,7 @@ import { connectLessonMcp, resolveLogSink, type LessonMcp } from "./mcp-connect.
 import { lessonServerConfig } from "./lesson-server.js";
 import { selectRenderOrder, type ModalityPreference } from "./modality.js";
 import { freeTextInput, extractConfidence } from "./scene-io.js";
-import { assetPathFor, imageMime } from "./asset-path.js";
+import { assetPathFor, equationAssetMarkdown, imageMime } from "./asset-path.js";
 import { phrase, type Locale } from "./phrases.js";
 import { verdictForChat, recallGradeOf, navigationNote, reasoningNote } from "./chat-format.js";
 
@@ -175,7 +175,7 @@ export function registerStudiumNotebook(context: vscode.ExtensionContext) {
 
     for (const a of arts as Json[]) {
       if (a.kind === "equation_latex" && a.payload) {
-        outs.push(new vscode.NotebookCellOutput([md(`$$\n${a.payload}\n$$`)]));
+        outs.push(new vscode.NotebookCellOutput([md(equationAssetMarkdown(a))]));
       } else if ((a.kind === "plot_spec" || a.kind === "spectrum") && a.payload) {
         const items: vscode.NotebookCellOutputItem[] = [];
         let spec: unknown = null;

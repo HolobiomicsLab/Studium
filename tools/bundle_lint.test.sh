@@ -174,6 +174,33 @@ mutate() {
   node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));$PRELUDE$2;fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$BASE" "$TMP/$1"
 }
 
+# A wrong-quiz feedback that states the keyed choice makes an immediate retry meaningless. Matching
+# is case/whitespace-insensitive with Unicode alphanumeric boundaries: 7 and 30 match, 7 does not
+# match 17. This duplicates the host's intentionally small fail-closed check and pins parity examples.
+mutate quiz-feedback.json "
+const seven=quiz([{id:'a',text:'7',correct:true},{id:'b',text:'5',correct:false}]);seven.id='q-seven';seven.feedback_incorrect='Pour ℓ=3 : → 7 orbitales.';
+const thirty=quiz([{id:'a',text:'30',correct:true},{id:'b',text:'26',correct:false}]);thirty.id='q-thirty';thirty.feedback_incorrect='N = A − Z = 30 neutrons.';
+const seventeen=quiz([{id:'a',text:'7',correct:true},{id:'b',text:'5',correct:false}]);seventeen.id='q-seventeen';seventeen.feedback_incorrect=\"Reprends l'étape 17.\";
+b.scenes.push(seven,thirty,seventeen)"
+expect_finding "quiz feedback reveals a keyed answer" 0 "quiz_feedback_reveals_answer" "$TMP/quiz-feedback.json"
+[ "$(grep -c '  quiz_feedback_reveals_answer  ' <<<"$OUTPUT")" -eq 2 ] || { echo "FAIL: expected exactly the 7 and 30 reveals"; echo "$OUTPUT"; exit 1; }
+grep -Fq 'q-seven: feedback_incorrect includes correct choice "7"' <<<"$OUTPUT" || { echo "FAIL: 7 reveal missing"; echo "$OUTPUT"; exit 1; }
+grep -Fq 'q-thirty: feedback_incorrect includes correct choice "30"' <<<"$OUTPUT" || { echo "FAIL: 30 reveal missing"; echo "$OUTPUT"; exit 1; }
+grep -Fq 'q-seventeen' <<<"$OUTPUT" && { echo "FAIL: 7 falsely matched 17"; echo "$OUTPUT"; exit 1; }
+grep -Eq '^WARN  .+  quiz_feedback_reveals_answer  ' <<<"$OUTPUT" || { echo "FAIL: revealing feedback is not a WARN"; echo "$OUTPUT"; exit 1; }
+
+# Equation legends are optional in the additive schema, but their absence is an authoring warning;
+# when present, the array and both entry fields must be non-empty.
+mutate equation-no-legend.json "b.scenes[0].render_assets=[{kind:'equation_latex',payload:'E=h\\\\nu'}]"
+expect_finding "equation without a legend" 0 "equation_without_legend" "$TMP/equation-no-legend.json"
+grep -Eq '^WARN  .+  equation_without_legend  ' <<<"$OUTPUT" || { echo "FAIL: missing equation legend is not a WARN"; echo "$OUTPUT"; exit 1; }
+mutate equation-with-legend.json "b.scenes[0].render_assets=[{kind:'equation_latex',payload:'E=h\\\\nu',legend:[{symbol:'E',meaning:'photon energy'}]}]"
+expect_clean "equation with a legend" "$TMP/equation-with-legend.json"
+mutate equation-empty-legend.json "b.scenes[0].render_assets=[{kind:'equation_latex',payload:'E=h\\\\nu',legend:[]}]"
+expect_finding "empty equation legend" 1 "schema_invalid" "$TMP/equation-empty-legend.json"
+mutate equation-abs-empty-legend.json "b.scenes[0].evidence={abs_asset:{asset_type:'equation_latex',payload_inline:'E=h\\\\nu',prov_derived_from:'fixture',legend:[]}}"
+expect_finding "empty legacy ABS equation legend" 1 "schema_invalid" "$TMP/equation-abs-empty-legend.json"
+
 printf 'null' > "$TMP/null.json"
 expect_finding "a JSON null is not a bundle" 1 "schema_invalid" "$TMP/null.json"
 
@@ -197,6 +224,24 @@ expect_finding "unexplained planted flaw" 1 "flaw_reveal_gap" "$TMP/orphan-flaw.
 
 mutate sound-flaw.json "b.scenes.push(flaw('Hund requires parallel spins'))"
 expect_clean "covered planted flaw" "$TMP/sound-flaw.json"
+
+# INT-STUDIUM-058 § 2.7: a learner who contests a concept gets two check questions, from two scenes of
+# that concept graded against the author's key. A lesson with a concept map (two concepts or more)
+# warns for each concept that has fewer; a lesson with one concept has no map and nothing to contest.
+RECALL="const q=(id,concept)=>({...quiz([{id:'a',text:'A',correct:true},{id:'b',text:'B',correct:false}]),id,concept_refs:[concept]});\
+b.concepts.push({...b.concepts[0],id:'c-second'});b.scenes.push(q('q-k1','c-kinetics'),q('q-k2','c-kinetics'),q('q-s1','c-second'))"
+mutate recall-few.json "$RECALL"
+expect_finding "a concept with a single recall question" 0 "concept_few_recall_questions" "$TMP/recall-few.json"
+[ "$(grep -c '  concept_few_recall_questions  ' <<<"$OUTPUT")" -eq 1 ] || { echo "FAIL: expected one concept short of recall questions"; echo "$OUTPUT"; exit 1; }
+grep -Eq '^WARN  .+  concept_few_recall_questions  c-second has 1 recall question ' <<<"$OUTPUT" || { echo "FAIL: the warning does not name the concept and its count"; echo "$OUTPUT"; exit 1; }
+mutate recall-none.json "$RECALL;b.scenes=b.scenes.filter(s=>s.id!=='q-s1')"
+expect_finding "a concept with no recall question" 0 "concept_few_recall_questions" "$TMP/recall-none.json"
+grep -Eq '^WARN  .+  concept_few_recall_questions  c-second has no recall question ' <<<"$OUTPUT" || { echo "FAIL: the warning does not say the concept has none"; echo "$OUTPUT"; exit 1; }
+mutate recall-two.json "$RECALL;b.scenes.push(q('q-s2','c-second'))"
+expect_clean "two recall questions for each concept" "$TMP/recall-two.json"
+# A question that only mentions the concept (not its first) and a diagnostic do not count.
+mutate recall-mention.json "$RECALL;b.scenes.push({...q('q-s2','c-kinetics'),concept_refs:['c-kinetics','c-second']},{...q('q-s3','c-second'),diagnostic:true})"
+expect_finding "a mention and a diagnostic are not recall questions" 0 "concept_few_recall_questions" "$TMP/recall-mention.json"
 
 run_lint
 [ "$STATUS" -eq 0 ] || { echo "FAIL: repo fixtures do not pass"; echo "$OUTPUT"; exit 1; }

@@ -12,11 +12,14 @@ import argparse
 import difflib
 import hashlib
 import json
+import math
+import os
 import re
 import shutil
 import subprocess
 import sys
 import unicodedata
+import uuid
 from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
@@ -24,13 +27,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 ROOT = Path(__file__).resolve().parents[1]
 for package_path in (
     ROOT / "packages" / "perspicacite-client" / "python",
     ROOT / "packages" / "lesson-plan-schema" / "python",
     ROOT / "packages" / "lesson-bundle-schema" / "python",
+    ROOT / "packages" / "telemetry-events" / "python",
 ):
     if str(package_path) not in sys.path:
         sys.path.insert(0, str(package_path))
@@ -60,6 +64,7 @@ from self_study_passages import (  # noqa: E402
     build_passage_envelope,
     is_self_study_origin,
 )
+from telemetry_events import TelemetryEvent  # noqa: E402
 
 PACKET_SCHEMA_VERSION = "1.0"
 TOOL_VERSION = "1.0"
@@ -300,6 +305,192 @@ REVIEW_TEXT = {
 }
 
 
+# What a teacher reads after a successful approve or receipt (stdout). The recorded files never
+# depend on it: approval.json and the review receipt are the same bytes in either language.
+SUMMARY_TEXT = {
+    "en": {
+        "approved_by": "Approved by {reviewer} at {at}",
+        "voice": 'learners read on every screen: « Leçon validée par {name} » / "validated by {name}"',
+        "voice_email": (
+            'note: this is an e-mail address; learners will see it — prefer a name (--validated-by "Prénom Nom")'
+        ),
+        "sha": "lesson.json SHA-256: {sha}",
+        "lint": "lint: {errors} error(s), {warnings} warning(s)",
+        "stale": (
+            "validated_by and validated_at were rewritten and the file normalized; "
+            "any edit to lesson.json makes this approval stale (approve again after editing)."
+        ),
+        "receipt": "Review receipt ({decision}): {path}",
+        "decision_approved": "approved",
+        "decision_returned": "returned",
+        "opened": "opened {opened} of {total} items",
+        "verdicts": "verdicts: {ok} ok, {to_fix} to fix",
+        "unopened_grading": "warning: {count} grading item(s) not opened before approval: {ids}",
+        "event": "event: {path}",
+        "approval_record": "Approval record:",
+        "returned_by": "Returned by {reviewer} at {at}",
+        "receipt_record": "Review receipt:",
+        "error": "error: {message}",
+    },
+    "fr": {
+        "approved_by": "Approuvée par {reviewer} le {at}",
+        "voice": (
+            "Les apprenants liront sur chaque écran\u00a0: «\u00a0Leçon validée par {name}\u00a0» "
+            "/ “validated by {name}”"
+        ),
+        "voice_email": (
+            "note\u00a0: c’est une adresse électronique\u202f; les apprenants la verront — "
+            'préférez un nom (--validated-by "Prénom Nom")'
+        ),
+        "sha": "SHA-256 de lesson.json\u00a0: {sha}",
+        "lint": "lint\u00a0: {errors} erreur(s), {warnings} avertissement(s)",
+        "stale": (
+            "validated_by et validated_at ont été réécrits et le fichier normalisé\u202f; toute "
+            "modification de lesson.json rend cette approbation caduque (approuvez de nouveau après "
+            "modification)."
+        ),
+        "receipt": "Reçu de relecture ({decision})\u00a0: {path}",
+        "decision_approved": "approuvée",
+        "decision_returned": "renvoyée",
+        "opened": "éléments ouverts\u00a0: {opened} sur {total}",
+        "verdicts": "avis\u00a0: {ok} correct(s), {to_fix} à corriger",
+        "unopened_grading": (
+            "avertissement\u00a0: {count} élément(s) de notation non ouvert(s) avant l’approbation\u00a0: {ids}"
+        ),
+        "event": "événement\u00a0: {path}",
+        "approval_record": "Enregistrement d’approbation\u00a0:",
+        "returned_by": "Renvoyée par {reviewer} le {at}",
+        "receipt_record": "Reçu de relecture\u00a0:",
+        "error": "erreur\u00a0: {message}",
+    },
+}
+
+# The refusals of approve and receipt. The English text is the exception's message (what tests and
+# scripts match); main prints the French one instead when the teacher's language is French.
+REFUSAL_TEXT = {
+    "en": {
+        "read_json": "cannot read {label} JSON: {detail}",
+        "write_json": "cannot write {label}: {detail}",
+        "validated_by_empty": "--validated-by must not be empty",
+        "reviewer_empty": "--reviewer must not be empty",
+        "bundle_not_object": "LessonBundle root must be an object",
+        "self_study": (
+            "self-study bundles cannot receive teacher approval; to approve this lesson for a class, "
+            "rebuild it through prepare, check and bundle (the teacher route), fill it, then approve"
+        ),
+        "placeholders": "cannot approve: {count} placeholder(s) remain ({first})",
+        "lint_errors": "cannot approve: bundle lint reported {count} ERROR finding(s)",
+        "lint_cannot_run": "cannot run bundle lint: {detail}",
+        "lint_incomplete": "bundle lint could not complete: {detail}",
+        "write_bundle": "cannot write approved LessonBundle: {detail}",
+        "receipt_not_written": "approval.json was written but the review receipt was not ({path}): {detail}",
+        "unknown_opened": "--opened names {count} id(s) that are not scenes of this lesson: {ids}",
+        "unknown_verdict": (
+            "invalid --verdict value(s) {values}; expected SCENE_ID=ok|to_fix for a scene of this lesson"
+        ),
+        "approve_to_fix": (
+            "cannot approve while --verdict contains to_fix; use receipt --decision returned"
+        ),
+        "receipt_exists": (
+            "review receipt already exists: {path}; the same lesson bytes were already decided on "
+            "today, and a receipt is never overwritten"
+        ),
+        "receipt_approved": "receipt records a returned lesson; to approve, use approve (it writes the receipt too)",
+        "unknown_decision": "unknown decision {decision!r}",
+        "write_receipt": "cannot write review receipt: {detail}",
+        "receipt_event_not_appended": (
+            "receipt written at {path}; event not appended: {detail}"
+        ),
+        "receipt_event_invalid": (
+            "the review receipt's telemetry event does not match the contract, so nothing was "
+            "written: {detail}"
+        ),
+        "checklist_entry": "invalid checklist entry {item!r}; expected key=value",
+        "checklist_duplicate": "duplicate checklist key {key!r}",
+    },
+    "fr": {
+        "read_json": "impossible de lire le JSON {label}\u00a0: {detail}",
+        "write_json": "impossible d’écrire {label}\u00a0: {detail}",
+        "validated_by_empty": "--validated-by ne doit pas être vide",
+        "reviewer_empty": "--reviewer ne doit pas être vide",
+        "bundle_not_object": "la racine du LessonBundle doit être un objet",
+        "self_study": (
+            "une leçon d’auto-apprentissage ne peut pas recevoir d’approbation enseignante\u202f; pour "
+            "l’approuver pour une classe, reconstruisez-la par prepare, check et bundle (la voie "
+            "enseignante), complétez-la, puis approuvez-la"
+        ),
+        "placeholders": "approbation impossible\u00a0: {count} marque(s) TODO restante(s) ({first})",
+        "lint_errors": "approbation impossible\u00a0: le lint du bundle a signalé {count} erreur(s) (ERROR)",
+        "lint_cannot_run": "impossible de lancer le lint du bundle\u00a0: {detail}",
+        "lint_incomplete": "le lint du bundle n’a pas pu aboutir\u00a0: {detail}",
+        "write_bundle": "impossible d’écrire le LessonBundle approuvé\u00a0: {detail}",
+        "receipt_not_written": (
+            "approval.json a été écrit mais pas le reçu de relecture ({path})\u00a0: {detail}"
+        ),
+        "unknown_opened": (
+            "--opened nomme {count} identifiant(s) qui ne sont pas des scènes de cette leçon\u00a0: {ids}"
+        ),
+        "unknown_verdict": (
+            "valeur(s) --verdict invalide(s)\u00a0: {values}\u202f; forme attendue "
+            "SCENE_ID=ok|to_fix pour une scène de cette leçon"
+        ),
+        "approve_to_fix": (
+            "approbation impossible tant que --verdict contient to_fix\u202f; "
+            "utilisez receipt --decision returned"
+        ),
+        "receipt_exists": (
+            "le reçu de relecture existe déjà\u00a0: {path}\u202f; ces mêmes octets de leçon ont déjà "
+            "fait l’objet d’une décision aujourd’hui, et un reçu n’est jamais écrasé"
+        ),
+        "receipt_approved": (
+            "receipt enregistre une leçon renvoyée\u202f; pour approuver, utilisez approve "
+            "(qui écrit aussi le reçu)"
+        ),
+        "unknown_decision": "décision inconnue {decision!r}",
+        "write_receipt": "impossible d’écrire le reçu de relecture\u00a0: {detail}",
+        "receipt_event_not_appended": (
+            "le reçu a été écrit à {path}\u202f; l’événement n’a pas été ajouté\u00a0: {detail}"
+        ),
+        "receipt_event_invalid": (
+            "l’événement de télémétrie du reçu de relecture ne respecte pas le contrat\u202f; rien "
+            "n’a été écrit\u00a0: {detail}"
+        ),
+        "checklist_entry": "entrée de checklist invalide {item!r}\u202f; forme attendue clé=valeur",
+        "checklist_duplicate": "clé de checklist en double {key!r}",
+    },
+}
+
+
+def _cli_language(requested: str | None) -> str:
+    """The language of what approve and receipt print: --lang, else STUDIUM_LANG when it is fr or en,
+    else the LC_ALL / LANG prefix (fr_… is French), else English."""
+    if requested in ("en", "fr"):
+        return requested
+    studium = os.environ.get("STUDIUM_LANG", "").strip().lower()
+    if studium in ("en", "fr"):
+        return studium
+    for name in ("LC_ALL", "LANG"):
+        value = os.environ.get(name, "")
+        if value:
+            return "fr" if value.lower().startswith("fr") else "en"
+    return "en"
+
+
+def _summary_text(language: str, key: str, **values: Any) -> str:
+    return SUMMARY_TEXT[language][key].format(**values)
+
+
+def _refusal(key: str, **values: Any) -> "PacketError":
+    """A PacketError whose message is the English refusal and which can be shown in French."""
+    return PacketError(REFUSAL_TEXT["en"][key].format(**values), key=key, values=values)
+
+
+def _refusal_message(exc: "PacketError", language: str) -> str:
+    if exc.key is None or language == "en":
+        return str(exc)
+    return REFUSAL_TEXT[language][exc.key].format(**exc.values)
+
+
 def _locale(language: str) -> str:
     """Resolve the two supported authoring locales, defaulting safely to English."""
     return "fr" if language.lower().split("-", maxsplit=1)[0] == "fr" else "en"
@@ -311,7 +502,15 @@ def _authoring_text(language: str, key: str, **values: Any) -> str:
 
 
 class PacketError(ValueError):
-    """Raised when packet preparation or response checking cannot proceed."""
+    """Raised when packet preparation or response checking cannot proceed.
+
+    ``key`` names an entry of REFUSAL_TEXT when the refusal has a French version (approve, receipt).
+    """
+
+    def __init__(self, message: str, *, key: str | None = None, values: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.key = key
+        self.values = values or {}
 
 
 class SourceQuoteError(PacketError):
@@ -397,6 +596,418 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+# --- review receipts (INT-STUDIUM-058 § 2.9, task 6.2) ------------------------------------------
+# review_lesson (packages/lesson-session-host/src/review-inbox.ts) marks each scene new / changed /
+# unchanged by comparing its fingerprints with the last receipt's. The fingerprints written here must
+# therefore be byte-for-byte the TypeScript ones; tools/test_review_receipt_parity.py holds that.
+
+REVIEW_RECEIPT_SCHEMA = "studium/review-receipt/v1"
+REVIEW_VERDICTS = frozenset({"ok", "to_fix"})
+# Mirrors REDACTED_SCENE_FIELDS of packages/lesson-session-host/src/public-scene.ts.
+KEY_HOLDING_SCENE_FIELDS = (
+    "claims", "sound_claims", "key_points", "model_correction", "model_explanation", "model_answer",
+    "model_prompt", "model_response", "feedback_correct", "feedback_incorrect", "hints",
+)
+# The evidence.abs_asset types sceneRenderAssets renders (ABS_KIND in lesson-bundle-schema/src/scene-assets.ts).
+RENDERED_ABS_ASSET_TYPES = frozenset(
+    {
+        "spectrum_viewer_svg", "code_snippet", "script_snippet", "data_csv", "protocol_card_md",
+        "plot_spec", "equation_latex", "orbital_viewer_3d", "molecule_3d", "spectrum_data",
+    }
+)
+_PLACEHOLDER_SCENE_PATH = re.compile(r"^\$\.scenes\[(\d+)\]")
+
+
+def _js_number(value: Any) -> str:
+    """A JSON number as JavaScript's JSON.stringify writes it (ECMA-262 Number::toString).
+
+    Python writes ``1.0``, ``1e-07`` and ``1e+16``; JavaScript writes ``1``, ``1e-7`` and
+    ``10000000000000000``. ``repr`` already gives the shortest round-trip digits, as JavaScript does;
+    only the layout differs.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        if abs(value) < 2**53:
+            return str(value)
+        value = float(value)  # JavaScript holds every number as a double
+    if math.isnan(value) or math.isinf(value):
+        raise ValueError(f"{value!r} is not a JSON number")
+    if value == 0:
+        return "0"  # -0 included
+    sign = "-" if value < 0 else ""
+    mantissa, _, exponent = repr(abs(value)).partition("e")
+    integral, _, fraction = mantissa.partition(".")
+    digits = integral + fraction
+    # value = 0.<digits> x 10^n
+    n = len(integral) + (int(exponent) if exponent else 0)
+    stripped = digits.lstrip("0")
+    n -= len(digits) - len(stripped)
+    s = stripped.rstrip("0")
+    k = len(s)
+    if k <= n <= 21:
+        text = s + "0" * (n - k)
+    elif 0 < n <= 21:
+        text = s[:n] + "." + s[n:]
+    elif -6 < n <= 0:
+        text = "0." + "0" * (-n) + s
+    else:
+        e = n - 1
+        text = (s if k == 1 else s[0] + "." + s[1:]) + "e" + ("+" if e >= 0 else "-") + str(abs(e))
+    return sign + text
+
+
+def _canonical_json(value: Any) -> str:
+    """The canonical JSON of review-inbox.ts ``canonicalJson``: compact, object keys sorted by code
+    point at every depth, arrays in order, non-ASCII left as is, numbers as JavaScript writes them."""
+    if value is None:
+        return "null"
+    if isinstance(value, (bool, int, float)):
+        return _js_number(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(_canonical_json(item) for item in value) + "]"
+    if isinstance(value, dict):
+        return "{" + ",".join(
+            f"{json.dumps(key, ensure_ascii=False)}:{_canonical_json(value[key])}" for key in sorted(value)
+        ) + "}"
+    raise ValueError(f"cannot write {type(value).__name__} as JSON")
+
+
+def _scene_fingerprint(scene: Any) -> str:
+    """sha256 hex of the scene's canonical JSON: the whole raw scene, answer keys included."""
+    return _sha256(_canonical_json(scene).encode("utf-8"))
+
+
+def _non_empty(value: Any) -> bool:
+    # Same rule as review-inbox.ts: a blank string, an empty list or object, and null are empty.
+    if isinstance(value, str):
+        return value.strip() != ""
+    if isinstance(value, (list, dict)):
+        return len(value) > 0
+    return value is not None
+
+
+def _js_truthy(value: Any) -> bool:
+    # JavaScript truthiness: an empty list or object is truthy there, unlike in Python.
+    if value is None or isinstance(value, (list, dict)):
+        return value is not None
+    if isinstance(value, (bool, int, float)):
+        return bool(value) and not (isinstance(value, float) and math.isnan(value))
+    return value != ""
+
+
+def _scene_holds_key(scene: Any) -> bool:
+    """A non-empty answer-bearing field, or a quiz choice marked correct (sceneHoldsKey)."""
+    if not isinstance(scene, dict):
+        return False
+    if any(_non_empty(scene.get(field)) for field in KEY_HOLDING_SCENE_FIELDS):
+        return True
+    choices = scene.get("choices")
+    return isinstance(choices, list) and any(
+        isinstance(choice, dict) and choice.get("correct") is True for choice in choices
+    )
+
+
+def _scene_has_render_assets(scene: dict[str, Any]) -> bool:
+    """What sceneRenderAssets looks at: render_assets, image_path, a rendered evidence.abs_asset,
+    a reference_result that ran. A malformed render_assets makes the TypeScript call throw, which
+    review-inbox.ts reads as no asset: only a non-empty list counts here."""
+    render_assets = scene.get("render_assets")
+    if isinstance(render_assets, list) and render_assets:
+        return True
+    if _js_truthy(scene.get("image_path")):
+        return True
+    evidence = scene.get("evidence")
+    abs_asset = evidence.get("abs_asset") if isinstance(evidence, dict) else None
+    if isinstance(abs_asset, dict) and abs_asset.get("asset_type") in RENDERED_ABS_ASSET_TYPES:
+        return True
+    reference = scene.get("reference_result")
+    return isinstance(reference, dict) and _js_truthy(reference.get("ran"))
+
+
+def _scene_id(scene: Any, index: int) -> str:
+    scene_id = scene.get("id") if isinstance(scene, dict) else None
+    return scene_id if isinstance(scene_id, str) else f"#{index}"
+
+
+def _parse_opened(values: list[str] | None) -> list[str]:
+    return [part.strip() for value in values or [] for part in value.split(",") if part.strip()]
+
+
+def _parse_verdicts(values: list[str] | None) -> dict[str, str]:
+    """Parse repeatable, comma-separated ``SCENE_ID=ok|to_fix`` verdicts.
+
+    Repeating an id follows normal command-line override semantics: the last value wins. All
+    malformed values are reported together so a refusal stays on one line.
+    """
+    verdicts: dict[str, str] = {}
+    invalid: list[str] = []
+    for value in values or []:
+        parts = [part.strip() for part in value.split(",") if part.strip()]
+        if not parts:
+            invalid.append(value)
+            continue
+        for part in parts:
+            if part.count("=") != 1:
+                invalid.append(part)
+                continue
+            scene_id, verdict = (piece.strip() for piece in part.split("=", maxsplit=1))
+            if not scene_id or verdict not in REVIEW_VERDICTS:
+                invalid.append(part)
+                continue
+            verdicts[scene_id] = verdict
+    if invalid:
+        raise _refusal("unknown_verdict", values=", ".join(repr(value) for value in invalid))
+    return verdicts
+
+
+def _review_receipt(
+    *,
+    bundle: dict[str, Any],
+    bundle_bytes: bytes,
+    bundle_path: Path,
+    reviewer: str,
+    decided_at: str,
+    decision: str,
+    opened: list[str],
+    note: str | None,
+    verdicts: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Build a v1 review receipt for the exact bytes reviewed; refuse an id that is not a scene.
+
+    Consequence rule (the CLI's share of review-inbox.ts's): ``grading`` when the scene holds a
+    key, else ``media`` when it has render assets, else ``wording``. ``blocks`` (a check fails) is
+    written only for a returned lesson, for a scene with an unfilled placeholder: ``approve`` has
+    already refused placeholders and lint ERRORs, so nothing blocks at approval time.
+    """
+    raw_scenes = bundle.get("scenes")
+    scenes = raw_scenes if isinstance(raw_scenes, list) else []
+    ids = [_scene_id(scene, index) for index, scene in enumerate(scenes)]
+    unknown = sorted(set(opened) - set(ids))
+    if unknown:
+        raise _refusal("unknown_opened", count=len(unknown), ids=", ".join(unknown))
+    verdict_map = verdicts or {}
+    invalid_verdicts = [
+        f"{scene_id}={verdict}"
+        for scene_id, verdict in verdict_map.items()
+        if scene_id not in ids or verdict not in REVIEW_VERDICTS
+    ]
+    if invalid_verdicts:
+        raise _refusal(
+            "unknown_verdict",
+            values=", ".join(repr(value) for value in sorted(invalid_verdicts)),
+        )
+    blocked: set[int] = set()
+    if decision == "returned":
+        for path in placeholder_paths(bundle):
+            match = _PLACEHOLDER_SCENE_PATH.match(path)
+            if match:
+                blocked.add(int(match.group(1)))
+    items = []
+    for index, (scene, scene_id) in enumerate(zip(scenes, ids)):
+        record = scene if isinstance(scene, dict) else {}
+        consequence = (
+            "blocks" if index in blocked
+            else "grading" if _scene_holds_key(scene)
+            else "media" if _scene_has_render_assets(record)
+            else "wording"
+        )
+        item = {
+            "id": scene_id,
+            "sha256": _scene_fingerprint(scene),
+            "consequence": consequence,
+            "opened": scene_id in opened,
+        }
+        if scene_id in verdict_map:
+            item["verdict"] = verdict_map[scene_id]
+        items.append(item)
+    opened_count = sum(item["opened"] for item in items)
+    bundle_id = bundle.get("bundle_id")
+    receipt: dict[str, Any] = {
+        "schema": REVIEW_RECEIPT_SCHEMA,
+        "reviewer": reviewer,
+        "decided_at": decided_at,
+        "bundle_ref": bundle_id if isinstance(bundle_id, str) and bundle_id.strip() else bundle_path.parent.name,
+        "bundle_sha256": _sha256(bundle_bytes),
+        "decision": decision,
+        "items": items,
+        "opened": opened_count,
+        "not_opened": len(items) - opened_count,
+    }
+    if note is not None:
+        receipt["note"] = note
+    return receipt
+
+
+def _receipt_path(bundle_path: Path, decided_at: str, bundle_sha256: str) -> Path:
+    # The name readLastReceipt accepts: <YYYY-MM-DD>-<hex>.json, next to lesson.json.
+    return bundle_path.parent / "reviews" / f"{decided_at[:10]}-{bundle_sha256[:12]}.json"
+
+
+def _refuse_existing_receipt(path: Path) -> None:
+    if path.exists() or path.is_symlink():
+        raise _refusal("receipt_exists", path=path)
+
+
+def _write_receipt(path: Path, receipt: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("xb") as handle:  # exclusive: never overwrite a receipt
+        handle.write(_json_bytes(receipt))
+
+
+REVIEW_EVENT_PATH = "reviews/telemetry.jsonl"
+REVIEWER_ROLE = "reviewer"
+_TELEMETRY_EVENT = TypeAdapter(TelemetryEvent)
+
+
+def _review_event_path(bundle_path: Path) -> Path:
+    """The review events, next to the receipts: a reviewer is a role, never in a learner's stream."""
+    return bundle_path.parent / "reviews" / "telemetry.jsonl"
+
+
+def _bundle_version(bundle: dict[str, Any]) -> str:
+    """M5.7's convention, read from the same fields `bundleVersionOf` reads; "unversioned" when one
+    is missing (the contract's own default for an ingested event)."""
+    schema_version = bundle.get("schema_version")
+    bundle_id = bundle.get("bundle_id")
+    validated_at = bundle.get("validated_at")
+    if not all(isinstance(value, str) and value for value in (schema_version, bundle_id, validated_at)):
+        return "unversioned"
+    return f"{schema_version}:{bundle_id}@{validated_at}"
+
+
+def _review_receipt_event(receipt: dict[str, Any], bundle: dict[str, Any]) -> dict[str, Any]:
+    """The `review_receipt` event of one receipt: the role label, the counts, no name.
+
+    The id is deterministic (uuid5 over the reviewed bytes' digest and the decision time), so two
+    copies of a course write the same bytes, and the event is validated against the Python contract
+    before anything is written.
+    """
+    # `ctx.lessonId` on the server is the bundle's `bundle_id`; a bare fixture with none falls back
+    # to the receipt's `bundle_ref` (the course folder's name), so the event stays usable.
+    lesson_id = bundle.get("bundle_id") or receipt.get("bundle_ref")
+    if not isinstance(lesson_id, str) or not lesson_id:
+        raise _refusal("receipt_event_invalid", detail="the receipt carries no lesson id")
+    decided_at = receipt.get("decided_at")
+    bundle_sha256 = receipt.get("bundle_sha256")
+    if not all(isinstance(value, str) and value for value in (decided_at, bundle_sha256)):
+        raise _refusal("receipt_event_invalid", detail="the receipt carries no decided_at or digest")
+    event = {
+        "type": "review_receipt",
+        "event_id": str(
+            uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                f"studium:review_receipt:{bundle_sha256}:{decided_at}",
+            )
+        ),
+        "learner_pseudonym": REVIEWER_ROLE,
+        "lesson_id": lesson_id,
+        "bundle_version": _bundle_version(bundle),
+        "client_timestamp": decided_at,
+        "decision": receipt["decision"],
+        "items": len(receipt.get("items") or []),
+        "opened": receipt["opened"],
+        "not_opened": receipt["not_opened"],
+    }
+    try:
+        _TELEMETRY_EVENT.validate_python(event)
+    except ValidationError as exc:
+        first = exc.errors()[0]
+        location = ".".join(map(str, first["loc"]))
+        raise _refusal(
+            "receipt_event_invalid", detail=f"{location}: {first['msg']}" if location else first["msg"]
+        ) from exc
+    return event
+
+
+def _append_review_event(bundle_path: Path, event: dict[str, Any], receipt_path: Path) -> Path:
+    path = _review_event_path(bundle_path)
+    # One JSONL line: the compact canonical JSON (the bytes `_scene_fingerprint` hashes), while the
+    # receipt itself stays the indented `_json_bytes`.
+    line = _canonical_json(event) + "\n"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(line)
+    except OSError as exc:
+        # The receipt (and, on approve, the bundle and approval record) already exist: running the
+        # command again would write a second receipt, so this event cannot be recovered that way.
+        raise _refusal("receipt_event_not_appended", path=receipt_path, detail=exc) from exc
+    return path
+
+
+def _receipt_summary(receipt_path: Path, language: str = "en") -> list[str]:
+    receipt, _ = _load_json(receipt_path, "review receipt")
+    items = receipt.get("items") or []
+    decision = receipt["decision"]
+    shown = SUMMARY_TEXT[language].get(f"decision_{decision}", decision)
+    lines = [
+        _summary_text(language, "receipt", decision=shown, path=receipt_path.resolve()),
+        _summary_text(language, "opened", opened=receipt["opened"], total=len(items)),
+    ]
+    verdicts = [item["verdict"] for item in items if item.get("verdict") in REVIEW_VERDICTS]
+    if verdicts:
+        lines.append(
+            _summary_text(
+                language,
+                "verdicts",
+                ok=verdicts.count("ok"),
+                to_fix=verdicts.count("to_fix"),
+            )
+        )
+    if decision == "approved":
+        unopened = [item["id"] for item in items if item["consequence"] == "grading" and not item["opened"]]
+        if unopened:
+            lines.append(
+                _summary_text(language, "unopened_grading", count=len(unopened), ids=", ".join(unopened))
+            )
+    lines.append(_summary_text(language, "event", path=REVIEW_EVENT_PATH))
+    return lines
+
+
+def record_review_receipt(
+    *,
+    bundle_path: Path,
+    reviewer: str,
+    decision: str,
+    opened: list[str] | None = None,
+    note: str | None = None,
+    verdicts: dict[str, str] | None = None,
+) -> Path:
+    """Write a receipt alone, bound to the current bytes: a teacher who sends a lesson back."""
+    if decision == "approved":
+        raise _refusal("receipt_approved")
+    if decision != "returned":
+        raise _refusal("unknown_decision", decision=decision)
+    bundle_path = bundle_path.resolve()
+    reviewer = reviewer.strip()
+    if not reviewer:
+        raise _refusal("reviewer_empty")
+    bundle, raw = _load_json(bundle_path, "LessonBundle")
+    if not isinstance(bundle, dict):
+        raise _refusal("bundle_not_object")
+    decided_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    receipt = _review_receipt(
+        bundle=bundle, bundle_bytes=raw, bundle_path=bundle_path, reviewer=reviewer,
+        decided_at=decided_at, decision=decision, opened=opened or [], note=note, verdicts=verdicts,
+    )
+    # Validated before the receipt is written: a `receipt_event_invalid` refusal writes nothing.
+    event = _review_receipt_event(receipt, bundle)
+    path = _receipt_path(bundle_path, decided_at, receipt["bundle_sha256"])
+    _refuse_existing_receipt(path)
+    try:
+        _write_receipt(path, receipt)
+    except FileExistsError:
+        _refuse_existing_receipt(path)
+        raise
+    except OSError as exc:
+        raise _refusal("write_receipt", detail=exc) from exc
+    _append_review_event(bundle_path, event, path)
+    return path
+
+
 def _is_allowed_placeholder_id(value: str, key: str | None) -> bool:
     """Allow ``todo-*`` only in fields that are identifiers, never in visible prose."""
     is_identifier = key == "id" or bool(key and (key.endswith("_id") or key.endswith("_ids")))
@@ -430,7 +1041,7 @@ def _load_json(path: Path, label: str) -> tuple[Any, bytes]:
         raw = path.read_bytes()
         return json.loads(raw), raw
     except (OSError, json.JSONDecodeError) as exc:
-        raise PacketError(f"cannot read {label} JSON: {exc}") from exc
+        raise _refusal("read_json", label=label, detail=exc) from exc
 
 
 def _require_empty_directory(path: Path) -> None:
@@ -1974,7 +2585,7 @@ def _write_json_file(path: Path, value: Any, label: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(_json_bytes(value))
     except OSError as exc:
-        raise PacketError(f"cannot write {label}: {exc}") from exc
+        raise _refusal("write_json", label=label, detail=exc) from exc
 
 
 def build_lesson_bundle(
@@ -2033,9 +2644,9 @@ def _parse_checklist(items: list[str]) -> dict[str, str]:
         key, separator, value = item.partition("=")
         key = key.strip()
         if not separator or not key:
-            raise PacketError(f"invalid checklist entry {item!r}; expected key=value")
+            raise _refusal("checklist_entry", item=item)
         if key in checklist:
-            raise PacketError(f"duplicate checklist key {key!r}")
+            raise _refusal("checklist_duplicate", key=key)
         checklist[key] = value.strip()
     return checklist
 
@@ -2052,7 +2663,7 @@ def _bundle_lint_summary(bundle_path: Path) -> dict[str, int]:
             check=False,
         )
     except OSError as exc:
-        raise PacketError(f"cannot run bundle lint: {exc}") from exc
+        raise _refusal("lint_cannot_run", detail=exc) from exc
     lines = (result.stdout + "\n" + result.stderr).splitlines()
     summary = {
         "errors": sum(line.startswith("ERROR  ") for line in lines),
@@ -2060,40 +2671,53 @@ def _bundle_lint_summary(bundle_path: Path) -> dict[str, int]:
     }
     if result.returncode not in (0, 1) or (result.returncode and not summary["errors"]):
         detail = next((line.strip() for line in lines if line.strip()), "no diagnostic output")
-        raise PacketError(f"bundle lint could not complete: {detail}")
+        raise _refusal("lint_incomplete", detail=detail)
     return summary
 
 
 def approve_lesson_bundle(
-    *, bundle_path: Path, validated_by: str, checklist: dict[str, str] | None = None
+    *,
+    bundle_path: Path,
+    validated_by: str,
+    checklist: dict[str, str] | None = None,
+    opened: list[str] | None = None,
+    note: str | None = None,
+    verdicts: dict[str, str] | None = None,
 ) -> Path:
-    """Record teacher approval for a finished bundle without rebuilding its content."""
+    """Record teacher approval for a finished bundle without rebuilding its content, and the review
+    receipt (which scenes were opened) in ``reviews/`` next to it."""
     bundle_path = bundle_path.resolve()
     reviewer = validated_by.strip()
     if not reviewer:
-        raise PacketError("--validated-by must not be empty")
+        raise _refusal("validated_by_empty")
     bundle, _ = _load_json(bundle_path, "LessonBundle")
     if not isinstance(bundle, dict):
-        raise PacketError("LessonBundle root must be an object")
+        raise _refusal("bundle_not_object")
     metadata = bundle.get("metadata")
     authoring = metadata.get("authoring") if isinstance(metadata, dict) else None
     if isinstance(authoring, dict) and authoring.get("mode") == SELF_STUDY_MODE:
-        raise PacketError(
-            "self-study bundles cannot receive teacher approval; to approve this lesson for a class, "
-            "rebuild it through prepare, check and bundle (the teacher route), fill it, then approve"
-        )
+        raise _refusal("self_study")
     remaining = placeholder_paths(bundle)
     if remaining:
-        raise PacketError(
-            f"cannot approve: {len(remaining)} placeholder(s) remain ({remaining[0]})"
-        )
+        raise _refusal("placeholders", count=len(remaining), first=remaining[0])
     lint = _bundle_lint_summary(bundle_path)
     if lint["errors"]:
-        raise PacketError(f"cannot approve: bundle lint reported {lint['errors']} ERROR finding(s)")
+        raise _refusal("lint_errors", count=lint["errors"])
     reviewed_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     bundle["validated_by"] = reviewer
     bundle["validated_at"] = reviewed_at
     final_bytes = _json_bytes(bundle)
+    # Built before any write so an unknown --opened id or an existing receipt mutates nothing.
+    receipt = _review_receipt(
+        bundle=bundle, bundle_bytes=final_bytes, bundle_path=bundle_path, reviewer=reviewer,
+        decided_at=reviewed_at, decision="approved", opened=opened or [], note=note, verdicts=verdicts,
+    )
+    if any(item.get("verdict") == "to_fix" for item in receipt["items"]):
+        raise _refusal("approve_to_fix")
+    # Same rule as `receipt`: the event is validated before any file is written.
+    event = _review_receipt_event(receipt, bundle)
+    receipt_path = _receipt_path(bundle_path, reviewed_at, receipt["bundle_sha256"])
+    _refuse_existing_receipt(receipt_path)
     approval = {
         "schema": APPROVAL_SCHEMA,
         "bundle_sha256": _sha256(final_bytes),
@@ -2106,24 +2730,40 @@ def approve_lesson_bundle(
     try:
         bundle_path.write_bytes(final_bytes)
     except OSError as exc:
-        raise PacketError(f"cannot write approved LessonBundle: {exc}") from exc
+        raise _refusal("write_bundle", detail=exc) from exc
     approval_path = bundle_path.parent / "approval.json"
     _write_json_file(approval_path, approval, "approval record")
+    try:
+        _write_receipt(receipt_path, receipt)
+    except OSError as exc:
+        raise _refusal("receipt_not_written", path=receipt_path, detail=exc) from exc
+    _append_review_event(bundle_path, event, receipt_path)
     return approval_path
 
 
-def _approval_summary(approval_path: Path) -> list[str]:
+def _voice_preview(name: str, language: str = "en") -> list[str]:
+    """The lesson's voice as learners read it on every screen (the host's voice line), so the teacher
+    sees what --validated-by turns into; an e-mail address is noted, never refused."""
+    lines = [_summary_text(language, "voice", name=name)]
+    if "@" in name:
+        lines.append(_summary_text(language, "voice_email"))
+    return lines
+
+
+def _approval_summary(approval_path: Path, language: str = "en") -> list[str]:
     """What a teacher reads after ``approve``: who, which exact file, the lint counts, and the one
     rule that keeps the record honest (RT-7)."""
     approval, _ = _load_json(approval_path, "approval record")
     lint = approval.get("lint") or {}
+    receipt_path = _receipt_path(approval_path.parent / "lesson.json", approval["reviewed_at"], approval["bundle_sha256"])
     return [
-        f"Approved by {approval['reviewer']} at {approval['reviewed_at']}",
-        f"lesson.json SHA-256: {approval['bundle_sha256']}",
-        f"lint: {lint.get('errors', 0)} error(s), {lint.get('warnings', 0)} warning(s)",
-        "validated_by and validated_at were rewritten and the file normalized; "
-        "any edit to lesson.json makes this approval stale (approve again after editing).",
-        "Approval record:",
+        _summary_text(language, "approved_by", reviewer=approval["reviewer"], at=approval["reviewed_at"]),
+        *_voice_preview(approval["reviewer"], language),
+        _summary_text(language, "sha", sha=approval["bundle_sha256"]),
+        _summary_text(language, "lint", errors=lint.get("errors", 0), warnings=lint.get("warnings", 0)),
+        _summary_text(language, "stale"),
+        *_receipt_summary(receipt_path, language),
+        _summary_text(language, "approval_record"),
     ]
 
 
@@ -2213,6 +2853,59 @@ def _add_approve_parser(commands: Any) -> None:
             "sources=read keys=checked scientific_accuracy=yes licence=checked level=fits"
         ),
     )
+    _add_receipt_arguments(approve)
+    _add_lang_argument(approve)
+
+
+def _add_receipt_arguments(command: Any) -> None:
+    command.add_argument(
+        "--opened",
+        action="append",
+        metavar="ID[,ID...]",
+        help=(
+            "scene ids you opened and read (repeat or separate with commas); the review receipt in "
+            "reviews/ marks them opened, the others not opened. An id that is not a scene is refused."
+        ),
+    )
+    command.add_argument(
+        "--verdict",
+        action="append",
+        metavar="ID=ok|to_fix[,ID=ok|to_fix...]",
+        help=(
+            "per-scene review verdicts (repeat or separate with commas); only matching receipt "
+            "items carry a verdict. approve refuses to_fix: use receipt --decision returned."
+        ),
+    )
+    command.add_argument("--note", metavar="TEXT", help="free note kept in the review receipt")
+
+
+def _add_lang_argument(command: Any) -> None:
+    command.add_argument(
+        "--lang",
+        choices=("en", "fr"),
+        help=(
+            "language of the summary and of the refusals printed (the recorded files do not change); "
+            "default: STUDIUM_LANG if it is fr or en, else LC_ALL/LANG (fr_... is French), else en"
+        ),
+    )
+
+
+def _add_receipt_parser(commands: Any) -> None:
+    receipt = commands.add_parser(
+        "receipt",
+        help="record a review receipt for a lesson you send back",
+        description=(
+            "For a teacher who sends a lesson back to its author: write a review receipt "
+            "(reviews/<date>-<sha>.json next to lesson.json, decision returned) bound to the "
+            "current bytes, without approval.json and without rewriting the lesson. The teacher "
+            "dashboard composes this command. To approve, use approve, which writes its own receipt."
+        ),
+    )
+    receipt.add_argument("--bundle", type=Path, required=True, metavar="LESSON_JSON")
+    receipt.add_argument("--reviewer", required=True, metavar="NAME")
+    receipt.add_argument("--decision", required=True, choices=("returned", "approved"))
+    _add_receipt_arguments(receipt)
+    _add_lang_argument(receipt)
 
 
 def _add_passages_parser(commands: Any) -> None:
@@ -2264,6 +2957,7 @@ def _parser() -> argparse.ArgumentParser:
         _add_check_parser,
         _add_bundle_parser,
         _add_approve_parser,
+        _add_receipt_parser,
     ):
         add_command(commands)
     return parser
@@ -2322,6 +3016,20 @@ def _run_approve(args: argparse.Namespace) -> Path:
         bundle_path=args.bundle,
         validated_by=args.validated_by,
         checklist=_parse_checklist(args.checklist),
+        opened=_parse_opened(args.opened),
+        note=args.note,
+        verdicts=_parse_verdicts(args.verdict),
+    )
+
+
+def _run_receipt(args: argparse.Namespace) -> Path:
+    return record_review_receipt(
+        bundle_path=args.bundle,
+        reviewer=args.reviewer,
+        decision=args.decision,
+        opened=_parse_opened(args.opened),
+        note=args.note,
+        verdicts=_parse_verdicts(args.verdict),
     )
 
 
@@ -2331,6 +3039,7 @@ _COMMANDS = {
     "check": _run_check,
     "bundle": _run_bundle,
     "approve": _run_approve,
+    "receipt": _run_receipt,
 }
 
 
@@ -2367,6 +3076,7 @@ def _print_check_json(
 def main(argv: list[str] | None = None) -> int:
     """Run a packet command and return its process status."""
     args = _parser().parse_args(argv)
+    language = _cli_language(getattr(args, "lang", None)) if args.command in ("approve", "receipt") else "en"
     try:
         output = _COMMANDS[args.command](args)
     except AuthoringFindingsError as exc:
@@ -2384,7 +3094,7 @@ def main(argv: list[str] | None = None) -> int:
             finding = _error("packet_error", str(exc))
             _print_check_json(ok=False, findings=[finding], output=None)
             return 2
-        print(f"error: {exc}", file=sys.stderr)
+        print(_summary_text(language, "error", message=_refusal_message(exc, language)), file=sys.stderr)
         return 2
     if args.command == "check":
         summary = check_summary_lines(output.output_path)
@@ -2406,7 +3116,13 @@ def main(argv: list[str] | None = None) -> int:
         bundle, _ = _load_json(output, "generated LessonBundle")
         print(f"Remaining placeholders: {len(placeholder_paths(bundle))}")
     if args.command == "approve":
-        print("\n".join(_approval_summary(output)))
+        print("\n".join(_approval_summary(output, language)))
+    if args.command == "receipt":
+        receipt, _ = _load_json(output, "review receipt")
+        print(_summary_text(language, "returned_by", reviewer=receipt["reviewer"], at=receipt["decided_at"]))
+        print(_summary_text(language, "sha", sha=receipt["bundle_sha256"]))
+        print("\n".join(_receipt_summary(output, language)[1:]))
+        print(_summary_text(language, "receipt_record"))
     print(output)
     return 0
 

@@ -65,9 +65,21 @@ you wanted, say so; the assistant revises the draft and rebuilds the lesson.
 
 ## 4. Play it, in the chat or in VS Code
 
-In the chat, each step arrives ready to read: its title, your progress ("Step 2 of 6"), the question and how
-to answer (a letter, a number from 0 to 4, or your own words). Answer yourself. The assistant passes your words
-on and must not answer, choose or rate for you.
+In the chat, each step arrives ready to read: its title, the question, how to answer (a letter, a number from
+0 to 4, or your own words) and, on its last line, where you are (`step 2/6 · 4 min · your answer`).
+Answer yourself. The assistant passes your words on and must not answer, choose or rate for you.
+
+The concept map (ask "where am I?") names each concept with its id, for example "Quantum numbers
+(`c-nombres-quantiques`): upcoming". If you already know a concept the map does not show as acquired, or doubt
+one it does, say so: the assistant contests it for you with `submit_response {kind: "contest", concept_id,
+claim}` (`known` or `unsure`), and never on its own. Your claim changes nothing about your mastery and skips
+no scene. The lesson opens with one line, "Check on “Quantum numbers”: 2 questions. Your claim changes
+nothing; the lesson then resumes where you were.", asks one or two check questions on that concept, graded
+like any answer (the last line says `check 1/2`), then resumes where you were. In forms, decline the form and
+say it in the conversation.
+
+If each answer is slow to come, play the lesson in a new, short session on your assistant's fast model (in
+Claude Code, `claude --agent studium-lesson`): see [Keep answers fast](../start/harnesses.md#keep-answers-fast).
 
 To play in VS Code instead, right-click the lesson's `lesson.json` and choose **Studium: Open this lesson**, or
 follow the link your assistant gives you (`vscode://holobiomicslab.studium-vscode/open?bundle=<absolute path>`).
@@ -78,15 +90,17 @@ not appear in the study plan your assistant reads, and the reverse.
 
 The first screen of a lesson an assistant wrote carries a notice. Without a judge model, it reads:
 
-> AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; challenge any key
-> you think is wrong. Without a judge model, production scenes are not assessed: compare your answer with the
+> AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the
+> assistant about a key that looks wrong. Without a judge model, production scenes are not assessed: compare your answer with the
 > provided reference and rate your recall; that rating schedules your reviews and never changes your mastery. Executed reproductions carry
 > an external assessment.
 
 What it means in practice:
 
 - **Who wrote the key.** The assistant wrote the correct answers. They cite the passages they rest on, so you
-  can check them; a key can still be wrong.
+  can check them; a key can still be wrong. On a panel or a pane, the line over a quiz verdict says so too:
+  "Assessed by the AI-drafted key — check it against the cited passage" (a lesson you wrote yourself says
+  "Assessed by the key you wrote"; a teacher's lesson, "Assessed by the author's key").
 - **What was assessed.** Quiz answers are checked against that key: ✓ when right, ✗ when wrong, and once you
   leave a question you answered wrong, the right answer is shown. Your written answers (explanations,
   comparisons, audits) are not scored unless a judge model is configured (`LITELLM_BASE_URL`). You get the key
@@ -104,6 +118,16 @@ Open a new conversation and ask "What should I study with Studium today?". The a
 `get_study_plan` in your language, which lists the reviews due, the lessons in progress and the next lesson, and names the one
 step to take now. `start_review_session` then plays every review due, across all your lessons. See
 [review over time](review-over-time.md).
+
+If you simply take a lesson up again, its first screen says so, and when reviews are due it proposes them at the start
+of the session, or at the first pause after it when the session started on a question, once per session:
+
+> **Suggestion:** 1 concept to review today (suggestion `review_due:start`)
+> _You can accept, or say “later”._
+
+Answer in your own words. If you accept, the assistant starts the review session; if you say "later", the
+lesson goes on. The same kind of proposal comes at a pause, never over a question: playing in forms when
+your client can show them, the concept map at the end of the lesson. Each one is made once.
 
 Your progress survives restarts by default, under `~/.studium`. To find it again from another assistant, use
 the same data folder and the same learner id: ask the assistant to pass one stable `learner_id` (for example

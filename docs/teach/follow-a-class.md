@@ -68,6 +68,38 @@ protection: keep 5 or more. `--bundle path/to/lesson.zip` names the lesson when 
 the telemetry. This report also includes trust calibration
 (whether students trusted the AI when they should have), which the MCP tool leaves out.
 
+## How the interface was used
+
+```bash
+.venv/bin/python tools/interaction_report.py path/to/data --out reports/my-course-usage
+```
+
+[`tools/interaction_report.py`](../../tools/interaction_report.py) reads the same folder and
+reports how the class used the interface rather than what it learned. It reads seven event types,
+written only under the learner's consent: `interaction` (one per act the server settles), `prompt_shown`
+and `prompt_outcome`, `help_used`, `contest`, `resume` and `review_receipt`.
+
+- **Lane and surface rank.** Each act records the lane the learner used (`fast` for the panel, the
+  native pane and forms; `companion` for the conversation and its tools) and the rank of the surface the
+  session was played on (3 panel or pane, 2 forms, 1 conversation). An act in the conversation while a
+  panel is open is therefore `companion` at rank 3. The fast-lane share is computed over the acts of
+  sessions at rank 2 or 3, conversation acts included: a learner who fell back to the conversation
+  lowers the share rather than disappearing from it.
+- **Prompt outcomes.** Each proposal is counted as accepted, dismissed or ignored, per kind; a kind with
+  at least 30 outcomes and fewer than 20% accepted is flagged for review.
+- **Help, contests and resumes.** Help is counted per rung (`hint`, `explain`) and per scene, with the
+  answers that came before and after an explanation; contests by their outcome (`confirmed`, `refuted`,
+  `partial`); resumes by cause, with scenes shown twice after a resume.
+- **Review receipts.** `experience_packet.py approve` and `receipt --decision returned` write one
+  `review_receipt` event beside the receipts, under the role label `reviewer`, so the report can say how
+  many lessons were fully opened and how many were approved or returned.
+
+Every figure keeps the same floor of five distinct learners, which here cannot be lowered, and a stream
+without a recorded consent event is refused and counted, not read. What each prompt does, what each help
+rung means and the exact fields are in
+[Command-line tools](../reference/cli.md#interaction_reportpy) and the
+[telemetry-events README](../../packages/telemetry-events/README.md), rather than repeated here.
+
 ## The teacher dashboard
 
 ```bash
@@ -86,8 +118,17 @@ teaching fixtures, start it with `BUNDLES_ROOT="$PWD/fixtures"`.
 Each lesson has a review page (see [review and approve](review-and-approve.md#review-the-lesson-file))
 with a link to its MySTRA view when the Observatory serves a course folder of the same name
 (`OBSERVATORY_BASE_URL`, default `http://localhost:8004`). Pages are read-only: they show titles,
-scene types, concepts and references, never lesson bodies, choices or keys. Language and theme are
+scene types, concepts and references, and, folded under each inbox line, what the learner reads (the
+scene's text, a quiz's choices), never a key, a hint, a feedback or a reveal. Language and theme are
 chosen in the header menu.
+
+The review page opens with a review inbox: one line per scene, scenes that block first, then those
+that hold a grading key, then wording and media, each marked new, changed or unchanged since the last
+review receipt. Each line unfolds what the learner sees; the page runs the bundle linter, so a scene with
+a lint error blocks. Give your own verdict on a grading line (Correct or To fix) before its automatic
+verdict unfolds. The approval command, and the command that sends the lesson back, carry the name you
+type (the panel shows it as learners will read it) and list the scenes you opened in `--opened`; the
+page warns about grading lines you have not opened, and writes nothing itself.
 
 The course analytics pages (`/courses/<course_id>/progress` and the pages next to it: calibration,
 trajectory, reasoning, autonomy, AI literacy) read the analytics collector on `localhost:8003`; the

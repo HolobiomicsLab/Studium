@@ -47,7 +47,7 @@ export interface ReviewSource {
   lastSceneId: string | null;
 }
 
-const playableOutsideItsLesson = (scene: Scene) => {
+export const playableOutsideItsLesson = (scene: Scene) => {
   const s = scene as { run_manifest?: unknown; reference_from_run?: unknown };
   return !s.run_manifest && !s.reference_from_run;
 };
@@ -63,7 +63,7 @@ export function isDiagnosticScene(bundle: LessonBundle, scene: Scene): boolean {
 }
 
 /** Graded against an answer key, with no judge model: a quiz, a spot_the_flaw played as a verdict deck. */
-function answerGraded(scene: Scene): boolean {
+export function answerGraded(scene: Scene): boolean {
   return scene.type === "quiz" || (scene.type === "spot_the_flaw" && (scene as { verdict_deck?: unknown }).verdict_deck === true);
 }
 

@@ -11,6 +11,8 @@
 // a teacher released a learner's bundle; a bundle without metadata.authoring gets none of them.
 // Any learner-visible or grading string a skeleton left unfilled (it starts with TODO or contains
 // "TODO:") is an ERROR unfilled_placeholder.
+// A lesson with two concepts or more warns (concept_few_recall_questions) for each concept that has
+// fewer than two key-graded recall questions: a learner who contests it cannot be asked two.
 //
 // Exit 0 means no ERROR findings; WARN and INFO findings do not fail the run.
 //
@@ -177,6 +179,20 @@ function resolveTargets(parsed) {
   return { targets: [...targets.values()].sort((a, b) => a.name.localeCompare(b.name)), findings: scanned.findings, isDefaultRun };
 }
 
+function validateLegend(legend, path) {
+  const issues = [];
+  if (!Array.isArray(legend) || legend.length === 0) return [`${path} must be a non-empty array`];
+  legend.forEach((entry, index) => {
+    if (!isRecord(entry)) issues.push(`${path}.${index} must be an object`);
+    else for (const field of ["symbol", "meaning"]) {
+      if (typeof entry[field] !== "string" || entry[field].trim().length === 0) {
+        issues.push(`${path}.${index}.${field} must be a non-empty string`);
+      }
+    }
+  });
+  return issues;
+}
+
 function validateRenderAsset(asset, path) {
   if (!isRecord(asset)) return [`${path} must be an object`];
   const issues = [];
@@ -188,6 +204,7 @@ function validateRenderAsset(asset, path) {
   if (isMetaBacked && (!isRecord(asset.meta) || (hasPayload && hasPath))) {
     issues.push(`${path} executed_result needs meta and at most one of payload or path`);
   }
+  if (asset.legend !== undefined) issues.push(...validateLegend(asset.legend, `${path}.legend`));
   return issues;
 }
 
@@ -201,6 +218,10 @@ function validateScene(scene, index) {
   if (scene.render_assets !== undefined) {
     if (!Array.isArray(scene.render_assets)) issues.push(`${path}.render_assets must be an array`);
     else scene.render_assets.forEach((asset, assetIndex) => issues.push(...validateRenderAsset(asset, `${path}.render_assets.${assetIndex}`)));
+  }
+  const absAsset = scene.evidence?.abs_asset;
+  if (isRecord(absAsset) && absAsset.legend !== undefined) {
+    issues.push(...validateLegend(absAsset.legend, `${path}.evidence.abs_asset.legend`));
   }
   if (scene.type === "quiz" && (!Array.isArray(scene.choices) || scene.choices.length < 2 || scene.choices.length > 6)) {
     issues.push(`${path}.choices must contain 2 to 6 choices`);
@@ -269,12 +290,44 @@ function quizAnswerKeyFindings(bundle) {
     .map(({ id, count }) => finding("ERROR", "quiz_answer_key", `${id}: ${count} correct choices (expected ${EXPECTED_CORRECT_CHOICES})`));
 }
 
+function normalizedRevealText(text) {
+  return text.normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+/** Whether answer text occurs in feedback with Unicode alphanumeric token boundaries. */
+export function feedbackRevealsAnswer(feedback, answer) {
+  const text = normalizedRevealText(feedback);
+  const needle = normalizedRevealText(answer);
+  if (needle.length === 0 || needle.length > text.length) return false;
+  for (let start = 0; start <= text.length - needle.length; start += 1) {
+    if (needle.every((token, offset) => text[start + offset] === token)) return true;
+  }
+  return false;
+}
+
+function quizFeedbackRevealFindings(bundle) {
+  if (!Array.isArray(bundle.scenes)) return [];
+  return bundle.scenes.flatMap((scene) => {
+    if (scene?.type !== "quiz" || typeof scene.feedback_incorrect !== "string" || !Array.isArray(scene.choices)) return [];
+    const revealed = scene.choices.find((choice) => choice?.correct === true && typeof choice.text === "string"
+      && feedbackRevealsAnswer(scene.feedback_incorrect, choice.text));
+    return revealed
+      ? [finding("WARN", "quiz_feedback_reveals_answer", `${scene.id}: feedback_incorrect includes correct choice ${JSON.stringify(revealed.text)}`)]
+      : [];
+  });
+}
+
 function sceneRenderAssets(scene) {
   const assets = Array.isArray(scene.render_assets) ? [...scene.render_assets] : [];
   if (typeof scene.image_path === "string") assets.push({ kind: "image", path: scene.image_path });
   const absAsset = scene.evidence?.abs_asset;
   const absKind = ABS_ASSET_KINDS.get(absAsset?.asset_type);
-  if (absKind) assets.push({ kind: absKind, payload: absAsset.payload_inline, path: absAsset.payload_path });
+  if (absKind) assets.push({
+    kind: absKind,
+    payload: absAsset.payload_inline,
+    path: absAsset.payload_path,
+    legend: absAsset.legend,
+  });
   const referenceResult = scene.reference_result;
   if (referenceResult?.ran && typeof referenceResult.figure_path === "string") {
     assets.push({ kind: "executed_result", path: referenceResult.figure_path, meta: {} });
@@ -287,6 +340,13 @@ function unresolvedAssetFindings(bundle, bundleDirectory) {
   return bundle.scenes.flatMap((scene) => sceneRenderAssets(scene)
     .filter((asset) => typeof asset.path === "string" && !existsSync(resolve(bundleDirectory, asset.path)))
     .map((asset) => finding("ERROR", "unresolved_asset", `${scene.id}: unresolved render asset (${asset.kind}) -> ${asset.path}`)));
+}
+
+function equationLegendFindings(bundle) {
+  if (!Array.isArray(bundle.scenes)) return [];
+  return bundle.scenes.flatMap((scene) => sceneRenderAssets(scene)
+    .filter((asset) => asset.kind === "equation_latex" && (!Array.isArray(asset.legend) || asset.legend.length === 0))
+    .map(() => finding("WARN", "equation_without_legend", `${scene.id}: equation_latex asset has no legend`)));
 }
 
 function normalizeText(text) {
@@ -474,6 +534,32 @@ function graphFindings(bundle) {
   ];
 }
 
+/** The check questions a contested concept is asked (INT-STUDIUM-058 § 2.7): two, from two scenes of
+ * the concept graded against the author's key. Mirrors checkScenes in
+ * packages/lesson-session-host/src/contest.ts: a quiz, or a spot_the_flaw played as a verdict deck,
+ * whose FIRST concept is that one, not a diagnostic, not a scene that needs a learner-time run. */
+const CONTEST_QUESTIONS = 2;
+function isRecallQuestion(scene) {
+  if (!isRecord(scene) || scene.diagnostic === true || scene.run_manifest || scene.reference_from_run) return false;
+  return scene.type === "quiz" || (scene.type === "spot_the_flaw" && scene.verdict_deck === true);
+}
+
+/** A lesson with a concept map (two concepts or more) says which concepts a learner cannot fully
+ * contest. A lesson with one concept has no map, so nothing to contest. */
+function recallQuestionFindings(bundle) {
+  const concepts = Array.isArray(bundle.concepts) ? bundle.concepts.filter((c) => isRecord(c) && typeof c.id === "string") : [];
+  if (concepts.length < 2) return [];
+  const scenes = Array.isArray(bundle.scenes) ? bundle.scenes.filter(isRecallQuestion) : [];
+  return concepts.flatMap((concept) => {
+    const count = scenes.filter((scene) => Array.isArray(scene.concept_refs) && scene.concept_refs[0] === concept.id).length;
+    if (count >= CONTEST_QUESTIONS) return [];
+    const has = count === 0 ? "no recall question" : "1 recall question";
+    const effect = count === 0 ? "it cannot be contested" : "a contest asks one question and its outcome is partial";
+    return [finding("WARN", "concept_few_recall_questions",
+      `${concept.id} has ${has} (a quiz, or a spot_the_flaw verdict deck, with it as first concept): ${effect}; a learner who contests a concept is asked ${CONTEST_QUESTIONS}`)];
+  });
+}
+
 /** `todo-*` stays allowed in identifier fields (`id`, `*_id`, `*_ids`), never in visible prose. */
 function isAllowedPlaceholderId(value, key) {
   const isIdentifier = key === "id" || (typeof key === "string" && (key.endsWith("_id") || key.endsWith("_ids")));
@@ -602,9 +688,12 @@ export function lintBundleData(bundle, { bundleDir, name = BUNDLE_FILENAME }) {
     ...schemaFindings(bundle),
     ...duplicateIdFindings(bundle),
     ...quizAnswerKeyFindings(bundle),
+    ...quizFeedbackRevealFindings(bundle),
     ...unresolvedAssetFindings(bundle, bundleDir),
+    ...equationLegendFindings(bundle),
     ...flawReport.findings,
     ...graphFindings(bundle),
+    ...recallQuestionFindings(bundle),
     ...unfilledPlaceholderFindings(bundle),
     ...authoringFindings(bundle),
   ]);

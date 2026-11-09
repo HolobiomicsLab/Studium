@@ -158,16 +158,18 @@ export function schemaRows(schema, { maxDepth = 3, skip = [], root = schema } = 
       const where = !isDisc && entry.in.length < all && disc && entry.requiredIn.length !== entry.in.length ? `Only in ${disc.key} ${entry.in.map(code).join(", ")}.` : "";
       const description = [note(entry.schemas[0], root), where].filter(Boolean).join(" ");
       rows.push({ path, type, required, description });
-      const first = deref(entry.schemas[0], root);
-      if (entry.schemas.length === 1 && isObjectSchema(first) && first.properties && depth < maxDepth) {
-        visit(first, path, depth + 1, (r) => (r ? "yes" : "no"));
-      }
+      // A field of one shape only is expanded as any other field: an object's fields, or an array's
+      // object items (`input.verdicts[].token` inside a union of input shapes).
+      if (entry.schemas.length === 1 && depth < maxDepth) descend(deref(entry.schemas[0], root), path, depth);
     }
   };
   const emit = (child, path, depth, required) => {
     const c = deref(child, root);
     rows.push({ path, type: typeLabel(c, root), required, description: note(c, root) });
     if (depth >= maxDepth) return;
+    descend(c, path, depth);
+  };
+  const descend = (c, path, depth) => {
     const variants = (c.anyOf ?? c.oneOf)?.map((v) => deref(v, root)).filter(isObjectSchema);
     if (variants && variants.length > 1) { visitVariants(variants, path, depth + 1); return; }
     if (isObjectSchema(c) && c.properties) { visit(c, path, depth + 1, (r) => (r ? "yes" : "no")); return; }

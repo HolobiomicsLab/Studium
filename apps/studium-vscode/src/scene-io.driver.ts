@@ -41,7 +41,7 @@ for (const type of ["intro", "concept", "quiz", "meta_checkpoint", "reproduction
 
 // 2) webview PARITY — media/artifact-pane.js must post every one of those kinds, plus the new
 //    discussion-turn + forget messages, so the pane agrees with the notebook + the graders.
-const pane = readFileSync(resolve(here, "..", "media", "artifact-pane.js"), "utf8");
+const pane = readFileSync(resolve(here, "..", "..", "lesson-panel-ui", "dist", "vscode", "artifact-pane.js"), "utf8");
 for (const kind of new Set(Object.values(EXPECTED))) {
   expect(new RegExp(`kind:\\s*"${kind}"`).test(pane), `artifact-pane.js posts input kind "${kind}"`);
 }
@@ -86,7 +86,7 @@ expect(/confidence/.test(pane), "artifact-pane.js attaches a confidence to a sub
   const SAME_ON_PURPOSE = new Set([
     "chat_source", "chat_situation", "notebook_figure", "pane_badge_code", "pane_badge_image", "pane_situation",
     "pane_signal_justification", "pane_signal_question", "pane_type_discussion", "pane_type_intro",
-    "pane_type_quiz", "pane_type_reproduction",
+    "pane_type_quiz", "pane_type_reproduction", "pane_attention_normal",
   ]);
   expect(Object.keys(fr).sort().join("|") === Object.keys(en).sort().join("|"), "fr and en catalogues define the same keys");
   for (const key of Object.keys(fr)) {

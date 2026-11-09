@@ -49,6 +49,24 @@ schéma depuis un terminal :
 apps/lesson-mcp/node_modules/.bin/tsx tools/bundle_validate.ts work/library/my-course/lesson.json
 ```
 
+`review_lesson` renvoie aussi une boîte de relecture (`inbox`) : un élément par scène, d'abord les
+scènes qui bloquent l'approbation, puis celles qui portent une clé de réponse (`grading`), puis le
+texte seul (`wording`), puis celles qui ont une figure ou un autre fichier (`media`). Chaque élément
+indique si la scène est nouvelle (`new`), modifiée (`changed`) ou inchangée (`unchanged`) depuis le
+dernier reçu de relecture du dossier `reviews/` du cours, et quelles vérifications (schéma, TODO, lint)
+elle passe. Une scène qui porte une clé n'a pas d'empreinte (`sha256`) dans la réponse : une empreinte
+de ses clés permettrait à un apprenant d'y tester ses hypothèses. Le reçu sur disque garde toutes les
+empreintes.
+
+Chaque élément porte aussi un aperçu (`preview`), ce qu'il vous demande de juger : le titre de la scène
+(`title`), son type (`kind`) et `text`, les 280 premiers caractères de ce que lit l'apprenant (la
+question, la consigne ou le corps). Il est lu dans la vue de la scène qu'a l'apprenant : il ne contient
+donc jamais de clé, d'indice, de rétroaction ni de corrigé. Dans `review_lesson`, l'aperçu laisse de
+côté les choix d'un quiz : le texte du bon choix y est traité comme une partie de la clé, et l'ordre
+de rédaction (l'apprenant reçoit un ordre mélangé) en trahirait la position. La page de relecture du
+tableau de bord montre aussi les choix. L'aperçu est calculé à chaque lecture : ni le reçu ni les
+empreintes ne changent.
+
 Le tableau de bord enseignant affiche le même état pour chaque leçon, en lecture seule :
 
 <picture>
@@ -63,6 +81,26 @@ Le tableau de bord enseignant affiche le même état pour chaque leçon, en lect
 | Approuvé | Un enregistrement `approval.json` correspond au SHA-256 du `lesson.json` actuel |
 
 Le lancement du tableau de bord est décrit dans [suivre une classe](follow-a-class.fr.md#le-tableau-de-bord-enseignant).
+
+La page de relecture du tableau de bord montre la même boîte de relecture. Chaque ligne déplie, à la
+demande, ce que voit l'apprenant : le texte de la scène et, pour un quiz, ses choix dans l'ordre de
+rédaction, sans dire lequel est juste. Une ligne « note » rappelle toujours que la clé n'est pas sur la
+page : ouvrez `lesson.json` pour la vérifier. La page lance le même linter que `review_lesson` : une
+scène qui a une erreur de lint passe en tête, comme bloquante, avec une vérification Lint en échec.
+Quand le linter ne peut pas tourner, la page le dit en une ligne et la vérification Lint disparaît de
+chaque ligne au lieu d'apparaître réussie.
+
+Correct et À corriger sont les jugements de l'enseignant sur chaque élément. Le tableau de bord les
+porte dans la commande sous la forme `--verdict ID=ok|to_fix`, puis la CLI les écrit dans le reçu de
+relecture ; lors de la relecture suivante, un élément inchangé montre son avis précédent. Un avis
+atteste ce jugement, pas la lecture de la clé : seul `--opened` atteste une lecture, et le tableau de
+bord ne marque jamais ouverte une scène « note », puisqu'il n'en montre pas la clé.
+
+Le panneau d'approbation a un champ pour votre nom. Les deux commandes le reprennent, et le panneau
+montre ce que les apprenants liront sur chaque écran de la leçon, « Leçon validée par <nom> » ou
+"validated by <nom>" selon la langue de la leçon. Si le nom est une adresse électronique, le panneau
+signale que les apprenants la verront et propose de mettre un nom. Rien n'est refusé : la commande
+écrit le nom saisi.
 
 Au-delà des contrôles, regardez : si chaque lien entre source et scène dit bien ce que dit la source,
 les prérequis proposés, la charge cognitive, les critères d'évaluation et les représentations. Essayez
@@ -80,9 +118,15 @@ un étudiant hésitant, une réponse en partie juste, un outil indisponible et u
 lint et toute leçon d'auto-apprentissage. Elle renseigne ensuite `validated_by` et `validated_at` dans
 `lesson.json`, réécrit le fichier sous une forme normalisée (clés triées, indentation standard, si bien
 que son SHA-256 change une fois) et écrit `approval.json` à côté. Elle affiche qui a approuvé et quand,
-le SHA-256, le nombre d'erreurs et d'avertissements du lint et un rappel : toute modification rend
-l'approbation périmée ; puis, en dernière ligne, le chemin d'`approval.json`. L'enregistrement
-contient :
+ce que les apprenants liront sur chaque écran comme voix de la leçon (`learners read on every screen:
+« Leçon validée par <NAME> » / "validated by <NAME>"`, avec le nom tel que donné), le SHA-256, le
+nombre d'erreurs et d'avertissements du lint et un rappel : toute modification rend l'approbation
+périmée ; puis, en dernière ligne, le chemin d'`approval.json`. Si le nom contient `@`, une seconde
+ligne signale une adresse électronique que les apprenants verront et propose `--validated-by "Prénom
+Nom"` ; l'approbation se fait quand même. Ajoutez `--lang fr` (ou réglez
+`STUDIUM_LANG=fr`) pour lire ce résumé, et tout refus, en français ; les fichiers enregistrés
+sont les mêmes, et la page française du tableau de bord ajoute `--lang fr` pour vous.
+L'enregistrement contient :
 
 | Champ | Contenu |
 |---|---|
@@ -100,6 +144,24 @@ Toute modification après approbation, même d'un espace, demande une nouvelle r
 approbation. Le texte libre de `validated_by` n'accorde jamais le statut Approuvé, et l'approbation
 n'envoie la leçon à personne : la diffusion est une étape distincte
 ([guide enseignant](teacher-guide.fr.md#diffuser-une-leçon)).
+
+`approve` écrit aussi un reçu de relecture, `reviews/<date>-<12 premiers caractères du SHA-256>.json`
+à côté de `lesson.json` : un élément par scène avec son empreinte, sa conséquence (`grading`,
+`media`, `wording`), le fait que vous l'avez ouverte ou non et tout jugement donné par
+`--verdict ID=ok|to_fix`. Nommez les scènes lues avec
+`--opened ID[,ID...]` (un identifiant qui n'est pas une scène est refusé avant toute écriture) et
+ajoutez au besoin `--note TEXTE` ; le résumé indique `opened N of M items` et signale chaque scène
+`grading` que vous n'avez pas ouverte. L'approbation reste possible sauf si un élément est `to_fix`
+(utilisez alors un reçu « renvoyée ») ; le reçu garde le fait.
+`review_lesson` compare la version suivante à ce reçu pour marquer les scènes nouvelles, modifiées ou
+inchangées. Pour renvoyer plutôt la leçon à son auteur, `receipt --decision returned --reviewer NOM`
+écrit le reçu seul, sans `approval.json`.
+
+Chaque décision écrit aussi un événement de télémétrie dans `reviews/telemetry.jsonl`, dans le même
+dossier que les reçus. Il porte la décision, le nombre d'éléments et combien vous en avez ouverts,
+et l'heure du reçu ; il ne porte jamais votre nom : `learner_pseudonym` est l'étiquette de rôle fixe
+`reviewer`, si bien que le rapport d'usage compte les relectures sans nommer qui a relu. Il n'entre
+jamais dans le flux de télémétrie d'un apprenant.
 
 ## Facultatif, approuver un plan avant synthèse
 

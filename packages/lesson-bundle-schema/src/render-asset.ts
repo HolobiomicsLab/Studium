@@ -23,6 +23,16 @@ export const RenderAssetKindSchema = z.enum([
 ]);
 export type RenderAssetKind = z.infer<typeof RenderAssetKindSchema>;
 
+const NonBlankLegendTextSchema = z.string().refine((value) => value.trim().length > 0, {
+  message: "legend text must be non-empty",
+});
+
+export const RenderAssetLegendEntrySchema = z.object({
+  symbol: NonBlankLegendTextSchema,
+  meaning: NonBlankLegendTextSchema,
+});
+export type RenderAssetLegendEntry = z.infer<typeof RenderAssetLegendEntrySchema>;
+
 const RenderAssetFieldsSchema = z.object({
   kind: RenderAssetKindSchema,
   title: z.string().optional(),
@@ -32,6 +42,7 @@ const RenderAssetFieldsSchema = z.object({
   format: z.string().optional(),    // renderer hint for the payload, e.g. "cube" | "xyz" | "smiles" | "vega-lite"
   provenance: z.string().optional(),
   meta: z.record(z.unknown()).optional(), // e.g. executed_result {passed, landmark, checks}; orbital {iso, level}
+  legend: z.array(RenderAssetLegendEntrySchema).min(1).optional(),
 });
 
 type RenderAssetFields = z.infer<typeof RenderAssetFieldsSchema>;

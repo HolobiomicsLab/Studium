@@ -20,6 +20,7 @@
  * The pane never holds an answer key: the host strips it (publicScene) and releases the feedback with
  * the verdict, after the answer.
  */
+let renderView;
 (function () {
   "use strict";
   const DEFAULT_STRINGS = {
@@ -93,7 +94,7 @@
   // the notices already shown in full and the scenes already self-rated.
   let memory = freshMemory();
   function freshMemory() {
-    return { titles: new Map(), concepts: new Map(), outcomes: new Map(), furthest: 0, total: 0, notices: new Set(), rated: new Set() };
+    return { titles: new Map(), concepts: new Map(), outcomes: new Map(), furthest: 0, total: 0, notices: new Set(), rated: new Set(), mapOpen: null, left: null };
   }
   // Live nodes of the current screen. The pane keeps references rather than looking ids up, so an id
   // inside an authored SVG can never capture the hint box or the status line.
@@ -146,11 +147,37 @@
     }
   }
 
+  // INT-STUDIUM-058 (client_ms): the delay between an action and the display of the view that answers
+  // it, measured here and joined once to the next action; the server logs it under consent.
+  const now = () => (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now());
+  let actionSentAt = null;
+  let displayDelayMs = null;
+
+  // Actions that leave the learner on the same scene: the view that answers one may still carry the
+  // verdict of the answer before, whose feedback the learner already read and left. Only such a view
+  // skips that feedback: the same verdict on any other view is a new answer (a question replayed and
+  // answered the same way) and is shown.
+  const KEEPS_SCENE = new Set(["openMap", "closeMap", "hint", "ask", "prompt", "setAttention", "setLanguage", "replan"]);
+  let sameSceneAwaited = false;
+
   function postAction(message, pendingText) {
     if (actionPending || !window.__send) return false;
+    sameSceneAwaited = isObject(message) && KEEPS_SCENE.has(message.type);
+    if (!sameSceneAwaited) memory.left = null;
     setActionPending(true, pendingText || t("pane_updating"));
-    window.__send(message);
+    const delay = displayDelayMs;
+    displayDelayMs = null;
+    actionSentAt = now();
+    if (delay === null) window.__send(message);
+    else window.__send(message, { client_ms: delay });
     return true;
+  }
+
+  /** A view was displayed: if an action was waiting for it, keep how long that took. */
+  function noteDisplayed() {
+    if (actionSentAt === null) return;
+    displayDelayMs = Math.max(0, Math.round(now() - actionSentAt));
+    actionSentAt = null;
   }
 
   function showActionError(message) {
@@ -167,6 +194,65 @@
     if (!ui.status) return;
     ui.status.className = "action-status error";
     ui.status.textContent = t("pane_action_failed", { error: message || t("pane_retry") });
+  }
+
+  // Walkthrough 2026-11-07: the server no longer knows this session (it restarted, or the session was closed). Its error
+  // starts with « session not found »; only that prefix is read, never the rest. The tool's JSON envelope
+  // ({"error": "..."}, as the MCP App bridge passes it on) is opened first.
+  function isSessionLost(message) {
+    let reason = typeof message === "string" ? message.trim() : "";
+    if (reason.startsWith("{")) {
+      try { const parsed = JSON.parse(reason); reason = isObject(parsed) && typeof parsed.error === "string" ? parsed.error : ""; }
+      catch { reason = ""; }
+    }
+    return reason.startsWith("session not found");
+  }
+
+  // The old scene is stale: the notice replaces it, settings included. The reopen button is the learner's to press:
+  // nothing is retried on its own, so a server that keeps losing the session cannot loop.
+  function showSessionLost() {
+    const root = resetPane();
+    memory = freshMemory();
+    lastAuthoring = null;
+    pendingDone = null;
+    const notice = el("section", { class: "session-lost", role: "alert" }, el("p", {}, t("pane_session_lost")));
+    if (window.__send) {
+      const reopen = el("button", { type: "button", class: "st-button st-button--primary reopen-lesson" }, t("pane_reopen_lesson"));
+      reopen.addEventListener("click", () => postAction({ type: "reopen" }, t("pane_opening")));
+      notice.append(reopen);
+    }
+    ui.status = el("p", { id: "action-status", class: "action-status", role: "status", "aria-live": "polite" });
+    notice.append(ui.status);
+    root.append(notice);
+    announce(t("pane_session_lost"));
+  }
+
+  // INT-STUDIUM-058 § 2.1, surface negotiation: a host that renders MCP Apps shows this panel for any call of
+  // open_lesson_panel, a conversation (rank 1) or forms (rank 2) surface included. The panel is then not the
+  // surface: it says where the lesson is played, and draws no scene, no answer control, no settings and no
+  // map, so no act is taken here at a rank the server did not negotiate. The status line stays, as a plain
+  // line. « Play here » asks for the panel, on the learner's click only, when the client can render one.
+  const ELSEWHERE = { text: "pane_surface_text", form: "pane_surface_form" };
+  function playedElsewhere(view) {
+    return isObject(view.surface) && Object.prototype.hasOwnProperty.call(ELSEWHERE, view.surface.kind);
+  }
+  function showPlayedElsewhere(view) {
+    const root = resetPane();
+    applyLanguage(view);
+    const notice = el("section", { class: "surface-elsewhere", "data-surface": view.surface.kind },
+      el("h2", { class: "surface-elsewhere-title" }, t(ELSEWHERE[view.surface.kind])),
+      el("p", {}, t("pane_surface_not_negotiated")));
+    if (typeof view.status_line === "string" && view.status_line) notice.append(el("p", { class: "orientation-line" }, view.status_line));
+    const available = Array.isArray(view.surface.available) ? view.surface.available : [];
+    if (window.__send && available.includes("panel")) {
+      const play = el("button", { type: "button", class: "st-button st-button--primary play-here" }, t("pane_play_here"));
+      play.addEventListener("click", () => postAction({ type: "playHere" }, t("pane_opening")));
+      notice.append(play);
+    }
+    ui.status = el("p", { id: "action-status", class: "action-status", role: "status", "aria-live": "polite" });
+    notice.append(ui.status);
+    root.append(notice);
+    announce(t(ELSEWHERE[view.surface.kind]));
   }
 
   // A calm answer to an action that changed nothing (« Réviser maintenant » with nothing due): release the
@@ -198,11 +284,22 @@
   // --- per-kind renderers --------------------------------------------------
   function renderEquation(a) {
     const box = el("div", { class: "eq" });
+    const formula = el("div", { class: "eq-formula" });
     if (window.katex) {
-      try { window.katex.render(a.payload || "", box, { displayMode: true, throwOnError: false }); return box; }
+      try { window.katex.render(a.payload || "", formula, { displayMode: true, throwOnError: false }); }
       catch (e) { /* fall through */ }
     }
-    box.append(el("code", { class: "eq-fallback" }, a.payload || ""));
+    if (!formula.childNodes.length) formula.append(el("code", { class: "eq-fallback" }, a.payload || ""));
+    box.append(formula);
+    if (Array.isArray(a.legend) && a.legend.length) {
+      const legend = el("ul", { class: "eq-legend" });
+      a.legend.forEach((entry) => {
+        if (entry && typeof entry.symbol === "string" && typeof entry.meaning === "string") {
+          legend.append(el("li", { class: "eq-legend-entry" }, `${entry.symbol} : ${entry.meaning}`));
+        }
+      });
+      if (legend.childNodes.length) box.append(legend);
+    }
     return box;
   }
 
@@ -480,13 +577,17 @@
     remember(scene);
     const verdict = isObject(state.verdict) ? state.verdict : null;
     const rating = selfRatingOf(state, verdict);
-    if (verdict && (verdict.graded || rating)) {
+    const verdictKey = verdict ? JSON.stringify(verdict) : null;
+    const alreadyLeft = sameSceneAwaited && verdictKey !== null && memory.left === verdictKey;
+    sameSceneAwaited = false;
+    if (verdict && (verdict.graded || rating) && !alreadyLeft) {
       recordOutcome(verdict);
       renderFeedbackStep({
         verdict, rating, calibration: state.calibration, sources: sourcesOf(state, verdict), authoring: lastAuthoring,
         // The scene shown again is the one just answered: its feedback would give the answer away.
         withheld: !!scene.id && scene.id === verdict.scene_id,
-        onContinue: () => renderScene(state),
+        voices: state.voices,
+        onContinue: () => { memory.left = verdictKey; renderScene(state); },
       });
       return;
     }
@@ -538,16 +639,197 @@
     sceneBody(sc).forEach((node) => root.append(node));
     const assets = assetsSection(state);
     if (assets) root.append(assets);
-    root.append(renderControls(sc));
+    root.append(renderControls(sc, state));
+    const ladder = helpLadder(state);
+    if (ladder) root.append(ladder);
     ui.hint = el("div", { id: "hint", class: "hint", "aria-live": "polite" });
     root.append(ui.hint);
+    const proposals = promptsRegion(state);
+    if (proposals) root.append(proposals);
+    const mapButton = conceptMapButton(state);
+    if (mapButton) root.append(mapButton);
+    const map = conceptMap(state);
+    if (map) root.append(map);
     const mastery = masteryPanel(state.mastery);
     if (mastery) root.append(mastery);
+    const settings = settingsRegion(state);
+    if (settings) root.append(settings);
+    // What the server says about the action just taken on this scene (a contest's check questions).
+    if (typeof state.message === "string" && state.message) showActionNotice(state.message);
+    const wasOpen = memory.mapOpen;
+    memory.mapOpen = !!map;
+    // The map was just opened: the position goes to its heading; just closed: back to its button.
+    if (map && wasOpen === false) { announce(t("pane_map_open")); focusQuietly($(".map-title", map)); return; }
+    if (!map && wasOpen === true && mapButton) { focusQuietly(mapButton); return; }
     const title = sc.title || "";
     announce(state.progress
       ? t("pane_live_step", { position: memory.furthest, total: memory.total || state.progress.total, title })
       : t("pane_live_scene", { title }));
     focusHeading($(".scene-title", head));
+  }
+
+  // --- the server's proposals (INT-STUDIUM-058 § 2.6) ---------------------------------------------------
+  // The server decides what is proposed, when and how often; the panel shows what the view carries,
+  // under the scene's own controls, and sends back the answer the learner picks. While an answer or a
+  // self-rating is owed only notices show: a proposal made at an earlier pause waits for the next one.
+  // Nothing is announced: a proposal is there to be found, not to interrupt.
+  function promptsRegion(state) {
+    const all = Array.isArray(state.prompts) ? state.prompts.filter((p) => isObject(p) && p.id && typeof p.reason === "string" && p.reason) : [];
+    const waiting = isObject(state.orientation) ? state.orientation.waiting : null;
+    const busy = waiting === "answer" || waiting === "self_rating";
+    const asks = (prompt) => Array.isArray(prompt.actions) && prompt.actions.length > 0;
+    const shown = all.filter((prompt) => !busy || !asks(prompt));
+    if (!shown.length) return null;
+    const offered = Array.isArray(state.actions) ? state.actions : [];
+    const region = el("section", { class: "prompts", "aria-label": t("pane_prompts_heading") });
+    for (const prompt of shown) {
+      const reason = el("p", { class: "prompt-reason", id: nextId("prompt-reason") }, prompt.reason);
+      const item = el("div", { class: "prompt", "data-kind": String(prompt.kind || "") }, reason);
+      const answers = (asks(prompt) ? prompt.actions : [])
+        .filter((answer) => isObject(answer) && answer.label && isObject(answer.action) && offered.includes(answer.action.type));
+      if (answers.length) {
+        const row = el("div", { class: "prompt-actions" });
+        for (const answer of answers) {
+          const button = el("button", { type: "button", class: "st-button st-button--quiet prompt-action", "aria-describedby": reason.id }, String(answer.label));
+          button.addEventListener("click", () => postAction(answer.action, t("pane_updating")));
+          row.append(button);
+        }
+        item.append(row);
+      }
+      region.append(item);
+    }
+    return region;
+  }
+
+  // --- the learner's settings (INT-STUDIUM-058 F8) -----------------------------------------------------
+  // How much the lesson may propose, the panel's language and « I have N minutes »: each drawn only when
+  // the view offers its action. They answer nothing, so they stay usable while an answer is owed.
+  const ATTENTION_LEVELS = ["quiet", "normal", "coached"];
+  // Language names are not translated: each is written in its own language.
+  const PANEL_LANGUAGES = [["fr", "FR", "Français"], ["en", "EN", "English"]];
+  const REPLAN_DEFAULT_MINUTES = 10;
+
+  function settingsRegion(state) {
+    const offered = Array.isArray(state.actions) ? state.actions : [];
+    const groups = [];
+    if (offered.includes("setAttention")) {
+      const current = ATTENTION_LEVELS.includes(state.attention) ? state.attention : "normal";
+      groups.push(settingsGroup(t("pane_attention"), ATTENTION_LEVELS.map((level) => {
+        const button = el("button", { type: "button", class: "st-button st-button--quiet attention-level", "data-level": level, "aria-pressed": level === current ? "true" : "false" }, t("pane_attention_" + level));
+        button.addEventListener("click", () => postAction({ type: "setAttention", level }, t("pane_updating")));
+        return button;
+      })));
+    }
+    if (offered.includes("setLanguage")) {
+      groups.push(settingsGroup(t("pane_language"), PANEL_LANGUAGES.map(([code, short, name]) => {
+        const button = el("button", { type: "button", class: "st-button st-button--quiet language-choice", "data-language": code, lang: code, "aria-label": name, "aria-pressed": state.locale === code ? "true" : "false" }, short);
+        button.addEventListener("click", () => postAction({ type: "setLanguage", presentation_language: code }, t("pane_updating")));
+        return button;
+      })));
+    }
+    if (offered.includes("replan")) {
+      const inputId = nextId("replan-minutes");
+      const minutes = el("input", { type: "number", id: inputId, class: "replan-minutes", min: "1", max: "600", step: "1", value: String(REPLAN_DEFAULT_MINUTES), inputmode: "numeric" });
+      const button = el("button", { type: "button", class: "st-button st-button--quiet replan-button" }, t("pane_replan"));
+      button.addEventListener("click", () => {
+        const value = Math.round(Number(minutes.value));
+        // The server refuses anything outside 1 to 600 minutes: nothing is sent, the field takes the focus back.
+        if (!Number.isFinite(value) || value < 1 || value > 600) { focusQuietly(minutes); return; }
+        postAction({ type: "replan", minutes: value }, t("pane_updating"));
+      });
+      groups.push(el("div", { class: "settings-group replan" }, el("label", { class: "settings-label", for: inputId }, t("pane_replan_minutes")), minutes, button));
+    }
+    if (!groups.length) return null;
+    return el("section", { class: "settings", "aria-label": t("pane_settings") }, ...groups);
+  }
+
+  function settingsGroup(label, buttons) {
+    const labelNode = el("span", { class: "settings-label", id: nextId("settings-label") }, label);
+    return el("div", { class: "settings-group", role: "group", "aria-labelledby": labelNode.id }, labelNode, el("div", { class: "settings-choices" }, ...buttons));
+  }
+
+  // --- the concept map, as a list (INT-STUDIUM-058 § 2.7) -----------------------------------------------
+  // The server decides whether the map is offered (the view's actions name openMap or closeMap) and
+  // sends it only while it is open. The list says in words what a drawing says with shapes: each
+  // concept's state, what it needs, the answers behind the state, what the state establishes and
+  // what it does not, and the claim the learner may make. Nothing here is computed from the lesson.
+  const MAP_STATES = new Set(["acquired", "to_review", "current", "seen", "upcoming"]);
+  const MAP_ASSESSORS = new Set(["key", "judge", "self", "none"]);
+  const MAP_RESULTS = new Set(["right", "wrong", "rated", "recorded"]);
+  const MAP_OUTCOMES = new Set(["confirmed", "refuted", "partial"]);
+
+  function focusQuietly(node) { try { node.focus(); } catch { /* a node that cannot take the focus */ } }
+
+  function conceptMapButton(state) {
+    const offered = Array.isArray(state.actions) ? state.actions : [];
+    const open = offered.includes("closeMap");
+    if (!open && !offered.includes("openMap")) return null;
+    const button = el("button", { type: "button", class: "st-button st-button--quiet map-button", "aria-expanded": open ? "true" : "false" }, t("pane_map_open"));
+    button.addEventListener("click", () => postAction({ type: open ? "closeMap" : "openMap" }, t("pane_updating")));
+    return button;
+  }
+
+  function conceptMap(state) {
+    const map = isObject(state.map) ? state.map : null;
+    const concepts = map && Array.isArray(map.concepts) ? map.concepts.filter((c) => isObject(c) && c.id) : [];
+    if (!map || !concepts.length) return null;
+    const offered = Array.isArray(state.actions) ? state.actions : [];
+    const titles = new Map(concepts.map((c) => [c.id, String(c.title || conceptKey(c.id))]));
+    const edges = Array.isArray(map.edges) ? map.edges.filter((e) => isObject(e) && titles.has(e.from) && titles.has(e.to)) : [];
+    const title = el("h3", { class: "map-title", id: nextId("map-title"), tabindex: "-1" }, t("pane_map_open"));
+    const close = el("button", { type: "button", class: "st-button st-button--quiet map-close" }, t("pane_map_close"));
+    close.addEventListener("click", () => postAction({ type: "closeMap" }, t("pane_updating")));
+    const list = el("ul", { class: "map-list" });
+    for (const concept of concepts) {
+      const needs = edges.filter((e) => e.to === concept.id).map((e) => titles.get(e.from));
+      list.append(mapConcept(concept, titles.get(concept.id), needs, offered.includes("contest")));
+    }
+    return el("section", { class: "concept-map", "aria-labelledby": title.id }, el("div", { class: "map-head" }, title, close), list);
+  }
+
+  function mapConcept(concept, titleText, needs, canContest) {
+    const state = MAP_STATES.has(concept.state) ? concept.state : "upcoming";
+    const title = el("span", { class: "map-concept-title", id: nextId("map-concept") }, titleText);
+    const item = el("li", { class: "map-concept", "data-state": state },
+      el("div", { class: "map-concept-head" }, title, " ", el("span", { class: "map-state", "data-state": state }, t("pane_map_state_" + state))));
+    if (needs.length) item.append(el("p", { class: "map-needs" }, t("pane_map_needs", { list: needs.join(", ") })));
+    const contest = isObject(concept.contest) ? concept.contest : null;
+    if (contest && contest.check_pending) item.append(el("p", { class: "map-check-pending" }, t("pane_map_check_pending")));
+    if (contest && MAP_OUTCOMES.has(contest.outcome)) item.append(el("p", { class: "map-outcome" }, t("pane_map_outcome_" + contest.outcome)));
+    item.append(el("details", { class: "map-details" }, el("summary", {}, t("pane_map_details")), mapScope(concept), mapEvidence(concept)));
+    const claim = contest && contest.allowed && canContest && (contest.claim === "known" || contest.claim === "unsure") ? contest.claim : null;
+    if (claim) {
+      const note = el("span", { class: "map-contest-note", id: nextId("map-note") }, t(Number(contest.questions) >= 2 ? "pane_map_contest_two" : "pane_map_contest_one"));
+      const button = el("button", { type: "button", class: "st-button st-button--quiet map-claim", "aria-describedby": `${title.id} ${note.id}` }, t("pane_map_claim_" + claim));
+      button.addEventListener("click", () => postAction({ type: "contest", concept_id: concept.id, claim }, t("pane_updating")));
+      item.append(el("div", { class: "map-contest" }, button, " ", note));
+    }
+    return item;
+  }
+
+  function mapScope(concept) {
+    const scope = el("dl", { class: "map-scope" });
+    for (const [label, sentence] of [["pane_map_establishes", concept.establishes], ["pane_map_not_established", concept.does_not_establish]]) {
+      if (typeof sentence === "string" && sentence) scope.append(el("dt", {}, t(label)), " ", el("dd", {}, sentence), " ");
+    }
+    return scope;
+  }
+
+  function mapEvidence(concept) {
+    const evidence = (Array.isArray(concept.evidence) ? concept.evidence : []).filter(isObject);
+    if (!evidence.length) return el("p", { class: "map-no-evidence" }, t("pane_map_no_evidence"));
+    const list = el("ul", { class: "map-evidence", "aria-label": t("pane_map_evidence") });
+    for (const fact of evidence) {
+      const hints = Number(fact.hints);
+      const parts = [
+        typeof fact.day === "string" && fact.day ? fact.day : t("pane_map_day_unknown"),
+        t("pane_map_by_" + (MAP_ASSESSORS.has(fact.assessed_by) ? fact.assessed_by : "none")),
+        t("pane_map_result_" + (MAP_RESULTS.has(fact.result) ? fact.result : "recorded")),
+        hints === 1 ? t("pane_map_hints_one") : hints > 1 ? t("pane_map_hints_many", { count: hints }) : null,
+      ].filter(Boolean);
+      list.append(el("li", {}, parts.join(" · ")));
+    }
+    return list;
   }
 
   // Self-authored lesson: the host's notice in full on the first screen, then one click away.
@@ -570,9 +852,84 @@
     if (due) meta.append(due);
     meta.append(paneMenu());
     head.append(meta);
-    if (state.progress) head.append(progressRail(state.progress));
+    // INT-STUDIUM-058: a version-2 view says where the learner is in one line (step, time left, reviews
+    // due, what is expected); the rail then keeps its segments and drops its own label, so the step is
+    // said once. Then who signs the lesson.
+    const orientation = hasOrientation(state);
+    if (orientation) head.append(el("p", { class: "orientation-line", "data-waiting": state.orientation.waiting }, state.status_line));
+    if (state.progress) head.append(progressRail(state.progress, !orientation));
+    const voice = voiceText(isObject(state.voices) ? state.voices.scene : null);
+    if (voice) head.append(el("p", { class: "voice voice-scene" }, voice));
     head.append(el("h2", { class: "scene-title", tabindex: "-1" }, sc.title || ""));
     return head;
+  }
+
+  function hasOrientation(state) {
+    return typeof state.status_line === "string" && state.status_line.length > 0 && isObject(state.orientation);
+  }
+
+  // Who speaks in a block: the lesson's author over the scene, who assessed the answer over a verdict.
+  // The verdict's voice: a key verdict says whose key it is (walkthrough 2026-11-07), as the conversation does: the key an
+  // AI drafted, the key the learner wrote, or the author's key for a teacher's lesson.
+  function verdictVoiceText(voices) {
+    if (!isObject(voices) || !isObject(voices.verdict)) return "";
+    const drafted = isObject(voices.scene) ? voices.scene.drafted_by : null;
+    if (voices.verdict.kind === "key" && drafted === "agent") return t("pane_voice_key_ai");
+    if (voices.verdict.kind === "key" && drafted === "learner") return t("pane_voice_key_own");
+    return voiceText(voices.verdict);
+  }
+  function voiceText(voice) {
+    if (!isObject(voice)) return "";
+    if (voice.kind === "key") return t("pane_voice_key");
+    if (voice.kind === "judge") return t("pane_voice_judge");
+    if (voice.kind === "agent") return t("pane_voice_agent");
+    if (voice.kind !== "author") return "";
+    if (voice.reviewed) return voice.name ? t("pane_voice_validated_by", { name: voice.name }) : t("pane_voice_validated");
+    if (voice.name) return t("pane_voice_changed");
+    if (voice.drafted_by === "agent") return t("pane_voice_ai_unreviewed");
+    if (voice.drafted_by === "learner") return t("pane_voice_learner_unreviewed");
+    return t("pane_voice_unreviewed");
+  }
+
+  // The help ladder (F7), in the order to try the rungs: read again, hint, explanation, reference. Every
+  // rung is a button that takes the focus, so a closed rung's reason can be read from the keyboard: it
+  // is aria-disabled, never disabled, and pressing it says the reason and sends nothing. « Poser une
+  // question » hands over to the assistant. A version-1 view has no ladder.
+  const RUNG_LABEL = { reread: "pane_help_reread", hint: "pane_hint", explain: "pane_help_explain", reference: "pane_help_reference" };
+  function helpLadder(state) {
+    const rungs = isObject(state.help) && Array.isArray(state.help.rungs) ? state.help.rungs.filter((r) => isObject(r) && RUNG_LABEL[r.kind]) : [];
+    const offered = Array.isArray(state.actions) ? state.actions : [];
+    if (!rungs.length) return null;
+    const list = el("div", { class: "help-rungs" });
+    for (const rung of rungs) {
+      const noteText = rung.available ? rung.cost || "" : rung.why_not || "";
+      const noteId = noteText ? nextId("help-note") : null;
+      const button = el("button", {
+        type: "button", class: "st-button st-button--quiet help-rung", "data-rung": rung.kind,
+        "aria-disabled": rung.available ? null : "true", "aria-describedby": noteId,
+      }, t(RUNG_LABEL[rung.kind]));
+      button.addEventListener("click", () => pressRung(rung, noteText, offered));
+      list.append(el("div", { class: "help-rung-item" }, button, noteText ? el("span", { id: noteId, class: "help-note" }, noteText) : null));
+    }
+    const nav = el("nav", { class: "help-ladder", "aria-label": t("pane_help_heading") }, list);
+    if (offered.includes("ask")) {
+      const ask = el("button", { type: "button", class: "st-button st-button--quiet ask-button" }, t("pane_ask"));
+      ask.addEventListener("click", () => postAction({ type: "ask" }, t("pane_updating")));
+      nav.append(ask);
+    }
+    return nav;
+  }
+
+  function pressRung(rung, noteText, offered) {
+    if (actionPending) return;
+    if (!rung.available) { showActionNotice(noteText); return; }
+    if (rung.kind === "reread") { const title = $(".scene-title"); if (title) focusHeading(title); return; }
+    if (rung.kind === "hint" && offered.includes("hint")) { postAction({ type: "hint" }, t("pane_finding_hint")); return; }
+    if (rung.kind === "explain" && offered.includes("ask")) {
+      postAction({ type: "ask", text: t("pane_help_explain_question") }, t("pane_updating"));
+      return;
+    }
+    if (rung.kind === "reference") showActionNotice(t("pane_help_reference_note"));
   }
 
   // The scene type in words, with the basis of its evaluation (design system key classes).
@@ -603,7 +960,7 @@
 
   // The rail shows the furthest step reached: a detour to an earlier scene marks the rail and
   // never moves it back, so the learner does not read « 8 sur 25 » after « 15 sur 25 » (VSC-2).
-  function progressRail(progress) {
+  function progressRail(progress, labelled = true) {
     const total = Math.max(1, Number(progress.total) || 1);
     const index = Math.min(total, Math.max(1, Number(progress.index) || 1));
     memory.furthest = Math.min(total, Math.max(memory.furthest, index));
@@ -615,8 +972,10 @@
       "aria-valuemin": "1", "aria-valuemax": String(total), "aria-valuenow": String(position),
       "aria-valuetext": detour ? t("pane_progress_detour_value", { position, total }) : label,
     });
-    rail.append(el("div", { class: "st-progress__label", "aria-hidden": "true" }, el("strong", {}, label),
-      detour ? el("span", { class: "progress-detour" }, t("pane_progress_detour")) : null));
+    if (labelled) {
+      rail.append(el("div", { class: "st-progress__label", "aria-hidden": "true" }, el("strong", {}, label),
+        detour ? el("span", { class: "progress-detour" }, t("pane_progress_detour")) : null));
+    }
     if (total <= 30) {
       const segments = el("div", { class: "st-segments", "aria-hidden": "true" });
       for (let i = 1; i <= total; i++) {
@@ -775,9 +1134,14 @@
     const titleText = (v.scene_id && memory.titles.get(v.scene_id)) || t("pane_feedback_untitled");
     const title = el("h2", { class: "scene-title", id: nextId("feedback-title"), tabindex: "-1" }, titleText);
     const step = el("section", { class: "feedback-step", "aria-labelledby": title.id },
-      el("p", { class: "st-eyebrow" }, t("pane_feedback_eyebrow")), title, feedbackCard(v, kind, fb.withheld));
+      el("p", { class: "st-eyebrow" }, t("pane_feedback_eyebrow")), title);
+    // INT-STUDIUM-058: who assessed this answer, over its feedback.
+    const voice = verdictVoiceText(fb.voices);
+    if (voice) step.append(el("p", { class: "voice voice-verdict" }, voice));
+    step.append(feedbackCard(v, kind, fb.withheld));
     // L-7: an author-keyed verdict of a lesson an AI drafted says whose key it is, and where to check it.
-    if (v.assessed_by === "key" && isObject(fb.authoring) && fb.authoring.drafted_by === "agent") {
+    // A version-2 chip that already names the AI's key says it once (walkthrough 2026-11-07).
+    if (voice !== t("pane_voice_key_ai") && v.assessed_by === "key" && isObject(fb.authoring) && fb.authoring.drafted_by === "agent") {
       step.append(el("p", { class: "feedback-key-note" }, t("pane_ai_key_note")));
     }
     if (!fb.withheld) {
@@ -1100,7 +1464,7 @@
   }
   const letterOf = (index) => String.fromCharCode(65 + index);
 
-  function quizControls(wrap, sc) {
+  function quizControls(wrap, sc, hasLadder) {
     const choices = Array.isArray(sc.choices) ? sc.choices : [];
     const confidence = confidenceRow();
     const group = choiceGroup({
@@ -1116,12 +1480,14 @@
       wrap.append(el("p", { class: "shortcut-hint" }, t("pane_choice_shortcuts", { letters: `A–${letterOf(Math.min(choices.length, 26) - 1)}`, count: Math.min(choices.length, 9) })));
     }
     wrap.append(confidence.node);
+    ui.keys = { choices: group, digitBase: 1 };
+    // A version-2 view has the hint in its help ladder, with its cost.
+    if (hasLadder) { wrap.append(el("div", { class: "st-actions" }, group.validate)); return; }
     // The hint's cost is said before it is asked for: a hinted right answer counts less for mastery.
     const costId = nextId("hint-cost");
     const hint = el("button", { type: "button", class: "st-button st-button--quiet hint-button", title: t("pane_hint_cost"), "aria-describedby": costId }, t("pane_hint"));
     hint.addEventListener("click", () => postAction({ type: "hint" }, t("pane_finding_hint")));
     wrap.append(el("div", { class: "st-actions" }, group.validate, hint), el("span", { id: costId, class: "visually-hidden" }, t("pane_hint_cost")));
-    ui.keys = { choices: group, digitBase: 1 };
   }
 
   function metaControls(wrap, sc) {
@@ -1213,9 +1579,10 @@
   }
 
   // interactive controls the learner uses to advance — posts back to the extension host.
-  function renderControls(sc) {
+  function renderControls(sc, state) {
     const wrap = el("div", { class: "controls" });
-    if (sc.type === "quiz") quizControls(wrap, sc);
+    const hasLadder = !!state && isObject(state.help) && Array.isArray(state.help.rungs) && state.help.rungs.length > 0;
+    if (sc.type === "quiz") quizControls(wrap, sc, hasLadder);
     else if (sc.type === "meta_checkpoint") metaControls(wrap, sc);
     else if (sc.type === "discussion") discussionControls(wrap);
     else if (sc.type === "spot_the_flaw" && Array.isArray(sc.deck) && sc.deck.length) {
@@ -1499,8 +1866,7 @@
   }
 
   // wiring: receive renders from the extension host; (the preview build calls window.__render directly)
-  window.addEventListener("message", (ev) => {
-    const d = ev.data || {};
+  function handleMessage(d) {
     if (d.type === "render") renderPane(d);
     else if (d.type === "hint") {
       setActionPending(false);
@@ -1538,6 +1904,7 @@
     else if (d.type === "action_settled") setActionPending(false);
     else if (d.type === "action_notice") showActionNotice(d.message);
     else if (d.type === "action_error") {
+      if (isSessionLost(d.message)) { showSessionLost(); return; }
       // UX-09: a rating's error belongs to the feedback step that asked for it; once that screen is gone it is
       // dropped instead of being shown on an unrelated scene.
       if (d.action === "rateRecall" && !(ui.rating && (!d.sceneId || ui.rating.sceneId === d.sceneId))) return;
@@ -1558,8 +1925,45 @@
         el("p", { class: "error-recovery" }, t("pane_error_recovery"))));
     }
     else if (d.type === "done") showDone(d);
+  }
+  let previousView = null;
+  let previousBase = "";
+  /** Paint a complete public PanelView, replaying effects once per changed payload. */
+  renderView = function (view) {
+    // Both versions of the view are painted: version 2 adds fields, it retypes none.
+    if (view.schema !== "studium/panel-view/1" && view.schema !== "studium/panel-view/2") { handleMessage(view); return; }
+    if (previousView && previousView.session_id !== view.session_id) {
+      memory = freshMemory(); previousBase = ""; lastAuthoring = null;
+    }
+    const { hint, turn_result, recall_rated, pending, ...base } = view;
+    const signature = JSON.stringify(base);
+    const hasNewBase = signature !== previousBase;
+    if (playedElsewhere(view)) {
+      if (hasNewBase) { showPlayedElsewhere(base); previousBase = signature; }
+      if (pending || actionPending) setActionPending(Boolean(pending), pending);
+      previousView = view;
+      if (!pending) noteDisplayed();
+      return;
+    }
+    if (hasNewBase) {
+      const type = { scene: "render", done: "done", notice: "action_notice", error: "action_error" }[view.kind];
+      handleMessage({ ...base, type });
+      previousBase = signature;
+    }
+    for (const [type, effect] of Object.entries({ hint, turn_result, recall_rated })) {
+      if (effect && (hasNewBase || (type === "turn_result" && ui.pendingTurn) || JSON.stringify(effect) !== JSON.stringify(previousView?.[type]))) {
+        handleMessage({ type, ...effect, ...(view.completion ? { completion: view.completion } : {}) });
+      }
+    }
+    // Nothing pending and nothing to release: the status line keeps what this paint wrote in it.
+    if (pending || actionPending) setActionPending(Boolean(pending), pending);
+    previousView = view;
+    if (!pending) noteDisplayed();
+  };
+  window.addEventListener("message", (ev) => {
+    if (ev.data?.type !== "view") renderView(ev.data?.view ?? ev.data ?? {});
   });
   window.__render = renderPane;
-  const vscode = typeof acquireVsCodeApi === "function" ? acquireVsCodeApi() : null;
-  window.__send = (msg) => { if (vscode) vscode.postMessage(msg); };
+  window.renderView = renderView;
 })();
+export { renderView };

@@ -19,6 +19,7 @@ _SCENE = {**_scalars("id type title markdown prompt question flawed_content sour
           "concept_refs": [None], "objective_refs": [None],
           "choices": [_scalars("id text")], "deck": [_scalars("token text")]}
 _ASSET = {**_scalars("kind title payload path language format provenance"),
+          "legend": [_scalars("symbol meaning")],
           "meta": {**_scalars("passed landmark"), "cmd": [None]}}
 _RUN = {**_scalars("capsule_ref working_dir timeout_s research_question landmark_pattern"),
         **{name: [None] for name in ("cmd", "requirements", "expected_outputs", "verify_checks")}}

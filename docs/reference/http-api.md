@@ -3,17 +3,17 @@ English · [Français](http-api.fr.md)
 # HTTP API
 
 Studium has two local HTTP servers. Use the **lesson API** of `apps/lesson-mcp` to drive lessons
-from a script or a harness without MCP; it speaks the same operations as the
-[MCP tools](mcp-tools.md). The older **lesson-server** (`apps/lesson-server`) serves the teacher
-dashboard's peer rooms and course pages. Both hide answer keys: a scene is sent as its public
-projection, never with its key.
+from a script or a harness without MCP; it exposes the 25 lesson operations from the
+[MCP tools](mcp-tools.md), plus `rate_recall`. The older **lesson-server**
+(`apps/lesson-server`) serves the teacher dashboard's peer rooms and course pages. Both hide answer
+keys: a scene is sent as its public projection, never with its key.
 
 | | Lesson API | lesson-server |
 |---|---|---|
 | Start | `pnpm --filter @studium/lesson-mcp api` | `pnpm --filter @studium/lesson-server start` |
 | Address | `http://127.0.0.1:8130` (`STUDIUM_API_PORT`) | `http://127.0.0.1:8010` (`PORT`) |
 | Authentication | Bearer token, loopback only, browser origins refused | none (loopback only) |
-| Operations | the 25 lesson tools, with discovery | sessions, peer rooms, courses |
+| Operations | 26: the 25 lesson tools plus `rate_recall`, with discovery | sessions, peer rooms, courses |
 | Retries | idempotent with `request_id` | none |
 
 Neither is meant for a class on the internet: both listen on 127.0.0.1 only, and their sessions
@@ -56,6 +56,12 @@ application/json`, at most 1 MiB) in this envelope:
 | `request_id` | Every mutating operation. Reuse it, with identical arguments, to retry safely: the stored reply is returned and nothing runs twice. |
 | `expected_scene_id` | `submit_response`, `submit_turn`, `submit_run_result`, `request_hint`, `record_experiment`: the scene the learner is answering. A changed scene gives `409 stale_scene`. |
 
+When `submit_response` returns `self_rating: {requested: true, scene_id, ...}`, ask the learner for
+`again`, `hard`, `good` or `easy`, then call `rate_recall` with a new `request_id` and
+`arguments: {session_id, scene_id, grade}`. It needs no `expected_scene_id` because `scene_id` is the
+rating request it consumes. An identical resend with the same `request_id` returns the stored reply; a
+different request id cannot rate the same self-rating request twice.
+
 ```bash
 curl -s -H "Authorization: Bearer $STUDIUM_API_TOKEN" http://127.0.0.1:8130/v1/operations
 curl -s -X POST -H "Authorization: Bearer $STUDIUM_API_TOKEN" -H 'content-type: application/json' \
@@ -75,8 +81,9 @@ pnpm --silent --filter @studium/lesson-mcp api:call start_lesson_session /absolu
 Read-only operations (`get_*`, `explain_last_adaptation`, `list_community_bundles`) need no
 `request_id` and are recomputed on each call. `forget_session` takes `session_id` or `learner_id`, as
 over MCP; with `learner_id` no session needs to be open, and a retried request on one of the sessions it
-closed answers `410 forgotten`. The study, authoring and teacher tools are not served here in this version; use MCP for
-them.
+closed answers `410 forgotten`. The other study tools (`get_study_plan`, `list_lessons`,
+`start_review_session`) and all authoring and teacher tools are not served here in this version; use MCP
+for them.
 
 ### Errors
 

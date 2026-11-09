@@ -53,7 +53,7 @@ Une leçon d'auto-apprentissage commence par un avis dans sa langue (en françai
 | Rédigée par | Première phrase |
 |---|---|
 | l'apprenant | « Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). » |
-| un agent | « Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; conteste une clé qui te semble fausse. » |
+| un agent | « Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; signale à l'agent une clé qui te semble fausse. » |
 
 | Juge | Seconde phrase |
 |---|---|
@@ -72,7 +72,7 @@ La licence indiquée pour chaque source est recopiée dans les citations de la l
 
 Les passages cités d'une scène évaluée ne sont communiqués qu'après la réponse, quand l'apprenant quitte la scène pour de bon.
 
-Une citation exacte prouve un lien textuel, pas que la question l'utilise correctement. C'est pourquoi l'avis des leçons rédigées par un agent invite l'apprenant à contester une clé.
+Une citation exacte prouve un lien textuel, pas que la question l'utilise correctement. C'est pourquoi l'avis des leçons rédigées par un agent invite l'apprenant à signaler à l'agent une clé qui lui semble fausse.
 
 ## Constats du lint sur l'autorat
 

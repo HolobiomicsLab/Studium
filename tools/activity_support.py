@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 
-CANONICAL_FIELDS = {"kind", "title", "payload", "path", "language", "format", "provenance", "meta"}
+CANONICAL_FIELDS = {"kind", "title", "payload", "path", "language", "format", "legend", "provenance", "meta"}
 SUPPORTED_KINDS = {"image", "audio", "video", "equation_latex", "code", "mol_3d", "protocol_md"}
 IMAGE_TYPES = {
     ".gif": ("image/gif", (b"GIF87a", b"GIF89a")),
@@ -126,6 +126,20 @@ def _validate_canonical_fields(asset: dict[str, Any]) -> None:
     for field in ("title", "payload", "path", "language", "format"):
         if field in asset and (not isinstance(asset[field], str) or not asset[field].strip()):
             raise SupportValidationError(f"render asset {field} must be a non-empty string")
+    if "legend" in asset:
+        legend = asset["legend"]
+        if not isinstance(legend, list) or not legend:
+            raise SupportValidationError("render asset legend must be a non-empty array")
+        for index, entry in enumerate(legend):
+            if not isinstance(entry, dict):
+                raise SupportValidationError(f"render asset legend entry {index} must be an object")
+            unknown = set(entry) - {"symbol", "meaning"}
+            if unknown:
+                raise SupportValidationError(f"render asset legend entry {index} has unknown fields: {sorted(unknown)}")
+            for field in ("symbol", "meaning"):
+                value = entry.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    raise SupportValidationError(f"render asset legend entry {index} {field} must be a non-empty string")
 
 
 def _validate_common_fields(asset: dict[str, Any]) -> None:

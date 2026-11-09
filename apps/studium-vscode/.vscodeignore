@@ -1,5 +1,5 @@
 # Ship only what the installed extension needs: the esbuild bundle (dist/) + the webview/vendor assets
-# (media/) + the walkthrough. Everything else (TypeScript sources, tests, node_modules, config) is excluded.
+# (dist/panel/) + the media/ walkthrough. Everything else (TypeScript sources, tests, node_modules, config) is excluded.
 .vscode/**
 src/**
 **/*.ts

@@ -51,9 +51,9 @@ const NOTICE = {
 // Contract C3: a self-study lesson an agent drafted from the learner's sources says so — the risk is a
 // wrong AI key the learner never saw, not open book.
 const AGENT_FR = "Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant\u00a0: chaque " +
-  "question cite son passage\u202f; conteste une clé qui te semble fausse. ";
+  "question cite son passage\u202f; signale à l'agent une clé qui te semble fausse. ";
 const AGENT_EN = "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; " +
-  "challenge any key you think is wrong. ";
+  "tell the assistant about a key that looks wrong. ";
 const AGENT_BASE_NOTICE = {
   fr: { without_judge: AGENT_FR + NO_JUDGE.fr, with_judge: AGENT_FR + WITH_JUDGE.fr },
   en: { without_judge: AGENT_EN + NO_JUDGE.en, with_judge: AGENT_EN + WITH_JUDGE.en },

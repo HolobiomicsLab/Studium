@@ -77,6 +77,40 @@
       "estimated_seconds": 30,
       "adaptation_hooks": [],
       "markdown": "Advanced follows the foundation."
+    },
+    {
+      "id": "s-advanced-quiz-1",
+      "type": "quiz",
+      "title": "Advanced check 1",
+      "objective_refs": [],
+      "concept_refs": ["advanced"],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "question": "Choose the advanced concept.",
+      "choices": [
+        { "id": "a", "text": "Advanced", "correct": true },
+        { "id": "b", "text": "Foundation", "correct": false }
+      ],
+      "feedback_correct": "Correct.",
+      "feedback_incorrect": "Try again.",
+      "hints": []
+    },
+    {
+      "id": "s-advanced-quiz-2",
+      "type": "quiz",
+      "title": "Advanced check 2",
+      "objective_refs": [],
+      "concept_refs": ["advanced"],
+      "estimated_seconds": 30,
+      "adaptation_hooks": [],
+      "question": "Which comes second?",
+      "choices": [
+        { "id": "a", "text": "Advanced", "correct": true },
+        { "id": "b", "text": "Foundation", "correct": false }
+      ],
+      "feedback_correct": "Correct.",
+      "feedback_incorrect": "Try again.",
+      "hints": []
     }
   ],
   "rules": [],

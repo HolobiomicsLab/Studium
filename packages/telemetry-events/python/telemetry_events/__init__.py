@@ -214,13 +214,76 @@ class CooperativeConvergence(_Base):
     role_coverage: float = Field(ge=0, le=1)
 
 
+# --- Interaction events (INT-STUDIUM-058 § 2.10) ----------------------------------------------
+# Mirror of the TypeScript schemas of the same names: closed labels, counts, delays and references
+# only, never a text. `extra="forbid"` (from _Base) refuses any other field.
+_SurfaceRank = Annotated[int, Field(ge=1, le=3)]
+_ServerPromptKind = Literal["review_due", "break", "next_lesson", "map_offer", "forms_offer"]
+
+
+class Interaction(_Base):
+    type: Literal["interaction"]
+    act: Literal[
+        "respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse",
+        "ask", "setAttention", "setLanguage", "replan", "openMap", "closeMap", "contest", "prompt",
+    ]
+    lane: Literal["fast", "companion"]
+    surface_rank: _SurfaceRank
+    server_ms: float = Field(ge=0)
+    client_ms: float | None = Field(default=None, ge=0)
+    scene_id: str | None = None
+
+
+class PromptShown(_Base):
+    type: Literal["prompt_shown"]
+    kind: Literal["review_due", "break", "next_lesson", "map_offer", "forms_offer", "resume_notice", "adaptation_notice"]
+    attention: Literal["quiet", "normal", "coached"]
+    surface_rank: _SurfaceRank
+    scene_id: str | None = None
+
+
+class PromptOutcome(_Base):
+    type: Literal["prompt_outcome"]
+    kind: _ServerPromptKind
+    outcome: Literal["accepted", "dismissed", "ignored"]
+    scene_id: str | None = None
+
+
+class HelpUsed(_Base):
+    type: Literal["help_used"]
+    rung: Literal["reread", "hint", "explain", "reference"]
+    scene_id: str
+
+
+class Contest(_Base):
+    type: Literal["contest"]
+    concept_id: str
+    claim: Literal["known", "unsure"]
+    outcome: Literal["confirmed", "refuted", "partial"]
+    questions: int = Field(ge=0)
+
+
+class Resume(_Base):
+    type: Literal["resume"]
+    cause: Literal["restart", "surface_change", "paused"]
+
+
+class ReviewReceipt(_Base):
+    type: Literal["review_receipt"]
+    decision: Literal["approved", "returned"]
+    items: int = Field(ge=0)
+    opened: int = Field(ge=0)
+    not_opened: int = Field(ge=0)
+
+
 TelemetryEvent = Annotated[
     Union[LessonStarted, SceneEntered, SceneCompleted, QuizAnswered,
           AdaptationApplied, CritiqueSubmitted, LessonCompleted,
           ConsentGranted, ForgetRequested,
           ReasoningSignal, AIAuditResult,
           JournalEntrySubmitted, CooperativeVote, CooperativeConvergence,
-          UniverseSelected, HintRequested, TutorMove],
+          UniverseSelected, HintRequested, TutorMove,
+          Interaction, PromptShown, PromptOutcome, HelpUsed, Contest, Resume, ReviewReceipt],
     Field(discriminator="type"),
 ]
 
@@ -232,4 +295,5 @@ __all__ = [
     "ReasoningSignal", "AIAuditResult",
     "JournalEntrySubmitted", "CooperativeVote", "CooperativeConvergence",
     "UniverseSelected", "HintRequested", "TutorMove",
+    "Interaction", "PromptShown", "PromptOutcome", "HelpUsed", "Contest", "Resume", "ReviewReceipt",
 ]

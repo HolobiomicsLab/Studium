@@ -118,6 +118,13 @@ Call `create_lesson {source_set_id, draft, course_id?, overwrite?}`.
 
 ## 6. Play it
 
+Building the lesson filled this session with sources and drafts, and every later answer would
+carry them. Offer in one line to play the lesson in its own short session (Claude Code:
+`claude --agent studium-lesson`, then the lesson's name; another harness: a new session on its
+fast model); the lesson is in the library, so that session finds it. If the learner prefers to
+stay, play it here. Either way, relay and add nothing: see "Keep each turn short" in
+[studium-harness](../studium-harness/SKILL.md).
+
 `start_lesson_session {bundle_ref: course_ref, learner_id, presentation_language?}`.
 Relay `authoring.notice` on the first screen. Then, for each step:
 

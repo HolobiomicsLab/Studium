@@ -49,7 +49,10 @@ Each turn the extension pulls the current scene (redacted by the server) and `ge
 presents them, sends the answer back over `submit_response`, `submit_turn` or `request_hint`, and repaints
 the next scene. The pane serializes learner actions, disables controls while a turn is pending, keeps
 recoverable errors beside the current scene, and closes a connection that finishes opening after the panel
-was dismissed. Start-up failures name the output channel and the command to retry.
+was dismissed. Start-up failures name the output channel and the command to retry. When an action reaches
+a session the server no longer knows (`session not found`), the extension passes that reason to the pane,
+which replaces the scene with « Session lost » and a « Reopen the lesson » button; the button closes the
+pane and opens the same lesson in a new one (with durable storage the learner resumes where they were).
 
 ## Commands
 

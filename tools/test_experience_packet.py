@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import typing
+import uuid
 from copy import deepcopy
 from pathlib import Path
 
@@ -29,6 +31,12 @@ from experience_packet import (
 from lesson_bundle_schema import LessonBundle  # noqa: E402 - importable once experience_packet set the path
 from lesson_bundle_schema import SceneType as BundleSceneType  # noqa: E402
 from self_study_passages import FetchedReference  # noqa: E402
+
+sys.path.insert(0, str(TOOLS.parent / "packages" / "telemetry-events" / "python"))
+from pydantic import TypeAdapter  # noqa: E402
+from telemetry_events import TelemetryEvent  # noqa: E402
+
+TELEMETRY = TypeAdapter(TelemetryEvent)
 
 
 PASSAGES = {
@@ -1794,6 +1802,32 @@ def test_approve_preserves_bundle_content_and_writes_hash_bound_record(tmp_path,
     }
 
 
+def test_approve_summary_shows_the_voice_learners_will_read(tmp_path, capsys):
+    """Walkthrough fix 3: the name given to --validated-by is what every learner screen shows."""
+    lesson = _finished_teacher_bundle(tmp_path)
+
+    assert main(["approve", "--bundle", str(lesson), "--validated-by", "Marie Curie"]) == 0
+
+    out = capsys.readouterr().out
+    assert 'learners read on every screen: « Leçon validée par Marie Curie » / "validated by Marie Curie"' in out
+    assert "e-mail address" not in out
+
+
+def test_approve_summary_notes_an_email_address_as_the_voice(tmp_path, capsys):
+    lesson = _finished_teacher_bundle(tmp_path)
+
+    assert main(["approve", "--bundle", str(lesson), "--validated-by", "m.curie@example.org"]) == 0
+
+    out = capsys.readouterr().out
+    lines = out.splitlines()
+    voice = 'learners read on every screen: « Leçon validée par m.curie@example.org » / "validated by m.curie@example.org"'
+    assert voice in lines
+    note = 'note: this is an e-mail address; learners will see it — prefer a name (--validated-by "Prénom Nom")'
+    assert lines[lines.index(voice) + 1] == note
+    # No refusal, nothing else changed: the address is written as given.
+    assert json.loads(lesson.read_text())["validated_by"] == "m.curie@example.org"
+
+
 def test_approve_refuses_placeholders_without_mutating_bundle(tmp_path, capsys):
     course = checked_course(tmp_path)
     lesson = build_lesson_bundle(course_dir=course, output_path=tmp_path / "lesson.json")
@@ -1848,3 +1882,736 @@ def test_approve_help_lists_checklist_keys_and_says_what_it_rewrites(capsys):
     assert "validated_by and validated_at are rewritten" in help_text
     assert "normalized" in help_text
     assert "Preserve an edited teacher bundle" not in help_text
+
+
+# --- review receipts (INT-STUDIUM-058, task 6.2) ------------------------------------------------
+
+QUIZ_SCENE = {
+    "id": "scene-quiz",
+    "type": "quiz",
+    "title": "Check",
+    "objective_refs": ["objective-1"],
+    "concept_refs": [],
+    "estimated_seconds": 60,
+    "adaptation_hooks": [],
+    "question": "Which is right?",
+    "choices": [
+        {"id": "a", "text": "This one", "correct": True},
+        {"id": "b", "text": "That one", "correct": False},
+    ],
+}
+
+
+def _finished_bundle_with_quiz(tmp_path: Path) -> Path:
+    lesson = _finished_teacher_bundle(tmp_path)
+    bundle = json.loads(lesson.read_text())
+    bundle["scenes"].append(deepcopy(QUIZ_SCENE))
+    lesson.write_text(json.dumps(bundle, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return lesson
+
+
+def _receipts(lesson: Path) -> list[Path]:
+    reviews = lesson.parent / "reviews"
+    return sorted(reviews.glob("*.json")) if reviews.exists() else []
+
+
+def test_approve_writes_a_review_receipt_with_nothing_opened(tmp_path, capsys):
+    from experience_packet import _scene_fingerprint
+
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(["approve", "--bundle", str(lesson), "--validated-by", "Professor Example"])
+
+    assert status == 0
+    final_bytes = lesson.read_bytes()
+    sha = hashlib.sha256(final_bytes).hexdigest()
+    approval = json.loads((lesson.parent / "approval.json").read_text())
+    [path] = _receipts(lesson)
+    assert path.name == f"{approval['reviewed_at'][:10]}-{sha[:12]}.json"
+    receipt = json.loads(path.read_text())
+    scenes = json.loads(final_bytes)["scenes"]
+    assert receipt["schema"] == "studium/review-receipt/v1"
+    assert receipt["reviewer"] == "Professor Example"
+    assert receipt["decided_at"] == approval["reviewed_at"]
+    assert receipt["decision"] == "approved"
+    assert receipt["bundle_sha256"] == sha == approval["bundle_sha256"]
+    assert receipt["bundle_ref"] == json.loads(final_bytes)["bundle_id"]
+    assert [item["id"] for item in receipt["items"]] == ["scene-1", "scene-quiz"]
+    assert [item["sha256"] for item in receipt["items"]] == [_scene_fingerprint(s) for s in scenes]
+    assert all(item["opened"] is False for item in receipt["items"])
+    assert receipt["opened"] == 0 and receipt["not_opened"] == len(receipt["items"]) == 2
+    assert "note" not in receipt
+    out = capsys.readouterr().out
+    assert str(path.resolve()) in out
+    assert "opened 0 of 2 items" in out
+    assert "warning: 1 grading item(s) not opened before approval: scene-quiz" in out
+    assert out.splitlines()[-1] == str((lesson.parent / "approval.json").resolve())
+
+
+def test_approve_records_the_opened_items_and_the_note(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        [
+            "approve", "--bundle", str(lesson), "--validated-by", "Professor Example",
+            "--opened", "scene-quiz", "--note", "Checked the key against the source.",
+        ]
+    )
+
+    assert status == 0
+    [path] = _receipts(lesson)
+    receipt = json.loads(path.read_text())
+    assert {item["id"]: item["opened"] for item in receipt["items"]} == {"scene-1": False, "scene-quiz": True}
+    assert receipt["opened"] == 1 and receipt["not_opened"] == 1
+    assert receipt["note"] == "Checked the key against the source."
+    out = capsys.readouterr().out
+    assert "opened 1 of 2 items" in out
+    assert "warning:" not in out
+
+
+def test_approve_accepts_comma_separated_and_repeated_opened_ids(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        [
+            "approve", "--bundle", str(lesson), "--validated-by", "Professor Example",
+            "--opened", "scene-1,scene-quiz", "--opened", "scene-1",
+        ]
+    )
+
+    assert status == 0
+    receipt = json.loads(_receipts(lesson)[0].read_text())
+    assert receipt["opened"] == 2 and receipt["not_opened"] == 0
+
+
+def test_approve_records_ok_verdict_only_on_matching_item_and_prints_counts(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    bundle = json.loads(lesson.read_text())
+    bundle["scenes"][-1]["id"] = "s1-quiz-fer"
+    lesson.write_text(json.dumps(bundle, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    status = main(
+        [
+            "approve", "--bundle", str(lesson), "--validated-by", "Professor Example",
+            "--verdict", "s1-quiz-fer=ok", "--opened", "s1-quiz-fer",
+        ]
+    )
+
+    assert status == 0
+    receipt = json.loads(_receipts(lesson)[0].read_text())
+    items = {item["id"]: item for item in receipt["items"]}
+    assert items["s1-quiz-fer"]["verdict"] == "ok"
+    assert "verdict" not in items["scene-1"]
+    lines = capsys.readouterr().out.splitlines()
+    opened_line = lines.index("opened 1 of 2 items")
+    assert lines[opened_line + 1] == "verdicts: 1 ok, 0 to fix"
+
+
+def test_approve_refuses_an_unknown_opened_id_before_any_mutation(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    before = lesson.read_bytes()
+
+    status = main(
+        ["approve", "--bundle", str(lesson), "--validated-by", "Professor Example", "--opened", "scene-9"]
+    )
+
+    assert status == 2
+    assert "scene-9" in capsys.readouterr().err
+    assert lesson.read_bytes() == before
+    assert not (lesson.parent / "approval.json").exists()
+    assert _receipts(lesson) == []
+
+
+def test_receipt_returned_writes_only_the_receipt(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    before = lesson.read_bytes()
+
+    status = main(
+        [
+            "receipt", "--bundle", str(lesson), "--reviewer", "Professor Example",
+            "--decision", "returned", "--opened", "scene-1", "--note", "Rewrite the quiz.",
+        ]
+    )
+
+    assert status == 0
+    assert lesson.read_bytes() == before
+    assert not (lesson.parent / "approval.json").exists()
+    [path] = _receipts(lesson)
+    receipt = json.loads(path.read_text())
+    assert path.name.endswith(f"-{hashlib.sha256(before).hexdigest()[:12]}.json")
+    assert receipt["decision"] == "returned"
+    assert receipt["bundle_sha256"] == hashlib.sha256(before).hexdigest()
+    assert receipt["opened"] == 1 and receipt["not_opened"] == 1
+    assert receipt["note"] == "Rewrite the quiz."
+    out = capsys.readouterr().out
+    assert out.splitlines()[-1] == str(path.resolve())
+    assert "opened 1 of 2 items" in out
+
+
+def test_receipt_returned_records_repeated_and_comma_separated_verdicts(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        [
+            "receipt", "--bundle", str(lesson), "--reviewer", "Professor Example",
+            "--decision", "returned", "--verdict", "scene-1=ok,scene-quiz=to_fix",
+            "--verdict", "scene-1=ok",
+        ]
+    )
+
+    assert status == 0
+    receipt = json.loads(_receipts(lesson)[0].read_text())
+    assert {item["id"]: item["verdict"] for item in receipt["items"]} == {
+        "scene-1": "ok",
+        "scene-quiz": "to_fix",
+    }
+    lines = capsys.readouterr().out.splitlines()
+    opened_line = lines.index("opened 0 of 2 items")
+    assert lines[opened_line + 1] == "verdicts: 1 ok, 1 to fix"
+
+
+def _review_events(lesson: Path) -> list[dict]:
+    path = lesson.parent / "reviews" / "telemetry.jsonl"
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def test_approve_writes_the_review_event_next_to_the_receipt(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    assert main(
+        ["approve", "--bundle", str(lesson), "--validated-by", "Professor Example", "--opened", "scene-quiz"]
+    ) == 0
+
+    [receipt_path] = _receipts(lesson)
+    receipt = json.loads(receipt_path.read_text())
+    [event] = _review_events(lesson)
+    TELEMETRY.validate_python(event)
+    bundle = json.loads(lesson.read_text())
+    assert event["type"] == "review_receipt"
+    assert event["learner_pseudonym"] == "reviewer"
+    assert event["lesson_id"] == bundle["bundle_id"]
+    assert event["bundle_version"] == f"{bundle['schema_version']}:{bundle['bundle_id']}@{bundle['validated_at']}"
+    assert event["client_timestamp"] == receipt["decided_at"]
+    assert event["decision"] == receipt["decision"] == "approved"
+    assert event["items"] == len(receipt["items"]) == 2
+    assert event["opened"] == receipt["opened"] == 1
+    assert event["not_opened"] == receipt["not_opened"] == 1
+    expected_id = uuid.uuid5(
+        uuid.NAMESPACE_URL,
+        f"studium:review_receipt:{receipt['bundle_sha256']}:{receipt['decided_at']}",
+    )
+    assert event["event_id"] == str(expected_id)
+    line = (lesson.parent / "reviews" / "telemetry.jsonl").read_text(encoding="utf-8")
+    assert "Professor Example" not in line
+
+
+def test_receipt_returned_appends_a_second_event_line(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    assert main(["approve", "--bundle", str(lesson), "--validated-by", "Professor Example"]) == 0
+    bundle = json.loads(lesson.read_text())
+    extra = deepcopy(QUIZ_SCENE)
+    extra["id"] = "scene-quiz-2"
+    bundle["scenes"].append(extra)
+    lesson.write_text(json.dumps(bundle, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    assert main(
+        ["receipt", "--bundle", str(lesson), "--reviewer", "Professor Example", "--decision", "returned"]
+    ) == 0
+
+    events = _review_events(lesson)
+    assert len(events) == 2
+    for event in events:
+        TELEMETRY.validate_python(event)
+    assert len({event["event_id"] for event in events}) == 2
+    returned_path = next(p for p in _receipts(lesson) if p.read_text().find('"returned"') >= 0)
+    returned = json.loads(returned_path.read_text())
+    assert events[-1]["decision"] == "returned"
+    assert events[-1]["items"] == len(returned["items"]) == 3
+    assert events[-1]["opened"] == returned["opened"] == 0
+    assert events[-1]["not_opened"] == returned["not_opened"] == 3
+    assert (lesson.parent / "reviews" / "telemetry.jsonl").read_text(encoding="utf-8").endswith("\n")
+
+
+def test_an_event_that_fails_the_contract_refuses_before_any_write(tmp_path, capsys, monkeypatch):
+    import experience_packet
+    from pydantic import BaseModel, ConfigDict
+
+    class NotAnEvent(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        only_this: int
+
+    monkeypatch.setattr(experience_packet, "_TELEMETRY_EVENT", TypeAdapter(NotAnEvent))
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    before = lesson.read_bytes()
+
+    status = main(["approve", "--bundle", str(lesson), "--validated-by", "Professor Example"])
+
+    assert status == 2
+    err = capsys.readouterr().err
+    assert "does not match the contract" in err
+    assert lesson.read_bytes() == before
+    assert not (lesson.parent / "approval.json").exists()
+    assert _receipts(lesson) == []
+    assert not (lesson.parent / "reviews" / "telemetry.jsonl").exists()
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        (
+            "en",
+            "error: the review receipt's telemetry event does not match the contract, so nothing "
+            "was written: only_this: Field required\n",
+        ),
+        (
+            "fr",
+            "erreur\u00a0: l’événement de télémétrie du reçu de relecture ne respecte pas le "
+            "contrat\u202f; rien n’a été écrit\u00a0: only_this: Field required\n",
+        ),
+    ],
+)
+def test_receipt_event_invalid_refusal_is_one_exact_localized_line(
+    tmp_path, capsys, monkeypatch, language, expected
+):
+    import experience_packet
+    from pydantic import BaseModel, ConfigDict
+
+    class NotAnEvent(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+        only_this: int
+
+    monkeypatch.setattr(experience_packet, "_TELEMETRY_EVENT", TypeAdapter(NotAnEvent))
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        ["approve", "--bundle", str(lesson), "--validated-by", "Professor Example", "--lang", language]
+    )
+
+    captured = capsys.readouterr()
+    assert status == 2
+    assert captured.out == ""
+    assert captured.err == expected
+    assert captured.err.count("\n") == 1
+    assert _receipts(lesson) == []
+
+
+@pytest.mark.parametrize("command", ["approve", "receipt"])
+def test_a_failed_event_append_says_the_receipt_exists(tmp_path, capsys, monkeypatch, command):
+    import experience_packet
+
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    event_path = lesson.parent / "reviews" / "telemetry.jsonl"
+    original_open = Path.open
+
+    def fail_on_the_event_file(self, *args, **kwargs):
+        if self == event_path:
+            raise OSError("disk full")
+        return original_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", fail_on_the_event_file)
+    args = (
+        ["approve", "--bundle", str(lesson), "--validated-by", "Professor Example"]
+        if command == "approve"
+        else ["receipt", "--bundle", str(lesson), "--reviewer", "Professor Example", "--decision", "returned"]
+    )
+
+    status = main(args)
+
+    [receipt] = _receipts(lesson)
+    assert status == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == (
+        f"error: receipt written at {receipt.resolve()}; event not appended: disk full\n"
+    )
+    assert not (lesson.parent / "reviews" / "telemetry.jsonl").exists()
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        (
+            "en",
+            "error: cannot approve while --verdict contains to_fix; "
+            "use receipt --decision returned\n",
+        ),
+        (
+            "fr",
+            "erreur\u00a0: approbation impossible tant que --verdict contient to_fix\u202f; "
+            "utilisez receipt --decision returned\n",
+        ),
+    ],
+)
+def test_approve_refuses_to_fix_verdict_in_one_localized_line(tmp_path, capsys, language, expected):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    before = lesson.read_bytes()
+
+    status = main(
+        [
+            "approve", "--bundle", str(lesson), "--validated-by", "Professor Example",
+            "--verdict", "scene-quiz=to_fix", "--lang", language,
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert status == 2
+    assert captured.out == ""
+    assert captured.err == expected
+    assert lesson.read_bytes() == before
+    assert not (lesson.parent / "approval.json").exists()
+    assert _receipts(lesson) == []
+
+
+@pytest.mark.parametrize(
+    ("verdict", "language", "expected"),
+    [
+        (
+            "scene-9=ok",
+            "en",
+            "error: invalid --verdict value(s) 'scene-9=ok'; expected "
+            "SCENE_ID=ok|to_fix for a scene of this lesson\n",
+        ),
+        (
+            "scene-quiz=maybe",
+            "en",
+            "error: invalid --verdict value(s) 'scene-quiz=maybe'; expected "
+            "SCENE_ID=ok|to_fix for a scene of this lesson\n",
+        ),
+        (
+            "scene-quiz",
+            "fr",
+            "erreur\u00a0: valeur(s) --verdict invalide(s)\u00a0: 'scene-quiz'\u202f; "
+            "forme attendue SCENE_ID=ok|to_fix pour une scène de cette leçon\n",
+        ),
+    ],
+)
+def test_verdict_refuses_unknown_id_value_and_malformed_form_in_one_line(
+    tmp_path, capsys, verdict, language, expected
+):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    before = lesson.read_bytes()
+
+    status = main(
+        [
+            "receipt", "--bundle", str(lesson), "--reviewer", "Professor Example",
+            "--decision", "returned", "--verdict", verdict, "--lang", language,
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert status == 2
+    assert captured.out == ""
+    assert captured.err == expected
+    assert lesson.read_bytes() == before
+    assert _receipts(lesson) == []
+
+
+def test_receipt_refuses_the_approved_decision(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        ["receipt", "--bundle", str(lesson), "--reviewer", "Professor Example", "--decision", "approved"]
+    )
+
+    assert status == 2
+    assert "use approve" in capsys.readouterr().err
+    assert _receipts(lesson) == []
+
+
+def test_receipt_refuses_a_same_day_duplicate_without_touching_the_first(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    command = ["receipt", "--bundle", str(lesson), "--reviewer", "Professor Example", "--decision", "returned"]
+    assert main(command) == 0
+    [path] = _receipts(lesson)
+    first = path.read_bytes()
+    capsys.readouterr()
+
+    status = main([*command, "--note", "second"])
+
+    assert status == 2
+    assert "already exists" in capsys.readouterr().err
+    assert _receipts(lesson) == [path]
+    assert path.read_bytes() == first
+
+
+def test_receipt_help_says_what_it_is_for(capsys):
+    with pytest.raises(SystemExit) as exit_info:
+        main(["receipt", "--help"])
+    assert exit_info.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "sends a lesson back" in help_text
+    assert "dashboard" in help_text
+
+
+def test_receipt_consequence_per_scene(tmp_path, capsys):
+    lesson = tmp_path / "course" / "lesson.json"
+    lesson.parent.mkdir()
+    bundle = {
+        "bundle_id": "consequences",
+        "scenes": [
+            deepcopy(QUIZ_SCENE),
+            {"id": "figure", "type": "concept", "markdown": "See the figure.", "image_path": "fig.png"},
+            {"id": "plain", "type": "concept", "markdown": "Just prose."},
+            {"id": "todo", "type": "concept", "markdown": "TODO: write this"},
+            {"type": "concept", "markdown": "No id.", "render_assets": [{"kind": "svg", "title": "x", "payload": "<svg/>"}]},
+            {"id": "empty-assets", "type": "concept", "markdown": "Empty.", "render_assets": [], "image_path": ""},
+        ],
+    }
+    lesson.write_text(json.dumps(bundle, ensure_ascii=False), encoding="utf-8")
+
+    status = main(["receipt", "--bundle", str(lesson), "--reviewer", "R", "--decision", "returned"])
+
+    assert status == 0
+    receipt = json.loads(_receipts(lesson)[0].read_text())
+    assert receipt["bundle_ref"] == "consequences"
+    assert {item["id"]: item["consequence"] for item in receipt["items"]} == {
+        "scene-quiz": "grading",
+        "figure": "media",
+        "plain": "wording",
+        "todo": "blocks",
+        "#4": "media",
+        "empty-assets": "wording",
+    }
+
+
+def test_receipt_falls_back_to_the_course_folder_name(tmp_path, capsys):
+    lesson = tmp_path / "my-course" / "lesson.json"
+    lesson.parent.mkdir()
+    lesson.write_text(json.dumps({"scenes": [{"id": "s", "type": "concept", "markdown": "x"}]}), encoding="utf-8")
+
+    assert main(["receipt", "--bundle", str(lesson), "--reviewer", "R", "--decision", "returned"]) == 0
+
+    assert json.loads(_receipts(lesson)[0].read_text())["bundle_ref"] == "my-course"
+
+
+# --- the teacher's language for approve and receipt (INT-STUDIUM-058 lot 6, walkthrough T.2–T.10) ----
+
+NBSP = " "
+NNBSP = " "
+
+
+@pytest.fixture(autouse=True)
+def _english_unless_asked(monkeypatch):
+    """approve and receipt read STUDIUM_LANG, LC_ALL and LANG: a French shell must not turn the
+    English assertions above into failures, so every test starts from a neutral environment."""
+    for name in ("STUDIUM_LANG", "LC_ALL", "LANG"):
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture
+def _frozen_clock(monkeypatch):
+    import experience_packet
+
+    class FrozenDatetime(experience_packet.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 11, 7, 10, 0, 0, tzinfo=tz)
+
+    monkeypatch.setattr(experience_packet, "datetime", FrozenDatetime)
+    return "2026-11-07T10:00:00Z"
+
+
+def test_approve_lang_fr_prints_the_french_summary(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(["approve", "--bundle", str(lesson), "--validated-by", "Marie Curie", "--lang", "fr"])
+
+    assert status == 0
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    lines = captured.out.splitlines()
+    approval = json.loads((lesson.parent / "approval.json").read_text())
+    [receipt] = _receipts(lesson)
+    assert lines[0] == f"Approuvée par Marie Curie le {approval['reviewed_at']}"
+    assert lines[1] == (
+        f"Les apprenants liront sur chaque écran{NBSP}: «{NBSP}Leçon validée par Marie Curie{NBSP}» "
+        "/ “validated by Marie Curie”"
+    )
+    assert f"SHA-256 de lesson.json{NBSP}: {approval['bundle_sha256']}" in lines
+    assert f"lint{NBSP}: 0 erreur(s), 0 avertissement(s)" in lines
+    assert (
+        f"validated_by et validated_at ont été réécrits et le fichier normalisé{NNBSP}; toute modification "
+        "de lesson.json rend cette approbation caduque (approuvez de nouveau après modification)."
+    ) in lines
+    assert f"Reçu de relecture (approuvée){NBSP}: {receipt.resolve()}" in lines
+    assert f"éléments ouverts{NBSP}: 0 sur 2" in lines
+    assert (
+        f"avertissement{NBSP}: 1 élément(s) de notation non ouvert(s) avant l’approbation{NBSP}: scene-quiz"
+    ) in lines
+    assert lines[-2:] == [f"Enregistrement d’approbation{NBSP}:", str((lesson.parent / "approval.json").resolve())]
+    assert "Approved by" not in captured.out and "warning:" not in captured.out
+
+
+def test_approve_lang_fr_notes_an_email_address_in_french(tmp_path, capsys):
+    lesson = _finished_teacher_bundle(tmp_path)
+
+    assert main(["approve", "--bundle", str(lesson), "--validated-by", "m.curie@example.org", "--lang", "fr"]) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    voice = (
+        f"Les apprenants liront sur chaque écran{NBSP}: «{NBSP}Leçon validée par m.curie@example.org{NBSP}» "
+        "/ “validated by m.curie@example.org”"
+    )
+    assert lines[lines.index(voice) + 1] == (
+        f"note{NBSP}: c’est une adresse électronique{NNBSP}; les apprenants la verront — "
+        'préférez un nom (--validated-by "Prénom Nom")'
+    )
+
+
+@pytest.mark.parametrize(
+    ("environment", "expected"),
+    [
+        ({}, "en"),
+        ({"STUDIUM_LANG": "fr"}, "fr"),
+        ({"LANG": "fr_FR.UTF-8"}, "fr"),
+        ({"LC_ALL": "fr_CA.UTF-8", "LANG": "en_US.UTF-8"}, "fr"),
+        ({"LANG": "de_DE.UTF-8"}, "en"),
+        ({"STUDIUM_LANG": "en", "LANG": "fr_FR.UTF-8"}, "en"),
+        ({"STUDIUM_LANG": "de", "LANG": "fr_FR.UTF-8"}, "fr"),
+    ],
+)
+def test_cli_language_default_rule(monkeypatch, environment, expected):
+    from experience_packet import _cli_language
+
+    for name, value in environment.items():
+        monkeypatch.setenv(name, value)
+    assert _cli_language(None) == expected
+    assert _cli_language("en") == "en"
+
+
+def test_approve_language_defaults_from_studium_lang(tmp_path, capsys, monkeypatch):
+    lesson = _finished_teacher_bundle(tmp_path)
+    monkeypatch.setenv("STUDIUM_LANG", "fr")
+
+    assert main(["approve", "--bundle", str(lesson), "--validated-by", "Marie Curie"]) == 0
+
+    out = capsys.readouterr().out
+    assert out.startswith("Approuvée par Marie Curie le ")
+    assert "Approved by" not in out
+
+
+def test_receipt_returned_lang_en_prints_the_event_line(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        [
+            "receipt", "--bundle", str(lesson), "--reviewer", "Professor Example",
+            "--decision", "returned", "--lang", "en",
+        ]
+    )
+
+    assert status == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert "event: reviews/telemetry.jsonl" in lines
+
+
+def test_receipt_returned_lang_fr_prints_the_french_lines(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    sha = hashlib.sha256(lesson.read_bytes()).hexdigest()
+
+    status = main(
+        [
+            "receipt", "--bundle", str(lesson), "--reviewer", "Professor Example",
+            "--decision", "returned", "--opened", "scene-1", "--lang", "fr",
+        ]
+    )
+
+    assert status == 0
+    [path] = _receipts(lesson)
+    receipt = json.loads(path.read_text())
+    assert capsys.readouterr().out.splitlines() == [
+        f"Renvoyée par Professor Example le {receipt['decided_at']}",
+        f"SHA-256 de lesson.json{NBSP}: {sha}",
+        f"éléments ouverts{NBSP}: 1 sur 2",
+        f"événement{NBSP}: reviews/telemetry.jsonl",
+        f"Reçu de relecture{NBSP}:",
+        str(path.resolve()),
+    ]
+
+
+def test_receipt_verdict_summary_lang_fr_follows_the_opened_summary(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+
+    status = main(
+        [
+            "receipt", "--bundle", str(lesson), "--reviewer", "Professor Example",
+            "--decision", "returned", "--verdict", "scene-1=ok,scene-quiz=to_fix", "--lang", "fr",
+        ]
+    )
+
+    assert status == 0
+    lines = capsys.readouterr().out.splitlines()
+    opened_line = lines.index(f"éléments ouverts{NBSP}: 0 sur 2")
+    assert lines[opened_line + 1] == f"avis{NBSP}: 1 correct(s), 1 à corriger"
+
+
+def test_the_language_changes_no_recorded_byte(tmp_path, capsys, _frozen_clock):
+    """The parity gate reads the files, never the summary: --lang fr and --lang en record the same bytes."""
+    (tmp_path / "source").mkdir()
+    source = _finished_bundle_with_quiz(tmp_path / "source")
+    copies = {}
+    for lang in ("en", "fr"):
+        shutil.copytree(source.parent, tmp_path / lang / "bundle")
+        approved = tmp_path / lang / "bundle" / "lesson.json"
+        assert main(
+            ["approve", "--bundle", str(approved), "--validated-by", "Marie Curie", "--opened", "scene-1", "--lang", lang]
+        ) == 0
+        returned = tmp_path / lang / "returned" / "lesson.json"
+        shutil.copytree(source.parent, returned.parent)
+        assert main(
+            ["receipt", "--bundle", str(returned), "--reviewer", "Marie Curie", "--decision", "returned", "--lang", lang]
+        ) == 0
+        judged = tmp_path / lang / "judged" / "lesson.json"
+        shutil.copytree(source.parent, judged.parent)
+        assert main(
+            ["approve", "--bundle", str(judged), "--validated-by", "Marie Curie", "--verdict", "scene-1=ok", "--lang", lang]
+        ) == 0
+        copies[lang] = {
+            "lesson.json": approved.read_bytes(),
+            "approval.json": (approved.parent / "approval.json").read_bytes(),
+            "approved receipt": [p.read_bytes() for p in _receipts(approved)],
+            "approved events": (approved.parent / "reviews" / "telemetry.jsonl").read_bytes(),
+            "returned lesson.json": returned.read_bytes(),
+            "returned receipt": [p.read_bytes() for p in _receipts(returned)],
+            "returned events": (returned.parent / "reviews" / "telemetry.jsonl").read_bytes(),
+            "judged receipt": [p.read_bytes() for p in _receipts(judged)],
+            "judged events": (judged.parent / "reviews" / "telemetry.jsonl").read_bytes(),
+        }
+    capsys.readouterr()
+    assert json.loads(copies["fr"]["approval.json"])["reviewed_at"] == _frozen_clock
+    assert len(copies["fr"]["approved receipt"]) == len(copies["fr"]["returned receipt"]) == 1
+    for key in ("approved receipt", "returned receipt"):
+        receipt = json.loads(copies["fr"][key][0])
+        assert all("verdict" not in item for item in receipt["items"])
+    [judged_bytes] = copies["fr"]["judged receipt"]
+    judged_receipt = json.loads(judged_bytes)
+    assert {item["id"]: item.get("verdict") for item in judged_receipt["items"]} == {"scene-1": "ok", "scene-quiz": None}
+    assert copies["fr"] == copies["en"]
+
+
+def test_approve_refusal_in_french(tmp_path, capsys):
+    course = checked_course(tmp_path)
+    lesson = build_lesson_bundle(course_dir=course, output_path=tmp_path / "lesson.json")
+    first = placeholder_paths(json.loads(lesson.read_text()))[0]
+    count = len(placeholder_paths(json.loads(lesson.read_text())))
+
+    status = main(["approve", "--bundle", str(lesson), "--validated-by", "Professor Example", "--lang", "fr"])
+
+    assert status == 2
+    err = capsys.readouterr().err
+    assert err == f"erreur{NBSP}: approbation impossible{NBSP}: {count} marque(s) TODO restante(s) ({first})\n"
+
+
+def test_receipt_refusal_in_french_and_in_english(tmp_path, capsys):
+    lesson = _finished_bundle_with_quiz(tmp_path)
+    command = ["receipt", "--bundle", str(lesson), "--reviewer", "R", "--decision", "approved"]
+
+    assert main([*command, "--lang", "fr"]) == 2
+    assert capsys.readouterr().err == (
+        f"erreur{NBSP}: receipt enregistre une leçon renvoyée{NNBSP}; pour approuver, utilisez approve "
+        "(qui écrit aussi le reçu)\n"
+    )
+    assert main([*command, "--lang", "en"]) == 2
+    assert capsys.readouterr().err == (
+        "error: receipt records a returned lesson; to approve, use approve (it writes the receipt too)\n"
+    )

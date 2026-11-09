@@ -83,8 +83,10 @@ sont conservés comme code hérité et de recherche ; ce n'est pas une voie d'
 
 | Unité | Rôle | README |
 |---|---|---|
-| `apps/lesson-mcp` | serveur MCP (34 outils, stdio) et adaptateur HTTP des opérations de leçon | [README](../../apps/lesson-mcp/README.fr.md) |
+| `apps/lesson-mcp` | serveur MCP (40 outils, stdio) et adaptateur HTTP des opérations de leçon | [README](../../apps/lesson-mcp/README.fr.md) |
 | `apps/studium-vscode` | extension VS Code : panneau de leçon, participant de chat, serveur MCP embarqué | [README](../../apps/studium-vscode/README.fr.md) |
+| `apps/lesson-panel-ui` | Rendu partagé des leçons et graphes, adaptateurs VS Code et MCP Apps | [README](../../apps/lesson-panel-ui/README.fr.md) |
+| `apps/claude-code-mod` | Plugin Claude Code : panneau natif utilisant les outils partagés | [README](../../apps/claude-code-mod/README.fr.md) |
 | `apps/lesson-server` | serveur HTTP Fastify pour les leçons, clés masquées | [README](../../apps/lesson-server/README.fr.md) |
 | `apps/teacher-dashboard` | tableau de bord Next.js : analyses de classe, bibliothèque et relecture des leçons | [README](../../apps/teacher-dashboard/README.fr.md) |
 | `apps/student-runtime` | application de bureau Tauri, gelée | [README](../../apps/student-runtime/README.fr.md) |
@@ -100,6 +102,7 @@ sont conservés comme code hérité et de recherche ; ce n'est pas une voie d'
 | `lesson-schema` | ancien schéma de leçon v1 (ADR 003) ; le schéma de bundle fait foi | [README](../../packages/lesson-schema/README.fr.md) |
 | `lesson-session` | un apprenant dans une leçon : correction, navigation, tuteur | [README](../../packages/lesson-session/README.md) |
 | `lesson-session-host` | hôte multi-sessions : persistance, masquage, plan d'étude, auteur | [README](../../packages/lesson-session-host/README.md) |
+| `lesson-panel` | vue publique, actions et composition communes aux harnais | [README](../../packages/lesson-panel/README.fr.md) |
 | `adaptation-engine` | mise à jour bêta de la maîtrise, planification FSRS, routage dans le graphe | [README](../../packages/adaptation-engine/README.fr.md) |
 | `learner-state` | types du modèle de l'apprenant : maîtrise, calibration, confiance | [README](../../packages/learner-state/README.fr.md) |
 | `reasoning-scorer` | classe le raisonnement d'un tour de tutorat | [README](../../packages/reasoning-scorer/README.fr.md) |
@@ -132,6 +135,6 @@ sont conservés comme code hérité et de recherche ; ce n'est pas une voie d'
 
 ## Limites
 
-L'adaptateur HTTP n'expose que les opérations de leçon ; les outils d'étude, d'auteur et enseignant
-n'existent qu'en MCP. Aucun canal unique ne relie l'hôte aux deux surfaces de relecture : elles lisent sur
+L'adaptateur HTTP expose les 25 opérations de leçon et `rate_recall` ; les autres outils d'étude et les
+outils d'auteur et enseignant n'existent qu'en MCP. Aucun canal unique ne relie l'hôte aux deux surfaces de relecture : elles lisent sur
 disque les artefacts de cours et de relecture.

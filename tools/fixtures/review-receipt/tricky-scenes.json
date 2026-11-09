@@ -1,0 +1,49 @@
+{
+  "bundle_id": "review-receipt-parity",
+  "scenes": [
+    {
+      "type": "concept",
+      "id": "numbers",
+      "values": [1.0, 0.5, 1e-7, 1E-6, 1e21, 1e20, 123.456, 1.5e-10, 9007199254740994.0, -0.0, -0, 0.30000000000000004, 1e16, 2.50, -1.25e-7, 12345678901234567890, 42, -7, 100, 1.7976931348623157e308, 5e-324],
+      "markdown": "Plain text"
+    },
+    {
+      "type": "concept",
+      "id": "unicode",
+      "z": "∆ is a delta",
+      "é": "café, élève",
+      "Z": "upper",
+      "a": "𝑥 and 𝑦",
+      "escapes": "quote \" backslash \\ slash / newline \n tab \t control \u0001 bell \u0007 line-sep   del \u007f",
+      "« clé »": "guillemets « ok »"
+    },
+    {
+      "type": "quiz",
+      "id": "nested",
+      "question": "Which?",
+      "choices": [
+        {"text": "B", "id": "b", "correct": false},
+        {"text": "A", "id": "a", "correct": true}
+      ],
+      "meta": {"y": {"d": null, "c": [], "b": {}, "a": [{"k2": 2, "k1": 1}]}, "x": true, "w": false},
+      "hints": []
+    },
+    {
+      "type": "concept",
+      "id": "empty-and-null",
+      "empty_object": {},
+      "empty_array": [],
+      "nothing": null,
+      "yes": true,
+      "no": false,
+      "zero": 0,
+      "neg": -3.0,
+      "": "empty key"
+    },
+    {
+      "type": "concept",
+      "markdown": "A scene without an id",
+      "image_path": "assets/figure.png"
+    }
+  ]
+}

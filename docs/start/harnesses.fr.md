@@ -37,12 +37,58 @@ Appelle l'outil Studium get_server_info et donne-moi la version, la date du buil
 si ma progression est durable. Appelle ensuite get_study_plan.
 ```
 
-La réponse doit annoncer 34 outils (25 de leçon, 4 d'étude, 3 de rédaction, 2 pour l'enseignant ; voir
+La réponse doit annoncer 40 outils (25 de leçon, 5 d'étude, 3 de rédaction, 2 pour l'enseignant, 1 de formulaires, 3 de panneau, 1 d'accompagnement ; voir
 [Outils MCP](../reference/mcp-tools.fr.md)) et `persistence.durable: true`. Si `durable` vaut false, la
 progression est perdue à l'arrêt du serveur. À la connexion, l'assistant reçoit aussi les instructions de
 Studium (montrer chaque `display_markdown` tel quel, attendre votre propre réponse, ne jamais répondre ni
 noter à votre place) et deux prompts, `learn` et `review`, dans les clients qui prennent en charge les
 prompts MCP.
+
+## Garder des réponses rapides
+
+Studium note une réponse et choisit l'écran suivant en quelques millisecondes. Ce que vous attendez, c'est
+l'assistant qui relaie. Trois choix décident de l'essentiel de cette attente :
+
+- **Une session pour la leçon.** Jouez une leçon dans une session neuve et courte, pas à la fin d'une longue
+  conversation de travail : chaque réponse traîne toute la conversation derrière elle.
+- **Un modèle rapide.** Relayer ne demande aucun raisonnement, puisque Studium note et oriente. Gardez le
+  grand modèle pour une question qui demande une vraie explication.
+- **La connexion MCP** décrite sur cette page, et non des appels shell à l'API HTTP : chaque appel shell
+  lance un processus.
+
+Mesuré sur la leçon de démonstration `atomistique-l1` avec `tools/latency_bench.py` (Claude Code, médianes
+sur six réponses, 6 novembre 2026) :
+
+| Qui relaie | Fin de la réponse | Premier mot |
+|---|---|---|
+| un grand modèle, par appels shell, à la fin d'une longue session de travail (essai réel, application de bureau) | 27 s | environ 20 s |
+| le même grand modèle, session courte, outils MCP | 8,2 s | 5,4 s |
+| le modèle rapide, session courte, outils MCP | 5,4 s | 2,0 s |
+| l'agent de leçon `studium-lesson` comme session (voir [Claude Code](#claude-code)) | 5,5 s | 1,9 s |
+| un grand modèle qui confie chaque réponse à cet agent rapide | 16,1 s | 13,5 s |
+
+Une exécution par ligne : un écart d'une seconde entre deux lignes n'est pas établi. Le banc mesure un
+relais dans Claude Code ; il ne mesure ni les autres clients de cette page, ni ce que quiconque apprend.
+Baisser l'effort de raisonnement n'a rien changé de mesurable. La dernière ligne est le piège : un agent
+placé entre vous et le serveur fait écrire chaque écran par deux modèles.
+
+Un prototype va un pas plus loin : là où le client sait afficher des formulaires (élicitation MCP),
+`play_in_forms` laisse Studium poser lui-même les questions. Vous lisez un écran ou choisissez une réponse
+dans un formulaire, le verdict ouvre le formulaire suivant, et aucun modèle n'écrit entre les deux ; la
+conversation reprend quand une étape demande vos propres mots ou quand vous fermez un formulaire pour poser
+une question. Quand la leçon possède une carte des notions, chaque formulaire d'étape propose `map` : le
+formulaire de carte liste chaque notion avec son identifiant, revient à l'étape intacte s'il est validé vide,
+ou prend `contest_concept` et `claim` (`known` ou `unsure`) pour poser les questions de contrôle avant de
+reprendre cette étape. Seuls un indice, une question ou une proposition demandent encore la conversation,
+comme l'indique la ligne d'aide. Un formulaire ne vous demande jamais de dire « continuer », puisqu'on ne
+peut rien y dire. Demandez à votre assistant de « jouer les prochaines étapes en formulaires ». La façon dont
+un vrai client affiche un écran long, une formule ou ce formulaire de carte n'a pas encore été observée.
+
+Sans modèle entre les deux, la part du serveur est petite : une réponse donnée dans un formulaire ou sur un
+panneau reçoit son verdict en moins de 20 ms au 95e centile, transport compris (même script, `--mode forms`
+et `--mode panel`, trois exécutions de 32 à 40 réponses chacune, l'état de l'apprenant enregistré sur
+disque, 6 novembre 2026). Le temps qu'un client met ensuite à dessiner l'écran n'est pas dans ce chiffre et
+n'a pas été mesuré.
 
 ## Codex
 
@@ -114,6 +160,71 @@ claude -p --mcp-config .mcp.json --strict-mcp-config \
   --allowedTools "mcp__studium__*" --permission-mode dontAsk --max-budget-usd 2 \
   "Appelle get_server_info, puis get_study_plan, et montre-moi le résultat."
 ```
+
+### L'agent de leçon
+
+Le dépôt fournit deux définitions d'agent dans `.claude/agents/`. `studium-lesson` joue une leçon ou une
+révision en relais strict sur le modèle rapide : il montre chaque écran tel que Studium l'a écrit, envoie
+vos mots et n'ajoute rien. `studium-explainer` est un modèle plus fort qu'il appelle quand votre question
+demande une vraie explication ; la leçon continue pendant que l'explication s'écrit. Son texte s'ouvre par
+« Explication générée », pour que vous le distinguiez de celui de la leçon. L'agent de leçon ouvre une
+leçon sur la meilleure surface que votre client sait afficher (un panneau ou un volet, des formulaires, ou
+la conversation). Quand vous revenez vers lui après y avoir joué, il lit d'abord ce que vous avez fait,
+pour ne pas vous remontrer un écran. Un client qui affiche les MCP Apps peut montrer le panneau même quand
+la leçon se joue dans la conversation ou en formulaires : le panneau le dit alors (« Cette leçon se joue dans
+la conversation », « Le panneau n'est pas la surface négociée pour cette séance. ») et ne dessine ni
+scène ni contrôle de réponse, pour que vous répondiez là où la leçon se joue. Son bouton « Jouer ici »,
+présent quand votre client sait afficher le panneau, demande au serveur de passer la séance sur le
+panneau. Depuis le checkout :
+
+```bash
+claude --agent studium-lesson
+```
+
+Pour les utiliser depuis n'importe quel dossier, liez-les une fois à vos agents personnels :
+
+```bash
+mkdir -p ~/.claude/agents
+ln -s "$PWD/.claude/agents/studium-lesson.md" "$PWD/.claude/agents/studium-explainer.md" ~/.claude/agents/
+```
+
+Dans un dossier qui ne sert qu'à étudier, `{"agent": "studium-lesson"}` dans `.claude/settings.json` fait de
+chaque session une session de leçon. Dans une session déjà ouverte, `/model haiku` le temps de la leçon
+apporte l'essentiel du même gain. Ne demandez pas à un grand modèle de confier chaque réponse à l'agent
+(voir [Garder des réponses rapides](#garder-des-réponses-rapides)).
+
+### La ligne d'état
+
+En mode durable, Studium note où en est la leçon dans `status.json`, dans votre dossier d'apprenant, à
+chaque écran et à chaque réponse. Le script `tools/studium_statusline.mjs` en affiche la ligne, celle qui
+termine chaque écran :
+
+```text
+Les atomes · étape 2/3 · 3 min · à toi de répondre
+```
+
+La ligne tient en 80 caractères au plus. Un long titre de leçon est coupé avant son dernier séparateur qui
+tient (« Atomistique L1 — Chapitre 1 (atomes, orbitales) » devient « Atomistique L1 — Chapitre 1 »), pour ne
+pas changer d'un écran à l'autre. Pendant les questions de vérification d'une notion que vous avez contestée,
+l'étape laisse la place à « contrôle 1/2 » (« check 1/2 » dans une leçon en anglais).
+
+Pour l'afficher dans la ligne d'état de Claude Code, ajoutez ceci à `~/.claude/settings.json` :
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node /path/to/studium/tools/studium_statusline.mjs"
+  }
+}
+```
+
+Le script ne demande aucune installation et n'affiche rien quand aucune leçon n'est en cours : séance
+fermée, serveur arrêté, ou progression gardée en mémoire seulement (`STUDIUM_EPHEMERAL=1`), où rien n'est
+écrit. Il trouve le dossier de données comme le serveur (`STUDIUM_DATA_DIR`, sinon `<STUDIUM_HOME>/data`) ;
+`--data-dir=DOSSIER` en désigne un autre. Si vous avez donné `STUDIUM_DATA_DIR` ou `STUDIUM_HOME` au serveur
+dans `.mcp.json`, donnez le même au script. Avec plusieurs leçons ouvertes sur une machine, il montre celle
+qui a bougé en dernier, dans toutes les fenêtres de Claude Code.
 
 Cette configuration vise Claude Code, pas l'application de bureau Claude.
 
@@ -198,8 +309,10 @@ Fusionnez ceci dans `.cursor/mcp.json` et activez les outils comme l'explique la
 ## API HTTP directe
 
 Pour les scripts et les clients sur mesure, Studium fonctionne aussi comme une API JSON locale. Elle sert
-seulement les 25 opérations de leçon ; les outils d'étude, de rédaction et enseignant sont réservés à MCP
-dans cette version. Lancez-la dans un terminal que vous gardez ouvert :
+26 opérations : les 25 opérations de leçon et `rate_recall`, afin d'enregistrer l'auto-évaluation demandée
+par une transition HTTP. Les autres outils d'étude (`get_study_plan`, `list_lessons`,
+`start_review_session`) et tous les outils de rédaction et enseignant sont réservés à MCP dans cette
+version. Lancez-la dans un terminal que vous gardez ouvert :
 
 ```bash
 export STUDIUM_API_TOKEN="$(openssl rand -hex 32)"   # au moins 32 caractères, partagé avec vos clients
@@ -230,7 +343,8 @@ avec `start.json` :
 Chaque mutation demande un `request_id` unique ; renvoyer la même requête avec le même identifiant
 restitue le premier résultat au lieu d'agir deux fois, ce qui rend sûre une relance après une erreur
 réseau. `submit_response`, `submit_turn`, `request_hint`, `record_experiment` et `submit_run_result`
-demandent aussi `expected_scene_id`. Routes, codes de statut et limites sont dans la
+demandent aussi `expected_scene_id`. `rate_recall` demande un `request_id`, mais pas
+`expected_scene_id` : passez la scène demandée dans `arguments.scene_id`. Routes, codes de statut et limites sont dans la
 [référence de l'API HTTP](../reference/http-api.fr.md). L'ancien service REST `apps/lesson-server`
 (port 8010, corrigés masqués) est un processus distinct dont les identifiants de session ne sont pas
 interchangeables avec ceux de cette API ; utilisez cette API pour intégrer un nouveau harnais.
@@ -240,7 +354,12 @@ le `session_id`, la langue et l'éventuelle action en attente ; il lit `get_op
 Ne redémarrez pas la leçon. Un redémarrage du serveur met fin à ses sessions : un appel sur un ancien
 `session_id` répond `session not found` et dit comment reprendre. Avec un stockage durable, un
 nouveau `start_lesson_session` pour le même apprenant et la même leçon reprend à la première étape non
-terminée.
+terminée. Sur un panneau ou un volet, l'action suivante de l'apprenant sur l'ancienne session remplace la
+scène par « Séance perdue (le serveur a redémarré ou la séance a été fermée). Rouvre la leçon : ta
+progression est conservée. » et un bouton pour rouvrir : celui du panneau MCP Apps et celui du volet
+Claude Code ouvrent la même leçon pour le même apprenant (le volet Claude Code donne aussi
+`/studium <bundle_ref>`), celui du volet VS Code le ferme et ouvre la leçon dans un nouveau volet. Rien
+n'est relancé tout seul.
 
 Exportez ce que vous voulez garder avant d'arrêter un serveur en mémoire. Avec `context.json` contenant
 `{"arguments":{"session_id":"<id>"}}` :

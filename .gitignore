@@ -52,9 +52,12 @@ apps/*/src/**/*.d.ts
 !packages/lesson-session-host/src/authoring-draft/bundle-lint.d.ts
 apps/*/src/**/*.js.map
 apps/*/src/**/*.d.ts.map
+# The shared browser renderer is hand-written JavaScript, not TypeScript output.
+!apps/lesson-panel-ui/src/*.js
 
 # Vendored third-party libs for the VS Code extension — regenerate with `pnpm --filter studium-vscode vendor`
 apps/studium-vscode/media/vendor/
+apps/lesson-panel-ui/vendor/
 
 # Local symlink to the eval corpus repo (~/git/studium_eval/corpus) — machine-specific, never commit
 eval/corpus

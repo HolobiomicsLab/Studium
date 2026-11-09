@@ -18,6 +18,8 @@ Cette page recense ce que fait Studium aujourd'hui, pour chaque type d'utilisate
 | Reproductions | Le harnais exécute une capsule ; Studium vérifie l'exécution par rapport à son manifeste ; VS Code demande confirmation avant d'exécuter du code | Studium n'exécute jamais ; un contrôle d'exécution n'est pas une preuve d'exécution |
 | Évaluation par les pairs | Les salles de pairs (`open_peer_room`, `submit_peer_rating`) agrègent les notes | Salles en mémoire ; une cible reste masquée sous 3 évaluateurs |
 | Langue | `set_session_language` et dictionnaires des activités | Les dictionnaires traduisent les textes fournis ; les anciennes interfaces ne sont pas toutes localisées |
+| Leçon à deux voies | Panneaux et volets, ou formulaires en prototype, traitent lecture, choix et verdicts sans tour de modèle ; la conversation reste disponible pour les réponses rédigées et les questions, et `get_companion_brief` tient l'assistant informé | L'interface à deux voies a des contrôles automatisés mais aucun essai avec des apprenants ; les essais dans les hôtes natifs MCP Apps et Claude Code sont reportés |
+| Carte conceptuelle et contestation | La carte montre états et preuves des concepts ; `export_concept_map` et `tools/concept_map_report.py` produisent une page locale inspectable, et l'apprenant peut contester un concept atteint au moyen de questions de contrôle | La carte enregistre des faits de séance, pas un apprentissage certifié ; la déclaration seule ne change ni maîtrise ni parcours |
 | Rapport de l'apprenant | `tools/learner_report.py export` produit une copie locale ASTRA/MySTRA des actions choisies | Trace partielle : ne prouve ni l'apprentissage, ni l'absence d'aide, ni l'identité de l'auteur |
 
 Commencez par [Apprendre avec votre assistant](../learn/learn-with-your-assistant.fr.md), le [guide de l'étudiant](../learn/student-guide.fr.md) et [Réviser dans la durée](../learn/review-over-time.fr.md).
@@ -43,10 +45,11 @@ Voir le [guide de l'enseignant](../teach/teacher-guide.fr.md), [Relire et approu
 
 | Capacité | Ce qui fonctionne | Limite pratique |
 |---|---|---|
-| Serveur MCP | 34 outils sur stdio (25 de leçon, 4 d'étude, 3 de rédaction, 2 pour l'enseignant), invites `learn` et `review` | Chaque client a ses propres outils, son compte et sa séance |
-| API HTTP locale | Les opérations de leçon, découverte des schémas, jeton porteur, protection contre les doubles soumissions | Boucle locale uniquement ; outils d'étude, de rédaction et d'enseignant réservés à MCP ; les séances actives s'arrêtent avec le processus |
+| Serveur MCP | 40 outils sur stdio (25 de leçon, 5 d'étude, 3 de rédaction, 2 pour l'enseignant, 1 outil de formulaires en prototype, 3 outils de panneau, 1 outil d'accompagnement), invites `learn` et `review` | Chaque client a ses propres outils, son compte et sa séance |
+| API HTTP locale | Les 25 opérations de leçon et `rate_recall`, découverte des schémas, jeton porteur, protection contre les doubles soumissions | Boucle locale uniquement ; autres outils d'étude et outils de rédaction et d'enseignant réservés à MCP ; les séances actives s'arrêtent avec le processus |
 | Canal fichier | Une boucle tâche/réponse dans `.studium-session/` pour un harnais sans MCP | Formats et écritures atomiques à respecter |
 | Extension VS Code | Panneau de leçon, participant de chat, cellule de notebook, reprise au rechargement, révisions dans la barre d'état | Ses séances sont distinctes de celles du serveur MCP d'un assistant |
+| Panneaux partagés pour harnais | `apps/lesson-panel-ui` fournit les rendus VS Code et MCP Apps ; `apps/claude-code-mod` fournit un volet natif Claude Code, avec orientation, voix, aide, réglages et carte conceptuelle | Surfaces en prototype : contrôles automatisés des contrats, aucun essai dans un hôte natif ni avec un apprenant ; la reproduction de capsules exige le terminal VS Code |
 | Capsule ASB | Carte de tâche et protocole de reproduction | Le niveau d'une capsule n'atteste pas l'exécution d'un apprenant |
 
 Voir [Harnais](../start/harnesses.fr.md), la [référence des outils MCP](../reference/mcp-tools.fr.md) et [Architecture](../develop/architecture.fr.md).
@@ -68,8 +71,8 @@ Une leçon d'auto-apprentissage affiche un avis dès son premier écran. Il dép
 |---|---|
 | apprenant, aucun | Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise. |
 | apprenant, configuré | Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). Les scènes de production sont évaluées par le modèle. |
-| agent, aucun | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; conteste une clé qui te semble fausse. Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise. |
-| agent, configuré | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; conteste une clé qui te semble fausse. Les scènes de production sont évaluées par le modèle. |
+| agent, aucun | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; signale à l'agent une clé qui te semble fausse. Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise. |
+| agent, configuré | Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; signale à l'agent une clé qui te semble fausse. Les scènes de production sont évaluées par le modèle. |
 
 Une leçon qui contient une reproduction ajoute : « Les reproductions exécutées portent une évaluation externe. »
 
@@ -94,7 +97,7 @@ La recherche web, Perspicacité, les bibliothèques et les skills ne deviennent 
 
 ## Frontières ouvertes
 
-- Reporté, par décision : variantes d'items et conceptions erronées, MCP Apps (interface interactive dans le chat), envoi HTTP de la télémétrie de classe, identité des concepts par espace de noms, publication npm et Marketplace.
+- Reporté, par décision : variantes d'items et conceptions erronées, essais dans les hôtes natifs MCP Apps et Claude Code, envoi HTTP de la télémétrie de classe, identité des concepts par espace de noms, publication npm et Marketplace.
 - Pas de portail enseignant multi-utilisateur authentifié ; le tableau de bord et l'Observatory sont locaux.
 - Le panneau VS Code et un serveur MCP indépendant ne partagent pas leur séance.
 - Des tests logiciels réussis n'établissent ni la conformité institutionnelle, ni un déploiement multi-utilisateur, ni l'efficacité pédagogique. Commencez par un pilote accompagné et les règles de [Confidentialité et limites](privacy-and-limits.fr.md).

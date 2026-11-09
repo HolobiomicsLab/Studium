@@ -6,12 +6,23 @@ import { join, resolve } from "node:path";
 import LibraryPage from "../app/library/page";
 import ReviewPage from "../app/library/[lesson]/review/page";
 import { encodeLessonRef } from "../lib/library";
+import { sceneFingerprint } from "../../../packages/lesson-session-host/src/review-inbox";
 
 const request = vi.hoisted(() => ({ language: "fr", cookie: undefined as string | undefined }));
 vi.mock("next/headers", () => ({
   headers: () => ({ get: () => request.language }),
   cookies: () => ({ get: () => request.cookie ? { value: request.cookie } : undefined }),
 }));
+const lintRun = vi.hoisted(() => ({ fail: false }));
+vi.mock("../../../tools/bundle_lint.mjs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../tools/bundle_lint.mjs")>();
+  return { ...actual, lintBundleData: (...args: Parameters<typeof actual.lintBundleData>) => {
+    if (lintRun.fail) throw new Error("linter crashed");
+    return actual.lintBundleData(...args);
+  } };
+});
+/** The page minus each inbox row's folded preview, the one place the lesson's text appears. */
+const withoutPreviews = (html: string) => html.replace(/<details class="inbox-preview">[\s\S]*?<\/details>/g, "");
 const roots: string[] = [];
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((path) => rm(path, { recursive: true, force: true })));
@@ -19,6 +30,7 @@ afterEach(async () => {
   request.cookie = undefined;
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+  lintRun.fail = false;
 });
 
 async function setup() {
@@ -56,7 +68,7 @@ describe("server-rendered library and review", () => {
     request.cookie = "fr";
     expect(renderToStaticMarkup(await LibraryPage())).toContain("Bibliothèque de cours");
   });
-  it("renders review metadata and source references without prompts, keys or excerpts", async () => {
+  it("renders review metadata and source references without keys or excerpts; prompts only in the inbox preview", async () => {
     const root = await setup();
     const html = renderToStaticMarkup(await ReviewPage({ params: { lesson: encodeLessonRef("course") } }));
     expect(html).toContain("Parcours de la leçon");
@@ -65,8 +77,15 @@ describe("server-rendered library and review", () => {
     expect(html).toContain("experience_packet.py approve --bundle");
     expect(html).toContain(root);
     expect(html).toContain("MySTRA indisponible");
-    expect(html).not.toContain("PRIVATE_");
+    // Test decision (walkthrough fix 1): the lesson text and the choice texts now reach the page, in each
+    // inbox row's folded preview, because that is what the teacher is asked to judge. The source excerpt,
+    // the correct flag and the feedback still do not.
+    expect(withoutPreviews(html)).not.toContain("PRIVATE_");
+    expect(html).toContain("PRIVATE_LESSON_BODY");
+    expect(html).toContain("PRIVATE_ANSWER_KEY");
+    expect(html).not.toContain("PRIVATE_SOURCE_EXCERPT");
     expect(html).not.toContain("feedback_correct");
+    expect(html).not.toContain('"correct"');
   });
   it("links to the existing MySTRA report when its service responds", async () => {
     await setup();
@@ -105,5 +124,56 @@ describe("server-rendered library and review", () => {
     const html = renderToStaticMarkup(await ReviewPage({ params: { lesson: encodeLessonRef("course") } }));
     expect(html).toContain("approve refuse ce mode");
     expect(html).not.toContain("experience_packet.py approve --bundle");
+  });
+  it("shows the review inbox sorted by consequence, without fingerprints, between the heading and the outline", async () => {
+    const root = await setup();
+    const path = join(root, "course/lesson.json");
+    const bundle = JSON.parse(await readFile(path, "utf8"));
+    bundle.scenes[3].title = "TODO blocking title";
+    await writeFile(path, JSON.stringify(bundle));
+    const html = renderToStaticMarkup(await ReviewPage({ params: { lesson: encodeLessonRef("course") } }));
+    expect(html).toContain("Boîte de relecture");
+    expect(html.indexOf("Boîte de relecture")).toBeLessThan(html.indexOf("Parcours de la leçon"));
+    const blocking = html.indexOf(`data-item="${bundle.scenes[3].id}"`);
+    const firstQuiz = html.indexOf(`data-item="${bundle.scenes[2].id}"`);
+    // scenes[0] blocks too: setup() gives it evidence the schema refuses. scenes[1] is a plain concept.
+    const intro = html.indexOf(`data-item="${bundle.scenes[1].id}"`);
+    expect(blocking).toBeGreaterThan(0);
+    expect(blocking).toBeLessThan(firstQuiz);
+    expect(firstQuiz).toBeLessThan(intro);
+    expect(html).toContain("aucun reçu antérieur");
+    expect(html).toContain('role="status"');
+    expect(html).toContain("experience_packet.py receipt --bundle");
+    expect(html).not.toContain("--opened &#x27;");
+    expect(html).not.toMatch(/[0-9a-f]{64}/);
+    // Test decision (walkthrough fix 1): outside the folded previews, nothing of the lesson's text.
+    expect(withoutPreviews(html)).not.toContain("PRIVATE_");
+  });
+  it("shows the previous receipt's verdict on an unchanged inbox row", async () => {
+    const root = await setup();
+    const bundle = JSON.parse(await readFile(join(root, "course/lesson.json"), "utf8"));
+    await mkdir(join(root, "course/reviews"));
+    await writeFile(join(root, "course/reviews/2026-11-01-aaaaaaaaaaaa.json"), JSON.stringify({
+      schema: "studium/review-receipt/v1", reviewer: "A. Teacher", decided_at: "2026-11-01T09:00:00Z",
+      bundle_ref: "course/lesson.json", bundle_sha256: "a".repeat(64), decision: "returned",
+      opened: 0, not_opened: 1,
+      items: [{
+        id: bundle.scenes[1].id, sha256: sceneFingerprint(bundle.scenes[1]), consequence: "wording",
+        opened: false, verdict: "ok",
+      }],
+    }));
+    const html = renderToStaticMarkup(await ReviewPage({ params: { lesson: encodeLessonRef("course") } }));
+    expect(html).toContain("Avis précédent\u00a0: Correct");
+  });
+  it("says in one line when the bundle linter could not run, and leaves the lint check out (walkthrough fix 2)", async () => {
+    await setup();
+    lintRun.fail = true;
+    const html = renderToStaticMarkup(await ReviewPage({ params: { lesson: encodeLessonRef("course") } }));
+    expect(html).toContain("Le linter n’a pas pu tourner");
+    expect(html).not.toContain(">Lint<");
+    lintRun.fail = false;
+    const ran = renderToStaticMarkup(await ReviewPage({ params: { lesson: encodeLessonRef("course") } }));
+    expect(ran).not.toContain("Le linter n’a pas pu tourner");
+    expect(ran).toContain("Lint\u00a0: ");
   });
 });

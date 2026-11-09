@@ -116,9 +116,11 @@ python3.12 -m venv .venv
 .venv/bin/python tools/experience_packet.py --help
 ```
 
-`experience_packet.py` offers `passages`, `prepare`, `check`, `bundle` and `approve`. Continue with the
-[teacher guide](../teach/teacher-guide.md). Scientific libraries a course capsule needs are installed in
-that capsule's own environment, at the versions it declares.
+`experience_packet.py` offers `passages`, `prepare`, `check`, `bundle`, `approve` and `receipt`. The
+last records a review receipt for a lesson you send back, without approving it; `approve` refuses a
+`to_fix` verdict and points to it. Continue with the [teacher guide](../teach/teacher-guide.md).
+Scientific libraries a course capsule needs are installed in that capsule's own environment, at the
+versions it declares.
 
 ## Windows
 

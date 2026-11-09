@@ -85,11 +85,23 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0)
 
+  apps/claude-code-mod:
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0)
+
   apps/lesson-mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.2
         version: 1.32.2(zod@3.25.76)
+      '@studium/lesson-panel-ui':
+        specifier: workspace:*
+        version: link:../lesson-panel-ui
       '@studium/lesson-session':
         specifier: workspace:*
         version: link:../../packages/lesson-session
@@ -118,6 +130,55 @@ importers:
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0)
+
+  apps/lesson-panel-ui:
+    dependencies:
+      '@modelcontextprotocol/ext-apps':
+        specifier: 2.0.4
+        version: 2.0.4(@modelcontextprotocol/client@2.4.0)(@modelcontextprotocol/core@2.4.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(zod@4.6.7)
+      '@studium/lesson-panel':
+        specifier: workspace:*
+        version: link:../../packages/lesson-panel
+      '@studium/typed-graph-lens':
+        specifier: workspace:*
+        version: link:../../packages/typed-graph-lens
+      zod:
+        specifier: ^4.2.0
+        version: 4.6.7
+    devDependencies:
+      3dmol:
+        specifier: ^2.5.5
+        version: 2.5.5
+      cytoscape:
+        specifier: ^3.34.0
+        version: 3.34.0
+      cytoscape-dagre:
+        specifier: ^4.0.0
+        version: 4.0.0(cytoscape@3.34.0)
+      dagre:
+        specifier: ^0.8.5
+        version: 0.8.5
+      esbuild:
+        specifier: ^0.21.0
+        version: 0.21.5
+      jsdom:
+        specifier: 29.1.1
+        version: 29.1.1
+      katex:
+        specifier: 0.16.9
+        version: 0.16.9
+      marked:
+        specifier: 15.0.12
+        version: 15.0.12
+      vega:
+        specifier: ^5.33.1
+        version: 5.33.1
+      vega-embed:
+        specifier: ^6.29.0
+        version: 6.29.0(vega-lite@5.23.0(vega@5.33.1))(vega@5.33.1)
+      vega-lite:
+        specifier: ^5.23.0
+        version: 5.23.0(vega@5.33.1)
 
   apps/lesson-server:
     dependencies:
@@ -257,7 +318,13 @@ importers:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.2
-        version: 1.32.2(zod@3.25.76)
+        version: 1.32.2(zod@4.6.7)
+      '@studium/lesson-panel':
+        specifier: workspace:*
+        version: link:../../packages/lesson-panel
+      '@studium/lesson-panel-ui':
+        specifier: workspace:*
+        version: link:../lesson-panel-ui
       '@studium/typed-graph-lens':
         specifier: workspace:*
         version: link:../../packages/typed-graph-lens
@@ -433,6 +500,28 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.39)(jsdom@29.1.1)(lightningcss@1.32.0)
+
+  packages/lesson-panel:
+    dependencies:
+      '@studium/lesson-session':
+        specifier: workspace:*
+        version: link:../lesson-session
+      '@studium/lesson-session-host':
+        specifier: workspace:*
+        version: link:../lesson-session-host
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.39
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
@@ -1389,6 +1478,32 @@ packages:
   '@mermaid-js/parser@1.2.1':
     resolution: {integrity: sha512-n12NohV3mrUyUL2o93IgG/ifeW9FTyeJn3zDxkhwa8MJ9Fxg3HQMlA3RiGmD/3UnJvheztkjjQAjA2T4LmUcpw==}
 
+  '@modelcontextprotocol/client@2.4.0':
+    resolution: {integrity: sha512-LgrD2OphHuG12vfKFKz6SOnq7bKHQmhGJIAYdD+MZBn2npHEyry6uD8zvktodtl5CQM85MO0anUyD9JwmUmxww==}
+    engines: {node: '>=20'}
+
+  '@modelcontextprotocol/core@2.4.0':
+    resolution: {integrity: sha512-z8QBKqdfXLPzkLQuG4xp8hrVEMm1PZ1IgxMN2sMbJiFiAKOWXnAzogXn2W4aqIBlP1ea6U5yiqVquvUNM1Cj6Q==}
+    engines: {node: '>=20'}
+
+  '@modelcontextprotocol/ext-apps@2.0.4':
+    resolution: {integrity: sha512-B+PcbuGiaf0e5I3uy4iO5tS3Abo+5w8JvZFzHMzQdq9yVwP836zJkw2+KCGOQ0r4TM1fuQi4JdnbuWjkS4aBvg==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@modelcontextprotocol/client': ^2.0.0
+      '@modelcontextprotocol/core': ^2.0.0
+      '@modelcontextprotocol/server': ^2.0.0
+      react: ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^17.0.0 || ^18.0.0 || ^19.0.0
+      zod: ^4.2.0
+    peerDependenciesMeta:
+      '@modelcontextprotocol/server':
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+
   '@modelcontextprotocol/sdk@1.32.2':
     resolution: {integrity: sha512-SWsVtH/0vULSQStoZ6xxH2K09Li8fXYTMC64ZeogCdpZ3XSi1eCPOByV1OpuJxuI3OcmHhosDWYyii07tpPsLw==}
     engines: {node: '>=18'}
@@ -1635,6 +1750,9 @@ packages:
   '@sindresorhus/merge-streams@4.0.0':
     resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
     engines: {node: '>=18'}
+
+  '@standard-schema/spec@1.1.0':
+    resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
   '@swc/counter@0.1.3':
     resolution: {integrity: sha512-e2BR4lsJkkRlKZ/qCHPw9ZaSxc0MVUd7gtbtaB7aMvHeJVYe8sOB8DBZkP2DtISHGSku9sCK6T6cnY0CtXrOCQ==}
@@ -6007,6 +6125,9 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
+
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
@@ -6695,6 +6816,30 @@ snapshots:
     dependencies:
       '@chevrotain/types': 11.1.2
 
+  '@modelcontextprotocol/client@2.4.0':
+    dependencies:
+      '@modelcontextprotocol/core': 2.4.0
+      cross-spawn: 7.0.6
+      eventsource: 3.0.7
+      eventsource-parser: 3.1.0
+      jose: 6.2.3
+      pkce-challenge: 5.0.1
+      zod: 4.6.7
+
+  '@modelcontextprotocol/core@2.4.0':
+    dependencies:
+      zod: 4.6.7
+
+  '@modelcontextprotocol/ext-apps@2.0.4(@modelcontextprotocol/client@2.4.0)(@modelcontextprotocol/core@2.4.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(zod@4.6.7)':
+    dependencies:
+      '@modelcontextprotocol/client': 2.4.0
+      '@modelcontextprotocol/core': 2.4.0
+      '@standard-schema/spec': 1.1.0
+      zod: 4.6.7
+    optionalDependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+
   '@modelcontextprotocol/sdk@1.32.2(zod@3.25.76)':
     dependencies:
       '@hono/node-server': 1.19.14(hono@4.12.25)
@@ -6714,6 +6859,28 @@ snapshots:
       raw-body: 3.0.2
       zod: 3.25.76
       zod-to-json-schema: 3.25.2(zod@3.25.76)
+    transitivePeerDependencies:
+      - supports-color
+
+  '@modelcontextprotocol/sdk@1.32.2(zod@4.6.7)':
+    dependencies:
+      '@hono/node-server': 1.19.14(hono@4.12.25)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
+      content-type: 1.0.5
+      cors: 2.8.6
+      cross-spawn: 7.0.6
+      eventsource: 3.0.7
+      eventsource-parser: 3.1.0
+      express: 5.2.1
+      express-rate-limit: 8.5.2(express@5.2.1)
+      hono: 4.12.25
+      jose: 6.2.3
+      json-schema-typed: 8.0.2
+      pkce-challenge: 5.0.1
+      raw-body: 3.0.2
+      zod: 4.6.7
+      zod-to-json-schema: 3.25.2(zod@4.6.7)
     transitivePeerDependencies:
       - supports-color
 
@@ -6874,6 +7041,8 @@ snapshots:
   '@sinclair/typebox@0.34.49': {}
 
   '@sindresorhus/merge-streams@4.0.0': {}
+
+  '@standard-schema/spec@1.1.0': {}
 
   '@swc/counter@0.1.3': {}
 
@@ -12089,6 +12258,12 @@ snapshots:
     dependencies:
       zod: 3.25.76
 
+  zod-to-json-schema@3.25.2(zod@4.6.7):
+    dependencies:
+      zod: 4.6.7
+
   zod@3.25.76: {}
+
+  zod@4.6.7: {}
 
   zwitch@2.0.4: {}

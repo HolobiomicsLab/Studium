@@ -19,10 +19,9 @@ import { LessonPanelLifecycle, type ActionResult } from "./panel-lifecycle.js";
 import { registerStudiumChat } from "./chat.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
-import { reviewDueConcepts } from "./review-fsrs.js";
-import { selectRenderOrder, type ModalityPreference } from "./modality.js";
+import { ClientMsSchema, PanelActionSchema, type PanelView, type PanelBackend } from "@studium/lesson-panel";
+import { type ModalityPreference } from "./modality.js";
 import { discoverCommunityBundles, toPickItems } from "./community.js";
-import { calibrationVerdicts, type CalibrationVerdict } from "./calibration.js";
 import { runManifestToTaskSpec, buildRunResult, extractLandmark, workingDirProblem, type RunManifest, type RunResult } from "./run-task.js";
 import { StudiumTreeProvider } from "./tree.js";
 import { buildLessonTree, type CommunityItem, type TreeNode } from "./lesson-tree.js";
@@ -33,10 +32,10 @@ import { hostPhrase } from "./host-phrases.js";
 import { defaultBundlesRoot, studiumHome } from "./data-paths.js";
 import { isTrusted, runConsent, runFingerprint, withTrusted } from "./run-trust.js";
 import { checkLessonPath, parseOpenLessonQuery, rawQuery, type OpenLessonResult } from "./lesson-uri.js";
-import { parseReinforcement, reviewStartReply, statusBarText, type StudyStatus } from "./study-status.js";
+import { parseReinforcement, statusBarText, type StudyStatus } from "./study-status.js";
 import { readConceptTitles } from "./bundle-titles.js";
-import { assetBundleRef, parseRateRecall, reviewContext, type ReviewContext } from "./pane-messages.js";
-import { completionSplit, lessonNextReviewAfterRating, type LessonReviewPlan } from "./completion.js";
+import { parseRateRecall } from "./pane-messages.js";
+import { sessionLostReason } from "./session-lost.js";
 
 type Json = Record<string, any>;
 
@@ -65,9 +64,6 @@ const openLessonPanels = new Set<() => void>();
 /** What a transition carries for the pane besides the scene: the ONE navigation decision and the C4 request. */
 interface SceneExtras { navigation?: Json; self_rating?: Json }
 
-/** A concept as the pane names it: its id and the bundle's title for it (W4 review: never the bare id). */
-interface NamedConcept { id: string; label: string }
-
 /** The activity-bar sidebar; module-level so pushScene can toggle its "reproduction scene is live" state. */
 let treeProvider: StudiumCoursesTreeProvider | undefined;
 let extensionLocale: Locale = "fr";
@@ -76,6 +72,8 @@ let extensionContext: vscode.ExtensionContext | undefined;
 /** What is due for review (get_next_reinforcement); feeds the status-bar item and the Reviews node. */
 let studyStatus: StudyStatus | null = null;
 let studyStatusItem: vscode.StatusBarItem | undefined;
+/** INT-STUDIUM-058: the status line of the lesson being played in the pane, or null when none is. */
+let lessonStatusLine: string | null = null;
 let studyStatusRefreshing = false;
 
 const TRUSTED_RUNS_KEY = "studium.trustedRuns";
@@ -209,7 +207,7 @@ function hasLearnerData(context: vscode.ExtensionContext): boolean {
 
 function applyStudyStatus() {
   treeProvider?.setReviews(studyStatus);
-  const shown = statusBarText(studyStatus, extensionLocale);
+  const shown = statusBarText(studyStatus, extensionLocale, lessonStatusLine);
   if (!studyStatusItem) return;
   if (!shown) { studyStatusItem.hide(); return; }
   studyStatusItem.text = shown.text;
@@ -730,17 +728,8 @@ async function openLesson(
   const bundlesRoot = options.bundlesRoot ?? (rootKind === "community" ? resolveCommunityBundlesRoot(context) : lessonBundlesRoot);
   const bundleRef = bundleRefOverride ?? configuredRef!;
   const learnerId = cfg<string>("learnerId", "vscode-learner");
-  const conceptTitles = readConceptTitles(join(bundlesRoot, bundleRef));
-  // UX-03: a review session plays scenes of several lessons; it names their concepts and origins.
-  let review: ReviewContext | null = null;
-  /** Concept ids as the pane names them: the review's or the bundle's title, else the id without its prefix. */
-  const named = (ids: string[]): NamedConcept[] => ids.map((id) => {
-    const bare = id.replace(/^concept:/, "");
-    return { id, label: review?.titles[id] ?? review?.titles[bare] ?? conceptTitles[id] ?? conceptTitles[bare] ?? bare };
-  });
-
   const assets = cfg<"vendor" | "cdn">("assets", "vendor");
-  const paneOptions = { enableScripts: true, localResourceRoots: [vscode.Uri.file(join(context.extensionPath, "media"))] };
+  const paneOptions = { enableScripts: true, localResourceRoots: [vscode.Uri.file(join(context.extensionPath, "media")), vscode.Uri.file(join(context.extensionPath, "dist", "panel"))] };
   // A restored pane arrives already created, without its options or content: give it both.
   const panel = options.panel ?? vscode.window.createWebviewPanel(
     LESSON_VIEW_TYPE, phrase("extension_lesson_panel", {}, extensionLocale), vscode.ViewColumn.Beside,
@@ -807,7 +796,7 @@ async function openLesson(
   if (showGraph) {
     const gp = vscode.window.createWebviewPanel(
       "studiumGraph", phrase("extension_graph_panel", {}, extensionLocale), vscode.ViewColumn.Beside,
-      { enableScripts: true, localResourceRoots: [vscode.Uri.file(join(context.extensionPath, "media"))], retainContextWhenHidden: true },
+      { enableScripts: true, localResourceRoots: [vscode.Uri.file(join(context.extensionPath, "media")), vscode.Uri.file(join(context.extensionPath, "dist", "panel"))], retainContextWhenHidden: true },
     );
     gp.webview.html = graphHtml(gp.webview, context.extensionPath, assets, extensionLocale);
     gp.onDidDispose(() => { if (graphPanel === gp) graphPanel = undefined; });
@@ -828,117 +817,26 @@ async function openLesson(
     } catch { /* the graph is best-effort; never let it break the lesson */ }
   };
 
-  let lastAuthoring: Json | null = null;
-  const pushScene = async (presentation: Json, explanation?: Json, verdict?: Json, extras: SceneExtras = {}) => {
+  /** Keep legacy envelopes while the shared renderer consumes the complete view. */
+  const postView = async (view: PanelView) => {
     if (panelDisposed || lifecycle.isDisposed()) return;
-    if (presentation.authoring) lastAuthoring = presentation.authoring;
-    locale = presentation.locale === "en" ? "en" : "fr";
+    sid = view.session_id;
+    locale = view.locale;
     extensionLocale = locale;
     treeProvider?.setLocale(locale);
     panel.title = phrase("extension_lesson_panel", {}, locale);
     if (graphPanel) graphPanel.title = phrase("extension_graph_panel", {}, locale);
-    const artifacts = (await call("get_scene_artifacts", { session_id: sid })).scene_assets || [];
-    if (panelDisposed) return;
-    // Spaced-repetition: which concepts are DUE for review (per the FSRS scheduler in
-    // packages/adaptation-engine/src/fsrs.ts). Derived from the learner state get_session_state
-    // already exposes. Best-effort — never let it break the lesson; it is a recall-timing cue, not
-    // a mastery score, so it is always shown to the learner (no answer leak).
-    let reviewDue: NamedConcept[] = [];
-    let calibration: CalibrationVerdict[] = [];
-    try {
-      const st = (await call("get_session_state", { session_id: sid })).state;
-      reviewDue = named(reviewDueConcepts(st));
-      // Metacognitive calibration mirror (B1): a NUMBER-FREE "bien/sur/sous calibré·e" verdict per
-      // concept, derived from the same state. Safe to show — it never exposes mastery or the raw gap.
-      calibration = calibrationVerdicts(st, locale);
-    } catch { /* best-effort */ }
-    if (panelDisposed) return;
-    panel.webview.postMessage({
-      type: "render",
-      locale,
-      strings: browserPhrases(locale),
-      // Modality-adaptive: reorder + emphasis-tag the (image-inlined) assets for the learner's
-      // preference before posting. 'balanced' returns the authored order unchanged, all 'normal'.
-      scene_assets: selectRenderOrder(
-        artifacts.map((asset: Json) => inlineImageAsset(bundlesRoot, assetBundleRef(asset, presentation.scene?.id, review, bundleRef), asset)),
-        modalityPref,
-      ),
-      modalityPreference: modalityPref,
-      scene: presentation.scene,
-      progress: { index: (presentation.index ?? 0) + 1, total: presentation.total },
-      mastery: showMastery ? (presentation.learnerSnapshot?.conceptMastery ?? {}) : {},
-      reviewDue,
-      calibration,
-      explanation: explanation ?? presentation.explanation ?? null,
-      // The graded verdict of the answer that led here (quiz: correct + the matching feedback
-      // only, never the other branch; ungraded scenes: an acknowledgement). The engine releases
-      // it on the transition; before 2026-10-29 the pane never showed it (audit P2).
-      verdict: verdict ?? null,
-      // The ONE navigation decision behind this scene: the pane words it from navigation.kind and never
-      // prints rule_id or reason (VSC-2).
-      navigation: extras.navigation ?? null,
-      // C4: the self-rating request of an uncertified production answer; it names its scene.
-      self_rating: extras.self_rating ?? null,
-      // Who wrote the lesson; a self-authored one carries a notice the pane shows above the scene.
-      authoring: presentation.authoring ?? null,
-    });
-    await pushGraph();
-    // When the current scene is a reproduction the LEARNER must run, light up the sidebar's run action +
-    // the when-clause context, and nudge them. The run_manifest is non-answer-bearing (publicScene keeps it).
-    const isReproScene = presentation.scene?.type === "reproduction" && !!presentation.scene?.run_manifest;
+    panel.webview.postMessage({ ...legacyPanelMessage(view), view });
+    // The status bar shows where the lesson stands (a version-2 view says it in one line).
+    lessonStatusLine = view.kind === "done" ? null : view.status_line ?? null;
+    applyStudyStatus();
+    const isReproScene = view.kind === "scene" && view.scene?.type === "reproduction" && !!view.scene.run_manifest;
     setReproductionContext(isReproScene);
-    if (isReproScene) {
-      vscode.window.showInformationMessage(
-        phrase("extension_reproduction_notice", {}, locale),
-      );
-    }
+    if (isReproScene) vscode.window.showInformationMessage(phrase("extension_reproduction_notice", {}, locale));
+    if (view.kind === "scene") await pushGraph();
+    if (view.kind === "done" || view.recall_rated) void refreshStudyStatus(context);
   };
-
-  /** VSC-6 / L-6: the end-of-lesson screen. Concepts are named, never scored, in the host's split (completion.ts):
-   * consolidated, practised (with their number of graded answers) or not measured yet. H3: what is due counts the
-   * relearn and unmeasured reviews too. */
-  const reviewSchedule = async (): Promise<{ dueNow: number; nextDueAt: number | null }> => {
-    try {
-      const status = parseReinforcement(await call("get_next_reinforcement", { session_id: sid }));
-      return { dueNow: status.dueCount, nextDueAt: status.nextDueAt };
-    } catch { return { dueNow: 0, nextDueAt: null }; }
-  };
-  const completionPayload = async (t: Json): Promise<Json> => {
-    const split = completionSplit(t);
-    const { dueNow } = await reviewSchedule();
-    return {
-      consolidated: named(split.consolidated),
-      practised: split.practised.map((p) => ({ ...named([p.id])[0]!, answers: p.answers })),
-      not_measured: named(split.not_measured),
-      detours: Object.values((t.summary?.scenes_detoured ?? {}) as Record<string, number>).reduce((a, b) => a + b, 0),
-      next_review_at: t.review_plan?.next_due_at ?? null,
-      due_now: dueNow,
-      actions: [...(dueNow > 0 ? ["review"] : []), "restart", "pick"],
-    };
-  };
-  /** The lesson ended on an answer that still waits for its rating: once rated, its end screen is updated. */
-  let completedAwaitingRating = false;
-  /** The finished lesson's review plan (the complete transition's review_plan), which a last rating updates. */
-  let lastReviewPlan: LessonReviewPlan | null = null;
-  const reviewPlanOf = (t: Json): LessonReviewPlan | null => {
-    const plan = t.review_plan;
-    if (!plan || typeof plan !== "object") return null;
-    return {
-      next_due_at: typeof plan.next_due_at === "number" ? plan.next_due_at : null,
-      concepts: Array.isArray(plan.concepts) ? plan.concepts.filter((c: unknown): c is string => typeof c === "string") : [],
-    };
-  };
-  const donePayload = async (t: Json, message: string): Promise<Json> => {
-    lastReviewPlan = reviewPlanOf(t);
-    return {
-      message,
-      authoring: t.presentation?.authoring ?? lastAuthoring,
-      verdict: t.verdict ?? null,            // the last answer's verdict: the pane shows it as a step first
-      self_rating: t.self_rating ?? null,
-      calibration: calibrationVerdicts(t.summary?.finalState ?? {}, locale),
-      completion: await completionPayload(t),
-    };
-  };
+  const pushScene = async () => postView((await call("get_panel_view", { session_id: sid })).panel);
 
   // Expose this lesson to the top-level "Run reproduction" command (it drives get_run_manifest →
   // native task → submit_run_result against this live session). Latest open wins; cleared on dispose.
@@ -951,14 +849,8 @@ async function openLesson(
     bundlePath: join(bundlesRoot, bundleRef),
     close: () => { if (!panelDisposed) panel.dispose(); },
     isDisposed: () => panelDisposed || lifecycle.isDisposed(),
-    advance: (presentation: Json, explanation?: Json, verdict?: Json, extras?: SceneExtras) =>
-      pushScene(presentation, explanation, verdict, extras),
-    done: async (t: Json, message: string) => {
-      completedAwaitingRating = !!t.self_rating?.requested;
-      const payload = await donePayload(t, message);
-      if (!panelDisposed) panel.webview.postMessage({ type: "done", ...payload });
-      void refreshStudyStatus(context);
-    },
+    advance: () => pushScene(),
+    done: () => pushScene(),
     runExclusive: <TResult>(action: () => Promise<TResult>) => lifecycle.runExclusive(action),
     pending: (message: string) => { if (!panelDisposed) panel.webview.postMessage({ type: "action_pending", message }); },
     settled: () => { if (!panelDisposed) panel.webview.postMessage({ type: "action_settled" }); },
@@ -967,121 +859,57 @@ async function openLesson(
   openLessonPanels.add(thisLesson.close);
   panel.onDidDispose(() => {
     openLessonPanels.delete(thisLesson.close);
-    if (activeLesson === thisLesson) activeLesson = null;
+    if (activeLesson === thisLesson) { activeLesson = null; lessonStatusLine = null; applyStudyStatus(); }
     setReproductionContext(false); // the run action is scene-scoped; clear it when the lesson closes
   });
 
   // 2) learner actions from the pane → MCP calls → next render (pair by pair)
   panel.webview.onDidReceiveMessage(async (msg: Json) => {
+    // Walkthrough 2026-11-07: the pane's « Rouvrir la leçon », offered when the server lost the session. The stale pane
+    // closes and the same lesson opens again in a new one (a fresh server, which resumes the learner's progress).
+    if (msg?.type === "reopen") {
+      if (!panelDisposed) panel.dispose();
+      await openLesson(context, bundleRef, rootKind, { bundlesRoot });
+      return;
+    }
     try {
       const result = await lifecycle.runExclusive(async () => {
-        if (msg.type === "rateRecall") {
-          // The learner's self-rating of a recall (C4) feeds spaced review only, never mastery. The webview is
-          // untrusted: check the message shape here; the server validates the grade again.
-          const rating = parseRateRecall(msg);
-          if (!rating) return;
-          const rated = await call("rate_recall", { session_id: sid, scene_id: rating.sceneId, grade: rating.grade });
-          // UX-11: the rating moved the next review. Refresh the status bar and the Reviews node, and when the lesson
-          // is over send its end screen the review date this rating produced.
-          void refreshStudyStatus(context);
-          let completion: Json | undefined;
-          if (completedAwaitingRating) {
-            // The end screen's date is this lesson's earliest review (its review_plan), never the cross-lesson
-            // reinforcement date; when this reply cannot tell it, the screen keeps the date it shows.
-            const schedule = await reviewSchedule();
-            const next = lessonNextReviewAfterRating(lastReviewPlan, rated);
-            if (next !== undefined && lastReviewPlan) lastReviewPlan = { ...lastReviewPlan, next_due_at: next };
-            completion = {
-              ...(next !== undefined ? { next_review_at: next } : {}),
-              due_now: schedule.dueNow, actions: [...(schedule.dueNow > 0 ? ["review"] : []), "restart", "pick"],
-            };
-          }
-          if (!panelDisposed) panel.webview.postMessage({ type: "recall_rated", sceneId: rating.sceneId, grade: rating.grade, ...(completion ? { completion } : {}) });
-          return;
-        }
-        if (msg.type === "hint") {
-          const h = (await call("request_hint", { session_id: sid })).hint;
-          if (!panelDisposed) panel.webview.postMessage({ type: "hint", hint: h?.hint ?? null, remaining: h?.remaining });
-          return;
-        }
-        if (msg.type === "end") {
-          // Right to be forgotten: forget_session emits forget_requested and PURGES the durable per-learner
-          // state on disk (in consented/durable mode). Irreversible, so confirm first; closing the panel
-          // alone only drops the transport and leaves the saved state intact (so a learner can resume).
-          const ok = await vscode.window.showWarningMessage(
-            phrase("extension_forget_prompt", {}, locale),
-            { modal: true }, phrase("extension_forget_action", {}, locale),
-          );
-          if (ok === phrase("extension_forget_action", {}, locale)) {
-            let forgotten = false;
-            try { await call("forget_session", { session_id: sid }); forgotten = true; } catch { /* already gone */ }
-            panel.dispose();
-            if (forgotten) vscode.window.showInformationMessage(phrase("extension_forget_done", {}, locale));
-            void refreshStudyStatus(context);
-          } else if (!panelDisposed) {
-            panel.webview.postMessage({ type: "action_settled" });
-          }
-          return;
-        }
-        if (msg.type === "turn") {
-          // a discussion turn: score it (reasoning signal) + get the Socratic tutor's reply, WITHOUT
-          // advancing the scene. The pane appends both to the transcript; the learner ends the scene
-          // with the "Terminer" ack (a normal respond). After max_turns the server no-ops the turn.
-          const r = await call("submit_turn", { session_id: sid, text: String(msg.text ?? "") });
-          if (!panelDisposed) panel.webview.postMessage({ type: "turn_result", reasoning: r.reasoning ?? null, tutor: r.tutor ?? null });
-          return;
-        }
         if (msg.type === "run") {
-          // VSC-8: the pane's « Lancer la reproduction » button. Same flow as the command, inside the gate this
-          // handler already holds (runReproductionScene would take it again and report busy).
           thisLesson.pending(phrase("extension_running", {}, locale));
           try { await runReproductionForLesson(thisLesson); } finally { thisLesson.settled(); }
           return;
         }
-        if (msg.type === "reviewNow") {
-          // VSC-6: « Réviser maintenant » plays the due reviews (C1 start_review_session) in this pane.
-          const r = await call("start_review_session", { learner_id: learnerId });
-          if (panelDisposed) return;
-          if (r.status !== "started") {
-            // Nothing due is a calm notice with the next review date, in the lesson's language; any other reply
-            // that did not start stays an action error, never an empty one.
-            panel.webview.postMessage(reviewStartReply(r, locale));
-            return;
-          }
-          sid = r.session_id;
-          review = reviewContext(r);
-          completedAwaitingRating = false;
-          await pushScene(r.presentation);
-          return;
-        }
-        if (msg.type === "restartLesson") {
-          // « Revoir le parcours »: a completed lesson restarts at scene zero as a retake (start_lesson_session).
-          const started = await call("start_lesson_session", { bundle_ref: bundleRef, learner_id: learnerId });
-          if (panelDisposed) return;
-          sid = started.session_id;
-          review = null;
-          completedAwaitingRating = false;
-          await pushScene(started.presentation);
-          return;
-        }
         if (msg.type === "pickCourse") {
-          if (!panelDisposed) panel.webview.postMessage({ type: "action_settled" });
+          panel.webview.postMessage({ type: "action_settled" });
           void vscode.commands.executeCommand("studium.pickLesson");
           return;
         }
-        if (msg.type === "respond") {
-          const t = (await call("submit_response", { session_id: sid, input: msg.input })).transition;
-          if (panelDisposed) return;
-          if (t.kind === "complete") {
-            void refreshStudyStatus(context); // the next review date may have just changed
-            completedAwaitingRating = !!t.self_rating?.requested;
-            panel.webview.postMessage({ type: "done",
-              ...(await donePayload(t, phrase("extension_done", { count: t.summary.scenesCompleted }, locale))) });
+        // The display delay the pane measured travels beside the action, never inside it.
+        const { client_ms: reportedDelay, ...sent } = msg;
+        const delay = ClientMsSchema.safeParse(reportedDelay);
+        if (sent.type === "rateRecall" && !parseRateRecall(sent)) return;
+        let action: Json = sent;
+        if (msg.type === "end") {
+          const ok = await vscode.window.showWarningMessage(phrase("extension_forget_prompt", {}, locale),
+            { modal: true }, phrase("extension_forget_action", {}, locale));
+          if (ok !== phrase("extension_forget_action", {}, locale)) {
+            panel.webview.postMessage({ type: "action_settled" });
             return;
           }
-          resolveLogSink()(`[studium] navigation ${JSON.stringify(t.navigation ?? null)}`); // raw ids stay in the log
-          await pushScene(t.presentation, undefined, t.verdict, { navigation: t.navigation, self_rating: t.self_rating });
+          action = { type: "end", confirmed: true };
         }
+        const parsed = PanelActionSchema.safeParse(action);
+        if (!parsed.success) return;
+        const view: PanelView = (await call("panel_action", {
+          session_id: sid, action: parsed.data, ...(delay.success ? { client_ms: delay.data } : {}),
+        })).panel;
+        if (parsed.data.type === "end" && parsed.data.confirmed) {
+          panel.dispose();
+          vscode.window.showInformationMessage(phrase("extension_forget_done", {}, locale));
+          void refreshStudyStatus(context);
+          return;
+        }
+        await postView(view);
       });
       if (result.status === "busy") {
         // A busy gate must answer, or the pane stays pending.
@@ -1092,20 +920,25 @@ async function openLesson(
       // UX-09: the learner reads a localised, actionable line; the server's own words (tool name, scene ids) go to
       // the output channel. The error names the action it answers, so the pane can drop a stale one.
       resolveLogSink()(`[studium] ${String(msg?.type)} failed: ${e?.message ?? e}`);
+      // A session the server no longer knows: its reason goes to the pane, whose renderer says « Séance perdue » and
+      // offers to reopen (it reads only the « session not found » prefix and never shows the rest).
       if (!panelDisposed) {
         panel.webview.postMessage({ type: "action_error", action: msg?.type, ...(msg?.type === "rateRecall" ? { sceneId: msg.sceneId } : {}),
-          message: phrase("extension_action_failed", {}, locale) });
+          message: sessionLostReason(e) ?? phrase("extension_action_failed", {}, locale) });
       }
     }
   });
 
   // 3) start
   try {
-    const started = await call("start_lesson_session", { bundle_ref: bundleRef, learner_id: learnerId });
-    sid = started.session_id;
+    // The server cannot detect this webview: the extension says it is a native pane (INT-STUDIUM-058 § 2.4).
+    const opened = await call("open_lesson_panel", {
+      bundle_ref: bundleRef, learner_id: learnerId, show_mastery: showMastery, modality_preference: modalityPref, surface: "pane",
+    });
+    sid = opened.panel.session_id;
     // Remember what this pane shows, so a window reload can reopen it (see restoreLessonPanel).
     void context.globalState.update(LAST_LESSON_KEY, { bundlesRoot, bundleRef, rootKind } satisfies LastLesson);
-    await pushScene(started.presentation);
+    await postView(opened.panel);
     vscode.window.showInformationMessage(phrase("extension_started", { bundle: bundleRef }, locale));
   } catch (e: any) {
     // Replace the loading placeholder with an in-pane error so the panel is never stuck on "Chargement…".
@@ -1118,10 +951,37 @@ async function openLesson(
   }
 }
 
+/** MCP implementation for hosts that compose locally; the extension normally consumes panel tools. */
+export function mcpBackend(call: (name: string, args: Json) => Promise<Json>, assets: { bundlesRoot: string }): PanelBackend {
+  return {
+    getCurrentScene: async id => (await call("get_current_scene", { session_id: id })).presentation,
+    getSceneArtifacts: async id => (await call("get_scene_artifacts", { session_id: id })).scene_assets,
+    getSessionState: async id => (await call("get_session_state", { session_id: id })).state,
+    submitResponse: async (id, input) => (await call("submit_response", { session_id: id, input })).transition,
+    submitTurn: (id, text) => call("submit_turn", { session_id: id, text }),
+    requestHint: async id => (await call("request_hint", { session_id: id })).hint,
+    rateRecall: (id, sceneId, grade) => call("rate_recall", { session_id: id, scene_id: sceneId, grade }),
+    startReviewSession: learnerId => call("start_review_session", { learner_id: learnerId }),
+    startLessonSession: (bundleRef, learnerId) => call("start_lesson_session", { bundle_ref: bundleRef, learner_id: learnerId }),
+    forgetSession: id => call("forget_session", { session_id: id }),
+    getNextReinforcement: id => call("get_next_reinforcement", { session_id: id }),
+    inlineImage: (asset, bundleRef) => inlineImageAsset(assets.bundlesRoot, bundleRef, asset),
+  };
+}
+
+/** Translate a shared view into the unchanged webview protocol during P1. */
+export function legacyPanelMessage(view: PanelView): Json {
+  if (view.recall_rated) return { type: "recall_rated", ...view.recall_rated, ...(view.completion ? { completion: view.completion } : {}) };
+  if (view.hint) return { type: "hint", ...view.hint };
+  if (view.turn_result) return { type: "turn_result", ...view.turn_result };
+  if (view.kind === "notice" || view.kind === "error") return { type: view.kind === "notice" ? "action_notice" : "action_error", message: view.message };
+  return { ...view, type: view.kind === "done" ? "done" : "render" };
+}
+
 function nonce() { return Array.from({ length: 16 }, () => "abcdef0123456789"[Math.floor(Math.random() * 16)]).join(""); }
 
 function paneHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "cdn", locale: Locale): string {
-  const media = (f: string) => webview.asWebviewUri(vscode.Uri.file(join(extPath, "media", f)));
+  const media = (f: string) => webview.asWebviewUri(vscode.Uri.file(join(extPath, "dist", "panel", f)));
   const n = nonce();
   // Marked + KaTeX + Vega(-Lite/-Embed) + 3Dmol make prose, equations, plots and molecules rich; if they do not
   // load, the renderer degrades to styled code + an inline-SVG bar chart (same code path). `vendor` (the default)
@@ -1168,6 +1028,7 @@ ${libs}
 <div id="pane-live" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
 <script type="application/json" id="studium-strings" nonce="${n}">${strings}</script>
 <script defer nonce="${n}" src="${media("artifact-pane.js")}"></script>
+<script defer nonce="${n}" src="${media("bridge-vscode.js")}"></script>
 </body></html>`;
 }
 
@@ -1175,7 +1036,7 @@ ${libs}
 // stylesheet are computed host-side from the GraphView; graph-pane.js only lays out + renders. It speaks the
 // lesson language (VSC-3 lang, VSC-5 strings), paints with the design tokens (C8) and pins CDN files by SRI.
 function graphHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | "cdn", locale: Locale): string {
-  const media = (f: string) => webview.asWebviewUri(vscode.Uri.file(join(extPath, "media", f)));
+  const media = (f: string) => webview.asWebviewUri(vscode.Uri.file(join(extPath, "dist", "panel", f)));
   const n = nonce();
   const cdn = assets === "cdn";
   const origin = cdn ? "https://cdn.jsdelivr.net" : "";
@@ -1205,6 +1066,7 @@ function graphHtml(webview: vscode.Webview, extPath: string, assets: "vendor" | 
 ${libs}
 <style>${helpStyles}</style>
 </head><body class="st-scope">${graphHelp()}<div id="graph"></div><div id="legend"></div>
-<script nonce="${n}" src="${media("graph-pane.js")}"></script>
+<script defer nonce="${n}" src="${media("graph-pane.js")}"></script>
+<script defer nonce="${n}" src="${media("bridge-vscode.js")}"></script>
 </body></html>`;
 }

@@ -45,15 +45,47 @@ Ready-made harness configurations are in [`docs/examples/`](../../docs/examples/
 
 ## What it offers
 
-34 tools, two prompts (`learn` and `review`) and server instructions that tell the assistant to wait for
+40 tools, two prompts (`learn` and `review`) and server instructions that tell the assistant to wait for
 the learner's own answers. The full contract is in the [MCP tools reference](../../docs/reference/mcp-tools.md).
 
 | Group | Tools |
 |---|---|
 | Lesson (25) | `start_lesson_session`, `get_current_scene`, `submit_response`, `request_hint`, `submit_turn`, `get_session_state`, `get_operator_context`, `explain_last_adaptation`, `get_workflow_graph`, `get_scene_artifacts`, `get_run_manifest`, `submit_run_result`, `record_experiment`, `get_experiment_journal`, `get_next_reinforcement`, `set_session_language`, `end_session`, `forget_session`, `get_server_info`, `list_community_bundles`, `open_peer_room`, `join_peer_room`, `get_peer_room_state`, `submit_peer_rating`, `close_peer_room` |
-| Study over days (4) | `list_lessons`, `get_study_plan`, `start_review_session`, `rate_recall` |
+| Study over days (5) | `list_lessons`, `get_study_plan`, `start_review_session`, `rate_recall`, `export_concept_map` |
 | Authoring from sources (3) | `get_authoring_guide`, `prepare_sources`, `create_lesson` |
 | Teacher (2) | `review_lesson`, `class_report` |
+| Forms, a prototype (1) | `play_in_forms` |
+| Shared panel (3) | `open_lesson_panel`, `get_panel_view`, `panel_action` |
+| Companion (1) | `get_companion_brief` |
+
+A lesson is played on two lanes. On a panel, a pane or in forms the server answers the learner and no model
+writes; in the conversation an assistant relays. `get_companion_brief {session_id}` tells the assistant what
+the learner did on the fast lane since it last looked (the twelve latest acts and their count, each with
+its lane), where they are, which help is open and three rules to follow. It holds no scene text and no key,
+hint or reference. The acts are kept in memory for the session and start empty after a server restart.
+After `play_in_forms`, its return carries that brief and moves the cursor; `panel_action ask` carries a
+peeked brief. For a lesson, `reviews_due` in its orientation counts its own due concepts plus those carried
+from the learner's other lessons, without double-counting a shared concept.
+Reading the brief moves its cursor; with `peek: true` it does not, which is what a panel uses to keep the
+model's context up to date.
+
+The server also proposes, at a pause and never over a question: a review due when a lesson starts, forms
+when the client can show them, the concept map at the end of a lesson. A panel asks for these itself. The
+session tools (rank 1) and `play_in_forms` (rank 2) have them said in the `display_markdown` of the screen
+they serve, once, with the proposal's id: `(proposition review_due:start)`. The learner answers in words;
+the assistant sends `submit_response {input: {kind: "prompt", id, outcome: "accepted" | "dismissed"}}`,
+which answers nothing on the scene and returns the call to make next (`start_review_session`,
+`get_workflow_graph`, `play_in_forms` or `get_study_plan`), never making it itself. With telemetry
+consent, each proposal shown is logged as `prompt_shown` with the rank of the surface that said it.
+
+A learner who says they already know a concept of the map, or doubt one they got, can contest it in either
+lane. In the conversation, the assistant sends `submit_response {input: {kind: "contest", concept_id, claim:
+"known" | "unsure"}}`. In forms, every scene form whose lesson has a map offers `map: true`; the map form
+prints each concept id after its title, accepts `contest_concept` with `claim: "known" | "unsure"`, and accepts
+empty to return to the untouched scene. A contest opens its check questions in forms and resumes that scene
+afterward; a missing field or a claim the state does not take leaves the map open with a one-line refusal. The
+claim never changes mastery or skips a scene. With telemetry consent, forms record `openMap` and `contest` on
+the fast lane at rank 2; the conversation records `contest` on the companion lane at rank 1.
 
 What the server guarantees:
 
@@ -90,8 +122,8 @@ surface.
 
 ## HTTP adapter
 
-[`src/http.ts`](src/http.ts) exposes the lesson operations (not the study, authoring or teacher tools)
-to a local client under `/v1/operations`. It listens on 127.0.0.1 only and requires a bearer token of at
+[`src/http.ts`](src/http.ts) exposes the 25 lesson operations plus `rate_recall` (not the other study,
+authoring or teacher tools) to a local client under `/v1/operations`. It listens on 127.0.0.1 only and requires a bearer token of at
 least 32 characters:
 
 ```bash
