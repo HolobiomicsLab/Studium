@@ -120,7 +120,9 @@ python3.12 -m venv .venv
 .venv/bin/python tools/experience_packet.py --help
 ```
 
-`experience_packet.py` propose `passages`, `prepare`, `check`, `bundle` et `approve`. Continuez avec le
+`experience_packet.py` propose `passages`, `prepare`, `check`, `bundle`, `approve` et `receipt`. Ce
+dernier enregistre un reçu de relecture pour une leçon que vous renvoyez, sans l'approuver ; `approve`
+refuse un verdict `to_fix` et renvoie vers lui. Continuez avec le
 [guide de l'enseignant](../teach/teacher-guide.fr.md). Les bibliothèques scientifiques dont une capsule de
 cours a besoin s'installent dans l'environnement propre de cette capsule, aux versions qu'elle déclare.
 

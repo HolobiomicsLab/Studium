@@ -47,10 +47,35 @@ resumes from your saved progress.
   a judge model assesses open answers.
 - **Header.** The step type and its key class, the number of reviews due, and a menu with
   **About this lesson** and **Forget me**.
+- **Status line.** One line above the progress rail, at most 80 characters, says where you are: the lesson,
+  the step out of the total (or which check question of a contest), a detour, the minutes left, the reviews
+  due and what is expected of you (to read, your answer, to rate your recall, a run to launch, done). The
+  progress rail keeps its segments without repeating the step. While a lesson plays, the VS Code status bar
+  shows this same line; what is due for review then moves into its tooltip (see [Reviews](#reviews)).
+- **Voices.** Over the scene, a line says who signs the lesson: a teacher's name when it was validated, or
+  that it is unreviewed, was written by an AI or by you, or changed since its approval. Over a verdict, a
+  line says who assessed the answer: the author's key, a judge model, or text the assistant generated
+  outside the lesson; a key verdict names a key an AI drafted or one you wrote yourself.
 - **Progress.** "Step 3 of 8", never moving backwards; a detour to a prerequisite is labelled as such.
 - **Answer.** While the focus is in the list of choices, `A`–`D` or `1`–`4` choose and `Enter` submits; the
-  line under the choices says so ("In the list of choices: …"). Confidence (0 to 4) is optional. A hint
-  helps, but a right answer after a hint counts less toward mastery and comes back sooner.
+  line under the choices says so ("In the list of choices: …"). Confidence (0 to 4) is optional.
+- **Help ladder.** Under the answer controls, four rungs in the order to try them: **Read again**,
+  **Hint**, **Explanation** and **Reference**. Each shows its cost or the reason it is closed: an
+  explanation waits until you have tried an answer, and the reference appears only with a verdict, after
+  your answer. A closed rung can still take the keyboard focus and says why, but sends nothing. **Ask a
+  question** hands your question to the assistant. A right answer after a hint counts less toward mastery
+  and comes back sooner.
+- **Settings.** At the end of the scene, where the lesson offers them: **attention** (**Quiet**, **Normal**
+  or **Coached**) sets how much the session may propose; **language** switches the pane's own text (labels,
+  status line) between French and English without translating the lesson's content; and **minutes
+  available** with **Replan** answers with a proposal that cites the time you have: whether the lesson
+  fits in it, and whether a due review should come first. These controls answer nothing, so they stay
+  usable while an answer is owed.
+- **Concept map.** **Concept map** opens a list of the lesson's concepts with their state (acquired, to
+  review, in progress, seen but not assessed yet, upcoming), each one's prerequisites, and, unfolded, its
+  evidence and what its state does and does not establish. You can contest a concept you have reached —
+  "I know it" or "I am not sure" — and the lesson asks one or two check questions taken from key-graded
+  scenes; the claim alone never changes mastery or skips a scene. See [Concept map](../learn/concept-map.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/screenshots/vscode-pane-feedback-dark.png">
@@ -79,8 +104,10 @@ resumes from your saved progress.
 
 ## Reviews
 
-When you have studied before, the status bar shows **Studium · 2 to review**, or **Studium · 3 to work on**
-when some of the concepts waiting are to take up again or not measured yet; its tooltip names each group.
+When you have studied before and no lesson is open, the status bar shows **Studium · 2 to review**, or
+**Studium · 3 to work on** when some of the concepts waiting are to take up again or not measured yet; its
+tooltip names each group. While a lesson plays, the bar shows that lesson's status line instead, and the
+review groups move into its tooltip.
 Clicking it opens the Studium sidebar, whose **Reviews** entry lists the concepts by group (to review, to
 take up again, not measured yet), or the date of the next review.
 The count is refreshed at startup, when a lesson closes or completes, and with the refresh button of the
