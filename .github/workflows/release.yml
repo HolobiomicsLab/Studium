@@ -58,6 +58,12 @@ jobs:
       - name: Build workspace libraries
         run: pnpm build:libs
 
+      # The extension's drivers read the panel renderer from apps/lesson-panel-ui/dist, which
+      # build:libs (packages only) does not produce. Without it a fresh runner fails at
+      # context-help.driver.ts.
+      - name: Build the lesson panel renderer
+        run: pnpm --filter @studium/lesson-panel-ui build
+
       - name: Test the extension and the MCP server
         run: |
           pnpm --filter studium-vscode test
