@@ -50,6 +50,10 @@ The [documentation portal](docs/index.md) lists every page by role.
 
 <em>The teacher dashboard library: each lesson with who holds its answer keys and its review status.</em>
 
+<img src="docs/assets/screenshots/concept-map-page-light.png" width="720" alt="The exported concept-map page of a French chemistry lesson: on the left, the concepts as boxes linked from prerequisite to dependent concept, one acquired, one current, the rest still to come, with the travelled path drawn solid; on the right, the selected concept with what it requires, what it leads to, and each step the learner took on it, with the result and who assessed it.">
+
+<em>The concept map exported after a session (synthetic learner): where each concept stands, and the answers behind it. See <a href="docs/learn/concept-map.md">Concept map</a>.</em>
+
 ## Quickstart (5 minutes)
 
 You need git, Node 22 (Node 20 or newer works) and pnpm 9. Python is not needed to learn.

@@ -4,6 +4,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Fixed
+
+- **The concept-map page can be built again.** `tools/concept_map_report.py export` refused every record written by the 0.3.0 server, because the record had gained the `evidence` and `contest` fields after the reader was written. The reader now validates both, including that each evidence entry names a step of the path and each contest a concept of the map. A record written by the server is kept as a test fixture, and a server-side test fails when the record's shape drifts from it.
+
 ## 0.3.0 — 2026-11-09
 
 This release adds a two-lane lesson interface, an inspectable concept map, faster ways to play and review, and fixes found in the 5 November learner trial.

@@ -50,6 +50,22 @@ controls for each scene. In a chat, each step tells you how to answer: a letter,
   <img src="../assets/screenshots/vscode-pane-choices-light.png" width="420" alt="The VS Code lesson pane showing a quiz question with three answer choices and a continue button.">
 </picture>
 
+## If you are stuck
+
+Try your own answer first, then use the help ladder in order: reread the step, ask for a hint, ask for an
+explanation, and read the reference. An explanation becomes available after you have tried an answer and
+hands your question to the assistant; the reference comes with the verdict, after your answer. Rereading
+costs nothing, while a hint reduces the mastery credit of a correct answer and brings its review sooner.
+See [language and supports](language-and-supports.md) for the other kinds of help you can request.
+
+## See your concept map
+
+The concept map shows each concept's state, what it needs first, the path you travelled and the assessed
+answers behind it. Open it in the lesson panel or pane, in forms, or ask in the conversation for the map
+returned by `get_workflow_graph`. On a concept you have reached, you can say that you know it or are unsure:
+Studium asks one or two check questions and reports their outcome; the claim alone never raises mastery or
+skips a scene. See [Concept map](concept-map.md).
+
 ## Use the assistant without giving it the activity
 
 Requests that keep you in charge:

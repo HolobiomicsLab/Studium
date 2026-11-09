@@ -50,6 +50,10 @@ Le [portail de la documentation](docs/index.fr.md) classe toutes les pages par r
 
 <em>La bibliothèque du tableau de bord enseignant : chaque leçon, qui détient ses clés de correction et son statut de relecture.</em>
 
+<img src="docs/assets/screenshots/concept-map-page-light.png" width="720" alt="La page exportée de la carte des notions d'une leçon de chimie : à gauche, les notions en cadres reliés du prérequis vers la notion qui en dépend, une acquise, une en cours, les autres à venir, le chemin parcouru en trait plein ; à droite, la notion choisie avec ce qu'elle demande, ce à quoi elle mène, et chaque étape de l'apprenant sur elle, avec le résultat et qui l'a évalué.">
+
+<em>La carte des notions exportée après une séance (apprenant synthétique) : où en est chaque notion, et les réponses qui le fondent. Voir <a href="docs/learn/concept-map.fr.md">Carte des notions</a>.</em>
+
 ## Démarrage rapide (5 minutes)
 
 Il vous faut git, Node 22 (Node 20 ou plus récent fonctionne) et pnpm 9. Python n'est pas nécessaire pour apprendre.
