@@ -118,7 +118,7 @@ async function execute(backend: PanelBackend, ctx: PanelContext, action: PanelAc
     case "ask": {
       // Nothing is submitted and the scene stays: the learner goes to the conversation and comes back.
       if (action.text === undefined) delete ctx.question; else ctx.question = action.text;
-      return { kind: "notice", message: phrase("panel_ask_notice", {}, localeOf(ctx)) };
+      return { kind: "notice", message: phrase(action.text === undefined ? "panel_ask_notice" : "panel_ask_sent_notice", {}, localeOf(ctx)) };
     }
     case "openMap": {
       // Nothing is submitted: the scene stays, the map shows beside it until closeMap.
