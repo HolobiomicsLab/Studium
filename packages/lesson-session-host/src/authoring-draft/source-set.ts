@@ -185,6 +185,9 @@ function checkInput(sources: SourceInput[], options: PrepareOptions, minChars: n
     if (source.text.length > MAX_SOURCE_CHARS) {
       issues.push({ path: `sources.${index}.text`, message: `has ${source.text.length} characters, at most ${MAX_SOURCE_CHARS}`, hint: "pass the chapter or section the lesson is about" });
     }
+    if (looksLikeHtml(source.text)) {
+      issues.push({ path: `sources.${index}.text`, message: "is an HTML page, not text", hint: "pass the text of the page, not its HTML" });
+    }
     if (source.url !== undefined && !isHttpUrl(source.url)) {
       issues.push({ path: `sources.${index}.url`, message: "must be an http(s) URL", hint: "give the page the text was fetched from, or leave url out" });
     }
@@ -207,6 +210,21 @@ function checkInput(sources: SourceInput[], options: PrepareOptions, minChars: n
     issues.push({ path: "min_chars", message: "must be an integer from 1 to max_chars", hint: `keep the defaults ${DEFAULT_MIN_CHARS} and ${DEFAULT_MAX_CHARS}` });
   }
   if (issues.length > 0) throw new AuthoringInputError(issues);
+}
+
+/** HTML rule (D11): the text, after an optional BOM and whitespace, starts with `<!DOCTYPE html` or `<html`,
+ * or it holds at least MIN_TAGS_FOR_HTML tags that make up at least HTML_TAG_SHARE of its characters. A tag
+ * is `<name>` / `</name>` / `<name attributes>`: a name made of letters, digits and hyphens right after the
+ * `<`, so a few inline tags stay below the share and LaTeX (`$a<b$`, `<\beta>`) is not a tag. */
+const HTML_START = /^[\s\uFEFF]*(?:<!doctype\s+html\b|<html[\s>/])/i;
+const HTML_TAG = /<\/?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?\/?>/g;
+const MIN_TAGS_FOR_HTML = 5;
+const HTML_TAG_SHARE = 0.2;
+function looksLikeHtml(text: string): boolean {
+  if (HTML_START.test(text)) return true;
+  const tags = text.match(HTML_TAG) ?? [];
+  if (tags.length < MIN_TAGS_FOR_HTML) return false;
+  return tags.reduce((sum, tag) => sum + tag.length, 0) >= text.length * HTML_TAG_SHARE;
 }
 
 function isHttpUrl(value: string): boolean {

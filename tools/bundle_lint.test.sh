@@ -65,6 +65,19 @@ grep -Fq 'target "concept:missing" is not a declared graph node' <<<"$OUTPUT" ||
 expect_finding "single graded prerequisite" 0 "lwg_single_graded_item" "$FIXTURES/single-graded/lesson.json"
 grep -Fq "one correct answer cannot reach theta, the gate will pass it on a correct answer" <<<"$OUTPUT" || { echo "FAIL: single-item information omits gate behaviour"; echo "$OUTPUT"; exit 1; }
 
+# A scene without a concept moves no mastery (F3): the wording of `experience_packet.py check`, as a WARN.
+# intro and meta_checkpoint carry no concept by design and stay silent.
+node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));b.scenes[4].concept_refs=[];b.scenes[3].concept_refs=[];b.scenes.unshift({...b.scenes[0],id:'s-intro',type:'intro',markdown:'Bienvenue.',concept_refs:[]});fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$FIXTURES/clean/lesson.json" "$TMP/one-scene-no-concept.json"
+# s-advanced is a reading scene (exempt); s-advanced-quiz-1 takes a graded answer (reported).
+expect_finding "a scene that reaches no concept" 0 "scene_reaches_no_concept" "$TMP/one-scene-no-concept.json"
+grep -Eq "^WARN  .+  scene_reaches_no_concept  scene 's-advanced-quiz-1' reaches no concept; a scene without a concept moves no mastery$" <<<"$OUTPUT" || { echo "FAIL: the no-concept warning does not use the check wording"; echo "$OUTPUT"; exit 1; }
+[ "$(grep -c '  scene_reaches_no_concept  ' <<<"$OUTPUT")" -eq 1 ] || { echo "FAIL: only the quiz should be reported (not the intro or the reading scene)"; echo "$OUTPUT"; exit 1; }
+node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));for(const s of b.scenes)s.concept_refs=[];fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$FIXTURES/clean/lesson.json" "$TMP/no-scene-has-a-concept.json"
+run_lint "$TMP/no-scene-has-a-concept.json"
+[ "$(grep -c '  scene_reaches_no_concept  ' <<<"$OUTPUT")" -eq 4 ] || { echo "FAIL: each of the four quizzes should be reported (not the reading scenes)"; echo "$OUTPUT"; exit 1; }
+[ "$STATUS" -eq 0 ] || { echo "FAIL: the no-concept finding must be a warning, not an error"; echo "$OUTPUT"; exit 1; }
+echo "OK: a lesson in which no scene reaches a concept warns"
+
 # Who wrote the key (metadata.authoring, spec 2026-10-30 « Classes de clé »). The all-types
 # fixture must hold exactly one scene per SceneType of the Zod schema, so a new scene type
 # fails here until SCENE_KEY_CLASS in bundle_lint.mjs classifies it.
