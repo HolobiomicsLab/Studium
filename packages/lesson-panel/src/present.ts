@@ -59,6 +59,7 @@ function baseView(ctx: PanelContext, presentation: Payload): PanelView {
   return {
     schema: PANEL_VIEW_SCHEMA_V1, kind: "scene", session_id: ctx.sessionId, learner_id: ctx.learnerId,
     bundle_ref: ctx.bundleRef, lesson_title: ctx.lessonTitle, locale, strings: browserPhrases(locale),
+    ...(ctx.contentLanguage ? { content_language: ctx.contentLanguage } : {}),
     progress: { index: (presentation.index ?? 0) + 1, total: presentation.total ?? ctx.lastView?.progress.total ?? 0 },
     scene_assets: [], modalityPreference: ctx.modalityPreference ?? "balanced", reviewDue: [], calibration: [],
     mastery: ctx.showMastery ? presentation.learnerSnapshot?.conceptMastery ?? {} : {},
@@ -151,6 +152,11 @@ export async function presentPanel(backend: PanelBackend, ctx: PanelContext): Pr
     const served = backend.getPrompts ? await backend.getPrompts(ctx.sessionId, { attention, surface, locale: view.locale }) : [];
     const prompts = [...served.flatMap(prompt => promptOf(prompt, view.locale)), ...(ctx.prompts ?? [])];
     Object.assign(view, placed, { schema: PANEL_VIEW_SCHEMA, prompts, attention, surface });
+    // A4: on a prerequisite detour, the main-path step the learner is at, for the progress rail.
+    const { detour, main } = placed.orientation.step;
+    if (view.kind === "scene" && detour && main) {
+      view.progress.detour = { returns_to_scene_id: detour.returns_to, returns_to_title: main.title, returns_to_index: main.index };
+    }
     if (prompts.some(prompt => prompt.actions.some(offered => offered.action.type === "prompt"))) view.actions.push("prompt");
     // What a placed learner can do on any scene without a model turn (applyPanelAction).
     if (view.kind === "scene") view.actions.push("ask", "setLanguage", "setAttention", "replan");

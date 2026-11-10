@@ -96,7 +96,11 @@ export const CompletionSchema = z.object({
 export type Completion = z.infer<typeof CompletionSchema>;
 /** Where the learner is (lesson-session-host orientation.ts computes it; this is its wire shape). */
 export const OrientationSchema = z.object({
-  step: z.object({ index: z.number(), total: z.number(), detour: z.object({ returns_to: z.string() }).optional() }),
+  step: z.object({
+    index: z.number(), total: z.number(), detour: z.object({ returns_to: z.string() }).optional(),
+    /** On a prerequisite detour: the main-path step the learner is at (the scene the detour returns to). */
+    main: z.object({ index: z.number(), title: z.string() }).optional(),
+  }),
   concept: z.object({ id: z.string(), title: z.string(), state: z.enum(["acquired", "to_review", "current", "seen", "upcoming"]) }).optional(),
   minutes_left: z.number().optional(),
   reviews_due: z.number(),
@@ -123,6 +127,9 @@ export const HelpSchema = z.object({
   rungs: z.array(z.object({
     kind: z.enum(["reread", "hint", "explain", "reference"]), available: z.boolean(), cost: z.string().optional(), why_not: z.string().optional(),
   })),
+  /** While the explanation is open: whether it explains the learner's last answer (`last_answer`) or the
+   * screen in front of them (`screen`), so that a client labels the rung accordingly. */
+  explains: z.enum(["last_answer", "screen"]).optional(),
 });
 export type Help = z.infer<typeof HelpSchema>;
 /** A proposal the learner may accept or dismiss (spec § 2.6): two actions at most. `replan` is the
@@ -173,10 +180,23 @@ export const STATUS_LINE_MAX = 80;
 /** The fields version 2 adds; a version-2 view carries every one of them. */
 export const PANEL_VIEW_V2_FIELDS = ["orientation", "status_line", "voices", "help", "prompts", "attention", "surface"] as const;
 
+/** Where the learner is in the lesson: `index` (1-based) is the position of the scene on screen out of
+ * `total`. `detour` (audit 2026-11-10 A4), on a prerequisite detour only: the scene the detour returns to
+ * — its id, title and 1-based index, the main-path step the learner is at — so that a client draws the
+ * progress rail there and marks the detour, instead of jumping to the detour scene's own position. */
+export const ProgressSchema = z.object({
+  index: z.number(), total: z.number(),
+  detour: z.object({ returns_to_scene_id: z.string(), returns_to_title: z.string(), returns_to_index: z.number() }).optional(),
+});
+export type Progress = z.infer<typeof ProgressSchema>;
+
 export const PanelViewSchema = z.object({
   schema: z.enum(PANEL_VIEW_SCHEMAS), kind: z.enum(["scene", "done", "notice", "error"]),
   session_id: z.string(), learner_id: z.string(), bundle_ref: z.string(), lesson_title: z.string(),
-  locale: z.enum(["fr", "en"]), strings: z.record(z.string()), progress: z.object({ index: z.number(), total: z.number() }),
+  locale: z.enum(["fr", "en"]), strings: z.record(z.string()), progress: ProgressSchema,
+  /** The language of the lesson's own content (BCP 47, the lesson's metadata.language), which may differ
+   * from `locale`, the interface's: a client marks the scene and the feedback with it (`lang`). */
+  content_language: z.string().min(1).optional(),
   scene: PublicSceneSchema.optional(), scene_assets: z.array(SceneAssetSchema), modalityPreference: z.enum(["balanced", "visual", "textual"]),
   verdict: VerdictSchema.nullable().optional(), navigation: NavigationSchema.nullable().optional(), self_rating: SelfRatingSchema.nullable().optional(),
   reviewDue: z.array(NamedConceptSchema), calibration: z.array(z.object({ concept_id: z.string(), band: z.enum(["bien", "sur", "sous"]), message: z.string() })),

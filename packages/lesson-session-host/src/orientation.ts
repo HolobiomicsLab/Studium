@@ -27,8 +27,10 @@ export type Waiting = "read" | "answer" | "self_rating" | "run" | "nothing";
 
 export interface Orientation {
   /** The screen's position in the lesson (1-based). `detour`: the learner is on a prerequisite detour
-   * and `returns_to` is the scene it comes back to. */
-  step: { index: number; total: number; detour?: { returns_to: string } };
+   * and `returns_to` is the scene it comes back to. `main` (audit 2026-11-10 A4), on a detour only: the
+   * step of the main path the learner is at — the scene the detour returns to, its 1-based index and
+   * title — which a progress rail draws instead of the detour scene's own position. */
+  step: { index: number; total: number; detour?: { returns_to: string }; main?: { index: number; title: string } };
   /** The first concept of the screen, in the state the concept map gives it. Absent on a screen that
    * names no concept and once the session is complete. */
   concept?: { id: string; title: string; state: ConceptMapState };
@@ -63,13 +65,16 @@ export interface OrientationFacts {
   scene: { id: string; type: string; concept_refs: readonly string[] };
   seconds_left: number;
   concept: { id: string; title: string; state: ConceptMapState } | null;
-  /** The answer just given asked for the learner's own rating, and it has not been given. */
+  /** The answer just given asked for the learner's own rating, the request was served with the screen
+   * on display, and the rating has not been given (audit 2026-11-10 A3: the one source of `waiting`). */
   self_rating_pending: boolean;
   /** The screen holds a run the learner has not recorded yet. */
   run_pending: boolean;
   reviews_due: number;
   last_navigation: LastNavigation | null;
   detour_returns_to: string | null;
+  /** On a prerequisite detour, the scene it returns to: 0-based index and title (A4). */
+  detour_return?: { index: number; title: string } | null;
   /** The screen is a question that has authored hints. */
   has_hints: boolean;
   /** Hint requests still open on this visit of the screen. */
@@ -121,10 +126,15 @@ export function orientationFacts(
   const scene = presentation.scene;
   const refs: readonly string[] = "concept_refs" in scene ? scene.concept_refs : [];
   const steps = entry.session.learnerPath().steps;
-  const answered = steps.at(-1)?.scene_id;
+  // A3: a self-rating is waited for only when the host served its request with the screen on display
+  // (SessionEntry.servedSelfRating) and the session still holds it. A request the host did not serve
+  // (the reference was withheld) or left behind on an earlier screen stays answerable through
+  // rateRecall, but no screen says it is expected — after a restart neither.
+  const served = entry.servedSelfRating;
   const requests = entry.session.getState().self_rating_requests ?? {};
   const first = refs[0] === undefined ? undefined : bare(refs[0]);
   const node = first === undefined ? undefined : host.conceptMap?.nodes.find((n) => n.id === first);
+  const detourReturn = prerequisiteDetourReturn(entry);
   const authored = first === undefined ? undefined : entry.bundle.concepts.find((c) => bare(c.id) === first);
   const concept = node ? { id: node.id, title: node.title, state: node.state }
     : authored ? { id: first!, title: authored.title, state: "current" as const } : null;
@@ -135,11 +145,13 @@ export function orientationFacts(
     scene: { id: scene.id, type: scene.type, concept_refs: refs },
     seconds_left: completed ? 0 : secondsLeft(entry, presentation.index),
     concept: completed ? null : concept,
-    self_rating_pending: answered !== undefined && Object.hasOwn(requests, answered),
+    self_rating_pending: !completed && served !== undefined && served.screenSceneId === scene.id && Object.hasOwn(requests, served.sceneId)
+      || completed && served !== undefined && served.screenSceneId === null && Object.hasOwn(requests, served.sceneId),
     run_pending: !completed && host.runPending,
     reviews_due: host.reviewsDue,
     last_navigation: entry.lastNavigation ?? null,
-    detour_returns_to: completed ? null : entry.detourReturnsTo ?? null,
+    detour_returns_to: completed ? null : detourReturn?.id ?? null,
+    detour_return: completed || !detourReturn ? null : { index: detourReturn.index, title: detourReturn.title },
     has_hints: !completed && scene.type === "quiz" && scene.hints.length > 0,
     hints_left: completed ? 0 : entry.session.hintsLeft(),
     tried: !completed && steps.some((step) => step.scene_id === scene.id && step.answered),
@@ -148,15 +160,31 @@ export function orientationFacts(
   };
 }
 
+/** The scene a prerequisite detour returns to: the one the routing named (recordNavigation) or, after a
+ * restart, the one the saved detour names (audit D6). Null when no prerequisite detour is under way. */
+function prerequisiteDetourReturn(entry: SessionEntry): { id: string; index: number; title: string } | null {
+  let id = entry.detourReturnsTo;
+  if (id === undefined) {
+    const route = entry.session.detourRoute();
+    if (route?.prerequisite !== undefined) id = entry.bundle.scenes[route.returnIndex]?.id;
+  }
+  const index = id === undefined ? -1 : entry.bundle.scenes.findIndex((scene) => scene.id === id);
+  return index < 0 ? null : { id: id!, index, title: entry.bundle.scenes[index]!.title };
+}
+
 /** What is left of the lesson, in seconds, from the scene at `index`. During a contest's check
  * questions (audit 2026-11-10 D8), the one on screen and those still to come, then the lesson from the
- * scene it resumes on: a check question taken from the end of the lesson does not end it. */
+ * scene it resumes on: a check question taken from the end of the lesson does not end it. During a
+ * detour (A4) the same: the scene on screen, then the lesson from the scene the detour returns to — a
+ * remediation taken from the end of the lesson does not end it either. */
 function secondsLeft(entry: SessionEntry, index: number): number {
   const seconds = (at: number) => entry.bundle.scenes[at]?.estimated_seconds ?? 0;
+  const from = (at: number) => entry.bundle.scenes.slice(at).reduce((sum, s) => sum + s.estimated_seconds, 0);
   const route = entry.session.checkRoute();
-  if (!route) return entry.bundle.scenes.slice(index).reduce((sum, s) => sum + s.estimated_seconds, 0);
-  const checks = [index, ...route.queued].reduce((sum, at) => sum + seconds(at), 0);
-  return checks + entry.bundle.scenes.slice(route.returnIndex).reduce((sum, s) => sum + s.estimated_seconds, 0);
+  if (route) return [index, ...route.queued].reduce((sum, at) => sum + seconds(at), 0) + from(route.returnIndex);
+  const detour = entry.session.detourRoute();
+  if (detour && detour.returnIndex !== index) return seconds(index) + from(detour.returnIndex);
+  return from(index);
 }
 
 /** The contest's check question on screen, if any. The question is told by the scene, not by the
@@ -187,6 +215,7 @@ export function orientationFrom(facts: OrientationFacts): Orientation {
     step: {
       index: facts.index + 1, total: facts.total,
       ...(facts.detour_returns_to === null ? {} : { detour: { returns_to: facts.detour_returns_to } }),
+      ...(facts.detour_return ? { main: { index: facts.detour_return.index + 1, title: facts.detour_return.title } } : {}),
     },
     ...(facts.concept ? { concept: facts.concept } : {}),
     ...(facts.seconds_left > 0 ? { minutes_left: Math.ceil(facts.seconds_left / 60) } : {}),
@@ -295,7 +324,11 @@ export function voiceLine(voice: Voice, locale: "fr" | "en"): string {
  * an explanation, compare with the reference. `cost` says what taking it changes; `why_not` why it
  * is closed now. Both are phrases for the learner, in the session's language. */
 export interface HelpRung { kind: "reread" | "hint" | "explain" | "reference"; available: boolean; cost?: string; why_not?: string }
-export interface Help { rungs: HelpRung[] }
+/** `explains` (audit 2026-11-10 B5), present while the explanation is open: whether it explains the
+ * learner's last answer (`last_answer`: the screen follows an assessed answer, the question on screen
+ * was tried, or the answer is being self-rated) or the screen in front of them (`screen`). A client
+ * labels the rung with it (« Explique ma dernière réponse » or « Explique cet écran »). */
+export interface Help { rungs: HelpRung[]; explains?: "last_answer" | "screen" }
 
 interface HelpWords { hint_cost: string; no_hint: string; hints_used: string; try_first: string; after_answer: string; no_reference: string }
 const HELP_WORDS: Record<"fr" | "en", HelpWords> = {
@@ -326,7 +359,8 @@ export function helpFrom(facts: OrientationFacts, locale: "fr" | "en"): Help {
     : { kind: "explain", available: false, why_not: w.try_first };
   const reference: HelpRung = waiting === "self_rating" ? { kind: "reference", available: true }
     : { kind: "reference", available: false, why_not: waiting === "answer" ? w.after_answer : w.no_reference };
-  return { rungs: [{ kind: "reread", available: true }, hint, explain, reference] };
+  const explains = waiting === "self_rating" || facts.tried || facts.answered_before ? "last_answer" : "screen";
+  return { rungs: [{ kind: "reread", available: true }, hint, explain, reference], ...(explain.available ? { explains } : {}) };
 }
 
 /** Which help is open on this session's screen now. */

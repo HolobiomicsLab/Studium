@@ -61,6 +61,8 @@ export interface PanelContext {
   learnerId: string;
   bundleRef: string;
   lessonTitle: string;
+  /** The lesson's source language (BCP 47, its metadata.language): the language of author content. */
+  contentLanguage?: string;
   conceptTitles?: Record<string, string>;
   review?: ReviewContext | null;
   locale?: "fr" | "en";

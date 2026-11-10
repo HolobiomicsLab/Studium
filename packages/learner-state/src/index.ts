@@ -203,6 +203,12 @@ export const LearnerStateSchema = z.object({
   // resumes on the remediation, not past the gate. Absent when no detour is under way, and in a state
   // saved before 2026-11-10 (which resumes on the first scene not completed, as it did).
   pending_detour: PendingDetourStateSchema.optional(),
+  // Audit 2026-11-10 A2 (proposal C2): the scenes whose reference — key points, model answer, the right
+  // choice, planted flaws — a verdict has released to the learner in this lesson. Neither a prerequisite
+  // gate, nor a remediation, nor a contest's check question serves one of them again as a graded
+  // question: the answer would measure immediate memory. A state saved without the field loads as an
+  // empty register. Review sessions on later days do not read it (spaced retrieval is their point).
+  reference_shown: z.array(z.string()).optional(),
 });
 
 export type LearnerState = z.infer<typeof LearnerStateSchema>;

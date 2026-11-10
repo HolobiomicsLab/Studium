@@ -211,7 +211,11 @@ The reply is `{transition}`, with `kind` (`next`, `replay`, `remediate_alt`,
   `reference_kind`: `key_points`, `planted_flaws`, `flawed_claims`, or
   `correct_choice`, the text of the right choice after a wrong quiz answer) and the
   cited `sources`, but only when the learner leaves the scene for good; a same-item
-  retry or a prerequisite detour holds them back.
+  retry or a prerequisite detour holds them back. Once a scene's reference is shown,
+  the lesson state records it (`reference_shown`): no prerequisite gate, remediation or
+  contest check question asks that scene again as a graded question. With no other item
+  of the concept left, the gate opens as `gate_unassessable` and the concept cannot be
+  contested; a review on a later day still asks it.
 - `navigation`: `{kind, scene_id, rule_id, reason, modulator, returns_to?}`, the one
   routing decision (`advance`, `replay`, `remediate_alt`, `remediate`, `gate_passed`,
   `gate_released`, `gate_unassessable`, `skip_mastered`, `calibration`, `complete`).
@@ -223,6 +227,9 @@ The reply is `{transition}`, with `kind` (`next`, `replay`, `remediate_alt`,
   and never changes mastery. One rating per request. A pending request is saved with
   the learner's state and survives a server restart; a request lost by an older server
   gets a distinct "expired" error: the learner answers the scene again to be asked anew.
+  The orientation's `waiting` says `self_rating` only on the screen that served the
+  request; a request left behind (the learner moved on, or the server restarted) can
+  still be rated but is no longer announced.
 
 Without a judge, written answers get the reference to compare with, never a keyword
 count presented as an assessment.

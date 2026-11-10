@@ -256,6 +256,15 @@ expect_clean "two recall questions for each concept" "$TMP/recall-two.json"
 mutate recall-mention.json "$RECALL;b.scenes.push({...q('q-s2','c-kinetics'),concept_refs:['c-kinetics','c-second']},{...q('q-s3','c-second'),diagnostic:true})"
 expect_finding "a mention and a diagnostic are not recall questions" 0 "concept_few_recall_questions" "$TMP/recall-mention.json"
 
+# Audit 2026-11-10 A2 (C2): a scene whose key was shown is never asked again as a graded question, so a
+# concept a contest (or a prerequisite gate) can target with a single such scene cannot be re-checked.
+expect_finding "a concept with a single key-graded scene cannot be re-checked" 0 "concept_not_recheckable" "$TMP/recall-few.json"
+grep -Eq '^WARN  .+  concept_not_recheckable  c-second has a single key-graded scene that a contest can ask' <<<"$OUTPUT" || { echo "FAIL: the re-check warning does not name the concept and the contest"; echo "$OUTPUT"; exit 1; }
+mutate recheck-gate.json "$RECALL;b.scenes.push(q('q-s2','c-second'));b.learning_workflow_graph={schema_version:'1.0',course_id:'c',nodes:['c-kinetics','c-second'].map(id=>({id:'concept:'+id,node_kind:'concept',title:id,bloom_level:'understand'})),edges:[{id:'e',relation:'prerequisite_for',source:'concept:c-second',target:'concept:c-kinetics'}]};b.scenes=b.scenes.filter(s=>s.id!=='q-k2')"
+run_lint "$TMP/recheck-gate.json"
+grep -Eq '^WARN  .+  concept_not_recheckable  c-kinetics has a single key-graded scene that a prerequisite gate or a contest can ask' <<<"$OUTPUT" || { echo "FAIL: the re-check warning does not name the gate"; echo "$OUTPUT"; exit 1; }
+echo "OK: a gate target with a single key-graded scene warns"
+
 run_lint
 [ "$STATUS" -eq 0 ] || { echo "FAIL: repo fixtures do not pass"; echo "$OUTPUT"; exit 1; }
 grep -Eq '^ERROR  ' <<<"$OUTPUT" && { echo "FAIL: repo fixtures emitted an ERROR"; echo "$OUTPUT"; exit 1; }

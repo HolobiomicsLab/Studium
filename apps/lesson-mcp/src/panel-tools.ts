@@ -169,6 +169,7 @@ class Panels {
     const ctx: PanelContext = {
       sessionId: id, learnerId: options.learner_id ?? this.host.defaultLearnerId,
       bundleRef: ref, lessonTitle: resolved?.bundle.metadata.title ?? state.lesson_id,
+      contentLanguage: this.host.sessionLanguage(id).source_language,
       conceptTitles: Object.fromEntries((resolved?.bundle.concepts ?? []).map(c => [c.id, c.title])),
       surface: negotiateSurface(this.client(), options.surface),
     };
