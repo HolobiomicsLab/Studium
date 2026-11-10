@@ -30,7 +30,8 @@ export default function SignInForm({ next, locale = "fr" }: { next: string; loca
         window.location.assign(body.next ?? "/");
         return;
       }
-      setError(body.error ?? t.signInFailed);
+      // The server answers in French; the two expected refusals are said in the page's language.
+      setError(response.status === 401 ? t.signInWrongCode : response.status === 429 ? t.signInTooMany : body.error ?? t.signInFailed);
     } catch {
       setError(t.signInFailed);
     } finally {
