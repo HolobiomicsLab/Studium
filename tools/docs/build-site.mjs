@@ -35,6 +35,7 @@ const STRINGS = {
     readme: "Project overview", other: "Other pages", toc: "On this page", pager: "Previous and next",
     prev: "Previous", next: "Next", table: "Table", source: "View the source of this page on GitHub",
     switchLabel: "Français", switchLang: "fr",
+    affiliation: `Studium · <a href="https://holobiomicslab.cnrs.fr/">HolobiomicsLab</a> · <a href="https://ediam.cnrs.fr/">eDIAM</a> · Institut de Chimie de Nice · Université Côte d'Azur · CNRS`,
     licence: "Code under Apache-2.0, documentation under CC BY 4.0.",
     prototype: "Prototype rendering of the Markdown documentation; the pages on GitHub remain the reference.",
   },
@@ -43,6 +44,7 @@ const STRINGS = {
     readme: "Présentation du projet", other: "Autres pages", toc: "Sur cette page", pager: "Page précédente et suivante",
     prev: "Précédent", next: "Suivant", table: "Tableau", source: "Voir la source de cette page sur GitHub",
     switchLabel: "English", switchLang: "en",
+    affiliation: `Studium · <a href="https://holobiomicslab.cnrs.fr/">HolobiomicsLab</a> · <a href="https://ediam.cnrs.fr/">eDIAM</a> · Institut de Chimie de Nice · Université Côte d'Azur · CNRS`,
     licence: "Code sous licence Apache-2.0, documentation sous licence CC BY 4.0.",
     prototype: "Rendu prototype de la documentation Markdown ; les pages sur GitHub restent la référence.",
   },
@@ -311,6 +313,7 @@ ${pager}
 ${toc}
 </div>
 <footer class="site-footer">
+<p>${s.affiliation}</p>
 <p>${s.licence} ${escapeHtml(notice)}</p>
 <p>${s.prototype}</p>
 </footer>

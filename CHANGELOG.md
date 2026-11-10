@@ -8,6 +8,8 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 - **A calmer lesson panel for narrow side panels.** At 380 px the first screen of a quiz now holds the question, its choices and the button to answer: one compact session line (step, detour, time left, reviews due) replaces the two-line status and voice lines, who signs the lesson is a short chip that opens to the full sentence, and the confidence scale, « Submit » and a single « Help » button sit in a bar that stays at the bottom of the panel while the scene scrolls. « Help » opens the help ladder in place; a hint appears under the question and the question field opens in the ladder. The settings wait behind a closed section, which the « ⋯ » menu also opens. The feedback screen keeps the session line and shows the learner's answer beside the key the view carries, labelled with whose key it is; a written answer is quoted above the key points.
 
+- **The institutions are named.** The README, the documentation portal and every page of the offline site now say that Studium is developed by the HolobiomicsLab within the eDIAM team of the Institut de Chimie de Nice, Université Côte d'Azur and CNRS, and thank the EUR Spectrum; `CITATION.cff` gives the author's affiliation. Text and links only, no logo.
+
 ### Fixed
 
 - **The panel's settings work in MCP Apps hosts.** « Quiet », the language buttons and « Replan » now reach the server: the bridge carries every action type of a list that `@studium/lesson-panel` exports from the action schema, and an action the view does not offer is refused without asking to try again.

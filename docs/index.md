@@ -48,3 +48,5 @@ These pages are not a validation of teaching effectiveness. Use the code and the
 - **Develop.** [Architecture](develop/architecture.md) · [Lesson panels for developers](develop/panels.md) · [Testing](develop/testing.md) · [Release](develop/release.md) · [Writing the documentation](develop/docs-style.md)
 
 </details>
+
+Studium is developed by the [HolobiomicsLab](https://holobiomicslab.cnrs.fr/) within the [eDIAM team](https://ediam.cnrs.fr/), Institut de Chimie de Nice, Université Côte d'Azur and CNRS. [Who makes Studium](../README.md#who-makes-studium)

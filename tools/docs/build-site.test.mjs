@@ -177,7 +177,13 @@ describe("buildSite (end to end)", () => {
     assert.match(en, /href="review\.html"[^>]*rel="next"|rel="next"[^>]*href="review\.html"/);
     assert.match(en, /href="#one"/);
     assert.match(en, /href="https:\/\/github\.com\/Org\/repo\/blob\/main\/docs\/learn\/student\.md"/);
-    assert.ok(!/https?:\/\/(?!github\.com\/Org)/.test(en.replace(/http:\/\/www\.w3\.org[^"]*/g, "")), "no other host is referenced");
+    assert.ok(!/https?:\/\/(?!github\.com\/Org|holobiomicslab\.cnrs\.fr|ediam\.cnrs\.fr)/.test(en.replace(/http:\/\/www\.w3\.org[^"]*/g, "")), "no other host is referenced");
+    for (const [html, lang] of [[en, "en"], [page, "fr"]]) {
+      const footer = html.match(/<footer class="site-footer">([\s\S]*?)<\/footer>/)[1];
+      assert.match(footer, /Studium · <a href="https:\/\/holobiomicslab\.cnrs\.fr\/">HolobiomicsLab<\/a> · <a href="https:\/\/ediam\.cnrs\.fr\/">eDIAM<\/a> · Institut de Chimie de Nice · Université Côte d'Azur · CNRS/);
+      assert.match(footer, lang === "fr" ? /Code sous licence/ : /Code under Apache/);
+      assert.equal((html.match(/<footer /g) ?? []).length, 1);
+    }
     const home = readFileSync(join(out, "index.html"), "utf8");
     assert.match(home, /class="roles"/);
     assert.equal(checkOutput(out).length, 0);
