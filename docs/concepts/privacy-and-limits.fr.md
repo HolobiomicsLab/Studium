@@ -27,7 +27,7 @@ Dans le dossier de données, chaque apprenant a un dossier nommé par un pseudon
 | `<pseudonyme>/<leçon>/state-<leçon>.json` | état de la leçon et maîtrise |
 | `<pseudonyme>/<leçon>/events.jsonl` | journal d'événements de la séance |
 | `<pseudonyme>/<leçon>/mastery/*.jsonld` | attestations de maîtrise, quand un concept est certifié |
-| `<pseudonyme>/<leçon>/telemetry.jsonl` | seulement avec le consentement à la télémétrie |
+| `<pseudonyme>/<leçon>/telemetry.jsonl` | seulement avec le consentement à la télémétrie ; écrit au fil des actes de l'apprenant, ouvert par un enregistrement du consentement déclaré par `STUDIUM_TELEMETRY_CONSENT` |
 
 Avec `STUDIUM_EPHEMERAL=1` et sans `STUDIUM_DATA_DIR`, la progression est perdue à l'arrêt du serveur, ce que signalent `get_server_info` et `start_lesson_session`.
 

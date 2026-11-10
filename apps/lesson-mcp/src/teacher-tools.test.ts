@@ -955,3 +955,32 @@ describe("class_report", () => {
     expect(out.status).toBe("ok");
   });
 });
+
+// Completion counts LEARNERS, not events (audit 2026-11-10, follow-up to D3): a resumed learner writes
+// `lesson_started` twice, and a second start or completion from the same learner on the same lesson
+// changes nothing. The same definition as tools/class_report.py (collector metrics.learner_completion_rate).
+describe("class_report completion over distinct learners", () => {
+  const start = (p: string) => event(p, "lesson_started", { bundle_uri: "x" });
+  const answer = (p: string) => event(p, "quiz_answered", { scene_id: "s1", item_id: "i", correct: true, response_time_ms: 1000, confidence: 0.5 });
+  const done = (p: string) => event(p, "lesson_completed", { total_duration_ms: 1000, autonomy_ratio: 0.5 });
+
+  it("counts start, resume-start, complete as one of one", async () => {
+    const { root } = library();
+    const dataDir = tmp("data");
+    for (const p of PSEUDOS.slice(0, 5)) writeStream(dataDir, p, "teach-001", [start(p), answer(p), start(p), done(p)]);
+    const out = await classReport(ctxFor(root, { dataDir }), "teach");
+    if (out.status !== "ok") throw new Error("expected ok");
+    expect(out.completion_rate).toBe(1);
+  });
+
+  it("counts a learner who resumed twice and never finished once, as started", async () => {
+    const { root } = library();
+    const dataDir = tmp("data");
+    EIGHT.slice(0, 5).forEach((p) => writeStream(dataDir, p, "teach-001", [start(p), answer(p), done(p)]));
+    [...EIGHT.slice(5), "aaaa000000000009", "aaaa000000000010"].forEach((p) =>
+      writeStream(dataDir, p, "teach-001", [start(p), answer(p), start(p), start(p)]));
+    const out = await classReport(ctxFor(root, { dataDir }), "teach");
+    if (out.status !== "ok") throw new Error("expected ok");
+    expect(out.completion_rate).toBe(0.5);
+  });
+});

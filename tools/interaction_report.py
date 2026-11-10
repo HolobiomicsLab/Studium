@@ -81,6 +81,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import sys
@@ -420,6 +421,14 @@ def _indicators(acc: _Acc, rule: str, floor: int | None, members: set | None = N
     return rep
 
 
+def _folder(run_dir: Path) -> str:
+    """The folder as a report may name it: its bare name and the first 8 hex of the sha256 of its
+    real path, as the MCP class report's `data_folder` does (RT-5) — never the path, which carries
+    the user's name (audit 2026-11-10, F11)."""
+    real = Path(run_dir).resolve()
+    return f"'{real.name}' (fingerprint {hashlib.sha256(str(real).encode('utf-8')).hexdigest()[:8]})"
+
+
 def build_interaction_report(run_dir: Path, *, min_learners: int = MIN_LEARNERS_DEFAULT) -> dict:
     """The class report over every consented stream under `run_dir`. The floor is never below
     `MIN_LEARNERS_DEFAULT`: a lower value is clamped up."""
@@ -464,8 +473,9 @@ def build_interaction_report(run_dir: Path, *, min_learners: int = MIN_LEARNERS_
     rule = rule or "stream"
     population = _population(members, rule)
     if not has_pseudonym:
-        return suppressed(f"no consented telemetry streams found under {run_dir} — check the "
-                          "path, and that each stream records a consent_granted event", False)
+        return suppressed(f"no consented telemetry streams found under {_folder(run_dir)} — "
+                          "check the path, and that each stream records a consent_granted event",
+                          False)
     if population.below_floor(floor):
         return suppressed(f"floor: a usage report needs at least {floor} learners in every "
                           f"lesson and this directory has fewer in at least one. Figures over "
