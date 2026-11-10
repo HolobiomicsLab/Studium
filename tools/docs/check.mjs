@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // tools/docs/check.mjs — the documentation gate.
 //
-//   node tools/docs/check.mjs                 # every check below; exit 1 on any problem
-//   node tools/docs/check.mjs --skip-generated  # links and pairs only (no TypeScript run)
+//   node tools/docs/check.mjs                 # every check below; exit 1 on any problem (warnings do not count)
+//   node tools/docs/check.mjs --skip-generated  # every check but the TypeScript run
 //
 // 1. Relative links and anchors in every .md file of the repository (node_modules, .git, virtual
 //    environments, build output and symbolic links excluded): the target exists, and a #fragment
@@ -12,6 +12,10 @@
 //    page.md (English) and page.fr.md (French).
 // 3. Every tool the MCP server registers has a section in docs/reference/mcp-tools.md.
 // 4. The generated regions of docs/reference/ match the code (tools/docs/gen-*.mjs --check).
+// 5. The first line of every page that has a twin is the language-switch line.
+// 6. Every page of the portal sections is linked from docs/index.md (English) or docs/index.fr.md.
+// 7. A -light image has its -dark twin and the reverse; every image has an alt text.
+// 8. Warning only: a page under docs/ longer than 200 lines (pages with a generated region skipped).
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { isEntry, REPO_ROOT } from "./lib/generated.mjs";
@@ -23,6 +27,16 @@ export const SKIP_DIRS = new Set([
 /** Folders under docs/ that keep one language: archives and internal logs (decision D7), and the
  * asset and example folders, whose README files describe files rather than being pages. */
 export const SINGLE_LANGUAGE_DIRS = ["design-records", "internal", "assets", "examples"];
+
+/** Images that exist in one theme only, repo-relative: exempt from the -light/-dark pair check. */
+export const SINGLE_THEME_IMAGES = new Set([
+  // An exported page of the concept map: the export has no dark theme.
+  "docs/assets/screenshots/concept-map-page-light.png",
+]);
+/** Sections of docs/ whose pages the portal (docs/index.md and docs/index.fr.md) must link. */
+export const PORTAL_SECTIONS = ["start", "learn", "teach", "tutorials", "concepts", "reference", "develop"];
+/** A page longer than this many lines draws a warning. */
+export const MAX_PAGE_LINES = 200;
 
 /** Every .md file under `root`, repo-relative with forward slashes, sorted. */
 export function markdownFiles(root) {
@@ -176,6 +190,112 @@ export function checkPairs(root, files = markdownFiles(root)) {
   return problems;
 }
 
+/** Whether a page is one of the pairs: the root README, or a docs/ page outside the single-language folders. */
+function hasTwin(file) {
+  if (/^README(\.fr)?\.md$/.test(file)) return true;
+  if (!file.startsWith("docs/")) return false;
+  const inside = file.slice("docs/".length);
+  return !SINGLE_LANGUAGE_DIRS.some((dir) => inside.startsWith(`${dir}/`));
+}
+
+/** Pages whose first line is not the language-switch line. */
+export function checkSwitchLine(root, files = markdownFiles(root)) {
+  const problems = [];
+  for (const file of files) {
+    if (!hasTwin(file)) continue;
+    const french = file.endsWith(".fr.md");
+    const base = file.split("/").pop().replace(/(\.fr)?\.md$/i, "");
+    const wanted = french ? `[English](${base}.md) · Français` : `English · [Français](${base}.fr.md)`;
+    const first = readFileSync(join(root, file), "utf8").split(/\r?\n/)[0];
+    if (first !== wanted) problems.push(`${file}:1: first line must be \`${wanted}\``);
+  }
+  return problems;
+}
+
+/** Portal pages that docs/index.md (English) or docs/index.fr.md (French) does not link. */
+export function checkReachable(root, files = markdownFiles(root)) {
+  const problems = [];
+  const linked = {};
+  for (const index of ["docs/index.md", "docs/index.fr.md"]) {
+    const set = new Set();
+    const path = join(root, index);
+    if (existsSync(path)) {
+      for (const { target } of linksOf(readFileSync(path, "utf8"))) {
+        if (!target || isExternal(target)) continue;
+        let decoded = target.split("#")[0].split("?")[0];
+        try { decoded = decodeURIComponent(decoded); } catch { /* keep the raw text */ }
+        if (decoded) set.add(relative(root, decoded.startsWith("/") ? join(root, decoded) : resolve(dirname(path), decoded)).split(sep).join("/"));
+      }
+    }
+    linked[index] = set;
+  }
+  for (const file of files) {
+    if (!PORTAL_SECTIONS.some((section) => file.startsWith(`docs/${section}/`))) continue;
+    const index = file.endsWith(".fr.md") ? "docs/index.fr.md" : "docs/index.md";
+    if (!linked[index].has(file)) problems.push(`${file}: not linked from ${index}`);
+  }
+  return problems;
+}
+
+/** Light/dark image pairs and alt texts in the Markdown files (design-records/ and internal/ excepted). */
+export function checkImages(root, files = markdownFiles(root), singleTheme = SINGLE_THEME_IMAGES) {
+  const problems = [];
+  for (const file of files) {
+    if (file.startsWith("docs/design-records/") || file.startsWith("docs/internal/")) continue;
+    const path = join(root, file);
+    const lines = proseLines(readFileSync(path, "utf8")).map(stripInlineCode);
+    const text = lines.join("\n");
+    const lineOf = (offset) => text.slice(0, offset).split("\n").length;
+    const images = [];
+    for (const m of text.matchAll(/!\[((?:[^\]\\]|\\.)*)\]\(\s*(<[^>]*>|[^)\s]+)/g)) {
+      images.push({ target: m[2].replace(/^<|>$/g, ""), line: lineOf(m.index), alt: m[1] });
+    }
+    for (const m of text.matchAll(/<img\b[^>]*>/gi)) {
+      const tag = m[0];
+      const src = tag.match(/\ssrc=["']([^"']+)["']/i);
+      const alt = tag.match(/\salt=(?:"([^"]*)"|'([^']*)')/i);
+      images.push({ target: src ? src[1] : "", line: lineOf(m.index), alt: alt ? (alt[1] ?? alt[2]) : "" });
+    }
+    for (const m of text.matchAll(/<source\b[^>]*>/gi)) {
+      const srcset = m[0].match(/\ssrcset=["']([^"']+)["']/i);
+      if (!srcset) continue;
+      for (const candidate of srcset[1].split(",")) {
+        const url = candidate.trim().split(/\s+/)[0];
+        if (url) images.push({ target: url, line: lineOf(m.index), alt: null });
+      }
+    }
+    images.sort((a, b) => a.line - b.line);
+    for (const { target, line, alt } of images) {
+      if (alt !== null && alt.trim() === "") problems.push(`${file}:${line}: image without alt text`);
+      if (!target || isExternal(target)) continue;
+      let decoded = target.split("#")[0].split("?")[0];
+      try { decoded = decodeURIComponent(decoded); } catch { /* keep the raw text */ }
+      const pair = decoded.match(/^(.*)-(light|dark)(\.[A-Za-z0-9]+)$/);
+      if (!pair) continue;
+      const resolved = decoded.startsWith("/") ? join(root, decoded) : resolve(dirname(path), decoded);
+      const image = relative(root, resolved).split(sep).join("/");
+      if (singleTheme.has(image) || !existsSync(resolved)) continue;
+      const other = `${pair[1]}-${pair[2] === "light" ? "dark" : "light"}${pair[3]}`;
+      const otherResolved = decoded.startsWith("/") ? join(root, other) : resolve(dirname(path), other);
+      if (!existsSync(otherResolved)) problems.push(`${file}:${line}: ${image} has no ${relative(root, otherResolved).split(sep).join("/")}`);
+    }
+  }
+  return problems;
+}
+
+/** Warnings: pages under docs/ over MAX_PAGE_LINES lines, except pages with a generated region. */
+export function checkLength(root, files = markdownFiles(root)) {
+  const warnings = [];
+  for (const file of files) {
+    if (!hasTwin(file) || !file.startsWith("docs/")) continue;
+    const text = readFileSync(join(root, file), "utf8");
+    if (text.includes("<!-- BEGIN GENERATED:")) continue;
+    const count = text.split(/\r?\n/).length - (/\n$/.test(text) ? 1 : 0);
+    if (count > MAX_PAGE_LINES) warnings.push(`${file}: ${count} lines (over ${MAX_PAGE_LINES})`);
+  }
+  return warnings;
+}
+
 /** Tools the server registers that have no `### name` section in the tool reference. */
 export function checkToolsDocumented(root, toolNames, page = "docs/reference/mcp-tools.md") {
   const path = join(root, page);
@@ -201,6 +321,9 @@ export async function main(argv = process.argv.slice(2)) {
   const sections = [
     ["links and anchors", checkLinks(REPO_ROOT, files)],
     ["English/French pairs", checkPairs(REPO_ROOT, files)],
+    ["language-switch lines", checkSwitchLine(REPO_ROOT, files)],
+    ["portal reachability", checkReachable(REPO_ROOT, files)],
+    ["images (light/dark pairs, alt text)", checkImages(REPO_ROOT, files)],
   ];
   if (!argv.includes("--skip-generated")) sections.push(["MCP tools and generated pages", await checkGenerated()]);
   let total = 0;
@@ -209,7 +332,12 @@ export async function main(argv = process.argv.slice(2)) {
     process.stdout.write(`${problems.length === 0 ? "ok  " : "FAIL"} ${name}${problems.length ? ` (${problems.length})` : ""}\n`);
     for (const problem of problems) process.stdout.write(`  ${problem}\n`);
   }
-  process.stdout.write(`${files.length} Markdown files checked, ${total} problem(s)\n`);
+  const warnings = checkLength(REPO_ROOT, files);
+  if (warnings.length) {
+    process.stdout.write(`warn page length (${warnings.length})\n`);
+    for (const warning of warnings) process.stdout.write(`  ${warning}\n`);
+  }
+  process.stdout.write(`${files.length} Markdown files checked, ${total} problem(s), ${warnings.length} warning(s)\n`);
   return total === 0 ? 0 : 1;
 }
 
