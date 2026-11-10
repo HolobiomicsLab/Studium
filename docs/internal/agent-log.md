@@ -6,6 +6,32 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-10 — préparation de la version 0.4.0
+
+Demande propriétaire : « Oui, 0.4.0. […] Deal with the PR for dependabot. Deal with tableau de bord
+enseigant. » Branche `chore/2026-11-10-release-0.4.0`, qui réunit trois lots :
+
+- **Connexion enseignant du tableau de bord** (sous-agent Opus, relu par le lead) : code d'accès
+  `STUDIUM_DASHBOARD_ACCESS_CODE`, session signée (Web Crypto, aucune dépendance), middleware, décision
+  toujours soumise à la session ; lecteur d'approbation aligné sur `parseApproval` du serveur de leçons.
+  Deux assertions de `library.test.ts` changent (un enregistrement à date mal formée ou à lint en erreur
+  se lit « approved », comme sur le serveur). Essai dans un navigateur sur des dossiers jetables :
+  connexion, approbation et rejet de deux contributions synthétiques, déconnexion.
+- **Dépendances** (sous-agent Sonnet) : les neuf PR Dependabot essayées une à une. Retenus : groupes
+  mineurs npm et pip, moins KaTeX, Cytoscape, cytoscape-dagre, `@types/vscode` et `astra-tools`.
+  Refusés : bibtexparser 2, vega-lite 6, coverage-v8 5, plugin-react 6 (changements de code ou de
+  dépendances majeures). Différés : PyMuPDF 2.0 (nouvelles dépendances lourdes, licence de
+  `pymupdf-layout` non renseignée), wdio 10 et le groupe GitHub Actions (non exerçables ici).
+  `.github/dependabot.yml` exclut les bibliothèques mises à jour à la main.
+- **Version** : 0.4.0 dans l'extension, le serveur MCP, `lesson-panel-ui`, `CITATION.cff` et les README ;
+  la section « Unreleased » du CHANGELOG devient 0.4.0.
+
+Vérifié en local sur l'arbre réuni : build, tests TS par paquet, pilotes VS Code, lint, smoke MCP,
+docs, VSIX empaqueté et contrôlé, et les 16 suites Python dans un environnement neuf aux nouvelles
+versions. L'intégration continue GitHub ne tourne pas. Le tag reste la décision du propriétaire.
+
+---
+
 ## 2026-11-09 — préparation de la version 0.3.0
 
 Demande propriétaire : « Je voudrais avancer pour une release. » Branche
