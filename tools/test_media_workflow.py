@@ -311,3 +311,18 @@ def test_cli_prepares_without_provider_and_attaches_local_output(tmp_path: Path)
     ], text=True, capture_output=True)
     assert attached.returncode == 0, attached.stderr
     assert json.loads(attached.stdout)["output"] == str(output.resolve())
+
+
+def test_cli_prepare_twice_says_the_request_exists_and_how_to_start_again(tmp_path: Path) -> None:
+    """F9: a second prepare names what exists; there is no overwrite flag, so it says to delete, and changes nothing."""
+    activity = prepared_activity(tmp_path)
+    request_path = activity / "media-request.json"
+    command = [sys.executable, str(ROOT / "tools" / "media_workflow.py"), "prepare",
+               "--activity", str(activity), "--brief", str(brief(tmp_path)), "--out", str(request_path)]
+    assert subprocess.run(command, text=True, capture_output=True).returncode == 0
+    before = tree_hashes(activity)
+    again = subprocess.run(command, text=True, capture_output=True)
+    assert again.returncode == 1 and again.stdout == ""
+    assert "already prepared" in again.stderr and "already exists" in again.stderr and str(request_path.resolve()) in again.stderr
+    assert "delete" in again.stderr and "--force" not in again.stderr
+    assert tree_hashes(activity) == before

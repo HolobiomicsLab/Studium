@@ -81,6 +81,14 @@ export function responseFor(scene: Record<string, unknown>, isRun: boolean) {
       (kind === "confidence" ? "Replace the example value with the learner's own confidence (0–4)." : "Record optional confidence (0–4) only when supplied by the learner.") };
 }
 
+/** Audit 2026-11-10 D2: the canonical MCP call carrying the example, with the scene it answers, so a
+ * duplicate or late send is refused instead of answering the next scene. A run goes through
+ * submit_run_result, which takes no scene id. */
+function withCall<R extends { kind: string; example: Record<string, unknown> }>(response: R, sessionId: string, sceneId: string) {
+  if (response.kind === "run_result") return response;
+  return { ...response, call: { tool: "submit_response", arguments: { session_id: sessionId, expected_scene_id: sceneId, input: response.example } } };
+}
+
 function responseExample(kind: string): Record<string, unknown> {
   if (kind === "run_result") return RunResultSchema.parse({ ran: false, passed: false, artifacts: [], checks: [] });
   let example: Record<string, unknown> = { kind };
@@ -122,7 +130,7 @@ export function operatorContext(host: SessionHost, sessionId: string) {
           "Preserve scientific notation, quantities, numbers, units, code, identifiers, citations, and source links exactly. " +
           "Label translated quotations as translations and retain the original quotation.",
     },
-    response: responseFor(scene, run !== null),
+    response: withCall(responseFor(scene, run !== null), sessionId, String(scene.id)),
     authoring,
     exploration: {
       journal: {

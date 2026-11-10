@@ -78,7 +78,8 @@ par la conversation : l'assistant envoie `submit_response {input: {kind: "conte
 (`c-nombres-quantiques`)``). La réponse est `{contest: {concept_id, claim, questions}, presentation,
 display_markdown}` : une ligne qui annonce le contrôle et dit que la déclaration ne change rien, puis la
 première question de contrôle, dont la ligne d'état dit « contrôle 1/n ». Les réponses partent comme
-d'habitude, puis la leçon reprend où en était l'apprenant. Une déclaration que l'état ne prend pas, ou une
+d'habitude ; la réponse qui clôt le contrôle commence par son résultat, puis la leçon reprend où en était
+l'apprenant. Une déclaration que l'état ne prend pas, ou une
 seconde contestation en cours, est refusée en une ligne, celle de l'hôte. Avec le consentement à la
 télémétrie, l'acte est journalisé une fois : `interaction` avec `act: "contest"`, voie `companion`, rang 1.
 En formulaires, chaque formulaire de scène d'une leçon qui a une carte propose `map: true` ; le formulaire
@@ -97,7 +98,7 @@ Ce que le serveur garantit :
 - `end_session` ferme une leçon et conserve la progression. `forget_session {session_id}` efface la
   progression dans cette leçon ainsi que le profil commun à toutes les leçons et le calendrier de
   révisions de l'apprenant ; `forget_session {learner_id}` efface en plus la progression de toutes ses
-  leçons. Sa réponse dit ce qui a été effacé et ce qui reste sur le disque : les leçons de la
+  leçons ; `language` (fr|en) choisit la langue de sa réponse. Sa réponse dit ce qui a été effacé et ce qui reste sur le disque : les leçons de la
   bibliothèque de l'apprenant et leurs sources, qu'il supprime lui-même.
 - `create_lesson` écrit `<course_id>/lesson.json` dans la bibliothèque de l'apprenant
   (`<STUDIUM_HOME>/library`) après validation et lint, jamais dans `BUNDLES_ROOT` ; chaque citation doit

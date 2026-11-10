@@ -20,12 +20,17 @@ export const claimFor = (state: ConceptMapState): ContestClaim => (state === "ac
 
 /** The scenes a contest of `conceptId` asks, in the order asked: key-graded scenes of that concept in
  * lesson order, those not yet answered in this session first, the scene on screen left out (the learner
- * is about to answer it anyway). Empty when the lesson has none: the concept cannot be contested. */
+ * is about to answer it anyway). Audit 2026-11-10 A2 (C2): a scene whose key the learner was shown
+ * (`keyShown`, the lesson state's `reference_shown`) is no candidate — its answer would measure
+ * immediate memory; a scene merely answered, whose key was withheld, still is. Empty when none is
+ * left: the concept cannot be contested (contestOutcome says « partial » of a single question). */
 export function checkScenes(
-  bundle: Pick<LessonBundle, "scenes">, conceptId: string, session: { currentSceneId: string | null; answered: ReadonlySet<string> },
+  bundle: Pick<LessonBundle, "scenes">, conceptId: string,
+  session: { currentSceneId: string | null; answered: ReadonlySet<string>; keyShown?: ReadonlySet<string> },
 ): string[] {
   const candidates = bundle.scenes.filter((scene) => answerGraded(scene) && scene.concept_refs[0] === conceptId
-    && playableOutsideItsLesson(scene) && !isDiagnosticScene(bundle as LessonBundle, scene) && scene.id !== session.currentSceneId);
+    && playableOutsideItsLesson(scene) && !isDiagnosticScene(bundle as LessonBundle, scene) && scene.id !== session.currentSceneId
+    && !session.keyShown?.has(scene.id));
   const fresh = candidates.filter((scene) => !session.answered.has(scene.id));
   const seen = candidates.filter((scene) => session.answered.has(scene.id));
   return [...fresh, ...seen].slice(0, CONTEST_QUESTIONS).map((scene) => scene.id);

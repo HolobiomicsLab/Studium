@@ -176,11 +176,16 @@ export function graphAwareNextIndex(
    * over: asking again a question just answered right teaches nothing, and its reference has
    * been shown. Not reported as a skip: the scene was done. */
   answeredRight: ReadonlySet<string> = new Set(),
+  /** Audit 2026-11-10 A2 (C2): ids of scenes whose reference a verdict released to the learner
+   * (LearnerState `reference_shown`). None is served again as a graded question: one that lies ahead
+   * is passed over like a scene answered right, and a gate never remediates on one — with no other
+   * item of the prerequisite left, the gate is reported unassessable rather than passed from memory. */
+  referenceShown: ReadonlySet<string> = new Set(),
 ): GraphNavResult {
   const routingMastery: Mastery = { ...mastery };
   for (const conceptId of passedPrerequisites) routingMastery[conceptId] = 1;
-  const alreadyRight = (i: number): boolean =>
-    ANSWER_GRADED_TYPES.has(scenes[i]!.type ?? "") && answeredRight.has(scenes[i]!.id ?? "");
+  const alreadyRight = (i: number): boolean => referenceShown.has(scenes[i]!.id ?? "")
+    || (ANSWER_GRADED_TYPES.has(scenes[i]!.type ?? "") && answeredRight.has(scenes[i]!.id ?? ""));
   let candidate = currentIdx + 1;
   let skipped = false;
   while (candidate < scenes.length) {
@@ -213,9 +218,11 @@ export function graphAwareNextIndex(
     if ((prereqDetours[remedial] ?? 0) >= MAX_PREREQ_DETOURS) {
       return { index: candidate, reason: "gate_released", gated: candidate };
     }
-    const unseen = firstUnseenAnswerGradedSceneForConcept(scenes, remedial, new Set(seen));
-    const ri = unseen >= 0 ? unseen : firstAnswerGradedSceneForConcept(scenes, remedial);
+    const unseen = firstUnseenAnswerGradedSceneForConcept(scenes, remedial, new Set([...seen, ...referenceShown]));
+    const ri = unseen >= 0 ? unseen : firstUnseenAnswerGradedSceneForConcept(scenes, remedial, new Set(referenceShown));
     if (ri >= 0) return { index: ri, reason: "remediate", gated: candidate };
+    // An item of the prerequisite exists but its key was shown (C2): the same fact for the learner as
+    // none at all — no step of this lesson can revisit the concept now — so the same report below.
     // NO REMEDIAL SCENE AT ALL. The prerequisite is unmet and the lesson holds nothing this router
     // can send the learner back to, so the gate opens on the first try — without spending a detour
     // and, until INT-STUDIUM-037, without saying anything: this returned a plain "advance", which

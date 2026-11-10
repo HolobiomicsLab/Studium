@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  buildReviewInbox, canonicalJson, readLastReceipt, sceneFingerprint, sceneHoldsKey,
+  buildReviewInbox, scenePreview, canonicalJson, readLastReceipt, sceneFingerprint, sceneHoldsKey,
   REVIEW_RECEIPT_SCHEMA, type ReviewReceipt,
 } from "./review-inbox.js";
 
@@ -53,6 +53,20 @@ describe("sceneHoldsKey", () => {
     expect(sceneHoldsKey({ id: "x", type: "explain_back", key_points: [], model_explanation: "  " })).toBe(false);
     expect(sceneHoldsKey({ id: "x", type: "quiz", choices: [{ id: "a", text: "t", correct: false }] })).toBe(false);
     expect(sceneHoldsKey(null)).toBe(false);
+  });
+});
+
+describe("scenePreview of an ai_critique scene (D4)", () => {
+  const critique = {
+    id: "s5", type: "ai_critique", title: "Critique", rubric: { completeness: 1, evidence_quality: 1, tone: 1 },
+    claims: [{ id: "k1", text: "Le score prouve la méthode.", flaws_expected: ["causalité"] }, { id: "k2", text: "Deux groupes.", flaws_expected: [] }],
+  };
+  it("shows the claim text the learner will read, never the expected flaws", () => {
+    const preview = scenePreview(critique, "s5");
+    expect(preview.kind).toBe("ai_critique");
+    expect(preview.text).toContain("Le score prouve la méthode.");
+    expect(preview.text).toContain("Deux groupes.");
+    expect(JSON.stringify(preview)).not.toContain("causalité");
   });
 });
 

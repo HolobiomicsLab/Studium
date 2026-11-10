@@ -42,6 +42,10 @@ A Studium lesson is built from 13 scene types. This page tells you, for each one
 
 `spot_the_flaw` can present a *verdict deck*: the learner marks each claim as flawed or sound. The deck is scored against the key by identity, never by looking for words. It passes when at least 60 % of the planted flaws are caught and at least half of the sound claims are left unflagged, so flagging everything does not pass. When the scene is grounded in a real executed result, the deck also measures over-trust and over-distrust of an AI reading.
 
+### What the learner reads in an AI critique
+
+An `ai_critique` scene shows the learner its claims, numbered, in the conversation, the panel and the file channel: the claim text is the only thing to critique. Only `id` and `text` of each claim cross to the learner side. The flaws the author expected (`flaws_expected`) stay with the key and appear only in the verdict, as `flawed_claims`. No claim is marked as flawed or sound beforehand.
+
 ### Free-text answers
 
 `ai_critique`, `explain_back`, `comparison`, `summary_audit`, `prompt_practice`, `communication_sim` and the free-text form of `spot_the_flaw` are compared with authored key points or planted flaws.

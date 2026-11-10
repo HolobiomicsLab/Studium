@@ -5,6 +5,7 @@ import {
 } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
+import { phrase } from "../../../packages/lesson-panel/src/phrases.js";
 
 export type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
 type ReinforcementStatus = Awaited<ReturnType<SessionHost["reinforcementStatusForSession"]>>;
@@ -52,8 +53,13 @@ export const CONVERSATION = (act: InteractionAct, surfaceRank: SurfaceRank = 1):
  * (« (proposition review_due:start) »). The assistant relays the learner's yes or « later » as this
  * input; the learner never types it. */
 export const PromptAnswerSchema = z.object({
-  kind: z.literal("prompt"), id: z.string().min(1), outcome: z.enum(["accepted", "dismissed"]),
+  // Audit 2026-11-10, difficulty 5: the panel's spelling (accept | dismiss) is taken too, kept as
+  // accepted | dismissed; any other word is refused naming the two this route keeps.
+  kind: z.literal("prompt"), id: z.string().min(1),
+  outcome: z.preprocess((v) => (v === "accept" ? "accepted" : v === "dismiss" ? "dismissed" : v), z.enum(["accepted", "dismissed"])),
 }).strict();
+
+
 
 /** INT-STUDIUM-058 lot 4: the learner's own declaration on a concept of the map, which the conversation
  * relays: « je connais déjà cette notion » (`known`, a concept not acquired) or « j'ai un doute sur
@@ -84,15 +90,16 @@ const NEXT_CALL: Record<string, string> = {
 export async function answerPrompt(
   host: SessionHost, sessionId: string, answer: z.infer<typeof PromptAnswerSchema>, surfaceRank: SurfaceRank = 1,
 ): Promise<Record<string, unknown>> {
-  const record = await host.settleAct(sessionId, CONVERSATION("prompt", surfaceRank), () => host.settlePrompt(sessionId, answer.id, answer.outcome));
+  const outcome = answer.outcome;
+  const record = await host.settleAct(sessionId, CONVERSATION("prompt", surfaceRank), () => host.settlePrompt(sessionId, answer.id, outcome));
   // The lesson's own language, as its screens are written; read without serving a screen, which would
   // count as said a proposal still to say.
   const locale = host.sessionLanguage(sessionId).source_language.toLowerCase().startsWith("en") ? "en" : "fr";
-  const next = answer.outcome === "accepted" ? NEXT_CALL[record.kind] : undefined;
+  const next = outcome === "accepted" ? NEXT_CALL[record.kind] : undefined;
   return {
     prompt: { id: record.id, kind: record.kind, outcome: record.outcome },
     ...(next ? { next_call: { tool: next } } : {}),
-    display_markdown: promptAnswerMarkdown(record.kind, answer.outcome, locale),
+    display_markdown: promptAnswerMarkdown(record.kind, outcome, locale),
   };
 }
 
@@ -114,6 +121,21 @@ export async function contestFromConversation(
     presentation,
     display_markdown: [contestOpenedMarkdown(title, started.questions, locale), presentation.display_markdown].join("\n\n"),
   };
+}
+
+/** Audit 2026-11-10 D8: the answer that settles a contest opens with its outcome, in the panel's own
+ * words (pane_map_outcome_*), and how many check answers were right. */
+type ServedContest = { outcome?: string; results?: boolean[] };
+export function withContestOutcome(transition: Record<string, unknown>, sourceLanguage: string): Record<string, unknown> {
+  const contest = transition["contest"] as ServedContest | undefined;
+  const outcome = contest?.outcome;
+  if (outcome !== "confirmed" && outcome !== "refuted" && outcome !== "partial") return transition;
+  const shown = (transition["presentation"] as { locale?: string } | undefined)?.locale ?? sourceLanguage;
+  const locale = shown.toLowerCase().startsWith("en") ? "en" : "fr";
+  const results = contest?.results ?? [];
+  const line = `${phrase(`pane_map_outcome_${outcome}`, {}, locale)} (${results.filter(Boolean).length}/${results.length}).`;
+  const text = transition["display_markdown"];
+  return { ...transition, display_markdown: typeof text === "string" && text ? `${line}\n\n${text}` : line };
 }
 
 export const TOOL_NAMES = [
@@ -259,6 +281,8 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     "start_lesson_session",
     {
       description: "Start or resume a lesson session and report whether it is new, resumed, or completed. " +
+        "When the learner already has this lesson open in this server, the same session_id is returned where it was, " +
+        "with resume.kind already_open and a display_markdown that opens with a line saying so. " +
         "A completed lesson starts at scene zero as a retake and includes due profile-backed review targets. " +
         "The authoring block (also on every presentation) says who wrote the lesson; when authoring.notice " +
         "is set (a self-authored lesson), show it to the learner. " +
@@ -309,8 +333,12 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   server.registerTool(
     "submit_response",
     {
-      description: "Submit a response to the current scene: {session_id, input}. In a chat, send the learner's own " +
-        "words as input {kind:\"reply\", text}, that is submit_response {session_id, input: {kind:\"reply\", text}}: " +
+      description: "Submit a response to the current scene: {session_id, expected_scene_id, input}. Pass expected_scene_id, " +
+        "the id of the scene the learner was answering (presentation.scene.id of the screen you showed them): when another " +
+        "scene is on screen (a duplicate send, a late answer) the call is refused in one line and changes nothing; read the " +
+        "current scene, then send the learner's answer to it. A reading scene (intro, concept) takes {kind:\"ack\"} or the " +
+        "learner's words; another typed answer there is refused. In a chat, send the learner's own " +
+        "words as input {kind:\"reply\", text}, that is submit_response {session_id, expected_scene_id, input: {kind:\"reply\", text}}: " +
         "Studium maps them to the scene's answer (a choice letter, alone or followed by the learner's reason, or " +
         "the choice text; a confidence; a free-text answer) and refuses a reply naming two choices. A scene " +
         "carrying run_manifest requires " +
@@ -327,7 +355,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         "diagrams may render concept_map.mermaid in place of the list. A screen may end with a proposal (a review " +
         "due, the map, forms) that names itself, e.g. (proposition review_due:start): when the learner accepts it or " +
         "says « later », send submit_response {session_id, input: {kind:\"prompt\", id:\"<id>\", outcome:\"accepted\"|" +
-        "\"dismissed\"}}. It answers nothing on the scene; it returns {prompt, next_call?, display_markdown}: show " +
+        "\"dismissed\"}} (accept and dismiss are taken too). It answers nothing on the scene; it returns {prompt, next_call?, display_markdown}: show " +
         "display_markdown, then make next_call (start_review_session takes the same learner_id) when there is one. " +
         "When the learner says they already know a concept of the map (« je connais déjà cette notion ») or doubt " +
         "one they got (« j'ai un doute sur celle-ci »), relay it as submit_response {session_id, input: {kind:\"contest\", " +
@@ -335,15 +363,26 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         "known for a concept not acquired, unsure for an acquired one. The claim changes no mastery and skips no scene: " +
         "the lesson asks check questions on that concept (two, or one), graded as any answer, then resumes where the " +
         "learner was. It returns {contest: {concept_id, claim, questions}, presentation, display_markdown}: show " +
-        "display_markdown (a line saying the check, then the first question) and send the answers as usual. A contest " +
+        "display_markdown (a line saying the check, then the first question) and send the answers as usual; the answer that " +
+        "ends the check carries transition.contest, and its display_markdown opens with the outcome. A contest " +
         "the state does not take, or made while another is under way, is refused in one line. Never contest for the learner.",
-      inputSchema: { session_id: z.string(), input: SubmitInputSchema },
+      inputSchema: {
+        session_id: z.string(),
+        expected_scene_id: z.string().min(1).optional()
+          .describe("The id of the scene the learner was answering; refused in one line when another scene is on screen."),
+        input: SubmitInputSchema,
+      },
     },
-    async ({ session_id, input }) => {
+    async ({ session_id, expected_scene_id, input }) => {
       try {
+        // A proposal and a contest answer no scene: expected_scene_id is checked on an answer (D2).
         if (input.kind === "prompt") return text(await answerPrompt(host, session_id, input as z.infer<typeof PromptAnswerSchema>, rankOf(session_id)));
         if (input.kind === "contest") return text(await contestFromConversation(host, session_id, input as z.infer<typeof ContestInputSchema>, surface().promptSurface, rankOf(session_id)));
-        return text({ transition: publicTransition(await host.settleAct(session_id, CONVERSATION("respond", rankOf(session_id)), () => host.respond(session_id, input as ResponseInput, "companion", surface()))) });
+        const served = await host.settleAct(session_id, CONVERSATION("respond", rankOf(session_id)), () => host.respond(session_id, input as ResponseInput, "companion", {
+          ...surface(), ...(expected_scene_id === undefined ? {} : { expectedSceneId: expected_scene_id }),
+        }));
+        const transition = withContestOutcome(publicTransition(served) as Record<string, unknown>, host.sessionLanguage(session_id).source_language);
+        return text({ transition });
       }
       catch (e) { return fail((e as Error).message); }
     },
@@ -552,13 +591,17 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         "learner_id (no live session needed): every lesson's progress too, and the learner's live sessions close. " +
         "Returns {forgotten, scope: lesson|learner, erased: [{kind, lessons?}], kept: [{kind, lessons?, path?}], " +
         "display_markdown}: kept names what stays on disk (the library's lessons and their sources); show " +
-        "display_markdown to the learner. To merely close, use end_session.",
-      inputSchema: { session_id: z.string().min(1).optional(), learner_id: z.string().min(1).max(200).optional() },
+        "display_markdown to the learner. language (fr|en), optional, is the language of display_markdown; by default " +
+        "the lesson's with session_id, else the learner's last lesson's, else the server's. To merely close, use end_session.",
+      inputSchema: {
+        session_id: z.string().min(1).optional(), learner_id: z.string().min(1).max(200).optional(),
+        language: z.enum(["fr", "en"], { errorMap: () => ({ message: "language must be fr or en" }) }).optional(),
+      },
     },
-    async ({ session_id, learner_id }) => {
+    async ({ session_id, learner_id, language }) => {
       try {
         if ((session_id === undefined) === (learner_id === undefined)) return fail("pass exactly one of session_id or learner_id");
-        return text(session_id !== undefined ? await host.forget(session_id) : await host.forgetLearner(learner_id));
+        return text(session_id !== undefined ? await host.forget(session_id, language) : await host.forgetLearner(learner_id, language));
       }
       catch (e) { return fail((e as Error).message); }
     },

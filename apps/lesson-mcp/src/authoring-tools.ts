@@ -76,7 +76,7 @@ export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsCon
       "kind is document (default) or conversation, for an excerpt of an exchange with an AI assistant: the lesson then " +
       "tells the learner that what the assistant asserted there was not checked. " +
       "Returns {source_set_id, passages: [{id, source_id, text}], dropped_short, guide_ref}: every quote of the draft " +
-      "must be copied exactly from one of these passages. Errors: {ok: false, errors: [{path, message, hint}]}.",
+      "must be copied exactly from one of these passages. A source that is an HTML page is refused: pass its text. Errors: {ok: false, errors: [{path, message, hint}]}.",
     inputSchema: {
       sources: z.array(z.object({
         title: z.string(), text: z.string(), url: z.string().optional(), license: z.string().optional(),

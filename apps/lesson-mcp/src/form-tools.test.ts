@@ -207,3 +207,13 @@ describe("play_in_forms", () => {
     expect(res.content[0]!.text).toContain("session");
   });
 });
+
+describe("play_in_forms: the options say what they are (audit 2026-11-10 B13)", () => {
+  it("a quiz form shows each choice's text beside the id it sends", async () => {
+    const { call, forms, session_id } = await play([quiz("q1")], [choose("Juste")]);
+    await call("play_in_forms", { session_id });
+    const choice = forms[0]!.requestedSchema.properties.choice;
+    expect(choice.enum).toEqual(["a", "b"]);
+    expect(choice.enumNames).toEqual(["a) Juste", "b) Faux"]);
+  });
+});
