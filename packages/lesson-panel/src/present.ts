@@ -24,10 +24,17 @@ export function assertPublicContent(value: unknown): void {
   }
 }
 
-function projectScene(scene: Payload): PublicScene {
+function projectScene(scene: Payload, locale: "fr" | "en"): PublicScene {
   // A transport may already have projected its verdict deck.
   const projected = publicScene({ ...scene, ...(scene.deck && !scene.claims ? { verdict_deck: false } : {}) } as never) as Payload;
   if (scene.deck && !scene.claims) projected.verdict_deck = scene.verdict_deck;
+  // An ai_critique scene has no field of its own for the claims, and the pane already draws `markdown`:
+  // the claims the learner critiques go there, numbered, under their label.
+  if (projected.type === "ai_critique" && Array.isArray(projected.claims_to_critique) && !projected.markdown) {
+    const texts = projected.claims_to_critique.flatMap((c: unknown) =>
+      c && typeof c === "object" && typeof (c as { text?: unknown }).text === "string" ? [(c as { text: string }).text] : []);
+    if (texts.length) projected.markdown = `**${phrase("pane_ai_claims", {}, locale)}**\n\n${texts.map((t: string, i: number) => `${i + 1}. ${t}`).join("\n")}`;
+  }
   assertPublicContent(projected);
   return PublicSceneSchema.parse(projected);
 }
@@ -52,6 +59,7 @@ function baseView(ctx: PanelContext, presentation: Payload): PanelView {
   return {
     schema: PANEL_VIEW_SCHEMA_V1, kind: "scene", session_id: ctx.sessionId, learner_id: ctx.learnerId,
     bundle_ref: ctx.bundleRef, lesson_title: ctx.lessonTitle, locale, strings: browserPhrases(locale),
+    ...(ctx.contentLanguage ? { content_language: ctx.contentLanguage } : {}),
     progress: { index: (presentation.index ?? 0) + 1, total: presentation.total ?? ctx.lastView?.progress.total ?? 0 },
     scene_assets: [], modalityPreference: ctx.modalityPreference ?? "balanced", reviewDue: [], calibration: [],
     mastery: ctx.showMastery ? presentation.learnerSnapshot?.conceptMastery ?? {} : {},
@@ -63,7 +71,7 @@ function baseView(ctx: PanelContext, presentation: Payload): PanelView {
 async function sceneView(backend: PanelBackend, ctx: PanelContext): Promise<PanelView> {
   const presentation = await backend.getCurrentScene(ctx.sessionId);
   const view = baseView(ctx, presentation);
-  view.scene = projectScene(presentation.scene);
+  view.scene = projectScene(presentation.scene, view.locale);
   const assets = await backend.getSceneArtifacts(ctx.sessionId);
   assertPublicContent(assets);
   view.scene_assets = selectRenderOrder(await Promise.all(assets.map(asset =>
@@ -144,6 +152,11 @@ export async function presentPanel(backend: PanelBackend, ctx: PanelContext): Pr
     const served = backend.getPrompts ? await backend.getPrompts(ctx.sessionId, { attention, surface, locale: view.locale }) : [];
     const prompts = [...served.flatMap(prompt => promptOf(prompt, view.locale)), ...(ctx.prompts ?? [])];
     Object.assign(view, placed, { schema: PANEL_VIEW_SCHEMA, prompts, attention, surface });
+    // A4: on a prerequisite detour, the main-path step the learner is at, for the progress rail.
+    const { detour, main } = placed.orientation.step;
+    if (view.kind === "scene" && detour && main) {
+      view.progress.detour = { returns_to_scene_id: detour.returns_to, returns_to_title: main.title, returns_to_index: main.index };
+    }
     if (prompts.some(prompt => prompt.actions.some(offered => offered.action.type === "prompt"))) view.actions.push("prompt");
     // What a placed learner can do on any scene without a model turn (applyPanelAction).
     if (view.kind === "scene") view.actions.push("ask", "setLanguage", "setAttention", "replan");

@@ -95,8 +95,11 @@ export function buildHostDeps(live: boolean, scopeDir?: string, clock?: Clock, i
   // Consented telemetry: durable mode + explicit opt-in → write the pseudonymized ADR-006 event
   // stream to telemetry.jsonl under the per-learner scope dir (a teacher's class_report aggregates
   // it). Otherwise the in-memory sink (nothing persisted) — the privacy-preserving default.
+  // A new stream opens with `consent_granted` scope B (ADR 006: pedagogical telemetry for the
+  // teacher), the proof tools/interaction_report.py requires. What it asserts is what is true here:
+  // the operator declared consent through STUDIUM_TELEMETRY_CONSENT; no learner clicked anything.
   const telemetry = durable && telemetryConsentGranted()
-    ? new JsonlTelemetrySink(join(scopeDir, "telemetry.jsonl"))
+    ? new JsonlTelemetrySink(join(scopeDir, "telemetry.jsonl"), { consentScope: "B" })
     : new InMemoryTelemetrySink();
   return {
     stateStore: durable ? new FileStateStore(scopeDir) : new InMemoryStateStore(),

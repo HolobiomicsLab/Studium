@@ -109,6 +109,10 @@ class Population:
             self._per_lesson[lesson] |= ids
         self.unknown_identity = self.unknown_identity or other.unknown_identity
 
+    def members(self) -> set[tuple[str, str]]:
+        """Every `(lesson, identity)` pair counted."""
+        return {(lesson, i) for lesson, ids in self._per_lesson.items() for i in ids}
+
     @property
     def n_lessons(self) -> int:
         return len(self._per_lesson)
@@ -152,6 +156,20 @@ class Population:
         return {"cohort_band": cohort_band(self.size, floor),
                 "cohort_counts": self.counts_note,
                 "non_attribution": NON_ATTRIBUTION}
+
+
+def learner_completion_rate(started: Population, completed: Population) -> float | None:
+    """Completion: distinct learners who completed over distinct learners who started, a learner
+    being the `(lesson, identity)` pair the floor counts. A resumed learner writes
+    `lesson_started` twice, so counting events read a learner who resumed and finished as one
+    completion out of two starts (audit 2026-11-10); a second start or completion from the same
+    learner on the same lesson now changes nothing. A completion with no start in the data is
+    not counted, so the figure stays in [0, 1]. `None` when nobody started. The MCP class report
+    (apps/lesson-mcp/src/teacher-tools.ts) applies the same definition; keep the two in step."""
+    starters = started.members()
+    if not starters:
+        return None
+    return round(len(starters & completed.members()) / len(starters), 3)
 
 
 def cohort_state(

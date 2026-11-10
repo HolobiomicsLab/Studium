@@ -1,0 +1,183 @@
+{
+  "status": "ok",
+  "n_learners": 5,
+  "n_learner_lesson_pairs": null,
+  "n_lessons": 1,
+  "n_streams": 5,
+  "identity_rule": "pseudonym",
+  "identity_rule_note": "distinct learner_pseudonym per lesson \u2014 the durable host layout (data/<pseudonym>/<bundle_id>/telemetry.jsonl). A pseudonym is HMAC(learnerId:lessonId), so these are people within one lesson",
+  "cohort_counts": "distinct learners within one lesson",
+  "lesson_scope": "as named by the events (lesson_id)",
+  "completion_rate": 1.0,
+  "completion_cohort": {
+    "cohort_band": "5\u20139",
+    "cohort_counts": "distinct learners within one lesson",
+    "non_attribution": "class-level reading over the contributors this family names, and not a statement about any student: it describes how a group judged, and no control on this surface narrows it to a person"
+  },
+  "mean_autonomy": 0.718,
+  "autonomy_cohort": {
+    "cohort_band": "5\u20139",
+    "cohort_counts": "distinct learners within one lesson",
+    "non_attribution": "class-level reading over the contributors this family names, and not a statement about any student: it describes how a group judged, and no control on this surface narrows it to a person"
+  },
+  "universe_escalations": 0,
+  "top_adaptation_rules": [
+    [
+      "rule_2err_replay_concept",
+      62
+    ],
+    [
+      "graph_prereq_gate_released",
+      27
+    ],
+    [
+      "graph_prereq_gate",
+      21
+    ],
+    [
+      "replay_budget_exhausted",
+      21
+    ],
+    [
+      "graph_prereq_gate_passed",
+      20
+    ]
+  ],
+  "concepts": [
+    {
+      "concept": "c-configuration",
+      "n_attempts": 28,
+      "n_measured": 20,
+      "accuracy": 0.35,
+      "hint_reliance": 0.4,
+      "calibration_gap": null,
+      "overconfidence_rate": null,
+      "mean_time_s": 0.0,
+      "withheld_figures": [],
+      "cohort_band": "5\u20139"
+    },
+    {
+      "concept": "c-nombres-quantiques",
+      "n_attempts": 20,
+      "n_measured": 20,
+      "accuracy": 0.35,
+      "hint_reliance": 0.4,
+      "calibration_gap": null,
+      "overconfidence_rate": null,
+      "mean_time_s": 0.0,
+      "withheld_figures": [],
+      "cohort_band": "5\u20139"
+    },
+    {
+      "concept": "c-particules",
+      "n_attempts": 25,
+      "n_measured": 20,
+      "accuracy": 0.35,
+      "hint_reliance": 0.4,
+      "calibration_gap": null,
+      "overconfidence_rate": null,
+      "mean_time_s": 0.0,
+      "withheld_figures": [],
+      "cohort_band": "5\u20139"
+    },
+    {
+      "concept": "c-remplissage",
+      "n_attempts": 35,
+      "n_measured": 20,
+      "accuracy": 0.35,
+      "hint_reliance": 0.4,
+      "calibration_gap": null,
+      "overconfidence_rate": null,
+      "mean_time_s": 0.0,
+      "withheld_figures": [],
+      "cohort_band": "5\u20139"
+    },
+    {
+      "concept": "c-spectres",
+      "n_attempts": 22,
+      "n_measured": 17,
+      "accuracy": 0.353,
+      "hint_reliance": 0.4,
+      "calibration_gap": null,
+      "overconfidence_rate": null,
+      "mean_time_s": 0.0,
+      "withheld_figures": [],
+      "cohort_band": "5\u20139"
+    },
+    {
+      "concept": "c-orbitales-formes",
+      "n_attempts": 30,
+      "n_measured": 15,
+      "accuracy": 0.467,
+      "hint_reliance": 0.4,
+      "calibration_gap": null,
+      "overconfidence_rate": null,
+      "mean_time_s": 0.0,
+      "withheld_figures": [],
+      "cohort_band": "5\u20139"
+    },
+    {
+      "concept": "c-periodicite",
+      "n_attempts": 5,
+      "n_measured": 5,
+      "accuracy": 0.6,
+      "hint_reliance": 0.4,
+      "calibration_gap": null,
+      "overconfidence_rate": null,
+      "mean_time_s": 0.0,
+      "withheld_figures": [],
+      "cohort_band": "5\u20139"
+    }
+  ],
+  "withheld_below_floor": false,
+  "reteach_priority": [
+    "c-configuration",
+    "c-nombres-quantiques",
+    "c-particules",
+    "c-remplissage",
+    "c-spectres"
+  ],
+  "trust_calibration": {
+    "measured": true,
+    "n_scenes": 3,
+    "gap": 0.933,
+    "band": "sur",
+    "scenes": [
+      {
+        "scene": "c-particules",
+        "gap": 1.0,
+        "over_trust": 1.0,
+        "over_distrust": null,
+        "planted": 15,
+        "missed": 15,
+        "false_positives": 0,
+        "cohort_band": "5\u20139"
+      },
+      {
+        "scene": "c-spectres",
+        "gap": 0.8,
+        "over_trust": 0.8,
+        "over_distrust": null,
+        "planted": 25,
+        "missed": 20,
+        "false_positives": 0,
+        "cohort_band": "5\u20139"
+      },
+      {
+        "scene": "c-remplissage",
+        "gap": 1.0,
+        "over_trust": 1.0,
+        "over_distrust": null,
+        "planted": 10,
+        "missed": 10,
+        "false_positives": 0,
+        "cohort_band": "5\u20139"
+      }
+    ],
+    "withheld_below_floor": false,
+    "cohort_band": "5\u20139",
+    "cohort_counts": "distinct learners within one lesson",
+    "non_attribution": "class-level reading over the contributors this family names, and not a statement about any student: it describes how a group judged, and no control on this surface narrows it to a person"
+  },
+  "non_attribution": "class-level reading over the contributors this family names, and not a statement about any student: it describes how a group judged, and no control on this surface narrows it to a person"
+}

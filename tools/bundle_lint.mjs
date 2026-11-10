@@ -13,6 +13,13 @@
 // "TODO:") is an ERROR unfilled_placeholder.
 // A lesson with two concepts or more warns (concept_few_recall_questions) for each concept that has
 // fewer than two key-graded recall questions: a learner who contests it cannot be asked two.
+// A concept that a prerequisite gate or a contest can target, with exactly one scene that gate or
+// contest can ask, warns (concept_not_recheckable): once that scene's key has been shown to the learner
+// it is never asked again as a graded question (the lesson state's reference_shown), so the concept
+// cannot be re-checked in the lesson.
+//
+// A scene that takes a graded answer (quiz, spot_the_flaw, ai_critique, explain_back, comparison, summary_audit,
+// prompt_practice, communication_sim) with empty concept_refs warns (scene_reaches_no_concept): no mastery moves there. The wording is that of `experience_packet.py check`.
 //
 // Exit 0 means no ERROR findings; WARN and INFO findings do not fail the run.
 //
@@ -560,6 +567,48 @@ function recallQuestionFindings(bundle) {
   });
 }
 
+/** A scene whose answer can move a concept's mastery but that reaches no concept (F3). Same wording as
+ * `experience_packet.py check`, narrower scope: only the types that take a graded answer, i.e. a quiz or one
+ * of the free-text kinds (FREE_TEXT_KIND, packages/lesson-session-host/src/operator-context.ts:38-46). Reading
+ * scenes (intro, concept), a confidence tap, a discussion (turns, session.ts:924) and a reproduction
+ * acknowledgement move no mastery, so a missing concept there says nothing. `check` warns on every scene
+ * but intro and meta_checkpoint. */
+const MASTERY_SCENE_TYPES = new Set([
+  "quiz", "spot_the_flaw", "ai_critique", "explain_back", "comparison", "summary_audit", "prompt_practice", "communication_sim",
+]);
+function sceneConceptFindings(bundle) {
+  const scenes = Array.isArray(bundle.scenes) ? bundle.scenes : [];
+  return scenes.flatMap((scene, index) => {
+    if (!isRecord(scene) || !MASTERY_SCENE_TYPES.has(scene.type) || !isStringArray(scene.concept_refs)) return [];
+    if (scene.concept_refs.length > 0) return [];
+    const id = typeof scene.id === "string" && scene.id !== "" ? scene.id : `#${index}`;
+    return [finding("WARN", "scene_reaches_no_concept",
+      `scene '${id}' reaches no concept; a scene without a concept moves no mastery`)];
+  });
+}
+
+/** Audit 2026-11-10 A2 (C2): a scene whose key the learner was shown is never asked again as a graded
+ * question — not by a prerequisite gate's remediation, not as a contest's check question. A concept that
+ * either can target and that has a single such scene can therefore be checked once only: after its key
+ * is shown, the gate opens as unassessable and a contest cannot be checked. A concept with none is
+ * already reported (lwg_prereq_unassessable, concept_few_recall_questions). */
+function recheckFindings(bundle) {
+  const scenes = Array.isArray(bundle.scenes) ? bundle.scenes.filter(isRecord) : [];
+  const parts = graphParts(bundle);
+  const gateTargets = new Set(parts ? validPrerequisiteEdges(parts).map((edge) => edge.target.replace(/^concept:/, "")) : []);
+  const concepts = Array.isArray(bundle.concepts) ? bundle.concepts.filter((c) => isRecord(c) && typeof c.id === "string") : [];
+  const contestable = concepts.length >= 2;
+  return concepts.flatMap((concept) => {
+    const roles = [];
+    if (gateTargets.has(concept.id) && answerGradedScenes(scenes, `concept:${concept.id}`).length === 1) roles.push("a prerequisite gate");
+    const recall = scenes.filter((scene) => isRecallQuestion(scene) && Array.isArray(scene.concept_refs) && scene.concept_refs[0] === concept.id);
+    if (contestable && recall.length === 1) roles.push("a contest");
+    if (roles.length === 0) return [];
+    return [finding("WARN", "concept_not_recheckable",
+      `${concept.id} has a single key-graded scene that ${roles.join(" or ")} can ask: once its key is shown to the learner it is not asked again, so the concept cannot be re-checked in this lesson; add a second key-graded scene`)];
+  });
+}
+
 /** `todo-*` stays allowed in identifier fields (`id`, `*_id`, `*_ids`), never in visible prose. */
 function isAllowedPlaceholderId(value, key) {
   const isIdentifier = key === "id" || (typeof key === "string" && (key.endsWith("_id") || key.endsWith("_ids")));
@@ -694,6 +743,8 @@ export function lintBundleData(bundle, { bundleDir, name = BUNDLE_FILENAME }) {
     ...flawReport.findings,
     ...graphFindings(bundle),
     ...recallQuestionFindings(bundle),
+    ...sceneConceptFindings(bundle),
+    ...recheckFindings(bundle),
     ...unfilledPlaceholderFindings(bundle),
     ...authoringFindings(bundle),
   ]);

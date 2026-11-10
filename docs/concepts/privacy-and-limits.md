@@ -27,7 +27,7 @@ Inside the data folder, each learner has a folder named by a pseudonym, never by
 | `<pseudonym>/<lesson>/state-<lesson>.json` | lesson state and mastery |
 | `<pseudonym>/<lesson>/events.jsonl` | the session's event log |
 | `<pseudonym>/<lesson>/mastery/*.jsonld` | mastery claims, when a concept is certified |
-| `<pseudonym>/<lesson>/telemetry.jsonl` | only with telemetry consent |
+| `<pseudonym>/<lesson>/telemetry.jsonl` | only with telemetry consent; written as the learner acts, opened by a record of the consent declared through `STUDIUM_TELEMETRY_CONSENT` |
 
 With `STUDIUM_EPHEMERAL=1` and no `STUDIUM_DATA_DIR`, progress is lost when the server stops, and `get_server_info` and `start_lesson_session` say so.
 

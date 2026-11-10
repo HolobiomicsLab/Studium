@@ -103,7 +103,11 @@ règle), `prompt_shown` et `prompt_outcome`, `help_used`, `contest`, `resume` et
   rapport dit combien de leçons ont été entièrement ouvertes et combien ont été approuvées ou renvoyées.
 
 Chaque chiffre garde le même seuil de cinq apprenants distincts, qui ici ne peut pas être abaissé, et un
-flux sans événement de consentement enregistré est refusé et compté, pas lu. Ce que fait chaque
+flux sans événement de consentement enregistré est refusé et compté, pas lu. Le serveur ouvre désormais
+chaque flux par cet événement, qui enregistre le consentement déclaré par `STUDIUM_TELEMETRY_CONSENT`, et
+écrit chaque événement au fil des actes de l'apprenant : un flux écrit avant cette version ne porte pas
+d'événement de consentement et n'est pas compté, et un apprenant qui a commencé une leçon sans la finir
+compte désormais comme l'ayant commencée dans le taux d'achèvement. Ce que fait chaque
 proposition, ce que signifie chaque barreau d'aide et les champs exacts sont dans
 [Outils en ligne de commande](../reference/cli.fr.md#interaction_reportpy) et le
 [README de telemetry-events](../../packages/telemetry-events/README.fr.md), plutôt que répétés ici.

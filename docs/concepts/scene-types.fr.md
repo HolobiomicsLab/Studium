@@ -42,6 +42,10 @@ Le *juge* est un modèle configuré sur le serveur (`LITELLM_BASE_URL`). Les cla
 
 `spot_the_flaw` peut présenter un *jeu de verdicts* : l'apprenant marque chaque affirmation comme fautive ou correcte. Le jeu est comparé à la clé élément par élément, jamais en cherchant des mots. Il est réussi quand au moins 60 % des défauts placés sont repérés et qu'au moins la moitié des affirmations correctes ne sont pas signalées : tout signaler ne suffit donc pas. Quand la scène s'appuie sur un résultat réellement exécuté, le jeu mesure aussi l'excès de confiance ou de méfiance envers une lecture faite par l'IA.
 
+### Ce que l'apprenant lit dans une critique d'IA
+
+Une scène `ai_critique` montre à l'apprenant ses affirmations, numérotées, dans la conversation, le panneau et le canal de fichiers : le texte des affirmations est la seule chose à critiquer. Seuls `id` et `text` de chaque affirmation passent du côté de l'apprenant. Les défauts attendus par l'auteur (`flaws_expected`) restent avec la clé et n'apparaissent que dans le verdict, sous `flawed_claims`. Aucune affirmation n'est marquée fautive ou correcte à l'avance.
+
 ### Réponses rédigées
 
 `ai_critique`, `explain_back`, `comparison`, `summary_audit`, `prompt_practice`, `communication_sim` et la forme rédigée de `spot_the_flaw` sont comparés à des points clés ou à des défauts placés par l'auteur.

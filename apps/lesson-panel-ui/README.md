@@ -8,18 +8,34 @@ answers or reads learner files.
 `src/artifact-pane.js` exports `renderView`, including full-state hint, discussion, rating and
 completion replay. The classic build preserves the older message protocol for existing drivers.
 
-For a version-2 view the lesson renderer also shows: an orientation line over the progress rail (the
-view's `status_line`; the rail keeps its segments and drops its own label, so the step is said once); who
-signs the lesson, over the scene, and who assessed the answer, over a verdict (a key verdict says whose
-key: the AI-drafted key, the key the learner wrote, or the author's key for a teacher's lesson); the help ladder under the
-answer controls, one button per rung, each with its cost or the reason it is closed; and « Ask a question »,
-which sends the `ask` action. A closed rung is `aria-disabled`, not `disabled`: it takes the keyboard focus,
-so its reason can be read, and pressing it sends nothing. Last comes a « Settings » region, drawn from the
-actions the view offers and nothing else: « Quiet », « Normal », « Coached » (`setAttention`, the view's
+For a version-2 view the lesson renderer draws, from top to bottom: one session line built from the view's
+`orientation` (step, contest check, detour and where it returns, minutes left, reviews due), beside the
+« ⋯ » menu, with the view's `status_line` as the text a screen reader reads; the progress rail, which follows
+the server's step (a detour keeps the step it returns to, or the last step on the path, and is marked);
+the scene's type and a short chip for who signs the lesson, which opens to the full sentence; the scene;
+then a bar that stays at the bottom of the panel while the scene scrolls (`position: sticky`, so a host
+that sizes the frame to its content sees no change of height), holding the confidence scale with the
+meaning of its two ends, the expected act and one « Help » button. « Help » opens the help ladder in place,
+right after it in reading order: one button per rung, each with its cost or the reason it is closed, and
+« Ask a question », which sends the `ask` action. A closed rung is `aria-disabled`, not `disabled`: it takes
+the keyboard focus, so its reason can be read, and pressing it sends nothing. A hint appears under the
+question. The « ⋯ » menu holds « Settings », « Choose another course » when the view offers `pickCourse`,
+and the right to be forgotten. « Settings » opens a closed section at the bottom of the pane, drawn from
+the actions the view offers and nothing else: « Quiet », « Normal », « Coached » (`setAttention`, the view's
 `attention` pressed), FR and EN (`setLanguage`, the view's `locale` pressed), and a minutes field with
 « Replan » (`replan {minutes}`, 1 to 600). These controls answer nothing: they stay enabled while an answer
 is owed, and the feedback already left is not shown again when their view comes back.
-Every control is reached with Tab in reading order.
+The feedback screen keeps the session line, says who assessed the answer, and shows the learner's own
+answer, which the renderer keeps for the session and sends nowhere: a choice beside the right choice when
+the view carries it, labelled with whose key it is, or a written answer quoted above the key points.
+A replayed scene shows the feedback the server returned, which holds no reference; a reference the view
+still carries is held back. A view's `content_language`, when present, marks the scene and its feedback
+with that language. Every control is reached with Tab in reading order, and a control that has the focus
+keeps it while an action is pending (`aria-disabled`).
+Every answer carries `expected_scene_id`, the scene on screen; when the server refuses it because the scene
+changed, the MCP App bridge reads `get_panel_view` again and the panel says the answer was not counted. The
+explanation rung is labelled by `help.explains` (the last answer or the screen), and a detour is placed at
+the main-path step the view gives (`progress.detour`).
 An action error whose message starts with `session not found` (the server restarted, or the session was
 closed; the tool's JSON envelope `{"error": …}` is opened first, and nothing after the prefix is read)
 replaces the scene, settings included, with the « Session lost » notice and a « Reopen the lesson » button
@@ -43,7 +59,7 @@ passes it to `panel_action` as `client_ms`, the VS Code bridge to the extension,
 The MCP App bridge also keeps the host's assistant informed, where the host says it can
 (`getHostCapabilities()`). After each `panel_action` it reads `get_companion_brief` with `peek: true` (the
 cursor does not move) and puts the brief in the model's context with `updateModelContext`: one line of
-note, then the brief as JSON. « Ask a question » opens a small form; the learner's words go to the host's
+note, then the brief as JSON. « Ask a question » opens a small form in the help ladder; the learner's words go to the host's
 conversation with `sendMessage`, after a brief read without `peek`, and the `ask` action then marks the
 hand-over. A host that takes no message gets the `ask` action alone, whose notice sends the learner to the
 conversation. A brief that cannot be read never fails the panel.
@@ -57,7 +73,7 @@ VS Code build call this automatically; run it before importing the source MCP se
 
 The bridges are `bridge-vscode.js`, `bridge-mcp-app.js` and `bridge-standalone.js`. A new host needs
 a bridge that supplies views and carries learner actions. MCP Apps honor host locale and theme,
-report size, route links through the host, confirm erasure and provide a course picker. Capsule
+report size, route links through the host, and draw the erase confirmation and the course picker inside the panel. Capsule
 reproduction requires the VS Code terminal; the MCP pane explains that limitation.
 
 MCP HTML inlines marked, KaTeX and mhchem. KaTeX CSS/fonts, Vega, Vega-Lite, Vega-Embed, 3Dmol,
