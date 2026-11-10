@@ -19,9 +19,12 @@ import {
   answerAction,
   askControl,
   contestControls,
+  calibrationLines,
   completionMarkdown,
   errorView,
+  feedbackIsStructured,
   feedbackMarkdown,
+  navigationLine,
   headerLine,
   helpControls,
   mapControl,
@@ -232,7 +235,10 @@ async function renderPane($: EngineInterface, event: RenderInput<"Pane">) {
   const tutor = objectText(view.turn_result?.tutor);
   // INT-STUDIUM-058: who speaks in each block. The scene's voice only over a scene.
   const sceneVoice = view.kind === "scene" ? voiceChip(view, "scene") : "";
-  const verdictVoice = feedback ? voiceChip(view, "verdict") : "";
+  // The chip goes with the structured parts; display_markdown already carries its own words (audit A13).
+  const verdictVoice = feedback && feedbackIsStructured(view) ? voiceChip(view, "verdict") : "";
+  const navigation = view.kind === "scene" ? navigationLine(view) : "";
+  const calibration = view.verdict && feedback ? calibrationLines(view).join("\n\n") : "";
   // What the server says about the action just taken on this scene (a contest's check questions).
   const sceneMessage = view.kind === "scene" ? view.message : undefined;
   const map = view.kind === "scene" ? mapMarkdown(view) : "";
@@ -243,11 +249,13 @@ async function renderPane($: EngineInterface, event: RenderInput<"Pane">) {
       <Text dimColor={isDimmed}>{headerLine(view)}</Text>
       {view.pending && <Text color="warning" dimColor>{view.pending}</Text>}
       {view.authoring?.notice && <Text dimColor>{view.authoring.notice}</Text>}
+      {navigation && <Text key="navigation" dimColor={isDimmed}>{navigation}</Text>}
       {sceneVoice && <Text key="voice-scene" dimColor>{sceneVoice}</Text>}
       {renderMainView(view, isDimmed, { Box, Markdown, Text })}
       {renderAssets(view, isDimmed, image, { Box, Text })}
       {verdictVoice && <Text key="voice-verdict" dimColor>{verdictVoice}</Text>}
       {feedback && <Markdown text={feedback} dimColor={isDimmed} />}
+      {calibration && <Markdown key="calibration" text={calibration} dimColor={isDimmed} />}
       {tutor && <Markdown text={tutor} dimColor={isDimmed} />}
       {sources && <Markdown text={sources} dimColor={isDimmed} />}
       {sceneMessage && <Text key="scene-message" dimColor={isDimmed}>{sceneMessage}</Text>}

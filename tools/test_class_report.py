@@ -587,3 +587,20 @@ def test_hint_reliance_is_a_share_of_answering_learners(tmp_path):
 def class_report_md(rep):
     import class_report
     return class_report._md(rep)
+
+
+def test_rows_named_by_scene_id_say_so_on_stderr_and_a_lesson_json_silences_it(tmp_path, capsys):
+    """F2: without a bundle next to the telemetry the concept rows are scene ids; say so, once, on stderr."""
+    import class_report
+
+    bundle = _bundle(tmp_path / "elsewhere") if (tmp_path / "elsewhere").mkdir() is None else None
+    runs = tmp_path / "runs"
+    for learner in ("a", "b", "c", "d", "e"):
+        _write_learner(runs, learner, _events())
+    assert class_report.main([str(runs), "--out", str(tmp_path / "o1")]) == 0         # not mandatory
+    err = capsys.readouterr().err
+    assert "scene id" in err and "--bundle path/to/lesson.json" in err and err.count("\n") == 1
+    assert class_report.main([str(runs), "--bundle", str(bundle), "--out", str(tmp_path / "o2")]) == 0
+    assert capsys.readouterr().err == ""                                               # a lesson.json is a bundle
+    assert class_report.main([str(runs), "--bundle", str(tmp_path / "missing.json")]) == 0
+    assert "--bundle" in capsys.readouterr().err                                       # a bundle given but unreadable

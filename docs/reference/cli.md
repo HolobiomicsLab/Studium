@@ -113,7 +113,7 @@ consented telemetry: concepts to re-teach, where hints and miscalibration cluste
 never prints a per-learner row or a pseudonym.
 
 ```bash
-.venv/bin/python tools/class_report.py <run_or_collector_dir> [--min-learners 5] [--out DIR] [--bundle lesson.zip]
+.venv/bin/python tools/class_report.py <run_or_collector_dir> [--min-learners 5] [--out DIR] [--bundle lesson.json]
 ```
 
 | Option | Meaning |
@@ -121,7 +121,7 @@ never prints a per-learner row or a pseudonym.
 | `run_dir` | Folder of per-learner telemetry streams (`telemetry.jsonl`). |
 | `--min-learners` | Floor over distinct learners (default 5), applied to each figure over the learners it is computed from: figures over fewer learners are withheld. |
 | `--out DIR` | Also write `class_report.md` and `class_report.json`. |
-| `--bundle` | The bundle, when the telemetry folder holds none (durable MCP layout). |
+| `--bundle` | The lesson (a `lesson.json`, a lesson folder or a bundle `.zip`), when the telemetry folder holds none (durable MCP layout). Without it the concept rows are named by scene id, and a line on stderr says so. |
 
 It follows the rules of the MCP tool: accuracy counts only answers a key or a judge graded (a keyword
 score is an attempt), calibration uses only the answers learners rated (`null` when none is), and a

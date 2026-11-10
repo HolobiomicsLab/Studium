@@ -100,6 +100,13 @@ export function publicScene(scene: Scene): PublicScene {
   if (scene.type === "spot_the_flaw" && scene.verdict_deck) {
     out.deck = publicDeck(verdictDeck(scene.claims, scene.sound_claims ?? [], scene.id));
   }
+  // AI CRITIQUE: the claim text is the only thing the learner has to read (D4), so it crosses over as
+  // `claims_to_critique` — {id, text} and nothing else; `id` is the position ("1", "2"…), never the author's id, which may name the flaw. `flaws_expected` (the answer key) never does, and
+  // the field has another name than `claims` so the redaction of `claims` stays unconditional. Authoring
+  // order is kept: a per-process shuffle would renumber the claims if the server restarted mid-lesson.
+  if (scene.type === "ai_critique" && Array.isArray(scene.claims)) {
+    out.claims_to_critique = scene.claims.map(({ text }, index) => ({ id: String(index + 1), text }));
+  }
   return out as PublicScene;
 }
 

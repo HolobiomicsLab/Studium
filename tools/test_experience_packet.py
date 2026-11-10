@@ -2428,7 +2428,8 @@ def test_approve_lang_fr_prints_the_french_summary(tmp_path, capsys):
         "/ “validated by Marie Curie”"
     )
     assert f"SHA-256 de lesson.json{NBSP}: {approval['bundle_sha256']}" in lines
-    assert f"lint{NBSP}: 0 erreur(s), 0 avertissement(s)" in lines
+    # Audit 2026-11-10, F3: this bundle's quiz names no concept, which the linter now says (one warning).
+    assert f"lint{NBSP}: 0 erreur(s), 1 avertissement(s)" in lines
     assert (
         f"validated_by et validated_at ont été réécrits et le fichier normalisé{NNBSP}; toute modification "
         "de lesson.json rend cette approbation caduque (approuvez de nouveau après modification)."

@@ -52,4 +52,24 @@ describe("SessionWorkspace learner locale", () => {
     expect(feedback).not.toMatch(/[\u00c0-\u024f]/u);
     expect(feedback).not.toMatch(/\b(?:réponse|revoir|remédiation|prérequis|maîtrise)\b/iu);
   });
+
+  it("writes the claims of an ai_critique scene into task.md and none of their expected flaws (D4)", async () => {
+    const root = englishBundleRoot();
+    const bundle = JSON.parse(readFileSync(join(root, "lesson.json"), "utf8"));
+    bundle.scenes = [{
+      id: "crit", type: "ai_critique", title: "Critique", objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [],
+      rubric: { completeness: 1, evidence_quality: 1, tone: 1 },
+      claims: [{ id: "k1", text: "The score proves the method is exact.", flaws_expected: ["causation"] }, { id: "k2", text: "Two groups were compared.", flaws_expected: [] }],
+    }, bundle.scenes[1]];
+    writeFileSync(join(root, "lesson.json"), JSON.stringify(bundle));
+    const host = new SessionHost({ bundlesRoot: root, live: false });
+    const { sessionId } = await host.create("lesson.json", "learner");
+    const channel = mkdtempSync(join(tmpdir(), "studium-crit-channel-"));
+    roots.push(channel);
+    await new SessionWorkspace(host, channel).writeStep(sessionId);
+    const task = readFileSync(join(channel, "task.md"), "utf8");
+    expect(task).toContain("1. The score proves the method is exact.");
+    expect(task).toContain("2. Two groups were compared.");
+    expect(task).not.toContain("causation");
+  });
 });

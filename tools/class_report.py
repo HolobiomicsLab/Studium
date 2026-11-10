@@ -49,6 +49,7 @@ from metrics import (  # noqa: E402
     TRUST_WELL_BAND,
     Population,
     _over_distrust_rate,
+    learner_completion_rate,
     cohort_band,
 )
 
@@ -190,7 +191,8 @@ def build_report(run_dir: Path, min_learners: int = MIN_LEARNERS_DEFAULT,
         "planted": 0, "missed": 0, "fp": 0, "sound": 0, "members": set(),
     })
     rule_counts: Counter = Counter()
-    n_started = n_completed = 0
+    started_members: set[tuple] = set()
+    completed_members: set[tuple] = set()
     autonomy: list[float] = []
     escalations = 0
     # The k floor is a floor on PEOPLE. One learner writes one stream per bundle in the durable
@@ -218,10 +220,10 @@ def build_report(run_dir: Path, min_learners: int = MIN_LEARNERS_DEFAULT,
             members.add(member)
             t = e.get("type")
             if t == "lesson_started":
-                n_started += 1
+                started_members.add(member)
                 completion_members.add(member)
             elif t == "lesson_completed":
-                n_completed += 1
+                completed_members.add(member)
                 completion_members.add(member)
                 if isinstance(e.get("autonomy_ratio"), (int, float)):
                     autonomy.append(e["autonomy_ratio"])
@@ -381,7 +383,9 @@ def build_report(run_dir: Path, min_learners: int = MIN_LEARNERS_DEFAULT,
         "lesson_scope": ("as named by the events (lesson_id)" if named_lessons == {True}
                          else "the whole run, taken as one lesson: no event names a lesson_id "
                               "and this report maps its scenes from exactly one bundle"),
-        "completion_rate": round(n_completed / n_started, 3) if n_started else None,
+        # Distinct learners, not events: a resumed learner writes `lesson_started` twice.
+        "completion_rate": learner_completion_rate(_population(started_members, rule),
+                                                   _population(completed_members, rule)),
         "completion_cohort": completion.judgement(min_learners),
         "mean_autonomy": round(statistics.mean(autonomy), 3) if autonomy else None,
         # `mean_autonomy` is a judgement metric: it says how a group worked, not what it got
@@ -578,9 +582,17 @@ def main(argv: list[str]) -> int:
                          f"(default {MIN_LEARNERS_DEFAULT})")
     ap.add_argument("--out", default=None)
     ap.add_argument("--bundle", default=None,
-                    help="explicit bundle .zip (for the durable MCP layout with no co-located bundle)")
+                    help="the lesson: a lesson.json, a lesson folder or a *-bundle.zip. Needed in the durable "
+                         "layout, where no bundle sits next to the telemetry; without it concept rows are "
+                         "named by scene id")
     args = ap.parse_args(argv)
     bundle = Path(args.bundle).resolve() if args.bundle else None
+    if not _scene_to_concept(Path(args.run_dir).resolve(), bundle):
+        why = ("the lesson given with --bundle could not be read" if bundle
+               else "no *-bundle.zip sits next to the telemetry")
+        print(f"class_report: {why}, so the rows are named by scene id, not by concept; "
+              "pass --bundle path/to/lesson.json (a lesson.json, a lesson folder or a bundle .zip) "
+              "to name the concepts", file=sys.stderr)
     rep = build_report(Path(args.run_dir).resolve(), args.min_learners, bundle)
     md = _md(rep)
     print(md)

@@ -58,6 +58,24 @@ describe("presentationMarkdown", () => {
     }
   });
 
+  it("shows the claims of an ai_critique scene, numbered, and none of their expected flaws (D4)", () => {
+    const scene = {
+      id: "s-crit", type: "ai_critique", title: "Critique", objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0,
+      adaptation_hooks: [], rubric: { completeness: 1, evidence_quality: 1, tone: 1 },
+      claims: [
+        { id: "k1", text: "Le score prouve que la méthode est exacte.", flaws_expected: ["corrélation causale"] },
+        { id: "k2", text: "Deux groupes ont été comparés.", flaws_expected: [] },
+      ],
+    };
+    const fr = presentationMarkdown(presentation(scene));
+    expect(fr).toContain("1. Le score prouve que la méthode est exacte.");
+    expect(fr).toContain("2. Deux groupes ont été comparés.");
+    expect(fr).not.toContain("corrélation causale");
+    const en = presentationMarkdown(presentation(scene, 0, { locale: "en" }));
+    expect(en).toContain("AI claims to critique");
+    expect(en).toContain("1. Le score prouve que la méthode est exacte.");
+  });
+
   it("states the title, the progress in words and how to reply (displayed quiz ids)", () => {
     const quiz = ATOMISTIQUE.scenes.find((s) => s.type === "quiz")!;
     const index = ATOMISTIQUE.scenes.indexOf(quiz);

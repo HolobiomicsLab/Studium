@@ -170,6 +170,14 @@ export const SelfRatingRequestStateSchema = z.object({
 });
 export type SelfRatingRequestState = z.infer<typeof SelfRatingRequestStateSchema>;
 
+/** A detour under way (audit 2026-11-10 D6), as persisted on the per-bundle LearnerState. */
+export const PendingDetourStateSchema = z.object({
+  scene_id: z.string(),
+  returns_to: z.string().nullable(),
+  prerequisite: z.string().optional(),
+});
+export type PendingDetourState = z.infer<typeof PendingDetourStateSchema>;
+
 export const LearnerStateSchema = z.object({
   lesson_id: z.string(),
   schema_version: z.literal("1.0"),
@@ -189,6 +197,18 @@ export const LearnerStateSchema = z.object({
   // before 2026-10-30 has no field at all (its requests lived in memory only); a state written since
   // always carries it, `{}` when nothing is pending.
   self_rating_requests: z.record(z.string(), SelfRatingRequestStateSchema).optional(),
+  // Audit 2026-11-10 D6: the detour under way when the state was saved — the remediation scene being
+  // served, the scene the lesson returns to after it (null: the end of the lesson) and, for a
+  // prerequisite gate, the prerequisite concept (LWG id) it waits on — so a learner who failed a gate
+  // resumes on the remediation, not past the gate. Absent when no detour is under way, and in a state
+  // saved before 2026-11-10 (which resumes on the first scene not completed, as it did).
+  pending_detour: PendingDetourStateSchema.optional(),
+  // Audit 2026-11-10 A2 (proposal C2): the scenes whose reference — key points, model answer, the right
+  // choice, planted flaws — a verdict has released to the learner in this lesson. Neither a prerequisite
+  // gate, nor a remediation, nor a contest's check question serves one of them again as a graded
+  // question: the answer would measure immediate memory. A state saved without the field loads as an
+  // empty register. Review sessions on later days do not read it (spaced retrieval is their point).
+  reference_shown: z.array(z.string()).optional(),
 });
 
 export type LearnerState = z.infer<typeof LearnerStateSchema>;

@@ -29,6 +29,14 @@ For a version-2 view the pane also shows, in this order: the status line under t
 
 Where the view offers it, « Concept map » asks for the concept map (`openMap`). The pane then shows the map as a list under the controls: each concept with its state in words, what it needs first, a check under way or the last one's outcome, what the state establishes and what it does not, and the answers behind it (day, who assessed, result, hints). Under the list, one claim button per concept the server lets the learner contest sends `contest`, with a line that says how many check questions will follow; « Close the map » sends `closeMap`. The pane draws no graph. A scene view's `message` (what a contest's check showed) is shown over the controls. What the session proposes (`prompts`) comes after the controls: the reason of each proposal or notice, then one button per answer the view offers, each sending `prompt` with `accept` or `dismiss`. While an answer or a self-rating is owed, only notices are shown. A proposal the view gives no action for is shown as text only, and a view whose `prompts` are malformed is refused whole.
 
+## What the pane shows once
+
+A verdict is drawn from its structured fields when the view carries them: the voice once, the feedback once, then the reference under the label of its `reference_kind` (« Key points », « Planted flaws », « Claims that hid a flaw », « The right answer »), a point the judge found missing marked in the list. When the verdict carries none of them, `display_markdown` is shown alone. Never both. A scene reached by a detour, a replay or a skipped stretch has one line over it that says why, in the HTML panel's words (« A short detour: … »). A version-1 view adds the number of reviews due to the step line (a version-2 status line already says it). The completion screen ends with the reviews due now, or the date of the next review. The actionable calibration bands (over- or underconfidence, two at most) follow the verdict.
+
+## Limits
+
+The pane does not yet offer: a confidence tap with a quiz answer (a quiz press is the answer, with no confidence), written answers through a field (`/studium answer <text>` instead), formulas, plots, or the graph. It was written against the view's contract and its tests; it has not been rendered in a real Claude Code host.
+
 ## Development checks
 
 ```sh

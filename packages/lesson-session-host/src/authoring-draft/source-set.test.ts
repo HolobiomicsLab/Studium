@@ -75,6 +75,41 @@ describe("prepareSources", () => {
     }]);
   });
 
+  describe("a source that is an HTML page (D11)", () => {
+    const issuesOf = async (text: string) => {
+      const error = await prepareSources(library(), [{ title: "Page", text }], {}).catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(AuthoringInputError);
+      return (error as AuthoringInputError).issues;
+    };
+    const REFUSAL = { path: "sources.0.text", message: "is an HTML page, not text", hint: "pass the text of the page, not its HTML" };
+
+    it("refuses a document that starts with a doctype or an html tag, after a BOM or whitespace", async () => {
+      const body = `<head><title>Durkheim</title></head><body><p>${FRENCH_SOURCE.text}</p></body>`;
+      expect(await issuesOf(`<!DOCTYPE html>\n<html lang="fr">${body}</html>`)).toEqual([REFUSAL]);
+      expect(await issuesOf(`\uFEFF  \n<html>${body}</html>`)).toEqual([REFUSAL]);
+      expect(await issuesOf(`<!doctype HTML><html>${body}</html>`)).toEqual([REFUSAL]);
+    });
+
+    it("refuses a fragment in which markup dominates", async () => {
+      const markup = Array.from({ length: 12 }, (_, i) => `<div class="row-${i}" data-x="y"><span>${"mot ".repeat(4)}</span></div>`).join("\n");
+      expect(await issuesOf(markup)).toEqual([REFUSAL]);
+    });
+
+    it("refuses the real saved page without cutting it into passages", async () => {
+      const page = readFileSync(new URL("../../../../tools/fixtures/self-study/durkheim-ch1.html", import.meta.url), "utf8");
+      expect(await issuesOf(page)).toEqual([REFUSAL]);
+    });
+
+    it("accepts a text with a few inline tags, and a French text with LaTeX angle brackets", async () => {
+      const inline = `${FRENCH_SOURCE.text}\n\nUne note avec <em>un mot</em> et un <br/> saut, puis <a href="https://example.org">un lien</a>.`;
+      const latex = `${FRENCH_SOURCE.text}\n\nOn pose $x < y$ puis $y > z$, donc $\\langle a, b \\rangle$ vérifie $a<b$ et $c>d$ ; l'inégalité $\\alpha<\\beta>\\gamma$ reste vraie.`;
+      for (const text of [inline, latex]) {
+        const set = await prepareSources(library(), [{ title: "Note", text }], {});
+        expect(set.passages.length).toBeGreaterThan(0);
+      }
+    });
+  });
+
   it("caps one preparation at 200 000 characters in all: every passage comes back in that one tool result", async () => {
     expect(MAX_TOTAL_SOURCE_CHARS).toBe(200_000);
     const root = library();

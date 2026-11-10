@@ -489,6 +489,10 @@ function renderTask(
   if (s.artifact_b) L.push("**B.**", "", s.artifact_b, "");
   if (s.source_content) L.push(tr(locale, "workspace_source"), "", s.source_content, "");
   if (s.ai_summary) L.push(tr(locale, "workspace_ai_summary"), "", s.ai_summary, "");
+  const claims = scene.claims_to_critique;
+  if (Array.isArray(claims) && claims.length) {
+    L.push(tr(locale, "workspace_ai_claims"), "", ...claims.map((c: { text?: unknown }, i: number) => `${i + 1}. ${String(c.text ?? "")}`), "");
+  }
   if (s.scenario) L.push(tr(locale, "workspace_situation", { text: s.scenario }), "");
   if (s.task) L.push(tr(locale, "workspace_task", { text: s.task }), "");
   const readingSources = sourcesMarkdown(citedSources(scene as never), locale);

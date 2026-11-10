@@ -29,6 +29,14 @@ Pour une vue version 2, le panneau affiche aussi, dans cet ordre : la ligne d'é
 
 Quand la vue le propose, « Carte des notions » demande la carte des notions (`openMap`). Le volet affiche alors la carte en liste sous les commandes : chaque notion avec son état en mots, ce qu'elle demande d'abord, un contrôle en cours ou le résultat du dernier, ce que l'état établit et ce qu'il n'établit pas, et les réponses qui le fondent (jour, qui a évalué, résultat, indices). Sous la liste, un bouton de déclaration par notion que le serveur laisse contester envoie `contest`, avec une ligne qui dit combien de questions de contrôle suivront ; « Fermer la carte » envoie `closeMap`. Le volet ne dessine aucun graphe. Le `message` d'une vue de scène (ce qu'a montré le contrôle d'une contestation) s'affiche au-dessus des commandes. Ce que la séance propose (`prompts`) vient après les commandes : la raison de chaque proposition ou notice, puis un bouton par réponse que la vue propose, chacun envoyant `prompt` avec `accept` ou `dismiss`. Tant qu'une réponse ou une auto-évaluation est attendue, seules les notices sont affichées. Une proposition pour laquelle la vue ne donne aucune action est affichée en texte seul, et une vue dont les `prompts` sont mal formés est refusée en entier.
 
+## Ce que le panneau montre une seule fois
+
+Un verdict est dessiné à partir de ses champs structurés quand la vue les porte : la voix une fois, le retour une fois, puis la référence sous le libellé de son `reference_kind` (« Points clés », « Défauts plantés », « Affirmations qui cachaient un défaut », « La bonne réponse »), un point que le juge a jugé manquant étant signalé dans la liste. Quand le verdict n'en porte aucun, `display_markdown` s'affiche seul. Jamais les deux. Une scène atteinte par un détour, un rejeu ou un passage sauté porte au-dessus une ligne qui dit pourquoi, avec les mots du panneau HTML (« Petit détour : … »). Une vue de version 1 ajoute le nombre de révisions dues à la ligne d'étape (la ligne d'état de la version 2 le dit déjà). L'écran de fin se termine par les révisions à faire dès maintenant, ou la date de la prochaine. Les bandes de calibration actionnables (sur- ou sous-confiance, deux au plus) suivent le verdict.
+
+## Limites
+
+Le panneau ne propose pas encore : la confiance avec une réponse de quiz (un appui sur un choix est la réponse, sans confiance), les réponses écrites par un champ (`/studium answer <texte>` à la place), les formules, les tracés ni le graphe. Il a été écrit d'après le contrat de la vue et ses tests ; il n'a pas été rendu dans un vrai hôte Claude Code.
+
 ## Vérifications de développement
 
 ```sh
