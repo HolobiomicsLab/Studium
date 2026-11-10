@@ -98,10 +98,15 @@ copy remains French.
 | --- | --- |
 | Draft | The bundle fails its schema or still contains a TODO placeholder. |
 | Checked | The bundle passes the shared schema and contains no TODO. This does not claim a full lint run or human approval. |
-| Approved | A complete `studium-approval/1` record matches the SHA-256 of the exact `lesson.json` bytes. |
+| Approved | A valid `studium-approval/1` record matches the SHA-256 of the exact `lesson.json` bytes. |
 
-An approval record must contain a reviewer, timestamp, checklist, successful lint result and tool
-identifier, as written by `tools/experience_packet.py approve`. Changing even whitespace in the lesson
+The dashboard reads an approval record by the lesson host's rule (`parseApproval` in
+`packages/lesson-session-host/src/authoring.ts`), so a lesson reads approved here exactly when it does for
+learners: the schema is `studium-approval/1`, `reviewer` is a non-empty string and `bundle_sha256` is the
+SHA-256 of the exact `lesson.json` bytes. The other fields that `tools/experience_packet.py approve` or
+scene-synth write (timestamp, checklist, lint summary, tool) are not required; the review page shows the
+reviewer and the date when the record has them, and nothing in their place when it does not. A record that
+cannot be parsed or lacks one of the three required fields reads as no approval. Changing even whitespace in the lesson
 breaks the digest match. Free-form `validated_by` metadata never grants this status. Matching a
 historical record does not depend on later changes to the installed schema validator.
 

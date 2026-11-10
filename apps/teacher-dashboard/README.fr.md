@@ -102,10 +102,16 @@ d'analyse existants restent en français.
 | --- | --- |
 | Brouillon | Le bundle échoue à son schéma ou contient encore un TODO. |
 | Vérifiée | Le bundle passe le schéma partagé et ne contient aucun TODO. Cela ne prétend ni à un lint complet ni à une approbation humaine. |
-| Approuvée | Un enregistrement `studium-approval/1` complet correspond au SHA-256 des octets exacts de `lesson.json`. |
+| Approuvée | Un enregistrement `studium-approval/1` valide correspond au SHA-256 des octets exacts de `lesson.json`. |
 
-Un enregistrement d'approbation doit contenir un relecteur, un horodatage, une liste de contrôle, un lint
-réussi et l'identifiant de l'outil, tels qu'écrits par `tools/experience_packet.py approve`. Modifier ne
+Le tableau de bord lit un enregistrement d'approbation selon la règle de l'hôte des leçons (`parseApproval`
+dans `packages/lesson-session-host/src/authoring.ts`) : une leçon est donc approuvée ici exactement quand
+elle l'est pour les apprenants. Le schéma est `studium-approval/1`, `reviewer` est une chaîne non vide et
+`bundle_sha256` est le SHA-256 des octets exacts de `lesson.json`. Les autres champs qu'écrivent
+`tools/experience_packet.py approve` ou scene-synth (horodatage, liste de contrôle, résumé du lint, outil)
+ne sont pas exigés ; la page de relecture montre le relecteur et la date quand l'enregistrement les porte,
+et rien à leur place sinon. Un enregistrement illisible, ou auquel manque l'un des trois champs exigés, se
+lit comme une absence d'approbation. Modifier ne
 serait-ce qu'un espace dans la leçon rompt la correspondance d'empreinte. Une métadonnée libre
 `validated_by` n'accorde jamais ce statut. La correspondance d'un enregistrement ancien ne dépend pas des
 évolutions ultérieures du validateur de schéma installé.
