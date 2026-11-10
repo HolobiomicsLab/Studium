@@ -107,6 +107,10 @@ export interface SessionEntry {
   /** INT-STUDIUM-058: whether the session's last act was an answer that received a verdict
    * (orientation.ts `answered_before`). In memory only: a resumed session starts without. */
   answeredBefore?: boolean;
+  /** Audit 2026-11-10 A3: the self-rating request the host last served, with the scene on screen when it
+   * was served (null: the end of the lesson). Orientation waits for a self-rating only on that screen and
+   * while the session still holds the request. In memory only: a resumed session serves none. */
+  servedSelfRating?: { sceneId: string; screenSceneId: string | null };
 }
 
 export class SessionRegistry {

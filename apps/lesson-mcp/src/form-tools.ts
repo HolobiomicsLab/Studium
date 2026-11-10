@@ -65,6 +65,7 @@ const LABELS = {
     map: "Voir la carte des notions", mapIntro: "Carte des notions — là où tu en es.",
     contest: "Contester une notion (je la connais déjà / j'ai un doute)",
     claim: "Déclaration : known = je la connais déjà ; unsure = j'ai un doute",
+    claimNames: ["je la connais déjà", "j'ai un doute"],
     choiceMissing: "Choisis une réponse, ou ouvre la carte.",
     contestIncomplete: "Choisis une notion et une déclaration pour contester.",
     unsupported: "ce client n'affiche pas de formulaires : continuer dans la conversation",
@@ -77,6 +78,7 @@ const LABELS = {
     map: "Show the concept map", mapIntro: "Concept map — where you are.",
     contest: "Contest a concept (I already know it / I doubt it)",
     claim: "Claim: known = I already know it; unsure = I doubt it",
+    claimNames: ["I already know it", "I doubt it"],
     choiceMissing: "Choose an answer, or open the map.",
     contestIncomplete: "Choose a concept and a claim to contest.",
     unsupported: "this client does not show forms: go on in the conversation",
@@ -106,7 +108,8 @@ function formFor(scene: PublicScene, labels: typeof LABELS.fr): Form | null {
       schema: {
         type: "object",
         properties: {
-          choice: { type: "string", title: labels.choice, enum: ids },
+          // Audit 2026-11-10 B13: each option shows its text (enumNames); the value sent stays the id.
+          choice: { type: "string", title: labels.choice, enum: ids, enumNames: scene.choices.map((choice) => `${choice.id}) ${String((choice as { text?: unknown }).text ?? "")}`.trim()) },
           confidence: { type: "integer", title: labels.confidence, minimum: 0, maximum: 4 },
         },
         required: ["choice"],
@@ -139,15 +142,17 @@ function withMap(form: Form, labels: typeof LABELS.fr): Form {
 }
 
 function mapSchema(map: ConceptMap, labels: typeof LABELS.fr): FormSchema {
-  const contestable = map.nodes.filter((node) => node.state !== "upcoming").map((node) => node.id);
+  const shown = map.nodes.filter((node) => node.state !== "upcoming");
+  const contestable = shown.map((node) => node.id);
   // An upcoming concept takes no claim until the session has shown it. With none contestable, the
   // map form carries no fields and only returns to the scene.
   if (contestable.length === 0) return { type: "object", properties: {} };
   return {
     type: "object",
     properties: {
-      contest_concept: { type: "string", title: labels.contest, enum: contestable },
-      claim: { type: "string", title: labels.claim, enum: ["known", "unsure"] },
+      // B13: the concept's title and the claim in words beside each value the form sends.
+      contest_concept: { type: "string", title: labels.contest, enum: contestable, enumNames: shown.map((node) => node.title) },
+      claim: { type: "string", title: labels.claim, enum: ["known", "unsure"], enumNames: [...labels.claimNames] },
     },
   };
 }

@@ -138,6 +138,10 @@ export class LessonSession {
   /** L-9: scenes whose last answer asked for a self-rating in a state saved by a server that kept the
    * request in memory only (no `self_rating_requests` field): the request expired with that process. */
   private expiredSelfRatings = new Set<string>();
+  /** Audit 2026-11-10 A2 (C2): scenes whose reference the host released to the learner
+   * (recordReferenceShown). Restored from, and saved with, the LearnerState (`reference_shown`). The
+   * routing never serves one again as a graded question. */
+  private referenceShown = new Set<string>();
   private readonly locale: Locale;
 
   constructor(
@@ -153,6 +157,7 @@ export class LessonSession {
   ) {
     this.locale = localeFromLanguage(bundle.metadata.language);
     this.restoreSelfRatingRequests(state);
+    for (const sceneId of state.reference_shown ?? []) this.referenceShown.add(sceneId);
   }
 
   /** L-9: a state written since requests are persisted carries `self_rating_requests` (`{}` when none
@@ -178,6 +183,9 @@ export class LessonSession {
     this.ctx = { learnerPseudonym: this.pseudonym, lessonId: this.bundle.bundle_id, bundleVersion: bundleVersionOf(this.bundle) };
     this.engine = new AdaptationEngine(this.bundle.rules, this.state, () => this.deps.clock.now());
     this.state = this.engine.getState();
+    // A lesson played again from its start is a new run: what the last run showed is not withheld
+    // from it (no other item would be left to ask), as answeredRight and the passed gates are not.
+    if (this.lessonDone()) this.referenceShown.clear();
     this.idx = this.startingSceneIndex();
     if (this.idx > 0) ({ trail: this.trail, facts: this.facts } = trailFromHistory(this.state.history));
     this.restoreDetour();
@@ -289,6 +297,7 @@ export class LessonSession {
     const detour = this.detourNow();
     if (detour) st.pending_detour = detour;
     else delete st.pending_detour;
+    st.reference_shown = [...this.referenceShown];
     return st;
   }
 
@@ -511,6 +520,20 @@ export class LessonSession {
     return undefined;
   }
 
+  /** Audit 2026-11-10 A2 (C2): the host released this scene's reference to the learner (a verdict
+   * carried its key points, model answer, right choice or planted flaws). Recorded in the lesson state,
+   * and saved: from now on no gate, remediation or check question serves the scene as a graded
+   * question. Idempotent. */
+  async recordReferenceShown(sceneId: string): Promise<void> {
+    this.assertStarted();
+    if (this.referenceShown.has(sceneId)) return;
+    this.referenceShown.add(sceneId);
+    await this.saveState();
+  }
+
+  /** The scenes whose reference was released to the learner (recordReferenceShown). */
+  referenceShownScenes(): ReadonlySet<string> { return new Set(this.referenceShown); }
+
   /** Save the state as the session holds it now (L-9: after a self-rating request changed). */
   private async saveState(): Promise<void> {
     this.state = this.engineStateWithReplays();
@@ -641,7 +664,7 @@ export class LessonSession {
       // so prefix the scene's first concept_ref to match. scenes_completed already includes the
       // just-answered scene, so the current item never counts as "unseen".
       const concept = "concept_refs" in scene ? `concept:${scene.concept_refs[0] ?? ""}` : "";
-      const seen = new Set(this.state.scenes_completed);
+      const seen = new Set([...this.state.scenes_completed, ...this.referenceShown]);
       const altIdx = firstUnseenAnswerGradedSceneForConcept(this.bundle.scenes, concept, seen);
       if (altIdx >= 0) {
         // present an UNSEEN alternate item for the same concept (different-item remediation)
@@ -718,6 +741,7 @@ export class LessonSession {
         this.passedPrerequisites,
         buildLwgEffectiveMastery(this.state.concept_states, this.state.concept_memory, nowMs),
         this.answeredRight,
+        this.referenceShown,
       );
       // PREREQUISITE PASSED. Two cases credit a prerequisite still below theta instead of drilling
       // it: (a) the learner just answered one of its items correctly while on a graph detour for
@@ -831,8 +855,9 @@ export class LessonSession {
     let nextIdx = this.pendingDetourReturnIdx ?? this.idx + 1;
     this.pendingDetourReturnIdx = undefined;
     // An item already answered correctly as an alternate is not asked again when the lesson reaches it.
-    while (nextIdx < this.bundle.scenes.length
-      && ANSWER_GRADED_TYPES.has(this.bundle.scenes[nextIdx]!.type) && this.answeredRight.has(this.bundle.scenes[nextIdx]!.id)) nextIdx += 1;
+    // Nor is one whose reference was shown (C2).
+    while (nextIdx < this.bundle.scenes.length && (this.referenceShown.has(this.bundle.scenes[nextIdx]!.id)
+      || (ANSWER_GRADED_TYPES.has(this.bundle.scenes[nextIdx]!.type) && this.answeredRight.has(this.bundle.scenes[nextIdx]!.id)))) nextIdx += 1;
     if (nextIdx >= this.bundle.scenes.length) return this.complete(decision);
     this.idx = nextIdx; this.enterScene();
     return { kind: "next", presentation: this.currentPresentation(), navigation: this.nav(decision, "advance", null) };
@@ -867,6 +892,18 @@ export class LessonSession {
    * (audit 2026-11-10 D8). null when no check is under way. */
   checkRoute(): { queued: number[]; returnIndex: number } | null {
     return this.check ? { queued: [...this.check.queue], returnIndex: this.check.returnIdx } : null;
+  }
+
+  /** While a detour is under way (a prerequisite remediation, or an alternate item taken from further
+   * down the lesson): the index of the scene the lesson returns to (the number of scenes: the end), and
+   * the prerequisite a gate waits on. What is left of the lesson is counted from there (audit
+   * 2026-11-10 A4), and it survives a restart with the saved detour (D6). null when none is. */
+  detourRoute(): { returnIndex: number; prerequisite?: string } | null {
+    if (!this.started || this.completed || this.pendingDetourReturnIdx === undefined) return null;
+    return {
+      returnIndex: this.pendingDetourReturnIdx,
+      ...(this.graphDetourPrerequisite === undefined ? {} : { prerequisite: this.graphDetourPrerequisite }),
+    };
   }
 
   /** After a check answer: the next check question, or back to the scene the learner was on. */

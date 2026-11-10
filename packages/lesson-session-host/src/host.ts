@@ -652,6 +652,23 @@ function leavesForGood(transition: Transition, answered: Scene): boolean {
   return !conceptsOf(next).some((id) => concepts.has(id));
 }
 
+/** I-2: whether the self-rating request of this transition is served with it — the verdict leaves its
+ * scene for good, or it carries no reference to compare with. */
+function servesSelfRating(bundle: { scenes: readonly Scene[] }, transition: Transition): boolean {
+  if (!transition.self_rating || !transition.verdict) return false;
+  const answered = bundle.scenes.find((scene) => scene.id === transition.verdict!.scene_id);
+  return answered === undefined || leavesForGood(transition, answered) || !hasReference(transition.verdict);
+}
+
+/** C2: the scene whose reference this transition's verdict releases to the learner — a graded answer
+ * that leaves its scene for good with key points or a model answer on its verdict — else undefined. */
+function referenceReleasedBy(bundle: { scenes: readonly Scene[] }, transition: Transition): string | undefined {
+  const verdict = transition.verdict;
+  if (!verdict?.graded || !hasReference(verdict)) return undefined;
+  const answered = bundle.scenes.find((scene) => scene.id === verdict.scene_id);
+  return answered && leavesForGood(transition, answered) ? answered.id : undefined;
+}
+
 /** I-2: the passages a verdict releases. An answer that does not leave its scene holds that scene's
  * passages back on the entry; one that leaves it releases them with the passages held back on the
  * same scene or the same point, and the end of the session releases all that is still held. */
@@ -1249,6 +1266,9 @@ export class SessionHost {
       }
       const bundle = built.bundle;
       const conceptIds = bundle.concepts.map((c) => c.id);
+      // Audit 2026-11-10 A2 (C2): the register of shown keys (`reference_shown`) stops here. A review
+      // starts from a fresh state, not the lessons' ones: spaced retrieval of an item whose key was
+      // seen days ago is the point of a review, and its answers are not registered either.
       let initial = defaultLearnerState(REVIEW_BUNDLE_ID);
       if (profile) initial = seedConceptStatesFromProfile(initial, profile, conceptIds);
       initial = { ...initial, concept_memory: pick(memory, new Set(conceptIds)) };
@@ -1706,6 +1726,11 @@ export class SessionHost {
   private servedTransition(entry: SessionEntry, transition: Transition, warning?: string, surface?: PromptSurface): ServedTransition {
     const sceneTitle = (sceneId: string) => entry.bundle.scenes.find((s) => s.id === sceneId)?.title;
     const conceptLabel = (conceptId: string) => entry.bundle.concepts.find((c) => c.id === conceptId)?.title ?? conceptId;
+    const answered = transition.verdict ? entry.bundle.scenes.find((s) => s.id === transition.verdict?.scene_id) : undefined;
+    const leaving = answered === undefined || leavesForGood(transition, answered);
+    const verdict = transition.verdict && !leaving ? withoutReference(transition.verdict, answered) : transition.verdict;
+    const selfRating = transition.self_rating && verdict && servesSelfRating(entry.bundle, transition)
+      ? { ...transition.self_rating, scene_id: verdict.scene_id } : undefined;
     const lines = "presentation" in transition ? this.screenLines(entry, transition.presentation, surface) : undefined;
     const ending = !lines && surface ? this.endLines(entry, surface) : undefined;
     const ctx = {
@@ -1714,12 +1739,7 @@ export class SessionHost {
       authoring: entry.authoring,
       ...lines, ...ending,
     };
-    const answered = transition.verdict ? entry.bundle.scenes.find((s) => s.id === transition.verdict?.scene_id) : undefined;
-    const leaving = answered === undefined || leavesForGood(transition, answered);
     const sources = transition.verdict ? releasedSources(entry, transition, answered, leaving) : [];
-    const verdict = transition.verdict && !leaving ? withoutReference(transition.verdict, answered) : transition.verdict;
-    const selfRating = transition.self_rating && verdict && (leaving || !hasReference(transition.verdict))
-      ? { ...transition.self_rating, scene_id: verdict.scene_id } : undefined;
     const reviewPlan = transition.kind === "complete" ? this.reviewPlanOf(entry) : undefined;
     const presentation = "presentation" in transition ? this.served(entry, transition.presentation, lines) : undefined;
     const { self_rating: _engineRequest, ...engineTransition } = transition;
@@ -2101,8 +2121,16 @@ export class SessionHost {
           : `"${conceptId}" is not acquired: the claim it takes is "known"`);
       }
       const current = entry.session.currentPresentation().scene.id;
-      const sceneIds = checkScenes(entry.bundle, conceptId, { currentSceneId: current, answered: this.answeredScenesOf(entry) });
-      if (sceneIds.length === 0) throw new ContestRefusedError(`this lesson has no question graded against a key on "${conceptId}"`);
+      const keyShown = entry.session.referenceShownScenes();
+      const sceneIds = checkScenes(entry.bundle, conceptId, { currentSceneId: current, answered: this.answeredScenesOf(entry), keyShown });
+      if (sceneIds.length === 0) {
+        // C2: questions exist, but the learner has seen the key of each — answering one again would
+        // measure memory, not knowledge. The same refusal, saying the true reason.
+        const any = checkScenes(entry.bundle, conceptId, { currentSceneId: current, answered: new Set() }).length > 0;
+        throw new ContestRefusedError(any
+          ? `every question graded against a key on "${conceptId}" has had its answer shown: it cannot be checked again in this lesson`
+          : `this lesson has no question graded against a key on "${conceptId}"`);
+      }
       const first = entry.session.insertChecks(sceneIds);
       entry.contest = { concept_id: conceptId, claim, scene_ids: sceneIds, results: [] };
       noteAct(entry, { scene_id: current, act: "contest", lane });
@@ -2140,7 +2168,10 @@ export class SessionHost {
   private contestStateOf(entry: SessionEntry, map: ConceptMap): RecordContest {
     const pending = entry.contest;
     const open = !pending && !entry.completed;
-    const session = { currentSceneId: entry.completed ? null : entry.session.currentPresentation().scene.id, answered: this.answeredScenesOf(entry) };
+    const session = {
+      currentSceneId: entry.completed ? null : entry.session.currentPresentation().scene.id, answered: this.answeredScenesOf(entry),
+      keyShown: entry.session.referenceShownScenes(),
+    };
     return {
       pending: pending ? { concept_id: pending.concept_id, claim: pending.claim, asked: pending.scene_ids.length, answered: pending.results.length } : null,
       questions: Object.fromEntries(map.nodes.map((node) => [node.id, open ? checkScenes(entry.bundle, node.id, session).length : 0])),
@@ -2190,6 +2221,12 @@ export class SessionHost {
     if (complete) e.completed = true;
     let warning: string | undefined;
     try {
+      // Audit 2026-11-10 A2 (C2): the one place the host decides to release a reference is
+      // servedTransition (leavesForGood); the same decision, taken here before the state is saved,
+      // enters the scene in the learner's register of shown keys. A review session does not: it is
+      // spaced retrieval of items whose key was seen days ago, and its state is not the lesson's.
+      const shownScene = e.kind === "review" ? undefined : referenceReleasedBy(e.bundle, transition);
+      if (shownScene) await e.session.recordReferenceShown(shownScene);
       // Persist local mastery claims when the lesson completes (no-op for the in-memory sink; writes the
       // .jsonld for FileMasteryClaimSink). NOT flushed on forget() — that is the RGPD-delete path.
       if (complete) await this.flushSessionOutputs(e);
@@ -2197,6 +2234,11 @@ export class SessionHost {
     } catch (error) {
       warning = persistenceWarning(error);
     }
+    // A3: the request this answer's screen serves, if any, is the only one orientation waits for; an
+    // earlier one, served or not, is left behind with its screen (still answerable through rateRecall).
+    if (servesSelfRating(e.bundle, transition)) {
+      e.servedSelfRating = { sceneId: transition.verdict!.scene_id, screenSceneId: "presentation" in transition ? transition.presentation.scene.id : null };
+    } else delete e.servedSelfRating;
     await this.publishStatus(e);
     return this.servedTransition(e, transition, warning, surface);
   }
