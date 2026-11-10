@@ -17,7 +17,7 @@ A lesson is one file, `lesson.json`, called a *lesson bundle*. It holds:
 - the concepts and the Learning Workflow Graph that links them;
 - the scenes, in order, each tied to one or more concepts;
 - adaptation rules, and optionally *universes* (a baseline and a more scaffolded remedial variant);
-- `validated_by`, the teacher who validated it, or a `DRAFT` / `SELF-STUDY` placeholder when no teacher did.
+- `validated_by`, the name `approve` wrote, or a `DRAFT` / `SELF-STUDY` placeholder. Whether the lesson is validated is read from its approval record (`approval.json`), never from this text.
 
 The format is described in the [lesson bundle reference](../reference/lesson-bundle.md). Check any bundle with:
 

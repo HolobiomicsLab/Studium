@@ -115,7 +115,7 @@ export const OrientationSchema = z.object({
 export type Orientation = z.infer<typeof OrientationSchema>;
 /** Who speaks: the lesson's author, the author's key, a judge model, or the assistant. */
 export const VoiceSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("author"), name: z.string().nullable(), reviewed: z.boolean(), drafted_by: z.enum(["agent", "learner", "teacher"]) }),
+  z.object({ kind: z.literal("author"), name: z.string().nullable(), reviewed: z.boolean(), drafted_by: z.enum(["agent", "learner", "teacher"]), from_classmate: z.literal(true).optional() }),
   z.object({ kind: z.literal("key") }),
   z.object({ kind: z.literal("judge") }),
   z.object({ kind: z.literal("agent") }),

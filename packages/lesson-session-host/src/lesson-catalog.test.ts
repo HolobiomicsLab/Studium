@@ -7,6 +7,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import { scanCatalog, nearestRefs } from "./lesson-catalog.js";
 
 const dirs: string[] = [];
@@ -28,12 +29,19 @@ function put(root: string, ref: string, data: unknown): void {
   mkdirSync(join(path, ".."), { recursive: true });
   writeFileSync(path, typeof data === "string" ? data : JSON.stringify(data));
 }
+/** C5: an approval record next to `ref`, bound to the bytes `put` writes for `data`. */
+function approve(root: string, ref: string, data: unknown, reviewer = "Dr Example"): void {
+  const bytes = typeof data === "string" ? data : JSON.stringify(data);
+  put(root, join(ref, "..", "approval.json"), { schema: "studium-approval/1",
+    bundle_sha256: createHash("sha256").update(bytes).digest("hex"), reviewer, reviewed_at: "2026-11-10T09:00:00Z" });
+}
 
 describe("scanCatalog", () => {
   it("lists lessons with the pane's rules and skips what cannot be a playable lesson", async () => {
     const root = tempRoot();
     put(root, "top.json", lesson("top", "Top"));
     put(root, "a/lesson.json", lesson("a", "Alpha"));
+    approve(root, "a/lesson.json", lesson("a", "Alpha")); // validated comes from this record only (C5)
     put(root, "b/c/lesson.json", lesson("bc", "Deux niveaux"));
     put(root, "d/e/f/lesson.json", lesson("deep", "Trop profond"));
     put(root, "node_modules/x/lesson.json", lesson("nm", "Ignored"));
@@ -50,6 +58,24 @@ describe("scanCatalog", () => {
       concepts: [{ id: "a-c", title: "Concept Alpha" }],
     });
     expect(alpha.modified_at).toBeGreaterThan(0);
+  });
+
+  it("reads validated from each lesson's approval record, never from validated_by (C5, 2026-11-10)", async () => {
+    const root = tempRoot();
+    const selfStudy = lesson("self", "Self", { authoring: { mode: "self_study", author_is_learner: true } });
+    put(root, "none/lesson.json", lesson("none", "No record"));
+    put(root, "ok/lesson.json", lesson("ok", "Approved"));
+    approve(root, "ok/lesson.json", lesson("ok", "Approved"));
+    put(root, "stale/lesson.json", lesson("stale", "Stale"));
+    approve(root, "stale/lesson.json", lesson("stale", "Stale, earlier version"));
+    put(root, "bad/lesson.json", lesson("bad", "Tampered"));
+    put(root, "bad/approval.json", { schema: "studium-approval/1",
+      bundle_sha256: createHash("sha256").update(JSON.stringify(lesson("bad", "Tampered"))).digest("hex"), reviewer: 7 });
+    put(root, "self/lesson.json", selfStudy);
+    approve(root, "self/lesson.json", selfStudy);
+    const catalog = await scanCatalog([{ kind: "bundles", dir: root }]);
+    const validated = Object.fromEntries(catalog.lessons.map((l) => [l.bundle_id, l.validated]));
+    expect(validated).toEqual({ none: false, ok: true, stale: false, bad: false, self: false });
   });
 
   it("searches the library after the bundles root and lists a shared root once", async () => {

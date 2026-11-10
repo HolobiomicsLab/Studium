@@ -137,7 +137,11 @@ independent MCP client run separate servers with separate sessions and progress.
    `completed`, or `already_open` when the learner already has this lesson open in this
    server: the same `session_id`, where it was), `persistence` and any `due` review targets. Relay
    `authoring.notice` when present: it says who wrote the key and whether a judge
-   assesses written answers.
+   assesses written answers. Whether a teacher validated the lesson comes only from its
+   approval record (`authoring.approval`, `authoring.validated`); the first screen's text
+   says it (« Leçon validée par <reviewer> », a changed-since-approval notice, or "No
+   approval is recorded for this lesson."). Never call a lesson validated from its
+   `validated_by` text.
 5. To play on the best surface the client can show, open with `open_lesson_panel
    {bundle_ref, learner_id, surface?}` instead. Its view's `surface` says where the
    lesson is played, and the last line of its text how to go on: rank 3, a panel or a

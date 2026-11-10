@@ -369,7 +369,8 @@ WORDS: dict[str, dict[str, Any]] = {
         "validated": {True: "relue et validée par un enseignant", False: "non relue par un enseignant"},
         # With an approval record the page says what the record says (the lesson's own voice uses the same words).
         "approval": {"current": "validée par un enseignant pour cette version exacte",
-                     "stale": "modifiée depuis sa validation par un enseignant"},
+                     "stale": "modifiée depuis sa validation par un enseignant",
+                     "none": "Aucune approbation enregistrée pour cette leçon."},
         "measured_n": "{n} notées",
         "judge": {True: "réponses écrites évaluées par un modèle juge", False: "réponses écrites non évaluées par un juge"},
         "conversation": "Des passages viennent d'une conversation avec un assistant IA : ce que l'assistant y affirme n'a pas été vérifié.",
@@ -426,7 +427,8 @@ WORDS: dict[str, dict[str, Any]] = {
                     "teacher": "Lesson drafted by a teacher"},
         "validated": {True: "reviewed and validated by a teacher", False: "not reviewed by a teacher"},
         "approval": {"current": "validated by a teacher for this exact version",
-                     "stale": "changed since a teacher validated it"},
+                     "stale": "changed since a teacher validated it",
+                     "none": "No approval is recorded for this lesson."},
         "measured_n": "{n} graded",
         "judge": {True: "written answers assessed by a judge model", False: "written answers not assessed by a judge"},
         "conversation": "Some passages are excerpts of a conversation with an AI assistant: what the assistant asserted there was not checked.",
@@ -785,11 +787,18 @@ def _wrap(title: str, width: int = 25, lines: int = 2) -> list[str]:
 
 
 def _review_status(authoring: Authoring, words: dict[str, Any]) -> str:
-    """What the approval record says about this exact lesson file. Without a record the lesson's own
-    `validated_by` text decides, as before (an owner decision, not changed here)."""
+    """What the approval record says about this exact lesson file; the record is the only source of
+    the validated status (owner decision 2026-11-10), never the lesson's `validated_by` text. Three
+    states: a matching record, a record for another version (stale), no record. A self-study lesson,
+    which `approve` refuses, keeps its own wording and never reads as validated."""
+    if authoring.mode == "self_study":
+        if authoring.approval.recorded and not authoring.approval.matches:
+            return words["approval"]["stale"]
+        return words["validated"][False]
     if authoring.approval.recorded:
         return words["approval"]["current" if authoring.approval.matches else "stale"]
-    return words["validated"][authoring.validated]
+    # No record: a teacher-drafted lesson says only that; an AI- or learner-drafted one keeps its wording.
+    return words["approval"]["none"] if authoring.drafted_by == "teacher" else words["validated"][False]
 
 
 def _percent(value: float | None, words: dict[str, Any], measured: bool) -> str:

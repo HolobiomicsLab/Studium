@@ -87,6 +87,7 @@ Le serveur REST des salles entre pairs et des pages de cours du tableau de bord 
 | `BUNDLES_ROOT` | `<STUDIUM_HOME>/library` | tableau de bord | Leçons affichées dans la bibliothèque et les pages de relecture. |
 | `ANALYTICS_BASE_URL` | `http://localhost:8003` | tableau de bord | Service analytics-collector. |
 | `SCENE_SYNTH_BASE_URL` | `http://localhost:8002` | tableau de bord | Service scene-synth (contributions des apprenants). |
+| `STUDIUM_REVIEW_TOKEN` | aucune (décisions désactivées) | tableau de bord (serveur seulement) | Jeton de relecture enseignant envoyé à scene-synth lors d'une décision ; au moins 32 caractères, même valeur que sur scene-synth. Jamais envoyé à un navigateur. |
 | `LESSON_SERVER_BASE_URL` | `http://localhost:8010` | tableau de bord | lesson-server (salles entre pairs, cours). |
 | `OBSERVATORY_BASE_URL` | `http://localhost:8004` | tableau de bord | Observatoire, lié depuis une leçon quand il répond. |
 | `ANALYTICS_DATA_DIR` | `data` (relatif au dossier courant) | analytics-collector | Lieu de stockage de la télémétrie collectée. |
@@ -104,6 +105,7 @@ Les tests de bout en bout du tableau de bord lisent aussi `DASHBOARD_PORT` (`300
 | `COMMUNITY_BUNDLES_ROOT` | `BUNDLES_ROOT` | scene-synth | Où sont écrites les contributions d'apprenants approuvées (`<racine>/<cours>/community/`). |
 | `LEARNER_DATA_ROOT` | `/tmp/studium-learner-items` | scene-synth | Stockage des contributions soumises. |
 | `LEARNER_PSEUDONYM_SECRET` | `dev-insecure-secret` | scene-synth | Secret HMAC des pseudonymes d'auteurs. À fixer pour tout déploiement réel. |
+| `STUDIUM_REVIEW_TOKEN` | aucune (décisions refusées) | scene-synth | Jeton porteur exigé sur `POST /learner-items/{id}/decide`, au moins 32 caractères, distinct de tout identifiant de cours. Absent ou plus court, chaque décision reçoit `503`. |
 | `BUNDLE_DIR` | le dossier par défaut de la démonstration | `demo_fresh.py` | Où le bundle de démonstration est préparé. |
 
 ## Planner

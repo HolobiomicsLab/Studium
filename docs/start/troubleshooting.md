@@ -81,6 +81,7 @@ After a network error, resend the same file with the same `request_id`, never a 
 | Planner answers `503` | no model is configured; set one, or use `STUDIUM_LLM_MODE=mock` for the deterministic mock |
 | Planner answers `422` | send `manifest_id` and `target` in the request body |
 | Scene synthesis answers `503` | its orchestrator is not configured; starting the service alone is not enough |
+| A decision on a learner contribution answers `503` ("decisions are disabled") | set the same `STUDIUM_REVIEW_TOKEN`, at least 32 characters, on scene-synth and on the teacher dashboard's server; see [learner contributions](../teach/learner-contributions.md) |
 | A "live" run returns mock output | check the mode, URL, model aliases and fallback flags: an HTTP 200 does not prove that a model answered |
 
 ## Checks that do not need a chat

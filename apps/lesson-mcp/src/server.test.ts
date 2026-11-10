@@ -631,8 +631,9 @@ describe("lesson-mcp — community bundles and authoring", () => {
     const teacherClient = await connect(bundlesDir());
     const teacher = parse(await teacherClient.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json" } }) as never);
     // C5 adds approval; B2 also exposes the drafter, inferred for older bundles without a declaration.
+    // No approval record next to mini.json: not validated, whatever its validated_by says (2026-11-10).
     const teacherBlock = {
-      mode: "teacher", author_is_learner: false, drafted_by: "teacher", validated: true, judge: false, notice: null,
+      mode: "teacher", author_is_learner: false, drafted_by: "teacher", validated: false, judge: false, notice: null,
       approval: { recorded: false, matches: false },
     };
     expect(teacher.authoring).toEqual(teacherBlock);

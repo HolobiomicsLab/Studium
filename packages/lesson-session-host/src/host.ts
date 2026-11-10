@@ -37,7 +37,7 @@ import { LearnerDataError, tightenFolder, withLearnerLock, readLearnerTombstone,
 import { removeStatusFile, statusFileOwner, writeStatusFile } from "./status-file.js";
 import { loadResolvedBundle } from "./bundle-resolver.js";
 import { discoverCommunityBundleEntries, type CommunityBundleEntry } from "./community-bundles.js";
-import { authoringOf, readApproval, draftedByOf, type AuthoringBlock, type DraftedBy } from "./authoring.js";
+import { authoringOf, draftedByOf, type AuthoringBlock, type DraftedBy } from "./authoring.js";
 import {
   aggregateRatings, distinctRaters, ROOM_K_FLOOR,
   type RoomEntry, type RoomState,
@@ -1090,9 +1090,8 @@ export class SessionHost {
       // D5: the learner already plays this lesson in this server — that session goes on.
       const open = sharedIdentity(learnerId) ? undefined : this.openLessonOf(profilePseudonym, bundle);
       if (open) return this.alreadyOpen(open[0], open[1], { presentationLanguage: normalizedPresentationLanguage, promptSurface });
-      // C5: an approval record next to a course's lesson.json, bound to the very bytes just loaded.
-      const approval = await readApproval(resolved.sha256 ? dirname(resolved.path) : null, resolved.sha256);
-      const authoring = authoringOf(bundle, { judge: this.opts.live, approval });
+      // C5: the approval record (next to lesson.json, or inside the .zip), bound to the very bytes just loaded.
+      const authoring = authoringOf(bundle, { judge: this.opts.live, approval: resolved.approval });
       // #3 DURABLE mode: scope the File* stores under a per-learner dir keyed by the RGPD-safe pseudonym
       // (never the raw learnerId). We derive the pseudonym with the SAME provider+secret+bundle_id the
       // session uses in start() (session.ts), guaranteeing the host dir pseudonym === session pseudonym.
@@ -1273,7 +1272,9 @@ export class SessionHost {
       if (profile) initial = seedConceptStatesFromProfile(initial, profile, conceptIds);
       initial = { ...initial, concept_memory: pick(memory, new Set(conceptIds)) };
       const session = new LessonSession(bundle, deps, initial, learnerId, false);
-      const authoring = authoringOf(bundle, { judge: this.opts.live });
+      // A review mixes lessons: it reads as validated only when every lesson it draws from has an
+      // approval record bound to its exact file.
+      const authoring = authoringOf(bundle, { judge: this.opts.live, approvedSources: built.approvedSources });
       const language = opts.presentationLanguage === undefined ? undefined : normalizePresentationLanguage(opts.presentationLanguage);
       const entry = this.newEntry({
         session, deps, bundle, bundleRef: REVIEW_BUNDLE_ID, baseDir: "", profilePseudonym, authoring, kind: "review",
@@ -1316,10 +1317,12 @@ export class SessionHost {
    * that teaches it, one with such a scene first. A concept no lesson on disk teaches has no source;
    * one whose lessons have no such scene keeps a source the review cannot play. */
   private async reviewSources(conceptIds: readonly string[], record: StudyRecord | null, shuffleSalt: string): Promise<ReviewSource[]> {
-    const loaded = new Map<string, Promise<{ bundle: LessonBundle; baseDir: string } | null>>();
+    const loaded = new Map<string, Promise<{ bundle: LessonBundle; baseDir: string; approved: boolean } | null>>();
     const load = (ref: string) => {
       if (!loaded.has(ref)) {
-        loaded.set(ref, loadResolvedBundle(this.roots(), ref, shuffleSalt).then((r) => ({ bundle: r.bundle, baseDir: r.baseDir }), () => null));
+        loaded.set(ref, loadResolvedBundle(this.roots(), ref, shuffleSalt).then((r) => ({
+          bundle: r.bundle, baseDir: r.baseDir, approved: r.approval.recorded && r.approval.matches,
+        }), () => null));
       }
       return loaded.get(ref)!;
     };
@@ -1329,7 +1332,7 @@ export class SessionHost {
       const route = record?.concepts[conceptId];
       const routed = route ? await load(route.bundle_ref) : null;
       const found: ReviewSource[] = routed && route
-        ? [{ conceptId, bundleRef: route.bundle_ref, bundle: routed.bundle, baseDir: routed.baseDir, lastSceneId: route.scene_id }]
+        ? [{ conceptId, bundleRef: route.bundle_ref, bundle: routed.bundle, baseDir: routed.baseDir, approved: routed.approved, lastSceneId: route.scene_id }]
         : [];
       if (!found.some((source) => this.reviewSceneOf(source))) {
         // Never routed, its lesson is gone, or it no longer reviews the concept: a lesson on disk that does.
@@ -1338,7 +1341,7 @@ export class SessionHost {
           if (listed.bundle_ref === route?.bundle_ref || !listed.concepts.some((c) => c.id === conceptId)) continue;
           const lesson = await load(listed.bundle_ref);
           if (!lesson) continue;
-          const source = { conceptId, bundleRef: listed.bundle_ref, bundle: lesson.bundle, baseDir: lesson.baseDir, lastSceneId: null };
+          const source = { conceptId, bundleRef: listed.bundle_ref, bundle: lesson.bundle, baseDir: lesson.baseDir, approved: lesson.approved, lastSceneId: null };
           if (this.reviewSceneOf(source)) { found.unshift(source); break; }
           found.push(source);
         }
@@ -1507,7 +1510,7 @@ export class SessionHost {
       })),
       skipped: catalog.skipped,
       display_markdown: lessonListMarkdown(listed.map((l) => ({
-        title: l.title, scene_count: l.scene_count, drafted_by: l.authoring.drafted_by, ...(l.status ? { status: l.status } : {}),
+        title: l.title, scene_count: l.scene_count, drafted_by: l.authoring.drafted_by, mode: l.authoring.mode, ...(l.status ? { status: l.status } : {}),
       })), locale, opts.query),
     };
   }
@@ -1911,7 +1914,7 @@ export class SessionHost {
   /** Nobody signs a review as a whole: its `validated_by` is a placeholder (review-session.ts), never a
    * name. */
   private authorVoiceOf(entry: SessionEntry): Voice {
-    const voice = authorVoice(entry.authoring, entry.bundle.validated_by);
+    const voice = authorVoice(entry.authoring);
     return entry.kind === "review" && voice.kind === "author" ? { ...voice, name: null } : voice;
   }
   /** Who wrote this session's lesson, whether a teacher validated it, its approval record and whether
