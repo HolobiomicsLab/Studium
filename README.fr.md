@@ -11,6 +11,8 @@
 
 Studium transforme des sources que vous jugez fiables en leçons adaptatives, à suivre dans VS Code ou avec votre propre assistant IA. Chaque réponse dit qui a rédigé la clé de correction et si quelque chose l'a évaluée.
 
+[eDIAM](https://ediam.cnrs.fr/) · Institut de Chimie de Nice · Université Côte d'Azur · CNRS · [HolobiomicsLab](https://holobiomicslab.cnrs.fr/)
+
 ## Choisir son parcours
 
 | Je veux… | Commencer ici | Ce que vous obtenez |
@@ -81,6 +83,12 @@ Studium est un prototype de recherche, en version 0.3.0. Le moteur adaptatif, le
 ## Une famille de projets
 
 Studium assemble quatre projets frères du laboratoire : [Perspicacité](https://github.com/HolobiomicsLab/Perspicacite-AI) ancre les prérequis dans des passages de la littérature, [indicium](https://github.com/HolobiomicsLab/indicium) représente le graphe sous forme d'assertions liées à leurs preuves, [ASTRA](https://github.com/LightconeResearch/astra-spec) enregistre chaque décision d'adaptation pour qu'on puisse la rejouer, et [ASB](https://github.com/HolobiomicsLab/AgenticScienceBuilder) fournit les capsules de reproduction et le standard d'étape agentique.
+
+## Qui fait Studium
+
+Studium est développé par le [HolobiomicsLab](https://holobiomicslab.cnrs.fr/), au sein de l'[équipe eDIAM](https://ediam.cnrs.fr/) (Équipe d'Intelligence Artificielle pour les Sciences Moléculaires) de l'Institut de Chimie de Nice (ICN, UMR 7272), Université Côte d'Azur et CNRS.
+
+Nous remercions l'[EUR Spectrum](https://spectrum.univ-cotedazur.fr/), école universitaire de recherche en sciences fondamentales et ingénierie d'Université Côte d'Azur, pour son soutien. Studium est né de questions d'enseignement soulevées autour de l'école.
 
 ## Licence
 
