@@ -160,3 +160,23 @@ It checks that:
 
 It does not check that both versions say the same thing, or that a command works. Those are for the
 reviewer.
+
+## Build the site
+
+[`tools/docs/build-site.mjs`](../../tools/docs/build-site.mjs) renders the same pages as a small static
+site, in the project's identity, to read offline or to try another presentation. It is a prototype:
+
+```bash
+pnpm docs:site                                # writes site/ at the repository root
+node tools/docs/build-site.mjs --out /tmp/studium-docs
+node --test tools/docs/build-site.test.mjs    # tests of the builder
+```
+
+It reads `README.md`, `README.fr.md` and every page of `docs/` except `design-records/` and `internal/`,
+puts the English pages at the root and the French pages under `fr/`, and builds the navigation from
+the portal (the role table, then the « All pages » groups). Links to other files of the repository, such
+as source code, go to GitHub. It needs no network, at build time or to read the result, and it exits 1
+when a link or an anchor of the built site leads nowhere.
+
+`site/` is not committed. GitHub remains the canonical rendering: write and check every page for GitHub
+first.

@@ -166,3 +166,25 @@ Elle vérifie que :
 
 Elle ne vérifie ni que les deux versions disent la même chose, ni qu'une commande fonctionne. Cela
 revient au relecteur.
+
+## Construire le site
+
+[`tools/docs/build-site.mjs`](../../tools/docs/build-site.mjs) rend les mêmes pages sous la forme d'un
+petit site statique, dans l'identité du projet, pour les lire hors ligne ou essayer une autre
+présentation. C'est un prototype :
+
+```bash
+pnpm docs:site                                # écrit site/ à la racine du dépôt
+node tools/docs/build-site.mjs --out /tmp/studium-docs
+node --test tools/docs/build-site.test.mjs    # les tests du générateur
+```
+
+Il lit `README.md`, `README.fr.md` et chaque page de `docs/` sauf `design-records/` et `internal/`, place
+les pages anglaises à la racine et les pages françaises sous `fr/`, et construit la navigation à partir
+du portail (le tableau des rôles, puis les groupes de « Toutes les pages »). Les liens vers d'autres
+fichiers du dépôt, comme le code source, mènent à GitHub. Il n'a besoin d'aucun accès réseau, ni pour
+construire ni pour lire le résultat, et il sort 1 quand un lien ou une ancre du site construit ne mène
+nulle part.
+
+`site/` n'est pas versionné. Le rendu de référence reste celui de GitHub : écrivez et vérifiez chaque page
+d'abord pour GitHub.
