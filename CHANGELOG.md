@@ -7,6 +7,7 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 ### Fixed
 
 - **The concept-map page can be built again.** `tools/concept_map_report.py export` refused every record written by the 0.3.0 server, because the record had gained the `evidence` and `contest` fields after the reader was written. The reader now validates both, including that each evidence entry names a step of the path and each contest a concept of the map. A record written by the server is kept as a test fixture, and a server-side test fails when the record's shape drifts from it.
+- **Teacher Python tools read what the server and their siblings write.** The public-context check of `experience_templates.py`, `experience_exploration.py` and `demo-grounded-exploration.py` accepts the `notation`, `authoring` and `exploration.journal` fields `get_operator_context` returns (checked against saved server replies), so the documented activity routes run again. `concept_map_report.py` reads the JSON `class_report.py` writes as well as the MCP tool's, says on the page whether a lesson is approved for this exact version, changed since its approval, or without a record, and shows the number of graded answers beside a success rate computed over them. The analytics collector starts from a checkout in the environment `requirements.txt` builds. `class_report.py` says on stderr when its rows are named by scene id, and `media_workflow.py prepare` says the request already exists.
 
 ## 0.3.0 — 2026-11-09
 

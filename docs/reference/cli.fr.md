@@ -122,7 +122,7 @@ partir de la télémétrie consentie : concepts à reprendre, regroupements d'i
 calibration, achèvement. Il n'affiche jamais de ligne par apprenant ni de pseudonyme.
 
 ```bash
-.venv/bin/python tools/class_report.py <dossier_run_ou_collecteur> [--min-learners 5] [--out DIR] [--bundle lesson.zip]
+.venv/bin/python tools/class_report.py <dossier_run_ou_collecteur> [--min-learners 5] [--out DIR] [--bundle lesson.json]
 ```
 
 | Option | Sens |
@@ -130,7 +130,7 @@ calibration, achèvement. Il n'affiche jamais de ligne par apprenant ni de pseud
 | `run_dir` | Dossier des flux de télémétrie par apprenant (`telemetry.jsonl`). |
 | `--min-learners` | Seuil en apprenants distincts (5 par défaut), appliqué à chaque chiffre sur les apprenants dont il est calculé : les chiffres calculés sur moins d'apprenants sont tus. |
 | `--out DIR` | Écrit aussi `class_report.md` et `class_report.json`. |
-| `--bundle` | Le bundle, quand le dossier de télémétrie n'en contient pas (organisation durable de MCP). |
+| `--bundle` | La leçon (un `lesson.json`, un dossier de leçon ou un bundle `.zip`), quand le dossier de télémétrie n'en contient pas (organisation durable de MCP). Sans elle, les lignes de concepts portent les identifiants de scène, et une ligne sur stderr le dit. |
 
 Il suit les règles de l'outil MCP : la réussite ne compte que les réponses notées par une clé ou un
 juge (un score par mots-clés est une tentative), la calibration n'utilise que les réponses que les
