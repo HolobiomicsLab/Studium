@@ -1,9 +1,10 @@
 // lesson-picker.driver.ts — pure course discovery plus the thin node:fs adapter. No VS Code host.
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/lesson-picker.driver.ts [bundles-root]
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { discoverCourses, discoverCoursesInRoot, needsLessonPicker, toLessonPickerChoices } from "./lesson-picker.js";
+import { approvalLabel, discoverCourses, discoverCoursesInRoot, needsLessonPicker, toLessonPickerChoices } from "./lesson-picker.js";
 
 const failures: string[] = [];
 let checks = 0;
@@ -24,10 +25,36 @@ const bundle = (title: string, target: string, language: string, validatedBy: st
     { ref: "broken.json", contents: "not json" },
   ]);
   expect(courses.map((course) => course.ref).join(",") === "wave-scenes.json,zeta/lesson.json", "pure discovery keeps supported refs in deterministic order");
-  expect(courses[0]?.title === "Wave scenes" && courses[0]?.validatedBy === "Teacher W", "pure discovery reads course metadata and validation");
+  expect(courses[0]?.title === "Wave scenes" && courses[0]?.approval.state === "none", "pure discovery reads course metadata; a validated_by text alone gives no approval");
   const picks = toLessonPickerChoices(courses, "/courses");
-  expect(picks[0]?.description === "L1 · fr" && picks[0]?.detail?.includes("Teacher W"), "picker items expose target, language, ref, and validation");
+  expect(picks[0]?.description === "L1 · fr" && picks[0]?.detail === "wave-scenes.json · aucune approbation enregistrée", "picker items expose target, language, ref, and the approval state (not validated_by)");
   expect(picks.at(-1)?.action === "folder" && picks.at(-1)?.detail === "/courses", "picker always offers another bundles-root folder");
+}
+
+// Approval state comes from approval.json bound to the bytes of the lesson; validated_by text never shows.
+{
+  const lesson = bundle("Signed", "L1", "fr", "Teacher Z");
+  const sha = createHash("sha256").update(lesson, "utf8").digest("hex");
+  const rec = (over: Record<string, unknown> = {}) => JSON.stringify({ schema: "studium-approval/1", bundle_sha256: sha, reviewer: "Dr Roux", ...over });
+  const detailOf = (approvalText: string | undefined, locale: "fr" | "en" = "fr") => {
+    const c = discoverCourses([{ ref: "s/lesson.json", contents: lesson, ...(approvalText === undefined ? {} : { approvalText }) }]);
+    const d = toLessonPickerChoices(c, "/r", locale)[0]!.detail;
+    return { state: c[0]?.approval.state, detail: d };
+  };
+  const m = detailOf(rec());
+  expect(m.state === "approved" && m.detail === "s/lesson.json · validée par Dr Roux", "a matching record names the reviewer from the record (fr)");
+  expect(detailOf(rec(), "en").detail === "s/lesson.json · validated by Dr Roux", "a matching record names the reviewer (en)");
+  expect(detailOf(rec({ bundle_sha256: "0".repeat(64) })).detail === "s/lesson.json · modifiée depuis sa validation", "a stale record reads changed since approval (fr)");
+  expect(detailOf(rec({ bundle_sha256: "0".repeat(64) }), "en").detail === "s/lesson.json · changed since its approval", "a stale record reads changed (en)");
+  expect(detailOf(undefined).detail === "s/lesson.json · aucune approbation enregistrée", "no record reads no approval recorded (fr)");
+  expect(detailOf(undefined, "en").detail === "s/lesson.json · no approval recorded", "no record reads no approval recorded (en)");
+  for (const [name, text] of [
+    ["unparsable", "{nope"], ["array", "[]"], ["other schema", rec({ schema: "x/1" })], ["numeric digest", rec({ bundle_sha256: 7 })],
+    ["empty reviewer", rec({ reviewer: "  " })], ["numeric reviewer", rec({ reviewer: 3 })], ["over 64 KiB", rec({ pad: "x".repeat(70000) })],
+  ] as const) {
+    expect(detailOf(text).state === "none", `a malformed record (${name}) reads as no record`);
+  }
+  expect(!detailOf(undefined).detail.includes("Teacher Z"), "a validated_by text alone never shows in the picker");
 }
 
 // First-run/missing-ref routing is pure: absent and missing refs pick; an existing configured ref opens.
@@ -50,7 +77,11 @@ try {
   writeFileSync(join(root, "dist", "ignored", "lesson.json"), bundle("Ignored dist", "L3", "en", "Nobody"));
   writeFileSync(join(root, ".git", "ignored", "lesson.json"), bundle("Ignored git", "L3", "en", "Nobody"));
   writeFileSync(join(root, "one", "two", "three", "lesson.json"), bundle("Too deep", "L3", "en", "Nobody"));
+  const alphaText = bundle("Alpha", "L1", "fr", "Teacher A");
+  writeFileSync(join(root, "alpha", "approval.json"), JSON.stringify({ schema: "studium-approval/1", bundle_sha256: createHash("sha256").update(alphaText).digest("hex"), reviewer: "Prof. Alpha" }));
+  writeFileSync(join(root, "beta", "approval.json"), JSON.stringify({ schema: "studium-approval/1", bundle_sha256: "0".repeat(64), reviewer: "Prof. Beta" }));
   const courses = discoverCoursesInRoot(root);
+  expect(courses[0]?.approval.state === "approved" && courses[1]?.approval.state === "changed", "the filesystem adapter hashes the file bytes and reads the sibling approval.json");
   expect(courses.map((course) => course.ref).join(",") === "alpha/lesson.json,beta/lesson.json", "filesystem adapter discovers exactly the two fake courses");
 } finally {
   rmSync(root, { recursive: true, force: true });
@@ -60,7 +91,7 @@ const requestedRoot = process.argv[2];
 if (requestedRoot) {
   const courses = discoverCoursesInRoot(requestedRoot);
   console.log(`DISCOVERED ${courses.length} courses in ${requestedRoot}`);
-  for (const course of courses) console.log(`${course.ref}\t${course.title}\t${course.target} · ${course.language}\tvalidated_by=${course.validatedBy}`);
+  for (const course of courses) console.log(`${course.ref}\t${course.title}\t${course.target} · ${course.language}\t${approvalLabel(course.approval, "en")}`);
 }
 
 if (failures.length) {

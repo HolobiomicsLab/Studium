@@ -121,7 +121,7 @@ const MIXED = {
   expect(!buildLessonTree({ courses: [], community: [], onReproductionScene: false }).some((n) => n.id === "reviews"), "no reviews option → no node");
   const empty = buildLessonTree({ courses: [], community: [], onReproductionScene: false, emptyAsWelcome: true });
   expect(empty.length === 0, "nothing to show + emptyAsWelcome → an empty tree (the welcome view takes over)");
-  expect(buildLessonTree({ courses: [{ ref: "a/lesson.json", title: "A", target: "L1", language: "fr", validatedBy: "x" }], community: [], onReproductionScene: false, emptyAsWelcome: true }).length > 0, "a discovered course keeps the tree");
+  expect(buildLessonTree({ courses: [{ ref: "a/lesson.json", title: "A", target: "L1", language: "fr", approval: { state: "none" } }], community: [], onReproductionScene: false, emptyAsWelcome: true }).length > 0, "a discovered course keeps the tree");
   expect(buildLessonTree({ courses: [], community: [], onReproductionScene: false, emptyAsWelcome: true, reviews }).length > 0, "due reviews keep the tree");
   expect(buildLessonTree({ courses: [], community: [], onReproductionScene: true, emptyAsWelcome: true }).length > 0, "a live reproduction scene keeps the tree");
 }
