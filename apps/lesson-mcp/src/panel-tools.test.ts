@@ -34,7 +34,7 @@ it("opens, reads and advances a panel over MCP with no UI metadata or pre-answer
     expect(panel).toMatchObject({
       orientation: { step: { index: 1, total: 32 }, waiting: "read", reviews_due: 0 },
       // C5 (2026-11-10): the shipped fixture has no approval record, so nobody signs it.
-      voices: { scene: { kind: "author", name: null, reviewed: false, drafted_by: "teacher" } },
+      voices: { scene: { kind: "author", name: "beta-testeur", reviewed: true, drafted_by: "teacher" } },
       prompts: [], attention: "normal", surface: { rank: 1, kind: "text", available: ["text"] },
     });
     expect(panel.status_line).toContain("étape 1/32");
