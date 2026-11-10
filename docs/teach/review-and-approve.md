@@ -130,9 +130,12 @@ The record holds:
 | `lint` | Error and warning counts at approval time |
 | `tool` | The tool and its version |
 
-Readers (the MCP server, the dashboard) treat a missing, malformed or foreign record as no approval,
-and a record whose digest does not match as stale (`review_lesson` then reports
-`approval.matches: false`). Any edit after approval, even whitespace, means
+Readers (the MCP server, the dashboard, the concept map page) treat a missing, malformed or foreign
+record (another schema, no reviewer name) as no approval, and a record whose digest does not match as
+stale (`review_lesson` then reports `approval.matches: false`). Learners read the three states:
+« Leçon validée par <reviewer> » with the name from the record, a notice that the lesson changed
+since its approval, or « Aucune approbation enregistrée pour cette leçon. » / "No approval is
+recorded for this lesson." Any edit after approval, even whitespace, means
 you review and approve again. Free-form `validated_by` text never grants the Approved status, and
 approval does not send the lesson to anyone: distribution is a separate step
 ([teacher guide](teacher-guide.md#distribute-a-lesson)).

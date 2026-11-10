@@ -128,7 +128,7 @@ export type StudiumOrientation = {
 
 /** Who speaks: the lesson's author, the author's key, a judge model, or the assistant. */
 export type StudiumVoice =
-  | { kind: "author"; name: string | null; reviewed: boolean; drafted_by: "agent" | "learner" | "teacher" }
+  | { kind: "author"; name: string | null; reviewed: boolean; drafted_by: "agent" | "learner" | "teacher"; from_classmate?: true }
   | { kind: "key" }
   | { kind: "judge" }
   | { kind: "agent" };

@@ -115,8 +115,9 @@ describe("public operator context", () => {
     const { host, sessionId } = await start();
     const result = operatorContext(host, sessionId);
     // C5 adds approval; B2 exposes the inferred teacher drafter even without metadata.authoring.
+    // No approval record next to this lesson: not validated, whatever its validated_by says (2026-11-10).
     expect(result.authoring).toEqual({
-      mode: "teacher", author_is_learner: false, drafted_by: "teacher", validated: true, judge: false, notice: null,
+      mode: "teacher", author_is_learner: false, drafted_by: "teacher", validated: false, judge: false, notice: null,
       approval: { recorded: false, matches: false },
     });
     const keys = Object.keys(result);

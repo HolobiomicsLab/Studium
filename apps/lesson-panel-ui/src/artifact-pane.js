@@ -1048,6 +1048,7 @@ let renderView;
     const full = voiceText(voice);
     if (!full || !isObject(voice)) return null;
     const short = voice.reviewed ? "pane_voice_short_validated" : voice.name ? "pane_voice_short_changed"
+      : voice.from_classmate === true ? "pane_voice_short_classmate"
       : voice.drafted_by === "agent" ? "pane_voice_short_ai" : voice.drafted_by === "learner" ? "pane_voice_short_learner" : "pane_voice_short_unreviewed";
     const fullNode = el("p", { class: "voice voice-scene", id: nextId("voice") }, full);
     return el("details", { class: "voice-chip", "data-reviewed": voice.reviewed ? "true" : "false" },
@@ -1064,6 +1065,8 @@ let renderView;
   function verdictVoiceText(voices) {
     if (!isObject(voices) || !isObject(voices.verdict)) return "";
     const drafted = isObject(voices.scene) ? voices.scene.drafted_by : null;
+    // A classmate's contribution (teacher mode, drafted by a learner): the key is not the reader's own.
+    if (voices.verdict.kind === "key" && isObject(voices.scene) && voices.scene.from_classmate === true) return t("pane_voice_key_classmate");
     if (voices.verdict.kind === "key" && drafted === "agent") return t("pane_voice_key_ai");
     if (voices.verdict.kind === "key" && drafted === "learner") return t("pane_voice_key_own");
     return voiceText(voices.verdict);
@@ -1074,6 +1077,10 @@ let renderView;
     if (voice.kind === "judge") return t("pane_voice_judge");
     if (voice.kind === "agent") return t("pane_voice_agent");
     if (voice.kind !== "author") return "";
+    if (voice.from_classmate === true) {
+      if (voice.reviewed) return voice.name ? t("pane_voice_classmate_validated_by", { name: voice.name }) : t("pane_voice_validated");
+      return voice.name ? t("pane_voice_classmate_changed") : t("pane_voice_classmate_unreviewed");
+    }
     if (voice.reviewed) return voice.name ? t("pane_voice_validated_by", { name: voice.name }) : t("pane_voice_validated");
     if (voice.name) return t("pane_voice_changed");
     if (voice.drafted_by === "agent") return t("pane_voice_ai_unreviewed");
@@ -1454,6 +1461,9 @@ let renderView;
   // Whose key a correct choice comes from, as the view says it (the AI's, the learner's own, the author's).
   function keyLabel(voices, v, authoring) {
     const drafted = isObject(voices) && isObject(voices.scene) ? voices.scene.drafted_by : isObject(authoring) ? authoring.drafted_by : null;
+    const classmate = isObject(voices) && isObject(voices.scene) ? voices.scene.from_classmate === true
+      : isObject(authoring) && authoring.mode === "teacher" && authoring.drafted_by === "learner";
+    if (classmate) return t("pane_compare_key_classmate");
     if (drafted === "agent") return t("pane_compare_key_ai");
     if (drafted === "learner") return t("pane_compare_key_own");
     return t("pane_compare_key_author");

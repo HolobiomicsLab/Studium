@@ -246,6 +246,29 @@ describe("pane model of a version-2 view", () => {
       .toBe("Leçon validée par un enseignant");
     expect(voiceChip({ ...V2, voices: { scene: { kind: "author", name: "Prof. Test", reviewed: false, drafted_by: "teacher" } } }, "scene"))
       .toBe("Leçon modifiée depuis sa validation");
+    // C5 (2026-11-10): a teacher's lesson with no approval record says only that, and names nobody.
+    expect(voiceChip({ ...V2, voices: { scene: { kind: "author", name: null, reviewed: false, drafted_by: "teacher" } } }, "scene"))
+      .toBe("Aucune approbation enregistrée pour cette leçon");
+    expect(voiceChip({ ...V2, locale: "en", voices: { scene: { kind: "author", name: null, reviewed: false, drafted_by: "teacher" } } }, "scene"))
+      .toBe("No approval is recorded for this lesson");
+    // A classmate's contribution a teacher reviews (teacher mode, drafted by a learner): never « que tu as rédigée ».
+    const classmate = (over: { name?: string | null; reviewed?: boolean } = {}) => ({ kind: "author" as const, name: null,
+      reviewed: false, drafted_by: "learner" as const, from_classmate: true as const, ...over });
+    expect(voiceChip({ ...V2, voices: { scene: classmate({ name: "Prof. Relu", reviewed: true }) } }, "scene"))
+      .toBe("Leçon proposée par une personne de la classe, validée par Prof. Relu");
+    expect(voiceChip({ ...V2, locale: "en", voices: { scene: classmate({ name: "Dr Lee", reviewed: true }) } }, "scene"))
+      .toBe("Lesson contributed by a classmate, validated by Dr Lee");
+    expect(voiceChip({ ...V2, voices: { scene: classmate() } }, "scene"))
+      .toBe("Leçon proposée par une personne de la classe. Aucune approbation enregistrée pour cette leçon.");
+    expect(voiceChip({ ...V2, locale: "en", voices: { scene: classmate() } }, "scene"))
+      .toBe("Lesson contributed by a classmate. No approval is recorded for this lesson.");
+    expect(voiceChip({ ...V2, voices: { scene: classmate({ name: "Prof. Relu" }) } }, "scene"))
+      .toBe("Leçon proposée par une personne de la classe. Modifiée depuis sa validation.");
+    expect(voiceChip({ ...V2, voices: { scene: classmate(), verdict: { kind: "key" } } }, "verdict"))
+      .toBe("Évalué par la clé rédigée par une personne de la classe");
+    expect(voiceChip({ ...V2, locale: "en", voices: { scene: classmate(), verdict: { kind: "key" } } }, "verdict"))
+      .toBe("Assessed by the key written by a classmate");
+    expect(voiceChip(keyOf("learner"), "verdict")).toBe("Évalué par la clé que tu as rédigée"); // self-study keeps it
     expect(voiceChip({ ...V2, locale: "en", voices: { scene: { kind: "agent" } } }, "scene")).toBe("Assistant's text, not part of the lesson");
     expect(voiceChip({ ...V2, strings: { pane_voice_validated_by: "Signée {name}" } }, "scene")).toBe("Signée Prof. Test"); // the view's own words win
     expect(voiceChip(PANEL, "scene")).toBe(""); // version 1 says nothing of voices

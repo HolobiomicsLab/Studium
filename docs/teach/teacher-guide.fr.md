@@ -76,7 +76,10 @@ prêtes à adapter se trouvent dans [modèles d'activités](activity-templates.f
 ## Diffuser une leçon
 
 Une leçon est un dossier : `lesson.json`, ses `assets/` et, une fois approuvée, `approval.json`.
-Gardez les trois ensemble et à la même révision. Les étudiants placent le dossier dans leur
+Gardez les trois ensemble et à la même révision. Une leçon livrée en `.zip` porte l'enregistrement
+dans son membre `approval.json` (les scripts de construction des démos l'ajoutent quand il correspond
+à `lesson.json`) ; sans lui, la leçon se lit « Aucune approbation enregistrée pour cette leçon. »
+Les étudiants placent le dossier dans leur
 bibliothèque Studium (par défaut `~/.studium/library/<course_id>/`, ou le dossier que désigne
 `BUNDLES_ROOT`) et l'ouvrent depuis leur assistant ou depuis VS Code (voir [VS Code](../start/vscode.fr.md)).
 Au démarrage de la leçon, la session indique si un enregistrement d'approbation correspond au

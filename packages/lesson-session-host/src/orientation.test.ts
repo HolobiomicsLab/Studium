@@ -281,8 +281,14 @@ describe("voicesOf — who wrote a screen, who assessed an answer", () => {
   const agentDrafted = { authoring: { mode: "self_study", drafted_by: "agent" }, validated_by: "SELF-STUDY (non validée)" };
 
   it("names the teacher who signs a validated lesson", async () => {
+    // C5 (2026-11-10): the name is the approval record's reviewer, never the lesson's validated_by.
+    const { host, sid } = await open(threeScenes(), "current");
+    expect(voicesOf(host, sid)).toEqual({ scene: { kind: "author", name: "Prof. Relu", reviewed: true, drafted_by: "teacher" } });
+  });
+
+  it("names nobody and says not reviewed for a teacher's lesson without an approval record, whatever validated_by says", async () => {
     const { host, sid } = await open(threeScenes());
-    expect(voicesOf(host, sid)).toEqual({ scene: { kind: "author", name: "Prof. Test", reviewed: true, drafted_by: "teacher" } });
+    expect(voicesOf(host, sid)).toEqual({ scene: { kind: "author", name: null, reviewed: false, drafted_by: "teacher" } });
   });
 
   it("says a lesson an agent drafted was not reviewed, and names nobody", async () => {
@@ -297,13 +303,20 @@ describe("voicesOf — who wrote a screen, who assessed an answer", () => {
   });
 
   it("names the reviewer whose approval is bound to this exact lesson file", async () => {
-    const { host, sid } = await open(lesson([concept("s-c", "c-un", 60), quiz("s-q1", "c-deux", 60)], agentDrafted), "current");
+    // A teacher-mode lesson an agent drafted: `approve` accepts it, unlike a self-study one.
+    const teacherAgentDrafted = { authoring: { mode: "teacher", drafted_by: "agent" }, validated_by: "anything" };
+    const { host, sid } = await open(lesson([concept("s-c", "c-un", 60), quiz("s-q1", "c-deux", 60)], teacherAgentDrafted), "current");
     expect(voicesOf(host, sid).scene).toEqual({ kind: "author", name: "Prof. Relu", reviewed: true, drafted_by: "agent" });
+  });
+
+  it("never reads a self-study lesson as reviewed, even with a record bound to its bytes (approve refuses one)", async () => {
+    const { host, sid } = await open(lesson([concept("s-c", "c-un", 60), quiz("s-q1", "c-deux", 60)], agentDrafted), "current");
+    expect(voicesOf(host, sid).scene).toEqual({ kind: "author", name: null, reviewed: false, drafted_by: "agent" });
   });
 
   it("says a lesson changed since its approval is not reviewed, even one a teacher signed", async () => {
     const { host, sid } = await open(threeScenes(), "stale");
-    expect(voicesOf(host, sid).scene).toEqual({ kind: "author", name: "Prof. Test", reviewed: false, drafted_by: "teacher" });
+    expect(voicesOf(host, sid).scene).toEqual({ kind: "author", name: "Prof. Relu", reviewed: false, drafted_by: "teacher" });
   });
 
   it("says the author's key assessed a quiz answer, a judge a judged one, and nobody an unassessed one", async () => {
@@ -440,6 +453,19 @@ describe("voiceLine — the lesson's voice in one line", () => {
     expect(voiceLine(author({ drafted_by: "learner", reviewed: true }), "en")).toBe("Lesson you wrote, validated by a teacher.");
   });
 
+  it("says a classmate proposed a contribution a teacher reviews, in each state, never « que tu as rédigée »", () => {
+    const classmate = (over: Partial<Extract<Voice, { kind: "author" }>> = {}) =>
+      author({ drafted_by: "learner", from_classmate: true, ...over });
+    expect(voiceLine(classmate({ name: "Mme Durand", reviewed: true }), "fr")).toBe("Leçon proposée par une personne de la classe, validée par Mme Durand.");
+    expect(voiceLine(classmate({ name: "Dr Lee", reviewed: true }), "en")).toBe("Lesson contributed by a classmate, validated by Dr Lee.");
+    expect(voiceLine(classmate(), "fr")).toBe("Leçon proposée par une personne de la classe. Aucune approbation enregistrée pour cette leçon.");
+    expect(voiceLine(classmate(), "en")).toBe("Lesson contributed by a classmate. No approval is recorded for this lesson.");
+    expect(voiceLine(classmate({ name: "Dr Lee" }), "en")).toBe("Lesson contributed by a classmate. Changed since Dr Lee validated it.");
+    expect(voiceLine(classmate({ name: "Mme Durand" }), "fr")).toBe("Leçon proposée par une personne de la classe. Modifiée depuis sa validation par Mme Durand.");
+    // A self-study lesson the learner wrote keeps its own wording.
+    expect(voiceLine(author({ drafted_by: "learner" }), "fr")).toBe("Leçon que tu as rédigée, non relue par un enseignant.");
+  });
+
   it("stays within its length: a long name is cut", () => {
     const long = Array.from({ length: 20 }, () => "Professeure").join(" ");
     for (const locale of ["fr", "en"] as const) {
@@ -473,10 +499,30 @@ describe("the conversation text carries the orientation and the voices (task 1.5
   });
 
   it("names who validated a teacher's lesson on the first screen only", async () => {
-    const { host, sid } = await open(threeScenes());
-    expect(host.currentPresentation(sid).display_markdown).toContain("> Leçon validée par Prof. Test.");
+    const { host, sid } = await open(threeScenes(), "current");
+    expect(host.currentPresentation(sid).display_markdown).toContain("> Leçon validée par Prof. Relu.");
+    expect(host.currentPresentation(sid).display_markdown).not.toContain("Prof. Test");
     const next = await host.respond(sid, { kind: "ack" });
     expect(next.display_markdown).not.toContain("Leçon validée par");
+  });
+
+  it("says no approval is recorded on the first screen of a teacher's lesson without a record, and names nobody", async () => {
+    const { host, sid } = await open(threeScenes());
+    const first = host.currentPresentation(sid).display_markdown;
+    expect(first.startsWith("> Aucune approbation enregistrée pour cette leçon.\n\n")).toBe(true);
+    expect(first).not.toContain("validée");
+    expect(first).not.toContain("Prof. Test");
+    const en = threeScenes();
+    const english = await open({ ...en, metadata: { ...en.metadata, language: "en" } });
+    expect(english.host.currentPresentation(english.sid).display_markdown.startsWith("> No approval is recorded for this lesson.\n\n")).toBe(true);
+  });
+
+  it("states a changed lesson once, by its notice, on the first screen", async () => {
+    const { host, sid } = await open(threeScenes(), "stale");
+    const first = host.currentPresentation(sid).display_markdown;
+    expect(first).toContain("> Attention\u00a0: cette leçon a été modifiée depuis son approbation par l'enseignant.");
+    expect(first).not.toContain("Aucune approbation");
+    expect(first).not.toContain("validée par Prof.");
   });
 
   it("opens every later screen of an unreviewed agent-drafted lesson with its voice; the first has the notice", async () => {
@@ -500,7 +546,11 @@ describe("the conversation text carries the orientation and the voices (task 1.5
 
   it("a review mixes lessons: its screens carry the status line, and no person's name as the lesson's voice", async () => {
     const root = tmp();
-    writeFileSync(join(root, "O.json"), JSON.stringify(lesson([quiz("s-q1", "c-un", 60)])));
+    const bytes = JSON.stringify(lesson([quiz("s-q1", "c-un", 60)]));
+    writeFileSync(join(root, "O.json"), bytes);
+    // C5: the lesson it draws from is approved, so the review reads as validated by a teacher.
+    writeFileSync(join(root, "approval.json"), JSON.stringify({ schema: "studium-approval/1", reviewer: "Prof. Relu",
+      bundle_sha256: createHash("sha256").update(bytes).digest("hex") }));
     let now = T0;
     const host = new SessionHost({ bundlesRoot: root, live: false, dataDir: tmp(), clock: { now: () => new Date(now).toISOString() } });
     const learner = "auto-test-orientation-review";

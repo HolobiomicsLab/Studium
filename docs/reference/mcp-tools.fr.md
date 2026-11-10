@@ -135,7 +135,7 @@ What to do now, and reviews over days.
 
 ### export_concept_map
 
-On the learner's request, export the concept map of a lesson session as a record (studium/concept-map-record/v1): the map, each step with who assessed the answer and how the session routed after it, and for every scene what it rests on (sources cited and their origin, key class, who drafted the lesson and whether a teacher validated it). No learner identifier and none of the learner's words; a passage is quoted only for a scene already left. When the server has a library the record is written under &lt;library&gt;/_exports/concept-maps/ and saved_to and sha256 name the file; tools/concept_map_report.py turns it into an interactive page with its ASTRA document and ARA trace. Show display_markdown. Fails for a review session and for a lesson with fewer than two concepts.
+On the learner's request, export the concept map of a lesson session as a record (studium/concept-map-record/v1): the map, each step with who assessed the answer and how the session routed after it, and for every scene what it rests on (sources cited and their origin, key class, who drafted the lesson and whether an approval record matches this exact file). No learner identifier and none of the learner's words; a passage is quoted only for a scene already left. When the server has a library the record is written under &lt;library&gt;/_exports/concept-maps/ and saved_to and sha256 name the file; tools/concept_map_report.py turns it into an interactive page with its ASTRA document and ARA trace. Show display_markdown. Fails for a review session and for a lesson with fewer than two concepts.
 
 | Field | Type | Required |
 |---|---|---|

@@ -61,7 +61,7 @@ export {
   type CommunityBundleEntry,
 } from "./community-bundles.js";
 export {
-  authoringOf, readApproval, draftedByOf, isTeacherValidated, SELF_STUDY_NOTICE, AGENT_DRAFTED_NOTICE,
+  authoringOf, readApproval, parseApproval, approvalOfZip, draftedByOf, hasUnvalidatedPlaceholder, SELF_STUDY_NOTICE, AGENT_DRAFTED_NOTICE,
   type AuthoringBlock, type ApprovalStatus, type DraftedBy,
 } from "./authoring.js";
 export { SCENE_KEY_CLASS, keyClassOf, type KeyClass } from "./key-class.js";

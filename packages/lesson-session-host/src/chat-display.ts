@@ -203,6 +203,7 @@ const PHRASES = {
     lesson_steps_many: "{count} étapes",
     lesson_agent: "rédigée par l'IA",
     lesson_learner: "écrite par toi",
+    lesson_classmate: "proposée par une personne de la classe",
     lesson_new: "pas encore commencée",
     lesson_in_progress: "en cours : {done} sur {total}",
     lesson_completed: "terminée",
@@ -305,6 +306,7 @@ const PHRASES = {
     lesson_steps_many: "{count} steps",
     lesson_agent: "AI-drafted",
     lesson_learner: "written by you",
+    lesson_classmate: "contributed by a classmate",
     lesson_new: "not started yet",
     lesson_in_progress: "in progress: {done} of {total}",
     lesson_completed: "completed",
@@ -666,6 +668,8 @@ export interface ListedLessonLine {
   title: string;
   scene_count: number;
   drafted_by: "agent" | "learner" | "teacher";
+  /** A teacher-mode lesson a learner drafted is a classmate's contribution, not the reader's own. */
+  mode?: "teacher" | "self_study";
   status?: { state: "new" | "in_progress" | "completed"; scenes_completed: number; total_scenes: number };
 }
 
@@ -679,7 +683,7 @@ export function lessonListMarkdown(lessons: readonly ListedLessonLine[], locale:
   const line = (l: ListedLessonLine) => {
     const details = [l.scene_count === 1 ? say(locale, "lesson_steps_one") : say(locale, "lesson_steps_many", { count: l.scene_count })];
     if (l.drafted_by === "agent") details.push(say(locale, "lesson_agent"));
-    if (l.drafted_by === "learner") details.push(say(locale, "lesson_learner"));
+    if (l.drafted_by === "learner") details.push(say(locale, l.mode === "teacher" ? "lesson_classmate" : "lesson_learner"));
     if (l.status?.state === "new") details.push(say(locale, "lesson_new"));
     if (l.status?.state === "in_progress") {
       details.push(say(locale, "lesson_in_progress", { done: l.status.scenes_completed, total: l.status.total_scenes }));
