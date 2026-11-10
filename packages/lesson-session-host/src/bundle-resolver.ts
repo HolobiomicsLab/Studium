@@ -9,7 +9,8 @@ import { createHash } from "node:crypto";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { resolve, relative, isAbsolute, dirname, join } from "node:path";
 import type { LessonBundle } from "@studium/lesson-bundle-schema";
-import { BundleSchemaError, loadBundleZip, loadBundleJson } from "@studium/lesson-session/node";
+import { BundleSchemaError, readBundleZip, loadBundleJson } from "@studium/lesson-session/node";
+import { approvalOfZip, readApproval, type ApprovalStatus } from "./authoring.js";
 import { shuffleQuizChoices } from "./shuffle-choices.js";
 import { scanCatalog, nearestRefs, learnerMinutesPerDay } from "./lesson-catalog.js";
 
@@ -21,8 +22,12 @@ export interface ResolvedBundle {
   path: string;
   /** Folder relative render-asset paths resolve against: the lesson.json folder; "" for a .zip. */
   baseDir: string;
-  /** sha256 of the lesson.json bytes, binding an approval record (C5); null for a .zip. */
+  /** sha256 of the lesson.json bytes (for a .zip, of its lesson.json member), binding an approval
+   * record (C5). */
   sha256: string | null;
+  /** C5: the approval record bound to those bytes — `approval.json` next to a lesson.json, or the
+   * `approval.json` member of a .zip — read fail-safe (none, malformed or foreign reads as none). */
+  approval: ApprovalStatus;
   /** RFR-06: the learner's minutes a day kept in the lesson file (learnerMinutesPerDay); null when none. */
   minutesPerDay: number | null;
 }
@@ -88,6 +93,7 @@ export async function loadResolvedBundle(
   let bundle: LessonBundle;
   let sha256: string | null = null;
   let minutesPerDay: number | null = null;
+  let approval: ApprovalStatus;
   if (path.endsWith(".json")) {
     const bytes = await readFile(path);
     sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -97,9 +103,14 @@ export async function loadResolvedBundle(
     try { bundle = loadBundleJson(raw); }
     catch (error) { throw invalidLesson(ref, error); }
     minutesPerDay = learnerMinutesPerDay(raw) ?? null;
+    approval = await readApproval(dirname(path), sha256);
   } else {
-    try { bundle = await loadBundleZip(path); }
+    let zip;
+    try { zip = await readBundleZip(path); }
     catch (error) { throw error instanceof BundleSchemaError ? invalidLesson(ref, error) : new Error(`lesson ${ref} could not be read as a bundle archive`); }
+    bundle = zip.bundle;
+    sha256 = createHash("sha256").update(zip.lessonBytes).digest("hex");
+    approval = approvalOfZip(zip.approvalText, sha256);
   }
   // Anti-leak: permute + re-letter quiz choices so the correct answer is not always first/"a".
   // Deterministic per scene id (+ optional per-learner salt), so grading and replay stay
@@ -110,6 +121,7 @@ export async function loadResolvedBundle(
     path,
     baseDir: path.endsWith(".json") ? dirname(path) : "",
     sha256,
+    approval,
     minutesPerDay,
   };
 }

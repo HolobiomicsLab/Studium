@@ -95,7 +95,7 @@ describe("B2 public completion and provenance", () => {
 
   it("shows a stale approval notice on the first screen only", async () => {
     const { host, root } = setup([quiz("q1", "c"), quiz("q2", "c")]);
-    writeFileSync(join(root, "approval.json"), JSON.stringify({ schema: "studium-approval/1", bundle_sha256: "stale-hash" }));
+    writeFileSync(join(root, "approval.json"), JSON.stringify({ schema: "studium-approval/1", bundle_sha256: "stale-hash", reviewer: "Dr Example" }));
     const started = await host.create("lesson.json");
     expect(started.authoring.approval).toMatchObject({ recorded: true, matches: false });
     // RT-4 names what changed in learner language, without exposing the hash.

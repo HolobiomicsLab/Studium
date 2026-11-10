@@ -591,6 +591,35 @@ test("a key verdict names the AI-drafted key, the learner's own key, or the auth
   assert.equal(chip("teacher", "c"), "Assessed by the author's key");
 });
 
+// A classmate's contribution a teacher reviews (teacher mode, drafted by a learner): the scene chip and the
+// key verdict name the classmate, never « the key you wrote »; a self-study lesson keeps its own wording.
+test("a classmate's contribution names the classmate in the scene chip and on the key verdict", async () => {
+  const { browserPhrases: phrases } = await import("../../../packages/lesson-panel/src/phrases.ts");
+  const en = phrases("en");
+  const verdict = { scene_id: "earlier", graded: true, correct: true, assessed_by: "key", feedback: "Well done." };
+  const render = (scene, session_id) => {
+    const before = mountWithSend();
+    before.dom.window.renderView(quizV2({ strings: en, session_id, voices: { scene } }));
+    const out = { scene: text(before.doc.querySelector(".voice-scene")), chip: text(before.doc.querySelector(".voice-chip summary")) };
+    before.dom.window.close();
+    const after = mountWithSend();
+    after.dom.window.renderView(quizV2({ strings: en, session_id: `${session_id}-v`, verdict, voices: { scene, verdict: { kind: "key" } } }));
+    out.verdict = text(after.doc.querySelector(".feedback-step .voice-verdict"));
+    after.dom.window.close();
+    return out;
+  };
+  const classmate = { kind: "author", name: null, reviewed: false, drafted_by: "learner", from_classmate: true };
+  assert.deepEqual(render(classmate, "a"), { scene: "Lesson contributed by a classmate. No approval is recorded for this lesson.",
+    chip: en.pane_voice_short_classmate, verdict: "Assessed by the key written by a classmate" });
+  assert.equal(render({ ...classmate, name: "Dr Lee", reviewed: true }, "b").scene, "Lesson contributed by a classmate, validated by Dr Lee");
+  assert.equal(render({ ...classmate, name: "Dr Lee" }, "c").scene, "Lesson contributed by a classmate. Changed since its validation.");
+  const own = render({ kind: "author", name: null, reviewed: false, drafted_by: "learner" }, "d");
+  assert.equal(own.verdict, "Assessed by the key you wrote");
+  const teacher = render({ kind: "author", name: null, reviewed: false, drafted_by: "teacher" }, "e");
+  assert.equal(teacher.scene, "No approval is recorded for this lesson");
+  assert.equal(teacher.chip, en.pane_voice_short_unreviewed);
+});
+
 // INT-STUDIUM-058 § 2.1, surface negotiation: a host that renders MCP Apps shows the panel for any call of
 // open_lesson_panel, a conversation or forms surface included. The panel is then not the surface: it draws a
 // short notice in the view's language, never the scene, its answer controls, the settings or the map, so

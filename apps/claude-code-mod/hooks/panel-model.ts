@@ -305,10 +305,27 @@ export function voiceChip(view: StudiumPanelView, block: "scene" | "verdict"): s
   if (voice.kind === "key" && drafted === "agent") {
     return phraseOf(view, "pane_voice_key_ai", "Évalué par la clé rédigée par l'IA — vérifie-la avec le passage cité", "Assessed by the AI-drafted key — check it against the cited passage");
   }
+  // A classmate's contribution (teacher mode, drafted by a learner): the key is not the reader's own.
+  const classmate = view.voices?.scene?.kind === "author" && view.voices.scene.from_classmate === true;
+  if (voice.kind === "key" && classmate) {
+    return phraseOf(view, "pane_voice_key_classmate", "Évalué par la clé rédigée par une personne de la classe", "Assessed by the key written by a classmate");
+  }
   if (voice.kind === "key" && drafted === "learner") return phraseOf(view, "pane_voice_key_own", "Évalué par la clé que tu as rédigée", "Assessed by the key you wrote");
   if (voice.kind === "key") return phraseOf(view, "pane_voice_key", "Évalué par la clé de l'auteur", "Assessed by the author's key");
   if (voice.kind === "judge") return phraseOf(view, "pane_voice_judge", "Évalué par un juge (modèle)", "Assessed by a judge (model)");
   if (voice.kind === "agent") return phraseOf(view, "pane_voice_agent", "Texte de l'assistant, hors leçon", "Assistant's text, not part of the lesson");
+  if (voice.from_classmate === true) {
+    if (voice.reviewed && voice.name) {
+      return phraseOf(view, "pane_voice_classmate_validated_by", "Leçon proposée par une personne de la classe, validée par {name}",
+        "Lesson contributed by a classmate, validated by {name}").replace("{name}", voice.name);
+    }
+    if (voice.reviewed) return phraseOf(view, "pane_voice_validated", "Leçon validée par un enseignant", "Lesson validated by a teacher");
+    return voice.name
+      ? phraseOf(view, "pane_voice_classmate_changed", "Leçon proposée par une personne de la classe. Modifiée depuis sa validation.",
+        "Lesson contributed by a classmate. Changed since its validation.")
+      : phraseOf(view, "pane_voice_classmate_unreviewed", "Leçon proposée par une personne de la classe. Aucune approbation enregistrée pour cette leçon.",
+        "Lesson contributed by a classmate. No approval is recorded for this lesson.");
+  }
   if (voice.reviewed) {
     return voice.name
       ? phraseOf(view, "pane_voice_validated_by", "Leçon validée par {name}", "Lesson validated by {name}").replace("{name}", voice.name)
@@ -321,7 +338,8 @@ export function voiceChip(view: StudiumPanelView, block: "scene" | "verdict"): s
   if (voice.drafted_by === "learner") {
     return phraseOf(view, "pane_voice_learner_unreviewed", "Leçon que tu as rédigée, non relue par un enseignant", "Lesson you wrote, not reviewed by a teacher");
   }
-  return phraseOf(view, "pane_voice_unreviewed", "Leçon non relue par un enseignant", "Lesson not reviewed by a teacher");
+  // A teacher-drafted lesson without an approval record (C5): say only that none is recorded.
+  return phraseOf(view, "pane_voice_unreviewed", "Aucune approbation enregistrée pour cette leçon", "No approval is recorded for this lesson");
 }
 
 /** One rung of the help ladder as the pane draws it. `note`: what taking it costs, why it is closed,

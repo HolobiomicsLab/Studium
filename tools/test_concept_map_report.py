@@ -335,19 +335,35 @@ def test_a_record_written_by_the_server_exports_and_verifies(tmp_path) -> None:
     ("fr", {"recorded": True, "matches": False}, True, "modifiée depuis sa validation par un enseignant", "relue et validée"),
     ("en", {"recorded": True, "matches": False}, True, "changed since a teacher validated it", "reviewed and validated"),
     ("en", {"recorded": True, "matches": True}, True, "validated by a teacher for this exact version", "changed since"),
-    # no record: unchanged behaviour (the lesson's own validated_by decides; an owner decision)
-    ("fr", {"recorded": False, "matches": False}, False, "non relue par un enseignant", "modifiée depuis"),
-    ("fr", {"recorded": False, "matches": False}, True, "relue et validée par un enseignant", "modifiée depuis"),
+    # no record: no record, whatever `validated` or validated_by says (owner decision 2026-11-10)
+    ("fr", {"recorded": False, "matches": False}, False, "Aucune approbation enregistrée pour cette leçon.", "validée"),
+    ("fr", {"recorded": False, "matches": False}, True, "Aucune approbation enregistrée pour cette leçon.", "validée"),
+    ("en", {"recorded": False, "matches": False}, True, "No approval is recorded for this lesson.", "validated"),
 ])
 def test_page_states_the_approval_record_truthfully(tmp_path, language, approval, validated, expected, absent) -> None:
     value = record()
     value["lesson"]["language"] = language
-    value["authoring"].update(approval=approval, validated=validated)
+    # A teacher's lesson: `approve` refuses a self-study one (see the self-study test below).
+    value["authoring"].update(approval=approval, validated=validated, mode="teacher", drafted_by="teacher")
     out = cmr.export_concept_map_report(write(tmp_path, value), tmp_path / "map")
     overview = (out / "index.html").read_text(encoding="utf-8").split('id="overview"', 1)[1].split("</section>", 1)[0]
     assert expected in overview and absent not in overview
     package = "".join(path.read_text(encoding="utf-8") for path in out.iterdir() if path.suffix in {".json", ".yaml", ".md"})
     assert ("changed since a teacher validated it" in package) is (approval == {"recorded": True, "matches": False})
+
+
+@pytest.mark.parametrize("approval, expected", [
+    ({"recorded": False, "matches": False}, "non relue par un enseignant"),
+    ({"recorded": True, "matches": True}, "non relue par un enseignant"),
+    ({"recorded": True, "matches": False}, "modifiée depuis sa validation par un enseignant"),
+])
+def test_a_self_study_lesson_never_reads_as_validated(tmp_path, approval, expected) -> None:
+    value = record()  # self-study, drafted by the AI
+    value["authoring"].update(approval=approval, validated=True)
+    out = cmr.export_concept_map_report(write(tmp_path, value), tmp_path / "map")
+    overview = (out / "index.html").read_text(encoding="utf-8").split('id="overview"', 1)[1].split("</section>", 1)[0]
+    assert expected in overview
+    assert "pour cette version exacte" not in overview and "Aucune approbation" not in overview
 
 
 def test_the_success_figure_names_the_answers_it_is_computed_over(tmp_path) -> None:

@@ -12,12 +12,28 @@ Studium dit à l'apprenant qui a écrit chaque clé de réponse, si quelque chos
 |---|---|
 | `mode` | `teacher` (par défaut) ou `self_study` |
 | `author_is_learner` | l'apprenant a écrit la leçon |
-| `validated` | faux quand `validated_by` est un marqueur `DRAFT` ou `SELF-STUDY` |
+| `validated` | vrai seulement quand un registre d'approbation correspond à ce `lesson.json` exact ; jamais pour une leçon d'auto-apprentissage ; le texte de `validated_by` ne le donne jamais |
 | `judge` | un juge modèle est configuré sur ce serveur |
 | `notice` | le texte montré à l'apprenant pour une leçon d'auto-apprentissage ; null pour une leçon d'enseignant |
-| `approval` | si un `approval.json` existe à côté de la leçon, et s'il correspond à ce `lesson.json` exact |
+| `approval` | si un registre d'approbation existe (`approval.json` à côté de la leçon, ou le membre `approval.json` d'une leçon `.zip`), s'il correspond à ce `lesson.json` exact, et son relecteur (`reviewer`) |
 
 L'auteur de la rédaction vient de `metadata.authoring.drafted_by` (`teacher`, `learner` ou `agent`) ; un bundle d'auto-apprentissage qui ne le précise pas est considéré comme rédigé par l'apprenant.
+
+Le registre d'approbation est la seule source du statut validé. Chaque surface (premier écran de la
+conversation, panneaux, `list_lessons`, page de la carte des notions) distingue trois états :
+
+| État | Quand | Ce que lit l'apprenant |
+|---|---|---|
+| Approuvée | un registre correspond au sha256 du `lesson.json` chargé | « Leçon validée par <relecteur> » / "Lesson validated by <reviewer>", le nom étant pris dans le registre |
+| Modifiée depuis l'approbation | un registre existe et ne correspond pas | un avis au premier écran : la leçon a été modifiée depuis son approbation |
+| Aucun registre | pas de registre, ou un registre mal formé ou étranger | « Aucune approbation enregistrée pour cette leçon. » / "No approval is recorded for this lesson." |
+
+La contribution d'un apprenant relue par un enseignant (`mode: "teacher"`, `drafted_by: "learner"`)
+se lit comme proposée par une personne de la classe (« Leçon proposée par une personne de la classe,
+validée par <relecteur>. », ou cette phrase suivie de celle de l'absence d'enregistrement), et sa clé
+comme rédigée par une personne de la classe, jamais comme celle du lecteur. Une leçon
+d'auto-apprentissage garde son propre avis et ne se lit jamais comme validée. Un nom écrit
+à la main dans `validated_by`, sans registre, n'apparaît nulle part comme une validation.
 
 ## Classes de clé
 
@@ -96,13 +112,13 @@ Un enseignant enregistre l'approbation d'une leçon terminée avec :
 
 La commande refuse une leçon qui contient encore des marqueurs à remplir, des erreurs de lint, ou qui est en mode auto-apprentissage (ce qui inclut les leçons rédigées avec `create_lesson`). Elle renseigne `validated_by` et `validated_at`, puis écrit `approval.json` (schéma `studium-approval/1`) à côté de la leçon, avec l'empreinte SHA-256 des octets exacts de `lesson.json`, le relecteur, la date, une liste de contrôle facultative (`--checklist CLE=VALEUR ...`) et le résumé du lint.
 
-Le serveur lit ce registre et indique `approval.matches` : toute modification de `lesson.json` après l'approbation le rend faux. Le registre est un fichier modifiable par quiconque a accès en écriture ; il documente une relecture, ce n'est pas une signature. L'outil MCP `review_lesson` permet à l'enseignant d'examiner un brouillon sans en voir les clés. Voir [Relire et approuver](../teach/review-and-approve.fr.md).
+Le serveur lit ce registre et indique `approval.matches` : toute modification de `lesson.json` après l'approbation le rend faux. Une leçon diffusée en `.zip` porte son registre dans le membre `approval.json`, lié aux octets du membre `lesson.json`. Le registre est un fichier modifiable par quiconque a accès en écriture ; il documente une relecture, ce n'est pas une signature. L'outil MCP `review_lesson` permet à l'enseignant d'examiner un brouillon sans en voir les clés. Voir [Relire et approuver](../teach/review-and-approve.fr.md).
 
 ## Règle 003, un enseignant avant toute diffusion
 
 La règle 003 du projet impose une validation humaine stricte : aucun contenu n'est diffusé aux étudiants sans validation par un enseignant. En pratique :
 
-- un bundle d'enseignant porte le nom de l'enseignant dans `validated_by` ;
+- un bundle d'enseignant ne se lit comme validé qu'avec un registre d'approbation lié à ses octets exacts (`approve` écrit aussi le nom dans `validated_by`, qui seul n'accorde rien) ;
 - une leçon d'auto-apprentissage ou rédigée par un agent est destinée à l'apprenant qui l'a produite, et son avis le dit ;
 - la contribution d'un apprenant n'atteint d'autres apprenants qu'après la décision d'un enseignant, voir [Contributions des apprenants](../teach/learner-contributions.fr.md).
 

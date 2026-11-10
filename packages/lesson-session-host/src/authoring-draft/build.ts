@@ -12,7 +12,7 @@ import { randomBytes } from "node:crypto";
 import { lstat, mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, sep } from "node:path";
 import { LessonBundleSchema, formatBundleError, type BundleIssue, type LessonBundle } from "@studium/lesson-bundle-schema";
-import { isTeacherValidated } from "../authoring.js";
+import { hasUnvalidatedPlaceholder } from "../authoring.js";
 import { COURSE_ID_PATTERN } from "../community-bundles.js";
 import { SCENE_KEY_CLASS, type KeyClass } from "../key-class.js";
 import { LessonDraftSchema, type DraftScene, type DraftSceneType, type LessonDraft } from "./draft-schema.js";
@@ -511,7 +511,7 @@ async function replaceableIssue(courseDir: string, shown: string): Promise<Bundl
     return { path: "course_id", message: `${shown} is not a self-study lesson: overwrite replaces only those`, hint };
   }
   const validatedBy = typeof existing === "object" && existing !== null ? (existing as Record<string, unknown>)["validated_by"] : undefined;
-  if (typeof validatedBy !== "string" || isTeacherValidated(validatedBy)) {
+  if (typeof validatedBy !== "string" || !hasUnvalidatedPlaceholder(validatedBy)) {
     return { path: "course_id", message: `${shown} was validated by a teacher: overwrite replaces only a self-study lesson nobody validated`, hint };
   }
   return null;

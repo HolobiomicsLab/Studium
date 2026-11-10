@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { strToU8, zipSync } from "fflate";
 import { LessonBundleSchema } from "@studium/lesson-bundle-schema";
-import { BundleSchemaError, MAX_LESSON_JSON_BYTES, loadBundleJson, loadBundleZip } from "./bundle-loader.js";
+import { BundleSchemaError, MAX_APPROVAL_JSON_BYTES, MAX_LESSON_JSON_BYTES, loadBundleJson, loadBundleZip, readBundleZip } from "./bundle-loader.js";
 
 const m3 = fileURLToPath(new URL("../../../../fixtures/m3/demo-metabolomics-bundle.zip", import.meta.url));
 const m6 = fileURLToPath(new URL("../../../../fixtures/m6/demo-atomistique-bundle.zip", import.meta.url));
@@ -155,6 +155,45 @@ describe("SEC-5 — an archive cannot make the loader inflate more than the cap"
       const zip = join(dir, "stored.zip");
       writeFileSync(zip, zipSync({ "lesson.json": [strToU8(JSON.stringify(written())), { level: 0 }] }));
       expect((await loadBundleZip(zip)).scenes.length).toBeGreaterThan(0);
+    });
+  });
+});
+
+// C5: a lesson archive (a teacher's distribution, a community bundle) may carry its approval record as
+// the member `approval.json`, bound to the bytes of its `lesson.json` member. readBundleZip returns both,
+// and reads a bad approval member as none rather than refusing the lesson.
+describe("readBundleZip — the lesson.json bytes and the approval member", () => {
+  const written = (): Record<string, unknown> => JSON.parse(readFileSync(capsuleLoop, "utf8"));
+  const withTmp = async (fn: (dir: string) => Promise<void>) => {
+    const dir = mkdtempSync(join(tmpdir(), "bundle-loader-approval-"));
+    try { await fn(dir); } finally { rmSync(dir, { recursive: true, force: true }); }
+  };
+
+  it("returns the exact lesson.json member bytes and the approval member's text", async () => {
+    await withTmp(async (dir) => {
+      const zip = join(dir, "approved.zip");
+      const lesson = JSON.stringify(written());
+      const approval = JSON.stringify({ schema: "studium-approval/1", bundle_sha256: "x", reviewer: "Dr Example" });
+      writeFileSync(zip, zipSync({ "lesson.json": strToU8(lesson), "approval.json": strToU8(approval) }));
+      const read = await readBundleZip(zip);
+      expect(read.lessonBytes.toString("utf8")).toBe(lesson);
+      expect(read.approvalText).toBe(approval);
+      expect(read.bundle.scenes.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("has no approval text for an archive without the member (the shipped demo bundle)", async () => {
+    expect((await readBundleZip(m6)).approvalText).toBeNull();
+  });
+
+  it("reads an oversized approval member as none and still loads the lesson", async () => {
+    await withTmp(async (dir) => {
+      const zip = join(dir, "big-approval.zip");
+      writeFileSync(zip, zipSync({ "lesson.json": strToU8(JSON.stringify(written())),
+        "approval.json": strToU8("x".repeat(MAX_APPROVAL_JSON_BYTES + 1)) }));
+      const read = await readBundleZip(zip);
+      expect(read.approvalText).toBeNull();
+      expect(read.bundle.scenes.length).toBeGreaterThan(0);
     });
   });
 });
