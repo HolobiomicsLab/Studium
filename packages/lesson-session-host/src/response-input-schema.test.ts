@@ -62,3 +62,19 @@ describe("ResponseInputSchema — one object, one-line errors", () => {
     expect(ResponseInputSchema.parse({ kind: "confidence", value: 2, pre: 1 })).toEqual({ kind: "confidence", value: 2 });
   });
 });
+
+// D4 (pass of 10 Nov 2026): a confidence relayed with reply is kept, and checked as for typed inputs.
+describe("ResponseInputSchema — reply carries a confidence", () => {
+  it("keeps a valid confidence 0 to 4 with reply", () => {
+    expect(ResponseInputSchema.parse({ kind: "reply", text: "b", confidence: 4 })).toEqual({ kind: "reply", text: "b", confidence: 4 });
+    expect(ResponseInputSchema.parse({ kind: "reply", text: "b", confidence: 0 })).toEqual({ kind: "reply", text: "b", confidence: 0 });
+  });
+
+  it("refuses an out-of-range or non-integer confidence with reply, as with typed inputs", () => {
+    for (const confidence of [5, -1, 2.5]) {
+      const result = ResponseInputSchema.safeParse({ kind: "reply", text: "b", confidence });
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.issues[0]!.message).toMatch(/a confidence is an integer from 0 to 4/);
+    }
+  });
+});

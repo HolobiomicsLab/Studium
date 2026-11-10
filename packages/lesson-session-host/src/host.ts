@@ -2002,7 +2002,7 @@ export class SessionHost {
       if (runStatus.run_manifest && !runStatus.learner_run_recorded) throw new RunRequiredError();
       const scene = this.require(id).session.currentPresentation().scene;
       const engineInput = input.kind === "reply"
-        ? replyToInput(scene, input.text, (publicScene(scene) as { deck?: Array<{ token: string }> }).deck)
+        ? replyToInput(scene, input.text, (publicScene(scene) as { deck?: Array<{ token: string }> }).deck, input.confidence)
         : checkDisplayedChoice(scene, input);
       const answeredCheck = entry.session.checkPending();
       const applied = await this.applyResponseLocked(entry, engineInput, opts.promptSurface);

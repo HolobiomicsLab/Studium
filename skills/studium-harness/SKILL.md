@@ -171,7 +171,10 @@ is evidence to judge against, not an answer key.
 Answer with `submit_response {session_id, input}`. In a chat, send the learner's words
 as `{"kind": "reply", "text": "..."}`: Studium maps them to the scene's input (a choice
 letter, a 0 to 4 confidence, a free text) and refuses, in one line, a reply it cannot
-read. Typed inputs remain available:
+read: an empty written answer, « I don't know » (the learner has not answered: offer
+`request_hint` at a quiz), or a question or « wait » on a reading screen record nothing.
+A `confidence` 0 to 4 sent with the reply is kept where the input takes one; it is never
+read from the text. Typed inputs remain available:
 
 | Scene | `input` |
 | --- | --- |

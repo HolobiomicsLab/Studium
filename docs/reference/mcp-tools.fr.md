@@ -434,7 +434,7 @@ Submit a response to the current scene: {session_id, input}. In a chat, send the
 |---|---|---|---|
 | `session_id` | string | yes |  |
 | `input` | object, one of 3 shapes | yes |  |
-| `input.kind` | one of `ack`, `quiz_choice`, `confidence`, `flaw_verdicts`, `critique`, `flaw_report`, `explanation`, `comparison`, `summary_audit`, `prompt_submission`, `communication`, `reply` or `prompt` or `contest` | yes | reply {text}: the learner's words, mapped to this scene's input; ack; quiz_choice {choiceId}; confidence {value} or {pre, post}; flaw_verdicts {verdicts}; free text {text}: critique, flaw_report, explanation, comparison, summary_audit, prompt_submission, communication |
+| `input.kind` | one of `ack`, `quiz_choice`, `confidence`, `flaw_verdicts`, `critique`, `flaw_report`, `explanation`, `comparison`, `summary_audit`, `prompt_submission`, `communication`, `reply` or `prompt` or `contest` | yes | reply {text, confidence?}: the learner's words, mapped to this scene's input; ack; quiz_choice {choiceId}; confidence {value} or {pre, post}; flaw_verdicts {verdicts}; free text {text}: critique, flaw_report, explanation, comparison, summary_audit, prompt_submission, communication |
 | `input.choiceId` | string | no | quiz_choice: a DISPLAYED choice id |
 | `input.text` | string | no | reply and free-text kinds: the learner's own words |
 | `input.value` | one of `0`, `1`, `2`, `3`, `4` | no | confidence: 0 to 4 |
