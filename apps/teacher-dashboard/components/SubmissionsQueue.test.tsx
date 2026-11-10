@@ -4,7 +4,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
-import SubmissionsQueue, { makeDecideAction } from "./SubmissionsQueue";
+import SubmissionsQueue, {
+  DecisionsDisabledError,
+  formatSubmissionError,
+  makeDecideAction,
+  rememberName,
+  rememberedName,
+  REVIEWER_NAME_KEY,
+} from "./SubmissionsQueue";
 import type { LearnerItemView } from "@/lib/api";
 
 const ITEM: LearnerItemView = {
@@ -106,28 +113,22 @@ describe("makeDecideAction (page wiring)", () => {
     global.fetch = vi.fn();
   });
 
-  it("approve POSTs reviewer (course-token-derived) + explicit timestamp", async () => {
+  it("approve POSTs course + decision to the dashboard's own route, never to scene-synth", async () => {
     (global.fetch as any).mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({ ...ITEM, review_state: "published" }),
     });
-    const action = makeDecideAction(
-      "atomistique-l1",
-      () => "2026-06-26T12:34:56Z",
-    );
+    const action = makeDecideAction("atomistique-l1");
     await action("it-abc123", "approve");
 
     const call = (global.fetch as any).mock.calls[0];
-    expect(call[0]).toBe(
-      "http://localhost:8002/learner-items/it-abc123/decide",
-    );
+    expect(call[0]).toBe("/api/learner-items/it-abc123/decide");
     expect(call[1].method).toBe("POST");
-    expect(call[1].headers["X-Course-Token"]).toBe("atomistique-l1");
+    // The browser holds no credential: no bearer, no reviewer, no timestamp of its own.
+    expect(call[1].headers.Authorization).toBeUndefined();
     const sent = JSON.parse(call[1].body);
-    expect(sent.decision).toBe("approve");
-    expect(sent.reviewer).toBe("urn:studium:teacher:atomistique-l1");
-    expect(sent.reviewed_at).toBe("2026-06-26T12:34:56Z");
+    expect(sent).toEqual({ course_id: "atomistique-l1", decision: "approve" });
   });
 
   it("reject forwards the note_code", async () => {
@@ -136,10 +137,72 @@ describe("makeDecideAction (page wiring)", () => {
       status: 200,
       json: async () => ({ ...ITEM, review_state: "rejected" }),
     });
-    const action = makeDecideAction("atomistique-l1", () => "2026-06-26T12:00:00Z");
+    const action = makeDecideAction("atomistique-l1");
     await action("it-abc123", "reject", "off_topic");
     const sent = JSON.parse((global.fetch as any).mock.calls[0][1].body);
     expect(sent.decision).toBe("reject");
     expect(sent.note_code).toBe("off_topic");
+  });
+
+  it("a 503 from the dashboard's server says decisions are disabled until the token is set", async () => {
+    (global.fetch as any).mockResolvedValue({ ok: false, status: 503, json: async () => ({}) });
+    const error = await Promise.resolve(makeDecideAction("atomistique-l1")("it-abc123", "approve", undefined, "A. Teacher"))
+      .then(() => null, (e: unknown) => e);
+    expect(error).toBeInstanceOf(DecisionsDisabledError);
+    expect(formatSubmissionError(error)).toContain("STUDIUM_REVIEW_TOKEN");
+  });
+});
+
+describe("reviewer name (what learners read on an approved contribution)", () => {
+  it("without a name, Approve is disabled and says why; the other decisions stay available", () => {
+    const html = renderToStaticMarkup(createElement(SubmissionsQueue, { items: [ITEM], onDecide: () => {}, initialName: "" }));
+    expect(html).toContain("Votre nom, tel que les apprenants le liront");
+    expect(html).toContain("Saisissez votre nom pour approuver");
+    const approve = html.match(/<button[^>]*>Approuver<\/button>/)?.[0] ?? "";
+    expect(approve).toContain("disabled");
+    const hintId = html.match(/id="([^"]+)" role="status"/)?.[1];
+    expect(hintId).toBeTruthy();
+    expect(approve).toContain(`aria-describedby="${hintId}"`);
+    expect(html.match(/<button[^>]*>Rejeter<\/button>/)?.[0]).not.toContain("disabled");
+  });
+
+  it("with a name, Approve is enabled and the page shows what learners will read", () => {
+    const html = renderToStaticMarkup(createElement(SubmissionsQueue, { items: [ITEM], onDecide: () => {}, initialName: "  Mme Curie " }));
+    expect(html.match(/<button[^>]*>Approuver<\/button>/)?.[0]).not.toContain("disabled");
+    expect(html).toContain("Leçon proposée par une personne de la classe, validée par Mme Curie");
+    expect(html).not.toContain("adresse électronique");
+  });
+
+  it("in English, and with a note when the name is an e-mail address", () => {
+    const html = renderToStaticMarkup(createElement(SubmissionsQueue, { items: [ITEM], onDecide: () => {}, locale: "en", initialName: "m.curie@example.org" }));
+    expect(html).toContain("Your name, as learners will read it");
+    expect(html).toContain("Lesson contributed by a classmate, validated by m.curie@example.org");
+    expect(html).toContain("this is an e-mail address; learners will see it");
+  });
+
+  it("makeDecideAction sends the typed name, trimmed, as reviewer_name", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ITEM });
+    await makeDecideAction("atomistique-l1")("it-abc123", "approve", undefined, "  Mme Curie ");
+    expect(JSON.parse((global.fetch as any).mock.calls[0][1].body)).toEqual({
+      course_id: "atomistique-l1", decision: "approve", reviewer_name: "Mme Curie",
+    });
+  });
+
+  it("remembers the name in localStorage, and works when storage is blocked", () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("window", { localStorage: {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, v); },
+      removeItem: (k: string) => { store.delete(k); },
+    } });
+    rememberName("Mme Curie");
+    expect(store.get(REVIEWER_NAME_KEY)).toBe("Mme Curie");
+    expect(rememberedName()).toBe("Mme Curie");
+    rememberName("  ");
+    expect(store.has(REVIEWER_NAME_KEY)).toBe(false);
+    vi.stubGlobal("window", { get localStorage(): Storage { throw new Error("blocked"); } });
+    expect(() => rememberName("x")).not.toThrow();
+    expect(rememberedName()).toBe("");
+    vi.unstubAllGlobals();
   });
 });

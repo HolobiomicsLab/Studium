@@ -11,7 +11,7 @@ decides; an approved item becomes a community bundle next to the course.
 |---|---|
 | Status | **legacy** for synthesis; the learner-contribution routes back the maintained teacher dashboard |
 | Run | `uvicorn scene_synth_app:app` (see below) |
-| Port | 8002 by convention; CORS allows `localhost:3000` and `localhost:3001` |
+| Port | 8002 by convention; CORS allows `localhost:3000` (the learner app), never on the decision route |
 | Called by | the [teacher dashboard](../../apps/teacher-dashboard/README.md) (`SCENE_SYNTH_BASE_URL`), the legacy [Author Studio](../../apps/author-web/README.md) |
 | Calls | a model only through an orchestrator that an integration injects |
 | Tests | `.venv/bin/python -m pytest services/scene-synth` |
@@ -22,6 +22,7 @@ From the repository root, with the virtual environment installed:
 
 ```bash
 COMMUNITY_BUNDLES_ROOT=/tmp/studium-community LEARNER_PSEUDONYM_SECRET="$(openssl rand -hex 32)" \
+  STUDIUM_REVIEW_TOKEN="$STUDIUM_REVIEW_TOKEN" \
   .venv/bin/python -m uvicorn scene_synth_app:app --app-dir services/scene-synth --host 127.0.0.1 --port 8002
 ```
 
@@ -34,7 +35,7 @@ COMMUNITY_BUNDLES_ROOT=/tmp/studium-community LEARNER_PSEUDONYM_SECRET="$(openss
 | `POST /scenes/critique-eval` | score a critique against claims and a rubric; **503** until an evaluator is configured |
 | `POST /learner-items/validate`, `POST /learner-items`, `GET /learner-items` | check, submit and list learner-proposed items for a course |
 | `POST /learner-items/{item_id}/peer-review`, `GET /learner-items/{item_id}/peer-signals` | peer test results; the teacher-facing signals sit behind a floor of three raters |
-| `POST /learner-items/{item_id}/decide` | the teacher's decision; an approved item is written as `community-<id>.zip` under `<root>/<course_id>/community/` |
+| `POST /learner-items/{item_id}/decide` | the teacher's decision, with `Authorization: Bearer $STUDIUM_REVIEW_TOKEN` and no browser `Origin`; an approved item is written as `community-<id>.zip` (with its `approval.json` record) under `<root>/<course_id>/community/`, and every decision is appended to `learner_decisions.jsonl` |
 
 Starting the app is not enough to synthesize: no default orchestrator exists, and a request schema is not
 an approval gate. The canonical course `lesson.json` is never modified.
@@ -47,6 +48,7 @@ an approval gate. The canonical course `lesson.json` is never modified.
 | `COMMUNITY_BUNDLES_ROOT` | the value of `BUNDLES_ROOT` | where approved community bundles are written; set it to keep a checkout clean |
 | `LEARNER_DATA_ROOT` | `/tmp/studium-learner-items` | store of submitted items |
 | `LEARNER_PSEUDONYM_SECRET` | `dev-insecure-secret` | HMAC key of author pseudonyms; set your own outside a demo |
+| `STUDIUM_REVIEW_TOKEN` | none | teacher review token (at least 32 characters) required on a decision; unset, every decision is refused with `503` |
 
 ## Tests
 

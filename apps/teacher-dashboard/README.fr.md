@@ -19,8 +19,16 @@ voir si chacune est un brouillon, vérifiée ou approuvée, et lire des analyses
 | Appelle | collecteur d'analyses (8003), serveur de leçons (8010), scene-synth (8002) pour les contributions des apprenants, Observatory (8004) pour les liens vers les rapports |
 | Tests | `pnpm --filter @studium/teacher-dashboard test` ; tests navigateur avec `test:e2e` |
 
-Guide d'utilisation : [Relire et approuver une leçon](../../docs/teach/review-and-approve.fr.md) et
-[Suivre une classe](../../docs/teach/follow-a-class.fr.md).
+Guide d'utilisation : [Relire et approuver une leçon](../../docs/teach/review-and-approve.fr.md),
+[Suivre une classe](../../docs/teach/follow-a-class.fr.md) et
+[Contributions des apprenants](../../docs/teach/learner-contributions.fr.md).
+
+Sur `/courses/<id>/submissions`, approuver l'item d'un apprenant demande le nom de l'enseignant, saisi
+dans le champ au-dessus de la file : les apprenants le liront dans « Leçon proposée par une personne
+de la classe, validée par <nom> ». Le navigateur l'envoie en `reviewer_name` à la route
+`/api/learner-items/<id>/decide` du tableau de bord, qui refuse un nom vide, plus de 200 caractères,
+un caractère de contrôle ou un identifiant `urn:`, et appelle scene-synth depuis le serveur avec
+`STUDIUM_REVIEW_TOKEN`. Le nom est retenu dans le stockage local de ce navigateur seulement.
 
 ## Le lancer
 
@@ -49,6 +57,7 @@ de cours saisi sur cette page ouvre ses analyses sous `/courses/<id>/…`.
 | `ANALYTICS_BASE_URL` | `http://localhost:8003` | [collecteur d'analyses](../../services/analytics-collector/README.fr.md) |
 | `LESSON_SERVER_BASE_URL` | `http://localhost:8010` | [serveur de leçons](../lesson-server/README.fr.md) (salles entre pairs) |
 | `SCENE_SYNTH_BASE_URL` | `http://localhost:8002` | [scene-synth](../../services/scene-synth/README.fr.md) (modération des contributions des apprenants) |
+| `STUDIUM_REVIEW_TOKEN` | aucune | jeton de relecture enseignant, même valeur que sur scene-synth, lu par le serveur seulement ; sans lui, les décisions sur les [contributions des apprenants](../../docs/teach/learner-contributions.fr.md) sont désactivées |
 | `OBSERVATORY_BASE_URL` | `http://localhost:8004` | [Observatory](../../services/observatory/README.fr.md) |
 
 Une page de relecture interroge l'API MySTRA de l'Observatory avec le nom du dossier de la leçon. Elle
