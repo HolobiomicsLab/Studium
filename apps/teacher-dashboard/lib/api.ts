@@ -529,6 +529,11 @@ function reviewToken(): string {
   return token;
 }
 
+/** Whether this server holds a usable review token (the value itself never leaves this module). */
+export function reviewTokenConfigured(): boolean {
+  return (process.env[REVIEW_TOKEN_ENV] ?? "").length >= REVIEW_TOKEN_MIN_LENGTH;
+}
+
 /**
  * POST /learner-items/{id}/decide on scene-synth. The dashboard's SOLE publish
  * path (rule 003): approve here triggers server-side surfacing. SERVER ONLY: it

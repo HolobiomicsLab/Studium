@@ -11,7 +11,9 @@ import SubmissionsQueue, {
   rememberName,
   rememberedName,
   REVIEWER_NAME_KEY,
+  SignInRequiredError,
 } from "./SubmissionsQueue";
+import DashboardHeader from "./DashboardHeader";
 import type { LearnerItemView } from "@/lib/api";
 
 const ITEM: LearnerItemView = {
@@ -204,5 +206,50 @@ describe("reviewer name (what learners read on an approved contribution)", () =>
     expect(() => rememberName("x")).not.toThrow();
     expect(rememberedName()).toBe("");
     vi.unstubAllGlobals();
+  });
+});
+
+describe("when decisions are unavailable on this server", () => {
+  it.each([
+    ["access-code", "STUDIUM_DASHBOARD_ACCESS_CODE"],
+    ["review-token", "STUDIUM_REVIEW_TOKEN"],
+  ] as const)("says why in one line (%s) instead of offering buttons, and keeps the scene visible", (unavailable, variable) => {
+    const html = renderToStaticMarkup(createElement(SubmissionsQueue, { items: [ITEM], onDecide: () => {}, initialName: "Mme Curie", unavailable }));
+    expect(html).toContain('data-testid="decisions-unavailable"');
+    expect(html).toContain(variable);
+    expect(html).not.toContain("Approuver");
+    expect(html).not.toContain("Rejeter");
+    expect(html).not.toContain('data-testid="reviewer-name"');
+    expect(html).toContain('data-testid="answer-key"');
+  });
+
+  it("says it in English on the English page", () => {
+    const html = renderToStaticMarkup(createElement(SubmissionsQueue, { items: [ITEM], onDecide: () => {}, locale: "en", unavailable: "access-code" }));
+    expect(html).toContain("Decisions unavailable");
+  });
+
+  it("a 401 from the dashboard's server asks the teacher to sign in again", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
+    const error = await Promise.resolve(makeDecideAction("atomistique-l1")("it-abc123", "approve", undefined, "A. Teacher"))
+      .then(() => null, (e: unknown) => e);
+    expect(error).toBeInstanceOf(SignInRequiredError);
+    expect(formatSubmissionError(error)).toMatch(/reconnectez-vous/);
+    expect(formatSubmissionError(error, "en")).toMatch(/sign in again/);
+  });
+});
+
+describe("dashboard header access", () => {
+  it("says the dashboard is open when no access code is set, without a sign-out control", () => {
+    const html = renderToStaticMarkup(createElement(DashboardHeader, { locale: "fr", access: "open" }));
+    expect(html).toContain('data-testid="open-notice"');
+    expect(html).toContain("STUDIUM_DASHBOARD_ACCESS_CODE");
+    expect(html).not.toContain("Se déconnecter");
+  });
+
+  it("offers Sign out only when signed in", () => {
+    expect(renderToStaticMarkup(createElement(DashboardHeader, { locale: "en", access: "signed-in" }))).toContain("Sign out");
+    const signedOut = renderToStaticMarkup(createElement(DashboardHeader, { locale: "fr", access: "signed-out" }));
+    expect(signedOut).not.toContain("Se déconnecter");
+    expect(signedOut).not.toContain('data-testid="open-notice"');
   });
 });

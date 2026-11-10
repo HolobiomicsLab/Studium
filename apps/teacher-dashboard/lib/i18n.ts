@@ -63,6 +63,14 @@ const fr = {
   contributionNameNeeded: "Saisissez votre nom pour approuver\u00a0: il est publié avec la contribution.",
   lintUnavailable: "Le linter n’a pas pu tourner\u00a0: la vérification Lint manque à chaque scène. Lancez node tools/bundle_lint.mjs sur ce lesson.json.",
   returnHeading: "Renvoyer la leçon", returnHelp: "Pour renvoyer la leçon à son auteur sans l’approuver, cette commande écrit seulement un reçu «\u00a0renvoyée\u00a0».",
+  signInEyebrow: "Espace enseignant", signInTitle: "Connexion", signInLead: "Saisissez le code d’accès de ce tableau de bord. La session dure 12 heures.",
+  accessCodeLabel: "Code d’accès", signInSubmit: "Se connecter", signingIn: "Connexion…", signOut: "Se déconnecter",
+  signInFailed: "Connexion impossible. Réessayez.",
+  signInUnset: "Aucun code d’accès n’est configuré\u00a0: le tableau de bord est ouvert sans connexion et les décisions sur les contributions sont désactivées. Pour activer la connexion, définissez STUDIUM_DASHBOARD_ACCESS_CODE (16 caractères au moins) sur le serveur du tableau de bord, puis redémarrez-le.",
+  openNotice: "Tableau de bord ouvert\u00a0: toute personne qui atteint ce port peut le lire. Les décisions restent désactivées tant que STUDIUM_DASHBOARD_ACCESS_CODE n’est pas défini.",
+  decisionsNoAccessCode: "Décisions indisponibles\u00a0: aucun code d’accès n’est configuré (STUDIUM_DASHBOARD_ACCESS_CODE, 16 caractères au moins, sur le serveur du tableau de bord).",
+  decisionsNoReviewToken: "Décisions indisponibles\u00a0: le serveur du tableau de bord n’a pas de jeton de relecture (STUDIUM_REVIEW_TOKEN, 32 caractères au moins, même valeur que sur scene-synth).",
+  sessionExpired: "Votre session a expiré ou n’est plus valide\u00a0: reconnectez-vous, puis réessayez.",
 };
 const en: typeof fr = {
   teacherSpace: "Teacher workspace", home: "Home", library: "Course library", room: "Peer-review room",
@@ -116,6 +124,14 @@ const en: typeof fr = {
   contributionNameNeeded: "Type your name to approve: it is published with the contribution.",
   lintUnavailable: "The bundle linter could not run: each scene lacks its Lint check. Run node tools/bundle_lint.mjs on this lesson.json.",
   returnHeading: "Send the lesson back", returnHelp: "To send the lesson back to its author without approving it, this command writes a \u201creturned\u201d receipt only.",
+  signInEyebrow: "Teacher workspace", signInTitle: "Sign in", signInLead: "Enter this dashboard's access code. The session lasts 12 hours.",
+  accessCodeLabel: "Access code", signInSubmit: "Sign in", signingIn: "Signing in…", signOut: "Sign out",
+  signInFailed: "Sign-in failed. Try again.",
+  signInUnset: "No access code is configured: the dashboard is open without sign-in and decisions on contributions are disabled. To turn sign-in on, set STUDIUM_DASHBOARD_ACCESS_CODE (at least 16 characters) on the dashboard's server, then restart it.",
+  openNotice: "Open dashboard: anyone who can reach this port can read it. Decisions stay disabled until STUDIUM_DASHBOARD_ACCESS_CODE is set.",
+  decisionsNoAccessCode: "Decisions unavailable: no access code is configured (STUDIUM_DASHBOARD_ACCESS_CODE, at least 16 characters, on the dashboard's server).",
+  decisionsNoReviewToken: "Decisions unavailable: the dashboard's server holds no review token (STUDIUM_REVIEW_TOKEN, at least 32 characters, the same value as on scene-synth).",
+  sessionExpired: "Your session has expired or is no longer valid: sign in again, then retry.",
 };
 export function messages(locale: Locale) { return locale === "en" ? en : fr; }
 /** "1 concept", "8 concepts": French keeps the singular for 0 and 1, English only for 1. */

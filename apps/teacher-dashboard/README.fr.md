@@ -28,7 +28,8 @@ dans le champ au-dessus de la file : les apprenants le liront dans « Leçon p
 de la classe, validée par <nom> ». Le navigateur l'envoie en `reviewer_name` à la route
 `/api/learner-items/<id>/decide` du tableau de bord, qui refuse un nom vide, plus de 200 caractères,
 un caractère de contrôle ou un identifiant `urn:`, et appelle scene-synth depuis le serveur avec
-`STUDIUM_REVIEW_TOKEN`. Le nom est retenu dans le stockage local de ce navigateur seulement.
+`STUDIUM_REVIEW_TOKEN`. Le nom est retenu dans le stockage local de ce navigateur seulement. Une
+décision demande aussi une session ouverte : voir [Connexion](#connexion).
 
 ## Le lancer
 
@@ -48,6 +49,31 @@ pnpm --filter @studium/teacher-dashboard start
 Ouvrez `http://localhost:3001`. La page d'accueil mène à la bibliothèque (`/library`) ; un identifiant
 de cours saisi sur cette page ouvre ses analyses sous `/courses/<id>/…`.
 
+## Connexion
+
+Définissez un code d'accès sur le serveur du tableau de bord, 16 caractères au moins, par exemple :
+
+```bash
+export STUDIUM_DASHBOARD_ACCESS_CODE="$(openssl rand -hex 16)"
+```
+
+Donnez-le aux enseignants qui utilisent ce tableau de bord. Avec le code, chaque page et chaque route
+d'API le demandent : une page vous envoie sur `/login`, puis vous ramène à la page demandée ; un appel
+d'API sans session reçoit `401`. La session est un cookie signé (`studium_teacher_session`, `HttpOnly`,
+`SameSite=Strict`, `Secure` en https) valable 12 heures. **Se déconnecter**, dans l'en-tête, la ferme.
+Changer le code ferme toutes les sessions. Après 10 codes faux en 5 minutes, la connexion répond `429`
+jusqu'à la fin de la fenêtre ; ce compte vit dans la mémoire du processus serveur.
+
+Sans code (ou avec une valeur plus courte, que le serveur signale une fois sur sa sortie d'erreur), le
+tableau de bord est ouvert à toute personne qui atteint son port, comme avant : pages, pages de
+relecture des leçons et agrégats de classe. Un avis dans l'en-tête le dit, et toute décision sur une
+contribution d'apprenant est refusée (`503`) tant que le code n'est pas défini. Gardez un tel tableau de
+bord sur `localhost`.
+
+La session dit que le navigateur connaissait le code. Elle ne dit pas qui est l'enseignant : le nom du
+relecteur sur une approbation est le nom saisi dans la file. Détails et limites :
+[SECURITY.fr.md](../../SECURITY.fr.md#décisions-sur-les-contributions-des-apprenants).
+
 ## Configuration
 
 | Variable | Valeur par défaut | Rôle |
@@ -58,6 +84,7 @@ de cours saisi sur cette page ouvre ses analyses sous `/courses/<id>/…`.
 | `LESSON_SERVER_BASE_URL` | `http://localhost:8010` | [serveur de leçons](../lesson-server/README.fr.md) (salles entre pairs) |
 | `SCENE_SYNTH_BASE_URL` | `http://localhost:8002` | [scene-synth](../../services/scene-synth/README.fr.md) (modération des contributions des apprenants) |
 | `STUDIUM_REVIEW_TOKEN` | aucune | jeton de relecture enseignant, même valeur que sur scene-synth, lu par le serveur seulement ; sans lui, les décisions sur les [contributions des apprenants](../../docs/teach/learner-contributions.fr.md) sont désactivées |
+| `STUDIUM_DASHBOARD_ACCESS_CODE` | aucune | code d'accès enseignant, 16 caractères au moins, lu par le serveur seulement ; avec lui, chaque page et chaque route d'API demandent une session ([Connexion](#connexion)) ; sans lui, le tableau de bord est ouvert et les décisions sont désactivées |
 | `OBSERVATORY_BASE_URL` | `http://localhost:8004` | [Observatory](../../services/observatory/README.fr.md) |
 
 Une page de relecture interroge l'API MySTRA de l'Observatory avec le nom du dossier de la leçon. Elle
