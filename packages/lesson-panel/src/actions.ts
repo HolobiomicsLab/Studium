@@ -93,7 +93,9 @@ function leaveScene(ctx: PanelContext): void {
 async function execute(backend: PanelBackend, ctx: PanelContext, action: PanelAction): Promise<Partial<PanelView>> {
   switch (action.type) {
     case "respond": {
-      ctx.transition = await backend.submitResponse(ctx.sessionId, action.input);
+      ctx.transition = action.expected_scene_id === undefined
+        ? await backend.submitResponse(ctx.sessionId, action.input)
+        : await backend.submitResponse(ctx.sessionId, action.input, action.expected_scene_id);
       leaveScene(ctx);
       // The answer that ends a contest's check says what the check showed.
       const settled = ctx.transition?.contest as { claim?: string; outcome?: string } | undefined;
@@ -116,7 +118,7 @@ async function execute(backend: PanelBackend, ctx: PanelContext, action: PanelAc
     case "ask": {
       // Nothing is submitted and the scene stays: the learner goes to the conversation and comes back.
       if (action.text === undefined) delete ctx.question; else ctx.question = action.text;
-      return { kind: "notice", message: phrase("panel_ask_notice", {}, localeOf(ctx)) };
+      return { kind: "notice", message: phrase(action.text === undefined ? "panel_ask_notice" : "panel_ask_sent_notice", {}, localeOf(ctx)) };
     }
     case "openMap": {
       // Nothing is submitted: the scene stays, the map shows beside it until closeMap.
@@ -134,9 +136,10 @@ async function execute(backend: PanelBackend, ctx: PanelContext, action: PanelAc
     }
     case "prompt": {
       if (!backend.settlePrompt) throw new Error("this server holds no prompt to answer");
-      const settled = await backend.settlePrompt(ctx.sessionId, action.id, action.outcome === "accept" ? "accepted" : "dismissed");
+      const accepted = action.outcome === "accept" || action.outcome === "accepted";
+      const settled = await backend.settlePrompt(ctx.sessionId, action.id, accepted ? "accepted" : "dismissed");
       // Dismissed: the outcome is kept and nothing else happens. Accepted: what the proposal said.
-      return action.outcome === "accept" ? acceptPrompt(backend, ctx, settled.kind) : {};
+      return accepted ? acceptPrompt(backend, ctx, settled.kind) : {};
     }
     default: return {};
   }

@@ -153,6 +153,11 @@ export function scenePreview(rawScene: unknown, fallbackTitle: string): ScenePre
     const value = view[field];
     if (typeof value === "string" && value.trim() !== "") { text = value.replace(/\s+/g, " ").trim(); break; }
   }
+  // An ai_critique scene has no text field: the claims the learner critiques are its whole content.
+  if (text === "" && Array.isArray(view["claims_to_critique"])) {
+    text = view["claims_to_critique"].flatMap((c) => (isRecord(c) && typeof c["text"] === "string" ? [c["text"]] : []))
+      .join(" ").replace(/\s+/g, " ").trim();
+  }
   const chars = Array.from(text);
   if (chars.length > PREVIEW_TEXT_MAX) text = `${chars.slice(0, PREVIEW_TEXT_MAX - 1).join("")}…`;
   const preview: ScenePreview = {

@@ -345,3 +345,108 @@ body { margin: 0; }
 .surface-elsewhere-title { margin: 0 0 var(--st-space-2); font-size: 1.05rem; }
 .surface-elsewhere p { margin: var(--st-space-2) 0; }
 .surface-elsewhere .play-here { margin-top: var(--st-space-3); }
+
+/* --- Panel audit 2026-11-10: the next interface (C1, C4, C5) and its fixes (A6, A7, A8, A12, B15) --------- */
+/* C1: one compact session line with the menu, a thin rail, then the scene's type and who signs it. */
+.session-strip { display: flex; align-items: center; justify-content: space-between; gap: var(--st-space-2); min-width: 0; }
+.session-line { flex: 1 1 auto; min-width: 0; margin: 0; color: var(--st-text); font: var(--st-weight-semibold) var(--st-size-sm) / var(--st-leading-snug) var(--st-font-text); }
+.scene-head:has(.session-strip) { gap: var(--st-space-2); margin-block-end: var(--st-space-4); padding-block-end: var(--st-space-4); }
+.scene-head:has(.session-strip) .scene-title { margin-block-start: var(--st-space-2); }
+.scene-head .session-strip + .visually-hidden + .progress, .feedback-strip .progress { margin-block-start: 0; }
+.voice-chip { display: inline-block; max-width: 100%; }
+.voice-chip > summary {
+  display: inline-flex; align-items: center; gap: var(--st-space-2); min-height: 2rem; padding: 0 var(--st-space-3);
+  border: 1px solid var(--st-border-strong); border-radius: var(--st-radius-pill); color: var(--st-text);
+  font-size: var(--st-size-sm); font-weight: var(--st-weight-semibold); line-height: var(--st-leading-snug); list-style: none;
+}
+.voice-chip > summary::-webkit-details-marker { display: none; }
+.voice-chip > summary::before { content: "✎"; color: var(--st-muted); }
+.voice-chip[data-reviewed="false"] > summary { border-style: dashed; }
+.voice-chip[open] { flex-basis: 100%; }
+.voice-chip > .voice { margin: var(--st-space-2) 0 0; }
+.voice-chip > .voice::before { content: none; }
+.progress-track { position: relative; }
+.progress-mark { position: absolute; top: -2px; width: 9px; height: 9px; margin-inline-start: -5px; border: 2px solid var(--st-accent-2); border-radius: 50%; background: var(--st-canvas); }
+.st-segments > [data-state="detour"] { background: var(--st-canvas); border-color: var(--st-accent-2); outline: 1px dashed var(--st-accent-2); outline-offset: 2px; }
+
+/* C1: the action bar stays at the bottom of the panel while the scene scrolls. Sticky, not fixed: it keeps its
+   place in the flow, so the last choice is never under it and a host that sizes the frame to its content sees
+   the same height. When the bar would take too much of a short window (large text), it stays in the flow. */
+.action-bar {
+  position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: var(--st-space-2) var(--st-space-4); margin: 0 calc(-1 * var(--st-space-5)); padding: var(--st-space-3) var(--st-space-5);
+  border-block-start: 1px solid var(--st-border); background: var(--st-canvas);
+}
+.action-bar--static { position: static; }
+.action-bar > .st-actions { flex: 1 1 auto; justify-content: flex-end; }
+.action-bar > .action-status { flex-basis: 100%; }
+.action-bar > .action-status:empty { display: none; }
+.controls:has(.action-bar) { gap: var(--st-space-3); margin-block-start: var(--st-space-4); padding-top: 0; border-top: 0; }
+.deck .action-bar { margin-block-start: var(--st-space-2); }
+.help-toggle[aria-expanded="true"] { text-decoration: none; }
+#pane[aria-busy="true"] .st-button[aria-disabled="true"]:not(.help-rung) { border-color: var(--st-border-strong); background: var(--st-surface-muted); color: var(--st-muted); }
+
+/* B15: the two ends of the confidence scale, in words under its digits. */
+.conf-scale { display: inline-grid; gap: var(--st-space-1); }
+.conf-digits { display: flex; flex-wrap: wrap; gap: var(--st-space-2); }
+.conf-ends { display: flex; justify-content: space-between; gap: var(--st-space-3); color: var(--st-muted); font-size: var(--st-size-xs); }
+
+/* C4: the help ladder opens in place, under the bar; the question's field opens inside it. */
+.help-ladder { padding: var(--st-space-3) 0; border-block-end: 1px solid var(--st-border); }
+.ask-slot:empty { display: none; }
+.ask-slot .ask-question { margin: var(--st-space-2) 0 0; }
+.hint:not(:empty) { margin: 0 0 var(--st-space-4); }
+
+/* The settings wait behind a disclosure at the bottom (C1); the menu opens it too. */
+.settings-section { margin-block-start: var(--st-space-6); font-size: var(--st-size-sm); }
+.settings-section > summary { min-height: var(--st-layout-target); padding: var(--st-space-2) 0; color: var(--st-muted); font-weight: var(--st-weight-semibold); }
+.settings-section > .settings { margin-block-start: 0; }
+.pane-menu-body { display: grid; gap: var(--st-space-1); }
+.pane-menu-body .st-button { width: 100%; justify-content: flex-start; }
+
+/* A12: a box that scrolls sideways takes the focus; its ring is drawn like a control's. */
+#pane [data-scrolls="true"]:focus-visible { outline: var(--st-border-width-focus) solid var(--st-focus); outline-offset: 2px; }
+
+/* C5: the learner's answer beside the key, each labelled; a written answer quoted. */
+.answer-compare { display: grid; gap: var(--st-space-2); margin: 0; }
+.answer-compare > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--st-space-1) var(--st-space-3); }
+.answer-compare dt { min-width: 7rem; color: var(--st-muted); font-size: var(--st-size-sm); font-weight: var(--st-weight-semibold); }
+.answer-compare dd { margin: 0; }
+.answer-key dd { font-weight: var(--st-weight-semibold); }
+.your-answer { display: grid; gap: var(--st-space-2); }
+.your-answer > .st-eyebrow { margin: 0; }
+.your-answer blockquote { margin: 0; padding: var(--st-space-2) var(--st-space-3); border-inline-start: 3px solid var(--st-border-strong); white-space: pre-wrap; }
+.feedback-strip { display: grid; gap: var(--st-space-2); padding-block-end: var(--st-space-3); border-block-end: 1px solid var(--st-border); }
+
+/* A7: the erase confirmation, drawn in the panel; the destructive button is marked by its border and its word. */
+.confirm-dialog { display: grid; gap: var(--st-space-3); margin: 0 0 var(--st-space-5); padding: var(--st-space-4); border: 1px solid var(--st-border-strong); border-inline-start: 3px solid var(--st-danger); border-radius: var(--st-radius-medium); background: var(--st-surface-raised); box-shadow: var(--st-shadow-small); }
+.confirm-title { font: var(--st-weight-semibold) var(--st-size-md) / var(--st-leading-snug) var(--st-font-display); }
+.confirm-dialog p { margin: 0; font-size: var(--st-size-sm); }
+.confirm-erase[data-destructive="true"] { border-color: var(--st-danger); box-shadow: inset 0 0 0 1px var(--st-danger); }
+/* A8: the course picker, a list in the panel. */
+.course-picker { display: grid; gap: var(--st-space-3); margin: 0 0 var(--st-space-5); padding: var(--st-space-4); border: 1px solid var(--st-border-strong); border-radius: var(--st-radius-medium); background: var(--st-surface-raised); }
+.course-picker-title { font: var(--st-weight-semibold) var(--st-size-md) / var(--st-leading-snug) var(--st-font-display); }
+.course-picker-title:focus { outline: none; }
+.course-list { display: grid; gap: var(--st-space-2); margin: 0; padding: 0; list-style: none; }
+.course-choice { display: grid; justify-items: start; width: 100%; text-align: start; }
+.course-choice-facts { color: var(--st-muted); font-size: var(--st-size-sm); font-weight: var(--st-weight-regular); }
+.completion-eyebrow { margin: 0; }
+
+@media (max-width: 30rem) {
+  .action-bar { margin-inline: calc(-1 * var(--st-space-4)); padding-inline: var(--st-space-4); }
+  .action-bar .conf-label { flex-basis: auto; }
+  .confrow:has(.conf-scale) { flex-wrap: nowrap; align-items: flex-start; }
+}
+.action-bar .help-toggle { flex-grow: 0; }
+.confrow:has(.conf-scale) { align-items: flex-start; }
+.confrow:has(.conf-scale) > .conf-label { padding-block-start: var(--st-space-3); }
+/* Large text in a short window (measured after layout): the header tightens so the question shows. */
+#pane.is-crowded .scene-head { gap: var(--st-space-1); margin-block-end: var(--st-space-3); padding-block-end: var(--st-space-2); }
+#pane.is-crowded .scene-head .progress { display: none; }
+#pane.is-crowded .scene-meta :is(.st-chip, .voice-chip > summary) { min-height: 0; padding-block: 0; font-size: var(--st-size-xs); }
+#pane.is-crowded .scene-title { font-size: var(--st-size-md); }
+#pane.is-crowded .prose.lead { padding: var(--st-space-2) var(--st-space-3); }
+.help-rung-item { display: grid; justify-items: start; gap: 0; }
+.help-rung-item > .help-note { padding-inline-start: var(--st-space-3); }
+/* The sticky bar's height (measured), kept free when the page scrolls to an element. */
+html { scroll-padding-bottom: var(--st-bar-space, 0px); }

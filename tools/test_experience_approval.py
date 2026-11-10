@@ -296,6 +296,8 @@ def test_workflow_calls_the_real_orchestrator_seam_with_deterministic_agents(
     workspace = _workspace(checked_review, tmp_path)
     plan = json.loads((workspace / "plan.json").read_text())
     plan["concepts"][0]["id"] = "o-matching"
+    for outline in plan["scene_outlines"]:  # the example's scenes reference its concept: keep the ids consistent
+        outline["concept_refs"] = ["o-matching"]
     plan["rules"] = []
     (workspace / "plan.json").write_text(json.dumps(plan))
     approve_plan(workspace, teacher_identity="teacher-local:lfx")

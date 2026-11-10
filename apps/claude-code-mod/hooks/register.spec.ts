@@ -353,3 +353,72 @@ describe("portable Claude host boundary", () => {
     expect(host.calls).toEqual([]);
   });
 });
+
+// Fix 2026-11-10 (A13, B16): what the pane draws once, and the facts it used to validate and drop.
+describe("pane draws each fact once", () => {
+  let hook: ReturnType<typeof captureHooks>;
+  beforeEach(() => { hook = captureHooks(); });
+
+  const V2: StudiumPanelView = {
+    ...PANEL, schema: "studium/panel-view/2", locale: "en", strings: {},
+    orientation: { step: { index: 2, total: 9 }, reviews_due: 0, waiting: "answer" },
+    status_line: "Atomistique · step 2/9",
+    voices: { scene: { kind: "author", name: "Prof. Test", reviewed: true, drafted_by: "teacher" }, verdict: { kind: "key" } },
+    help: { rungs: [] }, prompts: [], attention: "normal", surface: { rank: 3, kind: "pane", available: ["pane"] },
+  };
+  const texts = (node: PortableNode | PortableNode[]): string[] => {
+    if (Array.isArray(node)) return node.flatMap(texts);
+    if (typeof node === "string") return [node];
+    const own = typeof node.props.children === "string" ? [node.props.children] : [];
+    const markdown = typeof node.props.text === "string" ? [node.props.text] : [];
+    return [...own, ...markdown, ...texts(node.children)];
+  };
+  const render = async (view: StudiumPanelView) => {
+    const host = new Host(view);
+    return await hook("ui.render")(host.engine, PANE_EVENT, event => event) as PortableElement;
+  };
+
+  test("a wrong quiz answer: voice once, feedback once, the reference under « The right answer »", async () => {
+    const tree = await render({
+      ...V2,
+      verdict: {
+        scene_id: "s0", graded: true, correct: false, feedback: "Not quite.", key_points: ["30 neutrons"], reference_kind: "correct_choice",
+        display_markdown: "Assessed by the author's key\n\nNot quite.\n\n**The right answer:**\n- 30 neutrons",
+      },
+    });
+    const shown = texts(tree).join("\n");
+    expect(shown.match(/Assessed by the author's key/g)).toHaveLength(1);
+    expect(shown.match(/Not quite\./g)).toHaveLength(1);
+    expect(shown).toContain("**The right answer**\n- 30 neutrons");
+    expect(shown).not.toContain("Key points");
+  });
+
+  test("a verdict with display_markdown alone: that text only, no second voice chip", async () => {
+    const tree = await render({ ...V2, verdict: { scene_id: "s0", graded: true, display_markdown: "Voice. Feedback. Reference." } });
+    expect(texts(tree)).toContain("Voice. Feedback. Reference.");
+    expect(find(tree, element => element.key === "voice-verdict")).toBeUndefined();
+  });
+
+  test("a detour says why in one line, above the scene", async () => {
+    const tree = await render({ ...V2, navigation: { kind: "remediate", returns_to: "s9" } });
+    const line = find(tree, element => element.key === "navigation")!;
+    expect(texts(line).join("")).toBe("A short detour: First a concept the next steps rely on, then back to where you were.");
+    const shown = texts(tree);
+    expect(shown.indexOf(texts(line).join(""))).toBeLessThan(shown.indexOf("Combien contient-il de neutrons ?"));
+  });
+
+  test("a version-1 view shows the reviews due; the completion shows the next review; calibration follows the verdict", async () => {
+    const v1 = await render({ ...PANEL, reviewDue: [{ id: "c1", label: "Isotopes" }] });
+    expect(texts(v1)[1]).toBe("Étape 2 sur 9 · 1 à réviser");
+    const done = await render({
+      ...V2, kind: "done", scene: undefined,
+      completion: { consolidated: [], practised: [], not_measured: [], detours: 0, next_review_at: null, due_now: 2, actions: [] },
+    });
+    expect(texts(done).join("\n")).toContain("Reviews due now: 2");
+    const calibrated = await render({
+      ...V2, verdict: { scene_id: "s0", graded: true, feedback: "Ok." },
+      calibration: [{ concept_id: "c1", band: "sur", message: "You were surer than your answers." }],
+    });
+    expect(texts(find(calibrated, element => element.key === "calibration")!).join("")).toContain("Overconfidence");
+  });
+});

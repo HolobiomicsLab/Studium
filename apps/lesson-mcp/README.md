@@ -73,14 +73,15 @@ The server also proposes, at a pause and never over a question: a review due whe
 when the client can show them, the concept map at the end of a lesson. A panel asks for these itself. The
 session tools (rank 1) and `play_in_forms` (rank 2) have them said in the `display_markdown` of the screen
 they serve, once, with the proposal's id: `(proposition review_due:start)`. The learner answers in words;
-the assistant sends `submit_response {input: {kind: "prompt", id, outcome: "accepted" | "dismissed"}}`,
+the assistant sends `submit_response {input: {kind: "prompt", id, outcome: "accepted" | "dismissed"}}` (`accept` and
+`dismiss` are taken too),
 which answers nothing on the scene and returns the call to make next (`start_review_session`,
 `get_workflow_graph`, `play_in_forms` or `get_study_plan`), never making it itself. With telemetry
 consent, each proposal shown is logged as `prompt_shown` with the rank of the surface that said it.
 
 A learner who says they already know a concept of the map, or doubt one they got, can contest it in either
 lane. In the conversation, the assistant sends `submit_response {input: {kind: "contest", concept_id, claim:
-"known" | "unsure"}}`. In forms, every scene form whose lesson has a map offers `map: true`; the map form
+"known" | "unsure"}}`; the answer that ends the check opens its `display_markdown` with the outcome. In forms, every scene form whose lesson has a map offers `map: true`; the map form
 prints each concept id after its title, accepts `contest_concept` with `claim: "known" | "unsure"`, and accepts
 empty to return to the untouched scene. A contest opens its check questions in forms and resumes that scene
 afterward; a missing field or a claim the state does not take leaves the map open with a one-line refusal. The
@@ -93,7 +94,7 @@ What the server guarantees:
   passages of graded scenes are released only after the learner has answered.
 - `end_session` closes a lesson and keeps progress. `forget_session {session_id}` erases this lesson's
   progress and the learner's cross-lesson profile and review schedule; `forget_session {learner_id}`
-  erases every lesson's progress too. Its answer lists what was erased and what stays on disk: the
+  erases every lesson's progress too; `language` (fr|en) sets the language of its answer. Its answer lists what was erased and what stays on disk: the
   lessons of the learner's library and their sources, which the learner deletes themselves.
 - `create_lesson` writes `<course_id>/lesson.json` into the learner's library
   (`<STUDIUM_HOME>/library`) after validation and lint, never into `BUNDLES_ROOT`; quotes must match a

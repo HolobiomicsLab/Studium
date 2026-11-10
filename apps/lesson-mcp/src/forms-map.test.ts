@@ -388,3 +388,22 @@ describe("the concept map in play_in_forms", () => {
     expect(interactionEvents(dataDir).filter((event) => event["act"] === "respond")).toHaveLength(1);
   }, 30_000);
 });
+
+describe("the map form names what it offers (audit 2026-11-10 B13)", () => {
+  it("each concept by its title and each claim in words, the values sent unchanged", async () => {
+    const host = new SessionHost({ bundlesRoot: FIXTURES, live: false, dataDir: null });
+    const answers = [accept({ map: true }), decline()];
+    const test = await connect(host, async () => answers.shift() ?? cancel());
+    try {
+      const id = (await test.call("start_lesson_session", { bundle_ref: ATOMS, learner_id: "synthetic-forms-map-names" })).session_id as string;
+      await host.respond(id, { kind: "ack" });
+      await test.call("play_in_forms", { session_id: id, max_steps: 1 });
+      const properties = test.forms.find((form) => form.requestedSchema.properties.contest_concept)!.requestedSchema.properties;
+      const shown = host.conceptMap(id)!.nodes.filter((node) => node.state !== "upcoming");
+      expect(properties.contest_concept!.enum).toEqual(shown.map((node) => node.id));
+      expect(properties.contest_concept!.enumNames).toEqual(shown.map((node) => node.title));
+      expect(properties.claim!.enum).toEqual(["known", "unsure"]);
+      expect(properties.claim!.enumNames).toEqual(["je la connais déjà", "j'ai un doute"]);
+    } finally { await test.close(); }
+  }, 30_000);
+});

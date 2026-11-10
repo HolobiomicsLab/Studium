@@ -38,8 +38,9 @@ Nothing is submitted and the scene stays where it is. Each concept says its stat
 needs first. « Evidence and scope » shows what the state establishes, what it does not, and the answers
 behind it: the day, who assessed the answer, the result and the hints taken. Where a concept can be
 checked, a button states your claim (« I know it » or « I am not sure »): the lesson then asks one or two
-check questions and says what they showed. A concept the session has not shown yet cannot be contested
-until it is reached. Your claim alone changes nothing. « Close the map » puts the list away. The panel
+check questions and says what they showed. A question whose answer you have already been shown is not
+asked again: when only such questions are left on a concept, it cannot be checked again in this lesson.
+A concept the session has not shown yet cannot be contested until it is reached. Your claim alone changes nothing. « Close the map » puts the list away. The panel
 does not draw the graph; the exported page below does.
 
 ## Export an interactive page
@@ -83,7 +84,7 @@ For each scene of a concept, the panel gives the kind of key (written by the aut
 compared with a reference, grounded by a run, or not graded), the sources cited and where each comes from:
 a web page, a publication, a supplied document, or a conversation with an AI assistant. A passage is
 quoted only once you have left the scene that cites it, because a passage can state the key of its
-question. The header says who drafted the lesson and whether a teacher validated it.
+question. The header says who drafted the lesson and whether a teacher validated this exact version (a lesson changed since its approval says so).
 
 For a lesson drafted from a conversation, read [learn with your assistant](learn-with-your-assistant.md):
 what an assistant asserted there was not checked.
@@ -91,13 +92,14 @@ what an assistant asserted there was not checked.
 ## The teacher viewpoint and class figures
 
 A teacher who wants the figures of a class on the map exports the class report with the teacher tool
-`class_report`, saves its JSON, and passes it:
+`class_report`, saves its JSON, and passes it (the JSON written by `tools/class_report.py` also works, run with
+`--bundle path/to/lesson.json` so its rows are named by concept):
 
 ```bash
 .venv/bin/python tools/concept_map_report.py export RECORD.json reports/class-map --class-report class-report.json
 ```
 
-Each concept then shows its success rate, hint reliance, calibration gap and mean time, and the concepts
+Each concept then shows its success rate (over the graded answers, whose number is given when it is lower than the answers' own), hint reliance, calibration gap and mean time, and the concepts
 to reteach first are marked. Figures under the learner floor of `class_report` are not shown, and no
 individual figure exists in that report. The page still holds the session path of the record it was built
 from: for a page without any learner's path, export the record from a session just started.

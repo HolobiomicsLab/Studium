@@ -259,6 +259,37 @@ describe("review_lesson", () => {
     expect(spawned.count).toBe(1);
   });
 
+  it("warns, in process, about a lesson in which no scene reaches a concept, and still says ready (F3)", async () => {
+    const b = bundle();
+    for (const scene of b["scenes"] as Array<{ concept_refs: string[] }>) scene.concept_refs = [];
+    const { root } = library("teach", b);
+    const out = await reviewLesson({ bundlesRoot: root, dataDir: null }, "teach");
+    const warned = out.lint.findings.filter((f) => f.code === "scene_reaches_no_concept");
+    // the intro is exempt: s1, s2, s3 are reported, in the wording of `experience_packet.py check`
+    expect(warned.map((f) => f.message)).toEqual([
+      "scene 's1' reaches no concept; a scene without a concept moves no mastery",
+      "scene 's2' reaches no concept; a scene without a concept moves no mastery",
+      "scene 's3' reaches no concept; a scene without a concept moves no mastery",
+    ]);
+    expect(warned.every((f) => f.level === "WARN")).toBe(true);
+    expect(out.lint).toMatchObject({ status: "ok", errors: 0 });
+  });
+
+  it("shows the claims of an ai_critique scene in the plan and in the preview, and none of their flaws (D4)", async () => {
+    const b = bundle();
+    (b["scenes"] as unknown[]).push({
+      ...base("s4", "ai_critique", "c2"), rubric: RUBRIC,
+      claims: [{ id: "k1", text: "CRITIQUE-claim-one reads here.", flaws_expected: ["CRITIQUE-hidden-flaw"] }, { id: "k2", text: "CRITIQUE-claim-two.", flaws_expected: [] }],
+    });
+    const { root } = library("teach", b);
+    const out = await reviewLesson(ctxFor(root), "teach");
+    const planned = out.plan!.scenes.find((s) => s.id === "s4")!;
+    expect(planned.prompt).toBe("CRITIQUE-claim-one reads here. CRITIQUE-claim-two.");
+    const item = out.inbox.items.find((i) => i.id === "s4")!;
+    expect(item.preview.text).toBe("CRITIQUE-claim-one reads here. CRITIQUE-claim-two.");
+    expect(JSON.stringify(out)).not.toContain("CRITIQUE-hidden-flaw");
+  });
+
   it("reports a malformed lesson.json as one invalid_json lint finding in process", async () => {
     const { root, lessonJson } = library();
     writeFileSync(lessonJson, `{"scenes": [ "${KEYS.correctChoice}" oops`);
@@ -953,5 +984,34 @@ describe("class_report", () => {
     const out = await classReport(ctxFor(root, { dataDir }), "teach");
     expect(JSON.stringify(out)).not.toContain(secret);
     expect(out.status).toBe("ok");
+  });
+});
+
+// Completion counts LEARNERS, not events (audit 2026-11-10, follow-up to D3): a resumed learner writes
+// `lesson_started` twice, and a second start or completion from the same learner on the same lesson
+// changes nothing. The same definition as tools/class_report.py (collector metrics.learner_completion_rate).
+describe("class_report completion over distinct learners", () => {
+  const start = (p: string) => event(p, "lesson_started", { bundle_uri: "x" });
+  const answer = (p: string) => event(p, "quiz_answered", { scene_id: "s1", item_id: "i", correct: true, response_time_ms: 1000, confidence: 0.5 });
+  const done = (p: string) => event(p, "lesson_completed", { total_duration_ms: 1000, autonomy_ratio: 0.5 });
+
+  it("counts start, resume-start, complete as one of one", async () => {
+    const { root } = library();
+    const dataDir = tmp("data");
+    for (const p of PSEUDOS.slice(0, 5)) writeStream(dataDir, p, "teach-001", [start(p), answer(p), start(p), done(p)]);
+    const out = await classReport(ctxFor(root, { dataDir }), "teach");
+    if (out.status !== "ok") throw new Error("expected ok");
+    expect(out.completion_rate).toBe(1);
+  });
+
+  it("counts a learner who resumed twice and never finished once, as started", async () => {
+    const { root } = library();
+    const dataDir = tmp("data");
+    EIGHT.slice(0, 5).forEach((p) => writeStream(dataDir, p, "teach-001", [start(p), answer(p), done(p)]));
+    [...EIGHT.slice(5), "aaaa000000000009", "aaaa000000000010"].forEach((p) =>
+      writeStream(dataDir, p, "teach-001", [start(p), answer(p), start(p), start(p)]));
+    const out = await classReport(ctxFor(root, { dataDir }), "teach");
+    if (out.status !== "ok") throw new Error("expected ok");
+    expect(out.completion_rate).toBe(0.5);
   });
 });

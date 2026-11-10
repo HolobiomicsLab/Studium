@@ -130,6 +130,7 @@ const PHRASES = {
     stale_approval: "Attention : cette leçon a été modifiée depuis son approbation par l'enseignant.",
     ai_reading: "**Lecture IA à auditer** : juge chaque affirmation.",
     ai_summary: "**Résumé IA à auditer**",
+    ai_claims: "**Affirmations de l'IA à critiquer**",
     source: "**Source**",
     situation: "**Situation**",
     task: "**Tâche**",
@@ -207,6 +208,7 @@ const PHRASES = {
     lesson_completed: "terminée",
     forget_done: "**Tes données sont effacées.**",
     forget_nothing: "Rien à effacer : aucune donnée n'est enregistrée pour toi ici.",
+    session_already_open: "Cette leçon était déjà ouverte : elle continue où tu en étais.",
     forget_erased: "Effacé : {items}.",
     forget_kept: "Conservé : {items}.",
     forget_lesson_progress: "ta progression dans {lessons} (réponses, état de la leçon, journal d'expériences)",
@@ -230,6 +232,7 @@ const PHRASES = {
     stale_approval: "Note: this lesson changed after the teacher approved it.",
     ai_reading: "**AI reading to audit**: judge each claim.",
     ai_summary: "**AI summary to audit**",
+    ai_claims: "**AI claims to critique**",
     source: "**Source**",
     situation: "**Situation**",
     task: "**Task**",
@@ -307,6 +310,7 @@ const PHRASES = {
     lesson_completed: "completed",
     forget_done: "**Your data is erased.**",
     forget_nothing: "Nothing to erase: no data is recorded for you here.",
+    session_already_open: "This lesson was already open: it continues where you left off.",
     forget_erased: "Erased: {items}.",
     forget_kept: "Kept: {items}.",
     forget_lesson_progress: "your progress in {lessons} (answers, lesson state, experiment journal)",
@@ -352,6 +356,10 @@ function sceneBody(scene: PublicSceneFields, locale: DisplayLocale): string[] {
   if (t === "spot_the_flaw") {
     const deck = (scene["deck"] as Array<{ text: string }> | undefined) ?? [];
     return [say(locale, "ai_reading"), str(scene["flawed_content"]), deck.map((d, i) => `${i + 1}. ${d.text}`).join("\n")];
+  }
+  if (t === "ai_critique") {
+    const claims = (scene["claims_to_critique"] as Array<{ text: string }> | undefined) ?? [];
+    return [claims.length ? `${say(locale, "ai_claims")}\n\n${claims.map((c, i) => `${i + 1}. ${c.text}`).join("\n")}` : ""];
   }
   if (t === "comparison") {
     return [str(scene["prompt"]), scene["artifact_a"] ? `**A**\n\n${str(scene["artifact_a"])}` : "",
@@ -688,6 +696,11 @@ export interface ForgetDisplayItem { kind: string; lessons?: readonly string[]; 
 /** What export_concept_map shows: where the record was written, what it holds and that it stays local. */
 export function conceptMapExportMarkdown(path: string | null, locale: DisplayLocale): string {
   return path === null ? say(locale, "map_export_unsaved") : say(locale, "map_export_saved", { path });
+}
+
+/** Audit 2026-11-10 D5: the line a lesson the learner already had open starts its screen with. */
+export function alreadyOpenLine(locale: DisplayLocale): string {
+  return say(locale, "session_already_open");
 }
 
 /** forget_session's display_markdown (L-13, UX-01): what was erased, and what stays and where — the
