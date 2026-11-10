@@ -23,12 +23,21 @@ _ASSET = {**_scalars("kind title payload path language format provenance"),
           "meta": {**_scalars("passed landmark"), "cmd": [None]}}
 _RUN = {**_scalars("capsule_ref working_dir timeout_s research_question landmark_pattern"),
         **{name: [None] for name in ("cmd", "requirements", "expected_outputs", "verify_checks")}}
+# `authoring` is the host's AuthoringBlock (authoring.ts): who wrote the lesson and the approval record's
+# status. `reviewer` is bounded free text from approval.json; the record's bundle hash is not projected.
+_AUTHORING = {**_scalars("mode author_is_learner drafted_by validated judge notice"),
+              "approval": _scalars("recorded matches reviewer reviewed_at")}
+# The private, ungraded experiment journal's descriptor (tool names, file names, sequence, instructions).
+_JOURNAL = {**_scalars("record_tool read_tool file snapshot instructions"), "sequence": [None]}
 PUBLIC_CONTEXT = {
     **_scalars("schema session_id"), "scene": _SCENE, "scene_assets": [_ASSET], "run_manifest": _RUN,
+    # The legends of earlier equations that share a concept with the scene (host.sceneNotation).
+    "notation": [_scalars("symbol meaning")], "authoring": _AUTHORING,
     "response": {**_scalars("kind file instructions"), "example": _EXAMPLE},
     "language": _scalars("source_language selected_language effective_language translation_required instructions"),
     "rendering": _scalars("owner instructions"),
-    "exploration": {**_scalars("capabilities recordTool instructions"), "workflow": [None]},
+    "exploration": {**_scalars("capabilities recordTool instructions"), "workflow": [None],
+                    "journal": _JOURNAL},
 }
 
 

@@ -582,9 +582,17 @@ def main(argv: list[str]) -> int:
                          f"(default {MIN_LEARNERS_DEFAULT})")
     ap.add_argument("--out", default=None)
     ap.add_argument("--bundle", default=None,
-                    help="explicit bundle .zip (for the durable MCP layout with no co-located bundle)")
+                    help="the lesson: a lesson.json, a lesson folder or a *-bundle.zip. Needed in the durable "
+                         "layout, where no bundle sits next to the telemetry; without it concept rows are "
+                         "named by scene id")
     args = ap.parse_args(argv)
     bundle = Path(args.bundle).resolve() if args.bundle else None
+    if not _scene_to_concept(Path(args.run_dir).resolve(), bundle):
+        why = ("the lesson given with --bundle could not be read" if bundle
+               else "no *-bundle.zip sits next to the telemetry")
+        print(f"class_report: {why}, so the rows are named by scene id, not by concept; "
+              "pass --bundle path/to/lesson.json (a lesson.json, a lesson folder or a bundle .zip) "
+              "to name the concepts", file=sys.stderr)
     rep = build_report(Path(args.run_dir).resolve(), args.min_learners, bundle)
     md = _md(rep)
     print(md)

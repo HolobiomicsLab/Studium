@@ -274,19 +274,53 @@ class ClassScene(Figures):
 
 
 class ClassReport(BaseModel):
-    """class_report with status ok. Its figures are already withheld under the learner floor."""
+    """class_report with status ok, in the one shape the page reads. Its figures are already withheld
+    under the learner floor. The MCP tool's result names its course, lesson and floor; the file
+    tools/class_report.py writes names none of them, so those fields are None there (`origin` says which)."""
 
     model_config = ConfigDict(extra="ignore")
+    origin: Literal["class_report_mcp", "class_report_py"] = "class_report_mcp"
     status: Literal["ok"]
-    course_id: str
-    bundle_id: str
-    min_learners: int
-    cohort_band: str
+    course_id: str | None
+    bundle_id: str | None
+    min_learners: int | None
+    cohort_band: str | None
     completion_rate: float | None
     scenes: list[ClassScene]
     concepts: list[ClassConcept]
     withheld_below_floor: bool
     reteach_priority: list[str]
+
+    @model_validator(mode="after")
+    def _the_mcp_result_names_what_it_is_about(self) -> "ClassReport":
+        if self.origin == "class_report_mcp":
+            for name in ("course_id", "bundle_id", "min_learners", "cohort_band"):
+                if getattr(self, name) is None:
+                    raise ValueError(f"{name} is required in the class_report tool's result")
+        return self
+
+
+class PyClassConcept(Figures):
+    concept: str
+
+
+class PyClassReport(BaseModel):
+    """The JSON tools/class_report.py writes: no course, lesson or floor, no scene rows, no concept titles."""
+
+    model_config = ConfigDict(extra="ignore")
+    status: Literal["ok"]
+    identity_rule: str
+    completion_rate: float | None
+    concepts: list[PyClassConcept]
+    withheld_below_floor: bool
+    reteach_priority: list[str]
+
+    def as_class_report(self) -> ClassReport:
+        return ClassReport(
+            origin="class_report_py", status="ok", course_id=None, bundle_id=None, min_learners=None, cohort_band=None,
+            completion_rate=self.completion_rate, scenes=[], withheld_below_floor=self.withheld_below_floor,
+            reteach_priority=self.reteach_priority,
+            concepts=[ClassConcept(title=None, **row.model_dump()) for row in self.concepts])
 
 
 class SourceRecord(StrictModel):
@@ -333,6 +367,10 @@ WORDS: dict[str, dict[str, Any]] = {
         "drafted": {"agent": "Leçon rédigée par l'IA à partir des sources fournies", "learner": "Leçon rédigée par l'apprenant",
                     "teacher": "Leçon rédigée par un enseignant"},
         "validated": {True: "relue et validée par un enseignant", False: "non relue par un enseignant"},
+        # With an approval record the page says what the record says (the lesson's own voice uses the same words).
+        "approval": {"current": "validée par un enseignant pour cette version exacte",
+                     "stale": "modifiée depuis sa validation par un enseignant"},
+        "measured_n": "{n} notées",
         "judge": {True: "réponses écrites évaluées par un modèle juge", False: "réponses écrites non évaluées par un juge"},
         "conversation": "Des passages viennent d'une conversation avec un assistant IA : ce que l'assistant y affirme n'a pas été vérifié.",
         "lens": "Point de vue", "learner": "Apprenant", "teacher": "Enseignant", "filter": "Notions affichées",
@@ -364,10 +402,11 @@ WORDS: dict[str, dict[str, Any]] = {
         "not_served": "pas encore servie", "served": "servie",
         "class": "Classe (agrégats)", "class_none": "Aucun rapport de classe n'est joint à cet export.",
         "class_absent": "Cette notion n'a pas de ligne dans le rapport de classe.",
-        "class_cols": ["Apprenants", "Réponses", "Réussite", "Recours aux indices", "Écart de calibration", "Temps moyen"],
+        "class_cols": ["Apprenants", "Réponses", "Réussite (réponses notées)", "Recours aux indices", "Écart de calibration", "Temps moyen"],
         "class_floor": "Les chiffres retenus sous le plancher de {n} apprenants ne sont pas affichés. Aucun chiffre individuel.",
+        "class_floor_unnamed": "Les chiffres retenus sous le plancher de l’outil ne sont pas affichés (ce rapport ne note pas sa valeur). Aucun chiffre individuel.",
         "withheld_figure": "non affiché", "reteach": "à reprendre en priorité", "accuracy": "réussite",
-        "scenes_n": "{n} scène(s)", "sources_n": "{n} source(s)", "answers_n": "{n} rép.",
+        "scenes_n": "{n} scène(s)", "sources_n": "{n} source(s)", "answers_n": "{n} rép.", "over": " sur ",
         "trace": "Nœuds de la trace ARA", "provenance": "Provenance de cette page",
         "files": [
             ("astra.yaml", "ASTRA : ce que ce paquet contient, d'où il vient et les choix faits (règle d'état, passages cités)."),
@@ -386,6 +425,9 @@ WORDS: dict[str, dict[str, Any]] = {
         "drafted": {"agent": "Lesson drafted by the AI from the sources supplied", "learner": "Lesson drafted by the learner",
                     "teacher": "Lesson drafted by a teacher"},
         "validated": {True: "reviewed and validated by a teacher", False: "not reviewed by a teacher"},
+        "approval": {"current": "validated by a teacher for this exact version",
+                     "stale": "changed since a teacher validated it"},
+        "measured_n": "{n} graded",
         "judge": {True: "written answers assessed by a judge model", False: "written answers not assessed by a judge"},
         "conversation": "Some passages are excerpts of a conversation with an AI assistant: what the assistant asserted there was not checked.",
         "lens": "Viewpoint", "learner": "Learner", "teacher": "Teacher", "filter": "Concepts shown",
@@ -417,10 +459,11 @@ WORDS: dict[str, dict[str, Any]] = {
         "not_served": "not served yet", "served": "served",
         "class": "Class (aggregates)", "class_none": "No class report is attached to this export.",
         "class_absent": "This concept has no row in the class report.",
-        "class_cols": ["Learners", "Answers", "Success", "Hint reliance", "Calibration gap", "Mean time"],
+        "class_cols": ["Learners", "Answers", "Success (graded answers)", "Hint reliance", "Calibration gap", "Mean time"],
         "class_floor": "Figures held back under the floor of {n} learners are not shown. No individual figure.",
+        "class_floor_unnamed": "Figures held back under the tool's learner floor are not shown (this report does not record its value). No individual figure.",
         "withheld_figure": "not shown", "reteach": "reteach first", "accuracy": "success",
-        "scenes_n": "{n} scene(s)", "sources_n": "{n} source(s)", "answers_n": "{n} ans.",
+        "scenes_n": "{n} scene(s)", "sources_n": "{n} source(s)", "answers_n": "{n} ans.", "over": " over ",
         "trace": "ARA trace nodes", "provenance": "Provenance of this page",
         "files": [
             ("astra.yaml", "ASTRA: what this package holds, where it comes from and the choices made (state rule, passages quoted)."),
@@ -531,7 +574,7 @@ def _findings(report: MapReport) -> list[dict]:
             created_at=report.generated_at, evidence=[{"artifact": "concept_map_record"}], derived=True),
         make_insight(
             insight_id="lesson_authoring",
-            claim=(f"The lesson was drafted by: {authoring.drafted_by}. Validated by a teacher: {'yes' if authoring.validated else 'no'}. "
+            claim=(f"The lesson was drafted by: {authoring.drafted_by}. Review status: {_review_status(authoring, WORDS['en'])}. "
                    f"Written answers assessed by a judge model: {'yes' if authoring.judge else 'no'}. "
                    f"{counts['scenes_with_sources']} scene(s) cite a source; {counts['passages_quoted']} passage(s) are quoted."),
             created_at=report.generated_at, evidence=[{"artifact": "concept_map_record"}], derived=True),
@@ -741,6 +784,14 @@ def _wrap(title: str, width: int = 25, lines: int = 2) -> list[str]:
     return [line if len(line) <= width + 6 else line[: width + 5] + "…" for line in out]
 
 
+def _review_status(authoring: Authoring, words: dict[str, Any]) -> str:
+    """What the approval record says about this exact lesson file. Without a record the lesson's own
+    `validated_by` text decides, as before (an owner decision, not changed here)."""
+    if authoring.approval.recorded:
+        return words["approval"]["current" if authoring.approval.matches else "stale"]
+    return words["validated"][authoring.validated]
+
+
 def _percent(value: float | None, words: dict[str, Any], measured: bool) -> str:
     if value is None:
         return words["withheld_figure"] if measured else "—"
@@ -751,7 +802,11 @@ def _teacher_line(node: MapNode, record: ConceptMapRecord, klass: ClassReport | 
     scenes = [scene for scene in record.scenes if node.id in scene.concept_ids]
     row = next((row for row in klass.concepts if row.concept == node.id), None) if klass else None
     if row is not None:
-        return f"{words['accuracy']}{words['colon']}{_percent(row.accuracy, words, row.n_measured > 0)} · {words['answers_n'].format(n=row.n_attempts)}"
+        # The percentage is over the graded answers only: name them when they are fewer than the attempts.
+        over = (words["over"] + words["measured_n"].format(n=row.n_measured)
+                if row.accuracy is not None and row.n_measured != row.n_attempts else "")
+        return (f"{words['accuracy']}{words['colon']}{_percent(row.accuracy, words, row.n_measured > 0)}{over}"
+                f" · {words['answers_n'].format(n=row.n_attempts)}")
     return f"{words['scenes_n'].format(n=len(scenes))} · {words['sources_n'].format(n=sum(len(s.sources) for s in scenes))}"
 
 
@@ -826,7 +881,7 @@ def _class_html(node: MapNode, scenes: list[RecordScene], klass: ClassReport | N
     flag = f'<p class="badge reteach-badge">{E(words["reteach"])}</p>' if node.id in klass.reteach_priority else ""
     return (f'{flag}<div class="table-scroll" tabindex="0" role="region" aria-label="{E(words["class"])}">'
             f'<table class="figures"><thead><tr>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
-            f'<p class="quiet">{E(words["class_floor"].format(n=klass.min_learners))}</p>')
+            f'<p class="quiet">{E(words["class_floor"].format(n=klass.min_learners) if klass.min_learners is not None else words["class_floor_unnamed"])}</p>')
 
 
 def _detail(node: MapNode, record: ConceptMapRecord, klass: ClassReport | None, step_nodes: dict[int, list[str]],
@@ -977,7 +1032,7 @@ def _render_html(report: MapReport, record: ConceptMapRecord, klass: ClassReport
     words = WORDS[report.language]
     authoring = record.authoring
     initial = record.map.position.at or next((node.id for node in record.map.nodes if node.state != "upcoming"), record.map.nodes[0].id)
-    facts = [words["drafted"][authoring.drafted_by], words["validated"][authoring.validated], words["judge"][authoring.judge]]
+    facts = [words["drafted"][authoring.drafted_by], _review_status(authoring, words), words["judge"][authoring.judge]]
     conversation = f'<p class="notice">{E(words["conversation"])}</p>' if authoring.from_conversation else ""
     filters = "".join(
         f'<label><input type="checkbox" data-state-filter="{state}" checked> {STATE_SIGNS[state]} {E(words["states"][state])}</label>'
@@ -1026,10 +1081,24 @@ def _read_record(path: Path) -> ConceptMapRecord:
     return ConceptMapRecord.model_validate(read_json_payload(path))
 
 
-def _read_class(path: Path, record: ConceptMapRecord) -> ClassReport:
+def _read_class(path: Path, record: ConceptMapRecord, *, stored: bool = False) -> ClassReport:
+    """Read either class report: the MCP tool's result (named by its bundle) or the file
+    tools/class_report.py writes (recognised by its `identity_rule`). Each shape is validated on its own.
+    `stored` is the copy an export wrote (already in the page's shape, `origin` set by the exporter)."""
     value = read_json_payload(path)
+    if isinstance(value, dict) and not stored:
+        value.pop("origin", None)       # only the exporter sets it: an input cannot claim the shape that skips the bundle check
     if isinstance(value, dict) and value.get("status") in ("suppressed", "no_data"):
         raise ReportError(f"the class report holds no publishable figure (status {value['status']}); export without it")
+    if isinstance(value, dict) and ("identity_rule" in value or (stored and value.get("origin") == "class_report_py")):
+        klass = (ClassReport.model_validate(value) if stored else PyClassReport.model_validate(value).as_class_report())
+        known = {node.id for node in record.map.nodes}
+        if klass.concepts and not any(row.concept in known for row in klass.concepts):
+            # It names no lesson, so the concepts are the only binding: rows titled by scene id (class_report.py run
+            # without --bundle) or another lesson's concepts match nothing of this map.
+            raise ReportError("the class report names no concept of this lesson (run tools/class_report.py with "
+                              "--bundle path/to/lesson.json, for this lesson)")
+        return klass
     klass = ClassReport.model_validate(value)
     if klass.bundle_id != record.lesson.bundle_id:
         raise ReportError("the class report is for another lesson (bundle_id differs)")
@@ -1122,7 +1191,7 @@ def verify_concept_map_report(directory: Path) -> dict[str, Any]:
                 raise ReportError(f"artifact hash mismatch: {relative}")
         record = _read_record(directory / RECORD_PATH)
         with_class = (directory / CLASS_PATH).exists()
-        klass = _read_class(directory / CLASS_PATH, record) if with_class else None
+        klass = _read_class(directory / CLASS_PATH, record, stored=True) if with_class else None
         expected_report = MapReport.model_validate(_report_value(
             record, _source_records(directory, with_class), report.language, report.generated_at))
         if expected_report != report:

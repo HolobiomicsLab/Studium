@@ -81,7 +81,7 @@ Pour chaque scène d'une notion, le panneau donne le type de clé (écrite par l
 à une référence, ancrée par une exécution, ou non notée), les sources citées et l'origine de chacune : page
 web, publication, document fourni, ou conversation avec un assistant IA. Un passage n'est cité qu'une fois
 que vous avez quitté la scène qui le cite, car un passage peut énoncer la clé de sa question. L'en-tête dit
-qui a rédigé la leçon et si un enseignant l'a validée.
+qui a rédigé la leçon et si un enseignant a validé cette version exacte (une leçon modifiée depuis son approbation le dit).
 
 Pour une leçon tirée d'une conversation, lisez [apprendre avec votre assistant](learn-with-your-assistant.fr.md) :
 ce que l'assistant y affirme n'a pas été vérifié.
@@ -89,13 +89,14 @@ ce que l'assistant y affirme n'a pas été vérifié.
 ## Le point de vue enseignant et les chiffres de la classe
 
 Un enseignant qui veut les chiffres d'une classe sur la carte exporte le rapport de classe avec l'outil
-enseignant `class_report`, enregistre son JSON et le passe :
+enseignant `class_report`, enregistre son JSON et le passe (le JSON écrit par `tools/class_report.py` convient aussi,
+lancé avec `--bundle chemin/vers/lesson.json` pour que ses lignes portent le nom des notions) :
 
 ```bash
 .venv/bin/python tools/concept_map_report.py export RECORD.json reports/class-map --class-report class-report.json
 ```
 
-Chaque notion montre alors son taux de réussite, le recours aux indices, l'écart de calibration et le
+Chaque notion montre alors son taux de réussite (sur les réponses notées, dont le nombre est donné quand il est inférieur à celui des réponses), le recours aux indices, l'écart de calibration et le
 temps moyen, et les notions à reprendre en priorité sont marquées. Les chiffres retenus sous le plancher
 d'apprenants de `class_report` ne sont pas affichés, et ce rapport ne contient aucun chiffre individuel. La
 page garde le parcours de la séance dont vient l'enregistrement : pour une page sans le parcours d'aucun
