@@ -20,6 +20,9 @@ apps/teacher-dashboard/.next/
 # Generic build artifacts
 build/
 
+# Static documentation site (tools/docs/build-site.mjs): built locally, never committed
+/site/
+
 # Playwright / e2e test artifacts
 playwright-report/
 test-results/
