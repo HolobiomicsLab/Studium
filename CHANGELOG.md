@@ -19,6 +19,7 @@ This release makes the approval record the only source of « validated », puts 
 
 - **The institutions are named.** The README, the documentation portal and every page of the offline site now say that Studium is developed by the HolobiomicsLab within the eDIAM team of the Institut de Chimie de Nice, Université Côte d'Azur and CNRS, and thank the EUR Spectrum; `CITATION.cff` gives the author's affiliation. Text and links only, no logo.
 - **The shipped atomistique lesson carries an approval record.** `fixtures/atomistique-l1` now has `approval.json`, bound to its `lesson.json`, under the displayed name « beta-testeur » given by the owner; learners read « Leçon validée par beta-testeur ». The record says no checklist and no scene opened. `validated_by` no longer holds an e-mail address. Rerunning `build_bundle.py` rewrites the lesson and makes the record stale.
+- **Dependencies brought up to date.** The minor and patch updates Dependabot proposed are in: among them esbuild 0.28, tsx 4.23, Tailwind 4.3, Playwright 1.65, Tauri 2.12, fastify 5.12.8, and for the Python services fastapi 0.162, pydantic 2.14, uvicorn 0.54 and pytest 9.2. Held back: the viewer libraries (KaTeX, Cytoscape, Vega), whose versions are tied to the vendored copies and their integrity hashes; `@types/vscode`, bounded by the extension's `engines.vscode`; and `astra-tools`, pinned by an Observatory test. Dependabot no longer proposes the hand-bumped libraries (`.github/dependabot.yml`).
 
 ### Fixed
 
