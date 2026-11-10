@@ -598,7 +598,7 @@ export type ClassReportResult =
     data_folder: DataFolder;
     /** The whole run's learner count, banded. */
     cohort_band: string;
-    /** Completed over started, null unless at least `min_learners` learners started. */
+    /** Distinct learners who completed over distinct learners who started, null unless at least `min_learners` learners started. */
     completion_rate: number | null;
     scenes: SceneRow[];
     concepts: ConceptRow[];
@@ -634,8 +634,7 @@ export async function classReport(ctx: TeacherToolsContext, courseId: string): P
   const scenes = new Map<string, Acc>();
   const learners = new Set<string>();
   const startedBy = new Set<string>();
-  let started = 0;
-  let completed = 0;
+  const completedBy = new Set<string>();
   let unknownIdentity = false;
   let totalBytes = 0;
 
@@ -653,8 +652,8 @@ export async function classReport(ctx: TeacherToolsContext, courseId: string): P
       if (lesson !== bundle.bundle_id) continue; // another lesson's event: not this class
       learners.add(pseudonym);
       const type = e["type"];
-      if (type === "lesson_started") { started += 1; startedBy.add(pseudonym); continue; }
-      if (type === "lesson_completed") { completed += 1; continue; }
+      if (type === "lesson_started") { startedBy.add(pseudonym); continue; }
+      if (type === "lesson_completed") { completedBy.add(pseudonym); continue; }
       if (type !== "quiz_answered" && type !== "critique_submitted" && type !== "hint_requested") continue;
       const sceneId = typeof e["scene_id"] === "string" ? e["scene_id"] : "";
       if (sceneId === "") continue;
@@ -711,7 +710,10 @@ export async function classReport(ctx: TeacherToolsContext, courseId: string): P
     data_folder: { label: sub === "" ? basename(dataRoot) : `${basename(dataRoot)}/${sub.split(sep).join("/")}`, fingerprint: sha256(root).slice(0, 8) },
     cohort_band: cohortBand(learners.size, floor),
     // The figure's population is the learners who started the lesson.
-    completion_rate: startedBy.size >= floor ? round(completed / started, 3) : null,
+    // Distinct learners, not events: a resumed learner writes `lesson_started` twice. A learner is
+    // the pseudonym within this one lesson; a completion with no start is not counted. Same
+    // definition as tools/class_report.py (collector metrics.learner_completion_rate).
+    completion_rate: startedBy.size >= floor ? round([...startedBy].filter((p) => completedBy.has(p)).length / startedBy.size, 3) : null,
     scenes: sceneRows,
     concepts: conceptRows,
     withheld_below_floor: anyWithheld,
