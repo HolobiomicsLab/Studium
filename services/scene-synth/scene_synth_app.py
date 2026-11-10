@@ -23,7 +23,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
@@ -57,17 +57,61 @@ from scene_synth_schemas import (
 
 app = FastAPI(title="scene-synth", version="0.1.0")
 
-# CORS for the browser-driven learner-as-author UIs:
-#   - author-web (:3000) — the learner authoring form (GET/POST validate + submit)
-#   - teacher-dashboard (:3001) — the moderation queue (GET list + POST decide)
-# Both call these endpoints directly from the browser, so each origin must be
-# allowlisted explicitly.
+# The teacher's decision route. It is never reachable from a browser: no CORS grant,
+# any request carrying an Origin header is refused, and it needs the review token.
+_DECIDE_PATH = re.compile(r"/learner-items/[^/]+/decide/?")
+
+
+class _CORSExceptDecisions(CORSMiddleware):
+    """CORS for the learner UI, never for the decision route (no preflight grant, no header)."""
+
+    async def __call__(self, scope, receive, send):  # type: ignore[override]
+        if scope["type"] == "http" and _DECIDE_PATH.fullmatch(scope.get("path", "")):
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
+
+
+# CORS for the browser-driven learner-as-author UI: author-web (:3000), the learner
+# authoring form (validate + submit). The teacher dashboard (:3001) calls scene-synth from
+# its server only (it holds STUDIUM_REVIEW_TOKEN there), so its origin is not listed.
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    _CORSExceptDecisions,
+    allow_origins=["http://localhost:3000"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# The teacher credential for decisions on learner items: an environment variable of at
+# least 32 characters, distinct from any course identifier, shared only with the teacher
+# dashboard's server. Read per request; never logged, never echoed in a response.
+REVIEW_TOKEN_ENV = "STUDIUM_REVIEW_TOKEN"
+REVIEW_TOKEN_MIN_LENGTH = 32
+
+
+def _require_review_token(
+    authorization: Optional[str] = Header(default=None),
+    origin: Optional[str] = Header(default=None),
+) -> None:
+    """Fail closed: no configured token, a browser origin, or a wrong token refuses the call."""
+    configured = os.environ.get(REVIEW_TOKEN_ENV, "")
+    if len(configured) < REVIEW_TOKEN_MIN_LENGTH:
+        raise HTTPException(
+            status_code=503,
+            detail=f"decisions are disabled: set {REVIEW_TOKEN_ENV} (at least "
+            f"{REVIEW_TOKEN_MIN_LENGTH} characters) on scene-synth and on the teacher dashboard",
+        )
+    if origin is not None:
+        raise HTTPException(
+            status_code=403,
+            detail="decisions are not accepted from a browser; use the teacher dashboard",
+        )
+    scheme, _, presented = (authorization or "").partition(" ")
+    # Both sides hashed first so compare_digest sees equal lengths whatever was sent.
+    expected = hashlib.sha256(configured.encode("utf-8")).digest()
+    received = hashlib.sha256(presented.strip().encode("utf-8")).digest()
+    if scheme.lower() != "bearer" or not hmac.compare_digest(received, expected):
+        raise HTTPException(status_code=401, detail="a valid teacher review token is required")
 
 
 # Module-level singletons — overridable in tests via monkeypatch.
@@ -282,18 +326,32 @@ def learner_list(
     return LearnerItemsListResponse(items=[_to_view(e) for e in items])
 
 
-@app.post("/learner-items/{item_id}/decide", response_model=LearnerItemView)
+@app.post(
+    "/learner-items/{item_id}/decide",
+    response_model=LearnerItemView,
+    dependencies=[Depends(_require_review_token)],
+)
 def learner_decide(item_id: str, req: LearnerDecideRequest) -> LearnerItemView:
     """Teacher decision (rule-003 chokepoint) — approve / reject / request_revision.
 
-    Approve guards (empty reviewer / timestamp) surface as 400; an unknown item
-    is 404, and so is an item whose course has no usable canonical bundle. On
-    approve the community bundle is emitted into ``_course_emit_dir`` with the
-    course's metadata, and the pseudonym is asserted-scrubbed by ``decide_item``.
+    Authenticated first (``_require_review_token``): 503 when no review token is
+    configured, 403 from a browser origin, 401 without the right bearer token, all
+    before the item is even looked up. Reviewer guards (empty, too long, the item's
+    author) and a missing approve timestamp surface as 400; an unknown item is 404,
+    and so is an item whose course has no usable canonical bundle. On approve the
+    community bundle, with its ``approval.json`` record, is emitted into
+    ``_course_emit_dir`` with the course's metadata, and the pseudonym is
+    asserted-scrubbed by ``decide_item``.
     """
     current = _learner_store.get_item(item_id)
     if current is None:
         raise HTTPException(status_code=404, detail=f"unknown item {item_id!r}")
+    # The learner's own handle as reviewer maps to the item's pseudonym: a self-review.
+    if _author_pseudonym(current.course_id, (req.reviewer or "").strip()) == current.author_pseudonym:
+        raise HTTPException(
+            status_code=400,
+            detail="the reviewer cannot be the item's author: a learner never decides on their own item",
+        )
     course = _load_course(current.course_id)
     try:
         env = decide_item(

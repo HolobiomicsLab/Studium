@@ -12,12 +12,28 @@ Studium tells the learner who wrote each answer key, whether anything actually a
 |---|---|
 | `mode` | `teacher` (default) or `self_study` |
 | `author_is_learner` | the learner wrote the lesson |
-| `validated` | false when `validated_by` is a `DRAFT` or `SELF-STUDY` placeholder |
+| `validated` | true only when an approval record matches this exact `lesson.json`; never for a self-study lesson; `validated_by` text never sets it |
 | `judge` | a judge model is configured on this server |
 | `notice` | the text shown to the learner for a self-study lesson; null for a teacher lesson |
-| `approval` | whether an `approval.json` exists next to the lesson, and whether it matches this exact `lesson.json` |
+| `approval` | whether an approval record exists (`approval.json` next to the lesson, or the `approval.json` member of a lesson `.zip`), whether it matches this exact `lesson.json`, and its `reviewer` |
 
 Who drafted the lesson comes from `metadata.authoring.drafted_by` (`teacher`, `learner` or `agent`); a self-study bundle without it reads as drafted by the learner.
+
+The approval record is the only source of the validated status. Every surface (the first screen of
+the conversation, the panes, `list_lessons`, the concept map page) tells three states apart:
+
+| State | When | What the learner reads |
+|---|---|---|
+| Approved | a record matches the sha256 of the loaded `lesson.json` | « Leçon validée par <reviewer> » / "Lesson validated by <reviewer>", the name taken from the record |
+| Changed since approval | a record exists and does not match | a first-screen notice that the lesson changed after the teacher approved it |
+| No record | no record, or a malformed or foreign one | « Aucune approbation enregistrée pour cette leçon. » / "No approval is recorded for this lesson." |
+
+A learner's contribution a teacher reviews (`mode: "teacher"`, `drafted_by: "learner"`) reads as
+proposed by a classmate (« Leçon proposée par une personne de la classe, validée par <reviewer>. » /
+"Lesson contributed by a classmate, validated by <reviewer>.", or the classmate sentence followed by
+the no-record sentence), and its key as written by a classmate, never as the reader's own. A
+self-study lesson keeps its own notice and never reads as validated. A name typed into
+`validated_by` by hand, without a record, shows nowhere as a validation.
 
 ## Key classes
 
@@ -96,13 +112,13 @@ A teacher records approval of a finished lesson with:
 
 The command refuses a lesson with remaining placeholders, with lint errors, or in self-study mode (which includes lessons drafted with `create_lesson`). It sets `validated_by` and `validated_at`, then writes `approval.json` (schema `studium-approval/1`) next to the lesson with the SHA-256 of the exact bytes of `lesson.json`, the reviewer, the date, an optional checklist (`--checklist KEY=VALUE ...`) and the lint summary.
 
-The server reads the record and reports `approval.matches`: any edit to `lesson.json` after approval makes it false. The record is a file anyone with write access can edit; it documents a review, it is not a signature. Teachers can inspect a draft without seeing its keys with the MCP tool `review_lesson`. See [Review and approve](../teach/review-and-approve.md).
+The server reads the record and reports `approval.matches`: any edit to `lesson.json` after approval makes it false. A lesson distributed as a `.zip` carries its record as the member `approval.json`, bound to the bytes of the member `lesson.json`. The record is a file anyone with write access can edit; it documents a review, it is not a signature. Teachers can inspect a draft without seeing its keys with the MCP tool `review_lesson`. See [Review and approve](../teach/review-and-approve.md).
 
 ## Rule 003: a teacher before any release
 
 The project's rule 003 is strict human-in-the-loop: no content is released to students without a teacher's validation. In practice:
 
-- a teacher bundle carries the name of the teacher in `validated_by`;
+- a teacher bundle reads as validated only with an approval record bound to its exact bytes (`approve` also writes the name in `validated_by`, which grants nothing on its own);
 - a self-study or agent-drafted lesson is for the learner who made it, and says so in its notice;
 - a learner's contribution reaches other learners only after a teacher's decision, see [Learner contributions](../teach/learner-contributions.md).
 

@@ -64,8 +64,9 @@ surfaces affichent après son titre.
 Un bundle sans `metadata.authoring` (bundles plus anciens) est lu comme une leçon d'enseignant.
 `validated_by` et `validated_at` consignent la relecture de l'enseignant ;
 `experience_packet.py approve` les renseigne et écrit `approval.json` avec l'empreinte SHA-256 des
-octets finaux, si bien que toute modification ultérieure apparaît comme non approuvée. Un bundle
-d'autoformation ne peut pas être approuvé.
+octets finaux, si bien que toute modification ultérieure apparaît comme non approuvée. Seul ce
+registre fait lire une leçon comme validée : le texte de `validated_by` seul se lit « aucune
+approbation enregistrée ». Un bundle d'autoformation ne peut pas être approuvé.
 
 ## Référence des champs
 

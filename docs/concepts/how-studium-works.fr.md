@@ -17,7 +17,7 @@ Une leçon tient dans un fichier, `lesson.json`, appelé *bundle de leçon*. Il 
 - les concepts et le Learning Workflow Graph (graphe de parcours) qui les relie ;
 - les scènes, dans l'ordre, chacune rattachée à un ou plusieurs concepts ;
 - les règles d'adaptation et, si besoin, des *univers* (un parcours de base et une variante de remédiation plus guidée) ;
-- `validated_by`, l'enseignant qui l'a validée, ou un marqueur `DRAFT` / `SELF-STUDY` si aucun enseignant ne l'a fait.
+- `validated_by`, le nom écrit par `approve`, ou un marqueur `DRAFT` / `SELF-STUDY`. Que la leçon soit validée se lit dans son registre d'approbation (`approval.json`), jamais dans ce texte.
 
 Le format est décrit dans la [référence du bundle](../reference/lesson-bundle.fr.md). Pour vérifier un bundle :
 

@@ -70,7 +70,7 @@ export interface ConceptMapRecord {
   authoring: {
     mode: string;
     drafted_by: AuthoringBlock["drafted_by"];
-    /** A teacher validated the bundle (its `validated_by` is not a draft or self-study placeholder). */
+    /** An approval record is bound to this exact lesson file (C5); `validated_by` text never sets it. */
     validated: boolean;
     /** A judge model assessed production answers in this session. */
     judge: boolean;

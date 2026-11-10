@@ -19,8 +19,16 @@ behind a floor of five learners.
 | Calls | analytics collector (8003), lesson server (8010), scene-synth (8002) for learner contributions, Observatory (8004) for report links |
 | Tests | `pnpm --filter @studium/teacher-dashboard test`; browser tests with `test:e2e` |
 
-User guide: [Review and approve a lesson](../../docs/teach/review-and-approve.md) and
-[Follow a class](../../docs/teach/follow-a-class.md).
+User guide: [Review and approve a lesson](../../docs/teach/review-and-approve.md),
+[Follow a class](../../docs/teach/follow-a-class.md) and
+[Learner contributions](../../docs/teach/learner-contributions.md).
+
+On `/courses/<id>/submissions`, approving a learner's item needs the teacher's name, typed in the
+field above the queue: learners read it as "Lesson contributed by a classmate, validated by <name>".
+The browser posts it as `reviewer_name` to the dashboard's own `/api/learner-items/<id>/decide`,
+which refuses an empty name, more than 200 characters, a control character or a `urn:` identifier,
+and calls scene-synth from the server with `STUDIUM_REVIEW_TOKEN`. The name is remembered in this
+browser's local storage only.
 
 ## Run it
 
@@ -49,6 +57,7 @@ opens its analytics under `/courses/<id>/…`.
 | `ANALYTICS_BASE_URL` | `http://localhost:8003` | [analytics collector](../../services/analytics-collector/README.md) |
 | `LESSON_SERVER_BASE_URL` | `http://localhost:8010` | [lesson server](../lesson-server/README.md) (peer rooms) |
 | `SCENE_SYNTH_BASE_URL` | `http://localhost:8002` | [scene-synth](../../services/scene-synth/README.md) (moderation of learner contributions) |
+| `STUDIUM_REVIEW_TOKEN` | none | teacher review token, same value as on scene-synth, read by the server only; decisions on [learner contributions](../../docs/teach/learner-contributions.md) are disabled without it |
 | `OBSERVATORY_BASE_URL` | `http://localhost:8004` | [Observatory](../../services/observatory/README.md) |
 
 A review page probes the Observatory's MySTRA API for the lesson folder's name. It links to the report

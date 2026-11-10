@@ -1,4 +1,5 @@
 import { getLearnerItems } from "@/lib/api";
+import { requestLocale } from "@/lib/request-locale";
 import CourseShell from "@/components/CourseShell";
 import DashboardNotice, { ApiError } from "@/components/DashboardNotice";
 import SubmissionsClient from "./SubmissionsClient";
@@ -9,6 +10,7 @@ type Props = { params: { token: string } };
 
 export default async function SubmissionsPage({ params }: Props) {
   const token = decodeURIComponent(params.token);
+  const locale = await requestLocale();
   let items;
   let error: string | null = null;
   try {
@@ -31,7 +33,7 @@ export default async function SubmissionsPage({ params }: Props) {
       {error ? (
         <ApiError message={error} />
       ) : items ? (
-        <SubmissionsClient token={token} items={items} />
+        <SubmissionsClient token={token} items={items} locale={locale} />
       ) : (
         <p className="empty-state">Aucune file de modération disponible.</p>
       )}

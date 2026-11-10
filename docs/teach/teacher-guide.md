@@ -74,7 +74,9 @@ starters are in [activity templates](activity-templates.md); figures, equations 
 ## Distribute a lesson
 
 A lesson is a folder: `lesson.json`, its `assets/` and, once approved, `approval.json`. Keep the
-three together and at the same revision. Students place the folder in their Studium library
+three together and at the same revision. A lesson shipped as a `.zip` carries the record as its
+member `approval.json` (the demo build scripts add it when it matches `lesson.json`); without it the
+lesson reads "No approval is recorded for this lesson." Students place the folder in their Studium library
 (by default `~/.studium/library/<course_id>/`, or the folder `BUNDLES_ROOT` names) and open it
 from their assistant or from VS Code (see [VS Code](../start/vscode.md)). When a learner starts
 the lesson, the session reports whether an approval record matches the exact file.

@@ -37,6 +37,10 @@ The lesson pane runs under a strict Content Security Policy: `default-src 'none'
 
 `pnpm --filter @studium/lesson-mcp api` listens on `127.0.0.1` only. It refuses non-loopback connections, browser origins and non-local `Host` headers, and requires a bearer token of at least 32 characters in `STUDIUM_API_TOKEN`. The legacy `lesson-server` strips answer keys from every learner projection.
 
+## Decisions on learner contributions
+
+`POST /learner-items/{id}/decide` on scene-synth publishes a learner's item to the class, so it is a teacher act. It requires a bearer token of at least 32 characters in `STUDIUM_REVIEW_TOKEN`, distinct from any course id and compared in constant time; unset or shorter, every decision is refused (`503`). It refuses any request carrying a browser `Origin` (`403`) and grants no CORS access. The teacher dashboard holds the token on its server and calls scene-synth from there; the browser posts only the decision to the dashboard. The token is never logged, echoed in an error or written to the decision log. An approved item carries an `approval.json` record bound to the sha256 of its `lesson.json`.
+
 ## Learner data
 
 - **Local first.** Progress is kept on the learner's machine: `~/.studium/data` for the MCP server (`STUDIUM_HOME`, `STUDIUM_DATA_DIR`), the extension's own storage in VS Code. `STUDIUM_EPHEMERAL=1` keeps everything in memory.

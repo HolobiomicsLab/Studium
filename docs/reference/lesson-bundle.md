@@ -59,8 +59,9 @@ learner already knows: it is played once and never chosen for a review. A citati
 
 A bundle without `metadata.authoring` (older bundles) is read as a teacher's lesson. `validated_by`
 and `validated_at` record the teacher's review; `experience_packet.py approve` sets them and writes
-`approval.json` with the SHA-256 of the final bytes, so any later edit shows as unapproved. A
-self-study bundle cannot be approved.
+`approval.json` with the SHA-256 of the final bytes, so any later edit shows as unapproved. Only
+that record makes a lesson read as validated: `validated_by` text alone shows as "no approval
+recorded". A self-study bundle cannot be approved.
 
 ## Field reference
 

@@ -82,6 +82,7 @@ Après une erreur réseau, renvoyez le même fichier avec le même `request_id`,
 | Le planner répond `503` | aucun modèle n'est configuré ; configurez-en un, ou utilisez `STUDIUM_LLM_MODE=mock` pour le modèle fictif déterministe |
 | Le planner répond `422` | envoyez `manifest_id` et `target` dans le corps de la requête |
 | La synthèse de scènes répond `503` | son orchestrateur n'est pas configuré ; lancer le service seul ne suffit pas |
+| Une décision sur une contribution d'apprenant répond `503` (« decisions are disabled ») | donnez la même valeur de `STUDIUM_REVIEW_TOKEN`, 32 caractères au moins, à scene-synth et au serveur du tableau de bord enseignant ; voir [contributions des apprenants](../teach/learner-contributions.fr.md) |
 | Un essai « réel » renvoie une sortie fictive | vérifiez le mode, l'URL, les alias de modèles et les indicateurs de repli : un HTTP 200 ne prouve pas qu'un modèle a répondu |
 
 ## Vérifications sans conversation

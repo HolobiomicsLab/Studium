@@ -18,6 +18,7 @@ import {
   postBlueprintScore,
   getLearnerItems,
   decideLearnerItem,
+  ReviewTokenMissingError,
   teacherIriForToken,
   isSuppressed,
   isUnavailable,
@@ -35,9 +36,13 @@ function aggregate<T>(data: T | Suppressed | Unavailable): T {
   return data;
 }
 
+/** Generated per run: a test token is never a value written in the repository. */
+const REVIEW_TOKEN = `test-${crypto.randomUUID()}-${crypto.randomUUID()}`;
+
 describe("teacher-dashboard api wrapper", () => {
   beforeEach(() => {
     global.fetch = vi.fn();
+    vi.unstubAllEnvs();
   });
 
   it("getProgress hits /metrics/progress with X-Course-Token header", async () => {
@@ -389,6 +394,7 @@ describe("teacher-dashboard api wrapper", () => {
   });
 
   it("decideLearnerItem POSTs decision + reviewer + reviewed_at + token", async () => {
+    vi.stubEnv("STUDIUM_REVIEW_TOKEN", REVIEW_TOKEN);
     (global.fetch as any).mockResolvedValue({
       ok: true,
       status: 200,
@@ -405,6 +411,7 @@ describe("teacher-dashboard api wrapper", () => {
     expect(call[1].method).toBe("POST");
     expect(call[1].headers["X-Course-Token"]).toBe("atomistique-l1");
     expect(call[1].headers["Content-Type"]).toBe("application/json");
+    expect(call[1].headers.Authorization).toBe(`Bearer ${REVIEW_TOKEN}`);
     const sent = JSON.parse(call[1].body);
     expect(sent.decision).toBe("approve");
     expect(sent.reviewer).toBe("urn:studium:teacher:atomistique-l1");
@@ -414,6 +421,7 @@ describe("teacher-dashboard api wrapper", () => {
   });
 
   it("decideLearnerItem includes note_code for reject/request_revision", async () => {
+    vi.stubEnv("STUDIUM_REVIEW_TOKEN", REVIEW_TOKEN);
     (global.fetch as any).mockResolvedValue({
       ok: true,
       status: 200,
@@ -429,7 +437,34 @@ describe("teacher-dashboard api wrapper", () => {
     expect(sent.note_code).toBe("factual_error");
   });
 
+  it("decideLearnerItem refuses before any request when no review token is configured", async () => {
+    for (const value of ["", "too-short"]) {
+      vi.stubEnv("STUDIUM_REVIEW_TOKEN", value);
+      const error = await decideLearnerItem("atomistique-l1", "it-1", {
+        decision: "approve",
+        reviewer: "urn:studium:teacher:atomistique-l1",
+        reviewed_at: "2026-06-26T12:00:00Z",
+      }).then(() => null, (e) => e);
+      expect(error).toBeInstanceOf(ReviewTokenMissingError);
+      expect(error.message).toContain("STUDIUM_REVIEW_TOKEN");
+    }
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("decideLearnerItem never repeats the token in an error", async () => {
+    vi.stubEnv("STUDIUM_REVIEW_TOKEN", REVIEW_TOKEN);
+    (global.fetch as any).mockResolvedValue({ ok: false, status: 401, statusText: "Unauthorized" });
+    const error = await decideLearnerItem("atomistique-l1", "it-1", {
+      decision: "approve",
+      reviewer: "urn:studium:teacher:atomistique-l1",
+      reviewed_at: "2026-06-26T12:00:00Z",
+    }).then(() => null, (e) => e);
+    expect(error.message).toMatch(/401/);
+    expect(error.message).not.toContain(REVIEW_TOKEN);
+  });
+
   it("decideLearnerItem throws on non-2xx (e.g. empty reviewer rejected)", async () => {
+    vi.stubEnv("STUDIUM_REVIEW_TOKEN", REVIEW_TOKEN);
     (global.fetch as any).mockResolvedValue({
       ok: false,
       status: 400,

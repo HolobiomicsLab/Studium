@@ -237,14 +237,17 @@ export function orientationOf(host: SessionHost, sessionId: string, opts: { nowM
   return orientationFrom(host.orientationFacts(sessionId, opts.nowMs));
 }
 
-/** Who speaks. `author`: the lesson — `name` is the teacher who signs it (the bundle's validator, or
- * the reviewer whose approval is bound to this exact file), null when nobody does; `reviewed` is
- * false for a lesson no teacher validated and for one changed since its approval; `drafted_by` says
+/** Who speaks. `author`: the lesson — `name` is the reviewer of its approval record (bound to this
+ * exact file when `reviewed`, to an earlier version otherwise), null when no record exists; the
+ * free-text `validated_by` never names anyone here. `reviewed` is true only for a lesson whose
+ * approval record matches this exact file (or a review whose lessons all have one); `from_classmate`
+ * marks a learner's contribution a teacher reviews (`mode: "teacher"`, `drafted_by: "learner"`): a
+ * classmate wrote it, not the person reading, so it never reads « que tu as rédigée »; `drafted_by` says
  * who wrote the content and its keys. `key`: the author's answer key assessed the answer. `judge`: a
  * judge model did. `agent`: text the assistant generated at the learner's request, which the lesson's
  * author did not write. */
 export type Voice =
-  | { kind: "author"; name: string | null; reviewed: boolean; drafted_by: DraftedBy }
+  | { kind: "author"; name: string | null; reviewed: boolean; drafted_by: DraftedBy; from_classmate?: true }
   | { kind: "key" }
   | { kind: "judge" }
   | { kind: "agent" };
@@ -255,16 +258,19 @@ export type AssessedBy = Pick<NonNullable<Transition["verdict"]>, "assessed_by">
 /** The voice of the screen and, after an answer somebody assessed, the voice of its verdict. */
 export interface Voices { scene: Voice; verdict?: Voice }
 
-/** The lesson's voice. An approval record next to the lesson, when there is one, decides `reviewed`:
- * it is bound to the file's bytes, so it says whether this very version was read. */
-export function authorVoice(authoring: AuthoringBlock, validatedBy: string): Voice {
-  const approval = authoring.approval;
-  const approved = approval.recorded && approval.matches;
+/** The lesson's voice. The approval record is the only source of `reviewed` and of the name (owner
+ * decision 2026-11-10): it is bound to the file's bytes, so it says whether this very version was
+ * read, and by whom. A self-study lesson is never approved (`approve` refuses one): a record next to
+ * it is ignored here. */
+export function authorVoice(authoring: AuthoringBlock): Voice {
+  const approval = authoring.mode === "self_study" ? null : authoring.approval;
+  const fromClassmate = authoring.mode === "teacher" && authoring.drafted_by === "learner";
   return {
     kind: "author",
-    name: authoring.validated ? validatedBy : approved ? approval.reviewer ?? null : null,
-    reviewed: approval.recorded ? approval.matches : authoring.validated,
+    name: approval?.recorded ? approval.reviewer ?? null : null,
+    reviewed: authoring.validated,
     drafted_by: authoring.drafted_by,
+    ...(fromClassmate ? { from_classmate: true as const } : {}),
   };
 }
 
@@ -288,28 +294,42 @@ export const VOICE_LINE_MAX = 110;
 interface VoiceWords {
   drafted: Record<DraftedBy, string>;
   validated_by: string; validated: string; changed_since: string; unreviewed: string;
+  /** A teacher-drafted lesson without an approval record: a whole sentence, claiming nothing. */
+  no_record: string;
+  /** A classmate's contribution (teacher mode, drafted by a learner): who proposed it, then its state. */
+  classmate: string; classmate_changed: string;
 }
 const VOICE_WORDS: Record<"fr" | "en", VoiceWords> = {
   fr: {
     drafted: { agent: "Leçon rédigée par l'IA", learner: "Leçon que tu as rédigée", teacher: "Leçon" },
     validated_by: "validée par {name}", validated: "validée par un enseignant",
     changed_since: "modifiée depuis sa validation par {name}", unreviewed: "non relue par un enseignant",
+    no_record: "Aucune approbation enregistrée pour cette leçon.",
+    classmate: "Leçon proposée par une personne de la classe", classmate_changed: "Modifiée depuis sa validation par {name}.",
   },
   en: {
     drafted: { agent: "AI-drafted lesson", learner: "Lesson you wrote", teacher: "Lesson" },
     validated_by: "validated by {name}", validated: "validated by a teacher",
     changed_since: "changed since {name} validated it", unreviewed: "not reviewed by a teacher",
+    no_record: "No approval is recorded for this lesson.",
+    classmate: "Lesson contributed by a classmate", classmate_changed: "Changed since {name} validated it.",
   },
 };
 
 /** The lesson's voice as one line for the conversation text, `VOICE_LINE_MAX` characters at most: who
- * drafted it, and whether a teacher read this version of it. A long name is cut. Empty for a voice
+ * drafted it, and whether a teacher read this version of it (an approval record says so); for a
+ * teacher-drafted lesson without a record, only that no approval is recorded. A long name is cut. Empty for a voice
  * that is not the lesson's author. */
 export function voiceLine(voice: Voice, locale: "fr" | "en"): string {
   if (voice.kind !== "author") return "";
   const w = VOICE_WORDS[locale];
-  const drafted = w.drafted[voice.drafted_by];
+  // No approval record for a lesson a teacher drafted: say that, and nothing about who wrote it.
+  if (!voice.reviewed && !voice.name && voice.drafted_by === "teacher") return w.no_record;
+  const drafted = voice.from_classmate ? w.classmate : w.drafted[voice.drafted_by];
   const compose = (name: string | null): string => {
+    if (voice.from_classmate && !voice.reviewed) {
+      return `${drafted}. ${name ? w.classmate_changed.replace("{name}", name) : w.no_record}`;
+    }
     const review = voice.reviewed ? (name ? w.validated_by : w.validated) : name ? w.changed_since : w.unreviewed;
     const text = `${drafted}${voice.drafted_by === "teacher" ? " " : ", "}${review.replace("{name}", name ?? "")}`;
     return /[.…]$/.test(text) ? text : `${text}.`;

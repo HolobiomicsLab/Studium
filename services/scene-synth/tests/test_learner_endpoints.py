@@ -12,6 +12,7 @@ LLM-free, deterministic (TestClient, no LLM, no network). Covers:
 from __future__ import annotations
 
 import os
+import secrets
 import sys
 
 import pytest
@@ -40,7 +41,10 @@ def client(tmp_path, monkeypatch):
     monkeypatch.delenv("BUNDLES_ROOT", raising=False)
     monkeypatch.setenv("COMMUNITY_BUNDLES_ROOT", str(tmp_path / "bundles"))
     monkeypatch.setenv("LEARNER_PSEUDONYM_SECRET", "test-secret")
-    return TestClient(app)
+    # Decisions need the teacher review token (generated per test, never a fixed value).
+    token = secrets.token_urlsafe(32)
+    monkeypatch.setenv("STUDIUM_REVIEW_TOKEN", token)
+    return TestClient(app, headers={"Authorization": f"Bearer {token}"})
 
 
 def _quiz_scene() -> dict:
