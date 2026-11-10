@@ -2,73 +2,49 @@
 
 # Documentation de Studium
 
-Studium transforme un contenu scientifique en parcours d'apprentissage explicite : objectifs, prérequis, activités, réponses personnelles de l'apprenant et décisions d'adaptation prises à partir d'elles. Un **harnais** est l'application qui héberge un assistant IA et ses outils, par exemple Codex, Claude Code, ou VS Code avec Copilot. Studium conserve le contrat pédagogique ; le harnais aide à lire, expérimenter, programmer et expliquer.
+Studium transforme des sources que vous jugez fiables en leçons à jouer. Chaque réponse dit qui a rédigé la clé et si quelque chose l'a évaluée. C'est un prototype de recherche : essayez-le d'abord avec un enseignant ou un collègue. Un enseignant approuve une leçon avant que des étudiants l'utilisent.
 
-Ces pages décrivent un prototype de recherche, à utiliser d'abord en pilote accompagné. Utilisez le code et la documentation d'une même révision. Les termes techniques sont définis dans le [glossaire](concepts/glossary.fr.md).
+## Commencer selon votre rôle
 
-## Pour commencer
-
-| Je souhaite… | Lire | Résultat |
+| Vous êtes | À lire d'abord | Ensuite |
 |---|---|---|
-| Essayer Studium en cinq minutes | [Démarrage rapide](start/quickstart.fr.md) | Une première question dans VS Code ou dans votre assistant |
-| Installer l'extension, le serveur MCP ou les outils Python | [Installation](start/installation.fr.md) | Chaque surface prête et vérifiée |
-| Garder mon assistant habituel (Codex, Claude Code, Copilot, OpenCode, Cursor) | [Connecter un harnais](start/harnesses.fr.md) | Le serveur Studium déclaré dans ce client |
-| Utiliser le panneau VS Code | [VS Code](start/vscode.fr.md) | Leçons, révisions et maîtrise de vos données dans l'éditeur |
-| Donner à mon assistant les procédures Studium | [Skills](start/skills.fr.md) | Les skills qui apprennent à un harnais à conduire une leçon |
-| Résoudre un problème | [Dépannage](start/troubleshooting.fr.md) | Le symptôme, sa cause et la solution |
+| Étudiant ou étudiante dans une classe | [Guide étudiant](learn/student-guide.fr.md) | [Une première séance](tutorials/first-lesson.fr.md) |
+| En autonomie avec un assistant | [Apprendre avec votre assistant](learn/learn-with-your-assistant.fr.md) | [Réviser dans la durée](learn/review-over-time.fr.md) |
+| Enseignant ou enseignante | [Guide enseignant](teach/teacher-guide.fr.md) | [De l'article au cours](tutorials/literature-to-course.fr.md) |
+| Connecter un assistant, ou construire sur Studium | [Connecter votre assistant](start/harnesses.fr.md) | [Outils MCP](reference/mcp-tools.fr.md) |
 
-## Apprendre seul
+## Installer et dépanner
 
-Vous choisissez les sources, votre assistant construit la leçon, Studium la vérifie et planifie vos révisions.
-
-- [Apprendre avec votre assistant](learn/learn-with-your-assistant.fr.md) : de « je veux apprendre X » à une première question, puis les révisions quotidiennes.
-- [Réviser dans la durée](learn/review-over-time.fr.md) : le plan d'étude, les révisions dues, et ce que l'auto-évaluation change ou ne change pas.
-- [Tutoriel : apprendre un sujet au fil d'une conversation](tutorials/learn-a-topic-in-a-conversation.fr.md).
-- [Tutoriel : apprendre seul à partir de ses références](tutorials/self-study-from-references.fr.md) : une leçon à livre ouvert tirée d'une page, d'un PDF ou d'un texte, et ses limites.
-
-## Étudier dans une classe
-
-- [Guide étudiant](learn/student-guide.fr.md) : suivre une leçon, répondre, demander un indice, lire le retour.
-- [Journal d'expérience](learn/experiment-journal.fr.md) : la trace privée de vos prédictions, observations et conclusions.
-- [Rapport de l'apprenant](learn/learner-report.fr.md) : relire une trace choisie avant de la partager ; vos propres textes n'y figurent que sur demande.
-- [Carte des notions](learn/concept-map.fr.md) : où vous en êtes sur chaque notion, et une page interactive qui montre sur quoi chacune repose.
-- [Langues et supports scientifiques](learn/language-and-supports.fr.md) : changer la langue de présentation ; équations, schémas, structures et figures avec leur provenance.
-- [Tutoriel : première séance](tutorials/first-lesson.fr.md).
-
-## Enseigner
-
-- [Guide enseignant](teach/teacher-guide.fr.md) : des sources à une leçon approuvée et à un rapport de classe.
-- [Rédiger une leçon](teach/author-a-lesson.fr.md) et [relire et approuver](teach/review-and-approve.fr.md) : l'enregistrement d'approbation lié au fichier exact de la leçon.
-- [Suivre une classe](teach/follow-a-class.fr.md) : des rapports agrégés, jamais en dessous de cinq apprenants.
-- [Contributions des apprenants](teach/learner-contributions.fr.md) : les leçons écrites par des apprenants et leur publication soumise à l'enseignant.
-- [Modèles d'activité](teach/activity-templates.fr.md), [littérature et preuves](teach/literature-and-evidence.fr.md), [médias et supports visuels](teach/media-and-visual-support.fr.md).
-- [Observatory](teach/observatory.fr.md) : relecture de cours, provenance et rapports MySTRA pour les opérateurs.
-- Tutoriels : [de l'article au cours](tutorials/literature-to-course.fr.md), [une expérience agentique](tutorials/agentic-experiment.fr.md), [de l'activité au rapport](tutorials/activity-to-report.fr.md), et [cas d'usage](tutorials/use-cases.fr.md) (capsule ASB et métabolomique, diagnostic d'analyse, robustesse, photographie en archéologie, aide multilingue).
+- [Démarrage rapide](start/quickstart.fr.md) : environ un quart d'heure, du clonage à une première question.
+- [Installation](start/installation.fr.md), [VS Code](start/vscode.fr.md) et [Dépannage](start/troubleshooting.fr.md).
+- [Connecter votre assistant](start/harnesses.fr.md) : un harnais est l'application qui héberge un assistant IA, par exemple Codex, Claude Code ou VS Code avec Copilot. Voir aussi les [skills](start/skills.fr.md) et les [panneaux de leçon](start/harness-panels.fr.md).
 
 ## Comprendre
 
-- [Comment fonctionne Studium](concepts/how-studium-works.fr.md) et [capacités et maturité](concepts/capabilities.fr.md).
-- [Types de scènes](concepts/scene-types.fr.md), [modèle de l'apprenant](concepts/learner-model.fr.md), [principes d'apprentissage](concepts/learning-principles.fr.md), [modulateurs](concepts/modulators.fr.md).
-- [Honnêteté et provenance](concepts/honesty-and-provenance.fr.md) : qui a rédigé la clé, si un juge a évalué, ce qui a été mesuré.
+- [Comment fonctionne Studium](concepts/how-studium-works.fr.md), [capacités et maturité](concepts/capabilities.fr.md) et le [glossaire](concepts/glossary.fr.md).
+- [Honnêteté et provenance](concepts/honesty-and-provenance.fr.md) : qui a rédigé la clé, si quelque chose a évalué la réponse.
 - [Confidentialité et limites](concepts/privacy-and-limits.fr.md) : à lire avant un pilote en classe.
-- [Glossaire](concepts/glossary.fr.md).
 
-## Construire sur Studium
+## Référence et projet
 
-- Référence : [outils MCP](reference/mcp-tools.fr.md), [format de leçon](reference/lesson-bundle.fr.md), [configuration](reference/configuration.fr.md), [ligne de commande](reference/cli.fr.md), [protocole de séance agentique](reference/agentic-session-protocol.fr.md), [API HTTP](reference/http-api.fr.md). Les pages de référence générées restent en anglais, avec une introduction en français.
-- Développer : [architecture](develop/architecture.fr.md), [tests](develop/testing.fr.md), [publication](develop/release.fr.md), [style de la documentation](develop/docs-style.fr.md).
-- [Contribuer](../CONTRIBUTING.fr.md), [politique de sécurité](../SECURITY.fr.md), [journal des modifications](../CHANGELOG.md), [conventions des agents](../AGENTS.md).
-- [Archives de conception](design-records/index.fr.md) : spécifications, décisions, audits et notes datées, conservés dans leur langue d'origine.
-- Procédure du harnais : [`skills/studium-harness/SKILL.md`](../skills/studium-harness/SKILL.md) ; banc d'évaluation : [`eval/README.md`](../eval/README.md).
-
-## Skills
-
-Sept skills sont découverts par les harnais via `.claude/skills` et `.agents/skills` : `studium-teacher`, `studium-student`, `studium-harness`, `studium-self-learner` (apprendre sans enseignant), `studium-activity-templates`, `studium-visual-support` et `studium-learner-report`. Un skill supplémentaire, `studium-observatory`, se trouve dans [`skills/`](../skills). Voir [Skills](start/skills.fr.md).
+- [Référence](reference/mcp-tools.fr.md) : outils MCP, format de leçon, configuration, ligne de commande, API HTTP. Les tableaux générés restent en anglais.
+- [Développer](develop/architecture.fr.md) : architecture, tests, publication, [style de la documentation](develop/docs-style.fr.md).
+- [Archives de conception](design-records/index.fr.md), dans leur langue d'origine.
+- [Contribuer](../CONTRIBUTING.fr.md) · [Sécurité](../SECURITY.fr.md) · [Journal des modifications](../CHANGELOG.md) · [Conventions des agents](../AGENTS.md).
 
 ## Limites
 
-Les activités décrites ici ne valent ni validation scientifique ni preuve d'efficacité pédagogique. Un enseignant approuve une leçon avant que des étudiants l'utilisent.
+Ces pages ne valident pas l'efficacité pédagogique. Utilisez le code et la documentation d'une même révision. Pour suggérer une amélioration, indiquez la révision, le chemin suivi, le résultat attendu et un exemple minimal anonymisé. Ne joignez jamais une clé ni un dossier d'étudiant.
 
-## Proposer une amélioration
+<details>
+<summary>Toutes les pages</summary>
 
-Indiquez la révision du code, le parcours suivi, le résultat attendu et un exemple minimal anonymisé. Ne joignez ni clé d'API, ni dossier d'étudiant, ni article dont la redistribution n'est pas autorisée. Les problèmes de sécurité passent par la [politique de sécurité](../SECURITY.fr.md), pas par une issue publique.
+- **Installer et connecter.** [Démarrage rapide](start/quickstart.fr.md) · [Installation](start/installation.fr.md) · [Connecter votre assistant](start/harnesses.fr.md) · [Connecter Claude Code](start/claude-code.fr.md) · [Connecter Codex](start/codex.fr.md) · [Connecter Copilot dans VS Code](start/copilot.fr.md) · [Connecter Cursor](start/cursor.fr.md) · [Connecter OpenCode](start/opencode.fr.md) · [VS Code](start/vscode.fr.md) · [Panneaux de leçon dans votre assistant](start/harness-panels.fr.md) · [Skills](start/skills.fr.md) · [Garder des réponses rapides](start/fast-answers.fr.md) · [Dépannage](start/troubleshooting.fr.md)
+- **Apprendre.** [Guide étudiant](learn/student-guide.fr.md) · [Apprendre un sujet avec votre assistant](learn/learn-with-your-assistant.fr.md) · [Réviser dans la durée](learn/review-over-time.fr.md) · [Carte des notions](learn/concept-map.fr.md) · [Journal d'expérience](learn/experiment-journal.fr.md) · [Rapport d'activité de l'apprenant](learn/learner-report.fr.md) · [Langue et supports](learn/language-and-supports.fr.md)
+- **Enseigner.** [Guide enseignant](teach/teacher-guide.fr.md) · [Rédiger une leçon](teach/author-a-lesson.fr.md) · [Littérature et preuves](teach/literature-and-evidence.fr.md) · [Relire et approuver](teach/review-and-approve.fr.md) · [Suivre une classe](teach/follow-a-class.fr.md) · [Observatoire](teach/observatory.fr.md) · [Modèles d'activités](teach/activity-templates.fr.md) · [Médias et supports visuels](teach/media-and-visual-support.fr.md) · [Contributions des apprenants](teach/learner-contributions.fr.md)
+- **Tutoriels.** [Une première séance](tutorials/first-lesson.fr.md) · [Apprendre un sujet en conversation](tutorials/learn-a-topic-in-a-conversation.fr.md) · [Auto-apprentissage à partir de ses références](tutorials/self-study-from-references.fr.md) · [De la littérature à un brouillon relisible](tutorials/literature-to-course.fr.md) · [De l'activité interactive au rapport ASTRA/MySTRA](tutorials/activity-to-report.fr.md) · [Une expérience scientifique avec son agent](tutorials/agentic-experiment.fr.md) · [Choisir un cas d'usage Studium](tutorials/use-cases.fr.md)
+- **Concepts.** [Comment fonctionne Studium](concepts/how-studium-works.fr.md) · [Principes d'apprentissage](concepts/learning-principles.fr.md) · [Honnêteté et provenance](concepts/honesty-and-provenance.fr.md) · [Confidentialité et limites](concepts/privacy-and-limits.fr.md) · [Capacités et limites](concepts/capabilities.fr.md) · [Modèle de l'apprenant](concepts/learner-model.fr.md) · [Modulateurs](concepts/modulators.fr.md) · [Types de scènes](concepts/scene-types.fr.md) · [Glossaire](concepts/glossary.fr.md)
+- **Référence.** [Outils MCP](reference/mcp-tools.fr.md) · [Format du bundle de leçon](reference/lesson-bundle.fr.md) · [Configuration](reference/configuration.fr.md) · [Outils en ligne de commande](reference/cli.fr.md) · [API HTTP](reference/http-api.fr.md) · [Protocole de session agentique](reference/agentic-session-protocol.fr.md)
+- **Développer.** [Architecture](develop/architecture.fr.md) · [Panneaux de leçon pour les développeurs](develop/panels.fr.md) · [Tests](develop/testing.fr.md) · [Publication](develop/release.fr.md) · [Rédiger la documentation](develop/docs-style.fr.md)
+
+</details>

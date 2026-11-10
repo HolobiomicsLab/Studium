@@ -92,6 +92,9 @@ apps/lesson-mcp/node_modules/.bin/tsx apps/lesson-mcp/src/session-runner-cli.ts 
 STUDIUM_EPHEMERAL=1 apps/lesson-mcp/node_modules/.bin/tsx apps/lesson-mcp/src/session-runner-cli.ts capsule-judgment-demo/lesson.json --stub --dir=reports/session
 ```
 
+Le dossier `--dir` doit être nouveau. Sans `--stub`, le runner attend de vraies réponses. Le
+[skill harnais](../../skills/studium-harness/SKILL.md) décrit les formats.
+
 Options : `--bundles-root=DIR` (par défaut `BUNDLES_ROOT`, sinon `./fixtures`), `--dir=DIR` (par
 défaut `./.studium-session`), `--language=BCP47` (langue de présentation).
 

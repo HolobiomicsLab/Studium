@@ -28,7 +28,9 @@ export STUDIUM_API_TOKEN="$(openssl rand -hex 32)"   # at least 32 characters; s
 BUNDLES_ROOT="$PWD/fixtures" pnpm --filter @studium/lesson-mcp api
 ```
 
-The API never calls a model unless `STUDIUM_API_LIVE=1` and `LITELLM_BASE_URL` are set. Learner
+Start it in a terminal you keep open. It listens on 127.0.0.1 only, refuses browser requests that carry an
+`Origin` header, and reads lessons from `BUNDLES_ROOT` (default: the checkout's `fixtures/`). Keep the token
+in your environment, never in a chat or in Git. The API never calls a model unless `STUDIUM_API_LIVE=1` and `LITELLM_BASE_URL` are set. Learner
 state stays in memory unless `STUDIUM_DATA_DIR` is set (see [Configuration](configuration.md)).
 
 ### Call it
@@ -103,6 +105,26 @@ Errors are `{error, code}` with these statuses:
 Operations run one at a time. After a network error, resend the same file with the same
 `request_id` rather than a second answer. To switch harnesses mid-lesson, hand over the address, the
 `session_id` and the language, and start with `get_operator_context`; do not restart the lesson.
+
+A server restart ends its sessions: a call on an old `session_id` answers `session not found` and says how
+to resume. With durable storage, a new `start_lesson_session` for the same learner and lesson resumes at the
+first unfinished step. On a panel or a pane, the learner's next action on the old session replaces the scene
+with "Session lost (the server restarted or the session was closed). Reopen the lesson: your progress is
+kept." and a reopen control: the MCP Apps panel's button and the Claude Code pane's button open the same
+lesson for the same learner (the Claude Code pane also names `/studium <bundle_ref>`), and the VS Code pane's
+button closes it and opens the lesson in a new pane. Nothing is retried on its own.
+
+### Keep the journal
+
+Export what you want to keep before stopping an in-memory server. With `context.json` holding
+`{"arguments":{"session_id":"<id>"}}`:
+
+```bash
+pnpm --silent --filter @studium/lesson-mcp api:call get_experiment_journal context.json > journal.json
+.venv/bin/python tools/learner_report.py export new-report --journal journal.json
+```
+
+See [Learner report](../learn/learner-report.md) for what the report contains.
 
 ## lesson-server
 

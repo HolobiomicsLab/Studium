@@ -32,6 +32,13 @@ L'approbation écrit aussi un reçu des items que vous avez ouverts et de votre 
 évalué. Pour renvoyer une leçon sans l'approuver, enregistrez plutôt un reçu de retour ; voir
 [Relire et approuver](review-and-approve.fr.md#approuver-le-fichier-exact).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/screenshots/teacher-library-dark.png">
+  <img src="../assets/screenshots/teacher-library-light.png" width="720" alt="La bibliothèque du tableau de bord enseignant : le nombre de cours, de leçons vérifiées et approuvées, puis chaque leçon avec sa langue, son auteur, ses nombres de scènes et de notions, sa durée, des badges pour ses classes de clé, un statut Vérifié et un bouton Relire.">
+</picture>
+
+<em>La bibliothèque du tableau de bord enseignant : chaque leçon, qui détient ses clés de correction et son statut de relecture.</em>
+
 ## Avant de commencer
 
 1. Installez Studium : [installation](../start/installation.fr.md).

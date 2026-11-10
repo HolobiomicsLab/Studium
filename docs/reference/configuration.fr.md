@@ -51,6 +51,12 @@ joint par un point d'accès compatible OpenAI, par exemple un proxy [LiteLLM](ht
 | `LITELLM_MODEL` | `studium/audit-judge` | lesson-mcp, lesson-server | Nom du modèle du juge d'audit. L'évaluateur et le tuteur utilisent l'alias `studium/runtime-tutor`. |
 | `STUDIUM_LLM_TIMEOUT_MS` | `20000` | lesson-mcp, lesson-server | Délai d'un appel d'évaluation ou de tutorat, en millisecondes. |
 
+Le serveur MCP utilise le point d'accès dès que `LITELLM_BASE_URL` n'est pas vide ; l'API HTTP exige en plus
+`STUDIUM_API_LIVE=1`. Gardez les clés dans votre gestionnaire de secrets local et vérifiez les indicateurs
+de repli d'un essai réel : un HTTP 200 ne prouve pas qu'un modèle a répondu. Un proxy doit router les alias
+de modèles qu'appelle Studium : `studium/planner`, `studium/critic`, `studium/graph-builder`,
+`studium/scene-synth`, `studium/teacher-review` et `studium/runtime-tutor`.
+
 ## API HTTP de lesson-mcp
 
 Voir [API HTTP](http-api.fr.md). Démarrée par `pnpm --filter @studium/lesson-mcp api`.

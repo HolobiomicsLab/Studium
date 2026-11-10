@@ -32,6 +32,13 @@ Approval also writes a receipt of the items you opened and your verdict on each 
 lesson back without approving it, record a returned receipt instead; see
 [Review and approve](review-and-approve.md#approve-the-exact-file).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/screenshots/teacher-library-dark.png">
+  <img src="../assets/screenshots/teacher-library-light.png" width="720" alt="The teacher dashboard library, in French: counts of courses, checked and approved lessons, then each lesson with its language, author, number of scenes and concepts, duration, badges for its key classes, a Checked status and a Review button.">
+</picture>
+
+<em>The teacher dashboard library: each lesson with who holds its answer keys and its review status.</em>
+
 ## Before you start
 
 1. Install Studium: [installation](../start/installation.md).

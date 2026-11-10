@@ -38,7 +38,7 @@ message without keys, personal data or private lesson content.
 | Answer rejected | send the learner's words with `submit_response {kind: "reply", text}`; read `get_operator_context` for the expected format |
 | A quiz choice id is refused | choices are reshuffled per session: use the id shown in the current step, never one remembered from another session |
 | `run required: call get_run_manifest, run it, then submit_run_result` | the step needs a real run: follow `get_run_manifest`, run the capsule, then `submit_run_result` |
-| Open answers say "check it yourself" | expected without a judge model; see [Harnesses](harnesses.md#optional-judge-model) |
+| Open answers say "check it yourself" | expected without a judge model; see [Configuration](../reference/configuration.md#judge-model-optional) |
 | The assistant answers or rates for you | stop it and answer yourself; the server instructions forbid it, and self-rating never moves mastery |
 | `session not found: …` | the server restarted or the session was closed; the message says how to resume: `start_lesson_session` with the same `bundle_ref` and `learner_id`, or `start_review_session` with the same `learner_id`; the MCP Apps panel, the Claude Code pane and the VS Code pane show a "Session lost" notice with a reopen control instead of the stale scene |
 | A self-rating is refused as expired | the request was lost by an older server; answer the step again to be asked anew |

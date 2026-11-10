@@ -1,0 +1,120 @@
+[English](claude-code.md) · Français
+
+# Connecter Claude Code à Studium
+
+Ajoutez le serveur Studium à Claude Code, jouez des leçons avec l'agent de leçon et affichez où en est la
+leçon dans la ligne d'état.
+
+## Avant de commencer
+
+- Terminez l'[installation](installation.fr.md) et lisez [Connecter votre assistant](harnesses.fr.md) : il
+  explique `/path/to/studium`, `BUNDLES_ROOT` et `LITELLM_BASE_URL`.
+- Installez Claude Code et connectez-vous selon la [procédure officielle](https://code.claude.com/docs/en/setup).
+
+## Réaliser la tâche
+
+### Ajouter le serveur
+
+1. Depuis votre clone, lancez :
+
+   ```bash
+   claude mcp add --scope project studium -e LITELLM_BASE_URL= -- node "$PWD/apps/studium-vscode/dist/lesson-mcp.cjs"
+   claude mcp list
+   ```
+
+2. `--scope project` écrit `.mcp.json` à la racine du projet, sous cette forme :
+
+   ```json
+   {
+     "mcpServers": {
+       "studium": {
+         "type": "stdio",
+         "command": "node",
+         "args": ["/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs"],
+         "env": { "LITELLM_BASE_URL": "" }
+       }
+     }
+   }
+   ```
+
+3. Dans une session, `/mcp` montre la connexion. Pour une exécution non interactive, passez le fichier de
+   configuration et autorisez explicitement les outils Studium :
+
+   ```bash
+   claude -p --mcp-config .mcp.json --strict-mcp-config \
+     --allowedTools "mcp__studium__*" --permission-mode dontAsk --max-budget-usd 2 \
+     "Appelle get_server_info, puis get_study_plan, et montre-moi le résultat."
+   ```
+
+### Utiliser l'agent de leçon
+
+Le dépôt fournit deux définitions d'agent dans `.claude/agents/`. `studium-lesson` joue une leçon ou une
+révision en relais strict sur le modèle rapide : il montre chaque écran tel que Studium l'a écrit, envoie
+vos mots et n'ajoute rien. `studium-explainer` est un modèle plus fort qu'il appelle quand votre question
+demande une vraie explication ; la leçon continue pendant que l'explication s'écrit. Son texte s'ouvre par
+« Explication générée », pour que vous le distinguiez de celui de la leçon. L'agent de leçon ouvre une
+leçon sur la meilleure surface que votre client sait afficher (un panneau ou un volet, des formulaires, ou
+la conversation). Quand vous revenez vers lui après y avoir joué, il lit d'abord ce que vous avez fait,
+pour ne pas vous remontrer un écran. Un client qui affiche les MCP Apps peut montrer le panneau même quand
+la leçon se joue dans la conversation ou en formulaires : le panneau le dit alors (« Cette leçon se joue dans
+la conversation », « Le panneau n'est pas la surface négociée pour cette séance. ») et ne dessine ni
+scène ni contrôle de réponse, pour que vous répondiez là où la leçon se joue. Son bouton « Jouer ici »,
+présent quand votre client sait afficher le panneau, demande au serveur de passer la séance sur le panneau. Depuis le checkout :
+
+```bash
+claude --agent studium-lesson
+```
+
+Pour les utiliser depuis n'importe quel dossier, liez-les une fois à vos agents personnels :
+
+```bash
+mkdir -p ~/.claude/agents
+ln -s "$PWD/.claude/agents/studium-lesson.md" "$PWD/.claude/agents/studium-explainer.md" ~/.claude/agents/
+```
+
+Dans un dossier qui ne sert qu'à étudier, `{"agent": "studium-lesson"}` dans `.claude/settings.json` fait de
+chaque session une session de leçon. Dans une session déjà ouverte, `/model haiku` le temps de la leçon
+apporte l'essentiel du même gain. Ne demandez pas à un grand modèle de confier chaque réponse à l'agent
+(voir [Garder des réponses rapides](fast-answers.fr.md)).
+
+### Afficher la ligne d'état
+
+En mode durable, Studium note où en est la leçon dans `status.json`, dans votre dossier d'apprenant, à
+chaque écran et à chaque réponse. Le script `tools/studium_statusline.mjs` en affiche la ligne, celle qui
+termine chaque écran :
+
+```text
+Les atomes · étape 2/3 · 3 min · à toi de répondre
+```
+
+La ligne tient en 80 caractères au plus. Un long titre de leçon est coupé avant son dernier séparateur qui
+tient (« Atomistique L1 — Chapitre 1 (atomes, orbitales) » devient « Atomistique L1 — Chapitre 1 »), pour ne
+pas changer d'un écran à l'autre. Pendant les questions de vérification d'une notion que vous avez contestée,
+l'étape laisse la place à « contrôle 1/2 » (« check 1/2 » dans une leçon en anglais).
+
+Pour l'afficher dans la ligne d'état de Claude Code, ajoutez ceci à `~/.claude/settings.json` :
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node /path/to/studium/tools/studium_statusline.mjs"
+  }
+}
+```
+
+Le script ne demande aucune installation et n'affiche rien quand aucune leçon n'est en cours : séance
+fermée, serveur arrêté, ou progression gardée en mémoire seulement (`STUDIUM_EPHEMERAL=1`), où rien n'est
+écrit. Il trouve le dossier de données comme le serveur (`STUDIUM_DATA_DIR`, sinon `<STUDIUM_HOME>/data`) ;
+`--data-dir=DOSSIER` en désigne un autre. Si vous avez donné `STUDIUM_DATA_DIR` ou `STUDIUM_HOME` au serveur
+dans `.mcp.json`, donnez le même au script. Avec plusieurs leçons ouvertes sur une machine, il montre celle
+qui a bougé en dernier, dans toutes les fenêtres de Claude Code.
+
+## Ce que vous obtenez
+
+`claude mcp list` et `/mcp` affichent `studium`. Pour prouver la connexion, faites la vérification de
+[Connecter votre assistant](harnesses.fr.md#vérifier-la-connexion).
+
+## Limites
+
+Cette configuration vise Claude Code, pas l'application de bureau Claude.

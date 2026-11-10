@@ -28,7 +28,7 @@ surface. Every tool and its arguments: [MCP tools](../../docs/reference/mcp-tool
 
 Studium grades an answer and picks the next screen in a few milliseconds. The learner waits for
 the model around it, on every word it writes. Measured on one lesson (figures and method in
-[Keep answers fast](../../docs/start/harnesses.md#keep-answers-fast)): 27 s per answer when a
+[Keep answers fast](../../docs/start/fast-answers.md)): 27 s per answer when a
 large model relayed through shell calls inside a long working session, 5 to 6 s when a short
 session ran as the fast lesson agent, 16 s when a large model handed each answer to that agent.
 So, by default:
@@ -336,8 +336,7 @@ and teacher tools are MCP-only. Each mutation carries a unique `request_id`;
 scene-sensitive mutations also need the current `expected_scene_id`. `rate_recall` needs no
 `expected_scene_id` because its `scene_id` argument identifies the self-rating request.
 Resend an uncertain request with the same id; do not re-create a session on a connection
-error. See [Direct HTTP API](../../docs/start/harnesses.md#direct-http-api)
-and the [HTTP API reference](../../docs/reference/http-api.md).
+error. See the [HTTP API reference](../../docs/reference/http-api.md).
 
 **File channel.** From the repository root, the runner writes each step and waits:
 

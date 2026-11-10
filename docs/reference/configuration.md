@@ -50,6 +50,12 @@ endpoint such as a [LiteLLM](https://docs.litellm.ai/) proxy.
 | `LITELLM_MODEL` | `studium/audit-judge` | lesson-mcp, lesson-server | Model name of the audit judge. The scorer and tutor use the alias `studium/runtime-tutor`. |
 | `STUDIUM_LLM_TIMEOUT_MS` | `20000` | lesson-mcp, lesson-server | Timeout of a scoring or tutoring call, in milliseconds. |
 
+The MCP server uses the endpoint when `LITELLM_BASE_URL` is not empty; the HTTP API also requires
+`STUDIUM_API_LIVE=1`. Keep keys in your local secret store and check the fallback flags of a live run: an
+HTTP 200 does not prove that a model answered. A proxy must route the model aliases Studium calls:
+`studium/planner`, `studium/critic`, `studium/graph-builder`, `studium/scene-synth`,
+`studium/teacher-review` and `studium/runtime-tutor`.
+
 ## HTTP API of lesson-mcp
 
 See [HTTP API](http-api.md). Started with `pnpm --filter @studium/lesson-mcp api`.

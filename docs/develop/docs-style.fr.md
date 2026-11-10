@@ -153,7 +153,16 @@ Elle vérifie que :
 1. chaque lien relatif et chaque `#ancre` de chaque fichier Markdown du dépôt aboutit ;
 2. chaque page sous `docs/`, hors `design-records/` et `internal/`, a sa jumelle anglaise ou française ;
 3. chaque outil enregistré par le serveur MCP a sa section dans `docs/reference/mcp-tools.md` ;
-4. les régions générées correspondent au code.
+4. les régions générées correspondent au code ;
+5. la première ligne de chaque page qui a une jumelle, et celle du `README` racine, est la ligne de
+   sélection de langue (`English · [Français](page.fr.md)` ou `[English](page.md) · Français`) ;
+6. chaque page de `docs/start`, `learn`, `teach`, `tutorials`, `concepts`, `reference` et `develop` est
+   liée depuis `docs/index.md` (pages anglaises) ou `docs/index.fr.md` (pages françaises) ;
+7. une image dont le nom se termine par `-light` a sa jumelle `-dark` sur le disque, et inversement, et
+   chaque image a un texte alternatif. Une image à thème unique est déclarée dans `SINGLE_THEME_IMAGES`
+   de `check.mjs`, avec la raison ;
+8. à titre d'avertissement seulement, sans effet sur le code de sortie : une page de `docs/` de plus de
+   200 lignes est signalée avec son nombre de lignes (les pages à région générée sont ignorées).
 
-Elle ne vérifie ni la ligne de sélection de langue, ni que les deux versions disent la même chose, ni
-qu'une commande fonctionne. Cela revient au relecteur.
+Elle ne vérifie ni que les deux versions disent la même chose, ni qu'une commande fonctionne. Cela
+revient au relecteur.

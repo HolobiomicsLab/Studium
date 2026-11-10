@@ -79,6 +79,8 @@ sont conservés comme code hérité et de recherche ; ce n'est pas une voie d'
 
 ## Carte des unités
 
+C'est la carte du dépôt : chaque application, paquet, service et dossier, avec son rôle. La façon dont les panneaux atteignent chaque hôte est décrite dans [Panneaux de leçon pour les développeurs](panels.fr.md).
+
 ### Applications
 
 | Unité | Rôle | README |

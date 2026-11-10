@@ -47,7 +47,7 @@ L'extension ouvre `fixtures/atomistique-l1` sans aucun réglage à modifier. Vot
 
 Côté enseignant, la Partie 3 du guide utilise `tools/class_report.py` pour produire hors ligne un rapport de classe agrégé et anonyme ; aucune application web n'est nécessaire.
 
-Vous préférez essayer avec votre propre assistant IA ? Le [démarrage rapide](README.fr.md#démarrage-rapide-5-minutes) déclare le même serveur dans Claude Code ou Codex.
+Vous préférez essayer avec votre propre assistant IA ? Le [démarrage rapide](README.fr.md#démarrage-rapide) déclare le même serveur dans Claude Code ou Codex.
 
 ## Les retours que nous attendons
 

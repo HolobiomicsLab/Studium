@@ -54,6 +54,19 @@ Voir le [guide de l'enseignant](../teach/teacher-guide.fr.md), [Relire et approu
 
 Voir [Harnais](../start/harnesses.fr.md), la [référence des outils MCP](../reference/mcp-tools.fr.md) et [Architecture](../develop/architecture.fr.md).
 
+## Surfaces et maturité
+
+| Surface | Statut | Signification |
+|---|---|---|
+| Tout harnais MCP (Codex, Claude Code, Copilot, OpenCode, Cursor) et le canal fichier | Pris en charge | Testé en CI, documenté, la voie d'entrée recommandée |
+| Extension VS Code (volet de leçon, participant de chat) | Pris en charge | Testée en CI, construite en VSIX par la CI |
+| `lesson-server` (HTTP, clés de réponse masquées), tableau de bord enseignant, Observatory | Maintenu | Maintenu en état de marche et testé ; peu de nouveautés |
+| Application étudiante Tauri ([`apps/student-runtime`](../../apps/student-runtime)) | Gelée | Aucun nouveau travail ; construite uniquement sur demande manuelle |
+| [`apps/author-web`](../../apps/author-web) | Héritée | Conservée pour la démonstration M1 ; utilisez plutôt le tableau de bord enseignant |
+| Panneau MCP Apps ([`apps/lesson-panel-ui`](../../apps/lesson-panel-ui)) et volet Claude Code ([`apps/claude-code-mod`](../../apps/claude-code-mod)) | Prototype | Panneaux de leçon partagés avec contrôles de contrat automatisés ; les essais dans un hôte natif et l'essai formatif prévu avec des apprenants n'ont pas eu lieu |
+
+Le workflow de publication peut publier sur le VS Code Marketplace, Open VSX et npm une fois leurs jetons configurés ; d'ici là, une version est un brouillon GitHub avec le VSIX et le fichier serveur. Voir [Publication](../develop/release.fr.md).
+
 ## Qui détient la clé
 
 | Classe | Types de scènes | Dans une leçon d'auto-apprentissage |
