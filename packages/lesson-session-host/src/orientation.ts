@@ -133,8 +133,7 @@ export function orientationFacts(
     index: completed ? presentation.total - 1 : presentation.index,
     total: presentation.total,
     scene: { id: scene.id, type: scene.type, concept_refs: refs },
-    seconds_left: completed ? 0
-      : entry.bundle.scenes.slice(presentation.index).reduce((sum, s) => sum + s.estimated_seconds, 0),
+    seconds_left: completed ? 0 : secondsLeft(entry, presentation.index),
     concept: completed ? null : concept,
     self_rating_pending: answered !== undefined && Object.hasOwn(requests, answered),
     run_pending: !completed && host.runPending,
@@ -147,6 +146,17 @@ export function orientationFacts(
     answered_before: !completed && entry.answeredBefore === true,
     contest: completed ? null : contestCheckOf(entry, scene.id),
   };
+}
+
+/** What is left of the lesson, in seconds, from the scene at `index`. During a contest's check
+ * questions (audit 2026-11-10 D8), the one on screen and those still to come, then the lesson from the
+ * scene it resumes on: a check question taken from the end of the lesson does not end it. */
+function secondsLeft(entry: SessionEntry, index: number): number {
+  const seconds = (at: number) => entry.bundle.scenes[at]?.estimated_seconds ?? 0;
+  const route = entry.session.checkRoute();
+  if (!route) return entry.bundle.scenes.slice(index).reduce((sum, s) => sum + s.estimated_seconds, 0);
+  const checks = [index, ...route.queued].reduce((sum, at) => sum + seconds(at), 0);
+  return checks + entry.bundle.scenes.slice(route.returnIndex).reduce((sum, s) => sum + s.estimated_seconds, 0);
 }
 
 /** The contest's check question on screen, if any. The question is told by the scene, not by the

@@ -9,7 +9,9 @@ export interface PanelBackend {
   getCurrentScene(sessionId: string): Promise<Payload>;
   getSceneArtifacts(sessionId: string): Promise<SceneAsset[]>;
   getSessionState(sessionId: string): Promise<Payload>;
-  submitResponse(sessionId: string, input: unknown): Promise<Payload>;
+  /** `expectedSceneId`: the scene the learner answered; a backend refuses the answer when another is on
+   * screen (audit 2026-11-10 D2). A backend that cannot check it ignores it. */
+  submitResponse(sessionId: string, input: unknown, expectedSceneId?: string): Promise<Payload>;
   submitTurn(sessionId: string, text: string): Promise<Payload>;
   requestHint(sessionId: string): Promise<Payload | null>;
   rateRecall(sessionId: string, sceneId: string, grade: RecallGrade): Promise<Payload>;

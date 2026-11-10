@@ -133,8 +133,9 @@ independent MCP client run separate servers with separate sessions and progress.
    sources, follow [studium-self-learner](../studium-self-learner/SKILL.md).
 4. Ask which presentation language the learner wants. `start_lesson_session
    {bundle_ref, learner_id?, presentation_language?, now_ms?}` returns `session_id`,
-   the first `presentation`, `language`, `authoring`, `resume` (`new`, `resumed` or
-   `completed`), `persistence` and any `due` review targets. Relay
+   the first `presentation`, `language`, `authoring`, `resume` (`new`, `resumed`,
+   `completed`, or `already_open` when the learner already has this lesson open in this
+   server: the same `session_id`, where it was), `persistence` and any `due` review targets. Relay
    `authoring.notice` when present: it says who wrote the key and whether a judge
    assesses written answers.
 5. To play on the best surface the client can show, open with `open_lesson_panel
@@ -168,7 +169,10 @@ public presentation; `get_scene_artifacts {session_id}` the render manifest
 executed_result). Render or describe them. A `reference_result` or `executed_result`
 is evidence to judge against, not an answer key.
 
-Answer with `submit_response {session_id, input}`. In a chat, send the learner's words
+Answer with `submit_response {session_id, expected_scene_id, input}`, where
+`expected_scene_id` is the id of the scene the learner answered: when another scene is on
+screen (a duplicate send, a late answer) the call is refused in one line and changes
+nothing; read the current scene and send the answer to it. In a chat, send the learner's words
 as `{"kind": "reply", "text": "..."}`: Studium maps them to the scene's input (a choice
 letter, a 0 to 4 confidence, a free text) and refuses, in one line, a reply it cannot
 read: an empty written answer, « I don't know » (the learner has not answered: offer
@@ -260,7 +264,7 @@ a later `start_lesson_session` for the same learner and lesson resumes (inspect
 `resume`). Call `forget_session` only on an explicit erasure request, or to dispose of
 your own labelled test learner. It takes exactly one of `session_id` (this lesson's
 state, the cross-lesson profile and the review schedule) or `learner_id` (every
-lesson's progress too, no live session needed), irreversibly, and returns `{forgotten,
+lesson's progress too, no live session needed), and an optional `language` (fr|en), irreversibly, and returns `{forgotten,
 scope, erased, kept, display_markdown}`. Show `display_markdown`: it names what stays
 on disk, the lessons of the learner's library and their sources, which the learner
 deletes by hand if they want them gone.

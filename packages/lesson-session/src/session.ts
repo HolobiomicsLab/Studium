@@ -1,7 +1,7 @@
 import type { LessonBundle, Scene, ReferenceRun } from "@studium/lesson-bundle-schema";
 import { AdaptationEngine, DEFAULT_THETA, type SelfRating } from "@studium/adaptation-engine";
 import type { TelemetryEvent } from "@studium/telemetry-events";
-import { defaultLearnerState, masteryOf, type LearnerState, type Signal, type Decision } from "@studium/learner-state";
+import { defaultLearnerState, masteryOf, type LearnerState, type PendingDetourState, type Signal, type Decision } from "@studium/learner-state";
 import { ANSWER_GRADED_TYPES, buildLwgMastery, buildLwgEffectiveMastery, buildLwgCalibration, graphAwareNextIndex, firstUnseenAnswerGradedSceneForConcept, sceneConceptId, type GraphNavResult } from "./graph-nav.js";
 import type { Presentation, Explanation, LearnerSnapshot, SessionDeps, ResponseInput, Transition, CompletionSummary, HintResult, Verdict, Navigation } from "./types.js";
 import { enrichEvent, bundleVersionOf, type TelemetryContext, type EmitInput } from "./telemetry.js";
@@ -180,6 +180,7 @@ export class LessonSession {
     this.state = this.engine.getState();
     this.idx = this.startingSceneIndex();
     if (this.idx > 0) ({ trail: this.trail, facts: this.facts } = trailFromHistory(this.state.history));
+    this.restoreDetour();
     this.startIso = this.deps.clock.now();
     this.started = true;
     const u = this.bundle.universes ?? null;
@@ -199,10 +200,45 @@ export class LessonSession {
 
   private startingSceneIndex(): number {
     const completed = new Set(this.state.scenes_completed);
-    const isComplete = this.completedInProfile || this.bundle.scenes.every((scene) => completed.has(scene.id));
-    if (isComplete) return 0;
+    if (this.lessonDone()) return 0;
     const firstIncomplete = this.bundle.scenes.findIndex((scene) => !completed.has(scene.id));
     return firstIncomplete < 0 ? 0 : firstIncomplete;
+  }
+
+  /** The lesson was completed before this session: it is played again from the start. */
+  private lessonDone(): boolean {
+    const completed = new Set(this.state.scenes_completed);
+    return this.completedInProfile || this.bundle.scenes.every((scene) => completed.has(scene.id));
+  }
+
+  /** Audit 2026-11-10 D6: a detour under way when the state was saved is taken up again — the
+   * remediation is served, and the lesson returns where it would have. A detour naming a scene this
+   * lesson no longer has is ignored (the lesson resumes on its first scene not completed). */
+  private restoreDetour(): void {
+    const detour = this.state.pending_detour;
+    if (!detour || this.lessonDone()) return;
+    const at = this.bundle.scenes.findIndex((scene) => scene.id === detour.scene_id);
+    const back = detour.returns_to === null ? this.bundle.scenes.length
+      : this.bundle.scenes.findIndex((scene) => scene.id === detour.returns_to);
+    if (at < 0 || back < 0) return;
+    if (this.idx === 0 && this.state.history.length) ({ trail: this.trail, facts: this.facts } = trailFromHistory(this.state.history));
+    this.idx = at;
+    this.pendingDetourReturnIdx = back;
+    if (detour.prerequisite !== undefined) this.graphDetourPrerequisite = detour.prerequisite;
+    this.showHintsAvailable = true;
+  }
+
+  /** The detour under way, as the state saves it (D6): the remediation on screen (or the one a check
+   * question interrupted), where the lesson returns, the prerequisite it waits on. */
+  private detourNow(): PendingDetourState | undefined {
+    if (!this.started || this.completed || this.pendingDetourReturnIdx === undefined) return undefined;
+    const serving = this.bundle.scenes[this.check ? this.check.returnIdx : this.idx];
+    if (!serving) return undefined;
+    return {
+      scene_id: serving.id,
+      returns_to: this.bundle.scenes[this.pendingDetourReturnIdx]?.id ?? null,
+      ...(this.graphDetourPrerequisite === undefined ? {} : { prerequisite: this.graphDetourPrerequisite }),
+    };
   }
 
   currentPresentation(): Presentation {
@@ -250,6 +286,9 @@ export class LessonSession {
     for (const [sceneId, n] of Object.entries(this.replayCounts)) st.scenes_replayed[sceneId] = n;
     st.self_rating_requests = Object.fromEntries([...this.pendingSelfRatings].map(([sceneId, request]) =>
       [sceneId, { concept_ids: [...request.conceptIds], requested_at: request.requestedAt }]));
+    const detour = this.detourNow();
+    if (detour) st.pending_detour = detour;
+    else delete st.pending_detour;
     return st;
   }
 
@@ -440,6 +479,8 @@ export class LessonSession {
     const selfRating = await this.selfRatingFor(scene, signal, answeredAtMs);
     const t = this.check ? this.afterCheck(decision) : this.navigate(decision, scene, answeredAtMs);
     this.lastSuccess = undefined;
+    // D6: the state was saved before routing; a detour that began or ended here is saved with it.
+    if (JSON.stringify(this.detourNow() ?? null) !== JSON.stringify(this.state.pending_detour ?? null)) await this.saveState();
     const served = this.trail.at(-1);
     if (served) {
       if (served.answered) served.assessed_by = verdict.assessed_by;
@@ -820,6 +861,13 @@ export class LessonSession {
 
   /** Check questions are being asked: the next answers are theirs. */
   checkPending(): boolean { return this.check !== null; }
+
+  /** While check questions are asked: the indexes of those still to come after the one on screen, and
+   * the index of the scene the lesson resumes on — what is left of the lesson is counted from there
+   * (audit 2026-11-10 D8). null when no check is under way. */
+  checkRoute(): { queued: number[]; returnIndex: number } | null {
+    return this.check ? { queued: [...this.check.queue], returnIndex: this.check.returnIdx } : null;
+  }
 
   /** After a check answer: the next check question, or back to the scene the learner was on. */
   private afterCheck(decision: Decision): Transition {
