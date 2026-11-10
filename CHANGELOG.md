@@ -7,6 +7,12 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 ### Fixed
 
 - **The concept-map page can be built again.** `tools/concept_map_report.py export` refused every record written by the 0.3.0 server, because the record had gained the `evidence` and `contest` fields after the reader was written. The reader now validates both, including that each evidence entry names a step of the path and each contest a concept of the map. A record written by the server is kept as a test fixture, and a server-side test fails when the record's shape drifts from it.
+- **A duplicate or late answer no longer answers the next scene.** `submit_response` and the panel's `respond` action take `expected_scene_id`; when another scene is on screen the answer is refused in one line and changes nothing. A typed answer sent to a reading scene (intro, concept) is refused instead of skipping it; `ack` and the learner's words still move it on.
+- **Starting a lesson the learner already has open returns that session.** A second `start_lesson_session` (or `open_lesson_panel`) for the same learner and lesson in one server returns the open session where it was, with `resume.kind: "already_open"` and a line saying so, instead of a second session that saved over the first.
+- **A restart during a prerequisite detour resumes on the remediation.** The detour under way is saved with the lesson state, so a learner who failed a gate comes back to the remediation question, not past the gate. A state saved by an earlier version resumes as before.
+- **The end of a contest is said in the conversation.** The answer that settles a contest opens its text with the outcome and how many check answers were right; during the check questions the status line counts the minutes left from where the lesson resumes.
+- **`forget_session` answers in the learner's language.** It takes an optional `language` and otherwise uses the learner's last lesson language, then the server default, so « nothing to erase » is no longer said in English to a French-speaking learner.
+- **A pane granted to a client that shows none says how to go on**, and a prompt's outcome is taken in either spelling (`accept`/`accepted`, `dismiss`/`dismissed`) by `submit_response` and `panel_action`.
 
 ## 0.3.0 — 2026-11-09
 

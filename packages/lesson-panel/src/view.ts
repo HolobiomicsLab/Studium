@@ -15,7 +15,9 @@ export type Attention = z.infer<typeof AttentionSchema>;
  * answered it, as the surface measured it (spec § 2.3). Sent beside the next action, never inside it. */
 export const ClientMsSchema = z.number().int().min(0).max(600_000);
 export const PanelActionSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("respond"), input: z.unknown() }).strict(),
+  /** `expected_scene_id`, optional: the scene the learner answered (the view's scene.id). When another
+   * scene is on screen the answer is refused in one line and changes nothing (audit 2026-11-10 D2). */
+  z.object({ type: z.literal("respond"), input: z.unknown(), expected_scene_id: z.string().min(1).optional() }).strict(),
   z.object({ type: z.literal("turn"), text: z.string() }).strict(),
   z.object({ type: z.literal("hint") }).strict(),
   z.object({ type: z.literal("rateRecall"), sceneId: z.string().min(1), grade: RecallGradeSchema }).strict(),
@@ -39,7 +41,8 @@ export const PanelActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("contest"), concept_id: z.string().min(1), claim: z.enum(["known", "unsure"]) }).strict(),
   /** The learner's answer to a proposal of the view (`prompts`): accept it or dismiss it. The server
    * keeps the outcome; accepting then does what the proposal said. */
-  z.object({ type: z.literal("prompt"), id: z.string().min(1), outcome: z.enum(["accept", "dismiss"]) }).strict(),
+  // Audit 2026-11-10, difficulty 5: the conversation's spelling (accepted | dismissed) is taken too.
+  z.object({ type: z.literal("prompt"), id: z.string().min(1), outcome: z.enum(["accept", "dismiss", "accepted", "dismissed"]) }).strict(),
 ]);
 export type PanelAction = z.infer<typeof PanelActionSchema>;
 export type PanelActionName = PanelAction["type"];

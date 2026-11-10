@@ -207,6 +207,7 @@ const PHRASES = {
     lesson_completed: "terminée",
     forget_done: "**Tes données sont effacées.**",
     forget_nothing: "Rien à effacer : aucune donnée n'est enregistrée pour toi ici.",
+    session_already_open: "Cette leçon était déjà ouverte : elle continue où tu en étais.",
     forget_erased: "Effacé : {items}.",
     forget_kept: "Conservé : {items}.",
     forget_lesson_progress: "ta progression dans {lessons} (réponses, état de la leçon, journal d'expériences)",
@@ -307,6 +308,7 @@ const PHRASES = {
     lesson_completed: "completed",
     forget_done: "**Your data is erased.**",
     forget_nothing: "Nothing to erase: no data is recorded for you here.",
+    session_already_open: "This lesson was already open: it continues where you left off.",
     forget_erased: "Erased: {items}.",
     forget_kept: "Kept: {items}.",
     forget_lesson_progress: "your progress in {lessons} (answers, lesson state, experiment journal)",
@@ -688,6 +690,11 @@ export interface ForgetDisplayItem { kind: string; lessons?: readonly string[]; 
 /** What export_concept_map shows: where the record was written, what it holds and that it stays local. */
 export function conceptMapExportMarkdown(path: string | null, locale: DisplayLocale): string {
   return path === null ? say(locale, "map_export_unsaved") : say(locale, "map_export_saved", { path });
+}
+
+/** Audit 2026-11-10 D5: the line a lesson the learner already had open starts its screen with. */
+export function alreadyOpenLine(locale: DisplayLocale): string {
+  return say(locale, "session_already_open");
 }
 
 /** forget_session's display_markdown (L-13, UX-01): what was erased, and what stays and where — the

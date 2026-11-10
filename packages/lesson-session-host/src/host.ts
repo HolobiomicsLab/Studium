@@ -50,7 +50,7 @@ import { publicScene, citedSources, type CitedSource, type PublicPresentation, t
 import { buildConceptMapRecord, type ConceptMapRecord } from "./concept-map-record.js";
 import {
   presentationMarkdown, transitionMarkdown, verdictMarkdown, recallRatedMarkdown, nothingToReviewMarkdown,
-  lessonListMarkdown, forgetMarkdown, conceptMapExportMarkdown, completionSplit, completionGroupsMarkdown, promptsMarkdown, type CompletionSplit, type DisplayLocale, type ScreenPrompt,
+  lessonListMarkdown, forgetMarkdown, alreadyOpenLine, conceptMapExportMarkdown, completionSplit, completionGroupsMarkdown, promptsMarkdown, type CompletionSplit, type DisplayLocale, type ScreenPrompt,
 } from "./chat-display.js";
 import { OffsetClock, checkNowMs } from "./session-clock.js";
 import { calendarDate, checkTimeZone, localTimeZone } from "./calendar.js";
@@ -65,7 +65,8 @@ import {
   type ReviewSource,
 } from "./review-session.js";
 import { persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceInfo } from "./persistence.js";
-import { replyToInput, checkDisplayedChoice } from "./reply-mapping.js";
+import { replyToInput, checkDisplayedChoice, ResponseInputError } from "./reply-mapping.js";
+import { expectedKind } from "./operator-context.js";
 import {
   authorVoice, helpFrom, orientationFacts, orientationFrom, recordNavigation, recordOtherAct, statusLine, voiceLine, type OrientationFacts, type Voice,
 } from "./orientation.js";
@@ -143,6 +144,22 @@ export const RUN_REQUIRED_MESSAGE =
 /** Raised when a response attempts to bypass a learner-time run. */
 export class RunRequiredError extends Error {
   constructor() { super(RUN_REQUIRED_MESSAGE); this.name = "RunRequiredError"; }
+}
+
+/** Audit 2026-11-10 D2: an answer that names the scene it answers (`expected_scene_id`) while another
+ * is on screen — a duplicate send, a late answer — is refused in one line and changes nothing, as the
+ * HTTP API refuses a stale scene (409 stale_scene). */
+export const STALE_SCENE_MESSAGE = "the scene changed: read the current scene, then send the learner's answer to it";
+export class StaleSceneError extends Error {
+  constructor() { super(STALE_SCENE_MESSAGE); this.name = "StaleSceneError"; }
+}
+
+/** D2: a reading scene (an intro, a concept…) takes an acknowledgement only. A typed answer there is
+ * an answer meant for another scene: it is refused rather than taken as « read ». `ack` and `reply`
+ * (the learner's words) still move it on. The same scenes the orientation says wait for « read ». */
+function refuseAnswerOnReadingScene(scene: Scene, kind: string): void {
+  if (kind === "ack" || kind === "reply" || expectedKind(scene.type) !== "ack" || scene.type === "discussion") return;
+  throw new ResponseInputError(`the scene on screen is a reading scene: it takes {kind: "ack"} (or the learner's words as {kind: "reply", text}), not ${kind}`);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -734,7 +751,9 @@ export interface SessionHostOptions {
 }
 
 export interface SessionResume {
-  kind: "new" | "resumed" | "completed";
+  /** `already_open` (audit 2026-11-10 D5): the learner had this lesson open in this server; the
+   * session returned is that one, where it was. */
+  kind: "new" | "resumed" | "completed" | "already_open";
   scene_id: string;
   scenes_completed: number;
 }
@@ -803,6 +822,8 @@ export interface SessionStartOptions {
 export interface PromptSurface { rank: 1 | 2; formsAvailable: boolean }
 /** The per-call option of the calls that serve a screen. */
 export interface ServeOptions { promptSurface?: PromptSurface }
+/** What respond takes beside the input: the surface, and the scene the learner answered (D2). */
+export interface RespondOptions extends ServeOptions { expectedSceneId?: string }
 
 /** C4: what a self-rating changed — the rated concepts' next review. Never their mastery. */
 export interface RecallRating {
@@ -1049,6 +1070,9 @@ export class SessionHost {
     return this.learnerOperation(profilePseudonym, async () => {
       const resolved = await loadResolvedBundle(this.roots(), bundleRef, shuffleSaltFor(learnerId));
       const bundle = resolved.bundle;
+      // D5: the learner already plays this lesson in this server — that session goes on.
+      const open = sharedIdentity(learnerId) ? undefined : this.openLessonOf(profilePseudonym, bundle);
+      if (open) return this.alreadyOpen(open[0], open[1], { presentationLanguage: normalizedPresentationLanguage, promptSurface });
       // C5: an approval record next to a course's lesson.json, bound to the very bytes just loaded.
       const approval = await readApproval(resolved.sha256 ? dirname(resolved.path) : null, resolved.sha256);
       const authoring = authoringOf(bundle, { judge: this.opts.live, approval });
@@ -1067,7 +1091,7 @@ export class SessionHost {
         const pseudonym = await probe.pseudonym.get(learnerId, bundle.bundle_id);
         scopeDir = durableScopeDir(this.dataDir, pseudonym, bundle.bundle_id);
         // Shared default identities must not carry raw learner text into another session.
-        if (learnerId.trim() && learnerId !== "anonymous" && learnerId !== "agent-operator")
+        if (!sharedIdentity(learnerId))
           journalDirectory = join(scopeDir, "experiments");
         deps = this.deps(scopeDir, clock);
         // #3 RESUME: load any prior LearnerState for this (pseudonym, bundle_id). FileStateStore.load
@@ -1119,6 +1143,37 @@ export class SessionHost {
         ...(resume.kind === "completed" ? { due: routedProfileDue(profile, bundle, nowMs ?? this.nowMs(), record) } : {}),
       };
     });
+  }
+
+  /** Audit 2026-11-10 D5: the learner's live, unfinished session of this lesson in this server, if
+   * any. A second session of it would start from the same saved state and each would save over the
+   * other. A session closed (end_session), erased or completed is not open; a review never is; a
+   * session of another revision of the lesson (its file changed since) is not this lesson. */
+  private openLessonOf(profilePseudonym: string, bundle: LessonBundle): [string, SessionEntry] | undefined {
+    const revision = experimentRevision(bundle);
+    return this.registry.entries().find(([, entry]) => entry.kind === "lesson" && entry.profilePseudonym === profilePseudonym
+      && entry.bundle.bundle_id === bundle.bundle_id && !entry.completed && !this.erasedUnder(entry)
+      && experimentRevision(entry.bundle) === revision);
+  }
+
+  /** D5: start_lesson_session on a lesson the learner already has open returns that session, where it
+   * is, with one line saying so. A presentation language asked for is applied to it. */
+  private alreadyOpen(
+    sessionId: string, entry: SessionEntry, ask: { presentationLanguage: string | undefined; promptSurface: PromptSurface | undefined },
+  ): SessionStartResult {
+    if (ask.presentationLanguage !== undefined) entry.presentationLanguage = ask.presentationLanguage;
+    const presentation = entry.session.currentPresentation();
+    const served = this.served(entry, presentation, this.screenLines(entry, presentation, ask.promptSurface));
+    const locale: DisplayLocale = presentation.locale === "en" ? "en" : "fr";
+    const conceptMap = this.conceptMapOf(entry, "on_request");
+    return {
+      sessionId,
+      presentation: { ...served, display_markdown: `${alreadyOpenLine(locale)}\n\n${served.display_markdown}` },
+      ...(conceptMap ? { concept_map: conceptMap } : {}),
+      resume: { kind: "already_open", scene_id: presentation.scene.id, scenes_completed: entry.session.getState().scenes_completed.length },
+      authoring: entry.authoring,
+      persistence: this.persistence(),
+    };
   }
 
   /** A registry entry with the per-session bookkeeping the host keeps beside the engine. */
@@ -1996,11 +2051,15 @@ export class SessionHost {
 
   /** Submit a response. A chat reply (`{kind: "reply", text}`) becomes the current scene's input, and a
    * quiz choice must name a displayed id — both refused in one line otherwise (reply-mapping.ts). */
-  async respond(id: string, input: HostResponseInput, lane: Lane = "companion", opts: ServeOptions = {}): Promise<ServedTransition> {
+  async respond(id: string, input: HostResponseInput, lane: Lane = "companion", opts: RespondOptions = {}): Promise<ServedTransition> {
     return this.sessionWrite(id, async (entry) => {
+      // D2: checked under the learner's lock, so of two identical answers sent at once the second sees
+      // the scene the first moved to.
+      if (opts.expectedSceneId !== undefined && this.sceneOnScreen(entry) !== opts.expectedSceneId) throw new StaleSceneError();
       const runStatus = this.runStatus(id);
       if (runStatus.run_manifest && !runStatus.learner_run_recorded) throw new RunRequiredError();
       const scene = this.require(id).session.currentPresentation().scene;
+      refuseAnswerOnReadingScene(scene, input.kind);
       const engineInput = input.kind === "reply"
         ? replyToInput(scene, input.text, (publicScene(scene) as { deck?: Array<{ token: string }> }).deck)
         : checkDisplayedChoice(scene, input);
@@ -2687,7 +2746,8 @@ export class SessionHost {
    * claims, telemetry and experiment journal, the whole folder it has on disk — and the learner's
    * cross-lesson profile and review schedule. Says what it erased and what stays: the progress in the
    * learner's other lessons, the lessons of the library and their sources. No empty folder is left. */
-  async forget(id: string): Promise<ForgetReport> {
+  async forget(id: string, language?: DisplayLocale): Promise<ForgetReport> {
+    const requested = language === undefined ? undefined : checkLocale(language);
     const e = this.require(id);
     const pseudonym = e.profilePseudonym;
     // L-11: from now on no session of this learner opened before writes them back, queued writes included.
@@ -2719,15 +2779,17 @@ export class SessionHost {
         ...this.keptOnDisk(await this.catalog()),
       ];
       this.afterForget();
-      return this.forgetReport("lesson", erased, kept, displayLocale(e.bundle.metadata.language));
+      return this.forgetReport("lesson", erased, kept, requested ?? displayLocale(e.bundle.metadata.language));
     });
   }
 
   /** forget_session {learner_id} (L-13, R-en-07): erase everything this host keeps of the learner, with
    * no live session needed — every lesson's progress (their live sessions are closed), the
-   * cross-lesson profile and the review schedule — and say what stays, as forget does. */
-  async forgetLearner(learnerId: string = this.defaultLearnerId): Promise<ForgetReport> {
-    if (this.holdsNoLearner()) return this.forgetReport("learner", [], this.keptOnDisk(await this.catalog()), DEFAULT_LOCALE);
+   * cross-lesson profile and the review schedule — and say what stays, as forget does. D10: in
+   * `language` (fr|en) when given, else the learner's last lesson's, else the server default. */
+  async forgetLearner(learnerId: string = this.defaultLearnerId, language?: DisplayLocale): Promise<ForgetReport> {
+    const requested = language === undefined ? undefined : checkLocale(language);
+    if (this.holdsNoLearner()) return this.forgetReport("learner", [], this.keptOnDisk(await this.catalog()), requested ?? DEFAULT_LOCALE);
     const pseudonymOf = this.deps().pseudonym;
     const profilePseudonym = await pseudonymOf.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
     // L-11: from now on no session of this learner opened before writes them back.
@@ -2769,7 +2831,7 @@ export class SessionHost {
         ...(record ? [{ kind: "study_record" as const }] : []),
       ];
       this.afterForget();
-      return this.forgetReport("learner", erased, this.keptOnDisk(catalog), locale);
+      return this.forgetReport("learner", erased, this.keptOnDisk(catalog), requested ?? locale);
     });
   }
 
@@ -2863,6 +2925,12 @@ const LEARNER_FOLDER = /^[0-9a-f]{16}$/;
 /** Lesson titles once each, in the reading order of their language. */
 function sortedTitles(titles: readonly string[]): string[] {
   return [...new Set(titles)].sort((a, b) => a.localeCompare(b));
+}
+
+/** The default identities several people may share (no learner named): their sessions are never
+ * merged (D5) and keep no private journal on disk. */
+function sharedIdentity(learnerId: string): boolean {
+  return !learnerId.trim() || learnerId === "anonymous" || learnerId === "agent-operator";
 }
 
 /** Two lesson sessions of one lesson (any revision): one lesson folder holds what both keep. */
