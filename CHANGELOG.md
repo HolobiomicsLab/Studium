@@ -4,6 +4,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+## 0.4.0 — 2026-11-10
+
+This release makes the approval record the only source of « validated », puts the decisions on learner contributions and the teacher dashboard behind credentials, redraws the lesson panel for narrow side panels, and fixes the defects found by the 10 November audits of the learner, teacher and harness paths. While the version starts with `0.`, a minor release may change tool inputs and outputs: the entries marked **Contract change** say where.
+
 ### Added
 
 - **The teacher dashboard has a sign-in.** Set `STUDIUM_DASHBOARD_ACCESS_CODE` (at least 16 characters) on the dashboard's server: every page and route then needs a session opened at `/login` with that code (a signed cookie, 12 hours, `HttpOnly`, `SameSite=Strict`), and « Se déconnecter » / "Sign out" ends it. Without the code the pages stay readable, for one teacher on `localhost`, and the header says the dashboard is open. **Contract change:** a decision on a learner's contribution now always needs a signed-in session; without an access code the dashboard refuses every decision (`503`), where 0.3.0 let anyone who reached the port decide. The code is shared by the teachers of one dashboard and proves no identity: the reviewer's name stays the one the teacher types. Failed sign-ins are throttled per process (10 in 5 minutes). See [SECURITY.md](SECURITY.md) and the [dashboard README](apps/teacher-dashboard/README.md).
