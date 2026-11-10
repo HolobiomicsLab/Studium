@@ -1,1669 +1,120 @@
 {
-  "schema_version": "1.4",
   "bundle_id": "atomistique-l1-chap1",
-  "source_plan_id": "plan-atomistique-l1",
-  "metadata": {
-    "title": "Atomistique L1 — Chapitre 1 (atomes, orbitales, périodicité)",
-    "target": "L1",
-    "duration_minutes": 60,
-    "language": "fr",
-    "discipline": "chimie atomistique"
-  },
   "concepts": [
     {
-      "id": "c-particules",
-      "title": "Particules de l'atome",
+      "bloom_level_target": "understand",
       "description": "Protons, neutrons, électrons ; Z, A, isotopes.",
-      "bloom_level_target": "understand"
+      "id": "c-particules",
+      "title": "Particules de l'atome"
     },
     {
-      "id": "c-nombres-quantiques",
-      "title": "Nombres quantiques",
+      "bloom_level_target": "understand",
       "description": "n, ℓ, mℓ, ms et leurs valeurs autorisées.",
-      "bloom_level_target": "understand"
+      "id": "c-nombres-quantiques",
+      "title": "Nombres quantiques"
     },
     {
-      "id": "c-orbitales-formes",
-      "title": "Forme des orbitales atomiques",
+      "bloom_level_target": "understand",
       "description": "Orbitales s, p, d : forme, nœuds, nomenclature.",
-      "bloom_level_target": "understand"
+      "id": "c-orbitales-formes",
+      "title": "Forme des orbitales atomiques"
     },
     {
-      "id": "c-spectres",
-      "title": "Quantification et spectres",
+      "bloom_level_target": "apply",
       "description": "Niveaux quantifiés, E=hν, raies d'émission (série de Balmer).",
-      "bloom_level_target": "apply"
+      "id": "c-spectres",
+      "title": "Quantification et spectres"
     },
     {
-      "id": "c-remplissage",
-      "title": "Règles de remplissage",
+      "bloom_level_target": "apply",
       "description": "Klechkowski (n+ℓ), principe de Pauli, règle de Hund.",
-      "bloom_level_target": "apply"
+      "id": "c-remplissage",
+      "title": "Règles de remplissage"
     },
     {
-      "id": "c-configuration",
-      "title": "Configuration électronique",
+      "bloom_level_target": "apply",
       "description": "Configuration, séparation cœur / valence.",
-      "bloom_level_target": "apply"
+      "id": "c-configuration",
+      "title": "Configuration électronique"
     },
     {
-      "id": "c-periodicite",
-      "title": "Périodicité des propriétés",
+      "bloom_level_target": "analyze",
       "description": "Énergie d'ionisation et rayon atomique le long d'une période.",
-      "bloom_level_target": "analyze"
+      "id": "c-periodicite",
+      "title": "Périodicité des propriétés"
     },
     {
-      "id": "c-geometrie",
-      "title": "Géométrie des molécules",
+      "bloom_level_target": "analyze",
       "description": "VSEPR, hybridation, géométrie 3D (CH4, H2O).",
-      "bloom_level_target": "analyze"
-    }
-  ],
-  "scenes": [
-    {
-      "id": "s0-intro",
-      "type": "intro",
-      "title": "Chapitre 1 — Atomes et orbitales",
-      "objective_refs": [],
-      "concept_refs": [],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [],
-      "markdown": "# Atomistique L1 — Chapitre 1\nDe la structure de l'atome aux **orbitales atomiques**, à la **configuration électronique**, puis à la **périodicité** des propriétés et à la **géométrie** des molécules. Chaque notion s'appuie sur des objets que tu peux manipuler : une orbitale 3D que l'on fait tourner, un spectre d'émission, une molécule."
-    },
-    {
-      "id": "s1-concept-particules",
-      "type": "concept",
-      "title": "Particules constitutives de l'atome",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-particules"
-      ],
-      "estimated_seconds": 180,
-      "adaptation_hooks": [],
-      "markdown": "## Particules et identité de l'atome\n\nUn atome = **noyau** (protons + neutrons) + **nuage électronique**.\n\n- **Z** (numéro atomique) = nombre de protons → définit l'élément.\n- **A** (nombre de masse) = Z + N (N = neutrons).\n- **Isotopes** : même Z, A différent.\n\nLe noyau (~10⁻¹⁵ m) est 10⁵ fois plus petit que l'atome (~10⁻¹⁰ m).",
-      "render_assets": [
-        {
-          "kind": "equation_latex",
-          "title": "Nombre de masse",
-          "payload": "A = Z + N",
-          "legend": [
-            {
-              "symbol": "A",
-              "meaning": "nombre de masse"
-            },
-            {
-              "symbol": "Z",
-              "meaning": "numéro atomique, égal au nombre de protons"
-            },
-            {
-              "symbol": "N",
-              "meaning": "nombre de neutrons"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "s1-quiz-fer",
-      "type": "quiz",
-      "title": "Quiz : l'atome de fer (Z=26)",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-particules"
-      ],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [
-        "rule_2err_replay_concept"
-      ],
-      "question": "L'isotope ⁵⁶Fe a Z=26. Combien contient-il de neutrons ?",
-      "choices": [
-        {
-          "id": "a",
-          "text": "26",
-          "correct": false
-        },
-        {
-          "id": "b",
-          "text": "30",
-          "correct": true
-        },
-        {
-          "id": "c",
-          "text": "56",
-          "correct": false
-        },
-        {
-          "id": "d",
-          "text": "82",
-          "correct": false
-        }
-      ],
-      "feedback_correct": "Exact : N = A − Z = 56 − 26 = 30.",
-      "feedback_incorrect": "Le nombre de neutrons se déduit de A et de Z : N = A − Z. Refais le calcul.",
-      "hints": [
-        "A = Z + N, donc N = A − Z."
-      ]
-    },
-    {
-      "id": "s1b-audit-particules",
-      "type": "summary_audit",
-      "title": "Audite le résumé IA — particules de l'atome",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-particules"
-      ],
-      "estimated_seconds": 180,
-      "adaptation_hooks": [],
-      "source_content": "**Source.** Un atome est formé d'un **noyau** (protons + neutrons) entouré d'un **nuage électronique**. Le **numéro atomique Z** est le nombre de **protons** : c'est lui qui **définit l'élément** chimique (changer Z, c'est changer d'élément). Le **nombre de masse A** vaut Z + N, où N est le nombre de neutrons. Deux atomes de **même Z mais de A différent** sont des **isotopes** du même élément. Le noyau (~10⁻¹⁵ m) est environ 10⁵ fois plus petit que l'atome (~10⁻¹⁰ m), si bien que l'atome est essentiellement **vide**.",
-      "ai_summary": "**Résumé IA.** Un atome a un noyau avec des protons et des neutrons, et des électrons autour. Le nombre de masse A est la somme des protons et des neutrons. L'atome est très petit.",
-      "claims": [
-        {
-          "id": "o-z",
-          "text": "Le résumé ne dit pas que Z (le nombre de protons) DÉFINIT l'élément",
-          "flaws_expected": [
-            "definit",
-            "element"
-          ]
-        },
-        {
-          "id": "o-isotopes",
-          "text": "Le résumé omet la définition des ISOTOPES (même Z, A différent)",
-          "flaws_expected": [
-            "isotope"
-          ]
-        }
-      ],
-      "model_correction": "Le résumé IA garde le squelette mais **supprime deux points essentiels** : (1) il ne dit pas que **Z** — le nombre de **protons** — **définit l'élément** chimique (c'est *le* critère d'identité de l'atome) ; (2) il omet entièrement la notion d'**isotopes** (même Z, A différent), pourtant centrale. Un résumé fidèle doit conserver ces deux idées, sans quoi on ne peut plus distinguer deux éléments ni deux isotopes.",
-      "rubric": {
-        "completeness": 0.6,
-        "evidence_quality": 0.3,
-        "tone": 0.1
-      }
-    },
-    {
-      "id": "s2-concept-nombres-quantiques",
-      "type": "concept",
-      "title": "Les nombres quantiques",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-nombres-quantiques"
-      ],
-      "estimated_seconds": 210,
-      "adaptation_hooks": [],
-      "markdown": "## Quatre nombres quantiques\n\nUn électron est décrit par :\n\n- **n** (principal) : 1, 2, 3, … → la couche.\n- **ℓ** (azimutal) : 0 … n−1 → la sous-couche (0=s, 1=p, 2=d, 3=f).\n- **mℓ** (magnétique) : −ℓ … +ℓ → l'orbitale dans la sous-couche.\n- **ms** (spin) : −½ ou +½.\n\nUne sous-couche ℓ contient (2ℓ+1) orbitales, soit 2(2ℓ+1) électrons.",
-      "render_assets": [
-        {
-          "kind": "equation_latex",
-          "title": "Valeurs autorisées",
-          "payload": "\\ell \\in \\{0,1,\\dots,n-1\\}\\quad m_\\ell \\in \\{-\\ell,\\dots,+\\ell\\}\\quad m_s = \\pm\\tfrac{1}{2}",
-          "legend": [
-            {
-              "symbol": "n",
-              "meaning": "nombre quantique principal : la couche"
-            },
-            {
-              "symbol": "ℓ",
-              "meaning": "nombre quantique azimutal : la sous-couche"
-            },
-            {
-              "symbol": "mℓ",
-              "meaning": "nombre quantique magnétique : l'orbitale dans la sous-couche"
-            },
-            {
-              "symbol": "ms",
-              "meaning": "nombre quantique de spin"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "s2-quiz-4f",
-      "type": "quiz",
-      "title": "Quiz : la sous-couche 4f",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-nombres-quantiques"
-      ],
-      "estimated_seconds": 75,
-      "adaptation_hooks": [
-        "rule_2err_replay_concept"
-      ],
-      "question": "Combien d'orbitales (valeurs de mℓ) la sous-couche 4f (n=4, ℓ=3) compte-t-elle ?",
-      "choices": [
-        {
-          "id": "a",
-          "text": "3",
-          "correct": false
-        },
-        {
-          "id": "b",
-          "text": "5",
-          "correct": false
-        },
-        {
-          "id": "c",
-          "text": "7",
-          "correct": true
-        },
-        {
-          "id": "d",
-          "text": "14",
-          "correct": false
-        }
-      ],
-      "feedback_correct": "Exact : mℓ va de −3 à +3, soit 2ℓ+1 = 7 orbitales (donc 14 électrons).",
-      "feedback_incorrect": "Pour une sous-couche f, détermine ℓ puis compte les valeurs entières de mℓ entre −ℓ et +ℓ.",
-      "hints": [
-        "Nombre d'orbitales = 2ℓ+1.",
-        "ℓ vaut 3 pour une sous-couche f."
-      ]
-    },
-    {
-      "id": "s3-concept-orbitales",
-      "type": "concept",
-      "title": "Forme des orbitales atomiques",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-orbitales-formes"
-      ],
-      "estimated_seconds": 240,
-      "adaptation_hooks": [],
-      "markdown": "## Forme des orbitales — fais-les tourner\n\nUne orbitale est la région où la probabilité de présence de l'électron est élevée. La **2p** a deux lobes de **signe opposé** séparés par un plan nodal ; la **3d_z²** a un lobe axial et une couronne équatoriale.\n\nFais tourner les orbitales ci-contre : les deux isosurfaces (+ / −) sont les deux signes de la fonction d'onde.\n\nUn **nœud** est un endroit où la fonction d'onde s'annule : la probabilité de présence y est nulle. Un nœud **radial** est une sphère centrée sur le noyau ; une orbitale en compte n − ℓ − 1.",
-      "render_assets": [
-        {
-          "kind": "orbital",
-          "title": "Orbitale 2p_z",
-          "path": "assets/orbitals/2pz.cube",
-          "format": "cube",
-          "provenance": "analytic hydrogenic wavefunction (generate_assets.py)",
-          "meta": {
-            "iso": 0.18,
-            "signed": true
-          }
-        },
-        {
-          "kind": "orbital",
-          "title": "Orbitale 3d_z²",
-          "path": "assets/orbitals/3dz2.cube",
-          "format": "cube",
-          "provenance": "analytic hydrogenic wavefunction (generate_assets.py)",
-          "meta": {
-            "iso": 0.18,
-            "signed": true
-          }
-        }
-      ]
-    },
-    {
-      "id": "s3-quiz-noeuds",
-      "type": "quiz",
-      "title": "Quiz : nœuds de la 2p",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-orbitales-formes"
-      ],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [
-        "rule_2err_replay_concept",
-        "rule_mastery_high_skip"
-      ],
-      "question": "Combien de nœuds RADIAUX possède une orbitale 2p ?",
-      "choices": [
-        {
-          "id": "a",
-          "text": "0",
-          "correct": true
-        },
-        {
-          "id": "b",
-          "text": "1",
-          "correct": false
-        },
-        {
-          "id": "c",
-          "text": "2",
-          "correct": false
-        }
-      ],
-      "feedback_correct": "Exact : nœuds radiaux = n − ℓ − 1 = 2 − 1 − 1 = 0 (le plan nodal de la 2p est angulaire).",
-      "feedback_incorrect": "Les nœuds radiaux se calculent avec n − ℓ − 1. Identifie n et ℓ pour une orbitale 2p, puis refais le calcul.",
-      "hints": [
-        "Distingue nœud radial (sphère) et nœud angulaire (plan).",
-        "n − ℓ − 1."
-      ]
-    },
-    {
-      "id": "s3b-explain-2p",
-      "type": "explain_back",
-      "title": "Explique — pourquoi la 2p a deux lobes",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-orbitales-formes"
-      ],
-      "estimated_seconds": 180,
-      "adaptation_hooks": [],
-      "prompt": "Tu viens de faire tourner l'orbitale **2p** en 3D : deux lobes de signe opposé séparés par un plan. **Explique, avec tes propres mots, pourquoi la 2p a deux lobes et ce que représente le plan qui les sépare** (pense à la fonction d'onde et à la probabilité de présence).",
-      "key_points": [
-        {
-          "id": "kp-fonction",
-          "text": "La forme découle de la fonction d'onde de l'électron",
-          "cues": [
-            "fonction d onde"
-          ]
-        },
-        {
-          "id": "kp-signe",
-          "text": "Les deux lobes ont des signes opposés",
-          "cues": [
-            "signe oppose"
-          ]
-        },
-        {
-          "id": "kp-nodal",
-          "text": "Le plan séparateur est un plan nodal",
-          "cues": [
-            "plan nodal"
-          ]
-        },
-        {
-          "id": "kp-probab",
-          "text": "Les lobes sont les régions de forte probabilité de présence",
-          "cues": [
-            "probabilite presence"
-          ]
-        }
-      ],
-      "model_explanation": "La 2p est décrite par une **fonction d'onde** qui change de **signe** d'un lobe à l'autre. Le plan qui les sépare est un **plan nodal** : la fonction d'onde y est nulle, donc la **probabilité** de présence de l'électron y est nulle. Les deux lobes (signes + et −) sont les régions où cette probabilité est élevée.",
-      "rubric": {
-        "completeness": 0.6,
-        "evidence_quality": 0.2,
-        "tone": 0.2
-      }
-    },
-    {
-      "id": "s3c-compare-noeuds",
-      "type": "comparison",
-      "title": "Compare — cours IA vs cours de l'enseignant (nœuds radiaux)",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-orbitales-formes"
-      ],
-      "estimated_seconds": 210,
-      "adaptation_hooks": [],
-      "prompt": "Voici **deux explications** des **nœuds radiaux** d'une orbitale : l'une rédigée par une **IA**, l'autre par ton **enseignant**. Les deux sont justes. **Relève la valeur ajoutée de la version de l'enseignant** : qu'apporte-t-elle que la version IA n'a pas ?",
-      "artifact_a": "**Version A (IA).** Le nombre de nœuds radiaux d'une orbitale vaut n − ℓ − 1. Pour la 2p (n=2, ℓ=1) cela donne 2 − 1 − 1 = 0 nœud radial ; pour la 3p (n=3, ℓ=1) cela donne 3 − 1 − 1 = 1 nœud radial. Le nombre total de nœuds vaut n − 1.",
-      "artifact_b": "**Version B (enseignant).** Même formule n − ℓ − 1 — mais **distingue bien deux familles** de nœuds : le nœud **radial** est une **sphère** où la fonction d'onde s'annule *en s'éloignant* du noyau, alors que le nœud **angulaire** est un **plan** (les deux lobes de la 2p). Sur l'orbitale 3D que tu fais tourner, le plan entre les lobes + et − est **angulaire**, pas radial : c'est pourquoi la 2p a **0** nœud radial malgré ses deux lobes. La formule compte les nœuds radiaux ; n − 1 compte le **total** (radiaux **+** angulaires).",
-      "key_points": [
-        {
-          "id": "kp-distinction",
-          "text": "L'enseignant distingue nœud radial (sphère) et nœud angulaire (plan)",
-          "cues": [
-            "radial",
-            "angulaire"
-          ]
-        },
-        {
-          "id": "kp-visuel",
-          "text": "L'enseignant relie la formule à l'orbitale 3D que l'on fait tourner",
-          "cues": [
-            "3d"
-          ]
-        },
-        {
-          "id": "kp-total",
-          "text": "L'enseignant explique pourquoi 2p a 0 nœud radial malgré ses deux lobes",
-          "cues": [
-            "deux lobes"
-          ]
-        }
-      ],
-      "model_answer": "La version IA est **correcte mais plate** : elle applique la formule n − ℓ − 1. La version de l'enseignant **ajoute la compréhension** : (1) elle **distingue** le nœud **radial** (une **sphère**) du nœud **angulaire** (un **plan**), que la formule seule confond ; (2) elle relie le calcul à l'**orbitale 3D** : le plan entre les **deux lobes** de la 2p est *angulaire*, ce qui explique pourquoi la 2p a **0** nœud radial ; (3) elle clarifie que n − 1 est le **total** (radiaux + angulaires). C'est cette levée d'ambiguïté qui distingue un cours qui *fait comprendre* d'un cours qui *récite la formule*.",
-      "rubric": {
-        "completeness": 0.6,
-        "evidence_quality": 0.2,
-        "tone": 0.2
-      },
-      "render_assets": [
-        {
-          "kind": "orbital",
-          "title": "Orbitale 2p_z (plan nodal angulaire)",
-          "path": "assets/orbitals/2pz.cube",
-          "format": "cube",
-          "provenance": "analytic hydrogenic wavefunction (generate_assets.py)",
-          "meta": {
-            "iso": 0.18,
-            "signed": true
-          }
-        }
-      ]
-    },
-    {
-      "id": "s3d-communicate-2p",
-      "type": "communication_sim",
-      "title": "Communique — explique la 2p à un·e camarade, sans jargon",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-orbitales-formes"
-      ],
-      "estimated_seconds": 240,
-      "adaptation_hooks": [],
-      "scenario": "**Situation.** C'est la fin du TD. Un·e **camarade** qui a manqué le début te demande de l'aide : il/elle n'est **pas encore au point** sur les orbitales et n'a **jamais entendu** les mots « fonction d'onde » ou « plan nodal ». **Ton rôle** : jouer le/la pair·e qui réexplique. **Ton public** : un·e étudiant·e de L1 qui veut juste *comprendre l'image*, pas une démonstration.",
-      "prompt": "**Explique-lui, à l'oral et sans aucun jargon, pourquoi la 2p a deux lobes** — pas de « fonction d'onde », pas de « plan nodal », pas de formule. Sers-toi d'une **image simple** et, si tu peux, d'une **analogie** du quotidien. Reste **court et clair**.",
-      "key_points": [
-        {
-          "id": "kp-clair",
-          "text": "Décrit les deux lobes en mots simples : deux zones où l'électron a des chances de se trouver",
-          "cues": [
-            "deux zones"
-          ]
-        },
-        {
-          "id": "kp-public",
-          "text": "Reste accessible : passe par une image simple plutôt que par le jargon",
-          "cues": [
-            "image"
-          ]
-        },
-        {
-          "id": "kp-exact",
-          "text": "Reste juste : entre les deux zones, il y a un endroit où l'électron ne passe jamais",
-          "cues": [
-            "ne passe jamais"
-          ]
-        },
-        {
-          "id": "kp-analogie",
-          "text": "Donne une analogie concrète du quotidien (ex. des pièces et un couloir)",
-          "cues": [
-            "couloir"
-          ]
-        }
-      ],
-      "model_response": "« Imagine l'électron de la 2p comme quelqu'un qui a **deux zones** préférées de chaque côté du noyau, **comme** deux pièces séparées par un couloir. Entre les deux, il y a un endroit qu'il **ne passe jamais** : c'est pour ça que tu vois **deux** régions distinctes (les deux lobes) et pas une seule. Je te dis tout ça **sans** te noyer dans les formules : retiens juste l'image des deux zones et du couloir vide au milieu. »",
-      "rubric": {
-        "completeness": 0.6,
-        "evidence_quality": 0.2,
-        "tone": 0.2
-      },
-      "render_assets": [
-        {
-          "kind": "orbital",
-          "title": "Orbitale 2p_z (les deux lobes)",
-          "path": "assets/orbitals/2pz.cube",
-          "format": "cube",
-          "provenance": "analytic hydrogenic wavefunction (generate_assets.py)",
-          "meta": {
-            "iso": 0.18,
-            "signed": true
-          }
-        }
-      ]
-    },
-    {
-      "id": "s4-concept-spectres",
-      "type": "concept",
-      "title": "Quantification et spectres d'émission",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-spectres"
-      ],
-      "estimated_seconds": 240,
-      "adaptation_hooks": [],
-      "markdown": "## Reconnaître un gaz à ses raies\n\nLes niveaux d'énergie sont **quantifiés**. Une transition de n₂ vers n₁ émet un photon d'énergie E = hν (h : constante de Planck, ν : fréquence du photon). Pour l'hydrogène, les transitions vers n=2 donnent la **série de Balmer**, dans le visible — la signature qui permet de *reconnaître un gaz inconnu*.",
-      "render_assets": [
-        {
-          "kind": "equation_latex",
-          "title": "Énergie d'un photon émis",
-          "payload": "E_{photon} = h\\nu = \\left| E_{n_2} - E_{n_1} \\right|",
-          "legend": [
-            {
-              "symbol": "Ephoton",
-              "meaning": "énergie du photon émis"
-            },
-            {
-              "symbol": "h",
-              "meaning": "constante de Planck"
-            },
-            {
-              "symbol": "ν",
-              "meaning": "fréquence du photon"
-            },
-            {
-              "symbol": "Eₙ₂",
-              "meaning": "énergie du niveau initial n₂"
-            },
-            {
-              "symbol": "Eₙ₁",
-              "meaning": "énergie du niveau inférieur n₁"
-            }
-          ]
-        },
-        {
-          "kind": "spectrum",
-          "title": "Série de Balmer de l'hydrogène",
-          "payload": "{\n  \"$schema\": \"https://vega.github.io/schema/vega-lite/v5.json\",\n  \"description\": \"Serie de Balmer de l'hydrogene (raies d'emission visibles)\",\n  \"width\": 360,\n  \"height\": 170,\n  \"data\": {\n    \"values\": [\n      {\n        \"lambda\": 656.5,\n        \"I\": 100,\n        \"raie\": \"Hα (n=3→2)\"\n      },\n      {\n        \"lambda\": 486.3,\n        \"I\": 42,\n        \"raie\": \"Hβ (n=4→2)\"\n      },\n      {\n        \"lambda\": 434.2,\n        \"I\": 23,\n        \"raie\": \"Hγ (n=5→2)\"\n      },\n      {\n        \"lambda\": 410.3,\n        \"I\": 12,\n        \"raie\": \"Hδ (n=6→2)\"\n      }\n    ]\n  },\n  \"mark\": {\n    \"type\": \"bar\",\n    \"size\": 4\n  },\n  \"encoding\": {\n    \"x\": {\n      \"field\": \"lambda\",\n      \"type\": \"quantitative\",\n      \"scale\": {\n        \"domain\": [\n          395,\n          670\n        ]\n      },\n      \"title\": \"longueur d'onde λ (nm)\"\n    },\n    \"y\": {\n      \"field\": \"I\",\n      \"type\": \"quantitative\",\n      \"title\": \"intensite relative\"\n    },\n    \"color\": {\n      \"field\": \"raie\",\n      \"type\": \"nominal\",\n      \"legend\": {\n        \"title\": \"raie\"\n      }\n    },\n    \"tooltip\": [\n      {\n        \"field\": \"raie\"\n      },\n      {\n        \"field\": \"lambda\",\n        \"title\": \"λ (nm)\"\n      }\n    ]\n  }\n}",
-          "format": "vega-lite",
-          "provenance": "Rydberg formula (generate_assets.py)"
-        }
-      ]
-    },
-    {
-      "id": "s4-quiz-balmer",
-      "type": "quiz",
-      "title": "Quiz : la raie Hα",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-spectres"
-      ],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [
-        "rule_2err_replay_concept"
-      ],
-      "question": "À quelle transition correspond la raie Hα (rouge, ~656 nm) ?",
-      "choices": [
-        {
-          "id": "a",
-          "text": "n = 3 → n = 2",
-          "correct": true
-        },
-        {
-          "id": "b",
-          "text": "n = 2 → n = 1",
-          "correct": false
-        },
-        {
-          "id": "c",
-          "text": "n = 4 → n = 2",
-          "correct": false
-        },
-        {
-          "id": "d",
-          "text": "n = 1 → n = 3",
-          "correct": false
-        }
-      ],
-      "feedback_correct": "Exact : Hα = première raie de Balmer, n=3 → n=2.",
-      "feedback_incorrect": "Les raies de Balmer arrivent toutes sur le même niveau. Hα est la moins énergétique de la série : de quel niveau part-elle ?",
-      "hints": [
-        "La série de Balmer arrive sur n=2.",
-        "Hα est la transition la plus basse en énergie de la série."
-      ]
-    },
-    {
-      "id": "s5-concept-remplissage",
-      "type": "concept",
-      "title": "Règles de remplissage",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-remplissage"
-      ],
-      "estimated_seconds": 210,
-      "adaptation_hooks": [],
-      "markdown": "## Remplir les orbitales\n\n- **Klechkowski** : énergie croissante de (n+ℓ), puis n croissant à (n+ℓ) égal → 1s, 2s, 2p, 3s, 3p, **4s, 3d**, 4p, …\n- **Pauli** : 2 électrons max par orbitale (spins opposés).\n- **Hund** : on remplit d'abord à spins parallèles dans une sous-couche dégénérée.",
-      "render_assets": [
-        {
-          "kind": "equation_latex",
-          "title": "Règle de Klechkowski",
-          "payload": "\\text{ordre} : (n+\\ell)\\ \\nearrow,\\ \\text{puis } n\\ \\nearrow",
-          "legend": [
-            {
-              "symbol": "n",
-              "meaning": "nombre quantique principal : la couche"
-            },
-            {
-              "symbol": "ℓ",
-              "meaning": "nombre quantique azimutal : la sous-couche"
-            },
-            {
-              "symbol": "↗",
-              "meaning": "ordre croissant"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "s5-quiz-carbone",
-      "type": "quiz",
-      "title": "Quiz : configuration du carbone",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-remplissage",
-        "c-configuration"
-      ],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [
-        "rule_2err_replay_concept"
-      ],
-      "question": "Quelle est la configuration électronique du carbone (Z=6) ?",
-      "choices": [
-        {
-          "id": "a",
-          "text": "1s² 2s² 2p²",
-          "correct": true
-        },
-        {
-          "id": "b",
-          "text": "1s² 2s¹ 2p³",
-          "correct": false
-        },
-        {
-          "id": "c",
-          "text": "1s² 2p⁴",
-          "correct": false
-        },
-        {
-          "id": "d",
-          "text": "1s² 2s² 3p²",
-          "correct": false
-        }
-      ],
-      "feedback_correct": "Exact : 2 + 2 + 2 = 6 électrons (Z=6).",
-      "feedback_incorrect": "Applique l'ordre de Klechkowski (1s → 2s → 2p), puis répartis les 6 électrons en respectant Pauli.",
-      "hints": [
-        "Ordre 1s, 2s, 2p.",
-        "2 électrons max par orbitale (Pauli)."
-      ]
-    },
-    {
-      "id": "s5b-spot-azote",
-      "type": "spot_the_flaw",
-      "title": "Repère l'erreur — configuration de l'azote",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-remplissage"
-      ],
-      "estimated_seconds": 150,
-      "adaptation_hooks": [],
-      "flawed_content": "L'azote (Z=7) a pour configuration électronique **1s² 2s² 2p⁴**. Dans la sous-couche 2p, les électrons s'**apparient** deux par deux dans la même orbitale pour minimiser leur énergie, si bien que l'azote ne possède **aucun électron célibataire**.",
-      "claims": [
-        {
-          "id": "f-hund",
-          "text": "Les électrons 2p s'apparient au lieu d'occuper des orbitales séparées (viole Hund)",
-          "flaws_expected": [
-            "hund",
-            "celibataires"
-          ]
-        },
-        {
-          "id": "f-count",
-          "text": "Le décompte des électrons est faux (2+2+4 = 8 ≠ 7)",
-          "flaws_expected": [
-            "2p3"
-          ]
-        }
-      ],
-      "model_correction": "La configuration correcte est **1s² 2s² 2p³** (7 électrons au total). Règle de **Hund** : les **trois** électrons 2p occupent chacun une orbitale différente avec des **spins parallèles** → l'azote a **3 électrons célibataires**, et non 0. (La version fausse donnait aussi 8 électrons au lieu de 7.)",
-      "rubric": {
-        "completeness": 0.6,
-        "evidence_quality": 0.3,
-        "tone": 0.1
-      }
-    },
-    {
-      "id": "s5d-prompt-hund",
-      "type": "prompt_practice",
-      "title": "Écris ton prompt — faire expliquer la règle de Hund par une IA",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-remplissage"
-      ],
-      "estimated_seconds": 210,
-      "adaptation_hooks": [],
-      "task": "Tu veux qu'une IA t'explique **la règle de Hund** (pourquoi, dans une sous-couche dégénérée, on place d'abord un électron par orbitale à spins parallèles). Le brouillon ci-dessous est trop vague. **Réécris un prompt de qualité** : donne une **consigne claire**, le **contexte** (ton niveau, ce que tu sais déjà), demande un **exemple concret** (ex. l'azote 2p³), et précise le **format de sortie** attendu.",
-      "starter_prompt": "c'est quoi la règle de Hund",
-      "key_points": [
-        {
-          "id": "kp-consigne",
-          "text": "Une consigne explicite (verbe d'action : explique / justifie)",
-          "cues": [
-            "explique"
-          ]
-        },
-        {
-          "id": "kp-contexte",
-          "text": "Le contexte : niveau L1 et prérequis connus (Klechkowski, Pauli)",
-          "cues": [
-            "l1"
-          ]
-        },
-        {
-          "id": "kp-exemple",
-          "text": "La demande d'un exemple concret (ex. azote 2p³ ou carbone)",
-          "cues": [
-            "exemple"
-          ]
-        },
-        {
-          "id": "kp-format",
-          "text": "Le format de sortie demandé (étapes, schéma de cases quantiques)",
-          "cues": [
-            "schema"
-          ]
-        }
-      ],
-      "model_prompt": "« Tu es un tuteur de chimie pour un **étudiant de L1**. **Contexte** : je connais Klechkowski et Pauli, mais pas bien la règle de Hund. **Consigne** : explique **pourquoi** on remplit d'abord une orbitale par électron à **spins parallèles** dans une sous-couche dégénérée. **Exemple** : illustre avec l'**azote (2p³)** en montrant le remplissage. **Format de sortie** : (1) l'énoncé de la règle, (2) la raison physique (répulsion minimisée), (3) un **schéma de cases quantiques** pour 2p³, en trois points. » — un bon prompt rend la **consigne**, le **contexte**, l'**exemple** demandé et le **format** explicites.",
-      "rubric": {
-        "completeness": 0.6,
-        "evidence_quality": 0.2,
-        "tone": 0.2
-      }
-    },
-    {
-      "id": "s5c-compare-remplissage",
-      "type": "comparison",
-      "title": "Compare — cours IA vs cours de l'enseignant (remplissage)",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-remplissage"
-      ],
-      "estimated_seconds": 210,
-      "adaptation_hooks": [],
-      "prompt": "Voici **deux versions** d'un mini-cours sur l'ordre de remplissage des orbitales : l'une rédigée par une **IA**, l'autre par ton **enseignant**. Les deux sont justes. **Relève la valeur ajoutée de la version de l'enseignant** : qu'apporte-t-elle que la version IA n'a pas ?",
-      "artifact_a": "**Version A (IA).** L'ordre de remplissage suit la règle de Klechkowski : on remplit par (n+ℓ) croissant, puis par n croissant à (n+ℓ) égal. La séquence est 1s, 2s, 2p, 3s, 3p, 4s, 3d, 4p, etc. Chaque orbitale contient au plus deux électrons (Pauli) et une sous-couche dégénérée se remplit d'abord à spins parallèles (Hund).",
-      "artifact_b": "**Version B (enseignant).** Même règle de Klechkowski — mais attention au **piège** : le **4s se remplit avant le 3d** (car (4+0) < (3+2)), et pourtant, une fois rempli, le 4s **s'ionise le premier**. *Contre-exemple à connaître :* le **chrome** (Cr, [Ar]4s¹3d⁵) **viole** l'ordre naïf parce qu'une sous-couche d à demi-remplie est plus stable. La règle est un guide, pas une loi.",
-      "key_points": [
-        {
-          "id": "kp-piege",
-          "text": "L'enseignant signale le piège 4s avant 3d",
-          "cues": [
-            "4s",
-            "3d"
-          ]
-        },
-        {
-          "id": "kp-exception",
-          "text": "L'enseignant donne un contre-exemple (chrome) qui viole la règle",
-          "cues": [
-            "chrome"
-          ]
-        },
-        {
-          "id": "kp-nuance",
-          "text": "L'enseignant nuance : la règle est un guide, pas une loi absolue",
-          "cues": [
-            "guide"
-          ]
-        }
-      ],
-      "model_answer": "La version IA est **correcte mais plate** : elle énonce la règle. La version de l'enseignant **ajoute la valeur pédagogique** : (1) elle signale le **piège 4s/3d** (ordre de remplissage ≠ ordre d'ionisation), (2) elle donne un **contre-exemple mémorable** (le **chrome**, [Ar]4s¹3d⁵) qui *viole* l'ordre naïf, et (3) elle **nuance** le statut de la règle (un **guide**, pas une loi). C'est cette mise en garde contre les exceptions qui distingue un cours qui *fait comprendre* d'un cours qui *récite*.",
-      "rubric": {
-        "completeness": 0.6,
-        "evidence_quality": 0.2,
-        "tone": 0.2
-      }
-    },
-    {
-      "id": "s4b-audit-spectres",
-      "type": "summary_audit",
-      "title": "Audite le résumé IA — spectres d'émission",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-spectres"
-      ],
-      "estimated_seconds": 180,
-      "adaptation_hooks": [],
-      "source_content": "**Source.** Les niveaux d'énergie d'un atome sont **quantifiés**. Lorsqu'un électron passe d'un niveau n₂ à un niveau n₁ inférieur, l'atome **émet un photon** d'énergie E = hν = |E(n₂) − E(n₁)|. Pour l'hydrogène, les transitions qui **arrivent sur n=2** forment la **série de Balmer**, située dans le **visible** : c'est elle qui rend les raies observables à l'œil et permet de **reconnaître un gaz** à sa signature spectrale. Les transitions vers n=1 (série de Lyman) sont, elles, dans l'**ultraviolet**.",
-      "ai_summary": "**Résumé IA.** Les atomes émettent de la lumière quand leurs électrons changent de niveau. L'hydrogène produit une série de raies appelée série de Balmer. C'est utile en astronomie.",
-      "claims": [
-        {
-          "id": "o-quant",
-          "text": "Le résumé omet que les niveaux sont QUANTIFIÉS (discrets)",
-          "flaws_expected": [
-            "quantif"
-          ]
-        },
-        {
-          "id": "o-photon",
-          "text": "Le résumé omet la relation énergie–fréquence du photon (E = hν)",
-          "flaws_expected": [
-            "energie",
-            "photon"
-          ]
-        },
-        {
-          "id": "o-balmer",
-          "text": "Le résumé ne dit pas que Balmer = transitions vers n=2 (et est dans le visible)",
-          "flaws_expected": [
-            "balmer",
-            "visible"
-          ]
-        }
-      ],
-      "model_correction": "Le résumé IA garde l'idée générale mais **supprime l'essentiel quantitatif** : (1) il ne dit pas que les niveaux sont **quantifiés** (c'est *pourquoi* le spectre est fait de raies discrètes et non continu) ; (2) il omet la relation d'**énergie** du **photon** (E = hν) qui relie la transition à la couleur ; (3) il ne précise pas que la série de **Balmer** correspond aux transitions vers n=2, dans le **visible** — la raison même pour laquelle ces raies sont observables. Un résumé fidèle doit conserver ces trois points.",
-      "rubric": {
-        "completeness": 0.6,
-        "evidence_quality": 0.3,
-        "tone": 0.1
-      }
-    },
-    {
-      "id": "s5e-quiz-oxygene",
-      "type": "quiz",
-      "title": "Quiz : configuration de l'oxygène",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-configuration"
-      ],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [
-        "rule_2err_replay_concept"
-      ],
-      "question": "Quelle est la configuration électronique de l'oxygène (Z=8) ?",
-      "choices": [
-        {
-          "id": "a",
-          "text": "1s² 2s² 2p⁴",
-          "correct": true
-        },
-        {
-          "id": "b",
-          "text": "1s² 2s² 2p⁶",
-          "correct": false
-        },
-        {
-          "id": "c",
-          "text": "1s² 2s⁴ 2p²",
-          "correct": false
-        },
-        {
-          "id": "d",
-          "text": "1s² 2s² 3s² 3p²",
-          "correct": false
-        }
-      ],
-      "feedback_correct": "Exact : 2 + 2 + 4 = 8 électrons (Z=8), dans l'ordre 1s, 2s, 2p.",
-      "feedback_incorrect": "Vérifie deux choses : le total d'électrons doit valoir Z, et chaque sous-couche doit être pleine avant de passer à la suivante.",
-      "hints": [
-        "Une sous-couche s contient au plus 2 électrons.",
-        "Ordre : 1s, 2s, 2p."
-      ]
-    },
-    {
-      "id": "s6-concept-periodicite",
-      "type": "concept",
-      "title": "Périodicité : ionisation et rayon",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-periodicite"
-      ],
-      "estimated_seconds": 240,
-      "adaptation_hooks": [],
-      "markdown": "## Tendances le long d'une période\n\nDe gauche à droite (période 2, Li→Ne), la charge nucléaire augmente à couche constante : les électrons sont plus attirés.\n\n- **Énergie de première ionisation** : globalement ↑.\n- **Rayon atomique** : ↓.\n\nLes deux courbes ci-contre rendent la tendance visible (et ses irrégularités, ex. B et O).",
-      "render_assets": [
-        {
-          "kind": "plot_spec",
-          "title": "E. de 1ʳᵉ ionisation (période 2)",
-          "payload": "{\n  \"$schema\": \"https://vega.github.io/schema/vega-lite/v5.json\",\n  \"description\": \"Energie de premiere ionisation (periode 2)\",\n  \"width\": 360,\n  \"height\": 170,\n  \"data\": {\n    \"values\": [\n      {\n        \"element\": \"Li\",\n        \"y\": 520\n      },\n      {\n        \"element\": \"Be\",\n        \"y\": 899\n      },\n      {\n        \"element\": \"B\",\n        \"y\": 801\n      },\n      {\n        \"element\": \"C\",\n        \"y\": 1086\n      },\n      {\n        \"element\": \"N\",\n        \"y\": 1402\n      },\n      {\n        \"element\": \"O\",\n        \"y\": 1314\n      },\n      {\n        \"element\": \"F\",\n        \"y\": 1681\n      },\n      {\n        \"element\": \"Ne\",\n        \"y\": 2081\n      }\n    ]\n  },\n  \"layer\": [\n    {\n      \"mark\": {\n        \"type\": \"line\",\n        \"point\": true\n      },\n      \"encoding\": {\n        \"x\": {\n          \"field\": \"element\",\n          \"type\": \"nominal\",\n          \"sort\": null,\n          \"title\": \"element (periode 2)\"\n        },\n        \"y\": {\n          \"field\": \"y\",\n          \"type\": \"quantitative\",\n          \"title\": \"E.I.1 (kJ/mol)\"\n        },\n        \"tooltip\": [\n          {\n            \"field\": \"element\"\n          },\n          {\n            \"field\": \"y\",\n            \"title\": \"E.I.1 (kJ/mol)\"\n          }\n        ]\n      }\n    }\n  ]\n}",
-          "format": "vega-lite",
-          "provenance": "CRC / Clementi reference values (generate_assets.py)"
-        },
-        {
-          "kind": "plot_spec",
-          "title": "Rayon atomique (période 2)",
-          "payload": "{\n  \"$schema\": \"https://vega.github.io/schema/vega-lite/v5.json\",\n  \"description\": \"Rayon atomique (periode 2)\",\n  \"width\": 360,\n  \"height\": 170,\n  \"data\": {\n    \"values\": [\n      {\n        \"element\": \"Li\",\n        \"y\": 167\n      },\n      {\n        \"element\": \"Be\",\n        \"y\": 112\n      },\n      {\n        \"element\": \"B\",\n        \"y\": 87\n      },\n      {\n        \"element\": \"C\",\n        \"y\": 67\n      },\n      {\n        \"element\": \"N\",\n        \"y\": 56\n      },\n      {\n        \"element\": \"O\",\n        \"y\": 48\n      },\n      {\n        \"element\": \"F\",\n        \"y\": 42\n      },\n      {\n        \"element\": \"Ne\",\n        \"y\": 38\n      }\n    ]\n  },\n  \"layer\": [\n    {\n      \"mark\": {\n        \"type\": \"line\",\n        \"point\": true\n      },\n      \"encoding\": {\n        \"x\": {\n          \"field\": \"element\",\n          \"type\": \"nominal\",\n          \"sort\": null,\n          \"title\": \"element (periode 2)\"\n        },\n        \"y\": {\n          \"field\": \"y\",\n          \"type\": \"quantitative\",\n          \"title\": \"rayon (pm)\"\n        },\n        \"tooltip\": [\n          {\n            \"field\": \"element\"\n          },\n          {\n            \"field\": \"y\",\n            \"title\": \"rayon (pm)\"\n          }\n        ]\n      }\n    }\n  ]\n}",
-          "format": "vega-lite",
-          "provenance": "CRC / Clementi reference values (generate_assets.py)"
-        }
-      ]
-    },
-    {
-      "id": "s6-quiz-tendance",
-      "type": "quiz",
-      "title": "Quiz : sens des tendances",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-periodicite"
-      ],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [
-        "rule_2err_replay_concept"
-      ],
-      "question": "Le long d'une période (→), comment varient énergie d'ionisation et rayon atomique ?",
-      "choices": [
-        {
-          "id": "a",
-          "text": "Ionisation ↑, rayon ↓",
-          "correct": true
-        },
-        {
-          "id": "b",
-          "text": "Ionisation ↓, rayon ↑",
-          "correct": false
-        },
-        {
-          "id": "c",
-          "text": "Les deux ↑",
-          "correct": false
-        },
-        {
-          "id": "d",
-          "text": "Les deux ↓",
-          "correct": false
-        }
-      ],
-      "feedback_correct": "Exact : charge nucléaire ↑ à couche constante → électrons plus liés (ionisation ↑, rayon ↓).",
-      "feedback_incorrect": "Le long d'une période la couche de valence reste la même alors que Z augmente : demande-toi ce que cela change pour l'attraction exercée sur les électrons.",
-      "hints": [
-        "Que fait la charge nucléaire effective le long d'une période ?"
-      ]
-    },
-    {
-      "id": "s7-concept-geometrie",
-      "type": "concept",
-      "title": "Géométrie : VSEPR et hybridation",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-geometrie"
-      ],
-      "estimated_seconds": 240,
-      "adaptation_hooks": [],
-      "markdown": "## Représenter une molécule dans l'espace\n\nLa théorie **VSEPR** prédit la géométrie à partir des doublets autour de l'atome central :\n\n- **CH₄** : 4 doublets liants → **tétraédrique**, 109,5° (hybridation sp³).\n- **H₂O** : 2 liants + 2 non liants → **coudée**, 104,5°.\n\nFais tourner les deux molécules ci-contre pour comparer les géométries.",
-      "render_assets": [
-        {
-          "kind": "mol_3d",
-          "title": "Méthane CH₄ (tétraédrique)",
-          "payload": "5\nMethane CH4 — geometrie tetraedrique (VSEPR / hybridation sp3)\nC      0.000000     0.000000     0.000000\nH      0.629312     0.629312     0.629312\nH      0.629312    -0.629312    -0.629312\nH     -0.629312     0.629312    -0.629312\nH     -0.629312    -0.629312     0.629312\n",
-          "format": "xyz",
-          "provenance": "idealized VSEPR geometry (generate_assets.py)"
-        },
-        {
-          "kind": "mol_3d",
-          "title": "Eau H₂O (coudée)",
-          "payload": "3\nEau H2O — coudee 104.5 deg (VSEPR, 2 doublets non liants)\nO      0.000000     0.000000     0.000000\nH      0.759062     0.000000     0.587729\nH     -0.759062     0.000000     0.587729\n",
-          "format": "xyz",
-          "provenance": "idealized VSEPR geometry (generate_assets.py)"
-        }
-      ]
-    },
-    {
-      "id": "s6b-prompt-configuration",
-      "type": "prompt_practice",
-      "title": "Affine ton prompt — faire expliquer une configuration par une IA",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-configuration"
-      ],
-      "estimated_seconds": 210,
-      "adaptation_hooks": [],
-      "task": "Tu veux qu'une IA t'explique **pourquoi le cuivre (Cu, Z=29) a la configuration [Ar]4s¹3d¹⁰** et non [Ar]4s²3d⁹. Le brouillon ci-dessous donne une réponse vague. **Réécris un prompt de qualité** : donne une **consigne claire**, le **contexte** (ton niveau, ce que tu sais déjà), des **contraintes** (longueur, pas de jargon non défini) et le **format de sortie** attendu.",
-      "starter_prompt": "explique moi le cuivre",
-      "key_points": [
-        {
-          "id": "kp-consigne",
-          "text": "Une consigne explicite (verbe d'action : explique / compare / justifie)",
-          "cues": [
-            "explique"
-          ]
-        },
-        {
-          "id": "kp-contexte",
-          "text": "Le contexte : niveau de l'apprenant et prérequis connus",
-          "cues": [
-            "l1"
-          ]
-        },
-        {
-          "id": "kp-contrainte",
-          "text": "Des contraintes : longueur, vocabulaire, étapes attendues",
-          "cues": [
-            "mots"
-          ]
-        },
-        {
-          "id": "kp-format",
-          "text": "Le format de sortie demandé (liste, étapes, exemple)",
-          "cues": [
-            "points"
-          ]
-        }
-      ],
-      "model_prompt": "« Tu es un tuteur de chimie pour un **étudiant de L1**. **Contexte** : je connais les règles de Klechkowski, Pauli et Hund, mais pas les exceptions. **Consigne** : explique **pourquoi** le cuivre (Z=29) adopte [Ar]4s¹3d¹⁰ plutôt que [Ar]4s²3d⁹. **Contraintes** : reste sous 150 mots, ne suppose aucun prérequis au-delà de L1, et définis tout terme technique. **Format de sortie** : (1) la règle naïve attendue, (2) l'exception observée, (3) la raison (stabilité de la sous-couche d pleine), en trois points numérotés. » — un bon prompt rend la **consigne**, le **contexte**, les **contraintes** et le **format** explicites.",
-      "rubric": {
-        "completeness": 0.6,
-        "evidence_quality": 0.2,
-        "tone": 0.2
-      }
-    },
-    {
-      "id": "s7-meta",
-      "type": "meta_checkpoint",
-      "title": "Auto-évaluation — chapitre 1",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-geometrie",
-        "c-periodicite"
-      ],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [],
-      "pre_question": "Avant ce chapitre, à quel point te sentais-tu à l'aise pour relier orbitales, configuration et propriétés ?",
-      "post_question": "Et maintenant ?",
-      "scale_labels": [
-        "Pas du tout",
-        "Un peu",
-        "Moyennement",
-        "Bien",
-        "Très à l'aise"
-      ]
-    },
-    {
-      "id": "s8-reproduction-periodique",
-      "type": "reproduction",
-      "title": "Reproduction : placer les éléments dans le tableau périodique",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-configuration",
-        "c-periodicite"
-      ],
-      "estimated_seconds": 420,
-      "adaptation_hooks": [],
-      "task_card_id": "task-atom-l1-periodic",
-      "steps": [
-        {
-          "step_id": "na",
-          "instruction": "Sodium (Z=11) : 1s² 2s² 2p⁶ 3s¹ → période et groupe ?",
-          "expected_input_schema": {
-            "type": "object",
-            "properties": {
-              "periode": {
-                "type": "integer"
-              },
-              "groupe": {
-                "type": "integer"
-              }
-            },
-            "required": [
-              "periode",
-              "groupe"
-            ]
-          },
-          "expected_output": {
-            "periode": 3,
-            "groupe": 1
-          }
-        },
-        {
-          "step_id": "s",
-          "instruction": "Soufre (Z=16) : 1s² 2s² 2p⁶ 3s² 3p⁴ → période et groupe ?",
-          "expected_input_schema": {
-            "type": "object",
-            "properties": {
-              "periode": {
-                "type": "integer"
-              },
-              "groupe": {
-                "type": "integer"
-              }
-            },
-            "required": [
-              "periode",
-              "groupe"
-            ]
-          },
-          "expected_output": {
-            "periode": 3,
-            "groupe": 16
-          }
-        },
-        {
-          "step_id": "ca",
-          "instruction": "Calcium (Z=20) : 1s² 2s² 2p⁶ 3s² 3p⁶ 4s² → période et groupe ?",
-          "expected_input_schema": {
-            "type": "object",
-            "properties": {
-              "periode": {
-                "type": "integer"
-              },
-              "groupe": {
-                "type": "integer"
-              }
-            },
-            "required": [
-              "periode",
-              "groupe"
-            ]
-          },
-          "expected_output": {
-            "periode": 4,
-            "groupe": 2
-          }
-        }
-      ]
-    },
-    {
-      "id": "s9-rappel-carbone14",
-      "type": "quiz",
-      "title": "Rappel : le carbone 14",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-particules"
-      ],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [
-        "rule_2err_replay_concept"
-      ],
-      "question": "Le carbone 14 (¹⁴C) a Z=6. Combien contient-il de neutrons ?",
-      "choices": [
-        {
-          "id": "a",
-          "text": "8",
-          "correct": true
-        },
-        {
-          "id": "b",
-          "text": "6",
-          "correct": false
-        },
-        {
-          "id": "c",
-          "text": "14",
-          "correct": false
-        },
-        {
-          "id": "d",
-          "text": "20",
-          "correct": false
-        }
-      ],
-      "feedback_correct": "Exact : N = A − Z = 14 − 6 = 8.",
-      "feedback_incorrect": "Repère A (le nombre en exposant) et Z, puis applique N = A − Z.",
-      "hints": [
-        "Le nombre en exposant est le nombre de masse A.",
-        "A = Z + N."
-      ]
-    },
-    {
-      "id": "s9-rappel-3d",
-      "type": "quiz",
-      "title": "Rappel : la sous-couche 3d",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-nombres-quantiques"
-      ],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [
-        "rule_2err_replay_concept"
-      ],
-      "question": "Combien d'orbitales (valeurs de mℓ) la sous-couche 3d (n=3, ℓ=2) compte-t-elle ?",
-      "choices": [
-        {
-          "id": "a",
-          "text": "5",
-          "correct": true
-        },
-        {
-          "id": "b",
-          "text": "3",
-          "correct": false
-        },
-        {
-          "id": "c",
-          "text": "10",
-          "correct": false
-        },
-        {
-          "id": "d",
-          "text": "2",
-          "correct": false
-        }
-      ],
-      "feedback_correct": "Exact : mℓ va de −2 à +2, soit 2ℓ+1 = 5 orbitales (donc 10 électrons).",
-      "feedback_incorrect": "Pour une sous-couche d, repère ℓ puis compte les valeurs entières de mℓ entre −ℓ et +ℓ.",
-      "hints": [
-        "Nombre d'orbitales = 2ℓ+1.",
-        "ℓ vaut 2 pour une sous-couche d."
-      ]
-    },
-    {
-      "id": "s9-rappel-noeuds-3s",
-      "type": "quiz",
-      "title": "Rappel : nœuds de la 3s",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-orbitales-formes"
-      ],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [
-        "rule_2err_replay_concept"
-      ],
-      "question": "Combien de nœuds RADIAUX possède une orbitale 3s ?",
-      "choices": [
-        {
-          "id": "a",
-          "text": "2",
-          "correct": true
-        },
-        {
-          "id": "b",
-          "text": "0",
-          "correct": false
-        },
-        {
-          "id": "c",
-          "text": "1",
-          "correct": false
-        },
-        {
-          "id": "d",
-          "text": "3",
-          "correct": false
-        }
-      ],
-      "feedback_correct": "Exact : n − ℓ − 1 = 3 − 0 − 1 = 2 nœuds radiaux (deux sphères).",
-      "feedback_incorrect": "Identifie n et ℓ pour une orbitale 3s, puis applique la formule des nœuds radiaux.",
-      "hints": [
-        "Pour une orbitale s, ℓ = 0.",
-        "Nœuds radiaux = n − ℓ − 1."
-      ]
-    },
-    {
-      "id": "s9-rappel-hbeta",
-      "type": "quiz",
-      "title": "Rappel : la raie Hβ",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-spectres"
-      ],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [
-        "rule_2err_replay_concept"
-      ],
-      "question": "Dans la série de Balmer de l'hydrogène, quelle transition produit la raie Hβ (bleu-vert, ~486 nm), la deuxième de la série ?",
-      "choices": [
-        {
-          "id": "a",
-          "text": "n = 4 → n = 2",
-          "correct": true
-        },
-        {
-          "id": "b",
-          "text": "n = 3 → n = 2",
-          "correct": false
-        },
-        {
-          "id": "c",
-          "text": "n = 2 → n = 1",
-          "correct": false
-        },
-        {
-          "id": "d",
-          "text": "n = 4 → n = 3",
-          "correct": false
-        }
-      ],
-      "feedback_correct": "Exact : Hβ est la deuxième raie de Balmer, n=4 → n=2.",
-      "feedback_incorrect": "Les raies de Balmer arrivent toutes sur le même niveau ; Hα part du niveau juste au-dessus, Hβ du suivant.",
-      "hints": [
-        "La série de Balmer arrive sur n=2.",
-        "Hα part de n=3 ; Hβ est la raie suivante."
-      ]
-    },
-    {
-      "id": "s9-rappel-klechkowski",
-      "type": "quiz",
-      "title": "Rappel : après la 3p",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-remplissage"
-      ],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [
-        "rule_2err_replay_concept"
-      ],
-      "question": "Selon la règle de Klechkowski, quelle sous-couche se remplit juste après la 3p ?",
-      "choices": [
-        {
-          "id": "a",
-          "text": "4s",
-          "correct": true
-        },
-        {
-          "id": "b",
-          "text": "3d",
-          "correct": false
-        },
-        {
-          "id": "c",
-          "text": "4p",
-          "correct": false
-        },
-        {
-          "id": "d",
-          "text": "3s",
-          "correct": false
-        }
-      ],
-      "feedback_correct": "Exact : (n+ℓ) vaut 4 pour 4s et 5 pour 3d ; 4s se remplit donc avant 3d.",
-      "feedback_incorrect": "Compare la valeur de (n+ℓ) pour chaque sous-couche proposée : la plus petite se remplit d'abord.",
-      "hints": [
-        "Calcule n+ℓ pour 3d et pour 4s.",
-        "À (n+ℓ) égal, c'est le n le plus petit qui passe d'abord."
-      ]
-    },
-    {
-      "id": "s9-rappel-magnesium",
-      "type": "quiz",
-      "title": "Rappel : configuration du magnésium",
-      "objective_refs": [],
-      "concept_refs": [
-        "c-configuration"
-      ],
-      "estimated_seconds": 60,
-      "adaptation_hooks": [
-        "rule_2err_replay_concept"
-      ],
-      "question": "Quelle est la configuration électronique du magnésium (Z=12) ?",
-      "choices": [
-        {
-          "id": "a",
-          "text": "1s² 2s² 2p⁶ 3s²",
-          "correct": true
-        },
-        {
-          "id": "b",
-          "text": "1s² 2s² 2p⁸",
-          "correct": false
-        },
-        {
-          "id": "c",
-          "text": "1s² 2s² 2p⁶ 3p²",
-          "correct": false
-        },
-        {
-          "id": "d",
-          "text": "1s² 2s² 2p⁶ 3s¹ 3p¹",
-          "correct": false
-        }
-      ],
-      "feedback_correct": "Exact : 2 + 2 + 6 + 2 = 12 électrons, dans l'ordre 1s, 2s, 2p, 3s.",
-      "feedback_incorrect": "Remplis les sous-couches dans l'ordre de Klechkowski en respectant leur capacité maximale, jusqu'à placer les 12 électrons.",
-      "hints": [
-        "Ordre : 1s, 2s, 2p, 3s.",
-        "Une sous-couche p contient au plus 6 électrons."
-      ]
-    }
-  ],
-  "rules": [
-    {
-      "id": "rule_2err_replay_concept",
-      "when": {
-        "consecutive_errors_same_concept": ">=2"
-      },
-      "action": {
-        "kind": "replay_current_scene",
-        "reason": "errors_threshold"
-      },
-      "modulator": "M1",
-      "explanation_short": "Deux erreurs sur ce concept : on le revoit avec un appui."
-    },
-    {
-      "id": "rule_mastery_high_skip",
-      "when": {
-        "mastery_c": ">=0.8",
-        "total_attempts": ">=3"
-      },
-      "action": {
-        "kind": "skip_to_next_concept"
-      },
-      "modulator": "M1",
-      "explanation_short": "Concept maîtrisé : on passe au suivant."
+      "id": "c-geometrie",
+      "title": "Géométrie des molécules"
     }
   ],
   "learning_workflow_graph": {
-    "schema_version": "1.0",
     "course_id": "atomistique-l1",
-    "nodes": [
-      {
-        "id": "concept:c-particules",
-        "node_kind": "concept",
-        "title": "Particules de l'atome",
-        "bloom_level": "understand"
-      },
-      {
-        "id": "concept:c-nombres-quantiques",
-        "node_kind": "concept",
-        "title": "Nombres quantiques",
-        "bloom_level": "understand"
-      },
-      {
-        "id": "concept:c-orbitales-formes",
-        "node_kind": "concept",
-        "title": "Forme des orbitales atomiques",
-        "bloom_level": "understand"
-      },
-      {
-        "id": "concept:c-spectres",
-        "node_kind": "concept",
-        "title": "Quantification et spectres",
-        "bloom_level": "apply"
-      },
-      {
-        "id": "concept:c-remplissage",
-        "node_kind": "concept",
-        "title": "Règles de remplissage",
-        "bloom_level": "apply"
-      },
-      {
-        "id": "concept:c-configuration",
-        "node_kind": "concept",
-        "title": "Configuration électronique",
-        "bloom_level": "apply"
-      },
-      {
-        "id": "concept:c-periodicite",
-        "node_kind": "concept",
-        "title": "Périodicité des propriétés",
-        "bloom_level": "analyze"
-      },
-      {
-        "id": "concept:c-geometrie",
-        "node_kind": "concept",
-        "title": "Géométrie des molécules",
-        "bloom_level": "analyze"
-      },
-      {
-        "id": "task:s1-quiz-fer",
-        "node_kind": "task",
-        "title": "s1-quiz-fer",
-        "scene_type": "quiz"
-      },
-      {
-        "id": "task:s1b-audit-particules",
-        "node_kind": "task",
-        "title": "s1b-audit-particules",
-        "scene_type": "summary_audit"
-      },
-      {
-        "id": "task:s2-quiz-4f",
-        "node_kind": "task",
-        "title": "s2-quiz-4f",
-        "scene_type": "quiz"
-      },
-      {
-        "id": "task:s3-quiz-noeuds",
-        "node_kind": "task",
-        "title": "s3-quiz-noeuds",
-        "scene_type": "quiz"
-      },
-      {
-        "id": "task:s3b-explain-2p",
-        "node_kind": "task",
-        "title": "s3b-explain-2p",
-        "scene_type": "explain_back"
-      },
-      {
-        "id": "task:s3c-compare-noeuds",
-        "node_kind": "task",
-        "title": "s3c-compare-noeuds",
-        "scene_type": "comparison"
-      },
-      {
-        "id": "task:s3d-communicate-2p",
-        "node_kind": "task",
-        "title": "s3d-communicate-2p",
-        "scene_type": "communication_sim"
-      },
-      {
-        "id": "task:s4-quiz-balmer",
-        "node_kind": "task",
-        "title": "s4-quiz-balmer",
-        "scene_type": "quiz"
-      },
-      {
-        "id": "task:s4b-audit-spectres",
-        "node_kind": "task",
-        "title": "s4b-audit-spectres",
-        "scene_type": "summary_audit"
-      },
-      {
-        "id": "task:s5-quiz-carbone",
-        "node_kind": "task",
-        "title": "s5-quiz-carbone",
-        "scene_type": "quiz"
-      },
-      {
-        "id": "task:s5b-spot-azote",
-        "node_kind": "task",
-        "title": "s5b-spot-azote",
-        "scene_type": "spot_the_flaw"
-      },
-      {
-        "id": "task:s5c-compare-remplissage",
-        "node_kind": "task",
-        "title": "s5c-compare-remplissage",
-        "scene_type": "comparison"
-      },
-      {
-        "id": "task:s5d-prompt-hund",
-        "node_kind": "task",
-        "title": "s5d-prompt-hund",
-        "scene_type": "prompt_practice"
-      },
-      {
-        "id": "task:s5e-quiz-oxygene",
-        "node_kind": "task",
-        "title": "s5e-quiz-oxygene",
-        "scene_type": "quiz"
-      },
-      {
-        "id": "task:s6b-prompt-configuration",
-        "node_kind": "task",
-        "title": "s6b-prompt-configuration",
-        "scene_type": "prompt_practice"
-      },
-      {
-        "id": "task:s6-quiz-tendance",
-        "node_kind": "task",
-        "title": "s6-quiz-tendance",
-        "scene_type": "quiz"
-      },
-      {
-        "id": "task:s8-reproduction-periodique",
-        "node_kind": "task",
-        "title": "s8-reproduction-periodique",
-        "scene_type": "reproduction"
-      },
-      {
-        "id": "task:s9-rappel-carbone14",
-        "node_kind": "task",
-        "title": "s9-rappel-carbone14",
-        "scene_type": "quiz"
-      },
-      {
-        "id": "task:s9-rappel-3d",
-        "node_kind": "task",
-        "title": "s9-rappel-3d",
-        "scene_type": "quiz"
-      },
-      {
-        "id": "task:s9-rappel-noeuds-3s",
-        "node_kind": "task",
-        "title": "s9-rappel-noeuds-3s",
-        "scene_type": "quiz"
-      },
-      {
-        "id": "task:s9-rappel-hbeta",
-        "node_kind": "task",
-        "title": "s9-rappel-hbeta",
-        "scene_type": "quiz"
-      },
-      {
-        "id": "task:s9-rappel-klechkowski",
-        "node_kind": "task",
-        "title": "s9-rappel-klechkowski",
-        "scene_type": "quiz"
-      },
-      {
-        "id": "task:s9-rappel-magnesium",
-        "node_kind": "task",
-        "title": "s9-rappel-magnesium",
-        "scene_type": "quiz"
-      }
-    ],
     "edges": [
       {
+        "confidence": 0.9,
         "id": "e-prereq-0",
         "relation": "prerequisite_for",
         "source": "concept:c-nombres-quantiques",
-        "target": "concept:c-particules",
-        "confidence": 0.9
+        "target": "concept:c-particules"
       },
       {
+        "confidence": 0.9,
         "id": "e-prereq-1",
         "relation": "prerequisite_for",
         "source": "concept:c-orbitales-formes",
-        "target": "concept:c-nombres-quantiques",
-        "confidence": 0.9
+        "target": "concept:c-nombres-quantiques"
       },
       {
+        "confidence": 0.9,
         "id": "e-prereq-2",
         "relation": "prerequisite_for",
         "source": "concept:c-spectres",
-        "target": "concept:c-nombres-quantiques",
-        "confidence": 0.9
+        "target": "concept:c-nombres-quantiques"
       },
       {
+        "confidence": 0.9,
         "id": "e-prereq-3",
         "relation": "prerequisite_for",
         "source": "concept:c-remplissage",
-        "target": "concept:c-nombres-quantiques",
-        "confidence": 0.9
+        "target": "concept:c-nombres-quantiques"
       },
       {
+        "confidence": 0.9,
         "id": "e-prereq-4",
         "relation": "prerequisite_for",
         "source": "concept:c-remplissage",
-        "target": "concept:c-orbitales-formes",
-        "confidence": 0.9
+        "target": "concept:c-orbitales-formes"
       },
       {
+        "confidence": 0.9,
         "id": "e-prereq-5",
         "relation": "prerequisite_for",
         "source": "concept:c-configuration",
-        "target": "concept:c-remplissage",
-        "confidence": 0.9
+        "target": "concept:c-remplissage"
       },
       {
+        "confidence": 0.9,
         "id": "e-prereq-6",
         "relation": "prerequisite_for",
         "source": "concept:c-periodicite",
-        "target": "concept:c-configuration",
-        "confidence": 0.9
+        "target": "concept:c-configuration"
       },
       {
+        "confidence": 0.9,
         "id": "e-prereq-7",
         "relation": "prerequisite_for",
         "source": "concept:c-periodicite",
-        "target": "concept:c-spectres",
-        "confidence": 0.9
+        "target": "concept:c-spectres"
       },
       {
+        "confidence": 0.9,
         "id": "e-prereq-8",
         "relation": "prerequisite_for",
         "source": "concept:c-geometrie",
-        "target": "concept:c-configuration",
-        "confidence": 0.9
+        "target": "concept:c-configuration"
       },
       {
         "id": "e-assess-0",
@@ -1803,8 +254,1557 @@
         "source": "task:s9-rappel-magnesium",
         "target": "concept:c-configuration"
       }
-    ]
+    ],
+    "nodes": [
+      {
+        "bloom_level": "understand",
+        "id": "concept:c-particules",
+        "node_kind": "concept",
+        "title": "Particules de l'atome"
+      },
+      {
+        "bloom_level": "understand",
+        "id": "concept:c-nombres-quantiques",
+        "node_kind": "concept",
+        "title": "Nombres quantiques"
+      },
+      {
+        "bloom_level": "understand",
+        "id": "concept:c-orbitales-formes",
+        "node_kind": "concept",
+        "title": "Forme des orbitales atomiques"
+      },
+      {
+        "bloom_level": "apply",
+        "id": "concept:c-spectres",
+        "node_kind": "concept",
+        "title": "Quantification et spectres"
+      },
+      {
+        "bloom_level": "apply",
+        "id": "concept:c-remplissage",
+        "node_kind": "concept",
+        "title": "Règles de remplissage"
+      },
+      {
+        "bloom_level": "apply",
+        "id": "concept:c-configuration",
+        "node_kind": "concept",
+        "title": "Configuration électronique"
+      },
+      {
+        "bloom_level": "analyze",
+        "id": "concept:c-periodicite",
+        "node_kind": "concept",
+        "title": "Périodicité des propriétés"
+      },
+      {
+        "bloom_level": "analyze",
+        "id": "concept:c-geometrie",
+        "node_kind": "concept",
+        "title": "Géométrie des molécules"
+      },
+      {
+        "id": "task:s1-quiz-fer",
+        "node_kind": "task",
+        "scene_type": "quiz",
+        "title": "s1-quiz-fer"
+      },
+      {
+        "id": "task:s1b-audit-particules",
+        "node_kind": "task",
+        "scene_type": "summary_audit",
+        "title": "s1b-audit-particules"
+      },
+      {
+        "id": "task:s2-quiz-4f",
+        "node_kind": "task",
+        "scene_type": "quiz",
+        "title": "s2-quiz-4f"
+      },
+      {
+        "id": "task:s3-quiz-noeuds",
+        "node_kind": "task",
+        "scene_type": "quiz",
+        "title": "s3-quiz-noeuds"
+      },
+      {
+        "id": "task:s3b-explain-2p",
+        "node_kind": "task",
+        "scene_type": "explain_back",
+        "title": "s3b-explain-2p"
+      },
+      {
+        "id": "task:s3c-compare-noeuds",
+        "node_kind": "task",
+        "scene_type": "comparison",
+        "title": "s3c-compare-noeuds"
+      },
+      {
+        "id": "task:s3d-communicate-2p",
+        "node_kind": "task",
+        "scene_type": "communication_sim",
+        "title": "s3d-communicate-2p"
+      },
+      {
+        "id": "task:s4-quiz-balmer",
+        "node_kind": "task",
+        "scene_type": "quiz",
+        "title": "s4-quiz-balmer"
+      },
+      {
+        "id": "task:s4b-audit-spectres",
+        "node_kind": "task",
+        "scene_type": "summary_audit",
+        "title": "s4b-audit-spectres"
+      },
+      {
+        "id": "task:s5-quiz-carbone",
+        "node_kind": "task",
+        "scene_type": "quiz",
+        "title": "s5-quiz-carbone"
+      },
+      {
+        "id": "task:s5b-spot-azote",
+        "node_kind": "task",
+        "scene_type": "spot_the_flaw",
+        "title": "s5b-spot-azote"
+      },
+      {
+        "id": "task:s5c-compare-remplissage",
+        "node_kind": "task",
+        "scene_type": "comparison",
+        "title": "s5c-compare-remplissage"
+      },
+      {
+        "id": "task:s5d-prompt-hund",
+        "node_kind": "task",
+        "scene_type": "prompt_practice",
+        "title": "s5d-prompt-hund"
+      },
+      {
+        "id": "task:s5e-quiz-oxygene",
+        "node_kind": "task",
+        "scene_type": "quiz",
+        "title": "s5e-quiz-oxygene"
+      },
+      {
+        "id": "task:s6b-prompt-configuration",
+        "node_kind": "task",
+        "scene_type": "prompt_practice",
+        "title": "s6b-prompt-configuration"
+      },
+      {
+        "id": "task:s6-quiz-tendance",
+        "node_kind": "task",
+        "scene_type": "quiz",
+        "title": "s6-quiz-tendance"
+      },
+      {
+        "id": "task:s8-reproduction-periodique",
+        "node_kind": "task",
+        "scene_type": "reproduction",
+        "title": "s8-reproduction-periodique"
+      },
+      {
+        "id": "task:s9-rappel-carbone14",
+        "node_kind": "task",
+        "scene_type": "quiz",
+        "title": "s9-rappel-carbone14"
+      },
+      {
+        "id": "task:s9-rappel-3d",
+        "node_kind": "task",
+        "scene_type": "quiz",
+        "title": "s9-rappel-3d"
+      },
+      {
+        "id": "task:s9-rappel-noeuds-3s",
+        "node_kind": "task",
+        "scene_type": "quiz",
+        "title": "s9-rappel-noeuds-3s"
+      },
+      {
+        "id": "task:s9-rappel-hbeta",
+        "node_kind": "task",
+        "scene_type": "quiz",
+        "title": "s9-rappel-hbeta"
+      },
+      {
+        "id": "task:s9-rappel-klechkowski",
+        "node_kind": "task",
+        "scene_type": "quiz",
+        "title": "s9-rappel-klechkowski"
+      },
+      {
+        "id": "task:s9-rappel-magnesium",
+        "node_kind": "task",
+        "scene_type": "quiz",
+        "title": "s9-rappel-magnesium"
+      }
+    ],
+    "schema_version": "1.0"
   },
-  "validated_by": "louisfelix.nothias@univ-cotedazur.fr",
-  "validated_at": "2026-06-20T00:00:00Z"
+  "metadata": {
+    "discipline": "chimie atomistique",
+    "duration_minutes": 60,
+    "language": "fr",
+    "target": "L1",
+    "title": "Atomistique L1 — Chapitre 1 (atomes, orbitales, périodicité)"
+  },
+  "rules": [
+    {
+      "action": {
+        "kind": "replay_current_scene",
+        "reason": "errors_threshold"
+      },
+      "explanation_short": "Deux erreurs sur ce concept : on le revoit avec un appui.",
+      "id": "rule_2err_replay_concept",
+      "modulator": "M1",
+      "when": {
+        "consecutive_errors_same_concept": ">=2"
+      }
+    },
+    {
+      "action": {
+        "kind": "skip_to_next_concept"
+      },
+      "explanation_short": "Concept maîtrisé : on passe au suivant.",
+      "id": "rule_mastery_high_skip",
+      "modulator": "M1",
+      "when": {
+        "mastery_c": ">=0.8",
+        "total_attempts": ">=3"
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [],
+      "estimated_seconds": 60,
+      "id": "s0-intro",
+      "markdown": "# Atomistique L1 — Chapitre 1\nDe la structure de l'atome aux **orbitales atomiques**, à la **configuration électronique**, puis à la **périodicité** des propriétés et à la **géométrie** des molécules. Chaque notion s'appuie sur des objets que tu peux manipuler : une orbitale 3D que l'on fait tourner, un spectre d'émission, une molécule.",
+      "objective_refs": [],
+      "title": "Chapitre 1 — Atomes et orbitales",
+      "type": "intro"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "c-particules"
+      ],
+      "estimated_seconds": 180,
+      "id": "s1-concept-particules",
+      "markdown": "## Particules et identité de l'atome\n\nUn atome = **noyau** (protons + neutrons) + **nuage électronique**.\n\n- **Z** (numéro atomique) = nombre de protons → définit l'élément.\n- **A** (nombre de masse) = Z + N (N = neutrons).\n- **Isotopes** : même Z, A différent.\n\nLe noyau (~10⁻¹⁵ m) est 10⁵ fois plus petit que l'atome (~10⁻¹⁰ m).",
+      "objective_refs": [],
+      "render_assets": [
+        {
+          "kind": "equation_latex",
+          "legend": [
+            {
+              "meaning": "nombre de masse",
+              "symbol": "A"
+            },
+            {
+              "meaning": "numéro atomique, égal au nombre de protons",
+              "symbol": "Z"
+            },
+            {
+              "meaning": "nombre de neutrons",
+              "symbol": "N"
+            }
+          ],
+          "payload": "A = Z + N",
+          "title": "Nombre de masse"
+        }
+      ],
+      "title": "Particules constitutives de l'atome",
+      "type": "concept"
+    },
+    {
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "choices": [
+        {
+          "correct": false,
+          "id": "a",
+          "text": "26"
+        },
+        {
+          "correct": true,
+          "id": "b",
+          "text": "30"
+        },
+        {
+          "correct": false,
+          "id": "c",
+          "text": "56"
+        },
+        {
+          "correct": false,
+          "id": "d",
+          "text": "82"
+        }
+      ],
+      "concept_refs": [
+        "c-particules"
+      ],
+      "estimated_seconds": 60,
+      "feedback_correct": "Exact : N = A − Z = 56 − 26 = 30.",
+      "feedback_incorrect": "Le nombre de neutrons se déduit de A et de Z : N = A − Z. Refais le calcul.",
+      "hints": [
+        "A = Z + N, donc N = A − Z."
+      ],
+      "id": "s1-quiz-fer",
+      "objective_refs": [],
+      "question": "L'isotope ⁵⁶Fe a Z=26. Combien contient-il de neutrons ?",
+      "title": "Quiz : l'atome de fer (Z=26)",
+      "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [],
+      "ai_summary": "**Résumé IA.** Un atome a un noyau avec des protons et des neutrons, et des électrons autour. Le nombre de masse A est la somme des protons et des neutrons. L'atome est très petit.",
+      "claims": [
+        {
+          "flaws_expected": [
+            "definit",
+            "element"
+          ],
+          "id": "o-z",
+          "text": "Le résumé ne dit pas que Z (le nombre de protons) DÉFINIT l'élément"
+        },
+        {
+          "flaws_expected": [
+            "isotope"
+          ],
+          "id": "o-isotopes",
+          "text": "Le résumé omet la définition des ISOTOPES (même Z, A différent)"
+        }
+      ],
+      "concept_refs": [
+        "c-particules"
+      ],
+      "estimated_seconds": 180,
+      "id": "s1b-audit-particules",
+      "model_correction": "Le résumé IA garde le squelette mais **supprime deux points essentiels** : (1) il ne dit pas que **Z** — le nombre de **protons** — **définit l'élément** chimique (c'est *le* critère d'identité de l'atome) ; (2) il omet entièrement la notion d'**isotopes** (même Z, A différent), pourtant centrale. Un résumé fidèle doit conserver ces deux idées, sans quoi on ne peut plus distinguer deux éléments ni deux isotopes.",
+      "objective_refs": [],
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      },
+      "source_content": "**Source.** Un atome est formé d'un **noyau** (protons + neutrons) entouré d'un **nuage électronique**. Le **numéro atomique Z** est le nombre de **protons** : c'est lui qui **définit l'élément** chimique (changer Z, c'est changer d'élément). Le **nombre de masse A** vaut Z + N, où N est le nombre de neutrons. Deux atomes de **même Z mais de A différent** sont des **isotopes** du même élément. Le noyau (~10⁻¹⁵ m) est environ 10⁵ fois plus petit que l'atome (~10⁻¹⁰ m), si bien que l'atome est essentiellement **vide**.",
+      "title": "Audite le résumé IA — particules de l'atome",
+      "type": "summary_audit"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "c-nombres-quantiques"
+      ],
+      "estimated_seconds": 210,
+      "id": "s2-concept-nombres-quantiques",
+      "markdown": "## Quatre nombres quantiques\n\nUn électron est décrit par :\n\n- **n** (principal) : 1, 2, 3, … → la couche.\n- **ℓ** (azimutal) : 0 … n−1 → la sous-couche (0=s, 1=p, 2=d, 3=f).\n- **mℓ** (magnétique) : −ℓ … +ℓ → l'orbitale dans la sous-couche.\n- **ms** (spin) : −½ ou +½.\n\nUne sous-couche ℓ contient (2ℓ+1) orbitales, soit 2(2ℓ+1) électrons.",
+      "objective_refs": [],
+      "render_assets": [
+        {
+          "kind": "equation_latex",
+          "legend": [
+            {
+              "meaning": "nombre quantique principal : la couche",
+              "symbol": "n"
+            },
+            {
+              "meaning": "nombre quantique azimutal : la sous-couche",
+              "symbol": "ℓ"
+            },
+            {
+              "meaning": "nombre quantique magnétique : l'orbitale dans la sous-couche",
+              "symbol": "mℓ"
+            },
+            {
+              "meaning": "nombre quantique de spin",
+              "symbol": "ms"
+            }
+          ],
+          "payload": "\\ell \\in \\{0,1,\\dots,n-1\\}\\quad m_\\ell \\in \\{-\\ell,\\dots,+\\ell\\}\\quad m_s = \\pm\\tfrac{1}{2}",
+          "title": "Valeurs autorisées"
+        }
+      ],
+      "title": "Les nombres quantiques",
+      "type": "concept"
+    },
+    {
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "choices": [
+        {
+          "correct": false,
+          "id": "a",
+          "text": "3"
+        },
+        {
+          "correct": false,
+          "id": "b",
+          "text": "5"
+        },
+        {
+          "correct": true,
+          "id": "c",
+          "text": "7"
+        },
+        {
+          "correct": false,
+          "id": "d",
+          "text": "14"
+        }
+      ],
+      "concept_refs": [
+        "c-nombres-quantiques"
+      ],
+      "estimated_seconds": 75,
+      "feedback_correct": "Exact : mℓ va de −3 à +3, soit 2ℓ+1 = 7 orbitales (donc 14 électrons).",
+      "feedback_incorrect": "Pour une sous-couche f, détermine ℓ puis compte les valeurs entières de mℓ entre −ℓ et +ℓ.",
+      "hints": [
+        "Nombre d'orbitales = 2ℓ+1.",
+        "ℓ vaut 3 pour une sous-couche f."
+      ],
+      "id": "s2-quiz-4f",
+      "objective_refs": [],
+      "question": "Combien d'orbitales (valeurs de mℓ) la sous-couche 4f (n=4, ℓ=3) compte-t-elle ?",
+      "title": "Quiz : la sous-couche 4f",
+      "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "c-orbitales-formes"
+      ],
+      "estimated_seconds": 240,
+      "id": "s3-concept-orbitales",
+      "markdown": "## Forme des orbitales — fais-les tourner\n\nUne orbitale est la région où la probabilité de présence de l'électron est élevée. La **2p** a deux lobes de **signe opposé** séparés par un plan nodal ; la **3d_z²** a un lobe axial et une couronne équatoriale.\n\nFais tourner les orbitales ci-contre : les deux isosurfaces (+ / −) sont les deux signes de la fonction d'onde.\n\nUn **nœud** est un endroit où la fonction d'onde s'annule : la probabilité de présence y est nulle. Un nœud **radial** est une sphère centrée sur le noyau ; une orbitale en compte n − ℓ − 1.",
+      "objective_refs": [],
+      "render_assets": [
+        {
+          "format": "cube",
+          "kind": "orbital",
+          "meta": {
+            "iso": 0.18,
+            "signed": true
+          },
+          "path": "assets/orbitals/2pz.cube",
+          "provenance": "analytic hydrogenic wavefunction (generate_assets.py)",
+          "title": "Orbitale 2p_z"
+        },
+        {
+          "format": "cube",
+          "kind": "orbital",
+          "meta": {
+            "iso": 0.18,
+            "signed": true
+          },
+          "path": "assets/orbitals/3dz2.cube",
+          "provenance": "analytic hydrogenic wavefunction (generate_assets.py)",
+          "title": "Orbitale 3d_z²"
+        }
+      ],
+      "title": "Forme des orbitales atomiques",
+      "type": "concept"
+    },
+    {
+      "adaptation_hooks": [
+        "rule_2err_replay_concept",
+        "rule_mastery_high_skip"
+      ],
+      "choices": [
+        {
+          "correct": true,
+          "id": "a",
+          "text": "0"
+        },
+        {
+          "correct": false,
+          "id": "b",
+          "text": "1"
+        },
+        {
+          "correct": false,
+          "id": "c",
+          "text": "2"
+        }
+      ],
+      "concept_refs": [
+        "c-orbitales-formes"
+      ],
+      "estimated_seconds": 60,
+      "feedback_correct": "Exact : nœuds radiaux = n − ℓ − 1 = 2 − 1 − 1 = 0 (le plan nodal de la 2p est angulaire).",
+      "feedback_incorrect": "Les nœuds radiaux se calculent avec n − ℓ − 1. Identifie n et ℓ pour une orbitale 2p, puis refais le calcul.",
+      "hints": [
+        "Distingue nœud radial (sphère) et nœud angulaire (plan).",
+        "n − ℓ − 1."
+      ],
+      "id": "s3-quiz-noeuds",
+      "objective_refs": [],
+      "question": "Combien de nœuds RADIAUX possède une orbitale 2p ?",
+      "title": "Quiz : nœuds de la 2p",
+      "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "c-orbitales-formes"
+      ],
+      "estimated_seconds": 180,
+      "id": "s3b-explain-2p",
+      "key_points": [
+        {
+          "cues": [
+            "fonction d onde"
+          ],
+          "id": "kp-fonction",
+          "text": "La forme découle de la fonction d'onde de l'électron"
+        },
+        {
+          "cues": [
+            "signe oppose"
+          ],
+          "id": "kp-signe",
+          "text": "Les deux lobes ont des signes opposés"
+        },
+        {
+          "cues": [
+            "plan nodal"
+          ],
+          "id": "kp-nodal",
+          "text": "Le plan séparateur est un plan nodal"
+        },
+        {
+          "cues": [
+            "probabilite presence"
+          ],
+          "id": "kp-probab",
+          "text": "Les lobes sont les régions de forte probabilité de présence"
+        }
+      ],
+      "model_explanation": "La 2p est décrite par une **fonction d'onde** qui change de **signe** d'un lobe à l'autre. Le plan qui les sépare est un **plan nodal** : la fonction d'onde y est nulle, donc la **probabilité** de présence de l'électron y est nulle. Les deux lobes (signes + et −) sont les régions où cette probabilité est élevée.",
+      "objective_refs": [],
+      "prompt": "Tu viens de faire tourner l'orbitale **2p** en 3D : deux lobes de signe opposé séparés par un plan. **Explique, avec tes propres mots, pourquoi la 2p a deux lobes et ce que représente le plan qui les sépare** (pense à la fonction d'onde et à la probabilité de présence).",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.2,
+        "tone": 0.2
+      },
+      "title": "Explique — pourquoi la 2p a deux lobes",
+      "type": "explain_back"
+    },
+    {
+      "adaptation_hooks": [],
+      "artifact_a": "**Version A (IA).** Le nombre de nœuds radiaux d'une orbitale vaut n − ℓ − 1. Pour la 2p (n=2, ℓ=1) cela donne 2 − 1 − 1 = 0 nœud radial ; pour la 3p (n=3, ℓ=1) cela donne 3 − 1 − 1 = 1 nœud radial. Le nombre total de nœuds vaut n − 1.",
+      "artifact_b": "**Version B (enseignant).** Même formule n − ℓ − 1 — mais **distingue bien deux familles** de nœuds : le nœud **radial** est une **sphère** où la fonction d'onde s'annule *en s'éloignant* du noyau, alors que le nœud **angulaire** est un **plan** (les deux lobes de la 2p). Sur l'orbitale 3D que tu fais tourner, le plan entre les lobes + et − est **angulaire**, pas radial : c'est pourquoi la 2p a **0** nœud radial malgré ses deux lobes. La formule compte les nœuds radiaux ; n − 1 compte le **total** (radiaux **+** angulaires).",
+      "concept_refs": [
+        "c-orbitales-formes"
+      ],
+      "estimated_seconds": 210,
+      "id": "s3c-compare-noeuds",
+      "key_points": [
+        {
+          "cues": [
+            "radial",
+            "angulaire"
+          ],
+          "id": "kp-distinction",
+          "text": "L'enseignant distingue nœud radial (sphère) et nœud angulaire (plan)"
+        },
+        {
+          "cues": [
+            "3d"
+          ],
+          "id": "kp-visuel",
+          "text": "L'enseignant relie la formule à l'orbitale 3D que l'on fait tourner"
+        },
+        {
+          "cues": [
+            "deux lobes"
+          ],
+          "id": "kp-total",
+          "text": "L'enseignant explique pourquoi 2p a 0 nœud radial malgré ses deux lobes"
+        }
+      ],
+      "model_answer": "La version IA est **correcte mais plate** : elle applique la formule n − ℓ − 1. La version de l'enseignant **ajoute la compréhension** : (1) elle **distingue** le nœud **radial** (une **sphère**) du nœud **angulaire** (un **plan**), que la formule seule confond ; (2) elle relie le calcul à l'**orbitale 3D** : le plan entre les **deux lobes** de la 2p est *angulaire*, ce qui explique pourquoi la 2p a **0** nœud radial ; (3) elle clarifie que n − 1 est le **total** (radiaux + angulaires). C'est cette levée d'ambiguïté qui distingue un cours qui *fait comprendre* d'un cours qui *récite la formule*.",
+      "objective_refs": [],
+      "prompt": "Voici **deux explications** des **nœuds radiaux** d'une orbitale : l'une rédigée par une **IA**, l'autre par ton **enseignant**. Les deux sont justes. **Relève la valeur ajoutée de la version de l'enseignant** : qu'apporte-t-elle que la version IA n'a pas ?",
+      "render_assets": [
+        {
+          "format": "cube",
+          "kind": "orbital",
+          "meta": {
+            "iso": 0.18,
+            "signed": true
+          },
+          "path": "assets/orbitals/2pz.cube",
+          "provenance": "analytic hydrogenic wavefunction (generate_assets.py)",
+          "title": "Orbitale 2p_z (plan nodal angulaire)"
+        }
+      ],
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.2,
+        "tone": 0.2
+      },
+      "title": "Compare — cours IA vs cours de l'enseignant (nœuds radiaux)",
+      "type": "comparison"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "c-orbitales-formes"
+      ],
+      "estimated_seconds": 240,
+      "id": "s3d-communicate-2p",
+      "key_points": [
+        {
+          "cues": [
+            "deux zones"
+          ],
+          "id": "kp-clair",
+          "text": "Décrit les deux lobes en mots simples : deux zones où l'électron a des chances de se trouver"
+        },
+        {
+          "cues": [
+            "image"
+          ],
+          "id": "kp-public",
+          "text": "Reste accessible : passe par une image simple plutôt que par le jargon"
+        },
+        {
+          "cues": [
+            "ne passe jamais"
+          ],
+          "id": "kp-exact",
+          "text": "Reste juste : entre les deux zones, il y a un endroit où l'électron ne passe jamais"
+        },
+        {
+          "cues": [
+            "couloir"
+          ],
+          "id": "kp-analogie",
+          "text": "Donne une analogie concrète du quotidien (ex. des pièces et un couloir)"
+        }
+      ],
+      "model_response": "« Imagine l'électron de la 2p comme quelqu'un qui a **deux zones** préférées de chaque côté du noyau, **comme** deux pièces séparées par un couloir. Entre les deux, il y a un endroit qu'il **ne passe jamais** : c'est pour ça que tu vois **deux** régions distinctes (les deux lobes) et pas une seule. Je te dis tout ça **sans** te noyer dans les formules : retiens juste l'image des deux zones et du couloir vide au milieu. »",
+      "objective_refs": [],
+      "prompt": "**Explique-lui, à l'oral et sans aucun jargon, pourquoi la 2p a deux lobes** — pas de « fonction d'onde », pas de « plan nodal », pas de formule. Sers-toi d'une **image simple** et, si tu peux, d'une **analogie** du quotidien. Reste **court et clair**.",
+      "render_assets": [
+        {
+          "format": "cube",
+          "kind": "orbital",
+          "meta": {
+            "iso": 0.18,
+            "signed": true
+          },
+          "path": "assets/orbitals/2pz.cube",
+          "provenance": "analytic hydrogenic wavefunction (generate_assets.py)",
+          "title": "Orbitale 2p_z (les deux lobes)"
+        }
+      ],
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.2,
+        "tone": 0.2
+      },
+      "scenario": "**Situation.** C'est la fin du TD. Un·e **camarade** qui a manqué le début te demande de l'aide : il/elle n'est **pas encore au point** sur les orbitales et n'a **jamais entendu** les mots « fonction d'onde » ou « plan nodal ». **Ton rôle** : jouer le/la pair·e qui réexplique. **Ton public** : un·e étudiant·e de L1 qui veut juste *comprendre l'image*, pas une démonstration.",
+      "title": "Communique — explique la 2p à un·e camarade, sans jargon",
+      "type": "communication_sim"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "c-spectres"
+      ],
+      "estimated_seconds": 240,
+      "id": "s4-concept-spectres",
+      "markdown": "## Reconnaître un gaz à ses raies\n\nLes niveaux d'énergie sont **quantifiés**. Une transition de n₂ vers n₁ émet un photon d'énergie E = hν (h : constante de Planck, ν : fréquence du photon). Pour l'hydrogène, les transitions vers n=2 donnent la **série de Balmer**, dans le visible — la signature qui permet de *reconnaître un gaz inconnu*.",
+      "objective_refs": [],
+      "render_assets": [
+        {
+          "kind": "equation_latex",
+          "legend": [
+            {
+              "meaning": "énergie du photon émis",
+              "symbol": "Ephoton"
+            },
+            {
+              "meaning": "constante de Planck",
+              "symbol": "h"
+            },
+            {
+              "meaning": "fréquence du photon",
+              "symbol": "ν"
+            },
+            {
+              "meaning": "énergie du niveau initial n₂",
+              "symbol": "Eₙ₂"
+            },
+            {
+              "meaning": "énergie du niveau inférieur n₁",
+              "symbol": "Eₙ₁"
+            }
+          ],
+          "payload": "E_{photon} = h\\nu = \\left| E_{n_2} - E_{n_1} \\right|",
+          "title": "Énergie d'un photon émis"
+        },
+        {
+          "format": "vega-lite",
+          "kind": "spectrum",
+          "payload": "{\n  \"$schema\": \"https://vega.github.io/schema/vega-lite/v5.json\",\n  \"description\": \"Serie de Balmer de l'hydrogene (raies d'emission visibles)\",\n  \"width\": 360,\n  \"height\": 170,\n  \"data\": {\n    \"values\": [\n      {\n        \"lambda\": 656.5,\n        \"I\": 100,\n        \"raie\": \"Hα (n=3→2)\"\n      },\n      {\n        \"lambda\": 486.3,\n        \"I\": 42,\n        \"raie\": \"Hβ (n=4→2)\"\n      },\n      {\n        \"lambda\": 434.2,\n        \"I\": 23,\n        \"raie\": \"Hγ (n=5→2)\"\n      },\n      {\n        \"lambda\": 410.3,\n        \"I\": 12,\n        \"raie\": \"Hδ (n=6→2)\"\n      }\n    ]\n  },\n  \"mark\": {\n    \"type\": \"bar\",\n    \"size\": 4\n  },\n  \"encoding\": {\n    \"x\": {\n      \"field\": \"lambda\",\n      \"type\": \"quantitative\",\n      \"scale\": {\n        \"domain\": [\n          395,\n          670\n        ]\n      },\n      \"title\": \"longueur d'onde λ (nm)\"\n    },\n    \"y\": {\n      \"field\": \"I\",\n      \"type\": \"quantitative\",\n      \"title\": \"intensite relative\"\n    },\n    \"color\": {\n      \"field\": \"raie\",\n      \"type\": \"nominal\",\n      \"legend\": {\n        \"title\": \"raie\"\n      }\n    },\n    \"tooltip\": [\n      {\n        \"field\": \"raie\"\n      },\n      {\n        \"field\": \"lambda\",\n        \"title\": \"λ (nm)\"\n      }\n    ]\n  }\n}",
+          "provenance": "Rydberg formula (generate_assets.py)",
+          "title": "Série de Balmer de l'hydrogène"
+        }
+      ],
+      "title": "Quantification et spectres d'émission",
+      "type": "concept"
+    },
+    {
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "choices": [
+        {
+          "correct": true,
+          "id": "a",
+          "text": "n = 3 → n = 2"
+        },
+        {
+          "correct": false,
+          "id": "b",
+          "text": "n = 2 → n = 1"
+        },
+        {
+          "correct": false,
+          "id": "c",
+          "text": "n = 4 → n = 2"
+        },
+        {
+          "correct": false,
+          "id": "d",
+          "text": "n = 1 → n = 3"
+        }
+      ],
+      "concept_refs": [
+        "c-spectres"
+      ],
+      "estimated_seconds": 60,
+      "feedback_correct": "Exact : Hα = première raie de Balmer, n=3 → n=2.",
+      "feedback_incorrect": "Les raies de Balmer arrivent toutes sur le même niveau. Hα est la moins énergétique de la série : de quel niveau part-elle ?",
+      "hints": [
+        "La série de Balmer arrive sur n=2.",
+        "Hα est la transition la plus basse en énergie de la série."
+      ],
+      "id": "s4-quiz-balmer",
+      "objective_refs": [],
+      "question": "À quelle transition correspond la raie Hα (rouge, ~656 nm) ?",
+      "title": "Quiz : la raie Hα",
+      "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "c-remplissage"
+      ],
+      "estimated_seconds": 210,
+      "id": "s5-concept-remplissage",
+      "markdown": "## Remplir les orbitales\n\n- **Klechkowski** : énergie croissante de (n+ℓ), puis n croissant à (n+ℓ) égal → 1s, 2s, 2p, 3s, 3p, **4s, 3d**, 4p, …\n- **Pauli** : 2 électrons max par orbitale (spins opposés).\n- **Hund** : on remplit d'abord à spins parallèles dans une sous-couche dégénérée.",
+      "objective_refs": [],
+      "render_assets": [
+        {
+          "kind": "equation_latex",
+          "legend": [
+            {
+              "meaning": "nombre quantique principal : la couche",
+              "symbol": "n"
+            },
+            {
+              "meaning": "nombre quantique azimutal : la sous-couche",
+              "symbol": "ℓ"
+            },
+            {
+              "meaning": "ordre croissant",
+              "symbol": "↗"
+            }
+          ],
+          "payload": "\\text{ordre} : (n+\\ell)\\ \\nearrow,\\ \\text{puis } n\\ \\nearrow",
+          "title": "Règle de Klechkowski"
+        }
+      ],
+      "title": "Règles de remplissage",
+      "type": "concept"
+    },
+    {
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "choices": [
+        {
+          "correct": true,
+          "id": "a",
+          "text": "1s² 2s² 2p²"
+        },
+        {
+          "correct": false,
+          "id": "b",
+          "text": "1s² 2s¹ 2p³"
+        },
+        {
+          "correct": false,
+          "id": "c",
+          "text": "1s² 2p⁴"
+        },
+        {
+          "correct": false,
+          "id": "d",
+          "text": "1s² 2s² 3p²"
+        }
+      ],
+      "concept_refs": [
+        "c-remplissage",
+        "c-configuration"
+      ],
+      "estimated_seconds": 60,
+      "feedback_correct": "Exact : 2 + 2 + 2 = 6 électrons (Z=6).",
+      "feedback_incorrect": "Applique l'ordre de Klechkowski (1s → 2s → 2p), puis répartis les 6 électrons en respectant Pauli.",
+      "hints": [
+        "Ordre 1s, 2s, 2p.",
+        "2 électrons max par orbitale (Pauli)."
+      ],
+      "id": "s5-quiz-carbone",
+      "objective_refs": [],
+      "question": "Quelle est la configuration électronique du carbone (Z=6) ?",
+      "title": "Quiz : configuration du carbone",
+      "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [],
+      "claims": [
+        {
+          "flaws_expected": [
+            "hund",
+            "celibataires"
+          ],
+          "id": "f-hund",
+          "text": "Les électrons 2p s'apparient au lieu d'occuper des orbitales séparées (viole Hund)"
+        },
+        {
+          "flaws_expected": [
+            "2p3"
+          ],
+          "id": "f-count",
+          "text": "Le décompte des électrons est faux (2+2+4 = 8 ≠ 7)"
+        }
+      ],
+      "concept_refs": [
+        "c-remplissage"
+      ],
+      "estimated_seconds": 150,
+      "flawed_content": "L'azote (Z=7) a pour configuration électronique **1s² 2s² 2p⁴**. Dans la sous-couche 2p, les électrons s'**apparient** deux par deux dans la même orbitale pour minimiser leur énergie, si bien que l'azote ne possède **aucun électron célibataire**.",
+      "id": "s5b-spot-azote",
+      "model_correction": "La configuration correcte est **1s² 2s² 2p³** (7 électrons au total). Règle de **Hund** : les **trois** électrons 2p occupent chacun une orbitale différente avec des **spins parallèles** → l'azote a **3 électrons célibataires**, et non 0. (La version fausse donnait aussi 8 électrons au lieu de 7.)",
+      "objective_refs": [],
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      },
+      "title": "Repère l'erreur — configuration de l'azote",
+      "type": "spot_the_flaw"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "c-remplissage"
+      ],
+      "estimated_seconds": 210,
+      "id": "s5d-prompt-hund",
+      "key_points": [
+        {
+          "cues": [
+            "explique"
+          ],
+          "id": "kp-consigne",
+          "text": "Une consigne explicite (verbe d'action : explique / justifie)"
+        },
+        {
+          "cues": [
+            "l1"
+          ],
+          "id": "kp-contexte",
+          "text": "Le contexte : niveau L1 et prérequis connus (Klechkowski, Pauli)"
+        },
+        {
+          "cues": [
+            "exemple"
+          ],
+          "id": "kp-exemple",
+          "text": "La demande d'un exemple concret (ex. azote 2p³ ou carbone)"
+        },
+        {
+          "cues": [
+            "schema"
+          ],
+          "id": "kp-format",
+          "text": "Le format de sortie demandé (étapes, schéma de cases quantiques)"
+        }
+      ],
+      "model_prompt": "« Tu es un tuteur de chimie pour un **étudiant de L1**. **Contexte** : je connais Klechkowski et Pauli, mais pas bien la règle de Hund. **Consigne** : explique **pourquoi** on remplit d'abord une orbitale par électron à **spins parallèles** dans une sous-couche dégénérée. **Exemple** : illustre avec l'**azote (2p³)** en montrant le remplissage. **Format de sortie** : (1) l'énoncé de la règle, (2) la raison physique (répulsion minimisée), (3) un **schéma de cases quantiques** pour 2p³, en trois points. » — un bon prompt rend la **consigne**, le **contexte**, l'**exemple** demandé et le **format** explicites.",
+      "objective_refs": [],
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.2,
+        "tone": 0.2
+      },
+      "starter_prompt": "c'est quoi la règle de Hund",
+      "task": "Tu veux qu'une IA t'explique **la règle de Hund** (pourquoi, dans une sous-couche dégénérée, on place d'abord un électron par orbitale à spins parallèles). Le brouillon ci-dessous est trop vague. **Réécris un prompt de qualité** : donne une **consigne claire**, le **contexte** (ton niveau, ce que tu sais déjà), demande un **exemple concret** (ex. l'azote 2p³), et précise le **format de sortie** attendu.",
+      "title": "Écris ton prompt — faire expliquer la règle de Hund par une IA",
+      "type": "prompt_practice"
+    },
+    {
+      "adaptation_hooks": [],
+      "artifact_a": "**Version A (IA).** L'ordre de remplissage suit la règle de Klechkowski : on remplit par (n+ℓ) croissant, puis par n croissant à (n+ℓ) égal. La séquence est 1s, 2s, 2p, 3s, 3p, 4s, 3d, 4p, etc. Chaque orbitale contient au plus deux électrons (Pauli) et une sous-couche dégénérée se remplit d'abord à spins parallèles (Hund).",
+      "artifact_b": "**Version B (enseignant).** Même règle de Klechkowski — mais attention au **piège** : le **4s se remplit avant le 3d** (car (4+0) < (3+2)), et pourtant, une fois rempli, le 4s **s'ionise le premier**. *Contre-exemple à connaître :* le **chrome** (Cr, [Ar]4s¹3d⁵) **viole** l'ordre naïf parce qu'une sous-couche d à demi-remplie est plus stable. La règle est un guide, pas une loi.",
+      "concept_refs": [
+        "c-remplissage"
+      ],
+      "estimated_seconds": 210,
+      "id": "s5c-compare-remplissage",
+      "key_points": [
+        {
+          "cues": [
+            "4s",
+            "3d"
+          ],
+          "id": "kp-piege",
+          "text": "L'enseignant signale le piège 4s avant 3d"
+        },
+        {
+          "cues": [
+            "chrome"
+          ],
+          "id": "kp-exception",
+          "text": "L'enseignant donne un contre-exemple (chrome) qui viole la règle"
+        },
+        {
+          "cues": [
+            "guide"
+          ],
+          "id": "kp-nuance",
+          "text": "L'enseignant nuance : la règle est un guide, pas une loi absolue"
+        }
+      ],
+      "model_answer": "La version IA est **correcte mais plate** : elle énonce la règle. La version de l'enseignant **ajoute la valeur pédagogique** : (1) elle signale le **piège 4s/3d** (ordre de remplissage ≠ ordre d'ionisation), (2) elle donne un **contre-exemple mémorable** (le **chrome**, [Ar]4s¹3d⁵) qui *viole* l'ordre naïf, et (3) elle **nuance** le statut de la règle (un **guide**, pas une loi). C'est cette mise en garde contre les exceptions qui distingue un cours qui *fait comprendre* d'un cours qui *récite*.",
+      "objective_refs": [],
+      "prompt": "Voici **deux versions** d'un mini-cours sur l'ordre de remplissage des orbitales : l'une rédigée par une **IA**, l'autre par ton **enseignant**. Les deux sont justes. **Relève la valeur ajoutée de la version de l'enseignant** : qu'apporte-t-elle que la version IA n'a pas ?",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.2,
+        "tone": 0.2
+      },
+      "title": "Compare — cours IA vs cours de l'enseignant (remplissage)",
+      "type": "comparison"
+    },
+    {
+      "adaptation_hooks": [],
+      "ai_summary": "**Résumé IA.** Les atomes émettent de la lumière quand leurs électrons changent de niveau. L'hydrogène produit une série de raies appelée série de Balmer. C'est utile en astronomie.",
+      "claims": [
+        {
+          "flaws_expected": [
+            "quantif"
+          ],
+          "id": "o-quant",
+          "text": "Le résumé omet que les niveaux sont QUANTIFIÉS (discrets)"
+        },
+        {
+          "flaws_expected": [
+            "energie",
+            "photon"
+          ],
+          "id": "o-photon",
+          "text": "Le résumé omet la relation énergie–fréquence du photon (E = hν)"
+        },
+        {
+          "flaws_expected": [
+            "balmer",
+            "visible"
+          ],
+          "id": "o-balmer",
+          "text": "Le résumé ne dit pas que Balmer = transitions vers n=2 (et est dans le visible)"
+        }
+      ],
+      "concept_refs": [
+        "c-spectres"
+      ],
+      "estimated_seconds": 180,
+      "id": "s4b-audit-spectres",
+      "model_correction": "Le résumé IA garde l'idée générale mais **supprime l'essentiel quantitatif** : (1) il ne dit pas que les niveaux sont **quantifiés** (c'est *pourquoi* le spectre est fait de raies discrètes et non continu) ; (2) il omet la relation d'**énergie** du **photon** (E = hν) qui relie la transition à la couleur ; (3) il ne précise pas que la série de **Balmer** correspond aux transitions vers n=2, dans le **visible** — la raison même pour laquelle ces raies sont observables. Un résumé fidèle doit conserver ces trois points.",
+      "objective_refs": [],
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      },
+      "source_content": "**Source.** Les niveaux d'énergie d'un atome sont **quantifiés**. Lorsqu'un électron passe d'un niveau n₂ à un niveau n₁ inférieur, l'atome **émet un photon** d'énergie E = hν = |E(n₂) − E(n₁)|. Pour l'hydrogène, les transitions qui **arrivent sur n=2** forment la **série de Balmer**, située dans le **visible** : c'est elle qui rend les raies observables à l'œil et permet de **reconnaître un gaz** à sa signature spectrale. Les transitions vers n=1 (série de Lyman) sont, elles, dans l'**ultraviolet**.",
+      "title": "Audite le résumé IA — spectres d'émission",
+      "type": "summary_audit"
+    },
+    {
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "choices": [
+        {
+          "correct": true,
+          "id": "a",
+          "text": "1s² 2s² 2p⁴"
+        },
+        {
+          "correct": false,
+          "id": "b",
+          "text": "1s² 2s² 2p⁶"
+        },
+        {
+          "correct": false,
+          "id": "c",
+          "text": "1s² 2s⁴ 2p²"
+        },
+        {
+          "correct": false,
+          "id": "d",
+          "text": "1s² 2s² 3s² 3p²"
+        }
+      ],
+      "concept_refs": [
+        "c-configuration"
+      ],
+      "estimated_seconds": 60,
+      "feedback_correct": "Exact : 2 + 2 + 4 = 8 électrons (Z=8), dans l'ordre 1s, 2s, 2p.",
+      "feedback_incorrect": "Vérifie deux choses : le total d'électrons doit valoir Z, et chaque sous-couche doit être pleine avant de passer à la suivante.",
+      "hints": [
+        "Une sous-couche s contient au plus 2 électrons.",
+        "Ordre : 1s, 2s, 2p."
+      ],
+      "id": "s5e-quiz-oxygene",
+      "objective_refs": [],
+      "question": "Quelle est la configuration électronique de l'oxygène (Z=8) ?",
+      "title": "Quiz : configuration de l'oxygène",
+      "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "c-periodicite"
+      ],
+      "estimated_seconds": 240,
+      "id": "s6-concept-periodicite",
+      "markdown": "## Tendances le long d'une période\n\nDe gauche à droite (période 2, Li→Ne), la charge nucléaire augmente à couche constante : les électrons sont plus attirés.\n\n- **Énergie de première ionisation** : globalement ↑.\n- **Rayon atomique** : ↓.\n\nLes deux courbes ci-contre rendent la tendance visible (et ses irrégularités, ex. B et O).",
+      "objective_refs": [],
+      "render_assets": [
+        {
+          "format": "vega-lite",
+          "kind": "plot_spec",
+          "payload": "{\n  \"$schema\": \"https://vega.github.io/schema/vega-lite/v5.json\",\n  \"description\": \"Energie de premiere ionisation (periode 2)\",\n  \"width\": 360,\n  \"height\": 170,\n  \"data\": {\n    \"values\": [\n      {\n        \"element\": \"Li\",\n        \"y\": 520\n      },\n      {\n        \"element\": \"Be\",\n        \"y\": 899\n      },\n      {\n        \"element\": \"B\",\n        \"y\": 801\n      },\n      {\n        \"element\": \"C\",\n        \"y\": 1086\n      },\n      {\n        \"element\": \"N\",\n        \"y\": 1402\n      },\n      {\n        \"element\": \"O\",\n        \"y\": 1314\n      },\n      {\n        \"element\": \"F\",\n        \"y\": 1681\n      },\n      {\n        \"element\": \"Ne\",\n        \"y\": 2081\n      }\n    ]\n  },\n  \"layer\": [\n    {\n      \"mark\": {\n        \"type\": \"line\",\n        \"point\": true\n      },\n      \"encoding\": {\n        \"x\": {\n          \"field\": \"element\",\n          \"type\": \"nominal\",\n          \"sort\": null,\n          \"title\": \"element (periode 2)\"\n        },\n        \"y\": {\n          \"field\": \"y\",\n          \"type\": \"quantitative\",\n          \"title\": \"E.I.1 (kJ/mol)\"\n        },\n        \"tooltip\": [\n          {\n            \"field\": \"element\"\n          },\n          {\n            \"field\": \"y\",\n            \"title\": \"E.I.1 (kJ/mol)\"\n          }\n        ]\n      }\n    }\n  ]\n}",
+          "provenance": "CRC / Clementi reference values (generate_assets.py)",
+          "title": "E. de 1ʳᵉ ionisation (période 2)"
+        },
+        {
+          "format": "vega-lite",
+          "kind": "plot_spec",
+          "payload": "{\n  \"$schema\": \"https://vega.github.io/schema/vega-lite/v5.json\",\n  \"description\": \"Rayon atomique (periode 2)\",\n  \"width\": 360,\n  \"height\": 170,\n  \"data\": {\n    \"values\": [\n      {\n        \"element\": \"Li\",\n        \"y\": 167\n      },\n      {\n        \"element\": \"Be\",\n        \"y\": 112\n      },\n      {\n        \"element\": \"B\",\n        \"y\": 87\n      },\n      {\n        \"element\": \"C\",\n        \"y\": 67\n      },\n      {\n        \"element\": \"N\",\n        \"y\": 56\n      },\n      {\n        \"element\": \"O\",\n        \"y\": 48\n      },\n      {\n        \"element\": \"F\",\n        \"y\": 42\n      },\n      {\n        \"element\": \"Ne\",\n        \"y\": 38\n      }\n    ]\n  },\n  \"layer\": [\n    {\n      \"mark\": {\n        \"type\": \"line\",\n        \"point\": true\n      },\n      \"encoding\": {\n        \"x\": {\n          \"field\": \"element\",\n          \"type\": \"nominal\",\n          \"sort\": null,\n          \"title\": \"element (periode 2)\"\n        },\n        \"y\": {\n          \"field\": \"y\",\n          \"type\": \"quantitative\",\n          \"title\": \"rayon (pm)\"\n        },\n        \"tooltip\": [\n          {\n            \"field\": \"element\"\n          },\n          {\n            \"field\": \"y\",\n            \"title\": \"rayon (pm)\"\n          }\n        ]\n      }\n    }\n  ]\n}",
+          "provenance": "CRC / Clementi reference values (generate_assets.py)",
+          "title": "Rayon atomique (période 2)"
+        }
+      ],
+      "title": "Périodicité : ionisation et rayon",
+      "type": "concept"
+    },
+    {
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "choices": [
+        {
+          "correct": true,
+          "id": "a",
+          "text": "Ionisation ↑, rayon ↓"
+        },
+        {
+          "correct": false,
+          "id": "b",
+          "text": "Ionisation ↓, rayon ↑"
+        },
+        {
+          "correct": false,
+          "id": "c",
+          "text": "Les deux ↑"
+        },
+        {
+          "correct": false,
+          "id": "d",
+          "text": "Les deux ↓"
+        }
+      ],
+      "concept_refs": [
+        "c-periodicite"
+      ],
+      "estimated_seconds": 60,
+      "feedback_correct": "Exact : charge nucléaire ↑ à couche constante → électrons plus liés (ionisation ↑, rayon ↓).",
+      "feedback_incorrect": "Le long d'une période la couche de valence reste la même alors que Z augmente : demande-toi ce que cela change pour l'attraction exercée sur les électrons.",
+      "hints": [
+        "Que fait la charge nucléaire effective le long d'une période ?"
+      ],
+      "id": "s6-quiz-tendance",
+      "objective_refs": [],
+      "question": "Le long d'une période (→), comment varient énergie d'ionisation et rayon atomique ?",
+      "title": "Quiz : sens des tendances",
+      "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "c-geometrie"
+      ],
+      "estimated_seconds": 240,
+      "id": "s7-concept-geometrie",
+      "markdown": "## Représenter une molécule dans l'espace\n\nLa théorie **VSEPR** prédit la géométrie à partir des doublets autour de l'atome central :\n\n- **CH₄** : 4 doublets liants → **tétraédrique**, 109,5° (hybridation sp³).\n- **H₂O** : 2 liants + 2 non liants → **coudée**, 104,5°.\n\nFais tourner les deux molécules ci-contre pour comparer les géométries.",
+      "objective_refs": [],
+      "render_assets": [
+        {
+          "format": "xyz",
+          "kind": "mol_3d",
+          "payload": "5\nMethane CH4 — geometrie tetraedrique (VSEPR / hybridation sp3)\nC      0.000000     0.000000     0.000000\nH      0.629312     0.629312     0.629312\nH      0.629312    -0.629312    -0.629312\nH     -0.629312     0.629312    -0.629312\nH     -0.629312    -0.629312     0.629312\n",
+          "provenance": "idealized VSEPR geometry (generate_assets.py)",
+          "title": "Méthane CH₄ (tétraédrique)"
+        },
+        {
+          "format": "xyz",
+          "kind": "mol_3d",
+          "payload": "3\nEau H2O — coudee 104.5 deg (VSEPR, 2 doublets non liants)\nO      0.000000     0.000000     0.000000\nH      0.759062     0.000000     0.587729\nH     -0.759062     0.000000     0.587729\n",
+          "provenance": "idealized VSEPR geometry (generate_assets.py)",
+          "title": "Eau H₂O (coudée)"
+        }
+      ],
+      "title": "Géométrie : VSEPR et hybridation",
+      "type": "concept"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "c-configuration"
+      ],
+      "estimated_seconds": 210,
+      "id": "s6b-prompt-configuration",
+      "key_points": [
+        {
+          "cues": [
+            "explique"
+          ],
+          "id": "kp-consigne",
+          "text": "Une consigne explicite (verbe d'action : explique / compare / justifie)"
+        },
+        {
+          "cues": [
+            "l1"
+          ],
+          "id": "kp-contexte",
+          "text": "Le contexte : niveau de l'apprenant et prérequis connus"
+        },
+        {
+          "cues": [
+            "mots"
+          ],
+          "id": "kp-contrainte",
+          "text": "Des contraintes : longueur, vocabulaire, étapes attendues"
+        },
+        {
+          "cues": [
+            "points"
+          ],
+          "id": "kp-format",
+          "text": "Le format de sortie demandé (liste, étapes, exemple)"
+        }
+      ],
+      "model_prompt": "« Tu es un tuteur de chimie pour un **étudiant de L1**. **Contexte** : je connais les règles de Klechkowski, Pauli et Hund, mais pas les exceptions. **Consigne** : explique **pourquoi** le cuivre (Z=29) adopte [Ar]4s¹3d¹⁰ plutôt que [Ar]4s²3d⁹. **Contraintes** : reste sous 150 mots, ne suppose aucun prérequis au-delà de L1, et définis tout terme technique. **Format de sortie** : (1) la règle naïve attendue, (2) l'exception observée, (3) la raison (stabilité de la sous-couche d pleine), en trois points numérotés. » — un bon prompt rend la **consigne**, le **contexte**, les **contraintes** et le **format** explicites.",
+      "objective_refs": [],
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.2,
+        "tone": 0.2
+      },
+      "starter_prompt": "explique moi le cuivre",
+      "task": "Tu veux qu'une IA t'explique **pourquoi le cuivre (Cu, Z=29) a la configuration [Ar]4s¹3d¹⁰** et non [Ar]4s²3d⁹. Le brouillon ci-dessous donne une réponse vague. **Réécris un prompt de qualité** : donne une **consigne claire**, le **contexte** (ton niveau, ce que tu sais déjà), des **contraintes** (longueur, pas de jargon non défini) et le **format de sortie** attendu.",
+      "title": "Affine ton prompt — faire expliquer une configuration par une IA",
+      "type": "prompt_practice"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "c-geometrie",
+        "c-periodicite"
+      ],
+      "estimated_seconds": 60,
+      "id": "s7-meta",
+      "objective_refs": [],
+      "post_question": "Et maintenant ?",
+      "pre_question": "Avant ce chapitre, à quel point te sentais-tu à l'aise pour relier orbitales, configuration et propriétés ?",
+      "scale_labels": [
+        "Pas du tout",
+        "Un peu",
+        "Moyennement",
+        "Bien",
+        "Très à l'aise"
+      ],
+      "title": "Auto-évaluation — chapitre 1",
+      "type": "meta_checkpoint"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "c-configuration",
+        "c-periodicite"
+      ],
+      "estimated_seconds": 420,
+      "id": "s8-reproduction-periodique",
+      "objective_refs": [],
+      "steps": [
+        {
+          "expected_input_schema": {
+            "properties": {
+              "groupe": {
+                "type": "integer"
+              },
+              "periode": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "periode",
+              "groupe"
+            ],
+            "type": "object"
+          },
+          "expected_output": {
+            "groupe": 1,
+            "periode": 3
+          },
+          "instruction": "Sodium (Z=11) : 1s² 2s² 2p⁶ 3s¹ → période et groupe ?",
+          "step_id": "na"
+        },
+        {
+          "expected_input_schema": {
+            "properties": {
+              "groupe": {
+                "type": "integer"
+              },
+              "periode": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "periode",
+              "groupe"
+            ],
+            "type": "object"
+          },
+          "expected_output": {
+            "groupe": 16,
+            "periode": 3
+          },
+          "instruction": "Soufre (Z=16) : 1s² 2s² 2p⁶ 3s² 3p⁴ → période et groupe ?",
+          "step_id": "s"
+        },
+        {
+          "expected_input_schema": {
+            "properties": {
+              "groupe": {
+                "type": "integer"
+              },
+              "periode": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "periode",
+              "groupe"
+            ],
+            "type": "object"
+          },
+          "expected_output": {
+            "groupe": 2,
+            "periode": 4
+          },
+          "instruction": "Calcium (Z=20) : 1s² 2s² 2p⁶ 3s² 3p⁶ 4s² → période et groupe ?",
+          "step_id": "ca"
+        }
+      ],
+      "task_card_id": "task-atom-l1-periodic",
+      "title": "Reproduction : placer les éléments dans le tableau périodique",
+      "type": "reproduction"
+    },
+    {
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "choices": [
+        {
+          "correct": true,
+          "id": "a",
+          "text": "8"
+        },
+        {
+          "correct": false,
+          "id": "b",
+          "text": "6"
+        },
+        {
+          "correct": false,
+          "id": "c",
+          "text": "14"
+        },
+        {
+          "correct": false,
+          "id": "d",
+          "text": "20"
+        }
+      ],
+      "concept_refs": [
+        "c-particules"
+      ],
+      "estimated_seconds": 60,
+      "feedback_correct": "Exact : N = A − Z = 14 − 6 = 8.",
+      "feedback_incorrect": "Repère A (le nombre en exposant) et Z, puis applique N = A − Z.",
+      "hints": [
+        "Le nombre en exposant est le nombre de masse A.",
+        "A = Z + N."
+      ],
+      "id": "s9-rappel-carbone14",
+      "objective_refs": [],
+      "question": "Le carbone 14 (¹⁴C) a Z=6. Combien contient-il de neutrons ?",
+      "title": "Rappel : le carbone 14",
+      "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "choices": [
+        {
+          "correct": true,
+          "id": "a",
+          "text": "5"
+        },
+        {
+          "correct": false,
+          "id": "b",
+          "text": "3"
+        },
+        {
+          "correct": false,
+          "id": "c",
+          "text": "10"
+        },
+        {
+          "correct": false,
+          "id": "d",
+          "text": "2"
+        }
+      ],
+      "concept_refs": [
+        "c-nombres-quantiques"
+      ],
+      "estimated_seconds": 60,
+      "feedback_correct": "Exact : mℓ va de −2 à +2, soit 2ℓ+1 = 5 orbitales (donc 10 électrons).",
+      "feedback_incorrect": "Pour une sous-couche d, repère ℓ puis compte les valeurs entières de mℓ entre −ℓ et +ℓ.",
+      "hints": [
+        "Nombre d'orbitales = 2ℓ+1.",
+        "ℓ vaut 2 pour une sous-couche d."
+      ],
+      "id": "s9-rappel-3d",
+      "objective_refs": [],
+      "question": "Combien d'orbitales (valeurs de mℓ) la sous-couche 3d (n=3, ℓ=2) compte-t-elle ?",
+      "title": "Rappel : la sous-couche 3d",
+      "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "choices": [
+        {
+          "correct": true,
+          "id": "a",
+          "text": "2"
+        },
+        {
+          "correct": false,
+          "id": "b",
+          "text": "0"
+        },
+        {
+          "correct": false,
+          "id": "c",
+          "text": "1"
+        },
+        {
+          "correct": false,
+          "id": "d",
+          "text": "3"
+        }
+      ],
+      "concept_refs": [
+        "c-orbitales-formes"
+      ],
+      "estimated_seconds": 60,
+      "feedback_correct": "Exact : n − ℓ − 1 = 3 − 0 − 1 = 2 nœuds radiaux (deux sphères).",
+      "feedback_incorrect": "Identifie n et ℓ pour une orbitale 3s, puis applique la formule des nœuds radiaux.",
+      "hints": [
+        "Pour une orbitale s, ℓ = 0.",
+        "Nœuds radiaux = n − ℓ − 1."
+      ],
+      "id": "s9-rappel-noeuds-3s",
+      "objective_refs": [],
+      "question": "Combien de nœuds RADIAUX possède une orbitale 3s ?",
+      "title": "Rappel : nœuds de la 3s",
+      "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "choices": [
+        {
+          "correct": true,
+          "id": "a",
+          "text": "n = 4 → n = 2"
+        },
+        {
+          "correct": false,
+          "id": "b",
+          "text": "n = 3 → n = 2"
+        },
+        {
+          "correct": false,
+          "id": "c",
+          "text": "n = 2 → n = 1"
+        },
+        {
+          "correct": false,
+          "id": "d",
+          "text": "n = 4 → n = 3"
+        }
+      ],
+      "concept_refs": [
+        "c-spectres"
+      ],
+      "estimated_seconds": 60,
+      "feedback_correct": "Exact : Hβ est la deuxième raie de Balmer, n=4 → n=2.",
+      "feedback_incorrect": "Les raies de Balmer arrivent toutes sur le même niveau ; Hα part du niveau juste au-dessus, Hβ du suivant.",
+      "hints": [
+        "La série de Balmer arrive sur n=2.",
+        "Hα part de n=3 ; Hβ est la raie suivante."
+      ],
+      "id": "s9-rappel-hbeta",
+      "objective_refs": [],
+      "question": "Dans la série de Balmer de l'hydrogène, quelle transition produit la raie Hβ (bleu-vert, ~486 nm), la deuxième de la série ?",
+      "title": "Rappel : la raie Hβ",
+      "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "choices": [
+        {
+          "correct": true,
+          "id": "a",
+          "text": "4s"
+        },
+        {
+          "correct": false,
+          "id": "b",
+          "text": "3d"
+        },
+        {
+          "correct": false,
+          "id": "c",
+          "text": "4p"
+        },
+        {
+          "correct": false,
+          "id": "d",
+          "text": "3s"
+        }
+      ],
+      "concept_refs": [
+        "c-remplissage"
+      ],
+      "estimated_seconds": 60,
+      "feedback_correct": "Exact : (n+ℓ) vaut 4 pour 4s et 5 pour 3d ; 4s se remplit donc avant 3d.",
+      "feedback_incorrect": "Compare la valeur de (n+ℓ) pour chaque sous-couche proposée : la plus petite se remplit d'abord.",
+      "hints": [
+        "Calcule n+ℓ pour 3d et pour 4s.",
+        "À (n+ℓ) égal, c'est le n le plus petit qui passe d'abord."
+      ],
+      "id": "s9-rappel-klechkowski",
+      "objective_refs": [],
+      "question": "Selon la règle de Klechkowski, quelle sous-couche se remplit juste après la 3p ?",
+      "title": "Rappel : après la 3p",
+      "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [
+        "rule_2err_replay_concept"
+      ],
+      "choices": [
+        {
+          "correct": true,
+          "id": "a",
+          "text": "1s² 2s² 2p⁶ 3s²"
+        },
+        {
+          "correct": false,
+          "id": "b",
+          "text": "1s² 2s² 2p⁸"
+        },
+        {
+          "correct": false,
+          "id": "c",
+          "text": "1s² 2s² 2p⁶ 3p²"
+        },
+        {
+          "correct": false,
+          "id": "d",
+          "text": "1s² 2s² 2p⁶ 3s¹ 3p¹"
+        }
+      ],
+      "concept_refs": [
+        "c-configuration"
+      ],
+      "estimated_seconds": 60,
+      "feedback_correct": "Exact : 2 + 2 + 6 + 2 = 12 électrons, dans l'ordre 1s, 2s, 2p, 3s.",
+      "feedback_incorrect": "Remplis les sous-couches dans l'ordre de Klechkowski en respectant leur capacité maximale, jusqu'à placer les 12 électrons.",
+      "hints": [
+        "Ordre : 1s, 2s, 2p, 3s.",
+        "Une sous-couche p contient au plus 6 électrons."
+      ],
+      "id": "s9-rappel-magnesium",
+      "objective_refs": [],
+      "question": "Quelle est la configuration électronique du magnésium (Z=12) ?",
+      "title": "Rappel : configuration du magnésium",
+      "type": "quiz"
+    }
+  ],
+  "schema_version": "1.4",
+  "source_plan_id": "plan-atomistique-l1",
+  "validated_at": "2026-11-10T11:42:58Z",
+  "validated_by": "beta-testeur"
 }

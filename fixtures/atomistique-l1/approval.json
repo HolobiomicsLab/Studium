@@ -1,0 +1,12 @@
+{
+  "bundle_sha256": "639a490fb93cd5a943001f86e67bacd1fb1aefe615502fd18eb831da05b12909",
+  "checklist": {},
+  "lint": {
+    "errors": 0,
+    "warnings": 3
+  },
+  "reviewed_at": "2026-11-10T11:42:58Z",
+  "reviewer": "beta-testeur",
+  "schema": "studium-approval/1",
+  "tool": "experience_packet.py approve 1.0"
+}
