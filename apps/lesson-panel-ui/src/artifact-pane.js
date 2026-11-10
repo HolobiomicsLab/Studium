@@ -90,11 +90,16 @@ let renderView;
 
   // What the pane remembers within one lesson: the title and concepts of each scene it showed (the
   // feedback names the answered scene, a detour names where it returns, the end screen names
-  // questions), each answer's outcome, the furthest step reached (the rail never runs backwards),
-  // the notices already shown in full and the scenes already self-rated.
+  // questions), each answer's outcome, the furthest step reached by a version-1 view (its rail never runs
+  // backwards), the notices already shown in full and the scenes already self-rated.
+  // Panel audit 2026-11-10: also how many answers each scene had (a replay counts its attempts, B4), the
+  // learner's own last answer per scene (the feedback quotes it, B14 and C5: kept here, sent nowhere new,
+  // and never the key), the server's step of each scene on the path (a detour is a marker, A4), and which
+  // disclosures the learner left open.
   let memory = freshMemory();
   function freshMemory() {
-    return { titles: new Map(), concepts: new Map(), outcomes: new Map(), furthest: 0, total: 0, notices: new Set(), rated: new Set(), mapOpen: null, left: null };
+    return { titles: new Map(), concepts: new Map(), outcomes: new Map(), furthest: 0, total: 0, notices: new Set(), rated: new Set(), mapOpen: null, left: null,
+      attempts: new Map(), answers: new Map(), steps: new Map(), lastPath: null, helpOpen: null, settingsOpen: false };
   }
   // Live nodes of the current screen. The pane keeps references rather than looking ids up, so an id
   // inside an authored SVG can never capture the hint box or the status line.
@@ -126,21 +131,38 @@ let renderView;
   // --- pending actions ---------------------------------------------------------------------------------
   let actionPending = false;
   const disabledBeforePending = new WeakMap();
+  // Panel audit 2026-11-10, A6: the control that has the keyboard focus is never disabled under the learner
+  // (a disabled control drops the focus to the page). It is marked aria-disabled and the pending guard
+  // (postAction, the keyboard handler) keeps it from acting; the others are disabled. When the wait ends
+  // without a new screen and the focus fell to the page anyway, it goes back to the control that sent.
+  let focusOrigin = null;
 
   function setActionPending(pending, message) {
     actionPending = pending;
     const root = $("#pane");
     if (!root) return;
     root.setAttribute("aria-busy", pending ? "true" : "false");
+    const focused = document.activeElement;
+    if (pending && focused && focused !== document.body && root.contains(focused)) focusOrigin = focused;
     root.querySelectorAll("button, textarea, input").forEach((control) => {
       if (pending) {
-        if (!disabledBeforePending.has(control)) disabledBeforePending.set(control, control.disabled);
-        control.disabled = true;
+        if (disabledBeforePending.has(control)) return;
+        disabledBeforePending.set(control, { disabled: control.disabled, aria: control.getAttribute("aria-disabled") });
+        if (control === focused) control.setAttribute("aria-disabled", "true");
+        else control.disabled = true;
       } else if (disabledBeforePending.has(control)) {
-        control.disabled = disabledBeforePending.get(control);
+        const before = disabledBeforePending.get(control);
+        control.disabled = before.disabled;
+        if (before.aria === null) control.removeAttribute("aria-disabled");
+        else control.setAttribute("aria-disabled", before.aria);
         disabledBeforePending.delete(control);
       }
     });
+    if (!pending && focusOrigin) {
+      const origin = focusOrigin;
+      focusOrigin = null;
+      if (origin.isConnected && (!document.activeElement || document.activeElement === document.body)) focusQuietly(origin);
+    }
     if (ui.status) {
       ui.status.className = "action-status" + (pending ? " pending" : "");
       ui.status.textContent = message || "";
@@ -215,7 +237,7 @@ let renderView;
     memory = freshMemory();
     lastAuthoring = null;
     pendingDone = null;
-    const notice = el("section", { class: "session-lost", role: "alert" }, el("p", {}, t("pane_session_lost")));
+    const notice = el("section", { class: "session-lost", role: "alert" }, el("p", { role: "heading", "aria-level": "1" }, t("pane_session_lost")));
     if (window.__send) {
       const reopen = el("button", { type: "button", class: "st-button st-button--primary reopen-lesson" }, t("pane_reopen_lesson"));
       reopen.addEventListener("click", () => postAction({ type: "reopen" }, t("pane_opening")));
@@ -240,7 +262,7 @@ let renderView;
     const root = resetPane();
     applyLanguage(view);
     const notice = el("section", { class: "surface-elsewhere", "data-surface": view.surface.kind },
-      el("h2", { class: "surface-elsewhere-title" }, t(ELSEWHERE[view.surface.kind])),
+      el("h1", { class: "surface-elsewhere-title" }, t(ELSEWHERE[view.surface.kind])),
       el("p", {}, t("pane_surface_not_negotiated")));
     if (typeof view.status_line === "string" && view.status_line) notice.append(el("p", { class: "orientation-line" }, view.status_line));
     const available = Array.isArray(view.surface.available) ? view.surface.available : [];
@@ -269,7 +291,10 @@ let renderView;
     const root = $("#pane");
     root.innerHTML = "";
     actionPending = false;
+    focusOrigin = null;
     root.setAttribute("aria-busy", "false");
+    // The pane is the page's main region (the MCP template makes it a <main>; a host page may not).
+    if (root.tagName !== "MAIN" && !root.hasAttribute("role")) root.setAttribute("role", "main");
     ui = blankUi();
     return root;
   }
@@ -575,6 +600,7 @@ let renderView;
     if (total && memory.total && total !== memory.total) memory = freshMemory(); // another lesson
     if (total) memory.total = total;
     remember(scene);
+    placeScene(state, scene);
     const verdict = isObject(state.verdict) ? state.verdict : null;
     const rating = selfRatingOf(state, verdict);
     const verdictKey = verdict ? JSON.stringify(verdict) : null;
@@ -582,16 +608,56 @@ let renderView;
     sameSceneAwaited = false;
     if (verdict && (verdict.graded || rating) && !alreadyLeft) {
       recordOutcome(verdict);
+      const sources = sourcesOf(state, verdict);
       renderFeedbackStep({
-        verdict, rating, calibration: state.calibration, sources: sourcesOf(state, verdict), authoring: lastAuthoring,
-        // The scene shown again is the one just answered: its feedback would give the answer away.
-        withheld: !!scene.id && scene.id === verdict.scene_id,
-        voices: state.voices,
+        verdict, rating, calibration: state.calibration, sources, authoring: lastAuthoring,
+        // The scene shown again is the one just answered: its reference would give the answer away. A
+        // version-2 server already holds back the reference, and a feedback that names the right choice, until
+        // the learner leaves the scene (host I-2): the panel then withholds only a reference the view still
+        // carries, and shows the key-free feedback the engine returned (panel audit B4). A version-1 view
+        // comes from a host that may not: its whole feedback waits, as before.
+        withheld: !!scene.id && scene.id === verdict.scene_id && (!hasOrientation(state) || hasReference(verdict, sources)),
+        voices: state.voices, state,
         onContinue: () => { memory.left = verdictKey; renderScene(state); },
       });
       return;
     }
     renderScene(state);
+  }
+
+  // The language of the lesson's own text, when the view says it (`content_language`, panel audit A11): the
+  // scene and its feedback are marked with it, so that a screen reader reads them in that language even when
+  // the panel speaks another. Without the field nothing is claimed.
+  function contentLanguage(state) {
+    const value = isObject(state) && typeof state.content_language === "string" ? state.content_language.trim() : "";
+    return /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(value) ? value : null;
+  }
+
+  // Where a version-2 view places the learner (panel audit A4, C1): the step the server gives, kept per
+  // scene on the path, so that a detour, which the server numbers where its scene sits in the lesson, shows
+  // the step it returns to (or, when that scene was not shown yet, the last step on the path the server gave)
+  // with a marker instead of a jump. Without either the server's own step is shown.
+  function placeScene(state, scene) {
+    const step = isObject(state.orientation) && isObject(state.orientation.step) ? state.orientation.step : null;
+    if (!step || !scene.id || isObject(step.detour)) return;
+    const index = Number(step.index);
+    if (Number.isFinite(index)) { memory.steps.set(scene.id, index); memory.lastPath = index; }
+  }
+  function placement(state) {
+    const step = isObject(state.orientation) && isObject(state.orientation.step) ? state.orientation.step : null;
+    if (!step) return null;
+    const total = Math.max(1, Number(step.total) || 1);
+    const detour = isObject(step.detour) ? step.detour : null;
+    let index = Number(step.index) || 1;
+    if (detour && detour.returns_to && memory.steps.has(detour.returns_to)) index = memory.steps.get(detour.returns_to);
+    else if (detour && Number.isFinite(memory.lastPath)) index = memory.lastPath;
+    return { index: Math.min(total, Math.max(1, index)), total, detour };
+  }
+
+  // A reference the feedback would show: the key points, a model answer, the sources.
+  function hasReference(verdict, sources) {
+    const items = (Array.isArray(verdict.key_points) ? verdict.key_points : []).filter((p) => (typeof p === "string" ? p : isObject(p) && p.text));
+    return items.length > 0 || (typeof verdict.model_answer === "string" && verdict.model_answer.trim() !== "") || (Array.isArray(sources) && sources.length > 0);
   }
 
   function applyLanguage(state) {
@@ -608,6 +674,7 @@ let renderView;
   // The end screen's fallback names questions by outcome; a later answer to the same scene wins.
   function recordOutcome(verdict) {
     if (!verdict.scene_id) return;
+    memory.attempts.set(verdict.scene_id, (memory.attempts.get(verdict.scene_id) || 0) + 1);
     memory.outcomes.delete(verdict.scene_id);
     memory.outcomes.set(verdict.scene_id, verdict.correct === true ? "passed" : verdict.correct === false ? "missed" : "open");
   }
@@ -630,20 +697,28 @@ let renderView;
   function renderScene(state) {
     const root = resetPane();
     const sc = isObject(state.scene) ? state.scene : {};
+    const lang = contentLanguage(state);
     const notice = state.authoring && state.authoring.notice;
     if (notice) root.append(noticeBlock(String(notice)));
-    const head = sceneHead(state, sc);
+    const head = sceneHead(state, sc, lang);
     root.append(head);
+    // What the server says about a contest's check (B6) is a card at the top, like a detour; any other
+    // message on a scene view stays in the status line.
+    const contest = contestCard(state);
+    if (contest) root.append(contest);
     const nav = navigationCard(state, sc);
     if (nav) root.append(nav);
-    sceneBody(sc).forEach((node) => root.append(node));
-    const assets = assetsSection(state);
-    if (assets) root.append(assets);
-    root.append(renderControls(sc, state));
-    const ladder = helpLadder(state);
-    if (ladder) root.append(ladder);
+    const body = el("div", { class: "scene-body", lang });
+    sceneBody(sc).forEach((node) => body.append(node));
+    if (body.childNodes.length) root.append(body);
+    // C4: a hint lands under the question, where it is read with it.
     ui.hint = el("div", { id: "hint", class: "hint", "aria-live": "polite" });
     root.append(ui.hint);
+    const assets = assetsSection(state);
+    if (assets) root.append(assets);
+    const ladder = helpLadder(state, sc);
+    root.append(renderControls(sc, state, ladder, lang));
+    if (ladder) root.append(ladder);
     const proposals = promptsRegion(state);
     if (proposals) root.append(proposals);
     const mapButton = conceptMapButton(state);
@@ -654,19 +729,64 @@ let renderView;
     if (mastery) root.append(mastery);
     const settings = settingsRegion(state);
     if (settings) root.append(settings);
-    // What the server says about the action just taken on this scene (a contest's check questions).
-    if (typeof state.message === "string" && state.message) showActionNotice(state.message);
+    // What the server says about the action just taken on this scene (the outcome of a contest's check).
+    if (typeof state.message === "string" && state.message && !contest) showActionNotice(state.message);
+    markScrollRegions(root);
     const wasOpen = memory.mapOpen;
     memory.mapOpen = !!map;
     // The map was just opened: the position goes to its heading; just closed: back to its button.
     if (map && wasOpen === false) { announce(t("pane_map_open")); focusQuietly($(".map-title", map)); return; }
     if (!map && wasOpen === true && mapButton) { focusQuietly(mapButton); return; }
     const title = sc.title || "";
+    const place = hasOrientation(state) ? placement(state) : null;
     announce(state.progress
-      ? t("pane_live_step", { position: memory.furthest, total: memory.total || state.progress.total, title })
+      ? t("pane_live_step", { position: place ? place.index : memory.furthest, total: place ? place.total : memory.total || state.progress.total, title })
       : t("pane_live_scene", { title }));
     focusHeading($(".scene-title", head));
   }
+
+  // Panel audit 2026-11-10, A12: a formula, a table or an asset wider than the panel scrolls sideways. Such a
+  // box takes the keyboard focus (the arrow keys scroll it) and is a named region; one that fits is left
+  // alone. Measured once the screen is laid out, and again when the panel changes width.
+  const SCROLLERS = ".asset-body, .prose .katex-display, .prose .math-block, .prose pre.code";
+  function markScrollRegions(root) {
+    const measure = () => {
+      if (!root || !root.isConnected) return;
+      // C1: a bar that would cover more than a third of a short window (large text) stays in the flow.
+      const bar = $(".action-bar", root);
+      if (bar) {
+        bar.classList.remove("action-bar--static");
+        if (window.innerHeight > 0 && bar.offsetHeight > window.innerHeight / 3) bar.classList.add("action-bar--static");
+      }
+      // With large text the header alone can fill a short window: it then tightens (no rail, smaller chips
+      // and title), so that the question still starts on the first screen.
+      root.classList.remove("is-crowded");
+      const question = $(".scene-body", root);
+      if (question && window.innerHeight > 0 && question.getBoundingClientRect().top > window.innerHeight * 0.4) root.classList.add("is-crowded");
+      root.querySelectorAll(SCROLLERS).forEach((node) => {
+        // A box inside one that already scrolls is that box's content, not a second region.
+        if (node.parentElement && node.parentElement.closest("[data-scrolls='true']")) return;
+        const scrolls = node.scrollWidth > node.clientWidth + 1;
+        if (scrolls && node.getAttribute("tabindex") === null) {
+          const asset = node.closest(".asset");
+          const named = asset ? $(".asset-title", asset) : null;
+          node.setAttribute("tabindex", "0");
+          node.setAttribute("role", "region");
+          node.setAttribute("aria-label", t("pane_scroll_region", { title: named ? named.textContent : t("pane_formula") }));
+          node.setAttribute("data-scrolls", "true");
+        } else if (!scrolls && node.getAttribute("data-scrolls") === "true") {
+          ["tabindex", "role", "aria-label", "data-scrolls"].forEach((name) => node.removeAttribute(name));
+        }
+      });
+    };
+    if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(measure);
+    else setTimeout(measure, 0);
+  }
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => markScrollRegions($("#pane")), 120);
+  });
 
   // --- the server's proposals (INT-STUDIUM-058 § 2.6) ---------------------------------------------------
   // The server decides what is proposed, when and how often; the panel shows what the view carries,
@@ -740,7 +860,12 @@ let renderView;
       groups.push(el("div", { class: "settings-group replan" }, el("label", { class: "settings-label", for: inputId }, t("pane_replan_minutes")), minutes, button));
     }
     if (!groups.length) return null;
-    return el("section", { class: "settings", "aria-label": t("pane_settings") }, ...groups);
+    // C1: the settings do not follow every scene open. They wait behind a disclosure at the bottom (the « ⋯ »
+    // menu opens it too), which stays open across views once the learner opened it.
+    const section = el("section", { class: "settings", "aria-label": t("pane_settings") }, ...groups);
+    const box = el("details", { class: "settings-section", open: memory.settingsOpen || null }, el("summary", {}, t("pane_settings")), section);
+    box.addEventListener("toggle", () => { memory.settingsOpen = box.open; });
+    return box;
   }
 
   function settingsGroup(label, buttons) {
@@ -776,7 +901,7 @@ let renderView;
     const offered = Array.isArray(state.actions) ? state.actions : [];
     const titles = new Map(concepts.map((c) => [c.id, String(c.title || conceptKey(c.id))]));
     const edges = Array.isArray(map.edges) ? map.edges.filter((e) => isObject(e) && titles.has(e.from) && titles.has(e.to)) : [];
-    const title = el("h3", { class: "map-title", id: nextId("map-title"), tabindex: "-1" }, t("pane_map_open"));
+    const title = el("h2", { class: "map-title", id: nextId("map-title"), tabindex: "-1" }, t("pane_map_open"));
     const close = el("button", { type: "button", class: "st-button st-button--quiet map-close" }, t("pane_map_close"));
     close.addEventListener("click", () => postAction({ type: "closeMap" }, t("pane_updating")));
     const list = el("ul", { class: "map-list" });
@@ -841,27 +966,64 @@ let renderView;
     return el("details", { class: "authoring-notice-compact" }, el("summary", {}, t("pane_about_lesson")), el("p", {}, notice));
   }
 
-  function sceneHead(state, sc) {
+  function sceneHead(state, sc, lang) {
     const head = el("header", { class: "scene-head" });
     const help = document.getElementById("studium-help-" + sc.type);
     if (help instanceof HTMLTemplateElement) head.append(help.content.cloneNode(true));
     const meta = el("div", { class: "scene-meta" });
     const chip = typeChip(sc.type);
     if (chip) meta.append(chip);
-    const due = dueChip(state.reviewDue);
-    if (due) meta.append(due);
-    meta.append(paneMenu());
-    head.append(meta);
-    // INT-STUDIUM-058: a version-2 view says where the learner is in one line (step, time left, reviews
-    // due, what is expected); the rail then keeps its segments and drops its own label, so the step is
-    // said once. Then who signs the lesson.
     const orientation = hasOrientation(state);
-    if (orientation) head.append(el("p", { class: "orientation-line", "data-waiting": state.orientation.waiting }, state.status_line));
-    if (state.progress) head.append(progressRail(state.progress, !orientation));
-    const voice = voiceText(isObject(state.voices) ? state.voices.scene : null);
-    if (voice) head.append(el("p", { class: "voice voice-scene" }, voice));
-    head.append(el("h2", { class: "scene-title", tabindex: "-1" }, sc.title || ""));
+    if (orientation) {
+      // C1: a version-2 view says where the learner is in one compact line (step, detour, time, reviews due),
+      // built from the orientation the server gives; the server's own status line is what a screen reader
+      // reads, word for word. Then the rail, then the type of the scene and a short chip for who signs the
+      // lesson, whose full wording opens from it. The settings and the reviews chip leave the header.
+      head.append(el("div", { class: "session-strip" }, sessionLine(state, true), paneMenu(state)));
+      head.append(el("p", { class: "orientation-line visually-hidden", "data-waiting": state.orientation.waiting }, state.status_line));
+      if (state.progress) head.append(progressRail(state.progress, false, placement(state)));
+      const voice = voiceChip(isObject(state.voices) ? state.voices.scene : null);
+      if (voice) meta.append(voice);
+      if (meta.childNodes.length) head.append(meta);
+    } else {
+      const due = dueChip(state.reviewDue);
+      if (due) meta.append(due);
+      meta.append(paneMenu(state));
+      head.append(meta);
+      if (state.progress) head.append(progressRail(state.progress, true, null));
+      const voice = voiceText(isObject(state.voices) ? state.voices.scene : null);
+      if (voice) head.append(el("p", { class: "voice voice-scene" }, voice));
+    }
+    head.append(el("h1", { class: "scene-title", tabindex: "-1", lang }, sc.title || ""));
     return head;
+  }
+
+  // The session in one line: the step on the path, a contest's check, a detour and where it returns, the
+  // minutes left as the server counts them, the reviews due. `hidden` keeps it from a screen reader, which
+  // reads the server's status line beside it instead.
+  function sessionLine(state, hidden) {
+    const o = state.orientation;
+    const place = placement(state) || { index: 1, total: 1, detour: null };
+    const parts = [t("pane_session_step", { index: place.index, total: place.total })];
+    if (isObject(o.contest)) parts.push(t("pane_session_check", { question: o.contest.question, total: o.contest.total }));
+    if (place.detour) {
+      const back = place.detour.returns_to && memory.titles.get(place.detour.returns_to);
+      parts.push(back ? t("pane_session_detour_to", { title: back }) : t("pane_session_detour"));
+    }
+    if (Number.isFinite(o.minutes_left)) parts.push(t("pane_session_minutes", { minutes: Math.max(0, Math.round(o.minutes_left)) }));
+    if (Number(o.reviews_due) > 0) parts.push(t("pane_due_review", { count: o.reviews_due }));
+    return el("p", { class: "session-line", "aria-hidden": hidden ? "true" : null }, parts.join(" · "));
+  }
+
+  // Who signs the lesson, in a word or two; the full sentence opens from the chip.
+  function voiceChip(voice) {
+    const full = voiceText(voice);
+    if (!full || !isObject(voice)) return null;
+    const short = voice.reviewed ? "pane_voice_short_validated" : voice.name ? "pane_voice_short_changed"
+      : voice.drafted_by === "agent" ? "pane_voice_short_ai" : voice.drafted_by === "learner" ? "pane_voice_short_learner" : "pane_voice_short_unreviewed";
+    const fullNode = el("p", { class: "voice voice-scene", id: nextId("voice") }, full);
+    return el("details", { class: "voice-chip", "data-reviewed": voice.reviewed ? "true" : "false" },
+      el("summary", { "aria-describedby": fullNode.id }, t(short)), fullNode);
   }
 
   function hasOrientation(state) {
@@ -896,7 +1058,9 @@ let renderView;
   // is aria-disabled, never disabled, and pressing it says the reason and sends nothing. « Poser une
   // question » hands over to the assistant. A version-1 view has no ladder.
   const RUNG_LABEL = { reread: "pane_help_reread", hint: "pane_hint", explain: "pane_help_explain", reference: "pane_help_reference" };
-  function helpLadder(state) {
+  // C4: the ladder opens in place from one « Aide » control in the action bar, right after it in reading
+  // order, and stays open on this scene once opened. « Poser une question » opens its field in the ladder.
+  function helpLadder(state, sc) {
     const rungs = isObject(state.help) && Array.isArray(state.help.rungs) ? state.help.rungs.filter((r) => isObject(r) && RUNG_LABEL[r.kind]) : [];
     const offered = Array.isArray(state.actions) ? state.actions : [];
     if (!rungs.length) return null;
@@ -911,13 +1075,26 @@ let renderView;
       button.addEventListener("click", () => pressRung(rung, noteText, offered));
       list.append(el("div", { class: "help-rung-item" }, button, noteText ? el("span", { id: noteId, class: "help-note" }, noteText) : null));
     }
-    const nav = el("nav", { class: "help-ladder", "aria-label": t("pane_help_heading") }, list);
+    const nav = el("nav", { class: "help-ladder", id: nextId("help"), "aria-label": t("pane_help_heading"), hidden: memory.helpOpen === (sc.id || "") ? null : true }, list);
     if (offered.includes("ask")) {
       const ask = el("button", { type: "button", class: "st-button st-button--quiet ask-button" }, t("pane_ask"));
       ask.addEventListener("click", () => postAction({ type: "ask" }, t("pane_updating")));
-      nav.append(ask);
+      nav.append(ask, el("div", { class: "ask-slot" }));
     }
+    nav.setAttribute("data-scene", sc.id || "");
     return nav;
+  }
+
+  function helpToggle(ladder) {
+    const toggle = el("button", { type: "button", class: "st-button st-button--quiet help-toggle", "aria-controls": ladder.id, "aria-expanded": ladder.hidden ? "false" : "true" }, t("pane_help_heading"));
+    toggle.addEventListener("click", () => {
+      const open = ladder.hidden;
+      ladder.hidden = !open;
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      memory.helpOpen = open ? ladder.getAttribute("data-scene") : null;
+      if (open && typeof ladder.scrollIntoView === "function") ladder.scrollIntoView({ block: "nearest" });
+    });
+    return toggle;
   }
 
   function pressRung(rung, noteText, offered) {
@@ -949,23 +1126,50 @@ let renderView;
       t("pane_due_review", { count: due.length }));
   }
 
-  // Right to be forgotten: always one click away, in the header's overflow menu; the host confirms.
-  function paneMenu() {
-    const forget = el("button", { type: "button", class: "st-button st-button--quiet forget", title: t("pane_forget_title") }, t("pane_forget"));
-    forget.addEventListener("click", () => postAction({ type: "end" }, t("pane_forget_pending")));
-    return el("details", { class: "pane-menu" },
-      el("summary", { "aria-label": t("pane_menu"), title: t("pane_menu") }, el("span", { "aria-hidden": "true" }, "⋯")),
-      el("div", { class: "pane-menu-body" }, forget));
+  // The header's overflow menu: the settings (B8 and C1: they wait at the bottom of the pane), another course
+  // when the view offers it, and the right to be forgotten, always one click away, last (the host confirms).
+  function paneMenu(state) {
+    const offered = isObject(state) && Array.isArray(state.actions) ? state.actions : [];
+    const menu = el("details", { class: "pane-menu" });
+    const item = (className, label, onClick, title) => {
+      const button = el("button", { type: "button", class: "st-button st-button--quiet " + className, title }, label);
+      button.addEventListener("click", () => { menu.open = false; onClick(); });
+      return button;
+    };
+    const body = el("div", { class: "pane-menu-body" });
+    if (["setAttention", "setLanguage", "replan"].some((name) => offered.includes(name))) {
+      body.append(item("menu-settings", t("pane_settings"), () => {
+        const box = $(".settings-section");
+        if (!box) return;
+        box.open = true;
+        memory.settingsOpen = true;
+        const summary = $("summary", box);
+        focusQuietly(summary);
+        if (summary && typeof summary.scrollIntoView === "function") summary.scrollIntoView({ block: "nearest" });
+      }));
+    }
+    if (offered.includes("pickCourse")) body.append(item("menu-pick-course", t("pane_pick_course"), () => postAction({ type: "pickCourse" }, t("pane_updating"))));
+    body.append(item("forget", t("pane_forget"), () => postAction({ type: "end" }, t("pane_forget_pending")), t("pane_forget_title")));
+    menu.append(el("summary", { "aria-label": t("pane_menu"), title: t("pane_menu") }, el("span", { "aria-hidden": "true" }, "⋯")), body);
+    return menu;
   }
 
-  // The rail shows the furthest step reached: a detour to an earlier scene marks the rail and
-  // never moves it back, so the learner does not read « 8 sur 25 » after « 15 sur 25 » (VSC-2).
-  function progressRail(progress, labelled = true) {
-    const total = Math.max(1, Number(progress.total) || 1);
-    const index = Math.min(total, Math.max(1, Number(progress.index) || 1));
-    memory.furthest = Math.min(total, Math.max(memory.furthest, index));
-    const position = memory.furthest;
-    const detour = index < position;
+  // A version-1 view: the rail shows the furthest step reached; a detour to an earlier scene marks the rail
+  // and never moves it back, so the learner does not read « 8 sur 25 » after « 15 sur 25 » (VSC-2).
+  // A version-2 view (panel audit A4, C1): the rail follows the step the server gives, the one the session
+  // line says and aria-valuenow carries; a detour keeps the step it returns to and is marked, not jumped to.
+  function progressRail(progress, labelled = true, place = null) {
+    const total = place ? place.total : Math.max(1, Number(progress.total) || 1);
+    let position, detour;
+    if (place) {
+      position = place.index;
+      detour = !!place.detour;
+    } else {
+      const index = Math.min(total, Math.max(1, Number(progress.index) || 1));
+      memory.furthest = Math.min(total, Math.max(memory.furthest, index));
+      position = memory.furthest;
+      detour = index < position;
+    }
     const label = t("pane_progress", { position, total });
     const rail = el("div", {
       class: "progress st-progress", role: "progressbar", "aria-label": t("pane_progress_label"),
@@ -979,12 +1183,14 @@ let renderView;
     if (total <= 30) {
       const segments = el("div", { class: "st-segments", "aria-hidden": "true" });
       for (let i = 1; i <= total; i++) {
-        segments.append(el("span", { "data-state": i < position ? "complete" : i === position ? "current" : null }));
+        segments.append(el("span", { "data-state": i < position ? "complete" : i === position ? (place && detour ? "detour" : "current") : null }));
       }
       rail.append(segments);
     } else {
+      const share = Math.round(position / total * 100);
       rail.append(el("div", { class: "progress-track", "aria-hidden": "true" },
-        el("span", { class: "progress-fill", style: `width:${Math.round(position / total * 100)}%` })));
+        el("span", { class: "progress-fill", style: `width:${share}%` }),
+        place && detour ? el("span", { class: "progress-mark", "data-state": "detour", style: `inset-inline-start:${share}%` }) : null));
     }
     return rail;
   }
@@ -992,7 +1198,7 @@ let renderView;
   // Why this scene is shown, in learner words. The engine's rule id and reason code serve the
   // teacher's journal; the pane never prints them (VSC-2).
   const NAV_CARDS = {
-    replay: { className: "gate gate-replay", symbol: "↻", title: "pane_gate_replay", why: () => t("pane_nav_replay_why") },
+    replay: { className: "gate gate-replay", symbol: "↻", title: "pane_gate_replay", why: replayWhy },
     remediate_alt: { className: "gate gate-remediate_alt", symbol: "↻", title: "pane_gate_remediate", why: () => t("pane_nav_remediate_alt_why") },
     remediate: { className: "nav-card nav-detour", symbol: "↳", title: "pane_nav_detour", why: detourWhy },
     gate_passed: { className: "nav-card nav-return", symbol: "↰", title: "pane_nav_return", why: () => t("pane_nav_return_why") },
@@ -1018,7 +1224,20 @@ let renderView;
     const nav = isObject(state.navigation) ? state.navigation : {};
     return el("div", { class: card.className, role: "note" },
       el("p", { class: "gate-title" }, el("span", { class: "gate-symbol", "aria-hidden": "true" }, card.symbol), " ", t(card.title)),
-      el("p", { class: "gate-why" }, card.why(nav)));
+      el("p", { class: "gate-why" }, card.why(nav, sc)));
+  }
+  // B4: the second attempt says so; a later one says its number (the answers this pane saw on the scene).
+  function replayWhy(nav, sc) {
+    const answered = sc && sc.id ? memory.attempts.get(sc.id) || 0 : 0;
+    return answered >= 2 ? t("pane_nav_replay_why_n", { count: answered + 1 }) : t("pane_nav_replay_why");
+  }
+  // B6: a contest's check question is announced like a detour, at the top, with what the server said.
+  function contestCard(state) {
+    const o = isObject(state.orientation) ? state.orientation : null;
+    if (!o || !isObject(o.contest) || typeof state.message !== "string" || !state.message) return null;
+    return el("div", { class: "nav-card nav-contest", role: "note" },
+      el("p", { class: "gate-title" }, el("span", { class: "gate-symbol", "aria-hidden": "true" }, "?"), " ", t("pane_nav_contest")),
+      el("p", { class: "gate-why" }, state.message));
   }
   function detourWhy(nav) {
     const back = nav.returns_to && memory.titles.get(nav.returns_to);
@@ -1131,21 +1350,39 @@ let renderView;
     const root = resetPane();
     const v = fb.verdict;
     const kind = verdictKind(v);
+    const state = isObject(fb.state) ? fb.state : {};
+    const lang = contentLanguage(state);
+    // C5: the feedback keeps the thread: where the learner is, then the answer they gave beside what the key
+    // says, each labelled with who assessed it. Nothing of a key the view does not carry is shown.
     const titleText = (v.scene_id && memory.titles.get(v.scene_id)) || t("pane_feedback_untitled");
-    const title = el("h2", { class: "scene-title", id: nextId("feedback-title"), tabindex: "-1" }, titleText);
-    const step = el("section", { class: "feedback-step", "aria-labelledby": title.id },
-      el("p", { class: "st-eyebrow" }, t("pane_feedback_eyebrow")), title);
+    const title = el("h1", { class: "scene-title", id: nextId("feedback-title"), tabindex: "-1", lang }, titleText);
+    const step = el("section", { class: "feedback-step", "aria-labelledby": title.id });
+    if (hasOrientation(state)) {
+      const strip = el("div", { class: "feedback-strip" }, el("div", { class: "session-strip" }, sessionLine(state, false)));
+      if (state.progress) strip.append(progressRail(state.progress, false, placement(state)));
+      step.append(strip);
+    }
+    step.append(el("p", { class: "st-eyebrow" }, t("pane_feedback_eyebrow")), title);
     // INT-STUDIUM-058: who assessed this answer, over its feedback.
     const voice = verdictVoiceText(fb.voices);
     if (voice) step.append(el("p", { class: "voice voice-verdict" }, voice));
-    step.append(feedbackCard(v, kind, fb.withheld));
+    const keyItems = fb.withheld ? [] : keyPointItems(v);
+    const answer = v.scene_id ? memory.answers.get(v.scene_id) : null;
+    // The right choice is said once: beside the learner's choice when this pane sent it, else in its own block.
+    const comparesChoice = v.reference_kind === "correct_choice" && keyItems.length > 0 && isObject(answer) && !!answer.choice;
+    // A5: something follows the « compare » sentence: the feedback's own text, or a reference.
+    const below = !fb.withheld && ((typeof v.feedback === "string" && v.feedback.trim() !== "") || keyItems.length > 0
+      || (typeof v.model_answer === "string" && v.model_answer.trim() !== "") || (fb.sources || []).length > 0);
+    step.append(feedbackCard(v, kind, fb.withheld, below, lang));
+    const yours = answerBlock(answer, comparesChoice ? { label: keyLabel(fb.voices, v, fb.authoring), items: keyItems } : null, lang);
+    if (yours) step.append(yours);
     // L-7: an author-keyed verdict of a lesson an AI drafted says whose key it is, and where to check it.
     // A version-2 chip that already names the AI's key says it once (walkthrough 2026-11-07).
     if (voice !== t("pane_voice_key_ai") && v.assessed_by === "key" && isObject(fb.authoring) && fb.authoring.drafted_by === "agent") {
       step.append(el("p", { class: "feedback-key-note" }, t("pane_ai_key_note")));
     }
     if (!fb.withheld) {
-      [keyPointsBlock(v), modelAnswerBlock(v), sourcesBlock(fb.sources)]
+      [comparesChoice ? null : keyPointsBlock(v, lang), modelAnswerBlock(v, lang), sourcesBlock(fb.sources)]
         .forEach((node) => { if (node) step.append(node); });
     }
     const calibration = calibrationFor(v.scene_id, fb.calibration);
@@ -1157,20 +1394,49 @@ let renderView;
     ui.status = el("div", { id: "action-status", class: "action-status", role: "status", "aria-live": "polite" });
     step.append(ui.status);
     root.append(step);
+    markScrollRegions(root);
     announce(t("pane_live_feedback", { title: titleText, verdict: verdictLabel(v, kind) }));
     focusHeading(title);
   }
 
-  function feedbackCard(v, kind, withheld) {
-    const heading = el("div", { class: "st-feedback__heading" },
+  // The learner's own answer (C5, B14): a choice beside the key the view carries, labelled with whose key it
+  // is; a written answer quoted, above the key points. Only what this pane sent is shown.
+  function answerBlock(answer, key, lang) {
+    if (!isObject(answer)) return null;
+    if (typeof answer.text === "string" && answer.text) {
+      return el("div", { class: "your-answer" }, el("p", { class: "st-eyebrow" }, t("pane_answer_label")),
+        el("blockquote", { class: "your-answer-text", lang }, answer.text));
+    }
+    if (!answer.choice) return null;
+    const confidence = Number.isInteger(answer.confidence) ? ` · ${t("pane_compare_confidence", { value: answer.confidence })}` : "";
+    const rows = [el("div", { class: "answer-yours" }, el("dt", {}, t("pane_answer_label")), " ",
+      el("dd", {}, `${answer.choice} · `, el("span", { lang, html: answer.html || "" }), confidence))];
+    if (key) {
+      rows.push(el("div", { class: "answer-key" }, el("dt", {}, key.label), " ",
+        el("dd", { lang }, ...key.items.map((item, i) => el("span", { html: (i ? ", " : "") + inlineMarkdown(item) })))));
+    }
+    return el("dl", { class: "answer-compare" }, ...rows);
+  }
+  // Whose key a correct choice comes from, as the view says it (the AI's, the learner's own, the author's).
+  function keyLabel(voices, v, authoring) {
+    const drafted = isObject(voices) && isObject(voices.scene) ? voices.scene.drafted_by : isObject(authoring) ? authoring.drafted_by : null;
+    if (drafted === "agent") return t("pane_compare_key_ai");
+    if (drafted === "learner") return t("pane_compare_key_own");
+    return t("pane_compare_key_author");
+  }
+
+  function feedbackCard(v, kind, withheld, below, lang) {
+    const panel = lang ? pageLocale() : null;
+    const heading = el("div", { class: "st-feedback__heading", lang: panel },
       el("span", { class: "st-feedback__symbol", "aria-hidden": "true" }, VERDICT_SYMBOL[kind]),
       el("span", { class: "feedback-chip" }, verdictLabel(v, kind)),
       kind === "keyword-only" ? el("span", { class: "st-feedback__qualification" }, t("pane_not_certified")) : null);
-    const card = el("div", { class: "feedback-card st-feedback", "data-verdict": kind }, heading);
-    if (kind === "keyword-only") card.append(el("p", { class: "feedback-why" }, t("pane_uncertified_why")));
+    const card = el("div", { class: "feedback-card st-feedback", "data-verdict": kind, lang }, heading);
+    // A5: « compare it with what follows » only when something follows.
+    if (kind === "keyword-only") card.append(el("p", { class: "feedback-why", lang: panel }, t(below ? "pane_uncertified_why" : "pane_uncertified_why_none")));
     const detail = deckDetail(v.detail);
-    if (detail) card.append(detail);
-    if (withheld) card.append(el("p", { class: "feedback-withheld" }, t("pane_feedback_withheld")));
+    if (detail) { if (panel) detail.setAttribute("lang", panel); card.append(detail); }
+    if (withheld) card.append(el("p", { class: "feedback-withheld", lang: panel }, t("pane_feedback_withheld")));
     else if (v.feedback) card.append(el("div", { class: "prose feedback-body", html: renderMarkdown(String(v.feedback)) }));
     return card;
   }
@@ -1189,14 +1455,16 @@ let renderView;
   // gives the count, so nothing is said twice.
   const REFERENCE_LABEL = { key_points: "pane_key_points", planted_flaws: "pane_planted_flaws", flawed_claims: "pane_flawed_claims",
     correct_choice: "pane_correct_choice" };
-  function keyPointsBlock(v) {
-    const items = (Array.isArray(v.key_points) ? v.key_points : [])
-      .map((p) => (typeof p === "string" ? p : isObject(p) ? p.text : "")).filter(Boolean);
+  function keyPointItems(v) {
+    return (Array.isArray(v.key_points) ? v.key_points : []).map((p) => (typeof p === "string" ? p : isObject(p) ? p.text : "")).filter(Boolean);
+  }
+  function keyPointsBlock(v, lang) {
+    const items = keyPointItems(v);
     if (!items.length) return null;
     const missing = new Set((Array.isArray(v.key_points_missing) ? v.key_points_missing : []).filter((p) => typeof p === "string"));
     const label = REFERENCE_LABEL[v.reference_kind] || REFERENCE_LABEL.key_points;
     return el("div", { class: "key-points", "data-reference": v.reference_kind || "key_points" }, el("p", { class: "st-eyebrow" }, t(label)),
-      el("ul", {}, ...items.map((text) => keyPointItem(String(text), missing.has(text)))));
+      el("ul", { lang }, ...items.map((text) => keyPointItem(String(text), missing.has(text)))));
   }
   function keyPointItem(text, isMissing) {
     const item = el("li", { class: isMissing ? "key-point key-point--missing" : "key-point", "data-missing": isMissing ? "true" : null,
@@ -1209,12 +1477,12 @@ let renderView;
     return item;
   }
 
-  function modelAnswerBlock(v) {
+  function modelAnswerBlock(v, lang) {
     const text = v.model_answer;
     if (typeof text !== "string" || !text.trim()) return null;
     const label = v.reference_kind === "planted_flaws" ? "pane_model_correction" : "pane_model_answer";
     return el("details", { class: "model-answer" }, el("summary", {}, t(label)),
-      el("div", { class: "prose", html: renderMarkdown(text) }));
+      el("div", { class: "prose", lang, html: renderMarkdown(text) }));
   }
 
   function sourcesBlock(sources) {
@@ -1316,7 +1584,7 @@ let renderView;
     const root = resetPane();
     const title = el("h2", { id: "completion-title", tabindex: "-1" }, t("pane_complete"));
     const section = el("section", { class: "completion", "aria-labelledby": "completion-title" },
-      el("p", { class: "st-eyebrow" }, t("pane_completion_eyebrow")), title);
+      el("h1", { class: "st-eyebrow completion-eyebrow" }, t("pane_completion_eyebrow")), title);
     if (d.message) section.append(el("p", { class: "completion-message" }, String(d.message)));
     groups.forEach((g) => section.append(el("div", { class: "completion-group", "data-group": g.name },
       el("h3", {}, g.label), el("ul", {}, ...g.items.map((item) => el("li", {}, String(item)))))));
@@ -1401,11 +1669,14 @@ let renderView;
   // optional per-answer confidence tap (0..4) — the CONTINUOUS calibration capture: the learner may
   // rate how sure they are, and it rides on the submitted input as `confidence`. A radiogroup whose
   // checked value can be cleared again (the rating is optional). Returns { node, get }.
-  function confidenceRow() {
+  // B15: the meaning of the two ends is written under the digits. In the action bar (C1) the visible label
+  // is short; the group keeps the full one as its name.
+  function confidenceRow(compact = false) {
     let value;
     const labelId = nextId("confidence");
-    const row = el("div", { class: "confrow", role: "radiogroup", "aria-labelledby": labelId },
-      el("span", { class: "conf-label", id: labelId }, t("pane_confidence")));
+    const endsId = nextId("confidence-ends");
+    const row = el("div", { class: "confrow", role: "radiogroup", "aria-labelledby": compact ? null : labelId, "aria-label": compact ? t("pane_confidence") : null, "aria-describedby": endsId },
+      el("span", { class: "conf-label", id: labelId, "aria-hidden": compact ? "true" : null }, t(compact ? "pane_confidence_short" : "pane_confidence")));
     const buttons = [0, 1, 2, 3, 4].map((v) => el("button", {
       type: "button", class: "conf", role: "radio", "aria-checked": "false", tabindex: v === 0 ? "0" : "-1",
       title: t("pane_confidence_" + v), "aria-label": `${v} · ${t("pane_confidence_" + v)}`,
@@ -1418,15 +1689,18 @@ let renderView;
     });
     const choose = (v) => { value = v; sync(); if (v !== undefined) buttons[v].focus(); };
     buttons.forEach((b, v) => {
-      b.addEventListener("click", () => { value = value === v ? undefined : v; sync(); });
+      b.addEventListener("click", () => { if (actionPending) return; value = value === v ? undefined : v; sync(); });
       // Arrow keys move the checked value as in a native radio group; a digit 0-4 picks it.
       b.addEventListener("keydown", (ev) => {
+        if (actionPending) return;
         const step = ev.key === "ArrowRight" || ev.key === "ArrowDown" ? 1 : ev.key === "ArrowLeft" || ev.key === "ArrowUp" ? -1 : 0;
         if (step) { ev.preventDefault(); choose(Math.min(4, Math.max(0, (value ?? v) + step))); }
         else if (/^[0-4]$/.test(ev.key)) { ev.preventDefault(); choose(Number(ev.key)); }
       });
     });
-    row.append(...buttons);
+    const ends = el("div", { class: "conf-ends", id: endsId },
+      el("span", {}, `0 · ${t("pane_confidence_0")}`), el("span", {}, `4 · ${t("pane_confidence_4")}`));
+    row.append(el("div", { class: "conf-scale" }, el("div", { class: "conf-digits" }, ...buttons), ends));
     return { node: row, get: () => value };
   }
   // attach the tapped confidence to a submitted input (omitted when the learner didn't rate).
@@ -1434,9 +1708,9 @@ let renderView;
 
   // Choice cards: native radios in a fieldset. Picking a card never submits; « Valider » does, so a
   // misclick is not an answer (VSC-8).
-  function choiceGroup({ legend, items, onSubmit }) {
+  function choiceGroup({ legend, items, onSubmit, lang }) {
     const name = nextId("choice");
-    const fieldset = el("fieldset", { class: "st-choices choices" }, el("legend", {}, legend));
+    const fieldset = el("fieldset", { class: "st-choices choices", lang }, el("legend", { lang: lang ? pageLocale() : null }, legend));
     const inputs = items.map((item, index) => {
       const input = el("input", { type: "radio", name, value: String(index) });
       fieldset.append(el("label", { class: "choice st-choice" }, input,
@@ -1446,7 +1720,7 @@ let renderView;
     });
     const validate = el("button", { type: "button", class: "st-button st-button--primary primary validate", disabled: true }, t("pane_validate"));
     const selected = () => inputs.findIndex((i) => i.checked);
-    const sync = () => { validate.disabled = selected() < 0; };
+    const sync = () => { if (!actionPending) validate.disabled = selected() < 0; };
     inputs.forEach((i) => i.addEventListener("change", sync));
     const submit = () => { const i = selected(); if (i >= 0) onSubmit(i); };
     validate.addEventListener("click", submit);
@@ -1463,41 +1737,66 @@ let renderView;
     };
   }
   const letterOf = (index) => String.fromCharCode(65 + index);
+  // A short piece of the lesson's markdown, inline (a choice's text, a key point).
+  const inlineMarkdown = (source) => renderMarkdown(String(source == null ? "" : source)).replace(/^\s*<p>([\s\S]*)<\/p>\s*$/, "$1");
 
-  function quizControls(wrap, sc, hasLadder) {
+  // C1: the expected act, the confidence and « Aide » in one bar that stays at the bottom of the panel while
+  // the scene scrolls (position: sticky, so it takes its own place in the flow and never covers the last
+  // choice, and a host that sizes the frame to its content sees no change in height). The status line of
+  // the scene lives in the bar, next to the button that was pressed.
+  let barHelp = null;
+  function actionBar(wrap, confidence, actions) {
+    if (barHelp) actions.append(barHelp);
+    wrap.append(el("div", { class: "action-bar" }, confidence ? confidence.node : null, actions));
+  }
+
+  function quizControls(wrap, sc, hasLadder, lang) {
     const choices = Array.isArray(sc.choices) ? sc.choices : [];
-    const confidence = confidenceRow();
+    const confidence = confidenceRow(hasLadder);
     const group = choiceGroup({
-      legend: t("pane_choices_legend"),
+      legend: t("pane_choices_legend"), lang,
       items: choices.map((c, i) => ({ key: letterOf(i), html: renderMarkdown(String(c.text == null ? "" : c.text)) })),
-      onSubmit: (i) => postAction(
-        { type: "respond", input: withConf({ kind: "quiz_choice", choiceId: choices[i].id }, confidence) },
-        t("pane_sending_response"),
-      ),
+      onSubmit: (i) => {
+        const input = withConf({ kind: "quiz_choice", choiceId: choices[i].id }, confidence);
+        if (postAction({ type: "respond", input }, t("pane_sending_response"))) {
+          rememberAnswer(sc.id, { choice: letterOf(i), html: inlineMarkdown(choices[i].text), confidence: input.confidence });
+        }
+      },
     });
     wrap.append(group.fieldset);
     if (choices.length > 1) {
-      wrap.append(el("p", { class: "shortcut-hint" }, t("pane_choice_shortcuts", { letters: `A–${letterOf(Math.min(choices.length, 26) - 1)}`, count: Math.min(choices.length, 9) })));
+      const hintText = t("pane_choice_shortcuts", { letters: `A–${letterOf(Math.min(choices.length, 26) - 1)}`, count: Math.min(choices.length, 9) });
+      // A version-2 scene keeps the first screen for the question: the shortcuts describe the choices.
+      const shortcut = el("p", { class: "shortcut-hint" + (hasLadder ? " visually-hidden" : ""), id: nextId("shortcuts") }, hintText);
+      if (hasLadder) group.fieldset.setAttribute("aria-describedby", shortcut.id);
+      wrap.append(shortcut);
     }
-    wrap.append(confidence.node);
     ui.keys = { choices: group, digitBase: 1 };
     // A version-2 view has the hint in its help ladder, with its cost.
-    if (hasLadder) { wrap.append(el("div", { class: "st-actions" }, group.validate)); return; }
+    if (hasLadder) { actionBar(wrap, confidence, el("div", { class: "st-actions" }, group.validate)); return; }
+    wrap.append(confidence.node);
     // The hint's cost is said before it is asked for: a hinted right answer counts less for mastery.
     const costId = nextId("hint-cost");
     const hint = el("button", { type: "button", class: "st-button st-button--quiet hint-button", title: t("pane_hint_cost"), "aria-describedby": costId }, t("pane_hint"));
     hint.addEventListener("click", () => postAction({ type: "hint" }, t("pane_finding_hint")));
-    wrap.append(el("div", { class: "st-actions" }, group.validate, hint), el("span", { id: costId, class: "visually-hidden" }, t("pane_hint_cost")));
+    actionBar(wrap, null, el("div", { class: "st-actions" }, group.validate, hint));
+    wrap.append(el("span", { id: costId, class: "visually-hidden" }, t("pane_hint_cost")));
   }
 
-  function metaControls(wrap, sc) {
+  // The learner's own answer, kept for the feedback that follows (B14, C5); never the key.
+  function rememberAnswer(sceneId, answer) {
+    if (sceneId) memory.answers.set(sceneId, answer);
+  }
+
+  function metaControls(wrap, sc, lang) {
     const labels = Array.isArray(sc.scale_labels) ? sc.scale_labels : [];
     const group = choiceGroup({
-      legend: t("pane_meta_legend"),
+      legend: t("pane_meta_legend"), lang,
       items: [0, 1, 2, 3, 4].map((v) => ({ key: String(v), html: escapeHtml(labels[v] != null ? labels[v] : t("pane_confidence_" + v)) })),
       onSubmit: (v) => postAction({ type: "respond", input: { kind: "confidence", value: v } }, t("pane_sending_response")),
     });
-    wrap.append(group.fieldset, el("p", { class: "shortcut-hint" }, t("pane_meta_shortcuts")), el("div", { class: "st-actions" }, group.validate));
+    wrap.append(group.fieldset, el("p", { class: "shortcut-hint" }, t("pane_meta_shortcuts")));
+    actionBar(wrap, null, el("div", { class: "st-actions" }, group.validate));
     ui.keys = { choices: group, digitBase: 0 };
   }
 
@@ -1534,24 +1833,30 @@ let renderView;
     sendBtn.addEventListener("click", sendTurn);
     const fin = el("button", { type: "button", class: "st-button st-button--quiet" }, t("pane_finish_discussion"));
     fin.addEventListener("click", () => postAction({ type: "respond", input: { kind: "ack" } }, t("pane_next_step")));
-    wrap.append(field.node, el("div", { class: "st-actions" }, sendBtn, fin));
+    // A dialogue grows above its box: its buttons stay with the box, not in a bar.
+    const actions = el("div", { class: "st-actions" }, sendBtn, fin);
+    if (barHelp) actions.append(barHelp);
+    wrap.append(field.node, actions);
     ui.keys = { textarea: field.textarea, submitText: sendTurn };
   }
 
   // every single-submit free-text active-learning scene → a textarea posting the kind its grader
   // requires (kinds mirror src/scene-io.ts FREE_TEXT_KIND; scene-io.driver.ts guards the parity).
-  function freeTextControls(wrap, sc) {
+  function freeTextControls(wrap, sc, hasLadder) {
     const f = FREE_TEXT[sc.type];
     const field = answerField(t(f.placeholder), f.prefill ? sc[f.prefill] : "");
-    const confidence = confidenceRow();
-    const submit = () => postAction(
-      { type: "respond", input: withConf({ kind: f.kind, text: field.textarea.value }, confidence) },
-      t("pane_sending_response"),
-    );
+    const confidence = confidenceRow(hasLadder);
+    const submit = () => {
+      const input = withConf({ kind: f.kind, text: field.textarea.value }, confidence);
+      if (postAction({ type: "respond", input }, t("pane_sending_response"))) {
+        rememberAnswer(sc.id, { text: field.textarea.value.trim(), confidence: input.confidence });
+      }
+    };
     const button = el("button", { type: "button", class: "st-button st-button--primary primary" }, t(f.label));
     requireText(field.textarea, button);
     button.addEventListener("click", () => { if (field.textarea.value.trim()) submit(); });
-    wrap.append(field.node, confidence.node, el("div", { class: "st-actions" }, button));
+    wrap.append(field.node);
+    actionBar(wrap, confidence, el("div", { class: "st-actions" }, button));
     ui.keys = { textarea: field.textarea, submitText: () => { if (field.textarea.value.trim()) submit(); } };
   }
 
@@ -1569,21 +1874,23 @@ let renderView;
   function runControls(wrap) {
     const run = el("button", { type: "button", class: "st-button st-button--primary primary run" }, t("pane_run"));
     run.addEventListener("click", () => postAction({ type: "run" }, t("pane_running")));
-    wrap.append(el("p", { class: "run-note" }, t("pane_run_note")), el("div", { class: "st-actions" }, run));
+    wrap.append(el("p", { class: "run-note" }, t("pane_run_note")));
+    actionBar(wrap, null, el("div", { class: "st-actions" }, run));
   }
 
   function ackControls(wrap) {
     const next = el("button", { type: "button", class: "st-button st-button--primary primary" }, t("pane_continue"));
     next.addEventListener("click", () => postAction({ type: "respond", input: { kind: "ack" } }, t("pane_next_step")));
-    wrap.append(el("div", { class: "st-actions" }, next));
+    actionBar(wrap, null, el("div", { class: "st-actions" }, next));
   }
 
   // interactive controls the learner uses to advance — posts back to the extension host.
-  function renderControls(sc, state) {
+  function renderControls(sc, state, ladder, lang) {
     const wrap = el("div", { class: "controls" });
-    const hasLadder = !!state && isObject(state.help) && Array.isArray(state.help.rungs) && state.help.rungs.length > 0;
-    if (sc.type === "quiz") quizControls(wrap, sc, hasLadder);
-    else if (sc.type === "meta_checkpoint") metaControls(wrap, sc);
+    const hasLadder = !!ladder;
+    barHelp = ladder ? helpToggle(ladder) : null;
+    if (sc.type === "quiz") quizControls(wrap, sc, hasLadder, lang);
+    else if (sc.type === "meta_checkpoint") metaControls(wrap, sc, lang);
     else if (sc.type === "discussion") discussionControls(wrap);
     else if (sc.type === "spot_the_flaw" && Array.isArray(sc.deck) && sc.deck.length) {
       // VERDICT DECK (D1): the DESTINATION made interactive. The host ships a shuffled, label-stripped
@@ -1592,12 +1899,13 @@ let renderView;
       // a false alarm (over-distrust), missing a flawed one is over-trust — the bidirectional signal,
       // captured offline with zero LLM. Replaces the free-text flaw_report so the graded path is
       // unambiguous. LEAK BOUNDARY: render ONLY {token,text}; never echo any ground-truth flag.
-      wrap.append(deckControls(sc));
-    } else if (FREE_TEXT[sc.type]) freeTextControls(wrap, sc);
+      deckControls(wrap, sc, hasLadder, lang);
+    } else if (FREE_TEXT[sc.type]) freeTextControls(wrap, sc, hasLadder);
     else if (sc.type === "reproduction" && sc.run_manifest) runControls(wrap);
     else ackControls(wrap);
+    barHelp = null;
     ui.status = el("div", { id: "action-status", class: "action-status", role: "status", "aria-live": "polite" });
-    wrap.append(ui.status);
+    ($(".action-bar", wrap) || wrap).append(ui.status);
     return wrap;
   }
 
@@ -1606,7 +1914,7 @@ let renderView;
   // token (unflagged = judged sound). Mirrors ResponseInputSchema.flaw_verdicts; the host re-derives the
   // deck permutation from the scene id (+ server secret) to score hits vs false alarms. Renders ONLY the
   // {token,text} the host shipped — the ground-truth flawed/sound flags never reach the client.
-  function deckControls(sc) {
+  function deckControls(wrap, sc, hasLadder, lang) {
     const box = el("div", { class: "deck" });
     box.append(el("p", { class: "deck-instr" }, t("pane_deck_instruction")));
     const deck = Array.isArray(sc.deck) ? sc.deck : [];
@@ -1614,7 +1922,7 @@ let renderView;
     deck.forEach((d, i) => {
       const row = el("div", { class: "deck-row", "data-token": d.token });
       const claimId = nextId("claim");
-      const claim = el("div", { class: "deck-claim", id: claimId, html: renderMarkdown(d.text || "") });
+      const claim = el("div", { class: "deck-claim", id: claimId, lang, html: renderMarkdown(d.text || "") });
       const toggle = el("button", { type: "button", class: "st-button deck-flag", "aria-pressed": "false", "aria-describedby": claimId }, t("pane_flag"));
       toggle.addEventListener("click", () => {
         const on = !verdicts[i].flagged;
@@ -1627,14 +1935,14 @@ let renderView;
       row.append(claim, toggle);
       box.append(row);
     });
-    const cr = confidenceRow();
+    const cr = confidenceRow(hasLadder);
     const submit = el("button", { type: "button", class: "st-button st-button--primary primary deck-submit" }, t("pane_submit_judgment"));
     submit.addEventListener("click", () => postAction({
       type: "respond",
       input: withConf({ kind: "flaw_verdicts", verdicts: verdicts.map((v) => ({ token: v.token, flagged: v.flagged })) }, cr),
     }, t("pane_sending_judgment")));
-    box.append(cr.node, el("div", { class: "st-actions" }, submit));
-    return box;
+    wrap.append(box);
+    actionBar(box, cr, el("div", { class: "st-actions" }, submit));
   }
 
   // append one dialogue turn to the discussion transcript. `meta` is an optional reasoning-signal
@@ -1873,9 +2181,10 @@ let renderView;
       if (!ui.hint) return;
       ui.hint.innerHTML = "";
       if (d.hint) {
-        ui.hint.append(el("strong", { class: "hint-heading" }, t("pane_hint_heading")),
+        ui.hint.append(...[el("strong", { class: "hint-heading" }, t("pane_hint_heading")),
           el("div", { class: "hint-body", html: renderMarkdown(String(d.hint)) }),
-          d.remaining != null ? el("span", { class: "hint-remaining" }, t("pane_hint_remaining", { count: d.remaining })) : null);
+          // « (encore 0) » says nothing the ladder does not: the hint rung says why it is closed (B2).
+          Number(d.remaining) > 0 ? el("span", { class: "hint-remaining" }, t("pane_hint_remaining", { count: d.remaining })) : null].filter(Boolean));
       } else ui.hint.append(t("pane_no_more_hints"));
     }
     else if (d.type === "turn_result") {
@@ -1921,7 +2230,7 @@ let renderView;
       const r = resetPane();
       memory = freshMemory();
       r.append(el("section", { class: "error-pane", role: "alert" }, el("div", { class: "error-kicker" }, t("pane_local_service")),
-        el("h2", {}, t("pane_connection_interrupted")), el("p", {}, d.message || t("pane_error")),
+        el("h1", {}, t("pane_connection_interrupted")), el("p", {}, d.message || t("pane_error")),
         el("p", { class: "error-recovery" }, t("pane_error_recovery"))));
     }
     else if (d.type === "done") showDone(d);

@@ -50,10 +50,10 @@ test("erasure needs an explicit DOM confirmation even if a caller supplies confi
   bridge.receive({ structuredContent: { panel: initial } });
   const cancelled = bridge.act({ type: "end", confirmed: true });
   assert.equal(m.calls.length, 0);
-  m.dom.window.document.querySelector('[role="alertdialog"] button:last-child').click(); await cancelled;
+  m.dom.window.document.querySelector('[role="alertdialog"] button').click(); await cancelled;
   assert.equal(m.calls.length, 0);
   const accepted = bridge.act({ type: "end" });
-  m.dom.window.document.querySelector('[role="alertdialog"] button').click(); await accepted;
+  m.dom.window.document.querySelector('[role="alertdialog"] button:last-child').click(); await accepted;
   assert.deepEqual(m.calls[0].arguments.action, { type: "end", confirmed: true });
   m.dom.window.close();
 });
@@ -318,4 +318,117 @@ test("« Play here » on an off-surface notice sends open_lesson_panel with the 
   assert.match(doc.body.textContent, /Played here/);
   assert.equal(doc.querySelector(".surface-elsewhere"), null);
   m.dom.window.close();
+});
+
+// Panel audit 2026-11-10, A1 and C3: every action type the shared list names leaves the bridge for the server (or for the
+// host's own picker and confirmation); an action the view does not offer is refused without asking to try again.
+const { PANEL_ACTION_TYPES } = await import("../../../packages/lesson-panel/src/transport.ts");
+const SAMPLE_ACTIONS = {
+  respond: { input: { kind: "ack" } }, turn: { text: "t" }, hint: {}, rateRecall: { sceneId: "intro", grade: "good" }, reviewNow: {},
+  restartLesson: {}, end: {}, pickCourse: {}, ask: { text: "q" }, setAttention: { level: "quiet" }, setLanguage: { presentation_language: "fr" },
+  replan: { minutes: 10 }, openMap: {}, closeMap: {}, contest: { concept_id: "c", claim: "known" }, prompt: { id: "p", outcome: "dismiss" },
+};
+const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+test("every action type an adapter must transport leaves the MCP App bridge", async () => {
+  assert.ok(PANEL_ACTION_TYPES.length >= 16);
+  for (const type of PANEL_ACTION_TYPES) {
+    assert.ok(SAMPLE_ACTIONS[type], `the test has a sample ${type} action`);
+    const offered = { ...initial, actions: [...PANEL_ACTION_TYPES] };
+    const requests = [];
+    const m = setup({ callServerTool: async request => { requests.push(request); return request.name === "list_lessons" ? { structuredContent: { lessons: [] } } : { structuredContent: { panel: offered } }; } });
+    const bridge = await connectMcpApp(m.app, m.env);
+    bridge.receive({ structuredContent: { panel: offered } });
+    const acting = bridge.act({ type, ...SAMPLE_ACTIONS[type] });
+    if (type === "end") {
+      await tick();
+      [...m.dom.window.document.querySelectorAll('[role="alertdialog"] button')].find(button => /Erase/.test(button.textContent)).click();
+    }
+    await acting;
+    const expected = type === "pickCourse" ? "list_lessons" : "panel_action";
+    assert.ok(requests.some(request => request.name === expected && (expected !== "panel_action" || request.arguments.action.type === type)), `${type} reaches the server`);
+    assert.doesNotMatch(m.dom.window.document.body.textContent, /Action failed/, `${type} does not fail in the bridge`);
+    m.dom.window.close();
+  }
+});
+test("an action the view does not offer is refused without asking to try again", async () => {
+  const m = setup(); const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: initial } });
+  await bridge.act({ type: "setAttention", level: "quiet" });
+  assert.equal(m.calls.length, 0);
+  const status = m.dom.window.document.querySelector("#action-status").textContent;
+  assert.match(status, /not available/);
+  assert.doesNotMatch(status, /Try again/);
+  m.dom.window.close();
+});
+
+// Panel audit 2026-11-10, A7: the erase confirmation is drawn in the panel, named, « Cancel » first, the destructive
+// button marked; Escape cancels and the « ⋯ » menu takes the focus back.
+test("the erase confirmation is a named dialog in the panel; Escape cancels and the menu takes the focus back", async () => {
+  const m = setup(); const doc = m.dom.window.document;
+  const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: initial } });
+  const asked = bridge.act({ type: "end" });
+  await tick();
+  const dialog = doc.querySelector('#pane [role="alertdialog"]');
+  assert.ok(dialog, "the dialog is inside the panel");
+  const title = doc.getElementById(dialog.getAttribute("aria-labelledby") ?? "");
+  assert.ok(title && title.textContent.trim().length > 0, "the dialog is named by its title");
+  const buttons = [...dialog.querySelectorAll("button")];
+  assert.equal(buttons[0].textContent, "Cancel");
+  assert.equal(buttons.at(-1).getAttribute("data-destructive"), "true");
+  assert.ok(buttons.every(button => button.classList.contains("st-button")), "the design system's buttons");
+  assert.equal(doc.activeElement, buttons[0]);
+  dialog.dispatchEvent(new m.dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await asked;
+  assert.equal(doc.querySelector('[role="alertdialog"]'), null);
+  assert.equal(m.calls.length, 0);
+  assert.equal(doc.activeElement, doc.querySelector(".pane-menu summary"));
+  m.dom.window.close();
+});
+
+// Panel audit 2026-11-10, A8: the course picker is a list in the panel, with what the catalogue says of each course.
+test("the course picker is a styled list in the panel, with each course's language and approval", async () => {
+  const lessons = [{ title: "Atomistique", bundle_ref: "a.json", language: "fr", validated: true, scene_count: 32 }, { title: "Kinetics", bundle_ref: "k.json", language: "en", validated: false }];
+  const m = setup({ callServerTool: async request => (request.name === "list_lessons" ? { structuredContent: { lessons } } : { structuredContent: { panel: initial } }) });
+  const doc = m.dom.window.document;
+  const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: { ...initial, actions: [...initial.actions, "pickCourse"] } } });
+  await bridge.act({ type: "pickCourse" });
+  const picker = doc.querySelector("#pane .course-picker");
+  assert.ok(picker, "the picker is inside the panel");
+  const items = [...picker.querySelectorAll("li")];
+  assert.equal(items.length, 2);
+  assert.match(items[0].textContent, /Atomistique/);
+  assert.match(items[0].textContent, /Français/);
+  assert.match(items[0].textContent, /approved by a teacher/);
+  assert.match(items[1].textContent, /English/);
+  assert.doesNotMatch(items[1].textContent, /approved/);
+  assert.ok([...picker.querySelectorAll("button")].every(button => button.classList.contains("st-button")), "no bare browser button");
+  m.dom.window.close();
+});
+
+// Panel audit 2026-11-10, A9 and C4: « Ask a question » opens its field in place, in the help ladder.
+test("the question form opens inside the help ladder", async () => {
+  const m = informedHost();
+  const doc = m.dom.window.document;
+  const helped = { ...m.asking, schema: "studium/panel-view/2", orientation: { step: { index: 1, total: 2 }, reviews_due: 0, waiting: "read" }, status_line: "Lesson · step 1/2", voices: { scene: { kind: "author", name: null, reviewed: true, drafted_by: "teacher" } }, help: { rungs: [{ kind: "reread", available: true }] }, prompts: [], attention: "normal", surface: { rank: 3, kind: "panel", available: ["panel"] } };
+  const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: helped } });
+  const asked = bridge.act({ type: "ask" });
+  await tick();
+  const form = doc.querySelector("form.ask-question");
+  assert.ok(form && form.closest("#pane .help-ladder"), "the form is in the help ladder");
+  form.querySelector('button[type="button"]').click();
+  await asked;
+  m.dom.window.close();
+});
+// Panel audit 2026-11-10, A9: the server says « your question has gone to the conversation » when the ask action
+// carries words; a host that takes no message never sent them, so the bridge sends the hand-over without words.
+test("a host that takes no message sends the ask action without words", async () => {
+  const mute = informedHost({ capabilities: { message: undefined } });
+  const bridge = await connectMcpApp(mute.app, mute.env);
+  bridge.receive({ structuredContent: { panel: mute.asking } });
+  await bridge.act({ type: "ask", text: "Explique-moi cet écran." });
+  assert.deepEqual(mute.events.find(event => event[1] === "panel_action").slice(1), ["panel_action", { session_id: "one", action: { type: "ask" } }]);
+  mute.dom.window.close();
 });
