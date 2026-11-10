@@ -11,7 +11,7 @@ import type { ResponseInput } from "@studium/lesson-session";
 
 /** The learner's reply as typed in a chat; the host turns it into the current scene's input. */
 // A type alias, not an interface, so it stays assignable to Record<string, unknown> like ResponseInput.
-export type ReplyInput = { kind: "reply"; text: string };
+export type ReplyInput = { kind: "reply"; text: string; confidence?: 0 | 1 | 2 | 3 | 4 };
 /** A quiz_choice that names no choice (lead decision I-4). The schema cannot list the displayed ids,
  * so it lets the input through and the host refuses it with them (reply-mapping checkDisplayedChoice). */
 export type UnnamedQuizChoice = { kind: "quiz_choice"; confidence?: 0 | 1 | 2 | 3 | 4 };
@@ -38,7 +38,7 @@ const confidenceValue = z.union(
 const FlatResponseInput = z.object({
   kind: z.enum(RESPONSE_KINDS, {
     errorMap: () => ({ message: `kind must be one of ${RESPONSE_KINDS.join(", ")}` }),
-  }).describe("reply {text}: the learner's words, mapped to this scene's input; ack; quiz_choice {choiceId}; " +
+  }).describe("reply {text, confidence?}: the learner's words, mapped to this scene's input; ack; quiz_choice {choiceId}; " +
     "confidence {value} or {pre, post}; flaw_verdicts {verdicts}; free text {text}: critique, flaw_report, " +
     "explanation, comparison, summary_audit, prompt_submission, communication"),
   choiceId: z.string().optional().describe("quiz_choice: a DISPLAYED choice id"),
@@ -79,7 +79,7 @@ function toResponseInput(input: Flat, ctx: z.RefinementCtx): HostResponseInput {
     return { kind, verdicts: input.verdicts, ...withConfidence };
   }
   if (input.text === undefined) return missing("text", kind === "reply" ? "the learner's reply" : "the learner's own words");
-  if (kind === "reply") return { kind, text: input.text };
+  if (kind === "reply") return { kind, text: input.text, ...withConfidence };
   if (isTextKind(kind)) return { kind, text: input.text, ...withConfidence };
   return z.NEVER; // unreachable: every kind is handled above
 }

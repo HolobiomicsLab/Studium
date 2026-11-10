@@ -6,6 +6,7 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ### Fixed
 
+- **A chat reply is read more carefully.** At a verdict deck, « aucune idée », « rien compris » or « none of them look right » no longer count as « no claim is wrong »; « none flagged » is accepted only when the whole reply says so, and a list of numbers only when it is plainly that list, so a doubt (« pas sûr »), an exception or a reason with other numbers is refused in one line instead of being graded. An empty written answer is refused instead of recording an answer, revealing the key and passing the gate. A confidence sent with `reply` is kept. « Après 3, avant 1 » is read by its labels, not the order of the digits. A quiz accepts « la b je crois », « plutôt b », « d'après moi a » or the text of one choice; « je ne sais pas » points to `request_hint` instead of asking for a letter, and a question or « attends » on a reading screen no longer counts as « continue ».
 - **The concept-map page can be built again.** `tools/concept_map_report.py export` refused every record written by the 0.3.0 server, because the record had gained the `evidence` and `contest` fields after the reader was written. The reader now validates both, including that each evidence entry names a step of the path and each contest a concept of the map. A record written by the server is kept as a test fixture, and a server-side test fails when the record's shape drifts from it.
 
 ## 0.3.0 — 2026-11-09
