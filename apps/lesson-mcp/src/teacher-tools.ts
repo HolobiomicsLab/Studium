@@ -300,6 +300,12 @@ function promptExcerpt(scene: Scene): string | null {
       return flat.length > 240 ? `${flat.slice(0, 239)}…` : flat;
     }
   }
+  // An ai_critique scene has no text field: the claims the learner critiques are its content (D4).
+  const claims = view["claims_to_critique"];
+  if (Array.isArray(claims)) {
+    const flat = claims.flatMap((c) => (isRecord(c) && typeof c["text"] === "string" ? [c["text"]] : [])).join(" ").replace(/\s+/g, " ").trim();
+    if (flat !== "") return flat.length > 240 ? `${flat.slice(0, 239)}…` : flat;
+  }
   return null;
 }
 

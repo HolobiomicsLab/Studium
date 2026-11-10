@@ -7,6 +7,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 ### Fixed
 
 - **The concept-map page can be built again.** `tools/concept_map_report.py export` refused every record written by the 0.3.0 server, because the record had gained the `evidence` and `contest` fields after the reader was written. The reader now validates both, including that each evidence entry names a step of the path and each contest a concept of the map. A record written by the server is kept as a test fixture, and a server-side test fails when the record's shape drifts from it.
+- **An AI critique shows what to critique.** The learner side of an `ai_critique` scene carried no text at all: the claims were removed with the answer key. The scene now publishes each claim's position ("1", "2"…) and `text` as `claims_to_critique`, never its expected flaws, and the conversation, the panel, the file channel's `task.md` and the `review_lesson` preview and plan all show it.
+- **`prepare_sources` refuses an HTML page.** A source that starts with `<!DOCTYPE html` or `<html`, or in which at least five tags make up a fifth of the characters, was cut into passages of markup and JavaScript. It is now refused in one line asking for the text of the page; a text with a few inline tags or with LaTeX angle brackets is still accepted.
+- **A scene that reaches no concept is warned about.** `node tools/bundle_lint.mjs` (and so `review_lesson`) reports `scene_reaches_no_concept` for each scene that takes a graded answer (quiz, spot_the_flaw, ai_critique, explain_back, comparison, summary_audit, prompt_practice, communication_sim) without `concept_refs`, in the words of `experience_packet.py check`. It stays a warning.
+- **The literature tutorial's example measures something.** `examples/literature-experience/author-response.json` gave three scenes no concept and one legacy `simulation` scene. Each scene now has `concept_refs`, and the matching scene is a `comparison`.
 
 ## 0.3.0 — 2026-11-09
 

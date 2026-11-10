@@ -259,6 +259,37 @@ describe("review_lesson", () => {
     expect(spawned.count).toBe(1);
   });
 
+  it("warns, in process, about a lesson in which no scene reaches a concept, and still says ready (F3)", async () => {
+    const b = bundle();
+    for (const scene of b["scenes"] as Array<{ concept_refs: string[] }>) scene.concept_refs = [];
+    const { root } = library("teach", b);
+    const out = await reviewLesson({ bundlesRoot: root, dataDir: null }, "teach");
+    const warned = out.lint.findings.filter((f) => f.code === "scene_reaches_no_concept");
+    // the intro is exempt: s1, s2, s3 are reported, in the wording of `experience_packet.py check`
+    expect(warned.map((f) => f.message)).toEqual([
+      "scene 's1' reaches no concept; a scene without a concept moves no mastery",
+      "scene 's2' reaches no concept; a scene without a concept moves no mastery",
+      "scene 's3' reaches no concept; a scene without a concept moves no mastery",
+    ]);
+    expect(warned.every((f) => f.level === "WARN")).toBe(true);
+    expect(out.lint).toMatchObject({ status: "ok", errors: 0 });
+  });
+
+  it("shows the claims of an ai_critique scene in the plan and in the preview, and none of their flaws (D4)", async () => {
+    const b = bundle();
+    (b["scenes"] as unknown[]).push({
+      ...base("s4", "ai_critique", "c2"), rubric: RUBRIC,
+      claims: [{ id: "k1", text: "CRITIQUE-claim-one reads here.", flaws_expected: ["CRITIQUE-hidden-flaw"] }, { id: "k2", text: "CRITIQUE-claim-two.", flaws_expected: [] }],
+    });
+    const { root } = library("teach", b);
+    const out = await reviewLesson(ctxFor(root), "teach");
+    const planned = out.plan!.scenes.find((s) => s.id === "s4")!;
+    expect(planned.prompt).toBe("CRITIQUE-claim-one reads here. CRITIQUE-claim-two.");
+    const item = out.inbox.items.find((i) => i.id === "s4")!;
+    expect(item.preview.text).toBe("CRITIQUE-claim-one reads here. CRITIQUE-claim-two.");
+    expect(JSON.stringify(out)).not.toContain("CRITIQUE-hidden-flaw");
+  });
+
   it("reports a malformed lesson.json as one invalid_json lint finding in process", async () => {
     const { root, lessonJson } = library();
     writeFileSync(lessonJson, `{"scenes": [ "${KEYS.correctChoice}" oops`);

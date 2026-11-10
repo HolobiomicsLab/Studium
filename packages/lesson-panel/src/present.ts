@@ -24,10 +24,17 @@ export function assertPublicContent(value: unknown): void {
   }
 }
 
-function projectScene(scene: Payload): PublicScene {
+function projectScene(scene: Payload, locale: "fr" | "en"): PublicScene {
   // A transport may already have projected its verdict deck.
   const projected = publicScene({ ...scene, ...(scene.deck && !scene.claims ? { verdict_deck: false } : {}) } as never) as Payload;
   if (scene.deck && !scene.claims) projected.verdict_deck = scene.verdict_deck;
+  // An ai_critique scene has no field of its own for the claims, and the pane already draws `markdown`:
+  // the claims the learner critiques go there, numbered, under their label.
+  if (projected.type === "ai_critique" && Array.isArray(projected.claims_to_critique) && !projected.markdown) {
+    const texts = projected.claims_to_critique.flatMap((c: unknown) =>
+      c && typeof c === "object" && typeof (c as { text?: unknown }).text === "string" ? [(c as { text: string }).text] : []);
+    if (texts.length) projected.markdown = `**${phrase("pane_ai_claims", {}, locale)}**\n\n${texts.map((t: string, i: number) => `${i + 1}. ${t}`).join("\n")}`;
+  }
   assertPublicContent(projected);
   return PublicSceneSchema.parse(projected);
 }
@@ -63,7 +70,7 @@ function baseView(ctx: PanelContext, presentation: Payload): PanelView {
 async function sceneView(backend: PanelBackend, ctx: PanelContext): Promise<PanelView> {
   const presentation = await backend.getCurrentScene(ctx.sessionId);
   const view = baseView(ctx, presentation);
-  view.scene = projectScene(presentation.scene);
+  view.scene = projectScene(presentation.scene, view.locale);
   const assets = await backend.getSceneArtifacts(ctx.sessionId);
   assertPublicContent(assets);
   view.scene_assets = selectRenderOrder(await Promise.all(assets.map(asset =>

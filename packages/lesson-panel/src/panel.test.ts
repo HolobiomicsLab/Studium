@@ -36,6 +36,19 @@ describe("shared panel contract", () => {
     ctx.showMastery = true;
     expect((await presentPanel(backend, ctx)).mastery).toEqual({ c1: 0.8 });
   });
+  it("draws the claims of an ai_critique scene through the markdown field and carries no expected flaw (D4)", async () => {
+    const { ctx, backend, presentation } = setup();
+    presentation.scene = {
+      id: "crit", type: "ai_critique", title: "Critique", objective_refs: [], concept_refs: ["c1"], estimated_seconds: 0, adaptation_hooks: [],
+      rubric: { completeness: 1, evidence_quality: 1, tone: 1 },
+      claims: [{ id: "k1", text: "Le score prouve la méthode.", flaws_expected: ["causalité"] }, { id: "k2", text: "Deux groupes.", flaws_expected: [] }],
+    } as never;
+    const panel = await presentPanel(backend, ctx);
+    expect(panel.scene?.markdown).toContain("1. Le score prouve la méthode.");
+    expect(panel.scene?.markdown).toContain("2. Deux groupes.");
+    expect(JSON.stringify(panel)).not.toContain("causalité");
+    expect(JSON.stringify(panel)).not.toContain("flaws_expected");
+  });
   it("fails closed on unexpected answer metadata instead of inventing another redactor", async () => {
     const { ctx, backend, presentation } = setup();
     presentation.scene = { ...scene, metadata: { answer: "secret" } };

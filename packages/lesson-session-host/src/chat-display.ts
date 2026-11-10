@@ -130,6 +130,7 @@ const PHRASES = {
     stale_approval: "Attention : cette leçon a été modifiée depuis son approbation par l'enseignant.",
     ai_reading: "**Lecture IA à auditer** : juge chaque affirmation.",
     ai_summary: "**Résumé IA à auditer**",
+    ai_claims: "**Affirmations de l'IA à critiquer**",
     source: "**Source**",
     situation: "**Situation**",
     task: "**Tâche**",
@@ -230,6 +231,7 @@ const PHRASES = {
     stale_approval: "Note: this lesson changed after the teacher approved it.",
     ai_reading: "**AI reading to audit**: judge each claim.",
     ai_summary: "**AI summary to audit**",
+    ai_claims: "**AI claims to critique**",
     source: "**Source**",
     situation: "**Situation**",
     task: "**Task**",
@@ -352,6 +354,10 @@ function sceneBody(scene: PublicSceneFields, locale: DisplayLocale): string[] {
   if (t === "spot_the_flaw") {
     const deck = (scene["deck"] as Array<{ text: string }> | undefined) ?? [];
     return [say(locale, "ai_reading"), str(scene["flawed_content"]), deck.map((d, i) => `${i + 1}. ${d.text}`).join("\n")];
+  }
+  if (t === "ai_critique") {
+    const claims = (scene["claims_to_critique"] as Array<{ text: string }> | undefined) ?? [];
+    return [claims.length ? `${say(locale, "ai_claims")}\n\n${claims.map((c, i) => `${i + 1}. ${c.text}`).join("\n")}` : ""];
   }
   if (t === "comparison") {
     return [str(scene["prompt"]), scene["artifact_a"] ? `**A**\n\n${str(scene["artifact_a"])}` : "",

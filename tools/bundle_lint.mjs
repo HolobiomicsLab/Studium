@@ -14,6 +14,9 @@
 // A lesson with two concepts or more warns (concept_few_recall_questions) for each concept that has
 // fewer than two key-graded recall questions: a learner who contests it cannot be asked two.
 //
+// A scene that takes a graded answer (quiz, spot_the_flaw, ai_critique, explain_back, comparison, summary_audit,
+// prompt_practice, communication_sim) with empty concept_refs warns (scene_reaches_no_concept): no mastery moves there. The wording is that of `experience_packet.py check`.
+//
 // Exit 0 means no ERROR findings; WARN and INFO findings do not fail the run.
 //
 // Importable too: `lintBundleData(bundle, { bundleDir })` lints a parsed bundle in process (the MCP
@@ -560,6 +563,26 @@ function recallQuestionFindings(bundle) {
   });
 }
 
+/** A scene whose answer can move a concept's mastery but that reaches no concept (F3). Same wording as
+ * `experience_packet.py check`, narrower scope: only the types that take a graded answer, i.e. a quiz or one
+ * of the free-text kinds (FREE_TEXT_KIND, packages/lesson-session-host/src/operator-context.ts:38-46). Reading
+ * scenes (intro, concept), a confidence tap, a discussion (turns, session.ts:924) and a reproduction
+ * acknowledgement move no mastery, so a missing concept there says nothing. `check` warns on every scene
+ * but intro and meta_checkpoint. */
+const MASTERY_SCENE_TYPES = new Set([
+  "quiz", "spot_the_flaw", "ai_critique", "explain_back", "comparison", "summary_audit", "prompt_practice", "communication_sim",
+]);
+function sceneConceptFindings(bundle) {
+  const scenes = Array.isArray(bundle.scenes) ? bundle.scenes : [];
+  return scenes.flatMap((scene, index) => {
+    if (!isRecord(scene) || !MASTERY_SCENE_TYPES.has(scene.type) || !isStringArray(scene.concept_refs)) return [];
+    if (scene.concept_refs.length > 0) return [];
+    const id = typeof scene.id === "string" && scene.id !== "" ? scene.id : `#${index}`;
+    return [finding("WARN", "scene_reaches_no_concept",
+      `scene '${id}' reaches no concept; a scene without a concept moves no mastery`)];
+  });
+}
+
 /** `todo-*` stays allowed in identifier fields (`id`, `*_id`, `*_ids`), never in visible prose. */
 function isAllowedPlaceholderId(value, key) {
   const isIdentifier = key === "id" || (typeof key === "string" && (key.endsWith("_id") || key.endsWith("_ids")));
@@ -694,6 +717,7 @@ export function lintBundleData(bundle, { bundleDir, name = BUNDLE_FILENAME }) {
     ...flawReport.findings,
     ...graphFindings(bundle),
     ...recallQuestionFindings(bundle),
+    ...sceneConceptFindings(bundle),
     ...unfilledPlaceholderFindings(bundle),
     ...authoringFindings(bundle),
   ]);

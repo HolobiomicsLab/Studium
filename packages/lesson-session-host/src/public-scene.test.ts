@@ -58,6 +58,41 @@ describe("publicScene — generic transport redaction", () => {
     expect(pub["rubric"]).toBeDefined();
   });
 
+  it("ai_critique: the claim text is public as {id, text} and nothing else of the claims (D4)", () => {
+    const sc = {
+      ...base("ai_critique"),
+      claims: [
+        { id: "claim-bohr-newton", text: "Le taux de réussite prouve que la méthode marche.", flaws_expected: ["corrélation", "échantillon"] },
+        { id: "k2", text: "Les deux groupes ont été comparés.", flaws_expected: [] },
+      ],
+      rubric: { completeness: 1, evidence_quality: 1, tone: 1 },
+    } as unknown as Scene;
+    const pub = publicScene(sc) as Record<string, unknown>;
+    expect(pub["claims_to_critique"]).toEqual([
+      { id: "1", text: "Le taux de réussite prouve que la méthode marche." },
+      { id: "2", text: "Les deux groupes ont été comparés." },
+    ]);
+    const wire = JSON.stringify(pub);
+    expect(wire).not.toContain("flaws_expected");
+    expect(wire).not.toContain("bohr-newton"); // the author's claim id may name the flaw
+    expect(wire).not.toContain("corrélation");
+    expect(wire).not.toContain("échantillon");
+    expect("claims" in pub).toBe(false);
+    // projecting an already-public scene keeps the claims and still leaks nothing
+    expect(publicScene(pub as unknown as Scene)).toEqual(pub);
+    // the server's scene is untouched
+    expect((sc as unknown as { claims: Array<Record<string, unknown>> }).claims[0]!["flaws_expected"]).toEqual(["corrélation", "échantillon"]);
+  });
+
+  it("claims_to_critique is published for ai_critique only", () => {
+    const sc = {
+      ...base("spot_the_flaw"), flawed_content: "x", model_correction: "y",
+      claims: [{ id: "k1", text: "wrong", flaws_expected: ["hund"] }],
+      rubric: { completeness: 1, evidence_quality: 1, tone: 1 },
+    } as unknown as Scene;
+    expect("claims_to_critique" in (publicScene(sc) as Record<string, unknown>)).toBe(false);
+  });
+
   it("spot_the_flaw: strips claims + sound_claims + model_correction, keeps flawed_content", () => {
     const sc = {
       ...base("spot_the_flaw"),
