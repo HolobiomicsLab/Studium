@@ -65,4 +65,4 @@ Le HTML MCP embarque marked, KaTeX et mhchem. Les CSS/polices KaTeX, Vega, Vega-
 3Dmol, Cytoscape et dagre viennent de `https://cdn.jsdelivr.net`, avec versions et intégrité
 vérifiées. Sans ces bibliothèques, les représentations de secours restent lisibles. Les images
 distantes des leçons restent bloquées. VS Code garde son mode vendor hors ligne. Voir les
-[licences](VENDOR-LICENSES.md) et la [configuration des harnais](../../docs/start/harness-panels.fr.md).
+[licences](VENDOR-LICENSES.md) et la [notes pour les développeurs](../../docs/develop/panels.fr.md).

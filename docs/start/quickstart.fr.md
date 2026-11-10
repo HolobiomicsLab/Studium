@@ -54,7 +54,7 @@ codex mcp add studium --env LITELLM_BASE_URL= -- node "$PWD/apps/studium-vscode/
 codex mcp list
 ```
 
-Copilot, OpenCode, Cursor et l'API HTTP directe ont leur propre configuration dans
+`LITELLM_BASE_URL=` (vide) indique à Studium de n'utiliser aucun modèle juge, même si votre shell en définit un ; l'étape 3 en dépend. Copilot, OpenCode, Cursor et l'API HTTP directe ont leur propre configuration dans
 [Harnais](harnesses.fr.md). Sans autre réglage, le serveur range vos leçons dans `~/.studium/library` et
 votre progression dans `~/.studium/data` : elle survit à un redémarrage.
 

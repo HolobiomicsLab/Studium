@@ -9,7 +9,7 @@ English · [Français](README.fr.md)
 
 # Studium
 
-Studium turns sources you trust into adaptive lessons that you can play in VS Code or through your own AI assistant, with assessment that always says who wrote the answer key and whether anything was actually measured.
+Studium turns sources you trust into adaptive lessons that you can play in VS Code or through your own AI assistant. Each answer says who wrote the answer key and whether anything assessed it.
 
 ## Choose your path
 
@@ -22,41 +22,16 @@ Studium turns sources you trust into adaptive lessons that you can play in VS Co
 
 The [documentation portal](docs/index.md) lists every page by role.
 
-## Screenshots
-
 <table>
   <tr>
-    <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/vscode-pane-choices-dark.png">
-        <img src="docs/assets/screenshots/vscode-pane-choices-light.png" width="420" alt="The Studium lesson pane in VS Code on a quiz step of a French lesson: a notice saying the learner wrote the answer key, step 3 of 8 on the Lyman series, the Rydberg formula as a step document, four lettered choices with A selected, an optional confidence scale from 0 to 4, a Submit button and a Hint link.">
-      </picture>
-      <br><em>A quiz step in the VS Code lesson pane; the notice on top says who wrote the answer key.</em>
-    </td>
-    <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/vscode-pane-feedback-dark.png">
-        <img src="docs/assets/screenshots/vscode-pane-feedback-light.png" width="420" alt="The feedback step after a written answer in a French lesson: a compare-it-yourself box marked not certified because no judge assessed the answer, the key points, a collapsed model answer, the cited source passage with its link, four buttons to rate recall and a Continue button.">
-      </picture>
-      <br><em>Feedback after a written answer that no judge assessed: compare with the key points, then rate your recall.</em>
-    </td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/vscode-pane-choices-dark.png"><img src="docs/assets/screenshots/vscode-pane-choices-light.png" width="420" alt="The Studium lesson pane in VS Code on a quiz step of a French lesson: a notice saying the learner wrote the answer key, step 3 of 8 on the Lyman series, the Rydberg formula as a step document, four lettered choices with A selected, an optional confidence scale from 0 to 4, a Submit button and a Hint link."></picture><br><em>A quiz step in the VS Code lesson pane; the notice on top says who wrote the answer key.</em></td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/vscode-pane-feedback-dark.png"><img src="docs/assets/screenshots/vscode-pane-feedback-light.png" width="420" alt="The feedback step after a written answer in a French lesson: a compare-it-yourself box marked not certified because no judge assessed the answer, the key points, a collapsed model answer, the cited source passage with its link, four buttons to rate recall and a Continue button."></picture><br><em>Feedback after a written answer that no judge assessed: compare with the key points, then rate your recall.</em></td>
   </tr>
 </table>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/teacher-library-dark.png">
-  <img src="docs/assets/screenshots/teacher-library-light.png" width="720" alt="The teacher dashboard library, in French: counts of courses, checked and approved lessons, then each lesson with its language, author, number of scenes and concepts, duration, badges for its key classes, a Checked status and a Review button.">
-</picture>
+## Quickstart
 
-<em>The teacher dashboard library: each lesson with who holds its answer keys and its review status.</em>
-
-<img src="docs/assets/screenshots/concept-map-page-light.png" width="720" alt="The exported concept-map page of a French chemistry lesson: on the left, the concepts as boxes linked from prerequisite to dependent concept, one acquired, one current, the rest still to come, with the travelled path drawn solid; on the right, the selected concept with what it requires, what it leads to, and each step the learner took on it, with the result and who assessed it.">
-
-<em>The concept map exported after a session (synthetic learner): where each concept stands, and the answers behind it. See <a href="docs/learn/concept-map.md">Concept map</a>.</em>
-
-## Quickstart (5 minutes)
-
-You need git, Node 22 (Node 20 or newer works) and pnpm 9. Python is not needed to learn.
+Plan about fifteen minutes. You need git, Node 22 and pnpm 9. Python is not needed to learn.
 
 ```bash
 git clone https://github.com/HolobiomicsLab/studium.git
@@ -67,65 +42,41 @@ corepack enable        # provides the pnpm version pinned in package.json
 
 If the clone answers `Repository not found`, the repository is not visible to your account yet: run `gh auth login` and clone again.
 
-Then pick one of the two surfaces.
+**In VS Code.** Install the extension with the two commands below, then run **Studium: Pick a course** and choose the `fixtures` folder for the demo lessons, which need no API key. Contributors can press F5 in `apps/studium-vscode` instead. See [VS Code](docs/start/vscode.md) and [Installation](docs/start/installation.md).
 
-**In VS Code.** Open the folder `apps/studium-vscode`, press F5 (fn+F5 on a Mac), and in the window that opens run **Studium: Open lesson** from the Command Palette. The demo lessons under `fixtures/` play without an API key or network access.
+```bash
+pnpm --filter studium-vscode package
+code --install-extension apps/studium-vscode/studium.vsix
+```
 
-**In your AI assistant.** Register the Studium MCP server that `setup.sh` built, from the repository root:
+**In your AI assistant.** Register the Studium server that `setup.sh` built (MCP is the protocol an assistant uses to call tools), from the repository root. `LITELLM_BASE_URL=` (empty) tells Studium to use no judge model, even if your shell defines one.
 
 ```bash
 # Claude Code
-claude mcp add studium -e BUNDLES_ROOT="$PWD/fixtures" -- node "$PWD/apps/studium-vscode/dist/lesson-mcp.cjs"
+claude mcp add --scope project studium -e LITELLM_BASE_URL= -- node "$PWD/apps/studium-vscode/dist/lesson-mcp.cjs"
 
 # Codex
-codex mcp add studium --env BUNDLES_ROOT="$PWD/fixtures" -- node "$PWD/apps/studium-vscode/dist/lesson-mcp.cjs"
+codex mcp add studium --env LITELLM_BASE_URL= -- node "$PWD/apps/studium-vscode/dist/lesson-mcp.cjs"
 ```
 
-Restart the assistant and ask: "I want to learn photosynthesis with Studium". The assistant follows the server's instructions: it checks your study plan, gathers sources with its own tools, builds a lesson with `prepare_sources` and `create_lesson`, and asks you the first question. Your progress is kept in `~/.studium/data`; lessons you create go to `~/.studium/library`. Other harnesses (Copilot, OpenCode, Cursor) are covered in [Connect a harness](docs/start/harnesses.md).
-
-More detail: [Quickstart](docs/start/quickstart.md), [Installation](docs/start/installation.md), [Troubleshooting](docs/start/troubleshooting.md).
+Restart the assistant and ask: "I want to learn photosynthesis with Studium". The assistant asks for sources, builds a lesson and asks you the first question. Your progress is kept in `~/.studium/data`; lessons you create go to `~/.studium/library`. Copilot, OpenCode and Cursor are covered in [Connect your assistant](docs/start/harnesses.md). More detail: [Quickstart](docs/start/quickstart.md) and [Troubleshooting](docs/start/troubleshooting.md).
 
 ## What makes Studium different
 
-- **A course is a graph.** Each lesson carries a Learning Workflow Graph: concepts and tasks linked by typed edges such as `prerequisite_for` and `assesses`. Navigation, remediation and the teacher's view all read the same graph. See [How Studium works](docs/concepts/how-studium-works.md).
-- **Honest assessment, with provenance.** Every lesson says whether its answer key was written by a teacher, by the learner or by an AI agent, and whether a judge model assessed the answer. Without a judge, an open answer is shown next to the reference for you to compare; it is never given a keyword score. See [Honesty and provenance](docs/concepts/honesty-and-provenance.md).
-- **Sourced lessons.** A lesson built from your sources cites a passage for each graded item, and each quote must match its source character for character before the lesson is written.
-- **Spaced review.** After a lesson, Studium schedules reviews (FSRS). One call, `get_study_plan`, says what is due across all your lessons. Rating your own recall schedules reviews but never changes measured mastery. See [Review over time](docs/learn/review-over-time.md).
-- **Local-first.** Learner state stays on your machine, in folders named by pseudonyms, and you can erase it. Class reports are aggregated, with at least five learners behind each figure. See [Privacy and limits](docs/concepts/privacy-and-limits.md).
-- **Any harness.** The same session contract is served over MCP, a local HTTP API and a file channel, so Codex, Claude Code, Copilot, OpenCode or Cursor can drive a lesson. The assistant relays; the learner answers.
-
-## Architecture
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/architecture-dark.svg">
-  <img src="docs/assets/diagrams/architecture-light.svg" alt="Studium architecture: author-time Python services turn documents or an ASB capsule into a LessonBundle and a typed Learning Workflow Graph; the runtime packages and the session host serve sessions over MCP, HTTP and a file channel to VS Code and AI harnesses; the teacher dashboard and the Observatory are separate review surfaces.">
-</picture>
-
-### Repository map
-
-| Area | Where | What it does |
-|---|---|---|
-| Learner clients | [`apps/studium-vscode`](apps/studium-vscode) | VS Code extension: lesson pane, notebook, chat participant, reviews in the status bar |
-| Hosts | [`apps/lesson-mcp`](apps/lesson-mcp), [`packages/lesson-session-host`](packages/lesson-session-host), [`apps/lesson-server`](apps/lesson-server) | MCP server (40 tools), multi-session host with durable state, HTTP adapters |
-| Adaptive runtime | [`packages/lesson-session`](packages/lesson-session), [`packages/adaptation-engine`](packages/adaptation-engine), [`packages/learner-state`](packages/learner-state) | Graph-aware navigation, mastery, remediation, hints, calibration, spaced review |
-| Contracts | [`packages/lesson-bundle-schema`](packages/lesson-bundle-schema), [`packages/learning-workflow-schema`](packages/learning-workflow-schema), [`packages/telemetry-events`](packages/telemetry-events) | Typed schemas (Zod, with Pydantic mirrors) for lessons, graphs and events |
-| Authoring and review | [`services/`](services), [`tools/`](tools), [`eval/`](eval) | Python planner, scene synthesis, ingestion, Observatory, authoring CLI (`tools/experience_packet.py`), evaluation harness |
-| Teaching surfaces and identity | [`apps/teacher-dashboard`](apps/teacher-dashboard), [`skills/`](skills), [`design/`](design) | Teacher library and review pages, harness skills, design tokens and components |
-
-## Surfaces and maturity
-
-| Surface | Status | Meaning |
-|---|---|---|
-| Any MCP harness (Codex, Claude Code, Copilot, OpenCode, Cursor) and the file channel | Supported | Tested in CI, documented, the recommended way in |
-| VS Code extension (lesson pane, chat participant) | Supported | Tested in CI, built as a VSIX by CI |
-| `lesson-server` (HTTP, answer keys redacted), teacher dashboard, Observatory | Maintained | Kept working and tested; fewer new features |
-| Tauri student app ([`apps/student-runtime`](apps/student-runtime)) | Frozen | No new work; built only on manual request |
-| [`apps/author-web`](apps/author-web) | Legacy | Kept for the M1 demonstration; use the teacher dashboard instead |
-| MCP Apps panel ([`apps/lesson-panel-ui`](apps/lesson-panel-ui)) and Claude Code pane ([`apps/claude-code-mod`](apps/claude-code-mod)) | Prototype | Shared lesson panels with automated contract checks; native host trials and the planned formative learner trial have not happened |
+- **A course is a graph.** Each lesson links concepts by prerequisites; navigation, remediation and the teacher's view read it. [How Studium works](docs/concepts/how-studium-works.md)
+- **Honest assessment, with provenance.** Every lesson says who wrote the answer key and whether a judge model assessed the answer. [Honesty and provenance](docs/concepts/honesty-and-provenance.md)
+- **Sourced lessons.** Each graded item cites a passage, and each quote must match its source character for character.
+- **Spaced review.** Studium schedules reviews (FSRS); rating your own recall never changes measured mastery. [Review over time](docs/learn/review-over-time.md)
+- **Local-first.** Learner state stays on your machine, under pseudonyms, and you can erase it. [Privacy and limits](docs/concepts/privacy-and-limits.md)
+- **Any harness.** One session contract over MCP, a local HTTP API and a file channel; the assistant relays, the learner answers.
 
 ## Status and limits
 
-Studium is a research prototype, version 0.3.0. The adaptive runtime, the authoring tools, the provenance records and the evaluation harness are implemented and tested, but Studium has not been evaluated for learning outcomes. A teacher must review and approve a lesson before students use it. A lesson built by an AI assistant from your sources is labelled as agent-drafted and not teacher-validated. Without a configured judge model, open answers are compared with the reference rather than scored. The HTTP adapter exposes the 25 lesson operations plus `rate_recall`; the other study tools and all authoring and teacher tools are MCP-only. The release workflow can publish to the VS Code Marketplace, Open VSX and npm once their tokens are configured; until then, a release is a GitHub draft with the VSIX and the server file. [Capabilities](docs/concepts/capabilities.md) gives the detail per surface.
+Studium is a research prototype, version 0.3.0. The adaptive runtime, the authoring tools, the provenance records and the evaluation harness are implemented and tested, but Studium has not been evaluated for learning outcomes. A teacher must review and approve a lesson before students use it. A lesson built by an AI assistant from your sources is labelled as agent-drafted and not teacher-validated. Without a configured judge model, open answers are compared with the reference rather than scored. The HTTP adapter exposes the 25 lesson operations plus `rate_recall`; the other study tools and all authoring and teacher tools are MCP-only. The release workflow can publish to the VS Code Marketplace, Open VSX and npm once their tokens are configured; until then, a release is a GitHub draft with the VSIX and the server file.
+
+- [Capabilities, surfaces and maturity](docs/concepts/capabilities.md#surfaces-and-maturity): what each surface does and how far it is supported.
+- [Architecture and repository map](docs/develop/architecture.md): the diagram, every app, package and service.
+- Screenshots of the [teacher library](docs/teach/teacher-guide.md) and the [concept map](docs/learn/concept-map.md).
 
 ## Part of a family
 
@@ -141,8 +92,4 @@ If you use Studium in research, cite it with the metadata in [`CITATION.cff`](CI
 
 ## Contributing and security
 
-- [Contributing](CONTRIBUTING.md): setup, the checks a change must pass, tests first, bilingual documentation.
-- [Code of conduct](CODE_OF_CONDUCT.md).
-- [Security policy](SECURITY.md): report vulnerabilities privately.
-- [Testing Studium](TESTING.md): the guided path for a colleague trying the demo lesson.
-- [Changelog](CHANGELOG.md).
+[Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) · [Security policy](SECURITY.md) · [Testing Studium](TESTING.md) · [Changelog](CHANGELOG.md)

@@ -64,4 +64,4 @@ MCP HTML inlines marked, KaTeX and mhchem. KaTeX CSS/fonts, Vega, Vega-Lite, Veg
 Cytoscape and dagre use `https://cdn.jsdelivr.net`, with pinned versions and integrity hashes.
 Missing scientific libraries retain the existing readable fallbacks. Remote lesson images remain
 blocked. VS Code preserves its offline vendor mode. See [vendor licenses](VENDOR-LICENSES.md)
-and [harness setup](../../docs/start/harness-panels.md).
+and [panel notes for developers](../../docs/develop/panels.md).

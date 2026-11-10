@@ -75,6 +75,10 @@ ce que les questions de contrôle ont montré. Il
 reste sur votre machine tant que vous ne partagez pas le dossier. `forget_session` ne supprime pas les
 exports ; il nomme le dossier pour que vous puissiez le supprimer vous-même.
 
+<img src="../assets/screenshots/concept-map-page-light.png" width="720" alt="La page exportée de la carte des notions d'une leçon de chimie : à gauche, les notions en cadres reliés du prérequis vers la notion qui en dépend, une acquise, une en cours, les autres à venir, le chemin parcouru en trait plein ; à droite, la notion choisie avec ce qu'elle demande, ce à quoi elle mène, et chaque étape de l'apprenant sur elle, avec le résultat et qui l'a évalué.">
+
+<em>La carte des notions exportée après une séance (apprenant synthétique) : où en est chaque notion, et les réponses qui le fondent.</em>
+
 ## Ce sur quoi repose une notion
 
 Pour chaque scène d'une notion, le panneau donne le type de clé (écrite par l'auteur, production comparée
