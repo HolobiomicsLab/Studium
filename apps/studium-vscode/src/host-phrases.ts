@@ -33,6 +33,10 @@ const FR = {
   reviews_label: "Révisions",
   reviews_due: "{count} à réviser",
   reviews_none: "Rien à réviser pour l'instant",
+  // Approval state of a course in the picker and the tree (read from approval.json, never from validated_by).
+  approval_by: "validée par {reviewer}",
+  approval_changed: "modifiée depuis sa validation",
+  approval_none: "aucune approbation enregistrée",
   reviews_next: "Prochaine révision : {date}",
   // H3 / I-3: each group of the Reviews node in its own words (as the study plan names them).
   reviews_group_due: "à réviser",
@@ -88,6 +92,9 @@ const EN: Record<HostPhraseKey, string> = {
   reviews_label: "Reviews",
   reviews_due: "{count} to review",
   reviews_none: "Nothing to review right now",
+  approval_by: "validated by {reviewer}",
+  approval_changed: "changed since its approval",
+  approval_none: "no approval recorded",
   reviews_next: "Next review: {date}",
   reviews_group_due: "to review",
   reviews_group_relearn: "to take up again",
