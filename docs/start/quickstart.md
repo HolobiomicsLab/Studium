@@ -53,7 +53,7 @@ codex mcp add studium --env LITELLM_BASE_URL= -- node "$PWD/apps/studium-vscode/
 codex mcp list
 ```
 
-Copilot, OpenCode, Cursor and the direct HTTP API have their own snippets in [Harnesses](harnesses.md).
+`LITELLM_BASE_URL=` (empty) tells Studium to use no judge model, even if your shell defines one; step 3 relies on it. Copilot, OpenCode and Cursor have their own pages, listed in [Connect your assistant](harnesses.md); the direct HTTP API is in the [HTTP API reference](../reference/http-api.md).
 Without further settings the server keeps your lessons in `~/.studium/library` and your progress in
 `~/.studium/data`, so it survives a restart.
 

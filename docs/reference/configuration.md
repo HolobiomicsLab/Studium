@@ -50,6 +50,12 @@ endpoint such as a [LiteLLM](https://docs.litellm.ai/) proxy.
 | `LITELLM_MODEL` | `studium/audit-judge` | lesson-mcp, lesson-server | Model name of the audit judge. The scorer and tutor use the alias `studium/runtime-tutor`. |
 | `STUDIUM_LLM_TIMEOUT_MS` | `20000` | lesson-mcp, lesson-server | Timeout of a scoring or tutoring call, in milliseconds. |
 
+The MCP server uses the endpoint when `LITELLM_BASE_URL` is not empty; the HTTP API also requires
+`STUDIUM_API_LIVE=1`. Keep keys in your local secret store and check the fallback flags of a live run: an
+HTTP 200 does not prove that a model answered. A proxy must route the model aliases Studium calls:
+`studium/planner`, `studium/critic`, `studium/graph-builder`, `studium/scene-synth`,
+`studium/teacher-review` and `studium/runtime-tutor`.
+
 ## HTTP API of lesson-mcp
 
 See [HTTP API](http-api.md). Started with `pnpm --filter @studium/lesson-mcp api`.
@@ -79,6 +85,7 @@ The REST server of the teacher dashboard's peer rooms and course pages (`pnpm --
 | `BUNDLES_ROOT` | `<STUDIUM_HOME>/library` | teacher dashboard | Lessons shown in the library and review pages. |
 | `ANALYTICS_BASE_URL` | `http://localhost:8003` | teacher dashboard | analytics-collector service. |
 | `SCENE_SYNTH_BASE_URL` | `http://localhost:8002` | teacher dashboard | scene-synth service (learner contributions). |
+| `STUDIUM_REVIEW_TOKEN` | none (decisions disabled) | teacher dashboard (server only) | Teacher review token sent to scene-synth on a decision; at least 32 characters, same value as on scene-synth. Never sent to a browser. |
 | `LESSON_SERVER_BASE_URL` | `http://localhost:8010` | teacher dashboard | lesson-server (peer rooms, courses). |
 | `OBSERVATORY_BASE_URL` | `http://localhost:8004` | teacher dashboard | Observatory, linked from a lesson when it answers. |
 | `ANALYTICS_DATA_DIR` | `data` (relative to the working directory) | analytics-collector | Where collected telemetry is stored. |
@@ -96,6 +103,7 @@ The dashboard's end-to-end tests also read `DASHBOARD_PORT` (default `3001`),
 | `COMMUNITY_BUNDLES_ROOT` | `BUNDLES_ROOT` | scene-synth | Where approved learner contributions are written (`<root>/<course>/community/`). |
 | `LEARNER_DATA_ROOT` | `/tmp/studium-learner-items` | scene-synth | Store of submitted learner items. |
 | `LEARNER_PSEUDONYM_SECRET` | `dev-insecure-secret` | scene-synth | HMAC secret of author pseudonyms. Set it in any real deployment. |
+| `STUDIUM_REVIEW_TOKEN` | none (decisions refused) | scene-synth | Bearer token required on `POST /learner-items/{id}/decide`, at least 32 characters, distinct from any course id. Unset or shorter, every decision gets `503`. |
 | `BUNDLE_DIR` | the demo's default folder | `demo_fresh.py` | Where the demo bundle is staged. |
 
 ## Planner

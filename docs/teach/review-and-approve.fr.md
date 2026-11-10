@@ -137,9 +137,12 @@ L'enregistrement contient :
 | `lint` | Nombre d'erreurs et d'avertissements au moment de l'approbation |
 | `tool` | L'outil et sa version |
 
-Les lecteurs (serveur MCP, tableau de bord) traitent un enregistrement absent, mal formé ou étranger
-comme une absence d'approbation, et un enregistrement dont l'empreinte ne correspond pas comme périmé
-(`review_lesson` indique alors `approval.matches: false`).
+Les lecteurs (serveur MCP, tableau de bord, page de la carte des notions) traitent un enregistrement
+absent, mal formé ou étranger (autre schéma, pas de nom de relecteur) comme une absence
+d'approbation, et un enregistrement dont l'empreinte ne correspond pas comme périmé (`review_lesson`
+indique alors `approval.matches: false`). Les apprenants lisent les trois états : « Leçon validée par
+<relecteur> » avec le nom pris dans l'enregistrement, un avis indiquant que la leçon a été modifiée
+depuis son approbation, ou « Aucune approbation enregistrée pour cette leçon. »
 Toute modification après approbation, même d'un espace, demande une nouvelle relecture et une nouvelle
 approbation. Le texte libre de `validated_by` n'accorde jamais le statut Approuvé, et l'approbation
 n'envoie la leçon à personne : la diffusion est une étape distincte

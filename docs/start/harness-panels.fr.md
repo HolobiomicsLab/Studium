@@ -1,79 +1,50 @@
 [English](harness-panels.md) · Français
 
-# Panneaux de leçon dans les harnais IA
+# Panneaux de leçon dans votre assistant
 
-Studium sépare la vue publique d'une leçon de son hôte. Le même renderer HTML affiche contenus,
-contrôles de réponse, retours, révisions et fin de leçon dans VS Code et MCP Apps. Le mod Claude Code
-présente cette vue avec des composants natifs. Ce tableau décrit les routes implémentées ; les
-vérifications dans les vrais hôtes Codex Desktop et Claude sont différées.
+Studium peut afficher une leçon dans un panneau à côté de la conversation, avec le texte de la leçon, les contrôles de réponse, les retours, vos dates de révision et l'écran de fin. Cette page dit où un panneau s'affiche et comment en ouvrir un. Pour vérifier un hôte ou en ajouter un, les développeurs lisent [Panneaux de leçon pour les développeurs](../develop/panels.fr.md).
 
-| Hôte | Route du panneau | Vérification actuelle |
+## Où un panneau s'affiche
+
+| Où vous travaillez | Ce que vous voyez | Comment c'est vérifié |
 |---|---|---|
-| Extension Studium pour VS Code | Renderer partagé et bridge VS Code | Pilotes DOM et extension existants |
-| Codex Desktop compatible MCP Apps | Ressources `ui://` via la connexion stdio existante | Handshake et action du SDK embarqué ; essai natif différé |
-| Claude Code CLI, onglet Code et extension | Plugin `apps/claude-code-mod` | Tests du contrat du mod ; essai natif différé |
-| Connecteur distant claude.ai / Claude Desktop | MCP Apps sur Streamable HTTP | Service distant et exposition à décider par le propriétaire |
-| Client MCP textuel | Outils existants et outils de vue publique | Aucune métadonnée UI ni ressource UI accessible |
+| VS Code avec l'extension Studium | Un volet | Tests automatisés du volet |
+| Codex Desktop compatible MCP Apps | Un panneau | Test automatisé de l'initialisation et d'une action ; pas encore essayé dans l'application |
+| Claude Code (terminal, onglet Code, extension) | Un volet natif fourni par le mod Claude Code de `apps/claude-code-mod` (un mod est un module complémentaire de Claude Code) | Tests automatisés du mod ; pas encore essayé dans l'application |
+| claude.ai ou Claude Desktop, en connecteur distant | Un panneau sur Streamable HTTP | Non proposé : le service distant et son exposition relèvent d'une décision du propriétaire |
+| Un assistant qui n'affiche que du texte | La conversation | Les outils de panneau existent, mais aucun panneau n'est affiché |
 
-## Connexion
+Le même moteur d'affichage dessine le panneau dans VS Code et dans MCP Apps. Le mod Claude Code montre la même vue de leçon avec des composants natifs. Aucun panneau n'a encore été essayé dans les vraies applications Codex Desktop ou Claude.
 
-L'entrée Codex reste `node /chemin/absolu/studium-mcp.cjs`. Recompiler avec
-`pnpm --filter @studium/lesson-mcp bundle`, puis utiliser
-`apps/lesson-mcp/dist/studium-mcp.cjs` dans la configuration du connecteur existant. Ouvrir une leçon
-avec `open_lesson_panel`. L'hôte annonce `io.modelcontextprotocol/ui` à l'initialisation : le serveur
-expose alors deux ressources et annote les trois outils de panneau et `get_workflow_graph`. Le
-modèle attend les actions de la personne qui apprend lorsqu'un panneau interactif est ouvert.
+## Avant de commencer
 
-### La surface sur laquelle la leçon se joue
+- Installez et connectez le serveur Studium comme dans [Connecter votre assistant](harnesses.fr.md). Son fichier serveur `apps/studium-vscode/dist/lesson-mcp.cjs` porte les panneaux.
+- Après une mise à jour, recompilez avec `./setup.sh`, ou seulement le serveur avec `pnpm --filter studium-vscode build`.
 
-`open_lesson_panel` ouvre ou reprend la leçon sur la meilleure surface que le client sait afficher,
-et la vue rendue dit laquelle dans `surface` (`rank`, `kind` et les genres `available`).
+## Ouvrir une leçon dans un panneau
 
-| Rang | Surface | Ce que lit le serveur |
+1. Demandez à votre assistant d'ouvrir la leçon dans un panneau. L'assistant appelle `open_lesson_panel`.
+2. Studium choisit la meilleure surface que votre client sait afficher et la nomme dans la vue qu'il renvoie (`surface` : `rank`, `kind` et les genres `available`).
+3. Répondez dans le panneau. Tant qu'il est ouvert, l'assistant vous attend.
+
+## La surface sur laquelle la leçon se joue
+
+| Rang | Surface | Studium l'utilise quand |
 |---|---|---|
 | 3 | `panel`, un panneau MCP Apps | le client annonce `io.modelcontextprotocol/ui` |
-| 3 | `pane`, un volet natif | l'adaptateur appelle `open_lesson_panel` avec `surface: "pane"` (le mod Claude Code et l'extension VS Code le font) |
+| 3 | `pane`, un volet natif | le client demande `surface: "pane"` (le mod Claude Code et l'extension VS Code le font) |
 | 2 | `form`, des formulaires affichés par le client | le client déclare l'élicitation |
-| 1 | `text`, la conversation | toujours disponible |
+| 1 | `text`, la conversation | toujours |
 
-Passer `surface: "text"` quand la personne préfère la conversation. Une surface que le client ne
-sait pas afficher retombe sur la meilleure en dessous. Aux rangs 2 et 1, le résumé écrit pour le
-modèle dit comment continuer : `play_in_forms`, ou relayer le texte de `get_current_scene`.
-`get_panel_view` accepte le même champ `surface` ; sans lui, une séance garde la surface sur
-laquelle elle a été ouverte.
+Pour rester dans la conversation, demandez `surface: "text"`. Une surface que le client ne sait pas afficher retombe sur la meilleure en dessous. Aux rangs 2 et 1, le résumé écrit pour le modèle dit comment continuer : `play_in_forms`, ou relayer le texte de `get_current_scene`. `get_panel_view` accepte le même champ `surface` ; sans lui, une séance garde la surface sur laquelle elle a été ouverte.
 
-Le panneau MCP propose un sélecteur de cours et une confirmation explicite avant effacement. Une
-reproduction de capsule nécessite le terminal VS Code ; le panneau l'explique. Le graphe montre le
-voisinage actuel de l'apprenant ; cliquer sur un nœud en affiche le libellé localement.
+## Ce que propose le panneau MCP
 
-La route du connecteur distant Claude est distincte de l'API HTTP de leçon existante. Aucun endpoint
-public, tunnel ou connecteur n'est installé ici. Pour le développement local uniquement, compiler
-le bundle puis lancer `node tools/panel-http-dev.mjs`. Il écoute sur `127.0.0.1:3001`, transmet MCP
-à un serveur embarqué en mémoire par connexion et n'accepte que les hôtes et origines loopback.
-L'arrêter après usage. Il ne fournit ni authentification ni contrat de déploiement en production.
+- Un sélecteur de cours, et l'effacement de vos données après une confirmation explicite.
+- Un graphe du voisinage de votre concept actuel ; cliquer sur un nœud en affiche le libellé localement.
+- Pour une reproduction de capsule, un message indiquant que le terminal VS Code est nécessaire.
 
-## Vérifier et étendre
+## Limites
 
-`STUDIUM_EPHEMERAL=1 node tools/panel-probe.mjs` vérifie 40 outils, les comptes 2/4 des ressources et
-outils UI, l'isolation par capacité, les tailles HTML, l'absence de clé et le handshake postMessage
-avec une action du véritable App embarqué dans un DOM. `--http=http://127.0.0.1:3001/mcp` vérifie
-l'adaptateur HTTP local ; `--dom=/chemin/absolu/panneau.html` conserve le DOM rendu. Cet hôte automatisé
-ne remplace pas un essai natif. Le `ext-apps/examples/basic-host` externe nécessite ses propres
-dépendances et son build avant de se connecter au serveur local.
-
-Pour ajouter un hôte, écrire un bridge dans
-[`apps/lesson-panel-ui/src`](../../apps/lesson-panel-ui/src/bridge-mcp-app.js) qui appelle `renderView`
-et transmet les `PanelAction` publiques. Garder les accès disque, la notation et les clés côté
-serveur. Suivre langue, thème, attente, erreurs, liens et taille. Pour les aperçus, le bridge
-standalone lit `window.__studiumView` puis les événements `studium:view`.
-
-## Politique des ressources
-
-Les ressources MCP utilisent `text/html;profile=mcp-app`, `prefersBorder: true` et le seul domaine CSP
-`https://cdn.jsdelivr.net`. marked, KaTeX JS et mhchem sont embarqués ; CSS/polices KaTeX, Vega,
-Vega-Lite, Vega-Embed, 3Dmol, Cytoscape et dagre utilisent les versions installées et l'intégrité
-SHA-384. Les polices suivent le chemin versionné du CSS KaTeX vérifié. Sans CDN, les représentations
-de secours restent lisibles. Les images distantes des leçons sont bloquées ; les images approuvées
-par le serveur arrivent en URI `data:`. VS Code conserve sa CSP à nonce et son mode vendor local.
-Le build limite chaque HTML à 1,5 Mo. Les licences sont dans
-[`VENDOR-LICENSES.md`](../../apps/lesson-panel-ui/VENDOR-LICENSES.md).
+- Studium n'ouvre aucun endpoint public et n'installe aucun connecteur. La route du connecteur distant n'est pas offerte aux utilisateurs.
+- Les panneaux n'ont que des vérifications automatisées, comme l'indique le tableau.

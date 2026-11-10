@@ -288,7 +288,11 @@ export function progressText(view: StudiumPanelView): string {
 /** The line under the lesson's title (INT-STUDIUM-058): the status line of a version-2 view, which
  * says the step, the time left, the reviews due and what is expected; else the step alone. */
 export function headerLine(view: StudiumPanelView): string {
-  return view.status_line ? view.status_line : progressText(view);
+  if (view.status_line) return view.status_line;
+  // A version-1 view has no status line: the reviews due go beside the step, as the HTML panel's chip does.
+  const due = view.reviewDue.length;
+  if (due === 0) return progressText(view);
+  return `${progressText(view)} · ${phraseOf(view, "pane_due_review", "{count} à réviser", "{count} to review").replace("{count}", String(due))}`;
 }
 
 /** Who speaks in a block of the pane, as a short chip: the lesson's author over the scene, who
@@ -301,10 +305,27 @@ export function voiceChip(view: StudiumPanelView, block: "scene" | "verdict"): s
   if (voice.kind === "key" && drafted === "agent") {
     return phraseOf(view, "pane_voice_key_ai", "Évalué par la clé rédigée par l'IA — vérifie-la avec le passage cité", "Assessed by the AI-drafted key — check it against the cited passage");
   }
+  // A classmate's contribution (teacher mode, drafted by a learner): the key is not the reader's own.
+  const classmate = view.voices?.scene?.kind === "author" && view.voices.scene.from_classmate === true;
+  if (voice.kind === "key" && classmate) {
+    return phraseOf(view, "pane_voice_key_classmate", "Évalué par la clé rédigée par une personne de la classe", "Assessed by the key written by a classmate");
+  }
   if (voice.kind === "key" && drafted === "learner") return phraseOf(view, "pane_voice_key_own", "Évalué par la clé que tu as rédigée", "Assessed by the key you wrote");
   if (voice.kind === "key") return phraseOf(view, "pane_voice_key", "Évalué par la clé de l'auteur", "Assessed by the author's key");
   if (voice.kind === "judge") return phraseOf(view, "pane_voice_judge", "Évalué par un juge (modèle)", "Assessed by a judge (model)");
   if (voice.kind === "agent") return phraseOf(view, "pane_voice_agent", "Texte de l'assistant, hors leçon", "Assistant's text, not part of the lesson");
+  if (voice.from_classmate === true) {
+    if (voice.reviewed && voice.name) {
+      return phraseOf(view, "pane_voice_classmate_validated_by", "Leçon proposée par une personne de la classe, validée par {name}",
+        "Lesson contributed by a classmate, validated by {name}").replace("{name}", voice.name);
+    }
+    if (voice.reviewed) return phraseOf(view, "pane_voice_validated", "Leçon validée par un enseignant", "Lesson validated by a teacher");
+    return voice.name
+      ? phraseOf(view, "pane_voice_classmate_changed", "Leçon proposée par une personne de la classe. Modifiée depuis sa validation.",
+        "Lesson contributed by a classmate. Changed since its validation.")
+      : phraseOf(view, "pane_voice_classmate_unreviewed", "Leçon proposée par une personne de la classe. Aucune approbation enregistrée pour cette leçon.",
+        "Lesson contributed by a classmate. No approval is recorded for this lesson.");
+  }
   if (voice.reviewed) {
     return voice.name
       ? phraseOf(view, "pane_voice_validated_by", "Leçon validée par {name}", "Lesson validated by {name}").replace("{name}", voice.name)
@@ -317,7 +338,8 @@ export function voiceChip(view: StudiumPanelView, block: "scene" | "verdict"): s
   if (voice.drafted_by === "learner") {
     return phraseOf(view, "pane_voice_learner_unreviewed", "Leçon que tu as rédigée, non relue par un enseignant", "Lesson you wrote, not reviewed by a teacher");
   }
-  return phraseOf(view, "pane_voice_unreviewed", "Leçon non relue par un enseignant", "Lesson not reviewed by a teacher");
+  // A teacher-drafted lesson without an approval record (C5): say only that none is recorded.
+  return phraseOf(view, "pane_voice_unreviewed", "Aucune approbation enregistrée pour cette leçon", "No approval is recorded for this lesson");
 }
 
 /** One rung of the help ladder as the pane draws it. `note`: what taking it costs, why it is closed,
@@ -531,17 +553,109 @@ export function sceneMarkdown(view: StudiumPanelView): string {
   return extra.join("\n\n");
 }
 
-/** Earned feedback, model answer and hint, kept separate from the next scene. */
+const REFERENCE_LABELS: Record<string, [string, string, string]> = {
+  key_points: ["pane_key_points", "Points clés", "Key points"],
+  planted_flaws: ["pane_planted_flaws", "Défauts plantés", "Planted flaws"],
+  flawed_claims: ["pane_flawed_claims", "Affirmations qui cachaient un défaut", "Claims that hid a flaw"],
+  correct_choice: ["pane_correct_choice", "La bonne réponse", "The right answer"],
+};
+
+/** Whether the verdict carries its parts as data (feedback, reference). Then the pane draws those parts and
+ * not `display_markdown`, which holds the same words: one source, never both (audit A13). */
+export function feedbackIsStructured(view: StudiumPanelView): boolean {
+  const verdict = view.verdict;
+  if (!verdict) return false;
+  return [verdict.feedback, verdict.model_answer].some(part => typeof part === "string" && part.trim() !== "")
+    || (verdict.key_points ?? []).length > 0;
+}
+
+/** Earned feedback, reference and hint, kept separate from the next scene. The structured fields when the
+ * view carries them, else `display_markdown` alone. */
 export function feedbackMarkdown(view: StudiumPanelView): string {
   const verdict = view.verdict;
-  const lines = [verdict?.display_markdown, verdict?.feedback];
-  const keyPoints = view.strings.pane_key_points ?? (view.locale === "fr" ? "Points clés" : "Key points");
-  const modelAnswer = view.strings.pane_model_answer ?? (view.locale === "fr" ? "Réponse modèle" : "Model answer");
-  if (verdict?.key_points?.length) lines.push(`**${keyPoints}**\n${verdict.key_points.map(item => `- ${item}`).join("\n")}`);
-  if (verdict?.model_answer) lines.push(`**${modelAnswer}**\n${verdict.model_answer}`);
+  const lines: Array<string | undefined> = [];
+  if (verdict && feedbackIsStructured(view)) {
+    const kind = typeof verdict.reference_kind === "string" && verdict.reference_kind in REFERENCE_LABELS ? verdict.reference_kind : "key_points";
+    const [key, fr, en] = REFERENCE_LABELS[kind]!;
+    const missing = new Set(verdict.key_points_missing ?? []);
+    const marker = phraseOf(view, "pane_key_point_missing", "(manquant selon le juge)", "(missing, per the judge)");
+    lines.push(verdict.feedback);
+    const points = (verdict.key_points ?? []).filter(item => item.trim() !== "");
+    if (points.length) lines.push(`**${phraseOf(view, key, fr, en)}**\n${points.map(item => `- ${item}${missing.has(item) ? ` ${marker}` : ""}`).join("\n")}`);
+    const modelAnswer = view.strings.pane_model_answer ?? (view.locale === "fr" ? "Réponse modèle" : "Model answer");
+    const heading = kind === "planted_flaws" ? phraseOf(view, "pane_model_correction", "Correction modèle", "Model correction") : modelAnswer;
+    if (verdict.model_answer) lines.push(`**${heading}**\n${verdict.model_answer}`);
+  } else lines.push(verdict?.display_markdown);
   const hintHeading = view.strings.pane_hint_heading ?? (view.locale === "fr" ? "Indice :" : "Hint:");
   if (view.hint?.hint) lines.push(`**${hintHeading}** ${view.hint.hint}`);
   return lines.filter((line): line is string => typeof line === "string" && line.length > 0).join("\n\n");
+}
+
+// Why this scene is shown: the HTML panel's cards (artifact-pane.js NAV_CARDS), title and reason in one line.
+const NAV_PHRASES: Record<string, [string, string, string, string, string, string]> = {
+  replay: ["pane_gate_replay", "On refait cette étape ensemble", "Let's do this step again together", "pane_nav_replay_why",
+    "Une deuxième tentative aide à fixer la notion. Ce n'est pas une sanction : relis tranquillement avant de répondre.",
+    "A second attempt helps the idea settle. It is not a penalty: take your time before answering."],
+  remediate_alt: ["pane_gate_remediate", "On reprend cette notion autrement", "Let's take this concept another way", "pane_nav_remediate_alt_why",
+    "La même notion, présentée sous un autre angle.", "The same concept, from another angle."],
+  remediate: ["pane_nav_detour", "Petit détour", "A short detour", "pane_nav_detour_why_generic",
+    "On revoit d'abord une notion dont la suite a besoin, puis on reprend où tu en étais.",
+    "First a concept the next steps rely on, then back to where you were."],
+  gate_passed: ["pane_nav_return", "Retour au parcours", "Back on track", "pane_nav_return_why",
+    "Le détour est terminé : on reprend là où tu en étais.", "The detour is over: you continue where you left off."],
+  gate_released: ["pane_nav_onward", "On avance", "Moving on", "pane_nav_released_why",
+    "Cette notion n'est pas encore acquise ; on avance quand même, et tu pourras y revenir.",
+    "This concept is not yet acquired; you move on anyway, and can come back to it."],
+  gate_unassessable: ["pane_nav_onward", "On avance", "Moving on", "pane_nav_unassessable_why",
+    "Aucune étape de cette leçon ne permet de revoir cette notion maintenant : on avance.",
+    "No step of this lesson can revisit this concept now: you move on."],
+  skip_concept: ["pane_nav_next_concept", "Notion suivante", "Next concept", "pane_nav_next_concept_why",
+    "Tes réponses montrent que tu maîtrises cette notion : on passe à la suivante.",
+    "Your answers show you master this concept, so you move to the next one."],
+};
+
+/** The reason the learner is on a detour, a replay or a skipped stretch, in one line, with the HTML panel's
+ * wording. Empty when the view carries no navigation worth saying. The detour's return title is not in
+ * the view, so the generic wording is used. */
+export function navigationLine(view: StudiumPanelView): string {
+  const kind = view.navigation?.kind;
+  if (kind === "skip_mastered") {
+    const count = view.navigation?.skipped_scene_ids?.length ?? 0;
+    const why = count > 1 ? phraseOf(view, "pane_nav_skip_many", "{count} étapes que tu maîtrises déjà ont été passées.", "{count} steps you already master were skipped.").replace("{count}", String(count))
+      : count === 1 ? phraseOf(view, "pane_nav_skip_one", "Une étape que tu maîtrises déjà a été passée.", "One step you already master was skipped.")
+        : phraseOf(view, "pane_nav_skip_generic", "Tu maîtrises déjà ce qui précède : on passe directement à cette étape.", "You already master what came before, so you go straight to this step.");
+    return labelled(view, phraseOf(view, "pane_nav_skip", "On avance plus vite", "Moving faster"), why);
+  }
+  const phrases = kind ? NAV_PHRASES[kind] : undefined;
+  if (!phrases) return "";
+  const [titleKey, titleFr, titleEn, whyKey, whyFr, whyEn] = phrases;
+  return labelled(view, phraseOf(view, titleKey, titleFr, titleEn), phraseOf(view, whyKey, whyFr, whyEn));
+}
+
+/** The calibration mirror (only the actionable bands, at most two, no number), one line each. The HTML
+ * panel keeps those of the answered scene's concepts; the view does not say which, so the pane shows what the
+ * view carries. */
+export function calibrationLines(view: StudiumPanelView): string[] {
+  return view.calibration.filter(item => item.band === "sur" || item.band === "sous").slice(0, 2).map(item => {
+    const band = item.band === "sur"
+      ? phraseOf(view, "pane_overconfidence", "Surconfiance", "Overconfidence")
+      : phraseOf(view, "pane_underconfidence", "Sous-confiance", "Underconfidence");
+    return `**${band}${view.locale === "fr" ? "\u00a0:" : ":"}** ${item.message}`;
+  });
+}
+
+/** The completion screen's review line: reviews due now, else the date of the next one, else nothing. */
+export function reviewLine(view: StudiumPanelView): string {
+  const completion = view.completion;
+  if (!completion) return "";
+  if (completion.due_now > 0) {
+    return phraseOf(view, "pane_completion_due_now", "Révisions à faire dès maintenant : {count}", "Reviews due now: {count}").replace("{count}", String(completion.due_now));
+  }
+  if (completion.next_review_at == null) return "";
+  const date = new Date(completion.next_review_at);
+  if (Number.isNaN(date.getTime())) return "";
+  const words = new Intl.DateTimeFormat(view.locale, { weekday: "long", day: "numeric", month: "long" }).format(date);
+  return phraseOf(view, "pane_completion_next", "Prochaine révision : {date}", "Next review: {date}").replace("{date}", words);
 }
 
 /** Human-readable completion summary for the native Pane. */
@@ -556,7 +670,8 @@ export function completionMarkdown(view: StudiumPanelView): string {
     `**${view.strings.pane_completion_consolidated ?? labels.consolidated}:** ${names(completion.consolidated)}`,
     `**${view.strings.pane_completion_practised ?? labels.practised}:** ${names(completion.practised)}`,
     `**${view.strings.pane_completion_not_measured ?? labels.notMeasured}:** ${names(completion.not_measured)}`,
-  ].join("\n\n");
+    reviewLine(view),
+  ].filter(Boolean).join("\n\n");
 }
 
 /** Preserve each source's provenance fields in the compact native rendering. */

@@ -276,7 +276,9 @@ def test_approve_marks_the_bundle_learner_authored_and_teacher_validated(tmp_pat
     )
     with zipfile.ZipFile(_path_from_uri(env.published_bundle_ref)) as zf:
         lesson = json.loads(zf.read("lesson.json"))
-    assert lesson["metadata"]["authoring"] == {"mode": "teacher", "author_is_learner": True}
+    assert lesson["metadata"]["authoring"] == {
+        "mode": "teacher", "author_is_learner": True, "drafted_by": "learner",
+    }
 
 
 # --------------------------------------------------------------------------- #

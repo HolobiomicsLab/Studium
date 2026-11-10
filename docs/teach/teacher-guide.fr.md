@@ -32,6 +32,13 @@ L'approbation écrit aussi un reçu des items que vous avez ouverts et de votre 
 évalué. Pour renvoyer une leçon sans l'approuver, enregistrez plutôt un reçu de retour ; voir
 [Relire et approuver](review-and-approve.fr.md#approuver-le-fichier-exact).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/screenshots/teacher-library-dark.png">
+  <img src="../assets/screenshots/teacher-library-light.png" width="720" alt="La bibliothèque du tableau de bord enseignant : le nombre de cours, de leçons vérifiées et approuvées, puis chaque leçon avec sa langue, son auteur, ses nombres de scènes et de notions, sa durée, des badges pour ses classes de clé, un statut Vérifié et un bouton Relire.">
+</picture>
+
+<em>La bibliothèque du tableau de bord enseignant : chaque leçon, qui détient ses clés de correction et son statut de relecture.</em>
+
 ## Avant de commencer
 
 1. Installez Studium : [installation](../start/installation.fr.md).
@@ -69,7 +76,10 @@ prêtes à adapter se trouvent dans [modèles d'activités](activity-templates.f
 ## Diffuser une leçon
 
 Une leçon est un dossier : `lesson.json`, ses `assets/` et, une fois approuvée, `approval.json`.
-Gardez les trois ensemble et à la même révision. Les étudiants placent le dossier dans leur
+Gardez les trois ensemble et à la même révision. Une leçon livrée en `.zip` porte l'enregistrement
+dans son membre `approval.json` (les scripts de construction des démos l'ajoutent quand il correspond
+à `lesson.json`) ; sans lui, la leçon se lit « Aucune approbation enregistrée pour cette leçon. »
+Les étudiants placent le dossier dans leur
 bibliothèque Studium (par défaut `~/.studium/library/<course_id>/`, ou le dossier que désigne
 `BUNDLES_ROOT`) et l'ouvrent depuis leur assistant ou depuis VS Code (voir [VS Code](../start/vscode.fr.md)).
 Au démarrage de la leçon, la session indique si un enregistrement d'approbation correspond au

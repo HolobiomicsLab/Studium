@@ -28,7 +28,7 @@ surface. Every tool and its arguments: [MCP tools](../../docs/reference/mcp-tool
 
 Studium grades an answer and picks the next screen in a few milliseconds. The learner waits for
 the model around it, on every word it writes. Measured on one lesson (figures and method in
-[Keep answers fast](../../docs/start/harnesses.md#keep-answers-fast)): 27 s per answer when a
+[Keep answers fast](../../docs/start/fast-answers.md)): 27 s per answer when a
 large model relayed through shell calls inside a long working session, 5 to 6 s when a short
 session ran as the fast lesson agent, 16 s when a large model handed each answer to that agent.
 So, by default:
@@ -133,10 +133,15 @@ independent MCP client run separate servers with separate sessions and progress.
    sources, follow [studium-self-learner](../studium-self-learner/SKILL.md).
 4. Ask which presentation language the learner wants. `start_lesson_session
    {bundle_ref, learner_id?, presentation_language?, now_ms?}` returns `session_id`,
-   the first `presentation`, `language`, `authoring`, `resume` (`new`, `resumed` or
-   `completed`), `persistence` and any `due` review targets. Relay
+   the first `presentation`, `language`, `authoring`, `resume` (`new`, `resumed`,
+   `completed`, or `already_open` when the learner already has this lesson open in this
+   server: the same `session_id`, where it was), `persistence` and any `due` review targets. Relay
    `authoring.notice` when present: it says who wrote the key and whether a judge
-   assesses written answers.
+   assesses written answers. Whether a teacher validated the lesson comes only from its
+   approval record (`authoring.approval`, `authoring.validated`); the first screen's text
+   says it (« Leçon validée par <reviewer> », a changed-since-approval notice, or "No
+   approval is recorded for this lesson."). Never call a lesson validated from its
+   `validated_by` text.
 5. To play on the best surface the client can show, open with `open_lesson_panel
    {bundle_ref, learner_id, surface?}` instead. Its view's `surface` says where the
    lesson is played, and the last line of its text how to go on: rank 3, a panel or a
@@ -168,10 +173,16 @@ public presentation; `get_scene_artifacts {session_id}` the render manifest
 executed_result). Render or describe them. A `reference_result` or `executed_result`
 is evidence to judge against, not an answer key.
 
-Answer with `submit_response {session_id, input}`. In a chat, send the learner's words
+Answer with `submit_response {session_id, expected_scene_id, input}`, where
+`expected_scene_id` is the id of the scene the learner answered: when another scene is on
+screen (a duplicate send, a late answer) the call is refused in one line and changes
+nothing; read the current scene and send the answer to it. In a chat, send the learner's words
 as `{"kind": "reply", "text": "..."}`: Studium maps them to the scene's input (a choice
 letter, a 0 to 4 confidence, a free text) and refuses, in one line, a reply it cannot
-read. Typed inputs remain available:
+read: an empty written answer, « I don't know » (the learner has not answered: offer
+`request_hint` at a quiz), or a question or « wait » on a reading screen record nothing.
+A `confidence` 0 to 4 sent with the reply is kept where the input takes one; it is never
+read from the text. Typed inputs remain available:
 
 | Scene | `input` |
 | --- | --- |
@@ -204,7 +215,11 @@ The reply is `{transition}`, with `kind` (`next`, `replay`, `remediate_alt`,
   `reference_kind`: `key_points`, `planted_flaws`, `flawed_claims`, or
   `correct_choice`, the text of the right choice after a wrong quiz answer) and the
   cited `sources`, but only when the learner leaves the scene for good; a same-item
-  retry or a prerequisite detour holds them back.
+  retry or a prerequisite detour holds them back. Once a scene's reference is shown,
+  the lesson state records it (`reference_shown`): no prerequisite gate, remediation or
+  contest check question asks that scene again as a graded question. With no other item
+  of the concept left, the gate opens as `gate_unassessable` and the concept cannot be
+  contested; a review on a later day still asks it.
 - `navigation`: `{kind, scene_id, rule_id, reason, modulator, returns_to?}`, the one
   routing decision (`advance`, `replay`, `remediate_alt`, `remediate`, `gate_passed`,
   `gate_released`, `gate_unassessable`, `skip_mastered`, `calibration`, `complete`).
@@ -216,6 +231,9 @@ The reply is `{transition}`, with `kind` (`next`, `replay`, `remediate_alt`,
   and never changes mastery. One rating per request. A pending request is saved with
   the learner's state and survives a server restart; a request lost by an older server
   gets a distinct "expired" error: the learner answers the scene again to be asked anew.
+  The orientation's `waiting` says `self_rating` only on the screen that served the
+  request; a request left behind (the learner moved on, or the server restarted) can
+  still be rated but is no longer announced.
 
 Without a judge, written answers get the reference to compare with, never a keyword
 count presented as an assessment.
@@ -257,7 +275,7 @@ a later `start_lesson_session` for the same learner and lesson resumes (inspect
 `resume`). Call `forget_session` only on an explicit erasure request, or to dispose of
 your own labelled test learner. It takes exactly one of `session_id` (this lesson's
 state, the cross-lesson profile and the review schedule) or `learner_id` (every
-lesson's progress too, no live session needed), irreversibly, and returns `{forgotten,
+lesson's progress too, no live session needed), and an optional `language` (fr|en), irreversibly, and returns `{forgotten,
 scope, erased, kept, display_markdown}`. Show `display_markdown`: it names what stays
 on disk, the lessons of the learner's library and their sources, which the learner
 deletes by hand if they want them gone.
@@ -322,8 +340,7 @@ and teacher tools are MCP-only. Each mutation carries a unique `request_id`;
 scene-sensitive mutations also need the current `expected_scene_id`. `rate_recall` needs no
 `expected_scene_id` because its `scene_id` argument identifies the self-rating request.
 Resend an uncertain request with the same id; do not re-create a session on a connection
-error. See [Direct HTTP API](../../docs/start/harnesses.md#direct-http-api)
-and the [HTTP API reference](../../docs/reference/http-api.md).
+error. See the [HTTP API reference](../../docs/reference/http-api.md).
 
 **File channel.** From the repository root, the runner writes each step and waits:
 

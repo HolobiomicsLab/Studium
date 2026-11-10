@@ -38,8 +38,9 @@ sous la scène. Rien n'est soumis et la scène reste où elle est. Chaque notion
 qu'elle demande d'abord. « Preuves et portée » montre ce que l'état établit, ce qu'il n'établit pas, et
 les réponses qui le fondent : le jour, qui a évalué la réponse, le résultat et les indices pris. Quand une
 notion peut être contrôlée, un bouton porte votre déclaration (« Je la connais » ou « J'ai un doute ») :
-la leçon pose alors une ou deux questions de contrôle et dit ce qu'elles ont montré. Votre déclaration
-seule ne change rien. Une notion que la séance n'a pas encore montrée ne peut pas être contestée avant
+la leçon pose alors une ou deux questions de contrôle et dit ce qu'elles ont montré. Une question dont
+on vous a déjà montré la réponse n'est pas reposée : quand il ne reste que de telles questions sur une
+notion, elle ne peut plus être contrôlée dans cette leçon. Votre déclaration seule ne change rien. Une notion que la séance n'a pas encore montrée ne peut pas être contestée avant
 qu'elle soit atteinte. « Fermer la carte » range la liste. Le panneau ne dessine pas le graphe ; la page
 exportée ci-dessous le fait.
 
@@ -75,13 +76,17 @@ ce que les questions de contrôle ont montré. Il
 reste sur votre machine tant que vous ne partagez pas le dossier. `forget_session` ne supprime pas les
 exports ; il nomme le dossier pour que vous puissiez le supprimer vous-même.
 
+<img src="../assets/screenshots/concept-map-page-light.png" width="720" alt="La page exportée de la carte des notions d'une leçon de chimie : à gauche, les notions en cadres reliés du prérequis vers la notion qui en dépend, une acquise, une en cours, les autres à venir, le chemin parcouru en trait plein ; à droite, la notion choisie avec ce qu'elle demande, ce à quoi elle mène, et chaque étape de l'apprenant sur elle, avec le résultat et qui l'a évalué.">
+
+<em>La carte des notions exportée après une séance (apprenant synthétique) : où en est chaque notion, et les réponses qui le fondent.</em>
+
 ## Ce sur quoi repose une notion
 
 Pour chaque scène d'une notion, le panneau donne le type de clé (écrite par l'auteur, production comparée
 à une référence, ancrée par une exécution, ou non notée), les sources citées et l'origine de chacune : page
 web, publication, document fourni, ou conversation avec un assistant IA. Un passage n'est cité qu'une fois
 que vous avez quitté la scène qui le cite, car un passage peut énoncer la clé de sa question. L'en-tête dit
-qui a rédigé la leçon et si un enseignant l'a validée.
+qui a rédigé la leçon et si un enseignant a validé cette version exacte (une leçon modifiée depuis son approbation le dit).
 
 Pour une leçon tirée d'une conversation, lisez [apprendre avec votre assistant](learn-with-your-assistant.fr.md) :
 ce que l'assistant y affirme n'a pas été vérifié.
@@ -89,13 +94,14 @@ ce que l'assistant y affirme n'a pas été vérifié.
 ## Le point de vue enseignant et les chiffres de la classe
 
 Un enseignant qui veut les chiffres d'une classe sur la carte exporte le rapport de classe avec l'outil
-enseignant `class_report`, enregistre son JSON et le passe :
+enseignant `class_report`, enregistre son JSON et le passe (le JSON écrit par `tools/class_report.py` convient aussi,
+lancé avec `--bundle chemin/vers/lesson.json` pour que ses lignes portent le nom des notions) :
 
 ```bash
 .venv/bin/python tools/concept_map_report.py export RECORD.json reports/class-map --class-report class-report.json
 ```
 
-Chaque notion montre alors son taux de réussite, le recours aux indices, l'écart de calibration et le
+Chaque notion montre alors son taux de réussite (sur les réponses notées, dont le nombre est donné quand il est inférieur à celui des réponses), le recours aux indices, l'écart de calibration et le
 temps moyen, et les notions à reprendre en priorité sont marquées. Les chiffres retenus sous le plancher
 d'apprenants de `class_report` ne sont pas affichés, et ce rapport ne contient aucun chiffre individuel. La
 page garde le parcours de la séance dont vient l'enregistrement : pour une page sans le parcours d'aucun

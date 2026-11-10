@@ -1,11 +1,11 @@
 // packages/lesson-session-host/src/index.ts
 export {
-  SessionHost, SessionHostNotFoundError, RunRequiredError, RUN_REQUIRED_MESSAGE, PeerRoomError,
+  SessionHost, SessionHostNotFoundError, RunRequiredError, RUN_REQUIRED_MESSAGE, PeerRoomError, StaleSceneError, STALE_SCENE_MESSAGE,
   type SessionHostOptions, type SessionStartOptions, type SessionStartResult, type SessionResume,
   type ServedPresentation, type ServedTransition, type ServedVerdict, type ReviewPlan, type RecallRating,
   type ListedLesson, type LessonListing, type ReviewItem, type ReviewStartResult,
   type ReinforcementStatus, type RoutedReinforcementTarget, type ForgetReport, type ForgetItem, type ConceptMapExport, type ContestStart,
-  type PromptSurface, type ServeOptions,
+  type PromptSurface, type ServeOptions, type RespondOptions,
 } from "./host.js";
 // The 2026-10-30 verification fixes: a session's clock and now_ms (L-1), one time zone for every date
 // (RFR-13), the review scene choice (L-8).
@@ -61,7 +61,7 @@ export {
   type CommunityBundleEntry,
 } from "./community-bundles.js";
 export {
-  authoringOf, readApproval, draftedByOf, isTeacherValidated, SELF_STUDY_NOTICE, AGENT_DRAFTED_NOTICE,
+  authoringOf, readApproval, parseApproval, approvalOfZip, draftedByOf, hasUnvalidatedPlaceholder, SELF_STUDY_NOTICE, AGENT_DRAFTED_NOTICE,
   type AuthoringBlock, type ApprovalStatus, type DraftedBy,
 } from "./authoring.js";
 export { SCENE_KEY_CLASS, keyClassOf, type KeyClass } from "./key-class.js";

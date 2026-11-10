@@ -7,7 +7,11 @@ import {
   completionMarkdown,
   contestControls,
   errorView,
+  calibrationLines,
+  feedbackIsStructured,
   feedbackMarkdown,
+  navigationLine,
+  reviewLine,
   headerLine,
   helpControls,
   isPanelView,
@@ -242,6 +246,29 @@ describe("pane model of a version-2 view", () => {
       .toBe("Leçon validée par un enseignant");
     expect(voiceChip({ ...V2, voices: { scene: { kind: "author", name: "Prof. Test", reviewed: false, drafted_by: "teacher" } } }, "scene"))
       .toBe("Leçon modifiée depuis sa validation");
+    // C5 (2026-11-10): a teacher's lesson with no approval record says only that, and names nobody.
+    expect(voiceChip({ ...V2, voices: { scene: { kind: "author", name: null, reviewed: false, drafted_by: "teacher" } } }, "scene"))
+      .toBe("Aucune approbation enregistrée pour cette leçon");
+    expect(voiceChip({ ...V2, locale: "en", voices: { scene: { kind: "author", name: null, reviewed: false, drafted_by: "teacher" } } }, "scene"))
+      .toBe("No approval is recorded for this lesson");
+    // A classmate's contribution a teacher reviews (teacher mode, drafted by a learner): never « que tu as rédigée ».
+    const classmate = (over: { name?: string | null; reviewed?: boolean } = {}) => ({ kind: "author" as const, name: null,
+      reviewed: false, drafted_by: "learner" as const, from_classmate: true as const, ...over });
+    expect(voiceChip({ ...V2, voices: { scene: classmate({ name: "Prof. Relu", reviewed: true }) } }, "scene"))
+      .toBe("Leçon proposée par une personne de la classe, validée par Prof. Relu");
+    expect(voiceChip({ ...V2, locale: "en", voices: { scene: classmate({ name: "Dr Lee", reviewed: true }) } }, "scene"))
+      .toBe("Lesson contributed by a classmate, validated by Dr Lee");
+    expect(voiceChip({ ...V2, voices: { scene: classmate() } }, "scene"))
+      .toBe("Leçon proposée par une personne de la classe. Aucune approbation enregistrée pour cette leçon.");
+    expect(voiceChip({ ...V2, locale: "en", voices: { scene: classmate() } }, "scene"))
+      .toBe("Lesson contributed by a classmate. No approval is recorded for this lesson.");
+    expect(voiceChip({ ...V2, voices: { scene: classmate({ name: "Prof. Relu" }) } }, "scene"))
+      .toBe("Leçon proposée par une personne de la classe. Modifiée depuis sa validation.");
+    expect(voiceChip({ ...V2, voices: { scene: classmate(), verdict: { kind: "key" } } }, "verdict"))
+      .toBe("Évalué par la clé rédigée par une personne de la classe");
+    expect(voiceChip({ ...V2, locale: "en", voices: { scene: classmate(), verdict: { kind: "key" } } }, "verdict"))
+      .toBe("Assessed by the key written by a classmate");
+    expect(voiceChip(keyOf("learner"), "verdict")).toBe("Évalué par la clé que tu as rédigée"); // self-study keeps it
     expect(voiceChip({ ...V2, locale: "en", voices: { scene: { kind: "agent" } } }, "scene")).toBe("Assistant's text, not part of the lesson");
     expect(voiceChip({ ...V2, strings: { pane_voice_validated_by: "Signée {name}" } }, "scene")).toBe("Signée Prof. Test"); // the view's own words win
     expect(voiceChip(PANEL, "scene")).toBe(""); // version 1 says nothing of voices
@@ -426,5 +453,91 @@ describe("the settings of a pane", () => {
   test("the minutes typed for a replan become the action, or are refused in one line", () => {
     expect(replanAction(V2, " 15 ")).toEqual({ type: "replan", minutes: 15 });
     for (const raw of ["", "0", "601", "dix", "2.5"]) expect(() => replanAction(V2, raw)).toThrow(/1.*600/);
+  });
+});
+
+// Fix 2026-11-10 (A13, B16): one source for the feedback, the reason of a detour or a replay, and the
+// facts the view validates (reviews due, next review, calibration).
+describe("pane model: one source for feedback, navigation reason, review and calibration facts", () => {
+  const WRONG: StudiumPanelView = {
+    ...PANEL, locale: "en", strings: {},
+    verdict: {
+      scene_id: "s1", graded: true, correct: false, feedback: "Not quite.", key_points: ["30 neutrons"],
+      model_answer: "A + Z", reference_kind: "correct_choice",
+      display_markdown: "**Wrong.** Not quite.\n\n**The right answer:**\n- 30 neutrons",
+    },
+  };
+
+  test("structured fields: the feedback once, the reference under the label of its kind, never display_markdown", () => {
+    const text = feedbackMarkdown(WRONG);
+    expect(feedbackIsStructured(WRONG)).toBe(true);
+    expect(text.match(/Not quite\./g)).toHaveLength(1);
+    expect(text).toContain("**The right answer**\n- 30 neutrons");
+    expect(text).not.toContain("Key points");
+    expect(text).not.toContain("**Wrong.**");
+    expect(text).toContain("A + Z");
+  });
+
+  test.each([
+    ["key_points", "Key points"], ["planted_flaws", "Planted flaws"],
+    ["flawed_claims", "Claims that hid a flaw"], [undefined, "Key points"],
+  ])("reference_kind %s is labelled %s", (kind, label) => {
+    const view = { ...WRONG, verdict: { ...WRONG.verdict!, reference_kind: kind } };
+    expect(feedbackMarkdown(view)).toContain(`**${label}**`);
+  });
+
+  test("a judge's missing key point is marked once, in the list", () => {
+    const view = { ...WRONG, verdict: { ...WRONG.verdict!, reference_kind: "key_points", key_points_missing: ["30 neutrons"] } };
+    expect(feedbackMarkdown(view).match(/missing, per the judge/g)).toHaveLength(1);
+  });
+
+  test("without structured fields display_markdown stands alone", () => {
+    const view = { ...PANEL, verdict: { scene_id: "s1", graded: true, display_markdown: "**Bravo.** Tout est dit." } };
+    expect(feedbackIsStructured(view)).toBe(false);
+    expect(feedbackMarkdown(view)).toBe("**Bravo.** Tout est dit.");
+  });
+
+  test("navigation: the detour and the replay say why, in the HTML panel's words", () => {
+    const detour = { ...WRONG, navigation: { kind: "remediate" as const, returns_to: "s9" } };
+    expect(navigationLine(detour)).toBe("A short detour: First a concept the next steps rely on, then back to where you were.");
+    const replay = { ...PANEL, navigation: { kind: "replay" as const } };
+    expect(navigationLine(replay)).toBe("On refait cette étape ensemble : Une deuxième tentative aide à fixer la notion. Ce n'est pas une sanction : relis tranquillement avant de répondre.");
+    expect(navigationLine({ ...PANEL, navigation: { kind: "advance" as const } })).toBe("");
+    expect(navigationLine(PANEL)).toBe("");
+    expect(navigationLine({ ...PANEL, strings: { pane_gate_replay: "A", pane_nav_replay_why: "B" }, navigation: { kind: "replay" as const } })).toBe("A : B");
+  });
+
+  test("the step line of a version-1 view carries the reviews due, only when there are some", () => {
+    expect(headerLine(PANEL)).toBe("Étape 2 sur 9");
+    expect(headerLine({ ...PANEL, reviewDue: [{ id: "c1", label: "Isotopes" }, { id: "c2", label: "Ions" }] })).toBe("Étape 2 sur 9 · 2 à réviser");
+    expect(headerLine({ ...PANEL, locale: "en", strings: {}, reviewDue: [{ id: "c1", label: "A" }] })).toBe("Step 2 of 9 · 1 to review");
+  });
+
+  test("the completion line: reviews due now, else the next review date, else nothing", () => {
+    const done = (completion: Partial<NonNullable<StudiumPanelView["completion"]>>): StudiumPanelView => ({
+      ...PANEL, locale: "en", strings: {}, kind: "done",
+      completion: { consolidated: [], practised: [], not_measured: [], detours: 0, next_review_at: null, due_now: 0, actions: [], ...completion },
+    });
+    expect(reviewLine(done({}))).toBe("");
+    expect(reviewLine(done({ due_now: 3 }))).toBe("Reviews due now: 3");
+    expect(reviewLine(done({ next_review_at: Date.UTC(2026, 10, 12, 12) }))).toBe("Next review: Thursday, November 12");
+    expect(completionMarkdown(done({ due_now: 3 }))).toContain("Reviews due now: 3");
+    expect(completionMarkdown(done({}))).not.toContain("review");
+  });
+
+  test("calibration: only the actionable bands, at most two, number-free", () => {
+    const view: StudiumPanelView = {
+      ...PANEL, locale: "en", strings: {},
+      calibration: [
+        { concept_id: "c1", band: "bien", message: "Well calibrated." },
+        { concept_id: "c2", band: "sur", message: "You were surer than your answers." },
+        { concept_id: "c3", band: "sous", message: "You know more than you think." },
+        { concept_id: "c4", band: "sur", message: "Third." },
+      ],
+    };
+    expect(calibrationLines(view)).toEqual([
+      "**Overconfidence:** You were surer than your answers.", "**Underconfidence:** You know more than you think.",
+    ]);
+    expect(calibrationLines({ ...view, calibration: [{ concept_id: "c1", band: "bien", message: "ok" }] })).toEqual([]);
   });
 });

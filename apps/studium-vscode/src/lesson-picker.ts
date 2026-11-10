@@ -1,8 +1,10 @@
 // lesson-picker.ts — host-independent course discovery and QuickPick shaping.
 // VS Code orchestration stays in extension.ts; this module is driver-tested without a VS Code host.
 
+import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { hostPhrase } from "./host-phrases.js";
 import { phrase, type Locale } from "./phrases.js";
 
 const IGNORED_DIRECTORIES = new Set(["node_modules", "dist", ".git"]);
@@ -12,7 +14,21 @@ const MAX_DIRECTORY_DEPTH = 2;
 export interface LessonDirectoryEntry {
   ref: string;
   contents: string;
+  /** SHA-256 (hex) of the exact bytes of the file; derived from `contents` (UTF-8) when absent. */
+  sha256?: string;
+  /** Text of `approval.json` in the same folder, when the folder has one. */
+  approvalText?: string;
 }
+
+/**
+ * What the approval record says about a lesson (the only source of "validated"; the lesson's free-text
+ * `validated_by` is never shown). Mirrors packages/lesson-session-host/src/authoring.ts `parseApproval`,
+ * which the extension bundle cannot import.
+ */
+export type ApprovalState =
+  | { state: "approved"; reviewer: string }
+  | { state: "changed" }
+  | { state: "none" };
 
 /** Course metadata shown in the Studium tree and picker. */
 export interface LessonCourse {
@@ -20,7 +36,7 @@ export interface LessonCourse {
   title: string;
   target: string;
   language: string;
-  validatedBy: string;
+  approval: ApprovalState;
 }
 
 /** Host-neutral QuickPick item. `ref` is the bundle override opened after selection. */
@@ -49,6 +65,8 @@ interface FileSystemEntry {
 export interface LessonFileSystem {
   readDirectory: (directory: string) => readonly FileSystemEntry[];
   readText: (file: string) => string;
+  /** The file's bytes, which the approval record is bound to; falls back to the UTF-8 of `readText`. */
+  readBytes?: (file: string) => Uint8Array;
 }
 
 const NODE_FILE_SYSTEM: LessonFileSystem = {
@@ -58,7 +76,30 @@ const NODE_FILE_SYSTEM: LessonFileSystem = {
     isFile: entry.isFile(),
   })),
   readText: (file) => readFileSync(file, "utf8"),
+  readBytes: (file) => readFileSync(file),
 };
+
+const MAX_APPROVAL_CHARS = 64 * 1024;
+
+/** Same rules as the server's `parseApproval`: fail-safe to "none"; a well-formed record whose digest
+ * differs from the lesson's bytes reads "changed". */
+export function parseApprovalState(text: string | undefined, lessonSha256: string): ApprovalState {
+  if (text === undefined || text.length > MAX_APPROVAL_CHARS) return { state: "none" };
+  let record: unknown;
+  try { record = JSON.parse(text); } catch { return { state: "none" }; }
+  if (typeof record !== "object" || record === null || Array.isArray(record)) return { state: "none" };
+  const r = record as Record<string, unknown>;
+  const digest = r["bundle_sha256"];
+  const reviewer = typeof r["reviewer"] === "string" ? r["reviewer"].trim() : "";
+  if (r["schema"] !== "studium-approval/1" || typeof digest !== "string" || !reviewer) return { state: "none" };
+  return digest === lessonSha256 ? { state: "approved", reviewer: reviewer.slice(0, 200) } : { state: "changed" };
+}
+
+/** The approval state in the reader's language: the line shown by the picker and the tree tooltip. */
+export function approvalLabel(approval: ApprovalState, locale: Locale = "fr"): string {
+  if (approval.state === "approved") return hostPhrase("approval_by", { reviewer: approval.reviewer }, locale);
+  return hostPhrase(approval.state === "changed" ? "approval_changed" : "approval_none", {}, locale);
+}
 
 /** Discover valid courses from an injected, host-independent directory snapshot. */
 export function discoverCourses(entries: readonly LessonDirectoryEntry[]): LessonCourse[] {
@@ -66,7 +107,8 @@ export function discoverCourses(entries: readonly LessonDirectoryEntry[]): Lesso
   for (const entry of entries) {
     const ref = normalizeRef(entry.ref);
     if (!isSupportedLessonRef(ref)) continue;
-    const course = parseCourse(ref, entry.contents);
+    const sha256 = entry.sha256 ?? createHash("sha256").update(entry.contents, "utf8").digest("hex");
+    const course = parseCourse(ref, entry.contents, parseApprovalState(entry.approvalText, sha256));
     if (course) courses.push(course);
   }
   return courses.sort((left, right) => left.ref.localeCompare(right.ref));
@@ -95,7 +137,7 @@ export function toLessonPickItems(courses: readonly LessonCourse[], locale: Loca
   return courses.map((course) => ({
     label: course.title,
     description: courseDescription(course),
-    detail: `${course.ref} · validated_by: ${localizedValidatedBy(course.validatedBy, locale)}`,
+    detail: `${course.ref} · ${approvalLabel(course.approval, locale)}`,
     ref: course.ref,
   }));
 }
@@ -143,8 +185,14 @@ function collectLessonFiles(
     }
     const ref = appendRef(relativeDirectory, entry.name);
     if (!entry.isFile || !isSupportedLessonRef(ref)) continue;
-    const contents = safeReadText(join(root, relativeDirectory, entry.name), fileSystem);
-    if (contents !== undefined) output.push({ ref, contents });
+    const file = join(root, relativeDirectory, entry.name);
+    const bytes = safeReadBytes(file, fileSystem);
+    const contents = bytes ? Buffer.from(bytes).toString("utf8") : safeReadText(file, fileSystem);
+    if (contents === undefined) continue;
+    const sha256 = createHash("sha256").update(bytes ?? Buffer.from(contents, "utf8")).digest("hex");
+    // The server looks for `approval.json` in the lesson file's own folder, whatever the file is called.
+    const approvalText = safeReadText(join(root, relativeDirectory, "approval.json"), fileSystem);
+    output.push(approvalText === undefined ? { ref, contents, sha256 } : { ref, contents, sha256, approvalText });
   }
 }
 
@@ -164,7 +212,15 @@ function safeReadText(file: string, fileSystem: LessonFileSystem): string | unde
   }
 }
 
-function parseCourse(ref: string, contents: string): LessonCourse | null {
+function safeReadBytes(file: string, fileSystem: LessonFileSystem): Uint8Array | undefined {
+  try {
+    return fileSystem.readBytes?.(file);
+  } catch {
+    return undefined;
+  }
+}
+
+function parseCourse(ref: string, contents: string, approval: ApprovalState): LessonCourse | null {
   try {
     const bundle = JSON.parse(contents) as Record<string, unknown>;
     const metadata = bundle.metadata as Record<string, unknown> | undefined;
@@ -173,15 +229,10 @@ function parseCourse(ref: string, contents: string): LessonCourse | null {
     const target = requiredText(metadata.target);
     const language = requiredText(metadata.language);
     if (!title || !target || !language) return null;
-    const validatedBy = requiredText(bundle.validated_by) ?? phrase("picker_not_specified");
-    return { ref, title, target, language, validatedBy };
+    return { ref, title, target, language, approval };
   } catch {
     return null;
   }
-}
-
-function localizedValidatedBy(value: string, locale: Locale): string {
-  return value === phrase("picker_not_specified") ? phrase("picker_not_specified", {}, locale) : value;
 }
 
 function requiredText(value: unknown): string | null {

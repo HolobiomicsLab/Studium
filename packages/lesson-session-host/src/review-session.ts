@@ -14,7 +14,7 @@
 // a review is not always the same item. Scenes that only make sense inside their lesson are left out:
 // a learner-time run, and a judgment grounded on the learner's own run.
 import type { LessonBundle, Scene, AuthoringMode } from "@studium/lesson-bundle-schema";
-import { draftedByOf, isTeacherValidated, type DraftedBy } from "./authoring.js";
+import { draftedByOf, type DraftedBy } from "./authoring.js";
 import { keyClassOf } from "./key-class.js";
 
 /** Scene types that RE-TEST recall (active retrieval), preferred for reinforcement over a passive
@@ -43,6 +43,8 @@ export interface ReviewSource {
   bundleRef: string;
   bundle: LessonBundle;
   baseDir: string;
+  /** C5: the lesson has an approval record bound to its exact file (absent reads as not approved). */
+  approved?: boolean;
   /** The scene this concept was answered in last, if known. */
   lastSceneId: string | null;
 }
@@ -98,7 +100,7 @@ function combinedAuthoring(bundles: readonly LessonBundle[]): { mode: AuthoringM
 export function buildReviewBundle(
   sources: readonly ReviewSource[],
   opts: { title: string; nowIso: string; judge?: boolean; language?: string },
-): { bundle: LessonBundle; origins: Record<string, ReviewOrigin> } | null {
+): { bundle: LessonBundle; origins: Record<string, ReviewOrigin>; approvedSources: boolean } | null {
   const picked: Array<{ scene: Scene; source: ReviewSource }> = [];
   const seen = new Set<string>();
   for (const source of sources) {
@@ -123,7 +125,9 @@ export function buildReviewBundle(
   const concepts = [...new Map(bundles.flatMap((b) => b.concepts)
     .filter((c) => conceptIds.has(c.id)).map((c) => [c.id, c])).values()];
   const authoring = combinedAuthoring(bundles);
-  const allValidated = bundles.every((b) => isTeacherValidated(b.validated_by));
+  // C5: approval records, never `validated_by` text, say whether the lessons were validated.
+  const approvedIds = new Set(picked.filter(({ source }) => source.approved === true).map(({ source }) => source.bundle.bundle_id));
+  const allValidated = bundles.every((b) => approvedIds.has(b.bundle_id));
   const first = picked[0]!.source.bundle;
   const bundle = {
     schema_version: "1.4",
@@ -145,5 +149,5 @@ export function buildReviewBundle(
         : "DRAFT — review of lessons not all teacher-validated",
     validated_at: opts.nowIso,
   } as LessonBundle;
-  return { bundle, origins };
+  return { bundle, origins, approvedSources: allValidated };
 }

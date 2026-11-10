@@ -5,6 +5,7 @@ import base64
 import hashlib
 import json
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -324,3 +325,94 @@ def test_a_record_written_by_the_server_exports_and_verifies(tmp_path) -> None:
     out = tmp_path / "map"
     cmr.export_concept_map_report(SERVER_RECORD, out)
     assert cmr.verify_concept_map_report(out)["ok"] is True
+
+
+@pytest.mark.parametrize("language, approval, validated, expected, absent", [
+    # approved for this exact version: the lesson's own sentence (« validée par un enseignant »), made exact
+    ("fr", {"recorded": True, "matches": True}, True, "validée par un enseignant pour cette version exacte", "modifiée depuis"),
+    ("fr", {"recorded": True, "matches": True}, False, "validée par un enseignant pour cette version exacte", "modifiée depuis"),
+    # recorded but the lesson's bytes changed since: stale, never « relue et validée »
+    ("fr", {"recorded": True, "matches": False}, True, "modifiée depuis sa validation par un enseignant", "relue et validée"),
+    ("en", {"recorded": True, "matches": False}, True, "changed since a teacher validated it", "reviewed and validated"),
+    ("en", {"recorded": True, "matches": True}, True, "validated by a teacher for this exact version", "changed since"),
+    # no record: no record, whatever `validated` or validated_by says (owner decision 2026-11-10)
+    ("fr", {"recorded": False, "matches": False}, False, "Aucune approbation enregistrée pour cette leçon.", "validée"),
+    ("fr", {"recorded": False, "matches": False}, True, "Aucune approbation enregistrée pour cette leçon.", "validée"),
+    ("en", {"recorded": False, "matches": False}, True, "No approval is recorded for this lesson.", "validated"),
+])
+def test_page_states_the_approval_record_truthfully(tmp_path, language, approval, validated, expected, absent) -> None:
+    value = record()
+    value["lesson"]["language"] = language
+    # A teacher's lesson: `approve` refuses a self-study one (see the self-study test below).
+    value["authoring"].update(approval=approval, validated=validated, mode="teacher", drafted_by="teacher")
+    out = cmr.export_concept_map_report(write(tmp_path, value), tmp_path / "map")
+    overview = (out / "index.html").read_text(encoding="utf-8").split('id="overview"', 1)[1].split("</section>", 1)[0]
+    assert expected in overview and absent not in overview
+    package = "".join(path.read_text(encoding="utf-8") for path in out.iterdir() if path.suffix in {".json", ".yaml", ".md"})
+    assert ("changed since a teacher validated it" in package) is (approval == {"recorded": True, "matches": False})
+
+
+@pytest.mark.parametrize("approval, expected", [
+    ({"recorded": False, "matches": False}, "non relue par un enseignant"),
+    ({"recorded": True, "matches": True}, "non relue par un enseignant"),
+    ({"recorded": True, "matches": False}, "modifiée depuis sa validation par un enseignant"),
+])
+def test_a_self_study_lesson_never_reads_as_validated(tmp_path, approval, expected) -> None:
+    value = record()  # self-study, drafted by the AI
+    value["authoring"].update(approval=approval, validated=True)
+    out = cmr.export_concept_map_report(write(tmp_path, value), tmp_path / "map")
+    overview = (out / "index.html").read_text(encoding="utf-8").split('id="overview"', 1)[1].split("</section>", 1)[0]
+    assert expected in overview
+    assert "pour cette version exacte" not in overview and "Aucune approbation" not in overview
+
+
+def test_the_success_figure_names_the_answers_it_is_computed_over(tmp_path) -> None:
+    klass = class_report()
+    klass["concepts"][0].update(n_attempts=30, n_measured=15, accuracy=0.467)
+    klass["concepts"][1].update(n_attempts=6, n_measured=0, accuracy=None)
+    out = cmr.export_concept_map_report(write(tmp_path, record()), tmp_path / "map",
+                                        class_report_path=write(tmp_path, klass, "class.json"))
+    page = (out / "index.html").read_text(encoding="utf-8")
+    assert "réussite : 47 % sur 15 notées · 30 rép." in page
+    assert "réussite : — · 6 rép." in page          # nothing graded: no figure, no denominator
+    english = record()
+    english["lesson"]["language"] = "en"
+    out = cmr.export_concept_map_report(write(tmp_path, english, "en.json"), tmp_path / "en", class_report_path=out / cmr.CLASS_PATH)
+    assert "success: 47 % over 15 graded · 30 ans." in (out / "index.html").read_text(encoding="utf-8")
+
+
+# --- the report tools/class_report.py writes (D9) ----------------------------------------------------
+
+PY_CLASS_REPORT = Path(__file__).parent / "fixtures" / "concept-map" / "class-report-py-atomistique.json"
+
+
+def test_the_report_class_report_py_writes_feeds_the_teacher_viewpoint(tmp_path) -> None:
+    """Fixture written by tools/class_report.py itself on synthetic telemetry (--bundle fixtures/atomistique-l1/lesson.json)."""
+    shutil.copy(PY_CLASS_REPORT, tmp_path / "py.json")
+    out = cmr.export_concept_map_report(SERVER_RECORD, tmp_path / "map", class_report_path=tmp_path / "py.json")
+    assert cmr.verify_concept_map_report(out)["ok"] is True
+    page = (out / "index.html").read_text(encoding="utf-8")
+    assert "réussite : 47 % sur 15 notées · 30 rép." in page          # c-orbitales-formes, as the tool computed it
+    assert "à reprendre en priorité" in page
+    assert "plancher de 5 apprenants" not in page and "plancher de l’outil" in page   # the Python report does not record its floor
+    kept = json.loads((out / cmr.CLASS_PATH).read_text(encoding="utf-8"))
+    assert kept["origin"] == "class_report_py" and kept["bundle_id"] is None and kept["min_learners"] is None
+    assert "trust_calibration" not in kept and "n_streams" not in kept          # only the figures shown are copied
+
+
+def test_the_two_class_report_shapes_are_each_validated_as_before(tmp_path) -> None:
+    source = write(tmp_path, record())
+    py = json.loads(PY_CLASS_REPORT.read_text(encoding="utf-8"))
+    with pytest.raises(ReportError, match="no concept of this lesson"):         # rows named by scene id (no --bundle)
+        renamed = {**py, "concepts": [{**row, "concept": f"s{n}-quiz"} for n, row in enumerate(py["concepts"])]}
+        cmr.export_concept_map_report(source, tmp_path / "a", class_report_path=write(tmp_path, renamed, "a.json"))
+    broken = {**py, "concepts": [{k: v for k, v in py["concepts"][0].items() if k != "accuracy"}]}
+    with pytest.raises(ReportError, match="accuracy"):
+        cmr.export_concept_map_report(source, tmp_path / "b", class_report_path=write(tmp_path, broken, "b.json"))
+    mcp = class_report()
+    for field in ("bundle_id", "course_id", "min_learners", "scenes"):          # the MCP shape still needs every field
+        with pytest.raises(ReportError, match=field):
+            cmr.export_concept_map_report(source, tmp_path / f"c-{field}",
+                                          class_report_path=write(tmp_path, {k: v for k, v in mcp.items() if k != field}, f"c-{field}.json"))
+    with pytest.raises(ReportError, match="bundle_id"):                          # an explicit null is no bundle either
+        cmr.export_concept_map_report(source, tmp_path / "d", class_report_path=write(tmp_path, {**mcp, "bundle_id": None}, "d.json"))

@@ -1,7 +1,7 @@
 // lesson-tree.ts — pure shaping of the Studium sidebar tree. No vscode import, so it is unit-testable in
 // jsdom/tsx; src/tree.ts wraps these nodes in a vscode.TreeDataProvider.
 
-import { courseDescription, type LessonCourse } from "./lesson-picker.js";
+import { approvalLabel, courseDescription, type LessonCourse } from "./lesson-picker.js";
 import { phrase, type Locale } from "./phrases.js";
 import { reviewsNode, type StudyStatus } from "./study-status.js";
 
@@ -78,7 +78,7 @@ function courseNode(course: LessonCourse, isCurrent: boolean, locale: Locale): T
     label: course.title,
     description: courseDescription(course),
     icon: isCurrent ? "check" : "book",
-    tooltip: `${course.ref}\nvalidated_by: ${course.validatedBy}${current}`,
+    tooltip: `${course.ref}\n${approvalLabel(course.approval, locale)}${current}`,
     command: "studium.openLesson",
     args: [course.ref],
   };

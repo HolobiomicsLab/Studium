@@ -19,7 +19,7 @@ export type StudiumPanelActionName =
   | "prompt";
 
 export type StudiumPanelAction =
-  | { type: "respond"; input: unknown }
+  | { type: "respond"; input: unknown; expected_scene_id?: string }
   | { type: "turn"; text: string }
   | { type: "hint" }
   | { type: "rateRecall"; sceneId: string; grade: StudiumRecallGrade }
@@ -34,7 +34,7 @@ export type StudiumPanelAction =
   | { type: "openMap" }
   | { type: "closeMap" }
   | { type: "contest"; concept_id: string; claim: "known" | "unsure" }
-  | { type: "prompt"; id: string; outcome: "accept" | "dismiss" };
+  | { type: "prompt"; id: string; outcome: "accept" | "dismiss" | "accepted" | "dismissed" };
 
 export type StudiumNamedConcept = { id: string; label: string };
 export type StudiumSource = {
@@ -128,7 +128,7 @@ export type StudiumOrientation = {
 
 /** Who speaks: the lesson's author, the author's key, a judge model, or the assistant. */
 export type StudiumVoice =
-  | { kind: "author"; name: string | null; reviewed: boolean; drafted_by: "agent" | "learner" | "teacher" }
+  | { kind: "author"; name: string | null; reviewed: boolean; drafted_by: "agent" | "learner" | "teacher"; from_classmate?: true }
   | { kind: "key" }
   | { kind: "judge" }
   | { kind: "agent" };

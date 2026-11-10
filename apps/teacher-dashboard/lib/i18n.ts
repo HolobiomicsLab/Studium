@@ -58,6 +58,9 @@ const fr = {
   validatorName: "Votre nom, tel que les apprenants le liront",
   voicePreview: "Les apprenants liront sur chaque écran\u00a0: «\u00a0Leçon validée par {name}\u00a0» / “validated by {name}”",
   voiceEmailNote: "Note\u00a0: c’est une adresse électronique\u00a0; les apprenants la verront. Préférez un nom (--validated-by 'Prénom Nom').",
+  contributionVoice: "Les apprenants liront\u00a0: «\u00a0Leçon proposée par une personne de la classe, validée par {name}\u00a0»",
+  contributionEmailNote: "Note\u00a0: c’est une adresse électronique\u00a0; les apprenants la verront. Préférez un nom (Prénom Nom).",
+  contributionNameNeeded: "Saisissez votre nom pour approuver\u00a0: il est publié avec la contribution.",
   lintUnavailable: "Le linter n’a pas pu tourner\u00a0: la vérification Lint manque à chaque scène. Lancez node tools/bundle_lint.mjs sur ce lesson.json.",
   returnHeading: "Renvoyer la leçon", returnHelp: "Pour renvoyer la leçon à son auteur sans l’approuver, cette commande écrit seulement un reçu «\u00a0renvoyée\u00a0».",
 };
@@ -108,6 +111,9 @@ const en: typeof fr = {
   validatorName: "Your name, as learners will read it",
   voicePreview: "Learners will read on every screen: «\u00a0Leçon validée par {name}\u00a0» / “validated by {name}”",
   voiceEmailNote: "Note: this is an e-mail address; learners will see it. Prefer a name (--validated-by 'First Last').",
+  contributionVoice: "Learners will read: “Lesson contributed by a classmate, validated by {name}”",
+  contributionEmailNote: "Note: this is an e-mail address; learners will see it. Prefer a name (First Last).",
+  contributionNameNeeded: "Type your name to approve: it is published with the contribution.",
   lintUnavailable: "The bundle linter could not run: each scene lacks its Lint check. Run node tools/bundle_lint.mjs on this lesson.json.",
   returnHeading: "Send the lesson back", returnHelp: "To send the lesson back to its author without approving it, this command writes a \u201creturned\u201d receipt only.",
 };

@@ -13,7 +13,7 @@ autonome », section « Contrat commun »:
   ``<BUNDLES_ROOT>/<course_id>/community/community-<item_id>.zip``; when
   ``COMMUNITY_BUNDLES_ROOT`` is set it replaces ``BUNDLES_ROOT`` for emission only;
 - the emitted bundle inherits the canonical language, target and discipline, and says
-  who wrote it: ``authoring = {mode: teacher, author_is_learner: true}``.
+  who wrote it: ``authoring = {mode: teacher, author_is_learner: true, drafted_by: learner}``.
 
 LLM-free and deterministic: TestClient, tmp roots, nothing written in the repository.
 """
@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import shutil
 import sys
 import zipfile
@@ -133,7 +134,10 @@ def store(tmp_path: Path, monkeypatch) -> LearnerItemsStore:
 @pytest.fixture
 def client(bundles_root: Path, store: LearnerItemsStore, monkeypatch) -> TestClient:
     monkeypatch.setenv("LEARNER_PSEUDONYM_SECRET", "test-secret")
-    return TestClient(scene_synth_app.app)
+    # Decisions need the teacher review token (generated per test, never a fixed value).
+    token = secrets.token_urlsafe(32)
+    monkeypatch.setenv("STUDIUM_REVIEW_TOKEN", token)
+    return TestClient(scene_synth_app.app, headers={"Authorization": f"Bearer {token}"})
 
 
 def _validate(client: TestClient, course_id: str, scene: dict):
@@ -309,7 +313,7 @@ def test_the_emitted_bundle_inherits_canonical_metadata_and_names_its_author(cli
     canonical = _canonical_bundle()["metadata"]
     for field in ("language", "target", "discipline"):
         assert metadata[field] == canonical[field], field
-    assert metadata["authoring"] == {"mode": "teacher", "author_is_learner": True}
+    assert metadata["authoring"] == {"mode": "teacher", "author_is_learner": True, "drafted_by": "learner"}
     # Both Pydantic mirrors accept the bundle and read the same authoring block.
     assert LessonBundle.model_validate_json(lesson_raw).metadata.authoring.author_is_learner
     assert CanonicalLessonBundle.model_validate_json(lesson_raw).metadata.authoring.mode == "teacher"

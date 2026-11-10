@@ -148,7 +148,35 @@ It checks that:
 1. every relative link and `#anchor` in every Markdown file of the repository resolves;
 2. every page under `docs/`, outside `design-records/` and `internal/`, has its English or French twin;
 3. every tool the MCP server registers has a section in `docs/reference/mcp-tools.md`;
-4. the generated regions match the code.
+4. the generated regions match the code;
+5. the first line of every page that has a twin, and of the root `README`, is the language-switch line
+   (`English · [Français](page.fr.md)` or `[English](page.md) · Français`);
+6. every page of `docs/start`, `learn`, `teach`, `tutorials`, `concepts`, `reference` and `develop` is
+   linked from `docs/index.md` (English pages) or `docs/index.fr.md` (French pages);
+7. an image whose name ends in `-light` has its `-dark` twin on disk, and the reverse, and every image has
+   an alt text. A single-theme image goes in `SINGLE_THEME_IMAGES` in `check.mjs`, with the reason;
+8. as a warning only, which does not change the exit code: a page under `docs/` longer than 200 lines is
+   listed with its line count (pages with a generated region are skipped).
 
-It does not check the language-switch line, that both versions say the same thing, or that a command
-works. Those are for the reviewer.
+It does not check that both versions say the same thing, or that a command works. Those are for the
+reviewer.
+
+## Build the site
+
+[`tools/docs/build-site.mjs`](../../tools/docs/build-site.mjs) renders the same pages as a small static
+site, in the project's identity, to read offline or to try another presentation. It is a prototype:
+
+```bash
+pnpm docs:site                                # writes site/ at the repository root
+node tools/docs/build-site.mjs --out /tmp/studium-docs
+node --test tools/docs/build-site.test.mjs    # tests of the builder
+```
+
+It reads `README.md`, `README.fr.md` and every page of `docs/` except `design-records/` and `internal/`,
+puts the English pages at the root and the French pages under `fr/`, and builds the navigation from
+the portal (the role table, then the « All pages » groups). Links to other files of the repository, such
+as source code, go to GitHub. It needs no network, at build time or to read the result, and it exits 1
+when a link or an anchor of the built site leads nowhere.
+
+`site/` is not committed. GitHub remains the canonical rendering: write and check every page for GitHub
+first.

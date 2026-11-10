@@ -8,11 +8,12 @@
 // folders are never entered. Two host-side additions: folders holding learner data or authoring
 // inputs (`data`, `_sources`, `community` — community bundles have their own tool) are skipped, and
 // so is any directory passed in `exclude` (the configured data dir may sit inside a root).
+import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { CourseSchema, type Course, type AuthoringMode } from "@studium/lesson-bundle-schema";
 import { loadBundleJson } from "@studium/lesson-session/node";
-import { draftedByOf, isTeacherValidated, type DraftedBy } from "./authoring.js";
+import { draftedByOf, readApproval, type DraftedBy } from "./authoring.js";
 
 export type RootKind = "bundles" | "library";
 export interface LessonRoot { kind: RootKind; dir: string }
@@ -26,6 +27,8 @@ export interface CatalogLesson {
   language: string;
   discipline: string;
   authoring: { mode: AuthoringMode; drafted_by: DraftedBy };
+  /** C5: an approval record next to the file is bound to its exact bytes (never `validated_by` text);
+   * always false for a self-study lesson. */
   validated: boolean;
   concepts: Array<{ id: string; title: string }>;
   scene_count: number;
@@ -92,7 +95,8 @@ async function collectJsonFiles(
 async function readEntry(root: string, ref: string, kind: RootKind, catalog: Catalog): Promise<void> {
   const lessonCandidate = !ref.includes("/") || ref.endsWith("/lesson.json");
   let raw: unknown;
-  try { raw = JSON.parse(await readFile(join(root, ref), "utf8")); }
+  let bytes: Buffer;
+  try { bytes = await readFile(join(root, ref)); raw = JSON.parse(bytes.toString("utf8")); }
   catch { if (ref.endsWith("lesson.json")) catalog.skipped += 1; return; }
   if (isCourseLike(raw)) {
     const parsed = CourseSchema.safeParse(raw);
@@ -103,6 +107,10 @@ async function readEntry(root: string, ref: string, kind: RootKind, catalog: Cat
   try {
     const bundle = loadBundleJson(raw);
     const minutesPerDay = learnerMinutesPerDay(raw);
+    const mode = bundle.metadata.authoring?.mode ?? "teacher";
+    // The file was read once: its approval record is checked against those very bytes.
+    const approval = mode === "self_study" ? null
+      : await readApproval(dirname(join(root, ref)), createHash("sha256").update(bytes).digest("hex"));
     catalog.lessons.push({
       bundle_ref: ref,
       root: kind,
@@ -110,8 +118,8 @@ async function readEntry(root: string, ref: string, kind: RootKind, catalog: Cat
       title: bundle.metadata.title,
       language: bundle.metadata.language,
       discipline: bundle.metadata.discipline,
-      authoring: { mode: bundle.metadata.authoring?.mode ?? "teacher", drafted_by: draftedByOf(bundle.metadata) },
-      validated: isTeacherValidated(bundle.validated_by),
+      authoring: { mode, drafted_by: draftedByOf(bundle.metadata) },
+      validated: approval !== null && approval.recorded && approval.matches,
       concepts: bundle.concepts.map((c) => ({ id: c.id, title: c.title })),
       scene_count: bundle.scenes.length,
       modified_at: (await stat(join(root, ref))).mtimeMs,

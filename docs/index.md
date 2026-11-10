@@ -2,73 +2,51 @@ English · [Français](index.fr.md)
 
 # Studium documentation
 
-Studium turns a scientific source into an explicit learning path: objectives, prerequisites, activities, the learner's own answers and the adaptation decisions taken on them. A **harness** is the application that hosts an AI assistant and its tools, for example Codex, Claude Code, or VS Code with Copilot. Studium keeps the teaching contract; the harness helps to read, experiment, program and explain.
+Studium turns sources you trust into lessons you can play. Each answer says who wrote the key and whether anything assessed it. It is a research prototype: try it with a teacher or a colleague first. A teacher approves a lesson before students use it.
 
-These pages describe a research prototype, best used first in an accompanied pilot. Use the code and the documentation of the same revision. Unfamiliar terms are defined in the [glossary](concepts/glossary.md).
+## Start with your role
 
-## Start here
-
-| I want to… | Read | Result |
+| You are | Read first | Then |
 |---|---|---|
-| Try Studium in five minutes | [Quickstart](start/quickstart.md) | A first question in VS Code or in your assistant |
-| Install the extension, the MCP server or the Python tools | [Installation](start/installation.md) | Each surface ready and checked |
-| Use my usual assistant (Codex, Claude Code, Copilot, OpenCode, Cursor) | [Connect a harness](start/harnesses.md) | The Studium server registered in that client |
-| Use the VS Code pane | [VS Code](start/vscode.md) | Lessons, reviews and your data controls in the editor |
-| Give my assistant the Studium procedures | [Skills](start/skills.md) | The skills that teach a harness how to run a lesson |
-| Fix a problem | [Troubleshooting](start/troubleshooting.md) | The symptom, its cause and the fix |
+| A student in a class | [Student guide](learn/student-guide.md) | [Your first lesson](tutorials/first-lesson.md) |
+| Learning alone with an assistant | [Learn with your assistant](learn/learn-with-your-assistant.md) | [Review over time](learn/review-over-time.md) |
+| A teacher | [Teacher guide](teach/teacher-guide.md) | [From literature to a course](tutorials/literature-to-course.md) |
+| Connecting an assistant, or building on Studium | [Connect your assistant](start/harnesses.md) | [MCP tools](reference/mcp-tools.md) |
 
-## Learn on your own
+## Install and fix
 
-You choose the sources; your assistant builds the lesson; Studium checks it and schedules your reviews.
-
-- [Learn with your assistant](learn/learn-with-your-assistant.md): from "I want to learn X" to a first question, then daily reviews.
-- [Review over time](learn/review-over-time.md): the study plan, due reviews and what self-rating does and does not change.
-- [Tutorial: learn a topic in a conversation](tutorials/learn-a-topic-in-a-conversation.md).
-- [Tutorial: self-study from your references](tutorials/self-study-from-references.md): an open-book lesson from a page, a PDF or a text, and its limits.
-
-## Study in a class
-
-- [Student guide](learn/student-guide.md): play a lesson, answer, ask for a hint, read feedback.
-- [Experiment journal](learn/experiment-journal.md): a private record of prediction, observation and conclusion.
-- [Learner report](learn/learner-report.md): review a chosen trace before sharing it; your own texts are included only on request.
-- [Concept map](learn/concept-map.md): where you stand on each concept, and an interactive page showing what each one rests on.
-- [Languages and scientific supports](learn/language-and-supports.md): change the presentation language; equations, diagrams, structures and figures with their provenance.
-- [Tutorial: first lesson](tutorials/first-lesson.md).
-
-## Teach
-
-- [Teacher guide](teach/teacher-guide.md): from sources to an approved lesson and a class report.
-- [Author a lesson](teach/author-a-lesson.md) and [review and approve](teach/review-and-approve.md): the approval record bound to the exact lesson file.
-- [Follow a class](teach/follow-a-class.md): aggregated reports, never below five learners.
-- [Learner contributions](teach/learner-contributions.md): lessons written by learners and their teacher-gated publication.
-- [Activity templates](teach/activity-templates.md), [literature and evidence](teach/literature-and-evidence.md), [media and visual support](teach/media-and-visual-support.md).
-- [Observatory](teach/observatory.md): course review, provenance and MySTRA reports for operators.
-- Tutorials: [from literature to a course](tutorials/literature-to-course.md), [an agentic experiment](tutorials/agentic-experiment.md), [from an activity to a report](tutorials/activity-to-report.md), and [use cases](tutorials/use-cases.md) (ASB capsule and metabolomics, analysis diagnosis, robustness, archaeology photography, multilingual support).
+- [Quickstart](start/quickstart.md): about fifteen minutes from a clone to a first question.
+- [Installation](start/installation.md), [VS Code](start/vscode.md) and [Troubleshooting](start/troubleshooting.md).
+- [Connect your assistant](start/harnesses.md): a harness is the application that hosts an AI assistant, such as Codex, Claude Code or VS Code with Copilot. Also [Skills](start/skills.md) and [lesson panels](start/harness-panels.md).
 
 ## Understand
 
-- [How Studium works](concepts/how-studium-works.md) and [capabilities and maturity](concepts/capabilities.md).
-- [Scene types](concepts/scene-types.md), [learner model](concepts/learner-model.md), [learning principles](concepts/learning-principles.md), [modulators](concepts/modulators.md).
-- [Honesty and provenance](concepts/honesty-and-provenance.md): who wrote the key, whether a judge assessed, what was measured.
+- [How Studium works](concepts/how-studium-works.md), [capabilities and maturity](concepts/capabilities.md) and the [glossary](concepts/glossary.md).
+- [Honesty and provenance](concepts/honesty-and-provenance.md): who wrote the key, whether anything assessed the answer.
 - [Privacy and limits](concepts/privacy-and-limits.md): read before a class pilot.
-- [Glossary](concepts/glossary.md).
 
-## Build on Studium
+## Reference and project
 
-- Reference: [MCP tools](reference/mcp-tools.md), [lesson bundle](reference/lesson-bundle.md), [configuration](reference/configuration.md), [command line](reference/cli.md), [agentic session protocol](reference/agentic-session-protocol.md), [HTTP API](reference/http-api.md).
-- Develop: [architecture](develop/architecture.md), [testing](develop/testing.md), [release](develop/release.md), [documentation style](develop/docs-style.md).
-- [Contributing](../CONTRIBUTING.md), [security policy](../SECURITY.md), [changelog](../CHANGELOG.md), [agent conventions](../AGENTS.md).
-- [Design records](design-records/index.md): specifications, decision records, audits and dated updates, kept in their original language.
-- Harness procedure: [`skills/studium-harness/SKILL.md`](../skills/studium-harness/SKILL.md); evaluation harness: [`eval/README.md`](../eval/README.md).
-
-## Skills
-
-Seven skills are discovered by harnesses through `.claude/skills` and `.agents/skills`: `studium-teacher`, `studium-student`, `studium-harness`, `studium-self-learner` (learning without a teacher), `studium-activity-templates`, `studium-visual-support` and `studium-learner-report`. A further skill, `studium-observatory`, lives in [`skills/`](../skills). See [Skills](start/skills.md).
+- [Reference](reference/mcp-tools.md): MCP tools, lesson bundle, configuration, command line, HTTP API. Generated tables stay in English.
+- [Develop](develop/architecture.md): architecture, testing, release, [writing the docs](develop/docs-style.md).
+- [Design records](design-records/index.md), in their original language.
+- [Contributing](../CONTRIBUTING.md) · [Security](../SECURITY.md) · [Changelog](../CHANGELOG.md) · [Agent conventions](../AGENTS.md).
 
 ## Limits
 
-The activities described here are not a scientific validation and not evidence of teaching effectiveness. A teacher approves a lesson before students use it.
+These pages are not a validation of teaching effectiveness. Use the code and the documentation of the same revision. To suggest an improvement, give the revision, the path you followed, the result you expected and a minimal anonymised example. Never attach a key or a student record.
 
-## Suggest an improvement
+<details>
+<summary>All pages</summary>
 
-Give the code revision, the path you followed, the result you expected and a minimal anonymised example. Do not attach an API key, a student record, or an article whose redistribution is not allowed. Security issues go through the [security policy](../SECURITY.md), not a public issue.
+- **Install and connect.** [Quickstart](start/quickstart.md) · [Installation](start/installation.md) · [Connect your assistant](start/harnesses.md) · [Connect Claude Code](start/claude-code.md) · [Connect Codex](start/codex.md) · [Connect Copilot in VS Code](start/copilot.md) · [Connect Cursor](start/cursor.md) · [Connect OpenCode](start/opencode.md) · [VS Code](start/vscode.md) · [Lesson panels in your assistant](start/harness-panels.md) · [Skills](start/skills.md) · [Keep answers fast](start/fast-answers.md) · [Troubleshooting](start/troubleshooting.md)
+- **Learn.** [Student guide](learn/student-guide.md) · [Learn a topic with your assistant](learn/learn-with-your-assistant.md) · [Review over time](learn/review-over-time.md) · [Concept map](learn/concept-map.md) · [Experiment journal](learn/experiment-journal.md) · [Learner activity report](learn/learner-report.md) · [Language and supports](learn/language-and-supports.md)
+- **Teach.** [Teacher guide](teach/teacher-guide.md) · [Author a lesson](teach/author-a-lesson.md) · [Literature and evidence](teach/literature-and-evidence.md) · [Review and approve](teach/review-and-approve.md) · [Follow a class](teach/follow-a-class.md) · [Observatory](teach/observatory.md) · [Activity templates](teach/activity-templates.md) · [Media and visual support](teach/media-and-visual-support.md) · [Learner contributions](teach/learner-contributions.md)
+- **Tutorials.** [Your first lesson](tutorials/first-lesson.md) · [Learn a topic in a conversation](tutorials/learn-a-topic-in-a-conversation.md) · [Self-study from your references](tutorials/self-study-from-references.md) · [From the literature to a reviewable draft](tutorials/literature-to-course.md) · [From an interactive activity to an ASTRA/MySTRA report](tutorials/activity-to-report.md) · [A scientific experiment with your agent](tutorials/agentic-experiment.md) · [Choose a Studium use case](tutorials/use-cases.md)
+- **Concepts.** [How Studium works](concepts/how-studium-works.md) · [Learning principles](concepts/learning-principles.md) · [Honesty and provenance](concepts/honesty-and-provenance.md) · [Privacy and limits](concepts/privacy-and-limits.md) · [Capabilities and limits](concepts/capabilities.md) · [Learner model](concepts/learner-model.md) · [Modulators](concepts/modulators.md) · [Scene types](concepts/scene-types.md) · [Glossary](concepts/glossary.md)
+- **Reference.** [MCP tools](reference/mcp-tools.md) · [Lesson bundle format](reference/lesson-bundle.md) · [Configuration](reference/configuration.md) · [Command-line tools](reference/cli.md) · [HTTP API](reference/http-api.md) · [Agentic session protocol](reference/agentic-session-protocol.md)
+- **Develop.** [Architecture](develop/architecture.md) · [Lesson panels for developers](develop/panels.md) · [Testing](develop/testing.md) · [Release](develop/release.md) · [Writing the documentation](develop/docs-style.md)
+
+</details>
+
+Studium is developed by the [HolobiomicsLab](https://holobiomicslab.cnrs.fr/) within the [eDIAM team](https://ediam.cnrs.fr/), Institut de Chimie de Nice, Université Côte d'Azur and CNRS. [Who makes Studium](../README.md#who-makes-studium)

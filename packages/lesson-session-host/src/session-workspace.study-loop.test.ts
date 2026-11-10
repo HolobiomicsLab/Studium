@@ -103,7 +103,7 @@ describe("SessionWorkspace and the study loop", () => {
   it("shows the stale teacher approval notice on the file channel's first screen", async () => {
     const root = tmp();
     writeFileSync(join(root, "lesson.json"), JSON.stringify(BUNDLE));
-    writeFileSync(join(root, "approval.json"), JSON.stringify({ schema: "studium-approval/1", bundle_sha256: "old-bytes" }));
+    writeFileSync(join(root, "approval.json"), JSON.stringify({ schema: "studium-approval/1", bundle_sha256: "old-bytes", reviewer: "Dr Example" }));
     const host = new SessionHost({ bundlesRoot: root, live: false, dataDir: null });
     const { sessionId } = await host.create("lesson.json", "ana");
     const dir = tmp();

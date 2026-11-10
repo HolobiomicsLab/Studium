@@ -65,6 +65,19 @@ grep -Fq 'target "concept:missing" is not a declared graph node' <<<"$OUTPUT" ||
 expect_finding "single graded prerequisite" 0 "lwg_single_graded_item" "$FIXTURES/single-graded/lesson.json"
 grep -Fq "one correct answer cannot reach theta, the gate will pass it on a correct answer" <<<"$OUTPUT" || { echo "FAIL: single-item information omits gate behaviour"; echo "$OUTPUT"; exit 1; }
 
+# A scene without a concept moves no mastery (F3): the wording of `experience_packet.py check`, as a WARN.
+# intro and meta_checkpoint carry no concept by design and stay silent.
+node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));b.scenes[4].concept_refs=[];b.scenes[3].concept_refs=[];b.scenes.unshift({...b.scenes[0],id:'s-intro',type:'intro',markdown:'Bienvenue.',concept_refs:[]});fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$FIXTURES/clean/lesson.json" "$TMP/one-scene-no-concept.json"
+# s-advanced is a reading scene (exempt); s-advanced-quiz-1 takes a graded answer (reported).
+expect_finding "a scene that reaches no concept" 0 "scene_reaches_no_concept" "$TMP/one-scene-no-concept.json"
+grep -Eq "^WARN  .+  scene_reaches_no_concept  scene 's-advanced-quiz-1' reaches no concept; a scene without a concept moves no mastery$" <<<"$OUTPUT" || { echo "FAIL: the no-concept warning does not use the check wording"; echo "$OUTPUT"; exit 1; }
+[ "$(grep -c '  scene_reaches_no_concept  ' <<<"$OUTPUT")" -eq 1 ] || { echo "FAIL: only the quiz should be reported (not the intro or the reading scene)"; echo "$OUTPUT"; exit 1; }
+node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));for(const s of b.scenes)s.concept_refs=[];fs.writeFileSync(process.argv[2],JSON.stringify(b));" "$FIXTURES/clean/lesson.json" "$TMP/no-scene-has-a-concept.json"
+run_lint "$TMP/no-scene-has-a-concept.json"
+[ "$(grep -c '  scene_reaches_no_concept  ' <<<"$OUTPUT")" -eq 4 ] || { echo "FAIL: each of the four quizzes should be reported (not the reading scenes)"; echo "$OUTPUT"; exit 1; }
+[ "$STATUS" -eq 0 ] || { echo "FAIL: the no-concept finding must be a warning, not an error"; echo "$OUTPUT"; exit 1; }
+echo "OK: a lesson in which no scene reaches a concept warns"
+
 # Who wrote the key (metadata.authoring, spec 2026-10-30 « Classes de clé »). The all-types
 # fixture must hold exactly one scene per SceneType of the Zod schema, so a new scene type
 # fails here until SCENE_KEY_CLASS in bundle_lint.mjs classifies it.
@@ -242,6 +255,15 @@ expect_clean "two recall questions for each concept" "$TMP/recall-two.json"
 # A question that only mentions the concept (not its first) and a diagnostic do not count.
 mutate recall-mention.json "$RECALL;b.scenes.push({...q('q-s2','c-kinetics'),concept_refs:['c-kinetics','c-second']},{...q('q-s3','c-second'),diagnostic:true})"
 expect_finding "a mention and a diagnostic are not recall questions" 0 "concept_few_recall_questions" "$TMP/recall-mention.json"
+
+# Audit 2026-11-10 A2 (C2): a scene whose key was shown is never asked again as a graded question, so a
+# concept a contest (or a prerequisite gate) can target with a single such scene cannot be re-checked.
+expect_finding "a concept with a single key-graded scene cannot be re-checked" 0 "concept_not_recheckable" "$TMP/recall-few.json"
+grep -Eq '^WARN  .+  concept_not_recheckable  c-second has a single key-graded scene that a contest can ask' <<<"$OUTPUT" || { echo "FAIL: the re-check warning does not name the concept and the contest"; echo "$OUTPUT"; exit 1; }
+mutate recheck-gate.json "$RECALL;b.scenes.push(q('q-s2','c-second'));b.learning_workflow_graph={schema_version:'1.0',course_id:'c',nodes:['c-kinetics','c-second'].map(id=>({id:'concept:'+id,node_kind:'concept',title:id,bloom_level:'understand'})),edges:[{id:'e',relation:'prerequisite_for',source:'concept:c-second',target:'concept:c-kinetics'}]};b.scenes=b.scenes.filter(s=>s.id!=='q-k2')"
+run_lint "$TMP/recheck-gate.json"
+grep -Eq '^WARN  .+  concept_not_recheckable  c-kinetics has a single key-graded scene that a prerequisite gate or a contest can ask' <<<"$OUTPUT" || { echo "FAIL: the re-check warning does not name the gate"; echo "$OUTPUT"; exit 1; }
+echo "OK: a gate target with a single key-graded scene warns"
 
 run_lint
 [ "$STATUS" -eq 0 ] || { echo "FAIL: repo fixtures do not pass"; echo "$OUTPUT"; exit 1; }

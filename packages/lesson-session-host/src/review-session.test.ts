@@ -75,8 +75,20 @@ describe("buildReviewBundle", () => {
   });
 
   it("is teacher-validated only when every lesson it draws from is", () => {
-    const built = buildReviewBundle([source(teacher, "c1")], { title: "R", nowIso: "2026-11-09T09:00:00Z" })!;
+    // C5 (2026-11-10): "validated" means the source carries a matching approval record (`approved`).
+    const built = buildReviewBundle([{ ...source(teacher, "c1"), approved: true }], { title: "R", nowIso: "2026-11-09T09:00:00Z" })!;
     expect(built.bundle.validated_by).toBe("review of teacher-validated lessons");
+    expect(built.approvedSources).toBe(true);
     expect(built.bundle.metadata.authoring).toEqual({ mode: "teacher", author_is_learner: false, drafted_by: "teacher" });
+  });
+
+  it("is not validated when a lesson it draws from has no matching approval record, whatever its validated_by says", () => {
+    const shared = bundle("U", [scene("q", "quiz", ["c1"])]);
+    const unapproved = buildReviewBundle([source(shared, "c1")], { title: "R", nowIso: "2026-11-09T09:00:00Z" })!;
+    expect(unapproved.approvedSources).toBe(false);
+    expect(unapproved.bundle.validated_by).toMatch(/^DRAFT/);
+    const mixed = buildReviewBundle([{ ...source(teacher, "c1"), approved: true }, source(shared, "c1")],
+      { title: "R", nowIso: "2026-11-09T09:00:00Z" })!;
+    expect(mixed.approvedSources).toBe(false);
   });
 });

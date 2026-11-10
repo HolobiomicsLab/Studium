@@ -54,6 +54,19 @@ See the [teacher guide](../teach/teacher-guide.md), [Review and approve](../teac
 
 See [Harnesses](../start/harnesses.md), the [MCP tools reference](../reference/mcp-tools.md) and [Architecture](../develop/architecture.md).
 
+## Surfaces and maturity
+
+| Surface | Status | Meaning |
+|---|---|---|
+| Any MCP harness (Codex, Claude Code, Copilot, OpenCode, Cursor) and the file channel | Supported | Tested in CI, documented, the recommended way in |
+| VS Code extension (lesson pane, chat participant) | Supported | Tested in CI, built as a VSIX by CI |
+| `lesson-server` (HTTP, answer keys redacted), teacher dashboard, Observatory | Maintained | Kept working and tested; fewer new features |
+| Tauri student app ([`apps/student-runtime`](../../apps/student-runtime)) | Frozen | No new work; built only on manual request |
+| [`apps/author-web`](../../apps/author-web) | Legacy | Kept for the M1 demonstration; use the teacher dashboard instead |
+| MCP Apps panel ([`apps/lesson-panel-ui`](../../apps/lesson-panel-ui)) and Claude Code pane ([`apps/claude-code-mod`](../../apps/claude-code-mod)) | Prototype | Shared lesson panels with automated contract checks; native host trials and the planned formative learner trial have not happened |
+
+The release workflow can publish to the VS Code Marketplace, Open VSX and npm once their tokens are configured; until then, a release is a GitHub draft with the VSIX and the server file. See [Release](../develop/release.md).
+
 ## Who holds the key
 
 | Class | Scene types | In a self-study lesson |

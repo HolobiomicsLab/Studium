@@ -1,5 +1,6 @@
 // lesson-tree.driver.ts — unit test for the pure sidebar-tree shaping (buildLessonTree). No vscode APIs.
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/lesson-tree.driver.ts
+import type { LessonCourse } from "./lesson-picker.js";
 import { buildLessonTree, type TreeNode } from "./lesson-tree.js";
 import { browserPhrases } from "./phrases.js";
 
@@ -39,9 +40,9 @@ const byId = (nodes: TreeNode[], id: string) => nodes.find((n) => n.id === id);
 
 // 4) courses subtree: metadata shapes each leaf, the configured ref is current, and empty roots remain visible.
 {
-  const courses = [
-    { ref: "alpha/lesson.json", title: "Cours Alpha", target: "L1", language: "fr", validatedBy: "Prof. Alpha" },
-    { ref: "beta/lesson.json", title: "Course Beta", target: "M1", language: "en", validatedBy: "Teacher Beta" },
+  const courses: LessonCourse[] = [
+    { ref: "alpha/lesson.json", title: "Cours Alpha", target: "L1", language: "fr", approval: { state: "approved", reviewer: "Prof. Alpha" } },
+    { ref: "beta/lesson.json", title: "Course Beta", target: "M1", language: "en", approval: { state: "none" } },
   ];
   const t = buildLessonTree({ courses, currentRef: "beta/lesson.json", community: [], onReproductionScene: false });
   const available = byId(t, "courses");
@@ -53,7 +54,10 @@ const byId = (nodes: TreeNode[], id: string) => nodes.find((n) => n.id === id);
   const beta = available?.children?.[1];
   expect(alpha?.label === "Cours Alpha", "course leaf label is metadata.title");
   expect(alpha?.description === "L1 · fr", "course leaf description is target and language");
-  expect(!!alpha?.tooltip?.includes("alpha/lesson.json") && alpha.tooltip.includes("Prof. Alpha"), "course tooltip includes ref and validated_by");
+  expect(!!alpha?.tooltip?.includes("alpha/lesson.json") && alpha.tooltip.includes("validée par Prof. Alpha"), "course tooltip includes ref and the approval state from the record");
+  expect(beta?.tooltip?.includes("aucune approbation enregistrée") === true && !beta.tooltip.includes("validated_by"), "a course without a record says so, and the tooltip never prints validated_by");
+  const betaEn = byId(buildLessonTree({ courses, currentRef: "", community: [], onReproductionScene: false, locale: "en" }), "courses")?.children?.[1];
+  expect(betaEn?.tooltip?.includes("no approval recorded") === true, "the tooltip follows the locale");
   expect(alpha?.command === "studium.openLesson" && alpha.args?.[0] === "alpha/lesson.json", "course leaf opens its ref override");
   expect(beta?.icon === "check", "configured bundleRef is marked as current");
 

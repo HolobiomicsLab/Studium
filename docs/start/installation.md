@@ -86,7 +86,7 @@ own progress in VS Code's extension storage; see [VS Code](vscode.md#your-data).
 |---|---|
 | From sources, for development | `pnpm --filter @studium/lesson-mcp start` |
 | Standalone single file | `pnpm --filter @studium/lesson-mcp bundle`, which writes `apps/lesson-mcp/dist/studium-mcp.cjs` |
-| Local HTTP API instead of MCP | `pnpm --filter @studium/lesson-mcp api` (see [Harnesses](harnesses.md#direct-http-api)) |
+| Local HTTP API instead of MCP | `pnpm --filter @studium/lesson-mcp api` (see [HTTP API](../reference/http-api.md#start-it)) |
 
 A tagged release attaches `studium-vX.Y.Z.vsix`, `lesson-mcp.cjs` and `SHA256SUMS.txt` to a GitHub release
 drafted by the release workflow. Nothing is published to npm or the VS Code Marketplace.

@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { SessionHost } from "./host.js";
 import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
-import { authoringOf, readApproval, SELF_STUDY_NOTICE, AGENT_DRAFTED_NOTICE } from "./authoring.js";
+import { authoringOf, readApproval, parseApproval, MAX_APPROVAL_BYTES, SELF_STUDY_NOTICE, AGENT_DRAFTED_NOTICE } from "./authoring.js";
 import { publicPresentation, publicTransition } from "./public-scene.js";
 
 const ATOMISTIQUE = fileURLToPath(new URL("../../../fixtures/atomistique-l1/lesson.json", import.meta.url));
@@ -64,7 +64,7 @@ const AGENT_NOTICE = {
   en: { without_judge: AGENT_BASE_NOTICE.en.without_judge + REPRODUCTION.en,
     with_judge: AGENT_BASE_NOTICE.en.with_judge + REPRODUCTION.en },
 };
-// Contract C5 (read side) adds `approval`; `validated` keeps its meaning.
+// Contract C5 (read side) adds `approval`; since 2026-11-10 `validated` is read from it alone.
 const BLOCK_KEYS = ["mode", "author_is_learner", "drafted_by", "validated", "judge", "notice", "approval"];
 const NO_APPROVAL = { recorded: false, matches: false };
 
@@ -129,13 +129,28 @@ describe("authoring block of a started lesson", () => {
     expect(live.authoring.notice).toBe(NOTICE.en.with_judge);
   });
 
-  it("the untouched atomistique fixture is a validated teacher bundle with no notice, judge or not", async () => {
+  it("the untouched atomistique fixture is a teacher bundle with no notice; without an approval record it is not validated, judge or not", async () => {
+    // Owner decision 2026-11-10: the approval record is the only source of `validated`; the
+    // fixture's `validated_by` text (an address) grants nothing.
     const offline = await hostOver(atomistique()).create("lesson.json");
     expect(offline.authoring).toEqual({ mode: "teacher", author_is_learner: false, drafted_by: "teacher",
-      validated: true, judge: false, notice: null, approval: NO_APPROVAL });
+      validated: false, judge: false, notice: null, approval: NO_APPROVAL });
     const live = await startLive(atomistique());
     expect(live.authoring).toEqual({ mode: "teacher", author_is_learner: false, drafted_by: "teacher",
-      validated: true, judge: true, notice: null, approval: NO_APPROVAL });
+      validated: false, judge: true, notice: null, approval: NO_APPROVAL });
+  });
+
+  it("the same fixture with an approval record bound to its bytes is validated, by the record's reviewer", async () => {
+    const root = mkdtempSync(join(tmpdir(), "authoring-approved-")); dirs.push(root);
+    const text = JSON.stringify(atomistique());
+    writeFileSync(join(root, "lesson.json"), text);
+    writeFileSync(join(root, "approval.json"), JSON.stringify({ schema: "studium-approval/1",
+      bundle_sha256: createHash("sha256").update(text).digest("hex"), reviewer: "Synthetic Reviewer",
+      reviewed_at: "2026-11-10T09:00:00Z" }));
+    const started = await new SessionHost({ bundlesRoot: root, live: false }).create("lesson.json");
+    expect(started.authoring).toEqual({ mode: "teacher", author_is_learner: false, drafted_by: "teacher",
+      validated: true, judge: false, notice: null,
+      approval: { recorded: true, matches: true, reviewer: "Synthetic Reviewer", reviewed_at: "2026-11-10T09:00:00Z" } });
   });
 });
 
@@ -161,13 +176,25 @@ describe("authoringOf", () => {
     expect(selfStudy("de")).toBe(BASE_NOTICE.en.without_judge);
   });
 
-  it("reports a learner-authored contribution a teacher approved (community bundle) as teacher and validated", () => {
-    const block = authoringOf({
-      metadata: { ...metadata, authoring: { mode: "teacher", author_is_learner: true } },
+  it("reports a learner-authored contribution (community bundle) as teacher, validated only by a matching approval record", () => {
+    const contribution = {
+      metadata: { ...metadata, authoring: { mode: "teacher" as const, author_is_learner: true } },
       validated_by: "https://univ-cotedazur.fr/people/teacher-001",
-    }, { judge: false });
-    expect(block).toEqual({ mode: "teacher", author_is_learner: true, drafted_by: "teacher", validated: true,
-      judge: false, notice: null, approval: NO_APPROVAL });
+    };
+    expect(authoringOf(contribution, { judge: false })).toEqual({ mode: "teacher", author_is_learner: true,
+      drafted_by: "teacher", validated: false, judge: false, notice: null, approval: NO_APPROVAL });
+    const approval = { recorded: true, matches: true, reviewer: "Dr Example" };
+    expect(authoringOf(contribution, { judge: false, approval })).toEqual({ mode: "teacher", author_is_learner: true,
+      drafted_by: "teacher", validated: true, judge: false, notice: null, approval });
+    expect(authoringOf(contribution, { judge: false, approval: { ...approval, matches: false } }).validated).toBe(false);
+  });
+
+  it("never reads a self-study lesson as validated, whatever record or review flag is given", () => {
+    const selfStudy = { metadata: { ...metadata, authoring: { mode: "self_study" as const, author_is_learner: true } },
+      validated_by: "Dr Example" };
+    expect(authoringOf(selfStudy, { judge: false, approval: { recorded: true, matches: true, reviewer: "Dr Example" } })
+      .validated).toBe(false);
+    expect(authoringOf(selfStudy, { judge: false, approvedSources: true }).validated).toBe(false);
   });
 });
 
@@ -259,6 +286,23 @@ describe("C5 — the approval record, read side", () => {
     writeFileSync(join(dir, "approval.json"), JSON.stringify({ schema: "other/9", bundle_sha256: sha("v1") }));
     expect(await readApproval(dir, sha("v1"))).toEqual({ recorded: false, matches: false });
     expect(await readApproval(null, null)).toEqual({ recorded: false, matches: false });
+  });
+
+  it("a tampered record: wrong schema, digest or reviewer reads as no record; a foreign digest reads as stale", () => {
+    const good = JSON.parse(record(sha("v1"))) as Record<string, unknown>;
+    const read = (patch: Record<string, unknown>) => parseApproval(JSON.stringify({ ...good, ...patch }), sha("v1"));
+    expect(read({})).toMatchObject({ recorded: true, matches: true, reviewer: "Dr Example" });
+    expect(read({ schema: "studium-approval/2" })).toEqual(NO_APPROVAL);
+    expect(read({ bundle_sha256: 42 })).toEqual(NO_APPROVAL);
+    expect(read({ reviewer: 42 })).toEqual(NO_APPROVAL);
+    expect(read({ reviewer: ["Dr Example"] })).toEqual(NO_APPROVAL);
+    expect(read({ reviewer: "   " })).toEqual(NO_APPROVAL);
+    expect(read({ reviewer: undefined })).toEqual(NO_APPROVAL);
+    expect(read({ bundle_sha256: sha("v2") })).toEqual({ recorded: true, matches: false, reviewer: "Dr Example",
+      reviewed_at: "2026-10-30T09:00:00Z" });
+    expect(parseApproval("[]", sha("v1"))).toEqual(NO_APPROVAL);
+    expect(parseApproval(" ".repeat(MAX_APPROVAL_BYTES + 1), sha("v1"))).toEqual(NO_APPROVAL);
+    expect(read({ reviewer: "x".repeat(500) }).reviewer).toHaveLength(200);
   });
 
   it("a started lesson reports the approval bound to its exact lesson.json; validated keeps its meaning", async () => {

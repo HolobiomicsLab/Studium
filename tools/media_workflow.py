@@ -523,6 +523,16 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _exists_message(command: str, error: FileExistsError) -> str:
+    """Say which file exists and what to do; the tool never overwrites, and has no flag that does."""
+    path = error.filename or error.args[0] if error.args else error
+    if command == "prepare":
+        return (f"{path} already exists: this activity is already prepared and nothing was changed. "
+                "No flag overwrites it; to start again, delete the request and the prompt file prepared with it, "
+                "then run prepare again (or write the request under another --out name).")
+    return f"{path} already exists and nothing was changed; choose another --out."
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the local prepare or attach command without selecting a provider."""
     args = _parser().parse_args(argv)
@@ -537,7 +547,10 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(json.dumps({"output": str(output), "provider_called": False}))
         return 0
-    except (MediaWorkflowError, FileExistsError, OSError, ValueError) as error:
+    except FileExistsError as error:
+        print(f"media workflow: {_exists_message(args.command, error)}", file=sys.stderr)
+        return 1
+    except (MediaWorkflowError, OSError, ValueError) as error:
         print(f"media workflow: {error}", file=sys.stderr)
         return 1
 

@@ -1,0 +1,205 @@
+{
+  "bundle_ref": "atomistique-l1-chap1",
+  "bundle_sha256": "639a490fb93cd5a943001f86e67bacd1fb1aefe615502fd18eb831da05b12909",
+  "decided_at": "2026-11-10T11:42:58Z",
+  "decision": "approved",
+  "items": [
+    {
+      "consequence": "wording",
+      "id": "s0-intro",
+      "opened": false,
+      "sha256": "282bb8c0957c04ac9430809c4b3282e0f376132b0de494236fe12a1cef241a08"
+    },
+    {
+      "consequence": "media",
+      "id": "s1-concept-particules",
+      "opened": false,
+      "sha256": "51bc2660e2b9731713a3e0e0982ded23815af86a3095f93ca0b57ffc1720b242"
+    },
+    {
+      "consequence": "grading",
+      "id": "s1-quiz-fer",
+      "opened": false,
+      "sha256": "2f9bf018f9f4b6f16822e32cbdd4de368c2ca784bab23768d382167c3636a5ad"
+    },
+    {
+      "consequence": "grading",
+      "id": "s1b-audit-particules",
+      "opened": false,
+      "sha256": "6148927345bc784e1a7df901518ebe39269218b9e413378ccc0b0fb077303650"
+    },
+    {
+      "consequence": "media",
+      "id": "s2-concept-nombres-quantiques",
+      "opened": false,
+      "sha256": "3848d815425a2d2c2d27b90b492f6d7653041f6cdaf74de13f6a030000a03683"
+    },
+    {
+      "consequence": "grading",
+      "id": "s2-quiz-4f",
+      "opened": false,
+      "sha256": "636f821bc55e18097c2c1f3ce676cd142b717b5d71ae991cebfe0573e15c1570"
+    },
+    {
+      "consequence": "media",
+      "id": "s3-concept-orbitales",
+      "opened": false,
+      "sha256": "3d27c377ead396ce8a533948d67d693c670b5d1c00c60d61db42a7b6b9df4ad1"
+    },
+    {
+      "consequence": "grading",
+      "id": "s3-quiz-noeuds",
+      "opened": false,
+      "sha256": "d5a72c32d56424e9c9c0d3adf9f5e5cce8d77d460a59bfd8b73d4d7382a431c7"
+    },
+    {
+      "consequence": "grading",
+      "id": "s3b-explain-2p",
+      "opened": false,
+      "sha256": "a0d2ed362934457eac5167332ec103bdfbecaf12d5731e4fb1b7655d704f043a"
+    },
+    {
+      "consequence": "grading",
+      "id": "s3c-compare-noeuds",
+      "opened": false,
+      "sha256": "560d201d6978d1840648c380dc68e174b06cfd01dc59a135cceeb7d7d60e82a1"
+    },
+    {
+      "consequence": "grading",
+      "id": "s3d-communicate-2p",
+      "opened": false,
+      "sha256": "1af5d676217cd9387caf9a7b523426335114ef36635db6430490fe5e2ee07ec8"
+    },
+    {
+      "consequence": "media",
+      "id": "s4-concept-spectres",
+      "opened": false,
+      "sha256": "3c98444b8fd87eeefd73f04b57368d09b4e18e7637d60f91459fa7b313c19502"
+    },
+    {
+      "consequence": "grading",
+      "id": "s4-quiz-balmer",
+      "opened": false,
+      "sha256": "25df3263b1a11965413a5833bc4b096e1e68c755715f3e0b6a6e1dba42a3581f"
+    },
+    {
+      "consequence": "media",
+      "id": "s5-concept-remplissage",
+      "opened": false,
+      "sha256": "38d29bead275bc7727df5c6f74c170a7279ecca416393db5b7bb674a94310eed"
+    },
+    {
+      "consequence": "grading",
+      "id": "s5-quiz-carbone",
+      "opened": false,
+      "sha256": "bf78d132cbb5b3b68259fdc52c0aab9f688f99b1f1cfa8ef716fd82f345fe759"
+    },
+    {
+      "consequence": "grading",
+      "id": "s5b-spot-azote",
+      "opened": false,
+      "sha256": "fe283f53415b29f4c689d4a372af5e2257e01280542f7a89a6404f20c90a3acd"
+    },
+    {
+      "consequence": "grading",
+      "id": "s5d-prompt-hund",
+      "opened": false,
+      "sha256": "33b567926b84a83132dd3f5c485fa8423cf74502ca2256c857de37fce929be7f"
+    },
+    {
+      "consequence": "grading",
+      "id": "s5c-compare-remplissage",
+      "opened": false,
+      "sha256": "32f30754dba4960f4d76017a1ba61c7d4dfb25d76f036098106456b64af06d9e"
+    },
+    {
+      "consequence": "grading",
+      "id": "s4b-audit-spectres",
+      "opened": false,
+      "sha256": "0e21c884bc0bd08edd23f6cd17b226825beb20a63efae2b2ba0c7c21bbf48ea8"
+    },
+    {
+      "consequence": "grading",
+      "id": "s5e-quiz-oxygene",
+      "opened": false,
+      "sha256": "d5e1ea0a8d7e1dc500248ff5eff2286ebf61f3994ba62862b4a3640681465a3c"
+    },
+    {
+      "consequence": "media",
+      "id": "s6-concept-periodicite",
+      "opened": false,
+      "sha256": "952640310758fbd81de62c16d232772d8ff3107731134c4e4d68b2d43e2cd82f"
+    },
+    {
+      "consequence": "grading",
+      "id": "s6-quiz-tendance",
+      "opened": false,
+      "sha256": "bdf05c1b8b5ce0f66010cf03be0130e5863fc8984bb86e964ba275b130df23d2"
+    },
+    {
+      "consequence": "media",
+      "id": "s7-concept-geometrie",
+      "opened": false,
+      "sha256": "ef3f4324f180342d7eccaad6d4f97984d322db1d2bb499ca6052608726827aa0"
+    },
+    {
+      "consequence": "grading",
+      "id": "s6b-prompt-configuration",
+      "opened": false,
+      "sha256": "6d10ec5a87ee65830d6c0cb75b16a2d7fe2c5ffd1412bd73ae4bbf690995b053"
+    },
+    {
+      "consequence": "wording",
+      "id": "s7-meta",
+      "opened": false,
+      "sha256": "b6d8633c3ca0eab683733261489a529d94e4837ed37e8312ec75818322a6c488"
+    },
+    {
+      "consequence": "wording",
+      "id": "s8-reproduction-periodique",
+      "opened": false,
+      "sha256": "9f85215a2dd3bb745db669b4fc78d690d0c1515dc84e757777d1ca3198ccce9d"
+    },
+    {
+      "consequence": "grading",
+      "id": "s9-rappel-carbone14",
+      "opened": false,
+      "sha256": "82b50b86b822af8660125bb941bfddf57b6bfcdbec2b546354e3943890fde21c"
+    },
+    {
+      "consequence": "grading",
+      "id": "s9-rappel-3d",
+      "opened": false,
+      "sha256": "6c0af8717cfd0c868265bf41e5613606a0332e515b9015ddfd9c83fecbfb398a"
+    },
+    {
+      "consequence": "grading",
+      "id": "s9-rappel-noeuds-3s",
+      "opened": false,
+      "sha256": "6a920175cb3bd96b9e5f53585288e64adfdc59ff7754f911932306579d933ddf"
+    },
+    {
+      "consequence": "grading",
+      "id": "s9-rappel-hbeta",
+      "opened": false,
+      "sha256": "cf9ac0a73ef5de17bef3b12b5a6e6f78ee72199245a0997a7e16dd62c1d7e126"
+    },
+    {
+      "consequence": "grading",
+      "id": "s9-rappel-klechkowski",
+      "opened": false,
+      "sha256": "e6b75ced2520e445273d66578eb4641f2f9968ed71bbb28cc9b07c830ff44076"
+    },
+    {
+      "consequence": "grading",
+      "id": "s9-rappel-magnesium",
+      "opened": false,
+      "sha256": "1e71ae6382bb116f1d11eec6a5830a4c13dde28bc2605ee74bc83ae114023294"
+    }
+  ],
+  "not_opened": 32,
+  "note": "Enregistré par l'agent Claude Code sur la parole du propriétaire du 10 novembre 2026 (nom affiché : beta-testeur). Aucune scène ouverte par l'agent ; aucune liste de contrôle déclarée.",
+  "opened": 0,
+  "reviewer": "beta-testeur",
+  "schema": "studium/review-receipt/v1"
+}

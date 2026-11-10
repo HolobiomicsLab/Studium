@@ -6,7 +6,10 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, test } from "node:test";
-import { anchorsOf, checkLinks, checkPairs, checkToolsDocumented, linksOf, markdownFiles, slug } from "./check.mjs";
+import {
+  anchorsOf, checkImages, checkLength, checkLinks, checkPairs, checkReachable, checkSwitchLine, checkToolsDocumented,
+  linksOf, markdownFiles, slug,
+} from "./check.mjs";
 import { readRegion, replaceRegion } from "./lib/generated.mjs";
 import { rowsTable, schemaRows, typeLabel } from "./lib/schema-table.mjs";
 import { renderTools } from "./gen-mcp-tools.mjs";
@@ -81,6 +84,99 @@ describe("checkPairs", () => {
     assert.deepEqual(checkPairs(root), [
       "docs/learn/guide.md: no French twin (docs/learn/guide.fr.md)",
       "docs/teach/only.fr.md: no English twin (docs/teach/only.md)",
+    ]);
+  });
+});
+
+describe("checkSwitchLine", () => {
+  test("wants the exact language-switch line first, on pages that have a twin", () => {
+    const root = tree({
+      "README.md": "English · [Français](README.fr.md)\n\n# R\n", "README.fr.md": "[English](README.md) · Français\n",
+      "docs/a.md": "English · [Français](a.fr.md)\n", "docs/a.fr.md": "[English](a.md) · Français\n",
+      "docs/b.md": "# B\n\nEnglish · [Français](b.fr.md)\n", "docs/b.fr.md": "English · [Français](b.fr.md)\n",
+      "docs/c.md": "English · [Français](other.fr.md)\n", "docs/c.fr.md": "[English](c.md) · Français\n",
+      "docs/design-records/x.md": "# no line\n", "docs/assets/brand/README.md": "# no line\n",
+    });
+    assert.deepEqual(checkSwitchLine(root), [
+      "docs/b.fr.md:1: first line must be `[English](b.md) · Français`",
+      "docs/b.md:1: first line must be `English · [Français](b.fr.md)`",
+      "docs/c.md:1: first line must be `English · [Français](c.fr.md)`",
+    ]);
+  });
+  test("checks the root README pair too", () => {
+    const root = tree({ "README.md": "# R\n", "README.fr.md": "[English](README.md) · Français\n" });
+    assert.deepEqual(checkSwitchLine(root), ["README.md:1: first line must be `English · [Français](README.fr.md)`"]);
+  });
+});
+
+describe("checkReachable", () => {
+  test("wants every portal page linked from the index of its language, even inside <details>", () => {
+    const root = tree({
+      "docs/index.md": "# I\n\n[a](start/a.md)\n<details><summary>x</summary>\n\n[b](learn/b.md#top)\n\n</details>\n",
+      "docs/index.fr.md": "# I\n\n[a](start/a.fr.md)\n[b-en](learn/b.md)\n",
+      "docs/start/a.md": "", "docs/start/a.fr.md": "", "docs/start/c.md": "", "docs/start/c.fr.md": "",
+      "docs/learn/b.md": "", "docs/learn/b.fr.md": "",
+      "docs/design-records/r.md": "", "docs/assets/x/README.md": "", "docs/examples/e.md": "",
+    });
+    assert.deepEqual(checkReachable(root), [
+      "docs/learn/b.fr.md: not linked from docs/index.fr.md",
+      "docs/start/c.fr.md: not linked from docs/index.fr.md",
+      "docs/start/c.md: not linked from docs/index.md",
+    ]);
+  });
+});
+
+describe("checkImages", () => {
+  const png = "";
+  test("wants the dark twin of a light image, and the reverse", () => {
+    const root = tree({
+      "docs/a.md": "![shot](assets/s-light.png) ![x](assets/ok-light.png)\n" +
+        "<picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"assets/p-dark.png\"><img src=\"assets/p-light.png\" alt=\"p\"></picture>\n" +
+        "<picture><source srcset=\"assets/q-dark.png\"><img src=\"assets/q-light.png\" alt=\"q\"></picture>\n" +
+        "![plain](assets/plain.png) ![ext](https://x.y/z-light.png)\n",
+      "docs/assets/s-light.png": png, "docs/assets/ok-light.png": png, "docs/assets/ok-dark.png": png,
+      "docs/assets/p-dark.png": png, "docs/assets/p-light.png": png, "docs/assets/q-dark.png": png, "docs/assets/q-light.png": png,
+      "docs/assets/q-dark.png.bak": png, "docs/assets/plain.png": png,
+    });
+    assert.deepEqual(checkImages(root, ["docs/a.md"], new Set()), [
+      "docs/a.md:1: docs/assets/s-light.png has no docs/assets/s-dark.png",
+    ]);
+  });
+  test("reports a dark image without its light twin", () => {
+    const root = tree({ "docs/a.md": "![d](d-dark.svg)\n", "docs/d-dark.svg": "" });
+    assert.deepEqual(checkImages(root, ["docs/a.md"], new Set()), ["docs/a.md:1: docs/d-dark.svg has no docs/d-light.svg"]);
+  });
+  test("accepts an allowlisted single-theme image", () => {
+    const root = tree({ "docs/a.md": "![d](d-light.png)\n", "docs/d-light.png": "" });
+    assert.deepEqual(checkImages(root, ["docs/a.md"], new Set(["docs/d-light.png"])), []);
+  });
+  test("wants a non-empty alt text on Markdown and HTML images, outside code", () => {
+    const root = tree({
+      "docs/a.md": "![](x.png)\n![ok](x.png)\n<img src=\"x.png\">\n<img src=\"x.png\" alt=\"\">\n<img\n  src=\"x.png\"\n  alt=\"fine\">\n`![](x.png)`\n",
+      "docs/x.png": "",
+    });
+    assert.deepEqual(checkImages(root, ["docs/a.md"], new Set()), [
+      "docs/a.md:1: image without alt text",
+      "docs/a.md:3: image without alt text",
+      "docs/a.md:4: image without alt text",
+    ]);
+  });
+  test("skips design-records and internal", () => {
+    const root = tree({ "docs/design-records/a.md": "![](x-light.png)\n", "docs/internal/b.md": "![](x-light.png)\n" });
+    assert.deepEqual(checkImages(root, ["docs/design-records/a.md", "docs/internal/b.md"], new Set()), []);
+  });
+});
+
+describe("checkLength", () => {
+  test("warns about pages over 200 lines, except those with a generated region", () => {
+    const lines = (n, extra = "") => `${"line\n".repeat(n)}${extra}`;
+    const root = tree({
+      "docs/long.md": lines(201), "docs/exact.md": lines(200), "docs/long.fr.md": lines(250),
+      "docs/gen.md": lines(300, "<!-- BEGIN GENERATED: x -->\n"), "docs/design-records/big.md": lines(500), "README.md": lines(300),
+    });
+    assert.deepEqual(checkLength(root), [
+      "docs/long.fr.md: 250 lines (over 200)",
+      "docs/long.md: 201 lines (over 200)",
     ]);
   });
 });

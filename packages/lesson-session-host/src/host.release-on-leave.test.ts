@@ -252,7 +252,12 @@ describe("I-1 — the reference is data on the verdict, laid out under its own h
     expect(first.kind).toBe("replay");
     expect(first.verdict).not.toHaveProperty("key_points");
     expect(first.verdict).not.toHaveProperty("reference_kind");
-    expect(served(first)).not.toMatch(/AFFIRMATION-PIÈGE|DÉFAUT-ATTENDU/);
+    // Audit 2026-11-10, D4: the claims are the text to critique, so the scene shows them; the key is which are flawed.
+    expect(served(first)).not.toMatch(/DÉFAUT-ATTENDU/);
+    expect(`${first.verdict?.display_markdown ?? ""} ${first.verdict?.feedback ?? ""}`).not.toContain("AFFIRMATION-PIÈGE");
+    const replayed = (first as { presentation?: { display_markdown?: string } }).presentation?.display_markdown ?? "";
+    expect(replayed).toContain("AFFIRMATION-PIÈGE");
+    expect(replayed).toContain("AFFIRMATION-SAINE");
 
     const left = await host.respond(sessionId, { kind: "critique", text: "La première affirmation généralise trop." });
     expect(left.kind).not.toBe("replay");

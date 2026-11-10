@@ -591,6 +591,35 @@ test("a key verdict names the AI-drafted key, the learner's own key, or the auth
   assert.equal(chip("teacher", "c"), "Assessed by the author's key");
 });
 
+// A classmate's contribution a teacher reviews (teacher mode, drafted by a learner): the scene chip and the
+// key verdict name the classmate, never « the key you wrote »; a self-study lesson keeps its own wording.
+test("a classmate's contribution names the classmate in the scene chip and on the key verdict", async () => {
+  const { browserPhrases: phrases } = await import("../../../packages/lesson-panel/src/phrases.ts");
+  const en = phrases("en");
+  const verdict = { scene_id: "earlier", graded: true, correct: true, assessed_by: "key", feedback: "Well done." };
+  const render = (scene, session_id) => {
+    const before = mountWithSend();
+    before.dom.window.renderView(quizV2({ strings: en, session_id, voices: { scene } }));
+    const out = { scene: text(before.doc.querySelector(".voice-scene")), chip: text(before.doc.querySelector(".voice-chip summary")) };
+    before.dom.window.close();
+    const after = mountWithSend();
+    after.dom.window.renderView(quizV2({ strings: en, session_id: `${session_id}-v`, verdict, voices: { scene, verdict: { kind: "key" } } }));
+    out.verdict = text(after.doc.querySelector(".feedback-step .voice-verdict"));
+    after.dom.window.close();
+    return out;
+  };
+  const classmate = { kind: "author", name: null, reviewed: false, drafted_by: "learner", from_classmate: true };
+  assert.deepEqual(render(classmate, "a"), { scene: "Lesson contributed by a classmate. No approval is recorded for this lesson.",
+    chip: en.pane_voice_short_classmate, verdict: "Assessed by the key written by a classmate" });
+  assert.equal(render({ ...classmate, name: "Dr Lee", reviewed: true }, "b").scene, "Lesson contributed by a classmate, validated by Dr Lee");
+  assert.equal(render({ ...classmate, name: "Dr Lee" }, "c").scene, "Lesson contributed by a classmate. Changed since its validation.");
+  const own = render({ kind: "author", name: null, reviewed: false, drafted_by: "learner" }, "d");
+  assert.equal(own.verdict, "Assessed by the key you wrote");
+  const teacher = render({ kind: "author", name: null, reviewed: false, drafted_by: "teacher" }, "e");
+  assert.equal(teacher.scene, "No approval is recorded for this lesson");
+  assert.equal(teacher.chip, en.pane_voice_short_unreviewed);
+});
+
 // INT-STUDIUM-058 § 2.1, surface negotiation: a host that renders MCP Apps shows the panel for any call of
 // open_lesson_panel, a conversation or forms surface included. The panel is then not the surface: it draws a
 // short notice in the view's language, never the scene, its answer controls, the settings or the map, so
@@ -604,7 +633,7 @@ const NOTICES = {
   text: { fr: /^Cette leçon se joue dans la conversation/, en: /^This lesson is played in the conversation/ },
   form: { fr: /^Cette leçon se joue en formulaires/, en: /^This lesson is played in forms/ },
 };
-const NOT_NEGOTIATED = { fr: /Le panneau n'est pas la surface négociée pour cette séance\./, en: /The panel is not the surface negotiated for this session\./ };
+const NOT_NEGOTIATED = { fr: /Tu réponds là-bas ; ce panneau montre seulement où tu en es\./, en: /You answer there; this panel only shows where you are\./ };
 for (const kind of ["text", "form"]) for (const locale of ["fr", "en"]) {
   test(`a ${kind} surface draws the notice in ${locale}, without the scene, its controls, the settings or the map`, () => {
     const { dom, doc, sent } = mountWithSend();
@@ -642,5 +671,304 @@ test("a panel surface still draws the scene with its controls and settings (guar
   assert.ok(doc.querySelector(".scene-title"));
   assert.ok(doc.querySelector(".choices"));
   assert.ok(doc.querySelector(".settings"));
+  dom.window.close();
+});
+
+// --- Panel audit 2026-11-10: the defects and frictions the headless audit reproduced, and the next interface. ---
+const EN = browserPhrases("en");
+const next = (extra = {}) => quizV2({ strings: EN, ...extra });
+const VERDICT_KEY = { kind: "key" };
+
+test("A5: an answer nobody assessed, with nothing below, says it was recorded and that there is no reference", () => {
+  const { dom, doc } = mountWithSend();
+  const written = { id: "w", type: "explain_back", title: "Explain", prompt: "Why?" };
+  dom.window.renderView(next({ scene: { ...READING, id: "after" }, verdict: { scene_id: "w", graded: true, assessed_by: "none" } }));
+  assert.equal(text(doc.querySelector(".feedback-why")), EN.pane_uncertified_why_none);
+  dom.window.renderView(next({ session_id: "two", scene: { ...READING, id: "after" }, verdict: { scene_id: "w", graded: true, assessed_by: "none", key_points: ["A point"] } }));
+  assert.equal(text(doc.querySelector(".feedback-why")), EN.pane_uncertified_why);
+  void written;
+  dom.window.close();
+});
+
+test("A6: the control that has the focus is never disabled under the learner, and keeps it when the wait ends", () => {
+  const { dom, doc, sent } = mountWithSend();
+  dom.window.renderView(next());
+  doc.querySelector(".choices input").click();
+  const validate = doc.querySelector(".validate");
+  validate.focus();
+  validate.click();
+  assert.equal(validate.disabled, false, "the focused control stays enabled");
+  assert.equal(validate.getAttribute("aria-disabled"), "true");
+  assert.equal(doc.querySelector(".choices input").disabled, true, "the others wait");
+  validate.click();
+  assert.equal(sent.length, 1, "pressed again while pending, it sends nothing");
+  dom.window.renderView({ type: "action_error", message: "boom" });
+  assert.equal(validate.getAttribute("aria-disabled"), null);
+  assert.equal(doc.activeElement, validate);
+  // The focus fell to the page during the wait: it goes back to the control that sent the action.
+  validate.click();
+  validate.blur();
+  dom.window.renderView({ type: "action_settled" });
+  assert.equal(doc.activeElement, validate);
+  dom.window.close();
+});
+
+test("A11: the scene and its feedback carry the content's language when the view gives it", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next({ content_language: "fr" }));
+  assert.equal(doc.querySelector(".scene-title").getAttribute("lang"), "fr");
+  assert.equal(doc.querySelector(".scene-body").getAttribute("lang"), "fr");
+  assert.equal(doc.querySelector(".choices").getAttribute("lang"), "fr");
+  dom.window.renderView(next({ content_language: "fr", verdict: { scene_id: "quiz", graded: true, correct: true, feedback: "Oui." }, scene: { ...READING, id: "after" } }));
+  assert.equal(doc.querySelector(".feedback-card").getAttribute("lang"), "fr");
+  dom.window.renderView(next({ session_id: "two" }));
+  assert.equal(doc.querySelector(".scene-body").getAttribute("lang"), null, "without the field, nothing is claimed");
+  dom.window.close();
+});
+
+test("A12: a scrollable asset body is a named region that takes the focus", async () => {
+  const { dom, doc } = mountWithSend();
+  Object.defineProperty(dom.window.HTMLElement.prototype, "scrollWidth", { configurable: true, get() { return this.classList.contains("asset-body") ? 900 : 0; } });
+  Object.defineProperty(dom.window.HTMLElement.prototype, "clientWidth", { configurable: true, get() { return 300; } });
+  dom.window.renderView(next({ scene_assets: [{ kind: "equation_latex", title: "Quantum numbers", payload: "\\ell \\in \\{0, 1, \\dots, n-1\\}" }] }));
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  const body = doc.querySelector(".asset-body");
+  assert.equal(body.getAttribute("role"), "region");
+  assert.match(body.getAttribute("aria-label"), /Quantum numbers/);
+  assert.equal(body.getAttribute("tabindex"), "0");
+  dom.window.close();
+});
+
+test("B4: a replay shows the key-free feedback the engine returned, withholds a reference it carries, and counts attempts", () => {
+  const { dom, doc } = mountWithSend();
+  const again = (extra) => next({ navigation: { kind: "replay" }, ...extra });
+  dom.window.renderView(again({ verdict: { scene_id: "quiz", graded: true, correct: false, feedback: "Look at the subshell." } }));
+  assert.match(text(doc.querySelector(".feedback-card")), /Look at the subshell\./);
+  assert.equal(doc.querySelector(".feedback-withheld"), null);
+  doc.querySelector(".continue").click();
+  dom.window.renderView(again({ verdict: { scene_id: "quiz", graded: true, correct: false, feedback: "The answer is 30.", key_points: ["30"], reference_kind: "correct_choice" } }));
+  assert.ok(doc.querySelector(".feedback-withheld"));
+  assert.doesNotMatch(text(doc.querySelector(".feedback-step")), /30/);
+  doc.querySelector(".continue").click();
+  assert.match(text(doc.querySelector(".gate-why")), /Attempt 3/);
+  dom.window.close();
+});
+
+test("B6: a contest's announcement is a navigation card at the top, not a status line", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next({ orientation: { ...V2.orientation, contest: { concept_id: "c", question: 1, total: 2 } }, message: "Two check questions on this concept." }));
+  const card = doc.querySelector(".nav-card.nav-contest");
+  assert.ok(card, "a card");
+  assert.match(text(card), /Two check questions on this concept\./);
+  assert.ok(card.compareDocumentPosition(doc.querySelector(".scene-body")) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING, "above the question, as a detour's card");
+  assert.doesNotMatch(text(doc.querySelector("#action-status")), /Two check questions/);
+  dom.window.close();
+});
+
+test("B8: « Choose another course » is in the menu whenever the view offers pickCourse", () => {
+  const { dom, doc, sent } = mountWithSend();
+  dom.window.renderView(next());
+  assert.equal(doc.querySelector(".pane-menu .menu-pick-course"), null);
+  dom.window.renderView(next({ session_id: "two", actions: ["respond", "end", "pickCourse"] }));
+  const item = doc.querySelector(".pane-menu .menu-pick-course");
+  assert.equal(text(item), EN.pane_pick_course);
+  item.click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "pickCourse" });
+  dom.window.close();
+});
+
+test("B14 and C5: the feedback of a written answer quotes it above the key points", () => {
+  const { dom, doc } = mountWithSend();
+  const written = { id: "w", type: "explain_back", title: "Explain", prompt: "Why?" };
+  dom.window.renderView(next({ scene: written, actions: ["respond", "end", "ask"] }));
+  const box = doc.querySelector(".controls textarea");
+  box.value = "Because the nucleus holds the protons.";
+  box.dispatchEvent(new dom.window.Event("input"));
+  doc.querySelector(".controls .st-button--primary").click();
+  dom.window.renderView(next({ scene: { ...READING, id: "after" }, verdict: { scene_id: "w", graded: true, assessed_by: "none", key_points: ["Protons are in the nucleus"] }, self_rating: { requested: true, scene_id: "w", grades: ["again", "hard", "good", "easy"] } }));
+  const quote = doc.querySelector(".feedback-step .your-answer");
+  assert.equal(text(quote.querySelector("blockquote")), "Because the nucleus holds the protons.");
+  assert.ok(quote.compareDocumentPosition(doc.querySelector(".key-points")) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+  dom.window.close();
+});
+
+test("C5: the feedback of a quiz opens with the session line, then the learner's answer beside the key the view carries", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next());
+  doc.querySelectorAll(".choices input")[1].click();
+  doc.querySelectorAll(".confrow .conf")[1].click();
+  doc.querySelector(".validate").click();
+  const verdict = { scene_id: "quiz", graded: true, correct: false, assessed_by: "key", feedback: "Count again.", key_points: ["First"], reference_kind: "correct_choice" };
+  dom.window.renderView(next({ scene: { ...READING, id: "after" }, verdict, voices: { ...V2.voices, verdict: VERDICT_KEY } }));
+  const step = doc.querySelector(".feedback-step");
+  assert.ok(step.querySelector(".session-line"), "the session line heads the feedback");
+  const rows = [...step.querySelectorAll(".answer-compare > div")].map(text);
+  assert.deepEqual(rows, [`${EN.pane_answer_label} B · Second · confidence 1`, `${EN.pane_compare_key_author} First`]);
+  assert.equal(step.querySelector(".key-points"), null, "the key is said once");
+  // A view without the key shows the learner's answer alone.
+  dom.window.renderView(next({ session_id: "two" }));
+  doc.querySelectorAll(".choices input")[0].click();
+  doc.querySelector(".validate").click();
+  dom.window.renderView(next({ session_id: "two", scene: { ...READING, id: "after" }, verdict: { ...verdict, key_points: undefined, reference_kind: undefined } }));
+  assert.deepEqual([...doc.querySelectorAll(".answer-compare > div")].map(text), [`${EN.pane_answer_label} A · First`]);
+  dom.window.close();
+});
+
+test("B15: the 0 to 4 confidence shows the meaning of its two ends in words", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next());
+  const ends = [...doc.querySelectorAll(".confrow .conf-ends > span")].map(text);
+  assert.deepEqual(ends, [`0 · ${EN.pane_confidence_0}`, `4 · ${EN.pane_confidence_4}`]);
+  dom.window.close();
+});
+
+test("landmarks: the pane is the main region and the screen has a first-level heading", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next());
+  const pane = doc.querySelector("#pane");
+  assert.ok(pane.tagName === "MAIN" || pane.getAttribute("role") === "main");
+  assert.equal(doc.querySelectorAll("#pane h1").length, 1);
+  dom.window.close();
+});
+
+test("C1: a compact session line, a short voice chip, and an action bar with confidence, « Submit » and « Help »", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next({ orientation: { step: { index: 6, total: 32 }, minutes_left: 67, reviews_due: 1, waiting: "answer" } }));
+  assert.equal(text(doc.querySelector(".session-line")), "Step 6/32 · about 67 min · 1 due for review");
+  const chip = doc.querySelector(".voice-chip");
+  assert.equal(text(chip.querySelector("summary")), EN.pane_voice_short_validated);
+  assert.equal(text(doc.querySelector(".voice-scene")), "Lesson validated by Prof. Test");
+  const bar = doc.querySelector(".controls .action-bar");
+  assert.ok(bar.querySelector(".confrow") && bar.querySelector(".validate") && bar.querySelector(".help-toggle"));
+  assert.equal(doc.querySelector(".validate").disabled, true, "« Submit » waits for a choice");
+  const order = [".choices input", ".confrow .conf", ".validate", ".help-toggle"].map((selector) => [...doc.querySelectorAll("#pane *")].indexOf(doc.querySelector(selector)));
+  assert.deepEqual(order, [...order].sort((a, b) => a - b), "question, choices, confidence, submit, help");
+  // The settings no longer follow the scene open: they are one disclosure away.
+  dom.window.close();
+});
+
+test("C1: the rail follows the server's step; a detour is a marker, and aria-valuenow says the visible step", () => {
+  const { dom, doc } = mountWithSend();
+  const at = (index, extra = {}) => next({ scene: { ...QUIZ, id: `q${index}` }, orientation: { step: { index, total: 32 }, reviews_due: 0, waiting: "answer", ...extra } });
+  dom.window.renderView(at(27));
+  dom.window.renderView(at(5));
+  const bar = () => doc.querySelector(".progress[role=progressbar]");
+  assert.equal(bar().getAttribute("aria-valuenow"), "5", "the rail goes back with the server");
+  assert.match(text(doc.querySelector(".session-line")), /^Step 5\/32/);
+  dom.window.renderView(at(28, { step: { index: 28, total: 32, detour: { returns_to: "q5" } } }));
+  assert.equal(bar().getAttribute("aria-valuenow"), "5", "a detour does not jump");
+  assert.match(text(doc.querySelector(".session-line")), /^Step 5\/32 · detour, back to “A question”/);
+  assert.ok(doc.querySelector(".progress [data-state=detour]"), "the detour is a marker");
+  dom.window.close();
+});
+
+test("C4: one « Help » control opens the ladder in place; a hint lands under the question; the settings are collapsed", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next({ actions: ["respond", "hint", "end", "ask", "setAttention"] }));
+  const toggle = doc.querySelector(".help-toggle");
+  const ladder = doc.querySelector(".help-ladder");
+  assert.equal(toggle.getAttribute("aria-expanded"), "false");
+  assert.equal(toggle.getAttribute("aria-controls"), ladder.id);
+  assert.ok(ladder.hidden);
+  toggle.click();
+  assert.equal(toggle.getAttribute("aria-expanded"), "true");
+  assert.equal(ladder.hidden, false);
+  assert.ok(ladder.querySelector(".ask-slot"), "the question field opens here");
+  dom.window.renderView(next({ actions: ["respond", "hint", "end", "ask", "setAttention"], hint: { hint: "Think of the definition", remaining: 0 } }));
+  const hint = doc.querySelector("#hint");
+  assert.match(text(hint), /Think of the definition/);
+  assert.ok(doc.querySelector(".question").compareDocumentPosition(hint) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+  assert.ok(hint.compareDocumentPosition(doc.querySelector(".controls")) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING, "under the question, above the choices");
+  const settings = doc.querySelector(".settings").closest("details");
+  assert.ok(settings && !settings.open, "the settings are behind a closed disclosure");
+  dom.window.close();
+});
+
+test("C1: a detour back to a scene not shown yet keeps the last step the server gave on the path", () => {
+  const { dom, doc } = mountWithSend();
+  const at = (id, index, extra = {}) => next({ scene: { ...QUIZ, id }, orientation: { step: { index, total: 32, ...extra }, reviews_due: 0, waiting: "answer" } });
+  dom.window.renderView(at("q6", 6));
+  dom.window.renderView(at("recall", 28, { detour: { returns_to: "q7-not-yet-shown" } }));
+  assert.equal(doc.querySelector(".progress[role=progressbar]").getAttribute("aria-valuenow"), "6");
+  assert.equal(text(doc.querySelector(".session-line")), "Step 6/32 · detour");
+  dom.window.close();
+});
+
+test("B2: a last hint says no « (0 left) » and prints nothing else", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next({ hint: { hint: "Think of the definition", remaining: 0 } }));
+  assert.equal(text(doc.querySelector("#hint .hint-body")), "Think of the definition");
+  assert.doesNotMatch(text(doc.querySelector("#hint")), /null|left/);
+  dom.window.close();
+});
+
+// Follow-up 2026-11-10 (the server fields of the integrated fixes).
+test("a detour reads the main-path step the server gives: the session line, the rail and aria-valuenow agree", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next({ scene: { ...QUIZ, id: "recall" }, progress: { index: 27, total: 32, detour: { returns_to_scene_id: "q5", returns_to_title: "Quantum numbers", returns_to_index: 5 } },
+    orientation: { step: { index: 27, total: 32, detour: { returns_to: "q5" }, main: { index: 5, title: "Quantum numbers" } }, minutes_left: 70, reviews_due: 0, waiting: "answer" } }));
+  assert.equal(doc.querySelector(".progress[role=progressbar]").getAttribute("aria-valuenow"), "5");
+  assert.equal(text(doc.querySelector(".session-line")), "Step 5/32 · detour, back to “Quantum numbers” · about 70 min");
+  assert.ok(doc.querySelector(".progress [data-state=detour]"));
+  dom.window.renderView(next({ scene: { ...QUIZ, id: "q5" }, orientation: { step: { index: 5, total: 32 }, reviews_due: 0, waiting: "answer" } }));
+  assert.equal(doc.querySelector(".progress[role=progressbar]").getAttribute("aria-valuenow"), "5");
+  dom.window.close();
+});
+
+test("the explanation rung is labelled by what it explains, and asks for it", () => {
+  const { dom, doc, sent } = mountWithSend();
+  const open = (explains, session_id) => next({ session_id, help: { rungs: [{ kind: "explain", available: true }], explains } });
+  dom.window.renderView(open("last_answer", "a"));
+  const rung = doc.querySelector("[data-rung=explain]");
+  assert.equal(text(rung), EN.pane_help_explain_last);
+  rung.click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "ask", text: EN.pane_help_explain_last_question });
+  dom.window.renderView(open("screen", "b"));
+  assert.equal(text(doc.querySelector("[data-rung=explain]")), EN.pane_help_explain_screen);
+  dom.window.renderView(open(undefined, "c"));
+  assert.equal(text(doc.querySelector("[data-rung=explain]")), EN.pane_help_explain);
+  dom.window.close();
+});
+
+test("every answer the panel submits names the scene the learner was looking at", () => {
+  const { dom, doc, sent } = mountWithSend();
+  dom.window.renderView(next());
+  doc.querySelector(".choices input").click();
+  doc.querySelector(".validate").click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "respond", input: { kind: "quiz_choice", choiceId: "a" }, expected_scene_id: "quiz" });
+  dom.window.renderView(next({ session_id: "two", scene: READING }));
+  doc.querySelector(".controls .st-button--primary").click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "respond", input: { kind: "ack" }, expected_scene_id: "intro" });
+  dom.window.close();
+});
+
+test("a stale-scene refusal is a calm notice, not « try again »", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next());
+  dom.window.renderView({ type: "action_error", action: "respond", message: JSON.stringify({ error: "the scene changed: read the current scene, then send the learner's answer to it" }) });
+  const status = doc.querySelector("#action-status");
+  assert.equal(text(status), EN.pane_scene_changed);
+  assert.match(status.className, /notice/);
+  dom.window.close();
+});
+
+test("the sticky bar's height is kept free at the bottom of the scrolling page, so no choice stays under it", async () => {
+  const { dom, doc } = mountWithSend();
+  Object.defineProperty(dom.window.HTMLElement.prototype, "offsetHeight", { configurable: true, get() { return this.classList.contains("action-bar") ? 120 : 0; } });
+  Object.defineProperty(dom.window, "innerHeight", { configurable: true, value: 760 });
+  dom.window.renderView(next());
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(doc.documentElement.style.getPropertyValue("--st-bar-space"), "120px");
+  dom.window.close();
+});
+
+test("after « Session lost », the same view coming back (the server reopens the open session) is drawn again", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next());
+  dom.window.renderView({ type: "action_error", message: "session not found: one" });
+  assert.ok(doc.querySelector(".session-lost"));
+  dom.window.renderView(next());
+  assert.equal(doc.querySelector(".session-lost"), null);
+  assert.ok(doc.querySelector(".scene-title"));
   dom.window.close();
 });

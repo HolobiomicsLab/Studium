@@ -1,78 +1,50 @@
 English · [Français](harness-panels.fr.md)
 
-# Lesson panels in AI harnesses
+# Lesson panels in your assistant
 
-Studium separates the public lesson view from its host. The same HTML renderer supplies lesson
-content, answer controls, feedback, review dates and completion in VS Code and MCP Apps. The
-Claude Code mod presents the same public view with native components. These are implementation
-routes; real Codex Desktop and Claude host trials remain deferred, not certified by unit tests.
+Studium can show a lesson in a panel next to the conversation, with the lesson text, the answer controls, the feedback, your review dates and the completion screen. This page says where a panel appears and how to open one. Developers who check a host or add one use [Lesson panels for developers](../develop/panels.md).
 
-| Host | Panel route | Current validation |
+## Where a panel appears
+
+| Where you work | What you see | How it has been tested |
 |---|---|---|
-| VS Code Studium extension | Shared renderer with the VS Code bridge | Existing DOM and extension drivers |
-| Codex Desktop with MCP Apps support | `ui://` resources over the existing stdio connection | Embedded SDK handshake and action probe; native trial deferred |
-| Claude Code CLI, Code tab and extension | `apps/claude-code-mod` plugin | Mod contract tests; native trial deferred |
-| claude.ai / Claude Desktop remote connector | MCP Apps over Streamable HTTP | Remote service and exposure require an owner decision |
-| Text-only MCP client | Existing tools plus public panel tools | No UI metadata or accessible UI resources |
+| VS Code with the Studium extension | A pane | Automated tests of the pane |
+| Codex Desktop with MCP Apps support | A panel | Automated handshake and action test; not yet tried in the application |
+| Claude Code (terminal, Code tab, extension) | A native pane from the Claude Code mod in `apps/claude-code-mod` (a mod is an add-on for Claude Code) | Automated tests of the mod; not yet tried in the application |
+| claude.ai or Claude Desktop, as a remote connector | A panel over Streamable HTTP | Not offered: the remote service and its exposure are the owner's decision |
+| An assistant that shows text only | The conversation | The panel tools exist but no panel is drawn |
 
-## Connect
+The same renderer draws the panel in VS Code and in MCP Apps. The Claude Code mod shows the same lesson view with native components. No panel has been tried in the real Codex Desktop or Claude applications yet.
 
-The Codex stdio entry remains `node /absolute/path/to/studium-mcp.cjs`. Rebuild with
-`pnpm --filter @studium/lesson-mcp bundle`, then use the resulting file at
-`apps/lesson-mcp/dist/studium-mcp.cjs` in the existing connector configuration. Open a lesson through
-`open_lesson_panel`. A supporting host advertises `io.modelcontextprotocol/ui` during initialization;
-only then does the server expose two resources and annotate the three panel tools and
-`get_workflow_graph`. The model should wait for the learner while an interactive panel is open.
+## Before you start
 
-### The surface a lesson plays on
+- Install and connect the Studium server as in [Connect your assistant](harnesses.md). Its server file `apps/studium-vscode/dist/lesson-mcp.cjs` carries the panels.
+- After an update, build it again with `./setup.sh`, or only the server with `pnpm --filter studium-vscode build`.
 
-`open_lesson_panel` opens or resumes the lesson on the best surface the client can render, and the
-view it returns says which in `surface` (`rank`, `kind` and the kinds `available`).
+## Open a lesson in a panel
 
-| Rank | Surface | The server reads |
+1. Ask your assistant to open the lesson in a panel. The assistant calls `open_lesson_panel`.
+2. Studium picks the best surface your client can draw and says which in the view it returns (`surface`: `rank`, `kind` and the kinds `available`).
+3. Answer in the panel. While it is open, the assistant waits for you.
+
+## The surface a lesson plays on
+
+| Rank | Surface | Studium uses it when |
 |---|---|---|
-| 3 | `panel`, an MCP Apps panel | the client advertises `io.modelcontextprotocol/ui` |
-| 3 | `pane`, a native pane | the adapter calls `open_lesson_panel` with `surface: "pane"` (the Claude Code mod and the VS Code extension do) |
+| 3 | `panel`, an MCP Apps panel | the client announces `io.modelcontextprotocol/ui` |
+| 3 | `pane`, a native pane | the client asks for `surface: "pane"` (the Claude Code mod and the VS Code extension do) |
 | 2 | `form`, forms the client shows | the client declares elicitation |
-| 1 | `text`, the conversation | always available |
+| 1 | `text`, the conversation | always |
 
-Pass `surface: "text"` when the learner prefers the conversation. A surface the client cannot
-render falls to the best one below it. At ranks 2 and 1 the summary written for the model says how
-to continue: `play_in_forms`, or relaying the text of `get_current_scene`. `get_panel_view` takes
-the same `surface` field; without it, a session keeps the surface it was opened on.
+To stay in the conversation, ask for `surface: "text"`. A surface the client cannot draw falls to the best one below it. At ranks 2 and 1, the summary written for the model says how to continue: `play_in_forms`, or relaying the text of `get_current_scene`. `get_panel_view` takes the same `surface` field; without it, a session keeps the surface it was opened on.
 
-The MCP pane includes course selection and an explicit erasure confirmation. Capsule reproduction
-requires the VS Code terminal; the panel explains this when selected. The graph shows the learner's
-current neighborhood, and selecting a node displays its label locally.
+## What the MCP panel offers
 
-The Claude remote-connector route is separate from the existing lesson HTTP API. No public
-endpoint, tunnel or connector is installed by this change. For local development only, build the
-bundle and run `node tools/panel-http-dev.mjs`. It binds to `127.0.0.1:3001`, forwards MCP to a fresh
-memory-only bundled server per connection, and permits only loopback hosts and origins. Stop it
-when finished. It has no production authentication or deployment contract.
+- A course selector, and an erasure of your data after an explicit confirmation.
+- A graph of the neighbourhood of your current concept; selecting a node shows its label locally.
+- For a capsule reproduction, a message that the VS Code terminal is needed.
 
-## Verify and extend
+## Limits
 
-`STUDIUM_EPHEMERAL=1 node tools/panel-probe.mjs` checks 40 tools, the 2/4 UI resource/tool counts,
-capability isolation, HTML sizes, answer-key redaction and the exact embedded App's postMessage
-handshake and action round trip in a DOM. Optional `--http=http://127.0.0.1:3001/mcp` exercises the
-local HTTP adapter; `--dom=/absolute/path/panel.html` saves the rendered DOM. This automated contract
-host does not replace a native host trial. The external `ext-apps/examples/basic-host` requires
-its own dependencies and build before connecting it to this development endpoint.
-
-To add a host, implement a bridge under
-[`apps/lesson-panel-ui/src`](../../apps/lesson-panel-ui/src/bridge-mcp-app.js) that calls `renderView`
-and transports public `PanelAction`s. Keep disk access, grading and answer keys in the server.
-Follow host locale/theme changes, pending/error state and link/size APIs. Use the standalone bridge
-for previews by setting `window.__studiumView` and sending `studium:view` events.
-
-## Resource policy
-
-MCP resources use `text/html;profile=mcp-app`, `prefersBorder: true` and the single CSP resource
-domain `https://cdn.jsdelivr.net`. marked, KaTeX JS and mhchem are inline; KaTeX CSS/fonts, Vega,
-Vega-Lite, Vega-Embed, 3Dmol, Cytoscape and dagre use installed-version URLs and SHA-384 integrity.
-Fonts inherit the checked KaTeX stylesheet's pinned path. Missing CDN libraries degrade to readable
-fallbacks. Remote lesson images are blocked; server-approved images arrive as `data:` URIs.
-VS Code retains nonce-based CSP and its fully local vendor mode. Each HTML resource is limited to
-1.5 MB during the build. Licenses are listed in
-[`VENDOR-LICENSES.md`](../../apps/lesson-panel-ui/VENDOR-LICENSES.md).
+- Studium opens no public endpoint and installs no connector. The remote-connector route is not available to users.
+- The panels have automated checks only, as the table says.

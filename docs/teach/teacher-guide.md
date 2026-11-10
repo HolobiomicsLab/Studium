@@ -32,6 +32,13 @@ Approval also writes a receipt of the items you opened and your verdict on each 
 lesson back without approving it, record a returned receipt instead; see
 [Review and approve](review-and-approve.md#approve-the-exact-file).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/screenshots/teacher-library-dark.png">
+  <img src="../assets/screenshots/teacher-library-light.png" width="720" alt="The teacher dashboard library, in French: counts of courses, checked and approved lessons, then each lesson with its language, author, number of scenes and concepts, duration, badges for its key classes, a Checked status and a Review button.">
+</picture>
+
+<em>The teacher dashboard library: each lesson with who holds its answer keys and its review status.</em>
+
 ## Before you start
 
 1. Install Studium: [installation](../start/installation.md).
@@ -67,7 +74,9 @@ starters are in [activity templates](activity-templates.md); figures, equations 
 ## Distribute a lesson
 
 A lesson is a folder: `lesson.json`, its `assets/` and, once approved, `approval.json`. Keep the
-three together and at the same revision. Students place the folder in their Studium library
+three together and at the same revision. A lesson shipped as a `.zip` carries the record as its
+member `approval.json` (the demo build scripts add it when it matches `lesson.json`); without it the
+lesson reads "No approval is recorded for this lesson." Students place the folder in their Studium library
 (by default `~/.studium/library/<course_id>/`, or the folder `BUNDLES_ROOT` names) and open it
 from their assistant or from VS Code (see [VS Code](../start/vscode.md)). When a learner starts
 the lesson, the session reports whether an approval record matches the exact file.

@@ -95,7 +95,11 @@ and `prompt_outcome`, `help_used`, `contest`, `resume` and `review_receipt`.
   many lessons were fully opened and how many were approved or returned.
 
 Every figure keeps the same floor of five distinct learners, which here cannot be lowered, and a stream
-without a recorded consent event is refused and counted, not read. What each prompt does, what each help
+without a recorded consent event is refused and counted, not read. The server now opens each stream with
+that event, recording the consent declared through `STUDIUM_TELEMETRY_CONSENT`, and writes each event as
+the learner acts: a stream written before this version carries no consent event and is not counted, and a
+learner who started a lesson without finishing it is now counted as started in the completion figure.
+What each prompt does, what each help
 rung means and the exact fields are in
 [Command-line tools](../reference/cli.md#interaction_reportpy) and the
 [telemetry-events README](../../packages/telemetry-events/README.md), rather than repeated here.

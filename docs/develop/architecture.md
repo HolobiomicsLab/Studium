@@ -77,6 +77,8 @@ are kept as legacy and research code; they are not a supported authoring route.
 
 ## Package map
 
+This is the repository map: every app, package, service and folder, with its role. How the panels reach each host is in [Lesson panels for developers](panels.md).
+
 ### Apps
 
 | Unit | Role | README |

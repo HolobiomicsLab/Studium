@@ -36,7 +36,7 @@ MCP is the other route ([Connect your assistant](../../docs/start/harnesses.md))
 Python authoring services are not needed for an ordinary lesson; add a scientific
 environment only when the activity needs one.
 
-For Copilot, follow the Copilot section of [Connect your assistant](../../docs/start/harnesses.md#copilot-in-vs-code).
+For Copilot, follow [Connect Copilot in VS Code](../../docs/start/copilot.md).
 Check current official eligibility when advising: education verification and Copilot
 activation are separate steps. Do not promise approval, unlimited use or API credits.
 Keep school proofs and account credentials out of the chat and the repository; the

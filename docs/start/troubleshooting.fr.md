@@ -39,7 +39,7 @@ privé.
 | Réponse refusée | transmettez les mots de l'apprenant avec `submit_response {kind: "reply", text}` ; lisez `get_operator_context` pour le format attendu |
 | Un identifiant de choix de quiz est refusé | les choix sont remélangés à chaque session : utilisez l'identifiant affiché dans l'étape courante, jamais celui d'une autre session |
 | `run required: call get_run_manifest, run it, then submit_run_result` | l'étape demande une vraie exécution : suivez `get_run_manifest`, exécutez la capsule, puis `submit_run_result` |
-| Les réponses ouvertes disent « à comparer toi-même » | attendu sans modèle juge ; voir [Harnais](harnesses.fr.md#modèle-juge-facultatif) |
+| Les réponses ouvertes disent « à comparer toi-même » | attendu sans modèle juge ; voir [Configuration](../reference/configuration.fr.md#modèle-juge-facultatif) |
 | L'assistant répond ou note à votre place | arrêtez-le et répondez vous-même ; les instructions du serveur l'interdisent, et l'auto-évaluation ne change jamais la maîtrise |
 | `session not found: …` | le serveur a redémarré ou la séance a été fermée ; le message dit comment reprendre : `start_lesson_session` avec le même `bundle_ref` et le même `learner_id`, ou `start_review_session` avec le même `learner_id` ; le panneau MCP Apps, le volet Claude Code et le volet VS Code affichent « Séance perdue » et un bouton pour rouvrir la leçon, à la place de la scène périmée |
 | Une auto-évaluation est refusée comme expirée | la demande a été perdue par un serveur plus ancien ; répondez de nouveau à l'étape pour être sollicité à nouveau |
@@ -82,6 +82,7 @@ Après une erreur réseau, renvoyez le même fichier avec le même `request_id`,
 | Le planner répond `503` | aucun modèle n'est configuré ; configurez-en un, ou utilisez `STUDIUM_LLM_MODE=mock` pour le modèle fictif déterministe |
 | Le planner répond `422` | envoyez `manifest_id` et `target` dans le corps de la requête |
 | La synthèse de scènes répond `503` | son orchestrateur n'est pas configuré ; lancer le service seul ne suffit pas |
+| Une décision sur une contribution d'apprenant répond `503` (« decisions are disabled ») | donnez la même valeur de `STUDIUM_REVIEW_TOKEN`, 32 caractères au moins, à scene-synth et au serveur du tableau de bord enseignant ; voir [contributions des apprenants](../teach/learner-contributions.fr.md) |
 | Un essai « réel » renvoie une sortie fictive | vérifiez le mode, l'URL, les alias de modèles et les indicateurs de repli : un HTTP 200 ne prouve pas qu'un modèle a répondu |
 
 ## Vérifications sans conversation

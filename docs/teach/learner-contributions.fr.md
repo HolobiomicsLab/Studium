@@ -18,7 +18,16 @@ peut jamais publier seul : c'est la règle 003 appliquée aux contributions.
 
 ## Lancer les services
 
-Trois terminaux, depuis la racine du dépôt :
+Les décisions demandent un jeton de relecture enseignant : un secret d'au moins 32 caractères, de
+même valeur dans `STUDIUM_REVIEW_TOKEN` pour scene-synth et pour le serveur du tableau de bord, et
+jamais confié à un apprenant. Générez-en un par déploiement, par exemple dans un shell que vous
+utilisez ensuite pour les deux commandes :
+
+```bash
+export STUDIUM_REVIEW_TOKEN="$(openssl rand -hex 32)"
+```
+
+Trois terminaux, depuis la racine du dépôt (le premier et le troisième ont besoin du jeton) :
 
 ```bash
 .venv/bin/python -m uvicorn scene_synth_app:app --app-dir services/scene-synth --port 8002
@@ -31,6 +40,9 @@ pnpm --filter @studium/author-web dev
 ```bash
 pnpm --filter @studium/teacher-dashboard dev
 ```
+
+Sans le jeton, scene-synth refuse toute décision (approuver, rejeter, demander une révision) avec un
+`503` qui nomme la variable à définir ; les apprenants peuvent toujours rédiger et soumettre.
 
 Le service lit chaque cours dans `BUNDLES_ROOT/<course_id>/lesson.json` (par défaut le dossier
 `fixtures/` du dépôt) et conserve les soumissions dans `LEARNER_DATA_ROOT` (par défaut
@@ -59,11 +71,45 @@ Ouvrez `http://localhost:3001/courses/atomistique-l1/submissions` (l'identifiant
 jeton). Chaque item montre la scène, sa clé de réponse (bonnes réponses marquées), le résultat de la
 validation et une étiquette d'auteur dé-identifiée : vous n'approuvez jamais à l'aveugle.
 
+Au-dessus de la file, saisissez **Votre nom, tel que les apprenants le liront**. Le bouton Approuver
+reste désactivé tant que le champ est vide, et la page montre la phrase que liront les apprenants :
+« Leçon proposée par une personne de la classe, validée par <nom> » (en anglais : "Lesson contributed
+by a classmate, validated by <name>"). Une adresse électronique est acceptée, avec une note rappelant
+que les apprenants la verront. Le navigateur retient le nom pour votre prochaine visite (stockage
+local, sur ce navigateur seulement).
+
 | Décision | Effet |
 |---|---|
-| Approuver | Une leçon communautaire d'une scène est écrite sous `BUNDLES_ROOT/<course_id>/community/`, avec votre nom dans `validated_by` et sans le pseudonyme de l'auteur |
+| Approuver | Une leçon communautaire d'une scène, `community-<id>.zip`, est écrite sous `BUNDLES_ROOT/<course_id>/community/`, avec votre nom dans `validated_by`, un enregistrement `approval.json` à côté de son `lesson.json`, et sans le pseudonyme de l'auteur |
 | Rejeter | Rien n'est publié |
 | Demander une révision | Rien n'est publié ; la décision est consignée sur l'item |
+
+### Comment une décision est enregistrée
+
+Une décision est un acte d'enseignant, et le service la vérifie comme tel :
+
+- Votre navigateur envoie la décision au serveur du tableau de bord, qui appelle scene-synth avec
+  `Authorization: Bearer $STUDIUM_REVIEW_TOKEN`. Le jeton reste sur les deux serveurs : il n'atteint
+  jamais un navigateur, une réponse, un journal ni un fichier. Un jeton absent ou faux reçoit `401`.
+- scene-synth refuse toute décision venue directement d'un navigateur (`403`) et n'accorde aucun
+  accès CORS à la route de décision : l'application apprenant sur `localhost:3000` ne peut pas
+  décider, pas même pour ses propres items.
+- À l'approbation, le relecteur est le nom que vous avez saisi, sans espaces aux extrémités : le
+  tableau de bord refuse un nom vide, un nom de plus de 200 caractères, un nom contenant un caractère
+  de contrôle ou un identifiant commençant par `urn:`, et scene-synth refuse un nom vide ou trop long,
+  un identifiant commençant par `urn:`, et l'identifiant ou le pseudonyme de l'auteur de l'item
+  (`400`). Un rejet ou une demande de révision, qui ne publient rien, consignent votre nom si vous
+  l'avez saisi, sinon l'identifiant du cours `urn:studium:teacher:<course_id>`.
+- À l'approbation, l'archive contient `approval.json`, le même enregistrement `studium-approval/1`
+  que celui qu'écrit `experience_packet.py approve` pour une leçon d'enseignant : `bundle_sha256` (le
+  sha256 des octets exacts du `lesson.json` de l'archive), `reviewer`, `reviewed_at`, `tool` et
+  `decision_route: "learner-contribution"`. Toute modification de `lesson.json` rompt la
+  correspondance.
+- La leçon dit qui l'a écrite : `metadata.authoring` vaut `{mode: "teacher", author_is_learner: true,
+  drafted_by: "learner"}`, un brouillon d'apprenant validé par vous.
+- Chaque décision ajoute une ligne à `learner_decisions.jsonl` dans `LEARNER_DATA_ROOT` : item, cours,
+  décision, relecteur, `reviewed_at` déclaré, `recorded_at` du serveur et, à l'approbation, le sha256
+  du `lesson.json` publié et celui de l'archive.
 
 Les apprenants et leurs assistants trouvent les items approuvés avec l'outil MCP
 `list_community_bundles`, dont les références se passent telles quelles à `start_lesson_session`, ou
@@ -104,11 +150,16 @@ donner ce contenu à une classe, reconstruisez-le par la
 
 | Symptôme | Cause et solution |
 |---|---|
-| Erreur CORS dans la console du navigateur | Le service n'est pas lancé, ou la page n'est pas sur `localhost:3000` ou `localhost:3001` |
+| Erreur CORS dans la console du navigateur | Le service n'est pas lancé, ou la page apprenant n'est pas sur `localhost:3000` ; le tableau de bord n'appelle jamais scene-synth depuis le navigateur |
+| « Les décisions sont désactivées » dans le tableau de bord, ou `503` sur une décision | `STUDIUM_REVIEW_TOKEN` (32 caractères au moins) manque sur scene-synth ou sur le serveur du tableau de bord : donnez la même valeur aux deux et redémarrez-les |
+| `401` sur une décision | Les deux serveurs n'ont pas la même valeur de `STUDIUM_REVIEW_TOKEN` |
+| `400` « the reviewer cannot be the item's author » | Le relecteur nommé est l'apprenant qui a écrit l'item ; un apprenant ne décide jamais de son propre item |
 | `400` ou `404` à la soumission | L'identifiant du cours est mal formé, ou `BUNDLES_ROOT/<course_id>/lesson.json` n'existe pas |
 | `422` à la soumission | La scène n'a pas passé la validation ; la réponse liste les erreurs |
 | File vide | Aucun item à l'état `submitted` ; faites d'abord l'étape apprenant |
 | `Connection refused` sur le port 8002 | Lancez le service scene-synth |
 
 Code : [`services/scene-synth/scene_synth_app.py`](../../services/scene-synth/scene_synth_app.py),
+[`services/scene-synth/learner_review.py`](../../services/scene-synth/learner_review.py),
+[`apps/teacher-dashboard/lib/decide-route.ts`](../../apps/teacher-dashboard/lib/decide-route.ts),
 [`apps/author-web/app/studio/`](../../apps/author-web/app/studio/).
