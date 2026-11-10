@@ -182,8 +182,12 @@ let renderView;
   const KEEPS_SCENE = new Set(["openMap", "closeMap", "hint", "ask", "prompt", "setAttention", "setLanguage", "replan"]);
   let sameSceneAwaited = false;
 
+  // The scene on screen: every answer names it (expected_scene_id), so that a duplicate or late answer is
+  // refused by the server instead of answering the next scene.
+  let sceneOnScreen = null;
   function postAction(message, pendingText) {
     if (actionPending || !window.__send) return false;
+    if (isObject(message) && message.type === "respond" && sceneOnScreen) message = { ...message, expected_scene_id: sceneOnScreen };
     sameSceneAwaited = isObject(message) && KEEPS_SCENE.has(message.type);
     if (!sameSceneAwaited) memory.left = null;
     setActionPending(true, pendingText || t("pane_updating"));
@@ -221,19 +225,25 @@ let renderView;
   // Walkthrough 2026-11-07: the server no longer knows this session (it restarted, or the session was closed). Its error
   // starts with « session not found »; only that prefix is read, never the rest. The tool's JSON envelope
   // ({"error": "..."}, as the MCP App bridge passes it on) is opened first.
-  function isSessionLost(message) {
+  function errorReason(message) {
     let reason = typeof message === "string" ? message.trim() : "";
     if (reason.startsWith("{")) {
       try { const parsed = JSON.parse(reason); reason = isObject(parsed) && typeof parsed.error === "string" ? parsed.error : ""; }
       catch { reason = ""; }
     }
-    return reason.startsWith("session not found");
+    return reason;
   }
+  function isSessionLost(message) { return errorReason(message).startsWith("session not found"); }
+  // The prefix of the server's stale-scene refusal (lesson-session-host STALE_SCENE_MESSAGE); nothing after it is read.
+  const STALE_SCENE = "the scene changed";
 
   // The old scene is stale: the notice replaces it, settings included. The reopen button is the learner's to press:
   // nothing is retried on its own, so a server that keeps losing the session cannot loop.
   function showSessionLost() {
     const root = resetPane();
+    // The view that comes back may be the very one painted before (the server reopens the open session): it
+    // must be drawn again over this notice.
+    previousBase = "";
     memory = freshMemory();
     lastAuthoring = null;
     pendingDone = null;
@@ -292,6 +302,7 @@ let renderView;
     root.innerHTML = "";
     actionPending = false;
     focusOrigin = null;
+    sceneOnScreen = null;
     root.setAttribute("aria-busy", "false");
     // The pane is the page's main region (the MCP template makes it a <main>; a host page may not).
     if (root.tagName !== "MAIN" && !root.hasAttribute("role")) root.setAttribute("role", "main");
@@ -647,9 +658,20 @@ let renderView;
     const step = isObject(state.orientation) && isObject(state.orientation.step) ? state.orientation.step : null;
     if (!step) return null;
     const total = Math.max(1, Number(step.total) || 1);
-    const detour = isObject(step.detour) ? step.detour : null;
+    let detour = isObject(step.detour) ? step.detour : null;
     let index = Number(step.index) || 1;
-    if (detour && detour.returns_to && memory.steps.has(detour.returns_to)) index = memory.steps.get(detour.returns_to);
+    // The server names the main-path step of a detour (progress.detour, orientation.step.main): it is used as
+    // given. A view without it falls back to the step remembered for the scene the detour returns to, then
+    // to the last step on the path the server gave.
+    const served = isObject(state.progress) && isObject(state.progress.detour) ? state.progress.detour : null;
+    const main = isObject(step.main) ? step.main : null;
+    if (detour && served && Number.isFinite(Number(served.returns_to_index))) {
+      index = Number(served.returns_to_index);
+      detour = { ...detour, title: served.returns_to_title };
+    } else if (detour && main && Number.isFinite(Number(main.index))) {
+      index = Number(main.index);
+      detour = { ...detour, title: main.title };
+    } else if (detour && detour.returns_to && memory.steps.has(detour.returns_to)) index = memory.steps.get(detour.returns_to);
     else if (detour && Number.isFinite(memory.lastPath)) index = memory.lastPath;
     return { index: Math.min(total, Math.max(1, index)), total, detour };
   }
@@ -697,6 +719,7 @@ let renderView;
   function renderScene(state) {
     const root = resetPane();
     const sc = isObject(state.scene) ? state.scene : {};
+    sceneOnScreen = typeof sc.id === "string" && sc.id ? sc.id : null;
     const lang = contentLanguage(state);
     const notice = state.authoring && state.authoring.notice;
     if (notice) root.append(noticeBlock(String(notice)));
@@ -758,11 +781,16 @@ let renderView;
         bar.classList.remove("action-bar--static");
         if (window.innerHeight > 0 && bar.offsetHeight > window.innerHeight / 3) bar.classList.add("action-bar--static");
       }
+      // While the bar sticks, its height is kept free at the bottom of whatever the page scrolls to (a choice
+      // the keyboard reaches, a scrolled-to element): nothing stays hidden under it.
+      const sticks = bar && !bar.classList.contains("action-bar--static");
+      document.documentElement.style.setProperty("--st-bar-space", sticks ? `${bar.offsetHeight}px` : "0px");
       // With large text the header alone can fill a short window: it then tightens (no rail, smaller chips
       // and title), so that the question still starts on the first screen.
       root.classList.remove("is-crowded");
       const question = $(".scene-body", root);
-      if (question && window.innerHeight > 0 && question.getBoundingClientRect().top > window.innerHeight * 0.4) root.classList.add("is-crowded");
+      const largeText = parseFloat(getComputedStyle(document.documentElement).fontSize) >= 24 || (window.innerWidth > 0 && window.innerWidth < 300);
+      if (largeText && question && window.innerHeight > 0 && question.getBoundingClientRect().top > window.innerHeight * 0.4) root.classList.add("is-crowded");
       root.querySelectorAll(SCROLLERS).forEach((node) => {
         // A box inside one that already scrolls is that box's content, not a second region.
         if (node.parentElement && node.parentElement.closest("[data-scrolls='true']")) return;
@@ -1007,7 +1035,7 @@ let renderView;
     const parts = [t("pane_session_step", { index: place.index, total: place.total })];
     if (isObject(o.contest)) parts.push(t("pane_session_check", { question: o.contest.question, total: o.contest.total }));
     if (place.detour) {
-      const back = place.detour.returns_to && memory.titles.get(place.detour.returns_to);
+      const back = (typeof place.detour.title === "string" && place.detour.title) || (place.detour.returns_to && memory.titles.get(place.detour.returns_to));
       parts.push(back ? t("pane_session_detour_to", { title: back }) : t("pane_session_detour"));
     }
     if (Number.isFinite(o.minutes_left)) parts.push(t("pane_session_minutes", { minutes: Math.max(0, Math.round(o.minutes_left)) }));
@@ -1071,8 +1099,8 @@ let renderView;
       const button = el("button", {
         type: "button", class: "st-button st-button--quiet help-rung", "data-rung": rung.kind,
         "aria-disabled": rung.available ? null : "true", "aria-describedby": noteId,
-      }, t(RUNG_LABEL[rung.kind]));
-      button.addEventListener("click", () => pressRung(rung, noteText, offered));
+      }, t(rungLabel(rung, state.help)));
+      button.addEventListener("click", () => pressRung(rung, noteText, offered, state.help.explains));
       list.append(el("div", { class: "help-rung-item" }, button, noteText ? el("span", { id: noteId, class: "help-note" }, noteText) : null));
     }
     const nav = el("nav", { class: "help-ladder", id: nextId("help"), "aria-label": t("pane_help_heading"), hidden: memory.helpOpen === (sc.id || "") ? null : true }, list);
@@ -1083,6 +1111,12 @@ let renderView;
     }
     nav.setAttribute("data-scene", sc.id || "");
     return nav;
+  }
+
+  // The explanation says what it explains when the view says it (help.explains): the last answer or the screen.
+  function rungLabel(rung, help) {
+    if (rung.kind !== "explain") return RUNG_LABEL[rung.kind];
+    return help.explains === "last_answer" ? "pane_help_explain_last" : help.explains === "screen" ? "pane_help_explain_screen" : RUNG_LABEL.explain;
   }
 
   function helpToggle(ladder) {
@@ -1097,13 +1131,13 @@ let renderView;
     return toggle;
   }
 
-  function pressRung(rung, noteText, offered) {
+  function pressRung(rung, noteText, offered, explains) {
     if (actionPending) return;
     if (!rung.available) { showActionNotice(noteText); return; }
     if (rung.kind === "reread") { const title = $(".scene-title"); if (title) focusHeading(title); return; }
     if (rung.kind === "hint" && offered.includes("hint")) { postAction({ type: "hint" }, t("pane_finding_hint")); return; }
     if (rung.kind === "explain" && offered.includes("ask")) {
-      postAction({ type: "ask", text: t("pane_help_explain_question") }, t("pane_updating"));
+      postAction({ type: "ask", text: t(explains === "last_answer" ? "pane_help_explain_last_question" : "pane_help_explain_question") }, t("pane_updating"));
       return;
     }
     if (rung.kind === "reference") showActionNotice(t("pane_help_reference_note"));
@@ -2214,6 +2248,9 @@ let renderView;
     else if (d.type === "action_notice") showActionNotice(d.message);
     else if (d.type === "action_error") {
       if (isSessionLost(d.message)) { showSessionLost(); return; }
+      // The server refused an answer to a scene no longer on screen: nothing was counted, and the bridge
+      // shows the current scene. A calm notice, never « try again ».
+      if (errorReason(d.message).startsWith(STALE_SCENE)) { showActionNotice(t("pane_scene_changed")); return; }
       // UX-09: a rating's error belongs to the feedback step that asked for it; once that screen is gone it is
       // dropped instead of being shown on an unrelated scene.
       if (d.action === "rateRecall" && !(ui.rating && (!d.sceneId || ui.rating.sceneId === d.sceneId))) return;

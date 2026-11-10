@@ -32,6 +32,10 @@ A replayed scene shows the feedback the server returned, which holds no referenc
 still carries is held back. A view's `content_language`, when present, marks the scene and its feedback
 with that language. Every control is reached with Tab in reading order, and a control that has the focus
 keeps it while an action is pending (`aria-disabled`).
+Every answer carries `expected_scene_id`, the scene on screen; when the server refuses it because the scene
+changed, the MCP App bridge reads `get_panel_view` again and the panel says the answer was not counted. The
+explanation rung is labelled by `help.explains` (the last answer or the screen), and a detour is placed at
+the main-path step the view gives (`progress.detour`).
 An action error whose message starts with `session not found` (the server restarted, or the session was
 closed; the tool's JSON envelope `{"error": …}` is opened first, and nothing after the prefix is read)
 replaces the scene, settings included, with the « Session lost » notice and a « Reopen the lesson » button

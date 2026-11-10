@@ -448,3 +448,5 @@ body { margin: 0; }
 #pane.is-crowded .prose.lead { padding: var(--st-space-2) var(--st-space-3); }
 .help-rung-item { display: grid; justify-items: start; gap: 0; }
 .help-rung-item > .help-note { padding-inline-start: var(--st-space-3); }
+/* The sticky bar's height (measured), kept free when the page scrolls to an element. */
+html { scroll-padding-bottom: var(--st-bar-space, 0px); }

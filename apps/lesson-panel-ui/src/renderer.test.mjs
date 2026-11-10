@@ -872,3 +872,74 @@ test("B2: a last hint says no « (0 left) » and prints nothing else", () => {
   assert.doesNotMatch(text(doc.querySelector("#hint")), /null|left/);
   dom.window.close();
 });
+
+// Follow-up 2026-11-10 (the server fields of the integrated fixes).
+test("a detour reads the main-path step the server gives: the session line, the rail and aria-valuenow agree", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next({ scene: { ...QUIZ, id: "recall" }, progress: { index: 27, total: 32, detour: { returns_to_scene_id: "q5", returns_to_title: "Quantum numbers", returns_to_index: 5 } },
+    orientation: { step: { index: 27, total: 32, detour: { returns_to: "q5" }, main: { index: 5, title: "Quantum numbers" } }, minutes_left: 70, reviews_due: 0, waiting: "answer" } }));
+  assert.equal(doc.querySelector(".progress[role=progressbar]").getAttribute("aria-valuenow"), "5");
+  assert.equal(text(doc.querySelector(".session-line")), "Step 5/32 · detour, back to “Quantum numbers” · about 70 min");
+  assert.ok(doc.querySelector(".progress [data-state=detour]"));
+  dom.window.renderView(next({ scene: { ...QUIZ, id: "q5" }, orientation: { step: { index: 5, total: 32 }, reviews_due: 0, waiting: "answer" } }));
+  assert.equal(doc.querySelector(".progress[role=progressbar]").getAttribute("aria-valuenow"), "5");
+  dom.window.close();
+});
+
+test("the explanation rung is labelled by what it explains, and asks for it", () => {
+  const { dom, doc, sent } = mountWithSend();
+  const open = (explains, session_id) => next({ session_id, help: { rungs: [{ kind: "explain", available: true }], explains } });
+  dom.window.renderView(open("last_answer", "a"));
+  const rung = doc.querySelector("[data-rung=explain]");
+  assert.equal(text(rung), EN.pane_help_explain_last);
+  rung.click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "ask", text: EN.pane_help_explain_last_question });
+  dom.window.renderView(open("screen", "b"));
+  assert.equal(text(doc.querySelector("[data-rung=explain]")), EN.pane_help_explain_screen);
+  dom.window.renderView(open(undefined, "c"));
+  assert.equal(text(doc.querySelector("[data-rung=explain]")), EN.pane_help_explain);
+  dom.window.close();
+});
+
+test("every answer the panel submits names the scene the learner was looking at", () => {
+  const { dom, doc, sent } = mountWithSend();
+  dom.window.renderView(next());
+  doc.querySelector(".choices input").click();
+  doc.querySelector(".validate").click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "respond", input: { kind: "quiz_choice", choiceId: "a" }, expected_scene_id: "quiz" });
+  dom.window.renderView(next({ session_id: "two", scene: READING }));
+  doc.querySelector(".controls .st-button--primary").click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "respond", input: { kind: "ack" }, expected_scene_id: "intro" });
+  dom.window.close();
+});
+
+test("a stale-scene refusal is a calm notice, not « try again »", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next());
+  dom.window.renderView({ type: "action_error", action: "respond", message: JSON.stringify({ error: "the scene changed: read the current scene, then send the learner's answer to it" }) });
+  const status = doc.querySelector("#action-status");
+  assert.equal(text(status), EN.pane_scene_changed);
+  assert.match(status.className, /notice/);
+  dom.window.close();
+});
+
+test("the sticky bar's height is kept free at the bottom of the scrolling page, so no choice stays under it", async () => {
+  const { dom, doc } = mountWithSend();
+  Object.defineProperty(dom.window.HTMLElement.prototype, "offsetHeight", { configurable: true, get() { return this.classList.contains("action-bar") ? 120 : 0; } });
+  Object.defineProperty(dom.window, "innerHeight", { configurable: true, value: 760 });
+  dom.window.renderView(next());
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(doc.documentElement.style.getPropertyValue("--st-bar-space"), "120px");
+  dom.window.close();
+});
+
+test("after « Session lost », the same view coming back (the server reopens the open session) is drawn again", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(next());
+  dom.window.renderView({ type: "action_error", message: "session not found: one" });
+  assert.ok(doc.querySelector(".session-lost"));
+  dom.window.renderView(next());
+  assert.equal(doc.querySelector(".session-lost"), null);
+  assert.ok(doc.querySelector(".scene-title"));
+  dom.window.close();
+});

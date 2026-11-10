@@ -512,6 +512,11 @@ const FR = {
   pane_erase_title: "Effacer tes données ?",
   pane_course_validated: "validée par un enseignant",
   pane_course_steps: "{count} étapes",
+  pane_help_explain_last: "Explique ma dernière réponse",
+  pane_help_explain_screen: "Explique cet écran",
+  pane_help_explain_last_question: "Explique-moi ma dernière réponse.",
+  pane_scene_changed: "La scène a changé entre-temps : voici celle qui est à l'écran maintenant. Ta réponse n'a pas été comptée.",
+  pane_ask_not_sent: "Ta question n'a pas pu être envoyée. Tu peux la poser dans la conversation ; la leçon t'attend ici.",
 
   // --- learning-graph pane (media/graph-pane.js) ---------------------------------------------------
   graph_title: "Graphe d'apprentissage",
@@ -1002,6 +1007,11 @@ const EN: Record<PhraseKey, string> = {
   pane_erase_title: "Erase your data?",
   pane_course_validated: "approved by a teacher",
   pane_course_steps: "{count} steps",
+  pane_help_explain_last: "Explain my last answer",
+  pane_help_explain_screen: "Explain this screen",
+  pane_help_explain_last_question: "Explain my last answer to me.",
+  pane_scene_changed: "The scene changed in the meantime: here is the one on screen now. Your answer was not counted.",
+  pane_ask_not_sent: "Your question was not sent. You can ask it in the conversation; the lesson waits here.",
   pane_forget_pending: "Confirming erasure…",
 
   graph_title: "Learning graph",

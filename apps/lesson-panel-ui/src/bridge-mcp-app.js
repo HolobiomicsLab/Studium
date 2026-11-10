@@ -4,8 +4,6 @@ import { PANEL_ACTION_TYPES } from "../../../packages/lesson-panel/src/transport
 import { toCytoscape, buildStylesheet, egoFilter } from "@studium/typed-graph-lens";
 /** Panel audit 2026-11-10 (A1, C3): the bridge carries every action type the shared list names, no other. */
 const ACTIONS = new Set(PANEL_ACTION_TYPES);
-/** Language names are written in their own language, as the panel's settings write them. */
-const LANGUAGE_NAMES = { fr: "Français", en: "English" };
 /** A display delay the renderer measured (client_ms), when it is one: a whole number of milliseconds, not negative. */
 const delayOf = meta => (Number.isInteger(meta?.client_ms) && meta.client_ms >= 0 ? { client_ms: meta.client_ms } : {});
 
@@ -144,12 +142,13 @@ export async function connectMcpApp(app, env = { window, document, renderView: w
     const list = element("ul", { class: "course-list" });
     const lock = (on) => section.querySelectorAll("button").forEach(control => { control.disabled = on; });
     for (const lesson of catalog.lessons ?? []) {
+      // No language: the listing's comes from lesson metadata that can be wrong (English lessons marked « fr »),
+      // and no view gives one per lesson, so none is shown rather than a wrong one.
       const facts = [
-        typeof lesson.language === "string" && lesson.language ? LANGUAGE_NAMES[lesson.language.slice(0, 2).toLowerCase()] ?? lesson.language : null,
         Number.isInteger(lesson.scene_count) && lesson.scene_count > 0 ? words().pane_course_steps.replace("{count}", String(lesson.scene_count)) : null,
         lesson.validated === true ? words().pane_course_validated : null,
       ].filter(Boolean);
-      const button = element("button", { type: "button", class: "st-button course-choice", lang: lesson.language || null },
+      const button = element("button", { type: "button", class: "st-button course-choice" },
         element("span", { class: "course-choice-title" }, String(lesson.title ?? lesson.bundle_ref ?? "")),
         facts.length ? element("span", { class: "course-choice-facts", lang: locale() }, facts.join(" · ")) : null);
       button.onclick = async () => {
@@ -172,6 +171,17 @@ export async function connectMcpApp(app, env = { window, document, renderView: w
     status("action_settled");
     prompting = true;
     placeInPane(section); heading.focus(); section.scrollIntoView?.({ block: "nearest" }); resize();
+  }
+  /** The server's refusal of an answer to a scene no longer on screen (its JSON envelope opened first). */
+  function staleScene(message) {
+    let reason = String(message ?? "").trim();
+    try { if (reason.startsWith("{")) reason = JSON.parse(reason).error ?? ""; } catch { reason = ""; }
+    return typeof reason === "string" && reason.startsWith("the scene changed");
+  }
+  /** Read the session's current view again; a failure leaves the panel as it is. */
+  async function refresh() {
+    try { receive(await app.callServerTool({ name: "get_panel_view", arguments: { session_id: current.session_id } })); }
+    catch { /* the notice still says the answer was not counted */ }
   }
   /** Walkthrough 2026-11-07: the server lost the session (it restarted, or the session was closed). The renderer's
    * notice offers to reopen: the same lesson for the same learner, from the view the panel last had, on the learner's
@@ -215,19 +225,28 @@ export async function connectMcpApp(app, env = { window, document, renderView: w
       // Without a conversation to put them in, the learner's words were never sent: the hand-over goes without
       // them, so the server's notice sends the learner to the conversation instead of saying they went there.
       if (action.type === "ask" && !asks && action.text !== undefined) action = { type: "ask" };
+      let delivered = true;
       if (asks) {
         const text = action.text ?? await askQuestion();
         if (!text) return;
         action = { type: "ask", text };
         await inform(false);
-        try { await app.sendMessage({ role: "user", content: [{ type: "text", text }] }); } catch { /* see above */ }
+        try { delivered = !(await app.sendMessage({ role: "user", content: [{ type: "text", text }] }))?.isError; } catch { delivered = false; }
       }
       paint();
       const result = await app.callServerTool({ name: "panel_action", arguments: { session_id: current.session_id, action, ...delayOf(meta) } });
       busy = false;
       receive(result);
+      // The host did not take the learner's words: the server's « it has gone to the conversation » would be
+      // false, so the panel says the question was not sent and where to ask it.
+      if (asks && !delivered) status("action_notice", words().pane_ask_not_sent);
       if (!asks) await inform(true);
-    } catch (error) { busy = false; status("action_error", error.message); }
+    } catch (error) {
+      busy = false;
+      // A stale answer (the scene changed): nothing was counted. The panel reads the current view and says so.
+      if (staleScene(error.message)) { await refresh(); status("action_notice", words().pane_scene_changed); return; }
+      status("action_error", error.message);
+    }
     finally { busy = false; }
   }
   app.ontoolresult = result => { try { receive(result); } catch (error) { status("action_error", error.message); } };

@@ -32,7 +32,11 @@ bonne réponse quand la vue la porte, avec le nom de la clé, ou une réponse é
 points clés. Une scène rejouée montre le retour que le serveur a rendu, qui ne contient aucune référence ;
 une référence que la vue porterait encore est retenue. Le `content_language` d'une vue, quand il est
 présent, marque la scène et son retour de cette langue. Chaque contrôle s'atteint avec Tab, dans l'ordre
-de lecture, et un contrôle qui a le focus le garde pendant qu'une action attend (`aria-disabled`). Une erreur d'action dont le message
+de lecture, et un contrôle qui a le focus le garde pendant qu'une action attend (`aria-disabled`).
+Chaque réponse porte `expected_scene_id`, la scène à l'écran ; quand le serveur la refuse parce que la scène
+a changé, le pont MCP App relit `get_panel_view` et le panneau dit que la réponse n'a pas été comptée.
+L'échelon d'explication est nommé d'après `help.explains` (la dernière réponse ou l'écran), et un détour est
+placé à l'étape du parcours principal que donne la vue (`progress.detour`). Une erreur d'action dont le message
 commence par `session not found` (le serveur a redémarré ou la séance a été fermée ; l'enveloppe JSON
 `{"error": …}` de l'outil est d'abord ouverte, et rien n'est lu après le préfixe) remplace la scène,
 réglages compris, par l'avis « Séance perdue » et un bouton « Rouvrir la leçon » qui envoie `reopen` une

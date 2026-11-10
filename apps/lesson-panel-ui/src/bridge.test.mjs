@@ -399,9 +399,8 @@ test("the course picker is a styled list in the panel, with each course's langua
   const items = [...picker.querySelectorAll("li")];
   assert.equal(items.length, 2);
   assert.match(items[0].textContent, /Atomistique/);
-  assert.match(items[0].textContent, /Français/);
+  assert.doesNotMatch(picker.textContent, /Français|English/, "no language from the catalogue, which can be wrong");
   assert.match(items[0].textContent, /approved by a teacher/);
-  assert.match(items[1].textContent, /English/);
   assert.doesNotMatch(items[1].textContent, /approved/);
   assert.ok([...picker.querySelectorAll("button")].every(button => button.classList.contains("st-button")), "no bare browser button");
   m.dom.window.close();
@@ -431,4 +430,34 @@ test("a host that takes no message sends the ask action without words", async ()
   await bridge.act({ type: "ask", text: "Explique-moi cet écran." });
   assert.deepEqual(mute.events.find(event => event[1] === "panel_action").slice(1), ["panel_action", { session_id: "one", action: { type: "ask" } }]);
   mute.dom.window.close();
+});
+
+// Follow-up 2026-11-10: a stale answer is refused by the server; the bridge reads the current scene and says so calmly.
+test("a stale-scene refusal re-renders the current scene with a calm notice", async () => {
+  const requests = [];
+  const m = setup({ callServerTool: async request => {
+    requests.push(request);
+    if (request.name === "panel_action") return { isError: true, content: [{ type: "text", text: JSON.stringify({ error: "the scene changed: read the current scene, then send the learner's answer to it" }) }] };
+    return { structuredContent: { panel: { ...initial, scene: { ...initial.scene, id: "now", title: "The current scene" } } } };
+  } });
+  const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: initial } });
+  await bridge.act({ type: "respond", input: { kind: "ack" }, expected_scene_id: "intro" });
+  assert.deepEqual(requests.map(r => r.name), ["panel_action", "get_panel_view"]);
+  assert.deepEqual(requests[1].arguments, { session_id: "one" });
+  const doc = m.dom.window.document;
+  assert.match(doc.body.textContent, /The current scene/);
+  assert.doesNotMatch(doc.querySelector("#action-status").textContent, /Try again|Action failed/);
+  assert.match(doc.querySelector("#action-status").className, /notice/);
+  m.dom.window.close();
+});
+test("a question the host refused to take is said as not sent", async () => {
+  const refused = informedHost({ messageResult: { isError: true } });
+  const bridge = await connectMcpApp(refused.app, refused.env);
+  bridge.receive({ structuredContent: { panel: refused.asking } });
+  await bridge.act({ type: "ask", text: "Une question" });
+  const status = refused.dom.window.document.querySelector("#action-status");
+  assert.match(status.textContent, /not sent/);
+  assert.doesNotMatch(status.textContent, /has gone/);
+  refused.dom.window.close();
 });
