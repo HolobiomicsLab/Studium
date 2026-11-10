@@ -10,8 +10,10 @@ const BASE = process.env.ANALYTICS_BASE_URL ?? "http://localhost:8003";
 
 // scene-synth hosts the learner-as-author moderation endpoints. This is the
 // dashboard's FIRST write path + first call to a service other than
-// analytics-collector. CORS on scene-synth must allow this app's origin
-// (http://localhost:3001) — see services/scene-synth/scene_synth_app.py.
+// analytics-collector. Every scene-synth call is made from this app's SERVER
+// (server components and the /api/learner-items/[itemId]/decide route handler),
+// never from the browser: the decision needs STUDIUM_REVIEW_TOKEN, which must
+// never reach a browser, and scene-synth grants no CORS on its decision route.
 const SCENE_SYNTH_BASE =
   process.env.SCENE_SYNTH_BASE_URL ?? "http://localhost:8002";
 
@@ -29,7 +31,9 @@ const SERVICE_SETUP: Record<Service, string> = {
 /** Keep internal URLs, teacher keys and upstream response bodies out of user-facing errors. */
 function serviceFailure(service: Service, status?: number): Error {
   const reason = status ? ` (HTTP ${status})` : "";
-  const fix = status === 401 || status === 403
+  const fix = service === "scene-synth" && status === 503
+    ? "scene-synth refuse les décisions : définissez STUDIUM_REVIEW_TOKEN (la même valeur qu’ici) sur scene-synth, puis redémarrez-le."
+    : status === 401 || status === 403
     ? "Vérifiez l’identifiant du cours et les droits d’accès, puis réessayez."
     : status === 404
       ? "Vérifiez que le cours ou la ressource existe sur ce service, puis actualisez."
@@ -503,17 +507,42 @@ export type DecideLearnerItemArgs = {
   note_code?: LAReviewNoteCode;
 };
 
+/** The variable holding the teacher credential scene-synth requires on a decision. */
+export const REVIEW_TOKEN_ENV = "STUDIUM_REVIEW_TOKEN";
+const REVIEW_TOKEN_MIN_LENGTH = 32;
+
+/** Thrown, before any request, when this server holds no usable review token. */
+export class ReviewTokenMissingError extends Error {
+  constructor() {
+    super(
+      `Les décisions sont désactivées : définissez ${REVIEW_TOKEN_ENV} (32 caractères au moins), ` +
+      "la même valeur sur scene-synth et sur le serveur du tableau de bord, puis redémarrez-les.",
+    );
+    this.name = "ReviewTokenMissingError";
+  }
+}
+
+/** The review token, read on the server from the environment; never logged, never returned. */
+function reviewToken(): string {
+  const token = process.env[REVIEW_TOKEN_ENV] ?? "";
+  if (token.length < REVIEW_TOKEN_MIN_LENGTH) throw new ReviewTokenMissingError();
+  return token;
+}
+
 /**
  * POST /learner-items/{id}/decide on scene-synth. The dashboard's SOLE publish
- * path (rule 003): approve here triggers server-side surfacing. reviewer and
- * reviewed_at are sent explicitly — scene-synth rejects an empty reviewer / an
- * empty timestamp-on-approve with a 4xx.
+ * path (rule 003): approve here triggers server-side surfacing. SERVER ONLY: it
+ * sends `Authorization: Bearer $STUDIUM_REVIEW_TOKEN` and throws
+ * `ReviewTokenMissingError` without calling anything when the token is unset.
+ * reviewer and reviewed_at are sent explicitly — scene-synth rejects an empty,
+ * overlong or self-review reviewer and an empty timestamp-on-approve with a 4xx.
  */
 export async function decideLearnerItem(
   courseToken: string,
   itemId: string,
   args: DecideLearnerItemArgs,
 ): Promise<LearnerItemView> {
+  const token = reviewToken();
   const body: Record<string, unknown> = {
     decision: args.decision,
     reviewer: args.reviewer,
@@ -528,6 +557,7 @@ export async function decideLearnerItem(
       headers: {
         "Content-Type": "application/json",
         "X-Course-Token": courseToken,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
     },

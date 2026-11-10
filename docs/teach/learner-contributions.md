@@ -18,7 +18,15 @@ contributions.
 
 ## Start the services
 
-Three terminals, from the repository root:
+Decisions need a teacher review token: a secret of at least 32 characters, set to the same value
+in `STUDIUM_REVIEW_TOKEN` for scene-synth and for the dashboard's server, and never given to a
+learner. Generate one per deployment, for example in a shell you then use for both commands:
+
+```bash
+export STUDIUM_REVIEW_TOKEN="$(openssl rand -hex 32)"
+```
+
+Three terminals, from the repository root (the first and the third need the token):
 
 ```bash
 .venv/bin/python -m uvicorn scene_synth_app:app --app-dir services/scene-synth --port 8002
@@ -31,6 +39,9 @@ pnpm --filter @studium/author-web dev
 ```bash
 pnpm --filter @studium/teacher-dashboard dev
 ```
+
+Without the token, scene-synth refuses every decision (approve, reject, request revision) with
+`503` and says which variable to set; learners can still draft and submit.
 
 The service reads each course from `BUNDLES_ROOT/<course_id>/lesson.json` (default: the
 repository's `fixtures/`) and keeps submissions in `LEARNER_DATA_ROOT` (default
@@ -56,11 +67,43 @@ Open `http://localhost:3001/courses/atomistique-l1/submissions` (the course id i
 item shows the scene, its answer key (correct answers marked), the validation result and a
 de-identified author label, so you never approve blind.
 
+Above the queue, type **Your name, as learners will read it**. Approve stays disabled until the field
+holds a name, and the page shows the sentence learners will read: "Lesson contributed by a classmate,
+validated by <name>" (in French: « Leçon proposée par une personne de la classe, validée par
+<name> »). An e-mail address is accepted with a note that learners will see it. The browser remembers
+the name for your next visit (local storage, on this browser only).
+
 | Decision | Effect |
 |---|---|
-| Approve | A single-scene community lesson is written under `BUNDLES_ROOT/<course_id>/community/`, with your name in `validated_by` and the author pseudonym removed |
+| Approve | A single-scene community lesson `community-<id>.zip` is written under `BUNDLES_ROOT/<course_id>/community/`, with your name in `validated_by`, an `approval.json` record next to its `lesson.json`, and the author pseudonym removed |
 | Reject | Nothing is published |
 | Request revision | Nothing is published; the decision is recorded on the item |
+
+### How a decision is recorded
+
+A decision is a teacher act, and the service checks it as one:
+
+- Your browser posts the decision to the dashboard's own server, which calls scene-synth with
+  `Authorization: Bearer $STUDIUM_REVIEW_TOKEN`. The token stays on the two servers: it never
+  reaches a browser, a response, a log or a file. A missing or wrong token gets `401`.
+- scene-synth refuses any decision coming straight from a browser (`403`) and grants no CORS
+  access to the decision route, so the learner app on `localhost:3000` cannot decide, even for
+  its own items.
+- On approval the reviewer is the name you typed, trimmed: the dashboard refuses an empty name, one
+  longer than 200 characters, one with a control character, or an identifier starting with `urn:`,
+  and scene-synth refuses an empty or overlong name, an identifier starting with `urn:`, and the item
+  author's own handle or pseudonym (`400`). A rejection or a revision request, which publishes
+  nothing, records your name when you typed one and the course identifier
+  `urn:studium:teacher:<course_id>` otherwise.
+- On approval the archive holds `approval.json`, the same `studium-approval/1` record that
+  `experience_packet.py approve` writes for a teacher lesson: `bundle_sha256` (the sha256 of the
+  exact `lesson.json` bytes in the archive), `reviewer`, `reviewed_at`, `tool`, and
+  `decision_route: "learner-contribution"`. Any change to `lesson.json` breaks the match.
+- The lesson says who wrote it: `metadata.authoring` is `{mode: "teacher", author_is_learner: true,
+  drafted_by: "learner"}`, a learner's draft validated by you.
+- Every decision adds one line to `learner_decisions.jsonl` in `LEARNER_DATA_ROOT`: item, course,
+  decision, reviewer, the declared `reviewed_at`, the server's `recorded_at` and, on approval, the
+  sha256 of the published `lesson.json` and of the archive.
 
 Learners and their assistants find approved items with the `list_community_bundles` MCP tool, whose
 references pass unchanged to `start_lesson_session`, or with the VS Code command "Studium: Community
@@ -98,11 +141,16 @@ to a class, rebuild it through the [teacher route](author-a-lesson.md#route-b-th
 
 | Symptom | Cause and fix |
 |---|---|
-| CORS error in the browser console | The service is not running, or the page is not on `localhost:3000` or `localhost:3001` |
+| CORS error in the browser console | The service is not running, or the learner page is not on `localhost:3000`; the dashboard never calls scene-synth from the browser |
+| "Les décisions sont désactivées" in the dashboard, or `503` on a decision | `STUDIUM_REVIEW_TOKEN` (at least 32 characters) is missing on scene-synth or on the dashboard's server: set the same value on both and restart them |
+| `401` on a decision | The two servers hold different `STUDIUM_REVIEW_TOKEN` values |
+| `400` "the reviewer cannot be the item's author" | The reviewer named is the learner who wrote the item; a learner never decides on their own item |
 | `400` or `404` on submit | The course id is malformed, or `BUNDLES_ROOT/<course_id>/lesson.json` does not exist |
 | `422` on submit | The scene failed validation; the response lists the errors |
 | Empty queue | No item is in state `submitted`; do the learner step first |
 | `Connection refused` on port 8002 | Start the scene-synth service |
 
 Code: [`services/scene-synth/scene_synth_app.py`](../../services/scene-synth/scene_synth_app.py),
+[`services/scene-synth/learner_review.py`](../../services/scene-synth/learner_review.py),
+[`apps/teacher-dashboard/lib/decide-route.ts`](../../apps/teacher-dashboard/lib/decide-route.ts),
 [`apps/author-web/app/studio/`](../../apps/author-web/app/studio/).

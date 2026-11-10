@@ -104,6 +104,7 @@
 .approval-name { display: grid; gap: var(--st-space-2); font-size: var(--st-size-sm); }
 .approval-name input { min-height: var(--st-layout-target); border: 1px solid var(--st-border); border-radius: var(--st-radius-small); padding: 0 var(--st-space-3); background: var(--st-canvas); color: var(--st-text); font: inherit; }
 .approval-voice { font-size: var(--st-size-sm); overflow-wrap: anywhere; }
+.submission-reviewer { display: grid; gap: var(--st-space-2); max-width: 40rem; margin-bottom: var(--st-space-4); }
 .inbox-check--failed { color: var(--st-danger); }
 .inbox-warning { color: var(--st-warning); background: var(--st-warning-soft); border-radius: var(--st-radius-small); padding: var(--st-space-3); font-size: var(--st-size-sm); overflow-wrap: anywhere; }
 .inbox-warning:empty { display: none; }

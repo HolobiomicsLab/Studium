@@ -37,6 +37,10 @@ Le panneau de leçon fonctionne sous une politique de sécurité du contenu (CSP
 
 `pnpm --filter @studium/lesson-mcp api` n'écoute que sur `127.0.0.1`. Elle refuse les connexions non locales, les origines de navigateur et les en-têtes `Host` non locaux, et exige un jeton porteur d'au moins 32 caractères dans `STUDIUM_API_TOKEN`. Le `lesson-server` historique retire les clés de correction de toutes les vues destinées à l'apprenant.
 
+## Décisions sur les contributions des apprenants
+
+`POST /learner-items/{id}/decide` sur scene-synth publie l'item d'un apprenant pour la classe : c'est un acte d'enseignant. La route exige un jeton porteur d'au moins 32 caractères dans `STUDIUM_REVIEW_TOKEN`, distinct de tout identifiant de cours et comparé en temps constant ; absent ou plus court, toute décision est refusée (`503`). Elle refuse toute requête portant une `Origin` de navigateur (`403`) et n'accorde aucun accès CORS. Le tableau de bord enseignant garde le jeton sur son serveur et appelle scene-synth depuis celui-ci ; le navigateur n'envoie que la décision au tableau de bord. Le jeton n'est jamais journalisé, répété dans une erreur ni écrit dans le journal des décisions. Un item approuvé porte un enregistrement `approval.json` lié au sha256 de son `lesson.json`.
+
 ## Données des apprenants
 
 - **Local d'abord.** La progression reste sur la machine de l'apprenant : `~/.studium/data` pour le serveur MCP (`STUDIUM_HOME`, `STUDIUM_DATA_DIR`), le stockage propre de l'extension dans VS Code. `STUDIUM_EPHEMERAL=1` garde tout en mémoire.

@@ -17,7 +17,19 @@ IRI). So learner-authored scenes get a DEDICATED gate here. This module mirrors
     community bundle;
   - the emitted bundle inherits its course's language, target and discipline, and
     says who wrote it: ``metadata.authoring = {mode: teacher, author_is_learner:
-    true}`` (learner-authored, validated by the deciding teacher);
+    true, drafted_by: learner}`` (a learner drafted it, the deciding teacher validated it);
+  - the emitted ZIP carries an ``approval.json`` member next to ``lesson.json``
+    (``studium-approval/1``, the field names ``experience_packet.py approve`` writes for a
+    teacher lesson) bound to the sha256 of the exact ``lesson.json`` member bytes, so a
+    reader can tell a recorded approval from a bundle that merely names a validator;
+  - every effective decision appends one line to the decision log
+    (``learner_decisions.jsonl`` beside the ledger): who, when, what, which item and, on
+    approve, the sha256 of the published ``lesson.json`` and of the ZIP. No credential is
+    ever passed to this module, so none can reach the log;
+  - the reviewer is a declared name: empty, longer than ``MAX_REVIEWER_LENGTH`` or equal to
+    the item's author pseudonym is refused before any mutation, for every decision;
+    on ``approve`` an identifier starting with ``urn:`` is refused too, because learners
+    read that name on the published lesson;
   - reject / request_revision record the decision but leave NO bundle.
 
 ``decide_item`` is the EXCLUSIVE surfacing path: only here does an item reach
@@ -26,6 +38,10 @@ only ever write ``submitted``.
 """
 from __future__ import annotations
 
+import hashlib
+import json
+import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -80,8 +96,23 @@ _NON_APPROVE_STATE = {
     "request_revision": "revision_requested",
 }
 
-# Approved item: learner-written, validated by the deciding teacher.
-_COMMUNITY_AUTHORING = {"mode": "teacher", "author_is_learner": True}
+# Approved item: learner-written, validated by the deciding teacher. ``drafted_by`` is
+# ``learner`` because the learner wrote the scene and its answer key; a bundle without it
+# would read as teacher-drafted (draftedByOf defaults a teacher-mode bundle to "teacher").
+_COMMUNITY_AUTHORING = {"mode": "teacher", "author_is_learner": True, "drafted_by": "learner"}
+
+# The approval record a community bundle carries: same schema and field names as the record
+# ``tools/experience_packet.py approve`` writes next to a teacher lesson (``APPROVAL_SCHEMA``
+# there), plus ``decision_route``, which says the decision came through this gate. The
+# writer is not imported: experience_packet.py pulls the whole authoring CLI with it.
+APPROVAL_SCHEMA = "studium-approval/1"
+APPROVAL_MEMBER = "approval.json"
+LESSON_MEMBER = "lesson.json"
+DECISION_ROUTE = "learner-contribution"
+APPROVAL_TOOL = "scene-synth decide_item 1.0"
+
+# A declared reviewer name, not an identity check: bounded so a decision log line stays a line.
+MAX_REVIEWER_LENGTH = 200
 
 # Canonical course metadata an emitted community bundle inherits.
 _INHERITED_METADATA_FIELDS = ("language", "target", "discipline")
@@ -261,7 +292,9 @@ def decide_item(
     decision:
         One of ``approve`` / ``reject`` / ``request_revision``.
     reviewer:
-        The teacher IRI vouching for the item (required + non-empty on approve).
+        The declared name of the teacher deciding (required for every decision, stripped,
+        at most ``MAX_REVIEWER_LENGTH`` characters, never the item's author pseudonym).
+        Authenticating the caller is the HTTP layer's job (``scene_synth_app``).
     reviewed_at:
         ISO-Z timestamp, PASSED IN (never ``now()``); required on approve.
     bundles_root:
@@ -285,10 +318,20 @@ def decide_item(
         raise ValueError(
             f"decision must be one of {sorted(_DECISIONS)}, got {decision!r}"
         )
+    reviewer = (reviewer or "").strip()
+    if not reviewer:
+        raise ValueError(
+            f"{decision} requires a non-empty reviewer (the teacher deciding on the item)"
+        )
+    if len(reviewer) > MAX_REVIEWER_LENGTH:
+        raise ValueError(
+            f"reviewer must be at most {MAX_REVIEWER_LENGTH} characters, got {len(reviewer)}"
+        )
     if decision == "approve":
-        if not reviewer:
+        # Learners read the reviewer of a published contribution: an identifier is not a person.
+        if reviewer.lower().startswith("urn:"):
             raise ValueError(
-                "approve requires a non-empty reviewer (the teacher vouching for the item)"
+                "approve needs the reviewer's name, not an identifier (urn:…): a published contribution names a person"
             )
         if not reviewed_at:
             raise ValueError(
@@ -298,6 +341,8 @@ def decide_item(
     current = store.get_item(item_id)
     if current is None:
         raise ValueError(f"unknown item {item_id!r}")
+    if reviewer == current.author_pseudonym:
+        raise ValueError("the reviewer cannot be the item's author: a learner never decides on their own item")
 
     # ---- idempotency: terminal-state items are returned unchanged --------- #
     if current.review_state in _TERMINAL:
@@ -305,13 +350,15 @@ def decide_item(
 
     # ---- non-approve: record decision, leave NO bundle ------------------- #
     if decision != "approve":
-        return store.transition(
+        decided = store.transition(
             item_id,
             _NON_APPROVE_STATE[decision],
-            reviewed_by=reviewer or None,
+            reviewed_by=reviewer,
             reviewed_at=reviewed_at or None,
             review_note_code=note_code,
         )
+        _log_decision(store, decided, decision=decision, reviewer=reviewer, reviewed_at=reviewed_at)
+        return decided
 
     # ---- approve: submitted/peer_review -> approved -> published ---------- #
     # RESUMABLE: the approve fan-out (transition->approved, build, scrub, publish)
@@ -357,6 +404,11 @@ def decide_item(
         # lesson.json NOR prov.json of the distributed bundle — checked on the
         # temp file BEFORE it is moved into the discovery root.
         _assert_pseudonym_scrubbed(tmp_path, approved.author_pseudonym)
+        # The record goes in before the move too: a bundle is never discoverable without it.
+        lesson_sha256 = _add_approval_record(
+            tmp_path, reviewer=approved.reviewed_by or reviewer,
+            reviewed_at=approved.reviewed_at or reviewed_at,
+        )
         tmp_path.replace(output_path)  # atomic rename within the same dir
     finally:
         if tmp_path.exists():
@@ -368,13 +420,88 @@ def decide_item(
         "published",
         published_bundle_ref=bundle_uri,
     )
+    _log_decision(
+        store, published, decision=decision,
+        reviewer=approved.reviewed_by or reviewer,
+        reviewed_at=approved.reviewed_at or reviewed_at,
+        lesson_sha256=lesson_sha256,
+        bundle_zip_sha256=hashlib.sha256(output_path.read_bytes()).hexdigest(),
+    )
     return published
+
+
+def approval_record(*, lesson_bytes: bytes, reviewer: str, reviewed_at: str) -> dict:
+    """The ``approval.json`` of a community bundle, bound to these exact ``lesson.json`` bytes."""
+    return {
+        "schema": APPROVAL_SCHEMA,
+        "bundle_sha256": hashlib.sha256(lesson_bytes).hexdigest(),
+        "reviewer": reviewer,
+        "reviewed_at": reviewed_at,
+        "tool": APPROVAL_TOOL,
+        "decision_route": DECISION_ROUTE,
+    }
+
+
+def _add_approval_record(bundle_path: Path, *, reviewer: str, reviewed_at: str) -> str:
+    """Append ``approval.json`` to the ZIP, hashing the ``lesson.json`` member as written.
+
+    Returns the sha256 of that member. The member is read back from the archive rather than
+    recomputed, so the hash is of the bytes a reader will load.
+    """
+    with zipfile.ZipFile(bundle_path) as zf:
+        lesson_bytes = zf.read(LESSON_MEMBER)
+        if APPROVAL_MEMBER in zf.namelist():
+            raise AssertionError(f"{bundle_path.name!r} already holds an {APPROVAL_MEMBER}")
+    record = approval_record(lesson_bytes=lesson_bytes, reviewer=reviewer, reviewed_at=reviewed_at)
+    with zipfile.ZipFile(bundle_path, "a", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(APPROVAL_MEMBER, json.dumps(record, indent=2, ensure_ascii=False) + "\n")
+    return record["bundle_sha256"]
+
+
+def decision_log_path(store: LearnerItemsStore) -> Path:
+    """The append-only decision log kept beside the ledger."""
+    return store.path.with_name("learner_decisions.jsonl")
+
+
+def _log_decision(
+    store: LearnerItemsStore,
+    env: LAItemEnvelope,
+    *,
+    decision: str,
+    reviewer: str,
+    reviewed_at: str,
+    lesson_sha256: Optional[str] = None,
+    bundle_zip_sha256: Optional[str] = None,
+) -> None:
+    """Append one line: who decided, when, what, on which item, and what was published.
+
+    ``reviewed_at`` is the time the reviewer declared; ``recorded_at`` is the server clock
+    when the line was written. Only the arguments listed here reach the line.
+    """
+    line = {
+        "item_id": env.item_id,
+        "course_id": env.course_id,
+        "decision": decision,
+        "review_state": env.review_state,
+        "reviewer": reviewer,
+        "reviewed_at": reviewed_at,
+        "recorded_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "decision_route": DECISION_ROUTE,
+    }
+    if env.review_note_code:
+        line["review_note_code"] = env.review_note_code
+    if lesson_sha256:
+        line["lesson_sha256"] = lesson_sha256
+        line["bundle_zip_sha256"] = bundle_zip_sha256
+        line["published_bundle_ref"] = env.published_bundle_ref
+    path = decision_log_path(store)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 
 def _assert_pseudonym_scrubbed(bundle_path: Path, pseudonym: str) -> None:
     """Assert ``pseudonym`` is absent from both files in the emitted bundle."""
-    import zipfile
-
     with zipfile.ZipFile(bundle_path) as zf:
         for name in ("lesson.json", "prov.json"):
             content = zf.read(name).decode("utf-8")
@@ -387,6 +514,12 @@ def _assert_pseudonym_scrubbed(bundle_path: Path, pseudonym: str) -> None:
 
 __all__ = [
     "decide_item",
+    "approval_record",
+    "decision_log_path",
+    "APPROVAL_SCHEMA",
+    "APPROVAL_MEMBER",
+    "DECISION_ROUTE",
+    "MAX_REVIEWER_LENGTH",
     "record_peer_review",
     "peer_signals_view",
     "DEFAULT_MIN_RATERS",

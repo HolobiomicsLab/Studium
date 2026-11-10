@@ -1,31 +1,59 @@
 "use client";
 
-import { useState } from "react";
-import {
-  decideLearnerItem,
-  teacherIriForToken,
-  type LearnerItemView,
-  type LADecision,
-  type LAReviewNoteCode,
+import { useEffect, useId, useState } from "react";
+import type {
+  LearnerItemView,
+  LADecision,
+  LAReviewNoteCode,
 } from "@/lib/api";
+import { fill, messages, type Locale } from "@/lib/i18n";
+
+/** Where the browser remembers the typed name (a convenience: the field works without it). */
+export const REVIEWER_NAME_KEY = "studium-reviewer-name";
 
 /**
- * Server action shape: the page wires this to decideLearnerItem() in lib/api.ts
- * (which POSTs to scene-synth). Kept as an injected prop so the queue stays a
- * pure presentational/interaction unit and is trivially testable.
+ * Decision shape: the page wires this to makeDecideAction(), which POSTs to this
+ * dashboard's own route handler (/api/learner-items/{id}/decide); that handler,
+ * on the server, calls scene-synth with the review token. Kept as an injected prop
+ * so the queue stays a pure presentational/interaction unit and is trivially testable.
  */
 export type DecideAction = (
   itemId: string,
   decision: LADecision,
   noteCode?: LAReviewNoteCode,
+  reviewerName?: string,
 ) => Promise<void> | void;
 
 type Props = {
   items: LearnerItemView[];
   onDecide: DecideAction;
+  locale?: Locale;
+  /** Seeds the name field (tests); otherwise the browser's remembered name, if any. */
+  initialName?: string;
 };
 
-export function formatSubmissionError(_error: unknown): string {
+export function rememberedName(): string {
+  try { return window.localStorage.getItem(REVIEWER_NAME_KEY) ?? ""; }
+  catch { return ""; }
+}
+
+export function rememberName(name: string): void {
+  try {
+    if (name.trim()) window.localStorage.setItem(REVIEWER_NAME_KEY, name);
+    else window.localStorage.removeItem(REVIEWER_NAME_KEY);
+  } catch { /* storage blocked: the field still works for this page */ }
+}
+
+/** The dashboard's server holds no review token: decisions are disabled until it is set. */
+export class DecisionsDisabledError extends Error {}
+
+export function formatSubmissionError(error: unknown): string {
+  if (error instanceof DecisionsDisabledError) {
+    return (
+      "Les décisions sont désactivées : définissez STUDIUM_REVIEW_TOKEN (32 caractères au moins) " +
+      "sur scene-synth et sur le serveur du tableau de bord, puis redémarrez-les."
+    );
+  }
   return (
     "scene-synth n’a pas pu enregistrer la décision. " +
     "Vérifiez que le service scene-synth est démarré et accessible, puis réessayez."
@@ -113,10 +141,15 @@ function SceneBody({ scene }: { scene: LearnerItemView["scene"] }) {
 function SubmissionCard({
   item,
   onDecide,
+  reviewerName,
+  nameHintId,
 }: {
   item: LearnerItemView;
   onDecide: DecideAction;
+  reviewerName: string;
+  nameHintId: string;
 }) {
+  const named = reviewerName.trim() !== "";
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -124,7 +157,7 @@ function SubmissionCard({
     setBusy(true);
     setErr(null);
     try {
-      await onDecide(item.item_id, decision, noteCode);
+      await onDecide(item.item_id, decision, noteCode, reviewerName.trim() || undefined);
     } catch (e) {
       setErr(formatSubmissionError(e));
     } finally {
@@ -148,7 +181,8 @@ function SubmissionCard({
       <div className="submission-card__actions">
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || !named}
+          aria-describedby={named ? undefined : nameHintId}
           onClick={() => decide("approve")}
           className="primary-button"
         >
@@ -179,28 +213,60 @@ function SubmissionCard({
 }
 
 /**
- * Build the DecideAction used by the /submissions page. It derives the teacher
- * IRI from the course token (course-token-derived reviewer) and stamps an
- * EXPLICIT ISO timestamp at click time, then POSTs via decideLearnerItem().
- * This is the dashboard's first write path; extracted here so it is unit
- * testable with a mocked fetch (proves approve sends reviewer + reviewed_at).
+ * Build the DecideAction used by the /submissions page. The browser sends only the
+ * course, the decision, the note code and the name the teacher typed to the dashboard's
+ * route handler, which checks the name, stamps the time and calls scene-synth with the review
+ * token (lib/decide-route.ts). Extracted here so it is unit testable with a mocked
+ * fetch (proves the browser never calls scene-synth and never holds the token).
  */
-export function makeDecideAction(
-  courseToken: string,
-  now: () => string = () => new Date().toISOString(),
-): DecideAction {
-  const reviewer = teacherIriForToken(courseToken);
-  return async (itemId, decision, noteCode) => {
-    await decideLearnerItem(courseToken, itemId, {
-      decision,
-      reviewer,
-      reviewed_at: now(),
-      note_code: noteCode,
+export function makeDecideAction(courseToken: string): DecideAction {
+  return async (itemId, decision, noteCode, reviewerName) => {
+    const body: Record<string, string> = { course_id: courseToken, decision };
+    if (noteCode) body.note_code = noteCode;
+    if (reviewerName?.trim()) body.reviewer_name = reviewerName.trim();
+    // Same-origin call to the dashboard's server, which checks the typed name and adds the
+    // time and the review token; the token is never here in the browser.
+    const response = await fetch(`/api/learner-items/${encodeURIComponent(itemId)}/decide`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
+    if (response.status === 503) throw new DecisionsDisabledError();
+    if (!response.ok) throw new Error(`decision refused (HTTP ${response.status})`);
   };
 }
 
-export default function SubmissionsQueue({ items, onDecide }: Props) {
+/** The name learners will read on an approved contribution, as on the lesson review page. */
+function ReviewerNameField({ name, setName, locale, hintId }: {
+  name: string; setName: (name: string) => void; locale: Locale; hintId: string;
+}) {
+  const t = messages(locale);
+  const shown = name.trim();
+  return (
+    <div data-testid="reviewer-name" className="submission-reviewer">
+      <label className="approval-name">{t.validatorName}
+        <input type="text" name="reviewer-name" autoComplete="name" maxLength={200} value={name}
+          onChange={(event) => { setName(event.currentTarget.value); rememberName(event.currentTarget.value); }} />
+      </label>
+      {shown
+        ? <p className="approval-voice" data-testid="reviewer-voice">{fill(t.contributionVoice, { name: shown })}</p>
+        : <p className="approval-note" id={hintId} role="status">{t.contributionNameNeeded}</p>}
+      {shown.includes("@") && <p className="approval-note">{t.contributionEmailNote}</p>}
+    </div>
+  );
+}
+
+export default function SubmissionsQueue({ items, onDecide, locale = "fr", initialName }: Props) {
+  const [name, setName] = useState(initialName ?? "");
+  const hintId = useId();
+  // The remembered name is read after mount, so the server render and the first client render agree.
+  useEffect(() => {
+    if (initialName === undefined) {
+      const remembered = rememberedName();
+      if (remembered) setName(remembered);
+    }
+  }, [initialName]);
   if (items.length === 0) {
     return (
       <p data-testid="empty-queue" className="empty-state empty-state--panel">
@@ -209,10 +275,13 @@ export default function SubmissionsQueue({ items, onDecide }: Props) {
     );
   }
   return (
-    <ul data-testid="submissions-queue" className="submission-list">
-      {items.map((item) => (
-        <SubmissionCard key={item.item_id} item={item} onDecide={onDecide} />
-      ))}
-    </ul>
+    <>
+      <ReviewerNameField name={name} setName={setName} locale={locale} hintId={hintId} />
+      <ul data-testid="submissions-queue" className="submission-list">
+        {items.map((item) => (
+          <SubmissionCard key={item.item_id} item={item} onDecide={onDecide} reviewerName={name} nameHintId={hintId} />
+        ))}
+      </ul>
+    </>
   );
 }
