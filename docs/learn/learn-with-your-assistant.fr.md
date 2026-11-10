@@ -83,7 +83,7 @@ formulaire et dites-le dans la conversation.
 
 Si chaque réponse tarde, jouez la leçon dans une session neuve et courte, sur le modèle rapide de votre
 assistant (dans Claude Code, `claude --agent studium-lesson`) : voir
-[Garder des réponses rapides](../start/harnesses.fr.md#garder-des-réponses-rapides).
+[Garder des réponses rapides](../start/fast-answers.fr.md).
 
 Pour jouer dans VS Code, faites un clic droit sur le `lesson.json` de la leçon et choisissez **Studium : Ouvrir
 cette leçon**, ou suivez le lien donné par l'assistant

@@ -89,7 +89,7 @@ garde sa propre progression dans le stockage d'extension de VS Code ; voir
 |---|---|
 | Depuis les sources, pour développer | `pnpm --filter @studium/lesson-mcp start` |
 | Fichier unique autonome | `pnpm --filter @studium/lesson-mcp bundle`, qui écrit `apps/lesson-mcp/dist/studium-mcp.cjs` |
-| API HTTP locale au lieu de MCP | `pnpm --filter @studium/lesson-mcp api` (voir [Harnais](harnesses.fr.md#api-http-directe)) |
+| API HTTP locale au lieu de MCP | `pnpm --filter @studium/lesson-mcp api` (voir [API HTTP](../reference/http-api.fr.md#la-démarrer)) |
 
 Une version étiquetée joint `studium-vX.Y.Z.vsix`, `lesson-mcp.cjs` et `SHA256SUMS.txt` à une release GitHub
 préparée en brouillon par le workflow de publication. Rien n'est publié sur npm ni sur le Marketplace de

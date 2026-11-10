@@ -39,7 +39,7 @@ privé.
 | Réponse refusée | transmettez les mots de l'apprenant avec `submit_response {kind: "reply", text}` ; lisez `get_operator_context` pour le format attendu |
 | Un identifiant de choix de quiz est refusé | les choix sont remélangés à chaque session : utilisez l'identifiant affiché dans l'étape courante, jamais celui d'une autre session |
 | `run required: call get_run_manifest, run it, then submit_run_result` | l'étape demande une vraie exécution : suivez `get_run_manifest`, exécutez la capsule, puis `submit_run_result` |
-| Les réponses ouvertes disent « à comparer toi-même » | attendu sans modèle juge ; voir [Harnais](harnesses.fr.md#modèle-juge-facultatif) |
+| Les réponses ouvertes disent « à comparer toi-même » | attendu sans modèle juge ; voir [Configuration](../reference/configuration.fr.md#modèle-juge-facultatif) |
 | L'assistant répond ou note à votre place | arrêtez-le et répondez vous-même ; les instructions du serveur l'interdisent, et l'auto-évaluation ne change jamais la maîtrise |
 | `session not found: …` | le serveur a redémarré ou la séance a été fermée ; le message dit comment reprendre : `start_lesson_session` avec le même `bundle_ref` et le même `learner_id`, ou `start_review_session` avec le même `learner_id` ; le panneau MCP Apps, le volet Claude Code et le volet VS Code affichent « Séance perdue » et un bouton pour rouvrir la leçon, à la place de la scène périmée |
 | Une auto-évaluation est refusée comme expirée | la demande a été perdue par un serveur plus ancien ; répondez de nouveau à l'étape pour être sollicité à nouveau |

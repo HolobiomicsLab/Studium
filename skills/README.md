@@ -61,7 +61,7 @@ A skill without these links is not discovered. Check which skills are linked wit
 
 Beside the skills, `.claude/agents/` holds two Claude Code agents: `studium-lesson`, which plays a lesson as
 a strict relay on the fast model, and `studium-explainer`, a stronger model it calls for a question that
-needs a real explanation. See [Keep answers fast](../docs/start/harnesses.md#keep-answers-fast).
+needs a real explanation. See [Keep answers fast](../docs/start/fast-answers.md).
 
 ## See also
 
