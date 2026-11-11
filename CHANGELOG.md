@@ -17,6 +17,7 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 - **Minor and patch dependency updates.** Tailwind 4.3.5 for the student runtime; fastapi 0.162.2, pydantic 2.14.3, python-multipart 0.0.33 and pytest-asyncio 1.4.1.post1 for the Python services. `astra-tools` and `astra-spec` stay at the versions recorded as the ASTRA validator (0.2.17 and 0.0.14), and Dependabot no longer proposes them: a bump goes with a fresh validator run.
 - **Two development tools move a major version.** jsdom 31 for the tests and `@vscode/vsce` 4.1 for packaging the VSIX, which has the same 103 entries as before. Running the tests now needs Node 22.22.2 or newer (or 24.15 or newer) and packaging needs Node 22 or newer; Node 20 no longer runs either. What learners install is unchanged, and `engines.node` stays `>=20`.
+- **react-markdown 10 in the student runtime.** The intro and concept scenes render the same HTML as with 9.1 on every demo lesson (13 documents compared), and the runtime's code is unchanged. The update also refreshes the Markdown parsing libraries it depends on (micromark, mdast and hast utilities).
 
 ## 0.4.0 — 2026-11-10
 
