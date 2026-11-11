@@ -117,9 +117,10 @@ Pushing a tag is the owner's decision; agents and contributors prepare the relea
    registry that already has the version is skipped, so a failed run can be started again.
 4. Read the draft, replace the generated notes with the changelog section if needed, and publish it.
 
-When the workflow cannot run, steps 3 and 4 are done from a laptop (next section). A failed workflow leaves
-no release behind; fix the cause and run it again, or release the next patch version rather than moving a
-published tag.
+When the workflow cannot run, steps 3 and 4 are done from a laptop (next section). A run that fails after
+the build leaves the draft release and whatever was already sent; fix the cause and run it again (it keeps
+the draft and skips the registries that have the version), or release the next patch version rather than
+moving a published tag.
 
 ## Sending from your machine
 
@@ -131,8 +132,9 @@ tools/release/send.sh ~/studium-release-X.Y.Z --plan  # what would be sent; asks
 tools/release/send.sh ~/studium-release-X.Y.Z       # asks before each registry
 ```
 
-`send.sh` checks the files against their checksums, skips a registry that already has the version (so it
-can be run again after a failure) and one that gives no answer. Accounts and tokens are the maintainer's;
+`send.sh` sends only a build of the tag, made from the commit the checkout is on (a trial built with
+`--untagged` is refused). It checks the files against their checksums, skips a registry that already has
+the version (so it can be run again after a failure) and one that gives no answer. Accounts and tokens are the maintainer's;
 none is read from a file or written anywhere:
 
 | Registry | What the script needs |
@@ -157,7 +159,7 @@ organisation without an Actions budget cannot (its workflows stop at once), a pu
 | npm | on npmjs.com, package `studium-mcp`, **Settings**, **Trusted Publisher**, GitHub Actions: organisation `HolobiomicsLab`, repository `studium`, workflow `release.yml`, no environment; allow `npm publish` | repository variable `PUBLISH_NPM` = `true` |
 | Marketplace | on the publisher's page, **Trusted Publishing**, **Create**: repository owner `HolobiomicsLab`, repository `studium`, workflow `release.yml`, no environment. For a private repository the workflow must run within 48 hours of creating the policy | `PUBLISH_MARKETPLACE` = `true` |
 | MCP Registry | nothing: a job of this repository is granted `io.github.HolobiomicsLab/*` | `PUBLISH_MCP_REGISTRY` = `true` |
-| Open VSX | the secret `OVSX_PAT` (Open VSX has no OIDC route) | the secret itself |
+| Open VSX | the secret `OVSX_PAT` (Open VSX has no OIDC route); only the Open VSX step sees it | `PUBLISH_OPEN_VSX` = `true` |
 
 ```bash
 gh variable set PUBLISH_NPM --body true --repo HolobiomicsLab/studium

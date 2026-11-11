@@ -42,6 +42,11 @@ version="$(node -p "require('$out/npm-stage/package.json').version")"
 vsix="$out/studium-v$version.vsix"
 [ -f "$vsix" ] || { echo "send: $vsix is missing" >&2; exit 1; }
 (cd "$out" && "${sha[@]}" -c SHA256SUMS.txt >/dev/null) || { echo "send: the files of $out do not match SHA256SUMS.txt" >&2; exit 1; }
+# Only a build of the tag, made from the commit this checkout is on: the MCP Registry reads server.json here.
+record() { sed -n "s/^$1=//p" "$out/BUILD" 2>/dev/null; }
+[ -f "$out/BUILD" ] || { echo "send: $out has no build record (BUILD); build it with tools/release/build.sh" >&2; exit 1; }
+[ "$(record tag)" = "v$version" ] || { echo "send: $out is a trial build ($(record tag)), not a build of the tag v$version; it is not for a registry" >&2; exit 1; }
+[ "$(record commit)" = "$(git rev-parse HEAD)" ] || { echo "send: this checkout is not the commit $out was built from; check out the tag v$version" >&2; exit 1; }
 [ "$(node -p "require('./server.json').version")" = "$version" ] || { echo "send: this checkout's server.json is not at $version; check out the tag v$version" >&2; exit 1; }
 
 say "Studium $version, from $out"
@@ -98,8 +103,10 @@ if go mcp-registry "server.json as io.github.HolobiomicsLab/studium $version"; t
   # The registry checks the npm package, which can take a few minutes to appear.
   $registries wait npm "$version" --minutes 10
   secret GH_ORG_TOKEN "GitHub token of the organisation (Members, read-only)"
-  # One line: the registry session lasts a few minutes.
-  mcp-publisher login github --token "$GH_ORG_TOKEN" && mcp-publisher publish
+  # One right after the other: the registry session lasts a few minutes. Two lines, so that a refused
+  # login stops the script. mcp-publisher takes the token as an argument only.
+  mcp-publisher login github --token "$GH_ORG_TOKEN"
+  mcp-publisher publish
 fi
 
 say "Where $version is now"

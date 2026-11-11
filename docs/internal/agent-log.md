@@ -24,7 +24,7 @@ Outils (`tools/release/`). `version.mjs` écrit ou contrôle la version aux trei
 section du changelog ; `registries.mjs` lit l'état des quatre registres (`status`, `has`, `wait`,
 `unless`) ; `build.sh` reprend les étapes de `release.yml` pour un portable et pour le workflow ; `send.sh`
 envoie depuis la machine du mainteneur, une question par registre. Tests écrits avant le code pour
-`version.mjs` et `registries.mjs` (14 tests `node --test`, sans réseau) ; `send.test.sh` (34 assertions)
+`version.mjs` et `registries.mjs` (14 tests `node --test`, sans réseau) ; `send.test.sh` (45 assertions)
 remplace `npm`, `npx` et `mcp-publisher` par des doublures et a été éprouvé par deux défauts plantés
 (jeton sur la ligne de commande, registre muet lu comme absent), tous deux détectés. `release.yml` passe à
 l'OIDC pour npm, le Marketplace et le MCP Registry, gagne l'étape du MCP Registry, et s'active par
@@ -32,10 +32,24 @@ variable de dépôt.
 
 Vérifié sur cette machine : `build.sh --untagged` de bout en bout (23 pilotes de l'extension, 217 tests
 du serveur, VSIX contrôlé) ; `registries.mjs status 0.6.0` répond « publié » pour les quatre registres ;
-`send.sh --plan` sur les fichiers de la 0.6.0 saute les quatre. Non vérifié : aucun envoi réel par
+`send.sh` refuse la construction d'essai (non étiquetée). Non vérifié : aucun envoi réel par
 `send.sh` (comptes du propriétaire) ; `release.yml` n'a pas tourné (pas de budget Actions) et aucune des
 trois voies OIDC n'a été essayée, elles viennent de la documentation des registres ; le chemin étiqueté
 de `build.sh` n'a été éprouvé que par ses refus.
+
+Relecture indépendante (sous-agent Sonnet, en lecture seule, contre le code). Sept défauts confirmés puis
+corrigés, tests d'abord pour ceux du code : la page de publication disait qu'un workflow en échec ne
+laisse aucune release, alors que le brouillon est créé avant les registres ; dans `send.sh`, un `login`
+refusé au MCP Registry n'arrêtait pas le script (liste `&&` sous `set -e`) ; `send.sh` ne distinguait pas
+une construction d'essai d'une construction de l'étiquette (`build.sh` écrit maintenant un fichier
+`BUILD`, que `send.sh` exige, avec l'étiquette et le commit du clone) ; `build.sh --tag` passait sans
+contrôle quand l'étiquette n'existait pas dans le clone ; le secret `OVSX_PAT` était visible de toutes les
+étapes du workflow, y compris l'installation et les tests (il ne l'est plus que de l'étape Open VSX,
+activée par `PUBLISH_OPEN_VSX`) ; une réponse 200 sans la liste attendue du Marketplace était lue comme
+« absent » ; la fiche disait que l'extension demande avant chaque exécution, sans dire qu'un cours auquel
+on a fait confiance n'est plus demandé. Remarques suivies : ordre des registres, phrase sur la barre
+d'état, consigne pour Cursor, lecture du README dans `check-vsix.sh` sans tube, section française alignée.
+Une remarque écartée après vérification : le VSIX ne contient pas `MARKETPLACE.md` en double.
 
 ## 2026-11-11 — page « Choisir son modèle »
 

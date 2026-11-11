@@ -49,7 +49,9 @@ forbid '^extension/README\.fr\.md$'
 # The page the registries show is the listing (apps/studium-vscode/MARKETPLACE.md), not the developers'
 # README, whose build commands and relative links mean nothing outside a checkout.
 require extension/readme.md
-if unzip -p "$vsix" extension/readme.md 2>/dev/null | grep -qE 'pnpm --filter|/blob/HEAD/\.\./'; then
+# Read first, then search: `grep -q` closing a pipe early would fail it under pipefail.
+page="$(unzip -p "$vsix" extension/readme.md 2>/dev/null || true)"
+if grep -qE 'pnpm --filter|/blob/HEAD/\.\./' <<<"$page"; then
   echo "check-vsix: extension/readme.md is the developers' README; package with --readme-path MARKETPLACE.md" >&2
   status=1
 fi

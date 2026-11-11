@@ -34,7 +34,9 @@ restart the assistant:
 
 The server is the npm package `studium-mcp`; `npx` fetches it the first time. Studium needs no API key of
 its own: the assistant works with the model you already have, a Copilot plan for example. The empty
-`LITELLM_BASE_URL=` keeps Studium from calling any paid model.
+`LITELLM_BASE_URL=` keeps Studium from calling any paid model. In Cursor, Claude Desktop or another
+assistant, declare an MCP server named `studium` whose command is `npx` with the arguments `-y` and
+`studium-mcp`.
 
 ### 2. Ask for a lesson
 
@@ -58,13 +60,13 @@ button of the view if VS Code was already open. Select the lesson to play it.
 
 - **One step at a time.** A step is something to read, a question with choices, a short written answer,
   a claim made by an AI to check, or a calculation to run.
-- **Feedback you can place.** A tick appears only on an answer marked right, a cross only on one marked
+- **Feedback that says what was checked.** A tick appears only on an answer marked right, a cross only on one marked
   wrong. An answer that nothing assessed is shown as recorded, with the reference to compare with; you then
   rate your own recall.
-- **Reviews.** The status bar says how many ideas are due ("Studium · 2 to review"), and the sidebar lists
-  them, or gives the date of the next review.
+- **Reviews.** When no lesson is playing, the status bar says how many ideas are waiting ("Studium · 2 to
+  review"), and the sidebar lists them, or gives the date of the next review.
 - **Nothing runs without you.** Before a lesson's command runs, the extension shows the exact command and
-  the folder, and waits for your choice.
+  the folder, and waits for your choice. It asks again each time, unless you chose to trust that course.
 - **Your editor's theme and language.** The interface follows VS Code, in English or French, and works
   with the keyboard and a screen reader.
 
@@ -108,6 +110,8 @@ du HolobiomicsLab, sous licence Apache-2.0.
 
 ### Qui fait quoi
 
+Le savoir épargne les dix premières minutes :
+
 | Partie | Ce qu'elle fait | Ce qu'elle ne fait pas |
 |---|---|---|
 | **Un assistant IA** relié au serveur Studium (Copilot dans VS Code, Claude Code, Codex, Cursor) | construit une leçon à partir des sources que vous nommez, et peut la jouer avec vous dans la conversation | répondre à votre place |
@@ -129,7 +133,9 @@ fois, dans un terminal, la ligne de votre assistant, puis redémarrez-le :
 
 Le serveur est le paquet npm `studium-mcp` ; `npx` le télécharge la première fois. Studium n'a besoin
 d'aucune clé d'API : l'assistant travaille avec le modèle que vous avez déjà, un abonnement Copilot par
-exemple. Le `LITELLM_BASE_URL=` vide empêche Studium d'appeler un modèle payant.
+exemple. Le `LITELLM_BASE_URL=` vide empêche Studium d'appeler un modèle payant. Dans Cursor, Claude
+Desktop ou un autre assistant, déclarez un serveur MCP nommé `studium` dont la commande est `npx` avec les
+arguments `-y` et `studium-mcp`.
 
 **2. Demandez une leçon.** Dans une nouvelle conversation avec votre assistant (dans Copilot Chat,
 choisissez le mode agent), avec vos mots :
@@ -152,13 +158,14 @@ leçon pour la jouer.
 
 - **Une étape à la fois.** Une étape est un texte à lire, une question à choix, une courte réponse rédigée,
   une affirmation d'une IA à vérifier, ou un calcul à lancer.
-- **Un retour que vous pouvez situer.** Une coche n'apparaît que sur une réponse notée juste, une croix que
+- **Un retour qui dit ce qui a été vérifié.** Une coche n'apparaît que sur une réponse notée juste, une croix que
   sur une réponse notée fausse. Une réponse que rien n'a évaluée est affichée comme enregistrée, avec la
   référence à laquelle la comparer ; vous évaluez alors vous-même votre rappel.
-- **Les révisions.** La barre d'état dit combien d'idées sont dues, et la barre latérale les liste, ou
-  donne la date de la prochaine révision.
+- **Les révisions.** Quand aucune leçon n'est en cours, la barre d'état dit combien d'idées attendent
+  (« Studium · 2 à réviser »), et la barre latérale les liste, ou donne la date de la prochaine révision.
 - **Rien ne s'exécute sans vous.** Avant qu'une commande d'une leçon s'exécute, l'extension montre la
-  commande exacte et le dossier, et attend votre choix.
+  commande exacte et le dossier, et attend votre choix. Elle redemande à chaque fois, sauf si vous avez
+  choisi de faire confiance à ce cours.
 - **Le thème et la langue de votre éditeur.** L'interface suit VS Code, en français ou en anglais, et
   fonctionne au clavier et avec un lecteur d'écran.
 

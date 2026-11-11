@@ -19,7 +19,8 @@ function fakeFetch(table) {
 const marketplace = (versions) => ({ results: [{ extensions: versions === null ? [] : [{ versions: versions.map(([version, flags]) => ({ version, flags })) }] }] });
 
 test("the four registries of a release are known by name", () => {
-  assert.deepEqual(Object.keys(REGISTRIES), ["npm", "mcp-registry", "marketplace", "open-vsx"]);
+  // The order a release is sent in: the MCP Registry last, since it checks the npm package.
+  assert.deepEqual(Object.keys(REGISTRIES), ["npm", "open-vsx", "marketplace", "mcp-registry"]);
 });
 
 test("npm, the MCP Registry and Open VSX: 200 means the version is there, 404 that it is not", async () => {
@@ -56,6 +57,10 @@ test("an answer that is neither yes nor no is an error, never read as absent", a
     await assert.rejects(hasVersion(registry, "0.6.0", fakeFetch([["", 503, {}]])), /503/);
   }
   await assert.rejects(hasVersion("pypi", "0.6.0", fakeFetch([])), /unknown registry/);
+  // The Marketplace answers 200 to a query: a 200 whose body is not the expected list is no answer either.
+  for (const body of [null, {}, { results: "maintenance" }, "<html>"]) {
+    await assert.rejects(hasVersion("marketplace", "0.6.0", fakeFetch([["", 200, body]])), /unexpected answer/, JSON.stringify(body));
+  }
 });
 
 test("statusOf reports the four registries, and an unreachable one without hiding the others", async () => {
@@ -66,7 +71,7 @@ test("statusOf reports the four registries, and an unreachable one without hidin
     ["open-vsx.org", 200, {}],
   ]);
   const rows = await statusOf("0.6.0", fetch);
-  assert.deepEqual(rows.map((r) => [r.registry, r.present]), [["npm", true], ["mcp-registry", false], ["marketplace", null], ["open-vsx", true]]);
+  assert.deepEqual(rows.map((r) => [r.registry, r.present]), [["npm", true], ["open-vsx", true], ["marketplace", null], ["mcp-registry", false]]);
   assert.match(rows[2].detail, /500/);
 });
 

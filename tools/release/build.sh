@@ -11,6 +11,7 @@
 #   lesson-mcp.cjs        the MCP server as one file, the one the VSIX embeds
 #   SHA256SUMS.txt        checksums of the two files
 #   npm-stage/            the npm package studium-mcp, ready for `npm publish`
+#   BUILD                 what was built: version, tag (or "untagged") and commit; send.sh reads it
 #
 # It sends nothing anywhere: tools/release/send.sh and the release workflow do that.
 set -euo pipefail
@@ -44,10 +45,8 @@ if [ "$untagged" -eq 0 ]; then
   [ -n "$tag" ] || tag="$(git describe --exact-match --tags --match 'v*.*.*' HEAD 2>/dev/null || true)"
   [ -n "$tag" ] || { echo "build: HEAD carries no tag vX.Y.Z; tag it, name one with --tag, or use --untagged" >&2; exit 1; }
   [ "$tag" = "v$version" ] || { echo "build: the tag $tag is not the version $version of apps/studium-vscode/package.json" >&2; exit 1; }
-  # A tag named by the caller and known to this clone must be the commit being built.
-  if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
-    [ "$(git rev-parse "$tag^{commit}")" = "$(git rev-parse HEAD)" ] || { echo "build: the tag $tag is not on HEAD" >&2; exit 1; }
-  fi
+  git rev-parse -q --verify "refs/tags/$tag" >/dev/null || { echo "build: this clone has no tag $tag; fetch it or create it, or use --untagged" >&2; exit 1; }
+  [ "$(git rev-parse "$tag^{commit}")" = "$(git rev-parse HEAD)" ] || { echo "build: the tag $tag is not on HEAD" >&2; exit 1; }
 fi
 
 mkdir -p "$out"
@@ -83,6 +82,7 @@ cp apps/studium-vscode/dist/lesson-mcp.cjs "$out/lesson-mcp.cjs"
 (cd "$out" && "${sha[@]}" "studium-v$version.vsix" lesson-mcp.cjs > SHA256SUMS.txt)
 node .github/scripts/stage-npm-mcp.mjs "$version" "$out/npm-stage"
 [ "$("$out/npm-stage/studium-mcp.cjs" --version)" = "$version" ] || { echo "build: the staged server does not answer $version to --version" >&2; exit 1; }
+printf 'version=%s\ntag=%s\ncommit=%s\n' "$version" "$([ "$untagged" -eq 1 ] && echo untagged || echo "$tag")" "$(git rev-parse HEAD)" > "$out/BUILD"
 
 say "Built $version$([ "$untagged" -eq 1 ] && echo ' (untagged trial, not for a registry)') in $out"
 cat "$out/SHA256SUMS.txt"

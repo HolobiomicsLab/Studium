@@ -21,6 +21,7 @@ for tool in npm npx mcp-publisher; do
 name="$(basename "$0")"
 if [ "$name" = npm ] && [ "${1:-}" = whoami ]; then [ -f "$STATE/npm-logged-out" ] && exit 1; echo someone; exit 0; fi
 echo "$name | $(basename "$PWD") | $* | OVSX_PAT=${OVSX_PAT:+set}" >> "$CALLS"
+if [ "$name" = mcp-publisher ] && [ "${1:-}" = login ] && [ -f "$STATE/mcp-login-refused" ]; then exit 1; fi
 EOF
   chmod +x "$TMP/bin/$tool"
 done
@@ -44,6 +45,7 @@ fresh() {
   echo vsix > "$TMP/out/studium-v$VERSION.vsix"
   echo server > "$TMP/out/lesson-mcp.cjs"
   (cd "$TMP/out" && shasum -a 256 "studium-v$VERSION.vsix" lesson-mcp.cjs > SHA256SUMS.txt)
+  printf 'version=%s\ntag=v%s\ncommit=%s\n' "$VERSION" "$VERSION" "$(git -C "$ROOT" rev-parse HEAD)" > "$TMP/out/BUILD"
   for registry in npm open-vsx marketplace mcp-registry; do echo "${1:-1}" > "$TMP/state/$registry"; done
 }
 OUTPUT="" STATUS=0
@@ -125,5 +127,29 @@ send "y\n"
 expect_status 1 "npm logged out"
 expect_output "npm login"
 expect_calls 0 "no upload without a login"
+
+# 9. A refused login to the MCP Registry stops the command: nothing is published, and it does not end well.
+fresh 0; echo 1 > "$TMP/state/mcp-registry"; : > "$TMP/state/mcp-login-refused"
+send "y\n" env GH_ORG_TOKEN="$FAKE_ORG_TOKEN"
+[ "$STATUS" -ne 0 ] || fail "a refused login must not end with status 0"; ok
+expect_call "mcp-publisher | $(basename "$ROOT") | login github --token $FAKE_ORG_TOKEN"
+if grep -qF "mcp-publisher | $(basename "$ROOT") | publish" "$TMP/calls"; then fail "published after a refused login"; fi; ok
+
+# 10. A trial build (build.sh --untagged), a folder without its build record, and a build of another
+#     commit than the checkout are not sent.
+fresh; printf 'version=%s\ntag=untagged\ncommit=%s\n' "$VERSION" "$(git -C "$ROOT" rev-parse HEAD)" > "$TMP/out/BUILD"
+send "y\ny\ny\n\ny\n"
+expect_status 1 "trial build"
+expect_output "trial build"
+expect_calls 0 "a trial build must not be sent"
+fresh; rm "$TMP/out/BUILD"
+send "y\n"
+expect_status 1 "no build record"
+expect_calls 0 "a folder without a build record must not be sent"
+fresh; printf 'version=%s\ntag=v%s\ncommit=%s\n' "$VERSION" "$VERSION" 0000000000000000000000000000000000000000 > "$TMP/out/BUILD"
+send "y\n"
+expect_status 1 "other commit"
+expect_output "not the commit"
+expect_calls 0 "a build of another commit must not be sent"
 
 echo "OK — send.sh passed all $tests assertions."

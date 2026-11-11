@@ -120,9 +120,10 @@ l'étiqueter.
    registre qui a déjà la version est sauté : une exécution en échec peut donc être relancée.
 4. Relisez le brouillon, remplacez au besoin les notes générées par la section du changelog, et publiez.
 
-Quand le workflow ne peut pas tourner, les étapes 3 et 4 se font depuis un portable (section suivante). Un
-workflow en échec ne laisse aucune release ; corrigez la cause et relancez-le, ou publiez la version
-corrective suivante plutôt que de déplacer une étiquette publiée.
+Quand le workflow ne peut pas tourner, les étapes 3 et 4 se font depuis un portable (section suivante). Une
+exécution qui échoue après la construction laisse la release en brouillon et ce qui a déjà été envoyé ;
+corrigez la cause et relancez-la (elle garde le brouillon et saute les registres qui ont la version), ou
+publiez la version corrective suivante plutôt que de déplacer une étiquette publiée.
 
 ## Envoyer depuis votre machine
 
@@ -134,8 +135,9 @@ tools/release/send.sh ~/studium-release-X.Y.Z --plan  # ce qui serait envoyé ; 
 tools/release/send.sh ~/studium-release-X.Y.Z       # demande avant chaque registre
 ```
 
-`send.sh` contrôle les fichiers contre leurs empreintes, saute un registre qui a déjà la version (on peut
-donc le relancer après un échec) et un registre qui ne répond pas. Les comptes et les jetons sont ceux du
+`send.sh` n'envoie qu'une construction de l'étiquette, faite depuis le commit où se trouve le clone (un
+essai construit avec `--untagged` est refusé). Il contrôle les fichiers contre leurs empreintes, saute un
+registre qui a déjà la version (on peut donc le relancer après un échec) et un registre qui ne répond pas. Les comptes et les jetons sont ceux du
 mainteneur ; aucun n'est lu dans un fichier ni écrit quelque part :
 
 | Registre | Ce qu'il faut au script |
@@ -161,7 +163,7 @@ public le peut.
 | npm | sur npmjs.com, paquet `studium-mcp`, **Settings**, **Trusted Publisher**, GitHub Actions : organisation `HolobiomicsLab`, dépôt `studium`, workflow `release.yml`, pas d'environnement ; autoriser `npm publish` | variable du dépôt `PUBLISH_NPM` = `true` |
 | Marketplace | sur la page de l'éditeur, **Trusted Publishing**, **Create** : propriétaire du dépôt `HolobiomicsLab`, dépôt `studium`, workflow `release.yml`, pas d'environnement. Pour un dépôt privé, le workflow doit tourner dans les 48 heures qui suivent la création de la règle | `PUBLISH_MARKETPLACE` = `true` |
 | MCP Registry | rien : un job de ce dépôt reçoit `io.github.HolobiomicsLab/*` | `PUBLISH_MCP_REGISTRY` = `true` |
-| Open VSX | le secret `OVSX_PAT` (Open VSX n'a pas de voie OIDC) | le secret lui-même |
+| Open VSX | le secret `OVSX_PAT` (Open VSX n'a pas de voie OIDC) ; seule l'étape Open VSX le voit | `PUBLISH_OPEN_VSX` = `true` |
 
 ```bash
 gh variable set PUBLISH_NPM --body true --repo HolobiomicsLab/studium

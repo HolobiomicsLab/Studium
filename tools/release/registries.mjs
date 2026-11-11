@@ -17,16 +17,17 @@ import { fileURLToPath } from "node:url";
 
 const EXTENSION = "holobiomicslab.studium-vscode";
 
-/** The registries a release goes to, in the order it is sent. `request(version)` is what to ask;
+/** The registries a release goes to, in the order it is sent: the MCP Registry last, since it checks the
+ * npm package. `request(version)` is what to ask;
  * `read(status, body, version)` turns the answer into { present, detail } or undefined (no answer). */
 export const REGISTRIES = {
   npm: {
     label: "npm (studium-mcp)",
     request: (v) => ({ url: `https://registry.npmjs.org/studium-mcp/${v}` }),
   },
-  "mcp-registry": {
-    label: "MCP Registry (io.github.HolobiomicsLab/studium)",
-    request: (v) => ({ url: `https://registry.modelcontextprotocol.io/v0/servers/${encodeURIComponent("io.github.HolobiomicsLab/studium")}/versions/${v}` }),
+  "open-vsx": {
+    label: `Open VSX (${EXTENSION})`,
+    request: (v) => ({ url: `https://open-vsx.org/api/holobiomicslab/studium-vscode/${v}` }),
   },
   marketplace: {
     label: `Visual Studio Marketplace (${EXTENSION})`,
@@ -40,15 +41,16 @@ export const REGISTRIES = {
       },
     }),
     read: (status, body, v) => {
-      if (status !== 200) return undefined;
-      const found = (body?.results?.[0]?.extensions?.[0]?.versions ?? []).find((x) => x.version === v);
+      // A query always answers 200 with a list; anything else (a maintenance page) is no answer.
+      if (status !== 200 || !Array.isArray(body?.results?.[0]?.extensions)) return undefined;
+      const found = (body.results[0].extensions[0]?.versions ?? []).find((x) => x.version === v);
       if (!found) return { present: false, detail: "not published" };
       return { present: true, detail: found.flags === "validated" ? "published" : "uploaded, validation in progress" };
     },
   },
-  "open-vsx": {
-    label: `Open VSX (${EXTENSION})`,
-    request: (v) => ({ url: `https://open-vsx.org/api/holobiomicslab/studium-vscode/${v}` }),
+  "mcp-registry": {
+    label: "MCP Registry (io.github.HolobiomicsLab/studium)",
+    request: (v) => ({ url: `https://registry.modelcontextprotocol.io/v0/servers/${encodeURIComponent("io.github.HolobiomicsLab/studium")}/versions/${v}` }),
   },
 };
 

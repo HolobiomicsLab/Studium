@@ -12,7 +12,8 @@ name: Release
 #   vars.PUBLISH_NPM = true            npm, package "studium-mcp" (trusted publisher)
 #   vars.PUBLISH_MARKETPLACE = true    Visual Studio Marketplace, publisher "holobiomicslab" (trusted publishing)
 #   vars.PUBLISH_MCP_REGISTRY = true   MCP Registry, "io.github.HolobiomicsLab/studium" (github-oidc)
-#   secrets.OVSX_PAT                   Open VSX Registry, namespace "holobiomicslab": a token, Open VSX has no OIDC route
+#   vars.PUBLISH_OPEN_VSX = true       Open VSX Registry, namespace "holobiomicslab", with secrets.OVSX_PAT:
+#                                      a token, Open VSX has no OIDC route. Only its own step sees it.
 #
 # A step whose switch is off is skipped, so a tag never fails for want of a registry. A step whose
 # registry already has the version is skipped too (tools/release/registries.mjs), so a failed run can
@@ -32,9 +33,6 @@ jobs:
   release:
     name: Build, draft release, registries
     runs-on: ubuntu-latest
-    env:
-      # Job-level so that the Open VSX step's `if:` can see whether the token exists.
-      OVSX_PAT: ${{ secrets.OVSX_PAT }}
 
     steps:
       - uses: actions/checkout@v4
@@ -76,7 +74,9 @@ jobs:
           node "$GITHUB_WORKSPACE/tools/release/registries.mjs" unless npm "$VERSION" -- npm publish --access public
 
       - name: Open VSX Registry
-        if: ${{ env.OVSX_PAT != '' }}
+        if: ${{ vars.PUBLISH_OPEN_VSX == 'true' }}
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: node tools/release/registries.mjs unless open-vsx "$VERSION" -- npx --yes ovsx@1.2.0 publish "release/studium-${GITHUB_REF_NAME}.vsix"
 
       - name: Visual Studio Marketplace
