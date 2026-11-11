@@ -4,6 +4,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+## 0.6.0 — 2026-11-11
+
+This release makes Studium installable without a checkout of the repository: the MCP server as an npm package, a Claude Code plugin, an entry for the MCP Registry, and installation pages that start with the shortest route. It also finishes the documentation site. No tool changes the inputs it takes or what it returns; the server's command gains `--version` and `--help`.
+
 ### Added
 
 - **Install without a checkout.** The MCP server is prepared as the npm package `studium-mcp`: one file, no dependency, started by an assistant with `npx -y studium-mcp`. The package now carries a README written for its users (one line per assistant, where data lives), and the command answers `--version` and `--help` instead of waiting silently on stdin. Publication to npm needs the maintainers' token; until then the same file is attached to each release as `lesson-mcp.cjs`.
