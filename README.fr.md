@@ -13,25 +13,78 @@ Studium transforme des sources que vous jugez fiables en leçons adaptatives, à
 
 [eDIAM](https://ediam.cnrs.fr/) · Institut de Chimie de Nice · Université Côte d'Azur · CNRS · [HolobiomicsLab](https://holobiomicslab.cnrs.fr/)
 
-## Installer
+## Commencer ici
 
-Les trois voies les plus courtes ne demandent pas de clone. Le serveur est sur npm, l'extension sur le
-Visual Studio Marketplace et sur Open VSX. Le plugin Claude Code se lit dans ce dépôt : il demande d'y
-avoir accès tant que le dépôt est privé.
+Studium a deux parties. Savoir laquelle fait quoi évite de chercher :
+
+| Partie | Ce qu'elle fait | Ce qu'elle ne fait pas |
+|---|---|---|
+| **Votre assistant IA**, relié au serveur Studium | construit une leçon à partir des sources que vous indiquez, vous pose ses questions dans la conversation, ramène les idées les jours suivants | répondre à votre place |
+| **L'extension VS Code** | affiche une leçon dans un panneau, avec ses figures, ses équations et ses révisions | construire une leçon : sur une machine neuve, sa vue **Leçons** reste vide tant qu'un assistant n'en a pas construit une |
+
+Une nouvelle leçon commence donc toujours dans un assistant.
+
+### 1. Relier votre assistant
+
+Il vous faut Node 20 ou plus (`node --version`). Lancez une fois la ligne de votre assistant, puis
+redémarrez-le :
+
+| Assistant | Commande |
+|---|---|
+| Claude Code | `claude mcp add --scope user studium -e LITELLM_BASE_URL= -- npx -y studium-mcp` |
+| Codex | `codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp` |
+| Copilot dans VS Code, mode agent | `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
+
+Cursor, OpenCode et Claude Desktop, ainsi que le plugin Claude Code qui apporte aussi les skills, sont sur
+la page [Installation](docs/start/installation.fr.md). `LITELLM_BASE_URL=` (vide) empêche Studium
+d'appeler un modèle payant.
+
+### 2. Demander une leçon
+
+Dans une nouvelle conversation, avec vos mots :
+
+> Je veux apprendre comment fonctionne le cycle de l'eau avec Studium. Sers-toi de ces deux pages : (deux
+> liens en lesquels vous avez confiance).
+
+L'assistant construit une leçon à partir de vos sources, vous en montre le plan, puis pose la première
+question. Vous répondez ; il transmet vos mots. La leçon est enregistrée dans `~/.studium/library` et votre
+progression dans `~/.studium/data`. Chaque étape est décrite dans
+[Apprendre avec votre assistant](docs/learn/learn-with-your-assistant.fr.md).
+
+### 3. La jouer dans VS Code (facultatif)
 
 ```bash
-# Tout assistant MCP, avec Node 20 ou plus (ici Codex)
-codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp
-
-# Claude Code : le plugin apporte le serveur, les skills et les agents de leçon
-claude plugin install studium --marketplace HolobiomicsLab/studium
-
-# VS Code : l'extension et son panneau de leçon
 code --install-extension holobiomicslab.studium-vscode
 ```
 
-Les commandes pour chaque assistant, la voie depuis un clone pour les enseignants et les contributeurs, et
-le registre de chaque paquet sont sur la page [Installation](docs/start/installation.fr.md).
+Ouvrez l'icône **Studium** dans la barre d'activité : la leçon construite par votre assistant est dans la
+vue **Leçons** (utilisez son bouton de rafraîchissement si VS Code était déjà ouvert), sauf si vous avez
+choisi un autre dossier de leçons. Vous pouvez aussi demander à l'assistant d'ouvrir la leçon dans VS Code.
+Le panneau garde sa propre progression, distincte de celle de la conversation. Voir
+[VS Code](docs/start/vscode.fr.md#obtenir-votre-première-leçon).
+
+### Si vous êtes un assistant IA qui aide quelqu'un avec Studium
+
+Ces étapes sont écrites pour vous.
+
+1. Vérifiez Node : `node --version` doit afficher 20 ou plus.
+2. Déclarez le serveur avec la ligne de l'étape 1 qui correspond à votre harnais. Laissez
+   `LITELLM_BASE_URL` vide sauf si la personne demande un modèle juge : une valeur non vide est une route
+   payante.
+3. Après le redémarrage, prouvez la connexion en appelant `get_server_info` : il renvoie la version et la
+   liste des outils. Un fichier de configuration n'est pas une preuve.
+4. Appelez `get_study_plan` avec un `learner_id` stable et la langue de la personne. Son `next_step` nomme
+   l'appel suivant ; sans leçon, il vous envoie vers `get_authoring_guide`, puis `prepare_sources` et
+   `create_lesson`.
+5. L'apprenant répond et vous transmettez : ne répondez, ne choisissez et ne notez jamais à sa place, et ne
+   lisez pas le corrigé d'une leçon. Affichez chaque `display_markdown` tel quel.
+6. Une leçon que vous rédigez n'est pas approuvée par un enseignant : transmettez l'avis de son premier
+   écran.
+
+Le serveur répète ces règles dans ses propres instructions à la connexion. Détails :
+[Connecter votre assistant](docs/start/harnesses.fr.md), le skill
+[`studium-harness`](skills/studium-harness/SKILL.md) et les [outils MCP](docs/reference/mcp-tools.fr.md).
+Pour modifier le code de Studium, lisez plutôt [`AGENTS.md`](AGENTS.md).
 
 ## Choisir son parcours
 
@@ -53,9 +106,9 @@ un menu, une recherche, les deux langues et les thèmes clair et sombre, lisible
   </tr>
 </table>
 
-## Démarrage rapide
+## Depuis un clone, avec les leçons de démonstration
 
-Ce parcours part d'un clone et vous donne aussi les leçons de démonstration. Prévoyez un quart d'heure environ. Il vous faut git, Node 22 et pnpm 9. Python n'est pas nécessaire pour apprendre.
+Ce parcours est pour les enseignants et les contributeurs, et vous donne les leçons de démonstration. Prévoyez un quart d'heure environ. Il vous faut git, Node 22 et pnpm 9. Python n'est pas nécessaire pour apprendre.
 
 ```bash
 git clone https://github.com/HolobiomicsLab/studium.git

@@ -6,6 +6,7 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ### Changed
 
+- **The README starts with what to do, for a beginner and for an assistant.** "Start here" says which part does what (an assistant builds and plays a lesson; the VS Code extension shows one and does not build any), then three steps: connect your assistant, ask for a lesson, play it in VS Code. A section addressed to an AI assistant gives the six steps to help someone install and use Studium. The VS Code page gains "Get your first lesson", and `AGENTS.md` sends an agent asked to use Studium to that section. English and French.
 - **The installation pages say where the packages are.** Since 0.6.0 the server is on npm (`studium-mcp`) and in the MCP Registry (`io.github.HolobiomicsLab/studium`), and the extension on the Visual Studio Marketplace and Open VSX (`holobiomicslab.studium-vscode`). The section "If a package is not published yet" becomes "Where the packages are", in English and French; the release files remain the route for a machine that cannot reach a registry. The maintainers' release page gives the routes used for 0.6.0: the extension uploaded on the publisher's page, and the MCP Registry login with an organisation token.
 
 ## 0.6.0 — 2026-11-11

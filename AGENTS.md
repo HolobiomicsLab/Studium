@@ -5,6 +5,11 @@ conventions are in [`CLAUDE.md`](CLAUDE.md) (written in French) and apply whatev
 file name is an accident of tooling, not a scope. Read it before you write anything; this file does not
 replace it, it adds what changes when the harness is not Claude Code.
 
+**Asked to install or use Studium for someone, rather than to change its code?** This file is not for
+that: follow the section "If you are an AI assistant helping someone with Studium" of
+[`README.md`](README.md#if-you-are-an-ai-assistant-helping-someone-with-studium), then
+[`docs/start/harnesses.md`](docs/start/harnesses.md).
+
 The remote is `HolobiomicsLab/studium`; a local directory named `prototype-build` is the same repository
 under its historical name.
 
