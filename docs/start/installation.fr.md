@@ -40,22 +40,29 @@ L'extension embarque son propre serveur et ne demande pas de Node à part. Si `p
 `corepack enable` (fourni avec Node) ou le [guide d'installation de pnpm](https://pnpm.io/installation)
 l'installe. Sur un macOS d'origine, `python3` est souvent en 3.9, trop ancien pour les outils enseignant.
 
-## Si un paquet n'est pas encore publié
+## Où sont les paquets
 
-Le paquet npm `studium-mcp` et l'extension sur le Visual Studio Marketplace et sur Open VSX sont
-disponibles à partir de la première version publique qui les contient. D'ici là, une
-commande peut répondre que le paquet ou l'extension n'existe pas. Utilisez alors les fichiers joints à une
+Depuis la version 0.6.0, le serveur et l'extension sont sur des registres publics :
+
+| Quoi | Registre | Nom |
+|---|---|---|
+| Serveur MCP | [npm](https://www.npmjs.com/package/studium-mcp) | `studium-mcp` |
+| Serveur MCP, référencé pour les assistants | [MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.HolobiomicsLab/studium) | `io.github.HolobiomicsLab/studium` |
+| Extension VS Code | [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=holobiomicslab.studium-vscode) | `holobiomicslab.studium-vscode` |
+| Extension VS Code pour VSCodium, Cursor et Gitpod | [Open VSX](https://open-vsx.org/extension/holobiomicslab/studium-vscode) | `holobiomicslab.studium-vscode` |
+
+Le plugin Claude Code n'est sur aucun registre : Claude Code le lit dans ce dépôt, il s'installe donc dès
+que vous avez accès au dépôt. Il lance son serveur avec `npx -y studium-mcp`.
+
+Sur une machine qui ne peut joindre aucun registre, utilisez les deux fichiers joints à une
 [release GitHub](https://github.com/HolobiomicsLab/studium/releases) :
 
-- téléchargez `lesson-mcp.cjs` et lancez-le avec `node /path/to/lesson-mcp.cjs` partout où cette
-  documentation écrit `npx -y studium-mcp` ;
-- téléchargez `studium-vX.Y.Z.vsix` et installez-le avec `code --install-extension studium-vX.Y.Z.vsix`.
+- `lesson-mcp.cjs`, lancé avec `node /path/to/lesson-mcp.cjs` partout où cette documentation écrit
+  `npx -y studium-mcp` ;
+- `studium-vX.Y.Z.vsix`, installé avec `code --install-extension studium-vX.Y.Z.vsix`.
 
-Le plugin Claude Code n'est publié nulle part : Claude Code le lit dans ce dépôt, il s'installe donc dès
-que vous avez accès au dépôt. Il lance son serveur avec `npx -y studium-mcp` : il a donc besoin, lui
-aussi, du paquet npm. Sinon,
-[installez depuis un clone](#installer-depuis-un-clone). Tant que le dépôt est privé, le cloner et
-télécharger les fichiers d'une release demandent d'y avoir accès.
+Tant que le dépôt est privé, le cloner, installer le plugin et télécharger les fichiers d'une release
+demandent d'y avoir accès.
 
 ## Ajouter le serveur à votre assistant
 
@@ -97,8 +104,7 @@ retrait, sont dans [Connecter Claude Code](claude-code.fr.md#installer-le-plugin
 
 ## Installer l'extension VS Code
 
-Depuis le Visual Studio Marketplace ou Open VSX, une fois l'extension
-[publiée](#si-un-paquet-nest-pas-encore-publié) :
+Depuis le Visual Studio Marketplace ou Open VSX :
 
 ```bash
 code --install-extension holobiomicslab.studium-vscode

@@ -19,8 +19,8 @@ de l'une de deux façons :
 | Depuis un fichier | `node /path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs` | depuis un clone après `pnpm --filter studium-vscode build`, ou avec un `lesson-mcp.cjs` téléchargé depuis une release (avec son propre chemin) |
 
 Chaque page de client donne d'abord la forme `npx`, puis la forme clone. Remplacez `/path/to/studium` par
-le chemin absolu de votre clone. Si `npx` répond que le paquet n'existe pas, voir
-[Si un paquet n'est pas encore publié](installation.fr.md#si-un-paquet-nest-pas-encore-publié).
+le chemin absolu de votre clone. Si `npx` ne peut pas joindre npm, voir
+[Où sont les paquets](installation.fr.md#où-sont-les-paquets).
 
 Vous rencontrez d'abord deux variables d'environnement :
 

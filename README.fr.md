@@ -15,9 +15,9 @@ Studium transforme des sources que vous jugez fiables en leçons adaptatives, à
 
 ## Installer
 
-Les trois voies les plus courtes ne demandent pas de clone. Elles reposent sur des paquets publiés avec une
-version publique ; d'ici là, la page [Installation](docs/start/installation.fr.md#si-un-paquet-nest-pas-encore-publié)
-dit quoi utiliser à la place.
+Les trois voies les plus courtes ne demandent pas de clone. Le serveur est sur npm, l'extension sur le
+Visual Studio Marketplace et sur Open VSX. Le plugin Claude Code se lit dans ce dépôt : il demande d'y
+avoir accès tant que le dépôt est privé.
 
 ```bash
 # Tout assistant MCP, avec Node 20 ou plus (ici Codex)
@@ -31,7 +31,7 @@ code --install-extension holobiomicslab.studium-vscode
 ```
 
 Les commandes pour chaque assistant, la voie depuis un clone pour les enseignants et les contributeurs, et
-la marche à suivre tant qu'un paquet n'est pas publié sont sur la page [Installation](docs/start/installation.fr.md).
+le registre de chaque paquet sont sur la page [Installation](docs/start/installation.fr.md).
 
 ## Choisir son parcours
 

@@ -4,6 +4,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Changed
+
+- **The installation pages say where the packages are.** Since 0.6.0 the server is on npm (`studium-mcp`) and in the MCP Registry (`io.github.HolobiomicsLab/studium`), and the extension on the Visual Studio Marketplace and Open VSX (`holobiomicslab.studium-vscode`). The section "If a package is not published yet" becomes "Where the packages are", in English and French; the release files remain the route for a machine that cannot reach a registry. The maintainers' release page gives the routes used for 0.6.0: the extension uploaded on the publisher's page, and the MCP Registry login with an organisation token.
+
 ## 0.6.0 — 2026-11-11
 
 This release makes Studium installable without a checkout of the repository: the MCP server as an npm package, a Claude Code plugin, an entry for the MCP Registry, and installation pages that start with the shortest route. It also finishes the documentation site. No tool changes the inputs it takes or what it returns; the server's command gains `--version` and `--help`.
