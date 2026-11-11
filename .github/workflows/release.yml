@@ -35,16 +35,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Node (from .nvmrc, Node 22 LTS)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           registry-url: https://registry.npmjs.org
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v6
 
       # One version in every place, the tag equal to it, the tests of the extension and of the MCP
       # server, the VSIX and its contents check, the checksums and the npm package.
