@@ -100,6 +100,6 @@ son dossier de sortie ne doit pas exister. Aucun des deux ne vérifie la connexi
 panneau VS Code ni la qualité pédagogique d'un cours. Les suites de tests complètes sont décrites dans
 [Tests](../develop/testing.fr.md).
 
-Si le problème persiste, signalez l'étape, le résultat attendu, l'erreur réduite, la révision, votre
+Si le problème persiste, [signalez-le](report-and-contribute.fr.md) : l'étape, le résultat attendu, l'erreur réduite, la révision, votre
 plateforme et une reproduction minimale. Ne publiez pas un dossier de données entier, et ne contournez ni
 une vérification ni une protection pour obtenir un voyant vert.

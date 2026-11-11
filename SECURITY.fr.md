@@ -16,7 +16,7 @@ Si le signalement privé ne vous est pas accessible, ouvrez une issue qui demand
 
 ## Versions prises en charge
 
-Studium est un prototype de recherche en version 0.1.0, sans version publiée à ce jour. Les corrections arrivent sur la branche `dev`, puis sur `main`. Les révisions antérieures ne sont pas corrigées.
+Studium est un prototype de recherche, dans ses versions 0.x. Les corrections arrivent sur la branche `dev`, puis sur `main`, et dans la version suivante. Les versions et révisions antérieures ne sont pas corrigées.
 
 ## Ce à quoi Studium fait confiance, ou non
 

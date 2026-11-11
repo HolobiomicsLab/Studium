@@ -100,4 +100,4 @@ If you use Studium in research, cite it with the metadata in [`CITATION.cff`](CI
 
 ## Contributing and security
 
-[Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) · [Security policy](SECURITY.md) · [Testing Studium](TESTING.md) · [Changelog](CHANGELOG.md)
+[Report a problem or contribute](docs/start/report-and-contribute.md) · [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) · [Security policy](SECURITY.md) · [Testing Studium](TESTING.md) · [Changelog](CHANGELOG.md)
