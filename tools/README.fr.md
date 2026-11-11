@@ -83,6 +83,18 @@ contient les entrées de test du lint et des rapports.
 | `.venv/bin/python tools/bake_demo_fresh.py`, `tools/build_capsule_judgment_demo.py` | reconstruire des bundles de démonstration |
 | `.venv/bin/python tools/memory_cli.py` | ajouter des entrées et décisions à la mémoire d'agent dans `.memory/` |
 
+## Versions
+
+| Commande | Rôle |
+|---|---|
+| `node tools/release/version.mjs --check` / `X.Y.Z` | contrôler que chaque endroit porte la version du produit, ou en écrire une nouvelle partout et ouvrir sa section du changelog |
+| `tools/release/build.sh <dossier>` | construire et tester les fichiers d'une version (VSIX, serveur MCP, empreintes, paquet npm) ; `--untagged` pour un essai de l'arbre de travail |
+| `node tools/release/registries.mjs status [version]` | dire si une version est sur npm, le MCP Registry, le Marketplace et Open VSX ; lecture seule |
+| `tools/release/send.sh <dossier>` | le mainteneur envoie une version construite aux registres, une question par registre ; `--plan` n'envoie rien |
+| `node --test tools/release/*.test.mjs`, `bash tools/release/send.test.sh` | tests de ces outils ; sans réseau, rien n'est envoyé |
+
+Voir [Publication](../docs/develop/release.fr.md).
+
 ## Voir aussi
 
 - [Créer une leçon](../docs/teach/author-a-lesson.fr.md)

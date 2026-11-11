@@ -6,6 +6,37 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-11 — fiche de l'extension sur les registres, outils de publication
+
+Mot du propriétaire : « on peut avancer pour readme et automatisation des prochaines versions ». Branche
+`chore/2026-11-11-listing-readme-release-tools`, depuis `dev` (`e1b4a12`).
+
+Fiche. Jusqu'à la 0.6.0, le Marketplace et Open VSX montraient le README des développeurs, avec des
+commandes `pnpm` et des liens relatifs que `vsce` réécrivait vers un dépôt privé. Nouvelle page
+`apps/studium-vscode/MARKETPLACE.md`, anglais puis français, sans lien relatif ni image (aucune adresse
+`https` publique tant que le dépôt est privé) ; `package` la donne à `vsce` (`--readme-path`), les README
+des développeurs sortent du VSIX (102 fichiers au lieu de 103). Test d'abord : onze assertions de plus dans
+`contributes.driver.ts`, vues échouer puis passer ; `check-vsix.sh` refuse un VSIX dont la page est le
+README des développeurs (vérifié : il refuse le VSIX de la 0.6.0 et accepte le nouveau). La fiche de la
+0.6.0 ne change pas : il faut une nouvelle version de l'extension.
+
+Outils (`tools/release/`). `version.mjs` écrit ou contrôle la version aux treize endroits et ouvre la
+section du changelog ; `registries.mjs` lit l'état des quatre registres (`status`, `has`, `wait`,
+`unless`) ; `build.sh` reprend les étapes de `release.yml` pour un portable et pour le workflow ; `send.sh`
+envoie depuis la machine du mainteneur, une question par registre. Tests écrits avant le code pour
+`version.mjs` et `registries.mjs` (14 tests `node --test`, sans réseau) ; `send.test.sh` (34 assertions)
+remplace `npm`, `npx` et `mcp-publisher` par des doublures et a été éprouvé par deux défauts plantés
+(jeton sur la ligne de commande, registre muet lu comme absent), tous deux détectés. `release.yml` passe à
+l'OIDC pour npm, le Marketplace et le MCP Registry, gagne l'étape du MCP Registry, et s'active par
+variable de dépôt.
+
+Vérifié sur cette machine : `build.sh --untagged` de bout en bout (23 pilotes de l'extension, 217 tests
+du serveur, VSIX contrôlé) ; `registries.mjs status 0.6.0` répond « publié » pour les quatre registres ;
+`send.sh --plan` sur les fichiers de la 0.6.0 saute les quatre. Non vérifié : aucun envoi réel par
+`send.sh` (comptes du propriétaire) ; `release.yml` n'a pas tourné (pas de budget Actions) et aucune des
+trois voies OIDC n'a été essayée, elles viennent de la documentation des registres ; le chemin étiqueté
+de `build.sh` n'a été éprouvé que par ses refus.
+
 ## 2026-11-11 — page « Choisir son modèle »
 
 Question du propriétaire : comment utiliser Studium avec un modèle local, ou avec un modèle d'un

@@ -1,36 +1,40 @@
 name: Release
 
-# ENG-06 / ENG-07. Pushing a tag `vX.Y.Z` builds the VSIX and the self-contained MCP server, attaches
-# both to a GitHub Release (draft: the owner publishes it), and publishes to each registry whose token
-# is configured as a repository secret. A publish step is skipped when its secret is absent, so a tag
-# never fails for want of a token:
+# ENG-06 / ENG-07. Pushing a tag `vX.Y.Z` builds the VSIX and the self-contained MCP server
+# (tools/release/build.sh, the same script a maintainer runs on a laptop), attaches both to a GitHub
+# Release (draft: the owner publishes it), and sends them to each registry that is switched on.
 #
-#   VSCE_PAT   Visual Studio Marketplace, publisher "holobiomicslab" (vsce)
-#   OVSX_PAT   Open VSX Registry, namespace "holobiomicslab" (ovsx)
-#   NPM_TOKEN  npm, package "studium-mcp": the bundled MCP server, no runtime dependency
+# No long-lived token for npm, the Marketplace or the MCP Registry: the job proves who it is with
+# GitHub's OIDC token, and each registry was told once to trust this repository and this workflow file
+# (docs/develop/release.md, "Set up the automation once"). A registry is switched on by a repository
+# variable, since there is no secret whose presence could be tested:
 #
-#   git tag v0.2.0 && git push origin v0.2.0
+#   vars.PUBLISH_NPM = true            npm, package "studium-mcp" (trusted publisher)
+#   vars.PUBLISH_MARKETPLACE = true    Visual Studio Marketplace, publisher "holobiomicslab" (trusted publishing)
+#   vars.PUBLISH_MCP_REGISTRY = true   MCP Registry, "io.github.HolobiomicsLab/studium" (github-oidc)
+#   secrets.OVSX_PAT                   Open VSX Registry, namespace "holobiomicslab": a token, Open VSX has no OIDC route
 #
-# The tag must equal the version in apps/studium-vscode/package.json, so a release cannot carry a
-# VSIX that calls itself another version.
+# A step whose switch is off is skipped, so a tag never fails for want of a registry. A step whose
+# registry already has the version is skipped too (tools/release/registries.mjs), so a failed run can
+# be started again: a registry refuses a version it already has.
+#
+# Do not rename this file without updating the three registries: they trust "release.yml" by name.
 
 on:
   push:
     tags: ["v*.*.*"]
 
 permissions:
-  contents: write # create the release and upload assets
-  id-token: write # npm provenance attestation
+  contents: write # create the draft release and upload its files
+  id-token: write # the OIDC token that npm, the Marketplace and the MCP Registry exchange
 
 jobs:
   release:
-    name: Build and attach VSIX + lesson-mcp.cjs
+    name: Build, draft release, registries
     runs-on: ubuntu-latest
-    # Job-level so that each registry step's `if:` can see whether its token exists.
     env:
-      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      # Job-level so that the Open VSX step's `if:` can see whether the token exists.
       OVSX_PAT: ${{ secrets.OVSX_PAT }}
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -39,71 +43,54 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
 
-      - name: Tag matches the extension version
+      # One version in every place, the tag equal to it, the tests of the extension and of the MCP
+      # server, the VSIX and its contents check, the checksums and the npm package.
+      - name: Build the release files
         run: |
-          want="${GITHUB_REF_NAME#v}"
-          have="$(node -p "require('./apps/studium-vscode/package.json').version")"
-          if [ "$want" != "$have" ]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match apps/studium-vscode/package.json version ${have}" >&2
-            exit 1
-          fi
-
-      - name: Install Node dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build workspace libraries
-        run: pnpm build:libs
-
-      # The extension's drivers read the panel renderer from apps/lesson-panel-ui/dist, which
-      # build:libs (packages only) does not produce. Without it a fresh runner fails at
-      # context-help.driver.ts.
-      - name: Build the lesson panel renderer
-        run: pnpm --filter @studium/lesson-panel-ui build
-
-      - name: Test the extension and the MCP server
-        run: |
-          pnpm --filter studium-vscode test
-          pnpm --filter @studium/lesson-mcp test
-
-      - name: Vendor the pane's viewer libraries
-        run: pnpm --filter studium-vscode vendor
-
-      - name: Package the VSIX
-        run: pnpm --filter studium-vscode package
-
-      - name: Check the VSIX contents
-        run: .github/scripts/check-vsix.sh apps/studium-vscode/*.vsix
-
-      - name: Stage release assets
-        run: |
-          mkdir -p release
-          cp apps/studium-vscode/*.vsix "release/studium-${GITHUB_REF_NAME}.vsix"
-          cp apps/studium-vscode/dist/lesson-mcp.cjs release/lesson-mcp.cjs
-          (cd release && sha256sum * > SHA256SUMS.txt)
-
-      - name: Stage the npm package studium-mcp (bundled server, no dependencies)
-        run: node .github/scripts/stage-npm-mcp.mjs "${GITHUB_REF_NAME#v}" npm-stage
+          tools/release/build.sh release --tag "$GITHUB_REF_NAME"
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
 
       - name: Create the draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" release/* --draft --generate-notes --title "Studium ${GITHUB_REF_NAME}"
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "The release $GITHUB_REF_NAME exists already; its files are left as they are."
+          else
+            gh release create "$GITHUB_REF_NAME" "release/studium-${GITHUB_REF_NAME}.vsix" release/lesson-mcp.cjs release/SHA256SUMS.txt \
+              --draft --generate-notes --title "Studium ${GITHUB_REF_NAME}"
+          fi
 
-      # Registry steps: each runs only when its token secret exists (see the header).
-      - name: Visual Studio Marketplace
-        if: ${{ env.VSCE_PAT != '' }}
-        run: pnpm --filter studium-vscode exec vsce publish --packagePath "$GITHUB_WORKSPACE/release/studium-${GITHUB_REF_NAME}.vsix"
+      # npm trusted publishing needs npm 11.5.1 or later; Node 22 ships npm 10. No token: npm exchanges
+      # the job's OIDC token. A provenance attestation is added when the repository is public.
+      - name: npm (studium-mcp)
+        if: ${{ vars.PUBLISH_NPM == 'true' }}
+        run: |
+          npm install --global npm@11
+          cd release/npm-stage
+          node "$GITHUB_WORKSPACE/tools/release/registries.mjs" unless npm "$VERSION" -- npm publish --access public
 
       - name: Open VSX Registry
         if: ${{ env.OVSX_PAT != '' }}
-        run: npx --yes ovsx@1.2.0 publish "release/studium-${GITHUB_REF_NAME}.vsix" -p "$OVSX_PAT"
+        run: node tools/release/registries.mjs unless open-vsx "$VERSION" -- npx --yes ovsx@1.2.0 publish "release/studium-${GITHUB_REF_NAME}.vsix"
 
-      - name: npm (studium-mcp)
-        if: ${{ env.NPM_TOKEN != '' }}
+      - name: Visual Studio Marketplace
+        if: ${{ vars.PUBLISH_MARKETPLACE == 'true' }}
         run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-          (cd npm-stage && npm publish --access public --provenance)
+          node tools/release/registries.mjs unless marketplace "$VERSION" -- \
+            pnpm --filter studium-vscode exec vsce publish --oidc --packagePath "$GITHUB_WORKSPACE/release/studium-${GITHUB_REF_NAME}.vsix"
+
+      # Last: the registry checks that the npm package of this version exists and claims the server's
+      # name (`mcpName`). It reads server.json at the root of the checkout.
+      - name: MCP Registry
+        if: ${{ vars.PUBLISH_MCP_REGISTRY == 'true' }}
+        run: |
+          node tools/release/registries.mjs wait npm "$VERSION" --minutes 10
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          node tools/release/registries.mjs unless mcp-registry "$VERSION" -- \
+            sh -c './mcp-publisher login github-oidc && ./mcp-publisher publish'

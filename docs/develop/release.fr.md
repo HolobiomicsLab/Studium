@@ -2,44 +2,67 @@
 
 # Publication
 
-Une version de Studium est une étiquette Git `vX.Y.Z` qui construit deux fichiers et les joint à une
-release GitHub en brouillon : l'extension VS Code (`.vsix`) et le serveur MCP autonome (`lesson-mcp.cjs`).
-Cette page explique la numérotation, d'où viennent ces fichiers entre deux versions, et comment en publier
-une.
+Une version de Studium est une étiquette Git `vX.Y.Z`, deux fichiers construits à partir d'elle
+(l'extension VS Code et le serveur MCP autonome) et le même numéro sur quatre registres. Cette page explique
+la numérotation, d'où viennent ces fichiers entre deux versions, comment publier une version, et comment
+l'envoyer depuis un portable quand le workflow ne peut pas tourner.
 
 ## Contenu d'une version
 
-| Fichier | Ce que c'est | Construit par |
+[`tools/release/build.sh`](../../tools/release/build.sh) construit les mêmes fichiers sur un portable et
+dans le workflow de publication :
+
+| Fichier | Ce que c'est |
+|---|---|
+| `studium-vX.Y.Z.vsix` | l'extension VS Code, avec le serveur MCP, les bibliothèques des viewers et l'interface française et anglaise |
+| `lesson-mcp.cjs` | le serveur MCP en un seul fichier Node autonome, celui que le VSIX embarque |
+| `SHA256SUMS.txt` | empreintes des deux fichiers |
+| `npm-stage/` | le paquet npm `studium-mcp` : le même serveur sans dépendance d'exécution, préparé par [`stage-npm-mcp.mjs`](../../.github/scripts/stage-npm-mcp.mjs) |
+
+Chaque fichier porte la licence du dépôt : Apache 2.0, avec `LICENSE` et `NOTICE` dans le VSIX et dans le
+paquet npm.
+
+## Où va une version
+
+| Registre | Ce qu'il reçoit | Ce que l'on lance ensuite |
 |---|---|---|
-| `studium-vX.Y.Z.vsix` | l'extension VS Code, avec le serveur MCP, les bibliothèques des viewers et l'interface française et anglaise | `pnpm --filter studium-vscode package` |
-| `lesson-mcp.cjs` | le serveur MCP en un seul fichier Node autonome, pour tout assistant | `apps/studium-vscode/dist/lesson-mcp.cjs`, le même fichier que celui embarqué dans le VSIX |
-| `SHA256SUMS.txt` | empreintes des deux fichiers | le workflow de publication |
+| npm, paquet `studium-mcp` | `npm-stage/` | `npx -y studium-mcp` |
+| MCP Registry, `io.github.HolobiomicsLab/studium` | [`server.json`](../../server.json), qui renvoie au paquet npm | trouvé par les clients MCP qui lisent le registre |
+| Visual Studio Marketplace, `holobiomicslab.studium-vscode` | le VSIX | `code --install-extension holobiomicslab.studium-vscode` |
+| Open VSX, `holobiomicslab.studium-vscode` (VSCodium, Cursor, Gitpod) | le VSIX | la même commande, dans ces éditeurs |
 
-Le même workflow publie sur chaque registre dont le jeton est un secret du dépôt, et saute les autres :
+Une version déposée sur un registre ne se remplace pas : une erreur se corrige par la version corrective
+suivante. Pour voir où se trouve une version, sans rien envoyer :
 
-| Secret | Registre | Ce qu'il reçoit |
-|---|---|---|
-| `VSCE_PAT` | Visual Studio Marketplace, éditeur `holobiomicslab` | le VSIX |
-| `OVSX_PAT` | Open VSX Registry, espace `holobiomicslab` (VSCodium, Cursor, Gitpod) | le VSIX |
-| `NPM_TOKEN` | npm, paquet `studium-mcp` | le fichier du serveur, préparé par [`.github/scripts/stage-npm-mcp.mjs`](../../.github/scripts/stage-npm-mcp.mjs) sans dépendance d'exécution et avec une attestation de provenance |
+```bash
+node tools/release/registries.mjs status          # la version de ce clone
+node tools/release/registries.mjs status 0.6.0
+```
 
-Avec `studium-mcp` sur npm, un assistant lance le serveur par `npx -y studium-mcp`. Chaque fichier porte la
-licence du dépôt : Apache 2.0, avec `LICENSE` et `NOTICE` dans le VSIX et dans le paquet npm.
+**La page que montre chaque registre.** Le Marketplace et Open VSX montrent
+[`apps/studium-vscode/MARKETPLACE.md`](../../apps/studium-vscode/MARKETPLACE.md), écrite pour la personne
+qui installe l'extension, en anglais puis en français ; le README des développeurs reste hors du VSIX. npm
+montre [`apps/lesson-mcp/README.npm.md`](../../apps/lesson-mcp/README.npm.md). Une page de registre ne peut
+pas suivre un lien relatif, et n'affiche une image que depuis une adresse `https` publique : la fiche n'a ni
+l'un ni l'autre, et `pnpm --filter studium-vscode test` échoue s'il en arrive un.
 
 ## Numérotation
 
-- **Une seule version du produit.** La version publiée est le champ `version` de
-  [`apps/studium-vscode/package.json`](../../apps/studium-vscode/package.json). Le workflow refuse une
-  étiquette qui ne lui correspond pas.
-- **Gardez tous les manifestes au même numéro.** Le serveur annonce aux clients MCP le `version` de
-  [`apps/lesson-mcp/package.json`](../../apps/lesson-mcp/package.json), et `get_server_info` y ajoute
-  l'origine, la date et le commit de construction. La même version du produit est inscrite dans
-  [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json) et dans [`server.json`](../../server.json),
-  deux fois dans ce dernier : le `version` de l'entrée et celui du paquet npm.
-  [`apps/lesson-mcp/src/distribution.test.ts`](../../apps/lesson-mcp/src/distribution.test.ts) échoue quand
-  l'extension, le plugin ou `server.json` diffère de la version du serveur.
+- **Une seule version du produit**, le champ `version` de
+  [`apps/studium-vscode/package.json`](../../apps/studium-vscode/package.json). Elle est écrite à treize
+  endroits : les manifestes de l'extension, du serveur MCP et du panneau, les deux entrées du panneau,
+  [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json), `server.json` (deux fois),
+  `CITATION.cff`, les deux README, le formulaire de signalement et un outil de développement.
+  [`tools/release/version.mjs`](../../tools/release/version.mjs) les écrit tous et les contrôle :
+
+  ```bash
+  node tools/release/version.mjs --check     # chaque endroit porte la même version
+  node tools/release/version.mjs 0.6.1       # écrit 0.6.1 partout, à la date du jour
+  ```
+
+  La construction refuse un arbre qui échoue au contrôle, ou une étiquette qui n'est pas cette version.
 - **Versionnage sémantique, en 0.x pour l'instant.** Tant que la version commence par `0.`, une version
-  mineure peut changer les entrées ou sorties d'un outil ; dites-le dans le changelog. Un correctif répare
+  mineure peut changer les entrées ou sorties d'un outil ; dites-le dans le changelog. Un correctif répare
   un comportement sans changer de contrat.
 - **Les autres paquets de l'espace de travail** sont privés et jamais publiés. Leur champ `version` ne suit
   pas celui du produit.
@@ -51,133 +74,109 @@ licence du dépôt : Apache 2.0, avec `LICENSE` et `NOTICE` dans le VSIX et dan
 
 [CHANGELOG.md](../../CHANGELOG.md), à la racine, consigne ce qui change pour les utilisateurs. Ajoutez votre
 entrée sous **Unreleased** dans la même pull request que la modification, pour la personne qui installe
-Studium et non pour le relecteur. À la publication, le titre Unreleased devient le numéro de version.
+Studium et non pour le relecteur. `version.mjs` fait des entrées Unreleased la section de la nouvelle
+version, et refuse de publier une section vide.
 
 ## Constructions entre deux versions
 
 Chaque push lance le job **VSIX + standalone MCP server** de [`ci.yml`](../../.github/workflows/ci.yml). Il
 empaquette l'extension, contrôle le contenu du paquet avec
 [`.github/scripts/check-vsix.sh`](../../.github/scripts/check-vsix.sh), démarre `lesson-mcp.cjs` en stdio et
-dépose les deux fichiers comme artefact de workflow `studium-vsix`. Téléchargez-le depuis la page de
-l'exécution dans GitHub Actions, ou :
+dépose les deux fichiers comme artefact de workflow `studium-vsix` (`gh run download <run-id> --name
+studium-vsix`). Pour construire les fichiers de version de votre arbre de travail, sans étiquette :
 
 ```bash
-gh run download <run-id> --name studium-vsix
+tools/release/build.sh /tmp/studium-trial --untagged
+code --install-extension /tmp/studium-trial/studium-v*.vsix
 ```
 
-Pour construire les mêmes fichiers en local :
-
-```bash
-pnpm install
-pnpm build:libs
-pnpm --filter studium-vscode package                  # écrit apps/studium-vscode/studium.vsix
-.github/scripts/check-vsix.sh apps/studium-vscode/studium.vsix
-pnpm --filter @studium/lesson-mcp bundle              # écrit apps/lesson-mcp/dist/studium-mcp.cjs
-```
-
-`package` copie les bibliothèques des viewers, construit `dist/extension.js` et `dist/lesson-mcp.cjs`, puis
-lance `vsce`. Le contrôle refuse un paquet sans serveur embarqué, sans les fichiers KaTeX, marked et 3Dmol,
-ou sans les fichiers d'interface `package.nls*.json`, ainsi qu'un paquet qui contient des sources ou
-`node_modules`. Le script `bundle` de `lesson-mcp` construit le même serveur sous un autre nom, pour un
-usage hors de l'extension.
-
-Pour installer un VSIX dans VS Code :
-
-```bash
-code --install-extension apps/studium-vscode/studium.vsix
-```
+Le contrôle refuse un paquet sans serveur embarqué, sans les fichiers KaTeX, marked et 3Dmol ou sans les
+fichiers d'interface `package.nls*.json`, un paquet qui contient des sources ou `node_modules`, et un paquet
+dont la page de registre est le README des développeurs.
 
 ## Publier une version
 
-Pousser une étiquette relève du propriétaire ; agents et contributeurs préparent la version sans
+Pousser une étiquette relève du propriétaire ; agents et contributeurs préparent la version sans
 l'étiqueter.
 
-1. Vérifiez que la CI est verte sur le commit à étiqueter (voir [tests](testing.fr.md)).
-2. Inscrivez la même nouvelle version dans `apps/studium-vscode/package.json`,
-   `apps/lesson-mcp/package.json`, `.claude-plugin/plugin.json` et `server.json` (deux endroits).
-3. Renommez **Unreleased** dans `CHANGELOG.md` en ce numéro, puis fusionnez.
-4. Étiquetez et poussez :
+1. Sur `dev`, avec les tests verts sur le commit (voir [tests](testing.fr.md)), écrivez la version :
 
    ```bash
-   git tag vX.Y.Z
+   node tools/release/version.mjs X.Y.Z
+   ```
+
+   Relisez la nouvelle section de `CHANGELOG.md`, ajoutez une phrase qui résume la version, et fusionnez
+   jusqu'à `main`.
+2. Étiquetez le commit sur `main` et poussez l'étiquette :
+
+   ```bash
+   git tag -a vX.Y.Z -m "Studium X.Y.Z"
    git push origin vX.Y.Z
    ```
 
-5. [`release.yml`](../../.github/workflows/release.yml) vérifie que l'étiquette correspond à la version de
-   l'extension, lance les tests de l'extension et du serveur MCP, empaquette et contrôle le VSIX, puis crée
-   une release en **brouillon** avec les trois fichiers et des notes générées, puis publie sur chaque
-   registre dont le jeton est configuré.
-6. Relisez le brouillon, remplacez au besoin les notes générées par la section du changelog, et publiez.
-   Une version déposée sur un registre ne se remplace pas : une erreur se corrige par la version corrective
-   suivante.
+3. [`release.yml`](../../.github/workflows/release.yml) lance `build.sh` (une seule version partout,
+   l'étiquette égale à elle, les tests de l'extension et du serveur MCP, le VSIX et son contrôle), crée une
+   release GitHub en **brouillon** avec les trois fichiers, puis envoie à chaque registre activé. Un
+   registre qui a déjà la version est sauté : une exécution en échec peut donc être relancée.
+4. Relisez le brouillon, remplacez au besoin les notes générées par la section du changelog, et publiez.
 
-Un workflow en échec ne laisse aucune release. Corrigez la cause et publiez la version corrective suivante
-plutôt que de déplacer une étiquette publiée.
+Quand le workflow ne peut pas tourner, les étapes 3 et 4 se font depuis un portable (section suivante). Un
+workflow en échec ne laisse aucune release ; corrigez la cause et relancez-le, ou publiez la version
+corrective suivante plutôt que de déplacer une étiquette publiée.
 
-## Publier à la main
+## Envoyer depuis votre machine
 
-Quand le workflow de publication ne peut pas tourner, le mainteneur peut publier une version étiquetée
-depuis sa propre machine. Les jetons ne vont jamais dans le dépôt, ni sur une ligne de commande gardée dans
-l'historique du shell : tapez chacun à l'invite d'un `read -rs`, comme ci-dessous, et fermez le shell
-ensuite.
+Depuis un clone placé sur le commit étiqueté :
 
-1. Construisez le serveur et préparez le paquet npm, depuis la racine du dépôt, sur le commit étiqueté :
+```bash
+tools/release/build.sh ~/studium-release-X.Y.Z      # construit et teste ; n'envoie rien
+tools/release/send.sh ~/studium-release-X.Y.Z --plan  # ce qui serait envoyé ; ne demande rien
+tools/release/send.sh ~/studium-release-X.Y.Z       # demande avant chaque registre
+```
 
-   ```bash
-   pnpm install --frozen-lockfile
-   pnpm build:libs
-   pnpm --filter studium-vscode build
-   node .github/scripts/stage-npm-mcp.mjs X.Y.Z npm-stage
-   ```
+`send.sh` contrôle les fichiers contre leurs empreintes, saute un registre qui a déjà la version (on peut
+donc le relancer après un échec) et un registre qui ne répond pas. Les comptes et les jetons sont ceux du
+mainteneur ; aucun n'est lu dans un fichier ni écrit quelque part :
 
-2. Vérifiez ce que contiendra le paquet (`studium-mcp.cjs`, `LICENSE`, `NOTICE`, `README.md`,
-   `package.json`) :
+| Registre | Ce qu'il faut au script |
+|---|---|
+| npm | votre propre `npm login` ; npm demande votre second facteur dans un navigateur. Pas d'attestation de provenance depuis un portable |
+| Open VSX | `OVSX_PAT` dans l'environnement, ou tapé à une invite masquée |
+| Marketplace | rien : le script nomme le fichier à déposer sur la [page de l'éditeur](https://marketplace.visualstudio.com/manage/publishers/holobiomicslab). Les jetons qu'utilisait `vsce publish` sont retirés le 1er décembre 2026 ([guide de publication de VS Code](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)) |
+| MCP Registry | `mcp-publisher` installé, et `GH_ORG_TOKEN` dans l'environnement ou tapé à une invite masquée : un jeton GitHub « fine-grained » dont le propriétaire de ressource est l'organisation, avec la permission d'organisation Members en lecture seule et aucune permission de dépôt. Le nom `io.github.HolobiomicsLab/…` n'est accordé qu'à un propriétaire (Owner) de l'organisation |
 
-   ```bash
-   (cd npm-stage && npm pack --dry-run)
-   ```
+Pour la 0.6.0, Open VSX a montré la version après environ trois minutes et la validation du Marketplace a
+pris moins de vingt-cinq. Joignez les trois fichiers à une release GitHub à la main si vous en voulez une.
 
-3. Publiez-le. `npm publish` utilise le `npm login` du mainteneur ; un paquet publié depuis un portable ne
-   porte pas d'attestation de provenance, contrairement à celui que publie le workflow. npm demande le
-   second facteur du mainteneur dans un navigateur :
+## Régler l'automatisation une fois
 
-   ```bash
-   npm login
-   (cd npm-stage && npm publish)
-   ```
+Le workflow n'utilise aucun jeton durable pour npm, le Marketplace ou le MCP Registry : on dit une fois à
+chaque registre de faire confiance à ce dépôt et au fichier de workflow `release.yml`, et le job prouve son
+identité avec le jeton OIDC de GitHub. Il faut pour cela que GitHub Actions tourne pour le dépôt : le dépôt
+privé d'une organisation sans budget Actions ne le peut pas (ses workflows s'arrêtent aussitôt), un dépôt
+public le peut.
 
-4. Publiez le VSIX de la version (`studium-vX.Y.Z.vsix`, pris sur la page de la release ou construit par
-   `pnpm --filter studium-vscode package`). Sur le Visual Studio Marketplace, déposez le fichier sur la
-   [page de l'éditeur](https://marketplace.visualstudio.com/manage/publishers/holobiomicslab) : aucun
-   jeton n'est nécessaire. Les jetons d'accès personnels qu'utilisait `vsce publish` sont retirés le
-   1er décembre 2026, d'après le [guide de publication de VS Code](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
-   Sur Open VSX, `ovsx` lit `OVSX_PAT` dans l'environnement :
+| Registre | Ce que le propriétaire fait une fois | Interrupteur |
+|---|---|---|
+| npm | sur npmjs.com, paquet `studium-mcp`, **Settings**, **Trusted Publisher**, GitHub Actions : organisation `HolobiomicsLab`, dépôt `studium`, workflow `release.yml`, pas d'environnement ; autoriser `npm publish` | variable du dépôt `PUBLISH_NPM` = `true` |
+| Marketplace | sur la page de l'éditeur, **Trusted Publishing**, **Create** : propriétaire du dépôt `HolobiomicsLab`, dépôt `studium`, workflow `release.yml`, pas d'environnement. Pour un dépôt privé, le workflow doit tourner dans les 48 heures qui suivent la création de la règle | `PUBLISH_MARKETPLACE` = `true` |
+| MCP Registry | rien : un job de ce dépôt reçoit `io.github.HolobiomicsLab/*` | `PUBLISH_MCP_REGISTRY` = `true` |
+| Open VSX | le secret `OVSX_PAT` (Open VSX n'a pas de voie OIDC) | le secret lui-même |
 
-   ```bash
-   read -rs OVSX_PAT && export OVSX_PAT
-   npx --yes ovsx@1.2.0 publish studium-vX.Y.Z.vsix
-   ```
+```bash
+gh variable set PUBLISH_NPM --body true --repo HolobiomicsLab/studium
+```
 
-   Aucun des deux n'affiche une version tout de suite : pour la 0.6.0, Open VSX a mis environ trois
-   minutes et la validation du Marketplace moins de vingt-cinq.
+npm ne contrôle pas un éditeur de confiance à l'enregistrement, seulement à la première publication ; il
+ajoute une attestation de provenance quand le dépôt est public. Ces voies viennent de la documentation des
+registres ([npm](https://docs.npmjs.com/trusted-publishers),
+[Marketplace](https://code.visualstudio.com/api/working-with-extensions/publishing-extension),
+[MCP Registry](https://modelcontextprotocol.io/registry/github-actions)) ; aucune n'a encore tourné pour
+Studium.
 
-5. Inscrivez le serveur au MCP Registry, une fois le paquet npm publié (son manifeste porte `mcpName`, que
-   le registre vérifie). Depuis la racine du dépôt, `mcp-publisher` lit `server.json`. Connectez-vous et
-   publiez en une ligne : la session du registre dure quelques minutes.
-
-   ```bash
-   read -rs GH_ORG_TOKEN
-   mcp-publisher login github --token "$GH_ORG_TOKEN" && mcp-publisher publish
-   ```
-
-   Le nom `io.github.HolobiomicsLab/…` n'est accordé qu'à un propriétaire (Owner) de l'organisation, et
-   seulement par un jeton : `mcp-publisher login github` seul n'accorde que le nom personnel. Utilisez un
-   jeton « fine-grained » dont le propriétaire de ressource est l'organisation, avec la permission
-   d'organisation Members en lecture seule et aucune permission de dépôt.
-
-Le plugin Claude Code ne demande aucune étape de publication. Claude Code lit le marketplace et le plugin
-sur la branche par défaut du dépôt : une version atteint les utilisateurs une fois fusionnée sur cette
-branche. Il fonctionne pour les personnes extérieures à l'organisation dès que le dépôt est public.
+Le plugin Claude Code ne demande aucune étape : Claude Code lit le plugin sur la branche par défaut du
+dépôt, donc une version atteint les utilisateurs une fois fusionnée sur cette branche, et les personnes
+extérieures à l'organisation dès que le dépôt est public.
 
 ## Limites
 

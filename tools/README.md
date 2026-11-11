@@ -81,6 +81,18 @@ inputs of the lint and report tools.
 | `.venv/bin/python tools/bake_demo_fresh.py`, `tools/build_capsule_judgment_demo.py` | rebuild demonstration bundles |
 | `.venv/bin/python tools/memory_cli.py` | append entries and decisions to the agent memory in `.memory/` |
 
+## Releases
+
+| Command | What it does |
+|---|---|
+| `node tools/release/version.mjs --check` / `X.Y.Z` | check that every place carries the product version, or write a new one everywhere and open its changelog section |
+| `tools/release/build.sh <out-dir>` | build and test the files of a release (VSIX, MCP server, checksums, npm package); `--untagged` for a trial of the working tree |
+| `node tools/release/registries.mjs status [version]` | say whether a version is on npm, the MCP Registry, the Marketplace and Open VSX; read-only |
+| `tools/release/send.sh <out-dir>` | the maintainer sends a built release to the registries, one question per registry; `--plan` sends nothing |
+| `node --test tools/release/*.test.mjs`, `bash tools/release/send.test.sh` | tests of these tools; no network, nothing sent |
+
+See [Release](../docs/develop/release.md).
+
 ## See also
 
 - [Author a lesson](../docs/teach/author-a-lesson.md)
