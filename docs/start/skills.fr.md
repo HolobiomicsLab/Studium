@@ -25,6 +25,7 @@ donne ses instructions à l'assistant, et les prompts `learn` et `review` lancen
 | `studium-visual-support` | examiner des photographies sources ou demander une image, une carte, un audio ou une vidéo adaptés, par votre assistant | « Prépare une aide visuelle avec un équivalent textuel. » |
 | `studium-learner-report` | exporter une trace d'activité ou un journal d'expérience enregistrés en rapport local | « Prépare mon rapport sans mes textes privés. » |
 | `studium-observatory` | lancer et lire l'Observatoire, la vue locale en lecture seule de ce que Studium a produit | « Montre-moi les décisions et les preuves derrière ce cours. » |
+| `studium-contribute` | signaler une difficulté avec Studium lui-même ou demander une fonction manquante : l'assistant rédige le texte, vous le publiez | « Aide-moi à signaler ce qui vient de se passer ; je le publierai moi-même. » |
 
 ## Les utiliser dans un clone
 
@@ -71,6 +72,6 @@ personne a appris. Une demande d'accueil n'autorise ni achat, ni diffusion aux �
 données ; les skills demandent avant ces étapes et reprennent les autorisations déjà données pour les étapes
 locales.
 
-Pages liées : [Templates d'activité](../teach/activity-templates.fr.md),
+Pages liées : [Signaler un problème ou contribuer](report-and-contribute.fr.md), [Templates d'activité](../teach/activity-templates.fr.md),
 [Médias et supports visuels](../teach/media-and-visual-support.fr.md),
 [Rapport de l'apprenant](../learn/learner-report.fr.md), [Observatoire](../teach/observatory.fr.md).

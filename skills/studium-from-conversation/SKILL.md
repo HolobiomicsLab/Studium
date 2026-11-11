@@ -52,7 +52,8 @@ The output's `sources` array goes to `prepare_sources` unchanged (each source ha
 `kind: "conversation"`). Its `turns` list maps each turn number to its role and time.
 
 **Without a file or a shell**, build the source yourself: copy the turns that matter exactly as
-written, each under a `[turn n · user]` or `[turn n · assistant]` line, and pass it with
+written, each under a `[turn n · user]` or `[turn n · assistant]` line (`[tour n · utilisateur]`,
+`[tour n · assistant]` in French, as the tool writes them), and pass it with
 `kind: "conversation"`. If you only hold a summary of the early part, say so to the learner and
 limit the lesson to the turns you can copy.
 

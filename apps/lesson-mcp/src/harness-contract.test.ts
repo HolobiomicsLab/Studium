@@ -10,15 +10,18 @@
 //   L-8, H3      get_next_reinforcement counts the reviews to relearn and the unmeasured ones;
 //   L-13         forget_session takes a session_id or a learner_id, and says what it erased and kept;
 //   RFR-14       an unknown session says which call resumes it;
-//   RFR-13       get_server_info names the time zone every date is computed in.
+//   RFR-13       get_server_info names the time zone every date is computed in;
+//   INT-062      the instructions say what to do when Studium itself fails or lacks something, and
+//                get_server_info.feedback gives the addresses and what a report holds.
 import { describe, it, expect, afterEach } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { SessionHost, type SessionHostOptions } from "@studium/lesson-session-host";
 import { buildMcpServer, SERVER_INSTRUCTIONS } from "./server.js";
+import { REPOSITORY_URL } from "./feedback.js";
 
 const DAY = 86_400_000;
 const T0 = Date.parse("2026-11-02T09:00:00Z");
@@ -79,7 +82,8 @@ describe("instructions and prompts (RT-8a, RFR-16, L-4)", () => {
   it("write the reply call as submit_response takes it", async () => {
     const { client } = await connect({ bundlesRoot: tmp() });
     expect(client.getInstructions()).toContain(REPLY_CALL);
-    expect(SERVER_INSTRUCTIONS.split("\n").length).toBeLessThanOrEqual(12);
+    // 13 since INT-STUDIUM-062: one line on reporting a difficulty with Studium itself (was 12).
+    expect(SERVER_INSTRUCTIONS.split("\n").length).toBeLessThanOrEqual(13);
     for (const language of ["en", "fr"]) {
       expect(await promptText(client, "learn", { topic: "x", language })).toContain(REPLY_CALL);
       expect(await promptText(client, "review", { language })).toContain(REPLY_CALL);
@@ -185,5 +189,41 @@ describe("an unknown session (RFR-14) and the time zone (RFR-13)", () => {
     expect(lost.body.error).toMatch(/^session not found: gone-42/);
     expect(lost.body.error).toContain("start_lesson_session");
     expect((await call("get_server_info")).body.time_zone).toBe("Europe/Paris");
+  });
+});
+
+describe("a difficulty with Studium itself (INT-STUDIUM-062)", () => {
+  it("the instructions say to be plain about it, help first, then offer once at a pause to report it", async () => {
+    const { client } = await connect({ bundlesRoot: tmp() });
+    const line = (client.getInstructions() ?? "").split("\n").find((l) => l.includes("get_server_info.feedback")) ?? "";
+    expect(line).toMatch(/fails, contradicts its documentation or cannot do what the person asks/);
+    expect(line).toMatch(/say so plainly and help them on/);
+    expect(line).toMatch(/once, at a pause/);
+    // The person posts the report; a lesson's content is not the framework's defect.
+    expect(line).toMatch(/The person posts it, or asks you to once they have read the final text/);
+    expect(line).toMatch(/a lesson's content goes to its teacher or author/);
+  });
+
+  it("get_server_info.feedback gives the repository's addresses and what a report holds and leaves out", async () => {
+    const { call } = await connect({ bundlesRoot: tmp() });
+    const { feedback } = (await call("get_server_info")).body;
+    expect(feedback).toMatchObject({
+      repository_url: REPOSITORY_URL,
+      issues_url: `${REPOSITORY_URL}/issues`,
+      new_issue_url: `${REPOSITORY_URL}/issues/new/choose`,
+      contributing_url: `${REPOSITORY_URL}/blob/main/CONTRIBUTING.md`,
+      security_url: `${REPOSITORY_URL}/security/policy`,
+      guide_url: `${REPOSITORY_URL}/blob/main/docs/start/report-and-contribute.md`,
+    });
+    // The addresses are the ones of the repository the extension declares, not a second copy that can drift.
+    const extension = JSON.parse(readFileSync(new URL("../../studium-vscode/package.json", import.meta.url), "utf8")) as
+      { repository: { url: string }; bugs?: { url: string } };
+    expect(extension.repository.url).toBe(`${REPOSITORY_URL}.git`);
+    expect(extension.bugs?.url).toBe(feedback.issues_url);
+    const how = (feedback.how as string[]).join("\n");
+    expect(how).toMatch(/version and build/);
+    expect(how).toMatch(/never a learner's answers, a name, an answer key or a secret/);
+    expect(how).toMatch(/The person posts it/);
+    expect(how).toMatch(/vulnerability[^.]*security_url, never a public issue/);
   });
 });

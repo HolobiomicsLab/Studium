@@ -6,6 +6,7 @@ Merci de votre aide. Cette page explique comment préparer un checkout, quels co
 
 ## Avant de commencer
 
+- Pour signaler un défaut, une étape déroutante ou une fonction manquante, voyez [Signaler un problème ou contribuer](docs/start/report-and-contribute.fr.md) : la page dit ce qu'un signalement contient et ce qu'il laisse de côté.
 - Pour tout ce qui dépasse une petite correction, ouvrez d'abord une issue et décrivez le problème, pas seulement la solution. Certains choix (licence, publication, versions) reviennent au propriétaire du projet.
 - Le travail courant arrive sur la branche `dev` ; `main` reçoit des intégrations par lots. Partez de `dev`.
 - Agents et humains suivent les mêmes conventions : [`AGENTS.md`](AGENTS.md) et [`CLAUDE.md`](CLAUDE.md).

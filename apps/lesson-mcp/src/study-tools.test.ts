@@ -89,7 +89,8 @@ describe("what a harness reads first", () => {
   it("declares instructions and the learn and review prompts", async () => {
     const { client } = await connect({ bundlesRoot: tmp() });
     const instructions = client.getInstructions() ?? "";
-    expect(instructions.split("\n").length).toBeLessThanOrEqual(12);
+    // 13 since INT-STUDIUM-062: one line on reporting a difficulty with Studium itself (was 12).
+    expect(instructions.split("\n").length).toBeLessThanOrEqual(13);
     for (const expected of ["get_study_plan", "learner_id", "display_markdown", "add nothing of your own", "{kind: \"reply\", text}", "rate_recall", "export_concept_map", "forget_session"]) {
       expect(instructions).toContain(expected);
     }

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Studium · Contribuer"
+  short_description: "Signaler une difficulté ou proposer une amélioration"
+  default_prompt: "Utilise $studium-contribute pour préparer avec moi le signalement de ce que je viens de rencontrer dans Studium ; je le publierai moi-même."

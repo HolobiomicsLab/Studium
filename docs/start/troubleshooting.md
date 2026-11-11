@@ -98,6 +98,6 @@ several client processes with synthetic answers, exports and verifies a report, 
 folder must not exist yet. Neither checks your assistant's sign-in, the VS Code pane, or whether a course
 teaches well. The full test suites are described in [Testing](../develop/testing.md).
 
-If the problem persists, report the step, the expected result, the reduced error, the revision, your
+If the problem persists, [report it](report-and-contribute.md): the step, the expected result, the reduced error, the revision, your
 platform and a minimal reproduction. Do not publish a whole data folder, and do not bypass a check or a
 protection to get a green light.

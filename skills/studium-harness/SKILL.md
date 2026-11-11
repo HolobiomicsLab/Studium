@@ -202,6 +202,16 @@ Quiz choices are reshuffled and relettered per session: submit the id shown now,
 never one remembered from the bundle. Use only a confidence the learner gave. For
 other scene types, read the canonical example in `get_operator_context`.
 
+A screen may open with a quoted proposal the server makes, once (« > **Proposition :** … (proposition
+`review_due:start`) », "> **Suggestion:** … (suggestion `…`)"): the reviews due, a break, the next
+lesson, the map, forms. Relay it as it is and add none of your own. When the learner accepts or says
+« later », send their answer with `submit_response {session_id, input: {"kind": "prompt", "id": "<the
+id shown>", "outcome": "accepted"}}` (or `"dismissed"`); after a yes, the reply's `next_call` names the
+tool that follows. Never answer a proposal for them; one left unanswered is not a no. When the learner
+says they already know a concept of the map, or doubt one they got, relay it with `{"kind": "contest",
+"concept_id": "<the id as the map names it>", "claim": "known"}` (or `"unsure"`): check questions
+follow. Never contest for them.
+
 The reply is `{transition}`, with `kind` (`next`, `replay`, `remediate_alt`,
 `remediate`, `calibration`, `complete`) and:
 
@@ -222,9 +232,10 @@ The reply is `{transition}`, with `kind` (`next`, `replay`, `remediate_alt`,
   contested; a review on a later day still asks it.
 - `navigation`: `{kind, scene_id, rule_id, reason, modulator, returns_to?}`, the one
   routing decision (`advance`, `replay`, `remediate_alt`, `remediate`, `gate_passed`,
-  `gate_released`, `gate_unassessable`, `skip_mastered`, `calibration`, `complete`).
-  On `remediate`, say you are going back to a prerequisite. A `complete` summary names
-  `skipped_scene_ids`, `scenes_detoured` and per-concept `mastery` (0 to 1).
+  `gate_released`, `gate_unassessable`, `skip_mastered`, `skip_concept`, `calibration`,
+  `complete`). On `remediate`, say you are going back to a prerequisite. A `skip_mastered`
+  navigation names the `skipped_scene_ids`; a `complete` summary names `scenes_detoured` and
+  per-concept `mastery` (0 to 1).
 - `self_rating` when a written answer was not assessed by a judge: ask the learner to
   rate their recall (`again`, `hard`, `good`, `easy`) and call `rate_recall
   {session_id, scene_id: self_rating.scene_id, grade}`. It schedules the next review
@@ -340,7 +351,9 @@ and teacher tools are MCP-only. Each mutation carries a unique `request_id`;
 scene-sensitive mutations also need the current `expected_scene_id`. `rate_recall` needs no
 `expected_scene_id` because its `scene_id` argument identifies the self-rating request.
 Resend an uncertain request with the same id; do not re-create a session on a connection
-error. See the [HTTP API reference](../../docs/reference/http-api.md).
+error. The API server reads its lessons from `BUNDLES_ROOT` (default: the repository's `fixtures/`),
+not from the learner's library, and listens on `STUDIUM_API_PORT` (default 8130). See the
+[HTTP API reference](../../docs/reference/http-api.md).
 
 **File channel.** From the repository root, the runner writes each step and waits:
 
@@ -372,7 +385,7 @@ node apps/lesson-mcp/scripts/headless_smoke.mjs
 ```
 
 The smoke is a bare MCP SDK client (no VS Code code); it starts the server from source
-with `STUDIUM_EPHEMERAL=1` on `fixtures/`, so it keeps nothing. Require its final line `all N assertions passed`. For the file channel, a
+with `STUDIUM_EPHEMERAL=1` on `fixtures/`, so it keeps nothing. Require its final line, which starts with `OK` and says `all N assertions passed`. For the file channel, a
 `--stub` run on `capsule-judgment-demo/lesson.json` must end `complete ✔ after 4 steps`.
 The stub cannot answer quizzes: on `atomistique-l1` it stops at its step cap and still
 exits 0. Read the last line, not the exit code. These checks prove the plumbing, not
@@ -386,7 +399,9 @@ that anyone learned.
 .venv/bin/python eval/run_eval.py --corpus 04
 ```
 
-Reports land in `eval/reports/<corpus>-<mode>-<ts>/`. `--author claude`, `--live` and
+`--list` and `--corpus` need the local corpus under `eval/corpus/`, third-party material that is
+not in the repository; `--smoke` needs nothing. Reports land in `eval/reports/<corpus>-<mode>-<ts>/`
+(`smoke-m3-<ts>` for the smoke). `--author claude`, `--live` and
 `--audit-llm` call paid models and need the owner's go. The scene-judge pass is
 `eval/harness/scene_judge.py <lesson.json> --out COURSE_DIR` (`--out` is required).
 The LLM-backed operator demo `apps/lesson-mcp/src/llm-operator-demo.ts` uses a
@@ -400,6 +415,15 @@ deterministic placeholder unless `--live`, which is paid. See `eval/README.md`.
   data folder; class views see consented aggregates only.
 - Do not edit fixtures or tests while a run is in progress. After a bundle change, run
   `node tools/bundle_lint.mjs <lesson.json>` (Node built-ins only).
+
+## When Studium itself is at fault
+
+A tool that fails on a call written as documented, a result that contradicts this skill or a guide,
+a step that does not work, a request Studium cannot serve today: say so plainly and help the learner
+on. Then, at a pause and never between a question and its answer, invite them once to report it or
+to propose the change. `get_server_info.feedback` gives the addresses and what a report holds; the
+procedure is [studium-contribute](../studium-contribute/SKILL.md). An error in a lesson's content
+goes to its teacher or author, not to the repository.
 
 ## Explain unfamiliar methods
 

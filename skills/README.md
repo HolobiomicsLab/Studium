@@ -29,10 +29,11 @@ self-study lesson from your own sources. Each skill is a folder with a `SKILL.md
 | [`studium-visual-support`](studium-visual-support/SKILL.md) | learners | inspect source photographs or request an adapted image, Mermaid map, audio explanation or short video |
 | [`studium-learner-report`](studium-learner-report/SKILL.md) | learners and teachers | export or inspect a learner-selected activity trace or experiment journal as an ASTRA/MySTRA report |
 | [`studium-observatory`](studium-observatory/SKILL.md) | operators and reviewers | run and read the [Observatory](../services/observatory/README.md) |
+| [`studium-contribute`](studium-contribute/SKILL.md) | any assistant | when Studium itself fails or lacks a feature, say so, help the person on, then offer once to report it or propose the change; the person posts it |
 
 Role skills (`studium-student`, `studium-teacher`, `studium-self-learner`, `studium-from-conversation`) point to `studium-harness` for
 the ongoing lesson loop. `studium-suggest` decides what to offer and when, then hands off to the
-skill that knows how.
+skill that knows how. Every skill hands a difficulty with Studium itself to `studium-contribute`.
 
 ## How assistants find them
 
