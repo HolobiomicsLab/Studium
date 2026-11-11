@@ -19,6 +19,19 @@ un processus local qui dialogue sur stdio. L'extension VS Code embarque ce même
 
 ## Le lancer
 
+Sans clone, le paquet npm `studium-mcp` contient ce serveur en un seul fichier, sans dépendance. Avec
+Node 20 ou plus :
+
+```bash
+npx -y studium-mcp              # lance le serveur sur stdio
+npx -y studium-mcp --version
+npx -y studium-mcp --help
+```
+
+`--version` et `--help` répondent sans démarrer le serveur. [`README.npm.md`](README.npm.md) est le README
+publié sur npm avec le paquet. Tant que le paquet n'est pas publié, voir
+[Installation](../../docs/start/installation.fr.md#si-un-paquet-nest-pas-encore-publié).
+
 Depuis un clone, après `pnpm install` à la racine du dépôt :
 
 ```bash

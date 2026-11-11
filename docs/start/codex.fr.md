@@ -7,30 +7,41 @@ Studium.
 
 ## Avant de commencer
 
-- Terminez l'[installation](installation.fr.md) et lisez [Connecter votre assistant](harnesses.fr.md) : il
-  explique `/path/to/studium`, `BUNDLES_ROOT` et `LITELLM_BASE_URL`.
+- Lisez [Connecter votre assistant](harnesses.fr.md) : il explique les deux façons de lancer le serveur
+  (`npx -y studium-mcp`, ou `node` sur un fichier issu d'un clone ou d'une release), `/path/to/studium`,
+  `BUNDLES_ROOT` et `LITELLM_BASE_URL`. La forme `npx` ne demande que Node ; voir
+  [Installation](installation.fr.md).
 - Installez Codex et connectez-vous selon le [démarrage Codex](https://learn.chatgpt.com/docs/quickstart) ;
   les options MCP sont dans [MCP dans Codex](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
 
 ## Réaliser la tâche
 
-1. Ajoutez le serveur depuis votre clone :
+1. Ajoutez le serveur. **Avec `npx`** (sans clone) :
+
+   ```bash
+   codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp
+   codex mcp list
+   ```
+
+   **Depuis un clone**, dans son dossier racine :
 
    ```bash
    codex mcp add studium --env LITELLM_BASE_URL= -- node "$PWD/apps/studium-vscode/dist/lesson-mcp.cjs"
-   codex mcp list
    ```
 
 2. Ou fusionnez ceci dans `~/.codex/config.toml` :
 
    ```toml
    [mcp_servers.studium]
-   command = "node"
-   args = ["/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]
+   command = "npx"
+   args = ["-y", "studium-mcp"]
 
    [mcp_servers.studium.env]
    LITELLM_BASE_URL = ""
    ```
+
+   Depuis un clone, utilisez `command = "node"` et
+   `args = ["/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]`.
 
 3. Répondez aux demandes d'approbation dans une session interactive, ou lancez en mode non interactif avec
    `codex exec --approve-for-me` (incompatible avec `-s/--sandbox`). Pour un essai ponctuel avec un autre

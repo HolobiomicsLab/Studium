@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.HolobiomicsLab/studium",
+  "description": "Studium lessons over MCP: play, review over days, build a lesson from your sources.",
+  "repository": { "url": "https://github.com/HolobiomicsLab/studium", "source": "github" },
+  "version": "0.5.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "studium-mcp",
+      "version": "0.5.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        { "name": "STUDIUM_HOME", "description": "Where lessons and progress live (default ~/.studium).", "isRequired": false },
+        { "name": "BUNDLES_ROOT", "description": "A folder of lessons looked up first, for example a teacher's course.", "isRequired": false },
+        { "name": "STUDIUM_EPHEMERAL", "description": "Set to 1 to keep everything in memory and write nothing.", "isRequired": false },
+        { "name": "LITELLM_BASE_URL", "description": "A judge model endpoint for written answers; empty calls no model.", "isRequired": false }
+      ]
+    }
+  ]
+}

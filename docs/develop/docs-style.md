@@ -164,11 +164,12 @@ reviewer.
 ## Build the site
 
 [`tools/docs/build-site.mjs`](../../tools/docs/build-site.mjs) renders the same pages as a small static
-site, in the project's identity, to read offline or to try another presentation. It is a prototype:
+site, in the project's identity: a sidebar, a table of contents, a search box, a button to copy each
+code block, both languages, light and dark themes, a print layout.
 
 ```bash
 pnpm docs:site                                # writes site/ at the repository root
-node tools/docs/build-site.mjs --out /tmp/studium-docs
+node tools/docs/build-site.mjs --out /tmp/studium-docs --revision v0.5.0
 node --test tools/docs/build-site.test.mjs    # tests of the builder
 ```
 
@@ -176,7 +177,17 @@ It reads `README.md`, `README.fr.md` and every page of `docs/` except `design-re
 puts the English pages at the root and the French pages under `fr/`, and builds the navigation from
 the portal (the role table, then the « All pages » groups). Links to other files of the repository, such
 as source code, go to GitHub. It needs no network, at build time or to read the result, and it exits 1
-when a link or an anchor of the built site leads nowhere.
+when a link or an anchor of the built site leads nowhere. `--revision` names in the footer the version
+or commit the site was built from.
 
-`site/` is not committed. GitHub remains the canonical rendering: write and check every page for GitHub
-first.
+The search needs no server: the builder writes one index per language (`search-index.js` and
+`fr/search-index.js`: titles, headings and the text of each page without its code blocks), loaded when
+the search box first gets the focus. It ignores case and accents, and `/` puts the focus in the box.
+
+The site opens from the file system and from any sub-path. The workflow
+[`docs-site.yml`](../../.github/workflows/docs-site.yml) builds it on each push to `main` that touches
+the documentation and publishes it to GitHub Pages, once Pages is enabled in the repository settings
+with « GitHub Actions » as its source.
+
+`site/` is not committed. The Markdown is the source: write and check every page for GitHub first, where
+it must read well too.

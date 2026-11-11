@@ -33,12 +33,17 @@ chmodSync(server, 0o755);
 
 copyFileSync(join(root, "LICENSE"), join(out, "LICENSE"));
 copyFileSync(join(root, "NOTICE"), join(out, "NOTICE"));
-copyFileSync(join(root, "apps/lesson-mcp/README.md"), join(out, "README.md"));
+// The README written for npm users (how to add the server to an assistant, absolute links), not the
+// workspace README, whose commands and relative links only make sense in a checkout.
+copyFileSync(join(root, "apps/lesson-mcp/README.npm.md"), join(out, "README.md"));
 
 const source = JSON.parse(readFileSync(join(root, "apps/lesson-mcp/package.json"), "utf8"));
 const manifest = {
   name: "studium-mcp",
   version,
+  // The name under which the server is listed in the MCP Registry (server.json): the registry checks
+  // that the published package claims it.
+  mcpName: JSON.parse(readFileSync(join(root, "server.json"), "utf8")).name,
   description: source.description,
   license: "Apache-2.0",
   homepage: "https://github.com/HolobiomicsLab/studium#readme",

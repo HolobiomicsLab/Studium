@@ -13,6 +13,26 @@ Studium transforme des sources que vous jugez fiables en leçons adaptatives, à
 
 [eDIAM](https://ediam.cnrs.fr/) · Institut de Chimie de Nice · Université Côte d'Azur · CNRS · [HolobiomicsLab](https://holobiomicslab.cnrs.fr/)
 
+## Installer
+
+Les trois voies les plus courtes ne demandent pas de clone. Elles reposent sur des paquets publiés avec une
+version publique ; d'ici là, la page [Installation](docs/start/installation.fr.md#si-un-paquet-nest-pas-encore-publié)
+dit quoi utiliser à la place.
+
+```bash
+# Tout assistant MCP, avec Node 20 ou plus (ici Codex)
+codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp
+
+# Claude Code : le plugin apporte le serveur, les skills et les agents de leçon
+claude plugin install studium --marketplace HolobiomicsLab/studium
+
+# VS Code : l'extension et son panneau de leçon
+code --install-extension holobiomicslab.studium-vscode
+```
+
+Les commandes pour chaque assistant, la voie depuis un clone pour les enseignants et les contributeurs, et
+la marche à suivre tant qu'un paquet n'est pas publié sont sur la page [Installation](docs/start/installation.fr.md).
+
 ## Choisir son parcours
 
 | Je veux… | Commencer ici | Ce que vous obtenez |
@@ -22,7 +42,9 @@ Studium transforme des sources que vous jugez fiables en leçons adaptatives, à
 | Enseigner | [Guide enseignant](docs/teach/teacher-guide.fr.md) | Une leçon sourcée, un enregistrement d'approbation lié à son contenu exact et un rapport de classe agrégé |
 | Construire sur Studium | [Architecture](docs/develop/architecture.fr.md) et [outils MCP](docs/reference/mcp-tools.fr.md) | Les contrats du moteur, les 40 outils MCP et le format des leçons |
 
-Le [portail de la documentation](docs/index.fr.md) classe toutes les pages par rôle.
+Le [portail de la documentation](docs/index.fr.md) classe toutes les pages par rôle. Les mêmes pages se construisent en un site avec
+un menu, une recherche, les deux langues et les thèmes clair et sombre, lisible sans réseau :
+`node tools/docs/build-site.mjs --out site`, puis ouvrez `site/fr/index.html`.
 
 <table>
   <tr>
@@ -33,7 +55,7 @@ Le [portail de la documentation](docs/index.fr.md) classe toutes les pages par r
 
 ## Démarrage rapide
 
-Prévoyez un quart d'heure environ. Il vous faut git, Node 22 et pnpm 9. Python n'est pas nécessaire pour apprendre.
+Ce parcours part d'un clone et vous donne aussi les leçons de démonstration. Prévoyez un quart d'heure environ. Il vous faut git, Node 22 et pnpm 9. Python n'est pas nécessaire pour apprendre.
 
 ```bash
 git clone https://github.com/HolobiomicsLab/studium.git

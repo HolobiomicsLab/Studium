@@ -2,18 +2,56 @@ English · [Français](claude-code.fr.md)
 
 # Connect Claude Code to Studium
 
-Add the Studium server to Claude Code, play lessons with the lesson agent, and show where the lesson stands
-in the status line.
+Add Studium to Claude Code with the plugin or as a server alone, play lessons with the lesson agent, and
+show where the lesson stands in the status line.
 
 ## Before you start
 
-- Finish the [installation](installation.md) and read [Connect your assistant](harnesses.md): it explains
-  `/path/to/studium`, `BUNDLES_ROOT` and `LITELLM_BASE_URL`.
+- Read [Connect your assistant](harnesses.md): it explains the two ways to start the server,
+  `/path/to/studium`, `BUNDLES_ROOT` and `LITELLM_BASE_URL`. The plugin and the `npx` form need only Node;
+  the checkout form needs the [installation from a checkout](installation.md#install-from-a-checkout).
 - Install and sign in to Claude Code following the [Claude Code setup](https://code.claude.com/docs/en/setup).
 
 ## Do the task
 
-### Add the server
+### Install the plugin
+
+The plugin is the recommended route. It brings the server (started with `npx -y studium-mcp`), the twelve
+skills of `skills/` and the two lesson agents in one step. With Claude Code 2.1.275 or later:
+
+```bash
+claude plugin install studium --marketplace HolobiomicsLab/studium
+```
+
+Inside a session: `/plugin install studium --marketplace HolobiomicsLab/studium`. The same in two steps:
+
+```bash
+claude plugin marketplace add HolobiomicsLab/studium
+claude plugin install studium@holobiomicslab
+```
+
+| Task | Command |
+|---|---|
+| Update | `claude plugin marketplace update holobiomicslab`, then `claude plugin update studium@holobiomicslab` |
+| Remove | `claude plugin uninstall studium@holobiomicslab` |
+
+According to the Claude Code plugin documentation, a plugin's skills and agents carry the plugin's name:
+the skills are invoked as `/studium:<skill-name>` (for example `/studium:studium-harness`), and the agents
+are named `studium:studium-lesson` and `studium:studium-explainer`. If the plugin cannot be installed yet,
+see [If a package is not published yet](installation.md#if-a-package-is-not-published-yet).
+
+### Add the server only
+
+Skip this step if you installed the plugin: it already declares the server.
+
+**With `npx`** (no checkout), for every project of your user account:
+
+```bash
+claude mcp add --scope user studium -e LITELLM_BASE_URL= -- npx -y studium-mcp
+claude mcp list
+```
+
+**From a checkout**, for that project only:
 
 1. From your checkout, run:
 
@@ -48,8 +86,8 @@ in the status line.
 
 ### Use the lesson agent
 
-The repository ships two agent definitions in `.claude/agents/`. `studium-lesson` plays a lesson or a review
-as a strict relay on the fast model: it shows each screen as Studium wrote it, sends your words, and adds
+The plugin installs two agents; a checkout also has their definitions in `.claude/agents/`.
+`studium-lesson` plays a lesson or a review as a strict relay on the fast model: it shows each screen as Studium wrote it, sends your words, and adds
 nothing. `studium-explainer` is a stronger model it calls when your question needs a real explanation; the
 lesson goes on while the explanation is written; its text opens with « Generated explanation », so that
 you can tell it from the lesson's. The lesson agent opens a lesson on the best surface your client shows (a
@@ -58,14 +96,21 @@ reads what you did, so that it does not show you a screen again. A client that r
 the panel even when the lesson is played in the conversation or in forms: the panel then says so (« This
 lesson is played in the conversation », « The panel is not the surface negotiated for this session. ») and
 draws no scene and no answer control, so you answer where the lesson is played. Its « Play here » button,
-shown when your client can render the panel, asks the server to move the session to the panel. From the
-checkout:
+shown when your client can render the panel, asks the server to move the session to the panel.
+
+With the plugin:
+
+```bash
+claude --agent studium:studium-lesson
+```
+
+From the checkout:
 
 ```bash
 claude --agent studium-lesson
 ```
 
-To use them from any folder, link them into your user agents once:
+Without the plugin, to use them from any folder, link them into your user agents once:
 
 ```bash
 mkdir -p ~/.claude/agents
@@ -73,11 +118,14 @@ ln -s "$PWD/.claude/agents/studium-lesson.md" "$PWD/.claude/agents/studium-expla
 ```
 
 In a folder you only use to study, `{"agent": "studium-lesson"}` in `.claude/settings.json` makes every
-session there a lesson session. In a session that is already open, `/model haiku` for the time of the lesson
+session there a lesson session (`studium:studium-lesson` with the plugin). In a session that is already open, `/model haiku` for the time of the lesson
 gives most of the same gain. Do not ask a large model to hand each answer to the agent (see
 [Keep answers fast](fast-answers.md)).
 
 ### Show the status line
+
+The status line needs a checkout: the script is a file of the repository, and neither the plugin nor the
+npm package ships it.
 
 In durable mode, Studium notes where the lesson stands in `status.json`, in your learner folder, at each
 screen and each answer. The script `tools/studium_statusline.mjs` prints its line, the one each screen ends
@@ -112,9 +160,11 @@ window.
 
 ## What you get
 
-`claude mcp list` and `/mcp` show `studium`. To prove the connection, run the check in
+Inside a session, `/mcp` shows the Studium server; `claude mcp list` shows `studium` when you added it with
+`claude mcp add`. To prove the connection, run the check in
 [Connect your assistant](harnesses.md#check-the-connection).
 
 ## Limits
 
-This configures Claude Code, not the Claude desktop app.
+This configures Claude Code, not the Claude desktop app; for the app, see
+[Claude Desktop](harnesses.md#claude-desktop).

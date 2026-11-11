@@ -7,8 +7,15 @@ figures, équations, graphiques et modèles 3D, pose une question à la fois, do
 à part et vous signale les révisions dues. Elle suit le thème et la langue de votre éditeur (français ou
 anglais) et s'utilise au clavier comme avec un lecteur d'écran (objectif : WCAG 2.2 AA).
 
-Installez-la d'abord : construisez et installez le VSIX comme indiqué dans
-[Installation](installation.fr.md#installer-lextension-vs-code).
+Installez-la d'abord, depuis le Visual Studio Marketplace ou Open VSX :
+
+```bash
+code --install-extension holobiomicslab.studium-vscode
+```
+
+Depuis un fichier de release : `code --install-extension studium-vX.Y.Z.vsix`. Pour la construire depuis
+les sources, voir [Installation](installation.fr.md#construire-lextension-vs-code) ; si l'extension est
+introuvable, voir [Si un paquet n'est pas encore publié](installation.fr.md#si-un-paquet-nest-pas-encore-publié).
 
 ## Ouvrir une leçon
 

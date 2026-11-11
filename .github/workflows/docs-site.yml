@@ -1,0 +1,72 @@
+name: Documentation site
+
+# Builds the documentation site from the Markdown of the repository (tools/docs/build-site.mjs) and
+# publishes it to GitHub Pages. The site is the same pages as on GitHub, with a sidebar, a search box
+# and both languages; it needs no network to build. Pages must be enabled once in the repository
+# settings (Settings, Pages, Source: GitHub Actions); for a private repository this needs a plan
+# that includes Pages.
+#
+# The builder exits 1 when a link or an anchor of the built site leads nowhere, so a broken page is
+# never published.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "README.fr.md"
+      - "tools/docs/**"
+      - "design/**"
+      - "NOTICE"
+      - ".github/workflows/docs-site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write # deploy to GitHub Pages
+  id-token: write # the Pages deployment verifies where the artifact comes from
+
+# One deployment at a time; a newer push replaces a build that is waiting.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build the site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node (from .nvmrc, Node 22 LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+
+      # The builder renders Markdown with the `marked` already installed for the lesson panel.
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the site
+        run: node tools/docs/build-site.mjs --out site --revision "${GITHUB_SHA::7}"
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

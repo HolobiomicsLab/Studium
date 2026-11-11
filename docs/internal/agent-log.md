@@ -6,6 +6,44 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-11 — installation sans clone, extension Claude Code, site de documentation (INT-STUDIUM-063)
+
+Demande propriétaire : installer Studium facilement par un gestionnaire de paquets, installer le serveur
+MCP de même, aligner la documentation, et donner au README une documentation agréable à lire ailleurs
+que dans le Markdown de GitHub. Branche `feat/2026-11-11-install-and-docs-site`, depuis `dev` (`ed8c5bd`).
+
+- **Paquet npm `studium-mcp`.** Il était préparé par le flux de publication, jamais publié, avec le README
+  du paquet de développement. `apps/lesson-mcp/README.npm.md` est le README de ses utilisateurs (une ligne
+  par assistant, où vivent les données, liens absolus) ; le serveur répond à `--version` et à `--help`
+  (`cliAnswer`, test écrit d'abord) au lieu d'attendre sur l'entrée standard ; le manifeste préparé porte
+  `mcpName`.
+- **Extension Claude Code.** `.claude-plugin/plugin.json` et `marketplace.json` : le dépôt est son propre
+  catalogue ; l'extension apporte le serveur (`npx -y studium-mcp`), les douze skills et les deux agents.
+  `claude plugin validate .` passe, avec deux remarques : pas d'icône (les logos reviennent au
+  propriétaire), et `CLAUDE.md` à la racine n'est pas chargé par une extension.
+- **Registre MCP.** `server.json` à la racine (`io.github.HolobiomicsLab/studium`, paquet npm, stdio).
+- **Site.** `tools/docs/build-site.mjs` : recherche dans les deux langues sans serveur (index par langue
+  chargé au premier usage, casse et accents ignorés), bouton de copie des blocs de code, impression,
+  `--revision` ; `tools/docs/site-client.js`. Flux `docs-site.yml` pour GitHub Pages, jamais exécuté
+  (pas de budget Actions ; Pages reste à activer par le propriétaire).
+- **Documentation.** Les pages d'installation, en anglais et en français, commencent par la route la plus
+  courte (`npx`, l'extension Claude Code, l'extension VS Code) et gardent le clone pour les enseignants et
+  les contributeurs ; elles disent que rien n'est encore publié et quoi faire en attendant.
+- **Garde.** `apps/lesson-mcp/src/distribution.test.ts` échoue quand l'extension, le serveur,
+  `server.json` et l'extension Claude Code ne portent pas la même version.
+
+Vérifié sur cette machine : le paquet préparé, installé depuis son archive dans un dossier isolé, répond à
+`--version` et `--help`, et un client MCP nu y lit 40 outils et la version ; le site regardé dans un
+navigateur (recherche, accents, clavier, copie, thème clair, 375 px) ; l'extension Claude Code installée
+depuis le catalogue local dans un dossier de configuration isolé (`CLAUDE_CONFIG_DIR`), version 0.5.0
+activée ; toutes les suites, l'analyse statique, l'essai sans interface et le VSIX (103 fichiers, même
+liste que la 0.5.0). Un lecteur indépendant (Sonnet) a relu le diff : aucun bogue de code ni lien mort ;
+ses remarques de cohérence sont corrigées (disponibilité de l'extension Claude Code, mises en garde près
+des commandes, commentaires français, jeton Open VSX passé par l'environnement). Non vérifié : toute
+publication (npm, places de marché, registre MCP : comptes du propriétaire), l'extension Claude Code
+installée depuis GitHub et son serveur lancé par `npx` (le paquet n'existe pas encore), GitHub Pages.
+Installée depuis GitHub, l'extension Claude Code copie tout le dépôt (environ 45 Mo de fichiers suivis).
+
 ## 2026-11-11 — préparation de la version 0.5.0
 
 Choix du propriétaire : « 0.5.0 », pour la version qui porte les skills corrigés, le signalement d'une

@@ -7,9 +7,11 @@ tools. This page is about Copilot's own MCP client; the extension's lesson pane 
 
 ## Before you start
 
-- Finish the [installation](installation.md) and read [Connect your assistant](harnesses.md): it explains
-  `/path/to/studium`, `BUNDLES_ROOT` and `LITELLM_BASE_URL`.
-- Open the checkout as the workspace. Copilot Chat in agent mode reads MCP servers from `.vscode/mcp.json`.
+- Read [Connect your assistant](harnesses.md): it explains the two ways to start the server
+  (`npx -y studium-mcp`, or `node` on a file from a checkout or a release), `/path/to/studium`,
+  `BUNDLES_ROOT` and `LITELLM_BASE_URL`. The `npx` form needs only Node; see [Installation](installation.md).
+- Copilot Chat in agent mode reads MCP servers from `.vscode/mcp.json` in the workspace, or from your user
+  configuration when you use `code --add-mcp`. For the checkout form, open the checkout as the workspace.
 - Students can get Copilot through GitHub Education: request student verification
   ([GitHub Education for students](https://docs.github.com/en/education/about-github-education/github-education-for-students/apply-to-github-education-as-a-student)),
   then activate Copilot Student in your Copilot settings
@@ -21,20 +23,29 @@ tools. This page is about Copilot's own MCP client; the extension's lesson pane 
 
 ## Do the task
 
-1. Merge this into `.vscode/mcp.json`:
+1. Add the server. **With `npx`** (no checkout), in one command:
+
+   ```bash
+   code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'
+   ```
+
+   or merge this into `.vscode/mcp.json`:
 
    ```json
    {
      "servers": {
        "studium": {
          "type": "stdio",
-         "command": "node",
-         "args": ["${workspaceFolder}/apps/studium-vscode/dist/lesson-mcp.cjs"],
+         "command": "npx",
+         "args": ["-y", "studium-mcp"],
          "env": { "LITELLM_BASE_URL": "" }
        }
      }
    }
    ```
+
+   **From a checkout** opened as the workspace, use `"command": "node"` and
+   `"args": ["${workspaceFolder}/apps/studium-vscode/dist/lesson-mcp.cjs"]`.
 
 2. In the Command Palette, run **MCP: List Servers**, select `studium` and start it. Its log shows errors.
 

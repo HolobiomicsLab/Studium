@@ -8,16 +8,17 @@ Studium's tools. This page helps you pick the page for your client, then shows h
 
 ## Before you start
 
-The assistant's client is called a *harness* (see the [glossary](../concepts/glossary.md)). Finish the
-[installation](installation.md): it builds the server file `apps/studium-vscode/dist/lesson-mcp.cjs` with
-this command.
+The assistant's client is called a *harness* (see the [glossary](../concepts/glossary.md)). The server
+talks over stdio: it opens no port and shows no web page. A configuration starts it in one of two ways:
 
-```bash
-pnpm --filter studium-vscode build
-```
+| Way | Command | When |
+|---|---|---|
+| From npm | `npx -y studium-mcp` | the usual way; needs only Node 20 or later (see [Installation](installation.md#add-the-server-to-your-assistant)) |
+| From a file | `node /path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs` | from a checkout after `pnpm --filter studium-vscode build`, or with a `lesson-mcp.cjs` downloaded from a release (use its own path) |
 
-Every configuration starts that file with `node`; replace `/path/to/studium` with the absolute path of
-your checkout. The server talks over stdio: it opens no port and shows no web page.
+Each client page gives the `npx` form first and the checkout form second. Replace `/path/to/studium` with
+the absolute path of your checkout. If `npx` answers that the package does not exist, see
+[If a package is not published yet](installation.md#if-a-package-is-not-published-yet).
 
 You meet two environment variables first:
 
@@ -29,8 +30,8 @@ You meet two environment variables first:
 `STUDIUM_EPHEMERAL=1` keeps progress in memory only, for a demo or a test. All variables are listed in
 [Configuration](../reference/configuration.md).
 
-The files in [docs/examples](../examples/) are complete examples that add `BUNDLES_ROOT` for the demo
-lessons: [codex.toml](../examples/codex.toml), [mcp.claude.json](../examples/mcp.claude.json),
+The files in [docs/examples](../examples/) are complete examples, in the checkout form, that add
+`BUNDLES_ROOT` for the demo lessons: [codex.toml](../examples/codex.toml), [mcp.claude.json](../examples/mcp.claude.json),
 [mcp.vscode.json](../examples/mcp.vscode.json) and [opencode-v2.json](../examples/opencode-v2.json). Merge
 them into your client's file; never overwrite other servers already configured there.
 
@@ -39,11 +40,31 @@ them into your client's file; never overwrite other servers already configured t
 | Client | Where its configuration lives | Page |
 |---|---|---|
 | Codex | `~/.codex/config.toml`, or `codex mcp add` | [Connect Codex](codex.md) |
-| Claude Code | `.mcp.json` at the project root | [Connect Claude Code](claude-code.md) |
+| Claude Code | the `studium` plugin, `claude mcp add`, or `.mcp.json` at the project root | [Connect Claude Code](claude-code.md) |
 | Copilot in VS Code | `.vscode/mcp.json` | [Connect Copilot in VS Code](copilot.md) |
 | OpenCode | `opencode.jsonc` at the project root | [Connect OpenCode](opencode.md) |
-| Cursor | `.cursor/mcp.json` | [Connect Cursor](cursor.md) |
+| Cursor | `.cursor/mcp.json` or `~/.cursor/mcp.json` | [Connect Cursor](cursor.md) |
+| Claude Desktop | `claude_desktop_config.json` | [below](#claude-desktop) |
 | A script or a custom client | no MCP configuration | [HTTP API](../reference/http-api.md) and [file channel](../reference/agentic-session-protocol.md) |
+
+## Claude Desktop
+
+Claude Desktop reads `claude_desktop_config.json`, in `~/Library/Application Support/Claude/` on macOS and
+in `%APPDATA%\Claude\` on Windows. Merge this into it, then restart the app:
+
+```json
+{
+  "mcpServers": {
+    "studium": {
+      "command": "npx",
+      "args": ["-y", "studium-mcp"],
+      "env": { "LITELLM_BASE_URL": "" }
+    }
+  }
+}
+```
+
+From a checkout, use `"command": "node"` and `"args": ["/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]`.
 
 ## Check the connection
 
