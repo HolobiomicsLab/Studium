@@ -1,0 +1,15 @@
+{
+  "name": "holobiomicslab",
+  "owner": { "name": "HolobiomicsLab", "url": "https://holobiomicslab.cnrs.fr/" },
+  "metadata": { "description": "Plugins of the HolobiomicsLab for Claude Code." },
+  "plugins": [
+    {
+      "name": "studium",
+      "source": "./",
+      "description": "Learn and teach with Studium: the lesson server, its skills and two lesson agents.",
+      "homepage": "https://github.com/HolobiomicsLab/studium#readme",
+      "license": "Apache-2.0",
+      "category": "education"
+    }
+  ]
+}
