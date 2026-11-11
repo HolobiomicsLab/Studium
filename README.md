@@ -13,6 +13,26 @@ Studium turns sources you trust into adaptive lessons that you can play in VS Co
 
 [eDIAM](https://ediam.cnrs.fr/) · Institut de Chimie de Nice · Université Côte d'Azur · CNRS · [HolobiomicsLab](https://holobiomicslab.cnrs.fr/)
 
+## Install
+
+The three shortest routes need no checkout. They rely on packages published with a public release; until
+then, the [Installation](docs/start/installation.md#if-a-package-is-not-published-yet) page says what to
+use instead.
+
+```bash
+# Any MCP assistant, with Node 20 or later (Codex shown)
+codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp
+
+# Claude Code: the plugin brings the server, the skills and the lesson agents
+claude plugin install studium --marketplace HolobiomicsLab/studium
+
+# VS Code: the extension and its lesson pane
+code --install-extension holobiomicslab.studium-vscode
+```
+
+The commands for every assistant, the route from a checkout for teachers and contributors, and what to do
+while a package is not published yet are on the [Installation](docs/start/installation.md) page.
+
 ## Choose your path
 
 | I want to… | Start here | What you get |
@@ -22,7 +42,9 @@ Studium turns sources you trust into adaptive lessons that you can play in VS Co
 | Teach | [Teacher guide](docs/teach/teacher-guide.md) | A sourced lesson, an approval record bound to its exact content, and an aggregated class report |
 | Build on Studium | [Architecture](docs/develop/architecture.md) and [MCP tools](docs/reference/mcp-tools.md) | The runtime contracts, the 40 MCP tools and the lesson bundle format |
 
-The [documentation portal](docs/index.md) lists every page by role.
+The [documentation portal](docs/index.md) lists every page by role. The same pages build into a site with a
+menu, a search box, both languages and light and dark themes, readable without a network:
+`node tools/docs/build-site.mjs --out site`, then open `site/index.html`.
 
 <table>
   <tr>
@@ -33,7 +55,7 @@ The [documentation portal](docs/index.md) lists every page by role.
 
 ## Quickstart
 
-Plan about fifteen minutes. You need git, Node 22 and pnpm 9. Python is not needed to learn.
+This path works from a checkout and also gives you the demo lessons. Plan about fifteen minutes. You need git, Node 22 and pnpm 9. Python is not needed to learn.
 
 ```bash
 git clone https://github.com/HolobiomicsLab/studium.git

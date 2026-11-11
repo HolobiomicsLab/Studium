@@ -2,40 +2,123 @@
 
 # Installation
 
-Installez Studium une fois depuis un clone du dépôt, puis connectez-le à votre assistant ou ouvrez les
-leçons dans VS Code. Le parcours apprenant ne demande que Node ; les enseignants qui préparent des cours à
-partir de la littérature ajoutent Python. La première séance utilise des leçons d'exemple locales et ne
-demande aucune clé d'API de modèle.
+Choisissez la voie la plus courte pour votre cas. Pour apprendre avec un assistant IA, Node suffit :
+l'assistant lance le serveur Studium avec `npx`, sans clone du dépôt. Les enseignants qui préparent et
+approuvent des cours, et les contributeurs, installent depuis un clone. La première séance ne demande
+aucune clé d'API de modèle.
 
-## Choisir ce que vous installez
+## Choisir comment vous installez
 
-| Vous voulez | À installer |
-|---|---|
-| Apprendre avec un assistant IA (Codex, Claude Code, Copilot, OpenCode, Cursor) | Node, pnpm, le dépôt |
-| Jouer les leçons dans un panneau visuel | ce qui précède, plus VS Code et l'extension Studium |
-| Préparer et approuver des cours à partir de sources | ce qui précède, plus Python 3.12 et les outils enseignant |
-| Ouvrir une activité portable préparée par un enseignant | un navigateur récent seulement : ouvrez son `index.html` (voir [De l'activité au rapport](../tutorials/activity-to-report.fr.md)) |
+| Vous voulez | Voie | Il vous faut |
+|---|---|---|
+| Apprendre avec un assistant IA (Codex, Claude Code, Copilot, Cursor, OpenCode, Claude Desktop) | [Ajouter le serveur à votre assistant](#ajouter-le-serveur-à-votre-assistant) | Node |
+| Apprendre dans Claude Code, avec les agents de leçon et les skills | [Installer le plugin Claude Code](#installer-le-plugin-claude-code) | Node, Claude Code 2.1.275 ou plus |
+| Jouer les leçons dans un panneau visuel | [Installer l'extension VS Code](#installer-lextension-vs-code) | VS Code |
+| Préparer et approuver des cours, ou contribuer | [Installer depuis un clone](#installer-depuis-un-clone) | Git, Node, pnpm ; Python pour les outils enseignant |
+| Ouvrir une activité portable préparée par un enseignant | rien : ouvrez son `index.html` (voir [De l'activité au rapport](../tutorials/activity-to-report.fr.md)) | un navigateur récent |
+
+Seul un clone vous donne :
+
+- les leçons de démonstration de `fixtures/` ;
+- les outils enseignant (Python), qui préparent, vérifient et approuvent un cours ;
+- les [skills](skills.fr.md) pour les assistants autres que Claude Code (le plugin les apporte à Claude Code) ;
+- l'[Observatoire](../teach/observatory.fr.md) et le tableau de bord enseignant (voir
+  [Suivre une classe](../teach/follow-a-class.fr.md)).
 
 ## Prérequis
 
-| Outil | Version | Vérification |
-|---|---|---|
-| Git | récente | `git --version` |
-| Node | 22 LTS (le dépôt accepte 20 et plus) | `node --version` |
-| pnpm | 9.15.9 | `pnpm --version` |
-| Python (outils enseignant seulement) | 3.12 ou plus | `python3.12 --version` |
-| VS Code (panneau seulement) | 1.95 ou plus | Aide, À propos |
+| Outil | Version | Voie | Vérification |
+|---|---|---|---|
+| Node | 22 LTS (20 et plus acceptés) | serveur, plugin, clone | `node --version` |
+| Claude Code | 2.1.275 ou plus | plugin | `claude --version` |
+| VS Code | 1.95 ou plus | extension | Aide, À propos |
+| Git | récente | clone | `git --version` |
+| pnpm | 9.15.9 | clone | `pnpm --version` |
+| Python | 3.12 ou plus | clone, outils enseignant seulement | `python3.12 --version` |
 
-Si `pnpm` manque, `corepack enable` (fourni avec Node) ou le
-[guide d'installation de pnpm](https://pnpm.io/installation) l'installe. Sur un macOS d'origine,
-`python3` est souvent en 3.9, trop ancien pour les outils enseignant.
+L'extension embarque son propre serveur et ne demande pas de Node à part. Si `pnpm` manque,
+`corepack enable` (fourni avec Node) ou le [guide d'installation de pnpm](https://pnpm.io/installation)
+l'installe. Sur un macOS d'origine, `python3` est souvent en 3.9, trop ancien pour les outils enseignant.
 
-## Récupérer le code et construire
+## Si un paquet n'est pas encore publié
 
-Le dépôt est privé : authentifiez-vous avant de cloner, sinon Git répond `Repository not found`.
+Le paquet npm `studium-mcp` et l'extension sur le Visual Studio Marketplace et sur Open VSX sont
+disponibles à partir de la première version publique qui les contient. D'ici là, une
+commande peut répondre que le paquet ou l'extension n'existe pas. Utilisez alors les fichiers joints à une
+[release GitHub](https://github.com/HolobiomicsLab/studium/releases) :
+
+- téléchargez `lesson-mcp.cjs` et lancez-le avec `node /path/to/lesson-mcp.cjs` partout où cette
+  documentation écrit `npx -y studium-mcp` ;
+- téléchargez `studium-vX.Y.Z.vsix` et installez-le avec `code --install-extension studium-vX.Y.Z.vsix`.
+
+Le plugin Claude Code n'est publié nulle part : Claude Code le lit dans ce dépôt, il s'installe donc dès
+que vous avez accès au dépôt. Il lance son serveur avec `npx -y studium-mcp` : il a donc besoin, lui
+aussi, du paquet npm. Sinon,
+[installez depuis un clone](#installer-depuis-un-clone). Tant que le dépôt est privé, le cloner et
+télécharger les fichiers d'une release demandent d'y avoir accès.
+
+## Ajouter le serveur à votre assistant
+
+Il vous faut Node 20 ou plus. `npx` récupère le serveur la première fois ; rien d'autre à installer.
+`LITELLM_BASE_URL=` (vide) indique à Studium de n'appeler aucun modèle juge, même si votre shell en
+définit un.
+
+| Assistant | Commande ou fichier |
+|---|---|
+| Claude Code | `claude mcp add --scope user studium -e LITELLM_BASE_URL= -- npx -y studium-mcp` |
+| Codex | `codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp` |
+| Copilot dans VS Code | `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
+| Cursor | `.cursor/mcp.json` ou `~/.cursor/mcp.json`, voir [Connecter Cursor](cursor.fr.md) |
+| OpenCode | `opencode.jsonc`, voir [Connecter OpenCode](opencode.fr.md) |
+| Claude Desktop | `claude_desktop_config.json`, voir [Connecter votre assistant](harnesses.fr.md#claude-desktop) |
+
+Vérifiez le serveur lui-même :
 
 ```bash
-gh auth login
+npx -y studium-mcp --version
+npx -y studium-mcp --help
+```
+
+Les deux répondent sans démarrer le serveur. Vérifiez ensuite que votre assistant est connecté :
+[Connecter votre assistant](harnesses.fr.md#vérifier-la-connexion).
+
+## Installer le plugin Claude Code
+
+Le plugin `studium` ajoute en une étape le serveur, les douze skills de `skills/` et les deux agents de
+leçon :
+
+```bash
+claude plugin install studium --marketplace HolobiomicsLab/studium
+```
+
+Dans une session, `/plugin install studium --marketplace HolobiomicsLab/studium` fait la même chose. Le nom
+des skills et des agents sous le plugin, ainsi que les commandes en deux étapes, de mise à jour et de
+retrait, sont dans [Connecter Claude Code](claude-code.fr.md#installer-le-plugin).
+
+## Installer l'extension VS Code
+
+Depuis le Visual Studio Marketplace ou Open VSX, une fois l'extension
+[publiée](#si-un-paquet-nest-pas-encore-publié) :
+
+```bash
+code --install-extension holobiomicslab.studium-vscode
+```
+
+Ou depuis un fichier de release : `code --install-extension studium-vX.Y.Z.vsix`. L'extension contient le
+serveur et les moteurs de rendu. Les leçons n'y sont pas : elle lit votre bibliothèque personnelle
+(`~/.studium/library`) ou le dossier que vous choisissez. Ce qu'elle propose est décrit dans
+[VS Code](vscode.fr.md).
+
+## Installer depuis un clone
+
+Cette voie s'adresse aux enseignants qui préparent et approuvent des cours, et aux contributeurs.
+
+### Récupérer le code et construire
+
+Tant que le dépôt est privé, le cloner demande d'y avoir accès : lancez d'abord `gh auth login` si Git
+répond `Repository not found`.
+
+```bash
 git clone https://github.com/HolobiomicsLab/studium.git
 cd studium
 ./setup.sh
@@ -53,10 +136,11 @@ pnpm --filter studium-vscode build
 ```
 
 La dernière commande écrit `apps/studium-vscode/dist/extension.js` et
-`apps/studium-vscode/dist/lesson-mcp.cjs`. Ce second fichier est le serveur MCP Studium autonome que les
-[configurations de harnais](harnesses.fr.md) lancent avec `node` ; il ne demande pas de `tsx` global.
+`apps/studium-vscode/dist/lesson-mcp.cjs`. Ce second fichier est le serveur MCP Studium autonome, le même
+que le `lesson-mcp.cjs` d'une release. Un assistant le lance avec `node` (voir
+[Connecter votre assistant](harnesses.fr.md)) ; il ne demande pas de `tsx` global.
 
-## Vérifier le serveur sans client
+### Vérifier le serveur sans client
 
 ```bash
 node apps/lesson-mcp/scripts/headless_smoke.mjs
@@ -66,24 +150,7 @@ Un client MCP minimal démarre le serveur, liste ses outils, joue une leçon fou
 `all 19 assertions passed`. Le test ne garde rien sur le disque. Il prouve que le serveur fonctionne, pas
 qu'un assistant donné y est connecté.
 
-## Où Studium range vos leçons et votre progression
-
-Le serveur lancé par un assistant utilise ces valeurs par défaut. Chacune se change par une variable
-d'environnement dans la configuration du harnais ; la liste complète est dans
-[Configuration](../reference/configuration.fr.md).
-
-| Quoi | Par défaut | Variable |
-|---|---|---|
-| Dossier Studium | `~/.studium` | `STUDIUM_HOME` |
-| Leçons préparées pour vous | `~/.studium/library` | `STUDIUM_HOME` (`BUNDLES_ROOT` ne fait qu'ajouter un dossier consulté en premier) |
-| Progression et révisions durables | `~/.studium/data` | `STUDIUM_DATA_DIR` |
-| Tout garder en mémoire (tests, démos) | désactivé | `STUDIUM_EPHEMERAL=1` |
-
-Sur le disque, les dossiers d'apprenant portent un pseudonyme, jamais votre identifiant. L'extension VS Code
-garde sa propre progression dans le stockage d'extension de VS Code ; voir
-[VS Code](vscode.fr.md#vos-données).
-
-## Autres façons de lancer le serveur
+### Autres façons de lancer le serveur
 
 | Usage | Commande |
 |---|---|
@@ -91,13 +158,9 @@ garde sa propre progression dans le stockage d'extension de VS Code ; voir
 | Fichier unique autonome | `pnpm --filter @studium/lesson-mcp bundle`, qui écrit `apps/lesson-mcp/dist/studium-mcp.cjs` |
 | API HTTP locale au lieu de MCP | `pnpm --filter @studium/lesson-mcp api` (voir [API HTTP](../reference/http-api.fr.md#la-démarrer)) |
 
-Une version étiquetée joint `studium-vX.Y.Z.vsix`, `lesson-mcp.cjs` et `SHA256SUMS.txt` à une release GitHub
-préparée en brouillon par le workflow de publication. Rien n'est publié sur npm ni sur le Marketplace de
-VS Code.
+La construction et la publication d'une version sont décrites dans [Publication](../develop/release.fr.md).
 
-## Installer l'extension VS Code
-
-Construisez un paquet installable depuis le dépôt, puis installez-le :
+### Construire l'extension VS Code
 
 ```bash
 pnpm --filter studium-vscode package
@@ -105,12 +168,10 @@ code --install-extension apps/studium-vscode/studium.vsix
 ```
 
 `package` copie les moteurs de rendu, construit et lance la dépendance de développement `vsce`, à version
-épinglée. Le VSIX contient le serveur et les moteurs de rendu : un collègue peut l'installer sans le dépôt.
-Les leçons ne sont pas dans le VSIX : l'extension lit votre bibliothèque personnelle (`~/.studium/library`)
-ou le dossier que vous choisissez. Les développeurs peuvent plutôt ouvrir `apps/studium-vscode` dans
-VS Code et appuyer sur F5. Ce que propose l'extension est décrit dans [VS Code](vscode.fr.md).
+épinglée. Un collègue peut installer le VSIX sans le dépôt. Les développeurs peuvent plutôt ouvrir
+`apps/studium-vscode` dans VS Code et appuyer sur F5.
 
-## Ajouter les outils enseignant (Python)
+### Ajouter les outils enseignant (Python)
 
 Depuis la racine du dépôt, dans un environnement virtuel (jamais le Python du système) :
 
@@ -126,9 +187,9 @@ refuse un verdict `to_fix` et renvoie vers lui. Continuez avec le
 [guide de l'enseignant](../teach/teacher-guide.fr.md). Les bibliothèques scientifiques dont une capsule de
 cours a besoin s'installent dans l'environnement propre de cette capsule, aux versions qu'elle déclare.
 
-## Windows
+### Windows
 
-Les commandes ci-dessus sont écrites pour macOS et Linux. Sous Windows :
+Les commandes du clone sont écrites pour macOS et Linux. Sous Windows :
 
 - créez l'environnement avec `py -3.12 -m venv .venv` et remplacez `.venv/bin/python` par
   `.venv\Scripts\python.exe` ;
@@ -142,17 +203,37 @@ Les commandes ci-dessus sont écrites pour macOS et Linux. Sous Windows :
 
 Le parcours Windows n'a pas été exécuté de bout en bout.
 
+## Où Studium range vos leçons et votre progression
+
+Le serveur lancé par un assistant utilise ces valeurs par défaut, quelle que soit la voie. Chacune se
+change par une variable d'environnement dans la configuration de l'assistant ; la liste complète est dans
+[Configuration](../reference/configuration.fr.md).
+
+| Quoi | Par défaut | Variable |
+|---|---|---|
+| Dossier Studium | `~/.studium` | `STUDIUM_HOME` |
+| Leçons préparées pour vous | `~/.studium/library` | `STUDIUM_HOME` (`BUNDLES_ROOT` ne fait qu'ajouter un dossier consulté en premier) |
+| Progression et révisions durables | `~/.studium/data` | `STUDIUM_DATA_DIR` |
+| Tout garder en mémoire (tests, démos) | désactivé | `STUDIUM_EPHEMERAL=1` |
+
+Sur le disque, les dossiers d'apprenant portent un pseudonyme, jamais votre identifiant. L'extension VS Code
+garde sa propre progression dans le stockage d'extension de VS Code ; voir
+[VS Code](vscode.fr.md#vos-données).
+
 ## Mettre à jour
 
-```bash
-git pull
-./setup.sh
-```
+| Voie | Mise à jour |
+|---|---|
+| Serveur avec `npx` | redémarrez l'assistant. `npx` peut réutiliser une copie déjà récupérée : `npx -y studium-mcp@latest --version` demande la plus récente à npm |
+| Plugin Claude Code | `claude plugin marketplace update holobiomicslab`, puis `claude plugin update studium@holobiomicslab` |
+| Extension VS Code | depuis un marketplace, VS Code la met à jour ; depuis un fichier, installez le `.vsix` plus récent |
+| Clone | `git pull`, puis `./setup.sh` |
 
-Redémarrez ou reconnectez ensuite le serveur MCP dans votre assistant. Un `lesson-mcp.cjs` construit avant
-la mise à jour n'a pas les outils récents, sans autre symptôme : demandez à votre assistant d'appeler
-`get_server_info`, qui indique la version, l'origine du build (`source` ou `bundled`), sa date et la liste
-des outils. Une mise à jour ne touche ni vos leçons ni votre progression dans `~/.studium`.
+Redémarrez ou reconnectez ensuite le serveur MCP dans votre assistant. Un fichier serveur construit ou
+téléchargé avant la mise à jour n'a pas les outils récents, sans autre symptôme : demandez à votre
+assistant d'appeler `get_server_info`, qui indique la version, l'origine du build (`source` ou `bundled`),
+sa date et la liste des outils. Une mise à jour ne touche ni vos leçons ni votre progression dans
+`~/.studium`.
 
 ## Effacer vos données
 

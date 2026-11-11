@@ -6,14 +6,17 @@ Ajoutez le serveur Studium à OpenCode, pour qu'OpenCode joue vos leçons avec l
 
 ## Avant de commencer
 
-- Terminez l'[installation](installation.fr.md) et lisez [Connecter votre assistant](harnesses.fr.md) : il
-  explique `/path/to/studium`, `BUNDLES_ROOT` et `LITELLM_BASE_URL`.
+- Lisez [Connecter votre assistant](harnesses.fr.md) : il explique les deux façons de lancer le serveur
+  (`npx -y studium-mcp`, ou `node` sur un fichier issu d'un clone ou d'une release), `/path/to/studium`,
+  `BUNDLES_ROOT` et `LITELLM_BASE_URL`. La forme `npx` ne demande que Node ; voir
+  [Installation](installation.fr.md).
 - Installez OpenCode et configurez un fournisseur selon la
   [documentation OpenCode v2](https://opencode.ai/v2/docs) et sa [page MCP](https://opencode.ai/v2/docs/mcp-servers).
 
 ## Réaliser la tâche
 
-1. Pour OpenCode v2, fusionnez ceci dans `opencode.jsonc` à la racine du projet :
+1. Pour OpenCode v2, fusionnez ceci dans `opencode.jsonc` à la racine du projet. **Avec `npx`** (sans
+   clone) :
 
    ```json
    {
@@ -21,13 +24,15 @@ Ajoutez le serveur Studium à OpenCode, pour qu'OpenCode joue vos leçons avec l
        "servers": {
          "studium": {
            "type": "local",
-           "command": ["node", "/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs"],
+           "command": ["npx", "-y", "studium-mcp"],
            "environment": { "LITELLM_BASE_URL": "" }
          }
        }
      }
    }
    ```
+
+   **Depuis un clone**, utilisez `"command": ["node", "/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]`.
 
 2. Lancez `opencode mcp list` pour voir la connexion.
 

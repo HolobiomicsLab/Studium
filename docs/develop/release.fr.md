@@ -31,10 +31,13 @@ licence du dépôt : Apache 2.0, avec `LICENSE` et `NOTICE` dans le VSIX et dan
 - **Une seule version du produit.** La version publiée est le champ `version` de
   [`apps/studium-vscode/package.json`](../../apps/studium-vscode/package.json). Le workflow refuse une
   étiquette qui ne lui correspond pas.
-- **Gardez le serveur MCP au même numéro.** Le serveur annonce aux clients MCP le `version` de
+- **Gardez tous les manifestes au même numéro.** Le serveur annonce aux clients MCP le `version` de
   [`apps/lesson-mcp/package.json`](../../apps/lesson-mcp/package.json), et `get_server_info` y ajoute
-  l'origine, la date et le commit de construction. Montez-le avec l'extension : rien ne le vérifie à votre
-  place.
+  l'origine, la date et le commit de construction. La même version du produit est inscrite dans
+  [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json) et dans [`server.json`](../../server.json),
+  deux fois dans ce dernier : le `version` de l'entrée et celui du paquet npm.
+  [`apps/lesson-mcp/src/distribution.test.ts`](../../apps/lesson-mcp/src/distribution.test.ts) échoue quand
+  l'extension, le plugin ou `server.json` diffère de la version du serveur.
 - **Versionnage sémantique, en 0.x pour l'instant.** Tant que la version commence par `0.`, une version
   mineure peut changer les entrées ou sorties d'un outil ; dites-le dans le changelog. Un correctif répare
   un comportement sans changer de contrat.
@@ -90,8 +93,8 @@ Pousser une étiquette relève du propriétaire ; agents et contributeurs pré
 l'étiqueter.
 
 1. Vérifiez que la CI est verte sur le commit à étiqueter (voir [tests](testing.fr.md)).
-2. Inscrivez la même nouvelle version dans `apps/studium-vscode/package.json` et
-   `apps/lesson-mcp/package.json`.
+2. Inscrivez la même nouvelle version dans `apps/studium-vscode/package.json`,
+   `apps/lesson-mcp/package.json`, `.claude-plugin/plugin.json` et `server.json` (deux endroits).
 3. Renommez **Unreleased** dans `CHANGELOG.md` en ce numéro, puis fusionnez.
 4. Étiquetez et poussez :
 
@@ -110,6 +113,64 @@ l'étiqueter.
 
 Un workflow en échec ne laisse aucune release. Corrigez la cause et publiez la version corrective suivante
 plutôt que de déplacer une étiquette publiée.
+
+## Publier à la main
+
+Quand le workflow de publication ne peut pas tourner, le mainteneur peut publier une version étiquetée
+depuis sa propre machine. Les jetons ne vont jamais dans le dépôt, ni sur une ligne de commande gardée dans
+l'historique du shell : tapez chacun à l'invite d'un `read -rs`, comme ci-dessous, et fermez le shell
+ensuite.
+
+1. Construisez le serveur et préparez le paquet npm, depuis la racine du dépôt, sur le commit étiqueté :
+
+   ```bash
+   pnpm install --frozen-lockfile
+   pnpm build:libs
+   pnpm --filter studium-vscode build
+   node .github/scripts/stage-npm-mcp.mjs X.Y.Z npm-stage
+   ```
+
+2. Vérifiez ce que contiendra le paquet (`studium-mcp.cjs`, `LICENSE`, `NOTICE`, `README.md`,
+   `package.json`) :
+
+   ```bash
+   (cd npm-stage && npm pack --dry-run)
+   ```
+
+3. Publiez-le. `npm publish` utilise le `npm login` du mainteneur ; un paquet publié depuis un portable ne
+   porte pas d'attestation de provenance, contrairement à celui que publie le workflow :
+
+   ```bash
+   npm login
+   (cd npm-stage && npm publish)
+   ```
+
+4. Publiez le VSIX de la version (`studium-vX.Y.Z.vsix`, pris sur la page de la release ou construit par
+   `pnpm --filter studium-vscode package`). `vsce` s'exécute dans `apps/studium-vscode` : donnez-lui un
+   chemin absolu. `vsce` lit `VSCE_PAT` et `ovsx` lit `OVSX_PAT` dans l'environnement :
+
+   ```bash
+   read -rs VSCE_PAT && export VSCE_PAT
+   pnpm --filter studium-vscode exec vsce publish --packagePath "$PWD/studium-vX.Y.Z.vsix"
+   read -rs OVSX_PAT && export OVSX_PAT
+   npx --yes ovsx@1.2.0 publish studium-vX.Y.Z.vsix
+   ```
+
+5. Inscrivez le serveur au MCP Registry, une fois le paquet npm publié (son manifeste porte `mcpName`, que
+   le registre vérifie). Depuis la racine du dépôt, `mcp-publisher` lit `server.json` :
+
+   ```bash
+   mcp-publisher login github
+   mcp-publisher publish
+   ```
+
+   Publier sous le nom de l'organisation `io.github.HolobiomicsLab/` demande un compte GitHub
+   membre de l'organisation. Que le nom doive respecter la casse du nom de l'organisation sur GitHub n'a pas été
+   vérifié.
+
+Le plugin Claude Code ne demande aucune étape de publication. Claude Code lit le marketplace et le plugin
+sur la branche par défaut du dépôt : une version atteint les utilisateurs une fois fusionnée sur cette
+branche. Il fonctionne pour les personnes extérieures à l'organisation dès que le dépôt est public.
 
 ## Limites
 

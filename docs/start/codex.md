@@ -7,30 +7,40 @@ tools.
 
 ## Before you start
 
-- Finish the [installation](installation.md) and read [Connect your assistant](harnesses.md): it explains
-  `/path/to/studium`, `BUNDLES_ROOT` and `LITELLM_BASE_URL`.
+- Read [Connect your assistant](harnesses.md): it explains the two ways to start the server
+  (`npx -y studium-mcp`, or `node` on a file from a checkout or a release), `/path/to/studium`,
+  `BUNDLES_ROOT` and `LITELLM_BASE_URL`. The `npx` form needs only Node; see [Installation](installation.md).
 - Install and sign in to Codex following the [Codex quickstart](https://learn.chatgpt.com/docs/quickstart).
   MCP options are in [MCP in Codex](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
 
 ## Do the task
 
-1. Add the server from your checkout:
+1. Add the server. **With `npx`** (no checkout):
+
+   ```bash
+   codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp
+   codex mcp list
+   ```
+
+   **From a checkout**, in its root folder:
 
    ```bash
    codex mcp add studium --env LITELLM_BASE_URL= -- node "$PWD/apps/studium-vscode/dist/lesson-mcp.cjs"
-   codex mcp list
    ```
 
 2. Or merge this into `~/.codex/config.toml`:
 
    ```toml
    [mcp_servers.studium]
-   command = "node"
-   args = ["/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]
+   command = "npx"
+   args = ["-y", "studium-mcp"]
 
    [mcp_servers.studium.env]
    LITELLM_BASE_URL = ""
    ```
+
+   From a checkout, use `command = "node"` and
+   `args = ["/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]`.
 
 3. Answer the approval prompts in an interactive session, or run non-interactively with
    `codex exec --approve-for-me` (not combinable with `-s/--sandbox`). For a one-off run with another

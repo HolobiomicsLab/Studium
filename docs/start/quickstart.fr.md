@@ -4,8 +4,11 @@
 
 En un quart d'heure environ, vous pouvez demander à un assistant IA de vous enseigner un sujet à partir
 des sources que vous choisissez, répondre à la première question d'une leçon préparée pour vous, puis
-revenir quelques jours plus tard réviser ce que vous êtes sur le point d'oublier. Cette page suit le
-chemin le plus court ; chaque étape renvoie à la page détaillée.
+revenir quelques jours plus tard réviser ce que vous êtes sur le point d'oublier. Cette page part d'un
+clone du dépôt, qui vous donne aussi les leçons de démonstration. Pour connecter un assistant avec Node
+seulement, sans clone, voir
+[Ajouter le serveur à votre assistant](installation.fr.md#ajouter-le-serveur-à-votre-assistant). Chaque
+étape renvoie à la page détaillée.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/self-learner-journey-dark.svg">

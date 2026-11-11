@@ -4,6 +4,18 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Added
+
+- **Install without a checkout.** The MCP server is prepared as the npm package `studium-mcp`: one file, no dependency, started by an assistant with `npx -y studium-mcp`. The package now carries a README written for its users (one line per assistant, where data lives), and the command answers `--version` and `--help` instead of waiting silently on stdin. Publication to npm needs the maintainers' token; until then the same file is attached to each release as `lesson-mcp.cjs`.
+- **A Claude Code plugin.** `.claude-plugin/` declares the plugin `studium` in a marketplace hosted in this repository: one command installs the server, the twelve skills and the two lesson agents (`claude plugin install studium --marketplace HolobiomicsLab/studium`).
+- **An entry for the MCP Registry.** `server.json` lists the npm package under `io.github.HolobiomicsLab/studium`; the staged npm manifest claims that name.
+- **A documentation site.** `tools/docs/build-site.mjs` is no longer a prototype: search in both languages without a server (case and accents ignored, `/` to focus), a button to copy each code block, a print layout, visible focus everywhere, and the revision in the footer (`--revision`). The workflow `docs-site.yml` publishes it to GitHub Pages on each push to `main` that touches the documentation, once Pages is enabled.
+- A test keeps the product version in step across the extension, the server, `server.json` and the plugin.
+
+### Changed
+
+- **The installation pages start with the shortest route.** Add the server with `npx`, or the Claude Code plugin, or the VS Code extension; the checkout is for teachers who prepare and approve courses and for contributors. Each assistant's page gives the `npx` form first.
+
 ## 0.5.0 — 2026-11-11
 
 This release teaches every connected assistant to say when Studium itself is at fault and to help the person report it, corrects the skills against the code, and updates dependencies. No tool changes the inputs it takes or the shape of what it returns; `get_server_info` gains one field, `feedback`, and the server's instructions one line.
