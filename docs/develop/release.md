@@ -157,8 +157,8 @@ organisation without an Actions budget cannot (its workflows stop at once), a pu
 
 | Registry | What the owner does once | Switch |
 |---|---|---|
-| npm | on npmjs.com, package `studium-mcp`, **Settings**, **Trusted Publisher**, GitHub Actions: organisation `HolobiomicsLab`, repository `studium`, workflow `release.yml`, no environment; allow `npm publish` | repository variable `PUBLISH_NPM` = `true` |
-| Marketplace | on the publisher's page, **Trusted Publishing**, **Create**: repository owner `HolobiomicsLab`, repository `studium`, workflow `release.yml`, no environment. For a private repository the workflow must run within 48 hours of creating the policy | `PUBLISH_MARKETPLACE` = `true` |
+| npm | on npmjs.com, package `studium-mcp`, **Settings**, **Trusted Publisher**, GitHub Actions: organisation `HolobiomicsLab`, repository `Studium`, workflow `release.yml`, no environment; allow `npm publish` | repository variable `PUBLISH_NPM` = `true` |
+| Marketplace | on the publisher's page, **Trusted Publishing**, **Create**: repository owner `HolobiomicsLab`, repository `Studium`, workflow `release.yml`, no environment. For a private repository the workflow must run within 48 hours of creating the policy | `PUBLISH_MARKETPLACE` = `true` |
 | MCP Registry | nothing: a job of this repository is granted `io.github.HolobiomicsLab/*` | `PUBLISH_MCP_REGISTRY` = `true` |
 | Open VSX | the secret `OVSX_PAT` (Open VSX has no OIDC route); only the Open VSX step sees it | `PUBLISH_OPEN_VSX` = `true` |
 
@@ -166,8 +166,9 @@ organisation without an Actions budget cannot (its workflows stop at once), a pu
 gh variable set PUBLISH_NPM --body true --repo HolobiomicsLab/studium
 ```
 
-npm does not check a trusted publisher when it is saved, only at the first publication; it adds a
-provenance attestation when the repository is public. These routes come from the registries' documentation
+The repository's name is `Studium`, with a capital S: npm reads every field letter for letter, and
+compares the `repository.url` of the package with it. npm does not check a trusted publisher when it is
+saved, only at the first publication; it adds a provenance attestation when the repository is public. These routes come from the registries' documentation
 ([npm](https://docs.npmjs.com/trusted-publishers),
 [Marketplace](https://code.visualstudio.com/api/working-with-extensions/publishing-extension),
 [MCP Registry](https://modelcontextprotocol.io/registry/github-actions)); none has run for Studium yet.

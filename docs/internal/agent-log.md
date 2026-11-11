@@ -23,6 +23,12 @@ Mots du propriétaire : « Studium repo is public btw », « C'est bon j'ai fais
 - Numéro 0.6.1 écrit par `node tools/release/version.mjs 0.6.1` aux treize endroits : premier usage réel
   de l'outil. Section 0.6.1 du journal des changements, avec une phrase de résumé.
 
+- Trouvé en ouvrant la PR : le dépôt s'appelle désormais `HolobiomicsLab/Studium` (S majuscule). npm lit
+  les champs de l'éditeur de confiance à la lettre près et compare le `repository.url` du paquet au dépôt
+  du workflow. `stage-npm-mcp.mjs` donne maintenant cette adresse exacte (assertion ajoutée dans
+  `distribution.test.ts`, vue échouer d'abord) ; la page de publication dit `Studium` pour les deux
+  formulaires. Les autres adresses du dépôt, en minuscules, fonctionnent telles quelles.
+
 Aucun comportement du serveur ni de l'extension ne change.
 
 ## 2026-11-11 — fiche de l'extension sur les registres, outils de publication

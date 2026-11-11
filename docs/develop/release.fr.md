@@ -161,8 +161,8 @@ public le peut.
 
 | Registre | Ce que le propriétaire fait une fois | Interrupteur |
 |---|---|---|
-| npm | sur npmjs.com, paquet `studium-mcp`, **Settings**, **Trusted Publisher**, GitHub Actions : organisation `HolobiomicsLab`, dépôt `studium`, workflow `release.yml`, pas d'environnement ; autoriser `npm publish` | variable du dépôt `PUBLISH_NPM` = `true` |
-| Marketplace | sur la page de l'éditeur, **Trusted Publishing**, **Create** : propriétaire du dépôt `HolobiomicsLab`, dépôt `studium`, workflow `release.yml`, pas d'environnement. Pour un dépôt privé, le workflow doit tourner dans les 48 heures qui suivent la création de la règle | `PUBLISH_MARKETPLACE` = `true` |
+| npm | sur npmjs.com, paquet `studium-mcp`, **Settings**, **Trusted Publisher**, GitHub Actions : organisation `HolobiomicsLab`, dépôt `Studium`, workflow `release.yml`, pas d'environnement ; autoriser `npm publish` | variable du dépôt `PUBLISH_NPM` = `true` |
+| Marketplace | sur la page de l'éditeur, **Trusted Publishing**, **Create** : propriétaire du dépôt `HolobiomicsLab`, dépôt `Studium`, workflow `release.yml`, pas d'environnement. Pour un dépôt privé, le workflow doit tourner dans les 48 heures qui suivent la création de la règle | `PUBLISH_MARKETPLACE` = `true` |
 | MCP Registry | rien : un job de ce dépôt reçoit `io.github.HolobiomicsLab/*` | `PUBLISH_MCP_REGISTRY` = `true` |
 | Open VSX | le secret `OVSX_PAT` (Open VSX n'a pas de voie OIDC) ; seule l'étape Open VSX le voit | `PUBLISH_OPEN_VSX` = `true` |
 
@@ -170,8 +170,9 @@ public le peut.
 gh variable set PUBLISH_NPM --body true --repo HolobiomicsLab/studium
 ```
 
-npm ne contrôle pas un éditeur de confiance à l'enregistrement, seulement à la première publication ; il
-ajoute une attestation de provenance quand le dépôt est public. Ces voies viennent de la documentation des
+Le nom du dépôt est `Studium`, avec un S majuscule : npm lit chaque champ à la lettre près, et lui
+compare le `repository.url` du paquet. npm ne contrôle pas un éditeur de confiance à l'enregistrement,
+seulement à la première publication ; il ajoute une attestation de provenance quand le dépôt est public. Ces voies viennent de la documentation des
 registres ([npm](https://docs.npmjs.com/trusted-publishers),
 [Marketplace](https://code.visualstudio.com/api/working-with-extensions/publishing-extension),
 [MCP Registry](https://modelcontextprotocol.io/registry/github-actions)) ; aucune n'a encore tourné pour

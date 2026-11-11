@@ -33,6 +33,9 @@ describe("distribution manifests", () => {
     expect(stage).toContain('mcpName: JSON.parse(readFileSync(join(root, "server.json"), "utf8")).name');
     expect(stage).toContain('"apps/lesson-mcp/README.npm.md"');
     expect(existsSync(new URL("apps/lesson-mcp/README.npm.md", root))).toBe(true);
+    // npm compares `repository.url` with the repository the release workflow runs in, letter for letter,
+    // before it accepts a trusted publication: the repository is HolobiomicsLab/Studium, capital S.
+    expect(stage).toContain('url: "git+https://github.com/HolobiomicsLab/Studium.git"');
   });
 
   it("the Claude Code plugin starts that npm package and ships agents that exist", () => {
