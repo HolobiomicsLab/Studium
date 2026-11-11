@@ -4,6 +4,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Added
+
+- **A page on choosing a model.** [Choose your model](docs/start/models.md) says where a model is used (the assistant's model, required, and the optional judge), how to work with a Copilot plan or with a model that runs on your machine, and what a judge endpoint must answer: `<address>/v1/chat/completions`, the model names `studium/audit-judge` (or `LITELLM_MODEL`) and `studium/runtime-tutor`. It states that no local model has been tried. English and French, linked from the README and the portal.
+
 ### Changed
 
 - **The README starts with what to do, for a beginner and for an assistant.** "Start here" says which part does what (an assistant builds and plays a lesson; the VS Code extension shows one and does not build any), then three steps: connect your assistant, ask for a lesson, play it in VS Code. A section addressed to an AI assistant gives the six steps to help someone install and use Studium. The VS Code page gains "Get your first lesson", and `AGENTS.md` sends an agent asked to use Studium to that section. English and French.

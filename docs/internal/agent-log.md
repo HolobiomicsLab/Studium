@@ -6,6 +6,22 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-11 — page « Choisir son modèle »
+
+Question du propriétaire : comment utiliser Studium avec un modèle local, ou avec un modèle d'un
+abonnement Copilot Pro ou académique. Aucune page ne le disait. Branche
+`docs/2026-11-11-choose-your-model`, depuis `dev` (`11acbdb`) : `docs/start/models.md` et `.fr.md`,
+reliées depuis le README et le portail. Deux endroits où un modèle intervient : celui de l'assistant
+(obligatoire, doit savoir appeler des outils) et le juge (facultatif, `LITELLM_BASE_URL`). Vérifié par un
+essai automatisé, apprenant synthétique, état éphémère, sur le serveur publié (`npx -y studium-mcp`,
+0.6.0) et un faux point d'accès local : sans juge, aucune requête et `assessed_by: none` ; avec juge, une
+requête `POST <adresse>/v1/chat/completions`, modèle `studium/audit-judge`, clé en `Bearer`, format
+`json_object`, et `assessed_by: judge` ; point d'accès en erreur 500 : la leçon continue, `assessed_by:
+none`. Trouvé en chemin : avec `STUDIUM_EPHEMERAL=1` et un juge, le serveur refuse d'ouvrir une session
+sans `STUDIUM_PSEUDO_SECRET` ; en stockage durable, le secret de l'installation suffit. Non vérifié :
+aucun modèle local n'est installé sur la machine de travail, aucun n'a donc été essayé ; l'exemple
+LiteLLM n'a pas été exécuté.
+
 ## 2026-11-11 — le README commence par quoi faire, pour un débutant et pour un assistant
 
 Retour du propriétaire après avoir installé l'extension depuis le Marketplace : on ne comprend pas
