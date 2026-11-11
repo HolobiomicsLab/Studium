@@ -6,6 +6,18 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-11 — la documentation dit où sont les paquets
+
+La 0.6.0 est sur npm, le MCP Registry, le Visual Studio Marketplace et Open VSX depuis le 11 novembre
+(envois faits par le propriétaire). Branche `docs/2026-11-11-packages-online`, depuis `dev` (`4667e39`) :
+la section « Si un paquet n'est pas encore publié » des pages d'installation devient « Où sont les
+paquets » (tableau des quatre registres, fichiers de release pour une machine sans registre), et les
+README, `harnesses`, `claude-code`, `vscode` et le README du serveur la suivent, dans les deux langues.
+`docs/develop/release.md` reçoit les voies réellement utilisées : dépôt du VSIX sur la page de l'éditeur,
+connexion au registre par jeton d'organisation en une ligne. Vérifié depuis l'extérieur : `npx -y
+studium-mcp` démarre la 0.6.0 ; `code --install-extension holobiomicslab.studium-vscode` l'installe dans
+un dossier isolé. Aucun code ne change.
+
 ## 2026-11-11 — préparation de la version 0.6.0
 
 Choix du propriétaire : « Oui, 0.6.0 », pour la version qui porte l'installation sans clone, l'extension

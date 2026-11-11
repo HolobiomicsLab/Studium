@@ -29,8 +29,8 @@ npx -y studium-mcp --help
 ```
 
 `--version` et `--help` répondent sans démarrer le serveur. [`README.npm.md`](README.npm.md) est le README
-publié sur npm avec le paquet. Tant que le paquet n'est pas publié, voir
-[Installation](../../docs/start/installation.fr.md#si-un-paquet-nest-pas-encore-publié).
+publié sur npm avec le paquet, [`studium-mcp`](https://www.npmjs.com/package/studium-mcp), disponible depuis la version 0.6.0. Les autres
+registres sont dans [Installation](../../docs/start/installation.fr.md#où-sont-les-paquets).
 
 Depuis un clone, après `pnpm install` à la racine du dépôt :
 

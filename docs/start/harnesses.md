@@ -17,8 +17,8 @@ talks over stdio: it opens no port and shows no web page. A configuration starts
 | From a file | `node /path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs` | from a checkout after `pnpm --filter studium-vscode build`, or with a `lesson-mcp.cjs` downloaded from a release (use its own path) |
 
 Each client page gives the `npx` form first and the checkout form second. Replace `/path/to/studium` with
-the absolute path of your checkout. If `npx` answers that the package does not exist, see
-[If a package is not published yet](installation.md#if-a-package-is-not-published-yet).
+the absolute path of your checkout. If `npx` cannot reach npm, see
+[Where the packages are](installation.md#where-the-packages-are).
 
 You meet two environment variables first:
 
