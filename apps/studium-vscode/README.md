@@ -215,8 +215,8 @@ Installation is described in the [installation guide](../../docs/start/installat
 
 The page the Marketplace and Open VSX show is [`MARKETPLACE.md`](MARKETPLACE.md), written for the person
 who installs the extension, in English then French; `package` hands it to `vsce` and this README stays out
-of the VSIX. Keep it free of relative links and images, which a registry page cannot follow (the
-`contributes` driver checks it). The files of a release are built by
+of the VSIX. A registry page cannot follow a relative link: link to this repository's `main` branch by
+full address, images included (the `contributes` driver checks it). The files of a release are built by
 [`tools/release/build.sh`](../../tools/release/build.sh); see [Release](../../docs/develop/release.md).
 
 ## Tests

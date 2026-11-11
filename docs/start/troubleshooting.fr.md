@@ -12,7 +12,7 @@ privé.
 
 | Symptôme | Vérification et correction |
 |---|---|
-| `Repository not found` au clonage | le dépôt est privé : lancez `gh auth login`, puis clonez à nouveau |
+| `Repository not found` au clonage | vérifiez l'adresse, `https://github.com/HolobiomicsLab/studium.git` : le dépôt est public et ne demande aucune connexion |
 | `pnpm` introuvable ou trop ancien | `corepack enable`, ou installez pnpm 9.15.9 |
 | `ERR_MODULE_NOT_FOUND` ou `dist/` absent | relancez `./setup.sh`, ou `pnpm install --frozen-lockfile`, `pnpm build:libs`, puis `pnpm --filter studium-vscode build` |
 | `tsx` introuvable | lancez plutôt le serveur construit avec `node apps/studium-vscode/dist/lesson-mcp.cjs` |

@@ -46,9 +46,11 @@ const manifest = {
   mcpName: JSON.parse(readFileSync(join(root, "server.json"), "utf8")).name,
   description: source.description,
   license: "Apache-2.0",
-  homepage: "https://github.com/HolobiomicsLab/studium#readme",
-  repository: { type: "git", url: "git+https://github.com/HolobiomicsLab/studium.git", directory: "apps/lesson-mcp" },
-  bugs: { url: "https://github.com/HolobiomicsLab/studium/issues" },
+  homepage: "https://github.com/HolobiomicsLab/Studium#readme",
+  // Exactly the repository's name, capital S: npm compares this address with the repository of the
+  // workflow, letter for letter, before it accepts a trusted publication.
+  repository: { type: "git", url: "git+https://github.com/HolobiomicsLab/Studium.git", directory: "apps/lesson-mcp" },
+  bugs: { url: "https://github.com/HolobiomicsLab/Studium/issues" },
   keywords: ["mcp", "model-context-protocol", "learning", "education", "spaced-repetition", "codex", "claude-code"],
   bin: { "studium-mcp": "studium-mcp.cjs" },
   files: ["studium-mcp.cjs", "LICENSE", "NOTICE", "README.md"],

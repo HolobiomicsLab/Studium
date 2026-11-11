@@ -49,8 +49,8 @@ Since version 0.6.0, the server and the extension are on public registries:
 | VS Code extension | [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=holobiomicslab.studium-vscode) | `holobiomicslab.studium-vscode` |
 | VS Code extension for VSCodium, Cursor and Gitpod | [Open VSX](https://open-vsx.org/extension/holobiomicslab/studium-vscode) | `holobiomicslab.studium-vscode` |
 
-The Claude Code plugin is on no registry: Claude Code reads it from this repository, so it installs once
-you have access to the repository. It starts its server with `npx -y studium-mcp`.
+The Claude Code plugin is on no registry: Claude Code reads it from this repository, which is public. It
+starts its server with `npx -y studium-mcp`.
 
 On a machine that cannot reach a registry, use the two files attached to a
 [GitHub release](https://github.com/HolobiomicsLab/studium/releases):
@@ -59,8 +59,8 @@ On a machine that cannot reach a registry, use the two files attached to a
   `npx -y studium-mcp`;
 - `studium-vX.Y.Z.vsix`, installed with `code --install-extension studium-vX.Y.Z.vsix`.
 
-While the repository is private, cloning it, installing the plugin and downloading release files need
-access to it.
+The repository is public: cloning it, installing the plugin and downloading release files need no
+account.
 
 ## Add the server to your assistant
 
@@ -115,9 +115,6 @@ folder you pick. What it offers is described in [VS Code](vscode.md).
 This route is for teachers who prepare and approve courses, and for contributors.
 
 ### Get the code and build
-
-Cloning needs access to the repository while it is private: run `gh auth login` first if Git answers
-`Repository not found`.
 
 ```bash
 git clone https://github.com/HolobiomicsLab/studium.git

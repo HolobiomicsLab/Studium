@@ -39,7 +39,7 @@ claude plugin install studium@holobiomicslab
 D'après la documentation des plugins de Claude Code, les skills et les agents d'un plugin portent le nom du
 plugin : les skills s'invoquent par `/studium:<skill-name>` (par exemple `/studium:studium-harness`), et
 les agents s'appellent `studium:studium-lesson` et `studium:studium-explainer`. Claude Code lit le plugin
-dans ce dépôt : tant que le dépôt est privé, l'installer demande d'y avoir accès (voir
+dans ce dépôt, qui est public (voir
 [Où sont les paquets](installation.fr.md#où-sont-les-paquets)).
 
 ### Ajouter seulement le serveur

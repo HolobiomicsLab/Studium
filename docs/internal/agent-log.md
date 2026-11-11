@@ -6,6 +6,31 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-11 — version 0.6.1, dépôt public
+
+Mots du propriétaire : « Studium repo is public btw », « C'est bon j'ai fais ce que tu m'as demandé »
+(éditeur de confiance npm, règle Trusted Publishing du Marketplace), « Oui 0.6.1 ». Branche
+`chore/2026-11-11-release-0.6.1`, depuis `dev` (`1e3c479`).
+
+- Dépôt public, vérifié sans authentification (page du dépôt et image brute en 200). Les pages
+  d'installation, de démarrage rapide, de Claude Code et de dépannage ne disent plus que le dépôt est
+  privé.
+- La fiche `MARKETPLACE.md` gagne une capture d'écran et des liens vers la documentation, en adresses
+  complètes de la branche `main`. Assertion existante changée, dit ici : « aucune image » devient « images
+  en `<img>` seulement, chaque image et chaque lien de ce dépôt nomme un fichier présent » (252 assertions
+  au lieu de 239) ; un lien planté vers une page absente est bien refusé. Les douze adresses de la fiche
+  répondent 200.
+- Numéro 0.6.1 écrit par `node tools/release/version.mjs 0.6.1` aux treize endroits : premier usage réel
+  de l'outil. Section 0.6.1 du journal des changements, avec une phrase de résumé.
+
+- Trouvé en ouvrant la PR : le dépôt s'appelle désormais `HolobiomicsLab/Studium` (S majuscule). npm lit
+  les champs de l'éditeur de confiance à la lettre près et compare le `repository.url` du paquet au dépôt
+  du workflow. `stage-npm-mcp.mjs` donne maintenant cette adresse exacte (assertion ajoutée dans
+  `distribution.test.ts`, vue échouer d'abord) ; la page de publication dit `Studium` pour les deux
+  formulaires. Les autres adresses du dépôt, en minuscules, fonctionnent telles quelles.
+
+Aucun comportement du serveur ni de l'extension ne change.
+
 ## 2026-11-11 — fiche de l'extension sur les registres, outils de publication
 
 Mot du propriétaire : « on peut avancer pour readme et automatisation des prochaines versions ». Branche
