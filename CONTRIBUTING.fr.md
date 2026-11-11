@@ -13,7 +13,7 @@ Merci de votre aide. Cette page explique comment préparer un checkout, quels co
 
 ## Préparer un checkout
 
-Outils : Node 22 (`.nvmrc` ; Node 20 ou plus récent est accepté), pnpm 9.15.9 (épinglé dans `package.json`, fourni par `corepack enable`), Python 3.12. Rust n'est nécessaire que pour l'application Tauri, gelée.
+Outils : Node 22 (`.nvmrc` ; les tests demandent 22.22.2 ou plus récent, ou 24.15 ou plus récent, à cause de jsdom 31, et l'empaquetage du VSIX demande Node 22 ou plus récent à cause de vsce 4 ; Node 20 ne fait plus tourner ni l'un ni l'autre), pnpm 9.15.9 (épinglé dans `package.json`, fourni par `corepack enable`), Python 3.12. Rust n'est nécessaire que pour l'application Tauri, gelée.
 
 ```bash
 corepack enable
