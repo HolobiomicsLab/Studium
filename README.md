@@ -36,7 +36,8 @@ You need Node 20 or later (`node --version`). Run the line for your assistant on
 
 Cursor, OpenCode and Claude Desktop, and the Claude Code plugin that also brings the skills, are on the
 [Installation](docs/start/installation.md) page. `LITELLM_BASE_URL=` (empty) keeps Studium from calling
-any paid model.
+any paid model. Which model to use, with a Copilot plan or a model on your machine, is in
+[Choose your model](docs/start/models.md).
 
 ### 2. Ask for a lesson
 

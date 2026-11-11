@@ -37,7 +37,8 @@ redémarrez-le :
 
 Cursor, OpenCode et Claude Desktop, ainsi que le plugin Claude Code qui apporte aussi les skills, sont sur
 la page [Installation](docs/start/installation.fr.md). `LITELLM_BASE_URL=` (vide) empêche Studium
-d'appeler un modèle payant.
+d'appeler un modèle payant. Quel modèle utiliser, avec un abonnement Copilot ou un modèle sur votre
+machine : [Choisir son modèle](docs/start/models.fr.md).
 
 ### 2. Demander une leçon
 
