@@ -10,3 +10,6 @@ tsconfig.json
 .crossmbp-*
 pnpm-lock.yaml
 node_modules/**
+# The registries show MARKETPLACE.md (vsce --readme-path); the developers' README stays in the repository.
+README.md
+README.fr.md

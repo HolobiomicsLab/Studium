@@ -10,7 +10,7 @@
   },
   "scripts": {
     "test": "pnpm -r test && pnpm test:tools",
-    "test:tools": "node --test tools/studium_statusline.test.mjs",
+    "test:tools": "node --test tools/studium_statusline.test.mjs tools/release/*.test.mjs && bash tools/release/send.test.sh",
     "lint": "eslint . --ext .ts,.tsx --no-error-on-unmatched-pattern",
     "build": "pnpm -r build",
     "build:libs": "pnpm --filter \"./packages/**\" run build",

@@ -24,7 +24,7 @@ Sans `STUDIUM_EPHEMERAL=1`, tout ce qui démarre le serveur MCP stdio écrit l'�
 |---|---|
 | `pnpm lint` | ESLint sur tous les fichiers `.ts` et `.tsx` ; zéro erreur attendue |
 | `pnpm build` | tout l'espace de travail compile |
-| `pnpm test` | tous les paquets et applications TypeScript (`pnpm -r test`), pilotes VS Code compris, puis le script de ligne d'état (`pnpm test:tools`) |
+| `pnpm test` | tous les paquets et applications TypeScript (`pnpm -r test`), pilotes VS Code compris, puis le script de ligne d'état et les outils de publication (`pnpm test:tools` ; sans réseau, rien n'est envoyé) |
 | `.venv/bin/python tools/pytest_all.py` | toutes les suites Python, un processus pytest chacune |
 | `bash tools/bundle_lint.test.sh` | tests de contrat du linter de bundles |
 | `node apps/lesson-mcp/scripts/headless_smoke.mjs` | un client MCP nu joue une vraie leçon en stdio |
