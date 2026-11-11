@@ -13,25 +13,73 @@ Studium turns sources you trust into adaptive lessons that you can play in VS Co
 
 [eDIAM](https://ediam.cnrs.fr/) · Institut de Chimie de Nice · Université Côte d'Azur · CNRS · [HolobiomicsLab](https://holobiomicslab.cnrs.fr/)
 
-## Install
+## Start here
 
-The three shortest routes need no checkout. The server is on npm and the extension on the Visual Studio
-Marketplace and Open VSX. The Claude Code plugin is read from this repository, so it needs access to it
-while the repository is private.
+Studium has two parts. Knowing which does what saves the first ten minutes:
+
+| Part | What it does | What it does not do |
+|---|---|---|
+| **Your AI assistant**, connected to the Studium server | builds a lesson from the sources you name, asks you its questions in the conversation, brings the ideas back over the following days | answer for you |
+| **The VS Code extension** | shows a lesson in a pane, with its figures, equations and reviews | build a lesson: on a new machine its **Lessons** view stays empty until an assistant has built one |
+
+So a new lesson always starts in an assistant.
+
+### 1. Connect your assistant
+
+You need Node 20 or later (`node --version`). Run the line for your assistant once, then restart it:
+
+| Assistant | Command |
+|---|---|
+| Claude Code | `claude mcp add --scope user studium -e LITELLM_BASE_URL= -- npx -y studium-mcp` |
+| Codex | `codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp` |
+| Copilot in VS Code, agent mode | `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
+
+Cursor, OpenCode and Claude Desktop, and the Claude Code plugin that also brings the skills, are on the
+[Installation](docs/start/installation.md) page. `LITELLM_BASE_URL=` (empty) keeps Studium from calling
+any paid model.
+
+### 2. Ask for a lesson
+
+In a new conversation, in your own words:
+
+> I want to learn how the water cycle works with Studium. Use these two pages: (two links you trust).
+
+The assistant builds a lesson from your sources, shows you its outline, then asks the first question. You
+answer; it passes your words on. The lesson is saved in `~/.studium/library` and your progress in
+`~/.studium/data`. Each step is described in
+[Learn with your assistant](docs/learn/learn-with-your-assistant.md).
+
+### 3. Play it in VS Code (optional)
 
 ```bash
-# Any MCP assistant, with Node 20 or later (Codex shown)
-codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp
-
-# Claude Code: the plugin brings the server, the skills and the lesson agents
-claude plugin install studium --marketplace HolobiomicsLab/studium
-
-# VS Code: the extension and its lesson pane
 code --install-extension holobiomicslab.studium-vscode
 ```
 
-The commands for every assistant, the route from a checkout for teachers and contributors, and where each
-package is published are on the [Installation](docs/start/installation.md) page.
+Open the **Studium** icon in the activity bar: the lesson your assistant built is in the **Lessons** view
+(use its refresh button if VS Code was already open), unless you picked another lessons folder. You can
+also ask the assistant to open the lesson in VS Code for you. The pane keeps its own progress, separate
+from the conversation. See [VS Code](docs/start/vscode.md#get-your-first-lesson).
+
+### If you are an AI assistant helping someone with Studium
+
+These steps are written for you.
+
+1. Check Node: `node --version` must print 20 or later.
+2. Register the server with the line of step 1 for your own harness. Keep `LITELLM_BASE_URL` empty unless
+   the person asks for a judge model: a non-empty value is a paid route.
+3. After the restart, prove the connection by calling `get_server_info`: it returns the version and the
+   tool list. A configuration file is not proof.
+4. Call `get_study_plan` with one stable `learner_id` and the person's language. Its `next_step` names the
+   next call; with no lesson yet it sends you to `get_authoring_guide`, then `prepare_sources` and
+   `create_lesson`.
+5. The learner answers and you relay: never answer, choose or rate for them, and do not read a lesson's
+   answer key. Show each `display_markdown` as it is.
+6. A lesson you draft is not approved by a teacher: relay the notice of its first screen.
+
+The server repeats these rules in its own instructions when you connect. Details:
+[Connect your assistant](docs/start/harnesses.md), the skill
+[`studium-harness`](skills/studium-harness/SKILL.md) and the [MCP tools](docs/reference/mcp-tools.md). To
+change Studium's code instead, read [`AGENTS.md`](AGENTS.md).
 
 ## Choose your path
 
@@ -53,9 +101,9 @@ menu, a search box, both languages and light and dark themes, readable without a
   </tr>
 </table>
 
-## Quickstart
+## From a checkout, with the demo lessons
 
-This path works from a checkout and also gives you the demo lessons. Plan about fifteen minutes. You need git, Node 22 and pnpm 9. Python is not needed to learn.
+This path is for teachers and contributors, and gives you the demo lessons. Plan about fifteen minutes. You need git, Node 22 and pnpm 9. Python is not needed to learn.
 
 ```bash
 git clone https://github.com/HolobiomicsLab/studium.git

@@ -17,6 +17,21 @@ Depuis un fichier de release : `code --install-extension studium-vX.Y.Z.vsix`. 
 les sources, voir [Installation](installation.fr.md#construire-lextension-vs-code). Les registres qui
 portent l'extension sont dans [Où sont les paquets](installation.fr.md#où-sont-les-paquets).
 
+## Obtenir votre première leçon
+
+L'extension affiche des leçons ; elle n'en construit pas. Juste après l'installation, la vue **Leçons**
+indique « Aucune leçon trouvée pour l'instant ». Prenez la ligne qui correspond à ce que vous avez :
+
+| Vous avez | Faites ceci |
+|---|---|
+| Un assistant IA (Copilot dans VS Code, Claude Code, Codex, Cursor) | Reliez-le à Studium par [une commande](installation.fr.md#ajouter-le-serveur-à-votre-assistant), puis demandez « je veux apprendre … avec Studium » en indiquant vos sources. La leçon est écrite dans votre bibliothèque personnelle, `~/.studium/library`, et apparaît dans la vue **Leçons** après un rafraîchissement |
+| Une leçon donnée par un enseignant | **Studium : Choisir un cours**, puis choisissez son dossier ; ou clic droit sur son `lesson.json`, puis **Studium : Ouvrir cette leçon** |
+| Un clone du dépôt | **Studium : Choisir un cours**, puis choisissez `fixtures` pour les leçons de démonstration |
+
+Avec Copilot en mode agent, tout reste dans VS Code : voir [Connecter Copilot](copilot.fr.md). Ce que fait
+l'assistant, étape par étape, est dans
+[Apprendre avec votre assistant](../learn/learn-with-your-assistant.fr.md).
+
 ## Ouvrir une leçon
 
 | Moyen | Quand l'utiliser |

@@ -47,7 +47,7 @@ The extension opens `fixtures/atomistique-l1` with no setting to change. Your pr
 
 For the teacher side, Part 3 of the guide uses `tools/class_report.py` to produce an aggregated, anonymous class report offline; no web application is needed.
 
-Want to try learning with your own AI assistant instead? The [quickstart](README.md#quickstart) registers the same server in Claude Code or Codex.
+Want to try learning with your own AI assistant instead? The [README](README.md#from-a-checkout-with-the-demo-lessons) registers the same server in Claude Code or Codex.
 
 ## The feedback we want
 
