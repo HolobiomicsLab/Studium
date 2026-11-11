@@ -16,6 +16,11 @@ function scratch() {
     mkdirSync(dirname(join(root, file)), { recursive: true });
     cpSync(join(REPO, file), join(root, file));
   }
+  // Right after a release the repository's Unreleased section is empty: give the copy something to release.
+  const log = readFileSync(join(root, "CHANGELOG.md"), "utf8");
+  if (log.includes("## Unreleased\n\n## ")) {
+    writeFileSync(join(root, "CHANGELOG.md"), log.replace("## Unreleased\n\n", "## Unreleased\n\n### Fixed\n\n- A change waiting for a release.\n\n"));
+  }
   return root;
 }
 const read = (root, file) => readFileSync(join(root, file), "utf8");
