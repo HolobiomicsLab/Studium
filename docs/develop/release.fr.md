@@ -138,7 +138,8 @@ ensuite.
    ```
 
 3. Publiez-le. `npm publish` utilise le `npm login` du mainteneur ; un paquet publié depuis un portable ne
-   porte pas d'attestation de provenance, contrairement à celui que publie le workflow :
+   porte pas d'attestation de provenance, contrairement à celui que publie le workflow. npm demande le
+   second facteur du mainteneur dans un navigateur :
 
    ```bash
    npm login
@@ -146,27 +147,33 @@ ensuite.
    ```
 
 4. Publiez le VSIX de la version (`studium-vX.Y.Z.vsix`, pris sur la page de la release ou construit par
-   `pnpm --filter studium-vscode package`). `vsce` s'exécute dans `apps/studium-vscode` : donnez-lui un
-   chemin absolu. `vsce` lit `VSCE_PAT` et `ovsx` lit `OVSX_PAT` dans l'environnement :
+   `pnpm --filter studium-vscode package`). Sur le Visual Studio Marketplace, déposez le fichier sur la
+   [page de l'éditeur](https://marketplace.visualstudio.com/manage/publishers/holobiomicslab) : aucun
+   jeton n'est nécessaire. Les jetons d'accès personnels qu'utilisait `vsce publish` sont retirés le
+   1er décembre 2026, d'après le [guide de publication de VS Code](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
+   Sur Open VSX, `ovsx` lit `OVSX_PAT` dans l'environnement :
 
    ```bash
-   read -rs VSCE_PAT && export VSCE_PAT
-   pnpm --filter studium-vscode exec vsce publish --packagePath "$PWD/studium-vX.Y.Z.vsix"
    read -rs OVSX_PAT && export OVSX_PAT
    npx --yes ovsx@1.2.0 publish studium-vX.Y.Z.vsix
    ```
 
+   Aucun des deux n'affiche une version tout de suite : pour la 0.6.0, Open VSX a mis environ trois
+   minutes et la validation du Marketplace moins de vingt-cinq.
+
 5. Inscrivez le serveur au MCP Registry, une fois le paquet npm publié (son manifeste porte `mcpName`, que
-   le registre vérifie). Depuis la racine du dépôt, `mcp-publisher` lit `server.json` :
+   le registre vérifie). Depuis la racine du dépôt, `mcp-publisher` lit `server.json`. Connectez-vous et
+   publiez en une ligne : la session du registre dure quelques minutes.
 
    ```bash
-   mcp-publisher login github
-   mcp-publisher publish
+   read -rs GH_ORG_TOKEN
+   mcp-publisher login github --token "$GH_ORG_TOKEN" && mcp-publisher publish
    ```
 
-   Publier sous le nom de l'organisation `io.github.HolobiomicsLab/` demande un compte GitHub
-   membre de l'organisation. Que le nom doive respecter la casse du nom de l'organisation sur GitHub n'a pas été
-   vérifié.
+   Le nom `io.github.HolobiomicsLab/…` n'est accordé qu'à un propriétaire (Owner) de l'organisation, et
+   seulement par un jeton : `mcp-publisher login github` seul n'accorde que le nom personnel. Utilisez un
+   jeton « fine-grained » dont le propriétaire de ressource est l'organisation, avec la permission
+   d'organisation Members en lecture seule et aucune permission de dépôt.
 
 Le plugin Claude Code ne demande aucune étape de publication. Claude Code lit le marketplace et le plugin
 sur la branche par défaut du dépôt : une version atteint les utilisateurs une fois fusionnée sur cette

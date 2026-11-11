@@ -131,7 +131,8 @@ Tokens never go in the repository, nor on a command line kept in shell history: 
    ```
 
 3. Publish it. `npm publish` uses the maintainer's own `npm login`; a package published from a laptop
-   carries no provenance attestation, unlike one published by the workflow:
+   carries no provenance attestation, unlike one published by the workflow. npm asks for the
+   maintainer's second factor in a browser:
 
    ```bash
    npm login
@@ -139,27 +140,33 @@ Tokens never go in the repository, nor on a command line kept in shell history: 
    ```
 
 4. Publish the VSIX of the release (`studium-vX.Y.Z.vsix`, from the release page or built with
-   `pnpm --filter studium-vscode package`). `vsce` runs in `apps/studium-vscode`, so give it an absolute
-   path. `vsce` reads `VSCE_PAT` and `ovsx` reads `OVSX_PAT` from the environment:
+   `pnpm --filter studium-vscode package`). On the Visual Studio Marketplace, upload the file on the
+   [publisher's page](https://marketplace.visualstudio.com/manage/publishers/holobiomicslab): this needs
+   no token. The personal access tokens that `vsce publish` used are retired on 1 December 2026, according
+   to the [VS Code publishing guide](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
+   On Open VSX, `ovsx` reads `OVSX_PAT` from the environment:
 
    ```bash
-   read -rs VSCE_PAT && export VSCE_PAT
-   pnpm --filter studium-vscode exec vsce publish --packagePath "$PWD/studium-vX.Y.Z.vsix"
    read -rs OVSX_PAT && export OVSX_PAT
    npx --yes ovsx@1.2.0 publish studium-vX.Y.Z.vsix
    ```
 
+   Neither shows a version at once: for 0.6.0, Open VSX took about three minutes and the Marketplace's
+   validation less than twenty-five.
+
 5. List the server in the MCP Registry, once the npm package is published (its manifest carries `mcpName`,
-   which the registry checks). From the repository root, `mcp-publisher` reads `server.json`:
+   which the registry checks). From the repository root, `mcp-publisher` reads `server.json`. Log in and
+   publish in one line: the registry session lasts a few minutes.
 
    ```bash
-   mcp-publisher login github
-   mcp-publisher publish
+   read -rs GH_ORG_TOKEN
+   mcp-publisher login github --token "$GH_ORG_TOKEN" && mcp-publisher publish
    ```
 
-   Publishing under the organisation's name `io.github.HolobiomicsLab/` needs a GitHub account
-   that belongs to the organisation. Whether the name must match the organisation's capitalisation on GitHub has not been
-   verified.
+   The name `io.github.HolobiomicsLab/…` is granted only to an Owner of the organisation, and only through
+   a token: `mcp-publisher login github` alone grants the personal name. Use a fine-grained token whose
+   resource owner is the organisation, with the organisation permission Members, read-only, and no
+   repository permission.
 
 The Claude Code plugin needs no publication step. Claude Code reads the marketplace and the plugin from the
 repository's default branch, so a version reaches users when it is merged there. It works for people

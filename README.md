@@ -15,9 +15,9 @@ Studium turns sources you trust into adaptive lessons that you can play in VS Co
 
 ## Install
 
-The three shortest routes need no checkout. They rely on packages published with a public release; until
-then, the [Installation](docs/start/installation.md#if-a-package-is-not-published-yet) page says what to
-use instead.
+The three shortest routes need no checkout. The server is on npm and the extension on the Visual Studio
+Marketplace and Open VSX. The Claude Code plugin is read from this repository, so it needs access to it
+while the repository is private.
 
 ```bash
 # Any MCP assistant, with Node 20 or later (Codex shown)
@@ -30,8 +30,8 @@ claude plugin install studium --marketplace HolobiomicsLab/studium
 code --install-extension holobiomicslab.studium-vscode
 ```
 
-The commands for every assistant, the route from a checkout for teachers and contributors, and what to do
-while a package is not published yet are on the [Installation](docs/start/installation.md) page.
+The commands for every assistant, the route from a checkout for teachers and contributors, and where each
+package is published are on the [Installation](docs/start/installation.md) page.
 
 ## Choose your path
 

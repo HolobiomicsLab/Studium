@@ -14,8 +14,8 @@ code --install-extension holobiomicslab.studium-vscode
 ```
 
 From a release file: `code --install-extension studium-vX.Y.Z.vsix`. To build it from source, see
-[Installation](installation.md#build-the-vs-code-extension); if the extension is not found, see
-[If a package is not published yet](installation.md#if-a-package-is-not-published-yet).
+[Installation](installation.md#build-the-vs-code-extension). The registries that carry the extension are
+listed in [Where the packages are](installation.md#where-the-packages-are).
 
 ## Open a lesson
 
