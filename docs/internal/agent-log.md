@@ -6,6 +6,15 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-11 — préparation de la version 0.5.0
+
+Choix du propriétaire : « 0.5.0 », pour la version qui porte les skills corrigés, le signalement d'une
+difficulté (INT-STUDIUM-062) et les mises à jour de dépendances fusionnées depuis la 0.4.0. Branche
+`chore/2026-11-11-release-0.5.0`, depuis `dev` (`6f0e4a8`) : numéro de produit 0.5.0 dans l'extension, le
+serveur MCP, `lesson-panel-ui`, `tools/panel-http-dev.mjs` et `CITATION.cff` ; la section « Unreleased » du
+journal devient 0.5.0. Aucun code ne change. L'étiquette et la publication restent la décision du
+propriétaire.
+
 ## 2026-11-11 — skills relus contre le code, et encouragement à contribuer (INT-STUDIUM-062)
 
 Demande propriétaire, avant la version publique : vérifier que les skills accompagnent le bon usage

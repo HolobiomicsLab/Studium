@@ -4,6 +4,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+## 0.5.0 — 2026-11-11
+
+This release teaches every connected assistant to say when Studium itself is at fault and to help the person report it, corrects the skills against the code, and updates dependencies. No tool changes the inputs it takes or the shape of what it returns; `get_server_info` gains one field, `feedback`, and the server's instructions one line.
+
 ### Added
 
 - **Assistants say when Studium itself is at fault, and help report it.** When a tool fails on a call written as documented, when Studium contradicts its documentation, or when someone asks for something it cannot do, a connected assistant is now told to say so plainly, help the person on, then offer once, at a pause and never between a question and its answer, to report it or to propose the change. It drafts the text; the person posts it. A mistake in a lesson's content goes to its teacher or author, a vulnerability to the security policy. The server's instructions carry this in one line (13 lines, was 12), and `get_server_info` returns a `feedback` block with the addresses (issues, new issue, contributing, security, guide) and what a report holds and leaves out: no learner answers, names, answer keys or secrets. The new skill `studium-contribute` holds the procedure, and the other skills hand over to it. New page [Report a problem or contribute](docs/start/report-and-contribute.md), two issue forms ("Problem or difficulty", "Feature request"), and the extension declares the issue tracker.
