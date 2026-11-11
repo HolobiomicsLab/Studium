@@ -5,6 +5,7 @@ import {
 } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
+import { FEEDBACK } from "./feedback.js";
 import { phrase } from "../../../packages/lesson-panel/src/phrases.js";
 
 export type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
@@ -232,7 +233,8 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   });
 
   server.registerTool("get_server_info", {
-    description: "Describe this Studium MCP server build, runtime configuration, and complete tool surface.",
+    description: "Describe this Studium MCP server build, runtime configuration, and complete tool surface. " +
+      "feedback gives where a difficulty with Studium itself is reported (issues, contributing, security) and what a report holds.",
     inputSchema: {},
   }, async () => {
     const persistence = host.persistence();
@@ -248,6 +250,8 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
       // RFR-13: every date Studium returns (yyyy-mm-dd) and prints is a day in this IANA time zone.
       time_zone: host.timeZone,
       model_backend: process.env["LITELLM_BASE_URL"] ? "configured" : "none",
+      // INT-STUDIUM-062: where a defect or a missing feature of Studium itself is reported, and how.
+      feedback: FEEDBACK,
     });
   });
 
@@ -348,7 +352,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         "a memorized source id. Confidence checkpoints accept " +
         "{kind:\"confidence\", pre, post} (legacy value remains accepted). Returns next/replay/remediate_alt/" +
         "remediate/calibration/complete with verdict and navigation; navigation.returns_to is the scene resumed " +
-        "after the detour. A complete summary documents skipped_scene_ids, scenes_detoured, and mastery. Show " +
+        "after the detour. A skip_mastered navigation names skipped_scene_ids; a complete summary documents scenes_detoured and mastery. Show " +
         "verdict.display_markdown first, then the transition's display_markdown. At a few moments the transition " +
         "carries concept_map (see get_workflow_graph), with moment start/new_concept/detour/detour_return/synthesis/complete " +
         "and show map/line; display_markdown already includes the list or the position line. A harness that draws " +

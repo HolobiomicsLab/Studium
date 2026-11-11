@@ -11,6 +11,9 @@
     "url": "https://github.com/HolobiomicsLab/studium.git",
     "directory": "apps/studium-vscode"
   },
+  "bugs": {
+    "url": "https://github.com/HolobiomicsLab/studium/issues"
+  },
   "engines": {
     "vscode": "^1.95.0"
   },

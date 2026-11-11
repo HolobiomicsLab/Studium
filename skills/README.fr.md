@@ -30,11 +30,13 @@ propres sources. Chaque skill est un dossier contenant un `SKILL.md` ; son en-
 | [`studium-visual-support`](studium-visual-support/SKILL.md) | apprenants | examiner des photographies sources ou demander une image adaptée, une carte Mermaid, une explication audio ou une courte vidéo |
 | [`studium-learner-report`](studium-learner-report/SKILL.md) | apprenants et enseignants | exporter ou examiner une trace d'activité choisie par l'apprenant ou un journal d'expérience sous forme de rapport ASTRA/MySTRA |
 | [`studium-observatory`](studium-observatory/SKILL.md) | opérateurs et relecteurs | lancer et lire l'[Observatory](../services/observatory/README.fr.md) |
+| [`studium-contribute`](studium-contribute/SKILL.md) | tout assistant | quand Studium lui-même échoue ou qu'une fonction manque, le dire, aider la personne à avancer, puis proposer une fois de le signaler ou de proposer la modification ; c'est la personne qui publie |
 
 Les skills de rôle (`studium-student`, `studium-teacher`, `studium-self-learner`,
 `studium-from-conversation`) renvoient à
 `studium-harness` pour la boucle de leçon elle-même. `studium-suggest` choisit quoi proposer et à quel
-moment, puis passe la main au skill qui sait faire.
+moment, puis passe la main au skill qui sait faire. Chaque skill confie à `studium-contribute` une
+difficulté qui vient de Studium lui-même.
 
 ## Comment les assistants les trouvent
 

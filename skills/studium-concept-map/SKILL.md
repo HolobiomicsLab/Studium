@@ -20,7 +20,7 @@ and no key reaches the learner before an answer.
 | State | It means |
 |---|---|
 | `acquired` | the latest assessed answer on the concept is right, or the session credited it as a prerequisite |
-| `to_review` | the latest assessed answer is wrong |
+| `to_review` | the latest assessed answer is wrong, and the session did not credit the concept as a prerequisite |
 | `current` | the scene on screen belongs to this concept |
 | `seen` | scenes of the concept were gone through and nobody assessed an answer |
 | `upcoming` | not reached yet |

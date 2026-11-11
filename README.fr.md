@@ -100,4 +100,4 @@ Si vous utilisez Studium dans un travail de recherche, citez-le avec les métado
 
 ## Contribuer et sécurité
 
-[Contribuer](CONTRIBUTING.fr.md) · [Code de conduite](CODE_OF_CONDUCT.fr.md) · [Politique de sécurité](SECURITY.fr.md) · [Tester Studium](TESTING.fr.md) · [Journal des modifications](CHANGELOG.md) (en anglais)
+[Signaler un problème ou contribuer](docs/start/report-and-contribute.fr.md) · [Contribuer](CONTRIBUTING.fr.md) · [Code de conduite](CODE_OF_CONDUCT.fr.md) · [Politique de sécurité](SECURITY.fr.md) · [Tester Studium](TESTING.fr.md) · [Journal des modifications](CHANGELOG.md) (en anglais)

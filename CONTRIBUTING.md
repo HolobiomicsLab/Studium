@@ -6,6 +6,7 @@ Thank you for helping. This page tells you how to set up a checkout, which check
 
 ## Before you start
 
+- To report a defect, a confusing step or a missing feature, see [Report a problem or contribute](docs/start/report-and-contribute.md): it says what a report holds and what it leaves out.
 - For anything larger than a small fix, open an issue first and describe the problem, not only the solution. Some choices (licence, publication, releases) belong to the project owner.
 - Current work lands on the `dev` branch; `main` receives integrations in batches. Branch from `dev`.
 - Agents and humans follow the same conventions: [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).

@@ -16,7 +16,7 @@ If private reporting is not available to you, open an issue that asks a maintain
 
 ## Supported versions
 
-Studium is a research prototype at version 0.1.0 with no published release yet. Fixes go to the `dev` branch and then to `main`. Older revisions are not patched.
+Studium is a research prototype in its 0.x versions. Fixes go to the `dev` branch and then to `main`, and into the next release. Older releases and revisions are not patched.
 
 ## What Studium trusts, and what it does not
 

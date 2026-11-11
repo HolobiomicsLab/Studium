@@ -4,10 +4,20 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Added
+
+- **Assistants say when Studium itself is at fault, and help report it.** When a tool fails on a call written as documented, when Studium contradicts its documentation, or when someone asks for something it cannot do, a connected assistant is now told to say so plainly, help the person on, then offer once, at a pause and never between a question and its answer, to report it or to propose the change. It drafts the text; the person posts it. A mistake in a lesson's content goes to its teacher or author, a vulnerability to the security policy. The server's instructions carry this in one line (13 lines, was 12), and `get_server_info` returns a `feedback` block with the addresses (issues, new issue, contributing, security, guide) and what a report holds and leaves out: no learner answers, names, answer keys or secrets. The new skill `studium-contribute` holds the procedure, and the other skills hand over to it. New page [Report a problem or contribute](docs/start/report-and-contribute.md), two issue forms ("Problem or difficulty", "Feature request"), and the extension declares the issue tracker.
+
+### Fixed
+
+- **The skills say what the code does.** A read of the eleven skills against the code corrected: the server's proposals reach a lesson played in the conversation too, and their answer goes through `submit_response {kind: "prompt"}` (`studium-suggest` said the conversation carried none; `studium-harness` did not describe them, nor the `contest` input); `skipped_scene_ids` is on a `skip_mastered` navigation, not on the completion summary (also in the description of `submit_response`), and `skip_concept` is a navigation kind; `get_server_info` no longer "lists 34 tools"; what `forget_session` names as kept; the hint a student can ask for; the fourth key class `ungraded` and what `ready_for_approval` needs; the command-line class report can lower the floor and needs `--bundle` in the durable layout; `eval/reports/` is empty on a clean checkout; the evaluation commands that need the local corpus. `studium-teacher` now covers the dashboard's sign-in and decisions on learner contributions, sending a lesson back (`receipt`), capturing passages, and correcting a lesson after a report; `studium-student` says where a remark on a lesson's content goes.
+- `SECURITY.md` no longer says "version 0.1.0".
+
 ### Changed
 
 - **Minor and patch dependency updates.** Tailwind 4.3.5 for the student runtime; fastapi 0.162.2, pydantic 2.14.3, python-multipart 0.0.33 and pytest-asyncio 1.4.1.post1 for the Python services. `astra-tools` and `astra-spec` stay at the versions recorded as the ASTRA validator (0.2.17 and 0.0.14), and Dependabot no longer proposes them: a bump goes with a fresh validator run.
 - **Two development tools move a major version.** jsdom 31 for the tests and `@vscode/vsce` 4.1 for packaging the VSIX, which has the same 103 entries as before. Running the tests now needs Node 22.22.2 or newer (or 24.15 or newer) and packaging needs Node 22 or newer; Node 20 no longer runs either. What learners install is unchanged, and `engines.node` stays `>=20`.
+- **react-markdown 10 in the student runtime.** The intro and concept scenes render the same HTML as with 9.1 on every demo lesson (13 documents compared), and the runtime's code is unchanged. The update also refreshes the Markdown parsing libraries it depends on (micromark, mdast and hast utilities).
 
 ## 0.4.0 — 2026-11-10
 

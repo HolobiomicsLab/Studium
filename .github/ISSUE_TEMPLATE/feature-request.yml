@@ -1,0 +1,50 @@
+name: Feature request
+description: Something you needed that Studium cannot do today
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Répondez en français ou en anglais.
+        Describe the need first; a solution is welcome but optional. Leave out learner data and
+        teacher's lessons: see
+        [Report a problem or contribute](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/report-and-contribute.md).
+
+  - type: textarea
+    id: need
+    attributes:
+      label: The need
+      description: What were you trying to do, in your own words?
+      placeholder: |
+        As a teacher, I wanted my students to send me a remark on a scene from inside the lesson.
+    validations:
+      required: true
+
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do today instead
+      description: The workaround, or "nothing".
+
+  - type: textarea
+    id: who
+    attributes:
+      label: Who it would serve
+      description: Learners, teachers, a class of a given size, people building on Studium.
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: An idea of how it could work
+      description: Optional.
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: Your role
+      options:
+        - Learner
+        - Teacher
+        - Developer or operator
+        - Other

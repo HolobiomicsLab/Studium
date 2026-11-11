@@ -29,8 +29,9 @@ root) are absent on a clean checkout, so a start without `--course-root` or `--c
 exits with code 2 before binding a port. Nothing is broken: no course was emitted.
 Build one (section 2) or point the flags at a folder that holds one.
 
-`--eval-root` is different: `eval/reports/` is committed, so the run and validity pages
-work at once.
+`--eval-root` and `--validity-root` are different: `eval/validity/` is committed, so the
+validity pages work at once, while `eval/reports/` holds only a placeholder until an evaluation
+run writes there: the run pages are empty on a clean checkout.
 
 ## 2. Make a course to look at
 
@@ -75,8 +76,8 @@ From the repository root, with the venv interpreter:
 ```
 
 Open `http://127.0.0.1:8004/`. Use `.venv/bin/python`, not a system Python: the
-validator is looked up next to the running interpreter, so a system Python reports
-`not_installed` while `.venv/bin/astra` exists. Alternatively run `uvicorn
+validator is looked up next to the running interpreter, then on `PATH`, so a system Python
+with no `astra` on its `PATH` reports `not_installed` while `.venv/bin/astra` exists. Alternatively run `uvicorn
 observatory_app:app --port 8004` from `services/observatory/` (the modules are flat,
 with no `__init__.py`, so that cwd is required and relative flags resolve against it).
 
@@ -172,4 +173,6 @@ Replace `chrome` with the Chrome or Chromium executable of the machine.
 `services/observatory/README.md` (service contract, environment table, privacy
 statement), [Observatory](../../docs/teach/observatory.md),
 [studium-harness](../studium-harness/SKILL.md) (running a lesson, the evaluation
-harness), [design records](../../docs/design-records/index.md).
+harness), [design records](../../docs/design-records/index.md). When the Observatory itself
+misreads what was emitted or lacks a view, say so and offer once to report it:
+[studium-contribute](../studium-contribute/SKILL.md); no course file or learner data in the report.

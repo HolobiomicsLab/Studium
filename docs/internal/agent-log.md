@@ -6,6 +6,45 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-11 — skills relus contre le code, et encouragement à contribuer (INT-STUDIUM-062)
+
+Demande propriétaire, avant la version publique : vérifier que les skills accompagnent le bon usage
+(étudiant, apprenant autonome, enseignant ; validation du contenu, interaction, suivi), et faire en sorte
+que le cadre encourage activement à signaler une difficulté ou une fonction manquante sur le dépôt.
+Branche `feat/2026-11-11-skills-contribution`, depuis `dev` (`38e2ffd`).
+
+- **Relecture.** Les onze skills relus contre le code par quatre lecteurs indépendants (Sonnet), chaque
+  écart revérifié dans la source avant correction. Corrigé : les propositions du serveur atteignent aussi
+  une leçon jouée en conversation et leur réponse passe par `submit_response {kind: "prompt"}`
+  (`studium-suggest` disait le contraire, `studium-harness` ne les décrivait pas, ni `contest`) ;
+  `skipped_scene_ids` est sur la navigation `skip_mastered`, pas sur le résumé de fin (aussi dans la
+  description de `submit_response`) ; `skip_concept` ; « 34 outils » ; ce que `forget_session` dit garder ;
+  l'indice ; la classe de clé `ungraded` et `ready_for_approval` ; le plancher abaissable et `--bundle` du
+  rapport de classe en ligne de commande ; `eval/reports/` vide sur un clone neuf ; le corpus local de
+  l'évaluation. `studium-teacher` couvre maintenant la connexion du tableau de bord et les décisions sur
+  les contributions, le renvoi d'une leçon (`receipt`), `passages`, la correction après un signalement.
+- **Signalement.** Une ligne des instructions du serveur (13 lignes, 12 auparavant) et un bloc `feedback`
+  dans `get_server_info` (adresses du dépôt, ce qu'un signalement contient et laisse de côté), parce que
+  les skills ne sont livrés ni avec l'extension ni avec le paquet npm. Nouveau skill `studium-contribute`
+  (reconnaître le moment, où l'envoyer, le dire franchement, inviter une fois à une pause, rédiger sans
+  donnée d'apprenant, la personne publie), renvois depuis les autres skills, page
+  `docs/start/report-and-contribute` dans les deux langues, deux formulaires d'issue, `bugs` dans le
+  manifeste de l'extension.
+- **Assertions existantes modifiées** : le plafond de lignes des instructions passe de 12 à 13 dans
+  `harness-contract.test.ts` et `study-tools.test.ts`, pour la ligne ajoutée. Aucune autre.
+- **Écarté après vérification** : relever dans `tools/class_report.py` un `--min-learners` inférieur à 5.
+  Un test existant et `docs/teach/follow-a-class.md` établissent que la ligne de commande l'accepte
+  délibérément ; le skill le dit désormais, le code est inchangé.
+
+Vérifié localement (Node 24.16) : construction ; hôte 912, session 464 (+4 ignorés), lesson-mcp 209
+(+2 ignorés, dont 2 nouveaux), panneau 57, interface du panneau, mod Claude Code 65, tableau de bord 261,
+runtime étudiant 145, author-web 52, pilotes VS Code ; lint 0 erreur ; pytest outils 668, collecteur 209 ;
+essai sans interface 19 ; documentation 273 fichiers, 0 problème ; référence MCP à jour ; VSIX 103
+fichiers, même liste que la 0.4.0. Non vérifié : Node 22, Python 3.12, Playwright, Tauri, le rendu des
+formulaires d'issue par GitHub, un assistant réel suivant la nouvelle consigne devant une personne.
+
+---
+
 ## 2026-11-10 — préparation de la version 0.4.0
 
 Demande propriétaire : « Oui, 0.4.0. […] Deal with the PR for dependabot. Deal with tableau de bord
