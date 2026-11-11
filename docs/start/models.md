@@ -17,7 +17,7 @@ and how to work with a Copilot plan, with a model that runs on your machine, or 
 | Model | What it does | Where you choose it | Needed |
 |---|---|---|---|
 | Your assistant's model | builds a lesson from your sources, shows each step, passes your answers on | in the assistant (Copilot, Claude Code, Codex, OpenCode, Cursor) | yes |
-| A judge model | assesses some written answers and leads the discussion steps | on the Studium server, with `LITELLM_BASE_URL` | no |
+| A judge model | assesses the audit steps, where you say what is wrong in an AI's reading or summary, and leads the discussion steps | on the Studium server, with `LITELLM_BASE_URL` | no |
 
 The two are independent. A Copilot plan gives your assistant its models; it does not give Studium an
 endpoint, so it cannot serve as the judge.
@@ -45,7 +45,7 @@ call.
 | Assistant | How |
 |---|---|
 | VS Code chat | run **Chat: Manage Language Models**, then **Add Models**: the Ollama extension for a model served by Ollama, or **Custom Endpoint** for any compatible server. VS Code offers a model in agent mode only if it supports tool calling. Reference: [AI language models in VS Code](https://code.visualstudio.com/docs/agent-customization/language-models) |
-| OpenCode | configure a local provider, then add the Studium server: [Connect OpenCode](opencode.md) |
+| OpenCode | configure a provider that serves a model on your machine, following OpenCode's own documentation, then add the Studium server: [Connect OpenCode](opencode.md) |
 
 Building a lesson is the demanding part: every quotation must match its source passage character for
 character, and Studium refuses a draft that does not. Playing a lesson asks less: the assistant shows the
@@ -55,20 +55,29 @@ assistant, so a lesson built with one assistant can be played with another on th
 ## The judge model
 
 Without a judge, nothing is lost: on a written answer Studium shows the reference, you compare and rate
-your recall, and the verdict says that nobody assessed it. With a judge, some written answers are assessed
-by the model and say so.
+your recall, and the verdict says that nobody assessed it. With a judge, the audit steps are assessed by
+the model, and the verdict says so.
 
-Set the judge in the assistant's configuration of the Studium server, next to `LITELLM_BASE_URL=`:
+Set the judge in the environment your assistant gives the Studium server, where the commands of this
+documentation leave `LITELLM_BASE_URL=` empty:
 
 | Variable | Value |
 |---|---|
 | `LITELLM_BASE_URL` | the address of an OpenAI-compatible server, without `/v1`: Studium posts to `<address>/v1/chat/completions` |
 | `LITELLM_API_KEY` | the bearer key, when the server asks for one |
-| `LITELLM_MODEL` | the model name sent for the assessment of critiques; `studium/audit-judge` by default |
+| `LITELLM_MODEL` | the model name of the audit judge; `studium/audit-judge` by default |
 
-The server must also answer to the model name `studium/runtime-tutor`, which Studium sends for the
-discussion steps and cannot be changed. The other settings are in
-[Configuration](../reference/configuration.md#judge-model-optional).
+Studium sends two kinds of request to that address:
+
+| Step | Model name sent | If the endpoint fails |
+|---|---|---|
+| Audit of an AI's reading or summary | `LITELLM_MODEL` | the answer is recorded as not assessed |
+| Discussion | `studium/runtime-tutor`, which cannot be changed | the step goes on without the model |
+
+The other written answers (a critique, an explanation in your own words, a comparison) are not sent to
+this address. They are assessed only by the scene-synth service of a full deployment, which Studium
+looks for at `http://localhost:8002`; without it you compare with the reference and rate your recall.
+The other settings are in [Configuration](../reference/configuration.md#judge-model-optional).
 
 A non-empty `LITELLM_BASE_URL` may be a paid route: check what the endpoint charges before you set it.
 
@@ -98,16 +107,20 @@ Start the proxy with this file, then give its address to Studium, for example
   your assistant to call it.
 - Each verdict says who assessed the answer (`assessed_by`): the author's `key`, a `judge`, or `none`. The
   notice on the first screen of a lesson an assistant wrote says whether a judge assesses written answers.
-- If the judge does not answer, or answers with an error, the lesson goes on and the answer is recorded as
-  not assessed.
+- If the judge does not answer, or answers with an error, the lesson goes on and an audit answer is
+  recorded as not assessed.
 
 ## Limits
 
 - No model that runs on a machine has been tried with Studium, neither as the assistant's model nor as the
-  judge. What was checked is what Studium sends: one request to `<address>/v1/chat/completions` with the
-  model name, the key and a JSON reply format, and what it does when that request fails.
+  judge. What a run checked is the audit request: one request to `<address>/v1/chat/completions` with the
+  model name, the key and a JSON reply format, and what Studium does when it fails. The discussion
+  request was read in the code, not run.
 - The LiteLLM file above has not been run with Studium.
-- With `STUDIUM_EPHEMERAL=1` and a judge, set `STUDIUM_PSEUDO_SECRET` too: the server refuses to open a
-  session without it. With the default, durable storage, nothing more is needed.
+- With a judge, the server refuses to open a session when it has no secret of its own for learner
+  pseudonyms. That is the case with `STUDIUM_EPHEMERAL=1`, and with a data folder that already held
+  learners before Studium gave each installation its own secret. A data folder created since then needs
+  nothing more. Read [Configuration](../reference/configuration.md#privacy-and-pseudonyms) before you
+  set `STUDIUM_PSEUDO_SECRET`.
 - An HTTP 200 from an endpoint does not prove that a model answered.
 - Plans, models and limits of an assistant are set by its provider and change over time.
