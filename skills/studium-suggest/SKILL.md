@@ -54,9 +54,11 @@ So, in a session:
 - **Add none of your own.** Do not offer reviews, a break, another lesson, the map or forms
   yourself: the server has made that offer, will make it at the next pause, or has reached what the
   learner agreed to. In `quiet` the learner asked for no proposals; that covers yours too.
-- **The answer is the learner's.** When they accept or decline, send the action the view gives for
-  that answer, unchanged (`panel_action` with `{"type": "prompt", "id": …, "outcome": "accept"}` or
-  `"dismiss"`). Never send one for them. If they say nothing about it, do nothing: the server
+- **The answer is the learner's.** When they accept or decline, send their answer with the
+  proposal's id, unchanged: in a panel, the action the view gives (`panel_action` with
+  `{"type": "prompt", "id": …, "outcome": "accept"}` or `"dismiss"`); in the conversation,
+  `submit_response` with `{"kind": "prompt", "id": …, "outcome": "accepted"}` or `"dismissed"`,
+  the id being the one in the quoted line. Never send one for them. If they say nothing about it, do nothing: the server
   records a proposal left unanswered when the screen changes, and silence is not a no you report.
 - **After a yes, do what the server says next.** A review session starts, the map opens, or a
   notice says what follows (for forms: play the rest with `play_in_forms`). Do that and no more.
@@ -66,9 +68,14 @@ So, in a session:
 A notice in the same place (the lesson went back to a prerequisite, a lesson is resumed) asks
 nothing: show it, there is nothing to answer.
 
-One limit today: the server proposes when a panel view is asked. A session played with the session
-tools alone carries no proposal yet. There, the rows of "Inside a lesson" that wait for the verdict
-or the end stay yours, one offer at most, and still nothing while a question waits.
+A lesson played with the session tools alone gets the server's proposals too, in the text of its
+screens. Where a screen carries none, the rows of "Inside a lesson" that wait for the verdict or
+the end stay yours, one offer at most, and still nothing while a question waits.
+
+One thing the server never proposes is to report a difficulty with Studium itself. That invitation
+is yours, under the same rules: after the verdict or at a pause, once per difficulty, and in
+`quiet` only after the session ends. Saying plainly what failed is not a proposal: the learner
+needs it to go on. See [studium-contribute](../studium-contribute/SKILL.md).
 
 ## What needs a yes, and what does not
 
@@ -107,6 +114,7 @@ In an ordinary conversation:
 | A teacher prepares a course, a session or an exam from literature | a lesson draft to review before any student sees it | [studium-teacher](../studium-teacher/SKILL.md) |
 | A teacher asks what the class found hard, or prepares a debrief | the class report, then its figures on the lesson's map: aggregates only, from five learners | [studium-teacher](../studium-teacher/SKILL.md), [studium-concept-map](../studium-concept-map/SKILL.md) |
 | Someone asks what Studium decided or produced for a course | the Observatory, read-only | [studium-observatory](../studium-observatory/SKILL.md) |
+| Studium fails on a correct call, contradicts its documentation, or cannot do what they ask | once they are unblocked: to report it or to propose the change; you draft the text, they post it | [studium-contribute](../studium-contribute/SKILL.md) |
 
 Inside a lesson. The first two rows answer a request and can come up while a question is waiting.
 The others wait for the verdict or the end, and give way to the server's proposals
@@ -121,6 +129,7 @@ The others wait for the verdict or the end, and give way to the server's proposa
 | "What if I change this?" on a result | an activity to explore it, or the experiment journal to keep their own prediction and observation | [studium-activity-templates](../studium-activity-templates/SKILL.md), [Experiment journal](../../docs/learn/experiment-journal.md) |
 | Doubt about a statement or a key | what the scene rests on (the map's page), and for a contested claim a check against the literature | [studium-concept-map](../studium-concept-map/SKILL.md), [Literature and evidence](../../docs/teach/literature-and-evidence.md) |
 | The lesson ends, and the server proposed nothing | a two-line reading of the map, the page if they want to keep or check it, and the day the concepts come back | [studium-concept-map](../studium-concept-map/SKILL.md), [studium-harness](../studium-harness/SKILL.md) section 5 |
+| They doubt the lesson's content itself: a key that looks wrong, an unclear statement | for a teacher's lesson, to tell their teacher, with the scene's title and the sentence; for a self-study lesson, to correct the draft | [studium-contribute](../studium-contribute/SKILL.md) |
 | They must show their work to a teacher or keep a portfolio | the map's page (results per concept) or the learner report (recorded actions, journal); sharing is their act | [studium-concept-map](../studium-concept-map/SKILL.md), [studium-learner-report](../studium-learner-report/SKILL.md) |
 
 When two rows fit, offer the one that answers what they just said and keep the other for later.

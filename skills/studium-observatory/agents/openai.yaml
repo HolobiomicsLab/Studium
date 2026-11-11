@@ -1,0 +1,4 @@
+interface:
+  display_name: "Studium · Observatoire"
+  short_description: "Lire ce que Studium a produit, en lecture seule"
+  default_prompt: "Utilise $studium-observatory pour lancer l'Observatoire et me montrer les décisions et les preuves de ce cours."

@@ -68,8 +68,9 @@ present, show each `display_markdown`, then wait for the student.
   Confidence is optional where allowed and always comes from the student.
 - When a transition carries `self_rating`, ask the student to rate their recall and
   pass their rating to `rate_recall`; never rate for them.
-- Give a scaffolded hint (`request_hint`) or a question about the method when useful,
-  then wait.
+- When the student is stuck on a quiz, offer the next authored hint (`request_hint`): it counts
+  against mastery, and `hint: null` means none is left. Otherwise ask a question about the
+  method, then wait.
 - Explain an adaptation from the actual tool result (`explain_last_adaptation`); do
   not invent mastery.
 - For experiments, ask for a prediction before execution and a personal conclusion
@@ -92,9 +93,24 @@ due reviews back ([Review over time](../../docs/learn/review-over-time.md)). Use
 `forget_session` only on an explicit erasure request and explain its scope: with
 `session_id`, this lesson's progress, the cross-lesson profile and the review schedule;
 with `learner_id`, every lesson's progress too. Show its `display_markdown`, which
-names what stays: lessons in the student's library and their sources, exports,
-experiment folders and the assistant's history are not erased. See
+names what stays on disk: the lessons of the student's library, their prepared sources and
+the exported map pages. The lesson's experiment journal is erased with its progress; files
+the student saved elsewhere and the assistant's own history are outside Studium. The VS Code
+pane keeps its own progress, erased by its own command (**Studium: Forget my data**). See
 [Privacy and limits](../../docs/concepts/privacy-and-limits.md).
+
+## When something is wrong
+
+- **In the lesson's content** (a key that looks wrong, an unclear statement): the lesson belongs
+  to its teacher. Help the student note the lesson, the scene's title and the sentence, and tell
+  their teacher: Studium has no tool that sends it for them. Never open the key to check.
+- **In Studium itself** (an error on a correct call, a step of a guide that fails, something
+  Studium cannot do): say so and get the student working again. Then, at a pause and never while
+  a question waits, invite them once to report it:
+  [studium-contribute](../studium-contribute/SKILL.md). A student needs no GitHub account for
+  that: the draft can go to their teacher.
+- Items that classmates proposed and the teacher approved are short lessons of their own:
+  `list_community_bundles` lists them ([studium-harness](../studium-harness/SKILL.md)).
 
 ## Experiment and keep a report
 

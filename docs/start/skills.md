@@ -25,6 +25,7 @@ assistant its instructions, and the `learn` and `review` prompts start the two e
 | `studium-visual-support` | inspect source photographs or request an adapted image, map, audio or video through your assistant | "Prepare a visual aid with a text equivalent." |
 | `studium-learner-report` | export a recorded activity trace or experiment journal as a local report | "Prepare my report without my private texts." |
 | `studium-observatory` | run and read the Observatory, the read-only local view of what Studium produced | "Show me the decisions and evidence behind this course." |
+| `studium-contribute` | report a difficulty with Studium itself or ask for a missing feature: the assistant drafts the text, you post it | "Help me report what just happened; I will post it myself." |
 
 ## Use them in a checkout
 
@@ -68,6 +69,6 @@ A loaded skill does not prove that the Studium server is connected: check with `
 A request to onboard does not authorise a purchase, sharing with students or publishing data; the skills
 ask before such steps and reuse the permissions you already gave for local ones.
 
-Related pages: [Activity templates](../teach/activity-templates.md),
+Related pages: [Report a problem or contribute](report-and-contribute.md), [Activity templates](../teach/activity-templates.md),
 [Media and visual support](../teach/media-and-visual-support.md),
 [Learner report](../learn/learner-report.md), [Observatory](../teach/observatory.md).
