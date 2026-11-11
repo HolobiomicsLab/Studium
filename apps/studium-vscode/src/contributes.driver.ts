@@ -161,6 +161,31 @@ const hasCmd = (id: string) => commandIds.includes(id);
   expect(orphans.length === 0, `every walkthrough markdown is used by a step (orphans: ${orphans.join(", ")})`);
 }
 
+// 10) the listing page: what the Marketplace and Open VSX show is MARKETPLACE.md, written for the person
+//     who installs the extension. The developers' README stays out of the VSIX. A registry page cannot
+//     follow a relative link or show a relative image (vsce would rewrite them to the repository), so the
+//     listing has none.
+{
+  const listingPath = resolve(root, "MARKETPLACE.md");
+  expect(existsSync(listingPath), "MARKETPLACE.md, the page shown by the registries, exists");
+  const listing = existsSync(listingPath) ? readFileSync(listingPath, "utf8") : "";
+  expect(/--readme-path MARKETPLACE\.md/.test(pkg.scripts?.package ?? ""), "the package script hands MARKETPLACE.md to vsce (--readme-path)");
+  const ignore = readFileSync(resolve(root, ".vscodeignore"), "utf8").split(/\r?\n/).map((l) => l.trim());
+  for (const f of ["README.md", "README.fr.md"]) expect(ignore.includes(f), `.vscodeignore keeps the developers' ${f} out of the VSIX`);
+  const targets = [...listing.matchAll(/\]\(([^)\s]+)[^)]*\)/g)].map((m) => m[1]!);
+  const relative = targets.filter((t) => !/^(https:\/\/|#)/.test(t));
+  expect(relative.length === 0, `MARKETPLACE.md has no relative link (found: ${relative.join(", ")})`);
+  expect(!/<img|<picture|!\[/.test(listing), "MARKETPLACE.md shows no image until one has a public https address");
+  expect(!/pnpm |F5\b/.test(listing), "MARKETPLACE.md has no developer command (pnpm, F5)");
+  expect(/^# Studium$/m.test(listing) && /^## En français$/m.test(listing), "MARKETPLACE.md has its English page and its French section");
+  for (const id of ["studium.pickLesson", "studium.openWalkthrough"]) {
+    const title = JSON.parse(readFileSync(resolve(root, "package.nls.json"), "utf8"))[`command.${id.split(".")[1]}.title`];
+    expect(typeof title === "string" && listing.includes(title), `MARKETPLACE.md names the command « ${title} » as the palette shows it`);
+  }
+  const m = listing.match(/VS Code (\d+\.\d+) or later/);
+  expect(!!m && pkg.engines.vscode === `^${m[1]}.0`, `MARKETPLACE.md states the VS Code version of engines.vscode (${pkg.engines.vscode})`);
+}
+
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} contributes assertions failed:`);
   for (const f of failures) console.error("  - " + f);

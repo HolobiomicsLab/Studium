@@ -226,6 +226,13 @@ Marketplace. Un client MCP natif et le panneau de l'extension ouvrent des séanc
 partagent pas la scène courante. L'installation est décrite dans le
 [guide d'installation](../../docs/start/installation.fr.md).
 
+La page que montrent le Marketplace et Open VSX est [`MARKETPLACE.md`](MARKETPLACE.md), écrite pour la
+personne qui installe l'extension, en anglais puis en français ; `package` la donne à `vsce` et ce README
+reste hors du VSIX. Gardez-la sans lien relatif ni image, qu'une page de registre ne peut pas suivre (le
+pilote `contributes` le contrôle). Les fichiers d'une version sont construits par
+[`tools/release/build.sh`](../../tools/release/build.sh) ; voir
+[Publication](../../docs/develop/release.fr.md).
+
 ## Tests
 
 ```bash

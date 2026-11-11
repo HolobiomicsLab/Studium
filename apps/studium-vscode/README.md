@@ -213,6 +213,12 @@ checkout's `fixtures/`. `studium.vsix` is a local build artifact, not a Marketpl
 client and the extension pane create separate server sessions; they do not share the current scene.
 Installation is described in the [installation guide](../../docs/start/installation.md).
 
+The page the Marketplace and Open VSX show is [`MARKETPLACE.md`](MARKETPLACE.md), written for the person
+who installs the extension, in English then French; `package` hands it to `vsce` and this README stays out
+of the VSIX. Keep it free of relative links and images, which a registry page cannot follow (the
+`contributes` driver checks it). The files of a release are built by
+[`tools/release/build.sh`](../../tools/release/build.sh); see [Release](../../docs/develop/release.md).
+
 ## Tests
 
 ```bash
