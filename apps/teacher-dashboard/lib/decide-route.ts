@@ -8,6 +8,10 @@
  * typed). The decision time is set here, on the server. Learners read the reviewer of an approved
  * contribution, so `approve` needs a name a person typed (`reviewer_name`); `reject` and
  * `request_revision` publish nothing and fall back to the course IRI when no name is given.
+ *
+ * A decision also needs a signed-in teacher session (lib/session.ts): the access code
+ * `STUDIUM_DASHBOARD_ACCESS_CODE` guards the browser-to-dashboard leg, the review token the
+ * dashboard-to-scene-synth leg. The session proves the code was known, not who typed the name.
  */
 import {
   decideLearnerItem,
@@ -16,6 +20,8 @@ import {
   type LADecision,
   type LAReviewNoteCode,
 } from "./api";
+import { crossOrigin } from "./same-origin";
+import { ACCESS_CODE_ENV, sessionState, type Env } from "./session";
 
 const DECISIONS: readonly LADecision[] = ["approve", "reject", "request_revision"];
 const NOTE_CODES: readonly LAReviewNoteCode[] = ["factual_error", "ambiguous_distractor", "off_topic", "ok"];
@@ -54,17 +60,6 @@ function refusal(status: number, error: string): Response {
   return Response.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
 }
 
-/** Only this dashboard's own pages may ask for a decision: a cross-origin form or script
- * (the learner app on another port included) is refused before anything else. */
-function crossOrigin(request: Request): boolean {
-  const site = request.headers.get("sec-fetch-site");
-  if (site !== null && site !== "same-origin") return true;
-  const origin = request.headers.get("origin");
-  if (origin === null) return false;
-  try { return new URL(origin).host !== request.headers.get("host"); }
-  catch { return true; }
-}
-
 function parse(body: unknown): DecisionRequest | null {
   if (typeof body !== "object" || body === null) return null;
   const { course_id: courseId, decision, note_code: noteCode, reviewer_name: name } = body as Record<string, unknown>;
@@ -78,12 +73,28 @@ function parse(body: unknown): DecisionRequest | null {
   };
 }
 
+/** Refusal when no access code is configured: without sign-in, nobody may decide. */
+export const ACCESS_CODE_MISSING =
+  `Les décisions sont désactivées : définissez ${ACCESS_CODE_ENV} (16 caractères au moins) ` +
+  "sur le serveur du tableau de bord, redémarrez-le, puis connectez-vous.";
+export const SIGN_IN_REQUIRED = "Décision refusée : connectez-vous au tableau de bord (session absente ou expirée).";
+
+/**
+ * The handler checks the teacher session itself, whatever the middleware did: refusals come in
+ * the order cross-origin (403), session (503 without an access code, 401 without a valid
+ * session), then the request's own checks. The same clock stamps the decision and checks the
+ * session's expiry.
+ */
 export async function handleDecision(
   request: Request,
   itemId: string,
   now: () => string = () => new Date().toISOString(),
+  env: Env = process.env,
 ): Promise<Response> {
   if (crossOrigin(request)) return refusal(403, "Décision refusée : elle ne peut venir que des pages du tableau de bord.");
+  const session = await sessionState(request, env, () => Date.parse(now()));
+  if (session === "unset") return refusal(503, ACCESS_CODE_MISSING);
+  if (session !== "valid") return refusal(401, SIGN_IN_REQUIRED);
   if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) {
     return refusal(415, "Décision refusée : corps JSON attendu.");
   }

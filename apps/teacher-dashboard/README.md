@@ -28,7 +28,7 @@ field above the queue: learners read it as "Lesson contributed by a classmate, v
 The browser posts it as `reviewer_name` to the dashboard's own `/api/learner-items/<id>/decide`,
 which refuses an empty name, more than 200 characters, a control character or a `urn:` identifier,
 and calls scene-synth from the server with `STUDIUM_REVIEW_TOKEN`. The name is remembered in this
-browser's local storage only.
+browser's local storage only. A decision also needs a signed-in session: see [Sign in](#sign-in).
 
 ## Run it
 
@@ -48,6 +48,29 @@ pnpm --filter @studium/teacher-dashboard start
 Open `http://localhost:3001`. The home page leads to the library (`/library`); a course id typed there
 opens its analytics under `/courses/<id>/…`.
 
+## Sign in
+
+Set an access code on the dashboard's server, at least 16 characters, for example:
+
+```bash
+export STUDIUM_DASHBOARD_ACCESS_CODE="$(openssl rand -hex 16)"
+```
+
+Give it to the teachers who use this dashboard. With the code set, every page and API route asks for
+it: a page sends you to `/login`, then back to the page you asked for; an API call without a session
+gets `401`. The session is a signed cookie (`studium_teacher_session`, `HttpOnly`, `SameSite=Strict`,
+`Secure` over https) that lasts 12 hours. **Sign out** in the header ends it. Changing the code ends
+every session. After 10 wrong codes in 5 minutes, sign-in answers `429` until the window passes; this
+count lives in the server process's memory.
+
+Without the code (or with a shorter value, which the server reports once on its error output), the
+dashboard is open to anyone who can reach its port, as before: pages, the lesson review pages and class
+aggregates. A notice in the header says so, and every decision on a learner contribution is refused
+(`503`) until the code is set. Keep such a dashboard on `localhost`.
+
+The session says that the browser knew the code. It does not say who the teacher is: the reviewer's
+name on an approval is the name typed in the queue. Details and limits: [SECURITY.md](../../SECURITY.md#decisions-on-learner-contributions).
+
 ## Configuration
 
 | Variable | Default | Meaning |
@@ -58,6 +81,7 @@ opens its analytics under `/courses/<id>/…`.
 | `LESSON_SERVER_BASE_URL` | `http://localhost:8010` | [lesson server](../lesson-server/README.md) (peer rooms) |
 | `SCENE_SYNTH_BASE_URL` | `http://localhost:8002` | [scene-synth](../../services/scene-synth/README.md) (moderation of learner contributions) |
 | `STUDIUM_REVIEW_TOKEN` | none | teacher review token, same value as on scene-synth, read by the server only; decisions on [learner contributions](../../docs/teach/learner-contributions.md) are disabled without it |
+| `STUDIUM_DASHBOARD_ACCESS_CODE` | none | teacher access code, at least 16 characters, read by the server only; with it every page and API route needs a session ([Sign in](#sign-in)); without it the dashboard is open and decisions are disabled |
 | `OBSERVATORY_BASE_URL` | `http://localhost:8004` | [Observatory](../../services/observatory/README.md) |
 
 A review page probes the Observatory's MySTRA API for the lesson folder's name. It links to the report
@@ -74,10 +98,15 @@ copy remains French.
 | --- | --- |
 | Draft | The bundle fails its schema or still contains a TODO placeholder. |
 | Checked | The bundle passes the shared schema and contains no TODO. This does not claim a full lint run or human approval. |
-| Approved | A complete `studium-approval/1` record matches the SHA-256 of the exact `lesson.json` bytes. |
+| Approved | A valid `studium-approval/1` record matches the SHA-256 of the exact `lesson.json` bytes. |
 
-An approval record must contain a reviewer, timestamp, checklist, successful lint result and tool
-identifier, as written by `tools/experience_packet.py approve`. Changing even whitespace in the lesson
+The dashboard reads an approval record by the lesson host's rule (`parseApproval` in
+`packages/lesson-session-host/src/authoring.ts`), so a lesson reads approved here exactly when it does for
+learners: the schema is `studium-approval/1`, `reviewer` is a non-empty string and `bundle_sha256` is the
+SHA-256 of the exact `lesson.json` bytes. The other fields that `tools/experience_packet.py approve` or
+scene-synth write (timestamp, checklist, lint summary, tool) are not required; the review page shows the
+reviewer and the date when the record has them, and nothing in their place when it does not. A record that
+cannot be parsed or lacks one of the three required fields reads as no approval. Changing even whitespace in the lesson
 breaks the digest match. Free-form `validated_by` metadata never grants this status. Matching a
 historical record does not depend on later changes to the installed schema validator.
 

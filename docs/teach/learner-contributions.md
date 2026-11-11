@@ -13,6 +13,7 @@ contributions.
 | Draft and self-test | Learner | `/studio` in the author web app (`localhost:3000`) | A scene that passes validation |
 | Submit | Learner | Same page, after consent | An item in state `submitted` |
 | Peer test (optional) | Learners | `/peer` in the author web app | Rating aggregates, shown from 3 raters |
+| Sign in | You | `/login` in the dashboard (`localhost:3001`) | A teacher session for 12 hours |
 | Decide | You | `/courses/<course_id>/submissions` in the dashboard (`localhost:3001`) | Approved, rejected or revision requested |
 | Play | Class | Assistant (`list_community_bundles`) or VS Code ("Studium: Community contributions") | A single-scene community lesson |
 
@@ -24,6 +25,14 @@ learner. Generate one per deployment, for example in a shell you then use for bo
 
 ```bash
 export STUDIUM_REVIEW_TOKEN="$(openssl rand -hex 32)"
+```
+
+The dashboard also needs an access code, which you type to sign in: at least 16 characters in
+`STUDIUM_DASHBOARD_ACCESS_CODE`, on the dashboard's server only. Without it the dashboard refuses
+every decision (`503`).
+
+```bash
+export STUDIUM_DASHBOARD_ACCESS_CODE="$(openssl rand -hex 16)"
 ```
 
 Three terminals, from the repository root (the first and the third need the token):
@@ -63,7 +72,11 @@ the same service (`POST /learner-items`) with that course's id.
 
 ## Decide on a submission
 
-Open `http://localhost:3001/courses/atomistique-l1/submissions` (the course id is the token). Each
+Sign in first. Open `http://localhost:3001/courses/atomistique-l1/submissions` (the course id is the
+token): the dashboard sends you to its sign-in page, you type the access code, and it brings you back
+to the queue. The session lasts 12 hours; **Sign out** in the header ends it. If it expires while the
+page is open, a decision answers that you must sign in again. The session does not record who you are:
+the name learners read is the one you type below. Each
 item shows the scene, its answer key (correct answers marked), the validation result and a
 de-identified author label, so you never approve blind.
 
@@ -143,7 +156,9 @@ to a class, rebuild it through the [teacher route](author-a-lesson.md#route-b-th
 |---|---|
 | CORS error in the browser console | The service is not running, or the learner page is not on `localhost:3000`; the dashboard never calls scene-synth from the browser |
 | "Les décisions sont désactivées" in the dashboard, or `503` on a decision | `STUDIUM_REVIEW_TOKEN` (at least 32 characters) is missing on scene-synth or on the dashboard's server: set the same value on both and restart them |
-| `401` on a decision | The two servers hold different `STUDIUM_REVIEW_TOKEN` values |
+| "Decisions unavailable" above the queue | The dashboard's server lacks `STUDIUM_DASHBOARD_ACCESS_CODE` (at least 16 characters) or `STUDIUM_REVIEW_TOKEN`; the line names the one to set |
+| `401` on a decision, with "connectez-vous" | Your dashboard session is missing or expired: sign in again |
+| `401` on a decision, from scene-synth | The two servers hold different `STUDIUM_REVIEW_TOKEN` values |
 | `400` "the reviewer cannot be the item's author" | The reviewer named is the learner who wrote the item; a learner never decides on their own item |
 | `400` or `404` on submit | The course id is malformed, or `BUNDLES_ROOT/<course_id>/lesson.json` does not exist |
 | `422` on submit | The scene failed validation; the response lists the errors |

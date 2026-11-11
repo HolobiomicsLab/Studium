@@ -6,6 +6,7 @@ import "./library.css";
 import DashboardHeader from "@/components/DashboardHeader";
 import { requestLocale } from "@/lib/request-locale";
 import { messages } from "@/lib/i18n";
+import { accessCode, SESSION_COOKIE, verifySession } from "@/lib/session";
 
 export const metadata = {
   title: "Studium — Espace enseignant",
@@ -17,13 +18,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const t = messages(locale);
   const preference = (await cookies()).get("studium-theme")?.value;
   const theme = preference === "light" || preference === "dark" ? preference : "system";
+  const code = accessCode();
+  const access = code === null ? "open"
+    : (await verifySession((await cookies()).get(SESSION_COOKIE)?.value, code)) ? "signed-in" : "signed-out";
   return (
     <html lang={locale} data-theme={theme === "system" ? undefined : theme}>
       <body>
         <a className="skip-link" href="#contenu">
           {t.skip}
         </a>
-        <DashboardHeader locale={locale} theme={theme} />
+        <DashboardHeader locale={locale} theme={theme} access={access} />
         {children}
       </body>
     </html>

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { createHash } from "node:crypto";
 import { sceneFingerprint } from "../../../packages/lesson-session-host/src/review-inbox";
+import { parseApproval } from "../../../packages/lesson-session-host/src/authoring";
 import {
   approvalCommand, returnCommand, inspectLesson, listLessons, readLesson,
   encodeLessonRef, decodeLessonRef, bundlesRoot, LibraryReadError,
@@ -58,8 +59,50 @@ describe("C5 approval is bound to the exact lesson bytes", () => {
     const receipt = approvalFor(raw);
     expect(inspectLesson(raw, { schema: receipt.schema, bundle_sha256: receipt.bundle_sha256 }).status).toBe("checked");
     expect(inspectLesson(raw, { ...receipt, reviewer: "" }).status).toBe("checked");
-    expect(inspectLesson(raw, { ...receipt, reviewed_at: "yesterday" }).status).toBe("checked");
-    expect(inspectLesson(raw, { ...receipt, lint: { errors: 2, warnings: 0 } }).status).toBe("checked");
+    // Changed with the host's rule (lesson-session-host parseApproval): reviewed_at and lint are not part of
+    // what makes a record valid, so these two now read as approved, as they do in the lesson host.
+    expect(inspectLesson(raw, { ...receipt, reviewed_at: "yesterday" }).status).toBe("approved");
+    expect(inspectLesson(raw, { ...receipt, lint: { errors: 2, warnings: 0 } }).status).toBe("approved");
+  });
+  it("reads a record by the host's rule, so a lesson never reads approved in one place and not in another", async () => {
+    const raw = Buffer.from(JSON.stringify(await fixture()));
+    const sha = createHash("sha256").update(raw).digest("hex");
+    const minimal = { schema: "studium-approval/1", bundle_sha256: sha, reviewer: "Mme Curie" };
+    const cases: unknown[] = [
+      minimal,
+      { ...minimal, reviewed_at: "2026-11-10T09:00:00Z", decision_route: "learner-contribution", tool: "scene-synth" },
+      approvalFor(raw),
+      { ...minimal, reviewer: "   " },
+      { ...minimal, reviewer: 42 },
+      { ...minimal, bundle_sha256: 7 },
+      { ...minimal, bundle_sha256: "0".repeat(64) },
+      { ...minimal, schema: "studium-approval/2" },
+      [minimal],
+      "not an object",
+      {},
+    ];
+    for (const record of cases) {
+      const host = parseApproval(JSON.stringify(record), sha);
+      const shown = inspectLesson(raw, record);
+      expect(shown.approval.recorded).toBe(host.recorded);
+      expect(shown.approval.matches).toBe(host.recorded && host.matches);
+      expect(shown.status === "approved").toBe(host.recorded && host.matches);
+    }
+  });
+  it("shows the fields a record lacks as absent, never invented", async () => {
+    const raw = Buffer.from(JSON.stringify(await fixture()));
+    const sha = createHash("sha256").update(raw).digest("hex");
+    const shown = inspectLesson(raw, { schema: "studium-approval/1", bundle_sha256: sha, reviewer: " Mme Curie " });
+    expect(shown.status).toBe("approved");
+    expect(shown.approval).toEqual({ recorded: true, matches: true, reviewer: "Mme Curie" });
+  });
+  it("reads an unparsable approval.json as no approval, as the host does", async () => {
+    const base = await root();
+    await put(base, "course", await fixture());
+    await writeFile(join(base, "course/approval.json"), "{ not json");
+    const lesson = await readLesson(base, "course");
+    expect(lesson.status).toBe("checked");
+    expect(lesson.approval).toEqual({ recorded: false, matches: false });
   });
   it("keeps invalid bundles and unfinished content in draft", async () => {
     expect(inspectLesson(Buffer.from("{}"), null).status).toBe("draft");

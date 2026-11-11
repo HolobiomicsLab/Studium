@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import SubmissionsQueue, {
   makeDecideAction,
   type DecideAction,
+  type DecisionsUnavailable,
 } from "@/components/SubmissionsQueue";
 import type { LearnerItemView } from "@/lib/api";
 import type { Locale } from "@/lib/i18n";
 
-type Props = { token: string; items: LearnerItemView[]; locale: Locale };
+type Props = { token: string; items: LearnerItemView[]; locale: Locale; unavailable?: DecisionsUnavailable };
 
 /**
  * Client wrapper for the moderation queue. Builds the decide action (POST -> this
@@ -18,7 +19,7 @@ type Props = { token: string; items: LearnerItemView[]; locale: Locale };
  * optimistically drops the decided item from the visible queue and refreshes
  * the server component so the next `submitted` page-load is authoritative.
  */
-export default function SubmissionsClient({ token, items, locale }: Props) {
+export default function SubmissionsClient({ token, items, locale, unavailable }: Props) {
   const router = useRouter();
   const [visible, setVisible] = useState(items);
   const decide = makeDecideAction(token);
@@ -29,5 +30,5 @@ export default function SubmissionsClient({ token, items, locale }: Props) {
     router.refresh();
   };
 
-  return <SubmissionsQueue items={visible} onDecide={onDecide} locale={locale} />;
+  return <SubmissionsQueue items={visible} onDecide={onDecide} locale={locale} unavailable={unavailable} />;
 }

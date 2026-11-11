@@ -1,18 +1,24 @@
 /**
  * @vitest-environment node
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 import { handleDecision } from "./decide-route";
+import { ACCESS_CODE_ENV, SESSION_COOKIE, signSession } from "./session";
 
 /** Generated per run: a test token is never a value written in the repository. */
 const REVIEW_TOKEN = `test-${crypto.randomUUID()}-${crypto.randomUUID()}`;
 const NOW = () => "2026-11-10T09:00:00.000Z";
 const APPROVE = { course_id: "atomistique-l1", decision: "approve", reviewer_name: "Mme Curie" };
+/** Generated per run, like the review token. */
+const ACCESS_CODE = `code-${crypto.randomUUID()}`;
+/** A teacher session valid at NOW: the handler checks it before anything but the origin. */
+let SIGNED_IN = "";
+beforeAll(async () => { SIGNED_IN = `${SESSION_COOKIE}=${await signSession(ACCESS_CODE, () => Date.parse(NOW()))}`; });
 
 function request(body: unknown, headers: Record<string, string> = {}): Request {
   return new Request("http://localhost:3001/api/learner-items/it-1/decide", {
     method: "POST",
-    headers: { "content-type": "application/json", host: "localhost:3001", ...headers },
+    headers: { "content-type": "application/json", host: "localhost:3001", cookie: SIGNED_IN, ...headers },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 }
@@ -20,6 +26,7 @@ function request(body: unknown, headers: Record<string, string> = {}): Request {
 describe("decision route handler (server side of a moderation decision)", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
+    vi.stubEnv(ACCESS_CODE_ENV, ACCESS_CODE);
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -142,5 +149,73 @@ describe("decision route handler (server side of a moderation decision)", () => 
     vi.stubEnv("STUDIUM_REVIEW_TOKEN", REVIEW_TOKEN);
     const response = await handleDecision(request({ ...APPROVE, reviewer_name: 42 }), "it-1", NOW);
     expect(response.status).toBe(400);
+  });
+});
+
+describe("decision route handler: teacher session", () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    vi.stubEnv("STUDIUM_REVIEW_TOKEN", REVIEW_TOKEN);
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ item_id: "it-1" }) });
+  });
+
+  it("refuses with 503 naming the access code when none is configured, before calling scene-synth", async () => {
+    const response = await handleDecision(request(APPROVE), "it-1", NOW);
+    expect(response.status).toBe(503);
+    const { error } = await response.json();
+    expect(error).toContain(ACCESS_CODE_ENV);
+    expect(error).not.toContain("\n");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("counts an access code shorter than 16 characters as unset", async () => {
+    vi.stubEnv(ACCESS_CODE_ENV, "short-code");
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = await handleDecision(request(APPROVE), "it-1", NOW);
+    spy.mockRestore();
+    expect(response.status).toBe(503);
+  });
+
+  it.each([
+    ["no cookie", ""],
+    ["a cookie signed with another code", "other"],
+    ["a malformed cookie", `${SESSION_COOKIE}=v1.1.abc`],
+  ])("refuses with 401 and %s, before calling scene-synth", async (_label, cookie) => {
+    vi.stubEnv(ACCESS_CODE_ENV, ACCESS_CODE);
+    const header = cookie === "other"
+      ? `${SESSION_COOKIE}=${await signSession(`other-${crypto.randomUUID()}`, () => Date.parse(NOW()))}`
+      : cookie;
+    const response = await handleDecision(request(APPROVE, { cookie: header }), "it-1", NOW);
+    expect(response.status).toBe(401);
+    expect((await response.json()).error).toMatch(/connectez-vous/);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("refuses an expired session: the decision's clock checks the expiry", async () => {
+    vi.stubEnv(ACCESS_CODE_ENV, ACCESS_CODE);
+    const thirteenHoursLater = () => new Date(Date.parse(NOW()) + 13 * 3600 * 1000).toISOString();
+    const response = await handleDecision(request(APPROVE), "it-1", thirteenHoursLater);
+    expect(response.status).toBe(401);
+  });
+
+  it("checks the origin before the session (403 first)", async () => {
+    const response = await handleDecision(request(APPROVE, { origin: "http://localhost:3000", cookie: "" }), "it-1", NOW);
+    expect(response.status).toBe(403);
+  });
+
+  it("checks the session before the body (401 rather than 415 or 400)", async () => {
+    vi.stubEnv(ACCESS_CODE_ENV, ACCESS_CODE);
+    const form = await handleDecision(request("decision=approve", { "content-type": "text/plain", cookie: "" }), "it-1", NOW);
+    expect(form.status).toBe(401);
+    const bad = await handleDecision(request({ course_id: "../etc", decision: "approve" }, { cookie: "" }), "it-1", NOW);
+    expect(bad.status).toBe(401);
+  });
+
+  it("lets a valid session reach the existing path", async () => {
+    vi.stubEnv(ACCESS_CODE_ENV, ACCESS_CODE);
+    const response = await handleDecision(request(APPROVE), "it-1", NOW);
+    expect(response.status).toBe(200);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });
