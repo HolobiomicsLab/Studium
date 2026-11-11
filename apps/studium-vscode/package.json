@@ -350,7 +350,7 @@
     "watch": "pnpm build --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm typecheck && for d in context-help scene-io asset-path webview-pane community modality review-fsrs run-task run-trust host-phrases data-paths lesson-uri pane-messages study-status lesson-tree lesson-picker completion chat-format mcp-connect panel-lifecycle contributes lesson-walk extension-host; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
-    "package": "pnpm vendor && pnpm build && vsce package --no-dependencies -o studium.vsix",
+    "package": "pnpm vendor && pnpm build && vsce package --no-dependencies --readme-path MARKETPLACE.md -o studium.vsix",
     "vendor": "pnpm --filter @studium/lesson-panel-ui build && mkdir -p dist/panel && cp -R ../lesson-panel-ui/dist/vscode/. dist/panel/"
   },
   "dependencies": {
