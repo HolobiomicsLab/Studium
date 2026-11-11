@@ -17,6 +17,20 @@ From a release file: `code --install-extension studium-vX.Y.Z.vsix`. To build it
 [Installation](installation.md#build-the-vs-code-extension). The registries that carry the extension are
 listed in [Where the packages are](installation.md#where-the-packages-are).
 
+## Get your first lesson
+
+The extension shows lessons; it does not build them. Right after installation the **Lessons** view says
+"No lesson found yet". Pick the line that matches what you have:
+
+| You have | Do this |
+|---|---|
+| An AI assistant (Copilot in VS Code, Claude Code, Codex, Cursor) | Connect it to Studium with [one command](installation.md#add-the-server-to-your-assistant), then ask "I want to learn … with Studium" and name your sources. The lesson is written to your personal library, `~/.studium/library`, and appears in the **Lessons** view after a refresh |
+| A lesson a teacher gave you | **Studium: Pick a course**, then choose its folder; or right-click its `lesson.json` and choose **Studium: Open this lesson** |
+| A checkout of the repository | **Studium: Pick a course**, then choose `fixtures` for the demo lessons |
+
+With Copilot in agent mode everything stays inside VS Code: see [Connect Copilot](copilot.md). What the
+assistant does, step by step, is in [Learn with your assistant](../learn/learn-with-your-assistant.md).
+
 ## Open a lesson
 
 | Way | When to use it |

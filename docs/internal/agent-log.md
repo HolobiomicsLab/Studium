@@ -6,6 +6,19 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-11 — le README commence par quoi faire, pour un débutant et pour un assistant
+
+Retour du propriétaire après avoir installé l'extension depuis le Marketplace : on ne comprend pas
+comment créer une leçon depuis VS Code. Constat : l'extension affiche les leçons et n'en construit pas ;
+c'est un assistant relié au serveur qui les construit (`get_study_plan` renvoie vers les outils
+d'écriture quand il n'y a pas de leçon). Branche `docs/2026-11-11-readme-start`, depuis `dev` (`7ecfe08`) :
+le README (EN et FR) remplace « Install » par « Start here » : qui fait quoi, trois étapes, puis une
+section adressée à un assistant IA (six étapes vérifiables). `docs/start/vscode.md` gagne « Get your
+first lesson » ; `AGENTS.md` renvoie un agent chargé d'utiliser Studium vers cette section. Vérifié : un
+client MCP nu sur `npx -y studium-mcp`, dans un dossier vide, lit ces règles dans les instructions du
+serveur et reçoit `next_step` = `get_authoring_guide`. Non fait ici : le README de l'extension, montré
+sur le Marketplace, reste celui des développeurs (il part avec la prochaine version de l'extension).
+
 ## 2026-11-11 — la documentation dit où sont les paquets
 
 La 0.6.0 est sur npm, le MCP Registry, le Visual Studio Marketplace et Open VSX depuis le 11 novembre
