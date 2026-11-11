@@ -163,8 +163,7 @@ const hasCmd = (id: string) => commandIds.includes(id);
 
 // 10) the listing page: what the Marketplace and Open VSX show is MARKETPLACE.md, written for the person
 //     who installs the extension. The developers' README stays out of the VSIX. A registry page cannot
-//     follow a relative link or show a relative image (vsce would rewrite them to the repository), so the
-//     listing has none.
+//     follow a relative link or show a relative image, so the listing uses full addresses only.
 {
   const listingPath = resolve(root, "MARKETPLACE.md");
   expect(existsSync(listingPath), "MARKETPLACE.md, the page shown by the registries, exists");
@@ -175,7 +174,25 @@ const hasCmd = (id: string) => commandIds.includes(id);
   const targets = [...listing.matchAll(/\]\(([^)\s]+)[^)]*\)/g)].map((m) => m[1]!);
   const relative = targets.filter((t) => !/^(https:\/\/|#)/.test(t));
   expect(relative.length === 0, `MARKETPLACE.md has no relative link (found: ${relative.join(", ")})`);
-  expect(!/<img|<picture|!\[/.test(listing), "MARKETPLACE.md shows no image until one has a public https address");
+  // Changed with 0.6.1: the repository became public, so the page may show an image and link to the
+  // documentation. What a registry needs is unchanged: full https addresses, never a relative one. An
+  // address of this repository's main branch must name a file of the checkout, so that a renamed page
+  // or image fails here and not on the Marketplace.
+  const repo = resolve(root, "..", "..");
+  const images = [...listing.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]);
+  expect(!/<picture|!\[/.test(listing), "MARKETPLACE.md shows images with <img> only (no <picture>, which vsce does not rewrite)");
+  for (const img of images) {
+    const src = img.match(/\bsrc="([^"]+)"/)?.[1] ?? "";
+    const file = src.startsWith("https://raw.githubusercontent.com/HolobiomicsLab/studium/main/") ? src.slice("https://raw.githubusercontent.com/HolobiomicsLab/studium/main/".length) : "";
+    expect(file.endsWith(".png") && existsSync(resolve(repo, file)), `the image ${src} is a PNG of this repository's main branch`);
+    expect(/\balt="[^"]{20,}"/.test(img), `the image ${src} has an alt text`);
+  }
+  const pages = targets.filter((t) => t.startsWith("https://github.com/HolobiomicsLab/studium/blob/"));
+  for (const t of pages) {
+    const file = t.startsWith("https://github.com/HolobiomicsLab/studium/blob/main/") ? t.slice("https://github.com/HolobiomicsLab/studium/blob/main/".length).split("#")[0]! : "";
+    expect(file !== "" && existsSync(resolve(repo, file)), `the link ${t} names a file of this repository's main branch`);
+  }
+  expect(pages.some((t) => t.endsWith(".fr.md")) && pages.some((t) => !t.endsWith(".fr.md")), "MARKETPLACE.md links to the documentation in English and in French");
   expect(!/pnpm |F5\b/.test(listing), "MARKETPLACE.md has no developer command (pnpm, F5)");
   expect(/^# Studium$/m.test(listing) && /^## En français$/m.test(listing), "MARKETPLACE.md has its English page and its French section");
   for (const id of ["studium.pickLesson", "studium.openWalkthrough"]) {

@@ -43,8 +43,9 @@ node tools/release/registries.mjs status 0.6.0
 [`apps/studium-vscode/MARKETPLACE.md`](../../apps/studium-vscode/MARKETPLACE.md), écrite pour la personne
 qui installe l'extension, en anglais puis en français ; le README des développeurs reste hors du VSIX. npm
 montre [`apps/lesson-mcp/README.npm.md`](../../apps/lesson-mcp/README.npm.md). Une page de registre ne peut
-pas suivre un lien relatif, et n'affiche une image que depuis une adresse `https` publique : la fiche n'a ni
-l'un ni l'autre, et `pnpm --filter studium-vscode test` échoue s'il en arrive un.
+pas suivre un lien relatif, et n'affiche une image que depuis une adresse `https` publique : la fiche
+renvoie à la branche `main` de ce dépôt par adresse complète, et `pnpm --filter studium-vscode test` échoue
+sur un lien relatif, ou sur un lien ou une image dont le fichier n'est pas dans le dépôt.
 
 ## Numérotation
 
@@ -177,8 +178,8 @@ registres ([npm](https://docs.npmjs.com/trusted-publishers),
 Studium.
 
 Le plugin Claude Code ne demande aucune étape : Claude Code lit le plugin sur la branche par défaut du
-dépôt, donc une version atteint les utilisateurs une fois fusionnée sur cette branche, et les personnes
-extérieures à l'organisation dès que le dépôt est public.
+dépôt, donc une version atteint les utilisateurs une fois fusionnée sur cette branche. Le dépôt est
+public, donc cela vaut aussi pour les personnes extérieures à l'organisation.
 
 ## Limites
 

@@ -43,8 +43,9 @@ node tools/release/registries.mjs status 0.6.0
 [`apps/studium-vscode/MARKETPLACE.md`](../../apps/studium-vscode/MARKETPLACE.md), written for the person
 who installs the extension, in English then French; the developers' README stays out of the VSIX. npm shows
 [`apps/lesson-mcp/README.npm.md`](../../apps/lesson-mcp/README.npm.md). A registry page cannot follow a
-relative link, and shows an image only from a public `https` address: the listing has neither, and
-`pnpm --filter studium-vscode test` fails if one comes in.
+relative link, and shows an image only from a public `https` address: the listing links to this
+repository's `main` branch by full address, and `pnpm --filter studium-vscode test` fails on a relative
+link, or on a link or an image whose file is not in the repository.
 
 ## Versioning
 
@@ -172,8 +173,8 @@ provenance attestation when the repository is public. These routes come from the
 [MCP Registry](https://modelcontextprotocol.io/registry/github-actions)); none has run for Studium yet.
 
 The Claude Code plugin needs no step: Claude Code reads the plugin from the repository's default branch,
-so a version reaches users when it is merged there, and people outside the organisation once the
-repository is public.
+so a version reaches users when it is merged there. The repository is public, so this includes people
+outside the organisation.
 
 ## Limits
 

@@ -19,7 +19,7 @@ the page with the details.
 | Item | Why |
 |---|---|
 | Node 22 (20 at least) and pnpm 9.15.9 | build and run the Studium server |
-| Git, with access to the repository | the repository is private for now |
+| Git | clone the repository |
 | An AI assistant that speaks MCP: Codex, Claude Code, Copilot in VS Code, OpenCode or Cursor | it relays the lesson to you |
 | VS Code (optional) | the lesson pane with figures, equations and reviews |
 
@@ -30,7 +30,6 @@ MCP (Model Context Protocol) is the standard way an assistant calls outside tool
 ## 1. Install and build
 
 ```bash
-gh auth login                      # once: the repository is private
 git clone https://github.com/HolobiomicsLab/studium.git
 cd studium
 ./setup.sh

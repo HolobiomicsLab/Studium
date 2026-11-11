@@ -8,6 +8,8 @@ each idea back on later days, before you forget it.
 Studium is a research prototype from eDIAM (Institut de Chimie de Nice, Université Côte d'Azur, CNRS) and
 HolobiomicsLab, under the Apache-2.0 licence. La version française est plus bas.
 
+<img src="https://raw.githubusercontent.com/HolobiomicsLab/studium/main/docs/assets/screenshots/vscode-pane-choices-light.png" width="380" alt="The Studium lesson pane on a quiz step, here in French: a notice saying the lesson was written by an AI from the learner's sources, step 3 of 8, the Rydberg formula, four lettered choices, an optional confidence scale from 0 to 4, a Submit button and a Hint link.">
+
 ## Who does what
 
 Knowing this saves the first ten minutes:
@@ -36,7 +38,8 @@ The server is the npm package `studium-mcp`; `npx` fetches it the first time. St
 its own: the assistant works with the model you already have, a Copilot plan for example. The empty
 `LITELLM_BASE_URL=` keeps Studium from calling any paid model. In Cursor, Claude Desktop or another
 assistant, declare an MCP server named `studium` whose command is `npx` with the arguments `-y` and
-`studium-mcp`.
+`studium-mcp`; each assistant has its page under [Installation](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/installation.md). Which
+model to use, with a Copilot plan or a model on your machine, is in [Choose your model](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/models.md).
 
 ### 2. Ask for a lesson
 
@@ -45,7 +48,8 @@ In a new conversation with your assistant (in Copilot Chat, choose the agent mod
 > I want to learn how the water cycle works with Studium. Use these two pages: (two links you trust).
 
 The assistant builds a lesson from your sources, shows you its outline and asks the first question. The
-lesson is saved on your machine, in `~/.studium/library`.
+lesson is saved on your machine, in `~/.studium/library`. Each step is described in
+[Learn with your assistant](https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/learn-with-your-assistant.md).
 
 ### 3. Open it here
 
@@ -97,6 +101,12 @@ In Copilot Chat, `@studium` plays the current lesson in the conversation.
 VS Code 1.95 or later. The extension carries its own lesson server and viewer libraries and works offline.
 Connecting an assistant (step 1) needs Node 20 or later.
 
+## Documentation and help
+
+- [Studium in VS Code](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/vscode.md): the pane, the reviews and the settings in detail.
+- [The documentation](https://github.com/HolobiomicsLab/studium/blob/main/docs/index.md), for learners, teachers and developers.
+- [Report a problem or suggest a change](https://github.com/HolobiomicsLab/studium/issues).
+
 ## En français
 
 Studium transforme des sources que vous jugez fiables en leçons adaptatives. Cette extension joue une leçon
@@ -135,7 +145,9 @@ Le serveur est le paquet npm `studium-mcp` ; `npx` le télécharge la première
 d'aucune clé d'API : l'assistant travaille avec le modèle que vous avez déjà, un abonnement Copilot par
 exemple. Le `LITELLM_BASE_URL=` vide empêche Studium d'appeler un modèle payant. Dans Cursor, Claude
 Desktop ou un autre assistant, déclarez un serveur MCP nommé `studium` dont la commande est `npx` avec les
-arguments `-y` et `studium-mcp`.
+arguments `-y` et `studium-mcp` ; chaque assistant a sa page sous
+[Installation](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/installation.fr.md). Quel modèle utiliser, avec un abonnement Copilot ou un
+modèle sur votre machine, est dit dans [Choisir son modèle](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/models.fr.md).
 
 **2. Demandez une leçon.** Dans une nouvelle conversation avec votre assistant (dans Copilot Chat,
 choisissez le mode agent), avec vos mots :
@@ -144,7 +156,8 @@ choisissez le mode agent), avec vos mots :
 > que vous jugez fiables).
 
 L'assistant construit une leçon à partir de vos sources, vous montre son plan et pose la première question.
-La leçon est enregistrée sur votre machine, dans `~/.studium/library`.
+La leçon est enregistrée sur votre machine, dans `~/.studium/library`. Chaque étape est décrite dans
+[Apprendre avec votre assistant](https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/learn-with-your-assistant.fr.md).
 
 **3. Ouvrez-la ici.** Sélectionnez l'icône **Studium** dans la barre d'activité. La leçon est dans la vue
 **Leçons** ; utilisez le bouton de rafraîchissement de la vue si VS Code était déjà ouvert. Sélectionnez la
@@ -195,3 +208,9 @@ Dans Copilot Chat, `@studium` joue la leçon courante dans la conversation.
 
 VS Code 1.95 ou plus récent. L'extension embarque son propre serveur de leçons et ses bibliothèques
 d'affichage, et fonctionne hors ligne. Relier un assistant (étape 1) demande Node 20 ou plus récent.
+
+### Documentation et aide
+
+- [Studium dans VS Code](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/vscode.fr.md) : le panneau, les révisions et les réglages en détail.
+- [La documentation](https://github.com/HolobiomicsLab/studium/blob/main/docs/index.fr.md), pour les apprenants, les enseignants et les développeurs.
+- [Signaler un problème ou proposer un changement](https://github.com/HolobiomicsLab/studium/issues).

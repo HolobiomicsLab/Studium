@@ -11,7 +11,7 @@ message without keys, personal data or private lesson content.
 
 | Symptom | Check and fix |
 |---|---|
-| `Repository not found` when cloning | the repository is private: run `gh auth login`, then clone again |
+| `Repository not found` when cloning | check the address, `https://github.com/HolobiomicsLab/studium.git`: the repository is public and asks for no login |
 | `pnpm` not found or too old | `corepack enable`, or install pnpm 9.15.9 |
 | `ERR_MODULE_NOT_FOUND` or a missing `dist/` | rerun `./setup.sh`, or `pnpm install --frozen-lockfile`, `pnpm build:libs`, then `pnpm --filter studium-vscode build` |
 | `tsx` not found | start the built server with `node apps/studium-vscode/dist/lesson-mcp.cjs` instead |
