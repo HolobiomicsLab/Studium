@@ -12,8 +12,8 @@ authors:
     given-names: Louis-Félix
     affiliation: "Institut de Chimie de Nice (ICN, UMR 7272), Université Côte d'Azur, CNRS"
   - name: HolobiomicsLab
-version: 0.3.0
-date-released: 2026-11-09
+version: 0.4.0
+date-released: 2026-11-10
 license: Apache-2.0
 repository-code: "https://github.com/HolobiomicsLab/studium"
 keywords:
