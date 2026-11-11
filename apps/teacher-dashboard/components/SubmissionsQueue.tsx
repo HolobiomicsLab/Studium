@@ -24,12 +24,17 @@ export type DecideAction = (
   reviewerName?: string,
 ) => Promise<void> | void;
 
+/** Why decisions cannot succeed on this server: no access code, or no review token. */
+export type DecisionsUnavailable = "access-code" | "review-token";
+
 type Props = {
   items: LearnerItemView[];
   onDecide: DecideAction;
   locale?: Locale;
   /** Seeds the name field (tests); otherwise the browser's remembered name, if any. */
   initialName?: string;
+  /** Set by the page from the server's configuration: the queue then says why instead of offering buttons. */
+  unavailable?: DecisionsUnavailable;
 };
 
 export function rememberedName(): string {
@@ -47,7 +52,11 @@ export function rememberName(name: string): void {
 /** The dashboard's server holds no review token: decisions are disabled until it is set. */
 export class DecisionsDisabledError extends Error {}
 
-export function formatSubmissionError(error: unknown): string {
+/** The teacher session is missing or expired (401 from the dashboard's server). */
+export class SignInRequiredError extends Error {}
+
+export function formatSubmissionError(error: unknown, locale: Locale = "fr"): string {
+  if (error instanceof SignInRequiredError) return messages(locale).sessionExpired;
   if (error instanceof DecisionsDisabledError) {
     return (
       "Les décisions sont désactivées : définissez STUDIUM_REVIEW_TOKEN (32 caractères au moins) " +
@@ -143,11 +152,15 @@ function SubmissionCard({
   onDecide,
   reviewerName,
   nameHintId,
+  decisionsEnabled = true,
+  locale = "fr",
 }: {
   item: LearnerItemView;
   onDecide: DecideAction;
   reviewerName: string;
   nameHintId: string;
+  decisionsEnabled?: boolean;
+  locale?: Locale;
 }) {
   const named = reviewerName.trim() !== "";
   const [busy, setBusy] = useState(false);
@@ -159,7 +172,7 @@ function SubmissionCard({
     try {
       await onDecide(item.item_id, decision, noteCode, reviewerName.trim() || undefined);
     } catch (e) {
-      setErr(formatSubmissionError(e));
+      setErr(formatSubmissionError(e, locale));
     } finally {
       setBusy(false);
     }
@@ -178,7 +191,7 @@ function SubmissionCard({
 
       <SceneBody scene={item.scene} />
 
-      <div className="submission-card__actions">
+      {decisionsEnabled && <div className="submission-card__actions">
         <button
           type="button"
           disabled={busy || !named}
@@ -204,7 +217,7 @@ function SubmissionCard({
         >
           Rejeter
         </button>
-      </div>
+      </div>}
       {err && (
         <p className="inline-error" role="alert">Erreur : {err}</p>
       )}
@@ -232,6 +245,7 @@ export function makeDecideAction(courseToken: string): DecideAction {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    if (response.status === 401) throw new SignInRequiredError();
     if (response.status === 503) throw new DecisionsDisabledError();
     if (!response.ok) throw new Error(`decision refused (HTTP ${response.status})`);
   };
@@ -257,7 +271,7 @@ function ReviewerNameField({ name, setName, locale, hintId }: {
   );
 }
 
-export default function SubmissionsQueue({ items, onDecide, locale = "fr", initialName }: Props) {
+export default function SubmissionsQueue({ items, onDecide, locale = "fr", initialName, unavailable }: Props) {
   const [name, setName] = useState(initialName ?? "");
   const hintId = useId();
   // The remembered name is read after mount, so the server render and the first client render agree.
@@ -276,10 +290,17 @@ export default function SubmissionsQueue({ items, onDecide, locale = "fr", initi
   }
   return (
     <>
-      <ReviewerNameField name={name} setName={setName} locale={locale} hintId={hintId} />
+      {unavailable ? (
+        <p data-testid="decisions-unavailable" className="approval-note" role="status">
+          {unavailable === "access-code" ? messages(locale).decisionsNoAccessCode : messages(locale).decisionsNoReviewToken}
+        </p>
+      ) : (
+        <ReviewerNameField name={name} setName={setName} locale={locale} hintId={hintId} />
+      )}
       <ul data-testid="submissions-queue" className="submission-list">
         {items.map((item) => (
-          <SubmissionCard key={item.item_id} item={item} onDecide={onDecide} reviewerName={name} nameHintId={hintId} />
+          <SubmissionCard key={item.item_id} item={item} onDecide={onDecide} reviewerName={name} nameHintId={hintId}
+            decisionsEnabled={!unavailable} locale={locale} />
         ))}
       </ul>
     </>

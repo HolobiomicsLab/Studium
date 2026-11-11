@@ -13,6 +13,7 @@ peut jamais publier seul : c'est la règle 003 appliquée aux contributions.
 | Rédiger et s'auto-tester | Apprenant | `/studio` dans l'application auteur web (`localhost:3000`) | Une scène qui passe la validation |
 | Soumettre | Apprenant | Même page, après consentement | Un item à l'état `submitted` |
 | Test par les pairs (facultatif) | Apprenants | `/peer` dans l'application auteur web | Des agrégats de notes, visibles à partir de 3 évaluateurs |
+| Se connecter | Vous | `/login` dans le tableau de bord (`localhost:3001`) | Une session enseignant de 12 heures |
 | Décider | Vous | `/courses/<course_id>/submissions` dans le tableau de bord (`localhost:3001`) | Approuvé, rejeté ou révision demandée |
 | Jouer | Classe | Assistant (`list_community_bundles`) ou VS Code (« Studium : Contributions de la classe ») | Une leçon communautaire d'une scène |
 
@@ -25,6 +26,14 @@ utilisez ensuite pour les deux commandes :
 
 ```bash
 export STUDIUM_REVIEW_TOKEN="$(openssl rand -hex 32)"
+```
+
+Le tableau de bord demande aussi un code d'accès, que vous saisissez pour vous connecter : 16
+caractères au moins dans `STUDIUM_DASHBOARD_ACCESS_CODE`, sur le serveur du tableau de bord seulement.
+Sans lui, le tableau de bord refuse toute décision (`503`).
+
+```bash
+export STUDIUM_DASHBOARD_ACCESS_CODE="$(openssl rand -hex 16)"
 ```
 
 Trois terminaux, depuis la racine du dépôt (le premier et le troisième ont besoin du jeton) :
@@ -67,8 +76,12 @@ un client soumet par le même service (`POST /learner-items`) avec l'identifiant
 
 ## Décider d'une soumission
 
-Ouvrez `http://localhost:3001/courses/atomistique-l1/submissions` (l'identifiant du cours sert de
-jeton). Chaque item montre la scène, sa clé de réponse (bonnes réponses marquées), le résultat de la
+Connectez-vous d'abord. Ouvrez `http://localhost:3001/courses/atomistique-l1/submissions`
+(l'identifiant du cours sert de jeton) : le tableau de bord vous envoie sur sa page de connexion, vous
+saisissez le code d'accès, et il vous ramène à la file. La session dure 12 heures ; **Se déconnecter**,
+dans l'en-tête, la ferme. Si elle expire pendant que la page est ouverte, une décision répond qu'il faut
+vous reconnecter. La session n'enregistre pas qui vous êtes : le nom que liront les apprenants est celui
+que vous saisissez plus bas. Chaque item montre la scène, sa clé de réponse (bonnes réponses marquées), le résultat de la
 validation et une étiquette d'auteur dé-identifiée : vous n'approuvez jamais à l'aveugle.
 
 Au-dessus de la file, saisissez **Votre nom, tel que les apprenants le liront**. Le bouton Approuver
@@ -152,7 +165,9 @@ donner ce contenu à une classe, reconstruisez-le par la
 |---|---|
 | Erreur CORS dans la console du navigateur | Le service n'est pas lancé, ou la page apprenant n'est pas sur `localhost:3000` ; le tableau de bord n'appelle jamais scene-synth depuis le navigateur |
 | « Les décisions sont désactivées » dans le tableau de bord, ou `503` sur une décision | `STUDIUM_REVIEW_TOKEN` (32 caractères au moins) manque sur scene-synth ou sur le serveur du tableau de bord : donnez la même valeur aux deux et redémarrez-les |
-| `401` sur une décision | Les deux serveurs n'ont pas la même valeur de `STUDIUM_REVIEW_TOKEN` |
+| « Décisions indisponibles » au-dessus de la file | Le serveur du tableau de bord n'a pas `STUDIUM_DASHBOARD_ACCESS_CODE` (16 caractères au moins) ou `STUDIUM_REVIEW_TOKEN` ; la ligne nomme celui à définir |
+| `401` sur une décision, avec « connectez-vous » | Votre session sur le tableau de bord est absente ou expirée : reconnectez-vous |
+| `401` sur une décision, venu de scene-synth | Les deux serveurs n'ont pas la même valeur de `STUDIUM_REVIEW_TOKEN` |
 | `400` « the reviewer cannot be the item's author » | Le relecteur nommé est l'apprenant qui a écrit l'item ; un apprenant ne décide jamais de son propre item |
 | `400` ou `404` à la soumission | L'identifiant du cours est mal formé, ou `BUNDLES_ROOT/<course_id>/lesson.json` n'existe pas |
 | `422` à la soumission | La scène n'a pas passé la validation ; la réponse liste les erreurs |

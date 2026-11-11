@@ -151,3 +151,10 @@
   .chart-frame { display: none; }
   .chart-data-table, .chart-table, .sr-only { position: static !important; clip: auto !important; clip-path: none !important; width: auto !important; height: auto !important; overflow: visible !important; white-space: normal !important; }
 }
+
+/* Sign-in page and header controls (lib/session.ts). */
+.sign-in-page { max-width: 32rem; }
+.sign-in { display: grid; gap: var(--st-space-3); margin-top: var(--st-space-4); }
+.sign-in .primary-button { justify-self: start; }
+.sign-out { background: none; border: 0; font: inherit; cursor: pointer; }
+.open-notice { margin: 0; padding: var(--st-space-2) var(--st-space-4); font-size: var(--st-size-sm); text-align: center; border-bottom: 1px solid var(--st-border); }

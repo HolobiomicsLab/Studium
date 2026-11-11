@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { messages, type Locale } from "@/lib/i18n";
 import { updatePreferences } from "@/app/preferences";
+import SignOutButton from "@/components/SignOutButton";
+
+/** "open": no access code configured; otherwise whether this browser holds a valid session. */
+export type DashboardAccess = "open" | "signed-in" | "signed-out";
 
 /** Global identity and shortcuts shared by every teacher-facing route. */
-export default function DashboardHeader({ locale = "fr", theme = "system" }: { locale?: Locale; theme?: string }) {
+export default function DashboardHeader({ locale = "fr", theme = "system", access = "open" }: { locale?: Locale; theme?: string; access?: DashboardAccess }) {
   const t = messages(locale);
   return (
     <header className="site-header">
+      {access === "open" && <p className="open-notice" role="note" data-testid="open-notice">{t.openNotice}</p>}
       <div className="site-header__inner">
         <Link className="brand" href="/" aria-label={`Studium — ${t.teacherSpace}`}>
           <span className="brand__mark" aria-hidden="true">
@@ -38,6 +43,7 @@ export default function DashboardHeader({ locale = "fr", theme = "system" }: { l
               <button className="primary-button" type="submit">{t.apply}</button>
             </form>
           </details>
+          {access === "signed-in" && <SignOutButton label={t.signOut} />}
         </nav>
       </div>
     </header>

@@ -9,6 +9,7 @@ import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { LessonBundleSchema } from "../../../packages/lesson-bundle-schema/src";
 import { keyClassOf, type KeyClass } from "../../../packages/lesson-session-host/src/key-class";
+import { parseApproval } from "../../../packages/lesson-session-host/src/authoring";
 import { lintBundleData, placeholderPaths } from "../../../tools/bundle_lint.mjs";
 import { buildReviewInbox, readLastReceipt, type Consequence, type ReviewReceipt, type ReviewInbox, type ReviewVerdict, type ScenePreview, type WhatChanged } from "../../../packages/lesson-session-host/src/review-inbox";
 
@@ -59,18 +60,6 @@ function record(value: unknown): Record<string, unknown> {
 function text(value: unknown, fallback = ""): string { return typeof value === "string" ? value : fallback; }
 function array(value: unknown): unknown[] { return Array.isArray(value) ? value : []; }
 
-/** C5 receipts are complete audit records, not just a claimed digest. */
-function validApproval(receipt: Record<string, unknown>): boolean {
-  const lint = record(receipt.lint);
-  const reviewedAt = text(receipt.reviewed_at);
-  return receipt.schema === "studium-approval/1"
-    && text(receipt.reviewer).trim().length > 0
-    && /^\d{4}-\d{2}-\d{2}T/.test(reviewedAt) && Number.isFinite(Date.parse(reviewedAt))
-    && receipt.checklist !== null && typeof receipt.checklist === "object" && !Array.isArray(receipt.checklist)
-    && lint.errors === 0 && Number.isInteger(lint.warnings) && Number(lint.warnings) >= 0
-    && text(receipt.tool).trim().length > 0;
-}
-
 function sourceUrl(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   try {
@@ -107,10 +96,15 @@ export function inspectLesson(
       concepts: array(scene.concept_refs).map((id) => conceptTitles[text(id)] ?? text(id)), sources,
     };
   });
-  const approval = record(receipt);
-  const recorded = receipt !== null && receipt !== undefined;
-  const matches = validApproval(approval)
-    && approval.bundle_sha256 === createHash("sha256").update(bytes).digest("hex");
+  // C5, read by the host's rule (parseApproval, as the lesson host and scene-synth read it): a record is a
+  // `studium-approval/1` object with a string bundle_sha256 and a non-empty reviewer; it approves this lesson
+  // when the digest is the sha256 of these exact bytes. checklist, lint and tool are not required; a record
+  // that is unreadable or not well formed reads as no approval, as it does in the host.
+  const approval = receipt === null || receipt === undefined
+    ? { recorded: false, matches: false }
+    : parseApproval(JSON.stringify(receipt), createHash("sha256").update(bytes).digest("hex"));
+  const recorded = approval.recorded;
+  const matches = approval.recorded && approval.matches;
   const parsed = LessonBundleSchema.safeParse(bundle);
   // CQ-5: the linter's implementation (tools/bundle_lint.mjs placeholderPaths), the one review_lesson and
   // `experience_packet.py approve` refuse on, so the library cannot call a lesson a draft that they call finished.
@@ -150,7 +144,8 @@ export function inspectLesson(
     // a schema/placeholder check, not a human verdict or a claim that the full linter ran.
     status: matches ? "approved" : parsed.success && todoCount === 0 ? "checked" : "draft",
     outline, conceptTitles,
-    approval: { recorded, matches, ...(matches && text(approval.reviewer) ? { reviewer: text(approval.reviewer) } : {}), ...(matches && text(approval.reviewed_at) ? { reviewedAt: text(approval.reviewed_at) } : {}) },
+    // Fields the record lacks stay absent: nothing is filled in for them.
+    approval: { recorded, matches, ...(matches && approval.reviewer ? { reviewer: approval.reviewer } : {}), ...(matches && approval.reviewed_at ? { reviewedAt: approval.reviewed_at } : {}) },
     inbox,
     lintUnavailable: lint === "unavailable",
   };
