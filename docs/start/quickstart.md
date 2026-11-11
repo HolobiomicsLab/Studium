@@ -4,7 +4,10 @@ English · [Français](quickstart.fr.md)
 
 In about fifteen minutes you can ask an AI assistant to teach you a topic from sources you choose, answer
 the first question of a lesson built for you, and come back days later to review what you are about to
-forget. This page takes the shortest path. Each step links to the page with the details.
+forget. This page works from a checkout of the repository, which also gives you the demo lessons. To
+connect an assistant with Node only and no checkout, see
+[Add the server to your assistant](installation.md#add-the-server-to-your-assistant). Each step links to
+the page with the details.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/self-learner-journey-dark.svg">

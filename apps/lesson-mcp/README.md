@@ -18,6 +18,19 @@ the same way: as a local process talking over stdio. The VS Code extension ships
 
 ## Run it
 
+Without a checkout, the npm package `studium-mcp` holds this server as one file with no dependency. With
+Node 20 or later:
+
+```bash
+npx -y studium-mcp              # starts the server over stdio
+npx -y studium-mcp --version
+npx -y studium-mcp --help
+```
+
+`--version` and `--help` answer without starting the server. [`README.npm.md`](README.npm.md) is the README
+published on npm with the package. Until the package is published, see
+[Installation](../../docs/start/installation.md#if-a-package-is-not-published-yet).
+
 From a checkout, after `pnpm install` at the repository root:
 
 ```bash

@@ -7,7 +7,15 @@ plots and 3D models, asks one question at a time, gives feedback as a step of it
 reviews are due. It follows your editor theme and language (English or French), and works with the
 keyboard and a screen reader (target: WCAG 2.2 AA).
 
-Install it first: build and install the VSIX as described in [Installation](installation.md#install-the-vs-code-extension).
+Install it first, from the Visual Studio Marketplace or Open VSX:
+
+```bash
+code --install-extension holobiomicslab.studium-vscode
+```
+
+From a release file: `code --install-extension studium-vX.Y.Z.vsix`. To build it from source, see
+[Installation](installation.md#build-the-vs-code-extension); if the extension is not found, see
+[If a package is not published yet](installation.md#if-a-package-is-not-published-yet).
 
 ## Open a lesson
 

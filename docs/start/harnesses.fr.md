@@ -9,16 +9,18 @@ montre comment vérifier la connexion.
 
 ## Avant de commencer
 
-Le client de l'assistant est appelé *harnais* (voir le [glossaire](../concepts/glossary.fr.md)). Terminez
-l'[installation](installation.fr.md) : elle construit le fichier serveur
-`apps/studium-vscode/dist/lesson-mcp.cjs` avec cette commande.
+Le client de l'assistant est appelé *harnais* (voir le [glossaire](../concepts/glossary.fr.md)). Le
+serveur dialogue par stdio : il n'ouvre aucun port et n'affiche aucune page web. Une configuration le lance
+de l'une de deux façons :
 
-```bash
-pnpm --filter studium-vscode build
-```
+| Façon | Commande | Quand |
+|---|---|---|
+| Depuis npm | `npx -y studium-mcp` | la façon habituelle ; ne demande que Node 20 ou plus (voir [Installation](installation.fr.md#ajouter-le-serveur-à-votre-assistant)) |
+| Depuis un fichier | `node /path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs` | depuis un clone après `pnpm --filter studium-vscode build`, ou avec un `lesson-mcp.cjs` téléchargé depuis une release (avec son propre chemin) |
 
-Toutes les configurations lancent ce fichier avec `node` ; remplacez `/path/to/studium` par le chemin
-absolu de votre clone. Le serveur dialogue par stdio : il n'ouvre aucun port et n'affiche aucune page web.
+Chaque page de client donne d'abord la forme `npx`, puis la forme clone. Remplacez `/path/to/studium` par
+le chemin absolu de votre clone. Si `npx` répond que le paquet n'existe pas, voir
+[Si un paquet n'est pas encore publié](installation.fr.md#si-un-paquet-nest-pas-encore-publié).
 
 Vous rencontrez d'abord deux variables d'environnement :
 
@@ -30,8 +32,8 @@ Vous rencontrez d'abord deux variables d'environnement :
 `STUDIUM_EPHEMERAL=1` garde la progression en mémoire seulement, pour une démonstration ou un test. Toutes
 les variables sont décrites dans [Configuration](../reference/configuration.fr.md).
 
-Les fichiers de [docs/examples](../examples/) sont des exemples complets qui ajoutent `BUNDLES_ROOT` pour les
-leçons de démonstration : [codex.toml](../examples/codex.toml), [mcp.claude.json](../examples/mcp.claude.json),
+Les fichiers de [docs/examples](../examples/) sont des exemples complets, sous la forme clone, qui ajoutent
+`BUNDLES_ROOT` pour les leçons de démonstration : [codex.toml](../examples/codex.toml), [mcp.claude.json](../examples/mcp.claude.json),
 [mcp.vscode.json](../examples/mcp.vscode.json) et [opencode-v2.json](../examples/opencode-v2.json).
 Fusionnez-les dans le fichier de votre client, sans écraser les autres serveurs déjà déclarés.
 
@@ -40,11 +42,31 @@ Fusionnez-les dans le fichier de votre client, sans écraser les autres serveurs
 | Client | Où vit sa configuration | Page |
 |---|---|---|
 | Codex | `~/.codex/config.toml`, ou `codex mcp add` | [Connecter Codex](codex.fr.md) |
-| Claude Code | `.mcp.json` à la racine du projet | [Connecter Claude Code](claude-code.fr.md) |
+| Claude Code | le plugin `studium`, `claude mcp add`, ou `.mcp.json` à la racine du projet | [Connecter Claude Code](claude-code.fr.md) |
 | Copilot dans VS Code | `.vscode/mcp.json` | [Connecter Copilot dans VS Code](copilot.fr.md) |
 | OpenCode | `opencode.jsonc` à la racine du projet | [Connecter OpenCode](opencode.fr.md) |
-| Cursor | `.cursor/mcp.json` | [Connecter Cursor](cursor.fr.md) |
+| Cursor | `.cursor/mcp.json` ou `~/.cursor/mcp.json` | [Connecter Cursor](cursor.fr.md) |
+| Claude Desktop | `claude_desktop_config.json` | [ci-dessous](#claude-desktop) |
 | Un script ou un client sur mesure | aucune configuration MCP | [API HTTP](../reference/http-api.fr.md) et [canal fichiers](../reference/agentic-session-protocol.fr.md) |
+
+## Claude Desktop
+
+Claude Desktop lit `claude_desktop_config.json`, dans `~/Library/Application Support/Claude/` sous macOS et
+dans `%APPDATA%\Claude\` sous Windows. Fusionnez-y ceci, puis redémarrez l'application :
+
+```json
+{
+  "mcpServers": {
+    "studium": {
+      "command": "npx",
+      "args": ["-y", "studium-mcp"],
+      "env": { "LITELLM_BASE_URL": "" }
+    }
+  }
+}
+```
+
+Depuis un clone, utilisez `"command": "node"` et `"args": ["/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]`.
 
 ## Vérifier la connexion
 

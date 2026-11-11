@@ -1,0 +1,18 @@
+{
+  "name": "studium",
+  "version": "0.5.0",
+  "description": "Learn and teach with Studium in Claude Code: the lesson server, the skills that drive a lesson without answering for the learner, and two lesson agents.",
+  "author": { "name": "HolobiomicsLab", "url": "https://holobiomicslab.cnrs.fr/" },
+  "homepage": "https://github.com/HolobiomicsLab/studium#readme",
+  "repository": "https://github.com/HolobiomicsLab/studium",
+  "license": "Apache-2.0",
+  "keywords": ["learning", "education", "lessons", "spaced-repetition", "mcp", "teaching"],
+  "agents": ["./.claude/agents/studium-lesson.md", "./.claude/agents/studium-explainer.md"],
+  "mcpServers": {
+    "studium": {
+      "command": "npx",
+      "args": ["-y", "studium-mcp"],
+      "env": { "LITELLM_BASE_URL": "" }
+    }
+  }
+}

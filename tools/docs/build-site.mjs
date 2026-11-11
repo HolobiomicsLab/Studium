@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// tools/docs/build-site.mjs — a static HTML rendering of the documentation (prototype).
+// tools/docs/build-site.mjs — the documentation site, built from the Markdown of the repository.
 //
-//   node tools/docs/build-site.mjs [--out DIR] [--repo-url URL]
+//   node tools/docs/build-site.mjs [--out DIR] [--repo-url URL] [--revision TEXT]
 //
 // Reads README(.fr).md and every page of docs/ (except design-records/, internal/ and the asset and
 // example folders) and writes a self-contained site: English at the root, French under fr/, one CSS
 // file, one small script, the images the pages use. No network at build time or at read time; the
 // output opens from the file system and from any sub-path. GitHub stays the canonical rendering.
+// The client script is tools/docs/site-client.js (menu, copy buttons, search); the search index of
+// each language is a script assigning a global, because fetch() of local JSON fails under file://.
 //
 // - Markdown: marked 15, resolved from apps/lesson-panel-ui (no new dependency).
 // - Heading ids: the slug of tools/docs/check.mjs, so every #anchor the checker accepts works here.
@@ -37,7 +39,8 @@ const STRINGS = {
     switchLabel: "Français", switchLang: "fr",
     affiliation: `Studium · <a href="https://holobiomicslab.cnrs.fr/">HolobiomicsLab</a> · <a href="https://ediam.cnrs.fr/">eDIAM</a> · Institut de Chimie de Nice · Université Côte d'Azur · CNRS`,
     licence: "Code under Apache-2.0, documentation under CC BY 4.0.",
-    prototype: "Prototype rendering of the Markdown documentation; the pages on GitHub remain the reference.",
+    built: "These pages are built from the Markdown files of the repository",
+    revision: (code) => ` at revision ${code}`,
   },
   fr: {
     docs: "Documentation", skip: "Aller au contenu", menu: "Menu", nav: "Documentation", home: "Accueil",
@@ -46,7 +49,8 @@ const STRINGS = {
     switchLabel: "English", switchLang: "en",
     affiliation: `Studium · <a href="https://holobiomicslab.cnrs.fr/">HolobiomicsLab</a> · <a href="https://ediam.cnrs.fr/">eDIAM</a> · Institut de Chimie de Nice · Université Côte d'Azur · CNRS`,
     licence: "Code sous licence Apache-2.0, documentation sous licence CC BY 4.0.",
-    prototype: "Rendu prototype de la documentation Markdown ; les pages sur GitHub restent la référence.",
+    built: "Ces pages sont construites à partir des fichiers Markdown du dépôt",
+    revision: (code) => `, révision ${code}`,
   },
 };
 
@@ -127,7 +131,7 @@ function cardsHtml(table, marked) {
 }
 
 /**
- * Render one Markdown page. Returns {html, title, headings (H2 only), assets}.
+ * Render one Markdown page. Returns {html, title, headings (H2 only), outline (H2 and H3), assets}.
  * `options.cards` turns the first table into role cards (the portal's home page).
  */
 export function renderPage(text, repoPath, ctx, options = {}) {
@@ -136,6 +140,7 @@ export function renderPage(text, repoPath, ctx, options = {}) {
   const strings = STRINGS[languageOf(repoPath)];
   const counts = new Map();
   const headings = [];
+  const outline = [];
   let title = null;
   const marked = new Marked({ gfm: true });
   marked.use({
@@ -148,6 +153,7 @@ export function renderPage(text, repoPath, ctx, options = {}) {
         const inner = this.parser.parseInline(token.tokens);
         if (token.depth === 1 && title === null) title = plain(inner);
         if (token.depth === 2) headings.push({ id, text: plain(inner) });
+        if (token.depth === 2 || token.depth === 3) outline.push({ id, text: plain(inner), level: token.depth });
         return `<h${token.depth} id="${escapeHtml(id)}">${inner}</h${token.depth}>\n`;
       },
       code(token) {
@@ -170,7 +176,13 @@ export function renderPage(text, repoPath, ctx, options = {}) {
   });
   const assets = new Set();
   html = rewriteAttributes(html, repoPath, ctx, assets);
-  return { html, title: title ?? repoPath, headings, assets };
+  return { html, title: title ?? repoPath, headings, outline, assets };
+}
+
+/** The reading text of a rendered page for the search index: no code blocks, no markup, NFC. */
+export function searchTextOf(html) {
+  const prose = html.replace(/<pre[\s\S]*?<\/pre>/g, " ").replace(/<\/(p|li|h[1-6]|td|th|div)>/g, " $&");
+  return plain(prose).normalize("NFC");
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -266,9 +278,15 @@ function navHtml(nav, page, outPath, strings, lang, pages) {
   return parts.join("\n");
 }
 
-function layout({ lang, title, docTitle, body, outPath, page, nav, headings, prev, next, twinHref, sourceUrl, chrome, notice, hero, pages }) {
+/** The footer sentence on where the pages come from, naming the revision only when there is one. */
+function builtFromHtml(s, revision) {
+  return `${s.built}${revision ? s.revision(`<code>${escapeHtml(revision)}</code>`) : ""}.`;
+}
+
+function layout({ lang, title, docTitle, body, outPath, page, nav, headings, prev, next, twinHref, sourceUrl, chrome, notice, hero, pages, revision }) {
   const s = STRINGS[lang];
   const root = (p) => escapeHtml(rel(outPath, p));
+  const langRoot = posix.relative(posix.dirname(outPath), languageRootOf(lang));
   const toc = headings.length >= 2
     ? `<aside class="toc" aria-labelledby="st-toc-title"><p class="nav-label" id="st-toc-title">${s.toc}</p><ul>${headings.map((h) => `<li><a href="#${escapeHtml(h.id)}">${escapeHtml(h.text)}</a></li>`).join("")}</ul></aside>`
     : "";
@@ -293,7 +311,7 @@ ${chrome.icon ? `<link rel="icon" href="${root(chrome.icon)}" type="image/svg+xm
 <link rel="alternate" hreflang="${s.switchLang}" href="${escapeHtml(twinHref)}">
 <script src="${root("site.js")}"></script>
 </head>
-<body>
+<body data-search-index="${root(searchIndexPathOf(lang))}" data-search-root="${escapeHtml(langRoot ? `${langRoot}/` : "")}">
 <a class="skip" href="#st-main">${s.skip}</a>
 <header class="site-header">
 <a class="brand" href="${root(outputPathOf(portalOf(lang)))}">${brand}<span class="brand-sub">${s.docs}</span></a>
@@ -315,7 +333,7 @@ ${toc}
 <footer class="site-footer">
 <p>${s.affiliation}</p>
 <p>${s.licence} ${escapeHtml(notice)}</p>
-<p>${s.prototype}</p>
+<p>${builtFromHtml(s, revision)}</p>
 </footer>
 </body>
 </html>
@@ -348,7 +366,8 @@ export function checkOutput(outDir) {
   for (const file of walkFiles(outDir).filter((f) => f.endsWith(".html")).sort()) {
     const html = readFileSync(file, "utf8");
     const name = relative(outDir, file).split(sep).join("/");
-    const targets = [...html.matchAll(/\s(?:href|src)="([^"]*)"/g)].map((m) => m[1]);
+    // data-search-index is a path the client loads, so it is checked like a src.
+    const targets = [...html.matchAll(/\s(?:href|src|data-search-index)="([^"]*)"/g)].map((m) => m[1]);
     for (const m of html.matchAll(/\ssrcset="([^"]*)"/g)) targets.push(...m[1].split(",").map((c) => c.trim().split(/\s+/)[0]));
     for (const raw of targets) {
       const target = decodeEntities(raw);
@@ -372,19 +391,21 @@ export function checkOutput(outDir) {
 // ---------------------------------------------------------------------------------------------
 // Build
 
-const SITE_JS = `// Studium documentation: the navigation button at narrow widths. The pages work without it.
-document.documentElement.className = document.documentElement.className.replace("no-js", "js");
-document.addEventListener("DOMContentLoaded", function () {
-  var button = document.querySelector(".nav-button");
-  if (!button) return;
-  button.hidden = false;
-  button.addEventListener("click", function () {
-    var open = button.getAttribute("aria-expanded") !== "true";
-    button.setAttribute("aria-expanded", String(open));
-    document.body.classList.toggle("nav-open", open);
-  });
-});
-`;
+const SITE_JS = readFileSync(new URL("./site-client.js", import.meta.url), "utf8");
+
+const languageRootOf = (lang) => (lang === "fr" ? "fr" : ".");
+const searchIndexPathOf = (lang) => (lang === "fr" ? "fr/search-index.js" : "search-index.js");
+
+/** One search entry; its url is relative to the language root, where the client resolves it. */
+function searchEntryOf(rendered, outPath, lang) {
+  const url = lang === "fr" ? outPath.replace(/^fr\//, "") : outPath;
+  return { url, title: rendered.title, headings: rendered.outline, text: searchTextOf(rendered.html) };
+}
+
+function searchIndexScript(lang, entries) {
+  const sorted = [...entries].sort((a, b) => a.url.localeCompare(b.url));
+  return `window.STUDIUM_SEARCH_INDEX = window.STUDIUM_SEARCH_INDEX || {};\nwindow.STUDIUM_SEARCH_INDEX[${JSON.stringify(lang)}] = ${JSON.stringify(sorted)};\n`;
+}
 
 function copy(root, out, repoPath, outPath) {
   const target = join(out, outPath);
@@ -393,8 +414,8 @@ function copy(root, out, repoPath, outPath) {
   return statSync(target).size;
 }
 
-/** Build the site from `root` into `out`. Returns {pages: {en, fr}, assets, bytes, links, broken, unlisted}. */
-export async function buildSite({ root = REPO_ROOT, out = join(root, "site"), repoUrl = DEFAULT_REPO_URL, quiet = false } = {}) {
+/** Build the site from `root` into `out`. Returns {pages: {en, fr}, assets, bytes, searchIndexBytes: {en, fr}, broken, unlisted}. */
+export async function buildSite({ root = REPO_ROOT, out = join(root, "site"), repoUrl = DEFAULT_REPO_URL, revision = null, quiet = false } = {}) {
   if (existsSync(out)) {
     if (readdirSync(out).length && !existsSync(join(out, MARKER))) throw new Error(`${out} exists and was not written by this builder; choose another --out`);
     rmSync(out, { recursive: true, force: true });
@@ -438,6 +459,7 @@ export async function buildSite({ root = REPO_ROOT, out = join(root, "site"), re
   };
 
   const counts = { en: 0, fr: 0 };
+  const searchEntries = { en: [], fr: [] };
   const listed = new Set();
   for (const lang of ["en", "fr"]) {
     for (const g of navs[lang].groups) for (const it of g.items) listed.add(it.page);
@@ -470,7 +492,9 @@ export async function buildSite({ root = REPO_ROOT, out = join(root, "site"), re
       notice,
       hero: isHome ? heroFor(lang) : null,
       pages,
+      revision,
     });
+    searchEntries[lang].push(searchEntryOf(rendered, outPath, lang));
     mkdirSync(dirname(join(out, outPath)), { recursive: true });
     writeFileSync(join(out, outPath), html);
     counts[lang] += 1;
@@ -482,15 +506,23 @@ export async function buildSite({ root = REPO_ROOT, out = join(root, "site"), re
   const css = (existsSync(tokens) ? `${readFileSync(tokens, "utf8")}\n` : "") + readFileSync(new URL("./site.css", import.meta.url), "utf8");
   writeFileSync(join(out, "site.css"), css);
   writeFileSync(join(out, "site.js"), SITE_JS);
+  const searchIndexBytes = {};
+  for (const lang of ["en", "fr"]) {
+    const script = searchIndexScript(lang, searchEntries[lang]);
+    mkdirSync(dirname(join(out, searchIndexPathOf(lang))), { recursive: true });
+    writeFileSync(join(out, searchIndexPathOf(lang)), script);
+    searchIndexBytes[lang] = Buffer.byteLength(script);
+  }
 
   const broken = checkOutput(out);
   const unlisted = sources.filter((p) => !listed.has(p) && p !== portalOf(languageOf(p)) && !/^README/.test(p));
-  const report = { pages: counts, assets: assets.size, bytes, broken, unlisted };
+  const report = { pages: counts, assets: assets.size, bytes, searchIndexBytes, broken, unlisted };
   if (!quiet) {
     const total = walkFiles(out).reduce((sum, f) => sum + statSync(f).size, 0);
     const kb = (n) => `${(n / 1024).toFixed(0)} KB`;
     process.stdout.write(`pages built: ${counts.en} English, ${counts.fr} French\n`);
     process.stdout.write(`assets copied: ${assets.size} (${kb(bytes)}), plus site.css and site.js\n`);
+    process.stdout.write(`search indexes: ${searchIndexPathOf("en")} ${kb(searchIndexBytes.en)}, ${searchIndexPathOf("fr")} ${kb(searchIndexBytes.fr)}\n`);
     if (unlisted.length) process.stdout.write(`pages outside the portal navigation (${unlisted.length}): ${unlisted.join(", ")}\n`);
     process.stdout.write(`${broken.length === 0 ? "ok  " : "FAIL"} links and anchors of the built site${broken.length ? ` (${broken.length})` : ""}\n`);
     for (const problem of broken) process.stdout.write(`  ${problem}\n`);
@@ -504,11 +536,17 @@ function option(argv, name) {
   return i >= 0 ? argv[i + 1] : undefined;
 }
 
+/** The command-line options; an absent flag stays undefined so that buildSite's defaults apply. */
+export function parseArgs(argv) {
+  return { out: option(argv, "--out"), repoUrl: option(argv, "--repo-url"), revision: option(argv, "--revision") };
+}
+
 export async function main(argv = process.argv.slice(2)) {
-  const out = option(argv, "--out");
+  const { out, repoUrl, revision } = parseArgs(argv);
   const report = await buildSite({
     out: out ? resolve(out) : join(REPO_ROOT, "site"),
-    repoUrl: option(argv, "--repo-url") ?? DEFAULT_REPO_URL,
+    repoUrl: repoUrl ?? DEFAULT_REPO_URL,
+    revision: revision ?? null,
   });
   return report.broken.length === 0 ? 0 : 1;
 }

@@ -8,10 +8,13 @@ Studium. Cette page traite du client MCP de Copilot ; le panneau de leçon de 
 
 ## Avant de commencer
 
-- Terminez l'[installation](installation.fr.md) et lisez [Connecter votre assistant](harnesses.fr.md) : il
-  explique `/path/to/studium`, `BUNDLES_ROOT` et `LITELLM_BASE_URL`.
-- Ouvrez le clone comme espace de travail. Copilot Chat en mode agent lit les serveurs MCP dans
-  `.vscode/mcp.json`.
+- Lisez [Connecter votre assistant](harnesses.fr.md) : il explique les deux façons de lancer le serveur
+  (`npx -y studium-mcp`, ou `node` sur un fichier issu d'un clone ou d'une release), `/path/to/studium`,
+  `BUNDLES_ROOT` et `LITELLM_BASE_URL`. La forme `npx` ne demande que Node ; voir
+  [Installation](installation.fr.md).
+- Copilot Chat en mode agent lit les serveurs MCP dans le `.vscode/mcp.json` de l'espace de travail, ou
+  dans votre configuration utilisateur quand vous passez par `code --add-mcp`. Pour la forme clone, ouvrez
+  le clone comme espace de travail.
 - Les étudiants peuvent obtenir Copilot par GitHub Education : demandez la vérification étudiante
   ([GitHub Education pour les étudiants](https://docs.github.com/en/education/about-github-education/github-education-for-students/apply-to-github-education-as-a-student)),
   puis activez Copilot Student dans vos paramètres Copilot
@@ -23,20 +26,29 @@ Studium. Cette page traite du client MCP de Copilot ; le panneau de leçon de 
 
 ## Réaliser la tâche
 
-1. Fusionnez ceci dans `.vscode/mcp.json` :
+1. Ajoutez le serveur. **Avec `npx`** (sans clone), en une commande :
+
+   ```bash
+   code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'
+   ```
+
+   ou fusionnez ceci dans `.vscode/mcp.json` :
 
    ```json
    {
      "servers": {
        "studium": {
          "type": "stdio",
-         "command": "node",
-         "args": ["${workspaceFolder}/apps/studium-vscode/dist/lesson-mcp.cjs"],
+         "command": "npx",
+         "args": ["-y", "studium-mcp"],
          "env": { "LITELLM_BASE_URL": "" }
        }
      }
    }
    ```
+
+   **Depuis un clone** ouvert comme espace de travail, utilisez `"command": "node"` et
+   `"args": ["${workspaceFolder}/apps/studium-vscode/dist/lesson-mcp.cjs"]`.
 
 2. Dans la palette de commandes, lancez **MCP: List Servers**, sélectionnez `studium` et démarrez-le. Son
    journal montre les erreurs.

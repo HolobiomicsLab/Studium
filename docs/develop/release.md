@@ -30,9 +30,13 @@ licence of the repository: Apache-2.0, with `LICENSE` and `NOTICE` inside the VS
 - **One product version.** The version of a release is the `version` of
   [`apps/studium-vscode/package.json`](../../apps/studium-vscode/package.json). The release workflow refuses a
   tag that does not match it.
-- **Keep the MCP server in step.** The server reports the `version` of
+- **Keep every manifest in step.** The server reports the `version` of
   [`apps/lesson-mcp/package.json`](../../apps/lesson-mcp/package.json) to MCP clients, and `get_server_info`
-  adds the build origin, time and commit. Bump it with the extension; nothing checks this for you.
+  adds the build origin, time and commit. The same product version is written in
+  [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json) and in
+  [`server.json`](../../server.json), twice there: the entry's `version` and the npm package's `version`.
+  [`apps/lesson-mcp/src/distribution.test.ts`](../../apps/lesson-mcp/src/distribution.test.ts) fails when
+  the extension, the plugin or `server.json` differs from the server's version.
 - **Semantic versions, 0.x for now.** While the version starts with `0.`, a minor bump may change tool
   inputs or outputs; say so in the changelog. A patch fixes behaviour without changing a contract.
 - **The other workspace packages** are private and never published. Their `version` fields do not follow
@@ -85,7 +89,8 @@ code --install-extension apps/studium-vscode/studium.vsix
 Pushing a tag is the owner's decision; agents and contributors prepare the release but do not tag.
 
 1. Make sure CI is green on the commit you will tag (see [testing](testing.md)).
-2. Set the same new version in `apps/studium-vscode/package.json` and `apps/lesson-mcp/package.json`.
+2. Set the same new version in `apps/studium-vscode/package.json`, `apps/lesson-mcp/package.json`,
+   `.claude-plugin/plugin.json` and `server.json` (two places).
 3. Rename **Unreleased** in `CHANGELOG.md` to that version and merge.
 4. Tag and push:
 
@@ -102,6 +107,63 @@ Pushing a tag is the owner's decision; agents and contributors prepare the relea
 
 A failed workflow leaves no release behind. Fix the cause and release the next patch version rather than
 moving a published tag.
+
+## Publishing by hand
+
+When the release workflow cannot run, the maintainer can publish a tagged version from their own machine.
+Tokens never go in the repository, nor on a command line kept in shell history: type each one at a
+`read -rs` prompt, as below, and close the shell afterwards.
+
+1. Build the server and stage the npm package, from the repository root on the tagged commit:
+
+   ```bash
+   pnpm install --frozen-lockfile
+   pnpm build:libs
+   pnpm --filter studium-vscode build
+   node .github/scripts/stage-npm-mcp.mjs X.Y.Z npm-stage
+   ```
+
+2. Check what the package will contain (`studium-mcp.cjs`, `LICENSE`, `NOTICE`, `README.md`,
+   `package.json`):
+
+   ```bash
+   (cd npm-stage && npm pack --dry-run)
+   ```
+
+3. Publish it. `npm publish` uses the maintainer's own `npm login`; a package published from a laptop
+   carries no provenance attestation, unlike one published by the workflow:
+
+   ```bash
+   npm login
+   (cd npm-stage && npm publish)
+   ```
+
+4. Publish the VSIX of the release (`studium-vX.Y.Z.vsix`, from the release page or built with
+   `pnpm --filter studium-vscode package`). `vsce` runs in `apps/studium-vscode`, so give it an absolute
+   path. `vsce` reads `VSCE_PAT` and `ovsx` reads `OVSX_PAT` from the environment:
+
+   ```bash
+   read -rs VSCE_PAT && export VSCE_PAT
+   pnpm --filter studium-vscode exec vsce publish --packagePath "$PWD/studium-vX.Y.Z.vsix"
+   read -rs OVSX_PAT && export OVSX_PAT
+   npx --yes ovsx@1.2.0 publish studium-vX.Y.Z.vsix
+   ```
+
+5. List the server in the MCP Registry, once the npm package is published (its manifest carries `mcpName`,
+   which the registry checks). From the repository root, `mcp-publisher` reads `server.json`:
+
+   ```bash
+   mcp-publisher login github
+   mcp-publisher publish
+   ```
+
+   Publishing under the organisation's name `io.github.HolobiomicsLab/` needs a GitHub account
+   that belongs to the organisation. Whether the name must match the organisation's capitalisation on GitHub has not been
+   verified.
+
+The Claude Code plugin needs no publication step. Claude Code reads the marketplace and the plugin from the
+repository's default branch, so a version reaches users when it is merged there. It works for people
+outside the organisation once the repository is public.
 
 ## Limits
 
