@@ -37,6 +37,13 @@ updates:
     groups:
       pip-minor-and-patch:
         update-types: ["minor", "patch"]
+    # Bumped by hand, never by an update PR: astra-tools and astra-spec are the ASTRA validator the
+    # repository records (ASTRA_TOOLS_PIN in services/planner/provenance/astra_validate.py, ADR 0001,
+    # one Observatory assertion). A bump goes with a fresh `astra validate` run and those three places.
+    # Dependabot alerts still report a vulnerability in either.
+    ignore:
+      - dependency-name: "astra-tools"
+      - dependency-name: "astra-spec"
 
   - package-ecosystem: github-actions
     directory: "/"

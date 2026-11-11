@@ -4,6 +4,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Changed
+
+- **Minor and patch dependency updates.** Tailwind 4.3.5 for the student runtime; fastapi 0.162.2, pydantic 2.14.3, python-multipart 0.0.33 and pytest-asyncio 1.4.1.post1 for the Python services. `astra-tools` and `astra-spec` stay at the versions recorded as the ASTRA validator (0.2.17 and 0.0.14), and Dependabot no longer proposes them: a bump goes with a fresh validator run.
+
 ## 0.4.0 — 2026-11-10
 
 This release makes the approval record the only source of « validated », puts the decisions on learner contributions and the teacher dashboard behind credentials, redraws the lesson panel for narrow side panels, and fixes the defects found by the 10 November audits of the learner, teacher and harness paths. While the version starts with `0.`, a minor release may change tool inputs and outputs: the entries marked **Contract change** say where.
