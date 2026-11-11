@@ -1,4 +1,4 @@
-/* Studium documentation site (prototype). Appended to design/tokens.css by tools/docs/build-site.mjs.
+/* Studium documentation site. Appended to design/tokens.css by tools/docs/build-site.mjs.
  * Every colour, font and size comes from the tokens; light and dark follow the system. */
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -14,7 +14,14 @@ body {
 a { color: var(--st-accent); text-decoration-thickness: 1px; text-underline-offset: 0.18em; }
 a:hover { color: var(--st-accent-hover); text-decoration-thickness: 2px; }
 :focus-visible { outline: var(--st-border-width-focus) solid var(--st-focus); outline-offset: 2px; }
+/* Browsers that predate :focus-visible still get a ring; the rule below removes it again where they do support it. */
+:focus { outline: var(--st-border-width-focus) solid var(--st-focus); outline-offset: 2px; }
+:focus:not(:focus-visible) { outline: none; }
 main:focus { outline: none; }
+.visually-hidden {
+  position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
 img { max-width: 100%; height: auto; }
 
 .skip {
@@ -44,6 +51,33 @@ img { max-width: 100%; height: auto; }
   background: transparent; color: var(--st-text); font: inherit; font-size: var(--st-size-sm); cursor: pointer;
 }
 .nav-button { display: none; }
+
+/* Search (drawn by site.js, so absent without scripts) ---------------------------------------- */
+.site-search { position: relative; margin-left: auto; }
+.site-search + .lang { margin-left: 0; }
+.site-search input {
+  width: 14rem; min-height: var(--st-layout-target); padding: 0 var(--st-space-3);
+  border: 1px solid var(--st-border-strong); border-radius: var(--st-radius-small);
+  background: var(--st-surface); color: var(--st-text); font: inherit; font-size: var(--st-size-sm);
+}
+.site-search input::placeholder { color: var(--st-muted); opacity: 1; }
+.search-results {
+  position: absolute; right: 0; top: calc(100% + var(--st-space-1)); z-index: 20;
+  width: min(30rem, calc(100vw - 2 * var(--st-space-4))); max-height: 70vh; overflow-y: auto;
+  margin: 0; padding: var(--st-space-2); list-style: none;
+  border: 1px solid var(--st-border-strong); border-radius: var(--st-radius-medium); background: var(--st-surface);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.18);
+}
+.search-results[hidden] { display: none; }
+.search-results a {
+  display: block; padding: var(--st-space-2) var(--st-space-3); border-radius: var(--st-radius-small);
+  color: var(--st-text); text-decoration: none; font-size: var(--st-size-sm); line-height: var(--st-leading-snug);
+}
+.search-results a:hover, .search-results a:focus-visible { background: var(--st-surface-muted); }
+/* Inside a scrolling list an outer offset is clipped: draw the ring inside the item. */
+.search-results a:focus-visible { outline-offset: -3px; }
+.search-title { display: block; color: var(--st-accent); font-weight: var(--st-weight-medium); }
+.search-excerpt { display: block; margin-top: var(--st-space-1); color: var(--st-muted); font-size: var(--st-size-xs); }
 
 /* Layout ------------------------------------------------------------------------------------ */
 .layout {
@@ -108,6 +142,17 @@ pre {
 }
 pre code { font-size: inherit; white-space: pre; }
 
+/* Copy buttons (drawn by site.js) sit beside the <pre>, not in it, so selecting the code never takes them. */
+.code-block { position: relative; }
+.code-block pre { padding-right: 5.5rem; }
+.copy-button {
+  position: absolute; top: var(--st-space-2); right: var(--st-space-2);
+  padding: var(--st-space-1) var(--st-space-2); border: 1px solid var(--st-border-strong); border-radius: var(--st-radius-small);
+  background: var(--st-canvas); color: var(--st-muted); font: inherit; font-size: var(--st-size-xs); line-height: 1.4;
+  cursor: pointer; user-select: none; -webkit-user-select: none;
+}
+.copy-button:hover { color: var(--st-text); border-color: var(--st-text); }
+
 .scroll { margin: var(--st-space-5) 0 var(--st-space-6); overflow-x: auto; }
 table { border-collapse: collapse; font-size: var(--st-size-sm); line-height: var(--st-leading-snug); }
 .scroll > table { min-width: 100%; }
@@ -150,6 +195,10 @@ th { border-bottom-color: var(--st-border-strong); font-weight: var(--st-weight-
 @media (max-width: 52rem) {
   .site-header { padding: var(--st-space-2) var(--st-space-4); gap: var(--st-space-3); flex-wrap: wrap; }
   .brand-sub { display: none; }
+  .site-search { order: 3; flex-basis: 100%; margin-left: 0; }
+  .site-search input { width: 100%; }
+  .search-results { left: 0; right: auto; width: 100%; }
+  .site-search + .lang { margin-left: auto; }
   .layout { display: flex; flex-direction: column; padding: 0 var(--st-space-4); }
   .sidebar { position: static; max-height: none; overflow: visible; padding: var(--st-space-2) 0 var(--st-space-6); border-bottom: 1px solid var(--st-border); }
   .js .nav-button { display: block; }
@@ -172,7 +221,10 @@ th { border-bottom-color: var(--st-border-strong); font-weight: var(--st-weight-
     --st-border: var(--st-palette-light-border); --st-border-strong: var(--st-palette-light-border-strong);
   }
   body { font-size: 11pt; }
-  .site-header, .sidebar, .toc, .pager, .source, .skip, .nav-button, .hero { display: none !important; }
+  .site-header, .sidebar, .toc, .pager, .source, .skip, .nav-button, .hero, .site-search, .lang, .copy-button { display: none !important; }
+  .code-block pre { padding-right: var(--st-space-5); }
+  /* On paper a link is only useful with its address; in-site links are left alone, they mean nothing off-screen. */
+  .prose a[href^="http"]::after, .site-footer a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; overflow-wrap: anywhere; }
   .layout { display: block; max-width: none; padding: 0; }
   main { padding: 0; }
   .prose, .site-footer { max-width: none; }

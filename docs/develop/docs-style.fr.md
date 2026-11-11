@@ -170,12 +170,13 @@ revient au relecteur.
 ## Construire le site
 
 [`tools/docs/build-site.mjs`](../../tools/docs/build-site.mjs) rend les mêmes pages sous la forme d'un
-petit site statique, dans l'identité du projet, pour les lire hors ligne ou essayer une autre
-présentation. C'est un prototype :
+petit site statique, dans l'identité du projet : un menu latéral, un sommaire, une zone de recherche, un
+bouton pour copier chaque bloc de code, les deux langues, des thèmes clair et sombre, une mise en page
+pour l'impression.
 
 ```bash
 pnpm docs:site                                # écrit site/ à la racine du dépôt
-node tools/docs/build-site.mjs --out /tmp/studium-docs
+node tools/docs/build-site.mjs --out /tmp/studium-docs --revision v0.5.0
 node --test tools/docs/build-site.test.mjs    # les tests du générateur
 ```
 
@@ -184,7 +185,17 @@ les pages anglaises à la racine et les pages françaises sous `fr/`, et constru
 du portail (le tableau des rôles, puis les groupes de « Toutes les pages »). Les liens vers d'autres
 fichiers du dépôt, comme le code source, mènent à GitHub. Il n'a besoin d'aucun accès réseau, ni pour
 construire ni pour lire le résultat, et il sort 1 quand un lien ou une ancre du site construit ne mène
-nulle part.
+nulle part. `--revision` nomme en pied de page la version ou le commit dont le site est construit.
 
-`site/` n'est pas versionné. Le rendu de référence reste celui de GitHub : écrivez et vérifiez chaque page
-d'abord pour GitHub.
+La recherche n'a besoin d'aucun serveur : le générateur écrit un index par langue (`search-index.js` et
+`fr/search-index.js` : les titres, les intertitres et le texte de chaque page sans ses blocs de code),
+chargé quand la zone de recherche reçoit le focus pour la première fois. Elle ignore la casse et les
+accents, et `/` place le focus dans la zone.
+
+Le site s'ouvre depuis le système de fichiers et depuis n'importe quel sous-chemin. Le flux
+[`docs-site.yml`](../../.github/workflows/docs-site.yml) le construit à chaque envoi sur `main` qui
+touche la documentation et le publie sur GitHub Pages, une fois Pages activé dans les réglages du dépôt
+avec « GitHub Actions » comme source.
+
+`site/` n'est pas versionné. Le Markdown est la source : écrivez et vérifiez chaque page d'abord pour
+GitHub, où elle doit aussi bien se lire.
