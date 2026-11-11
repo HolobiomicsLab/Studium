@@ -13,7 +13,7 @@ Thank you for helping. This page tells you how to set up a checkout, which check
 
 ## Set up a checkout
 
-Toolchain: Node 22 (`.nvmrc`; Node 20 or newer is accepted), pnpm 9.15.9 (pinned in `package.json`, provided by `corepack enable`), Python 3.12. Rust is needed only for the frozen Tauri app.
+Toolchain: Node 22 (`.nvmrc`; the tests need 22.22.2 or newer, or 24.15 or newer, because of jsdom 31, and packaging the VSIX needs Node 22 or newer because of vsce 4; Node 20 no longer runs either), pnpm 9.15.9 (pinned in `package.json`, provided by `corepack enable`), Python 3.12. Rust is needed only for the frozen Tauri app.
 
 ```bash
 corepack enable
