@@ -6,6 +6,16 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-11 — préparation de la version 0.6.0
+
+Choix du propriétaire : « Oui, 0.6.0 », pour la version qui porte l'installation sans clone, l'extension
+Claude Code, l'entrée du registre MCP et le site de documentation (INT-STUDIUM-063), et qui sera la
+première envoyée aux registres. Branche `chore/2026-11-11-release-0.6.0`, depuis `dev` (`92168e6`) :
+numéro de produit 0.6.0 dans l'extension, le serveur MCP, `.claude-plugin/plugin.json`, `server.json`
+(deux endroits), `lesson-panel-ui`, `tools/panel-http-dev.mjs` et `CITATION.cff` ; la section
+« Unreleased » du journal devient 0.6.0. Aucun code ne change. La publication sur les registres se fait
+avec les comptes du propriétaire.
+
 ## 2026-11-11 — installation sans clone, extension Claude Code, site de documentation (INT-STUDIUM-063)
 
 Demande propriétaire : installer Studium facilement par un gestionnaire de paquets, installer le serveur
