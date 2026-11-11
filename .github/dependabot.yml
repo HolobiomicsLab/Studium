@@ -11,6 +11,23 @@ updates:
     groups:
       npm-minor-and-patch:
         update-types: ["minor", "patch"]
+    # Bumped by hand, never by an update PR:
+    # - the viewer libraries are vendored and pinned by CDN address and sha384 in
+    #   apps/studium-vscode/src/extension.ts; a bump re-vendors apps/lesson-panel-ui/vendor/ and updates
+    #   those hashes in the same change (the webview-pane driver refuses anything else);
+    # - @types/vscode must not exceed engines.vscode of apps/studium-vscode/package.json.
+    # Dependabot alerts still report a vulnerability in any of them.
+    ignore:
+      - dependency-name: "katex"
+      - dependency-name: "marked"
+      - dependency-name: "vega"
+      - dependency-name: "vega-lite"
+      - dependency-name: "vega-embed"
+      - dependency-name: "3dmol"
+      - dependency-name: "cytoscape"
+      - dependency-name: "cytoscape-dagre"
+      - dependency-name: "dagre"
+      - dependency-name: "@types/vscode"
 
   - package-ecosystem: pip
     directory: "/"
