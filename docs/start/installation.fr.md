@@ -51,8 +51,8 @@ Depuis la version 0.6.0, le serveur et l'extension sont sur des registres public
 | Extension VS Code | [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=holobiomicslab.studium-vscode) | `holobiomicslab.studium-vscode` |
 | Extension VS Code pour VSCodium, Cursor et Gitpod | [Open VSX](https://open-vsx.org/extension/holobiomicslab/studium-vscode) | `holobiomicslab.studium-vscode` |
 
-Le plugin Claude Code n'est sur aucun registre : Claude Code le lit dans ce dépôt, il s'installe donc dès
-que vous avez accès au dépôt. Il lance son serveur avec `npx -y studium-mcp`.
+Le plugin Claude Code n'est sur aucun registre : Claude Code le lit dans ce dépôt, qui est public. Il
+lance son serveur avec `npx -y studium-mcp`.
 
 Sur une machine qui ne peut joindre aucun registre, utilisez les deux fichiers joints à une
 [release GitHub](https://github.com/HolobiomicsLab/studium/releases) :
@@ -61,8 +61,8 @@ Sur une machine qui ne peut joindre aucun registre, utilisez les deux fichiers j
   `npx -y studium-mcp` ;
 - `studium-vX.Y.Z.vsix`, installé avec `code --install-extension studium-vX.Y.Z.vsix`.
 
-Tant que le dépôt est privé, le cloner, installer le plugin et télécharger les fichiers d'une release
-demandent d'y avoir accès.
+Le dépôt est public : le cloner, installer le plugin et télécharger les fichiers d'une release ne
+demandent aucun compte.
 
 ## Ajouter le serveur à votre assistant
 
@@ -120,9 +120,6 @@ serveur et les moteurs de rendu. Les leçons n'y sont pas : elle lit votre bibl
 Cette voie s'adresse aux enseignants qui préparent et approuvent des cours, et aux contributeurs.
 
 ### Récupérer le code et construire
-
-Tant que le dépôt est privé, le cloner demande d'y avoir accès : lancez d'abord `gh auth login` si Git
-répond `Repository not found`.
 
 ```bash
 git clone https://github.com/HolobiomicsLab/studium.git

@@ -43,8 +43,9 @@ node tools/release/registries.mjs status 0.6.0
 [`apps/studium-vscode/MARKETPLACE.md`](../../apps/studium-vscode/MARKETPLACE.md), écrite pour la personne
 qui installe l'extension, en anglais puis en français ; le README des développeurs reste hors du VSIX. npm
 montre [`apps/lesson-mcp/README.npm.md`](../../apps/lesson-mcp/README.npm.md). Une page de registre ne peut
-pas suivre un lien relatif, et n'affiche une image que depuis une adresse `https` publique : la fiche n'a ni
-l'un ni l'autre, et `pnpm --filter studium-vscode test` échoue s'il en arrive un.
+pas suivre un lien relatif, et n'affiche une image que depuis une adresse `https` publique : la fiche
+renvoie à la branche `main` de ce dépôt par adresse complète, et `pnpm --filter studium-vscode test` échoue
+sur un lien relatif, ou sur un lien ou une image dont le fichier n'est pas dans le dépôt.
 
 ## Numérotation
 
@@ -160,8 +161,8 @@ public le peut.
 
 | Registre | Ce que le propriétaire fait une fois | Interrupteur |
 |---|---|---|
-| npm | sur npmjs.com, paquet `studium-mcp`, **Settings**, **Trusted Publisher**, GitHub Actions : organisation `HolobiomicsLab`, dépôt `studium`, workflow `release.yml`, pas d'environnement ; autoriser `npm publish` | variable du dépôt `PUBLISH_NPM` = `true` |
-| Marketplace | sur la page de l'éditeur, **Trusted Publishing**, **Create** : propriétaire du dépôt `HolobiomicsLab`, dépôt `studium`, workflow `release.yml`, pas d'environnement. Pour un dépôt privé, le workflow doit tourner dans les 48 heures qui suivent la création de la règle | `PUBLISH_MARKETPLACE` = `true` |
+| npm | sur npmjs.com, paquet `studium-mcp`, **Settings**, **Trusted Publisher**, GitHub Actions : organisation `HolobiomicsLab`, dépôt `Studium`, workflow `release.yml`, pas d'environnement ; autoriser `npm publish` | variable du dépôt `PUBLISH_NPM` = `true` |
+| Marketplace | sur la page de l'éditeur, **Trusted Publishing**, **Create** : propriétaire du dépôt `HolobiomicsLab`, dépôt `Studium`, workflow `release.yml`, pas d'environnement. Pour un dépôt privé, le workflow doit tourner dans les 48 heures qui suivent la création de la règle | `PUBLISH_MARKETPLACE` = `true` |
 | MCP Registry | rien : un job de ce dépôt reçoit `io.github.HolobiomicsLab/*` | `PUBLISH_MCP_REGISTRY` = `true` |
 | Open VSX | le secret `OVSX_PAT` (Open VSX n'a pas de voie OIDC) ; seule l'étape Open VSX le voit | `PUBLISH_OPEN_VSX` = `true` |
 
@@ -169,16 +170,17 @@ public le peut.
 gh variable set PUBLISH_NPM --body true --repo HolobiomicsLab/studium
 ```
 
-npm ne contrôle pas un éditeur de confiance à l'enregistrement, seulement à la première publication ; il
-ajoute une attestation de provenance quand le dépôt est public. Ces voies viennent de la documentation des
+Le nom du dépôt est `Studium`, avec un S majuscule : npm lit chaque champ à la lettre près, et lui
+compare le `repository.url` du paquet. npm ne contrôle pas un éditeur de confiance à l'enregistrement,
+seulement à la première publication ; il ajoute une attestation de provenance quand le dépôt est public. Ces voies viennent de la documentation des
 registres ([npm](https://docs.npmjs.com/trusted-publishers),
 [Marketplace](https://code.visualstudio.com/api/working-with-extensions/publishing-extension),
 [MCP Registry](https://modelcontextprotocol.io/registry/github-actions)) ; aucune n'a encore tourné pour
 Studium.
 
 Le plugin Claude Code ne demande aucune étape : Claude Code lit le plugin sur la branche par défaut du
-dépôt, donc une version atteint les utilisateurs une fois fusionnée sur cette branche, et les personnes
-extérieures à l'organisation dès que le dépôt est public.
+dépôt, donc une version atteint les utilisateurs une fois fusionnée sur cette branche. Le dépôt est
+public, donc cela vaut aussi pour les personnes extérieures à l'organisation.
 
 ## Limites
 

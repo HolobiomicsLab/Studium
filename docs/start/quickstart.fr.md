@@ -20,7 +20,7 @@ seulement, sans clone, voir
 | Élément | Pourquoi |
 |---|---|
 | Node 22 (20 au minimum) et pnpm 9.15.9 | construire et lancer le serveur Studium |
-| Git, avec l'accès au dépôt | le dépôt est privé pour l'instant |
+| Git | cloner le dépôt |
 | Un assistant IA compatible MCP : Codex, Claude Code, Copilot dans VS Code, OpenCode ou Cursor | il vous présente la leçon |
 | VS Code (facultatif) | le panneau de leçon, avec figures, équations et révisions |
 
@@ -31,7 +31,6 @@ outils externes ; voir le [glossaire](../concepts/glossary.fr.md).
 ## 1. Installer et construire
 
 ```bash
-gh auth login                      # une fois : le dépôt est privé
 git clone https://github.com/HolobiomicsLab/studium.git
 cd studium
 ./setup.sh
