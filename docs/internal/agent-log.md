@@ -6,6 +6,73 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-12 — la version 0.6.2
+
+Mot du propriétaire : « Fusionner la PR 75, préparer 0.6.2, puis porter dev dans main ». PR 75 fusionnée dans `dev`
+(`bd4c7ed`). Branche `release/0.6.2`, depuis `dev` (`bd4c7ed`).
+
+- `node tools/release/version.mjs 0.6.2` : la version dans les treize fichiers, la section du changelog ouverte ;
+  une phrase de résumé ajoutée, et « from the next release » devenu « from this release » dans la ligne du site.
+- Contenu : le lien du site (README, fiche, `server.json`, `homepage` des deux paquets publiés) et les outils de
+  développement (vitest 5.1.0, les sept actions). Aucun changement de comportement ; un patch, selon
+  `docs/develop/release.md`.
+- Vérifié en local : `version.mjs --check`, tests de `version.mjs` (7) et `registries.mjs` (7), `send.test.sh` (45),
+  vérification des docs (0 problème). Le tag est celui du propriétaire.
+
+Aucun test ni assertion modifié.
+
+## 2026-11-12 — le champ `homepage` des paquets publiés
+
+Mot du propriétaire : « Fais le champ homepage des package.json ». Branche `chore/2026-11-12-homepage`, depuis
+`dev` (`e2abbc9`).
+
+- `apps/studium-vscode/package.json` et `apps/lesson-mcp/package.json` (le paquet npm `studium-mcp`) :
+  `"homepage": "https://ediam.cnrs.fr/studium/"`. Ce sont les deux seuls paquets publiés ; les autres sont
+  `private` et ne passent par aucun registre, donc rien n'y est ajouté.
+- `CHANGELOG.md` (Unreleased) : la ligne « Project site » le mentionne.
+- npm, Open VSX et le Marketplace lisent `homepage` à la publication : le lien n'apparaît qu'à la prochaine version.
+
+Manifestes et documentation seulement ; aucun test ni assertion modifié.
+
+## 2026-11-12 — le site du projet dans le README, la fiche et server.json
+
+Mot du propriétaire : « On peut écrire dans (README, fiche du Marketplace, server.json) », avec l'adresse
+https://ediam.cnrs.fr/studium/ (hôte confirmé par le propriétaire ; la page répond 200, l'ancienne adresse
+holobiomicslab.cnrs.fr/studium/ redirige en 301). Branche `docs/2026-11-12-site-link`, depuis `dev` (`c385846`).
+
+- `README.md` et `README.fr.md` : un lien « Studium site » / « Site de Studium » sur la ligne des institutions.
+- `apps/studium-vscode/MARKETPLACE.md` : une puce dans « Documentation and help » et dans « Documentation et aide ».
+- `server.json` : champ `websiteUrl` (défini par le schéma du registre MCP du 2025-12-11). Les registres ne le
+  montrent qu'à la prochaine version.
+- Pas de lien vers `holobiomicslab.cnrs.fr/ns/studium` : la page n'existe pas encore. `homepage` des
+  `package.json` laissé tel quel (non demandé).
+
+Documentation et manifeste seulement ; aucun test ni assertion modifié.
+
+## 2026-11-12 — Dependabot : les actions GitHub et vitest 5
+
+Mot du propriétaire : « en suite les PR dependabot ». Branche `chore/2026-11-12-dependency-updates`, depuis
+`dev` (`baeaa44`). Les PR de Dependabot visent `main` et leurs contrôles datent du temps où Actions ne
+tournait pas (échecs en une seconde) ; les changements sont donc refaits sur `dev`, où la CI les exerce.
+
+- PR 68 (`8402927`) : les sept actions du groupe, dans `ci.yml`, `docs-site.yml` et `release.yml`
+  (checkout 7, setup-node 7, setup-python 7, upload-artifact 7, pnpm/action-setup 6, upload-pages-artifact 5,
+  deploy-pages 5). La rupture de checkout 7 ne touche que `pull_request_target` et `workflow_run` : aucun
+  workflow n'en use. `release.yml` et `docs-site.yml` ne tournent que sur une étiquette, sur `main` ou à la
+  demande : non exercés avant.
+- PR 49 et 50 (`5bbde5c`) : vitest et `@vitest/coverage-v8` 5.1.0 dans tout l'espace de travail (deux paquets
+  restaient en `^2.0`), vite 7 dans `apps/student-runtime` (vitest 5 demande vite 6.4 ou plus), et
+  `@types/node` `^20` ajouté à `telemetry-events`, `lesson-bundle-schema` et `apps/student-runtime` : vitest 1
+  et 2 apportaient les types Node par vite, vitest 5 non, et `tsc` échouait sur leurs fichiers de test.
+  Contrôlé : `pnpm -r build`, `pnpm -r test` (mêmes comptes que la 0.6.0), pilotes VS Code, lint 0 erreur,
+  pytest tools 668 et collecteur 209, smoke 19, docs 0 problème. Aucun test ni aucune assertion modifiés.
+  `pnpm` affiche encore un pair optionnel non satisfait (`@types/node` 22) : rien n'échoue.
+- Laissés ouverts : wdio 10 (PR 41 et 47, les quatre paquets doivent monter ensemble ; la suite wdio ne
+  tourne pas ici, job Tauri) et PyMuPDF 2.1 (PR 38 ; déjà différé le 11 novembre pour ses nouvelles
+  dépendances lourdes et la licence de `pymupdf-layout` non renseignée).
+
+---
+
 ## 2026-11-12 — la page de publication dit que les voies OIDC ont tourné
 
 Mot du propriétaire : « Oui corrige », après la publication de la 0.6.1 par le workflow à sa première

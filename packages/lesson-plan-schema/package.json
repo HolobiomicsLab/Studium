@@ -14,7 +14,7 @@
     "ajv": "^8.17.1"
   },
   "devDependencies": {
-    "vitest": "^1.6.0",
+    "vitest": "^5.1.0",
     "typescript": "^5.4.5"
   }
 }

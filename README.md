@@ -11,7 +11,7 @@ English · [Français](README.fr.md)
 
 Studium turns sources you trust into adaptive lessons that you can play in VS Code or through your own AI assistant. Each answer says who wrote the answer key and whether anything assessed it.
 
-[eDIAM](https://ediam.cnrs.fr/) · Institut de Chimie de Nice · Université Côte d'Azur · CNRS · [HolobiomicsLab](https://holobiomicslab.cnrs.fr/)
+[eDIAM](https://ediam.cnrs.fr/) · Institut de Chimie de Nice · Université Côte d'Azur · CNRS · [HolobiomicsLab](https://holobiomicslab.cnrs.fr/) · [Studium site](https://ediam.cnrs.fr/studium/)
 
 ## Start here
 
@@ -145,7 +145,7 @@ Restart the assistant and ask: "I want to learn photosynthesis with Studium". Th
 
 ## Status and limits
 
-Studium is a research prototype, version 0.6.1. The adaptive runtime, the authoring tools, the provenance records and the evaluation harness are implemented and tested, but Studium has not been evaluated for learning outcomes. A teacher must review and approve a lesson before students use it. A lesson built by an AI assistant from your sources is labelled as agent-drafted and not teacher-validated. Without a configured judge model, open answers are compared with the reference rather than scored. The HTTP adapter exposes the 25 lesson operations plus `rate_recall`; the other study tools and all authoring and teacher tools are MCP-only. The release workflow can publish to the VS Code Marketplace, Open VSX and npm once their tokens are configured; until then, a release is a GitHub draft with the VSIX and the server file.
+Studium is a research prototype, version 0.6.2. The adaptive runtime, the authoring tools, the provenance records and the evaluation harness are implemented and tested, but Studium has not been evaluated for learning outcomes. A teacher must review and approve a lesson before students use it. A lesson built by an AI assistant from your sources is labelled as agent-drafted and not teacher-validated. Without a configured judge model, open answers are compared with the reference rather than scored. The HTTP adapter exposes the 25 lesson operations plus `rate_recall`; the other study tools and all authoring and teacher tools are MCP-only. The release workflow can publish to the VS Code Marketplace, Open VSX and npm once their tokens are configured; until then, a release is a GitHub draft with the VSIX and the server file.
 
 - [Capabilities, surfaces and maturity](docs/concepts/capabilities.md#surfaces-and-maturity): what each surface does and how far it is supported.
 - [Architecture and repository map](docs/develop/architecture.md): the diagram, every app, package and service.

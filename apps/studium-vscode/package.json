@@ -2,10 +2,11 @@
   "name": "studium-vscode",
   "displayName": "Studium",
   "description": "%extension.description%",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "license": "Apache-2.0",
   "private": true,
   "publisher": "holobiomicslab",
+  "homepage": "https://ediam.cnrs.fr/studium/",
   "repository": {
     "type": "git",
     "url": "https://github.com/HolobiomicsLab/studium.git",

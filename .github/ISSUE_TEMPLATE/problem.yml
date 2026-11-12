@@ -67,7 +67,7 @@ body:
     attributes:
       label: Version
       description: "`version` and `build` from `get_server_info`, or the extension's version in VS Code, or the commit."
-      placeholder: "0.6.1, bundled 2026-11-11"
+      placeholder: "0.6.2, bundled 2026-11-12"
 
   - type: input
     id: environment

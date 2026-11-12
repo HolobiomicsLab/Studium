@@ -1,7 +1,8 @@
 {
   "name": "@studium/lesson-mcp",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "license": "Apache-2.0",
+  "homepage": "https://ediam.cnrs.fr/studium/",
   "private": true,
   "type": "module",
   "description": "Studium lesson server for MCP clients (Codex, Claude Code, Copilot): plays and reviews Studium lessons over stdio.",
@@ -35,7 +36,7 @@
   "devDependencies": {
     "@types/node": "^20",
     "tsx": "^4.23.15",
-    "vitest": "^1.6.1",
+    "vitest": "^5.1.0",
     "typescript": "^5.5.0",
     "esbuild": "^0.28.2"
   }
