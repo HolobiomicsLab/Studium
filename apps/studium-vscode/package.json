@@ -6,6 +6,7 @@
   "license": "Apache-2.0",
   "private": true,
   "publisher": "holobiomicslab",
+  "homepage": "https://ediam.cnrs.fr/studium/",
   "repository": {
     "type": "git",
     "url": "https://github.com/HolobiomicsLab/studium.git",

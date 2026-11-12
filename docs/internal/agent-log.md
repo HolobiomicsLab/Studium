@@ -6,6 +6,19 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-12 — le champ `homepage` des paquets publiés
+
+Mot du propriétaire : « Fais le champ homepage des package.json ». Branche `chore/2026-11-12-homepage`, depuis
+`dev` (`e2abbc9`).
+
+- `apps/studium-vscode/package.json` et `apps/lesson-mcp/package.json` (le paquet npm `studium-mcp`) :
+  `"homepage": "https://ediam.cnrs.fr/studium/"`. Ce sont les deux seuls paquets publiés ; les autres sont
+  `private` et ne passent par aucun registre, donc rien n'y est ajouté.
+- `CHANGELOG.md` (Unreleased) : la ligne « Project site » le mentionne.
+- npm, Open VSX et le Marketplace lisent `homepage` à la publication : le lien n'apparaît qu'à la prochaine version.
+
+Manifestes et documentation seulement ; aucun test ni assertion modifié.
+
 ## 2026-11-12 — le site du projet dans le README, la fiche et server.json
 
 Mot du propriétaire : « On peut écrire dans (README, fiche du Marketplace, server.json) », avec l'adresse
