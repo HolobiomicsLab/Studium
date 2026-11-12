@@ -1,0 +1,132 @@
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix studium: <https://w3id.org/studium#> .
+@prefix vann: <http://purl.org/vocab/vann/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+studium:ai_critique a skos:Concept ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    skos:definition "A scene in which the learner critiques an AI production."@en,
+        "Scène dans laquelle l'apprenant critique une production de l'IA."@fr ;
+    skos:inScheme studium:SceneTypeScheme ;
+    skos:notation "ai_critique" ;
+    skos:prefLabel "ai critique"@en .
+
+studium:communication_sim a skos:Concept ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    skos:definition "A scene in which the learner communicates a message to an audience, in a professional role."@en,
+        "Scène dans laquelle l'apprenant transmet un message à un public, dans un rôle professionnel."@fr ;
+    skos:inScheme studium:SceneTypeScheme ;
+    skos:notation "communication_sim" ;
+    skos:prefLabel "communication sim"@en .
+
+studium:comparison a skos:Concept ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    skos:definition "A scene in which the learner compares two objects or explanations."@en,
+        "Scène dans laquelle l'apprenant compare deux objets ou deux explications."@fr ;
+    skos:inScheme studium:SceneTypeScheme ;
+    skos:notation "comparison" ;
+    skos:prefLabel "comparison"@en .
+
+studium:concept a skos:Concept ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    skos:definition "A scene in which the learner reads and works with one idea."@en,
+        "Scène dans laquelle l'apprenant lit et manipule une idée."@fr ;
+    skos:inScheme studium:SceneTypeScheme ;
+    skos:notation "concept" ;
+    skos:prefLabel "concept"@en .
+
+studium:discussion a skos:Concept ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    skos:definition "A scene in which the learner reasons with a tutor over several turns."@en,
+        "Scène dans laquelle l'apprenant raisonne avec un tuteur sur plusieurs tours."@fr ;
+    skos:inScheme studium:SceneTypeScheme ;
+    skos:notation "discussion" ;
+    skos:prefLabel "discussion"@en .
+
+studium:explain_back a skos:Concept ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    skos:definition "A scene in which the learner explains the idea in their own words, as if teaching it."@en,
+        "Scène dans laquelle l'apprenant explique l'idée avec ses mots, comme s'il l'enseignait."@fr ;
+    skos:inScheme studium:SceneTypeScheme ;
+    skos:notation "explain_back" ;
+    skos:prefLabel "explain back"@en .
+
+studium:intro a skos:Concept ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    skos:definition "A scene in which the learner sees the goal and the path of the lesson."@en,
+        "Scène dans laquelle l'apprenant découvre l'objectif et le parcours de la leçon."@fr ;
+    skos:inScheme studium:SceneTypeScheme ;
+    skos:notation "intro" ;
+    skos:prefLabel "intro"@en .
+
+studium:meta_checkpoint a skos:Concept ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    skos:definition "A scene in which the learner declares how confident they are (0 to 4), once or before and after."@en,
+        "Scène dans laquelle l'apprenant déclare sa confiance (de 0 à 4), une fois ou avant et après."@fr ;
+    skos:inScheme studium:SceneTypeScheme ;
+    skos:notation "meta_checkpoint" ;
+    skos:prefLabel "meta checkpoint"@en .
+
+studium:prompt_practice a skos:Concept ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    skos:definition "A scene in which the learner writes or improves a prompt for a task."@en,
+        "Scène dans laquelle l'apprenant rédige ou améliore une consigne pour une tâche."@fr ;
+    skos:inScheme studium:SceneTypeScheme ;
+    skos:notation "prompt_practice" ;
+    skos:prefLabel "prompt practice"@en .
+
+studium:quiz a skos:Concept ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    skos:definition "A scene in which the learner chooses an answer."@en,
+        "Scène dans laquelle l'apprenant choisit une réponse."@fr ;
+    skos:inScheme studium:SceneTypeScheme ;
+    skos:notation "quiz" ;
+    skos:prefLabel "quiz"@en .
+
+studium:reproduction a skos:Concept ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    skos:definition "A scene in which the learner has the harness run a protocol, then examines the result."@en,
+        "Scène dans laquelle l'apprenant fait exécuter un protocole par le harnais, puis examine le résultat."@fr ;
+    skos:inScheme studium:SceneTypeScheme ;
+    skos:notation "reproduction" ;
+    skos:prefLabel "reproduction"@en .
+
+studium:spot_the_flaw a skos:Concept ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    skos:definition "A scene in which the learner finds the errors in a deliberately flawed text."@en,
+        "Scène dans laquelle l'apprenant repère les erreurs d'un texte volontairement fautif."@fr ;
+    skos:inScheme studium:SceneTypeScheme ;
+    skos:notation "spot_the_flaw" ;
+    skos:prefLabel "spot the flaw"@en .
+
+studium:summary_audit a skos:Concept ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    skos:definition "A scene in which the learner checks an AI summary for omissions and distortions."@en,
+        "Scène dans laquelle l'apprenant vérifie les omissions et déformations d'un résumé produit par l'IA."@fr ;
+    skos:inScheme studium:SceneTypeScheme ;
+    skos:notation "summary_audit" ;
+    skos:prefLabel "summary audit"@en .
+
+studium:SceneTypeScheme a skos:ConceptScheme ;
+    rdfs:isDefinedBy <https://holobiomicslab.cnrs.fr/ns/studium> ;
+    rdfs:seeAlso <https://github.com/HolobiomicsLab/Studium/blob/main/docs/concepts/scene-types.md> ;
+    skos:definition "The types a scene of a Studium lesson bundle can have: what the learner is asked to do in each."@en,
+        "Les types que peut avoir une scène d'une leçon Studium : ce que l'on demande à l'apprenant dans chacun."@fr ;
+    skos:prefLabel "scene types"@en,
+        "types de scène"@fr .
+
+<https://holobiomicslab.cnrs.fr/ns/studium> a owl:Ontology ;
+    dct:description "Terms for the parts of a Studium lesson: version 0.1 names the scene types of a lesson bundle."@en,
+        "Termes pour les éléments d'une leçon Studium : la version 0.1 nomme les types de scène d'une leçon."@fr ;
+    dct:license <https://www.apache.org/licenses/LICENSE-2.0> ;
+    dct:modified "2026-11-12"^^xsd:date ;
+    dct:publisher <https://holobiomicslab.cnrs.fr/> ;
+    dct:title "Studium vocabulary"@en,
+        "Vocabulaire de Studium"@fr ;
+    vann:preferredNamespacePrefix "studium" ;
+    vann:preferredNamespaceUri "https://w3id.org/studium#" ;
+    owl:versionInfo "0.1" .
+

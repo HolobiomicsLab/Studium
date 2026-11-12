@@ -6,6 +6,29 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-12 — le vocabulaire de Studium pour `/ns/studium` (préparé, rien de publié)
+
+Mots du propriétaire : « On va vers holobiomicslab.cnrs.fr/ns/studium », l'hôte canonique est
+`holobiomicslab.cnrs.fr` (« C'est notre standard »), « w3id.org redirection aussi », puis « Oui, prépare ».
+Branche `docs/2026-11-12-ns-vocabulary`, depuis `dev` (`81e2fd6`).
+
+- `/ns/` du site du labo sert des identifiants permanents de vocabulaire (`asb`, `asbval`, `asb-indicium-ext`), pas
+  des pages : chaque document existe en `.html`, `.ttl`, `.jsonld` et `.rdf`, et un 303 selon `Accept` y mène.
+- `tools/ns/build_studium_vocab.py` (rdflib, sortie indépendante de la graine de hachage) écrit `ns/studium.*` :
+  les 13 types de scène du bundle, dans un `skos:ConceptScheme`, définitions en anglais et en français tirées de
+  `docs/concepts/scene-types.md`. Termes sous `https://w3id.org/studium#`, document sur
+  `https://holobiomicslab.cnrs.fr/ns/studium`.
+- Laissés de côté exprès : les modulateurs (leurs noms attendent l'équipe d'auteurs ; M6 est encore appelé
+  « explicability » par un texte ancien) et les relations d'arêtes du graphe : le code lit `prerequisite_for` dans
+  les deux sens (`cycle.py` : « source requires target » ; le nom dit l'inverse). Un identifiant publié ne se
+  corrige plus.
+- `ns/w3id/ids/studium/` : le `.htaccess` (303 vers le document) et le README de l'identifiant w3id.org, prêts, non
+  déposés : w3id.org demande une cible déjà en ligne.
+- Test d'abord : `tools/test_ns_studium.py` (12 tests ; les deux qui lisent un graphe sont sautés sans rdflib). Les
+  termes sont égaux aux types de scène du schéma du bundle ; aucun hôte `.eu` dans les fichiers ni la règle.
+
+Aucun test ni assertion existant modifié. Rien n'est copié sur le site, déployé ni déposé sur w3id.org.
+
 ## 2026-11-12 — la version 0.6.2
 
 Mot du propriétaire : « Fusionner la PR 75, préparer 0.6.2, puis porter dev dans main ». PR 75 fusionnée dans `dev`
