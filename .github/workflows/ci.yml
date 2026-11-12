@@ -25,10 +25,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Node (from .nvmrc, Node 22 LTS)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
 
@@ -36,10 +36,10 @@ jobs:
         # No `version:` here on purpose. `package.json`'s `packageManager` field pins
         # pnpm for CI and for every contributor at once (INT-STUDIUM-031), and
         # action-setup refuses to run when both are given.
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v6
 
       - name: Setup Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -130,15 +130,15 @@ jobs:
     # executed it — the same shape as every other defect found this week: the path we
     # ask someone else to walk was the one path CI never walked. ~1 min.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Node from .nvmrc
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v6
 
       - name: Run setup.sh (preflight + install + vendor + build)
         run: ./setup.sh
@@ -156,15 +156,15 @@ jobs:
     # vendored viewers or the nls manifests, and uploads both the VSIX and the self-contained
     # `lesson-mcp.cjs` (the same file the VSIX embeds) as a workflow artifact.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Node (from .nvmrc, Node 22 LTS)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v6
 
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
@@ -193,7 +193,7 @@ jobs:
           grep -q '"studium-lesson"' <<<"$reply"
 
       - name: Upload VSIX and MCP bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: studium-vsix
           path: |
@@ -220,7 +220,7 @@ jobs:
         os: ["macos-latest", "ubuntu-22.04"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install webkit dependencies (Linux only)
         if: matrix.os == 'ubuntu-22.04'
@@ -235,12 +235,12 @@ jobs:
             libsoup-3.0-dev
 
       - name: Setup Node (from .nvmrc, Node 22 LTS)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v6
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -272,14 +272,14 @@ jobs:
 
       - name: Upload coverage report (Linux only)
         if: matrix.os == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tarpaulin-coverage
           path: target/coverage/cobertura.xml
           if-no-files-found: warn
 
       - name: Upload Tauri bundle artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tauri-bundle-${{ matrix.os }}
           path: |
@@ -294,18 +294,18 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Node (from .nvmrc, Node 22 LTS)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v6
 
       - name: Setup Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -359,7 +359,7 @@ jobs:
 
       - name: Upload logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: demo-m6-logs
           path: |

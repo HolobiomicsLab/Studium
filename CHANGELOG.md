@@ -4,6 +4,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Changed
+
+- **Development tools.** The test runner is vitest 5.1.0 (with vite 7 for the student runtime) and the seven GitHub Actions of the workflows are on their latest majors. Nothing of the extension, the server or the lessons changes.
+
 ## 0.6.1 — 2026-11-11
 
 This release changes no behaviour of the server or of the extension. It gives the extension a page written for the person who installs it on the Visual Studio Marketplace and Open VSX, opens the documentation with what to do first, adds a page on choosing a model, and is the first version cut with the release tools. The repository is now public.
