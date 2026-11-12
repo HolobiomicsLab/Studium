@@ -146,7 +146,7 @@ none is read from a file or written anywhere:
 | MCP Registry | `mcp-publisher` installed, and `GH_ORG_TOKEN` in the environment or typed at a hidden prompt: a fine-grained GitHub token whose resource owner is the organisation, with the organisation permission Members, read-only, and no repository permission. The name `io.github.HolobiomicsLab/…` is granted only to an Owner of the organisation |
 
 For 0.6.0, Open VSX showed the version after about three minutes and the Marketplace's validation took
-less than twenty-five. Attach the three files to a GitHub release by hand if you want one.
+less than twenty-five; for 0.6.1 the Marketplace listed it about six minutes after the upload. Attach the three files to a GitHub release by hand if you want one.
 
 ## Set up the automation once
 
@@ -171,7 +171,9 @@ compares the `repository.url` of the package with it. npm does not check a trust
 saved, only at the first publication; it adds a provenance attestation when the repository is public. These routes come from the registries' documentation
 ([npm](https://docs.npmjs.com/trusted-publishers),
 [Marketplace](https://code.visualstudio.com/api/working-with-extensions/publishing-extension),
-[MCP Registry](https://modelcontextprotocol.io/registry/github-actions)); none has run for Studium yet.
+[MCP Registry](https://modelcontextprotocol.io/registry/github-actions)). The first run of the workflow,
+for 0.6.1 on 11 November 2026, used all three routes without a long-lived token, and npm added a
+provenance attestation to the package.
 
 The Claude Code plugin needs no step: Claude Code reads the plugin from the repository's default branch,
 so a version reaches users when it is merged there. The repository is public, so this includes people

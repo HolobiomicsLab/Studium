@@ -6,6 +6,21 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-12 — la page de publication dit que les voies OIDC ont tourné
+
+Mot du propriétaire : « Oui corrige », après la publication de la 0.6.1 par le workflow à sa première
+exécution (npm avec provenance, Open VSX, Marketplace, registre MCP, lus depuis l'extérieur). Branche
+`chore/2026-11-12-release-page-first-run`, depuis `dev` (`5017018`).
+
+- `docs/develop/release.md` et `.fr.md` : la phrase « aucune n'a encore tourné pour Studium » devient la
+  première exécution du workflow, pour la 0.6.1, par les trois voies sans jeton durable, avec une
+  attestation de provenance npm. Le délai du Marketplace pour la 0.6.1 (environ six minutes jusqu'à
+  l'affichage de la version) rejoint celui de la 0.6.0.
+- Aucun test, aucun code, aucune assertion modifiés. Contrôle de la documentation : 0 problème, 3
+  avertissements (inchangés). Non observé : la branche « validation en cours » de `registries.mjs`.
+
+---
+
 ## 2026-11-11 — version 0.6.1, dépôt public
 
 Mots du propriétaire : « Studium repo is public btw », « C'est bon j'ai fais ce que tu m'as demandé »
