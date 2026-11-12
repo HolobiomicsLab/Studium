@@ -6,6 +6,21 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-12 — la version 0.6.2
+
+Mot du propriétaire : « Fusionner la PR 75, préparer 0.6.2, puis porter dev dans main ». PR 75 fusionnée dans `dev`
+(`bd4c7ed`). Branche `release/0.6.2`, depuis `dev` (`bd4c7ed`).
+
+- `node tools/release/version.mjs 0.6.2` : la version dans les treize fichiers, la section du changelog ouverte ;
+  une phrase de résumé ajoutée, et « from the next release » devenu « from this release » dans la ligne du site.
+- Contenu : le lien du site (README, fiche, `server.json`, `homepage` des deux paquets publiés) et les outils de
+  développement (vitest 5.1.0, les sept actions). Aucun changement de comportement ; un patch, selon
+  `docs/develop/release.md`.
+- Vérifié en local : `version.mjs --check`, tests de `version.mjs` (7) et `registries.mjs` (7), `send.test.sh` (45),
+  vérification des docs (0 problème). Le tag est celui du propriétaire.
+
+Aucun test ni assertion modifié.
+
 ## 2026-11-12 — le champ `homepage` des paquets publiés
 
 Mot du propriétaire : « Fais le champ homepage des package.json ». Branche `chore/2026-11-12-homepage`, depuis

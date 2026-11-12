@@ -4,12 +4,12 @@
   "description": "Studium lessons over MCP: play, review over days, build a lesson from your sources.",
   "repository": { "url": "https://github.com/HolobiomicsLab/studium", "source": "github" },
   "websiteUrl": "https://ediam.cnrs.fr/studium/",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "studium-mcp",
-      "version": "0.6.1",
+      "version": "0.6.2",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         { "name": "STUDIUM_HOME", "description": "Where lessons and progress live (default ~/.studium).", "isRequired": false },
