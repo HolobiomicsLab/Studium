@@ -4,6 +4,14 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+## 0.6.3 — 2026-11-12
+
+This release changes no behaviour of the server, of the extension or of the lessons. It makes the `studium-mcp` package on npm link the Studium site, as the 0.6.2 changelog said it would.
+
+### Fixed
+
+- **Project site on npm.** The `studium-mcp@0.6.2` package on npm linked the GitHub readme as its homepage: the script that stages the package wrote that address itself and ignored the `homepage` of `apps/lesson-mcp/package.json`. It now takes the homepage from that file, so npm links the Studium site at https://ediam.cnrs.fr/studium/.
+
 ## 0.6.2 — 2026-11-12
 
 This release changes no behaviour of the server, of the extension or of the lessons. It links the Studium site from the registries and the Marketplace, and brings the development tools up to date.
