@@ -6,6 +6,21 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-12 — le site du projet dans le README, la fiche et server.json
+
+Mot du propriétaire : « On peut écrire dans (README, fiche du Marketplace, server.json) », avec l'adresse
+https://ediam.cnrs.fr/studium/ (hôte confirmé par le propriétaire ; la page répond 200, l'ancienne adresse
+holobiomicslab.cnrs.fr/studium/ redirige en 301). Branche `docs/2026-11-12-site-link`, depuis `dev` (`c385846`).
+
+- `README.md` et `README.fr.md` : un lien « Studium site » / « Site de Studium » sur la ligne des institutions.
+- `apps/studium-vscode/MARKETPLACE.md` : une puce dans « Documentation and help » et dans « Documentation et aide ».
+- `server.json` : champ `websiteUrl` (défini par le schéma du registre MCP du 2025-12-11). Les registres ne le
+  montrent qu'à la prochaine version.
+- Pas de lien vers `holobiomicslab.cnrs.fr/ns/studium` : la page n'existe pas encore. `homepage` des
+  `package.json` laissé tel quel (non demandé).
+
+Documentation et manifeste seulement ; aucun test ni assertion modifié.
+
 ## 2026-11-12 — Dependabot : les actions GitHub et vitest 5
 
 Mot du propriétaire : « en suite les PR dependabot ». Branche `chore/2026-11-12-dependency-updates`, depuis

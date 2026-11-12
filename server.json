@@ -3,6 +3,7 @@
   "name": "io.github.HolobiomicsLab/studium",
   "description": "Studium lessons over MCP: play, review over days, build a lesson from your sources.",
   "repository": { "url": "https://github.com/HolobiomicsLab/studium", "source": "github" },
+  "websiteUrl": "https://ediam.cnrs.fr/studium/",
   "version": "0.6.1",
   "packages": [
     {

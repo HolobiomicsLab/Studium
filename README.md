@@ -11,7 +11,7 @@ English · [Français](README.fr.md)
 
 Studium turns sources you trust into adaptive lessons that you can play in VS Code or through your own AI assistant. Each answer says who wrote the answer key and whether anything assessed it.
 
-[eDIAM](https://ediam.cnrs.fr/) · Institut de Chimie de Nice · Université Côte d'Azur · CNRS · [HolobiomicsLab](https://holobiomicslab.cnrs.fr/)
+[eDIAM](https://ediam.cnrs.fr/) · Institut de Chimie de Nice · Université Côte d'Azur · CNRS · [HolobiomicsLab](https://holobiomicslab.cnrs.fr/) · [Studium site](https://ediam.cnrs.fr/studium/)
 
 ## Start here
 
