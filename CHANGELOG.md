@@ -4,9 +4,13 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+## 0.6.2 — 2026-11-12
+
+This release changes no behaviour of the server, of the extension or of the lessons. It links the Studium site from the registries and the Marketplace, and brings the development tools up to date.
+
 ### Changed
 
-- **Project site.** The README (English and French), the extension's listing page and `server.json` (`websiteUrl`) link the Studium site at https://ediam.cnrs.fr/studium/, and so do the `homepage` fields of the extension and of the `studium-mcp` package. The registries and the Marketplace show it from the next release.
+- **Project site.** The README (English and French), the extension's listing page and `server.json` (`websiteUrl`) link the Studium site at https://ediam.cnrs.fr/studium/, and so do the `homepage` fields of the extension and of the `studium-mcp` package. The registries and the Marketplace show it from this release.
 - **Development tools.** The test runner is vitest 5.1.0 (with vite 7 for the student runtime) and the seven GitHub Actions of the workflows are on their latest majors. Nothing of the extension, the server or the lessons changes.
 
 ## 0.6.1 — 2026-11-11
