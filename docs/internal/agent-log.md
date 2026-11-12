@@ -6,6 +6,30 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-12 — Dependabot : les actions GitHub et vitest 5
+
+Mot du propriétaire : « en suite les PR dependabot ». Branche `chore/2026-11-12-dependency-updates`, depuis
+`dev` (`baeaa44`). Les PR de Dependabot visent `main` et leurs contrôles datent du temps où Actions ne
+tournait pas (échecs en une seconde) ; les changements sont donc refaits sur `dev`, où la CI les exerce.
+
+- PR 68 (`8402927`) : les sept actions du groupe, dans `ci.yml`, `docs-site.yml` et `release.yml`
+  (checkout 7, setup-node 7, setup-python 7, upload-artifact 7, pnpm/action-setup 6, upload-pages-artifact 5,
+  deploy-pages 5). La rupture de checkout 7 ne touche que `pull_request_target` et `workflow_run` : aucun
+  workflow n'en use. `release.yml` et `docs-site.yml` ne tournent que sur une étiquette, sur `main` ou à la
+  demande : non exercés avant.
+- PR 49 et 50 (`5bbde5c`) : vitest et `@vitest/coverage-v8` 5.1.0 dans tout l'espace de travail (deux paquets
+  restaient en `^2.0`), vite 7 dans `apps/student-runtime` (vitest 5 demande vite 6.4 ou plus), et
+  `@types/node` `^20` ajouté à `telemetry-events`, `lesson-bundle-schema` et `apps/student-runtime` : vitest 1
+  et 2 apportaient les types Node par vite, vitest 5 non, et `tsc` échouait sur leurs fichiers de test.
+  Contrôlé : `pnpm -r build`, `pnpm -r test` (mêmes comptes que la 0.6.0), pilotes VS Code, lint 0 erreur,
+  pytest tools 668 et collecteur 209, smoke 19, docs 0 problème. Aucun test ni aucune assertion modifiés.
+  `pnpm` affiche encore un pair optionnel non satisfait (`@types/node` 22) : rien n'échoue.
+- Laissés ouverts : wdio 10 (PR 41 et 47, les quatre paquets doivent monter ensemble ; la suite wdio ne
+  tourne pas ici, job Tauri) et PyMuPDF 2.1 (PR 38 ; déjà différé le 11 novembre pour ses nouvelles
+  dépendances lourdes et la licence de `pymupdf-layout` non renseignée).
+
+---
+
 ## 2026-11-12 — la page de publication dit que les voies OIDC ont tourné
 
 Mot du propriétaire : « Oui corrige », après la publication de la 0.6.1 par le workflow à sa première
