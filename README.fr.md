@@ -11,7 +11,7 @@
 
 Studium transforme des sources que vous jugez fiables en leçons adaptatives, à suivre dans VS Code ou avec votre propre assistant IA. Chaque réponse dit qui a rédigé la clé de correction et si quelque chose l'a évaluée.
 
-[eDIAM](https://ediam.cnrs.fr/) · Institut de Chimie de Nice · Université Côte d'Azur · CNRS · [HolobiomicsLab](https://holobiomicslab.cnrs.fr/)
+[eDIAM](https://ediam.cnrs.fr/) · Institut de Chimie de Nice · Université Côte d'Azur · CNRS · [HolobiomicsLab](https://holobiomicslab.cnrs.fr/) · [Site de Studium](https://ediam.cnrs.fr/studium/)
 
 ## Commencer ici
 

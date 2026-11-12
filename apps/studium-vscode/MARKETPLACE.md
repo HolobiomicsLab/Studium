@@ -105,6 +105,7 @@ Connecting an assistant (step 1) needs Node 20 or later.
 
 - [Studium in VS Code](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/vscode.md): the pane, the reviews and the settings in detail.
 - [The documentation](https://github.com/HolobiomicsLab/studium/blob/main/docs/index.md), for learners, teachers and developers.
+- [The Studium site](https://ediam.cnrs.fr/studium/), the project page at eDIAM.
 - [Report a problem or suggest a change](https://github.com/HolobiomicsLab/studium/issues).
 
 ## En français
@@ -213,4 +214,5 @@ d'affichage, et fonctionne hors ligne. Relier un assistant (étape 1) demande No
 
 - [Studium dans VS Code](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/vscode.fr.md) : le panneau, les révisions et les réglages en détail.
 - [La documentation](https://github.com/HolobiomicsLab/studium/blob/main/docs/index.fr.md), pour les apprenants, les enseignants et les développeurs.
+- [Le site de Studium](https://ediam.cnrs.fr/studium/), la page du projet chez eDIAM.
 - [Signaler un problème ou proposer un changement](https://github.com/HolobiomicsLab/studium/issues).
