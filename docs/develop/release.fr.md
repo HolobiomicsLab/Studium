@@ -149,7 +149,7 @@ mainteneur ; aucun n'est lu dans un fichier ni écrit quelque part :
 | MCP Registry | `mcp-publisher` installé, et `GH_ORG_TOKEN` dans l'environnement ou tapé à une invite masquée : un jeton GitHub « fine-grained » dont le propriétaire de ressource est l'organisation, avec la permission d'organisation Members en lecture seule et aucune permission de dépôt. Le nom `io.github.HolobiomicsLab/…` n'est accordé qu'à un propriétaire (Owner) de l'organisation |
 
 Pour la 0.6.0, Open VSX a montré la version après environ trois minutes et la validation du Marketplace a
-pris moins de vingt-cinq. Joignez les trois fichiers à une release GitHub à la main si vous en voulez une.
+pris moins de vingt-cinq ; pour la 0.6.1, le Marketplace l'a listée environ six minutes après l'envoi. Joignez les trois fichiers à une release GitHub à la main si vous en voulez une.
 
 ## Régler l'automatisation une fois
 
@@ -175,8 +175,9 @@ compare le `repository.url` du paquet. npm ne contrôle pas un éditeur de confi
 seulement à la première publication ; il ajoute une attestation de provenance quand le dépôt est public. Ces voies viennent de la documentation des
 registres ([npm](https://docs.npmjs.com/trusted-publishers),
 [Marketplace](https://code.visualstudio.com/api/working-with-extensions/publishing-extension),
-[MCP Registry](https://modelcontextprotocol.io/registry/github-actions)) ; aucune n'a encore tourné pour
-Studium.
+[MCP Registry](https://modelcontextprotocol.io/registry/github-actions)). La première exécution du
+workflow, pour la 0.6.1 le 11 novembre 2026, a pris les trois voies sans jeton durable, et npm a ajouté
+une attestation de provenance au paquet.
 
 Le plugin Claude Code ne demande aucune étape : Claude Code lit le plugin sur la branche par défaut du
 dépôt, donc une version atteint les utilisateurs une fois fusionnée sur cette branche. Le dépôt est
