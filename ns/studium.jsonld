@@ -1,0 +1,576 @@
+[
+  {
+    "@id": "https://holobiomicslab.cnrs.fr/ns/studium",
+    "@type": [
+      "http://www.w3.org/2002/07/owl#Ontology"
+    ],
+    "http://purl.org/dc/terms/description": [
+      {
+        "@language": "fr",
+        "@value": "Termes pour les éléments d'une leçon Studium : la version 0.1 nomme les types de scène d'une leçon."
+      },
+      {
+        "@language": "en",
+        "@value": "Terms for the parts of a Studium lesson: version 0.1 names the scene types of a lesson bundle."
+      }
+    ],
+    "http://purl.org/dc/terms/license": [
+      {
+        "@id": "https://www.apache.org/licenses/LICENSE-2.0"
+      }
+    ],
+    "http://purl.org/dc/terms/modified": [
+      {
+        "@type": "http://www.w3.org/2001/XMLSchema#date",
+        "@value": "2026-11-12"
+      }
+    ],
+    "http://purl.org/dc/terms/publisher": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/"
+      }
+    ],
+    "http://purl.org/dc/terms/title": [
+      {
+        "@language": "en",
+        "@value": "Studium vocabulary"
+      },
+      {
+        "@language": "fr",
+        "@value": "Vocabulaire de Studium"
+      }
+    ],
+    "http://purl.org/vocab/vann/preferredNamespacePrefix": [
+      {
+        "@value": "studium"
+      }
+    ],
+    "http://purl.org/vocab/vann/preferredNamespaceUri": [
+      {
+        "@value": "https://w3id.org/studium#"
+      }
+    ],
+    "http://www.w3.org/2002/07/owl#versionInfo": [
+      {
+        "@value": "0.1"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#SceneTypeScheme",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#ConceptScheme"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#seeAlso": [
+      {
+        "@id": "https://github.com/HolobiomicsLab/Studium/blob/main/docs/concepts/scene-types.md"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "fr",
+        "@value": "Les types que peut avoir une scène d'une leçon Studium : ce que l'on demande à l'apprenant dans chacun."
+      },
+      {
+        "@language": "en",
+        "@value": "The types a scene of a Studium lesson bundle can have: what the learner is asked to do in each."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "scene types"
+      },
+      {
+        "@language": "fr",
+        "@value": "types de scène"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#ai_critique",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#Concept"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "en",
+        "@value": "A scene in which the learner critiques an AI production."
+      },
+      {
+        "@language": "fr",
+        "@value": "Scène dans laquelle l'apprenant critique une production de l'IA."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#inScheme": [
+      {
+        "@id": "https://w3id.org/studium#SceneTypeScheme"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#notation": [
+      {
+        "@value": "ai_critique"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "ai critique"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#communication_sim",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#Concept"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "en",
+        "@value": "A scene in which the learner communicates a message to an audience, in a professional role."
+      },
+      {
+        "@language": "fr",
+        "@value": "Scène dans laquelle l'apprenant transmet un message à un public, dans un rôle professionnel."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#inScheme": [
+      {
+        "@id": "https://w3id.org/studium#SceneTypeScheme"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#notation": [
+      {
+        "@value": "communication_sim"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "communication sim"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#comparison",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#Concept"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "en",
+        "@value": "A scene in which the learner compares two objects or explanations."
+      },
+      {
+        "@language": "fr",
+        "@value": "Scène dans laquelle l'apprenant compare deux objets ou deux explications."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#inScheme": [
+      {
+        "@id": "https://w3id.org/studium#SceneTypeScheme"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#notation": [
+      {
+        "@value": "comparison"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "comparison"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#concept",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#Concept"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "en",
+        "@value": "A scene in which the learner reads and works with one idea."
+      },
+      {
+        "@language": "fr",
+        "@value": "Scène dans laquelle l'apprenant lit et manipule une idée."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#inScheme": [
+      {
+        "@id": "https://w3id.org/studium#SceneTypeScheme"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#notation": [
+      {
+        "@value": "concept"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "concept"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#discussion",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#Concept"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "en",
+        "@value": "A scene in which the learner reasons with a tutor over several turns."
+      },
+      {
+        "@language": "fr",
+        "@value": "Scène dans laquelle l'apprenant raisonne avec un tuteur sur plusieurs tours."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#inScheme": [
+      {
+        "@id": "https://w3id.org/studium#SceneTypeScheme"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#notation": [
+      {
+        "@value": "discussion"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "discussion"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#explain_back",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#Concept"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "en",
+        "@value": "A scene in which the learner explains the idea in their own words, as if teaching it."
+      },
+      {
+        "@language": "fr",
+        "@value": "Scène dans laquelle l'apprenant explique l'idée avec ses mots, comme s'il l'enseignait."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#inScheme": [
+      {
+        "@id": "https://w3id.org/studium#SceneTypeScheme"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#notation": [
+      {
+        "@value": "explain_back"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "explain back"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#intro",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#Concept"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "en",
+        "@value": "A scene in which the learner sees the goal and the path of the lesson."
+      },
+      {
+        "@language": "fr",
+        "@value": "Scène dans laquelle l'apprenant découvre l'objectif et le parcours de la leçon."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#inScheme": [
+      {
+        "@id": "https://w3id.org/studium#SceneTypeScheme"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#notation": [
+      {
+        "@value": "intro"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "intro"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#meta_checkpoint",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#Concept"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "en",
+        "@value": "A scene in which the learner declares how confident they are (0 to 4), once or before and after."
+      },
+      {
+        "@language": "fr",
+        "@value": "Scène dans laquelle l'apprenant déclare sa confiance (de 0 à 4), une fois ou avant et après."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#inScheme": [
+      {
+        "@id": "https://w3id.org/studium#SceneTypeScheme"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#notation": [
+      {
+        "@value": "meta_checkpoint"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "meta checkpoint"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#prompt_practice",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#Concept"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "en",
+        "@value": "A scene in which the learner writes or improves a prompt for a task."
+      },
+      {
+        "@language": "fr",
+        "@value": "Scène dans laquelle l'apprenant rédige ou améliore une consigne pour une tâche."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#inScheme": [
+      {
+        "@id": "https://w3id.org/studium#SceneTypeScheme"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#notation": [
+      {
+        "@value": "prompt_practice"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "prompt practice"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#quiz",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#Concept"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "en",
+        "@value": "A scene in which the learner chooses an answer."
+      },
+      {
+        "@language": "fr",
+        "@value": "Scène dans laquelle l'apprenant choisit une réponse."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#inScheme": [
+      {
+        "@id": "https://w3id.org/studium#SceneTypeScheme"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#notation": [
+      {
+        "@value": "quiz"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "quiz"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#reproduction",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#Concept"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "en",
+        "@value": "A scene in which the learner has the harness run a protocol, then examines the result."
+      },
+      {
+        "@language": "fr",
+        "@value": "Scène dans laquelle l'apprenant fait exécuter un protocole par le harnais, puis examine le résultat."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#inScheme": [
+      {
+        "@id": "https://w3id.org/studium#SceneTypeScheme"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#notation": [
+      {
+        "@value": "reproduction"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "reproduction"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#spot_the_flaw",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#Concept"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "en",
+        "@value": "A scene in which the learner finds the errors in a deliberately flawed text."
+      },
+      {
+        "@language": "fr",
+        "@value": "Scène dans laquelle l'apprenant repère les erreurs d'un texte volontairement fautif."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#inScheme": [
+      {
+        "@id": "https://w3id.org/studium#SceneTypeScheme"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#notation": [
+      {
+        "@value": "spot_the_flaw"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "spot the flaw"
+      }
+    ]
+  },
+  {
+    "@id": "https://w3id.org/studium#summary_audit",
+    "@type": [
+      "http://www.w3.org/2004/02/skos/core#Concept"
+    ],
+    "http://www.w3.org/2000/01/rdf-schema#isDefinedBy": [
+      {
+        "@id": "https://holobiomicslab.cnrs.fr/ns/studium"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#definition": [
+      {
+        "@language": "en",
+        "@value": "A scene in which the learner checks an AI summary for omissions and distortions."
+      },
+      {
+        "@language": "fr",
+        "@value": "Scène dans laquelle l'apprenant vérifie les omissions et déformations d'un résumé produit par l'IA."
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#inScheme": [
+      {
+        "@id": "https://w3id.org/studium#SceneTypeScheme"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#notation": [
+      {
+        "@value": "summary_audit"
+      }
+    ],
+    "http://www.w3.org/2004/02/skos/core#prefLabel": [
+      {
+        "@language": "en",
+        "@value": "summary audit"
+      }
+    ]
+  }
+]
