@@ -1,6 +1,6 @@
 {
   "name": "studium",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Learn and teach with Studium in Claude Code: the lesson server, the skills that drive a lesson without answering for the learner, and two lesson agents.",
   "author": { "name": "HolobiomicsLab", "url": "https://holobiomicslab.cnrs.fr/" },
   "homepage": "https://github.com/HolobiomicsLab/studium#readme",

@@ -38,6 +38,14 @@ describe("distribution manifests", () => {
     expect(stage).toContain('url: "git+https://github.com/HolobiomicsLab/Studium.git"');
   });
 
+  it("the staged npm manifest takes its homepage from the package, so the registry links the Studium site", () => {
+    // The staging script wrote the GitHub readme here for 0.6.2, whatever apps/lesson-mcp/package.json said.
+    const stage = read(".github/scripts/stage-npm-mcp.mjs");
+    expect(stage).toContain("homepage: source.homepage");
+    expect(stage).not.toContain("homepage: \"");
+    expect(json("apps/lesson-mcp/package.json")["homepage"]).toBe("https://ediam.cnrs.fr/studium/");
+  });
+
   it("the Claude Code plugin starts that npm package and ships agents that exist", () => {
     const plugin = json(".claude-plugin/plugin.json");
     expect(plugin["name"]).toBe("studium");

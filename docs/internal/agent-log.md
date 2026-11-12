@@ -6,6 +6,24 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-12 — la version 0.6.3 : le `homepage` du paquet npm
+
+Mots du propriétaire : « Oui, prépare 0.6.3 », après la publication de la 0.6.2.
+
+La 0.6.2 est sortie le 12 novembre (tag `v0.6.2` refait sur `22a58f0` : le premier avait été
+poussé sur `6d0eb4d`, l'ancien `main`, et son run avait échoué). Open VSX affiche la 0.6.2 avec le
+site. Le paquet `studium-mcp@0.6.2` sur npm garde pourtant le readme GitHub comme page d'accueil :
+`.github/scripts/stage-npm-mcp.mjs` écrivait cette adresse en dur et ne lisait pas le `homepage` de
+`apps/lesson-mcp/package.json` (PR 75). Le changelog de la 0.6.2 annonçait le contraire pour npm.
+
+Test d'abord (`apps/lesson-mcp/src/distribution.test.ts`, un test ajouté, aucun changé) : le
+manifeste préparé prend `source.homepage` et le paquet porte l'adresse du site ; il a échoué, puis
+passe après la correction. Le script, lancé sur le bundle existant, écrit bien
+`https://ediam.cnrs.fr/studium/`. Version 0.6.3 par `tools/release/version.mjs` (13 endroits) et
+section du changelog. Rien n'est publié : tag et fusions restent au propriétaire.
+
+---
+
 ## 2026-11-12 — le vocabulaire de Studium pour `/ns/studium` (préparé, rien de publié)
 
 Mots du propriétaire : « On va vers holobiomicslab.cnrs.fr/ns/studium », l'hôte canonique est
