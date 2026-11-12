@@ -46,7 +46,7 @@ const manifest = {
   mcpName: JSON.parse(readFileSync(join(root, "server.json"), "utf8")).name,
   description: source.description,
   license: "Apache-2.0",
-  homepage: "https://github.com/HolobiomicsLab/Studium#readme",
+  homepage: source.homepage,
   // Exactly the repository's name, capital S: npm compares this address with the repository of the
   // workflow, letter for letter, before it accepts a trusted publication.
   repository: { type: "git", url: "git+https://github.com/HolobiomicsLab/Studium.git", directory: "apps/lesson-mcp" },
