@@ -1,0 +1,9 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Studium: the contributors' S-path mark (CC BY 4.0) in the eDIAM frame. -->
+  <rect width="32" height="32" rx="7" fill="#0f3d63"/>
+  <g transform="translate(3.4 3.4) scale(1.05)">
+    <path fill="#f4c542" d="M18 3.875H9a4.625 4.625 0 0 0 0 9.25h6a2.375 2.375 0 0 1 0 4.75H6v2.25h9a4.625 4.625 0 0 0 0-9.25H9a2.375 2.375 0 0 1 0-4.75h9Z"/>
+    <path fill="#f4c542" d="M20.5 5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0ZM8.5 19a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0Z"/>
+    <path fill="#93cf7e" d="M14.25 12a2.25 2.25 0 1 1-4.5 0a2.25 2.25 0 1 1 4.5 0Z"/>
+  </g>
+</svg>

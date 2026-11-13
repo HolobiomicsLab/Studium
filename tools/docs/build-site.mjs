@@ -28,7 +28,8 @@ const { Marked } = require("marked");
 
 export const DEFAULT_REPO_URL = "https://github.com/HolobiomicsLab/studium/blob/main/";
 const MARKER = ".studium-docs-site";
-const IMAGE_EXT = /\.(svg|png|jpe?g|gif|webp|avif)$/i;
+const TAB_ICON_FILES = ["docs/assets/brand/favicon.svg", "docs/assets/brand/favicon.ico", "docs/assets/brand/apple-touch-icon.png"];
+const IMAGE_EXT = /\.(svg|png|jpe?g|gif|webp|avif|ico)$/i;
 const SWITCH_LINE = /^(English · \[Français\]\([^)]*\)|\[English\]\([^)]*\) · Français)\s*$/;
 
 const STRINGS = {
@@ -307,7 +308,9 @@ function layout({ lang, title, docTitle, body, outPath, page, nav, headings, pre
 <meta name="color-scheme" content="light dark">
 <title>${escapeHtml(docTitle)}</title>
 <link rel="stylesheet" href="${root("site.css")}">
-${chrome.icon ? `<link rel="icon" href="${root(chrome.icon)}" type="image/svg+xml">` : ""}
+${chrome.tabIcons ? `<link rel="icon" href="${root(chrome.tabIcons.ico)}" sizes="48x48">
+<link rel="icon" href="${root(chrome.tabIcons.svg)}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="${root(chrome.tabIcons.apple)}">` : ""}
 <link rel="alternate" hreflang="${s.switchLang}" href="${escapeHtml(twinHref)}">
 <script src="${root("site.js")}"></script>
 </head>
@@ -441,10 +444,13 @@ export async function buildSite({ root = REPO_ROOT, out = join(root, "site"), re
   const wordmark = { light: chromeAsset("docs/assets/brand/studium-wordmark-light.svg"), dark: chromeAsset("docs/assets/brand/studium-wordmark-dark.svg") };
   const chrome = {
     wordmark: wordmark.light && wordmark.dark ? wordmark : null,
-    icon: chromeAsset("docs/assets/brand/studium-mark.svg"),
+    // Browser tab and home screen: the ecosystem icon family generated in holobiomicslab_brand.
+    tabIcons: TAB_ICON_FILES.every(ctx.isAsset)
+      ? { svg: chromeAsset(TAB_ICON_FILES[0]), ico: chromeAsset(TAB_ICON_FILES[1]), apple: chromeAsset(TAB_ICON_FILES[2]) }
+      : null,
   };
   const assets = new Set(["docs/assets/brand/studium-wordmark-light.svg", "docs/assets/brand/studium-wordmark-dark.svg",
-    "docs/assets/brand/studium-mark.svg"].filter(ctx.isAsset));
+    ...TAB_ICON_FILES].filter(ctx.isAsset));
   const noticePath = join(root, "NOTICE");
   const notice = existsSync(noticePath) ? (readFileSync(noticePath, "utf8").match(/^Copyright .*$/m)?.[0] ?? "") : "";
 

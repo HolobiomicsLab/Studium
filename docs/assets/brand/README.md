@@ -19,6 +19,9 @@ third-party icons, raster images or external references inside the SVGs.
 | `../hero-light.svg`, `../hero-dark.svg` | 1280 × 420 headers, with real SVG text and a decorative graph |
 | `render-check.svg`, `render-check.png` | Inspection sheet: marks at 24 and 96 px, plus both wordmark colour treatments |
 | `hero-light-880.png`, `hero-dark-880.png` | 880 × 289 inspection renders at a typical GitHub content width |
+| `favicon.svg`, `favicon.ico`, `apple-touch-icon.png` | Browser tab and home-screen icon of the documentation site (SVG, 16/32/48 px ICO, 180 px PNG) |
+
+The browser-tab icon comes from the ecosystem icon family generated in `holobiomicslab_brand`; do not redraw it here. `generate-assets.py` does not touch these three files.
 
 The hero reads **“Adaptive lessons, grounded in knowledge.”** Its audience line is
 “For teachers, students and self-learners.” All graph edges in the hero are
