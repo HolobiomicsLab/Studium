@@ -48,7 +48,7 @@
     "jsdom": "^31.0.0",
     "postcss": "^8.4.0",
     "tailwindcss": "^4.3.5",
-    "typescript": "^5.5.0",
+    "typescript": "^7.0.2",
     "vite": "^7.0.0",
     "vitest": "^5.1.0",
     "webdriverio": "^9.27.1"
