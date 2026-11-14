@@ -34,7 +34,7 @@
     "@studium/lesson-panel-ui": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^20",
+    "@types/node": "^26",
     "tsx": "^4.23.15",
     "vitest": "^5.1.0",
     "typescript": "^5.5.0",
