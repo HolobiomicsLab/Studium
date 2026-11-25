@@ -56,6 +56,7 @@ import { OffsetClock, checkNowMs } from "./session-clock.js";
 import { calendarDate, checkTimeZone, localTimeZone } from "./calendar.js";
 import { scanCatalog, type Catalog, type CatalogLesson, type LessonRoot } from "./lesson-catalog.js";
 import { buildStudyPlan, scheduleFromMemory, type StudyPlan } from "./study-plan.js";
+import { DRAFTS_DIR, eraseDrafts, unfinishedBuilds } from "./authoring-draft/draft-store.js";
 import {
   emptyStudyRecord, FileStudyRecordStore, InMemoryStudyRecordStore,
   type ConceptRoute, type StudyRecord, type StudyRecordStore,
@@ -921,7 +922,7 @@ const EXPORTS_DIR = "_exports";
  * folder or file left on disk. */
 export interface ForgetItem {
   kind: "lesson_progress" | "learner_profile" | "study_record" | "other_lessons_progress" | "library_lessons"
-    | "lesson_sources" | "map_exports" | "pseudonym_key";
+    | "lesson_sources" | "map_exports" | "lesson_drafts" | "pseudonym_key";
   lessons?: string[];
   path?: string;
 }
@@ -1456,8 +1457,11 @@ export class SessionHost {
     const requested = opts.language ?? opts.locale;
     const language = requested === undefined ? undefined : checkLocale(requested);
     const pseudonym = await this.profilePseudonymOf(learnerId);
-    const [profile, stored, catalog] = await Promise.all([
+    const library = this.opts.libraryRoot;
+    const [profile, stored, catalog, unfinished] = await Promise.all([
       this.profileStore.load(pseudonym), this.studyStore.load(pseudonym), this.catalog(),
+      // D4: the most recent lesson build that stopped, offered to finish.
+      library ? unfinishedBuilds(library, nowMs) : Promise.resolve([]),
     ]);
     const record = stored ?? emptyStudyRecord();
     // The shipped lessons say nothing of the learner's language.
@@ -1492,6 +1496,7 @@ export class SessionHost {
       measured,
       timeZone: this.zone,
       reviewSeconds,
+      unfinishedBuild: unfinished[0] ?? null,
     });
   }
 
@@ -2867,7 +2872,9 @@ export class SessionHost {
    * `language` (fr|en) when given, else the learner's last lesson's, else the server default. */
   async forgetLearner(learnerId: string = this.defaultLearnerId, language?: DisplayLocale): Promise<ForgetReport> {
     const requested = language === undefined ? undefined : checkLocale(language);
-    if (this.holdsNoLearner()) return this.forgetReport("learner", [], this.keptOnDisk(await this.catalog()), requested ?? DEFAULT_LOCALE);
+    // D4: the drafts Studium kept after a refusal are the library's learner data: erased with the rest.
+    const drafts: ForgetItem[] = this.opts.libraryRoot && await eraseDrafts(this.opts.libraryRoot) ? [{ kind: "lesson_drafts" }] : [];
+    if (this.holdsNoLearner()) return this.forgetReport("learner", drafts, this.keptOnDisk(await this.catalog()), requested ?? DEFAULT_LOCALE);
     const pseudonymOf = this.deps().pseudonym;
     const profilePseudonym = await pseudonymOf.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
     // L-11: from now on no session of this learner opened before writes them back.
@@ -2907,6 +2914,7 @@ export class SessionHost {
         ...(lessons.size ? [{ kind: "lesson_progress" as const, lessons: sortedTitles([...lessons.values()]) }] : []),
         ...(profile ? [{ kind: "learner_profile" as const }] : []),
         ...(record ? [{ kind: "study_record" as const }] : []),
+        ...drafts,
       ];
       this.afterForget();
       return this.forgetReport("learner", erased, this.keptOnDisk(catalog), requested ?? locale);
@@ -2965,7 +2973,8 @@ export class SessionHost {
   }
 
   /** What forget leaves on disk (L-13): the lessons of the learner's library and the sources they were
-   * built from, which the learner may believe gone, and the install's pseudonym key (no learner data). */
+   * built from, which the learner may believe gone, the drafts kept of unfinished lessons (forgetLearner
+   * erases them first) and the install's pseudonym key (no learner data). */
   private keptOnDisk(catalog: Catalog): ForgetItem[] {
     const kept: ForgetItem[] = [];
     const library = this.opts.libraryRoot;
@@ -2976,6 +2985,8 @@ export class SessionHost {
       if (existsSync(sources)) kept.push({ kind: "lesson_sources", path: sources });
       const exports = join(library, EXPORTS_DIR);
       if (existsSync(exports)) kept.push({ kind: "map_exports", path: exports });
+      const drafts = join(library, DRAFTS_DIR);
+      if (existsSync(drafts)) kept.push({ kind: "lesson_drafts", path: drafts });
     }
     const secret = this.dataDir ? join(this.dataDir, SECRET_FILE) : null;
     if (secret && existsSync(secret)) kept.push({ kind: "pseudonym_key", path: secret });

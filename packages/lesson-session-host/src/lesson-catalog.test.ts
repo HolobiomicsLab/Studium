@@ -46,6 +46,8 @@ describe("scanCatalog", () => {
     put(root, "d/e/f/lesson.json", lesson("deep", "Trop profond"));
     put(root, "node_modules/x/lesson.json", lesson("nm", "Ignored"));
     put(root, "data/p/lesson.json", lesson("data", "Learner data folder"));
+    // D4: the drafts Studium keeps after a refusal are never lessons to play, whatever their layout.
+    put(root, "_drafts/x/lesson.json", lesson("kept", "A kept draft"));
     put(root, "a/notes.json", { not: "a lesson" });
     put(root, "bad/lesson.json", "{ not json");
     const catalog = await scanCatalog([{ kind: "bundles", dir: root }]);

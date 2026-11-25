@@ -25,12 +25,12 @@ trois outils :
 
 | Outil | Rôle |
 |---|---|
-| `get_authoring_guide {language?, mode?}` | Renvoie la consigne de rédaction, le schéma du brouillon, un exemple minimal et `tell_learner`, une phrase que l'assistant dit à l'apprenant avant de préparer les sources : écrire la leçon prend quelques minutes, et c'est fait une fois. `mode: "teacher"` indique où commence la voie enseignant et formule cette phrase de façon neutre (« la leçon », sans tutoiement). |
+| `get_authoring_guide {language?, mode?}` | Renvoie la consigne de rédaction, le schéma du brouillon, un exemple minimal et `tell_learner`, une phrase que l'assistant dit à l'apprenant avant de préparer les sources : écrire la leçon prend quelques minutes, et c'est fait une fois. `mode: "teacher"` indique où commence la voie enseignant et formule cette phrase de façon neutre (« la leçon », sans tutoiement). |
 | `prepare_sources {sources, goal?, language?}` | Découpe les textes récupérés par l'assistant, ou les fichiers texte locaux qu'il désigne par leur chemin (Studium les lit), en passages citables (jusqu'à 20 sources et 200 000 caractères au total). |
-| `create_lesson {source_set_id, draft, course_id?, overwrite?}` | Contrôle le brouillon (citations exactes, aucun TODO, graphe de concepts cohérent, linter) et écrit la leçon dans la bibliothèque. |
+| `create_lesson {source_set_id, draft, course_id?, overwrite?}` | Contrôle le brouillon (citations exactes, aucun TODO, graphe de concepts cohérent, linter) et écrit la leçon dans la bibliothèque. Après un refus, rien n'est écrit mais Studium garde le brouillon : l'assistant envoie alors `{draft_id, scenes}`, seulement les scènes que le refus nomme. |
 
 Les deux outils écrivent dans la bibliothèque de la personne dont l'assistant les appelle,
-`<STUDIUM_HOME>/library/<course_id>/lesson.json` (les sources dans `_sources/`), jamais dans le
+`<STUDIUM_HOME>/library/<course_id>/lesson.json` (les sources dans `_sources/`, un brouillon refusé dans `_drafts/`), jamais dans le
 `BUNDLES_ROOT` du serveur : une de vos leçons sous `BUNDLES_ROOT` n'est donc jamais remplacée, et un
 identifiant de cours déjà pris là-bas est refusé. `overwrite: true` ne remplace qu'une leçon
 d'auto-apprentissage qu'aucun enseignant n'a validée ni approuvée. La licence indiquée pour chaque

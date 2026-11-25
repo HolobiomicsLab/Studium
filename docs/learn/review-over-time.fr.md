@@ -89,6 +89,7 @@ La progression est durable par défaut : elle survit au redémarrage de l'assis
 |---|---|
 | Leçons écrites par l'assistant | `~/.studium/library/<cours>/lesson.json`, quel que soit `BUNDLES_ROOT` |
 | Sources préparées | `~/.studium/library/_sources/` |
+| Brouillons de leçons inachevées | `~/.studium/library/_drafts/`, jusqu'à ce que la leçon soit écrite, abandonnée, ou vieille de 14 jours |
 | Progression, maîtrise, mémoire de révision, historique d'étude | `~/.studium/data/`, un dossier par pseudonyme d'apprenant |
 | Secret des pseudonymes | `~/.studium/data/.studium-secret`, créé avec un nouveau dossier de données |
 | Progression du panneau VS Code | Le stockage propre de l'extension dans VS Code |

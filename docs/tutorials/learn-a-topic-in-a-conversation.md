@@ -73,7 +73,8 @@ The assistant writes a draft from the passages and calls `create_lesson`. Studiu
 unless every quote matches its passage character for character (only no-break spaces, runs of
 spaces and typographic apostrophes are folded), no placeholder remains and the concept graph is
 sound; the repository linter then runs. A refusal lists `{path, message, hint}` for each problem and
-the assistant fixes its draft, never the source.
+the assistant fixes its draft, never the source. Studium keeps a refused draft, so the assistant sends
+back only the scenes the refusal names, which is quicker than writing the whole draft again.
 
 On success the lesson is written to your library as `<course_id>/lesson.json` under
 `~/.studium/library` (never into the folder `BUNDLES_ROOT` names), and the assistant shows you the
@@ -145,6 +146,7 @@ date of your next review.
 |---|---|
 | A lesson built from your sources | `~/.studium/library/<course_id>/lesson.json`, listed by `list_lessons` |
 | Your passages and their provenance | `~/.studium/library/_sources/` |
+| A refused draft, until the lesson is written | `~/.studium/library/_drafts/` |
 | Your progress and review schedule | `~/.studium/data`, under a pseudonym, kept across restarts |
 
 From "learn X" to the first question takes six Studium calls once the assistant has your sources:

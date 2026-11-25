@@ -132,6 +132,20 @@ describe("authoringGuide", () => {
     expect(step).toMatch(language === "fr" ? /sans attendre/ : /without waiting/);
   });
 
+  // D4 (waiting review 2026-11-25, owner's decision 3): Studium keeps a refused draft. The step that calls
+  // create_lesson says to fix only what the errors name and resend only those scenes with draft_id, and the
+  // whole draft only when the refusal asks for it (a refused resend of the whole draft cost 40 s in OpenCode).
+  it.each(["fr", "en"] as const)("says to resend only the scenes a refusal names, with draft_id (%s)", (language) => {
+    const { markdown } = authoringGuide({ language });
+    const step = markdown.split("\n").find((line) => /^\d+\. /.test(line) && line.includes("draft_id"));
+    expect(step).toBeDefined();
+    expect(step).toContain("`create_lesson {source_set_id, draft_id, scenes: [{at, ...scene}]}`");
+    expect(step).toMatch(language === "fr" ? /Studium garde le brouillon/ : /Studium keeps the draft/);
+    expect(step).toMatch(language === "fr" ? /renvoyez seulement ces scènes/ : /resend only those scenes/);
+    expect(step).toMatch(language === "fr" ? /sauf si le refus demande tout le brouillon/ : /unless the refusal asks for the whole draft/);
+    expect(step).toMatch(language === "fr" ? /jamais en faisant dire à une citation/ : /never by making a quote say/);
+  });
+
   it("writes its French example to the learner with « tu »", () => {
     const { example } = authoringGuide({ language: "fr" });
     expect(JSON.stringify(example.draft)).not.toMatch(/\b(vous|votre|vos|Relisez|Racontez)\b/i);

@@ -78,7 +78,8 @@ brouillon tant qu'une citation ne correspond pas à son passage au caractère pr
 insécables, les suites d'espaces et les apostrophes typographiques sont tolérés), qu'un texte
 provisoire subsiste ou que le graphe des notions est incohérent ; le linter du dépôt passe ensuite.
 Un refus liste `{path, message, hint}` pour chaque problème, et l'assistant corrige son brouillon,
-jamais la source.
+jamais la source. Studium garde un brouillon refusé : l'assistant ne renvoie que les scènes que le
+refus nomme, ce qui va plus vite que de réécrire tout le brouillon.
 
 En cas de succès, la leçon est écrite dans votre bibliothèque sous `<course_id>/lesson.json`, dans
 `~/.studium/library` (jamais dans le dossier que nomme `BUNDLES_ROOT`). L'assistant vous montre le
@@ -152,6 +153,7 @@ réviser, la réponse donne la date de la prochaine révision.
 |---|---|
 | Une leçon construite sur vos sources | `~/.studium/library/<course_id>/lesson.json`, listée par `list_lessons` |
 | Vos passages et leur provenance | `~/.studium/library/_sources/` |
+| Un brouillon refusé, jusqu'à ce que la leçon soit écrite | `~/.studium/library/_drafts/` |
 | Votre progression et vos révisions | `~/.studium/data`, sous pseudonyme, conservées d'un redémarrage à l'autre |
 
 De « apprendre X » à la première question, il faut six appels Studium une fois les sources en main :

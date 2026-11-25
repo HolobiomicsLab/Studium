@@ -218,12 +218,16 @@ describe("authoring over MCP, end to end", () => {
     draft.scenes[1]!.quotes = [{ passage_id: "p:deux-formes-de-solidarite:1", text: "la cohésion naît du partage des croyances" }];
     const refused = await call("create_lesson", { source_set_id: prepared.body["source_set_id"], draft });
     expect(refused.isError).toBe(true);
+    // Changed: D4 (waiting review 2026-11-25) keeps a draft refused for what it says, so the refusal also
+    // carries draft_id and asks to resend only scene 1 (resend, fix_scenes, hint); the errors are unchanged.
     expect(refused.body).toEqual({
       ok: false,
       errors: [{
         path: "scenes.1.quotes.0.text", message: "the quote is not in passage p:deux-formes-de-solidarite:1",
         hint: expect.stringContaining("matches it up to “la cohésion "),
       }],
+      draft_id: expect.stringMatching(/^dr-[0-9a-f]{16}$/), resend: "scenes", fix_scenes: [1],
+      hint: expect.stringContaining("draft_id"),
     });
     expect(written).toEqual([]);
   });

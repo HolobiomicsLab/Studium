@@ -20,6 +20,10 @@
 // language to the tool that takes one (L-4). With the minutes a day the learner said they have
 // (RFR-06), the next step says how long it takes: a lesson longer than that is proposed in several
 // sittings, and a review session longer than that is cut with max_items.
+//
+// D4 (waiting review 2026-11-25): a lesson build that stopped — its draft refused and kept, or its sources
+// prepared with nothing written — is offered again (action finish), after the reviews due and before
+// anything else: the learner came for that lesson. The host finds it (draft-store.ts unfinishedBuilds).
 import { nextCourseLesson } from "@studium/lesson-bundle-schema";
 import { dueAt, dueForReinforcement, isDue, retrievability, type ConceptMemoryState } from "./fsrs-memory.js";
 import { formatReviewDate, type DisplayLocale } from "./chat-display.js";
@@ -27,6 +31,7 @@ import { calendarDate, localTimeZone } from "./calendar.js";
 import { DEFAULT_REVIEW_ITEMS } from "./review-session.js";
 import type { Catalog, CatalogLesson } from "./lesson-catalog.js";
 import type { StudyRecord } from "./study-record.js";
+import type { UnfinishedBuild } from "./authoring-draft/draft-store.js";
 import { frenchSpacing } from "../../lesson-session/src/phrases.js";
 
 /** FSRS reinforcement's mastery gate (dueForReinforcement's default minMastery). */
@@ -102,8 +107,10 @@ export interface StudyPlan {
   /** RFR-06: the minutes a day the learner said they have (their study record, else the self-study
    * lesson the plan proposes), or null. */
   minutes_per_day: number | null;
+  /** D4: the most recent lesson build that stopped, to offer to finish (next_step finish), or null. */
+  unfinished_build: UnfinishedBuild | null;
   next_step: {
-    action: "review" | "continue" | "start" | "author" | "wait";
+    action: "review" | "finish" | "continue" | "start" | "author" | "wait";
     tool: string | null;
     /** The call's arguments: learner_id when the caller named one, bundle_ref for a lesson, language
      * for start_review_session and get_authoring_guide (L-4), max_items for a review cut to the
@@ -144,6 +151,8 @@ export interface StudyPlanInput {
   /** RFR-06: each playable review's estimated seconds (its review scene's estimated_seconds); a
    * review without one counts DEFAULT_REVIEW_SECONDS. */
   reviewSeconds?: ReadonlyMap<string, number>;
+  /** D4: the most recent lesson build that stopped (draft-store.ts unfinishedBuilds), if any. */
+  unfinishedBuild?: UnfinishedBuild | null;
 }
 
 /** What a review scene takes when nothing says (RFR-06's estimate of a review session). */
@@ -157,6 +166,8 @@ const PLAN = {
     unmeasured_heading: "**À revoir**",
     progress_heading: "**En cours**",
     next_heading: "**Leçon suivante**",
+    unfinished_heading: "**Leçon inachevée**",
+    unfinished_line: "- une leçon tirée de {sources}",
     due_line: "- {concept} — prévu le {date}{lesson}",
     overdue_line: "- {concept} — en retard depuis le {date}{lesson}",
     lesson_suffix: " (leçon « {title} »)",
@@ -169,6 +180,7 @@ const PLAN = {
     review_many: "tu as {count} notions à revoir ({list}). Lance une séance de révision.",
     continue: "reprends « {title} » là où tu t'étais arrêté·e.",
     start: "commence « {title} ».",
+    finish: "une leçon tirée de {sources} n'a pas été terminée. Veux-tu que l'assistant la termine ? Si tu n'en veux plus, dis-le : elle ne te sera plus proposée.",
     author: "aucune leçon n'est encore disponible. Choisis un sujet et tes sources : l'assistant prépare une leçon avec toi.",
     demo: "tu n'as pas encore de leçon à toi. Commence par « {title} », une leçon de démonstration d'environ {minutes} minutes livrée avec Studium : elle montre comment fonctionne Studium. Elle a été rédigée par l'IA à partir de la documentation de Studium, sans vérification par un enseignant. Pour apprendre plutôt ton propre sujet, choisis-le avec tes sources : l'assistant prépare une leçon avec toi.",
     wait: "rien à revoir pour l'instant.",
@@ -187,6 +199,8 @@ const PLAN = {
     unmeasured_heading: "**Due for review**",
     progress_heading: "**In progress**",
     next_heading: "**Next lesson**",
+    unfinished_heading: "**Unfinished lesson**",
+    unfinished_line: "- a lesson from {sources}",
     due_line: "- {concept} — due {date}{lesson}",
     overdue_line: "- {concept} — overdue since {date}{lesson}",
     lesson_suffix: " (lesson “{title}”)",
@@ -199,6 +213,7 @@ const PLAN = {
     review_many: "you have {count} concepts to review ({list}). Start a review session.",
     continue: "pick up “{title}” where you left off.",
     start: "start “{title}”.",
+    finish: "a lesson from {sources} was not finished. Shall the assistant finish it? If you no longer want it, say so and it will not be offered again.",
     author: "no lesson is available yet. Choose a topic and your sources: the assistant prepares a lesson with you.",
     demo: "you have no lesson of your own yet. Start with “{title}”, a demo lesson of about {minutes} minutes shipped with Studium: it shows how Studium works. It was drafted by an AI agent from Studium's documentation, not checked by a teacher. To learn your own topic instead, choose it and your sources: the assistant prepares a lesson with you.",
     wait: "nothing to review right now.",
@@ -214,6 +229,11 @@ const PLAN = {
 
 function fill(template: string, params: Record<string, string | number>): string {
   return template.replace(/\{([a-z_]+)\}/g, (token, name: string) => (params[name] === undefined ? token : String(params[name])));
+}
+
+/** The titles of a build's sources, quoted the way the plan's language quotes a title. */
+function sourceTitles(build: UnfinishedBuild, locale: DisplayLocale): string {
+  return build.sources.map((title) => (locale === "fr" ? `« ${title} »` : `“${title}”`)).join(", ");
 }
 
 /** A recorded lesson is still there when the catalog lists it. The catalog does not list community
@@ -320,6 +340,7 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
   const learner: Record<string, string> = input.learnerId ? { learner_id: input.learnerId } : {};
   const budget = dailyBudget(input, [inProgress[0]?.bundle_ref, next?.bundle_ref]);
   const durationOf = (ref: string) => input.catalog.lessons.find((l) => l.bundle_ref === ref)?.duration_minutes;
+  const unfinished = input.unfinishedBuild ?? null;
 
   let nextStep: StudyPlan["next_step"];
   // A review no scene can play (its lesson is gone, or teaches it only through scenes a review cannot
@@ -347,6 +368,9 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
       nextStep.estimated_minutes = minutes;
       nextStep.text = `${text} ${fill(cut ? t.review_cut : t.review_fits, { budget, count, minutes })}`;
     }
+  } else if (unfinished) {
+    nextStep = { action: "finish", tool: "get_authoring_guide", arguments: { language: input.locale },
+      text: fill(t.finish, { sources: sourceTitles(unfinished, input.locale) }) };
   } else if (inProgress[0]) {
     const current = inProgress[0];
     nextStep = { action: "continue", tool: "start_lesson_session", arguments: { bundle_ref: current.bundle_ref, ...learner },
@@ -386,6 +410,8 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
       (input.locale === "en" ? l.total_scenes : l.scenes_completed) === 1 ? t.progress_line_one : t.progress_line_many,
       { title: l.title, done: l.scenes_completed, total: l.total_scenes },
     )).join("\n")}` : "",
+    unfinished && nextStep.action !== "finish"
+      ? `${t.unfinished_heading}\n\n${fill(t.unfinished_line, { sources: sourceTitles(unfinished, input.locale) })}` : "",
     next && nextStep.action !== "start" ? `${t.next_heading}\n\n${fill(t.next_line, { title: next.title })}` : "",
     fill(t.now, { text: nextStep.text }),
   ].filter(Boolean);
@@ -401,6 +427,7 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
     next_review_at: schedule.next_due_at === null ? null : Math.round(schedule.next_due_at),
     next_review_date: schedule.next_due_at === null ? null : calendarDate(schedule.next_due_at, timeZone),
     minutes_per_day: budget,
+    unfinished_build: unfinished,
     next_step: nextStep,
     display_markdown: input.locale === "fr" ? frenchSpacing(displayMarkdown) : displayMarkdown,
   };

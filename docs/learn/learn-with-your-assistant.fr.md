@@ -66,7 +66,9 @@ Une source cohérente donne souvent une meilleure leçon que plusieurs.
 L'assistant rédige la leçon et appelle `create_lesson`. Studium la vérifie avant d'écrire quoi que ce soit :
 chaque citation doit correspondre à un passage au caractère près (seuls les espaces insécables, les suites
 d'espaces et les apostrophes typographiques sont tolérés), rien ne doit rester inachevé et l'ordre des notions
-doit tenir. L'assistant corrige ce que Studium refuse. Studium peut aussi avertir, par exemple quand la leçon
+doit tenir. Quand Studium refuse, rien n'est écrit : il garde le brouillon, et l'assistant corrige et renvoie
+seulement les scènes que le refus nomme (tout le brouillon seulement si une erreur porte sur les notions,
+l'objectif, le titre ou l'ordre des scènes). Studium peut aussi avertir, par exemple quand la leçon
 dure plus que vos minutes par jour ou qu'aucune question ne vérifie un prérequis.
 
 La leçon est écrite dans votre bibliothèque, `~/.studium/library/<cours>/lesson.json`, quel que soit le
@@ -136,7 +138,9 @@ Pour aller plus loin : [honnêteté et provenance](../concepts/honesty-and-prov
 Ouvrez une nouvelle conversation et demandez « Qu'est-ce que je révise avec Studium aujourd'hui ? ».
 L'assistant appelle `get_study_plan` dans votre langue, qui liste les révisions dues, les leçons en cours et la leçon suivante, et
 nomme la seule étape à faire maintenant. `start_review_session` joue ensuite toutes les révisions dues, toutes
-leçons confondues. Voir [réviser dans la durée](review-over-time.fr.md).
+leçons confondues. Voir [réviser dans la durée](review-over-time.fr.md). Si la préparation d'une leçon s'est
+arrêtée avant qu'elle soit écrite, le plan propose de la terminer, pendant 14 jours ; dites que vous n'en
+voulez plus et elle ne vous est plus proposée.
 
 Si vous reprenez simplement une leçon, son premier écran le dit et, quand des révisions sont dues, les propose au début
 de la séance, ou à la première pause qui suit quand la séance a commencé sur une question, une fois par séance :
@@ -159,7 +163,7 @@ assistant, gardez le même dossier de données et le même identifiant : demand
 |---|---|---|
 | « On s'arrête là pour aujourd'hui. » | `end_session` | Ferme la séance et garde votre progression. Relancer la leçon la reprend. |
 | « Efface mes données pour cette leçon. » | `forget_session {session_id}` | Efface votre progression dans la leçon, son journal d'expérience, ainsi que votre profil inter-leçons et votre historique d'étude. Irréversible. |
-| « Efface toutes mes données Studium. » | `forget_session {learner_id}` | La même chose, plus votre progression dans toutes les autres leçons, sans leçon ouverte. Irréversible. |
+| « Efface toutes mes données Studium. » | `forget_session {learner_id}` | La même chose, plus votre progression dans toutes les autres leçons et les brouillons de leçons inachevées, sans leçon ouverte. Irréversible. |
 
 L'assistant montre ensuite ce qui a été effacé et ce qui reste. L'oubli ne supprime ni les leçons de votre
 bibliothèque (`~/.studium/library/<cours>/`) ni les sources préparées (`~/.studium/library/_sources/`), ni la

@@ -131,8 +131,13 @@ export function studyOperations(
 
     readOnly(operation("get_study_plan",
       "Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, " +
-      "the next lesson, and next_step {action: review|continue|start|author|wait, tool, arguments, text} naming the " +
-      "call to make with its arguments (language included where the tool takes one). With the minutes a day the " +
+      "the next lesson, and next_step {action: review|finish|continue|start|author|wait, tool, arguments, text} naming the " +
+      "call to make with its arguments (language included where the tool takes one). finish: a lesson build stopped " +
+      "before its lesson was written; unfinished_build gives its sources, prepare_sources (the arguments that prepare " +
+      "them again, or null for a source given as text) and, for a draft Studium refused and kept, draft_id, fix_scenes " +
+      "and a keyless outline. If the learner wants it, read the guide, prepare the sources again and call create_lesson " +
+      "(with draft_id and only the scenes in fix_scenes when there is a draft_id); if not, create_lesson " +
+      "{source_set_id, discard: true}. With the minutes a day the " +
       "learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in " +
       "`language`, ready to show. A learner with no lesson of their own gets the demo lesson shipped with Studium as the " +
       "step to start (before authoring). Dates (due_date, next_review_date) are days in get_server_info.time_zone.",
