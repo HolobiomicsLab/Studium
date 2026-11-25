@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile, rm, rename } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { join, resolve, sep } from "node:path";
 import { LearnerStateSchema, type LearnerState } from "@studium/learner-state";
 import type { StateStore } from "../ports.js";
@@ -37,6 +38,11 @@ export class FileStateStore implements StateStore {
     await writeFile(tmp, JSON.stringify(state, null, 2), { encoding: "utf8", mode: 0o600 }); // L-11: learner files 0600
     try { await rename(tmp, target); }
     catch (err) { await rm(tmp, { force: true }); throw err; }
+  }
+  /** D1: the sha256 of the state file as it is now, or null when there is none (or it cannot be read). */
+  async revision(lessonId: string): Promise<string | null> {
+    try { return createHash("sha256").update(await readFile(this.path(lessonId))).digest("hex"); }
+    catch { return null; }
   }
   /** RGPD erasure (#4): remove this lesson's state file. `force` makes a missing file a no-op. */
   async delete(lessonId: string): Promise<void> {

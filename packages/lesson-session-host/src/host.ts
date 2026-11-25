@@ -126,12 +126,17 @@ function escapes(base: string, target: string): boolean {
  * « session not found: », which the HTTP adapter maps to a 404. */
 export class SessionHostNotFoundError extends Error {
   /** `erased` (L-11): the learner's data was erased — by forget_session here or in another server on
-   * the same data folder, or the folder itself — while the session was open. */
-  constructor(id: string, cause: "unknown" | "erased" = "unknown") {
+   * the same data folder, or the folder itself — while the session was open. `moved_on` (D1): another process
+   * saved the lesson since this session loaded it, and this session would have saved its older state over it. */
+  constructor(id: string, cause: "unknown" | "erased" | "moved_on" = "unknown") {
     super(cause === "erased"
       ? `session not found: ${id} (the learner's data was erased while this session was open): call ` +
         "start_lesson_session with the same bundle_ref and learner_id to start the lesson afresh, or " +
         "start_review_session with the same learner_id for a review"
+      : cause === "moved_on"
+      ? `session not found: ${id} (this lesson went on in another session since this one loaded it, in the Studium ` +
+        "pane or another chat, and this one would save over it): call start_lesson_session with the same bundle_ref " +
+        "and learner_id to continue where it is now"
       : `session not found: ${id} (the server may have restarted, or the session was closed): call ` +
         "start_lesson_session with the same bundle_ref and learner_id to resume the lesson where it stopped, or " +
         "start_review_session with the same learner_id to start the review again");
@@ -985,6 +990,8 @@ export class SessionHost {
   /** L-11: sessions closed because their learner's data was erased: a later call says so, and points
    * to a fresh start, rather than to a restart of the server. */
   private readonly erasedIds = new Set<string>();
+  /** D1: sessions closed because their lesson went on in another process: a later call says so. */
+  private readonly movedOnIds = new Set<string>();
   constructor(private readonly opts: SessionHostOptions) {
     this.zone = checkTimeZone(opts.timeZone ?? localTimeZone());
     this.dataDir = opts.dataDir !== undefined ? opts.dataDir : durableDataDir();
@@ -1114,7 +1121,10 @@ export class SessionHost {
       const bundle = resolved.bundle;
       // D5: the learner already plays this lesson in this server — that session goes on.
       const open = sharedIdentity(learnerId) ? undefined : this.openLessonOf(profilePseudonym, bundle);
-      if (open) return this.alreadyOpen(open[0], open[1], { presentationLanguage: normalizedPresentationLanguage, promptSurface });
+      // D1: unless another process saved the lesson since that session loaded it (the learner went on in the pane, or
+      // in another chat): that session is set aside, and this one starts from what is saved.
+      if (open && await this.movedOn(open[1])) this.setAsideMovedOn(open[0], open[1]);
+      else if (open) return this.alreadyOpen(open[0], open[1], { presentationLanguage: normalizedPresentationLanguage, promptSurface });
       // C5: the approval record (next to lesson.json, or inside the .zip), bound to the very bytes just loaded.
       const authoring = authoringOf(bundle, {
         judge: this.opts.live, approval: resolved.approval, ...(this.isShippedRoot(resolved.root) ? { shipped: true } : {}),
@@ -1126,6 +1136,7 @@ export class SessionHost {
       let journalDirectory: string | undefined;
       let scopeDir: string | undefined;
       let prior: LearnerState | null = null;
+      let stateRevision: string | null | undefined;
       if (this.dataDir) {
         // Build deps once to obtain the (fail-closed) pseudonym provider, derive the scope dir, then
         // rebuild the deps with File* stores rooted at that dir. resolvePseudoSecret runs in
@@ -1140,6 +1151,9 @@ export class SessionHost {
         // #3 RESUME: load any prior LearnerState for this (pseudonym, bundle_id). FileStateStore.load
         // returns null on missing/parse-error, so a fresh learner falls back to defaultLearnerState.
         prior = await deps.stateStore.load(bundle.bundle_id);
+        // D1: what was loaded, to tell later that another process saved over it. A shared default identity is
+        // never guarded, as D5 never merges its sessions: several people may share it.
+        if (!sharedIdentity(learnerId)) stateRevision = await deps.stateStore.revision?.(bundle.bundle_id);
       } else {
         deps = this.deps(undefined, clock);
       }
@@ -1158,6 +1172,7 @@ export class SessionHost {
         memory: initial.concept_memory ?? {}, profileSeen: profile !== null, lessonSha256: resolved.sha256 ?? null,
         ...(normalizedPresentationLanguage ? { presentationLanguage: normalizedPresentationLanguage } : {}),
         ...(scopeDir ? { scopeDir } : {}),
+        ...(stateRevision !== undefined ? { stateRevision } : {}),
         ...(resolved.minutesPerDay !== null ? { minutesPerDay: resolved.minutesPerDay } : {}),
       });
       entry.carriedMemory = structuredClone(profile?.concept_memory ?? {});
@@ -1563,7 +1578,7 @@ export class SessionHost {
 
   private require(id: string): SessionEntry {
     const e = this.registry.get(id);
-    if (!e) throw new SessionHostNotFoundError(id, this.erasedIds.has(id) ? "erased" : "unknown");
+    if (!e) throw new SessionHostNotFoundError(id, this.erasedIds.has(id) ? "erased" : this.movedOnIds.has(id) ? "moved_on" : "unknown");
     return e;
   }
 
@@ -2416,10 +2431,45 @@ export class SessionHost {
   /** Recheck the forget generation after waiting for preceding operations. */
   private sessionWrite<T>(id: string, fn: (entry: SessionEntry) => Promise<T>): Promise<T> {
     const entry = this.require(id);
-    return this.learnerOperation(entry.profilePseudonym, () => {
+    return this.learnerOperation(entry.profilePseudonym, async () => {
       this.assertNotErased(id, entry);
-      return fn(entry);
+      await this.assertNotMovedOn(id, entry);
+      try { return await fn(entry); }
+      finally { await this.noteOwnSave(entry); }
     });
+  }
+
+  /** D1 (waiting review 2026-11-25): whether another process saved this session's lesson state since the session
+   * loaded or last saved it — the learner went on in the Studium pane or in another chat, on the same data folder.
+   * Read under the learner's lock, which every save of the lesson state holds, across processes. */
+  private async movedOn(entry: SessionEntry): Promise<boolean> {
+    if (entry.stateRevision === undefined || entry.erased) return false;
+    const now = await entry.deps.stateStore.revision?.(entry.bundle.bundle_id);
+    return now !== undefined && now !== entry.stateRevision;
+  }
+
+  /** D1: the stamp of what this session just saved (still under the learner's lock), so that only another
+   * process's save counts as moving on. */
+  private async noteOwnSave(entry: SessionEntry): Promise<void> {
+    if (entry.stateRevision === undefined) return;
+    const now = await entry.deps.stateStore.revision?.(entry.bundle.bundle_id);
+    if (now !== undefined) entry.stateRevision = now;
+  }
+
+  /** D1: close, without writing anything, a session whose lesson went on in another process. */
+  private setAsideMovedOn(id: string, entry: SessionEntry): void {
+    this.movedOnIds.add(id);
+    this.registry.delete(id);
+    this.experiments.delete(id);
+  }
+
+  /** D1: refuse — and close — a session whose lesson went on in another process, before it writes anything: its
+   * older state would be saved over the newer one. The refusal points to start_lesson_session, which resumes from
+   * what is saved. */
+  private async assertNotMovedOn(id: string, entry: SessionEntry): Promise<void> {
+    if (!await this.movedOn(entry)) return;
+    this.setAsideMovedOn(id, entry);
+    throw new SessionHostNotFoundError(id, "moved_on");
   }
 
   private learnerTombstone(pseudonym: string): string | null {
@@ -2761,7 +2811,8 @@ export class SessionHost {
           // A proposal still open when the session closes went unanswered: counted ignored.
           if (entry.prompts) this.emitPromptOutcomes(entry, entry.prompts.sessionEnded());
           await this.flushSessionOutputs(entry);
-          await this.persistLearner(entry, { moved: [], sceneId: null, complete: false });
+          // D1: a session whose lesson went on in another process does not write its older progress back.
+          if (!await this.movedOn(entry)) await this.persistLearner(entry, { moved: [], sceneId: null, complete: false });
         }
       } catch (error) {
         warning = persistenceWarning(error);
