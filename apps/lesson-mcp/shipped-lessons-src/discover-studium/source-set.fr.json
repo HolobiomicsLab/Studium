@@ -1,0 +1,771 @@
+{
+  "schema": "studium-source-set/1",
+  "source_set_id": "ss-9866b6edc3519ff5",
+  "goal": "Comprendre comment fonctionne Studium et me repérer dans son interface en l'utilisant",
+  "language": "fr",
+  "min_chars": 200,
+  "max_chars": 1200,
+  "sources": [
+    {
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "title": "Documentation de Studium — Comment fonctionne Studium",
+      "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/how-studium-works.fr.md",
+      "license": "CC-BY-4.0",
+      "sha256": "f561ea2f0b3f84f9188cca315407c793ecba00ed342849e517f469ca22f5620b",
+      "chars": 6613,
+      "passages": 15
+    },
+    {
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "title": "Documentation de Studium — Honnêteté et provenance",
+      "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/honesty-and-provenance.fr.md",
+      "license": "CC-BY-4.0",
+      "sha256": "fa1ea5b3114434ee628a94ec316a7ea370095ad2bcd70b372e9513c9959c88a2",
+      "chars": 11186,
+      "passages": 27
+    },
+    {
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "title": "Documentation de Studium — Apprendre un sujet avec votre assistant",
+      "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/learn-with-your-assistant.fr.md",
+      "license": "CC-BY-4.0",
+      "sha256": "a1e5e1ed43d0f1f332c92a7dd1f1f9aac51eab6823f98c99894ed008c7588466",
+      "chars": 12146,
+      "passages": 24
+    },
+    {
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "title": "Documentation de Studium — Réviser dans la durée",
+      "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/review-over-time.fr.md",
+      "license": "CC-BY-4.0",
+      "sha256": "4d6245ad34b2b4839f9ad7043aee0487a711beed486b6fd1f8a1ce998a5fd48c",
+      "chars": 7841,
+      "passages": 17
+    },
+    {
+      "source_id": "documentation-de-studium-confidentialite",
+      "title": "Documentation de Studium — Confidentialité et limites",
+      "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/privacy-and-limits.fr.md",
+      "license": "CC-BY-4.0",
+      "sha256": "721d719eab75d594f46dbb725b65b52467a2b60c4255cbcaa78c6d04d5351c6e",
+      "chars": 11321,
+      "passages": 19
+    },
+    {
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "title": "Documentation de Studium — Carte des notions",
+      "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/concept-map.fr.md",
+      "license": "CC-BY-4.0",
+      "sha256": "e375126c6f125a7654f870a3935092da1340747680138deaecc66071766d9842",
+      "chars": 8750,
+      "passages": 18
+    },
+    {
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "title": "Documentation de Studium — Guide étudiant",
+      "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/student-guide.fr.md",
+      "license": "CC-BY-4.0",
+      "sha256": "129aac9e3c69d38061c3875435d2e7a1e0813f63139c2c40d1628d16a57187b5",
+      "chars": 8137,
+      "passages": 19
+    }
+  ],
+  "passages": [
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:1",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "[English](how-studium-works.md) · Français\n\n# Comment fonctionne Studium\n\nStudium joue une leçon comme une suite de scènes rattachées à un graphe explicite de concepts. Chaque réponse est évaluée par celui qui détient sa clé, seules les preuves évaluées font évoluer la maîtrise, et des révisions espacées ramènent un concept quand son rappel s'estompe. Cette page présente la boucle entière ; chaque partie a sa propre page."
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:2",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "<picture> <source media=\"(prefers-color-scheme: dark)\" srcset=\"../assets/diagrams/learning-loop-dark.svg\"> <img src=\"../assets/diagrams/learning-loop-light.svg\" alt=\"La boucle d'apprentissage adaptative : une scène et la réponse typée de l'apprenant sont évaluées selon leur classe de clé. Les résultats certifiés mettent à jour la maîtrise bêta et la mémoire de révision FSRS ; les scènes non évaluées et les retours par mots-clés n'y touchent pas. Les règles d'adaptation et les prérequis du graphe choisissent ensuite la scène suivante, une remédiation ou une révision due.\"> </picture>"
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:3",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "## Le bundle de leçon\n\nUne leçon tient dans un fichier, `lesson.json`, appelé *bundle de leçon*. Il contient :\n\n- les métadonnées : titre, langue et auteur de la leçon (`metadata.authoring`) ; - les concepts et le Learning Workflow Graph (graphe de parcours) qui les relie ; - les scènes, dans l'ordre, chacune rattachée à un ou plusieurs concepts ; - les règles d'adaptation et, si besoin, des *univers* (un parcours de base et une variante de remédiation plus guidée) ; - `validated_by`, le nom écrit par `approve`, ou un marqueur `DRAFT` / `SELF-STUDY`. Que la leçon soit validée se lit dans son registre d'approbation (`approval.json`), jamais dans ce texte."
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:4",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "Le format est décrit dans la [référence du bundle](../reference/lesson-bundle.fr.md). Pour vérifier un bundle :\n\n```bash node tools/bundle_lint.mjs chemin/vers/lesson.json ```\n\nUne leçon peut avoir quatre origines :"
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:5",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "| Origine | Fabrication | Rédigée par | Validée par un enseignant | |---|---|---|---| | Cours d'enseignant | `tools/experience_packet.py` (`passages`, `prepare`, `check`, `bundle`), puis `approve` | l'enseignant | oui, après approbation | | Leçon tirée de vos sources, en conversation | outils MCP `get_authoring_guide`, `prepare_sources`, `create_lesson` | un agent | non | | Auto-apprentissage à partir de vos références | `experience_packet.py bundle --self-study` | l'apprenant | non | | Contribution d'apprenant | proposée par un apprenant, relue puis diffusée par un enseignant | l'apprenant | oui, une fois diffusée |"
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:6",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "Voir [Apprendre avec votre assistant](../learn/learn-with-your-assistant.fr.md) et [Rédiger une leçon](../teach/author-a-lesson.fr.md).\n\n## Les scènes\n\nUne scène est une étape de la leçon : une introduction, un concept, une question, un texte à auditer, une reproduction à exécuter. Il existe 13 types de scènes. Chacun attend une réponse typée : un choix, un texte, un niveau de confiance ou un résultat d'exécution ne sont pas interchangeables. Chaque type appartient à une *classe de clé*, qui dit qui peut l'évaluer. Voir [Types de scènes](scene-types.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:7",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "Aucune clé n'est montrée avant la réponse, sur aucune surface. La réponse de référence et les passages cités d'une scène évaluée arrivent après la réponse, quand l'apprenant quitte la scène pour de bon."
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:8",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "## Le graphe\n\nLe Learning Workflow Graph (LWG) comporte deux sortes de nœuds, les *concepts* et les *tâches*, reliés par des arêtes typées : `prerequisite_for`, `part_of`, `decomposes_into`, `assesses`, `aligns_with`. Le graphe fait partie du bundle : un enseignant peut le lire et le corriger."
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:9",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "Un concept devient accessible quand chacun de ses prérequis directs atteint une maîtrise de 0,8 (0,6 dans un univers marqué `lenient`). Si un prérequis manque, la séance peut y conduire l'apprenant, puis revenir. Le graphe est visible dans le panneau VS Code et via `get_workflow_graph`."
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:10",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "## Maîtrise et adaptation\n\nPour chaque concept, Studium tient une estimation bêta de la maîtrise, nourrie uniquement par des réponses réellement évaluées : un choix noté, un jeu de verdicts comparé à sa clé, ou un juge modèle. Une correspondance de mots-clés ne compte jamais. Les indices réduisent le crédit d'une bonne réponse. La maîtrise n'est certifiée qu'après au moins trois tentatives évaluées et une estimation d'au moins 0,8."
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:11",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "Après chaque réponse, les règles d'adaptation du bundle et le graphe décident de la suite : rejouer après des erreurs répétées, passer un concept déjà maîtrisé, afficher un panneau de calibration quand la confiance déclarée et la maîtrise mesurée divergent, ou faire un détour par un prérequis. `explain_last_adaptation` renvoie la règle appliquée et son *modulateur*, l'étiquette de son intention pédagogique. Voir [Modèle de l'apprenant](learner-model.fr.md) et [Modulateurs](modulators.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:12",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "## Réviser sur plusieurs jours\n\nChaque réponse évaluée, et chaque auto-évaluation, met à jour une mémoire FSRS par concept : sa stabilité et la probabilité que l'apprenant s'en souvienne maintenant. `get_study_plan` liste ce qui est dû, toutes leçons confondues, et `start_review_session` le joue. Une auto-évaluation règle les révisions mais ne modifie jamais la maîtrise. Voir [Réviser dans la durée](../learn/review-over-time.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:13",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "## Qui a écrit la clé\n\nChaque démarrage de leçon et chaque présentation portent un bloc `authoring` : qui a rédigé la leçon, si un enseignant l'a validée, si un juge modèle est configuré, le registre d'approbation s'il existe, et un avis pour les leçons qu'aucun enseignant n'a écrites. Une leçon rédigée par un assistant à partir de vos sources l'indique dès son premier écran. Voir [Honnêteté et provenance](honesty-and-provenance.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:14",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "## Les surfaces\n\nLe même contrat de séance est servi à toutes les surfaces.\n\n| Surface | Statut | |---|---| | Tout harnais MCP (Codex, Claude Code, Copilot, OpenCode, Cursor), et le canal fichier pour les harnais sans MCP | pris en charge | | Extension VS Code : panneau de leçon et participant de chat | pris en charge | | `lesson-server` (HTTP, clés de réponse masquées), tableau de bord enseignant, Observatory | maintenu | | Application étudiante Tauri (`apps/student-runtime`) | gelée | | `author-web` | historique |"
+    },
+    {
+      "id": "p:documentation-de-studium-comment-fonctio:15",
+      "source_id": "documentation-de-studium-comment-fonctio",
+      "text": "Studium garde la leçon, les clés, la progression et le protocole d'exécution. Le harnais possède ses outils, son modèle et son environnement d'exécution : il relaie les scènes et lance les reproductions, l'apprenant répond, l'enseignant décide de ce qui est diffusé. Voir [Harnais](../start/harnesses.fr.md), [VS Code](../start/vscode.fr.md) et [Architecture](../develop/architecture.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:1",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "[English](honesty-and-provenance.md) · Français\n\n# Honnêteté et provenance\n\nStudium dit à l'apprenant qui a écrit chaque clé de réponse, si quelque chose a réellement évalué sa réponse, et si un enseignant a validé la leçon. Cette page explique comment : classes de clé, juge, auto-évaluation, avis, citations des sources, registre d'approbation, et la règle selon laquelle aucun contenu n'atteint les étudiants sans un enseignant."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:2",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "## Ce que déclare chaque leçon\n\n`start_lesson_session`, `get_operator_context` (et donc le `task.md` du canal fichier) et chaque présentation portent un bloc `authoring`. Le panneau VS Code affiche son avis en bannière."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:3",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "| Champ | Signification | |---|---| | `mode` | `teacher` (par défaut) ou `self_study` | | `author_is_learner` | l'apprenant a écrit la leçon | | `validated` | vrai seulement quand un registre d'approbation correspond à ce `lesson.json` exact ; jamais pour une leçon d'auto-apprentissage ; le texte de `validated_by` ne le donne jamais | | `judge` | un juge modèle est configuré sur ce serveur | | `notice` | le texte montré à l'apprenant pour une leçon d'auto-apprentissage ; null pour une leçon d'enseignant | | `approval` | si un registre d'approbation existe (`approval.json` à côté de la leçon, ou le membre `approval.json` d'une leçon `.zip`), s'il correspond à ce `lesson.json` exact, et son relecteur (`reviewer`) |"
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:4",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "L'auteur de la rédaction vient de `metadata.authoring.drafted_by` (`teacher`, `learner` ou `agent`) ; un bundle d'auto-apprentissage qui ne le précise pas est considéré comme rédigé par l'apprenant.\n\nLe registre d'approbation est la seule source du statut validé. Chaque surface (premier écran de la conversation, panneaux, `list_lessons`, page de la carte des notions) distingue trois états :"
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:5",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "| État | Quand | Ce que lit l'apprenant | |---|---|---| | Approuvée | un registre correspond au sha256 du `lesson.json` chargé | « Leçon validée par <relecteur> » / \"Lesson validated by <reviewer>\", le nom étant pris dans le registre | | Modifiée depuis l'approbation | un registre existe et ne correspond pas | un avis au premier écran : la leçon a été modifiée depuis son approbation | | Aucun registre | pas de registre, ou un registre mal formé ou étranger | « Aucune approbation enregistrée pour cette leçon. » / \"No approval is recorded for this lesson.\" |"
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:6",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "La contribution d'un apprenant relue par un enseignant (`mode: \"teacher\"`, `drafted_by: \"learner\"`) se lit comme proposée par une personne de la classe (« Leçon proposée par une personne de la classe, validée par <relecteur>. », ou cette phrase suivie de celle de l'absence d'enregistrement), et sa clé comme rédigée par une personne de la classe, jamais comme celle du lecteur. Une leçon d'auto-apprentissage garde son propre avis et ne se lit jamais comme validée. Un nom écrit à la main dans `validated_by`, sans registre, n'apparaît nulle part comme une validation."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:7",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "## Classes de clé\n\nChaque type de scène appartient à l'une des quatre classes de clé ([`key-class.ts`](../../packages/lesson-session-host/src/key-class.ts)). `experience_packet.py check` les affiche sur sa ligne `Key classes:` et le lint les reprend."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:8",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "| Classe | Types de scènes | Qui détient la clé | Dans une leçon d'auto-apprentissage | |---|---|---|---| | `ungraded` | `intro`, `concept`, `meta_checkpoint` | personne | rien n'est évalué | | `author_keyed` | `quiz`, `spot_the_flaw` | l'auteur de la leçon | livre ouvert quand l'auteur est l'apprenant ; non vérifiée quand un agent l'a rédigée | | `production` | `explain_back`, `comparison`, `summary_audit`, `prompt_practice`, `communication_sim`, `discussion`, `ai_critique` | un juge modèle, s'il est configuré | sans juge, la référence est montrée et rien n'est évalué | | `externally_grounded` | `reproduction` | une exécution, vérifiée par rapport à son manifeste | la seule clé qu'aucun auteur n'a écrite |"
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:9",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "## Le juge\n\nLe juge est un modèle que le serveur joint via `LITELLM_BASE_URL`. `get_server_info` indique `model_backend: configured` ou `none`. Seule une évaluation dont la source est le modèle certifie une réponse rédigée ; une note de 0,6 ou plus compte comme juste."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:10",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "Studium n'évalue plus les textes par mots-clés. Chercher des mots indices n'importe où dans une réponse mesure le vocabulaire, pas la compréhension : comparée à un enseignant sur une vraie leçon, cette méthode inversait 11 réponses sur 12. Sans juge, le retour montre la référence à laquelle se comparer et n'affiche aucun décompte."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:11",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "## Qui a évalué une réponse\n\nChaque verdict dit qui a évalué la réponse dans `assessed_by` : `key` (la clé de l'auteur, pour un quiz ou un jeu de verdicts), `judge` (le modèle juge) ou `none` (personne : une réponse rédigée sans juge, un simple acquittement). `graded` signifie seulement qu'une réponse a été soumise. Le texte montré à l'apprenant ne marque ✓ que si `correct` vaut true et ✗ que s'il vaut false ; une réponse que personne n'a évaluée est affichée comme enregistrée."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:12",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "Après la réponse, un verdict porte sa référence sous forme de données, étiquetée par `reference_kind` : les points clés qu'une réponse devrait couvrir, les défauts glissés, les affirmations qu'une critique devrait contester, ou `correct_choice`, le texte du bon choix quand un quiz a reçu une mauvaise réponse (« La bonne réponse »). Comme les passages cités, la référence n'est communiquée que lorsque l'apprenant quitte la scène pour de bon ; une nouvelle tentative sur le même item la retient."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:13",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "## Auto-évaluation\n\nAprès une réponse rédigée qu'aucun juge n'a évaluée, l'apprenant note son rappel : again (à revoir), hard (difficile), good (bien) ou easy (facile). Cette note fixe la prochaine révision (FSRS) de chaque notion de la scène notée et ne modifie jamais la maîtrise. Son enregistrement porte `source: \"self_rated\"`, ce qui permet à un rapport de la distinguer d'une preuve évaluée. Voir [Modèle de l'apprenant](learner-model.fr.md#auto-évaluation)."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:14",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "## Avis\n\nUne leçon d'auto-apprentissage commence par un avis dans sa langue (en français pour une leçon française, en anglais sinon). Il réunit une phrase sur l'auteur des clés et une phrase sur ce qui est évalué."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:15",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "| Rédigée par | Première phrase | |---|---| | l'apprenant | « Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). » | | un agent | « Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; signale à l'agent une clé qui te semble fausse. » |"
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:16",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "| Juge | Seconde phrase | |---|---| | aucun | « Sans juge modèle, les scènes de production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes révisions, jamais ta maîtrise. » | | configuré | « Les scènes de production sont évaluées par le modèle. » |"
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:17",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "Une leçon qui contient une reproduction ajoute une troisième phrase : « Les reproductions exécutées portent une évaluation externe. »\n\nLes textes sont définis dans [`authoring.ts`](../../packages/lesson-session-host/src/authoring.ts)."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:18",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "## Sources et citations\n\nUne leçon qu'un assistant rédige avec `create_lesson` cite un passage source pour chaque question évaluée. Chaque citation doit figurer dans le passage qu'elle nomme et compter de 15 à 500 caractères. Seul ce qu'une copie par un chat ou une page web modifie sans qu'on le voie est neutralisé : les espaces insécables et les suites d'espaces deviennent une seule espace, les apostrophes typographiques deviennent `'`. Les accents, la casse et le reste de la ponctuation, guillemets « » compris, restent significatifs. Une citation qui ne correspond pas est refusée, avec l'endroit où elle diverge, et la leçon n'est pas écrite."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:19",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "La licence indiquée pour chaque source est recopiée dans les citations de la leçon (`evidence.bibliographic_refs[].license`) et affichée après le titre de la source ; une source préparée sans licence n'a pas de champ de licence."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:20",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "Les passages cités d'une scène évaluée ne sont communiqués qu'après la réponse, quand l'apprenant quitte la scène pour de bon.\n\nUne citation exacte prouve un lien textuel, pas que la question l'utilise correctement. C'est pourquoi l'avis des leçons rédigées par un agent invite l'apprenant à signaler à l'agent une clé qui lui semble fausse."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:21",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "## Constats du lint sur l'autorat\n\n`node tools/bundle_lint.mjs` ajoute ces constats quand `metadata.authoring` est présent. WARN et INFO ne font pas échouer l'exécution.\n\n| Code | Niveau | Quand | |---|---|---| | `self_study_authoring` | INFO | toujours en auto-apprentissage : mode, rédacteur, classes de clé | | `self_study_open_book` | WARN | scènes à clé d'auteur dont l'apprenant a écrit la clé | | `self_study_agent_key` | WARN | scènes à clé d'auteur dont un agent a rédigé la clé ; vérifiez chacune avec son passage | | `self_study_no_external_key` | WARN | aucune scène de production ni ancrée dans une exécution | | `learner_authored_validated` | INFO | la leçon d'un apprenant diffusée comme bundle d'enseignant |"
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:22",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "## Le registre d'approbation\n\nUn enseignant enregistre l'approbation d'une leçon terminée avec :\n\n```bash .venv/bin/python tools/experience_packet.py approve --bundle chemin/vers/lesson.json --validated-by \"Nom de l'enseignant\" ```"
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:23",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "La commande refuse une leçon qui contient encore des marqueurs à remplir, des erreurs de lint, ou qui est en mode auto-apprentissage (ce qui inclut les leçons rédigées avec `create_lesson`). Elle renseigne `validated_by` et `validated_at`, puis écrit `approval.json` (schéma `studium-approval/1`) à côté de la leçon, avec l'empreinte SHA-256 des octets exacts de `lesson.json`, le relecteur, la date, une liste de contrôle facultative (`--checklist CLE=VALEUR ...`) et le résumé du lint."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:24",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "Le serveur lit ce registre et indique `approval.matches` : toute modification de `lesson.json` après l'approbation le rend faux. Une leçon diffusée en `.zip` porte son registre dans le membre `approval.json`, lié aux octets du membre `lesson.json`. Le registre est un fichier modifiable par quiconque a accès en écriture ; il documente une relecture, ce n'est pas une signature. L'outil MCP `review_lesson` permet à l'enseignant d'examiner un brouillon sans en voir les clés. Voir [Relire et approuver](../teach/review-and-approve.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:25",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "## Règle 003, un enseignant avant toute diffusion\n\nLa règle 003 du projet impose une validation humaine stricte : aucun contenu n'est diffusé aux étudiants sans validation par un enseignant. En pratique :"
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:26",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "- un bundle d'enseignant ne se lit comme validé qu'avec un registre d'approbation lié à ses octets exacts (`approve` écrit aussi le nom dans `validated_by`, qui seul n'accorde rien) ; - une leçon d'auto-apprentissage ou rédigée par un agent est destinée à l'apprenant qui l'a produite, et son avis le dit ; - la contribution d'un apprenant n'atteint d'autres apprenants qu'après la décision d'un enseignant, voir [Contributions des apprenants](../teach/learner-contributions.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-honnetete-et-pr:27",
+      "source_id": "documentation-de-studium-honnetete-et-pr",
+      "text": "Studium rend la provenance visible ; il ne certifie pas qu'une leçon est juste. La page [Confidentialité et limites](privacy-and-limits.fr.md) précise ce que prouvent, ou non, les empreintes, les citations et les contrôles d'exécution."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:1",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "[English](learn-with-your-assistant.md) · Français\n\n# Apprendre un sujet avec votre assistant\n\nDites à votre assistant IA ce que vous voulez apprendre et à partir de quelles sources. Il en tire une courte leçon, la joue avec vous une question à la fois, puis fait revenir les idées clés les jours suivants. Ni enseignant ni terminal : l'assistant dialogue avec Studium par MCP (Model Context Protocol, le moyen par lequel un assistant appelle des outils extérieurs)."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:2",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "Cela fonctionne dans Codex, Claude Code et tout assistant capable d'utiliser un serveur MCP. Pour brancher Studium, voir [harnais](../start/harnesses.fr.md).\n\n<picture> <source media=\"(prefers-color-scheme: dark)\" srcset=\"../assets/diagrams/self-learner-journey-dark.svg\"> <img src=\"../assets/diagrams/self-learner-journey-light.svg\" alt=\"Le parcours de l'apprenant autonome : une demande, des références choisies, des passages exacts, un brouillon de l'agent, la relecture du plan, puis la séance.\"> </picture>"
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:3",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "## 1. Demander\n\nFormulez-le simplement, par exemple :\n\n> Je veux apprendre le cycle de l'eau avec Studium. Voici deux pages auxquelles je fais confiance : <liens>.\n\nL'assistant commence par `get_study_plan`, dans votre langue. Si une de vos leçons couvre déjà le sujet, il vous la propose ; sinon il en prépare une. Indiquez ce que vous savez déjà, le temps dont vous disposez par jour ou une date visée : l'assistant est alors invité à ouvrir la leçon par deux courtes questions sur vos acquis. Ces deux questions sont jouées une fois et ne reviennent jamais en révision. Ce que vous savez et ce qui vous intéresse orientent le brouillon mais ne sont pas conservés ; la leçon ne garde que vos minutes par jour et votre date visée, et le plan d'étude se sert des minutes pour dimensionner chaque étape."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:4",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "Studium fournit aussi les prompts `learn` et `review`, qui formulent cette demande à votre place. Dans Claude Code, les prompts MCP apparaissent comme des commandes slash (`/mcp__studium__learn` avec la configuration d'exemple)."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:5",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "## 2. Choisir les sources et leurs licences\n\nC'est vous qui choisissez les sources ; l'assistant les récupère avec ses propres outils (web, fichiers) et transmet leur texte à `prepare_sources`, qui les découpe en passages numérotés. Une source est traitée comme une donnée : une consigne écrite dans une page n'est jamais suivie."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:6",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "| Limite | Valeur | |---|---| | Sources par leçon | jusqu'à 20 | | Texte au total | jusqu'à 200 000 caractères | | Licence | un identifiant comme `CC-BY-4.0` ou `Public-Domain` ; `unknown` si rien n'est indiqué |"
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:7",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "Précisez la licence de chaque source : elle est recopiée dans la leçon et affichée avec la source. Un texte du domaine public se réutilise librement ; un PDF d'éditeur ou une licence `NC`, `ND` ou inconnue restreint ce que vous pouvez faire du résultat. La leçon reste dans votre bibliothèque personnelle et n'est jamais publiée, mais l'usage de la source sous ses conditions vous revient. Une source cohérente donne souvent une meilleure leçon que plusieurs."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:8",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "## 3. Relire le plan\n\nL'assistant rédige la leçon et appelle `create_lesson`. Studium la vérifie avant d'écrire quoi que ce soit : chaque citation doit correspondre à un passage au caractère près (seuls les espaces insécables, les suites d'espaces et les apostrophes typographiques sont tolérés), rien ne doit rester inachevé et l'ordre des notions doit tenir. L'assistant corrige ce que Studium refuse. Studium peut aussi avertir, par exemple quand la leçon dure plus que vos minutes par jour ou qu'aucune question ne vérifie un prérequis."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:9",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "La leçon est écrite dans votre bibliothèque, `~/.studium/library/<cours>/lesson.json`, quel que soit le dossier de leçons que le serveur lit par ailleurs.\n\nVous voyez ensuite le plan : titres des scènes, types de scènes et notions, jamais une réponse. S'il ne correspond pas à ce que vous vouliez, dites-le ; l'assistant reprend le brouillon et reconstruit la leçon."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:10",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "## 4. Jouer, dans le chat ou dans VS Code\n\nDans le chat, chaque étape arrive prête à lire : son titre, la question, la façon d'y répondre (une lettre, un chiffre de 0 à 4 ou vos propres mots) et, sur sa dernière ligne, où vous en êtes (`étape 2/6 · 4 min · à toi de répondre`). Répondez vous-même : l'assistant transmet vos mots et ne doit ni répondre, ni choisir, ni noter à votre place."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:11",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "La carte des notions (demandez « où en suis-je ? ») nomme chaque notion avec son identifiant, par exemple « Nombres quantiques (`c-nombres-quantiques`) : à venir ». Si vous connaissez déjà une notion que la carte ne montre pas acquise, ou doutez d'une notion qu'elle montre acquise, dites-le : l'assistant la conteste pour vous avec `submit_response {kind: \"contest\", concept_id, claim}` (`known` ou `unsure`), et jamais de lui-même. Votre déclaration ne change rien à votre maîtrise et ne saute aucune scène. La leçon s'ouvre sur une ligne, « Contrôle sur « Nombres quantiques » : 2 questions. Ta déclaration ne change rien à ta maîtrise ; la leçon reprend ensuite où tu étais. », pose une ou deux questions de contrôle sur cette notion, évaluées comme toute réponse (la dernière ligne dit `contrôle 1/2`), puis reprend où vous étiez. En formulaires, refusez le formulaire et dites-le dans la conversation."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:12",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "Si chaque réponse tarde, jouez la leçon dans une session neuve et courte, sur le modèle rapide de votre assistant (dans Claude Code, `claude --agent studium-lesson`) : voir [Garder des réponses rapides](../start/fast-answers.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:13",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "Pour jouer dans VS Code, faites un clic droit sur le `lesson.json` de la leçon et choisissez **Studium : Ouvrir cette leçon**, ou suivez le lien donné par l'assistant (`vscode://holobiomicslab.studium-vscode/open?bundle=<chemin absolu>`). Voir [VS Code](../start/vscode.fr.md). Le panneau garde sa propre progression dans le stockage de VS Code : les réponses données là n'apparaissent pas dans le plan d'étude que lit votre assistant, et inversement."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:14",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "## 5. Lire l'avis d'autorat\n\nLe premier écran d'une leçon rédigée par un assistant porte un avis. Sans juge modèle, il dit :\n\n> Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son > passage ; signale à l'agent une clé qui te semble fausse. Sans juge modèle, les scènes de production ne sont pas > évaluées : compare ta réponse à la référence affichée et note ton rappel ; cette note règle tes > révisions, jamais ta maîtrise. Les reproductions exécutées portent une évaluation externe."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:15",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "Concrètement :\n\n- **Qui a écrit la clé.** L'assistant a rédigé les bonnes réponses. Elles citent les passages sur lesquels elles reposent, vous pouvez donc les vérifier ; une clé peut néanmoins être fausse. Sur un panneau ou un volet, la ligne au-dessus d'un verdict de quiz le dit aussi : « Évalué par la clé rédigée par l'IA — vérifie-la avec le passage cité » (une leçon que vous avez rédigée vous-même dit « Évalué par la clé que tu as rédigée » ; la leçon d'un enseignant, « Évalué par la clé de l'auteur »). - **Ce qui est évalué.** Les réponses aux quiz sont comparées à cette clé : ✓ si elles sont justes, ✗ si elles sont fausses, et une fois que vous quittez une question à laquelle vous avez mal répondu, la bonne réponse s'affiche. Vos réponses rédigées (explications, comparaisons, audits) ne sont pas notées sans juge modèle configuré (`LITELLM_BASE_URL`). Vous recevez les points clés et une réponse modèle pour comparer, jamais un décompte de mots-clés qui prétendrait mesurer la couverture. - **Ce que fait votre note.** Après une réponse rédigée, vous notez votre rappel : `again`, `hard`, `good` ou `easy`. Cette note fixe la date de la prochaine révision."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:16",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "Elle ne monte ni ne baisse jamais votre maîtrise.\n\nAucune clé, aucun passage cité ni aucune réponse modèle n'apparaît avant votre réponse, sur aucune surface. Ils s'affichent quand vous quittez la question ; une nouvelle tentative sur la même question les retient encore. Pour aller plus loin : [honnêteté et provenance](../concepts/honesty-and-provenance.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:17",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "## 6. Revenir quelques jours plus tard\n\nOuvrez une nouvelle conversation et demandez « Qu'est-ce que je révise avec Studium aujourd'hui ? ». L'assistant appelle `get_study_plan` dans votre langue, qui liste les révisions dues, les leçons en cours et la leçon suivante, et nomme la seule étape à faire maintenant. `start_review_session` joue ensuite toutes les révisions dues, toutes leçons confondues. Voir [réviser dans la durée](review-over-time.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:18",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "Si vous reprenez simplement une leçon, son premier écran le dit et, quand des révisions sont dues, les propose au début de la séance, ou à la première pause qui suit quand la séance a commencé sur une question, une fois par séance :"
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:19",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "> **Proposition :** 1 notion à revoir aujourd'hui (proposition `review_due:start`) > _Tu peux accepter, ou dire « plus tard »._\n\nRépondez avec vos mots. Si vous acceptez, l'assistant lance la séance de révision ; si vous dites « plus tard », la leçon continue. Le même genre de proposition vient à une pause, jamais par-dessus une question : jouer en formulaires quand votre client sait les afficher, la carte des notions à la fin de la leçon. Chacune n'est faite qu'une fois."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:20",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "Votre progression survit par défaut aux redémarrages, dans `~/.studium`. Pour la retrouver depuis un autre assistant, gardez le même dossier de données et le même identifiant : demandez à l'assistant de transmettre un `learner_id` stable (votre prénom, par exemple) à chaque appel."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:21",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "## 7. Fermer ou oublier\n\n| Vous dites | L'assistant appelle | Effet | |---|---|---| | « On s'arrête là pour aujourd'hui. » | `end_session` | Ferme la séance et garde votre progression. Relancer la leçon la reprend. | | « Efface mes données pour cette leçon. » | `forget_session {session_id}` | Efface votre progression dans la leçon, son journal d'expérience, ainsi que votre profil inter-leçons et votre historique d'étude. Irréversible. | | « Efface toutes mes données Studium. » | `forget_session {learner_id}` | La même chose, plus votre progression dans toutes les autres leçons, sans leçon ouverte. Irréversible. |"
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:22",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "L'assistant montre ensuite ce qui a été effacé et ce qui reste. L'oubli ne supprime ni les leçons de votre bibliothèque (`~/.studium/library/<cours>/`) ni les sources préparées (`~/.studium/library/_sources/`), ni la conversation conservée par l'assistant. Supprimez-les vous-même si vous le souhaitez. Voir [confidentialité et limites](../concepts/privacy-and-limits.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:23",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "## Exemple de conversation\n\n> **Vous :** Je veux apprendre le cycle de l'eau avec Studium, à partir de cette page d'encyclopédie. Elle est > sous CC-BY-SA. > > **Assistant :** J'ai préparé 4 passages et rédigé une leçon. Plan : 1. Le cycle de l'eau (introduction) · > 2. L'évaporation (quiz) · 3. Condensation et nuages (explication) · 4. De la pluie aux rivières > (comparaison). On commence ? > > **Vous :** Oui. > > **Assistant :** *Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant …* Étape 2 > sur 4. Qu'est-ce qui fait s'évaporer l'eau des océans ? A, B ou C ? > > **Vous :** B. > > **Assistant :** Juste. Étape 3 sur 4 : explique avec tes mots comment se forme un nuage. > > **Vous :** La vapeur monte, se refroidit et se transforme en gouttelettes. > > **Assistant :** Réponse enregistrée ; aucun juge ne l'a évaluée. Compare-la aux points clés et à la réponse > modèle. Note ton rappel : again, hard, good ou easy ? > > **Vous :** Good. > > **Assistant :** Note enregistrée. Prochaine révision : <date>. Elle règle tes révisions, jamais ta maîtrise."
+    },
+    {
+      "id": "p:documentation-de-studium-apprendre-un-su:24",
+      "source_id": "documentation-de-studium-apprendre-un-su",
+      "text": "## Pour aller plus loin\n\n- Pas à pas avec une vraie source : [apprendre un sujet dans une conversation](../tutorials/learn-a-topic-in-a-conversation.fr.md). - La même démarche avec les outils Python, pour tout contrôler : [auto-apprentissage à partir de ses références](../tutorials/self-study-from-references.fr.md). - Chaque outil et ses arguments : [outils MCP](../reference/mcp-tools.fr.md) ; le code se trouve dans [apps/lesson-mcp/src/authoring-tools.ts](../../apps/lesson-mcp/src/authoring-tools.ts) et [apps/lesson-mcp/src/server.ts](../../apps/lesson-mcp/src/server.ts)."
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:1",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "[English](review-over-time.md) · Français\n\n# Réviser dans la durée\n\nRevenez à Studium n'importe quel jour suivant : une seule question, « qu'est-ce que je révise maintenant ? », obtient une seule réponse : les révisions dues, les leçons en cours et l'étape suivante. Une séance de révision fait ensuite revenir chaque notion due, toutes leçons confondues, juste avant que vous risquiez de l'oublier. C'est la révision espacée : chaque rappel réussi repousse le suivant. Studium la planifie avec FSRS (Free Spaced Repetition Scheduler), un modèle de l'oubli ; voir le [glossaire](../concepts/glossary.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:2",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "## Demander votre plan d'étude\n\nDans un chat, dites « Qu'est-ce que je révise avec Studium aujourd'hui ? » ou utilisez le prompt `review`. L'assistant appelle `get_study_plan` dans votre langue (français ou anglais ; à défaut, celle de votre dernière leçon) et affiche le plan tel quel :"
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:3",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "| Rubrique | Ce qu'elle liste | |---|---| | **À réviser** | Les notions maîtrisées dont le rappel est dû, la plus urgente d'abord | | **À reprendre** | Les notions évaluées sous le seuil de maîtrise et de nouveau dues | | **À revoir** | Les notions dues que seule votre auto-évaluation a planifiées : rien ne les a mesurées, elles ne sont donc pas dites fragiles | | **En cours** | Les leçons commencées et non terminées, avec le nombre d'étapes faites | | **Leçon suivante** | La leçon suivante d'un cours que vous suivez, ou la plus récente que vous n'avez pas ouverte | | **Maintenant** | La seule étape à faire |"
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:4",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "L'étape proposée suit un ordre fixe : jouer les révisions dues, sinon reprendre une leçon en cours, sinon commencer la leçon suivante, sinon préparer une leçon à partir de vos sources (si vous n'en avez aucune), sinon attendre, avec la date de la prochaine révision. Une notion qu'aucune leçon ne peut reposer sous forme de question reste listée, avec la mention « aucune question de révision ne la reprend pour l'instant », mais n'est jamais proposée comme étape. Les dates sont des jours du calendrier dans le fuseau horaire de la machine qui fait tourner Studium."
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:5",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "Si vous avez donné vos minutes par jour quand votre assistant a préparé une leçon, le plan dimensionne l'étape avec elles : une leçon plus longue est proposée en plusieurs fois, et une séance de révision est réduite à ce qui tient dans la journée."
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:6",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "Dans VS Code, la barre d'état indique combien de notions vous attendent (« Studium · 2 à réviser » quand ce sont toutes des révisions dues, « Studium · 3 à travailler » sinon) ; son info-bulle et la barre latérale séparent les trois groupes : à réviser, à reprendre, pas encore mesurées. Le panneau ne compte que sa propre progression ; voir [apprendre avec votre assistant](learn-with-your-assistant.fr.md#4-jouer-dans-le-chat-ou-dans-vs-code)."
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:7",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "## Jouer une séance de révision\n\n`start_review_session` compose une courte séance, avec une question par notion due, prise dans la leçon où vous l'avez apprise, parmi les scènes dont c'est la notion principale. Elle préfère une autre question que celle de la dernière fois et, sans modèle juge, une question notée par une clé. La séance se joue comme une leçon : vous répondez avec vos mots ou en choisissant, et vous notez votre rappel quand on vous le demande. Au plus 50 questions par séance."
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:8",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "- Les questions viennent des scènes quiz, défaut à repérer, explication, comparaison, audit de résumé et rédaction de prompt. Les scènes de lecture ne sont pas rejouées, ni le diagnostic d'ouverture d'une leçon (« que sais-tu déjà ? »), ni les scènes qui dépendent d'une exécution faite dans la leçon. - Les réponses mettent à jour votre mémoire de révision et votre maîtrise. Une séance de révision n'est jamais enregistrée comme une leçon terminée. - Quand rien n'est dû, vous obtenez la date de la prochaine révision. Une notion due dont la leçon n'est plus sur le disque est signalée comme ne pouvant plus être révisée."
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:9",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "À la fin, vous voyez la date de la prochaine révision et trois listes : **Consolidées** (au moins trois réponses notées et une maîtrise au seuil de révision), **Travaillées** (notées, avec le nombre de réponses, pas encore consolidées) et **Pas encore mesurées** (rien ne les a notées)."
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:10",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "<picture> <source media=\"(prefers-color-scheme: dark)\" srcset=\"../assets/screenshots/vscode-pane-completion-dark.png\"> <img src=\"../assets/screenshots/vscode-pane-completion-light.png\" width=\"420\" alt=\"Le panneau de leçon VS Code en fin de leçon : notions consolidées, notions à revoir et actions de révision.\"> </picture>"
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:11",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "## Ce qui planifie une révision, et ce qui ne la planifie pas\n\n| Ce qui s'est passé | Planifie une révision | Change la maîtrise | |---|---|---| | Une réponse à un quiz ou à un défaut à repérer | Oui : faux compte comme « again », juste après un indice comme « hard », juste comme « good » | Oui | | Une réponse rédigée qu'aucun juge n'a évaluée, puis votre auto-évaluation | Oui, d'après votre note | Non | | Une réponse rédigée qu'aucun juge n'a évaluée, sans note | Non | Non | | Une réponse rédigée évaluée par un juge modèle | Aucune auto-évaluation n'est demandée ; l'évaluation du juge sert de preuve notée | Oui | | Une scène de lecture ou un point de confiance | Non | Non |"
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:12",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "Votre auto-évaluation (`again`, `hard`, `good`, `easy`) est votre propre jugement, après avoir comparé votre réponse aux points clés et à la réponse modèle. Elle dit au planificateur quand vous reposer la question, pour chaque notion de la question notée. Elle n'est jamais prise pour une preuve que vous savez, d'où la rubrique **À revoir** plutôt que **À reprendre**. Une réponse que personne n'a évaluée ne compte pas comme un rappel, ni réussi ni manqué. Pour le fond : [le modèle de l'apprenant](../concepts/learner-model.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:13",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "## Où sont vos données\n\nLa progression est durable par défaut : elle survit au redémarrage de l'assistant ou de l'ordinateur.\n\n| Quoi | Où | |---|---| | Leçons écrites par l'assistant | `~/.studium/library/<cours>/lesson.json`, quel que soit `BUNDLES_ROOT` | | Sources préparées | `~/.studium/library/_sources/` | | Progression, maîtrise, mémoire de révision, historique d'étude | `~/.studium/data/`, un dossier par pseudonyme d'apprenant | | Secret des pseudonymes | `~/.studium/data/.studium-secret`, créé avec un nouveau dossier de données | | Progression du panneau VS Code | Le stockage propre de l'extension dans VS Code |"
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:14",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "`STUDIUM_HOME` déplace `~/.studium` ; `STUDIUM_DATA_DIR` déplace le seul dossier de données ; `STUDIUM_EPHEMERAL=1` garde tout en mémoire, et l'assistant vous prévient alors que la progression sera perdue au redémarrage. Voir [configuration](../reference/configuration.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:15",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "Les dossiers sur disque portent un pseudonyme calculé à partir de votre identifiant et du secret, jamais l'identifiant lui-même. Pour déplacer vos données vers une autre machine, copiez le dossier de données entier, secret compris : sans lui, vos dossiers ne peuvent plus être rattachés à votre identifiant. Gardez le même `learner_id` dans tous vos assistants pour n'avoir qu'un historique."
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:16",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "## Limites\n\n- Seul ce qui a été évalué ou auto-évalué est révisé : une leçon lue sans répondre ne planifie rien. - Les dates de révision sont l'estimation d'un modèle de l'oubli, pas une garantie. - Effacer les données d'une leçon avec `forget_session` efface aussi votre mémoire inter-leçons et votre historique d'étude ; les leçons de votre bibliothèque et leurs sources restent jusqu'à ce que vous les supprimiez. Détails : [confidentialité et limites](../concepts/privacy-and-limits.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-reviser-dans-la:17",
+      "source_id": "documentation-de-studium-reviser-dans-la",
+      "text": "Le code du plan d'étude se trouve dans [packages/lesson-session-host/src/study-plan.ts](../../packages/lesson-session-host/src/study-plan.ts) et celui de la séance de révision dans [packages/lesson-session-host/src/review-session.ts](../../packages/lesson-session-host/src/review-session.ts)."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:1",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "[English](privacy-and-limits.md) · Français\n\n# Confidentialité et limites\n\nStudium garde l'état de l'apprenant sur sa machine et collecte le moins possible. Cela ne veut pas dire que tout reste local : un assistant relié à un modèle distant envoie ce qu'il lit à son fournisseur. Cette page indique où se trouve chaque donnée, comment l'effacer, et ce que les preuves de Studium démontrent ou non. Lisez-la avant un pilote en classe."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:2",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "## Où se trouvent vos données\n\nLe serveur MCP (`apps/lesson-mcp`) applique ces valeurs par défaut. Chacune se modifie par une variable d'environnement ; voir la [référence de configuration](../reference/configuration.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:3",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "| Quoi | Emplacement par défaut | À modifier avec | |---|---|---| | Racine de votre bibliothèque et de vos données | `~/.studium` | `STUDIUM_HOME` | | Leçons écrites pour vous | `<STUDIUM_HOME>/library/<cours>/lesson.json`, quel que soit `BUNDLES_ROOT` | `STUDIUM_HOME` ; `BUNDLES_ROOT` ne fait qu'ajouter un dossier consulté en premier | | Sources préparées pour ces leçons | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` | | Votre progression | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` | | Rien sur disque, mémoire seulement | désactivé | `STUDIUM_EPHEMERAL=1` | | Identifiant d'apprenant quand l'assistant n'en donne pas | `anonymous` | `STUDIUM_LEARNER_ID` |"
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:4",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "Dans le dossier de données, chaque apprenant a un dossier nommé par un pseudonyme, jamais par son identifiant :\n\n| Fichier | Contenu | |---|---| | `<pseudonyme>/profile.json` | profil transversal aux leçons, mémoire de révision comprise | | `<pseudonyme>/study.json` | où l'apprenant a étudié | | `<pseudonyme>/status.json` | où en est la séance en cours (titre de la leçon, étape, minutes restantes), pour la ligne d'état d'un assistant ; retiré à la fermeture de la séance | | `<pseudonyme>/<leçon>/state-<leçon>.json` | état de la leçon et maîtrise | | `<pseudonyme>/<leçon>/events.jsonl` | journal d'événements de la séance | | `<pseudonyme>/<leçon>/mastery/*.jsonld` | attestations de maîtrise, quand un concept est certifié | | `<pseudonyme>/<leçon>/telemetry.jsonl` | seulement avec le consentement à la télémétrie ; écrit au fil des actes de l'apprenant, ouvert par un enregistrement du consentement déclaré par `STUDIUM_TELEMETRY_CONSENT` |"
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:5",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "Avec `STUDIUM_EPHEMERAL=1` et sans `STUDIUM_DATA_DIR`, la progression est perdue à l'arrêt du serveur, ce que signalent `get_server_info` et `start_lesson_session`.\n\nQuand vous dites à votre assistant ce que vous savez déjà, ce qui vous intéresse, combien de minutes par jour vous avez ou une date visée, les deux premiers éléments orientent seulement le brouillon de la leçon et ne sont pas conservés. Le fichier de la leçon garde les minutes par jour et la date visée (`metadata.authoring.learner_profile`), et votre relevé d'étude garde les minutes ; un fichier de leçon que vous partagez les emporte avec lui."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:6",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "L'extension VS Code lance son propre serveur, avec ses données dans le stockage VS Code de l'extension, distinct de `<STUDIUM_HOME>/data`.\n\n### Pseudonymes\n\nUn pseudonyme est un HMAC de l'identifiant de l'apprenant. Le secret est `STUDIUM_PSEUDO_SECRET` s'il est défini ; sinon, un dossier de données neuf reçoit son propre fichier secret, `<dossier de données>/.studium-secret` (droits 0600). Sauvegardez-le avec le dossier de données : sans lui, les dossiers ne peuvent plus être rattachés à leurs apprenants. Un dossier de données créé avant l'existence de ce fichier garde l'ancien secret commun pour que personne ne perde sa progression ; quiconque détient un tel dossier et l'identifiant d'un apprenant peut recalculer son pseudonyme : définissez alors `STUDIUM_PSEUDO_SECRET`."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:7",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "## Qui contrôle quoi\n\n| Espace | Ce qu'il peut contenir | Qui contrôle la conservation | |---|---|---| | Serveur Studium | État de séance et, par défaut, profil durable | Réglages et commandes d'oubli de Studium | | API HTTP locale | Séances actives et reçus de relance, en mémoire du serveur | L'utilisateur local ; le jeton ouvre toutes les séances de ce serveur | | Assistant et son fournisseur | Prompts, contenus transmis, appels d'outils, historique | Réglages et conditions du client et du fournisseur | | Dossier d'expérience | Code, données, journaux, reçus, observations choisies | L'utilisateur du dossier | | Cours partagé | Sources autorisées, plan, supports, critères de réponse | L'enseignant et les règles de diffusion | | Télémétrie de classe | Événements consentis | Le responsable du pilote et la politique de collecte |"
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:8",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "## Réglages à conserver\n\n- Le consentement à la télémétrie est désactivé : `studium.telemetryConsent` vaut `false` dans VS Code, et le serveur n'écrit de télémétrie que si `STUDIUM_TELEMETRY_CONSENT` est défini et l'état durable. N'activez pas la collecte pour résoudre un problème de connexion. - Utilisez un identifiant de démonstration, pas un vrai nom, pour la prise en main. - Laissez `studium.assets` sur `vendor` pour charger localement les bibliothèques de rendu ; l'option `cdn` contacte un serveur externe. - Pendant un exercice, laissez `studium.showMastery` désactivé et le graphe en vue étudiante : les vues de relecture peuvent en révéler plus que prévu."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:9",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "## Clés de réponse\n\nLes scènes sont servies sans leurs clés, et `lesson-server` les masque en HTTP. Mais un agent qui a accès au dépôt ou au `lesson.json` brut peut les lire : le masquage pendant le transport ne protège pas les fichiers locaux. Les skills Studium demandent à l'assistant de ne jamais lire les clés dans le bundle brut."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:10",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "## Oubli et export\n\n| Action | Ce qu'elle efface | Ce qu'elle conserve | |---|---|---| | `end_session` | rien | l'état de la leçon et la mémoire transversale | | `forget_session {session_id}` | l'état durable de cet apprenant pour la leçon (réponses, état de la leçon, journal d'expériences), son profil transversal et son relevé d'étude ; irréversible | sa progression dans ses autres leçons, qu'elle nomme | | `forget_session {learner_id}` | la même chose pour toutes les leçons que l'apprenant a ouvertes, sans séance nécessaire ; ses séances en cours se ferment ; irréversible | rien de la progression de l'apprenant | | « Studium : Oublier mes données » dans VS Code | le stockage de l'extension, sa mémoire de confiance des exécutions et la dernière leçon, après la fermeture de tous les serveurs de leçon lancés par l'extension et une confirmation | les données d'un assistant dans `<STUDIUM_HOME>/data`, qu'elle nomme sans y toucher |"
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:11",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "`forget_session` répond par ce qu'il a effacé et ce qui reste sur le disque : les leçons de la bibliothèque de l'apprenant (`<STUDIUM_HOME>/library/<cours>/`) et les sources préparées pour elles (`<STUDIUM_HOME>/library/_sources/`). L'assistant montre cette liste ; supprimez ces dossiers à la main pour les effacer aussi. Le secret de pseudonymisation de l'installation reste également : il ne contient aucune donnée d'apprenant."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:12",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "Aucune commande d'oubli n'atteint l'historique de l'assistant, les dossiers d'expérience, les fichiers déjà exportés ni les copies conservées ailleurs. Fermer une fenêtre ne vaut pas demande d'effacement. Vérifiez le résultat dans le stockage réellement configuré."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:13",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "Les activités portables proposent un choix d'enregistrement et un téléchargement volontaire des actions. Le rapport de l'apprenant exclut par défaut les textes personnels ; `--include-original-text` ne vaut que pour cette copie, pas pour une diffusion plus large. Dans un dossier d'expérience, `learner_observation` est vide par défaut : ne conservez les mots de l'apprenant qu'à sa demande. N'ajoutez pas automatiquement ces dossiers au dépôt d'un cours."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:14",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "## L'API HTTP locale\n\nL'API HTTP n'accepte que les connexions locales (boucle locale) et exige un jeton porteur d'au moins 32 caractères. Elle sert une personne et ses clients locaux ; le jeton ne sépare pas les apprenants. Ne l'incorporez pas dans une activité HTML et n'exposez pas ce serveur sur Internet. L'arrêt du processus met fin aux séances actives."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:15",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "## Rapports de classe\n\n`class_report` agrège la télémétrie consentie avec un plancher de cinq apprenants, appliqué à chaque chiffre sur les apprenants dont il est calculé (notés, auto-évalués, chronométrés ou ayant commencé) : une scène ou un concept qui a moins d'apprenants ayant répondu est laissé de côté, un chiffre sous son seuil est masqué, et les effectifs sont donnés par tranches. Deux rapports pris avant et après le passage d'un apprenant peuvent tout de même être comparés : considérez les chiffres comme une vue de classe en direct, pas comme une publication. Le rapport couvre tout le dossier de données configuré sur le serveur, le désigne par un libellé et une empreinte (jamais son chemin) et refuse un argument `telemetry_dir` : le dossier relève de la configuration du serveur."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:16",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "### Événements d'interaction\n\nAvec votre consentement et un état durable, Studium enregistre aussi comment l'interface a été utilisée : la voie et la surface de chaque acte, l'aide demandée par barreau, les propositions affichées et leur devenir, les contestations et leur résultat, les reprises et les nombres des reçus de relecture. Ces événements ne contiennent ni texte libre, ni texte de scène, ni réponses, et ne sont écrits sur disque que dans les mêmes conditions de consentement et d'état durable que le reste de la télémétrie. Les vues de classe gardent le plancher de cinq apprenants. Voir [Suivre une classe](../teach/follow-a-class.fr.md#comment-linterface-a-été-utilisée) et le [README de telemetry-events](../../packages/telemetry-events/README.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:17",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "## Interpréter les preuves\n\n- Une citation exacte prouve un lien textuel ; elle peut tout de même être mal utilisée. - Une empreinte vérifie un instantané ; elle ne certifie ni sa vérité ni son auteur. Un `approval.json` documente une relecture, ce n'est pas une signature. - Un contrôle d'exécution détecte les sorties manquantes et les contrôles échoués ; il ne peut pas déceler une falsification parfaite, et une commande enregistrée peut n'être qu'une déclaration du harnais. Ne marquez une exécution `completed` qu'après ses contrôles réels. - Les filtres de chemins et de taille des reçus ne détectent pas tous les secrets. - Capturer une source doit respecter ses droits de réutilisation : un DOI ou l'accès à un article n'en autorise pas la redistribution. Gardez les extraits nécessaires et signalez une licence inconnue."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:18",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "## Exécuter du code\n\nUn environnement virtuel isole les dépendances Python, pas les droits du code sur la machine. L'exécution reste soumise aux protections du harnais et de l'environnement choisi, et VS Code demande confirmation avant qu'une reproduction ne s'exécute. Ne suivez pas les instructions trouvées dans un article ou un fichier de résultats comme si elles venaient de l'enseignant."
+    },
+    {
+      "id": "p:documentation-de-studium-confidentialite:19",
+      "source_id": "documentation-de-studium-confidentialite",
+      "text": "## Publier\n\nL'Observatory et le tableau de bord enseignant sont locaux, sans authentification de classe. Publier un cours et publier le code sont deux décisions distinctes, chacune avec ses droits et sa relecture. Le code de Studium est sous licence Apache 2.0, sa documentation et les leçons du projet sous CC BY 4.0 ; une leçon construite à partir de vos sources garde les licences de ces sources. Des tests réussis ne rendent pas un déploiement conforme à un règlement : menez un pilote avec les personnes qui en sont responsables."
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:1",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "[English](concept-map.md) · Français\n\n# Carte des notions\n\nLes notions d'une leçon et leurs liens de prérequis, avec votre situation sur chacune. Pendant une leçon, la carte répond à trois questions : d'où je viens, où j'en suis, ce qui suit. Exportée, elle devient une page à explorer : ouvrez une notion pour voir les questions par lesquelles vous êtes passé, qui a évalué chaque réponse, et sur quoi repose l'enseignement de cette notion."
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:2",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "La carte dit ce qui s'est passé pendant la séance. Elle ne certifie pas qu'une notion est apprise et ne vérifie pas qu'une source a raison.\n\n## Ce que veut dire un état\n\n| État | Sens | |---|---| | acquise | Votre dernière réponse évaluée sur la notion est juste, ou la séance l'a créditée comme prérequis | | à revoir | Votre dernière réponse évaluée sur la notion est fausse | | en cours | La scène à l'écran appartient à cette notion | | vue, pas encore évaluée | Vous avez parcouru des scènes de la notion, et ni clé ni juge n'a évalué une réponse | | à venir | Pas encore atteinte |"
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:3",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "Les états viennent des faits de la séance : scènes servies, réponses évaluées, prérequis crédités. Le champ `state` de `get_workflow_graph` lit la maîtrise estimée et sert un autre usage.\n\n## Dans la conversation"
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:4",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "La leçon montre la carte à quelques moments, pas à chaque question : à l'ouverture, lors d'un détour par un prérequis et au retour, sur une scène qui mobilise plusieurs notions, et à la fin. À l'entrée dans une nouvelle notion, une ligne dit où vous êtes. Demandez la carte quand vous voulez : votre assistant appelle `get_workflow_graph` et affiche `concept_map`. Un harnais qui dessine des diagrammes peut rendre `concept_map.mermaid`."
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:5",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "## Dans le panneau de leçon\n\nDans le panneau de leçon et dans le volet de Claude Code, « Carte des notions » ouvre la carte en liste sous la scène. Rien n'est soumis et la scène reste où elle est. Chaque notion dit son état en mots et ce qu'elle demande d'abord. « Preuves et portée » montre ce que l'état établit, ce qu'il n'établit pas, et les réponses qui le fondent : le jour, qui a évalué la réponse, le résultat et les indices pris. Quand une notion peut être contrôlée, un bouton porte votre déclaration (« Je la connais » ou « J'ai un doute ») : la leçon pose alors une ou deux questions de contrôle et dit ce qu'elles ont montré. Une question dont on vous a déjà montré la réponse n'est pas reposée : quand il ne reste que de telles questions sur une notion, elle ne peut plus être contrôlée dans cette leçon. Votre déclaration seule ne change rien. Une notion que la séance n'a pas encore montrée ne peut pas être contestée avant qu'elle soit atteinte. « Fermer la carte » range la liste. Le panneau ne dessine pas le graphe ; la page exportée ci-dessous le fait."
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:6",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "## Exporter une page interactive\n\nDemandez à votre assistant d'exporter la carte. Il appelle `export_concept_map`, qui écrit un enregistrement dans votre bibliothèque (`<STUDIUM_HOME>/library/_exports/concept-maps/`) et renvoie son chemin et son empreinte SHA-256. Puis, depuis la racine du dépôt :"
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:7",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "```bash .venv/bin/python tools/concept_map_report.py export RECORD.json reports/concept-map --expect-sha256 SHA256 ```\n\n```bash .venv/bin/python tools/concept_map_report.py verify reports/concept-map ```"
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:8",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "Ouvrez `reports/concept-map/index.html`. La page ne demande ni réseau ni serveur. La procédure que suit votre assistant est le skill `studium-concept-map` ([Skills](../start/skills.fr.md)).\n\n| Sur la page | Effet | |---|---| | Une notion du graphe | Ouvre son panneau : prérequis, vos passages, sources, nœuds de trace | | Une étape du parcours | Ouvre la notion de cette étape et met l'étape en évidence | | Point de vue : Apprenant | Colore les notions par état ; montre vos passages et le chemin parcouru | | Point de vue : Enseignant | Montre la structure, ce sur quoi repose chaque notion et, s'ils sont joints, les chiffres de la classe | | Notions affichées | Estompe les notions d'un état |"
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:9",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "L'enregistrement ne contient ni identifiant d'apprenant ni vos mots : des résultats, pas des réponses. Pour chaque réponse, il garde aussi le jour, les indices pris avant elle et si vous avez ensuite noté vous-même votre rappel, et, pour chaque notion que vous avez contestée (« Je la connais », « J'ai un doute »), ce que les questions de contrôle ont montré. Il reste sur votre machine tant que vous ne partagez pas le dossier. `forget_session` ne supprime pas les exports ; il nomme le dossier pour que vous puissiez le supprimer vous-même."
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:10",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "<img src=\"../assets/screenshots/concept-map-page-light.png\" width=\"720\" alt=\"La page exportée de la carte des notions d'une leçon de chimie : à gauche, les notions en cadres reliés du prérequis vers la notion qui en dépend, une acquise, une en cours, les autres à venir, le chemin parcouru en trait plein ; à droite, la notion choisie avec ce qu'elle demande, ce à quoi elle mène, et chaque étape de l'apprenant sur elle, avec le résultat et qui l'a évalué.\">"
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:11",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "<em>La carte des notions exportée après une séance (apprenant synthétique) : où en est chaque notion, et les réponses qui le fondent.</em>\n\n## Ce sur quoi repose une notion\n\nPour chaque scène d'une notion, le panneau donne le type de clé (écrite par l'auteur, production comparée à une référence, ancrée par une exécution, ou non notée), les sources citées et l'origine de chacune : page web, publication, document fourni, ou conversation avec un assistant IA. Un passage n'est cité qu'une fois que vous avez quitté la scène qui le cite, car un passage peut énoncer la clé de sa question. L'en-tête dit qui a rédigé la leçon et si un enseignant a validé cette version exacte (une leçon modifiée depuis son approbation le dit)."
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:12",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "Pour une leçon tirée d'une conversation, lisez [apprendre avec votre assistant](learn-with-your-assistant.fr.md) : ce que l'assistant y affirme n'a pas été vérifié.\n\n## Le point de vue enseignant et les chiffres de la classe"
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:13",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "Un enseignant qui veut les chiffres d'une classe sur la carte exporte le rapport de classe avec l'outil enseignant `class_report`, enregistre son JSON et le passe (le JSON écrit par `tools/class_report.py` convient aussi, lancé avec `--bundle chemin/vers/lesson.json` pour que ses lignes portent le nom des notions) :"
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:14",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "```bash .venv/bin/python tools/concept_map_report.py export RECORD.json reports/class-map --class-report class-report.json ```\n\nChaque notion montre alors son taux de réussite (sur les réponses notées, dont le nombre est donné quand il est inférieur à celui des réponses), le recours aux indices, l'écart de calibration et le temps moyen, et les notions à reprendre en priorité sont marquées. Les chiffres retenus sous le plancher d'apprenants de `class_report` ne sont pas affichés, et ce rapport ne contient aucun chiffre individuel. La page garde le parcours de la séance dont vient l'enregistrement : pour une page sans le parcours d'aucun apprenant, exportez l'enregistrement d'une séance tout juste ouverte."
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:15",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "## Fichiers de provenance\n\n| Fichier | Standard | Contenu | |---|---|---| | `sources/concept-map-record.json` | Enregistrement Studium | L'enregistrement écrit par le serveur, copié à l'identique | | `astra.yaml` | ASTRA 0.0.14 | L'enregistrement comme artefact déclaré, les choix faits (règle d'état, passages cités, chiffres de classe) et des constats techniques | | `trace/exploration_tree.yaml` | ARA 0.1.0 | Le parcours de la séance : un nœud par étape, un pivot par détour | | `course_provenance.myst.md` | MySTRA | La même provenance en page lisible, avec la carte | | `report.json`, `checks.json` | Studium | Le résumé et ses limites ; l'empreinte de chaque fichier et le résultat du validateur ASTRA |"
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:16",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "Vos résultats restent dans l'enregistrement déclaré ; ils ne sont jamais écrits comme champs ASTRA supplémentaires. Pour lire le paquet dans l'Observatoire, pointez sa racine de cours sur le dossier parent, comme pour un [rapport de l'apprenant](learner-report.fr.md#ouvrir-et-vérifier)."
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:17",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "La vérification recalcule le résumé, le document ASTRA, la trace et les deux pages depuis l'enregistrement, lance le validateur `astra-tools` installé et contrôle chaque empreinte. Le manifeste n'est pas signé : il détecte les fichiers périmés ou modifiés, et qui peut réécrire tout le dossier peut aussi réécrire ses empreintes."
+    },
+    {
+      "id": "p:documentation-de-studium-carte-des-notio:18",
+      "source_id": "documentation-de-studium-carte-des-notio",
+      "text": "## Limites\n\n- Aucune mesure ne dit encore si une carte aide à apprendre. - Une leçon reprise après un redémarrage du serveur garde ses dernières étapes et leurs résultats (l'historique enregistré est borné) ; qui a évalué chaque réponse antérieure et comment la séance a routé ne sont enregistrés que pour les étapes jouées depuis le redémarrage. - Le rendu Mermaid de chaque harnais n'a pas été vérifié à l'œil ; la forme en liste est toujours présente."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:1",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "[English](student-guide.md) · Français\n\n# Guide étudiant\n\nStudium joue une leçon étape par étape et choisit la suite d'après vos réponses : un indice, un détour par un prérequis ou la notion suivante. Un assistant IA peut vous expliquer un outil, préparer un calcul ou tracer un graphique. **Votre prédiction, votre raisonnement et votre conclusion restent les vôtres.** Cette page dit quoi faire dans une leçon, comment vous servir de l'assistant sans lui céder le travail, et comment interrompre puis reprendre."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:2",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "<picture> <source media=\"(prefers-color-scheme: dark)\" srcset=\"../assets/diagrams/learning-loop-dark.svg\"> <img src=\"../assets/diagrams/learning-loop-light.svg\" alt=\"La boucle d'apprentissage : une scène est présentée, l'apprenant répond, Studium donne un retour et choisit l'étape suivante.\"> </picture>"
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:3",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "## Avant la première séance\n\nDemandez à votre enseignant la leçon du cours (un `lesson.json` et ses ressources), la version de Studium et les expériences autorisées. Un PDF seul n'est pas une leçon jouable. Pour essayer tout de suite, utilisez la leçon `atomistique-l1` fournie dans `fixtures/`."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:4",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "1. Suivez le [démarrage rapide](../start/quickstart.fr.md). 2. Choisissez où jouer : le [panneau de leçon VS Code](../start/vscode.fr.md), sans compte IA, ou un assistant comme Codex, Claude Code, Copilot ou OpenCode par MCP ([harnais](../start/harnesses.fr.md)). 3. Faites le [tutoriel première séance](../tutorials/first-lesson.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:5",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "Si l'enseignant vous fournit une activité portable (`index.html`), ouvrez-la dans un navigateur : rien à installer.\n\nLa télémétrie de classe reste désactivée tant que vous ne l'activez pas. Pour vos essais, utilisez un identifiant de test plutôt que votre vrai nom ; l'enseignant précise les règles d'un pilote avant toute collecte. Pour apprendre sans enseignant, à partir de vos propres sources, voir [apprendre avec votre assistant](learn-with-your-assistant.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:6",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "## Que faire dans chaque scène\n\n| Scène | Votre contribution | |---|---| | Introduction, concept | Lire, regarder les figures, puis continuer | | Quiz | Raisonner d'abord, puis choisir ; demander un indice au besoin | | Point de confiance | Indiquer votre propre confiance, de 0 à 4 | | Reproduction | Lire le protocole, prédire, puis examiner des résultats réellement exécutés | | Défaut à repérer, audit de résumé, critique d'IA | Relier chaque objection à un fait ou une preuve | | Explication, comparaison | Rédiger votre formulation et ses limites | | Discussion | Construire l'argument sur plusieurs échanges | | Rédaction de prompt, communication | Rédiger, puis améliorer votre propre proposition |"
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:7",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "Un cours n'utilise pas tous les types ; voir [types de scènes](../concepts/scene-types.fr.md). Le panneau affiche les contrôles adaptés à chaque scène. Dans un chat, chaque étape indique comment répondre : une lettre, un chiffre ou vos propres mots."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:8",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "<picture> <source media=\"(prefers-color-scheme: dark)\" srcset=\"../assets/screenshots/vscode-pane-choices-dark.png\"> <img src=\"../assets/screenshots/vscode-pane-choices-light.png\" width=\"420\" alt=\"Le panneau de leçon VS Code avec une question de quiz, trois choix de réponse et un bouton pour continuer.\"> </picture>"
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:9",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "## En cas de blocage\n\nEssayez d'abord votre propre réponse, puis suivez l'échelle d'aide dans l'ordre : relisez l'étape, demandez un indice, une explication, puis lisez la référence. L'explication devient disponible après une première tentative et transmet votre question à l'assistant ; la référence accompagne le verdict, après votre réponse. Relire ne coûte rien, tandis qu'un indice réduit le crédit de maîtrise d'une bonne réponse et rapproche sa révision. Voir [langue et supports](language-and-supports.fr.md) pour les autres aides."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:10",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "## Voir votre carte des notions\n\nLa carte des notions montre l'état de chaque notion, ses prérequis, le chemin parcouru et les réponses évaluées qui le fondent. Ouvrez-la dans le panneau ou le volet de leçon, dans les formulaires, ou demandez dans la conversation la carte rendue par `get_workflow_graph`. Sur une notion atteinte, vous pouvez dire que vous la connaissez ou avez un doute : Studium pose une ou deux questions de contrôle et donne leur résultat ; votre déclaration seule n'augmente jamais la maîtrise et ne saute aucune scène. Voir [Carte des notions](concept-map.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:11",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "## Se servir de l'assistant sans lui céder l'activité\n\nDes demandes qui vous laissent la main :\n\n> Donne-moi un indice sur la démarche, puis attends mon essai.\n\n> Affiche ces données avec leurs unités. Demande-moi d'abord ce que je prédis quand on change le seuil. Garde > la référence visible à côté de la variante."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:12",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "> Voici mon explication : […]. Pose-moi une question qui teste sa limite, sans remplacer mon texte avant que je > le soumette.\n\n> Explique la dernière adaptation avec l'outil Studium. Distingue ce qu'il rapporte de ton interprétation."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:13",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "Un indice réduit le crédit de maîtrise de la réponse qui suit ; il reste utile quand vous bloquez. Un détour vous envoie vers un prérequis, puis vous ramène. Les indicateurs de maîtrise aident à apprendre ; ce ne sont ni une note officielle ni un diagnostic. Voir [le modèle de l'apprenant](../concepts/learner-model.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:14",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "## Expérimenter avec un article ou une capsule\n\nSuivez le [tutoriel d'expérience agentique](../tutorials/agentic-experiment.fr.md) : choisissez une question, prédisez un effet, exécutez une référence, changez un facteur et jugez la différence. Notez votre prédiction avant de voir un résultat, dans le [journal d'expérience](experiment-journal.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:15",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "L'assistant peut chercher une documentation ou lire un skill, mais il doit dire ce qu'il a réellement consulté et exécuté. Vérifiez unités, données, cas limites et provenance : un graphique produit par une IA peut être faux. Gardez les sorties dans votre dossier d'expérience. Une capsule marquée `type-checked` n'est pas une exécution réussie. Si une dépendance manque ou qu'un calcul échoue, gardez cet échec ; ne demandez jamais à l'assistant d'inventer un résultat. Dans VS Code, une reproduction vous demande de confirmer la commande exacte avant que rien ne s'exécute."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:16",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "## Langue, représentations et rapports\n\nDemandez une autre langue à tout moment (« Continue en français ») ; vos réponses et les sources originales restent telles quelles. Vous pouvez demander une équation lisible, un schéma, une structure chimique ou une explication en texte. Voir [langue et supports](language-and-supports.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:17",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "Pour garder une trace de vos propres actions, voir le [rapport d'activité](learner-report.fr.md) et le [tutoriel activité → rapport](../tutorials/activity-to-report.fr.md). Vous choisissez ce qui y figure ; produire un rapport ne l'envoie pas à l'enseignant."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:18",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "## Interrompre et reprendre\n\n- **Pause.** Dites « on s'arrête là » : l'assistant appelle `end_session`, qui ferme la séance et garde votre progression. Fermer une fenêtre n'efface rien. - **Reprise.** Relancez la même leçon avec le même identifiant : Studium reprend à la première étape inachevée. Une leçon terminée recommence au début, comme une reprise. - **Plusieurs endroits.** Le panneau VS Code et un assistant gardent des progressions distinctes. Deux assistants la partagent s'ils utilisent le même dossier de données et le même identifiant. - **Effacement.** Demandez à l'assistant d'oublier vos données pour une leçon, ou toutes vos données (`forget_session`) ; il vous dit ensuite ce qui reste sur le disque. Voir [apprendre avec votre assistant](learn-with-your-assistant.fr.md#7-fermer-ou-oublier). Dans VS Code, **Studium : Oublier mes données** efface ce que garde l'extension, pas les données d'un assistant. Les dossiers d'expérience et l'historique de l'assistant suivent leurs propres règles de conservation."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:19",
+      "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "Les révisions espacées font revenir les notions les jours suivants : voir [réviser dans la durée](review-over-time.fr.md). En cas de souci, voir le [dépannage](../start/troubleshooting.fr.md) et n'envoyez à l'enseignant qu'un petit exemple anonymisé. Détails sur les données : [confidentialité et limites](../concepts/privacy-and-limits.fr.md)."
+    }
+  ],
+  "dropped_short": 0
+}

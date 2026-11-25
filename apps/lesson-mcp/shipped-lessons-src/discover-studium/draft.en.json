@@ -1,0 +1,402 @@
+{
+  "title": "Discover Studium",
+  "language": "en",
+  "goal": "Understand how Studium works and find my way around its interface by using it",
+  "target": "Newcomers to Studium",
+  "discipline": "Studium",
+  "duration_minutes": 11,
+  "concepts": [
+    {
+      "id": "studium.relay",
+      "label": "The assistant relays, you answer",
+      "bloom": "remember",
+      "description": "Studium asks the questions and keeps the answer keys; an assistant shows each step and passes your own words on, never answering for you."
+    },
+    {
+      "id": "studium.graph",
+      "label": "A course is a graph of concepts",
+      "bloom": "understand",
+      "description": "Scenes are tied to concepts linked by typed edges; prerequisites decide what comes next, with a detour when one is missing."
+    },
+    {
+      "id": "studium.provenance",
+      "label": "Who holds the key, and where it comes from",
+      "bloom": "understand",
+      "prerequisites": [
+        "studium.graph"
+      ],
+      "description": "Each answer is assessed by whoever holds its key; written answers are never scored by keywords; each graded item cites a passage matched character for character."
+    },
+    {
+      "id": "studium.reviews",
+      "label": "Spaced reviews",
+      "bloom": "understand",
+      "prerequisites": [
+        "studium.provenance"
+      ],
+      "description": "FSRS schedules a review per concept; graded answers move mastery, a self-rating only schedules the next review."
+    },
+    {
+      "id": "studium.local",
+      "label": "Local first",
+      "bloom": "remember",
+      "description": "Progress stays on your machine; what leaves it is what your assistant sends to its model provider."
+    }
+  ],
+  "scenes": [
+    {
+      "type": "intro",
+      "title": "Welcome",
+      "concept_refs": [
+        "studium.relay"
+      ],
+      "estimated_seconds": 40,
+      "markdown": "This lesson ships with Studium and takes about ten minutes. It shows how Studium works by making you use it: each mechanism is explained on the step where you meet it.\n\n**Look at the top of the screen first.** The notice there says who wrote this lesson and what is assessed. It is true of this lesson too: an AI agent drafted it from Studium's own documentation, and no teacher has checked it yet. In the VS Code pane the notice is the banner above the step; in a chat, your assistant shows it on the first screen.\n\n**You answer, the assistant relays.** Studium asks the questions and keeps the answer keys. When you play through an assistant (Copilot, Claude Code, Codex or another), it shows each step as Studium wrote it, waits for your answer and passes your own words on. It must never answer, choose or rate for you.\n\nContinue when you are ready.",
+      "quotes": [
+        {
+          "passage_id": "doc:assistant",
+          "text": "Answer yourself. The assistant passes your words on and must not answer, choose or rate for you."
+        }
+      ]
+    },
+    {
+      "type": "quiz",
+      "title": "Who answers",
+      "concept_refs": [
+        "studium.relay"
+      ],
+      "estimated_seconds": 40,
+      "question": "You play this lesson through an assistant. Who should give the answer to this question?\n\nBefore you answer, you may say how confident you are, from 0 (not confident) to 4 (very confident): in the VS Code pane, tap a number in the row under the choices; in a chat, say it with your answer, for example \"A, confidence 3\", and your assistant can pass it on. It is optional. Studium compares that confidence with what your answers show.",
+      "choices": [
+        {
+          "text": "You: the assistant shows the step and passes your own words on",
+          "correct": true
+        },
+        {
+          "text": "The assistant, since it can read the whole lesson",
+          "correct": false
+        },
+        {
+          "text": "Studium, which picks the most likely answer for you",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Right. Studium keeps the keys and the assistant only relays: your answer, in your words.",
+      "feedback_incorrect": "Not quite. Think about whose knowledge the lesson is measuring.",
+      "hints": [
+        "Studium measures what you know, not what the assistant knows."
+      ],
+      "quotes": [
+        {
+          "passage_id": "doc:assistant",
+          "text": "Answer yourself. The assistant passes your words on and must not answer, choose or rate for you."
+        }
+      ]
+    },
+    {
+      "type": "concept",
+      "title": "A course is a graph",
+      "concept_refs": [
+        "studium.graph"
+      ],
+      "estimated_seconds": 60,
+      "markdown": "A Studium lesson is more than a list of screens. Each step, a *scene*, is tied to one or more **concepts**, and the concepts are linked in a typed graph, the Learning Workflow Graph: an edge such as `prerequisite_for` says that one idea must be in place before another.\n\nThis lesson has five concepts. Two links matter here: *Who holds the key* needs *A course is a graph* first, and *Spaced reviews* needs *Who holds the key*.\n\nThe graph helps decide what comes next. When you reach a concept whose prerequisite is still missing, the lesson can make a **detour** to a question on that prerequisite, then come back. After two errors in a row on the same concept, it replays the step. That is remediation.\n\n**Try it:** open the concept map. In the VS Code pane, press **Concept map** under the step; in a chat, ask \"where am I?\". Each concept shows its state: acquired, to review, in progress, seen but not assessed yet, or upcoming.",
+      "quotes": [
+        {
+          "passage_id": "doc:how",
+          "text": "The Learning Workflow Graph (LWG) has two kinds of nodes, *concepts* and *tasks*, and typed edges"
+        },
+        {
+          "passage_id": "doc:how",
+          "text": "When a prerequisite is missing, the session can route the learner to it first and then return."
+        }
+      ]
+    },
+    {
+      "type": "quiz",
+      "title": "When a prerequisite is missing",
+      "concept_refs": [
+        "studium.graph"
+      ],
+      "estimated_seconds": 40,
+      "question": "In this lesson, *Who holds the key* needs *A course is a graph*. What can happen if you reach it while *A course is a graph* is still missing?\n\nStuck? Ask for a **hint**: the **Hint** button in the pane, or \"a hint, please\" in a chat. A right answer given after a hint counts a little less toward your mastery, and comes back sooner for review.",
+      "choices": [
+        {
+          "text": "The lesson makes a detour to a question on the missing prerequisite, then comes back",
+          "correct": true
+        },
+        {
+          "text": "Nothing: the steps always follow the same order, whatever you answer",
+          "correct": false
+        },
+        {
+          "text": "The lesson stops until a teacher unlocks the concept",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Yes. The graph is part of the lesson file, so a teacher can read and correct it, and the lesson uses it to choose the next step.",
+      "feedback_incorrect": "Not this one. Open the concept map and look at what each concept needs first.",
+      "hints": [
+        "Read the third paragraph of the previous step again.",
+        "The concept map says, for each concept, what it needs first."
+      ],
+      "quotes": [
+        {
+          "passage_id": "doc:how",
+          "text": "When a prerequisite is missing, the session can route the learner to it first and then return."
+        },
+        {
+          "passage_id": "doc:student",
+          "text": "A detour sends you to a prerequisite and then back."
+        }
+      ]
+    },
+    {
+      "type": "concept",
+      "title": "Who holds the key",
+      "concept_refs": [
+        "studium.provenance"
+      ],
+      "estimated_seconds": 60,
+      "markdown": "Every answer is assessed by whoever holds its key, and Studium tells you who that is.\n\n- A **quiz** is checked against the key its author wrote. Here the author is an AI agent; in the pane, the line over the verdict says so: \"Assessed by the AI-drafted key — check it against the cited passage\".\n- A **written answer** (an explanation, a comparison) is assessed only by a judge model, when one is configured. Without one, Studium does not pretend: it shows you a reference and you compare yourself. It never counts keywords.\n- Only assessed answers move your **mastery**.\n\n**Sources.** Each question of this lesson cites a passage of Studium's documentation. Studium refused to write the lesson until every quotation matched its passage character for character. The passages appear after you answer, when you leave the step, so they never give the answer away. An exact quote proves a textual link, not that the question uses it well: if a key looks wrong to you, say so.",
+      "quotes": [
+        {
+          "passage_id": "doc:honesty",
+          "text": "Studium tells the learner who wrote each answer key, whether anything actually assessed their answer, and whether a teacher validated the lesson."
+        },
+        {
+          "passage_id": "doc:honesty",
+          "text": "An exact quote proves a textual link, not that the item uses it correctly."
+        },
+        {
+          "passage_id": "doc:assistant",
+          "text": "every quotation must match a passage character for character"
+        }
+      ]
+    },
+    {
+      "type": "quiz",
+      "title": "Who wrote this key",
+      "concept_refs": [
+        "studium.provenance"
+      ],
+      "estimated_seconds": 40,
+      "question": "Who wrote the key that checks your answers to the questions of this lesson?",
+      "choices": [
+        {
+          "text": "An AI agent, from Studium's documentation; no teacher has checked it yet",
+          "correct": true
+        },
+        {
+          "text": "A teacher, who validated the lesson",
+          "correct": false
+        },
+        {
+          "text": "Nobody: Studium compares your words with a list of keywords",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Right, and the notice at the top said so. A lesson reads as validated only when a teacher's approval record matches its exact file.",
+      "feedback_incorrect": "Not this one. Look at the notice at the top of the lesson again.",
+      "hints": [
+        "The notice at the top of the lesson names who drafted it."
+      ],
+      "quotes": [
+        {
+          "passage_id": "doc:honesty",
+          "text": "The approval record is the only source of the validated status."
+        },
+        {
+          "passage_id": "doc:honesty",
+          "text": "AI-drafted lesson from your sources, not checked by a teacher"
+        }
+      ]
+    },
+    {
+      "type": "explain_back",
+      "title": "Why not count keywords",
+      "concept_refs": [
+        "studium.provenance"
+      ],
+      "estimated_seconds": 120,
+      "prompt": "In two or three sentences of your own: why does Studium not score a written answer by counting the expected words, and what does it do instead when no judge model is configured?\n\nAfter you send it, you will see the key points and a model answer. Compare them with what you wrote, then rate how well you recalled it: again, hard, good or easy.",
+      "key_points": [
+        {
+          "text": "Finding the expected words measures vocabulary, not understanding",
+          "cues": [
+            "vocabular",
+            "understand",
+            "word"
+          ]
+        },
+        {
+          "text": "Without a judge, the answer is not assessed: you compare it with a reference",
+          "cues": [
+            "compar",
+            "reference",
+            "not assess"
+          ]
+        },
+        {
+          "text": "Your recall rating schedules your reviews and never changes your mastery",
+          "cues": [
+            "rating",
+            "review",
+            "mastery"
+          ]
+        }
+      ],
+      "model_explanation": "Finding the expected words in an answer shows that you know the vocabulary, not that you understood: on a real lesson, checked against a teacher, keyword scoring inverted 11 answers out of 12. So without a judge model Studium assesses nothing: it shows the key points and a model answer, you compare yourself and rate your recall. That rating only sets the date of your next review; it never changes your mastery.",
+      "quotes": [
+        {
+          "passage_id": "doc:honesty",
+          "text": "Matching authored cue words anywhere in an answer measures vocabulary, not understanding: measured against a teacher on a real lesson, it inverted 11 answers out of 12."
+        },
+        {
+          "passage_id": "doc:honesty",
+          "text": "Without a judge, the feedback shows the reference to compare with and states no count."
+        }
+      ]
+    },
+    {
+      "type": "concept",
+      "title": "Reviews over days",
+      "concept_refs": [
+        "studium.reviews"
+      ],
+      "estimated_seconds": 60,
+      "markdown": "Studium brings a concept back when you are about to forget it. For each concept it keeps a memory model, FSRS (Free Spaced Repetition Scheduler), that estimates how likely you are to recall it now.\n\n- A quiz answer schedules a review by itself: wrong reads as \"again\", right after a hint as \"hard\", right as \"good\".\n- After a written answer no judge assessed, **your recall rating** sets the next review. It is your own judgement, so it never changes your mastery.\n- A reading step or a confidence check schedules nothing.\n\n**Where reviews show up afterwards.** The last screen of this lesson gives your next review date. Later, in VS Code, the status bar counts what is waiting (\"Studium · 2 to review\") and the sidebar has a Reviews entry. With an assistant, ask \"What should I study with Studium today?\": it reads your study plan, then plays the reviews due across all your lessons.",
+      "quotes": [
+        {
+          "passage_id": "doc:reviews",
+          "text": "Yes: wrong reads as \"again\", right after a hint as \"hard\", right as \"good\""
+        },
+        {
+          "passage_id": "doc:reviews",
+          "text": "It is never treated as proof that you know the concept"
+        }
+      ]
+    },
+    {
+      "type": "quiz",
+      "title": "What your rating changes",
+      "concept_refs": [
+        "studium.reviews"
+      ],
+      "estimated_seconds": 40,
+      "question": "After a written answer no judge assessed, you rate your recall \"good\". What does that change?",
+      "choices": [
+        {
+          "text": "Only when the concept comes back for review",
+          "correct": true
+        },
+        {
+          "text": "Your mastery of the concept goes up",
+          "correct": false
+        },
+        {
+          "text": "Both your mastery and the date of your next review",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Yes. Your rating is your own judgement: it schedules, it does not measure.",
+      "feedback_incorrect": "Not quite. Ask yourself whether a rating you give yourself can count as evidence of what you know.",
+      "hints": [
+        "Reread what the rating screen said under \"Rate your recall\"."
+      ],
+      "quotes": [
+        {
+          "passage_id": "doc:honesty",
+          "text": "The rating schedules the next review (FSRS) for every concept of the rated scene and never moves mastery."
+        }
+      ]
+    },
+    {
+      "type": "concept",
+      "title": "Where your data lives",
+      "concept_refs": [
+        "studium.local"
+      ],
+      "estimated_seconds": 60,
+      "markdown": "Studium keeps your progress on your own machine.\n\n- With an assistant, the lessons it builds for you go to `~/.studium/library` and your progress to `~/.studium/data`, in folders named by a pseudonym, never by your id. The VS Code extension keeps its own progress in VS Code's storage.\n- Class telemetry is off unless you opt in.\n- **What leaves your machine** is what your assistant reads: if it runs on a remote model, the steps it shows and the answers it relays go to that model's provider, under the provider's terms. Playing in the VS Code pane needs no AI account.\n- To erase your progress, ask your assistant to forget your data, or run **Studium: Forget my data** in VS Code.\n\nThis lesson ships with Studium, inside the VS Code extension and the npm package. It stays apart from your library: it never replaces a lesson of yours. When you are done, build a lesson from your own sources: tell your assistant \"I want to learn … with Studium\".",
+      "quotes": [
+        {
+          "passage_id": "doc:privacy",
+          "text": "That does not mean everything stays local: an assistant connected to a remote model sends what it reads to its provider."
+        },
+        {
+          "passage_id": "doc:privacy",
+          "text": "Inside the data folder, each learner has a folder named by a pseudonym, never by their id"
+        }
+      ]
+    },
+    {
+      "type": "quiz",
+      "title": "What leaves your machine",
+      "concept_refs": [
+        "studium.local"
+      ],
+      "estimated_seconds": 40,
+      "question": "You play this lesson through an assistant that runs on a remote model. What leaves your machine?",
+      "choices": [
+        {
+          "text": "What the assistant reads and relays, sent to its model provider",
+          "correct": true
+        },
+        {
+          "text": "Nothing at all: everything stays on your machine",
+          "correct": false
+        },
+        {
+          "text": "Your progress, sent to a Studium server",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Right. Studium keeps its state on your machine; the assistant's provider sees what the assistant reads. Choose an assistant whose terms suit you.",
+      "feedback_incorrect": "Not quite. Think about the assistant itself, not only Studium.",
+      "hints": [
+        "Where does your assistant's model run?"
+      ],
+      "quotes": [
+        {
+          "passage_id": "doc:privacy",
+          "text": "That does not mean everything stays local: an assistant connected to a remote model sends what it reads to its provider."
+        }
+      ]
+    },
+    {
+      "type": "quiz",
+      "title": "Reading the map",
+      "concept_refs": [
+        "studium.graph"
+      ],
+      "estimated_seconds": 40,
+      "question": "One more question on the graph of this lesson. Which concept had to be in place before *Spaced reviews*?\n\nThe concept map answers it: each concept says what it needs first.",
+      "choices": [
+        {
+          "text": "Who holds the key, and where it comes from",
+          "correct": true
+        },
+        {
+          "text": "Local first",
+          "correct": false
+        },
+        {
+          "text": "The assistant relays, you answer",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Yes. You can read the whole graph of a lesson in its concept map, and a teacher can read and correct it in the lesson file.",
+      "feedback_incorrect": "Not this one. Open the concept map and look at what *Spaced reviews* needs first.",
+      "hints": [
+        "Open the concept map: each concept lists what it needs first."
+      ],
+      "quotes": [
+        {
+          "passage_id": "doc:map",
+          "text": "Each concept says its state in words and what it needs first."
+        }
+      ]
+    }
+  ]
+}

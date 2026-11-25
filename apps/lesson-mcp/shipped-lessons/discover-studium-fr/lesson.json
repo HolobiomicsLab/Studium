@@ -1,0 +1,735 @@
+{
+  "schema_version": "1.4",
+  "bundle_id": "self-study-discover-studium-fr",
+  "source_plan_id": "ss-9866b6edc3519ff5",
+  "metadata": {
+    "title": "Découvrir Studium",
+    "target": "Personnes qui découvrent Studium",
+    "duration_minutes": 11,
+    "language": "fr",
+    "discipline": "Studium",
+    "authoring": {
+      "mode": "self_study",
+      "author_is_learner": false,
+      "drafted_by": "agent",
+      "note": "Comprendre comment fonctionne Studium et me repérer dans son interface en l'utilisant"
+    }
+  },
+  "concepts": [
+    {
+      "id": "studium.relay",
+      "title": "L'assistant relaie, tu réponds",
+      "description": "Studium pose les questions et garde les clés de réponse ; un assistant montre chaque étape et transmet tes propres mots, sans jamais répondre à ta place.",
+      "bloom_level_target": "remember"
+    },
+    {
+      "id": "studium.graph",
+      "title": "Un cours est un graphe de notions",
+      "description": "Les scènes sont rattachées à des notions reliées par des arêtes typées ; les prérequis décident de la suite, avec un détour quand l'un manque.",
+      "bloom_level_target": "understand"
+    },
+    {
+      "id": "studium.provenance",
+      "title": "Qui détient la clé, et d'où elle vient",
+      "description": "Chaque réponse est évaluée par qui détient sa clé ; une réponse rédigée n'est jamais notée par mots-clés ; chaque question évaluée cite un passage reproduit au caractère près.",
+      "bloom_level_target": "understand"
+    },
+    {
+      "id": "studium.reviews",
+      "title": "Les révisions espacées",
+      "description": "FSRS planifie une révision par notion ; les réponses évaluées font bouger la maîtrise, une auto-évaluation fixe seulement la prochaine révision.",
+      "bloom_level_target": "understand"
+    },
+    {
+      "id": "studium.local",
+      "title": "Local d'abord",
+      "description": "Ta progression reste sur ta machine ; ce qui en sort, c'est ce que ton assistant envoie au fournisseur de son modèle.",
+      "bloom_level_target": "remember"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s1-intro",
+      "type": "intro",
+      "title": "Bienvenue",
+      "objective_refs": [],
+      "concept_refs": [
+        "studium.relay"
+      ],
+      "estimated_seconds": 40,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-apprendre-un-su:10",
+            "title": "Documentation de Studium — Apprendre un sujet avec votre assistant",
+            "authors": [],
+            "excerpt": "l'assistant transmet vos mots et ne doit ni répondre, ni choisir, ni noter à votre place.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/learn-with-your-assistant.fr.md",
+            "license": "CC-BY-4.0"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T14:49:34.632Z",
+          "degraded": false
+        }
+      },
+      "markdown": "Cette leçon est livrée avec Studium et prend une dizaine de minutes. Elle te montre comment fonctionne Studium en te le faisant utiliser : chaque mécanisme est expliqué à l'étape où tu le rencontres.\n\n**Regarde d'abord le haut de l'écran.** L'avis qui s'y trouve dit qui a écrit cette leçon et ce qui est évalué. Il vaut aussi pour cette leçon : un agent d'IA l'a rédigée à partir de la documentation de Studium, et aucun enseignant ne l'a encore vérifiée. Dans le panneau VS Code, l'avis est la bannière au-dessus de l'étape ; dans une conversation, ton assistant le montre sur le premier écran.\n\n**Tu réponds, l'assistant relaie.** Studium pose les questions et garde les clés de réponse. Quand tu joues avec un assistant (Copilot, Claude Code, Codex ou un autre), il montre chaque étape telle que Studium l'a écrite, attend ta réponse et transmet tes propres mots. Il ne doit jamais répondre, choisir ou noter à ta place.\n\nContinue quand tu es prêt·e."
+    },
+    {
+      "id": "s2-quiz",
+      "type": "quiz",
+      "title": "Qui répond",
+      "objective_refs": [],
+      "concept_refs": [
+        "studium.relay"
+      ],
+      "estimated_seconds": 40,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-apprendre-un-su:10",
+            "title": "Documentation de Studium — Apprendre un sujet avec votre assistant",
+            "authors": [],
+            "excerpt": "l'assistant transmet vos mots et ne doit ni répondre, ni choisir, ni noter à votre place.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/learn-with-your-assistant.fr.md",
+            "license": "CC-BY-4.0"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T14:49:34.632Z",
+          "degraded": false
+        }
+      },
+      "question": "Tu joues cette leçon avec un assistant. Qui doit donner la réponse à cette question ?\n\nAvant de répondre, tu peux dire ta confiance, de 0 (pas sûr·e) à 4 (très sûr·e) : dans le panneau VS Code, touche un chiffre dans la rangée sous les choix ; dans une conversation, dis-la avec ta réponse, par exemple « A, confiance 3 », et ton assistant peut la transmettre. C'est facultatif. Studium compare cette confiance avec ce que montrent tes réponses.",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Toi : l'assistant montre l'étape et transmet tes propres mots",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "L'assistant, puisqu'il peut lire toute la leçon",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Studium, qui choisit pour toi la réponse la plus probable",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact. Studium garde les clés et l'assistant ne fait que relayer : ta réponse, avec tes mots.",
+      "feedback_incorrect": "Pas tout à fait. Demande-toi de qui la leçon mesure les connaissances.",
+      "hints": [
+        "Studium mesure ce que tu sais, pas ce que sait l'assistant."
+      ]
+    },
+    {
+      "id": "s3-concept",
+      "type": "concept",
+      "title": "Un cours est un graphe",
+      "objective_refs": [],
+      "concept_refs": [
+        "studium.graph"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-comment-fonctio:8",
+            "title": "Documentation de Studium — Comment fonctionne Studium",
+            "authors": [],
+            "excerpt": "Le Learning Workflow Graph (LWG) comporte deux sortes de nœuds, les *concepts* et les *tâches*, reliés par des arêtes typées",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/how-studium-works.fr.md",
+            "license": "CC-BY-4.0"
+          },
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-comment-fonctio:9",
+            "title": "Documentation de Studium — Comment fonctionne Studium",
+            "authors": [],
+            "excerpt": "Si un prérequis manque, la séance peut y conduire l'apprenant, puis revenir.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/how-studium-works.fr.md",
+            "license": "CC-BY-4.0"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T14:49:34.632Z",
+          "degraded": false
+        }
+      },
+      "markdown": "Une leçon Studium n'est pas qu'une suite d'écrans. Chaque étape, une *scène*, est rattachée à une ou plusieurs **notions**, et les notions sont reliées dans un graphe typé, le Learning Workflow Graph : une arête comme `prerequisite_for` dit qu'une idée doit être en place avant une autre.\n\nCette leçon a cinq notions. Deux liens comptent ici : *Qui détient la clé* demande d'abord *Un cours est un graphe*, et *Les révisions espacées* demande *Qui détient la clé*.\n\nLe graphe aide à choisir la suite. Quand tu arrives à une notion dont un prérequis manque encore, la leçon peut faire un **détour** par une question sur ce prérequis, puis revenir. Après deux erreurs de suite sur la même notion, elle rejoue l'étape. C'est la remédiation.\n\n**Essaie :** ouvre la carte des notions. Dans le panneau VS Code, appuie sur **Carte des notions** sous l'étape ; dans une conversation, demande « où en suis-je ? ». Chaque notion indique son état : acquise, à revoir, en cours, vue mais pas encore évaluée, ou à venir."
+    },
+    {
+      "id": "s4-quiz",
+      "type": "quiz",
+      "title": "Quand un prérequis manque",
+      "objective_refs": [],
+      "concept_refs": [
+        "studium.graph"
+      ],
+      "estimated_seconds": 40,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-comment-fonctio:9",
+            "title": "Documentation de Studium — Comment fonctionne Studium",
+            "authors": [],
+            "excerpt": "Si un prérequis manque, la séance peut y conduire l'apprenant, puis revenir.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/how-studium-works.fr.md",
+            "license": "CC-BY-4.0"
+          },
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-guide-etudiant:13",
+            "title": "Documentation de Studium — Guide étudiant",
+            "authors": [],
+            "excerpt": "Un détour vous envoie vers un prérequis, puis vous ramène.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/student-guide.fr.md",
+            "license": "CC-BY-4.0"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T14:49:34.632Z",
+          "degraded": false
+        }
+      },
+      "question": "Dans cette leçon, *Qui détient la clé* demande *Un cours est un graphe*. Que peut-il se passer si tu y arrives alors que *Un cours est un graphe* manque encore ?\n\nTu bloques ? Demande un **indice** : le bouton **Indice** dans le panneau, ou « un indice, s'il te plaît » dans une conversation. Une bonne réponse donnée après un indice compte un peu moins pour ta maîtrise et revient plus tôt en révision.",
+      "choices": [
+        {
+          "id": "a",
+          "text": "La leçon fait un détour par une question sur le prérequis manquant, puis revient",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Rien : les étapes suivent toujours le même ordre, quoi que tu répondes",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "La leçon s'arrête jusqu'à ce qu'un enseignant débloque la notion",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Oui. Le graphe fait partie du fichier de la leçon : un enseignant peut le lire et le corriger, et la leçon s'en sert pour choisir l'étape suivante.",
+      "feedback_incorrect": "Pas celle-ci. Ouvre la carte des notions et regarde ce que chaque notion demande d'abord.",
+      "hints": [
+        "Relis le troisième paragraphe de l'étape précédente.",
+        "La carte des notions dit, pour chaque notion, ce qu'elle demande d'abord."
+      ]
+    },
+    {
+      "id": "s5-concept",
+      "type": "concept",
+      "title": "Qui détient la clé",
+      "objective_refs": [],
+      "concept_refs": [
+        "studium.provenance"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-honnetete-et-pr:1",
+            "title": "Documentation de Studium — Honnêteté et provenance",
+            "authors": [],
+            "excerpt": "Studium dit à l'apprenant qui a écrit chaque clé de réponse, si quelque chose a réellement évalué sa réponse, et si un enseignant a validé la leçon.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/honesty-and-provenance.fr.md",
+            "license": "CC-BY-4.0"
+          },
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-honnetete-et-pr:20",
+            "title": "Documentation de Studium — Honnêteté et provenance",
+            "authors": [],
+            "excerpt": "Une citation exacte prouve un lien textuel, pas que la question l'utilise correctement.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/honesty-and-provenance.fr.md",
+            "license": "CC-BY-4.0"
+          },
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-apprendre-un-su:8",
+            "title": "Documentation de Studium — Apprendre un sujet avec votre assistant",
+            "authors": [],
+            "excerpt": "chaque citation doit correspondre à un passage au caractère près",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/learn-with-your-assistant.fr.md",
+            "license": "CC-BY-4.0"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T14:49:34.632Z",
+          "degraded": false
+        }
+      },
+      "markdown": "Chaque réponse est évaluée par qui détient sa clé, et Studium te dit qui c'est.\n\n- Un **quiz** est vérifié avec la clé que son auteur a écrite. Ici l'auteur est un agent d'IA ; dans le panneau, la ligne au-dessus du verdict le dit : « Évalué par la clé rédigée par l'IA — vérifie-la avec le passage cité ».\n- Une **réponse rédigée** (une explication, une comparaison) n'est évaluée que par un juge modèle, quand il y en a un. Sans juge, Studium ne fait pas semblant : il te montre une référence et tu te compares toi-même. Il ne compte jamais de mots-clés.\n- Seules les réponses évaluées font bouger ta **maîtrise**.\n\n**Sources.** Chaque question de cette leçon cite un passage de la documentation de Studium. Studium a refusé d'écrire la leçon tant que chaque citation ne correspondait pas à son passage au caractère près. Les passages apparaissent après ta réponse, quand tu quittes l'étape : ils ne donnent jamais la réponse. Une citation exacte prouve un lien textuel, pas que la question s'en sert bien : si une clé te paraît fausse, dis-le."
+    },
+    {
+      "id": "s6-quiz",
+      "type": "quiz",
+      "title": "Qui a écrit cette clé",
+      "objective_refs": [],
+      "concept_refs": [
+        "studium.provenance"
+      ],
+      "estimated_seconds": 40,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-honnetete-et-pr:4",
+            "title": "Documentation de Studium — Honnêteté et provenance",
+            "authors": [],
+            "excerpt": "Le registre d'approbation est la seule source du statut validé.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/honesty-and-provenance.fr.md",
+            "license": "CC-BY-4.0"
+          },
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-honnetete-et-pr:15",
+            "title": "Documentation de Studium — Honnêteté et provenance",
+            "authors": [],
+            "excerpt": "Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/honesty-and-provenance.fr.md",
+            "license": "CC-BY-4.0"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T14:49:34.632Z",
+          "degraded": false
+        }
+      },
+      "question": "Qui a écrit la clé qui vérifie tes réponses aux questions de cette leçon ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Un agent d'IA, à partir de la documentation de Studium ; aucun enseignant ne l'a encore vérifiée",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Un enseignant, qui a validé la leçon",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Personne : Studium compare tes mots à une liste de mots-clés",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact, et l'avis en haut de la leçon le disait. Une leçon ne se lit comme validée que si le registre d'approbation d'un enseignant correspond à son fichier exact.",
+      "feedback_incorrect": "Pas celle-ci. Relis l'avis en haut de la leçon.",
+      "hints": [
+        "L'avis en haut de la leçon dit qui l'a rédigée."
+      ]
+    },
+    {
+      "id": "s7-explain_back",
+      "type": "explain_back",
+      "title": "Pourquoi ne pas compter les mots-clés",
+      "objective_refs": [],
+      "concept_refs": [
+        "studium.provenance"
+      ],
+      "estimated_seconds": 120,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-honnetete-et-pr:10",
+            "title": "Documentation de Studium — Honnêteté et provenance",
+            "authors": [],
+            "excerpt": "Chercher des mots indices n'importe où dans une réponse mesure le vocabulaire, pas la compréhension : comparée à un enseignant sur une vraie leçon, cette méthode inversait 11 réponses sur 12.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/honesty-and-provenance.fr.md",
+            "license": "CC-BY-4.0"
+          },
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-honnetete-et-pr:10",
+            "title": "Documentation de Studium — Honnêteté et provenance",
+            "authors": [],
+            "excerpt": "Sans juge, le retour montre la référence à laquelle se comparer et n'affiche aucun décompte.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/honesty-and-provenance.fr.md",
+            "license": "CC-BY-4.0"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T14:49:34.632Z",
+          "degraded": false
+        }
+      },
+      "prompt": "En deux ou trois phrases à toi : pourquoi Studium ne note-t-il pas une réponse rédigée en comptant les mots attendus, et que fait-il à la place quand aucun juge modèle n'est configuré ?\n\nUne fois ta réponse envoyée, tu verras les points clés et une réponse modèle. Compare-les avec ce que tu as écrit, puis note ton rappel : again (à revoir), hard (difficile), good (bien) ou easy (facile).",
+      "key_points": [
+        {
+          "id": "kp1",
+          "text": "Trouver les mots attendus mesure le vocabulaire, pas la compréhension",
+          "cues": [
+            "vocabulaire",
+            "compréhension",
+            "comprend"
+          ]
+        },
+        {
+          "id": "kp2",
+          "text": "Sans juge, la réponse n'est pas évaluée : tu la compares à une référence",
+          "cues": [
+            "compar",
+            "référence",
+            "pas évalu"
+          ]
+        },
+        {
+          "id": "kp3",
+          "text": "Ta note de rappel planifie tes révisions et ne change jamais ta maîtrise",
+          "cues": [
+            "note",
+            "révision",
+            "maîtrise"
+          ]
+        }
+      ],
+      "model_explanation": "Trouver les mots attendus dans une réponse montre qu'on connaît le vocabulaire, pas qu'on a compris : sur une vraie leçon, comparée à un enseignant, la notation par mots-clés inversait 11 réponses sur 12. Sans juge modèle, Studium n'évalue donc rien : il montre les points clés et une réponse modèle, tu te compares toi-même et tu notes ton rappel. Cette note fixe seulement la date de ta prochaine révision ; elle ne change jamais ta maîtrise.",
+      "rubric": {
+        "completeness": 0.6,
+        "evidence_quality": 0.3,
+        "tone": 0.1
+      }
+    },
+    {
+      "id": "s8-concept",
+      "type": "concept",
+      "title": "Réviser sur plusieurs jours",
+      "objective_refs": [],
+      "concept_refs": [
+        "studium.reviews"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-reviser-dans-la:11",
+            "title": "Documentation de Studium — Réviser dans la durée",
+            "authors": [],
+            "excerpt": "faux compte comme « again », juste après un indice comme « hard », juste comme « good »",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/review-over-time.fr.md",
+            "license": "CC-BY-4.0"
+          },
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-reviser-dans-la:12",
+            "title": "Documentation de Studium — Réviser dans la durée",
+            "authors": [],
+            "excerpt": "Elle n'est jamais prise pour une preuve que vous savez",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/review-over-time.fr.md",
+            "license": "CC-BY-4.0"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T14:49:34.632Z",
+          "degraded": false
+        }
+      },
+      "markdown": "Studium fait revenir une notion quand tu es sur le point de l'oublier. Pour chaque notion, il tient un modèle de mémoire, FSRS (Free Spaced Repetition Scheduler), qui estime tes chances de t'en souvenir maintenant.\n\n- Une réponse à un quiz planifie une révision à elle seule : fausse, elle compte comme « again » ; juste après un indice, comme « hard » ; juste, comme « good ».\n- Après une réponse rédigée qu'aucun juge n'a évaluée, **ta note de rappel** fixe la prochaine révision. C'est ton propre jugement : elle ne change donc jamais ta maîtrise.\n- Une étape de lecture ou un point de confiance ne planifie rien.\n\n**Où apparaissent les révisions ensuite.** Le dernier écran de cette leçon donne la date de ta prochaine révision. Plus tard, dans VS Code, la barre d'état compte ce qui t'attend (« Studium · 2 à réviser ») et la barre latérale a une entrée Révisions. Avec un assistant, demande « Qu'est-ce que je révise avec Studium aujourd'hui ? » : il lit ton plan d'étude, puis joue les révisions dues, toutes leçons confondues."
+    },
+    {
+      "id": "s9-quiz",
+      "type": "quiz",
+      "title": "Ce que change ta note",
+      "objective_refs": [],
+      "concept_refs": [
+        "studium.reviews"
+      ],
+      "estimated_seconds": 40,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-honnetete-et-pr:13",
+            "title": "Documentation de Studium — Honnêteté et provenance",
+            "authors": [],
+            "excerpt": "Cette note fixe la prochaine révision (FSRS) de chaque notion de la scène notée et ne modifie jamais la maîtrise.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/honesty-and-provenance.fr.md",
+            "license": "CC-BY-4.0"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T14:49:34.632Z",
+          "degraded": false
+        }
+      },
+      "question": "Après une réponse rédigée qu'aucun juge n'a évaluée, tu notes ton rappel « good ». Qu'est-ce que cela change ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Seulement le moment où la notion reviendra en révision",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Ta maîtrise de la notion augmente",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "À la fois ta maîtrise et la date de ta prochaine révision",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Oui. Ta note est ton propre jugement : elle planifie, elle ne mesure pas.",
+      "feedback_incorrect": "Pas tout à fait. Demande-toi si une note que tu te donnes peut servir de preuve de ce que tu sais.",
+      "hints": [
+        "Relis ce que disait l'écran de notation sous « Évalue ton rappel »."
+      ]
+    },
+    {
+      "id": "s10-concept",
+      "type": "concept",
+      "title": "Où vivent tes données",
+      "objective_refs": [],
+      "concept_refs": [
+        "studium.local"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-confidentialite:1",
+            "title": "Documentation de Studium — Confidentialité et limites",
+            "authors": [],
+            "excerpt": "un assistant relié à un modèle distant envoie ce qu'il lit à son fournisseur.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/privacy-and-limits.fr.md",
+            "license": "CC-BY-4.0"
+          },
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-confidentialite:4",
+            "title": "Documentation de Studium — Confidentialité et limites",
+            "authors": [],
+            "excerpt": "Dans le dossier de données, chaque apprenant a un dossier nommé par un pseudonyme, jamais par son identifiant",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/privacy-and-limits.fr.md",
+            "license": "CC-BY-4.0"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T14:49:34.632Z",
+          "degraded": false
+        }
+      },
+      "markdown": "Studium garde ta progression sur ta propre machine.\n\n- Avec un assistant, les leçons qu'il construit pour toi vont dans `~/.studium/library` et ta progression dans `~/.studium/data`, dans des dossiers nommés par un pseudonyme, jamais par ton identifiant. L'extension VS Code garde sa propre progression dans le stockage de VS Code.\n- La télémétrie de classe est désactivée sauf si tu l'acceptes.\n- **Ce qui sort de ta machine**, c'est ce que lit ton assistant : s'il tourne sur un modèle distant, les étapes qu'il montre et les réponses qu'il relaie vont au fournisseur de ce modèle, selon ses conditions. Jouer dans le panneau VS Code ne demande aucun compte d'IA.\n- Pour effacer ta progression, demande à ton assistant d'oublier tes données, ou lance **Studium : Oublier mes données** dans VS Code.\n\nCette leçon est livrée avec Studium, dans l'extension VS Code et le paquet npm. Elle reste à part de ta bibliothèque : elle ne remplace jamais une de tes leçons. Quand tu as fini, construis une leçon à partir de tes propres sources : dis à ton assistant « je veux apprendre … avec Studium »."
+    },
+    {
+      "id": "s11-quiz",
+      "type": "quiz",
+      "title": "Ce qui sort de ta machine",
+      "objective_refs": [],
+      "concept_refs": [
+        "studium.local"
+      ],
+      "estimated_seconds": 40,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-confidentialite:1",
+            "title": "Documentation de Studium — Confidentialité et limites",
+            "authors": [],
+            "excerpt": "un assistant relié à un modèle distant envoie ce qu'il lit à son fournisseur.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/privacy-and-limits.fr.md",
+            "license": "CC-BY-4.0"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T14:49:34.632Z",
+          "degraded": false
+        }
+      },
+      "question": "Tu joues cette leçon avec un assistant qui tourne sur un modèle distant. Qu'est-ce qui sort de ta machine ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Ce que l'assistant lit et relaie, envoyé au fournisseur de son modèle",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Rien du tout : tout reste sur ta machine",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "Ta progression, envoyée à un serveur de Studium",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact. Studium garde son état sur ta machine ; le fournisseur de l'assistant voit ce que l'assistant lit. Choisis un assistant dont les conditions te conviennent.",
+      "feedback_incorrect": "Pas tout à fait. Pense à l'assistant lui-même, pas seulement à Studium.",
+      "hints": [
+        "Où tourne le modèle de ton assistant ?"
+      ]
+    },
+    {
+      "id": "s12-quiz",
+      "type": "quiz",
+      "title": "Lire la carte",
+      "objective_refs": [],
+      "concept_refs": [
+        "studium.graph"
+      ],
+      "estimated_seconds": 40,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:documentation-de-studium-carte-des-notio:5",
+            "title": "Documentation de Studium — Carte des notions",
+            "authors": [],
+            "excerpt": "Chaque notion dit son état en mots et ce qu'elle demande d'abord.",
+            "relevance_score": 1,
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/concept-map.fr.md",
+            "license": "CC-BY-4.0"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T14:49:34.632Z",
+          "degraded": false
+        }
+      },
+      "question": "Encore une question sur le graphe de cette leçon. Quelle notion devait être en place avant *Les révisions espacées* ?\n\nLa carte des notions y répond : chaque notion dit ce qu'elle demande d'abord.",
+      "choices": [
+        {
+          "id": "a",
+          "text": "Qui détient la clé, et d'où elle vient",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Local d'abord",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "L'assistant relaie, tu réponds",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Oui. Tu peux lire tout le graphe d'une leçon dans sa carte des notions, et un enseignant peut le lire et le corriger dans le fichier de la leçon.",
+      "feedback_incorrect": "Pas celle-ci. Ouvre la carte des notions et regarde ce que demande d'abord *Les révisions espacées*.",
+      "hints": [
+        "Ouvre la carte des notions : chaque notion indique ce qu'elle demande d'abord."
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "rule_2err_replay_concept",
+      "when": {
+        "consecutive_errors_same_concept": ">=2"
+      },
+      "action": {
+        "kind": "replay_current_scene",
+        "reason": "errors_threshold"
+      },
+      "modulator": "M1",
+      "explanation_short": "Deux erreurs sur ce concept : on reprend la scène avec un appui."
+    }
+  ],
+  "validated_by": "SELF-STUDY — not teacher-validated",
+  "validated_at": "2026-11-25T14:49:34.632Z",
+  "learning_workflow_graph": {
+    "schema_version": "1.0",
+    "course_id": "self-study-discover-studium-fr",
+    "nodes": [
+      {
+        "id": "concept:studium.relay",
+        "node_kind": "concept",
+        "title": "L'assistant relaie, tu réponds",
+        "bloom_level": "remember",
+        "description": "Studium pose les questions et garde les clés de réponse ; un assistant montre chaque étape et transmet tes propres mots, sans jamais répondre à ta place."
+      },
+      {
+        "id": "concept:studium.graph",
+        "node_kind": "concept",
+        "title": "Un cours est un graphe de notions",
+        "bloom_level": "understand",
+        "description": "Les scènes sont rattachées à des notions reliées par des arêtes typées ; les prérequis décident de la suite, avec un détour quand l'un manque."
+      },
+      {
+        "id": "concept:studium.provenance",
+        "node_kind": "concept",
+        "title": "Qui détient la clé, et d'où elle vient",
+        "bloom_level": "understand",
+        "description": "Chaque réponse est évaluée par qui détient sa clé ; une réponse rédigée n'est jamais notée par mots-clés ; chaque question évaluée cite un passage reproduit au caractère près."
+      },
+      {
+        "id": "concept:studium.reviews",
+        "node_kind": "concept",
+        "title": "Les révisions espacées",
+        "bloom_level": "understand",
+        "description": "FSRS planifie une révision par notion ; les réponses évaluées font bouger la maîtrise, une auto-évaluation fixe seulement la prochaine révision."
+      },
+      {
+        "id": "concept:studium.local",
+        "node_kind": "concept",
+        "title": "Local d'abord",
+        "bloom_level": "remember",
+        "description": "Ta progression reste sur ta machine ; ce qui en sort, c'est ce que ton assistant envoie au fournisseur de son modèle."
+      }
+    ],
+    "edges": [
+      {
+        "id": "prerequisite:studium.provenance:studium.graph",
+        "relation": "prerequisite_for",
+        "source": "concept:studium.provenance",
+        "target": "concept:studium.graph"
+      },
+      {
+        "id": "prerequisite:studium.reviews:studium.provenance",
+        "relation": "prerequisite_for",
+        "source": "concept:studium.reviews",
+        "target": "concept:studium.provenance"
+      }
+    ]
+  }
+}
