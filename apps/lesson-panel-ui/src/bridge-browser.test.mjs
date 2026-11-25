@@ -53,7 +53,7 @@ function page({ hash = `#token=${TOKEN}`, reply, stored = {} } = {}) {
     const [status, body] = await (reply ?? defaultReply)(call.url.split("/").pop(), call.body.arguments);
     return { ok: status >= 200 && status < 300, status, json: async () => body };
   };
-  const start = () => startBrowserPlayer({ window: dom.window, document: dom.window.document, connectMcpApp, renderView: dom.window.renderView });
+  const start = (more = {}) => startBrowserPlayer({ window: dom.window, document: dom.window.document, connectMcpApp, renderView: dom.window.renderView, ...more });
   return { dom, doc: dom.window.document, calls, start };
 }
 async function defaultReply(name) {
@@ -353,3 +353,20 @@ test("an assistant's address the server refuses says it is incomplete or out of 
   assert.match(en.player_assistant_unreachable, /has ended/);
 });
 
+// Review of decision 4, finding 5: a second address pasted in a tab already open on /play changes only the fragment,
+// for which a browser does not load the page again: the page loads itself again, and reads the new key and lesson.
+test("a second address pasted in the same tab loads the page again; a fragment without a key does not", async () => {
+  const wait = () => new Promise(resolve => setTimeout(resolve, 20));
+  for (const first of [ASSISTANT, ""]) {
+    const p = page({ hash: first });
+    let reloads = 0;
+    await p.start({ reload: () => { reloads++; } });
+    p.dom.window.location.hash = "#nothing-here";
+    await wait();
+    assert.equal(reloads, 0);
+    p.dom.window.location.hash = `#token=${"u".repeat(64)}&from=assistant&lesson=${encodeURIComponent("capsule-demo/lesson.json")}`;
+    await wait();
+    assert.equal(reloads, 1, `after a page opened with "${first}"`);
+    p.dom.window.close();
+  }
+});
