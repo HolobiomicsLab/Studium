@@ -152,10 +152,12 @@ a refused draft is kept for this learner and offered to them alone later.
 
 ## 6. Play it
 
-If `create_lesson`'s result carries `open_link` (Copilot with the server the Studium VS Code
-extension registers), show its `display_markdown` as it is instead of the offer below: it
-offers the Studium pane first, where each step answers at once. Play the lesson here only if
-the learner says "here".
+If `create_lesson`'s result carries `offer_first`, show its `display_markdown` as it is
+instead of the offer below, and do what it offers first: on `panel` (a client that draws
+Studium's panel), call `open_lesson_panel` with `open_panel`; on `chat` (the learner last
+answered in the chat), play the lesson here. Otherwise it offers a faster surface first (the
+Studium pane, the browser, or the assistant's own pane), where each step answers at once: play
+the lesson here only if the learner says "here".
 
 Building the lesson filled this session with sources and drafts, and every later answer would
 carry them. Offer in one line to play the lesson in its own short session (Claude Code:

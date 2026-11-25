@@ -61,6 +61,11 @@ n'ouvre jamais le navigateur de lui-même.
   progression de cet apprenant dans la conversation, et inversement. La page ne peut pas jouer un autre
   apprenant. Un assistant qui vous nomme autrement d'un appel à l'autre fait deux apprenants : demandez-lui
   de garder un seul nom.
+- **Ce qui vient d'abord.** Un assistant qui dessine le panneau Studium (Codex Desktop) propose le panneau
+  d'abord et cette adresse ensuite. Après une réponse dans la conversation, la conversation vient d'abord et
+  l'adresse est donnée une fois ; après une réponse dans le navigateur, l'adresse revient en premier
+  ([Où une leçon est proposée d'abord](harness-panels.fr.md#où-une-leçon-est-proposée-dabord)). Une leçon
+  que l'assistant commence dans la conversation finit sa première étape par une ligne qui donne cette adresse.
 - **L'adresse vit le temps de la session de l'assistant.** Quand l'assistant s'arrête, le lecteur s'arrête
   avec son serveur, et la page le dit : redemandez votre leçon à l'assistant pour avoir une nouvelle
   adresse. La progression est gardée comme ci-dessous.

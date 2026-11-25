@@ -23,7 +23,7 @@ Dans le dossier de données, chaque apprenant a un dossier nommé par un pseudon
 | Fichier | Contenu |
 |---|---|
 | `<pseudonyme>/profile.json` | profil transversal aux leçons, mémoire de révision comprise |
-| `<pseudonyme>/study.json` | où l'apprenant a étudié |
+| `<pseudonyme>/study.json` | où l'apprenant a étudié, et où il a répondu à une étape pour la dernière fois (`answered_on` : le navigateur, le panneau VS Code, un panneau, le volet Claude Code ou la conversation), pour que la leçon suivante y soit proposée d'abord |
 | `<pseudonyme>/status.json` | où en est la séance en cours (titre de la leçon, étape, minutes restantes), pour la ligne d'état d'un assistant ; retiré à la fermeture de la séance |
 | `<pseudonyme>/<leçon>/state-<leçon>.json` | état de la leçon et maîtrise |
 | `<pseudonyme>/<leçon>/events.jsonl` | journal d'événements de la séance |

@@ -60,6 +60,12 @@ Studium.
 `codex mcp list` affiche `studium`. Pour prouver la connexion, faites la vérification de
 [Connecter votre assistant](harnesses.fr.md#vérifier-la-connexion).
 
+À un Codex qui annonce MCP Apps (Codex Desktop), une leçon prête à jouer est proposée d'abord dans le panneau
+Studium : l'assistant l'ouvre avec `open_lesson_panel`. Votre navigateur vient ensuite, puis la
+conversation, sur « ici ». Un Codex qui n'annonce pas MCP Apps a le navigateur d'abord. Voir
+[Où une leçon est proposée d'abord](harness-panels.fr.md#où-une-leçon-est-proposée-dabord). Pas encore
+essayé dans Codex Desktop : tests automatisés seulement.
+
 ## Limites
 
 - Un profil Codex avec `approval_policy = "never"` refuse tout appel à un serveur MCP stdio local
