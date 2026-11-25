@@ -1,8 +1,10 @@
 // lesson-tree.driver.ts — unit test for the pure sidebar-tree shaping (buildLessonTree). No vscode APIs.
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/lesson-tree.driver.ts
-import type { LessonCourse } from "./lesson-picker.js";
+import { courseDescription, toLessonPickItems, type LessonCourse } from "./lesson-picker.js";
 import { buildLessonTree, type TreeNode } from "./lesson-tree.js";
 import { browserPhrases } from "./phrases.js";
+import { hostPhrase } from "./host-phrases.js";
+import { parseReinforcement, type ContinueLesson } from "./study-status.js";
 
 const failures: string[] = [];
 let checks = 0;
@@ -87,6 +89,56 @@ const byId = (nodes: TreeNode[], id: string) => nodes.find((n) => n.id === id);
   const empty = byId(buildLessonTree({ courses: [], currentRef: "", community: [], onReproductionScene: false, locale: "en" }), "courses");
   expect(/assistant/.test(empty?.children?.[0]?.label ?? "") && !/found/.test(empty?.children?.[0]?.label ?? ""),
     `the empty courses placeholder says an assistant's lesson appears here (got ${empty?.children?.[0]?.label})`);
+}
+
+// BN-7: « Continue » comes first, from get_study_plan in_progress[0]; it opens the lesson from its own root and resumes it.
+{
+  const cont: ContinueLesson = { ref: "discover-studium-en/lesson.json", title: "Discover Studium", done: 3, total: 12, source: "shipped", minutesLeft: 8 };
+  const t = buildLessonTree({ courses: [], community: [], onReproductionScene: false, locale: "en", continueWith: cont });
+  const first = t[0];
+  expect(first?.id === "continue" && first.label === hostPhrase("tree_continue", { title: "Discover Studium" }, "en"),
+    `the first entry is « Continue: <lesson> » (got ${JSON.stringify(first)})`);
+  expect(first?.description === `${hostPhrase("tree_continue_step", { step: 4, total: 12 }, "en")} · ${hostPhrase("tree_continue_minutes", { minutes: 8 }, "en")}`,
+    `it says the next step and the minutes left (got ${first?.description})`);
+  expect(first?.command === "studium.openLesson" && JSON.stringify(first.args) === '["discover-studium-en/lesson.json","shipped"]',
+    `it opens the lesson from the root it was played from (got ${JSON.stringify(first?.args)})`);
+  expect(!!first?.tooltip?.includes(hostPhrase("continue_scope", {}, "en")), "its tooltip says whose progress this is");
+  const fr = buildLessonTree({ courses: [], community: [], onReproductionScene: false, locale: "fr", continueWith: { ...cont, minutesLeft: null, source: "bundles" } })[0];
+  expect(fr?.label === hostPhrase("tree_continue", { title: "Discover Studium" }, "fr") && fr.description === hostPhrase("tree_continue_step", { step: 4, total: 12 }, "fr")
+    && JSON.stringify(fr.args) === '["discover-studium-en/lesson.json"]', `in French; unknown minutes are left out; the lessons folder needs no source (got ${JSON.stringify(fr)})`);
+  const lib = buildLessonTree({ courses: [], community: [], onReproductionScene: false, continueWith: { ...cont, source: "library" } })[0];
+  expect(JSON.stringify(lib?.args) === '["discover-studium-en/lesson.json","library"]', "a library lesson opens from the library");
+  // Welcome-view gap: after one intro step the learner has no review history (no_history), no course in the folder:
+  // the tree must not fold into the welcome view, or the Continue entry would be hidden.
+  const fresh = buildLessonTree({ courses: [], community: [], onReproductionScene: false, emptyAsWelcome: true, locale: "en",
+    reviews: parseReinforcement({ reinforcement: null, due: [], relearn: [], unmeasured: [], reason: "no_history", next_due_at: null }), continueWith: cont });
+  expect(fresh[0]?.id === "continue", `a Continue entry keeps the tree instead of the welcome view (got ${fresh.map((n) => n.id).join(",")})`);
+  expect(buildLessonTree({ courses: [], community: [], onReproductionScene: false, emptyAsWelcome: true, continueWith: null }).length === 0,
+    "nothing to continue: an empty tree still gives way to the welcome view");
+  expect(!byId(buildLessonTree({ courses: [], community: [], onReproductionScene: false }), "continue"), "no Continue entry without a lesson in progress");
+}
+
+// BN-7: each course's progress is appended to its tree description only (the picker keeps « L1 · fr »); a finished
+// lesson says done, with no review date.
+{
+  const a: LessonCourse = { ref: "a/lesson.json", title: "A", target: "L1", language: "fr", approval: { state: "none" } };
+  const b: LessonCourse = { ...a, ref: "b/lesson.json", title: "B" };
+  const c: LessonCourse = { ...a, ref: "c/lesson.json", title: "C" };
+  const progress = {
+    "bundles:a/lesson.json": { state: "in_progress" as const, done: 6, total: 12 },
+    "bundles:b/lesson.json": { state: "completed" as const, done: 12, total: 12 },
+    "library:c/lesson.json": { state: "in_progress" as const, done: 1, total: 9 },
+  };
+  const t = buildLessonTree({ courses: [a, b, c], library: [c], community: [], onReproductionScene: false, locale: "en", progress, coursesSource: "bundles" });
+  const leaves = byId(t, "courses")?.children ?? [];
+  expect(leaves[0]?.description === `${courseDescription(a)} · 6/12`, `a lesson in progress shows n/N (got ${leaves[0]?.description})`);
+  expect(leaves[1]?.description === `${courseDescription(b)} · ${hostPhrase("tree_done", {}, "en")}`, `a completed lesson shows done (got ${leaves[1]?.description})`);
+  expect(leaves[2]?.description === courseDescription(c), `progress is read for the folder the course comes from (got ${leaves[2]?.description})`);
+  const libLeaf = byId(t, "library")?.children?.[0];
+  expect(libLeaf?.description === `${courseDescription(c)} · 1/9`, `a library lesson shows its own progress (got ${libLeaf?.description})`);
+  const asLibrary = buildLessonTree({ courses: [c], community: [], onReproductionScene: false, progress, coursesSource: "library" });
+  expect(byId(asLibrary, "courses")?.children?.[0]?.description === `${courseDescription(c)} · 1/9`, "when the lessons folder is the library, its courses read the library's progress");
+  expect(toLessonPickItems([a], "en")[0]?.description === "L1 · fr", "the picker's description is unchanged");
 }
 
 // VSC-5: the sidebar and picker labels are real translations in both languages, never « français / English ».

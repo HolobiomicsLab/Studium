@@ -148,8 +148,16 @@ mesurées ; son info-bulle nomme chaque groupe. Pendant une leçon, la barre a
 cette leçon ; les groupes de révision passent alors dans son info-bulle. Un clic ouvre la barre
 latérale Studium, dont l'entrée **Révisions** liste les notions par groupe (à réviser, à reprendre, pas
 encore mesurées), ou la date de la prochaine révision. Le décompte est rafraîchi au démarrage, à la
-fermeture ou à la fin d'une leçon, et avec le bouton de rafraîchissement de la vue Leçons. Sans
-historique, rien n'est affiché.
+fermeture ou à la fin d'une leçon, et avec le bouton de rafraîchissement de la vue Leçons.
+
+Quand rien n'est dû, la barre propose plutôt la leçon que vous suiviez, par exemple
+**Studium · reprendre Découvrir Studium** ; un clic rouvre cette leçon à l'étape où vous vous étiez
+arrêté·e. La vue **Leçons** montre cette même leçon en premier, sous la forme **Reprendre : …**, avec l'étape
+suivante et, quand la leçon donne sa durée, les minutes restantes ; chaque leçon de la liste montre sa
+progression (**6/12**, ou **terminée**). C'est la progression que VS Code garde sous `studium.learnerId`,
+dans le panneau et `@studium`. Les leçons jouées avec les outils Studium de Copilot, un autre assistant ou
+le lecteur dans le navigateur gardent leur progression ailleurs et n'apparaissent pas ici. Une leçon en
+préparation et une révision due passent avant. Sans historique ni leçon en cours, rien n'est affiché.
 
 ## Chat et notebook
 

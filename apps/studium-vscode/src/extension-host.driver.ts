@@ -988,6 +988,85 @@ async function main() {
     expect([phrase("picker_choose", {}, "fr"), phrase("picker_choose", {}, "en")].includes(fullPlaceholder), `with courses, it asks to choose one (got ${fullPlaceholder})`);
     fireConfig("studium.bundlesRoot");
   }
+
+  // BN-7: « Continue » and progress in the sidebar and the status bar, with the real server. The learner who played the
+  // demo last is offered the demo (this learner also has capsule-run-resume in progress). A new learner who answered
+  // only the intro has no review history, and the folder has no course: without the Continue entry the view would fold
+  // into the welcome view. Clicking Continue resumes at the next step; the bar says « continue » when nothing is due.
+  {
+    const tree = seen.treeProviders.get("studiumLessons");
+    const status = seen.statusItems[0];
+    const continueNode = () => tree.getChildren().find((n: Json) => n.id === "continue");
+    const refreshUntil = async (cond: () => boolean, what: string) => {
+      const t0 = Date.now();
+      while (!cond()) {
+        if (Date.now() - t0 > 20000) { expect(false, `timed out waiting for ${what}`); return; }
+        await seen.commands.get("studium.refreshLessons")!();
+        await sleep(300);
+      }
+    };
+    const answer = async (pane: any, steps: number) => {
+      for (let i = 0; i < steps; i++) {
+        const scene = pane.posted.filter((m: Json) => m.type === "render").at(-1)?.scene;
+        const input = scene?.type === "quiz" ? { kind: "quiz_choice", choiceId: scene.choices?.[0]?.id } : { kind: "ack" };
+        const before = pane.posted.length;
+        await pane.handler({ type: "respond", input });
+        await waitFor(() => pane.posted.slice(before).some((m: Json) => m.type === "render" || m.type === "error"), `answering ${scene?.id}`);
+      }
+    };
+    const playDemo = async (steps: number) => {
+      const panesBefore = seen.panels.length;
+      await seen.commands.get("studium.openDemoLesson")!();
+      const pane = lastPanel();
+      await waitFor(() => seen.panels.length > panesBefore && pane.posted.some((m: Json) => m.type === "render"), "the demo's first scene");
+      await answer(pane, steps);
+      pane.dispose();
+    };
+    const savedRoot = settings["bundlesRoot"];
+    const savedLearner = settings["learnerId"];
+    const writesBefore = configWrites.length;
+    settings["bundlesRoot"] = lib;
+    await playDemo(1);
+    await refreshUntil(() => continueNode()?.args?.[0] === "discover-studium-en/lesson.json", "Continue on the demo");
+    const played = continueNode();
+    expect(JSON.stringify(played?.args) === '["discover-studium-en/lesson.json","shipped"]' && hostEither("tree_continue", { title: "Discover Studium" }).includes(played?.label),
+      `the lesson played last is offered, from the shipped folder (got ${JSON.stringify(played)})`);
+
+    settings["learnerId"] = "bn7-new-learner";
+    settings["bundlesRoot"] = emptyRoot;
+    // The lessons the BN-1 block wrote into the library would list « Your library »: a new learner has none.
+    for (const entry of readdirSync(libraryRoot)) rmSync(join(libraryRoot, entry), { recursive: true, force: true });
+    await refreshUntil(() => !continueNode(), "a new learner with nothing in progress");
+    expect(tree.getChildren().length === 0, `a new learner with no course: the welcome view, as before (got ${tree.getChildren().map((n: Json) => n.id).join(",")})`);
+    await playDemo(1);
+    await refreshUntil(() => !!continueNode(), "Continue for a learner who answered only the intro");
+    const nodes = tree.getChildren();
+    expect(nodes[0]?.id === "continue" && !nodes.some((n: Json) => n.id === "reviews"),
+      `no review history and no course: the tree shows Continue first instead of the welcome view (got ${nodes.map((n: Json) => n.id).join(",")})`);
+    expect(hostEither("tree_continue_step", { step: 2, total: 12 }).some((s) => String(continueNode()?.description).startsWith(s)),
+      `it names the next step (got ${continueNode()?.description})`);
+    expect(status.shown && hostEither("status_continue", { title: "Discover Studium" }).includes(status.text),
+      `nothing due: the bar offers to continue (got ${status.text})`);
+    expect(hostEither("continue_scope").some((s) => String(status.tooltip).includes(s)), `its tooltip says whose progress this is (got ${status.tooltip})`);
+    expect(status.command?.command === "studium.openLesson" && JSON.stringify(status.command?.arguments) === JSON.stringify(continueNode()?.args),
+      `clicking the bar opens that lesson (got ${JSON.stringify(status.command)})`);
+    const node = continueNode();
+    if (node) {
+      const panesBefore = seen.panels.length;
+      await seen.commands.get(node.command)!(...node.args);
+      const pane = lastPanel();
+      await waitFor(() => seen.panels.length > panesBefore && pane.posted.some((m: Json) => m.type === "render"), "the resumed demo");
+      const resumed = pane.posted.find((m: Json) => m.type === "render");
+      expect(resumed?.view?.bundle_ref === "discover-studium-en/lesson.json" && resumed?.scene?.id === "s2-quiz",
+        `Continue resumes the lesson at its next step (got ${resumed?.view?.bundle_ref} ${resumed?.scene?.id})`);
+      await answer(pane, 2);
+      pane.dispose();
+      await refreshUntil(() => hostEither("tree_continue_step", { step: 4, total: 12 }).some((s) => String(continueNode()?.description).startsWith(s)), "Continue at step 4");
+    }
+    expect(configWrites.length === writesBefore, "Continue writes no setting");
+    settings["learnerId"] = savedLearner;
+    settings["bundlesRoot"] = savedRoot;
+  }
 }
 
 main().then(() => {
