@@ -47,7 +47,7 @@ Les mêmes variables d'environnement que pour le serveur s'appliquent : `STUDIUM
 ## Jouer
 
 1. La page liste les leçons du dossier et de votre bibliothèque, puis la leçon de démonstration livrée avec
-   Studium, avec leur nombre d'étapes, si un enseignant les a validées, et où vous en êtes. Tant que cette
+   Studium, en anglais et en français, avec leur nombre d'étapes, si un enseignant les a validées, et où vous en êtes. Tant que cette
    liste est affichée, elle est relue chaque fois que vous revenez à son onglet ou à sa fenêtre : une leçon
    que votre assistant a enregistrée entre-temps dans votre bibliothèque apparaît sans recharger la page.
 2. Choisissez-en une. Elle s'ouvre à votre première étape non terminée.
@@ -55,7 +55,8 @@ Les mêmes variables d'environnement que pour le serveur s'appliquent : `STUDIUM
    avec les mêmes avis : qui a écrit la leçon et sa clé de correction, et, après une réponse, si la clé ou un
    juge l'a évaluée, ou personne. Vous avez aussi les indices, l'échelle de confiance, la note de rappel, la
    carte des notions, le français ou l'anglais (**⋯**, **Réglages**) et le bilan de fin de leçon.
-4. **⋯**, **Choisir un autre cours** ramène à la liste ; **M'oublier** efface vos données d'apprentissage
+4. **⋯**, **Choisir un autre cours** ouvre une liste de cours lue à son ouverture, pas relue quand vous
+   revenez à l'onglet, et sans la leçon de démonstration ; **M'oublier** efface vos données d'apprentissage
    après une confirmation.
 
 Ce que la page ne fait pas : les étapes de reproduction d'une capsule demandent le terminal de VS Code, et la
@@ -96,7 +97,9 @@ protection des données).
     progression gardée sur le disque reprend à la même étape après un redémarrage du lecteur ;
   - depuis `studium-mcp` 0.6.4 publié (`npx`), a joué jusqu'à sa fin la leçon de démonstration en
     anglais, Discover Studium, une fois avec le CDN (`cdn.jsdelivr.net`) joignable et une fois avec le CDN
-    bloqué.
+    bloqué ;
+  - la liste relue au retour sur l'onglet n'a été vérifiée qu'avec des événements d'onglet et de fenêtre
+    simulés, jamais en revenant au navigateur depuis une autre application.
 - **Pas essayé :** Windows et Linux (le navigateur s'ouvre avec `cmd /c start` et `xdg-open`), Firefox et
   Safari, un lecteur d'écran, un ordinateur sans réseau, l'affichage en texte simple des équations,
   graphiques et molécules (la leçon de démonstration jouée avec le CDN bloqué n'en contient aucun), une salle

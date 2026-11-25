@@ -46,7 +46,7 @@ The same environment variables as the server apply: `STUDIUM_HOME`, `STUDIUM_DAT
 ## Play
 
 1. The page lists the lessons of the folder and of your library, then the demo lesson shipped with
-   Studium, with their number of steps, whether a teacher approved them, and how far you got. While this
+   Studium, in English and in French, with their number of steps, whether a teacher approved them, and how far you got. While this
    list is on screen, it is read again each time you come back to its tab or its window: a lesson your
    assistant saved in your library meanwhile appears without a reload.
 2. Choose one. It opens at your first unfinished step.
@@ -54,7 +54,8 @@ The same environment variables as the server apply: `STUDIUM_HOME`, `STUDIUM_DAT
    who wrote the lesson and its answer key, and, after an answer, whether the key or a judge assessed it,
    or nobody. You also have hints, the confidence scale, recall ratings, the concept map, French or
    English (**⋯**, **Settings**), and the end-of-lesson summary.
-4. **⋯**, **Choose another course** returns to the list; **Forget me** erases your learning data after a
+4. **⋯**, **Choose another course** opens a list of courses read when it opens, not again when you come
+   back to the tab, and without the demo lesson; **Forget me** erases your learning data after a
    confirmation.
 
 What the page does not do: capsule reproduction steps need the VS Code terminal, and the page says so;
@@ -91,7 +92,9 @@ hosted, multi-user version would need (sign-in, one identity per learner, data p
     and resumed the same step after a page reload; a second run checked that progress kept on disk resumes
     at the same step after the player restarts;
   - from the published `studium-mcp` 0.6.4 (`npx`), played the Discover Studium demo lesson to its end,
-    once with the CDN (`cdn.jsdelivr.net`) reachable and once with it blocked.
+    once with the CDN (`cdn.jsdelivr.net`) reachable and once with it blocked;
+  - the list read again on return to the tab was checked with simulated tab and window events only, never
+    by switching from another application to the browser.
 - **Not tried:** Windows and Linux (the browser opener uses `cmd /c start` and `xdg-open`), Firefox and
   Safari, a screen reader, a computer without network access, the plain-text fallback of equations, charts
   and molecules (the demo lesson played with the CDN blocked has none of them), a teaching room, several
