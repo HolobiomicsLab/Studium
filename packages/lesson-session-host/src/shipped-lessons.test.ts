@@ -195,6 +195,17 @@ describe("a host with a shipped lessons root", () => {
     expect(started.authoring.notice).toMatch(/^Leçon de démonstration livrée avec Studium/);
   });
 
+  it("reads the shipped folder as shipped when a server is pointed at it as its bundles root", async () => {
+    // The VS Code extension opens the demo with BUNDLES_ROOT set to the shipped folder.
+    const shipped = shippedRoot();
+    const h = new SessionHost({ bundlesRoot: shipped, libraryRoot: tempRoot(), shippedRoot: shipped, dataDir: null, live: false });
+    const started = await h.create("discover-studium-en/lesson.json", "ana");
+    expect(started.authoring).toMatchObject({ shipped: true });
+    const listed = await h.listLessons({ language: "en" });
+    expect(listed.lessons).toEqual([]);
+    expect(listed.shipped_lessons).toHaveLength(2);
+  });
+
   it("plays the learner's own lesson when it has the same ref as a shipped one", async () => {
     const library = tempRoot();
     put(library, "discover-studium-en/lesson.json", lesson("my-own-lesson", "My own lesson", "en"));

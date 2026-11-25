@@ -1020,14 +1020,17 @@ export class SessionHost {
   }
 
   /** The lesson roots listed, the bundles root being the library itself when they coincide, and the
-   * shipped root last (left out when it is one of the others: those lessons are then the learner's). */
+   * shipped root last. A bundles root that is the shipped folder itself (the VS Code extension opens the demo
+   * that way) is read as shipped; a library that is, stays the learner's. */
   private lessonRoots(): LessonRoot[] {
     const library = this.opts.libraryRoot;
-    const roots: LessonRoot[] = library && resolve(library) === resolve(this.opts.bundlesRoot)
-      ? [{ kind: "library", dir: library }]
-      : [{ kind: "bundles", dir: this.opts.bundlesRoot }, ...(library ? [{ kind: "library" as const, dir: library }] : [])];
     const shipped = this.opts.shippedRoot;
-    if (shipped && !roots.some((root) => resolve(root.dir) === resolve(shipped))) roots.push({ kind: "shipped", dir: shipped });
+    const same = (a: string, b: string | undefined) => b !== undefined && resolve(a) === resolve(b);
+    const roots: LessonRoot[] = library && same(library, this.opts.bundlesRoot)
+      ? [{ kind: "library", dir: library }]
+      : [{ kind: same(this.opts.bundlesRoot, shipped) ? "shipped" : "bundles", dir: this.opts.bundlesRoot },
+        ...(library ? [{ kind: "library" as const, dir: library }] : [])];
+    if (shipped && !roots.some((root) => same(root.dir, shipped))) roots.push({ kind: "shipped", dir: shipped });
     return roots;
   }
 
