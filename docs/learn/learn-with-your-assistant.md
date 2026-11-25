@@ -91,8 +91,9 @@ say it in the conversation.
 If each answer is slow to come, play the lesson in a new, short session on your assistant's fast model (in
 Claude Code, `claude --agent studium-lesson`): see [Keep answers fast](../start/fast-answers.md).
 
-To play in VS Code instead, right-click the lesson's `lesson.json` and choose **Studium: Open this lesson**, or
-follow the link your assistant gives you (`vscode://holobiomicslab.studium-vscode/open?bundle=<absolute path>`).
+To play in VS Code instead, open the lesson from the **Lessons** view of the Studium extension: it appears there
+when it is ready, and VS Code tells you. You can also follow the link your assistant gives you
+(`vscode://holobiomicslab.studium-vscode/open?bundle=<absolute path>`).
 See [VS Code](../start/vscode.md). The pane keeps its own progress in VS Code's storage: answers given there do
 not appear in the study plan your assistant reads, and the reverse.
 

@@ -30,6 +30,10 @@ server to Copilot. This page is about Copilot's MCP client; the extension's less
 2. Open Copilot Chat and choose the agent mode.
 3. In the Command Palette, run **MCP: List Servers**. **Studium** is in the list, provided by the
    extension. Start it if it is stopped; VS Code may ask you to trust it first.
+4. The first time Copilot calls a Studium tool, VS Code asks you to allow it. Open the arrow next to
+   **Allow Once** and choose **Allow Tools from Studium in this Session**, or **Always Allow Tools from Studium**
+   if you will come back. Otherwise VS Code asks again at each tool, and a lesson being built or played waits
+   for your click. These are the labels of VS Code 1.139; a server you added by hand is named `studium`.
 
 The extension runs the server it carries with VS Code's own runtime, the same server as its lesson pane:
 no Node install and no terminal. That server reads the lessons folder of the `studium.bundlesRoot` setting
@@ -71,6 +75,7 @@ and in the older `mcp.servers` setting. A server added in another VS Code profil
    `"args": ["${workspaceFolder}/apps/studium-vscode/dist/lesson-mcp.cjs"]`.
 
 2. In the Command Palette, run **MCP: List Servers**, select `studium` and start it. Its log shows errors.
+3. At the first tool call, allow the server's tools for the session, as in step 4 above.
 
 VS Code uses `servers`, not the `mcpServers` key of Claude Code and Cursor. Reference:
 [MCP servers in VS Code](https://code.visualstudio.com/docs/agent-customization/mcp-servers).
@@ -80,6 +85,19 @@ VS Code uses `servers`, not the `mcpServers` key of Claude Code and Cursor. Refe
 **MCP: List Servers** shows **Studium** (from the extension) or `studium` (added by hand) running. To prove
 the connection, run the check in [Connect your assistant](harnesses.md#check-the-connection), then ask
 "I want to learn … with Studium" and name your sources.
+
+Building the lesson takes a few minutes; it is done once, and you can then play the lesson as often as you
+want. With the Studium extension installed, VS Code shows where the build is:
+
+| When | What VS Code shows |
+|---|---|
+| The assistant has prepared its sources | the status bar says **Studium · preparing a lesson…**; its tooltip names the source and says to answer the assistant in the chat if it asks to allow a step |
+| The lesson is written to your library | **Studium: your lesson “…” is ready (n steps).** with **Open**, **Later** and **Don't show again**; the lesson appears in the **Lessons** view. If you were in another window, the notice waits until you come back to VS Code |
+
+Meanwhile, you can try the demo lesson (**Studium: Try the demo lesson**). The extension watches your
+library, `~/.studium/library` (or `<STUDIUM_HOME>/library`), the folder the Studium server writes lessons to;
+it creates that folder at startup if it is missing. **Open** plays the lesson in the pane and changes no
+setting.
 
 ## Limits
 
@@ -96,4 +114,10 @@ the connection, run the check in [Connect your assistant](harnesses.md#check-the
   learner id Copilot gives (`anonymous` by default), so the pane's reviews do not count it.
 - **Studium: Forget my data** closes the servers the extension started for the pane, the chat and the
   notebook, not the one VS Code started for Copilot. Stop **Studium** in **MCP: List Servers** first.
+- The preparing state and the ready notice were checked against a stand-in for VS Code, with the real server
+  writing the files. Whether VS Code reports the writes in `~/.studium/library` when that folder is not open
+  in the window has not been seen in a real session. Without a notice, the **Lessons** view is read again when
+  you show it or come back to the window.
+- The preparing state ends when the lesson built from those sources arrives, or after 20 minutes. If the
+  assistant has stopped, the lesson may not come.
 - Plans, models and limits are set by GitHub and change over time.

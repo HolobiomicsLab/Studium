@@ -20,14 +20,14 @@ portent l'extension sont dans [Où sont les paquets](installation.fr.md#où-sont
 ## Obtenir votre première leçon
 
 L'extension affiche des leçons ; elle n'en construit pas. Juste après l'installation, la vue **Leçons**
-indique « Aucune leçon trouvée pour l'instant » et propose **Essayer la leçon de démonstration**. Prenez la
+indique « Pas encore de leçon à vous » et propose **Essayer la leçon de démonstration**. Prenez la
 ligne qui correspond à ce que vous avez :
 
 | Vous avez | Faites ceci |
 |---|---|
 | Rien encore, et vous voulez voir comment fonctionne Studium | **Essayer la leçon de démonstration** dans la vue **Leçons** vide, ou **Studium : Essayer la leçon de démonstration** : « Découvrir Studium », une dizaine de minutes, dans la langue d'affichage de VS Code (français ou anglais). Elle est livrée avec l'extension ; un agent d'IA l'a rédigée à partir de la documentation de Studium et aucun enseignant ne l'a encore vérifiée, comme le dit son premier écran. Elle n'est pas enregistrée comme votre cours et ne remplace jamais une de vos leçons |
-| Copilot dans VS Code 1.101 ou plus récent | Rien à relier : l'extension propose son propre serveur Studium à Copilot (voir [Connecter Copilot](copilot.fr.md)). En mode agent de Copilot Chat, demandez « je veux apprendre … avec Studium » en indiquant vos sources. La leçon est écrite dans votre bibliothèque personnelle et apparaît dans la vue **Leçons** après un rafraîchissement |
-| Un autre assistant IA (Claude Code, Codex, Cursor) | Reliez-le à Studium par [une commande](installation.fr.md#ajouter-le-serveur-à-votre-assistant), puis demandez « je veux apprendre … avec Studium » en indiquant vos sources. La leçon est écrite dans votre bibliothèque personnelle, `~/.studium/library`, et apparaît dans la vue **Leçons** après un rafraîchissement |
+| Copilot dans VS Code 1.101 ou plus récent | Rien à relier : l'extension propose son propre serveur Studium à Copilot (voir [Connecter Copilot](copilot.fr.md)). En mode agent de Copilot Chat, demandez « je veux apprendre … avec Studium » en indiquant vos sources. Construire la leçon prend quelques minutes : la barre d'état indique **Studium · leçon en préparation…**, puis VS Code vous prévient que la leçon est prête, avec **Ouvrir**, et elle apparaît dans la vue **Leçons**. Au premier outil Studium, autorisez les outils de Studium pour la session (voir [Connecter Copilot](copilot.fr.md)) |
+| Un autre assistant IA (Claude Code, Codex, Cursor) | Reliez-le à Studium par [une commande](installation.fr.md#ajouter-le-serveur-à-votre-assistant), puis demandez « je veux apprendre … avec Studium » en indiquant vos sources. La leçon est écrite dans votre bibliothèque personnelle, `~/.studium/library` ; VS Code vous prévient quand elle est prête, et elle apparaît dans la vue **Leçons** |
 | Une leçon donnée par un enseignant | **Studium : Choisir un cours**, **Choisir un autre dossier de cours…**, puis choisissez son dossier ; ou clic droit sur son `lesson.json`, puis **Studium : Ouvrir cette leçon** |
 | Les leçons de démonstration, sans clone | téléchargez l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) et décompressez-la, puis **Studium : Choisir un cours**, **Choisir un autre dossier de cours…**, et choisissez son dossier `fixtures` |
 | Un clone du dépôt | **Studium : Choisir un cours**, puis choisissez `fixtures` pour les leçons de démonstration |
@@ -50,7 +50,10 @@ l'assistant, étape par étape, est dans
 
 Quand `studium.bundlesRoot` est vide, le dossier de leçons est le `fixtures/` du dépôt si l'extension
 tourne depuis un clone de Studium, sinon votre bibliothèque personnelle, `~/.studium/library` (ou
-`<STUDIUM_HOME>/library`), où sont écrites les leçons qu'un assistant prépare pour vous.
+`<STUDIUM_HOME>/library`), où sont écrites les leçons qu'un assistant prépare pour vous. L'extension crée
+cette bibliothèque au démarrage si elle manque, et la surveille : une leçon écrite là est listée et annoncée,
+avec **Ouvrir**, **Plus tard** et **Ne plus afficher**. Si `studium.bundlesRoot` désigne un autre dossier,
+les leçons de la bibliothèque sont listées à part, sous **Ta bibliothèque**.
 
 ### De la conversation au panneau
 
