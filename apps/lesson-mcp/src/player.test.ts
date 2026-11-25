@@ -163,6 +163,10 @@ describe('browser player: a lesson played through the routes', () => {
     const answered = await view('panel_action', {session_id, action:{type:'respond', input:{kind:'quiz_choice', choiceId:'b'}, expected_scene_id:'s1-quiz-fer'}});
     expect(answered.verdict).toMatchObject({scene_id:'s1-quiz-fer', correct:true, assessed_by:'key'});
     expect(answered.actions).not.toContain('ask');
+    // The explanation rung hands over to an assistant: closed here, with its reason, never a dead button.
+    const explain = answered.help.rungs.find((rung:{kind:string}) => rung.kind === 'explain');
+    expect(explain.available).toBe(false);
+    expect(explain.why_not).toMatch(/^pas d'assistant sur cette page.: relis la leçon ou demande un indice$/);
     const again = await view('get_panel_view', {session_id});
     expect(again.session_id).toBe(session_id);
     expect(again.surface.kind).toBe('pane');

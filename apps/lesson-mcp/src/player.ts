@@ -10,6 +10,7 @@ import type { SessionHost } from '@studium/lesson-session-host';
 import { buildMcpServer } from './server.js';
 import { SERVER_VERSION } from './build-info.js';
 import { browserHtml } from '../../lesson-panel-ui/dist/resources.js';
+import { phrase } from '../../../packages/lesson-panel/src/phrases.js';
 
 /** The only tools the page reaches: no authoring, teacher, export or forget-by-learner tool. */
 export const PLAYER_TOOLS = ['list_lessons', 'open_lesson_panel', 'get_panel_view', 'panel_action'] as const;
@@ -106,12 +107,20 @@ export function createPlayer(options: { host: SessionHost; token: string; html?:
     return rest;
   }
 
-  /** The tool's result as an MCP App reads it; a view no longer offers the hand-over to an assistant. */
+  /** The tool's result as an MCP App reads it. A view no longer offers the hand-over to an assistant, and
+   * the explanation rung of the help ladder, which is that hand-over, is closed with its reason. */
   function forPage(result: Awaited<ReturnType<Client['callTool']>>) {
     if (result.isError) return { isError: true, content: result.content };
-    const structured = result.structuredContent as { panel?: { actions?: string[] } } | undefined;
+    type Rung = { kind?: string; available?: boolean; why_not?: string };
+    type View = { actions?: string[]; locale?: 'fr' | 'en'; help?: { rungs?: Rung[] } };
+    const structured = result.structuredContent as { panel?: View } | undefined;
     if (structured?.panel) {
-      const panel = { ...structured.panel, actions: (structured.panel.actions ?? []).filter(action => !NO_ASSISTANT.has(action)) };
+      const view = structured.panel;
+      const closed = phrase('player_no_assistant', {}, view.locale === 'en' ? 'en' : 'fr');
+      const panel: View = { ...view, actions: (view.actions ?? []).filter(action => !NO_ASSISTANT.has(action)) };
+      if (Array.isArray(view.help?.rungs)) {
+        panel.help = { ...view.help, rungs: view.help.rungs.map(rung => rung.kind === 'explain' ? { ...rung, available: false, why_not: closed } : rung) };
+      }
       return { structuredContent: { ...structured, panel } };
     }
     return { content: result.content };
