@@ -334,3 +334,22 @@ test("the notice for a page opened without its key names both addresses Studium 
     assert.match(words.player_no_token, /studium-mcp play/);
   }
 });
+
+// Review of decision 4, finding 4: a server that answers, but refuses the key (401), is not a session that ended: the
+// address was mistyped, cut, or is out of date. The page says so and asks for the address again; only a server that
+// does not answer at all says the assistant's session ended.
+test("an assistant's address the server refuses says it is incomplete or out of date, not that the session ended", async () => {
+  const refused = page({ hash: ASSISTANT, reply: async () => [401, { code: "unauthorized" }] });
+  await refused.start();
+  assert.equal(text(refused.doc.querySelector(".player-notice")), flat(fr.player_assistant_token_rejected));
+  refused.dom.window.close();
+  const en = browserPhrases("en");
+  assert.match(fr.player_assistant_token_rejected, /incomplète ou périmée[\s\S]*Demande de nouveau ta leçon à ton assistant/);
+  assert.match(en.player_assistant_token_rejected, /incomplete or out of date[\s\S]*Ask your assistant for your lesson again/);
+  for (const words of [fr.player_assistant_token_rejected, en.player_assistant_token_rejected]) {
+    assert.doesNotMatch(words, /terminée|redémarré|ended|started again/);
+  }
+  assert.match(fr.player_assistant_unreachable, /s'est terminée/);
+  assert.match(en.player_assistant_unreachable, /has ended/);
+});
+

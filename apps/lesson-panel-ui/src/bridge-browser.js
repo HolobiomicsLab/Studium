@@ -73,7 +73,9 @@ export async function startBrowserPlayer({ window: win, document: doc, connectMc
   const words = browserPhrases(locale);
   const { token, lesson, fromAssistant } = takeAddress(win);
   if (fromAssistant) {
-    // The server an assistant runs ends with the assistant's session: a new address comes from asking it again.
+    // The server an assistant runs ends with the assistant's session: one that does not answer is gone, and a new
+    // address comes from asking the assistant again. One that answers but refuses the key was given an address
+    // mistyped, cut or out of date: the assistant gives it again (review of decision 4, finding 4).
     words.player_unreachable = words.player_assistant_unreachable;
     words.player_token_rejected = words.player_assistant_token_rejected;
   }
