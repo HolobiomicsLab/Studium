@@ -170,6 +170,44 @@ describe("the stdio server without the VS Code extension offers its browser play
     await expect(fetch(`${origin}/play`)).rejects.toThrow();
   }, TIMEOUT);
 
+  // D4 review, finding 1 (probe p4): no learner named, the default "anonymous" of this server is one person, the user of
+  // this assistant session. The chat's « here » takes up the session the browser plays, where it is, and the two never
+  // hold two sessions of one lesson that save over each other.
+  it("plays one session in the browser and in the chat when no learner is named", async () => {
+    const server = await startServer();
+    const created = await server.createLesson();
+    const link = String(created.body["open_link"]);
+    const [, port, key] = link.match(/^http:\/\/127\.0\.0\.1:(\d+)\/play#token=([0-9a-f]{64})&from=assistant&lesson=/) ?? [];
+    expect(port, link).toBeDefined();
+    const asLearner = player(`http://127.0.0.1:${port}`, key);
+    const opened = await asLearner("open_lesson_panel", { bundle_ref: LESSON, locale: "fr" });
+    let panel = opened.json["structuredContent"]["panel"];
+    expect(panel.learner_id).toBe("anonymous");
+    const session = panel.session_id;
+    panel = (await asLearner("panel_action", { session_id: session, action: { type: "respond", input: { kind: "ack" }, expected_scene_id: panel.scene.id } }))
+      .json["structuredContent"]["panel"];
+
+    // The learner says « here »: the chat takes up the browser's session, at the browser's step.
+    const here = (await server.call("start_lesson_session", { bundle_ref: LESSON })).body;
+    expect(here["session_id"]).toBe(session);
+    expect(here["resume"]).toMatchObject({ kind: "already_open", scene_id: panel.scene.id });
+
+    // The browser goes on past that step; the chat, back, finds the step the browser reached, and the plan counts it.
+    const asked = panel.scene.id;
+    for (const choice of panel.scene.choices.map((c: { id: string }) => c.id)) {
+      panel = (await asLearner("panel_action", { session_id: session, action: { type: "respond", input: { kind: "quiz_choice", choiceId: choice }, expected_scene_id: panel.scene.id } }))
+        .json["structuredContent"]["panel"];
+      if (panel.scene.id !== asked) break;
+    }
+    expect(panel.scene.id).not.toBe(asked);
+    const again = (await server.call("start_lesson_session", { bundle_ref: LESSON })).body;
+    expect(again["session_id"]).toBe(session);
+    expect(again["presentation"]["scene"]["id"]).toBe(panel.scene.id);
+    const plan = (await server.call("get_study_plan", { language: "fr" })).body;
+    expect(plan["in_progress"]).toEqual([expect.objectContaining({ bundle_ref: LESSON, scenes_completed: 2 })]);
+    expect(await server.close()).toBe(0);
+  }, TIMEOUT);
+
   it("keeps the VS Code pane link, and starts no player, when the extension serves Studium", async () => {
     const server = await startServer({ STUDIUM_OPEN_LINK: OPEN_LINK, STUDIUM_LEARNER_ID: "vscode-learner" });
     const created = await server.createLesson(LEARNER);
