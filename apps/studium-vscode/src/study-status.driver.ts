@@ -99,6 +99,31 @@ const MIXED = {
   expect(statusBarText(null, "fr", "a\nb\u001b[31m c")?.text === "a b [31m c", `one line, no control character (got ${statusBarText(null, "fr", "a\nb\u001b[31m c")?.text})`);
 }
 
+// BN-4: while the assistant prepares a lesson (prepare_sources wrote its source set, the lesson is not there yet), the
+// bar shows a spinner and says so, ahead of the review count, which moves to the tooltip. The tooltip names the source,
+// says it takes a few minutes, and says to answer the assistant in the chat if it asks to allow a step. A lesson being
+// played keeps the bar.
+{
+  const preparing = { title: "La photosynthèse : notes de cours (L1)" };
+  const idle = statusBarText(null, "en", null, preparing);
+  expect(idle?.text === hostPhrase("status_preparing", {}, "en") && idle.text.startsWith("$(loading~spin) "),
+    `nothing due + preparing: a spinner and the preparing text (got ${idle?.text})`);
+  expect(!!idle?.tooltip.includes("“La photosynthèse : notes de cours (L1)”"), `the tooltip names the source (got ${idle?.tooltip})`);
+  expect(!!idle && /few minutes/.test(idle.tooltip) && /chat/.test(idle.tooltip) && /allow/i.test(idle.tooltip),
+    `it says how long, and to allow a step in the chat if asked (got ${idle?.tooltip})`);
+  const fr = statusBarText(parseReinforcement(FRESH), "fr", null, preparing);
+  expect(fr?.text === hostPhrase("status_preparing", {}, "fr") && !!fr?.tooltip.includes("quelques minutes") && !!fr?.tooltip.includes("chat"),
+    `in French too (got ${JSON.stringify(fr)})`);
+  const due = statusBarText(parseReinforcement(DUE), "fr", null, preparing);
+  expect(due?.text === hostPhrase("status_preparing", {}, "fr"), `preparing outranks the review count while it lasts (got ${due?.text})`);
+  expect(!!due?.tooltip.includes("3 notions à réviser"), `the review count moves to the tooltip (got ${due?.tooltip})`);
+  const line = "Les atomes · étape 2/3 · 3 min · à toi de répondre";
+  expect(statusBarText(parseReinforcement(DUE), "fr", line, preparing)?.text === line, "a lesson being played keeps the bar");
+  expect(statusBarText(parseReinforcement(DUE), "fr", null, null)?.text === "Studium · 3 à réviser", "nothing prepared: the review count, as before");
+  const untitled = statusBarText(null, "en", null, { title: "" });
+  expect(untitled?.text === hostPhrase("status_preparing", {}, "en") && !untitled.tooltip.includes("“”"), `a source without a title is not quoted empty (got ${untitled?.tooltip})`);
+}
+
 // reviewsNode
 {
   const fmt = (ms: number) => `D${ms}`;

@@ -107,6 +107,8 @@ const FR = {
   tree_run: "Lancer la reproduction",
   tree_courses: "Cours disponibles",
   tree_no_courses: "— aucun cours trouvé —",
+  // BN-1: the library an assistant writes to, listed apart when the lessons folder is another one.
+  tree_library: "Ta bibliothèque",
   tree_current: "\n✓ cours actuel",
   tree_community: "Contributions de la classe",
   tree_no_community: "— aucune pour l'instant —",
@@ -638,6 +640,7 @@ const EN: Record<PhraseKey, string> = {
   tree_run: "Run the reproduction",
   tree_courses: "Available courses",
   tree_no_courses: "— no courses found —",
+  tree_library: "Your library",
   tree_current: "\n✓ current course",
   tree_community: "Community contributions",
   tree_no_community: "— none yet —",

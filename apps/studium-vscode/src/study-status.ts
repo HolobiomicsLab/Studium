@@ -73,8 +73,11 @@ const TOOLTIP_PHRASE = {
   unmeasured: ["status_tooltip_unmeasured_one", "status_tooltip_unmeasured"],
 } as const;
 
+/** BN-4: what the assistant is preparing a lesson from (library-watch.ts), shown while the lesson is not there yet. */
+export interface Preparing { title: string }
+
 export function statusBarText(
-  status: StudyStatus | null, locale: Locale, lessonLine?: string | null,
+  status: StudyStatus | null, locale: Locale, lessonLine?: string | null, preparing?: Preparing | null,
 ): { text: string; tooltip: string } | null {
   // INT-STUDIUM-058: while a lesson plays, the bar shows the lesson's own status line (the view's
   // status_line); what is due moves to the tooltip. One line, no control character (\p{Cc}: U+0000 to
@@ -83,6 +86,18 @@ export function statusBarText(
   if (line) {
     const due = statusBarText(status, locale);
     return { text: line, tooltip: due ? due.tooltip : hostPhrase("status_tooltip_lesson", {}, locale) };
+  }
+  // BN-4: a lesson being prepared outranks the review count while it lasts (minutes); the count moves to the tooltip.
+  if (preparing) {
+    const source = preparing.title.replace(/\p{Cc}/gu, " ").replace(/\s+/g, " ").trim();
+    const lead = source
+      ? hostPhrase("status_tooltip_preparing", { source }, locale)
+      : hostPhrase("status_tooltip_preparing_untitled", {}, locale);
+    const due = statusBarText(status, locale);
+    return {
+      text: hostPhrase("status_preparing", {}, locale),
+      tooltip: [`${lead} ${hostPhrase("status_tooltip_preparing_wait", {}, locale)}`, due?.tooltip].filter(Boolean).join("\n"),
+    };
   }
   if (!status || status.dueCount === 0) return null;
   const counts = status.counts;

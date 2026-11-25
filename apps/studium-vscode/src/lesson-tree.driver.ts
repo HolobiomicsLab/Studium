@@ -66,6 +66,22 @@ const byId = (nodes: TreeNode[], id: string) => nodes.find((n) => n.id === id);
   expect(!empty?.children?.[0]?.command, "empty courses placeholder is not clickable");
 }
 
+// BN-1: when the lessons folder is not the library an assistant writes to (a checkout's fixtures/, or a folder the
+// learner chose), a « Your library » group lists the library's lessons; each opens from the library (source "library").
+{
+  const mine: LessonCourse[] = [{ ref: "photosynthese/lesson.json", title: "La photosynthèse", target: "L1", language: "fr", approval: { state: "none" } }];
+  const t = buildLessonTree({ courses: [], library: mine, currentRef: "", community: [], onReproductionScene: false, locale: "en" });
+  const library = byId(t, "library");
+  expect(!!library && library.label === browserPhrases("en").tree_library, `a « Your library » group is shown (got ${library?.label})`);
+  const leaf = library?.children?.[0];
+  expect(leaf?.label === "La photosynthèse" && leaf.command === "studium.openLesson"
+    && JSON.stringify(leaf.args) === '["photosynthese/lesson.json","library"]', `a library leaf opens from the library (got ${JSON.stringify(leaf)})`);
+  expect(buildLessonTree({ courses: [], library: mine, community: [], onReproductionScene: false, emptyAsWelcome: true }).length > 0,
+    "a lesson in the library keeps the tree (no welcome view)");
+  expect(!byId(buildLessonTree({ courses: [], library: [], community: [], onReproductionScene: false }), "library"), "an empty or absent library adds no group");
+  expect(!byId(buildLessonTree({ courses: [], community: [], onReproductionScene: false }), "library"), "no library option: no group");
+}
+
 // VSC-5: the sidebar and picker labels are real translations in both languages, never « français / English ».
 for (const locale of ["fr", "en"] as const) {
   const catalogue = browserPhrases(locale) as Record<string, string>;

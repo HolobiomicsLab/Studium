@@ -35,6 +35,8 @@ function primary(locale: Locale): TreeNode[] {
 /** Build the sidebar tree from discovered courses and community contributions. Pure. */
 export function buildLessonTree(opts: {
   courses?: readonly LessonCourse[];
+  /** BN-1: the lessons of the library an assistant writes to, when the lessons folder is another one. */
+  library?: readonly LessonCourse[];
   currentRef?: string;
   community: CommunityItem[];
   onReproductionScene: boolean;
@@ -47,7 +49,7 @@ export function buildLessonTree(opts: {
 }): TreeNode[] {
   const locale = opts.locale ?? "fr";
   const reviews = reviewsNode(opts.reviews ?? null, locale);
-  if (opts.emptyAsWelcome && !(opts.courses?.length) && !opts.community.length && !opts.onReproductionScene && !reviews) {
+  if (opts.emptyAsWelcome && !(opts.courses?.length) && !(opts.library?.length) && !opts.community.length && !opts.onReproductionScene && !reviews) {
     return [];
   }
   const nodes: TreeNode[] = primary(locale);
@@ -56,6 +58,7 @@ export function buildLessonTree(opts: {
     nodes.push({ id: "run", label: phrase("tree_run", {}, locale), icon: "beaker", command: "studium.runReproduction" });
   }
   nodes.push(coursesNode(opts.courses ?? [], opts.currentRef ?? "", locale));
+  if (opts.library?.length) nodes.push(libraryNode(opts.library, locale));
   nodes.push(communityNode(opts.community, locale));
   return nodes;
 }
@@ -81,6 +84,16 @@ function courseNode(course: LessonCourse, isCurrent: boolean, locale: Locale): T
     tooltip: `${course.ref}\n${approvalLabel(course.approval, locale)}${current}`,
     command: "studium.openLesson",
     args: [course.ref],
+  };
+}
+
+/** BN-1: « Your library », the lessons an assistant wrote for the learner; each leaf opens from the library. */
+function libraryNode(courses: readonly LessonCourse[], locale: Locale): TreeNode {
+  return {
+    id: "library",
+    label: phrase("tree_library", {}, locale),
+    icon: "book",
+    children: courses.map((course) => ({ ...courseNode(course, false, locale), id: `library:${course.ref}`, args: [course.ref, "library"] })),
   };
 }
 
