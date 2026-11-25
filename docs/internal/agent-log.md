@@ -6,6 +6,24 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-25 — choisir un cours sans dossier ouvert ouvre la leçon
+
+Rapport d'un testeur (VS Code fraîchement installé, une leçon construite par un assistant dans
+`~/.studium/library`) : au choix de la leçon, l'extension s'arrête sur « Unable to write to... » et
+n'ouvre rien. Cause : `saveLessonSelection` écrivait `studium.bundlesRoot` et `studium.bundleRef`
+avec `ConfigurationTarget.Workspace`, ce que VS Code refuse quand aucun dossier n'est ouvert, et
+`saveAndOpenLesson` abandonnait l'ouverture sur cette erreur.
+
+Test d'abord (`apps/studium-vscode/src/extension-host.driver.ts`, un bloc ajouté, aucune assertion
+changée) : le faux `vscode` refuse désormais, comme VS Code, une écriture Workspace sans dossier, et
+note la cible de chaque écriture. Le bloc a échoué (7 assertions) avec le message exact du testeur,
+puis passe. Correction : la cible est Workspace quand un dossier ou un espace de travail est ouvert,
+Global (réglages utilisateur) sinon ; une écriture qui échoue quand même devient un avertissement et
+la leçon s'ouvre depuis le dossier choisi (`openLesson` reçoit `bundlesRoot`, comme « Ouvrir cette
+leçon »). Le texte de `extension_save_course_failed` le dit (FR et EN). Rien n'est poussé.
+
+---
+
 ## 2026-11-12 — la version 0.6.3 : le `homepage` du paquet npm
 
 Mots du propriétaire : « Oui, prépare 0.6.3 », après la publication de la 0.6.2.

@@ -4,6 +4,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Fixed
+
+- **Choosing a course opens it whatever the window holds.** With no folder open, which is how VS Code starts just after the extension is installed, **Studium: Pick a course** stopped on "Unable to write to Workspace Settings because no workspace is opened" and no lesson opened. The choice is now saved in the workspace when a folder or a workspace is open, and in the user settings otherwise. When no settings file can be written (read-only, with errors, or with unsaved changes), the lesson opens all the same, from the folder you chose, and a warning says the choice was not saved.
+
 ## 0.6.3 — 2026-11-12
 
 This release changes no behaviour of the server, of the extension or of the lessons. It makes the `studium-mcp` package on npm link the Studium site, as the 0.6.2 changelog said it would.

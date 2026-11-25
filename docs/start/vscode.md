@@ -36,7 +36,7 @@ assistant does, step by step, is in [Learn with your assistant](../learn/learn-w
 | Way | When to use it |
 |---|---|
 | **Studium** icon in the activity bar, then the **Lessons** view | browse the lessons found in your lessons folder |
-| **Studium: Pick a course** | choose a course, or another folder of lessons; the choice is saved in the workspace |
+| **Studium: Pick a course** | choose a course, or another folder of lessons; the choice is saved in the workspace, or in your user settings when no folder is open |
 | **Studium: Open lesson** | reopen the current course (offers the picker if none is set) |
 | Right-click a `lesson.json`, **Studium: Open this lesson** | open that file directly, in the explorer or on the editor tab, without changing settings |
 | A `vscode://` link from your assistant | open the lesson your assistant has just built (below) |

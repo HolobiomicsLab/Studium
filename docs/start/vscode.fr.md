@@ -37,7 +37,7 @@ l'assistant, étape par étape, est dans
 | Moyen | Quand l'utiliser |
 |---|---|
 | Icône **Studium** de la barre d'activité, puis la vue **Leçons** | parcourir les leçons de votre dossier de leçons |
-| **Studium : Choisir un cours** | choisir un cours, ou un autre dossier de leçons ; le choix est enregistré dans l'espace de travail |
+| **Studium : Choisir un cours** | choisir un cours, ou un autre dossier de leçons ; le choix est enregistré dans l'espace de travail, ou dans vos réglages utilisateur quand aucun dossier n'est ouvert |
 | **Studium : Ouvrir une leçon** | rouvrir le cours courant (propose le sélecteur s'il n'y en a pas) |
 | Clic droit sur un `lesson.json`, **Studium : Ouvrir cette leçon** | ouvrir directement ce fichier, depuis l'explorateur ou l'onglet de l'éditeur, sans changer les réglages |
 | Un lien `vscode://` donné par votre assistant | ouvrir la leçon que votre assistant vient de préparer (ci-dessous) |
