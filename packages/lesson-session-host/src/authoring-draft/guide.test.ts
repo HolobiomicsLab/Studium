@@ -215,8 +215,11 @@ describe("authoringGuide", () => {
       const step = authoringGuide({ language }).markdown.split("\n").find((line) => line.startsWith("6. "))!;
       for (const named of ["`open_link`", "`display_markdown`", "`start_lesson_session {bundle_ref: course_ref}`"]) expect(step).toContain(named);
     }
-    expect(authoringGuide({ language: "en" }).markdown).toMatch(/Studium pane first; start here only on the learner's “here”/);
-    expect(authoringGuide({ language: "fr" }).markdown).toMatch(/panneau Studium d'abord ; ici seulement sur son « ici »/);
+    // Changed (D4, owner decision 4): open_link leads to the Studium pane or to the server's browser player, so the
+    // step says « the link first », the words of the server's instructions (was « the Studium pane first »); the
+    // display_markdown it shows names the pane or the browser.
+    expect(authoringGuide({ language: "en" }).markdown).toMatch(/\(the link first; start here only on the learner's “here”\)/);
+    expect(authoringGuide({ language: "fr" }).markdown).toMatch(/\(le lien d'abord ; ici seulement sur son « ici »\)/);
   });
 
   it("says in teacher mode that this route writes self-study lessons and names the teacher route", () => {

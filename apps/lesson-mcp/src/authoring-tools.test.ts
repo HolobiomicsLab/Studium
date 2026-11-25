@@ -23,7 +23,7 @@ afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: 
 
 interface Passage { id: string; source_id: string; text: string }
 
-async function connected(judge = false, files?: SourceFilePolicy, openLink?: string) {
+async function connected(judge = false, files?: SourceFilePolicy, openLink?: string, browserLink?: AuthoringToolsContext["browserLink"]) {
   const library = mkdtempSync(join(tmpdir(), "mcp-authoring-"));
   roots.push(library);
   const written: string[] = [];
@@ -31,6 +31,7 @@ async function connected(judge = false, files?: SourceFilePolicy, openLink?: str
     libraryRoot: () => library, onLessonWritten: (ref) => { written.push(ref); }, judge: () => judge,
     ...(files ? { sourceFiles: () => files } : {}),
     ...(openLink ? { openLink: () => openLink } : {}),
+    ...(browserLink ? { browserLink } : {}),
   };
   const server = new McpServer({ name: "authoring-test", version: "0" });
   const names = registerAuthoringTools(server, ctx);
@@ -147,6 +148,49 @@ describe("create_lesson with the VS Code extension's link", () => {
     expect(description).toContain("open_link");
     expect(description).toMatch(/display_markdown as it is/);
     expect(description).toMatch(/“here”/);
+  });
+});
+
+// D4 (waiting review 2026-11-25, owner decision 4): with no VS Code extension serving Studium, the server's browser
+// player is offered instead, with the same keys: open_link (its address for the learner of the call) and
+// display_markdown, which offers the browser first and the chat one word away. No lesson_path: no pane opens a file.
+describe("create_lesson with the browser player's address", () => {
+  const ADDRESS = "http://127.0.0.1:5555/play#token=key&from=assistant&lesson=deux-solidarites%2Flesson.json";
+
+  it("returns open_link and display_markdown that offers the browser first, for the learner of the call", async () => {
+    const asked: Array<[string | undefined, string]> = [];
+    const { call } = await connected(false, undefined, undefined, async (learnerId, courseRef) => { asked.push([learnerId, courseRef]); return ADDRESS; });
+    const prepared = await call("prepare_sources", { sources: [{ title: FRENCH_SOURCE.title, text: FRENCH_SOURCE.text }], language: "fr" });
+    const created = await call("create_lesson", {
+      source_set_id: prepared.body["source_set_id"], draft: draftOver(prepared.body["passages"] as Passage[]), learner_id: "apprenant-solidarites",
+    });
+    expect(created.isError).toBe(false);
+    expect(asked).toEqual([["apprenant-solidarites", "deux-solidarites/lesson.json"]]);
+    expect(created.body).toMatchObject({ ok: true, open_link: ADDRESS });
+    expect(created.body).not.toHaveProperty("lesson_path");
+    const shown = String(created.body["display_markdown"]);
+    expect(shown).toMatch(/«.Deux solidarités.» est prête/);
+    expect(shown).toContain(`<${ADDRESS}>`);
+    expect(shown).toMatch(/navigateur[\s\S]*dis «.ici.»/);
+    expect(shown).not.toMatch(/panneau Studium/);
+  });
+
+  it("keeps the result of old when the player gives no address, and offers the pane when the extension serves Studium", async () => {
+    const none = await connected(false, undefined, undefined, async () => null);
+    const prepared = await none.call("prepare_sources", { sources: [{ title: FRENCH_SOURCE.title, text: FRENCH_SOURCE.text }], language: "fr" });
+    const created = await none.call("create_lesson", { source_set_id: prepared.body["source_set_id"], draft: draftOver(prepared.body["passages"] as Passage[]) });
+    expect(Object.keys(created.body).sort()).toEqual(["course_ref", "findings", "key_classes", "notice", "ok", "outline"]);
+    const PREFIX = "vscode://holobiomicslab.studium-vscode/open?bundle=";
+    const both = await connected(false, undefined, PREFIX, async () => { throw new Error("the pane is offered, not the browser"); });
+    const again = await both.call("prepare_sources", { sources: [{ title: FRENCH_SOURCE.title, text: FRENCH_SOURCE.text }], language: "fr" });
+    const paned = await both.call("create_lesson", { source_set_id: again.body["source_set_id"], draft: draftOver(again.body["passages"] as Passage[]) });
+    expect(String(paned.body["open_link"])).toMatch(/^vscode:/);
+  });
+
+  it("says in its description that open_link leads to the Studium pane or the browser", async () => {
+    const { client } = await connected();
+    const description = (await client.listTools()).tools.find((tool) => tool.name === "create_lesson")!.description!;
+    expect(description).toMatch(/browser/);
   });
 });
 

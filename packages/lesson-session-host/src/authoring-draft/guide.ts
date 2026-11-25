@@ -6,7 +6,7 @@
 import type { LessonDraft } from "./draft-schema.js";
 import type { SourceInput } from "./source-set.js";
 
-export const GUIDE_VERSION = "2026-11-25.5";
+export const GUIDE_VERSION = "2026-11-25.6";
 export type GuideLanguage = "fr" | "en";
 export type GuideMode = "self_study" | "teacher";
 
@@ -63,7 +63,7 @@ You draft, Studium checks and writes. The learner will play what you write; no t
 3. Read the passages it returns, then show the learner a short sketch: the goal, the concept labels, and each step's title with its kind; never a key, and titles name the topic, never the answer. Go on without waiting for approval.
 4. Write the \`LessonDraft\` (its JSON Schema is \`draft_schema\`) once, in the \`create_lesson\` call: not in a message, not twice. If it refuses, nothing is written and Studium keeps the draft: fix only what the errors name, never by making a quote say what its passage does not, and resend only those scenes, \`create_lesson {source_set_id, draft_id, scenes: [{at, ...scene}]}\`, unless the refusal asks for the whole draft.
 5. If your host has a todo list, tick sources, sketch, writing and checking in the same turn as your next call, never in a turn of its own.
-6. After \`create_lesson\`, show only what differs from the sketch, never a key, and relay its \`notice\`. If the result has \`open_link\`, show its \`display_markdown\` as it is (the Studium pane first; start here only on the learner's “here”); else start the lesson: \`start_lesson_session {bundle_ref: course_ref}\`.
+6. After \`create_lesson\`, show only what differs from the sketch, never a key, and relay its \`notice\`. If the result has \`open_link\`, show its \`display_markdown\` as it is (the link first; start here only on the learner's “here”); else start the lesson: \`start_lesson_session {bundle_ref: course_ref}\`.
 
 ## Rules of a draft
 
@@ -97,7 +97,7 @@ Vous rédigez, Studium vérifie et écrit. L'apprenant jouera ce que vous écriv
 3. Lisez les passages renvoyés, puis montrez à l'apprenant une courte esquisse : l'objectif, les intitulés des concepts, et le titre de chaque étape avec son type ; jamais une clé, et des titres qui nomment le sujet, jamais la réponse. Continuez sans attendre son accord.
 4. Écrivez le \`LessonDraft\` (son JSON Schema est \`draft_schema\`) une seule fois, dans l'appel à \`create_lesson\` : pas dans un message, pas deux fois. S'il refuse, rien n'est écrit et Studium garde le brouillon : corrigez seulement ce que les erreurs nomment, jamais en faisant dire à une citation ce que son passage ne dit pas, et renvoyez seulement ces scènes, \`create_lesson {source_set_id, draft_id, scenes: [{at, ...scene}]}\`, sauf si le refus demande tout le brouillon.
 5. Si votre hôte a une liste de tâches, cochez sources, esquisse, rédaction et vérification dans le même tour que votre appel suivant, jamais dans un tour à part.
-6. Après \`create_lesson\`, montrez seulement ce qui diffère de l'esquisse, jamais une clé, et relayez son \`notice\`. Si le résultat a \`open_link\`, montrez son \`display_markdown\` tel quel (panneau Studium d'abord ; ici seulement sur son « ici ») ; sinon \`start_lesson_session {bundle_ref: course_ref}\`.
+6. Après \`create_lesson\`, montrez seulement ce qui diffère de l'esquisse, jamais une clé, et relayez son \`notice\`. Si le résultat a \`open_link\`, montrez son \`display_markdown\` tel quel (le lien d'abord ; ici seulement sur son « ici ») ; sinon \`start_lesson_session {bundle_ref: course_ref}\`.
 
 ## Règles d'un brouillon
 
