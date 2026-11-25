@@ -941,7 +941,10 @@ async function main() {
     fire(lessonsWatcher, "change", third);
     await waitFor(() => seen.infos.length > mutedBefore, "the notice on a change event");
     await sleep(50);
-    expect(globalStateData.get("studium.lessonReadyMuted") === true, "Don't show again is kept in the global state");
+    // Changed: « Don't show again » now turns off the user setting studium.notifyLessonReady (review finding 4), which the
+    // learner can turn back on in the Settings editor; the global-state flag is no longer written.
+    expect(configWrites.some((w) => w.key === "notifyLessonReady" && w.value === false && w.target === 1)
+      && !globalStateData.has("studium.lessonReadyMuted"), "Don't show again turns studium.notifyLessonReady off in the user settings");
     infoAnswer = () => undefined;
     const fourth = join(libraryRoot, "photosynthese-quater", "lesson.json");
     mkdirSync(join(libraryRoot, "photosynthese-quater"), { recursive: true });
@@ -952,6 +955,7 @@ async function main() {
     await sleep(900);
     expect(seen.infos.length === afterMute && refreshes > refreshesMuted, "after Don't show again: refreshed, not announced");
     globalStateData.delete("studium.lessonReadyMuted");
+    delete settings["notifyLessonReady"];
 
     // The lessons folder (studium.bundlesRoot), when it is not the library, is watched to refresh the list only: a pull
     // that touches many lessons must not announce each one. Its watcher follows the setting.
