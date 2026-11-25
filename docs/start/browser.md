@@ -17,7 +17,7 @@ answers only that computer. It does not build lessons: that still needs an assis
 | Needed | Why |
 |---|---|
 | Node.js 20 or later (22 recommended) | it runs the player; one command in a terminal starts it |
-| A folder of lessons | each lesson is a folder with its `lesson.json`; the demo lessons are the `fixtures` folder of the [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) |
+| A folder of lessons (optional) | each lesson is a folder with its `lesson.json`; without one, the page lists your library and the short demo lesson shipped with Studium; more demo lessons are the `fixtures` folder of the [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) |
 | A recent web browser | the lesson opens in it |
 
 No VS Code, no assistant and no AI account are needed.
@@ -32,14 +32,7 @@ The player prints where it reads the lessons, where it keeps progress, and an ad
 `http://127.0.0.1:53817/play#token=…`, which it opens in your default browser. Keep the terminal open:
 closing it, or Ctrl+C, stops the player. If no browser opens, copy the address into one.
 
-The `play` command is in the source and not yet in a published version of `studium-mcp`: `npx -y
-studium-mcp --help` names it once a release carries it. Until then, run it from a checkout (see
-[Installation](installation.md)):
-
-```bash
-pnpm install && pnpm build:libs
-pnpm --filter @studium/lesson-mcp play "$PWD/fixtures"
-```
+The `play` command is in `studium-mcp` 0.6.4 and later.
 
 | Option | Effect |
 |---|---|
@@ -52,8 +45,10 @@ The same environment variables as the server apply: `STUDIUM_HOME`, `STUDIUM_DAT
 
 ## Play
 
-1. The page lists the lessons of the folder and of your library, with their number of steps, whether a
-   teacher approved them, and how far you got.
+1. The page lists the lessons of the folder and of your library, then the demo lesson shipped with
+   Studium, with their number of steps, whether a teacher approved them, and how far you got. While this
+   list is on screen, it is read again each time you come back to its tab or its window: a lesson your
+   assistant saved in your library meanwhile appears without a reload.
 2. Choose one. It opens at your first unfinished step.
 3. Answer in the page. Each step is drawn by the same renderer as the VS Code pane, with the same notices:
    who wrote the lesson and its answer key, and, after an answer, whether the key or a judge assessed it,
@@ -88,15 +83,19 @@ hosted, multi-user version would need (sign-in, one identity per learner, data p
 
 ## Limits
 
-- **Tried once, on one machine.** On macOS, from this repository's build of the server (not from npm), a
-  headless Google Chrome driven by Playwright opened the list, played the first five steps of
-  `fixtures/atomistique-l1` (an introduction, a concept, a quiz with a hint, graded by the author's key, and
-  a summary audit, with its « not certified » notice and the recall rating), in light and dark themes, and
-  resumed the same step after a page reload. A second run checked that progress kept on disk resumes at the
-  same step after the player restarts.
+- **Tried by scripts only, on macOS.** No person has used the player yet. A headless Google Chrome
+  driven by Playwright:
+  - from this repository's build of the server, opened the list, played the first five steps of
+    `fixtures/atomistique-l1` (an introduction, a concept, a quiz with a hint, graded by the author's key,
+    and a summary audit, with its « not certified » notice and the recall rating), in light and dark themes,
+    and resumed the same step after a page reload; a second run checked that progress kept on disk resumes
+    at the same step after the player restarts;
+  - from the published `studium-mcp` 0.6.4 (`npx`), played the Discover Studium demo lesson to its end,
+    once with the CDN (`cdn.jsdelivr.net`) reachable and once with it blocked.
 - **Not tried:** Windows and Linux (the browser opener uses `cmd /c start` and `xdg-open`), Firefox and
-  Safari, a screen reader, a computer without network access (equations, charts and molecules then fall back
-  to plain text), a teaching room, several students on one workstation, a whole lesson to its end.
+  Safari, a screen reader, a computer without network access, the plain-text fallback of equations, charts
+  and molecules (the demo lesson played with the CDN blocked has none of them), a teaching room, several
+  students on one workstation.
 - After a recall rating, the rating box closes without showing « Noted »; the rating is recorded.
 - Starting the player still needs Node and one command. Nothing yet starts it from a desktop shortcut or
   from VS Code.

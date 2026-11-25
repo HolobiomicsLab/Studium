@@ -17,7 +17,7 @@ TP, et ne répond qu'à cet ordinateur. Il ne construit pas de leçon : il faut 
 | Nécessaire | Pourquoi |
 |---|---|
 | Node.js 20 ou plus récent (22 conseillé) | il fait tourner le lecteur ; une commande dans un terminal le lance |
-| Un dossier de leçons | chaque leçon est un dossier avec son `lesson.json` ; les leçons de démonstration sont le dossier `fixtures` de l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) |
+| Un dossier de leçons (facultatif) | chaque leçon est un dossier avec son `lesson.json` ; sans lui, la page liste votre bibliothèque et la courte leçon de démonstration livrée avec Studium ; d'autres leçons de démonstration sont dans le dossier `fixtures` de l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) |
 | Un navigateur web récent | la leçon s'y ouvre |
 
 Ni VS Code, ni assistant, ni compte d'IA ne sont nécessaires.
@@ -33,14 +33,7 @@ Le lecteur affiche où il lit les leçons, où il garde la progression, et une a
 ouvert : le fermer, ou Ctrl+C, arrête le lecteur. Si aucun navigateur ne s'ouvre, copiez l'adresse dans un
 navigateur.
 
-La commande `play` est dans les sources mais pas encore dans une version publiée de `studium-mcp` :
-`npx -y studium-mcp --help` la nomme dès qu'une version la contient. D'ici là, lancez-la depuis un clone
-(voir [Installation](installation.fr.md)) :
-
-```bash
-pnpm install && pnpm build:libs
-pnpm --filter @studium/lesson-mcp play "$PWD/fixtures"
-```
+La commande `play` est dans `studium-mcp` depuis la version 0.6.4.
 
 | Option | Effet |
 |---|---|
@@ -53,8 +46,10 @@ Les mêmes variables d'environnement que pour le serveur s'appliquent : `STUDIUM
 
 ## Jouer
 
-1. La page liste les leçons du dossier et de votre bibliothèque, avec leur nombre d'étapes, si un enseignant
-   les a validées, et où vous en êtes.
+1. La page liste les leçons du dossier et de votre bibliothèque, puis la leçon de démonstration livrée avec
+   Studium, avec leur nombre d'étapes, si un enseignant les a validées, et où vous en êtes. Tant que cette
+   liste est affichée, elle est relue chaque fois que vous revenez à son onglet ou à sa fenêtre : une leçon
+   que votre assistant a enregistrée entre-temps dans votre bibliothèque apparaît sans recharger la page.
 2. Choisissez-en une. Elle s'ouvre à votre première étape non terminée.
 3. Répondez dans la page. Chaque étape est dessinée par le même moteur de rendu que le panneau de VS Code,
    avec les mêmes avis : qui a écrit la leçon et sa clé de correction, et, après une réponse, si la clé ou un
@@ -92,15 +87,20 @@ protection des données).
 
 ## Limites
 
-- **Essayé une fois, sur une machine.** Sous macOS, depuis la version du serveur construite dans ce dépôt (pas
-  depuis npm), un Google Chrome sans fenêtre piloté par Playwright a ouvert la liste, joué les cinq premières
-  étapes de `fixtures/atomistique-l1` (une introduction, une notion, un quiz avec un indice, noté par la clé
-  de l'auteur, et un audit de résumé, avec son avis « non certifié » et la note de rappel), en thème clair et
-  sombre, et repris la même étape après un rechargement de la page. Un second essai a vérifié qu'une
-  progression gardée sur le disque reprend à la même étape après un redémarrage du lecteur.
+- **Essayé par des scripts seulement, sous macOS.** Personne n'a encore utilisé le lecteur. Un Google
+  Chrome sans fenêtre piloté par Playwright :
+  - depuis la version du serveur construite dans ce dépôt, a ouvert la liste, joué les cinq premières étapes
+    de `fixtures/atomistique-l1` (une introduction, une notion, un quiz avec un indice, noté par la clé de
+    l'auteur, et un audit de résumé, avec son avis « non certifié » et la note de rappel), en thème clair et
+    sombre, et repris la même étape après un rechargement de la page ; un second essai a vérifié qu'une
+    progression gardée sur le disque reprend à la même étape après un redémarrage du lecteur ;
+  - depuis `studium-mcp` 0.6.4 publié (`npx`), a joué jusqu'à sa fin la leçon de démonstration en
+    anglais, Discover Studium, une fois avec le CDN (`cdn.jsdelivr.net`) joignable et une fois avec le CDN
+    bloqué.
 - **Pas essayé :** Windows et Linux (le navigateur s'ouvre avec `cmd /c start` et `xdg-open`), Firefox et
-  Safari, un lecteur d'écran, un ordinateur sans réseau (équations, graphiques et molécules s'affichent alors
-  en texte simple), une salle de TP, plusieurs étudiants sur un poste, une leçon entière jusqu'à sa fin.
+  Safari, un lecteur d'écran, un ordinateur sans réseau, l'affichage en texte simple des équations,
+  graphiques et molécules (la leçon de démonstration jouée avec le CDN bloqué n'en contient aucun), une salle
+  de TP, plusieurs étudiants sur un poste.
 - Après une note de rappel, le cadre de la note se ferme sans afficher « C'est noté » ; la note est bien
   enregistrée.
 - Lancer le lecteur demande toujours Node et une commande. Rien ne le lance encore depuis un raccourci du
