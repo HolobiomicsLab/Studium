@@ -4,6 +4,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+## 0.6.4 — 2026-11-25
+
+This release answers a tester's report: a newcomer who installs the extension can now open a lesson with no folder open, finds a demo lesson that explains Studium by using it, and can build a lesson with Copilot without Node or a terminal. It adds a source read from a local file, an experimental player in the web browser, and pages for Mistral Vibe, OpenCode with a Mistral model and classroom workstations.
+
 ### Fixed
 
 - **Choosing a course opens it whatever the window holds.** With no folder open, which is how VS Code starts just after the extension is installed, **Studium: Pick a course** stopped on "Unable to write to Workspace Settings because no workspace is opened" and no lesson opened. The choice is now saved in the workspace when a folder or a workspace is open, and in the user settings otherwise. When no settings file can be written (read-only, with errors, or with unsaved changes), the lesson opens all the same, from the folder you chose, and a warning says the choice was not saved.
