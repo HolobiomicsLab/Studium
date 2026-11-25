@@ -1132,9 +1132,10 @@ export class SessionHost {
    * else of persistence.learner_id_default — or null when no learner is known: no learner_id given and
    * no STUDIUM_LEARNER_ID set (the default "anonymous" names no one). A draft kept for null serves the
    * resend in the same conversation and is offered to no one, so a shared computer never shows one
-   * learner's goal or file to another. */
+   * learner's goal or file to another. D1: when the editor names the learner, `learnerId` is ignored
+   * (learnerFor), so the draft is the editor's learner's, the one their study plan offers. */
   async draftLearnerOf(learnerId?: string): Promise<string | null> {
-    const id = learnerId ?? this.defaultLearnerId;
+    const id = this.learnerFor(learnerId);
     return id === DEFAULT_LEARNER_ID ? null : this.profilePseudonymOf(id);
   }
 

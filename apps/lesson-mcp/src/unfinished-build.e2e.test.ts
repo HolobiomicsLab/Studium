@@ -41,8 +41,8 @@ const notes = join(notesDir, "photosynthese.md");
 writeFileSync(notes, readFileSync(join(FIXTURE, "notes.txt"), "utf8"), "utf8");
 
 type Json = Record<string, any>;
-async function startServer(studiumHome = home) {
-  const { host } = hostFromEnvironment({ STUDIUM_HOME: studiumHome }, "/nonexistent-home");
+async function startServer(studiumHome = home, env: Record<string, string> = {}) {
+  const { host } = hostFromEnvironment({ STUDIUM_HOME: studiumHome, ...env }, "/nonexistent-home");
   const server = buildMcpServer(host);
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
   await server.connect(serverT);
@@ -199,6 +199,31 @@ describe("a kept draft belongs to the learner it was refused for (review of D4, 
     const plan = (await server.call("get_study_plan", { learner_id: "ana", language: "fr", now_ms: afterGrace() })).body;
     expect(plan["unfinished_build"]).toBeNull();
     expect(plan["next_step"]["action"]).not.toBe("finish");
+    await server.close();
+  });
+});
+
+// Integration of D1 and the review of D4: on the server the Studium VS Code extension offers to Copilot, the editor
+// names the learner and a learner_id the model passes is ignored; a refused draft is then kept for the editor's
+// learner, so their study plan offers it and their discard drops it.
+describe("a kept draft when the editor names the learner (D1 with the review of D4)", () => {
+  const EDITOR = { STUDIUM_OPEN_LINK: "vscode://holobiomicslab.studium-vscode/open?bundle=", STUDIUM_LEARNER_ID: "vscode-learner" };
+
+  it("keeps it for the editor's learner, whatever learner_id the model passes, and drops it on their discard", async () => {
+    const server = await startServer(freshHome(), EDITOR);
+    const prepared = await server.call("prepare_sources", {
+      sources: [{ path: notes, title: PREPARE.sources[0]!.title }], goal: PREPARE.goal, language: PREPARE.language,
+    });
+    const id = prepared.body["source_set_id"];
+    const refused = await server.call("create_lesson", { source_set_id: id, draft: REJECTED.draft, learner_id: "lfx" });
+    expect(refused.body["draft_id"]).toMatch(/^dr-/);
+    const plan = async () => (await server.call("get_study_plan", { language: "fr", now_ms: afterGrace() })).body;
+    const offered = await plan();
+    expect(offered["next_step"]).toMatchObject({ action: "finish" });
+    expect(offered["unfinished_build"]).toMatchObject({ draft_id: refused.body["draft_id"] });
+    const discarded = await server.call("create_lesson", { source_set_id: id, learner_id: "someone-else", discard: true });
+    expect(discarded).toMatchObject({ isError: false, body: { ok: true, discarded: id } });
+    expect((await plan())["unfinished_build"]).toBeNull();
     await server.close();
   });
 });
