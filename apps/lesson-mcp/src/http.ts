@@ -7,6 +7,7 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import { SessionHost } from '@studium/lesson-session-host';
 import { lessonOperations, type Operation } from './operations.js';
 import { studyOperations } from './server.js';
+import type { Player } from './player.js';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 const MAX_RECEIPT_BYTES = 16 * 1024 * 1024;
@@ -20,7 +21,8 @@ const Envelope = z.object({arguments:z.record(z.unknown()), request_id:z.string(
 type EnvelopeInput = z.infer<typeof Envelope>;
 type Reply = {status:number; body:Record<string, unknown>};
 type Receipt = {digest:string; reply:Reply; sessionId?:string};
-export interface HttpOptions {host:SessionHost; token:string; bundlesRoot:string; maxRequests?:number;}
+/** `player`: the browser player (player.ts), served under /play with its own checks; absent, /play is unknown. */
+export interface HttpOptions {host:SessionHost; token:string; bundlesRoot:string; maxRequests?:number; player?:Player;}
 class HttpError extends Error {
   constructor(readonly status:number, readonly code:string, message:string) { super(message); }
 }
@@ -41,8 +43,9 @@ export function createLessonHttpServer(options:HttpOptions) {
   const dispatch = createDispatcher(options, operations);
   const server = createServer(async (request,response) => {
     try {
-      authorize(request, options.token);
       const path = new URL(request.url ?? '/', 'http://localhost').pathname;
+      if (options.player?.owns(path)) return void await options.player.handle(request, response, path);
+      authorize(request, options.token);
       if (request.method === 'GET' && path === '/health') return send(response,{status:200,body:{schema:'studium/http/v1',status:'ready',sessions:'process-local'}});
       if (request.method === 'GET' && path === '/v1/operations') return send(response,{status:200,body:{schema:'studium/http/v1',operations:operations.map(describeOperation)}});
       const operation = operations.find(op => path === `/v1/operations/${op.name}`);

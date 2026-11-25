@@ -21,18 +21,21 @@ for (const name of readdirSync(`${root}src`).filter(name => /(?:\.css|pane\.js|b
 }
 cpSync(`${root}vendor`, `${root}dist/vscode/vendor`, { recursive: true });
 cpSync(`${root}VENDOR-LICENSES.md`, `${root}dist/vscode/VENDOR-LICENSES.md`);
-for (const kind of ["lesson", "graph"]) {
-  const css = ["studium-tokens.css", "studium-components.css", `${kind === "lesson" ? "artifact" : "graph"}-pane.css`];
+// "browser": the browser player's page (bridge-browser.js), the lesson renderer with a fetch transport.
+const PAGES = { lesson: "lesson-panel.html", graph: "graph-panel.html", browser: "browser-player.html" };
+for (const kind of ["lesson", "graph", "browser"]) {
+  const lessonLike = kind !== "graph";
+  const css = ["studium-tokens.css", "studium-components.css", lessonLike ? "artifact-pane.css" : "graph-pane.css", ...(kind === "browser" ? ["browser-player.css"] : [])];
   const result = await build({ entryPoints: [`${root}src/${kind}-entry.js`], bundle: true, write: false, format: "iife", minify: true, target: "es2022" });
-  const inline = kind === "lesson" ? ["marked.min.js", "katex/katex.min.js", "katex/mhchem.min.js"].map(file => read(`vendor/${file}`)).join("\n;\n") : "";
+  const inline = lessonLike ? ["marked.min.js", "katex/katex.min.js", "katex/mhchem.min.js"].map(file => read(`vendor/${file}`)).join("\n;\n") : "";
   const script = `${inline}\n;\n${result.outputFiles[0].text}`.replace(/<\/script/gi, "<\\/script");
-  const html = read(`${kind}-panel.html`).replace("<!--STYLES-->", () => `<style>${css.map(file => read(`src/${file}`)).join("\n")}</style>`)
-    .replace("<!--LIBRARIES-->", () => (kind === "lesson" ? science : graph).join("\n")).replace("<!--ENTRY-->", () => `<script>${script}</script>`);
+  const html = read(PAGES[kind]).replace("<!--STYLES-->", () => `<style>${css.map(file => read(`src/${file}`)).join("\n")}</style>`)
+    .replace("<!--LIBRARIES-->", () => (lessonLike ? science : graph).join("\n")).replace("<!--ENTRY-->", () => `<script>${script}</script>`);
   const bytes = Buffer.byteLength(html);
   if (bytes > 1_500_000) throw new Error(`${kind} resource exceeds 1.5 MB: ${bytes}`);
-  writeFileSync(`${root}dist/${kind}-panel.html`, html);
-  console.log(`${kind}-panel.html: ${bytes} bytes`);
+  writeFileSync(`${root}dist/${PAGES[kind]}`, html);
+  console.log(`${PAGES[kind]}: ${bytes} bytes`);
 }
 
-writeFileSync(`${root}dist/resources.js`, `export const lessonHtml = ${JSON.stringify(read("dist/lesson-panel.html"))};\nexport const graphHtml = ${JSON.stringify(read("dist/graph-panel.html"))};\n`);
-writeFileSync(`${root}dist/resources.d.ts`, "export declare const lessonHtml: string;\nexport declare const graphHtml: string;\n");
+writeFileSync(`${root}dist/resources.js`, `export const lessonHtml = ${JSON.stringify(read("dist/lesson-panel.html"))};\nexport const graphHtml = ${JSON.stringify(read("dist/graph-panel.html"))};\nexport const browserHtml = ${JSON.stringify(read("dist/browser-player.html"))};\n`);
+writeFileSync(`${root}dist/resources.d.ts`, "export declare const lessonHtml: string;\nexport declare const graphHtml: string;\nexport declare const browserHtml: string;\n");
