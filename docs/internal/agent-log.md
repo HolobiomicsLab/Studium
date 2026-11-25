@@ -6,6 +6,32 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-25 — l'extension propose son serveur à Copilot (INT-STUDIUM-064, décision 2)
+
+Branche `feat/2026-11-25-copilot-mcp-registration`, depuis `integration/2026-11-25-tester-feedback`
+(`d995d57`). Rien n'est poussé. But : construire une leçon avec Copilot dans VS Code sans Node ni commande.
+
+- API vérifiée dans `@types/vscode` : `vscode.lm.registerMcpServerDefinitionProvider` et
+  `McpStdioServerDefinition` sont absents de 1.100.0 et présents dans 1.101.0 (VS Code 1.101, 12 juin 2025) ;
+  `contributes.mcpServerDefinitionProviders` déclare l'id. `engines.vscode` reste `^1.95.0` : l'appel est
+  détecté à l'exécution (absent, ou une API proposée qui lève), donc rien n'est exclu.
+- Code : `mcp-provider.ts` (pur : détection, environnement, repérage d'un serveur ajouté à la main dans du
+  JSONC), `mcp-registration.ts` (branchement), `extension.ts` (appel dans `activate`, emplacements communs
+  avec le panneau). L'environnement de la définition ne porte que `BUNDLES_ROOT`, `STUDIUM_DATA_DIR`,
+  `STUDIUM_TELEMETRY_CONSENT`, `LITELLM_BASE_URL` et `ELECTRON_RUN_AS_NODE` : aucune clé héritée n'y voyage.
+- Tests d'abord (aucune assertion existante modifiée) : `mcp-connect.driver` (+24), `extension-host.driver`
+  (+22 : fournisseur enregistré, définition lancée pour de vrai et `get_server_info` relu, réglage, entrées à
+  la main dans quatre fichiers, API absente ou qui lève), `contributes.driver` (un bloc de 5 assertions). Ils échouaient
+  (module absent), ils passent. Le stockage du faux contexte suit maintenant la disposition de VS Code
+  (`<User>/globalStorage/<id>`) pour que `<User>/mcp.json` existe dans le test.
+- Vérifié hors test : le binaire « Code Helper (Plugin) » de VS Code 1.139 installé sur la machine, avec
+  `ELECTRON_RUN_AS_NODE=1` et un PATH sans Node, a lancé `dist/lesson-mcp.cjs` : 40 outils, `origin=bundled`,
+  `model_backend=none`, `prepare_sources` a écrit dans `<STUDIUM_HOME>/library/_sources`.
+- Non essayé : une vraie session VS Code avec Copilot (affichage dans **MCP: List Servers**, confiance,
+  démarrage, transmission aux sessions Copilot), Cursor, VSCodium.
+
+---
+
 ## 2026-11-25 — choisir un cours sans dossier ouvert ouvre la leçon
 
 Rapport d'un testeur (VS Code fraîchement installé, une leçon construite par un assistant dans

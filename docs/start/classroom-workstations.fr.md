@@ -111,11 +111,12 @@ salle qui ne les a pas, choisissez des cours sans étape de reproduction.
 
 ## Avec un assistant
 
-Construire de nouvelles leçons dans la salle, avec Copilot dans VS Code ou un autre assistant, ajoute ce que
-cette page évite : Node sur le poste, une commande par compte (voir
-[Ajouter le serveur à votre assistant](installation.fr.md#ajouter-le-serveur-à-votre-assistant)) et un compte
-chez le fournisseur de l'assistant pour chaque étudiant. Le panneau et un assistant gardent des progressions
-séparées. Cela n'a pas été essayé en salle.
+Construire de nouvelles leçons dans la salle ajoute un compte chez le fournisseur de l'assistant pour chaque
+étudiant. Avec Copilot dans VS Code 1.101 ou plus récent, c'est tout : l'extension propose son propre
+serveur à Copilot, le poste n'a donc besoin ni de Node ni d'une commande ([Connecter Copilot](copilot.fr.md) ;
+non essayé dans une vraie session Copilot). Un autre assistant ajoute Node sur le poste et une commande par
+compte (voir [Ajouter le serveur à votre assistant](installation.fr.md#ajouter-le-serveur-à-votre-assistant)).
+Le panneau et un assistant gardent des progressions séparées. Cela n'a pas été essayé en salle.
 
 ## Limites
 

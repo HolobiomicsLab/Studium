@@ -8,7 +8,7 @@
 //   rateRecall messages from the pane are validated before they reach a tool; forget-my-data erases the lot.
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/extension-host.driver.ts
 import Module from "node:module";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,7 +16,10 @@ import { hostPhrase } from "./host-phrases.js";
 import { freeTextInput } from "./scene-io.js";
 import { isolateFromHome } from "./driver-isolation.js";
 import { makeZip } from "./zip-fixture.js";
-import { liveLessonMcpCount } from "./mcp-connect.js";
+import { liveLessonMcpCount, parseToolResult, resolveServerLaunch } from "./mcp-connect.js";
+import { MCP_PROVIDER_ID } from "./mcp-provider.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { phrase } from "./phrases.js";
 
 // I-10: the lesson-mcp the extension spawns inherits this environment. Its durable state goes to the fake
@@ -34,7 +37,9 @@ const repoRoot = resolve(extensionPath, "..", "..");
 const scratch = mkdtempSync(join(tmpdir(), "studium-host-"));
 const lib = join(scratch, "lib");
 const workspace = join(scratch, "ws");
-const storage = join(scratch, "storage");
+// Laid out like VS Code's user data folder: <User>/globalStorage/<extension id>, so <User>/mcp.json is the
+// user profile's MCP configuration the registration looks at (INT-STUDIUM-064).
+const storage = join(scratch, "User", "globalStorage", "holobiomicslab.studium-vscode");
 const emptyRoot = join(scratch, "empty");
 for (const d of [lib, join(workspace, "sub"), emptyRoot]) mkdirSync(d, { recursive: true });
 
@@ -76,7 +81,19 @@ class FakeUri {
   toString() { return `file://${this.fsPath}`; }
   static file(p: string) { return new FakeUri(p); }
 }
-class FakeEmitter { event = () => noop(); fire() {} dispose() {} }
+class FakeEmitter {
+  private listeners: Array<(value: unknown) => void> = [];
+  event = (listener: (value: unknown) => void) => { this.listeners.push(listener); return noop(); };
+  fire(value?: unknown) { for (const listener of this.listeners) listener(value); }
+  dispose() { this.listeners = []; }
+}
+/** INT-STUDIUM-064: what the editor's MCP API received, and the configuration listeners. */
+const mcpApi = { providers: new Map<string, any>(), registerError: undefined as string | undefined };
+const configListeners: Array<(e: { affectsConfiguration: (section: string) => boolean }) => void> = [];
+class FakeMcpStdioServerDefinition {
+  cwd: FakeUri | undefined;
+  constructor(readonly label: string, public command: string, public args: string[] = [], public env: Json = {}, public version?: string) {}
+}
 function fakePanel(viewType?: string) {
   const handlers: Array<() => void> = [];
   const panel: Json = {
@@ -98,6 +115,15 @@ const fakeVscode: Json = {
   __esModule: true,
   env: { language: "en" },
   Uri: FakeUri, EventEmitter: FakeEmitter,
+  RelativePattern: class { constructor(public base: unknown, public pattern: string) {} },
+  McpStdioServerDefinition: FakeMcpStdioServerDefinition,
+  lm: {
+    registerMcpServerDefinitionProvider: (id: string, provider: unknown) => {
+      if (mcpApi.registerError) throw new Error(mcpApi.registerError);
+      mcpApi.providers.set(id, provider);
+      return { dispose() { mcpApi.providers.delete(id); } };
+    },
+  },
   TreeItem: class { constructor(public label: string, public collapsibleState?: number) {} },
   ThemeIcon: class { constructor(public id: string) {} },
   TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
@@ -124,6 +150,9 @@ const fakeVscode: Json = {
       },
     }),
     registerNotebookSerializer: noop, openNotebookDocument: async () => ({}), onDidCloseNotebookDocument: noop,
+    onDidChangeConfiguration: (listener: (e: any) => void) => { configListeners.push(listener); return noop(); },
+    onDidChangeWorkspaceFolders: noop,
+    createFileSystemWatcher: () => ({ onDidCreate: noop, onDidChange: noop, onDidDelete: noop, dispose() {} }),
   },
   notebooks: { createNotebookController: () => ({ dispose() {}, supportedLanguages: [] }) },
   chat: { createChatParticipant: (_id: string, handler: any) => { seen.chatHandler = handler; return { dispose() {}, iconPath: undefined }; } },
@@ -565,6 +594,99 @@ async function main() {
     expect(!pane.posted.slice(before).some((m: Json) => m.type === "action_error"), "and no action error");
     settings["learnerId"] = "e2e-learner";
     pane.dispose();
+  }
+
+
+  // INT-STUDIUM-064 (2): the extension offers its own bundled server to Copilot's agent mode, so building a lesson
+  // in VS Code needs no Node and no command. Same lessons folder and data folder as the pane's server.
+  {
+    const provider = mcpApi.providers.get(MCP_PROVIDER_ID);
+    expect(!!provider && typeof provider.provideMcpServerDefinitions === "function",
+      `activation registers an MCP server definition provider under ${MCP_PROVIDER_ID}`);
+    const provide = async (): Promise<any[]> => (await provider?.provideMcpServerDefinitions({ isCancellationRequested: false })) ?? [];
+    const fireConfig = (section: string) => configListeners.forEach((l) => l({ affectsConfiguration: (s: string) => section === s || section.startsWith(`${s}.`) }));
+    settings["bundlesRoot"] = lib;
+    const savedJudge = process.env["LITELLM_BASE_URL"];
+    process.env["LITELLM_BASE_URL"] = "";
+    const defs = await provide();
+    expect(defs.length === 1, `one server is offered (got ${defs.length})`);
+    const def = defs[0] ?? {};
+    const launch = resolveServerLaunch(extensionPath, repoRoot);
+    expect(def.label === "Studium" && def.command === launch.command && JSON.stringify(def.args) === JSON.stringify(launch.args)
+      && def.cwd?.fsPath === launch.cwd, `the definition starts the pane's lesson-mcp (got ${JSON.stringify({ label: def.label, command: def.command, args: def.args, cwd: def.cwd?.fsPath })})`);
+    expect(def.env?.BUNDLES_ROOT === lib && def.env?.STUDIUM_DATA_DIR === storage && def.env?.LITELLM_BASE_URL === ""
+      && def.env?.STUDIUM_TELEMETRY_CONSENT === null, `same lessons folder and data folder as the pane, no judge (got ${JSON.stringify(def.env)})`);
+    const allowed = new Set(["BUNDLES_ROOT", "STUDIUM_DATA_DIR", "STUDIUM_TELEMETRY_CONSENT", "LITELLM_BASE_URL", "ELECTRON_RUN_AS_NODE"]);
+    expect(Object.keys(def.env ?? {}).every((k) => allowed.has(k)), `nothing else is copied from the editor's environment (got ${Object.keys(def.env ?? {})})`);
+
+    // Start it the way the editor does (the definition's env over the extension host's), and ask who it is.
+    if (def.command) {
+      const env: Record<string, string> = {};
+      for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
+      for (const [k, v] of Object.entries(def.env as Json)) { if (v === null) delete env[k]; else env[k] = String(v); }
+      const client = new Client({ name: "fake-copilot", version: "0" });
+      await client.connect(new StdioClientTransport({ command: def.command, args: def.args, cwd: def.cwd?.fsPath, env, stderr: "pipe" }));
+      const info = parseToolResult("get_server_info", await client.callTool({ name: "get_server_info", arguments: {} }));
+      await client.close();
+      expect(info["bundles_root"] === lib && info["data_dir"] === storage && info["model_backend"] === "none",
+        `the started server reads the pane's lessons folder, keeps progress in the extension storage, calls no model (got ${JSON.stringify({ b: info["bundles_root"], d: info["data_dir"], m: info["model_backend"] })})`);
+      expect(Array.isArray(info["tools"]) && info["tools"].includes("create_lesson") && info["tools"].includes("prepare_sources"),
+        "the started server offers the authoring tools that build a lesson");
+    }
+
+    // The setting turns it off, and the editor is told the list changed.
+    let changes = 0;
+    provider?.onDidChangeMcpServerDefinitions?.(() => { changes++; });
+    settings["registerMcpServer"] = false;
+    fireConfig("studium.registerMcpServer");
+    expect(changes >= 1, "changing a Studium setting tells the editor the server list changed");
+    expect((await provide()).length === 0, "studium.registerMcpServer = false: no server is offered");
+    expect(seen.outputLines.some((l) => l.includes("studium.registerMcpServer")), "the output channel says the setting turned it off");
+    settings["registerMcpServer"] = true;
+    expect((await provide()).length === 1, "back on: the server is offered again");
+
+    // A server the user added by hand (code --add-mcp, mcp.json, Copilot's own file): no second one.
+    const userMcp = join(scratch, "User", "mcp.json");
+    writeFileSync(userMcp, JSON.stringify({ servers: { studium: { command: "npx", args: ["-y", "studium-mcp"], env: { LITELLM_BASE_URL: "" } } } }));
+    expect((await provide()).length === 0, "a studium server in the user profile's mcp.json: the extension adds none");
+    expect(seen.outputLines.some((l) => l.includes(userMcp)), "the output channel names the file that holds it");
+    rmSync(userMcp);
+    expect((await provide()).length === 1, "once that entry is gone, the built-in server is offered again");
+    mkdirSync(join(workspace, ".vscode"), { recursive: true });
+    writeFileSync(join(workspace, ".vscode", "mcp.json"), `{ // "studium": { "command": "npx" }
+      "servers": { "other": { "command": "node", "args": ["x.js"] }, }, }`);
+    expect((await provide()).length === 1, "a workspace mcp.json with only a commented-out studium: still offered");
+    writeFileSync(join(workspace, ".mcp.json"), JSON.stringify({ mcpServers: { learn: { command: "npx", args: ["-y", "studium-mcp"] } } }));
+    expect((await provide()).length === 0, "a workspace .mcp.json that runs studium-mcp: the extension adds none");
+    rmSync(join(workspace, ".mcp.json"));
+    process.env["COPILOT_HOME"] = join(scratch, "copilot");
+    mkdirSync(join(scratch, "copilot"), { recursive: true });
+    writeFileSync(join(scratch, "copilot", "mcp-config.json"), JSON.stringify({ mcpServers: { studium: { command: "npx", args: ["-y", "studium-mcp"] } } }));
+    expect((await provide()).length === 0, "a studium server in Copilot's own mcp-config.json: the extension adds none");
+    delete process.env["COPILOT_HOME"];
+    expect((await provide()).length === 1, "and offered again when it is not there");
+
+    // A judge configured in the environment VS Code was started from is kept, as for the pane.
+    process.env["LITELLM_BASE_URL"] = "http://localhost:4000";
+    expect((await provide())[0]?.env?.LITELLM_BASE_URL === "http://localhost:4000", "a configured judge is passed on");
+    if (savedJudge === undefined) delete process.env["LITELLM_BASE_URL"]; else process.env["LITELLM_BASE_URL"] = savedJudge;
+
+    // Editors without the API (VS Code before 1.101, forks) or with one that throws: nothing breaks.
+    const { registerStudiumMcpServer } = await import("./mcp-registration.js");
+    const deps = { locations: () => ({ bundlesRoot: lib, storageDir: storage, telemetryConsent: false }), repoRoot: () => repoRoot,
+      enabled: () => true, log: (line: string) => { seen.outputLines.push(line); } };
+    const savedLm = fakeVscode.lm;
+    delete fakeVscode.lm;
+    let outcome: unknown;
+    try { outcome = registerStudiumMcpServer({ extensionPath, subscriptions: [] } as any, deps); } catch (e) { outcome = e; }
+    expect(outcome === false, `no MCP API: registration is skipped without an error (got ${String(outcome)})`);
+    expect(seen.outputLines.at(-1)?.includes("1.101") === true, "and the output channel says which VS Code it needs");
+    fakeVscode.lm = savedLm;
+    mcpApi.registerError = "Extension 'holobiomicslab.studium-vscode' CANNOT use API proposal: mcpConfigurationProvider";
+    try { outcome = registerStudiumMcpServer({ extensionPath, subscriptions: [] } as any, deps); } catch (e) { outcome = e; }
+    mcpApi.registerError = undefined;
+    expect(outcome === false, `an API that refuses the registration: skipped without an error (got ${String(outcome)})`);
+    settings["bundlesRoot"] = lib;
   }
 
   // Tester report 2026-11-24: VS Code freshly installed, no folder open, a lesson built by an assistant; choosing it in

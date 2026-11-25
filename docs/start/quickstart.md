@@ -16,7 +16,11 @@ extension from the Extensions view, run **Studium: Pick a course**, choose **Cho
 folder…** and select the folder of lessons; the demo lessons are the `fixtures` folder of the
 [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip). No Node, terminal or AI account is involved. Details:
 [VS Code](vscode.md#get-your-first-lesson); for a teaching room, [Classroom workstations](classroom-workstations.md).
-The rest of this page builds a lesson from your own sources, which needs a terminal.
+To build a lesson from your own sources without a terminal, use Copilot in VS Code 1.101 or later: the
+extension offers its own Studium server to Copilot's agent mode, so you install neither Node nor anything
+else, and you ask Copilot Chat "I want to learn … with Studium". You need a Copilot plan. This route has not
+been tried in a real Copilot session; see [Connect Copilot](copilot.md). The rest of this page builds a
+lesson with any assistant, from a checkout, which needs a terminal.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/self-learner-journey-dark.svg">
