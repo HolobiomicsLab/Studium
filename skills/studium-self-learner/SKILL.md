@@ -60,19 +60,21 @@ fetch it with your own web tool and pass its `text`: Studium reads local files o
 fetches anything from the network. A PDF or a Word file is refused by path: extract its text
 first, or ask the learner to save it as `.txt` or `.md`.
 
-## 3. Prepare the sources and read the brief
+## 3. Read the brief, then prepare the sources
 
-1. `prepare_sources {sources: [{title, text, url?, license?} or {path, title?, url?, license?}], goal?, language?}`
+1. `get_authoring_guide {language, mode: "self_study"}` returns `tell_learner` (one
+   sentence saying that writing the lesson takes a few minutes and is done once), the
+   brief (French for a `fr-*` language, English otherwise), `draft_schema` (the JSON
+   Schema of a LessonDraft) and a minimal valid `example`.
+2. Relay `tell_learner` as it is, with your `prepare_sources` call, then go on without
+   waiting for a reply: a message holding only text ends your turn.
+   `prepare_sources {sources: [{title, text, url?, license?} or {path, title?, url?, license?}], goal?, language?}`
    cuts the full texts into passages and stores them in the library. Limits: 20
    sources and 200 000 characters in total. It returns `source_set_id`, `passages`
    (`id`, `source_id`, `text`), `dropped_short` and `guide_ref`, and `files` (the
    path, size and SHA-256 of each file it read). A refused path comes back as
-   `{path, message, hint}`: relay the hint to the learner.
-2. `get_authoring_guide {language, mode: "self_study"}` returns the brief (French for
-   a `fr-*` language, English otherwise), `draft_schema` (the JSON Schema of a
-   LessonDraft) and a minimal valid `example`. Use the language `guide_ref` names; the
-   guide's `version` matches `guide_ref.version` (read the guide again if it does not).
-   The order of these two calls does not matter.
+   `{path, message, hint}`: relay the hint to the learner. `guide_ref` names the
+   guide's language and `version`: if they differ from the guide you read, read it again.
 
 Read the brief: it is the authority on the draft. Skim the passages too: they are the
 only text the lesson may quote; a stray passage (site menu, lone footnote) can stay

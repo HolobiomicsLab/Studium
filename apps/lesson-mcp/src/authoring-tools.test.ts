@@ -111,6 +111,8 @@ describe("registerAuthoringTools", () => {
     expect(description).toContain("tell_learner");
     expect(description).toMatch(/as it is/);
     expect(description).toMatch(/without waiting/);
+    // The sentence goes with the prepare_sources call, not with whatever call comes next.
+    expect(description).toContain("with your prepare_sources call");
   });
 });
 

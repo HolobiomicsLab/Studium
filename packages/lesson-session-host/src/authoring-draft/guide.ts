@@ -16,7 +16,8 @@ export interface AuthoringGuide {
   mode: GuideMode;
   /** One sentence the assistant tells the learner as it is, before it prepares the sources: writing the
    * lesson takes a few minutes (no number: it varies with the model and the sources), little shows
-   * meanwhile, and it is done once. Addressed to the learner, with « tu » in French. */
+   * meanwhile, and it is done once. Addressed to the learner, with « tu » in French; in teacher mode,
+   * worded neutrally (« la leçon », no « tu »). */
   tell_learner: string;
   markdown: string;
   example: { source: SourceInput; draft: LessonDraft };
@@ -40,6 +41,14 @@ const TELL_LEARNER: Record<GuideLanguage, string> = {
     "meantime. It is done once: afterwards you can play the lesson as often as you like.",
   fr: "Je prépare ta leçon à partir de tes sources. L'écrire prend quelques minutes, et peu de choses s'afficheront " +
     "pendant ce temps. C'est fait une fois pour toutes : ensuite, tu pourras suivre la leçon autant de fois que tu voudras.",
+};
+
+/** The same sentence for a teacher trying the route on their own material: about the lesson, not « ta leçon ». */
+const TELL_TEACHER: Record<GuideLanguage, string> = {
+  en: "I'm preparing the lesson from the sources. Writing it takes a few minutes, and little will show in the " +
+    "meantime. It is done once: afterwards the lesson can be played as often as needed.",
+  fr: "Je prépare la leçon à partir des sources. L'écrire prend quelques minutes, et peu de choses s'afficheront " +
+    "pendant ce temps. C'est fait une fois pour toutes : ensuite, la leçon pourra être suivie autant de fois que nécessaire.",
 };
 
 const BRIEF: Record<GuideLanguage, string> = {
@@ -215,7 +224,7 @@ export function authoringGuide(options: { language?: string | undefined; mode?: 
   const brief = BRIEF[language];
   const markdown = mode === "teacher" ? brief.replace("\n\n", `\n\n${TEACHER_ROUTE[language]}\n\n`) : brief;
   return {
-    version: GUIDE_VERSION, language, mode, tell_learner: TELL_LEARNER[language], markdown,
+    version: GUIDE_VERSION, language, mode, tell_learner: (mode === "teacher" ? TELL_TEACHER : TELL_LEARNER)[language], markdown,
     example: { source: { ...EXAMPLE_SOURCE[language] }, draft: structuredClone(EXAMPLE_DRAFT[language]) },
   };
 }

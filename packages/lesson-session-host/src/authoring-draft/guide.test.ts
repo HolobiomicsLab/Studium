@@ -99,7 +99,21 @@ describe("authoringGuide", () => {
     expect(tell_learner).toMatch(language === "fr" ? /quelques minutes/ : /a few minutes/);
     expect(tell_learner).toMatch(language === "fr" ? /une fois pour toutes/ : /once/);
     expect(tell_learner).toMatch(language === "fr" ? /autant de fois que/ : /as often as/);
-    expect(authoringGuide({ language, mode: "teacher" }).tell_learner).toBe(tell_learner);
+    // Changed: teacher mode had the learner's sentence (« ta leçon », « tu »); a teacher trying the route on
+    // their material gets a neutral wording of it instead (review of the wait-server branch, 2026-11-25).
+    expect(authoringGuide({ language, mode: "teacher" }).tell_learner).not.toBe(tell_learner);
+  });
+
+  it.each(["fr", "en"] as const)("words the sentence neutrally in teacher mode: the lesson, never « tu » (%s)", (language) => {
+    const { tell_learner } = authoringGuide({ language, mode: "teacher" });
+    expect(tell_learner.length).toBeGreaterThan(0);
+    expect(tell_learner.length).toBeLessThanOrEqual(300);
+    expect(tell_learner).not.toMatch(/\d/);
+    expect(tell_learner).toMatch(language === "fr" ? /quelques minutes/ : /a few minutes/);
+    expect(tell_learner).toMatch(language === "fr" ? /une fois pour toutes/ : /once/);
+    expect(tell_learner).toMatch(language === "fr" ? /autant de fois que/ : /as often as/);
+    expect(tell_learner).toContain(language === "fr" ? "la leçon" : "the lesson");
+    expect(tell_learner).not.toMatch(language === "fr" ? /\b(tu|ta|tes|ton|toi|te)\b/i : /\byour lesson\b/i);
   });
 
   it("speaks to a French learner with « tu » in the sentence to relay", () => {

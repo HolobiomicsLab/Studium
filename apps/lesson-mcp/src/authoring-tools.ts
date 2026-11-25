@@ -64,8 +64,8 @@ function draftSchema(): unknown {
 export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsContext): string[] {
   server.registerTool("get_authoring_guide", {
     description: "Start here to create a Studium lesson from sources the learner chose. Returns tell_learner, one " +
-      "sentence saying that writing the lesson takes a few minutes: tell it to the learner as it is, in the same message " +
-      "as your next call, and go on without waiting for a reply. Then the authoring brief " +
+      "sentence saying that writing the lesson takes a few minutes: tell it to the learner as it is, with your " +
+      "prepare_sources call, and go on without waiting for a reply. Then the authoring brief " +
       "(markdown, French for a fr-* language, English otherwise), draft_schema (the JSON Schema of a LessonDraft) and a " +
       "minimal valid example. mode: self_study (default) or teacher (says where the teacher route starts).",
     inputSchema: { language: z.string().min(2).max(35).optional(), mode: z.enum(["self_study", "teacher"]).optional() },

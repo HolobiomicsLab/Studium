@@ -108,6 +108,8 @@ describe("instructions and prompts (RT-8a, RFR-16, L-4)", () => {
     expect(authoring).toContain("tell_learner");
     expect(authoring).toMatch(/minutes/);
     expect(authoring).toMatch(/without waiting/);
+    // The sentence goes with the prepare_sources call, not with whatever call comes next.
+    expect(authoring).toContain("with your prepare_sources call");
     expect(lines.find((line) => line.startsWith("- Pass the learner's language"))).toContain("get_authoring_guide");
     expect(lines.length).toBeLessThanOrEqual(13);
   });

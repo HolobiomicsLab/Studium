@@ -59,8 +59,10 @@ limit the lesson to the turns you can copy.
 
 ## 3. Prepare, draft, create, start
 
-1. `prepare_sources {sources, goal, language}` returns the passages and a `source_set_id`.
-2. `get_authoring_guide {language, mode: "self_study"}`, once per session: the draft rules and schema.
+1. `get_authoring_guide {language, mode: "self_study"}`, once per session: `tell_learner` (one sentence
+   saying that writing the lesson takes a few minutes), the draft rules and schema.
+2. Relay `tell_learner` as it is, with your `prepare_sources {sources, goal, language}` call, then go on
+   without waiting for a reply. It returns the passages and a `source_set_id`.
 3. Write the `LessonDraft`. On top of the guide's rules, for a conversation:
    - **Short.** Two to four concepts, five to eight scenes. The learner answers on the second
      screen at the latest.
