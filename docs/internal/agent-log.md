@@ -6,6 +6,19 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-25 — OpenCode 1.x, son interface web et Mistral ; version 0.6.4
+
+Mots du propriétaire : « a nice idea would be to use opencode GUI », « we have a mistral APIkey to use […] Mistral
+for ML4 », puis l'autorisation de fusionner les PR 87 et 88 et de préparer la 0.6.4. Essai : OpenCode 1.19.6 par
+`npx`, données isolées, `mistral/mistral-large-4` par l'API Mistral, serveur de `dev` (`639fe8f`). Bibliothèque
+vide : la leçon de démonstration est proposée, première étape en 23 s ; leçon de 9 étapes construite depuis un
+fichier désigné par son chemin en 3 min 04 s. La forme de configuration qui marche en 1.x est `mcp.studium` ; la
+page gardait seulement la forme v2 (`mcp.servers`), non exécutée ce jour-là. `opencode serve` répond sur
+127.0.0.1 ; aucune leçon jouée dans l'interface web. Pages `docs/start/opencode` (EN/FR). Version 0.6.4 par
+`tools/release/version.mjs`. Rien n'est publié : `dev` vers `main` et le tag restent au propriétaire.
+
+---
+
 ## 2026-11-25 — l'extension propose son serveur à Copilot (INT-STUDIUM-064, décision 2)
 
 Branche `feat/2026-11-25-copilot-mcp-registration`, depuis `integration/2026-11-25-tester-feedback`

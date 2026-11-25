@@ -34,7 +34,39 @@ Ajoutez le serveur Studium à OpenCode, pour qu'OpenCode joue vos leçons avec l
 
    **Depuis un clone**, utilisez `"command": ["node", "/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]`.
 
+   **OpenCode 1.x** (la version que `npm` installe aujourd'hui, 1.19.6 le 25 novembre 2026) prend le serveur
+   directement sous `mcp`, dans `opencode.json` :
+
+   ```json
+   {
+     "mcp": {
+       "studium": {
+         "type": "local",
+         "command": ["npx", "-y", "studium-mcp"],
+         "environment": { "LITELLM_BASE_URL": "" }
+       }
+     }
+   }
+   ```
+
 2. Lancez `opencode mcp list` pour voir la connexion.
+
+## Dans un navigateur web, avec un modèle Mistral
+
+OpenCode a une interface web : `opencode web` lance un serveur sur votre machine (127.0.0.1) et ouvre une
+page de conversation dans votre navigateur, avec les outils Studium de la configuration du dossier. C'est
+une façon de construire et de jouer des leçons sans conversation dans un terminal et sans VS Code.
+
+1. Donnez à OpenCode un fournisseur de modèle. Pour Mistral, définissez `MISTRAL_API_KEY` dans votre
+   environnement, puis choisissez le modèle `mistral/mistral-large-4` (`opencode models mistral` liste les
+   autres).
+2. Dans le dossier qui contient la configuration ci-dessus, lancez `opencode web`. Définissez d'abord
+   `OPENCODE_SERVER_PASSWORD` : sans lui, OpenCode prévient que son serveur n'est pas protégé.
+3. Demandez « je découvre Studium, par où commencer ? » ou « je veux apprendre … avec Studium », en nommant
+   un fichier du dossier comme source.
+
+Comme avec tout assistant, ce que le modèle lit et relaie va à son fournisseur, ici Mistral AI, selon les
+conditions de votre abonnement ; voir [Connecter Mistral Vibe](vibe.fr.md#ce-qui-quitte-votre-machine).
 
 ## Ce que vous obtenez
 
@@ -44,6 +76,13 @@ Ajoutez le serveur Studium à OpenCode, pour qu'OpenCode joue vos leçons avec l
 
 ## Limites
 
+- Un seul essai fonde la configuration 1.x et le modèle Mistral : OpenCode 1.19.6 sous macOS, le 25 novembre
+  2026, avec `mistral/mistral-large-4` par `opencode run`, la forme en ligne de commande. À la question « par où
+  commencer ? » avec une bibliothèque vide, il a montré la première étape de la leçon de démonstration livrée
+  avec Studium en 23 secondes ; il a construit une leçon de 9 étapes à partir de notes de cours d'environ
+  2 400 caractères, désignées par leur chemin, en 3 minutes 4 secondes. L'interface web a été lancée et sa
+  page a répondu, mais aucune leçon n'y a été jouée. La configuration v2 ci-dessus n'a pas été exécutée ce
+  jour-là.
 - Les versions antérieures d'OpenCode utilisent une autre forme de configuration.
 - Un modèle ouvert proposé par votre fournisseur n'est par défaut ni gratuit, ni local, ni de qualité
   équivalente.
