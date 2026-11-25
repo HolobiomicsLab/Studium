@@ -34,16 +34,41 @@ export function checkLessonPath(lessonPath: string, exists: (path: string) => bo
   return { ok: true, ...lessonLocation(lessonPath) };
 }
 
-/** Parse the query string of the extension's URI (`bundle=<path of lesson.json>`). Never throws. */
+/** The lesson path in the query VS Code hands the URI handler (`uri.query`, decoded once): what follows "bundle=",
+ * all of it when that is a .json path (a path may hold & + # % = ? or spaces, which the link encoded once:
+ * lesson-session-host open-link.ts), else up to the last "&" that ends a .json path (a link with more parameters).
+ * Null when there is no bundle or it is empty. Never decodes again: a "%" in it is part of the path. */
+export function bundleOfQuery(query: string): string | null {
+  const found = /(?:^|&)bundle=/.exec(query);
+  if (!found) return null;
+  const value = query.slice(found.index + found[0].length);
+  if (!value) return null;
+  if (/\.json$/i.test(value)) return value;
+  for (let at = value.lastIndexOf("&"); at > 0; at = value.lastIndexOf("&", at - 1)) {
+    if (/\.json$/i.test(value.slice(0, at))) return value.slice(0, at);
+  }
+  return value;
+}
+
+/** D2 (owner decision 1): open the lesson of a vscode://<publisher>.studium-vscode/open?bundle=… link from the query
+ * VS Code hands the handler (`uri.query`). VS Code decodes the link's query once and `uri.toString()` encodes all of it
+ * again, "=" included, so the handler reads the decoded query. Never throws. */
+export function parseOpenLessonLink(query: string, exists: (path: string) => boolean): OpenLessonResult {
+  const bundle = bundleOfQuery(query);
+  if (!bundle) return { ok: false, error: { key: "uri_missing_bundle" } };
+  return checkLessonPath(bundle, exists);
+}
+
+/** Parse a query string that is still percent-encoded (`bundle=<path of lesson.json>`), as a link is written. Never throws. */
 export function parseOpenLessonQuery(query: string, exists: (path: string) => boolean): OpenLessonResult {
   const bundle = new URLSearchParams(query).get("bundle");
   if (!bundle) return { ok: false, error: { key: "uri_missing_bundle" } };
   return checkLessonPath(bundle, exists);
 }
 
-/** The still-percent-encoded query of a URI string (`uri.toString()`), without any fragment. VS Code's
- * `uri.query` is already decoded, which would split a path that contains `&` or `+`, so the handler
- * re-reads the query from the encoded string instead. */
+/** The query of a URI string as written, without any fragment. Not for what VS Code hands the URI handler: its
+ * `uri.toString()` encodes "=" too (%3D), so no "bundle=" is left in it; the handler reads `uri.query` with
+ * parseOpenLessonLink. */
 export function rawQuery(uri: string): string {
   const afterQuestionMark = uri.split("?")[1] ?? "";
   return afterQuestionMark.split("#")[0] ?? "";

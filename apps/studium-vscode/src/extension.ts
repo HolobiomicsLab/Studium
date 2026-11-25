@@ -32,7 +32,7 @@ import { inlineImageAsset } from "./asset-path.js";
 import { hostPhrase, lessonReadyMessage } from "./host-phrases.js";
 import { defaultBundlesRoot, demoLessonRef, shippedLessonsRoot, studiumHome } from "./data-paths.js";
 import { isTrusted, runConsent, runFingerprint, withTrusted } from "./run-trust.js";
-import { checkLessonPath, parseOpenLessonQuery, rawQuery, type OpenLessonResult } from "./lesson-uri.js";
+import { checkLessonPath, parseOpenLessonLink, type OpenLessonResult } from "./lesson-uri.js";
 import {
   continueArgs, parseReinforcement, parseStudyProgress, statusBarText, type ProgressSource, type StudyProgress, type StudyStatus,
 } from "./study-status.js";
@@ -452,7 +452,8 @@ function reportLessonPathError(result: Extract<OpenLessonResult, { ok: false }>)
 /** vscode://<publisher>.studium-vscode/open?bundle=<path of lesson.json> (C7). */
 async function handleLessonUri(context: vscode.ExtensionContext, uri: vscode.Uri): Promise<void> {
   if (uri.path !== "/open") return;
-  const result = parseOpenLessonQuery(rawQuery(uri.toString()), existsSync);
+  // D2: VS Code hands over the query decoded once (uri.query); uri.toString() would encode its "=" again.
+  const result = parseOpenLessonLink(uri.query ?? "", existsSync);
   if (!result.ok) { reportLessonPathError(result); return; }
   await openLesson(context, result.bundleRef, "lesson", { bundlesRoot: result.bundlesRoot });
 }

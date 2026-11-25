@@ -17,6 +17,7 @@ import { freeTextInput } from "./scene-io.js";
 import { isolateFromHome } from "./driver-isolation.js";
 import { makeZip } from "./zip-fixture.js";
 import { liveLessonMcpCount, parseToolResult, resolveServerLaunch } from "./mcp-connect.js";
+import { vscodeHandsOver } from "./vscode-uri-fixture.js";
 import { MCP_PROVIDER_ID } from "./mcp-provider.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -221,7 +222,9 @@ const context: Json = {
     update: async (k: string, v: unknown) => { if (v === undefined) globalStateData.delete(k); else globalStateData.set(k, v); },
   },
 };
-const uriFor = (lessonPath: string) => ({ path: "/open", toString: () => `vscode://holobiomicslab.studium-vscode/open?bundle=${encodeURIComponent(lessonPath)}` });
+// Changed (D2, owner decision 1): a link reaches the handler the way VS Code hands it over (vscode-uri-fixture.ts:
+// uri.query decoded once, uri.toString() encoded again, "=" included), no longer as the link's own string.
+const uriFor = (lessonPath: string) => vscodeHandsOver(`vscode://holobiomicslab.studium-vscode/open?bundle=${encodeURIComponent(lessonPath)}`);
 /** Every file under a folder (recursive); empty when the folder does not exist. */
 function listFiles(dir: string): string[] {
   if (!existsSync(dir)) return [];
