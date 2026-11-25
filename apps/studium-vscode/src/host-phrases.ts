@@ -92,6 +92,8 @@ const FR = {
   uri_not_absolute: "Studium : le chemin de la leçon doit être absolu — {path}",
   uri_not_lesson: "Studium : « {path} » n'est pas un fichier de leçon (.json).",
   uri_not_found: "Studium : fichier de leçon introuvable — {path}",
+  // Review finding 7: a link opens a lesson only from the library, studium.bundlesRoot or the lessons shipped with Studium.
+  uri_outside_lessons: "Studium : « {path} » n'est pas dans tes leçons (ta bibliothèque, le dossier de studium.bundlesRoot ou les leçons livrées avec Studium) : un lien ne l'ouvre pas. Pour l'ouvrir quand même, fais un clic droit sur le fichier et choisis Studium : Ouvrir cette leçon.",
   open_this_no_file: "Studium : choisis un fichier de leçon (lesson.json) à ouvrir.",
 };
 
@@ -171,6 +173,7 @@ const EN: Record<HostPhraseKey, string> = {
   uri_not_absolute: "Studium: the lesson path must be absolute — {path}",
   uri_not_lesson: "Studium: “{path}” is not a lesson file (.json).",
   uri_not_found: "Studium: lesson file not found — {path}",
+  uri_outside_lessons: "Studium: “{path}” is not among your lessons (your library, the studium.bundlesRoot folder or the lessons shipped with Studium), so a link does not open it. To open it anyway, right-click the file and choose Studium: Open this lesson.",
   open_this_no_file: "Studium: choose a lesson file (lesson.json) to open.",
 };
 

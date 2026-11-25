@@ -66,8 +66,10 @@ Après avoir préparé une leçon avec vous, un assistant peut vous la transmett
 code --open-url "vscode://holobiomicslab.studium-vscode/open?bundle=<chemin absolu de lesson.json, encodé pour une URL>"
 ```
 
-Le lien doit désigner un chemin absolu, sans `..`, vers un fichier `.json` existant ; sinon il est refusé
-avec un message et rien ne s'ouvre. Si la fenêtre se recharge pendant une leçon, le panneau revient et
+Le lien doit désigner un chemin absolu, sans `..`, vers un fichier `.json` existant de votre bibliothèque,
+du dossier `studium.bundlesRoot` ou des leçons livrées avec Studium ; sinon il est refusé avec un message et
+rien ne s'ouvre. Pour ouvrir un fichier de leçon rangé ailleurs, faites un clic droit dessus et choisissez
+**Studium : Ouvrir cette leçon**. Si la fenêtre se recharge pendant une leçon, le panneau revient et
 reprend à partir de votre progression enregistrée.
 
 ## Ce que vous voyez

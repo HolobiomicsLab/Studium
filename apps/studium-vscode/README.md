@@ -169,7 +169,9 @@ code --open-url "vscode://holobiomicslab.studium-vscode/open?bundle=<percent-enc
 ```
 
 or you can right-click the `lesson.json` and choose **Studium: Open this lesson**. A link must name an
-absolute path, without `..`, to an existing `.json` file; anything else is refused and nothing opens. If
+absolute path, without `..`, to an existing `.json` file in your library, in the `studium.bundlesRoot`
+folder or among the lessons shipped with Studium; anything else is refused and nothing opens (right-click
+opens a lesson file from any folder). If
 the window reloads while a lesson is open, the pane is restored and the lesson resumes.
 
 ## Your data, and what runs

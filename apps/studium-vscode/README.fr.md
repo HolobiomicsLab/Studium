@@ -179,8 +179,9 @@ code --open-url "vscode://holobiomicslab.studium-vscode/open?bundle=<chemin enco
 ```
 
 ou vous pouvez faire un clic droit sur le `lesson.json` et choisir **Studium : Ouvrir cette leçon**. Un
-lien doit désigner un chemin absolu, sans `..`, vers un fichier `.json` existant ; sinon il est refusé et
-rien ne s'ouvre. Si la fenêtre se recharge pendant une leçon, le panneau est restauré et la leçon reprend.
+lien doit désigner un chemin absolu, sans `..`, vers un fichier `.json` existant de votre bibliothèque, du
+dossier `studium.bundlesRoot` ou des leçons livrées avec Studium ; sinon il est refusé et rien ne s'ouvre
+(le clic droit ouvre un fichier de leçon de n'importe quel dossier). Si la fenêtre se recharge pendant une leçon, le panneau est restauré et la leçon reprend.
 
 ## Vos données, et ce qui s'exécute
 

@@ -64,8 +64,10 @@ After building a lesson with you, an assistant can hand it over:
 code --open-url "vscode://holobiomicslab.studium-vscode/open?bundle=<percent-encoded absolute path of lesson.json>"
 ```
 
-The link must name an absolute path, without `..`, to an existing `.json` file; anything else is refused
-with a message and nothing opens. If the window reloads while a lesson is open, the pane comes back and
+The link must name an absolute path, without `..`, to an existing `.json` file in your library, in the
+`studium.bundlesRoot` folder or among the lessons shipped with Studium; anything else is refused with a
+message and nothing opens. To open a lesson file kept elsewhere, right-click it and choose
+**Studium: Open this lesson**. If the window reloads while a lesson is open, the pane comes back and
 resumes from your saved progress.
 
 ## What you see
