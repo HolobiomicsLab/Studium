@@ -2953,13 +2953,21 @@ export class SessionHost {
   /** forget_session {learner_id} (L-13, R-en-07): erase everything this host keeps of the learner, with
    * no live session needed — every lesson's progress (their live sessions are closed), the
    * cross-lesson profile and the review schedule — and say what stays, as forget does. D10: in
-   * `language` (fr|en) when given, else the learner's last lesson's, else the server default. */
-  async forgetLearner(learnerId: string = this.defaultLearnerId, language?: DisplayLocale): Promise<ForgetReport> {
+   * `language` (fr|en) when given, else the learner's last lesson's, else the server default. The text names
+   * the learner forgotten. When the editor names the learner (D1), no id or the editor's own forgets the editor's
+   * learner, and another id is refused before anything is erased: this cannot be undone, so it is never played as
+   * the editor's learner the way other calls are (review finding 1). */
+  async forgetLearner(learnerId?: string, language?: DisplayLocale): Promise<ForgetReport> {
+    if (this.editorNamesLearner && learnerId !== undefined && learnerId !== this.defaultLearnerId) {
+      throw new Error(otherLearnerRefusal(learnerId, this.defaultLearnerId));
+    }
     learnerId = this.learnerFor(learnerId);
     const requested = language === undefined ? undefined : checkLocale(language);
     // D4: the drafts Studium kept after a refusal are the library's learner data: erased with the rest.
     const drafts: ForgetItem[] = this.opts.libraryRoot && await eraseDrafts(this.opts.libraryRoot) ? [{ kind: "lesson_drafts" }] : [];
-    if (this.holdsNoLearner()) return this.forgetReport("learner", drafts, this.keptOnDisk(await this.catalog()), requested ?? DEFAULT_LOCALE);
+    if (this.holdsNoLearner()) {
+      return this.forgetReport("learner", drafts, this.keptOnDisk(await this.catalog()), requested ?? DEFAULT_LOCALE, learnerId);
+    }
     const pseudonymOf = this.deps().pseudonym;
     const profilePseudonym = await pseudonymOf.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
     // L-11: from now on no session of this learner opened before writes them back.
@@ -3002,7 +3010,7 @@ export class SessionHost {
         ...drafts,
       ];
       this.afterForget();
-      return this.forgetReport("learner", erased, this.keptOnDisk(catalog), requested ?? locale);
+      return this.forgetReport("learner", erased, this.keptOnDisk(catalog), requested ?? locale, learnerId);
     });
   }
 
@@ -3078,8 +3086,11 @@ export class SessionHost {
     return kept;
   }
 
-  private forgetReport(scope: ForgetReport["scope"], erased: ForgetItem[], kept: ForgetItem[], locale: DisplayLocale): ForgetReport {
-    return { forgotten: true, scope, erased, kept, display_markdown: forgetMarkdown({ erased, kept }, locale) };
+  /** `learner`: the learner forgotten (forgetLearner), whom the text names. */
+  private forgetReport(
+    scope: ForgetReport["scope"], erased: ForgetItem[], kept: ForgetItem[], locale: DisplayLocale, learner?: string,
+  ): ForgetReport {
+    return { forgotten: true, scope, erased, kept, display_markdown: forgetMarkdown({ erased, kept, learner }, locale) };
   }
 
   /** A durable data folder no learner was ever written to: no pseudonym secret yet and no learner
@@ -3099,6 +3110,14 @@ const LEARNER_FOLDER = /^[0-9a-f]{16}$/;
 /** Lesson titles once each, in the reading order of their language. */
 function sortedTitles(titles: readonly string[]): string[] {
   return [...new Set(titles)].sort((a, b) => a.localeCompare(b));
+}
+
+/** Review finding 1: why forget_session {learner_id} refuses an id that is not the editor's learner, and how to
+ * forget the editor's learner instead. */
+function otherLearnerRefusal(requested: string, editorLearner: string): string {
+  return `learner_id ${JSON.stringify(requested)} is not the learner here, and nothing was erased: the editor names the ` +
+    `learner, ${JSON.stringify(editorLearner)} (the Studium pane's learner, the studium.learnerId setting of VS Code), and ` +
+    "this server plays no other. To erase that learner's data, call forget_session without learner_id.";
 }
 
 /** The default identities several people may share (no learner named): their sessions are never
