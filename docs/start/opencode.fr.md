@@ -76,7 +76,8 @@ conditions de votre abonnement ; voir [Connecter Mistral Vibe](vibe.fr.md#ce-qui
 
 Une leçon prête à jouer est proposée d'abord dans votre navigateur : l'assistant affiche l'adresse du
 [lecteur dans le navigateur](browser.fr.md#depuis-votre-assistant) de Studium, sur votre ordinateur, où
-chaque étape répond aussitôt ; dites « ici » pour la suivre plutôt dans la conversation. L'adresse vit le
+vous répondez à chaque étape sans passer par la conversation ; dites « ici » pour la suivre plutôt dans la
+conversation. L'adresse vit le
 temps de la session d'OpenCode et joue l'identifiant d'apprenant qu'OpenCode a passé. Vos réponses y sont
 vérifiées par Studium sur votre ordinateur et ne vont pas au modèle, tant qu'aucun modèle juge n'est
 configuré. `STUDIUM_BROWSER_PLAYER=off` dans `environment` désactive cela. Pas encore essayé avec OpenCode

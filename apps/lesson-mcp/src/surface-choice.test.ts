@@ -144,7 +144,8 @@ describe("B: the learner's last surface first", () => {
     const afterChat = await call("get_study_plan", { learner_id: "ana", language: "en" });
     expect(afterChat.next_step).toMatchObject({ action: "continue", offer_first: "chat" });
     const link = String(afterChat.next_step.open_link);
-    expect(afterChat.next_step.text).toMatch(/As last time, it goes on here, in this chat\. To answer each step at once, open it in your web browser/);
+    // Changed: "To answer each step at once" promised a speed a judge model does not keep (review G, finding 2).
+    expect(afterChat.next_step.text).toMatch(/As last time, it goes on here, in this chat\. To answer each step without going through this chat, open it in your web browser/);
     expect(String(afterChat.display_markdown).split(link)).toHaveLength(2);
 
     await answerInBrowser(link);
@@ -233,15 +234,16 @@ describe("C: one line at the end of the first step of a lesson started in the ch
     const call = await connect(host, ...OPENCODE);
     const started = await call("start_lesson_session", { bundle_ref: REF, learner_id: "ana" });
     const shown = String(started.presentation.display_markdown);
-    expect(shown).toMatch(/\n\n_For immediate answers, follow it in your web browser: <http:\/\/127\.0\.0\.1:\d+\/play#token=[0-9a-f]{64}&from=assistant&lesson=photo%2Flesson\.json>_$/);
+    // Changed: the browser's line said "For immediate answers"; it promises no speed now (review G, finding 2).
+    expect(shown).toMatch(/\n\n_To answer each step without going through this chat, follow it in your web browser: <http:\/\/127\.0\.0\.1:\d+\/play#token=[0-9a-f]{64}&from=assistant&lesson=photo%2Flesson\.json>_$/);
     const answered = await call("submit_response", { session_id: started.session_id, input: { kind: "reply", text: rightReply(started.presentation.scene) } });
-    expect(JSON.stringify(answered)).not.toMatch(/For immediate answers/);
+    expect(JSON.stringify(answered)).not.toMatch(/follow it in your web browser/);
     // The learner answered in the chat: their choice. The lesson resumed in the chat carries no line.
     const resumed = await call("start_lesson_session", { bundle_ref: REF, learner_id: "ana" });
-    expect(String(resumed.presentation.display_markdown)).not.toMatch(/For immediate answers/);
+    expect(String(resumed.presentation.display_markdown)).not.toMatch(/follow it in your web browser/);
     // Another learner, who never answered: the line.
     const bob = await call("start_lesson_session", { bundle_ref: REF, learner_id: "bob" });
-    expect(String(bob.presentation.display_markdown)).toMatch(/For immediate answers, follow it in your web browser/);
+    expect(String(bob.presentation.display_markdown)).toMatch(/without going through this chat, follow it in your web browser/);
   });
 
   it("names the panel to a client that draws it, with open_panel for the session", async () => {
@@ -267,7 +269,8 @@ describe("C: one line at the end of the first step of a lesson started in the ch
     const host = new SessionHost({ bundlesRoot: library, libraryRoot: library, live: false, dataDir: null });
     const call = await connect(host, ...OPENCODE);
     const started = await call("start_lesson_session", { bundle_ref: REF, learner_id: "ana" });
-    expect(String(started.presentation.display_markdown)).not.toMatch(/For immediate answers/);
+    // Changed: matched "For immediate answers" only, which the browser's line no longer says (review G, finding 2).
+    expect(String(started.presentation.display_markdown)).not.toMatch(/For immediate answers|without going through this chat/);
     expect(started).not.toHaveProperty("open_panel");
   });
 });

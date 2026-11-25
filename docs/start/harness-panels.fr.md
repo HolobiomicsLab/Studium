@@ -37,7 +37,7 @@ Quand une leçon est prête à jouer (celle que l'assistant vient de construire,
 
 Studium suit ensuite votre choix, sans rien demander. Il note où vous avez répondu à une étape pour la dernière fois (le navigateur, le panneau VS Code, un panneau, le volet Claude Code, ou la conversation, formulaires compris), et l'offre suivante met cette surface en premier quand votre assistant l'offre ; sinon, l'ordre ci-dessus s'applique. Quand vous avez répondu en dernier dans la conversation, l'offre dit que la leçon se poursuit ici et donne un lien vers la surface plus rapide. Cette note est gardée avec votre progression et effacée avec elle ([Confidentialité et limites](../concepts/privacy-and-limits.fr.md)).
 
-Une leçon que l'assistant commence dans la conversation finit sa première étape, et sa première étape après une reprise, par une ligne qui nomme la surface plus rapide, par exemple _Pour des réponses immédiates, suis-la dans ton navigateur : <adresse>_. Les étapes suivantes ne la portent pas, et aucune étape ne la porte quand vous avez répondu en dernier dans la conversation.
+Une leçon que l'assistant commence dans la conversation finit sa première étape, et sa première étape après une reprise, par une ligne qui nomme la surface plus rapide, par exemple _Pour répondre à chaque étape sans passer par cette conversation, suis-la dans ton navigateur : <adresse>_. Les étapes suivantes ne la portent pas, et aucune étape ne la porte quand vous avez répondu en dernier dans la conversation.
 
 | Où vous travaillez | Proposé d'abord |
 |---|---|

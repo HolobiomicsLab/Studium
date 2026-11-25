@@ -51,7 +51,7 @@ qui l'a évaluée avec la clé. L'exemple complet est [vibe.toml](../examples/vi
 
 Depuis cet essai, une leçon prête à jouer est proposée d'abord dans votre navigateur : Vibe affiche
 l'adresse du [lecteur dans le navigateur](browser.fr.md#depuis-votre-assistant) de Studium, sur votre
-ordinateur, où chaque étape répond aussitôt au lieu d'attendre le modèle ; dites « ici » pour la suivre
+ordinateur, où vous répondez à chaque étape sans passer par la conversation ; dites « ici » pour la suivre
 dans la conversation. L'adresse vit le temps de la session de Vibe et joue l'identifiant d'apprenant que
 Vibe a passé. Vos réponses y sont vérifiées par Studium sur votre ordinateur et ne vont pas à Mistral AI,
 tant qu'aucun modèle juge n'est configuré. `STUDIUM_BROWSER_PLAYER=off` dans l'`env` du serveur désactive

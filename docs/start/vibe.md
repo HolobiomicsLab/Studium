@@ -50,8 +50,8 @@ started it, relayed each step and passed a quiz answer to Studium, which graded 
 complete example is [vibe.toml](../examples/vibe.toml).
 
 Since this run, a lesson ready to play is offered in your web browser first: Vibe shows the address of
-Studium's [browser player](browser.md#from-your-assistant), on your computer, where each step answers at
-once instead of waiting on the model; say "here" to play it in the chat. The address lives as long as the
+Studium's [browser player](browser.md#from-your-assistant), on your computer, where you answer each step
+without going through the chat; say "here" to play it in the chat. The address lives as long as the
 Vibe session and plays the learner id Vibe passed. Your answers there are checked by Studium on your
 computer and do not go to Mistral AI, as long as no judge model is configured. `STUDIUM_BROWSER_PLAYER=off`
 in the server's `env` turns this off. Not yet tried with Vibe itself: only scripts have checked it.

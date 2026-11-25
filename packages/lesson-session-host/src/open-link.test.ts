@@ -4,6 +4,7 @@
 // it back, VS Code having decoded the query once). The pane cannot open a .zip bundle from a link.
 import { describe, expect, it } from "vitest";
 import { browserOffer, openLessonLink, paneOffer } from "./open-link.js";
+import { chatStartLine, offerSentences } from "./surface-offer.js";
 
 const PREFIX = "vscode://holobiomicslab.studium-vscode/open?bundle=";
 
@@ -76,5 +77,23 @@ describe("browserOffer", () => {
     expect(fr).toContain(`<${link}>`);
     expect(fr).toMatch(/Tu y réponds à chaque étape sans passer par cette conversation/);
     for (const offer of [en, fr]) expect(offer).not.toMatch(/at once|aussitôt|checked|vérifi/);
+  });
+
+  // Review G, finding 2: the follow-up to decision 4 brought the promise back for the browser offered first among other
+  // surfaces (FIRST), named once after answers in the chat (ONCE), and in the line that ends a lesson's first step in the
+  // chat (START_LINE). Every browser text says it in the words above.
+  it("says it in the same words wherever the browser is offered, the line at the end of a first step included", () => {
+    for (const [locale, words] of [["en", /without going through this chat/], ["fr", /sans passer par cette conversation/]] as const) {
+      const texts = {
+        first: offerSentences(locale, { first: "browser", order: ["browser", "panel", "chat"], open_link: link, open_panel: { bundle_ref: "a/lesson.json" } }),
+        once: offerSentences(locale, { first: "chat", order: ["chat", "browser"], open_link: link }),
+        startLine: chatStartLine(locale, { first: "browser", order: ["browser"], open_link: link }) ?? "",
+      };
+      for (const [name, text] of Object.entries(texts)) {
+        expect(text, `${locale} ${name}`).toContain(`<${link}>`);
+        expect(text, `${locale} ${name}`).toMatch(words);
+        expect(text, `${locale} ${name}`).not.toMatch(/at once|aussitôt|immediate|immédiat|checked|vérifi/i);
+      }
+    }
   });
 });

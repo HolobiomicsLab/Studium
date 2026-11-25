@@ -76,10 +76,12 @@ describe("offerSentences", () => {
 
 describe("chatStartLine", () => {
   it("names, in one italic line, the better surface for a lesson started in the chat", () => {
+    // Changed: the browser's line promised immediate answers; it now says what holds with a judge model too (review G,
+    // finding 2; open-link.test.ts checks every browser text).
     expect(chatStartLine("fr", offer(["browser", "chat"], { open_link: BROWSER })))
-      .toBe(`_Pour des réponses immédiates, suis-la dans ton navigateur\xa0: <${BROWSER}>_`);
+      .toBe(`_Pour répondre à chaque étape sans passer par cette conversation, suis-la dans ton navigateur\xa0: <${BROWSER}>_`);
     expect(chatStartLine("en", offer(["browser", "chat"], { open_link: BROWSER })))
-      .toBe(`_For immediate answers, follow it in your web browser: <${BROWSER}>_`);
+      .toBe(`_To answer each step without going through this chat, follow it in your web browser: <${BROWSER}>_`);
     expect(chatStartLine("en", offer(["panel", "browser", "chat"], { open_link: BROWSER, open_panel: { bundle_ref: "x" } }))).toMatch(/^_For immediate answers, say “panel”/);
     expect(chatStartLine("fr", offer(["vscode_pane", "chat"], { open_link: PANE }))).toContain(`[panneau Studium](${PANE})`);
     expect(chatStartLine("en", offer(["assistant_pane", "chat"], { command: "/studium photo/lesson.json" }))).toContain("`/studium photo/lesson.json`");

@@ -37,7 +37,7 @@ When a lesson is ready to play (one the assistant has just built, or the one the
 
 Studium then follows your choice, without asking. It notes where you last answered a step (the browser, the VS Code pane, a panel, the Claude Code pane, or the conversation, forms included), and the next offer puts that surface first when your assistant gives it; otherwise the order above applies. When you last answered in the conversation, the offer says the lesson goes on here and gives one link to the faster surface. The note is kept with your progress and erased with it ([Privacy and limits](../concepts/privacy-and-limits.md)).
 
-A lesson the assistant starts in the conversation ends its first step, and its first step after a resume, with one line that names the faster surface, such as _For immediate answers, follow it in your web browser: <address>_. Later steps do not carry it, and no step does when you last answered in the conversation.
+A lesson the assistant starts in the conversation ends its first step, and its first step after a resume, with one line that names the faster surface, such as _To answer each step without going through this chat, follow it in your web browser: <address>_. Later steps do not carry it, and no step does when you last answered in the conversation.
 
 | Where you work | Offered first |
 |---|---|

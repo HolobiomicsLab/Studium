@@ -155,9 +155,9 @@ a refused draft is kept for this learner and offered to them alone later.
 If `create_lesson`'s result carries `offer_first`, show its `display_markdown` as it is
 instead of the offer below, and do what it offers first: on `panel` (a client that draws
 Studium's panel), call `open_lesson_panel` with `open_panel`; on `chat` (the learner last
-answered in the chat), play the lesson here. Otherwise it offers a faster surface first (the
-Studium pane, the browser, or the assistant's own pane), where each step answers at once: play
-the lesson here only if the learner says "here".
+answered in the chat), play the lesson here. Otherwise it offers another surface first (the
+Studium pane, the browser, or the assistant's own pane), where the learner answers each step
+without going through this chat: play the lesson here only if the learner says "here".
 
 Building the lesson filled this session with sources and drafts, and every later answer would
 carry them. Offer in one line to play the lesson in its own short session (Claude Code:
