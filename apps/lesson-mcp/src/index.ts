@@ -1,4 +1,6 @@
+import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
+import { basename, dirname, join, resolve } from "node:path";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SessionHost, resolvePersistence, type PersistenceConfig } from "@studium/lesson-session-host";
 import { buildMcpServer } from "./server.js";
@@ -8,18 +10,42 @@ import { runPlay } from "./play.js";
 
 export const MCP_SERVER_NAME = "studium-lesson";
 
+/** The folder of the lessons shipped with Studium, beside the server: `shipped-lessons/` next to the bundled
+ * script (dist/lesson-mcp.cjs in the VS Code extension, studium-mcp.cjs in the npm package), or
+ * apps/lesson-mcp/shipped-lessons when the server runs from its sources (src/index.ts). The npm bin is a
+ * link, so the script's real path is used. STUDIUM_SHIPPED_LESSONS names another folder, or `off` for none.
+ * Null when there is none: a lone lesson-mcp.cjs copied elsewhere ships no lesson. */
+export function shippedLessonsRoot(opts: {
+  scriptPath: string | undefined;
+  env?: Readonly<Record<string, string | undefined>>;
+  exists?: (path: string) => boolean;
+  realpath?: (path: string) => string;
+}): string | null {
+  const exists = opts.exists ?? existsSync;
+  const configured = opts.env?.["STUDIUM_SHIPPED_LESSONS"]?.trim();
+  if (configured) return ["off", "none", "0", "false"].includes(configured.toLowerCase()) ? null : resolve(configured);
+  if (!opts.scriptPath) return null;
+  let script: string;
+  try { script = (opts.realpath ?? realpathSync)(opts.scriptPath); } catch { script = resolve(opts.scriptPath); }
+  const dir = dirname(script);
+  const candidate = script.endsWith(".ts") && basename(dir) === "src" ? join(dir, "..", "shipped-lessons") : join(dir, "shipped-lessons");
+  return exists(candidate) ? resolve(candidate) : null;
+}
+
 /** The host the stdio server runs. The C6 defaults apply here, at the entry point only (decision
  * D4): lessons in ~/.studium/library, durable progress in ~/.studium/data; BUNDLES_ROOT,
  * STUDIUM_DATA_DIR, STUDIUM_HOME, STUDIUM_LEARNER_ID and STUDIUM_EPHEMERAL=1 override them
  * (persistence.ts). */
 export function hostFromEnvironment(
   env: Readonly<Record<string, string | undefined>> = process.env, home: string = homedir(),
+  opts: { shippedRoot?: string | null } = {},
 ): { host: SessionHost; config: PersistenceConfig; live: boolean } {
   const config = resolvePersistence(env, home);
   const live = env["LITELLM_BASE_URL"] !== undefined && env["LITELLM_BASE_URL"] !== "";
   const host = new SessionHost({
     bundlesRoot: config.bundlesRoot, libraryRoot: config.libraryRoot, dataDir: config.dataDir,
     defaultLearnerId: config.learnerIdDefault, live,
+    ...(opts.shippedRoot ? { shippedRoot: opts.shippedRoot } : {}),
   });
   return { host, config, live };
 }
@@ -50,6 +76,8 @@ Environment
   STUDIUM_DATA_DIR    where progress and reviews are kept (default <STUDIUM_HOME>/data)
   STUDIUM_EPHEMERAL   1 keeps everything in memory: nothing is written
   STUDIUM_LEARNER_ID  the learner id used when a call names none (default anonymous)
+  STUDIUM_SHIPPED_LESSONS  the lessons shipped with Studium (default: shipped-lessons/ beside
+                      the server); off for none
   LITELLM_BASE_URL    a judge model endpoint; empty (the default) calls no model
 
 Guide and issues  ${REPOSITORY_URL}
@@ -67,13 +95,14 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   if (argv[0] === "play") { await runPlay(argv.slice(1)); return; }
   const answer = cliAnswer(argv);
   if (answer !== null) { process.stdout.write(answer); return; }
-  const { host, config, live } = hostFromEnvironment();
+  const shipped = shippedLessonsRoot({ scriptPath: process.argv[1], env: process.env });
+  const { host, config, live } = hostFromEnvironment(process.env, homedir(), { shippedRoot: shipped });
   const server = buildMcpServer(host);
   const transport = new StdioServerTransport();
   await server.connect(transport);
   // MCP servers communicate over stdio — do NOT write logs to stdout (it corrupts the JSON-RPC stream). Use stderr.
   process.stderr.write(`lesson-mcp started (bundlesRoot=${config.bundlesRoot}, library=${config.libraryRoot}, ` +
-    `data=${config.dataDir ?? "memory only"}, live=${live})\n`);
+    `data=${config.dataDir ?? "memory only"}, shipped=${shipped ?? "none"}, live=${live})\n`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

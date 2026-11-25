@@ -24,7 +24,8 @@ shows the plan as it comes:
 | **Now** | The one step to take |
 
 The step to take follows a fixed order: play the reviews due, otherwise continue a lesson in progress,
-otherwise start the next lesson, otherwise build a lesson from your sources (when you have none), otherwise
+otherwise start the next lesson, otherwise, when you have no lesson of your own, the demo lesson shipped with
+Studium (« Discover Studium », once), otherwise build a lesson from your sources (when you have none), otherwise
 wait, with the date of the next review. A concept that no lesson can replay as a question stays listed, marked
 "no review question covers it yet", but is never proposed as the next step. Dates are calendar days in the
 time zone of the machine that runs Studium.

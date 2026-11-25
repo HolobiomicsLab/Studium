@@ -20,10 +20,12 @@ portent l'extension sont dans [Où sont les paquets](installation.fr.md#où-sont
 ## Obtenir votre première leçon
 
 L'extension affiche des leçons ; elle n'en construit pas. Juste après l'installation, la vue **Leçons**
-indique « Aucune leçon trouvée pour l'instant ». Prenez la ligne qui correspond à ce que vous avez :
+indique « Aucune leçon trouvée pour l'instant » et propose **Essayer la leçon de démonstration**. Prenez la
+ligne qui correspond à ce que vous avez :
 
 | Vous avez | Faites ceci |
 |---|---|
+| Rien encore, et vous voulez voir comment fonctionne Studium | **Essayer la leçon de démonstration** dans la vue **Leçons** vide, ou **Studium : Essayer la leçon de démonstration** : « Découvrir Studium », une dizaine de minutes, dans la langue d'affichage de VS Code (français ou anglais). Elle est livrée avec l'extension ; un agent d'IA l'a rédigée à partir de la documentation de Studium et aucun enseignant ne l'a encore vérifiée, comme le dit son premier écran. Elle n'est pas enregistrée comme votre cours et ne remplace jamais une de vos leçons |
 | Copilot dans VS Code 1.101 ou plus récent | Rien à relier : l'extension propose son propre serveur Studium à Copilot (voir [Connecter Copilot](copilot.fr.md)). En mode agent de Copilot Chat, demandez « je veux apprendre … avec Studium » en indiquant vos sources. La leçon est écrite dans votre bibliothèque personnelle et apparaît dans la vue **Leçons** après un rafraîchissement |
 | Un autre assistant IA (Claude Code, Codex, Cursor) | Reliez-le à Studium par [une commande](installation.fr.md#ajouter-le-serveur-à-votre-assistant), puis demandez « je veux apprendre … avec Studium » en indiquant vos sources. La leçon est écrite dans votre bibliothèque personnelle, `~/.studium/library`, et apparaît dans la vue **Leçons** après un rafraîchissement |
 | Une leçon donnée par un enseignant | **Studium : Choisir un cours**, **Choisir un autre dossier de cours…**, puis choisissez son dossier ; ou clic droit sur son `lesson.json`, puis **Studium : Ouvrir cette leçon** |
@@ -40,7 +42,7 @@ l'assistant, étape par étape, est dans
 | Moyen | Quand l'utiliser |
 |---|---|
 | Icône **Studium** de la barre d'activité, puis la vue **Leçons** | parcourir les leçons de votre dossier de leçons |
-| **Studium : Choisir un cours** | choisir un cours, ou un autre dossier de leçons ; le choix est enregistré dans les réglages du dossier ouvert, ou dans vos réglages utilisateur quand aucun dossier n'est ouvert |
+| **Studium : Choisir un cours** | choisir un cours, ou un autre dossier de leçons ; le choix est enregistré dans les réglages du dossier ouvert, ou dans vos réglages utilisateur quand aucun dossier n'est ouvert. La liste propose aussi la leçon de démonstration livrée avec Studium, signalée comme telle |
 | **Studium : Ouvrir une leçon** | rouvrir le cours courant (propose le sélecteur s'il n'y en a pas) |
 | Clic droit sur un `lesson.json`, **Studium : Ouvrir cette leçon** | ouvrir directement ce fichier, depuis l'explorateur ou l'onglet de l'éditeur, sans changer les réglages |
 | Un lien `vscode://` donné par votre assistant | ouvrir la leçon que votre assistant vient de préparer (ci-dessous) |
@@ -191,6 +193,7 @@ contrôle la sortie s'exécute sous une limite de 50 ms : une leçon défectueu
 | Commande | Effet |
 |---|---|
 | Studium : Choisir un cours | choisir et ouvrir un cours |
+| Studium : Essayer la leçon de démonstration | ouvrir « Découvrir Studium », la leçon de démonstration livrée avec l'extension |
 | Studium : Ouvrir une leçon | ouvrir le cours courant dans le panneau |
 | Studium : Ouvrir cette leçon | ouvrir le `lesson.json` sélectionné |
 | Studium : Ouvrir la leçon en notebook | jouer le cours dans un notebook |

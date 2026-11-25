@@ -170,6 +170,7 @@ const PLAN = {
     continue: "reprends « {title} » là où tu t'étais arrêté·e.",
     start: "commence « {title} ».",
     author: "aucune leçon n'est encore disponible. Choisis un sujet et tes sources : l'assistant prépare une leçon avec toi.",
+    demo: "tu n'as pas encore de leçon à toi. Commence par « {title} », une leçon de démonstration d'environ {minutes} minutes livrée avec Studium : elle montre comment fonctionne Studium. Elle a été rédigée par l'IA à partir de la documentation de Studium, sans vérification par un enseignant. Pour apprendre plutôt ton propre sujet, choisis-le avec tes sources : l'assistant prépare une leçon avec toi.",
     wait: "rien à revoir pour l'instant.",
     wait_next: "rien à revoir pour l'instant. Prochaine révision : {date}.",
     lesson_fits: "Elle dure environ {minutes} minutes, dans tes {budget} minutes par jour.",
@@ -199,6 +200,7 @@ const PLAN = {
     continue: "pick up “{title}” where you left off.",
     start: "start “{title}”.",
     author: "no lesson is available yet. Choose a topic and your sources: the assistant prepares a lesson with you.",
+    demo: "you have no lesson of your own yet. Start with “{title}”, a demo lesson of about {minutes} minutes shipped with Studium: it shows how Studium works. It was drafted by an AI agent from Studium's documentation, not checked by a teacher. To learn your own topic instead, choose it and your sources: the assistant prepares a lesson with you.",
     wait: "nothing to review right now.",
     wait_next: "nothing to review right now. Next review: {date}.",
     lesson_fits: "It takes about {minutes} minutes, within your {budget} minutes a day.",
@@ -226,7 +228,11 @@ function stillThere(bundleRef: string, input: StudyPlanInput): boolean {
 function lessonFor(conceptId: string, input: StudyPlanInput): { lesson: StudyItem["lesson"]; scene_id: string | null; concept: string } {
   const route = input.record.concepts[conceptId];
   const listing = input.catalog.lessons.find((l) => l.concepts.some((c) => c.id === conceptId));
-  const concept = input.catalog.lessons.flatMap((l) => l.concepts).find((c) => c.id === conceptId)?.title ?? conceptId;
+  // The title the learner read: from the lesson they studied the concept in, when it is still there (two
+  // lessons can share a concept id, e.g. the shipped demo in English and in French).
+  const studiedIn = route ? input.catalog.lessons.find((l) => l.bundle_ref === route.bundle_ref) : undefined;
+  const concept = studiedIn?.concepts.find((c) => c.id === conceptId)?.title
+    ?? input.catalog.lessons.flatMap((l) => l.concepts).find((c) => c.id === conceptId)?.title ?? conceptId;
   if (route && stillThere(route.bundle_ref, input)) {
     return { lesson: { bundle_ref: route.bundle_ref, title: route.lesson_title }, scene_id: route.scene_id, concept };
   }
@@ -265,10 +271,12 @@ function lessonBudgetText(t: (typeof PLAN)[DisplayLocale], minutes: number, budg
 }
 
 /** The next lesson: a course's next unlocked lesson (a course the learner has started first), else the
- * most recent lesson they have not opened yet — from their own library first, then the bundles root. */
+ * most recent lesson they have not opened yet — from their own library first, then the bundles root.
+ * Never a lesson shipped with Studium: see shippedDemo. */
 function nextLesson(input: StudyPlanInput, started: ReadonlySet<string>): CatalogLesson | null {
   const known = (id: string) => started.has(id) || input.completedLessons.includes(id);
-  const byId = new Map(input.catalog.lessons.map((l) => [l.bundle_id, l]));
+  const own = ownLessons(input);
+  const byId = new Map(own.map((l) => [l.bundle_id, l]));
   const courses = [...input.catalog.courses].sort((a, b) =>
     Number(b.course.lessons.some((l) => known(l.lesson_id))) - Number(a.course.lessons.some((l) => known(l.lesson_id))));
   for (const { course } of courses) {
@@ -276,8 +284,23 @@ function nextLesson(input: StudyPlanInput, started: ReadonlySet<string>): Catalo
     const listed = next ? byId.get(next.lesson_id) : undefined;
     if (listed && !started.has(listed.bundle_id)) return listed;
   }
-  const unopened = input.catalog.lessons.filter((l) => !known(l.bundle_id)).sort((a, b) => b.modified_at - a.modified_at);
+  const unopened = own.filter((l) => !known(l.bundle_id)).sort((a, b) => b.modified_at - a.modified_at);
   return unopened.find((l) => l.root === "library") ?? unopened[0] ?? null;
+}
+
+/** The lessons of the bundles root and the learner's library: every lesson but those shipped with Studium. */
+function ownLessons(input: StudyPlanInput): CatalogLesson[] {
+  return input.catalog.lessons.filter((l) => l.root !== "shipped");
+}
+
+/** The demo shipped with Studium to offer a learner who has no lesson of their own and has not opened it
+ * yet (in either language): the one in the plan's language, else the first one. */
+function shippedDemo(input: StudyPlanInput, started: ReadonlySet<string>): CatalogLesson | null {
+  if (ownLessons(input).length > 0) return null;
+  const shipped = input.catalog.lessons.filter((l) => l.root === "shipped");
+  if (shipped.some((l) => started.has(l.bundle_id) || input.completedLessons.includes(l.bundle_id))) return null;
+  const inLocale = shipped.find((l) => l.language.trim().slice(0, 2).toLowerCase() === input.locale);
+  return inLocale ?? shipped[0] ?? null;
 }
 
 export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
@@ -292,7 +315,8 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
     .map((l) => ({ bundle_ref: l.bundle_ref, title: l.title, scenes_completed: l.scenes_completed, total_scenes: l.total_scenes }));
   const started = new Set(Object.keys(input.record.lessons));
-  const next = nextLesson(input, started);
+  const demo = shippedDemo(input, started);
+  const next = nextLesson(input, started) ?? demo;
   const learner: Record<string, string> = input.learnerId ? { learner_id: input.learnerId } : {};
   const budget = dailyBudget(input, [inProgress[0]?.bundle_ref, next?.bundle_ref]);
   const durationOf = (ref: string) => input.catalog.lessons.find((l) => l.bundle_ref === ref)?.duration_minutes;
@@ -335,12 +359,13 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
     }
   } else if (next) {
     nextStep = { action: "start", tool: "start_lesson_session", arguments: { bundle_ref: next.bundle_ref, ...learner },
-      text: fill(t.start, { title: next.title }) };
+      text: next === demo && next.duration_minutes !== undefined
+        ? fill(t.demo, { title: next.title, minutes: next.duration_minutes }) : fill(t.start, { title: next.title }) };
     if (budget !== null && next.duration_minutes !== undefined) {
       nextStep.estimated_minutes = next.duration_minutes;
       nextStep.text = `${nextStep.text} ${lessonBudgetText(t, next.duration_minutes, budget, false)}`;
     }
-  } else if (input.catalog.lessons.length === 0) {
+  } else if (ownLessons(input).length === 0) {
     nextStep = { action: "author", tool: "get_authoring_guide", arguments: { language: input.locale }, text: t.author };
   } else {
     nextStep = { action: "wait", tool: null, arguments: {},

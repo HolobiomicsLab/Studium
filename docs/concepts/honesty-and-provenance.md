@@ -70,6 +70,7 @@ A self-study lesson starts with a notice in the lesson's language (French for a 
 |---|---|
 | learner | "Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book)." |
 | agent | "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong." |
+| agent, in the demo lesson shipped with Studium | "Demo lesson shipped with Studium, drafted by an AI agent from Studium's documentation, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong." Its `authoring` block also carries `shipped: true`. |
 
 | Judge | Second sentence |
 |---|---|

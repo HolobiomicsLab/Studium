@@ -762,6 +762,40 @@ async function main() {
     settings["bundlesRoot"] = savedRoot;
     settings["bundleRef"] = undefined;
   }
+
+  // 2026-11-25: a fresh install has no lesson. « Try the demo lesson » (welcome view, picker, walkthrough) opens the
+  // « Discover Studium » lesson shipped with Studium, in VS Code's display language (here en, while the last lesson
+  // played was French), from the shipped folder: it never
+  // becomes the learner's course setting, and its first screen says it ships with Studium and no teacher checked it.
+  {
+    const savedRoot = settings["bundlesRoot"];
+    settings["bundlesRoot"] = emptyRoot;
+    settings["bundleRef"] = undefined;
+    const writesBefore = configWrites.length;
+    const errorsBefore = seen.errors.length;
+    const opensDemo = async (what: string, run: () => Promise<unknown>) => {
+      const panesBefore = seen.panels.length;
+      await run();
+      const pane = seen.panels.length > panesBefore ? lastPanel() : undefined;
+      if (pane) await waitFor(() => pane.posted.some((m: Json) => m.type === "render" || m.type === "error"), `the demo lesson (${what})`);
+      const render = pane?.posted.find((m: Json) => m.type === "render");
+      expect(render?.view?.bundle_ref === "discover-studium-en/lesson.json", `${what}: the English demo opens (got ${render?.view?.bundle_ref})`);
+      expect(JSON.stringify(render ?? {}).includes("Demo lesson shipped with Studium"), `${what}: its notice says it ships with Studium`);
+      pane?.dispose();
+    };
+    expect(seen.commands.has("studium.openDemoLesson"), "the studium.openDemoLesson command is registered");
+    await opensDemo("command", () => seen.commands.get("studium.openDemoLesson")!());
+    quickPickAnswer = (items: Json[]) => {
+      const demo = items.find((i) => i.action === "demo");
+      expect(!!demo && items.indexOf(demo) === items.length - 2, "the picker offers the demo, just before choosing another folder");
+      return demo;
+    };
+    await opensDemo("picker", () => seen.commands.get("studium.pickLesson")!());
+    quickPickAnswer = () => undefined;
+    expect(configWrites.length === writesBefore, "opening the demo writes no setting: the learner's course folder stays theirs");
+    expect(seen.errors.length === errorsBefore, `opening the demo shows no error (got ${JSON.stringify(seen.errors.slice(errorsBefore))})`);
+    settings["bundlesRoot"] = savedRoot;
+  }
 }
 
 main().then(() => {

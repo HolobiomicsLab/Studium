@@ -48,7 +48,7 @@ export const REPLY_CALL = "submit_response {session_id, input: {kind: \"reply\",
 /** What a harness reads once, at connection (MCP `instructions`). */
 export const SERVER_INSTRUCTIONS = [
   "Studium teaches through the learner's own answers: you relay, the learner answers.",
-  "- Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools).",
+  "- Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools). To a learner with no lesson yet it proposes the demo lesson shipped with Studium (about 10 minutes, on how Studium works): offer it before building a lesson, unless they came with a topic of their own.",
   "- Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.",
   "- Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.",
   "- Show display_markdown as it is and add nothing of your own unless the learner asks (they wait on every word): on a presentation; after an answer, verdict.display_markdown first, then the transition's.",
@@ -117,7 +117,8 @@ export function studyOperations(
       "List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson " +
       "written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who " +
       "wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). " +
-      "`query` keeps the lessons whose title, ref, discipline or concepts contain every word of it. display_markdown " +
+      "`query` keeps the lessons whose title, ref, discipline or concepts contain every word of it. The lessons shipped " +
+      "with Studium (the « Discover Studium » demo) come apart, in shipped_lessons (source \"shipped\"). display_markdown " +
       "is the list in `language`, ready to show.",
       { query: z.string().max(200).optional(), learner_id: z.string().min(1).max(200).optional(), language: languageArg },
       async ({ query, learner_id, language }) => host.listLessons({
@@ -130,7 +131,8 @@ export function studyOperations(
       "the next lesson, and next_step {action: review|continue|start|author|wait, tool, arguments, text} naming the " +
       "call to make with its arguments (language included where the tool takes one). With the minutes a day the " +
       "learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in " +
-      "`language`, ready to show. Dates (due_date, next_review_date) are days in get_server_info.time_zone.",
+      "`language`, ready to show. A learner with no lesson of their own gets the demo lesson shipped with Studium as the " +
+      "step to start (before authoring). Dates (due_date, next_review_date) are days in get_server_info.time_zone.",
       { learner_id: learnerIdArg, now_ms: nowMsArg, language: languageArg },
       async ({ learner_id, now_ms, language }) => host.studyPlan(learner_id, {
         ...(now_ms === undefined ? {} : { nowMs: now_ms }), ...(language === undefined ? {} : { language }),

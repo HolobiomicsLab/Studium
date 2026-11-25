@@ -17,9 +17,18 @@ Knowing this saves the first ten minutes:
 | Part | What it does | What it does not do |
 |---|---|---|
 | **An AI assistant** connected to the Studium server (Copilot in VS Code, which this extension connects for you, Claude Code, Codex, Cursor) | builds a lesson from the sources you name, and can play it with you in the conversation | answer for you |
-| **This extension** | shows a lesson in a pane, keeps your progress, tells you when reviews are due | build a lesson: right after installation its **Lessons** view says "No lesson found yet" |
+| **This extension** | shows a lesson in a pane, keeps your progress, tells you when reviews are due | build a lesson: right after installation its **Lessons** view says "No lesson found yet" and offers only the demo lesson it ships with |
 
 So a new lesson starts in an assistant. A lesson someone already made plays here with nothing else.
+
+## Try the demo lesson
+
+To see how Studium works, select the **Studium** icon in the activity bar, then **Try the demo lesson**, or
+run **Studium: Try the demo lesson** from the Command Palette. « Discover Studium » takes about ten minutes, in
+English or French, and ships with the extension: you read a step, answer a quiz with its optional confidence
+scale, ask for a hint, write an answer and compare it with the reference, rate your recall, and open the concept
+map. An AI agent drafted it from Studium's documentation and no teacher has checked it yet, as its first screen
+says. It is not saved as your course and never replaces a lesson of yours.
 
 ## Play a lesson you were given
 
@@ -146,9 +155,20 @@ Le savoir épargne les dix premières minutes :
 | Partie | Ce qu'elle fait | Ce qu'elle ne fait pas |
 |---|---|---|
 | **Un assistant IA** relié au serveur Studium (Copilot dans VS Code, que cette extension relie pour vous, Claude Code, Codex, Cursor) | construit une leçon à partir des sources que vous nommez, et peut la jouer avec vous dans la conversation | répondre à votre place |
-| **Cette extension** | affiche une leçon dans un panneau, garde votre progression, vous dit quand des révisions sont dues | construire une leçon : juste après l'installation, sa vue **Leçons** dit « Aucune leçon trouvée pour l'instant » |
+| **Cette extension** | affiche une leçon dans un panneau, garde votre progression, vous dit quand des révisions sont dues | construire une leçon : juste après l'installation, sa vue **Leçons** dit « Aucune leçon trouvée pour l'instant » et ne propose que la leçon de démonstration livrée avec elle |
 
 Une nouvelle leçon commence donc dans un assistant. Une leçon déjà faite se joue ici sans rien d'autre.
+
+### Essayer la leçon de démonstration
+
+Pour voir comment fonctionne Studium, sélectionnez l'icône **Studium** dans la barre d'activité, puis
+**Essayer la leçon de démonstration**, ou lancez **Studium : Essayer la leçon de démonstration** depuis la
+palette de commandes. « Découvrir Studium » prend une dizaine de minutes, en français ou en anglais, et est
+livrée avec l'extension : vous lisez une étape, répondez à un quiz avec son échelle de confiance facultative,
+demandez un indice, rédigez une réponse et la comparez à la référence, notez votre rappel et ouvrez la carte des
+notions. Un agent d'IA l'a rédigée à partir de la documentation de Studium et aucun enseignant ne l'a encore
+vérifiée, comme le dit son premier écran. Elle n'est pas enregistrée comme votre cours et ne remplace jamais une
+de vos leçons.
 
 ### Jouer une leçon qu'on vous a donnée
 

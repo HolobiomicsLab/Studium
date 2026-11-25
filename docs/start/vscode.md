@@ -20,10 +20,11 @@ listed in [Where the packages are](installation.md#where-the-packages-are).
 ## Get your first lesson
 
 The extension shows lessons; it does not build them. Right after installation the **Lessons** view says
-"No lesson found yet". Pick the line that matches what you have:
+"No lesson found yet" and offers **Try the demo lesson**. Pick the line that matches what you have:
 
 | You have | Do this |
 |---|---|
+| Nothing yet, and you want to see how Studium works | **Try the demo lesson** in the empty **Lessons** view, or **Studium: Try the demo lesson**: « Discover Studium », about ten minutes, in VS Code's display language (English or French). It ships with the extension; an AI agent drafted it from Studium's documentation and no teacher has checked it yet, as its first screen says. It is not saved as your course and never replaces a lesson of yours |
 | Copilot in VS Code 1.101 or later | Nothing to connect: the extension offers its own Studium server to Copilot (see [Connect Copilot](copilot.md)). In Copilot Chat's agent mode, ask "I want to learn … with Studium" and name your sources. The lesson is written to your personal library and appears in the **Lessons** view after a refresh |
 | Another AI assistant (Claude Code, Codex, Cursor) | Connect it to Studium with [one command](installation.md#add-the-server-to-your-assistant), then ask "I want to learn … with Studium" and name your sources. The lesson is written to your personal library, `~/.studium/library`, and appears in the **Lessons** view after a refresh |
 | A lesson a teacher gave you | **Studium: Pick a course**, **Choose another course folder…**, then choose its folder; or right-click its `lesson.json` and choose **Studium: Open this lesson** |
@@ -39,7 +40,7 @@ assistant does, step by step, is in [Learn with your assistant](../learn/learn-w
 | Way | When to use it |
 |---|---|
 | **Studium** icon in the activity bar, then the **Lessons** view | browse the lessons found in your lessons folder |
-| **Studium: Pick a course** | choose a course, or another folder of lessons; the choice is saved in the open folder's settings, or in your user settings when no folder is open |
+| **Studium: Pick a course** | choose a course, or another folder of lessons; the choice is saved in the open folder's settings, or in your user settings when no folder is open. The list also offers the demo lesson shipped with Studium, labelled as such |
 | **Studium: Open lesson** | reopen the current course (offers the picker if none is set) |
 | Right-click a `lesson.json`, **Studium: Open this lesson** | open that file directly, in the explorer or on the editor tab, without changing settings |
 | A `vscode://` link from your assistant | open the lesson your assistant has just built (below) |
@@ -182,6 +183,7 @@ faulty lesson cannot freeze the editor. **Studium: Run reproduction** starts the
 | Command | Effect |
 |---|---|
 | Studium: Pick a course | choose and open a course |
+| Studium: Try the demo lesson | open « Discover Studium », the demo lesson shipped with the extension |
 | Studium: Open lesson | open the current course in the pane |
 | Studium: Open this lesson | open the selected `lesson.json` |
 | Studium: Open lesson as notebook | play the course in a notebook |

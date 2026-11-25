@@ -143,7 +143,7 @@ On the learner's request, export the concept map of a lesson session as a record
 
 ### get_study_plan
 
-Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, the next lesson, and next_step {action: review|continue|start|author|wait, tool, arguments, text} naming the call to make with its arguments (language included where the tool takes one). With the minutes a day the learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in `language`, ready to show. Dates (due_date, next_review_date) are days in get_server_info.time_zone.
+Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, the next lesson, and next_step {action: review|continue|start|author|wait, tool, arguments, text} naming the call to make with its arguments (language included where the tool takes one). With the minutes a day the learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in `language`, ready to show. A learner with no lesson of their own gets the demo lesson shipped with Studium as the step to start (before authoring). Dates (due_date, next_review_date) are days in get_server_info.time_zone.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -153,7 +153,7 @@ Start here: what the learner should do now. Reviews due (with dates), concepts t
 
 ### list_lessons
 
-List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). `query` keeps the lessons whose title, ref, discipline or concepts contain every word of it. display_markdown is the list in `language`, ready to show.
+List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). `query` keeps the lessons whose title, ref, discipline or concepts contain every word of it. The lessons shipped with Studium (the « Discover Studium » demo) come apart, in shipped_lessons (source "shipped"). display_markdown is the list in `language`, ready to show.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -592,7 +592,7 @@ What a harness receives once, when it connects (MCP `instructions`):
 
 ```text
 Studium teaches through the learner's own answers: you relay, the learner answers.
-- Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools).
+- Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools). To a learner with no lesson yet it proposes the demo lesson shipped with Studium (about 10 minutes, on how Studium works): offer it before building a lesson, unless they came with a topic of their own.
 - Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.
 - Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.
 - Show display_markdown as it is and add nothing of your own unless the learner asks (they wait on every word): on a presentation; after an answer, verdict.display_markdown first, then the transition's.
