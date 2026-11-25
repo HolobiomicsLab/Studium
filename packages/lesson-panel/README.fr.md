@@ -90,8 +90,10 @@ est attendue. Leurs mots sont les phrases `pane_attention_*`, `pane_language`, `
 `pane_settings`.
 
 Une vue porte `strings`, le catalogue des libellés de l'interface dans la langue de la leçon (environ
-24 ko), pour la surface qui la dessine. Le serveur MCP le laisse vide là où rien ne dessine la vue
-(formulaires, conversation). Son lecteur est alors un modèle.
+24 ko), pour un volet natif qui la dessine (le volet VS Code, le volet Claude Code, le lecteur dans le
+navigateur). Le serveur MCP le laisse vide partout ailleurs : un panneau MCP Apps dessine la vue avec les
+libellés que porte sa propre application, et son hôte peut transmettre tout le résultat au modèle ; dans les
+formulaires et la conversation, le lecteur de la vue est un modèle.
 
 Une surface peut envoyer `client_ms` à côté d'une action (`ClientMsSchema`, un nombre entier de millisecondes de 0 à 600000) : le délai entre l'action précédente de l'apprenant et l'affichage de la vue qui y a répondu. Il ne fait jamais partie de l'action. `panel_action` le valide ; rien ne le lit encore, le journal d'interaction l'enregistrera sous consentement.
 

@@ -49,7 +49,9 @@ your library holds.
 
 The assistant calls `get_authoring_guide`, which returns the authoring brief in your language, the
 JSON Schema of a lesson draft and a worked example. It asks you what you want to be able to do: that
-sentence becomes the lesson's goal.
+sentence becomes the lesson's goal. Before it prepares your sources, it tells you that writing the lesson
+takes a few minutes, that little shows in the meantime, and that it is done once: afterwards you can play
+the lesson as often as you like.
 
 It then passes your sources to `prepare_sources`: the full text of a web page it fetched with its own
 web tool, or the path of a file on your computer, which Studium reads itself. Studium cuts them into citable passages and stores them in your library:
@@ -67,15 +69,19 @@ never as instructions to the assistant.
 
 ## 3. Let the assistant draft, and Studium check
 
-The assistant writes a draft from the passages and calls `create_lesson`. Studium refuses the draft
+Before writing, the assistant shows you a short sketch of the lesson: the goal, the concepts, and the
+title and kind of each step, never an answer. It goes on without waiting; say what you would change.
+It then writes the draft once, straight into its `create_lesson` call. Studium refuses the draft
 unless every quote matches its passage character for character (only no-break spaces, runs of
 spaces and typographic apostrophes are folded), no placeholder remains and the concept graph is
 sound; the repository linter then runs. A refusal lists `{path, message, hint}` for each problem and
-the assistant fixes its draft, never the source.
+the assistant fixes its draft, never the source. Studium keeps a refused draft, so the assistant sends
+back only the scenes the refusal names, which is quicker than writing the whole draft again.
 
 On success the lesson is written to your library as `<course_id>/lesson.json` under
-`~/.studium/library` (never into the folder `BUNDLES_ROOT` names), and the assistant shows you the
-outline: titles, scene types, concepts and the passages each scene cites, with no answer key. It also
+`~/.studium/library` (never into the folder `BUNDLES_ROOT` names), and the assistant shows you what
+differs from the sketch (the outline Studium returns holds titles, scene types, concepts and the
+passages each scene cites, with no answer key). It also
 reports Studium's warnings, each with a hint, for example a lesson longer than the minutes a day you
 gave. It also relays the authoring notice:
 
@@ -84,7 +90,7 @@ gave. It also relays the authoring notice:
 > compare your answer with the provided reference and rate your recall; that rating schedules your reviews
 > and never changes your mastery. […]
 
-Ask for changes now if the outline misses what you wanted. Replacing an existing lesson takes an
+Ask for changes now if the lesson misses what you wanted. Replacing an existing lesson takes an
 explicit `overwrite`, which only ever replaces a self-study lesson that no teacher validated.
 
 ## 4. Answer the first question
@@ -143,6 +149,7 @@ date of your next review.
 |---|---|
 | A lesson built from your sources | `~/.studium/library/<course_id>/lesson.json`, listed by `list_lessons` |
 | Your passages and their provenance | `~/.studium/library/_sources/` |
+| A refused draft, until the lesson is written | `~/.studium/library/_drafts/` |
 | Your progress and review schedule | `~/.studium/data`, under a pseudonym, kept across restarts |
 
 From "learn X" to the first question takes six Studium calls once the assistant has your sources:

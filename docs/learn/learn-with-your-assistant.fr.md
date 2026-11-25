@@ -61,19 +61,24 @@ une licence `NC`, `ND` ou inconnue restreint ce que vous pouvez faire du résult
 bibliothèque personnelle et n'est jamais publiée, mais l'usage de la source sous ses conditions vous revient.
 Une source cohérente donne souvent une meilleure leçon que plusieurs.
 
-## 3. Relire le plan
+## 3. Relire l'esquisse, puis la leçon
 
-L'assistant rédige la leçon et appelle `create_lesson`. Studium la vérifie avant d'écrire quoi que ce soit :
+Avant d'écrire la leçon, l'assistant vous montre une courte esquisse : l'objectif, les notions, et le titre et
+le type de chaque étape, jamais une réponse. Il continue sans attendre votre accord ; dites à tout moment ce que
+vous changeriez. Il écrit ensuite la leçon une seule fois, directement dans son appel à `create_lesson`. Studium la vérifie avant d'écrire quoi que ce soit :
 chaque citation doit correspondre à un passage au caractère près (seuls les espaces insécables, les suites
 d'espaces et les apostrophes typographiques sont tolérés), rien ne doit rester inachevé et l'ordre des notions
-doit tenir. L'assistant corrige ce que Studium refuse. Studium peut aussi avertir, par exemple quand la leçon
+doit tenir. Quand Studium refuse, rien n'est écrit : il garde le brouillon, et l'assistant corrige et renvoie
+seulement les scènes que le refus nomme (tout le brouillon seulement si une erreur porte sur les notions,
+l'objectif, le titre ou l'ordre des scènes). Studium peut aussi avertir, par exemple quand la leçon
 dure plus que vos minutes par jour ou qu'aucune question ne vérifie un prérequis.
 
 La leçon est écrite dans votre bibliothèque, `~/.studium/library/<cours>/lesson.json`, quel que soit le
 dossier de leçons que le serveur lit par ailleurs.
 
-Vous voyez ensuite le plan : titres des scènes, types de scènes et notions, jamais une réponse. S'il ne
-correspond pas à ce que vous vouliez, dites-le ; l'assistant reprend le brouillon et reconstruit la leçon.
+Une fois la leçon écrite, l'assistant ne montre que ce qui diffère de l'esquisse, jamais une réponse. Si elle ne
+correspond pas à ce que vous vouliez, dites-le ; l'assistant reprend le brouillon et reconstruit la leçon. Si
+votre assistant tient une liste de tâches, il y coche les étapes : sources, esquisse, rédaction, vérification.
 
 ## 4. Jouer, dans le chat ou dans VS Code
 
@@ -96,11 +101,12 @@ Si chaque réponse tarde, jouez la leçon dans une session neuve et courte, sur 
 assistant (dans Claude Code, `claude --agent studium-lesson`) : voir
 [Garder des réponses rapides](../start/fast-answers.fr.md).
 
-Pour jouer dans VS Code, faites un clic droit sur le `lesson.json` de la leçon et choisissez **Studium : Ouvrir
-cette leçon**, ou suivez le lien donné par l'assistant
+Pour jouer dans VS Code, ouvrez la leçon depuis la vue **Leçons** de l'extension Studium : elle y apparaît dès
+qu'elle est prête, et VS Code vous prévient. Vous pouvez aussi suivre le lien donné par l'assistant
 (`vscode://holobiomicslab.studium-vscode/open?bundle=<chemin absolu>`). Voir [VS Code](../start/vscode.fr.md).
 Le panneau garde sa propre progression dans le stockage de VS Code : les réponses données là n'apparaissent
-pas dans le plan d'étude que lit votre assistant, et inversement.
+pas dans le plan d'étude que lit votre assistant, et inversement, sauf pour Copilot avec le serveur Studium que
+propose l'extension, qui joue l'apprenant du panneau dans ce stockage ([Connecter Copilot](../start/copilot.fr.md)).
 
 ## 5. Lire l'avis d'autorat
 
@@ -136,7 +142,10 @@ Pour aller plus loin : [honnêteté et provenance](../concepts/honesty-and-prov
 Ouvrez une nouvelle conversation et demandez « Qu'est-ce que je révise avec Studium aujourd'hui ? ».
 L'assistant appelle `get_study_plan` dans votre langue, qui liste les révisions dues, les leçons en cours et la leçon suivante, et
 nomme la seule étape à faire maintenant. `start_review_session` joue ensuite toutes les révisions dues, toutes
-leçons confondues. Voir [réviser dans la durée](review-over-time.fr.md).
+leçons confondues. Voir [réviser dans la durée](review-over-time.fr.md). Si Studium a refusé un brouillon de
+votre leçon et qu'aucune leçon n'a été écrite pour vous depuis, le plan propose de la terminer, après une leçon
+en cours, pendant 14 jours, et à vous seulement (l'assistant passe votre identifiant d'apprenant) ; dites que
+vous n'en voulez plus et elle ne vous est plus proposée.
 
 Si vous reprenez simplement une leçon, son premier écran le dit et, quand des révisions sont dues, les propose au début
 de la séance, ou à la première pause qui suit quand la séance a commencé sur une question, une fois par séance :
@@ -159,7 +168,7 @@ assistant, gardez le même dossier de données et le même identifiant : demand
 |---|---|---|
 | « On s'arrête là pour aujourd'hui. » | `end_session` | Ferme la séance et garde votre progression. Relancer la leçon la reprend. |
 | « Efface mes données pour cette leçon. » | `forget_session {session_id}` | Efface votre progression dans la leçon, son journal d'expérience, ainsi que votre profil inter-leçons et votre historique d'étude. Irréversible. |
-| « Efface toutes mes données Studium. » | `forget_session {learner_id}` | La même chose, plus votre progression dans toutes les autres leçons, sans leçon ouverte. Irréversible. |
+| « Efface toutes mes données Studium. » | `forget_session {learner_id}` | La même chose, plus votre progression dans toutes les autres leçons et les brouillons que Studium a gardés pour vous, sans leçon ouverte. Irréversible. |
 
 L'assistant montre ensuite ce qui a été effacé et ce qui reste. L'oubli ne supprime ni les leçons de votre
 bibliothèque (`~/.studium/library/<cours>/`) ni les sources préparées (`~/.studium/library/_sources/`), ni la

@@ -16,17 +16,17 @@ import { join, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SelfRatingExpiredError } from "@studium/lesson-session";
 import {
-  SessionHost, NowMsSchema, publicPresentation, operatorContext, type SelfRating, type PromptSurface, type SourceFilePolicy,
+  SessionHost, NowMsSchema, publicPresentation, operatorContext, type OfferClient, type SelfRating, type PromptSurface, type SourceFilePolicy,
 } from "@studium/lesson-session-host";
 import {
-  CONVERSATION, lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type SurfaceRank, type ToolResult,
+  CONVERSATION, READ_ONLY, lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type SurfaceRank, type ToolResult,
 } from "./operations.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools } from "./authoring-tools.js";
 import { TEACHER_TOOL_NAMES, registerTeacherTools } from "./teacher-tools.js";
 import { FORM_TOOL_NAMES, registerFormTools } from "./form-tools.js";
 import { COMPANION_TOOL_NAMES, registerCompanionTools } from "./companion-tools.js";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
-import { PANEL_TOOL_NAMES, registerPanelTools } from "./panel-tools.js";
+import { PANEL_TOOL_NAMES, UI_EXTENSION, registerPanelTools } from "./panel-tools.js";
 
 /** C1 study tools, defined in this file. */
 export const STUDY_TOOL_NAMES = ["export_concept_map", "get_study_plan", "list_lessons", "rate_recall", "start_review_session"] as const;
@@ -50,17 +50,50 @@ export const SERVER_INSTRUCTIONS = [
   "Studium teaches through the learner's own answers: you relay, the learner answers.",
   "- Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools). To a learner with no lesson yet it proposes the demo lesson shipped with Studium (about 10 minutes, on how Studium works): offer it before building a lesson, unless they came with a topic of their own.",
   "- Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.",
-  "- Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.",
+  "- Pass the learner's language (fr or en) to get_study_plan, list_lessons, start_review_session and get_authoring_guide.",
   "- Show display_markdown as it is and add nothing of your own unless the learner asks (they wait on every word): on a presentation; after an answer, verdict.display_markdown first, then the transition's.",
   "- On the first screen, relay the authoring notice; if persistence.durable is false, tell the learner progress is lost at restart.",
   `- Wait for the learner's answer and send their words with ${REPLY_CALL}; never answer, choose or rate for them.`,
   "- When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.",
   "- start_review_session plays every review due, across lessons; list_lessons shows what can be started.",
-  "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session. In prepare_sources, name a file on this computer by its path (Studium reads it: do not copy its text) and pass the text of what you fetched from the web.",
+  "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session. When a result or a next_step carries offer_first, show its display_markdown as it is and do what it offers first: on \"panel\" call open_lesson_panel with open_panel, on \"chat\" start the lesson here; otherwise its open_link (the link first): call start_lesson_session only if the learner says “here”, open_lesson_panel with open_panel if they say “panel”. Writing a lesson takes minutes: relay get_authoring_guide's tell_learner as it is, with your prepare_sources call, and go on without waiting for a reply. In prepare_sources, name a file on this computer by its path (Studium reads it: do not copy its text) and pass the text of what you fetched from the web. Then show a short sketch (goal, concepts, each step's kind and title; titles name the topic, never the answer; never a key) and go on; write the draft once, in the create_lesson call; after a refusal, resend only the scenes it names, with draft_id, unless it asks for the whole draft.",
   "- When the learner asks where they are, show the map (get_workflow_graph). Offer once, at a pause, never between a question and its answer: at the end, the map as a page on the learner's yes (export_concept_map); in a working conversation, a short lesson from it when the person wants to understand it (prepare_sources, kind \"conversation\"). When the learner says they already know a concept of the map, or doubt one they got, relay it with submit_response {kind: \"contest\", concept_id, claim}, the id as the map names it; never contest for them.",
   "- Never call forget_session unless the learner asks to erase their data: it deletes their progress for good.",
   "- When Studium itself fails, contradicts its documentation or cannot do what the person asks, say so plainly and help them on; then offer once, at a pause, to report it or propose a change (get_server_info.feedback gives the addresses and what a report holds). The person posts it, or asks you to once they have read the final text; a lesson's content goes to its teacher or author.",
 ].join("\n");
+
+/** D1 (waiting review 2026-11-25): the line that replaces the stable-learner_id one when the editor names the
+ * learner (the server the Studium VS Code extension offers to Copilot). */
+const EDITOR_LEARNER_LINE = "- The editor names the learner: omit learner_id (an id you pass is ignored; " +
+  "persistence.learner_id_default is the learner).";
+
+/** D2, D4: what open_link leads to. Any server may offer a link (D4, owner decision 4: the server's browser player when
+ * no VS Code extension serves Studium), so the rule is in SERVER_INSTRUCTIONS; the extension's server (STUDIUM_OPEN_LINK)
+ * names its pane. Follow-up to decision 4: offer_first says what comes first (the client's panel, the chat, or a link). */
+const LINK_FIRST = "(the link first)";
+const PANE_FIRST = "(the Studium pane first)";
+
+/** The instructions of a server over `host`: SERVER_INSTRUCTIONS, with the learner line rewritten when the editor
+ * names the learner (D1) and the link named as the pane when the VS Code extension serves Studium (D2). Same number
+ * of lines (at most 13). */
+export function serverInstructions(host: Pick<SessionHost, "editorNamesLearner" | "openLink">): string {
+  const lines = SERVER_INSTRUCTIONS.split("\n");
+  if (host.editorNamesLearner) lines[lines.findIndex((line) => line.startsWith("- Pass one stable learner_id"))] = EDITOR_LEARNER_LINE;
+  if (host.openLink) {
+    const at = lines.findIndex((line) => line.includes(LINK_FIRST));
+    lines[at] = lines[at]!.replace(LINK_FIRST, PANE_FIRST);
+  }
+  return lines.join("\n");
+}
+
+/** Decision 1's exception, kept by the follow-up to decision 4 — remove this condition once the MCP Apps panel inside
+ * Copilot has had its real trial: a VS Code client (Copilot, with Studium added by hand) announces MCP Apps by default
+ * since VS Code 1.139, yet keeps the browser first. VS Code names itself by its product name at initialize
+ * (clientInfo.name = product.json nameLong, "Visual Studio Code", "Visual Studio Code - Insiders"; read in VS Code
+ * 1.139's workbench). */
+export function panelAwaitsCopilotTrial(clientName: string | undefined): boolean {
+  return clientName?.startsWith("Visual Studio Code") === true;
+}
 
 let hasLoggedStartup = false;
 
@@ -95,8 +128,11 @@ function operation<S extends z.ZodRawShape>(
   };
 }
 
-const learnerIdArg = z.string().min(1).max(200).optional()
+const defaultLearnerIdArg = z.string().min(1).max(200).optional()
   .describe("one stable id per learner; defaults to persistence.learner_id_default");
+/** D1: the same argument when the editor names the learner. */
+const editorLearnerIdArg = z.string().min(1).max(200).optional()
+  .describe("omit it: the editor names the learner (persistence.learner_id_default), and an id passed here is ignored");
 /** L-1: an integer epoch a Date can hold, refused otherwise in one line (session-clock.ts). */
 const nowMsArg = NowMsSchema.optional();
 /** L-4: the language the study tools speak. */
@@ -104,16 +140,21 @@ const languageArg = z.enum(["fr", "en"], { errorMap: () => ({ message: "language
   .describe("fr or en: the language of display_markdown and of the next step; defaults to the language of the " +
     "learner's last lesson, else the server's");
 
+/** `op`, annotated as a tool that writes nothing (READ_ONLY). */
+const readOnly = (op: Operation): Operation => ({ ...op, annotations: READ_ONLY });
+
 /** The C1 study tools, transport-independent like lessonOperations (an HTTP surface can add them as is). */
 export function studyOperations(
-  host: SessionHost, opts: { formsAvailable?: () => boolean; surfaceRankOf?: (sessionId: string) => SurfaceRank } = {},
+  host: SessionHost,
+  opts: { formsAvailable?: () => boolean; surfaceRankOf?: (sessionId: string) => SurfaceRank; offerClient?: () => OfferClient } = {},
 ): Operation[] {
   // INT-STUDIUM-058 § 2.6: the screens these tools serve are read in the conversation (rank 1).
   const promptSurface = (): PromptSurface => ({ rank: 1, formsAvailable: opts.formsAvailable?.() ?? false });
+  const learnerIdArg = host.editorNamesLearner ? editorLearnerIdArg : defaultLearnerIdArg;
   // The conversation tools log the rank the session is played on, not always the conversation's own.
   const rankOf = (sessionId: string): SurfaceRank => opts.surfaceRankOf?.(sessionId) ?? 1;
   return [
-    operation("list_lessons",
+    readOnly(operation("list_lessons",
       "List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson " +
       "written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who " +
       "wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). " +
@@ -124,19 +165,29 @@ export function studyOperations(
       async ({ query, learner_id, language }) => host.listLessons({
         ...(query === undefined ? {} : { query }), ...(learner_id === undefined ? {} : { learnerId: learner_id }),
         ...(language === undefined ? {} : { language }),
-      })),
+      }))),
 
-    operation("get_study_plan",
+    readOnly(operation("get_study_plan",
       "Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, " +
-      "the next lesson, and next_step {action: review|continue|start|author|wait, tool, arguments, text} naming the " +
-      "call to make with its arguments (language included where the tool takes one). With the minutes a day the " +
+      "the next lesson, and next_step {action: review|finish|continue|start|author|wait, tool, arguments, text} naming the " +
+      "call to make with its arguments (language included where the tool takes one); on start and continue it may carry " +
+      "offer_first, open_link (the lesson in the Studium pane or in the browser) and open_panel (open_lesson_panel's " +
+      "arguments, when this client draws Studium's panel): its text offers them in that order, the learner's last surface " +
+      "first when this client gives it, the chat first (one link given) when they last answered there. finish: Studium refused and kept " +
+      "a draft of this learner's, and no lesson was written since (it comes after a lesson in progress); " +
+      "unfinished_build gives its sources, prepare_sources (the arguments that prepare them again, or null for a source " +
+      "given as text), resend, draft_id and fix_scenes when only those scenes must be sent again, and a keyless " +
+      "outline. If the learner wants it, read the guide, prepare the sources again and call create_lesson with " +
+      "learner_id (draft_id and only the scenes in fix_scenes when there is a draft_id, else the whole draft); if not, " +
+      "create_lesson {source_set_id, learner_id, discard: true}. With the minutes a day the " +
       "learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in " +
       "`language`, ready to show. A learner with no lesson of their own gets the demo lesson shipped with Studium as the " +
       "step to start (before authoring). Dates (due_date, next_review_date) are days in get_server_info.time_zone.",
       { learner_id: learnerIdArg, now_ms: nowMsArg, language: languageArg },
       async ({ learner_id, now_ms, language }) => host.studyPlan(learner_id, {
         ...(now_ms === undefined ? {} : { nowMs: now_ms }), ...(language === undefined ? {} : { language }),
-      })),
+        ...(opts.offerClient ? { client: opts.offerClient() } : {}),
+      }))),
 
     operation("start_review_session",
       "Start a review session: one retrieval scene per concept due, taken from the lessons the learner studied — " +
@@ -290,18 +341,28 @@ function registerPrompts(server: McpServer): void {
 /** The MCP server over `host`: lesson operations, study, authoring and teacher tools, instructions and
  * prompts. */
 export function buildMcpServer(host: SessionHost): McpServer {
-  const server = new McpServer({ name: "studium-lesson", version: SERVER_VERSION }, { instructions: SERVER_INSTRUCTIONS });
+  const server = new McpServer({ name: "studium-lesson", version: SERVER_VERSION }, { instructions: serverInstructions(host) });
   const panels = registerPanelTools(server, host);
   const registered: string[] = [...panels.names];
   // get_server_info reads `registered` when it is called, so it lists every tool added below.
   // Forms are available when the connected client declares MCP elicitation (play_in_forms is always registered).
   const formsAvailable = () => Boolean(server.server.getClientCapabilities()?.elicitation);
   const surfaceRankOf = (id: string) => panels.surfaceRankOf(id);
+  // Follow-up to decision 4 (A): what this client gives beside the chat — Studium's panel when it announced MCP Apps
+  // (decision 1's exception aside), the Claude Code mod's pane once it has played the default learner here.
+  const offerClient = (): OfferClient => ({
+    panel: Boolean(server.server.getClientCapabilities()?.extensions?.[UI_EXTENSION])
+      && !panelAwaitsCopilotTrial(server.server.getClientVersion()?.name),
+    nativePane: panels.nativePane,
+  });
+  const startOffer = (bundleRef: string, learnerId: string | undefined) => host.lessonOffer(bundleRef, learnerId, offerClient(), "first");
   for (const op of [
-    ...lessonOperations(host, { toolNames: () => registered, formsAvailable, surfaceRankOf }),
-    ...studyOperations(host, { formsAvailable, surfaceRankOf }),
+    ...lessonOperations(host, { toolNames: () => registered, formsAvailable, surfaceRankOf, answersInChat: true, startOffer }),
+    ...studyOperations(host, { formsAvailable, surfaceRankOf, offerClient }),
   ]) {
-    const registeredTool = server.registerTool(op.name, { description: op.description, inputSchema: op.inputSchema }, async (args) => {
+    const registeredTool = server.registerTool(op.name, {
+      description: op.description, inputSchema: op.inputSchema, ...(op.annotations ? { annotations: op.annotations } : {}),
+    }, async (args) => {
       const result = await op.invoke(args);
       await panels.observe(op.name, args, result);
       return result;
@@ -318,6 +379,8 @@ export function buildMcpServer(host: SessionHost): McpServer {
     onLessonWritten: () => {},
     judge: () => host.judge,
     sourceFiles: () => sourceFilePolicy(host),
+    draftLearner: (learnerId) => host.draftLearnerOf(learnerId),
+    offer: (learnerId, courseRef) => host.lessonOffer(courseRef, learnerId, offerClient()),
   }));
   registered.push(...registerTeacherTools(server, {
     bundlesRoot: host.bundlesRoot, libraryRoot: host.libraryRoot, dataDir: host.persistence().data_dir,

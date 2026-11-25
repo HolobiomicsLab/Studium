@@ -46,9 +46,13 @@ describe("cliAnswer", () => {
     expect(help).toMatch(/started by an AI assistant over stdio/);
     expect(help).toContain("claude mcp add --scope user studium -- npx -y studium-mcp");
     expect(help).toContain("codex mcp add studium -- npx -y studium-mcp");
-    for (const variable of ["STUDIUM_HOME", "BUNDLES_ROOT", "STUDIUM_DATA_DIR", "STUDIUM_EPHEMERAL", "STUDIUM_LEARNER_ID", "LITELLM_BASE_URL"]) {
+    // D1/D2 (waiting review 2026-11-25): STUDIUM_OPEN_LINK, set by the VS Code extension, is listed too.
+    for (const variable of ["STUDIUM_HOME", "BUNDLES_ROOT", "STUDIUM_DATA_DIR", "STUDIUM_EPHEMERAL", "STUDIUM_LEARNER_ID", "LITELLM_BASE_URL", "STUDIUM_OPEN_LINK"]) {
       expect(help).toContain(variable);
     }
+    // D4 (waiting review 2026-11-25, owner decision 4): the switch that turns the browser player off, and what it does.
+    expect(help).toContain("STUDIUM_BROWSER_PLAYER");
+    expect(help).toMatch(/STUDIUM_BROWSER_PLAYER[\s\S]*off[\s\S]*127\.0\.0\.1/);
     expect(help).toContain("https://github.com/HolobiomicsLab/studium");
     // Plain text for a terminal: no line runs past 100 columns.
     expect(Math.max(...help.split("\n").map((line) => line.length))).toBeLessThanOrEqual(100);

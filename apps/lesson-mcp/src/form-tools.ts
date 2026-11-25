@@ -287,7 +287,7 @@ export async function playInForms(server: McpServer, host: SessionHost, sessionI
       const built = form.toInput(content);
       confidence = built.confidence;
       // Timed around the server's answer only, never the learner's time on the form.
-      const served = await host.settleAct(sessionId, { act: "respond", lane: "fast", surfaceRank: FORMS_RANK }, () => host.respond(sessionId, built.input, "fast", IN_FORMS));
+      const served = await host.settleAct(sessionId, { act: "respond", lane: "fast", surfaceRank: FORMS_RANK }, () => host.respond(sessionId, built.input, "fast", { ...IN_FORMS, answeredOn: "chat" }));
       transition = publicTransition(served) as Transition;
     } catch (error) {
       unseen = "";

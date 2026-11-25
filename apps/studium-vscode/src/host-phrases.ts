@@ -30,6 +30,31 @@ const FR = {
   status_tooltip_unmeasured_one: "1 notion pas encore mesurée",
   status_tooltip_idle: "Studium : rien à réviser pour l'instant. Ouvre le panneau Studium.",
   status_tooltip_lesson: "Leçon en cours. Ouvre le panneau Studium.",
+  // BN-4: from prepare_sources until the lesson lands (or 20 minutes), ahead of the review count.
+  status_preparing: "$(loading~spin) Studium · leçon en préparation…",
+  status_tooltip_preparing: "Ton assistant prépare une leçon à partir de « {source} ».",
+  status_tooltip_preparing_untitled: "Ton assistant prépare une leçon.",
+  status_tooltip_preparing_wait: "Cela prend en général quelques minutes ; VS Code te prévient quand elle est prête. Si l'assistant te demande dans le chat d'autoriser une étape, réponds-lui là. S'il s'est arrêté, la leçon ne viendra peut-être pas.",
+  // BN-1: a lesson the assistant wrote into the library is announced once.
+  lesson_ready: "Studium : ta leçon « {title} » est prête ({steps} étapes).",
+  lesson_ready_one: "Studium : ta leçon « {title} » est prête (1 étape).",
+  lesson_ready_open: "Ouvrir",
+  lesson_ready_later: "Plus tard",
+  lesson_ready_never: "Ne plus afficher",
+  // Review finding 2: lessons that land together share one notice; « Afficher » opens the Lessons view.
+  lessons_ready: "Studium : {count} leçons sont prêtes : {titles}.",
+  lessons_ready_more: "Studium : {count} leçons sont prêtes, dont {titles}.",
+  lessons_ready_title: "« {title} »",
+  lessons_ready_show: "Afficher",
+  // BN-7: the lesson in progress, offered in the status bar (when nothing is due) and first in the Lessons view.
+  status_continue: "Studium · reprendre {title}",
+  status_tooltip_continue: "Reprendre « {title} » à l'étape {step} sur {total}. Clique pour l'ouvrir.",
+  continue_minutes_left: "Environ {minutes} min restantes.",
+  continue_scope: "C'est la progression que VS Code garde pour toi (panneau Studium, @studium, et Copilot avec le serveur Studium que propose cette extension) ; les leçons jouées avec un autre assistant ou un serveur Studium ajouté à la main n'y sont pas.",
+  tree_continue: "Reprendre : {title}",
+  tree_continue_step: "étape {step}/{total}",
+  tree_continue_minutes: "environ {minutes} min",
+  tree_done: "terminée",
   reviews_label: "Révisions",
   reviews_due: "{count} à réviser",
   reviews_none: "Rien à réviser pour l'instant",
@@ -67,6 +92,8 @@ const FR = {
   uri_not_absolute: "Studium : le chemin de la leçon doit être absolu — {path}",
   uri_not_lesson: "Studium : « {path} » n'est pas un fichier de leçon (.json).",
   uri_not_found: "Studium : fichier de leçon introuvable — {path}",
+  // Review finding 7: a link opens a lesson only from the library, studium.bundlesRoot or the lessons shipped with Studium.
+  uri_outside_lessons: "Studium : « {path} » n'est pas dans tes leçons (ta bibliothèque, le dossier de studium.bundlesRoot ou les leçons livrées avec Studium) : un lien ne l'ouvre pas. Pour l'ouvrir quand même, fais un clic droit sur le fichier et choisis Studium : Ouvrir cette leçon.",
   open_this_no_file: "Studium : choisis un fichier de leçon (lesson.json) à ouvrir.",
 };
 
@@ -94,6 +121,27 @@ const EN: Record<HostPhraseKey, string> = {
   status_tooltip_unmeasured_one: "1 concept not measured yet",
   status_tooltip_idle: "Studium: nothing to review right now. Open the Studium panel.",
   status_tooltip_lesson: "Lesson in progress. Open the Studium panel.",
+  status_preparing: "$(loading~spin) Studium · preparing a lesson…",
+  status_tooltip_preparing: "Your assistant is preparing a lesson from “{source}”.",
+  status_tooltip_preparing_untitled: "Your assistant is preparing a lesson.",
+  status_tooltip_preparing_wait: "It usually takes a few minutes; VS Code tells you when it is ready. If the assistant asks you in the chat to allow a step, answer it there. If the assistant has stopped, the lesson may not come.",
+  lesson_ready: "Studium: your lesson “{title}” is ready ({steps} steps).",
+  lesson_ready_one: "Studium: your lesson “{title}” is ready (1 step).",
+  lesson_ready_open: "Open",
+  lesson_ready_later: "Later",
+  lesson_ready_never: "Don't show again",
+  lessons_ready: "Studium: {count} lessons are ready: {titles}.",
+  lessons_ready_more: "Studium: {count} lessons are ready, including {titles}.",
+  lessons_ready_title: "“{title}”",
+  lessons_ready_show: "Show",
+  status_continue: "Studium · continue {title}",
+  status_tooltip_continue: "Continue “{title}” at step {step} of {total}. Click to open it.",
+  continue_minutes_left: "About {minutes} min left.",
+  continue_scope: "This is the progress VS Code keeps for you (Studium pane, @studium, and Copilot with the Studium server this extension offers); lessons played with another assistant or a Studium server added by hand are not in it.",
+  tree_continue: "Continue: {title}",
+  tree_continue_step: "step {step}/{total}",
+  tree_continue_minutes: "about {minutes} min",
+  tree_done: "done",
   reviews_label: "Reviews",
   reviews_due: "{count} to review",
   reviews_none: "Nothing to review right now",
@@ -125,6 +173,7 @@ const EN: Record<HostPhraseKey, string> = {
   uri_not_absolute: "Studium: the lesson path must be absolute — {path}",
   uri_not_lesson: "Studium: “{path}” is not a lesson file (.json).",
   uri_not_found: "Studium: lesson file not found — {path}",
+  uri_outside_lessons: "Studium: “{path}” is not among your lessons (your library, the studium.bundlesRoot folder or the lessons shipped with Studium), so a link does not open it. To open it anyway, right-click the file and choose Studium: Open this lesson.",
   open_this_no_file: "Studium: choose a lesson file (lesson.json) to open.",
 };
 
@@ -133,6 +182,18 @@ const EN: Record<HostPhraseKey, string> = {
 const FR_TYPESET = Object.fromEntries(Object.entries(FR).map(([key, text]) => [key, frenchSpacing(text)])) as Record<HostPhraseKey, string>;
 
 export const HOST_CATALOGUES: Record<Locale, Record<HostPhraseKey, string>> = { fr: FR_TYPESET, en: EN };
+
+/** BN-1: the text of a lesson-ready notice. One lesson: its title and steps. Several, that landed together: how many,
+ * and the titles of the first three. */
+export function lessonReadyMessage(lessons: readonly { title: string; steps: number }[], locale: Locale): string {
+  const [first] = lessons;
+  if (lessons.length <= 1) {
+    const title = first?.title ?? "";
+    return first?.steps === 1 ? hostPhrase("lesson_ready_one", { title }, locale) : hostPhrase("lesson_ready", { title, steps: first?.steps ?? 0 }, locale);
+  }
+  const titles = lessons.slice(0, 3).map(({ title }) => hostPhrase("lessons_ready_title", { title }, locale)).join(", ");
+  return hostPhrase(lessons.length > 3 ? "lessons_ready_more" : "lessons_ready", { count: lessons.length, titles }, locale);
+}
 
 /** Look up a host-side message and fill its `{name}` placeholders; an unknown placeholder is left as written. */
 export function hostPhrase(key: HostPhraseKey, params: PhraseParams = {}, locale: Locale = "fr"): string {

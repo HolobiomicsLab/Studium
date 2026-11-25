@@ -6,6 +6,39 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-25, soir — l'expérience de l'attente (INT-STUDIUM-064, décisions 1 à 4)
+
+Mots du propriétaire : « this takes time to build a lesson and it is acceptable since it has to be done once, what is
+more essential is for user experience », puis « Okay pour 1 », « Okay pour 2 », « Allons vers B directement »,
+« Decision 4: selon recommendation », « laisser les panneaux natifs de claude code codex et opencode gui quand c'est
+utilisé. Ou modifier le comportement selon décisions de l'utilisateurs », « Ok pour recommendation suppression par
+agent. Push et PR et merge autorise ». Branche `feat/2026-11-25-waiting-experience`, intégration de sept lots faits
+en worktrees séparés, chacun relu par un agent indépendant puis corrigé.
+
+- Signaux indépendants du modèle : VS Code annonce « préparation » puis « leçon prête » (`d8f2b71`, `3064fb8`,
+  `553385f`, `3694951` et corrections), lecteur navigateur qui relit la liste (`57fcc47`), `readOnlyHint` (`92f0991`),
+  panneau MCP Apps sans catalogue de libellés (`bcfb9c5`).
+- Décision 2 : `tell_learner` et esquisse avant le brouillon (`cb4a39a`, `c60e565`, `31813c9`). Décision 3 :
+  brouillon gardé et renvoi des seules étapes fautives (`b99b99c`, `8d1ac01`, `b58f143`, `5f0cbee`).
+- Décision 1 : volet d'abord après une construction Copilot, apprenant partagé, garde-fou contre l'écrasement
+  (`39fe30a` à `6de7084`, corrections de relecture `e15eb73` à `343f241`) ; défaut réel trouvé : les liens
+  `vscode://` n'ouvraient aucune leçon dans un vrai VS Code (`5e6bbfe`).
+- Décision 4 : lecteur navigateur démarré par le serveur stdio, une clé par apprenant (`c3c2fef`, `263b647`, `f10a32d`,
+  `e3229a5`, corrections `f4975e3` à `9c83737`) ; suite : surface native d'abord, choix de l'apprenant retenu, ligne
+  dans la première étape (`1dd077d`, `f8a4ed9` et corrections).
+- Test instable corrigé : `learn-and-review.e2e` cherchait « ada » dans des pseudonymes hexadécimaux (`7061a75`).
+- Mesures (Mistral Large 4) : Vibe sans interface, 3 + 3 constructions, annonce reportée au dernier message, durées
+  dans le bruit ; OpenCode 1.19.6, 3 constructions (~0,06 $ chacune), annonce à 10, 10 et 28 s contre 89 s le matin ;
+  une construction OpenCode et une Vibe sur la version intégrée : le modèle démarre la leçon dans le chat et ne
+  recopie pas l'adresse du navigateur (d'où la ligne dans la première étape et la clé d'adresse neutre). Incident :
+  OpenCode lisait `~/.claude/skills` et en envoyait les descriptions à Mistral ; corrigé par
+  `OPENCODE_DISABLE_CLAUDE_CODE=1`. Preuves : hub, `docs/superpowers/audits/2026-11-25-waiting-experience/`.
+- Rien n'a été essayé dans un vrai VS Code avec Copilot, ni dans Codex Desktop ou Claude Code : c'est l'essai T1 sur
+  l'autre ordinateur.
+
+
+---
+
 ## 2026-11-25 — OpenCode 1.x, son interface web et Mistral ; version 0.6.4
 
 Mots du propriétaire : « a nice idea would be to use opencode GUI », « we have a mistral APIkey to use […] Mistral

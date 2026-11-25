@@ -6,7 +6,7 @@
 // Same rules as the VS Code pane's lesson picker (apps/studium-vscode/src/lesson-picker.ts): a
 // top-level *.json bundle, or a lesson.json at most two folders deep; node_modules, dist and dot
 // folders are never entered. Two host-side additions: folders holding learner data or authoring
-// inputs (`data`, `_sources`, `community` — community bundles have their own tool) are skipped, and
+// inputs (`data`, `_sources`, `_drafts`, `community` — community bundles have their own tool) are skipped, and
 // so is any directory passed in `exclude` (the configured data dir may sit inside a root).
 //
 // A `shipped` root holds the lessons that ship with Studium itself (the « Discover Studium » demo). It
@@ -56,7 +56,7 @@ export interface Catalog {
 
 const MAX_DEPTH = 2;
 const MAX_FILES = 2000;
-const SKIPPED_DIRS = new Set(["node_modules", "dist", "data", "_sources", "community"]);
+const SKIPPED_DIRS = new Set(["node_modules", "dist", "data", "_sources", "_drafts", "community"]);
 
 export async function scanCatalog(
   roots: readonly LessonRoot[],

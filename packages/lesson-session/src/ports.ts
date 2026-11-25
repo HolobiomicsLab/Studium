@@ -17,6 +17,11 @@ export interface StateStore {
   /** RGPD erasure (#4): remove the persisted learner state for this lesson. Optional so existing
    * adapters/tests that predate erasure stay valid; callers guard with `?.`. */
   delete?(lessonId: string): Promise<void>;
+  /** D1 (waiting review 2026-11-25): a stamp of the state saved now for this lesson (a hash of the stored
+   * bytes), or null when none is. Two equal stamps mean nothing was saved in between: a host compares the
+   * stamp it saw at load and after its own saves, to tell that another process saved this lesson's state
+   * meanwhile. Optional: a store no other process shares (in memory) has none. */
+  revision?(lessonId: string): Promise<string | null>;
 }
 
 export interface EventLogRecord {

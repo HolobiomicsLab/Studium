@@ -5,7 +5,10 @@
 //     for by learner_id alone routes to a playable scene (HJ-1: it used to return scene_id null);
 //   - lessons: for each lesson started, how far the learner got (the study plan's "in progress");
 //   - minutes_per_day: the minutes a day the learner said they have (RFR-06), read from the
-//     learner_profile of the self-study lesson they play; the study plan sizes its next step with it.
+//     learner_profile of the self-study lesson they play; the study plan sizes its next step with it;
+//   - answered_on: the surface where the learner last answered a step (owner follow-up to decision 4, B): the
+//     browser player, the VS Code pane, an MCP Apps panel, a pane the assistant's own app draws, or the chat. The next
+//     offer of a lesson puts it first when the host gives it (surface-offer.ts).
 // The profile itself (concept_states, concept_memory, completed_lessons) belongs to
 // @studium/learner-state; this record is the host's own and needs no schema change there. Same
 // RGPD-safe pseudonym key as the profile, and erased with it by forget(). Written whole and read
@@ -14,6 +17,7 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { ensurePrivateDirectory, readJsonFile, writeFileAtomic } from "./learner-files.js";
+import { ANSWER_SURFACES } from "./surface-offer.js";
 
 const ConceptRouteSchema = z.object({
   bundle_ref: z.string(),
@@ -36,6 +40,7 @@ export const StudyRecordSchema = z.object({
   concepts: z.record(z.string(), ConceptRouteSchema),
   lessons: z.record(z.string(), LessonProgressSchema),
   minutes_per_day: z.number().int().min(1).max(600).optional(),
+  answered_on: z.enum(ANSWER_SURFACES).optional(),
 });
 export type ConceptRoute = z.infer<typeof ConceptRouteSchema>;
 export type LessonProgress = z.infer<typeof LessonProgressSchema>;

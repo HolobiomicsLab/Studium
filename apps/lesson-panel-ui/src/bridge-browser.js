@@ -7,16 +7,37 @@ import { browserPhrases, localeFromLanguage } from "../../../packages/lesson-pan
 
 export const TOKEN_KEY = "studium-player-token";
 export const SESSION_KEY = "studium-player-session";
+/** D4 (owner decision 4): "assistant" when the address came from the server an assistant runs, not from
+ * `studium-mcp play`: the page then says, once that server is gone, to ask the assistant for a new address. */
+export const FROM_KEY = "studium-player-from";
 
-/** The token of the address the server printed (`#token=…`), taken out of the address bar at once. */
-export function takeToken(win) {
+/** The key of an address's fragment: `k` in the addresses an assistant shows (served-player.ts), `token` in the one
+ * `studium-mcp play` prints. An assistant's address names it neutrally because a careful model may withhold an address
+ * whose fragment says « token » as a secret (Vibe with Mistral Large 4, 2026-11-25; review G, item 5). */
+export function keyOf(fragment) {
+  return fragment.get("k") || fragment.get("token");
+}
+
+/** The address the server gave, taken out of the address bar at once: its key (`#k=…` or `#token=…`, keyOf), the
+ * lesson it opens (`&lesson=…`, a bundle_ref) and who gave it (`&from=assistant`). The key and who gave it stay in
+ * this tab's storage; the lesson is opened once. */
+export function takeAddress(win) {
   const fragment = new URLSearchParams(win.location.hash.slice(1));
-  const token = fragment.get("token");
+  const token = keyOf(fragment);
+  let lesson = null;
   if (token) {
     win.sessionStorage.setItem(TOKEN_KEY, token);
+    if (fragment.get("from") === "assistant") win.sessionStorage.setItem(FROM_KEY, "assistant");
+    else win.sessionStorage.removeItem(FROM_KEY);
+    lesson = fragment.get("lesson") || null;
     win.history.replaceState(null, "", win.location.pathname + win.location.search);
   }
-  return win.sessionStorage.getItem(TOKEN_KEY);
+  return { token: win.sessionStorage.getItem(TOKEN_KEY), lesson, fromAssistant: win.sessionStorage.getItem(FROM_KEY) === "assistant" };
+}
+
+/** The key of the address the server gave (keyOf), taken out of the address bar at once. */
+export function takeToken(win) {
+  return takeAddress(win).token;
 }
 
 /** An error the page explains in its own words, not in the server's. */
@@ -53,10 +74,24 @@ export function fetchApp(win, token, words) {
   return app;
 }
 
-/** Start the player: resume the session of this tab, or list the lessons. */
-export async function startBrowserPlayer({ window: win, document: doc, connectMcpApp, renderView }) {
+/** Start the player: open the lesson of the address, else resume the session of this tab, else list the lessons.
+ * `reload` loads the page again (tests replace it). */
+export async function startBrowserPlayer({ window: win, document: doc, connectMcpApp, renderView, reload = () => win.location.reload() }) {
+  // Another address pasted in this tab changes only the fragment, and a browser does not load the page again for that:
+  // the page does, so that the new key and lesson are read (review of decision 4, finding 5).
+  win.addEventListener("hashchange", () => {
+    if (keyOf(new URLSearchParams(win.location.hash.slice(1)))) reload();
+  });
   const locale = localeFromLanguage(win.navigator?.language);
   const words = browserPhrases(locale);
+  const { token, lesson, fromAssistant } = takeAddress(win);
+  if (fromAssistant) {
+    // The server an assistant runs ends with the assistant's session: one that does not answer is gone, and a new
+    // address comes from asking the assistant again. One that answers but refuses the key was given an address
+    // mistyped, cut or out of date: the assistant gives it again (review of decision 4, finding 4).
+    words.player_unreachable = words.player_assistant_unreachable;
+    words.player_token_rejected = words.player_assistant_token_rejected;
+  }
   doc.documentElement.lang = locale;
   const pane = doc.getElementById("pane");
   const say = (text) => {
@@ -66,7 +101,6 @@ export async function startBrowserPlayer({ window: win, document: doc, connectMc
     notice.textContent = text;
     pane.replaceChildren(notice);
   };
-  const token = takeToken(win);
   if (!token) { say(words.player_no_token); return null; }
   const app = fetchApp(win, token, words);
   const bridge = await connectMcpApp(app, { window: win, document: doc, renderView });
@@ -75,7 +109,12 @@ export async function startBrowserPlayer({ window: win, document: doc, connectMc
     try { bridge.receive(await app.callServerTool({ name: "open_lesson_panel", arguments: { ...args, locale } })); }
     catch (error) { failed(error); }
   };
-  const resumed = win.sessionStorage.getItem(SESSION_KEY);
+  // The address names a lesson: open it, where this learner is (the server resumes it); one it does not open, the list.
+  if (lesson) {
+    try { bridge.receive(await app.callServerTool({ name: "open_lesson_panel", arguments: { bundle_ref: lesson, locale } })); return bridge; }
+    catch (error) { if (error instanceof PlayerUnavailable) { say(error.message); return bridge; } }
+  }
+  const resumed = lesson ? null : win.sessionStorage.getItem(SESSION_KEY);
   if (resumed) {
     try { bridge.receive(await app.callServerTool({ name: "get_panel_view", arguments: { session_id: resumed } })); return bridge; }
     catch (error) {
@@ -83,11 +122,12 @@ export async function startBrowserPlayer({ window: win, document: doc, connectMc
       if (error instanceof PlayerUnavailable) { say(error.message); return bridge; }
     }
   }
-  let catalog;
-  try {
+  const listLessons = async () => {
     const listed = await app.callServerTool({ name: "list_lessons", arguments: { language: locale } });
-    catalog = JSON.parse(listed.content?.find(part => part.type === "text")?.text ?? "{}");
-  } catch (error) { failed(error); return bridge; }
+    return JSON.parse(listed.content?.find(part => part.type === "text")?.text ?? "{}");
+  };
+  let catalog;
+  try { catalog = await listLessons(); } catch (error) { failed(error); return bridge; }
   const heading = doc.createElement("h1");
   heading.className = "course-picker-title player-title"; heading.textContent = words.player_title; heading.tabIndex = -1;
   const intro = doc.createElement("p");
@@ -96,46 +136,80 @@ export async function startBrowserPlayer({ window: win, document: doc, connectMc
   section.className = "course-picker player-lessons";
   section.setAttribute("aria-labelledby", "player-title");
   heading.id = "player-title";
-  section.append(heading, intro);
-  // The learner's own lessons first; those shipped with Studium (the demo) after them, labelled as such.
-  const shipped = Array.isArray(catalog.shipped_lessons) ? catalog.shipped_lessons.map(lesson => ({ ...lesson, shipped: true })) : [];
-  const lessons = [...(Array.isArray(catalog.lessons) ? catalog.lessons : []), ...shipped];
-  if (!lessons.length) {
-    const empty = doc.createElement("p");
-    empty.className = "course-picker-empty"; empty.textContent = words.player_empty;
-    section.append(empty);
-  }
   const list = doc.createElement("ul");
   list.className = "course-list";
-  for (const lesson of lessons) {
-    const facts = [
-      Number.isInteger(lesson.scene_count) && lesson.scene_count > 0 ? words.pane_course_steps.replace("{count}", String(lesson.scene_count)) : null,
-      lesson.validated === true ? words.pane_course_validated : null,
-      lesson.shipped === true ? words.player_shipped : null,
-      lesson.status?.state === "in_progress"
-        ? words.player_status_in_progress.replace("{done}", String(lesson.status.scenes_completed)).replace("{total}", String(lesson.status.total_scenes)) : null,
-      lesson.status?.state === "completed" ? words.player_status_completed : null,
-    ].filter(Boolean);
-    const button = doc.createElement("button");
-    button.type = "button"; button.className = "st-button course-choice";
-    const title = doc.createElement("span");
-    title.className = "course-choice-title"; title.textContent = String(lesson.title ?? lesson.bundle_ref ?? "");
-    button.append(title);
-    if (facts.length) {
-      const detail = doc.createElement("span");
-      detail.className = "course-choice-facts"; detail.textContent = facts.join(" · ");
-      button.append(detail);
+  section.append(heading, intro, list);
+  let opening = false;
+  let drawn = null;
+  /** Draw the lessons of a catalog, unless the same ones are on screen; the lesson in focus keeps it. */
+  const draw = (catalog) => {
+    // The learner's own lessons first; those shipped with Studium (the demo) after them, labelled as such.
+    const shipped = Array.isArray(catalog.shipped_lessons) ? catalog.shipped_lessons.map(lesson => ({ ...lesson, shipped: true })) : [];
+    const lessons = [...(Array.isArray(catalog.lessons) ? catalog.lessons : []), ...shipped];
+    const shown = JSON.stringify(lessons.map(lesson => [lesson.bundle_ref, lesson.title, lesson.scene_count, lesson.validated, lesson.shipped, lesson.status]));
+    if (shown === drawn) return;
+    drawn = shown;
+    const focused = list.contains(doc.activeElement) ? doc.activeElement.dataset.bundleRef : undefined;
+    section.querySelector(".course-picker-empty")?.remove();
+    if (!lessons.length) {
+      const empty = doc.createElement("p");
+      empty.className = "course-picker-empty"; empty.textContent = words.player_empty;
+      list.before(empty);
     }
-    button.addEventListener("click", () => {
-      for (const choice of list.querySelectorAll("button")) choice.disabled = true;
-      void open({ bundle_ref: lesson.bundle_ref });
-    });
-    const item = doc.createElement("li");
-    item.append(button);
-    list.append(item);
-  }
-  section.append(list);
+    list.replaceChildren(...lessons.map(lesson => {
+      const facts = [
+        Number.isInteger(lesson.scene_count) && lesson.scene_count > 0 ? words.pane_course_steps.replace("{count}", String(lesson.scene_count)) : null,
+        lesson.validated === true ? words.pane_course_validated : null,
+        lesson.shipped === true ? words.player_shipped : null,
+        lesson.status?.state === "in_progress"
+          ? words.player_status_in_progress.replace("{done}", String(lesson.status.scenes_completed)).replace("{total}", String(lesson.status.total_scenes)) : null,
+        lesson.status?.state === "completed" ? words.player_status_completed : null,
+      ].filter(Boolean);
+      const button = doc.createElement("button");
+      button.type = "button"; button.className = "st-button course-choice";
+      button.dataset.bundleRef = String(lesson.bundle_ref ?? "");
+      const title = doc.createElement("span");
+      title.className = "course-choice-title"; title.textContent = String(lesson.title ?? lesson.bundle_ref ?? "");
+      button.append(title);
+      if (facts.length) {
+        const detail = doc.createElement("span");
+        detail.className = "course-choice-facts"; detail.textContent = facts.join(" · ");
+        button.append(detail);
+      }
+      button.addEventListener("click", () => {
+        opening = true; stopListening();
+        for (const choice of list.querySelectorAll("button")) choice.disabled = true;
+        void open({ bundle_ref: lesson.bundle_ref });
+      });
+      const item = doc.createElement("li");
+      item.append(button);
+      return item;
+    }));
+    if (focused !== undefined) ([...list.querySelectorAll("button")].find(button => button.dataset.bundleRef === focused) ?? heading).focus();
+  };
+  // A lesson the assistant saves while this list is open appears when the learner comes back to it: the tab
+  // shown again (visibilitychange) or the window focused again (from VS Code beside it). No polling; events
+  // that come together share one call; nothing is listed once a lesson is chosen or the list is gone.
+  let listing = false;
+  const listAgain = async () => {
+    if (listing || opening || !section.isConnected || doc.visibilityState === "hidden") return;
+    listing = true;
+    try {
+      const again = await listLessons();
+      if (!opening && section.isConnected) draw(again);
+    } catch (error) {
+      // A server that stopped is worth saying; any other failure leaves the list as it is.
+      if (error instanceof PlayerUnavailable && !opening && section.isConnected) { stopListening(); say(error.message); }
+    } finally { listing = false; }
+  };
+  const stopListening = () => {
+    doc.removeEventListener("visibilitychange", listAgain);
+    win.removeEventListener("focus", listAgain);
+  };
+  draw(catalog);
   pane.replaceChildren(section);
   heading.focus();
+  doc.addEventListener("visibilitychange", listAgain);
+  win.addEventListener("focus", listAgain);
   return bridge;
 }

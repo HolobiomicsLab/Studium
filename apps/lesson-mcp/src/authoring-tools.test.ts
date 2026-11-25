@@ -11,7 +11,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { LessonSession } from "@studium/lesson-session";
 import { loadBundleJson } from "@studium/lesson-session/node";
 import { buildTestDeps } from "@studium/lesson-session/testing";
-import { publicPresentation, type SourceFilePolicy } from "@studium/lesson-session-host";
+import { authoringGuide, paneLink, publicPresentation, type SourceFilePolicy, type SurfaceOffer } from "@studium/lesson-session-host";
 import { lintBundleData } from "../../../packages/lesson-session-host/src/authoring-draft/index.js";
 import { FRENCH_SOURCE } from "../../../packages/lesson-session-host/src/authoring-draft/test-fixtures.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools, type AuthoringToolsContext } from "./authoring-tools.js";
@@ -23,13 +23,28 @@ afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: 
 
 interface Passage { id: string; source_id: string; text: string }
 
-async function connected(judge = false, files?: SourceFilePolicy) {
+/** The address of a browser player for the learner of the call, as SessionHost.browserLinkFor gives it. */
+type BrowserLink = (learnerId: string | undefined, courseRef: string) => Promise<string | null>;
+
+async function connected(judge = false, files?: SourceFilePolicy, openLink?: string, browserLink?: BrowserLink) {
   const library = mkdtempSync(join(tmpdir(), "mcp-authoring-"));
   roots.push(library);
   const written: string[] = [];
   const ctx: AuthoringToolsContext = {
     libraryRoot: () => library, onLessonWritten: (ref) => { written.push(ref); }, judge: () => judge,
     ...(files ? { sourceFiles: () => files } : {}),
+    // The offer SessionHost.lessonOffer makes to a client that draws no panel, the learner having answered nowhere yet:
+    // the VS Code pane first on the extension's server, else the browser player's address (surface-offer.ts).
+    ...(openLink || browserLink ? {
+      offer: async (learnerId: string | undefined, courseRef: string): Promise<SurfaceOffer | null> => {
+        if (openLink) {
+          const pane = paneLink(openLink, join(library, courseRef));
+          return pane ? { first: "vscode_pane", order: ["vscode_pane", "chat"], ...pane } : null;
+        }
+        const link = await browserLink!(learnerId, courseRef);
+        return link ? { first: "browser", order: ["browser", "chat"], open_link: link } : null;
+      },
+    } : {}),
   };
   const server = new McpServer({ name: "authoring-test", version: "0" });
   const names = registerAuthoringTools(server, ctx);
@@ -96,6 +111,99 @@ describe("registerAuthoringTools", () => {
     }
     const listed = (await client.listTools()).tools.map((tool) => tool.name).sort();
     expect(listed).toEqual(names);
+  });
+
+  // BN-2 (waiting review 2026-11-25): the sentence that tells the learner a lesson takes a few minutes to
+  // write comes with the guide, in its language, and the tool description says to relay it at once: an
+  // assistant may read tool descriptions and never the server instructions.
+  it("returns tell_learner with the guide, and its description says to relay it at once", async () => {
+    const { client, call } = await connected();
+    const fr = await call("get_authoring_guide", { language: "fr" });
+    expect(fr.body["tell_learner"]).toBe(authoringGuide({ language: "fr" }).tell_learner);
+    expect(String(fr.body["tell_learner"])).toMatch(/quelques minutes/);
+    expect(String((await call("get_authoring_guide", {})).body["tell_learner"])).toMatch(/a few minutes/);
+    const description = (await client.listTools()).tools.find((tool) => tool.name === "get_authoring_guide")!.description!;
+    expect(description).toContain("tell_learner");
+    expect(description).toMatch(/as it is/);
+    expect(description).toMatch(/without waiting/);
+    // The sentence goes with the prepare_sources call, not with whatever call comes next.
+    expect(description).toContain("with your prepare_sources call");
+  });
+});
+
+// D2 (waiting review 2026-11-25, owner decision 1): when the Studium VS Code extension serves Studium
+// (STUDIUM_OPEN_LINK), the lesson just written is offered in the pane first: create_lesson's result carries the
+// lesson's path, the link that opens it there, and display_markdown, which a harness relays as it is. Without the
+// variable, the result keeps its six keys (asserted in the end-to-end case below).
+describe("create_lesson with the VS Code extension's link", () => {
+  const PREFIX = "vscode://holobiomicslab.studium-vscode/open?bundle=";
+
+  it("returns lesson_path, open_link and display_markdown that offers the pane first, the chat one word away", async () => {
+    const { library, call } = await connected(false, undefined, PREFIX);
+    const prepared = await call("prepare_sources", { sources: [{ title: FRENCH_SOURCE.title, text: FRENCH_SOURCE.text }], language: "fr" });
+    const created = await call("create_lesson", { source_set_id: prepared.body["source_set_id"], draft: draftOver(prepared.body["passages"] as Passage[]) });
+    expect(created.isError).toBe(false);
+    const path = join(library, "deux-solidarites", "lesson.json");
+    expect(created.body).toMatchObject({ ok: true, lesson_path: path, open_link: PREFIX + encodeURIComponent(path) });
+    const shown = String(created.body["display_markdown"]);
+    expect(shown).toMatch(/«.Deux solidarités.» est prête/);
+    expect(shown).toContain("4 étapes");
+    expect(shown).toContain(`](${PREFIX + encodeURIComponent(path)})`);
+    expect(shown).toMatch(/panneau Studium/);
+    expect(shown).toMatch(/dis «.ici.»/);
+    // Still no key in what the tool returns.
+    for (const key of ["Le droit restitutif", "spécialis", "besoin des autres", "\"correct\""]) expect(created.text).not.toContain(key);
+  });
+
+  it("says in its description to show that display_markdown first when open_link is there", async () => {
+    const { client } = await connected();
+    const description = (await client.listTools()).tools.find((tool) => tool.name === "create_lesson")!.description!;
+    expect(description).toContain("open_link");
+    expect(description).toMatch(/display_markdown as it is/);
+    expect(description).toMatch(/“here”/);
+  });
+});
+
+// D4 (waiting review 2026-11-25, owner decision 4): with no VS Code extension serving Studium, the server's browser
+// player is offered instead, with the same keys: open_link (its address for the learner of the call) and
+// display_markdown, which offers the browser first and the chat one word away. No lesson_path: no pane opens a file.
+describe("create_lesson with the browser player's address", () => {
+  const ADDRESS = "http://127.0.0.1:5555/play#token=key&from=assistant&lesson=deux-solidarites%2Flesson.json";
+
+  it("returns open_link and display_markdown that offers the browser first, for the learner of the call", async () => {
+    const asked: Array<[string | undefined, string]> = [];
+    const { call } = await connected(false, undefined, undefined, async (learnerId, courseRef) => { asked.push([learnerId, courseRef]); return ADDRESS; });
+    const prepared = await call("prepare_sources", { sources: [{ title: FRENCH_SOURCE.title, text: FRENCH_SOURCE.text }], language: "fr" });
+    const created = await call("create_lesson", {
+      source_set_id: prepared.body["source_set_id"], draft: draftOver(prepared.body["passages"] as Passage[]), learner_id: "apprenant-solidarites",
+    });
+    expect(created.isError).toBe(false);
+    expect(asked).toEqual([["apprenant-solidarites", "deux-solidarites/lesson.json"]]);
+    expect(created.body).toMatchObject({ ok: true, open_link: ADDRESS });
+    expect(created.body).not.toHaveProperty("lesson_path");
+    const shown = String(created.body["display_markdown"]);
+    expect(shown).toMatch(/«.Deux solidarités.» est prête/);
+    expect(shown).toContain(`<${ADDRESS}>`);
+    expect(shown).toMatch(/navigateur[\s\S]*dis «.ici.»/);
+    expect(shown).not.toMatch(/panneau Studium/);
+  });
+
+  it("keeps the result of old when the player gives no address, and offers the pane when the extension serves Studium", async () => {
+    const none = await connected(false, undefined, undefined, async () => null);
+    const prepared = await none.call("prepare_sources", { sources: [{ title: FRENCH_SOURCE.title, text: FRENCH_SOURCE.text }], language: "fr" });
+    const created = await none.call("create_lesson", { source_set_id: prepared.body["source_set_id"], draft: draftOver(prepared.body["passages"] as Passage[]) });
+    expect(Object.keys(created.body).sort()).toEqual(["course_ref", "findings", "key_classes", "notice", "ok", "outline"]);
+    const PREFIX = "vscode://holobiomicslab.studium-vscode/open?bundle=";
+    const both = await connected(false, undefined, PREFIX, async () => { throw new Error("the pane is offered, not the browser"); });
+    const again = await both.call("prepare_sources", { sources: [{ title: FRENCH_SOURCE.title, text: FRENCH_SOURCE.text }], language: "fr" });
+    const paned = await both.call("create_lesson", { source_set_id: again.body["source_set_id"], draft: draftOver(again.body["passages"] as Passage[]) });
+    expect(String(paned.body["open_link"])).toMatch(/^vscode:/);
+  });
+
+  it("says in its description that open_link leads to the Studium pane or the browser", async () => {
+    const { client } = await connected();
+    const description = (await client.listTools()).tools.find((tool) => tool.name === "create_lesson")!.description!;
+    expect(description).toMatch(/browser/);
   });
 });
 
@@ -201,12 +309,16 @@ describe("authoring over MCP, end to end", () => {
     draft.scenes[1]!.quotes = [{ passage_id: "p:deux-formes-de-solidarite:1", text: "la cohésion naît du partage des croyances" }];
     const refused = await call("create_lesson", { source_set_id: prepared.body["source_set_id"], draft });
     expect(refused.isError).toBe(true);
+    // Changed: D4 (waiting review 2026-11-25) keeps a draft refused for what it says, so the refusal also
+    // carries draft_id and asks to resend only scene 1 (resend, fix_scenes, hint); the errors are unchanged.
     expect(refused.body).toEqual({
       ok: false,
       errors: [{
         path: "scenes.1.quotes.0.text", message: "the quote is not in passage p:deux-formes-de-solidarite:1",
         hint: expect.stringContaining("matches it up to “la cohésion "),
       }],
+      draft_id: expect.stringMatching(/^dr-[0-9a-f]{16}$/), resend: "scenes", fix_scenes: [1],
+      hint: expect.stringContaining("draft_id"),
     });
     expect(written).toEqual([]);
   });

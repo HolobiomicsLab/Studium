@@ -137,8 +137,10 @@ describe("D6: a restart during a prerequisite detour", () => {
 describe("D10: forget_session speaks the learner's language", () => {
   it("says « nothing to erase » in the language asked for, else the server default", async () => {
     const h = new SessionHost({ bundlesRoot: bundles(), live: false, dataDir: null });
-    expect((await h.forgetLearner("synthetic-audit-nobody", "fr")).display_markdown).toMatch(/^Rien à effacer\s?: aucune donnée n'est enregistrée pour toi ici\.$/u);
-    expect((await h.forgetLearner("synthetic-audit-nobody")).display_markdown).toBe("Nothing to erase: no data is recorded for you here.");
+    // Changed: the text now names the learner under its first line (review finding 1), so the first line is matched,
+    // and the learner line after it.
+    expect((await h.forgetLearner("synthetic-audit-nobody", "fr")).display_markdown).toMatch(/^Rien à effacer\s?: aucune donnée n'est enregistrée pour toi ici\.\n\nApprenant\s?: «\s?synthetic-audit-nobody\s?»\.$/u);
+    expect((await h.forgetLearner("synthetic-audit-nobody")).display_markdown).toBe("Nothing to erase: no data is recorded for you here.\n\nLearner: “synthetic-audit-nobody”.");
   });
 
   it("uses the learner's last lesson language when no language is given", async () => {

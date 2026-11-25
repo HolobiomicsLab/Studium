@@ -20,14 +20,14 @@ portent l'extension sont dans [Où sont les paquets](installation.fr.md#où-sont
 ## Obtenir votre première leçon
 
 L'extension affiche des leçons ; elle n'en construit pas. Juste après l'installation, la vue **Leçons**
-indique « Aucune leçon trouvée pour l'instant » et propose **Essayer la leçon de démonstration**. Prenez la
+indique « Pas encore de leçon à vous » et propose **Essayer la leçon de démonstration**. Prenez la
 ligne qui correspond à ce que vous avez :
 
 | Vous avez | Faites ceci |
 |---|---|
 | Rien encore, et vous voulez voir comment fonctionne Studium | **Essayer la leçon de démonstration** dans la vue **Leçons** vide, ou **Studium : Essayer la leçon de démonstration** : « Découvrir Studium », une dizaine de minutes, dans la langue d'affichage de VS Code (français ou anglais). Elle est livrée avec l'extension ; un agent d'IA l'a rédigée à partir de la documentation de Studium et aucun enseignant ne l'a encore vérifiée, comme le dit son premier écran. Elle n'est pas enregistrée comme votre cours et ne remplace jamais une de vos leçons |
-| Copilot dans VS Code 1.101 ou plus récent | Rien à relier : l'extension propose son propre serveur Studium à Copilot (voir [Connecter Copilot](copilot.fr.md)). En mode agent de Copilot Chat, demandez « je veux apprendre … avec Studium » en indiquant vos sources. La leçon est écrite dans votre bibliothèque personnelle et apparaît dans la vue **Leçons** après un rafraîchissement |
-| Un autre assistant IA (Claude Code, Codex, Cursor) | Reliez-le à Studium par [une commande](installation.fr.md#ajouter-le-serveur-à-votre-assistant), puis demandez « je veux apprendre … avec Studium » en indiquant vos sources. La leçon est écrite dans votre bibliothèque personnelle, `~/.studium/library`, et apparaît dans la vue **Leçons** après un rafraîchissement |
+| Copilot dans VS Code 1.101 ou plus récent | Rien à relier : l'extension propose son propre serveur Studium à Copilot (voir [Connecter Copilot](copilot.fr.md)). En mode agent de Copilot Chat, demandez « je veux apprendre … avec Studium » en indiquant vos sources. Construire la leçon prend quelques minutes : la barre d'état indique **Studium · leçon en préparation…**, puis VS Code vous prévient que la leçon est prête, avec **Ouvrir**, et elle apparaît dans la vue **Leçons**. Au premier outil Studium, autorisez les outils de Studium pour la session (voir [Connecter Copilot](copilot.fr.md)) |
+| Un autre assistant IA (Claude Code, Codex, Cursor) | Reliez-le à Studium par [une commande](installation.fr.md#ajouter-le-serveur-à-votre-assistant), puis demandez « je veux apprendre … avec Studium » en indiquant vos sources. La leçon est écrite dans votre bibliothèque personnelle, `~/.studium/library` ; VS Code vous prévient quand elle est prête, et elle apparaît dans la vue **Leçons** |
 | Une leçon donnée par un enseignant | **Studium : Choisir un cours**, **Choisir un autre dossier de cours…**, puis choisissez son dossier ; ou clic droit sur son `lesson.json`, puis **Studium : Ouvrir cette leçon** |
 | Les leçons de démonstration, sans clone | téléchargez l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) et décompressez-la, puis **Studium : Choisir un cours**, **Choisir un autre dossier de cours…**, et choisissez son dossier `fixtures` |
 | Un clone du dépôt | **Studium : Choisir un cours**, puis choisissez `fixtures` pour les leçons de démonstration |
@@ -50,7 +50,13 @@ l'assistant, étape par étape, est dans
 
 Quand `studium.bundlesRoot` est vide, le dossier de leçons est le `fixtures/` du dépôt si l'extension
 tourne depuis un clone de Studium, sinon votre bibliothèque personnelle, `~/.studium/library` (ou
-`<STUDIUM_HOME>/library`), où sont écrites les leçons qu'un assistant prépare pour vous.
+`<STUDIUM_HOME>/library`), où sont écrites les leçons qu'un assistant prépare pour vous. L'extension crée
+cette bibliothèque au démarrage si elle manque, et la surveille : une leçon qu'un assistant y écrit est listée
+et annoncée, avec **Ouvrir**, **Plus tard** et **Ne plus afficher**. Des leçons arrivées ensemble partagent
+une seule notification, dont **Afficher** ouvre la vue Studium. Une leçon que vous y copiez vous-même est
+listée mais pas annoncée. **Ne plus afficher** désactive le réglage `studium.notifyLessonReady` :
+réactivez-le dans l'éditeur de réglages pour revoir les notifications. Si `studium.bundlesRoot` désigne
+un autre dossier, les leçons de la bibliothèque sont listées à part, sous **Ta bibliothèque**.
 
 ### De la conversation au panneau
 
@@ -60,8 +66,10 @@ Après avoir préparé une leçon avec vous, un assistant peut vous la transmett
 code --open-url "vscode://holobiomicslab.studium-vscode/open?bundle=<chemin absolu de lesson.json, encodé pour une URL>"
 ```
 
-Le lien doit désigner un chemin absolu, sans `..`, vers un fichier `.json` existant ; sinon il est refusé
-avec un message et rien ne s'ouvre. Si la fenêtre se recharge pendant une leçon, le panneau revient et
+Le lien doit désigner un chemin absolu, sans `..`, vers un fichier `.json` existant de votre bibliothèque,
+du dossier `studium.bundlesRoot` ou des leçons livrées avec Studium ; sinon il est refusé avec un message et
+rien ne s'ouvre. Pour ouvrir un fichier de leçon rangé ailleurs, faites un clic droit dessus et choisissez
+**Studium : Ouvrir cette leçon**. Si la fenêtre se recharge pendant une leçon, le panneau revient et
 reprend à partir de votre progression enregistrée.
 
 ## Ce que vous voyez
@@ -145,8 +153,18 @@ mesurées ; son info-bulle nomme chaque groupe. Pendant une leçon, la barre a
 cette leçon ; les groupes de révision passent alors dans son info-bulle. Un clic ouvre la barre
 latérale Studium, dont l'entrée **Révisions** liste les notions par groupe (à réviser, à reprendre, pas
 encore mesurées), ou la date de la prochaine révision. Le décompte est rafraîchi au démarrage, à la
-fermeture ou à la fin d'une leçon, et avec le bouton de rafraîchissement de la vue Leçons. Sans
-historique, rien n'est affiché.
+fermeture ou à la fin d'une leçon, et avec le bouton de rafraîchissement de la vue Leçons.
+
+Quand rien n'est dû, la barre propose plutôt la leçon que vous suiviez, par exemple
+**Studium · reprendre Découvrir Studium** ; un clic rouvre cette leçon à l'étape où vous en étiez. La vue
+**Leçons** montre cette même leçon en premier, sous la forme **Reprendre : …**, avec l'étape
+suivante et, quand la leçon donne sa durée, les minutes restantes ; chaque leçon de la liste montre sa
+progression (**6/12**, ou **terminée**). C'est la progression que VS Code garde sous `studium.learnerId` :
+dans le panneau, dans `@studium`, et dans Copilot quand il utilise le serveur Studium que propose cette
+extension, qui joue le même apprenant dans le même stockage (une leçon jouée là apparaît ici au prochain
+rafraîchissement). Les leçons jouées avec un autre assistant, le lecteur dans le navigateur ou un serveur
+Studium ajouté à la main dans VS Code gardent leur progression ailleurs et n'apparaissent pas ici. Une leçon en
+préparation et une révision due passent avant. Sans historique ni leçon en cours, rien n'est affiché.
 
 ## Chat et notebook
 
@@ -160,7 +178,10 @@ historique, rien n'est affiché.
 
 Le panneau et le mode agent de Copilot lancent chacun leur propre serveur, que Copilot utilise celui que
 propose l'extension ou un serveur que vous avez configuré vous-même, et ne partagent pas l'étape courante.
-Pilotez une leçon depuis l'un des deux à la fois.
+Pilotez une leçon depuis l'un des deux à la fois. Avec le serveur que propose l'extension, Copilot joue
+l'apprenant du panneau (`studium.learnerId`) : une leçon se poursuit dans le panneau là où elle s'est arrêtée
+dans la conversation, et Copilot propose d'abord dans le panneau une leçon qu'il a construite
+([Connecter Copilot](copilot.fr.md)).
 
 ## Exécuter une reproduction
 
@@ -182,6 +203,7 @@ contrôle la sortie s'exécute sous une limite de 50 ms : une leçon défectueu
 | `studium.assets` | `vendor` | charger KaTeX et Vega hors ligne (`vendor`) ou depuis un CDN (`cdn`) |
 | `studium.learnerId` | `vscode-learner` | votre identifiant d'apprenant ; il sale votre pseudonyme sur le disque |
 | `studium.registerMcpServer` | `true` | proposer le serveur de l'extension au mode agent de Copilot (VS Code 1.101 ou plus récent) ; aucun n'est proposé si vous avez déjà ajouté vous-même un serveur Studium |
+| `studium.notifyLessonReady` | `true` | vous prévenir quand une leçon construite par votre assistant est prête ; **Ne plus afficher** sur cette notification le désactive, et le réactiver fait revenir les notifications. Un réglage utilisateur, pour toutes les fenêtres |
 | `studium.telemetryConsent` | `false` | consentir à l'enregistrement d'une télémétrie de classe pseudonymisée dans le dossier de données de l'extension (rien n'est envoyé) |
 | `studium.modalityPreference` | `balanced` | `visual` ou `textual` réordonne le contenu de chaque étape ; rien n'est retiré |
 | `studium.showGraph` | `true` | ouvrir un panneau compagnon avec le graphe d'apprentissage en direct |

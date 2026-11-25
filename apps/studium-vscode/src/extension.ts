@@ -7,10 +7,10 @@ import { helpStyles, lessonHelpTemplates, graphHelp } from "./contextual-help.js
 // scene + get_scene_artifacts and posts them to the pane; the pane posts the learner's responses
 // back, which the extension feeds to submit_response / request_hint.
 import * as vscode from "vscode";
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
   connectLessonMcp, describeServerLaunch, lessonMcpEnv, resolveLogSink, resolveServerLaunch,
   serverBuildWarning, serverInfoLine, setLessonMcpLog, withLessonMcpPaused, type LessonMcp,
@@ -29,14 +29,20 @@ import { buildLessonTree, type CommunityItem, type TreeNode } from "./lesson-tre
 import { discoverCoursesInRoot, needsLessonPicker, toLessonPickerChoices, type LessonCourse, type LessonPickerChoice } from "./lesson-picker.js";
 import { browserPhrases, localeFromLanguage, phrase, type Locale } from "./phrases.js";
 import { inlineImageAsset } from "./asset-path.js";
-import { hostPhrase } from "./host-phrases.js";
+import { hostPhrase, lessonReadyMessage } from "./host-phrases.js";
 import { defaultBundlesRoot, demoLessonRef, shippedLessonsRoot, studiumHome } from "./data-paths.js";
 import { isTrusted, runConsent, runFingerprint, withTrusted } from "./run-trust.js";
-import { checkLessonPath, parseOpenLessonQuery, rawQuery, type OpenLessonResult } from "./lesson-uri.js";
-import { parseReinforcement, statusBarText, type StudyStatus } from "./study-status.js";
+import { checkLessonPath, parseOpenLessonLink, type OpenLessonResult } from "./lesson-uri.js";
+import {
+  continueArgs, parseReinforcement, parseStudyProgress, statusBarText, type ProgressSource, type StudyProgress, type StudyStatus,
+} from "./study-status.js";
 import { readConceptTitles } from "./bundle-titles.js";
 import { parseRateRecall } from "./pane-messages.js";
 import { sessionLostReason } from "./session-lost.js";
+import {
+  DEBOUNCE_MS, LibraryWatch, dontShowLessonReadyAgain, lessonReadyMuted, migrateLessonReadyMute, readLessonFacts, readSourceSetFacts,
+  type LessonReadySetting, type LibraryWatchAction,
+} from "./library-watch.js";
 
 type Json = Record<string, any>;
 
@@ -73,12 +79,29 @@ let extensionContext: vscode.ExtensionContext | undefined;
 /** What is due for review (get_next_reinforcement); feeds the status-bar item and the Reviews node. */
 let studyStatus: StudyStatus | null = null;
 let studyStatusItem: vscode.StatusBarItem | undefined;
+/** BN-7: the lesson to continue and each lesson's progress (get_study_plan + list_lessons), or null before the first check. */
+let studyProgress: StudyProgress | null = null;
 /** INT-STUDIUM-058: the status line of the lesson being played in the pane, or null when none is. */
 let lessonStatusLine: string | null = null;
 let studyStatusRefreshing = false;
+/** BN-1 / BN-4: the library an assistant's server writes lessons to (<STUDIUM_HOME>/library), and what its watchers saw. */
+let libraryRoot: string | undefined;
+/** Review finding 3: STUDIUM_HOME, resolved once at activation; the Copilot server is given it, so the library it
+ * writes is the one watched here. */
+let studiumHomeDir: string | undefined;
+let libraryWatch: LibraryWatch | undefined;
+/** The watcher on the lessons folder (studium.bundlesRoot) when it is not the library: it refreshes the list only. */
+let lessonsFolderWatcher: vscode.Disposable | undefined;
 
 const TRUSTED_RUNS_KEY = "studium.trustedRuns";
 const LAST_LESSON_KEY = "studium.lastLesson";
+/** BN-1: the learner chose « Don't show again » on a lesson-ready notice, before studium.notifyLessonReady existed (or
+ * when the user settings could not be written): moved into that setting at start. */
+const LESSON_READY_MUTED_KEY = "studium.lessonReadyMuted";
+/** Review finding 4: the setting « Don't show again » turns off, so the learner can turn the notices back on. */
+const NOTIFY_LESSON_READY = "notifyLessonReady";
+/** BN-1: the lesson versions already announced, shared by every window (each runs its own watcher). */
+const LESSON_READY_SHOWN_KEY = "studium.lessonReadyShown";
 const LESSON_VIEW_TYPE = "studiumLesson";
 
 /** What the restored pane needs to reopen the lesson it showed before a window reload. */
@@ -86,6 +109,10 @@ interface LastLesson { bundlesRoot: string; bundleRef: string; rootKind: "lesson
 
 interface TreeContents {
   courses: LessonCourse[];
+  /** BN-7: where `courses` come from, to read their progress: the library when the lessons folder is the library. */
+  coursesSource: "bundles" | "library";
+  /** BN-1: the library's lessons, listed apart when the lessons folder is another one. */
+  library: LessonCourse[];
   currentRef: string;
   community: CommunityItem[];
 }
@@ -95,6 +122,7 @@ class StudiumCoursesTreeProvider extends StudiumTreeProvider {
   private onReproductionScene = false;
   private locale: Locale = extensionLocale;
   private reviews: StudyStatus | null = null;
+  private progress: StudyProgress | null = null;
 
   constructor(private readonly discoverContents: () => TreeContents) {
     super(() => discoverContents().community);
@@ -105,8 +133,9 @@ class StudiumCoursesTreeProvider extends StudiumTreeProvider {
     super.setReproductionScene(on);
   }
 
-  setReviews(reviews: StudyStatus | null): void {
+  setReviews(reviews: StudyStatus | null, progress: StudyProgress | null = this.progress): void {
     this.reviews = reviews;
+    this.progress = progress;
     this.refresh();
   }
 
@@ -129,6 +158,7 @@ class StudiumCoursesTreeProvider extends StudiumTreeProvider {
     return buildLessonTree({
       ...contents, onReproductionScene: this.onReproductionScene, locale: this.locale,
       reviews: this.reviews, emptyAsWelcome: true,
+      continueWith: this.progress?.continueWith ?? null, progress: this.progress?.lessons ?? {},
     });
   }
 
@@ -136,7 +166,7 @@ class StudiumCoursesTreeProvider extends StudiumTreeProvider {
     try {
       return this.discoverContents();
     } catch {
-      return { courses: [], currentRef: "", community: [] };
+      return { courses: [], coursesSource: "bundles", library: [], currentRef: "", community: [] };
     }
   }
 }
@@ -153,12 +183,27 @@ export function activate(context: vscode.ExtensionContext) {
   const mcpOutput = vscode.window.createOutputChannel(MCP_OUTPUT_CHANNEL);
   context.subscriptions.push(mcpOutput);
   setLessonMcpLog((line) => mcpOutput.appendLine(line));
+  // BN-1: the library where an assistant's server writes the lessons it builds, computed as the server computes it
+  // (persistence.ts libraryRoot). Created now if missing: a watcher on a folder that does not exist yet misses the
+  // first files written into it, which is the first build of a fresh install.
+  studiumHomeDir = studiumHome(process.env, homedir());
+  libraryRoot = join(studiumHomeDir, "library");
+  try { mkdirSync(libraryRoot, { recursive: true }); } catch { /* an unwritable home: the server will say so when it writes */ }
   treeProvider = new StudiumCoursesTreeProvider(() => discoverForTree(context));
+  const lessonsView = vscode.window.createTreeView("studiumLessons", { treeDataProvider: treeProvider });
   context.subscriptions.push(
-    vscode.window.registerTreeDataProvider("studiumLessons", treeProvider),
-    // The tree's community leaves open a specific bundle by ref; the palette entry opens the default.
-    vscode.commands.registerCommand("studium.openLesson", (ref?: unknown, source?: unknown) =>
-      openLesson(context, typeof ref === "string" ? ref : undefined, source === "community" ? "community" : "lesson")),
+    lessonsView,
+    // In case a watcher outside the workspace stays silent: the list is read again whenever the view is shown.
+    lessonsView.onDidChangeVisibility((e) => { if (e.visible) treeProvider?.refresh(); }),
+    // The tree's community leaves open a specific bundle by ref; the palette entry opens the default. A leaf of
+    // « Your library » opens from the library.
+    vscode.commands.registerCommand("studium.openLesson", (ref?: unknown, source?: unknown) => {
+      if (typeof ref === "string" && source === "library" && libraryRoot) return openLesson(context, ref, "lesson", { bundlesRoot: libraryRoot });
+      // BN-7: Continue on a lesson shipped with Studium (the demo) opens it from the shipped folder, as openDemoLesson does.
+      const shipped = typeof ref === "string" && source === "shipped" ? shippedRootOf(context) : null;
+      if (shipped) return openLesson(context, ref as string, "lesson", { bundlesRoot: shipped });
+      return openLesson(context, typeof ref === "string" ? ref : undefined, source === "community" ? "community" : "lesson");
+    }),
     vscode.commands.registerCommand("studium.pickLesson", () => pickLesson(context)),
     vscode.commands.registerCommand("studium.openDemoLesson", () => openDemoLesson(context)),
     vscode.commands.registerCommand("studium.communityContributions", () => openCommunityContribution(context)),
@@ -183,12 +228,15 @@ export function activate(context: vscode.ExtensionContext) {
       locations: () => lessonServerLocations(context, resolveLessonBundlesRoot(context)),
       repoRoot: () => cfg<string>("repoRoot", resolve(context.extensionPath, "..", "..")),
       enabled: () => cfg<boolean>("registerMcpServer", true) !== false,
+      learnerId: () => cfg<string>("learnerId", "vscode-learner"),
+      studiumHome: studiumHomeDir,
       log: (line) => mcpOutput.appendLine(line),
     });
   } catch (e: any) {
     mcpOutput.appendLine(`[studium] the built-in Studium server was not offered to Copilot: ${e?.message ?? e}`);
   }
   setUpStudyStatus(context);
+  setUpLibraryWatch(context, libraryRoot);
 }
 export function deactivate() {}
 
@@ -223,14 +271,137 @@ function hasLearnerData(context: vscode.ExtensionContext): boolean {
   try { return readdirSync(learnerDataDir(context)).length > 0; } catch { return false; }
 }
 
+/** Whether two paths name the same folder (a symlink such as macOS's /var → /private/var included). */
+function sameFolder(a: string, b: string): boolean {
+  try { return realpathSync.native(a) === realpathSync.native(b); } catch { return resolve(a) === resolve(b); }
+}
+
+/** BN-1 / BN-4: watch the library an assistant's server writes to. A lesson written there refreshes the Lessons view and
+ * is announced (library-watch.ts); a source set written by prepare_sources shows « preparing a lesson » in the status
+ * bar. Nothing here starts a server: refreshStudyStatus is not called on file events. */
+function setUpLibraryWatch(context: vscode.ExtensionContext, library: string) {
+  const shownKeys = () => context.globalState.get<string[]>(LESSON_READY_SHOWN_KEY) ?? [];
+  // « Don't show again » is the user setting studium.notifyLessonReady; the flag of earlier versions is moved into it now.
+  const noticeSetting: LessonReadySetting = {
+    enabled: () => cfg<boolean>(NOTIFY_LESSON_READY, true) !== false,
+    userValue: () => vscode.workspace.getConfiguration("studium").inspect<boolean>(NOTIFY_LESSON_READY)?.globalValue,
+    setUserValue: (on) => vscode.workspace.getConfiguration("studium").update(NOTIFY_LESSON_READY, on, vscode.ConfigurationTarget.Global),
+    legacyMuted: () => context.globalState.get<boolean>(LESSON_READY_MUTED_KEY) === true,
+    setLegacyMuted: (muted) => context.globalState.update(LESSON_READY_MUTED_KEY, muted ? true : undefined),
+  };
+  void migrateLessonReadyMute(noticeSetting);
+  const watch = new LibraryWatch({
+    library,
+    readLesson: readLessonFacts,
+    readSourceSet: readSourceSetFacts,
+    now: () => Date.now(),
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+    focused: () => vscode.window.state?.focused !== false,
+    muted: () => lessonReadyMuted(noticeSetting),
+    shown: {
+      has: (key) => shownKeys().includes(key),
+      add: (key) => { void context.globalState.update(LESSON_READY_SHOWN_KEY, [...shownKeys().filter((k) => k !== key), key].slice(-20)); },
+    },
+    act: (action) => {
+      if (action.kind === "refresh") treeProvider?.refresh();
+      else if (action.kind === "status") applyStudyStatus();
+      else void announceLesson(context, library, action, noticeSetting);
+    },
+  });
+  libraryWatch = watch;
+  // VS Code may report the real path of a folder reached through a symlink: map it back under the library.
+  let real = library;
+  try { real = realpathSync.native(library); } catch { /* not created: the paths are compared as given */ }
+  const underLibrary = (path: string) => (real !== library && path.startsWith(real + sep) ? join(library, path.slice(real.length + 1)) : path);
+  const watchLibrary = (pattern: string, handle: (path: string) => void) => {
+    const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(library), pattern));
+    // An atomic rename over an existing file arrives as a create, a rewrite as a change: both count.
+    const on = (uri: vscode.Uri) => handle(underLibrary(uri.fsPath));
+    context.subscriptions.push(watcher, watcher.onDidCreate(on), watcher.onDidChange(on));
+    return watcher;
+  };
+  const lessons = watchLibrary("*/lesson.json", (path) => watch.lessonEvent(path));
+  context.subscriptions.push(lessons.onDidDelete(() => treeProvider?.refresh()));
+  watchLibrary("_sources/*.json", (path) => watch.sourcesEvent(path));
+  watchLessonsFolder(context, library);
+  context.subscriptions.push(
+    { dispose: () => { watch.dispose(); if (libraryWatch === watch) libraryWatch = undefined; lessonsFolderWatcher?.dispose(); } },
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("studium.bundlesRoot") || e.affectsConfiguration("studium.repoRoot")) watchLessonsFolder(context, library);
+    }),
+    // Critic 3: a notice that arrived while the window was in the background is shown when it comes back; the list is
+    // read again too, in case a watcher outside the workspace stayed silent.
+    vscode.window.onDidChangeWindowState((state) => {
+      if (!state.focused) return;
+      treeProvider?.refresh();
+      watch.windowFocused();
+    }),
+  );
+}
+
+/** Watch the lessons folder (studium.bundlesRoot) when it is not the library: refresh the list, never announce (a checkout
+ * or a pull touching many lessons would announce each one). Re-created when the setting changes. */
+function watchLessonsFolder(context: vscode.ExtensionContext, library: string) {
+  lessonsFolderWatcher?.dispose();
+  lessonsFolderWatcher = undefined;
+  const root = resolveLessonBundlesRoot(context);
+  if (sameFolder(root, library)) return;
+  const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(root), "*/lesson.json"));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const refresh = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => { timer = undefined; treeProvider?.refresh(); }, DEBOUNCE_MS);
+  };
+  const listeners = [watcher.onDidCreate(refresh), watcher.onDidChange(refresh), watcher.onDidDelete(refresh)];
+  lessonsFolderWatcher = { dispose: () => { if (timer) clearTimeout(timer); for (const l of listeners) l.dispose(); watcher.dispose(); } };
+}
+
+/** BN-1: « Your lesson … is ready »: Open plays it from the library (no setting is written), Later does nothing, Don't
+ * show again turns off the user setting studium.notifyLessonReady, which the learner can turn back on. Lessons that
+ * landed together share one notice, whose Show opens the Studium view, where they are listed. The pane is never opened
+ * unasked: it would take the focus from the chat. */
+async function announceLesson(
+  context: vscode.ExtensionContext, library: string, notice: Extract<LibraryWatchAction, { kind: "notify" }>, setting: LessonReadySetting,
+) {
+  const locale = extensionLocale;
+  const [first] = notice.lessons;
+  if (!first) return;
+  const several = notice.lessons.length > 1;
+  const open = hostPhrase(several ? "lessons_ready_show" : "lesson_ready_open", {}, locale);
+  const later = hostPhrase("lesson_ready_later", {}, locale);
+  const never = hostPhrase("lesson_ready_never", {}, locale);
+  const choice = await vscode.window.showInformationMessage(lessonReadyMessage(notice.lessons, locale), open, later, never);
+  if (choice === open && several) await vscode.commands.executeCommand("workbench.view.extension.studium");
+  else if (choice === open) await openLesson(context, first.ref, "lesson", { bundlesRoot: library });
+  else if (choice === never) await dontShowLessonReadyAgain(setting);
+}
+
 function applyStudyStatus() {
-  treeProvider?.setReviews(studyStatus);
-  const shown = statusBarText(studyStatus, extensionLocale, lessonStatusLine);
+  treeProvider?.setReviews(studyStatus, studyProgress);
+  const continueWith = studyProgress?.continueWith ?? null;
+  const shown = statusBarText(studyStatus, extensionLocale, lessonStatusLine, libraryWatch?.preparing() ?? null, continueWith);
   if (!studyStatusItem) return;
   if (!shown) { studyStatusItem.hide(); return; }
   studyStatusItem.text = shown.text;
   studyStatusItem.tooltip = shown.tooltip;
+  // BN-7: « continue <lesson> » resumes that lesson; otherwise the item opens the Studium view.
+  studyStatusItem.command = shown.resume && continueWith
+    ? { command: "studium.openLesson", title: shown.text, arguments: continueArgs(continueWith) }
+    : "workbench.view.extension.studium";
   studyStatusItem.show();
+}
+
+/** BN-7: a lesson's duration (metadata.duration_minutes), read from the root list_lessons names, for the minutes left. */
+function lessonDuration(context: vscode.ExtensionContext, ref: string, source: ProgressSource): number | undefined {
+  const root = source === "library" ? libraryRoot : source === "shipped" ? shippedRootOf(context) : resolveLessonBundlesRoot(context);
+  if (!root || !bundleExists(root, ref)) return undefined;
+  try {
+    const duration = (JSON.parse(readFileSync(join(root, ref), "utf8")) as Json)?.["metadata"]?.["duration_minutes"];
+    return typeof duration === "number" ? duration : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Ask a short-lived lesson-mcp what is due for this learner. Best-effort: a failure keeps the last status. */
@@ -242,8 +413,17 @@ async function refreshStudyStatus(context: vscode.ExtensionContext): Promise<voi
     const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
     const launch = resolveServerLaunch(context.extensionPath, repoRoot);
     mcp = await connectLessonMcp({ launch, env: lessonServerEnv(context, resolveLessonBundlesRoot(context)) });
-    const payload = await mcp.call("get_next_reinforcement", { learner_id: cfg<string>("learnerId", "vscode-learner") });
+    const learnerId = cfg<string>("learnerId", "vscode-learner");
+    const payload = await mcp.call("get_next_reinforcement", { learner_id: learnerId });
     studyStatus = parseReinforcement(payload, reinforcementTitles(context, payload));
+    // BN-7: in the same short-lived server, the lesson in progress and each lesson's progress (Continue, n/N, done).
+    try {
+      const plan = await mcp.call("get_study_plan", { learner_id: learnerId });
+      const listing = await mcp.call("list_lessons", { learner_id: learnerId });
+      studyProgress = parseStudyProgress(plan, listing, (ref, source) => lessonDuration(context, ref, source));
+    } catch (e: any) {
+      resolveLogSink()(`[studium] lesson progress unavailable: ${e?.message ?? e}`);
+    }
   } catch (e: any) {
     resolveLogSink()(`[studium] review status unavailable: ${e?.message ?? e}`);
   } finally {
@@ -278,9 +458,17 @@ function reportLessonPathError(result: Extract<OpenLessonResult, { ok: false }>)
 /** vscode://<publisher>.studium-vscode/open?bundle=<path of lesson.json> (C7). */
 async function handleLessonUri(context: vscode.ExtensionContext, uri: vscode.Uri): Promise<void> {
   if (uri.path !== "/open") return;
-  const result = parseOpenLessonQuery(rawQuery(uri.toString()), existsSync);
+  // D2: VS Code hands over the query decoded once (uri.query); uri.toString() would encode its "=" again.
+  const result = parseOpenLessonLink(uri.query ?? "", existsSync, lessonLinkRoots(context));
   if (!result.ok) { reportLessonPathError(result); return; }
   await openLesson(context, result.bundleRef, "lesson", { bundlesRoot: result.bundlesRoot });
+}
+
+/** Review finding 7: the folders a lesson link may open a lesson from — the library, studium.bundlesRoot and the lessons
+ * shipped with Studium — each as configured and as resolved on disk (a folder reached through a link). */
+function lessonLinkRoots(context: vscode.ExtensionContext): string[] {
+  const roots = [libraryRoot, resolveLessonBundlesRoot(context), shippedRootOf(context)].filter((root): root is string => !!root);
+  return [...new Set(roots.flatMap((root) => { try { return [root, realpathSync(root)]; } catch { return [root]; } }))];
 }
 
 /** "Studium : Ouvrir cette leçon" on a lesson.json (explorer or editor tab menu, or the active editor). */
@@ -308,7 +496,7 @@ async function restoreLessonPanel(context: vscode.ExtensionContext, panel: vscod
 async function forgetMyData(context: vscode.ExtensionContext): Promise<void> {
   const locale = extensionLocale;
   const action = hostPhrase("forget_data_action", {}, locale);
-  const harnessData = join(studiumHome(process.env, homedir()), "data");
+  const harnessData = join(studiumHomeDir ?? studiumHome(process.env, homedir()), "data");
   const choice = await vscode.window.showWarningMessage(
     hostPhrase("forget_data_prompt", { harness_data: harnessData }, locale), { modal: true }, action);
   if (choice !== action) return;
@@ -325,6 +513,7 @@ async function forgetMyData(context: vscode.ExtensionContext): Promise<void> {
     return;
   }
   studyStatus = null;
+  studyProgress = null;
   applyStudyStatus();
   vscode.window.showInformationMessage(hostPhrase("forget_data_done", {}, locale));
 }
@@ -344,7 +533,11 @@ function discoverForTree(context: vscode.ExtensionContext): TreeContents {
   const currentRef = configuredValue<string>("bundleRef")?.trim() ?? "";
   const community = toPickItems(discoverCommunityBundles(communityRoot, canonicalRef))
     .map((pick) => ({ ref: pick.ref, label: pick.label }));
-  return { courses: discoverCoursesInRoot(lessonRoot), currentRef, community };
+  // BN-1: the library is listed apart only when the lessons folder is another one (a checkout's fixtures/, a folder
+  // the learner chose); by default the two are the same folder.
+  const library = libraryRoot && !sameFolder(libraryRoot, lessonRoot) ? discoverCoursesInRoot(libraryRoot) : [];
+  const coursesSource = libraryRoot && sameFolder(libraryRoot, lessonRoot) ? "library" : "bundles";
+  return { courses: discoverCoursesInRoot(lessonRoot), coursesSource, library, currentRef, community };
 }
 
 // The `.studium-session/` FILE channel (packages/lesson-session-host/src/session-workspace.ts): the
@@ -671,11 +864,14 @@ async function pickLesson(context: vscode.ExtensionContext) {
 }
 
 async function showLessonChoices(bundlesRoot: string, demo: boolean): Promise<LessonPickerChoice | undefined> {
-  const choices = toLessonPickerChoices(discoverCoursesInRoot(bundlesRoot), bundlesRoot, extensionLocale, { demo });
+  const courses = discoverCoursesInRoot(bundlesRoot);
+  const choices = toLessonPickerChoices(courses, bundlesRoot, extensionLocale, { demo });
   return vscode.window.showQuickPick(choices, {
     title: phrase("picker_title", {}, extensionLocale),
-    placeHolder: choices.length === 1
-      ? phrase("picker_empty", {}, extensionLocale)
+    // BN-3: no course in the folder (the demo and the folder action are always listed): say where the learner's lesson
+    // will come from, and to try the demo meanwhile when it ships.
+    placeHolder: courses.length === 0
+      ? phrase(demo ? "picker_empty_demo" : "picker_empty", {}, extensionLocale)
       : phrase("picker_choose", {}, extensionLocale),
     matchOnDescription: true,
     matchOnDetail: true,
@@ -770,6 +966,8 @@ async function openLesson(
   // canonical open keeps the plain lesson bundlesRoot.
   const bundlesRoot = options.bundlesRoot ?? (rootKind === "community" ? resolveCommunityBundlesRoot(context) : lessonBundlesRoot);
   const bundleRef = bundleRefOverride ?? configuredRef!;
+  // BN-1: a lesson the learner opens here is not announced as ready a moment later.
+  libraryWatch?.markOwn(join(bundlesRoot, bundleRef));
   const learnerId = cfg<string>("learnerId", "vscode-learner");
   const assets = cfg<"vendor" | "cdn">("assets", "vendor");
   const paneOptions = { enableScripts: true, localResourceRoots: [vscode.Uri.file(join(context.extensionPath, "media")), vscode.Uri.file(join(context.extensionPath, "dist", "panel"))] };

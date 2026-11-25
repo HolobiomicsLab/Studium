@@ -9,6 +9,7 @@ import type { ConceptMemoryState } from "./fsrs-memory.js";
 import type { ReviewOrigin } from "./review-session.js";
 import type { CitedSource } from "./public-scene.js";
 import type { LastNavigation } from "./orientation.js";
+import type { AnswerSurface } from "./surface-offer.js";
 
 /** I-2: the passages of a scene answered and not yet left for good, with what settles them. */
 export interface HeldSources {
@@ -38,8 +39,18 @@ export interface SessionEntry {
   /** Durable mode: the folder holding this learner's data for this lesson (deps.ts durableScopeDir),
    * which forget removes. Absent in memory, and for a review session (it keeps no lesson state). */
   scopeDir?: string;
+  /** D1 (waiting review 2026-11-25): the stamp (StateStore.revision) of this lesson's saved state as this session
+   * last loaded or saved it — a named learner in durable mode only; absent otherwise. Another stamp on disk means
+   * another process (the Studium pane, another chat) saved the lesson since: the session does not write over it. */
+  stateRevision?: string | null;
   /** RFR-06: the learner's minutes a day kept in this lesson's file, recorded in their study record. */
   minutesPerDay?: number;
+  /** Follow-up to decision 4 (B): the surface the learner last answered this session's steps on, as the caller named
+   * it (RespondOptions.answeredOn), recorded in their study record (answered_on). Absent: no caller named one. */
+  answeredOn?: AnswerSurface;
+  /** Review G, finding 3: the session showed the learner another surface than the chat when it started (the line that
+   * ends start_lesson_session's first step). A chat answer is the learner's choice only then. */
+  otherSurfaceShown?: boolean;
   /** A lesson, or a review session assembled from the scenes of several lessons (start_review_session). */
   kind: "lesson" | "review";
   /** Who wrote the lesson and its approval record, read once at start (authoring.ts). */

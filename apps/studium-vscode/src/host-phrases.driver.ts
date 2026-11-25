@@ -1,7 +1,7 @@
 // host-phrases.driver.ts — the host-side catalogues cover the same keys in French and English, no value
 // is left in the wrong language, and placeholders agree. No VS Code APIs.
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/host-phrases.driver.ts
-import { HOST_CATALOGUES, hostPhrase, type HostPhraseKey } from "./host-phrases.js";
+import { HOST_CATALOGUES, hostPhrase, lessonReadyMessage, type HostPhraseKey } from "./host-phrases.js";
 import { browserPhrases } from "./phrases.js";
 
 const failures: string[] = [];
@@ -38,6 +38,14 @@ expect(fr.forget_data_prompt.includes("cette extension") && en.forget_data_promp
 expect(!/toutes les données|all Studium/i.test(fr.forget_data_prompt + en.forget_data_prompt), "it no longer claims to erase all Studium data");
 expect(fr.forget_data_prompt.includes("{harness_data}") && en.forget_data_prompt.includes("{harness_data}"),
   "it names the folder where the assistants' Studium data lives");
+
+// Review of the waiting branch, finding 2: the Continue tooltip says whose progress it shows. Copilot with the server
+// this extension offers plays the pane's learner in the same storage, so it is in; a server added by hand is not.
+expect(en.continue_scope.includes("Copilot with the Studium server this extension offers") && !en.continue_scope.includes("Copilot's Studium tools"),
+  `continue_scope counts Copilot with the extension's server in (got ${en.continue_scope})`);
+expect(fr.continue_scope.includes("Copilot avec le serveur Studium que propose cette extension") && !fr.continue_scope.includes("outils Studium de Copilot"),
+  `and so does the French one (got ${fr.continue_scope})`);
+expect(en.continue_scope.includes("added by hand") && fr.continue_scope.includes("ajouté à la main"), "both name a server added by hand as apart");
 
 // UX-12 / L-5: the host catalogue follows the pane's French typography (no-break spaces before : ; ! ? and inside
 // « », so a status line never starts with a colon) and its register: the learner is « tu » everywhere, plurals are
@@ -76,6 +84,23 @@ expect(/profil/.test(fr.forget_data_prompt) && /révisions de toutes tes leçons
     "it never says only « this session » is erased");
 }
 expect(/profile/.test(en.forget_data_prompt) && /reviews of all your lessons/.test(en.forget_data_prompt), `and in English (${en.forget_data_prompt})`);
+
+// Review finding 2: lessons that land together share one notice. One lesson keeps its own sentence; several are counted
+// and named, the first three only.
+{
+  const titled = (titles: string[], steps = 4) => titles.map((title) => ({ title, steps }));
+  expect(lessonReadyMessage(titled(["Photosynthèse"], 9), "en") === hostPhrase("lesson_ready", { title: "Photosynthèse", steps: 9 }, "en"),
+    "one lesson: its own sentence, with its steps");
+  expect(lessonReadyMessage(titled(["Photosynthèse"], 1), "fr") === hostPhrase("lesson_ready_one", { title: "Photosynthèse" }, "fr"), "one lesson of one step");
+  const three = titled(["A", "B", "C"]);
+  expect(lessonReadyMessage(three, "en") === "Studium: 3 lessons are ready: “A”, “B”, “C”.", `three lessons, one sentence (got ${lessonReadyMessage(three, "en")})`);
+  expect(lessonReadyMessage(three, "fr") === "Studium\u00a0: 3 leçons sont prêtes\u00a0: «\u00a0A\u00a0», «\u00a0B\u00a0», «\u00a0C\u00a0».",
+    `and in French, typeset (got ${JSON.stringify(lessonReadyMessage(three, "fr"))})`);
+  const five = titled(["A", "B", "C", "D", "E"]);
+  expect(lessonReadyMessage(five, "en") === "Studium: 5 lessons are ready, including “A”, “B”, “C”.", `more than three: the first three are named (got ${lessonReadyMessage(five, "en")})`);
+  expect(lessonReadyMessage(five, "fr") === "Studium\u00a0: 5 leçons sont prêtes, dont «\u00a0A\u00a0», «\u00a0B\u00a0», «\u00a0C\u00a0».",
+    `and in French (got ${JSON.stringify(lessonReadyMessage(five, "fr"))})`);
+}
 
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} host-phrases assertions failed:`);

@@ -4,6 +4,32 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+A tester found that building a lesson leaves the screen silent for minutes and that nothing says when the lesson is ready. Building stays a few minutes, done once; this work is about what the learner sees while waiting and where the lesson is played afterwards. Measured with Mistral Large 4: in OpenCode the assistant now relays Studium's announcement of the wait about 10 s after the request (89 s before); in headless Vibe it still keeps it for its last message. Nothing here has been tried yet in a real VS Code with Copilot, Codex Desktop or Claude Code.
+
+### Added
+
+- **VS Code says when a lesson is being prepared and when it is ready.** The status bar shows that the assistant is preparing a lesson from the moment it prepares the sources until the lesson lands; then a notice says "Your lesson « … » is ready" with **Open**, once for lessons that land together and only for lessons an assistant built. **Don't show again** is the setting `studium.notifyLessonReady`. The empty views and the picker say where a first lesson comes from and that a build takes a few minutes, and the walkthrough says how to let Copilot call Studium's tools for the session.
+- **Continue where you were.** The **Lessons** view starts with a **Continue** entry and shows each lesson's progress; the status bar says which lesson to continue when no review is due.
+- **After a build in Copilot, the lesson is offered in the VS Code pane first.** When the extension serves Studium, `create_lesson` and the study plan's start and continue steps carry a `vscode://` link (`open_link`) and a text offering the pane first, the chat staying one word away ("here"). Copilot now plays the pane's learner (`studium.learnerId`) in the pane's folder, so chat and pane share one progress; an answer from a chat that fell behind is refused instead of saved over newer progress.
+- **Elsewhere, the lesson is offered in the browser.** When the extension does not serve Studium (Vibe, OpenCode, a server added by hand), the running server starts its browser player the first time it offers a lesson: on 127.0.0.1, on a free port, with one key per learner, stopped with the assistant session. The address opens the lesson at the learner's step, and progress is the same in the browser and in the chat. The key, not the learner id, is in the address. Studium never opens the browser itself. `STUDIUM_BROWSER_PLAYER=off` turns it off.
+- **The surface the host draws comes first, then the learner's own choice.** A client that draws Studium's panel (MCP Apps) or the Claude Code mod's pane is offered that first; Copilot added by hand keeps the browser first until a real trial; OpenCode 1.19.6 announces no panel and gets the browser. Studium remembers, per learner, where they last answered (browser, pane, panel, chat) and offers that first next time; `forget_session` erases it. A lesson started in the chat ends its first step with one line naming the faster place, because a measured assistant skipped `create_lesson`'s offer and relayed the first step as it was.
+- **A refused draft is kept and only its faulty steps are sent again.** `create_lesson` keeps a refused draft in the library (`_drafts/`, without the learner's prior or interests) and accepts `{draft_id, scenes}` to replace only the steps it named; one refusal lists every error. The draft is offered to its learner as an unfinished build in the study plan (after a lesson in progress), is deleted when a lesson is written for that learner, can be discarded, and is erased by `forget_session`. Errors on the concepts, the title or the order still ask for the whole draft.
+- **The assistant announces the wait and shows a sketch first.** `get_authoring_guide` returns `tell_learner`, a sentence saying that writing the lesson takes a few minutes and is done once, to relay with the `prepare_sources` call; the guide asks for a keyless sketch (goal, concepts, the title and kind of each step) before the draft, then the draft written once in the call. Guide version `2026-11-25.7`.
+- The fifteen tools that write nothing carry `readOnlyHint`, so hosts that honour it stop asking to allow them.
+- The browser player lists the lessons again when its tab is shown, so a lesson built meanwhile appears without a restart.
+
+### Changed
+
+- An MCP Apps panel receives its view without the 30 KB label catalogue (the VS Code pane keeps it): about 7k fewer input tokens when such a panel opens.
+- The default learner of a stdio server is one person's: two starts of a lesson give one session, and the stale-answer guard holds for it. Servers several people may reach (the lesson API, `studium-mcp play`) keep "anonymous" shared.
+- With the extension's server, `forget_session` refuses another learner id instead of forgetting the editor's learner, and its confirmation names the learner.
+
+### Fixed
+
+- `vscode://` links to a lesson never opened it in a real VS Code, which decodes the query before the handler; they now open, and only lessons under the library, `studium.bundlesRoot` or the shipped lessons.
+- In the browser player, "restart the lesson" and "review now" acted for the default learner instead of the address's; `get_panel_view` could open a lesson the list does not show; a mistyped address said the session had ended; a second address pasted in the tab did nothing; an oversized request got a reset instead of 413.
+- A test that checked a learner id never reaches disk failed when a random pseudonym contained it.
+
 ## 0.6.4 — 2026-11-25
 
 This release answers a tester's report: a newcomer who installs the extension can now open a lesson with no folder open, finds a demo lesson that explains Studium by using it, and can build a lesson with Copilot without Node or a terminal. It adds a source read from a local file, an experimental player in the web browser, and pages for Mistral Vibe, OpenCode with a Mistral model and classroom workstations.

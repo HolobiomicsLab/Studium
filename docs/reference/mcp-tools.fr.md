@@ -93,7 +93,7 @@ The server registers 40 tools.
 | [list_lessons](#list_lessons) | Study | List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson written a moment ago is listed): bundle_ref (pass... |
 | [rate_recall](#rate_recall) | Study | After an answer whose transition carries self_rating {requested: true} (a production answer no judge assessed), ask the LEARNER how well they recalled it — a... |
 | [start_review_session](#start_review_session) | Study | Start a review session: one retrieval scene per concept due, taken from the lessons the learner studied — mastered concepts whose recall is due, then reviewe... |
-| [create_lesson](#create_lesson) | Authoring | Check a complete LessonDraft (see get_authoring_guide) against its source set — every quote to the character, no TODO, a sound concept graph — then build the... |
+| [create_lesson](#create_lesson) | Authoring | Check a LessonDraft (see get_authoring_guide) against its source set — every quote to the character, no TODO, a sound concept graph — then build the lesson a... |
 | [get_authoring_guide](#get_authoring_guide) | Authoring | Start here to create a Studium lesson from sources the learner chose. |
 | [prepare_sources](#prepare_sources) | Authoring | Cut the full texts of the learner's sources into citable passages and store them in the learner's library. |
 | [close_peer_room](#close_peer_room) | Lesson | Teacher closes the PeerStudio room. |
@@ -143,7 +143,7 @@ On the learner's request, export the concept map of a lesson session as a record
 
 ### get_study_plan
 
-Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, the next lesson, and next_step {action: review|continue|start|author|wait, tool, arguments, text} naming the call to make with its arguments (language included where the tool takes one). With the minutes a day the learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in `language`, ready to show. A learner with no lesson of their own gets the demo lesson shipped with Studium as the step to start (before authoring). Dates (due_date, next_review_date) are days in get_server_info.time_zone.
+Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, the next lesson, and next_step {action: review|finish|continue|start|author|wait, tool, arguments, text} naming the call to make with its arguments (language included where the tool takes one); on start and continue it may carry offer_first, open_link (the lesson in the Studium pane or in the browser) and open_panel (open_lesson_panel's arguments, when this client draws Studium's panel): its text offers them in that order, the learner's last surface first when this client gives it, the chat first (one link given) when they last answered there. finish: Studium refused and kept a draft of this learner's, and no lesson was written since (it comes after a lesson in progress); unfinished_build gives its sources, prepare_sources (the arguments that prepare them again, or null for a source given as text), resend, draft_id and fix_scenes when only those scenes must be sent again, and a keyless outline. If the learner wants it, read the guide, prepare the sources again and call create_lesson with learner_id (draft_id and only the scenes in fix_scenes when there is a draft_id, else the whole draft); if not, create_lesson {source_set_id, learner_id, discard: true}. With the minutes a day the learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in `language`, ready to show. A learner with no lesson of their own gets the demo lesson shipped with Studium as the step to start (before authoring). Dates (due_date, next_review_date) are days in get_server_info.time_zone.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -189,18 +189,22 @@ Turn sources the learner chose into a playable lesson.
 
 ### create_lesson
 
-Check a complete LessonDraft (see get_authoring_guide) against its source set — every quote to the character, no TODO, a sound concept graph — then build the lesson and write it to the learner's library. Returns {ok: true, course_ref, outline, key_classes, findings: [{level, code, message, hint?}], notice} or {ok: false, errors: [{path, message, hint}]}: fix the draft and call again (errors may quote the draft's own keys: keep them from the learner). The outline holds no key; show it to the learner and never show a key. Then start the lesson with start_lesson_session {bundle_ref: course_ref} and relay the notice. An existing lesson is replaced only with overwrite: true, and only a self-study lesson no teacher validated or approved.
+Check a LessonDraft (see get_authoring_guide) against its source set — every quote to the character, no TODO, a sound concept graph — then build the lesson and write it to the learner's library. Send the whole draft as draft, written once, in this call; or, after a refusal that returned draft_id, draft_id with scenes: [{at, ...scene}], only the scenes the refusal named, each the whole corrected scene at that index (never draft and draft_id together). Returns {ok: true, course_ref, outline, key_classes, findings: [{level, code, message, hint?}], notice} or {ok: false, errors: [{path, message, hint}], resend?, draft_id?, fix_scenes?, hint?}: no lesson is written. When the errors are about the draft, Studium keeps it: resend "scenes" means fix only the scenes in fix_scenes and send them with draft_id; resend "draft" means fix every error and send the whole draft again (an error concerns the concepts, goal, title, course_id or the order of the scenes). Errors may quote the draft's own keys: keep them from the learner. The outline holds no key: show the learner only what differs from the sketch you showed before writing, never a key. Then start the lesson with start_lesson_session {bundle_ref: course_ref} and relay the notice; but when the result also carries offer_first and display_markdown, show that display_markdown as it is, with the notice, and do what it offers first: "panel" (this client draws Studium's panel), call open_lesson_panel with open_panel; "chat" (the learner last answered in the chat; one link is given), start the lesson here; otherwise a link comes first (open_link: the Studium pane, with lesson_path, from the VS Code extension, or the browser, an address that lives as long as this server) or the command of the assistant's own pane: start the lesson in the chat only if the learner says “here” (open_lesson_panel with open_panel if they say “panel”). An existing lesson is replaced only with overwrite: true, and only a self-study lesson no teacher validated or approved. Pass learner_id as on every call: a draft refused for a learner is offered to them alone by get_study_plan (with no learner_id and no STUDIUM_LEARNER_ID, it serves the resend only). {source_set_id, learner_id, discard: true} drops the unfinished build get_study_plan offers, when the learner does not want it finished: it is not offered again.
 
-| Field | Type | Required |
-|---|---|---|
-| `source_set_id` | string | yes |
-| `draft` | object (free form) | yes |
-| `course_id` | string | no |
-| `overwrite` | boolean | no |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `source_set_id` | string | yes |  |
+| `draft` | object (free form) | no |  |
+| `draft_id` | string | no |  |
+| `scenes` | array of object (free form) | no |  |
+| `course_id` | string | no |  |
+| `overwrite` | boolean | no |  |
+| `discard` | boolean | no |  |
+| `learner_id` | string (1–200 chars) | no | one stable id per learner; defaults to persistence.learner_id_default |
 
 ### get_authoring_guide
 
-Start here to create a Studium lesson from sources the learner chose. Returns the authoring brief (markdown, French for a fr-* language, English otherwise), draft_schema (the JSON Schema of a LessonDraft) and a minimal valid example. mode: self_study (default) or teacher (says where the teacher route starts).
+Start here to create a Studium lesson from sources the learner chose. Returns tell_learner, one sentence saying that writing the lesson takes a few minutes: tell it to the learner as it is, with your prepare_sources call, and go on without waiting for a reply. Then the authoring brief (markdown, French for a fr-* language, English otherwise), draft_schema (the JSON Schema of a LessonDraft) and a minimal valid example. mode: self_study (default) or teacher (says where the teacher route starts).
 
 | Field | Type | Required |
 |---|---|---|
@@ -406,7 +410,7 @@ Set this session's presentation language as a BCP 47 tag, or null to use the bun
 
 ### start_lesson_session
 
-Start or resume a lesson session and report whether it is new, resumed, or completed. When the learner already has this lesson open in this server, the same session_id is returned where it was, with resume.kind already_open and a display_markdown that opens with a line saying so. A completed lesson starts at scene zero as a retake and includes due profile-backed review targets. The authoring block (also on every presentation) says who wrote the lesson; when authoring.notice is set (a self-authored lesson), show it to the learner. Optionally select a BCP 47 presentation_language; when omitted, use the bundle's source language. With now_ms the session runs on a clock anchored there: its answers, ratings and reviews are dated from it. concept_map is the lesson's concept map as the session opens (see get_workflow_graph); the first presentation's display_markdown already shows it.
+Start or resume a lesson session and report whether it is new, resumed, or completed. When the learner already has this lesson open in this server, the same session_id is returned where it was, with resume.kind already_open and a display_markdown that opens with a line saying so. A completed lesson starts at scene zero as a retake and includes due profile-backed review targets. The authoring block (also on every presentation) says who wrote the lesson; when authoring.notice is set (a self-authored lesson), show it to the learner. Optionally select a BCP 47 presentation_language; when omitted, use the bundle's source language. With now_ms the session runs on a clock anchored there: its answers, ratings and reviews are dated from it. concept_map is the lesson's concept map as the session opens (see get_workflow_graph); the first presentation's display_markdown already shows it. When this client gives a faster surface than the chat (Studium's panel, a pane, the browser) and the learner did not last answer in the chat, that display_markdown ends with one line naming it; with open_panel {session_id} when it is the panel: call open_lesson_panel with it if the learner says “panel”.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -529,7 +533,7 @@ Read the current public lesson panel, including earned feedback and completion.
 
 ### open_lesson_panel
 
-Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). Returns a public PanelView whose `surface` says which, and a short summary that says how to continue; wait for the learner's own actions. Below a panel the view's `strings` (the interface's labels) is empty: nothing draws it.
+Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). Returns a public PanelView whose `surface` says which, and a short summary that says how to continue; wait for the learner's own actions. The view's `strings` (the interface's labels) is empty except on a native pane: a panel's app brings its own, and below a panel nothing draws it.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -594,13 +598,13 @@ What a harness receives once, when it connects (MCP `instructions`):
 Studium teaches through the learner's own answers: you relay, the learner answers.
 - Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools). To a learner with no lesson yet it proposes the demo lesson shipped with Studium (about 10 minutes, on how Studium works): offer it before building a lesson, unless they came with a topic of their own.
 - Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.
-- Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.
+- Pass the learner's language (fr or en) to get_study_plan, list_lessons, start_review_session and get_authoring_guide.
 - Show display_markdown as it is and add nothing of your own unless the learner asks (they wait on every word): on a presentation; after an answer, verdict.display_markdown first, then the transition's.
 - On the first screen, relay the authoring notice; if persistence.durable is false, tell the learner progress is lost at restart.
 - Wait for the learner's answer and send their words with submit_response {session_id, input: {kind: "reply", text}}; never answer, choose or rate for them.
 - When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.
 - start_review_session plays every review due, across lessons; list_lessons shows what can be started.
-- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session. In prepare_sources, name a file on this computer by its path (Studium reads it: do not copy its text) and pass the text of what you fetched from the web.
+- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session. When a result or a next_step carries offer_first, show its display_markdown as it is and do what it offers first: on "panel" call open_lesson_panel with open_panel, on "chat" start the lesson here; otherwise its open_link (the link first): call start_lesson_session only if the learner says “here”, open_lesson_panel with open_panel if they say “panel”. Writing a lesson takes minutes: relay get_authoring_guide's tell_learner as it is, with your prepare_sources call, and go on without waiting for a reply. In prepare_sources, name a file on this computer by its path (Studium reads it: do not copy its text) and pass the text of what you fetched from the web. Then show a short sketch (goal, concepts, each step's kind and title; titles name the topic, never the answer; never a key) and go on; write the draft once, in the create_lesson call; after a refusal, resend only the scenes it names, with draft_id, unless it asks for the whole draft.
 - When the learner asks where they are, show the map (get_workflow_graph). Offer once, at a pause, never between a question and its answer: at the end, the map as a page on the learner's yes (export_concept_map); in a working conversation, a short lesson from it when the person wants to understand it (prepare_sources, kind "conversation"). When the learner says they already know a concept of the map, or doubt one they got, relay it with submit_response {kind: "contest", concept_id, claim}, the id as the map names it; never contest for them.
 - Never call forget_session unless the learner asks to erase their data: it deletes their progress for good.
 - When Studium itself fails, contradicts its documentation or cannot do what the person asks, say so plainly and help them on; then offer once, at a pause, to report it or propose a change (get_server_info.feedback gives the addresses and what a report holds). The person posts it, or asks you to once they have read the final text; a lesson's content goes to its teacher or author.
