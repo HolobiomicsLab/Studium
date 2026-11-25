@@ -6,7 +6,8 @@
 //     notice waits and is shown when the window comes back; windows share a record of what was shown, so a second
 //     window does not repeat it.
 //   - <library>/_sources/<id>.json written (prepare_sources): "preparing a lesson" until a lesson whose top-level
-//     source_plan_id is that id lands, or for PREPARING_MAX_MS at most (a build the assistant abandoned).
+//     source_plan_id is that id, or the id of a set prepared after it, lands, or for PREPARING_MAX_MS at most (a build
+//     the assistant abandoned).
 // Pure apart from the two readers at the bottom: no VS Code import; the clock, the timers, the window focus and the
 // host's actions are injected, so library-watch.driver.ts drives it with a manual clock.
 import { readFileSync, statSync } from "node:fs";
@@ -129,10 +130,15 @@ export class LibraryWatch {
     this.deps.act({ kind: "refresh" });
     const facts = this.safe(() => this.deps.readLesson(file));
     if (!facts) return;
+    // The lesson ends « preparing » for the set it cites and for every set prepared before it: an assistant that called
+    // prepare_sources twice in one build (a first set it then replaced) cites the last one only.
     const prepared = facts.sourcePlanId ? this.preparingById.get(facts.sourcePlanId) : undefined;
     if (prepared) {
-      this.deps.clearTimer(prepared.timer);
-      this.preparingById.delete(prepared.id);
+      for (const entry of [...this.preparingById.values()]) {
+        if (entry.since > prepared.since) continue;
+        this.deps.clearTimer(entry.timer);
+        this.preparingById.delete(entry.id);
+      }
       this.deps.act({ kind: "status" });
     }
     const now = this.deps.now();

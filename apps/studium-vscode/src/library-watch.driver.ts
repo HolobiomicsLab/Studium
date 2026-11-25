@@ -62,10 +62,14 @@ function harness(opts: { focused?: boolean; muted?: boolean; shown?: Set<string>
     writeFileSync(path, JSON.stringify(lesson));
     return path;
   };
+  /** Copy the real source set into <library>/_sources/<id>.json; another id is written into the copy too. */
   const writeSources = (id = SS_ID) => {
     const path = join(library, "_sources", `${id}.json`);
     mkdirSync(join(library, "_sources"), { recursive: true });
-    copyFileSync(join(fixtures, "_sources", `${SS_ID}.json`), path);
+    if (id === SS_ID) { copyFileSync(join(fixtures, "_sources", `${SS_ID}.json`), path); return path; }
+    const set = JSON.parse(readFileSync(join(fixtures, "_sources", `${SS_ID}.json`), "utf8"));
+    set.source_set_id = id;
+    writeFileSync(path, JSON.stringify(set));
     return path;
   };
   const kinds = () => actions.map((a) => a.kind).join(",");
@@ -228,6 +232,36 @@ function harness(opts: { focused?: boolean; muted?: boolean; shown?: Set<string>
   h.watch.lessonEvent(h.writeLesson());
   h.advance(DEBOUNCE_MS);
   expect(h.kinds() === "refresh,notify", `a lesson with no source set being prepared: ready only (got ${h.kinds()})`);
+}
+// Review finding 1: an assistant that called prepare_sources twice in one build (a first set it then replaced) cites the
+// second set in its lesson. The lesson ends « preparing » for both: a set prepared before the one it cites was part of
+// the same build, and left on it would keep the spinner next to the ready notice for up to 20 minutes. A set prepared
+// after it belongs to another build and stays.
+{
+  const h = harness();
+  const FIRST = "ss-1111111111111111";
+  const SECOND = "ss-2222222222222222";
+  h.watch.sourcesEvent(h.writeSources(FIRST));
+  h.advance(60_000);
+  h.watch.sourcesEvent(h.writeSources(SECOND));
+  expect(h.watch.preparing()?.id === SECOND, `the second source set is the one being prepared (got ${JSON.stringify(h.watch.preparing())})`);
+  h.advance(60_000);
+  h.watch.lessonEvent(h.writeLesson("photosynthese", (l) => { l.source_plan_id = SECOND; }));
+  h.advance(DEBOUNCE_MS);
+  expect(h.watch.preparing() === null, `the lesson citing the second set also ends the first one (got ${JSON.stringify(h.watch.preparing())})`);
+  expect(h.kinds() === "status,status,refresh,status,notify", `one status update, then the notice (got ${h.kinds()})`);
+}
+{
+  const h = harness();
+  const EARLIER = "ss-3333333333333333";
+  const LATER = "ss-4444444444444444";
+  h.watch.sourcesEvent(h.writeSources(EARLIER));
+  h.advance(60_000);
+  h.watch.sourcesEvent(h.writeSources(LATER));
+  h.advance(60_000);
+  h.watch.lessonEvent(h.writeLesson("photosynthese", (l) => { l.source_plan_id = EARLIER; }));
+  h.advance(DEBOUNCE_MS);
+  expect(h.watch.preparing()?.id === LATER, `a set prepared after the one the lesson cites stays on (got ${JSON.stringify(h.watch.preparing())})`);
 }
 {
   const h = harness();
