@@ -18,7 +18,8 @@ An empty value (`VAR=`) counts as unset for the variables of the MCP server.
 | `BUNDLES_ROOT` | lesson-mcp: `<STUDIUM_HOME>/library`; see the other components below | lesson-mcp and every server | Folder a `bundle_ref` is looked up in first. lesson-mcp also searches the library. `prepare_sources` and `create_lesson` never write here: they always write to `<STUDIUM_HOME>/library`. |
 | `STUDIUM_DATA_DIR` | `<STUDIUM_HOME>/data` | lesson-mcp, lesson-server, HTTP API | Durable learner state. Set it to choose another folder; it is kept even with `STUDIUM_EPHEMERAL=1`. lesson-server and the HTTP API keep state in memory unless it is set. |
 | `STUDIUM_EPHEMERAL` | unset | lesson-mcp | `1` (or `true`, `yes`, `on`) keeps learner state in memory, lost at restart. Use it for tests, demos and CI. |
-| `STUDIUM_LEARNER_ID` | `anonymous` | lesson-mcp | Learner id used when a call names none. |
+| `STUDIUM_LEARNER_ID` | `anonymous` | lesson-mcp | Learner id used when a call names none. With `STUDIUM_OPEN_LINK`, it is the learner of every call, and a `learner_id` a model passes is ignored. |
+| `STUDIUM_OPEN_LINK` | unset | lesson-mcp | Set by the Studium VS Code extension for Copilot: the start of a link that opens a lesson in its pane (`vscode://holobiomicslab.studium-vscode/open?bundle=`). A lesson `create_lesson` writes and the study plan's lesson to start or continue are then offered in the pane first. |
 | `STUDIUM_SHIPPED_LESSONS` | `shipped-lessons/` beside the server | lesson-mcp | The lessons shipped with Studium (the « Discover Studium » demo), searched after `BUNDLES_ROOT` and the library, never written to; a lesson of yours with the same ref wins. `off` for none. A lone `lesson-mcp.cjs` copied elsewhere has none. |
 
 Dates in tool results and in the text shown to the learner are calendar days in the time zone of the
