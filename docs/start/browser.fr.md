@@ -5,7 +5,9 @@
 **Statut : expérimental.** Le lecteur dans le navigateur joue une leçon Studium existante dans un navigateur
 web ordinaire, sans VS Code et sans assistant IA. Il tourne sur votre ordinateur, ou sur un poste de salle de
 TP, et ne répond qu'à cet ordinateur. Il ne construit pas de leçon : il faut toujours un assistant pour cela
-(voir le [Démarrage rapide](quickstart.fr.md)). Lisez les [Limites](#limites) avant de vous y fier.
+(voir le [Démarrage rapide](quickstart.fr.md)). Vous le lancez d'une commande, ou un assistant vous le
+propose ([Depuis votre assistant](#depuis-votre-assistant)). Lisez les [Limites](#limites) avant de vous y
+fier.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/screenshots/browser-player-quiz-dark.png">
@@ -44,6 +46,36 @@ La commande `play` est dans `studium-mcp` depuis la version 0.6.4.
 Les mêmes variables d'environnement que pour le serveur s'appliquent : `STUDIUM_HOME`, `STUDIUM_DATA_DIR`,
 `STUDIUM_LEARNER_ID`, `STUDIUM_EPHEMERAL=1` (voir [Configuration](../reference/configuration.fr.md)).
 
+## Depuis votre assistant
+
+Quand un assistant fait tourner Studium sans l'extension Studium de VS Code (OpenCode, Mistral Vibe, Copilot
+configuré à la main, entre autres), son serveur Studium propose aussi ce lecteur, sans commande à taper. La
+première fois qu'il propose une leçon (une leçon qu'il vient de construire, ou celle que le plan d'étude dit
+de commencer ou de reprendre), il lance le lecteur sur 127.0.0.1, sur un port libre, et l'assistant affiche
+une adresse comme `http://127.0.0.1:53817/play#token=…&from=assistant&lesson=…`. Ouvrez-la dans votre
+navigateur : la leçon s'ouvre à votre étape. Ou dites « ici » pour la suivre dans la conversation. Studium
+n'ouvre jamais le navigateur de lui-même.
+
+- **Un apprenant par adresse.** L'adresse joue l'apprenant que l'assistant a nommé dans cet appel (son
+  `learner_id`, sinon `STUDIUM_LEARNER_ID`, sinon `anonymous`) : une étape faite dans le navigateur est la
+  progression de cet apprenant dans la conversation, et inversement. La page ne peut pas jouer un autre
+  apprenant. Un assistant qui vous nomme autrement d'un appel à l'autre fait deux apprenants : demandez-lui
+  de garder un seul nom.
+- **L'adresse vit le temps de la session de l'assistant.** Quand l'assistant s'arrête, le lecteur s'arrête
+  avec son serveur, et la page le dit : redemandez votre leçon à l'assistant pour avoir une nouvelle
+  adresse. La progression est gardée comme ci-dessous.
+- **Vos réponses restent sur votre ordinateur.** Studium vérifie sur votre ordinateur les réponses données
+  dans le navigateur et ne les envoie pas au modèle de l'assistant. C'est vrai seulement sans modèle juge
+  configuré (`LITELLM_BASE_URL` vide, le défaut) : avec un juge, vos réponses écrites vont à ce modèle pour
+  être évaluées. De retour dans la conversation, l'assistant voit où vous en êtes dans la leçon, comme après
+  toute étape.
+- **Pour le désactiver** (une salle de cours, une politique informatique), mettez
+  `STUDIUM_BROWSER_PLAYER=off` dans l'environnement du serveur : les leçons se jouent alors seulement dans
+  la conversation. Si le lecteur ne peut pas démarrer (un bac à sable, un port refusé), l'assistant propose
+  la conversation comme avant, et le serveur écrit une ligne sur sa sortie d'erreur.
+- L'extension Studium de VS Code propose son propre panneau à la place et ne lance aucun lecteur
+  ([Configuration](../reference/configuration.fr.md)).
+
 ## Jouer
 
 1. La page liste les leçons du dossier et de votre bibliothèque, puis la leçon de démonstration livrée avec
@@ -76,7 +108,7 @@ l'ordinateur partagent ce dossier ; sur un poste partagé, donnez un compte à c
 
 - Il n'écoute que sur 127.0.0.1 : les autres ordinateurs, du réseau de la salle ou d'ailleurs, ne
   l'atteignent pas.
-- Son adresse porte une clé créée pour ce lancement. Sans elle, rien n'est répondu ; la clé ne vaut plus rien
+- Son adresse porte une clé créée pour ce lancement (depuis un assistant, une clé par apprenant qu'il nomme). Sans elle, rien n'est répondu ; la clé ne vaut plus rien
   quand le lecteur s'arrête. Ne collez pas l'adresse dans une discussion ou un document partagé.
 - Les autres sites ouverts dans le même navigateur ne peuvent pas l'appeler : il refuse les requêtes d'autres
   origines et ne leur donne jamais la permission de lire.
@@ -88,6 +120,9 @@ protection des données).
 
 ## Limites
 
+- **L'adresse donnée par un assistant n'a été essayée que par des scripts** : un test de bout en bout qui
+  parle au serveur par stdio comme un assistant, et un Chrome sans fenêtre sous macOS qui a ouvert l'adresse
+  et répondu à une étape. Aucun modèle dans OpenCode, Vibe ou Copilot ne l'a encore proposée à une personne.
 - **Essayé par des scripts seulement, sous macOS.** Personne n'a encore utilisé le lecteur. Un Google
   Chrome sans fenêtre piloté par Playwright :
   - depuis la version du serveur construite dans ce dépôt, a ouvert la liste, joué les cinq premières étapes

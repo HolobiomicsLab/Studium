@@ -123,8 +123,8 @@ same link. In VS Code before about 1.120 the link shows as text: open the lesson
   where you are. After changing `studium.learnerId`, restart **Studium** in **MCP: List Servers**.
 - Progress Copilot kept before this version, under the learner id it chose (`anonymous` by default), stays
   under that id: it is not moved to the pane's learner.
-- A Studium server added by hand gets neither the pane's learner nor the link. Remove that entry to use the
-  built-in server, or set `STUDIUM_LEARNER_ID` and `STUDIUM_OPEN_LINK`
+- A Studium server added by hand gets neither the pane's learner nor the pane's link: it offers its
+  [browser player](browser.md#from-your-assistant) instead. Remove that entry to use the built-in server, or set `STUDIUM_LEARNER_ID` and `STUDIUM_OPEN_LINK`
   (`vscode://holobiomicslab.studium-vscode/open?bundle=`) in its `env`.
 - The link and the shared learner were checked against a stand-in for VS Code: Copilot's link, handed over
   the way VS Code's own code does, opens the pane at the learner's step. Clicking it in a real Copilot chat

@@ -133,7 +133,8 @@ s'affiche comme du texte : ouvrez la leçon depuis la vue **Leçons**.
   vous en êtes. Après avoir changé `studium.learnerId`, redémarrez **Studium** dans **MCP: List Servers**.
 - La progression que Copilot gardait avant cette version, sous l'identifiant d'apprenant qu'il avait choisi
   (`anonymous` par défaut), reste sous cet identifiant : elle n'est pas transférée à l'apprenant du panneau.
-- Un serveur Studium ajouté à la main ne reçoit ni l'apprenant du panneau ni le lien. Retirez cette entrée pour
+- Un serveur Studium ajouté à la main ne reçoit ni l'apprenant du panneau ni le lien du panneau : il propose à
+  la place son [lecteur dans le navigateur](browser.fr.md#depuis-votre-assistant). Retirez cette entrée pour
   utiliser le serveur intégré, ou définissez `STUDIUM_LEARNER_ID` et `STUDIUM_OPEN_LINK`
   (`vscode://holobiomicslab.studium-vscode/open?bundle=`) dans son `env`.
 - Le lien et l'apprenant partagé ont été vérifiés face à une imitation de VS Code : le lien de Copilot, transmis
