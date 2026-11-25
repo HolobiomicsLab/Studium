@@ -27,6 +27,8 @@ export interface ApprovalStatus {
 export type AuthoringBlock = NonNullable<Presentation["authoring"]> & {
   drafted_by: DraftedBy;
   approval: ApprovalStatus;
+  /** Present, and true, only for a lesson read from the lessons shipped with Studium. */
+  shipped?: true;
 };
 
 /** C3: who drafted the lesson's content and keys. */
@@ -44,6 +46,14 @@ const AGENT_DRAFTED = {
     "passage ; signale à l'agent une clé qui te semble fausse. ",
   en: "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the " +
     "assistant about a key that looks wrong. ",
+};
+/** The demo lessons shipped with Studium (« Discover Studium »): drafted by an agent from Studium's own
+ * documentation, not from the learner's sources. */
+const SHIPPED_AGENT_DRAFTED = {
+  fr: "Leçon de démonstration livrée avec Studium, rédigée par l'IA à partir de la documentation de Studium, non " +
+    "vérifiée par un enseignant : chaque question cite son passage ; signale à l'agent une clé qui te semble fausse. ",
+  en: "Demo lesson shipped with Studium, drafted by an AI agent from Studium's documentation, not checked by a " +
+    "teacher: each item cites its passage; tell the assistant about a key that looks wrong. ",
 };
 /** Added when the lesson cites excerpts of a conversation with an AI assistant. */
 const FROM_CONVERSATION = {
@@ -83,6 +93,8 @@ function noticeTexts(prefix: { fr: string; en: string }) {
 export const SELF_STUDY_NOTICE = noticeTexts(OPEN_BOOK);
 /** C3: the notice of a self-study lesson an agent drafted from the learner's sources. */
 export const AGENT_DRAFTED_NOTICE = noticeTexts(AGENT_DRAFTED);
+/** The notice of an agent-drafted lesson shipped with Studium (read from the host's shipped root). */
+export const SHIPPED_AGENT_DRAFTED_NOTICE = noticeTexts(SHIPPED_AGENT_DRAFTED);
 
 const NO_APPROVAL: ApprovalStatus = Object.freeze({ recorded: false, matches: false });
 
@@ -112,14 +124,16 @@ export function hasUnvalidatedPlaceholder(validatedBy: string): boolean {
  * passes `approvedSources`: whether every lesson it draws from has such a record. `notice` is the
  * self-study notice for that drafter and judge setting, in French for a French bundle and in English
  * for any other language, null otherwise; `approval` is what the host read (none when not given).
+ * `shipped`: the lesson was read from the lessons shipped with Studium; an agent-drafted one then says so
+ * instead of claiming to come from the learner's sources, and the block carries `shipped: true`.
  */
 export function authoringOf(
   bundle: Pick<LessonBundle, "metadata"> & Partial<Pick<LessonBundle, "scenes" | "validated_by">>,
-  host: { judge: boolean; approval?: ApprovalStatus; approvedSources?: boolean },
+  host: { judge: boolean; approval?: ApprovalStatus; approvedSources?: boolean; shipped?: boolean },
 ): AuthoringBlock {
   const mode = bundle.metadata.authoring?.mode ?? "teacher";
   const draftedBy = draftedByOf(bundle.metadata);
-  const texts = draftedBy === "agent" ? AGENT_DRAFTED_NOTICE : SELF_STUDY_NOTICE;
+  const texts = draftedBy !== "agent" ? SELF_STUDY_NOTICE : host.shipped ? SHIPPED_AGENT_DRAFTED_NOTICE : AGENT_DRAFTED_NOTICE;
   const locale = isFrench(bundle.metadata.language) ? "fr" : "en";
   const notices = texts[locale];
   const reproduction = bundle.scenes?.some((scene) => scene.type === "reproduction")
@@ -138,6 +152,7 @@ export function authoringOf(
       ? notices[host.judge ? "with_judge" : "without_judge"] + reproduction + fromConversation
       : null,
     approval: { ...(host.approval ?? NO_APPROVAL) },
+    ...(host.shipped ? { shipped: true as const } : {}),
   };
 }
 

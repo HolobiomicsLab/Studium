@@ -12,7 +12,7 @@ Le serveur MCP (`apps/lesson-mcp`) applique ces valeurs par défaut. Chacune se 
 |---|---|---|
 | Racine de votre bibliothèque et de vos données | `~/.studium` | `STUDIUM_HOME` |
 | Leçons écrites pour vous | `<STUDIUM_HOME>/library/<cours>/lesson.json`, quel que soit `BUNDLES_ROOT` | `STUDIUM_HOME` ; `BUNDLES_ROOT` ne fait qu'ajouter un dossier consulté en premier |
-| Sources préparées pour ces leçons | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` |
+| Sources préparées pour ces leçons (leurs passages, et pour un fichier lu par son chemin, son chemin complet, sa taille et son SHA-256) | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` |
 | Votre progression | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` |
 | Rien sur disque, mémoire seulement | désactivé | `STUDIUM_EPHEMERAL=1` |
 | Identifiant d'apprenant quand l'assistant n'en donne pas | `anonymous` | `STUDIUM_LEARNER_ID` |

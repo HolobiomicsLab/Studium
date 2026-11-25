@@ -51,6 +51,7 @@ message without keys, personal data or private lesson content.
 |---|---|
 | F5 finds no launch configuration | open the folder `apps/studium-vscode`, which holds the Extension Host configuration |
 | The installed VSIX finds no lesson | lessons are not in the VSIX: put them in `~/.studium/library`, or set `studium.bundlesRoot` and `studium.bundleRef`, or use **Studium: Pick a course** |
+| Choosing a course warns "could not be saved" (`Unable to write into ... Settings`) | the lesson opens anyway; only the choice is not remembered. Open the settings file the message names, fix its errors or save its unsaved changes, or make it writable; up to version 0.6.3 this message stopped the lesson from opening when no folder was open, so update the extension |
 | A `vscode://` link opens nothing | the path must be absolute, without `..`, percent-encoded, to an existing `.json` file |
 | Equations or plots look degraded | run `pnpm --filter studium-vscode vendor`, rebuild, and keep `studium.assets` at `vendor` |
 | No review count in the status bar | none is due, or you have no history yet; use the refresh button of the Lessons view |

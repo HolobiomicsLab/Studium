@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -728,6 +728,31 @@ describe("lesson-mcp — where an authored lesson goes", () => {
     expect(refused.isError).toBe(true);
     expect(JSON.stringify(parse(refused))).toMatch(/no learner library/);
     expect(existsSync(join(bundlesRoot, "_sources"))).toBe(false);
+    await client.close();
+  });
+
+  // INT-STUDIUM-064, change 1: the stdio server reads a source the assistant names by path, and never
+  // one inside its own library or data folder (lessons with their keys, the learner's progress).
+  it("reads a source file the assistant names, and refuses one in the library or the data folder", async () => {
+    const libraryRoot = mkdtempSync(join(tmpdir(), "mcp-library-"));
+    const dataDir = mkdtempSync(join(tmpdir(), "mcp-data-"));
+    const learner = mkdtempSync(join(tmpdir(), "mcp-learner-"));
+    dirs.push(libraryRoot, dataDir, learner);
+    const { client, call } = await authoringClient(new SessionHost({ bundlesRoot: bundlesDir(), libraryRoot, live: false, dataDir }));
+    const guide = parse(await call("get_authoring_guide", { language: "fr" }));
+    const { source } = guide["example"] as { source: { title: string; text: string } };
+    const outside = join(learner, "cycle.md");
+    writeFileSync(outside, source.text);
+    const prepared = parse(await call("prepare_sources", { sources: [{ path: outside, title: source.title }] }));
+    expect(prepared).toHaveProperty("source_set_id");
+    expect((prepared["files"] as Array<{ path: string }>)[0]!.path).toBe(realpathSync(outside));
+    for (const root of [libraryRoot, dataDir]) {
+      const inside = join(root, "cycle.md");
+      writeFileSync(inside, source.text);
+      const refused = await call("prepare_sources", { sources: [{ path: inside, title: source.title }] });
+      expect(refused.isError).toBe(true);
+      expect(parse(refused)).toMatchObject({ ok: false, errors: [{ path: "sources.0.path", message: expect.stringMatching(/^is inside Studium's own data folder/) }] });
+    }
     await client.close();
   });
 });

@@ -1,0 +1,11 @@
+# Mistral Vibe: merge into ~/.vibe/config.toml, or into .vibe/config.toml in one folder.
+# Checkout form, with the demo lessons of the repository. Replace /path/to/studium.
+[[mcp_servers]]
+name = "studium"
+transport = "stdio"
+command = "node"
+args = ["/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]
+
+[mcp_servers.env]
+BUNDLES_ROOT = "/path/to/studium/fixtures"
+LITELLM_BASE_URL = ""

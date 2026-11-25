@@ -2,19 +2,13 @@
 
 # Connecter Copilot dans VS Code à Studium
 
-Ajoutez le serveur Studium à Copilot Chat en mode agent, pour que Copilot joue vos leçons avec les outils de
-Studium. Cette page traite du client MCP de Copilot ; le panneau de leçon de l'extension est décrit dans
-[VS Code](vscode.fr.md).
+Donnez le serveur Studium à Copilot Chat en mode agent, pour que Copilot construise et joue vos leçons avec
+les outils de Studium. Avec l'extension Studium installée, il n'y a rien à ajouter : l'extension propose son
+propre serveur à Copilot. Cette page traite du client MCP de Copilot ; le panneau de leçon de l'extension est
+décrit dans [VS Code](vscode.fr.md).
 
 ## Avant de commencer
 
-- Lisez [Connecter votre assistant](harnesses.fr.md) : il explique les deux façons de lancer le serveur
-  (`npx -y studium-mcp`, ou `node` sur un fichier issu d'un clone ou d'une release), `/path/to/studium`,
-  `BUNDLES_ROOT` et `LITELLM_BASE_URL`. La forme `npx` ne demande que Node ; voir
-  [Installation](installation.fr.md).
-- Copilot Chat en mode agent lit les serveurs MCP dans le `.vscode/mcp.json` de l'espace de travail, ou
-  dans votre configuration utilisateur quand vous passez par `code --add-mcp`. Pour la forme clone, ouvrez
-  le clone comme espace de travail.
 - Les étudiants peuvent obtenir Copilot par GitHub Education : demandez la vérification étudiante
   ([GitHub Education pour les étudiants](https://docs.github.com/en/education/about-github-education/github-education-for-students/apply-to-github-education-as-a-student)),
   puis activez Copilot Student dans vos paramètres Copilot
@@ -23,8 +17,36 @@ Studium. Cette page traite du client MCP de Copilot ; le panneau de leçon de 
   apparaître : vérifiez l'état de votre demande avant de payer. Les enseignants vérifiés ont leur propre
   parcours ([enseignants](https://docs.github.com/en/copilot/how-tos/copilot-on-github/set-up-copilot/enable-copilot/set-up-for-teachers-and-os-maintainers)).
   Envoyez vos justificatifs à GitHub uniquement, jamais dans un dépôt de cours.
+- Pour la voie sans l'extension, lisez [Connecter votre assistant](harnesses.fr.md) : il explique les deux
+  façons de lancer le serveur (`npx -y studium-mcp`, ou `node` sur un fichier issu d'un clone ou d'une
+  release), `/path/to/studium`, `BUNDLES_ROOT` et `LITELLM_BASE_URL`. La forme `npx` demande Node ; voir
+  [Installation](installation.fr.md).
 
 ## Réaliser la tâche
+
+### Avec l'extension Studium : ni Node, ni commande
+
+1. Installez l'extension Studium dans VS Code 1.101 ou plus récent (la fenêtre **À propos** donne la version).
+2. Ouvrez Copilot Chat et choisissez le mode agent.
+3. Dans la palette de commandes, lancez **MCP: List Servers**. **Studium** figure dans la liste, fourni par
+   l'extension. Démarrez-le s'il est arrêté ; VS Code peut d'abord vous demander de lui faire confiance.
+
+L'extension lance le serveur qu'elle embarque avec le moteur de VS Code lui-même, le même serveur que son
+panneau de leçon : aucune installation de Node, aucun terminal. Ce serveur lit le dossier de leçons du
+réglage `studium.bundlesRoot` (vide : votre bibliothèque personnelle, `~/.studium/library`), écrit dans
+cette bibliothèque les leçons qu'il construit, et garde la progression dans l'espace de stockage de
+l'extension. Il n'appelle aucun modèle juge, sauf si `LITELLM_BASE_URL` est défini dans l'environnement d'où
+VS Code a été lancé. Pour le désactiver, mettez `studium.registerMcpServer` à `false`.
+
+**Si vous avez déjà ajouté `studium` vous-même**, avec `code --add-mcp` ou dans un `mcp.json`, l'extension
+n'en ajoute pas un second : le canal de sortie **Studium — lesson-mcp** nomme le fichier qui contient le
+vôtre. Copilot continue d'utiliser votre entrée. Pour passer au serveur intégré, supprimez votre entrée ;
+l'extension propose alors le sien. Elle regarde le `mcp.json` de votre profil utilisateur, le
+`.vscode/mcp.json` et le `.mcp.json` de chaque dossier de l'espace de travail, le
+`~/.copilot/mcp-config.json` de Copilot (ou celui de `COPILOT_HOME`), et l'ancien réglage `mcp.servers`.
+Un serveur ajouté dans un autre profil VS Code n'est pas vu.
+
+### Sans l'extension
 
 1. Ajoutez le serveur. **Avec `npx`** (sans clone), en une commande :
 
@@ -58,12 +80,28 @@ VS Code utilise la clé `servers`, pas la clé `mcpServers` de Claude Code et de
 
 ## Ce que vous obtenez
 
-**MCP: List Servers** affiche `studium` en cours d'exécution. Pour prouver la connexion, faites la
-vérification de [Connecter votre assistant](harnesses.fr.md#vérifier-la-connexion).
+**MCP: List Servers** affiche **Studium** (fourni par l'extension) ou `studium` (ajouté à la main) en cours
+d'exécution. Pour prouver la connexion, faites la vérification de
+[Connecter votre assistant](harnesses.fr.md#vérifier-la-connexion), puis demandez « je veux apprendre …
+avec Studium » en nommant vos sources.
 
 ## Limites
 
-- Le panneau de leçon de l'extension Studium lance son propre serveur. Le client MCP de Copilot et le panneau
-  ne partagent pas la scène courante : pilotez une leçon depuis l'un des deux à la fois. Voir
-  [VS Code](vscode.fr.md).
+- Le serveur intégré n'a pas été essayé dans une vraie session de VS Code avec Copilot. Ce qui a été
+  vérifié : les tests de l'extension, face à une imitation de VS Code, l'enregistrent, démarrent le serveur
+  qu'il décrit et relisent son dossier de leçons et son dossier de données ; et le moteur de VS Code 1.139,
+  sans Node dans le chemin, a démarré le serveur embarqué, listé ses 40 outils et écrit un jeu de sources
+  dans la bibliothèque.
+- La documentation de VS Code dit que les définitions de serveur admissibles fournies par une extension
+  peuvent être transmises aux sessions Copilot ; que les sessions d'agent propres à Copilot reçoivent
+  celle-ci n'a pas été vérifié.
+- Les éditeurs sans cette interface (VS Code avant 1.101, et peut-être Cursor ou d'autres dérivés, non
+  essayés) n'ont pas de serveur intégré ; le canal de sortie le dit. Ajoutez-y le serveur à la main.
+- Le panneau de leçon lance son propre serveur. Copilot et le panneau ne partagent pas l'étape courante :
+  pilotez une leçon depuis l'un des deux à la fois. Le serveur intégré garde la progression dans le même
+  dossier que le panneau, sous l'identifiant d'apprenant que donne Copilot (`anonymous` par défaut) : les
+  révisions du panneau ne la comptent pas.
+- **Studium : Oublier mes données** ferme les serveurs que l'extension a lancés pour le panneau, la
+  conversation et le notebook, pas celui que VS Code a lancé pour Copilot. Arrêtez d'abord **Studium** dans
+  **MCP: List Servers**.
 - Offres, modèles et limites sont fixés par GitHub et évoluent.

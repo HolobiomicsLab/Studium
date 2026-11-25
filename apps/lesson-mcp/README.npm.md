@@ -68,6 +68,12 @@ What should I review today with Studium?
 Clients that support MCP prompts also offer `learn` and `review`. A lesson a teacher gave you (a folder
 holding `lesson.json`) is played from the folder named by `BUNDLES_ROOT`.
 
+The package ships one lesson: « Discover Studium » (English) / « Découvrir Studium » (French), about ten
+minutes on how Studium works. With no lesson of your own, the study plan proposes it first; ask for your topic
+instead and the assistant builds your lesson. An AI agent drafted it from Studium's documentation and no
+teacher has checked it yet, as its first screen says. It never replaces a lesson of yours
+(`STUDIUM_SHIPPED_LESSONS=off` hides it).
+
 ## What it keeps, and where
 
 | What | Default | Variable |

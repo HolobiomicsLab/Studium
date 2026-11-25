@@ -17,6 +17,7 @@ import {
 } from "./mcp-connect.js";
 import { LessonPanelLifecycle, type ActionResult } from "./panel-lifecycle.js";
 import { registerStudiumChat } from "./chat.js";
+import { registerStudiumMcpServer } from "./mcp-registration.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
 import { ClientMsSchema, PanelActionSchema, type PanelView, type PanelBackend } from "@studium/lesson-panel";
@@ -29,7 +30,7 @@ import { discoverCoursesInRoot, needsLessonPicker, toLessonPickerChoices, type L
 import { browserPhrases, localeFromLanguage, phrase, type Locale } from "./phrases.js";
 import { inlineImageAsset } from "./asset-path.js";
 import { hostPhrase } from "./host-phrases.js";
-import { defaultBundlesRoot, studiumHome } from "./data-paths.js";
+import { defaultBundlesRoot, demoLessonRef, shippedLessonsRoot, studiumHome } from "./data-paths.js";
 import { isTrusted, runConsent, runFingerprint, withTrusted } from "./run-trust.js";
 import { checkLessonPath, parseOpenLessonQuery, rawQuery, type OpenLessonResult } from "./lesson-uri.js";
 import { parseReinforcement, statusBarText, type StudyStatus } from "./study-status.js";
@@ -159,6 +160,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("studium.openLesson", (ref?: unknown, source?: unknown) =>
       openLesson(context, typeof ref === "string" ? ref : undefined, source === "community" ? "community" : "lesson")),
     vscode.commands.registerCommand("studium.pickLesson", () => pickLesson(context)),
+    vscode.commands.registerCommand("studium.openDemoLesson", () => openDemoLesson(context)),
     vscode.commands.registerCommand("studium.communityContributions", () => openCommunityContribution(context)),
     vscode.commands.registerCommand("studium.runReproduction", () => runReproductionScene()),
     vscode.commands.registerCommand("studium.openWalkthrough", () => openWalkthrough(context)),
@@ -174,6 +176,18 @@ export function activate(context: vscode.ExtensionContext) {
   );
   registerStudiumNotebook(context);
   registerStudiumChat(context);
+  // INT-STUDIUM-064: Copilot's agent mode gets this extension's own server (no Node, no command). Feature-detected:
+  // an editor without the API, or one that throws, leaves one line in the output channel and nothing else.
+  try {
+    registerStudiumMcpServer(context, {
+      locations: () => lessonServerLocations(context, resolveLessonBundlesRoot(context)),
+      repoRoot: () => cfg<string>("repoRoot", resolve(context.extensionPath, "..", "..")),
+      enabled: () => cfg<boolean>("registerMcpServer", true) !== false,
+      log: (line) => mcpOutput.appendLine(line),
+    });
+  } catch (e: any) {
+    mcpOutput.appendLine(`[studium] the built-in Studium server was not offered to Copilot: ${e?.message ?? e}`);
+  }
   setUpStudyStatus(context);
 }
 export function deactivate() {}
@@ -183,13 +197,17 @@ function learnerDataDir(context: vscode.ExtensionContext): string {
   return context.globalStorageUri.fsPath;
 }
 
-/** Environment for a lesson-mcp subprocess: bundles root, learner data in VS Code storage, consent from the setting. */
-function lessonServerEnv(context: vscode.ExtensionContext, bundlesRoot: string): Record<string, string> {
+/** Where every lesson-mcp this extension starts keeps things: the lessons folder, learner data in VS Code storage
+ * (created here), consent from the setting. Shared by the pane's server and the one offered to Copilot. */
+function lessonServerLocations(context: vscode.ExtensionContext, bundlesRoot: string) {
   const storageDir = learnerDataDir(context);
   try { mkdirSync(storageDir, { recursive: true }); } catch { /* the server will report an unwritable dir itself */ }
-  return lessonMcpEnv({
-    baseEnv: process.env, bundlesRoot, storageDir, telemetryConsent: cfg<boolean>("telemetryConsent", false),
-  });
+  return { bundlesRoot, storageDir, telemetryConsent: cfg<boolean>("telemetryConsent", false) };
+}
+
+/** Environment for a lesson-mcp subprocess: bundles root, learner data in VS Code storage, consent from the setting. */
+function lessonServerEnv(context: vscode.ExtensionContext, bundlesRoot: string): Record<string, string> {
+  return lessonMcpEnv({ baseEnv: process.env, ...lessonServerLocations(context, bundlesRoot) });
 }
 
 /** The status-bar item "Studium · n à réviser" and the Reviews node, fed by get_next_reinforcement (VSC-6). */
@@ -637,8 +655,9 @@ type LessonRootKind = "lesson" | "community";
 async function pickLesson(context: vscode.ExtensionContext) {
   let bundlesRoot = resolveLessonBundlesRoot(context);
   for (;;) {
-    const chosen = await showLessonChoices(bundlesRoot);
+    const chosen = await showLessonChoices(bundlesRoot, shippedRootOf(context) !== null);
     if (!chosen) return;
+    if (chosen.action === "demo") { await openDemoLesson(context); return; }
     if (chosen.action === "folder") {
       const selected = await chooseBundlesRoot();
       if (!selected) return;
@@ -651,8 +670,8 @@ async function pickLesson(context: vscode.ExtensionContext) {
   }
 }
 
-async function showLessonChoices(bundlesRoot: string): Promise<LessonPickerChoice | undefined> {
-  const choices = toLessonPickerChoices(discoverCoursesInRoot(bundlesRoot), bundlesRoot, extensionLocale);
+async function showLessonChoices(bundlesRoot: string, demo: boolean): Promise<LessonPickerChoice | undefined> {
+  const choices = toLessonPickerChoices(discoverCoursesInRoot(bundlesRoot), bundlesRoot, extensionLocale, { demo });
   return vscode.window.showQuickPick(choices, {
     title: phrase("picker_title", {}, extensionLocale),
     placeHolder: choices.length === 1
@@ -673,21 +692,45 @@ async function chooseBundlesRoot(): Promise<string | undefined> {
   return selected?.[0]?.fsPath;
 }
 
-async function saveLessonSelection(bundlesRoot: string, bundleRef: string): Promise<void> {
-  const configuration = vscode.workspace.getConfiguration("studium");
-  await configuration.update("bundlesRoot", bundlesRoot, vscode.ConfigurationTarget.Workspace);
-  await configuration.update("bundleRef", bundleRef, vscode.ConfigurationTarget.Workspace);
+/** The lessons shipped with Studium that the launched server reads (data-paths.ts), or null. */
+function shippedRootOf(context: vscode.ExtensionContext): string | null {
+  const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
+  return shippedLessonsRoot({ extensionPath: context.extensionPath, repoRoot, exists: existsSync });
 }
 
+/** « Try the demo lesson »: « Discover Studium » in VS Code's display language (not the last lesson's), opened from
+ * the shipped folder. It is never saved as the learner's course (studium.bundlesRoot and studium.bundleRef stay theirs). */
+async function openDemoLesson(context: vscode.ExtensionContext): Promise<void> {
+  const root = shippedRootOf(context);
+  const ref = demoLessonRef(localeFromLanguage(vscode.env.language));
+  if (!root || !existsSync(join(root, ref))) {
+    vscode.window.showErrorMessage(hostPhrase("demo_missing", { path: root ? join(root, ref) : ref }, extensionLocale));
+    return;
+  }
+  await openLesson(context, ref, "lesson", { bundlesRoot: root });
+}
+
+/** Save the chosen course where the tree, the chat and the notebook read it. A folder or a workspace keeps its own
+ * course; with none open (VS Code just installed) there are no workspace settings to write, so it goes to the user's. */
+async function saveLessonSelection(bundlesRoot: string, bundleRef: string): Promise<void> {
+  const configuration = vscode.workspace.getConfiguration("studium");
+  const target = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.length
+    ? vscode.ConfigurationTarget.Workspace
+    : vscode.ConfigurationTarget.Global;
+  await configuration.update("bundlesRoot", bundlesRoot, target);
+  await configuration.update("bundleRef", bundleRef, target);
+}
+
+/** Save the choice, then open the lesson from the chosen folder. A settings file that cannot be written (read-only,
+ * malformed, unsaved changes) costs the saved choice, never the lesson: the learner is told and the lesson opens. */
 async function saveAndOpenLesson(context: vscode.ExtensionContext, bundlesRoot: string, bundleRef: string): Promise<void> {
   try {
     await saveLessonSelection(bundlesRoot, bundleRef);
   } catch (error: any) {
-    vscode.window.showErrorMessage(phrase("extension_save_course_failed", { error: error.message }, extensionLocale));
-    return;
+    void vscode.window.showWarningMessage(phrase("extension_save_course_failed", { error: error?.message ?? String(error) }, extensionLocale));
   }
   treeProvider?.refresh();
-  await openLesson(context, bundleRef, "lesson");
+  await openLesson(context, bundleRef, "lesson", { bundlesRoot });
 }
 
 /** Where an open comes from when it is not the settings: an explicit bundles root (a link, "Open this lesson",

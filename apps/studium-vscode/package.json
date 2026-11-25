@@ -2,7 +2,7 @@
   "name": "studium-vscode",
   "displayName": "Studium",
   "description": "%extension.description%",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "license": "Apache-2.0",
   "private": true,
   "publisher": "holobiomicslab",
@@ -36,7 +36,8 @@
     "onUri",
     "onWebviewPanel:studiumLesson",
     "onCommand:studium.openThisLesson",
-    "onCommand:studium.forgetMyData"
+    "onCommand:studium.forgetMyData",
+    "onCommand:studium.openDemoLesson"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -77,6 +78,10 @@
       {
         "command": "studium.forgetMyData",
         "title": "%command.forgetMyData.title%"
+      },
+      {
+        "command": "studium.openDemoLesson",
+        "title": "%command.openDemoLesson.title%"
       }
     ],
     "viewsContainers": {
@@ -145,7 +150,8 @@
             },
             "completionEvents": [
               "onCommand:studium.openLesson",
-              "onCommand:studium.pickLesson"
+              "onCommand:studium.pickLesson",
+              "onCommand:studium.openDemoLesson"
             ]
           },
           {
@@ -336,6 +342,11 @@
           ],
           "default": "balanced",
           "description": "%configuration.modalityPreference.description%"
+        },
+        "studium.registerMcpServer": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.registerMcpServer.description%"
         }
       }
     },
@@ -343,6 +354,12 @@
       {
         "view": "studiumLessons",
         "contents": "%viewsWelcome.empty%"
+      }
+    ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "studium.lessonServer",
+        "label": "Studium"
       }
     ]
   },
@@ -352,7 +369,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm typecheck && for d in context-help scene-io asset-path webview-pane community modality review-fsrs run-task run-trust host-phrases data-paths lesson-uri pane-messages study-status lesson-tree lesson-picker completion chat-format mcp-connect panel-lifecycle contributes lesson-walk extension-host; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
     "package": "pnpm vendor && pnpm build && vsce package --no-dependencies --readme-path MARKETPLACE.md -o studium.vsix",
-    "vendor": "pnpm --filter @studium/lesson-panel-ui build && mkdir -p dist/panel && cp -R ../lesson-panel-ui/dist/vscode/. dist/panel/"
+    "vendor": "pnpm --filter @studium/lesson-panel-ui build && mkdir -p dist/panel && cp -R ../lesson-panel-ui/dist/vscode/. dist/panel/ && rm -rf dist/shipped-lessons && cp -R ../lesson-mcp/shipped-lessons dist/shipped-lessons"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",

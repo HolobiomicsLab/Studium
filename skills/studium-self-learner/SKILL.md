@@ -6,7 +6,7 @@ description: Help a learner without a teacher turn sources they chose (web pages
 # Studium self-study from the learner's sources
 
 The learner says what they want to learn and which sources to trust. You fetch the
-sources, draft a short lesson from them, and Studium checks every quote, writes the
+sources (or name the learner's local files), draft a short lesson from them, and Studium checks every quote, writes the
 lesson to the learner's library and plays it. The learner answers; you relay. No
 teacher, no shell and no second model provider are needed.
 
@@ -54,14 +54,20 @@ source's terms. Pass each licence to `prepare_sources`: `create_lesson` copies i
 the lesson's citations, so it is shown with the source. One coherent source usually
 makes a better lesson than many.
 
-Fetch each source with your own web or file tools. Studium never fetches anything.
+For a file on the learner's computer (a `.txt` or `.md` file they name), pass its absolute
+`path`: Studium reads the file itself, so do not copy its text into the call. For a web page,
+fetch it with your own web tool and pass its `text`: Studium reads local files only and never
+fetches anything from the network. A PDF or a Word file is refused by path: extract its text
+first, or ask the learner to save it as `.txt` or `.md`.
 
 ## 3. Prepare the sources and read the brief
 
-1. `prepare_sources {sources: [{title, text, url?, license?}], goal?, language?}`
+1. `prepare_sources {sources: [{title, text, url?, license?} or {path, title?, url?, license?}], goal?, language?}`
    cuts the full texts into passages and stores them in the library. Limits: 20
    sources and 200 000 characters in total. It returns `source_set_id`, `passages`
-   (`id`, `source_id`, `text`), `dropped_short` and `guide_ref`.
+   (`id`, `source_id`, `text`), `dropped_short` and `guide_ref`, and `files` (the
+   path, size and SHA-256 of each file it read). A refused path comes back as
+   `{path, message, hint}`: relay the hint to the learner.
 2. `get_authoring_guide {language, mode: "self_study"}` returns the brief (French for
    a `fr-*` language, English otherwise), `draft_schema` (the JSON Schema of a
    LessonDraft) and a minimal valid `example`. Use the language `guide_ref` names; the

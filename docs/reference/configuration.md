@@ -19,6 +19,7 @@ An empty value (`VAR=`) counts as unset for the variables of the MCP server.
 | `STUDIUM_DATA_DIR` | `<STUDIUM_HOME>/data` | lesson-mcp, lesson-server, HTTP API | Durable learner state. Set it to choose another folder; it is kept even with `STUDIUM_EPHEMERAL=1`. lesson-server and the HTTP API keep state in memory unless it is set. |
 | `STUDIUM_EPHEMERAL` | unset | lesson-mcp | `1` (or `true`, `yes`, `on`) keeps learner state in memory, lost at restart. Use it for tests, demos and CI. |
 | `STUDIUM_LEARNER_ID` | `anonymous` | lesson-mcp | Learner id used when a call names none. |
+| `STUDIUM_SHIPPED_LESSONS` | `shipped-lessons/` beside the server | lesson-mcp | The lessons shipped with Studium (the « Discover Studium » demo), searched after `BUNDLES_ROOT` and the library, never written to; a lesson of yours with the same ref wins. `off` for none. A lone `lesson-mcp.cjs` copied elsewhere has none. |
 
 Dates in tool results and in the text shown to the learner are calendar days in the time zone of the
 process, reported as `get_server_info.time_zone`. There is no Studium variable for it; Node.js follows the

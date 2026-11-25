@@ -2,7 +2,9 @@
 
 You do not need to write a lesson yourself.
 
-1. In Codex or Claude Code, with the Studium MCP server connected, say **"I want to learn X with Studium"**.
+1. In your assistant (Copilot in agent mode, Codex or Claude Code), with the Studium server connected, say **"I want to learn X with Studium"**.
+   Copilot in VS Code 1.101 or later gets the server from this extension, with no Node and no command in a
+   terminal (run **MCP: List Servers** to see **Studium**). Codex and Claude Code need Node and one command.
 2. Your assistant gathers sources on X and builds a lesson from them. Every question cites the passage it
    comes from, and the lesson is saved in your personal library, `~/.studium/library`.
 3. Open it here:

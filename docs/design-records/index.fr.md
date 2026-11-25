@@ -17,6 +17,7 @@ lisez la [page d'architecture](../develop/architecture.fr.md) et la [référence
 | [Plan « apprenant auteur »](specs/learner-as-author-plan.md) | items rédigés par l'apprenant (LAItem), côté serveur d'abord |
 | [Bundles communautaires dans le runtime](specs/community-bundles-live-runtime-A3.md) | contributions d'apprenants approuvées, jouées comme leçons |
 | [PeerStudio D1](specs/peerstudio-d1.md) | socle multi-apprenants (salles entre pairs) |
+| [Lecteur dans le navigateur, local d'abord](specs/2026-11-25-browser-player.md) | jouer une leçon dans un navigateur web, servie sur 127.0.0.1 par l'API des leçons (en anglais) |
 
 ## Décisions d'architecture
 

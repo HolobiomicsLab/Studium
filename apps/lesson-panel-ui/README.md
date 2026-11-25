@@ -65,13 +65,13 @@ hand-over. A host that takes no message gets the `ask` action alone, whose notic
 conversation. A brief that cannot be read never fails the panel.
 
 Run `pnpm --filter @studium/lesson-panel-ui build` from the repository root. The build uses esbuild
-and two small HTML templates, regenerates vendor files from installed packages, and writes
-`dist/lesson-panel.html`, `dist/graph-panel.html`, the embedded JavaScript resource exports and
+and three small HTML templates, regenerates vendor files from installed packages, and writes
+`dist/lesson-panel.html`, `dist/graph-panel.html`, `dist/browser-player.html`, the embedded JavaScript resource exports and
 `dist/vscode/`. Each MCP HTML resource has a hard 1,500,000-byte build limit. The MCP bundle and
 VS Code build call this automatically; run it before importing the source MCP server directly.
 `pnpm --filter @studium/lesson-panel-ui test` checks renderer replay and bridge interactions.
 
-The bridges are `bridge-vscode.js`, `bridge-mcp-app.js` and `bridge-standalone.js`. A new host needs
+The bridges are `bridge-vscode.js`, `bridge-mcp-app.js`, `bridge-standalone.js` and `bridge-browser.js`. The last is the browser player's (`studium-mcp play`, experimental): it hands `bridge-mcp-app.js` an object shaped like an MCP App whose tool calls go by `fetch` to the player routes of the local lesson API, lists the lessons before a session exists, and keeps its token and session id in `sessionStorage`; see the [design record](../../docs/design-records/specs/2026-11-25-browser-player.md). A new host needs
 a bridge that supplies views and carries learner actions. MCP Apps honor host locale and theme,
 report size, route links through the host, and draw the erase confirmation and the course picker inside the panel. Capsule
 reproduction requires the VS Code terminal; the MCP pane explains that limitation.

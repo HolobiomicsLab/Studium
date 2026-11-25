@@ -29,7 +29,10 @@ call.
 
 ### With a Copilot plan
 
-1. Add the server to Copilot in VS Code:
+1. Give Copilot in VS Code the Studium server. With the Studium extension in VS Code 1.101 or later there
+   is nothing to do: the extension offers its own server to Copilot, and no Node is needed
+   (not tried in a real Copilot session; see [Connect Copilot](copilot.md)). Without the extension, add it
+   with Node and one command:
 
    ```bash
    code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'
@@ -59,7 +62,9 @@ your recall, and the verdict says that nobody assessed it. With a judge, the aud
 the model, and the verdict says so.
 
 Set the judge in the environment your assistant gives the Studium server, where the commands of this
-documentation leave `LITELLM_BASE_URL=` empty:
+documentation leave `LITELLM_BASE_URL=` empty. For the server the Studium extension offers to Copilot, and
+for its lesson pane, set it in the environment VS Code is started from; the extension passes the address
+on, never the key, which the server inherits from that same environment:
 
 | Variable | Value |
 |---|---|
