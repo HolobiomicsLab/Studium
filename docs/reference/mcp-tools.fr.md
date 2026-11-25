@@ -200,7 +200,7 @@ Check a complete LessonDraft (see get_authoring_guide) against its source set â€
 
 ### get_authoring_guide
 
-Start here to create a Studium lesson from sources the learner chose. Returns the authoring brief (markdown, French for a fr-* language, English otherwise), draft_schema (the JSON Schema of a LessonDraft) and a minimal valid example. mode: self_study (default) or teacher (says where the teacher route starts).
+Start here to create a Studium lesson from sources the learner chose. Returns tell_learner, one sentence saying that writing the lesson takes a few minutes: tell it to the learner as it is, in the same message as your next call, and go on without waiting for a reply. Then the authoring brief (markdown, French for a fr-* language, English otherwise), draft_schema (the JSON Schema of a LessonDraft) and a minimal valid example. mode: self_study (default) or teacher (says where the teacher route starts).
 
 | Field | Type | Required |
 |---|---|---|
@@ -594,13 +594,13 @@ What a harness receives once, when it connects (MCP `instructions`):
 Studium teaches through the learner's own answers: you relay, the learner answers.
 - Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools). To a learner with no lesson yet it proposes the demo lesson shipped with Studium (about 10 minutes, on how Studium works): offer it before building a lesson, unless they came with a topic of their own.
 - Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.
-- Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.
+- Pass the learner's language (fr or en) to get_study_plan, list_lessons, start_review_session and get_authoring_guide.
 - Show display_markdown as it is and add nothing of your own unless the learner asks (they wait on every word): on a presentation; after an answer, verdict.display_markdown first, then the transition's.
 - On the first screen, relay the authoring notice; if persistence.durable is false, tell the learner progress is lost at restart.
 - Wait for the learner's answer and send their words with submit_response {session_id, input: {kind: "reply", text}}; never answer, choose or rate for them.
 - When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.
 - start_review_session plays every review due, across lessons; list_lessons shows what can be started.
-- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session. In prepare_sources, name a file on this computer by its path (Studium reads it: do not copy its text) and pass the text of what you fetched from the web.
+- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session. Writing a lesson takes minutes: relay get_authoring_guide's tell_learner as it is, in the same message as your next call, and go on without waiting for a reply. In prepare_sources, name a file on this computer by its path (Studium reads it: do not copy its text) and pass the text of what you fetched from the web.
 - When the learner asks where they are, show the map (get_workflow_graph). Offer once, at a pause, never between a question and its answer: at the end, the map as a page on the learner's yes (export_concept_map); in a working conversation, a short lesson from it when the person wants to understand it (prepare_sources, kind "conversation"). When the learner says they already know a concept of the map, or doubt one they got, relay it with submit_response {kind: "contest", concept_id, claim}, the id as the map names it; never contest for them.
 - Never call forget_session unless the learner asks to erase their data: it deletes their progress for good.
 - When Studium itself fails, contradicts its documentation or cannot do what the person asks, say so plainly and help them on; then offer once, at a pause, to report it or propose a change (get_server_info.feedback gives the addresses and what a report holds). The person posts it, or asks you to once they have read the final text; a lesson's content goes to its teacher or author.

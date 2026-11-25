@@ -99,6 +99,19 @@ describe("instructions and prompts (RT-8a, RFR-16, L-4)", () => {
     expect(authoring).toMatch(/web/);
   });
 
+  // BN-2 (waiting review 2026-11-25): within the same line budget, the authoring line asks to relay
+  // get_authoring_guide's tell_learner at once (writing a lesson takes minutes), and the language line
+  // asks for the learner's language there too, so that the sentence comes in it.
+  it("tell the harness to relay tell_learner at once, and to pass the learner's language to get_authoring_guide", () => {
+    const lines = SERVER_INSTRUCTIONS.split("\n");
+    const authoring = lines.find((line) => line.includes("prepare_sources, create_lesson"))!;
+    expect(authoring).toContain("tell_learner");
+    expect(authoring).toMatch(/minutes/);
+    expect(authoring).toMatch(/without waiting/);
+    expect(lines.find((line) => line.startsWith("- Pass the learner's language"))).toContain("get_authoring_guide");
+    expect(lines.length).toBeLessThanOrEqual(13);
+  });
+
   it("call list_lessons only when the plan's next step is not to author, and pass the language", async () => {
     const { client } = await connect({ bundlesRoot: tmp() });
     const en = await promptText(client, "learn", { topic: "binary search", learner_id: "ren", language: "en" });

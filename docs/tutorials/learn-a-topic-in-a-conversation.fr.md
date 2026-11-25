@@ -52,7 +52,9 @@ votre bibliothèque.
 
 L'assistant appelle `get_authoring_guide`, qui renvoie la consigne d'auteur dans votre langue, le
 JSON Schema d'un brouillon de leçon et un exemple complet. Il vous demande ce que vous voulez savoir
-faire : cette phrase devient l'objectif de la leçon.
+faire : cette phrase devient l'objectif de la leçon. Avant de préparer vos sources, il vous dit que
+l'écriture de la leçon prend quelques minutes, que peu de choses s'affichent pendant ce temps et que c'est
+fait une fois pour toutes : ensuite, vous pouvez suivre la leçon autant de fois que vous voulez.
 
 Il transmet ensuite vos sources à `prepare_sources` : le texte complet d'une page web récupérée avec
 son propre outil web, ou le chemin d'un fichier de votre ordinateur, que Studium lit lui-même. Studium les découpe en passages citables et les range dans votre

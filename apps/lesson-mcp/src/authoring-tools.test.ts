@@ -11,7 +11,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { LessonSession } from "@studium/lesson-session";
 import { loadBundleJson } from "@studium/lesson-session/node";
 import { buildTestDeps } from "@studium/lesson-session/testing";
-import { publicPresentation, type SourceFilePolicy } from "@studium/lesson-session-host";
+import { authoringGuide, publicPresentation, type SourceFilePolicy } from "@studium/lesson-session-host";
 import { lintBundleData } from "../../../packages/lesson-session-host/src/authoring-draft/index.js";
 import { FRENCH_SOURCE } from "../../../packages/lesson-session-host/src/authoring-draft/test-fixtures.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools, type AuthoringToolsContext } from "./authoring-tools.js";
@@ -96,6 +96,21 @@ describe("registerAuthoringTools", () => {
     }
     const listed = (await client.listTools()).tools.map((tool) => tool.name).sort();
     expect(listed).toEqual(names);
+  });
+
+  // BN-2 (waiting review 2026-11-25): the sentence that tells the learner a lesson takes a few minutes to
+  // write comes with the guide, in its language, and the tool description says to relay it at once: an
+  // assistant may read tool descriptions and never the server instructions.
+  it("returns tell_learner with the guide, and its description says to relay it at once", async () => {
+    const { client, call } = await connected();
+    const fr = await call("get_authoring_guide", { language: "fr" });
+    expect(fr.body["tell_learner"]).toBe(authoringGuide({ language: "fr" }).tell_learner);
+    expect(String(fr.body["tell_learner"])).toMatch(/quelques minutes/);
+    expect(String((await call("get_authoring_guide", {})).body["tell_learner"])).toMatch(/a few minutes/);
+    const description = (await client.listTools()).tools.find((tool) => tool.name === "get_authoring_guide")!.description!;
+    expect(description).toContain("tell_learner");
+    expect(description).toMatch(/as it is/);
+    expect(description).toMatch(/without waiting/);
   });
 });
 

@@ -49,7 +49,9 @@ your library holds.
 
 The assistant calls `get_authoring_guide`, which returns the authoring brief in your language, the
 JSON Schema of a lesson draft and a worked example. It asks you what you want to be able to do: that
-sentence becomes the lesson's goal.
+sentence becomes the lesson's goal. Before it prepares your sources, it tells you that writing the lesson
+takes a few minutes, that little shows in the meantime, and that it is done once: afterwards you can play
+the lesson as often as you like.
 
 It then passes your sources to `prepare_sources`: the full text of a web page it fetched with its own
 web tool, or the path of a file on your computer, which Studium reads itself. Studium cuts them into citable passages and stores them in your library:

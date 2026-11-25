@@ -63,7 +63,9 @@ function draftSchema(): unknown {
 /** Register get_authoring_guide, prepare_sources and create_lesson on `server`; returns their names. */
 export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsContext): string[] {
   server.registerTool("get_authoring_guide", {
-    description: "Start here to create a Studium lesson from sources the learner chose. Returns the authoring brief " +
+    description: "Start here to create a Studium lesson from sources the learner chose. Returns tell_learner, one " +
+      "sentence saying that writing the lesson takes a few minutes: tell it to the learner as it is, in the same message " +
+      "as your next call, and go on without waiting for a reply. Then the authoring brief " +
       "(markdown, French for a fr-* language, English otherwise), draft_schema (the JSON Schema of a LessonDraft) and a " +
       "minimal valid example. mode: self_study (default) or teacher (says where the teacher route starts).",
     inputSchema: { language: z.string().min(2).max(35).optional(), mode: z.enum(["self_study", "teacher"]).optional() },
@@ -71,7 +73,7 @@ export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsCon
   }, async ({ language, mode }) => {
     const guide = authoringGuide({ language, mode });
     return reply({
-      version: guide.version, language: guide.language, mode: guide.mode, guide: guide.markdown,
+      version: guide.version, language: guide.language, mode: guide.mode, tell_learner: guide.tell_learner, guide: guide.markdown,
       draft_schema: draftSchema(), example: guide.example,
     });
   });

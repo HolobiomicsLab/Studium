@@ -88,6 +88,36 @@ describe("authoringGuide", () => {
     expect(markdown).toContain(language === "fr" ? "tutoyez l'apprenant (« tu »)" : "address the learner as « tu »");
   });
 
+  // BN-2 (waiting review 2026-11-25): writing a lesson takes minutes and little shows meanwhile. The guide
+  // gives one sentence, in its language, that the assistant relays before it prepares the sources. It
+  // promises no number of minutes.
+  it.each(["fr", "en"] as const)("gives one sentence telling the learner the lesson takes a few minutes to write, once (%s)", (language) => {
+    const { tell_learner } = authoringGuide({ language });
+    expect(tell_learner.length).toBeGreaterThan(0);
+    expect(tell_learner.length).toBeLessThanOrEqual(300);
+    expect(tell_learner).not.toMatch(/\d/);
+    expect(tell_learner).toMatch(language === "fr" ? /quelques minutes/ : /a few minutes/);
+    expect(tell_learner).toMatch(language === "fr" ? /une fois pour toutes/ : /once/);
+    expect(tell_learner).toMatch(language === "fr" ? /autant de fois que/ : /as often as/);
+    expect(authoringGuide({ language, mode: "teacher" }).tell_learner).toBe(tell_learner);
+  });
+
+  it("speaks to a French learner with « tu » in the sentence to relay", () => {
+    expect(authoringGuide({ language: "fr" }).tell_learner).not.toMatch(/\b(vous|votre|vos)\b/i);
+    expect(authoringGuide({ language: "fr" }).tell_learner).toMatch(/\b(ta|tes|tu)\b/);
+  });
+
+  // A message that holds only text ends the turn in an agent client: the sentence goes with the
+  // prepare_sources call, and the assistant does not wait for a reply.
+  it.each(["fr", "en"] as const)("asks to relay tell_learner as it is with the prepare_sources call, without waiting (%s)", (language) => {
+    const { markdown } = authoringGuide({ language });
+    const step = markdown.split("\n").find((line) => line.startsWith("2. "))!;
+    expect(step).toContain("`tell_learner`");
+    expect(step).toMatch(language === "fr" ? /tel quel/ : /as it is/);
+    expect(step).toMatch(language === "fr" ? /même message que votre appel à `prepare_sources`/ : /same message as your `prepare_sources` call/);
+    expect(step).toMatch(language === "fr" ? /sans attendre/ : /without waiting/);
+  });
+
   it("writes its French example to the learner with « tu »", () => {
     const { example } = authoringGuide({ language: "fr" });
     expect(JSON.stringify(example.draft)).not.toMatch(/\b(vous|votre|vos|Relisez|Racontez)\b/i);
